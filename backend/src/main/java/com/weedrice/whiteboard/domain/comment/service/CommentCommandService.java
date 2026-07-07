@@ -11,6 +11,7 @@ import com.weedrice.whiteboard.domain.comment.repository.CommentLikeRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentMentionRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentVersionRepository;
+import com.weedrice.whiteboard.domain.notification.constant.NotificationSourceType;
 import com.weedrice.whiteboard.domain.notification.service.MentionService;
 import com.weedrice.whiteboard.domain.point.service.ContentRewardPolicy;
 import com.weedrice.whiteboard.domain.point.service.ContentRewardService;
@@ -142,10 +143,10 @@ public class CommentCommandService {
     private void publishMentionNotifications(User user, Agent agent, Long commentId, String content,
             Collection<Long> mentionedUserIds) {
         if (mentionedUserIds != null && !mentionedUserIds.isEmpty()) {
-            mentionService.publishMentions(user, agent, "COMMENT", commentId, mentionedUserIds);
+            mentionService.publishMentions(user, agent, NotificationSourceType.COMMENT, commentId, mentionedUserIds);
             return;
         }
-        mentionService.publishMentions(user, agent, "COMMENT", commentId, content);
+        mentionService.publishMentions(user, agent, NotificationSourceType.COMMENT, commentId, content);
     }
 
     private Agent resolveAgent(Long userId, Long agentId, CommentCreateContext context) {

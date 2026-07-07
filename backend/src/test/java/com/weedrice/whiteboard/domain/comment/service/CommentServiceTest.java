@@ -17,6 +17,7 @@ import com.weedrice.whiteboard.domain.comment.repository.CommentLikeRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentMentionRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentVersionRepository;
+import com.weedrice.whiteboard.domain.notification.constant.NotificationSourceType;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.notification.service.MentionService;
 import com.weedrice.whiteboard.domain.point.repository.PointHistoryRepository;
@@ -223,7 +224,7 @@ class CommentServiceTest {
         Long result = commentService.createComment(1L, 1L, null, "hello @user", List.of(2L, 3L));
 
         assertThat(result).isEqualTo(10L);
-        verify(mentionService).publishMentions(user, null, "COMMENT", 10L, List.of(2L, 3L));
+        verify(mentionService).publishMentions(user, null, NotificationSourceType.COMMENT, 10L, List.of(2L, 3L));
     }
 
     @Test
@@ -266,12 +267,12 @@ class CommentServiceTest {
         assertThat(notificationEvent.getUserToNotify()).isSameAs(agentOwner);
         assertThat(notificationEvent.getActor()).isSameAs(actor);
         assertThat(notificationEvent.getActorAgent()).isNull();
-        assertThat(notificationEvent.getSourceType()).isEqualTo("POST");
+        assertThat(notificationEvent.getSourceType()).isEqualTo(NotificationSourceType.POST);
         assertThat(notificationEvent.getSourceId()).isEqualTo(1L);
     }
 
     @Test
-    @DisplayName("HTML만 남는 댓글 본문은 INVALID_INPUT_VALUE로 거부한다")
+    @DisplayName("HTML留??⑤뒗 ?볤? 蹂몃Ц? INVALID_INPUT_VALUE濡?嫄곕??쒕떎")
     void createComment_htmlOnlyContent_throwsInvalidInput() {
         User user = User.builder().build();
         ReflectionTestUtils.setField(user, "userId", 1L);
@@ -291,7 +292,7 @@ class CommentServiceTest {
     }
 
     @Test
-    @DisplayName("댓글 생성은 게시글 댓글 수 갱신 실패 시 롤백한다")
+    @DisplayName("?볤? ?앹꽦? 寃뚯떆湲 ?볤? ??媛깆떊 ?ㅽ뙣 ??濡ㅻ갚?쒕떎")
     void createComment_commentCountUpdateFails_throwsPostNotFound() {
         User user = User.builder().build();
         ReflectionTestUtils.setField(user, "userId", 1L);
@@ -320,7 +321,7 @@ class CommentServiceTest {
     }
 
     @Test
-    @DisplayName("서비스 진입점은 1000자를 초과하는 댓글 본문을 거부한다")
+    @DisplayName("?쒕퉬??吏꾩엯?먯? 1000?먮? 珥덇낵?섎뒗 ?볤? 蹂몃Ц??嫄곕??쒕떎")
     void createComment_tooLongContent_throwsInvalidInput() {
         User user = User.builder().build();
         ReflectionTestUtils.setField(user, "userId", 1L);
@@ -340,7 +341,7 @@ class CommentServiceTest {
     }
 
     @Test
-    @DisplayName("작성자가 댓글 작성자를 차단하면 댓글을 작성할 수 없다")
+    @DisplayName("?묒꽦?먭? ?볤? ?묒꽦?먮? 李⑤떒?섎㈃ ?볤????묒꽦?????녿떎")
     void createComment_authorBlocksViewer_throwsPostNotFound() {
         User viewer = User.builder().displayName("Viewer").build();
         ReflectionTestUtils.setField(viewer, "userId", 2L);
@@ -361,7 +362,7 @@ class CommentServiceTest {
     }
 
     @Test
-    @DisplayName("읽을 수 있지만 쓸 수 없는 노드에는 댓글을 작성할 수 없다")
+    @DisplayName("?쎌쓣 ???덉?留??????녿뒗 ?몃뱶?먮뒗 ?볤????묒꽦?????녿떎")
     void createComment_readableButNotWritableBoard_throwsBoardNotFound() {
         User user = User.builder().build();
         ReflectionTestUtils.setField(user, "userId", 1L);
@@ -385,7 +386,7 @@ class CommentServiceTest {
     }
 
     @Test
-    @DisplayName("카테고리 최소 작성 권한을 만족하지 못하면 댓글을 작성할 수 없다")
+    @DisplayName("移댄뀒怨좊━ 理쒖냼 ?묒꽦 沅뚰븳??留뚯”?섏? 紐삵븯硫??볤????묒꽦?????녿떎")
     void createComment_categoryWriteRoleForbidden_throwsForbidden() {
         User user = User.builder().build();
         ReflectionTestUtils.setField(user, "userId", 1L);
@@ -413,7 +414,7 @@ class CommentServiceTest {
     }
 
     @Test
-    @DisplayName("카테고리 최소 작성 권한을 만족하지 못하면 답글도 부모 조회 전에 차단한다")
+    @DisplayName("移댄뀒怨좊━ 理쒖냼 ?묒꽦 沅뚰븳??留뚯”?섏? 紐삵븯硫??듦???遺紐?議고쉶 ?꾩뿉 李⑤떒?쒕떎")
     void createComment_replyCategoryWriteRoleForbidden_rejectsBeforeParentLookup() {
         User user = User.builder().build();
         ReflectionTestUtils.setField(user, "userId", 1L);
@@ -443,7 +444,7 @@ class CommentServiceTest {
     }
 
     @Test
-    @DisplayName("활성 BAN 사용자는 댓글을 작성할 수 없다")
+    @DisplayName("?쒖꽦 BAN ?ъ슜?먮뒗 ?볤????묒꽦?????녿떎")
     void createComment_bannedUser_forbidden() {
         User user = User.builder().build();
         ReflectionTestUtils.setField(user, "userId", 1L);
@@ -459,7 +460,7 @@ class CommentServiceTest {
     }
 
     @Test
-    @DisplayName("활성 MUTE 사용자는 댓글을 작성할 수 없다")
+    @DisplayName("?쒖꽦 MUTE ?ъ슜?먮뒗 ?볤????묒꽦?????녿떎")
     void createComment_mutedUser_forbidden() {
         User user = User.builder().build();
         ReflectionTestUtils.setField(user, "userId", 1L);
@@ -557,7 +558,7 @@ class CommentServiceTest {
         assertThat(notificationEvent.getUserToNotify()).isSameAs(agentOwner);
         assertThat(notificationEvent.getActor()).isSameAs(actor);
         assertThat(notificationEvent.getActorAgent()).isNull();
-        assertThat(notificationEvent.getSourceType()).isEqualTo("COMMENT");
+        assertThat(notificationEvent.getSourceType()).isEqualTo(NotificationSourceType.COMMENT);
         assertThat(notificationEvent.getSourceId()).isEqualTo(5L);
     }
 
@@ -643,7 +644,7 @@ class CommentServiceTest {
     }
 
     @Test
-    @DisplayName("foreign agent로 댓글 작성 시 거부한다")
+    @DisplayName("foreign agent濡??볤? ?묒꽦 ??嫄곕??쒕떎")
     void createCommentAsAgent_foreignAgent_forbidden() {
         User user = User.builder().build();
         ReflectionTestUtils.setField(user, "userId", 1L);
@@ -670,7 +671,7 @@ class CommentServiceTest {
     }
 
     @Test
-    @DisplayName("agent 댓글도 HTML만 남는 본문은 INVALID_INPUT_VALUE로 거부한다")
+    @DisplayName("agent ?볤???HTML留??⑤뒗 蹂몃Ц? INVALID_INPUT_VALUE濡?嫄곕??쒕떎")
     void createCommentAsAgent_htmlOnlyContent_throwsInvalidInput() {
         User user = User.builder().build();
         ReflectionTestUtils.setField(user, "userId", 1L);
@@ -1034,7 +1035,7 @@ class CommentServiceTest {
     }
 
     @Test
-    @DisplayName("댓글 목록 조회는 서비스 계층에서도 페이지 크기와 정렬을 정규화한다")
+    @DisplayName("getComments normalizes pageable before repository call")
     void getComments_normalizesPageableBeforeRepositoryCall() {
         User author = User.builder().displayName("Author").build();
         ReflectionTestUtils.setField(author, "userId", 2L);
@@ -1064,7 +1065,7 @@ class CommentServiceTest {
     }
 
     @Test
-    @DisplayName("내 댓글 조회는 페이지 크기와 정렬 필드를 제한한다")
+    @DisplayName("???볤? 議고쉶???섏씠吏 ?ш린? ?뺣젹 ?꾨뱶瑜??쒗븳?쒕떎")
     void getMyComments_normalizesPageableBeforeRepositoryCall() {
         User user = User.builder().displayName("User").build();
         ReflectionTestUtils.setField(user, "userId", 1L);
@@ -1406,12 +1407,12 @@ class CommentServiceTest {
         assertThat(notificationEvent.getUserToNotify()).isSameAs(agentOwner);
         assertThat(notificationEvent.getActor()).isSameAs(actor);
         assertThat(notificationEvent.getActorAgent()).isNull();
-        assertThat(notificationEvent.getSourceType()).isEqualTo("COMMENT");
+        assertThat(notificationEvent.getSourceType()).isEqualTo(NotificationSourceType.COMMENT);
         assertThat(notificationEvent.getSourceId()).isEqualTo(10L);
     }
 
     @Test
-    @DisplayName("작성자가 댓글 좋아요 사용자를 차단하면 좋아요할 수 없다")
+    @DisplayName("?묒꽦?먭? ?볤? 醫뗭븘???ъ슜?먮? 李⑤떒?섎㈃ 醫뗭븘?뷀븷 ???녿떎")
     void likeComment_authorBlocksViewer_throwsPostNotFound() {
         User viewer = User.builder().displayName("Viewer").build();
         ReflectionTestUtils.setField(viewer, "userId", 2L);
@@ -1434,7 +1435,7 @@ class CommentServiceTest {
     }
 
     @Test
-    @DisplayName("활성 MUTE 사용자는 댓글 좋아요를 할 수 없다")
+    @DisplayName("?쒖꽦 MUTE ?ъ슜?먮뒗 ?볤? 醫뗭븘?붾? ?????녿떎")
     void likeComment_mutedUser_forbidden() {
         User user = User.builder().displayName("User").build();
         ReflectionTestUtils.setField(user, "userId", 1L);
@@ -1476,7 +1477,7 @@ class CommentServiceTest {
     }
 
     @Test
-    @DisplayName("댓글 좋아요는 카운터 갱신 실패 시 COMMENT_NOT_FOUND를 반환한다")
+    @DisplayName("?볤? 醫뗭븘?붾뒗 移댁슫??媛깆떊 ?ㅽ뙣 ??COMMENT_NOT_FOUND瑜?諛섑솚?쒕떎")
     void likeComment_likeCountUpdateFails_throwsCommentNotFound() {
         User user = User.builder().displayName("User").build();
         ReflectionTestUtils.setField(user, "userId", 1L);
@@ -1498,7 +1499,7 @@ class CommentServiceTest {
     }
 
     @Test
-    @DisplayName("삭제된 댓글은 좋아요할 수 없다")
+    @DisplayName("??젣???볤?? 醫뗭븘?뷀븷 ???녿떎")
     void likeComment_deletedComment_throwsCommentNotFound() {
         User user = User.builder().displayName("User").build();
         ReflectionTestUtils.setField(user, "userId", 1L);
@@ -1522,7 +1523,7 @@ class CommentServiceTest {
     }
 
     @Test
-    @DisplayName("활성 BAN 사용자는 댓글 좋아요를 할 수 없다")
+    @DisplayName("?쒖꽦 BAN ?ъ슜?먮뒗 ?볤? 醫뗭븘?붾? ?????녿떎")
     void likeComment_bannedUser_forbidden() {
         User user = User.builder().displayName("User").build();
         ReflectionTestUtils.setField(user, "userId", 1L);
@@ -1538,7 +1539,7 @@ class CommentServiceTest {
     }
 
     @Test
-    @DisplayName("댓글 좋아요 취소 성공")
+    @DisplayName("?볤? 醫뗭븘??痍⑥냼 ?깃났")
     void unlikeComment_success() {
         User user = User.builder().displayName("User").build();
         ReflectionTestUtils.setField(user, "userId", 1L);
@@ -1560,7 +1561,7 @@ class CommentServiceTest {
     }
 
     @Test
-    @DisplayName("좋아요하지 않은 댓글 취소는 NOT_LIKED를 반환한다")
+    @DisplayName("醫뗭븘?뷀븯吏 ?딆? ?볤? 痍⑥냼??NOT_LIKED瑜?諛섑솚?쒕떎")
     void unlikeComment_notLiked() {
         User user = User.builder().displayName("User").build();
         ReflectionTestUtils.setField(user, "userId", 1L);
@@ -1582,7 +1583,7 @@ class CommentServiceTest {
     }
 
     @Test
-    @DisplayName("댓글 좋아요 취소는 카운터 갱신 실패 시 COMMENT_NOT_FOUND를 반환한다")
+    @DisplayName("?볤? 醫뗭븘??痍⑥냼??移댁슫??媛깆떊 ?ㅽ뙣 ??COMMENT_NOT_FOUND瑜?諛섑솚?쒕떎")
     void unlikeComment_likeCountUpdateFails_throwsCommentNotFound() {
         User user = User.builder().displayName("User").build();
         ReflectionTestUtils.setField(user, "userId", 1L);
@@ -1602,7 +1603,7 @@ class CommentServiceTest {
     }
 
     @Test
-    @DisplayName("삭제된 댓글의 좋아요 취소는 실패한다")
+    @DisplayName("??젣???볤???醫뗭븘??痍⑥냼???ㅽ뙣?쒕떎")
     void unlikeComment_deletedComment_throwsCommentNotFound() {
         User user = User.builder().displayName("User").build();
         ReflectionTestUtils.setField(user, "userId", 1L);
@@ -1624,7 +1625,7 @@ class CommentServiceTest {
     }
 
     @Test
-    @DisplayName("읽을 수 없는 게시글의 댓글 좋아요 취소는 실패한다")
+    @DisplayName("?쎌쓣 ???녿뒗 寃뚯떆湲???볤? 醫뗭븘??痍⑥냼???ㅽ뙣?쒕떎")
     void unlikeComment_authorBlocksViewer_throwsPostNotFound() {
         User viewer = User.builder().displayName("Viewer").build();
         ReflectionTestUtils.setField(viewer, "userId", 2L);
@@ -1813,7 +1814,7 @@ class CommentServiceTest {
     }
 
     @Test
-    @DisplayName("HTML만 남는 댓글 수정 본문은 INVALID_INPUT_VALUE로 거부한다")
+    @DisplayName("HTML留??⑤뒗 ?볤? ?섏젙 蹂몃Ц? INVALID_INPUT_VALUE濡?嫄곕??쒕떎")
     void updateComment_htmlOnlyContent_throwsInvalidInput() {
         User user = User.builder().build();
         ReflectionTestUtils.setField(user, "userId", 1L);
@@ -1833,7 +1834,7 @@ class CommentServiceTest {
     }
 
     @Test
-    @DisplayName("삭제된 댓글은 수정할 수 없다")
+    @DisplayName("??젣???볤?? ?섏젙?????녿떎")
     void updateComment_deletedComment_throwsCommentNotFound() {
         User user = User.builder().build();
         ReflectionTestUtils.setField(user, "userId", 1L);
@@ -1854,7 +1855,7 @@ class CommentServiceTest {
     }
 
     @Test
-    @DisplayName("활성 BAN 사용자는 댓글을 수정할 수 없다")
+    @DisplayName("?쒖꽦 BAN ?ъ슜?먮뒗 ?볤????섏젙?????녿떎")
     void updateComment_bannedUser_forbidden() {
         User user = User.builder().build();
         ReflectionTestUtils.setField(user, "userId", 1L);
@@ -1903,7 +1904,7 @@ class CommentServiceTest {
     }
 
     @Test
-    @DisplayName("활성 BAN 사용자는 댓글을 삭제할 수 없다")
+    @DisplayName("?쒖꽦 BAN ?ъ슜?먮뒗 ?볤?????젣?????녿떎")
     void deleteComment_bannedUser_forbidden() {
         User user = User.builder().build();
         ReflectionTestUtils.setField(user, "userId", 1L);
@@ -1982,7 +1983,7 @@ class CommentServiceTest {
     }
 
     @Test
-    @DisplayName("삭제된 댓글은 삭제할 수 없다")
+    @DisplayName("??젣???볤?? ??젣?????녿떎")
     void deleteComment_deletedComment_throwsCommentNotFound() {
         User user = User.builder().build();
         ReflectionTestUtils.setField(user, "userId", 1L);
@@ -2006,7 +2007,7 @@ class CommentServiceTest {
     }
 
     @Test
-    @DisplayName("댓글 삭제는 게시글 댓글 수 갱신 실패 시 롤백한다")
+    @DisplayName("?볤? ??젣??寃뚯떆湲 ?볤? ??媛깆떊 ?ㅽ뙣 ??濡ㅻ갚?쒕떎")
     void deleteComment_commentCountUpdateFails_throwsPostNotFound() {
         User user = User.builder().build();
         ReflectionTestUtils.setField(user, "userId", 1L);
@@ -2032,7 +2033,7 @@ class CommentServiceTest {
     }
 
     @Test
-    @DisplayName("활성 BAN 사용자는 댓글 좋아요를 취소할 수 없다")
+    @DisplayName("?쒖꽦 BAN ?ъ슜?먮뒗 ?볤? 醫뗭븘?붾? 痍⑥냼?????녿떎")
     void unlikeComment_bannedUser_forbidden() {
         User user = User.builder().displayName("User").build();
         ReflectionTestUtils.setField(user, "userId", 1L);
@@ -2048,7 +2049,7 @@ class CommentServiceTest {
     }
 
     @Test
-    @DisplayName("활성 MUTE 사용자는 댓글 좋아요를 취소할 수 없다")
+    @DisplayName("?쒖꽦 MUTE ?ъ슜?먮뒗 ?볤? 醫뗭븘?붾? 痍⑥냼?????녿떎")
     void unlikeComment_mutedUser_forbidden() {
         User user = User.builder().displayName("User").build();
         ReflectionTestUtils.setField(user, "userId", 1L);

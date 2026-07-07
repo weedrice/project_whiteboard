@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.notification.service;
 
 import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
+import com.weedrice.whiteboard.domain.notification.constant.NotificationSourceType;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.notification.entity.Notification;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -51,7 +52,7 @@ class NotificationEventHandlerTest {
     @DisplayName("Notification event handler saves and delivers saved notification")
     void handleNotificationEvent_deliversSavedNotification() {
         NotificationEvent event = new NotificationEvent(
-                receiver, User.builder().build(), NotificationType.LIKE, "POST", 10L, "content");
+                receiver, User.builder().build(), NotificationType.LIKE, NotificationSourceType.POST, 10L, "content");
         when(commandService.handleNotificationEvent(event)).thenReturn(notification);
 
         eventHandler.handleNotificationEvent(event);
@@ -73,7 +74,7 @@ class NotificationEventHandlerTest {
                 streamPublisher,
                 notifications -> Map.of(5L, "/board/free/post/10"));
         NotificationEvent event = new NotificationEvent(
-                receiver, User.builder().build(), NotificationType.LIKE, "POST", 10L, "content");
+                receiver, User.builder().build(), NotificationType.LIKE, NotificationSourceType.POST, 10L, "content");
         when(commandService.handleNotificationEvent(event)).thenReturn(notification);
 
         eventHandler.handleNotificationEvent(event);

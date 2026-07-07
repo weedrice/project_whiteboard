@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.notification.service;
 
 import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
+import com.weedrice.whiteboard.domain.notification.constant.NotificationSourceType;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.notification.entity.Notification;
 import com.weedrice.whiteboard.domain.notification.repository.NotificationRepository;
@@ -128,7 +129,7 @@ class NotificationSettingsFlowTest {
 
         clearInvocations(notificationRepository);
         NotificationEvent commentEvent = new NotificationEvent(
-                receiver, actor, NotificationType.COMMENT, "POST", 10L, "comment notification");
+                receiver, actor, NotificationType.COMMENT, NotificationSourceType.POST, 10L, "comment notification");
         notificationService.handleNotificationEvent(commentEvent);
 
         verify(notificationRepository, never()).save(any(Notification.class));

@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.notification.service;
 
 import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
+import com.weedrice.whiteboard.domain.notification.constant.NotificationSourceType;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.entity.UserNotificationSettings;
@@ -42,9 +43,9 @@ class NotificationPreferenceServiceTest {
     }
 
     @Test
-    @DisplayName("자기 자신에게 보내는 알림은 self-notification으로 판단한다")
+    @DisplayName("?먭린 ?먯떊?먭쾶 蹂대궡???뚮┝? self-notification?쇰줈 ?먮떒?쒕떎")
     void isSelfNotification_true() {
-        NotificationEvent event = new NotificationEvent(receiver, receiver, NotificationType.LIKE, "POST", 1L, "like");
+        NotificationEvent event = new NotificationEvent(receiver, receiver, NotificationType.LIKE, NotificationSourceType.POST, 1L, "like");
 
         assertThat(notificationPreferenceService.isSelfNotification(event)).isTrue();
     }
@@ -54,13 +55,13 @@ class NotificationPreferenceServiceTest {
     void isSelfNotification_falseWhenReceiverIdMissing() {
         User receiverWithoutId = User.builder().build();
         NotificationEvent event = new NotificationEvent(
-                receiverWithoutId, actor, NotificationType.LIKE, "POST", 1L, "like");
+                receiverWithoutId, actor, NotificationType.LIKE, NotificationSourceType.POST, 1L, "like");
 
         assertThat(notificationPreferenceService.isSelfNotification(event)).isFalse();
     }
 
     @Test
-    @DisplayName("비활성화된 알림 타입은 false를 반환한다")
+    @DisplayName("鍮꾪솢?깊솕???뚮┝ ??낆? false瑜?諛섑솚?쒕떎")
     void isNotificationEnabled_falseWhenDisabled() {
         UserNotificationSettings setting = UserNotificationSettings.builder()
                 .userId(1L)
@@ -70,20 +71,20 @@ class NotificationPreferenceServiceTest {
         when(userNotificationSettingsRepository.findByUserIdAndNotificationType(1L, NotificationType.COMMENT))
                 .thenReturn(Optional.of(setting));
 
-        NotificationEvent event = new NotificationEvent(receiver, actor, NotificationType.COMMENT, "POST", 1L, "comment");
+        NotificationEvent event = new NotificationEvent(receiver, actor, NotificationType.COMMENT, NotificationSourceType.POST, 1L, "comment");
 
         assertThat(notificationPreferenceService.isNotificationEnabled(event)).isFalse();
     }
 
     @Test
-    @DisplayName("필수 대상자나 타입이 없으면 비활성으로 판단하고 설정을 조회하지 않는다")
+    @DisplayName("Notification is disabled when required fields are missing")
     void isNotificationEnabled_falseWhenRequiredFieldsMissing() {
         NotificationEvent missingReceiver = new NotificationEvent(
-                null, actor, NotificationType.COMMENT, "POST", 1L, "comment");
+                null, actor, NotificationType.COMMENT, NotificationSourceType.POST, 1L, "comment");
         NotificationEvent missingReceiverId = new NotificationEvent(
-                User.builder().build(), actor, NotificationType.COMMENT, "POST", 1L, "comment");
+                User.builder().build(), actor, NotificationType.COMMENT, NotificationSourceType.POST, 1L, "comment");
         NotificationEvent missingType = new NotificationEvent(
-                receiver, actor, null, "POST", 1L, "comment");
+                receiver, actor, null, NotificationSourceType.POST, 1L, "comment");
 
         assertThat(notificationPreferenceService.isNotificationEnabled(null)).isFalse();
         assertThat(notificationPreferenceService.isNotificationEnabled(missingReceiver)).isFalse();

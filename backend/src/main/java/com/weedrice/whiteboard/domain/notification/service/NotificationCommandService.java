@@ -9,14 +9,9 @@ import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.springframework.stereotype.Service;
 
-import java.util.Locale;
-import java.util.Set;
-
 @Service
 class NotificationCommandService {
     private static final int MAX_CONTENT_LENGTH = 255;
-    private static final int MAX_SOURCE_TYPE_LENGTH = 50;
-    private static final Set<String> ALLOWED_SOURCE_TYPES = Set.of("POST", "COMMENT", "MESSAGE", "SYSTEM");
 
     private final NotificationRepository notificationRepository;
     private final NotificationPreferenceService preferenceService;
@@ -32,10 +27,6 @@ class NotificationCommandService {
 
     Notification handleNotificationEvent(NotificationEvent event) {
         if (!hasRequiredPayload(event)) {
-            return null;
-        }
-        String sourceType = normalizeSourceType(event.getSourceType());
-        if (sourceType == null) {
             return null;
         }
         String content = normalizeContent(event.getContent());
@@ -55,7 +46,7 @@ class NotificationCommandService {
                 .actor(event.getActor())
                 .actorAgent(event.getActorAgent())
                 .notificationType(event.getNotificationType())
-                .sourceType(sourceType)
+                .sourceType(event.getSourceType().getValue())
                 .sourceId(event.getSourceId())
                 .content(content)
                 .build());
@@ -66,20 +57,8 @@ class NotificationCommandService {
                 && event.getUserToNotify() != null
                 && event.getUserToNotify().getUserId() != null
                 && event.getNotificationType() != null
+                && event.getSourceType() != null
                 && event.getSourceId() != null;
-    }
-
-    private String normalizeSourceType(String sourceType) {
-        if (sourceType == null) {
-            return null;
-        }
-        String normalizedSourceType = sourceType.strip();
-        if (normalizedSourceType.isBlank()
-                || normalizedSourceType.length() > MAX_SOURCE_TYPE_LENGTH) {
-            return null;
-        }
-        normalizedSourceType = normalizedSourceType.toUpperCase(Locale.ROOT);
-        return ALLOWED_SOURCE_TYPES.contains(normalizedSourceType) ? normalizedSourceType : null;
     }
 
     private User resolveActiveReceiver(NotificationEvent event) {

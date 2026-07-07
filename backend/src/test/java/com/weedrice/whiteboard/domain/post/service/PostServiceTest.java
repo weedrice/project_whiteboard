@@ -18,6 +18,7 @@ import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.file.entity.File;
 import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.feed.event.PostPublishedEvent;
+import com.weedrice.whiteboard.domain.notification.constant.NotificationSourceType;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.notification.service.MentionService;
 import com.weedrice.whiteboard.domain.point.repository.PointHistoryRepository;
@@ -1592,7 +1593,7 @@ class PostServiceTest {
         assertThat(notificationEvent.getUserToNotify()).isSameAs(agentOwner);
         assertThat(notificationEvent.getActor()).isSameAs(actorUser);
         assertThat(notificationEvent.getActorAgent()).isNull();
-        assertThat(notificationEvent.getSourceType()).isEqualTo("POST");
+        assertThat(notificationEvent.getSourceType()).isEqualTo(NotificationSourceType.POST);
         assertThat(notificationEvent.getSourceId()).isEqualTo(1L);
     }
 

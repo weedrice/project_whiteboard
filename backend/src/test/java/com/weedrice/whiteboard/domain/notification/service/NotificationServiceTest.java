@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.notification.service;
 
 import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
+import com.weedrice.whiteboard.domain.notification.constant.NotificationSourceType;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationResponse;
 import com.weedrice.whiteboard.domain.notification.entity.Notification;
@@ -92,7 +93,7 @@ class NotificationServiceTest {
     @Test
     @DisplayName("Notification event is saved when setting is enabled")
     void handleNotificationEvent_success() {
-        NotificationEvent event = new NotificationEvent(user, actor, NotificationType.LIKE, "POST", 1L, "Test Notification");
+        NotificationEvent event = new NotificationEvent(user, actor, NotificationType.LIKE, NotificationSourceType.POST, 1L, "Test Notification");
         when(notificationRepository.save(any(Notification.class))).thenReturn(notification);
 
         notificationService.handleNotificationEvent(event);
@@ -103,7 +104,7 @@ class NotificationServiceTest {
     @Test
     @DisplayName("Notification content is trimmed before save")
     void handleNotificationEvent_trimsContentBeforeSave() {
-        NotificationEvent event = new NotificationEvent(user, actor, NotificationType.LIKE, "POST", 1L, "  Test Notification  ");
+        NotificationEvent event = new NotificationEvent(user, actor, NotificationType.LIKE, NotificationSourceType.POST, 1L, "  Test Notification  ");
         when(notificationRepository.save(any(Notification.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         notificationService.handleNotificationEvent(event);
@@ -114,9 +115,10 @@ class NotificationServiceTest {
     }
 
     @Test
-    @DisplayName("Notification sourceType is normalized before save")
-    void handleNotificationEvent_normalizesSourceTypeBeforeSave() {
-        NotificationEvent event = new NotificationEvent(user, actor, NotificationType.LIKE, " post ", 1L, "Test Notification");
+    @DisplayName("Notification sourceType enum value is saved as legacy string")
+    void handleNotificationEvent_savesSourceTypeEnumValue() {
+        NotificationEvent event = new NotificationEvent(user, actor, NotificationType.LIKE,
+                NotificationSourceType.POST, 1L, "Test Notification");
         when(notificationRepository.save(any(Notification.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         notificationService.handleNotificationEvent(event);
@@ -127,32 +129,10 @@ class NotificationServiceTest {
     }
 
     @Test
-    @DisplayName("Notification is skipped for unsupported sourceType")
-    void handleNotificationEvent_unsupportedSourceType_skipsSave() {
-        NotificationEvent event = new NotificationEvent(user, actor, NotificationType.LIKE, "UNKNOWN", 1L, "Test Notification");
-
-        notificationService.handleNotificationEvent(event);
-
-        verify(notificationRepository, never()).save(any(Notification.class));
-        verifyNoInteractions(userNotificationSettingsRepository);
-    }
-
-    @Test
-    @DisplayName("Notification is skipped for overlong sourceType")
-    void handleNotificationEvent_overlongSourceType_skipsSave() {
-        NotificationEvent event = new NotificationEvent(user, actor, NotificationType.LIKE, "P".repeat(51), 1L, "Test Notification");
-
-        notificationService.handleNotificationEvent(event);
-
-        verify(notificationRepository, never()).save(any(Notification.class));
-        verifyNoInteractions(userNotificationSettingsRepository);
-    }
-
-    @Test
     @DisplayName("Notification content is truncated to max length before save")
     void handleNotificationEvent_truncatesOverlongContentBeforeSave() {
         String content = "a".repeat(MAX_NOTIFICATION_CONTENT_LENGTH + 45);
-        NotificationEvent event = new NotificationEvent(user, actor, NotificationType.LIKE, "POST", 1L, content);
+        NotificationEvent event = new NotificationEvent(user, actor, NotificationType.LIKE, NotificationSourceType.POST, 1L, content);
         when(notificationRepository.save(any(Notification.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         notificationService.handleNotificationEvent(event);
@@ -167,7 +147,7 @@ class NotificationServiceTest {
     void handleNotificationEvent_truncatesByCodePointBeforeSave() {
         String supplementaryCharacter = new String(Character.toChars(0x1F600));
         String content = "a".repeat(MAX_NOTIFICATION_CONTENT_LENGTH - 1) + supplementaryCharacter + "b";
-        NotificationEvent event = new NotificationEvent(user, actor, NotificationType.LIKE, "POST", 1L, content);
+        NotificationEvent event = new NotificationEvent(user, actor, NotificationType.LIKE, NotificationSourceType.POST, 1L, content);
         when(notificationRepository.save(any(Notification.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         notificationService.handleNotificationEvent(event);
@@ -182,7 +162,7 @@ class NotificationServiceTest {
     @Test
     @DisplayName("Notification is skipped when like setting is disabled")
     void handleNotificationEvent_disabledSetting_skipsSave() {
-        NotificationEvent event = new NotificationEvent(user, actor, NotificationType.LIKE, "POST", 1L, "Test Notification");
+        NotificationEvent event = new NotificationEvent(user, actor, NotificationType.LIKE, NotificationSourceType.POST, 1L, "Test Notification");
         UserNotificationSettings setting = UserNotificationSettings.builder()
                 .userId(1L)
                 .notificationType(NotificationType.LIKE)
@@ -199,7 +179,7 @@ class NotificationServiceTest {
     @Test
     @DisplayName("Notification is skipped when receiver is inactive or deleted")
     void handleNotificationEvent_inactiveReceiver_skipsSave() {
-        NotificationEvent event = new NotificationEvent(user, actor, NotificationType.LIKE, "POST", 1L, "Test Notification");
+        NotificationEvent event = new NotificationEvent(user, actor, NotificationType.LIKE, NotificationSourceType.POST, 1L, "Test Notification");
         when(userRepository.findByUserIdAndStatusAndDeletedAtIsNull(1L, User.STATUS_ACTIVE))
                 .thenReturn(Optional.empty());
 
@@ -212,7 +192,7 @@ class NotificationServiceTest {
     @Test
     @DisplayName("Notification is skipped when comment setting is disabled")
     void handleNotificationEvent_commentDisabled_skipsSave() {
-        NotificationEvent event = new NotificationEvent(user, actor, NotificationType.COMMENT, "POST", 1L, "Comment Notification");
+        NotificationEvent event = new NotificationEvent(user, actor, NotificationType.COMMENT, NotificationSourceType.POST, 1L, "Comment Notification");
         UserNotificationSettings setting = UserNotificationSettings.builder()
                 .userId(1L)
                 .notificationType(NotificationType.COMMENT)
@@ -229,7 +209,7 @@ class NotificationServiceTest {
     @Test
     @DisplayName("Notification is saved when no explicit setting exists")
     void handleNotificationEvent_missingSetting_savesNotification() {
-        NotificationEvent event = new NotificationEvent(user, actor, NotificationType.REPLY, "COMMENT", 3L, "Reply Notification");
+        NotificationEvent event = new NotificationEvent(user, actor, NotificationType.REPLY, NotificationSourceType.COMMENT, 3L, "Reply Notification");
         when(notificationRepository.save(any(Notification.class))).thenReturn(notification);
 
         notificationService.handleNotificationEvent(event);
@@ -243,19 +223,19 @@ class NotificationServiceTest {
     void handleNotificationEvent_missingRequiredPayload_skipsSave() {
         notificationService.handleNotificationEvent(null);
         notificationService.handleNotificationEvent(new NotificationEvent(
-                null, actor, NotificationType.LIKE, "POST", 1L, "Test Notification"));
+                null, actor, NotificationType.LIKE, NotificationSourceType.POST, 1L, "Test Notification"));
         notificationService.handleNotificationEvent(new NotificationEvent(
-                User.builder().build(), actor, NotificationType.LIKE, "POST", 1L, "Test Notification"));
+                User.builder().build(), actor, NotificationType.LIKE, NotificationSourceType.POST, 1L, "Test Notification"));
         notificationService.handleNotificationEvent(new NotificationEvent(
-                user, actor, null, "POST", 1L, "Test Notification"));
+                user, actor, null, NotificationSourceType.POST, 1L, "Test Notification"));
         notificationService.handleNotificationEvent(new NotificationEvent(
-                user, actor, NotificationType.LIKE, "POST", null, "Test Notification"));
+                user, actor, NotificationType.LIKE, NotificationSourceType.POST, null, "Test Notification"));
         notificationService.handleNotificationEvent(new NotificationEvent(
-                user, actor, NotificationType.LIKE, " ", 1L, "Test Notification"));
+                user, actor, NotificationType.LIKE, null, 1L, "Test Notification"));
         notificationService.handleNotificationEvent(new NotificationEvent(
-                user, actor, NotificationType.LIKE, "POST", 1L, ""));
+                user, actor, NotificationType.LIKE, NotificationSourceType.POST, 1L, ""));
         notificationService.handleNotificationEvent(new NotificationEvent(
-                user, actor, NotificationType.LIKE, "POST", 1L, "   "));
+                user, actor, NotificationType.LIKE, NotificationSourceType.POST, 1L, "   "));
 
         verifyNoInteractions(userNotificationSettingsRepository);
         verify(notificationRepository, never()).save(any(Notification.class));
@@ -264,7 +244,7 @@ class NotificationServiceTest {
     @Test
     @DisplayName("Notification save is not failed by SSE delivery exception")
     void handleNotificationEvent_deliveryFailure_doesNotPropagate(CapturedOutput output) {
-        NotificationEvent event = new NotificationEvent(user, actor, NotificationType.LIKE, "POST", 1L, "Test Notification");
+        NotificationEvent event = new NotificationEvent(user, actor, NotificationType.LIKE, NotificationSourceType.POST, 1L, "Test Notification");
         when(notificationRepository.save(any(Notification.class))).thenReturn(notification);
 
         NotificationPreferenceService preferenceService = new NotificationPreferenceService(userNotificationSettingsRepository);
@@ -284,7 +264,7 @@ class NotificationServiceTest {
     @Test
     @DisplayName("Notification SSE delivery is deferred until transaction commit")
     void handleNotificationEvent_defersDeliveryUntilAfterCommit() {
-        NotificationEvent event = new NotificationEvent(user, actor, NotificationType.LIKE, "POST", 1L, "Test Notification");
+        NotificationEvent event = new NotificationEvent(user, actor, NotificationType.LIKE, NotificationSourceType.POST, 1L, "Test Notification");
         when(notificationRepository.save(any(Notification.class))).thenReturn(notification);
 
         NotificationPreferenceService preferenceService = new NotificationPreferenceService(userNotificationSettingsRepository);

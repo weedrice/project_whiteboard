@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.post.service;
 
 import com.weedrice.whiteboard.domain.feed.event.PostPublishedEvent;
 import com.weedrice.whiteboard.domain.file.service.FileService;
+import com.weedrice.whiteboard.domain.notification.constant.NotificationSourceType;
 import com.weedrice.whiteboard.domain.notification.service.MentionService;
 import com.weedrice.whiteboard.domain.point.service.ContentRewardPolicy;
 import com.weedrice.whiteboard.domain.point.service.ContentRewardService;
@@ -38,7 +39,8 @@ public class PostCreateSideEffectService {
         postDraftPublicationService.deletePublishedDraftIfOwned(request.getDraftId(), user);
 
         contentRewardService.rewardCreate(userId, savedPost.getPostId(), ContentRewardPolicy.POST);
-        mentionService.publishMentions(user, savedPost.getAgent(), "POST", savedPost.getPostId(), savedPost.getContents());
+        mentionService.publishMentions(user, savedPost.getAgent(), NotificationSourceType.POST, savedPost.getPostId(),
+                savedPost.getContents());
         eventPublisher.publishEvent(new PostPublishedEvent(savedPost.getPostId(), boardId));
         semanticSearchEventPublisher.publish("POST", savedPost.getPostId(), SemanticSearchIndexAction.UPSERT);
     }

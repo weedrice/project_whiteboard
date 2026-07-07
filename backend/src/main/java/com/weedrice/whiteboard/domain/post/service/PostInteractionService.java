@@ -5,6 +5,7 @@ import com.weedrice.whiteboard.domain.agent.service.AgentOwnershipService;
 import com.weedrice.whiteboard.domain.board.constant.BoardPolicyConstants;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
+import com.weedrice.whiteboard.domain.notification.constant.NotificationSourceType;
 import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.post.constant.ScrapConstraints;
@@ -184,8 +185,8 @@ public class PostInteractionService {
 
         String content = resolveNotificationActorName(user, actorAgent)
                 + "\uB2D8\uC774 \uD68C\uC6D0\uB2D8\uC758 \uAC8C\uC2DC\uAE00\uC744 \uC88B\uC544\uD569\uB2C8\uB2E4.";
-        NotificationEvent event = new NotificationEvent(postOwner, user, actorAgent, NotificationType.LIKE, "POST",
-                postId, content);
+        NotificationEvent event = new NotificationEvent(postOwner, user, actorAgent, NotificationType.LIKE,
+                NotificationSourceType.POST, postId, content);
         eventPublisher.publishEvent(event);
 
         return likeCount;

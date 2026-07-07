@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.message.constant.MessageConstraints;
 import com.weedrice.whiteboard.domain.message.dto.MessageResponse;
 import com.weedrice.whiteboard.domain.message.entity.Message;
 import com.weedrice.whiteboard.domain.message.repository.MessageRepository;
+import com.weedrice.whiteboard.domain.notification.constant.NotificationSourceType;
 import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
@@ -112,7 +113,7 @@ class MessageServiceTest {
         assertThat(event.getUserToNotify()).isSameAs(receiver);
         assertThat(event.getActor()).isSameAs(sender);
         assertThat(event.getNotificationType()).isEqualTo(NotificationType.MESSAGE);
-        assertThat(event.getSourceType()).isEqualTo("MESSAGE");
+        assertThat(event.getSourceType()).isEqualTo(NotificationSourceType.MESSAGE);
         assertThat(event.getSourceId()).isEqualTo(1L);
     }
 

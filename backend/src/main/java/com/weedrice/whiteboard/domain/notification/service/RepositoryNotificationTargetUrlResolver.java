@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.notification.service;
 
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
+import com.weedrice.whiteboard.domain.notification.constant.NotificationSourceType;
 import com.weedrice.whiteboard.domain.notification.entity.Notification;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
@@ -22,10 +23,6 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 class RepositoryNotificationTargetUrlResolver implements NotificationTargetUrlResolver {
 
-    private static final String SOURCE_TYPE_POST = "POST";
-    private static final String SOURCE_TYPE_COMMENT = "COMMENT";
-    private static final String SOURCE_TYPE_MESSAGE = "MESSAGE";
-
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
 
@@ -36,12 +33,12 @@ class RepositoryNotificationTargetUrlResolver implements NotificationTargetUrlRe
         }
 
         Set<Long> postIds = notifications.stream()
-                .filter(notification -> isSourceType(notification, SOURCE_TYPE_POST))
+                .filter(notification -> isSourceType(notification, NotificationSourceType.POST))
                 .map(Notification::getSourceId)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
         Set<Long> commentIds = notifications.stream()
-                .filter(notification -> isSourceType(notification, SOURCE_TYPE_COMMENT))
+                .filter(notification -> isSourceType(notification, NotificationSourceType.COMMENT))
                 .map(Notification::getSourceId)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
@@ -74,25 +71,27 @@ class RepositoryNotificationTargetUrlResolver implements NotificationTargetUrlRe
             Notification notification,
             Map<Long, Post> postsById,
             Map<Long, Comment> commentsById) {
-        if (isSourceType(notification, SOURCE_TYPE_POST)) {
+        if (isSourceType(notification, NotificationSourceType.POST)) {
             return buildPostTargetUrl(postsById.get(notification.getSourceId()));
         }
 
-        if (isSourceType(notification, SOURCE_TYPE_COMMENT)) {
+        if (isSourceType(notification, NotificationSourceType.COMMENT)) {
             return buildCommentTargetUrl(commentsById.get(notification.getSourceId()));
         }
 
-        if (isSourceType(notification, SOURCE_TYPE_MESSAGE)) {
+        if (isSourceType(notification, NotificationSourceType.MESSAGE)) {
             return "/mypage/messages";
         }
 
         return null;
     }
 
-    private boolean isSourceType(Notification notification, String sourceType) {
+    private boolean isSourceType(Notification notification, NotificationSourceType sourceType) {
         return notification != null
                 && notification.getSourceType() != null
-                && sourceType.equalsIgnoreCase(notification.getSourceType());
+                && NotificationSourceType.fromDatabaseValue(notification.getSourceType())
+                        .filter(sourceType::equals)
+                        .isPresent();
     }
 
     private String buildPostTargetUrl(Post post) {

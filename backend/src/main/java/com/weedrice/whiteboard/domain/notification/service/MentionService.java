@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.notification.service;
 
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
+import com.weedrice.whiteboard.domain.notification.constant.NotificationSourceType;
 import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.user.dto.MentionCandidateResponse;
@@ -51,7 +52,8 @@ public class MentionService {
                 .toList();
     }
 
-    public void publishMentions(User actor, Agent actorAgent, String sourceType, Long sourceId, String html) {
+    public void publishMentions(User actor, Agent actorAgent, NotificationSourceType sourceType, Long sourceId,
+            String html) {
         if (actor == null || actor.getUserId() == null || sourceType == null || sourceId == null || html == null) {
             return;
         }
@@ -64,7 +66,7 @@ public class MentionService {
         publishMentions(actor, actorAgent, sourceType, sourceId, mentionedUserIds);
     }
 
-    public void publishMentions(User actor, Agent actorAgent, String sourceType, Long sourceId,
+    public void publishMentions(User actor, Agent actorAgent, NotificationSourceType sourceType, Long sourceId,
             Collection<Long> mentionedUserIds) {
         if (actor == null || actor.getUserId() == null || sourceType == null || sourceId == null
                 || mentionedUserIds == null || mentionedUserIds.isEmpty()) {
@@ -92,7 +94,7 @@ public class MentionService {
                         NotificationType.MENTION,
                         sourceType,
                         sourceId,
-                        actorName + "님이 회원님을 언급했습니다.")));
+                        actorName + "?섏씠 ?뚯썝?섏쓣 ?멸툒?덉뒿?덈떎.")));
     }
 
     private Set<Long> extractMentionUserIds(String html) {

@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.message.constant.MessageConstraints;
 import com.weedrice.whiteboard.domain.message.dto.MessageResponse;
 import com.weedrice.whiteboard.domain.message.entity.Message;
 import com.weedrice.whiteboard.domain.message.repository.MessageRepository;
+import com.weedrice.whiteboard.domain.notification.constant.NotificationSourceType;
 import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
@@ -80,9 +81,9 @@ public class MessageService {
                 receiver,
                 sender,
                 NotificationType.MESSAGE,
-                "MESSAGE",
+                NotificationSourceType.MESSAGE,
                 savedMessage.getMessageId(),
-                "새 메시지가 도착했습니다."));
+                "??硫붿떆吏媛 ?꾩갑?덉뒿?덈떎."));
         return savedMessage.getMessageId();
     }
 
