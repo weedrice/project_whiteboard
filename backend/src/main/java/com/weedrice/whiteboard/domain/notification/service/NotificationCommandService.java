@@ -48,7 +48,8 @@ class NotificationCommandService {
                 && event.getUserToNotify() != null
                 && event.getUserToNotify().getUserId() != null
                 && event.getNotificationType() != null
-                && hasText(event.getSourceType());
+                && hasText(event.getSourceType())
+                && event.getSourceId() != null;
     }
 
     private boolean hasText(String value) {

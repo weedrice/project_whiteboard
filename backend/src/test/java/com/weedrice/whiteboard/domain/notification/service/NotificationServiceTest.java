@@ -199,6 +199,8 @@ class NotificationServiceTest {
         notificationService.handleNotificationEvent(new NotificationEvent(
                 user, actor, null, "POST", 1L, "Test Notification"));
         notificationService.handleNotificationEvent(new NotificationEvent(
+                user, actor, NotificationType.LIKE, "POST", null, "Test Notification"));
+        notificationService.handleNotificationEvent(new NotificationEvent(
                 user, actor, NotificationType.LIKE, " ", 1L, "Test Notification"));
         notificationService.handleNotificationEvent(new NotificationEvent(
                 user, actor, NotificationType.LIKE, "POST", 1L, ""));
