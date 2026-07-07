@@ -45,6 +45,15 @@ class ApplicationProdConfigTest {
     }
 
     @Test
+    @DisplayName("production loads the production logback profile")
+    void loggingConfig_usesProductionLogback() throws IOException {
+        PropertySource<?> prodConfig = loadProdConfig();
+
+        assertThat(prodConfig.getProperty("logging.config"))
+                .isEqualTo("classpath:logback-prod.xml");
+    }
+
+    @Test
     @DisplayName("production disables OpenAPI JSON by default")
     void openApiJson_disabledInProduction() throws IOException {
         PropertySource<?> prodConfig = loadProdConfig();
