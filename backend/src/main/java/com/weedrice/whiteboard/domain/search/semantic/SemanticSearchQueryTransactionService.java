@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.search.semantic;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
+import com.weedrice.whiteboard.domain.board.util.BoardUrlNormalizer;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
@@ -57,13 +58,25 @@ class SemanticSearchQueryTransactionService {
         }
         Board board = boardRepository.findByBoardUrl(normalizedBoardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+        if (!isIndexedBoard(board)) {
+            throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
+        }
         if (!boardAccessPolicy.canReadBoard(board, viewer)) {
             throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
         }
     }
 
     private String normalizeBoardUrl(String boardUrl) {
-        return boardUrl == null || boardUrl.isBlank() ? null : boardUrl.trim();
+        if (boardUrl == null || boardUrl.isBlank()) {
+            return null;
+        }
+        return BoardUrlNormalizer.normalizeLookup(boardUrl);
+    }
+
+    private boolean isIndexedBoard(Board board) {
+        return Boolean.TRUE.equals(board.getIsActive())
+                && Boolean.TRUE.equals(board.getIsPublic())
+                && !boardAccessPolicy.isInquiryBoard(board);
     }
 
     private User resolveViewerForBoardAccess(Long currentUserId) {

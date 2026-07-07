@@ -124,8 +124,8 @@ class SemanticSearchServiceTest {
                 300L,
                 200L,
                 70L,
-                "private",
-                "Private Board",
+                "public-board",
+                "Public Board",
                 "post title",
                 "<p>matched comment</p>",
                 null,
@@ -137,20 +137,20 @@ class SemanticSearchServiceTest {
                 "author",
                 null);
 
-        when(transactionService.loadQueryContext("private", 7L))
-                .thenReturn(new SemanticSearchQueryContext("private", 7L, false, List.of(9L)));
+        when(transactionService.loadQueryContext("public-board", 7L))
+                .thenReturn(new SemanticSearchQueryContext("public-board", 7L, false, List.of(9L)));
         when(transactionService.searchKeyword(any(SemanticSearchKeywordQuery.class)))
                 .thenReturn(new SemanticSearchQueryRows(List.of(row), 1L));
 
         Page<SemanticSearchResultResponse> result = semanticSearchService.search(
-                " comment ", "COMMENT", "private", 0, 20, 7L);
+                " comment ", "COMMENT", "public-board", 0, 20, 7L);
 
         assertThat(result.getTotalElements()).isEqualTo(1L);
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getContent().get(0).getExcerpt()).isEqualTo("matched comment");
         verify(transactionService).searchKeyword(argThat(query ->
                 query.contentType() == SemanticSearchContentType.COMMENT
-                        && query.boardUrl().equals("private")
+                        && query.boardUrl().equals("public-board")
                         && query.viewerUserId().equals(7L)
                         && query.blockedUserIds().equals(List.of(9L))));
     }

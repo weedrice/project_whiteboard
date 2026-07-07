@@ -104,6 +104,7 @@ class SemanticSearchQueryTransactionServiceTest {
                 .creator(User.builder().loginId("owner").build())
                 .isPublic(true)
                 .build();
+        ReflectionTestUtils.setField(publicBoard, "isActive", true);
         when(userRepository.findById(99L)).thenReturn(Optional.empty());
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(publicBoard));
 
@@ -112,6 +113,79 @@ class SemanticSearchQueryTransactionServiceTest {
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_FOUND);
 
         verify(userBlockService, never()).getBlockedUserIdsEitherDirectionForExistingUser(99L);
+    }
+
+    @Test
+    void loadQueryContext_rejectsPrivateBoardScopeEvenForSuperAdmin() {
+        User viewer = User.builder()
+                .loginId("admin")
+                .password("password")
+                .email("admin@test.com")
+                .displayName("Admin")
+                .build();
+        ReflectionTestUtils.setField(viewer, "userId", 7L);
+        viewer.grantSuperAdminRole();
+        Board privateBoard = Board.builder()
+                .boardName("Private")
+                .boardUrl("private")
+                .creator(viewer)
+                .isPublic(false)
+                .build();
+        ReflectionTestUtils.setField(privateBoard, "isActive", true);
+
+        when(userRepository.findById(7L)).thenReturn(Optional.of(viewer));
+        when(boardRepository.findByBoardUrl("private")).thenReturn(Optional.of(privateBoard));
+
+        assertThatThrownBy(() -> transactionService.loadQueryContext(" private ", 7L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.BOARD_NOT_FOUND);
+
+        verify(userBlockService, never()).getBlockedUserIdsEitherDirectionForExistingUser(7L);
+    }
+
+    @Test
+    void loadQueryContext_rejectsInactivePublicBoardScopeEvenForSuperAdmin() {
+        User viewer = User.builder()
+                .loginId("admin")
+                .password("password")
+                .email("admin@test.com")
+                .displayName("Admin")
+                .build();
+        ReflectionTestUtils.setField(viewer, "userId", 7L);
+        viewer.grantSuperAdminRole();
+        Board inactiveBoard = Board.builder()
+                .boardName("Inactive")
+                .boardUrl("inactive")
+                .creator(viewer)
+                .isPublic(true)
+                .build();
+        ReflectionTestUtils.setField(inactiveBoard, "isActive", false);
+
+        when(userRepository.findById(7L)).thenReturn(Optional.of(viewer));
+        when(boardRepository.findByBoardUrl("inactive")).thenReturn(Optional.of(inactiveBoard));
+
+        assertThatThrownBy(() -> transactionService.loadQueryContext("inactive", 7L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.BOARD_NOT_FOUND);
+
+        verify(userBlockService, never()).getBlockedUserIdsEitherDirectionForExistingUser(7L);
+    }
+
+    @Test
+    void loadQueryContext_rejectsInquiryBoardScope() {
+        Board inquiryBoard = Board.builder()
+                .boardName("Inquiry")
+                .boardUrl("inquiry")
+                .creator(User.builder().loginId("owner").build())
+                .isPublic(true)
+                .build();
+        ReflectionTestUtils.setField(inquiryBoard, "isActive", true);
+
+        when(boardRepository.findByBoardUrl("inquiry")).thenReturn(Optional.of(inquiryBoard));
+
+        assertThatThrownBy(() -> transactionService.loadQueryContext("inquiry", null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.BOARD_NOT_FOUND);
     }
 
     private Transactional transactionalAnnotation(String methodName, Class<?>... parameterTypes)
