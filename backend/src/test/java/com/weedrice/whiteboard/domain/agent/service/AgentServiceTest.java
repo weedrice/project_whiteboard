@@ -1184,6 +1184,18 @@ class AgentServiceTest {
     }
 
     @Test
+    void authenticate_rejectsSuspendedAgentBeforeMarkingLastUsed() {
+        agent.suspend();
+        when(agentRepository.findByAgentTokenHashAndIsDeletedFalseForAuthentication(any())).thenReturn(Optional.of(agent));
+
+        assertThatThrownBy(() -> agentAuthService.authenticate("noviis_agt_token"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.UNAUTHORIZED);
+
+        verifyNoInteractions(agentLastUsedCommandService);
+    }
+
+    @Test
     void authenticate_rejectsDeletedOwnerBeforeMarkingLastUsed() {
         user.delete();
         when(agentRepository.findByAgentTokenHashAndIsDeletedFalseForAuthentication(any())).thenReturn(Optional.of(agent));

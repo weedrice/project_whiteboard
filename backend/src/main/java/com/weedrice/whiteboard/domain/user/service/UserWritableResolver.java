@@ -18,6 +18,7 @@ public class UserWritableResolver {
     public User resolve(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        validateActiveAccount(user);
         sanctionService.validateNotBanned(user);
         return user;
     }
@@ -25,7 +26,14 @@ public class UserWritableResolver {
     public User resolveForUpdate(Long userId) {
         User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        validateActiveAccount(user);
         sanctionService.validateNotBanned(user);
         return user;
+    }
+
+    private void validateActiveAccount(User user) {
+        if (!user.isActiveAccount()) {
+            throw new BusinessException(ErrorCode.USER_NOT_ACTIVE);
+        }
     }
 }
