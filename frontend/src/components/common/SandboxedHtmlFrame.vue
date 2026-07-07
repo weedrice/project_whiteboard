@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, useId } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue'
 import { buildSandboxedPostHtmlSource } from '@/utils/postHtmlSandbox'
 
 const props = withDefaults(defineProps<{
@@ -15,6 +15,13 @@ const frame = ref<HTMLIFrameElement | null>(null)
 const frameId = `post-html-${useId()}`
 const height = ref(props.minHeight)
 const srcdoc = computed(() => buildSandboxedPostHtmlSource(props.html, frameId))
+
+watch(
+  () => [props.html, props.minHeight] as const,
+  () => {
+    height.value = props.minHeight
+  },
+)
 
 function onMessage(event: MessageEvent) {
   if (event.source !== frame.value?.contentWindow) return

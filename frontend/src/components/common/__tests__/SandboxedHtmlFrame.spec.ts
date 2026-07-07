@@ -90,4 +90,23 @@ describe('SandboxedHtmlFrame', () => {
 
     expect(frame.style.height).toBe('4000px')
   })
+
+  it('resets stale measured height when html changes', async () => {
+    const wrapper = mount(SandboxedHtmlFrame, {
+      props: {
+        html: '<p>Long content</p>',
+        minHeight: 240,
+      },
+    })
+    const frame = wrapper.get('iframe').element as HTMLIFrameElement
+    const frameId = extractFrameId(wrapper.get('iframe').attributes('srcdoc') ?? '')
+
+    postHeightMessage(frame, frameId, 2000)
+    await nextTick()
+    expect(frame.style.height).toBe('2000px')
+
+    await wrapper.setProps({ html: '<p>Short content</p>' })
+
+    expect(frame.style.height).toBe('240px')
+  })
 })

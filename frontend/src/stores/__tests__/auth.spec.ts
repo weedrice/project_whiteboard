@@ -25,6 +25,7 @@ vi.mock('@/api/auth', () => ({
     authApi: {
         login: vi.fn(),
         logout: vi.fn(),
+        refreshToken: vi.fn(),
         getMe: vi.fn()
     }
 }))
@@ -241,6 +242,58 @@ describe('Auth Store', () => {
             expect(getStoredAccessToken()).toBe('new-access')
             expect(localStorage.getItem(ACCESS_TOKEN_KEY)).toBeNull()
             expect(localStorage.getItem('refreshToken')).toBeNull()
+        })
+    })
+
+    describe('bootstrapSession', () => {
+        it('restores a session from refresh cookie and fetches the user', async () => {
+            const user = authUser({ theme: 'DARK' })
+            vi.mocked(authApi.refreshToken).mockResolvedValue(authLoginResponse(user, 'boot-token'))
+            vi.mocked(authApi.getMe).mockResolvedValue(authUserResponse(user))
+
+            const result = await store.bootstrapSession()
+
+            expect(result).toBe(true)
+            expect(authApi.refreshToken).toHaveBeenCalledWith({
+                skipAuthRefresh: true,
+                skipGlobalErrorHandler: true,
+            })
+            expect(authApi.getMe).toHaveBeenCalledWith({ skipAuthRefresh: true })
+            expect(store.accessToken).toBe('boot-token')
+            expect(getStoredAccessToken()).toBe('boot-token')
+            expect(store.user).toEqual(user)
+            expect(mockSyncThemeFromUser).toHaveBeenCalledWith(user)
+        })
+
+        it('clears state when refresh response is unsuccessful', async () => {
+            store.accessToken = null
+            store.user = authUser()
+            persistAccessToken('stale')
+            vi.mocked(authApi.refreshToken).mockResolvedValue(authLoginFailureResponse(authUser(), 'ignored'))
+
+            const result = await store.bootstrapSession()
+
+            expect(result).toBe(false)
+            expect(store.accessToken).toBeNull()
+            expect(store.user).toBeNull()
+            expect(getStoredAccessToken()).toBeNull()
+            expect(authApi.getMe).not.toHaveBeenCalled()
+        })
+
+        it('clears state when refresh throws', async () => {
+            store.accessToken = null
+            store.user = authUser()
+            persistAccessToken('stale')
+            const error = new Error('refresh failed')
+            vi.mocked(authApi.refreshToken).mockRejectedValue(error)
+
+            const result = await store.bootstrapSession()
+
+            expect(result).toBe(false)
+            expect(store.accessToken).toBeNull()
+            expect(store.user).toBeNull()
+            expect(getStoredAccessToken()).toBeNull()
+            expect(logger.error).toHaveBeenCalledWith('Bootstrap session failed:', error)
         })
     })
 

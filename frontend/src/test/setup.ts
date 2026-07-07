@@ -1,7 +1,9 @@
 // Test setup file for jsdom environment
-import { config } from '@vue/test-utils'
-import { vi } from 'vitest'
+import { config, enableAutoUnmount } from '@vue/test-utils'
+import { afterEach, vi } from 'vitest'
 import i18n from '@/i18n'
+
+enableAutoUnmount(afterEach)
 
 config.global.plugins = [
     ...(config.global.plugins ?? []),
