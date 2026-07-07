@@ -62,34 +62,15 @@ public class CommentCommandService {
     private final CommentLikeCommand commentLikeCommand;
 
     @Transactional
-    public Long createComment(Long userId, Long postId, Long parentId, String content) {
-        return createComment(userId, null, postId, parentId, content);
-    }
+    public Long createComment(CommentCreateCommand command) {
+        Long userId = command.userId();
+        Long agentId = command.agentId();
+        Long postId = command.postId();
+        Long parentId = command.parentId();
+        String content = command.content();
+        CommentCreateContext context = command.context();
+        Collection<Long> mentionedUserIds = command.mentionedUserIds();
 
-    @Transactional
-    public Long createComment(Long userId, Long postId, Long parentId, String content,
-            Collection<Long> mentionedUserIds) {
-        return createComment(userId, null, postId, parentId, content, null, mentionedUserIds);
-    }
-
-    @Transactional
-    public Long createCommentAsAgent(Long userId, Long agentId, Long postId, Long parentId, String content) {
-        return createComment(userId, agentId, postId, parentId, content, null, null);
-    }
-
-    @Transactional
-    public Long createCommentAsAgent(Long userId, Long agentId, Long postId, Long parentId, String content,
-            CommentCreateContext context) {
-        return createComment(userId, agentId, postId, parentId, content, context, null);
-    }
-
-    @Transactional
-    public Long createComment(Long userId, Long agentId, Long postId, Long parentId, String content) {
-        return createComment(userId, agentId, postId, parentId, content, null, null);
-    }
-
-    private Long createComment(Long userId, Long agentId, Long postId, Long parentId, String content,
-            CommentCreateContext context, Collection<Long> mentionedUserIds) {
         User user = userWritableResolver.resolve(userId);
         sanctionService.validateNotMuted(user);
         Agent agent = resolveAgent(userId, agentId, context);
@@ -199,12 +180,12 @@ public class CommentCommandService {
     }
 
     @Transactional
-    public Long updateComment(Long userId, Long commentId, String content) {
-        return updateComment(userId, commentId, content, null);
-    }
+    public Long updateComment(CommentUpdateCommand command) {
+        Long userId = command.userId();
+        Long commentId = command.commentId();
+        String content = command.content();
+        Collection<Long> mentionedUserIds = command.mentionedUserIds();
 
-    @Transactional
-    public Long updateComment(Long userId, Long commentId, String content, Collection<Long> mentionedUserIds) {
         Comment comment = loadCommentForUpdate(commentId);
         User user = userWritableResolver.resolve(userId);
         sanctionService.validateNotMuted(user);

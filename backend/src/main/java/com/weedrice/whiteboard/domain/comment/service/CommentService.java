@@ -46,33 +46,37 @@ public class CommentService {
     }
 
     public Long createComment(Long userId, Long postId, Long parentId, String content) {
-        return commentCommandService.createComment(userId, postId, parentId, content);
+        return createComment(userId, postId, parentId, content, null);
     }
 
     public Long createComment(Long userId, Long postId, Long parentId, String content,
             Collection<Long> mentionedUserIds) {
-        return commentCommandService.createComment(userId, postId, parentId, content, mentionedUserIds);
+        return commentCommandService.createComment(
+                new CommentCreateCommand(userId, null, postId, parentId, content, null, mentionedUserIds));
     }
 
     public Long createCommentAsAgent(Long userId, Long agentId, Long postId, Long parentId, String content) {
-        return commentCommandService.createCommentAsAgent(userId, agentId, postId, parentId, content);
+        return createCommentAsAgent(userId, agentId, postId, parentId, content, null);
     }
 
     public Long createCommentAsAgent(Long userId, Long agentId, Long postId, Long parentId, String content,
             CommentCreateContext context) {
-        return commentCommandService.createCommentAsAgent(userId, agentId, postId, parentId, content, context);
+        return commentCommandService.createComment(
+                new CommentCreateCommand(userId, agentId, postId, parentId, content, context, null));
     }
 
     public Long createComment(Long userId, Long agentId, Long postId, Long parentId, String content) {
-        return commentCommandService.createComment(userId, agentId, postId, parentId, content);
+        return commentCommandService.createComment(
+                new CommentCreateCommand(userId, agentId, postId, parentId, content, null, null));
     }
 
     public Long updateComment(Long userId, Long commentId, String content) {
-        return commentCommandService.updateComment(userId, commentId, content);
+        return updateComment(userId, commentId, content, null);
     }
 
     public Long updateComment(Long userId, Long commentId, String content, Collection<Long> mentionedUserIds) {
-        return commentCommandService.updateComment(userId, commentId, content, mentionedUserIds);
+        return commentCommandService.updateComment(
+                new CommentUpdateCommand(userId, commentId, content, mentionedUserIds));
     }
 
     public void deleteComment(Long userId, Long commentId) {
