@@ -250,6 +250,56 @@ describe('CommentForm', () => {
     )
   })
 
+  it('keeps existing mention ids when editing leaves mention text in place', async () => {
+    const wrapper = mountCommentForm({
+      commentId: 30,
+      initialContent: 'hello @Alice',
+      initialMentions: [
+        { userId: 7, displayName: 'Alice', profileImageUrl: null },
+      ],
+    })
+
+    await wrapper.get('textarea').setValue('  hello @Alice updated  ')
+    await wrapper.get('form').trigger('submit')
+
+    expect(updateComment).toHaveBeenCalledWith(
+      {
+        commentId: 30,
+        postId: 10,
+        data: {
+          content: 'hello @Alice updated',
+          mentionedUserIds: [7],
+        },
+      },
+      expect.any(Object),
+    )
+  })
+
+  it('sends an empty mention id list when editing removes existing mention text', async () => {
+    const wrapper = mountCommentForm({
+      commentId: 30,
+      initialContent: 'hello @Alice',
+      initialMentions: [
+        { userId: 7, displayName: 'Alice', profileImageUrl: null },
+      ],
+    })
+
+    await wrapper.get('textarea').setValue('hello updated')
+    await wrapper.get('form').trigger('submit')
+
+    expect(updateComment).toHaveBeenCalledWith(
+      {
+        commentId: 30,
+        postId: 10,
+        data: {
+          content: 'hello updated',
+          mentionedUserIds: [],
+        },
+      },
+      expect.any(Object),
+    )
+  })
+
   it('shows one local error toast when create fails before global error handling', async () => {
     const wrapper = mountCommentForm()
 

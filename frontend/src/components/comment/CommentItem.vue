@@ -187,6 +187,7 @@ watch(isBlockedAuthor, (blocked) => {
             :postId="postId"
             :commentId="comment.commentId"
             :initialContent="comment.content ?? ''"
+            :initialMentions="comment.mentions ?? []"
             @success="handleEditSuccess"
             @cancel="isEditing = false"
           />

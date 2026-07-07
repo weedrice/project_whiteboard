@@ -17,5 +17,5 @@ public class CommentUpdateRequest {
     @NoHtml
     private String content;
     @Size(max = 10)
-    private List<Long> mentionedUserIds = List.of();
+    private List<Long> mentionedUserIds;
 }

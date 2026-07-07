@@ -12,7 +12,7 @@ import { useToastStore } from '@/stores/toast'
 import { useAuthStore } from '@/stores/auth'
 import EmoticonPicker from '@/components/common/widgets/EmoticonPicker.vue'
 import type { EmoticonImage } from '@/types/emoticon'
-import type { MentionCandidate } from '@/types'
+import type { CommentMention, MentionCandidate } from '@/types'
 import { Smile } from 'lucide-vue-next'
 
 const toastStore = useToastStore()
@@ -24,10 +24,12 @@ const props = withDefaults(defineProps<{
   postId: number | string
   parentId?: number | string | null
   initialContent?: string
+  initialMentions?: CommentMention[]
   commentId?: number | string | null
 }>(), {
   parentId: null,
   initialContent: '',
+  initialMentions: () => [],
   commentId: null
 })
 
@@ -48,7 +50,13 @@ const showEmoticonPicker = ref(false)
 const mentionCandidates = ref<MentionCandidate[]>([])
 const mentionMenuOpen = ref(false)
 const selectedMentionIndex = ref(0)
-const selectedMentionUsers = ref<MentionCandidate[]>([])
+const selectedMentionUsers = ref<MentionCandidate[]>(
+  props.initialMentions.map((mention) => ({
+    userId: mention.userId,
+    displayName: mention.displayName,
+    profileImageUrl: mention.profileImageUrl ?? null,
+  })),
+)
 const textareaRoot = ref<InstanceType<typeof BaseTextarea> | null>(null)
 let mentionLookupSeq = 0
 const idSegment = (value: number | string) => String(value).replace(/[^a-zA-Z0-9_-]/g, '-')
@@ -64,7 +72,10 @@ const textareaId = computed(() => {
   return `comment-new-${idSegment(props.postId)}`
 })
 const emoticonButtonLabel = computed(() => t('board.writePost.toolbar.emoticon'))
-const mentionedUserIds = computed(() => selectedMentionUsers.value.map((user) => user.userId).slice(0, 10))
+const mentionedUserIds = computed(() => selectedMentionUsers.value
+  .filter((user) => content.value.includes(`@${user.displayName}`))
+  .map((user) => user.userId)
+  .slice(0, 10))
 
 const getTextarea = () => {
   const root = textareaRoot.value?.$el as HTMLElement | undefined
@@ -215,7 +226,7 @@ async function handleSubmit() {
   if (props.commentId) {
     // Update existing comment
     const payload: CommentPayload = { content: trimmedContent.value }
-    if (mentionedUserIds.value.length > 0) {
+    if (props.initialMentions.length > 0 || mentionedUserIds.value.length > 0) {
       payload.mentionedUserIds = mentionedUserIds.value
     }
     updateComment({ commentId: props.commentId, postId: props.postId, data: payload }, {

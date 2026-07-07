@@ -1722,7 +1722,57 @@ class CommentServiceTest {
     }
 
     @Test
-    @DisplayName("게시글 작성자가 댓글 작성자를 차단하면 댓글을 수정할 수 없다")
+    @DisplayName("update comment without mention ids keeps existing mention metadata")
+    void updateComment_withoutMentionIds_keepsExistingMentions() {
+        User user = User.builder().displayName("Author").build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+
+        Board board = Board.builder().boardUrl("free").creator(user).build();
+        ReflectionTestUtils.setField(board, "isActive", true);
+        ReflectionTestUtils.setField(board, "isPublic", true);
+
+        Post post = Post.builder().board(board).user(user).build();
+        Comment comment = Comment.builder().user(user).post(post).content("Old @Alice").build();
+        ReflectionTestUtils.setField(comment, "commentId", 10L);
+
+        when(commentRepository.findByIdWithRelationsForUpdate(10L)).thenReturn(Optional.of(comment));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of());
+
+        Long result = commentService.updateComment(1L, 10L, "New @Alice");
+
+        assertThat(result).isEqualTo(10L);
+        assertThat(comment.getContent()).isEqualTo("New @Alice");
+        verify(commentMentionRepository, never()).deleteByCommentCommentId(anyLong());
+    }
+
+    @Test
+    @DisplayName("update comment with empty mention ids clears mention metadata")
+    void updateComment_withEmptyMentionIds_clearsMentions() {
+        User user = User.builder().displayName("Author").build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+
+        Board board = Board.builder().boardUrl("free").creator(user).build();
+        ReflectionTestUtils.setField(board, "isActive", true);
+        ReflectionTestUtils.setField(board, "isPublic", true);
+
+        Post post = Post.builder().board(board).user(user).build();
+        Comment comment = Comment.builder().user(user).post(post).content("Old @Alice").build();
+        ReflectionTestUtils.setField(comment, "commentId", 10L);
+
+        when(commentRepository.findByIdWithRelationsForUpdate(10L)).thenReturn(Optional.of(comment));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of());
+
+        Long result = commentService.updateComment(1L, 10L, "New", List.of());
+
+        assertThat(result).isEqualTo(10L);
+        assertThat(comment.getContent()).isEqualTo("New");
+        verify(commentMentionRepository).deleteByCommentCommentId(10L);
+    }
+
+    @Test
+    @DisplayName("update comment is blocked when the post author blocks the viewer")
     void updateComment_authorBlocksViewer_throwsPostNotFound() {
         User viewer = User.builder().displayName("Viewer").build();
         ReflectionTestUtils.setField(viewer, "userId", 2L);

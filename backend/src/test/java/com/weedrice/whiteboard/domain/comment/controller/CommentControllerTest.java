@@ -279,7 +279,7 @@ class CommentControllerTest {
         Long commentId = 1L;
         CommentUpdateRequest request = new CommentUpdateRequest();
         org.springframework.test.util.ReflectionTestUtils.setField(request, "content", "Updated comment");
-        when(commentService.updateComment(eq(1L), eq(commentId), eq("Updated comment"))).thenReturn(commentId);
+        when(commentService.updateComment(eq(1L), eq(commentId), eq("Updated comment"), isNull())).thenReturn(commentId);
 
         // when & then
         mockMvc.perform(put("/api/v1/comments/{commentId}", commentId)
@@ -288,6 +288,28 @@ class CommentControllerTest {
                         .with(user(customUserDetails)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
+
+        verify(commentService).updateComment(eq(1L), eq(commentId), eq("Updated comment"), isNull());
+    }
+
+    @Test
+    @DisplayName("update comment passes mentioned user ids")
+    void updateComment_withMentionedUserIds_passesMentionIds() throws Exception {
+        Long commentId = 1L;
+        CommentUpdateRequest request = new CommentUpdateRequest();
+        org.springframework.test.util.ReflectionTestUtils.setField(request, "content", "Updated comment");
+        org.springframework.test.util.ReflectionTestUtils.setField(request, "mentionedUserIds", List.of(2L, 3L));
+        when(commentService.updateComment(eq(1L), eq(commentId), eq("Updated comment"), eq(List.of(2L, 3L))))
+                .thenReturn(commentId);
+
+        mockMvc.perform(put("/api/v1/comments/{commentId}", commentId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request))
+                        .with(user(customUserDetails)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true));
+
+        verify(commentService).updateComment(eq(1L), eq(commentId), eq("Updated comment"), eq(List.of(2L, 3L)));
     }
 
     @Test

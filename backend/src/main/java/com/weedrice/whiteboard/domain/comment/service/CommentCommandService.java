@@ -215,7 +215,9 @@ public class CommentCommandService {
         comment.updateContent(sanitizedContent);
 
         saveCommentVersion(comment, user, "MODIFY", originalContent);
-        replaceCommentMentions(comment, mentionedUserIds);
+        if (mentionedUserIds != null) {
+            replaceCommentMentions(comment, mentionedUserIds);
+        }
         semanticSearchEventPublisher.publish("COMMENT", comment.getCommentId(), SemanticSearchIndexAction.UPSERT);
         return comment.getCommentId();
     }
