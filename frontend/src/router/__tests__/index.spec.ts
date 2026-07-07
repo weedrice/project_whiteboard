@@ -618,7 +618,6 @@ describe('Router Navigation Guards', () => {
             name: 'error',
             query: {
                 status: '500',
-                message: 'Chunk load failed after retry',
             },
         })
 
@@ -658,7 +657,6 @@ describe('Router Navigation Guards', () => {
             name: 'error',
             query: {
                 status: '500',
-                message: 'general failure',
             },
         })
 

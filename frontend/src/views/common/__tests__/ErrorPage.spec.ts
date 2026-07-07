@@ -71,11 +71,12 @@ describe('ErrorPage', () => {
 
             expect(wrapper.text()).toContain(testCase.status)
             expect(wrapper.text()).toContain(testCase.title)
-            expect(wrapper.text()).toContain('custom')
+            expect(wrapper.text()).toContain('Default error message')
+            expect(wrapper.text()).not.toContain('custom')
         }
     })
 
-    it('uses the first query value when status and message are arrays', () => {
+    it('uses the first status query value and ignores message query arrays', () => {
         mocks.route.query = {
             status: ['404', '500'],
             message: ['first message', 'second message'],
@@ -85,7 +86,8 @@ describe('ErrorPage', () => {
 
         expect(wrapper.text()).toContain('404')
         expect(wrapper.text()).toContain('Not Found')
-        expect(wrapper.text()).toContain('first message')
+        expect(wrapper.text()).toContain('Default error message')
+        expect(wrapper.text()).not.toContain('first message')
         expect(wrapper.text()).not.toContain('second message')
     })
 
