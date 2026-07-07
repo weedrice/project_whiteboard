@@ -14,6 +14,9 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.Collections;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -23,6 +26,11 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class JwtTokenProviderTest {
+
+    private static final LocalDateTime FIXED_NOW = LocalDateTime.of(2026, 7, 7, 12, 0);
+    private static final Clock FIXED_CLOCK = Clock.fixed(
+            FIXED_NOW.toInstant(ZoneOffset.UTC),
+            ZoneOffset.UTC);
 
     private JwtTokenProvider jwtTokenProvider;
 
@@ -35,7 +43,12 @@ class JwtTokenProviderTest {
 
     @BeforeEach
     void setUp() {
-        jwtTokenProvider = new JwtTokenProvider(secret, accessTokenValidity, refreshTokenValidity, customUserDetailsService);
+        jwtTokenProvider = new JwtTokenProvider(
+                secret,
+                accessTokenValidity,
+                refreshTokenValidity,
+                customUserDetailsService,
+                FIXED_CLOCK);
     }
 
     @Test

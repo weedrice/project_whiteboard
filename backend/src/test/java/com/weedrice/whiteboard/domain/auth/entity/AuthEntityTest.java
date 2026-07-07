@@ -10,12 +10,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class AuthEntityTest {
 
+    private static final LocalDateTime NOW = LocalDateTime.of(2026, 7, 7, 12, 0);
+
     @Test
     @DisplayName("RefreshToken 만료 및 유효성 확인")
     void refreshTokenTest() {
         User user = User.builder().build();
-        LocalDateTime future = LocalDateTime.now().plusHours(1);
-        LocalDateTime past = LocalDateTime.now().minusHours(1);
+        LocalDateTime future = NOW.plusHours(1);
+        LocalDateTime past = NOW.minusHours(1);
 
         RefreshToken token = RefreshToken.builder()
                 .user(user)
@@ -23,23 +25,23 @@ class AuthEntityTest {
                 .expiresAt(future)
                 .build();
 
-        assertThat(token.isExpired()).isFalse();
-        assertThat(token.isValid()).isTrue();
+        assertThat(token.isExpiredAt(NOW)).isFalse();
+        assertThat(token.isValidAt(NOW)).isTrue();
 
         token.revoke();
         assertThat(token.getIsRevoked()).isTrue();
-        assertThat(token.isValid()).isFalse();
+        assertThat(token.isValidAt(NOW)).isFalse();
 
         RefreshToken expiredToken = RefreshToken.builder()
                 .expiresAt(past)
                 .build();
-        assertThat(expiredToken.isExpired()).isTrue();
+        assertThat(expiredToken.isExpiredAt(NOW)).isTrue();
     }
 
     @Test
     @DisplayName("VerificationCode 검증 및 만료 확인")
     void verificationCodeTest() {
-        LocalDateTime future = LocalDateTime.now().plusMinutes(5);
+        LocalDateTime future = NOW.plusMinutes(5);
         VerificationCode code = VerificationCode.builder()
                 .email("test@test.com")
                 .purpose(VerificationPurpose.SIGNUP)
@@ -48,12 +50,12 @@ class AuthEntityTest {
                 .build();
 
         assertThat(code.getIsVerified()).isFalse();
-        assertThat(code.isExpired()).isFalse();
+        assertThat(code.isExpiredAt(NOW)).isFalse();
         assertThat(code.getDeliveryStatus()).isEqualTo(VerificationCode.DELIVERY_STATUS_PENDING);
 
         code.markSent();
         assertThat(code.getDeliveryStatus()).isEqualTo(VerificationCode.DELIVERY_STATUS_SENT);
-        code.issueVerificationTicket("ticket-1", LocalDateTime.now().plusMinutes(5));
+        code.issueVerificationTicket("ticket-1", NOW.plusMinutes(5));
         assertThat(code.getIsVerified()).isTrue();
         assertThat(code.getVerificationTicket()).isEqualTo("ticket-1");
 
@@ -67,7 +69,7 @@ class AuthEntityTest {
     @DisplayName("PasswordResetToken 사용 및 만료 확인")
     void passwordResetTokenTest() {
         User user = User.builder().build();
-        LocalDateTime future = LocalDateTime.now().plusMinutes(30);
+        LocalDateTime future = NOW.plusMinutes(30);
         
         PasswordResetToken token = PasswordResetToken.builder()
                 .token("reset-token")
@@ -76,7 +78,7 @@ class AuthEntityTest {
                 .build();
 
         assertThat(token.getIsUsed()).isFalse();
-        assertThat(token.isExpired()).isFalse();
+        assertThat(token.isExpiredAt(NOW)).isFalse();
         assertThat(token.getDeliveryStatus()).isEqualTo(PasswordResetToken.DELIVERY_STATUS_PENDING);
 
         token.markSent();

@@ -15,6 +15,8 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -32,6 +34,7 @@ public class PasswordResetService {
     private final PasswordResetTokenOrchestrationService passwordResetTokenOrchestrationService;
     private final TransactionTemplate transactionTemplate;
     private final AuthAccountEligibilityPolicy authAccountEligibilityPolicy;
+    private final Clock clock;
 
     @Value("${cloud.aws.password-reset.frontend-url}")
     private String passwordResetFrontendUrl;
@@ -134,7 +137,7 @@ public class PasswordResetService {
             throw new BusinessException(ErrorCode.INVALID_PASSWORD_RESET_TOKEN);
         }
 
-        if (passwordResetToken.isExpired()) {
+        if (passwordResetToken.isExpiredAt(LocalDateTime.now(clock))) {
             throw new BusinessException(ErrorCode.EXPIRED_PASSWORD_RESET_TOKEN);
         }
         if (passwordResetToken.getIsUsed()) {

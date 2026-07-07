@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.auth.entity.RefreshToken;
 import com.weedrice.whiteboard.domain.auth.repository.RefreshTokenRepository;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionPolicyService;
 import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.global.config.TimeConfig;
 import com.weedrice.whiteboard.global.config.QuerydslConfig;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -29,7 +30,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @DataJpaTest
-@Import({QuerydslConfig.class, SessionTokenService.class, TokenHashService.class, LoginAccountEligibilityService.class})
+@Import({QuerydslConfig.class, TimeConfig.class, SessionTokenService.class, TokenHashService.class, LoginAccountEligibilityService.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class SessionTokenServiceRefreshPersistenceTest {
 

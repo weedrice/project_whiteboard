@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 
 @Service
@@ -18,6 +19,7 @@ public class RefreshTokenLifecycleService {
 
     private final RefreshTokenRepository refreshTokenRepository;
     private final UserRepository userRepository;
+    private final Clock clock;
 
     @Transactional
     public void revokeActiveRefreshTokens(User user) {
@@ -41,6 +43,6 @@ public class RefreshTokenLifecycleService {
     }
 
     private void revokeActiveTokens(Long userId) {
-        refreshTokenRepository.revokeActiveTokensByUserId(userId, LocalDateTime.now());
+        refreshTokenRepository.revokeActiveTokensByUserId(userId, LocalDateTime.now(clock));
     }
 }

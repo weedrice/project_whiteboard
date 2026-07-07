@@ -21,7 +21,9 @@ import org.mockito.quality.Strictness;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -47,6 +49,10 @@ class VerificationCodeServiceTest {
 
     private static final Pattern VERIFICATION_CODE_BODY_PATTERN = Pattern.compile(
             "<h3>(\\d{%d})</h3>".formatted(VerificationCode.LEGACY_PLAIN_CODE_LENGTH));
+    private static final LocalDateTime FIXED_NOW = LocalDateTime.of(2026, 7, 7, 12, 0);
+    private static final Clock FIXED_CLOCK = Clock.fixed(
+            FIXED_NOW.toInstant(ZoneOffset.UTC),
+            ZoneOffset.UTC);
 
     @Mock
     private VerificationCodeRepository verificationCodeRepository;
@@ -77,7 +83,7 @@ class VerificationCodeServiceTest {
                 ReflectionTestUtils.setField(verificationCode, "verificationId", idSequence.getAndIncrement());
             }
             if (verificationCode.getCreatedAt() == null) {
-                ReflectionTestUtils.setField(verificationCode, "createdAt", LocalDateTime.now());
+                ReflectionTestUtils.setField(verificationCode, "createdAt", FIXED_NOW);
             }
             verificationCodes.put(verificationCode.getVerificationId(), verificationCode);
             return verificationCode;
@@ -126,7 +132,7 @@ class VerificationCodeServiceTest {
                                 && purpose == code.getPurpose()
                                 && (excludeVerificationId == null
                                         || !excludeVerificationId.equals(code.getVerificationId()))
-                                && code.hasActiveVerificationTicket()) {
+                                && code.hasActiveVerificationTicketAt(FIXED_NOW)) {
                             code.invalidateVerificationTicket();
                             invalidatedCount++;
                         }
@@ -137,11 +143,13 @@ class VerificationCodeServiceTest {
                 verificationCodeRepository,
                 new AuthMailDeliveryOrchestrationService(emailService),
                 tokenHashService,
-                transactionTemplate);
+                transactionTemplate,
+                FIXED_CLOCK);
         VerificationTicketService verificationTicketService = new VerificationTicketService(
                 verificationCodeRepository,
                 tokenHashService,
-                new VerifyCodeResponseAssembler(userRepository));
+                new VerifyCodeResponseAssembler(userRepository),
+                FIXED_CLOCK);
         verificationCodeService = new VerificationCodeService(
                 new EmailEligibilityService(
                         new AccountUniquenessPolicy(userRepository),
@@ -207,7 +215,7 @@ class VerificationCodeServiceTest {
                 "test@example.com",
                 VerificationPurpose.SIGNUP,
                 VerificationCode.DELIVERY_STATUS_SENT,
-                LocalDateTime.now().minusSeconds(30));
+                FIXED_NOW.minusSeconds(30));
         verificationCodes.put(100L, recentAttempt);
 
         assertThatThrownBy(() -> verificationCodeService.sendVerificationCode(
@@ -227,7 +235,7 @@ class VerificationCodeServiceTest {
     @DisplayName("인증 코드 발송은 같은 이메일과 목적의 시간당 5회 초과를 제한한다")
     void sendVerificationCode_rejectsHourlyAttemptLimit() {
         when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.empty());
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = FIXED_NOW;
         verificationCodes.put(100L, createAttemptCode(
                 100L,
                 "test@example.com",
@@ -293,7 +301,7 @@ class VerificationCodeServiceTest {
         when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.empty());
 
         VerificationCode oldCode = createSentCode(100L, "test@example.com", VerificationPurpose.SIGNUP, "111111");
-        oldCode.issueVerificationTicket("ticket-old", LocalDateTime.now().plusMinutes(5));
+        oldCode.issueVerificationTicket("ticket-old", FIXED_NOW.plusMinutes(5));
         verificationCodes.put(100L, oldCode);
 
         verificationCodeService.sendVerificationCode("test@example.com", VerificationPurpose.SIGNUP, null);
@@ -412,7 +420,7 @@ class VerificationCodeServiceTest {
     @DisplayName("PASSWORD_RESET verification suppresses account with deletedAt before sending")
     void sendVerificationCode_suppressesDeletedAtPasswordResetEmailBeforeSending() {
         User user = User.builder().email("deleted-at@example.com").build();
-        ReflectionTestUtils.setField(user, "deletedAt", LocalDateTime.now());
+        ReflectionTestUtils.setField(user, "deletedAt", FIXED_NOW);
         when(userRepository.findByEmail("deleted-at@example.com")).thenReturn(Optional.of(user));
 
         verificationCodeService.sendVerificationCode(
@@ -467,7 +475,7 @@ class VerificationCodeServiceTest {
                 "test@example.com",
                 VerificationPurpose.PASSWORD_RESET,
                 "654321");
-        ReflectionTestUtils.setField(otherPurposeCode, "createdAt", LocalDateTime.now());
+        ReflectionTestUtils.setField(otherPurposeCode, "createdAt", FIXED_NOW);
 
         verificationCodes.put(1L, sentCode);
         verificationCodes.put(2L, otherPurposeCode);
@@ -503,7 +511,7 @@ class VerificationCodeServiceTest {
     @DisplayName("같은 코드로 재검증해도 새로운 ticket을 재발급하지 않는다")
     void verifyCode_reusesActiveTicket() {
         VerificationCode sentCode = createSentCode(1L, "test@example.com", VerificationPurpose.FIND_ID, "123456");
-        sentCode.issueVerificationTicket("ticket-1", LocalDateTime.now().plusMinutes(5));
+        sentCode.issueVerificationTicket("ticket-1", FIXED_NOW.plusMinutes(5));
         verificationCodes.put(1L, sentCode);
 
         VerifyCodeResponse response = verificationCodeService.verifyCode(
@@ -518,8 +526,8 @@ class VerificationCodeServiceTest {
     @DisplayName("만료된 인증 코드는 활성 ticket이 있어도 거부한다")
     void verifyCode_reusesActiveTicketAfterCodeExpiry() {
         VerificationCode sentCode = createSentCode(1L, "test@example.com", VerificationPurpose.FIND_ID, "123456");
-        sentCode.issueVerificationTicket("ticket-1", LocalDateTime.now().plusMinutes(5));
-        ReflectionTestUtils.setField(sentCode, "expiryDate", LocalDateTime.now().minusMinutes(1));
+        sentCode.issueVerificationTicket("ticket-1", FIXED_NOW.plusMinutes(5));
+        ReflectionTestUtils.setField(sentCode, "expiryDate", FIXED_NOW.minusMinutes(1));
         verificationCodes.put(1L, sentCode);
 
         assertThatThrownBy(() -> verificationCodeService.verifyCode(
@@ -538,7 +546,7 @@ class VerificationCodeServiceTest {
     @DisplayName("활성 ticket 재조회도 잘못된 코드는 거부한다")
     void verifyCode_rejectsInvalidCodeWhenActiveTicketExists() {
         VerificationCode sentCode = createSentCode(1L, "test@example.com", VerificationPurpose.FIND_ID, "123456");
-        sentCode.issueVerificationTicket("ticket-1", LocalDateTime.now().plusMinutes(5));
+        sentCode.issueVerificationTicket("ticket-1", FIXED_NOW.plusMinutes(5));
         verificationCodes.put(1L, sentCode);
 
         assertThatThrownBy(() -> verificationCodeService.verifyCode(
@@ -557,7 +565,7 @@ class VerificationCodeServiceTest {
     @DisplayName("만료된 인증 코드는 정상 메시지로 거부한다")
     void verifyCode_rejectsExpiredCodeWithReadableMessage() {
         VerificationCode sentCode = createSentCode(1L, "test@example.com", VerificationPurpose.SIGNUP, "123456");
-        ReflectionTestUtils.setField(sentCode, "expiryDate", LocalDateTime.now().minusMinutes(1));
+        ReflectionTestUtils.setField(sentCode, "expiryDate", FIXED_NOW.minusMinutes(1));
         verificationCodes.put(1L, sentCode);
 
         assertThatThrownBy(() -> verificationCodeService.verifyCode(
@@ -594,7 +602,7 @@ class VerificationCodeServiceTest {
     @DisplayName("이미 소비된 코드로는 새 ticket을 발급할 수 없다")
     void verifyCode_rejectsConsumedTicketCodeReuse() {
         VerificationCode sentCode = createSentCode(1L, "test@example.com", VerificationPurpose.PASSWORD_RESET, "123456");
-        sentCode.issueVerificationTicket("ticket-1", LocalDateTime.now().plusMinutes(5));
+        sentCode.issueVerificationTicket("ticket-1", FIXED_NOW.plusMinutes(5));
         sentCode.consumeVerificationTicket();
         verificationCodes.put(1L, sentCode);
 
@@ -630,7 +638,7 @@ class VerificationCodeServiceTest {
     @DisplayName("유효한 verification ticket은 한 번만 소비된다")
     void consumeVerificationTicket_marksConsumed() {
         VerificationCode sentCode = createSentCode(1L, "test@example.com", VerificationPurpose.FIND_ID, "123456");
-        sentCode.issueVerificationTicket("ticket-1", LocalDateTime.now().plusMinutes(5));
+        sentCode.issueVerificationTicket("ticket-1", FIXED_NOW.plusMinutes(5));
         verificationCodes.put(1L, sentCode);
 
         verificationCodeService.consumeVerificationTicket("test@example.com", VerificationPurpose.FIND_ID, "ticket-1");
@@ -651,7 +659,7 @@ class VerificationCodeServiceTest {
     @DisplayName("verification ticket 검증은 ticket을 소비하지 않는다")
     void validateVerificationTicket_keepsTicketActive() {
         VerificationCode sentCode = createSentCode(1L, "test@example.com", VerificationPurpose.PASSWORD_RESET, "123456");
-        sentCode.issueVerificationTicket("ticket-1", LocalDateTime.now().plusMinutes(5));
+        sentCode.issueVerificationTicket("ticket-1", FIXED_NOW.plusMinutes(5));
         verificationCodes.put(1L, sentCode);
 
         verificationCodeService.validateVerificationTicket(
@@ -675,7 +683,7 @@ class VerificationCodeServiceTest {
     @DisplayName("사전 검증된 verification ticket은 만료 시각이 지나도 소비할 수 있다")
     void consumeValidatedVerificationTicket_consumesTicketAfterExpiry() {
         VerificationCode sentCode = createSentCode(1L, "test@example.com", VerificationPurpose.PASSWORD_RESET, "123456");
-        sentCode.issueVerificationTicket("ticket-1", LocalDateTime.now().minusMinutes(1));
+        sentCode.issueVerificationTicket("ticket-1", FIXED_NOW.minusMinutes(1));
         verificationCodes.put(1L, sentCode);
 
         verificationCodeService.consumeValidatedVerificationTicket(
@@ -691,7 +699,7 @@ class VerificationCodeServiceTest {
     @DisplayName("다른 목적의 ticket은 소비할 수 없다")
     void consumeVerificationTicket_rejectsOtherPurpose() {
         VerificationCode sentCode = createSentCode(1L, "test@example.com", VerificationPurpose.SIGNUP, "123456");
-        sentCode.issueVerificationTicket("ticket-1", LocalDateTime.now().plusMinutes(5));
+        sentCode.issueVerificationTicket("ticket-1", FIXED_NOW.plusMinutes(5));
         verificationCodes.put(1L, sentCode);
 
         assertThatThrownBy(() -> verificationCodeService.consumeVerificationTicket(
@@ -707,7 +715,7 @@ class VerificationCodeServiceTest {
     @DisplayName("만료된 ticket은 소비할 수 없다")
     void consumeVerificationTicket_rejectsExpiredTicket() {
         VerificationCode sentCode = createSentCode(1L, "test@example.com", VerificationPurpose.CHANGE_EMAIL, "123456");
-        sentCode.issueVerificationTicket("ticket-1", LocalDateTime.now().minusMinutes(1));
+        sentCode.issueVerificationTicket("ticket-1", FIXED_NOW.minusMinutes(1));
         verificationCodes.put(1L, sentCode);
 
         assertThatThrownBy(() -> verificationCodeService.consumeVerificationTicket(
@@ -785,10 +793,10 @@ class VerificationCodeServiceTest {
                 .email(email)
                 .purpose(purpose)
                 .code(storedCode)
-                .expiryDate(LocalDateTime.now().plusMinutes(5))
+                .expiryDate(FIXED_NOW.plusMinutes(5))
                 .build();
         ReflectionTestUtils.setField(sentCode, "verificationId", verificationId);
-        ReflectionTestUtils.setField(sentCode, "createdAt", LocalDateTime.now().minusMinutes(1));
+        ReflectionTestUtils.setField(sentCode, "createdAt", FIXED_NOW.minusMinutes(1));
         sentCode.markSent();
         return sentCode;
     }
@@ -803,7 +811,7 @@ class VerificationCodeServiceTest {
                 .email(email)
                 .purpose(purpose)
                 .code(tokenHashService.hashSha256("123456"))
-                .expiryDate(LocalDateTime.now().plusMinutes(5))
+                .expiryDate(FIXED_NOW.plusMinutes(5))
                 .build();
         ReflectionTestUtils.setField(verificationCode, "verificationId", verificationId);
         ReflectionTestUtils.setField(verificationCode, "createdAt", createdAt);

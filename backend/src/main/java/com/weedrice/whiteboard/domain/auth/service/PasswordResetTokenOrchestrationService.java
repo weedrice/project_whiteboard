@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
@@ -29,6 +30,7 @@ public class PasswordResetTokenOrchestrationService {
     private final TransactionTemplate transactionTemplate;
     private final TokenHashService tokenHashService;
     private final VerificationCodeService verificationCodeService;
+    private final Clock clock;
 
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void sendPreparedPasswordResetEmail(
@@ -54,7 +56,7 @@ public class PasswordResetTokenOrchestrationService {
     @Transactional(propagation = Propagation.MANDATORY)
     public Long createPendingPasswordResetTokenForCurrentTransaction(User user, String rawToken) {
         String hashedToken = tokenHashService.hashSha256(rawToken);
-        LocalDateTime expiryDate = LocalDateTime.now().plusHours(1);
+        LocalDateTime expiryDate = LocalDateTime.now(clock).plusHours(1);
         PasswordResetToken passwordResetToken = PasswordResetToken.builder()
                 .token(hashedToken)
                 .user(user)

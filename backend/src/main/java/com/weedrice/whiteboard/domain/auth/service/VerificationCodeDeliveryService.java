@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.security.SecureRandom;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Objects;
 import java.util.concurrent.locks.ReentrantLock;
@@ -33,12 +34,13 @@ public class VerificationCodeDeliveryService {
     private final AuthMailDeliveryOrchestrationService mailDeliveryOrchestrationService;
     private final TokenHashService tokenHashService;
     private final TransactionTemplate transactionTemplate;
+    private final Clock clock;
     private final ReentrantLock[] verificationSendLocks = createVerificationSendLocks();
 
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void sendVerificationCode(String email, VerificationPurpose purpose) {
         String code = generateRandomCode();
-        LocalDateTime expiryDate = LocalDateTime.now().plusMinutes(5);
+        LocalDateTime expiryDate = now().plusMinutes(5);
         String body = VERIFICATION_EMAIL_BODY_TEMPLATE.formatted(code);
 
         mailDeliveryOrchestrationService.send(new AuthMailDeliveryOrchestrationService.MailDeliveryCommand(
@@ -81,7 +83,7 @@ public class VerificationCodeDeliveryService {
             LocalDateTime expiryDate) {
         final Long[] verificationIdHolder = new Long[1];
         transactionTemplate.executeWithoutResult(status -> {
-            validateVerificationSendRateLimit(email, purpose, LocalDateTime.now());
+            validateVerificationSendRateLimit(email, purpose, now());
             VerificationCode verificationCode = VerificationCode.builder()
                     .email(email)
                     .purpose(purpose)
@@ -199,7 +201,7 @@ public class VerificationCodeDeliveryService {
                 email,
                 purpose,
                 excludeVerificationId,
-                LocalDateTime.now());
+                now());
     }
 
     private String hashVerificationCode(String code) {
@@ -209,5 +211,9 @@ public class VerificationCodeDeliveryService {
     private String generateRandomCode() {
         int code = 100000 + SECURE_RANDOM.nextInt(900000);
         return String.valueOf(code);
+    }
+
+    private LocalDateTime now() {
+        return LocalDateTime.now(clock);
     }
 }

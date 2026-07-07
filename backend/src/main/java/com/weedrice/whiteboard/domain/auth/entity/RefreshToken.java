@@ -62,11 +62,11 @@ public class RefreshToken extends BaseTimeEntity {
         this.isRevoked = true;
     }
 
-    public boolean isExpired() {
-        return LocalDateTime.now().isAfter(expiresAt);
+    public boolean isExpiredAt(LocalDateTime now) {
+        return now.isAfter(expiresAt);
     }
 
-    public boolean isValid() {
-        return !isRevoked && !isExpired();
+    public boolean isValidAt(LocalDateTime now) {
+        return !isRevoked && !isExpiredAt(now);
     }
 }

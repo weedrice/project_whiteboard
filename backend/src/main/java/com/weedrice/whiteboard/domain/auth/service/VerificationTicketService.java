@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.UUID;
@@ -28,6 +29,7 @@ public class VerificationTicketService {
     private final VerificationCodeRepository verificationCodeRepository;
     private final TokenHashService tokenHashService;
     private final VerifyCodeResponseAssembler verifyCodeResponseAssembler;
+    private final Clock clock;
 
     @Transactional
     public VerifyCodeResponse verifyCode(String email, String code, VerificationPurpose purpose) {
@@ -35,12 +37,14 @@ public class VerificationTicketService {
 
         boolean codeMatches = matchesVerificationCode(verificationCode.getCode(), code);
 
-        if (verificationCode.isExpired()) {
+        LocalDateTime now = now();
+
+        if (verificationCode.isExpiredAt(now)) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR, EXPIRED_CODE_MESSAGE);
         }
 
         if (Boolean.TRUE.equals(verificationCode.getIsVerified())) {
-            if (verificationCode.hasActiveVerificationTicket()) {
+            if (verificationCode.hasActiveVerificationTicketAt(now)) {
                 if (!codeMatches) {
                     throw new BusinessException(ErrorCode.VALIDATION_ERROR, INVALID_CODE_MESSAGE);
                 }
@@ -58,7 +62,7 @@ public class VerificationTicketService {
 
         String verificationTicket = UUID.randomUUID().toString();
         invalidateOutstandingTickets(email, purpose, verificationCode.getVerificationId());
-        verificationCode.issueVerificationTicket(verificationTicket, LocalDateTime.now().plusMinutes(10));
+        verificationCode.issueVerificationTicket(verificationTicket, now.plusMinutes(10));
 
         return verifyCodeResponseAssembler.assemble(email, purpose, verificationTicket);
     }
@@ -86,7 +90,7 @@ public class VerificationTicketService {
             String verificationTicket) {
         VerificationCode verificationCode = getConsumableVerificationTicket(email, purpose, verificationTicket);
 
-        if (verificationCode.isVerificationTicketExpired()) {
+        if (verificationCode.isVerificationTicketExpiredAt(now())) {
             throw new BusinessException(ErrorCode.EMAIL_NOT_VERIFIED);
         }
 
@@ -99,7 +103,7 @@ public class VerificationTicketService {
             String verificationTicket) {
         VerificationCode verificationCode = getConsumableVerificationTicketWithoutLock(email, purpose, verificationTicket);
 
-        if (verificationCode.isVerificationTicketExpired()) {
+        if (verificationCode.isVerificationTicketExpiredAt(now())) {
             throw new BusinessException(ErrorCode.EMAIL_NOT_VERIFIED);
         }
 
@@ -143,7 +147,11 @@ public class VerificationTicketService {
                 email,
                 purpose,
                 excludeVerificationId,
-                LocalDateTime.now());
+                now());
+    }
+
+    private LocalDateTime now() {
+        return LocalDateTime.now(clock);
     }
 
     private VerificationCode getLatestSentVerificationCodeForUpdate(String email, VerificationPurpose purpose) {

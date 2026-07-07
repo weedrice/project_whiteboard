@@ -12,7 +12,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -25,6 +27,11 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class RefreshTokenLifecycleServiceTest {
 
+    private static final LocalDateTime FIXED_NOW = LocalDateTime.of(2026, 7, 7, 12, 0);
+    private static final Clock FIXED_CLOCK = Clock.fixed(
+            FIXED_NOW.toInstant(ZoneOffset.UTC),
+            ZoneOffset.UTC);
+
     @Mock
     private RefreshTokenRepository refreshTokenRepository;
 
@@ -36,7 +43,10 @@ class RefreshTokenLifecycleServiceTest {
 
     @BeforeEach
     void setUp() {
-        refreshTokenLifecycleService = new RefreshTokenLifecycleService(refreshTokenRepository, userRepository);
+        refreshTokenLifecycleService = new RefreshTokenLifecycleService(
+                refreshTokenRepository,
+                userRepository,
+                FIXED_CLOCK);
         user = User.builder()
                 .loginId("user")
                 .email("user@test.com")
@@ -56,7 +66,7 @@ class RefreshTokenLifecycleServiceTest {
         InOrder inOrder = inOrder(userRepository, refreshTokenRepository);
         inOrder.verify(userRepository).findByIdForUpdate(1L);
         inOrder.verify(refreshTokenRepository).revokeActiveTokensByUserId(eq(1L), nowCaptor.capture());
-        assertThat(nowCaptor.getValue()).isBeforeOrEqualTo(LocalDateTime.now());
+        assertThat(nowCaptor.getValue()).isEqualTo(FIXED_NOW);
     }
 
     @Test
@@ -67,7 +77,7 @@ class RefreshTokenLifecycleServiceTest {
 
         ArgumentCaptor<LocalDateTime> nowCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
         verify(refreshTokenRepository).revokeActiveTokensByUserId(eq(1L), nowCaptor.capture());
-        assertThat(nowCaptor.getValue()).isBeforeOrEqualTo(LocalDateTime.now());
+        assertThat(nowCaptor.getValue()).isEqualTo(FIXED_NOW);
     }
 
     @Test
@@ -77,6 +87,6 @@ class RefreshTokenLifecycleServiceTest {
         ArgumentCaptor<LocalDateTime> nowCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
         verify(userRepository, never()).findByIdForUpdate(1L);
         verify(refreshTokenRepository).revokeActiveTokensByUserId(eq(1L), nowCaptor.capture());
-        assertThat(nowCaptor.getValue()).isBeforeOrEqualTo(LocalDateTime.now());
+        assertThat(nowCaptor.getValue()).isEqualTo(FIXED_NOW);
     }
 }

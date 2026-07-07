@@ -88,8 +88,8 @@ public class VerificationCode extends BaseTimeEntity {
         return this.deliveryStatus == null || DELIVERY_STATUS_SENT.equals(this.deliveryStatus);
     }
 
-    public boolean isExpired() {
-        return LocalDateTime.now().isAfter(this.expiryDate);
+    public boolean isExpiredAt(LocalDateTime now) {
+        return now.isAfter(this.expiryDate);
     }
 
     public void issueVerificationTicket(String ticket, LocalDateTime ticketExpiryDate) {
@@ -109,14 +109,14 @@ public class VerificationCode extends BaseTimeEntity {
         clearVerificationTicket();
     }
 
-    public boolean hasActiveVerificationTicket() {
+    public boolean hasActiveVerificationTicketAt(LocalDateTime now) {
         return this.verificationTicket != null
                 && !Boolean.TRUE.equals(this.isTicketConsumed)
-                && !isVerificationTicketExpired();
+                && !isVerificationTicketExpiredAt(now);
     }
 
-    public boolean isVerificationTicketExpired() {
-        return this.ticketExpiryDate == null || LocalDateTime.now().isAfter(this.ticketExpiryDate);
+    public boolean isVerificationTicketExpiredAt(LocalDateTime now) {
+        return this.ticketExpiryDate == null || now.isAfter(this.ticketExpiryDate);
     }
 
     private void clearVerificationTicket() {

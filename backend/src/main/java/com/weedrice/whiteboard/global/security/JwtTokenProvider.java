@@ -12,6 +12,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
 import java.security.Key;
+import java.time.Clock;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Date;
@@ -28,16 +29,19 @@ public class JwtTokenProvider {
     private final long accessTokenValidityInMilliseconds;
     private final long refreshTokenValidityInMilliseconds;
     private final CustomUserDetailsService customUserDetailsService;
+    private final Clock clock;
 
     public JwtTokenProvider(@Value("${jwt.secret}") String secret,
                             @Value("${jwt.expiration}") long accessTokenValidityInMilliseconds,
                             @Value("${jwt.refresh-token.expiration}") long refreshTokenValidityInMilliseconds,
-                            CustomUserDetailsService customUserDetailsService) {
+                            CustomUserDetailsService customUserDetailsService,
+                            Clock clock) {
         byte[] keyBytes = Decoders.BASE64.decode(secret);
         this.key = Keys.hmacShaKeyFor(keyBytes);
         this.accessTokenValidityInMilliseconds = accessTokenValidityInMilliseconds;
         this.refreshTokenValidityInMilliseconds = refreshTokenValidityInMilliseconds;
         this.customUserDetailsService = customUserDetailsService;
+        this.clock = clock;
     }
 
     public String createAccessToken(Authentication authentication) {
@@ -46,8 +50,7 @@ public class JwtTokenProvider {
                 .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.joining(","));
 
-        long now = (new Date()).getTime();
-        Date validity = new Date(now + this.accessTokenValidityInMilliseconds);
+        Date validity = Date.from(clock.instant().plusMillis(this.accessTokenValidityInMilliseconds));
 
         return Jwts.builder()
                 .setSubject(authentication.getName())
@@ -60,8 +63,7 @@ public class JwtTokenProvider {
 
     public String createRefreshToken(Authentication authentication) {
         CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
-        long now = (new Date()).getTime();
-        Date validity = new Date(now + this.refreshTokenValidityInMilliseconds);
+        Date validity = Date.from(clock.instant().plusMillis(this.refreshTokenValidityInMilliseconds));
 
         return Jwts.builder()
                 .setSubject(authentication.getName())

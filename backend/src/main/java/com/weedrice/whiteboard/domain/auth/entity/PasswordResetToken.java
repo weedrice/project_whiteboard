@@ -71,7 +71,7 @@ public class PasswordResetToken extends BaseTimeEntity {
         return this.deliveryStatus == null || DELIVERY_STATUS_SENT.equals(this.deliveryStatus);
     }
 
-    public boolean isExpired() {
-        return LocalDateTime.now().isAfter(this.expiryDate);
+    public boolean isExpiredAt(LocalDateTime now) {
+        return now.isAfter(this.expiryDate);
     }
 }

@@ -19,6 +19,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -35,6 +36,7 @@ public class SessionTokenService {
     private final LoginAccountEligibilityService loginAccountEligibilityService;
     private final TokenHashService tokenHashService;
     private final TransactionTemplate transactionTemplate;
+    private final Clock clock;
 
     @Transactional
     public void logout(String token) {
@@ -69,7 +71,7 @@ public class SessionTokenService {
         RefreshToken refreshToken = renewalContext.refreshToken();
         User user = renewalContext.user();
 
-        if (!refreshToken.isValid()) {
+        if (!refreshToken.isValidAt(now())) {
             throw new BusinessException(ErrorCode.EXPIRED_REFRESH_TOKEN);
         }
 
@@ -125,9 +127,13 @@ public class SessionTokenService {
                 .tokenHash(refreshTokenHash)
                 .ipAddress(LoginClientMetadataNormalizer.normalizeIpAddress(ipAddress))
                 .deviceInfo(LoginClientMetadataNormalizer.normalizeDeviceInfo(userAgent))
-                .expiresAt(LocalDateTime.now().plus(getRefreshTokenValidityDuration()))
+                .expiresAt(now().plus(getRefreshTokenValidityDuration()))
                 .build();
         refreshTokenRepository.save(issuedRefreshToken);
+    }
+
+    private LocalDateTime now() {
+        return LocalDateTime.now(clock);
     }
 
     @Transactional

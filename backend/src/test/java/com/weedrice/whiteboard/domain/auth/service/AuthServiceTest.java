@@ -51,7 +51,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -78,6 +80,11 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
 class AuthServiceTest {
+
+    private static final LocalDateTime FIXED_NOW = LocalDateTime.of(2026, 7, 7, 12, 0);
+    private static final Clock FIXED_CLOCK = Clock.fixed(
+            FIXED_NOW.toInstant(ZoneOffset.UTC),
+            ZoneOffset.UTC);
 
     @Mock private UserRepository userRepository;
     @Mock private UserPointRepository userPointRepository;
@@ -114,7 +121,8 @@ class AuthServiceTest {
                 new CurrentUserSummaryAssembler(userPointRepository, userSettingsRepository);
         SessionTokenService sessionTokenService = new SessionTokenService(
                 userRepository, jwtTokenProvider, refreshTokenRepository, loginAccountEligibilityService, tokenHashService,
-                transactionTemplate);
+                transactionTemplate,
+                FIXED_CLOCK);
         PasswordResetTokenOrchestrationService passwordResetTokenOrchestrationService =
                 new PasswordResetTokenOrchestrationService(
                         passwordResetTokenRepository,
@@ -122,14 +130,15 @@ class AuthServiceTest {
                         new AuthMailDeliveryOrchestrationService(emailService),
                         transactionTemplate,
                         tokenHashService,
-                        verificationCodeService);
+                        verificationCodeService,
+                        FIXED_CLOCK);
         PasswordHistoryPolicy passwordHistoryPolicy =
                 new PasswordHistoryPolicy(passwordHistoryRepository, passwordEncoder);
         AuthAccountEligibilityPolicy authAccountEligibilityPolicy = new AuthAccountEligibilityPolicy();
         PasswordResetService passwordResetService = new PasswordResetService(
                 userRepository, verificationCodeService, passwordResetTokenRepository,
                 passwordHistoryPolicy, refreshTokenLifecycleService, tokenHashService,
-                passwordResetTokenOrchestrationService, transactionTemplate, authAccountEligibilityPolicy);
+                passwordResetTokenOrchestrationService, transactionTemplate, authAccountEligibilityPolicy, FIXED_CLOCK);
         SignupService signupService = new SignupService(
                 userRepository, pointService, userSettingsRepository,
                 socialAccountLinkService, verificationCodeService, globalConfigService,
@@ -179,7 +188,7 @@ class AuthServiceTest {
                 ReflectionTestUtils.setField(passwordResetToken, "tokenId", tokenIdSequence.getAndIncrement());
             }
             if (passwordResetToken.getCreatedAt() == null) {
-                ReflectionTestUtils.setField(passwordResetToken, "createdAt", LocalDateTime.now());
+                ReflectionTestUtils.setField(passwordResetToken, "createdAt", FIXED_NOW);
             }
             passwordResetTokens.put(passwordResetToken.getTokenId(), passwordResetToken);
             return passwordResetToken;
@@ -324,7 +333,7 @@ class AuthServiceTest {
     void signup_reregister_clearsDeletedAt() {
         SignupRequest request = signupRequest();
         ReflectionTestUtils.setField(user, "status", "DELETED");
-        ReflectionTestUtils.setField(user, "deletedAt", LocalDateTime.now().minusDays(1));
+        ReflectionTestUtils.setField(user, "deletedAt", FIXED_NOW.minusDays(1));
 
         when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.of(user));
         when(passwordEncoder.encode(request.getPassword())).thenReturn("encodedRejoinedPassword");
@@ -459,11 +468,11 @@ class AuthServiceTest {
         when(jwtTokenProvider.createRefreshToken(authentication)).thenReturn("refreshToken");
         when(jwtTokenProvider.getAccessTokenValidityInMilliseconds()).thenReturn(1800L);
         when(jwtTokenProvider.getRefreshTokenValidityInMilliseconds()).thenReturn(7_200_000L);
-        LocalDateTime beforeLogin = LocalDateTime.now();
+        LocalDateTime beforeLogin = FIXED_NOW;
 
         LoginResult response = authService.login(request, noMetadata());
 
-        LocalDateTime afterLogin = LocalDateTime.now();
+        LocalDateTime afterLogin = FIXED_NOW;
         assertThat(response.getUser().getTheme()).isEqualTo("LIGHT");
         verify(refreshTokenRepository).save(argThat(token ->
                 expectedRefreshTokenHash.equals(token.getTokenHash())
@@ -627,7 +636,7 @@ class AuthServiceTest {
                 .tokenHash(oldRefreshTokenHash)
                 .ipAddress("127.0.0.1")
                 .deviceInfo("browser")
-                .expiresAt(LocalDateTime.now().plusDays(7))
+                .expiresAt(FIXED_NOW.plusDays(7))
                 .build();
 
         when(jwtTokenProvider.validateToken("old-refresh-token")).thenReturn(true);
@@ -669,7 +678,7 @@ class AuthServiceTest {
                 .tokenHash(oldRefreshTokenHash)
                 .ipAddress("127.0.0.1")
                 .deviceInfo("browser")
-                .expiresAt(LocalDateTime.now().plusDays(7))
+                .expiresAt(FIXED_NOW.plusDays(7))
                 .build();
 
         when(jwtTokenProvider.validateToken("old-refresh-token")).thenReturn(true);
@@ -698,7 +707,7 @@ class AuthServiceTest {
                 .tokenHash(oldRefreshTokenHash)
                 .ipAddress("127.0.0.1")
                 .deviceInfo("browser")
-                .expiresAt(LocalDateTime.now().plusDays(7))
+                .expiresAt(FIXED_NOW.plusDays(7))
                 .build();
 
         when(jwtTokenProvider.validateToken("old-refresh-token")).thenReturn(true);
@@ -719,14 +728,14 @@ class AuthServiceTest {
     @Test
     @DisplayName("refresh fails and revokes token when active user has deleted timestamp")
     void refresh_fail_whenActiveUserHasDeletedAt_revokesToken() {
-        ReflectionTestUtils.setField(user, "deletedAt", LocalDateTime.now().minusDays(1));
+        ReflectionTestUtils.setField(user, "deletedAt", FIXED_NOW.minusDays(1));
         String oldRefreshTokenHash = new TokenHashService().hashSha256("old-refresh-token");
         RefreshToken refreshToken = RefreshToken.builder()
                 .user(user)
                 .tokenHash(oldRefreshTokenHash)
                 .ipAddress("127.0.0.1")
                 .deviceInfo("browser")
-                .expiresAt(LocalDateTime.now().plusDays(7))
+                .expiresAt(FIXED_NOW.plusDays(7))
                 .build();
 
         when(jwtTokenProvider.validateToken("old-refresh-token")).thenReturn(true);
@@ -753,7 +762,7 @@ class AuthServiceTest {
                 .tokenHash("different-token-hash")
                 .ipAddress("127.0.0.1")
                 .deviceInfo("browser")
-                .expiresAt(LocalDateTime.now().plusDays(7))
+                .expiresAt(FIXED_NOW.plusDays(7))
                 .build();
 
         when(jwtTokenProvider.validateToken("old-refresh-token")).thenReturn(true);
@@ -991,10 +1000,10 @@ class AuthServiceTest {
         PasswordResetToken passwordResetToken = PasswordResetToken.builder()
                 .token(hashedToken)
                 .user(user)
-                .expiryDate(LocalDateTime.now().plusMinutes(10))
+                .expiryDate(FIXED_NOW.plusMinutes(10))
                 .build();
         ReflectionTestUtils.setField(passwordResetToken, "tokenId", 1L);
-        ReflectionTestUtils.setField(passwordResetToken, "createdAt", LocalDateTime.now());
+        ReflectionTestUtils.setField(passwordResetToken, "createdAt", FIXED_NOW);
         passwordResetToken.markSent();
         passwordResetTokens.put(1L, passwordResetToken);
 

@@ -22,7 +22,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -47,6 +49,11 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
 class AuthPasswordResetMailFlowTest {
+
+    private static final LocalDateTime FIXED_NOW = LocalDateTime.of(2026, 7, 7, 12, 0);
+    private static final Clock FIXED_CLOCK = Clock.fixed(
+            FIXED_NOW.toInstant(ZoneOffset.UTC),
+            ZoneOffset.UTC);
 
     @Mock private UserRepository userRepository;
     @Mock private PasswordEncoder passwordEncoder;
@@ -73,13 +80,14 @@ class AuthPasswordResetMailFlowTest {
                         new AuthMailDeliveryOrchestrationService(emailService),
                         transactionTemplate,
                         tokenHashService,
-                        verificationCodeService);
+                        verificationCodeService,
+                        FIXED_CLOCK);
         PasswordHistoryPolicy passwordHistoryPolicy =
                 new PasswordHistoryPolicy(passwordHistoryRepository, passwordEncoder);
         passwordResetService = new PasswordResetService(
                 userRepository, verificationCodeService, passwordResetTokenRepository,
                 passwordHistoryPolicy, refreshTokenLifecycleService, tokenHashService,
-                passwordResetTokenOrchestrationService, transactionTemplate, new AuthAccountEligibilityPolicy());
+                passwordResetTokenOrchestrationService, transactionTemplate, new AuthAccountEligibilityPolicy(), FIXED_CLOCK);
 
         user = User.builder()
                 .loginId("testuser")
@@ -108,7 +116,7 @@ class AuthPasswordResetMailFlowTest {
                 ReflectionTestUtils.setField(passwordResetToken, "tokenId", tokenIdSequence.getAndIncrement());
             }
             if (passwordResetToken.getCreatedAt() == null) {
-                ReflectionTestUtils.setField(passwordResetToken, "createdAt", LocalDateTime.now());
+                ReflectionTestUtils.setField(passwordResetToken, "createdAt", FIXED_NOW);
             }
             passwordResetTokens.put(passwordResetToken.getTokenId(), passwordResetToken);
             return passwordResetToken;
@@ -162,10 +170,10 @@ class AuthPasswordResetMailFlowTest {
         PasswordResetToken previousToken = PasswordResetToken.builder()
                 .token("previous")
                 .user(user)
-                .expiryDate(LocalDateTime.now().plusMinutes(10))
+                .expiryDate(FIXED_NOW.plusMinutes(10))
                 .build();
         ReflectionTestUtils.setField(previousToken, "tokenId", 100L);
-        ReflectionTestUtils.setField(previousToken, "createdAt", LocalDateTime.now().minusMinutes(5));
+        ReflectionTestUtils.setField(previousToken, "createdAt", FIXED_NOW.minusMinutes(5));
         previousToken.markSent();
         passwordResetTokens.put(100L, previousToken);
 
@@ -203,10 +211,10 @@ class AuthPasswordResetMailFlowTest {
         PasswordResetToken previousToken = PasswordResetToken.builder()
                 .token("previous")
                 .user(user)
-                .expiryDate(LocalDateTime.now().plusMinutes(10))
+                .expiryDate(FIXED_NOW.plusMinutes(10))
                 .build();
         ReflectionTestUtils.setField(previousToken, "tokenId", 100L);
-        ReflectionTestUtils.setField(previousToken, "createdAt", LocalDateTime.now().minusMinutes(5));
+        ReflectionTestUtils.setField(previousToken, "createdAt", FIXED_NOW.minusMinutes(5));
         previousToken.markSent();
         passwordResetTokens.put(100L, previousToken);
 
@@ -353,10 +361,10 @@ class AuthPasswordResetMailFlowTest {
         PasswordResetToken previousToken = PasswordResetToken.builder()
                 .token("previous")
                 .user(user)
-                .expiryDate(LocalDateTime.now().plusMinutes(10))
+                .expiryDate(FIXED_NOW.plusMinutes(10))
                 .build();
         ReflectionTestUtils.setField(previousToken, "tokenId", 100L);
-        ReflectionTestUtils.setField(previousToken, "createdAt", LocalDateTime.now().minusMinutes(5));
+        ReflectionTestUtils.setField(previousToken, "createdAt", FIXED_NOW.minusMinutes(5));
         previousToken.markSent();
         passwordResetTokens.put(100L, previousToken);
 
@@ -423,10 +431,10 @@ class AuthPasswordResetMailFlowTest {
         PasswordResetToken pendingToken = PasswordResetToken.builder()
                 .token("hashed")
                 .user(user)
-                .expiryDate(LocalDateTime.now().plusMinutes(10))
+                .expiryDate(FIXED_NOW.plusMinutes(10))
                 .build();
         ReflectionTestUtils.setField(pendingToken, "tokenId", 1L);
-        ReflectionTestUtils.setField(pendingToken, "createdAt", LocalDateTime.now());
+        ReflectionTestUtils.setField(pendingToken, "createdAt", FIXED_NOW);
 
         when(passwordResetTokenRepository.findByTokenForUpdate(anyString())).thenReturn(Optional.of(pendingToken));
         assertThatThrownBy(() -> passwordResetService.resetPasswordWithToken("ignored", "newPassword123!"))
@@ -442,10 +450,10 @@ class AuthPasswordResetMailFlowTest {
         PasswordResetToken latestSentToken = PasswordResetToken.builder()
                 .token("latest-hashed")
                 .user(user)
-                .expiryDate(LocalDateTime.now().plusMinutes(10))
+                .expiryDate(FIXED_NOW.plusMinutes(10))
                 .build();
         ReflectionTestUtils.setField(latestSentToken, "tokenId", 7L);
-        ReflectionTestUtils.setField(latestSentToken, "createdAt", LocalDateTime.now());
+        ReflectionTestUtils.setField(latestSentToken, "createdAt", FIXED_NOW);
         latestSentToken.markSent();
 
         when(passwordResetTokenRepository.findByTokenForUpdate(anyString())).thenReturn(Optional.of(latestSentToken));
@@ -470,10 +478,10 @@ class AuthPasswordResetMailFlowTest {
         PasswordResetToken latestSentToken = PasswordResetToken.builder()
                 .token("latest-hashed")
                 .user(user)
-                .expiryDate(LocalDateTime.now().plusMinutes(10))
+                .expiryDate(FIXED_NOW.plusMinutes(10))
                 .build();
         ReflectionTestUtils.setField(latestSentToken, "tokenId", 8L);
-        ReflectionTestUtils.setField(latestSentToken, "createdAt", LocalDateTime.now());
+        ReflectionTestUtils.setField(latestSentToken, "createdAt", FIXED_NOW);
         latestSentToken.markSent();
 
         when(passwordResetTokenRepository.findByTokenForUpdate(anyString())).thenReturn(Optional.of(latestSentToken));
@@ -497,10 +505,10 @@ class AuthPasswordResetMailFlowTest {
         PasswordResetToken failedToken = PasswordResetToken.builder()
                 .token("hashed")
                 .user(user)
-                .expiryDate(LocalDateTime.now().plusMinutes(10))
+                .expiryDate(FIXED_NOW.plusMinutes(10))
                 .build();
         ReflectionTestUtils.setField(failedToken, "tokenId", 2L);
-        ReflectionTestUtils.setField(failedToken, "createdAt", LocalDateTime.now());
+        ReflectionTestUtils.setField(failedToken, "createdAt", FIXED_NOW);
         failedToken.markFailed();
 
         when(passwordResetTokenRepository.findByTokenForUpdate(anyString())).thenReturn(Optional.of(failedToken));
@@ -516,19 +524,19 @@ class AuthPasswordResetMailFlowTest {
         PasswordResetToken olderSentToken = PasswordResetToken.builder()
                 .token("older-hashed")
                 .user(user)
-                .expiryDate(LocalDateTime.now().plusMinutes(10))
+                .expiryDate(FIXED_NOW.plusMinutes(10))
                 .build();
         ReflectionTestUtils.setField(olderSentToken, "tokenId", 3L);
-        ReflectionTestUtils.setField(olderSentToken, "createdAt", LocalDateTime.now().minusMinutes(1));
+        ReflectionTestUtils.setField(olderSentToken, "createdAt", FIXED_NOW.minusMinutes(1));
         olderSentToken.markSent();
 
         PasswordResetToken latestSentToken = PasswordResetToken.builder()
                 .token("latest-hashed")
                 .user(user)
-                .expiryDate(LocalDateTime.now().plusMinutes(10))
+                .expiryDate(FIXED_NOW.plusMinutes(10))
                 .build();
         ReflectionTestUtils.setField(latestSentToken, "tokenId", 4L);
-        ReflectionTestUtils.setField(latestSentToken, "createdAt", LocalDateTime.now());
+        ReflectionTestUtils.setField(latestSentToken, "createdAt", FIXED_NOW);
         latestSentToken.markSent();
 
         when(passwordResetTokenRepository.findByTokenForUpdate(anyString())).thenReturn(Optional.of(olderSentToken));
@@ -546,10 +554,10 @@ class AuthPasswordResetMailFlowTest {
         PasswordResetToken latestSentToken = PasswordResetToken.builder()
                 .token("latest-hashed")
                 .user(user)
-                .expiryDate(LocalDateTime.now().plusMinutes(10))
+                .expiryDate(FIXED_NOW.plusMinutes(10))
                 .build();
         ReflectionTestUtils.setField(latestSentToken, "tokenId", 5L);
-        ReflectionTestUtils.setField(latestSentToken, "createdAt", LocalDateTime.now());
+        ReflectionTestUtils.setField(latestSentToken, "createdAt", FIXED_NOW);
         latestSentToken.markSent();
 
         when(passwordResetTokenRepository.findByTokenForUpdate(anyString())).thenReturn(Optional.of(latestSentToken));
@@ -581,10 +589,10 @@ class AuthPasswordResetMailFlowTest {
         PasswordResetToken latestUsedToken = PasswordResetToken.builder()
                 .token("latest-hashed")
                 .user(user)
-                .expiryDate(LocalDateTime.now().plusMinutes(10))
+                .expiryDate(FIXED_NOW.plusMinutes(10))
                 .build();
         ReflectionTestUtils.setField(latestUsedToken, "tokenId", 6L);
-        ReflectionTestUtils.setField(latestUsedToken, "createdAt", LocalDateTime.now());
+        ReflectionTestUtils.setField(latestUsedToken, "createdAt", FIXED_NOW);
         latestUsedToken.markSent();
         latestUsedToken.useToken();
 
