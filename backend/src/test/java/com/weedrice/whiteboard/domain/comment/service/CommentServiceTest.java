@@ -1798,9 +1798,9 @@ class CommentServiceTest {
         when(commentRepository.findByIdWithRelationsForUpdate(10L)).thenReturn(Optional.of(comment));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postRepository.decrementCommentCount(1L)).thenReturn(1);
-        when(pointHistoryRepository.sumPositiveAmountByUserAndTypeAndRelatedTypeAndRelatedId(
+        when(pointHistoryRepository.sumAmountByUserAndTypesAndRelatedTypeAndRelatedId(
                 user,
-                "EARN",
+                List.of("EARN", "REWARD_REVERSAL"),
                 "COMMENT",
                 10L))
                 .thenReturn(10L);
@@ -1849,9 +1849,9 @@ class CommentServiceTest {
         when(commentRepository.findByIdWithRelationsForUpdate(10L)).thenReturn(Optional.of(comment));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postRepository.decrementCommentCount(1L)).thenReturn(1);
-        when(pointHistoryRepository.sumPositiveAmountByUserAndTypeAndRelatedTypeAndRelatedId(
+        when(pointHistoryRepository.sumAmountByUserAndTypesAndRelatedTypeAndRelatedId(
                 user,
-                "EARN",
+                List.of("EARN", "REWARD_REVERSAL"),
                 "COMMENT",
                 10L))
                 .thenReturn(15L);
@@ -1877,9 +1877,9 @@ class CommentServiceTest {
         when(commentRepository.findByIdWithRelationsForUpdate(10L)).thenReturn(Optional.of(comment));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postRepository.decrementCommentCount(1L)).thenReturn(1);
-        when(pointHistoryRepository.sumPositiveAmountByUserAndTypeAndRelatedTypeAndRelatedId(
+        when(pointHistoryRepository.sumAmountByUserAndTypesAndRelatedTypeAndRelatedId(
                 user,
-                "EARN",
+                List.of("EARN", "REWARD_REVERSAL"),
                 "COMMENT",
                 10L))
                 .thenReturn(0L);

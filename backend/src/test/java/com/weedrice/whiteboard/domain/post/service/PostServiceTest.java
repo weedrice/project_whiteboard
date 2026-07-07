@@ -1289,8 +1289,8 @@ class PostServiceTest {
     void deletePost_success() {
         when(postRepository.findByIdWithRelationsForUpdate(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(pointHistoryRepository.sumPositiveAmountByUserAndTypeAndRelatedTypeAndRelatedId(
-                user, "EARN", "POST", 1L))
+        when(pointHistoryRepository.sumAmountByUserAndTypesAndRelatedTypeAndRelatedId(
+                user, List.of("EARN", "REWARD_REVERSAL"), "POST", 1L))
                 .thenReturn(50L);
 
         postService.deletePost(1L, 1L);
@@ -1316,8 +1316,8 @@ class PostServiceTest {
                 .build();
         ReflectionTestUtils.setField(agent, "agentId", 7L);
         ReflectionTestUtils.setField(post, "agent", agent);
-        when(pointHistoryRepository.sumPositiveAmountByUserAndTypeAndRelatedTypeAndRelatedId(
-                user, "EARN", "POST", 1L))
+        when(pointHistoryRepository.sumAmountByUserAndTypesAndRelatedTypeAndRelatedId(
+                user, List.of("EARN", "REWARD_REVERSAL"), "POST", 1L))
                 .thenReturn(50L);
 
         postCommandService.deleteAgentOwnedPost(post, 7L, user);
@@ -1335,8 +1335,8 @@ class PostServiceTest {
     void deletePost_withoutRewardHistory_skipsPointRollback() {
         when(postRepository.findByIdWithRelationsForUpdate(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(pointHistoryRepository.sumPositiveAmountByUserAndTypeAndRelatedTypeAndRelatedId(
-                user, "EARN", "POST", 1L))
+        when(pointHistoryRepository.sumAmountByUserAndTypesAndRelatedTypeAndRelatedId(
+                user, List.of("EARN", "REWARD_REVERSAL"), "POST", 1L))
                 .thenReturn(0L);
 
         postService.deletePost(1L, 1L);
@@ -3507,8 +3507,8 @@ class PostServiceTest {
 
         when(postRepository.findByIdWithRelationsForUpdate(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(pointHistoryRepository.sumPositiveAmountByUserAndTypeAndRelatedTypeAndRelatedId(
-                user, "EARN", "POST", 1L))
+        when(pointHistoryRepository.sumAmountByUserAndTypesAndRelatedTypeAndRelatedId(
+                user, List.of("EARN", "REWARD_REVERSAL"), "POST", 1L))
                 .thenReturn(0L);
 
         postService.deletePost(1L, 1L);
@@ -3530,8 +3530,8 @@ class PostServiceTest {
 
         when(postRepository.findByIdWithRelationsForUpdate(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(pointHistoryRepository.sumPositiveAmountByUserAndTypeAndRelatedTypeAndRelatedId(
-                user, "EARN", "POST", 1L))
+        when(pointHistoryRepository.sumAmountByUserAndTypesAndRelatedTypeAndRelatedId(
+                user, List.of("EARN", "REWARD_REVERSAL"), "POST", 1L))
                 .thenReturn(0L);
 
         postService.deletePost(1L, 1L);
