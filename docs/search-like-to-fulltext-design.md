@@ -30,7 +30,7 @@ CREATE INDEX IF NOT EXISTS idx_comments_content_trgm
     WHERE is_deleted = 'N';
 ```
 
-별도로 semantic search는 `pgvector` 기반 테이블과 HNSW 인덱스를 사용한다. 자세한 API 계약은 `docs/semantic-search-api-for-mcp.md`를 본다.
+별도로 semantic search는 `pgvector` 기반 테이블과 HNSW 인덱스를 사용한다. 관련 API와 운영 정책은 `backend/src/main/java/com/weedrice/whiteboard/domain/search/SEARCH_GUIDE.md`를 본다.
 
 ## 검색 경로
 
@@ -60,6 +60,7 @@ CREATE INDEX IF NOT EXISTS idx_comments_content_trgm
 - vector search가 가능하면 `similarity DESC, created_at DESC, content_id DESC` 기준으로 반환한다.
 - 비활성 상태 또는 embedding provider 장애 시 keyword fallback을 반환한다.
 - fallback도 기존 API envelope와 result schema를 유지한다.
+- 색인 및 scoped semantic 검색 대상은 활성 공개 스페이스의 비밀글이 아닌 post/comment로 제한한다.
 
 ## 운영 검증 항목
 

@@ -6,7 +6,7 @@
 - 검색 기록: 검색 시 검색어를 일(日) 단위로 집계(`search_statistics`), 로그인 사용자는 개인화 기록(`search_personalization`)을 최신 순으로 유지합니다.
 - 통합 검색: 게시글/댓글/사용자를 미리보기 형태로 최대 5건씩 조회하며, 차단 사용자 게시글을 제외하고 이미지 존재 여부를 계산합니다.
 - 게시글 검색: 검색 타입/스페이스 필터로 게시글만 검색하고 썸네일 여부(hasImage)를 포함합니다.
-- semantic 검색: pgvector embedding 검색을 수행하고, 비활성/장애 시 keyword fallback을 반환합니다.
+- semantic 검색: pgvector embedding 검색을 수행하고, 비활성/장애 시 keyword fallback을 반환합니다. semantic 색인과 scoped 검색은 활성 공개 스페이스의 비밀글이 아닌 post/comment만 대상으로 합니다.
 - backfill: 슈퍼관리자 API로 기존 post/comment embedding job을 enqueue합니다.
 - 최근 검색 관리: 최근 검색어 목록 조회, 단건 삭제, 전체 삭제 제공.
 - 인기 키워드: 일간/주간/월간 기간별 상위 키워드 목록 제공.

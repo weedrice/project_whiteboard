@@ -29,7 +29,7 @@ public class SemanticSearchService {
         SemanticSearchQueryContext context = transactionService.loadQueryContext(boardUrl, currentUserId);
 
         if (properties.isEnabled() && embeddingClient.isAvailable()) {
-            float[] queryEmbedding = embedOrFallback(canonicalKeyword, normalizedContentType, boardUrl);
+            float[] queryEmbedding = embedOrFallback(canonicalKeyword, normalizedContentType, context.boardUrl());
             if (queryEmbedding != null) {
                 SemanticSearchQuery query = new SemanticSearchQuery(
                         normalizedContentType,
