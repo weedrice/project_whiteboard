@@ -5,6 +5,7 @@ import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
 import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
+import com.weedrice.whiteboard.domain.board.util.BoardUrlNormalizer;
 import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.post.dto.DraftListResponse;
 import com.weedrice.whiteboard.domain.post.dto.DraftResponse;
@@ -73,7 +74,8 @@ public class PostDraftService {
     public DraftResponse saveDraftPost(@NonNull Long userId, PostDraftRequest request) {
         User user = userWritableResolver.resolve(userId);
         sanctionService.validateNotMuted(user);
-        Board board = boardRepository.findByBoardUrl(request.getBoardUrl())
+        String normalizedBoardUrl = BoardUrlNormalizer.normalizeLookup(request.getBoardUrl());
+        Board board = boardRepository.findByBoardUrl(normalizedBoardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
         postAuthorCommandPolicy.validateBoardWritable(board, user);
 

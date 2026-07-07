@@ -14,8 +14,10 @@ import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository.TopBoardPostCountProjection;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
+import com.weedrice.whiteboard.domain.board.util.BoardUrlNormalizer;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.service.PostService;
+import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
@@ -130,7 +132,8 @@ class BoardQueryService {
     }
 
     BoardDetailResponse getBoardDetails(String boardUrl, Long userId) {
-        Board board = boardRepository.findByBoardUrl(boardUrl)
+        String normalizedBoardUrl = BoardUrlNormalizer.normalizeLookup(boardUrl);
+        Board board = boardRepository.findByBoardUrl(normalizedBoardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
         User currentUser = getCurrentUserByIdOrNull(userId);
         boardAccessPolicy.validateReadable(board, currentUser);
@@ -139,7 +142,8 @@ class BoardQueryService {
     }
 
     List<CategoryResponse> getActiveCategories(String boardUrl, Long userId) {
-        Board board = boardRepository.findByBoardUrl(boardUrl)
+        String normalizedBoardUrl = BoardUrlNormalizer.normalizeLookup(boardUrl);
+        Board board = boardRepository.findByBoardUrl(normalizedBoardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
         User currentUser = getCurrentUserByIdOrNull(userId);
         boardAccessPolicy.validateReadable(board, currentUser);
@@ -150,7 +154,8 @@ class BoardQueryService {
     }
 
     List<PostSummary> getNoticeSummaries(String boardUrl, Long currentUserId) {
-        Board board = boardRepository.findByBoardUrl(boardUrl)
+        String normalizedBoardUrl = BoardUrlNormalizer.normalizeLookup(boardUrl);
+        Board board = boardRepository.findByBoardUrl(normalizedBoardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
         if (boardAccessPolicy.isInquiryBoard(board)) {
             throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
@@ -213,7 +218,8 @@ class BoardQueryService {
 
     Page<BoardManagerCandidateResponse> getBoardManagerCandidates(String boardUrl, Long currentUserId,
             String keyword, Pageable pageable) {
-        Board board = boardRepository.findByBoardUrl(boardUrl)
+        String normalizedBoardUrl = BoardUrlNormalizer.normalizeLookup(boardUrl);
+        Board board = boardRepository.findByBoardUrl(normalizedBoardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
         User currentUser = getCurrentUserByIdOrNull(currentUserId);
         boardAccessPolicy.validateBoardAdmin(board, currentUser);
@@ -259,13 +265,7 @@ class BoardQueryService {
     }
 
     private Pageable fixedSubscriptionOrderPageable(Pageable pageable) {
-        if (pageable == null) {
-            return PageRequest.of(0, 20);
-        }
-        if (pageable.isUnpaged()) {
-            return Pageable.unpaged();
-        }
-        return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
+        return PageRequestUtils.of(pageable, 20);
     }
 
     private Set<Long> resolveActiveAdminBoardIds(User user, List<BoardSubscription> subscriptions) {

@@ -5,6 +5,7 @@ import com.weedrice.whiteboard.domain.board.entity.BoardSubscription;
 import com.weedrice.whiteboard.domain.board.entity.BoardSubscriptionId;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
+import com.weedrice.whiteboard.domain.board.util.BoardUrlNormalizer;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -41,7 +42,8 @@ class BoardSubscriptionService {
 
     void subscribeBoard(Long userId, String boardUrl) {
         User user = userWritableResolver.resolveForUpdate(userId);
-        Board board = boardRepository.findByBoardUrl(boardUrl)
+        String normalizedBoardUrl = BoardUrlNormalizer.normalizeLookup(boardUrl);
+        Board board = boardRepository.findByBoardUrl(normalizedBoardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
 
         boardAccessPolicy.validateReadable(board, user);
@@ -64,7 +66,8 @@ class BoardSubscriptionService {
 
     void unsubscribeBoard(Long userId, String boardUrl) {
         User user = userWritableResolver.resolve(userId);
-        Board board = boardRepository.findByBoardUrl(boardUrl)
+        String normalizedBoardUrl = BoardUrlNormalizer.normalizeLookup(boardUrl);
+        Board board = boardRepository.findByBoardUrl(normalizedBoardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
 
         BoardSubscription subscription = boardSubscriptionRepository
@@ -78,8 +81,9 @@ class BoardSubscriptionService {
         if (boardUrls == null) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
-        Set<String> requestedBoardUrls = new LinkedHashSet<>(boardUrls);
-        if (requestedBoardUrls.isEmpty() || requestedBoardUrls.size() != boardUrls.size()) {
+        List<String> normalizedBoardUrls = BoardUrlNormalizer.normalizeOrderList(boardUrls);
+        Set<String> requestedBoardUrls = new LinkedHashSet<>(normalizedBoardUrls);
+        if (requestedBoardUrls.isEmpty() || requestedBoardUrls.size() != normalizedBoardUrls.size()) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
 
@@ -105,14 +109,14 @@ class BoardSubscriptionService {
                         sub -> sub));
         int temporarySortOrderBase = boardSubscriptionRepository.findMaxSortOrder(user) + subscriptions.size();
         try {
-            for (int i = 0; i < boardUrls.size(); i++) {
-                subscriptionByBoardUrl.get(boardUrls.get(i)).updateSortOrder(temporarySortOrderBase + i + 1);
+            for (int i = 0; i < normalizedBoardUrls.size(); i++) {
+                subscriptionByBoardUrl.get(normalizedBoardUrls.get(i)).updateSortOrder(temporarySortOrderBase + i + 1);
             }
             boardSubscriptionRepository.saveAll(subscriptions);
             boardSubscriptionRepository.flush();
 
-            for (int i = 0; i < boardUrls.size(); i++) {
-                subscriptionByBoardUrl.get(boardUrls.get(i)).updateSortOrder(requestedSortOrders.get(i));
+            for (int i = 0; i < normalizedBoardUrls.size(); i++) {
+                subscriptionByBoardUrl.get(normalizedBoardUrls.get(i)).updateSortOrder(requestedSortOrders.get(i));
             }
             boardSubscriptionRepository.saveAll(subscriptions);
             boardSubscriptionRepository.flush();

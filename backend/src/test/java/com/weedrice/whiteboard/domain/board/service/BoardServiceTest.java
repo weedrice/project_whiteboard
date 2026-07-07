@@ -705,6 +705,29 @@ class BoardServiceTest {
 
     @Test
     @DisplayName("노드 생성 상세 응답은 저장 후 상세 조회 결과를 반환한다")
+    void createBoard_normalizesBoardUrlBeforeSave() {
+        Long creatorId = 1L;
+        BoardCreateRequest request = new BoardCreateRequest("New Board", " trimmed-board ", null, null, true);
+
+        when(userRepository.findById(creatorId)).thenReturn(Optional.of(user));
+        when(globalConfigService.getConfig("POINT_BOARD_CREATE_COST")).thenReturn("0");
+        when(boardRepository.findMaxSortOrder()).thenReturn(0);
+        when(boardRepository.saveAndFlush(any(Board.class))).thenAnswer(invocation -> {
+            Board savedBoard = invocation.getArgument(0);
+            ReflectionTestUtils.setField(savedBoard, "boardId", 3L);
+            return savedBoard;
+        });
+        when(boardCategoryRepository.save(any(BoardCategory.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        BoardCommandResult result = boardService.createBoard(creatorId, request);
+
+        assertThat(result.boardUrl()).isEqualTo("trimmed-board");
+        verify(boardRepository).saveAndFlush(argThat(savedBoard ->
+                "trimmed-board".equals(savedBoard.getBoardUrl())));
+    }
+
+    @Test
+    @DisplayName("?몃뱶 ?앹꽦 ?곸꽭 ?묐떟? ??????곸꽭 議고쉶 寃곌낵瑜?諛섑솚?쒕떎")
     void createBoardDetail_returnsDetailAfterCreate() {
         Long creatorId = 1L;
         BoardCreateRequest request = new BoardCreateRequest("New Board", "new-board", "New Description", null, null);
@@ -885,6 +908,21 @@ class BoardServiceTest {
         inOrder.verify(boardRepository).findByBoardUrlForUpdate("test-board");
         inOrder.verify(boardRepository).saveAndFlush(board);
         inOrder.verify(boardRepository).findByBoardUrl("updated-board");
+    }
+
+    @Test
+    @DisplayName("Private board update disables agent use")
+    void updateBoard_normalizesPathAndRequestedBoardUrl() {
+        BoardUpdateRequest request = createBoardUpdateRequest("Updated Board", " updated-board ", null);
+
+        when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
+        when(boardRepository.saveAndFlush(board)).thenReturn(board);
+
+        BoardCommandResult result = boardService.updateBoard(" test-board ", request, 1L);
+
+        assertThat(result.boardUrl()).isEqualTo("updated-board");
+        assertThat(board.getBoardUrl()).isEqualTo("updated-board");
+        verify(boardRepository).findByBoardUrlForUpdate("test-board");
     }
 
     @Test
@@ -1894,6 +1932,51 @@ class BoardServiceTest {
     }
 
     @Test
+    @DisplayName("내 구독 목록은 null pageable을 기본 페이지 요청으로 정규화한다")
+    void getMySubscriptions_normalizesNullPageable() {
+        BoardSubscription subscription = BoardSubscription.builder()
+                .user(user)
+                .board(board)
+                .role("MEMBER")
+                .sortOrder(1)
+                .build();
+        PageRequest fixedPageable = PageRequest.of(0, 20);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(boardSubscriptionRepository.findVisibleByUserOrderBySortOrderAsc(
+                user, false, fixedPageable))
+                .thenReturn(new PageImpl<>(List.of(subscription), fixedPageable, 1));
+
+        var result = boardService.getMySubscriptions(1L, null);
+
+        assertThat(result.getPageable()).isEqualTo(fixedPageable);
+        verify(boardSubscriptionRepository).findVisibleByUserOrderBySortOrderAsc(user, false, fixedPageable);
+    }
+
+    @Test
+    @DisplayName("내 구독 목록은 과도한 페이지 크기를 제한한다")
+    void getMySubscriptions_capsOversizedPageable() {
+        BoardSubscription subscription = BoardSubscription.builder()
+                .user(user)
+                .board(board)
+                .role("MEMBER")
+                .sortOrder(1)
+                .build();
+        PageRequest requestedPageable = PageRequest.of(0, 200);
+        PageRequest fixedPageable = PageRequest.of(0, 100);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(boardSubscriptionRepository.findVisibleByUserOrderBySortOrderAsc(
+                user, false, fixedPageable))
+                .thenReturn(new PageImpl<>(List.of(subscription), fixedPageable, 1));
+
+        var result = boardService.getMySubscriptions(1L, requestedPageable);
+
+        assertThat(result.getPageable().getPageSize()).isEqualTo(100);
+        verify(boardSubscriptionRepository).findVisibleByUserOrderBySortOrderAsc(user, false, fixedPageable);
+    }
+
+    @Test
     @DisplayName("구독 순서 변경은 전체 목록이 일치할 때만 1..N으로 재기록한다")
     void updateSubscriptionOrder_rewritesAllSortOrders() {
         Board secondBoard = Board.builder()
@@ -1933,6 +2016,53 @@ class BoardServiceTest {
 
     @Test
     @DisplayName("구독 순서 변경은 현재 전체 구독 목록과 정확히 일치하지 않으면 거부한다")
+    void updateSubscriptionOrder_normalizesRequestedBoardUrls() {
+        Board secondBoard = Board.builder()
+                .boardName("Second Board")
+                .boardUrl("second-board")
+                .creator(user)
+                .build();
+        ReflectionTestUtils.setField(secondBoard, "boardId", 2L);
+
+        BoardSubscription firstSubscription = BoardSubscription.builder()
+                .user(user)
+                .board(board)
+                .role("MEMBER")
+                .sortOrder(1)
+                .build();
+        BoardSubscription secondSubscription = BoardSubscription.builder()
+                .user(user)
+                .board(secondBoard)
+                .role("MEMBER")
+                .sortOrder(2)
+                .build();
+
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(boardSubscriptionRepository.findReorderableByUser(user, false))
+                .thenReturn(List.of(firstSubscription, secondSubscription));
+        when(boardSubscriptionRepository.findMaxSortOrder(user)).thenReturn(2);
+
+        boardService.updateSubscriptionOrder(1L, List.of(" second-board ", " test-board "));
+
+        assertThat(firstSubscription.getSortOrder()).isEqualTo(2);
+        assertThat(secondSubscription.getSortOrder()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("구독 순서 변경은 정규화 후 중복되는 보드 URL을 거부한다")
+    void updateSubscriptionOrder_rejectsDuplicateAfterNormalization() {
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> boardService.updateSubscriptionOrder(1L, List.of("test-board", " test-board ")));
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+        verify(boardSubscriptionRepository, never()).findReorderableByUser(any(), anyBoolean());
+        verify(boardSubscriptionRepository, never()).saveAll(any());
+    }
+
+    @Test
+    @DisplayName("援щ룆 ?쒖꽌 蹂寃쎌? ?꾩옱 ?꾩껜 援щ룆 紐⑸줉怨??뺥솗???쇱튂?섏? ?딆쑝硫?嫄곕??쒕떎")
     void updateSubscriptionOrder_rejectsMismatch() {
         BoardSubscription subscription = BoardSubscription.builder()
                 .user(user)

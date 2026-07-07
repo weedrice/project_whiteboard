@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.board.dto;
 
+import com.weedrice.whiteboard.domain.board.util.BoardUrlNormalizer;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -18,7 +19,7 @@ public class BoardUpdateRequest {
     private String description;
 
     @Size(max = 100)
-    @Pattern(regexp = "^[a-z0-9_]+$", message = "{validation.board.url.pattern}")
+    @Pattern(regexp = BoardUrlNormalizer.BOARD_URL_PATTERN, message = "{validation.board.url.pattern}")
     private String boardUrl;
 
     @Size(max = 255)

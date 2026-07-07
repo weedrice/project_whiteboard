@@ -1,7 +1,7 @@
 import type { BoardDetail } from '@/types'
 import { isEmpty } from '@/utils/validation'
 
-const BOARD_URL_DISALLOWED_INPUT_PATTERN = /[^a-z_]/g
+const BOARD_URL_DISALLOWED_INPUT_PATTERN = /[^a-z0-9_-]/g
 const GENERAL_CATEGORY_NAMES = new Set(['일반', 'general'])
 
 type BoardWriteContext = Pick<BoardDetail, 'categories' | 'isAdmin'>

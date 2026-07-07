@@ -50,7 +50,7 @@ describe('useAdminBoardCreateModal', () => {
     const modal = useAdminBoardCreateModal(createBoard)
     Object.assign(modal.createForm, {
       boardName: '  Free Board  ',
-      boardUrl: 'Free Board!',
+      boardUrl: 'Free-Board_1!',
       description: '  Description  ',
       iconUrl: '  https://example.com/icon.png  ',
       agentUseYn: true,
@@ -62,7 +62,7 @@ describe('useAdminBoardCreateModal', () => {
 
     expect(createBoard).toHaveBeenCalledWith(expect.objectContaining({
       boardName: 'Free Board',
-      boardUrl: 'freeboard',
+      boardUrl: 'free-board_1',
       description: 'Description',
       iconUrl: 'https://example.com/icon.png',
       agentUseYn: true,

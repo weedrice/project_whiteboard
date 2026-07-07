@@ -10,6 +10,7 @@ import com.weedrice.whiteboard.domain.board.dto.CategoryRequest;
 import com.weedrice.whiteboard.domain.board.dto.CategoryResponse;
 import com.weedrice.whiteboard.domain.board.dto.SubscriptionBoardResponse;
 import com.weedrice.whiteboard.domain.board.entity.Board;
+import com.weedrice.whiteboard.domain.board.util.BoardUrlNormalizer;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -69,18 +70,18 @@ public class BoardService {
     }
 
     public BoardDetailResponse getBoardDetails(String boardUrl, Long userId) {
-        validatePublicBoardPath(boardUrl);
-        return queryService.getBoardDetails(boardUrl, userId);
+        String normalizedBoardUrl = validatePublicBoardPath(boardUrl);
+        return queryService.getBoardDetails(normalizedBoardUrl, userId);
     }
 
     public List<CategoryResponse> getActiveCategories(String boardUrl, Long userId) {
-        validatePublicBoardPath(boardUrl);
-        return queryService.getActiveCategories(boardUrl, userId);
+        String normalizedBoardUrl = validatePublicBoardPath(boardUrl);
+        return queryService.getActiveCategories(normalizedBoardUrl, userId);
     }
 
     public List<PostSummary> getNoticeSummaries(String boardUrl, Long currentUserId) {
-        validatePublicBoardPath(boardUrl);
-        return queryService.getNoticeSummaries(boardUrl, currentUserId);
+        String normalizedBoardUrl = validatePublicBoardPath(boardUrl);
+        return queryService.getNoticeSummaries(normalizedBoardUrl, currentUserId);
     }
 
     @Transactional
@@ -90,14 +91,14 @@ public class BoardService {
 
     @Transactional
     public void subscribeBoard(Long userId, String boardUrl) {
-        validatePublicBoardPath(boardUrl);
-        subscriptionService.subscribeBoard(userId, boardUrl);
+        String normalizedBoardUrl = validatePublicBoardPath(boardUrl);
+        subscriptionService.subscribeBoard(userId, normalizedBoardUrl);
     }
 
     @Transactional
     public void unsubscribeBoard(Long userId, String boardUrl) {
-        validatePublicBoardPath(boardUrl);
-        subscriptionService.unsubscribeBoard(userId, boardUrl);
+        String normalizedBoardUrl = validatePublicBoardPath(boardUrl);
+        subscriptionService.unsubscribeBoard(userId, normalizedBoardUrl);
     }
 
     public Page<SubscriptionBoardResponse> getMySubscriptions(Long userId, Pageable pageable) {
@@ -110,8 +111,8 @@ public class BoardService {
 
     public Page<BoardManagerCandidateResponse> getBoardManagerCandidates(String boardUrl, Long userId,
             String keyword, Pageable pageable) {
-        validatePublicBoardPath(boardUrl);
-        return queryService.getBoardManagerCandidates(boardUrl, userId, keyword, pageable);
+        String normalizedBoardUrl = validatePublicBoardPath(boardUrl);
+        return queryService.getBoardManagerCandidates(normalizedBoardUrl, userId, keyword, pageable);
     }
 
     @Transactional
@@ -123,29 +124,29 @@ public class BoardService {
 
     @Transactional
     public BoardCommandResult updateBoard(String boardUrl, BoardUpdateRequest request, Long userId) {
-        validatePublicBoardPath(boardUrl);
-        BoardUpdateCommandResult result = boardCommandService.updateBoard(boardUrl, request, userId);
+        String normalizedBoardUrl = validatePublicBoardPath(boardUrl);
+        BoardUpdateCommandResult result = boardCommandService.updateBoard(normalizedBoardUrl, request, userId);
         provisioningSideEffectService.applyUpdateSideEffects(result);
         return new BoardCommandResult(result.board().getBoardUrl());
     }
 
     @Transactional
     public BoardCommandResult transferBoardManager(String boardUrl, String loginId, Long userId) {
-        validatePublicBoardPath(boardUrl);
-        provisioningService.transferBoardManager(boardUrl, loginId, userId);
-        return new BoardCommandResult(boardUrl);
+        String normalizedBoardUrl = validatePublicBoardPath(boardUrl);
+        provisioningService.transferBoardManager(normalizedBoardUrl, loginId, userId);
+        return new BoardCommandResult(normalizedBoardUrl);
     }
 
     @Transactional
     public void deleteBoard(String boardUrl, Long userId) {
-        validatePublicBoardPath(boardUrl);
-        provisioningService.deleteBoard(boardUrl, userId);
+        String normalizedBoardUrl = validatePublicBoardPath(boardUrl);
+        provisioningService.deleteBoard(normalizedBoardUrl, userId);
     }
 
     @Transactional
     public CategoryResponse createCategory(String boardUrl, CategoryRequest request, Long userId) {
-        validatePublicBoardPath(boardUrl);
-        return categoryService.createCategory(boardUrl, request, userId);
+        String normalizedBoardUrl = validatePublicBoardPath(boardUrl);
+        return categoryService.createCategory(normalizedBoardUrl, request, userId);
     }
 
     @Transactional
@@ -163,9 +164,11 @@ public class BoardService {
         subscriptionService.updateSubscriptionOrder(userId, boardUrls);
     }
 
-    private void validatePublicBoardPath(String boardUrl) {
-        if (boardAccessPolicy.isInquiryBoardUrl(boardUrl)) {
+    private String validatePublicBoardPath(String boardUrl) {
+        String normalizedBoardUrl = BoardUrlNormalizer.normalizeLookup(boardUrl);
+        if (boardAccessPolicy.isInquiryBoardUrl(normalizedBoardUrl)) {
             throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
         }
+        return normalizedBoardUrl;
     }
 }

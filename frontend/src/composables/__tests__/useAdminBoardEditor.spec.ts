@@ -87,7 +87,7 @@ describe('useAdminBoardEditor', () => {
       boardUrl: 'old_url',
       data: expect.objectContaining({
         boardName: 'New',
-        boardUrl: 'newurl_',
+        boardUrl: 'new-url_',
         sortOrder: 1
       })
     })

@@ -5,6 +5,7 @@ import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
 import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
+import com.weedrice.whiteboard.domain.board.util.BoardUrlNormalizer;
 import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.point.service.ContentRewardPolicy;
 import com.weedrice.whiteboard.domain.point.service.ContentRewardService;
@@ -52,7 +53,8 @@ public class PostCommandService {
 
     @Transactional
     public Long createPost(@NonNull Long userId, String boardUrl, PostCreateRequest request) {
-        Board board = boardRepository.findByBoardUrl(boardUrl)
+        String normalizedBoardUrl = BoardUrlNormalizer.normalizeLookup(boardUrl);
+        Board board = boardRepository.findByBoardUrl(normalizedBoardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
         return createPost(userId, null, board.getBoardId(), request, new PostCreateContext(null, board, null, false))
                 .getPostId();
@@ -61,7 +63,8 @@ public class PostCommandService {
     @Transactional
     public Long createPostAsAgent(@NonNull Long userId, @NonNull Long agentId, String boardUrl,
             PostCreateRequest request) {
-        Board board = boardRepository.findByBoardUrl(boardUrl)
+        String normalizedBoardUrl = BoardUrlNormalizer.normalizeLookup(boardUrl);
+        Board board = boardRepository.findByBoardUrl(normalizedBoardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
         return createPost(userId, agentId, board.getBoardId(), request, new PostCreateContext(null, board, null, false))
                 .getPostId();

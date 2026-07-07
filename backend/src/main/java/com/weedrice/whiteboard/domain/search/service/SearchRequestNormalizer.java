@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.search.service;
 
+import com.weedrice.whiteboard.domain.board.util.BoardUrlNormalizer;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -40,8 +41,10 @@ public final class SearchRequestNormalizer {
         if (boardUrl == null) {
             return null;
         }
-        String canonicalBoardUrl = boardUrl.trim();
-        return canonicalBoardUrl.isEmpty() ? null : canonicalBoardUrl;
+        if (boardUrl.isBlank()) {
+            return null;
+        }
+        return BoardUrlNormalizer.normalizeLookup(boardUrl);
     }
 
     private static String canonicalizeKeyword(String keyword, boolean required) {

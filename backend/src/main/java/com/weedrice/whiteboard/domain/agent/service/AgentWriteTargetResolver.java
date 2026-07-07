@@ -7,6 +7,7 @@ import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
 import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
+import com.weedrice.whiteboard.domain.board.util.BoardUrlNormalizer;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.post.entity.Post;
@@ -27,7 +28,8 @@ class AgentWriteTargetResolver {
     private final AgentWritePolicy agentWritePolicy;
 
     Board resolveBoardForPost(String boardUrl, String action, AgentPolicySnapshot policy) {
-        return boardRepository.findByBoardUrlForUpdate(boardUrl)
+        String normalizedBoardUrl = BoardUrlNormalizer.normalizeLookup(boardUrl);
+        return boardRepository.findByBoardUrlForUpdate(normalizedBoardUrl)
                 .orElseThrow(() -> agentWritePolicy.writeException(
                         AgentWriteErrorCode.BOARD_NOT_FOUND,
                         action,

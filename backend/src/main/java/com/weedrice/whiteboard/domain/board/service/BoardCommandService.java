@@ -1,11 +1,11 @@
 package com.weedrice.whiteboard.domain.board.service;
 
 import com.weedrice.whiteboard.domain.admin.service.AdminEligibleUserService;
-import com.weedrice.whiteboard.domain.board.constant.BoardPolicyConstants;
 import com.weedrice.whiteboard.domain.board.dto.BoardCreateRequest;
 import com.weedrice.whiteboard.domain.board.dto.BoardUpdateRequest;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
+import com.weedrice.whiteboard.domain.board.util.BoardUrlNormalizer;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.common.util.TextInputNormalizer;
@@ -38,14 +38,13 @@ class BoardCommandService {
         User creator = getCurrentUser(creatorId);
         adminEligibleUserService.validateActiveUser(creator);
         String iconUrl = normalizeIconUrl(request.getIconUrl());
-
-        validateCreatableBoardUrl(request.getBoardUrl());
+        String boardUrl = BoardUrlNormalizer.normalizeCreatable(request.getBoardUrl());
 
         Integer maxSortOrder = boardRepository.findMaxSortOrder();
 
         Board board = Board.builder()
                 .boardName(request.getBoardName())
-                .boardUrl(request.getBoardUrl())
+                .boardUrl(boardUrl)
                 .description(normalizeDescription(request.getDescription()))
                 .creator(creator)
                 .iconUrl(iconUrl)
@@ -64,7 +63,8 @@ class BoardCommandService {
     }
 
     BoardUpdateCommandResult updateBoard(String boardUrl, BoardUpdateRequest request, Long userId) {
-        Board board = boardRepository.findByBoardUrlForUpdate(boardUrl)
+        String currentBoardUrl = BoardUrlNormalizer.normalizeLookup(boardUrl);
+        Board board = boardRepository.findByBoardUrlForUpdate(currentBoardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
         User currentUser = getCurrentUser(userId);
         String previousIconUrl = board.getIconUrl();
@@ -75,9 +75,9 @@ class BoardCommandService {
 
         boardAccessPolicy.validateBoardAdmin(board, currentUser);
 
-        if (request.getBoardUrl() != null && !Objects.equals(board.getBoardUrl(), request.getBoardUrl())) {
-            validateCreatableBoardUrl(request.getBoardUrl());
-            board.updateBoardUrl(request.getBoardUrl());
+        String requestedBoardUrl = BoardUrlNormalizer.normalizeOptionalCreatable(request.getBoardUrl());
+        if (requestedBoardUrl != null && !Objects.equals(board.getBoardUrl(), requestedBoardUrl)) {
+            board.updateBoardUrl(requestedBoardUrl);
         }
 
         Integer sortOrder = request.getSortOrder() != null ? request.getSortOrder() : board.getSortOrder();
@@ -122,15 +122,6 @@ class BoardCommandService {
             return new BusinessException(ErrorCode.DUPLICATE_BOARD_NAME);
         }
         return new BusinessException(ErrorCode.DUPLICATE_RESOURCE);
-    }
-
-    private void validateCreatableBoardUrl(String boardUrl) {
-        if (boardUrl == null) {
-            return;
-        }
-        if (BoardPolicyConstants.INQUIRY_BOARD_URL.equalsIgnoreCase(boardUrl.trim())) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "Reserved board URL");
-        }
     }
 
     private String normalizeDescription(String description) {

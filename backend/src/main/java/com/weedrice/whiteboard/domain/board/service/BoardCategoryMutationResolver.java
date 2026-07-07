@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
 import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
+import com.weedrice.whiteboard.domain.board.util.BoardUrlNormalizer;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -29,7 +30,8 @@ class BoardCategoryMutationResolver {
     }
 
     Board resolveBoardForCreate(String boardUrl, Long userId) {
-        Board board = boardRepository.findByBoardUrlForUpdate(boardUrl)
+        String normalizedBoardUrl = BoardUrlNormalizer.normalizeLookup(boardUrl);
+        Board board = boardRepository.findByBoardUrlForUpdate(normalizedBoardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
         boardAccessPolicy.validateBoardAdmin(board, getCurrentUser(userId));
         return board;
