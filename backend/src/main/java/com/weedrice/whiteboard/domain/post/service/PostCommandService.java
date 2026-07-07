@@ -94,6 +94,7 @@ public class PostCommandService {
                 postCreateTargetResolver.resolveCategory(target.board(), request.getCategoryId(), context);
         postCreatePolicyValidator.validateCategory(target, categoryTarget);
 
+        tagAssignmentService.validateTags(request.getTags());
         PostTitleValidator.validate(request.getTitle());
         String sanitizedContents = sanitizePostContents(request.getContents());
         boolean isSecret = !boardAccessPolicy.isInquiryBoard(target.board()) && request.isSecret();

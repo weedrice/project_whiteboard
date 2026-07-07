@@ -460,6 +460,29 @@ class PostServiceTest {
     }
 
     @Test
+    @DisplayName("createPost rejects invalid tags before persistence")
+    void createPost_invalidTags_rejectedBeforePersistenceAndSideEffects() {
+        List<String> invalidTags = List.of("valid", " ");
+        PostCreateRequest request = new PostCreateRequest(null, "New Post", "New Contents",
+                invalidTags, false, false, false, false, List.of(1L));
+
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        doThrow(new BusinessException(ErrorCode.INVALID_INPUT_VALUE))
+                .when(tagAssignmentService).validateTags(invalidTags);
+
+        assertThatThrownBy(() -> postService.createPost(1L, "free", request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(postRepository, never()).save(any(Post.class));
+        verify(tagAssignmentService, never()).assignTags(any(Post.class), anyList());
+        verify(fileService, never()).attachFilesToPost(anyList(), anyLong(), anyLong(), any());
+        verify(pointService, never()).addPointIfAbsent(anyLong(), anyInt(), anyString(), anyLong(), anyString());
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    @Test
     @DisplayName("게시글 생성은 null 본문을 빈 문자열로 저장한다")
     void createPost_nullContents_storesEmptyString() {
         PostCreateRequest request = new PostCreateRequest(null, "New Post", null, Collections.emptyList(),
