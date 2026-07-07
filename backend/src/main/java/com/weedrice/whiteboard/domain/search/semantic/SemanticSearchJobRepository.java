@@ -6,6 +6,7 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
 
 import java.sql.Timestamp;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
@@ -22,8 +23,10 @@ class SemanticSearchJobRepository {
             toLocalDateTime(rs.getTimestamp("processing_started_at")));
 
     private final JdbcTemplate jdbcTemplate;
+    private final Clock clock;
 
     void enqueue(String contentType, Long contentId, SemanticSearchIndexAction action) {
+        LocalDateTime now = now();
         jdbcTemplate.update("""
                 INSERT INTO semantic_search_jobs (
                     content_type, content_id, action, status, retry_count, created_at, updated_at
@@ -38,14 +41,14 @@ class SemanticSearchJobRepository {
                     completed_at = NULL,
                     last_error_message = NULL,
                     updated_at = EXCLUDED.updated_at
-                """, contentType, contentId, action.name(), LocalDateTime.now(), LocalDateTime.now());
+                """, contentType, contentId, action.name(), now, now);
     }
 
     void enqueueAll(String contentType, Collection<Long> contentIds, SemanticSearchIndexAction action) {
         if (contentIds == null || contentIds.isEmpty()) {
             return;
         }
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = now();
         jdbcTemplate.batchUpdate("""
                 INSERT INTO semantic_search_jobs (
                     content_type, content_id, action, status, retry_count, created_at, updated_at
@@ -116,7 +119,7 @@ class SemanticSearchJobRepository {
                 WHERE status = 'PROCESSING'
                   AND retry_count < ?
                   AND (processing_started_at IS NULL OR processing_started_at < ?)
-                """, maxRetryCount, lastErrorMessage, LocalDateTime.now(), maxRetryCount, staleBefore);
+                """, maxRetryCount, lastErrorMessage, now(), maxRetryCount, staleBefore);
     }
 
     List<SemanticSearchJob> findPendingJobs(int maxRetryCount, int batchSize) {
@@ -139,7 +142,7 @@ class SemanticSearchJobRepository {
                 WHERE job_id = ?
                   AND status = 'PENDING'
                   AND retry_count < ?
-                """, claimedAt, LocalDateTime.now(), jobId, maxRetryCount);
+                """, claimedAt, now(), jobId, maxRetryCount);
     }
 
     Optional<SemanticSearchJob> findClaimed(Long jobId, LocalDateTime claimedAt) {
@@ -164,7 +167,7 @@ class SemanticSearchJobRepository {
                 WHERE job_id = ?
                   AND status = 'PROCESSING'
                   AND processing_started_at = ?
-                """, completedAt, LocalDateTime.now(), jobId, expectedProcessingStartedAt);
+                """, completedAt, now(), jobId, expectedProcessingStartedAt);
     }
 
     int markFailedIfCurrent(Long jobId, LocalDateTime expectedProcessingStartedAt, int maxRetryCount,
@@ -179,7 +182,11 @@ class SemanticSearchJobRepository {
                 WHERE job_id = ?
                   AND status = 'PROCESSING'
                   AND processing_started_at = ?
-                """, maxRetryCount, lastErrorMessage, LocalDateTime.now(), jobId, expectedProcessingStartedAt);
+                """, maxRetryCount, lastErrorMessage, now(), jobId, expectedProcessingStartedAt);
+    }
+
+    private LocalDateTime now() {
+        return LocalDateTime.now(clock);
     }
 
     private static LocalDateTime toLocalDateTime(Timestamp timestamp) {

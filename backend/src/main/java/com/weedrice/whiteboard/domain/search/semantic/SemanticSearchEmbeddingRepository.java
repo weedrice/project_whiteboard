@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 
 @Repository
@@ -11,6 +12,7 @@ import java.time.LocalDateTime;
 class SemanticSearchEmbeddingRepository {
 
     private final JdbcTemplate jdbcTemplate;
+    private final Clock clock;
 
     void upsertPost(Long postId, Long boardId, Long authorUserId, Long authorAgentId,
             String embeddingText, String embeddingHash, String embeddingModel, float[] embedding) {
@@ -25,23 +27,26 @@ class SemanticSearchEmbeddingRepository {
     }
 
     void tombstone(String contentType, Long contentId) {
+        LocalDateTime now = now();
         jdbcTemplate.update("""
                 UPDATE semantic_search_embeddings
                 SET deleted_at = ?, updated_at = ?
                 WHERE content_type = ? AND content_id = ?
-                """, LocalDateTime.now(), LocalDateTime.now(), contentType, contentId);
+                """, now, now, contentType, contentId);
     }
 
     void tombstoneCommentsByPostId(Long postId) {
+        LocalDateTime now = now();
         jdbcTemplate.update("""
                 UPDATE semantic_search_embeddings
                 SET deleted_at = ?, updated_at = ?
                 WHERE content_type = 'COMMENT' AND post_id = ?
-                """, LocalDateTime.now(), LocalDateTime.now(), postId);
+                """, now, now, postId);
     }
 
     private void upsert(String contentType, Long contentId, Long postId, Long boardId, Long authorUserId,
             Long authorAgentId, String embeddingText, String embeddingHash, String embeddingModel, float[] embedding) {
+        LocalDateTime now = now();
         jdbcTemplate.update("""
                 INSERT INTO semantic_search_embeddings (
                     content_type, content_id, post_id, board_id, author_user_id, author_agent_id,
@@ -71,7 +76,11 @@ class SemanticSearchEmbeddingRepository {
                 embeddingHash,
                 embeddingModel,
                 SemanticSearchVectorFormatter.format(embedding),
-                LocalDateTime.now(),
-                LocalDateTime.now());
+                now,
+                now);
+    }
+
+    private LocalDateTime now() {
+        return LocalDateTime.now(clock);
     }
 }
