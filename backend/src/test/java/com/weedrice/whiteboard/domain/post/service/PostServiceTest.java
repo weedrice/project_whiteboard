@@ -820,9 +820,10 @@ class PostServiceTest {
                 any(Pageable.class)))
                 .thenAnswer(invocation -> Page.empty(invocation.getArgument(7)));
 
-        postService.getPosts("free", null, null, null, null, Pageable.unpaged());
+        postService.getPosts(" free ", null, null, null, null, Pageable.unpaged());
 
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(boardRepository).findByBoardUrl("free");
         verify(postRepository).findPostListSummariesByBoardIdAndCategoryId(eq(1L), any(), any(), any(), any(),
                 any(Boolean.class), any(),
                 pageableCaptor.capture());

@@ -69,11 +69,12 @@ public class SearchService {
             Sort sort,
             Long currentUserId) {
         String canonicalKeyword = SearchRequestNormalizer.canonicalizeKeyword(keyword);
+        String canonicalBoardUrl = SearchRequestNormalizer.canonicalizeOptionalBoardUrl(boardUrl);
         Pageable normalizedPageable = SearchRequestNormalizer.normalizePostSearchPageable(page, size, sort);
         boolean includeSecret = false;
         User currentUser = null;
-        if (boardUrl != null && !boardUrl.trim().isEmpty()) {
-            Board board = boardRepository.findByBoardUrl(boardUrl)
+        if (canonicalBoardUrl != null) {
+            Board board = boardRepository.findByBoardUrl(canonicalBoardUrl)
                     .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
             currentUser = searchUserLookupPolicy.resolveOptional(currentUserId);
             if (!boardAccessPolicy.canReadBoard(board, currentUser)) {
@@ -89,7 +90,7 @@ public class SearchService {
                     : userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(currentUserId);
         }
         Page<Post> postPage = postRepository.searchPosts(canonicalKeyword, searchType,
-                boardUrl, blockedUserIds, includeSecret, currentUserId, normalizedPageable);
+                canonicalBoardUrl, blockedUserIds, includeSecret, currentUserId, normalizedPageable);
 
         Page<PostSummary> response = postSummaryAssembler.assembleSearchPage(postPage);
         searchRecordEventPublisher.publish(currentUserId, canonicalKeyword);

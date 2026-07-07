@@ -332,7 +332,11 @@ public class PostListReadService {
     }
 
     private BoardReadContext resolveReadableBoardContext(String boardUrl, Long currentUserId) {
-        Board board = boardRepository.findByBoardUrl(boardUrl)
+        String canonicalBoardUrl = SearchRequestNormalizer.canonicalizeOptionalBoardUrl(boardUrl);
+        if (canonicalBoardUrl == null) {
+            throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
+        }
+        Board board = boardRepository.findByBoardUrl(canonicalBoardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
         if (boardAccessPolicy.isInquiryBoard(board)) {
             throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);

@@ -304,6 +304,33 @@ class SearchServiceTest {
     }
 
     @Test
+    @DisplayName("Post search normalizes boardUrl before lookup and repository call")
+    void searchPosts_normalizesBoardUrlBeforeRepositoryCall() {
+        Board board = board(1L, "Free", "free");
+        Pageable pageable = PageRequest.of(0, 20);
+        Pageable normalizedPageable = PageRequest.of(0, 20, Sort.by(
+                Sort.Order.desc("createdAt"),
+                Sort.Order.desc("postId")));
+
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+        when(postRepository.searchPosts(eq("test"), isNull(), eq("free"), isNull(), eq(false), isNull(),
+                eq(normalizedPageable)))
+                .thenReturn(Page.empty(normalizedPageable));
+
+        searchPostsWithPageable("test", null, " free ", pageable, null);
+
+        verify(boardRepository).findByBoardUrl("free");
+        verify(postRepository).searchPosts(
+                eq("test"),
+                isNull(),
+                eq("free"),
+                isNull(),
+                eq(false),
+                isNull(),
+                eq(normalizedPageable));
+    }
+
+    @Test
     @DisplayName("게시글 검색은 서비스 계층에서 blank 검색어를 거부한다")
     void searchPosts_rejectsBlankKeywordBeforeRepositoryCall() {
         assertThatThrownBy(() -> searchPostsWithPageable("   ", null, null, PageRequest.of(0, 20), null))

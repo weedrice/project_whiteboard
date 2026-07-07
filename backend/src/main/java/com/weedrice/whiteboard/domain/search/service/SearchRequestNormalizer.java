@@ -36,6 +36,14 @@ public final class SearchRequestNormalizer {
         return canonicalizeKeyword(keyword, false);
     }
 
+    public static String canonicalizeOptionalBoardUrl(String boardUrl) {
+        if (boardUrl == null) {
+            return null;
+        }
+        String canonicalBoardUrl = boardUrl.trim();
+        return canonicalBoardUrl.isEmpty() ? null : canonicalBoardUrl;
+    }
+
     private static String canonicalizeKeyword(String keyword, boolean required) {
         if (keyword == null) {
             if (required) {
