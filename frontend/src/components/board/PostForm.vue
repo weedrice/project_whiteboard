@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, watch, type ComponentPublicInstance } from 'vue'
+import { computed, onMounted, ref, watch, type ComponentPublicInstance } from 'vue'
 import { usePostComposerDraft } from '@/features/board/posts/form/usePostComposerDraft'
 import { usePostComposerEffects, type ComposerEditor } from '@/features/board/posts/form/usePostComposerEffects'
 import { usePostComposerSubmit, type PostFormSubmitResult } from '@/features/board/posts/form/usePostComposerSubmit'
@@ -14,15 +14,15 @@ import type { SegmentedControlOption } from '@/components/common/ui/BaseSegmente
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import { useToastStore } from '@/stores/toast'
-import { useApiQuery } from '@/composables/useApiQuery'
 import { userApi } from '@/api/user'
-import { userQueryKeys } from '@/composables/userQueryKeys'
+import { unwrapAxiosApiData } from '@/api/response'
 import PostFormHeader from '@/components/board/PostFormHeader.vue'
 import PostFormMainSection from '@/components/board/PostFormMainSection.vue'
 import PostFormSidePanel from '@/components/board/PostFormSidePanel.vue'
 import PostPreviewModal from '@/components/board/PostPreviewModal.vue'
 import { requiresSandboxedPostHtml } from '@/utils/postHtmlSandbox'
 import { usePostComposerState } from '@/features/board/posts/form/usePostComposerState'
+import type { PostSeries } from '@/types'
 
 const props = defineProps<{
   mode: 'create' | 'edit'
@@ -51,12 +51,20 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const authStore = useAuthStore()
 const toastStore = useToastStore()
-const { data: postSeriesData } = useApiQuery({
-  queryKey: userQueryKeys.postSeries,
-  request: () => userApi.getPostSeries(),
-  staleTime: 60_000,
-})
-const seriesOptions = computed(() => postSeriesData.value || [])
+const localSeriesOptions = ref<PostSeries[]>([])
+const newSeriesTitle = ref('')
+const isCreatingSeries = ref(false)
+const seriesOptions = computed(() => localSeriesOptions.value)
+
+onMounted(loadPostSeries)
+
+async function loadPostSeries() {
+  try {
+    localSeriesOptions.value = unwrapAxiosApiData(await userApi.getPostSeries())
+  } catch {
+    localSeriesOptions.value = []
+  }
+}
 
 const boardUrl = computed(() => props.boardUrl ?? '')
 const postId = computed(() => props.postId ?? '')
@@ -143,13 +151,37 @@ const { metadataPanelProps, metadataPanelHandlers } = usePostFormMetadataBinding
   form,
   categories: filteredCategories,
   seriesOptions,
+  newSeriesTitle,
+  isCreatingSeries,
   showNotice,
   canShowNsfw,
   hideCategory: () => props.hideCategory,
   hideTags: () => props.hideTags,
   hideSpoiler: () => props.hideSpoiler,
   hideSecret: () => props.hideSecret,
+  createSeries: handleCreateSeries,
 })
+
+async function handleCreateSeries() {
+  const title = newSeriesTitle.value.trim()
+  if (!title || isCreatingSeries.value) return
+
+  isCreatingSeries.value = true
+  try {
+    const createdSeries = unwrapAxiosApiData(await userApi.createPostSeries({ title }))
+    localSeriesOptions.value = [
+      ...localSeriesOptions.value.filter((series) => series.seriesId !== createdSeries.seriesId),
+      createdSeries,
+    ]
+    form.value.seriesId = createdSeries.seriesId
+    newSeriesTitle.value = ''
+    toastStore.addToast(t('board.writePost.createSeriesSuccess'), 'success')
+  } catch {
+    toastStore.addToast(t('board.writePost.createSeriesFailed'), 'error')
+  } finally {
+    isCreatingSeries.value = false
+  }
+}
 
 function onBeforeUnload(event: BeforeUnloadEvent) {
   if (!isDirty.value) return

@@ -13,6 +13,11 @@ export const boardWritePostMessages: BoardMessages['writePost'] = {
     secretDesc: '체크하면 게시글은 스페이스 관리자만 볼 수 있습니다.',
     series: '시리즈',
     noSeries: '시리즈 없음',
+    newSeries: '새 시리즈',
+    newSeriesPlaceholder: '시리즈 제목',
+    createSeries: '추가',
+    createSeriesSuccess: '시리즈를 만들었습니다.',
+    createSeriesFailed: '시리즈 생성에 실패했습니다.',
     placeholder: {
       title: '제목을 입력해 주세요.',
       tags: '태그 입력 후 Enter',
@@ -174,6 +179,11 @@ export const boardEnWritePostMessages: BoardMessages['writePost'] = {
     secretDesc: 'Only space admins can view this post when enabled.',
     series: 'Series',
     noSeries: 'No series',
+    newSeries: 'New series',
+    newSeriesPlaceholder: 'Series title',
+    createSeries: 'Add',
+    createSeriesSuccess: 'Series created.',
+    createSeriesFailed: 'Failed to create the series.',
     placeholder: {
       title: 'Enter a title.',
       tags: 'Type a tag and press Enter',

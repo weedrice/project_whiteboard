@@ -100,7 +100,7 @@ function handleMarkAllAsRead() {
                 {{ notification.message }}
               </div>
               <div v-if="notification.grouped" class="mt-1 text-[11px] font-medium nv-accent-text">
-                {{ notification.groupCount }}개 알림이 묶였어요
+                {{ t('notification.groupedCount', { count: notification.groupCount }) }}
               </div>
             </div>
           </div>

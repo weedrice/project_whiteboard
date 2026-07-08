@@ -6,6 +6,7 @@ export const notification: NotificationMessages = {
   markAllReadShort: '모두 읽음',
   empty: '새로운 알림이 없습니다.',
   emptyDescription: '새 댓글, 멘션, 쪽지가 생기면 여기에 모입니다.',
+  groupedCount: '{count}개 알림이 묶였어요',
   sourceTypes: {
     post: '게시글',
     comment: '댓글',

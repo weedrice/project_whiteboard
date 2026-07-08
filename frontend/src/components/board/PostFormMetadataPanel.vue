@@ -2,6 +2,8 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseCheckbox from '@/components/common/ui/BaseCheckbox.vue'
+import BaseButton from '@/components/common/ui/BaseButton.vue'
+import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseSelect from '@/components/common/ui/BaseSelect.vue'
 import PostTags from '@/components/tag/PostTags.vue'
 
@@ -18,6 +20,8 @@ const props = withDefaults(defineProps<{
   seriesOptions: Array<{ seriesId: number, title: string }>
   categoryId: string | number
   seriesId: string | number
+  newSeriesTitle: string
+  isCreatingSeries: boolean
   tags: string[]
   isNotice: boolean
   isNsfw: boolean
@@ -41,6 +45,8 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   (event: 'update:categoryId', value: string | number): void
   (event: 'update:seriesId', value: string | number): void
+  (event: 'update:newSeriesTitle', value: string | number): void
+  (event: 'create-series'): void
   (event: 'update:tags', value: string[]): void
   (event: 'update:isNotice', value: boolean): void
   (event: 'update:isNsfw', value: boolean): void
@@ -51,6 +57,8 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const isMobile = computed(() => props.layout === 'mobile')
 const categoryInputId = computed(() => isMobile.value ? 'category-mobile' : 'category')
+const seriesInputId = computed(() => isMobile.value ? 'series-mobile' : 'series')
+const newSeriesInputId = computed(() => isMobile.value ? 'new-series-mobile' : 'new-series')
 const tagsInputId = computed(() => isMobile.value ? 'post-tags-input-mobile' : 'post-tags-input-desktop')
 const checkboxSuffix = computed(() => isMobile.value ? '-m' : '')
 
@@ -101,8 +109,7 @@ const emitBooleanUpdate = (event: BooleanUpdateEvent, value: boolean | unknown[]
     </div>
     <div class="flex flex-wrap gap-2">
       <BaseSelect
-        v-if="seriesOptions.length > 0"
-        :id="`series${checkboxSuffix}`"
+        :id="seriesInputId"
         :model-value="seriesId"
         :label="t('board.writePost.series')"
         class="min-w-[10rem]"
@@ -113,6 +120,30 @@ const emitBooleanUpdate = (event: BooleanUpdateEvent, value: boolean | unknown[]
           {{ series.title }}
         </option>
       </BaseSelect>
+      <div class="flex min-w-[14rem] flex-1 items-end gap-2">
+        <BaseInput
+          :id="newSeriesInputId"
+          :model-value="newSeriesTitle"
+          :label="t('board.writePost.newSeries')"
+          :placeholder="t('board.writePost.newSeriesPlaceholder')"
+          hide-label
+          input-class="h-9"
+          :disabled="isCreatingSeries"
+          @update:model-value="emit('update:newSeriesTitle', $event)"
+          @keydown.enter.prevent="emit('create-series')"
+        />
+        <BaseButton
+          type="button"
+          size="sm"
+          variant="secondary"
+          class="h-9 shrink-0"
+          :loading="isCreatingSeries"
+          :disabled="!String(newSeriesTitle).trim()"
+          @click="emit('create-series')"
+        >
+          {{ t('board.writePost.createSeries') }}
+        </BaseButton>
+      </div>
       <BaseCheckbox
         v-if="showNotice"
         :id="`isNotice${checkboxSuffix}`"
@@ -175,9 +206,9 @@ const emitBooleanUpdate = (event: BooleanUpdateEvent, value: boolean | unknown[]
       />
     </div>
 
-    <div v-if="seriesOptions.length > 0" class="nv-compose-side-section mb-4 hidden lg:block">
+    <div class="nv-compose-side-section mb-4 hidden lg:block">
       <BaseSelect
-        :id="`series${checkboxSuffix}`"
+        :id="seriesInputId"
         :model-value="seriesId"
         :label="t('board.writePost.series')"
         @update:model-value="emit('update:seriesId', $event)"
@@ -187,6 +218,30 @@ const emitBooleanUpdate = (event: BooleanUpdateEvent, value: boolean | unknown[]
           {{ series.title }}
         </option>
       </BaseSelect>
+      <div class="mt-3 flex gap-2">
+        <BaseInput
+          :id="newSeriesInputId"
+          :model-value="newSeriesTitle"
+          :label="t('board.writePost.newSeries')"
+          :placeholder="t('board.writePost.newSeriesPlaceholder')"
+          hide-label
+          input-class="h-9"
+          :disabled="isCreatingSeries"
+          @update:model-value="emit('update:newSeriesTitle', $event)"
+          @keydown.enter.prevent="emit('create-series')"
+        />
+        <BaseButton
+          type="button"
+          size="sm"
+          variant="secondary"
+          class="h-9 shrink-0"
+          :loading="isCreatingSeries"
+          :disabled="!String(newSeriesTitle).trim()"
+          @click="emit('create-series')"
+        >
+          {{ t('board.writePost.createSeries') }}
+        </BaseButton>
+      </div>
     </div>
 
     <div class="nv-compose-side-section space-y-3">

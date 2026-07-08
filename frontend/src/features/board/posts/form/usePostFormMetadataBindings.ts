@@ -15,12 +15,15 @@ type UsePostFormMetadataBindingsParams = {
   form: Ref<PostComposerForm>
   categories: Ref<PostFormCategoryOption[]>
   seriesOptions: Ref<Array<{ seriesId: number, title: string }>>
+  newSeriesTitle: Ref<string>
+  isCreatingSeries: Ref<boolean>
   showNotice: Ref<boolean>
   canShowNsfw: Ref<boolean>
   hideCategory: () => boolean | undefined
   hideTags: () => boolean | undefined
   hideSpoiler: () => boolean | undefined
   hideSecret: () => boolean | undefined
+  createSeries: () => void | Promise<void>
 }
 
 export type PostFormMetadataPanelProps = {
@@ -28,6 +31,8 @@ export type PostFormMetadataPanelProps = {
   categoryId: string | number
   seriesId: string | number
   seriesOptions: Array<{ seriesId: number, title: string }>
+  newSeriesTitle: string
+  isCreatingSeries: boolean
   tags: string[]
   isNotice: boolean
   isNsfw: boolean
@@ -44,6 +49,8 @@ export type PostFormMetadataPanelProps = {
 export type PostFormMetadataPanelHandlers = {
   'update:categoryId': (value: string | number) => void
   'update:seriesId': (value: string | number) => void
+  'update:newSeriesTitle': (value: string | number) => void
+  'create-series': () => void | Promise<void>
   'update:tags': (value: string[]) => void
   'update:isNotice': (value: boolean) => void
   'update:isNsfw': (value: boolean) => void
@@ -55,18 +62,23 @@ export function usePostFormMetadataBindings({
   form,
   categories,
   seriesOptions,
+  newSeriesTitle,
+  isCreatingSeries,
   showNotice,
   canShowNsfw,
   hideCategory,
   hideTags,
   hideSpoiler,
   hideSecret,
+  createSeries,
 }: UsePostFormMetadataBindingsParams) {
   const metadataPanelProps = computed<PostFormMetadataPanelProps>(() => ({
     categories: categories.value,
     categoryId: form.value.categoryId,
     seriesId: form.value.seriesId,
     seriesOptions: seriesOptions.value,
+    newSeriesTitle: newSeriesTitle.value,
+    isCreatingSeries: isCreatingSeries.value,
     tags: form.value.tags,
     isNotice: form.value.isNotice,
     isNsfw: form.value.isNsfw,
@@ -87,6 +99,10 @@ export function usePostFormMetadataBindings({
     'update:seriesId': (value: string | number) => {
       form.value.seriesId = value
     },
+    'update:newSeriesTitle': (value: string | number) => {
+      newSeriesTitle.value = String(value)
+    },
+    'create-series': createSeries,
     'update:tags': (value: string[]) => {
       form.value.tags = value
     },

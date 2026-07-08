@@ -252,6 +252,11 @@ export interface BoardMessages {
     secretDesc: string
     series: string
     noSeries: string
+    newSeries: string
+    newSeriesPlaceholder: string
+    createSeries: string
+    createSeriesSuccess: string
+    createSeriesFailed: string
     placeholder: {
       title: string
       tags: string
@@ -446,6 +451,7 @@ export interface NotificationMessages {
   markAllReadShort?: string
   empty: string
   emptyDescription: string
+  groupedCount: string
   sourceTypes: {
     post: string
     comment: string

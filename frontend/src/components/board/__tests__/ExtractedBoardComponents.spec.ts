@@ -254,6 +254,8 @@ describe('extracted board components', () => {
         categoryId: '',
         seriesOptions: [],
         seriesId: '',
+        newSeriesTitle: '',
+        isCreatingSeries: false,
         tags: [],
         isNotice: false,
         isNsfw: false,
