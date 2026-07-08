@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { mount, RouterLinkStub } from '@vue/test-utils'
 import { defineComponent, h, nextTick, ref } from 'vue'
 
 const routeState = ref({ name: 'home' as string | null })
@@ -175,6 +175,35 @@ describe('DefaultLayout', () => {
         expect(wrapper.get('[data-testid="mobile-bottom-nav"]').attributes('data-hidden')).toBe('false')
 
         wrapper.unmount()
+    })
+
+    it('keeps the desktop logo from shrinking when the header width is constrained', () => {
+        const wrapper = mount(DefaultLayout, {
+            global: {
+                stubs: {
+                    RouterLink: RouterLinkStub,
+                    'router-view': true,
+                    NotificationDropdown: true,
+                    UserDropdown: true,
+                    BoardDropdown: true,
+                    Footer: true,
+                    GlobalSearchBar: true,
+                    KeyboardShortcutsModal: true,
+                    RecentBoardsBar: true,
+                    MobileBottomNav: MobileBottomNavStub,
+                },
+                mocks: {
+                    $t: (key: string) => key,
+                },
+            },
+        })
+
+        const homeLink = wrapper.get('a[aria-label="Noviis home"]')
+        const desktopLogo = wrapper.get('img[alt="common.appName"]')
+
+        expect(homeLink.classes()).toContain('shrink-0')
+        expect(desktopLogo.classes()).toContain('shrink-0')
+        expect(desktopLogo.classes()).toContain('object-contain')
     })
 
     it('opens and closes the notification stream with the layout lifecycle', () => {
