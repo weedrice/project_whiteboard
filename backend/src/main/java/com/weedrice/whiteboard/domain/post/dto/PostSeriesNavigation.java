@@ -17,6 +17,8 @@ public class PostSeriesNavigation {
     public static class SeriesSummary {
         private Long seriesId;
         private String title;
+        private Integer currentIndex;
+        private Integer totalCount;
     }
 
     @Getter
@@ -27,10 +29,12 @@ public class PostSeriesNavigation {
         private String boardUrl;
     }
 
-    public static SeriesSummary seriesFrom(PostSeries series) {
+    public static SeriesSummary seriesFrom(PostSeries series, int currentIndex, int totalCount) {
         return SeriesSummary.builder()
                 .seriesId(series.getSeriesId())
                 .title(series.getTitle())
+                .currentIndex(currentIndex)
+                .totalCount(totalCount)
                 .build();
     }
 

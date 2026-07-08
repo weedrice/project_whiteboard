@@ -60,6 +60,16 @@ const {
     tags: ['vue'],
     liked: false,
     scrapped: false,
+    seriesNavigation: null as null | {
+      series: {
+        seriesId: number
+        title: string
+        currentIndex?: number
+        totalCount?: number
+      }
+      previousPost?: unknown
+      nextPost?: unknown
+    },
     boardListPage: undefined as number | undefined,
     createdAt: '2026-04-22T10:00:00',
     modifiedAt: '2026-04-22T10:00:00'
@@ -208,6 +218,7 @@ describe('PostDetail', () => {
     postValue.tags = ['vue']
     postValue.liked = false
     postValue.scrapped = false
+    postValue.seriesNavigation = null
     postValue.boardListPage = undefined
     postValue.createdAt = '2026-04-22T10:00:00'
     postValue.modifiedAt = '2026-04-22T10:00:00'
@@ -382,6 +393,35 @@ describe('PostDetail', () => {
     expect(wrapper.find('[aria-label="board.postDetail.moreActions"]').exists()).toBe(false)
     expect(wrapper.text()).toContain('common.edit')
     expect(wrapper.text()).toContain('common.delete')
+  })
+
+  it('shows compact series metadata near the title', async () => {
+    postValue.seriesNavigation = {
+      series: {
+        seriesId: 3,
+        title: 'Series title',
+        currentIndex: 3,
+        totalCount: 7
+      }
+    }
+
+    const wrapper = mount(PostDetail, {
+      global: {
+        mocks: {
+          $t: (key: string) => key
+        },
+        stubs: {
+          RouterLink: RouterLinkStub,
+          CommentList: true,
+          PostTags: true,
+          UserMenu: true,
+          BaseModal: true,
+          ReportModal: true
+        }
+      }
+    })
+
+    expect(wrapper.text()).toContain('board.postDetail.seriesMeta')
   })
 
   it('uses the original board route after a delete succeeds', async () => {
@@ -615,11 +655,7 @@ describe('PostDetail', () => {
     await wrapper.get('[data-testid="tag"]').trigger('click')
 
     expect(router.push).toHaveBeenCalledWith({
-      path: '/board/free',
-      query: {
-        q: 'vue',
-        type: 'TAG'
-      }
+      path: '/tag/vue'
     })
   })
 })

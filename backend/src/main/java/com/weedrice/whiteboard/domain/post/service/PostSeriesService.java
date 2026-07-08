@@ -92,7 +92,7 @@ public class PostSeriesService {
                     Post previous = index > 0 ? items.get(index - 1).getPost() : null;
                     Post next = index >= 0 && index < items.size() - 1 ? items.get(index + 1).getPost() : null;
                     return PostSeriesNavigation.builder()
-                            .series(PostSeriesNavigation.seriesFrom(currentItem.getSeries()))
+                            .series(PostSeriesNavigation.seriesFrom(currentItem.getSeries(), index + 1, items.size()))
                             .previousPost(PostSeriesNavigation.postFrom(previous))
                             .nextPost(PostSeriesNavigation.postFrom(next))
                             .build();

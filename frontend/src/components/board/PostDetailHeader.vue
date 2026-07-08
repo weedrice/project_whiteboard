@@ -21,6 +21,19 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+
+const seriesMeta = (postView: PostDetailViewModel) => {
+  const series = postView.seriesNavigation?.series
+  if (!series) return ''
+  if (series.currentIndex && series.totalCount) {
+    return t('board.postDetail.seriesMeta', {
+      title: series.title,
+      current: series.currentIndex,
+      total: series.totalCount,
+    })
+  }
+  return t('board.postDetail.seriesTitle', { title: series.title })
+}
 </script>
 
 <template>
@@ -69,6 +82,10 @@ const { t } = useI18n()
             <span>{{ postView.boardName }}</span>
             <span>&middot;</span>
             <span>{{ t('common.post') }}</span>
+            <template v-if="postView.seriesNavigation?.series">
+              <span>&middot;</span>
+              <span>{{ seriesMeta(postView) }}</span>
+            </template>
           </div>
           <h1 class="text-2xl font-semibold tracking-[-0.04em] text-[var(--nv-ink)] sm:text-4xl">
             {{ postView.title }}

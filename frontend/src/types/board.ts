@@ -229,6 +229,8 @@ export interface PostSeriesNavigation {
     series?: {
         seriesId: number
         title: string
+        currentIndex?: number
+        totalCount?: number
     } | null
     previousPost?: PostSeriesLink | null
     nextPost?: PostSeriesLink | null
