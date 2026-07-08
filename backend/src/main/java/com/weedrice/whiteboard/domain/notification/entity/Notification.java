@@ -25,6 +25,8 @@ import jakarta.persistence.Table;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
+import java.time.LocalDateTime;
+
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
@@ -64,13 +66,22 @@ public class Notification extends BaseTimeEntity {
     @Column(name = "content", length = 255, nullable = false)
     private String content;
 
+    @Column(name = "group_key", length = 160)
+    private String groupKey;
+
+    @Column(name = "group_count", nullable = false)
+    private Integer groupCount;
+
+    @Column(name = "last_event_at", nullable = false)
+    private LocalDateTime lastEventAt;
+
     @Convert(converter = BooleanToYNConverter.class)
     @Column(name = "is_read", length = 1, nullable = false)
     private Boolean isRead;
 
     @Builder
-    public Notification(User user, User actor, Agent actorAgent, NotificationType notificationType, String sourceType, Long sourceId,
-            String content) {
+    public Notification(User user, User actor, Agent actorAgent, NotificationType notificationType, String sourceType,
+            Long sourceId, String content, String groupKey, LocalDateTime lastEventAt) {
         this.user = user;
         this.actor = actor;
         this.actorAgent = actorAgent;
@@ -78,7 +89,22 @@ public class Notification extends BaseTimeEntity {
         this.sourceType = sourceType;
         this.sourceId = sourceId;
         this.content = content;
+        this.groupKey = groupKey;
+        this.groupCount = 1;
+        this.lastEventAt = lastEventAt != null ? lastEventAt : LocalDateTime.now();
         this.isRead = false;
+    }
+
+    public void merge(User actor, Agent actorAgent, String content, LocalDateTime eventAt) {
+        this.actor = actor;
+        this.actorAgent = actorAgent;
+        this.content = content;
+        this.groupCount = this.groupCount == null ? 2 : this.groupCount + 1;
+        this.lastEventAt = eventAt != null ? eventAt : LocalDateTime.now();
+    }
+
+    public boolean isGrouped() {
+        return groupCount != null && groupCount > 1;
     }
 
     public void read() {

@@ -129,6 +129,23 @@ class NotificationServiceTest {
     }
 
     @Test
+    @DisplayName("Unread groupable notification is merged instead of creating a duplicate row")
+    void handleNotificationEvent_mergesUnreadGroupableNotification() {
+        NotificationEvent event = new NotificationEvent(user, actor, NotificationType.LIKE,
+                NotificationSourceType.POST, 1L, "Updated Notification");
+        when(notificationRepository.findFirstByUser_UserIdAndGroupKeyAndIsReadOrderByLastEventAtDescNotificationIdDesc(
+                eq(1L), eq("1:LIKE:POST:1"), eq(false)))
+                .thenReturn(Optional.of(notification));
+
+        notificationService.handleNotificationEvent(event);
+
+        verify(notificationRepository, never()).save(any(Notification.class));
+        assertThat(notification.getContent()).isEqualTo("Updated Notification");
+        assertThat(notification.getGroupCount()).isEqualTo(2);
+        assertThat(notification.isGrouped()).isTrue();
+    }
+
+    @Test
     @DisplayName("Notification content is truncated to max length before save")
     void handleNotificationEvent_truncatesOverlongContentBeforeSave() {
         String content = "a".repeat(MAX_NOTIFICATION_CONTENT_LENGTH + 45);

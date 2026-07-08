@@ -39,6 +39,11 @@ export interface NotificationRaw {
     is_read?: boolean | string;
     createdAt?: string;
     created_at?: string;
+    groupCount?: number;
+    group_count?: number;
+    grouped?: boolean;
+    lastEventAt?: string;
+    last_event_at?: string;
     actor?: NotificationActorRaw;
     targetUrl?: string;
     target_url?: string;
@@ -79,6 +84,9 @@ export function normalizeNotification(raw: NotificationRaw): Notification {
         sourceId: raw.sourceId || raw.source_id || 0,
         isRead: raw.isRead === true || raw.is_read === true || raw.is_read === 'Y',
         createdAt: raw.createdAt || raw.created_at || '',
+        groupCount: raw.groupCount ?? raw.group_count ?? 1,
+        grouped: raw.grouped ?? ((raw.groupCount ?? raw.group_count ?? 1) > 1),
+        lastEventAt: raw.lastEventAt || raw.last_event_at,
         message: raw.message || '',
         actor: {
             userId: raw.actor?.userId || raw.actor?.user_id || 0,

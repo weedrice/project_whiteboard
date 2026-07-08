@@ -15,6 +15,9 @@ export interface Notification {
     sourceId: number;
     isRead: boolean;
     createdAt: string;
+    groupCount?: number;
+    grouped?: boolean;
+    lastEventAt?: string;
     actor: NotificationActor;
     actorDisplayName: string;
     actorInitial: string;

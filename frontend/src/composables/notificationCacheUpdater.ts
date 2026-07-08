@@ -41,10 +41,16 @@ export function applyIncomingNotificationToCache(
     if (!isNotificationPage(oldData)) return oldData
     if (getNotificationPageNumber(oldData) !== 0) return oldData
 
-    const alreadyExists = oldData.content.some((item) => item.notificationId === normalized.notificationId)
-    if (alreadyExists) {
+    const existingIndex = oldData.content.findIndex((item) => item.notificationId === normalized.notificationId)
+    if (existingIndex >= 0) {
       alreadyExistsInFirstPage = true
-      return oldData
+      const nextContent = [...oldData.content]
+      nextContent.splice(existingIndex, 1)
+      nextContent.unshift(normalized)
+      return {
+        ...oldData,
+        content: nextContent,
+      }
     }
 
     const nextContent = [normalized, ...oldData.content]

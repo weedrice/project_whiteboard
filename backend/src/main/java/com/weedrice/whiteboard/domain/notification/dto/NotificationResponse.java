@@ -33,6 +33,9 @@ public class NotificationResponse {
         private Long sourceId;
         private Boolean isRead;
         private LocalDateTime createdAt;
+        private Integer groupCount;
+        private Boolean grouped;
+        private LocalDateTime lastEventAt;
         private String targetUrl;
 
         public static NotificationSummary from(Notification notification) {
@@ -49,6 +52,9 @@ public class NotificationResponse {
                     .sourceId(notification.getSourceId())
                     .isRead(notification.getIsRead())
                     .createdAt(notification.getCreatedAt())
+                    .groupCount(notification.getGroupCount())
+                    .grouped(notification.isGrouped())
+                    .lastEventAt(notification.getLastEventAt())
                     .targetUrl(targetUrl)
                     .build();
         }

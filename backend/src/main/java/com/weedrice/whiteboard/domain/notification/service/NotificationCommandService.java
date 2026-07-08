@@ -9,9 +9,13 @@ import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
+import java.util.Set;
+
 @Service
 class NotificationCommandService {
     private static final int MAX_CONTENT_LENGTH = 255;
+    private static final Set<String> GROUPABLE_TYPES = Set.of("COMMENT", "REPLY", "LIKE", "KEYWORD");
 
     private final NotificationRepository notificationRepository;
     private final NotificationPreferenceService preferenceService;
@@ -41,6 +45,21 @@ class NotificationCommandService {
             return null;
         }
 
+        LocalDateTime eventAt = LocalDateTime.now();
+        String groupKey = createGroupKey(receiver.getUserId(), event);
+        if (isGroupable(event) && groupKey != null) {
+            Notification existing = notificationRepository
+                    .findFirstByUser_UserIdAndGroupKeyAndIsReadOrderByLastEventAtDescNotificationIdDesc(
+                            receiver.getUserId(),
+                            groupKey,
+                            false)
+                    .orElse(null);
+            if (existing != null) {
+                existing.merge(event.getActor(), event.getActorAgent(), content, eventAt);
+                return existing;
+            }
+        }
+
         return notificationRepository.save(Notification.builder()
                 .user(receiver)
                 .actor(event.getActor())
@@ -49,7 +68,25 @@ class NotificationCommandService {
                 .sourceType(event.getSourceType().getValue())
                 .sourceId(event.getSourceId())
                 .content(content)
+                .groupKey(groupKey)
+                .lastEventAt(eventAt)
                 .build());
+    }
+
+    private boolean isGroupable(NotificationEvent event) {
+        return event != null
+                && event.getNotificationType() != null
+                && GROUPABLE_TYPES.contains(event.getNotificationType().name());
+    }
+
+    private String createGroupKey(Long receiverUserId, NotificationEvent event) {
+        if (receiverUserId == null || event == null || event.getNotificationType() == null
+                || event.getSourceType() == null || event.getSourceId() == null) {
+            return null;
+        }
+        return receiverUserId + ":" + event.getNotificationType().name()
+                + ":" + event.getSourceType().getValue()
+                + ":" + event.getSourceId();
     }
 
     private boolean hasRequiredPayload(NotificationEvent event) {
