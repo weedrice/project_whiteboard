@@ -217,6 +217,7 @@ describe('UserSettings', () => {
     expect(wrapper.text()).toContain('user.settings.notificationTypes.MESSAGE.label')
     expect(wrapper.text()).toContain('user.settings.notificationTypes.SYSTEM.label')
     expect(wrapper.text()).toContain('user.settings.notificationTypes.SANCTION.label')
+    expect(wrapper.text()).toContain('user.settings.notificationTypes.KEYWORD.label')
 
     expect((wrapper.get('select').element as HTMLSelectElement).value).toBe('LIGHT')
     expect((wrapper.findAll('select')[1].element as HTMLSelectElement).value).toBe('ko')
@@ -302,6 +303,7 @@ describe('UserSettings', () => {
         { notificationType: 'MESSAGE', isEnabled: true },
         { notificationType: 'SYSTEM', isEnabled: true },
         { notificationType: 'SANCTION', isEnabled: true },
+        { notificationType: 'KEYWORD', isEnabled: true },
       ],
     })
     expect(wrapper.text()).toContain('user.settings.saved')

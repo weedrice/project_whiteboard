@@ -222,7 +222,7 @@ describe('PostForm', () => {
             },
         })
 
-        options.onSuccess({ data: { data: 99 } })
+        options.onSuccess({ data: { data: { postId: 99 } } })
         expect(wrapper.emitted('cancel')).toBeUndefined()
     })
 
@@ -251,7 +251,7 @@ describe('PostForm', () => {
         await submitPostForm(wrapper)
 
         const [, options] = mockCreateMutate.mock.calls[0]
-        options.onSuccess({ data: { data: 101 } })
+        options.onSuccess({ data: { data: { postId: 101 } } })
         expect(wrapper.emitted('cancel')).toBeUndefined()
     })
 
@@ -268,7 +268,7 @@ describe('PostForm', () => {
         await submitPostForm(wrapper)
 
         const [, options] = mockCreateMutate.mock.calls[0]
-        options.onSuccess({ data: { data: 103 } })
+        options.onSuccess({ data: { data: { postId: 103 } } })
 
         expect(onSubmitted).toHaveBeenCalledWith({
             mode: 'create',
@@ -291,7 +291,7 @@ describe('PostForm', () => {
         await submitPostForm(wrapper)
 
         const [, options] = mockCreateMutate.mock.calls[0]
-        options.onSuccess({ data: { data: 102 } })
+        options.onSuccess({ data: { data: { postId: 102 } } })
 
         expect(wrapper.emitted('cancel')).toBeUndefined()
     })
