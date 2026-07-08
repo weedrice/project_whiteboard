@@ -12,6 +12,11 @@ export const boardQueryKeys = {
         params: Ref<TParams>,
         isSearching?: Ref<boolean>,
     ) => ['board', 'posts', boardUrl, params, isSearching] as const,
+    infinitePosts: <TParams>(
+        boardUrl: Ref<string>,
+        params: Ref<TParams>,
+        isSearching?: Ref<boolean>,
+    ) => ['board', 'posts', 'infinite', boardUrl, params, isSearching] as const,
     notices: (boardUrl: Ref<string>) => ['board', 'notices', boardUrl] as const,
     categories: (boardUrl: Ref<string>) => ['board', 'categories', boardUrl] as const,
     managerCandidates: <TParams>(boardUrl: Ref<string>, params: Ref<TParams>) =>

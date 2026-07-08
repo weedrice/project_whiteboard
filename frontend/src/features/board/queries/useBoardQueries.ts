@@ -1,5 +1,5 @@
 import { computed, type Ref } from 'vue'
-import { useQuery } from '@tanstack/vue-query'
+import { useInfiniteQuery, useQuery } from '@tanstack/vue-query'
 import type { AxiosRequestConfig } from 'axios'
 import { unwrapAxiosApiData } from '@/api/response'
 import { boardApi } from '@/api/board'
@@ -20,6 +20,8 @@ export interface BoardPostParams {
   q?: string
   searchType?: string
 }
+
+type InfiniteBoardPostParams = Omit<BoardPostParams, 'page'>
 
 export interface BoardManagerCandidateParams {
   page?: number
@@ -143,6 +145,37 @@ export function useBoardQueries() {
     })
   }
 
+  const useInfiniteBoardPosts = (
+    boardUrl: Ref<string>,
+    params: Ref<BoardPostParams>,
+    isSearching?: Ref<boolean>,
+    enabled?: Ref<boolean>,
+    options: { requestConfig?: AxiosRequestConfig } & Record<string, unknown> = {}
+  ) => {
+    const { requestConfig, ...queryOptions } = options
+    const infiniteParams = computed<InfiniteBoardPostParams>(() => {
+      const { page: _page, ...restParams } = params.value
+      return restParams
+    })
+
+    return useInfiniteQuery({
+      queryKey: boardQueryKeys.infinitePosts(boardUrl, infiniteParams, isSearching),
+      initialPageParam: params.value.page ?? 0,
+      queryFn: ({ pageParam, signal }) => fetchBoardPosts(
+        boardUrl.value,
+        {
+          ...infiniteParams.value,
+          page: Number(pageParam),
+        },
+        Boolean(isSearching?.value),
+        optionalQuerySignal(requestConfig, { signal }),
+      ),
+      getNextPageParam: (lastPage) => lastPage.last ? undefined : lastPage.number + 1,
+      enabled: computed(() => !!boardUrl.value && (enabled?.value ?? true)),
+      ...queryOptions,
+    })
+  }
+
   const useBoardNotices = (
     boardUrl: Ref<string>,
     enabled?: Ref<boolean>,
@@ -196,6 +229,7 @@ export function useBoardQueries() {
     useSubscribedBoards,
     useBoardDetail,
     useBoardPosts,
+    useInfiniteBoardPosts,
     useBoardNotices,
     useBoardCategories,
     useBoardManagerCandidates,

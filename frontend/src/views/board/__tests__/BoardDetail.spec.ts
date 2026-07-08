@@ -11,9 +11,13 @@ const {
   subscribeMutate,
   boardPayload,
   postsPayload,
+  infinitePostsPayload,
   noticesPayload,
   boardState,
-  useBoardPostsCalls
+  useBoardPostsCalls,
+  useInfiniteBoardPostsCalls,
+  fetchNextPage,
+  isMobilePostList
 } = vi.hoisted(() => ({
   route: {
     params: {
@@ -58,11 +62,19 @@ const {
     totalElements: 0,
     totalPages: 0
   },
+  infinitePostsPayload: {
+    pages: [] as Array<Record<string, unknown>>
+  },
   noticesPayload: [] as Array<Record<string, unknown>>,
   boardState: {
     value: null as null | Record<string, unknown>
   },
-  useBoardPostsCalls: [] as unknown[][]
+  useBoardPostsCalls: [] as unknown[][],
+  useInfiniteBoardPostsCalls: [] as unknown[][],
+  fetchNextPage: vi.fn(),
+  isMobilePostList: {
+    value: false
+  }
 }))
 
 vi.mock('vue-router', async (importOriginal) => {
@@ -125,6 +137,18 @@ vi.mock('@/composables/useBoard', () => ({
         error: ref(null)
       }
     },
+    useInfiniteBoardPosts: (...args: unknown[]) => {
+      useInfiniteBoardPostsCalls.push(args)
+      return {
+        data: ref(infinitePostsPayload),
+        isLoading: ref(false),
+        isFetching: ref(false),
+        isFetchingNextPage: ref(false),
+        hasNextPage: ref(true),
+        fetchNextPage,
+        error: ref(null)
+      }
+    },
     useBoardNotices: () => ({
       data: ref(noticesPayload),
       isLoading: ref(false),
@@ -135,6 +159,10 @@ vi.mock('@/composables/useBoard', () => ({
       isPending: ref(false)
     })
   })
+}))
+
+vi.mock('@/composables/useMediaQuery', () => ({
+  useMobileViewport: () => isMobilePostList
 }))
 
 vi.mock('@/utils/image', () => ({
@@ -160,9 +188,13 @@ describe('BoardDetail', () => {
     postsPayload.content = []
     postsPayload.totalElements = 0
     postsPayload.totalPages = 0
+    infinitePostsPayload.pages = []
     noticesPayload.length = 0
     boardState.value = boardPayload
     useBoardPostsCalls.length = 0
+    useInfiniteBoardPostsCalls.length = 0
+    fetchNextPage.mockReset()
+    isMobilePostList.value = false
     router.replace.mockReset()
     router.push.mockReset()
     addRecentBoard.mockReset()
@@ -223,6 +255,93 @@ describe('BoardDetail', () => {
 
     const enabled = useBoardPostsCalls[0]?.[3] as { value: boolean } | undefined
     expect(enabled?.value).toBe(true)
+  })
+
+  it('uses mobile infinite post loading without rendering pagination', async () => {
+    isMobilePostList.value = true
+    postsPayload.totalPages = 4
+    infinitePostsPayload.pages = [
+      {
+        content: [
+          {
+            postId: 501,
+            boardUrl: 'free',
+            title: 'Mobile post',
+            createdAt: '2026-01-04T00:00:00',
+            viewCount: 0,
+            likeCount: 0,
+            commentCount: 0,
+            isNotice: false,
+            isNsfw: false,
+            isSpoiler: false,
+            author: { userId: 1, displayName: 'Author' }
+          }
+        ],
+        totalPages: 4,
+      }
+    ]
+
+    const PostListStub = defineComponent({
+      name: 'PostListStub',
+      props: {
+        posts: {
+          type: Array,
+          required: true
+        },
+        enableInfiniteLoad: {
+          type: Boolean,
+          default: false
+        },
+        hasMorePosts: {
+          type: Boolean,
+          default: false
+        }
+      },
+      emits: ['load-more'],
+      setup(props, { emit }) {
+        return () => h(
+          'button',
+          {
+            'data-testid': 'mobile-post-list',
+            'data-infinite': String(props.enableInfiniteLoad),
+            'data-has-more': String(props.hasMorePosts),
+            'data-post-count': String(props.posts.length),
+            onClick: () => emit('load-more')
+          },
+          'load'
+        )
+      }
+    })
+
+    const wrapper = mount(BoardDetail, {
+      global: {
+        mocks: {
+          $t: (key: string) => key
+        },
+        stubs: {
+          RouterLink: RouterLinkStub,
+          RouterView: true,
+          PostList: PostListStub,
+          Pagination: true,
+          UserMenu: true,
+          BaseSkeleton: true
+        }
+      }
+    })
+
+    const postList = wrapper.get('[data-testid="mobile-post-list"]')
+    expect(postList.attributes('data-infinite')).toBe('true')
+    expect(postList.attributes('data-has-more')).toBe('true')
+    expect(postList.attributes('data-post-count')).toBe('1')
+    expect(wrapper.findComponent({ name: 'Pagination' }).exists()).toBe(false)
+
+    await postList.trigger('click')
+
+    expect(fetchNextPage).toHaveBeenCalledTimes(1)
+    const pagedEnabled = useBoardPostsCalls[0]?.[3] as { value: boolean } | undefined
+    const infiniteEnabled = useInfiniteBoardPostsCalls[0]?.[3] as { value: boolean } | undefined
+    expect(pagedEnabled?.value).toBe(false)
+    expect(infiniteEnabled?.value).toBe(true)
   })
 
   it('syncs category selection into the board URL state', async () => {

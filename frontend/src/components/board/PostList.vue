@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { LocationQueryRaw, RouteLocationRaw } from 'vue-router'
 import { FileText } from 'lucide-vue-next'
@@ -57,6 +57,9 @@ const props = withDefaults(defineProps<{
   emptyDescription?: string
   emptyActionLabel?: string
   emptyActionTo?: RouteLocationRaw
+  enableInfiniteLoad?: boolean
+  hasMorePosts?: boolean
+  isLoadingMore?: boolean
 }>(), {
   loading: false,
   currentSort: 'createdAt,desc',
@@ -72,11 +75,15 @@ const props = withDefaults(defineProps<{
   emptyDescription: undefined,
   emptyActionLabel: undefined,
   emptyActionTo: undefined,
+  enableInfiniteLoad: false,
+  hasMorePosts: false,
+  isLoadingMore: false,
 })
 
 const emit = defineEmits<{
   (e: 'update:sort', sort: string): void
   (e: 'inquiry-click', post: PostSummary): void
+  (e: 'load-more'): void
 }>()
 
 const { t } = useI18n()
@@ -171,6 +178,50 @@ function handleSort(field: string) {
 const activeSortKey = computed(() => getPostListActiveSortKey(props.currentSort))
 
 const activeSortDirection = computed<'asc' | 'desc' | null>(() => getPostListActiveSortDirection(props.currentSort))
+const loadMoreTrigger = ref<HTMLElement | null>(null)
+let loadMoreObserver: IntersectionObserver | null = null
+
+function disconnectLoadMoreObserver() {
+  loadMoreObserver?.disconnect()
+  loadMoreObserver = null
+}
+
+function requestLoadMore() {
+  if (!props.enableInfiniteLoad || !props.hasMorePosts || props.isLoadingMore) {
+    return
+  }
+  emit('load-more')
+}
+
+function attachLoadMoreObserver() {
+  disconnectLoadMoreObserver()
+  if (
+    !props.enableInfiniteLoad
+    || !props.hasMorePosts
+    || typeof window === 'undefined'
+    || typeof window.IntersectionObserver !== 'function'
+    || !loadMoreTrigger.value
+  ) {
+    return
+  }
+
+  loadMoreObserver = new window.IntersectionObserver((entries) => {
+    if (entries.some((entry) => entry.isIntersecting)) {
+      requestLoadMore()
+    }
+  }, {
+    rootMargin: '240px 0px',
+  })
+  loadMoreObserver.observe(loadMoreTrigger.value)
+}
+
+watch(
+  () => [props.enableInfiniteLoad, props.hasMorePosts, props.isLoadingMore, props.posts.length] as const,
+  attachLoadMoreObserver,
+  { flush: 'post', immediate: true }
+)
+
+onBeforeUnmount(disconnectLoadMoreObserver)
 
 function onNavigationClick(event: Event, item: PostSummary) {
   if (shouldInterceptInquiry(item)) {
@@ -255,6 +306,22 @@ const columns = computed(() => createPostListColumns({
         :density="listDensity"
         @navigate="onNavigationClick"
       />
+
+      <div
+        v-if="enableInfiniteLoad && posts.length > 0"
+        class="px-4 py-4 text-center"
+      >
+        <button
+          v-if="hasMorePosts"
+          ref="loadMoreTrigger"
+          type="button"
+          class="nv-mobile-load-more"
+          :disabled="isLoadingMore"
+          @click="requestLoadMore"
+        >
+          {{ isLoadingMore ? t('common.loading') : t('common.loadMore') }}
+        </button>
+      </div>
     </div>
 
     <div v-if="!loading && posts.length === 0" class="hidden sm:block">
@@ -296,3 +363,20 @@ const columns = computed(() => createPostListColumns({
     />
   </div>
 </template>
+
+<style scoped>
+.nv-mobile-load-more {
+  min-height: 44px;
+  border: 1px solid var(--nv-line);
+  border-radius: var(--nv-radius-pill);
+  background: var(--nv-surface);
+  color: var(--nv-ink);
+  font-size: 0.875rem;
+  font-weight: 700;
+  padding: 0.625rem 1.25rem;
+}
+
+.nv-mobile-load-more:disabled {
+  color: var(--nv-muted);
+}
+</style>

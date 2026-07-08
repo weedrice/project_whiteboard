@@ -581,4 +581,35 @@ describe('PostList', () => {
     expect(wrapper.find('.nv-post-mobile-comments').exists()).toBe(false)
     expect(wrapper.html()).not.toContain('board.writePost.secret')
   })
+
+  it('emits load-more from the mobile infinite action when enabled', async () => {
+    const wrapper = mount(PostList, {
+      props: {
+        posts: [createPost()],
+        enableInfiniteLoad: true,
+        hasMorePosts: true,
+        isLoadingMore: false
+      },
+      global: {
+        mocks: {
+          $t: (key: string) => key
+        },
+        stubs: {
+          RouterLink: RouterLinkStub,
+          BaseTable: true,
+          UserMenu: true
+        }
+      }
+    })
+
+    const loadMoreButton = wrapper.get('.nv-mobile-load-more')
+    await loadMoreButton.trigger('click')
+
+    expect(wrapper.emitted('load-more')).toHaveLength(1)
+
+    await wrapper.setProps({ isLoadingMore: true })
+    await loadMoreButton.trigger('click')
+
+    expect(wrapper.emitted('load-more')).toHaveLength(1)
+  })
 })

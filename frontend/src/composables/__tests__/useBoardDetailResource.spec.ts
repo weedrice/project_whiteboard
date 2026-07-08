@@ -10,9 +10,17 @@ const mocks = vi.hoisted(() => ({
   isPostsLoading: { value: false },
   isPostsFetching: { value: false },
   postsError: { value: null as unknown },
+  infinitePostsData: { value: null as unknown },
+  isInfinitePostsLoading: { value: false },
+  isInfinitePostsFetching: { value: false },
+  isFetchingNextPostPage: { value: false },
+  hasMorePosts: { value: false },
+  fetchNextPage: vi.fn(),
+  infinitePostsError: { value: null as unknown },
   noticesData: { value: [] as unknown[] },
   subscribeMutate: vi.fn(),
   isSubscribePending: { value: false },
+  isMobilePostList: { value: false },
 }))
 
 vi.mock('@/composables/useBoard', () => ({
@@ -28,6 +36,15 @@ vi.mock('@/composables/useBoard', () => ({
       isFetching: mocks.isPostsFetching,
       error: mocks.postsError,
     }),
+    useInfiniteBoardPosts: () => ({
+      data: mocks.infinitePostsData,
+      isLoading: mocks.isInfinitePostsLoading,
+      isFetching: mocks.isInfinitePostsFetching,
+      isFetchingNextPage: mocks.isFetchingNextPostPage,
+      hasNextPage: mocks.hasMorePosts,
+      fetchNextPage: mocks.fetchNextPage,
+      error: mocks.infinitePostsError,
+    }),
     useBoardNotices: () => ({
       data: mocks.noticesData,
     }),
@@ -36,6 +53,10 @@ vi.mock('@/composables/useBoard', () => ({
       isPending: mocks.isSubscribePending,
     }),
   }),
+}))
+
+vi.mock('@/composables/useMediaQuery', () => ({
+  useMobileViewport: () => mocks.isMobilePostList,
 }))
 
 describe('useBoardDetailResource', () => {
@@ -47,9 +68,17 @@ describe('useBoardDetailResource', () => {
     mocks.isPostsLoading = ref(false)
     mocks.isPostsFetching = ref(false)
     mocks.postsError = ref(null)
+    mocks.infinitePostsData = ref(null)
+    mocks.isInfinitePostsLoading = ref(false)
+    mocks.isInfinitePostsFetching = ref(false)
+    mocks.isFetchingNextPostPage = ref(false)
+    mocks.hasMorePosts = ref(false)
+    mocks.fetchNextPage.mockClear()
+    mocks.infinitePostsError = ref(null)
     mocks.noticesData = ref([])
     mocks.isSubscribePending = ref(false)
     mocks.subscribeMutate.mockClear()
+    mocks.isMobilePostList = ref(false)
   })
 
   const createResource = () => useBoardDetailResource({
@@ -110,6 +139,48 @@ describe('useBoardDetailResource', () => {
     expect(resource.posts.value).toEqual([{ postId: 11, title: 'Existing' }])
     expect(resource.blockingError.value).toBe('')
     expect(resource.transientListError.value).toBe('board.loadFailed')
+  })
+
+  it('uses flattened infinite pages and load-more state on mobile', () => {
+    mocks.isMobilePostList.value = true
+    mocks.infinitePostsData.value = {
+      pages: [
+        {
+          content: [{ postId: 11, title: 'First' }],
+          totalPages: 3,
+        },
+        {
+          content: [{ postId: 12, title: 'Second' }],
+          totalPages: 3,
+        },
+      ],
+    }
+    mocks.hasMorePosts.value = true
+
+    const resource = createResource()
+
+    expect(resource.posts.value).toEqual([
+      { postId: 11, title: 'First' },
+      { postId: 12, title: 'Second' },
+    ])
+    expect(resource.totalPages.value).toBe(3)
+    expect(resource.hasMorePosts.value).toBe(true)
+
+    resource.loadMorePosts()
+
+    expect(mocks.fetchNextPage).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not request the next mobile page while already fetching', () => {
+    mocks.isMobilePostList.value = true
+    mocks.hasMorePosts.value = true
+    mocks.isFetchingNextPostPage.value = true
+
+    const resource = createResource()
+
+    resource.loadMorePosts()
+
+    expect(mocks.fetchNextPage).not.toHaveBeenCalled()
   })
 
   it('shows list loading only while fetching a stale list key', async () => {

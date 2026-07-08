@@ -54,8 +54,12 @@ const {
   categories,
   hasNoticeOverflow,
   isInitialLoading,
+  isFetchingNextPostPage,
+  isMobilePostList,
   isNoticesExpanded,
   isSubscribePending,
+  hasMorePosts,
+  loadMorePosts,
   posts,
   resetNoticeState,
   showPostListLoading,
@@ -76,6 +80,7 @@ useBoardRecentVisit(board)
 const canWrite = computed(() => (
   canWriteBoardPost(board.value, authStore.isAuthenticated, authStore.user?.role)
 ))
+const mobilePostListEnabled = computed(() => isMobilePostList.value)
 const isAllPostsActive = computed(() => (
   !conceptOnly.value
   && selectedCategoryId.value === null
@@ -177,7 +182,11 @@ useHead({
           :can-write="canWrite && !isSearching"
           :empty-description="isSearching ? t('board.detail.emptySearchDescription') : t('board.detail.emptyDescription')"
           :empty-action-to="`/board/${board.boardUrl}/write`"
+          :enable-infinite-load="mobilePostListEnabled"
+          :has-more-posts="hasMorePosts"
+          :is-loading-more="isFetchingNextPostPage"
           @update:sort="handleSortChange"
+          @load-more="loadMorePosts"
         />
 
         <BoardPostSearch
@@ -193,7 +202,7 @@ useHead({
         />
 
         <div
-          v-if="totalPages > 1"
+          v-if="!mobilePostListEnabled && totalPages > 1"
           class="flex justify-center px-3 py-3 sm:px-4"
         >
           <Pagination

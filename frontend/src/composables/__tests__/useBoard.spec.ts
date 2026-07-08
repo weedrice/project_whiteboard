@@ -10,10 +10,12 @@ import { apiDataResponse, apiSuccessResponse } from '@/test/apiResponseFixtures'
 const mocks = vi.hoisted(() => {
     const invalidateQueries = vi.fn()
     const queryOptions: Array<Record<string, unknown>> = []
+    const infiniteQueryOptions: Array<Record<string, unknown>> = []
 
     return {
         invalidateQueries,
         queryOptions,
+        infiniteQueryOptions,
     }
 })
 
@@ -33,6 +35,18 @@ vi.mock('@tanstack/vue-query', () => ({
                 }
                 return null
             },
+        }
+    }),
+    useInfiniteQuery: vi.fn((options: Record<string, unknown>) => {
+        mocks.infiniteQueryOptions.push(options)
+        return {
+            data: ref(null),
+            isLoading: ref(false),
+            isFetching: ref(false),
+            isFetchingNextPage: ref(false),
+            hasNextPage: ref(false),
+            error: ref(null),
+            fetchNextPage: vi.fn(),
         }
     }),
     useMutation: vi.fn(({ mutationFn, onSuccess }) => ({
@@ -79,6 +93,7 @@ describe('useBoard', () => {
     beforeEach(() => {
         vi.clearAllMocks()
         mocks.queryOptions.length = 0
+        mocks.infiniteQueryOptions.length = 0
     })
 
     it('fetches boards with medium staleTime', async () => {
@@ -273,6 +288,46 @@ describe('useBoard', () => {
             },
             { skipGlobalErrorHandler: true }
         )
+    })
+
+    it('fetches infinite board posts with pageParam while excluding page from the cache params', async () => {
+        vi.mocked(boardApi.getPosts).mockResolvedValueOnce(
+            apiDataResponse<typeof boardApi.getPosts>({
+                content: [{ postId: 3 }],
+                number: 2,
+                last: false,
+            })
+        )
+
+        const { useInfiniteBoardPosts } = useBoard()
+        const boardUrl = ref('free')
+        const params = ref({ page: 7, size: 20, sort: 'createdAt,desc', categoryId: 2 })
+
+        useInfiniteBoardPosts(boardUrl, params, ref(false), ref(true), {
+            requestConfig: { skipGlobalErrorHandler: true }
+        })
+
+        const options = mocks.infiniteQueryOptions.at(-1)!
+        const result = await (options.queryFn as (context: { pageParam: number, signal?: AbortSignal }) => Promise<unknown>)({
+            pageParam: 2,
+        })
+        const [, , , , paramsRef] = options.queryKey as unknown[]
+
+        expect((paramsRef as { value: Record<string, unknown> }).value).toEqual({
+            size: 20,
+            sort: 'createdAt,desc',
+            categoryId: 2,
+        })
+        expect(boardApi.getPosts).toHaveBeenCalledWith(
+            'free',
+            { size: 20, sort: 'createdAt,desc', categoryId: 2, page: 2 },
+            { skipGlobalErrorHandler: true }
+        )
+        expect((options.getNextPageParam as (page: { number: number, last: boolean }) => number | undefined)({
+            number: 2,
+            last: false,
+        })).toBe(3)
+        expect(result).toEqual({ content: [{ postId: 3 }], number: 2, last: false })
     })
 
     it('fetches board categories', async () => {
