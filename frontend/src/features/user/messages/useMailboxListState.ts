@@ -8,11 +8,11 @@ import type { MailboxMessageViewModel } from '@/types'
 import { markMailboxMessageRead, toMailboxMessageViewModel } from '@/features/user/messages/messageViewModel'
 import logger from '@/utils/logger'
 
-export type MailboxViewType = 'received' | 'sent'
+export type MailboxViewType = 'conversations' | 'received' | 'sent'
 
 export function useMailboxListState() {
     const { t } = useI18n()
-    const viewType = ref<MailboxViewType>('received')
+    const viewType = ref<MailboxViewType>('conversations')
     const messages = ref<MailboxMessageViewModel[]>([])
     const selectedMessages = ref<number[]>([])
     const {
@@ -37,9 +37,7 @@ export function useMailboxListState() {
                 page: page.value,
                 size: size.value
             }
-            const response = viewType.value === 'received'
-                ? await messageApi.getReceivedMessages(params, { signal })
-                : await messageApi.getSentMessages(params, { signal })
+            const response = await fetchMessagePage(viewType.value, params, { signal })
 
             return response.data
         })
@@ -66,6 +64,16 @@ export function useMailboxListState() {
         viewType.value = type
         resetPage()
         fetchMessages()
+    }
+
+    function fetchMessagePage(type: MailboxViewType, params: { page: number; size: number }, config: { signal: AbortSignal }) {
+        if (type === 'received') {
+            return messageApi.getReceivedMessages(params, config)
+        }
+        if (type === 'sent') {
+            return messageApi.getSentMessages(params, config)
+        }
+        return messageApi.getConversations(params, config)
     }
 
     function markListMessageRead(messageId: number) {

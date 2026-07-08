@@ -623,6 +623,8 @@ export interface UserMessages {
     sendFailed: string
     blockedByUser: string
     boxTitle: string
+    conversations: string
+    conversation: string
     received: string
     sent: string
     empty: string

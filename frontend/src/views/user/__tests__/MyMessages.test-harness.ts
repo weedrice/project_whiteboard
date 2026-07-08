@@ -12,6 +12,8 @@ export type MyMessagesExposed = {
 const messageApi = vi.hoisted(() => ({
     getReceivedMessages: vi.fn(),
     getSentMessages: vi.fn(),
+    getConversations: vi.fn(),
+    getConversation: vi.fn(),
     getMessage: vi.fn(),
     markAsRead: vi.fn(),
     deleteMessages: vi.fn(),
@@ -55,6 +57,12 @@ vi.mock('@/utils/date', () => ({
 vi.mock('vue-i18n', () => ({
     useI18n: () => ({
         t: (key: string) => key,
+    }),
+}))
+
+vi.mock('vue-router', () => ({
+    useRoute: () => ({
+        query: {},
     }),
 }))
 

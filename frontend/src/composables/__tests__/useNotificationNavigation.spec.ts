@@ -6,6 +6,7 @@ import {
 } from '../useNotificationNavigation'
 import { postApi } from '@/api/post'
 import { commentApi } from '@/api/comment'
+import { messageApi } from '@/api/message'
 import { apiSuccessDataResponse } from '@/test/apiResponseFixtures'
 import type { Notification } from '@/types'
 
@@ -37,6 +38,12 @@ vi.mock('@/api/post', () => ({
 vi.mock('@/api/comment', () => ({
     commentApi: {
         getComment: vi.fn(),
+    },
+}))
+
+vi.mock('@/api/message', () => ({
+    messageApi: {
+        getMessage: vi.fn(),
     },
 }))
 

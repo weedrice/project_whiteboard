@@ -192,6 +192,8 @@ export const user: UserMessages = {
     sendFailed: '쪽지 전송에 실패했습니다.',
     blockedByUser: '해당 사용자에 의해 차단되었습니다.',
     boxTitle: '쪽지함',
+    conversations: '대화',
+    conversation: '대화 상대',
     received: '받은 쪽지',
     sent: '보낸 쪽지',
     empty: '쪽지가 없습니다.',

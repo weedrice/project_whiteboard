@@ -18,6 +18,7 @@ import com.weedrice.whiteboard.global.util.InputSanitizer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -93,6 +94,47 @@ public class MessageService {
 
     public MessageResponse getSentMessages(Long userId, Pageable pageable) {
         return getMessages(userId, pageable, MessageListDirection.SENT);
+    }
+
+    public MessageResponse getConversations(Long userId, Pageable pageable) {
+        Pageable safePageable = PageRequestUtils.of(
+                pageable,
+                DEFAULT_MESSAGE_PAGE_SIZE,
+                MESSAGE_LIST_SORT,
+                ALLOWED_MESSAGE_SORTS);
+        List<Long> blockedUserIds = getBlockedConversationUserIds(userId);
+        List<Message> latestCandidates = messageRepository.findConversationLatestCandidates(userId, blockedUserIds);
+        Map<Long, Message> latestByPartner = new java.util.LinkedHashMap<>();
+        for (Message message : latestCandidates) {
+            Long partnerId = resolveConversationPartnerId(message, userId);
+            latestByPartner.putIfAbsent(partnerId, message);
+        }
+
+        List<Message> conversations = new ArrayList<>(latestByPartner.values());
+        int start = Math.toIntExact(Math.min(safePageable.getOffset(), conversations.size()));
+        int end = Math.min(start + safePageable.getPageSize(), conversations.size());
+        Page<Message> page = new PageImpl<>(conversations.subList(start, end), safePageable, conversations.size());
+        return MessageResponse.from(page, userId);
+    }
+
+    public MessageResponse getConversation(Long userId, Long partnerId, Pageable pageable) {
+        Pageable safePageable = PageRequestUtils.of(
+                pageable,
+                DEFAULT_MESSAGE_PAGE_SIZE,
+                MESSAGE_LIST_SORT,
+                ALLOWED_MESSAGE_SORTS);
+        List<Long> blockedUserIds = getBlockedConversationUserIdsForExistingUser(userId);
+        Page<Message> messages = messageRepository.findConversationMessages(userId, partnerId, blockedUserIds,
+                safePageable);
+        return MessageResponse.from(messages, userId);
+    }
+
+    private Long resolveConversationPartnerId(Message message, Long userId) {
+        Long senderId = message.getSender().getUserId();
+        if (senderId.equals(userId)) {
+            return message.getReceiver().getUserId();
+        }
+        return senderId;
     }
 
     private MessageResponse getMessages(Long userId, Pageable pageable, MessageListDirection direction) {

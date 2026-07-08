@@ -2,6 +2,7 @@ import { useRouter, type RouteLocationRaw } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { postApi } from '@/api/post'
 import { commentApi } from '@/api/comment'
+import { messageApi } from '@/api/message'
 import { unwrapApiData } from '@/api/response'
 import { useNotification } from '@/composables/useNotification'
 import { useToastStore } from '@/stores/toast'
@@ -99,6 +100,26 @@ export function useNotificationNavigation(options: NotificationNavigationOptions
                     toastStore.addToast(t('common.messages.notFound'), 'warning')
                 }
                 logger.error('Failed to navigate to comment:', err)
+            }
+            return
+        }
+
+        if (notification.sourceType === 'MESSAGE') {
+            try {
+                const { data } = await messageApi.getMessage(notification.sourceId, {
+                    skipGlobalErrorHandler: true,
+                })
+                if (data.success) {
+                    const message = unwrapApiData(data)
+                    if (message?.partner?.userId) {
+                        router.push({
+                            name: 'MyMessages',
+                            query: { partnerId: String(message.partner.userId) },
+                        })
+                    }
+                }
+            } catch (err: unknown) {
+                logger.error('Failed to navigate to message:', err)
             }
         }
     }

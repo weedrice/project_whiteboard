@@ -29,16 +29,19 @@ public class MessageResponse {
         private UserInfo partner; // 상대방 정보
         private String content;
         private Boolean isRead;
+        private Boolean sentByMe;
         private LocalDateTime createdAt;
 
         public static MessageSummary from(Message message, Long currentUserId) {
-            User partner = message.getSender().getUserId().equals(currentUserId) ? message.getReceiver()
+            boolean sentByCurrentUser = message.getSender().getUserId().equals(currentUserId);
+            User partner = sentByCurrentUser ? message.getReceiver()
                     : message.getSender();
             return MessageSummary.builder()
                     .messageId(message.getMessageId())
                     .partner(UserInfo.from(partner))
                     .content(InputSanitizer.stripHtml(message.getContent()))
                     .isRead(message.getIsRead())
+                    .sentByMe(sentByCurrentUser)
                     .createdAt(message.getCreatedAt())
                     .build();
         }

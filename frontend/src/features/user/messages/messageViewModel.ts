@@ -7,6 +7,7 @@ export function toMailboxMessageViewModel(message: MessageSummaryDto): MailboxMe
         partnerName: message.partner.displayName,
         body: message.content,
         isUnread: !message.isRead,
+        sentByMe: Boolean(message.sentByMe),
         createdAt: message.createdAt,
     }
 }

@@ -8,6 +8,7 @@ export interface MessageSummaryDto {
     content: string
     partner: MessagePartnerDto
     isRead: boolean
+    sentByMe?: boolean
     createdAt: string
 }
 
@@ -27,6 +28,7 @@ export interface MailboxMessageViewModel {
     partnerName: string
     body: string
     isUnread: boolean
+    sentByMe: boolean
     createdAt: string
 }
 

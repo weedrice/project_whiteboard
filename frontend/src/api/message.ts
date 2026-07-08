@@ -6,6 +6,7 @@ import { encodePathSegment } from '@/utils/urlPath'
 interface MessageParams {
     page?: number
     size?: number
+    sort?: string
 }
 
 const BLOCKED_BY_USER_CODE = 'U009'
@@ -17,6 +18,10 @@ export const messageApi = {
         api.get<ApiResponse<MessageResponse>>('/messages/received', { ...config, params }),
     getSentMessages: (params: MessageParams, config?: AxiosRequestConfig) =>
         api.get<ApiResponse<MessageResponse>>('/messages/sent', { ...config, params }),
+    getConversations: (params: MessageParams, config?: AxiosRequestConfig) =>
+        api.get<ApiResponse<MessageResponse>>('/messages/conversations', { ...config, params }),
+    getConversation: (partnerId: string | number, params: MessageParams, config?: AxiosRequestConfig) =>
+        api.get<ApiResponse<MessageResponse>>(`/messages/conversations/${encodePathSegment(partnerId)}`, { ...config, params }),
     getUnreadCount: () => api.get<ApiResponse<number>>('/messages/unread-count'),
     getMessage: (messageId: string | number, config?: AxiosRequestConfig) =>
         api.get<ApiResponse<MessageSummaryDto>>(`/messages/${encodePathSegment(messageId)}`, config),

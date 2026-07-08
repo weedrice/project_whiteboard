@@ -52,6 +52,27 @@ public class MessageController {
                 return ApiResponse.success(messageService.getSentMessages(userId, pageable));
         }
 
+        @GetMapping("/conversations")
+        public ApiResponse<MessageResponse> getConversations(
+                        @RequestParam(defaultValue = "0") int page,
+                        @RequestParam(defaultValue = "20") int size,
+                Sort sort,
+                @CurrentUserId Long userId) {
+                Pageable pageable = PageRequestUtils.of(page, size, sort);
+                return ApiResponse.success(messageService.getConversations(userId, pageable));
+        }
+
+        @GetMapping("/conversations/{partnerId}")
+        public ApiResponse<MessageResponse> getConversation(
+                        @PathVariable Long partnerId,
+                        @RequestParam(defaultValue = "0") int page,
+                        @RequestParam(defaultValue = "20") int size,
+                Sort sort,
+                @CurrentUserId Long userId) {
+                Pageable pageable = PageRequestUtils.of(page, size, sort);
+                return ApiResponse.success(messageService.getConversation(userId, partnerId, pageable));
+        }
+
         @GetMapping("/{messageId}")
         public ApiResponse<MessageResponse.MessageSummary> getMessage(
                         @PathVariable Long messageId,

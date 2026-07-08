@@ -16,6 +16,16 @@ import {
 describe('MyMessages', () => {
     beforeEach(() => {
         vi.clearAllMocks()
+        messageApi.getConversations.mockImplementation((params, config) => messageApi.getReceivedMessages(params, config))
+        messageApi.getConversation.mockResolvedValue({
+            data: {
+                success: true,
+                data: {
+                    content: [],
+                    totalPages: 0,
+                },
+            },
+        })
     })
 
     it('loads message detail and then calls read endpoint for unread received messages', async () => {

@@ -74,8 +74,7 @@
                 <section class="min-w-0">
                     <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 border-b nv-border pb-3">
                         <div class="min-w-0">
-                            <span class="block text-xs nv-text-subtle">{{ viewType === 'received' ?
-                                $t('user.message.from') : $t('user.message.to') }}</span>
+                            <span class="block text-xs nv-text-subtle">{{ selectedPartnerLabel }}</span>
                             <span class="text-sm font-medium nv-title truncate block">{{
                                 selectedMessage.partnerName }}</span>
                         </div>
@@ -111,7 +110,7 @@
             </div>
 
             <div class="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:space-x-2 pt-4 border-t nv-border">
-                <BaseButton v-if="viewType === 'received'" @click="startReply(selectedMessage)"
+                <BaseButton v-if="viewType !== 'sent'" @click="startReply(selectedMessage)"
                     class="w-full sm:w-auto min-h-[44px] order-2 sm:order-none">
                     {{ $t('user.message.reply') }}
                 </BaseButton>
@@ -163,11 +162,14 @@ import { useMailboxResource } from '@/features/user/messages/useMailboxResource'
 import type { MailboxViewType } from '@/features/user/messages/useMailboxListState'
 import type { MailboxMessageViewModel } from '@/types'
 import { formatDate } from '@/utils/date'
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute } from 'vue-router'
 
 const { t } = useI18n()
+const route = useRoute()
 const messageBoxOptions = computed(() => [
+    { value: 'conversations', label: t('user.message.conversations') },
     { value: 'received', label: t('user.message.received') },
     { value: 'sent', label: t('user.message.sent') },
 ])
@@ -178,6 +180,7 @@ const {
     loading,
     error,
     selectedMessage,
+    selectedConversationMessages,
     selectedMessages,
     page,
     size,
@@ -191,6 +194,7 @@ const {
     handleSizeChange,
     changeViewType,
     openMessage,
+    openConversationByPartnerId,
     deleteSelectedMessages,
     startReply,
     closeReplyModal,
@@ -199,6 +203,12 @@ const {
 
 type ConversationMessage = MailboxMessageViewModel & { isCurrent: boolean }
 
+const selectedPartnerLabel = computed(() => {
+    if (viewType.value === 'received') return t('user.message.from')
+    if (viewType.value === 'sent') return t('user.message.to')
+    return t('user.message.conversation')
+})
+
 const conversationMessages = computed<ConversationMessage[]>(() => {
     if (!selectedMessage.value) return []
 
@@ -206,7 +216,11 @@ const conversationMessages = computed<ConversationMessage[]>(() => {
     const byId = new Map<number, MailboxMessageViewModel>()
     byId.set(selected.id, selected)
 
-    messages.value
+    const sourceMessages = selectedConversationMessages.value.length > 0
+        ? selectedConversationMessages.value
+        : messages.value
+
+    sourceMessages
         .filter((message) => message.partnerUserId === selected.partnerUserId)
         .forEach((message) => byId.set(message.id, message))
 
@@ -217,4 +231,15 @@ const conversationMessages = computed<ConversationMessage[]>(() => {
             isCurrent: message.id === selected.id,
         }))
 })
+
+watch(
+    () => route.query.partnerId,
+    (partnerId) => {
+        const normalizedPartnerId = Array.isArray(partnerId) ? partnerId[0] : partnerId
+        const numericPartnerId = Number(normalizedPartnerId)
+        if (!Number.isFinite(numericPartnerId) || numericPartnerId <= 0) return
+        openConversationByPartnerId(numericPartnerId)
+    },
+    { immediate: true }
+)
 </script>

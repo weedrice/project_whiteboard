@@ -86,6 +86,55 @@ public class MessageRepositoryCustomImpl implements MessageRepositoryCustom {
     }
 
     @Override
+    public List<Message> findConversationLatestCandidates(Long userId, List<Long> blockedUserIds) {
+        return queryFactory
+                .selectFrom(message)
+                .join(message.sender, user).fetchJoin()
+                .join(message.receiver).fetchJoin()
+                .where(
+                        senderOrReceiverCanAccess(userId),
+                        notBlockedConversationPartnerCondition(userId, blockedUserIds)
+                )
+                .orderBy(message.createdAt.desc(), message.messageId.desc())
+                .fetch();
+    }
+
+    @Override
+    public Page<Message> findConversationMessages(Long userId, Long partnerId, List<Long> blockedUserIds,
+            Pageable pageable) {
+        BooleanExpression conversationAccess = message.sender.userId.eq(userId)
+                .and(message.receiver.userId.eq(partnerId))
+                .and(message.isDeletedBySender.isFalse())
+                .or(message.receiver.userId.eq(userId)
+                        .and(message.sender.userId.eq(partnerId))
+                        .and(message.isDeletedByReceiver.isFalse()));
+
+        List<Message> content = queryFactory
+                .selectFrom(message)
+                .join(message.sender, user).fetchJoin()
+                .join(message.receiver).fetchJoin()
+                .where(
+                        conversationAccess,
+                        notBlockedConversationPartnerCondition(userId, blockedUserIds)
+                )
+                .offset(pageable.getOffset())
+                .limit(pageable.getPageSize())
+                .orderBy(messageListOrder(pageable))
+                .fetch();
+
+        Long total = queryFactory
+                .select(message.count())
+                .from(message)
+                .where(
+                        conversationAccess,
+                        notBlockedConversationPartnerCondition(userId, blockedUserIds)
+                )
+                .fetchOne();
+
+        return new PageImpl<>(content, pageable, total != null ? total : 0L);
+    }
+
+    @Override
     public long countUnreadMessagesExcludingBlocked(Long userId, Boolean isRead, Boolean isDeleted,
             List<Long> blockedUserIds) {
         Long count = queryFactory

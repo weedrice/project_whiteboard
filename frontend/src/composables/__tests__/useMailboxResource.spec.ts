@@ -15,7 +15,7 @@ const mocks = vi.hoisted(() => ({
     sendReply: vi.fn(),
     resetReplyContent: vi.fn(),
     listState: {
-        viewType: { value: 'received' as 'received' | 'sent' },
+        viewType: { value: 'received' as 'conversations' | 'received' | 'sent' },
         messages: { value: [] as MailboxMessageViewModel[] },
         loading: { value: false },
         error: { value: null as string | null },
@@ -36,6 +36,7 @@ vi.mock('@/api/message', () => ({
     BLOCKED_BY_USER_CODE: 'U009',
     messageApi: {
         getMessage: vi.fn(),
+        getConversation: vi.fn(),
         markAsRead: vi.fn(),
         deleteMessages: vi.fn(),
     },
@@ -85,6 +86,7 @@ const message = (id: number, isUnread = true): MailboxMessageViewModel => ({
     partnerName: `User ${id}`,
     body: `Message ${id}`,
     isUnread,
+    sentByMe: false,
     createdAt: '2026-06-01T00:00:00',
 })
 
@@ -119,6 +121,15 @@ describe('useMailboxResource', () => {
         mocks.listState.selectedMessages.value = [1]
         vi.mocked(messageApi.markAsRead).mockResolvedValue(apiSuccessResponse<typeof messageApi.markAsRead>())
         vi.mocked(messageApi.deleteMessages).mockResolvedValue(apiSuccessResponse<typeof messageApi.deleteMessages>())
+        vi.mocked(messageApi.getConversation).mockResolvedValue(apiSuccessDataResponse<typeof messageApi.getConversation>({
+            content: [],
+            page: 0,
+            size: 50,
+            totalElements: 0,
+            totalPages: 0,
+            hasNext: false,
+            hasPrevious: false,
+        }))
     })
 
     it('aborts stale detail requests and keeps the latest selected message', async () => {

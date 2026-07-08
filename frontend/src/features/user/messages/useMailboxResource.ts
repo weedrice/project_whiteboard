@@ -35,6 +35,7 @@ export function useMailboxResource() {
         markListMessageRead,
     } = useMailboxListState()
     const selectedMessage = ref<MailboxMessageViewModel | null>(null)
+    const selectedConversationMessages = ref<MailboxMessageViewModel[]>([])
 
     const isReplyModalOpen = ref(false)
     const replyTarget = ref<MailboxMessageViewModel | null>(null)
@@ -78,6 +79,7 @@ export function useMailboxResource() {
         const messageId = msg.id
         messageFromBlockedUser.value = false
         selectedMessage.value = msg
+        selectedConversationMessages.value = []
         return { requestId, messageId, controller }
     }
 
@@ -94,7 +96,7 @@ export function useMailboxResource() {
     }
 
     async function markMessageAsReadIfNeeded(messageId: number, wasUnread: boolean, requestId: number) {
-        if (viewType.value !== 'received' || !wasUnread) {
+        if (viewType.value === 'sent' || !wasUnread || selectedMessage.value?.sentByMe) {
             return
         }
 
@@ -142,16 +144,63 @@ export function useMailboxResource() {
     async function openMessage(msg: MailboxMessageViewModel) {
         const { requestId, messageId, controller } = startMessageDetailRequest(msg)
         try {
-            const detail = await loadMessageDetail(messageId, controller)
+            const [detail, conversation] = await Promise.all([
+                loadMessageDetail(messageId, controller),
+                loadConversationMessages(msg.partnerUserId, controller),
+            ])
             if (isStaleMessageDetail(requestId, messageId)) {
                 return
             }
             if (detail) {
                 selectedMessage.value = detail
             }
+            selectedConversationMessages.value = conversation
             await markMessageAsReadIfNeeded(messageId, msg.isUnread, requestId)
         } catch (error) {
             await handleMessageDetailError(error, requestId, messageId, controller)
+        } finally {
+            if (messageDetailAbortController === controller) {
+                messageDetailAbortController = null
+            }
+        }
+    }
+
+    async function loadConversationMessages(partnerId: number, controller: AbortController) {
+        const { data } = await messageApi.getConversation(partnerId, {
+            page: 0,
+            size: 50,
+            sort: 'createdAt,asc',
+        }, {
+            skipGlobalErrorHandler: true,
+            signal: controller.signal,
+        })
+        const messagePage = unwrapApiData(data)
+        if (data.success && messagePage) {
+            return messagePage.content.map(toMailboxMessageViewModel)
+        }
+        return []
+    }
+
+    async function openConversationByPartnerId(partnerId: number) {
+        const requestId = ++messageDetailRequestId
+        abortMessageDetailRequest()
+        const controller = new AbortController()
+        messageDetailAbortController = controller
+        messageFromBlockedUser.value = false
+        selectedMessage.value = null
+        selectedConversationMessages.value = []
+
+        try {
+            const conversation = await loadConversationMessages(partnerId, controller)
+            if (requestId !== messageDetailRequestId || controller.signal.aborted) {
+                return
+            }
+            selectedConversationMessages.value = conversation
+            selectedMessage.value = conversation.length > 0 ? conversation[conversation.length - 1] : null
+        } catch (error) {
+            if (!controller.signal.aborted) {
+                logger.error('Failed to open message conversation:', error)
+            }
         } finally {
             if (messageDetailAbortController === controller) {
                 messageDetailAbortController = null
@@ -191,7 +240,10 @@ export function useMailboxResource() {
     }
 
     watch(selectedMessage, (val) => {
-        if (!val) messageFromBlockedUser.value = false
+        if (!val) {
+            messageFromBlockedUser.value = false
+            selectedConversationMessages.value = []
+        }
     })
 
     onMounted(() => {
@@ -210,6 +262,7 @@ export function useMailboxResource() {
         loading,
         error,
         selectedMessage,
+        selectedConversationMessages,
         selectedMessages,
         page,
         size,
@@ -223,6 +276,7 @@ export function useMailboxResource() {
         handleSizeChange,
         changeViewType,
         openMessage,
+        openConversationByPartnerId,
         deleteSelectedMessages,
         startReply,
         closeReplyModal,

@@ -13,6 +13,8 @@ public interface MessageRepositoryCustom {
             Pageable pageable);
     Page<Message> findSentMessagesExcludingBlocked(Long userId, Boolean isDeleted, List<Long> blockedUserIds,
             Pageable pageable);
+    List<Message> findConversationLatestCandidates(Long userId, List<Long> blockedUserIds);
+    Page<Message> findConversationMessages(Long userId, Long partnerId, List<Long> blockedUserIds, Pageable pageable);
     long countUnreadMessagesExcludingBlocked(Long userId, Boolean isRead, Boolean isDeleted, List<Long> blockedUserIds);
     Optional<Message> findAccessibleMessage(Long userId, Long messageId, List<Long> blockedUserIds);
     List<Message> findDeletableByMessageIdInForUpdate(Long userId, Collection<Long> messageIds);

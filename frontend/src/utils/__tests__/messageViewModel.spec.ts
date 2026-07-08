@@ -18,6 +18,7 @@ describe('messageViewModel', () => {
             partnerName: 'Other',
             body: 'hello',
             isUnread: true,
+            sentByMe: false,
             createdAt: '2026-04-16T11:00:00',
         })
     })
@@ -29,6 +30,7 @@ describe('messageViewModel', () => {
             partnerName: 'Other',
             body: 'hello',
             isUnread: true,
+            sentByMe: false,
             createdAt: '2026-04-16T11:00:00',
         }
 
