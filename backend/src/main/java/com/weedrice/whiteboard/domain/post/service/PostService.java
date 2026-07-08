@@ -12,6 +12,8 @@ import com.weedrice.whiteboard.domain.post.dto.PostCreateRequest;
 import com.weedrice.whiteboard.domain.post.dto.PostCreateResponse;
 import com.weedrice.whiteboard.domain.post.dto.PostDraftRequest;
 import com.weedrice.whiteboard.domain.post.dto.PostResponse;
+import com.weedrice.whiteboard.domain.post.dto.PostSeriesRequest;
+import com.weedrice.whiteboard.domain.post.dto.PostSeriesResponse;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.dto.PostUpdateRequest;
 import com.weedrice.whiteboard.domain.post.dto.PostVersionResponse;
@@ -56,6 +58,7 @@ public class PostService {
     private final PostCommandService postCommandService;
     private final PostFacadeReadService postFacadeReadService;
     private final PostDetailContextResolver postDetailContextResolver;
+    private final PostSeriesService postSeriesService;
 
     public Page<PostSummary> getPosts(String boardUrl, Long categoryId, String keyword, Integer minLikes, Long currentUserId,
             @NonNull Pageable pageable) {
@@ -294,6 +297,26 @@ public class PostService {
     @Transactional
     public void deleteScrapFolder(@NonNull Long userId, @NonNull Long folderId) {
         postInteractionService.deleteScrapFolder(userId, folderId);
+    }
+
+    public List<PostSeriesResponse> getMySeries(@NonNull Long userId) {
+        return postSeriesService.getMySeries(userId);
+    }
+
+    @Transactional
+    public PostSeriesResponse createSeries(@NonNull Long userId, PostSeriesRequest request) {
+        return postSeriesService.createSeries(userId, request);
+    }
+
+    @Transactional
+    public PostSeriesResponse updateSeries(@NonNull Long userId, @NonNull Long seriesId,
+            PostSeriesRequest request) {
+        return postSeriesService.updateSeries(userId, seriesId, request);
+    }
+
+    @Transactional
+    public void deleteSeries(@NonNull Long userId, @NonNull Long seriesId) {
+        postSeriesService.deleteSeries(userId, seriesId);
     }
 
     public DraftListResponse getDraftPosts(@NonNull Long userId, @NonNull Pageable pageable) {

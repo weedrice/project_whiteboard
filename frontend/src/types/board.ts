@@ -141,6 +141,7 @@ export interface Post {
     scrapped?: boolean
     lastViewedAt?: string | null
     poll?: PostPoll | null
+    seriesNavigation?: PostSeriesNavigation | null
     boardListPage?: number
     createdAt: string
     modifiedAt?: string
@@ -222,6 +223,21 @@ export interface HomeLandingStats {
     activeBoardCount: number
     newMembersLast24Hours: number
     commentsToday: number
+}
+
+export interface PostSeriesNavigation {
+    series?: {
+        seriesId: number
+        title: string
+    } | null
+    previousPost?: PostSeriesLink | null
+    nextPost?: PostSeriesLink | null
+}
+
+export interface PostSeriesLink {
+    postId: number
+    title: string
+    boardUrl: string
 }
 
 export interface BoardRecentUpdate {

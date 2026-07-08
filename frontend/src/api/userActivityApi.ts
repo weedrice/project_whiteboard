@@ -7,6 +7,8 @@ import type {
     PageResponse,
     PointHistory,
     PointHistoryResponse,
+    PostSeries,
+    PostSeriesPayload,
     PostSummary,
     ScrapFolder,
     ScrapFolderPayload,
@@ -78,6 +80,18 @@ export const userActivityApi = {
     },
     deleteScrapFolder(folderId: string | number) {
         return api.delete<ApiResponse<void>>(`/users/me/scrap-folders/${encodePathSegment(folderId)}`)
+    },
+    getPostSeries(config?: AxiosRequestConfig) {
+        return api.get<ApiResponse<PostSeries[]>>('/users/me/post-series', config)
+    },
+    createPostSeries(payload: PostSeriesPayload) {
+        return api.post<ApiResponse<PostSeries>>('/users/me/post-series', payload)
+    },
+    updatePostSeries(seriesId: string | number, payload: PostSeriesPayload) {
+        return api.patch<ApiResponse<PostSeries>>(`/users/me/post-series/${encodePathSegment(seriesId)}`, payload)
+    },
+    deletePostSeries(seriesId: string | number) {
+        return api.delete<ApiResponse<void>>(`/users/me/post-series/${encodePathSegment(seriesId)}`)
     },
     getMyDrafts(params: PaginationParams, config?: AxiosRequestConfig) {
         return api.get<ApiResponse<DraftPostListResponse>>('/users/me/drafts', { ...config, params })

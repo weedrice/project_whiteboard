@@ -127,6 +127,19 @@ export interface ScrapFolderPayload {
     sortOrder?: number
 }
 
+export interface PostSeries {
+    seriesId: number
+    title: string
+    description?: string | null
+    createdAt?: string
+    modifiedAt?: string
+}
+
+export interface PostSeriesPayload {
+    title: string
+    description?: string | null
+}
+
 // Sanction-related types
 export interface SanctionData {
     targetUserId: number

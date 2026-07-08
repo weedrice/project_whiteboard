@@ -195,7 +195,8 @@ class PostServiceTest {
                 postInteractionContextResolver,
                 boardAccessPolicy,
                 postDetailContextResolver,
-                pollService);
+                pollService,
+                mock(PostSeriesService.class));
         postDetailViewCommandService = new PostDetailViewCommandService(
                 postRepository,
                 viewHistoryCommandService,
@@ -216,6 +217,7 @@ class PostServiceTest {
                 postRepository,
                 postLikeRepository,
                 scrapRepository,
+                mock(com.weedrice.whiteboard.domain.post.repository.ScrapFolderRepository.class),
                 viewHistoryRepository,
                 viewHistoryCommandService,
                 commentRepository,
@@ -289,7 +291,8 @@ class PostServiceTest {
                 postCreateSideEffectService,
                 boardAccessPolicy,
                 postAuthorCommandPolicy,
-                semanticSearchEventPublisher);
+                semanticSearchEventPublisher,
+                mock(PostSeriesService.class));
         PostFacadeReadService postFacadeReadService = new PostFacadeReadService(
                 postRepository,
                 postVersionRepository,
@@ -311,7 +314,8 @@ class PostServiceTest {
                 postAuthorCommandPolicy,
                 postCommandService,
                 postFacadeReadService,
-                postDetailContextResolver);
+                postDetailContextResolver,
+                mock(PostSeriesService.class));
 
         // GlobalConfigService 기본 mock 설정 - lenient()로 설정하여 일부 테스트에서 사용되지 않아도 허용
         lenient().when(globalConfigService.getConfig(anyString())).thenReturn("50");

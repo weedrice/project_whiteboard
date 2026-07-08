@@ -11,6 +11,8 @@ export const boardWritePostMessages: BoardMessages['writePost'] = {
     spoilerDesc: '스포일러를 포함합니다.',
     secret: '비밀글',
     secretDesc: '체크하면 게시글은 스페이스 관리자만 볼 수 있습니다.',
+    series: '시리즈',
+    noSeries: '시리즈 없음',
     placeholder: {
       title: '제목을 입력해 주세요.',
       tags: '태그 입력 후 Enter',
@@ -170,6 +172,8 @@ export const boardEnWritePostMessages: BoardMessages['writePost'] = {
     spoilerDesc: 'Marks this post as spoiler content.',
     secret: 'Secret',
     secretDesc: 'Only space admins can view this post when enabled.',
+    series: 'Series',
+    noSeries: 'No series',
     placeholder: {
       title: 'Enter a title.',
       tags: 'Type a tag and press Enter',

@@ -17,6 +17,7 @@ export type PostComposerFormState = {
   isSpoiler: boolean
   isNotice: boolean
   isSecret: boolean
+  seriesId: string | number
 }
 
 export type PostComposerSnapshot = {
@@ -28,6 +29,7 @@ export type PostComposerSnapshot = {
   isSpoiler?: boolean
   isNotice?: boolean
   isSecret?: boolean
+  seriesNavigation?: { series?: { seriesId?: number | null } | null } | null
   fileIds?: number[]
 }
 
@@ -51,6 +53,7 @@ export function createEmptyPostComposerForm(): PostComposerFormState {
     isSpoiler: false,
     isNotice: false,
     isSecret: false,
+    seriesId: '',
   }
 }
 
@@ -64,6 +67,7 @@ function copyFormSnapshot(src: PostComposerFormState): PostComposerFormState {
     isSpoiler: src.isSpoiler,
     isNotice: src.isNotice,
     isSecret: src.isSecret,
+    seriesId: src.seriesId,
   }
 }
 
@@ -79,6 +83,7 @@ function isSameFormState(left: PostComposerFormState, right: PostComposerFormSta
     return false
   }
   if (String(left.categoryId) !== String(right.categoryId)) return false
+  if (String(left.seriesId) !== String(right.seriesId)) return false
   if (left.tags.length !== right.tags.length) return false
   return left.tags.every((tag, index) => tag === right.tags[index])
 }
@@ -108,6 +113,7 @@ export function usePostComposerState(options: UsePostComposerStateOptions) {
       isSpoiler: Boolean(draft.isSpoiler),
       isNotice: Boolean(draft.isNotice),
       isSecret: Boolean(draft.isSecret),
+      seriesId: draft.seriesNavigation?.series?.seriesId ?? '',
     }
     draftFileIds.value = [...(draft.fileIds ?? [])]
   }

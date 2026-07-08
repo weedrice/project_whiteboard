@@ -228,6 +228,8 @@ export interface BoardMessages {
     reportSuccess: string
     reportFailed: string
     restricted: string
+    previousInSeries: string
+    nextInSeries: string
   }
   inquiryWrite: {
     title: string
@@ -248,6 +250,8 @@ export interface BoardMessages {
     spoilerDesc: string
     secret: string
     secretDesc: string
+    series: string
+    noSeries: string
     placeholder: {
       title: string
       tags: string

@@ -206,6 +206,35 @@ public class PostController {
         return ApiResponses.ok();
     }
 
+    @GetMapping("/users/me/post-series")
+    public ApiResponse<List<PostSeriesResponse>> getMySeries(@CurrentUserId Long userId) {
+        return ApiResponse.success(postService.getMySeries(userId));
+    }
+
+    @PostMapping("/users/me/post-series")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<PostSeriesResponse> createSeries(
+            @Valid @RequestBody PostSeriesRequest request,
+            @CurrentUserId Long userId) {
+        return ApiResponse.success(postService.createSeries(userId, request));
+    }
+
+    @PatchMapping("/users/me/post-series/{seriesId}")
+    public ApiResponse<PostSeriesResponse> updateSeries(
+            @PathVariable Long seriesId,
+            @Valid @RequestBody PostSeriesRequest request,
+            @CurrentUserId Long userId) {
+        return ApiResponse.success(postService.updateSeries(userId, seriesId, request));
+    }
+
+    @DeleteMapping("/users/me/post-series/{seriesId}")
+    public ApiResponse<Void> deleteSeries(
+            @PathVariable Long seriesId,
+            @CurrentUserId Long userId) {
+        postService.deleteSeries(userId, seriesId);
+        return ApiResponses.ok();
+    }
+
     @GetMapping("/users/me/drafts")
     public ApiResponse<DraftListResponse> getMyDrafts(
             @NonNull Pageable pageable,

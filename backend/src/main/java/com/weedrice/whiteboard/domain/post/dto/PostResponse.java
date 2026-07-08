@@ -47,6 +47,7 @@ public class PostResponse {
     private List<String> imageUrls;
     private Integer boardListPage;
     private PollResponse poll;
+    private PostSeriesNavigation seriesNavigation;
 
     @Getter
     @Builder
@@ -89,12 +90,19 @@ public class PostResponse {
             boolean isScrapped, List<String> imageUrls, boolean isAdmin, Integer boardListPage,
             Integer viewCountOverride) {
         return from(post, tags, viewHistory, isLiked, isScrapped, imageUrls, isAdmin, boardListPage,
-                viewCountOverride, null);
+                viewCountOverride, null, null);
     }
 
     public static PostResponse from(Post post, List<String> tags, ViewHistory viewHistory, boolean isLiked,
             boolean isScrapped, List<String> imageUrls, boolean isAdmin, Integer boardListPage,
             Integer viewCountOverride, PollResponse poll) {
+        return from(post, tags, viewHistory, isLiked, isScrapped, imageUrls, isAdmin, boardListPage,
+                viewCountOverride, poll, null);
+    }
+
+    public static PostResponse from(Post post, List<String> tags, ViewHistory viewHistory, boolean isLiked,
+            boolean isScrapped, List<String> imageUrls, boolean isAdmin, Integer boardListPage,
+            Integer viewCountOverride, PollResponse poll, PostSeriesNavigation seriesNavigation) {
         AuthorInfo authorInfo = AuthorInfo.builder()
                 .userId(post.getUser().getUserId())
                 .agentId(post.getAgent() != null ? post.getAgent().getAgentId() : null)
@@ -145,6 +153,7 @@ public class PostResponse {
                 .imageUrls(imageUrls)
                 .boardListPage(boardListPage)
                 .poll(poll)
+                .seriesNavigation(seriesNavigation)
                 .build();
     }
 }

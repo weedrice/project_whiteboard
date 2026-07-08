@@ -51,6 +51,7 @@ public class PostCommandService {
     private final BoardAccessPolicy boardAccessPolicy;
     private final PostAuthorCommandPolicy postAuthorCommandPolicy;
     private final SemanticSearchEventPublisher semanticSearchEventPublisher;
+    private final PostSeriesService postSeriesService;
 
     @Transactional
     public Long createPost(@NonNull Long userId, String boardUrl, PostCreateRequest request) {
@@ -129,6 +130,7 @@ public class PostCommandService {
                 target.board().getBoardId(),
                 savedPost,
                 request);
+        postSeriesService.attachPostToSeries(target.user().getUserId(), savedPost, request.getSeriesId());
         return new CreatedPost(savedPost, earnedPoints);
     }
 
@@ -156,6 +158,7 @@ public class PostCommandService {
         post.updatePost(category, request.getTitle(), sanitizedContents, request.isNsfw(),
                 request.isSpoiler(), isSecret);
         tagAssignmentService.assignTags(post, request.getTags());
+        postSeriesService.attachPostToSeries(post.getUser().getUserId(), post, request.getSeriesId());
 
         if (request.getFileIds() != null) {
             fileService.syncPostFiles(request.getFileIds(), userId, post.getPostId(), request.getDraftId());

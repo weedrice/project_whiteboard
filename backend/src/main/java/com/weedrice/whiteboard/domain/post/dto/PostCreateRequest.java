@@ -48,10 +48,11 @@ public class PostCreateRequest {
     private List<Long> fileIds;
 
     private PollRequest poll;
+    private Long seriesId;
 
     public PostCreateRequest(Long categoryId, String title, String contents, List<String> tags,
             boolean isNotice, boolean isNsfw, boolean isSpoiler, boolean isSecret, Long draftId, List<Long> fileIds) {
-        this(categoryId, title, contents, tags, isNotice, isNsfw, isSpoiler, isSecret, draftId, fileIds, null);
+        this(categoryId, title, contents, tags, isNotice, isNsfw, isSpoiler, isSecret, draftId, fileIds, null, null);
     }
 
     public PostCreateRequest(Long categoryId, String title, String contents, List<String> tags,

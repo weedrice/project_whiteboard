@@ -45,10 +45,11 @@ public class PostUpdateRequest {
     private List<Long> fileIds;
 
     private PollRequest poll;
+    private Long seriesId;
 
     public PostUpdateRequest(Long categoryId, String title, String contents, List<String> tags,
             boolean isNsfw, boolean isSpoiler, boolean isSecret, Long draftId, List<Long> fileIds) {
-        this(categoryId, title, contents, tags, isNsfw, isSpoiler, isSecret, draftId, fileIds, null);
+        this(categoryId, title, contents, tags, isNsfw, isSpoiler, isSecret, draftId, fileIds, null, null);
     }
 
     public PostUpdateRequest(Long categoryId, String title, String contents, List<String> tags,

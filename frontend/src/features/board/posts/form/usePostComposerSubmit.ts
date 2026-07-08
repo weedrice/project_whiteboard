@@ -15,6 +15,7 @@ type PostComposerPayload = {
   isSpoiler: boolean
   isSecret: boolean
   isNotice?: boolean
+  seriesId?: number
   fileIds: number[]
   draftId?: number
 }

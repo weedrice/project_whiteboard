@@ -14,6 +14,9 @@ import type { SegmentedControlOption } from '@/components/common/ui/BaseSegmente
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import { useToastStore } from '@/stores/toast'
+import { useApiQuery } from '@/composables/useApiQuery'
+import { userApi } from '@/api/user'
+import { userQueryKeys } from '@/composables/userQueryKeys'
 import PostFormHeader from '@/components/board/PostFormHeader.vue'
 import PostFormMainSection from '@/components/board/PostFormMainSection.vue'
 import PostFormSidePanel from '@/components/board/PostFormSidePanel.vue'
@@ -48,6 +51,12 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const authStore = useAuthStore()
 const toastStore = useToastStore()
+const { data: postSeriesData } = useApiQuery({
+  queryKey: userQueryKeys.postSeries,
+  request: () => userApi.getPostSeries(),
+  staleTime: 60_000,
+})
+const seriesOptions = computed(() => postSeriesData.value || [])
 
 const boardUrl = computed(() => props.boardUrl ?? '')
 const postId = computed(() => props.postId ?? '')
@@ -133,6 +142,7 @@ const editorViewOptions = computed<SegmentedControlOption[]>(() => [
 const { metadataPanelProps, metadataPanelHandlers } = usePostFormMetadataBindings({
   form,
   categories: filteredCategories,
+  seriesOptions,
   showNotice,
   canShowNsfw,
   hideCategory: () => props.hideCategory,

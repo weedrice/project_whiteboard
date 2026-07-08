@@ -13,6 +13,7 @@ export type PostFormPayloadForm = {
     isSpoiler: boolean
     isNotice: boolean
     isSecret: boolean
+    seriesId?: string | number
 }
 
 export type BuildPostFormPayloadOptions = {
@@ -107,6 +108,9 @@ export function buildPostFormPayload({
     const categoryId = hideCategory || Number.isNaN(parsedCategoryId) || !parsedCategoryId
         ? undefined
         : parsedCategoryId
+    const parsedSeriesId = form.seriesId == null || form.seriesId === ''
+        ? undefined
+        : (typeof form.seriesId === 'string' ? Number.parseInt(form.seriesId, 10) : form.seriesId)
 
     return {
         title: form.title.trim(),
@@ -117,6 +121,7 @@ export function buildPostFormPayload({
         isSpoiler: hideSpoiler ? false : form.isSpoiler,
         isSecret: hideSecret ? false : form.isSecret,
         ...(mode === 'create' && { isNotice: showNotice ? form.isNotice : false }),
+        ...(parsedSeriesId && !Number.isNaN(parsedSeriesId) && { seriesId: parsedSeriesId }),
         fileIds,
     }
 }

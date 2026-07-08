@@ -159,6 +159,8 @@ export const boardBaseMessages = {
     reportSuccess: '신고가 접수되었습니다.',
     reportFailed: '신고 접수에 실패했습니다.',
     restricted: '접근 권한이 없는 게시글입니다.',
+    previousInSeries: '이전 편',
+    nextInSeries: '다음 편',
   },
   inquiryWrite: {
     title: '운영진에게 문의하기',
@@ -338,6 +340,8 @@ export const boardEnBaseMessages = {
     reportSuccess: 'Report submitted.',
     reportFailed: 'Failed to submit report.',
     restricted: 'You do not have permission to access this post.',
+    previousInSeries: 'Previous',
+    nextInSeries: 'Next',
   },
   inquiryWrite: {
     title: 'Contact the moderators',

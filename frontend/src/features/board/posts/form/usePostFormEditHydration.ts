@@ -35,6 +35,7 @@ export function usePostFormEditHydration({
       isNsfw: post.value.isNsfw,
       isSpoiler: post.value.isSpoiler,
       isSecret: post.value.isSecret ?? false,
+      seriesNavigation: post.value.seriesNavigation,
       isNotice: false,
       fileIds: [],
     })

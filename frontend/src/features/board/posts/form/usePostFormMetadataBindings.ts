@@ -3,6 +3,7 @@ import type { PostFormCategoryOption } from '@/features/board/posts/form/usePost
 
 type PostComposerForm = {
   categoryId: string | number
+  seriesId: string | number
   tags: string[]
   isNotice: boolean
   isNsfw: boolean
@@ -13,6 +14,7 @@ type PostComposerForm = {
 type UsePostFormMetadataBindingsParams = {
   form: Ref<PostComposerForm>
   categories: Ref<PostFormCategoryOption[]>
+  seriesOptions: Ref<Array<{ seriesId: number, title: string }>>
   showNotice: Ref<boolean>
   canShowNsfw: Ref<boolean>
   hideCategory: () => boolean | undefined
@@ -24,6 +26,8 @@ type UsePostFormMetadataBindingsParams = {
 export type PostFormMetadataPanelProps = {
   categories: PostFormCategoryOption[]
   categoryId: string | number
+  seriesId: string | number
+  seriesOptions: Array<{ seriesId: number, title: string }>
   tags: string[]
   isNotice: boolean
   isNsfw: boolean
@@ -39,6 +43,7 @@ export type PostFormMetadataPanelProps = {
 
 export type PostFormMetadataPanelHandlers = {
   'update:categoryId': (value: string | number) => void
+  'update:seriesId': (value: string | number) => void
   'update:tags': (value: string[]) => void
   'update:isNotice': (value: boolean) => void
   'update:isNsfw': (value: boolean) => void
@@ -49,6 +54,7 @@ export type PostFormMetadataPanelHandlers = {
 export function usePostFormMetadataBindings({
   form,
   categories,
+  seriesOptions,
   showNotice,
   canShowNsfw,
   hideCategory,
@@ -59,6 +65,8 @@ export function usePostFormMetadataBindings({
   const metadataPanelProps = computed<PostFormMetadataPanelProps>(() => ({
     categories: categories.value,
     categoryId: form.value.categoryId,
+    seriesId: form.value.seriesId,
+    seriesOptions: seriesOptions.value,
     tags: form.value.tags,
     isNotice: form.value.isNotice,
     isNsfw: form.value.isNsfw,
@@ -75,6 +83,9 @@ export function usePostFormMetadataBindings({
   const metadataPanelHandlers: PostFormMetadataPanelHandlers = {
     'update:categoryId': (value: string | number) => {
       form.value.categoryId = value
+    },
+    'update:seriesId': (value: string | number) => {
+      form.value.seriesId = value
     },
     'update:tags': (value: string[]) => {
       form.value.tags = value

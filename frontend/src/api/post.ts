@@ -25,6 +25,7 @@ export interface PostCreateData {
     draftId?: number
     fileIds?: number[]
     poll?: PollPayload | null
+    seriesId?: number
 }
 
 export interface PostUpdateData {
@@ -39,6 +40,7 @@ export interface PostUpdateData {
     draftId?: number
     fileIds?: number[]
     poll?: PollPayload | null
+    seriesId?: number
 }
 
 export interface PollPayload {

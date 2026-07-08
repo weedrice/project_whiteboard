@@ -17,6 +17,7 @@ export interface PostDetailViewModel {
   boardUrl: string
   authorUserId: number
   authorDisplayName: string
+  seriesNavigation?: Post['seriesNavigation']
 }
 
 export function toPostDetailViewModel(post: Post): PostDetailViewModel {
@@ -36,7 +37,8 @@ export function toPostDetailViewModel(post: Post): PostDetailViewModel {
     boardName: post.board.boardName,
     boardUrl: post.board.boardUrl,
     authorUserId: post.author.userId,
-    authorDisplayName: post.author.displayName
+    authorDisplayName: post.author.displayName,
+    seriesNavigation: post.seriesNavigation ?? null,
   }
 }
 

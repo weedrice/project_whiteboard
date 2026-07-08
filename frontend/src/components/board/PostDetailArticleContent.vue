@@ -103,6 +103,31 @@ const {
       @tag-click="emit('tag-click', $event)"
     />
 
+    <section
+      v-if="postView.seriesNavigation?.series"
+      class="rounded-lg border nv-border nv-surface p-4"
+    >
+      <h2 class="text-sm font-semibold nv-title">{{ postView.seriesNavigation.series.title }}</h2>
+      <div class="mt-3 grid gap-2 sm:grid-cols-2">
+        <RouterLink
+          v-if="postView.seriesNavigation.previousPost"
+          :to="{ name: 'post-detail', params: { boardUrl: postView.seriesNavigation.previousPost.boardUrl, postId: postView.seriesNavigation.previousPost.postId } }"
+          class="rounded-md border nv-border p-3 text-sm nv-hover-surface"
+        >
+          <span class="block text-xs nv-text-subtle">{{ t('board.postDetail.previousInSeries') }}</span>
+          <span class="mt-1 block truncate nv-title">{{ postView.seriesNavigation.previousPost.title }}</span>
+        </RouterLink>
+        <RouterLink
+          v-if="postView.seriesNavigation.nextPost"
+          :to="{ name: 'post-detail', params: { boardUrl: postView.seriesNavigation.nextPost.boardUrl, postId: postView.seriesNavigation.nextPost.postId } }"
+          class="rounded-md border nv-border p-3 text-sm nv-hover-surface"
+        >
+          <span class="block text-xs nv-text-subtle">{{ t('board.postDetail.nextInSeries') }}</span>
+          <span class="mt-1 block truncate nv-title">{{ postView.seriesNavigation.nextPost.title }}</span>
+        </RouterLink>
+      </div>
+    </section>
+
     <div class="hidden sm:block">
       <PostDetailReactionBar
         :liked="postView.liked"

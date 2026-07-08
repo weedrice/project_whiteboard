@@ -15,7 +15,9 @@ export type PostFormCategoryOption = {
 const props = withDefaults(defineProps<{
   layout: 'mobile' | 'desktop'
   categories: PostFormCategoryOption[]
+  seriesOptions: Array<{ seriesId: number, title: string }>
   categoryId: string | number
+  seriesId: string | number
   tags: string[]
   isNotice: boolean
   isNsfw: boolean
@@ -38,6 +40,7 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{
   (event: 'update:categoryId', value: string | number): void
+  (event: 'update:seriesId', value: string | number): void
   (event: 'update:tags', value: string[]): void
   (event: 'update:isNotice', value: boolean): void
   (event: 'update:isNsfw', value: boolean): void
@@ -97,6 +100,19 @@ const emitBooleanUpdate = (event: BooleanUpdateEvent, value: boolean | unknown[]
       </BaseSelect>
     </div>
     <div class="flex flex-wrap gap-2">
+      <BaseSelect
+        v-if="seriesOptions.length > 0"
+        :id="`series${checkboxSuffix}`"
+        :model-value="seriesId"
+        :label="t('board.writePost.series')"
+        class="min-w-[10rem]"
+        @update:model-value="emit('update:seriesId', $event)"
+      >
+        <option value="">{{ t('board.writePost.noSeries') }}</option>
+        <option v-for="series in seriesOptions" :key="series.seriesId" :value="series.seriesId">
+          {{ series.title }}
+        </option>
+      </BaseSelect>
       <BaseCheckbox
         v-if="showNotice"
         :id="`isNotice${checkboxSuffix}`"
@@ -157,6 +173,20 @@ const emitBooleanUpdate = (event: BooleanUpdateEvent, value: boolean | unknown[]
         :input-id="tagsInputId"
         @update:model-value="emit('update:tags', $event)"
       />
+    </div>
+
+    <div v-if="seriesOptions.length > 0" class="nv-compose-side-section mb-4 hidden lg:block">
+      <BaseSelect
+        :id="`series${checkboxSuffix}`"
+        :model-value="seriesId"
+        :label="t('board.writePost.series')"
+        @update:model-value="emit('update:seriesId', $event)"
+      >
+        <option value="">{{ t('board.writePost.noSeries') }}</option>
+        <option v-for="series in seriesOptions" :key="series.seriesId" :value="series.seriesId">
+          {{ series.title }}
+        </option>
+      </BaseSelect>
     </div>
 
     <div class="nv-compose-side-section space-y-3">

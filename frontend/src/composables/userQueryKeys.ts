@@ -18,6 +18,7 @@ export const userQueryKeys = {
     pointsRoot: ['user', 'points'] as const,
     draftsRoot: ['user', 'drafts'] as const,
     scrapFolders: ['user', 'scrap-folders'] as const,
+    postSeries: ['user', 'post-series'] as const,
     myPoints: (userIdentity?: Ref<string | number | null | undefined>) =>
         computed(() => ['user', 'points', 'me', userIdentity?.value ?? 'anonymous'] as const),
     myPosts: (params: UserQueryPaginationParams) => ['user', 'me', 'posts', params] as const,
