@@ -9,7 +9,7 @@ Date: 2026-07-08
 | N1 resume reading | Applied | `PostResponse.lastViewedAt` is read from the existing view history before the detail read updates history. Comment divider is limited to oldest-first order; other sorts keep only new-comment highlight. |
 | N2 web push foundation | Partially applied | `push_subscriptions` and user setting fields were added in `V30`. Subscription CRUD and a custom push service worker exist. Actual VAPID send/410 cleanup is deferred until the web-push dependency is approved. |
 | N3 onboarding foundation | Partially applied | Board recommendation API and onboarding completion API exist. Frontend API clients are ready; the signup redirect/banner UI remains follow-up work. |
-| N4 keyword notifications | Partially applied | `NotificationType.KEYWORD`, DB constraints, user settings, API, frontend presentation, and title exact/partial matching notification publishing were added. Private/secret posts are excluded; block-relationship filtering remains follow-up. |
+| N4 keyword notifications | Partially applied | `NotificationType.KEYWORD`, DB constraints, user settings, API, frontend presentation, and title exact/partial matching notification publishing were added. Private/secret posts are excluded; keyword management UI and block-relationship filtering remain follow-up. |
 | N5 poll attachment | Backend/API applied | `V32` adds polls, options, and votes. Posts can be created with one attached poll, and vote/delete-vote APIs are available. Editor/vote UI remains follow-up work. |
 | N6 semantic search labeling | Applied | Similarity percentage is hidden; semantic results are labeled as recommendation copy and promoted when keyword results are empty. |
 | N7 point visibility | Applied | Post/comment create responses include `earnedPoints`, the frontend shows a polite success toast, invalidates user point balance, and point history now separates earn/spend rows with balance-after visibility. |
@@ -37,6 +37,7 @@ Date: 2026-07-08
 - `GET /api/v1/users/me/keyword-subscriptions`
 - `POST /api/v1/users/me/keyword-subscriptions`
 - `DELETE /api/v1/users/me/keyword-subscriptions/{subscriptionId}`
+- Frontend API clients exist, but there is not yet a reachable keyword management screen.
 
 ### Polls
 

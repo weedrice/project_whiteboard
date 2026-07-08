@@ -154,9 +154,9 @@ describe('paginated user lists', () => {
 
         await flushPromises()
 
-        expect(wrapper.text()).toContain('적립')
-        expect(wrapper.text()).toContain('사용')
-        expect(wrapper.text()).toContain('만료')
+        expect(wrapper.text()).toContain('user.pointsHistory.transaction.earned')
+        expect(wrapper.text()).toContain('user.pointsHistory.transaction.spent')
+        expect(wrapper.text()).toContain('user.pointsHistory.transaction.expired')
         expect(wrapper.text()).toContain('+50 P')
         expect(wrapper.text()).toContain('-20 P')
         expect(wrapper.text()).toContain('-10 P')

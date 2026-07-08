@@ -56,6 +56,11 @@ export const user: UserMessages = {
     emptyComments: '공개 댓글이 없습니다.',
   },
   pointsHistory: {
+    transaction: {
+      earned: '적립',
+      spent: '사용',
+      expired: '만료',
+    },
     description: '내역',
     empty: '포인트 내역이 없습니다.',
     adjustment: '포인트 조정',

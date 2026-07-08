@@ -520,6 +520,11 @@ export interface UserMessages {
     description: string
     empty: string
     adjustment: string
+    transaction: {
+      earned: string
+      spent: string
+      expired: string
+    }
   }
   scrapList: {
     empty: string

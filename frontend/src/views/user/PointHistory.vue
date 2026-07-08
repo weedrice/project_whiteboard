@@ -27,13 +27,7 @@ const transactionKind = (item: PointHistory) => {
   if (item.amount > 0 || item.type === 'EARN') return 'earned'
   return 'spent'
 }
-const isEarned = (item: PointHistory) => transactionKind(item) === 'earned'
-const transactionLabel = (item: PointHistory) => {
-  const kind = transactionKind(item)
-  if (kind === 'earned') return '적립'
-  if (kind === 'expired') return '만료'
-  return '사용'
-}
+const transactionLabel = (item: PointHistory) => t(`user.pointsHistory.transaction.${transactionKind(item)}`)
 const transactionClass = (item: PointHistory) => {
   const kind = transactionKind(item)
   if (kind === 'earned') {
@@ -43,6 +37,12 @@ const transactionClass = (item: PointHistory) => {
     return 'border-[var(--nv-warning-border)] bg-[var(--nv-warning-bg)] text-[var(--nv-warning-text)]'
   }
   return 'border-[var(--nv-danger-border)] bg-[var(--nv-danger-bg)] text-[var(--nv-danger-text)]'
+}
+const transactionBadgeVariant = (item: PointHistory): 'success' | 'warning' | 'danger' => {
+  const kind = transactionKind(item)
+  if (kind === 'earned') return 'success'
+  if (kind === 'expired') return 'warning'
+  return 'danger'
 }
 
 const formatSignedPoint = (amount: number) => `${amount > 0 ? '+' : ''}${amount.toLocaleString()} P`
@@ -88,7 +88,7 @@ const formatBalance = (balance: number) => `${balance.toLocaleString()} P`
             </div>
           </div>
           <div class="flex shrink-0 flex-col items-end gap-1">
-            <BaseBadge :variant="isEarned(item) ? 'success' : 'danger'" size="sm"
+            <BaseBadge :variant="transactionBadgeVariant(item)" size="sm"
               class="text-[11px] sm:text-xs px-2 py-0.5 font-semibold">
               {{ formatSignedPoint(item.amount) }}
             </BaseBadge>
