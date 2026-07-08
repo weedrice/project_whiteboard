@@ -95,6 +95,9 @@ export interface BoardMessages {
     sortPopular: string
     sortPosts: string
     resultCount: string
+    densityLabel: string
+    densityDefault: string
+    densityCompact: string
   }
   feed: {
     likes: string
@@ -116,6 +119,8 @@ export interface BoardMessages {
   }
   detail: {
     searchPlaceholder: string
+    emptyDescription: string
+    emptySearchDescription: string
     filterLabel: string
     searchScopeLabel: string
     clearSearch: string
@@ -435,6 +440,7 @@ export interface NotificationMessages {
   markAllRead: string
   markAllReadShort?: string
   empty: string
+  emptyDescription: string
   sourceTypes: {
     post: string
     comment: string

@@ -45,6 +45,7 @@ function handleMarkAllAsRead() {
     :loading="isLoading"
     :error="isError ? errorMessage : null"
     :empty-title="$t('notification.empty')"
+    :empty-description="$t('notification.emptyDescription')"
     :page="page"
     :size="size"
     :total-pages="totalPages"

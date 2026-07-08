@@ -59,6 +59,7 @@ function mountTable(overrides: Partial<InstanceType<typeof PostListDesktopTable>
       showCommentCount: true,
       showPreviewIndicator: true,
       showSecretIndicator: true,
+      density: 'default',
       maxAuthorNameLength: 10,
       getRowClass: () => 'post-list-row',
       shouldInterceptInquiry: () => false,

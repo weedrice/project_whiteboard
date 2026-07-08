@@ -1,9 +1,13 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { LocationQueryRaw, RouteLocationRaw } from 'vue-router'
+import { FileText } from 'lucide-vue-next'
 import type { PostSummary } from '@/types'
+import { Storage } from '@/utils/storage'
+import BaseSegmentedControl, { type SegmentedControlOption } from '@/components/common/ui/BaseSegmentedControl.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
+import EmptyState from '@/components/common/ui/EmptyState.vue'
 import PostListDesktopTable from '@/components/board/PostListDesktopTable.vue'
 import PostListMobileItem from '@/components/board/PostListMobileItem.vue'
 import {
@@ -48,6 +52,11 @@ const props = withDefaults(defineProps<{
   showCommentCount?: boolean
   showPreviewIndicator?: boolean
   showSecretIndicator?: boolean
+  canWrite?: boolean
+  emptyTitle?: string
+  emptyDescription?: string
+  emptyActionLabel?: string
+  emptyActionTo?: RouteLocationRaw
 }>(), {
   loading: false,
   currentSort: 'createdAt,desc',
@@ -57,7 +66,12 @@ const props = withDefaults(defineProps<{
   showNoticeBadge: true,
   showCommentCount: true,
   showPreviewIndicator: true,
-  showSecretIndicator: true
+  showSecretIndicator: true,
+  canWrite: false,
+  emptyTitle: undefined,
+  emptyDescription: undefined,
+  emptyActionLabel: undefined,
+  emptyActionTo: undefined,
 })
 
 const emit = defineEmits<{
@@ -66,6 +80,23 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+type PostListDensity = 'default' | 'compact'
+const POST_LIST_DENSITY_KEY = 'noviis:post-list-density'
+const storedDensity = Storage.getString(POST_LIST_DENSITY_KEY, 'default')
+const listDensity = ref<PostListDensity>(storedDensity === 'compact' ? 'compact' : 'default')
+const densityOptions = computed<SegmentedControlOption[]>(() => [
+  { value: 'default', label: t('board.list.densityDefault') },
+  { value: 'compact', label: t('board.list.densityCompact') },
+])
+const effectiveEmptyTitle = computed(() => props.emptyTitle ?? t('board.list.noPosts'))
+const effectiveEmptyDescription = computed(() => props.emptyDescription)
+const effectiveEmptyActionLabel = computed(() => (
+  props.canWrite ? (props.emptyActionLabel ?? t('common.write')) : undefined
+))
+
+watch(listDensity, (density) => {
+  Storage.setString(POST_LIST_DENSITY_KEY, density)
+})
 
 const getRowClass = (item: PostSummary) => (
   getPostListRowClass(item, props.currentPostId)
@@ -176,6 +207,15 @@ const columns = computed(() => createPostListColumns({
 
 <template>
   <div class="card border-0 bg-transparent shadow-none" :aria-busy="loading ? 'true' : 'false'">
+    <div class="flex items-center justify-end px-3 py-2 sm:px-4">
+      <BaseSegmentedControl
+        v-model="listDensity"
+        :options="densityOptions"
+        :label="t('board.list.densityLabel')"
+        variant="pill"
+      />
+    </div>
+
     <div class="sm:hidden divide-y divide-[var(--nv-line-soft)]">
       <template v-if="loading">
         <div class="space-y-3 px-4 py-4">
@@ -188,9 +228,14 @@ const columns = computed(() => createPostListColumns({
       </template>
 
       <template v-else-if="posts.length === 0">
-        <div class="px-4 py-10 text-center text-xs text-[var(--nv-muted)]">
-          {{ $t('board.list.noPosts') }}
-        </div>
+        <EmptyState
+          :title="effectiveEmptyTitle"
+          :description="effectiveEmptyDescription"
+          :icon="FileText"
+          :action-label="effectiveEmptyActionLabel"
+          :action-to="props.emptyActionTo"
+          container-class="px-4"
+        />
       </template>
 
       <PostListMobileItem
@@ -207,11 +252,23 @@ const columns = computed(() => createPostListColumns({
         :show-preview-indicator="props.showPreviewIndicator"
         :show-secret-indicator="props.showSecretIndicator"
         :deleted-user-label="t('user.deletedUser')"
+        :density="listDensity"
         @navigate="onNavigationClick"
       />
     </div>
 
+    <div v-if="!loading && posts.length === 0" class="hidden sm:block">
+      <EmptyState
+        :title="effectiveEmptyTitle"
+        :description="effectiveEmptyDescription"
+        :icon="FileText"
+        :action-label="effectiveEmptyActionLabel"
+        :action-to="props.emptyActionTo"
+      />
+    </div>
+
     <PostListDesktopTable
+      v-else
       :posts="posts"
       :loading="loading"
       :columns="columns"
@@ -221,6 +278,7 @@ const columns = computed(() => createPostListColumns({
       :show-comment-count="props.showCommentCount"
       :show-preview-indicator="props.showPreviewIndicator"
       :show-secret-indicator="props.showSecretIndicator"
+      :density="listDensity"
       :max-author-name-length="POST_LIST_MAX_AUTHOR_NAME_LENGTH"
       :get-row-class="getRowClass"
       :should-intercept-inquiry="shouldInterceptInquiry"

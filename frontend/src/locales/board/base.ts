@@ -26,6 +26,9 @@ export const boardBaseMessages = {
     sortPopular: '구독 많은순',
     sortPosts: '글 많은순',
     resultCount: '{count}개 스페이스',
+    densityLabel: '목록 밀도',
+    densityDefault: '기본',
+    densityCompact: '컴팩트',
   },
   feed: {
     likes: '좋아요 {count}개',
@@ -47,6 +50,8 @@ export const boardBaseMessages = {
   },
   detail: {
     searchPlaceholder: '스페이스에서 검색',
+    emptyDescription: '첫 글의 주인공이 되어보세요.',
+    emptySearchDescription: '다른 키워드나 범위로 다시 찾아보세요.',
     filterLabel: '스페이스 필터',
     searchScopeLabel: '검색 범위',
     clearSearch: '검색어 지우기',
@@ -197,6 +202,9 @@ export const boardEnBaseMessages = {
     sortPopular: 'Most subscribers',
     sortPosts: 'Most posts',
     resultCount: '{count} spaces',
+    densityLabel: 'List density',
+    densityDefault: 'Default',
+    densityCompact: 'Compact',
   },
   feed: {
     likes: '{count} likes',
@@ -219,6 +227,8 @@ export const boardEnBaseMessages = {
   detail: {
     ...boardBaseMessages.detail,
     searchPlaceholder: 'Search this space',
+    emptyDescription: 'Be the first to start a conversation in this space.',
+    emptySearchDescription: 'Try another keyword or search scope.',
     filterLabel: 'Space filters',
     searchScopeLabel: 'Search scope',
     clearSearch: 'Clear search',

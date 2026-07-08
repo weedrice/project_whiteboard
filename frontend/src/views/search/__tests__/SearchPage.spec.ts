@@ -140,7 +140,7 @@ describe('SearchPage', () => {
       size: 20,
     })
     expect(wrapper.text()).toContain('"vue"')
-    expect(wrapper.find('[data-testid="empty-state"]').attributes('data-description')).toBe('search.noResultsFor:vue')
+    expect(wrapper.find('[data-testid="empty-state"]').attributes('data-description')).toBe('search.noResultsFor:vue search.noResultsSuggestion')
   })
 
   it('shows a search prompt instead of no results before a query is provided', () => {

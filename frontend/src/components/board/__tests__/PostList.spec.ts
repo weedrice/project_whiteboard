@@ -195,7 +195,7 @@ describe('PostList', () => {
 
     const wrapper = mount(PostList, {
       props: {
-        posts: []
+        posts: [createPost()]
       },
       global: {
         mocks: {
@@ -238,7 +238,7 @@ describe('PostList', () => {
 
     const wrapper = mount(PostList, {
       props: {
-        posts: [],
+        posts: [createPost()],
         currentSort: 'createdAt,desc'
       },
       global: {
@@ -276,7 +276,7 @@ describe('PostList', () => {
 
     const wrapper = mount(PostList, {
       props: {
-        posts: [],
+        posts: [createPost()],
         currentSort: 'createdAt,desc'
       },
       global: {
@@ -311,7 +311,7 @@ describe('PostList', () => {
 
     const wrapper = mount(PostList, {
       props: {
-        posts: [],
+        posts: [createPost()],
         showBoardName: true
       },
       global: {
@@ -391,7 +391,9 @@ describe('PostList', () => {
       }
     })
 
-    await wrapper.find('button').trigger('click')
+    const inquiryButton = wrapper.findAll('button').find((button) => button.text().includes('Inquiry post'))
+    expect(inquiryButton).toBeTruthy()
+    await inquiryButton!.trigger('click')
 
     expect(wrapper.emitted('inquiry-click')).toHaveLength(1)
     expect(wrapper.findComponent(RouterLinkStub).exists()).toBe(false)

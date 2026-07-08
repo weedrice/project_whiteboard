@@ -25,6 +25,7 @@ defineProps<{
   showCommentCount: boolean
   showPreviewIndicator: boolean
   showSecretIndicator: boolean
+  density: 'default' | 'compact'
   maxAuthorNameLength: number
   getRowClass: (item: PostSummary) => string
   shouldInterceptInquiry: (item: PostSummary) => boolean
@@ -54,6 +55,7 @@ const { t } = useI18n()
       :items="posts"
       :loading="loading"
       :emptyText="t('board.list.noPosts')"
+      :density="density"
       :current-sort-key="activeSortKey"
       :current-sort-direction="activeSortDirection"
       :rowClass="getRowClass"
@@ -199,6 +201,10 @@ const { t } = useI18n()
   color: var(--nv-accent);
 }
 
+.nv-post-title-link:visited {
+  color: color-mix(in srgb, var(--nv-ink-soft) 72%, var(--nv-muted));
+}
+
 .nv-post-title-link {
   align-items: center;
   display: flex;
@@ -245,7 +251,7 @@ const { t } = useI18n()
 :deep(th) {
   color: var(--nv-muted);
   font-family: var(--font-mono);
-  font-size: 0.72rem;
+  font-size: var(--nv-type-kicker);
   font-weight: 700;
   letter-spacing: 0.14em;
 }

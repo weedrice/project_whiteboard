@@ -40,7 +40,7 @@
           container-class="nv-surface shadow rounded-lg" />
 
         <EmptyState v-else-if="posts.length === 0 && boards.length === 0" :title="$t('search.noResults')"
-          :description="searchQuery ? $t('search.noResultsFor', { query: searchQuery }) : undefined" :icon="Search"
+          :description="searchQuery ? `${$t('search.noResultsFor', { query: searchQuery })} ${$t('search.noResultsSuggestion')}` : $t('search.noResultsSuggestion')" :icon="Search"
           container-class="nv-surface shadow rounded-lg" />
 
         <div v-else class="space-y-8">

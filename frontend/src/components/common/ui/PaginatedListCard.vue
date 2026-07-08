@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, useSlots, type Component } from 'vue'
+import type { RouteLocationRaw } from 'vue-router'
 import Pagination from '@/components/common/ui/Pagination.vue'
 import PageSizeSelector from '@/components/common/widgets/PageSizeSelector.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
@@ -22,6 +23,9 @@ const props = withDefaults(defineProps<{
   loading: boolean
   error: string | null
   emptyTitle: string
+  emptyDescription?: string
+  emptyActionLabel?: string
+  emptyActionTo?: RouteLocationRaw
   page: number
   size: number
   totalPages: number
@@ -166,7 +170,14 @@ const getLoadingRowClass = (preset: LoadingPreset) => {
         </div>
       </template>
       <ErrorState v-else-if="error" :message="error" show-retry @retry="emit('retry')" />
-      <EmptyState v-else-if="itemsCount === 0" :title="emptyTitle" :icon="icon" />
+      <EmptyState
+        v-else-if="itemsCount === 0"
+        :title="emptyTitle"
+        :description="emptyDescription"
+        :icon="icon"
+        :action-label="emptyActionLabel"
+        :action-to="emptyActionTo"
+      />
       <slot v-else />
 
       <div v-if="itemsCount > 0" class="nv-surface-muted px-4 py-4 sm:px-6 flex flex-col items-center">

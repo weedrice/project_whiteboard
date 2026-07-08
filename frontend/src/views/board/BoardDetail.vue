@@ -126,7 +126,7 @@ useHead({
     <BoardDetailLoadingState v-if="isInitialLoading" />
 
     <section v-else-if="blockingError" class="nv-board-panel nv-board-state-panel px-4 py-12 text-center sm:px-6">
-      <p class="nv-board-state-kicker">NODE</p>
+      <p class="nv-kicker">NODE</p>
       <p class="mt-3 text-sm nv-form-error">{{ blockingError }}</p>
     </section>
 
@@ -174,6 +174,9 @@ useHead({
           :linkQuery="listQuery"
           :resolve-post-route="resolvePostDetailRoute"
           :show-inquiry-status="isInquiryPostItem"
+          :can-write="canWrite && !isSearching"
+          :empty-description="isSearching ? t('board.detail.emptySearchDescription') : t('board.detail.emptyDescription')"
+          :empty-action-to="`/board/${board.boardUrl}/write`"
           @update:sort="handleSortChange"
         />
 
@@ -234,15 +237,6 @@ useHead({
 .nv-board-list-panel {
   border-top-left-radius: 0;
   border-top-right-radius: 0;
-}
-
-.nv-board-state-kicker {
-  color: var(--nv-muted);
-  font-family: var(--font-mono);
-  font-size: 0.68rem;
-  font-weight: 500;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
 }
 
 .nv-board-search-btn:not(:disabled) {

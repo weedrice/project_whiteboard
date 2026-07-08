@@ -191,6 +191,7 @@ export interface SearchMessages {
   query: string
   noResults: string
   noResultsFor: string
+  noResultsSuggestion: string
   placeholder: string
   popularKeywords: string
   recentKeywords: string

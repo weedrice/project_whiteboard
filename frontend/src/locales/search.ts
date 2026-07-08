@@ -8,6 +8,7 @@ export const search: SearchMessages = {
   query: '검색어',
   noResults: '검색 결과가 없습니다.',
   noResultsFor: '"{query}"에 대한 검색 결과가 없습니다.',
+  noResultsSuggestion: '맞춤법을 확인하거나 더 짧은 키워드로 다시 검색해보세요.',
   placeholder: '검색...',
   popularKeywords: '인기 검색어',
   recentKeywords: '최근 검색어',

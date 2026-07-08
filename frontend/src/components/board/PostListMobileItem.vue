@@ -10,7 +10,7 @@ import { formatUserDisplayName } from '@/utils/userDisplay'
 
 const MAX_AUTHOR_NAME_LENGTH = 10
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   post: PostSummary
   interactiveTag: 'button' | 'router-link' | 'div'
   postLink: RouteLocationRaw | null
@@ -21,7 +21,10 @@ const props = defineProps<{
   showPreviewIndicator: boolean
   showSecretIndicator: boolean
   deletedUserLabel: string
-}>()
+  density?: 'default' | 'compact'
+}>(), {
+  density: 'default',
+})
 
 const emit = defineEmits<{
   (event: 'navigate', clickEvent: Event, post: PostSummary): void
@@ -53,7 +56,8 @@ const titleActionProps = computed(() => {
 })
 
 const rootClasses = computed(() => [
-  'nv-post-card block w-full px-4 py-4 text-left transition-colors',
+  'nv-post-card block w-full px-4 text-left transition-colors',
+  props.density === 'compact' ? 'py-2.5' : 'py-4',
   props.showNoticeBadge && props.post.isNotice ? 'nv-post-card-notice' : '',
   props.isCurrent ? 'nv-post-card-current' : '',
   props.interactiveTag === 'div' ? 'cursor-not-allowed opacity-70' : ''
@@ -177,5 +181,9 @@ const rootClasses = computed(() => [
 .nv-post-card-current {
   background: color-mix(in srgb, var(--nv-accent-bg) 82%, transparent);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--nv-accent) 20%, transparent);
+}
+
+.nv-post-card :deep(a:visited) {
+  color: color-mix(in srgb, var(--nv-ink-soft) 72%, var(--nv-muted));
 }
 </style>
