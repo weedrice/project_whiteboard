@@ -44,6 +44,13 @@ public class PostUpdateRequest {
     @Size(max = FileAssociationConstraints.MAX_POST_FILE_COUNT, message = "첨부 파일 개수 제한을 초과했습니다")
     private List<Long> fileIds;
 
+    private PollRequest poll;
+
+    public PostUpdateRequest(Long categoryId, String title, String contents, List<String> tags,
+            boolean isNsfw, boolean isSpoiler, boolean isSecret, Long draftId, List<Long> fileIds) {
+        this(categoryId, title, contents, tags, isNsfw, isSpoiler, isSecret, draftId, fileIds, null);
+    }
+
     public PostUpdateRequest(Long categoryId, String title, String contents, List<String> tags,
             boolean isNsfw, boolean isSpoiler, boolean isSecret, List<Long> fileIds) {
         this(categoryId, title, contents, tags, isNsfw, isSpoiler, isSecret, null, fileIds);

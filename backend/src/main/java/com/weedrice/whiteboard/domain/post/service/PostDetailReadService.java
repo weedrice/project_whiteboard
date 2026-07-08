@@ -26,6 +26,7 @@ public class PostDetailReadService {
     private final PostInteractionContextResolver postInteractionContextResolver;
     private final BoardAccessPolicy boardAccessPolicy;
     private final PostDetailContextResolver postDetailContextResolver;
+    private final PollService pollService;
 
     public PostResponse getPostResponse(@NonNull Long postId, Long userId) {
         return getPostResponse(postId, userId, DEFAULT_BOARD_PAGE_SIZE);
@@ -64,7 +65,7 @@ public class PostDetailReadService {
 
         return PostResponse.from(
                 post, tags, context.viewHistory(), isLiked, isScrapped, imageUrls, isAdmin, boardListPage,
-                viewCountOverride);
+                viewCountOverride, pollService.getPollResponse(post.getPostId(), context.readContext().viewerUserId()));
     }
 
     private List<String> getTagsForPost(Post post) {

@@ -24,6 +24,7 @@ export interface PostCreateData {
     tags?: string[]
     draftId?: number
     fileIds?: number[]
+    poll?: PollPayload | null
 }
 
 export interface PostUpdateData {
@@ -37,6 +38,19 @@ export interface PostUpdateData {
     tags?: string[]
     draftId?: number
     fileIds?: number[]
+    poll?: PollPayload | null
+}
+
+export interface PollPayload {
+    question: string
+    options: string[]
+    multipleChoiceEnabled?: boolean
+    anonymousEnabled?: boolean
+    closesAt?: string | null
+}
+
+export interface PollVotePayload {
+    optionIds: number[]
 }
 
 export interface PostDraftData {
@@ -130,6 +144,12 @@ export const postApi = {
 
     // Unlike post
     unlikePost: (postId: string | number) => api.delete<ApiResponse<void>>(`/posts/${encodePathSegment(postId)}/like`),
+
+    votePoll: (postId: string | number, data: PollVotePayload) =>
+        api.post<ApiResponse<Post['poll']>>(`/posts/${encodePathSegment(postId)}/poll/vote`, data),
+
+    deletePollVote: (postId: string | number) =>
+        api.delete<ApiResponse<Post['poll']>>(`/posts/${encodePathSegment(postId)}/poll/vote`),
 
     // Scrap post
     scrapPost: (postId: string | number) => api.post<ApiResponse<void>>(`/posts/${encodePathSegment(postId)}/scrap`),

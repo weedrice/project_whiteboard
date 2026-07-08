@@ -28,9 +28,11 @@ public class PostCreateSideEffectService {
     private final PostVersionRecorder postVersionRecorder;
     private final PostDraftPublicationService postDraftPublicationService;
     private final MentionService mentionService;
+    private final PollService pollService;
 
     public int applyAfterCreate(Long userId, User user, Long boardId, Post savedPost, PostCreateRequest request) {
         tagAssignmentService.assignTags(savedPost, request.getTags());
+        pollService.createPoll(savedPost, request.getPoll());
         postVersionRecorder.record(savedPost, user, "CREATE", null, null);
 
         if (request.getFileIds() != null && !request.getFileIds().isEmpty()) {

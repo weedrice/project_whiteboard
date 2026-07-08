@@ -128,6 +128,8 @@ class PostServiceTest {
     private SemanticSearchEventPublisher semanticSearchEventPublisher;
     @Mock
     private MentionService mentionService;
+    @Mock
+    private PollService pollService;
     private BoardAccessPolicy boardAccessPolicy;
     private PostAccessPolicy postAccessPolicy;
     private PostSummaryAssembler postSummaryAssembler;
@@ -192,7 +194,8 @@ class PostServiceTest {
                 postImageAttachmentReader,
                 postInteractionContextResolver,
                 boardAccessPolicy,
-                postDetailContextResolver);
+                postDetailContextResolver,
+                pollService);
         postDetailViewCommandService = new PostDetailViewCommandService(
                 postRepository,
                 viewHistoryCommandService,
@@ -268,7 +271,8 @@ class PostServiceTest {
                 semanticSearchEventPublisher,
                 postVersionRecorder,
                 postDraftPublicationService,
-                mentionService);
+                mentionService,
+                pollService);
         postCommandService = new PostCommandService(
                 postRepository,
                 boardRepository,

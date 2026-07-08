@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.post.controller;
 
 import com.weedrice.whiteboard.domain.post.dto.*;
 import com.weedrice.whiteboard.domain.post.entity.ViewHistory;
+import com.weedrice.whiteboard.domain.post.service.PollService;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.ApiResponses;
@@ -27,6 +28,7 @@ import java.util.List;
 public class PostController {
 
     private final PostService postService;
+    private final PollService pollService;
     private final ClientIpResolver clientIpResolver;
     private final CounterEventGuard counterEventGuard;
 
@@ -130,6 +132,21 @@ public class PostController {
             @PathVariable Long postId,
             @CurrentUserId Long userId) {
         return ApiResponse.success(postService.unlikePost(userId, postId));
+    }
+
+    @PostMapping("/posts/{postId}/poll/vote")
+    public ApiResponse<PollResponse> votePoll(
+            @PathVariable Long postId,
+            @Valid @RequestBody PollVoteRequest request,
+            @CurrentUserId Long userId) {
+        return ApiResponse.success(pollService.vote(userId, postId, request.getOptionIds()));
+    }
+
+    @DeleteMapping("/posts/{postId}/poll/vote")
+    public ApiResponse<PollResponse> deletePollVote(
+            @PathVariable Long postId,
+            @CurrentUserId Long userId) {
+        return ApiResponse.success(pollService.deleteVote(userId, postId));
     }
 
     @PostMapping("/posts/{postId}/scrap")

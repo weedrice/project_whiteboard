@@ -46,6 +46,7 @@ public class PostResponse {
     private LocalDateTime modifiedAt;
     private List<String> imageUrls;
     private Integer boardListPage;
+    private PollResponse poll;
 
     @Getter
     @Builder
@@ -87,6 +88,13 @@ public class PostResponse {
     public static PostResponse from(Post post, List<String> tags, ViewHistory viewHistory, boolean isLiked,
             boolean isScrapped, List<String> imageUrls, boolean isAdmin, Integer boardListPage,
             Integer viewCountOverride) {
+        return from(post, tags, viewHistory, isLiked, isScrapped, imageUrls, isAdmin, boardListPage,
+                viewCountOverride, null);
+    }
+
+    public static PostResponse from(Post post, List<String> tags, ViewHistory viewHistory, boolean isLiked,
+            boolean isScrapped, List<String> imageUrls, boolean isAdmin, Integer boardListPage,
+            Integer viewCountOverride, PollResponse poll) {
         AuthorInfo authorInfo = AuthorInfo.builder()
                 .userId(post.getUser().getUserId())
                 .agentId(post.getAgent() != null ? post.getAgent().getAgentId() : null)
@@ -136,6 +144,7 @@ public class PostResponse {
                 .modifiedAt(post.getModifiedAt())
                 .imageUrls(imageUrls)
                 .boardListPage(boardListPage)
+                .poll(poll)
                 .build();
     }
 }

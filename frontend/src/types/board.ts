@@ -137,6 +137,7 @@ export interface Post {
     liked?: boolean
     scrapped?: boolean
     lastViewedAt?: string | null
+    poll?: PostPoll | null
     boardListPage?: number
     createdAt: string
     modifiedAt?: string
@@ -218,6 +219,23 @@ export interface HomeLandingStats {
     activeBoardCount: number
     newMembersLast24Hours: number
     commentsToday: number
+}
+
+export interface PostPoll {
+    pollId: number
+    question: string
+    multipleChoiceEnabled: boolean
+    anonymousEnabled: boolean
+    closesAt?: string | null
+    options: PostPollOption[]
+}
+
+export interface PostPollOption {
+    optionId: number
+    optionText: string
+    sortOrder: number
+    voteCount: number
+    selected: boolean
 }
 
 export interface HomeLandingResponse {
