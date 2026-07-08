@@ -40,6 +40,40 @@
     overflow-wrap: anywhere;
   }
 
+  .nv-post-readable {
+    margin-inline: auto;
+    max-width: min(100%, 72ch);
+  }
+
+  .nv-post-readable :where(img) {
+    display: block;
+    height: auto;
+    max-width: min(100%, 64rem);
+  }
+
+  .nv-post-readable :where(table) {
+    display: table;
+    max-width: none;
+    width: max-content;
+  }
+
+  @media (min-width: 768px) {
+    .nv-post-readable :where(pre, .nv-code-block, .tiptap-video-wrapper, table) {
+      left: 50%;
+      max-width: min(64rem, calc(100vw - 6rem));
+      position: relative;
+      transform: translateX(-50%);
+      width: min(64rem, calc(100vw - 6rem));
+    }
+
+    .nv-post-readable :where(img) {
+      left: 50%;
+      max-width: min(64rem, calc(100vw - 6rem));
+      position: relative;
+      transform: translateX(-50%);
+    }
+  }
+
   .nv-rich-content :where(blockquote) {
     background: color-mix(in srgb, var(--nv-accent) 6%, transparent);
     border-left-color: color-mix(in srgb, var(--nv-accent) 45%, var(--nv-line));

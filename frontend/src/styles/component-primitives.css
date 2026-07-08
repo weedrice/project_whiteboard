@@ -67,6 +67,22 @@
     background: var(--nv-surface-hover);
   }
 
+  .nv-hover-accent {
+    transition: color 0.2s ease;
+  }
+
+  .nv-hover-accent:hover {
+    color: var(--nv-accent);
+  }
+
+  .nv-hover-danger {
+    transition: color 0.2s ease;
+  }
+
+  .nv-hover-danger:hover {
+    color: var(--nv-danger-text);
+  }
+
   .nv-admin-sidebar {
     background: var(--nv-surface);
     border-right: 1px solid var(--nv-border);

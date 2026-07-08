@@ -30,6 +30,8 @@ const colors: Record<Toast['type'], string> = {
   <div
     class="pointer-events-auto w-full max-w-sm overflow-hidden rounded-lg border shadow-lg transition-all duration-300 ease-in-out transform hover:scale-102"
     :class="colors[toast.type] || colors.info"
+    role="status"
+    :aria-live="toast.type === 'error' ? 'assertive' : 'polite'"
   >
     <div class="p-4">
       <div class="flex items-start">

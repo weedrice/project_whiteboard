@@ -85,7 +85,7 @@
               v-for="keyword in popularKeywords"
               :key="keyword.keyword"
               type="button"
-              class="rounded-full border nv-border px-3 py-1.5 text-sm nv-text hover:nv-surface-hover"
+              class="rounded-full border nv-border px-3 py-1.5 text-sm nv-text nv-hover-surface"
               :aria-label="$t('search.searchByKeyword', { keyword: keyword.keyword })"
               @click="searchKeyword(keyword.keyword)"
             >
@@ -117,7 +117,7 @@
             >
               <button
                 type="button"
-                class="min-w-0 flex-1 truncate text-left text-sm nv-text hover:nv-accent-text"
+                class="min-w-0 flex-1 truncate text-left text-sm nv-text nv-hover-accent"
                 :aria-label="$t('search.searchByKeyword', { keyword: keyword.keyword })"
                 @click="searchKeyword(keyword.keyword)"
               >
@@ -125,7 +125,7 @@
               </button>
               <button
                 type="button"
-                class="shrink-0 text-xs nv-text-subtle hover:nv-form-error"
+                class="shrink-0 text-xs nv-text-subtle nv-hover-danger"
                 :aria-label="$t('search.deleteRecent')"
                 @click="deleteRecentKeyword(keyword.logId)"
               >
@@ -145,7 +145,7 @@
               v-for="result in semanticResults"
               :key="`${result.contentType}-${result.contentId}`"
               :to="{ name: 'post-detail', params: { boardUrl: result.boardUrl, postId: result.postId } }"
-              class="block rounded-md border nv-border p-3 hover:nv-surface-hover"
+              class="block rounded-md border nv-border p-3 nv-hover-surface"
             >
               <div class="flex items-center justify-between gap-2">
                 <span class="truncate text-sm font-medium nv-title">{{ result.title }}</span>

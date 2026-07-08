@@ -10,7 +10,7 @@ const bottomToasts = computed(() => toastStore.toasts.filter(t => t.position ===
 </script>
 
 <template>
-  <div aria-live="assertive" class="pointer-events-none fixed inset-0 z-[9999]">
+  <div class="pointer-events-none fixed inset-0 z-[9999]">
     <!-- Top Center Container -->
     <div class="absolute top-0 left-0 right-0 flex flex-col items-center space-y-4 p-6">
       <TransitionGroup enter-active-class="transform ease-out duration-300 transition"
@@ -22,7 +22,7 @@ const bottomToasts = computed(() => toastStore.toasts.filter(t => t.position ===
     </div>
 
     <!-- Bottom Center Container -->
-    <div class="absolute bottom-0 left-0 right-0 flex flex-col items-center space-y-4 p-6">
+    <div class="nv-toast-bottom-container absolute left-0 right-0 flex flex-col items-center space-y-4 p-6">
       <TransitionGroup enter-active-class="transform ease-out duration-300 transition"
         enter-from-class="translate-y-2 opacity-0" enter-to-class="translate-y-0 opacity-100"
         leave-active-class="transition ease-in duration-100" leave-from-class="opacity-100" leave-to-class="opacity-0">
@@ -32,3 +32,15 @@ const bottomToasts = computed(() => toastStore.toasts.filter(t => t.position ===
     </div>
   </div>
 </template>
+
+<style scoped>
+.nv-toast-bottom-container {
+  bottom: 0;
+}
+
+@media (max-width: 639px) {
+  .nv-toast-bottom-container {
+    bottom: calc(var(--nv-bottom-nav-height) + env(safe-area-inset-bottom));
+  }
+}
+</style>

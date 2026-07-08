@@ -22,10 +22,16 @@
     min-height: 2.5rem;
   }
 
-  .nv-shell-tab:hover,
-  .nv-shell-tab.is-active {
+  .nv-shell-tab:hover {
     background: var(--nv-accent-bg);
     color: var(--nv-accent);
+  }
+
+  .nv-shell-tab.is-active {
+    background: var(--nv-accent-bg);
+    box-shadow: inset 0 -2px 0 var(--nv-accent);
+    color: var(--nv-accent);
+    font-weight: 700;
   }
 
   .nv-shell-tab-button {
@@ -86,7 +92,7 @@
 
   .nv-mobile-nav-fab {
     @apply mx-auto inline-flex h-14 w-14 items-center justify-center rounded-full text-white shadow-lg transition-transform;
-    background: linear-gradient(135deg, var(--nv-accent), #5e7bff);
+    background: linear-gradient(135deg, var(--nv-accent), color-mix(in srgb, var(--nv-accent) 70%, white));
     transform: translateY(-0.9rem);
   }
 
