@@ -19,6 +19,20 @@ export interface NotificationSettingsBulkPayload {
     settings: NotificationSettingsPayload[]
 }
 
+export interface PushSubscriptionPayload {
+    endpoint: string
+    keys: {
+        p256dh: string
+        auth: string
+    }
+    userAgent?: string
+}
+
+export interface PushSubscriptionResponse {
+    subscriptionId: number
+    endpoint: string
+}
+
 export const userAccountApi = {
     getMyProfile(config?: AxiosRequestConfig) {
         return config
@@ -55,6 +69,15 @@ export const userAccountApi = {
     },
     updateUserSettings(data: Partial<UserSettings>) {
         return api.put<ApiResponse<UserSettings>>('/users/me/settings', data)
+    },
+    completeOnboarding() {
+        return api.put<ApiResponse<UserSettings>>('/users/me/onboarding-complete')
+    },
+    createPushSubscription(data: PushSubscriptionPayload) {
+        return api.post<ApiResponse<PushSubscriptionResponse>>('/users/me/push-subscriptions', data)
+    },
+    deletePushSubscription(data: PushSubscriptionPayload) {
+        return api.delete<ApiResponse<void>>('/users/me/push-subscriptions', { data })
     },
     getNotificationSettings(config?: AxiosRequestConfig) {
         return config

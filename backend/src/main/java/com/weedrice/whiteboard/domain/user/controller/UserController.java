@@ -124,6 +124,12 @@ public class UserController {
                                 request.getHideNsfw())));
         }
 
+        @PutMapping("/me/onboarding-complete")
+        public ResponseEntity<ApiResponse<UserSettingsResponse>> completeOnboarding(
+                        @CurrentUserId Long userId) {
+                return ResponseEntity.ok(ApiResponse.success(userSettingsService.completeOnboarding(userId)));
+        }
+
         @GetMapping("/me/notification-settings")
         public ResponseEntity<ApiResponse<List<NotificationSettingResponse>>> getMyNotificationSettings(
                         @CurrentUserId Long userId) {

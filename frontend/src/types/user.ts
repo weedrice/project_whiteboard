@@ -48,6 +48,8 @@ export interface UserSettings {
     hideNsfw?: boolean
     emailNotification: boolean
     pushNotification: boolean
+    pushEnabled?: boolean
+    onboardingCompletedAt?: string | null
 }
 
 // Point history

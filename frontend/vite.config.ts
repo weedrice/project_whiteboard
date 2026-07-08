@@ -29,6 +29,9 @@ export default defineConfig(({ mode }) => {
         plugins: [
             vue(),
             VitePWA({
+                strategies: 'injectManifest',
+                srcDir: 'src',
+                filename: 'service-worker.ts',
                 registerType: 'prompt',
                 includeAssets: [
                     'favicon.ico',
@@ -71,23 +74,8 @@ export default defineConfig(({ mode }) => {
                         },
                     ],
                 },
-                workbox: {
-                    navigateFallback: '/index.html',
-                    navigateFallbackDenylist: [
-                        /^\/api\//,
-                        /^\/oauth2\//,
-                        /^\/robots\.txt$/,
-                        /^\/sitemap.*\.xml$/,
-                    ],
-                    runtimeCaching: [
-                        {
-                            urlPattern: ({ url }) => url.pathname.startsWith('/api/'),
-                            handler: 'NetworkOnly',
-                            options: {
-                                cacheName: 'noviis-api-network-only',
-                            },
-                        },
-                    ],
+                injectManifest: {
+                    globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff2}'],
                 },
             }),
             ...(!isProduction ? [vueDevTools()] : []),

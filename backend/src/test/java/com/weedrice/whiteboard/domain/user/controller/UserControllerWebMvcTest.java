@@ -193,7 +193,7 @@ class UserControllerWebMvcTest {
         request.setHideNsfw(false);
 
         when(userSettingsService.updateSettings(any(), any(), any(), any(), any()))
-                .thenReturn(new UserSettingsResponse("DARK", "en", "Asia/Seoul", false));
+                .thenReturn(new UserSettingsResponse("DARK", "en", "Asia/Seoul", false, false, null));
 
         mockMvc.perform(put("/api/v1/users/me/settings")
                         .contentType(MediaType.APPLICATION_JSON)

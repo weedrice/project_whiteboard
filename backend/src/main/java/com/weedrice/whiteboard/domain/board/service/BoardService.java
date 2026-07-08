@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Locale;
 
 @Service
 @Transactional(readOnly = true)
@@ -63,6 +64,22 @@ public class BoardService {
 
     public List<BoardListResponse> getTopBoardsByUserId(Long userId, int limit) {
         return queryService.getTopBoardsByUserId(userId, limit);
+    }
+
+    public List<BoardListResponse> getRecommendations(List<String> topics, Long userId) {
+        List<String> normalizedTopics = topics == null ? List.of() : topics.stream()
+                .map(topic -> topic == null ? "" : topic.strip().toLowerCase(Locale.ROOT))
+                .filter(topic -> !topic.isBlank())
+                .distinct()
+                .toList();
+        if (normalizedTopics.isEmpty()) {
+            return getTopBoardsByUserId(userId, 12);
+        }
+
+        return getActiveBoards(userId).stream()
+                .filter(board -> matchesTopic(board, normalizedTopics))
+                .limit(12)
+                .toList();
     }
 
     public List<AdminBoardResponse> getAllBoards(Long userId) {
@@ -170,5 +187,11 @@ public class BoardService {
             throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
         }
         return normalizedBoardUrl;
+    }
+
+    private boolean matchesTopic(BoardListResponse board, List<String> topics) {
+        String boardName = board.getBoardName() == null ? "" : board.getBoardName().toLowerCase(Locale.ROOT);
+        String boardUrl = board.getBoardUrl() == null ? "" : board.getBoardUrl().toLowerCase(Locale.ROOT);
+        return topics.stream().anyMatch(topic -> boardName.contains(topic) || boardUrl.contains(topic));
     }
 }

@@ -18,6 +18,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.time.DateTimeException;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -64,7 +65,24 @@ public class UserSettingsService {
                                 normalizedTimezone,
                                 hideNsfw);
                 return new UserSettingsResponse(settings.getTheme(), settings.getLanguage(), settings.getTimezone(),
-                                settings.getHideNsfw());
+                                settings.getHideNsfw(), Boolean.TRUE.equals(settings.getPushEnabled()),
+                                settings.getOnboardingCompletedAt());
+        }
+
+        @Transactional
+        public UserSettingsResponse setPushEnabled(Long userId, boolean pushEnabled) {
+                User user = validateUserCanWrite(userId);
+                UserSettings settings = getOrCreateSettingsEntity(user);
+                settings.setPushEnabled(pushEnabled);
+                return toResponse(userSettingsRepository.save(settings));
+        }
+
+        @Transactional
+        public UserSettingsResponse completeOnboarding(Long userId) {
+                User user = validateUserCanWrite(userId);
+                UserSettings settings = getOrCreateSettingsEntity(user);
+                settings.completeOnboarding(LocalDateTime.now());
+                return toResponse(userSettingsRepository.save(settings));
         }
 
         @Transactional
@@ -177,7 +195,9 @@ public class UserSettingsService {
                                 settings.getTheme(),
                                 settings.getLanguage(),
                                 settings.getTimezone(),
-                                settings.getHideNsfw());
+                                Boolean.TRUE.equals(settings.getHideNsfw()),
+                                Boolean.TRUE.equals(settings.getPushEnabled()),
+                                settings.getOnboardingCompletedAt());
         }
 
         private UserSettingsResponse defaultSettingsResponse() {
@@ -185,7 +205,19 @@ public class UserSettingsService {
                                 UserSettingsDefaults.THEME,
                                 UserSettingsDefaults.LANGUAGE,
                                 UserSettingsDefaults.TIMEZONE,
-                                UserSettingsDefaults.HIDE_NSFW);
+                                UserSettingsDefaults.HIDE_NSFW,
+                                UserSettingsDefaults.PUSH_ENABLED,
+                                null);
+        }
+
+        private UserSettingsResponse toResponse(UserSettings settings) {
+                return new UserSettingsResponse(
+                                settings.getTheme(),
+                                settings.getLanguage(),
+                                settings.getTimezone(),
+                                Boolean.TRUE.equals(settings.getHideNsfw()),
+                                Boolean.TRUE.equals(settings.getPushEnabled()),
+                                settings.getOnboardingCompletedAt());
         }
 
         private String normalizeTheme(String theme) {

@@ -24,6 +24,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -519,6 +520,16 @@ class UserSettingsServiceTest {
             @Override
             public Boolean getHideNsfw() {
                 return hideNsfw;
+            }
+
+            @Override
+            public Boolean getPushEnabled() {
+                return false;
+            }
+
+            @Override
+            public LocalDateTime getOnboardingCompletedAt() {
+                return null;
             }
         };
     }

@@ -8,6 +8,8 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
+
 @Entity
 @Table(name = "user_settings")
 @Getter
@@ -36,6 +38,13 @@ public class UserSettings extends BaseTimeEntity {
     @Column(name = "hide_nsfw", nullable = false, length = 1)
     private Boolean hideNsfw;
 
+    @Convert(converter = BooleanToYNConverter.class)
+    @Column(name = "push_enabled", nullable = false, length = 1)
+    private Boolean pushEnabled;
+
+    @Column(name = "onboarding_completed_at")
+    private LocalDateTime onboardingCompletedAt;
+
     @Builder
     public UserSettings(User user) {
         this.user = user;
@@ -43,6 +52,7 @@ public class UserSettings extends BaseTimeEntity {
         this.language = "ko";
         this.timezone = "Asia/Seoul";
         this.hideNsfw = true;
+        this.pushEnabled = false;
     }
 
     public void updateSettings(String theme, String language, String timezone, Boolean hideNsfw) {
@@ -58,5 +68,15 @@ public class UserSettings extends BaseTimeEntity {
         if (hideNsfw != null) {
             this.hideNsfw = hideNsfw;
         }
+    }
+
+    public void setPushEnabled(Boolean pushEnabled) {
+        if (pushEnabled != null) {
+            this.pushEnabled = pushEnabled;
+        }
+    }
+
+    public void completeOnboarding(LocalDateTime completedAt) {
+        this.onboardingCompletedAt = completedAt;
     }
 }

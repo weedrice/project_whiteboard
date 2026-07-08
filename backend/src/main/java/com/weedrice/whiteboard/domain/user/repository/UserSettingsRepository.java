@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.Optional;
+import java.time.LocalDateTime;
 
 public interface UserSettingsRepository extends JpaRepository<UserSettings, Long> {
     interface SettingsReadProjection {
@@ -18,6 +19,10 @@ public interface UserSettingsRepository extends JpaRepository<UserSettings, Long
         String getTimezone();
 
         Boolean getHideNsfw();
+
+        Boolean getPushEnabled();
+
+        LocalDateTime getOnboardingCompletedAt();
     }
 
     @Query("""
@@ -25,7 +30,9 @@ public interface UserSettingsRepository extends JpaRepository<UserSettings, Long
                    settings.theme AS theme,
                    settings.language AS language,
                    settings.timezone AS timezone,
-                   settings.hideNsfw AS hideNsfw
+                   settings.hideNsfw AS hideNsfw,
+                   settings.pushEnabled AS pushEnabled,
+                   settings.onboardingCompletedAt AS onboardingCompletedAt
             FROM User u
             LEFT JOIN UserSettings settings ON settings.user = u
             WHERE u.userId = :userId

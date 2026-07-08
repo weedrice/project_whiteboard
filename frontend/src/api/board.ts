@@ -53,6 +53,15 @@ export const boardApi = {
             ? api.get<ApiResponse<BoardListItem[]>>('/boards', config)
             : api.get<ApiResponse<BoardListItem[]>>('/boards'),
 
+    getBoardRecommendations: (topics: string[] = [], config?: AxiosRequestConfig) =>
+        api.get<ApiResponse<BoardListItem[]>>('/boards/recommendations', {
+            ...config,
+            params: {
+                ...config?.params,
+                topics
+            }
+        }),
+
     // Get board details
     getBoard: (boardUrl: string, config?: AxiosRequestConfig) => api.get<ApiResponse<BoardDetail>>(`/boards/${encodePathSegment(boardUrl)}`, config),
 

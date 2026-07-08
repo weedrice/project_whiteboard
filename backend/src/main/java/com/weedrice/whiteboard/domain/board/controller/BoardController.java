@@ -50,6 +50,13 @@ public class BoardController {
         return ApiResponse.success(boardService.getTopBoards(userId));
     }
 
+    @GetMapping("/recommendations")
+    public ApiResponse<List<BoardListResponse>> getRecommendations(
+            @RequestParam(required = false) List<String> topics,
+            @CurrentUserId(required = false) Long userId) {
+        return ApiResponse.success(boardService.getRecommendations(topics, userId));
+    }
+
     @GetMapping("/{boardUrl}")
     public ApiResponse<BoardDetailResponse> getBoardDetails(@PathVariable String boardUrl,
             @CurrentUserId(required = false) Long userId) {

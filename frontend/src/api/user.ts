@@ -13,6 +13,8 @@ export {
     type NotificationSettingType,
     type NotificationSettingsBulkPayload,
     type NotificationSettingsPayload,
+    type PushSubscriptionPayload,
+    type PushSubscriptionResponse,
     type UserUpdatePayload,
 } from '@/api/userAccountApi'
 export {
