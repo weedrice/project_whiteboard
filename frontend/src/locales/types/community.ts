@@ -456,6 +456,7 @@ export interface NotificationMessages {
     message: string
     system: string
     sanction: string
+    keyword: string
   }
 }
 

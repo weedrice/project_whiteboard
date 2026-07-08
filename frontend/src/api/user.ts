@@ -10,6 +10,8 @@ export {
     type BlockedUserResponseDto,
 } from '@/api/userMappers'
 export {
+    type KeywordSubscriptionPayload,
+    type KeywordSubscriptionResponse,
     type NotificationSettingType,
     type NotificationSettingsBulkPayload,
     type NotificationSettingsPayload,

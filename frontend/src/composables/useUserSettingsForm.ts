@@ -3,7 +3,7 @@ import type { NotificationSettingType, NotificationSettingsBulkPayload, Notifica
 import logger from '@/utils/logger'
 import type { UserSettings } from '@/types'
 
-export const NOTIFICATION_TYPES: NotificationSettingType[] = ['LIKE', 'COMMENT', 'REPLY', 'MENTION', 'MESSAGE', 'SYSTEM', 'SANCTION']
+export const NOTIFICATION_TYPES: NotificationSettingType[] = ['LIKE', 'COMMENT', 'REPLY', 'MENTION', 'MESSAGE', 'SYSTEM', 'SANCTION', 'KEYWORD']
 
 interface UserSettingsForm {
   theme: 'LIGHT' | 'DARK'
@@ -114,7 +114,8 @@ export function useNotificationSettingsForm(options: UseNotificationSettingsForm
     MENTION: true,
     MESSAGE: true,
     SYSTEM: true,
-    SANCTION: true
+    SANCTION: true,
+    KEYWORD: true
   })
   const message = ref('')
   const isError = ref(false)

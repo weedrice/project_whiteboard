@@ -8,7 +8,7 @@ export interface UserUpdatePayload {
     profileImageId?: number | null
 }
 
-export type NotificationSettingType = 'LIKE' | 'COMMENT' | 'REPLY' | 'MENTION' | 'MESSAGE' | 'SYSTEM' | 'SANCTION'
+export type NotificationSettingType = 'LIKE' | 'COMMENT' | 'REPLY' | 'MENTION' | 'MESSAGE' | 'SYSTEM' | 'SANCTION' | 'KEYWORD'
 
 export interface NotificationSettingsPayload {
     notificationType: NotificationSettingType
@@ -31,6 +31,16 @@ export interface PushSubscriptionPayload {
 export interface PushSubscriptionResponse {
     subscriptionId: number
     endpoint: string
+}
+
+export interface KeywordSubscriptionPayload {
+    keyword: string
+}
+
+export interface KeywordSubscriptionResponse {
+    subscriptionId: number
+    keyword: string
+    createdAt: string
 }
 
 export const userAccountApi = {
@@ -78,6 +88,17 @@ export const userAccountApi = {
     },
     deletePushSubscription(data: PushSubscriptionPayload) {
         return api.delete<ApiResponse<void>>('/users/me/push-subscriptions', { data })
+    },
+    getKeywordSubscriptions(config?: AxiosRequestConfig) {
+        return config
+            ? api.get<ApiResponse<KeywordSubscriptionResponse[]>>('/users/me/keyword-subscriptions', config)
+            : api.get<ApiResponse<KeywordSubscriptionResponse[]>>('/users/me/keyword-subscriptions')
+    },
+    createKeywordSubscription(data: KeywordSubscriptionPayload) {
+        return api.post<ApiResponse<KeywordSubscriptionResponse>>('/users/me/keyword-subscriptions', data)
+    },
+    deleteKeywordSubscription(data: KeywordSubscriptionPayload) {
+        return api.delete<ApiResponse<void>>('/users/me/keyword-subscriptions', { data })
     },
     getNotificationSettings(config?: AxiosRequestConfig) {
         return config

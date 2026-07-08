@@ -152,6 +152,10 @@ export const user: UserMessages = {
         label: '제재',
         description: '신고 처리와 이용 제한 관련 알림을 받습니다.',
       },
+      KEYWORD: {
+        label: '키워드',
+        description: '구독한 키워드가 포함된 새 글 알림을 받습니다.',
+      },
     },
     email: '이메일 알림',
     emailDesc: '계정 활동에 대한 이메일 알림을 받습니다.',

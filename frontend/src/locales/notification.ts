@@ -20,5 +20,6 @@ export const notification: NotificationMessages = {
     message: '쪽지',
     system: '시스템',
     sanction: '제재',
+    keyword: '키워드',
   },
 }

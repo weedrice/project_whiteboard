@@ -149,7 +149,8 @@ describe('useNotificationSettingsForm', () => {
         { notificationType: 'MENTION', isEnabled: true },
         { notificationType: 'MESSAGE', isEnabled: true },
         { notificationType: 'SYSTEM', isEnabled: true },
-        { notificationType: 'SANCTION', isEnabled: true }
+        { notificationType: 'SANCTION', isEnabled: true },
+        { notificationType: 'KEYWORD', isEnabled: true }
       ]
     })
     expect(form.canSave.value).toBe(false)

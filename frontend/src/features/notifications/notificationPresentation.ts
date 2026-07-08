@@ -54,6 +54,12 @@ const PRESENTATION_BY_TYPE: Record<NotificationType, NotificationPresentation> =
         badgeClass: 'notification-badge-sanction',
         iconClass: 'notification-icon-sanction',
     },
+    KEYWORD: {
+        icon: Bell,
+        labelKey: 'notification.types.keyword',
+        badgeClass: 'notification-badge-keyword',
+        iconClass: 'notification-icon-keyword',
+    },
 }
 
 const FALLBACK_PRESENTATION: NotificationPresentation = {
