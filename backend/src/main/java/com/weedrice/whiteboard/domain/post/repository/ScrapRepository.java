@@ -51,6 +51,17 @@ public interface ScrapRepository extends JpaRepository<Scrap, ScrapId> {
             @Param("inquiryBoardUrl") String inquiryBoardUrl,
             Pageable pageable);
 
+    default Page<Scrap> findPageByUserWithPostDetails(
+            User user,
+            boolean viewerIsSuperAdmin,
+            boolean blockedUserIdsEmpty,
+            Collection<Long> blockedUserIds,
+            String inquiryBoardUrl,
+            Pageable pageable) {
+        return findPageByUserWithPostDetails(user, null, null, viewerIsSuperAdmin, blockedUserIdsEmpty,
+                blockedUserIds, inquiryBoardUrl, pageable);
+    }
+
     List<Scrap> findByUserAndPostIn(User user, List<Post> posts);
 
     @Query("""

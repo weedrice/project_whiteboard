@@ -44,8 +44,11 @@ public class SearchController {
             Sort sort,
             @CurrentUserId(required = false) Long userId) {
 
-        IntegratedSearchResponse response = searchPreviewReadService.integratedSearch(
-                q, searchType, boardUrl, author, from, to, period, sort, userId);
+        boolean hasFilters = searchType != null || boardUrl != null || author != null
+                || from != null || to != null || period != null;
+        IntegratedSearchResponse response = hasFilters
+                ? searchPreviewReadService.integratedSearch(q, searchType, boardUrl, author, from, to, period, sort, userId)
+                : searchPreviewReadService.integratedSearch(q, userId);
         searchRecordFacade.record(userId, response.getKeyword());
         return ApiResponse.success(response);
     }

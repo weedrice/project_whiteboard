@@ -255,15 +255,24 @@ public class PostInteractionService {
         }
         Pageable safePageable = PageRequestUtils.of(pageable, DEFAULT_SCRAP_PAGE_SIZE, DEFAULT_SCRAP_SORT);
         BlockedUserFilter blockedUsers = BlockedUserFilter.from(context.blockedUserIdSet());
-        Page<Scrap> scrapPage = scrapRepository.findPageByUserWithPostDetails(
-                user,
-                folderId,
-                normalizeScrapSearchKeyword(keyword),
-                user.isUsableSuperAdmin(),
-                blockedUsers.empty(),
-                blockedUsers.ids(),
-                BoardPolicyConstants.INQUIRY_BOARD_URL,
-                safePageable);
+        String normalizedKeyword = normalizeScrapSearchKeyword(keyword);
+        Page<Scrap> scrapPage = (folderId == null && normalizedKeyword == null)
+                ? scrapRepository.findPageByUserWithPostDetails(
+                        user,
+                        user.isUsableSuperAdmin(),
+                        blockedUsers.empty(),
+                        blockedUsers.ids(),
+                        BoardPolicyConstants.INQUIRY_BOARD_URL,
+                        safePageable)
+                : scrapRepository.findPageByUserWithPostDetails(
+                        user,
+                        folderId,
+                        normalizedKeyword,
+                        user.isUsableSuperAdmin(),
+                        blockedUsers.empty(),
+                        blockedUsers.ids(),
+                        BoardPolicyConstants.INQUIRY_BOARD_URL,
+                        safePageable);
         return ScrapListResponse.from(scrapPage);
     }
 

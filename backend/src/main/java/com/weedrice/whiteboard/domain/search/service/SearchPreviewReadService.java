@@ -20,6 +20,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -39,12 +41,10 @@ public class SearchPreviewReadService {
     private final UserBlockService userBlockService;
     private final PostSummaryAssembler postSummaryAssembler;
     private final IntegratedSearchAssembler integratedSearchAssembler;
-    private final SearchService searchService;
 
-    public IntegratedSearchResponse integratedSearch(String keyword, String searchType, String boardUrl, String author,
-            String from, String to, String period, Sort sort, Long currentUserId) {
+    public IntegratedSearchResponse integratedSearch(String keyword, Long currentUserId) {
         String canonicalKeyword = SearchRequestNormalizer.canonicalizeKeyword(keyword);
-        Pageable previewPageable = SearchRequestNormalizer.normalizePostSearchPageable(0, SEARCH_PREVIEW_LIMIT, sort);
+        Pageable previewPageable = PageRequest.of(0, SEARCH_PREVIEW_LIMIT);
         Pageable commentPreviewPageable = PageRequest.of(0, SEARCH_PREVIEW_LIMIT, COMMENT_PREVIEW_SORT);
 
         List<Long> blockedUserIds = null;
@@ -52,9 +52,9 @@ public class SearchPreviewReadService {
             blockedUserIds = userBlockService.getBlockedUserIdsEitherDirection(currentUserId);
         }
 
-        Page<PostSummary> posts = searchService.previewPosts(
-                canonicalKeyword, searchType, boardUrl, author, from, to, period, SEARCH_PREVIEW_LIMIT, sort,
-                currentUserId);
+        Page<Post> postPage = postRepository.searchPostsByKeyword(canonicalKeyword,
+                blockedUserIds, currentUserId, previewPageable);
+        Page<PostSummary> posts = postSummaryAssembler.assembleSearchPage(postPage);
 
         Page<CommentResponse> comments = commentRepository
                 .searchCommentsByKeyword(canonicalKeyword, blockedUserIds, currentUserId, commentPreviewPageable)
@@ -72,5 +72,73 @@ public class SearchPreviewReadService {
                 .collect(Collectors.toList());
 
         return integratedSearchAssembler.assemble(posts, comments, users, boards, canonicalKeyword);
+    }
+
+    public IntegratedSearchResponse integratedSearch(String keyword, String searchType, String boardUrl, String author,
+            String from, String to, String period, Sort sort, Long currentUserId) {
+        String canonicalKeyword = SearchRequestNormalizer.canonicalizeKeyword(keyword);
+        Pageable previewPageable = SearchRequestNormalizer.normalizePostSearchPageable(0, SEARCH_PREVIEW_LIMIT, sort);
+        Pageable commentPreviewPageable = PageRequest.of(0, SEARCH_PREVIEW_LIMIT, COMMENT_PREVIEW_SORT);
+
+        List<Long> blockedUserIds = null;
+        if (currentUserId != null) {
+            blockedUserIds = userBlockService.getBlockedUserIdsEitherDirection(currentUserId);
+        }
+
+        DateRange dateRange = resolveDateRange(period, from, to);
+        Page<Post> postPage = postRepository.searchPosts(
+                canonicalKeyword,
+                searchType,
+                null,
+                SearchRequestNormalizer.canonicalizeOptionalAuthor(author),
+                dateRange.from(),
+                dateRange.to(),
+                blockedUserIds,
+                false,
+                currentUserId,
+                previewPageable);
+        Page<PostSummary> posts = postSummaryAssembler.assembleSearchPage(postPage);
+
+        Page<CommentResponse> comments = commentRepository
+                .searchCommentsByKeyword(canonicalKeyword, blockedUserIds, currentUserId, commentPreviewPageable)
+                .map(CommentResponse::from);
+
+        Page<UserSummary> users = userRepository.searchUsersVisibleTo(canonicalKeyword, blockedUserIds, previewPageable)
+                .map(UserSummary::from);
+
+        List<BoardSummary> boards = boardRepository
+                .findByBoardNameContainingIgnoreCaseAndIsActiveTrueAndIsPublicTrueOrderBySortOrderAscBoardIdAsc(
+                        canonicalKeyword,
+                        previewPageable)
+                .stream()
+                .map(BoardSummary::from)
+                .collect(Collectors.toList());
+
+        return integratedSearchAssembler.assemble(posts, comments, users, boards, canonicalKeyword);
+    }
+
+    private DateRange resolveDateRange(String period, String from, String to) {
+        String normalizedPeriod = SearchRequestNormalizer.normalizeSearchPeriod(period);
+        if (normalizedPeriod == null) {
+            return new DateRange(null, null);
+        }
+        LocalDate today = com.weedrice.whiteboard.global.common.util.DateTimeUtils.nowKST().toLocalDate();
+        return switch (normalizedPeriod) {
+            case "TODAY" -> DateRange.between(today, today);
+            case "WEEK" -> DateRange.between(today.minusWeeks(1), today);
+            case "MONTH" -> DateRange.between(today.minusMonths(1), today);
+            case "CUSTOM" -> DateRange.between(
+                    SearchRequestNormalizer.parseOptionalDate(from),
+                    SearchRequestNormalizer.parseOptionalDate(to));
+            default -> new DateRange(null, null);
+        };
+    }
+
+    private record DateRange(LocalDateTime from, LocalDateTime to) {
+        static DateRange between(LocalDate from, LocalDate to) {
+            LocalDateTime start = from == null ? null : from.atStartOfDay();
+            LocalDateTime end = to == null ? null : to.plusDays(1).atStartOfDay();
+            return new DateRange(start, end);
+        }
     }
 }
