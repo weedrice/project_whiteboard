@@ -142,6 +142,7 @@ export interface CommonMessages {
   likes: string
   notice: string
   points: string
+  pointEarned: string
   scrap: string
   block: string
   name: string
@@ -196,6 +197,7 @@ export interface SearchMessages {
   popularKeywords: string
   recentKeywords: string
   semanticResults: string
+  semanticRelated: string
   semanticEmpty: string
   semanticSource: string
   deleteRecent: string

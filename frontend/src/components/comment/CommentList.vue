@@ -17,6 +17,7 @@ const { confirm } = useConfirm()
 const props = defineProps<{
   postId: number | string
   boardUrl: string
+  lastViewedAt?: string | null
 }>()
 
 const { t } = useI18n()
@@ -46,6 +47,22 @@ const sortOptions = computed(() => [
   { value: 'createdAt,desc', label: t('comment.sort.newest') },
   { value: 'likeCount,desc', label: t('comment.sort.likes') },
 ])
+const lastViewedTime = computed(() => {
+  if (!props.lastViewedAt) {
+    return null
+  }
+
+  const time = new Date(props.lastViewedAt).getTime()
+  return Number.isNaN(time) ? null : time
+})
+const isOldestSort = computed(() => sort.value === 'createdAt,asc')
+const firstUnreadCommentId = computed(() => {
+  if (!isOldestSort.value || lastViewedTime.value == null) {
+    return null
+  }
+
+  return comments.value.find((comment) => isNewComment(comment))?.commentId ?? null
+})
 const loadMoreCommentsLabel = computed(() => t('comment.loadMore', {
   remaining: Math.max(totalCommentCount.value - comments.value.length, 0)
 }))
@@ -67,6 +84,15 @@ async function handleDelete(comment: Comment) {
 
 function loadMoreComments() {
   void fetchNextPage()
+}
+
+function isNewComment(comment: Comment) {
+  if (lastViewedTime.value == null) {
+    return false
+  }
+
+  const createdAt = new Date(comment.createdAt).getTime()
+  return !Number.isNaN(createdAt) && createdAt > lastViewedTime.value
 }
 </script>
 
@@ -134,15 +160,25 @@ function loadMoreComments() {
         />
       </section>
 
-      <CommentItem
+      <template
         v-for="comment in comments"
         :key="comment.commentId"
-        v-memo="[postId, boardUrl, comment.commentId, comment.content, comment.likeCount, comment.createdAt, comment.isDeleted, comment.isBlockedAuthor, comment.maskedAuthorId, comment.replyCount, comment.hasReplies]"
-        :comment="comment"
-        :postId="postId"
-        :boardUrl="boardUrl"
-        @delete="handleDelete"
-      />
+      >
+        <div
+          v-if="firstUnreadCommentId === comment.commentId"
+          class="nv-comment-read-divider"
+        >
+          <span>{{ $t('comment.readUntilHere') }}</span>
+        </div>
+        <CommentItem
+          v-memo="[postId, boardUrl, props.lastViewedAt, comment.commentId, comment.content, comment.likeCount, comment.createdAt, comment.isDeleted, comment.isBlockedAuthor, comment.maskedAuthorId, comment.replyCount, comment.hasReplies]"
+          :comment="comment"
+          :postId="postId"
+          :boardUrl="boardUrl"
+          :is-new-since-last-view="isNewComment(comment)"
+          @delete="handleDelete"
+        />
+      </template>
 
       <div
         v-if="comments.length === 0"
@@ -165,3 +201,25 @@ function loadMoreComments() {
     </div>
   </div>
 </template>
+
+<style scoped>
+.nv-comment-read-divider {
+  align-items: center;
+  color: var(--nv-accent);
+  display: flex;
+  font-family: var(--nv-font-mono);
+  font-size: 0.72rem;
+  font-weight: 700;
+  gap: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.nv-comment-read-divider::before,
+.nv-comment-read-divider::after {
+  background: color-mix(in srgb, var(--nv-accent) 45%, var(--nv-line));
+  content: "";
+  flex: 1;
+  height: 1px;
+}
+</style>

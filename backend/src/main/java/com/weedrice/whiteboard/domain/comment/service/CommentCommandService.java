@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.comment.service;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.agent.service.AgentOwnershipService;
 import com.weedrice.whiteboard.domain.comment.constant.CommentConstraints;
+import com.weedrice.whiteboard.domain.comment.dto.CommentCreateResponse;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.entity.CommentMention;
 import com.weedrice.whiteboard.domain.comment.entity.CommentVersion;
@@ -63,6 +64,11 @@ public class CommentCommandService {
 
     @Transactional
     public Long createComment(CommentCreateCommand command) {
+        return createCommentWithResponse(command).getCommentId();
+    }
+
+    @Transactional
+    public CommentCreateResponse createCommentWithResponse(CommentCreateCommand command) {
         Long userId = command.userId();
         Long agentId = command.agentId();
         Long postId = command.postId();
@@ -109,7 +115,8 @@ public class CommentCommandService {
             commentClosureRepository.createSelfClosure(savedComment.getCommentId());
         }
 
-        contentRewardService.rewardCreate(userId, savedComment.getCommentId(), ContentRewardPolicy.COMMENT);
+        int earnedPoints = contentRewardService.rewardCreate(userId, savedComment.getCommentId(),
+                ContentRewardPolicy.COMMENT);
         if (parentComment != null) {
             commentNotificationService.publishReplyNotification(user, agent, parentComment, parentId);
         } else {
@@ -118,7 +125,10 @@ public class CommentCommandService {
         publishMentionNotifications(user, agent, savedComment.getCommentId(), content, mentionedUserIds);
         semanticSearchEventPublisher.publish("COMMENT", savedComment.getCommentId(), SemanticSearchIndexAction.UPSERT);
 
-        return savedComment.getCommentId();
+        return CommentCreateResponse.builder()
+                .commentId(savedComment.getCommentId())
+                .earnedPoints(earnedPoints > 0 ? earnedPoints : null)
+                .build();
     }
 
     private void publishMentionNotifications(User user, Agent agent, Long commentId, String content,

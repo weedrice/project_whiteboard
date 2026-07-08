@@ -132,6 +132,7 @@ describe('useComment', () => {
         expect(commentApi.createComment).toHaveBeenCalledWith(123, { content: 'New comment' })
         expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['comments', 'post', 123] })
         expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['post', 123] })
+        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['user', 'points'] })
         expect(mockInvalidateQueries).not.toHaveBeenCalledWith({ queryKey: ['comments'] })
         expect(mockInvalidateQueries).not.toHaveBeenCalledWith({ queryKey: ['post'] })
     })

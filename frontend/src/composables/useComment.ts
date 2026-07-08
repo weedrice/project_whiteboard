@@ -4,6 +4,7 @@ import { commentApi, type CommentParams, type CommentPayload } from '@/api/comme
 import { unwrapAxiosApiData } from '@/api/response'
 import { commentQueryKeys } from '@/composables/commentQueryKeys'
 import { postQueryKeys } from '@/features/board/posts/queries/postQueryKeys'
+import { userQueryKeys } from '@/composables/userQueryKeys'
 import { useApiPageQuery, useApiQuery } from '@/composables/useApiQuery'
 import { callWithOptionalQuerySignal } from '@/utils/querySignal'
 import type { Comment, CommentListResponse } from '@/types'
@@ -114,6 +115,7 @@ export function useComment() {
             },
             onSuccess: (_result, variables) => {
                 invalidateCommentMutationTargets(variables.postId, true)
+                queryClient.invalidateQueries({ queryKey: userQueryKeys.pointsRoot })
             },
         })
     }

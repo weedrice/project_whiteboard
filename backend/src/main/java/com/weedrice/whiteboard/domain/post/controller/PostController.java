@@ -94,11 +94,11 @@ public class PostController {
 
     @PostMapping("/boards/{boardUrl}/posts")
     @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<Long> createPost(
+    public ApiResponse<PostCreateResponse> createPost(
             @PathVariable String boardUrl,
             @Valid @RequestBody PostCreateRequest request,
             @CurrentUserId Long userId) {
-        return ApiResponse.success(postService.createPost(userId, boardUrl, request));
+        return ApiResponse.success(postService.createPostWithResponse(userId, boardUrl, request));
     }
 
     @PutMapping("/posts/{postId}")

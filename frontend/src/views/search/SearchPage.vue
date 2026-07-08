@@ -39,11 +39,35 @@
         <EmptyState v-else-if="!hasSearchQuery" :title="$t('search.placeholder')" :icon="Search"
           container-class="nv-surface shadow rounded-lg" />
 
-        <EmptyState v-else-if="posts.length === 0 && boards.length === 0" :title="$t('search.noResults')"
+        <EmptyState v-else-if="!hasAnyResults && !isSemanticLoading" :title="$t('search.noResults')"
           :description="searchQuery ? `${$t('search.noResultsFor', { query: searchQuery })} ${$t('search.noResultsSuggestion')}` : $t('search.noResultsSuggestion')" :icon="Search"
           container-class="nv-surface shadow rounded-lg" />
 
         <div v-else class="space-y-8">
+          <div v-if="keywordResultsEmpty && isSemanticLoading" class="text-center py-6">
+            <BaseSpinner size="md" />
+          </div>
+
+          <section
+            v-if="keywordResultsEmpty && semanticResults.length > 0"
+            class="space-y-3"
+          >
+            <h3 class="text-lg font-semibold nv-title mb-4 flex items-center gap-2">
+              <Search class="w-5 h-5" />
+              {{ $t('search.semanticRelated') }}
+            </h3>
+            <RouterLink
+              v-for="result in semanticResults"
+              :key="`${result.contentType}-${result.contentId}`"
+              :to="{ name: 'post-detail', params: { boardUrl: result.boardUrl, postId: result.postId } }"
+              class="block rounded-md border nv-border p-4 nv-surface nv-hover-surface"
+            >
+              <p class="truncate text-sm font-semibold nv-title">{{ result.title }}</p>
+              <p class="mt-1 line-clamp-2 text-sm nv-text-subtle">{{ result.excerpt }}</p>
+              <p class="mt-2 text-xs nv-accent-text">{{ result.boardName }}</p>
+            </RouterLink>
+          </section>
+
           <!-- Board Results -->
           <div v-if="boards.length > 0">
             <h3 class="text-lg font-semibold nv-title mb-4 flex items-center gap-2">
@@ -75,6 +99,26 @@
               :show-inquiry-status="isInquiryPostItem"
             />
           </div>
+
+          <section
+            v-if="!keywordResultsEmpty && semanticResults.length > 0"
+            class="space-y-3"
+          >
+            <h3 class="text-lg font-semibold nv-title mb-4 flex items-center gap-2">
+              <Search class="w-5 h-5" />
+              {{ $t('search.semanticRelated') }}
+            </h3>
+            <RouterLink
+              v-for="result in semanticResults"
+              :key="`${result.contentType}-${result.contentId}`"
+              :to="{ name: 'post-detail', params: { boardUrl: result.boardUrl, postId: result.postId } }"
+              class="block rounded-md border nv-border p-4 nv-surface nv-hover-surface"
+            >
+              <p class="truncate text-sm font-semibold nv-title">{{ result.title }}</p>
+              <p class="mt-1 line-clamp-2 text-sm nv-text-subtle">{{ result.excerpt }}</p>
+              <p class="mt-2 text-xs nv-accent-text">{{ result.boardName }}</p>
+            </RouterLink>
+          </section>
         </div>
       </div>
       <aside class="w-full md:w-72 lg:w-80 space-y-4">
@@ -138,29 +182,9 @@
           </div>
         </section>
 
-        <section v-if="hasSearchQuery" class="rounded-lg border nv-border nv-surface p-4">
-          <h2 class="text-sm font-semibold nv-title">{{ $t('search.semanticResults') }}</h2>
-          <div class="mt-3 space-y-3">
-            <RouterLink
-              v-for="result in semanticResults"
-              :key="`${result.contentType}-${result.contentId}`"
-              :to="{ name: 'post-detail', params: { boardUrl: result.boardUrl, postId: result.postId } }"
-              class="block rounded-md border nv-border p-3 nv-hover-surface"
-            >
-              <div class="flex items-center justify-between gap-2">
-                <span class="truncate text-sm font-medium nv-title">{{ result.title }}</span>
-                <span v-if="result.similarity != null" class="shrink-0 text-xs nv-text-subtle">
-                  {{ $t('search.semanticSource', { score: formatSimilarity(result.similarity) }) }}
-                </span>
-              </div>
-              <p class="mt-1 line-clamp-2 text-xs nv-text-subtle">{{ result.excerpt }}</p>
-              <p class="mt-2 text-xs nv-accent-text">{{ result.boardName }}</p>
-            </RouterLink>
-            <p v-if="!isSemanticLoading && semanticResults.length === 0" class="text-sm nv-text-subtle">
-              {{ $t('search.semanticEmpty') }}
-            </p>
-          </div>
-        </section>
+        <p v-if="hasSearchQuery && !isSemanticLoading && semanticResults.length === 0" class="rounded-lg border nv-border nv-surface p-4 text-sm nv-text-subtle">
+          {{ $t('search.semanticEmpty') }}
+        </p>
       </aside>
     </div>
   </div>
@@ -204,6 +228,8 @@ const { data: recentKeywordData } = useRecentSearches(computed(() => authStore.i
 const posts = computed(() => searchData.value?.postResults || [])
 const boards = computed(() => searchData.value?.boardResults || [])
 const semanticResults = computed(() => semanticData.value?.content || [])
+const keywordResultsEmpty = computed(() => posts.value.length === 0 && boards.value.length === 0)
+const hasAnyResults = computed(() => !keywordResultsEmpty.value || semanticResults.value.length > 0)
 const popularKeywords = computed(() => popularKeywordData.value || [])
 const recentKeywords = computed(() => recentKeywordData.value?.content || [])
 
@@ -227,7 +253,4 @@ async function clearRecentKeywords() {
   await queryClient.invalidateQueries({ queryKey: searchQueryKeys.recent })
 }
 
-function formatSimilarity(value: number) {
-  return Math.round(value * 100)
-}
 </script>

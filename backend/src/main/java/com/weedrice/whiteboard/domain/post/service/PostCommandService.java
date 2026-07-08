@@ -9,6 +9,7 @@ import com.weedrice.whiteboard.domain.board.util.BoardUrlNormalizer;
 import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.point.service.ContentRewardPolicy;
 import com.weedrice.whiteboard.domain.point.service.ContentRewardService;
+import com.weedrice.whiteboard.domain.post.dto.PostCreateResponse;
 import com.weedrice.whiteboard.domain.post.dto.PostCreateRequest;
 import com.weedrice.whiteboard.domain.post.dto.PostUpdateRequest;
 import com.weedrice.whiteboard.domain.post.entity.Post;
@@ -53,11 +54,20 @@ public class PostCommandService {
 
     @Transactional
     public Long createPost(@NonNull Long userId, String boardUrl, PostCreateRequest request) {
+        return createPostWithResponse(userId, boardUrl, request).getPostId();
+    }
+
+    @Transactional
+    public PostCreateResponse createPostWithResponse(@NonNull Long userId, String boardUrl, PostCreateRequest request) {
         String normalizedBoardUrl = BoardUrlNormalizer.normalizeLookup(boardUrl);
         Board board = boardRepository.findByBoardUrl(normalizedBoardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
-        return createPost(userId, null, board.getBoardId(), request, new PostCreateContext(null, board, null, false))
-                .getPostId();
+        CreatedPost createdPost = createPost(userId, null, board.getBoardId(), request,
+                new PostCreateContext(null, board, null, false));
+        return PostCreateResponse.builder()
+                .postId(createdPost.post().getPostId())
+                .earnedPoints(createdPost.earnedPoints() > 0 ? createdPost.earnedPoints() : null)
+                .build();
     }
 
     @Transactional
@@ -67,26 +77,26 @@ public class PostCommandService {
         Board board = boardRepository.findByBoardUrl(normalizedBoardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
         return createPost(userId, agentId, board.getBoardId(), request, new PostCreateContext(null, board, null, false))
-                .getPostId();
+                .post().getPostId();
     }
 
     @Transactional
     public Long createPostAsAgent(@NonNull Long userId, @NonNull Long agentId, PostCreateRequest request,
             PostCreateContext context) {
-        return createPost(userId, agentId, null, request, context).getPostId();
+        return createPost(userId, agentId, null, request, context).post().getPostId();
     }
 
     @Transactional
     public Long createPost(@NonNull Long userId, @NonNull Long boardId, PostCreateRequest request) {
-        return createPost(userId, null, boardId, request, null).getPostId();
+        return createPost(userId, null, boardId, request, null).post().getPostId();
     }
 
     @Transactional
     public Long createPost(@NonNull Long userId, Long agentId, @NonNull Long boardId, PostCreateRequest request) {
-        return createPost(userId, agentId, boardId, request, null).getPostId();
+        return createPost(userId, agentId, boardId, request, null).post().getPostId();
     }
 
-    private Post createPost(@NonNull Long userId, Long agentId, Long boardId, PostCreateRequest request,
+    private CreatedPost createPost(@NonNull Long userId, Long agentId, Long boardId, PostCreateRequest request,
             PostCreateContext context) {
         PostCreateTarget target = postCreateTargetResolver.resolveTarget(userId, agentId, boardId, context);
         postCreatePolicyValidator.validateBoardAndNotice(target, request);
@@ -113,13 +123,16 @@ public class PostCommandService {
                 .build();
 
         Post savedPost = postRepository.save(post);
-        postCreateSideEffectService.applyAfterCreate(
+        int earnedPoints = postCreateSideEffectService.applyAfterCreate(
                 userId,
                 target.user(),
                 target.board().getBoardId(),
                 savedPost,
                 request);
-        return savedPost;
+        return new CreatedPost(savedPost, earnedPoints);
+    }
+
+    private record CreatedPost(Post post, int earnedPoints) {
     }
 
     @Transactional

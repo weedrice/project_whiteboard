@@ -136,6 +136,7 @@ export interface Post {
     tags?: string[]
     liked?: boolean
     scrapped?: boolean
+    lastViewedAt?: string | null
     boardListPage?: number
     createdAt: string
     modifiedAt?: string

@@ -10,6 +10,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -42,8 +43,9 @@ class ContentRewardServiceTest {
     void rewardCreate_invalidCommentConfig_usesDefaultReward() {
         when(globalConfigService.getConfig("POINT_COMMENT_CREATE_REWARD")).thenReturn("invalid");
 
-        contentRewardService.rewardCreate(1L, 10L, ContentRewardPolicy.COMMENT);
+        int earnedPoints = contentRewardService.rewardCreate(1L, 10L, ContentRewardPolicy.COMMENT);
 
+        assertThat(earnedPoints).isEqualTo(10);
         verify(pointService).addPointIfAbsent(1L, 10, "댓글 작성", 10L, "COMMENT");
     }
 
@@ -52,8 +54,9 @@ class ContentRewardServiceTest {
     void rewardCreate_belowMinimumPostConfig_usesDefaultReward() {
         when(globalConfigService.getConfig("POINT_POST_CREATE_REWARD")).thenReturn("-1");
 
-        contentRewardService.rewardCreate(1L, 100L, ContentRewardPolicy.POST);
+        int earnedPoints = contentRewardService.rewardCreate(1L, 100L, ContentRewardPolicy.POST);
 
+        assertThat(earnedPoints).isEqualTo(50);
         verify(pointService).addPointIfAbsent(1L, 50, "게시글 작성", 100L, "POST");
     }
 
@@ -62,8 +65,9 @@ class ContentRewardServiceTest {
     void rewardCreate_zeroConfig_skipsReward() {
         when(globalConfigService.getConfig("POINT_COMMENT_CREATE_REWARD")).thenReturn("0");
 
-        contentRewardService.rewardCreate(1L, 10L, ContentRewardPolicy.COMMENT);
+        int earnedPoints = contentRewardService.rewardCreate(1L, 10L, ContentRewardPolicy.COMMENT);
 
+        assertThat(earnedPoints).isZero();
         verify(pointService, never()).addPointIfAbsent(anyLong(), anyInt(), anyString(), anyLong(), anyString());
     }
 
@@ -72,8 +76,9 @@ class ContentRewardServiceTest {
     void rewardCreate_positiveReward_delegatesIdempotentPayment() {
         when(globalConfigService.getConfig("POINT_POST_CREATE_REWARD")).thenReturn("50");
 
-        contentRewardService.rewardCreate(1L, 100L, ContentRewardPolicy.POST);
+        int earnedPoints = contentRewardService.rewardCreate(1L, 100L, ContentRewardPolicy.POST);
 
+        assertThat(earnedPoints).isEqualTo(50);
         verify(pointService).addPointIfAbsent(1L, 50, "게시글 작성", 100L, "POST");
     }
 

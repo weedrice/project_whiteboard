@@ -12,6 +12,7 @@ export const comment: CommentMessages = {
   loadRepliesFailed: '답글을 불러오지 못했습니다.',
   loadFailed: '댓글을 불러오지 못했습니다.',
   loadMore: '댓글 더 보기 ({remaining}개 남음)',
+  readUntilHere: '여기까지 읽으셨어요',
   sort: {
     label: '댓글 정렬',
     oldest: '등록순',

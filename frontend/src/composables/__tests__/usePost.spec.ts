@@ -237,6 +237,7 @@ describe('usePost', () => {
         expect(postApi.createPost).toHaveBeenCalledWith('free', { title: 'new', contents: 'body' })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['board', 'posts'] })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['home', 'landing'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['user', 'points'] })
     })
 
     it('invalidates related post caches after update', async () => {

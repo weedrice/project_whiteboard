@@ -19,10 +19,10 @@ public class ContentRewardService {
     private final GlobalConfigService globalConfigService;
 
     @Transactional
-    public void rewardCreate(Long userId, Long relatedId, ContentRewardPolicy policy) {
+    public int rewardCreate(Long userId, Long relatedId, ContentRewardPolicy policy) {
         int createReward = resolveCreateReward(policy);
         if (createReward <= 0) {
-            return;
+            return 0;
         }
         pointService.addPointIfAbsent(
                 userId,
@@ -30,6 +30,7 @@ public class ContentRewardService {
                 policy.getCreateDescription(),
                 relatedId,
                 policy.getRelatedType());
+        return createReward;
     }
 
     @Transactional

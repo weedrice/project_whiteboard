@@ -29,7 +29,7 @@ public class PostCreateSideEffectService {
     private final PostDraftPublicationService postDraftPublicationService;
     private final MentionService mentionService;
 
-    public void applyAfterCreate(Long userId, User user, Long boardId, Post savedPost, PostCreateRequest request) {
+    public int applyAfterCreate(Long userId, User user, Long boardId, Post savedPost, PostCreateRequest request) {
         tagAssignmentService.assignTags(savedPost, request.getTags());
         postVersionRecorder.record(savedPost, user, "CREATE", null, null);
 
@@ -38,10 +38,11 @@ public class PostCreateSideEffectService {
         }
         postDraftPublicationService.deletePublishedDraftIfOwned(request.getDraftId(), user);
 
-        contentRewardService.rewardCreate(userId, savedPost.getPostId(), ContentRewardPolicy.POST);
+        int earnedPoints = contentRewardService.rewardCreate(userId, savedPost.getPostId(), ContentRewardPolicy.POST);
         mentionService.publishMentions(user, savedPost.getAgent(), NotificationSourceType.POST, savedPost.getPostId(),
                 savedPost.getContents());
         eventPublisher.publishEvent(new PostPublishedEvent(savedPost.getPostId(), boardId));
         semanticSearchEventPublisher.publish("POST", savedPost.getPostId(), SemanticSearchIndexAction.UPSERT);
+        return earnedPoints;
     }
 }

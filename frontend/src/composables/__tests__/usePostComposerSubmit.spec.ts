@@ -115,9 +115,10 @@ describe('usePostComposerSubmit', () => {
     }))
 
     const createOptions = submit.createPost.mock.calls[0][1]
-    createOptions.onSuccess({ data: { data: 123 } })
+    createOptions.onSuccess({ data: { data: { postId: 123, earnedPoints: 50 } } })
 
     expect(submit.addToast).toHaveBeenCalledWith('created', 'success')
+    expect(submit.addToast).toHaveBeenCalledWith('common.pointEarned', 'success')
     expect(submit.onSubmitted).toHaveBeenCalledWith({
       mode: 'create',
       boardUrl: 'free',

@@ -41,6 +41,7 @@ public class PostResponse {
     @JsonProperty("isScrapped")
     private boolean isScrapped; // 현재 유저의 스크랩 여부
     private Long lastReadCommentId;
+    private LocalDateTime lastViewedAt;
     private LocalDateTime createdAt;
     private LocalDateTime modifiedAt;
     private List<String> imageUrls;
@@ -107,6 +108,7 @@ public class PostResponse {
                 .build() : null;
 
         Long lastReadCommentId = null;
+        LocalDateTime lastViewedAt = viewHistory != null ? viewHistory.getModifiedAt() : null;
         if (viewHistory != null && viewHistory.getLastReadComment() != null) {
             lastReadCommentId = viewHistory.getLastReadComment().getCommentId();
         }
@@ -129,6 +131,7 @@ public class PostResponse {
                 .isLiked(isLiked)
                 .isScrapped(isScrapped)
                 .lastReadCommentId(lastReadCommentId)
+                .lastViewedAt(lastViewedAt)
                 .createdAt(post.getCreatedAt())
                 .modifiedAt(post.getModifiedAt())
                 .imageUrls(imageUrls)

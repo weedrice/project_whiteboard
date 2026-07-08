@@ -11,6 +11,7 @@ import {
     updatePostInAllCaches,
 } from '@/features/board/posts/queries/postCacheUpdates'
 import { homeQueryKeys } from '@/composables/homeQueryKeys'
+import { userQueryKeys } from '@/composables/userQueryKeys'
 import { postDetailQueryKey, postQueryKeys } from '@/features/board/posts/queries/postQueryKeys'
 import { normalizePostReactionFlags, type PostReactionAlias } from '@/utils/postViewModel'
 import { withQuerySignal } from '@/utils/querySignal'
@@ -52,6 +53,7 @@ export function usePost() {
             onSuccess: () => {
                 queryClient.invalidateQueries({ queryKey: postQueryKeys.boardPostsRoot })
                 queryClient.invalidateQueries({ queryKey: homeQueryKeys.landingRoot })
+                queryClient.invalidateQueries({ queryKey: userQueryKeys.pointsRoot })
             },
         })
     }

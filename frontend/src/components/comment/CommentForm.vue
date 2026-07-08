@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { computed, nextTick, ref } from 'vue'
 import { useComment } from '@/composables/useComment'
+import { unwrapAxiosApiData } from '@/api/response'
+import type { CommentCreateResponse } from '@/api/comment'
+import type { ApiResponse } from '@/types'
+import type { AxiosResponse } from 'axios'
 import { useI18n } from 'vue-i18n'
 import logger from '@/utils/logger'
 import type { CommentPayload } from '@/api/comment'
@@ -139,6 +143,13 @@ const handleCommentSubmitError = (message: string, error: unknown) => {
   }
 }
 
+const showEarnedPointsToast = (response: AxiosResponse<ApiResponse<CommentCreateResponse>>) => {
+  const earnedPoints = unwrapAxiosApiData(response).earnedPoints
+  if (typeof earnedPoints === 'number' && earnedPoints > 0) {
+    toastStore.addToast(t('common.pointEarned', { points: earnedPoints }), 'success')
+  }
+}
+
 // 이모티콘 선택 시 바로 댓글 등록
 const handleEmoticonSelect = (image: EmoticonImage) => {
   showEmoticonPicker.value = false
@@ -154,7 +165,8 @@ const handleEmoticonSelect = (image: EmoticonImage) => {
   }
   
   createComment({ postId: props.postId, data: payload }, {
-    onSuccess: () => {
+    onSuccess: (response) => {
+      showEarnedPointsToast(response)
       emit('success')
     },
     onError: (err) => {
@@ -190,7 +202,8 @@ async function handleSubmit() {
       payload.mentionedUserIds = mentionedUserIds.value
     }
     createComment({ postId: props.postId, data: payload }, {
-      onSuccess: () => {
+      onSuccess: (response) => {
+        showEarnedPointsToast(response)
         content.value = ''
         selectedMentionUsers.value = []
         closeMentionMenu()

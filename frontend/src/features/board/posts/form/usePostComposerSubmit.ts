@@ -2,6 +2,7 @@ import type { Ref } from 'vue'
 import { unwrapApiData } from '@/api/response'
 import logger from '@/utils/logger'
 import type { ApiResponse } from '@/types'
+import type { PostCreateResponse } from '@/api/post'
 
 type ComposerToastType = 'info' | 'success' | 'warning' | 'error'
 type PostComposerMode = 'create' | 'edit'
@@ -30,7 +31,7 @@ export type PostFormSubmitResult = {
 type CreatePostMutate = (
   variables: { boardUrl: string, data: PostComposerPayload },
   options: {
-    onSuccess: (response: { data: ApiResponse<string | number> }) => void
+    onSuccess: (response: { data: ApiResponse<PostCreateResponse> }) => void
     onError: (error: unknown) => void
   },
 ) => void
@@ -60,7 +61,7 @@ type UsePostComposerSubmitOptions = {
   updatePost: UpdatePostMutate
   onSubmitted: () => ((result: PostFormSubmitResult) => void) | undefined
   createSuccessToastMessage: () => string | undefined
-  t: (key: string) => string
+  t: (key: string, params?: Record<string, unknown>) => string
   addToast: (message: string, type: ComposerToastType) => void
 }
 
@@ -112,7 +113,11 @@ export function usePostComposerSubmit(options: UsePostComposerSubmitOptions) {
           if (successToastMessage) {
             options.addToast(successToastMessage, 'success')
           }
-          notifyCreateSubmitted(unwrapApiData(response.data), payload)
+          const createdPost = unwrapApiData(response.data)
+          if (createdPost.earnedPoints && createdPost.earnedPoints > 0) {
+            options.addToast(options.t('common.pointEarned', { points: createdPost.earnedPoints }), 'success')
+          }
+          notifyCreateSubmitted(createdPost.postId, payload)
         },
         onError: (error) => {
           logger.error('Failed to create post:', error)

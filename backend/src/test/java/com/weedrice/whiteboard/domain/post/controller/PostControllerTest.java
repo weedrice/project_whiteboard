@@ -486,13 +486,16 @@ class PostControllerTest {
         void createPost_success() throws Exception {
             String boardUrl = "free";
             PostCreateRequest request = new PostCreateRequest(null, "Title", "Content", List.of("tag"), false, false, false, false, null);
-            when(postService.createPost(anyLong(), eq(boardUrl), any())).thenReturn(1L);
+            when(postService.createPostWithResponse(anyLong(), eq(boardUrl), any()))
+                    .thenReturn(PostCreateResponse.builder().postId(1L).earnedPoints(50).build());
 
             mockMvc.perform(post("/api/v1/boards/{boardUrl}/posts", boardUrl)
                     .with(user(customUserDetails))
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(request)))
-                    .andExpect(status().isCreated());
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.data.postId").value(1L))
+                    .andExpect(jsonPath("$.data.earnedPoints").value(50));
         }
 
         @Test

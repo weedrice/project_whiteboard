@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.comment.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.weedrice.whiteboard.domain.comment.dto.CommentCreateResponse;
 import com.weedrice.whiteboard.domain.comment.dto.CommentCreateRequest;
 import com.weedrice.whiteboard.domain.comment.dto.CommentListResponse;
 import com.weedrice.whiteboard.domain.comment.dto.CommentResponse;
@@ -243,7 +244,8 @@ class CommentControllerTest {
         Long postId = 1L;
         CommentCreateRequest request = new CommentCreateRequest();
         org.springframework.test.util.ReflectionTestUtils.setField(request, "content", "Test comment");
-        when(commentService.createComment(eq(1L), eq(postId), isNull(), eq("Test comment"), eq(List.of()))).thenReturn(1L);
+        when(commentService.createCommentWithResponse(eq(1L), eq(postId), isNull(), eq("Test comment"), eq(List.of())))
+                .thenReturn(CommentCreateResponse.builder().commentId(1L).earnedPoints(10).build());
 
         // when & then
         mockMvc.perform(post("/api/v1/posts/{postId}/comments", postId)
@@ -251,7 +253,9 @@ class CommentControllerTest {
                         .content(objectMapper.writeValueAsString(request))
                         .with(user(customUserDetails)))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.success").value(true));
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.commentId").value(1L))
+                .andExpect(jsonPath("$.data.earnedPoints").value(10));
     }
 
     @Test
@@ -261,8 +265,9 @@ class CommentControllerTest {
         CommentCreateRequest request = new CommentCreateRequest();
         org.springframework.test.util.ReflectionTestUtils.setField(request, "content", "Test comment");
         org.springframework.test.util.ReflectionTestUtils.setField(request, "mentionedUserIds", List.of(2L, 3L));
-        when(commentService.createComment(eq(1L), eq(postId), isNull(), eq("Test comment"), eq(List.of(2L, 3L))))
-                .thenReturn(1L);
+        when(commentService.createCommentWithResponse(eq(1L), eq(postId), isNull(), eq("Test comment"),
+                eq(List.of(2L, 3L))))
+                .thenReturn(CommentCreateResponse.builder().commentId(1L).build());
 
         mockMvc.perform(post("/api/v1/posts/{postId}/comments", postId)
                         .contentType(MediaType.APPLICATION_JSON)

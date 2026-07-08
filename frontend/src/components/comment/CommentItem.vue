@@ -24,9 +24,11 @@ const props = withDefaults(defineProps<{
   boardUrl: string
   depth?: number
   replyTargetName?: string
+  isNewSinceLastView?: boolean
 }>(), {
   depth: 0,
   replyTargetName: '',
+  isNewSinceLastView: false,
 })
 
 const emit = defineEmits<{
@@ -128,7 +130,11 @@ watch(isBlockedAuthor, (blocked) => {
 </script>
 
 <template>
-  <div :id="`comment-${comment.commentId}`" class="space-y-3 sm:space-y-4">
+  <div
+    :id="`comment-${comment.commentId}`"
+    class="space-y-3 rounded-lg transition-colors sm:space-y-4"
+    :class="{ 'nv-comment-item-new': isNewSinceLastView }"
+  >
     <div class="flex space-x-2 sm:space-x-3">
       <div class="relative flex-shrink-0">
         <CornerDownRight
@@ -324,6 +330,12 @@ watch(isBlockedAuthor, (blocked) => {
 .nv-comment-reply-branch-capped {
   border-left-color: transparent;
   padding-left: 0;
+}
+
+.nv-comment-item-new {
+  background: color-mix(in srgb, var(--nv-accent) 7%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--nv-accent) 22%, transparent);
+  padding: 0.75rem;
 }
 
 @media (min-width: 640px) {

@@ -8,6 +8,11 @@ export type CommentWithNavigation = Comment & {
     postId?: number
 }
 
+export interface CommentCreateResponse {
+    commentId: number
+    earnedPoints?: number | null
+}
+
 export interface CommentParams {
     page?: number;
     size?: number;
@@ -26,7 +31,7 @@ export const commentApi = {
         api.get<ApiResponse<Comment[]>>(`/posts/${encodePathSegment(postId)}/comments/best`, config),
 
     // Create a new comment
-    createComment: (postId: string | number, data: CommentPayload) => api.post<ApiResponse<number>>(`/posts/${encodePathSegment(postId)}/comments`, data),
+    createComment: (postId: string | number, data: CommentPayload) => api.post<ApiResponse<CommentCreateResponse>>(`/posts/${encodePathSegment(postId)}/comments`, data),
 
     // Delete a comment
     deleteComment: (commentId: string | number) => api.delete<ApiResponse<void>>(`/comments/${encodePathSegment(commentId)}`),

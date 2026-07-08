@@ -214,7 +214,11 @@ const { assignContentRef } = usePostContentViewRef(contentRef)
               @report="openReportModal"
             />
             <section id="comments" ref="commentsRef" class="nv-post-comments">
-              <CommentList :postId="postView.postId" :boardUrl="postView.boardUrl" />
+              <CommentList
+                :postId="postView.postId"
+                :boardUrl="postView.boardUrl"
+                :last-viewed-at="postView.lastViewedAt"
+              />
             </section>
           </article>
         </div>

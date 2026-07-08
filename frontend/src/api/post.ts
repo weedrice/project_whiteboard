@@ -55,6 +55,11 @@ export interface PostDraftData {
     originalPostId?: number
 }
 
+export interface PostCreateResponse {
+    postId: number
+    earnedPoints?: number | null
+}
+
 export interface ReportData {
     targetPostId: string | number
     reason: string
@@ -106,7 +111,7 @@ function mapHomeLandingResponse(
 
 export const postApi = {
     // Create a new post
-    createPost: (boardUrl: string, data: PostCreateData) => api.post<ApiResponse<number>>(`/boards/${encodePathSegment(boardUrl)}/posts`, data),
+    createPost: (boardUrl: string, data: PostCreateData) => api.post<ApiResponse<PostCreateResponse>>(`/boards/${encodePathSegment(boardUrl)}/posts`, data),
 
     // Get post details
     getPost: (postId: string | number, config?: AxiosRequestConfig) => api.get<ApiResponse<Post>>(`/posts/${encodePathSegment(postId)}`, config),

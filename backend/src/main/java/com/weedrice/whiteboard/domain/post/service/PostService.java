@@ -9,6 +9,7 @@ import com.weedrice.whiteboard.domain.feed.dto.FeedPostSummary;
 import com.weedrice.whiteboard.domain.post.dto.DraftListResponse;
 import com.weedrice.whiteboard.domain.post.dto.DraftResponse;
 import com.weedrice.whiteboard.domain.post.dto.PostCreateRequest;
+import com.weedrice.whiteboard.domain.post.dto.PostCreateResponse;
 import com.weedrice.whiteboard.domain.post.dto.PostDraftRequest;
 import com.weedrice.whiteboard.domain.post.dto.PostResponse;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
@@ -74,6 +75,11 @@ public class PostService {
     @Transactional
     public Long createPost(@NonNull Long userId, String boardUrl, PostCreateRequest request) {
         return postCommandService.createPost(userId, boardUrl, request);
+    }
+
+    public PostCreateResponse createPostWithResponse(@NonNull Long userId, String boardUrl,
+            PostCreateRequest request) {
+        return postCommandService.createPostWithResponse(userId, boardUrl, request);
     }
 
     @Transactional

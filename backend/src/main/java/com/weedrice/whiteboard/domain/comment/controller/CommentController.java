@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.comment.controller;
 
 import com.weedrice.whiteboard.domain.comment.dto.CommentCreateRequest;
+import com.weedrice.whiteboard.domain.comment.dto.CommentCreateResponse;
 import com.weedrice.whiteboard.domain.comment.dto.CommentListResponse;
 import com.weedrice.whiteboard.domain.comment.dto.CommentResponse;
 import com.weedrice.whiteboard.domain.comment.dto.CommentUpdateRequest;
@@ -70,17 +71,17 @@ public class CommentController {
 
     @PostMapping("/posts/{postId}/comments")
     @ResponseStatus(HttpStatus.CREATED)
-    public ApiResponse<Long> createComment(
+    public ApiResponse<CommentCreateResponse> createComment(
             @PathVariable Long postId,
             @Valid @RequestBody CommentCreateRequest request,
             @CurrentUserId Long userId) {
-        Long commentId = commentService.createComment(
+        CommentCreateResponse response = commentService.createCommentWithResponse(
                 userId,
                 postId,
                 request.getParentId(),
                 request.getContent(),
                 request.getMentionedUserIds());
-        return ApiResponse.success(commentId);
+        return ApiResponse.success(response);
     }
 
     @PutMapping("/comments/{commentId}")

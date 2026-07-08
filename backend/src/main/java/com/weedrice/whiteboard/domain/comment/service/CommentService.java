@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.comment.service;
 
 import com.weedrice.whiteboard.domain.comment.dto.CommentListResponse;
+import com.weedrice.whiteboard.domain.comment.dto.CommentCreateResponse;
 import com.weedrice.whiteboard.domain.comment.dto.CommentResponse;
 import com.weedrice.whiteboard.domain.comment.dto.MyCommentResponse;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
@@ -52,6 +53,12 @@ public class CommentService {
     public Long createComment(Long userId, Long postId, Long parentId, String content,
             Collection<Long> mentionedUserIds) {
         return commentCommandService.createComment(
+                new CommentCreateCommand(userId, null, postId, parentId, content, null, mentionedUserIds));
+    }
+
+    public CommentCreateResponse createCommentWithResponse(Long userId, Long postId, Long parentId, String content,
+            Collection<Long> mentionedUserIds) {
+        return commentCommandService.createCommentWithResponse(
                 new CommentCreateCommand(userId, null, postId, parentId, content, null, mentionedUserIds));
     }
 

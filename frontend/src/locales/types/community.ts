@@ -415,6 +415,7 @@ export interface CommentMessages {
   loadRepliesFailed: string
   loadFailed: string
   loadMore: string
+  readUntilHere: string
   sort: {
     label: string
     oldest: string

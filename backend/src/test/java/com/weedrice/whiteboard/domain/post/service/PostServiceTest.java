@@ -2820,6 +2820,8 @@ class PostServiceTest {
         ReflectionTestUtils.setField(lastReadComment, "commentId", 100L);
         ViewHistory existing = ViewHistory.builder().user(user).post(post).build();
         existing.updateView(lastReadComment, 0);
+        LocalDateTime previousViewedAt = LocalDateTime.now().minusHours(2);
+        ReflectionTestUtils.setField(existing, "modifiedAt", previousViewedAt);
 
         when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L))
@@ -2843,6 +2845,7 @@ class PostServiceTest {
         PostResponse response = postService.getPostResponse(1L, 1L);
 
         assertThat(response.getLastReadCommentId()).isEqualTo(100L);
+        assertThat(response.getLastViewedAt()).isEqualTo(previousViewedAt);
         verify(viewHistoryRepository).touchModifiedAt(1L, 1L);
     }
 
