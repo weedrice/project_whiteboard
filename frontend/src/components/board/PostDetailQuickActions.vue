@@ -110,7 +110,7 @@ const { t } = useI18n()
   background: color-mix(in srgb, var(--nv-surface) 96%, transparent);
   border: 1px solid var(--nv-line);
   border-radius: 999px;
-  bottom: calc(4.9rem + env(safe-area-inset-bottom));
+  bottom: calc(var(--nv-bottom-nav-height) + env(safe-area-inset-bottom));
   box-shadow: var(--nv-shadow-card);
   display: grid;
   gap: 0.25rem;
@@ -136,9 +136,9 @@ const { t } = useI18n()
   font-weight: 600;
   gap: 0.35rem;
   justify-content: center;
-  min-height: 2.25rem;
+  min-height: 2.75rem;
   min-width: 4.25rem;
-  padding: 0 0.65rem;
+  padding: 0 0.75rem;
 }
 
 .nv-post-mobile-action:active,

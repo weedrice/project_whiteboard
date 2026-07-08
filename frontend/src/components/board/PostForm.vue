@@ -449,7 +449,7 @@ defineExpose({
   background: color-mix(in srgb, var(--nv-surface) 96%, transparent);
   border: 1px solid var(--nv-line);
   border-radius: 1rem 1rem 0 0;
-  bottom: calc(4.75rem + env(safe-area-inset-bottom));
+  bottom: calc(var(--nv-bottom-nav-height) + env(safe-area-inset-bottom));
   box-shadow: var(--nv-shadow-card);
   left: 0.75rem;
   padding: 0.65rem;

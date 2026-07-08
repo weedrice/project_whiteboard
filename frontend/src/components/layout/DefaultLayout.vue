@@ -174,7 +174,7 @@ const goToNotificationsPage = async () => {
 
     <RecentBoardsBar v-if="showRecentBoardsBar" />
 
-    <main id="main-content" tabindex="-1" class="nv-main-content mx-auto w-full max-w-7xl flex-grow px-4 py-6 pb-24 outline-none sm:px-6 sm:pb-6 lg:px-8">
+    <main id="main-content" tabindex="-1" class="nv-main-content mx-auto w-full max-w-7xl flex-grow px-4 py-6 outline-none sm:px-6 lg:px-8">
       <router-view />
     </main>
 
@@ -187,6 +187,13 @@ const goToNotificationsPage = async () => {
 <style scoped>
 .nv-main-content {
   background: color-mix(in srgb, var(--nv-surface) 96%, transparent);
+  padding-bottom: calc(var(--nv-bottom-nav-height) + 1.5rem);
   transition: background-color 0.2s ease;
+}
+
+@media (min-width: 640px) {
+  .nv-main-content {
+    padding-bottom: 1.5rem;
+  }
 }
 </style>

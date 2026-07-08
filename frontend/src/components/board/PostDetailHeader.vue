@@ -65,7 +65,7 @@ const { t } = useI18n()
         </div>
 
         <div class="space-y-3">
-          <div class="nv-post-meta-strip">
+          <div class="nv-post-meta-strip nv-kicker">
             <span>{{ postView.boardName }}</span>
             <span>&middot;</span>
             <span>{{ t('common.post') }}</span>
@@ -110,14 +110,9 @@ const { t } = useI18n()
 
 .nv-post-meta-strip {
   align-items: center;
-  color: var(--nv-muted);
   display: inline-flex;
   flex-wrap: wrap;
   gap: 0.5rem;
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
 }
 
 .nv-post-back-btn {

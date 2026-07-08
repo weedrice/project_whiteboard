@@ -25,7 +25,7 @@ const noticeListId = useId()
 
 <template>
   <div v-if="notices.length" class="nv-board-notices">
-    <div class="nv-board-notice-heading">
+    <div class="nv-board-notice-heading nv-kicker">
       <span class="inline-flex items-center gap-1.5">
         <Megaphone class="h-4 w-4" />
         {{ t('board.detail.notices.title') }}
@@ -80,14 +80,9 @@ const noticeListId = useId()
 
 .nv-board-notice-heading {
   align-items: center;
-  color: var(--nv-ink-soft);
   display: flex;
-  font-size: 0.72rem;
-  font-weight: 700;
   justify-content: space-between;
-  letter-spacing: 0.12em;
   padding: 0.85rem 1rem 0.4rem;
-  text-transform: uppercase;
 }
 
 .nv-board-notice-row {
@@ -125,7 +120,7 @@ const noticeListId = useId()
   color: var(--nv-muted);
   cursor: pointer;
   display: grid;
-  font-size: 0.72rem;
+  font-size: var(--nv-type-kicker);
   font-weight: 700;
   gap: 0.65rem;
   grid-template-columns: 1fr auto 1fr;

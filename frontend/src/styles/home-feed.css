@@ -4,24 +4,27 @@
   .nv-home-hero,
   .nv-home-empty,
   .nv-home-activity-panel {
-    @apply rounded-[20px] p-5 sm:p-6;
+    @apply p-5 sm:p-6;
     background: color-mix(in srgb, var(--nv-surface) 92%, transparent);
     border: 1px solid var(--nv-line);
+    border-radius: var(--nv-radius-xl);
     box-shadow: var(--nv-shadow-card);
   }
 
   .nv-home-section-kicker,
   .nv-home-stat-label {
-    font-family: var(--font-mono);
-    font-size: 0.72rem;
-    letter-spacing: 0.18em;
     color: var(--nv-muted);
+    font-family: var(--font-mono);
+    font-size: var(--nv-type-kicker);
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
   }
 
   .nv-home-live-rollup {
     @apply flex min-w-0 items-center gap-2;
     font-family: var(--font-mono);
-    font-size: 0.72rem;
+    font-size: var(--nv-type-kicker);
     font-weight: 500;
     letter-spacing: 0.18em;
     line-height: 1;
@@ -29,9 +32,10 @@
   }
 
   .nv-home-stat {
-    @apply rounded-[16px] px-4 py-3;
+    @apply px-4 py-3;
     background: var(--nv-surface);
     border: 1px solid var(--nv-line);
+    border-radius: var(--nv-radius-lg);
   }
 
   .nv-home-stat strong {
@@ -40,9 +44,10 @@
   }
 
   .nv-home-card {
-    @apply space-y-4 rounded-[18px] border p-4 transition-transform duration-200;
+    @apply space-y-4 border p-4 transition-transform duration-200;
     background: var(--nv-surface);
     border-color: var(--nv-line);
+    border-radius: var(--nv-radius-xl);
     box-shadow: var(--nv-shadow-card);
     cursor: pointer;
   }
@@ -222,13 +227,15 @@
   }
 
   .nv-home-media {
-    @apply flex items-start justify-start overflow-hidden rounded-[14px];
+    @apply flex items-start justify-start overflow-hidden;
+    border-radius: var(--nv-radius-md);
   }
 
   .nv-home-board-link {
-    @apply flex items-start justify-between gap-4 rounded-[16px] border p-4 transition-transform duration-200;
+    @apply flex items-start justify-between gap-4 border p-4 transition-transform duration-200;
     background: var(--nv-surface);
     border-color: var(--nv-line);
+    border-radius: var(--nv-radius-lg);
     box-shadow: var(--nv-shadow-card);
   }
 
@@ -237,9 +244,10 @@
   }
 
   .nv-home-activity-panel {
-    @apply overflow-hidden rounded-[16px];
+    @apply overflow-hidden;
     background: color-mix(in srgb, var(--nv-surface) 92%, transparent);
     border: 1px solid var(--nv-line);
+    border-radius: var(--nv-radius-lg);
     box-shadow: var(--nv-shadow-card);
   }
 
@@ -286,7 +294,7 @@
     .nv-home-activity-panel,
     .nv-home-card,
     .nv-home-board-link {
-      @apply rounded-[16px];
+      border-radius: var(--nv-radius-lg);
     }
   }
 }
