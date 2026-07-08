@@ -242,7 +242,7 @@ class SearchControllerTest {
         PostSummary postSummary = PostSummary.builder().build();
         Page<PostSummary> page = new PageImpl<>(List.of(postSummary), pageRequest, 1);
 
-        when(searchService.searchPosts(eq(query), any(), any(), anyInt(), anyInt(), any(Sort.class), any()))
+        when(searchService.searchPosts(eq(query), any(), any(), any(), any(), any(), any(), anyInt(), anyInt(), any(Sort.class), any()))
                 .thenReturn(page);
 
         // when & then
@@ -255,7 +255,7 @@ class SearchControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.content").isArray());
 
-        verify(searchService).searchPosts(eq(query), any(), any(), eq(0), eq(10), any(Sort.class), eq(1L));
+        verify(searchService).searchPosts(eq(query), any(), any(), any(), any(), any(), any(), eq(0), eq(10), any(Sort.class), eq(1L));
     }
 
     @Test
@@ -292,7 +292,7 @@ class SearchControllerTest {
     void searchPosts_passesRawPageRequestToService() throws Exception {
         String query = "test";
         Page<PostSummary> page = new PageImpl<>(List.of(), PageRequest.of(2, 100), 0);
-        when(searchService.searchPosts(eq(query), any(), any(), anyInt(), anyInt(), any(Sort.class), any()))
+        when(searchService.searchPosts(eq(query), any(), any(), any(), any(), any(), any(), anyInt(), anyInt(), any(Sort.class), any()))
                 .thenReturn(page);
 
         mockMvc.perform(get("/api/v1/search/posts")
@@ -307,7 +307,7 @@ class SearchControllerTest {
         ArgumentCaptor<Integer> pageCaptor = ArgumentCaptor.forClass(Integer.class);
         ArgumentCaptor<Integer> sizeCaptor = ArgumentCaptor.forClass(Integer.class);
         ArgumentCaptor<Sort> sortCaptor = ArgumentCaptor.forClass(Sort.class);
-        verify(searchService).searchPosts(eq(query), any(), any(),
+        verify(searchService).searchPosts(eq(query), any(), any(), any(), any(), any(), any(),
                 pageCaptor.capture(), sizeCaptor.capture(), sortCaptor.capture(), eq(1L));
         assertThat(pageCaptor.getValue()).isEqualTo(2);
         assertThat(sizeCaptor.getValue()).isEqualTo(1000);
@@ -321,7 +321,7 @@ class SearchControllerTest {
         PageRequest pageRequest = PageRequest.of(0, 10);
         Page<PostSummary> page = new PageImpl<>(List.of(PostSummary.builder().build()), pageRequest, 1);
 
-        when(searchService.searchPosts(eq(rawQuery), any(), any(), anyInt(), anyInt(), any(Sort.class), any()))
+        when(searchService.searchPosts(eq(rawQuery), any(), any(), any(), any(), any(), any(), anyInt(), anyInt(), any(Sort.class), any()))
                 .thenReturn(page);
 
         mockMvc.perform(get("/api/v1/search/posts")
@@ -332,13 +332,13 @@ class SearchControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
 
-        verify(searchService).searchPosts(eq(rawQuery), any(), any(), eq(0), eq(10), any(Sort.class), eq(1L));
+        verify(searchService).searchPosts(eq(rawQuery), any(), any(), any(), any(), any(), any(), eq(0), eq(10), any(Sort.class), eq(1L));
     }
 
     @Test
     @DisplayName("게시글 검색은 빈 검색어를 거부한다")
     void searchPosts_rejectsBlankKeyword() throws Exception {
-        when(searchService.searchPosts(eq("   "), any(), any(), anyInt(), anyInt(), any(Sort.class), any()))
+        when(searchService.searchPosts(eq("   "), any(), any(), any(), any(), any(), any(), anyInt(), anyInt(), any(Sort.class), any()))
                 .thenThrow(new BusinessException(ErrorCode.INVALID_INPUT_VALUE));
 
         mockMvc.perform(get("/api/v1/search/posts")
@@ -346,14 +346,14 @@ class SearchControllerTest {
                 .with(user(customUserDetails)))
                 .andExpect(status().isBadRequest());
 
-        verify(searchService).searchPosts(eq("   "), any(), any(), eq(0), eq(20), any(Sort.class), eq(1L));
+        verify(searchService).searchPosts(eq("   "), any(), any(), any(), any(), any(), any(), eq(0), eq(20), any(Sort.class), eq(1L));
     }
 
     @Test
     @DisplayName("게시글 검색 실패 시 비즈니스 예외를 반환한다")
     void searchPosts_failureReturnsBusinessException() throws Exception {
         String query = "test";
-        when(searchService.searchPosts(eq(query), any(), any(), anyInt(), anyInt(), any(Sort.class), any()))
+        when(searchService.searchPosts(eq(query), any(), any(), any(), any(), any(), any(), anyInt(), anyInt(), any(Sort.class), any()))
                 .thenThrow(new BusinessException(ErrorCode.BOARD_NOT_FOUND));
 
         mockMvc.perform(get("/api/v1/search/posts")

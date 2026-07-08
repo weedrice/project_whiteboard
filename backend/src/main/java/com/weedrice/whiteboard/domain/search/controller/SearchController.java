@@ -35,9 +35,17 @@ public class SearchController {
     @GetMapping
     public ApiResponse<IntegratedSearchResponse> integratedSearch(
             @RequestParam String q,
+            @RequestParam(required = false) String searchType,
+            @RequestParam(required = false) String boardUrl,
+            @RequestParam(required = false) String author,
+            @RequestParam(required = false) String from,
+            @RequestParam(required = false) String to,
+            @RequestParam(required = false) String period,
+            Sort sort,
             @CurrentUserId(required = false) Long userId) {
 
-        IntegratedSearchResponse response = searchPreviewReadService.integratedSearch(q, userId);
+        IntegratedSearchResponse response = searchPreviewReadService.integratedSearch(
+                q, searchType, boardUrl, author, from, to, period, sort, userId);
         searchRecordFacade.record(userId, response.getKeyword());
         return ApiResponse.success(response);
     }
@@ -47,12 +55,17 @@ public class SearchController {
             @RequestParam String q,
             @RequestParam(required = false) String searchType,
             @RequestParam(required = false) String boardUrl,
+            @RequestParam(required = false) String author,
+            @RequestParam(required = false) String from,
+            @RequestParam(required = false) String to,
+            @RequestParam(required = false) String period,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             Sort sort,
             @CurrentUserId(required = false) Long userId) {
 
-        Page<PostSummary> response = searchService.searchPosts(q, searchType, boardUrl, page, size, sort, userId);
+        Page<PostSummary> response = searchService.searchPosts(
+                q, searchType, boardUrl, author, from, to, period, page, size, sort, userId);
 
         return ApiResponses.page(response);
     }

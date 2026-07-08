@@ -27,6 +27,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -65,11 +66,26 @@ public class SearchService {
         }
     }
 
-    public Page<PostSummary> searchPosts(String keyword, String searchType, String boardUrl, int page, int size,
-            Sort sort,
+    public Page<PostSummary> searchPosts(String keyword, String searchType, String boardUrl, String author,
+            String from, String to, String period, int page, int size, Sort sort,
             Long currentUserId) {
+        Page<PostSummary> response = readSearchPosts(
+                keyword, searchType, boardUrl, author, from, to, period, page, size, sort, currentUserId);
+        searchRecordEventPublisher.publish(currentUserId, SearchRequestNormalizer.canonicalizeKeyword(keyword));
+        return response;
+    }
+
+    public Page<PostSummary> previewPosts(String keyword, String searchType, String boardUrl, String author,
+            String from, String to, String period, int size, Sort sort, Long currentUserId) {
+        return readSearchPosts(keyword, searchType, boardUrl, author, from, to, period, 0, size, sort, currentUserId);
+    }
+
+    private Page<PostSummary> readSearchPosts(String keyword, String searchType, String boardUrl, String author,
+            String from, String to, String period, int page, int size, Sort sort, Long currentUserId) {
         String canonicalKeyword = SearchRequestNormalizer.canonicalizeKeyword(keyword);
         String canonicalBoardUrl = SearchRequestNormalizer.canonicalizeOptionalBoardUrl(boardUrl);
+        String canonicalAuthor = SearchRequestNormalizer.canonicalizeOptionalAuthor(author);
+        SearchDateRange dateRange = resolveDateRange(period, from, to);
         Pageable normalizedPageable = SearchRequestNormalizer.normalizePostSearchPageable(page, size, sort);
         boolean includeSecret = false;
         User currentUser = null;
@@ -90,11 +106,41 @@ public class SearchService {
                     : userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(currentUserId);
         }
         Page<Post> postPage = postRepository.searchPosts(canonicalKeyword, searchType,
-                canonicalBoardUrl, blockedUserIds, includeSecret, currentUserId, normalizedPageable);
+                canonicalBoardUrl, canonicalAuthor, dateRange.from(), dateRange.to(), blockedUserIds, includeSecret,
+                currentUserId, normalizedPageable);
 
         Page<PostSummary> response = postSummaryAssembler.assembleSearchPage(postPage);
-        searchRecordEventPublisher.publish(currentUserId, canonicalKeyword);
         return response;
+    }
+
+    private SearchDateRange resolveDateRange(String period, String from, String to) {
+        String normalizedPeriod = SearchRequestNormalizer.normalizeSearchPeriod(period);
+        if (normalizedPeriod == null) {
+            return SearchDateRange.empty();
+        }
+
+        LocalDate today = DateTimeUtils.nowKST().toLocalDate();
+        return switch (normalizedPeriod) {
+            case "TODAY" -> SearchDateRange.between(today, today);
+            case "WEEK" -> SearchDateRange.between(today.minusWeeks(1), today);
+            case "MONTH" -> SearchDateRange.between(today.minusMonths(1), today);
+            case "CUSTOM" -> SearchDateRange.between(
+                    SearchRequestNormalizer.parseOptionalDate(from),
+                    SearchRequestNormalizer.parseOptionalDate(to));
+            default -> throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+        };
+    }
+
+    private record SearchDateRange(LocalDateTime from, LocalDateTime to) {
+        static SearchDateRange empty() {
+            return new SearchDateRange(null, null);
+        }
+
+        static SearchDateRange between(LocalDate from, LocalDate to) {
+            LocalDateTime start = from == null ? null : from.atStartOfDay();
+            LocalDateTime endExclusive = to == null ? null : to.plusDays(1).atStartOfDay();
+            return new SearchDateRange(start, endExclusive);
+        }
     }
 
     public SearchPersonalizationResponse getRecentSearches(Long userId, Pageable pageable) {

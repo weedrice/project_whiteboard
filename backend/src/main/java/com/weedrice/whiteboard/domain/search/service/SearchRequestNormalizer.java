@@ -7,6 +7,8 @@ import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Locale;
 import java.util.Set;
 
@@ -45,6 +47,32 @@ public final class SearchRequestNormalizer {
             return null;
         }
         return BoardUrlNormalizer.normalizeLookup(boardUrl);
+    }
+
+    public static String canonicalizeOptionalAuthor(String author) {
+        return canonicalizeKeyword(author, false);
+    }
+
+    public static String normalizeSearchPeriod(String period) {
+        if (period == null || period.isBlank()) {
+            return null;
+        }
+        String normalizedPeriod = period.trim().toUpperCase(Locale.ROOT);
+        return switch (normalizedPeriod) {
+            case "TODAY", "WEEK", "MONTH", "CUSTOM" -> normalizedPeriod;
+            default -> throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+        };
+    }
+
+    public static LocalDate parseOptionalDate(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        try {
+            return LocalDate.parse(value.trim());
+        } catch (RuntimeException e) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+        }
     }
 
     private static String canonicalizeKeyword(String keyword, boolean required) {

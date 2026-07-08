@@ -200,6 +200,17 @@ export interface SearchMessages {
   semanticRelated: string
   semanticEmpty: string
   semanticSource: string
+  authorFilter: string
+  periodFilter: string
+  periodAll: string
+  periodToday: string
+  periodWeek: string
+  periodMonth: string
+  periodCustom: string
+  fromDate: string
+  toDate: string
+  applyFilters: string
+  keywordFilterNotice: string
   deleteRecent: string
   clearRecent: string
   searchByKeyword: string

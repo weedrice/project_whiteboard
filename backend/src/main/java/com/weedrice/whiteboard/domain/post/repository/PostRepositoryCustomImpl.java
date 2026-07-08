@@ -206,7 +206,8 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
     }
 
     @Override
-    public Page<Post> searchPosts(String keyword, String searchType, String boardUrl, List<Long> blockedUserIds,
+    public Page<Post> searchPosts(String keyword, String searchType, String boardUrl, String author,
+            LocalDateTime createdFrom, LocalDateTime createdTo, List<Long> blockedUserIds,
             Boolean includeSecret, Long viewerUserId, @NonNull Pageable pageable) {
         BooleanExpression searchCondition = null;
         if (StringUtils.hasText(keyword)) {
@@ -226,6 +227,9 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
         if (StringUtils.hasText(boardUrl)) {
             boardCondition = post.board.boardUrl.eq(boardUrl);
         }
+        BooleanExpression authorCondition = StringUtils.hasText(author) ? displayAuthorContains(author) : null;
+        BooleanExpression createdFromCondition = createdFrom != null ? post.createdAt.goe(createdFrom) : null;
+        BooleanExpression createdToCondition = createdTo != null ? post.createdAt.lt(createdTo) : null;
 
         List<Post> content = queryFactory
                 .selectFrom(post)
@@ -236,6 +240,9 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                 .where(
                         searchCondition,
                         boardCondition,
+                        authorCondition,
+                        createdFromCondition,
+                        createdToCondition,
                         post.isDeleted.eq(false),
                         activeBoardOnlyForGlobalSearch(boardUrl),
                         publicBoardOnlyForGlobalSearch(boardUrl),
@@ -253,6 +260,9 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                 .where(
                         searchCondition,
                         boardCondition,
+                        authorCondition,
+                        createdFromCondition,
+                        createdToCondition,
                         post.isDeleted.eq(false),
                         activeBoardOnlyForGlobalSearch(boardUrl),
                         publicBoardOnlyForGlobalSearch(boardUrl),

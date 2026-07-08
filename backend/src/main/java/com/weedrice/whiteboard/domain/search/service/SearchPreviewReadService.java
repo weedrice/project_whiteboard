@@ -39,10 +39,12 @@ public class SearchPreviewReadService {
     private final UserBlockService userBlockService;
     private final PostSummaryAssembler postSummaryAssembler;
     private final IntegratedSearchAssembler integratedSearchAssembler;
+    private final SearchService searchService;
 
-    public IntegratedSearchResponse integratedSearch(String keyword, Long currentUserId) {
+    public IntegratedSearchResponse integratedSearch(String keyword, String searchType, String boardUrl, String author,
+            String from, String to, String period, Sort sort, Long currentUserId) {
         String canonicalKeyword = SearchRequestNormalizer.canonicalizeKeyword(keyword);
-        Pageable previewPageable = PageRequest.of(0, SEARCH_PREVIEW_LIMIT);
+        Pageable previewPageable = SearchRequestNormalizer.normalizePostSearchPageable(0, SEARCH_PREVIEW_LIMIT, sort);
         Pageable commentPreviewPageable = PageRequest.of(0, SEARCH_PREVIEW_LIMIT, COMMENT_PREVIEW_SORT);
 
         List<Long> blockedUserIds = null;
@@ -50,9 +52,9 @@ public class SearchPreviewReadService {
             blockedUserIds = userBlockService.getBlockedUserIdsEitherDirection(currentUserId);
         }
 
-        Page<Post> postPage = postRepository.searchPostsByKeyword(canonicalKeyword,
-                blockedUserIds, currentUserId, previewPageable);
-        Page<PostSummary> posts = postSummaryAssembler.assembleSearchPage(postPage);
+        Page<PostSummary> posts = searchService.previewPosts(
+                canonicalKeyword, searchType, boardUrl, author, from, to, period, SEARCH_PREVIEW_LIMIT, sort,
+                currentUserId);
 
         Page<CommentResponse> comments = commentRepository
                 .searchCommentsByKeyword(canonicalKeyword, blockedUserIds, currentUserId, commentPreviewPageable)

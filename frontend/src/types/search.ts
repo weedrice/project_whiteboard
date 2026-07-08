@@ -49,6 +49,10 @@ export interface SearchParams {
     size?: number
     type?: string
     searchType?: string
+    author?: string
+    from?: string
+    to?: string
+    period?: 'TODAY' | 'WEEK' | 'MONTH' | 'CUSTOM' | string
     sort?: string
     boardUrl?: string
     contentType?: string

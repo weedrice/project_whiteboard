@@ -29,8 +29,15 @@ public interface PostRepositoryCustom {
     Page<Post> searchPostsByKeyword(String keyword, List<Long> blockedUserIds, Long viewerUserId,
             @NonNull Pageable pageable);
 
-    Page<Post> searchPosts(String keyword, String searchType, String boardUrl, List<Long> blockedUserIds,
+    Page<Post> searchPosts(String keyword, String searchType, String boardUrl, String author,
+            LocalDateTime createdFrom, LocalDateTime createdTo, List<Long> blockedUserIds,
             Boolean includeSecret, Long viewerUserId, @NonNull Pageable pageable);
+
+    default Page<Post> searchPosts(String keyword, String searchType, String boardUrl, List<Long> blockedUserIds,
+            Boolean includeSecret, Long viewerUserId, @NonNull Pageable pageable) {
+        return searchPosts(keyword, searchType, boardUrl, null, null, null, blockedUserIds, includeSecret,
+                viewerUserId, pageable);
+    }
 
     Page<Post> findByTagId(Long tagId, List<Long> blockedUserIds, @NonNull Pageable pageable);
 

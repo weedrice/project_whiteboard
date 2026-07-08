@@ -186,7 +186,7 @@ class SearchServiceTest {
         var firstPost = post(11L, "first", LocalDateTime.of(2026, 4, 20, 10, 0));
         var secondPost = post(10L, "second", LocalDateTime.of(2026, 4, 20, 9, 0));
 
-        when(postRepository.searchPosts(anyString(), any(), any(), any(), anyBoolean(), any(), eq(normalizedPageable)))
+        when(postRepository.searchPosts(anyString(), any(), any(), any(), any(), any(), any(), anyBoolean(), any(), eq(normalizedPageable)))
                 .thenReturn(new PageImpl<>(List.of(firstPost, secondPost), normalizedPageable, 5));
         when(fileService.getFirstImageFileIdsForPosts(List.of(11L, 10L)))
                 .thenReturn(Collections.emptyMap());
@@ -207,7 +207,7 @@ class SearchServiceTest {
         var firstPost = post(10L, "first", LocalDateTime.of(2026, 4, 20, 9, 0));
         var secondPost = post(11L, "second", LocalDateTime.of(2026, 4, 20, 10, 0));
 
-        when(postRepository.searchPosts(anyString(), any(), any(), any(), anyBoolean(), any(), eq(normalizedPageable)))
+        when(postRepository.searchPosts(anyString(), any(), any(), any(), any(), any(), any(), anyBoolean(), any(), eq(normalizedPageable)))
                 .thenReturn(new PageImpl<>(List.of(firstPost, secondPost), normalizedPageable, 5));
         when(fileService.getFirstImageFileIdsForPosts(List.of(10L, 11L)))
                 .thenReturn(Collections.emptyMap());
@@ -228,7 +228,7 @@ class SearchServiceTest {
         var firstPost = post(10L, "first", LocalDateTime.of(2026, 4, 20, 9, 0));
         var secondPost = post(11L, "second", LocalDateTime.of(2026, 4, 20, 10, 0));
 
-        when(postRepository.searchPosts(anyString(), any(), any(), any(), anyBoolean(), any(), eq(normalizedPageable)))
+        when(postRepository.searchPosts(anyString(), any(), any(), any(), any(), any(), any(), anyBoolean(), any(), eq(normalizedPageable)))
                 .thenReturn(new PageImpl<>(List.of(firstPost, secondPost), normalizedPageable, 5));
         when(fileService.getFirstImageFileIdsForPosts(List.of(10L, 11L)))
                 .thenReturn(Collections.emptyMap());
@@ -249,7 +249,7 @@ class SearchServiceTest {
         var firstPost = post(10L, "zeta", LocalDateTime.of(2026, 4, 20, 9, 0));
         var secondPost = post(11L, "alpha", LocalDateTime.of(2026, 4, 20, 10, 0));
 
-        when(postRepository.searchPosts(anyString(), any(), any(), any(), anyBoolean(), any(), eq(normalizedPageable)))
+        when(postRepository.searchPosts(anyString(), any(), any(), any(), any(), any(), any(), anyBoolean(), any(), eq(normalizedPageable)))
                 .thenReturn(new PageImpl<>(List.of(firstPost, secondPost), normalizedPageable, 5));
         when(fileService.getFirstImageFileIdsForPosts(List.of(10L, 11L)))
                 .thenReturn(Collections.emptyMap());
@@ -269,7 +269,7 @@ class SearchServiceTest {
         var firstPost = post(11L, "first", LocalDateTime.of(2026, 4, 20, 10, 0));
         var secondPost = post(10L, "second", LocalDateTime.of(2026, 4, 20, 10, 0));
 
-        when(postRepository.searchPosts(anyString(), any(), any(), any(), anyBoolean(), any(), eq(pageable)))
+        when(postRepository.searchPosts(anyString(), any(), any(), any(), any(), any(), any(), anyBoolean(), any(), eq(pageable)))
                 .thenReturn(new PageImpl<>(List.of(firstPost, secondPost), pageable, 5));
         when(fileService.getFirstImageFileIdsForPosts(List.of(11L, 10L)))
                 .thenReturn(Collections.emptyMap());
@@ -288,13 +288,16 @@ class SearchServiceTest {
                 Sort.Order.desc("createdAt"),
                 Sort.Order.desc("postId")));
 
-        when(postRepository.searchPosts(anyString(), any(), any(), any(), anyBoolean(), any(), eq(normalizedPageable)))
+        when(postRepository.searchPosts(anyString(), any(), any(), any(), any(), any(), any(), anyBoolean(), any(), eq(normalizedPageable)))
                 .thenReturn(Page.empty(normalizedPageable));
 
         searchPostsWithPageable("test", null, null, pageable, null);
 
         verify(postRepository).searchPosts(
                 eq("test"),
+                isNull(),
+                isNull(),
+                isNull(),
                 isNull(),
                 isNull(),
                 isNull(),
@@ -313,7 +316,7 @@ class SearchServiceTest {
                 Sort.Order.desc("postId")));
 
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
-        when(postRepository.searchPosts(eq("test"), isNull(), eq("free"), isNull(), eq(false), isNull(),
+        when(postRepository.searchPosts(eq("test"), isNull(), eq("free"), isNull(), isNull(), isNull(), isNull(), eq(false), isNull(),
                 eq(normalizedPageable)))
                 .thenReturn(Page.empty(normalizedPageable));
 
@@ -324,6 +327,9 @@ class SearchServiceTest {
                 eq("test"),
                 isNull(),
                 eq("free"),
+                isNull(),
+                isNull(),
+                isNull(),
                 isNull(),
                 eq(false),
                 isNull(),
@@ -337,7 +343,7 @@ class SearchServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
 
-        verify(postRepository, never()).searchPosts(any(), any(), any(), any(), anyBoolean(), any(), any());
+        verify(postRepository, never()).searchPosts(any(), any(), any(), any(), any(), any(), any(), anyBoolean(), any(), any());
         verify(searchRecordEventPublisher, never()).publish(any(), anyString());
     }
 
@@ -348,13 +354,13 @@ class SearchServiceTest {
         List<Long> blockedUserIds = List.of(2L, 3L);
 
         when(userBlockService.getBlockedUserIdsEitherDirection(1L)).thenReturn(blockedUserIds);
-        when(postRepository.searchPosts(eq("test"), isNull(), isNull(), eq(blockedUserIds), eq(false), eq(1L),
+        when(postRepository.searchPosts(eq("test"), isNull(), isNull(), isNull(), isNull(), isNull(), eq(blockedUserIds), eq(false), eq(1L),
                 any(Pageable.class))).thenReturn(Page.empty(pageable));
 
         searchPostsWithPageable("test", null, null, pageable, 1L);
 
         verify(userBlockService).getBlockedUserIdsEitherDirection(1L);
-        verify(postRepository).searchPosts(eq("test"), isNull(), isNull(), eq(blockedUserIds), eq(false), eq(1L),
+        verify(postRepository).searchPosts(eq("test"), isNull(), isNull(), isNull(), isNull(), isNull(), eq(blockedUserIds), eq(false), eq(1L),
                 any(Pageable.class));
         verify(searchRecordEventPublisher).publish(1L, "test");
     }
@@ -375,7 +381,7 @@ class SearchServiceTest {
         assertThatThrownBy(() -> searchPostsWithPageable("test", null, "private", PageRequest.of(0, 20), 1L))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.BOARD_NOT_FOUND);
-        verify(postRepository, never()).searchPosts(any(), any(), any(), any(), anyBoolean(), any(), any());
+        verify(postRepository, never()).searchPosts(any(), any(), any(), any(), any(), any(), any(), anyBoolean(), any(), any());
         verify(searchRecordEventPublisher, never()).publish(any(), anyString());
     }
 
@@ -395,7 +401,7 @@ class SearchServiceTest {
         assertThatThrownBy(() -> searchPostsWithPageable("test", null, "inactive", PageRequest.of(0, 20), 1L))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.BOARD_NOT_FOUND);
-        verify(postRepository, never()).searchPosts(any(), any(), any(), any(), anyBoolean(), any(), any());
+        verify(postRepository, never()).searchPosts(any(), any(), any(), any(), any(), any(), any(), anyBoolean(), any(), any());
         verify(searchRecordEventPublisher, never()).publish(any(), anyString());
     }
 
@@ -413,14 +419,14 @@ class SearchServiceTest {
         when(searchUserLookupPolicy.resolveOptional(1L)).thenReturn(user);
         when(adminRepository.existsByUserAndBoardAndIsActive(user, privateBoard, true)).thenReturn(true);
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
-        when(postRepository.searchPosts(eq("test"), isNull(), eq("private"), eq(Collections.emptyList()),
+        when(postRepository.searchPosts(eq("test"), isNull(), eq("private"), isNull(), isNull(), isNull(), eq(Collections.emptyList()),
                 eq(true), eq(1L), any(Pageable.class))).thenReturn(Page.empty(pageable));
 
         searchPostsWithPageable("test", null, "private", pageable, 1L);
 
         verify(userBlockService).getBlockedUserIdsEitherDirectionForExistingUser(1L);
         verify(userBlockService, never()).getBlockedUserIdsEitherDirection(1L);
-        verify(postRepository).searchPosts(eq("test"), isNull(), eq("private"), eq(Collections.emptyList()),
+        verify(postRepository).searchPosts(eq("test"), isNull(), eq("private"), isNull(), isNull(), isNull(), eq(Collections.emptyList()),
                 eq(true), eq(1L), any(Pageable.class));
     }
 
@@ -439,7 +445,7 @@ class SearchServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.BOARD_NOT_FOUND);
 
-        verify(postRepository, never()).searchPosts(any(), any(), any(), any(), anyBoolean(), any(), any());
+        verify(postRepository, never()).searchPosts(any(), any(), any(), any(), any(), any(), any(), anyBoolean(), any(), any());
         verify(searchRecordEventPublisher, never()).publish(any(), anyString());
     }
 
@@ -457,7 +463,7 @@ class SearchServiceTest {
         when(boardRepository.findByBoardUrl("private")).thenReturn(Optional.of(privateBoard));
         when(searchUserLookupPolicy.resolveOptional(1L)).thenReturn(user);
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
-        when(postRepository.searchPosts(eq("test"), isNull(), eq("private"), eq(Collections.emptyList()),
+        when(postRepository.searchPosts(eq("test"), isNull(), eq("private"), isNull(), isNull(), isNull(), eq(Collections.emptyList()),
                 eq(true), eq(1L), any(Pageable.class))).thenReturn(Page.empty(pageable));
 
         searchPostsWithPageable("test", null, "private", pageable, 1L);
@@ -465,7 +471,7 @@ class SearchServiceTest {
         verify(userBlockService).getBlockedUserIdsEitherDirectionForExistingUser(1L);
         verify(userBlockService, never()).getBlockedUserIdsEitherDirection(1L);
         verify(adminRepository, never()).existsByUserAndBoardAndIsActive(any(), any(), anyBoolean());
-        verify(postRepository).searchPosts(eq("test"), isNull(), eq("private"), eq(Collections.emptyList()),
+        verify(postRepository).searchPosts(eq("test"), isNull(), eq("private"), isNull(), isNull(), isNull(), eq(Collections.emptyList()),
                 eq(true), eq(1L), any(Pageable.class));
     }
 
@@ -732,6 +738,10 @@ class SearchServiceTest {
                 keyword,
                 searchType,
                 boardUrl,
+                null,
+                null,
+                null,
+                null,
                 pageable.getPageNumber(),
                 pageable.getPageSize(),
                 pageable.getSort(),

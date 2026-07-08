@@ -30,6 +30,59 @@
               {{ $t('search.doSearch', { query: searchInput.trim() }) }}
             </BaseButton>
           </form>
+
+          <form
+            v-if="hasSearchQuery"
+            class="mt-4 grid gap-3 rounded-lg border nv-border nv-surface p-4 sm:grid-cols-2 lg:grid-cols-[1fr_0.9fr_0.9fr_0.9fr_auto]"
+            @submit.prevent="applyFilters"
+          >
+            <BaseInput
+              id="search-author-filter"
+              v-model="authorInput"
+              name="author"
+              :label="$t('search.authorFilter')"
+              :placeholder="$t('search.authorFilter')"
+              inputClass="h-10"
+            />
+            <label class="block text-sm font-medium nv-text-muted">
+              {{ $t('search.periodFilter') }}
+              <select
+                v-model="periodInput"
+                name="period"
+                class="mt-1 h-10 w-full rounded-md border nv-border nv-surface px-3 text-sm nv-text nv-focus-ring"
+              >
+                <option value="">{{ $t('search.periodAll') }}</option>
+                <option value="TODAY">{{ $t('search.periodToday') }}</option>
+                <option value="WEEK">{{ $t('search.periodWeek') }}</option>
+                <option value="MONTH">{{ $t('search.periodMonth') }}</option>
+                <option value="CUSTOM">{{ $t('search.periodCustom') }}</option>
+              </select>
+            </label>
+            <BaseInput
+              id="search-from-filter"
+              v-model="fromInput"
+              name="from"
+              type="date"
+              :label="$t('search.fromDate')"
+              inputClass="h-10"
+              :disabled="periodInput !== 'CUSTOM'"
+            />
+            <BaseInput
+              id="search-to-filter"
+              v-model="toInput"
+              name="to"
+              type="date"
+              :label="$t('search.toDate')"
+              inputClass="h-10"
+              :disabled="periodInput !== 'CUSTOM'"
+            />
+            <BaseButton type="submit" variant="secondary" class="h-10 self-end">
+              {{ $t('search.applyFilters') }}
+            </BaseButton>
+          </form>
+          <p v-if="hasKeywordFilters" class="mt-2 text-xs nv-text-subtle">
+            {{ $t('search.keywordFilterNotice') }}
+          </p>
         </div>
 
         <div v-if="isLoading" class="text-center py-10">
@@ -233,14 +286,19 @@ const queryClient = useQueryClient()
 const { useIntegratedSearch, useSemanticSearch, usePopularKeywords, useRecentSearches } = useSearch()
 const {
   searchInput,
+  authorInput,
+  periodInput,
+  fromInput,
+  toInput,
   searchQuery,
   hasSearchQuery,
   params,
   handleSearchSubmit,
+  buildFilterQuery,
 } = useSearchRouteQuery()
 
 const { data: searchData, isLoading } = useIntegratedSearch(params)
-const semanticParams = computed(() => ({ ...params.value, size: 5, contentType: 'ALL' }))
+const semanticParams = computed(() => ({ q: searchQuery.value, size: 5, contentType: 'ALL' }))
 const { data: semanticData, isLoading: isSemanticLoading } = useSemanticSearch(semanticParams)
 const { data: popularKeywordData } = usePopularKeywords()
 const { data: popularTagData } = useApiQuery({
@@ -257,6 +315,13 @@ const hasAnyResults = computed(() => !keywordResultsEmpty.value || semanticResul
 const popularKeywords = computed(() => popularKeywordData.value || [])
 const popularTags = computed(() => popularTagData.value?.tags || [])
 const recentKeywords = computed(() => recentKeywordData.value?.content || [])
+const hasKeywordFilters = computed(() => Boolean(params.value.author || params.value.period))
+
+function applyFilters() {
+  const query = buildFilterQuery()
+  if (!query.q) return
+  router.push({ name: 'search', query })
+}
 
 function searchKeyword(keyword: string) {
   const normalizedKeyword = keyword.trim()
