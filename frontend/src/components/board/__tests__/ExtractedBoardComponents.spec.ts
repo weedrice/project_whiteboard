@@ -252,6 +252,8 @@ describe('extracted board components', () => {
         layout: 'desktop',
         categories: [{ categoryId: 2, name: 'QnA' }],
         categoryId: '',
+        seriesOptions: [],
+        seriesId: '',
         tags: [],
         isNotice: false,
         isNsfw: false,

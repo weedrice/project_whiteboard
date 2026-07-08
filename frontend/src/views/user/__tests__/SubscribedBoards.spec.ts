@@ -80,6 +80,8 @@ const subscription: SubscriptionBoardListItem = {
   sortOrder: 1,
   subscriberCount: 3,
   postCount: 10,
+  newPostCount: 0,
+  hasNewPosts: false,
   adminDisplayName: null,
   isSubscribed: true,
   isActive: true,

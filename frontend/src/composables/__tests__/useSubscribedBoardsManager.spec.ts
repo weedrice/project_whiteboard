@@ -83,6 +83,8 @@ const subscription = (overrides: Partial<SubscriptionBoardListItem> = {}): Subsc
   accessState: 'ACCESSIBLE',
   inaccessibleReason: null,
   ...overrides,
+  newPostCount: overrides.newPostCount ?? 0,
+  hasNewPosts: overrides.hasNewPosts ?? false,
 })
 
 function mountManager() {
