@@ -50,6 +50,11 @@ const errorStateStub = {
     template: '<button type="button" data-testid="error-state" @click="$emit(\'retry\')">{{ message }}</button>',
 }
 
+const baseBadgeStub = {
+    name: 'BaseBadge',
+    template: '<span data-testid="base-badge"><slot /></span>',
+}
+
 const mountList = (component: typeof ScrapList) => {
     const queryClient = new QueryClient({
         defaultOptions: {
@@ -66,7 +71,7 @@ const mountList = (component: typeof ScrapList) => {
                 $t: (key: string) => key,
             },
             stubs: {
-                BaseBadge: true,
+                BaseBadge: baseBadgeStub,
                 BaseSkeleton: true,
                 EmptyState: emptyStateStub,
                 ErrorState: errorStateStub,
@@ -102,6 +107,62 @@ describe('paginated user lists', () => {
 
         expect(wrapper.find('[data-testid="error-state"]').exists()).toBe(true)
         expect(wrapper.find('[data-testid="empty-state"]').exists()).toBe(false)
+    })
+
+    it('distinguishes earned and spent point history rows', async () => {
+        userApi.getMyPointHistories.mockResolvedValueOnce({
+            data: {
+                data: {
+                    content: [
+                        {
+                            historyId: 1,
+                            type: 'EARN',
+                            amount: 50,
+                            balanceAfter: 150,
+                            description: 'post reward',
+                            createdAt: '2026-07-08T10:00:00',
+                        },
+                        {
+                            historyId: 2,
+                            type: 'SPEND',
+                            amount: -20,
+                            balanceAfter: 130,
+                            description: 'shop purchase',
+                            createdAt: '2026-07-08T11:00:00',
+                        },
+                        {
+                            historyId: 3,
+                            type: 'EXPIRE',
+                            amount: -10,
+                            balanceAfter: 120,
+                            description: 'expired points',
+                            createdAt: '2026-07-08T12:00:00',
+                        },
+                    ],
+                    page: 0,
+                    size: 15,
+                    totalElements: 3,
+                    totalPages: 1,
+                    hasNext: false,
+                    hasPrevious: false,
+                    last: true,
+                },
+            },
+        })
+
+        const wrapper = mountList(PointHistory)
+
+        await flushPromises()
+
+        expect(wrapper.text()).toContain('적립')
+        expect(wrapper.text()).toContain('사용')
+        expect(wrapper.text()).toContain('만료')
+        expect(wrapper.text()).toContain('+50 P')
+        expect(wrapper.text()).toContain('-20 P')
+        expect(wrapper.text()).toContain('-10 P')
+        expect(wrapper.text()).toContain('150 P')
+        expect(wrapper.text()).toContain('130 P')
+        expect(wrapper.text()).toContain('120 P')
     })
 
     it('shows an error state when reports fail to load', async () => {
