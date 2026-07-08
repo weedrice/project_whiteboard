@@ -343,4 +343,50 @@ describe('CommentItem', () => {
         expect(wrapper.text()).not.toContain('common.edit')
         expect(wrapper.text()).not.toContain('common.delete')
     })
+
+    it('shows a reply target and caps visual indentation for deep replies', () => {
+        const wrapper = mount(CommentItem, {
+            props: {
+                comment: {
+                    commentId: 4,
+                    content: 'deep reply',
+                    author: {
+                        userId: 4,
+                        displayName: 'deep-user',
+                        authorType: 'USER',
+                    },
+                    likeCount: 0,
+                    isDeleted: false,
+                    createdAt: '2026-04-20T12:00:00',
+                    hasReplies: true,
+                    replyCount: 1,
+                    children: [],
+                },
+                postId: 100,
+                boardUrl: 'free',
+                depth: 3,
+                replyTargetName: 'parent-user',
+            },
+            global: {
+                mocks: {
+                    $t: (key: string) => key,
+                },
+                stubs: {
+                    UserMenu: {
+                        props: ['displayName'],
+                        template: '<span>{{ displayName }}</span>',
+                    },
+                    CommentForm: {
+                        template: '<div />',
+                    },
+                    CornerDownRight: true,
+                    UserIcon: true,
+                },
+            },
+        })
+
+        expect(wrapper.text()).toContain('@parent-user')
+        expect(wrapper.find('.nv-comment-reply-branch-capped').exists()).toBe(true)
+        expect(wrapper.findComponent({ name: 'CornerDownRight' }).exists()).toBe(false)
+    })
 })

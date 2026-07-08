@@ -23,8 +23,10 @@ const props = withDefaults(defineProps<{
   postId: number | string
   boardUrl: string
   depth?: number
+  replyTargetName?: string
 }>(), {
   depth: 0,
+  replyTargetName: '',
 })
 
 const emit = defineEmits<{
@@ -63,6 +65,10 @@ const renderedContent = computed<SanitizedHtml>(() => renderCommentContentHtml(
   'comment-emoticon',
   props.comment.mentions ?? []
 ))
+const childReplyTargetName = computed(() => (
+  props.comment.author?.displayName?.trim() || t('user.deletedUser')
+))
+const shouldShowReplyTarget = computed(() => props.depth >= 3 && props.replyTargetName.trim().length > 0)
 const isEmoticonOnly = computed(() => isEmoticonOnlyContent(props.comment.content ?? ''))
 const createdAtShort = computed(() => formatDateShort(props.comment.createdAt))
 const createdAtFull = computed(() => formatDate(props.comment.createdAt))
@@ -126,7 +132,7 @@ watch(isBlockedAuthor, (blocked) => {
     <div class="flex space-x-2 sm:space-x-3">
       <div class="relative flex-shrink-0">
         <CornerDownRight
-          v-if="depth > 0"
+          v-if="depth > 0 && depth <= 2"
           class="absolute -left-5 top-1.5 h-3.5 w-3.5 nv-text-subtle sm:-left-6 sm:top-2 sm:h-4 sm:w-4"
         />
 
@@ -199,22 +205,27 @@ watch(isBlockedAuthor, (blocked) => {
         <p v-else-if="isBlockedAuthor" class="text-xs italic nv-text-subtle sm:text-sm">
           {{ $t('comment.blockedContent') }}
         </p>
-        <SanitizedHtmlView
-          v-else-if="isEmoticonOnly"
-          tag="p"
-          class="text-xs sm:text-sm"
-          :html="renderedContent"
-          @click="handleContentClick"
-          @keydown="handleContentKeydown"
-        />
-        <SanitizedHtmlView
-          v-else
-          tag="p"
-          class="text-xs nv-text-muted sm:text-sm"
-          :html="renderedContent"
-          @click="handleContentClick"
-          @keydown="handleContentKeydown"
-        />
+        <template v-else>
+          <p v-if="shouldShowReplyTarget" class="text-[11px] font-semibold text-[var(--nv-accent)] sm:text-xs">
+            @{{ replyTargetName }}
+          </p>
+          <SanitizedHtmlView
+            v-if="isEmoticonOnly"
+            tag="p"
+            class="text-xs sm:text-sm"
+            :html="renderedContent"
+            @click="handleContentClick"
+            @keydown="handleContentKeydown"
+          />
+          <SanitizedHtmlView
+            v-else
+            tag="p"
+            class="text-xs nv-text-muted sm:text-sm"
+            :html="renderedContent"
+            @click="handleContentClick"
+            @keydown="handleContentKeydown"
+          />
+        </template>
 
         <div class="mt-2 flex flex-wrap items-center gap-1 sm:gap-2">
           <button
@@ -256,7 +267,8 @@ watch(isBlockedAuthor, (blocked) => {
 
         <div
           v-if="isReplying"
-          class="mt-3 border-l-2 border-[var(--nv-border)] pl-2 sm:mt-4 sm:pl-4"
+          class="nv-comment-reply-branch mt-3 border-l-2 border-[var(--nv-border)] pl-2 sm:mt-4 sm:pl-4"
+          :class="{ 'nv-comment-reply-branch-capped': depth >= 2 }"
         >
           <CommentForm
             :postId="postId"
@@ -268,7 +280,8 @@ watch(isBlockedAuthor, (blocked) => {
 
         <div
           v-if="isRepliesOpen"
-          class="mt-3 border-l-2 border-[var(--nv-border)] pl-3 sm:mt-4 sm:pl-4"
+          class="nv-comment-reply-branch mt-3 border-l-2 border-[var(--nv-border)] pl-3 sm:mt-4 sm:pl-4"
+          :class="{ 'nv-comment-reply-branch-capped': depth >= 2 }"
         >
           <p v-if="isRepliesLoading" class="text-xs nv-text-subtle">
             {{ $t('common.loading') }}
@@ -284,6 +297,7 @@ watch(isBlockedAuthor, (blocked) => {
               :postId="postId"
               :boardUrl="boardUrl"
               :depth="depth + 1"
+              :reply-target-name="childReplyTargetName"
               @reply-success="$emit('reply-success')"
               @edit-success="$emit('edit-success')"
               @delete="(childComment) => $emit('delete', childComment)"
@@ -307,6 +321,17 @@ watch(isBlockedAuthor, (blocked) => {
 </template>
 
 <style scoped>
+.nv-comment-reply-branch-capped {
+  border-left-color: transparent;
+  padding-left: 0;
+}
+
+@media (min-width: 640px) {
+  .nv-comment-reply-branch-capped {
+    padding-left: 0;
+  }
+}
+
 :deep(.comment-mention) {
   color: var(--nv-accent);
   cursor: pointer;
