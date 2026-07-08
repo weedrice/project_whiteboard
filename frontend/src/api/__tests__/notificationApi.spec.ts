@@ -97,6 +97,9 @@ describe('notificationApi', () => {
             sourceId: 34,
             isRead: true,
             createdAt: '2026-05-19T01:00:00Z',
+            grouped: false,
+            groupCount: 1,
+            lastEventAt: undefined,
             message: 'hello',
             actor: {
                 userId: 5,

@@ -2,6 +2,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { mount, RouterLinkStub } from '@vue/test-utils'
 import RecentBoardsBar from '../RecentBoardsBar.vue'
 
+vi.mock('@/composables/useApiQuery', () => ({
+  useApiQuery: () => ({
+    data: { value: [] },
+  }),
+}))
+
 vi.mock('@/utils/image', () => ({
   getOptimizedBoardIconUrl: (url: string) => url,
   handleImageError: vi.fn()

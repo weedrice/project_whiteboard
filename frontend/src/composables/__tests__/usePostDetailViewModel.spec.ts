@@ -42,6 +42,7 @@ describe('toPostDetailViewModel', () => {
       liked: false,
       scrapped: true,
       lastViewedAt: null,
+      seriesNavigation: null,
       tags: ['vue'],
       boardName: 'Free board',
       boardUrl: 'free',

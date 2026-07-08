@@ -19,8 +19,13 @@ export const common = {}
 
 export function createLowlight() {
     return {
+        listLanguages: () => [],
+        register: () => undefined,
+        registerAlias: () => undefined,
         registered: () => false,
         highlight: (language: string, value: string) => createResult(value, language),
         highlightAuto: (value: string) => createResult(value, 'text'),
     }
 }
+
+export const lowlight = createLowlight()
