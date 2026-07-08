@@ -29,10 +29,15 @@ public class Scrap extends BaseTimeEntity {
     @Column(name = "remark", length = 255)
     private String remark;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "folder_id")
+    private ScrapFolder folder;
+
     @Builder
-    public Scrap(User user, Post post, String remark) {
+    public Scrap(User user, Post post, String remark, ScrapFolder folder) {
         this.user = user;
         this.post = post;
         this.remark = remark;
+        this.folder = folder;
     }
 }

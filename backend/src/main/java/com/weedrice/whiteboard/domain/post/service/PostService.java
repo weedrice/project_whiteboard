@@ -15,6 +15,8 @@ import com.weedrice.whiteboard.domain.post.dto.PostResponse;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.dto.PostUpdateRequest;
 import com.weedrice.whiteboard.domain.post.dto.PostVersionResponse;
+import com.weedrice.whiteboard.domain.post.dto.ScrapFolderRequest;
+import com.weedrice.whiteboard.domain.post.dto.ScrapFolderResponse;
 import com.weedrice.whiteboard.domain.post.dto.ScrapListResponse;
 import com.weedrice.whiteboard.domain.post.dto.ViewHistoryRequest;
 import com.weedrice.whiteboard.domain.post.entity.Post;
@@ -265,8 +267,33 @@ public class PostService {
         postInteractionService.unscrapPost(userId, postId);
     }
 
+    public ScrapListResponse getMyScraps(@NonNull Long userId, Long folderId, String keyword,
+            @NonNull Pageable pageable) {
+        return postInteractionService.getMyScraps(userId, folderId, keyword, pageable);
+    }
+
     public ScrapListResponse getMyScraps(@NonNull Long userId, @NonNull Pageable pageable) {
-        return postInteractionService.getMyScraps(userId, pageable);
+        return getMyScraps(userId, null, null, pageable);
+    }
+
+    public List<ScrapFolderResponse> getScrapFolders(@NonNull Long userId) {
+        return postInteractionService.getScrapFolders(userId);
+    }
+
+    @Transactional
+    public ScrapFolderResponse createScrapFolder(@NonNull Long userId, ScrapFolderRequest request) {
+        return postInteractionService.createScrapFolder(userId, request);
+    }
+
+    @Transactional
+    public ScrapFolderResponse updateScrapFolder(@NonNull Long userId, @NonNull Long folderId,
+            ScrapFolderRequest request) {
+        return postInteractionService.updateScrapFolder(userId, folderId, request);
+    }
+
+    @Transactional
+    public void deleteScrapFolder(@NonNull Long userId, @NonNull Long folderId) {
+        postInteractionService.deleteScrapFolder(userId, folderId);
     }
 
     public DraftListResponse getDraftPosts(@NonNull Long userId, @NonNull Pageable pageable) {

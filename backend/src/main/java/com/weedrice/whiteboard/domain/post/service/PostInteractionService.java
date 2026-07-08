@@ -10,17 +10,21 @@ import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.post.constant.ScrapConstraints;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
+import com.weedrice.whiteboard.domain.post.dto.ScrapFolderRequest;
+import com.weedrice.whiteboard.domain.post.dto.ScrapFolderResponse;
 import com.weedrice.whiteboard.domain.post.dto.ScrapListResponse;
 import com.weedrice.whiteboard.domain.post.dto.ViewHistoryRequest;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.entity.PostLike;
 import com.weedrice.whiteboard.domain.post.entity.PostLikeId;
 import com.weedrice.whiteboard.domain.post.entity.Scrap;
+import com.weedrice.whiteboard.domain.post.entity.ScrapFolder;
 import com.weedrice.whiteboard.domain.post.entity.ScrapId;
 import com.weedrice.whiteboard.domain.post.entity.ViewHistory;
 import com.weedrice.whiteboard.domain.post.repository.PostLikeRepository;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.repository.ScrapRepository;
+import com.weedrice.whiteboard.domain.post.repository.ScrapFolderRepository;
 import com.weedrice.whiteboard.domain.post.repository.ViewHistoryRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
@@ -65,6 +69,7 @@ public class PostInteractionService {
     private final PostRepository postRepository;
     private final PostLikeRepository postLikeRepository;
     private final ScrapRepository scrapRepository;
+    private final ScrapFolderRepository scrapFolderRepository;
     private final ViewHistoryRepository viewHistoryRepository;
     private final ViewHistoryCommandService viewHistoryCommandService;
     private final CommentRepository commentRepository;
@@ -241,19 +246,71 @@ public class PostInteractionService {
         }
     }
 
-    public ScrapListResponse getMyScraps(@NonNull Long userId, @NonNull Pageable pageable) {
+    public ScrapListResponse getMyScraps(@NonNull Long userId, Long folderId, String keyword,
+            @NonNull Pageable pageable) {
         PostReadContext context = postReadContextResolver.resolveForExistingUser(userId);
         User user = context.viewer();
+        if (folderId != null) {
+            validateScrapFolderOwner(userId, folderId);
+        }
         Pageable safePageable = PageRequestUtils.of(pageable, DEFAULT_SCRAP_PAGE_SIZE, DEFAULT_SCRAP_SORT);
         BlockedUserFilter blockedUsers = BlockedUserFilter.from(context.blockedUserIdSet());
         Page<Scrap> scrapPage = scrapRepository.findPageByUserWithPostDetails(
                 user,
+                folderId,
+                normalizeScrapSearchKeyword(keyword),
                 user.isUsableSuperAdmin(),
                 blockedUsers.empty(),
                 blockedUsers.ids(),
                 BoardPolicyConstants.INQUIRY_BOARD_URL,
                 safePageable);
         return ScrapListResponse.from(scrapPage);
+    }
+
+    public ScrapListResponse getMyScraps(@NonNull Long userId, @NonNull Pageable pageable) {
+        return getMyScraps(userId, null, null, pageable);
+    }
+
+    public List<ScrapFolderResponse> getScrapFolders(@NonNull Long userId) {
+        userWritableResolver.resolve(userId);
+        return ScrapFolderResponse.listFrom(scrapFolderRepository.findByUser_UserIdOrderBySortOrderAscFolderIdAsc(userId));
+    }
+
+    @Transactional
+    public ScrapFolderResponse createScrapFolder(@NonNull Long userId, ScrapFolderRequest request) {
+        User user = userWritableResolver.resolve(userId);
+        String name = normalizeScrapFolderName(request != null ? request.getName() : null);
+        if (scrapFolderRepository.existsByUser_UserIdAndName(userId, name)) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        ScrapFolder folder = ScrapFolder.builder()
+                .user(user)
+                .name(name)
+                .sortOrder(request != null ? request.getSortOrder() : null)
+                .build();
+        return ScrapFolderResponse.from(scrapFolderRepository.save(folder));
+    }
+
+    @Transactional
+    public ScrapFolderResponse updateScrapFolder(@NonNull Long userId, @NonNull Long folderId,
+            ScrapFolderRequest request) {
+        ScrapFolder folder = getOwnedScrapFolder(userId, folderId);
+        String name = request == null ? null : TextInputNormalizer.normalizeOptional(request.getName(), 60);
+        if (name != null && name.isBlank()) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        if (name != null && !name.equals(folder.getName())
+                && scrapFolderRepository.existsByUser_UserIdAndName(userId, name)) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        folder.update(name, request != null ? request.getSortOrder() : null);
+        return ScrapFolderResponse.from(folder);
+    }
+
+    @Transactional
+    public void deleteScrapFolder(@NonNull Long userId, @NonNull Long folderId) {
+        ScrapFolder folder = getOwnedScrapFolder(userId, folderId);
+        scrapFolderRepository.delete(folder);
     }
 
     public Page<PostSummary> getRecentlyViewedPosts(@NonNull Long userId, @NonNull Pageable pageable) {
@@ -313,6 +370,29 @@ public class PostInteractionService {
 
     private String normalizeScrapRemark(String remark) {
         return TextInputNormalizer.normalizeOptional(remark, ScrapConstraints.MAX_REMARK_LENGTH);
+    }
+
+    private String normalizeScrapFolderName(String name) {
+        String normalizedName = TextInputNormalizer.normalizeOptional(name, 60);
+        if (normalizedName == null || normalizedName.isBlank()) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        return normalizedName;
+    }
+
+    private String normalizeScrapSearchKeyword(String keyword) {
+        return TextInputNormalizer.normalizeOptional(keyword, 255);
+    }
+
+    private void validateScrapFolderOwner(Long userId, Long folderId) {
+        if (scrapFolderRepository.findByFolderIdAndUser_UserId(folderId, userId).isEmpty()) {
+            throw new BusinessException(ErrorCode.NOT_FOUND);
+        }
+    }
+
+    private ScrapFolder getOwnedScrapFolder(Long userId, Long folderId) {
+        return scrapFolderRepository.findByFolderIdAndUser_UserId(folderId, userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
     }
 
     private Post getReadablePost(@NonNull Long postId, PostReadContext context) {

@@ -8,6 +8,8 @@ import type {
     PointHistory,
     PointHistoryResponse,
     PostSummary,
+    ScrapFolder,
+    ScrapFolderPayload,
     ScrapListResponse,
     SubscriptionBoardListItem,
     UserPoint,
@@ -25,6 +27,7 @@ export interface PaginationParams {
     page?: number
     size?: number
     sort?: string
+    [key: string]: unknown
 }
 
 interface SubscriptionParams extends PaginationParams {
@@ -63,6 +66,18 @@ export const userActivityApi = {
     getMyScraps(params: PaginationParams, config?: AxiosRequestConfig) {
         return api.get<ApiResponse<ScrapListResponse>>('/users/me/scraps', { ...config, params })
             .then((response) => mapApiPageResponse(response, toScrapPostSummaryPage))
+    },
+    getScrapFolders(config?: AxiosRequestConfig) {
+        return api.get<ApiResponse<ScrapFolder[]>>('/users/me/scrap-folders', config)
+    },
+    createScrapFolder(payload: ScrapFolderPayload) {
+        return api.post<ApiResponse<ScrapFolder>>('/users/me/scrap-folders', payload)
+    },
+    updateScrapFolder(folderId: string | number, payload: Partial<ScrapFolderPayload>) {
+        return api.patch<ApiResponse<ScrapFolder>>(`/users/me/scrap-folders/${encodePathSegment(folderId)}`, payload)
+    },
+    deleteScrapFolder(folderId: string | number) {
+        return api.delete<ApiResponse<void>>(`/users/me/scrap-folders/${encodePathSegment(folderId)}`)
     },
     getMyDrafts(params: PaginationParams, config?: AxiosRequestConfig) {
         return api.get<ApiResponse<DraftPostListResponse>>('/users/me/drafts', { ...config, params })

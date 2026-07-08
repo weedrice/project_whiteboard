@@ -114,6 +114,19 @@ export interface ScrapListResponse {
     last: boolean
 }
 
+export interface ScrapFolder {
+    folderId: number
+    name: string
+    sortOrder: number
+    createdAt?: string
+    modifiedAt?: string
+}
+
+export interface ScrapFolderPayload {
+    name: string
+    sortOrder?: number
+}
+
 // Sanction-related types
 export interface SanctionData {
     targetUserId: number

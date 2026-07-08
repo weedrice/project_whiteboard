@@ -67,6 +67,11 @@ export const user: UserMessages = {
   },
   scrapList: {
     empty: '스크랩한 게시글이 없습니다.',
+    allFolder: '전체',
+    newFolder: '새 폴더',
+    search: '스크랩 내 검색',
+    searchButton: '검색',
+    deleteFolder: '{name} 폴더 삭제',
   },
   draftList: {
     empty: '임시저장 글이 없습니다.',

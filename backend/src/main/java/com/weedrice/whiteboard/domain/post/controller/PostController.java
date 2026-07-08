@@ -171,8 +171,39 @@ public class PostController {
     @GetMapping("/users/me/scraps")
     public ApiResponse<ScrapListResponse> getMyScraps(
             @NonNull Pageable pageable,
+            @RequestParam(required = false) Long folderId,
+            @RequestParam(required = false, name = "q") String keyword,
             @CurrentUserId Long userId) {
-        return ApiResponse.success(postService.getMyScraps(userId, pageable));
+        return ApiResponse.success(postService.getMyScraps(userId, folderId, keyword, pageable));
+    }
+
+    @GetMapping("/users/me/scrap-folders")
+    public ApiResponse<List<ScrapFolderResponse>> getScrapFolders(@CurrentUserId Long userId) {
+        return ApiResponse.success(postService.getScrapFolders(userId));
+    }
+
+    @PostMapping("/users/me/scrap-folders")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<ScrapFolderResponse> createScrapFolder(
+            @Valid @RequestBody ScrapFolderRequest request,
+            @CurrentUserId Long userId) {
+        return ApiResponse.success(postService.createScrapFolder(userId, request));
+    }
+
+    @PatchMapping("/users/me/scrap-folders/{folderId}")
+    public ApiResponse<ScrapFolderResponse> updateScrapFolder(
+            @PathVariable Long folderId,
+            @Valid @RequestBody ScrapFolderRequest request,
+            @CurrentUserId Long userId) {
+        return ApiResponse.success(postService.updateScrapFolder(userId, folderId, request));
+    }
+
+    @DeleteMapping("/users/me/scrap-folders/{folderId}")
+    public ApiResponse<Void> deleteScrapFolder(
+            @PathVariable Long folderId,
+            @CurrentUserId Long userId) {
+        postService.deleteScrapFolder(userId, folderId);
+        return ApiResponses.ok();
     }
 
     @GetMapping("/users/me/drafts")

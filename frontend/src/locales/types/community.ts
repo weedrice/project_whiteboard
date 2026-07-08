@@ -528,6 +528,11 @@ export interface UserMessages {
   }
   scrapList: {
     empty: string
+    allFolder: string
+    newFolder: string
+    search: string
+    searchButton: string
+    deleteFolder: string
   }
   draftList: {
     empty: string
