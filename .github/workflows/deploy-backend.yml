@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: deploy-backend-${{ github.ref }}
+  group: deploy-production-${{ github.ref }}
   cancel-in-progress: false
 
 permissions:

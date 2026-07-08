@@ -10,6 +10,9 @@ const distIndexPath = resolve(distDir, 'index.html')
 const sourceSitemapPath = resolve(process.cwd(), 'public', 'sitemap.xml')
 const maxUrls = parsePositiveInt(process.env.PRERENDER_MAX_URLS, 2000)
 const requestTimeoutMs = parsePositiveInt(process.env.PRERENDER_REQUEST_TIMEOUT_MS, 15000)
+const fetchRetries = parseNonNegativeInt(process.env.PRERENDER_FETCH_RETRIES, 3)
+const fetchRetryDelayMs = parsePositiveInt(process.env.PRERENDER_FETCH_RETRY_DELAY_MS, 1000)
+const retryableStatuses = new Set([408, 425, 429, 500, 502, 503, 504])
 
 function normalizeBaseUrl(url) {
     return String(url).replace(/\/+$/, '')
@@ -18,6 +21,33 @@ function normalizeBaseUrl(url) {
 function parsePositiveInt(value, fallback) {
     const parsed = Number.parseInt(String(value ?? ''), 10)
     return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
+}
+
+function parseNonNegativeInt(value, fallback) {
+    const parsed = Number.parseInt(String(value ?? ''), 10)
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback
+}
+
+function delay(ms) {
+    return new Promise((resolveDelay) => {
+        setTimeout(resolveDelay, ms)
+    })
+}
+
+function shouldRetryFetch(error) {
+    if (error instanceof HttpError) {
+        return retryableStatuses.has(error.status)
+    }
+
+    return error instanceof TypeError || error?.name === 'TimeoutError' || error?.name === 'AbortError'
+}
+
+class HttpError extends Error {
+    constructor(status, url) {
+        super(`HTTP ${status} while fetching ${url}`)
+        this.name = 'HttpError'
+        this.status = status
+    }
 }
 
 function ensureTrailingSlashPath(path) {
@@ -40,26 +70,39 @@ function escapeHtml(value) {
 
 async function fetchJson(path) {
     const url = `${apiBaseUrl}${path}`
-    const response = await fetch(url, {
-        headers: {
-            Accept: 'application/json',
-            'User-Agent': 'noviis-prerender/1.0'
-        },
-        signal: AbortSignal.timeout(requestTimeoutMs)
-    })
 
-    if (!response.ok) {
-        throw new Error(`HTTP ${response.status} while fetching ${url}`)
-    }
+    for (let attempt = 0; attempt <= fetchRetries; attempt += 1) {
+        try {
+            const response = await fetch(url, {
+                headers: {
+                    Accept: 'application/json',
+                    'User-Agent': 'noviis-prerender/1.0'
+                },
+                signal: AbortSignal.timeout(requestTimeoutMs)
+            })
 
-    const payload = await response.json()
-    if (payload && typeof payload === 'object' && 'success' in payload) {
-        if (!payload.success) {
-            throw new Error(`API success=false: ${url}`)
+            if (!response.ok) {
+                throw new HttpError(response.status, url)
+            }
+
+            const payload = await response.json()
+            if (payload && typeof payload === 'object' && 'success' in payload) {
+                if (!payload.success) {
+                    throw new Error(`API success=false: ${url}`)
+                }
+                return payload.data
+            }
+            return payload
+        } catch (error) {
+            if (attempt >= fetchRetries || !shouldRetryFetch(error)) {
+                throw error
+            }
+
+            const retryDelay = fetchRetryDelayMs * (attempt + 1)
+            console.warn(`[prerender] retrying ${url} after ${String(error)} (${attempt + 1}/${fetchRetries})`)
+            await delay(retryDelay)
         }
-        return payload.data
     }
-    return payload
 }
 
 function extractPostPathsFromSitemap(xmlText) {

@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: deploy-frontend-${{ github.ref }}
+  group: deploy-production-${{ github.ref }}
   cancel-in-progress: false
 
 permissions:
@@ -53,6 +53,8 @@ jobs:
         env:
           SITEMAP_SITE_URL: https://noviis.kr
           SITEMAP_API_BASE_URL: https://noviis.kr/api/v1
+          PRERENDER_FETCH_RETRIES: 5
+          PRERENDER_FETCH_RETRY_DELAY_MS: 2000
 
       - name: Prepare frontend release directory
         uses: appleboy/ssh-action@v1.0.3
