@@ -4,18 +4,20 @@ import { useQueryClient } from '@tanstack/vue-query'
 import { useUser } from '@/composables/useUser'
 import { useApiQuery } from '@/composables/useApiQuery'
 import { usePageResponseState, usePaginatedQueryState } from '@/composables/usePaginatedQueryState'
+import { useConfirm } from '@/composables/useConfirm'
 import { userApi } from '@/api/user'
 import { userQueryKeys } from '@/composables/userQueryKeys'
 import PostList from '@/components/board/PostList.vue'
 import PaginatedListCard from '@/components/common/ui/PaginatedListCard.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
-import { Bookmark } from 'lucide-vue-next'
+import { Bookmark, Check, Pencil, X } from 'lucide-vue-next'
 import { isInquiryPostItem, resolveBoardRoute, resolvePostDetailRoute } from '@/utils/postNavigation'
 import { useI18n } from 'vue-i18n'
 import type { PostSummary } from '@/types'
 
 const { t } = useI18n()
+const { confirm } = useConfirm()
 const queryClient = useQueryClient()
 const { useMyScraps } = useUser()
 const selectedFolderId = ref<number | null>(null)
@@ -24,6 +26,9 @@ const appliedSearch = ref('')
 const newFolderName = ref('')
 const creatingFolder = ref(false)
 const deletingFolderId = ref<number | null>(null)
+const editingFolderId = ref<number | null>(null)
+const editingFolderName = ref('')
+const updatingFolderId = ref<number | null>(null)
 
 const {
   page,
@@ -83,8 +88,48 @@ async function createFolder() {
   }
 }
 
+function startEditFolder(folderId: number, name: string) {
+  editingFolderId.value = folderId
+  editingFolderName.value = name
+}
+
+function cancelEditFolder() {
+  editingFolderId.value = null
+  editingFolderName.value = ''
+}
+
+async function updateFolder(folderId: number) {
+  const name = editingFolderName.value.trim()
+  if (!name || updatingFolderId.value !== null) return
+  updatingFolderId.value = folderId
+  try {
+    await userApi.updateScrapFolder(folderId, { name })
+    cancelEditFolder()
+    await refetchFolders()
+  } finally {
+    updatingFolderId.value = null
+  }
+}
+
+async function getFolderScrapCount(folderId: number) {
+  const { data } = await userApi.getMyScraps({ folderId, page: 0, size: 1 })
+  return data.data.totalElements
+}
+
 async function deleteFolder(folderId: number) {
   if (deletingFolderId.value !== null) return
+  const folder = folders.value.find((item) => item.folderId === folderId)
+  if (!folder) return
+
+  const scrapCount = await getFolderScrapCount(folderId)
+  const confirmed = await confirm(
+    t('user.scrapList.deleteConfirmMessage', { name: folder.name, count: scrapCount }),
+    t('user.scrapList.deleteConfirmTitle'),
+    t('common.delete'),
+    t('common.cancel')
+  )
+  if (!confirmed) return
+
   deletingFolderId.value = folderId
   try {
     await userApi.deleteScrapFolder(folderId)
@@ -149,22 +194,62 @@ async function deleteFolder(folderId: number) {
             class="inline-flex items-center gap-1 rounded-full border nv-border"
             :class="selectedFolderId === folder.folderId ? 'border-[var(--nv-accent)] nv-accent-bg' : 'nv-surface'"
           >
-            <button
-              type="button"
-              class="px-3 py-1.5 text-sm nv-text"
-              @click="selectedFolderId = folder.folderId"
-            >
-              {{ folder.name }}
-            </button>
-            <button
-              type="button"
-              class="pr-2 text-xs nv-text-subtle nv-hover-danger"
-              :aria-label="$t('user.scrapList.deleteFolder', { name: folder.name })"
-              :disabled="deletingFolderId === folder.folderId"
-              @click="deleteFolder(folder.folderId)"
-            >
-              x
-            </button>
+            <template v-if="editingFolderId === folder.folderId">
+              <BaseInput
+                :id="`scrap-folder-edit-${folder.folderId}`"
+                v-model="editingFolderName"
+                :label="$t('user.scrapList.renameFolder')"
+                inputClass="h-8 w-36 rounded-full text-sm"
+                hideLabel
+                :disabled="updatingFolderId === folder.folderId"
+                @keydown.enter.prevent="updateFolder(folder.folderId)"
+                @keydown.esc.prevent="cancelEditFolder"
+              />
+              <button
+                type="button"
+                class="inline-flex h-8 w-8 items-center justify-center rounded-full nv-text-subtle nv-hover-accent"
+                :aria-label="$t('user.scrapList.saveFolder', { name: folder.name })"
+                :disabled="updatingFolderId === folder.folderId || !editingFolderName.trim()"
+                @click="updateFolder(folder.folderId)"
+              >
+                <Check class="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                class="inline-flex h-8 w-8 items-center justify-center rounded-full nv-text-subtle nv-hover-surface"
+                :aria-label="$t('user.scrapList.cancelEditFolder')"
+                :disabled="updatingFolderId === folder.folderId"
+                @click="cancelEditFolder"
+              >
+                <X class="h-4 w-4" />
+              </button>
+            </template>
+            <template v-else>
+              <button
+                type="button"
+                class="px-3 py-1.5 text-sm nv-text"
+                @click="selectedFolderId = folder.folderId"
+              >
+                {{ folder.name }}
+              </button>
+              <button
+                type="button"
+                class="inline-flex h-8 w-8 items-center justify-center rounded-full nv-text-subtle nv-hover-accent"
+                :aria-label="$t('user.scrapList.editFolder', { name: folder.name })"
+                @click="startEditFolder(folder.folderId, folder.name)"
+              >
+                <Pencil class="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                class="inline-flex h-8 w-8 items-center justify-center rounded-full nv-text-subtle nv-hover-danger"
+                :aria-label="$t('user.scrapList.deleteFolder', { name: folder.name })"
+                :disabled="deletingFolderId === folder.folderId"
+                @click="deleteFolder(folder.folderId)"
+              >
+                <X class="h-3.5 w-3.5" />
+              </button>
+            </template>
           </span>
         </div>
         <form class="flex flex-col gap-2 sm:flex-row" @submit.prevent="applySearch">

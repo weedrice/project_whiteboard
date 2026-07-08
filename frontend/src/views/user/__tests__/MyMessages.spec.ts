@@ -112,6 +112,60 @@ describe('MyMessages', () => {
         expect(messageApi.sendMessage).not.toHaveBeenCalled()
     })
 
+    it('renders conversation messages with visual direction and inline reply controls', async () => {
+        const listedMessage = {
+            messageId: 5,
+            content: 'received summary',
+            partner: { userId: 2, displayName: 'Other' },
+            isRead: true,
+            sentByMe: false,
+            createdAt: '2026-04-16T11:00:00',
+        }
+        const sentMessage = {
+            messageId: 6,
+            content: 'sent reply',
+            partner: { userId: 2, displayName: 'Other' },
+            isRead: true,
+            sentByMe: true,
+            createdAt: '2026-04-16T11:05:00',
+        }
+
+        messageApi.getReceivedMessages.mockResolvedValue({
+            data: {
+                success: true,
+                data: {
+                    content: [listedMessage],
+                    totalPages: 1,
+                },
+            },
+        })
+        messageApi.getMessage.mockResolvedValue({
+            data: {
+                success: true,
+                data: listedMessage,
+            },
+        })
+        messageApi.getConversation.mockResolvedValue({
+            data: {
+                success: true,
+                data: {
+                    content: [listedMessage, sentMessage],
+                    totalPages: 1,
+                },
+            },
+        })
+
+        const wrapper = mountMyMessages()
+        await flushPromises()
+        await messageOpenButtons(wrapper)[0].trigger('click')
+        await flushPromises()
+
+        expect(wrapper.find('[data-message-direction="received"]').exists()).toBe(true)
+        expect(wrapper.find('[data-message-direction="sent"]').exists()).toBe(true)
+        expect(wrapper.find('base-textarea-stub').attributes('label')).toBe('user.message.replyTitle')
+        expect(wrapper.findAllComponents(baseModalStub)).toHaveLength(1)
+    })
+
     it('exposes mailbox view and message row controls to assistive technology', async () => {
         messageApi.getReceivedMessages.mockResolvedValue({
             data: {
@@ -136,10 +190,12 @@ describe('MyMessages', () => {
 
         const receivedButton = wrapper.findAll('button').find((button) => button.text() === 'user.message.received')
         const sentButton = wrapper.findAll('button').find((button) => button.text() === 'user.message.sent')
+        const conversationsButton = wrapper.findAll('button').find((button) => button.text() === 'user.message.conversations')
 
         expect(wrapper.get('h1').text()).toContain('user.message.boxTitle')
         expect(wrapper.get('[role="group"]').attributes('aria-label')).toBe('user.message.boxTitle')
-        expect(receivedButton?.attributes('aria-pressed')).toBe('true')
+        expect(conversationsButton?.attributes('aria-pressed')).toBe('true')
+        expect(receivedButton?.attributes('aria-pressed')).toBe('false')
         expect(sentButton?.attributes('aria-pressed')).toBe('false')
         expect(messageOpenButtons(wrapper)[0].attributes('aria-label')).toBe('user.message.openMessage')
         expect(wrapper.get('label.sr-only').text()).toBe('user.message.selectMessage')

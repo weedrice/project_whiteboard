@@ -7,8 +7,14 @@ import MyReports from '../MyReports.vue'
 
 const userApi = vi.hoisted(() => ({
     getMyScraps: vi.fn(),
+    getScrapFolders: vi.fn(),
+    createScrapFolder: vi.fn(),
+    updateScrapFolder: vi.fn(),
+    deleteScrapFolder: vi.fn(),
     getMyPointHistories: vi.fn(),
 }))
+
+const confirmMock = vi.hoisted(() => vi.fn())
 
 const reportApi = vi.hoisted(() => ({
     getMyReports: vi.fn(),
@@ -16,6 +22,11 @@ const reportApi = vi.hoisted(() => ({
 
 vi.mock('@/api/user', () => ({ userApi }))
 vi.mock('@/api/report', () => ({ reportApi }))
+vi.mock('@/composables/useConfirm', () => ({
+    useConfirm: () => ({
+        confirm: confirmMock,
+    }),
+}))
 
 vi.mock('vue-i18n', async (importOriginal) => {
     const actual = await importOriginal<typeof import('vue-i18n')>()
@@ -87,6 +98,16 @@ describe('paginated user lists', () => {
     beforeEach(() => {
         vi.clearAllMocks()
         userApi.getMyScraps.mockRejectedValue(new Error('network'))
+        userApi.getScrapFolders.mockResolvedValue({
+            data: {
+                success: true,
+                data: [],
+            },
+        })
+        userApi.createScrapFolder.mockResolvedValue({ data: { success: true, data: {} } })
+        userApi.updateScrapFolder.mockResolvedValue({ data: { success: true, data: {} } })
+        userApi.deleteScrapFolder.mockResolvedValue({ data: { success: true } })
+        confirmMock.mockResolvedValue(true)
         userApi.getMyPointHistories.mockRejectedValue(new Error('network'))
         reportApi.getMyReports.mockRejectedValue(new Error('network'))
     })
@@ -107,6 +128,93 @@ describe('paginated user lists', () => {
 
         expect(wrapper.find('[data-testid="error-state"]').exists()).toBe(true)
         expect(wrapper.find('[data-testid="empty-state"]').exists()).toBe(false)
+    })
+
+    it('confirms before deleting a scrap folder and includes the scrap count', async () => {
+        userApi.getMyScraps
+            .mockResolvedValueOnce({
+                data: {
+                    data: {
+                        content: [],
+                        page: 0,
+                        size: 15,
+                        totalElements: 0,
+                        totalPages: 0,
+                        hasNext: false,
+                        hasPrevious: false,
+                        last: true,
+                    },
+                },
+            })
+            .mockResolvedValueOnce({
+                data: {
+                    data: {
+                        content: [],
+                        page: 0,
+                        size: 1,
+                        totalElements: 3,
+                        totalPages: 1,
+                        hasNext: false,
+                        hasPrevious: false,
+                        last: true,
+                    },
+                },
+            })
+        userApi.getScrapFolders.mockResolvedValue({
+            data: {
+                success: true,
+                data: [{ folderId: 7, name: 'Keep', sortOrder: 0 }],
+            },
+        })
+
+        const wrapper = mountList(ScrapList)
+        await flushPromises()
+
+        const deleteButton = wrapper.find('[aria-label="user.scrapList.deleteFolder"]')
+        await deleteButton.trigger('click')
+        await flushPromises()
+
+        expect(userApi.getMyScraps).toHaveBeenCalledWith({ folderId: 7, page: 0, size: 1 })
+        expect(confirmMock).toHaveBeenCalledWith(
+            'user.scrapList.deleteConfirmMessage',
+            'user.scrapList.deleteConfirmTitle',
+            'common.delete',
+            'common.cancel',
+        )
+        expect(userApi.deleteScrapFolder).toHaveBeenCalledWith(7)
+    })
+
+    it('updates a scrap folder name inline', async () => {
+        userApi.getMyScraps.mockResolvedValue({
+            data: {
+                data: {
+                    content: [],
+                    page: 0,
+                    size: 15,
+                    totalElements: 0,
+                    totalPages: 0,
+                    hasNext: false,
+                    hasPrevious: false,
+                    last: true,
+                },
+            },
+        })
+        userApi.getScrapFolders.mockResolvedValue({
+            data: {
+                success: true,
+                data: [{ folderId: 7, name: 'Old', sortOrder: 0 }],
+            },
+        })
+
+        const wrapper = mountList(ScrapList)
+        await flushPromises()
+
+        await wrapper.find('[aria-label="user.scrapList.editFolder"]').trigger('click')
+        await wrapper.get('#scrap-folder-edit-7').setValue('New')
+        await wrapper.find('[aria-label="user.scrapList.saveFolder"]').trigger('click')
+        await flushPromises()
+
+        expect(userApi.updateScrapFolder).toHaveBeenCalledWith(7, { name: 'New' })
     })
 
     it('distinguishes earned and spent point history rows', async () => {

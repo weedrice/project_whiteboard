@@ -228,6 +228,8 @@ export interface BoardMessages {
     reportSuccess: string
     reportFailed: string
     restricted: string
+    seriesTitle: string
+    seriesMeta: string
     previousInSeries: string
     nextInSeries: string
   }
@@ -543,6 +545,12 @@ export interface UserMessages {
     search: string
     searchButton: string
     deleteFolder: string
+    deleteConfirmTitle: string
+    deleteConfirmMessage: string
+    editFolder: string
+    renameFolder: string
+    saveFolder: string
+    cancelEditFolder: string
   }
   draftList: {
     empty: string
@@ -650,6 +658,7 @@ export interface UserMessages {
     selectMessage: string
     openMessage: string
     conversationContext: string
+    me: string
     currentMessage: string
     contextEmpty: string
   }

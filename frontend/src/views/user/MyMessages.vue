@@ -91,59 +91,71 @@
                         <article
                             v-for="message in conversationMessages"
                             :key="message.id"
-                            class="rounded-lg border p-3 text-sm"
-                            :class="message.isCurrent ? 'border-[var(--nv-accent)] nv-surface' : 'nv-border nv-surface'"
+                            class="flex"
+                            :class="message.sentByMe ? 'justify-end' : 'justify-start'"
+                            :data-message-direction="message.sentByMe ? 'sent' : 'received'"
                         >
-                            <div class="flex items-center justify-between gap-2">
-                                <span class="truncate text-xs font-medium nv-title">
-                                    {{ message.isCurrent ? $t('user.message.currentMessage') : message.partnerName }}
-                                </span>
-                                <span class="shrink-0 text-[11px] nv-text-subtle">{{ formatDate(message.createdAt) }}</span>
+                            <div
+                                class="max-w-[85%] rounded-lg border p-3 text-sm"
+                                :class="[
+                                    message.sentByMe
+                                        ? 'border-[var(--nv-accent)] nv-accent-bg text-right'
+                                        : 'nv-border nv-surface text-left',
+                                    message.isCurrent ? 'ring-1 ring-[var(--nv-accent)]' : ''
+                                ]"
+                            >
+                                <div class="flex items-center justify-between gap-2" :class="message.sentByMe ? 'flex-row-reverse' : ''">
+                                    <span class="truncate text-xs font-medium nv-title">
+                                        {{ message.sentByMe ? $t('user.message.me') : message.partnerName }}
+                                        <span v-if="message.isCurrent" class="nv-text-subtle">
+                                            · {{ $t('user.message.currentMessage') }}
+                                        </span>
+                                    </span>
+                                    <span class="shrink-0 text-[11px] nv-text-subtle">{{ formatDate(message.createdAt) }}</span>
+                                </div>
+                                <p class="mt-1 whitespace-pre-wrap nv-text-subtle">{{ message.body }}</p>
                             </div>
-                            <p class="mt-1 line-clamp-3 whitespace-pre-wrap nv-text-subtle">{{ message.body }}</p>
                         </article>
                         <p v-if="conversationMessages.length <= 1" class="text-sm nv-text-subtle">
                             {{ $t('user.message.contextEmpty') }}
                         </p>
                     </div>
+                    <form
+                        v-if="viewType !== 'sent'"
+                        class="mt-4 border-t nv-border pt-3"
+                        @submit.prevent="sendReply"
+                    >
+                        <BaseTextarea
+                            v-model="replyContent"
+                            :label="$t('user.message.replyTitle')"
+                            rows="3"
+                            class="min-h-[96px]"
+                        />
+                        <div class="mt-2 flex justify-end gap-2">
+                            <BaseButton
+                                type="submit"
+                                size="sm"
+                                :disabled="isSending"
+                            >
+                                {{ isSending ? $t('common.messages.sending') : $t('common.send') }}
+                            </BaseButton>
+                            <BaseButton
+                                type="button"
+                                size="sm"
+                                variant="secondary"
+                                @click="cancelInlineReply"
+                            >
+                                {{ $t('common.cancel') }}
+                            </BaseButton>
+                        </div>
+                    </form>
                 </section>
             </div>
 
             <div class="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:space-x-2 pt-4 border-t nv-border">
-                <BaseButton v-if="viewType !== 'sent'" @click="startReply(selectedMessage)"
-                    class="w-full sm:w-auto min-h-[44px] order-2 sm:order-none">
-                    {{ $t('user.message.reply') }}
-                </BaseButton>
                 <BaseButton @click="selectedMessage = null" variant="secondary"
                     class="w-full sm:w-auto min-h-[44px] order-1 sm:order-none">
                     {{ $t('common.close') }}
-                </BaseButton>
-            </div>
-        </div>
-    </BaseModal>
-
-    <BaseModal :isOpen="isReplyModalOpen" :title="$t('user.message.replyTitle')" @close="closeReplyModal"
-        mobile-full mobile-fit-content>
-        <div class="p-4 sm:p-6 space-y-4">
-            <div>
-                <label class="block text-sm font-medium nv-text-muted">{{ $t('user.message.to')
-                    }}</label>
-                <div class="mt-1 p-3 nv-surface-muted rounded-lg text-sm nv-title">
-                    {{ replyTarget?.partnerName }}
-                </div>
-            </div>
-            <div>
-                <BaseTextarea v-model="replyContent" :label="$t('user.message.content')" rows="5"
-                    class="min-h-[120px] sm:min-h-0" />
-            </div>
-            <div class="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-2 pt-2">
-                <BaseButton @click="sendReply" :disabled="isSending"
-                    class="w-full sm:w-auto min-h-[44px] order-2 sm:order-none">
-                    {{ isSending ? $t('common.messages.sending') : $t('common.send') }}
-                </BaseButton>
-                <BaseButton @click="closeReplyModal" variant="secondary"
-                    class="w-full sm:w-auto min-h-[44px] order-1 sm:order-none">
-                    {{ $t('common.cancel') }}
                 </BaseButton>
             </div>
         </div>
@@ -185,8 +197,6 @@ const {
     page,
     size,
     totalPages,
-    isReplyModalOpen,
-    replyTarget,
     replyContent,
     isSending,
     fetchMessages,
@@ -197,7 +207,7 @@ const {
     openConversationByPartnerId,
     deleteSelectedMessages,
     startReply,
-    closeReplyModal,
+    cancelInlineReply,
     sendReply,
 } = useMailboxResource()
 
@@ -242,4 +252,10 @@ watch(
     },
     { immediate: true }
 )
+
+defineExpose({
+    startReply,
+    replyContent,
+    sendReply,
+})
 </script>

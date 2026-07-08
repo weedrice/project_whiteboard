@@ -45,10 +45,10 @@ export function useMailboxResource() {
         send: sendReply,
         reset: resetReplyContent,
     } = useMessageSubmit({
-        getReceiverId: () => replyTarget.value?.partnerUserId,
+        getReceiverId: () => replyTarget.value?.partnerUserId ?? selectedMessage.value?.partnerUserId,
         logMessage: 'Failed to send reply:',
         onSuccess: () => {
-            closeReplyModal()
+            void refreshConversationAfterReply()
         },
     })
     /** Block relationship can make detail/read fail; show toast only when user attempts reply. */
@@ -181,6 +181,22 @@ export function useMailboxResource() {
         return []
     }
 
+    async function refreshConversationAfterReply() {
+        const partnerId = replyTarget.value?.partnerUserId ?? selectedMessage.value?.partnerUserId
+        if (partnerId == null) return
+
+        const controller = new AbortController()
+        try {
+            const conversation = await loadConversationMessages(partnerId, controller)
+            selectedConversationMessages.value = conversation
+            await fetchMessages()
+        } catch (error) {
+            logger.error('Failed to refresh message conversation:', error)
+        } finally {
+            replyTarget.value = selectedMessage.value
+        }
+    }
+
     async function openConversationByPartnerId(partnerId: number) {
         const requestId = ++messageDetailRequestId
         abortMessageDetailRequest()
@@ -229,12 +245,17 @@ export function useMailboxResource() {
             return
         }
         replyTarget.value = msg
-        selectedMessage.value = null
-        isReplyModalOpen.value = true
+        selectedMessage.value = msg
+        isReplyModalOpen.value = false
     }
 
     function closeReplyModal() {
         isReplyModalOpen.value = false
+        replyTarget.value = null
+        resetReplyContent()
+    }
+
+    function cancelInlineReply() {
         replyTarget.value = null
         resetReplyContent()
     }
@@ -280,6 +301,7 @@ export function useMailboxResource() {
         deleteSelectedMessages,
         startReply,
         closeReplyModal,
+        cancelInlineReply,
         sendReply,
     }
 }
