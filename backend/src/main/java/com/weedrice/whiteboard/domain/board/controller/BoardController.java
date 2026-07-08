@@ -6,6 +6,7 @@ import com.weedrice.whiteboard.domain.board.dto.BoardCreateRequest;
 import com.weedrice.whiteboard.domain.board.dto.BoardDetailResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardManagerTransferRequest;
 import com.weedrice.whiteboard.domain.board.dto.BoardListResponse;
+import com.weedrice.whiteboard.domain.board.dto.BoardRecentUpdateResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardSubscriptionOrderRequest;
 import com.weedrice.whiteboard.domain.board.dto.BoardUpdateRequest;
 import com.weedrice.whiteboard.domain.board.dto.CategoryRequest;
@@ -55,6 +56,13 @@ public class BoardController {
             @RequestParam(required = false) List<String> topics,
             @CurrentUserId(required = false) Long userId) {
         return ApiResponse.success(boardService.getRecommendations(topics, userId));
+    }
+
+    @GetMapping("/recent-updates")
+    public ApiResponse<List<BoardRecentUpdateResponse>> getRecentBoardUpdates(
+            @RequestParam List<String> boardUrls,
+            @CurrentUserId(required = false) Long userId) {
+        return ApiResponse.success(boardService.getRecentBoardUpdates(boardUrls, userId));
     }
 
     @GetMapping("/{boardUrl}")

@@ -42,8 +42,16 @@
                                 <Menu class="h-5 w-5" />
                             </div>
                             <div class="flex-1 min-w-0 py-1 sm:py-0">
-                                <div class="text-sm font-medium nv-accent-text truncate">{{
-                                    board.boardName || $t('user.subscriptions.unavailableBoard') }}</div>
+                                <div class="flex items-center gap-2">
+                                    <div class="text-sm font-medium nv-accent-text truncate">{{
+                                        board.boardName || $t('user.subscriptions.unavailableBoard') }}</div>
+                                    <span
+                                        v-if="board.hasNewPosts"
+                                        class="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[var(--nv-accent)] px-1.5 text-[11px] font-semibold text-white"
+                                    >
+                                        {{ formatNewPostCount(board.newPostCount) }}
+                                    </span>
+                                </div>
                                 <p class="mt-0.5 sm:mt-1 text-xs sm:text-sm nv-text-subtle line-clamp-1 sm:line-clamp-2">{{
                                     board.description || $t('user.subscriptions.unavailableBoardDescription') }}</p>
                             </div>
@@ -109,4 +117,9 @@ const {
     handleUnsubscribe,
     isAccessibleSubscription,
 } = useSubscribedBoardsManager()
+
+function formatNewPostCount(count: number) {
+    if (count > 99) return '99+'
+    return String(count)
+}
 </script>

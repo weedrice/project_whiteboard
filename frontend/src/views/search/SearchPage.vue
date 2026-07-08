@@ -142,6 +142,23 @@
         </section>
 
         <section class="rounded-lg border nv-border nv-surface p-4">
+          <h2 class="text-sm font-semibold nv-title">{{ $t('common.tags') }}</h2>
+          <div class="mt-3 flex flex-wrap gap-2">
+            <RouterLink
+              v-for="tag in popularTags"
+              :key="tag.tagId"
+              :to="{ name: 'tag-posts', params: { name: tag.tagName } }"
+              class="rounded-full border nv-border px-3 py-1.5 text-sm nv-text nv-hover-surface no-underline"
+            >
+              #{{ tag.tagName }}
+            </RouterLink>
+            <p v-if="popularTags.length === 0" class="text-sm nv-text-subtle">
+              {{ $t('search.noResults') }}
+            </p>
+          </div>
+        </section>
+
+        <section class="rounded-lg border nv-border nv-surface p-4">
           <div class="flex items-center justify-between gap-2">
             <h2 class="text-sm font-semibold nv-title">{{ $t('search.recentKeywords') }}</h2>
             <button
@@ -196,7 +213,9 @@ import { useQueryClient } from '@tanstack/vue-query'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { searchApi } from '@/api/search'
+import { tagApi } from '@/api/tag'
 import { useSearch } from '@/composables/useSearch'
+import { useApiQuery } from '@/composables/useApiQuery'
 import { searchQueryKeys } from '@/composables/searchQueryKeys'
 import { useSearchRouteQuery } from '@/composables/useSearchRouteQuery'
 import BoardCard from '@/components/board/BoardCard.vue'
@@ -224,6 +243,11 @@ const { data: searchData, isLoading } = useIntegratedSearch(params)
 const semanticParams = computed(() => ({ ...params.value, size: 5, contentType: 'ALL' }))
 const { data: semanticData, isLoading: isSemanticLoading } = useSemanticSearch(semanticParams)
 const { data: popularKeywordData } = usePopularKeywords()
+const { data: popularTagData } = useApiQuery({
+  queryKey: ['tags', 'popular'],
+  request: () => tagApi.getPopularTags(),
+  staleTime: 300_000,
+})
 const { data: recentKeywordData } = useRecentSearches(computed(() => authStore.isAuthenticated))
 const posts = computed(() => searchData.value?.postResults || [])
 const boards = computed(() => searchData.value?.boardResults || [])
@@ -231,6 +255,7 @@ const semanticResults = computed(() => semanticData.value?.content || [])
 const keywordResultsEmpty = computed(() => posts.value.length === 0 && boards.value.length === 0)
 const hasAnyResults = computed(() => !keywordResultsEmpty.value || semanticResults.value.length > 0)
 const popularKeywords = computed(() => popularKeywordData.value || [])
+const popularTags = computed(() => popularTagData.value?.tags || [])
 const recentKeywords = computed(() => recentKeywordData.value?.content || [])
 
 function searchKeyword(keyword: string) {

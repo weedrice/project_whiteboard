@@ -4,6 +4,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import lombok.Getter;
 
+import java.time.LocalDateTime;
+
 @Getter
 public class SubscriptionBoardResponse {
 
@@ -27,6 +29,8 @@ public class SubscriptionBoardResponse {
     private final long subscriberCount;
     private final long postCount;
     private final String adminDisplayName;
+    private final LocalDateTime latestPostAt;
+    private final long newPostCount;
 
     @JsonProperty("isSubscribed")
     private final boolean isSubscribed;
@@ -39,6 +43,9 @@ public class SubscriptionBoardResponse {
 
     @JsonProperty("subscriptionAccessible")
     private final boolean subscriptionAccessible;
+
+    @JsonProperty("hasNewPosts")
+    private final boolean hasNewPosts;
 
     private final AccessState accessState;
     private final InaccessibleReason inaccessibleReason;
@@ -53,6 +60,8 @@ public class SubscriptionBoardResponse {
             long subscriberCount,
             long postCount,
             String adminDisplayName,
+            LocalDateTime latestPostAt,
+            long newPostCount,
             boolean isSubscribed,
             boolean isActive,
             boolean isPublic,
@@ -68,6 +77,9 @@ public class SubscriptionBoardResponse {
         this.subscriberCount = subscriberCount;
         this.postCount = postCount;
         this.adminDisplayName = adminDisplayName;
+        this.latestPostAt = latestPostAt;
+        this.newPostCount = newPostCount;
+        this.hasNewPosts = newPostCount > 0;
         this.isSubscribed = isSubscribed;
         this.isActive = isActive;
         this.isPublic = isPublic;
@@ -77,6 +89,11 @@ public class SubscriptionBoardResponse {
     }
 
     public static SubscriptionBoardResponse accessible(BoardListResponse board) {
+        return accessible(board, BoardActivitySummary.empty(board.getBoardId()));
+    }
+
+    public static SubscriptionBoardResponse accessible(BoardListResponse board, BoardActivitySummary activity) {
+        BoardActivitySummary resolvedActivity = activity != null ? activity : BoardActivitySummary.empty(board.getBoardId());
         return new SubscriptionBoardResponse(
                 board.getBoardId(),
                 board.getBoardName(),
@@ -87,6 +104,8 @@ public class SubscriptionBoardResponse {
                 board.getSubscriberCount(),
                 board.getPostCount(),
                 board.getAdminDisplayName(),
+                resolvedActivity.latestPostAt(),
+                resolvedActivity.newPostCount(),
                 board.isSubscribed(),
                 board.isActive(),
                 board.isPublic(),
@@ -106,6 +125,8 @@ public class SubscriptionBoardResponse {
                 0L,
                 0L,
                 null,
+                null,
+                0L,
                 true,
                 Boolean.TRUE.equals(board.getIsActive()),
                 Boolean.TRUE.equals(board.getIsPublic()),

@@ -123,6 +123,8 @@ class BoardServiceTest {
     private SanctionService sanctionService;
     @Mock
     private SemanticSearchEventPublisher semanticSearchEventPublisher;
+    @Mock
+    private BoardVisitService boardVisitService;
     private BoardResponseReadService boardResponseReadService;
     private BoardResponseAssembler boardResponseAssembler;
 
@@ -152,7 +154,8 @@ class BoardServiceTest {
                 userRepository,
                 boardResponseAssembler,
                 boardAccessPolicy,
-                postService);
+                postService,
+                boardVisitService);
         BoardIconAttachmentService boardIconAttachmentService = new BoardIconAttachmentService(fileService);
         BoardCreationBillingService boardCreationBillingService = new BoardCreationBillingService(
                 pointService,
@@ -205,7 +208,8 @@ class BoardServiceTest {
                 provisioningSideEffectService,
                 subscriptionService,
                 categoryService,
-                boardAccessPolicy);
+                boardAccessPolicy,
+                boardVisitService);
         boardApplicationService = new BoardApplicationService(boardService, queryService);
 
         lenient().when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(anyLong(), any()))
@@ -222,6 +226,8 @@ class BoardServiceTest {
                 .thenReturn(Collections.emptyList());
         lenient().when(adminRepository.findByUserAndBoard_BoardIdInAndIsActive(any(), any(), any()))
                 .thenReturn(Collections.emptyList());
+        lenient().when(boardVisitService.getActivitySummaries(any(), any()))
+                .thenReturn(Collections.emptyMap());
         lenient().when(adminRepository.findByBoardAndRoleAndIsActive(any(), anyString(), any()))
                 .thenReturn(Collections.emptyList());
         lenient().when(adminRepository.findByUserAndBoardAndRole(any(), any(), anyString()))

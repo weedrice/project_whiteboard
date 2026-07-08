@@ -5,6 +5,7 @@ import com.weedrice.whiteboard.domain.board.dto.BoardManagerCandidateResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardCreateRequest;
 import com.weedrice.whiteboard.domain.board.dto.BoardDetailResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardListResponse;
+import com.weedrice.whiteboard.domain.board.dto.BoardRecentUpdateResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardUpdateRequest;
 import com.weedrice.whiteboard.domain.board.dto.CategoryRequest;
 import com.weedrice.whiteboard.domain.board.dto.CategoryResponse;
@@ -33,6 +34,7 @@ public class BoardService {
     private final BoardSubscriptionService subscriptionService;
     private final BoardCategoryService categoryService;
     private final BoardAccessPolicy boardAccessPolicy;
+    private final BoardVisitService boardVisitService;
 
     public BoardService(BoardQueryService queryService,
                           BoardProvisioningService provisioningService,
@@ -40,7 +42,8 @@ public class BoardService {
                           BoardProvisioningSideEffectService provisioningSideEffectService,
                           BoardSubscriptionService subscriptionService,
                           BoardCategoryService categoryService,
-                          BoardAccessPolicy boardAccessPolicy) {
+                          BoardAccessPolicy boardAccessPolicy,
+                          BoardVisitService boardVisitService) {
         this.queryService = queryService;
         this.provisioningService = provisioningService;
         this.boardCommandService = boardCommandService;
@@ -48,6 +51,7 @@ public class BoardService {
         this.subscriptionService = subscriptionService;
         this.categoryService = categoryService;
         this.boardAccessPolicy = boardAccessPolicy;
+        this.boardVisitService = boardVisitService;
     }
 
     public List<BoardListResponse> getActiveBoards(Long userId) {
@@ -88,7 +92,13 @@ public class BoardService {
 
     public BoardDetailResponse getBoardDetails(String boardUrl, Long userId) {
         String normalizedBoardUrl = validatePublicBoardPath(boardUrl);
-        return queryService.getBoardDetails(normalizedBoardUrl, userId);
+        BoardDetailResponse response = queryService.getBoardDetails(normalizedBoardUrl, userId);
+        boardVisitService.touchVisit(userId, normalizedBoardUrl);
+        return response;
+    }
+
+    public List<BoardRecentUpdateResponse> getRecentBoardUpdates(List<String> boardUrls, Long userId) {
+        return queryService.getRecentBoardUpdates(boardUrls, userId);
     }
 
     public List<CategoryResponse> getActiveCategories(String boardUrl, Long userId) {

@@ -29,6 +29,9 @@ export interface SubscriptionBoardListItem {
     subscriberCount: number
     postCount: number
     adminDisplayName?: string | null
+    latestPostAt?: string | null
+    newPostCount: number
+    hasNewPosts: boolean
     isSubscribed: boolean
     isActive: boolean
     isPublic: boolean
@@ -219,6 +222,21 @@ export interface HomeLandingStats {
     activeBoardCount: number
     newMembersLast24Hours: number
     commentsToday: number
+}
+
+export interface BoardRecentUpdate {
+    boardUrl: string
+    latestPostAt?: string | null
+}
+
+export interface TagInfo {
+    tagId: number
+    tagName: string
+    postCount: number
+}
+
+export interface TagResponse {
+    tags: TagInfo[]
 }
 
 export interface PostPoll {

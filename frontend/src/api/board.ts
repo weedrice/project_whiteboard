@@ -7,6 +7,7 @@ import type {
     BoardDetail,
     BoardListItem,
     BoardManagerCandidate,
+    BoardRecentUpdate,
     BoardUpdateData,
     Category,
     PostSummary
@@ -60,6 +61,15 @@ export const boardApi = {
                 ...config?.params,
                 topics
             }
+        }),
+
+    getRecentBoardUpdates: (boardUrls: string[], config?: AxiosRequestConfig) =>
+        api.get<ApiResponse<BoardRecentUpdate[]>>('/boards/recent-updates', {
+            ...config,
+            params: {
+                ...config?.params,
+                boardUrls,
+            },
         }),
 
     // Get board details

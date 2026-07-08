@@ -3,9 +3,11 @@ package com.weedrice.whiteboard.domain.board.service;
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.board.dto.AdminBoardResponse;
+import com.weedrice.whiteboard.domain.board.dto.BoardActivitySummary;
 import com.weedrice.whiteboard.domain.board.dto.BoardManagerCandidateResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardDetailResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardListResponse;
+import com.weedrice.whiteboard.domain.board.dto.BoardRecentUpdateResponse;
 import com.weedrice.whiteboard.domain.board.dto.CategoryResponse;
 import com.weedrice.whiteboard.domain.board.dto.SubscriptionBoardResponse;
 import com.weedrice.whiteboard.domain.board.entity.Board;
@@ -54,6 +56,7 @@ class BoardQueryService {
     private final BoardResponseAssembler boardResponseAssembler;
     private final BoardAccessPolicy boardAccessPolicy;
     private final PostService postService;
+    private final BoardVisitService boardVisitService;
 
     BoardQueryService(BoardRepository boardRepository,
                       BoardCategoryRepository boardCategoryRepository,
@@ -62,7 +65,8 @@ class BoardQueryService {
                       UserRepository userRepository,
                       BoardResponseAssembler boardResponseAssembler,
                       BoardAccessPolicy boardAccessPolicy,
-                      PostService postService) {
+                      PostService postService,
+                      BoardVisitService boardVisitService) {
         this.boardRepository = boardRepository;
         this.boardCategoryRepository = boardCategoryRepository;
         this.boardSubscriptionRepository = boardSubscriptionRepository;
@@ -71,6 +75,7 @@ class BoardQueryService {
         this.boardResponseAssembler = boardResponseAssembler;
         this.boardAccessPolicy = boardAccessPolicy;
         this.postService = postService;
+        this.boardVisitService = boardVisitService;
     }
 
     List<BoardListResponse> getActiveBoards(Long userId) {
@@ -184,12 +189,15 @@ class BoardQueryService {
                     .filter(board -> boardAccessPolicy.canReadBoard(board, user, activeAdminBoardIds))
                     .toList();
             Set<Long> subscribedBoardIds = resolveSubscribedBoardIds(subscriptions.getContent());
+            Map<Long, BoardActivitySummary> activityByBoardId = boardVisitService.getActivitySummaries(
+                    subscribedBoardIds,
+                    user);
             Map<Long, BoardListResponse> readableResponsesByBoardId = boardResponseAssembler
                     .assembleListAllWithSubscribedBoardIds(readableBoards, user, subscribedBoardIds)
                     .stream()
                     .collect(Collectors.toMap(BoardListResponse::getBoardId, Function.identity()));
             List<SubscriptionBoardResponse> responses = subscriptions.getContent().stream()
-                    .map(subscription -> toSubscriptionResponse(subscription, readableResponsesByBoardId))
+                    .map(subscription -> toSubscriptionResponse(subscription, readableResponsesByBoardId, activityByBoardId))
                     .toList();
             return new PageImpl<>(responses, fixedOrderPageable, subscriptions.getTotalElements());
         }
@@ -201,12 +209,52 @@ class BoardQueryService {
                 .map(BoardSubscription::getBoard)
                 .toList();
         Set<Long> subscribedBoardIds = resolveSubscribedBoardIds(visibleSubscriptions.getContent());
+        Map<Long, BoardActivitySummary> activityByBoardId = boardVisitService.getActivitySummaries(
+                subscribedBoardIds,
+                user);
         List<SubscriptionBoardResponse> responses = boardResponseAssembler
                 .assembleListAllWithSubscribedBoardIds(visibleBoards, user, subscribedBoardIds)
                 .stream()
-                .map(SubscriptionBoardResponse::accessible)
+                .map(board -> SubscriptionBoardResponse.accessible(board, activityByBoardId.get(board.getBoardId())))
                 .toList();
         return new PageImpl<>(responses, fixedOrderPageable, visibleSubscriptions.getTotalElements());
+    }
+
+    List<BoardRecentUpdateResponse> getRecentBoardUpdates(List<String> boardUrls, Long userId) {
+        List<String> normalizedUrls = boardUrls == null ? List.of() : boardUrls.stream()
+                .filter(url -> url != null && !url.isBlank())
+                .map(BoardUrlNormalizer::normalizeLookup)
+                .filter(url -> !url.isBlank())
+                .distinct()
+                .limit(20)
+                .toList();
+        if (normalizedUrls.isEmpty()) {
+            return List.of();
+        }
+
+        User currentUser = getCurrentUserByIdOrNull(userId);
+        Map<String, Integer> orderByUrl = new LinkedHashMap<>();
+        for (int index = 0; index < normalizedUrls.size(); index++) {
+            orderByUrl.put(normalizedUrls.get(index), index);
+        }
+        List<Board> readableBoards = boardRepository.findByBoardUrlIn(normalizedUrls).stream()
+                .filter(board -> boardAccessPolicy.canReadBoard(board, currentUser))
+                .sorted((left, right) -> Integer.compare(
+                        orderByUrl.getOrDefault(left.getBoardUrl(), Integer.MAX_VALUE),
+                        orderByUrl.getOrDefault(right.getBoardUrl(), Integer.MAX_VALUE)))
+                .toList();
+        Map<Long, BoardActivitySummary> activityByBoardId = boardVisitService.getActivitySummaries(
+                readableBoards.stream().map(Board::getBoardId).toList(),
+                currentUser);
+
+        return readableBoards.stream()
+                .map(board -> BoardRecentUpdateResponse.builder()
+                        .boardUrl(board.getBoardUrl())
+                        .latestPostAt(activityByBoardId
+                                .getOrDefault(board.getBoardId(), BoardActivitySummary.empty(board.getBoardId()))
+                                .latestPostAt())
+                        .build())
+                .toList();
     }
 
     private Set<Long> resolveSubscribedBoardIds(List<BoardSubscription> subscriptions) {
@@ -294,11 +342,12 @@ class BoardQueryService {
     }
 
     private SubscriptionBoardResponse toSubscriptionResponse(BoardSubscription subscription,
-            Map<Long, BoardListResponse> readableResponsesByBoardId) {
+            Map<Long, BoardListResponse> readableResponsesByBoardId,
+            Map<Long, BoardActivitySummary> activityByBoardId) {
         Board board = subscription.getBoard();
         BoardListResponse readableResponse = readableResponsesByBoardId.get(board.getBoardId());
         if (readableResponse != null) {
-            return SubscriptionBoardResponse.accessible(readableResponse);
+            return SubscriptionBoardResponse.accessible(readableResponse, activityByBoardId.get(board.getBoardId()));
         }
         return SubscriptionBoardResponse.inaccessible(board);
     }

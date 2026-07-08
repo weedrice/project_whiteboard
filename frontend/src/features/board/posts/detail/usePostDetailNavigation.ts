@@ -26,15 +26,8 @@ export function usePostDetailNavigation({
   }
 
   function handleTagClick(tag: string) {
-    const boardUrl = postView.value?.boardUrl
-    if (!boardUrl) return
-
     router.push({
-      path: `/board/${encodePathSegment(boardUrl)}`,
-      query: {
-        q: tag,
-        type: 'TAG'
-      }
+      path: `/tag/${encodePathSegment(tag)}`,
     })
   }
 

@@ -178,6 +178,11 @@ export const routes: RouteRecordRaw[] = [
         component: () => import('@/views/search/SearchPage.vue'),
     },
     {
+        path: '/tag/:name',
+        name: 'tag-posts',
+        component: () => import('@/views/tag/TagPage.vue'),
+    },
+    {
         path: '/:pathMatch(.*)*',
         redirect: { name: 'error', query: { status: '404' } },
     },

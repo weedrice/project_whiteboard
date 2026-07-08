@@ -158,6 +158,9 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
     List<Board> findByBoardIdIn(List<Long> boardIds);
 
     @EntityGraph(attributePaths = "creator")
+    List<Board> findByBoardUrlIn(Collection<String> boardUrls);
+
+    @EntityGraph(attributePaths = "creator")
     List<Board> findAllByOrderBySortOrderAscBoardIdAsc();
 
     @Query("SELECT COALESCE(MAX(b.sortOrder), 0) FROM Board b")

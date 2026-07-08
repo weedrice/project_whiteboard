@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useApiQuery } from '@/composables/useApiQuery'
+import { boardApi } from '@/api/board'
 import { useRecentBoards } from '@/composables/useRecentBoards'
 import { X } from 'lucide-vue-next'
 import { getOptimizedBoardIconUrl, handleImageError } from '@/utils/image'
@@ -8,6 +10,21 @@ import { encodePathSegment } from '@/utils/urlPath'
 const { recentBoards, removeRecentBoard, clearRecentBoards } = useRecentBoards()
 
 const hasBoards = computed(() => recentBoards.value.length > 0)
+const recentBoardUrls = computed(() => recentBoards.value.map(board => board.boardUrl))
+const { data: recentUpdates } = useApiQuery({
+    queryKey: computed(() => ['boards', 'recent-updates', recentBoardUrls.value]),
+    request: () => boardApi.getRecentBoardUpdates(recentBoardUrls.value),
+    enabled: hasBoards,
+    staleTime: 60_000,
+})
+const latestPostAtByBoardUrl = computed(() => new Map(
+    (recentUpdates.value ?? []).map(update => [update.boardUrl, update.latestPostAt])
+))
+
+function hasNewPosts(boardUrl: string, visitedAt: string) {
+    const latestPostAt = latestPostAtByBoardUrl.value.get(boardUrl)
+    return !!latestPostAt && new Date(latestPostAt).getTime() > new Date(visitedAt).getTime()
+}
 </script>
 
 <template>
@@ -22,6 +39,11 @@ const hasBoards = computed(() => recentBoards.value.length > 0)
                             class="recent-board-icon" alt="" @error="handleImageError($event)" />
                         <span v-else class="recent-board-icon-fallback">{{ board.boardName[0] }}</span>
                         <span class="recent-board-name">{{ board.boardName }}</span>
+                        <span
+                            v-if="hasNewPosts(board.boardUrl, board.visitedAt)"
+                            class="ml-1.5 h-2 w-2 rounded-full bg-[var(--nv-accent)]"
+                            aria-hidden="true"
+                        />
                         </router-link>
                         <button type="button" class="recent-board-remove" @click.stop="removeRecentBoard(board.boardUrl)"
                             :aria-label="$t('layout.recentBoards.removeAria', { name: board.boardName })">
