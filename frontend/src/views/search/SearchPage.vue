@@ -31,8 +31,36 @@
             </BaseButton>
           </form>
 
+          <div v-if="hasSearchQuery" class="mt-4 flex flex-wrap items-center gap-2">
+            <BaseButton
+              type="button"
+              variant="secondary"
+              size="sm"
+              @click="isFilterOpen = !isFilterOpen"
+            >
+              {{ $t('search.filterToggle') }}
+            </BaseButton>
+            <div
+              v-if="activeFilterChips.length > 0"
+              class="flex flex-wrap items-center gap-2"
+              :aria-label="$t('search.activeFilters')"
+            >
+              <button
+                v-for="chip in activeFilterChips"
+                :key="chip.key"
+                type="button"
+                class="inline-flex items-center gap-1 rounded-full border nv-border px-3 py-1.5 text-xs font-medium nv-text nv-hover-surface"
+                :aria-label="$t('search.clearFilter', { label: chip.label })"
+                @click="removeFilter(chip.key)"
+              >
+                <span>{{ chip.label }}</span>
+                <span aria-hidden="true">×</span>
+              </button>
+            </div>
+          </div>
+
           <form
-            v-if="hasSearchQuery"
+            v-if="hasSearchQuery && isFilterOpen"
             class="mt-4 grid gap-3 rounded-lg border nv-border nv-surface p-4 sm:grid-cols-2 lg:grid-cols-[1fr_0.9fr_0.9fr_0.9fr_auto]"
             @submit.prevent="applyFilters"
           >
@@ -59,22 +87,22 @@
               </select>
             </label>
             <BaseInput
+              v-if="periodInput === 'CUSTOM'"
               id="search-from-filter"
               v-model="fromInput"
               name="from"
               type="date"
               :label="$t('search.fromDate')"
               inputClass="h-10"
-              :disabled="periodInput !== 'CUSTOM'"
             />
             <BaseInput
+              v-if="periodInput === 'CUSTOM'"
               id="search-to-filter"
               v-model="toInput"
               name="to"
               type="date"
               :label="$t('search.toDate')"
               inputClass="h-10"
-              :disabled="periodInput !== 'CUSTOM'"
             />
             <BaseButton type="submit" variant="secondary" class="h-10 self-end">
               {{ $t('search.applyFilters') }}
@@ -261,16 +289,17 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useQueryClient } from '@tanstack/vue-query'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { searchApi } from '@/api/search'
 import { tagApi } from '@/api/tag'
 import { useSearch } from '@/composables/useSearch'
 import { useApiQuery } from '@/composables/useApiQuery'
 import { searchQueryKeys } from '@/composables/searchQueryKeys'
-import { useSearchRouteQuery } from '@/composables/useSearchRouteQuery'
+import { useSearchRouteQuery, type SearchFilterKey } from '@/composables/useSearchRouteQuery'
 import BoardCard from '@/components/board/BoardCard.vue'
 import PostList from '@/components/board/PostList.vue'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
@@ -283,6 +312,7 @@ import { isInquiryPostItem, resolveBoardRoute, resolvePostDetailRoute } from '@/
 const authStore = useAuthStore()
 const router = useRouter()
 const queryClient = useQueryClient()
+const { t } = useI18n()
 const { useIntegratedSearch, useSemanticSearch, usePopularKeywords, useRecentSearches } = useSearch()
 const {
   searchInput,
@@ -291,11 +321,17 @@ const {
   fromInput,
   toInput,
   searchQuery,
+  authorQuery,
+  periodQuery,
+  fromQuery,
+  toQuery,
   hasSearchQuery,
   params,
   handleSearchSubmit,
   buildFilterQuery,
+  buildQueryWithoutFilter,
 } = useSearchRouteQuery()
+const isFilterOpen = ref(false)
 
 const { data: searchData, isLoading } = useIntegratedSearch(params)
 const semanticParams = computed(() => ({ q: searchQuery.value, size: 5, contentType: 'ALL' }))
@@ -316,11 +352,56 @@ const popularKeywords = computed(() => popularKeywordData.value || [])
 const popularTags = computed(() => popularTagData.value?.tags || [])
 const recentKeywords = computed(() => recentKeywordData.value?.content || [])
 const hasKeywordFilters = computed(() => Boolean(params.value.author || params.value.period))
+const activeFilterChips = computed<Array<{ key: SearchFilterKey, label: string }>>(() => {
+  const chips: Array<{ key: SearchFilterKey, label: string }> = []
+  if (authorQuery.value) {
+    chips.push({
+      key: 'author',
+      label: t('search.authorFilterChip', { value: authorQuery.value }),
+    })
+  }
+  if (periodQuery.value) {
+    chips.push({
+      key: 'period',
+      label: t('search.periodFilterChip', { value: getPeriodLabel(periodQuery.value) }),
+    })
+  }
+  if (periodQuery.value === 'CUSTOM' && (fromQuery.value || toQuery.value)) {
+    chips.push({
+      key: 'dateRange',
+      label: t('search.dateRangeFilterChip', {
+        from: fromQuery.value || '...',
+        to: toQuery.value || '...',
+      }),
+    })
+  }
+  return chips
+})
+
+function getPeriodLabel(period: string) {
+  switch (period) {
+    case 'TODAY':
+      return t('search.periodToday')
+    case 'WEEK':
+      return t('search.periodWeek')
+    case 'MONTH':
+      return t('search.periodMonth')
+    case 'CUSTOM':
+      return t('search.periodCustom')
+    default:
+      return period
+  }
+}
 
 function applyFilters() {
   const query = buildFilterQuery()
   if (!query.q) return
   router.push({ name: 'search', query })
+  isFilterOpen.value = false
+}
+
+function removeFilter(filterKey: SearchFilterKey) {
+  router.push({ name: 'search', query: buildQueryWithoutFilter(filterKey) })
 }
 
 function searchKeyword(keyword: string) {

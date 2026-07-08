@@ -5,6 +5,52 @@ import tseslint from 'typescript-eslint'
 import vitest from '@vitest/eslint-plugin'
 import vueParser from 'vue-eslint-parser'
 
+const hasKoreanText = (value) => /[가-힣]/.test(value)
+const i18nGuardIgnoredFiles = new Set([
+    'src/views/PrivacyPolicy.vue',
+    'src/views/TermsOfService.vue',
+])
+
+const localI18nPlugin = {
+    rules: {
+        'no-bare-korean-in-template': {
+            meta: {
+                type: 'problem',
+                docs: {
+                    description: 'disallow hardcoded Korean text in Vue templates',
+                },
+                schema: [],
+                messages: {
+                    bareText: 'Move Korean display text into locale messages and render it through $t()/t().',
+                },
+            },
+            create(context) {
+                const filename = context.filename.replaceAll('\\', '/')
+                const relativeFilename = filename.slice(filename.lastIndexOf('/src/') + 1)
+                if (i18nGuardIgnoredFiles.has(relativeFilename)) {
+                    return {}
+                }
+
+                const templateVisitor = {
+                    VText(node) {
+                        if (hasKoreanText(node.value.trim())) {
+                            context.report({ node, messageId: 'bareText' })
+                        }
+                    },
+                    'VAttribute[directive=false]'(node) {
+                        const value = node.value?.value
+                        if (typeof value === 'string' && hasKoreanText(value)) {
+                            context.report({ node, messageId: 'bareText' })
+                        }
+                    },
+                }
+
+                return context.sourceCode.parserServices.defineTemplateBodyVisitor?.(templateVisitor) ?? {}
+            },
+        },
+    },
+}
+
 export default [
     {
         ignores: ['dist/**', 'coverage/**', 'node_modules/**'],
@@ -40,6 +86,9 @@ export default [
     },
     {
         files: ['src/**/*.vue'],
+        plugins: {
+            'local-i18n': localI18nPlugin,
+        },
         languageOptions: {
             parser: vueParser,
             parserOptions: {
@@ -68,6 +117,7 @@ export default [
             'vue/multi-word-component-names': 'off',
             'vue/no-unused-vars': 'error',
             'vue/valid-v-memo': 'off',
+            'local-i18n/no-bare-korean-in-template': 'error',
         },
     },
     {

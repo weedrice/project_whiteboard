@@ -4,6 +4,8 @@ import { useSearchSubmitNavigation } from '@/composables/useSearchSubmitNavigati
 import { firstQueryValue } from '@/utils/routeQueryValue'
 import type { SearchParams } from '@/types'
 
+export type SearchFilterKey = 'author' | 'period' | 'dateRange'
+
 const normalizeSearchQuery = (query: Record<string, unknown>) => (
   [
     firstQueryValue(query.q),
@@ -84,6 +86,27 @@ export function useSearchRouteQuery() {
     return query
   }
 
+  function buildQueryWithoutFilter(filterKey: SearchFilterKey) {
+    const query: Record<string, string> = {
+      q: searchQuery.value,
+    }
+
+    if (filterKey !== 'author' && authorQuery.value) {
+      query.author = authorQuery.value
+    }
+
+    if (filterKey !== 'period' && periodQuery.value) {
+      query.period = periodQuery.value
+    }
+
+    if (filterKey !== 'period' && filterKey !== 'dateRange' && periodQuery.value === 'CUSTOM') {
+      if (fromQuery.value) query.from = fromQuery.value
+      if (toQuery.value) query.to = toQuery.value
+    }
+
+    return query
+  }
+
   return {
     searchInput,
     authorInput,
@@ -91,9 +114,14 @@ export function useSearchRouteQuery() {
     fromInput,
     toInput,
     searchQuery,
+    authorQuery,
+    periodQuery,
+    fromQuery,
+    toQuery,
     hasSearchQuery,
     params,
     handleSearchSubmit,
     buildFilterQuery,
+    buildQueryWithoutFilter,
   }
 }

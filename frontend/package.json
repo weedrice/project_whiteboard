@@ -21,6 +21,7 @@
     "sitemap:generate": "node ./scripts/generate-sitemap.mjs",
     "smoke:local": "node ./scripts/smoke-local.mjs",
     "check:colors": "node ./scripts/check-color-tokens.mjs",
+    "check:i18n": "eslint \"src/**/*.vue\" --no-cache",
     "type-check": "vue-tsc --noEmit",
     "test": "vitest",
     "test:run": "vitest run",

@@ -79,4 +79,31 @@ describe('useSearchRouteQuery', () => {
     expect(routerPush).not.toHaveBeenCalled()
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['search', 'integrated'] })
   })
+
+  it('builds route queries for removing individual filters', () => {
+    routeState.query = {
+      q: 'vue',
+      author: 'hong',
+      period: 'CUSTOM',
+      from: '2026-07-01',
+      to: '2026-07-08',
+    }
+    const routeQuery = useSearchRouteQuery()
+
+    expect(routeQuery.buildQueryWithoutFilter('author')).toEqual({
+      q: 'vue',
+      period: 'CUSTOM',
+      from: '2026-07-01',
+      to: '2026-07-08',
+    })
+    expect(routeQuery.buildQueryWithoutFilter('dateRange')).toEqual({
+      q: 'vue',
+      author: 'hong',
+      period: 'CUSTOM',
+    })
+    expect(routeQuery.buildQueryWithoutFilter('period')).toEqual({
+      q: 'vue',
+      author: 'hong',
+    })
+  })
 })

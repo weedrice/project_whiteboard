@@ -210,10 +210,22 @@ export interface SearchMessages {
   fromDate: string
   toDate: string
   applyFilters: string
+  filterToggle: string
+  activeFilters: string
+  clearFilter: string
+  authorFilterChip: string
+  periodFilterChip: string
+  dateRangeFilterChip: string
   keywordFilterNotice: string
   deleteRecent: string
   clearRecent: string
   searchByKeyword: string
+  relatedTags: string
+  tagPostCount: string
+  tagLoadFailed: string
+  tagEmpty: string
+  tagSeoTitle: string
+  tagSeoDescription: string
 }
 
 export interface HomeMessages {

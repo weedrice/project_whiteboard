@@ -23,11 +23,30 @@ vi.mock('vue-router', () => ({
   useRouter: () => ({ push: routeState.routerPush }),
 }))
 
-vi.mock('@tanstack/vue-query', () => ({
-  useQueryClient: () => ({
-    invalidateQueries: routeState.invalidateQueries,
-  }),
-}))
+vi.mock('@tanstack/vue-query', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@tanstack/vue-query')>()
+  return {
+    ...actual,
+    useQueryClient: () => ({
+      invalidateQueries: routeState.invalidateQueries,
+    }),
+  }
+})
+
+vi.mock('vue-i18n', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('vue-i18n')>()
+  return {
+    ...actual,
+    useI18n: () => ({
+      t: (key: string, params?: Record<string, string>) => {
+        if (params?.query) return `${key}:${params.query}`
+        if (params?.value) return `${key}:${params.value}`
+        if (params?.from || params?.to) return `${key}:${params.from ?? ''}:${params.to ?? ''}`
+        return key
+      },
+    }),
+  }
+})
 
 vi.mock('@/stores/auth', () => ({
   useAuthStore: () => ({
@@ -39,6 +58,12 @@ vi.mock('@/api/search', () => ({
   searchApi: {
     deleteRecentSearch: vi.fn(),
     deleteAllRecentSearches: vi.fn(),
+  },
+}))
+
+vi.mock('@/api/tag', () => ({
+  tagApi: {
+    getPopularTags: vi.fn(),
   },
 }))
 
@@ -61,6 +86,12 @@ vi.mock('@/composables/useSearch', () => ({
     useRecentSearches: () => ({
       data: ref({ content: [] }),
     }),
+  }),
+}))
+
+vi.mock('@/composables/useApiQuery', () => ({
+  useApiQuery: () => ({
+    data: ref({ tags: [] }),
   }),
 }))
 
@@ -199,5 +230,34 @@ describe('SearchPage', () => {
     mountPage()
 
     expect(searchState.lastParams?.value.q).toBe('first')
+  })
+
+  it('renders active filter chips and removes filters through the route query', async () => {
+    routeState.query = {
+      q: 'vue',
+      author: 'hong',
+      period: 'CUSTOM',
+      from: '2026-07-01',
+      to: '2026-07-08',
+    }
+
+    const wrapper = mountPage()
+
+    expect(wrapper.text()).toContain('search.authorFilterChip:hong')
+    expect(wrapper.text()).toContain('search.periodFilterChip')
+    expect(wrapper.text()).toContain('search.dateRangeFilterChip:2026-07-01:2026-07-08')
+
+    const authorChip = wrapper.findAll('button').find((button) => button.text().includes('search.authorFilterChip'))
+    await authorChip?.trigger('click')
+
+    expect(routeState.routerPush).toHaveBeenCalledWith({
+      name: 'search',
+      query: {
+        q: 'vue',
+        period: 'CUSTOM',
+        from: '2026-07-01',
+        to: '2026-07-08',
+      },
+    })
   })
 })
