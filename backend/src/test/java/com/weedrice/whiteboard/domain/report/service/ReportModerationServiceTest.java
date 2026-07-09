@@ -1,5 +1,8 @@
 package com.weedrice.whiteboard.domain.report.service;
 
+import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
+import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
+import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.report.dto.MyReportResponse;
 import com.weedrice.whiteboard.domain.report.dto.ReportResponse;
 import com.weedrice.whiteboard.domain.report.entity.Report;
@@ -38,6 +41,10 @@ class ReportModerationServiceTest {
     @Mock
     private UserRepository userRepository;
     @Mock
+    private BoardRepository boardRepository;
+    @Mock
+    private AdminRepository adminRepository;
+    @Mock
     private ReportReadAssembler reportReadAssembler;
     @Mock
     private ReportModerationCommandService reportModerationCommandService;
@@ -53,6 +60,8 @@ class ReportModerationServiceTest {
     void setUp() {
         reportModerationService = new ReportModerationService(
                 reportRepository,
+                boardRepository,
+                new BoardAccessPolicy(adminRepository),
                 new UserReadableResolver(userRepository),
                 reportReadAssembler,
                 reportModerationCommandService,

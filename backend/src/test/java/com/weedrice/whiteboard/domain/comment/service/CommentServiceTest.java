@@ -20,6 +20,7 @@ import com.weedrice.whiteboard.domain.comment.repository.CommentVersionRepositor
 import com.weedrice.whiteboard.domain.notification.constant.NotificationSourceType;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.notification.service.MentionService;
+import com.weedrice.whiteboard.domain.badge.service.BadgeEvaluationService;
 import com.weedrice.whiteboard.domain.point.repository.PointHistoryRepository;
 import com.weedrice.whiteboard.domain.point.service.ContentRewardService;
 import com.weedrice.whiteboard.domain.point.service.PointService;
@@ -120,6 +121,8 @@ class CommentServiceTest {
     private SemanticSearchEventPublisher semanticSearchEventPublisher;
     @Mock
     private MentionService mentionService;
+    @Mock
+    private BadgeEvaluationService badgeEvaluationService;
 
     @BeforeEach
     void setUp() {
@@ -166,7 +169,8 @@ class CommentServiceTest {
                 commentNotificationService,
                 mentionService,
                 semanticSearchEventPublisher,
-                commentLikeCommand);
+                commentLikeCommand,
+                badgeEvaluationService);
         commentService = new CommentService(commentQueryService, commentCommandService);
     }
 

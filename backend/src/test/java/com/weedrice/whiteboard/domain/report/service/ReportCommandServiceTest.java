@@ -41,6 +41,8 @@ class ReportCommandServiceTest {
     private ReportTargetValidator reportTargetValidator;
     @Mock
     private SanctionService sanctionService;
+    @Mock
+    private ReportAutoBlindService reportAutoBlindService;
 
     @InjectMocks
     private ReportCommandService reportCommandService;

@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.agent.service.AgentOwnershipService;
 import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
+import com.weedrice.whiteboard.domain.badge.service.BadgeEvaluationService;
 import com.weedrice.whiteboard.domain.board.constant.BoardPolicyConstants;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
@@ -130,6 +131,12 @@ class PostServiceTest {
     private MentionService mentionService;
     @Mock
     private PollService pollService;
+    @Mock
+    private BadgeEvaluationService badgeEvaluationService;
+    @Mock
+    private PostRelatedReadService postRelatedReadService;
+    @Mock
+    private PostManagerModerationService postManagerModerationService;
     private BoardAccessPolicy boardAccessPolicy;
     private PostAccessPolicy postAccessPolicy;
     private PostSummaryAssembler postSummaryAssembler;
@@ -229,7 +236,8 @@ class PostServiceTest {
                 postAccessPolicy,
                 reactionWriter,
                 postViewCountWriter,
-                entityManager);
+                entityManager,
+                badgeEvaluationService);
         postLatestReadService = new PostLatestReadService(
                 postRepository,
                 userBlockService,
@@ -274,7 +282,8 @@ class PostServiceTest {
                 postVersionRecorder,
                 postDraftPublicationService,
                 mentionService,
-                pollService);
+                pollService,
+                badgeEvaluationService);
         postCommandService = new PostCommandService(
                 postRepository,
                 boardRepository,
@@ -315,7 +324,9 @@ class PostServiceTest {
                 postCommandService,
                 postFacadeReadService,
                 postDetailContextResolver,
-                mock(PostSeriesService.class));
+                mock(PostSeriesService.class),
+                postRelatedReadService,
+                postManagerModerationService);
 
         // GlobalConfigService 기본 mock 설정 - lenient()로 설정하여 일부 테스트에서 사용되지 않아도 허용
         lenient().when(globalConfigService.getConfig(anyString())).thenReturn("50");
@@ -874,6 +885,7 @@ class PostServiceTest {
         assertThat(pageable.getPageNumber()).isZero();
         assertThat(pageable.getPageSize()).isEqualTo(20);
         assertThat(pageable.getSort()).isEqualTo(Sort.by(
+                Sort.Order.desc("pinnedAt"),
                 Sort.Order.desc("createdAt"),
                 Sort.Order.desc("postId")));
         verify(searchRecordEventPublisher, never()).publish(any(), anyString());
@@ -953,6 +965,7 @@ class PostServiceTest {
                 pageableCaptor.capture());
         assertThat(pageableCaptor.getValue().getSort()).isEqualTo(Sort.by(
                 Sort.Order.desc("likeCount"),
+                Sort.Order.desc("pinnedAt"),
                 Sort.Order.desc("createdAt"),
                 Sort.Order.desc("postId")));
     }
@@ -3289,6 +3302,7 @@ class PostServiceTest {
                 pageableCaptor.capture());
         assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(5);
         assertThat(pageableCaptor.getValue().getSort()).isEqualTo(Sort.by(
+                Sort.Order.desc("pinnedAt"),
                 Sort.Order.desc("createdAt"),
                 Sort.Order.desc("postId")));
     }

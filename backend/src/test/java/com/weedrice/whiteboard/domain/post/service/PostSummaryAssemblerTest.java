@@ -311,6 +311,7 @@ class PostSummaryAssemblerTest {
                 false,
                 true,
                 null,
+                null,
                 "inquiry",
                 "Inquiry",
                 "icon.png",

@@ -5,6 +5,7 @@ import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.tag.dto.TagResponse;
 import com.weedrice.whiteboard.domain.tag.service.TagService;
+import com.weedrice.whiteboard.domain.tag.service.TagSuggestionService;
 import com.weedrice.whiteboard.global.config.CurrentUserIdWebMvcConfig;
 import com.weedrice.whiteboard.global.security.CurrentUserIdArgumentResolver;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
@@ -79,6 +80,9 @@ class TagControllerTest {
 
     @MockitoBean
     private TagService tagService;
+
+    @MockitoBean
+    private TagSuggestionService tagSuggestionService;
 
     @MockitoBean
     private PostService postService;
