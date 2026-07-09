@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.report.service;
 
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
+import com.weedrice.whiteboard.domain.moderation.service.ModerationAuditLogService;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.report.entity.Report;
@@ -27,6 +28,7 @@ class ReportAutoBlindService {
     private final ReportRepository reportRepository;
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
+    private final ModerationAuditLogService moderationAuditLogService;
     private final GlobalConfigService globalConfigService;
     private final Clock clock;
 
@@ -63,6 +65,12 @@ class ReportAutoBlindService {
             return;
         }
         post.blind(AUTO_REPORT_REASON, LocalDateTime.now(clock));
+        moderationAuditLogService.recordSystemAction(
+                ModerationAuditLogService.ACTION_POST_AUTO_BLIND,
+                ModerationAuditLogService.TARGET_TYPE_POST,
+                post.getPostId(),
+                post.getBoard(),
+                AUTO_REPORT_REASON);
     }
 
     private void blindComment(Long commentId) {
@@ -72,5 +80,11 @@ class ReportAutoBlindService {
             return;
         }
         comment.blind(AUTO_REPORT_REASON, LocalDateTime.now(clock));
+        moderationAuditLogService.recordSystemAction(
+                ModerationAuditLogService.ACTION_COMMENT_AUTO_BLIND,
+                ModerationAuditLogService.TARGET_TYPE_COMMENT,
+                comment.getCommentId(),
+                comment.getPost().getBoard(),
+                AUTO_REPORT_REASON);
     }
 }
