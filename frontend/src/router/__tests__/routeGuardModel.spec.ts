@@ -5,6 +5,7 @@ import {
     getRouteFetchErrorStatus,
     getStringRouteParam,
     isReservedBoardUrl,
+    shouldRedirectToOnboarding,
 } from '@/router/routeGuardModel'
 
 function axiosStatusError(status: number) {
@@ -42,5 +43,12 @@ describe('routeGuardModel', () => {
         expect(isReservedBoardUrl('Inquiry')).toBe(true)
         expect(isReservedBoardUrl('free')).toBe(false)
         expect(isReservedBoardUrl('')).toBe(false)
+    })
+
+    it('detects routes that should enter onboarding', () => {
+        expect(shouldRedirectToOnboarding('mypage', false, null)).toBe(true)
+        expect(shouldRedirectToOnboarding('onboarding', false, null)).toBe(false)
+        expect(shouldRedirectToOnboarding('mypage', true, null)).toBe(false)
+        expect(shouldRedirectToOnboarding('mypage', false, '2026-07-09T00:00:00')).toBe(false)
     })
 })

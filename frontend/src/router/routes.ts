@@ -73,6 +73,12 @@ export const routes: RouteRecordRaw[] = [
         component: () => import('@/views/user/UserProfilePage.vue'),
     },
     {
+        path: '/onboarding',
+        name: 'onboarding',
+        component: () => import('@/views/onboarding/OnboardingPage.vue'),
+        meta: { requiresAuth: true, skipOnboarding: true },
+    },
+    {
         path: '/board/create',
         name: 'board-create',
         component: () => import('@/views/board/BoardCreate.vue'),

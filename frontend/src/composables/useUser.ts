@@ -214,6 +214,17 @@ export function useUser() {
         })
     }
 
+    const useCompleteOnboarding = () => {
+        return useMutation({
+            mutationFn: async () => {
+                return resolveResponseData(userApi.completeOnboarding())
+            },
+            onSuccess: () => {
+                queryClient.invalidateQueries({ queryKey: userSettingsQueryKey })
+            }
+        })
+    }
+
     const useCreateKeywordSubscription = () => {
         return useMutation({
             mutationFn: async (data: KeywordSubscriptionPayload) => {
@@ -356,6 +367,7 @@ export function useUser() {
         useUpdatePassword,
         useDeleteAccount,
         useUpdateUserSettings,
+        useCompleteOnboarding,
         useUpdateNotificationSettings,
         useCreateKeywordSubscription,
         useDeleteKeywordSubscription,

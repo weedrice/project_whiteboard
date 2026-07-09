@@ -1,12 +1,16 @@
 import type { NavigationGuardNext, RouteLocationNormalized } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { userApi } from '@/api/user'
+import { unwrapAxiosApiData } from '@/api/response'
+import { userSettingsQueryKey } from '@/composables/useUser'
+import { queryClient } from '@/queryClient'
 import {
     ensureHydratedAuth,
     guardBoardAccess,
     guardEmoticonOwner,
     guardPostAuthor,
 } from '@/router/resourceAccessGuards'
-import { getStringRouteParam, isReservedBoardUrl } from '@/router/routeGuardModel'
+import { getStringRouteParam, isReservedBoardUrl, shouldRedirectToOnboarding } from '@/router/routeGuardModel'
 import { saveLoginRedirect } from '@/utils/authRedirect'
 
 declare module 'vue-router' {
@@ -19,6 +23,7 @@ declare module 'vue-router' {
         requiresBoardAdmin?: boolean
         requiresEmoticonOwner?: boolean
         requiresPostAuthor?: boolean
+        skipOnboarding?: boolean
     }
 }
 
@@ -59,6 +64,21 @@ export function createAppNavigationGuard() {
         if (to.meta.guestOnly && authStore.isAuthenticated && authStore.user && to.name !== 'oauth-callback') {
             next({ name: 'home' })
             return
+        }
+
+        if (authStore.isAuthenticated) {
+            try {
+                const settings = await queryClient.fetchQuery({
+                    queryKey: userSettingsQueryKey,
+                    queryFn: async () => unwrapAxiosApiData(await userApi.getUserSettings()),
+                })
+                if (shouldRedirectToOnboarding(to.name, to.meta.skipOnboarding, settings?.onboardingCompletedAt)) {
+                    next({ name: 'onboarding', query: { redirect: to.fullPath } })
+                    return
+                }
+            } catch {
+                // Settings failures should not block route entry.
+            }
         }
 
         if (!await guardEmoticonOwner(to, next)) return

@@ -7,6 +7,7 @@ import logger from '@/utils/logger'
 import { boardApi } from '@/api/board'
 import { emoticonApi } from '@/api/emoticon'
 import { postApi } from '@/api/post'
+import { userApi } from '@/api/user'
 import { postDetailQueryKey } from '@/features/board/posts/queries/postQueryKeys'
 import i18n from '@/i18n'
 import { useToastStore } from '@/stores/toast'
@@ -47,6 +48,12 @@ vi.mock('@/api/post', () => ({
     }
 }))
 
+vi.mock('@/api/user', () => ({
+    userApi: {
+        getUserSettings: vi.fn()
+    }
+}))
+
 // Mock View Components to prevent API calls during routing
 vi.mock('@/views/PrivacyPolicy.vue', () => ({ default: { template: '<div>PrivacyPolicy</div>' } }))
 vi.mock('@/views/TermsOfService.vue', () => ({ default: { template: '<div>TermsOfService</div>' } }))
@@ -61,6 +68,7 @@ vi.mock('@/views/user/MyNotifications.vue', () => ({ default: { template: '<div>
 vi.mock('@/views/user/MyReports.vue', () => ({ default: { template: '<div>MyReports</div>' } }))
 vi.mock('@/views/user/BlockList.vue', () => ({ default: { template: '<div>BlockList</div>' } }))
 vi.mock('@/views/user/SubscribedBoards.vue', () => ({ default: { template: '<div>SubscribedBoards</div>' } }))
+vi.mock('@/views/onboarding/OnboardingPage.vue', () => ({ default: { template: '<div>OnboardingPage</div>' } }))
 vi.mock('@/views/home/HomeFeed.vue', () => ({ default: { template: '<div>HomeFeed</div>' } }))
 vi.mock('@/views/search/SearchPage.vue', () => ({ default: { template: '<div>SearchPage</div>' } }))
 vi.mock('@/views/search/RecentViewed.vue', () => ({ default: { template: '<div>RecentViewed</div>' } }))
@@ -139,6 +147,18 @@ const postDetailResponse = (authorUserId: number) =>
             boardUrl: 'open',
         },
         createdAt: '2026-05-27T00:00:00Z',
+    })
+
+const completedUserSettingsResponse = () =>
+    apiDataResponse<typeof userApi.getUserSettings>({
+        theme: 'LIGHT',
+        language: 'KO',
+        timezone: 'Asia/Seoul',
+        hideNsfw: false,
+        emailNotification: true,
+        pushNotification: true,
+        pushEnabled: false,
+        onboardingCompletedAt: '2026-07-09T00:00:00',
     })
 
 const emoticonDetailResponse = (
@@ -230,6 +250,7 @@ describe('Router Navigation Guards', () => {
         }))
         vi.mocked(emoticonApi.getEmoticonData).mockResolvedValue(emoticonDetailResponse(1))
         vi.mocked(postApi.getPost).mockResolvedValue(postDetailResponse(1))
+        vi.mocked(userApi.getUserSettings).mockResolvedValue(completedUserSettingsResponse())
         history.pushState({}, '', '/')
     })
 
@@ -245,6 +266,46 @@ describe('Router Navigation Guards', () => {
         mockAuthStore.user = { role: 'USER' }
         await router.push('/mypage')
         expect(router.currentRoute.value.name).toBe('mypage')
+    })
+
+    it('redirects authenticated users to onboarding until setup is completed', async () => {
+        mockAuthStore.isAuthenticated = true
+        mockAuthStore.user = { role: 'USER' }
+        await router.push('/')
+        vi.mocked(userApi.getUserSettings).mockResolvedValueOnce(apiDataResponse<typeof userApi.getUserSettings>({
+            theme: 'LIGHT',
+            language: 'KO',
+            timezone: 'Asia/Seoul',
+            hideNsfw: false,
+            emailNotification: true,
+            pushNotification: true,
+            pushEnabled: false,
+            onboardingCompletedAt: null,
+        }))
+
+        await router.push('/mypage')
+
+        expect(router.currentRoute.value.name).toBe('onboarding')
+        expect(router.currentRoute.value.query.redirect).toBe('/mypage')
+    })
+
+    it('does not redirect onboarding route to itself', async () => {
+        mockAuthStore.isAuthenticated = true
+        mockAuthStore.user = { role: 'USER' }
+        vi.mocked(userApi.getUserSettings).mockResolvedValueOnce(apiDataResponse<typeof userApi.getUserSettings>({
+            theme: 'LIGHT',
+            language: 'KO',
+            timezone: 'Asia/Seoul',
+            hideNsfw: false,
+            emailNotification: true,
+            pushNotification: true,
+            pushEnabled: false,
+            onboardingCompletedAt: null,
+        }))
+
+        await router.push('/onboarding')
+
+        expect(router.currentRoute.value.name).toBe('onboarding')
     })
 
     it('redirects to home if guestOnly and authenticated', async () => {

@@ -19,6 +19,22 @@ import type {
 } from './community'
 import type { AdminMessages } from './admin'
 
+export interface OnboardingMessages {
+  kicker: string
+  title: string
+  description: string
+  recommendedBoards: string
+  subscribe: string
+  subscribed: string
+  pushTitle: string
+  pushDescription: string
+  enablePush: string
+  pushEnabled: string
+  pushFailed: string
+  skip: string
+  finish: string
+}
+
 export interface Messages {
   common: CommonMessages
   search: SearchMessages
@@ -32,6 +48,7 @@ export interface Messages {
   report: ReportMessages
   emoticon: EmoticonMessages
   admin: AdminMessages
+  onboarding: OnboardingMessages
 }
 
 export type SupportedLocale = 'ko' | 'en'

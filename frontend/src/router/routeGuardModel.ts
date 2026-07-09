@@ -18,3 +18,13 @@ export function getRouteFetchErrorStatus(error: unknown): string {
 export function isReservedBoardUrl(boardUrl: string): boolean {
     return boardUrl.toLowerCase() === 'inquiry'
 }
+
+export function shouldRedirectToOnboarding(
+    routeName: unknown,
+    skipOnboarding: boolean | undefined,
+    onboardingCompletedAt: string | null | undefined,
+): boolean {
+    return routeName !== 'onboarding'
+        && !skipOnboarding
+        && !onboardingCompletedAt
+}

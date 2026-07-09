@@ -11,6 +11,7 @@ import { user } from './user'
 import { report } from './report'
 import { emoticon } from './emoticon'
 import { admin } from './admin'
+import { onboarding, onboardingEn } from './onboarding'
 
 export const messages = {
   ko: {
@@ -26,6 +27,7 @@ export const messages = {
     report,
     emoticon,
     admin,
+    onboarding,
   },
   en: {
     common: commonEn,
@@ -40,6 +42,7 @@ export const messages = {
     report,
     emoticon,
     admin,
+    onboarding: onboardingEn,
   },
 } satisfies LocaleMessages
 
