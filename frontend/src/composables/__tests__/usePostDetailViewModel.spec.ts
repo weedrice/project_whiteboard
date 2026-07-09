@@ -48,7 +48,12 @@ describe('toPostDetailViewModel', () => {
       boardName: 'Free board',
       boardUrl: 'free',
       authorUserId: 7,
-      authorDisplayName: 'Author'
+      authorDisplayName: 'Author',
+      representativeBadge: null,
+      isBlinded: false,
+      blindReason: null,
+      pinnedAt: null,
+      isBoardAdmin: false
     })
   })
 

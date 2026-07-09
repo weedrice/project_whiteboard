@@ -265,9 +265,11 @@ const stubs = {
 
 const mockAddToast = vi.fn()
 const mockCreateMutate = vi.fn()
+const mockCreateScheduledMutate = vi.fn()
 const mockUpdateMutate = vi.fn()
 const mockUsePostDetail = vi.fn()
 const mockUseCreatePost = vi.fn()
+const mockUseCreateScheduledPost = vi.fn()
 const mockUseUpdatePost = vi.fn()
 const mockSaveDraftMutateAsync = vi.fn()
 const mockDeleteDraftMutateAsync = vi.fn()
@@ -315,6 +317,7 @@ const postRef = ref<unknown>(null)
 const isBoardLoadingRef = ref(false)
 const isPostLoadingRef = ref(false)
 const isCreatePendingRef = ref(false)
+const isCreateScheduledPendingRef = ref(false)
 const isUpdatePendingRef = ref(false)
 const mountedWrappers: Array<ReturnType<typeof mount>> = []
 
@@ -509,6 +512,7 @@ export const resetPostFormTestState = () => {
     isBoardLoadingRef.value = false
     isPostLoadingRef.value = false
     isCreatePendingRef.value = false
+    isCreateScheduledPendingRef.value = false
     isUpdatePendingRef.value = false
 
     mockPostFormAuthStore({ user: { role: 'USER' } })
@@ -521,6 +525,7 @@ export const resetPostFormTestState = () => {
     vi.mocked(usePost).mockReturnValue({
         usePostDetail: mockUsePostDetail,
         useCreatePost: mockUseCreatePost,
+        useCreateScheduledPost: mockUseCreateScheduledPost,
         useUpdatePost: mockUseUpdatePost,
         useSaveDraft: () => ({ isPending: isSaveDraftPendingRef, mutateAsync: mockSaveDraftMutateAsync }),
         useDeleteDraft: () => ({ isPending: isDeleteDraftPendingRef, mutateAsync: mockDeleteDraftMutateAsync }),
@@ -528,6 +533,7 @@ export const resetPostFormTestState = () => {
 
     mockUsePostDetail.mockImplementation(() => ({ data: postRef, isLoading: isPostLoadingRef }))
     mockUseCreatePost.mockImplementation(() => ({ mutate: mockCreateMutate, isPending: isCreatePendingRef }))
+    mockUseCreateScheduledPost.mockImplementation(() => ({ mutate: mockCreateScheduledMutate, isPending: isCreateScheduledPendingRef }))
     mockUseUpdatePost.mockImplementation(() => ({ mutate: mockUpdateMutate, isPending: isUpdatePendingRef }))
     mockSaveDraftMutateAsync.mockResolvedValue({
         data: {
@@ -565,8 +571,10 @@ export {
     getLastUpdatePostVariables,
     isBoardLoadingRef,
     isCreatePendingRef,
+    isCreateScheduledPendingRef,
     isUpdatePendingRef,
     mockAddToast,
+    mockCreateScheduledMutate,
     mockCreateMutate,
     mockSaveDraftMutateAsync,
     mockUpdateMutate,

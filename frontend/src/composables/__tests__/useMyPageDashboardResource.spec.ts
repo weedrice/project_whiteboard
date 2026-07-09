@@ -16,6 +16,15 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('@tanstack/vue-query', () => ({
+  QueryCache: class QueryCache {
+    constructor(_options?: unknown) {}
+  },
+  MutationCache: class MutationCache {
+    constructor(_options?: unknown) {}
+  },
+  QueryClient: class QueryClient {
+    constructor(_options?: unknown) {}
+  },
   useQueryClient: () => ({
     fetchQuery: mocks.fetchQuery,
     setQueryData: mocks.setQueryData,
