@@ -5,14 +5,37 @@ import { Users, FileText, Activity } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import AdminPanel from '@/components/admin/AdminPanel.vue'
 import AdminMetricCard from '@/components/admin/AdminMetricCard.vue'
-import type { DashboardStats } from '@/types/admin'
+import type { DashboardStats, ModerationAuditLog, ModerationAuditSearchParams } from '@/types/admin'
+import { formatDateTimeOrDash } from '@/utils/date'
+import type { SupportedLocale } from '@/locales/types'
 
-const { t } = useI18n()
-const { useDashboardStats, useDeepDashboardStats } = useAdmin()
+const { t, locale } = useI18n()
+const admin = useAdmin()
+const { useDashboardStats, useDeepDashboardStats } = admin
 const selectedDays = ref<30 | 90>(30)
+const auditAction = ref('')
+const auditActorType = ref('')
+const auditBoardUrl = ref('')
+const auditActorUserId = ref('')
+const auditStartDate = ref('')
+const auditEndDate = ref('')
 
 const { data: statsData } = useDashboardStats()
 const { data: deepStatsData } = useDeepDashboardStats(selectedDays)
+const auditParams = computed<ModerationAuditSearchParams>(() => ({
+  page: 0,
+  size: 10,
+  sort: 'createdAt,desc',
+  action: auditAction.value || undefined,
+  actorType: auditActorType.value || undefined,
+  boardUrl: auditBoardUrl.value.trim() || undefined,
+  actorUserId: auditActorUserId.value ? Number(auditActorUserId.value) : undefined,
+  startDate: auditStartDate.value || undefined,
+  endDate: auditEndDate.value || undefined,
+}))
+const { data: auditData } = admin.useModerationAudits
+  ? admin.useModerationAudits(auditParams)
+  : { data: computed(() => ({ content: [] })) }
 
 const stats = computed(() => {
   const data = (statsData.value || {}) as Partial<DashboardStats>
@@ -52,6 +75,13 @@ const moderationItems = computed(() => {
     { label: t('admin.dashboard.managerBlinds'), value: data?.managerBlinds ?? 0 },
   ]
 })
+const auditLogs = computed(() => auditData.value?.content ?? [])
+const actorLabel = (audit: ModerationAuditLog) => {
+  if (audit.actorType === 'SYSTEM') return 'SYSTEM'
+  return audit.actorDisplayName || (audit.actorUserId ? `#${audit.actorUserId}` : '-')
+}
+const targetLabel = (audit: ModerationAuditLog) => `${audit.targetType} #${audit.targetId}`
+const formattedDate = (dateString: string) => formatDateTimeOrDash(dateString, locale.value as SupportedLocale)
 </script>
 
 <template>
@@ -156,6 +186,66 @@ const moderationItems = computed(() => {
           </li>
         </ul>
         <p v-else class="px-4 py-5 text-center nv-text-subtle">{{ t('admin.dashboard.noActivity') }}</p>
+      </AdminPanel>
+
+      <AdminPanel class="mt-5" padding="none" overflow="hidden">
+        <div class="border-b nv-border px-4 py-3">
+          <h3 class="text-base font-medium nv-title">{{ t('admin.dashboard.auditLogs') }}</h3>
+          <div class="mt-3 grid grid-cols-1 gap-2 md:grid-cols-3 xl:grid-cols-6">
+            <select v-model="auditAction" class="form-select text-sm">
+              <option value="">{{ t('admin.common.all') }}</option>
+              <option value="POST_PIN">POST_PIN</option>
+              <option value="POST_UNPIN">POST_UNPIN</option>
+              <option value="POST_BLIND">POST_BLIND</option>
+              <option value="POST_UNBLIND">POST_UNBLIND</option>
+              <option value="POST_AUTO_BLIND">POST_AUTO_BLIND</option>
+              <option value="COMMENT_AUTO_BLIND">COMMENT_AUTO_BLIND</option>
+            </select>
+            <select v-model="auditActorType" class="form-select text-sm">
+              <option value="">{{ t('admin.dashboard.auditActorType') }}</option>
+              <option value="USER">USER</option>
+              <option value="SYSTEM">SYSTEM</option>
+            </select>
+            <input
+              v-model="auditBoardUrl"
+              class="form-input text-sm"
+              :placeholder="t('admin.dashboard.auditBoardUrl')"
+            >
+            <input
+              v-model="auditActorUserId"
+              class="form-input text-sm"
+              inputmode="numeric"
+              :placeholder="t('admin.dashboard.auditActorUserId')"
+            >
+            <input v-model="auditStartDate" type="date" class="form-input text-sm" :aria-label="t('admin.dashboard.auditStartDate')">
+            <input v-model="auditEndDate" type="date" class="form-input text-sm" :aria-label="t('admin.dashboard.auditEndDate')">
+          </div>
+        </div>
+        <div v-if="auditLogs.length > 0" class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-[var(--nv-border)] text-sm">
+            <thead class="nv-surface-muted nv-text-subtle">
+              <tr>
+                <th class="px-4 py-3 text-left font-medium">{{ t('admin.dashboard.auditAction') }}</th>
+                <th class="px-4 py-3 text-left font-medium">{{ t('admin.dashboard.auditActor') }}</th>
+                <th class="px-4 py-3 text-left font-medium">{{ t('admin.dashboard.auditTarget') }}</th>
+                <th class="px-4 py-3 text-left font-medium">{{ t('admin.dashboard.auditBoardUrl') }}</th>
+                <th class="px-4 py-3 text-left font-medium">{{ t('admin.dashboard.auditReason') }}</th>
+                <th class="px-4 py-3 text-left font-medium">{{ t('admin.dashboard.auditCreatedAt') }}</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-[var(--nv-border)]">
+              <tr v-for="audit in auditLogs" :key="audit.auditId">
+                <td class="px-4 py-3 font-medium nv-title">{{ audit.action }}</td>
+                <td class="px-4 py-3 nv-text-subtle">{{ actorLabel(audit) }}</td>
+                <td class="px-4 py-3 nv-text-subtle">{{ targetLabel(audit) }}</td>
+                <td class="px-4 py-3 nv-text-subtle">{{ audit.boardUrl || '-' }}</td>
+                <td class="px-4 py-3 nv-text-subtle">{{ audit.reason || '-' }}</td>
+                <td class="px-4 py-3 nv-text-subtle">{{ formattedDate(audit.createdAt) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p v-else class="px-4 py-5 text-center nv-text-subtle">{{ t('admin.dashboard.auditEmpty') }}</p>
       </AdminPanel>
     </div>
   </div>

@@ -16,6 +16,9 @@ export const adminQueryKeys = {
         computed(() => ['admin', 'users', 'detail', userId.value, 'subscriptions', params.value ?? {}] as const),
     reportsRoot: ['admin', 'reports'] as const,
     reports: (params: Ref<unknown>) => computed(() => ['admin', 'reports', params.value ?? {}] as const),
+    moderationAuditsRoot: ['admin', 'moderation-audits'] as const,
+    moderationAudits: (params: Ref<unknown>) =>
+        computed(() => ['admin', 'moderation-audits', params.value ?? {}] as const),
     ipBlocksRoot: ['admin', 'ip-blocks'] as const,
     ipBlocks: (params: Ref<unknown>) => computed(() => ['admin', 'ip-blocks', params.value ?? {}] as const),
     configs: ['admin', 'configs'] as const,

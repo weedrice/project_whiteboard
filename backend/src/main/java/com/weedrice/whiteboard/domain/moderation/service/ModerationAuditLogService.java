@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.moderation.dto.ModerationAuditLogResponse;
+import com.weedrice.whiteboard.domain.moderation.dto.ModerationAuditLogSearchCondition;
 import com.weedrice.whiteboard.domain.moderation.entity.ModerationAuditLog;
 import com.weedrice.whiteboard.domain.moderation.repository.ModerationAuditLogRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -16,6 +17,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
@@ -72,24 +76,74 @@ public class ModerationAuditLogService {
                 .build());
     }
 
-    public Page<ModerationAuditLogResponse> getAdminAudits(Pageable pageable) {
-        return moderationAuditLogRepository.findAllBy(pageable)
+    public Page<ModerationAuditLogResponse> getAdminAudits(
+            String action,
+            String actorType,
+            Long boardId,
+            String boardUrl,
+            Long actorUserId,
+            LocalDate startDate,
+            LocalDate endDate,
+            Pageable pageable) {
+        ModerationAuditLogSearchCondition condition = ModerationAuditLogSearchCondition.builder()
+                .action(normalizeFilter(action))
+                .actorType(normalizeFilter(actorType))
+                .boardId(boardId)
+                .boardUrl(normalizeFilter(boardUrl))
+                .actorUserId(actorUserId)
+                .createdFrom(toStartOfDay(startDate))
+                .createdTo(toExclusiveEnd(endDate))
+                .build();
+        validateDateRange(condition.createdFrom(), condition.createdTo());
+        return moderationAuditLogRepository.search(condition, pageable)
                 .map(ModerationAuditLogResponse::from);
     }
 
     public Page<ModerationAuditLogResponse> getBoardManagerAudits(
             Long managerUserId,
             String boardUrl,
+            String action,
+            String actorType,
+            Long actorUserId,
+            LocalDate startDate,
+            LocalDate endDate,
             Pageable pageable) {
         User manager = userReadableResolver.resolve(managerUserId);
         Board board = boardRepository.findByBoardUrl(boardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
         boardAccessPolicy.validateBoardAdmin(board, manager);
-        return moderationAuditLogRepository.findByBoard_BoardId(board.getBoardId(), pageable)
+        ModerationAuditLogSearchCondition condition = ModerationAuditLogSearchCondition.builder()
+                .action(normalizeFilter(action))
+                .actorType(normalizeFilter(actorType))
+                .boardId(board.getBoardId())
+                .actorUserId(actorUserId)
+                .createdFrom(toStartOfDay(startDate))
+                .createdTo(toExclusiveEnd(endDate))
+                .build();
+        validateDateRange(condition.createdFrom(), condition.createdTo());
+        return moderationAuditLogRepository.search(condition, pageable)
                 .map(ModerationAuditLogResponse::from);
     }
 
     private String normalizeReason(String reason) {
         return reason == null || reason.isBlank() ? null : reason.trim();
+    }
+
+    private String normalizeFilter(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
+    }
+
+    private LocalDateTime toStartOfDay(LocalDate date) {
+        return date == null ? null : date.atStartOfDay();
+    }
+
+    private LocalDateTime toExclusiveEnd(LocalDate date) {
+        return date == null ? null : date.plusDays(1).atStartOfDay();
+    }
+
+    private void validateDateRange(LocalDateTime from, LocalDateTime to) {
+        if (from != null && to != null && !from.isBefore(to)) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
     }
 }

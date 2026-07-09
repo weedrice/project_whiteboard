@@ -1,6 +1,6 @@
 import api from '@/api'
 import type { AxiosRequestConfig } from 'axios'
-import type { ApiResponse, IpBlock, PageResponse, Report } from '@/types'
+import type { ApiResponse, IpBlock, ModerationAuditLog, ModerationAuditSearchParams, PageResponse, Report } from '@/types'
 import { encodePathSegment } from '@/utils/urlPath'
 import type {
     IpBlockData,
@@ -23,5 +23,8 @@ export const adminModerationApi = {
     },
     resolveReport(reportId: string | number, data: ReportResolveData) {
         return api.put<ApiResponse<void>>(`/admin/reports/${encodePathSegment(reportId)}`, data)
+    },
+    getModerationAudits(params: ModerationAuditSearchParams, config?: AxiosRequestConfig) {
+        return api.get<ApiResponse<PageResponse<ModerationAuditLog>>>('/admin/moderation-audits', { ...config, params })
     },
 }

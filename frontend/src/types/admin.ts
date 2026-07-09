@@ -49,6 +49,35 @@ export interface DeepDashboardStats {
     }
 }
 
+export interface ModerationAuditLog {
+    auditId: number
+    actorType: 'USER' | 'SYSTEM' | string
+    actorUserId: number | null
+    actorDisplayName: string | null
+    adminId: number | null
+    action: string
+    targetType: string
+    targetId: number
+    boardId: number | null
+    boardName: string | null
+    boardUrl: string | null
+    reason: string | null
+    createdAt: string
+}
+
+export interface ModerationAuditSearchParams {
+    page?: number
+    size?: number
+    action?: string
+    actorType?: string
+    boardId?: number
+    boardUrl?: string
+    actorUserId?: number
+    startDate?: string
+    endDate?: string
+    sort?: string
+}
+
 export interface BoardAdminInfo {
     adminId: number
     role: string

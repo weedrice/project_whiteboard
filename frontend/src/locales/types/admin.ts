@@ -48,6 +48,18 @@ export interface AdminMessages {
     autoBlinds: string
     managerBlinds: string
     topSpaces: string
+    auditLogs: string
+    auditAction: string
+    auditActorType: string
+    auditBoardUrl: string
+    auditActorUserId: string
+    auditStartDate: string
+    auditEndDate: string
+    auditEmpty: string
+    auditTarget: string
+    auditActor: string
+    auditReason: string
+    auditCreatedAt: string
   }
   users: {
     title: string

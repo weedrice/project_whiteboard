@@ -16,6 +16,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDate;
+
 @RestController
 @RequestMapping("/api/v1/admin/moderation-audits")
 @RequiredArgsConstructor
@@ -28,11 +30,26 @@ public class AdminModerationAuditController {
     public ApiResponse<PageResponse<ModerationAuditLogResponse>> getModerationAudits(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String action,
+            @RequestParam(required = false) String actorType,
+            @RequestParam(required = false) Long boardId,
+            @RequestParam(required = false) String boardUrl,
+            @RequestParam(required = false) Long actorUserId,
+            @RequestParam(required = false) LocalDate startDate,
+            @RequestParam(required = false) LocalDate endDate,
             Sort sort) {
         Sort effectiveSort = sort != null && sort.isSorted()
                 ? sort
                 : Sort.by(Sort.Direction.DESC, "createdAt");
         Pageable pageable = PageRequestUtils.of(page, size, effectiveSort);
-        return ApiResponses.page(moderationAuditLogService.getAdminAudits(pageable));
+        return ApiResponses.page(moderationAuditLogService.getAdminAudits(
+                action,
+                actorType,
+                boardId,
+                boardUrl,
+                actorUserId,
+                startDate,
+                endDate,
+                pageable));
     }
 }

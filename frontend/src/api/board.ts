@@ -10,6 +10,8 @@ import type {
     BoardRecentUpdate,
     BoardUpdateData,
     Category,
+    ModerationAuditLog,
+    ModerationAuditSearchParams,
     PostSummary
 } from '@/types'
 import { encodePathSegment } from '@/utils/urlPath'
@@ -108,6 +110,9 @@ export const boardApi = {
     // Get board manager candidates
     getBoardManagerCandidates: (boardUrl: string, params: BoardManagerCandidateParams, config?: AxiosRequestConfig) =>
         api.get<ApiResponse<PageResponse<BoardManagerCandidate>>>(`/boards/${encodePathSegment(boardUrl)}/manager-candidates`, { ...config, params }),
+
+    getManagerAudits: (boardUrl: string, params: ModerationAuditSearchParams, config?: AxiosRequestConfig) =>
+        api.get<ApiResponse<PageResponse<ModerationAuditLog>>>(`/boards/${encodePathSegment(boardUrl)}/manager/audits`, { ...config, params }),
 
     // Delete board
     deleteBoard: (boardUrl: string) => api.delete<ApiResponse<void>>(`/boards/${encodePathSegment(boardUrl)}`),

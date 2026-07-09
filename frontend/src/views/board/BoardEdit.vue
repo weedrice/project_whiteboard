@@ -1,10 +1,17 @@
 <script setup lang="ts">
+import { computed, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import CategoryManager from '@/components/board/CategoryManager.vue'
 import BoardForm from '@/components/board/BoardForm.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import UserSelectModal from '@/components/common/widgets/UserSelectModal.vue'
+import { boardApi } from '@/api/board'
+import { unwrapAxiosApiData } from '@/api/response'
 import { useBoardEditPage } from '@/composables/useBoardEditPage'
+import type { SupportedLocale } from '@/locales/types'
+import type { ModerationAuditLog } from '@/types'
+import { formatDateTimeOrDash } from '@/utils/date'
 
 const {
   boardUrl,
@@ -23,6 +30,34 @@ const {
   isTransferringManager,
   openManagerModal
 } = useBoardEditPage()
+
+const { t, locale } = useI18n()
+const managerAuditParams = computed(() => ({ page: 0, size: 5, sort: 'createdAt,desc' }))
+const managerAuditLogs = ref<ModerationAuditLog[]>([])
+let managerAuditLoadId = 0
+const auditActorLabel = (audit: ModerationAuditLog) => {
+  if (audit.actorType === 'SYSTEM') return 'SYSTEM'
+  return audit.actorDisplayName || (audit.actorUserId ? `#${audit.actorUserId}` : '-')
+}
+const auditTargetLabel = (audit: ModerationAuditLog) => `${audit.targetType} #${audit.targetId}`
+const formatAuditDate = (dateString: string) => formatDateTimeOrDash(dateString, locale.value as SupportedLocale)
+
+watch([boardUrl, canManageBoard], async ([nextBoardUrl, manageable]) => {
+  const loadId = ++managerAuditLoadId
+  managerAuditLogs.value = []
+  if (!manageable || !nextBoardUrl || typeof boardApi.getManagerAudits !== 'function') return
+
+  try {
+    const page = unwrapAxiosApiData(await boardApi.getManagerAudits(nextBoardUrl, managerAuditParams.value))
+    if (loadId === managerAuditLoadId) {
+      managerAuditLogs.value = page.content
+    }
+  } catch {
+    if (loadId === managerAuditLoadId) {
+      managerAuditLogs.value = []
+    }
+  }
+}, { immediate: true })
 </script>
 
 <template>
@@ -67,6 +102,37 @@ const {
         <!-- Category Manager -->
         <div class="py-6">
           <CategoryManager :boardUrl="boardUrl" />
+        </div>
+
+        <hr class="nv-border" />
+
+        <div class="rounded-lg border nv-border">
+          <div class="border-b nv-border px-4 py-3">
+            <h4 class="text-sm font-semibold nv-title">{{ t('admin.dashboard.auditLogs') }}</h4>
+          </div>
+          <div v-if="managerAuditLogs.length > 0" class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-[var(--nv-border)] text-sm">
+              <thead class="nv-surface-muted nv-text-subtle">
+                <tr>
+                  <th class="px-4 py-3 text-left font-medium">{{ t('admin.dashboard.auditAction') }}</th>
+                  <th class="px-4 py-3 text-left font-medium">{{ t('admin.dashboard.auditActor') }}</th>
+                  <th class="px-4 py-3 text-left font-medium">{{ t('admin.dashboard.auditTarget') }}</th>
+                  <th class="px-4 py-3 text-left font-medium">{{ t('admin.dashboard.auditReason') }}</th>
+                  <th class="px-4 py-3 text-left font-medium">{{ t('admin.dashboard.auditCreatedAt') }}</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-[var(--nv-border)]">
+                <tr v-for="audit in managerAuditLogs" :key="audit.auditId">
+                  <td class="px-4 py-3 font-medium nv-title">{{ audit.action }}</td>
+                  <td class="px-4 py-3 nv-text-subtle">{{ auditActorLabel(audit) }}</td>
+                  <td class="px-4 py-3 nv-text-subtle">{{ auditTargetLabel(audit) }}</td>
+                  <td class="px-4 py-3 nv-text-subtle">{{ audit.reason || '-' }}</td>
+                  <td class="px-4 py-3 nv-text-subtle">{{ formatAuditDate(audit.createdAt) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p v-else class="px-4 py-5 text-center text-sm nv-text-subtle">{{ t('admin.dashboard.auditEmpty') }}</p>
         </div>
 
         <hr class="nv-border" />

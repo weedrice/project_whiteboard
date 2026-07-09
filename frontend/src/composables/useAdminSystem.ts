@@ -20,6 +20,8 @@ import type {
     ErrorLogListItem,
     ErrorLogSearchParams,
     ErrorLogStats,
+    ModerationAuditLog,
+    ModerationAuditSearchParams,
 } from '@/types'
 
 export function useAdminSystem(queryClient: QueryClient) {
@@ -76,6 +78,17 @@ export function useAdminSystem(queryClient: QueryClient) {
                 config,
                 (requestConfig) => adminApi.getErrorLogs(params.value, requestConfig),
                 () => adminApi.getErrorLogs(params.value),
+            )
+        )
+    }
+
+    const useModerationAudits = (params: Ref<ModerationAuditSearchParams>) => {
+        return useAdminPageQuery<ModerationAuditLog>(
+            adminQueryKeys.moderationAudits(params),
+            (config) => callAdminApiWithOptionalConfig(
+                config,
+                (requestConfig) => adminApi.getModerationAudits(params.value, requestConfig),
+                () => adminApi.getModerationAudits(params.value),
             )
         )
     }
@@ -139,6 +152,7 @@ export function useAdminSystem(queryClient: QueryClient) {
         useDeleteConfig,
         useDashboardStats,
         useDeepDashboardStats,
+        useModerationAudits,
         useErrorLogs,
         useErrorLog,
         useResolveErrorLog,
