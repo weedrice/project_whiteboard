@@ -9,11 +9,13 @@ const mocks = vi.hoisted(() => {
   return {
     allBoards: undefined as Ref<Array<{ boardUrl: string; boardName: string }>> | undefined,
     subscribedBoards: undefined as Ref<Array<{ boardUrl: string; boardName: string }>> | undefined,
+    route: { name: null as string | null },
     routerPush: vi.fn()
   }
 })
 
 vi.mock('vue-router', () => ({
+  useRoute: () => mocks.route,
   useRouter: () => ({
     push: mocks.routerPush
   })
@@ -49,8 +51,8 @@ vi.mock('@/composables/useBoard', async () => {
 const BaseButtonStub = defineComponent({
   name: 'BaseButton',
   emits: ['click'],
-  setup(_, { emit, slots }) {
-    return () => h('button', { onClick: (event: Event) => emit('click', event) }, slots.default?.())
+  setup(_, { attrs, emit, slots }) {
+    return () => h('button', { ...attrs, onClick: (event: Event) => emit('click', event) }, slots.default?.())
   }
 })
 
@@ -58,6 +60,7 @@ describe('BoardDropdown', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     vi.clearAllMocks()
+    mocks.route.name = null
     mocks.allBoards!.value = []
     mocks.subscribedBoards!.value = []
   })
@@ -116,5 +119,28 @@ describe('BoardDropdown', () => {
 
     expect(keyboardStore.openDropdownType).toBeNull()
     expect(keyboardStore.dropdownItems).toEqual([])
+  })
+
+  it('marks the all spaces trigger as pressed on the all boards route', () => {
+    mocks.route.name = 'all-boards'
+
+    const wrapper = mount(BoardDropdown, {
+      props: {
+        type: 'all',
+        isOpen: false
+      },
+      global: {
+        mocks: {
+          $t: (key: string) => key
+        },
+        stubs: {
+          BaseButton: BaseButtonStub
+        }
+      }
+    })
+
+    const button = wrapper.get('button')
+    expect(button.attributes('aria-pressed')).toBe('true')
+    expect(button.classes()).toContain('is-active')
   })
 })

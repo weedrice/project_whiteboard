@@ -13,7 +13,7 @@ export const boardBaseMessages = {
     noDesc: '설명이 없습니다.',
     subscribers: '구독자 {count}명',
     empty: '등록된 스페이스가 없습니다.',
-    searchLabel: '스페이스 검색',
+    searchLabel: '검색',
     searchPlaceholder: '이름, 설명, 관리자 검색',
     statusFilter: '상태 필터',
     sortLabel: '정렬',

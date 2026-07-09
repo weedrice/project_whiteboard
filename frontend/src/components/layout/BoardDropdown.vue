@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ChevronDown, List } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 import { useBoard } from '@/composables/useBoard'
@@ -22,6 +22,7 @@ const emit = defineEmits<{
 }>()
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 const keyboardStore = useKeyboardStore()
 const { useBoards, useSubscribedBoards } = useBoard()
@@ -59,6 +60,13 @@ const isError = computed(() => {
 // 최대 10개까지 숫자 배지 표시
 const displayItems = computed(() => {
   return items.value.slice(0, 10)
+})
+
+const isActive = computed(() => {
+  if (props.type === 'all') {
+    return route.name === 'all-boards'
+  }
+  return false
 })
 
 // 숫자 배지 표시 (1-9, 0)
@@ -114,8 +122,10 @@ watch([() => props.isOpen, displayItems], ([isOpen, boards]) => {
   <div class="relative">
     <BaseButton @click.stop="toggleDropdown" variant="ghost"
       :aria-expanded="isOpen"
+      :aria-pressed="isActive"
       aria-haspopup="menu"
-      class="nv-shell-tab nv-shell-tab-button flex items-center justify-center sm:justify-start space-x-1 px-3 py-2 rounded-full text-xs sm:text-sm font-medium focus:outline-none whitespace-nowrap min-w-0 min-h-[40px] sm:min-h-0 touch-manipulation">
+      class="nv-shell-tab nv-shell-tab-button flex items-center justify-center sm:justify-start space-x-1 px-3 py-2 rounded-full text-xs sm:text-sm font-medium focus:outline-none whitespace-nowrap min-w-0 min-h-[40px] sm:min-h-0 touch-manipulation"
+      :class="{ 'is-active': isActive }">
       <span v-if="type === 'subscription'" class="sm:hidden">{{ mobileLabel || $t('board.list.subscribedShort') }}</span>
       <span v-if="type === 'subscription'" class="hidden sm:inline">{{ desktopLabel || $t('board.list.subscribed') }}</span>
       <span v-if="type === 'all'" class="sm:hidden">{{ mobileLabel || $t('board.list.allShort') }}</span>

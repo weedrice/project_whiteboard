@@ -6,7 +6,6 @@ import SubscribedBoardList from '@/components/board/SubscribedBoardList.vue'
 import BoardGrid from '@/components/board/BoardGrid.vue'
 import BoardListSkeleton from '@/components/common/ui/BoardListSkeleton.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
-import BaseSegmentedControl from '@/components/common/ui/BaseSegmentedControl.vue'
 import BaseSelect from '@/components/common/ui/BaseSelect.vue'
 import { useI18n } from 'vue-i18n'
 
@@ -17,7 +16,6 @@ const { useBoards } = useBoard()
 const { data: boards, isLoading, error } = useBoards()
 const { t } = useI18n()
 const boardSearch = ref('')
-const boardStatusFilter = ref('all')
 const boardSort = ref('default')
 
 useHead({
@@ -37,13 +35,6 @@ const allBoards = computed(() => {
   return boards.value || []
 })
 
-const statusFilterOptions = computed(() => [
-  { value: 'all', label: t('board.list.filterAll') },
-  { value: 'subscribed', label: t('board.list.filterSubscribed') },
-  { value: 'public', label: t('board.list.filterPublic') },
-  { value: 'private', label: t('board.list.filterPrivate') },
-])
-
 const sortOptions = computed(() => [
   { value: 'default', label: t('board.list.sortDefault') },
   { value: 'name', label: t('board.list.sortName') },
@@ -62,18 +53,7 @@ const filteredBoards = computed(() => {
         board.adminDisplayName,
       ].some((value) => value?.toLocaleLowerCase().includes(normalizedKeyword))
 
-      if (!matchesKeyword) return false
-
-      switch (boardStatusFilter.value) {
-        case 'subscribed':
-          return board.isSubscribed
-        case 'public':
-          return board.isPublic
-        case 'private':
-          return !board.isPublic
-        default:
-          return true
-      }
+      return matchesKeyword
     })
     .sort((a, b) => {
       switch (boardSort.value) {
@@ -117,17 +97,12 @@ const filteredBoards = computed(() => {
             {{ $t('board.list.resultCount', { count: filteredBoards.length }) }}
           </p>
         </div>
-        <div class="grid gap-3 sm:grid-cols-[minmax(12rem,18rem)_auto_minmax(10rem,12rem)] sm:items-end">
+        <div class="grid gap-3 sm:grid-cols-[minmax(9rem,14rem)_minmax(8rem,10rem)] sm:items-end">
           <BaseInput
             v-model="boardSearch"
             :label="$t('board.list.searchLabel')"
             :placeholder="$t('board.list.searchPlaceholder')"
             input-class="min-h-[44px]"
-          />
-          <BaseSegmentedControl
-            v-model="boardStatusFilter"
-            :options="statusFilterOptions"
-            :label="$t('board.list.statusFilter')"
           />
           <BaseSelect
             v-model="boardSort"

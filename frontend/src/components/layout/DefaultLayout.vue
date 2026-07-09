@@ -105,9 +105,6 @@ const goToNotificationsPage = async () => {
           </router-link>
 
           <div class="hidden items-center gap-2 md:flex">
-            <router-link to="/" class="nv-shell-tab" :class="{ 'is-active': route.name === 'home' }">
-              {{ $t('layout.topNav.home') }}
-            </router-link>
             <BoardDropdown
               v-if="authStore.isAuthenticated"
               type="subscription"
