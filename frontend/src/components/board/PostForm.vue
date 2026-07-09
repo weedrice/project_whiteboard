@@ -344,13 +344,10 @@ defineExpose({
         :board-label="boardLabel"
         :hide-board-label="props.hideBoardLabel"
         :hide-preview="props.hidePreview"
-        :draft-enabled="draftEnabled"
-        :is-saving-draft="isSavingDraft"
         :is-submitting="isSubmitting"
         :submit-label="submitLabel"
         @cancel="handleCancel"
         @preview="showPreview = true"
-        @save-draft="handleSaveDraft"
         @submit="handleSubmit"
       />
 
@@ -400,6 +397,9 @@ defineExpose({
           :metadata-panel-props="metadataPanelProps"
           :metadata-panel-handlers="metadataPanelHandlers"
           :draft-status-label="draftStatusLabel"
+          :draft-enabled="draftEnabled"
+          :is-saving-draft="isSavingDraft"
+          @save-draft="handleSaveDraft"
         />
       </form>
     </div>

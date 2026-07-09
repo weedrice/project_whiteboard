@@ -36,6 +36,7 @@ const props = withDefaults(defineProps<{
   titleTag?: 'h1' | 'h2' | 'h3'
   loadingPreset?: LoadingPreset
   loadingRows?: number
+  inset?: boolean
 }>(), {
   maxWidthClass: 'max-w-4xl',
   headerClass: 'px-4 py-4 sm:py-5 sm:px-6 gap-3',
@@ -44,6 +45,7 @@ const props = withDefaults(defineProps<{
   titleTag: 'h3',
   loadingPreset: 'none',
   loadingRows: 5,
+  inset: true,
 })
 
 const emit = defineEmits<{
@@ -72,7 +74,14 @@ const getLoadingRowClass = (preset: LoadingPreset) => {
 </script>
 
 <template>
-  <div :class="[maxWidthClass, 'mx-auto py-4 sm:py-6 md:py-8 px-4 sm:px-6 lg:px-8']">
+  <div
+    :class="[
+      maxWidthClass,
+      inset
+        ? 'mx-auto py-4 sm:py-6 md:py-8 px-4 sm:px-6 lg:px-8'
+        : 'w-full py-4 sm:py-6 md:py-8',
+    ]"
+  >
     <div class="nv-surface shadow overflow-hidden sm:rounded-lg transition-colors duration-200">
       <div
         :class="[

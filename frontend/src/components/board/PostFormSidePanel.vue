@@ -10,17 +10,18 @@ defineProps<{
   metadataPanelProps: PostFormMetadataPanelProps
   metadataPanelHandlers: PostFormMetadataPanelHandlers
   draftStatusLabel: string
+  draftEnabled: boolean
+  isSavingDraft: boolean
+}>()
+
+defineEmits<{
+  saveDraft: []
 }>()
 </script>
 
 <template>
   <aside class="space-y-4 lg:sticky lg:top-24 lg:self-start">
     <section class="nv-compose-side-card rounded-2xl border border-[var(--nv-line)] bg-[var(--nv-surface)] p-4 shadow-[var(--nv-shadow-soft)]">
-      <div class="mb-4">
-        <p class="nv-kicker">{{ $t('board.writePost.sections.metadata') }}</p>
-        <h3 class="text-lg font-semibold text-[var(--nv-ink)]">{{ $t('board.writePost.sections.postSettings') }}</h3>
-      </div>
-
       <PostFormMetadataPanel
         layout="desktop"
         v-bind="metadataPanelProps"
@@ -28,7 +29,12 @@ defineProps<{
       />
     </section>
 
-    <PostDraftStatusPanel :label="draftStatusLabel" />
+    <PostDraftStatusPanel
+      :label="draftStatusLabel"
+      :draft-enabled="draftEnabled"
+      :is-saving-draft="isSavingDraft"
+      @save-draft="$emit('saveDraft')"
+    />
   </aside>
 </template>
 

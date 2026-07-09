@@ -6,8 +6,6 @@ defineProps<{
   boardLabel: string
   hideBoardLabel?: boolean
   hidePreview?: boolean
-  draftEnabled: boolean
-  isSavingDraft: boolean
   isSubmitting: boolean
   submitLabel: string
 }>()
@@ -15,7 +13,6 @@ defineProps<{
 defineEmits<{
   cancel: []
   preview: []
-  saveDraft: []
   submit: []
 }>()
 </script>
@@ -37,16 +34,6 @@ defineEmits<{
       </BaseButton>
       <BaseButton v-if="!hidePreview" type="button" variant="secondary" size="sm" @click="$emit('preview')">
         {{ $t('board.writePost.actions.preview') }}
-      </BaseButton>
-      <BaseButton
-        v-if="draftEnabled"
-        type="button"
-        variant="secondary"
-        size="sm"
-        :disabled="isSavingDraft"
-        @click="$emit('saveDraft')"
-      >
-        {{ isSavingDraft ? $t('board.writePost.draftStatus.saving') : $t('board.writePost.actions.saveDraft') }}
       </BaseButton>
       <BaseButton type="button" variant="primary" size="sm" :loading="isSubmitting" @click="$emit('submit')">
         {{ submitLabel }}

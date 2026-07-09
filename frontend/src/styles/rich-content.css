@@ -45,6 +45,10 @@
     max-width: min(100%, 72ch);
   }
 
+  .nv-post-readable-fluid {
+    max-width: 100%;
+  }
+
   .nv-post-readable :where(img) {
     display: block;
     height: auto;
