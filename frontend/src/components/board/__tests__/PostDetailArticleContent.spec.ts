@@ -25,6 +25,8 @@ const postView = (overrides: Partial<PostDetailViewModel> = {}): PostDetailViewM
   boardUrl: 'free',
   authorUserId: 7,
   authorDisplayName: 'Author',
+  isBlinded: false,
+  isBoardAdmin: false,
   ...overrides,
 })
 

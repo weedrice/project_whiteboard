@@ -14,8 +14,9 @@ import type { AxiosRequestConfig } from 'axios'
 import { callWithOptionalQuerySignal, withQuerySignal } from '@/utils/querySignal'
 import { useApiQuery } from '@/composables/useApiQuery'
 import { userQueryKeys, type UserQueryPaginationParams } from '@/composables/userQueryKeys'
-import { postApi, type ScheduledPost } from '@/api/post'
+import { postApi, type BackendPageResponse, type ScheduledPost } from '@/api/post'
 import { badgeApi } from '@/api/badge'
+import { normalizePageResponse } from '@/utils/pageResponse'
 
 interface PasswordUpdateData {
     currentPassword: string
@@ -155,9 +156,10 @@ export function useUser() {
     }
 
     const useMyScheduledPosts = (params?: Ref<PaginationParams>) => {
-        return useApiQuery<PageResponse<ScheduledPost>>({
+        return useApiQuery<BackendPageResponse<ScheduledPost>, PageResponse<ScheduledPost>>({
             queryKey: userQueryKeys.scheduledPosts(params),
             request: (context) => postApi.getMyScheduledPosts(params?.value ?? {}, withQuerySignal(undefined, context)),
+            selectData: (response) => normalizePageResponse(response),
         })
     }
 

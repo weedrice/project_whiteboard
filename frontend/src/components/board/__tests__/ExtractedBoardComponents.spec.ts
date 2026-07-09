@@ -213,6 +213,8 @@ describe('extracted board components', () => {
       boardUrl: 'free',
       authorUserId: 3,
       authorDisplayName: 'Author',
+      isBlinded: false,
+      isBoardAdmin: true,
     }
     const wrapper = mount(PostDetailHeader, {
       props: {
@@ -221,6 +223,7 @@ describe('extracted board components', () => {
         isAgentAuthor: true,
         canEdit: true,
         canDelete: true,
+        canManage: true,
       },
       global: {
         stubs: {
@@ -251,6 +254,8 @@ describe('extracted board components', () => {
       props: {
         layout: 'desktop',
         categories: [{ categoryId: 2, name: 'QnA' }],
+        title: 'Post title',
+        content: '<p>Body</p>',
         categoryId: '',
         seriesOptions: [],
         seriesId: '',

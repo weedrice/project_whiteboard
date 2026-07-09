@@ -32,6 +32,7 @@ function createSubmit(overrides: {
   createSuccessToastMessage?: () => string | undefined
 } = {}) {
   const createPost = vi.fn()
+  const createScheduledPost = vi.fn()
   const updatePost = vi.fn()
   const addToast = vi.fn()
   const markCurrentSnapshotSaved = vi.fn()
@@ -54,7 +55,9 @@ function createSubmit(overrides: {
     markCurrentSnapshotSaved,
     cleanupPublishedDraft,
     createPost,
+    createScheduledPost,
     updatePost,
+    scheduledAt: ref(''),
     onSubmitted: () => onSubmitted,
     createSuccessToastMessage: overrides.createSuccessToastMessage ?? (() => undefined),
     t: (key: string) => key,
@@ -66,6 +69,7 @@ function createSubmit(overrides: {
     addToast,
     cleanupPublishedDraft,
     createPost,
+    createScheduledPost,
     markCurrentSnapshotSaved,
     onSubmitted,
     updatePost,
