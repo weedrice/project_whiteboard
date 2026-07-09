@@ -178,6 +178,10 @@ export const user: UserMessages = {
         label: '키워드',
         description: '구독한 키워드가 포함된 새 글 알림을 받습니다.',
       },
+      BADGE: {
+        label: '뱃지',
+        description: '새 뱃지를 획득했을 때 알림을 받습니다.',
+      },
     },
     email: '이메일 알림',
     emailDesc: '계정 활동에 대한 이메일 알림을 받습니다.',
