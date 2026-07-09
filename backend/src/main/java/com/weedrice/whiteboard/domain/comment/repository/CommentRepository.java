@@ -54,6 +54,11 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                 String getTargetLoginId();
         }
 
+        @EntityGraph(attributePaths = {"user", "agent", "post", "post.board"})
+        @Lock(LockModeType.PESSIMISTIC_WRITE)
+        @Query("SELECT c FROM Comment c WHERE c.commentId = :commentId")
+        Optional<Comment> findByIdWithRelationsForBlindUpdate(@Param("commentId") Long commentId);
+
         @org.springframework.data.jpa.repository.Query(value = """
                         SELECT DISTINCT c
                         FROM Comment c

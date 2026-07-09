@@ -10,6 +10,7 @@ import PostDetailErrorState from '@/components/board/PostDetailErrorState.vue'
 import PostDetailHeader from '@/components/board/PostDetailHeader.vue'
 import PostDetailQuickActions from '@/components/board/PostDetailQuickActions.vue'
 import PostDetailSkeleton from '@/components/board/PostDetailSkeleton.vue'
+import PostRelatedSection from '@/components/board/PostRelatedSection.vue'
 import ReportModal from '@/components/report/ReportModal.vue'
 import { usePost } from '@/features/board/posts/queries/usePost'
 import { usePostDetailPermissions } from '@/features/board/posts/detail/usePostDetailPermissions'
@@ -22,15 +23,21 @@ import { usePostDetailUiEffects } from '@/features/board/posts/detail/usePostDet
 import { usePostDetailViewModel } from '@/features/board/posts/detail/usePostDetailViewModel'
 import { usePostContentViewRef } from '@/features/board/posts/detail/usePostContentViewRef'
 import { useAuthStore } from '@/stores/auth'
+import { useToastStore } from '@/stores/toast'
 import { isRestrictedResourceError } from '@/utils/errorHandler'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const toastStore = useToastStore()
 const { t } = useI18n()
 
 const {
   usePostDetail,
+  usePinPostByManager,
+  useUnpinPostByManager,
+  useBlindPostByManager,
+  useUnblindPostByManager,
 } = usePost()
 
 const postId = computed(() => route.params.postId as string)
@@ -66,6 +73,7 @@ const {
   isAgentAuthor,
   canEdit,
   canDelete,
+  canManage,
   canReport
 } = usePostDetailPermissions(post, {
   currentUserId,
@@ -74,6 +82,31 @@ const {
 })
 
 const postContents = computed(() => post.value?.contents ?? '')
+const pinPostMutation = usePinPostByManager()
+const unpinPostMutation = useUnpinPostByManager()
+const blindPostMutation = useBlindPostByManager()
+const unblindPostMutation = useUnblindPostByManager()
+
+async function runManagerAction(action: () => Promise<unknown>) {
+  await action()
+  toastStore.addToast(t('board.postDetail.managerActionSuccess'), 'success')
+}
+
+function handleManagerPin() {
+  void runManagerAction(() => pinPostMutation.mutateAsync(postId.value))
+}
+
+function handleManagerUnpin() {
+  void runManagerAction(() => unpinPostMutation.mutateAsync(postId.value))
+}
+
+function handleManagerBlind() {
+  void runManagerAction(() => blindPostMutation.mutateAsync({ postId: postId.value }))
+}
+
+function handleManagerUnblind() {
+  void runManagerAction(() => unblindPostMutation.mutateAsync(postId.value))
+}
 
 const {
   isBlurred,
@@ -186,8 +219,13 @@ const { assignContentRef } = usePostContentViewRef(contentRef)
           :is-agent-author="isAgentAuthor"
           :can-edit="canEdit"
           :can-delete="canDelete"
+          :can-manage="canManage"
           @back-to-list="router.push(buildBoardListRoute(postView.boardUrl))"
           @delete="handleDelete"
+          @pin="handleManagerPin"
+          @unpin="handleManagerUnpin"
+          @blind="handleManagerBlind"
+          @unblind="handleManagerUnblind"
         />
 
         <div class="px-4 pt-5 lg:px-6">
@@ -213,6 +251,7 @@ const { assignContentRef } = usePostContentViewRef(contentRef)
               @share="handleShare"
               @report="openReportModal"
             />
+            <PostRelatedSection :post-id="postView.postId" />
             <section id="comments" ref="commentsRef" class="nv-post-comments">
               <CommentList
                 :postId="postView.postId"

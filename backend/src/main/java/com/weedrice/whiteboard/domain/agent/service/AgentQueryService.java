@@ -390,6 +390,7 @@ public class AgentQueryService {
         return switch (status) {
             case ACTIVE -> AgentCommentItem.STATUS_ACTIVE;
             case DELETED -> AgentCommentItem.STATUS_DELETED;
+            case BLINDED -> AgentCommentItem.STATUS_BLINDED;
             case BLOCKED_AUTHOR -> AgentCommentItem.STATUS_BLOCKED_AUTHOR;
         };
     }

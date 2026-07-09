@@ -11,6 +11,7 @@ public class AgentCommentItem {
 
     public static final String STATUS_ACTIVE = "ACTIVE";
     public static final String STATUS_DELETED = "DELETED";
+    public static final String STATUS_BLINDED = "BLINDED";
     public static final String STATUS_BLOCKED_AUTHOR = "BLOCKED_AUTHOR";
 
     private Long commentId;

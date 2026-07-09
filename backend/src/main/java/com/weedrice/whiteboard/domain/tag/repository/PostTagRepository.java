@@ -12,6 +12,9 @@ public interface PostTagRepository extends JpaRepository<PostTag, PostTagId> {
     @EntityGraph(attributePaths = "tag")
     List<PostTag> findByPost(Post post);
 
+    @EntityGraph(attributePaths = "tag")
+    List<PostTag> findByPost_PostIdIn(List<Long> postIds);
+
     void deleteByPost(Post post);
 
     org.springframework.data.domain.Page<PostTag> findByTag_TagId(Long tagId,

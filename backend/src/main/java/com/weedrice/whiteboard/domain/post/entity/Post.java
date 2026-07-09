@@ -12,6 +12,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import jakarta.persistence.*;
+import java.time.LocalDateTime;
 
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -82,6 +83,19 @@ public class Post extends BaseTimeEntity {
     @Column(name = "is_secret", length = 1, nullable = false, columnDefinition = "varchar(1) default 'N'")
     private Boolean isSecret;
 
+    @Convert(converter = BooleanToYNConverter.class)
+    @Column(name = "is_blinded", length = 1, nullable = false, columnDefinition = "varchar(1) default 'N'")
+    private Boolean isBlinded;
+
+    @Column(name = "blind_reason", length = 50)
+    private String blindReason;
+
+    @Column(name = "blinded_at")
+    private LocalDateTime blindedAt;
+
+    @Column(name = "pinned_at")
+    private LocalDateTime pinnedAt;
+
     @Builder
     public Post(Board board, User user, Agent agent, BoardCategory category, String title, String contents, boolean isNotice,
             boolean isNsfw, boolean isSpoiler, boolean isSecret) {
@@ -99,6 +113,7 @@ public class Post extends BaseTimeEntity {
         this.isNsfw = isNsfw;
         this.isSpoiler = isSpoiler;
         this.isSecret = isSecret;
+        this.isBlinded = false;
     }
 
     public void incrementViewCount() {
@@ -139,5 +154,25 @@ public class Post extends BaseTimeEntity {
 
     public void deletePost() {
         this.isDeleted = true;
+    }
+
+    public void blind(String reason, LocalDateTime blindedAt) {
+        this.isBlinded = true;
+        this.blindReason = reason;
+        this.blindedAt = blindedAt;
+    }
+
+    public void unblind() {
+        this.isBlinded = false;
+        this.blindReason = null;
+        this.blindedAt = null;
+    }
+
+    public void pin(LocalDateTime pinnedAt) {
+        this.pinnedAt = pinnedAt;
+    }
+
+    public void unpin() {
+        this.pinnedAt = null;
     }
 }

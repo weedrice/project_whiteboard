@@ -48,6 +48,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                         keywordContains(keyword),
                         minLikesGoe(minLikes),
                         post.isDeleted.eq(false),
+                        post.isBlinded.eq(false),
                         secretCondition(includeSecret, viewerUserId),
                         notBlockedCondition(blockedUserIds))
                 .offset(pageable.getOffset())
@@ -64,6 +65,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                         keywordContains(keyword),
                         minLikesGoe(minLikes),
                         post.isDeleted.eq(false),
+                        post.isBlinded.eq(false),
                         secretCondition(includeSecret, viewerUserId),
                         notBlockedCondition(blockedUserIds))
                 .fetchOne();
@@ -101,6 +103,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                         post.isNsfw,
                         post.isSpoiler,
                         post.isSecret,
+                        post.pinnedAt,
                         post.createdAt,
                         post.board.boardUrl,
                         post.board.boardName,
@@ -120,6 +123,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                         keywordContains(keyword),
                         minLikesGoe(minLikes),
                         post.isDeleted.eq(false),
+                        post.isBlinded.eq(false),
                         secretCondition(includeSecret, viewerUserId),
                         notBlockedCondition(blockedUserIds))
                 .offset(pageable.getOffset())
@@ -136,6 +140,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                         keywordContains(keyword),
                         minLikesGoe(minLikes),
                         post.isDeleted.eq(false),
+                        post.isBlinded.eq(false),
                         secretCondition(includeSecret, viewerUserId),
                         notBlockedCondition(blockedUserIds))
                 .fetchOne();
@@ -156,6 +161,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                 .where(
                         post.board.boardId.eq(boardId),
                         post.isDeleted.eq(false),
+                        post.isBlinded.eq(false),
                         secretCondition(includeSecret, viewerUserId),
                         notBlockedCondition(blockedUserIds),
                         post.createdAt.gt(createdAt)
@@ -181,6 +187,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                 .where(
                         keywordExpression,
                         post.isDeleted.eq(false),
+                        post.isBlinded.eq(false),
                         post.board.isActive.eq(true),
                         post.board.isPublic.eq(true),
                         secretCondition(false, viewerUserId),
@@ -196,6 +203,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                 .where(
                         keywordExpression,
                         post.isDeleted.eq(false),
+                        post.isBlinded.eq(false),
                         post.board.isActive.eq(true),
                         post.board.isPublic.eq(true),
                         secretCondition(false, viewerUserId),
@@ -244,6 +252,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                         createdFromCondition,
                         createdToCondition,
                         post.isDeleted.eq(false),
+                        post.isBlinded.eq(false),
                         activeBoardOnlyForGlobalSearch(boardUrl),
                         publicBoardOnlyForGlobalSearch(boardUrl),
                         searchSecretCondition(boardUrl, includeSecret, viewerUserId),
@@ -264,6 +273,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                         createdFromCondition,
                         createdToCondition,
                         post.isDeleted.eq(false),
+                        post.isBlinded.eq(false),
                         activeBoardOnlyForGlobalSearch(boardUrl),
                         publicBoardOnlyForGlobalSearch(boardUrl),
                         searchSecretCondition(boardUrl, includeSecret, viewerUserId),
@@ -286,6 +296,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                 .where(
                         postTag.tag.tagId.eq(tagId),
                         post.isDeleted.eq(false),
+                        post.isBlinded.eq(false),
                         post.board.isActive.eq(true),
                         post.board.isPublic.eq(true),
                         post.isSecret.eq(false),
@@ -301,6 +312,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                 .where(
                         postTag.tag.tagId.eq(tagId),
                         postTag.post.isDeleted.eq(false),
+                        postTag.post.isBlinded.eq(false),
                         postTag.post.board.isActive.eq(true),
                         postTag.post.board.isPublic.eq(true),
                         postTag.post.isSecret.eq(false),
@@ -323,6 +335,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                         post.board.boardId.eq(boardId),
                         post.isNotice.eq(isNotice),
                         post.isDeleted.eq(isDeleted),
+                        post.isBlinded.eq(false),
                         secretCondition(includeSecret, viewerUserId),
                         notBlockedCondition(blockedUserIds))
                 .orderBy(post.createdAt.desc())
@@ -341,6 +354,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                 .where(
                         post.board.boardId.eq(boardId),
                         post.isDeleted.eq(isDeleted),
+                        post.isBlinded.eq(false),
                         secretCondition(includeSecret, viewerUserId),
                         notBlockedCondition(blockedUserIds))
                 .offset(pageable.getOffset())
@@ -414,6 +428,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                 .where(
                         post.board.boardId.in(boardIds),
                         post.isDeleted.eq(false),
+                        post.isBlinded.eq(false),
                         post.board.isActive.eq(true),
                         post.board.isPublic.eq(true),
                         agentFeedSecretCondition(secretVisibleBoardIds, viewerUserId),
@@ -429,6 +444,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                 .where(
                         post.board.boardId.in(boardIds),
                         post.isDeleted.eq(false),
+                        post.isBlinded.eq(false),
                         post.board.isActive.eq(true),
                         post.board.isPublic.eq(true),
                         agentFeedSecretCondition(secretVisibleBoardIds, viewerUserId),
@@ -453,6 +469,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                     FROM posts p
                     WHERE p.board_id IN (:boardIds)
                       AND p.is_deleted = 'N'
+                      AND p.is_blinded = 'N'
                 """);
 
         appendSecretVisibilityCondition(sql, viewerUserId, secretVisibleBoardIds);
@@ -552,6 +569,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
         return new BooleanExpression[] {
                 post.createdAt.goe(since),
                 post.isDeleted.eq(false),
+                post.isBlinded.eq(false),
                 post.isNotice.eq(false),
                 post.isSecret.eq(false),
                 post.board.isActive.eq(true),
@@ -564,6 +582,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
     private BooleanExpression[] publicLandingLatestPostConditions(String inquiryBoardUrl, List<Long> blockedUserIds) {
         return new BooleanExpression[] {
                 post.isDeleted.eq(false),
+                post.isBlinded.eq(false),
                 post.isNotice.eq(false),
                 post.isSecret.eq(false),
                 post.board.isActive.eq(true),
@@ -615,7 +634,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
         if (!pageable.getSort().isEmpty()) {
             boolean allAllowed = pageable.getSort().stream()
                     .allMatch(order -> switch (order.getProperty()) {
-                        case "viewCount", "likeCount", "createdAt", "postId" -> true;
+                        case "viewCount", "likeCount", "pinnedAt", "createdAt", "postId" -> true;
                         default -> false;
                     });
             if (!allAllowed) {
@@ -628,6 +647,8 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                         return new OrderSpecifier<>(direction, post.viewCount);
                     case "likeCount":
                         return new OrderSpecifier<>(direction, post.likeCount);
+                    case "pinnedAt":
+                        return new OrderSpecifier<>(direction, post.pinnedAt).nullsLast();
                     case "createdAt":
                         return new OrderSpecifier<>(direction, post.createdAt);
                     case "postId":
@@ -642,6 +663,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
 
     private OrderSpecifier<?>[] defaultOrderSpecifiers() {
         return new OrderSpecifier[] {
+                new OrderSpecifier<>(Order.DESC, post.pinnedAt).nullsLast(),
                 new OrderSpecifier<>(Order.DESC, post.createdAt),
                 new OrderSpecifier<>(Order.DESC, post.postId)
         };

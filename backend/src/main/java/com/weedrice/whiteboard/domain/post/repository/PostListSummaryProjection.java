@@ -20,6 +20,7 @@ public record PostListSummaryProjection(
         Boolean isNsfw,
         Boolean isSpoiler,
         Boolean isSecret,
+        LocalDateTime pinnedAt,
         LocalDateTime createdAt,
         String boardUrl,
         String boardName,

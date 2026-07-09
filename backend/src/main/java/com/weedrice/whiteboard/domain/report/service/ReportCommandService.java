@@ -23,6 +23,7 @@ class ReportCommandService {
     private final UserRepository userRepository;
     private final ReportTargetValidator reportTargetValidator;
     private final SanctionService sanctionService;
+    private final ReportAutoBlindService reportAutoBlindService;
 
     @Transactional
     public Long createReport(Long reporterId, String targetType, Long targetId, String reasonType, String remark,
@@ -48,7 +49,9 @@ class ReportCommandService {
                 .contents(normalizedContents)
                 .build();
         try {
-            return reportRepository.saveAndFlush(report).getReportId();
+            Long reportId = reportRepository.saveAndFlush(report).getReportId();
+            reportAutoBlindService.applyIfThresholdReached(normalizedTargetType, targetId);
+            return reportId;
         } catch (DataIntegrityViolationException ex) {
             if (ReportDuplicatePolicy.isDuplicateConflict(ex)) {
                 throw ReportDuplicatePolicy.alreadyReported();

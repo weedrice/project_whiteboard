@@ -52,6 +52,11 @@ class SemanticSearchQueryTransactionService {
         return new SemanticSearchQueryRows(keywordFallbackRepository.search(query), keywordFallbackRepository.count(query));
     }
 
+    @Transactional(readOnly = true)
+    public List<Long> findRelatedPostIds(Long postId, SemanticSearchQueryContext context, int size) {
+        return vectorRepository.findRelatedPostIds(postId, context, size);
+    }
+
     private void validateBoardAccess(String normalizedBoardUrl, User viewer) {
         if (normalizedBoardUrl == null) {
             return;

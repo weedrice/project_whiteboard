@@ -1,0 +1,59 @@
+<script setup lang="ts">
+import { computed, ref, watch } from 'vue'
+import HomePostCard from '@/components/home/HomePostCard.vue'
+import { useIntersectionObserver } from '@/composables/useIntersectionObserver'
+import { usePost } from '@/features/board/posts/queries/usePost'
+import { toFeedPosts } from '@/utils/postViewModel'
+
+const props = defineProps<{
+  postId: string | number
+}>()
+
+const shouldLoad = ref(false)
+const postIdRef = computed(() => props.postId)
+const { useRelatedPosts } = usePost()
+const { data: relatedPosts, isLoading } = useRelatedPosts(postIdRef, {
+  enabled: shouldLoad,
+  size: 5,
+})
+const feedPosts = computed(() => toFeedPosts(relatedPosts.value))
+
+const { targetRef } = useIntersectionObserver((isIntersecting) => {
+  if (isIntersecting) {
+    shouldLoad.value = true
+  }
+}, { rootMargin: '240px 0px' })
+
+watch(() => props.postId, () => {
+  shouldLoad.value = false
+})
+</script>
+
+<template>
+  <section ref="targetRef" class="nv-related-posts" :aria-busy="isLoading ? 'true' : 'false'">
+    <template v-if="feedPosts.length > 0">
+      <div>
+        <p class="nv-kicker">{{ $t('board.postDetail.relatedKicker') }}</p>
+        <h2 class="mt-1 text-lg font-semibold text-[var(--nv-ink)]">
+          {{ $t('board.postDetail.relatedTitle') }}
+        </h2>
+      </div>
+      <div class="grid gap-4 md:grid-cols-2">
+        <HomePostCard
+          v-for="post in feedPosts"
+          :key="post.postId"
+          :post="post"
+          variant="compact"
+        />
+      </div>
+    </template>
+  </section>
+</template>
+
+<style scoped>
+.nv-related-posts {
+  display: grid;
+  gap: 1rem;
+  min-height: 1px;
+}
+</style>

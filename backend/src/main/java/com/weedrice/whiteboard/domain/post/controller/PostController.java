@@ -72,6 +72,47 @@ public class PostController {
                 response);
     }
 
+    @GetMapping("/posts/{postId}/related")
+    public ApiResponse<List<PostSummary>> getRelatedPosts(
+            @PathVariable Long postId,
+            @RequestParam(required = false) Integer size,
+            @CurrentUserId(required = false) Long userId) {
+        return ApiResponse.success(postService.getRelatedPosts(postId, userId, size));
+    }
+
+    @PostMapping("/posts/{postId}/manager/pin")
+    public ApiResponse<Void> pinPostByManager(
+            @PathVariable Long postId,
+            @CurrentUserId Long userId) {
+        postService.pinPostByManager(userId, postId);
+        return ApiResponses.ok();
+    }
+
+    @DeleteMapping("/posts/{postId}/manager/pin")
+    public ApiResponse<Void> unpinPostByManager(
+            @PathVariable Long postId,
+            @CurrentUserId Long userId) {
+        postService.unpinPostByManager(userId, postId);
+        return ApiResponses.ok();
+    }
+
+    @PostMapping("/posts/{postId}/manager/blind")
+    public ApiResponse<Void> blindPostByManager(
+            @PathVariable Long postId,
+            @Valid @RequestBody(required = false) PostManagerBlindRequest request,
+            @CurrentUserId Long userId) {
+        postService.blindPostByManager(userId, postId, request != null ? request.getReason() : null);
+        return ApiResponses.ok();
+    }
+
+    @DeleteMapping("/posts/{postId}/manager/blind")
+    public ApiResponse<Void> unblindPostByManager(
+            @PathVariable Long postId,
+            @CurrentUserId Long userId) {
+        postService.unblindPostByManager(userId, postId);
+        return ApiResponses.ok();
+    }
+
     @PostMapping("/posts/{postId}/view")
     public ApiResponse<Void> incrementPostView(
             @PathVariable Long postId,

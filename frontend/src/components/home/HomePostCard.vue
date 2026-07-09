@@ -20,8 +20,11 @@ const props = withDefaults(defineProps<{
 const router = useRouter()
 const { t } = useI18n()
 
-const bodyHtml = computed(() => getFeedBodyHtml(props.post))
-const mediaPreview = computed(() => getFeedMediaPreview(props.post))
+const isBlinded = computed(() => Boolean(props.post.isBlinded))
+const bodyHtml = computed(() => (isBlinded.value ? null : getFeedBodyHtml(props.post)))
+const mediaPreview = computed(() => (isBlinded.value
+  ? { showFirstVideo: false, videoUrl: null, imageUrl: null }
+  : getFeedMediaPreview(props.post)))
 const isVideoPreviewLoaded = ref(false)
 const showFirstVideo = computed(() => mediaPreview.value.showFirstVideo)
 const firstVideoUrl = computed(() => mediaPreview.value.videoUrl)

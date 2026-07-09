@@ -122,6 +122,7 @@ class SemanticSearchIndexTransactionService {
     private boolean isIndexableComment(Comment comment) {
         return comment != null
                 && !Boolean.TRUE.equals(comment.getIsDeleted())
+                && !Boolean.TRUE.equals(comment.getIsBlinded())
                 && isIndexableUser(comment.getUser())
                 && isIndexablePost(comment.getPost());
     }
@@ -129,6 +130,7 @@ class SemanticSearchIndexTransactionService {
     private boolean isIndexablePost(Post post) {
         return post != null
                 && !Boolean.TRUE.equals(post.getIsDeleted())
+                && !Boolean.TRUE.equals(post.getIsBlinded())
                 && !Boolean.TRUE.equals(post.getIsSecret())
                 && isIndexableBoard(post.getBoard())
                 && isIndexableUser(post.getUser());

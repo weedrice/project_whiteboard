@@ -2,6 +2,8 @@ import { computed, type Ref } from 'vue'
 import type { PostFormCategoryOption } from '@/features/board/posts/form/usePostFormCategoryOptions'
 
 type PostComposerForm = {
+  title: string
+  content: string
   categoryId: string | number
   seriesId: string | number
   tags: string[]
@@ -24,10 +26,14 @@ type UsePostFormMetadataBindingsParams = {
   hideSpoiler: () => boolean | undefined
   hideSecret: () => boolean | undefined
   createSeries: () => void | Promise<void>
+  boardUrl?: Ref<string>
 }
 
 export type PostFormMetadataPanelProps = {
   categories: PostFormCategoryOption[]
+  title: string
+  content: string
+  boardUrl?: string
   categoryId: string | number
   seriesId: string | number
   seriesOptions: Array<{ seriesId: number, title: string }>
@@ -71,9 +77,13 @@ export function usePostFormMetadataBindings({
   hideSpoiler,
   hideSecret,
   createSeries,
+  boardUrl,
 }: UsePostFormMetadataBindingsParams) {
   const metadataPanelProps = computed<PostFormMetadataPanelProps>(() => ({
     categories: categories.value,
+    title: form.value.title,
+    content: form.value.content,
+    boardUrl: boardUrl?.value,
     categoryId: form.value.categoryId,
     seriesId: form.value.seriesId,
     seriesOptions: seriesOptions.value,

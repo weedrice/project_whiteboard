@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseCheckbox from '@/components/common/ui/BaseCheckbox.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseSelect from '@/components/common/ui/BaseSelect.vue'
 import PostTags from '@/components/tag/PostTags.vue'
+import { tagApi } from '@/api/tag'
+import { unwrapAxiosApiData } from '@/api/response'
 
 export type PostFormCategoryOption = {
   categoryId: number
@@ -17,6 +19,9 @@ export type PostFormCategoryOption = {
 const props = withDefaults(defineProps<{
   layout: 'mobile' | 'desktop'
   categories: PostFormCategoryOption[]
+  title: string
+  content: string
+  boardUrl?: string
   seriesOptions: Array<{ seriesId: number, title: string }>
   categoryId: string | number
   seriesId: string | number
@@ -61,6 +66,9 @@ const seriesInputId = computed(() => isMobile.value ? 'series-mobile' : 'series'
 const newSeriesInputId = computed(() => isMobile.value ? 'new-series-mobile' : 'new-series')
 const tagsInputId = computed(() => isMobile.value ? 'post-tags-input-mobile' : 'post-tags-input-desktop')
 const checkboxSuffix = computed(() => isMobile.value ? '-m' : '')
+const isSuggestingTags = ref(false)
+const suggestedTags = ref<string[]>([])
+const visibleSuggestedTags = computed(() => suggestedTags.value.filter((tag) => !hasTag(tag)))
 
 type BooleanUpdateEvent = 'update:isNotice' | 'update:isNsfw' | 'update:isSpoiler' | 'update:isSecret'
 
@@ -81,6 +89,29 @@ const emitBooleanUpdate = (event: BooleanUpdateEvent, value: boolean | unknown[]
       emit('update:isSecret', checked)
       break
   }
+}
+
+const hasTag = (tag: string) => props.tags.some((existing) => existing.trim().toLowerCase() === tag.trim().toLowerCase())
+
+async function suggestTags() {
+  if (isSuggestingTags.value) return
+  isSuggestingTags.value = true
+  try {
+    const response = unwrapAxiosApiData(await tagApi.suggestTags({
+      title: props.title,
+      contents: props.content,
+      boardUrl: props.boardUrl,
+      existingTags: props.tags,
+    }))
+    suggestedTags.value = response.suggestions ?? []
+  } finally {
+    isSuggestingTags.value = false
+  }
+}
+
+function addSuggestedTag(tag: string) {
+  if (hasTag(tag)) return
+  emit('update:tags', [...props.tags, tag])
 }
 </script>
 
@@ -196,14 +227,36 @@ const emitBooleanUpdate = (event: BooleanUpdateEvent, value: boolean | unknown[]
     </div>
 
     <div v-if="!hideTags" class="nv-compose-side-section mb-4 hidden lg:block">
-      <label :for="tagsInputId" class="mb-2 block text-xs font-medium uppercase tracking-[0.18em] text-[var(--nv-muted)]">
-        {{ t('common.tags') }}
-      </label>
+      <div class="mb-2 flex items-center justify-between gap-2">
+        <label :for="tagsInputId" class="block text-xs font-medium uppercase tracking-[0.18em] text-[var(--nv-muted)]">
+          {{ t('common.tags') }}
+        </label>
+        <BaseButton
+          type="button"
+          size="sm"
+          variant="ghost"
+          :loading="isSuggestingTags"
+          @click="suggestTags"
+        >
+          {{ isSuggestingTags ? t('board.writePost.suggestingTags') : t('board.writePost.suggestTags') }}
+        </BaseButton>
+      </div>
       <PostTags
         :model-value="tags"
         :input-id="tagsInputId"
         @update:model-value="emit('update:tags', $event)"
       />
+      <div v-if="visibleSuggestedTags.length > 0" class="mt-2 flex flex-wrap gap-1.5">
+        <button
+          v-for="tag in visibleSuggestedTags"
+          :key="tag"
+          type="button"
+          class="rounded-full border border-[var(--nv-line)] px-2 py-1 text-xs font-medium nv-hover-surface"
+          @click="addSuggestedTag(tag)"
+        >
+          #{{ tag }}
+        </button>
+      </div>
     </div>
 
     <div class="nv-compose-side-section mb-4 hidden lg:block">

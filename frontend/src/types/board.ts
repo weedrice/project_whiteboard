@@ -127,6 +127,9 @@ export interface Post {
     isNsfw: boolean
     isSpoiler: boolean
     isSecret?: boolean
+    isBlinded?: boolean
+    blindReason?: string | null
+    pinnedAt?: string | null
     author: UserSummary
     board: {
         boardId: number
@@ -158,6 +161,9 @@ export interface PostSummary {
     isNsfw: boolean
     isSpoiler: boolean
     isSecret?: boolean
+    isBlinded?: boolean
+    blindReason?: string | null
+    pinnedAt?: string | null
     author: UserSummary
     category?: Category
     thumbnailUrl?: string
@@ -184,6 +190,9 @@ export interface FeedPost {
     isNsfw: boolean
     isSpoiler: boolean
     isSecret?: boolean
+    isBlinded?: boolean
+    blindReason?: string | null
+    pinnedAt?: string | null
     author: UserSummary
     category?: Category
     thumbnailUrl?: string

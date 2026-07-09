@@ -11,6 +11,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import jakarta.persistence.*;
+import java.time.LocalDateTime;
 
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
@@ -57,6 +58,16 @@ public class Comment extends BaseTimeEntity {
     @Column(name = "like_count", nullable = false)
     private Integer likeCount;
 
+    @Convert(converter = BooleanToYNConverter.class)
+    @Column(name = "is_blinded", length = 1, nullable = false, columnDefinition = "varchar(1) default 'N'")
+    private Boolean isBlinded;
+
+    @Column(name = "blind_reason", length = 50)
+    private String blindReason;
+
+    @Column(name = "blinded_at")
+    private LocalDateTime blindedAt;
+
     @Builder
     public Comment(Post post, User user, Agent agent, Comment parent, Integer depth, String content) {
         this.post = post;
@@ -67,6 +78,7 @@ public class Comment extends BaseTimeEntity {
         this.content = content;
         this.isDeleted = false;
         this.likeCount = 0;
+        this.isBlinded = false;
     }
 
     public void updateContent(String content) {
@@ -83,5 +95,17 @@ public class Comment extends BaseTimeEntity {
 
     public void decrementLikeCount() {
         this.likeCount--;
+    }
+
+    public void blind(String reason, LocalDateTime blindedAt) {
+        this.isBlinded = true;
+        this.blindReason = reason;
+        this.blindedAt = blindedAt;
+    }
+
+    public void unblind() {
+        this.isBlinded = false;
+        this.blindReason = null;
+        this.blindedAt = null;
     }
 }

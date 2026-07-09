@@ -80,6 +80,7 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                 JOIN p.board b
                 WHERE b.boardId IN :boardIds
                   AND p.isDeleted = false
+                  AND p.isBlinded = false
                   AND p.isSecret = false
                   AND b.isActive = true
                   AND b.isPublic = true
@@ -98,6 +99,7 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                 FROM Post p
                 JOIN p.board b
                 WHERE p.isDeleted = false
+                  AND p.isBlinded = false
                   AND p.isSecret = false
                   AND b.isActive = true
                   AND b.isPublic = true
@@ -119,6 +121,7 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                 FROM Post p
                 JOIN p.board b
                 WHERE p.isDeleted = false
+                  AND p.isBlinded = false
                   AND p.isSecret = false
                   AND b.isActive = true
                   AND b.isPublic = true
@@ -137,6 +140,7 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                 WHERE p.createdAt >= :start
                   AND p.createdAt < :end
                   AND p.isDeleted = false
+                  AND p.isBlinded = false
                   AND p.isSecret = false
                   AND b.isActive = true
                   AND b.isPublic = true
@@ -170,6 +174,11 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
         @Query("SELECT p FROM Post p WHERE p.postId = :postId")
         Optional<Post> findByIdForUpdate(@Param("postId") Long postId);
 
+        @EntityGraph(attributePaths = {"user", "agent", "board", "category"})
+        @Lock(LockModeType.PESSIMISTIC_WRITE)
+        @Query("SELECT p FROM Post p WHERE p.postId = :postId")
+        Optional<Post> findByIdWithRelationsForBlindUpdate(@Param("postId") Long postId);
+
         @Lock(LockModeType.PESSIMISTIC_WRITE)
         @Query("""
                 SELECT p
@@ -195,6 +204,7 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                 JOIN p.board b
                 WHERE p.user = :user
                   AND p.isDeleted = false
+                  AND p.isBlinded = false
                   AND p.isSecret = false
                   AND b.isActive = true
                   AND b.isPublic = true
@@ -208,6 +218,7 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                 JOIN p.board b
                 WHERE p.user = :user
                   AND p.isDeleted = false
+                  AND p.isBlinded = false
                   AND p.isSecret = false
                   AND b.isActive = true
                   AND b.isPublic = true
@@ -224,6 +235,7 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                 JOIN p.board b
                 WHERE p.agent.agentId = :agentId
                   AND p.isDeleted = false
+                  AND p.isBlinded = false
                   AND p.isSecret = false
                   AND b.isActive = true
                   AND b.isPublic = true
@@ -237,6 +249,7 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                 JOIN p.board b
                 WHERE p.agent.agentId = :agentId
                   AND p.isDeleted = false
+                  AND p.isBlinded = false
                   AND p.isSecret = false
                   AND b.isActive = true
                   AND b.isPublic = true
@@ -251,6 +264,7 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                 JOIN p.board b
                 WHERE p.agent.agentId = :agentId
                   AND p.isDeleted = false
+                  AND p.isBlinded = false
                   AND p.isSecret = false
                   AND b.isActive = true
                   AND b.isPublic = true
@@ -268,6 +282,7 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                 JOIN p.board b
                 WHERE p.agent.agentId = :agentId
                   AND p.isDeleted = false
+                  AND p.isBlinded = false
                   AND p.isSecret = false
                   AND b.isActive = true
                   AND b.isPublic = true
@@ -298,6 +313,24 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
 
         @Query("SELECT p.likeCount FROM Post p WHERE p.postId = :postId AND p.isDeleted = false")
         Integer findLikeCountByPostId(Long postId);
+
+        @Query("""
+                SELECT p.postId
+                FROM Post p
+                JOIN p.board b
+                WHERE b.boardId = :boardId
+                  AND p.postId <> :sourcePostId
+                  AND p.isDeleted = false
+                  AND p.isBlinded = false
+                  AND p.isSecret = false
+                  AND b.isActive = true
+                  AND b.isPublic = true
+                ORDER BY p.likeCount DESC, p.createdAt DESC, p.postId DESC
+                """)
+        List<Long> findPublicRelatedFallbackPostIds(
+                @Param("boardId") Long boardId,
+                @Param("sourcePostId") Long sourcePostId,
+                Pageable pageable);
 
         @Modifying(flushAutomatically = true)
         @Query("""

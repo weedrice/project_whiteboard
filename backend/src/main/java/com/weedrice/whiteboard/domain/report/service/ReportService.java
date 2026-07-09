@@ -27,6 +27,11 @@ public class ReportService {
         return reportModerationService.getReports(status, targetType, pageable);
     }
 
+    public Page<ReportResponse> getBoardReports(Long managerUserId, String boardUrl, String status, String targetType,
+            Pageable pageable) {
+        return reportModerationService.getBoardReports(managerUserId, boardUrl, status, targetType, pageable);
+    }
+
     public Page<MyReportResponse> getMyReports(Long userId, Pageable pageable) {
         return reportModerationService.getMyReports(userId, pageable);
     }

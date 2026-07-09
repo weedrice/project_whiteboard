@@ -59,6 +59,8 @@ public class PostService {
     private final PostFacadeReadService postFacadeReadService;
     private final PostDetailContextResolver postDetailContextResolver;
     private final PostSeriesService postSeriesService;
+    private final PostRelatedReadService postRelatedReadService;
+    private final PostManagerModerationService postManagerModerationService;
 
     public Page<PostSummary> getPosts(String boardUrl, Long categoryId, String keyword, Integer minLikes, Long currentUserId,
             @NonNull Pageable pageable) {
@@ -173,6 +175,30 @@ public class PostService {
     public PostResponse getPostResponse(@NonNull Long postId, Long userId, boolean incrementView,
             int boardListPageSize) {
         return getPostResponseInternal(postId, userId, incrementView, boardListPageSize);
+    }
+
+    public List<PostSummary> getRelatedPosts(@NonNull Long postId, Long userId, Integer size) {
+        return postRelatedReadService.getRelatedPosts(postId, userId, size);
+    }
+
+    @Transactional
+    public void pinPostByManager(@NonNull Long userId, @NonNull Long postId) {
+        postManagerModerationService.pinPost(userId, postId);
+    }
+
+    @Transactional
+    public void unpinPostByManager(@NonNull Long userId, @NonNull Long postId) {
+        postManagerModerationService.unpinPost(userId, postId);
+    }
+
+    @Transactional
+    public void blindPostByManager(@NonNull Long userId, @NonNull Long postId, String reason) {
+        postManagerModerationService.blindPost(userId, postId, reason);
+    }
+
+    @Transactional
+    public void unblindPostByManager(@NonNull Long userId, @NonNull Long postId) {
+        postManagerModerationService.unblindPost(userId, postId);
     }
 
     private PostResponse getPostResponseInternal(

@@ -24,6 +24,10 @@ export function usePostDetailPermissions(
     || inputs.isAdmin.value
     || !!post.value.board.isAdmin
   ))
+  const canManage = computed(() => !!post.value && (
+    inputs.isAdmin.value
+    || !!post.value.board.isAdmin
+  ))
   const canReport = computed(() => inputs.isAuthenticated.value && !isAuthor.value)
 
   return {
@@ -31,6 +35,7 @@ export function usePostDetailPermissions(
     isAgentAuthor,
     canEdit,
     canDelete,
+    canManage,
     canReport
   }
 }

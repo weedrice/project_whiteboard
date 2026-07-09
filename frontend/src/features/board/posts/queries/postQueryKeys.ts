@@ -7,6 +7,8 @@ export const postQueryKeys = {
         postId: string | number | Ref<string | number>,
         incrementView = true,
     ) => ['post', postId, { incrementView }] as const,
+    related: (postId: string | number | Ref<string | number>, size: number) =>
+        ['post', postId, 'related', size] as const,
     lists: ['posts'] as const,
     boardPostsRoot: ['board', 'posts'] as const,
     boardPosts: (boardUrl: string) => ['board', 'posts', boardUrl] as const,

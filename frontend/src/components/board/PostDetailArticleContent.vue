@@ -74,7 +74,14 @@ const {
       @click="handleContentClick"
       @keydown="handleContentKeydown"
     >
+      <div
+        v-if="postView.isBlinded"
+        class="rounded-lg border border-[var(--nv-danger-border)] bg-[var(--nv-danger-bg)] px-4 py-5 text-sm font-medium text-[var(--nv-danger-text)]"
+      >
+        {{ t('board.postDetail.blinded') }}
+      </div>
       <PostContentView
+        v-else
         :ref="assignContentRef"
         class="ql-editor nv-rich-content nv-post-readable nv-post-readable-fluid prose prose-sm sm:prose-base dark:prose-invert"
         :class="{ 'blur-md select-none': isBlurred }"
@@ -83,7 +90,7 @@ const {
       />
 
       <PostDetailSpoilerOverlay
-        v-if="isBlurred"
+        v-if="isBlurred && !postView.isBlinded"
         :time-left="timeLeft"
         @reveal-spoiler="emit('reveal-spoiler')"
       />

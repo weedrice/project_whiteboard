@@ -36,6 +36,7 @@ class SemanticSearchVectorRepository {
             WHERE e.content_type = 'POST'
               AND e.deleted_at IS NULL
               AND p.is_deleted = 'N'
+              AND p.is_blinded = 'N'
               AND %s
               AND %s
               AND u.status = 'ACTIVE'
@@ -77,7 +78,9 @@ class SemanticSearchVectorRepository {
             WHERE e.content_type = 'COMMENT'
               AND e.deleted_at IS NULL
               AND c.is_deleted = 'N'
+              AND c.is_blinded = 'N'
               AND p.is_deleted = 'N'
+              AND p.is_blinded = 'N'
               AND %s
               AND %s
               AND u.status = 'ACTIVE'
@@ -109,6 +112,7 @@ class SemanticSearchVectorRepository {
             WHERE e.content_type = 'POST'
               AND e.deleted_at IS NULL
               AND p.is_deleted = 'N'
+              AND p.is_blinded = 'N'
               AND %s
               AND %s
               AND u.status = 'ACTIVE'
@@ -133,7 +137,9 @@ class SemanticSearchVectorRepository {
             WHERE e.content_type = 'COMMENT'
               AND e.deleted_at IS NULL
               AND c.is_deleted = 'N'
+              AND c.is_blinded = 'N'
               AND p.is_deleted = 'N'
+              AND p.is_blinded = 'N'
               AND %s
               AND %s
               AND u.status = 'ACTIVE'
@@ -185,4 +191,65 @@ class SemanticSearchVectorRepository {
                 .addValue("queryEmbedding", query.embeddingVector());
     }
 
+    List<Long> findRelatedPostIds(Long sourcePostId, SemanticSearchQueryContext context, int size) {
+        return jdbcTemplate.queryForList(relatedPostSql(context), relatedPostParams(sourcePostId, context, size),
+                Long.class);
+    }
+
+    private String relatedPostSql(SemanticSearchQueryContext context) {
+        String blockedPredicate = context.blockedUserIds() == null || context.blockedUserIds().isEmpty()
+                ? ""
+                : " AND p.user_id NOT IN (:blockedUserIds)";
+        String boardPredicate = context.boardUrl() == null || context.boardUrl().isBlank()
+                ? ""
+                : " AND b.board_url = :boardUrl";
+        return """
+                WITH source_embedding AS (
+                    SELECT e.embedding
+                    FROM semantic_search_embeddings e
+                    JOIN posts source_post ON source_post.post_id = e.content_id
+                    JOIN boards b ON b.board_id = source_post.board_id
+                    WHERE e.content_type = 'POST'
+                      AND e.content_id = :sourcePostId
+                      AND e.deleted_at IS NULL
+                      AND source_post.is_deleted = 'N'
+                      AND source_post.is_blinded = 'N'
+                      AND source_post.is_secret = 'N'
+                      AND b.is_active = 'Y'
+                      AND b.is_public = 'Y'
+                      %s
+                    LIMIT 1
+                )
+                SELECT p.post_id
+                FROM semantic_search_embeddings e
+                JOIN source_embedding source ON TRUE
+                JOIN posts p ON p.post_id = e.content_id
+                JOIN boards b ON b.board_id = p.board_id
+                JOIN users u ON u.user_id = p.user_id
+                WHERE e.content_type = 'POST'
+                  AND e.deleted_at IS NULL
+                  AND p.post_id <> :sourcePostId
+                  AND p.is_deleted = 'N'
+                  AND p.is_blinded = 'N'
+                  AND p.is_secret = 'N'
+                  AND b.is_active = 'Y'
+                  AND b.is_public = 'Y'
+                  AND u.status = 'ACTIVE'
+                  AND u.deleted_at IS NULL
+                  %s
+                  %s
+                ORDER BY 1 - (e.embedding <=> source.embedding) DESC, p.created_at DESC, p.post_id DESC
+                LIMIT :limit
+                """.formatted(boardPredicate, boardPredicate, blockedPredicate);
+    }
+
+    private MapSqlParameterSource relatedPostParams(Long sourcePostId, SemanticSearchQueryContext context, int size) {
+        return new MapSqlParameterSource()
+                .addValue("sourcePostId", sourcePostId)
+                .addValue("boardUrl", context.boardUrl())
+                .addValue("blockedUserIds", context.blockedUserIds() == null || context.blockedUserIds().isEmpty()
+                        ? List.of(-1L)
+                        : context.blockedUserIds())
+                .addValue("limit", size);
+    }
 }

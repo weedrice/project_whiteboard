@@ -1,11 +1,16 @@
 package com.weedrice.whiteboard.domain.report.service;
 
+import com.weedrice.whiteboard.domain.board.entity.Board;
+import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
+import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.report.dto.MyReportResponse;
 import com.weedrice.whiteboard.domain.report.dto.ReportResponse;
 import com.weedrice.whiteboard.domain.report.entity.Report;
 import com.weedrice.whiteboard.domain.report.repository.ReportRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.service.UserReadableResolver;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -34,6 +39,8 @@ class ReportModerationService {
             "reasonType");
 
     private final ReportRepository reportRepository;
+    private final BoardRepository boardRepository;
+    private final BoardAccessPolicy boardAccessPolicy;
     private final UserReadableResolver userReadableResolver;
     private final ReportReadAssembler reportReadAssembler;
     private final ReportModerationCommandService reportModerationCommandService;
@@ -45,6 +52,20 @@ class ReportModerationService {
         Pageable safePageable = normalizeReportPageable(pageable);
         return reportReadAssembler.toAdminResponsePage(
                 reportRepository.findAdminReports(normalizedStatus, normalizedTargetType, safePageable));
+    }
+
+    public Page<ReportResponse> getBoardReports(Long managerUserId, String boardUrl, String status,
+            String targetType, Pageable pageable) {
+        User manager = userReadableResolver.resolve(managerUserId);
+        Board board = boardRepository.findByBoardUrl(boardUrl)
+                .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+        boardAccessPolicy.validateBoardAdmin(board, manager);
+        String normalizedStatus = ReportStatusNormalizer.normalizeNullable(status);
+        String normalizedTargetType = ReportTargetTypeNormalizer.normalizeNullable(targetType);
+        Pageable safePageable = normalizeReportPageable(pageable);
+        return reportReadAssembler.toAdminResponsePage(
+                reportRepository.findBoardReports(board.getBoardId(), normalizedStatus, normalizedTargetType,
+                        safePageable));
     }
 
     private Pageable normalizeReportPageable(Pageable pageable) {
