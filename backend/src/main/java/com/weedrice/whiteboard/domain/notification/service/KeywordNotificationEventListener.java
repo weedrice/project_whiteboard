@@ -8,6 +8,7 @@ import com.weedrice.whiteboard.domain.notification.entity.UserKeywordSubscriptio
 import com.weedrice.whiteboard.domain.notification.repository.UserKeywordSubscriptionRepository;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
+import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.Ordered;
@@ -31,6 +32,7 @@ public class KeywordNotificationEventListener {
     private final PostRepository postRepository;
     private final UserKeywordSubscriptionRepository keywordSubscriptionRepository;
     private final NotificationCommandService notificationCommandService;
+    private final UserBlockService userBlockService;
 
     @Order(Ordered.LOWEST_PRECEDENCE)
     @Async("taskExecutor")
@@ -57,7 +59,9 @@ public class KeywordNotificationEventListener {
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime cooldownThreshold = now.minusMinutes(COOLDOWN_MINUTES);
         for (UserKeywordSubscription subscription : keywordSubscriptionRepository.findMatchingTitle(post.getTitle())) {
-            if (isAuthor(subscription, post) || isCoolingDown(subscription, cooldownThreshold)) {
+            if (isAuthor(subscription, post)
+                    || isBlocked(subscription, post)
+                    || isCoolingDown(subscription, cooldownThreshold)) {
                 continue;
             }
             NotificationEvent notificationEvent = new NotificationEvent(
@@ -83,5 +87,15 @@ public class KeywordNotificationEventListener {
     private boolean isCoolingDown(UserKeywordSubscription subscription, LocalDateTime cooldownThreshold) {
         return subscription.getLastNotifiedAt() != null
                 && subscription.getLastNotifiedAt().isAfter(cooldownThreshold);
+    }
+
+    private boolean isBlocked(UserKeywordSubscription subscription, Post post) {
+        if (subscription.getUser() == null || subscription.getUser().getUserId() == null
+                || post.getUser() == null || post.getUser().getUserId() == null) {
+            return false;
+        }
+        return userBlockService.isEitherDirectionBlocked(
+                subscription.getUser().getUserId(),
+                post.getUser().getUserId());
     }
 }
