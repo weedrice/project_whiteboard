@@ -130,3 +130,78 @@ export const emoticon: EmoticonMessages = {
     progress: '이미지 업로드 중... ({current}/{total})',
   },
 }
+
+export const emoticonEn: EmoticonMessages = {
+  ...emoticon,
+  title: 'Noviicon',
+  purchase: {
+    success: 'Noviicon purchased.',
+    failed: 'Purchase failed.',
+    confirm: 'Buy this Noviicon with 100 points?',
+    purchasing: 'Purchasing...',
+    button: {
+      loginRequired: 'Sign in required',
+      purchased: 'Purchased',
+      myEmoticon: 'My Noviicon',
+      buyWithPrice: 'Buy for {price}P',
+    },
+  },
+  edit: {
+    noPermission: 'You do not have permission to edit this.',
+    updated: 'Noviicon updated.',
+    failed: 'Update failed.',
+  },
+  visibility: {
+    hide: 'Hide from sale',
+    show: 'Put back on sale',
+    hideConfirm: 'Stop selling this Noviicon? Existing buyers can keep using it.',
+    showConfirm: 'Put this Noviicon back on sale?',
+    hidden: 'Hidden from sale',
+    hiddenSuccess: 'Sale has been hidden.',
+    showSuccess: 'Sale resumed.',
+  },
+  register: {
+    title: 'Register Noviicon',
+    description: 'Register your own Noviicon.',
+    created: 'Noviicon registered.',
+    failed: 'Registration failed.',
+  },
+  list: {
+    description: 'Browse and buy Noviicons.',
+    popular: 'Popular Noviicons',
+    popularEmpty: 'No popular Noviicons yet.',
+    all: 'All Noviicons',
+    itemCount: '{count} items',
+    empty: 'No Noviicons registered.',
+    salesCount: '{count} sold',
+    register: 'Register',
+    period: {
+      daily: 'Daily',
+      weekly: 'Weekly',
+      monthly: 'Monthly',
+    },
+    sort: {
+      latest: 'Latest',
+      oldest: 'Oldest',
+      popular: 'Most sold',
+    },
+    searchType: {
+      all: 'All',
+      name: 'Name',
+      creator: 'Creator',
+      tag: 'Tag',
+    },
+  },
+  detail: {
+    ...emoticon.detail,
+    backToList: 'Back to list',
+    loadFailed: 'Failed to load emoticon.',
+    backToListFull: 'Back to list',
+    creator: 'Creator',
+    createdAt: 'Created at',
+    purchaseCount: 'Purchases',
+    imageList: 'Images',
+    imageEmpty: 'No images registered.',
+    tags: 'Tags',
+  },
+}

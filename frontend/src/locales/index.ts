@@ -3,13 +3,13 @@ import { common, commonEn } from './common'
 import { search } from './search'
 import { home, homeEn } from './home'
 import { layout, layoutEn } from './layout'
-import { auth } from './auth'
+import { auth, authEn } from './auth'
 import { board, boardEn } from './board'
-import { comment } from './comment'
-import { notification } from './notification'
+import { comment, commentEn } from './comment'
+import { notification, notificationEn } from './notification'
 import { user } from './user'
-import { report } from './report'
-import { emoticon } from './emoticon'
+import { report, reportEn } from './report'
+import { emoticon, emoticonEn } from './emoticon'
 import { admin } from './admin'
 import { onboarding, onboardingEn } from './onboarding'
 
@@ -34,13 +34,13 @@ export const messages = {
     search,
     home: homeEn,
     layout: layoutEn,
-    auth,
+    auth: authEn,
     board: boardEn,
-    comment,
-    notification,
+    comment: commentEn,
+    notification: notificationEn,
     user,
-    report,
-    emoticon,
+    report: reportEn,
+    emoticon: emoticonEn,
     admin,
     onboarding: onboardingEn,
   },
