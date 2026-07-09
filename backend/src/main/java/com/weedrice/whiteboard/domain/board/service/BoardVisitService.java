@@ -22,6 +22,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 class BoardVisitService {
+    private static final long ACTIVITY_LOOKBACK_DAYS = 30L;
+
     private final BoardVisitRepository boardVisitRepository;
     private final UserRepository userRepository;
     private final BoardRepository boardRepository;
@@ -49,7 +51,8 @@ class BoardVisitService {
         }
         Long userId = user != null ? user.getUserId() : null;
         boolean isSuperAdmin = user != null && user.isUsableSuperAdmin();
-        return boardVisitRepository.findActivityByBoardIds(boardIds, userId, isSuperAdmin)
+        LocalDateTime recentCutoff = DateTimeUtils.nowKST().minusDays(ACTIVITY_LOOKBACK_DAYS);
+        return boardVisitRepository.findActivityByBoardIds(boardIds, userId, isSuperAdmin, recentCutoff)
                 .stream()
                 .collect(Collectors.toMap(
                         BoardVisitRepository.BoardActivityProjection::getBoardId,

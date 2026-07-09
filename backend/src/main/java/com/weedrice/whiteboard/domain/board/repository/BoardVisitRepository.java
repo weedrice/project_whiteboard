@@ -35,6 +35,7 @@ public interface BoardVisitRepository extends JpaRepository<BoardVisit, BoardVis
              AND bv.user.userId = :userId
             WHERE p.board.boardId IN :boardIds
               AND p.isDeleted = false
+              AND p.createdAt > :recentCutoff
               AND (
                     p.isSecret = false
                     OR p.user.userId = :userId
@@ -52,5 +53,6 @@ public interface BoardVisitRepository extends JpaRepository<BoardVisit, BoardVis
     List<BoardActivityProjection> findActivityByBoardIds(
             @Param("boardIds") Collection<Long> boardIds,
             @Param("userId") Long userId,
-            @Param("isSuperAdmin") boolean isSuperAdmin);
+            @Param("isSuperAdmin") boolean isSuperAdmin,
+            @Param("recentCutoff") LocalDateTime recentCutoff);
 }
