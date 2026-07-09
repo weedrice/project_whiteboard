@@ -56,9 +56,8 @@ BEGIN
             CHECK (notification_type IN ('LIKE', 'COMMENT', 'REPLY', 'MENTION', 'MESSAGE', 'SYSTEM', 'SANCTION', 'KEYWORD', 'BADGE'));
 END $$;
 
-INSERT INTO common_code_details (code_detail_id, code_id, code, name, sort_order, is_active, created_at, modified_at)
-SELECT COALESCE((SELECT MAX(code_detail_id) FROM common_code_details), 0) + 1,
-       'NOTIFICATION_TYPE',
+INSERT INTO common_code_details (type_code, code_value, code_name, sort_order, is_active, created_at, modified_at)
+SELECT 'NOTIFICATION_TYPE',
        'BADGE',
        'Badge notification',
        90,
@@ -68,6 +67,6 @@ SELECT COALESCE((SELECT MAX(code_detail_id) FROM common_code_details), 0) + 1,
 WHERE NOT EXISTS (
     SELECT 1
     FROM common_code_details
-    WHERE code_id = 'NOTIFICATION_TYPE'
-      AND code = 'BADGE'
+    WHERE type_code = 'NOTIFICATION_TYPE'
+      AND code_value = 'BADGE'
 );
