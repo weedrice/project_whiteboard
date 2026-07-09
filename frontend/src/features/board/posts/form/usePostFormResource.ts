@@ -36,7 +36,7 @@ export function usePostFormResource(options: UsePostFormResourceOptions) {
         isBoardLoading.value || (options.mode() === 'edit' && isPostLoading.value),
     )
     const showNotice = computed(() =>
-        !options.hideNotice() && options.mode() === 'create' && Boolean(board.value?.isAdmin),
+        !options.hideNotice() && Boolean(board.value?.isAdmin),
     )
     const canShowNsfw = computed(() => Boolean(board.value?.allowNsfw))
 

@@ -1174,6 +1174,56 @@ class PostServiceTest {
     }
 
     @Test
+    @DisplayName("게시글 수정은 공지 값이 생략되면 기존 공지 상태를 유지한다")
+    void updatePost_noticeOmitted_preservesExistingNotice() {
+        ReflectionTestUtils.setField(post, "isNotice", true);
+        PostUpdateRequest request = new PostUpdateRequest(null, "Updated Title", "Updated Contents",
+                Collections.emptyList(), false, false, false, List.of());
+
+        when(postRepository.findByIdWithRelationsForUpdate(1L)).thenReturn(Optional.of(post));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        postService.updatePost(1L, 1L, request);
+
+        assertThat(post.getIsNotice()).isTrue();
+        verify(adminRepository, never()).existsByUserAndBoardAndIsActive(any(), any(), anyBoolean());
+    }
+
+    @Test
+    @DisplayName("보드 관리자는 게시글 수정으로 공지를 해제할 수 있다")
+    void updatePost_boardAdminCanUnsetNotice() {
+        ReflectionTestUtils.setField(post, "isNotice", true);
+        PostUpdateRequest request = new PostUpdateRequest(null, "Updated Title", "Updated Contents",
+                Collections.emptyList(), false, false, false, false, null, List.of(), null, null);
+
+        when(postRepository.findByIdWithRelationsForUpdate(1L)).thenReturn(Optional.of(post));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(adminRepository.existsByUserAndBoardAndIsActive(user, board, true)).thenReturn(true);
+
+        postService.updatePost(1L, 1L, request);
+
+        assertThat(post.getIsNotice()).isFalse();
+    }
+
+    @Test
+    @DisplayName("보드 관리자가 아니면 게시글 수정으로 공지 상태를 변경할 수 없다")
+    void updatePost_nonBoardAdminCannotChangeNotice() {
+        ReflectionTestUtils.setField(post, "isNotice", true);
+        PostUpdateRequest request = new PostUpdateRequest(null, "Updated Title", "Updated Contents",
+                Collections.emptyList(), false, false, false, false, null, List.of(), null, null);
+
+        when(postRepository.findByIdWithRelationsForUpdate(1L)).thenReturn(Optional.of(post));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        assertThatThrownBy(() -> postService.updatePost(1L, 1L, request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+
+        assertThat(post.getIsNotice()).isTrue();
+        verify(postVersionRepository, never()).save(any(PostVersion.class));
+    }
+
+    @Test
     @DisplayName("게시글 수정은 초안 파일 승격을 위해 draftId를 파일 서비스에 전달한다")
     void updatePost_withDraftId_passesDraftIdToFileService() {
         PostUpdateRequest request = new PostUpdateRequest(null, "Updated Title", "Updated Contents",

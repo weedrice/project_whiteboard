@@ -131,7 +131,7 @@ export function buildPostFormPayload({
         isNsfw: canShowNsfw ? form.isNsfw : false,
         isSpoiler: hideSpoiler ? false : form.isSpoiler,
         isSecret: hideSecret ? false : form.isSecret,
-        ...(mode === 'create' && { isNotice: showNotice ? form.isNotice : false }),
+        ...(showNotice && { isNotice: form.isNotice }),
         ...(parsedSeriesId && !Number.isNaN(parsedSeriesId) && { seriesId: parsedSeriesId }),
         ...(poll && { poll }),
         fileIds,

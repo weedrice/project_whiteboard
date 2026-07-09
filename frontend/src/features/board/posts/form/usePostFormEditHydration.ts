@@ -37,7 +37,7 @@ export function usePostFormEditHydration({
       isSecret: post.value.isSecret ?? false,
       seriesNavigation: post.value.seriesNavigation,
       poll: post.value.poll ?? null,
-      isNotice: false,
+      isNotice: post.value.isNotice,
       fileIds: [],
     })
     markCurrentSnapshotSaved()

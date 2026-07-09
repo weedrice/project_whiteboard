@@ -155,7 +155,8 @@ public class PostCommandService {
         String sanitizedContents = sanitizePostContents(request.getContents());
 
         boolean isSecret = !boardAccessPolicy.isInquiryBoard(post.getBoard()) && request.isSecret();
-        post.updatePost(category, request.getTitle(), sanitizedContents, request.isNsfw(),
+        boolean isNotice = resolveUpdatedNotice(post, modifier, request.getIsNotice());
+        post.updatePost(category, request.getTitle(), sanitizedContents, isNotice, request.isNsfw(),
                 request.isSpoiler(), isSecret);
         tagAssignmentService.assignTags(post, request.getTags());
         postSeriesService.attachPostToSeries(post.getUser().getUserId(), post, request.getSeriesId());
@@ -172,6 +173,19 @@ public class PostCommandService {
         }
 
         return post.getPostId();
+    }
+
+    private boolean resolveUpdatedNotice(Post post, User modifier, Boolean requestedNotice) {
+        boolean currentNotice = Boolean.TRUE.equals(post.getIsNotice());
+        if (requestedNotice == null) {
+            return currentNotice;
+        }
+
+        boolean nextNotice = Boolean.TRUE.equals(requestedNotice);
+        if (currentNotice != nextNotice && !boardAccessPolicy.hasBoardAdminAccess(post.getBoard(), modifier)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+        return nextNotice;
     }
 
     @Transactional

@@ -123,9 +123,15 @@ public class Post extends BaseTimeEntity {
 
     public void updatePost(BoardCategory category, String title, String contents, boolean isNsfw, boolean isSpoiler,
             boolean isSecret) {
+        updatePost(category, title, contents, Boolean.TRUE.equals(this.isNotice), isNsfw, isSpoiler, isSecret);
+    }
+
+    public void updatePost(BoardCategory category, String title, String contents, boolean isNotice, boolean isNsfw,
+            boolean isSpoiler, boolean isSecret) {
         this.category = category;
         this.title = title;
         this.contents = contents;
+        this.isNotice = isNotice;
         this.isNsfw = isNsfw;
         this.isSpoiler = isSpoiler;
         this.isSecret = isSecret;

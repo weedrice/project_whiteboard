@@ -81,6 +81,7 @@ describe('postForm', () => {
             isNsfw: true,
             isSpoiler: false,
             isSecret: false,
+            isNotice: true,
             fileIds: [],
         })
     })
