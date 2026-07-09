@@ -12,6 +12,7 @@ import { postDetailQueryKey } from '@/features/board/posts/queries/postQueryKeys
 import i18n from '@/i18n'
 import { useToastStore } from '@/stores/toast'
 import { apiDataResponse } from '@/test/apiResponseFixtures'
+import { QUERY_STALE_TIME } from '@/utils/constants'
 
 const queryClientMock = vi.hoisted(() => ({
     fetchQuery: vi.fn(({ queryFn }: { queryFn: () => Promise<unknown> }) => queryFn())
@@ -265,6 +266,10 @@ describe('Router Navigation Guards', () => {
         mockAuthStore.isAuthenticated = true
         mockAuthStore.user = { role: 'USER' }
         await router.push('/mypage')
+        expect(queryClientMock.fetchQuery).toHaveBeenCalledWith(expect.objectContaining({
+            queryKey: ['user', 'settings'],
+            staleTime: QUERY_STALE_TIME.MEDIUM,
+        }))
         expect(router.currentRoute.value.name).toBe('mypage')
     })
 

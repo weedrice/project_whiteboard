@@ -149,7 +149,7 @@ describe('useUser', () => {
         useUserSettings()
         let options = mocks.queryOptions.at(-1)!
         expect(options.queryKey).toEqual(['user', 'settings'])
-        expect(options.staleTime).toBe(QUERY_STALE_TIME.SHORT)
+        expect(options.staleTime).toBe(QUERY_STALE_TIME.MEDIUM)
         let result = await (options.queryFn as () => Promise<unknown>)()
         expect(result).toEqual({ theme: 'LIGHT' })
 

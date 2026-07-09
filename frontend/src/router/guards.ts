@@ -12,6 +12,7 @@ import {
 } from '@/router/resourceAccessGuards'
 import { getStringRouteParam, isReservedBoardUrl, shouldRedirectToOnboarding } from '@/router/routeGuardModel'
 import { saveLoginRedirect } from '@/utils/authRedirect'
+import { QUERY_STALE_TIME } from '@/utils/constants'
 
 declare module 'vue-router' {
     interface RouteMeta {
@@ -71,6 +72,7 @@ export function createAppNavigationGuard() {
                 const settings = await queryClient.fetchQuery({
                     queryKey: userSettingsQueryKey,
                     queryFn: async () => unwrapAxiosApiData(await userApi.getUserSettings()),
+                    staleTime: QUERY_STALE_TIME.MEDIUM,
                 })
                 if (shouldRedirectToOnboarding(to.name, to.meta.skipOnboarding, settings?.onboardingCompletedAt)) {
                     next({ name: 'onboarding', query: { redirect: to.fullPath } })

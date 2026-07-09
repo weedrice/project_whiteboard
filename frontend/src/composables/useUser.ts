@@ -87,7 +87,7 @@ export function useUser() {
                 userApi.getUserSettings,
                 userApi.getUserSettings,
             ),
-            staleTime: QUERY_STALE_TIME.SHORT,
+            staleTime: QUERY_STALE_TIME.MEDIUM,
         })
     }
 
