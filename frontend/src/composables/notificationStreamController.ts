@@ -7,10 +7,10 @@ import {
     type CommentStreamEvent,
     type NotificationRaw,
 } from '@/api/notification'
-import { commentQueryKeys } from '@/composables/commentQueryKeys'
 import logger from '@/utils/logger'
 import { useAuthStore } from '@/stores/auth'
 import { isCancellationError } from '@/utils/cancellationError'
+import { emitCommentStreamEvent } from '@/composables/commentStreamEvents'
 import { consumeSseStream } from '@/composables/notificationSseStream'
 import {
     shouldStopNotificationReconnectAfterRefresh,
@@ -91,7 +91,9 @@ export function createNotificationStreamController(
         try {
             const event = JSON.parse(payload) as Partial<CommentStreamEvent>
             if (typeof event.postId !== 'number' || typeof event.commentId !== 'number') return
-            queryClient.invalidateQueries({ queryKey: commentQueryKeys.postRoot(event.postId) })
+            if (event.action !== 'CREATED' && event.action !== 'DELETED') return
+            if (typeof event.actorUserId !== 'number' || typeof event.occurredAt !== 'string') return
+            emitCommentStreamEvent(event as CommentStreamEvent)
         } catch (error: unknown) {
             logger.error('Failed to parse SSE comment event:', error)
         }

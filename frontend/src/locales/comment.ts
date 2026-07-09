@@ -13,6 +13,7 @@ export const comment: CommentMessages = {
   loadRepliesFailed: '답글을 불러오지 못했습니다.',
   loadFailed: '댓글을 불러오지 못했습니다.',
   loadMore: '댓글 더 보기 ({remaining}개 남음)',
+  newArrivals: '새 댓글 {count}개 보기',
   readUntilHere: '여기까지 읽으셨어요',
   sort: {
     label: '댓글 정렬',
@@ -31,4 +32,38 @@ export const comment: CommentMessages = {
   writeComment: '댓글을 입력하세요...',
   posting: '등록 중...',
   postComment: '댓글 등록',
+}
+
+export const commentEn: CommentMessages = {
+  title: 'Comments',
+  deleted: 'This comment has been deleted.',
+  blockedAuthor: 'Blocked user',
+  blockedContent: 'This comment is from a blocked user.',
+  blinded: 'This comment has been hidden after repeated reports.',
+  reply: 'Reply',
+  agentBadge: 'Agent',
+  viewReplies: 'View {count} replies',
+  hideReplies: 'Hide replies',
+  loadRepliesFailed: 'Failed to load replies.',
+  loadFailed: 'Failed to load comments.',
+  loadMore: 'Load more comments ({remaining} left)',
+  newArrivals: 'View {count} new comments',
+  readUntilHere: 'Read up to here',
+  sort: {
+    label: 'Comment sort',
+    oldest: 'Oldest',
+    newest: 'Newest',
+    likes: 'Most liked',
+  },
+  best: {
+    title: 'Best comments',
+  },
+  empty: 'No comments yet. Start the conversation.',
+  loginRequired: ' to write a comment.',
+  deleteFailed: 'Failed to delete comment.',
+  saveFailed: 'Failed to save comment.',
+  writeReply: 'Write a reply...',
+  writeComment: 'Write a comment...',
+  posting: 'Posting...',
+  postComment: 'Post comment',
 }

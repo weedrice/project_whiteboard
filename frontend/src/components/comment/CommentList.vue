@@ -18,6 +18,11 @@ const props = defineProps<{
   postId: number | string
   boardUrl: string
   lastViewedAt?: string | null
+  pendingCommentCount?: number
+}>()
+
+const emit = defineEmits<{
+  (event: 'refresh-comments'): void
 }>()
 
 const { t } = useI18n()
@@ -146,6 +151,12 @@ function isNewComment(comment: Comment) {
           :label="$t('comment.sort.label')"
           variant="joined"
         />
+      </div>
+
+      <div v-if="props.pendingCommentCount && props.pendingCommentCount > 0" class="sticky top-4 z-10 flex justify-center">
+        <BaseButton type="button" size="sm" @click="emit('refresh-comments')">
+          {{ $t('comment.newArrivals', { count: props.pendingCommentCount }) }}
+        </BaseButton>
       </div>
 
       <section v-if="bestComments.length > 0" class="space-y-3 rounded-md border border-[var(--nv-line)] bg-[var(--nv-surface)] p-4">

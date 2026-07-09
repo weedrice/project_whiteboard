@@ -468,6 +468,7 @@ export interface CommentMessages {
   loadRepliesFailed: string
   loadFailed: string
   loadMore: string
+  newArrivals: string
   readUntilHere: string
   sort: {
     label: string

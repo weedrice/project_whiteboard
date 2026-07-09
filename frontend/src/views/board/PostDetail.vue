@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { useQueryClient, type QueryClient } from '@tanstack/vue-query'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import BaseCard from '@/components/common/ui/BaseCard.vue'
@@ -25,10 +26,21 @@ import { usePostContentViewRef } from '@/features/board/posts/detail/usePostCont
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import { notificationApi } from '@/api/notification'
+import { onCommentStreamEvent } from '@/composables/commentStreamEvents'
+import { commentQueryKeys } from '@/composables/commentQueryKeys'
 import { isRestrictedResourceError } from '@/utils/errorHandler'
 
 const route = useRoute()
 const router = useRouter()
+function resolveQueryClient(): QueryClient | null {
+  try {
+    return useQueryClient()
+  } catch {
+    return null
+  }
+}
+
+const queryClient = resolveQueryClient()
 const authStore = useAuthStore()
 const toastStore = useToastStore()
 const { t } = useI18n()
@@ -44,6 +56,8 @@ const {
 const postId = computed(() => route.params.postId as string)
 const commentSubscriberId = `post-detail-${Date.now()}-${Math.random().toString(36).slice(2)}`
 let activeCommentTopicPostId: string | null = null
+let commentRefreshTimer: ReturnType<typeof setTimeout> | null = null
+const pendingCommentCount = ref(0)
 const {
   data: post,
   isLoading,
@@ -85,6 +99,7 @@ const {
 })
 
 const postContents = computed(() => post.value?.contents ?? '')
+const commentQueryPostId = computed(() => post.value?.postId ?? postId.value)
 const pinPostMutation = usePinPostByManager()
 const unpinPostMutation = useUnpinPostByManager()
 const blindPostMutation = useBlindPostByManager()
@@ -234,7 +249,40 @@ async function unsubscribeCommentTopic(targetPostId: string) {
   }
 }
 
+function clearCommentRefreshTimer() {
+  if (!commentRefreshTimer) return
+  clearTimeout(commentRefreshTimer)
+  commentRefreshTimer = null
+}
+
+function refreshComments() {
+  clearCommentRefreshTimer()
+  pendingCommentCount.value = 0
+  void queryClient?.invalidateQueries({ queryKey: commentQueryKeys.postRoot(commentQueryPostId.value) })
+}
+
+function scheduleCommentRefresh() {
+  clearCommentRefreshTimer()
+  commentRefreshTimer = setTimeout(() => {
+    refreshComments()
+  }, 2000)
+}
+
+const stopCommentStreamListener = onCommentStreamEvent((event) => {
+  if (String(event.postId) !== String(postId.value)) return
+
+  if (event.action === 'DELETED') {
+    scheduleCommentRefresh()
+    return
+  }
+
+  if (event.action !== 'CREATED' || event.actorUserId === currentUserId.value) return
+  pendingCommentCount.value += 1
+})
+
 watch([postId, isAuthenticated], ([nextPostId, authenticated]) => {
+  pendingCommentCount.value = 0
+  clearCommentRefreshTimer()
   if (!authenticated) {
     if (activeCommentTopicPostId) {
       void unsubscribeCommentTopic(activeCommentTopicPostId)
@@ -246,6 +294,8 @@ watch([postId, isAuthenticated], ([nextPostId, authenticated]) => {
 }, { immediate: true })
 
 onBeforeUnmount(() => {
+  clearCommentRefreshTimer()
+  stopCommentStreamListener()
   if (activeCommentTopicPostId) {
     void unsubscribeCommentTopic(activeCommentTopicPostId)
   }
@@ -304,6 +354,8 @@ onBeforeUnmount(() => {
                 :postId="postView.postId"
                 :boardUrl="postView.boardUrl"
                 :last-viewed-at="postView.lastViewedAt"
+                :pending-comment-count="pendingCommentCount"
+                @refresh-comments="refreshComments"
               />
             </section>
           </article>
