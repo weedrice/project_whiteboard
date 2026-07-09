@@ -23,8 +23,6 @@ public interface ScrapRepository extends JpaRepository<Scrap, ScrapId> {
             WHERE s.user = :user
               AND p.isDeleted = false
               AND (:folderId IS NULL OR s.folder.folderId = :folderId)
-              AND (:keyword IS NULL OR LOWER(p.title) LIKE LOWER(CONCAT('%', :keyword, '%'))
-                   OR LOWER(COALESCE(s.remark, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
               AND (:blockedUserIdsEmpty = true OR p.user.userId NOT IN (:blockedUserIds))
             """ + PostVisibilityJpql.VIEWER_READABLE_POST + """
             ORDER BY s.createdAt DESC, p.postId DESC
@@ -36,15 +34,49 @@ public interface ScrapRepository extends JpaRepository<Scrap, ScrapId> {
             WHERE s.user = :user
               AND p.isDeleted = false
               AND (:folderId IS NULL OR s.folder.folderId = :folderId)
-              AND (:keyword IS NULL OR LOWER(p.title) LIKE LOWER(CONCAT('%', :keyword, '%'))
-                   OR LOWER(COALESCE(s.remark, '')) LIKE LOWER(CONCAT('%', :keyword, '%')))
               AND (:blockedUserIdsEmpty = true OR p.user.userId NOT IN (:blockedUserIds))
             """ + PostVisibilityJpql.VIEWER_READABLE_POST + """
             """)
     Page<Scrap> findPageByUserWithPostDetails(
             @Param("user") User user,
             @Param("folderId") Long folderId,
-            @Param("keyword") String keyword,
+            @Param("viewerIsSuperAdmin") boolean viewerIsSuperAdmin,
+            @Param("blockedUserIdsEmpty") boolean blockedUserIdsEmpty,
+            @Param("blockedUserIds") Collection<Long> blockedUserIds,
+            @Param("inquiryBoardUrl") String inquiryBoardUrl,
+            Pageable pageable);
+
+    @EntityGraph(attributePaths = { "post", "post.board", "post.user", "post.agent" })
+    @Query(value = """
+            SELECT s
+            FROM Scrap s
+            JOIN s.post p
+            JOIN p.board b
+            WHERE s.user = :user
+              AND p.isDeleted = false
+              AND (:folderId IS NULL OR s.folder.folderId = :folderId)
+              AND (LOWER(p.title) LIKE :keywordPattern
+                   OR LOWER(COALESCE(s.remark, '')) LIKE :keywordPattern)
+              AND (:blockedUserIdsEmpty = true OR p.user.userId NOT IN (:blockedUserIds))
+            """ + PostVisibilityJpql.VIEWER_READABLE_POST + """
+            ORDER BY s.createdAt DESC, p.postId DESC
+            """, countQuery = """
+            SELECT COUNT(s)
+            FROM Scrap s
+            JOIN s.post p
+            JOIN p.board b
+            WHERE s.user = :user
+              AND p.isDeleted = false
+              AND (:folderId IS NULL OR s.folder.folderId = :folderId)
+              AND (LOWER(p.title) LIKE :keywordPattern
+                   OR LOWER(COALESCE(s.remark, '')) LIKE :keywordPattern)
+              AND (:blockedUserIdsEmpty = true OR p.user.userId NOT IN (:blockedUserIds))
+            """ + PostVisibilityJpql.VIEWER_READABLE_POST + """
+            """)
+    Page<Scrap> findPageByUserWithPostDetailsByKeyword(
+            @Param("user") User user,
+            @Param("folderId") Long folderId,
+            @Param("keywordPattern") String keywordPattern,
             @Param("viewerIsSuperAdmin") boolean viewerIsSuperAdmin,
             @Param("blockedUserIdsEmpty") boolean blockedUserIdsEmpty,
             @Param("blockedUserIds") Collection<Long> blockedUserIds,
@@ -58,7 +90,7 @@ public interface ScrapRepository extends JpaRepository<Scrap, ScrapId> {
             Collection<Long> blockedUserIds,
             String inquiryBoardUrl,
             Pageable pageable) {
-        return findPageByUserWithPostDetails(user, null, null, viewerIsSuperAdmin, blockedUserIdsEmpty,
+        return findPageByUserWithPostDetails(user, null, viewerIsSuperAdmin, blockedUserIdsEmpty,
                 blockedUserIds, inquiryBoardUrl, pageable);
     }
 

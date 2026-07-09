@@ -111,6 +111,36 @@ class ScrapRepositoryTest {
     }
 
     @Test
+    @DisplayName("스크랩 검색 조회는 제목과 메모를 검색한다")
+    void findPageByUserWithPostDetailsByKeyword_filtersTitleAndRemark() {
+        User managedAuthor = entityManager.find(User.class, author.getUserId());
+        User managedScrapper = entityManager.find(User.class, scrapper.getUserId());
+        Board managedBoard = entityManager.find(Board.class, board.getBoardId());
+        Post remarkMatchedPost = persistPost(managedBoard, managedAuthor, "다른 제목", false);
+        entityManager.persist(Scrap.builder()
+                .user(managedScrapper)
+                .post(remarkMatchedPost)
+                .remark("target memo")
+                .build());
+        entityManager.flush();
+        entityManager.clear();
+
+        Page<Scrap> result = scrapRepository.findPageByUserWithPostDetailsByKeyword(
+                scrapper,
+                null,
+                "%target%",
+                false,
+                true,
+                NO_BLOCKED_USER_IDS,
+                BoardPolicyConstants.INQUIRY_BOARD_URL,
+                PageRequest.of(0, 10));
+
+        assertThat(result.getContent())
+                .extracting(scrap -> scrap.getPost().getTitle())
+                .containsExactly("다른 제목");
+    }
+
+    @Test
     @DisplayName("findPostIdsByUserIdAndPostIdIn returns only scrapped post IDs")
     void findPostIdsByUserIdAndPostIdIn_success() {
         List<Long> postIds = scrapRepository.findPostIdsByUserIdAndPostIdIn(

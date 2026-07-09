@@ -1886,6 +1886,36 @@ class PostServiceTest {
                 Sort.Order.desc("post.postId")));
     }
 
+    @Test
+    @DisplayName("스크랩 목록 검색은 keyword 전용 쿼리에 LIKE 패턴을 전달한다")
+    void getMyScraps_withKeyword_usesKeywordQuery() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
+        when(scrapRepository.findPageByUserWithPostDetailsByKeyword(
+                eq(user),
+                isNull(),
+                eq("%test%"),
+                eq(false),
+                eq(true),
+                eq(NO_BLOCKED_USER_IDS),
+                eq(BoardPolicyConstants.INQUIRY_BOARD_URL),
+                any(Pageable.class)))
+                .thenAnswer(invocation -> Page.empty(invocation.getArgument(7)));
+
+        ScrapListResponse response = postService.getMyScraps(1L, null, "Test", PageRequest.of(0, 10));
+
+        assertThat(response.getContent()).isEmpty();
+        verify(scrapRepository).findPageByUserWithPostDetailsByKeyword(
+                eq(user),
+                isNull(),
+                eq("%test%"),
+                eq(false),
+                eq(true),
+                eq(NO_BLOCKED_USER_IDS),
+                eq(BoardPolicyConstants.INQUIRY_BOARD_URL),
+                any(Pageable.class));
+    }
+
     // --- Drafts ---
 
     @Test

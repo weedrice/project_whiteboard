@@ -46,6 +46,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -256,23 +257,35 @@ public class PostInteractionService {
         Pageable safePageable = PageRequestUtils.of(pageable, DEFAULT_SCRAP_PAGE_SIZE, DEFAULT_SCRAP_SORT);
         BlockedUserFilter blockedUsers = BlockedUserFilter.from(context.blockedUserIdSet());
         String normalizedKeyword = normalizeScrapSearchKeyword(keyword);
-        Page<Scrap> scrapPage = (folderId == null && normalizedKeyword == null)
-                ? scrapRepository.findPageByUserWithPostDetails(
-                        user,
-                        user.isUsableSuperAdmin(),
-                        blockedUsers.empty(),
-                        blockedUsers.ids(),
-                        BoardPolicyConstants.INQUIRY_BOARD_URL,
-                        safePageable)
-                : scrapRepository.findPageByUserWithPostDetails(
-                        user,
-                        folderId,
-                        normalizedKeyword,
-                        user.isUsableSuperAdmin(),
-                        blockedUsers.empty(),
-                        blockedUsers.ids(),
-                        BoardPolicyConstants.INQUIRY_BOARD_URL,
-                        safePageable);
+        Page<Scrap> scrapPage;
+        if (normalizedKeyword == null) {
+            scrapPage = folderId == null
+                    ? scrapRepository.findPageByUserWithPostDetails(
+                            user,
+                            user.isUsableSuperAdmin(),
+                            blockedUsers.empty(),
+                            blockedUsers.ids(),
+                            BoardPolicyConstants.INQUIRY_BOARD_URL,
+                            safePageable)
+                    : scrapRepository.findPageByUserWithPostDetails(
+                            user,
+                            folderId,
+                            user.isUsableSuperAdmin(),
+                            blockedUsers.empty(),
+                            blockedUsers.ids(),
+                            BoardPolicyConstants.INQUIRY_BOARD_URL,
+                            safePageable);
+        } else {
+            scrapPage = scrapRepository.findPageByUserWithPostDetailsByKeyword(
+                    user,
+                    folderId,
+                    toCaseInsensitiveLikePattern(normalizedKeyword),
+                    user.isUsableSuperAdmin(),
+                    blockedUsers.empty(),
+                    blockedUsers.ids(),
+                    BoardPolicyConstants.INQUIRY_BOARD_URL,
+                    safePageable);
+        }
         return ScrapListResponse.from(scrapPage);
     }
 
@@ -391,6 +404,10 @@ public class PostInteractionService {
 
     private String normalizeScrapSearchKeyword(String keyword) {
         return TextInputNormalizer.normalizeOptional(keyword, 255);
+    }
+
+    private String toCaseInsensitiveLikePattern(String keyword) {
+        return "%" + keyword.toLowerCase(Locale.ROOT) + "%";
     }
 
     private void validateScrapFolderOwner(Long userId, Long folderId) {
