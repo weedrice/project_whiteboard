@@ -121,6 +121,12 @@ export default defineConfig(({ mode }) => {
                                 return 'vendor-query'
                             }
                             if (
+                                normalizedId.includes('/node_modules/lowlight/')
+                                || normalizedId.includes('/node_modules/highlight.js/')
+                            ) {
+                                return 'vendor-highlight'
+                            }
+                            if (
                                 normalizedId.includes('/node_modules/@tiptap/')
                                 || normalizedId.includes('/node_modules/prosemirror-')
                                 || normalizedId.includes('/node_modules/prosemirror/')

@@ -45,7 +45,7 @@ export const queryClient = new QueryClient({
     }),
     defaultOptions: {
         queries: {
-            staleTime: 0,
+            staleTime: 30_000,
             gcTime: QUERY_STALE_TIME.SHORT,
             placeholderData: (previousData: unknown) => previousData,
             retry: (failureCount, error: unknown) => {

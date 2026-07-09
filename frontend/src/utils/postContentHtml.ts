@@ -1,11 +1,18 @@
 import { normalizeLegacyFileUrls } from '@/utils/fileUrl'
-import { highlightCodeBlocksInDocument, type CodeBlockHighlightLabels } from '@/utils/codeHighlighting'
 import { transformHtmlDocument } from '@/utils/htmlTransformPipeline'
 import { asSanitizedHtml, sanitizeQuillHtml, type SanitizedHtml } from '@/utils/sanitize'
 
+export interface CodeBlockHighlightLabels {
+    copy: string
+    copyAriaLabel: string
+}
+
+export type CodeBlockHighlighter = (doc: Document, labels?: CodeBlockHighlightLabels) => void
+
 export function renderPostContentHtml(
     content: string | null | undefined,
-    codeBlockLabels?: CodeBlockHighlightLabels
+    codeBlockLabels?: CodeBlockHighlightLabels,
+    codeBlockHighlighter?: CodeBlockHighlighter | null
 ): SanitizedHtml {
     if (!content) return asSanitizedHtml('')
 
@@ -13,7 +20,7 @@ export function renderPostContentHtml(
         .replace(/<p>\s*<\/p>/gi, '<p><br></p>')
     const sanitized = sanitizeQuillHtml(normalizedContents)
     const transformed = transformHtmlDocument(sanitized, [
-        (doc) => highlightCodeBlocksInDocument(doc, codeBlockLabels),
+        (doc) => codeBlockHighlighter?.(doc, codeBlockLabels),
         enhanceMentionLinksInDocument,
         addLazyLoadingToImagesInDocument,
     ])

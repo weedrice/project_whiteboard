@@ -41,6 +41,7 @@ describe('useNotification queries and mutations', () => {
 
     expect((options.enabled as { value: boolean }).value).toBe(false)
     expect(options.refetchInterval).toBe(60000)
+    expect(options.staleTime).toBe(0)
 
     const result = await (options.queryFn as () => Promise<unknown>)()
     expect(result).toBe(7)

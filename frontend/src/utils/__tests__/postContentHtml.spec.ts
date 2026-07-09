@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { renderPostContentHtml } from '../postContentHtml'
+import { highlightCodeBlocksInDocument } from '../codeHighlighting'
 
 describe('renderPostContentHtml', () => {
     it('sanitizes unsafe post html and preserves safe content', () => {
@@ -23,7 +24,7 @@ describe('renderPostContentHtml', () => {
         const result = renderPostContentHtml('<pre><code class="language-js">const value = 1</code></pre>', {
             copy: 'Copy',
             copyAriaLabel: 'Copy code',
-        })
+        }, highlightCodeBlocksInDocument)
 
         expect(result).toContain('class="nv-code-block"')
         expect(result).toContain('class="nv-code-block-language"')
@@ -34,7 +35,9 @@ describe('renderPostContentHtml', () => {
 
     it('applies rich content transformers after sanitizing', () => {
         const result = renderPostContentHtml(
-            '<p><span data-mention-user-id="7">@Novi</span></p><pre><code>const value = 1</code></pre><img src="/files/22">'
+            '<p><span data-mention-user-id="7">@Novi</span></p><pre><code>const value = 1</code></pre><img src="/files/22">',
+            undefined,
+            highlightCodeBlocksInDocument
         )
 
         expect(result).toContain('data-mention-user-id="7"')

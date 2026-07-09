@@ -45,6 +45,7 @@ export function useNotification() {
                 notificationApi.getUnreadCount,
             ),
             refetchInterval: 60000,
+            staleTime: 0,
             enabled: computed(() => authStore.isAuthenticated),
         })
     }
