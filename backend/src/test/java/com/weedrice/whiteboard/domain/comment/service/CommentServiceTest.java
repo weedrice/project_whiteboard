@@ -19,6 +19,7 @@ import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentVersionRepository;
 import com.weedrice.whiteboard.domain.notification.constant.NotificationSourceType;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
+import com.weedrice.whiteboard.domain.notification.service.CommentStreamPublisher;
 import com.weedrice.whiteboard.domain.notification.service.MentionService;
 import com.weedrice.whiteboard.domain.badge.service.BadgeEvaluationService;
 import com.weedrice.whiteboard.domain.point.repository.PointHistoryRepository;
@@ -122,6 +123,8 @@ class CommentServiceTest {
     @Mock
     private MentionService mentionService;
     @Mock
+    private CommentStreamPublisher commentStreamPublisher;
+    @Mock
     private BadgeEvaluationService badgeEvaluationService;
 
     @BeforeEach
@@ -168,6 +171,7 @@ class CommentServiceTest {
                 contentRewardService,
                 commentNotificationService,
                 mentionService,
+                commentStreamPublisher,
                 semanticSearchEventPublisher,
                 commentLikeCommand,
                 badgeEvaluationService);

@@ -14,6 +14,8 @@ import com.weedrice.whiteboard.domain.comment.repository.CommentMentionRepositor
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentVersionRepository;
 import com.weedrice.whiteboard.domain.notification.constant.NotificationSourceType;
+import com.weedrice.whiteboard.domain.notification.dto.CommentStreamEvent;
+import com.weedrice.whiteboard.domain.notification.service.CommentStreamPublisher;
 import com.weedrice.whiteboard.domain.notification.service.MentionService;
 import com.weedrice.whiteboard.domain.point.service.ContentRewardPolicy;
 import com.weedrice.whiteboard.domain.point.service.ContentRewardService;
@@ -33,6 +35,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -60,6 +63,7 @@ public class CommentCommandService {
     private final ContentRewardService contentRewardService;
     private final CommentNotificationService commentNotificationService;
     private final MentionService mentionService;
+    private final CommentStreamPublisher commentStreamPublisher;
     private final SemanticSearchEventPublisher semanticSearchEventPublisher;
     private final CommentLikeCommand commentLikeCommand;
     private final BadgeEvaluationService badgeEvaluationService;
@@ -126,6 +130,7 @@ public class CommentCommandService {
         }
         publishMentionNotifications(user, agent, savedComment.getCommentId(), content, mentionedUserIds);
         semanticSearchEventPublisher.publish("COMMENT", savedComment.getCommentId(), SemanticSearchIndexAction.UPSERT);
+        publishCommentStreamEvent("CREATED", post.getPostId(), savedComment.getCommentId(), userId);
         badgeEvaluationService.evaluateCommentCountBadges(userId);
 
         return CommentCreateResponse.builder()
@@ -226,11 +231,23 @@ public class CommentCommandService {
 
         String originalContent = comment.getContent();
         comment.deleteComment();
-        decrementPostCommentCount(comment.getPost().getPostId());
+        Long postId = comment.getPost().getPostId();
+        decrementPostCommentCount(postId);
 
         saveCommentVersion(comment, user, "DELETE", originalContent);
         contentRewardService.rollbackCreateReward(user, commentId, ContentRewardPolicy.COMMENT);
         semanticSearchEventPublisher.publish("COMMENT", comment.getCommentId(), SemanticSearchIndexAction.DELETE);
+        publishCommentStreamEvent("DELETED", postId, comment.getCommentId(), userId);
+    }
+
+    private void publishCommentStreamEvent(String action, Long postId, Long commentId, Long actorUserId) {
+        commentStreamPublisher.publishCommentEvent(CommentStreamEvent.builder()
+                .action(action)
+                .postId(postId)
+                .commentId(commentId)
+                .actorUserId(actorUserId)
+                .occurredAt(LocalDateTime.now())
+                .build());
     }
 
     private void incrementPostCommentCount(Long postId) {

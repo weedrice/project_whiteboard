@@ -4,8 +4,10 @@ import { unwrapAxiosApiData } from '@/api/response'
 import {
     notificationApi,
     normalizeNotification as normalizeNotificationResponse,
+    type CommentStreamEvent,
     type NotificationRaw,
 } from '@/api/notification'
+import { commentQueryKeys } from '@/composables/commentQueryKeys'
 import logger from '@/utils/logger'
 import { useAuthStore } from '@/stores/auth'
 import { isCancellationError } from '@/utils/cancellationError'
@@ -65,6 +67,10 @@ export function createNotificationStreamController(
 
     const handleSseEvent = (eventType: string, payload: string) => {
         if (!payload) return
+        if (eventType === 'comment') {
+            handleCommentSseEvent(payload)
+            return
+        }
         if (eventType !== 'notification' && eventType !== 'message') return
 
         try {
@@ -78,6 +84,16 @@ export function createNotificationStreamController(
             )
         } catch (error: unknown) {
             logger.error('Failed to parse SSE notification:', error)
+        }
+    }
+
+    const handleCommentSseEvent = (payload: string) => {
+        try {
+            const event = JSON.parse(payload) as Partial<CommentStreamEvent>
+            if (typeof event.postId !== 'number' || typeof event.commentId !== 'number') return
+            queryClient.invalidateQueries({ queryKey: commentQueryKeys.postRoot(event.postId) })
+        } catch (error: unknown) {
+            logger.error('Failed to parse SSE comment event:', error)
         }
     }
 

@@ -1,6 +1,8 @@
 package com.weedrice.whiteboard.domain.notification.web;
 
+import com.weedrice.whiteboard.domain.notification.dto.CommentStreamEvent;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationResponse;
+import com.weedrice.whiteboard.domain.notification.service.CommentStreamPublisher;
 import com.weedrice.whiteboard.domain.notification.service.NotificationStreamPublisher;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,16 +18,19 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
 
 @Slf4j
 @Component
-public class NotificationSseEmitterRegistry implements NotificationStreamPublisher {
+public class NotificationSseEmitterRegistry implements NotificationStreamPublisher, CommentStreamPublisher {
 
     private static final long DEFAULT_TIMEOUT_MILLIS = Duration.ofMinutes(30).toMillis();
     private static final int DEFAULT_MAX_CONNECTIONS_PER_USER = 5;
 
     private final Map<Long, Map<String, EmitterConnection>> emitters = new ConcurrentHashMap<>();
+    private final ConcurrentMap<Long, ConcurrentMap<Long, ConcurrentMap<String, Boolean>>> commentSubscribers =
+            new ConcurrentHashMap<>();
     private final Map<Long, Object> userLocks = new ConcurrentHashMap<>();
     private final AtomicLong connectionSequence = new AtomicLong();
     private final long timeoutMillis;
@@ -119,8 +124,71 @@ public class NotificationSseEmitterRegistry implements NotificationStreamPublish
         }
     }
 
+    public void subscribeCommentTopic(Long userId, Long postId, String subscriberId) {
+        commentSubscribers
+                .computeIfAbsent(postId, ignored -> new ConcurrentHashMap<>())
+                .computeIfAbsent(userId, ignored -> new ConcurrentHashMap<>())
+                .put(subscriberId, Boolean.TRUE);
+    }
+
+    public void unsubscribeCommentTopic(Long userId, Long postId, String subscriberId) {
+        ConcurrentMap<Long, ConcurrentMap<String, Boolean>> postSubscribers = commentSubscribers.get(postId);
+        if (postSubscribers == null) {
+            return;
+        }
+
+        ConcurrentMap<String, Boolean> userSubscribers = postSubscribers.get(userId);
+        if (userSubscribers == null) {
+            removeEmptyCommentTopic(postId, postSubscribers);
+            return;
+        }
+
+        userSubscribers.remove(subscriberId);
+        if (userSubscribers.isEmpty()) {
+            postSubscribers.remove(userId, userSubscribers);
+            removeEmptyCommentTopic(postId, postSubscribers);
+        }
+    }
+
+    @Override
+    public void publishCommentEvent(CommentStreamEvent event) {
+        ConcurrentMap<Long, ConcurrentMap<String, Boolean>> postSubscribers = commentSubscribers.get(event.getPostId());
+        if (postSubscribers == null || postSubscribers.isEmpty()) {
+            return;
+        }
+
+        for (Long userId : new ArrayList<>(postSubscribers.keySet())) {
+            publishCommentEventToUser(userId, event);
+        }
+    }
+
     SseEmitter createEmitter() {
         return new SseEmitter(timeoutMillis);
+    }
+
+    private void publishCommentEventToUser(Long userId, CommentStreamEvent event) {
+        Map<String, EmitterConnection> userEmitters = emitters.get(userId);
+        if (userEmitters == null || userEmitters.isEmpty()) {
+            return;
+        }
+
+        for (Map.Entry<String, EmitterConnection> entry : new ArrayList<>(userEmitters.entrySet())) {
+            try {
+                entry.getValue().emitter().send(SseEmitter.event()
+                        .name("comment")
+                        .data(event));
+            } catch (IOException | RuntimeException e) {
+                completeWithError(userId, entry.getKey(), entry.getValue().emitter(), e);
+            }
+        }
+    }
+
+    private void removeEmptyCommentTopic(
+            Long postId,
+            ConcurrentMap<Long, ConcurrentMap<String, Boolean>> expectedPostSubscribers) {
+        if (expectedPostSubscribers.isEmpty()) {
+            commentSubscribers.remove(postId, expectedPostSubscribers);
+        }
     }
 
     private List<SseEmitter> enforceConnectionLimit(

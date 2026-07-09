@@ -11,6 +11,14 @@ export interface NotificationParams {
     size?: number;
 }
 
+export interface CommentStreamEvent {
+    action: 'CREATED' | 'DELETED'
+    postId: number
+    commentId: number
+    actorUserId: number
+    occurredAt: string
+}
+
 // API response source shape, including snake_case fields.
 export interface NotificationActorRaw {
     userId?: number;
@@ -135,6 +143,17 @@ export const notificationApi = {
     getUnreadCount: (config?: AxiosRequestConfig) => config
         ? api.get<ApiResponse<number>>('/notifications/unread-count', config)
         : api.get<ApiResponse<number>>('/notifications/unread-count'),
+
+    subscribeCommentTopic: (postId: string | number, subscriberId: string) =>
+        api.post<ApiResponse<void>>(
+            `/notifications/comment-topics/${encodePathSegment(postId)}/subscriptions`,
+            { subscriberId },
+        ),
+
+    unsubscribeCommentTopic: (postId: string | number, subscriberId: string) =>
+        api.delete<ApiResponse<void>>(
+            `/notifications/comment-topics/${encodePathSegment(postId)}/subscriptions/${encodePathSegment(subscriberId)}`,
+        ),
 
     // Use fetch for SSE because Axios does not expose a browser ReadableStream body.
     openStream: (token: string, signal: AbortSignal): Promise<Response> => {

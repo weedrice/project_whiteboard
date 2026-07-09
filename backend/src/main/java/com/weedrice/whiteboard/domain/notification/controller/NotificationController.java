@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.notification.controller;
 
+import com.weedrice.whiteboard.domain.notification.dto.CommentTopicSubscriptionRequest;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationResponse;
 import com.weedrice.whiteboard.domain.notification.service.NotificationService;
 import com.weedrice.whiteboard.domain.notification.web.NotificationSseEmitterRegistry;
@@ -7,6 +8,7 @@ import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.ApiResponses;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.security.CurrentUserId;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.web.bind.annotation.*;
@@ -54,5 +56,24 @@ public class NotificationController {
     public SseEmitter subscribe(@CurrentUserId Long userId) {
         notificationService.validateStreamSubscription(userId);
         return notificationSseEmitterRegistry.subscribe(userId);
+    }
+
+    @PostMapping("/comment-topics/{postId}/subscriptions")
+    public ApiResponse<Void> subscribeCommentTopic(
+            @PathVariable Long postId,
+            @Valid @RequestBody CommentTopicSubscriptionRequest request,
+            @CurrentUserId Long userId) {
+        notificationService.validateStreamSubscription(userId);
+        notificationSseEmitterRegistry.subscribeCommentTopic(userId, postId, request.getSubscriberId());
+        return ApiResponses.ok();
+    }
+
+    @DeleteMapping("/comment-topics/{postId}/subscriptions/{subscriberId}")
+    public ApiResponse<Void> unsubscribeCommentTopic(
+            @PathVariable Long postId,
+            @PathVariable String subscriberId,
+            @CurrentUserId Long userId) {
+        notificationSseEmitterRegistry.unsubscribeCommentTopic(userId, postId, subscriberId);
+        return ApiResponses.ok();
     }
 }

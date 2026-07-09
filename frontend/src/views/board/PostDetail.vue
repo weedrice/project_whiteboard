@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import BaseCard from '@/components/common/ui/BaseCard.vue'
@@ -24,6 +24,7 @@ import { usePostDetailViewModel } from '@/features/board/posts/detail/usePostDet
 import { usePostContentViewRef } from '@/features/board/posts/detail/usePostContentViewRef'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
+import { notificationApi } from '@/api/notification'
 import { isRestrictedResourceError } from '@/utils/errorHandler'
 
 const route = useRoute()
@@ -41,6 +42,8 @@ const {
 } = usePost()
 
 const postId = computed(() => route.params.postId as string)
+const commentSubscriberId = `post-detail-${Date.now()}-${Math.random().toString(36).slice(2)}`
+let activeCommentTopicPostId: string | null = null
 const {
   data: post,
   isLoading,
@@ -203,6 +206,50 @@ const {
 })
 
 const { assignContentRef } = usePostContentViewRef(contentRef)
+
+async function subscribeCommentTopic(nextPostId: string) {
+  if (!authStore.isAuthenticated || activeCommentTopicPostId === nextPostId) return
+
+  if (activeCommentTopicPostId) {
+    await unsubscribeCommentTopic(activeCommentTopicPostId)
+  }
+
+  try {
+    await notificationApi.subscribeCommentTopic(nextPostId, commentSubscriberId)
+    activeCommentTopicPostId = nextPostId
+  } catch {
+    activeCommentTopicPostId = null
+  }
+}
+
+async function unsubscribeCommentTopic(targetPostId: string) {
+  try {
+    await notificationApi.unsubscribeCommentTopic(targetPostId, commentSubscriberId)
+  } catch {
+    // SSE comments are an enhancement; the regular comment queries keep working.
+  } finally {
+    if (activeCommentTopicPostId === targetPostId) {
+      activeCommentTopicPostId = null
+    }
+  }
+}
+
+watch([postId, isAuthenticated], ([nextPostId, authenticated]) => {
+  if (!authenticated) {
+    if (activeCommentTopicPostId) {
+      void unsubscribeCommentTopic(activeCommentTopicPostId)
+    }
+    return
+  }
+
+  void subscribeCommentTopic(nextPostId)
+}, { immediate: true })
+
+onBeforeUnmount(() => {
+  if (activeCommentTopicPostId) {
+    void unsubscribeCommentTopic(activeCommentTopicPostId)
+  }
+})
 </script>
 
 <template>
