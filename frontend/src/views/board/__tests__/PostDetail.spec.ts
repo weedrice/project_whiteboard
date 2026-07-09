@@ -14,6 +14,10 @@ const {
   scrapMutate,
   unscrapMutate,
   reportMutate,
+  pinPostMutateAsync,
+  unpinPostMutateAsync,
+  blindPostMutateAsync,
+  unblindPostMutateAsync,
   toastAdd
 } = vi.hoisted(() => ({
   route: {
@@ -80,6 +84,10 @@ const {
   scrapMutate: vi.fn(),
   unscrapMutate: vi.fn(),
   reportMutate: vi.fn(),
+  pinPostMutateAsync: vi.fn(async () => undefined),
+  unpinPostMutateAsync: vi.fn(async () => undefined),
+  blindPostMutateAsync: vi.fn(async () => undefined),
+  unblindPostMutateAsync: vi.fn(async () => undefined),
   toastAdd: vi.fn()
 }))
 
@@ -129,12 +137,28 @@ vi.mock('@/features/board/posts/queries/usePost', () => ({
       isLoading: ref(false),
       error: ref(null)
     }),
+    useRelatedPosts: () => ({
+      data: ref([]),
+      isLoading: ref(false)
+    }),
     useDeletePost: () => ({ mutate: deleteMutate }),
     useLikePost: () => ({ mutate: likeMutate }),
     useUnlikePost: () => ({ mutate: unlikeMutate }),
     useScrapPost: () => ({ mutate: scrapMutate }),
     useUnscrapPost: () => ({ mutate: unscrapMutate }),
-    useReportPost: () => ({ mutate: reportMutate })
+    useReportPost: () => ({ mutate: reportMutate }),
+    usePinPostByManager: () => ({
+      mutateAsync: pinPostMutateAsync
+    }),
+    useUnpinPostByManager: () => ({
+      mutateAsync: unpinPostMutateAsync
+    }),
+    useBlindPostByManager: () => ({
+      mutateAsync: blindPostMutateAsync
+    }),
+    useUnblindPostByManager: () => ({
+      mutateAsync: unblindPostMutateAsync
+    })
   })
 }))
 

@@ -52,6 +52,7 @@ vi.mock('vue-router', () => ({
 
 vi.mock('lucide-vue-next', () => ({
     AtSign: defineComponent({ setup: () => () => h('i') }),
+    Award: defineComponent({ setup: () => () => h('i') }),
     Bell: defineComponent({ setup: () => () => h('i') }),
     Heart: defineComponent({ setup: () => () => h('i') }),
     Mail: defineComponent({ setup: () => () => h('i') }),
