@@ -13,6 +13,7 @@ import BaseCheckbox from '@/components/common/ui/BaseCheckbox.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseSelect from '@/components/common/ui/BaseSelect.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
+import { usePushNotifications } from '@/features/notifications/usePushNotifications'
 import { Settings } from 'lucide-vue-next'
 
 const { t } = useI18n()
@@ -38,6 +39,9 @@ const { mutateAsync: deleteKeywordSubscription, isPending: isDeletingKeyword } =
 const keywordInput = ref('')
 const keywordMessage = ref('')
 const keywordIsError = ref(false)
+const pushMessage = ref('')
+const pushIsError = ref(false)
+const pushNotifications = usePushNotifications()
 
 const loading = computed(() => isSettingsLoading.value || isNotifLoading.value)
 const savingGeneral = computed(() => isUpdatingSettings.value)
@@ -46,6 +50,14 @@ const keywordSubscriptions = computed(() => keywordData.value ?? [])
 const normalizedKeyword = computed(() => keywordInput.value.trim())
 const keywordNotificationEnabled = computed(() => notificationSettings.KEYWORD !== false)
 const keywordPending = computed(() => isKeywordLoading.value || isCreatingKeyword.value || isDeletingKeyword.value)
+const pushPending = computed(() => pushNotifications.isEnabling.value || pushNotifications.isDisabling.value)
+const browserPushEnabled = computed(() => Boolean(settingsData.value?.pushEnabled))
+const pushStatusKey = computed(() => {
+  if (!pushNotifications.supported.value) return 'user.settings.pushUnsupported'
+  if (!pushNotifications.enabled.value) return 'user.settings.pushUnavailable'
+  if (pushNotifications.permission.value === 'denied') return 'user.settings.pushDenied'
+  return browserPushEnabled.value ? 'user.settings.pushEnabled' : 'user.settings.pushDisabled'
+})
 const canAddKeyword = computed(() => {
   const keyword = normalizedKeyword.value
   return keyword.length > 0
@@ -122,6 +134,29 @@ const removeKeyword = async (keyword: string) => {
     setKeywordMessage('user.settings.keywordRemoved')
   } catch {
     setKeywordMessage('user.settings.keywordRemoveFailed', true)
+  }
+}
+
+const setPushMessage = (messageKey: string, isError = false) => {
+  pushMessage.value = t(messageKey)
+  pushIsError.value = isError
+}
+
+const enableBrowserPush = async () => {
+  try {
+    await pushNotifications.enablePush()
+    setPushMessage('user.settings.pushEnableSuccess')
+  } catch {
+    setPushMessage('user.settings.pushEnableFailed', true)
+  }
+}
+
+const disableBrowserPush = async () => {
+  try {
+    await pushNotifications.disablePush()
+    setPushMessage('user.settings.pushDisableSuccess')
+  } catch {
+    setPushMessage('user.settings.pushDisableFailed', true)
   }
 }
 </script>
@@ -275,6 +310,44 @@ const removeKeyword = async (keyword: string) => {
                 </button>
               </li>
             </ul>
+          </div>
+
+          <div class="mt-8 border-t nv-border pt-6">
+            <div class="flex flex-col gap-1">
+              <h4 class="text-base font-semibold nv-title">{{ $t('user.settings.browserPush') }}</h4>
+              <p class="text-sm nv-text-subtle">{{ $t('user.settings.browserPushDesc') }}</p>
+              <p class="text-sm nv-text-subtle" role="status" aria-live="polite">
+                {{ $t(pushStatusKey) }}
+              </p>
+            </div>
+            <div class="mt-4 flex flex-wrap gap-2">
+              <BaseButton
+                type="button"
+                :loading="pushNotifications.isEnabling.value"
+                :disabled="pushPending || browserPushEnabled || !pushNotifications.supported.value || !pushNotifications.enabled.value"
+                @click="enableBrowserPush"
+              >
+                {{ $t('user.settings.pushEnable') }}
+              </BaseButton>
+              <BaseButton
+                type="button"
+                variant="secondary"
+                :loading="pushNotifications.isDisabling.value"
+                :disabled="pushPending || !browserPushEnabled"
+                @click="disableBrowserPush"
+              >
+                {{ $t('user.settings.pushDisable') }}
+              </BaseButton>
+            </div>
+            <p
+              v-if="pushMessage"
+              class="mt-3 text-sm"
+              :role="pushIsError ? 'alert' : 'status'"
+              :aria-live="pushIsError ? undefined : 'polite'"
+              :class="pushIsError ? 'nv-form-error' : 'text-[var(--nv-success-text)]'"
+            >
+              {{ pushMessage }}
+            </p>
           </div>
         </div>
       </div>

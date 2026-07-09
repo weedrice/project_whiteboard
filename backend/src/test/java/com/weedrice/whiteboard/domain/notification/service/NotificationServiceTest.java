@@ -54,6 +54,8 @@ class NotificationServiceTest {
     private UserRepository userRepository;
     @Mock
     private UserNotificationSettingsRepository userNotificationSettingsRepository;
+    @Mock
+    private PushNotificationDispatcher pushNotificationDispatcher;
 
     private NotificationService notificationService;
 
@@ -302,6 +304,34 @@ class NotificationServiceTest {
 
         assertThat(streamPublisher.delivered).isTrue();
         verify(notificationRepository).save(any(Notification.class));
+    }
+
+    @Test
+    @DisplayName("Web push dispatch is deferred until notification transaction commit")
+    void handleNotificationEvent_defersPushDispatchUntilAfterCommit() {
+        NotificationEvent event = new NotificationEvent(user, actor, NotificationType.LIKE, NotificationSourceType.POST, 1L, "Test Notification");
+        when(notificationRepository.save(any(Notification.class))).thenReturn(notification);
+
+        NotificationPreferenceService preferenceService = new NotificationPreferenceService(userNotificationSettingsRepository);
+        NotificationCommandService commandService = new NotificationCommandService(
+                notificationRepository,
+                preferenceService,
+                userRepository,
+                pushNotificationDispatcher);
+
+        TransactionSynchronizationManager.initSynchronization();
+        try {
+            commandService.handleNotificationEvent(event);
+
+            verify(pushNotificationDispatcher, never()).dispatch(notification);
+
+            TransactionSynchronizationManager.getSynchronizations()
+                    .forEach(synchronization -> synchronization.afterCommit());
+        } finally {
+            TransactionSynchronizationManager.clearSynchronization();
+        }
+
+        verify(pushNotificationDispatcher).dispatch(notification);
     }
 
     @Test

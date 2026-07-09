@@ -40,6 +40,16 @@ type UserComposableMock = {
 
 const useUserMock = vi.hoisted(() => vi.fn<() => UserComposableMock>())
 const useThemeStoreMock = vi.hoisted(() => vi.fn<() => ThemeStoreMock>())
+const pushNotificationMock = vi.hoisted(() => ({
+  enabled: { value: true },
+  supported: { value: true },
+  permission: { value: 'default' as NotificationPermission | 'unsupported' },
+  isLoading: { value: false },
+  isEnabling: { value: false },
+  isDisabling: { value: false },
+  enablePush: vi.fn(),
+  disablePush: vi.fn(),
+}))
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({ t: identityT }),
@@ -51,6 +61,10 @@ vi.mock('@/composables/useUser', () => ({
 
 vi.mock('@/stores/theme', () => ({
   useThemeStore: useThemeStoreMock,
+}))
+
+vi.mock('@/features/notifications/usePushNotifications', () => ({
+  usePushNotifications: () => pushNotificationMock,
 }))
 
 vi.mock('@/utils/logger', () => ({
@@ -203,6 +217,14 @@ describe('UserSettings', () => {
     updateNotificationSettings.mockResolvedValue(undefined)
     createKeywordSubscription.mockResolvedValue(undefined)
     deleteKeywordSubscription.mockResolvedValue(undefined)
+    pushNotificationMock.enabled.value = true
+    pushNotificationMock.supported.value = true
+    pushNotificationMock.permission.value = 'default'
+    pushNotificationMock.isLoading.value = false
+    pushNotificationMock.isEnabling.value = false
+    pushNotificationMock.isDisabling.value = false
+    pushNotificationMock.enablePush.mockResolvedValue(undefined)
+    pushNotificationMock.disablePush.mockResolvedValue(undefined)
 
     useThemeStoreMock.mockReturnValue({
       get isDark() {
@@ -398,5 +420,39 @@ describe('UserSettings', () => {
     await nextTick()
 
     expect(wrapper.text()).toContain('user.settings.keywordNotificationsDisabled')
+  })
+
+  it('enables and disables browser push from settings', async () => {
+    settingsData.value = {
+      ...settingsData.value,
+      pushEnabled: false,
+    }
+    const wrapper = mountUserSettings()
+    await nextTick()
+
+    expect(wrapper.text()).toContain('user.settings.pushDisabled')
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text() === 'user.settings.pushEnable')!
+      .trigger('click')
+    await flushAll()
+
+    expect(pushNotificationMock.enablePush).toHaveBeenCalled()
+    expect(wrapper.text()).toContain('user.settings.pushEnableSuccess')
+
+    settingsData.value = {
+      ...settingsData.value,
+      pushEnabled: true,
+    }
+    await nextTick()
+
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text() === 'user.settings.pushDisable')!
+      .trigger('click')
+    await flushAll()
+
+    expect(pushNotificationMock.disablePush).toHaveBeenCalled()
+    expect(wrapper.text()).toContain('user.settings.pushDisableSuccess')
   })
 })

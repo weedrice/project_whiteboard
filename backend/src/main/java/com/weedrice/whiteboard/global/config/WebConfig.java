@@ -57,7 +57,8 @@ public class WebConfig implements WebMvcConfigurer {
                         "/api/v1/ads",
                         "/api/v1/security/csp-report",
                         "/api/v1/users/**",
-                        "/api/v1/configs/public");
+                        "/api/v1/configs/public",
+                        "/api/v1/push/public-key");
     }
 
 }

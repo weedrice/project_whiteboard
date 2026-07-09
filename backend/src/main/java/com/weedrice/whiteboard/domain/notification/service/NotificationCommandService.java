@@ -7,7 +7,10 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
 import java.util.Set;
@@ -20,13 +23,23 @@ class NotificationCommandService {
     private final NotificationRepository notificationRepository;
     private final NotificationPreferenceService preferenceService;
     private final UserRepository userRepository;
+    private final PushNotificationDispatcher pushNotificationDispatcher;
 
     NotificationCommandService(NotificationRepository notificationRepository,
                                NotificationPreferenceService preferenceService,
                                UserRepository userRepository) {
+        this(notificationRepository, preferenceService, userRepository, null);
+    }
+
+    @Autowired
+    NotificationCommandService(NotificationRepository notificationRepository,
+                               NotificationPreferenceService preferenceService,
+                               UserRepository userRepository,
+                               PushNotificationDispatcher pushNotificationDispatcher) {
         this.notificationRepository = notificationRepository;
         this.preferenceService = preferenceService;
         this.userRepository = userRepository;
+        this.pushNotificationDispatcher = pushNotificationDispatcher;
     }
 
     Notification handleNotificationEvent(NotificationEvent event) {
@@ -56,11 +69,12 @@ class NotificationCommandService {
                     .orElse(null);
             if (existing != null) {
                 existing.merge(event.getActor(), event.getActorAgent(), content, eventAt);
+                dispatchPushAfterCommit(existing);
                 return existing;
             }
         }
 
-        return notificationRepository.save(Notification.builder()
+        Notification notification = notificationRepository.save(Notification.builder()
                 .user(receiver)
                 .actor(event.getActor())
                 .actorAgent(event.getActorAgent())
@@ -71,6 +85,24 @@ class NotificationCommandService {
                 .groupKey(groupKey)
                 .lastEventAt(eventAt)
                 .build());
+        dispatchPushAfterCommit(notification);
+        return notification;
+    }
+
+    private void dispatchPushAfterCommit(Notification notification) {
+        if (pushNotificationDispatcher == null || notification == null) {
+            return;
+        }
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            pushNotificationDispatcher.dispatch(notification);
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                pushNotificationDispatcher.dispatch(notification);
+            }
+        });
     }
 
     private boolean isGroupable(NotificationEvent event) {

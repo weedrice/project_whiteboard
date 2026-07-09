@@ -15,6 +15,7 @@ export {
     type NotificationSettingType,
     type NotificationSettingsBulkPayload,
     type NotificationSettingsPayload,
+    type PushPublicKeyResponse,
     type PushSubscriptionPayload,
     type PushSubscriptionResponse,
     type UserUpdatePayload,

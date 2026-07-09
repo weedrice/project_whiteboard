@@ -33,6 +33,11 @@ export interface PushSubscriptionResponse {
     endpoint: string
 }
 
+export interface PushPublicKeyResponse {
+    publicKey: string
+    enabled: boolean
+}
+
 export interface KeywordSubscriptionPayload {
     keyword: string
 }
@@ -88,6 +93,11 @@ export const userAccountApi = {
     },
     deletePushSubscription(data: PushSubscriptionPayload) {
         return api.delete<ApiResponse<void>>('/users/me/push-subscriptions', { data })
+    },
+    getPushPublicKey(config?: AxiosRequestConfig) {
+        return config
+            ? api.get<ApiResponse<PushPublicKeyResponse>>('/push/public-key', config)
+            : api.get<ApiResponse<PushPublicKeyResponse>>('/push/public-key')
     },
     getKeywordSubscriptions(config?: AxiosRequestConfig) {
         return config
