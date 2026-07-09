@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.admin.service;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.report.repository.ReportRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -34,12 +35,20 @@ class AdminDashboardServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private EntityManager entityManager;
+
     private AdminDashboardService adminDashboardService;
 
     @BeforeEach
     void setUp() {
         Clock clock = Clock.fixed(Instant.parse("2026-07-07T03:00:00Z"), ZoneOffset.UTC);
-        adminDashboardService = new AdminDashboardService(postRepository, reportRepository, userRepository, clock);
+        adminDashboardService = new AdminDashboardService(
+                postRepository,
+                reportRepository,
+                userRepository,
+                entityManager,
+                clock);
     }
 
     @Test

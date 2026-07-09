@@ -25,6 +25,30 @@ export interface DashboardStats {
     [key: string]: number // Allow other fields
 }
 
+export interface DeepDashboardStats {
+    days: 30 | 90
+    daily: Array<{
+        date: string
+        signups: number
+        posts: number
+        comments: number
+        reports: number
+    }>
+    topBoards: Array<{
+        boardId: number
+        boardName: string
+        boardUrl: string
+        activityCount: number
+    }>
+    moderation: {
+        pendingReports: number
+        resolvedReports: number
+        rejectedReports: number
+        autoBlinds: number
+        managerBlinds: number
+    }
+}
+
 export interface BoardAdminInfo {
     adminId: number
     role: string

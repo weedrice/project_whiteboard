@@ -12,12 +12,30 @@ const mocks = vi.hoisted(() => ({
       activeUsers: 4,
     },
   },
+  deepStats: {
+    __v_isRef: true,
+    value: {
+      days: 30,
+      daily: [],
+      topBoards: [],
+      moderation: {
+        pendingReports: 0,
+        resolvedReports: 0,
+        rejectedReports: 0,
+        autoBlinds: 0,
+        managerBlinds: 0,
+      },
+    },
+  },
 }))
 
 vi.mock('@/composables/useAdmin', () => ({
   useAdmin: () => ({
     useDashboardStats: () => ({
       data: mocks.stats,
+    }),
+    useDeepDashboardStats: () => ({
+      data: mocks.deepStats,
     }),
   }),
 }))

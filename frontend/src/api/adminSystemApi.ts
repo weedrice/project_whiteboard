@@ -1,6 +1,6 @@
 import api from '@/api'
 import type { AxiosRequestConfig } from 'axios'
-import type { ApiResponse, DashboardStats, GlobalConfig } from '@/types'
+import type { ApiResponse, DashboardStats, DeepDashboardStats, GlobalConfig } from '@/types'
 import { encodePathSegment } from '@/utils/urlPath'
 import { getWithOptionalConfig, type ConfigCreateData } from '@/api/adminTypes'
 
@@ -19,5 +19,8 @@ export const adminSystemApi = {
     },
     getDashboardStats(config?: AxiosRequestConfig) {
         return getWithOptionalConfig<ApiResponse<DashboardStats>>('/admin/stats', config)
+    },
+    getDeepDashboardStats(days: 30 | 90, config?: AxiosRequestConfig) {
+        return api.get<ApiResponse<DeepDashboardStats>>('/admin/stats/deep', { ...config, params: { ...config?.params, days } })
     },
 }

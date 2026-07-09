@@ -194,6 +194,12 @@ public class AdminController {
         return ApiResponse.success(adminDashboardService.getDashboardStats());
     }
 
+    @GetMapping("/stats/deep")
+    public ApiResponse<DeepDashboardStatsDto> getDeepDashboardStats(
+            @RequestParam(defaultValue = "30") int days) {
+        return ApiResponse.success(adminDashboardService.getDeepDashboardStats(days));
+    }
+
     @GetMapping("/inquiries")
     public ApiResponse<PageResponse<AdminInquirySummaryResponse>> getInquiryPosts(
             @RequestParam(defaultValue = "0") int page,

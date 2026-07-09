@@ -15,6 +15,7 @@ import {
 } from '@/features/admin/queries/adminApiQuery'
 import type { ConfigCreateData } from '@/api/admin'
 import type {
+    DeepDashboardStats,
     ErrorLogDetail,
     ErrorLogListItem,
     ErrorLogSearchParams,
@@ -54,6 +55,17 @@ export function useAdminSystem(queryClient: QueryClient) {
         return useAdminDataQuery(
             adminQueryKeys.stats,
             (config) => callAdminApiWithOptionalConfig(config, adminApi.getDashboardStats, () => adminApi.getDashboardStats()),
+        )
+    }
+
+    const useDeepDashboardStats = (days: Ref<30 | 90>) => {
+        return useAdminDataQuery<DeepDashboardStats>(
+            adminQueryKeys.deepStats(days),
+            (config) => callAdminApiWithOptionalConfig(
+                config,
+                (requestConfig) => adminApi.getDeepDashboardStats(days.value, requestConfig),
+                () => adminApi.getDeepDashboardStats(days.value),
+            ),
         )
     }
 
@@ -126,6 +138,7 @@ export function useAdminSystem(queryClient: QueryClient) {
         useCreateConfig,
         useDeleteConfig,
         useDashboardStats,
+        useDeepDashboardStats,
         useErrorLogs,
         useErrorLog,
         useResolveErrorLog,

@@ -20,6 +20,7 @@ export const adminQueryKeys = {
     ipBlocks: (params: Ref<unknown>) => computed(() => ['admin', 'ip-blocks', params.value ?? {}] as const),
     configs: ['admin', 'configs'] as const,
     stats: ['admin', 'stats'] as const,
+    deepStats: (days: Ref<30 | 90>) => computed(() => ['admin', 'stats', 'deep', days.value] as const),
     boards: ['admin', 'boards'] as const,
     boardManager: (boardId: Ref<number | null>) => computed(() => ['admin', 'board-manager', boardId.value] as const),
     boardManagerById: (boardId: number) => ['admin', 'board-manager', boardId] as const,

@@ -35,6 +35,19 @@ export interface AdminMessages {
     viewDetail: string
     recentActivity: string
     noActivity: string
+    deepStats: string
+    days30: string
+    days90: string
+    dailyActivity: string
+    postsLine: string
+    commentsBar: string
+    moderationStatus: string
+    pending: string
+    resolved: string
+    rejected: string
+    autoBlinds: string
+    managerBlinds: string
+    topSpaces: string
   }
   users: {
     title: string
