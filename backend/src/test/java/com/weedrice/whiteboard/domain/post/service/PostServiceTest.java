@@ -1010,7 +1010,7 @@ class PostServiceTest {
         List<PostSummary> result = postService.getTrendingPosts(PageRequest.of(0, 10), 1L);
 
         assertThat(result).hasSize(1);
-        assertThat(result.get(0).getThumbnailUrl()).isEqualTo("/api/v1/files/10");
+        assertThat(result.get(0).getThumbnailUrl()).isEqualTo("/api/v1/files/10/variants/thumbnail");
     }
 
     @Test
@@ -2663,7 +2663,7 @@ class PostServiceTest {
 
         List<String> urls = postService.getPostImageUrls(1L);
 
-        assertThat(urls).containsExactly("/api/v1/files/123");
+        assertThat(urls).containsExactly("/api/v1/files/123/variants/medium");
     }
 
     @Test
@@ -3203,7 +3203,7 @@ class PostServiceTest {
         List<PostSummary> result = postService.getLatestPostsByBoard(1L, 5, 1L);
 
         assertThat(result).hasSize(1);
-        assertThat(result.get(0).getThumbnailUrl()).isEqualTo("/api/v1/files/20");
+        assertThat(result.get(0).getThumbnailUrl()).isEqualTo("/api/v1/files/20/variants/thumbnail");
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
         verify(postRepository).findByBoardIdAndCategoryId(eq(1L), isNull(), isNull(), isNull(), anyList(), any(Boolean.class), any(),
                 pageableCaptor.capture());
@@ -3313,7 +3313,7 @@ class PostServiceTest {
         assertThat(result).containsOnlyKeys(1L);
         assertThat(result.get(1L)).hasSize(1);
         assertThat(result.get(1L).get(0).getPostId()).isEqualTo(1L);
-        assertThat(result.get(1L).get(0).getThumbnailUrl()).isEqualTo("/api/v1/files/20");
+        assertThat(result.get(1L).get(0).getThumbnailUrl()).isEqualTo("/api/v1/files/20/variants/thumbnail");
     }
 
     // --- Edge Cases ---

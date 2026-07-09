@@ -3,9 +3,13 @@ import { mount } from '@vue/test-utils'
 import PostDetailArticleContent from '@/components/board/PostDetailArticleContent.vue'
 import type { PostDetailViewModel } from '@/features/board/posts/detail/usePostDetailViewModel'
 
-vi.mock('vue-router', () => ({
-  useRouter: () => ({ push: vi.fn() }),
-}))
+vi.mock('vue-router', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('vue-router')>()
+  return {
+    ...actual,
+    useRouter: () => ({ push: vi.fn() }),
+  }
+})
 
 const postView = (overrides: Partial<PostDetailViewModel> = {}): PostDetailViewModel => ({
   postId: 1,
@@ -48,6 +52,10 @@ function mountContent(overrides: Partial<InstanceType<typeof PostDetailArticleCo
       stubs: {
         BaseButton: {
           template: '<button type="button" class="base-button"><slot /></button>',
+        },
+        RouterLink: {
+          props: ['to'],
+          template: '<a :href="typeof to === \'string\' ? to : \'#\'"><slot /></a>',
         },
         PostContentView: {
           props: ['content', 'sandboxTitle'],
