@@ -277,6 +277,14 @@ export interface HomeMessages {
       commentsMeta: string
     }
   }
+  attendance: {
+    title: string
+    streak: string
+    checkIn: string
+    done: string
+    earned: string
+    alreadyCheckedIn: string
+  }
   card: {
     ariaLabel: string
     video: string

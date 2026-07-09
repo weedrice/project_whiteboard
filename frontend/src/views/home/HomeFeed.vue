@@ -7,6 +7,7 @@ import { useI18n } from 'vue-i18n'
 import ErrorState from '@/components/common/ui/ErrorState.vue'
 import BaseSegmentedControl from '@/components/common/ui/BaseSegmentedControl.vue'
 import HomeBoardStrip from '@/components/home/HomeBoardStrip.vue'
+import HomeAttendancePanel from '@/components/home/HomeAttendancePanel.vue'
 import HomeLandingSkeleton from '@/components/home/HomeLandingSkeleton.vue'
 import HomePostCard from '@/components/home/HomePostCard.vue'
 import HomeActivityList from '@/components/home/HomeActivityList.vue'
@@ -146,6 +147,7 @@ useHead({
           </div>
 
           <div class="space-y-3">
+            <HomeAttendancePanel />
             <div class="flex items-center gap-2">
               <TrendingUpIcon class="h-4 w-4 text-[var(--nv-accent)]" />
               <p class="nv-home-section-kicker">{{ $t('home.landing.siteStats') }}</p>

@@ -49,6 +49,14 @@ export const home: HomeMessages = {
       commentsMeta: '오늘의 대화',
     },
   },
+  attendance: {
+    title: '오늘의 출석',
+    streak: '{count}일 연속',
+    checkIn: '출석 체크',
+    done: '출석 완료',
+    earned: '{points}P가 적립되었습니다.',
+    alreadyCheckedIn: '오늘은 이미 출석했습니다.',
+  },
   card: {
     ariaLabel: '{boardName} 스페이스의 {title}',
     video: '동영상',
@@ -104,6 +112,14 @@ export const homeEn: HomeMessages = {
       comments: 'Comments',
       commentsMeta: "Today's conversation",
     },
+  },
+  attendance: {
+    title: "Today's check-in",
+    streak: '{count} day streak',
+    checkIn: 'Check in',
+    done: 'Checked in',
+    earned: 'Earned {points}P.',
+    alreadyCheckedIn: 'Already checked in today.',
   },
   card: {
     ariaLabel: '{boardName} space post {title}',
