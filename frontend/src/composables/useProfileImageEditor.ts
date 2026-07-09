@@ -14,20 +14,25 @@ interface UseProfileImageEditorOptions {
 export function useProfileImageEditor(options: UseProfileImageEditorOptions): {
   fileInputRef: Ref<HTMLInputElement | null>
   selectedFile: Ref<File | null>
+  removeProfileImage: Ref<boolean>
   profileImageError: Ref<boolean>
   profileImageDisplayUrl: Ref<string>
   handleFileChange: (event: Event) => Promise<void>
+  clearProfileImage: () => void
 } {
   const fileInputRef = ref<HTMLInputElement | null>(null)
   const selectedFile = ref<File | null>(null)
+  const removeProfileImage = ref(false)
   const {
     previewUrl: previewImage,
     setPreviewFile,
+    clearPreviewUrl,
   } = useObjectUrlPreview()
   const profileImageError = ref(false)
   let fileSelectionVersion = 0
 
   const profileImageDisplayUrl = computed(() => {
+    if (removeProfileImage.value) return ''
     if (previewImage.value) return previewImage.value
     if (profileImageError.value || !options.profileImageUrl()) return ''
     return getOptimizedProfileImageUrl(options.profileImageUrl() || '')
@@ -63,6 +68,7 @@ export function useProfileImageEditor(options: UseProfileImageEditorOptions): {
       if (selectionVersion !== fileSelectionVersion) {
         return
       }
+      removeProfileImage.value = false
       selectedFile.value = resizedImage
       setPreviewFile(resizedImage)
     } catch (error) {
@@ -71,11 +77,21 @@ export function useProfileImageEditor(options: UseProfileImageEditorOptions): {
     }
   }
 
+  const clearProfileImage = () => {
+    fileSelectionVersion++
+    selectedFile.value = null
+    removeProfileImage.value = true
+    profileImageError.value = false
+    clearPreviewUrl()
+  }
+
   return {
     fileInputRef,
     selectedFile,
+    removeProfileImage,
     profileImageError,
     profileImageDisplayUrl,
-    handleFileChange
+    handleFileChange,
+    clearProfileImage
   }
 }

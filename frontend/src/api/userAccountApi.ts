@@ -1,11 +1,12 @@
 import api from '@/api'
 import type { AxiosRequestConfig } from 'axios'
-import type { ApiResponse, MentionCandidate, PublicUserProfile, User, UserSettings } from '@/types'
+import type { ApiResponse, LoginHistory, MentionCandidate, PageResponse, PublicUserProfile, User, UserSession, UserSettings } from '@/types'
 import { encodePathSegment } from '@/utils/urlPath'
 
 export interface UserUpdatePayload {
     displayName?: string
     profileImageId?: number | null
+    removeProfileImage?: boolean
 }
 
 export type NotificationSettingType = 'LIKE' | 'COMMENT' | 'REPLY' | 'MENTION' | 'MESSAGE' | 'SYSTEM' | 'SANCTION' | 'KEYWORD' | 'BADGE'
@@ -67,6 +68,22 @@ export const userAccountApi = {
     },
     updateMyProfile(data: UserUpdatePayload) {
         return api.put<ApiResponse<User>>('/users/me', data)
+    },
+    getMySessions(config?: AxiosRequestConfig) {
+        return config
+            ? api.get<ApiResponse<UserSession[]>>('/users/me/sessions', config)
+            : api.get<ApiResponse<UserSession[]>>('/users/me/sessions')
+    },
+    revokeMySession(sessionId: string | number) {
+        return api.delete<ApiResponse<void>>(`/users/me/sessions/${encodePathSegment(sessionId)}`)
+    },
+    revokeOtherSessions() {
+        return api.delete<ApiResponse<void>>('/users/me/sessions')
+    },
+    getMyLoginHistory(params?: { page?: number, size?: number }, config?: AxiosRequestConfig) {
+        return config
+            ? api.get<ApiResponse<PageResponse<LoginHistory>>>('/users/me/login-history', { ...config, params })
+            : api.get<ApiResponse<PageResponse<LoginHistory>>>('/users/me/login-history', { params })
     },
     updatePassword(currentPassword: string, newPassword: string) {
         return api.put<ApiResponse<void>>('/users/me/password', { currentPassword, newPassword })

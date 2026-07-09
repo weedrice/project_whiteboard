@@ -8,11 +8,16 @@ import logger from '@/utils/logger'
 
 interface UseProfileUpdateSubmitOptions {
   selectedFile: Ref<File | null>
+  removeProfileImage?: Ref<boolean>
   getDisplayName: () => string
   updateProfile: (payload: UserUpdatePayload) => Promise<unknown>
   refreshUser: () => Promise<unknown>
   addToast: (message: string, type: 'success' | 'error') => void
   t: (key: string) => string
+  confirm?: (message: string) => Promise<boolean>
+  getProfileImageChangeCost?: () => number
+  isProfileImageChangeFree?: () => boolean
+  getCurrentPoints?: () => number
   onRefreshed: () => void
   onClose: () => void
 }
@@ -24,11 +29,16 @@ export function useProfileUpdateSubmit(options: UseProfileUpdateSubmitOptions) {
   const updateProfile = async () => {
     loading.value = true
     errors.displayName = ''
+    errors.profileImage = ''
 
     try {
       let profileImageId: number | null = null
 
       if (options.selectedFile.value) {
+        if (!await confirmPaidProfileImageChangeIfNeeded()) {
+          return
+        }
+
         const uploadRes = await fileApi.uploadFile(options.selectedFile.value)
         const uploadedFile = unwrapAxiosApiData(uploadRes)
 
@@ -40,12 +50,22 @@ export function useProfileUpdateSubmit(options: UseProfileUpdateSubmitOptions) {
         profileImageId = uploadedFile.fileId
       }
 
-      await options.updateProfile({
+      const payload: UserUpdatePayload = {
         displayName: options.getDisplayName().trim(),
         profileImageId,
-      })
+      }
+      if (options.removeProfileImage?.value) {
+        payload.removeProfileImage = true
+      }
+
+      const response = await options.updateProfile(payload)
       await options.refreshUser()
-      options.addToast(options.t('common.messages.profileUpdated'), 'success')
+      const spentPoints = extractSpentPoints(response)
+      if (spentPoints && spentPoints > 0) {
+        options.addToast(options.t('user.profile.profileImageCostSpent'), 'success')
+      } else {
+        options.addToast(options.t('common.messages.profileUpdated'), 'success')
+      }
       options.onRefreshed()
       options.onClose()
     } catch (error) {
@@ -74,6 +94,32 @@ export function useProfileUpdateSubmit(options: UseProfileUpdateSubmitOptions) {
     } finally {
       loading.value = false
     }
+  }
+
+  const confirmPaidProfileImageChangeIfNeeded = async () => {
+    if (options.isProfileImageChangeFree?.()) {
+      return true
+    }
+
+    const cost = options.getProfileImageChangeCost?.() ?? 0
+    const currentPoints = options.getCurrentPoints?.() ?? 0
+    if (cost > 0 && currentPoints < cost) {
+      errors.profileImage = options.t('user.profile.profileImageInsufficientPoints')
+      options.addToast(errors.profileImage, 'error')
+      return false
+    }
+
+    if (cost > 0 && options.confirm) {
+      return options.confirm(options.t('user.profile.profileImageCostConfirm'))
+    }
+
+    return true
+  }
+
+  const extractSpentPoints = (response: unknown): number | null => {
+    const apiData = response as { data?: { spentPoints?: unknown }, spentPoints?: unknown }
+    const value = apiData?.data?.spentPoints ?? apiData?.spentPoints
+    return typeof value === 'number' ? value : null
   }
 
   return {

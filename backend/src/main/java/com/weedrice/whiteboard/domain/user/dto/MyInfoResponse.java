@@ -22,4 +22,6 @@ public class MyInfoResponse {
     private LocalDateTime createdAt;
     private LocalDateTime lastLoginAt;
     private Integer points;
+    private Integer profileImageChangeCost;
+    private Boolean profileImageChangeFreeAvailable;
 }

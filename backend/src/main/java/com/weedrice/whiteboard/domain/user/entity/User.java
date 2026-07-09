@@ -65,6 +65,11 @@ public class User extends BaseTimeEntity {
     @Column(name = "representative_badge_code", length = 50)
     private String representativeBadgeCode;
 
+    @Convert(converter = BooleanToYNConverter.class)
+    @Column(name = "profile_image_change_free_used", nullable = false, length = 1,
+            columnDefinition = "varchar(1) default 'N'")
+    private Boolean profileImageChangeFreeUsed;
+
     @Builder
     public User(String loginId, String password, String email, String displayName) {
         this.loginId = loginId;
@@ -74,6 +79,7 @@ public class User extends BaseTimeEntity {
         this.status = STATUS_ACTIVE;
         this.isEmailVerified = false;
         this.isSuperAdmin = false;
+        this.profileImageChangeFreeUsed = false;
     }
 
     public void updateLastLogin(LocalDateTime lastLoginAt) {
@@ -90,6 +96,14 @@ public class User extends BaseTimeEntity {
 
     public void updateProfileImage(String profileImageUrl) {
         this.profileImageUrl = profileImageUrl;
+    }
+
+    public void markProfileImageChangeFreeUsed() {
+        this.profileImageChangeFreeUsed = true;
+    }
+
+    public boolean canUseFreeProfileImageChange() {
+        return !Boolean.TRUE.equals(this.profileImageChangeFreeUsed);
     }
 
     public void updateEmail(String email) {

@@ -1,31 +1,50 @@
-// Reusable date formatters for better performance
-const dateTimeFormatter = new Intl.DateTimeFormat('ko-KR', {
+import type { SupportedLocale } from '@/locales/types'
+
+type DateFormatterKind = 'dateTime' | 'dateOnly' | 'longDateOnly' | 'timeOnly'
+
+const formatterCache = new Map<string, Intl.DateTimeFormat>()
+
+function localeCode(locale: SupportedLocale = 'ko') {
+    return locale === 'en' ? 'en-US' : 'ko-KR'
+}
+
+function formatter(kind: DateFormatterKind, locale: SupportedLocale = 'ko') {
+    const key = `${kind}:${locale}`
+    const cached = formatterCache.get(key)
+    if (cached) return cached
+
+    const intlLocale = localeCode(locale)
+    const nextFormatter = new Intl.DateTimeFormat(intlLocale, formatterOptions[kind])
+    formatterCache.set(key, nextFormatter)
+    return nextFormatter
+}
+
+const formatterOptions: Record<DateFormatterKind, Intl.DateTimeFormatOptions> = {
+    dateTime: {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
-    hour12: false
-})
-
-const dateOnlyFormatter = new Intl.DateTimeFormat('ko-KR', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit'
-})
-
-const longDateOnlyFormatter = new Intl.DateTimeFormat('ko-KR', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-})
-
-const timeOnlyFormatter = new Intl.DateTimeFormat('ko-KR', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false
-})
+    hour12: false,
+    },
+    dateOnly: {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+    },
+    longDateOnly: {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+    },
+    timeOnly: {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+    },
+}
 
 type DateInput = string | number[] | null | undefined
 
@@ -46,21 +65,21 @@ function toDate(dateString: DateInput): Date | null {
  * Example: "2023-10-27T10:00:00" -> "2023. 10. 27. 10:00:00" (Korean locale)
  * Uses Intl.DateTimeFormat for better performance and consistency.
  */
-export function formatDate(dateString: string | number[]): string {
+export function formatDate(dateString: string | number[], locale: SupportedLocale = 'ko'): string {
     const date = toDate(dateString)
     if (!date) return ''
 
-    return dateTimeFormatter.format(date)
+    return formatter('dateTime', locale).format(date)
 }
 
-export function formatDateTimeOrDash(dateString: DateInput): string {
+export function formatDateTimeOrDash(dateString: DateInput, locale: SupportedLocale = 'ko'): string {
     const date = toDate(dateString)
-    return date ? dateTimeFormatter.format(date) : '-'
+    return date ? formatter('dateTime', locale).format(date) : '-'
 }
 
-export function formatDateOnlyLongOrDash(dateString: DateInput): string {
+export function formatDateOnlyLongOrDash(dateString: DateInput, locale: SupportedLocale = 'ko'): string {
     const date = toDate(dateString)
-    return date ? longDateOnlyFormatter.format(date) : '-'
+    return date ? formatter('longDateOnly', locale).format(date) : '-'
 }
 
 /**
@@ -68,7 +87,7 @@ export function formatDateOnlyLongOrDash(dateString: DateInput): string {
  * If the date is today, returns the time (e.g., "14:30").
  * Otherwise, returns the date (e.g., "2023. 10. 27.").
  */
-export function formatRelativeDate(dateString: string): string {
+export function formatRelativeDate(dateString: string, locale: SupportedLocale = 'ko'): string {
     const date = toDate(dateString)
     if (!date) return ''
     const today = new Date()
@@ -78,9 +97,9 @@ export function formatRelativeDate(dateString: string): string {
         date.getFullYear() === today.getFullYear()
 
     if (isToday) {
-        return timeOnlyFormatter.format(date)
+        return formatter('timeOnly', locale).format(date)
     }
-    return dateOnlyFormatter.format(date)
+    return formatter('dateOnly', locale).format(date)
 }
 
 /**
@@ -104,11 +123,11 @@ export function formatDateShort(dateString: string | number[]): string {
     return `${yy}.${mm}.${dd} ${hh}:${mi}`
 }
 
-export function formatDateOnly(dateString: string | number[]): string {
+export function formatDateOnly(dateString: string | number[], locale: SupportedLocale = 'ko'): string {
     const date = toDate(dateString)
     if (!date) return ''
 
-    return dateOnlyFormatter.format(date)
+    return formatter('dateOnly', locale).format(date)
 }
 
 export function formatTimeAgo(dateString: string | number[], t: (key: string, values?: Record<string, unknown>) => string): string {

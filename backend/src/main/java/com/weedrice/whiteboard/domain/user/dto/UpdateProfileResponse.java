@@ -9,4 +9,10 @@ public class UpdateProfileResponse {
     private Long userId;
     private String displayName;
     private String profileImageUrl;
+    private Integer spentPoints;
+    private Integer remainingPoints;
+
+    public UpdateProfileResponse(Long userId, String displayName, String profileImageUrl) {
+        this(userId, displayName, profileImageUrl, null, null);
+    }
 }

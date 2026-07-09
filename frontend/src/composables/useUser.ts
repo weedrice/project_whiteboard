@@ -8,7 +8,7 @@ import {
 } from '@/api/user'
 import { unwrapAxiosApiData } from '@/api/response'
 import { computed, type Ref } from 'vue'
-import type { DraftPostListResponse, DraftPostSummary, PageResponse, UserPoint, UserSettings } from '@/types'
+import type { DraftPostListResponse, DraftPostSummary, LoginHistory, PageResponse, UserPoint, UserSettings } from '@/types'
 import { QUERY_STALE_TIME } from '@/utils/constants'
 import type { AxiosRequestConfig } from 'axios'
 import { callWithOptionalQuerySignal, withQuerySignal } from '@/utils/querySignal'
@@ -131,6 +131,26 @@ export function useUser() {
         return useQuery(createMyAgentsQueryOptions())
     }
 
+    const useMySessions = () => {
+        return useApiQuery({
+            queryKey: userQueryKeys.sessions,
+            request: (context) => callWithOptionalQuerySignal(
+                context,
+                userApi.getMySessions,
+                userApi.getMySessions,
+            ),
+            staleTime: QUERY_STALE_TIME.SHORT,
+        })
+    }
+
+    const useMyLoginHistory = (params?: Ref<PaginationParams>) => {
+        return useApiQuery<PageResponse<LoginHistory>>({
+            queryKey: userQueryKeys.loginHistory(params),
+            request: (context) => userApi.getMyLoginHistory(params?.value ?? {}, withQuerySignal(undefined, context)),
+            staleTime: QUERY_STALE_TIME.SHORT,
+        })
+    }
+
     const useMyPoint = (enabled?: Ref<boolean>, userIdentity?: Ref<string | number | null | undefined>) => {
         return useApiQuery<UserPoint>({
             queryKey: userQueryKeys.myPoints(userIdentity),
@@ -199,6 +219,28 @@ export function useUser() {
         return useMutation({
             mutationFn: async ({ currentPassword, newPassword }: PasswordUpdateData) => {
                 return resolveResponseData(userApi.updatePassword(currentPassword, newPassword))
+            }
+        })
+    }
+
+    const useRevokeMySession = () => {
+        return useMutation({
+            mutationFn: async (sessionId: string | number) => {
+                return resolveResponseData(userApi.revokeMySession(sessionId))
+            },
+            onSuccess: () => {
+                queryClient.invalidateQueries({ queryKey: userQueryKeys.sessions })
+            }
+        })
+    }
+
+    const useRevokeOtherSessions = () => {
+        return useMutation({
+            mutationFn: async () => {
+                return resolveResponseData(userApi.revokeOtherSessions())
+            },
+            onSuccess: () => {
+                queryClient.invalidateQueries({ queryKey: userQueryKeys.sessions })
             }
         })
     }
@@ -391,6 +433,8 @@ export function useUser() {
         useKeywordSubscriptions,
         useBlockList,
         useMyAgents,
+        useMySessions,
+        useMyLoginHistory,
         useMyPoint,
         useMyScraps,
         useMyDrafts,
@@ -402,6 +446,8 @@ export function useUser() {
         usePublicProfileComments,
         useUpdateMyProfile,
         useUpdatePassword,
+        useRevokeMySession,
+        useRevokeOtherSessions,
         useDeleteAccount,
         useUpdateUserSettings,
         useCompleteOnboarding,

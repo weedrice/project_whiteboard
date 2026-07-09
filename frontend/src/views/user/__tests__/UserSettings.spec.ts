@@ -19,6 +19,8 @@ type ThemeStoreMock = {
 type UserComposableMock = {
   useUserSettings: () => { data: typeof settingsData; isLoading: typeof isSettingsLoading }
   useNotificationSettings: () => { data: typeof notificationData; isLoading: typeof isNotifLoading }
+  useMySessions: () => { data: typeof sessionsData; isLoading: typeof isSessionsLoading }
+  useMyLoginHistory: () => { data: typeof loginHistoryData; isLoading: typeof isLoginHistoryLoading }
   useKeywordSubscriptions: () => { data: typeof keywordData; isLoading: typeof isKeywordLoading }
   useUpdateUserSettings: () => {
     mutateAsync: (payload: Partial<UserSettingsFixture>) => Promise<void>
@@ -36,10 +38,25 @@ type UserComposableMock = {
     mutateAsync: (payload: KeywordSubscriptionPayload) => Promise<void>
     isPending: typeof isDeletingKeyword
   }
+  useRevokeMySession: () => {
+    mutateAsync: (sessionId: number) => Promise<void>
+    isPending: typeof isRevokingSession
+  }
+  useRevokeOtherSessions: () => {
+    mutateAsync: () => Promise<void>
+    isPending: typeof isRevokingOtherSessions
+  }
 }
 
 const useUserMock = vi.hoisted(() => vi.fn<() => UserComposableMock>())
 const useThemeStoreMock = vi.hoisted(() => vi.fn<() => ThemeStoreMock>())
+const authStoreMock = vi.hoisted(() => ({
+  clearSessionState: vi.fn(),
+}))
+const toastStoreMock = vi.hoisted(() => ({
+  addToast: vi.fn(),
+}))
+const confirmMock = vi.hoisted(() => vi.fn().mockResolvedValue(true))
 const pushNotificationMock = vi.hoisted(() => ({
   enabled: { value: true },
   supported: { value: true },
@@ -52,7 +69,7 @@ const pushNotificationMock = vi.hoisted(() => ({
 }))
 
 vi.mock('vue-i18n', () => ({
-  useI18n: () => ({ t: identityT }),
+  useI18n: () => ({ t: identityT, locale: { value: 'ko' } }),
 }))
 
 vi.mock('@/composables/useUser', () => ({
@@ -61,6 +78,18 @@ vi.mock('@/composables/useUser', () => ({
 
 vi.mock('@/stores/theme', () => ({
   useThemeStore: useThemeStoreMock,
+}))
+
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => authStoreMock,
+}))
+
+vi.mock('@/stores/toast', () => ({
+  useToastStore: () => toastStoreMock,
+}))
+
+vi.mock('@/composables/useConfirm', () => ({
+  useConfirm: () => ({ confirm: confirmMock }),
 }))
 
 vi.mock('@/features/notifications/usePushNotifications', () => ({
@@ -145,17 +174,25 @@ const notificationData = ref<NotificationSettingsPayload[]>([
   { notificationType: 'COMMENT' as const, isEnabled: true },
 ])
 const keywordData = ref<KeywordSubscriptionResponse[]>([])
+const sessionsData = ref([])
+const loginHistoryData = ref({ content: [] })
 const isSettingsLoading = ref(false)
 const isNotifLoading = ref(false)
+const isSessionsLoading = ref(false)
+const isLoginHistoryLoading = ref(false)
 const isKeywordLoading = ref(false)
 const isUpdatingSettings = ref(false)
 const isUpdatingNotifications = ref(false)
 const isCreatingKeyword = ref(false)
 const isDeletingKeyword = ref(false)
+const isRevokingSession = ref(false)
+const isRevokingOtherSessions = ref(false)
 const updateSettings = vi.fn()
 const updateNotificationSettings = vi.fn()
 const createKeywordSubscription = vi.fn()
 const deleteKeywordSubscription = vi.fn()
+const revokeSession = vi.fn()
+const revokeOtherSessions = vi.fn()
 const setTheme = vi.fn()
 const mountedWrappers: Array<ReturnType<typeof mount>> = []
 
@@ -180,6 +217,7 @@ const mountUserSettings = () => {
         BaseButton: BaseButtonStub,
         BaseSpinner: BaseSpinnerStub,
         Settings: true,
+        Monitor: true,
       },
     },
   })
@@ -206,17 +244,28 @@ describe('UserSettings', () => {
       { notificationType: 'COMMENT', isEnabled: true },
     ]
     keywordData.value = []
+    sessionsData.value = []
+    loginHistoryData.value = { content: [] }
     isSettingsLoading.value = false
     isNotifLoading.value = false
+    isSessionsLoading.value = false
+    isLoginHistoryLoading.value = false
     isKeywordLoading.value = false
     isUpdatingSettings.value = false
     isUpdatingNotifications.value = false
     isCreatingKeyword.value = false
     isDeletingKeyword.value = false
+    isRevokingSession.value = false
+    isRevokingOtherSessions.value = false
     updateSettings.mockResolvedValue(undefined)
     updateNotificationSettings.mockResolvedValue(undefined)
     createKeywordSubscription.mockResolvedValue(undefined)
     deleteKeywordSubscription.mockResolvedValue(undefined)
+    revokeSession.mockResolvedValue(undefined)
+    revokeOtherSessions.mockResolvedValue(undefined)
+    authStoreMock.clearSessionState.mockReset()
+    toastStoreMock.addToast.mockReset()
+    confirmMock.mockResolvedValue(true)
     pushNotificationMock.enabled.value = true
     pushNotificationMock.supported.value = true
     pushNotificationMock.permission.value = 'default'
@@ -236,6 +285,8 @@ describe('UserSettings', () => {
     useUserMock.mockReturnValue({
       useUserSettings: () => ({ data: settingsData, isLoading: isSettingsLoading }),
       useNotificationSettings: () => ({ data: notificationData, isLoading: isNotifLoading }),
+      useMySessions: () => ({ data: sessionsData, isLoading: isSessionsLoading }),
+      useMyLoginHistory: () => ({ data: loginHistoryData, isLoading: isLoginHistoryLoading }),
       useKeywordSubscriptions: () => ({ data: keywordData, isLoading: isKeywordLoading }),
       useUpdateUserSettings: () => ({
         mutateAsync: updateSettings,
@@ -252,6 +303,14 @@ describe('UserSettings', () => {
       useDeleteKeywordSubscription: () => ({
         mutateAsync: deleteKeywordSubscription,
         isPending: isDeletingKeyword,
+      }),
+      useRevokeMySession: () => ({
+        mutateAsync: revokeSession,
+        isPending: isRevokingSession,
+      }),
+      useRevokeOtherSessions: () => ({
+        mutateAsync: revokeOtherSessions,
+        isPending: isRevokingOtherSessions,
       }),
     })
   })

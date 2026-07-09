@@ -10,4 +10,5 @@ public class UpdateProfileRequest {
     @NoHtml
     private String displayName;
     private Long profileImageId;
+    private Boolean removeProfileImage;
 }

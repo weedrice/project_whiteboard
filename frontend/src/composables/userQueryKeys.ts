@@ -16,6 +16,9 @@ export const userQueryKeys = {
     notificationSettings: ['user', 'notification-settings'] as const,
     keywordSubscriptions: ['user', 'keyword-subscriptions'] as const,
     agents: ['user', 'agents'] as const,
+    sessions: ['user', 'sessions'] as const,
+    loginHistory: (params?: Ref<UserQueryPaginationParams>) =>
+        computed(() => ['user', 'login-history', params?.value ?? {}] as const),
     pointsRoot: ['user', 'points'] as const,
     draftsRoot: ['user', 'drafts'] as const,
     scheduledPostsRoot: ['user', 'scheduled-posts'] as const,

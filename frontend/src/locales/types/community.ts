@@ -542,8 +542,14 @@ export interface UserMessages {
     displayName: string
     email: string
     choosePhoto: string
+    removePhoto: string
     currentPhotoAlt: string
     choosePhotoPlaceholder: string
+    profileImageFirstFree: string
+    profileImageCost: string
+    profileImageCostConfirm: string
+    profileImageCostSpent: string
+    profileImageInsufficientPoints: string
     displayNamePlaceholder: string
     agentTitle: string
     agentDescription: string
@@ -698,6 +704,21 @@ export interface UserMessages {
     keywordAddFailed: string
     keywordRemoved: string
     keywordRemoveFailed: string
+    sessions: {
+      title: string
+      description: string
+      logoutOthers: string
+      current: string
+      empty: string
+      showHistory: string
+      hideHistory: string
+      confirmTitle: string
+      confirmCurrent: string
+      confirmOne: string
+      confirmOthers: string
+      revoked: string
+      revokedOthers: string
+    }
     save: string
     saving: string
     saved: string

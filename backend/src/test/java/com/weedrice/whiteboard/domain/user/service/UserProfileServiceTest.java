@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.point.entity.UserPoint;
 import com.weedrice.whiteboard.domain.point.repository.UserPointRepository;
+import com.weedrice.whiteboard.domain.point.service.PointService;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.dto.MyInfoResponse;
@@ -16,6 +17,7 @@ import com.weedrice.whiteboard.domain.user.repository.DisplayNameHistoryReposito
 import com.weedrice.whiteboard.domain.user.repository.UserBlockRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
+import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
@@ -59,6 +61,8 @@ class UserProfileServiceTest {
     @Mock private DisplayNameHistoryRepository displayNameHistoryRepository;
     @Mock private PostRepository postRepository;
     @Mock private FileService fileService;
+    @Mock private PointService pointService;
+    @Mock private GlobalConfigService globalConfigService;
     @Mock private UserPointRepository userPointRepository;
     @Mock private SanctionService sanctionService;
     @Mock private PasswordEncoder passwordEncoder;
@@ -78,6 +82,8 @@ class UserProfileServiceTest {
                 postRepository,
                 userBlockRepository,
                 fileService,
+                pointService,
+                globalConfigService,
                 passwordEncoder,
                 userReadableResolver,
                 userWritableResolver,

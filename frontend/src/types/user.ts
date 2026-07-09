@@ -29,6 +29,8 @@ export interface User {
     modifiedAt?: string
     lastLoginAt?: string
     points?: number
+    profileImageChangeCost?: number
+    profileImageChangeFreeAvailable?: boolean
     representativeBadge?: BadgeCompact | null
 }
 
@@ -92,6 +94,25 @@ export interface PointHistoryResponse {
 
 export interface UserPoint {
     currentPoint: number
+}
+
+export interface UserSession {
+    sessionId: number
+    deviceSummary: string
+    ipAddress: string
+    lastUsedAt: string
+    expiresAt: string
+    current: boolean
+}
+
+export interface LoginHistory {
+    historyId: number
+    loginId: string
+    ipAddress: string
+    deviceSummary: string
+    success: boolean
+    failureReason?: string | null
+    createdAt: string
 }
 
 export interface ScrapPostInfo {

@@ -189,7 +189,7 @@ class OAuth2SuccessHandlerTest {
                 .isEqualTo("http://localhost:5173/auth/oauth/callback");
         assertThat(response.getHeaders("Set-Cookie"))
                 .anyMatch(header -> header.contains("refreshToken=issued-refresh")
-                        && header.contains("Path=/api/v1/auth")
+                        && header.contains("Path=/api/v1")
                         && header.contains("HttpOnly")
                         && header.contains("SameSite=Lax"));
         assertThat(response.getHeaders("Set-Cookie"))

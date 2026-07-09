@@ -17,6 +17,7 @@ import com.weedrice.whiteboard.domain.user.dto.*;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import com.weedrice.whiteboard.domain.user.service.UserProfileService;
 import com.weedrice.whiteboard.domain.user.service.UserSecurityService;
+import com.weedrice.whiteboard.domain.user.service.UserSessionService;
 import com.weedrice.whiteboard.domain.user.service.UserSettingsService;
 import com.weedrice.whiteboard.domain.user.web.UserActionResponseFactory;
 import com.weedrice.whiteboard.global.common.ApiResponse;
@@ -24,7 +25,10 @@ import com.weedrice.whiteboard.global.common.ApiResponses;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.security.CurrentUserId;
+import com.weedrice.whiteboard.global.security.RefreshTokenCookieWriter;
 import jakarta.validation.Valid;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -41,6 +45,7 @@ public class UserController {
 
         private final UserProfileService userProfileService;
         private final UserSecurityService userSecurityService;
+        private final UserSessionService userSessionService;
         private final UserSettingsService userSettingsService;
         private final UserBlockService userBlockService;
         private final MentionService mentionService;
@@ -50,6 +55,7 @@ public class UserController {
         private final AgentLifecycleService agentLifecycleService;
         private final UserActionResponseFactory userActionResponseFactory;
         private final AgentRequestContextResolver agentRequestContextResolver;
+        private final RefreshTokenCookieWriter refreshTokenCookieWriter;
 
         @GetMapping("/{userId}")
         public ResponseEntity<ApiResponse<UserProfileResponse>> getUserProfile(
@@ -78,7 +84,47 @@ public class UserController {
                 return ResponseEntity.ok(ApiResponse.success(userProfileService.updateMyProfile(
                                 userId,
                                 request.getDisplayName(),
-                                request.getProfileImageId())));
+                                request.getProfileImageId(),
+                                request.getRemoveProfileImage())));
+        }
+
+        @GetMapping("/me/sessions")
+        public ApiResponse<List<UserSessionResponse>> getMySessions(
+                        @CurrentUserId Long userId,
+                        HttpServletRequest request) {
+                return ApiResponse.success(userSessionService.getActiveSessions(userId, request));
+        }
+
+        @DeleteMapping("/me/sessions/{sessionId}")
+        public ApiResponse<Void> revokeMySession(
+                        @PathVariable Long sessionId,
+                        @CurrentUserId Long userId,
+                        HttpServletRequest request,
+                        HttpServletResponse response) {
+                UserSessionRevokeResult result = userSessionService.revokeSession(userId, sessionId, request);
+                if (result.currentSessionRevoked()) {
+                        refreshTokenCookieWriter.clearRefreshTokenCookie(response, request);
+                }
+                return ApiResponses.ok();
+        }
+
+        @DeleteMapping("/me/sessions")
+        public ApiResponse<Void> revokeOtherSessions(
+                        @CurrentUserId Long userId,
+                        HttpServletRequest request) {
+                userSessionService.revokeOtherSessions(userId, request);
+                return ApiResponses.ok();
+        }
+
+        @GetMapping("/me/login-history")
+        public ApiResponse<PageResponse<LoginHistoryResponse>> getMyLoginHistory(
+                        @CurrentUserId Long userId,
+                        @RequestParam(defaultValue = "0") int page,
+                        @RequestParam(defaultValue = "10") int size,
+                        Sort sort) {
+                Pageable pageable = pageable(page, size, sort);
+                Page<LoginHistoryResponse> response = userSessionService.getLoginHistory(userId, pageable);
+                return ApiResponses.page(response);
         }
 
         @PostMapping("/me/email-verification")

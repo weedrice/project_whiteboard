@@ -6,9 +6,15 @@
       :fallback-display-name="authStore.user?.displayName"
       :profile-image-display-url="profileImageDisplayUrl"
       :display-name-error="errors.displayName"
+      :profile-image-cost-text="profileImageCostText"
+      :can-remove-profile-image="canRemoveProfileImage"
       @file-change="handleFileChange"
+      @remove-photo="clearProfileImage"
       @submit="updateProfile"
     />
+    <p v-if="errors.profileImage" class="mt-2 text-sm nv-form-error" role="alert">
+      {{ errors.profileImage }}
+    </p>
 
     <hr class="nv-border my-4 sm:my-6" />
 
@@ -85,14 +91,27 @@ const isDeletingAccount = computed(() => Boolean(isDeleting.value))
 
 const {
   selectedFile,
+  removeProfileImage,
   profileImageError,
   profileImageDisplayUrl,
-  handleFileChange
+  handleFileChange,
+  clearProfileImage
 } = useProfileImageEditor({
   profileImageUrl: () => authStore.user?.profileImageUrl,
   onFileSizeExceeded: () => toastStore.addToast(t('common.messages.fileSizeExceeded'), 'warning'),
   onProcessFailed: () => toastStore.addToast(t('common.messages.processImageFailed'), 'error')
 })
+
+const profileImageChangeCost = computed(() => authStore.user?.profileImageChangeCost ?? 1000)
+const profileImageChangeFreeAvailable = computed(() => authStore.user?.profileImageChangeFreeAvailable !== false)
+const profileImageCostText = computed(() => {
+  if (profileImageChangeFreeAvailable.value) return t('user.profile.profileImageFirstFree')
+  return t('user.profile.profileImageCost', {
+    cost: profileImageChangeCost.value,
+    points: authStore.user?.points ?? 0,
+  })
+})
+const canRemoveProfileImage = computed(() => Boolean(profileImageDisplayUrl.value))
 
 const {
   loading,
@@ -100,11 +119,16 @@ const {
   updateProfile
 } = useProfileUpdateSubmit({
   selectedFile,
+  removeProfileImage,
   getDisplayName: () => form.displayName,
   updateProfile: updateProfileMutateAsync,
   refreshUser: authStore.fetchUser,
   addToast: (message, type) => toastStore.addToast(message, type),
   t,
+  confirm: (message) => confirm(message),
+  getProfileImageChangeCost: () => profileImageChangeCost.value,
+  isProfileImageChangeFree: () => profileImageChangeFreeAvailable.value,
+  getCurrentPoints: () => authStore.user?.points ?? 0,
   onRefreshed: () => emit('refreshed'),
   onClose: () => emit('close')
 })

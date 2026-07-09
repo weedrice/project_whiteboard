@@ -20,7 +20,7 @@ class RefreshTokenCookieWriterTest {
 
         assertThat(response.getHeaders("Set-Cookie"))
                 .anyMatch(header -> header.contains("refreshToken=refresh-token")
-                        && header.contains("Path=/api/v1/auth")
+                        && header.contains("Path=/api/v1")
                         && header.contains("Max-Age=1209600")
                         && header.contains("Secure")
                         && header.contains("HttpOnly")
@@ -42,7 +42,7 @@ class RefreshTokenCookieWriterTest {
 
         assertThat(response.getHeaders("Set-Cookie"))
                 .anyMatch(header -> header.contains("refreshToken=")
-                        && header.contains("Path=/api/v1/auth")
+                        && header.contains("Path=/api/v1")
                         && header.contains("Max-Age=0")
                         && header.contains("Secure"));
         assertThat(response.getHeaders("Set-Cookie"))

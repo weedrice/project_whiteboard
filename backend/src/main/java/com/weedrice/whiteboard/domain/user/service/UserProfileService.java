@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.user.service;
 
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.file.service.FileService;
+import com.weedrice.whiteboard.domain.point.service.PointService;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.user.dto.MyInfoResponse;
 import com.weedrice.whiteboard.domain.user.dto.UpdateProfileResponse;
@@ -11,6 +12,7 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.DisplayNameHistoryRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserBlockRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +30,10 @@ public class UserProfileService {
 
     private static final int DISPLAY_NAME_MIN_LENGTH = 2;
     private static final int DISPLAY_NAME_MAX_LENGTH = 50;
+    private static final String PROFILE_IMAGE_CHANGE_COST_CONFIG_KEY = "POINT_PROFILE_IMAGE_CHANGE_COST";
+    private static final int DEFAULT_PROFILE_IMAGE_CHANGE_COST = 1000;
+    private static final String PROFILE_IMAGE_CHANGE_DESCRIPTION = "프로필 이미지 변경";
+    private static final String PROFILE_IMAGE_RELATED_TYPE = "PROFILE_IMAGE";
     private static final String BLOCKED_PUBLIC_PROFILE_DISPLAY_NAME = "차단된 사용자";
 
     private final UserRepository userRepository;
@@ -37,6 +43,8 @@ public class UserProfileService {
     private final PostRepository postRepository;
     private final UserBlockRepository userBlockRepository;
     private final FileService fileService;
+    private final PointService pointService;
+    private final GlobalConfigService globalConfigService;
     private final PasswordEncoder passwordEncoder;
     private final UserReadableResolver userReadableResolver;
     private final UserWritableResolver userWritableResolver;
@@ -66,6 +74,8 @@ public class UserProfileService {
                 .createdAt(userSummary.createdAt())
                 .lastLoginAt(userSummary.lastLoginAt())
                 .points(userSummary.points())
+                .profileImageChangeCost(resolveProfileImageChangeCost())
+                .profileImageChangeFreeAvailable(user.canUseFreeProfileImageChange())
                 .build();
     }
 
@@ -112,11 +122,24 @@ public class UserProfileService {
 
     @Transactional
     public UpdateProfileResponse updateMyProfile(Long userId, String displayName, Long profileImageId) {
-        User user = profileImageId == null
-                ? userWritableResolver.resolve(userId)
-                : userWritableResolver.resolveForUpdate(userId);
+        return updateMyProfile(userId, displayName, profileImageId, false);
+    }
+
+    @Transactional
+    public UpdateProfileResponse updateMyProfile(
+            Long userId,
+            String displayName,
+            Long profileImageId,
+            Boolean removeProfileImage) {
+        validateProfileImageRequest(profileImageId, removeProfileImage);
+        boolean imageMutationRequested = profileImageId != null || Boolean.TRUE.equals(removeProfileImage);
+        User user = imageMutationRequested
+                ? userWritableResolver.resolveForUpdate(userId)
+                : userWritableResolver.resolve(userId);
         String oldDisplayName = user.getDisplayName();
         String normalizedDisplayName = normalizeDisplayName(displayName);
+        Integer spentPoints = null;
+        Integer remainingPoints = null;
 
         if (normalizedDisplayName != null && !normalizedDisplayName.equals(oldDisplayName)) {
             displayNameHistoryRepository.save(DisplayNameHistory.builder()
@@ -128,14 +151,61 @@ public class UserProfileService {
             user.updateDisplayName(normalizedDisplayName);
         }
 
-        if (profileImageId != null) {
-            user.updateProfileImage(fileService.replaceUserProfileImageForLockedUser(
-                    profileImageId,
-                    userId,
-                    user));
+        if (Boolean.TRUE.equals(removeProfileImage)) {
+            removeProfileImage(user);
+        } else if (profileImageId != null) {
+            ProfileImageChargeResult chargeResult = chargeProfileImageChangeIfNeeded(user, profileImageId);
+            spentPoints = chargeResult.spentPoints();
+            remainingPoints = chargeResult.remainingPoints();
+            user.updateProfileImage(fileService.replaceUserProfileImageForLockedUser(profileImageId, userId, user));
         }
 
-        return new UpdateProfileResponse(user.getUserId(), user.getDisplayName(), user.getProfileImageUrl());
+        return new UpdateProfileResponse(
+                user.getUserId(),
+                user.getDisplayName(),
+                user.getProfileImageUrl(),
+                spentPoints,
+                remainingPoints);
+    }
+
+    private void validateProfileImageRequest(Long profileImageId, Boolean removeProfileImage) {
+        if (profileImageId != null && Boolean.TRUE.equals(removeProfileImage)) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+    }
+
+    private ProfileImageChargeResult chargeProfileImageChangeIfNeeded(User user, Long profileImageId) {
+        if (user.canUseFreeProfileImageChange()) {
+            user.markProfileImageChangeFreeUsed();
+            return new ProfileImageChargeResult(null, null);
+        }
+
+        int cost = resolveProfileImageChangeCost();
+        pointService.spendPointForPrevalidatedUser(
+                user,
+                cost,
+                PROFILE_IMAGE_CHANGE_DESCRIPTION,
+                profileImageId,
+                PROFILE_IMAGE_RELATED_TYPE);
+        return new ProfileImageChargeResult(cost, pointService.getCurrentBalance(user.getUserId()));
+    }
+
+    private void removeProfileImage(User user) {
+        Long currentProfileImageId = FileService.extractFileIdFromUrl(user.getProfileImageUrl());
+        user.updateProfileImage(null);
+        if (currentProfileImageId != null) {
+            fileService.deleteFileWithStorageIfAssociated(
+                    currentProfileImageId,
+                    user.getUserId(),
+                    FileService.RELATED_TYPE_USER_PROFILE);
+        }
+    }
+
+    private int resolveProfileImageChangeCost() {
+        return GlobalConfigService.parseIntConfigOrDefault(
+                globalConfigService.getConfig(PROFILE_IMAGE_CHANGE_COST_CONFIG_KEY),
+                DEFAULT_PROFILE_IMAGE_CHANGE_COST,
+                0);
     }
 
     private String normalizeDisplayName(String displayName) {
@@ -163,4 +233,6 @@ public class UserProfileService {
         userLifecycleService.deleteAccount(user.getUserId());
     }
 
+    private record ProfileImageChargeResult(Integer spentPoints, Integer remainingPoints) {
+    }
 }

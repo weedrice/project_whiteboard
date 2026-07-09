@@ -29,6 +29,17 @@
         >
           {{ $t('user.profile.choosePhoto') }}
         </button>
+        <button
+          v-if="canRemoveProfileImage"
+          type="button"
+          class="mt-1 text-xs nv-form-error profile-photo-button"
+          @click="$emit('remove-photo')"
+        >
+          {{ $t('user.profile.removePhoto') }}
+        </button>
+        <p v-if="profileImageCostText" class="mt-1 max-w-[8rem] text-center text-xs nv-text-subtle">
+          {{ profileImageCostText }}
+        </p>
         <input
           id="profile-photo-input"
           ref="fileInputRef"
@@ -64,12 +75,15 @@ const props = defineProps<{
   profileImageDisplayUrl: string
   profileImageError: boolean
   displayNameError?: string
+  profileImageCostText?: string
+  canRemoveProfileImage?: boolean
 }>()
 
 defineEmits<{
   (e: 'update:displayName', value: string): void
   (e: 'update:profileImageError', value: boolean): void
   (e: 'file-change', event: Event): void
+  (e: 'remove-photo'): void
   (e: 'submit'): void
 }>()
 

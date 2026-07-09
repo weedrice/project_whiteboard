@@ -15,7 +15,8 @@ import java.time.Duration;
 public class RefreshTokenCookieWriter {
 
     public static final String REFRESH_TOKEN_COOKIE_NAME = "refreshToken";
-    private static final String REFRESH_TOKEN_COOKIE_PATH = "/api/v1/auth";
+    private static final String REFRESH_TOKEN_COOKIE_PATH = "/api/v1";
+    private static final String LEGACY_AUTH_REFRESH_TOKEN_COOKIE_PATH = "/api/v1/auth";
     private static final String LEGACY_REFRESH_TOKEN_COOKIE_PATH = "/api/v1/auth/refresh";
 
     @Getter
@@ -41,7 +42,7 @@ public class RefreshTokenCookieWriter {
                 .maxAge(Duration.ofMillis(refreshTokenValidityInMilliseconds))
                 .build();
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
-        clearLegacyRefreshTokenCookie(response, secure);
+        clearLegacyRefreshTokenCookies(response, secure);
     }
 
     public void clearRefreshTokenCookie(HttpServletResponse response, HttpServletRequest request) {
@@ -54,18 +55,23 @@ public class RefreshTokenCookieWriter {
                 .maxAge(0)
                 .build();
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
-        clearLegacyRefreshTokenCookie(response, secure);
+        clearLegacyRefreshTokenCookies(response, secure);
     }
 
-    private void clearLegacyRefreshTokenCookie(HttpServletResponse response, boolean secure) {
-        ResponseCookie legacyCookie = ResponseCookie.from(REFRESH_TOKEN_COOKIE_NAME, "")
+    private void clearLegacyRefreshTokenCookies(HttpServletResponse response, boolean secure) {
+        clearRefreshTokenCookieAtPath(response, secure, LEGACY_AUTH_REFRESH_TOKEN_COOKIE_PATH);
+        clearRefreshTokenCookieAtPath(response, secure, LEGACY_REFRESH_TOKEN_COOKIE_PATH);
+    }
+
+    private void clearRefreshTokenCookieAtPath(HttpServletResponse response, boolean secure, String path) {
+        ResponseCookie cookie = ResponseCookie.from(REFRESH_TOKEN_COOKIE_NAME, "")
                 .httpOnly(true)
                 .secure(secure)
                 .sameSite("Lax")
-                .path(LEGACY_REFRESH_TOKEN_COOKIE_PATH)
+                .path(path)
                 .maxAge(0)
                 .build();
-        response.addHeader(HttpHeaders.SET_COOKIE, legacyCookie.toString());
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
     }
 
     private boolean isSecureRequest(HttpServletRequest request) {

@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useAuthStore } from '@/stores/auth'
+import { useToastStore } from '@/stores/toast'
 import { useThemeStore } from '@/stores/theme'
 import { useUser } from '@/composables/useUser'
+import { useConfirm } from '@/composables/useConfirm'
 import {
   NOTIFICATION_TYPES,
   useNotificationSettingsForm,
@@ -14,25 +17,39 @@ import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseSelect from '@/components/common/ui/BaseSelect.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import { usePushNotifications } from '@/features/notifications/usePushNotifications'
-import { Settings } from 'lucide-vue-next'
+import { formatDateTimeOrDash } from '@/utils/date'
+import { Monitor, Settings } from 'lucide-vue-next'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const {
   useUserSettings,
   useNotificationSettings,
+  useMySessions,
+  useMyLoginHistory,
   useUpdateUserSettings,
   useUpdateNotificationSettings,
+  useRevokeMySession,
+  useRevokeOtherSessions,
   useKeywordSubscriptions,
   useCreateKeywordSubscription,
   useDeleteKeywordSubscription
 } = useUser()
+const authStore = useAuthStore()
 const themeStore = useThemeStore()
+const toastStore = useToastStore()
+const { confirm } = useConfirm()
+const loginHistoryParams = ref({ page: 0, size: 10 })
+const showLoginHistory = ref(false)
 
 const { data: settingsData, isLoading: isSettingsLoading } = useUserSettings()
 const { data: notificationData, isLoading: isNotifLoading } = useNotificationSettings()
+const { data: sessionsData, isLoading: isSessionsLoading } = useMySessions()
+const { data: loginHistoryData, isLoading: isLoginHistoryLoading } = useMyLoginHistory(loginHistoryParams)
 const { data: keywordData, isLoading: isKeywordLoading } = useKeywordSubscriptions()
 const { mutateAsync: updateSettings, isPending: isUpdatingSettings } = useUpdateUserSettings()
 const { mutateAsync: updateNotificationSettings, isPending: isUpdatingNotifications } = useUpdateNotificationSettings()
+const { mutateAsync: revokeSession, isPending: isRevokingSession } = useRevokeMySession()
+const { mutateAsync: revokeOtherSessions, isPending: isRevokingOtherSessions } = useRevokeOtherSessions()
 const { mutateAsync: createKeywordSubscription, isPending: isCreatingKeyword } = useCreateKeywordSubscription()
 const { mutateAsync: deleteKeywordSubscription, isPending: isDeletingKeyword } = useDeleteKeywordSubscription()
 
@@ -43,9 +60,12 @@ const pushMessage = ref('')
 const pushIsError = ref(false)
 const pushNotifications = usePushNotifications()
 
-const loading = computed(() => isSettingsLoading.value || isNotifLoading.value)
+const loading = computed(() => isSettingsLoading.value || isNotifLoading.value || isSessionsLoading.value)
 const savingGeneral = computed(() => isUpdatingSettings.value)
 const savingNotifications = computed(() => isUpdatingNotifications.value)
+const sessions = computed(() => sessionsData.value ?? [])
+const loginHistory = computed(() => loginHistoryData.value?.content ?? [])
+const currentLocale = computed(() => locale.value as 'ko' | 'en')
 const keywordSubscriptions = computed(() => keywordData.value ?? [])
 const normalizedKeyword = computed(() => keywordInput.value.trim())
 const keywordNotificationEnabled = computed(() => notificationSettings.KEYWORD !== false)
@@ -158,6 +178,31 @@ const disableBrowserPush = async () => {
   } catch {
     setPushMessage('user.settings.pushDisableFailed', true)
   }
+}
+
+const handleRevokeSession = async (session: { sessionId: number, current: boolean }) => {
+  const ok = await confirm(
+    session.current ? t('user.settings.sessions.confirmCurrent') : t('user.settings.sessions.confirmOne'),
+    t('user.settings.sessions.confirmTitle'),
+  )
+  if (!ok) return
+
+  await revokeSession(session.sessionId)
+  toastStore.addToast(t('user.settings.sessions.revoked'), 'success')
+  if (session.current) {
+    authStore.clearSessionState()
+  }
+}
+
+const handleRevokeOtherSessions = async () => {
+  const ok = await confirm(
+    t('user.settings.sessions.confirmOthers'),
+    t('user.settings.sessions.confirmTitle'),
+  )
+  if (!ok) return
+
+  await revokeOtherSessions()
+  toastStore.addToast(t('user.settings.sessions.revokedOthers'), 'success')
 }
 </script>
 
@@ -348,6 +393,83 @@ const disableBrowserPush = async () => {
             >
               {{ pushMessage }}
             </p>
+          </div>
+
+          <div class="mt-8 border-t nv-border pt-6">
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <h4 class="text-base font-semibold nv-title">{{ $t('user.settings.sessions.title') }}</h4>
+                <p class="text-sm nv-text-subtle">{{ $t('user.settings.sessions.description') }}</p>
+              </div>
+              <BaseButton
+                size="sm"
+                variant="secondary"
+                :loading="isRevokingOtherSessions"
+                :disabled="sessions.length <= 1 || isRevokingSession"
+                @click="handleRevokeOtherSessions"
+              >
+                {{ $t('user.settings.sessions.logoutOthers') }}
+              </BaseButton>
+            </div>
+            <div class="mt-4 space-y-3">
+              <div
+                v-for="session in sessions"
+                :key="session.sessionId"
+                class="rounded-md border nv-border p-3"
+              >
+                <div class="flex items-start justify-between gap-3">
+                  <div class="min-w-0">
+                    <div class="flex flex-wrap items-center gap-2">
+                      <Monitor class="h-4 w-4 nv-text-subtle" />
+                      <p class="font-medium nv-title">{{ session.deviceSummary }}</p>
+                      <span
+                        v-if="session.current"
+                        class="rounded-full bg-[var(--nv-accent-soft)] px-2 py-0.5 text-xs nv-accent-text"
+                      >
+                        {{ $t('user.settings.sessions.current') }}
+                      </span>
+                    </div>
+                    <p class="mt-1 text-sm nv-text-subtle">
+                      {{ session.ipAddress }} · {{ formatDateTimeOrDash(session.lastUsedAt, currentLocale) }}
+                    </p>
+                  </div>
+                  <BaseButton
+                    size="sm"
+                    variant="danger"
+                    :loading="isRevokingSession"
+                    @click="handleRevokeSession(session)"
+                  >
+                    {{ $t('common.logout') }}
+                  </BaseButton>
+                </div>
+              </div>
+              <p v-if="sessions.length === 0" class="text-sm nv-text-subtle">
+                {{ $t('user.settings.sessions.empty') }}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              class="mt-4 text-sm font-medium nv-accent-text"
+              @click="showLoginHistory = !showLoginHistory"
+            >
+              {{ showLoginHistory ? $t('user.settings.sessions.hideHistory') : $t('user.settings.sessions.showHistory') }}
+            </button>
+            <div v-if="showLoginHistory" class="mt-3 space-y-2">
+              <BaseSpinner v-if="isLoginHistoryLoading" />
+              <template v-else>
+                <div
+                  v-for="history in loginHistory"
+                  :key="history.historyId"
+                  class="flex flex-col gap-1 rounded-md border nv-border px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <span class="truncate nv-title">{{ history.deviceSummary }}</span>
+                  <span class="shrink-0 nv-text-subtle">
+                    {{ history.ipAddress }} · {{ formatDateTimeOrDash(history.createdAt, currentLocale) }}
+                  </span>
+                </div>
+              </template>
+            </div>
           </div>
         </div>
       </div>

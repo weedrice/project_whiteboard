@@ -38,6 +38,20 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long
             """)
     int revokeActiveTokensByUserId(@Param("userId") Long userId, @Param("now") LocalDateTime now);
 
+    @Modifying(flushAutomatically = true)
+    @Query("""
+            UPDATE RefreshToken rt
+            SET rt.isRevoked = true
+            WHERE rt.user.userId = :userId
+              AND rt.isRevoked = false
+              AND rt.expiresAt >= :now
+              AND rt.tokenHash <> :currentTokenHash
+            """)
+    int revokeActiveTokensByUserIdExceptTokenHash(
+            @Param("userId") Long userId,
+            @Param("currentTokenHash") String currentTokenHash,
+            @Param("now") LocalDateTime now);
+
     List<RefreshToken> findByUserAndIsRevokedAndExpiresAtGreaterThanEqual(
             com.weedrice.whiteboard.domain.user.entity.User user,
             Boolean isRevoked,
