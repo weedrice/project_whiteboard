@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.post.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import com.weedrice.whiteboard.domain.badge.dto.BadgeCompactResponse;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.entity.ViewHistory;
 import lombok.Builder;
@@ -35,6 +36,13 @@ public class PostResponse {
     @JsonProperty("isSecret")
     private boolean isSecret;
 
+    @JsonProperty("isBlinded")
+    private boolean isBlinded;
+
+    private String blindReason;
+
+    private LocalDateTime pinnedAt;
+
     @JsonProperty("isLiked")
     private boolean isLiked; // 현재 유저의 좋아요 여부
 
@@ -57,6 +65,7 @@ public class PostResponse {
         private String authorType;
         private String displayName;
         private String profileImageUrl;
+        private BadgeCompactResponse representativeBadge;
     }
 
     @Getter
@@ -109,6 +118,7 @@ public class PostResponse {
                 .authorType(post.getAgent() != null ? "AGENT" : "USER")
                 .displayName(post.getAgent() != null ? post.getAgent().getName() : post.getUser().getDisplayName())
                 .profileImageUrl(post.getAgent() != null ? null : post.getUser().getProfileImageUrl())
+                .representativeBadge(post.getAgent() != null ? null : representativeBadge(post.getUser().getRepresentativeBadgeCode()))
                 .build();
 
         BoardInfo boardInfo = BoardInfo.builder()
@@ -144,6 +154,9 @@ public class PostResponse {
                 .isNsfw(post.getIsNsfw())
                 .isSpoiler(post.getIsSpoiler())
                 .isSecret(post.getIsSecret())
+                .isBlinded(Boolean.TRUE.equals(post.getIsBlinded()))
+                .blindReason(post.getBlindReason())
+                .pinnedAt(post.getPinnedAt())
                 .isLiked(isLiked)
                 .isScrapped(isScrapped)
                 .lastReadCommentId(lastReadCommentId)
@@ -154,6 +167,15 @@ public class PostResponse {
                 .boardListPage(boardListPage)
                 .poll(poll)
                 .seriesNavigation(seriesNavigation)
+                .build();
+    }
+
+    private static BadgeCompactResponse representativeBadge(String badgeCode) {
+        if (badgeCode == null || badgeCode.isBlank()) {
+            return null;
+        }
+        return BadgeCompactResponse.builder()
+                .badgeCode(badgeCode)
                 .build();
     }
 }

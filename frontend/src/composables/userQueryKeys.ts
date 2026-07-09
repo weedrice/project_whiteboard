@@ -18,6 +18,8 @@ export const userQueryKeys = {
     agents: ['user', 'agents'] as const,
     pointsRoot: ['user', 'points'] as const,
     draftsRoot: ['user', 'drafts'] as const,
+    scheduledPostsRoot: ['user', 'scheduled-posts'] as const,
+    badgesRoot: ['user', 'badges'] as const,
     scrapFolders: ['user', 'scrap-folders'] as const,
     postSeries: ['user', 'post-series'] as const,
     myPoints: (userIdentity?: Ref<string | number | null | undefined>) =>
@@ -29,6 +31,8 @@ export const userQueryKeys = {
     publicComments: (userId: Ref<string | number>, params?: Ref<UserQueryPaginationParams>) =>
         computed(() => ['user', userId.value, 'comments', params?.value ?? {}] as const),
     drafts: (params?: Ref<UserQueryPaginationParams>) => computed(() => ['user', 'drafts', params?.value ?? {}] as const),
+    scheduledPosts: (params?: Ref<UserQueryPaginationParams>) => computed(() => ['user', 'scheduled-posts', params?.value ?? {}] as const),
+    badges: (userId: Ref<string | number>) => computed(() => ['user', 'badges', userId.value] as const),
     scraps: (params?: Ref<UserQueryPaginationParams>) => computed(() => ['user', 'scraps', params?.value ?? {}] as const),
     pointHistories: (params?: Ref<UserQueryPaginationParams>) =>
         computed(() => ['user', 'points', 'history', params?.value ?? {}] as const),

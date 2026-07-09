@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import BaseInput from '@/components/common/ui/BaseInput.vue'
 import PostDraftStatusPanel from '@/components/board/PostDraftStatusPanel.vue'
 import PostFormMetadataPanel from '@/components/board/PostFormMetadataPanel.vue'
 import type {
@@ -12,10 +13,13 @@ defineProps<{
   draftStatusLabel: string
   draftEnabled: boolean
   isSavingDraft: boolean
+  scheduledAt: string
+  showScheduler: boolean
 }>()
 
 defineEmits<{
   saveDraft: []
+  'update:scheduledAt': [value: string]
 }>()
 </script>
 
@@ -35,6 +39,21 @@ defineEmits<{
       :is-saving-draft="isSavingDraft"
       @save-draft="$emit('saveDraft')"
     />
+
+    <section
+      v-if="showScheduler"
+      class="nv-compose-side-card rounded-2xl border border-[var(--nv-line)] bg-[var(--nv-surface)] p-4 shadow-[var(--nv-shadow-soft)]"
+    >
+      <BaseInput
+        id="scheduled-at"
+        type="datetime-local"
+        :model-value="scheduledAt"
+        :label="$t('board.writePost.scheduleAt')"
+        input-class="h-10"
+        @update:model-value="$emit('update:scheduledAt', String($event))"
+      />
+      <p class="mt-2 text-xs nv-text-subtle">{{ $t('board.writePost.scheduleHelp') }}</p>
+    </section>
   </aside>
 </template>
 

@@ -87,6 +87,12 @@ export const user: UserMessages = {
     deleteConfirm: '이 임시저장 글을 삭제할까요?',
     deleted: '임시저장 글을 삭제했습니다.',
     deleteFailed: '임시저장 글 삭제에 실패했습니다.',
+    scheduledTitle: '예약글',
+    scheduledEmpty: '예약된 글이 없습니다.',
+    cancelScheduledConfirm: '이 예약글을 취소할까요?',
+    cancelScheduledSuccess: '예약글을 취소했습니다.',
+    cancelScheduledFailed: '예약글 취소에 실패했습니다.',
+    openPublished: '게시글 열기',
   },
   reportList: {
     empty: '신고 내역이 없습니다.',

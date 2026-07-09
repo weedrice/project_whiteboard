@@ -77,6 +77,28 @@ export interface PostCreateResponse {
     earnedPoints?: number | null
 }
 
+export interface ScheduledPostData extends PostCreateData {
+    scheduledAt: string
+}
+
+export interface ScheduledPost {
+    scheduledPostId: number
+    status: 'SCHEDULED' | 'PUBLISHING' | 'PUBLISHED' | 'CANCELED' | 'FAILED'
+    userId: number
+    boardId: number
+    boardUrl: string
+    boardName: string
+    categoryId?: number | null
+    title: string
+    scheduledAt: string
+    publishedPostId?: number | null
+    failureReason?: string | null
+    publishedAt?: string | null
+    canceledAt?: string | null
+    createdAt: string
+    modifiedAt?: string
+}
+
 export interface ReportData {
     targetPostId: string | number
     reason: string
@@ -130,8 +152,44 @@ export const postApi = {
     // Create a new post
     createPost: (boardUrl: string, data: PostCreateData) => api.post<ApiResponse<PostCreateResponse>>(`/boards/${encodePathSegment(boardUrl)}/posts`, data),
 
+    createScheduledPost: (boardUrl: string, data: ScheduledPostData) =>
+        api.post<ApiResponse<ScheduledPost>>(`/boards/${encodePathSegment(boardUrl)}/scheduled-posts`, data),
+
+    getMyScheduledPosts: (params?: Record<string, unknown>, config?: AxiosRequestConfig) =>
+        api.get<ApiResponse<BackendPageResponse<ScheduledPost>>>('/users/me/scheduled-posts', {
+            ...config,
+            params: { ...params, ...config?.params },
+        }),
+
+    getScheduledPost: (scheduledPostId: string | number) =>
+        api.get<ApiResponse<ScheduledPost>>(`/scheduled-posts/${encodePathSegment(scheduledPostId)}`),
+
+    updateScheduledPost: (scheduledPostId: string | number, data: ScheduledPostData) =>
+        api.put<ApiResponse<ScheduledPost>>(`/scheduled-posts/${encodePathSegment(scheduledPostId)}`, data),
+
+    cancelScheduledPost: (scheduledPostId: string | number) =>
+        api.delete<ApiResponse<void>>(`/scheduled-posts/${encodePathSegment(scheduledPostId)}`),
+
     // Get post details
     getPost: (postId: string | number, config?: AxiosRequestConfig) => api.get<ApiResponse<Post>>(`/posts/${encodePathSegment(postId)}`, config),
+
+    getRelatedPosts: (postId: string | number, size = 5, config?: AxiosRequestConfig) =>
+        api.get<ApiResponse<PostSummary[]>>(`/posts/${encodePathSegment(postId)}/related`, {
+            ...config,
+            params: { ...config?.params, size },
+        }),
+
+    pinPostByManager: (postId: string | number) =>
+        api.post<ApiResponse<void>>(`/posts/${encodePathSegment(postId)}/manager/pin`),
+
+    unpinPostByManager: (postId: string | number) =>
+        api.delete<ApiResponse<void>>(`/posts/${encodePathSegment(postId)}/manager/pin`),
+
+    blindPostByManager: (postId: string | number, reason?: string) =>
+        api.post<ApiResponse<void>>(`/posts/${encodePathSegment(postId)}/manager/blind`, reason ? { reason } : undefined),
+
+    unblindPostByManager: (postId: string | number) =>
+        api.delete<ApiResponse<void>>(`/posts/${encodePathSegment(postId)}/manager/blind`),
 
     // Update post
     updatePost: (postId: string | number, data: PostUpdateData) => api.put<ApiResponse<number>>(`/posts/${encodePathSegment(postId)}`, data),

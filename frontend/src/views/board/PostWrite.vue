@@ -13,9 +13,14 @@ const initialDraftId = computed(() => route.query.draftId as string | undefined)
 function handleSubmitted(result: {
   boardUrl: string
   newPostId?: string | number
+  scheduledPostId?: string | number
   isSecret: boolean
   isBoardAdmin: boolean
 }) {
+  if (result.scheduledPostId) {
+    router.push('/mypage/drafts')
+    return
+  }
   if (!result.newPostId) return
   if (result.isSecret && !result.isBoardAdmin) {
     router.push(`/board/${encodePathSegment(result.boardUrl)}`)

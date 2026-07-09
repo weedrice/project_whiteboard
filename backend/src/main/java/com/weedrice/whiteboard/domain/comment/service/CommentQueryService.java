@@ -239,6 +239,7 @@ public class CommentQueryService {
         CommentReadModel.Author author = model.author();
         boolean deleted = model.status() == CommentReadModel.Status.DELETED;
         boolean blockedAuthor = model.status() == CommentReadModel.Status.BLOCKED_AUTHOR;
+        boolean blinded = model.status() == CommentReadModel.Status.BLINDED;
 
         return CommentResponse.builder()
                 .commentId(comment.getCommentId())
@@ -249,6 +250,8 @@ public class CommentQueryService {
                 .likeCount(comment.getLikeCount())
                 .isDeleted(deleted)
                 .isBlockedAuthor(blockedAuthor)
+                .isBlinded(blinded)
+                .blindReason(blinded ? comment.getBlindReason() : null)
                 .maskedAuthorId(blockedAuthor ? model.maskedAuthorId() : null)
                 .createdAt(comment.getCreatedAt())
                 .postId(comment.getPost().getPostId())
@@ -263,6 +266,7 @@ public class CommentQueryService {
         return switch (model.status()) {
             case ACTIVE -> model.comment().getContent();
             case DELETED -> CommentResponse.DELETED_CONTENT;
+            case BLINDED -> null;
             case BLOCKED_AUTHOR -> null;
         };
     }
@@ -277,6 +281,7 @@ public class CommentQueryService {
                 .authorType(author.authorType())
                 .displayName(author.displayName())
                 .profileImageUrl(author.profileImageUrl())
+                .representativeBadge(author.representativeBadge())
                 .build();
     }
 

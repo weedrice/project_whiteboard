@@ -22,5 +22,6 @@ export const notification: NotificationMessages = {
     system: '시스템',
     sanction: '제재',
     keyword: '키워드',
+    badge: '뱃지',
   },
 }

@@ -2,7 +2,7 @@ import type { Ref } from 'vue'
 import { unwrapApiData } from '@/api/response'
 import logger from '@/utils/logger'
 import type { ApiResponse } from '@/types'
-import type { PollPayload, PostCreateResponse } from '@/api/post'
+import type { PollPayload, PostCreateResponse, ScheduledPost } from '@/api/post'
 
 type ComposerToastType = 'info' | 'success' | 'warning' | 'error'
 type PostComposerMode = 'create' | 'edit'
@@ -19,6 +19,7 @@ type PostComposerPayload = {
   fileIds: number[]
   poll?: PollPayload | null
   draftId?: number
+  scheduledAt?: string
 }
 
 export type PostFormSubmitResult = {
@@ -26,6 +27,8 @@ export type PostFormSubmitResult = {
   boardUrl: string
   postId?: string | number
   newPostId?: string | number
+  scheduledPostId?: string | number
+  scheduledAt?: string
   isSecret: boolean
   isBoardAdmin: boolean
 }
@@ -46,6 +49,14 @@ type UpdatePostMutate = (
   },
 ) => void
 
+type CreateScheduledPostMutate = (
+  variables: { boardUrl: string, data: PostComposerPayload & { scheduledAt: string } },
+  options: {
+    onSuccess: (response: { data: ApiResponse<ScheduledPost> }) => void
+    onError: (error: unknown) => void
+  },
+) => void
+
 type UsePostComposerSubmitOptions = {
   mode: () => PostComposerMode
   boardUrl: Ref<string>
@@ -60,9 +71,11 @@ type UsePostComposerSubmitOptions = {
   markCurrentSnapshotSaved: () => void
   cleanupPublishedDraft: () => void
   createPost: CreatePostMutate
+  createScheduledPost: CreateScheduledPostMutate
   updatePost: UpdatePostMutate
   onSubmitted: () => ((result: PostFormSubmitResult) => void) | undefined
   createSuccessToastMessage: () => string | undefined
+  scheduledAt: Ref<string>
   t: (key: string, params?: Record<string, unknown>) => string
   addToast: (message: string, type: ComposerToastType) => void
 }
@@ -107,6 +120,29 @@ export function usePostComposerSubmit(options: UsePostComposerSubmitOptions) {
     }
 
     if (options.mode() === 'create') {
+      const scheduledAt = options.scheduledAt.value?.trim()
+      if (scheduledAt) {
+        options.createScheduledPost({ boardUrl: options.boardUrl.value, data: { ...payload, scheduledAt } }, {
+          onSuccess: (response) => {
+            options.markCurrentSnapshotSaved()
+            options.cleanupPublishedDraft()
+            const scheduledPost = unwrapApiData(response.data)
+            options.addToast(options.t('board.writePost.scheduleSuccess'), 'success')
+            options.onSubmitted()?.({
+              mode: 'create',
+              boardUrl: options.boardUrl.value,
+              scheduledPostId: scheduledPost.scheduledPostId,
+              scheduledAt: scheduledPost.scheduledAt,
+              isSecret: payload.isSecret,
+              isBoardAdmin: options.board.value?.isAdmin ?? false,
+            })
+          },
+          onError: (error) => {
+            logger.error('Failed to schedule post:', error)
+          },
+        })
+        return
+      }
       options.createPost({ boardUrl: options.boardUrl.value, data: payload }, {
         onSuccess: (response) => {
           options.markCurrentSnapshotSaved()

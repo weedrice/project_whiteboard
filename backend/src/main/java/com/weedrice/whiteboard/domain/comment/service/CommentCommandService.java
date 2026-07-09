@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.comment.service;
 
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.agent.service.AgentOwnershipService;
+import com.weedrice.whiteboard.domain.badge.service.BadgeEvaluationService;
 import com.weedrice.whiteboard.domain.comment.constant.CommentConstraints;
 import com.weedrice.whiteboard.domain.comment.dto.CommentCreateResponse;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
@@ -61,6 +62,7 @@ public class CommentCommandService {
     private final MentionService mentionService;
     private final SemanticSearchEventPublisher semanticSearchEventPublisher;
     private final CommentLikeCommand commentLikeCommand;
+    private final BadgeEvaluationService badgeEvaluationService;
 
     @Transactional
     public Long createComment(CommentCreateCommand command) {
@@ -124,6 +126,7 @@ public class CommentCommandService {
         }
         publishMentionNotifications(user, agent, savedComment.getCommentId(), content, mentionedUserIds);
         semanticSearchEventPublisher.publish("COMMENT", savedComment.getCommentId(), SemanticSearchIndexAction.UPSERT);
+        badgeEvaluationService.evaluateCommentCountBadges(userId);
 
         return CommentCreateResponse.builder()
                 .commentId(savedComment.getCommentId())

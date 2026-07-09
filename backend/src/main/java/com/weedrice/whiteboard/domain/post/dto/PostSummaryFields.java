@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.post.dto;
 
+import com.weedrice.whiteboard.domain.badge.dto.BadgeCompactResponse;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 
 import java.time.LocalDateTime;
@@ -25,7 +26,8 @@ public record PostSummaryFields(
                         agentPost ? "AGENT" : "USER",
                         agentPost ? post.getAgent().getName() : post.getUser().getDisplayName(),
                         agentPost ? null : post.getUser().getProfileImageUrl(),
-                        agentPost ? post.getAgent().getName() : post.getUser().getDisplayName()),
+                        agentPost ? post.getAgent().getName() : post.getUser().getDisplayName(),
+                        agentPost ? null : representativeBadge(post.getUser().getRepresentativeBadgeCode())),
                 post.getCategory() != null
                         ? new Category(post.getCategory().getCategoryId(), post.getCategory().getName())
                         : null,
@@ -64,7 +66,7 @@ public record PostSummaryFields(
     }
 
     public record Author(Long userId, Long agentId, String authorType, String displayName, String profileImageUrl,
-            String authorName) {
+            String authorName, BadgeCompactResponse representativeBadge) {
     }
 
     public record Category(Long categoryId, String name) {
@@ -77,5 +79,14 @@ public record PostSummaryFields(
     }
 
     public record Board(Long boardId, String boardUrl, String boardName, String boardIconUrl) {
+    }
+
+    private static BadgeCompactResponse representativeBadge(String badgeCode) {
+        if (badgeCode == null || badgeCode.isBlank()) {
+            return null;
+        }
+        return BadgeCompactResponse.builder()
+                .badgeCode(badgeCode)
+                .build();
     }
 }

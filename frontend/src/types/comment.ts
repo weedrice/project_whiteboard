@@ -17,6 +17,8 @@ export interface Comment {
     likeCount: number
     liked?: boolean
     isDeleted: boolean
+    isBlinded?: boolean
+    blindReason?: string | null
     children: Comment[]
     mentions?: CommentMention[]
     replyCount: number

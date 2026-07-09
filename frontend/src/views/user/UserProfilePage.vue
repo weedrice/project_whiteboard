@@ -2,21 +2,30 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useHead } from '@unhead/vue'
-import { FileText, MessageSquare, User } from 'lucide-vue-next'
+import { Award, FileText, MessageSquare, User } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
+import { useQueryClient } from '@tanstack/vue-query'
 import { useUser } from '@/composables/useUser'
 import BaseSegmentedControl from '@/components/common/ui/BaseSegmentedControl.vue'
+import BaseButton from '@/components/common/ui/BaseButton.vue'
 import UserMenu from '@/components/common/widgets/UserMenu.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import Pagination from '@/components/common/ui/Pagination.vue'
 import UserAvatar from '@/components/common/ui/UserAvatar.vue'
 import PostList from '@/components/board/PostList.vue'
+import { useAuthStore } from '@/stores/auth'
+import { useToastStore } from '@/stores/toast'
 import { formatDate } from '@/utils/date'
 
 const route = useRoute()
 const { t } = useI18n()
+const queryClient = useQueryClient()
+const authStore = useAuthStore()
+const toastStore = useToastStore()
 const {
   useUserProfile,
+  useUserBadges,
+  useUpdateRepresentativeBadge,
   usePublicProfilePosts,
   usePublicProfileComments,
 } = useUser()
@@ -34,8 +43,12 @@ const tabs = computed(() => [
 ])
 
 const { data: profile, isLoading: profileLoading } = useUserProfile(userId)
+const { data: badges, isLoading: badgesLoading, refetch: refetchBadges } = useUserBadges(userId)
 const { data: postsData, isLoading: postsLoading } = usePublicProfilePosts(userId, postParams)
 const { data: commentsData, isLoading: commentsLoading } = usePublicProfileComments(userId, commentParams)
+const { mutateAsync: updateRepresentativeBadge, isPending: isUpdatingRepresentativeBadge } = useUpdateRepresentativeBadge()
+const acquiredBadges = computed(() => (badges.value || []).filter((badge) => badge.acquired))
+const isOwnProfile = computed(() => String(authStore.user?.userId || '') === userId.value)
 
 const seoTitle = computed(() => profile.value?.displayName || t('user.publicProfile.overview'))
 const seoDescription = computed(() => {
@@ -61,6 +74,17 @@ watch(userId, () => {
   postPage.value = 0
   commentPage.value = 0
 })
+
+async function handleRepresentativeBadge(badgeCode: string | null) {
+  try {
+    await updateRepresentativeBadge(badgeCode)
+    toastStore.addToast('Representative badge updated.', 'success')
+    queryClient.invalidateQueries({ queryKey: ['user', 'badges'] })
+    refetchBadges()
+  } catch {
+    toastStore.addToast('Failed to update representative badge.', 'error')
+  }
+}
 </script>
 
 <template>
@@ -115,6 +139,44 @@ watch(userId, () => {
       <section v-if="activeTab === 'overview'" class="rounded-md border border-[var(--nv-line)] bg-[var(--nv-surface)] p-6">
         <User class="mb-3 h-5 w-5 nv-text-subtle" />
         <p class="text-sm nv-text-subtle">{{ t('user.publicProfile.overviewDescription') }}</p>
+        <div class="mt-6 border-t border-[var(--nv-line)] pt-5">
+          <div class="mb-3 flex items-center gap-2">
+            <Award class="h-4 w-4 nv-text-subtle" />
+            <h2 class="text-sm font-semibold nv-title">Badges</h2>
+          </div>
+          <div v-if="badgesLoading" class="py-4">
+            <BaseSpinner size="sm" />
+          </div>
+          <div v-else-if="!acquiredBadges.length" class="text-sm nv-text-subtle">No badges yet.</div>
+          <div v-else class="grid gap-2 sm:grid-cols-2">
+            <div
+              v-for="badge in acquiredBadges"
+              :key="badge.badgeCode"
+              class="rounded-md border border-[var(--nv-line)] bg-[var(--nv-surface-2)] p-3"
+            >
+              <div class="flex items-start justify-between gap-2">
+                <div class="min-w-0">
+                  <p class="truncate text-sm font-semibold nv-title">{{ badge.name || badge.badgeCode }}</p>
+                  <p class="mt-1 line-clamp-2 text-xs nv-text-subtle">{{ badge.description }}</p>
+                </div>
+                <span class="rounded-full border border-[var(--nv-line)] px-2 py-0.5 text-[11px] font-semibold uppercase nv-text-subtle">
+                  {{ badge.tier }}
+                </span>
+              </div>
+              <div v-if="isOwnProfile" class="mt-3">
+                <BaseButton
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  :disabled="isUpdatingRepresentativeBadge"
+                  @click="handleRepresentativeBadge(badge.representative ? null : badge.badgeCode)"
+                >
+                  {{ badge.representative ? 'Unset representative' : 'Set representative' }}
+                </BaseButton>
+              </div>
+            </div>
+          </div>
+        </div>
       </section>
 
       <section v-else-if="activeTab === 'posts'" class="rounded-md border border-[var(--nv-line)] bg-[var(--nv-surface)]">

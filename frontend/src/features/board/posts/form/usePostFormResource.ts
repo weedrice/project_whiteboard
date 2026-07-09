@@ -15,6 +15,7 @@ export function usePostFormResource(options: UsePostFormResourceOptions) {
     const {
         usePostDetail,
         useCreatePost,
+        useCreateScheduledPost,
         useUpdatePost,
     } = usePost()
 
@@ -29,9 +30,10 @@ export function usePostFormResource(options: UsePostFormResourceOptions) {
         requestConfig: { params: { incrementView: false } },
     })
     const { mutate: createPost, isPending: isCreateSubmitting } = useCreatePost()
+    const { mutate: createScheduledPost, isPending: isCreateScheduledSubmitting } = useCreateScheduledPost()
     const { mutate: updatePost, isPending: isUpdateSubmitting } = useUpdatePost()
 
-    const isSubmitting = computed(() => isCreateSubmitting.value || isUpdateSubmitting.value)
+    const isSubmitting = computed(() => isCreateSubmitting.value || isCreateScheduledSubmitting.value || isUpdateSubmitting.value)
     const isLoading = computed(() =>
         isBoardLoading.value || (options.mode() === 'edit' && isPostLoading.value),
     )
@@ -49,6 +51,7 @@ export function usePostFormResource(options: UsePostFormResourceOptions) {
         showNotice,
         canShowNsfw,
         createPost,
+        createScheduledPost,
         updatePost,
     }
 }

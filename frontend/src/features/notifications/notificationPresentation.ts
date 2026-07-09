@@ -1,5 +1,5 @@
 import type { Component } from 'vue'
-import { AtSign, Bell, Heart, Mail, MessageCircle, Megaphone, Reply, ShieldAlert } from 'lucide-vue-next'
+import { AtSign, Award, Bell, Heart, Mail, MessageCircle, Megaphone, Reply, ShieldAlert } from 'lucide-vue-next'
 import type { Notification } from '@/types'
 
 type NotificationType = Notification['notificationType']
@@ -59,6 +59,12 @@ const PRESENTATION_BY_TYPE: Record<NotificationType, NotificationPresentation> =
         labelKey: 'notification.types.keyword',
         badgeClass: 'notification-badge-keyword',
         iconClass: 'notification-icon-keyword',
+    },
+    BADGE: {
+        icon: Award,
+        labelKey: 'notification.types.badge',
+        badgeClass: 'notification-badge-badge',
+        iconClass: 'notification-icon-badge',
     },
 }
 

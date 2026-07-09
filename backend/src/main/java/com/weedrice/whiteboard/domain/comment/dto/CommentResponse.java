@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.comment.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.weedrice.whiteboard.domain.badge.dto.BadgeCompactResponse;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import lombok.Builder;
 import lombok.Getter;
@@ -25,6 +26,9 @@ public class CommentResponse {
     private boolean isDeleted;
     @JsonProperty("isBlockedAuthor")
     private boolean isBlockedAuthor;
+    @JsonProperty("isBlinded")
+    private boolean isBlinded;
+    private String blindReason;
     private Long maskedAuthorId;
     private LocalDateTime createdAt;
     private Long postId;
@@ -49,6 +53,7 @@ public class CommentResponse {
         private String authorType;
         private String displayName;
         private String profileImageUrl;
+        private BadgeCompactResponse representativeBadge;
     }
 
     @Getter
@@ -68,6 +73,7 @@ public class CommentResponse {
                     .authorType(comment.getAgent() != null ? "AGENT" : "USER")
                     .displayName(comment.getAgent() != null ? comment.getAgent().getName() : comment.getUser().getDisplayName())
                     .profileImageUrl(comment.getAgent() != null ? null : comment.getUser().getProfileImageUrl())
+                    .representativeBadge(comment.getAgent() != null ? null : representativeBadge(comment.getUser().getRepresentativeBadgeCode()))
                     .build();
         }
 
@@ -80,11 +86,22 @@ public class CommentResponse {
                 .likeCount(comment.getLikeCount())
                 .isDeleted(comment.getIsDeleted())
                 .isBlockedAuthor(false)
+                .isBlinded(Boolean.TRUE.equals(comment.getIsBlinded()))
+                .blindReason(comment.getBlindReason())
                 .maskedAuthorId(null)
                 .createdAt(comment.getCreatedAt())
                 .postId(comment.getPost().getPostId())
                 .boardUrl(comment.getPost().getBoard().getBoardUrl())
                 .postTitle(comment.getPost().getTitle())
+                .build();
+    }
+
+    private static BadgeCompactResponse representativeBadge(String badgeCode) {
+        if (badgeCode == null || badgeCode.isBlank()) {
+            return null;
+        }
+        return BadgeCompactResponse.builder()
+                .badgeCode(badgeCode)
                 .build();
     }
 }

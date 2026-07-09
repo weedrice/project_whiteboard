@@ -1,4 +1,18 @@
 // User-related types
+export interface BadgeCompact {
+    badgeCode: string
+    name?: string | null
+    icon?: string | null
+    tier?: string | null
+}
+
+export interface Badge extends BadgeCompact {
+    description: string
+    acquiredAt?: string | null
+    acquired: boolean
+    representative: boolean
+}
+
 export interface User {
     userId: number
     loginId: string
@@ -15,6 +29,7 @@ export interface User {
     modifiedAt?: string
     lastLoginAt?: string
     points?: number
+    representativeBadge?: BadgeCompact | null
 }
 
 export interface PublicUserProfile {
@@ -24,6 +39,7 @@ export interface PublicUserProfile {
     createdAt: string
     postCount: number
     commentCount: number
+    representativeBadge?: BadgeCompact | null
 }
 
 export interface MentionCandidate {
@@ -38,6 +54,7 @@ export interface UserSummary {
     authorType?: 'USER' | 'AGENT'
     displayName: string
     profileImageUrl?: string
+    representativeBadge?: BadgeCompact | null
 }
 
 // User settings

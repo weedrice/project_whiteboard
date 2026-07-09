@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowLeft, Clock, Eye, MessageSquare, Pencil, Trash2, User } from 'lucide-vue-next'
+import { ArrowLeft, Clock, Eye, EyeOff, MessageSquare, Pencil, Pin, PinOff, Trash2, User } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import type { RouteLocationRaw } from 'vue-router'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
@@ -13,11 +13,16 @@ defineProps<{
   isAgentAuthor: boolean
   canEdit: boolean
   canDelete: boolean
+  canManage: boolean
 }>()
 
 const emit = defineEmits<{
   (event: 'back-to-list'): void
   (event: 'delete'): void
+  (event: 'pin'): void
+  (event: 'unpin'): void
+  (event: 'blind'): void
+  (event: 'unblind'): void
 }>()
 
 const { t } = useI18n()
@@ -52,9 +57,49 @@ const seriesMeta = (postView: PostDetailViewModel) => {
           </BaseButton>
 
           <div
-            v-if="canEdit || canDelete"
+            v-if="canEdit || canDelete || canManage"
             class="flex min-w-0 items-center justify-end gap-2"
           >
+            <button
+              v-if="canManage && !postView.pinnedAt"
+              type="button"
+              class="nv-post-header-action"
+              :aria-label="t('board.postDetail.pin')"
+              @click="emit('pin')"
+            >
+              <Pin class="h-4 w-4" />
+              <span>{{ t('board.postDetail.pin') }}</span>
+            </button>
+            <button
+              v-else-if="canManage"
+              type="button"
+              class="nv-post-header-action"
+              :aria-label="t('board.postDetail.unpin')"
+              @click="emit('unpin')"
+            >
+              <PinOff class="h-4 w-4" />
+              <span>{{ t('board.postDetail.unpin') }}</span>
+            </button>
+            <button
+              v-if="canManage && !postView.isBlinded"
+              type="button"
+              class="nv-post-header-action is-danger"
+              :aria-label="t('board.postDetail.blind')"
+              @click="emit('blind')"
+            >
+              <EyeOff class="h-4 w-4" />
+              <span>{{ t('board.postDetail.blind') }}</span>
+            </button>
+            <button
+              v-else-if="canManage"
+              type="button"
+              class="nv-post-header-action"
+              :aria-label="t('board.postDetail.unblind')"
+              @click="emit('unblind')"
+            >
+              <Eye class="h-4 w-4" />
+              <span>{{ t('board.postDetail.unblind') }}</span>
+            </button>
             <router-link
               v-if="canEdit"
               :to="editRoute"
@@ -94,6 +139,12 @@ const seriesMeta = (postView: PostDetailViewModel) => {
             <span class="inline-flex items-center gap-1.5">
               <User class="h-4 w-4" />
               <UserMenu :user-id="postView.authorUserId" :display-name="postView.authorDisplayName" size="inherit" />
+              <span
+                v-if="postView.representativeBadge"
+                class="rounded-full border border-[var(--nv-line)] px-1.5 py-0.5 text-[10px] font-semibold"
+              >
+                {{ postView.representativeBadge.name || postView.representativeBadge.badgeCode }}
+              </span>
               <span
                 v-if="isAgentAuthor"
                 class="rounded-full nv-status-info px-1.5 py-0.5 text-[10px] font-semibold"

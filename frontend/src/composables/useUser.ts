@@ -14,6 +14,8 @@ import type { AxiosRequestConfig } from 'axios'
 import { callWithOptionalQuerySignal, withQuerySignal } from '@/utils/querySignal'
 import { useApiQuery } from '@/composables/useApiQuery'
 import { userQueryKeys, type UserQueryPaginationParams } from '@/composables/userQueryKeys'
+import { postApi, type ScheduledPost } from '@/api/post'
+import { badgeApi } from '@/api/badge'
 
 interface PasswordUpdateData {
     currentPassword: string
@@ -149,6 +151,25 @@ export function useUser() {
             queryKey: userQueryKeys.drafts(params),
             request: (context) => userApi.getMyDrafts(params?.value ?? {}, withQuerySignal(undefined, context)),
             selectData: toDraftPageResponse,
+        })
+    }
+
+    const useMyScheduledPosts = (params?: Ref<PaginationParams>) => {
+        return useApiQuery<PageResponse<ScheduledPost>>({
+            queryKey: userQueryKeys.scheduledPosts(params),
+            request: (context) => postApi.getMyScheduledPosts(params?.value ?? {}, withQuerySignal(undefined, context)),
+        })
+    }
+
+    const useUserBadges = (userId: Ref<string | number>) => {
+        return useApiQuery({
+            queryKey: userQueryKeys.badges(userId),
+            request: (context) => callWithOptionalQuerySignal(
+                context,
+                () => badgeApi.getUserBadges(userId.value),
+                (config) => apiGetUserBadgesWithConfig(userId.value, config),
+            ),
+            enabled: computed(() => !!userId.value),
         })
     }
 
@@ -313,6 +334,18 @@ export function useUser() {
         })
     }
 
+    const useUpdateRepresentativeBadge = () => {
+        return useMutation({
+            mutationFn: async (badgeCode: string | null) => {
+                return unwrapAxiosApiData(await badgeApi.updateRepresentativeBadge(badgeCode))
+            },
+            onSuccess: () => {
+                queryClient.invalidateQueries({ queryKey: userQueryKeys.me })
+                queryClient.invalidateQueries({ queryKey: userQueryKeys.badgesRoot })
+            }
+        })
+    }
+
     const useRecentlyViewedPosts = (params?: Ref<PaginationParams>) => {
         return useApiQuery({
             queryKey: userQueryKeys.recentlyViewedPosts(params),
@@ -359,6 +392,8 @@ export function useUser() {
         useMyPoint,
         useMyScraps,
         useMyDrafts,
+        useMyScheduledPosts,
+        useUserBadges,
         useMyPointHistories,
         useRecentlyViewedPosts,
         usePublicProfilePosts,
@@ -376,6 +411,11 @@ export function useUser() {
         useActivateMyAgent,
         useDeleteMyAgent,
         useBlockUser,
-        useUnblockUser
+        useUnblockUser,
+        useUpdateRepresentativeBadge,
     }
+}
+
+function apiGetUserBadgesWithConfig(userId: string | number, config?: AxiosRequestConfig) {
+    return badgeApi.getUserBadges(userId, config)
 }

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useQueryClient } from '@tanstack/vue-query'
-import { FileEdit, Pencil, Trash2 } from 'lucide-vue-next'
+import { CalendarClock, ExternalLink, FileEdit, Pencil, Trash2, XCircle } from 'lucide-vue-next'
 import { RouterLink } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
@@ -13,12 +13,13 @@ import { useToastStore } from '@/stores/toast'
 import { formatDateTimeOrDash } from '@/utils/date'
 import { encodePathSegment } from '@/utils/urlPath'
 import type { DraftPostSummary } from '@/types'
+import type { ScheduledPost } from '@/api/post'
 
 const { t } = useI18n()
 const queryClient = useQueryClient()
 const toastStore = useToastStore()
-const { useMyDrafts } = useUser()
-const { useDeleteDraft } = usePost()
+const { useMyDrafts, useMyScheduledPosts } = useUser()
+const { useDeleteDraft, useCancelScheduledPost } = usePost()
 
 const {
   page,
@@ -32,9 +33,23 @@ const {
   refetch,
 } = usePaginatedListState<DraftPostSummary>(useMyDrafts, { initialSize: 15, t })
 
+const {
+  page: scheduledPage,
+  size: scheduledSize,
+  handlePageChange: handleScheduledPageChange,
+  handleSizeChange: handleScheduledSizeChange,
+  items: scheduledPosts,
+  totalPages: scheduledTotalPages,
+  isLoading: scheduledLoading,
+  errorMessage: scheduledErrorMessage,
+  refetch: refetchScheduledPosts,
+} = usePaginatedListState<ScheduledPost>(useMyScheduledPosts, { initialSize: 10, t })
+
 const { mutateAsync: deleteDraft, isPending: isDeletingDraft } = useDeleteDraft()
+const { mutateAsync: cancelScheduledPost, isPending: isCancelingScheduledPost } = useCancelScheduledPost()
 
 const listTitle = computed(() => t('user.tabs.drafts'))
+const scheduledListTitle = computed(() => t('user.draftList.scheduledTitle'))
 
 function getDraftTitle(draft: DraftPostSummary) {
   return draft.title?.trim() || t('user.draftList.untitled')
@@ -71,25 +86,48 @@ async function handleDeleteDraft(draft: DraftPostSummary) {
     toastStore.addToast(t('user.draftList.deleteFailed'), 'error')
   }
 }
+
+function getScheduledTitle(post: ScheduledPost) {
+  return post.title?.trim() || t('user.draftList.untitled')
+}
+
+function getScheduledPostRoute(post: ScheduledPost) {
+  if (!post.publishedPostId) return null
+  return `/board/${encodePathSegment(post.boardUrl)}/post/${encodePathSegment(post.publishedPostId)}`
+}
+
+async function handleCancelScheduledPost(post: ScheduledPost) {
+  if (!window.confirm(t('user.draftList.cancelScheduledConfirm'))) return
+
+  try {
+    await cancelScheduledPost(post.scheduledPostId)
+    toastStore.addToast(t('user.draftList.cancelScheduledSuccess'), 'success')
+    queryClient.invalidateQueries({ queryKey: userQueryKeys.scheduledPostsRoot })
+    refetchScheduledPosts()
+  } catch {
+    toastStore.addToast(t('user.draftList.cancelScheduledFailed'), 'error')
+  }
+}
 </script>
 
 <template>
-  <PaginatedListCard
-    :title="listTitle"
-    :icon="FileEdit"
-    :items-count="drafts.length"
-    :loading="loading"
-    :error="errorMessage || null"
-    :empty-title="$t('user.draftList.empty')"
-    :page="page"
-    :size="size"
-    :total-pages="totalPages"
-    max-width-class="max-w-7xl"
-    loading-preset="compact-status-list"
-    @retry="refetch"
-    @page-change="handlePageChange"
-    @size-change="handleSizeChange"
-  >
+  <div class="space-y-6">
+    <PaginatedListCard
+      :title="listTitle"
+      :icon="FileEdit"
+      :items-count="drafts.length"
+      :loading="loading"
+      :error="errorMessage || null"
+      :empty-title="$t('user.draftList.empty')"
+      :page="page"
+      :size="size"
+      :total-pages="totalPages"
+      max-width-class="max-w-7xl"
+      loading-preset="compact-status-list"
+      @retry="refetch"
+      @page-change="handlePageChange"
+      @size-change="handleSizeChange"
+    >
     <ul class="divide-y divide-[var(--nv-border)]">
       <li
         v-for="draft in drafts"
@@ -131,5 +169,70 @@ async function handleDeleteDraft(draft: DraftPostSummary) {
         </div>
       </li>
     </ul>
-  </PaginatedListCard>
+    </PaginatedListCard>
+
+    <PaginatedListCard
+      :title="scheduledListTitle"
+      :icon="CalendarClock"
+      :items-count="scheduledPosts.length"
+      :loading="scheduledLoading"
+      :error="scheduledErrorMessage || null"
+      :empty-title="$t('user.draftList.scheduledEmpty')"
+      :page="scheduledPage"
+      :size="scheduledSize"
+      :total-pages="scheduledTotalPages"
+      max-width-class="max-w-7xl"
+      loading-preset="compact-status-list"
+      @retry="refetchScheduledPosts"
+      @page-change="handleScheduledPageChange"
+      @size-change="handleScheduledSizeChange"
+    >
+      <ul class="divide-y divide-[var(--nv-border)]">
+        <li
+          v-for="post in scheduledPosts"
+          :key="post.scheduledPostId"
+          class="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6"
+        >
+          <div class="min-w-0">
+            <component
+              :is="getScheduledPostRoute(post) ? RouterLink : 'span'"
+              :to="getScheduledPostRoute(post) || undefined"
+              class="block truncate text-sm font-semibold nv-title"
+              :class="getScheduledPostRoute(post) ? 'hover:text-[var(--nv-accent)]' : ''"
+            >
+              {{ getScheduledTitle(post) }}
+            </component>
+            <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs nv-text-subtle">
+              <span>{{ post.boardName || post.boardUrl }}</span>
+              <span>{{ formatDateTimeOrDash(post.scheduledAt) }}</span>
+              <span>{{ post.status }}</span>
+              <span v-if="post.failureReason" class="text-red-500">{{ post.failureReason }}</span>
+            </div>
+          </div>
+
+          <div class="flex flex-shrink-0 items-center gap-2">
+            <RouterLink
+              v-if="getScheduledPostRoute(post)"
+              :to="getScheduledPostRoute(post)!"
+              class="inline-flex min-h-[36px] items-center justify-center rounded-md border border-[var(--nv-border)] px-3 text-xs font-medium nv-text hover:bg-[var(--nv-surface-2)]"
+            >
+              <ExternalLink class="mr-1.5 h-3.5 w-3.5" />
+              {{ $t('user.draftList.openPublished') }}
+            </RouterLink>
+            <BaseButton
+              v-if="post.status === 'SCHEDULED' || post.status === 'FAILED'"
+              type="button"
+              variant="danger"
+              size="sm"
+              :disabled="isCancelingScheduledPost"
+              @click="handleCancelScheduledPost(post)"
+            >
+              <XCircle class="mr-1.5 h-3.5 w-3.5" />
+              {{ $t('common.cancel') }}
+            </BaseButton>
+          </div>
+        </li>
+      </ul>
+    </PaginatedListCard>
+  </div>
 </template>

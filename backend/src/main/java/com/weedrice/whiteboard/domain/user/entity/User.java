@@ -62,6 +62,9 @@ public class User extends BaseTimeEntity {
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
+    @Column(name = "representative_badge_code", length = 50)
+    private String representativeBadgeCode;
+
     @Builder
     public User(String loginId, String password, String email, String displayName) {
         this.loginId = loginId;
@@ -117,6 +120,10 @@ public class User extends BaseTimeEntity {
 
     public void revokeSuperAdminRole() {
         this.isSuperAdmin = false;
+    }
+
+    public void updateRepresentativeBadgeCode(String representativeBadgeCode) {
+        this.representativeBadgeCode = representativeBadgeCode;
     }
 
     public boolean isActiveAccount() {

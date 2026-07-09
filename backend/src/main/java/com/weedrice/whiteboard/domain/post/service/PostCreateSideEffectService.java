@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.post.service;
 
 import com.weedrice.whiteboard.domain.feed.event.PostPublishedEvent;
 import com.weedrice.whiteboard.domain.file.service.FileService;
+import com.weedrice.whiteboard.domain.badge.service.BadgeEvaluationService;
 import com.weedrice.whiteboard.domain.notification.constant.NotificationSourceType;
 import com.weedrice.whiteboard.domain.notification.service.MentionService;
 import com.weedrice.whiteboard.domain.point.service.ContentRewardPolicy;
@@ -29,6 +30,7 @@ public class PostCreateSideEffectService {
     private final PostDraftPublicationService postDraftPublicationService;
     private final MentionService mentionService;
     private final PollService pollService;
+    private final BadgeEvaluationService badgeEvaluationService;
 
     public int applyAfterCreate(Long userId, User user, Long boardId, Post savedPost, PostCreateRequest request) {
         tagAssignmentService.assignTags(savedPost, request.getTags());
@@ -45,6 +47,7 @@ public class PostCreateSideEffectService {
                 savedPost.getContents());
         eventPublisher.publishEvent(new PostPublishedEvent(savedPost.getPostId(), boardId));
         semanticSearchEventPublisher.publish("POST", savedPost.getPostId(), SemanticSearchIndexAction.UPSERT);
+        badgeEvaluationService.evaluatePostCountBadges(userId);
         return earnedPoints;
     }
 }

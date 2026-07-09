@@ -228,6 +228,14 @@ export interface BoardMessages {
     reportSuccess: string
     reportFailed: string
     restricted: string
+    blinded: string
+    pin: string
+    unpin: string
+    blind: string
+    unblind: string
+    managerActionSuccess: string
+    relatedKicker: string
+    relatedTitle: string
     seriesTitle: string
     seriesMeta: string
     previousInSeries: string
@@ -289,6 +297,10 @@ export interface BoardMessages {
       tags: string
     }
     submitting: string
+    scheduling: string
+    scheduleAt: string
+    scheduleHelp: string
+    scheduleSuccess: string
     update: string
     updating: string
     createFailed: string
@@ -299,6 +311,8 @@ export interface BoardMessages {
     discardCreateConfirm: string
     leaveConfirm: string
     tags: string
+    suggestTags: string
+    suggestingTags: string
     viewHtmlSource: string
     htmlSourceTitle: string
     htmlSourcePlaceholder: string
@@ -335,6 +349,7 @@ export interface BoardMessages {
       saveDraft: string
       saveNow: string
       publish: string
+      schedule: string
     }
     composeMode: {
       create: string
@@ -445,6 +460,7 @@ export interface CommentMessages {
   deleted: string
   blockedAuthor: string
   blockedContent: string
+  blinded: string
   reply: string
   agentBadge: string
   viewReplies: string
@@ -495,6 +511,7 @@ export interface NotificationMessages {
     system: string
     sanction: string
     keyword: string
+    badge: string
   }
 }
 
@@ -586,6 +603,12 @@ export interface UserMessages {
     deleteConfirm: string
     deleted: string
     deleteFailed: string
+    scheduledTitle: string
+    scheduledEmpty: string
+    cancelScheduledConfirm: string
+    cancelScheduledSuccess: string
+    cancelScheduledFailed: string
+    openPublished: string
   }
   reportList: {
     empty: string

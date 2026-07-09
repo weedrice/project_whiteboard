@@ -13,7 +13,8 @@ public enum NotificationType {
     MESSAGE,
     SYSTEM,
     SANCTION,
-    KEYWORD;
+    KEYWORD,
+    BADGE;
 
     public static NotificationType normalize(String value) {
         if (value == null) {

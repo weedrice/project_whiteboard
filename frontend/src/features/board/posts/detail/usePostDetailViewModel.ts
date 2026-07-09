@@ -1,5 +1,5 @@
 import { computed, type Ref } from 'vue'
-import type { Post } from '@/types'
+import type { BadgeCompact, Post } from '@/types'
 import { normalizePostReactionFlags } from '@/utils/postViewModel'
 
 export interface PostDetailViewModel {
@@ -17,6 +17,11 @@ export interface PostDetailViewModel {
   boardUrl: string
   authorUserId: number
   authorDisplayName: string
+  representativeBadge?: BadgeCompact | null
+  isBlinded: boolean
+  blindReason?: string | null
+  pinnedAt?: string | null
+  isBoardAdmin: boolean
   poll?: Post['poll']
   seriesNavigation?: Post['seriesNavigation']
 }
@@ -39,6 +44,11 @@ export function toPostDetailViewModel(post: Post): PostDetailViewModel {
     boardUrl: post.board.boardUrl,
     authorUserId: post.author.userId,
     authorDisplayName: post.author.displayName,
+    representativeBadge: post.author.representativeBadge ?? null,
+    isBlinded: post.isBlinded ?? false,
+    blindReason: post.blindReason ?? null,
+    pinnedAt: post.pinnedAt ?? null,
+    isBoardAdmin: post.board.isAdmin ?? false,
     poll: post.poll ?? null,
     seriesNavigation: post.seriesNavigation ?? null,
   }

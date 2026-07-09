@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.comment.service;
 
+import com.weedrice.whiteboard.domain.badge.dto.BadgeCompactResponse;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 
 public record CommentReadModel(
@@ -12,6 +13,7 @@ public record CommentReadModel(
     public enum Status {
         ACTIVE,
         DELETED,
+        BLINDED,
         BLOCKED_AUTHOR
     }
 
@@ -24,6 +26,7 @@ public record CommentReadModel(
             Long agentId,
             String authorType,
             String displayName,
-            String profileImageUrl) {
+            String profileImageUrl,
+            BadgeCompactResponse representativeBadge) {
     }
 }

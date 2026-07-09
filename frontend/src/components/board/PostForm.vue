@@ -54,6 +54,7 @@ const toastStore = useToastStore()
 const localSeriesOptions = ref<PostSeries[]>([])
 const newSeriesTitle = ref('')
 const isCreatingSeries = ref(false)
+const scheduledAt = ref('')
 const seriesOptions = computed(() => localSeriesOptions.value)
 
 onMounted(loadPostSeries)
@@ -84,6 +85,7 @@ const {
   showNotice,
   canShowNsfw,
   createPost,
+  createScheduledPost,
   updatePost,
 } = usePostFormResource({
   mode: () => props.mode,
@@ -101,6 +103,9 @@ const pageTitle = computed(() =>
 const boardLabel = computed(() => board.value?.boardName || boardUrl.value)
 
 const submitLabel = computed(() =>
+  scheduledAt.value
+    ? (isSubmitting.value ? t('board.writePost.scheduling') : t('board.writePost.actions.schedule'))
+    :
   isSubmitting.value
     ? (props.mode === 'create' ? t('board.writePost.submitting') : t('board.writePost.updating'))
     : (props.mode === 'create' ? t('common.submit') : t('board.writePost.update')),
@@ -161,6 +166,7 @@ const { metadataPanelProps, metadataPanelHandlers } = usePostFormMetadataBinding
   hideSpoiler: () => props.hideSpoiler,
   hideSecret: () => props.hideSecret,
   createSeries: handleCreateSeries,
+  boardUrl,
 })
 
 async function handleCreateSeries() {
@@ -257,9 +263,11 @@ const { handleSubmit } = usePostComposerSubmit({
   markCurrentSnapshotSaved,
   cleanupPublishedDraft,
   createPost,
+  createScheduledPost,
   updatePost,
   onSubmitted: () => props.onSubmitted,
   createSuccessToastMessage: () => props.createSuccessToastMessage,
+  scheduledAt,
   t,
   addToast: toastStore.addToast,
 })
@@ -399,7 +407,10 @@ defineExpose({
           :draft-status-label="draftStatusLabel"
           :draft-enabled="draftEnabled"
           :is-saving-draft="isSavingDraft"
+          :scheduled-at="scheduledAt"
+          :show-scheduler="props.mode === 'create'"
           @save-draft="handleSaveDraft"
+          @update:scheduled-at="scheduledAt = $event"
         />
       </form>
     </div>
@@ -441,7 +452,7 @@ defineExpose({
           :loading="isSubmitting"
           @click="handleSubmit"
         >
-          {{ submitLabel }}
+          {{ scheduledAt ? $t('board.writePost.actions.schedule') : submitLabel }}
         </BaseButton>
       </div>
       <BaseButton

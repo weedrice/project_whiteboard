@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.post.service;
 
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.agent.service.AgentOwnershipService;
+import com.weedrice.whiteboard.domain.badge.service.BadgeEvaluationService;
 import com.weedrice.whiteboard.domain.board.constant.BoardPolicyConstants;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
@@ -83,6 +84,7 @@ public class PostInteractionService {
     private final ReactionWriter reactionWriter;
     private final PostViewCountWriter postViewCountWriter;
     private final EntityManager entityManager;
+    private final BadgeEvaluationService badgeEvaluationService;
 
     @Transactional
     public Post getPostById(@NonNull Long postId, Long userId) {
@@ -194,6 +196,7 @@ public class PostInteractionService {
         NotificationEvent event = new NotificationEvent(postOwner, user, actorAgent, NotificationType.LIKE,
                 NotificationSourceType.POST, postId, content);
         eventPublisher.publishEvent(event);
+        badgeEvaluationService.evaluatePopularPostBadges(postOwner.getUserId(), likeCount);
 
         return likeCount;
     }

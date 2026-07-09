@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { computed, type Ref } from 'vue'
 import type { AxiosRequestConfig } from 'axios'
 import type { Post } from '@/types'
-import { postApi, type PollVotePayload, type PostCreateData, type PostDraftData, type PostUpdateData, type ReportData } from '@/api/post'
+import { postApi, type PollVotePayload, type PostCreateData, type PostDraftData, type PostUpdateData, type ReportData, type ScheduledPostData } from '@/api/post'
 import { unwrapAxiosApiData } from '@/api/response'
 import {
     invalidatePostCaches,
@@ -45,6 +45,21 @@ export function usePost() {
         })
     }
 
+    const useRelatedPosts = (
+        postId: Ref<string | number>,
+        options: { enabled?: Ref<boolean>, size?: number, requestConfig?: AxiosRequestConfig } & Record<string, unknown> = {}
+    ) => {
+        const { requestConfig, size = 5, enabled, ...queryOptions } = options
+        return useQuery({
+            queryKey: computed(() => postQueryKeys.related(postId.value, size)),
+            queryFn: async (context?: { signal?: AbortSignal }) => unwrapAxiosApiData(
+                await postApi.getRelatedPosts(postId.value, size, withQuerySignal(requestConfig, context))
+            ),
+            enabled: computed(() => !!postId.value && (enabled?.value ?? true)),
+            ...queryOptions,
+        })
+    }
+
     const useCreatePost = () => {
         return useMutation({
             mutationFn: async ({ boardUrl, data }: { boardUrl: string, data: PostCreateData }) => {
@@ -54,6 +69,17 @@ export function usePost() {
                 queryClient.invalidateQueries({ queryKey: postQueryKeys.boardPostsRoot })
                 queryClient.invalidateQueries({ queryKey: homeQueryKeys.landingRoot })
                 queryClient.invalidateQueries({ queryKey: userQueryKeys.pointsRoot })
+            },
+        })
+    }
+
+    const useCreateScheduledPost = () => {
+        return useMutation({
+            mutationFn: async ({ boardUrl, data }: { boardUrl: string, data: ScheduledPostData }) => {
+                return await postApi.createScheduledPost(boardUrl, data)
+            },
+            onSuccess: () => {
+                queryClient.invalidateQueries({ queryKey: userQueryKeys.scheduledPostsRoot })
             },
         })
     }
@@ -156,6 +182,27 @@ export function usePost() {
         })
     }
 
+    const createManagerPostMutation = (
+        mutationFn: (postId: string | number) => Promise<unknown>
+    ) => useMutation({
+        mutationFn,
+        onSuccess: (_, postId) => {
+            invalidatePostCaches(queryClient, postId)
+        },
+    })
+
+    const usePinPostByManager = () => createManagerPostMutation((postId) => postApi.pinPostByManager(postId))
+    const useUnpinPostByManager = () => createManagerPostMutation((postId) => postApi.unpinPostByManager(postId))
+    const useBlindPostByManager = () => useMutation({
+        mutationFn: async ({ postId, reason }: { postId: string | number, reason?: string }) => {
+            return await postApi.blindPostByManager(postId, reason)
+        },
+        onSuccess: (_, { postId }) => {
+            invalidatePostCaches(queryClient, postId)
+        },
+    })
+    const useUnblindPostByManager = () => createManagerPostMutation((postId) => postApi.unblindPostByManager(postId))
+
     const updatePollInDetailCache = (postId: string | number, poll: Post['poll']) => {
         queryClient.setQueriesData<Post>({ queryKey: postQueryKeys.detailPrefix(postId) }, (old) => (
             old ? { ...old, poll } : old
@@ -200,9 +247,22 @@ export function usePost() {
         })
     }
 
+    const useCancelScheduledPost = () => {
+        return useMutation({
+            mutationFn: async (scheduledPostId: string | number) => {
+                return await postApi.cancelScheduledPost(scheduledPostId)
+            },
+            onSuccess: () => {
+                queryClient.invalidateQueries({ queryKey: userQueryKeys.scheduledPostsRoot })
+            },
+        })
+    }
+
     return {
         usePostDetail,
+        useRelatedPosts,
         useCreatePost,
+        useCreateScheduledPost,
         useUpdatePost,
         useDeletePost,
         useLikePost,
@@ -210,9 +270,14 @@ export function usePost() {
         useScrapPost,
         useUnscrapPost,
         useReportPost,
+        usePinPostByManager,
+        useUnpinPostByManager,
+        useBlindPostByManager,
+        useUnblindPostByManager,
         useVotePoll,
         useDeletePollVote,
         useSaveDraft,
         useDeleteDraft,
+        useCancelScheduledPost,
     }
 }

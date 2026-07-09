@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.post.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.weedrice.whiteboard.domain.badge.dto.BadgeCompactResponse;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import lombok.Builder;
 import lombok.Getter;
@@ -28,6 +29,10 @@ public class PostSummary {
     private boolean isSpoiler;
     @JsonProperty("isSecret")
     private boolean isSecret;
+    @JsonProperty("isBlinded")
+    private boolean isBlinded;
+    private String blindReason;
+    private LocalDateTime pinnedAt;
     private LocalDateTime createdAt;
     private String boardUrl;
     private String boardName;
@@ -49,6 +54,7 @@ public class PostSummary {
         private String authorType;
         private String displayName;
         private String profileImageUrl;
+        private BadgeCompactResponse representativeBadge;
     }
 
     @Getter
@@ -80,6 +86,7 @@ public class PostSummary {
                         .authorType(fields.author().authorType())
                         .displayName(fields.author().displayName())
                         .profileImageUrl(fields.author().profileImageUrl())
+                        .representativeBadge(fields.author().representativeBadge())
                         .build())
                 .category(fields.category() != null ? CategoryInfo.builder()
                         .categoryId(fields.category().categoryId())
@@ -92,6 +99,9 @@ public class PostSummary {
                 .isNsfw(fields.flags().isNsfw())
                 .isSpoiler(fields.flags().isSpoiler())
                 .isSecret(fields.flags().isSecret())
+                .isBlinded(Boolean.TRUE.equals(post.getIsBlinded()))
+                .blindReason(post.getBlindReason())
+                .pinnedAt(post.getPinnedAt())
                 .createdAt(fields.createdAt())
                 .boardUrl(fields.boardUrl())
                 .boardName(fields.boardName())

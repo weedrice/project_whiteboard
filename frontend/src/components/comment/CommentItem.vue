@@ -72,6 +72,7 @@ const childReplyTargetName = computed(() => (
 ))
 const shouldShowReplyTarget = computed(() => props.depth >= 3 && props.replyTargetName.trim().length > 0)
 const isEmoticonOnly = computed(() => isEmoticonOnlyContent(props.comment.content ?? ''))
+const isBlinded = computed(() => Boolean(props.comment.isBlinded))
 const createdAtShort = computed(() => formatDateShort(props.comment.createdAt))
 const createdAtFull = computed(() => formatDate(props.comment.createdAt))
 const replyToggleLabel = computed(() => {
@@ -127,6 +128,15 @@ watch(isBlockedAuthor, (blocked) => {
   isEditing.value = false
   isReplying.value = false
 })
+
+watch(isBlinded, (blinded) => {
+  if (!blinded) {
+    return
+  }
+
+  isEditing.value = false
+  isReplying.value = false
+})
 </script>
 
 <template>
@@ -176,6 +186,12 @@ watch(isBlockedAuthor, (blocked) => {
               {{ $t('comment.agentBadge') }}
             </span>
             <span
+              v-else-if="!comment.isDeleted && comment.author?.representativeBadge"
+              class="inline-flex items-center rounded-full border border-[var(--nv-line)] px-1.5 py-0.5 text-[10px] font-semibold"
+            >
+              {{ comment.author.representativeBadge.name || comment.author.representativeBadge.badgeCode }}
+            </span>
+            <span
               v-else-if="comment.isDeleted"
               class="text-xs font-medium nv-text-subtle sm:text-sm"
             >
@@ -207,6 +223,9 @@ watch(isBlockedAuthor, (blocked) => {
 
         <p v-else-if="comment.isDeleted" class="text-xs italic nv-text-subtle sm:text-sm">
           {{ $t('comment.deleted') }}
+        </p>
+        <p v-else-if="isBlinded" class="text-xs italic text-[var(--nv-danger-text)] sm:text-sm">
+          {{ $t('comment.blinded') }}
         </p>
         <p v-else-if="isBlockedAuthor" class="text-xs italic nv-text-subtle sm:text-sm">
           {{ $t('comment.blockedContent') }}
@@ -244,7 +263,7 @@ watch(isBlockedAuthor, (blocked) => {
           </button>
 
           <button
-            v-if="isAuthenticated && canUseCommentActions"
+            v-if="isAuthenticated && canUseCommentActions && !isBlinded"
             type="button"
             class="rounded-md px-2 py-1.5 text-xs font-medium nv-text-subtle nv-hover-surface"
             @click="isReplying = !isReplying"
@@ -252,7 +271,7 @@ watch(isBlockedAuthor, (blocked) => {
             {{ $t('comment.reply') }}
           </button>
 
-          <template v-if="canUseCommentActions && isCommentAuthor">
+          <template v-if="canUseCommentActions && isCommentAuthor && !isBlinded">
             <button
               v-if="!isEmoticonOnly"
               type="button"
