@@ -131,7 +131,7 @@ const formattedDate = (dateString: string) => formatDateTimeOrDash(dateString, l
       </div>
 
       <div class="mt-4 grid grid-cols-1 gap-5 xl:grid-cols-3">
-        <AdminPanel class="xl:col-span-2" padding="default">
+        <AdminPanel class="xl:col-span-2" padding="md">
           <h3 class="text-base font-medium nv-title">{{ t('admin.dashboard.dailyActivity') }}</h3>
           <svg viewBox="0 0 320 150" class="mt-4 h-48 w-full" role="img" :aria-label="t('admin.dashboard.dailyActivity')">
             <line x1="0" y1="120" x2="320" y2="120" stroke="var(--nv-border)" />
@@ -161,7 +161,7 @@ const formattedDate = (dateString: string) => formatDateTimeOrDash(dateString, l
           </div>
         </AdminPanel>
 
-        <AdminPanel padding="default">
+        <AdminPanel padding="md">
           <h3 class="text-base font-medium nv-title">{{ t('admin.dashboard.moderationStatus') }}</h3>
           <dl class="mt-4 space-y-3">
             <div v-for="item in moderationItems" :key="item.label" class="flex items-center justify-between gap-3">
