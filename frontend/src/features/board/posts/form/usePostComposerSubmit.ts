@@ -2,7 +2,7 @@ import type { Ref } from 'vue'
 import { unwrapApiData } from '@/api/response'
 import logger from '@/utils/logger'
 import type { ApiResponse } from '@/types'
-import type { PostCreateResponse } from '@/api/post'
+import type { PollPayload, PostCreateResponse } from '@/api/post'
 
 type ComposerToastType = 'info' | 'success' | 'warning' | 'error'
 type PostComposerMode = 'create' | 'edit'
@@ -17,6 +17,7 @@ type PostComposerPayload = {
   isNotice?: boolean
   seriesId?: number
   fileIds: number[]
+  poll?: PollPayload | null
   draftId?: number
 }
 

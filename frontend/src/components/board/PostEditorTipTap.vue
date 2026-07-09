@@ -35,6 +35,7 @@ const emit = defineEmits<{
   (e: 'update:modelValue', value: string): void
   (e: 'open-video'): void
   (e: 'open-emoticon'): void
+  (e: 'open-poll'): void
   (e: 'file-uploaded', fileId: number): void
 }>()
 
@@ -197,6 +198,7 @@ const {
   applyBulletList,
   openLinkPopover,
   openTablePopover,
+  openPollEditor: () => emit('open-poll'),
 })
 
 const {

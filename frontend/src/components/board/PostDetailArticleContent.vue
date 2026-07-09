@@ -9,6 +9,7 @@ import PostDetailReactionBar from '@/components/board/PostDetailReactionBar.vue'
 import PostDetailSpoilerOverlay from '@/components/board/PostDetailSpoilerOverlay.vue'
 import PostDetailTagSection from '@/components/board/PostDetailTagSection.vue'
 import PostDetailUrlChip from '@/components/board/PostDetailUrlChip.vue'
+import PostPoll from '@/components/board/PostPoll.vue'
 import { useRichContentInteractions } from '@/features/board/posts/detail/useRichContentInteractions'
 import type { PostDetailViewModel } from '@/features/board/posts/detail/usePostDetailViewModel'
 
@@ -87,6 +88,13 @@ const {
         @reveal-spoiler="emit('reveal-spoiler')"
       />
     </div>
+
+    <PostPoll
+      v-if="postView.poll"
+      :post-id="postView.postId"
+      :poll="postView.poll"
+      :is-authenticated="isAuthenticated"
+    />
 
     <ImageLightbox
       :is-open="lightboxOpen"

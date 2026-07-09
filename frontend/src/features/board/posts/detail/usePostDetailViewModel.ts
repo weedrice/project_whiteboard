@@ -17,6 +17,7 @@ export interface PostDetailViewModel {
   boardUrl: string
   authorUserId: number
   authorDisplayName: string
+  poll?: Post['poll']
   seriesNavigation?: Post['seriesNavigation']
 }
 
@@ -38,6 +39,7 @@ export function toPostDetailViewModel(post: Post): PostDetailViewModel {
     boardUrl: post.board.boardUrl,
     authorUserId: post.author.userId,
     authorDisplayName: post.author.displayName,
+    poll: post.poll ?? null,
     seriesNavigation: post.seriesNavigation ?? null,
   }
 }

@@ -30,6 +30,7 @@ const emit = defineEmits<{
   (event: 'insertVideo'): void
   (event: 'selectEmoticon', image: EmoticonImage): void
   (event: 'fileUploaded', fileId: number): void
+  (event: 'openPoll'): void
 }>()
 </script>
 
@@ -61,6 +62,7 @@ const emit = defineEmits<{
           @open-video="emit('openVideo')"
           @open-emoticon="emit('update:showEmoticonPicker', true)"
           @file-uploaded="emit('fileUploaded', $event)"
+          @open-poll="emit('openPoll')"
         />
         <PostVideoUrlPopover
           :show="showVideoPopover"

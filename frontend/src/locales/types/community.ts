@@ -232,6 +232,18 @@ export interface BoardMessages {
     seriesMeta: string
     previousInSeries: string
     nextInSeries: string
+    poll: {
+      title: string
+      multiple: string
+      anonymous: string
+      closed: string
+      loginRequired: string
+      noVotes: string
+      voteCount: string
+      vote: string
+      revote: string
+      cancelVote: string
+    }
   }
   inquiryWrite: {
     title: string
@@ -259,6 +271,19 @@ export interface BoardMessages {
     createSeries: string
     createSeriesSuccess: string
     createSeriesFailed: string
+    poll: {
+      add: string
+      remove: string
+      title: string
+      question: string
+      questionPlaceholder: string
+      option: string
+      optionPlaceholder: string
+      addOption: string
+      multiple: string
+      anonymous: string
+      closesAt: string
+    }
     placeholder: {
       title: string
       tags: string
@@ -400,6 +425,7 @@ export interface BoardMessages {
       customColor: string
       linkDialog: string
       tableDialog: string
+      poll: string
     }
     shortcuts: {
       saveDraft: string
@@ -620,6 +646,35 @@ export interface UserMessages {
     emailDesc: string
     push: string
     pushDesc: string
+    browserPush: string
+    browserPushDesc: string
+    pushUnsupported: string
+    pushUnavailable: string
+    pushDenied: string
+    pushEnabled: string
+    pushDisabled: string
+    pushEnable: string
+    pushDisable: string
+    pushEnableSuccess: string
+    pushEnableFailed: string
+    pushDisableSuccess: string
+    pushDisableFailed: string
+    keywordSubscriptions: string
+    keywordSubscriptionsDesc: string
+    keywordNotificationsDisabled: string
+    keywordInput: string
+    keywordPlaceholder: string
+    keywordAdd: string
+    keywordEmpty: string
+    keywordList: string
+    keywordRemove: string
+    keywordRequired: string
+    keywordTooLong: string
+    keywordDuplicate: string
+    keywordAdded: string
+    keywordAddFailed: string
+    keywordRemoved: string
+    keywordRemoveFailed: string
     save: string
     saving: string
     saved: string

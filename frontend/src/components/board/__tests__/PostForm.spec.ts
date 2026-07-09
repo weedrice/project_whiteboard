@@ -243,6 +243,28 @@ describe('PostForm', () => {
         expect(variables.data.contents).not.toContain('data-file-id')
     })
 
+    it('submits poll data when creating a post', async () => {
+        setBoardCategories([{ categoryId: 12, name: 'General', minWriteRole: 'USER' }])
+        const wrapper = mountPostForm('create')
+
+        await fillPostForm(wrapper, { categoryId: '12' })
+        await wrapper.get('[data-testid="open-poll"]').trigger('click')
+        await wrapper.get('[data-testid="poll-question"]').setValue('Best option?')
+        await wrapper.get('[data-testid="poll-option-0"]').setValue('First')
+        await wrapper.get('[data-testid="poll-option-1"]').setValue('Second')
+        await wrapper.get('[data-testid="poll-multiple"]').setValue(true)
+        await submitPostForm(wrapper)
+
+        const variables = getLastCreatePostVariables()
+        expect(variables.data.poll).toEqual({
+            question: 'Best option?',
+            options: ['First', 'Second'],
+            multipleChoiceEnabled: true,
+            anonymousEnabled: false,
+            closesAt: null,
+        })
+    })
+
     it('keeps redirectOnCreate as a compatibility prop without navigating internally', async () => {
         setBoardCategories([{ categoryId: 1, name: 'General', minWriteRole: 'USER' }])
         const wrapper = mountPostForm('create', {}, {}, { redirectOnCreate: '/inquiry' })

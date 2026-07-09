@@ -2,8 +2,7 @@
 import { nextTick, onMounted, ref, watch, type ComponentPublicInstance } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useEventListener } from '@/composables/useEventListener'
-
-type SlashAction = 'heading' | 'quote' | 'list' | 'link' | 'table' | 'codeBlock' | 'divider'
+import type { SlashAction } from '@/components/board/editor/postEditorOptions'
 
 const props = defineProps<{
   actions: SlashAction[]
@@ -27,6 +26,7 @@ const actionLabels: Record<SlashAction, string> = {
   table: 'board.writePost.toolbar.tableDialog',
   codeBlock: 'board.writePost.toolbar.codeBlock',
   divider: 'board.writePost.toolbar.divider',
+  poll: 'board.writePost.toolbar.poll',
 }
 
 const actionButtonRefs = ref<HTMLButtonElement[]>([])

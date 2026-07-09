@@ -85,6 +85,43 @@ describe('postForm', () => {
         })
     })
 
+    it('includes valid poll data only for create payloads', () => {
+        const formWithPoll = {
+            ...baseForm,
+            poll: {
+                question: '  Pick one  ',
+                options: [' Alpha ', '', 'Beta'],
+                multipleChoiceEnabled: true,
+                anonymousEnabled: false,
+                closesAt: null,
+            },
+        }
+
+        expect(buildPostFormPayload({
+            form: formWithPoll,
+            mode: 'create',
+            showNotice: true,
+            canShowNsfw: true,
+            fileIds: [],
+        })).toMatchObject({
+            poll: {
+                question: 'Pick one',
+                options: ['Alpha', 'Beta'],
+                multipleChoiceEnabled: true,
+                anonymousEnabled: false,
+                closesAt: null,
+            },
+        })
+
+        expect(buildPostFormPayload({
+            form: formWithPoll,
+            mode: 'edit',
+            showNotice: true,
+            canShowNsfw: true,
+            fileIds: [],
+        })).not.toHaveProperty('poll')
+    })
+
     it('encodes script-style html widgets before submit', () => {
         const rawWidget = '<style>.cl{display:grid}</style><button onclick="toggle()">여권</button><script>function toggle(){}</script>'
         const payload = buildPostFormPayload({

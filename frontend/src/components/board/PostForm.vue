@@ -113,6 +113,7 @@ const {
   markCurrentSnapshotSaved,
   applyDraftSnapshot,
   buildPayload,
+  openPollEditor,
   trackUploadedFile,
   resetFormState,
 } = usePostComposerState({
@@ -366,6 +367,8 @@ defineExpose({
           :title="form.title"
           :content="form.content"
           :tags="form.tags"
+          :poll="form.poll"
+          :mode="props.mode"
           :hide-tags="props.hideTags"
           :metadata-panel-props="metadataPanelProps"
           :metadata-panel-handlers="metadataPanelHandlers"
@@ -381,6 +384,7 @@ defineExpose({
           @update:title="form.title = $event"
           @update:content="form.content = $event"
           @update:tags="form.tags = $event"
+          @update:poll="form.poll = $event"
           @update:editor-view-mode="handleEditorViewModeChange"
           @update:show-emoticon-picker="showEmoticonPicker = $event"
           @update:video-url="videoUrl = $event"
@@ -389,6 +393,7 @@ defineExpose({
           @insert-video="insertVideoFromPopover"
           @select-emoticon="handleEmoticonSelect"
           @file-uploaded="trackUploadedFile"
+          @open-poll="openPollEditor"
         />
 
         <PostFormSidePanel

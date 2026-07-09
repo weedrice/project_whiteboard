@@ -67,6 +67,7 @@ export interface PostDraftData {
     isSpoiler?: boolean
     isSecret?: boolean
     fileIds?: number[]
+    poll?: PollPayload | null
     updatedAt?: string
     originalPostId?: number
 }

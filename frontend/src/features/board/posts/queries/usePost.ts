@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { computed, type Ref } from 'vue'
 import type { AxiosRequestConfig } from 'axios'
 import type { Post } from '@/types'
-import { postApi, type PostCreateData, type PostDraftData, type PostUpdateData, type ReportData } from '@/api/post'
+import { postApi, type PollVotePayload, type PostCreateData, type PostDraftData, type PostUpdateData, type ReportData } from '@/api/post'
 import { unwrapAxiosApiData } from '@/api/response'
 import {
     invalidatePostCaches,
@@ -156,6 +156,34 @@ export function usePost() {
         })
     }
 
+    const updatePollInDetailCache = (postId: string | number, poll: Post['poll']) => {
+        queryClient.setQueriesData<Post>({ queryKey: postQueryKeys.detailPrefix(postId) }, (old) => (
+            old ? { ...old, poll } : old
+        ))
+    }
+
+    const useVotePoll = () => {
+        return useMutation({
+            mutationFn: async ({ postId, data }: { postId: string | number, data: PollVotePayload }) => {
+                return unwrapAxiosApiData(await postApi.votePoll(postId, data))
+            },
+            onSuccess: (poll, { postId }) => {
+                updatePollInDetailCache(postId, poll)
+            },
+        })
+    }
+
+    const useDeletePollVote = () => {
+        return useMutation({
+            mutationFn: async (postId: string | number) => {
+                return unwrapAxiosApiData(await postApi.deletePollVote(postId))
+            },
+            onSuccess: (poll, postId) => {
+                updatePollInDetailCache(postId, poll)
+            },
+        })
+    }
+
     const useSaveDraft = () => {
         return useMutation({
             mutationFn: async (data: PostDraftData) => {
@@ -182,6 +210,8 @@ export function usePost() {
         useScrapPost,
         useUnscrapPost,
         useReportPost,
+        useVotePoll,
+        useDeletePollVote,
         useSaveDraft,
         useDeleteDraft,
     }

@@ -316,6 +316,7 @@ export interface DraftPost {
     isSpoiler: boolean
     isSecret: boolean
     fileIds: number[]
+    poll?: PostPoll | null
     originalPostId?: number | null
     updatedAt?: string
     modifiedAt?: string

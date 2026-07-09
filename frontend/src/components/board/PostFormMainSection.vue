@@ -4,17 +4,21 @@ import BaseInput from '@/components/common/ui/BaseInput.vue'
 import PostTags from '@/components/tag/PostTags.vue'
 import PostFormEditorSection from '@/components/board/PostFormEditorSection.vue'
 import PostFormMetadataPanel from '@/components/board/PostFormMetadataPanel.vue'
+import PostPollEditor from '@/components/board/PostPollEditor.vue'
 import type { SegmentedControlOption } from '@/components/common/ui/BaseSegmentedControl.vue'
 import type {
   PostFormMetadataPanelHandlers,
   PostFormMetadataPanelProps,
 } from '@/features/board/posts/form/usePostFormMetadataBindings'
 import type { EmoticonImage } from '@/types/emoticon'
+import type { PostFormPoll } from '@/utils/postForm'
 
 defineProps<{
   title: string
   content: string
   tags: string[]
+  poll: PostFormPoll | null
+  mode: 'create' | 'edit'
   hideTags?: boolean
   metadataPanelProps: PostFormMetadataPanelProps
   metadataPanelHandlers: PostFormMetadataPanelHandlers
@@ -33,6 +37,8 @@ const emit = defineEmits<{
   (event: 'update:title', value: string): void
   (event: 'update:content', value: string): void
   (event: 'update:tags', value: string[]): void
+  (event: 'update:poll', value: PostFormPoll | null): void
+  (event: 'openPoll'): void
   (event: 'update:editorViewMode', value: string): void
   (event: 'update:showEmoticonPicker', value: boolean): void
   (event: 'update:videoUrl', value: string): void
@@ -86,6 +92,13 @@ const emit = defineEmits<{
         @insert-video="emit('insertVideo')"
         @select-emoticon="emit('selectEmoticon', $event)"
         @file-uploaded="emit('fileUploaded', $event)"
+        @open-poll="emit('openPoll')"
+      />
+
+      <PostPollEditor
+        :model-value="poll"
+        :mode="mode"
+        @update:model-value="emit('update:poll', $event)"
       />
 
       <div v-if="!hideTags" class="mt-5 lg:hidden">

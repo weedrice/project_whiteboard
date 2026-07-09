@@ -1,7 +1,9 @@
 import { computed, ref, type Ref } from 'vue'
 import {
   buildPostFormPayload,
+  createEmptyPostFormPoll,
   resolvePostFormFileIds,
+  type PostFormPoll,
   type PostFormFileIdScope,
 } from '@/utils/postForm'
 import { decodeSandboxedPostHtml } from '@/utils/postHtmlSandbox'
@@ -18,6 +20,7 @@ export type PostComposerFormState = {
   isNotice: boolean
   isSecret: boolean
   seriesId: string | number
+  poll: PostFormPoll | null
 }
 
 export type PostComposerSnapshot = {
@@ -30,6 +33,13 @@ export type PostComposerSnapshot = {
   isNotice?: boolean
   isSecret?: boolean
   seriesNavigation?: { series?: { seriesId?: number | null } | null } | null
+  poll?: {
+    question: string
+    multipleChoiceEnabled?: boolean
+    anonymousEnabled?: boolean
+    closesAt?: string | null
+    options: Array<{ optionText: string } | string>
+  } | null
   fileIds?: number[]
 }
 
@@ -54,6 +64,7 @@ export function createEmptyPostComposerForm(): PostComposerFormState {
     isNotice: false,
     isSecret: false,
     seriesId: '',
+    poll: null,
   }
 }
 
@@ -68,6 +79,7 @@ function copyFormSnapshot(src: PostComposerFormState): PostComposerFormState {
     isNotice: src.isNotice,
     isSecret: src.isSecret,
     seriesId: src.seriesId,
+    poll: src.poll ? { ...src.poll, options: [...src.poll.options] } : null,
   }
 }
 
@@ -84,6 +96,7 @@ function isSameFormState(left: PostComposerFormState, right: PostComposerFormSta
   }
   if (String(left.categoryId) !== String(right.categoryId)) return false
   if (String(left.seriesId) !== String(right.seriesId)) return false
+  if (JSON.stringify(left.poll) !== JSON.stringify(right.poll)) return false
   if (left.tags.length !== right.tags.length) return false
   return left.tags.every((tag, index) => tag === right.tags[index])
 }
@@ -114,6 +127,13 @@ export function usePostComposerState(options: UsePostComposerStateOptions) {
       isNotice: Boolean(draft.isNotice),
       isSecret: Boolean(draft.isSecret),
       seriesId: draft.seriesNavigation?.series?.seriesId ?? '',
+      poll: draft.poll ? {
+        question: draft.poll.question,
+        options: draft.poll.options.map((option) => typeof option === 'string' ? option : option.optionText),
+        multipleChoiceEnabled: Boolean(draft.poll.multipleChoiceEnabled),
+        anonymousEnabled: Boolean(draft.poll.anonymousEnabled),
+        closesAt: draft.poll.closesAt ?? null,
+      } : null,
     }
     draftFileIds.value = [...(draft.fileIds ?? [])]
   }
@@ -138,6 +158,10 @@ export function usePostComposerState(options: UsePostComposerStateOptions) {
     }
   }
 
+  function openPollEditor() {
+    form.value.poll = form.value.poll ?? createEmptyPostFormPoll()
+  }
+
   function resetFormState() {
     form.value = createEmptyPostComposerForm()
     draftFileIds.value = []
@@ -152,6 +176,7 @@ export function usePostComposerState(options: UsePostComposerStateOptions) {
     markCurrentSnapshotSaved,
     applyDraftSnapshot,
     buildPayload,
+    openPollEditor,
     trackUploadedFile,
     resetFormState,
   }

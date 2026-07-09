@@ -1,8 +1,17 @@
 import { normalizeEditorFileImageUrls, normalizeLegacyFileUrls } from '@/utils/fileUrl'
 import { getWindowOrigin } from '@/utils/browserEnv'
 import { encodeSandboxedPostHtml, requiresSandboxedPostHtml } from '@/utils/postHtmlSandbox'
+import type { PollPayload } from '@/api/post'
 
 export type PostFormFileIdScope = 'content' | 'draft'
+
+export type PostFormPoll = {
+    question: string
+    options: string[]
+    multipleChoiceEnabled: boolean
+    anonymousEnabled: boolean
+    closesAt: string | null
+}
 
 export type PostFormPayloadForm = {
     title: string
@@ -14,6 +23,7 @@ export type PostFormPayloadForm = {
     isNotice: boolean
     isSecret: boolean
     seriesId?: string | number
+    poll?: PostFormPoll | null
 }
 
 export type BuildPostFormPayloadOptions = {
@@ -111,6 +121,7 @@ export function buildPostFormPayload({
     const parsedSeriesId = form.seriesId == null || form.seriesId === ''
         ? undefined
         : (typeof form.seriesId === 'string' ? Number.parseInt(form.seriesId, 10) : form.seriesId)
+    const poll = mode === 'create' ? normalizePostFormPoll(form.poll) : null
 
     return {
         title: form.title.trim(),
@@ -122,7 +133,33 @@ export function buildPostFormPayload({
         isSecret: hideSecret ? false : form.isSecret,
         ...(mode === 'create' && { isNotice: showNotice ? form.isNotice : false }),
         ...(parsedSeriesId && !Number.isNaN(parsedSeriesId) && { seriesId: parsedSeriesId }),
+        ...(poll && { poll }),
         fileIds,
+    }
+}
+
+export function createEmptyPostFormPoll(): PostFormPoll {
+    return {
+        question: '',
+        options: ['', ''],
+        multipleChoiceEnabled: false,
+        anonymousEnabled: false,
+        closesAt: null,
+    }
+}
+
+export function normalizePostFormPoll(poll?: PostFormPoll | null): PollPayload | null {
+    if (!poll) return null
+    const question = poll.question.trim()
+    const options = poll.options.map((option) => option.trim()).filter(Boolean)
+    if (!question || options.length < 2) return null
+
+    return {
+        question,
+        options: options.slice(0, 10),
+        multipleChoiceEnabled: poll.multipleChoiceEnabled,
+        anonymousEnabled: poll.anonymousEnabled,
+        closesAt: poll.closesAt || null,
     }
 }
 

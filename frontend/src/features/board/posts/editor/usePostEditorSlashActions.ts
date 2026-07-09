@@ -8,6 +8,7 @@ type SlashActionOptions = {
   applyBulletList: () => void
   openLinkPopover: () => void
   openTablePopover: () => void
+  openPollEditor: () => void
 }
 
 export function usePostEditorSlashActions({
@@ -16,6 +17,7 @@ export function usePostEditorSlashActions({
   applyBulletList,
   openLinkPopover,
   openTablePopover,
+  openPollEditor,
 }: SlashActionOptions) {
   function applySlashAction(action: SlashAction) {
     switch (action) {
@@ -39,6 +41,9 @@ export function usePostEditorSlashActions({
         break
       case 'divider':
         editor.value?.chain().focus().setHorizontalRule().run()
+        break
+      case 'poll':
+        openPollEditor()
         break
     }
     showSlashMenu.value = false

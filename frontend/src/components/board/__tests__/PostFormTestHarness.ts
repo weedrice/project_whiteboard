@@ -182,7 +182,7 @@ const PostEditorTipTapStub = defineComponent({
     props: {
         modelValue: { type: String, default: '' },
     },
-    emits: ['update:modelValue', 'open-video', 'open-emoticon', 'file-uploaded'],
+    emits: ['update:modelValue', 'open-video', 'open-emoticon', 'open-poll', 'file-uploaded'],
     setup(props, { emit, expose }) {
         expose({
             setVideo: (url: string) => editorSetVideo(url),
@@ -215,6 +215,15 @@ const PostEditorTipTapStub = defineComponent({
                         onClick: () => emit('open-emoticon'),
                     },
                     'open-emoticon',
+                ),
+                h(
+                    'button',
+                    {
+                        type: 'button',
+                        'data-testid': 'open-poll',
+                        onClick: () => emit('open-poll'),
+                    },
+                    'open-poll',
                 ),
             ])
     },
