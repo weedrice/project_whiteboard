@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.file.controller;
 import com.weedrice.whiteboard.domain.file.dto.FileDownloadResponse;
 import com.weedrice.whiteboard.domain.file.dto.FileSimpleResponse;
 import com.weedrice.whiteboard.domain.file.dto.FileUploadResponse;
+import com.weedrice.whiteboard.domain.file.entity.FileVariantType;
 import com.weedrice.whiteboard.domain.file.service.FileDownloadService;
 import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.global.config.CurrentUserIdWebMvcConfig;
@@ -168,6 +169,18 @@ class FileControllerTest {
         mockMvc.perform(get("/api/v1/files/{fileId}", fileId)
                         .with(user(customUserDetails)))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void downloadVariantFile_passesVariantTypeAndViewerUserId() throws Exception {
+        Long fileId = 3L;
+        when(fileDownloadService.downloadVariantFile(eq(fileId), eq(FileVariantType.THUMBNAIL), eq(1L)))
+                .thenReturn(downloadResponse("image.png", "image/png"));
+
+        mockMvc.perform(get("/api/v1/files/{fileId}/variants/{variantType}", fileId, "thumbnail")
+                        .with(user(customUserDetails)))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Disposition", containsString("inline")));
     }
 
     @Test

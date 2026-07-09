@@ -22,6 +22,7 @@ class FileUploadService {
     private final FileStorageService fileStorageService;
     private final FileUploadValidationPolicy validationPolicy;
     private final FileUploadStateCommand stateCommand;
+    private final FileImageVariantGenerator imageVariantGenerator;
 
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public FileUploadResponse uploadFile(Long uploaderId, MultipartFile multipartFile) {
@@ -47,6 +48,7 @@ class FileUploadService {
                 uploader);
         try {
             fileStorageService.storeFileAs(multipartFile, validatedUpload.detectedMimeType(), storedFileName);
+            imageVariantGenerator.generateVariants(pendingUploadFile, multipartFile, validatedUpload.detectedMimeType());
             return stateCommand.completePendingUpload(pendingUploadFile.getFileId());
         } catch (Exception e) {
             try {

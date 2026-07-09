@@ -51,6 +51,14 @@ class PostContentSummaryExtractorTest {
     }
 
     @Test
+    void resolveThumbnail_usesGeneratedThumbnailVariantUrlForAttachedImage() {
+        PostThumbnailInfo thumbnailInfo = extractor.resolveThumbnail(post, Set.of(100L), Map.of(100L, 55L));
+
+        assertThat(thumbnailInfo.thumbnailUrl()).isEqualTo("/api/v1/files/55/variants/thumbnail");
+        assertThat(thumbnailInfo.hasImage()).isTrue();
+    }
+
+    @Test
     @DisplayName("본문 iframe에서 첫 비디오 embed URL을 추출한다")
     void extractFirstVideoEmbedFromContent_success() {
         String url = extractor.extractFirstVideoEmbedFromContent(

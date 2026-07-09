@@ -1,8 +1,11 @@
 package com.weedrice.whiteboard.domain.file.service;
 
 import com.weedrice.whiteboard.domain.file.entity.File;
+import com.weedrice.whiteboard.domain.file.entity.FileVariant;
+import com.weedrice.whiteboard.domain.file.entity.FileVariantType;
 import com.weedrice.whiteboard.domain.file.entity.FileStorageStatus;
 import com.weedrice.whiteboard.domain.file.repository.FileRepository;
+import com.weedrice.whiteboard.domain.file.repository.FileVariantRepository;
 import com.weedrice.whiteboard.global.common.util.FileStorageService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -21,6 +24,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
 
@@ -40,6 +44,8 @@ class FileDeletionWorkerTest {
     @Mock
     private FileRepository fileRepository;
     @Mock
+    private FileVariantRepository fileVariantRepository;
+    @Mock
     private FileStorageService fileStorageService;
     @Mock
     private TransactionTemplate transactionTemplate;
@@ -54,6 +60,7 @@ class FileDeletionWorkerTest {
         clock = Clock.fixed(Instant.parse("2026-05-07T00:00:00Z"), ZoneOffset.UTC);
         fileDeletionWorker = new FileDeletionWorker(
                 fileRepository,
+                fileVariantRepository,
                 fileStorageService,
                 transactionTemplate,
                 emoticonFileReferenceService,
@@ -68,11 +75,14 @@ class FileDeletionWorkerTest {
         when(fileRepository.findDeletionClaimCandidateForUpdate(eq(10L), eq(5), any()))
                 .thenReturn(Optional.of(file));
         when(fileRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(file), Optional.of(file));
+        when(fileVariantRepository.findByFileFileId(10L)).thenReturn(List.of(variant(file)));
         executeTransactions();
 
         fileDeletionWorker.processDeletion(10L);
 
+        verify(fileStorageService).deleteFileOrThrow("variants/10/thumbnail.jpg");
         verify(fileStorageService).deleteFileOrThrow("stored.jpg");
+        verify(fileVariantRepository).deleteByFileFileId(10L);
         verify(fileRepository).delete(file);
     }
 
@@ -105,6 +115,7 @@ class FileDeletionWorkerTest {
         when(fileRepository.findDeletionClaimCandidateForUpdate(eq(10L), eq(5), any()))
                 .thenReturn(Optional.of(file));
         when(fileRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(file), Optional.of(file));
+        when(fileVariantRepository.findByFileFileId(10L)).thenReturn(List.of());
         executeTransactions();
 
         fileDeletionWorker.processDeletion(10L);
@@ -124,6 +135,7 @@ class FileDeletionWorkerTest {
         when(fileRepository.findDeletionClaimCandidateForUpdate(eq(10L), eq(5), any()))
                 .thenReturn(Optional.of(file));
         when(fileRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(file), Optional.of(file));
+        when(fileVariantRepository.findByFileFileId(10L)).thenReturn(List.of());
         executeTransactions();
         doThrow(new BusinessException(ErrorCode.FILE_DELETE_ERROR))
                 .when(fileStorageService).deleteFileOrThrow(eq("stored.jpg"));
@@ -143,6 +155,7 @@ class FileDeletionWorkerTest {
         when(fileRepository.findDeletionClaimCandidateForUpdate(eq(10L), eq(5), any()))
                 .thenReturn(Optional.of(file));
         when(fileRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(file));
+        when(fileVariantRepository.findByFileFileId(10L)).thenReturn(List.of());
         when(transactionTemplate.execute(any())).thenAnswer(invocation -> {
             TransactionCallback<?> callback = invocation.getArgument(0);
             return callback.doInTransaction(null);
@@ -168,6 +181,7 @@ class FileDeletionWorkerTest {
                 .thenReturn(Optional.of(file));
         when(fileRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(file), Optional.of(file));
         when(emoticonFileReferenceService.isReferenced(10L)).thenReturn(false);
+        when(fileVariantRepository.findByFileFileId(10L)).thenReturn(List.of());
         executeTransactions();
 
         fileDeletionWorker.processDeletion(10L);
@@ -203,6 +217,7 @@ class FileDeletionWorkerTest {
         when(fileRepository.findDeletionClaimCandidateForUpdate(eq(10L), eq(5), any()))
                 .thenReturn(Optional.of(file));
         when(fileRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(file), Optional.of(changedFile));
+        when(fileVariantRepository.findByFileFileId(10L)).thenReturn(List.of());
         executeTransactions();
 
         fileDeletionWorker.processDeletion(10L);
@@ -222,6 +237,18 @@ class FileDeletionWorkerTest {
                 .build();
         ReflectionTestUtils.setField(file, "fileId", 10L);
         return file;
+    }
+
+    private FileVariant variant(File file) {
+        return FileVariant.builder()
+                .file(file)
+                .variantType(FileVariantType.THUMBNAIL)
+                .filePath("variants/10/thumbnail.jpg")
+                .fileSize(10L)
+                .mimeType("image/jpeg")
+                .width(320)
+                .height(200)
+                .build();
     }
 
     private File deletingFile() {

@@ -72,6 +72,8 @@ class FileServiceTest {
     @Mock
     private FileTemporaryCleanupWorker fileTemporaryCleanupWorker;
     @Mock
+    private FileImageVariantGenerator imageVariantGenerator;
+    @Mock
     private EntityManager entityManager;
 
     private FileService fileService;
@@ -88,7 +90,8 @@ class FileServiceTest {
                 userWritableResolver,
                 fileStorageService,
                 new FileUploadValidationPolicy(),
-                fileUploadStateCommand);
+                fileUploadStateCommand,
+                imageVariantGenerator);
         FileAssociationService fileAssociationService = new FileAssociationService(
                 fileRepository,
                 userRepository,
@@ -120,6 +123,7 @@ class FileServiceTest {
         assertThat(uploadedFile.getFileUrl()).isEqualTo("/api/v1/files/10");
         assertThat(uploadedFile.getMimeType()).isEqualTo("image/jpeg");
         verify(fileStorageService).storeFileAs(multipartFile, "image/jpeg", "storedFileName.jpg");
+        verify(imageVariantGenerator).generateVariants(any(File.class), eq(multipartFile), eq("image/jpeg"));
     }
 
     @Test

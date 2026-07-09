@@ -61,6 +61,20 @@ public class FileStorageService {
         }
     }
 
+    public void storeBytesAs(byte[] contents, String contentType, String fileName) {
+        try {
+            PutObjectRequest putOb = PutObjectRequest.builder()
+                    .bucket(bucket)
+                    .key(fileName)
+                    .contentType(contentType)
+                    .build();
+
+            s3Client.putObject(putOb, RequestBody.fromBytes(contents));
+        } catch (Exception ex) {
+            throw new BusinessException(ErrorCode.FILE_UPLOAD_ERROR);
+        }
+    }
+
     public InputStream loadFile(String fileName) {
         try {
             GetObjectRequest getOb = GetObjectRequest.builder()

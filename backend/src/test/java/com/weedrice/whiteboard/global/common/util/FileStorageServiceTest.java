@@ -68,6 +68,20 @@ class FileStorageServiceTest {
     }
 
     @Test
+    void storeBytesAs_success() {
+        byte[] contents = "image".getBytes();
+        when(s3Client.putObject(any(PutObjectRequest.class), any(RequestBody.class))).thenReturn(null);
+
+        fileStorageService.storeBytesAs(contents, "image/jpeg", "variants/1/thumbnail.jpg");
+
+        ArgumentCaptor<PutObjectRequest> requestCaptor = ArgumentCaptor.forClass(PutObjectRequest.class);
+        verify(s3Client).putObject(requestCaptor.capture(), any(RequestBody.class));
+        assertThat(requestCaptor.getValue().bucket()).isEqualTo(bucket);
+        assertThat(requestCaptor.getValue().key()).isEqualTo("variants/1/thumbnail.jpg");
+        assertThat(requestCaptor.getValue().contentType()).isEqualTo("image/jpeg");
+    }
+
+    @Test
     @DisplayName("파일 저장 실패 - S3 오류")
     void storeFile_failure() {
         // given

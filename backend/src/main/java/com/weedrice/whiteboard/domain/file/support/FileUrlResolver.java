@@ -11,6 +11,18 @@ public final class FileUrlResolver {
         return "/api/v1/files/" + fileId;
     }
 
+    public static String resolveThumbnail(Long fileId) {
+        return resolveVariant(fileId, "thumbnail");
+    }
+
+    public static String resolveMedium(Long fileId) {
+        return resolveVariant(fileId, "medium");
+    }
+
+    public static String resolveVariant(Long fileId, String variantType) {
+        return resolve(fileId) + "/variants/" + variantType;
+    }
+
     public static List<String> referenceCandidates(Long fileId) {
         return List.of(resolve(fileId), "/files/" + fileId);
     }

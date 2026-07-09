@@ -21,7 +21,7 @@ public class PostImageAttachmentReader {
     public List<String> getImageUrls(@NonNull Long postId) {
         return fileService.getFilesByRelatedEntity(postId, FileService.RELATED_TYPE_POST_CONTENT).stream()
                 .filter(this::isImage)
-                .map(file -> FileUrlResolver.resolve(file.getFileId()))
+                .map(file -> FileUrlResolver.resolveMedium(file.getFileId()))
                 .toList();
     }
 

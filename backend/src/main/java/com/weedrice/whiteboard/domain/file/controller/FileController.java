@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.file.controller;
 import com.weedrice.whiteboard.domain.file.dto.FileDownloadResponse;
 import com.weedrice.whiteboard.domain.file.dto.FileSimpleResponse;
 import com.weedrice.whiteboard.domain.file.dto.FileUploadResponse;
+import com.weedrice.whiteboard.domain.file.entity.FileVariantType;
 import com.weedrice.whiteboard.domain.file.service.FileDownloadService;
 import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
@@ -49,6 +50,19 @@ public class FileController {
             @PathVariable Long fileId,
             @CurrentUserId(required = false) Long viewerUserId) {
         FileDownloadResponse download = fileDownloadService.downloadFile(fileId, viewerUserId);
+
+        return FileDownloadResponseAssembler.toResponse(download);
+    }
+
+    @GetMapping("/{fileId}/variants/{variantType}")
+    public ResponseEntity<Resource> downloadVariantFile(
+            @PathVariable Long fileId,
+            @PathVariable String variantType,
+            @CurrentUserId(required = false) Long viewerUserId) {
+        FileDownloadResponse download = fileDownloadService.downloadVariantFile(
+                fileId,
+                FileVariantType.fromPathSegment(variantType),
+                viewerUserId);
 
         return FileDownloadResponseAssembler.toResponse(download);
     }

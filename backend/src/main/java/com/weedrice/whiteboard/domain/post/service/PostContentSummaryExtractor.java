@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.post.service;
 
 import com.weedrice.whiteboard.domain.post.entity.Post;
+import com.weedrice.whiteboard.domain.file.support.FileUrlResolver;
 import org.jsoup.Jsoup;
 import org.springframework.stereotype.Component;
 
@@ -31,7 +32,7 @@ public class PostContentSummaryExtractor {
         if (postIdsWithImages.contains(post.getPostId())) {
             Long fileId = thumbnailFileIdsByPostId.get(post.getPostId());
             if (fileId != null) {
-                thumbnailUrl = "/api/v1/files/" + fileId;
+                thumbnailUrl = FileUrlResolver.resolveThumbnail(fileId);
                 hasImage = true;
             }
         }

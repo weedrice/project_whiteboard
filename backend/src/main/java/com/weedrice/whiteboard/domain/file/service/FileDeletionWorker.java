@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.file.service;
 import com.weedrice.whiteboard.domain.file.entity.File;
 import com.weedrice.whiteboard.domain.file.entity.FileStorageStatus;
 import com.weedrice.whiteboard.domain.file.repository.FileRepository;
+import com.weedrice.whiteboard.domain.file.repository.FileVariantRepository;
 import com.weedrice.whiteboard.global.common.util.FileStorageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -13,6 +14,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -26,6 +28,7 @@ public class FileDeletionWorker {
     private static final int DELETE_CLAIM_STALE_MINUTES = 30;
 
     private final FileRepository fileRepository;
+    private final FileVariantRepository fileVariantRepository;
     private final FileStorageService fileStorageService;
     private final TransactionTemplate transactionTemplate;
     private final EmoticonFileReferenceService emoticonFileReferenceService;
@@ -51,6 +54,9 @@ public class FileDeletionWorker {
             if (cancelIfReferencedBeforeStorage(snapshot)) {
                 return;
             }
+            snapshot = snapshot.withVariantFilePaths(fileVariantRepository.findByFileFileId(snapshot.fileId()).stream()
+                    .map(variant -> variant.getFilePath())
+                    .toList());
 
             if (!deleteFromStorage(snapshot)) {
                 return;
@@ -94,6 +100,9 @@ public class FileDeletionWorker {
 
     private boolean deleteFromStorage(FileDeletionSnapshot snapshot) {
         try {
+            for (String variantFilePath : snapshot.variantFilePaths()) {
+                fileStorageService.deleteFileOrThrow(variantFilePath);
+            }
             fileStorageService.deleteFileOrThrow(snapshot.filePath());
             return true;
         } catch (RuntimeException e) {
@@ -124,6 +133,7 @@ public class FileDeletionWorker {
                         return;
                     }
                     if (current.isDeletionRequested()) {
+                        fileVariantRepository.deleteByFileFileId(current.getFileId());
                         fileRepository.delete(current);
                     }
                 }));
@@ -134,6 +144,7 @@ public class FileDeletionWorker {
             String filePath,
             Long relatedId,
             String relatedType,
+            List<String> variantFilePaths,
             LocalDateTime claimedAt,
             boolean staleProcessingClaim) {
 
@@ -143,6 +154,18 @@ public class FileDeletionWorker {
                     file.getFilePath(),
                     file.getRelatedId(),
                     file.getRelatedType(),
+                    List.of(),
+                    claimedAt,
+                    staleProcessingClaim);
+        }
+
+        private FileDeletionSnapshot withVariantFilePaths(List<String> variantFilePaths) {
+            return new FileDeletionSnapshot(
+                    fileId,
+                    filePath,
+                    relatedId,
+                    relatedType,
+                    variantFilePaths == null ? List.of() : List.copyOf(variantFilePaths),
                     claimedAt,
                     staleProcessingClaim);
         }
