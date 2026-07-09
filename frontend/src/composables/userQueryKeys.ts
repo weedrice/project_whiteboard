@@ -14,6 +14,7 @@ export const userQueryKeys = {
     blocksRoot: ['user', 'blocks'] as const,
     blocks: (params?: Ref<UserQueryPaginationParams>) => computed(() => ['user', 'blocks', params?.value ?? {}] as const),
     notificationSettings: ['user', 'notification-settings'] as const,
+    keywordSubscriptions: ['user', 'keyword-subscriptions'] as const,
     agents: ['user', 'agents'] as const,
     pointsRoot: ['user', 'points'] as const,
     draftsRoot: ['user', 'drafts'] as const,

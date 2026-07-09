@@ -1,5 +1,11 @@
 import { useQuery, useMutation, useQueryClient, type QueryFunctionContext } from '@tanstack/vue-query'
-import { userApi, type UserUpdatePayload, type NotificationSettingsBulkPayload } from '@/api/user'
+import {
+    userApi,
+    type KeywordSubscriptionPayload,
+    type KeywordSubscriptionResponse,
+    type UserUpdatePayload,
+    type NotificationSettingsBulkPayload
+} from '@/api/user'
 import { unwrapAxiosApiData } from '@/api/response'
 import { computed, type Ref } from 'vue'
 import type { DraftPostListResponse, DraftPostSummary, PageResponse, UserPoint, UserSettings } from '@/types'
@@ -107,6 +113,17 @@ export function useUser() {
         })
     }
 
+    const useKeywordSubscriptions = () => {
+        return useApiQuery<KeywordSubscriptionResponse[]>({
+            queryKey: userQueryKeys.keywordSubscriptions,
+            request: (context) => callWithOptionalQuerySignal(
+                context,
+                userApi.getKeywordSubscriptions,
+                userApi.getKeywordSubscriptions,
+            ),
+        })
+    }
+
     const useMyAgents = () => {
         return useQuery(createMyAgentsQueryOptions())
     }
@@ -193,6 +210,28 @@ export function useUser() {
             },
             onSuccess: () => {
                 queryClient.invalidateQueries({ queryKey: userQueryKeys.notificationSettings })
+            }
+        })
+    }
+
+    const useCreateKeywordSubscription = () => {
+        return useMutation({
+            mutationFn: async (data: KeywordSubscriptionPayload) => {
+                return resolveResponseData(userApi.createKeywordSubscription(data))
+            },
+            onSuccess: () => {
+                queryClient.invalidateQueries({ queryKey: userQueryKeys.keywordSubscriptions })
+            }
+        })
+    }
+
+    const useDeleteKeywordSubscription = () => {
+        return useMutation({
+            mutationFn: async (data: KeywordSubscriptionPayload) => {
+                return resolveResponseData(userApi.deleteKeywordSubscription(data))
+            },
+            onSuccess: () => {
+                queryClient.invalidateQueries({ queryKey: userQueryKeys.keywordSubscriptions })
             }
         })
     }
@@ -303,6 +342,7 @@ export function useUser() {
         useUserProfile,
         useUserSettings,
         useNotificationSettings,
+        useKeywordSubscriptions,
         useBlockList,
         useMyAgents,
         useMyPoint,
@@ -317,6 +357,8 @@ export function useUser() {
         useDeleteAccount,
         useUpdateUserSettings,
         useUpdateNotificationSettings,
+        useCreateKeywordSubscription,
+        useDeleteKeywordSubscription,
         useClaimAgent,
         useSuspendMyAgent,
         useActivateMyAgent,

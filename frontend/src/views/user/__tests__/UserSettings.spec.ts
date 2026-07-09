@@ -1,7 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick, ref } from 'vue'
 import { mount } from '@vue/test-utils'
-import type { NotificationSettingsBulkPayload, NotificationSettingsPayload } from '@/api/user'
+import type {
+  KeywordSubscriptionPayload,
+  KeywordSubscriptionResponse,
+  NotificationSettingsBulkPayload,
+  NotificationSettingsPayload
+} from '@/api/user'
 import type { UserSettings as UserSettingsData } from '@/types'
 import UserSettings from '../UserSettings.vue'
 import { BaseButtonStub, flushAll, identityT } from '@/test/vue-test-helpers'
@@ -14,6 +19,7 @@ type ThemeStoreMock = {
 type UserComposableMock = {
   useUserSettings: () => { data: typeof settingsData; isLoading: typeof isSettingsLoading }
   useNotificationSettings: () => { data: typeof notificationData; isLoading: typeof isNotifLoading }
+  useKeywordSubscriptions: () => { data: typeof keywordData; isLoading: typeof isKeywordLoading }
   useUpdateUserSettings: () => {
     mutateAsync: (payload: Partial<UserSettingsFixture>) => Promise<void>
     isPending: typeof isUpdatingSettings
@@ -21,6 +27,14 @@ type UserComposableMock = {
   useUpdateNotificationSettings: () => {
     mutateAsync: (payload: NotificationSettingsBulkPayload) => Promise<void>
     isPending: typeof isUpdatingNotifications
+  }
+  useCreateKeywordSubscription: () => {
+    mutateAsync: (payload: KeywordSubscriptionPayload) => Promise<void>
+    isPending: typeof isCreatingKeyword
+  }
+  useDeleteKeywordSubscription: () => {
+    mutateAsync: (payload: KeywordSubscriptionPayload) => Promise<void>
+    isPending: typeof isDeletingKeyword
   }
 }
 
@@ -116,12 +130,18 @@ const notificationData = ref<NotificationSettingsPayload[]>([
   { notificationType: 'LIKE' as const, isEnabled: false },
   { notificationType: 'COMMENT' as const, isEnabled: true },
 ])
+const keywordData = ref<KeywordSubscriptionResponse[]>([])
 const isSettingsLoading = ref(false)
 const isNotifLoading = ref(false)
+const isKeywordLoading = ref(false)
 const isUpdatingSettings = ref(false)
 const isUpdatingNotifications = ref(false)
+const isCreatingKeyword = ref(false)
+const isDeletingKeyword = ref(false)
 const updateSettings = vi.fn()
 const updateNotificationSettings = vi.fn()
+const createKeywordSubscription = vi.fn()
+const deleteKeywordSubscription = vi.fn()
 const setTheme = vi.fn()
 const mountedWrappers: Array<ReturnType<typeof mount>> = []
 
@@ -171,12 +191,18 @@ describe('UserSettings', () => {
       { notificationType: 'LIKE', isEnabled: false },
       { notificationType: 'COMMENT', isEnabled: true },
     ]
+    keywordData.value = []
     isSettingsLoading.value = false
     isNotifLoading.value = false
+    isKeywordLoading.value = false
     isUpdatingSettings.value = false
     isUpdatingNotifications.value = false
+    isCreatingKeyword.value = false
+    isDeletingKeyword.value = false
     updateSettings.mockResolvedValue(undefined)
     updateNotificationSettings.mockResolvedValue(undefined)
+    createKeywordSubscription.mockResolvedValue(undefined)
+    deleteKeywordSubscription.mockResolvedValue(undefined)
 
     useThemeStoreMock.mockReturnValue({
       get isDark() {
@@ -188,6 +214,7 @@ describe('UserSettings', () => {
     useUserMock.mockReturnValue({
       useUserSettings: () => ({ data: settingsData, isLoading: isSettingsLoading }),
       useNotificationSettings: () => ({ data: notificationData, isLoading: isNotifLoading }),
+      useKeywordSubscriptions: () => ({ data: keywordData, isLoading: isKeywordLoading }),
       useUpdateUserSettings: () => ({
         mutateAsync: updateSettings,
         isPending: isUpdatingSettings,
@@ -195,6 +222,14 @@ describe('UserSettings', () => {
       useUpdateNotificationSettings: () => ({
         mutateAsync: updateNotificationSettings,
         isPending: isUpdatingNotifications,
+      }),
+      useCreateKeywordSubscription: () => ({
+        mutateAsync: createKeywordSubscription,
+        isPending: isCreatingKeyword,
+      }),
+      useDeleteKeywordSubscription: () => ({
+        mutateAsync: deleteKeywordSubscription,
+        isPending: isDeletingKeyword,
       }),
     })
   })
@@ -327,5 +362,41 @@ describe('UserSettings', () => {
     await nextTick()
 
     expect((wrapper.get('#notification-like').element as HTMLInputElement).checked).toBe(true)
+  })
+
+  it('adds and removes keyword subscriptions', async () => {
+    keywordData.value = [
+      { subscriptionId: 11, keyword: 'vue', createdAt: '2026-07-09T00:00:00' },
+    ]
+    const wrapper = mountUserSettings()
+    await nextTick()
+
+    expect(wrapper.text()).toContain('vue')
+
+    await wrapper.get('#keyword-subscription-input').setValue('spring')
+    await wrapper.get('form').trigger('submit')
+    await flushAll()
+
+    expect(createKeywordSubscription).toHaveBeenCalledWith({ keyword: 'spring' })
+    expect(wrapper.text()).toContain('user.settings.keywordAdded')
+
+    await wrapper
+      .findAll('button')
+      .find((button) => button.attributes('aria-label') === 'user.settings.keywordRemove')!
+      .trigger('click')
+    await flushAll()
+
+    expect(deleteKeywordSubscription).toHaveBeenCalledWith({ keyword: 'vue' })
+    expect(wrapper.text()).toContain('user.settings.keywordRemoved')
+  })
+
+  it('shows keyword disabled notice when keyword notifications are off', async () => {
+    notificationData.value = [
+      { notificationType: 'KEYWORD', isEnabled: false },
+    ]
+    const wrapper = mountUserSettings()
+    await nextTick()
+
+    expect(wrapper.text()).toContain('user.settings.keywordNotificationsDisabled')
   })
 })
