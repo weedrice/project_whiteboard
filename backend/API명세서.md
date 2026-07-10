@@ -4,12 +4,14 @@
 
 | 항목 | 내용 |
 | --- | --- |
-| 기준일 | 2026-05-29 |
+| 기준일 | 2026-07-10 |
 | 기준 소스 | `backend/src/main/java/com/weedrice/whiteboard/**/*Controller.java` |
 | Base URL | `/api/v1` |
 | 상세 DTO 기준 | 실행 중 Swagger UI / OpenAPI JSON |
 
 이 문서는 현재 노출되는 API 경로의 빠른 확인용 목록이다. 요청/응답 필드의 최종 기준은 컨트롤러, DTO, OpenAPI 설정이다.
+
+컨트롤러별 누락/불일치 감사 결과는 `docs/api-controller-endpoint-audit-2026-07-10.md`에서 확인한다.
 
 ## 공통 계약
 
@@ -45,6 +47,7 @@
 - Agent API: agent bearer token 및 agent 전용 인증 규칙 사용
 - SSE 알림 스트림은 `fetch` 기반 `Authorization: Bearer {accessToken}` 헤더 인증을 사용하며 query token은 지원하지 않는다.
 - Admin API는 Spring Security 권한 및 서비스 내부 권한 검증을 함께 따른다.
+- `/api/v1/logs/client`, `/api/v1/security/csp-report`, `/api/v1/push/public-key`는 인증 없이 호출할 수 있지만 공통 rate limit과 요청 검증을 적용한다.
 
 ### 페이징
 
@@ -74,13 +77,21 @@
 | Method | URI | 설명 |
 | --- | --- | --- |
 | `GET` | `/api/v1/users/{userId}` | 사용자 프로필 조회 |
+| `GET` | `/api/v1/users/{userId}/posts` | 공개 프로필 게시글 활동 |
+| `GET` | `/api/v1/users/{userId}/comments` | 공개 프로필 댓글 활동 |
+| `GET` | `/api/v1/users/mention-candidates` | 멘션 후보 검색 |
 | `GET` | `/api/v1/users/me` | 내 정보 조회 |
 | `PUT` | `/api/v1/users/me` | 내 프로필 수정 |
+| `GET` | `/api/v1/users/me/sessions` | 활성 로그인 세션 조회 |
+| `DELETE` | `/api/v1/users/me/sessions/{sessionId}` | 선택 로그인 세션 폐기 |
+| `DELETE` | `/api/v1/users/me/sessions` | 현재 세션을 제외한 다른 세션 폐기 |
+| `GET` | `/api/v1/users/me/login-history` | 로그인 이력 조회 |
 | `POST` | `/api/v1/users/me/email-verification` | 내 이메일 변경/검증 흐름 |
 | `PUT` | `/api/v1/users/me/password` | 비밀번호 변경 |
 | `DELETE` | `/api/v1/users/me` | 계정 탈퇴 |
 | `GET` | `/api/v1/users/me/settings` | 내 환경설정 조회 |
 | `PUT` | `/api/v1/users/me/settings` | 내 환경설정 수정 |
+| `PUT` | `/api/v1/users/me/onboarding-complete` | 온보딩 완료 처리 |
 | `GET` | `/api/v1/users/me/notification-settings` | 내 알림 설정 조회 |
 | `PUT` | `/api/v1/users/me/notification-settings/bulk` | 내 알림 설정 일괄 수정 |
 | `POST` | `/api/v1/users/{userId}/block` | 사용자 차단 |
@@ -95,6 +106,11 @@
 | `GET` | `/api/v1/users/me/posts` | 내가 쓴 글 |
 | `GET` | `/api/v1/users/me/comments` | 내가 쓴 댓글 |
 | `GET` | `/api/v1/users/me/history/views` | 최근 본 글 |
+| `POST` | `/api/v1/attendance/check-in` | 일일 출석 체크와 보상 |
+| `GET` | `/api/v1/attendance/me` | 내 월별 출석과 streak 조회 |
+| `GET` | `/api/v1/users/{userId}/badges` | 사용자 공개 뱃지 조회 |
+| `GET` | `/api/v1/users/me/badges` | 내 뱃지 조회 |
+| `PUT` | `/api/v1/users/me/badges/representative` | 대표 뱃지 설정 |
 
 ### Boards And Posts
 
@@ -103,6 +119,8 @@
 | `GET` | `/api/v1/boards` | 활성 스페이스 목록 |
 | `GET` | `/api/v1/boards/all` | 전체 스페이스 목록 |
 | `GET` | `/api/v1/boards/top` | 인기 스페이스 |
+| `GET` | `/api/v1/boards/recommendations` | topic 기반 추천 스페이스 |
+| `GET` | `/api/v1/boards/recent-updates` | 구독 스페이스 최근 갱신 정보 |
 | `GET` | `/api/v1/boards/{boardUrl}` | 스페이스 상세 |
 | `GET` | `/api/v1/boards/{boardUrl}/notices` | 스페이스 공지 목록 |
 | `POST` | `/api/v1/boards` | 스페이스 생성 |
@@ -122,26 +140,47 @@
 | `POST` | `/api/v1/boards/{boardUrl}/posts` | 게시글 작성 |
 | `GET` | `/api/v1/posts/trending` | 인기 게시글 |
 | `GET` | `/api/v1/posts/{postId}` | 게시글 상세 |
+| `GET` | `/api/v1/posts/{postId}/related` | 관련 게시글 추천 |
+| `POST` | `/api/v1/posts/{postId}/manager/pin` | 매니저 게시글 상단 고정 |
+| `DELETE` | `/api/v1/posts/{postId}/manager/pin` | 매니저 게시글 고정 해제 |
+| `POST` | `/api/v1/posts/{postId}/manager/blind` | 매니저 게시글 블라인드 |
+| `DELETE` | `/api/v1/posts/{postId}/manager/blind` | 매니저 게시글 블라인드 해제 |
 | `POST` | `/api/v1/posts/{postId}/view` | 조회 기록 |
 | `PUT` | `/api/v1/posts/{postId}/history` | 열람 이력 갱신 |
 | `PUT` | `/api/v1/posts/{postId}` | 게시글 수정 |
 | `DELETE` | `/api/v1/posts/{postId}` | 게시글 삭제 |
 | `POST` | `/api/v1/posts/{postId}/like` | 게시글 좋아요 |
 | `DELETE` | `/api/v1/posts/{postId}/like` | 게시글 좋아요 취소 |
+| `POST` | `/api/v1/posts/{postId}/poll/vote` | 게시글 투표 |
+| `DELETE` | `/api/v1/posts/{postId}/poll/vote` | 게시글 투표 취소 |
 | `POST` | `/api/v1/posts/{postId}/scrap` | 게시글 스크랩 |
 | `DELETE` | `/api/v1/posts/{postId}/scrap` | 게시글 스크랩 해제 |
 | `GET` | `/api/v1/users/me/scraps` | 내 스크랩 목록 |
+| `GET` | `/api/v1/users/me/scrap-folders` | 스크랩 폴더 목록 |
+| `POST` | `/api/v1/users/me/scrap-folders` | 스크랩 폴더 생성 |
+| `PATCH` | `/api/v1/users/me/scrap-folders/{folderId}` | 스크랩 폴더 수정 |
+| `DELETE` | `/api/v1/users/me/scrap-folders/{folderId}` | 스크랩 폴더 삭제 |
+| `GET` | `/api/v1/users/me/post-series` | 내 게시글 시리즈 목록 |
+| `POST` | `/api/v1/users/me/post-series` | 게시글 시리즈 생성 |
+| `PATCH` | `/api/v1/users/me/post-series/{seriesId}` | 게시글 시리즈 수정 |
+| `DELETE` | `/api/v1/users/me/post-series/{seriesId}` | 게시글 시리즈 삭제 |
 | `GET` | `/api/v1/users/me/drafts` | 내 초안 목록 |
 | `GET` | `/api/v1/drafts/{draftId}` | 초안 단건 조회 |
 | `POST` | `/api/v1/drafts` | 초안 저장/수정 |
 | `DELETE` | `/api/v1/drafts/{draftId}` | 초안 삭제 |
 | `GET` | `/api/v1/posts/{postId}/versions` | 게시글 버전 이력 |
+| `POST` | `/api/v1/boards/{boardUrl}/scheduled-posts` | 예약 게시글 생성 |
+| `GET` | `/api/v1/users/me/scheduled-posts` | 내 예약 게시글 목록 |
+| `GET` | `/api/v1/scheduled-posts/{scheduledPostId}` | 예약 게시글 상세 |
+| `PUT` | `/api/v1/scheduled-posts/{scheduledPostId}` | 예약 게시글 수정 |
+| `DELETE` | `/api/v1/scheduled-posts/{scheduledPostId}` | 예약 게시글 취소 |
 
 ### Comments
 
 | Method | URI | 설명 |
 | --- | --- | --- |
-| `GET` | `/api/v1/posts/{postId}/comments` | 게시글 댓글 트리 |
+| `GET` | `/api/v1/posts/{postId}/comments` | 게시글 댓글 트리, 정렬과 읽던 위치 지원 |
+| `GET` | `/api/v1/posts/{postId}/comments/best` | 베스트 댓글 목록 |
 | `GET` | `/api/v1/comments/{commentId}/replies` | 대댓글 목록 |
 | `GET` | `/api/v1/comments/{commentId}` | 댓글 단건 |
 | `POST` | `/api/v1/posts/{postId}/comments` | 댓글/대댓글 작성 |
@@ -172,9 +211,19 @@
 | `PUT` | `/api/v1/notifications/read-all` | 모든 알림 읽음 |
 | `GET` | `/api/v1/notifications/unread-count` | 읽지 않은 알림 수 |
 | `GET` | `/api/v1/notifications/stream` | SSE 알림 스트림 |
+| `POST` | `/api/v1/notifications/comment-topics/{postId}/subscriptions` | 실시간 댓글 topic 구독 |
+| `DELETE` | `/api/v1/notifications/comment-topics/{postId}/subscriptions/{subscriberId}` | 실시간 댓글 topic 구독 해지 |
+| `GET` | `/api/v1/users/me/keyword-subscriptions` | 키워드 알림 구독 목록 |
+| `POST` | `/api/v1/users/me/keyword-subscriptions` | 키워드 알림 구독 생성 |
+| `DELETE` | `/api/v1/users/me/keyword-subscriptions` | 요청 body 기준 키워드 알림 구독 해지 |
+| `POST` | `/api/v1/users/me/push-subscriptions` | Web Push 구독 등록 |
+| `DELETE` | `/api/v1/users/me/push-subscriptions` | Web Push 구독 해지 |
+| `GET` | `/api/v1/push/public-key` | Web Push VAPID 공개키 조회 |
 | `POST` | `/api/v1/messages` | 쪽지 발송 |
 | `GET` | `/api/v1/messages/received` | 받은 쪽지 |
 | `GET` | `/api/v1/messages/sent` | 보낸 쪽지 |
+| `GET` | `/api/v1/messages/conversations` | 쪽지 대화 목록 |
+| `GET` | `/api/v1/messages/conversations/{partnerId}` | 상대 사용자와의 쪽지 대화 |
 | `GET` | `/api/v1/messages/{messageId}` | 쪽지 상세 |
 | `POST` | `/api/v1/messages/{messageId}/read` | 쪽지 읽음 |
 | `DELETE` | `/api/v1/messages/{messageId}` | 쪽지 삭제 |
@@ -190,9 +239,11 @@
 | `POST` | `/api/v1/files` | 파일 업로드 |
 | `POST` | `/api/v1/files/upload` | 파일 업로드 및 프록시 URL 반환 |
 | `GET` | `/api/v1/files/{fileId}` | 파일 다운로드 |
+| `GET` | `/api/v1/files/{fileId}/variants/{variantType}` | 이미지 variant 다운로드 |
 | `GET` | `/files/{fileId}` | legacy 파일 다운로드 |
 | `GET` | `/api/v1/tags` | 인기 태그 |
-| `GET` | `/api/v1/tags/{tagId}/posts` | 태그 게시글 |
+| `POST` | `/api/v1/tags/suggestions` | 게시글 작성용 태그 추천 |
+| `GET` | `/api/v1/tags/{tagKey}/posts` | 태그 게시글 |
 | `GET` | `/api/v1/points/me` | 내 포인트 |
 | `GET` | `/api/v1/points/me/history` | 내 포인트 이력 |
 | `GET` | `/api/v1/shop/items` | 상점 아이템 |
@@ -253,6 +304,7 @@
 | `DELETE` | `/api/v1/admin/ip-blocks/{ipAddress}` | IP 차단 해제 |
 | `GET` | `/api/v1/admin/ip-blocks` | IP 차단 목록 |
 | `GET` | `/api/v1/admin/stats` | 관리자 대시보드 통계 |
+| `GET` | `/api/v1/admin/stats/deep` | 기간별 심화 통계 대시보드 |
 | `GET` | `/api/v1/admin/inquiries` | 문의 게시글 목록 |
 | `GET` | `/api/v1/admin/inquiries/{postId}` | 문의 게시글 상세 |
 | `GET` | `/api/v1/admin/users` | 사용자 검색 |
@@ -265,7 +317,10 @@
 | `GET` | `/api/v1/admin/sanctions` | 제재 이력 |
 | `GET` | `/api/v1/admin/reports` | 신고 목록 |
 | `PUT` | `/api/v1/admin/reports/{reportId}` | 신고 처리 |
-| `GET` | `/api/v1/admin/logs` | 감사 로그 |
+| `GET` | `/api/v1/boards/{boardUrl}/manager/reports` | 스페이스 매니저 신고 목록 |
+| `GET` | `/api/v1/boards/{boardUrl}/manager/audits` | 스페이스 매니저 moderation 감사 로그 |
+| `GET` | `/api/v1/admin/moderation-audits` | 전체 moderation 감사 로그 |
+| `GET` | `/api/v1/admin/logs` | 감사 로그와 조건별 필터 조회 |
 | `GET` | `/api/v1/admin/error-logs` | 에러 로그 목록 |
 | `GET` | `/api/v1/admin/error-logs/{errorLogId}` | 에러 로그 상세 |
 | `PUT` | `/api/v1/admin/error-logs/{errorLogId}/resolve` | 에러 로그 확인 처리 |
@@ -277,6 +332,9 @@
 | `PUT` | `/api/v1/admin/configs` | 전역 설정 일괄 수정 |
 | `PUT` | `/api/v1/admin/configs/{key}` | 전역 설정 수정 |
 | `DELETE` | `/api/v1/admin/configs/{key}` | 전역 설정 삭제 |
+| `POST` | `/api/v1/admin/badges/backfill` | 기존 사용자 뱃지 backfill enqueue |
+| `POST` | `/api/v1/security/csp-report` | 브라우저 CSP 위반 report 수집 |
+| `POST` | `/api/v1/logs/client` | 브라우저 전역 오류 수집, JSON body 최대 32 KiB |
 
 ### Agent API
 

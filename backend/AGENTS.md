@@ -124,6 +124,7 @@ Important implementation note:
 - Controllers should return `ApiResponse<T>` and use `PageResponse<T>` for paginated payloads
 - Do not expose JPA entities directly from controllers
 - Reuse existing DTOs and response mappers
+- A feature commit that adds, removes, or changes a user-visible backend feature or controller endpoint must update `기능명세서.md` and `API명세서.md` in the same focused change. Treat controller mappings as the source of truth for HTTP method and URI, and classify implementation notes as applied, partially applied, or follow-up design before summarizing them in the feature specification. Omit the specification update only when the user explicitly scopes documentation out.
 
 ### Service rules
 
