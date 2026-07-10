@@ -1,19 +1,16 @@
 <script setup lang="ts">
-import { computed, defineAsyncComponent, onErrorCaptured, onMounted, onUnmounted } from 'vue'
+import { computed, defineAsyncComponent, onMounted, onUnmounted } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 import { useQueryClient } from '@tanstack/vue-query'
 import { registerAuthStorageSync, useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
 import { useI18n } from 'vue-i18n'
-import { useToastStore } from '@/stores/toast'
 import { useConfigStore } from '@/stores/config'
 import ToastContainer from '@/components/common/widgets/ToastContainer.vue'
 import GlobalConfirmModal from '@/components/common/widgets/GlobalConfirmModal.vue'
 import GlobalPromptModal from '@/components/common/widgets/GlobalPromptModal.vue'
 import ErrorBoundary from '@/components/common/ErrorBoundary.vue'
 import NetworkStatus from '@/components/common/NetworkStatus.vue'
-import logger from '@/utils/logger'
-import { createVueErrorLogPayload } from '@/utils/vueErrorLog'
 import { useAppSearchShortcut } from '@/composables/useAppSearchShortcut'
 import { useAppSeo } from '@/composables/useAppSeo'
 import { useAppUserSettingsSync } from '@/composables/useAppUserSettingsSync'
@@ -26,7 +23,6 @@ const AdminLayout = defineAsyncComponent(() => import('@/views/admin/AdminLayout
 const route = useRoute()
 const authStore = useAuthStore()
 const { locale, t } = useI18n()
-const toastStore = useToastStore()
 const queryClient = useQueryClient()
 const layout = computed(() => {
     return route.meta.layout === 'AdminLayout' ? AdminLayout : DefaultLayout
@@ -53,11 +49,6 @@ onUnmounted(() => {
     stopAuthStorageSync = null
 })
 
-onErrorCaptured((err, instance, info) => {
-    logger.error('Global Error Captured:', createVueErrorLogPayload(err, instance, info))
-    toastStore.addToast(t('common.error.unknown'), 'error')
-    return false // Prevent error from propagating further
-})
 </script>
 
 <template>

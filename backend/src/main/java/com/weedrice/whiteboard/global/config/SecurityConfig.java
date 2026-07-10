@@ -125,6 +125,8 @@ public class SecurityConfig {
                                                 .permitAll()
                                                 .requestMatchers(HttpMethod.POST, "/api/v1/security/csp-report")
                                                 .permitAll()
+                                                .requestMatchers(HttpMethod.POST, "/api/v1/logs/client")
+                                                .permitAll()
                                                 .anyRequest().authenticated())
                                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

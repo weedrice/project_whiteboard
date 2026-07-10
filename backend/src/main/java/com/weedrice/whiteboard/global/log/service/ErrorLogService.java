@@ -1,10 +1,12 @@
 package com.weedrice.whiteboard.global.log.service;
 
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.global.common.util.ClientMetadataNormalizer;
 import com.weedrice.whiteboard.global.common.util.TextInputNormalizer;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import com.weedrice.whiteboard.global.log.dto.ClientErrorLogRequest;
 import com.weedrice.whiteboard.global.log.dto.ErrorLogSearchRequest;
 import com.weedrice.whiteboard.global.log.dto.ErrorLogResponse;
 import com.weedrice.whiteboard.global.log.dto.ErrorLogStatsResponse;
@@ -29,6 +31,9 @@ import static org.springframework.transaction.annotation.Propagation.REQUIRES_NE
 @Service
 @RequiredArgsConstructor
 public class ErrorLogService {
+    private static final String CLIENT_ERROR_CODE = "CLIENT_ERROR";
+    private static final int CLIENT_ERROR_HTTP_STATUS = 0;
+    private static final String CLIENT_ERROR_REQUEST_METHOD = "CLIENT";
     private static final int MAX_TEXT_LENGTH = 500;
     private static final int MAX_STACK_TRACE_LENGTH = 4000;
     private static final int MAX_RESOLVED_MEMO_LENGTH = 500;
@@ -39,6 +44,7 @@ public class ErrorLogService {
 
     private final ErrorLogRepository errorLogRepository;
     private final Clock clock;
+    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
     /**
      * 에러 로그 비동기 저장
@@ -71,6 +77,51 @@ public class ErrorLogService {
         errorLogRepository.save(buildErrorLog(
                 errorCode, errorType, httpStatus, message, requestUri, requestMethod, userId,
                 ipAddress, userAgent, stackTrace));
+    }
+
+    @Async("taskExecutor")
+    @Transactional(propagation = REQUIRES_NEW)
+    public void saveClientErrorLog(
+            ClientErrorLogRequest request,
+            Long userId,
+            String ipAddress,
+            String userAgent) {
+        errorLogRepository.save(buildErrorLog(
+                CLIENT_ERROR_CODE,
+                request.getErrorType(),
+                CLIENT_ERROR_HTTP_STATUS,
+                request.getMessage(),
+                request.getPageUrl(),
+                CLIENT_ERROR_REQUEST_METHOD,
+                userId,
+                ipAddress,
+                userAgent,
+                formatClientStackTrace(request)));
+    }
+
+    private String formatClientStackTrace(ClientErrorLogRequest request) {
+        ObjectNode metadata = objectMapper.createObjectNode();
+        metadata.put("source", request.getSource().name());
+        putIfPresent(metadata, "component", sanitizeClientMetadata(request.getComponent()));
+        putIfPresent(metadata, "info", sanitizeClientMetadata(request.getInfo()));
+        metadata.put("commitHash", sanitizeClientMetadata(request.getCommitHash()));
+        String metadataLine = metadata.toString();
+        if (request.getStackTrace() == null || request.getStackTrace().isBlank()) {
+            return metadataLine;
+        }
+        String separator = System.lineSeparator();
+        int stackBudget = Math.max(0, MAX_STACK_TRACE_LENGTH - metadataLine.length() - separator.length());
+        return metadataLine + separator + truncate(request.getStackTrace(), stackBudget);
+    }
+
+    private String sanitizeClientMetadata(String value) {
+        return value == null ? null : value.replaceAll("[\\p{Cntrl}]", " ");
+    }
+
+    private void putIfPresent(ObjectNode target, String fieldName, String value) {
+        if (value != null && !value.isBlank()) {
+            target.put(fieldName, value);
+        }
     }
 
     private ErrorLog buildErrorLog(String errorCode, String errorType, int httpStatus, String message,

@@ -178,6 +178,13 @@ class SecurityConfigAuthorizationTest {
     }
 
     @Test
+    @DisplayName("client error log POST endpoint does not require authentication")
+    void clientErrorLogPostEndpoint_doesNotRequireAuthentication() throws Exception {
+        mockMvc.perform(post("/api/v1/logs/client"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     @DisplayName("auth, code, health, and CSP report endpoints remain public")
     void configuredPublicEndpoints_remainPublic() throws Exception {
         mockMvc.perform(post("/api/v1/auth/login"))
@@ -304,6 +311,11 @@ class SecurityConfigAuthorizationTest {
         @PostMapping("/agents/register")
         String agentRegister() {
             return "agent-register";
+        }
+
+        @PostMapping("/logs/client")
+        String clientErrorLog() {
+            return "client-error-log";
         }
 
         @PostMapping("/auth/login")

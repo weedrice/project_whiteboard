@@ -1,7 +1,10 @@
 package com.weedrice.whiteboard.global.log.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import com.weedrice.whiteboard.global.log.dto.ClientErrorLogRequest;
 import com.weedrice.whiteboard.global.log.dto.ErrorLogSearchRequest;
 import com.weedrice.whiteboard.global.log.dto.ErrorLogResponse;
 import com.weedrice.whiteboard.global.log.dto.ErrorLogStatsResponse;
@@ -42,6 +45,7 @@ class ErrorLogServiceTest {
     private ErrorLogRepository errorLogRepository;
 
     private ErrorLogService errorLogService;
+    private ObjectMapper objectMapper;
     private static final Clock FIXED_CLOCK = Clock.fixed(
             Instant.parse("2026-07-07T03:00:00Z"),
             ZoneId.of("Asia/Seoul"));
@@ -52,7 +56,8 @@ class ErrorLogServiceTest {
 
     @BeforeEach
     void setUp() {
-        errorLogService = new ErrorLogService(errorLogRepository, FIXED_CLOCK);
+        objectMapper = new ObjectMapper();
+        errorLogService = new ErrorLogService(errorLogRepository, FIXED_CLOCK, objectMapper);
     }
 
     // ===== saveErrorLog 테스트 =====
@@ -183,6 +188,51 @@ class ErrorLogServiceTest {
         verify(errorLogRepository).save(captor.capture());
         assertThat(captor.getValue().getStackTrace()).hasSize(4000);
         assertThat(captor.getValue().getStackTrace()).doesNotContain("secret-token");
+    }
+
+    @Test
+    @DisplayName("client error log stores client metadata and stack trace")
+    void saveClientErrorLog_storesMetadataAndStackTrace() throws Exception {
+        ClientErrorLogRequest request = objectMapper.readValue("""
+                {
+                  "source": "VUE",
+                  "errorType": "TypeError",
+                  "message": "Cannot read properties of undefined",
+                  "stackTrace": "TypeError: failed\\n    at render (App.vue:42:7)",
+                  "component": "AppShell",
+                  "info": "render function",
+                  "pageUrl": "https://noviis.kr/boards/1",
+                  "commitHash": "abc123def456"
+                }
+                """, ClientErrorLogRequest.class);
+        when(errorLogRepository.save(any(ErrorLog.class))).thenAnswer(i -> i.getArgument(0));
+
+        errorLogService.saveClientErrorLog(
+                request,
+                42L,
+                " 203.0.113.10, 10.0.0.1 ",
+                "Mozilla/5.0");
+
+        ArgumentCaptor<ErrorLog> captor = ArgumentCaptor.forClass(ErrorLog.class);
+        verify(errorLogRepository).save(captor.capture());
+        ErrorLog saved = captor.getValue();
+        assertThat(saved.getErrorCode()).isEqualTo("CLIENT_ERROR");
+        assertThat(saved.getErrorType()).isEqualTo("TypeError");
+        assertThat(saved.getHttpStatus()).isZero();
+        assertThat(saved.getMessage()).isEqualTo("Cannot read properties of undefined");
+        assertThat(saved.getRequestUri()).isEqualTo("https://noviis.kr/boards/1");
+        assertThat(saved.getRequestMethod()).isEqualTo("CLIENT");
+        assertThat(saved.getUserId()).isEqualTo(42L);
+        assertThat(saved.getIpAddress()).isEqualTo("203.0.113.10");
+        assertThat(saved.getUserAgent()).isEqualTo("Mozilla/5.0");
+
+        String[] stackTraceParts = saved.getStackTrace().split(System.lineSeparator(), 2);
+        JsonNode metadata = objectMapper.readTree(stackTraceParts[0]);
+        assertThat(metadata.get("source").asText()).isEqualTo("VUE");
+        assertThat(metadata.get("component").asText()).isEqualTo("AppShell");
+        assertThat(metadata.get("info").asText()).isEqualTo("render function");
+        assertThat(metadata.get("commitHash").asText()).isEqualTo("abc123def456");
+        assertThat(stackTraceParts[1]).isEqualTo("TypeError: failed\n    at render (App.vue:42:7)");
     }
 
     @Test

@@ -15,9 +15,8 @@ import { queryClient, configureQueryClientStoreResolvers } from '@/queryClient'
 import { configureAuthSessionEffects, useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
 import { useToastStore } from '@/stores/toast'
-import logger from '@/utils/logger'
 import { validateEnv } from '@/utils/env'
-import { createVueErrorLogPayload } from '@/utils/vueErrorLog'
+import { installClientErrorReporting } from '@/utils/clientErrorReporter'
 import { registerPwaUpdatePrompt } from '@/pwa'
 
 validateEnv()
@@ -53,9 +52,11 @@ app.use(VueQueryPlugin, { queryClient })
 app.use(router)
 app.use(i18n)
 
-app.config.errorHandler = (err, instance, info) => {
-    logger.error('Global Error Handler:', createVueErrorLogPayload(err, instance, info))
-}
+installClientErrorReporting(app, {
+    onVueError: () => {
+        useToastStore(pinia).addToast(i18n.global.t('common.error.unknown'), 'error')
+    },
+})
 
 app.mount('#app')
 registerPwaUpdatePrompt(pinia, i18n.global.t)

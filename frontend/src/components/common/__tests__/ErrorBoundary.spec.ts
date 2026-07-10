@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick } from 'vue'
 import { mount } from '@vue/test-utils'
 import ErrorBoundary from '../ErrorBoundary.vue'
-import logger from '@/utils/logger'
+import { reportVueError } from '@/utils/clientErrorReporter'
 
 vi.mock('vue-router', () => ({
     useRouter: () => ({
@@ -28,6 +28,10 @@ vi.mock('@/utils/logger', () => ({
         error: vi.fn(),
         warn: vi.fn(),
     },
+}))
+
+vi.mock('@/utils/clientErrorReporter', () => ({
+    reportVueError: vi.fn(),
 }))
 
 const ThrowingChild = defineComponent({
@@ -66,15 +70,13 @@ describe('ErrorBoundary', () => {
         expect(wrapper.text()).toContain('Something went wrong')
         expect(wrapper.text()).toContain('Please try again later.')
         expect(wrapper.text()).not.toContain('internal database token leaked')
-        expect(logger.error).toHaveBeenCalledWith(
-            'ErrorBoundary caught error:',
+        expect(reportVueError).toHaveBeenCalledWith(
             expect.objectContaining({
-                error: expect.objectContaining({
-                    name: 'Error',
-                    message: 'internal database token leaked',
-                }),
-                info: expect.any(String),
+                name: 'Error',
+                message: 'internal database token leaked',
             }),
+            expect.anything(),
+            expect.any(String),
         )
     })
 
