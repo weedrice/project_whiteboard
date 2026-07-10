@@ -13,7 +13,7 @@ interface UseProfileUpdateSubmitOptions {
   updateProfile: (payload: UserUpdatePayload) => Promise<unknown>
   refreshUser: () => Promise<unknown>
   addToast: (message: string, type: 'success' | 'error') => void
-  t: (key: string) => string
+  t: (key: string, params?: Record<string, unknown>) => string
   confirm?: (message: string) => Promise<boolean>
   getProfileImageChangeCost?: () => number
   isProfileImageChangeFree?: () => boolean
@@ -62,7 +62,7 @@ export function useProfileUpdateSubmit(options: UseProfileUpdateSubmitOptions) {
       await options.refreshUser()
       const spentPoints = extractSpentPoints(response)
       if (spentPoints && spentPoints > 0) {
-        options.addToast(options.t('user.profile.profileImageCostSpent'), 'success')
+        options.addToast(options.t('user.profile.profileImageCostSpent', { points: spentPoints }), 'success')
       } else {
         options.addToast(options.t('common.messages.profileUpdated'), 'success')
       }
@@ -104,13 +104,16 @@ export function useProfileUpdateSubmit(options: UseProfileUpdateSubmitOptions) {
     const cost = options.getProfileImageChangeCost?.() ?? 0
     const currentPoints = options.getCurrentPoints?.() ?? 0
     if (cost > 0 && currentPoints < cost) {
-      errors.profileImage = options.t('user.profile.profileImageInsufficientPoints')
+      errors.profileImage = options.t('user.profile.profileImageInsufficientPoints', {
+        current: currentPoints,
+        cost,
+      })
       options.addToast(errors.profileImage, 'error')
       return false
     }
 
     if (cost > 0 && options.confirm) {
-      return options.confirm(options.t('user.profile.profileImageCostConfirm'))
+      return options.confirm(options.t('user.profile.profileImageCostConfirm', { cost }))
     }
 
     return true

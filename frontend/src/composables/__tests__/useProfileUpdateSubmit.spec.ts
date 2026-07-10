@@ -23,12 +23,17 @@ vi.mock('@/utils/logger', () => ({
 function createSubmitter(options: {
   displayName?: string
   selectedFile?: File | null
+  profileImageChangeCost?: number
+  profileImageChangeFree?: boolean
+  currentPoints?: number
+  updateResponse?: unknown
 } = {}) {
   const addToast = vi.fn()
   const onClose = vi.fn()
   const onRefreshed = vi.fn()
   const refreshUser = vi.fn().mockResolvedValue(undefined)
-  const updateProfile = vi.fn().mockResolvedValue(undefined)
+  const updateProfile = vi.fn().mockResolvedValue(options.updateResponse)
+  const t = vi.fn((key: string) => key)
   const selectedFile = ref<File | null>(options.selectedFile ?? null)
   const submitter = useProfileUpdateSubmit({
     selectedFile,
@@ -36,7 +41,11 @@ function createSubmitter(options: {
     updateProfile,
     refreshUser,
     addToast,
-    t: (key: string) => key,
+    t,
+    confirm: vi.fn().mockResolvedValue(true),
+    getProfileImageChangeCost: () => options.profileImageChangeCost ?? 0,
+    isProfileImageChangeFree: () => options.profileImageChangeFree ?? true,
+    getCurrentPoints: () => options.currentPoints ?? 0,
     onRefreshed,
     onClose,
   })
@@ -48,6 +57,7 @@ function createSubmitter(options: {
     refreshUser,
     selectedFile,
     submitter,
+    t,
     updateProfile,
   }
 }
@@ -96,5 +106,36 @@ describe('useProfileUpdateSubmit', () => {
     expect(updateProfile).not.toHaveBeenCalled()
     expect(addToast).toHaveBeenCalledWith('common.messages.uploadFailed', 'error')
     expect(submitter.loading.value).toBe(false)
+  })
+
+  it('passes point values to the insufficient-points translation', async () => {
+    const file = new File(['profile'], 'profile.png', { type: 'image/png' })
+    const { submitter, t, updateProfile } = createSubmitter({
+      selectedFile: file,
+      profileImageChangeCost: 1000,
+      profileImageChangeFree: false,
+      currentPoints: 300,
+    })
+
+    await submitter.updateProfile()
+
+    expect(t).toHaveBeenCalledWith('user.profile.profileImageInsufficientPoints', {
+      current: 300,
+      cost: 1000,
+    })
+    expect(updateProfile).not.toHaveBeenCalled()
+  })
+
+  it('passes spent points to the success translation', async () => {
+    const file = new File(['profile'], 'profile.png', { type: 'image/png' })
+    const { submitter, t } = createSubmitter({
+      selectedFile: file,
+      updateResponse: { data: { spentPoints: 1000 } },
+    })
+    mocks.uploadFile.mockResolvedValueOnce(axiosApiSuccess({ fileId: 123 }))
+
+    await submitter.updateProfile()
+
+    expect(t).toHaveBeenCalledWith('user.profile.profileImageCostSpent', { points: 1000 })
   })
 })

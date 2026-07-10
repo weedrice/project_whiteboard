@@ -1,6 +1,6 @@
 import type { LocaleMessages } from './types'
 import { common, commonEn } from './common'
-import { search } from './search'
+import { search, searchEn } from './search'
 import { home, homeEn } from './home'
 import { layout, layoutEn } from './layout'
 import { auth, authEn } from './auth'
@@ -8,9 +8,10 @@ import { board, boardEn } from './board'
 import { comment, commentEn } from './comment'
 import { notification, notificationEn } from './notification'
 import { user } from './user'
+import { userEn } from './userEn'
 import { report, reportEn } from './report'
 import { emoticon, emoticonEn } from './emoticon'
-import { admin } from './admin'
+import { admin, adminEn } from './admin'
 import { onboarding, onboardingEn } from './onboarding'
 
 export const messages = {
@@ -31,17 +32,17 @@ export const messages = {
   },
   en: {
     common: commonEn,
-    search,
+    search: searchEn,
     home: homeEn,
     layout: layoutEn,
     auth: authEn,
     board: boardEn,
     comment: commentEn,
     notification: notificationEn,
-    user,
+    user: userEn,
     report: reportEn,
     emoticon: emoticonEn,
-    admin,
+    admin: adminEn,
     onboarding: onboardingEn,
   },
 } satisfies LocaleMessages

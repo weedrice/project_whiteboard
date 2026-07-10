@@ -1,4 +1,5 @@
 import type { CommonMessages } from './types'
+import { termsOfService, termsOfServiceEn } from './legal'
 
 export const common: CommonMessages = {
   advertisement: '광고',
@@ -179,6 +180,7 @@ export const common: CommonMessages = {
     ko: '한국어',
     en: 'English',
   },
+  terms: termsOfService,
 }
 
 export const commonEn: CommonMessages = {
@@ -225,4 +227,5 @@ export const commonEn: CommonMessages = {
     boardWriteForbidden: 'You do not have permission to write on this space.',
     postEditForbidden: 'You do not have permission to edit this post.',
   },
+  terms: termsOfServiceEn,
 }

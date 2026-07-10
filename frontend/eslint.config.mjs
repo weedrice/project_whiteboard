@@ -6,10 +6,31 @@ import vitest from '@vitest/eslint-plugin'
 import vueParser from 'vue-eslint-parser'
 
 const hasKoreanText = (value) => /[가-힣]/.test(value)
-const i18nGuardIgnoredFiles = new Set([
+const legalDocumentFiles = new Set([
     'src/views/PrivacyPolicy.vue',
-    'src/views/TermsOfService.vue',
 ])
+
+const hasStaticClass = (node, className) => {
+    const classAttribute = node.startTag?.attributes.find(
+        (attribute) => !attribute.directive && attribute.key.name === 'class',
+    )
+    const classValue = classAttribute?.value?.value
+    return typeof classValue === 'string' && classValue.split(/\s+/).includes(className)
+}
+
+const isAllowedLegalDocumentCopy = (node, relativeFilename) => {
+    if (!legalDocumentFiles.has(relativeFilename)) return false
+
+    let current = node.parent
+    while (current) {
+        if (current.type === 'VElement') {
+            if (hasStaticClass(current, 'nv-rich-content')) return true
+            if (current.name === 'h1' && hasStaticClass(current, 'nv-title')) return true
+        }
+        current = current.parent
+    }
+    return false
+}
 
 const localI18nPlugin = {
     rules: {
@@ -27,19 +48,18 @@ const localI18nPlugin = {
             create(context) {
                 const filename = context.filename.replaceAll('\\', '/')
                 const relativeFilename = filename.slice(filename.lastIndexOf('/src/') + 1)
-                if (i18nGuardIgnoredFiles.has(relativeFilename)) {
-                    return {}
-                }
 
                 const templateVisitor = {
                     VText(node) {
-                        if (hasKoreanText(node.value.trim())) {
+                        if (hasKoreanText(node.value.trim())
+                            && !isAllowedLegalDocumentCopy(node, relativeFilename)) {
                             context.report({ node, messageId: 'bareText' })
                         }
                     },
                     'VAttribute[directive=false]'(node) {
                         const value = node.value?.value
-                        if (typeof value === 'string' && hasKoreanText(value)) {
+                        if (typeof value === 'string' && hasKoreanText(value)
+                            && !isAllowedLegalDocumentCopy(node, relativeFilename)) {
                             context.report({ node, messageId: 'bareText' })
                         }
                     },

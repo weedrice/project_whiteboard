@@ -2,6 +2,63 @@
  * Locale message type definitions.
  */
 
+export interface TermsOfServiceMessages {
+  title: string
+  lastRevised: string
+  article1: {
+    title: string
+    body: string
+  }
+  article2: {
+    title: string
+    item1: string
+    item2: string
+  }
+  article3: {
+    title: string
+    intro: string
+    communitySpace: string
+    postManagement: string
+    commentsAndLikes: string
+    userCommunication: string
+    item2: string
+  }
+  article4: {
+    title: string
+    item1: string
+    intro: string
+    anotherIdentity: string
+    falseInformation: string
+    publicOrder: string
+  }
+  article5: {
+    title: string
+    intro: string
+    identityTheft: string
+    alterInformation: string
+    unauthorizedInformation: string
+    intellectualProperty: string
+    reputationOrOperations: string
+    improperContent: string
+  }
+  article6: {
+    title: string
+    body: string
+  }
+  article7: {
+    title: string
+    item1: string
+    item2: string
+    item3: string
+    item4: string
+  }
+  article8: {
+    title: string
+    item1: string
+    item2: string
+  }
+}
+
 export interface CommonMessages {
   advertisement: string
   appName: string
@@ -181,6 +238,7 @@ export interface CommonMessages {
     ko: string
     en: string
   }
+  terms: TermsOfServiceMessages
 }
 
 // 검색 메시지 타입
