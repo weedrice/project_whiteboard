@@ -60,6 +60,8 @@ export interface AdminMessages {
     auditActor: string
     auditReason: string
     auditCreatedAt: string
+    auditActions: Record<string, string>
+    auditTargets: Record<string, string>
   }
   users: {
     title: string

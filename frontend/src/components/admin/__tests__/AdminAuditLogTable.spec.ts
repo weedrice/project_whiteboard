@@ -6,7 +6,10 @@ import type { ModerationAuditLog } from '@/types/admin'
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({
-    t: (key: string) => key,
+    t: (key: string) => ({
+      'admin.dashboard.auditActions.POST_BLIND': 'Hide post',
+      'admin.dashboard.auditTargets.POST': 'Post',
+    } as Record<string, string>)[key] ?? key,
     locale: ref('en'),
   }),
 }))
@@ -44,6 +47,12 @@ describe('AdminAuditLogTable', () => {
     expect(wrapper.get('caption').classes()).toContain('sr-only')
     expect(wrapper.findAll('th').every((header) => header.attributes('scope') === 'col')).toBe(true)
     expect(wrapper.text()).toContain('Moderator')
+    expect(wrapper.text()).toContain('Hide post')
+    expect(wrapper.text()).toContain('Post #11')
+    expect(wrapper.get('[role="region"]').attributes()).toMatchObject({
+      'aria-label': 'Moderation audit logs',
+      tabindex: '0',
+    })
     expect(wrapper.text()).not.toContain('admin.dashboard.auditBoardUrl')
   })
 

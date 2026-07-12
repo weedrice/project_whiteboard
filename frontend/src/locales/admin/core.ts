@@ -58,6 +58,13 @@ export const adminCoreMessages = {
     auditActor: '수행자',
     auditReason: '사유',
     auditCreatedAt: '일시',
+    auditActions: {
+      POST_PIN: '게시글 고정', POST_UNPIN: '게시글 고정 해제', POST_BLIND: '게시글 숨김', POST_UNBLIND: '게시글 숨김 해제',
+      POST_AUTO_BLIND: '게시글 자동 숨김', COMMENT_AUTO_BLIND: '댓글 자동 숨김', REPORT_RESOLVE: '신고 처리', REPORT_REJECT: '신고 반려',
+      USER_ACTIVATE: '사용자 활성화', USER_SUSPEND: '사용자 정지', SUPER_ADMIN_GRANT: '최고 관리자 부여', SUPER_ADMIN_REVOKE: '최고 관리자 해제',
+      BOARD_DEACTIVATE: '스페이스 비활성화',
+    },
+    auditTargets: { POST: '게시글', COMMENT: '댓글', REPORT: '신고', USER: '사용자', BOARD: '스페이스' },
   },
 } satisfies Pick<AdminMessages, 'common' | 'layout' | 'menu' | 'dashboard'>
 
@@ -119,5 +126,12 @@ export const adminCoreMessagesEn = {
     auditActor: 'Actor',
     auditReason: 'Reason',
     auditCreatedAt: 'Date and time',
+    auditActions: {
+      POST_PIN: 'Pin post', POST_UNPIN: 'Unpin post', POST_BLIND: 'Hide post', POST_UNBLIND: 'Restore post',
+      POST_AUTO_BLIND: 'Automatically hide post', COMMENT_AUTO_BLIND: 'Automatically hide comment', REPORT_RESOLVE: 'Resolve report', REPORT_REJECT: 'Reject report',
+      USER_ACTIVATE: 'Activate user', USER_SUSPEND: 'Suspend user', SUPER_ADMIN_GRANT: 'Grant super admin', SUPER_ADMIN_REVOKE: 'Revoke super admin',
+      BOARD_DEACTIVATE: 'Deactivate space',
+    },
+    auditTargets: { POST: 'Post', COMMENT: 'Comment', REPORT: 'Report', USER: 'User', BOARD: 'Space' },
   },
 } satisfies Pick<AdminMessages, 'common' | 'layout' | 'menu' | 'dashboard'>

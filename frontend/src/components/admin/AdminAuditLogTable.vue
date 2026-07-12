@@ -20,13 +20,22 @@ const actorLabel = (audit: ModerationAuditLog) => {
   return audit.actorDisplayName || (audit.actorUserId ? `#${audit.actorUserId}` : '-')
 }
 
-const targetLabel = (audit: ModerationAuditLog) => `${audit.targetType} #${audit.targetId}`
+const actionLabel = (audit: ModerationAuditLog) => {
+  const key = `admin.dashboard.auditActions.${audit.action}`
+  const translated = t(key)
+  return translated === key ? audit.action : translated
+}
+const targetLabel = (audit: ModerationAuditLog) => {
+  const key = `admin.dashboard.auditTargets.${audit.targetType}`
+  const translated = t(key)
+  return `${translated === key ? audit.targetType : translated} #${audit.targetId}`
+}
 const formattedDate = (dateString: string) => formatDateTimeOrDash(dateString, locale.value as SupportedLocale)
 </script>
 
 <template>
-  <div v-if="audits.length > 0" class="overflow-x-auto">
-    <table class="min-w-full divide-y divide-[var(--nv-border)] text-sm">
+  <div v-if="audits.length > 0" class="overflow-x-auto" role="region" :aria-label="caption" tabindex="0">
+    <table class="min-w-[48rem] divide-y divide-[var(--nv-border)] text-sm">
       <caption class="sr-only">{{ caption }}</caption>
       <thead class="nv-surface-muted nv-text-subtle">
         <tr>
@@ -42,7 +51,7 @@ const formattedDate = (dateString: string) => formatDateTimeOrDash(dateString, l
       </thead>
       <tbody class="divide-y divide-[var(--nv-border)]">
         <tr v-for="audit in audits" :key="audit.auditId">
-          <td class="px-4 py-3 font-medium nv-title">{{ audit.action }}</td>
+          <td class="px-4 py-3 font-medium nv-title">{{ actionLabel(audit) }}</td>
           <td class="px-4 py-3 nv-text-subtle">{{ actorLabel(audit) }}</td>
           <td class="px-4 py-3 nv-text-subtle">{{ targetLabel(audit) }}</td>
           <td v-if="showBoardUrl" class="px-4 py-3 nv-text-subtle">{{ audit.boardUrl || '-' }}</td>
@@ -52,5 +61,5 @@ const formattedDate = (dateString: string) => formatDateTimeOrDash(dateString, l
       </tbody>
     </table>
   </div>
-  <p v-else class="px-4 py-5 text-center text-sm nv-text-subtle">{{ emptyText }}</p>
+  <p v-else class="px-4 py-5 text-center text-sm nv-text-subtle" role="status" aria-live="polite">{{ emptyText }}</p>
 </template>
