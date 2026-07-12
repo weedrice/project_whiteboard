@@ -40,7 +40,7 @@ const {
     class="flex items-center transition-[width] duration-200 ease-out"
     :class="
       isMobile && !isExpanded
-        ? 'relative w-10 flex-shrink-0'
+        ? 'relative w-11 flex-shrink-0 sm:w-10'
         : isMobile && isExpanded
           ? 'nv-global-search-mobile fixed inset-x-0 top-0 z-[100] h-16 px-4 shadow-sm border-b'
           : 'relative w-full max-w-[5rem] sm:max-w-xs md:max-w-md'
@@ -50,7 +50,7 @@ const {
       v-if="isMobile && !isExpanded"
       type="button"
       @click.stop="expandAndFocus"
-      class="nv-global-search-toggle flex h-11 w-11 items-center justify-center rounded-full focus:outline-none sm:h-10 sm:w-10"
+      class="nv-global-search-toggle flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full focus:outline-none sm:h-10 sm:w-10"
       :aria-label="$t('search.placeholder')">
       <Search class="h-5 w-5" />
     </button>

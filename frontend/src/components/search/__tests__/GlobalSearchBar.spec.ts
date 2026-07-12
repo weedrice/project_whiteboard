@@ -89,6 +89,18 @@ describe('GlobalSearchBar', () => {
         document.body.innerHTML = ''
     })
 
+    it('reserves a 44px collapsed search target on mobile', () => {
+        mobileViewport.value = true
+        const wrapper = mountSearchBar()
+
+        expect(wrapper.get('.nv-global-search-toggle').classes()).toEqual(
+            expect.arrayContaining(['h-11', 'w-11', 'flex-shrink-0']),
+        )
+        expect(Array.from(wrapper.get('.nv-global-search-toggle').element.parentElement?.classList ?? [])).toEqual(
+            expect.arrayContaining(['w-11', 'sm:w-10']),
+        )
+    })
+
     it('connects search input combobox attributes to board results', async () => {
         const wrapper = mountSearchBar()
         const input = wrapper.get('input')
