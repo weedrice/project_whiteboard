@@ -124,7 +124,7 @@ watch([() => props.isOpen, displayItems], ([isOpen, boards]) => {
       :aria-expanded="isOpen"
       :aria-pressed="isActive"
       aria-haspopup="menu"
-      class="nv-shell-tab nv-shell-tab-button flex items-center justify-center sm:justify-start space-x-1 px-3 py-2 rounded-full text-xs sm:text-sm font-medium focus:outline-none whitespace-nowrap min-w-0 min-h-[40px] sm:min-h-0 touch-manipulation"
+      class="nv-shell-tab nv-shell-tab-button nv-focus-ring flex items-center justify-center sm:justify-start space-x-1 px-3 py-2 rounded-full text-xs sm:text-sm font-medium focus:outline-none whitespace-nowrap min-w-0 min-h-[40px] sm:min-h-0 touch-manipulation"
       :class="{ 'is-active': isActive }">
       <span v-if="type === 'subscription'" class="sm:hidden">{{ mobileLabel || $t('board.list.subscribedShort') }}</span>
       <span v-if="type === 'subscription'" class="hidden sm:inline">{{ desktopLabel || $t('board.list.subscribed') }}</span>

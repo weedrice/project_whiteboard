@@ -5,7 +5,7 @@
         :id="menuButtonId"
         ref="buttonRef"
         type="button"
-        class="nv-user-menu-button inline-flex max-w-full min-w-0 items-center justify-start font-medium nv-text-muted focus:outline-none"
+        class="nv-user-menu-button nv-focus-ring inline-flex max-w-full min-w-0 items-center justify-start rounded-md font-medium nv-text-muted focus:outline-none"
         :class="[
           { 'cursor-default': isMenuDisabled },
           size === 'xs' ? 'text-xs' : size === 'inherit' ? 'text-inherit' : 'text-sm'

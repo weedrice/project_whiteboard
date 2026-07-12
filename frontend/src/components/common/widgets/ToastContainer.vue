@@ -67,7 +67,10 @@ const hasMobileBottomNav = computed(() => (
 
 @media (min-width: 640px) {
   .nv-toast-top-container {
+    align-items: flex-end;
+    left: auto;
     padding: 1rem 1.5rem;
+    width: min(26rem, 100vw);
   }
 }
 </style>

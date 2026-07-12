@@ -129,7 +129,7 @@ watch(() => props.isOpen, (isOpen) => {
       aria-haspopup="menu"
       :aria-expanded="isOpen ? 'true' : 'false'"
       :aria-controls="isOpen ? menuId : undefined"
-      class="flex items-center justify-center sm:justify-start space-x-2 text-xs sm:text-sm nv-text-muted user-dropdown-trigger focus:outline-none min-h-[40px] min-w-[40px] sm:min-h-0 sm:min-w-0 rounded-md touch-manipulation">
+      class="nv-focus-ring flex items-center justify-center sm:justify-start space-x-2 text-xs sm:text-sm nv-text-muted user-dropdown-trigger focus:outline-none min-h-[40px] min-w-[40px] sm:min-h-0 sm:min-w-0 rounded-md touch-manipulation">
       <UserAvatar
         :image-url="authStore.user?.profileImageUrl"
         :name="authStore.user?.displayName || authStore.user?.loginId || 'U'"

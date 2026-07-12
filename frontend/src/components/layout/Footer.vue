@@ -44,21 +44,21 @@ const commitHash = __COMMIT_HASH__
           <nav class="flex justify-center items-center gap-x-1 md:contents -mt-0.5 md:mt-0" aria-label="Footer navigation">
             <router-link
               to="/inquiry"
-              class="nv-footer-link text-sm py-1 px-2 md:py-1.5 min-h-[36px] inline-flex items-center justify-center rounded-md touch-manipulation md:pl-3"
+              class="nv-footer-link inline-flex min-h-[44px] items-center justify-center rounded-md px-2 py-1 text-sm touch-manipulation sm:min-h-[36px] md:py-1.5 md:pl-3"
             >
               {{ '\uBB38\uC758\uD558\uAE30' }}
             </router-link>
             <span class="nv-footer-separator md:ml-2" aria-hidden="true">|</span>
             <router-link
               to="/terms"
-              class="nv-footer-link text-sm py-1 px-2 md:py-1.5 min-h-[36px] inline-flex items-center justify-center rounded-md touch-manipulation md:pl-3"
+              class="nv-footer-link inline-flex min-h-[44px] items-center justify-center rounded-md px-2 py-1 text-sm touch-manipulation sm:min-h-[36px] md:py-1.5 md:pl-3"
             >
               {{ '\uC11C\uBE44\uC2A4\uC57D\uAD00' }}
             </router-link>
             <span class="nv-footer-separator md:ml-2" aria-hidden="true">|</span>
             <router-link
               to="/privacy"
-              class="nv-footer-link text-sm py-1 px-2 md:py-1.5 min-h-[36px] inline-flex items-center justify-center rounded-md touch-manipulation"
+              class="nv-footer-link inline-flex min-h-[44px] items-center justify-center rounded-md px-2 py-1 text-sm touch-manipulation sm:min-h-[36px] md:py-1.5"
             >
               {{ '\uAC1C\uC778\uC815\uBCF4 \uCC98\uB9AC\uBC29\uCE68' }}
             </router-link>

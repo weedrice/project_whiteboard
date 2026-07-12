@@ -3,7 +3,7 @@
     <a
       href="/oauth2/authorization/google"
       :aria-label="$t('auth.oauth.googleLogin')"
-      class="flex items-center justify-center rounded-md border px-4 py-2 shadow-sm nv-border nv-surface transition-colors duration-200 nv-hover-surface"
+      class="flex min-h-11 items-center justify-center rounded-md border px-4 py-2 shadow-sm nv-border nv-surface transition-colors duration-200 nv-hover-surface nv-focus-ring"
     >
       <span class="sr-only">Google</span>
       <svg class="h-5 w-5" viewBox="0 0 24 24" width="24" height="24" xmlns="http://www.w3.org/2000/svg">
@@ -18,7 +18,7 @@
     <a
       href="/oauth2/authorization/discord"
       :aria-label="$t('auth.oauth.discordLogin')"
-      class="flex items-center justify-center rounded-md border px-4 py-2 shadow-sm nv-border nv-surface transition-colors duration-200 nv-hover-surface"
+      class="flex min-h-11 items-center justify-center rounded-md border px-4 py-2 shadow-sm nv-border nv-surface transition-colors duration-200 nv-hover-surface nv-focus-ring"
     >
       <span class="sr-only">Discord</span>
       <svg class="h-5 w-5 text-[#5865F2]" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -28,7 +28,7 @@
     <a
       href="/oauth2/authorization/github"
       :aria-label="$t('auth.oauth.githubLogin')"
-      class="flex items-center justify-center rounded-md border px-4 py-2 shadow-sm nv-border nv-surface transition-colors duration-200 nv-hover-surface"
+      class="flex min-h-11 items-center justify-center rounded-md border px-4 py-2 shadow-sm nv-border nv-surface transition-colors duration-200 nv-hover-surface nv-focus-ring"
     >
       <span class="sr-only">GitHub</span>
       <svg class="h-5 w-5 nv-title" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
