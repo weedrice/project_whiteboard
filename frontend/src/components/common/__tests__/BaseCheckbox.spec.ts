@@ -38,7 +38,7 @@ describe('BaseCheckbox', () => {
 
         const checkboxId = wrapper.get('input').attributes('id')
         expect(checkboxId).toBeTruthy()
-        expect(wrapper.get('label').attributes('for')).toBe(checkboxId)
+        expect(wrapper.get(`label[for="${checkboxId}"]`).attributes('for')).toBe(checkboxId)
     })
 
     it('emits boolean value in single mode', async () => {
@@ -96,5 +96,23 @@ describe('BaseCheckbox', () => {
         })
 
         expect(wrapper.find('input').attributes('disabled')).toBeDefined()
+        expect(wrapper.get('input').classes()).toContain('cursor-not-allowed')
+    })
+
+    it('provides a full touch target and preserves external descriptions', () => {
+        const wrapper = mount(BaseCheckbox, {
+            attrs: {
+                'aria-describedby': 'external-help',
+            },
+            props: {
+                id: 'alerts',
+                label: 'Alerts',
+                description: 'Receive updates',
+            },
+        })
+
+        expect(wrapper.get('div').classes()).toContain('min-h-11')
+        expect(wrapper.get('label:not([for])').classes()).toEqual(expect.arrayContaining(['h-11', 'w-11']))
+        expect(wrapper.get('input').attributes('aria-describedby')).toBe('external-help alerts-description')
     })
 })

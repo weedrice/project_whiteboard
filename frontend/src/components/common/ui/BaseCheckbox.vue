@@ -1,13 +1,19 @@
 <template>
-    <div class="flex items-start" :class="$attrs.class">
-        <div class="flex items-center h-5">
+    <div
+        class="grid min-h-11 grid-cols-[2.75rem_minmax(0,1fr)] items-start"
+        :class="[$attrs.class, disabled ? 'opacity-60' : '']"
+    >
+        <label
+            class="flex h-11 w-11 items-center justify-center rounded-md focus-within:ring-2 focus-within:ring-[var(--nv-focus)] focus-within:ring-offset-2"
+            :class="disabled ? 'cursor-not-allowed' : 'cursor-pointer'"
+        >
             <input v-bind="{ ...$attrs, class: undefined }" :id="checkboxId" type="checkbox" :checked="checked" @change="updateValue" :disabled="disabled"
-                class="nv-checkbox h-4 w-4 rounded cursor-pointer"
-                :aria-describedby="description ? descriptionId : undefined"
-                :class="inputClass" />
-        </div>
-        <div class="ml-3 text-sm">
-            <label :for="checkboxId" class="font-medium nv-text-muted cursor-pointer" :class="labelClass">
+                class="nv-checkbox h-4 w-4 rounded"
+                :aria-describedby="describedBy"
+                :class="[inputClass, disabled ? 'cursor-not-allowed' : 'cursor-pointer']" />
+        </label>
+        <div class="min-w-0 py-2.5 text-sm">
+            <label :for="checkboxId" class="font-medium nv-text-muted" :class="[labelClass, disabled ? 'cursor-not-allowed' : 'cursor-pointer']">
                 {{ label }}
             </label>
             <p v-if="description" :id="descriptionId" class="nv-text-subtle">{{ description }}</p>
@@ -16,7 +22,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, useId } from 'vue'
+import { computed, useAttrs, useId } from 'vue'
 
 defineOptions({
     inheritAttrs: false
@@ -46,6 +52,11 @@ const props = withDefaults(defineProps<{
 const generatedId = useId()
 const checkboxId = computed(() => props.id ?? generatedId)
 const descriptionId = computed(() => `${checkboxId.value}-description`)
+const attrs = useAttrs()
+const describedBy = computed(() => [
+    attrs['aria-describedby'],
+    props.description ? descriptionId.value : undefined,
+].filter(Boolean).join(' ') || undefined)
 
 const emit = defineEmits<{
     (e: 'update:modelValue', value: boolean | unknown[]): void
