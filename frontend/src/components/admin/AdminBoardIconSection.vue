@@ -8,7 +8,7 @@
         <img
           v-if="iconUrl"
           :src="iconUrl"
-          alt="icon"
+          alt=""
           class="h-full w-full object-contain"
         />
         <span v-else class="text-xs nv-text-subtle">{{ t('admin.boards.iconEmpty') }}</span>
