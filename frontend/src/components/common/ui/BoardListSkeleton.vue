@@ -1,5 +1,11 @@
 <template>
-  <div class="space-y-6" aria-busy="true">
+  <div
+    class="space-y-6"
+    role="status"
+    aria-live="polite"
+    aria-busy="true"
+    :aria-label="$t('common.loading')"
+  >
     <div v-if="showSubscribed" class="mb-12">
       <BaseSkeleton width="9rem" height="1.75rem" className="mb-6" />
       <div class="flex space-x-6 overflow-hidden p-2 pb-4">

@@ -1,5 +1,10 @@
 <template>
-  <div class="nv-empty-state text-center py-12" :class="containerClass">
+  <div
+    class="nv-empty-state text-center py-12"
+    :class="containerClass"
+    role="status"
+    aria-live="polite"
+  >
     <div v-if="icon" class="nv-empty-state-icon mx-auto h-12 w-12 nv-text-subtle mb-4">
       <component :is="icon" class="h-full w-full" aria-hidden="true" />
     </div>

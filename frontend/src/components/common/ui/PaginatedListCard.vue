@@ -120,7 +120,14 @@ const getLoadingRowClass = (preset: LoadingPreset) => {
 
       <template v-if="loading && itemsCount === 0">
         <slot v-if="slots.loading" name="loading" />
-        <div v-else-if="loadingPreset !== 'none'" class="divide-y divide-[var(--nv-border)]">
+        <div
+          v-else-if="loadingPreset !== 'none'"
+          class="divide-y divide-[var(--nv-border)]"
+          role="status"
+          aria-live="polite"
+          aria-busy="true"
+          :aria-label="$t('common.loading')"
+        >
           <div
             v-for="i in loadingRows"
             :key="i"

@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { LayoutGrid } from 'lucide-vue-next'
 import BoardCard from './BoardCard.vue'
+import EmptyState from '@/components/common/ui/EmptyState.vue'
 import type { BoardListItem } from '@/types'
 
 defineProps<{
@@ -18,8 +20,12 @@ defineProps<{
       />
     </div>
     
-    <div v-if="boards.length === 0" class="text-center py-20 nv-text-subtle">
-      {{ $t('board.list.empty') }}
-    </div>
+    <EmptyState
+      v-if="boards.length === 0"
+      title-tag="h2"
+      :title="$t('board.list.empty')"
+      :icon="LayoutGrid"
+      container-class="py-20"
+    />
   </div>
 </template>

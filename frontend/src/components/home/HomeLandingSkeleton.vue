@@ -3,7 +3,13 @@ import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 </script>
 
 <template>
-  <div class="space-y-8 pb-8" aria-busy="true">
+  <div
+    class="space-y-8 pb-8"
+    role="status"
+    aria-live="polite"
+    aria-busy="true"
+    :aria-label="$t('common.loading')"
+  >
     <section class="nv-home-hero">
       <div class="flex items-center justify-between gap-4">
         <div class="nv-home-live-rollup">

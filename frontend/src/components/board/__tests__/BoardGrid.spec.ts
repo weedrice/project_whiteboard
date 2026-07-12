@@ -16,6 +16,20 @@ const makeBoard = (overrides: Partial<BoardListItem> = {}): BoardListItem => ({
 } as BoardListItem)
 
 describe('BoardGrid', () => {
+  it('exposes the empty result as a polite status', () => {
+    const wrapper = mount(BoardGrid, {
+      props: { boards: [] },
+      global: {
+        mocks: { $t: (key: string) => key },
+        stubs: { LayoutGrid: true, RouterLink: RouterLinkStub },
+      },
+    })
+
+    const emptyState = wrapper.get('[role="status"]')
+    expect(emptyState.attributes('aria-live')).toBe('polite')
+    expect(emptyState.get('h2').text()).toBe('board.list.empty')
+  })
+
   it('updates memoized card content when display-only board fields change', async () => {
     const wrapper = mount(BoardGrid, {
       props: {
