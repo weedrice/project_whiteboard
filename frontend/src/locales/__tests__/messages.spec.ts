@@ -6,7 +6,22 @@ type MessageRecord = Record<string, unknown>
 
 const supportedLocales: SupportedLocale[] = ['ko', 'en']
 const translatedDomains = ['search', 'user', 'admin'] as const
-const verifiedEnglishDomains = [...translatedDomains, 'board', 'comment'] as const
+const verifiedEnglishDomains = [
+  'common',
+  'search',
+  'home',
+  'layout',
+  'auth',
+  'board',
+  'comment',
+  'notification',
+  'user',
+  'report',
+  'emoticon',
+  'admin',
+  'onboarding',
+  'privacy',
+] as const
 const koreanTextPattern = /[가-힣]/
 
 function isMessageRecord(value: unknown): value is MessageRecord {
