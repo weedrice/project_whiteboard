@@ -86,11 +86,11 @@ function handleMarkAllAsRead() {
             </span>
             <div class="min-w-0 flex-1">
               <div class="flex items-center justify-between gap-2 mb-0.5">
-                <span class="text-[11px] nv-text-subtle flex-shrink-0">
+                <span class="text-xs nv-text-subtle flex-shrink-0">
                   {{ formatDate(notification.createdAt) }}
                 </span>
                 <span
-                  class="px-2 py-0.5 text-[11px] font-semibold rounded-full flex-shrink-0"
+                  class="px-2 py-0.5 text-xs font-semibold rounded-full flex-shrink-0"
                   :class="getNotificationPresentation(notification).badgeClass"
                 >
                   {{ t(getNotificationPresentation(notification).labelKey) }}
@@ -99,7 +99,7 @@ function handleMarkAllAsRead() {
               <div class="text-xs sm:text-sm nv-text-subtle line-clamp-2">
                 {{ notification.message }}
               </div>
-              <div v-if="notification.grouped" class="mt-1 text-[11px] font-medium nv-accent-text">
+              <div v-if="notification.grouped" class="mt-1 text-xs font-medium nv-accent-text">
                 {{ t('notification.groupedCount', { count: notification.groupCount }) }}
               </div>
             </div>

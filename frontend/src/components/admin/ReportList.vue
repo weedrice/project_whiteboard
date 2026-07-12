@@ -78,7 +78,7 @@ const columns = computed(() => [
         >
           <template v-if="item.targetDisplayName != null && item.targetLoginId != null">
             <span class="text-xs font-medium">{{ item.targetDisplayName }}</span>
-            <span class="text-[11px] nv-text-subtle">{{ item.targetLoginId }}</span>
+            <span class="text-xs nv-text-subtle">{{ item.targetLoginId }}</span>
           </template>
           <template v-else>
             <span class="text-xs">{{ getReportTargetDisplayText(t, item) }}</span>

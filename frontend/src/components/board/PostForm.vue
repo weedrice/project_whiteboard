@@ -433,7 +433,7 @@ defineExpose({
     </div>
 
     <div class="nv-compose-mobile-actions sm:hidden">
-      <div v-if="draftStatusLabel" class="truncate px-1 text-[11px] font-medium text-[var(--nv-muted)]">
+      <div v-if="draftStatusLabel" class="truncate px-1 text-xs font-medium text-[var(--nv-muted)]">
         {{ draftStatusLabel }}
       </div>
       <div class="flex items-center gap-2">

@@ -54,7 +54,7 @@
                         <div class="text-sm font-medium nv-accent-text truncate">
                             {{ msg.partnerName }}
                         </div>
-                        <div class="text-[11px] sm:text-xs nv-text-subtle flex-shrink-0">
+                        <div class="text-xs nv-text-subtle flex-shrink-0">
                             {{ formatDate(msg.createdAt) }}
                         </div>
                     </div>
@@ -111,7 +111,7 @@
                                             · {{ $t('user.message.currentMessage') }}
                                         </span>
                                     </span>
-                                    <span class="shrink-0 text-[11px] nv-text-subtle">{{ formatDate(message.createdAt) }}</span>
+                                    <span class="shrink-0 text-xs nv-text-subtle">{{ formatDate(message.createdAt) }}</span>
                                 </div>
                                 <p class="mt-1 whitespace-pre-wrap nv-text-subtle">{{ message.body }}</p>
                             </div>

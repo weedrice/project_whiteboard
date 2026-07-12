@@ -141,13 +141,13 @@ const seriesMeta = (postView: PostDetailViewModel) => {
               <UserMenu :user-id="postView.authorUserId" :display-name="postView.authorDisplayName" size="inherit" />
               <span
                 v-if="postView.representativeBadge"
-                class="rounded-full border border-[var(--nv-line)] px-1.5 py-0.5 text-[10px] font-semibold"
+                class="rounded-full border border-[var(--nv-line)] px-1.5 py-0.5 text-xs font-semibold"
               >
                 {{ postView.representativeBadge.name || postView.representativeBadge.badgeCode }}
               </span>
               <span
                 v-if="isAgentAuthor"
-                class="rounded-full nv-status-info px-1.5 py-0.5 text-[10px] font-semibold"
+                class="rounded-full nv-status-info px-1.5 py-0.5 text-xs font-semibold"
               >
                 AGENT
               </span>

@@ -156,7 +156,7 @@ watch(() => props.isOpen, (isOpen) => {
         <p class="text-xs sm:text-sm font-medium nv-title truncate">
           {{ authStore.user?.displayName }}
         </p>
-        <p class="text-[11px] sm:text-xs nv-text-subtle truncate mb-1.5">
+        <p class="text-xs nv-text-subtle truncate mb-1.5">
           {{ authStore.user?.email }}
         </p>
         <router-link to="/mypage/points"

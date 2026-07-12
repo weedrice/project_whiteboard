@@ -108,7 +108,7 @@ describe('PostTags', () => {
         })
         const tagButton = wrapper.get('button')
 
-        expect(tagButton.classes()).toContain('text-[11px]')
+        expect(tagButton.classes()).toContain('text-xs')
         expect(tagButton.classes()).not.toContain('bg-blue-100')
         expect(tagButton.classes()).toContain('nv-surface-muted')
         expect(tagButton.classes()).toContain('rounded-full')

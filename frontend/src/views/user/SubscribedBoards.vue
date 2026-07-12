@@ -72,7 +72,7 @@
                                         board.boardName || $t('user.subscriptions.unavailableBoard') }}</div>
                                     <span
                                         v-if="board.hasNewPosts"
-                                        class="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[var(--nv-accent)] px-1.5 text-[11px] font-semibold text-white"
+                                        class="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[var(--nv-accent)] px-1.5 text-xs font-semibold text-white"
                                     >
                                         {{ formatNewPostCount(board.newPostCount) }}
                                     </span>

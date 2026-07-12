@@ -161,7 +161,7 @@ async function handleRepresentativeBadge(badgeCode: string | null) {
                   <p class="truncate text-sm font-semibold nv-title">{{ badge.name || badge.badgeCode }}</p>
                   <p class="mt-1 line-clamp-2 text-xs nv-text-subtle">{{ badge.description }}</p>
                 </div>
-                <span class="rounded-full border border-[var(--nv-line)] px-2 py-0.5 text-[11px] font-semibold uppercase nv-text-subtle">
+                <span class="rounded-full border border-[var(--nv-line)] px-2 py-0.5 text-xs font-semibold uppercase nv-text-subtle">
                   {{ badge.tier }}
                 </span>
               </div>

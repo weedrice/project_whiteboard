@@ -29,7 +29,7 @@
           :class="[
             'inline-flex min-h-11 items-center rounded-full font-medium transition-colors cursor-pointer sm:min-h-0',
             compact
-              ? 'px-2.5 py-1 text-[11px] nv-surface-muted nv-border border nv-hover-surface'
+              ? 'px-2.5 py-1 text-xs nv-surface-muted nv-border border nv-hover-surface'
               : 'px-2 py-0.5 text-xs sm:text-sm nv-status-info nv-hover-surface'
           ]">
           #{{ tag }}
@@ -38,7 +38,7 @@
           :class="[
             'inline-flex items-center rounded-full font-medium',
             compact && readOnly
-              ? 'px-2.5 py-1 text-[11px] nv-surface-muted nv-border border'
+              ? 'px-2.5 py-1 text-xs nv-surface-muted nv-border border'
               : 'px-2 py-0.5 sm:px-2.5 sm:py-0.5 text-xs sm:text-sm nv-status-info'
           ]">
           #{{ tag }}

@@ -11,7 +11,7 @@
           alt="icon"
           class="h-full w-full object-contain"
         />
-        <span v-else class="text-[11px] nv-text-subtle">{{ t('admin.boards.iconEmpty') }}</span>
+        <span v-else class="text-xs nv-text-subtle">{{ t('admin.boards.iconEmpty') }}</span>
       </div>
 
       <div class="flex-1 min-w-0 space-y-2 pt-1">

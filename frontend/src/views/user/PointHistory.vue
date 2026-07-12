@@ -73,7 +73,7 @@ const formatBalance = (balance: number) => `${balance.toLocaleString()} P`
         <div class="flex items-start justify-between w-full gap-3 min-w-0">
           <div class="flex min-w-0 flex-1 items-start gap-3">
             <span
-              class="mt-0.5 inline-flex h-6 min-w-10 shrink-0 items-center justify-center rounded-full border px-2 text-[11px] font-semibold"
+              class="mt-0.5 inline-flex h-6 min-w-10 shrink-0 items-center justify-center rounded-full border px-2 text-xs font-semibold"
               :class="transactionClass(item)"
             >
               {{ transactionLabel(item) }}
@@ -82,17 +82,17 @@ const formatBalance = (balance: number) => `${balance.toLocaleString()} P`
               <p class="text-xs sm:text-sm font-medium nv-text truncate">
                 {{ item.description || $t('user.pointsHistory.adjustment') }}
               </p>
-              <p class="mt-1 text-[11px] sm:text-xs nv-text-subtle">
+              <p class="mt-1 text-xs nv-text-subtle">
                 {{ formatDate(item.createdAt) }}
               </p>
             </div>
           </div>
           <div class="flex shrink-0 flex-col items-end gap-1">
             <BaseBadge :variant="transactionBadgeVariant(item)" size="sm"
-              class="text-[11px] sm:text-xs px-2 py-0.5 font-semibold">
+              class="text-xs px-2 py-0.5 font-semibold">
               {{ formatSignedPoint(item.amount) }}
             </BaseBadge>
-            <span class="text-[11px] nv-text-subtle">
+            <span class="text-xs nv-text-subtle">
               {{ formatBalance(item.balanceAfter) }}
             </span>
           </div>

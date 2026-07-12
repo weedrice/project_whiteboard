@@ -108,7 +108,7 @@
   .recent-boards-clear {
     @apply whitespace-nowrap shrink-0 cursor-pointer transition-colors duration-150;
     color: var(--nv-muted);
-    font-size: 10px;
+    font-size: 12px;
   }
 
   .recent-boards-clear:hover {

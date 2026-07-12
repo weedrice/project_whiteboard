@@ -64,7 +64,7 @@
               <span>{{ item.displayName }}</span>
               <span
                 v-if="item.currentManager"
-                class="rounded nv-status-info px-1.5 py-0.5 text-[11px] font-medium"
+                class="rounded nv-status-info px-1.5 py-0.5 text-xs font-medium"
               >
                 {{ $t('user.selectModal.currentManager') }}
               </span>

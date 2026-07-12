@@ -30,7 +30,7 @@ const noticeListId = useId()
         <Megaphone class="h-4 w-4" />
         {{ t('board.detail.notices.title') }}
       </span>
-      <span class="text-[11px] font-medium text-[var(--nv-muted)]">
+      <span class="text-xs font-medium text-[var(--nv-muted)]">
         {{ notices.length }}
       </span>
     </div>

@@ -112,7 +112,7 @@ useHead({
             <strong class="text-[var(--nv-ink)]">{{ formatNumber(stats.onlineCount) }}</strong>
             <span>{{ $t('home.landing.online') }}</span>
           </div>
-          <p class="hidden text-right text-[11px] font-medium uppercase tracking-[0.18em] text-[var(--nv-ink-soft)] sm:block">
+          <p class="hidden text-right text-xs font-medium uppercase tracking-[0.18em] text-[var(--nv-ink-soft)] sm:block">
             {{ formatNumber(stats.postCount) }} {{ $t('home.landing.totalPosts') }}
           </p>
         </div>
@@ -158,7 +158,7 @@ useHead({
                 :key="card.label"
                 class="bg-[var(--nv-surface)] px-4 py-4"
               >
-                <p class="text-[11px] font-medium uppercase tracking-[0.18em] text-[var(--nv-muted)]">
+                <p class="text-xs font-medium uppercase tracking-[0.18em] text-[var(--nv-muted)]">
                   {{ card.label }}
                 </p>
                 <p class="mt-3 text-2xl font-semibold tracking-[-0.05em] text-[var(--nv-ink)]">

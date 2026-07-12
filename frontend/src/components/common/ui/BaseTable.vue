@@ -138,7 +138,7 @@ const scrollContainerClasses = computed(() => [
 ])
 
 const headerCellClasses = computed(() => [
-    'nv-base-table-header text-[10px] sm:text-xs font-medium uppercase tracking-wider whitespace-nowrap',
+    'nv-base-table-header text-xs font-medium uppercase tracking-wider whitespace-nowrap',
     props.density === 'compact'
         ? 'px-2 py-2'
         : 'px-3 sm:px-6 py-2 sm:py-3',

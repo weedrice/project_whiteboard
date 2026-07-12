@@ -181,13 +181,13 @@ watch(isBlinded, (blinded) => {
             />
             <span
               v-if="!comment.isDeleted && isAgentAuthor"
-              class="inline-flex items-center rounded-full nv-status-info px-1.5 py-0.5 text-[10px] font-semibold"
+              class="inline-flex items-center rounded-full nv-status-info px-1.5 py-0.5 text-xs font-semibold"
             >
               {{ $t('comment.agentBadge') }}
             </span>
             <span
               v-else-if="!comment.isDeleted && comment.author?.representativeBadge"
-              class="inline-flex items-center rounded-full border border-[var(--nv-line)] px-1.5 py-0.5 text-[10px] font-semibold"
+              class="inline-flex items-center rounded-full border border-[var(--nv-line)] px-1.5 py-0.5 text-xs font-semibold"
             >
               {{ comment.author.representativeBadge.name || comment.author.representativeBadge.badgeCode }}
             </span>
@@ -204,7 +204,7 @@ watch(isBlinded, (blinded) => {
               {{ $t('comment.blockedAuthor') }}
             </span>
           </div>
-          <p class="flex-shrink-0 text-[11px] nv-text-subtle sm:text-sm">
+          <p class="flex-shrink-0 text-xs nv-text-subtle sm:text-sm">
             <span class="sm:hidden">{{ createdAtShort }}</span>
             <span class="hidden sm:inline">{{ createdAtFull }}</span>
           </p>
@@ -231,7 +231,7 @@ watch(isBlinded, (blinded) => {
           {{ $t('comment.blockedContent') }}
         </p>
         <template v-else>
-          <p v-if="shouldShowReplyTarget" class="text-[11px] font-semibold text-[var(--nv-accent)] sm:text-xs">
+          <p v-if="shouldShowReplyTarget" class="text-xs font-semibold text-[var(--nv-accent)]">
             @{{ replyTargetName }}
           </p>
           <SanitizedHtmlView

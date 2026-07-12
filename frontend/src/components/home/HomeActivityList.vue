@@ -29,7 +29,7 @@ const goToPost = (post: FeedPost) => {
       @click="goToPost(post)"
     >
       <div class="flex min-w-0 items-center gap-3">
-        <span class="w-[5.75rem] flex-shrink-0 whitespace-nowrap text-left text-[11px] font-medium uppercase tracking-[0.14em] text-[var(--nv-muted)]">
+        <span class="w-[5.75rem] flex-shrink-0 whitespace-nowrap text-left text-xs font-medium uppercase tracking-[0.14em] text-[var(--nv-muted)]">
           {{ formatRelativeDate(post.createdAt) }}
         </span>
         <div class="min-w-0">
@@ -41,7 +41,7 @@ const goToPost = (post: FeedPost) => {
           </div>
         </div>
       </div>
-      <div class="ml-4 flex flex-shrink-0 items-center gap-3 text-[11px] text-[var(--nv-ink-soft)]">
+      <div class="ml-4 flex flex-shrink-0 items-center gap-3 text-xs text-[var(--nv-ink-soft)]">
         <span class="inline-flex items-center gap-1">
           <MessageSquare class="h-3.5 w-3.5" />
           {{ formatInteger(post.commentCount) }}
