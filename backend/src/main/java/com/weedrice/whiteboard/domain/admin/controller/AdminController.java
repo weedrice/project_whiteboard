@@ -65,8 +65,9 @@ public class AdminController {
      * @return {@link SuperAdminUpdateResponse} 등록된 Super Admin 정보
      */
     @PutMapping("/super/active")
-    public ApiResponse<SuperAdminUpdateResponse> activeSuperAdmin(@Valid @RequestBody SuperAdminRequest request) {
-        return ApiResponse.success(superAdminService.createSuperAdmin(request.getLoginId()));
+    public ApiResponse<SuperAdminUpdateResponse> activeSuperAdmin(@Valid @RequestBody SuperAdminRequest request,
+            @CurrentUserId Long userId) {
+        return ApiResponse.success(superAdminService.createSuperAdmin(request.getLoginId(), userId, request.getReason()));
     }
 
     /**
@@ -84,7 +85,8 @@ public class AdminController {
             @CurrentUserId Long userId) {
         return ApiResponse.success(superAdminService.deactivateSuperAdmin(
                 request.getLoginId(),
-                userId));
+                userId,
+                request.getReason()));
     }
 
     /**

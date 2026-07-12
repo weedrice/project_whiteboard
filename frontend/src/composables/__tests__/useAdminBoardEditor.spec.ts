@@ -9,6 +9,7 @@ const toastMock = vi.hoisted(() => ({
 }))
 
 const confirmMock = vi.hoisted(() => vi.fn())
+const confirmWithReasonMock = vi.hoisted(() => vi.fn())
 
 vi.mock('vue-i18n', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-i18n')>()
@@ -26,7 +27,8 @@ vi.mock('@/stores/toast', () => ({
 
 vi.mock('@/composables/useConfirm', () => ({
   useConfirm: () => ({
-    confirm: confirmMock
+    confirm: confirmMock,
+    confirmWithReason: confirmWithReasonMock,
   })
 }))
 
@@ -53,6 +55,7 @@ describe('useAdminBoardEditor', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     confirmMock.mockResolvedValue(true)
+    confirmWithReasonMock.mockResolvedValue('maintenance')
   })
 
   it('sorts admin boards and selects the first board for editing', async () => {
@@ -119,11 +122,11 @@ describe('useAdminBoardEditor', () => {
     const editor = useAdminBoardEditor({ boardsData, updateBoard })
     await nextTick()
     editor.form.isActive = false
-    confirmMock.mockResolvedValueOnce(false)
+    confirmWithReasonMock.mockResolvedValueOnce(null)
 
     await editor.handleSaveChanges()
 
-    expect(confirmMock).toHaveBeenCalledWith('admin.boards.messages.confirmDeactivate')
+    expect(confirmWithReasonMock).toHaveBeenCalledWith('admin.boards.messages.confirmDeactivate')
     expect(updateBoard).not.toHaveBeenCalled()
   })
 

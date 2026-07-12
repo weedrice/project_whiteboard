@@ -18,7 +18,7 @@ import { useConfirm } from '@/composables/useConfirm'
 
 const { t } = useI18n()
 const toastStore = useToastStore()
-const { confirm } = useConfirm()
+const { confirmWithReason } = useConfirm()
 const {
   useSuperAdmins,
   useUpdateSuperAdminStatus
@@ -65,11 +65,11 @@ async function handleCreateSuperAdmin() {
     return
   }
 
-  const isConfirmed = await confirm(t('admin.admins.addSuperAdminDesc'))
-  if (!isConfirmed) return
+  const reason = await confirmWithReason(t('admin.admins.addSuperAdminDesc'))
+  if (!reason) return
 
   try {
-    await updateSuperAdminStatus({ loginId, action: 'activate' })
+    await updateSuperAdminStatus({ loginId, action: 'activate', reason })
     toastStore.addToast(t('admin.admins.messages.added'), 'success')
     newSuperAdminLoginId.value = ''
   } catch {
@@ -78,14 +78,14 @@ async function handleCreateSuperAdmin() {
 }
 
 async function toggleSuperAdminStatus(admin: SuperAdminRow) {
-  const isConfirmed = await confirm(
+  const reason = await confirmWithReason(
     admin.superAdmin ? t('common.confirmDelete') : t('admin.admins.addSuperAdminDesc')
   )
-  if (!isConfirmed) return
+  if (!reason) return
 
   try {
     const action = admin.superAdmin ? 'deactivate' : 'activate'
-    await updateSuperAdminStatus({ loginId: String(admin.loginId ?? ''), action })
+    await updateSuperAdminStatus({ loginId: String(admin.loginId ?? ''), action, reason })
     toastStore.addToast(t('admin.admins.messages.statusChanged'), 'success')
   } catch {
     // Error handled globally

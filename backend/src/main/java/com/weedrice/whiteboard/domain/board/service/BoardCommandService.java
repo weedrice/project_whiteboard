@@ -11,8 +11,10 @@ import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.common.util.TextInputNormalizer;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import com.weedrice.whiteboard.domain.moderation.service.ModerationAuditLogService;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.Objects;
 
@@ -23,15 +25,26 @@ class BoardCommandService {
     private final UserRepository userRepository;
     private final AdminEligibleUserService adminEligibleUserService;
     private final BoardAccessPolicy boardAccessPolicy;
+    private final ModerationAuditLogService moderationAuditLogService;
+
+    @Autowired
+    BoardCommandService(BoardRepository boardRepository,
+                        UserRepository userRepository,
+                        AdminEligibleUserService adminEligibleUserService,
+                        BoardAccessPolicy boardAccessPolicy,
+                        ModerationAuditLogService moderationAuditLogService) {
+        this.boardRepository = boardRepository;
+        this.userRepository = userRepository;
+        this.adminEligibleUserService = adminEligibleUserService;
+        this.boardAccessPolicy = boardAccessPolicy;
+        this.moderationAuditLogService = moderationAuditLogService;
+    }
 
     BoardCommandService(BoardRepository boardRepository,
                         UserRepository userRepository,
                         AdminEligibleUserService adminEligibleUserService,
                         BoardAccessPolicy boardAccessPolicy) {
-        this.boardRepository = boardRepository;
-        this.userRepository = userRepository;
-        this.adminEligibleUserService = adminEligibleUserService;
-        this.boardAccessPolicy = boardAccessPolicy;
+        this(boardRepository, userRepository, adminEligibleUserService, boardAccessPolicy, null);
     }
 
     BoardCreateCommandResult createBoard(Long creatorId, BoardCreateRequest request) {
@@ -93,6 +106,15 @@ class BoardCommandService {
             boardRepository.saveAndFlush(board);
         } catch (DataIntegrityViolationException ex) {
             throw resolveBoardConflict(ex);
+        }
+        if (Boolean.TRUE.equals(previousIsActive) && Boolean.FALSE.equals(board.getIsActive())) {
+            if (request.getModerationReason() == null || request.getModerationReason().isBlank()) {
+                throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+            }
+            if (moderationAuditLogService != null) moderationAuditLogService.recordUserAction(currentUser,
+                    ModerationAuditLogService.ACTION_BOARD_DEACTIVATE,
+                    ModerationAuditLogService.TARGET_TYPE_BOARD,
+                    board.getBoardId(), board, request.getModerationReason());
         }
         return new BoardUpdateCommandResult(board, currentUser, previousIconUrl, previousBoardName,
                 previousIsActive, previousIsPublic,

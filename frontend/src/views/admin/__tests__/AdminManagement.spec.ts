@@ -23,7 +23,7 @@ const superAdminsData = ref([
 const isSuperAdminsLoading = ref(false)
 const updateSuperAdminStatus = vi.fn()
 const addToast = vi.fn()
-const confirm = vi.fn()
+const confirmWithReason = vi.fn()
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({
@@ -36,7 +36,7 @@ vi.mock('@/stores/toast', () => ({
 }))
 
 vi.mock('@/composables/useConfirm', () => ({
-  useConfirm: () => ({ confirm }),
+  useConfirm: () => ({ confirmWithReason }),
 }))
 
 vi.mock('@/composables/useAdmin', () => ({
@@ -118,7 +118,7 @@ describe('AdminManagement', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     updateSuperAdminStatus.mockResolvedValue(undefined)
-    confirm.mockResolvedValue(true)
+    confirmWithReason.mockResolvedValue('reviewed')
     superAdminsData.value = [
       {
         userId: 1,
@@ -165,7 +165,7 @@ describe('AdminManagement', () => {
     await wrapper.get('#superAdminLoginId').setValue('  new-admin  ')
     await wrapper.get('form').trigger('submit')
 
-    expect(updateSuperAdminStatus).toHaveBeenCalledWith({ loginId: 'new-admin', action: 'activate' })
+    expect(updateSuperAdminStatus).toHaveBeenCalledWith({ loginId: 'new-admin', action: 'activate', reason: 'reviewed' })
     expect(addToast).toHaveBeenCalledWith('admin.admins.messages.added', 'success')
     expect((wrapper.get('#superAdminLoginId').element as HTMLInputElement).value).toBe('')
   })
@@ -175,7 +175,7 @@ describe('AdminManagement', () => {
 
     await wrapper.findAll('[data-testid="status-action"]')[0].trigger('click')
 
-    expect(updateSuperAdminStatus).toHaveBeenCalledWith({ loginId: 'root', action: 'deactivate' })
+    expect(updateSuperAdminStatus).toHaveBeenCalledWith({ loginId: 'root', action: 'deactivate', reason: 'reviewed' })
     expect(addToast).toHaveBeenCalledWith('admin.admins.messages.statusChanged', 'success')
   })
 })

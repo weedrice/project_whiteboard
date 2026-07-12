@@ -33,7 +33,7 @@ import {
 
 const { t } = useI18n()
 const toastStore = useToastStore()
-const { confirm } = useConfirm()
+const { confirmWithReason } = useConfirm()
 const { useUsers, useUpdateUserStatus } = useAdmin()
 
 const {
@@ -88,10 +88,10 @@ function getStatusActionLabel(status: AdminUserMutableStatus) {
 async function handleStatusChange(user: User, status: AdminUserMutableStatus) {
   if (!canChangeAdminUserStatus(user.status)) return
 
-  const isConfirmed = await confirm(t('admin.users.messages.confirmStatusChange', { action: getStatusActionLabel(user.status) }))
-  if (!isConfirmed) return
+  const reason = await confirmWithReason(t('admin.users.messages.confirmStatusChange', { action: getStatusActionLabel(user.status) }))
+  if (!reason) return
   try {
-    await updateUserStatus({ userId: user.userId, status })
+    await updateUserStatus({ userId: user.userId, status, reason })
     toastStore.addToast(t('admin.users.messages.statusChanged'), 'success')
   } catch {
     // Error handled globally

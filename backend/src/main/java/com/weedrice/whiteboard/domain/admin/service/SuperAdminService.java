@@ -5,6 +5,8 @@ import com.weedrice.whiteboard.domain.admin.dto.SuperAdminUpdateResponse;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.moderation.service.ModerationAuditLogService;
+import com.weedrice.whiteboard.domain.user.service.UserReadableResolver;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -21,9 +23,17 @@ public class SuperAdminService {
 
     private final UserRepository userRepository;
     private final OperationalPrivilegeRevocationGuard privilegeRevocationGuard;
+    private final UserReadableResolver userReadableResolver;
+    private final ModerationAuditLogService moderationAuditLogService;
 
     @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     @Transactional
+    public SuperAdminUpdateResponse createSuperAdmin(String loginId, Long actorUserId, String reason) {
+        SuperAdminUpdateResponse response = createSuperAdmin(loginId);
+        recordAudit(actorUserId, resolveTargetUserId(response.getLoginId()), ModerationAuditLogService.ACTION_SUPER_ADMIN_GRANT, reason);
+        return response;
+    }
+
     public SuperAdminUpdateResponse createSuperAdmin(String loginId) {
         String normalizedLoginId = normalizeLoginId(loginId);
         User user = userRepository.findByLoginId(normalizedLoginId)
@@ -42,6 +52,12 @@ public class SuperAdminService {
 
     @PreAuthorize("hasRole('" + Role.SUPER_ADMIN + "')")
     @Transactional
+    public SuperAdminUpdateResponse deactivateSuperAdmin(String loginId, Long actorUserId, String reason) {
+        SuperAdminUpdateResponse response = deactivateSuperAdmin(loginId, actorUserId);
+        recordAudit(actorUserId, resolveTargetUserId(response.getLoginId()), ModerationAuditLogService.ACTION_SUPER_ADMIN_REVOKE, reason);
+        return response;
+    }
+
     public SuperAdminUpdateResponse deactivateSuperAdmin(String loginId, Long actorUserId) {
         if (actorUserId == null) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED);
@@ -75,6 +91,18 @@ public class SuperAdminService {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
         return loginId.trim();
+    }
+
+    private void recordAudit(Long actorUserId, Long targetUserId, String action, String reason) {
+        User actor = userReadableResolver.resolve(actorUserId);
+        moderationAuditLogService.recordUserAction(actor, action, ModerationAuditLogService.TARGET_TYPE_USER,
+                targetUserId, null, reason);
+    }
+
+    private Long resolveTargetUserId(String loginId) {
+        return userRepository.findByLoginId(loginId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND))
+                .getUserId();
     }
 
 }

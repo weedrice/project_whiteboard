@@ -272,6 +272,7 @@ class AdminUserControllerTest {
     void updateUserStatus_returnsSuccess() throws Exception {
         UserStatusUpdateRequest request = new UserStatusUpdateRequest();
         ReflectionTestUtils.setField(request, "status", "ACTIVE");
+        ReflectionTestUtils.setField(request, "reason", "reviewed");
 
         mockMvc.perform(put("/api/v1/admin/users/{userId}/status", 1L)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -281,7 +282,7 @@ class AdminUserControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
 
-        verify(userAdminCommandService).updateUserStatus(1L, 1L, "ACTIVE");
+        verify(userAdminCommandService).updateUserStatus(1L, 1L, "ACTIVE", "reviewed");
     }
 
     @Test
@@ -289,8 +290,9 @@ class AdminUserControllerTest {
     void updateUserStatus_returnsForbiddenWhenActivationBlocked() throws Exception {
         UserStatusUpdateRequest request = new UserStatusUpdateRequest();
         ReflectionTestUtils.setField(request, "status", "ACTIVE");
+        ReflectionTestUtils.setField(request, "reason", "reviewed");
         doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE))
-                .when(userAdminCommandService).updateUserStatus(1L, 1L, "ACTIVE");
+                .when(userAdminCommandService).updateUserStatus(1L, 1L, "ACTIVE", "reviewed");
 
         mockMvc.perform(put("/api/v1/admin/users/{userId}/status", 1L)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -307,8 +309,9 @@ class AdminUserControllerTest {
     void updateUserStatus_returnsBadRequestWhenDeletedUserIsUpdated() throws Exception {
         UserStatusUpdateRequest request = new UserStatusUpdateRequest();
         ReflectionTestUtils.setField(request, "status", "SUSPENDED");
+        ReflectionTestUtils.setField(request, "reason", "reviewed");
         doThrow(new BusinessException(ErrorCode.INVALID_INPUT_VALUE))
-                .when(userAdminCommandService).updateUserStatus(1L, 1L, "SUSPENDED");
+                .when(userAdminCommandService).updateUserStatus(1L, 1L, "SUSPENDED", "reviewed");
 
         mockMvc.perform(put("/api/v1/admin/users/{userId}/status", 1L)
                         .contentType(MediaType.APPLICATION_JSON)
@@ -331,6 +334,6 @@ class AdminUserControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false));
 
-        verify(userAdminCommandService, never()).updateUserStatus(any(Long.class), any(Long.class), any(String.class));
+        verify(userAdminCommandService, never()).updateUserStatus(any(Long.class), any(Long.class), any(String.class), any(String.class));
     }
 }

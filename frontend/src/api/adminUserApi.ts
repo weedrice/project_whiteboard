@@ -33,8 +33,8 @@ export const adminUserApi = {
     getUserSubscriptions(userId: string | number, params: PaginationParams, config?: AxiosRequestConfig) {
         return api.get<ApiResponse<PageResponse<AdminUserSubscriptionItem>>>(`/admin/users/${encodePathSegment(userId)}/subscriptions`, { ...config, params })
     },
-    updateUserStatus(userId: string | number, status: string) {
-        return api.put<ApiResponse<void>>(`/admin/users/${encodePathSegment(userId)}/status`, { status })
+    updateUserStatus(userId: string | number, status: string, reason: string) {
+        return api.put<ApiResponse<void>>(`/admin/users/${encodePathSegment(userId)}/status`, { status, reason })
     },
     sanctionUser(data: SanctionData) {
         return api.post<ApiResponse<number>>('/admin/sanctions', data)

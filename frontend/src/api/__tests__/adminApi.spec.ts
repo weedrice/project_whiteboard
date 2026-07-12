@@ -102,23 +102,23 @@ describe('adminApi - Other Endpoints', () => {
 
     it('calls super admin endpoints correctly', () => {
         adminApi.getSuperAdmin()
-        adminApi.activeSuperAdmin({ loginId: 'super' })
-        adminApi.deactivateSuperAdmin({ loginId: 'super' })
+        adminApi.activeSuperAdmin({ loginId: 'super', reason: 'grant' })
+        adminApi.deactivateSuperAdmin({ loginId: 'super', reason: 'revoke' })
 
         expect(apiMock.get).toHaveBeenNthCalledWith(1, '/admin/super')
-        expect(apiMock.put).toHaveBeenNthCalledWith(1, '/admin/super/active', { loginId: 'super' })
-        expect(apiMock.put).toHaveBeenNthCalledWith(2, '/admin/super/deactive', { loginId: 'super' })
+        expect(apiMock.put).toHaveBeenNthCalledWith(1, '/admin/super/active', { loginId: 'super', reason: 'grant' })
+        expect(apiMock.put).toHaveBeenNthCalledWith(2, '/admin/super/deactive', { loginId: 'super', reason: 'revoke' })
     })
 
     it('calls user management endpoints correctly', () => {
         const params = { page: 0, size: 10, q: 'john' }
 
         adminApi.getUsers(params)
-        adminApi.updateUserStatus(1, 'ACTIVE')
+        adminApi.updateUserStatus(1, 'ACTIVE', 'reviewed')
         adminApi.sanctionUser({ targetUserId: 1, type: 'BAN', remark: 'spam' })
 
         expect(apiMock.get).toHaveBeenNthCalledWith(1, '/admin/users', { params })
-        expect(apiMock.put).toHaveBeenNthCalledWith(1, '/admin/users/1/status', { status: 'ACTIVE' })
+        expect(apiMock.put).toHaveBeenNthCalledWith(1, '/admin/users/1/status', { status: 'ACTIVE', reason: 'reviewed' })
         expect(apiMock.post).toHaveBeenNthCalledWith(1, '/admin/sanctions', { targetUserId: 1, type: 'BAN', remark: 'spam' })
     })
 

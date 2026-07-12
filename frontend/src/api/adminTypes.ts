@@ -11,6 +11,7 @@ export interface AdminCreateData {
 
 export interface SuperAdminData {
     loginId: string
+    reason: string
 }
 
 export interface IpBlockData {

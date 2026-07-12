@@ -33,4 +33,7 @@ public class BoardUpdateRequest {
 
     @Size(max = 5000)
     private String guidePrompt;
+
+    @Size(max = 500)
+    private String moderationReason;
 }

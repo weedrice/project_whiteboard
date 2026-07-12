@@ -105,6 +105,7 @@ export interface BoardUpdateData {
     isPublic?: boolean
     agentUseYn?: boolean
     guidePrompt?: string
+    moderationReason?: string
 }
 
 export interface Category {

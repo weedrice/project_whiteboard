@@ -95,7 +95,7 @@ public class AdminUserController {
             @PathVariable Long userId,
             @Valid @RequestBody UserStatusUpdateRequest request,
             @CurrentUserId Long adminUserId) {
-        userAdminCommandService.updateUserStatus(adminUserId, userId, request.getStatus());
+        userAdminCommandService.updateUserStatus(adminUserId, userId, request.getStatus(), request.getReason());
         return ApiResponses.ok();
     }
 }

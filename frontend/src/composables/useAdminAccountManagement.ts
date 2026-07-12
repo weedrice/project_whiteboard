@@ -67,9 +67,9 @@ export function useAdminAccountManagement(queryClient: QueryClient) {
 
     const useUpdateSuperAdminStatus = () => {
         return useMutation({
-            mutationFn: ({ loginId, action }: { loginId: string, action: 'activate' | 'deactivate' }) => {
-                if (action === 'activate') return adminApi.activeSuperAdmin({ loginId })
-                return adminApi.deactivateSuperAdmin({ loginId })
+            mutationFn: ({ loginId, action, reason }: { loginId: string, action: 'activate' | 'deactivate', reason: string }) => {
+                if (action === 'activate') return adminApi.activeSuperAdmin({ loginId, reason })
+                return adminApi.deactivateSuperAdmin({ loginId, reason })
             },
             onSuccess: () => invalidateAdminSuperAdminCaches(queryClient)
         })
@@ -91,7 +91,7 @@ export function useAdminAccountManagement(queryClient: QueryClient) {
 
     const useUpdateUserStatus = () => {
         return useMutation({
-            mutationFn: ({ userId, status }: { userId: string | number, status: string }) => adminApi.updateUserStatus(userId, status),
+            mutationFn: ({ userId, status, reason }: { userId: string | number, status: string, reason: string }) => adminApi.updateUserStatus(userId, status, reason),
             onSuccess: () => {
                 invalidateAdminUserCaches(queryClient)
             }

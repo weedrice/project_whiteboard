@@ -1023,6 +1023,7 @@ class BoardServiceTest {
         ReflectionTestUtils.setField(request, "sortOrder", 1);
         ReflectionTestUtils.setField(request, "isActive", false);
         ReflectionTestUtils.setField(request, "isPublic", true);
+        ReflectionTestUtils.setField(request, "moderationReason", "maintenance");
 
         when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
 

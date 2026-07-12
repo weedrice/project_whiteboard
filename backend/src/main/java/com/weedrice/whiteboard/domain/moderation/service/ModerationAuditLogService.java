@@ -34,9 +34,16 @@ public class ModerationAuditLogService {
     public static final String ACTION_COMMENT_AUTO_BLIND = "COMMENT_AUTO_BLIND";
     public static final String ACTION_REPORT_RESOLVE = "REPORT_RESOLVE";
     public static final String ACTION_REPORT_REJECT = "REPORT_REJECT";
+    public static final String ACTION_USER_ACTIVATE = "USER_ACTIVATE";
+    public static final String ACTION_USER_SUSPEND = "USER_SUSPEND";
+    public static final String ACTION_SUPER_ADMIN_GRANT = "SUPER_ADMIN_GRANT";
+    public static final String ACTION_SUPER_ADMIN_REVOKE = "SUPER_ADMIN_REVOKE";
+    public static final String ACTION_BOARD_DEACTIVATE = "BOARD_DEACTIVATE";
     public static final String TARGET_TYPE_POST = "POST";
     public static final String TARGET_TYPE_COMMENT = "COMMENT";
     public static final String TARGET_TYPE_REPORT = "REPORT";
+    public static final String TARGET_TYPE_USER = "USER";
+    public static final String TARGET_TYPE_BOARD = "BOARD";
 
     private final ModerationAuditLogRepository moderationAuditLogRepository;
     private final BoardRepository boardRepository;

@@ -37,7 +37,7 @@ export interface AdminBoardEditorForm {
 export function useAdminBoardEditor({ boardsData, updateBoard }: UseAdminBoardEditorOptions) {
   const { t } = useI18n()
   const toastStore = useToastStore()
-  const { confirm } = useConfirm()
+  const { confirm, confirmWithReason } = useConfirm()
 
   const boards = ref<AdminBoard[]>([])
   const originalBoardUrls = ref<Record<number, string>>({})
@@ -174,7 +174,7 @@ export function useAdminBoardEditor({ boardsData, updateBoard }: UseAdminBoardEd
     return changedBoardIds
   }
 
-  async function saveBoardUpdates(boardIds: number[], showSuccessToast = true) {
+  async function saveBoardUpdates(boardIds: number[], showSuccessToast = true, moderationReason?: string) {
     const uniqueBoardIds = [...new Set(boardIds)]
     if (uniqueBoardIds.length === 0) return
 
@@ -186,7 +186,8 @@ export function useAdminBoardEditor({ boardsData, updateBoard }: UseAdminBoardEd
 
       return updateBoard({
         boardUrl: requestBoardUrl,
-        data: normalizeBoardWritePayload({
+        data: {
+          ...normalizeBoardWritePayload({
           boardName: board.boardName,
           boardUrl: board.boardUrl,
           description: board.description || '',
@@ -196,7 +197,9 @@ export function useAdminBoardEditor({ boardsData, updateBoard }: UseAdminBoardEd
           isActive: board.isActive,
           agentUseYn: board.agentUseYn ?? false,
           guidePrompt: board.guidePrompt || ''
-        }, { isPublic: board.isPublic })
+          }, { isPublic: board.isPublic }),
+          ...(moderationReason && board.boardId === selectedBoardId.value ? { moderationReason } : {})
+        }
       }).then(() => {
         originalBoardUrls.value[board.boardId] = board.boardUrl
       })
@@ -311,10 +314,10 @@ export function useAdminBoardEditor({ boardsData, updateBoard }: UseAdminBoardEd
       return
     }
 
-    if (selectedBoard.value.isActive && !form.isActive) {
-      const isConfirmed = await confirm(t('admin.boards.messages.confirmDeactivate'))
-      if (!isConfirmed) return
-    }
+    const moderationReason = selectedBoard.value.isActive && !form.isActive
+      ? await confirmWithReason(t('admin.boards.messages.confirmDeactivate'))
+      : undefined
+    if (selectedBoard.value.isActive && !form.isActive && !moderationReason) return
 
     const snapshot = createSnapshot()
     applySelectedBoardForm()
@@ -325,7 +328,7 @@ export function useAdminBoardEditor({ boardsData, updateBoard }: UseAdminBoardEd
 
     isSubmitting.value = true
     try {
-      await saveBoardUpdates(modifiedBoardIds.value, true)
+      await saveBoardUpdates(modifiedBoardIds.value, true, moderationReason ?? undefined)
     } catch {
       restoreSnapshot(snapshot)
       // Error handled globally

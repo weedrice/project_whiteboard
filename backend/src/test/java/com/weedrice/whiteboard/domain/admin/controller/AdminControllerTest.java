@@ -159,10 +159,11 @@ class AdminControllerTest {
     void activeSuperAdmin_returnsSuccess() throws Exception {
         SuperAdminRequest request = new SuperAdminRequest();
         ReflectionTestUtils.setField(request, "loginId", "admin");
+        ReflectionTestUtils.setField(request, "reason", "approved");
 
         SuperAdminUpdateResponse response = SuperAdminUpdateResponse.builder().loginId("admin").isSuperAdmin(true)
                 .build();
-        when(superAdminService.createSuperAdmin("admin")).thenReturn(response);
+        when(superAdminService.createSuperAdmin("admin", 1L, "approved")).thenReturn(response);
 
         mockMvc.perform(put("/api/v1/admin/super/active")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -184,7 +185,7 @@ class AdminControllerTest {
                         .with(csrf()))
                 .andExpect(status().isBadRequest());
 
-        verify(superAdminService, never()).createSuperAdmin(any());
+        verify(superAdminService, never()).createSuperAdmin(any(), any(), any());
     }
 
     @Test
@@ -192,12 +193,13 @@ class AdminControllerTest {
     void deactivateSuperAdmin_passesActorUserId() throws Exception {
         SuperAdminRequest request = new SuperAdminRequest();
         ReflectionTestUtils.setField(request, "loginId", "admin");
+        ReflectionTestUtils.setField(request, "reason", "revoked");
 
         SuperAdminUpdateResponse response = SuperAdminUpdateResponse.builder()
                 .loginId("admin")
                 .isSuperAdmin(false)
                 .build();
-        when(superAdminService.deactivateSuperAdmin("admin", 1L)).thenReturn(response);
+        when(superAdminService.deactivateSuperAdmin("admin", 1L, "revoked")).thenReturn(response);
 
         mockMvc.perform(put("/api/v1/admin/super/deactive")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -209,7 +211,7 @@ class AdminControllerTest {
                 .andExpect(jsonPath("$.data.loginId").value("admin"))
                 .andExpect(jsonPath("$.data.superAdmin").value(false));
 
-        verify(superAdminService).deactivateSuperAdmin("admin", 1L);
+        verify(superAdminService).deactivateSuperAdmin("admin", 1L, "revoked");
     }
 
     @Test

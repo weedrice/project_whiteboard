@@ -217,9 +217,9 @@ describe('useAdmin', () => {
 
             vi.mocked(adminApi.activeSuperAdmin).mockResolvedValue(apiSuccessResponse<typeof adminApi.activeSuperAdmin>())
 
-            await mutation.mutateAsync({ loginId: 'superadmin', action: 'activate' })
+            await mutation.mutateAsync({ loginId: 'superadmin', action: 'activate', reason: 'grant' })
 
-            expect(adminApi.activeSuperAdmin).toHaveBeenCalledWith({ loginId: 'superadmin' })
+            expect(adminApi.activeSuperAdmin).toHaveBeenCalledWith({ loginId: 'superadmin', reason: 'grant' })
             expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['admin', 'super'] })
         })
 
@@ -229,9 +229,9 @@ describe('useAdmin', () => {
 
             vi.mocked(adminApi.deactivateSuperAdmin).mockResolvedValue(apiSuccessResponse<typeof adminApi.deactivateSuperAdmin>())
 
-            await mutation.mutateAsync({ loginId: 'superadmin', action: 'deactivate' })
+            await mutation.mutateAsync({ loginId: 'superadmin', action: 'deactivate', reason: 'revoke' })
 
-            expect(adminApi.deactivateSuperAdmin).toHaveBeenCalledWith({ loginId: 'superadmin' })
+            expect(adminApi.deactivateSuperAdmin).toHaveBeenCalledWith({ loginId: 'superadmin', reason: 'revoke' })
         })
     })
 
@@ -277,9 +277,9 @@ describe('useAdmin', () => {
 
             vi.mocked(adminApi.updateUserStatus).mockResolvedValue(apiSuccessResponse<typeof adminApi.updateUserStatus>())
 
-            await mutation.mutateAsync({ userId: 1, status: 'ACTIVE' })
+            await mutation.mutateAsync({ userId: 1, status: 'ACTIVE', reason: 'reviewed' })
 
-            expect(adminApi.updateUserStatus).toHaveBeenCalledWith(1, 'ACTIVE')
+            expect(adminApi.updateUserStatus).toHaveBeenCalledWith(1, 'ACTIVE', 'reviewed')
             expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['admin', 'users'] })
             expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['admin', 'users', 'detail'] })
         })
