@@ -1,6 +1,6 @@
 <template>
     <div class="flex min-h-[60vh] items-center justify-center nv-page">
-        <ErrorState :code="status" :title="title" :message="message" :show-icon="false">
+        <ErrorState title-tag="h1" :code="status" :title="title" :message="message" :show-icon="false">
             <form v-if="numericStatus === 404" class="flex w-full gap-2 sm:order-first" @submit.prevent="search">
                 <BaseInput v-model="keyword" :label="t('common.search')" :placeholder="t('common.search')" hide-label class="min-w-0 flex-1" />
                 <BaseButton type="submit" :disabled="!keyword.trim()">{{ t('common.search') }}</BaseButton>

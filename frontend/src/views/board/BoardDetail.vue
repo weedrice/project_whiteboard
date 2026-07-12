@@ -130,7 +130,8 @@ useHead({
   <div class="nv-board-shell">
     <BoardDetailLoadingState v-if="isInitialLoading" />
 
-    <section v-else-if="blockingError" class="nv-board-panel nv-board-state-panel px-4 py-12 text-center sm:px-6">
+    <section v-else-if="blockingError" class="nv-board-panel nv-board-state-panel px-4 py-12 text-center sm:px-6"
+      role="alert" aria-live="assertive">
       <p class="nv-kicker">NODE</p>
       <p class="mt-3 text-sm nv-form-error">{{ blockingError }}</p>
     </section>

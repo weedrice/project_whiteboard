@@ -1,6 +1,6 @@
 <template>
     <div v-if="hasError" class="error-boundary">
-        <ErrorState :title="title" :message="message" :notice="reportAccepted ? t('common.error.reportAccepted') : ''" :show-icon="false">
+        <ErrorState title-tag="h1" :title="title" :message="message" :notice="reportAccepted ? t('common.error.reportAccepted') : ''" :show-icon="false">
                 <BaseButton @click="handleRetry" variant="primary">
                     {{ t('common.error.retry') }}
                 </BaseButton>

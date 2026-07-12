@@ -48,4 +48,15 @@ describe('ErrorState', () => {
     expect(wrapper.text()).not.toContain('common.error.title')
     expect(wrapper.text()).not.toContain('common.retry')
   })
+
+  it('supports the page heading level and announces failures assertively', () => {
+    const wrapper = mount(ErrorState, {
+      props: { title: 'Page unavailable', titleTag: 'h1' },
+      global: { mocks: { $t: (key: string) => messages[key] ?? key } }
+    })
+
+    expect(wrapper.get('h1').text()).toBe('Page unavailable')
+    expect(wrapper.attributes('role')).toBe('alert')
+    expect(wrapper.attributes('aria-live')).toBe('assertive')
+  })
 })

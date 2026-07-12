@@ -1,12 +1,12 @@
 <template>
-  <section class="mx-auto w-full max-w-lg text-center py-12" role="alert" aria-live="polite">
+  <section class="mx-auto w-full max-w-lg text-center py-12" role="alert" :aria-live="live">
     <p v-if="code" class="nv-kicker mb-3">{{ code }}</p>
     <div v-if="showIcon" class="mx-auto h-12 w-12 text-[var(--nv-danger-text)] mb-4">
       <component :is="icon" class="h-full w-full" aria-hidden="true" />
     </div>
-    <h3 class="text-lg font-medium nv-title mb-2">
+    <component :is="titleTag" class="text-lg font-medium nv-title mb-2">
       {{ title || $t('common.messages.defaultTitle') }}
-    </h3>
+    </component>
     <p class="text-sm nv-text-subtle mb-6">
       {{ message || $t('common.error.defaultMessage') }}
     </p>
@@ -47,11 +47,15 @@ withDefaults(defineProps<{
   showIcon?: boolean
   code?: string
   notice?: string
+  titleTag?: 'h1' | 'h2' | 'h3'
+  live?: 'polite' | 'assertive'
 }>(), {
   icon: () => AlertCircle,
   showRetry: false,
   showGoHome: false,
   showIcon: true,
+  titleTag: 'h3',
+  live: 'assertive',
 })
 
 defineEmits<{

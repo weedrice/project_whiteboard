@@ -106,7 +106,7 @@ onMounted(async () => {
       </div>
     </div>
 
-    <div v-else-if="error" class="text-center py-10 nv-form-error">
+    <div v-else-if="error" class="text-center py-10 nv-form-error" role="alert" aria-live="assertive">
       {{ error }}
     </div>
 
