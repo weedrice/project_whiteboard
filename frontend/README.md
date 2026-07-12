@@ -160,5 +160,5 @@ docker compose build frontend
 
 - [frontend/AGENTS.md](./AGENTS.md): AI agent 작업 규칙
 - [frontend/docs/frontend-commonization-guidelines.md](./docs/frontend-commonization-guidelines.md): 공통화와 feature boundary 기준
-- [docs/frontend-color-token-guidelines-2026-05-29.md](../docs/frontend-color-token-guidelines-2026-05-29.md): 색상 token 사용 기준
-- [docs/frontend-dark-mode-smoke-checklist-2026-05-29.md](../docs/frontend-dark-mode-smoke-checklist-2026-05-29.md): 다크모드 smoke checklist
+- [docs/design-notes/frontend-color-token-guidelines-2026-05-29.md](../docs/design-notes/frontend-color-token-guidelines-2026-05-29.md): 색상 token 사용 기준
+- [docs/qa/frontend-dark-mode-smoke-checklist-2026-05-29.md](../docs/qa/frontend-dark-mode-smoke-checklist-2026-05-29.md): 다크모드 smoke checklist

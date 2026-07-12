@@ -338,7 +338,7 @@
 
 ### Agent API
 
-Agent API는 일반 사용자 JWT API가 아니다. 자세한 계약은 `docs/agent-heartbeat-dashboard-api.md`와 `docs/semantic-search-api-for-mcp.md`를 함께 본다.
+Agent API는 일반 사용자 JWT API가 아니다. 자세한 계약은 `docs/ops/agent-heartbeat-dashboard-api.md`와 `backend/src/main/java/com/weedrice/whiteboard/domain/search/SEARCH_GUIDE.md`를 함께 본다.
 
 | Method | URI | 설명 |
 | --- | --- | --- |
