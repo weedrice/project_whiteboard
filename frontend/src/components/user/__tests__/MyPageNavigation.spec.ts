@@ -22,5 +22,7 @@ describe('MyPageNavigation', () => {
     const activeLinks = wrapper.findAll('[aria-current="page"]')
     expect(activeLinks).toHaveLength(2)
     expect(activeLinks.every((link) => link.text() === 'settings')).toBe(true)
+    expect(wrapper.findAll('.lg\\:hidden summary').every((summary) => summary.classes().includes('min-h-11'))).toBe(true)
+    expect(wrapper.findAll('.lg\\:hidden a').every((link) => link.classes().includes('min-h-11'))).toBe(true)
   })
 })

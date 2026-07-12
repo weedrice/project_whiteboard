@@ -26,7 +26,7 @@ const activeGroupKey = computed(() => props.groups.find((group) => (
         class="rounded-[var(--nv-radius-md)] border nv-border nv-surface"
         :open="group.nameKey === activeGroupKey"
       >
-        <summary class="cursor-pointer px-4 py-3 text-sm font-semibold nv-title">
+        <summary class="nv-focus-ring flex min-h-11 cursor-pointer items-center rounded-[var(--nv-radius-md)] px-4 py-3 text-sm font-semibold nv-title">
           {{ $t(group.nameKey) }}
         </summary>
         <div class="grid grid-cols-2 gap-2 border-t nv-border p-3 sm:grid-cols-3">
@@ -34,7 +34,7 @@ const activeGroupKey = computed(() => props.groups.find((group) => (
             v-for="item in group.items"
             :key="item.href"
             :to="item.href"
-            class="rounded-[var(--nv-radius-sm)] px-3 py-2 text-sm nv-text-subtle nv-hover-surface"
+            class="flex min-h-11 min-w-0 items-center rounded-[var(--nv-radius-sm)] px-3 py-2 text-sm leading-snug nv-text-subtle nv-hover-surface"
             :class="isActive(item.href) && 'bg-[var(--nv-accent-soft)] font-semibold nv-accent-text'"
             :aria-current="isActive(item.href) ? 'page' : undefined"
           >
