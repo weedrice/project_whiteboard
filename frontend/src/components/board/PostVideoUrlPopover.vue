@@ -74,8 +74,10 @@ const emit = defineEmits<{
 .video-url-popover {
   position: fixed;
   transform: translateX(-50%);
-  min-width: 320px;
-  max-width: 90vw;
+  width: min(420px, calc(100vw - 24px));
+  min-width: 0;
+  max-height: calc(100dvh - 24px);
+  overflow-y: auto;
   padding: 12px 14px;
   background: var(--nv-surface);
   border: 1px solid var(--nv-line);
