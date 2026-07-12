@@ -157,7 +157,8 @@ describe('EmoticonPicker', () => {
             'aria-modal': 'true',
             'aria-labelledby': 'emoticon-picker-title',
         })
-        expect(wrapper.get('.search-input').attributes('aria-label')).toBe('노비콘 검색')
+        const searchInput = wrapper.get('.search-input')
+        expect(wrapper.get(`label[for="${searchInput.attributes('id')}"]`).text()).toBe('노비콘 검색')
         expect(wrapper.find('.empty-state').exists()).toBe(true)
     })
 

@@ -17,6 +17,8 @@ import ErrorLogResolveModal from '@/components/admin/ErrorLogResolveModal.vue'
 import HttpStatusBadge from '@/components/admin/HttpStatusBadge.vue'
 import ResolveStatusBadge from '@/components/admin/ResolveStatusBadge.vue'
 import type { TableColumn } from '@/components/common/ui/BaseTable.vue'
+import BaseInput from '@/components/common/ui/BaseInput.vue'
+import BaseSelect from '@/components/common/ui/BaseSelect.vue'
 import { formatAdminPaginationSummary } from '@/utils/adminPaginationSummary'
 import { formatDateTimeOrDash } from '@/utils/date'
 import type { ErrorLogDetail, ErrorLogListItem } from '@/types'
@@ -71,6 +73,21 @@ const filterChips = computed(() => [
   filterErrorType.value && { key: 'type', label: filterErrorType.value },
   filterIsResolved.value && { key: 'resolved', label: filterIsResolved.value },
 ].filter(Boolean) as Array<{ key: string; label: string }>)
+const httpStatusModel = computed({
+  get: () => filterHttpStatus.value ?? '',
+  set: (value: string | number) => {
+    filterHttpStatus.value = value === '' ? undefined : Number(value)
+  },
+})
+const httpStatusOptions = computed(() => [
+  { value: '', label: t('admin.errorLogs.filter.all') },
+  ...[400, 401, 403, 404, 500].map((value) => ({ value, label: String(value) })),
+])
+const resolvedOptions = computed(() => [
+  { value: '', label: t('admin.errorLogs.filter.all') },
+  { value: 'N', label: t('admin.errorLogs.status.unresolved') },
+  { value: 'Y', label: t('admin.errorLogs.status.resolved') },
+])
 function removeFilterChip(key: string) {
   if (key === 'start') filterStartDate.value = ''
   if (key === 'end') filterEndDate.value = ''
@@ -122,50 +139,39 @@ function resolveFromDetail(log: ErrorLogDetail) {
             for-id="error-log-start-date"
             width="date"
           >
-            <input id="error-log-start-date" v-model="filterStartDate" type="date" class="filter-input" />
+            <BaseInput id="error-log-start-date" v-model="filterStartDate" type="date" input-class="filter-input" />
           </AdminFilterField>
           <AdminFilterField
             :label="t('admin.errorLogs.filter.endDate')"
             for-id="error-log-end-date"
             width="date"
           >
-            <input id="error-log-end-date" v-model="filterEndDate" type="date" class="filter-input" />
+            <BaseInput id="error-log-end-date" v-model="filterEndDate" type="date" input-class="filter-input" />
           </AdminFilterField>
           <AdminFilterField
             :label="t('admin.errorLogs.filter.httpStatus')"
             for-id="error-log-http-status"
             width="compact"
           >
-            <select id="error-log-http-status" v-model="filterHttpStatus" class="filter-input">
-              <option :value="undefined">{{ t('admin.errorLogs.filter.all') }}</option>
-              <option :value="400">400</option>
-              <option :value="401">401</option>
-              <option :value="403">403</option>
-              <option :value="404">404</option>
-              <option :value="500">500</option>
-            </select>
+            <BaseSelect id="error-log-http-status" v-model="httpStatusModel" :options="httpStatusOptions" input-class="filter-input" />
           </AdminFilterField>
           <AdminFilterField
             :label="t('admin.errorLogs.filter.isResolved')"
             for-id="error-log-is-resolved"
             width="compact"
           >
-            <select id="error-log-is-resolved" v-model="filterIsResolved" class="filter-input">
-              <option value="">{{ t('admin.errorLogs.filter.all') }}</option>
-              <option value="N">{{ t('admin.errorLogs.status.unresolved') }}</option>
-              <option value="Y">{{ t('admin.errorLogs.status.resolved') }}</option>
-            </select>
+            <BaseSelect id="error-log-is-resolved" v-model="filterIsResolved" :options="resolvedOptions" input-class="filter-input" />
           </AdminFilterField>
           <AdminFilterField
             :label="t('admin.errorLogs.filter.errorType')"
             for-id="error-log-error-type"
             width="search"
           >
-            <input
+            <BaseInput
               id="error-log-error-type"
               v-model="filterErrorType"
               type="text"
-              class="filter-input"
+              input-class="filter-input"
               placeholder="BusinessException..."
             />
           </AdminFilterField>
@@ -270,7 +276,7 @@ function resolveFromDetail(log: ErrorLogDetail) {
 </template>
 
 <style scoped>
-.filter-input {
+:deep(.filter-input) {
   width: 100%;
   padding: 6px 10px;
   border: 1px solid var(--nv-border);

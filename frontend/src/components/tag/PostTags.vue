@@ -2,10 +2,19 @@
   <div :class="compact && readOnly ? 'space-y-1' : 'space-y-2'">
     <div v-if="!readOnly" class="flex flex-wrap gap-2 items-center">
       <div class="relative flex-1 min-w-0 flex items-center gap-2">
-        <label :for="inputId" class="sr-only">{{ $t('board.tags.placeholder') }}</label>
-        <input :id="inputId" v-model="newTag" name="postTag" autocomplete="off" @keydown.enter="handleTagKeydown" type="text"
+        <BaseInput
+          :id="inputId"
+          v-model="newTag"
+          name="postTag"
+          autocomplete="off"
+          type="text"
+          :label="$t('board.tags.placeholder')"
           :placeholder="$t('board.tags.placeholder')"
-          class="flex-1 min-w-0 input-base rounded-full py-1 text-sm" />
+          input-class="rounded-full py-1 text-sm"
+          class="min-w-0 flex-1"
+          hide-label
+          @keydown.enter="handleTagKeydown"
+        />
         <button type="button" @click="addTag"
           class="nv-touch-target sm:hidden flex-shrink-0 px-3 py-1.5 text-xs font-medium rounded-full border border-[var(--nv-accent)] nv-accent-text bg-transparent nv-hover-surface nv-focus-ring">
           {{ $t('common.add') }}
@@ -49,6 +58,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { isComposingKeyboardEvent } from '@/utils/keyboard'
+import BaseInput from '@/components/common/ui/BaseInput.vue'
 
 const props = withDefaults(defineProps<{
   modelValue: string[]

@@ -4,6 +4,7 @@ import { Search, X } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
+import BaseSelect from '@/components/common/ui/BaseSelect.vue'
 import { isComposingKeyboardEvent } from '@/utils/keyboard'
 import { encodePathSegment } from '@/utils/urlPath'
 import {
@@ -53,21 +54,15 @@ const handleSearchKeyup = (event: KeyboardEvent) => {
   <div class="border-t border-[var(--nv-line)] px-4 py-4 sm:px-5">
     <div class="nv-board-search-row">
       <div class="nv-board-search-group">
-        <select
+        <BaseSelect
           id="board-search-type"
           v-model="searchTypeModel"
           name="searchType"
-          class="nv-board-search-select"
-          :aria-label="t('board.detail.searchScopeLabel')"
-        >
-          <option
-            v-for="option in searchTypeOptions"
-            :key="option.value"
-            :value="option.value"
-          >
-            {{ option.label }}
-          </option>
-        </select>
+          :label="t('board.detail.searchScopeLabel')"
+          :options="searchTypeOptions"
+          input-class="nv-board-search-select"
+          hide-label
+        />
 
         <div class="nv-board-search-input-wrap">
           <BaseInput
@@ -137,7 +132,7 @@ const handleSearchKeyup = (event: KeyboardEvent) => {
   width: min(100%, 34rem);
 }
 
-.nv-board-search-select,
+:deep(.nv-board-search-select),
 :deep(.nv-board-search-input) {
   background: color-mix(in srgb, var(--nv-surface) 96%, transparent);
   border: 1px solid var(--nv-line);
@@ -149,7 +144,7 @@ const handleSearchKeyup = (event: KeyboardEvent) => {
   min-height: 2.2rem;
 }
 
-.nv-board-search-select {
+:deep(.nv-board-search-select) {
   font-size: 0.74rem;
   font-weight: 500;
   outline: none;
@@ -160,7 +155,7 @@ const handleSearchKeyup = (event: KeyboardEvent) => {
   padding-block: 0;
 }
 
-.nv-board-search-select:focus,
+:deep(.nv-board-search-select:focus),
 :deep(.nv-board-search-input:focus) {
   border-color: color-mix(in srgb, var(--nv-accent) 30%, var(--nv-line));
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--nv-accent) 14%, transparent);
@@ -257,7 +252,7 @@ const handleSearchKeyup = (event: KeyboardEvent) => {
 }
 
 @media (max-width: 639px) {
-  .nv-board-search-select,
+  :deep(.nv-board-search-select),
   :deep(.nv-board-search-input),
   .nv-board-search-btn,
   .nv-board-write-btn {

@@ -3,6 +3,7 @@ import { CheckCircle } from 'lucide-vue-next'
 import AdminModalActions from '@/components/admin/AdminModalActions.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
+import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
 import type { ErrorLogDetail, ErrorLogListItem } from '@/types'
 
 defineProps<{
@@ -33,14 +34,14 @@ const emit = defineEmits<{
         <p><strong>{{ $t('admin.errorLogs.table.message') }}:</strong> {{ log.message }}</p>
       </div>
       <div>
-        <label for="error-log-resolve-memo" class="filter-label">{{ $t('admin.errorLogs.memoPlaceholder') }}</label>
-        <textarea
+        <BaseTextarea
           id="error-log-resolve-memo"
-          :value="memo"
+          :model-value="memo"
+          :label="$t('admin.errorLogs.memoPlaceholder')"
           rows="3"
-          class="filter-input w-full"
+          input-class="filter-input w-full"
           :placeholder="$t('admin.errorLogs.memoPlaceholder')"
-          @input="emit('update:memo', ($event.target as HTMLTextAreaElement).value)"
+          @update:model-value="emit('update:memo', $event)"
         />
       </div>
     </div>
@@ -66,13 +67,7 @@ const emit = defineEmits<{
   font-size: 0.875rem;
 }
 
-.filter-label {
-  color: var(--nv-text-muted);
-  font-size: 0.75rem;
-  font-weight: 500;
-}
-
-.filter-input {
+:deep(.filter-input) {
   padding: 6px 10px;
   border: 1px solid var(--nv-border);
   border-radius: 6px;

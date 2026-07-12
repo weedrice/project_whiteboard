@@ -75,6 +75,19 @@ describe('BaseSelect', () => {
         expect(options[2].text()).toBe('Two')
     })
 
+    it('preserves numeric option values when emitting updates', async () => {
+        const wrapper = mount(BaseSelect, {
+            props: {
+                modelValue: 10,
+                options: [10, 20, 50],
+            },
+        })
+
+        await wrapper.get('select').setValue('20')
+
+        expect(wrapper.emitted('update:modelValue')?.[0]).toEqual([20])
+    })
+
     it('renders slot options when options prop is empty', () => {
         const wrapper = mount(BaseSelect, {
             props: {

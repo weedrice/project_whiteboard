@@ -12,6 +12,7 @@ import BooleanBadge from '@/components/admin/BooleanBadge.vue'
 import UserDetailModal from '@/components/admin/UserDetailModal.vue'
 import AdminUserFilterPanel from '@/components/admin/AdminUserFilterPanel.vue'
 import UserAvatar from '@/components/common/ui/UserAvatar.vue'
+import BaseSelect from '@/components/common/ui/BaseSelect.vue'
 import { formatAdminPaginationSummary } from '@/utils/adminPaginationSummary'
 import { formatDateOnly } from '@/utils/date'
 import { useConfirm } from '@/composables/useConfirm'
@@ -111,6 +112,7 @@ const columns = computed(() => [
   { key: 'createdAt', label: getSortLabel(t('admin.users.table.joinedAt'), 'createdAt'), width: '9%', sortable: true, hideBelow: 'sm' as const },
   { key: 'actions', label: '', align: 'right' as const, width: '10%' }
 ])
+const pageSizeOptions = [10, 20, 50]
 </script>
 
 <template>
@@ -154,11 +156,12 @@ const columns = computed(() => [
         </template>
         <template #footer-actions>
           <label for="admin-user-page-size" class="text-xs nv-text-subtle">{{ t('admin.common.pageSize') }}</label>
-          <select id="admin-user-page-size" v-model.number="size" class="input-base px-2 py-1 text-xs">
-            <option :value="10">10</option>
-            <option :value="20">20</option>
-            <option :value="50">50</option>
-          </select>
+          <BaseSelect
+            id="admin-user-page-size"
+            v-model="size"
+            :options="pageSizeOptions"
+            input-class="px-2 py-1 text-xs"
+          />
         </template>
 
         <template #cell-profile="{ item }">

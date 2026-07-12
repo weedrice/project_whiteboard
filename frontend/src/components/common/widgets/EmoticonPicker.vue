@@ -10,6 +10,7 @@ import { useEmoticonPickerSearch } from '@/features/emoticon/picker/useEmoticonP
 import EmoticonPickerGrid from '@/components/common/widgets/EmoticonPickerGrid.vue'
 import EmoticonPickerImageGrid from '@/components/common/widgets/EmoticonPickerImageGrid.vue'
 import EmoticonPickerStatePanel from '@/components/common/widgets/EmoticonPickerStatePanel.vue'
+import BaseInput from '@/components/common/ui/BaseInput.vue'
 
 const props = defineProps<{
   show: boolean
@@ -124,10 +125,18 @@ useEmoticonPickerDialogLifecycle({
 
       <template v-else-if="!selectedEmoticonId">
         <div class="search-area">
-          <div class="relative">
-            <Search class="absolute left-2 top-1/2 -translate-y-1/2 w-4 h-4 nv-text-subtle" />
-            <input v-model="searchKeyword" type="text" :aria-label="t('emoticon.picker.searchAria')" :placeholder="t('search.placeholder')" class="search-input" />
-          </div>
+          <BaseInput
+            v-model="searchKeyword"
+            type="text"
+            :label="t('emoticon.picker.searchAria')"
+            :placeholder="t('search.placeholder')"
+            input-class="search-input"
+            hide-label
+          >
+            <template #prefix>
+              <Search class="h-4 w-4 nv-text-subtle" />
+            </template>
+          </BaseInput>
         </div>
 
         <EmoticonPickerStatePanel v-if="isLoading" state="loading" />
@@ -262,7 +271,7 @@ useEmoticonPickerDialogLifecycle({
   margin-bottom: 12px;
 }
 
-.search-input {
+:deep(.search-input) {
   width: 100%;
   padding: 8px 8px 8px 32px;
   background: var(--nv-surface);
@@ -275,11 +284,11 @@ useEmoticonPickerDialogLifecycle({
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-.search-input::placeholder {
+:deep(.search-input::placeholder) {
   color: var(--nv-text-subtle);
 }
 
-.search-input:focus {
+:deep(.search-input:focus) {
   border-color: var(--nv-focus);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--nv-focus) 28%, transparent);
 }

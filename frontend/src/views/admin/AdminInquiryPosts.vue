@@ -7,6 +7,7 @@ import AdminFilterPanel from '@/components/admin/AdminFilterPanel.vue'
 import AdminPaginatedTable from '@/components/admin/AdminPaginatedTable.vue'
 import AdminStatusBadge from '@/components/admin/AdminStatusBadge.vue'
 import AdminInquiryDetailModal from '@/components/admin/AdminInquiryDetailModal.vue'
+import BaseSelect from '@/components/common/ui/BaseSelect.vue'
 import { useI18n } from 'vue-i18n'
 import { useAdminInquiryPosts, type AdminInquiryListItem } from '@/features/admin/inquiries/useAdminInquiryPosts'
 
@@ -38,6 +39,10 @@ const columns = computed<TableColumn[]>(() => [
   { key: 'status', label: t('common.status'), width: '12%' },
 ])
 const filterChips = computed(() => sort.value === 'createdAt,desc' ? [] : [{ key: 'sort', label: t('admin.inquiries.sort.oldest') }])
+const sortOptions = computed(() => [
+  { value: 'createdAt,desc', label: t('admin.inquiries.sort.latest') },
+  { value: 'createdAt,asc', label: t('admin.inquiries.sort.oldest') },
+])
 
 function getRowClass() {
   return 'cursor-pointer'
@@ -54,14 +59,12 @@ function handleRowClick(post: AdminInquiryListItem) {
       <AdminFilterPanel class-name="mt-4" collapsible :title="t('admin.inquiries.sort.label')" :chips="filterChips" @remove-chip="sort = 'createdAt,desc'">
         <div class="flex flex-wrap items-end gap-3">
           <AdminFilterField :label="t('admin.inquiries.sort.label')" for-id="inquiry-sort" width="select">
-          <select
+          <BaseSelect
             id="inquiry-sort"
             v-model="sort"
-            class="input-base rounded-md px-3 py-2 text-sm"
-          >
-            <option value="createdAt,desc">{{ t('admin.inquiries.sort.latest') }}</option>
-            <option value="createdAt,asc">{{ t('admin.inquiries.sort.oldest') }}</option>
-          </select>
+            :options="sortOptions"
+            input-class="rounded-md px-3 py-2 text-sm"
+          />
           </AdminFilterField>
         </div>
       </AdminFilterPanel>

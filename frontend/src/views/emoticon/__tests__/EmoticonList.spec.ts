@@ -153,8 +153,9 @@ describe('EmoticonList', () => {
 
   it('labels the search type selector for assistive technology', () => {
     const wrapper = mountList()
+    const select = wrapper.get('select')
 
-    expect(wrapper.get('select').attributes('aria-label')).toBe('emoticon.search.typeLabel')
+    expect(wrapper.get(`label[for="${select.attributes('id')}"]`).text()).toBe('노비콘 검색 범위')
   })
 
   it('keeps a hidden label on the keyword search field', () => {

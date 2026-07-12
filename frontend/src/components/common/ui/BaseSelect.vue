@@ -82,6 +82,7 @@ const normalizedOptions = computed(() => {
 
 const updateValue = (event: Event) => {
     const target = event.target as HTMLSelectElement
-    emit('update:modelValue', target.value)
+    const selectedOption = normalizedOptions.value.find((option) => String(option.value) === target.value)
+    emit('update:modelValue', selectedOption?.value ?? target.value)
 }
 </script>

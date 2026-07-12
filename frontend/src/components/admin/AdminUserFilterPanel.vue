@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { Search, X } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
+import BaseSelect from '@/components/common/ui/BaseSelect.vue'
 import AdminFilterActions from '@/components/admin/AdminFilterActions.vue'
 import AdminFilterField from '@/components/admin/AdminFilterField.vue'
 import AdminFilterPanel from '@/components/admin/AdminFilterPanel.vue'
@@ -60,6 +61,35 @@ const filterControlIds = {
   lastLoginTo: 'admin-user-filter-last-login-to',
 } as const
 
+const statusOptions = computed(() => [
+  { value: '', label: t('admin.common.all') },
+  { value: 'ACTIVE', label: props.getStatusLabel('ACTIVE') },
+  { value: 'SUSPENDED', label: props.getStatusLabel('SUSPENDED') },
+  { value: 'DELETED', label: props.getStatusLabel('DELETED') },
+])
+const roleOptions = computed(() => [
+  { value: '', label: t('admin.common.all') },
+  ...['USER', 'SUPER_ADMIN', 'BOARD_ADMIN', 'MODERATOR'].map((value) => ({
+    value,
+    label: props.getRoleLabel(value),
+  })),
+])
+const booleanOptions = computed(() => [
+  { value: '', label: t('admin.common.all') },
+  { value: 'true', label: t('common.yes') },
+  { value: 'false', label: t('common.noValue') },
+])
+const verifiedOptions = computed(() => [
+  { value: '', label: t('admin.common.all') },
+  { value: 'true', label: t('admin.users.filters.verified') },
+  { value: 'false', label: t('admin.users.filters.unverified') },
+])
+const withdrawnOptions = computed(() => [
+  { value: '', label: t('admin.common.all') },
+  { value: 'true', label: t('admin.users.filters.withdrawnOnly') },
+  { value: 'false', label: t('admin.users.filters.activeOrSuspended') },
+])
+
 function handleSearchKeyup(event: KeyboardEvent) {
   if (isComposingKeyboardEvent(event)) return
   emit('search')
@@ -71,42 +101,19 @@ function handleSearchKeyup(event: KeyboardEvent) {
     <div class="flex flex-col items-start gap-4">
       <div class="flex flex-wrap items-end gap-3">
         <AdminFilterField :label="t('admin.users.filters.status')" :for-id="filterControlIds.status">
-          <select :id="filterControlIds.status" v-model="filterModels.status.value" class="input-base">
-            <option value="">{{ t('admin.common.all') }}</option>
-            <option value="ACTIVE">{{ getStatusLabel('ACTIVE') }}</option>
-            <option value="SUSPENDED">{{ getStatusLabel('SUSPENDED') }}</option>
-            <option value="DELETED">{{ getStatusLabel('DELETED') }}</option>
-          </select>
+          <BaseSelect :id="filterControlIds.status" v-model="filterModels.status.value" :options="statusOptions" />
         </AdminFilterField>
         <AdminFilterField :label="t('admin.users.filters.role')" :for-id="filterControlIds.role">
-          <select :id="filterControlIds.role" v-model="filterModels.role.value" class="input-base">
-            <option value="">{{ t('admin.common.all') }}</option>
-            <option value="USER">{{ getRoleLabel('USER') }}</option>
-            <option value="SUPER_ADMIN">{{ getRoleLabel('SUPER_ADMIN') }}</option>
-            <option value="BOARD_ADMIN">{{ getRoleLabel('BOARD_ADMIN') }}</option>
-            <option value="MODERATOR">{{ getRoleLabel('MODERATOR') }}</option>
-          </select>
+          <BaseSelect :id="filterControlIds.role" v-model="filterModels.role.value" :options="roleOptions" />
         </AdminFilterField>
         <AdminFilterField :label="t('admin.users.filters.emailVerified')" :for-id="filterControlIds.emailVerified">
-          <select :id="filterControlIds.emailVerified" v-model="filterModels.emailVerified.value" class="input-base">
-            <option value="">{{ t('admin.common.all') }}</option>
-            <option value="true">{{ t('admin.users.filters.verified') }}</option>
-            <option value="false">{{ t('admin.users.filters.unverified') }}</option>
-          </select>
+          <BaseSelect :id="filterControlIds.emailVerified" v-model="filterModels.emailVerified.value" :options="verifiedOptions" />
         </AdminFilterField>
         <AdminFilterField :label="t('admin.users.filters.superAdmin')" :for-id="filterControlIds.superAdmin">
-          <select :id="filterControlIds.superAdmin" v-model="filterModels.superAdmin.value" class="input-base">
-            <option value="">{{ t('admin.common.all') }}</option>
-            <option value="true">Y</option>
-            <option value="false">N</option>
-          </select>
+          <BaseSelect :id="filterControlIds.superAdmin" v-model="filterModels.superAdmin.value" :options="booleanOptions" />
         </AdminFilterField>
         <AdminFilterField :label="t('admin.users.filters.withdrawn')" :for-id="filterControlIds.withdrawn">
-          <select :id="filterControlIds.withdrawn" v-model="filterModels.withdrawn.value" class="input-base">
-            <option value="">{{ t('admin.common.all') }}</option>
-            <option value="true">{{ t('admin.users.filters.withdrawnOnly') }}</option>
-            <option value="false">{{ t('admin.users.filters.activeOrSuspended') }}</option>
-          </select>
+          <BaseSelect :id="filterControlIds.withdrawn" v-model="filterModels.withdrawn.value" :options="withdrawnOptions" />
         </AdminFilterField>
       </div>
 
@@ -126,16 +133,16 @@ function handleSearchKeyup(event: KeyboardEvent) {
 
       <div class="flex flex-wrap items-end gap-3">
         <AdminFilterField :label="t('admin.users.filters.createdFrom')" :for-id="filterControlIds.createdFrom" width="date">
-          <input :id="filterControlIds.createdFrom" v-model="filterModels.createdFrom.value" type="date" class="input-base" />
+          <BaseInput :id="filterControlIds.createdFrom" v-model="filterModels.createdFrom.value" type="date" />
         </AdminFilterField>
         <AdminFilterField :label="t('admin.users.filters.createdTo')" :for-id="filterControlIds.createdTo" width="date">
-          <input :id="filterControlIds.createdTo" v-model="filterModels.createdTo.value" type="date" class="input-base" />
+          <BaseInput :id="filterControlIds.createdTo" v-model="filterModels.createdTo.value" type="date" />
         </AdminFilterField>
         <AdminFilterField :label="t('admin.users.filters.lastLoginFrom')" :for-id="filterControlIds.lastLoginFrom" width="date">
-          <input :id="filterControlIds.lastLoginFrom" v-model="filterModels.lastLoginFrom.value" type="date" class="input-base" />
+          <BaseInput :id="filterControlIds.lastLoginFrom" v-model="filterModels.lastLoginFrom.value" type="date" />
         </AdminFilterField>
         <AdminFilterField :label="t('admin.users.filters.lastLoginTo')" :for-id="filterControlIds.lastLoginTo" width="date">
-          <input :id="filterControlIds.lastLoginTo" v-model="filterModels.lastLoginTo.value" type="date" class="input-base" />
+          <BaseInput :id="filterControlIds.lastLoginTo" v-model="filterModels.lastLoginTo.value" type="date" />
         </AdminFilterField>
       </div>
 

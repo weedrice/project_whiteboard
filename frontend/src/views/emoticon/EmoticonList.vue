@@ -6,6 +6,7 @@ import { useI18n } from 'vue-i18n'
 import { Search, X, PlusCircle, TrendingUp } from 'lucide-vue-next'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
+import BaseSelect from '@/components/common/ui/BaseSelect.vue'
 import BaseSegmentedControl from '@/components/common/ui/BaseSegmentedControl.vue'
 import Pagination from '@/components/common/ui/Pagination.vue'
 import EmoticonGridSkeleton from '@/components/emoticon/EmoticonGridSkeleton.vue'
@@ -62,6 +63,12 @@ const sortOptions = computed<Array<{ value: SortOption; label: string }>>(() => 
   { value: 'latest', label: t('emoticon.list.sort.latest') },
   { value: 'oldest', label: t('emoticon.list.sort.oldest') },
   { value: 'popular', label: t('emoticon.list.sort.popular') },
+])
+const searchTypeOptions = computed(() => [
+  { value: 'ALL', label: t('emoticon.list.searchType.all') },
+  { value: 'NAME', label: t('emoticon.list.searchType.name') },
+  { value: 'CREATOR', label: t('emoticon.list.searchType.creator') },
+  { value: 'TAG', label: t('emoticon.list.searchType.tag') },
 ])
 
 function changePopularPeriod(period: string) {
@@ -165,12 +172,13 @@ function handleSearchKeyup(event: KeyboardEvent) {
         <div class="w-full sm:w-auto flex justify-center shrink-0">
           <div class="list-search-row">
             <div class="list-search-group">
-              <select v-model="searchType" class="list-search-select-inline" :aria-label="$t('emoticon.search.typeLabel')">
-                <option value="ALL">{{ t('emoticon.list.searchType.all') }}</option>
-                <option value="NAME">{{ t('emoticon.list.searchType.name') }}</option>
-                <option value="CREATOR">{{ t('emoticon.list.searchType.creator') }}</option>
-                <option value="TAG">{{ t('emoticon.list.searchType.tag') }}</option>
-              </select>
+              <BaseSelect
+                v-model="searchType"
+                :label="t('emoticon.search.typeLabel')"
+                :options="searchTypeOptions"
+                input-class="list-search-select-inline"
+                hide-label
+              />
               <div class="list-search-input-inner">
                 <BaseInput
                   v-model="searchInput"
