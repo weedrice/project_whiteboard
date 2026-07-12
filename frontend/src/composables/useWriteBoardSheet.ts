@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useBoard } from '@/composables/useBoard'
 import { useAuthGuard } from '@/composables/useAuthGuard'
+import { useBodyScrollLock } from '@/composables/useBodyScrollLock'
 import { useToastStore } from '@/stores/toast'
 import {
   BOARD_WRITE_FORBIDDEN_MESSAGE_KEY,
@@ -28,6 +29,7 @@ export function useWriteBoardSheet() {
   const sheetRef = ref<HTMLElement | null>(null)
   const lastFocusedElement = ref<HTMLElement | null>(null)
   const shouldFetchSubscriptions = computed(() => authStore.isAuthenticated && showWriteSheet.value)
+  useBodyScrollLock(showWriteSheet)
 
   const { data: boards, isError: isBoardsError } = useBoards()
   const {

@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { nextTick, ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useWriteBoardSheet } from '../useWriteBoardSheet'
@@ -72,6 +72,7 @@ describe('useWriteBoardSheet', () => {
         vi.clearAllMocks()
         setActivePinia(createPinia())
         fetchQuery.mockImplementation(async ({ queryFn }: { queryFn: () => Promise<unknown> }) => queryFn())
+        document.body.style.overflow = ''
     })
 
     it('blocks navigation when the user cannot write to any category', async () => {
@@ -103,5 +104,18 @@ describe('useWriteBoardSheet', () => {
 
         expect(routerPush).toHaveBeenCalledWith('/board/free/write')
         expect(boardApi.getBoard).toHaveBeenCalledWith('free')
+    })
+
+    it('locks background scrolling only while the write sheet is open', async () => {
+        document.body.style.overflow = 'auto'
+        const sheet = useWriteBoardSheet()
+
+        sheet.showWriteSheet.value = true
+        await nextTick()
+        expect(document.body.style.overflow).toBe('hidden')
+
+        sheet.closeWriteSheet()
+        await nextTick()
+        expect(document.body.style.overflow).toBe('auto')
     })
 })
