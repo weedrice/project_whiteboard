@@ -198,7 +198,7 @@ useEmoticonPickerDialogLifecycle({
     right: auto;
     transform: translate(-50%, -50%);
     width: min(360px, calc(100vw - 24px));
-    max-height: min(420px, calc(100vh - 32px));
+    max-height: min(420px, calc(100dvh - 32px));
   }
 }
 

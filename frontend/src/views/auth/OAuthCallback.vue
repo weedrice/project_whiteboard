@@ -50,7 +50,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="flex justify-center items-center h-screen">
+  <div class="flex min-h-dvh justify-center items-center">
     <BaseSpinner size="lg" />
   </div>
 </template>
