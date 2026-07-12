@@ -73,6 +73,7 @@ describe('BadgeAwardCelebration', () => {
 
     expect(wrapper.text()).toContain('7 Day Streak')
     expect(wrapper.text()).toContain('SILVER')
+    expect(wrapper.get('h3').text()).toBe('7 Day Streak')
 
     const representativeButton = wrapper.findAll('button')
       .find((button) => button.text() === 'user.badgeAward.setRepresentative')!

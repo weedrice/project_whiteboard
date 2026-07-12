@@ -53,7 +53,7 @@ const { t } = useI18n()
 
     <template v-if="inquiry">
       <div class="space-y-2 border-b nv-border pb-3">
-        <h2 class="text-lg font-semibold nv-title">{{ inquiry.title }}</h2>
+        <h3 class="text-lg font-semibold nv-title">{{ inquiry.title }}</h3>
         <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs nv-text-subtle">
           <span>{{ t('common.author') }} {{ inquiry.authorName }}</span>
           <span>{{ t('common.createdAt') }} {{ inquiry.createdAtText }}</span>

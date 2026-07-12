@@ -87,7 +87,7 @@ onUnmounted(() => unsubscribe?.())
         <component :is="badgeIcon" class="h-10 w-10" aria-hidden="true" />
       </div>
       <p class="mt-5 nv-kicker">{{ awardedBadge.tier }}</p>
-      <h2 class="mt-1 text-xl font-semibold nv-title">{{ awardedBadge.name || awardedBadge.badgeCode }}</h2>
+      <h3 class="mt-1 text-xl font-semibold nv-title">{{ awardedBadge.name || awardedBadge.badgeCode }}</h3>
       <p class="mt-2 text-sm nv-text-subtle">{{ awardedBadge.description }}</p>
     </div>
     <template #footer>

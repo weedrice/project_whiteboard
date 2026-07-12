@@ -43,4 +43,15 @@ describe('route page heading hierarchy', () => {
 
     expect(source).toContain(`:heading-tag="currentPostId ? 'h2' : 'h1'"`)
   })
+
+  it.each([
+    'src/components/user/BadgeAwardCelebration.vue',
+    'src/components/user/MyInquiryDetailModal.vue',
+    'src/components/admin/AdminInquiryDetailModal.vue',
+  ])('%s nests its content heading below the shared modal title', (file) => {
+    const source = readFileSync(resolve(process.cwd(), file), 'utf8')
+
+    expect(source).toMatch(/<h3\b/)
+    expect(source).not.toMatch(/<h2\b/)
+  })
 })

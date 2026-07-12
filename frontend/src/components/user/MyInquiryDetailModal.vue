@@ -43,7 +43,7 @@ const { t } = useI18n()
 
       <template v-else-if="post">
         <div class="space-y-2 border-b nv-border pb-3">
-          <h2 class="text-lg font-semibold nv-title">{{ post.title }}</h2>
+          <h3 class="text-lg font-semibold nv-title">{{ post.title }}</h3>
           <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs nv-text-subtle">
             <span>{{ t('common.createdAt') }} {{ formatDate(post.createdAt) }}</span>
           </div>
