@@ -263,7 +263,7 @@ export const commonEn: CommonMessages = {
     badRequest: 'The request is invalid.',
     forbidden: 'You do not have permission.',
     boardManageForbidden: 'You do not have permission to manage this space.',
-    boardWriteForbidden: 'You do not have permission to write in this space.',
+    boardWriteForbidden: 'You do not have permission to write on this space.',
     postEditForbidden: 'You do not have permission to edit this post.',
     notFound: 'The requested resource was not found.',
     serverError: 'A server error occurred. Please try again later.',
