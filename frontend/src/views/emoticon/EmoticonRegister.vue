@@ -9,6 +9,7 @@ import EmoticonFormActions from '@/components/emoticon/EmoticonFormActions.vue'
 import EmoticonImageGridUploader from '@/components/emoticon/EmoticonImageGridUploader.vue'
 import EmoticonTagSection from '@/components/emoticon/EmoticonTagSection.vue'
 import EmoticonThumbnailField from '@/components/emoticon/EmoticonThumbnailField.vue'
+import BaseInput from '@/components/common/ui/BaseInput.vue'
 import { useEmoticonImageSelection } from '@/features/emoticon/form/useEmoticonImageSelection'
 import { useEmoticonImageFormState } from '@/features/emoticon/form/useEmoticonImageFormState'
 import { useEmoticonRegisterSubmit } from '@/features/emoticon/form/useEmoticonRegisterSubmit'
@@ -110,19 +111,18 @@ const goToList = () => {
           />
 
           <!-- 이모티콘 이름 -->
-          <div class="order-1 md:order-2 flex-1">
-            <label for="emoticon-register-name-input" class="block text-sm font-medium nv-text-muted mb-2">
-              {{ t('emoticon.form.name') }} <span class="nv-form-error">*</span>
-            </label>
-            <input
+          <div class="order-1 flex-1 md:order-2">
+            <BaseInput
               id="emoticon-register-name-input"
               v-model="emoticonName"
               type="text"
               name="emoticonName"
+              required
               autocomplete="off"
               maxlength="100"
+              :label="t('emoticon.form.name')"
               :placeholder="t('emoticon.form.namePlaceholder')"
-              class="w-full px-4 py-2 border nv-border rounded-lg nv-surface nv-title placeholder:text-[var(--nv-text-subtle)] focus:ring-2 focus:ring-[var(--nv-focus)] focus:border-transparent"
+              input-class="rounded-lg px-4"
             />
           </div>
         </div>

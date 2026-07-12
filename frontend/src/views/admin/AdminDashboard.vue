@@ -5,6 +5,8 @@ import { Users, FileText, Activity } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import AdminPanel from '@/components/admin/AdminPanel.vue'
 import AdminMetricCard from '@/components/admin/AdminMetricCard.vue'
+import BaseInput from '@/components/common/ui/BaseInput.vue'
+import BaseSelect from '@/components/common/ui/BaseSelect.vue'
 import type { DashboardStats, ModerationAuditLog, ModerationAuditSearchParams } from '@/types/admin'
 import { formatDateTimeOrDash } from '@/utils/date'
 import type { SupportedLocale } from '@/locales/types'
@@ -19,6 +21,16 @@ const auditBoardUrl = ref('')
 const auditActorUserId = ref('')
 const auditStartDate = ref('')
 const auditEndDate = ref('')
+const auditActionOptions = computed(() => [
+  { value: '', label: t('admin.common.all') },
+  ...['POST_PIN', 'POST_UNPIN', 'POST_BLIND', 'POST_UNBLIND', 'POST_AUTO_BLIND', 'COMMENT_AUTO_BLIND']
+    .map(value => ({ value, label: value })),
+])
+const auditActorOptions = computed(() => [
+  { value: '', label: t('admin.dashboard.auditActorType') },
+  { value: 'USER', label: 'USER' },
+  { value: 'SYSTEM', label: 'SYSTEM' },
+])
 
 const { data: statsData } = useDashboardStats()
 const { data: deepStatsData } = useDeepDashboardStats(selectedDays)
@@ -192,33 +204,23 @@ const formattedDate = (dateString: string) => formatDateTimeOrDash(dateString, l
         <div class="border-b nv-border px-4 py-3">
           <h3 class="text-base font-medium nv-title">{{ t('admin.dashboard.auditLogs') }}</h3>
           <div class="mt-3 grid grid-cols-1 gap-2 md:grid-cols-3 xl:grid-cols-6">
-            <select v-model="auditAction" class="form-select text-sm">
-              <option value="">{{ t('admin.common.all') }}</option>
-              <option value="POST_PIN">POST_PIN</option>
-              <option value="POST_UNPIN">POST_UNPIN</option>
-              <option value="POST_BLIND">POST_BLIND</option>
-              <option value="POST_UNBLIND">POST_UNBLIND</option>
-              <option value="POST_AUTO_BLIND">POST_AUTO_BLIND</option>
-              <option value="COMMENT_AUTO_BLIND">COMMENT_AUTO_BLIND</option>
-            </select>
-            <select v-model="auditActorType" class="form-select text-sm">
-              <option value="">{{ t('admin.dashboard.auditActorType') }}</option>
-              <option value="USER">USER</option>
-              <option value="SYSTEM">SYSTEM</option>
-            </select>
-            <input
+            <BaseSelect v-model="auditAction" :label="t('admin.dashboard.auditAction')" :options="auditActionOptions" hide-label />
+            <BaseSelect v-model="auditActorType" :label="t('admin.dashboard.auditActorType')" :options="auditActorOptions" hide-label />
+            <BaseInput
               v-model="auditBoardUrl"
-              class="form-input text-sm"
+              :label="t('admin.dashboard.auditBoardUrl')"
+              hide-label
               :placeholder="t('admin.dashboard.auditBoardUrl')"
-            >
-            <input
+            />
+            <BaseInput
               v-model="auditActorUserId"
-              class="form-input text-sm"
+              :label="t('admin.dashboard.auditActorUserId')"
+              hide-label
               inputmode="numeric"
               :placeholder="t('admin.dashboard.auditActorUserId')"
-            >
-            <input v-model="auditStartDate" type="date" class="form-input text-sm" :aria-label="t('admin.dashboard.auditStartDate')">
-            <input v-model="auditEndDate" type="date" class="form-input text-sm" :aria-label="t('admin.dashboard.auditEndDate')">
+            />
+            <BaseInput v-model="auditStartDate" type="date" :label="t('admin.dashboard.auditStartDate')" hide-label />
+            <BaseInput v-model="auditEndDate" type="date" :label="t('admin.dashboard.auditEndDate')" hide-label />
           </div>
         </div>
         <div v-if="auditLogs.length > 0" class="overflow-x-auto">

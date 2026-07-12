@@ -73,20 +73,13 @@
               :placeholder="$t('search.authorFilter')"
               inputClass="h-10"
             />
-            <label class="block text-sm font-medium nv-text-muted">
-              {{ $t('search.periodFilter') }}
-              <select
-                v-model="periodInput"
-                name="period"
-                class="mt-1 h-10 w-full rounded-md border nv-border nv-surface px-3 text-sm nv-text nv-focus-ring"
-              >
-                <option value="">{{ $t('search.periodAll') }}</option>
-                <option value="TODAY">{{ $t('search.periodToday') }}</option>
-                <option value="WEEK">{{ $t('search.periodWeek') }}</option>
-                <option value="MONTH">{{ $t('search.periodMonth') }}</option>
-                <option value="CUSTOM">{{ $t('search.periodCustom') }}</option>
-              </select>
-            </label>
+            <BaseSelect
+              v-model="periodInput"
+              name="period"
+              :label="$t('search.periodFilter')"
+              :options="periodOptions"
+              input-class="h-10"
+            />
             <BaseInput
               v-if="periodInput === 'CUSTOM'"
               id="search-from-filter"
@@ -316,6 +309,7 @@ import ErrorState from '@/components/common/ui/ErrorState.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
+import BaseSelect from '@/components/common/ui/BaseSelect.vue'
 import { Search, Layout } from 'lucide-vue-next'
 import { isInquiryPostItem, resolveBoardRoute, resolvePostDetailRoute } from '@/utils/postNavigation'
 
@@ -372,6 +366,13 @@ const popularKeywords = computed(() => popularKeywordData.value || [])
 const popularTags = computed(() => popularTagData.value?.tags || [])
 const recentKeywords = computed(() => recentKeywordData.value?.content || [])
 const hasKeywordFilters = computed(() => Boolean(params.value.author || params.value.period))
+const periodOptions = computed(() => [
+  { value: '', label: t('search.periodAll') },
+  { value: 'TODAY', label: t('search.periodToday') },
+  { value: 'WEEK', label: t('search.periodWeek') },
+  { value: 'MONTH', label: t('search.periodMonth') },
+  { value: 'CUSTOM', label: t('search.periodCustom') },
+])
 const hasSearchError = computed(() => Boolean(integratedSearchError.value || semanticSearchError.value))
 const activeFilterChips = computed<Array<{ key: SearchFilterKey, label: string }>>(() => {
   const chips: Array<{ key: SearchFilterKey, label: string }> = []
