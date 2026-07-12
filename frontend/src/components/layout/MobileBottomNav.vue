@@ -62,19 +62,25 @@ const navigateOrLogin = async (path: string) => {
 
   await router.push(path)
 }
+
+const handleProtectedNavigation = (event: MouseEvent, path: string) => {
+  if (!requireAuth(path)) {
+    event.preventDefault()
+  }
+}
 </script>
 
 <template>
   <div v-if="!hidden" class="sm:hidden">
     <nav class="nv-mobile-nav" :aria-label="t('layout.mobileNav.ariaLabel')">
-      <button type="button" class="nv-mobile-nav-item" :class="{ 'is-active': isHome }" :aria-current="isHome ? 'page' : undefined" @click="navigateOrLogin('/')">
+      <RouterLink to="/" class="nv-mobile-nav-item" :class="{ 'is-active': isHome }" :aria-current="isHome ? 'page' : undefined">
         <Home class="h-5 w-5" aria-hidden="true" />
         <span class="nv-mobile-nav-label">{{ $t('layout.mobileNav.home') }}</span>
-      </button>
-      <button type="button" class="nv-mobile-nav-item" :class="{ 'is-active': isBoards }" :aria-current="isBoards ? 'page' : undefined" @click="navigateOrLogin('/boards')">
+      </RouterLink>
+      <RouterLink to="/boards" class="nv-mobile-nav-item" :class="{ 'is-active': isBoards }" :aria-current="isBoards ? 'page' : undefined">
         <Layers3 class="h-5 w-5" aria-hidden="true" />
         <span class="nv-mobile-nav-label">{{ $t('layout.mobileNav.boards') }}</span>
-      </button>
+      </RouterLink>
       <button
         :ref="setFabButtonRef"
         type="button"
@@ -87,21 +93,22 @@ const navigateOrLogin = async (path: string) => {
       >
         <PenSquare class="h-5 w-5" aria-hidden="true" />
       </button>
-      <button
-        type="button"
+      <RouterLink
+        to="/mypage/notifications"
         class="nv-mobile-nav-item relative"
         :class="{ 'is-active': isNotifications }"
         :aria-current="isNotifications ? 'page' : undefined"
-        @click="navigateOrLogin('/mypage/notifications')"
+        @click="handleProtectedNavigation($event, '/mypage/notifications')"
       >
         <Bell class="h-5 w-5" aria-hidden="true" />
         <span class="nv-mobile-nav-label">{{ $t('layout.mobileNav.alerts') }}</span>
         <span v-if="authStore.isAuthenticated && unreadCount && unreadCount > 0" class="nv-mobile-nav-dot" aria-hidden="true" />
-      </button>
-      <button type="button" class="nv-mobile-nav-item" :class="{ 'is-active': isProfile }" :aria-current="isProfile ? 'page' : undefined" @click="navigateOrLogin('/mypage')">
+      </RouterLink>
+      <RouterLink to="/mypage" class="nv-mobile-nav-item" :class="{ 'is-active': isProfile }" :aria-current="isProfile ? 'page' : undefined"
+        @click="handleProtectedNavigation($event, '/mypage')">
         <UserRound class="h-5 w-5" aria-hidden="true" />
         <span class="nv-mobile-nav-label">{{ $t('layout.mobileNav.my') }}</span>
-      </button>
+      </RouterLink>
     </nav>
 
     <Teleport to="body">

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { mount, RouterLinkStub } from '@vue/test-utils'
 import MobileBottomNav from '../MobileBottomNav.vue'
 
 const { mocks, refLike } = vi.hoisted(() => ({
@@ -68,7 +68,8 @@ function mountNav(routeName: string | null) {
         $t: (key: string) => key
       },
       stubs: {
-        Teleport: true
+        Teleport: true,
+        RouterLink: RouterLinkStub,
       }
     }
   })
@@ -114,5 +115,14 @@ describe('MobileBottomNav', () => {
       'aria-modal': 'true',
       'aria-labelledby': 'mobile-write-sheet-title',
     })
+  })
+
+  it('uses links for page navigation and keeps the composer as a button', () => {
+    const wrapper = mountNav('home')
+    const navItems = wrapper.findAll('.nv-mobile-nav-item')
+
+    expect(navItems).toHaveLength(4)
+    expect(navItems.every((item) => item.element.tagName === 'A')).toBe(true)
+    expect(wrapper.get('.nv-mobile-nav-fab').element.tagName).toBe('BUTTON')
   })
 })
