@@ -161,6 +161,9 @@ export const common: CommonMessages = {
   active: '활성화',
   inactive: '비활성화',
   sortOrder: '정렬 순서',
+  moveUp: '{name} 위로 이동',
+  moveDown: '{name} 아래로 이동',
+  moved: '{name} 항목이 {position}번째로 이동했습니다.',
   time: {
     justNow: '방금 전',
     minutesAgo: '{count}분 전',
@@ -343,6 +346,9 @@ export const commonEn: CommonMessages = {
   active: 'Active',
   inactive: 'Inactive',
   sortOrder: 'Sort order',
+  moveUp: 'Move {name} up',
+  moveDown: 'Move {name} down',
+  moved: '{name} moved to position {position}.',
   time: {
     justNow: 'Just now',
     minutesAgo: '{count} minutes ago',

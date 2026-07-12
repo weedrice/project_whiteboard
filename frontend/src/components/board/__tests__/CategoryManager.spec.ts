@@ -17,6 +17,7 @@ const startEdit = vi.fn()
 const cancelEdit = vi.fn()
 const saveEdit = vi.fn()
 const fetchCategories = vi.fn()
+const moveCategory = vi.fn()
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({ t: (key: string) => key }),
@@ -41,6 +42,7 @@ vi.mock('@/composables/useBoardCategoriesManager', () => ({
     saveEdit,
     onDragStart: vi.fn(),
     onDrop: vi.fn(),
+    moveCategory,
   }),
 }))
 
@@ -131,6 +133,8 @@ const mountCategoryManager = () =>
         BaseInput: BaseInputStub,
         BaseSelect: BaseSelectStub,
         Check: true,
+        ChevronDown: true,
+        ChevronUp: true,
         Edit2: true,
         GripVertical: true,
         Plus: true,
@@ -173,5 +177,18 @@ describe('CategoryManager', () => {
 
     expect(wrapper.find('button[aria-label="board.category.save"]').exists()).toBe(true)
     expect(wrapper.find('button[aria-label="board.category.cancel"]').exists()).toBe(true)
+  })
+
+  it('provides keyboard controls for category reordering', async () => {
+    categories.value.push(makeCategory({ categoryId: 3, name: 'Events', sortOrder: 3 }))
+    moveCategory.mockResolvedValueOnce(true)
+    const wrapper = mountCategoryManager()
+
+    const moveDown = wrapper.find('button[aria-label="common.moveDown"]')
+    expect(moveDown.exists()).toBe(true)
+    await moveDown.trigger('click')
+
+    expect(moveCategory).toHaveBeenCalledWith(0, 1)
+    expect(wrapper.get('[role="status"]').text()).toBe('common.moved')
   })
 })

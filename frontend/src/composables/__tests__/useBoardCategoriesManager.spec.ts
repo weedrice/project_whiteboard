@@ -239,6 +239,23 @@ describe('useBoardCategoriesManager', () => {
         })
     })
 
+    it('moves categories with the keyboard reorder API', async () => {
+        const manager = createManager()
+        manager.categories.value = [
+            makeCategory({ categoryId: 1, name: 'General', sortOrder: 1, isDefault: true }),
+            makeCategory({ categoryId: 2, name: 'A', sortOrder: 2 }),
+            makeCategory({ categoryId: 3, name: 'B', sortOrder: 3 }),
+        ]
+        vi.mocked(boardApi.updateCategory).mockResolvedValue(
+            axiosApiResponse(apiSuccess(makeCategory({})))
+        )
+
+        expect(await manager.moveCategory(0, 1)).toBe(true)
+
+        expect(manager.categories.value.map(category => category.categoryId)).toEqual([1, 3, 2])
+        expect(boardApi.updateCategory).toHaveBeenCalledTimes(2)
+    })
+
     it('reloads categories when reorder update fails', async () => {
         const manager = createManager()
         manager.categories.value = [

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, toRef } from 'vue'
-import { Trash2, Edit2, Check, X, Plus, GripVertical } from 'lucide-vue-next'
+import { computed, onMounted, ref, toRef } from 'vue'
+import { Trash2, Edit2, Check, X, Plus, GripVertical, ChevronUp, ChevronDown } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
@@ -41,8 +41,17 @@ const {
   cancelEdit,
   saveEdit,
   onDragStart,
-  onDrop
+  onDrop,
+  moveCategory,
 } = useBoardCategoriesManager(toRef(props, 'boardUrl'))
+
+const reorderAnnouncement = ref('')
+
+const handleKeyboardMove = async (index: number, offset: -1 | 1, name: string) => {
+  if (await moveCategory(index, offset)) {
+    reorderAnnouncement.value = t('common.moved', { name, position: index + offset + 1 })
+  }
+}
 
 onMounted(fetchCategories)
 </script>
@@ -50,6 +59,7 @@ onMounted(fetchCategories)
 <template>
   <div class="space-y-4">
     <component :is="headingTag" class="text-lg font-medium leading-6 nv-title">{{ $t('common.category') }}</component>
+    <p class="sr-only" role="status" aria-live="polite">{{ reorderAnnouncement }}</p>
 
     <!-- Add Category -->
     <form @submit.prevent="handleAdd" class="flex gap-2">
@@ -167,6 +177,18 @@ onMounted(fetchCategories)
                   category.minWriteRole }}</span>
             </div>
             <div class="flex items-center gap-2">
+              <BaseButton @click="handleKeyboardMove(index, -1, category.name)" variant="ghost" size="sm"
+                :aria-label="$t('common.moveUp', { name: category.name })"
+                :disabled="isReordering || index === 0"
+                class="p-1 nv-text-subtle">
+                <ChevronUp class="h-4 w-4" aria-hidden="true" />
+              </BaseButton>
+              <BaseButton @click="handleKeyboardMove(index, 1, category.name)" variant="ghost" size="sm"
+                :aria-label="$t('common.moveDown', { name: category.name })"
+                :disabled="isReordering || index === draggableCategories.length - 1"
+                class="p-1 nv-text-subtle">
+                <ChevronDown class="h-4 w-4" aria-hidden="true" />
+              </BaseButton>
               <BaseButton @click="startEdit(category)" variant="ghost" size="sm"
                 :aria-label="$t('board.category.edit')"
                 :disabled="isReordering"

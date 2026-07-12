@@ -135,10 +135,10 @@ export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
         }
     }
 
-    async function onDrop(index: number) {
+    async function onDrop(index: number): Promise<boolean> {
         if (isReordering.value) {
             dragIndex.value = null
-            return
+            return false
         }
 
         const fromIndex = dragIndex.value
@@ -146,7 +146,7 @@ export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
 
         if (fromIndex === null || fromIndex === toIndex) {
             dragIndex.value = null
-            return
+            return false
         }
 
         const previousCategories = categories.value.map(category => ({ ...category }))
@@ -184,14 +184,24 @@ export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
             })
             await Promise.all(updatePromises)
             invalidateCategories()
+            return true
         } catch (err: unknown) {
             logger.error('Failed to reorder categories:', err)
             toastStore.addToast(t('board.category.orderFailed'), 'error')
             categories.value = previousCategories
             await fetchCategories()
+            return false
         } finally {
             isReordering.value = false
         }
+    }
+
+    async function moveCategory(index: number, offset: -1 | 1): Promise<boolean> {
+        const targetIndex = index + offset
+        if (targetIndex < 0 || targetIndex >= draggableCategories.value.length) return false
+
+        dragIndex.value = index
+        return onDrop(targetIndex)
     }
 
     return {
@@ -215,5 +225,6 @@ export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
         saveEdit,
         onDragStart,
         onDrop,
+        moveCategory,
     }
 }

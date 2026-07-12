@@ -236,6 +236,9 @@ export interface CommonMessages {
   active: string
   inactive: string
   sortOrder: string
+  moveUp: string
+  moveDown: string
+  moved: string
   time: {
     justNow: string
     minutesAgo: string
