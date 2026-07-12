@@ -98,6 +98,9 @@ describe('PostEditorTipTap image workflows', () => {
         expect(mocks.loggerError).toHaveBeenCalledWith('Image upload failed:', expect.any(Error))
         expect(mocks.toastAdd).toHaveBeenCalledWith('common.messages.uploadFailed', 'error')
         expect(wrapper.find('.image-upload-status').text()).toContain('common.messages.uploadFailed')
+        expect(wrapper.get('.image-upload-status').attributes('role')).toBe('alert')
+        expect(wrapper.get('.image-upload-status').attributes('aria-live')).toBe('assertive')
+        expect(wrapper.get('.image-upload-status-btn--icon i').attributes('aria-hidden')).toBe('true')
 
         mocks.validateImageFile.mockReturnValueOnce(null)
         mocks.uploadImage.mockResolvedValueOnce({ url: 'https://cdn.test/retry.png', fileId: 89 })

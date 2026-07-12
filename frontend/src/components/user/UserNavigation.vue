@@ -2,7 +2,7 @@
     <div class="relative mb-6">
         <div ref="scrollContainer" class="overflow-x-auto scrollbar-hide -mx-4 px-4 sm:mx-0 sm:px-0 scroll-smooth">
             <nav class="flex space-x-4 sm:space-x-6 md:space-x-8 border-b nv-border min-w-max relative"
-                aria-label="User navigation">
+                :aria-label="$t('layout.a11y.userNavigation')">
                 <a v-for="(tab, index) in tabs" :key="tab.nameKey" :href="tab.href"
                     :ref="el => { if (el) tabRefs[index] = el as HTMLElement }"
                     @click="(e) => handleTabClick(e, tab.href)"

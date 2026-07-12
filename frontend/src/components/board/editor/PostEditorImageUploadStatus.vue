@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
+import { X } from 'lucide-vue-next'
 
 defineProps<{
   isUploadingImage: boolean
@@ -23,7 +24,12 @@ const { t } = useI18n()
 </script>
 
 <template>
-  <div v-if="isUploadingImage || hasImageUploadError" class="image-upload-status" role="status">
+  <div
+    v-if="isUploadingImage || hasImageUploadError"
+    class="image-upload-status"
+    :role="isUploadingImage ? 'status' : 'alert'"
+    :aria-live="isUploadingImage ? 'polite' : 'assertive'"
+  >
     <template v-if="isUploadingImage">
       <BaseSpinner size="sm" />
       <span>
@@ -43,16 +49,16 @@ const { t } = useI18n()
           <button type="button" class="image-upload-status-btn" @click="emit('retry-failed-image-upload', file)">
             {{ t('board.writePost.upload.retry') }}
           </button>
-          <button type="button" class="image-upload-status-btn" :aria-label="t('board.writePost.upload.dismiss')" @click="emit('dismiss-failed-image-upload', file)">
-            x
+          <button type="button" class="image-upload-status-btn image-upload-status-btn--icon" :aria-label="t('board.writePost.upload.dismiss')" @click="emit('dismiss-failed-image-upload', file)">
+            <X class="h-4 w-4" aria-hidden="true" />
           </button>
         </div>
       </div>
       <button v-if="failedImageCount > 1" type="button" class="image-upload-status-btn" @click="emit('retry-image-upload')">
         {{ t('board.writePost.upload.retry') }}
       </button>
-      <button type="button" class="image-upload-status-btn" :aria-label="t('board.writePost.upload.dismiss')" @click="emit('dismiss-image-upload-error')">
-        x
+      <button type="button" class="image-upload-status-btn image-upload-status-btn--icon" :aria-label="t('board.writePost.upload.dismiss')" @click="emit('dismiss-image-upload-error')">
+        <X class="h-4 w-4" aria-hidden="true" />
       </button>
     </template>
   </div>

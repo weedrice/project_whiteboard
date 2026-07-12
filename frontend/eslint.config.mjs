@@ -8,6 +8,7 @@ import vueParser from 'vue-eslint-parser'
 const hasKoreanText = (value) => /[가-힣]/.test(value)
 const hasSuspiciousMojibake = (value) => /�/.test(value)
 const hasBareEnglishSentence = (value) => /\b[A-Za-z]+(?:\s+[A-Za-z]+){2,}[.!?]/.test(value)
+const hasBareEnglishAccessibleName = (value) => /\b[A-Za-z][A-Za-z'-]*(?:\s+[A-Za-z][A-Za-z'-]*)+\b/.test(value)
 const legalDocumentFiles = new Set([
     'src/views/PrivacyPolicy.vue',
 ])
@@ -67,9 +68,14 @@ const localI18nPlugin = {
                     },
                     'VAttribute[directive=false]'(node) {
                         const value = node.value?.value
+                        const attributeName = node.key.name
                         if (typeof value === 'string' && hasKoreanText(value)
                             && !isAllowedLegalDocumentCopy(node, relativeFilename)) {
                             context.report({ node, messageId: 'bareText' })
+                        } else if (typeof value === 'string'
+                            && ['aria-label', 'title', 'placeholder'].includes(attributeName)
+                            && hasBareEnglishAccessibleName(value)) {
+                            context.report({ node, messageId: 'bareEnglish' })
                         }
                     },
                 }

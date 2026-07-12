@@ -37,6 +37,7 @@ describe('UserNavigation', () => {
 
         expect(wrapper.findAll('a')[0].attributes('aria-current')).toBe('page')
         expect(wrapper.get('nav').attributes('role')).toBeUndefined()
+        expect(wrapper.get('nav').attributes('aria-label')).toBe('layout.a11y.userNavigation')
         expect(wrapper.findAll('a')[1].attributes('tabindex')).toBeUndefined()
         expect(wrapper.findAll('a')[1].classes()).toContain('nv-focus-ring')
 

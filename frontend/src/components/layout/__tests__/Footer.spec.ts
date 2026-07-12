@@ -90,6 +90,7 @@ describe('Footer', () => {
         })
 
         const links = wrapper.findAll('nav a')
+        expect(wrapper.get('nav').attributes('aria-label')).toBe('layout.a11y.footerNavigation')
         expect(links.map(link => link.text())).toEqual([
             'common.footer.contact',
             'common.footer.termsOfService',

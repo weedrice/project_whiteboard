@@ -21,6 +21,8 @@ export const layout: LayoutMessages = {
     homeLink: '{appName} 홈',
     openNotifications: '알림 열기',
     goToNotifications: '알림 페이지로 이동',
+    footerNavigation: '푸터 탐색',
+    userNavigation: '사용자 페이지 탐색',
   },
   topNav: {
     home: '홈',
@@ -108,6 +110,8 @@ export const layoutEn: LayoutMessages = {
     homeLink: '{appName} home',
     openNotifications: 'Open notifications',
     goToNotifications: 'Go to notifications',
+    footerNavigation: 'Footer navigation',
+    userNavigation: 'User navigation',
   },
   topNav: {
     home: 'Home',

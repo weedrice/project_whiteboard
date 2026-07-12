@@ -76,10 +76,20 @@
 }
 
 .image-upload-status-btn {
+  align-items: center;
   border: 0;
   color: var(--nv-accent);
+  display: inline-flex;
   font-weight: 600;
   background: transparent;
+  justify-content: center;
+  min-height: 2.75rem;
+  padding-inline: 0.5rem;
+}
+
+.image-upload-status-btn--icon {
+  min-width: 2.75rem;
+  padding-inline: 0;
 }
 
 @keyframes tiptap-spin {

@@ -394,6 +394,8 @@ export interface LayoutMessages {
     homeLink: string
     openNotifications: string
     goToNotifications: string
+    footerNavigation: string
+    userNavigation: string
   }
   topNav: {
     home: string
