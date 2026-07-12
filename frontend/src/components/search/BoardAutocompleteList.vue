@@ -44,6 +44,8 @@ const { t } = useI18n()
           <img
             v-if="board.iconUrl"
             :src="getOptimizedBoardIconUrl(board.iconUrl)"
+            loading="lazy"
+            decoding="async"
             class="nv-global-search-board-icon h-full w-full object-contain"
             alt=""
             @error="handleImageError($event)"

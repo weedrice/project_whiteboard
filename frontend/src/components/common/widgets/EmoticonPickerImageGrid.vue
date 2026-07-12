@@ -36,6 +36,8 @@ const { t } = useI18n()
         <img
           :src="image.imageUrl || DEFAULT_EMOTICON_IMAGE_URL"
           :alt="emoticonName"
+          loading="lazy"
+          decoding="async"
           @error="applyImageFallback"
         />
       </button>

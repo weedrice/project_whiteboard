@@ -84,6 +84,7 @@ watch(() => props.post.postId, () => {
             alt=""
             class="h-9 w-9 rounded-full border border-[var(--nv-line)] object-cover"
             loading="lazy"
+            decoding="async"
             @error="handleImageError($event)"
           />
           <div
@@ -159,6 +160,7 @@ watch(() => props.post.postId, () => {
         class="rounded-[inherit]"
         :class="isFeatured ? 'h-auto w-auto max-h-[26rem] max-w-full object-contain' : 'aspect-[16/9] w-full object-cover'"
         loading="lazy"
+        decoding="async"
         @error="handleImageError($event)"
       />
     </div>

@@ -125,7 +125,7 @@ useHead({
           <!-- 썸네일 -->
           <div class="flex-shrink-0">
             <div class="w-40 h-40 nv-surface-muted rounded-lg overflow-hidden">
-              <img :src="emoticonView.thumbnailSrc" :alt="emoticonView.name"
+              <img :src="emoticonView.thumbnailSrc" :alt="emoticonView.name" decoding="async"
                 class="w-full h-full object-contain" @error="applyImageFallback" />
             </div>
           </div>
@@ -186,7 +186,7 @@ useHead({
           <div v-for="image in emoticonView.imageItems" :key="image.imageId"
             class="aspect-square nv-surface-muted rounded-lg overflow-hidden"
             style="width: 100px; height: 100px;">
-            <img :src="image.src" :alt="image.alt"
+            <img :src="image.src" :alt="image.alt" loading="lazy" decoding="async"
               class="w-full h-full object-contain" @error="applyImageFallback" />
           </div>
         </div>

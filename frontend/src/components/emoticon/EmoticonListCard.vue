@@ -33,6 +33,8 @@ const { t } = useI18n()
       <img
         :src="emoticon.thumbnailUrl || DEFAULT_EMOTICON_IMAGE_URL"
         :alt="emoticon.name"
+        loading="lazy"
+        decoding="async"
         class="w-full h-full object-contain"
         @error="applyImageFallback"
       />

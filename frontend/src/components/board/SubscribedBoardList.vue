@@ -16,7 +16,7 @@ defineProps<{
         class="flex flex-col items-center group flex-shrink-0 min-w-[80px]">
         <div
           class="h-16 w-16 rounded-full nv-avatar-fallback flex items-center justify-center group-hover:ring-2 ring-[var(--nv-focus)] transition-all overflow-hidden border shadow-sm">
-          <img v-if="board.iconUrl" :src="board.iconUrl" class="h-full w-full object-contain nv-surface-muted"
+          <img v-if="board.iconUrl" :src="board.iconUrl" loading="lazy" decoding="async" class="h-full w-full object-contain nv-surface-muted"
             alt="" />
           <span v-else class="nv-accent-text font-bold text-2xl">{{ board.boardName[0] }}</span>
         </div>

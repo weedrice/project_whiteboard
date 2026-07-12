@@ -35,6 +35,8 @@ const { t } = useI18n()
         <img
           :src="emoticon.thumbnailUrl || emoticon.images?.[0]?.imageUrl || DEFAULT_EMOTICON_IMAGE_URL"
           :alt="emoticon.name"
+          loading="lazy"
+          decoding="async"
           @error="applyImageFallback"
         />
         <span class="emoticon-name">{{ emoticon.name }}</span>

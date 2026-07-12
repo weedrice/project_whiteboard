@@ -159,6 +159,8 @@ watch(isBlinded, (blinded) => {
           <img
             :src="comment.author.profileImageUrl"
             :alt="comment.author.displayName"
+            loading="lazy"
+            decoding="async"
             class="h-full w-full object-cover"
           />
         </div>

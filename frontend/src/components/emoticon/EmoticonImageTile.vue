@@ -25,6 +25,8 @@ const emit = defineEmits<{
     <img
       :src="src"
       :alt="alt"
+      loading="lazy"
+      decoding="async"
       class="aspect-square w-full object-contain rounded"
       :class="variant === 'new'
         ? 'bg-[var(--nv-success-bg)] border-2 border-[var(--nv-success-border)]'

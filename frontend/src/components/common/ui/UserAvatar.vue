@@ -34,6 +34,7 @@ const fallbackInitial = computed(() => {
       v-if="imageUrl"
       :src="imageUrl"
       :alt="alt"
+      decoding="async"
       class="h-full w-full"
       :class="imageClass"
       @error="$emit('image-error', $event)"

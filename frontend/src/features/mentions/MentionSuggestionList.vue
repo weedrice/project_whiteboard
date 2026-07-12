@@ -27,6 +27,7 @@ const emit = defineEmits<{
         v-if="candidate.profileImageUrl"
         :src="candidate.profileImageUrl"
         alt=""
+        decoding="async"
         class="mention-suggestion-avatar"
       />
       <span v-else class="mention-suggestion-avatar mention-suggestion-avatar--empty">
@@ -88,4 +89,3 @@ const emit = defineEmits<{
   font-weight: 700;
 }
 </style>
-
