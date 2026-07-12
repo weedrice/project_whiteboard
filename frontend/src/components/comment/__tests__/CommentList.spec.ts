@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount, RouterLinkStub } from '@vue/test-utils'
 import CommentList from '../CommentList.vue'
 
-const { authState, commentsValue, commentsState, deleteComment, fetchNextPage } = vi.hoisted(() => ({
+const { authState, commentsValue, commentsState, deleteComment, fetchNextPage, refetchComments } = vi.hoisted(() => ({
   authState: {
     isAuthenticated: true,
   },
@@ -19,6 +19,7 @@ const { authState, commentsValue, commentsState, deleteComment, fetchNextPage } 
   },
   deleteComment: vi.fn(),
   fetchNextPage: vi.fn(),
+  refetchComments: vi.fn(),
 }))
 
 let capturedCommentParams: Ref<{ page: number; size: number; sort: string }> | null = null
@@ -63,6 +64,7 @@ vi.mock('@/composables/useComment', () => ({
         hasNextPage: ref(commentsState.hasNextPage),
         fetchNextPage,
         error: ref(commentsState.error),
+        refetch: refetchComments,
       }
     },
     useBestComments: () => ({
@@ -115,6 +117,7 @@ describe('CommentList', () => {
     commentsState.error = null
     commentsState.hasNextPage = false
     fetchNextPage.mockClear()
+    refetchComments.mockClear()
     commentsValue.content = [
       { commentId: 1, content: '첫 댓글' },
     ]
@@ -141,12 +144,15 @@ describe('CommentList', () => {
     expect(wrapper.text()).toContain('comment.empty')
   })
 
-  it('shows an explicit error state when comments fail to load', () => {
+  it('shows a retryable error state when comments fail to load', async () => {
     commentsState.error = new Error('failed')
 
     const wrapper = mountCommentList()
 
     expect(wrapper.text()).toContain('댓글을 불러오지 못했습니다.')
+    expect(wrapper.find('[role="alert"]').exists()).toBe(true)
+    await wrapper.get('[role="alert"] button').trigger('click')
+    expect(refetchComments).toHaveBeenCalled()
   })
 
   it('shows a load-more action when more comments exist and fetches the next page', async () => {

@@ -9,6 +9,7 @@ import logger from '@/utils/logger'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSegmentedControl from '@/components/common/ui/BaseSegmentedControl.vue'
+import ErrorState from '@/components/common/ui/ErrorState.vue'
 import CommentForm from './CommentForm.vue'
 import CommentItem from './CommentItem.vue'
 
@@ -40,6 +41,7 @@ const {
   hasNextPage,
   fetchNextPage,
   error: commentsError,
+  refetch: refetchComments,
 } = useInfiniteComments(postId, params)
 const { data: bestCommentsData } = useBestComments(postId)
 const comments = computed<Comment[]>(() => commentsData.value?.pages.flatMap((page) => page.content) || [])
@@ -139,9 +141,13 @@ function isNewComment(comment: Comment) {
       </div>
     </div>
 
-    <div v-else-if="commentsError" class="py-4 text-center text-xs nv-form-error sm:text-sm">
-      {{ commentLoadFailedMessage }}
-    </div>
+    <ErrorState
+      v-else-if="commentsError"
+      title-tag="h4"
+      :message="commentLoadFailedMessage"
+      show-retry
+      @retry="refetchComments()"
+    />
 
     <div v-else class="space-y-4 sm:space-y-6">
       <div class="flex justify-end">
