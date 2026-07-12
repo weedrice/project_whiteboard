@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import PostEditorPopoverActions from './PostEditorPopoverActions.vue'
+import BaseInput from '@/components/common/ui/BaseInput.vue'
 import { useI18n } from 'vue-i18n'
 
 const props = defineProps<{
@@ -27,19 +28,20 @@ function apply() {
 
 <template>
   <div class="link-popover-row">
-    <label for="editor-image-alt" class="link-popover-label">{{ t('board.writePost.imageAlt.label') }}</label>
-    <input
+    <BaseInput
       id="editor-image-alt"
       v-model="localAlt"
       type="text"
       name="editorImageAlt"
       autocomplete="off"
       aria-describedby="editor-image-alt-help"
-      class="link-popover-input"
+      :label="t('board.writePost.imageAlt.label')"
+      label-class="link-popover-label"
+      input-class="link-popover-input"
       :placeholder="t('board.writePost.imageAlt.placeholder')"
       @keydown.enter.stop.prevent="apply"
       @keydown.escape.stop.prevent="emit('close')"
-    >
+    />
     <p id="editor-image-alt-help" class="image-alt-help">{{ t('board.writePost.imageAlt.help') }}</p>
   </div>
   <PostEditorPopoverActions

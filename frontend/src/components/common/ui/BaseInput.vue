@@ -18,7 +18,7 @@
         :placeholder="placeholder" 
         :disabled="disabled"
         :aria-invalid="error ? 'true' : undefined"
-        :aria-describedby="error ? `${inputId}-error` : undefined"
+        :aria-describedby="describedBy"
         class="input-base"
         :class="[
           { 'is-invalid': error },
@@ -37,7 +37,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, useId, type StyleValue } from 'vue'
+import { computed, useAttrs, useId, type StyleValue } from 'vue'
 
 defineOptions({
   inheritAttrs: false
@@ -71,6 +71,11 @@ const props = withDefaults(defineProps<{
 
 const generatedId = useId()
 const inputId = computed(() => props.id ?? generatedId)
+const attrs = useAttrs()
+const describedBy = computed(() => [
+  attrs['aria-describedby'],
+  props.error ? `${inputId.value}-error` : undefined,
+].filter(Boolean).join(' ') || undefined)
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: string | number): void

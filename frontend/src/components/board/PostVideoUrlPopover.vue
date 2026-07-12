@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { ComponentPublicInstance } from 'vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
+import BaseInput from '@/components/common/ui/BaseInput.vue'
 
 defineProps<{
   show: boolean
@@ -31,22 +32,21 @@ const emit = defineEmits<{
         :style="{ top: popoverStyle.top, left: popoverStyle.left }"
         role="dialog"
         aria-modal="true"
-        aria-labelledby="post-video-url-label"
+        :aria-label="$t('board.writePost.video.inputLabel')"
       >
-        <label id="post-video-url-label" for="post-video-url-input" class="video-url-popover-label">
-          {{ $t('board.writePost.video.inputLabel') }}
-        </label>
-        <input
+        <BaseInput
           id="post-video-url-input"
-          :value="modelValue"
+          :model-value="modelValue"
           type="url"
-          class="video-url-popover-input"
+          :label="$t('board.writePost.video.inputLabel')"
+          label-class="video-url-popover-label"
+          input-class="video-url-popover-input"
           :placeholder="$t('board.writePost.video.placeholder')"
           aria-describedby="post-video-url-help"
-          @input="emit('update:modelValue', ($event.target as HTMLInputElement).value)"
+          @update:model-value="emit('update:modelValue', String($event))"
           @keydown.enter.stop.prevent="emit('submit')"
           @keydown.escape.stop.prevent="emit('close')"
-        >
+        />
         <p id="post-video-url-help" class="video-url-popover-help">
           {{ $t('board.writePost.video.help') }}
         </p>

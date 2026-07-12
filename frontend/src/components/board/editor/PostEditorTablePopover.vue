@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import PostEditorPopoverActions from './PostEditorPopoverActions.vue'
+import BaseCheckbox from '@/components/common/ui/BaseCheckbox.vue'
+import BaseInput from '@/components/common/ui/BaseInput.vue'
 import { useI18n } from 'vue-i18n'
 
 defineProps<{
@@ -21,49 +23,49 @@ const { t } = useI18n()
 
 <template>
   <div class="link-popover-row">
-    <label for="editor-table-rows" class="link-popover-label">{{ t('board.writePost.tableRows') }}</label>
-    <input
+    <BaseInput
       id="editor-table-rows"
-      :value="rows"
+      :model-value="rows"
       type="number"
       name="tableRows"
       inputmode="numeric"
       autocomplete="off"
       min="1"
       max="20"
-      class="link-popover-input"
-      @input="emit('update:rows', Number(($event.target as HTMLInputElement).value))"
+      :label="t('board.writePost.tableRows')"
+      label-class="link-popover-label"
+      input-class="link-popover-input"
+      @update:model-value="emit('update:rows', Number($event))"
       @keydown.enter.stop.prevent="emit('apply')"
       @keydown.escape.stop.prevent="emit('close')"
-    >
+    />
   </div>
   <div class="link-popover-row">
-    <label for="editor-table-cols" class="link-popover-label">{{ t('board.writePost.tableCols') }}</label>
-    <input
+    <BaseInput
       id="editor-table-cols"
-      :value="cols"
+      :model-value="cols"
       type="number"
       name="tableCols"
       inputmode="numeric"
       autocomplete="off"
       min="1"
       max="10"
-      class="link-popover-input"
-      @input="emit('update:cols', Number(($event.target as HTMLInputElement).value))"
+      :label="t('board.writePost.tableCols')"
+      label-class="link-popover-label"
+      input-class="link-popover-input"
+      @update:model-value="emit('update:cols', Number($event))"
       @keydown.enter.stop.prevent="emit('apply')"
       @keydown.escape.stop.prevent="emit('close')"
-    >
+    />
   </div>
-  <div class="link-popover-row flex items-center gap-2">
-    <input
+  <div class="link-popover-row">
+    <BaseCheckbox
       id="table-header-row"
-      :checked="headerRow"
-      type="checkbox"
+      :model-value="headerRow"
       name="tableHeaderRow"
-      class="rounded border-[var(--nv-line)]"
-      @change="emit('update:header-row', ($event.target as HTMLInputElement).checked)"
-    >
-    <label for="table-header-row" class="link-popover-label !mb-0">{{ t('board.writePost.tableHeaderRow') }}</label>
+      :label="t('board.writePost.tableHeaderRow')"
+      @update:model-value="emit('update:header-row', Boolean($event))"
+    />
   </div>
   <PostEditorPopoverActions
     :cancel-label="t('common.cancel')"

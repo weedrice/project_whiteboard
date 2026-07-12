@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import PostEditorPopoverActions from './PostEditorPopoverActions.vue'
+import BaseInput from '@/components/common/ui/BaseInput.vue'
 import { useI18n } from 'vue-i18n'
 
 const props = defineProps<{
@@ -34,33 +35,35 @@ function apply() {
 
 <template>
   <div class="link-popover-row">
-    <label for="editor-link-url" class="link-popover-label">{{ t('board.writePost.linkUrlPrompt') }}</label>
-    <input
+    <BaseInput
       id="editor-link-url"
       v-model="localUrl"
       type="url"
       name="editorLinkUrl"
       inputmode="url"
       autocomplete="off"
-      class="link-popover-input"
+      :label="t('board.writePost.linkUrlPrompt')"
+      label-class="link-popover-label"
+      input-class="link-popover-input"
       placeholder="https://..."
       @keydown.enter.stop.prevent="apply"
       @keydown.escape.stop.prevent="emit('close')"
-    >
+    />
   </div>
   <div class="link-popover-row">
-    <label for="editor-link-text" class="link-popover-label">{{ t('board.writePost.linkDisplayText') }}</label>
-    <input
+    <BaseInput
       id="editor-link-text"
       v-model="localText"
       type="text"
       name="editorLinkText"
       autocomplete="off"
-      class="link-popover-input"
+      :label="t('board.writePost.linkDisplayText')"
+      label-class="link-popover-label"
+      input-class="link-popover-input"
       :placeholder="t('board.writePost.linkDisplayText')"
       @keydown.enter.stop.prevent="apply"
       @keydown.escape.stop.prevent="emit('close')"
-    >
+    />
   </div>
   <PostEditorPopoverActions
     :cancel-label="t('common.cancel')"

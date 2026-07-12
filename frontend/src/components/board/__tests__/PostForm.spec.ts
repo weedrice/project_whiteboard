@@ -476,12 +476,12 @@ describe('PostForm', () => {
         expect(mockAddToast).toHaveBeenCalledWith('board.writePost.videoUrlRequired', 'error')
         expect(editorSetVideo).not.toHaveBeenCalled()
 
-        await wrapper.get('.video-url-popover-input').setValue('https://example.com/video')
+        await wrapper.get('#post-video-url-input').setValue('https://example.com/video')
         await wrapper.get('.video-url-popover-actions button:last-child').trigger('click')
         expect(mockAddToast).toHaveBeenLastCalledWith('board.writePost.invalidVideoUrl', 'error')
         expect(editorSetVideo).not.toHaveBeenCalled()
 
-        await wrapper.get('.video-url-popover-input').setValue('https://youtu.be/abc123')
+        await wrapper.get('#post-video-url-input').setValue('https://youtu.be/abc123')
         await wrapper.get('.video-url-popover-actions button:last-child').trigger('click')
         expect(editorSetVideo).toHaveBeenCalledWith('https://www.youtube.com/embed/abc123?showinfo=0')
         expect(wrapper.find('.video-url-popover').exists()).toBe(false)
@@ -516,7 +516,7 @@ describe('PostForm', () => {
         expect(popover.attributes('style')).toContain(`top: ${expectedTop}`)
         expect(popover.attributes('style')).toContain(`left: ${expectedLeft}`)
 
-        await wrapper.get('.video-url-popover-input').setValue('vimeo.com/12345')
+        await wrapper.get('#post-video-url-input').setValue('vimeo.com/12345')
         await wrapper.get('.video-url-popover-actions button:last-child').trigger('click')
         expect(editorSetVideo).toHaveBeenCalledWith('https://player.vimeo.com/video/12345')
     })
@@ -537,7 +537,7 @@ describe('PostForm', () => {
         const documentKeydown = vi.fn()
         document.addEventListener('keydown', documentKeydown)
         const inputEscape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
-        wrapper.get('.video-url-popover-input').element.dispatchEvent(inputEscape)
+        wrapper.get('#post-video-url-input').element.dispatchEvent(inputEscape)
         await nextTick()
         expect(wrapper.find('.video-url-popover').exists()).toBe(false)
         expect(wrapper.emitted('cancel')).toBeUndefined()
@@ -655,7 +655,7 @@ describe('PostForm', () => {
         expect(popover.attributes('style')).toContain('top: 60px')
         expect(popover.attributes('style')).toContain('left: 0px')
 
-        await wrapper.get('.video-url-popover-input').setValue('  https://example.com/video  ')
+        await wrapper.get('#post-video-url-input').setValue('  https://example.com/video  ')
         await wrapper.get('.video-url-popover-actions button:last-child').trigger('click')
         expect(editorSetVideo).not.toHaveBeenCalled()
         expect(mockAddToast).toHaveBeenLastCalledWith('board.writePost.invalidVideoUrl', 'error')

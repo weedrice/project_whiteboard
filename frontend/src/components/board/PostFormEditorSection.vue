@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { defineAsyncComponent, type ComponentPublicInstance } from 'vue'
 import BaseSegmentedControl, { type SegmentedControlOption } from '@/components/common/ui/BaseSegmentedControl.vue'
+import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
 import EmoticonPicker from '@/components/common/widgets/EmoticonPicker.vue'
 import PostVideoUrlPopover from '@/components/board/PostVideoUrlPopover.vue'
 import type { EmoticonImage } from '@/types/emoticon'
@@ -81,13 +82,16 @@ const emit = defineEmits<{
       </div>
 
       <div v-else class="html-source-editor-wrap">
-        <textarea
+        <BaseTextarea
           id="content"
-          :value="modelValue"
-          class="html-source-textarea"
+          :model-value="modelValue"
+          class="h-full"
+          input-class="html-source-textarea"
+          :label="$t('board.writePost.sections.editor')"
+          hide-label
           :placeholder="$t('board.writePost.htmlSourcePlaceholder')"
           spellcheck="false"
-          @input="emit('update:modelValue', ($event.target as HTMLTextAreaElement).value)"
+          @update:model-value="emit('update:modelValue', $event)"
         />
       </div>
     </div>
@@ -113,7 +117,7 @@ const emit = defineEmits<{
   overflow: hidden;
 }
 
-.html-source-textarea {
+:deep(.html-source-textarea) {
   display: block;
   width: 100%;
   height: 100%;
