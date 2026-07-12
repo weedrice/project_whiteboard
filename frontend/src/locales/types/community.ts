@@ -751,6 +751,7 @@ export interface UserMessages {
       empty: string
       showHistory: string
       hideHistory: string
+      historyEmpty: string
       confirmTitle: string
       confirmCurrent: string
       confirmOne: string

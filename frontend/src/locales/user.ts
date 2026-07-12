@@ -268,6 +268,7 @@ export const user: UserMessages = {
       empty: '활성 세션이 없습니다.',
       showHistory: '로그인 이력 보기',
       hideHistory: '로그인 이력 접기',
+      historyEmpty: '로그인 이력이 없습니다.',
       confirmTitle: '세션 로그아웃',
       confirmCurrent: '현재 세션을 로그아웃하면 다시 로그인해야 합니다. 계속할까요?',
       confirmOne: '이 세션을 로그아웃할까요?',

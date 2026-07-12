@@ -364,6 +364,24 @@ describe('UserSettings', () => {
     ])
   })
 
+  it('exposes login history as an accessible disclosure with an empty state', async () => {
+    routeMock.hash = '#security'
+    loginHistoryData.value = { content: [], totalElements: 0, totalPages: 0, size: 10, number: 0 }
+    const wrapper = mountUserSettings()
+    await nextTick()
+
+    const toggle = wrapper.findAll('button')
+      .find((button) => button.text() === 'user.settings.sessions.showHistory')!
+    expect(toggle.attributes()).toMatchObject({
+      'aria-controls': 'settings-login-history',
+      'aria-expanded': 'false',
+    })
+
+    await toggle.trigger('click')
+    expect(toggle.attributes('aria-expanded')).toBe('true')
+    expect(wrapper.get('#settings-login-history').text()).toContain('user.settings.sessions.historyEmpty')
+  })
+
   it('restores the selected section from the URL hash and updates deep links', async () => {
     routeMock.hash = '#security'
     const wrapper = mountUserSettings()

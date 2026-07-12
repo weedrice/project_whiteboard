@@ -28,6 +28,7 @@ const BaseInputStub = {
     'error',
   ],
   emits: ['update:modelValue'],
+  inheritAttrs: false,
   template: `
     <label>
       {{ label }}
@@ -38,6 +39,7 @@ const BaseInputStub = {
         :value="modelValue"
         :disabled="disabled"
         :aria-invalid="error ? 'true' : undefined"
+        v-bind="$attrs"
         @input="$emit('update:modelValue', $event.target.value)"
       />
       <span v-if="error" data-testid="input-error">{{ error }}</span>
@@ -98,6 +100,8 @@ describe('EmailVerificationModal', () => {
 
     expect(wrapper.get('[data-testid="input-error"]').text()).toBe('auth.validation.emailFormat')
     expect(wrapper.get('[role="alert"]').text()).toBe('auth.validation.emailFormat')
+    expect(wrapper.get('[role="alert"]').attributes('id')).toBe('email-verification-email-error')
+    expect(wrapper.get('#email-verification-email').attributes('aria-describedby')).toBe('email-verification-email-error')
     expect(wrapper.get('button').attributes('disabled')).toBeDefined()
   })
 })

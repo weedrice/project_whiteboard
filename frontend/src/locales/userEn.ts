@@ -268,6 +268,7 @@ export const userEn: UserMessages = {
       empty: 'No active sessions.',
       showHistory: 'Show login history',
       hideHistory: 'Hide login history',
+      historyEmpty: 'No login history.',
       confirmTitle: 'Log out session',
       confirmCurrent: 'Logging out the current session requires you to sign in again. Continue?',
       confirmOne: 'Log out this session?',

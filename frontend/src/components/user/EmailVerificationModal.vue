@@ -45,6 +45,7 @@ const { t } = useI18n()
               hideLabel
               :error="verification.email.trim() && !isValidEmail(verification.email.trim()) ? t('auth.validation.emailFormat') : ''"
               hideErrorText
+              aria-describedby="email-verification-email-error"
               @update:model-value="$emit('update:email', String($event))"
             />
           </div>
@@ -64,6 +65,7 @@ const { t } = useI18n()
         </div>
         <p
           v-if="verification.email.trim() && !isValidEmail(verification.email.trim())"
+          id="email-verification-email-error"
           class="text-xs sm:text-sm nv-form-error mt-1"
           role="alert"
         >

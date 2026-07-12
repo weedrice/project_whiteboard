@@ -74,7 +74,7 @@ const inputId = computed(() => props.id ?? generatedId)
 const attrs = useAttrs()
 const describedBy = computed(() => [
   attrs['aria-describedby'],
-  props.error ? `${inputId.value}-error` : undefined,
+  props.error && !props.hideErrorText ? `${inputId.value}-error` : undefined,
 ].filter(Boolean).join(' ') || undefined)
 
 const emit = defineEmits<{

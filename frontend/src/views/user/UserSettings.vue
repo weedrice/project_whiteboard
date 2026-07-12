@@ -502,12 +502,14 @@ const handleRevokeOtherSessions = async () => {
 
             <button
               type="button"
-              class="mt-4 text-sm font-medium nv-accent-text"
+              class="nv-touch-target nv-focus-ring mt-4 inline-flex items-center rounded-md px-2 text-sm font-medium nv-accent-text"
+              aria-controls="settings-login-history"
+              :aria-expanded="showLoginHistory"
               @click="showLoginHistory = !showLoginHistory"
             >
               {{ showLoginHistory ? $t('user.settings.sessions.hideHistory') : $t('user.settings.sessions.showHistory') }}
             </button>
-            <div v-if="showLoginHistory" class="mt-3 space-y-2">
+            <div v-if="showLoginHistory" id="settings-login-history" class="mt-3 space-y-2">
               <BaseSpinner v-if="isLoginHistoryLoading" />
               <template v-else>
                 <div
@@ -520,6 +522,9 @@ const handleRevokeOtherSessions = async () => {
                     {{ history.ipAddress }} · {{ formatDateTimeOrDash(history.createdAt, currentLocale) }}
                   </span>
                 </div>
+                <p v-if="loginHistory.length === 0" class="text-sm nv-text-subtle">
+                  {{ $t('user.settings.sessions.historyEmpty') }}
+                </p>
               </template>
             </div>
           </div>

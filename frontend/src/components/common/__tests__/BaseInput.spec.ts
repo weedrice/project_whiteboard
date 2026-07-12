@@ -74,6 +74,22 @@ describe('BaseInput', () => {
         expect(wrapper.find('input').attributes('disabled')).toBeDefined()
     })
 
+    it('does not reference an internal error node when error text is externally rendered', () => {
+        const wrapper = mount(BaseInput, {
+            props: {
+                id: 'external-error-input',
+                error: 'Invalid input',
+                hideErrorText: true,
+            },
+            attrs: {
+                'aria-describedby': 'external-error-message',
+            },
+        })
+
+        expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+        expect(wrapper.get('input').attributes('aria-describedby')).toBe('external-error-message')
+    })
+
     it('keeps suffix slot accessible for assistive technology', () => {
         const wrapper = mount(BaseInput, {
             slots: {

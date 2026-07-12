@@ -280,7 +280,7 @@
               <button
                 type="button"
                 class="nv-touch-target-square -my-2 -mr-3 shrink-0 rounded-md text-xs nv-text-subtle nv-hover-danger"
-                :aria-label="$t('search.deleteRecent')"
+                :aria-label="$t('search.deleteRecent', { keyword: keyword.keyword })"
                 @click="deleteRecentKeyword(keyword.logId)"
               >
                 ×
