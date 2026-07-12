@@ -107,6 +107,13 @@ vi.mock('@/composables/useNotification', () => ({
     }),
 }))
 
+vi.mock('@/components/user/BadgeAwardCelebration.vue', () => ({
+    default: defineComponent({
+        name: 'BadgeAwardCelebration',
+        setup: () => () => h('div', { 'data-testid': 'badge-award-celebration' }),
+    }),
+}))
+
 vi.mock('@/utils/keyboard', () => ({
     isInputFocused: () => false,
 }))
