@@ -65,6 +65,7 @@ vi.mock('@/composables/useMediaQuery', () => ({
 }))
 
 const mountSearchBar = () => mount(GlobalSearchBar, {
+    attachTo: document.body,
     global: {
         mocks: {
             $t: (key: string, params?: Record<string, string>) => (
@@ -149,8 +150,23 @@ describe('GlobalSearchBar', () => {
 
         expect(dropdown).not.toBeNull()
         expect(dropdown?.classList.contains('fixed')).toBe(true)
+        expect(dropdown?.classList.contains('nv-global-search-mobile-results')).toBe(true)
         expect(listbox?.getAttribute('role')).toBe('listbox')
         expect(document.body.querySelector('#global-search-board-results-vue')?.getAttribute('role')).toBe('option')
+    })
+
+    it('restores focus to the mobile search trigger when Escape collapses search', async () => {
+        mobileViewport.value = true
+        const wrapper = mountSearchBar()
+
+        await wrapper.get('button[aria-label="search.placeholder"]').trigger('click')
+        await nextTick()
+
+        await wrapper.get('input').trigger('keydown', { key: 'Escape' })
+        await nextTick()
+
+        const searchTrigger = wrapper.get('button[aria-label="search.placeholder"]')
+        expect(document.activeElement).toBe(searchTrigger.element)
     })
 
     it('collapses expanded mobile search on outside click while input remains focused', async () => {

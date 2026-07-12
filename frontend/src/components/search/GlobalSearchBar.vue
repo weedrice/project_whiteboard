@@ -8,6 +8,7 @@ import { useGlobalSearchController } from '@/composables/useGlobalSearchControll
 
 const searchContainer = ref<HTMLElement | null>(null)
 const searchInputRef = ref<{ $el?: HTMLElement; focus?: () => void } | null>(null)
+const searchToggleRef = ref<HTMLButtonElement | null>(null)
 const searchInputId = 'global-search-input'
 const searchListboxId = 'global-search-board-results'
 const searchQuery = ref('')
@@ -30,6 +31,7 @@ const {
   searchQuery,
   searchContainer,
   searchInputRef,
+  searchToggleRef,
   searchListboxId
 })
 </script>
@@ -48,6 +50,7 @@ const {
     <!-- Mobile collapsed search button -->
     <button
       v-if="isMobile && !isExpanded"
+      ref="searchToggleRef"
       type="button"
       @click.stop="expandAndFocus"
       class="nv-global-search-toggle flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full focus:outline-none sm:h-10 sm:w-10"
@@ -81,7 +84,7 @@ const {
       <button
         v-if="isMobile && isExpanded"
         type="button"
-        @click="collapse"
+        @click="collapse(true)"
         class="nv-global-search-toggle min-h-11 min-w-11 flex-shrink-0 rounded-full p-2 focus:outline-none"
         :aria-label="$t('common.cancel')">
         <X class="h-5 w-5" />
@@ -92,7 +95,7 @@ const {
     <Teleport to="body">
       <div
         v-if="showDropdown && isMobile && isExpanded"
-        class="nv-global-search-dropdown fixed inset-x-0 top-16 z-[99] mx-0 rounded-t-none border-t-0 shadow-lg border max-h-96 overflow-y-auto">
+        class="nv-global-search-dropdown nv-global-search-mobile-results fixed inset-x-0 top-16 z-[99] mx-0 rounded-t-none border-t-0 shadow-lg border overflow-y-auto">
         <BoardAutocompleteList
           :boards="filteredBoards"
           :listbox-id="searchListboxId"
@@ -143,6 +146,12 @@ const {
 
 .nv-global-search-prefix {
   color: var(--nv-muted);
+}
+
+.nv-global-search-mobile-results {
+  max-height: calc(100vh - 4rem - env(safe-area-inset-bottom));
+  max-height: calc(100dvh - 4rem - env(safe-area-inset-bottom));
+  overscroll-behavior: contain;
 }
 
 .nv-global-search-input {

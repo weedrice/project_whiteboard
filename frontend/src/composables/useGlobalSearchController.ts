@@ -14,6 +14,7 @@ interface UseGlobalSearchControllerOptions {
   searchQuery: Ref<string>
   searchContainer: Ref<HTMLElement | null>
   searchInputRef: Ref<SearchInputLike | null>
+  searchToggleRef: Ref<HTMLButtonElement | null>
   searchListboxId: string
 }
 
@@ -22,6 +23,7 @@ export function useGlobalSearchController({
   searchQuery,
   searchContainer,
   searchInputRef,
+  searchToggleRef,
   searchListboxId
 }: UseGlobalSearchControllerOptions) {
   const showDropdown = ref(false)
@@ -57,10 +59,13 @@ export function useGlobalSearchController({
     })
   }
 
-  const collapse = () => {
+  const collapse = (restoreFocus = false) => {
     isExpanded.value = false
     showDropdown.value = false
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
+    if (restoreFocus) {
+      nextTick(() => searchToggleRef.value?.focus())
+    }
   }
 
   const {
@@ -92,7 +97,7 @@ export function useGlobalSearchController({
     if (event.key === 'Escape') {
       event.preventDefault()
       if (isMobile.value && isExpanded.value) {
-        collapse()
+        collapse(true)
         return
       }
       showDropdown.value = false
