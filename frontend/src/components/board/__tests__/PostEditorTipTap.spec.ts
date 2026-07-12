@@ -217,7 +217,7 @@ describe('PostEditorTipTap', () => {
         expect(wrapper.find('.slash-popover').exists()).toBe(false)
 
         await wrapper.get('.tiptap-color-trigger').trigger('click')
-        expect(wrapper.get('.color-panel').attributes('aria-modal')).toBeUndefined()
+        expect(wrapper.get('.color-panel').attributes('aria-modal')).toBe('true')
         expect(wrapper.findAll('.color-panel-swatch')[0].attributes('aria-label')).toBe('board.writePost.colorLabels.black')
         dispatchEscape(wrapper.get('.color-panel').element)
         await nextTick()
