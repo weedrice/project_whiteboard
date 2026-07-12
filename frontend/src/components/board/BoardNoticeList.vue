@@ -125,7 +125,7 @@ const noticeListId = useId()
   gap: 0.65rem;
   grid-template-columns: 1fr auto 1fr;
   letter-spacing: 0.08em;
-  min-height: 2rem;
+  min-height: 2.75rem;
   padding: 0 1rem 0.55rem;
   text-transform: uppercase;
   width: 100%;

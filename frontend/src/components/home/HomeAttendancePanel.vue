@@ -116,7 +116,7 @@ async function handleCheckIn() {
   flex-shrink: 0;
   font-size: 0.875rem;
   font-weight: 700;
-  min-height: 2.25rem;
+  min-height: 2.75rem;
   padding: 0.5rem 0.9rem;
   transition: filter 0.15s ease, opacity 0.15s ease;
 }

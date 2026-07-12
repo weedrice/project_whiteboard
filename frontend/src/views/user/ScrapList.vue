@@ -182,7 +182,7 @@ async function deleteFolder(folderId: number) {
         <div class="flex flex-wrap gap-2">
           <button
             type="button"
-            class="rounded-full border px-3 py-1.5 text-sm"
+            class="min-h-11 rounded-full border px-3 py-1.5 text-sm sm:min-h-0"
             :class="selectedFolderId === null ? 'border-[var(--nv-accent)] nv-accent-bg nv-accent-text' : 'nv-border nv-hover-surface'"
             @click="selectedFolderId = null"
           >
@@ -207,7 +207,7 @@ async function deleteFolder(folderId: number) {
               />
               <button
                 type="button"
-                class="inline-flex h-8 w-8 items-center justify-center rounded-full nv-text-subtle nv-hover-accent"
+                class="inline-flex h-11 w-11 items-center justify-center rounded-full nv-text-subtle nv-hover-accent sm:h-8 sm:w-8"
                 :aria-label="$t('user.scrapList.saveFolder', { name: folder.name })"
                 :disabled="updatingFolderId === folder.folderId || !editingFolderName.trim()"
                 @click="updateFolder(folder.folderId)"
@@ -216,7 +216,7 @@ async function deleteFolder(folderId: number) {
               </button>
               <button
                 type="button"
-                class="inline-flex h-8 w-8 items-center justify-center rounded-full nv-text-subtle nv-hover-surface"
+                class="inline-flex h-11 w-11 items-center justify-center rounded-full nv-text-subtle nv-hover-surface sm:h-8 sm:w-8"
                 :aria-label="$t('user.scrapList.cancelEditFolder')"
                 :disabled="updatingFolderId === folder.folderId"
                 @click="cancelEditFolder"
@@ -227,14 +227,14 @@ async function deleteFolder(folderId: number) {
             <template v-else>
               <button
                 type="button"
-                class="px-3 py-1.5 text-sm nv-text"
+                class="min-h-11 px-3 py-1.5 text-sm nv-text sm:min-h-0"
                 @click="selectedFolderId = folder.folderId"
               >
                 {{ folder.name }}
               </button>
               <button
                 type="button"
-                class="inline-flex h-8 w-8 items-center justify-center rounded-full nv-text-subtle nv-hover-accent"
+                class="inline-flex h-11 w-11 items-center justify-center rounded-full nv-text-subtle nv-hover-accent sm:h-8 sm:w-8"
                 :aria-label="$t('user.scrapList.editFolder', { name: folder.name })"
                 @click="startEditFolder(folder.folderId, folder.name)"
               >
@@ -242,7 +242,7 @@ async function deleteFolder(folderId: number) {
               </button>
               <button
                 type="button"
-                class="inline-flex h-8 w-8 items-center justify-center rounded-full nv-text-subtle nv-hover-danger"
+                class="inline-flex h-11 w-11 items-center justify-center rounded-full nv-text-subtle nv-hover-danger sm:h-8 sm:w-8"
                 :aria-label="$t('user.scrapList.deleteFolder', { name: folder.name })"
                 :disabled="deletingFolderId === folder.folderId"
                 @click="deleteFolder(folder.folderId)"

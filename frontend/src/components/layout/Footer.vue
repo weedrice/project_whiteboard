@@ -26,7 +26,7 @@ const commitHash = __COMMIT_HASH__
               @click="toggleTheme"
               variant="ghost"
               size="sm"
-              class="min-h-[36px] min-w-[36px] p-0 rounded-full touch-manipulation flex items-center justify-center shrink-0"
+              class="min-h-11 min-w-11 p-0 rounded-full touch-manipulation flex items-center justify-center shrink-0 sm:min-h-9 sm:min-w-9"
               :title="themeStore.isDark ? $t('common.footer.switchToLight') : $t('common.footer.switchToDark')"
               :aria-label="themeStore.isDark ? $t('common.footer.switchToLight') : $t('common.footer.switchToDark')"
             >

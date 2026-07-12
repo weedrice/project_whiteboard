@@ -227,6 +227,12 @@ const { t } = useI18n()
 }
 
 @media (max-width: 639px) {
+  .nv-board-manage-btn,
+  .nv-board-subscribe-btn,
+  .nv-board-write-btn {
+    min-height: 2.75rem;
+  }
+
   .nv-board-panel {
     border-radius: 0.85rem;
   }

@@ -64,7 +64,7 @@ const { t } = useI18n()
           <button
             v-else
             type="button"
-            class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium nv-status-danger nv-hover-surface transition-colors cursor-pointer"
+            class="ml-2 inline-flex min-h-11 items-center rounded-full px-2.5 py-0.5 text-xs font-medium nv-status-danger nv-hover-surface transition-colors cursor-pointer sm:min-h-0"
             @click="$emit('verify-email')"
           >
             <XCircle class="h-3 w-3 mr-1" /> {{ t('user.profile.notVerified') }}

@@ -99,7 +99,7 @@ const goToNotificationsPage = async () => {
     <nav class="nv-topnav">
       <div class="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
         <div class="flex min-w-0 items-center gap-3">
-          <router-link to="/" class="flex shrink-0 items-center gap-2" :aria-label="t('layout.a11y.homeLink', { appName: t('common.appName') })">
+          <router-link to="/" class="flex min-h-11 shrink-0 items-center gap-2 rounded-md nv-focus-ring" :aria-label="t('layout.a11y.homeLink', { appName: t('common.appName') })">
             <img :src="themeStore.isDark ? '/favicon_dark.ico' : '/favicon.ico'" alt="" class="h-8 w-8 rounded md:hidden" />
             <img :src="logoSrc" :alt="$t('common.appName')" class="hidden h-8 w-auto shrink-0 object-contain md:block" />
             <span class="text-lg font-semibold tracking-[-0.04em] text-[var(--nv-ink)] md:hidden">{{ $t('common.appName') }}</span>

@@ -57,7 +57,7 @@ function openFileInput() {
         type="button"
         :aria-label="$t('common.delete')"
         :title="$t('common.delete')"
-        class="absolute -top-2 -right-2 w-6 h-6 bg-[var(--nv-danger)] text-white rounded-full flex items-center justify-center hover:brightness-95"
+        class="absolute -right-3 -top-3 flex h-11 w-11 items-center justify-center rounded-full bg-[var(--nv-danger)] text-white hover:brightness-95 sm:-right-2 sm:-top-2 sm:h-6 sm:w-6"
         @click="emit('remove')"
       >
         <X class="w-4 h-4" />
@@ -67,7 +67,7 @@ function openFileInput() {
         type="button"
         :aria-label="$t('common.edit')"
         :title="$t('common.edit')"
-        class="absolute -bottom-2 -right-2 w-8 h-8 bg-[var(--nv-accent)] text-white rounded-full flex items-center justify-center hover:brightness-95 shadow-md"
+        class="absolute -bottom-3 -right-3 flex h-11 w-11 items-center justify-center rounded-full bg-[var(--nv-accent)] text-white shadow-md hover:brightness-95 sm:-bottom-2 sm:-right-2 sm:h-8 sm:w-8"
         @click="openFileInput"
       >
         <Upload class="w-4 h-4" />
@@ -81,7 +81,7 @@ function openFileInput() {
         type="button"
         :aria-label="$t('common.edit')"
         :title="$t('common.edit')"
-        class="absolute -bottom-2 -right-2 w-8 h-8 bg-[var(--nv-accent)] text-white rounded-full flex items-center justify-center hover:brightness-95 shadow-md"
+        class="absolute -bottom-3 -right-3 flex h-11 w-11 items-center justify-center rounded-full bg-[var(--nv-accent)] text-white shadow-md hover:brightness-95 sm:-bottom-2 sm:-right-2 sm:h-8 sm:w-8"
         @click="openFileInput"
       >
         <Upload class="w-4 h-4" />

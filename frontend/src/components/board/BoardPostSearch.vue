@@ -255,4 +255,14 @@ const handleSearchKeyup = (event: KeyboardEvent) => {
     width: min(100%, 24rem);
   }
 }
+
+@media (max-width: 639px) {
+  .nv-board-search-select,
+  :deep(.nv-board-search-input),
+  .nv-board-search-btn,
+  .nv-board-write-btn {
+    height: 2.75rem;
+    min-height: 2.75rem;
+  }
+}
 </style>

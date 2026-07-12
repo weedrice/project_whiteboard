@@ -127,7 +127,7 @@ onUnmounted(() => {
       <div ref="dialogRef" class="relative flex h-full w-full max-w-6xl items-center justify-center">
         <button
           type="button"
-          class="absolute right-0 top-0 z-10 rounded-full bg-white/12 p-2 text-white transition hover:bg-white/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+          class="absolute right-0 top-0 z-10 inline-flex min-h-11 min-w-11 items-center justify-center rounded-full bg-white/12 p-2 text-white transition hover:bg-white/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
           :aria-label="$t('common.close')"
           @click="close"
         >
@@ -137,7 +137,7 @@ onUnmounted(() => {
         <button
           v-if="hasMultipleImages"
           type="button"
-          class="absolute left-0 z-10 rounded-full bg-white/12 p-2 text-white transition hover:bg-white/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+          class="absolute left-0 z-10 inline-flex min-h-11 min-w-11 items-center justify-center rounded-full bg-white/12 p-2 text-white transition hover:bg-white/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
           :aria-label="t('common.previous')"
           @click="go(-1)"
         >
@@ -161,7 +161,7 @@ onUnmounted(() => {
         <button
           v-if="hasMultipleImages"
           type="button"
-          class="absolute right-0 z-10 rounded-full bg-white/12 p-2 text-white transition hover:bg-white/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+          class="absolute right-0 z-10 inline-flex min-h-11 min-w-11 items-center justify-center rounded-full bg-white/12 p-2 text-white transition hover:bg-white/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
           :aria-label="t('common.next')"
           @click="go(1)"
         >

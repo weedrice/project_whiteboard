@@ -113,6 +113,12 @@ const { t } = useI18n()
   width: max-content;
 }
 
+@media (max-width: 639px) {
+  .nv-board-filter-chip {
+    min-height: 2.75rem;
+  }
+}
+
 .nv-board-filter-track > .nv-board-filter-chip {
   min-width: max-content;
 }
@@ -120,7 +126,7 @@ const { t } = useI18n()
 @media (max-width: 640px) {
   .nv-board-filter-chip {
     font-size: 0.75rem;
-    min-height: 1.95rem;
+    min-height: 2.75rem;
     padding: 0.4rem 0.7rem;
   }
 }

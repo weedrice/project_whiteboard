@@ -50,7 +50,7 @@ const {
       v-if="isMobile && !isExpanded"
       type="button"
       @click.stop="expandAndFocus"
-      class="nv-global-search-toggle flex items-center justify-center w-10 h-10 rounded-full focus:outline-none"
+      class="nv-global-search-toggle flex h-11 w-11 items-center justify-center rounded-full focus:outline-none sm:h-10 sm:w-10"
       :aria-label="$t('search.placeholder')">
       <Search class="h-5 w-5" />
     </button>
@@ -82,7 +82,7 @@ const {
         v-if="isMobile && isExpanded"
         type="button"
         @click="collapse"
-        class="nv-global-search-toggle flex-shrink-0 p-2 rounded-full focus:outline-none"
+        class="nv-global-search-toggle min-h-11 min-w-11 flex-shrink-0 rounded-full p-2 focus:outline-none"
         :aria-label="$t('common.cancel')">
         <X class="h-5 w-5" />
       </button>

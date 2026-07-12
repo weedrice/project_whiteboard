@@ -65,6 +65,7 @@
     background: var(--nv-surface);
     border: 1px solid var(--nv-line);
     color: var(--nv-ink);
+    min-height: 2.75rem;
   }
 
   .nv-login-link:hover {
@@ -139,6 +140,11 @@
   @media (max-width: 639px) {
     .nv-topnav {
       backdrop-filter: blur(12px);
+    }
+
+    .nv-shell-icon-button {
+      height: 2.75rem;
+      width: 2.75rem;
     }
   }
 }
