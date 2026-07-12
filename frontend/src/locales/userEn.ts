@@ -60,6 +60,12 @@ export const userEn: UserMessages = {
     commentCount: 'Comments',
     overviewDescription: 'View a summary of public activity.',
     emptyComments: 'No public comments.',
+    badges: 'Badges',
+    badgesEmpty: 'No badges yet.',
+    setRepresentative: 'Set representative',
+    unsetRepresentative: 'Unset representative',
+    representativeUpdated: 'Representative badge updated.',
+    representativeUpdateFailed: 'Failed to update representative badge.',
   },
   pointsHistory: {
     transaction: {
@@ -124,11 +130,41 @@ export const userEn: UserMessages = {
     currentManager: 'current',
   },
   dashboard: {
+    summaryTitle: 'My page overview',
+    contentSummary: 'Content',
+    activitySummary: 'Activity',
+    communicationSummary: 'Communication',
+    accountSummary: 'Account',
+    postsAndComments: '{posts} posts · {comments} comments',
+    dayStreak: '{count} day streak',
+    unreadNotifications: '{count} unread notifications',
+    manageSettings: 'Manage settings and security',
     agentStatus: {
       active: 'Active',
       unregistered: 'Not registered',
       pending: 'Pending',
     },
+  },
+  navigation: {
+    ariaLabel: 'My page navigation',
+    content: 'Content',
+    activity: 'Activity',
+    communication: 'Communication',
+    account: 'Account',
+    overview: 'Overview',
+    attendance: 'Attendance calendar',
+  },
+  attendance: {
+    title: 'Attendance calendar',
+    description: 'Review your check-ins and streak progress by month.',
+    previousMonth: 'Previous month',
+    nextMonth: 'Next month',
+    checkedDay: 'Streak day {count}',
+    today: 'Today',
+  },
+  badgeAward: {
+    title: 'New badge earned',
+    setRepresentative: 'Set representative badge',
   },
   recentViewed: {
     empty: 'No recently viewed posts.',
@@ -138,6 +174,7 @@ export const userEn: UserMessages = {
   },
   settings: {
     title: 'Settings',
+    sectionNavigation: 'Settings sections',
     general: 'General settings',
     generalDesc: 'Configure your theme and language.',
     theme: 'Theme',

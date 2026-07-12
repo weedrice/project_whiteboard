@@ -30,6 +30,20 @@ function mountTabControl() {
 }
 
 describe('BaseSegmentedControl', () => {
+  it('allows translated labels to wrap without forcing the control wider than its container', () => {
+    const wrapper = mount(BaseSegmentedControl, {
+      props: {
+        modelValue: 'id',
+        options,
+        label: 'Account help',
+        variant: 'pill',
+      },
+    })
+
+    expect(wrapper.get('[role="group"]').classes()).toEqual(expect.arrayContaining(['max-w-full', 'flex-wrap']))
+    expect(wrapper.get('button').classes()).toEqual(expect.arrayContaining(['min-w-0', 'whitespace-normal']))
+  })
+
   it('uses roving tabindex for tab selection mode', () => {
     const wrapper = mountTabControl()
     const tabs = wrapper.findAll('[role="tab"]')

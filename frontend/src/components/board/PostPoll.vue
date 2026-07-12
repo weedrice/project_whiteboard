@@ -71,7 +71,7 @@ async function cancelVote() {
 </script>
 
 <template>
-  <section class="rounded-lg border nv-border nv-surface p-4" aria-labelledby="post-poll-title">
+  <section class="rounded-[var(--nv-radius-md)] border nv-border nv-surface p-4" aria-labelledby="post-poll-title">
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div>
         <p class="nv-kicker">{{ t('board.postDetail.poll.title') }}</p>

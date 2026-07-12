@@ -56,6 +56,7 @@ export const home: HomeMessages = {
     done: '출석 완료',
     earned: '{points}P가 적립되었습니다.',
     alreadyCheckedIn: '오늘은 이미 출석했습니다.',
+    milestone: '{count}일 연속 출석을 달성했습니다!',
   },
   card: {
     ariaLabel: '{boardName} 스페이스의 {title}',
@@ -120,6 +121,7 @@ export const homeEn: HomeMessages = {
     done: 'Checked in',
     earned: 'Earned {points}P.',
     alreadyCheckedIn: 'Already checked in today.',
+    milestone: '{count}-day streak achieved!',
   },
   card: {
     ariaLabel: '{boardName} space post {title}',

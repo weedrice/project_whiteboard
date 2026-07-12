@@ -81,8 +81,19 @@
   }
 
   .nv-mobile-nav-item {
-    @apply relative inline-flex min-h-[44px] flex-col items-center justify-center gap-1 rounded-2xl px-2 py-2 text-[10px] font-semibold tracking-[0.08em] transition-colors;
+    @apply relative min-w-0 inline-flex min-h-[44px] flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2 text-[10px] font-semibold tracking-[0.04em] transition-colors;
     color: var(--nv-muted);
+  }
+
+  .nv-mobile-nav-label {
+    display: -webkit-box;
+    max-width: 100%;
+    overflow: hidden;
+    text-align: center;
+    line-height: 1.15;
+    overflow-wrap: anywhere;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
   }
 
   .nv-mobile-nav-item.is-active {

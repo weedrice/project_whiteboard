@@ -52,7 +52,7 @@ function setClosesAt(closesAt: string) {
 </script>
 
 <template>
-  <section v-if="modelValue" class="mt-5 rounded-xl border border-[var(--nv-line)] bg-[var(--nv-elevated)] p-4">
+  <section v-if="modelValue" class="mt-5 rounded-[var(--nv-radius-xl)] border border-[var(--nv-line)] bg-[var(--nv-elevated)] p-4">
     <div class="flex items-center justify-between gap-3">
       <h2 class="text-sm font-semibold nv-title">{{ $t('board.writePost.poll.title') }}</h2>
       <BaseButton type="button" variant="secondary" size="sm" @click="emit('update:modelValue', null)">

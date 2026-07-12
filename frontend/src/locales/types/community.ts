@@ -577,6 +577,12 @@ export interface UserMessages {
     commentCount: string
     overviewDescription: string
     emptyComments: string
+    badges: string
+    badgesEmpty: string
+    setRepresentative: string
+    unsetRepresentative: string
+    representativeUpdated: string
+    representativeUpdateFailed: string
   }
   pointsHistory: {
     description: string
@@ -641,11 +647,41 @@ export interface UserMessages {
     currentManager: string
   }
   dashboard: {
+    summaryTitle: string
+    contentSummary: string
+    activitySummary: string
+    communicationSummary: string
+    accountSummary: string
+    postsAndComments: string
+    dayStreak: string
+    unreadNotifications: string
+    manageSettings: string
     agentStatus: {
       active: string
       unregistered: string
       pending: string
     }
+  }
+  navigation: {
+    ariaLabel: string
+    content: string
+    activity: string
+    communication: string
+    account: string
+    overview: string
+    attendance: string
+  }
+  attendance: {
+    title: string
+    description: string
+    previousMonth: string
+    nextMonth: string
+    checkedDay: string
+    today: string
+  }
+  badgeAward: {
+    title: string
+    setRepresentative: string
   }
   recentViewed: {
     empty: string
@@ -655,6 +691,7 @@ export interface UserMessages {
   }
   settings: {
     title: string
+    sectionNavigation: string
     general: string
     generalDesc: string
     theme: string

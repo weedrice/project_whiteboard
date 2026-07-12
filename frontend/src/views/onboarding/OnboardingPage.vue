@@ -85,7 +85,7 @@ async function enablePush() {
           <article
             v-for="board in recommendedBoards"
             :key="board.boardId"
-            class="rounded-lg border nv-border p-4"
+            class="rounded-[var(--nv-radius-md)] border nv-border p-4"
           >
             <div class="flex items-start justify-between gap-3">
               <div>
@@ -104,7 +104,7 @@ async function enablePush() {
         </div>
       </div>
 
-      <aside class="space-y-4 rounded-lg border nv-border p-4">
+      <aside class="space-y-4 rounded-[var(--nv-radius-md)] border nv-border p-4">
         <div class="flex items-center gap-2">
           <Bell class="h-5 w-5 nv-text-subtle" />
           <h2 class="text-base font-semibold nv-title">{{ $t('onboarding.pushTitle') }}</h2>

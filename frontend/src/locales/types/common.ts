@@ -342,6 +342,7 @@ export interface HomeMessages {
     done: string
     earned: string
     alreadyCheckedIn: string
+    milestone: string
   }
   card: {
     ariaLabel: string

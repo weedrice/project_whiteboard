@@ -69,11 +69,11 @@ const navigateOrLogin = async (path: string) => {
     <nav class="nv-mobile-nav" :aria-label="t('layout.mobileNav.ariaLabel')">
       <button type="button" class="nv-mobile-nav-item" :class="{ 'is-active': isHome }" :aria-current="isHome ? 'page' : undefined" @click="navigateOrLogin('/')">
         <Home class="h-5 w-5" aria-hidden="true" />
-        <span>{{ $t('layout.mobileNav.home') }}</span>
+        <span class="nv-mobile-nav-label">{{ $t('layout.mobileNav.home') }}</span>
       </button>
       <button type="button" class="nv-mobile-nav-item" :class="{ 'is-active': isBoards }" :aria-current="isBoards ? 'page' : undefined" @click="navigateOrLogin('/boards')">
         <Layers3 class="h-5 w-5" aria-hidden="true" />
-        <span>{{ $t('layout.mobileNav.boards') }}</span>
+        <span class="nv-mobile-nav-label">{{ $t('layout.mobileNav.boards') }}</span>
       </button>
       <button
         :ref="setFabButtonRef"
@@ -95,12 +95,12 @@ const navigateOrLogin = async (path: string) => {
         @click="navigateOrLogin('/mypage/notifications')"
       >
         <Bell class="h-5 w-5" aria-hidden="true" />
-        <span>{{ $t('layout.mobileNav.alerts') }}</span>
+        <span class="nv-mobile-nav-label">{{ $t('layout.mobileNav.alerts') }}</span>
         <span v-if="authStore.isAuthenticated && unreadCount && unreadCount > 0" class="nv-mobile-nav-dot" aria-hidden="true" />
       </button>
       <button type="button" class="nv-mobile-nav-item" :class="{ 'is-active': isProfile }" :aria-current="isProfile ? 'page' : undefined" @click="navigateOrLogin('/mypage')">
         <UserRound class="h-5 w-5" aria-hidden="true" />
-        <span>{{ $t('layout.mobileNav.my') }}</span>
+        <span class="nv-mobile-nav-label">{{ $t('layout.mobileNav.my') }}</span>
       </button>
     </nav>
 

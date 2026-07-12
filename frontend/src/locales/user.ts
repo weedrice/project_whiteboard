@@ -60,6 +60,12 @@ export const user: UserMessages = {
     commentCount: '작성 댓글',
     overviewDescription: '공개 활동 요약을 확인할 수 있습니다.',
     emptyComments: '공개 댓글이 없습니다.',
+    badges: '뱃지',
+    badgesEmpty: '아직 획득한 뱃지가 없습니다.',
+    setRepresentative: '대표 뱃지로 설정',
+    unsetRepresentative: '대표 뱃지 해제',
+    representativeUpdated: '대표 뱃지를 변경했습니다.',
+    representativeUpdateFailed: '대표 뱃지를 변경하지 못했습니다.',
   },
   pointsHistory: {
     transaction: {
@@ -124,11 +130,41 @@ export const user: UserMessages = {
     currentManager: 'current',
   },
   dashboard: {
+    summaryTitle: '마이페이지 요약',
+    contentSummary: '콘텐츠',
+    activitySummary: '활동',
+    communicationSummary: '소통',
+    accountSummary: '계정',
+    postsAndComments: '글 {posts}개 · 댓글 {comments}개',
+    dayStreak: '{count}일 연속 출석',
+    unreadNotifications: '읽지 않은 알림 {count}개',
+    manageSettings: '설정과 보안을 관리하세요',
     agentStatus: {
       active: '활성',
       unregistered: '미등록',
       pending: '대기',
     },
+  },
+  navigation: {
+    ariaLabel: '마이페이지 메뉴',
+    content: '콘텐츠',
+    activity: '활동',
+    communication: '소통',
+    account: '계정',
+    overview: '내 활동',
+    attendance: '출석 달력',
+  },
+  attendance: {
+    title: '출석 달력',
+    description: '출석 기록과 연속 출석 흐름을 월별로 확인하세요.',
+    previousMonth: '이전 달',
+    nextMonth: '다음 달',
+    checkedDay: '출석 {count}일차',
+    today: '오늘',
+  },
+  badgeAward: {
+    title: '새 뱃지를 획득했습니다',
+    setRepresentative: '대표 뱃지 설정',
   },
   recentViewed: {
     empty: '최근 읽은 글이 없습니다.',
@@ -138,6 +174,7 @@ export const user: UserMessages = {
   },
   settings: {
     title: '설정',
+    sectionNavigation: '설정 섹션',
     general: '일반 설정',
     generalDesc: '테마 및 언어 설정은 현재 준비 중입니다.',
     theme: '테마',

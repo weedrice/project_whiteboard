@@ -41,6 +41,7 @@ html {
     --nv-radius-md: 0.75rem;
     --nv-radius-lg: 1rem;
     --nv-radius-xl: 1.25rem;
+    --nv-radius-pill: 9999px;
     --nv-type-kicker: 0.72rem;
     --nv-type-micro: 0.68rem;
     --nv-bottom-nav-height: 4.9rem;

@@ -21,6 +21,7 @@
 ## QA
 
 - [프론트엔드 다크모드 smoke 체크리스트](qa/frontend-dark-mode-smoke-checklist-2026-05-29.md): 색상 토큰 변경 후 자동·수동 회귀 점검 항목을 제공한다.
+- [프론트엔드 영문 레이아웃 QA 체크리스트](qa/frontend-en-layout-smoke-checklist.md): 영어 번역의 긴 라벨을 주요 20개 화면과 네 가지 viewport에서 점검한다.
 
 ## PostgreSQL 참고 SQL
 

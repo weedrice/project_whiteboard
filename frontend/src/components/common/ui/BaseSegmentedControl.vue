@@ -90,9 +90,9 @@ function handleTabKeydown(event: KeyboardEvent) {
 <template>
   <div
     :class="[
-      variant === 'joined' && 'isolate inline-flex rounded-lg sm:rounded-md shadow-sm w-full sm:w-auto',
+      variant === 'joined' && 'isolate inline-flex max-w-full rounded-lg sm:rounded-md shadow-sm w-full sm:w-auto',
       variant === 'underline' && 'flex border-b nv-border',
-      variant === 'pill' && 'flex items-center gap-1 rounded-full border border-[var(--nv-line)] bg-[var(--nv-surface)] p-1',
+      variant === 'pill' && 'flex max-w-full flex-wrap items-center gap-1 rounded-[var(--nv-radius-xl)] border border-[var(--nv-line)] bg-[var(--nv-surface)] p-1',
     ]"
     :role="selectionMode === 'tab' ? 'tablist' : 'group'"
     :aria-label="label"
@@ -109,7 +109,7 @@ function handleTabKeydown(event: KeyboardEvent) {
       :disabled="disabled"
       :class="[
         variant === 'joined' && [
-          'flex-1 sm:flex-initial relative inline-flex items-center justify-center px-3 py-2.5 sm:py-2 text-sm font-medium ring-1 ring-inset min-h-[44px] sm:min-h-0 focus:z-10',
+          'min-w-0 flex-1 sm:flex-initial relative inline-flex items-center justify-center px-3 py-2.5 sm:py-2 text-center text-sm font-medium leading-tight whitespace-normal ring-1 ring-inset min-h-[44px] sm:min-h-0 focus:z-10',
           index === 0 && 'rounded-l-lg sm:rounded-l-md',
           index === options.length - 1 && 'rounded-r-lg sm:rounded-r-md',
           index > 0 && '-ml-px',
@@ -118,13 +118,13 @@ function handleTabKeydown(event: KeyboardEvent) {
             : 'nv-surface border-[var(--nv-border-strong)] nv-text nv-hover-surface',
         ],
         variant === 'underline' && [
-          'flex-1 rounded-b-none border-b-2 px-4 py-2 inline-flex items-center justify-center text-sm font-medium transition-colors',
+          'min-w-0 flex-1 rounded-b-none border-b-2 px-4 py-2 inline-flex items-center justify-center text-center text-sm font-medium leading-tight whitespace-normal transition-colors',
           modelValue === option.value
             ? 'border-[var(--nv-accent)] text-[var(--nv-accent)]'
             : 'border-transparent nv-text-subtle hover:text-[var(--nv-text)]',
         ],
         variant === 'pill' && [
-          'rounded-full px-3 py-1.5 text-[11px] font-medium uppercase tracking-[0.12em] transition-colors',
+          'min-w-0 rounded-full px-3 py-1.5 text-center text-[11px] font-medium uppercase leading-tight tracking-[0.08em] whitespace-normal transition-colors',
           modelValue === option.value
             ? 'bg-[var(--nv-ink)] text-[var(--nv-bg)]'
             : 'text-[var(--nv-ink-soft)] hover:text-[var(--nv-ink)]',

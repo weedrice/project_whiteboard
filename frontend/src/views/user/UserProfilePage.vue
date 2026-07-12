@@ -78,11 +78,11 @@ watch(userId, () => {
 async function handleRepresentativeBadge(badgeCode: string | null) {
   try {
     await updateRepresentativeBadge(badgeCode)
-    toastStore.addToast('Representative badge updated.', 'success')
+    toastStore.addToast(t('user.publicProfile.representativeUpdated'), 'success')
     queryClient.invalidateQueries({ queryKey: ['user', 'badges'] })
     refetchBadges()
   } catch {
-    toastStore.addToast('Failed to update representative badge.', 'error')
+    toastStore.addToast(t('user.publicProfile.representativeUpdateFailed'), 'error')
   }
 }
 </script>
@@ -142,12 +142,14 @@ async function handleRepresentativeBadge(badgeCode: string | null) {
         <div class="mt-6 border-t border-[var(--nv-line)] pt-5">
           <div class="mb-3 flex items-center gap-2">
             <Award class="h-4 w-4 nv-text-subtle" />
-            <h2 class="text-sm font-semibold nv-title">Badges</h2>
+            <h2 class="text-sm font-semibold nv-title">{{ t('user.publicProfile.badges') }}</h2>
           </div>
           <div v-if="badgesLoading" class="py-4">
             <BaseSpinner size="sm" />
           </div>
-          <div v-else-if="!acquiredBadges.length" class="text-sm nv-text-subtle">No badges yet.</div>
+          <div v-else-if="!acquiredBadges.length" class="text-sm nv-text-subtle">
+            {{ t('user.publicProfile.badgesEmpty') }}
+          </div>
           <div v-else class="grid gap-2 sm:grid-cols-2">
             <div
               v-for="badge in acquiredBadges"
@@ -171,7 +173,9 @@ async function handleRepresentativeBadge(badgeCode: string | null) {
                   :disabled="isUpdatingRepresentativeBadge"
                   @click="handleRepresentativeBadge(badge.representative ? null : badge.badgeCode)"
                 >
-                  {{ badge.representative ? 'Unset representative' : 'Set representative' }}
+                  {{ badge.representative
+                    ? t('user.publicProfile.unsetRepresentative')
+                    : t('user.publicProfile.setRepresentative') }}
                 </BaseButton>
               </div>
             </div>
