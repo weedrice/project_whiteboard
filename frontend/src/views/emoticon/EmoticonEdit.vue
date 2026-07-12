@@ -107,8 +107,8 @@ const goToDetail = () => {
         <h1 class="text-2xl font-bold nv-title">{{ t('emoticon.form.editTitle') }}</h1>
         <p class="mt-1 text-sm nv-text-subtle">{{ t('emoticon.form.editDescription') }}</p>
       </div>
-      <button @click="goToDetail"
-        class="inline-flex items-center text-sm nv-text-muted hover:text-[var(--nv-accent)] transition-colors">
+      <button type="button" @click="goToDetail"
+        class="nv-focus-ring inline-flex min-h-11 items-center rounded-md px-2 text-sm nv-text-muted hover:text-[var(--nv-accent)] transition-colors">
         <ArrowLeft class="w-4 h-4 mr-1" />
         {{ t('emoticon.form.back') }}
       </button>
@@ -145,8 +145,8 @@ const goToDetail = () => {
           </div>
           <button type="button" @click="handleToggleVisibility" :disabled="isToggling"
             :class="emoticon.isActive
-              ? 'inline-flex items-center px-3 py-1.5 text-sm nv-status-warning nv-hover-surface rounded-lg transition-colors'
-              : 'inline-flex items-center px-3 py-1.5 text-sm nv-status-success nv-hover-surface rounded-lg transition-colors'">
+              ? 'nv-focus-ring inline-flex min-h-11 items-center px-3 py-1.5 text-sm nv-status-warning nv-hover-surface rounded-lg transition-colors'
+              : 'nv-focus-ring inline-flex min-h-11 items-center px-3 py-1.5 text-sm nv-status-success nv-hover-surface rounded-lg transition-colors'">
             <EyeOff v-if="emoticon.isActive" class="w-4 h-4 mr-1" />
             <Eye v-else class="w-4 h-4 mr-1" />
             {{ emoticon.isActive ? $t('emoticon.visibility.hide') : $t('emoticon.visibility.show') }}

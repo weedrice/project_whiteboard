@@ -58,8 +58,8 @@ useHead({
   <div class="mx-auto max-w-5xl">
     <!-- 뒤로가기 버튼 -->
     <div class="mb-6">
-      <button @click="goToList"
-        class="inline-flex items-center text-sm nv-text-muted hover:text-[var(--nv-accent)] transition-colors">
+      <button type="button" @click="goToList"
+        class="nv-focus-ring inline-flex min-h-11 items-center rounded-md px-2 text-sm nv-text-muted hover:text-[var(--nv-accent)] transition-colors">
         <ArrowLeft class="w-4 h-4 mr-1" />
         {{ t('emoticon.detail.backToList') }}
       </button>
@@ -141,16 +141,16 @@ useHead({
                 </span>
               </div>
               <div v-if="isOwner" class="flex items-center gap-2">
-                <button @click="handleToggleVisibility" :disabled="isToggling"
+                <button type="button" @click="handleToggleVisibility" :disabled="isToggling"
                   :class="emoticonView.isActive
-                    ? 'inline-flex items-center px-3 py-1.5 text-sm nv-status-warning nv-hover-surface rounded-lg transition-colors'
-                    : 'inline-flex items-center px-3 py-1.5 text-sm nv-status-success nv-hover-surface rounded-lg transition-colors'">
+                    ? 'nv-focus-ring inline-flex min-h-11 items-center px-3 py-1.5 text-sm nv-status-warning nv-hover-surface rounded-lg transition-colors'
+                    : 'nv-focus-ring inline-flex min-h-11 items-center px-3 py-1.5 text-sm nv-status-success nv-hover-surface rounded-lg transition-colors'">
                   <EyeOff v-if="emoticonView.isActive" class="w-4 h-4 mr-1" />
                   <Eye v-else class="w-4 h-4 mr-1" />
                   {{ emoticonView.isActive ? $t('emoticon.visibility.hide') : $t('emoticon.visibility.show') }}
                 </button>
-                <button @click="goToEdit"
-                  class="inline-flex items-center px-3 py-1.5 text-sm nv-status-info nv-hover-surface rounded-lg transition-colors">
+                <button type="button" @click="goToEdit"
+                  class="nv-focus-ring inline-flex min-h-11 items-center px-3 py-1.5 text-sm nv-status-info nv-hover-surface rounded-lg transition-colors">
                   <Pencil class="w-4 h-4 mr-1" />
                   {{ t('common.edit') }}
                 </button>

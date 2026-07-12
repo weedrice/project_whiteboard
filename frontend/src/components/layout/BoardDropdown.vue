@@ -156,8 +156,8 @@ watch([() => props.isOpen, displayItems], ([isOpen, boards]) => {
 
       <div v-else-if="items.length > 0">
         <div class="max-h-96 overflow-y-auto">
-          <button v-for="(board, index) in displayItems" :key="board.boardUrl" role="menuitem" @click="navigateToBoard(board.boardUrl)"
-            class="group flex items-center justify-between w-full px-3 py-2.5 sm:py-2 min-h-[40px] sm:min-h-0 text-xs sm:text-sm nv-text-muted nv-hover-surface touch-manipulation">
+          <button v-for="(board, index) in displayItems" :key="board.boardUrl" type="button" role="menuitem" @click="navigateToBoard(board.boardUrl)"
+            class="group flex min-h-11 w-full items-center justify-between px-3 py-2.5 text-xs nv-text-muted nv-hover-surface touch-manipulation sm:min-h-0 sm:py-2 sm:text-sm">
             <span class="truncate">{{ board.boardName }}</span>
             <kbd v-if="index < 10"
               class="hidden sm:inline-block ml-2 px-1.5 py-0.5 text-xs font-medium nv-text-subtle nv-surface-muted border nv-border rounded">

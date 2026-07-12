@@ -45,7 +45,8 @@ function close() {
                     {{ $t('layout.shortcuts.openAnytime') }}
                 </span>
                 <button
-                    class="rounded-md px-4 py-2 text-sm font-medium transition-colors nv-hover-surface nv-surface-muted nv-text"
+                    type="button"
+                    class="nv-focus-ring min-h-11 rounded-md px-4 py-2 text-sm font-medium transition-colors nv-hover-surface nv-surface-muted nv-text"
                     @click="close"
                 >
                     {{ $t('common.close') }}

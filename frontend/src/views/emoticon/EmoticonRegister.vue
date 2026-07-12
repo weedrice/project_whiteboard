@@ -91,8 +91,9 @@ const goToList = () => {
         <p class="mt-1 text-sm nv-text-subtle">{{ t('emoticon.register.description') }}</p>
       </div>
       <button
+        type="button"
         @click="goToList"
-        class="inline-flex items-center text-sm nv-text-muted hover:text-[var(--nv-accent)] transition-colors"
+        class="nv-focus-ring inline-flex min-h-11 items-center rounded-md px-2 text-sm nv-text-muted hover:text-[var(--nv-accent)] transition-colors"
       >
         <ArrowLeft class="w-4 h-4 mr-1" />
         {{ t('emoticon.detail.backToList') }}
