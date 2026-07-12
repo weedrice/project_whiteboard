@@ -53,9 +53,18 @@ function walk(dir) {
   })
 }
 
+const files = walk(srcDir)
 const violations = []
+const definedNvTokens = new Set()
 
-for (const file of walk(srcDir)) {
+for (const file of files) {
+  const source = readFileSync(file, 'utf8')
+  for (const match of source.matchAll(/(--nv-[\w-]+)\s*:/g)) {
+    definedNvTokens.add(match[1])
+  }
+}
+
+for (const file of files) {
   const source = readFileSync(file, 'utf8')
 
   for (const rule of rules) {
@@ -70,6 +79,21 @@ for (const file of walk(srcDir)) {
         message: rule.message,
       })
     }
+  }
+
+  for (const match of source.matchAll(/var\(\s*(--nv-[\w-]+)\s*(,)?/g)) {
+    const [, token, fallbackMarker] = match
+    if (definedNvTokens.has(token) || fallbackMarker) continue
+
+    const before = source.slice(0, match.index)
+    const line = before.split(/\r?\n/).length
+    violations.push({
+      file: relative(rootDir, file).replaceAll('\\', '/'),
+      line,
+      rule: 'undefined nv token',
+      match: token,
+      message: 'Define this nv token in the shared foundation or provide an explicit var() fallback.',
+    })
   }
 }
 

@@ -47,8 +47,11 @@ html {
     --nv-bottom-nav-height: 4.9rem;
     --nv-accent: #2e55ff;
     --nv-accent-bg: #e8edff;
+    --nv-accent-soft: var(--nv-accent-bg);
     --nv-focus: #2e55ff;
     --nv-selection: #dce5ff;
+    --nv-elevated: #faf9f6;
+    --nv-surface-alt: var(--nv-surface-2);
     --nv-danger: #e5502a;
     --nv-danger-bg: #fff0eb;
     --nv-danger-border: #ffd1c2;
@@ -65,6 +68,7 @@ html {
     --nv-info-border: #ccd9ff;
     --nv-info-text: #2447b8;
     --nv-shadow-card: 0 1px 3px rgba(12, 12, 12, 0.06), 0 14px 30px rgba(12, 12, 12, 0.06);
+    --nv-shadow-soft: 0 8px 24px rgba(12, 12, 12, 0.05);
     --nv-shadow-popup: 0 16px 40px rgba(12, 12, 12, 0.12);
   }
 
@@ -96,8 +100,11 @@ html {
     --nv-border-strong: #3c3c43;
     --nv-accent: #6a8aff;
     --nv-accent-bg: #1a2044;
+    --nv-accent-soft: var(--nv-accent-bg);
     --nv-focus: #8aa3ff;
     --nv-selection: #26305e;
+    --nv-elevated: #202024;
+    --nv-surface-alt: var(--nv-surface-2);
     --nv-danger: #ef6a42;
     --nv-danger-bg: #3a1b15;
     --nv-danger-border: #5f2b20;
@@ -114,6 +121,7 @@ html {
     --nv-info-border: #2b3d6f;
     --nv-info-text: #a8bcff;
     --nv-shadow-card: 0 0 0 1px rgba(255, 255, 255, 0.025), 0 10px 24px rgba(0, 0, 0, 0.16);
+    --nv-shadow-soft: 0 8px 20px rgba(0, 0, 0, 0.14);
     --nv-shadow-popup: 0 0 0 1px rgba(255, 255, 255, 0.035), 0 14px 32px rgba(0, 0, 0, 0.24);
   }
 }

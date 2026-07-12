@@ -218,7 +218,7 @@ function isNewComment(comment: Comment) {
   align-items: center;
   color: var(--nv-accent);
   display: flex;
-  font-family: var(--nv-font-mono);
+  font-family: var(--font-mono);
   font-size: 0.72rem;
   font-weight: 700;
   gap: 0.75rem;
