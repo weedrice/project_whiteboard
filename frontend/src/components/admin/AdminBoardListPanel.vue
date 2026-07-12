@@ -18,7 +18,7 @@
           >
             <div class="flex items-start justify-between gap-2">
               <GripVertical class="mt-0.5 h-4 w-4 shrink-0 nv-text-subtle drag-handle cursor-move" aria-hidden="true" />
-              <button type="button" class="min-w-0 flex-1 text-left" @click="emit('select', board)">
+              <button type="button" class="min-h-11 min-w-0 flex-1 rounded-md text-left nv-focus-ring" @click="emit('select', board)">
                 <span class="block truncate text-sm font-semibold nv-title">{{ board.boardName }}</span>
                 <span class="mt-2 block text-xs nv-text-subtle">
                   {{ t('common.sortOrder') }}: {{ board.sortOrder }}
@@ -33,7 +33,7 @@
               <div class="flex shrink-0 items-center gap-1">
                 <button
                   type="button"
-                  class="rounded-md p-1 nv-text-subtle nv-hover-surface disabled:cursor-not-allowed disabled:opacity-40"
+                  class="nv-touch-target-square nv-focus-ring inline-flex items-center justify-center rounded-md nv-text-subtle nv-hover-surface disabled:cursor-not-allowed disabled:opacity-40"
                   :aria-label="t('common.moveUp', { name: board.boardName })"
                   :disabled="index === 0"
                   @click="moveBoard(index, -1)"
@@ -42,7 +42,7 @@
                 </button>
                 <button
                   type="button"
-                  class="rounded-md p-1 nv-text-subtle nv-hover-surface disabled:cursor-not-allowed disabled:opacity-40"
+                  class="nv-touch-target-square nv-focus-ring inline-flex items-center justify-center rounded-md nv-text-subtle nv-hover-surface disabled:cursor-not-allowed disabled:opacity-40"
                   :aria-label="t('common.moveDown', { name: board.boardName })"
                   :disabled="index === boards.length - 1"
                   @click="moveBoard(index, 1)"

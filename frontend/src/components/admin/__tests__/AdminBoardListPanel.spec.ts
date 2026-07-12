@@ -49,6 +49,10 @@ describe('AdminBoardListPanel', () => {
 
     const moveDown = wrapper.find('button[aria-label="common.moveDown"]')
     expect(moveDown.attributes('disabled')).toBeUndefined()
+    expect(moveDown.classes()).toEqual(expect.arrayContaining(['nv-touch-target-square', 'nv-focus-ring']))
+    expect(wrapper.findAll('button').find((button) => button.text().includes('General'))?.classes()).toEqual(
+      expect.arrayContaining(['min-h-11', 'nv-focus-ring']),
+    )
     await moveDown.trigger('click')
 
     expect(wrapper.emitted('update:boards')?.[0]?.[0]).toEqual([boards[1], boards[0]])
