@@ -95,12 +95,11 @@ useHead({
 
       <div class="nv-surface rounded-lg shadow-sm border nv-border p-6 mb-8">
         <div class="h-6 nv-surface-muted rounded w-40 mb-4"></div>
-        <div class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-3">
+        <div class="grid grid-cols-[repeat(auto-fill,minmax(4.5rem,1fr))] gap-3">
           <div
             v-for="i in 10"
             :key="i"
-            class="nv-surface-muted rounded-lg"
-            style="width: 100px; height: 100px;"
+            class="aspect-square w-full nv-surface-muted rounded-lg"
           ></div>
         </div>
       </div>
@@ -183,10 +182,9 @@ useHead({
         </h2>
 
         <div v-if="emoticonView.imageItems.length > 0"
-          class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-3">
+          class="grid grid-cols-[repeat(auto-fill,minmax(4.5rem,1fr))] gap-3">
           <div v-for="image in emoticonView.imageItems" :key="image.imageId"
-            class="aspect-square nv-surface-muted rounded-lg overflow-hidden"
-            style="width: 100px; height: 100px;">
+            class="aspect-square w-full nv-surface-muted rounded-lg overflow-hidden">
             <img :src="image.src" :alt="image.alt" loading="lazy" decoding="async"
               class="w-full h-full object-contain" @error="applyImageFallback" />
           </div>

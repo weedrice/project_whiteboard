@@ -34,7 +34,7 @@ vi.mock('@tanstack/vue-query', () => ({
         isActive: true,
         price: 100,
         tags: [],
-        images: [],
+        images: [{ imageId: 91, imageUrl: '/novi.png', sortOrder: 0 }],
         createdAt: '2026-05-01T10:00:00',
         modifiedAt: '2026-05-01T10:00:00',
       }),
@@ -170,5 +170,21 @@ describe('EmoticonDetail', () => {
       .find((button) => button.text().includes('emoticon.purchase.button.buyWithPrice'))
 
     expect(purchaseButton?.attributes('disabled')).toBeDefined()
+  })
+
+  it('uses fluid image tiles without fixed pixel dimensions', () => {
+    const wrapper = mount(EmoticonDetail, {
+      global: {
+        stubs: {
+          RouterLink: true,
+        },
+      },
+    })
+
+    expect(wrapper.findAll('div').some((element) => (
+      element.classes().includes('grid-cols-[repeat(auto-fill,minmax(4.5rem,1fr))]')
+    ))).toBe(true)
+    expect(wrapper.html()).not.toContain('width: 100px')
+    expect(wrapper.html()).not.toContain('height: 100px')
   })
 })
