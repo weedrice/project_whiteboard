@@ -1,5 +1,5 @@
 import { mount, type VueWrapper } from '@vue/test-utils'
-import { defineComponent, h, ref } from 'vue'
+import { defineComponent, h, nextTick, ref } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   numberedDropdownKeyToIndex,
@@ -106,5 +106,54 @@ describe('useNumberedDropdownKeyboard', () => {
     dispatchKey('1')
 
     expect(onSelect).not.toHaveBeenCalled()
+  })
+
+  it('moves menu focus with arrow keys and restores the trigger on Escape', async () => {
+    const isOpen = ref(true)
+    const onClose = vi.fn(() => { isOpen.value = false })
+
+    const Harness = defineComponent({
+      setup() {
+        const { handleMenuKeyDown } = useNumberedDropdownKeyboard({
+          isOpen,
+          items: ['first', 'second', 'third'],
+          onClose,
+          onSelect: vi.fn(),
+          getMenu: () => document.getElementById('test-menu'),
+          getTrigger: () => document.getElementById('test-trigger'),
+        })
+        return () => h('div', [
+          h('button', { id: 'test-trigger' }, 'Open'),
+          isOpen.value
+            ? h('div', { id: 'test-menu', role: 'menu', onKeydown: handleMenuKeyDown }, [
+              h('button', { role: 'menuitem' }, 'First'),
+              h('button', { role: 'menuitem' }, 'Second'),
+              h('button', { role: 'menuitem' }, 'Third'),
+            ])
+            : null,
+        ])
+      },
+    })
+
+    const wrapper = mount(Harness, { attachTo: document.body })
+    mountedWrappers.push(wrapper)
+    await nextTick()
+    await nextTick()
+
+    let menuItems = wrapper.findAll('[role="menuitem"]')
+    expect(document.activeElement).toBe(menuItems[0].element)
+
+    await menuItems[0].trigger('keydown', { key: 'ArrowDown' })
+    expect(document.activeElement).toBe(menuItems[1].element)
+
+    await menuItems[1].trigger('keydown', { key: 'End' })
+    expect(document.activeElement).toBe(menuItems[2].element)
+
+    await menuItems[2].trigger('keydown', { key: 'Escape' })
+    await nextTick()
+    menuItems = wrapper.findAll('[role="menuitem"]')
+    expect(menuItems).toHaveLength(0)
+    expect(onClose).toHaveBeenCalledOnce()
+    expect(document.activeElement).toBe(wrapper.get('#test-trigger').element)
   })
 })

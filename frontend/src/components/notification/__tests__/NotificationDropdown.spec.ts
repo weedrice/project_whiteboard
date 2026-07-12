@@ -133,6 +133,12 @@ describe('NotificationDropdown', () => {
     expect(navigateFromNotification).toHaveBeenCalledWith(notification)
   })
 
+  it('exposes dialog semantics with a localized accessible name', () => {
+    const wrapper = mountDropdown()
+
+    expect(wrapper.get('[role="dialog"]').attributes('aria-label')).toBe('common.notifications')
+  })
+
   it('uses the shared unread surface token for unread rows', () => {
     const notification = makeNotification(false)
     notificationsData.value = { content: [notification] }

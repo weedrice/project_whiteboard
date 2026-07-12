@@ -161,4 +161,17 @@ describe('BoardDropdown', () => {
     expect(wrapper.text()).toContain('board.loadFailed')
     expect(wrapper.text()).not.toContain('Unable to load spaces.')
   })
+
+  it('connects the trigger to the open menu', () => {
+    const wrapper = mount(BoardDropdown, {
+      props: { type: 'all', isOpen: true },
+      global: {
+        mocks: { $t: (key: string) => key },
+        stubs: { BaseButton: BaseButtonStub },
+      },
+    })
+
+    expect(wrapper.get('#all-board-dropdown-trigger').attributes('aria-controls')).toBe('all-board-dropdown-menu')
+    expect(wrapper.get('#all-board-dropdown-menu').attributes('role')).toBe('menu')
+  })
 })

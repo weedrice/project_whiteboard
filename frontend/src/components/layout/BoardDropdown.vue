@@ -25,6 +25,8 @@ const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
 const keyboardStore = useKeyboardStore()
+const triggerId = `${props.type}-board-dropdown-trigger`
+const menuId = `${props.type}-board-dropdown-menu`
 const { useBoards, useSubscribedBoards } = useBoard()
 
 // Computed to determine if subscriptions query should be enabled
@@ -90,7 +92,7 @@ const navigateToBoard = (boardUrl: string) => {
   router.push(`/board/${encodePathSegment(boardUrl)}`)
 }
 
-useNumberedDropdownKeyboard({
+const { handleMenuKeyDown } = useNumberedDropdownKeyboard({
   isOpen: () => props.isOpen,
   items: displayItems,
   onClose: () => {
@@ -98,6 +100,8 @@ useNumberedDropdownKeyboard({
     keyboardStore.closeDropdown()
   },
   onSelect: (board) => navigateToBoard(board.boardUrl),
+  getMenu: () => document.getElementById(menuId),
+  getTrigger: () => document.getElementById(triggerId),
 })
 
 // 드롭다운 열릴 때 keyboard store에 항목 등록
@@ -121,9 +125,11 @@ watch([() => props.isOpen, displayItems], ([isOpen, boards]) => {
 <template>
   <div class="relative">
     <BaseButton @click.stop="toggleDropdown" variant="ghost"
+      :id="triggerId"
       :aria-expanded="isOpen"
       :aria-pressed="isActive"
       aria-haspopup="menu"
+      :aria-controls="isOpen ? menuId : undefined"
       class="nv-shell-tab nv-shell-tab-button nv-focus-ring flex items-center justify-center sm:justify-start space-x-1 px-3 py-2 rounded-full text-xs sm:text-sm font-medium focus:outline-none whitespace-nowrap min-w-0 min-h-[40px] sm:min-h-0 touch-manipulation"
       :class="{ 'is-active': isActive }">
       <span v-if="type === 'subscription'" class="sm:hidden">{{ mobileLabel || $t('board.list.subscribedShort') }}</span>
@@ -134,7 +140,9 @@ watch([() => props.isOpen, displayItems], ([isOpen, boards]) => {
     </BaseButton>
 
     <div v-if="isOpen"
+      :id="menuId"
       role="menu"
+      @keydown="handleMenuKeyDown"
       class="origin-top-left absolute left-0 mt-2 w-[min(16rem,92vw)] sm:w-64 rounded-md shadow-lg py-1 sm:py-1 nv-surface border nv-border focus:outline-none z-50">
       <div v-if="loading" class="px-3 py-3 sm:py-3 text-center">
         <div class="mx-auto h-5 w-5 flex items-center justify-center">

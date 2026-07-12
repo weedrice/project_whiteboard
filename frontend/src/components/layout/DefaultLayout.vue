@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Bell } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
@@ -64,6 +64,23 @@ const isAuthRoute = computed(() => {
 const isAdminRoute = computed(() => String(route.name ?? '').startsWith('Admin'))
 const showRecentBoardsBar = computed(() => !isAuthRoute.value && !isAdminRoute.value)
 const showMobileBottomNav = computed(() => !isAuthRoute.value && !isAdminRoute.value)
+const notificationTriggerRef = ref<HTMLButtonElement | null>(null)
+const notificationPanelRef = ref<HTMLElement | null>(null)
+
+watch(isNotificationOpen, (isOpen) => {
+  if (isOpen) {
+    void nextTick(() => {
+      notificationPanelRef.value
+        ?.querySelector<HTMLElement>('button:not([disabled]), a[href]')
+        ?.focus()
+    })
+    return
+  }
+
+  if (notificationPanelRef.value?.contains(document.activeElement)) {
+    notificationTriggerRef.value?.focus()
+  }
+})
 
 useEventListener(() => document, 'click', handleClickOutside)
 useEventListener(() => document, 'keydown', handleKeyDown)
@@ -131,6 +148,7 @@ const goToNotificationsPage = async () => {
 
           <div v-if="authStore.isAuthenticated" class="relative hidden sm:block">
             <button
+              ref="notificationTriggerRef"
               type="button"
               class="nv-shell-icon-button"
               :aria-label="t('layout.a11y.openNotifications')"
@@ -142,7 +160,7 @@ const goToNotificationsPage = async () => {
               <span v-if="unreadCount && unreadCount > 0" class="nv-shell-dot" />
             </button>
 
-            <div v-if="isNotificationOpen" id="notification-dropdown-panel" class="absolute right-0 z-50 mt-3 w-80">
+            <div v-if="isNotificationOpen" id="notification-dropdown-panel" ref="notificationPanelRef" class="absolute right-0 z-50 mt-3 w-80">
               <NotificationDropdown />
             </div>
           </div>

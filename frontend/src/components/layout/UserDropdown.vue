@@ -26,6 +26,7 @@ const emit = defineEmits<{
 }>()
 
 const menuId = 'user-dropdown-menu'
+const triggerId = 'user-dropdown-trigger'
 const shouldFetchPoints = computed(() => props.isOpen && authStore.isAuthenticated)
 const pointQueryIdentity = computed(() => authStore.user?.userId ?? authStore.user?.loginId ?? null)
 const { data: pointData } = useMyPoint(shouldFetchPoints, pointQueryIdentity)
@@ -100,7 +101,7 @@ const navigateTo = (route: string) => {
   router.push(route)
 }
 
-useNumberedDropdownKeyboard({
+const { handleMenuKeyDown } = useNumberedDropdownKeyboard({
   isOpen: () => props.isOpen,
   items: numberedMenuItems,
   onClose: () => {
@@ -108,6 +109,8 @@ useNumberedDropdownKeyboard({
     keyboardStore.closeDropdown()
   },
   onSelect: (item) => navigateTo(item.route),
+  getMenu: () => document.getElementById(menuId),
+  getTrigger: () => document.getElementById(triggerId),
 })
 
 watch(() => props.isOpen, (isOpen) => {
@@ -124,7 +127,7 @@ watch(() => props.isOpen, (isOpen) => {
 
 <template>
   <div class="relative">
-    <button type="button" @click.stop="toggleDropdown"
+    <button :id="triggerId" type="button" @click.stop="toggleDropdown"
       :aria-label="$t('layout.userMenu.ariaLabel')"
       aria-haspopup="menu"
       :aria-expanded="isOpen ? 'true' : 'false'"
@@ -146,6 +149,7 @@ watch(() => props.isOpen, (isOpen) => {
     <div v-if="isOpen"
       :id="menuId"
       role="menu"
+      @keydown="handleMenuKeyDown"
       class="origin-top-right absolute right-0 mt-2 w-[min(16rem,92vw)] sm:w-64 rounded-md shadow-lg py-1 nv-surface border nv-border focus:outline-none z-50">
       <!-- User Info -->
       <div class="px-3 py-2.5 sm:py-3 border-b nv-border">
