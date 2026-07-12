@@ -8,12 +8,14 @@
                 :label="$t('report.reason')"
                 rows="4"
                 :placeholder="$t('report.inputReason')"
+                :error="validation.visibleError('reason')"
+                @blur="validation.touchField('reason', validationValues)"
             />
             <div class="mt-4 flex justify-end">
                 <BaseButton @click="emit('close')" variant="secondary" class="mr-2">
                     {{ $t('common.cancel') }}
                 </BaseButton>
-                <BaseButton @click="handleReport" :disabled="isReporting" :variant="submitVariant">
+                <BaseButton @click="handleValidatedReport" :disabled="isReporting" :variant="submitVariant">
                     {{ isReporting ? pendingLabel : submitLabel }}
                 </BaseButton>
             </div>
@@ -29,6 +31,8 @@ import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
 import { useModalSubmit } from '@/composables/useModalSubmit'
 import { useI18n } from 'vue-i18n'
 import { useToastStore } from '@/stores/toast'
+import { computed } from 'vue'
+import { useFieldValidation } from '@/composables/useFieldValidation'
 
 const { t } = useI18n()
 const toastStore = useToastStore()
@@ -69,4 +73,17 @@ const {
         emit('close')
     },
 })
+
+const validation = useFieldValidation<'reason'>({
+    validators: { reason: (values) => String(values.reason ?? '').trim() ? '' : t('report.inputReason') },
+    fieldIds: { reason: 'reportReason' },
+})
+const validationValues = computed(() => ({ reason: reportReason.value }))
+const handleValidatedReport = () => {
+    if (!validation.validateAll(validationValues.value)) {
+        toastStore.addToast(t('report.inputReason'), 'warning')
+        return
+    }
+    void handleReport()
+}
 </script>

@@ -53,11 +53,13 @@
       </div>
       <div class="flex-1 w-full min-w-0">
         <BaseInput
+          id="profile-display-name"
           :model-value="displayName"
           :label="$t('user.profile.displayName')"
           :error="displayNameError"
           :placeholder="$t('user.profile.displayNamePlaceholder')"
           @update:model-value="$emit('update:displayName', String($event))"
+          @blur="$emit('blurDisplayName')"
         />
       </div>
     </div>
@@ -85,6 +87,7 @@ defineEmits<{
   (e: 'file-change', event: Event): void
   (e: 'remove-photo'): void
   (e: 'submit'): void
+  (e: 'blurDisplayName'): void
 }>()
 
 const fileInputRef = ref<HTMLInputElement | null>(null)

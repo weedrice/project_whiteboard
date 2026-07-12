@@ -5,12 +5,13 @@
       v-model:profile-image-error="profileImageError"
       :fallback-display-name="authStore.user?.displayName"
       :profile-image-display-url="profileImageDisplayUrl"
-      :display-name-error="errors.displayName"
+      :display-name-error="profileValidation.visibleError('displayName') || errors.displayName"
       :profile-image-cost-text="profileImageCostText"
       :can-remove-profile-image="canRemoveProfileImage"
       @file-change="handleFileChange"
       @remove-photo="clearProfileImage"
-      @submit="updateProfile"
+      @blur-display-name="profileValidation.touchField('displayName', profileValidationValues)"
+      @submit="handleProfileSubmit"
     />
     <p v-if="errors.profileImage" class="mt-2 text-sm nv-form-error" role="alert">
       {{ errors.profileImage }}
@@ -60,6 +61,8 @@ import { useProfileImageEditor } from '@/composables/useProfileImageEditor'
 import { useProfileUpdateSubmit } from '@/composables/useProfileUpdateSubmit'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
+import { useFieldValidation } from '@/composables/useFieldValidation'
+import { isValidDisplayName } from '@/utils/validation'
 
 const emit = defineEmits<{
   (e: 'close'): void
@@ -101,6 +104,15 @@ const {
   onFileSizeExceeded: () => toastStore.addToast(t('common.messages.fileSizeExceeded'), 'warning'),
   onProcessFailed: () => toastStore.addToast(t('common.messages.processImageFailed'), 'error')
 })
+const profileValidation = useFieldValidation<'displayName'>({
+  validators: {
+    displayName: (values) => isValidDisplayName(String(values.displayName ?? ''))
+      ? ''
+      : t('auth.validation.displayNameLength'),
+  },
+  fieldIds: { displayName: 'profile-display-name' },
+})
+const profileValidationValues = computed(() => ({ displayName: form.displayName }))
 
 const profileImageChangeCost = computed(() => authStore.user?.profileImageChangeCost ?? 1000)
 const profileImageChangeFreeAvailable = computed(() => authStore.user?.profileImageChangeFreeAvailable !== false)
@@ -132,6 +144,11 @@ const {
   onRefreshed: () => emit('refreshed'),
   onClose: () => emit('close')
 })
+
+async function handleProfileSubmit() {
+  if (!profileValidation.validateAll(profileValidationValues.value)) return
+  await updateProfile()
+}
 
 const {
   agentToken,

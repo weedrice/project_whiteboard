@@ -21,6 +21,7 @@ import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import { usePushNotifications } from '@/features/notifications/usePushNotifications'
 import { formatDateTimeOrDash } from '@/utils/date'
 import { Monitor, Settings } from 'lucide-vue-next'
+import { useFieldValidation } from '@/composables/useFieldValidation'
 
 const { t, locale } = useI18n()
 const route = useRoute()
@@ -91,6 +92,19 @@ const loginHistory = computed(() => loginHistoryData.value?.content ?? [])
 const currentLocale = computed(() => locale.value as 'ko' | 'en')
 const keywordSubscriptions = computed(() => keywordData.value ?? [])
 const normalizedKeyword = computed(() => keywordInput.value.trim())
+const keywordValidation = useFieldValidation<'keyword'>({
+  validators: {
+    keyword: (values) => {
+      const value = String(values.keyword ?? '').trim()
+      if (!value) return t('user.settings.keywordRequired')
+      if (value.length > 50) return t('user.settings.keywordTooLong')
+      if (keywordSubscriptions.value.some((subscription) => subscription.keyword === value)) return t('user.settings.keywordDuplicate')
+      return ''
+    },
+  },
+  fieldIds: { keyword: 'keyword-subscription-input' },
+})
+const keywordValidationValues = computed(() => ({ keyword: keywordInput.value }))
 const keywordNotificationEnabled = computed(() => notificationSettings.KEYWORD !== false)
 const keywordPending = computed(() => isKeywordLoading.value || isCreatingKeyword.value || isDeletingKeyword.value)
 const pushPending = computed(() => pushNotifications.isEnabling.value || pushNotifications.isDisabling.value)
@@ -148,6 +162,7 @@ const setKeywordMessage = (messageKey: string, isError = false) => {
 }
 
 const addKeyword = async () => {
+  if (!keywordValidation.validateAll(keywordValidationValues.value)) return
   const keyword = normalizedKeyword.value
   if (!keyword) {
     setKeywordMessage('user.settings.keywordRequired', true)
@@ -345,6 +360,8 @@ const handleRevokeOtherSessions = async () => {
                 :placeholder="$t('user.settings.keywordPlaceholder')"
                 :disabled="keywordPending"
                 maxlength="50"
+                :error="keywordValidation.visibleError('keyword')"
+                @blur="keywordValidation.touchField('keyword', keywordValidationValues)"
               />
               <BaseButton type="submit" :loading="isCreatingKeyword" :disabled="!canAddKeyword">
                 {{ $t('user.settings.keywordAdd') }}

@@ -9,7 +9,8 @@
       </div>
 
       <div>
-        <BaseSelect id="reason" v-model="form.reason" :label="t('admin.sanction.reason')">
+        <BaseSelect id="reason" v-model="form.reason" :label="t('admin.sanction.reason')"
+          :error="sanctionValidation.visibleError('reason')" @blur="sanctionValidation.touchField('reason', sanctionValidationValues)">
           <option value="SPAM">{{ t('admin.sanction.reasons.SPAM') }}</option>
           <option value="ABUSIVE_LANGUAGE">{{ t('admin.sanction.reasons.ABUSIVE_LANGUAGE') }}</option>
           <option value="INAPPROPRIATE_CONTENT">{{ t('admin.sanction.reasons.INAPPROPRIATE_CONTENT') }}</option>
@@ -23,7 +24,8 @@
       </div>
 
       <div>
-        <BaseInput id="duration" v-model="form.duration" type="number" :label="t('admin.sanction.duration')" min="1" />
+        <BaseInput id="duration" v-model="form.duration" type="number" :label="t('admin.sanction.duration')" min="1"
+          :error="sanctionValidation.visibleError('duration')" @blur="sanctionValidation.touchField('duration', sanctionValidationValues)" />
         <p class="mt-1 text-xs nv-text-subtle">{{ t('admin.sanction.durationHint') }}</p>
       </div>
 
@@ -48,6 +50,7 @@ import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
 import AdminModalActions from '@/components/admin/AdminModalActions.vue'
 import { useAdmin } from '@/composables/useAdmin'
 import { useToastStore } from '@/stores/toast'
+import { useFieldValidation } from '@/composables/useFieldValidation'
 
 const { t } = useI18n()
 
@@ -78,9 +81,19 @@ const form = reactive({
   description: '',
   duration: 7
 })
+type SanctionField = 'reason' | 'duration'
+const sanctionValidation = useFieldValidation<SanctionField>({
+  validators: {
+    reason: (values) => String(values.reason ?? '').trim() ? '' : t('admin.sanction.reason'),
+    duration: (values) => Number(values.duration) > 0 ? '' : t('admin.sanction.durationHint'),
+  },
+  fieldIds: { reason: 'reason', duration: 'duration' },
+})
+const sanctionValidationValues = computed(() => ({ reason: form.reason, duration: form.duration }))
 
 async function submitSanction() {
   if (!props.user) return
+  if (!sanctionValidation.validateAll(sanctionValidationValues.value)) return
 
   try {
     const userId = props.user.userId ?? props.user.id ?? 0
