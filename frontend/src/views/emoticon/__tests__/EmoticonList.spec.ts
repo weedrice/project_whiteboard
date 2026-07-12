@@ -12,6 +12,10 @@ const mocks = vi.hoisted(() => {
   const searchAll = vi.fn()
   const getPopularEmoticons = vi.fn()
   const push = vi.fn()
+  const refetchPopular = vi.fn()
+  const refetchList = vi.fn()
+  const popularError = { __v_isRef: true, value: false }
+  const listError = { __v_isRef: true, value: false }
   const listPage = {
     content: [] as Array<Record<string, unknown>>,
     totalPages: 0,
@@ -23,6 +27,10 @@ const mocks = vi.hoisted(() => {
     searchAll,
     getPopularEmoticons,
     push,
+    refetchPopular,
+    refetchList,
+    popularError,
+    listError,
     listPage,
   }
 })
@@ -34,6 +42,8 @@ vi.mock('@tanstack/vue-query', () => ({
       return {
         data: { __v_isRef: true, value: [] },
         isLoading: { __v_isRef: true, value: false },
+        isError: mocks.popularError,
+        refetch: mocks.refetchPopular,
       }
     }
     return {
@@ -42,6 +52,8 @@ vi.mock('@tanstack/vue-query', () => ({
         value: mocks.listPage,
       },
       isLoading: { __v_isRef: true, value: false },
+      isError: mocks.listError,
+      refetch: mocks.refetchList,
     }
   }),
 }))
@@ -127,6 +139,8 @@ describe('EmoticonList', () => {
     mocks.listPage.totalPages = 0
     mocks.listPage.totalElements = 0
     mocks.getPopularEmoticons.mockResolvedValue(emoticonApiData([]))
+    mocks.popularError.value = false
+    mocks.listError.value = false
   })
 
   it('renders latest, oldest, and popular sort buttons', () => {
@@ -227,5 +241,23 @@ describe('EmoticonList', () => {
     await input.trigger('keyup.enter')
     await listQuery.queryFn()
     expect(mocks.searchAll).toHaveBeenLastCalledWith(expect.objectContaining({ keyword: 'wave' }))
+  })
+
+  it('renders retryable error states instead of empty states', async () => {
+    mocks.popularError.value = true
+    mocks.listError.value = true
+
+    const wrapper = mountList()
+
+    expect(wrapper.text()).toContain('노비콘 목록을 불러오지 못했습니다.')
+    expect(wrapper.text()).not.toContain('인기 노비콘이 없습니다.')
+    expect(wrapper.text()).not.toContain('등록된 노비콘이 없습니다.')
+
+    const retryButtons = wrapper.findAll('button').filter((button) => button.text() === 'common.error.retry')
+    expect(retryButtons).toHaveLength(2)
+    await retryButtons[0].trigger('click')
+    await retryButtons[1].trigger('click')
+    expect(mocks.refetchPopular).toHaveBeenCalledOnce()
+    expect(mocks.refetchList).toHaveBeenCalledOnce()
   })
 })

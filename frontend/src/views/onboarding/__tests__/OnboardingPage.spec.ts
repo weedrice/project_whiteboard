@@ -126,4 +126,15 @@ describe('OnboardingPage', () => {
     expect(enablePush).toHaveBeenCalled()
     expect(wrapper.text()).toContain('onboarding.pushEnabled')
   })
+
+  it('renders a retryable error when recommendations fail', async () => {
+    getBoardRecommendations.mockRejectedValueOnce(new Error('network'))
+
+    const wrapper = mountPage()
+    await flushAll()
+
+    expect(wrapper.text()).toContain('데이터를 불러오는데 실패했습니다.')
+    expect(wrapper.find('[role="alert"]').exists()).toBe(true)
+    expect(wrapper.text()).not.toContain('General')
+  })
 })

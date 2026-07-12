@@ -6,7 +6,7 @@ import { useI18n } from 'vue-i18n'
 import { Tag } from 'lucide-vue-next'
 import { tagApi } from '@/api/tag'
 import PostList from '@/components/board/PostList.vue'
-import EmptyState from '@/components/common/ui/EmptyState.vue'
+import ErrorState from '@/components/common/ui/ErrorState.vue'
 import Pagination from '@/components/common/ui/Pagination.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import { useApiPageQuery, useApiQuery } from '@/composables/useApiQuery'
@@ -93,12 +93,12 @@ function buildPageRoute(nextPageIndex: number) {
       </div>
     </div>
 
-    <EmptyState
+    <ErrorState
       v-else-if="isError"
-      :title="$t('search.tagLoadFailed')"
+      :message="$t('search.tagLoadFailed')"
       :icon="Tag"
-      :action-label="$t('common.retry')"
-      @action="refetch"
+      show-retry
+      @retry="refetch"
     />
 
     <template v-else>

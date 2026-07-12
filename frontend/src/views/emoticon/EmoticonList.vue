@@ -10,6 +10,7 @@ import BaseSegmentedControl from '@/components/common/ui/BaseSegmentedControl.vu
 import Pagination from '@/components/common/ui/Pagination.vue'
 import EmoticonGridSkeleton from '@/components/emoticon/EmoticonGridSkeleton.vue'
 import EmoticonListCard from '@/components/emoticon/EmoticonListCard.vue'
+import ErrorState from '@/components/common/ui/ErrorState.vue'
 import { formatInteger } from '@/utils/numberFormat'
 import { isComposingKeyboardEvent } from '@/utils/keyboard'
 import { useEmoticonListResource } from '@/features/emoticon/list/useEmoticonListResource'
@@ -26,7 +27,11 @@ const {
   isSearching,
   popularEmoticons,
   popularLoading,
+  popularError,
+  refetchPopularEmoticons,
   emoticonsLoading,
+  emoticonsError,
+  refetchEmoticons,
   emoticons,
   totalPages,
   totalElements,
@@ -96,6 +101,12 @@ function handleSearchKeyup(event: KeyboardEvent) {
       </div>
 
       <EmoticonGridSkeleton v-if="popularLoading" :count="5" ranked />
+      <ErrorState
+        v-else-if="popularError"
+        :message="t('emoticon.picker.listLoadFailed')"
+        show-retry
+        @retry="refetchPopularEmoticons"
+      />
       <div v-else-if="popularEmoticons && popularEmoticons.length > 0" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
         <EmoticonListCard
           v-for="(emoticon, index) in popularEmoticons"
@@ -125,6 +136,12 @@ function handleSearchKeyup(event: KeyboardEvent) {
       </div>
 
       <EmoticonGridSkeleton v-if="emoticonsLoading" :count="10" />
+      <ErrorState
+        v-else-if="emoticonsError"
+        :message="t('emoticon.picker.listLoadFailed')"
+        show-retry
+        @retry="refetchEmoticons"
+      />
       <div v-else-if="emoticons.length > 0" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
         <EmoticonListCard
           v-for="emoticon in emoticons"

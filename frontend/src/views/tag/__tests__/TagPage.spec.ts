@@ -62,7 +62,7 @@ const mountPage = () => {
       },
       stubs: {
         BaseSkeleton: true,
-        EmptyState: true,
+        ErrorState: true,
         Pagination: true,
         PostList: {
           props: ['posts', 'emptyDescription'],

@@ -30,6 +30,8 @@ vi.mock('@/composables/useApiQuery', () => ({
     return {
       data: ref([]),
       isLoading: ref(false),
+      isError: ref(false),
+      refetch: vi.fn(),
     }
   },
   useApiPageQuery: (options: Record<string, unknown>) => {
@@ -46,6 +48,8 @@ vi.mock('@/composables/useApiQuery', () => ({
         empty: true,
       }),
       isLoading: ref(false),
+      isError: ref(false),
+      refetch: vi.fn(),
     }
   },
 }))

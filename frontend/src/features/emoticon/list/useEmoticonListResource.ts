@@ -23,7 +23,12 @@ export function useEmoticonListResource() {
   const searchType = ref<NonNullable<EmoticonSearchParams['searchType']>>('ALL')
   const isSearching = ref(false)
 
-  const { data: popularEmoticons, isLoading: popularLoading } = useApiQuery({
+  const {
+    data: popularEmoticons,
+    isLoading: popularLoading,
+    isError: popularError,
+    refetch: refetchPopularEmoticons,
+  } = useApiQuery({
     queryKey: computed(() => popularEmoticonsQueryKey(popularPeriod.value)),
     request: (context) => {
       const requestConfig = optionalQuerySignal(undefined, context)
@@ -33,7 +38,12 @@ export function useEmoticonListResource() {
     },
   })
 
-  const { data: emoticonsPage, isLoading: emoticonsLoading } = useApiPageQuery<EmoticonMaster>({
+  const {
+    data: emoticonsPage,
+    isLoading: emoticonsLoading,
+    isError: emoticonsError,
+    refetch: refetchEmoticons,
+  } = useApiPageQuery<EmoticonMaster>({
     queryKey: computed(() => searchableEmoticonsQueryKey(
       currentPage.value,
       sortBy.value,
@@ -102,7 +112,11 @@ export function useEmoticonListResource() {
     isSearching,
     popularEmoticons,
     popularLoading,
+    popularError,
+    refetchPopularEmoticons,
     emoticonsLoading,
+    emoticonsError,
+    refetchEmoticons,
     emoticons,
     totalPages,
     totalElements,

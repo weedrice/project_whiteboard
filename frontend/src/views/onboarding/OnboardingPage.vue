@@ -8,6 +8,7 @@ import { boardApi } from '@/api/board'
 import { unwrapAxiosApiData } from '@/api/response'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
+import ErrorState from '@/components/common/ui/ErrorState.vue'
 import { useUser } from '@/composables/useUser'
 import { usePushNotifications } from '@/features/notifications/usePushNotifications'
 import type { BoardListItem } from '@/types'
@@ -21,7 +22,12 @@ const pushNotifications = usePushNotifications()
 const pushMessage = ref('')
 const pushIsError = ref(false)
 
-const { data: boards, isLoading: isBoardsLoading } = useQuery({
+const {
+  data: boards,
+  isLoading: isBoardsLoading,
+  isError: isBoardsError,
+  refetch: refetchBoards,
+} = useQuery({
   queryKey: ['onboarding', 'board-recommendations'],
   queryFn: async () => unwrapAxiosApiData(await boardApi.getBoardRecommendations([])),
 })
@@ -81,6 +87,12 @@ async function enablePush() {
         <div v-if="isBoardsLoading" class="py-10">
           <BaseSpinner />
         </div>
+        <ErrorState
+          v-else-if="isBoardsError"
+          :message="$t('common.messages.loadFailed')"
+          show-retry
+          @retry="refetchBoards"
+        />
         <div v-else class="grid gap-3 sm:grid-cols-2">
           <article
             v-for="board in recommendedBoards"
