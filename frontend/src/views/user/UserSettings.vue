@@ -19,6 +19,7 @@ import BaseSelect from '@/components/common/ui/BaseSelect.vue'
 import BaseSegmentedControl from '@/components/common/ui/BaseSegmentedControl.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import PageHeader from '@/components/common/ui/PageHeader.vue'
+import ErrorState from '@/components/common/ui/ErrorState.vue'
 import { usePushNotifications } from '@/features/notifications/usePushNotifications'
 import { formatDateTimeOrDash } from '@/utils/date'
 import { Monitor, Settings, X } from 'lucide-vue-next'
@@ -66,11 +67,11 @@ const selectSection = (section: string) => {
   void router.replace({ hash: `#${section}` })
 }
 
-const { data: settingsData, isLoading: isSettingsLoading } = useUserSettings()
-const { data: notificationData, isLoading: isNotifLoading } = useNotificationSettings()
-const { data: sessionsData, isLoading: isSessionsLoading } = useMySessions()
-const { data: loginHistoryData, isLoading: isLoginHistoryLoading } = useMyLoginHistory(loginHistoryParams)
-const { data: keywordData, isLoading: isKeywordLoading } = useKeywordSubscriptions()
+const { data: settingsData, isLoading: isSettingsLoading, isError: isSettingsError, refetch: refetchSettings } = useUserSettings()
+const { data: notificationData, isLoading: isNotifLoading, isError: isNotifError, refetch: refetchNotifications } = useNotificationSettings()
+const { data: sessionsData, isLoading: isSessionsLoading, isError: isSessionsError, refetch: refetchSessions } = useMySessions()
+const { data: loginHistoryData, isLoading: isLoginHistoryLoading, isError: isLoginHistoryError, refetch: refetchLoginHistory } = useMyLoginHistory(loginHistoryParams)
+const { data: keywordData, isLoading: isKeywordLoading, isError: isKeywordError, refetch: refetchKeywords } = useKeywordSubscriptions()
 const { mutateAsync: updateSettings, isPending: isUpdatingSettings } = useUpdateUserSettings()
 const { mutateAsync: updateNotificationSettings, isPending: isUpdatingNotifications } = useUpdateNotificationSettings()
 const { mutateAsync: revokeSession, isPending: isRevokingSession } = useRevokeMySession()
@@ -86,6 +87,7 @@ const pushIsError = ref(false)
 const pushNotifications = usePushNotifications()
 
 const loading = computed(() => isSettingsLoading.value || isNotifLoading.value || isSessionsLoading.value)
+const criticalLoadError = computed(() => isSettingsError.value || isNotifError.value || isSessionsError.value)
 const savingGeneral = computed(() => isUpdatingSettings.value)
 const savingNotifications = computed(() => isUpdatingNotifications.value)
 const sessions = computed(() => sessionsData.value ?? [])
@@ -128,6 +130,10 @@ const notificationOptions = computed(() => NOTIFICATION_TYPES.map((type) => ({
   label: t(`user.settings.notificationTypes.${type}.label`),
   description: t(`user.settings.notificationTypes.${type}.description`),
 })))
+
+const retryCriticalSettings = () => {
+  void Promise.all([refetchSettings(), refetchNotifications(), refetchSessions()])
+}
 
 const {
   canSave: canSaveGeneral,
@@ -250,6 +256,14 @@ const handleRevokeOtherSessions = async () => {
     <div v-if="loading" class="text-center py-10">
       <BaseSpinner />
     </div>
+
+    <ErrorState
+      v-else-if="criticalLoadError"
+      title-tag="h1"
+      :message="$t('common.messages.loadFailed')"
+      show-retry
+      @retry="retryCriticalSettings"
+    />
 
     <div v-else class="nv-surface shadow overflow-hidden sm:rounded-lg transition-colors duration-200">
       <PageHeader :title="$t('common.settings')" size="compact" class="border-b nv-border px-4 py-5 sm:px-6">
@@ -383,6 +397,13 @@ const handleRevokeOtherSessions = async () => {
             <div v-if="isKeywordLoading" class="mt-4">
               <BaseSpinner />
             </div>
+            <ErrorState
+              v-else-if="isKeywordError"
+              title-tag="h3"
+              :message="$t('common.messages.loadFailed')"
+              show-retry
+              @retry="refetchKeywords()"
+            />
             <p v-else-if="keywordSubscriptions.length === 0" class="mt-4 text-sm nv-text-subtle">
               {{ $t('user.settings.keywordEmpty') }}
             </p>
@@ -511,6 +532,13 @@ const handleRevokeOtherSessions = async () => {
             </button>
             <div v-if="showLoginHistory" id="settings-login-history" class="mt-3 space-y-2">
               <BaseSpinner v-if="isLoginHistoryLoading" />
+              <ErrorState
+                v-else-if="isLoginHistoryError"
+                title-tag="h4"
+                :message="$t('common.messages.loadFailed')"
+                show-retry
+                @retry="refetchLoginHistory()"
+              />
               <template v-else>
                 <div
                   v-for="history in loginHistory"

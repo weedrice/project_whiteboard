@@ -10,6 +10,7 @@ import BaseSegmentedControl from '@/components/common/ui/BaseSegmentedControl.vu
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import UserMenu from '@/components/common/widgets/UserMenu.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
+import ErrorState from '@/components/common/ui/ErrorState.vue'
 import Pagination from '@/components/common/ui/Pagination.vue'
 import UserAvatar from '@/components/common/ui/UserAvatar.vue'
 import PostList from '@/components/board/PostList.vue'
@@ -42,10 +43,10 @@ const tabs = computed(() => [
   { value: 'comments', label: t('user.publicProfile.comments') },
 ])
 
-const { data: profile, isLoading: profileLoading } = useUserProfile(userId)
-const { data: badges, isLoading: badgesLoading, refetch: refetchBadges } = useUserBadges(userId)
-const { data: postsData, isLoading: postsLoading } = usePublicProfilePosts(userId, postParams)
-const { data: commentsData, isLoading: commentsLoading } = usePublicProfileComments(userId, commentParams)
+const { data: profile, isLoading: profileLoading, isError: profileError, refetch: refetchProfile } = useUserProfile(userId)
+const { data: badges, isLoading: badgesLoading, isError: badgesError, refetch: refetchBadges } = useUserBadges(userId)
+const { data: postsData, isLoading: postsLoading, isError: postsError, refetch: refetchPosts } = usePublicProfilePosts(userId, postParams)
+const { data: commentsData, isLoading: commentsLoading, isError: commentsError, refetch: refetchComments } = usePublicProfileComments(userId, commentParams)
 const { mutateAsync: updateRepresentativeBadge, isPending: isUpdatingRepresentativeBadge } = useUpdateRepresentativeBadge()
 const acquiredBadges = computed(() => (badges.value || []).filter((badge) => badge.acquired))
 const isOwnProfile = computed(() => String(authStore.user?.userId || '') === userId.value)
@@ -89,9 +90,18 @@ async function handleRepresentativeBadge(badgeCode: string | null) {
 
 <template>
   <div class="mx-auto max-w-5xl">
-    <div v-if="profileLoading" class="flex justify-center py-12">
+    <div v-if="profileLoading" class="flex justify-center py-12" role="status" aria-live="polite">
       <BaseSpinner />
+      <span class="sr-only">{{ t('common.loading') }}</span>
     </div>
+
+    <ErrorState
+      v-else-if="profileError"
+      title-tag="h1"
+      :message="t('common.messages.loadFailed')"
+      show-retry
+      @retry="refetchProfile()"
+    />
 
     <div v-else-if="profile" class="space-y-6">
       <header class="rounded-md border border-[var(--nv-line)] bg-[var(--nv-surface)] p-5">
@@ -147,6 +157,13 @@ async function handleRepresentativeBadge(badgeCode: string | null) {
           <div v-if="badgesLoading" class="py-4">
             <BaseSpinner size="sm" />
           </div>
+          <ErrorState
+            v-else-if="badgesError"
+            title-tag="h3"
+            :message="t('common.messages.loadFailed')"
+            show-retry
+            @retry="refetchBadges()"
+          />
           <div v-else-if="!acquiredBadges.length" class="text-sm nv-text-subtle">
             {{ t('user.publicProfile.badgesEmpty') }}
           </div>
@@ -184,13 +201,21 @@ async function handleRepresentativeBadge(badgeCode: string | null) {
       </section>
 
       <section v-else-if="activeTab === 'posts'" class="rounded-md border border-[var(--nv-line)] bg-[var(--nv-surface)]">
+        <ErrorState
+          v-if="postsError"
+          title-tag="h2"
+          :message="t('common.messages.loadFailed')"
+          show-retry
+          @retry="refetchPosts()"
+        />
         <PostList
+          v-else
           :posts="postsData?.content || []"
           :loading="postsLoading"
           show-board-name
           hide-no-column
         />
-        <div v-if="postsData && postsData.totalPages > 1" class="border-t border-[var(--nv-line)] p-4">
+        <div v-if="!postsError && postsData && postsData.totalPages > 1" class="border-t border-[var(--nv-line)] p-4">
           <Pagination :current-page="postPage" :total-pages="postsData.totalPages" @page-change="postPage = $event" />
         </div>
       </section>
@@ -199,6 +224,13 @@ async function handleRepresentativeBadge(badgeCode: string | null) {
         <div v-if="commentsLoading" class="flex justify-center py-10">
           <BaseSpinner />
         </div>
+        <ErrorState
+          v-else-if="commentsError"
+          title-tag="h2"
+          :message="t('common.messages.loadFailed')"
+          show-retry
+          @retry="refetchComments()"
+        />
         <div v-else-if="!commentsData?.content.length" class="p-8 text-center text-sm nv-text-subtle">
           {{ t('user.publicProfile.emptyComments') }}
         </div>

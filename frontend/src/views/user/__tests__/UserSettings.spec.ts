@@ -7,7 +7,7 @@ import type {
   NotificationSettingsBulkPayload,
   NotificationSettingsPayload
 } from '@/api/user'
-import type { UserSettings as UserSettingsData } from '@/types'
+import type { LoginHistory, PageResponse, UserSettings as UserSettingsData } from '@/types'
 import UserSettings from '../UserSettings.vue'
 import { BaseButtonStub, flushAll, identityT } from '@/test/vue-test-helpers'
 
@@ -17,11 +17,11 @@ type ThemeStoreMock = {
   setTheme: (theme: UserSettingsData['theme']) => void
 }
 type UserComposableMock = {
-  useUserSettings: () => { data: typeof settingsData; isLoading: typeof isSettingsLoading }
-  useNotificationSettings: () => { data: typeof notificationData; isLoading: typeof isNotifLoading }
-  useMySessions: () => { data: typeof sessionsData; isLoading: typeof isSessionsLoading }
-  useMyLoginHistory: () => { data: typeof loginHistoryData; isLoading: typeof isLoginHistoryLoading }
-  useKeywordSubscriptions: () => { data: typeof keywordData; isLoading: typeof isKeywordLoading }
+  useUserSettings: () => QueryMock<typeof settingsData>
+  useNotificationSettings: () => QueryMock<typeof notificationData>
+  useMySessions: () => QueryMock<typeof sessionsData>
+  useMyLoginHistory: () => QueryMock<typeof loginHistoryData>
+  useKeywordSubscriptions: () => QueryMock<typeof keywordData>
   useUpdateUserSettings: () => {
     mutateAsync: (payload: Partial<UserSettingsFixture>) => Promise<void>
     isPending: typeof isUpdatingSettings
@@ -47,6 +47,7 @@ type UserComposableMock = {
     isPending: typeof isRevokingOtherSessions
   }
 }
+type QueryMock<T> = { data: T; isLoading: { value: boolean }; isError: { value: boolean }; refetch: () => Promise<void> }
 
 const useUserMock = vi.hoisted(() => vi.fn<() => UserComposableMock>())
 const useThemeStoreMock = vi.hoisted(() => vi.fn<() => ThemeStoreMock>())
@@ -182,12 +183,27 @@ const notificationData = ref<NotificationSettingsPayload[]>([
 ])
 const keywordData = ref<KeywordSubscriptionResponse[]>([])
 const sessionsData = ref([])
-const loginHistoryData = ref({ content: [] })
+const emptyLoginHistoryPage = (): PageResponse<LoginHistory> => ({
+  content: [],
+  totalElements: 0,
+  totalPages: 0,
+  size: 10,
+  number: 0,
+  first: true,
+  last: true,
+  empty: true,
+})
+const loginHistoryData = ref<PageResponse<LoginHistory>>(emptyLoginHistoryPage())
 const isSettingsLoading = ref(false)
 const isNotifLoading = ref(false)
 const isSessionsLoading = ref(false)
 const isLoginHistoryLoading = ref(false)
 const isKeywordLoading = ref(false)
+const isSettingsError = ref(false)
+const isNotifError = ref(false)
+const isSessionsError = ref(false)
+const isLoginHistoryError = ref(false)
+const isKeywordError = ref(false)
 const isUpdatingSettings = ref(false)
 const isUpdatingNotifications = ref(false)
 const isCreatingKeyword = ref(false)
@@ -201,6 +217,11 @@ const deleteKeywordSubscription = vi.fn()
 const revokeSession = vi.fn()
 const revokeOtherSessions = vi.fn()
 const setTheme = vi.fn()
+const refetchSettings = vi.fn().mockResolvedValue(undefined)
+const refetchNotifications = vi.fn().mockResolvedValue(undefined)
+const refetchSessions = vi.fn().mockResolvedValue(undefined)
+const refetchLoginHistory = vi.fn().mockResolvedValue(undefined)
+const refetchKeywords = vi.fn().mockResolvedValue(undefined)
 const mountedWrappers: Array<ReturnType<typeof mount>> = []
 
 const getSaveButtons = (wrapper: ReturnType<typeof mount>) => {
@@ -253,12 +274,17 @@ describe('UserSettings', () => {
     ]
     keywordData.value = []
     sessionsData.value = []
-    loginHistoryData.value = { content: [] }
+    loginHistoryData.value = emptyLoginHistoryPage()
     isSettingsLoading.value = false
     isNotifLoading.value = false
     isSessionsLoading.value = false
     isLoginHistoryLoading.value = false
     isKeywordLoading.value = false
+    isSettingsError.value = false
+    isNotifError.value = false
+    isSessionsError.value = false
+    isLoginHistoryError.value = false
+    isKeywordError.value = false
     isUpdatingSettings.value = false
     isUpdatingNotifications.value = false
     isCreatingKeyword.value = false
@@ -291,11 +317,11 @@ describe('UserSettings', () => {
     })
 
     useUserMock.mockReturnValue({
-      useUserSettings: () => ({ data: settingsData, isLoading: isSettingsLoading }),
-      useNotificationSettings: () => ({ data: notificationData, isLoading: isNotifLoading }),
-      useMySessions: () => ({ data: sessionsData, isLoading: isSessionsLoading }),
-      useMyLoginHistory: () => ({ data: loginHistoryData, isLoading: isLoginHistoryLoading }),
-      useKeywordSubscriptions: () => ({ data: keywordData, isLoading: isKeywordLoading }),
+      useUserSettings: () => ({ data: settingsData, isLoading: isSettingsLoading, isError: isSettingsError, refetch: refetchSettings }),
+      useNotificationSettings: () => ({ data: notificationData, isLoading: isNotifLoading, isError: isNotifError, refetch: refetchNotifications }),
+      useMySessions: () => ({ data: sessionsData, isLoading: isSessionsLoading, isError: isSessionsError, refetch: refetchSessions }),
+      useMyLoginHistory: () => ({ data: loginHistoryData, isLoading: isLoginHistoryLoading, isError: isLoginHistoryError, refetch: refetchLoginHistory }),
+      useKeywordSubscriptions: () => ({ data: keywordData, isLoading: isKeywordLoading, isError: isKeywordError, refetch: refetchKeywords }),
       useUpdateUserSettings: () => ({
         mutateAsync: updateSettings,
         isPending: isUpdatingSettings,
@@ -366,7 +392,7 @@ describe('UserSettings', () => {
 
   it('exposes login history as an accessible disclosure with an empty state', async () => {
     routeMock.hash = '#security'
-    loginHistoryData.value = { content: [], totalElements: 0, totalPages: 0, size: 10, number: 0 }
+    loginHistoryData.value = emptyLoginHistoryPage()
     const wrapper = mountUserSettings()
     await nextTick()
 
@@ -572,5 +598,18 @@ describe('UserSettings', () => {
 
     expect(pushNotificationMock.disablePush).toHaveBeenCalled()
     expect(wrapper.text()).toContain('user.settings.pushDisableSuccess')
+  })
+
+  it('retries all critical settings queries from the error state', async () => {
+    isSettingsError.value = true
+    const wrapper = mountUserSettings()
+
+    expect(wrapper.find('[role="alert"]').exists()).toBe(true)
+    expect(wrapper.findComponent({ name: 'PageHeader' }).exists()).toBe(false)
+    await wrapper.get('[role="alert"] button').trigger('click')
+
+    expect(refetchSettings).toHaveBeenCalledOnce()
+    expect(refetchNotifications).toHaveBeenCalledOnce()
+    expect(refetchSessions).toHaveBeenCalledOnce()
   })
 })
