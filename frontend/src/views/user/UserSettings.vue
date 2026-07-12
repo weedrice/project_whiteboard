@@ -49,9 +49,9 @@ type SettingsSection = 'general' | 'notifications' | 'security'
 const SETTINGS_SECTIONS: SettingsSection[] = ['general', 'notifications', 'security']
 const activeSection = ref<SettingsSection>('general')
 const settingsSectionOptions = computed(() => [
-  { value: 'general', label: t('user.settings.general') },
-  { value: 'notifications', label: t('user.settings.notifications') },
-  { value: 'security', label: t('user.settings.sessions.title') },
+  { value: 'general', label: t('user.settings.general'), id: 'settings-general-tab', controls: 'general' },
+  { value: 'notifications', label: t('user.settings.notifications'), id: 'settings-notifications-tab', controls: 'notifications' },
+  { value: 'security', label: t('user.settings.sessions.title'), id: 'settings-security-tab', controls: 'security' },
 ])
 
 watch(() => route.hash, (hash) => {
@@ -265,7 +265,7 @@ const handleRevokeOtherSessions = async () => {
           @update:model-value="selectSection"
         />
 
-        <section v-show="activeSection === 'general'" id="general" aria-labelledby="settings-general-heading">
+        <section v-show="activeSection === 'general'" id="general" role="tabpanel" aria-labelledby="settings-general-tab">
           <h2 id="settings-general-heading" class="text-lg font-medium leading-6 nv-title">{{ $t('user.settings.general') }}</h2>
           <div class="mt-4 space-y-4">
             <div>
@@ -304,7 +304,7 @@ const handleRevokeOtherSessions = async () => {
           </div>
         </section>
 
-        <section v-show="activeSection === 'notifications'" id="notifications" aria-labelledby="settings-notifications-heading">
+        <section v-show="activeSection === 'notifications'" id="notifications" role="tabpanel" aria-labelledby="settings-notifications-tab">
           <h2 id="settings-notifications-heading" class="text-lg font-medium leading-6 nv-title">
             {{ $t('user.settings.notifications') }}
           </h2>
@@ -443,7 +443,7 @@ const handleRevokeOtherSessions = async () => {
           </div>
         </section>
 
-        <section v-show="activeSection === 'security'" id="security" aria-labelledby="settings-security-heading">
+        <section v-show="activeSection === 'security'" id="security" role="tabpanel" aria-labelledby="settings-security-tab">
           <div>
             <div class="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>

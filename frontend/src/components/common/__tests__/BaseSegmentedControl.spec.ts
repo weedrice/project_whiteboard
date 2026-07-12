@@ -4,9 +4,9 @@ import { describe, expect, it } from 'vitest'
 import BaseSegmentedControl from '../ui/BaseSegmentedControl.vue'
 
 const options = [
-  { value: 'id', label: 'Find ID' },
-  { value: 'password', label: 'Reset password' },
-  { value: 'email', label: 'Verify email' },
+  { value: 'id', label: 'Find ID', id: 'find-id-tab', controls: 'find-id-panel' },
+  { value: 'password', label: 'Reset password', id: 'password-tab', controls: 'password-panel' },
+  { value: 'email', label: 'Verify email', id: 'email-tab', controls: 'email-panel' },
 ]
 
 function mountTabControl() {
@@ -51,6 +51,8 @@ describe('BaseSegmentedControl', () => {
     expect(wrapper.get('[role="tablist"]').attributes('aria-label')).toBe('Account help')
     expect(tabs.map((tab) => tab.attributes('tabindex'))).toEqual(['0', '-1', '-1'])
     expect(tabs.map((tab) => tab.attributes('aria-selected'))).toEqual(['true', 'false', 'false'])
+    expect(tabs.map((tab) => tab.attributes('id'))).toEqual(['find-id-tab', 'password-tab', 'email-tab'])
+    expect(tabs.map((tab) => tab.attributes('aria-controls'))).toEqual(['find-id-panel', 'password-panel', 'email-panel'])
   })
 
   it('moves tab selection and focus with arrow, Home, and End keys', async () => {

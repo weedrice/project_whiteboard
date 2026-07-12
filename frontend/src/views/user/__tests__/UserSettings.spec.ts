@@ -351,6 +351,19 @@ describe('UserSettings', () => {
     expect((wrapper.get('#notification-reply').element as HTMLInputElement).checked).toBe(true)
   })
 
+  it('connects each settings tab to its tab panel', () => {
+    const wrapper = mountUserSettings()
+    const tabs = wrapper.findAll('[role="tab"]')
+    const panels = wrapper.findAll('[role="tabpanel"]')
+
+    expect(tabs.map((tab) => tab.attributes('aria-controls'))).toEqual(['general', 'notifications', 'security'])
+    expect(panels.map((panel) => panel.attributes('aria-labelledby'))).toEqual([
+      'settings-general-tab',
+      'settings-notifications-tab',
+      'settings-security-tab',
+    ])
+  })
+
   it('restores the selected section from the URL hash and updates deep links', async () => {
     routeMock.hash = '#security'
     const wrapper = mountUserSettings()

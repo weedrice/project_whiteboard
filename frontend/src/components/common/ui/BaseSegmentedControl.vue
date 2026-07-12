@@ -5,6 +5,8 @@ export interface SegmentedControlOption {
   value: string
   label: string
   icon?: Component
+  id?: string
+  controls?: string
 }
 
 const props = withDefaults(defineProps<{
@@ -102,8 +104,10 @@ function handleTabKeydown(event: KeyboardEvent) {
       :key="option.value"
       :ref="(element) => setOptionButton(element, index)"
       type="button"
+      :id="selectionMode === 'tab' ? option.id : undefined"
       :role="selectionMode === 'tab' ? 'tab' : undefined"
       :aria-selected="selectionMode === 'tab' ? modelValue === option.value : undefined"
+      :aria-controls="selectionMode === 'tab' ? option.controls : undefined"
       :aria-pressed="selectionMode === 'pressed' ? modelValue === option.value : undefined"
       :tabindex="selectionMode === 'tab' ? (modelValue === option.value ? 0 : -1) : undefined"
       :disabled="disabled"
