@@ -183,6 +183,7 @@ function resolveFromDetail(log: ErrorLogDetail) {
     <AdminPaginatedTable
       table-class="mt-4 error-log-table-wrapper"
       :columns="columns"
+      :caption="t('admin.errorLogs.title')"
       :items="errorLogs"
       :loading="isLoading"
       :empty-text="t('admin.errorLogs.empty')"

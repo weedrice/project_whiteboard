@@ -35,6 +35,7 @@
           :items="filteredUsers"
           :loading="isLoading"
           :empty-text="$t('common.noData')"
+          :caption="modalTitle"
           density="compact"
           :shadow="false"
           max-height-class="max-h-[420px]"

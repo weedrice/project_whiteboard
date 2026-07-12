@@ -62,6 +62,7 @@ const columns = computed(() => [
     <AdminPaginatedTable
       table-class=""
       :columns="columns"
+      :caption="t('admin.reports.title')"
       :items="reports"
       row-key="reportId"
       :empty-text="t('common.noData')"

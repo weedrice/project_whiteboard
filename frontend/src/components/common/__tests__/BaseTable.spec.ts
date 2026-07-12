@@ -273,6 +273,23 @@ describe('BaseTable', () => {
         )
     })
 
+    it('labels the table and its keyboard-scrollable region when a caption is provided', () => {
+        const wrapper = mount(BaseTable, {
+            props: {
+                columns: [{ key: 'title', label: 'Title' }],
+                items: [{ title: 'Row' }],
+                caption: 'Search results',
+            },
+        })
+
+        expect(wrapper.get('caption').text()).toBe('Search results')
+        expect(wrapper.get('caption').classes()).toContain('sr-only')
+        expect(wrapper.get('[role="region"]').attributes()).toMatchObject({
+            'aria-label': 'Search results',
+            tabindex: '0',
+        })
+    })
+
     it('applies responsive visibility classes and a horizontal overflow width contract', () => {
         const wrapper = mount(BaseTable, {
             props: {

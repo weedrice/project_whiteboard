@@ -48,6 +48,7 @@ const columns = [
       <AdminPaginatedTable
         table-class=""
         :columns="columns"
+        :caption="t('admin.settings.title')"
         :items="configs"
         row-key="key"
         :loading="isLoading"

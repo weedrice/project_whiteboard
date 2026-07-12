@@ -78,6 +78,7 @@ function handleRowClick(post: AdminInquiryListItem) {
       v-else
       table-class="mt-4"
       :columns="columns"
+      :caption="t('admin.inquiries.title')"
       :items="posts"
       row-key="id"
       :loading="isLoading"

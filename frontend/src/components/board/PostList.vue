@@ -338,6 +338,7 @@ const columns = computed(() => createPostListColumns({
       v-else
       :posts="posts"
       :loading="loading"
+      :caption="t('common.post')"
       :columns="columns"
       :active-sort-key="activeSortKey"
       :active-sort-direction="activeSortDirection"

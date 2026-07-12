@@ -36,6 +36,7 @@ const columns = computed(() => [
     <AdminPaginatedTable
       table-class=""
       :columns="columns"
+      :caption="t('admin.dashboard.blockedIps')"
       :items="ipBlocks"
       row-key="ipAddress"
       :empty-text="t('common.noData')"

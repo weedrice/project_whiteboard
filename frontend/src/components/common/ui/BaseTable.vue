@@ -37,6 +37,8 @@ const props = withDefaults(defineProps<{
     rowActionLabel?: RowActionLabelResolver<T>
     rowActivationEvent?: RowActivationEvent
     minWidthClass?: string
+    caption?: string
+    scrollLabel?: string
 }>(), {
     loading: false,
     emptyText: undefined,
@@ -50,7 +52,9 @@ const props = withDefaults(defineProps<{
     interactiveRows: false,
     rowActionLabel: undefined,
     rowActivationEvent: 'row-click',
-    minWidthClass: 'min-w-[48rem]'
+    minWidthClass: 'min-w-[48rem]',
+    caption: undefined,
+    scrollLabel: undefined,
 })
 
 const emit = defineEmits<{
@@ -62,6 +66,7 @@ const emit = defineEmits<{
 const { t } = useI18n()
 
 const effectiveEmptyText = computed(() => props.emptyText ?? t('common.noData'))
+const effectiveScrollLabel = computed(() => props.scrollLabel ?? props.caption)
 
 const getAriaSort = (column: TableColumn): 'ascending' | 'descending' | 'none' | undefined => {
     return getTableAriaSort(column, props.currentSortKey, props.currentSortDirection)
@@ -154,8 +159,10 @@ const bodyCellClasses = computed(() => [
 
 <template>
     <div :class="rootClasses">
-        <div :class="scrollContainerClasses">
+        <div :class="scrollContainerClasses" :role="effectiveScrollLabel ? 'region' : undefined"
+            :aria-label="effectiveScrollLabel" :tabindex="effectiveScrollLabel ? 0 : undefined">
             <table class="w-full table-fixed nv-base-table-table" :class="minWidthClass" style="table-layout: fixed;">
+                <caption v-if="caption" class="sr-only">{{ caption }}</caption>
                 <colgroup>
                     <col v-for="col in columns" :key="col.key" :class="getTableResponsiveClass(col.hideBelow)" :style="{ width: col.width || 'auto' }" />
                 </colgroup>

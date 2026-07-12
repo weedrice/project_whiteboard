@@ -134,6 +134,7 @@ const superAdminColumns: { key: string; label: string; width: string; align?: 'l
       <AdminPaginatedTable
         table-class=""
         :columns="superAdminColumns"
+        :caption="t('admin.admins.superAdmins')"
         :items="superAdmins"
         row-key="userId"
         :loading="isSuperAdminsLoading"

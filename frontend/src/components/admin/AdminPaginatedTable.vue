@@ -31,6 +31,8 @@ withDefaults(defineProps<{
   tableClass?: string
   showFooter?: boolean
   minWidthClass?: string
+  caption?: string
+  scrollLabel?: string
 }>(), {
   loading: false,
   emptyText: undefined,
@@ -50,6 +52,8 @@ withDefaults(defineProps<{
   tableClass: 'mt-4',
   showFooter: true,
   minWidthClass: 'min-w-[48rem]',
+  caption: undefined,
+  scrollLabel: undefined,
 })
 
 const emit = defineEmits<{
@@ -78,6 +82,8 @@ const tableSlotNames = computed(() => Object.keys(slots).filter((name) => !name.
     :current-sort-key="currentSortKey"
     :current-sort-direction="currentSortDirection"
     :min-width-class="minWidthClass"
+    :caption="caption"
+    :scroll-label="scrollLabel"
     @sort="emit('sort', $event)"
     @row-click="emit('rowClick', $event)"
     @row-dblclick="emit('rowDblclick', $event)"

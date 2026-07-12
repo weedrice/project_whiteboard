@@ -39,6 +39,7 @@ defineProps<{
   getVisibleAuthorName: (item: PostSummary) => string
   isAgentAuthor: (item: PostSummary) => boolean
   onNavigationClick: (event: Event, item: PostSummary) => void
+  caption?: string
 }>()
 
 const emit = defineEmits<{
@@ -54,6 +55,7 @@ const { t } = useI18n()
       :columns="columns"
       :items="posts"
       :loading="loading"
+      :caption="caption"
       :emptyText="t('board.list.noPosts')"
       :density="density"
       :current-sort-key="activeSortKey"

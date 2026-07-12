@@ -130,6 +130,7 @@ const pageSizeOptions = [10, 20, 50]
 
     <AdminPaginatedTable
         :columns="columns"
+        :caption="t('admin.users.title')"
         :items="users"
         row-key="userId"
         :loading="isLoading"
