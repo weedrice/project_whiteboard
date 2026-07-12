@@ -644,6 +644,7 @@ export interface UserMessages {
     selectedCount: string
     selectedEmpty: string
     selectUser: string
+    deselectUser: string
     currentManager: string
   }
   dashboard: {

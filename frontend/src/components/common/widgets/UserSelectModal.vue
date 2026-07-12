@@ -41,6 +41,7 @@
           max-height-class="max-h-[420px]"
           row-key="userId"
           :row-class="getUserRowClass"
+          :row-selected="(user) => isSelected(user.userId)"
           interactive-rows
           :row-action-label="getUserRowActionLabel"
           @row-click="toggleSelection"
@@ -56,7 +57,7 @@
                 ? 'user-select-check-selected'
                 : 'nv-border-strong text-transparent'"
             >
-              <Check class="h-3 w-3" />
+              <Check class="h-3 w-3" aria-hidden="true" />
             </span>
           </template>
 
@@ -155,7 +156,9 @@ function getUserRowClass(user: SelectableUser) {
 }
 
 function getUserRowActionLabel(user: SelectableUser) {
-  return t('user.selectModal.selectUser', { name: user.displayName })
+  return t(isSelected(user.userId) ? 'user.selectModal.deselectUser' : 'user.selectModal.selectUser', {
+    name: user.displayName,
+  })
 }
 
 function toggleSelection(user: SelectableUser) {

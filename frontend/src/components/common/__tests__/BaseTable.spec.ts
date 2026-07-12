@@ -273,6 +273,19 @@ describe('BaseTable', () => {
         )
     })
 
+    it('exposes selected state for interactive rows when configured', () => {
+        const wrapper = mount(BaseTable, {
+            props: {
+                columns: [{ key: 'title', label: 'Title' }],
+                items: [{ id: 1, title: 'Selected' }, { id: 2, title: 'Available' }],
+                interactiveRows: true,
+                rowSelected: (item: object) => (item as { id: number }).id === 1,
+            },
+        })
+
+        expect(wrapper.findAll('tbody tr').map((row) => row.attributes('aria-selected'))).toEqual(['true', 'false'])
+    })
+
     it('labels the table and its keyboard-scrollable region when a caption is provided', () => {
         const wrapper = mount(BaseTable, {
             props: {

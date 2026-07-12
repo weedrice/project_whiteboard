@@ -35,6 +35,7 @@ const props = withDefaults(defineProps<{
     rowKey?: RowKeyResolver<T>
     interactiveRows?: boolean
     rowActionLabel?: RowActionLabelResolver<T>
+    rowSelected?: (item: T) => boolean
     rowActivationEvent?: RowActivationEvent
     minWidthClass?: string
     caption?: string
@@ -51,6 +52,7 @@ const props = withDefaults(defineProps<{
     rowKey: undefined,
     interactiveRows: false,
     rowActionLabel: undefined,
+    rowSelected: undefined,
     rowActivationEvent: 'row-click',
     minWidthClass: 'min-w-[48rem]',
     caption: undefined,
@@ -214,6 +216,7 @@ const bodyCellClasses = computed(() => [
                             :class="rowClass?.(item) || ''"
                             :tabindex="interactiveRows ? 0 : undefined"
                             :aria-label="getRowActionLabel(item, index)"
+                            :aria-selected="interactiveRows && rowSelected ? rowSelected(item) : undefined"
                             @click="handleRowClick(item)"
                             @dblclick="handleRowDblclick(item)"
                             @keydown="handleRowKeydown($event, item)">

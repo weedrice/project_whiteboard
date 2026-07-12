@@ -126,8 +126,9 @@ export const user: UserMessages = {
     singleMode: '단일 선택 모드',
     selectedCount: '선택 {count}명',
     selectedEmpty: '선택된 사용자 없음',
-    selectUser: '{name} 선택',
-    currentManager: 'current',
+      selectUser: '{name} 선택',
+      deselectUser: '{name} 선택 해제',
+      currentManager: '현재 관리자',
   },
   dashboard: {
     summaryTitle: '마이페이지 요약',

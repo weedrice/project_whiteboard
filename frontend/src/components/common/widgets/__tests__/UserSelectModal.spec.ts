@@ -170,7 +170,7 @@ describe('UserSelectModal', () => {
     expect(mocks.boardCalls.at(-1)?.enabled.value).toBe(true)
     expect(mocks.boardCalls.at(-1)?.boardUrl.value).toBe('free')
     expect(wrapper.text()).toContain('board-user')
-    expect(wrapper.text()).toContain('current')
+    expect(wrapper.text()).toContain('user.selectModal.currentManager')
     expect(wrapper.findAll('th').map((header) => header.text())).not.toContain('common.email')
   })
 
@@ -227,9 +227,13 @@ describe('UserSelectModal', () => {
 
     await rows[0].trigger('click')
     await rows[1].trigger('click')
+    expect(wrapper.findAll('tbody tr')[0].attributes('aria-selected')).toBe('true')
+    expect(wrapper.findAll('tbody tr')[0].attributes('aria-label')).toBe('user.selectModal.deselectUser')
     expect(wrapper.text()).toContain('선택 2명')
 
     await rows[0].trigger('click')
+    expect(wrapper.findAll('tbody tr')[0].attributes('aria-selected')).toBe('false')
+    expect(wrapper.findAll('tbody tr')[0].attributes('aria-label')).toBe('user.selectModal.selectUser')
     expect(wrapper.text()).toContain('선택 1명')
     await getActionButton(wrapper, 'common.save').trigger('click')
 

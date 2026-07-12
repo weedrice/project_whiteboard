@@ -127,7 +127,8 @@ export const userEn: UserMessages = {
     selectedCount: '{count} selected',
     selectedEmpty: 'No users selected',
     selectUser: 'Select {name}',
-    currentManager: 'current',
+    deselectUser: 'Deselect {name}',
+    currentManager: 'Current administrator',
   },
   dashboard: {
     summaryTitle: 'My page overview',
