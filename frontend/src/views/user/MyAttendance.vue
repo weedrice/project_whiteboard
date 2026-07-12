@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, Flame } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
+import ErrorState from '@/components/common/ui/ErrorState.vue'
 import { useAttendance } from '@/composables/useAttendance'
 
 const { locale, t } = useI18n()
@@ -16,7 +17,7 @@ const month = computed(() => {
   return `${year}-${monthNumber}`
 })
 const { useMyAttendance } = useAttendance()
-const { data: attendance, isLoading } = useMyAttendance(enabled, month)
+const { data: attendance, isLoading, isError, refetch } = useMyAttendance(enabled, month)
 
 const monthLabel = computed(() => new Intl.DateTimeFormat(locale.value, {
   year: 'numeric',
@@ -46,6 +47,21 @@ const calendarCells = computed(() => {
   while (cells.length % 7 !== 0) cells.push(null)
   return cells
 })
+
+const calendarWeeks = computed(() => {
+  const weeks = []
+  for (let index = 0; index < calendarCells.value.length; index += 7) {
+    weeks.push(calendarCells.value.slice(index, index + 7))
+  }
+  return weeks
+})
+
+const getCellLabel = (cell: NonNullable<(typeof calendarCells.value)[number]>) => {
+  const parts = [new Intl.DateTimeFormat(locale.value, { dateStyle: 'full' }).format(new Date(`${cell.date}T00:00:00`))]
+  if (cell.date === attendance.value?.today) parts.push(t('user.attendance.today'))
+  if (cell.checked) parts.push(t('user.attendance.checkedDay', { count: cell.streakCount }))
+  return parts.join(', ')
+}
 
 const changeMonth = (offset: number) => {
   visibleDate.value = new Date(visibleDate.value.getFullYear(), visibleDate.value.getMonth() + offset, 1)
@@ -78,19 +94,39 @@ const changeMonth = (offset: number) => {
       </BaseButton>
     </div>
 
-    <div v-if="isLoading" class="flex justify-center py-16"><BaseSpinner /></div>
-    <div v-else class="mt-4 overflow-hidden rounded-[var(--nv-radius-md)] border nv-border">
-      <div class="grid grid-cols-7 nv-surface-muted">
-        <div v-for="weekday in weekdays" :key="weekday" class="px-1 py-2 text-center text-xs font-semibold nv-text-subtle">
+    <div v-if="isLoading" class="flex justify-center py-16" role="status" aria-live="polite">
+      <BaseSpinner />
+      <span class="sr-only">{{ $t('common.loading') }}</span>
+    </div>
+    <ErrorState
+      v-else-if="isError"
+      title-tag="h2"
+      :message="$t('common.messages.loadFailed')"
+      show-retry
+      @retry="refetch()"
+    />
+    <div
+      v-else
+      class="mt-4 overflow-hidden rounded-[var(--nv-radius-md)] border nv-border"
+      role="grid"
+      :aria-label="monthLabel"
+    >
+      <div class="grid grid-cols-7 nv-surface-muted" role="row">
+        <div v-for="weekday in weekdays" :key="weekday" role="columnheader" class="px-1 py-2 text-center text-xs font-semibold nv-text-subtle">
           {{ weekday }}
         </div>
       </div>
-      <div class="grid grid-cols-7 border-t nv-border">
+      <div class="border-t nv-border" role="rowgroup">
+        <div v-for="(week, weekIndex) in calendarWeeks" :key="weekIndex" class="grid grid-cols-7" role="row">
         <div
-          v-for="(cell, index) in calendarCells"
-          :key="cell?.date ?? `empty-${index}`"
+          v-for="(cell, index) in week"
+          :key="cell?.date ?? `empty-${weekIndex}-${index}`"
           class="relative min-h-16 border-b border-r nv-border p-1.5 sm:min-h-20 sm:p-2"
           :class="cell?.checked && 'bg-[var(--nv-accent-soft)]'"
+          role="gridcell"
+          :aria-label="cell ? getCellLabel(cell) : undefined"
+          :aria-current="cell?.date === attendance?.today ? 'date' : undefined"
+          :aria-hidden="cell ? undefined : 'true'"
         >
           <template v-if="cell">
             <span class="text-xs font-medium nv-title">{{ cell.day }}</span>
@@ -103,6 +139,7 @@ const changeMonth = (offset: number) => {
               <span>{{ $t('user.attendance.checkedDay', { count: cell.streakCount }) }}</span>
             </div>
           </template>
+        </div>
         </div>
       </div>
     </div>
