@@ -115,7 +115,8 @@ const goToDetail = () => {
     </div>
 
     <!-- 로딩 -->
-    <div v-if="isLoading" class="animate-pulse space-y-8">
+    <div v-if="isLoading" class="animate-pulse space-y-8" role="status" aria-live="polite" aria-busy="true"
+      :aria-label="t('common.loading')">
       <div class="nv-surface rounded-lg border nv-border p-6">
         <div class="flex gap-6">
           <div class="w-32 h-32 nv-surface-muted rounded-lg"></div>

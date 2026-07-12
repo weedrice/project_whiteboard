@@ -66,7 +66,8 @@ useHead({
     </div>
 
     <!-- 로딩 -->
-    <div v-if="isLoading" class="animate-pulse">
+    <div v-if="isLoading" class="animate-pulse" role="status" aria-live="polite" aria-busy="true"
+      :aria-label="t('common.loading')">
       <div class="nv-surface rounded-lg shadow-sm border nv-border p-6 mb-8">
         <div class="flex flex-col sm:flex-row gap-6">
           <div class="flex-shrink-0">

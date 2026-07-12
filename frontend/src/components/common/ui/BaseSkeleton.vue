@@ -13,5 +13,5 @@ withDefaults(defineProps<{
 </script>
 
 <template>
-    <div :class="['nv-surface-muted animate-pulse', rounded, className]" :style="{ width, height }"></div>
+    <div :class="['nv-surface-muted animate-pulse', rounded, className]" :style="{ width, height }" aria-hidden="true"></div>
 </template>
