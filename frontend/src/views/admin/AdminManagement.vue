@@ -129,6 +129,7 @@ const superAdminColumns: { key: string; label: string; width: string; align?: 'l
     </div>
 
     <div class="mt-8">
+      <p class="nv-kicker mb-2">{{ t('common.status') }}</p>
       <h3 class="text-lg font-medium leading-6 nv-title mb-4">{{ t('admin.admins.superAdmins') }}</h3>
       <AdminPaginatedTable
         table-class=""

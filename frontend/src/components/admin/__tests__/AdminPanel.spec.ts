@@ -15,7 +15,7 @@ describe('AdminPanel', () => {
     expect(wrapper.classes()).toContain('nv-border')
     expect(wrapper.classes()).toContain('p-5')
     expect(wrapper.classes()).toContain('shadow')
-    expect(wrapper.classes()).toContain('rounded-lg')
+    expect(wrapper.classes()).toContain('nv-admin-panel')
   })
 
   it('supports compact padding, max width, and shadow opt out', () => {

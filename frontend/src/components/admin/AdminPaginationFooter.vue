@@ -28,7 +28,7 @@ const slots = useSlots()
 <template>
   <div
     v-if="summary || totalElements !== undefined || totalPages > 0 || slots.actions || slots.description"
-    class="mt-4 flex flex-col gap-3 rounded-lg border nv-border nv-surface px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between"
+    class="nv-admin-pagination mt-4 flex flex-col gap-3 border nv-border nv-surface px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between"
   >
     <div class="nv-text-muted">
       <div v-if="summary">{{ summary }}</div>
@@ -48,3 +48,9 @@ const slots = useSlots()
     </div>
   </div>
 </template>
+
+<style scoped>
+.nv-admin-pagination {
+  border-radius: var(--nv-radius-lg);
+}
+</style>

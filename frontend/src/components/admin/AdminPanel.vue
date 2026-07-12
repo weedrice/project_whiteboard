@@ -37,9 +37,15 @@ const overflowClass = computed(() => (props.overflow === 'hidden' ? 'overflow-hi
       shadowClass,
       borderClass,
       overflowClass,
-      'rounded-lg border nv-surface',
+      'nv-admin-panel border nv-surface',
     ]"
   >
     <slot />
   </div>
 </template>
+
+<style scoped>
+.nv-admin-panel {
+  border-radius: var(--nv-radius-lg);
+}
+</style>
