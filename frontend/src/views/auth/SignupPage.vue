@@ -49,14 +49,12 @@ const {
         <div>
           <BaseInput id="login-id" v-model="form.loginId" name="loginId" type="text" required
             :placeholder="$t('auth.placeholders.loginId')" :label="$t('common.loginId')" hideLabel
+            :error="fieldErrors.loginId"
             :disabled="isReregister">
             <template #prefix>
               <User class="h-5 w-5 nv-text-subtle" />
             </template>
           </BaseInput>
-          <p v-if="fieldErrors.loginId" class="text-xs nv-form-error mt-1 ml-1">
-            {{ fieldErrors.loginId }}
-          </p>
         </div>
         <AuthPasswordPairFields
           v-model:password="form.password"
@@ -92,24 +90,20 @@ const {
             :verified-label="t('auth.codeVerified')"
             :expired-label="t('auth.codeExpired')"
             :format-time="formatTime"
+            :email-error="fieldErrors.email"
             @send="sendVerificationCode"
             @verify="verifyCode"
           />
-          <p v-if="fieldErrors.email" class="text-xs nv-form-error mt-1 ml-1">
-            {{ fieldErrors.email }}
-          </p>
         </div>
 
         <div>
           <BaseInput id="display-name" v-model="form.displayName" name="displayName" type="text" required
-            :placeholder="$t('auth.placeholders.displayName')" :label="$t('common.displayName')" hideLabel>
+            :placeholder="$t('auth.placeholders.displayName')" :label="$t('common.displayName')" hideLabel
+            :error="fieldErrors.displayName">
             <template #prefix>
               <Smile class="h-5 w-5 nv-text-subtle" />
             </template>
           </BaseInput>
-          <p v-if="fieldErrors.displayName" class="text-xs nv-form-error mt-1 ml-1">
-            {{ fieldErrors.displayName }}
-          </p>
         </div>
       </div>
 

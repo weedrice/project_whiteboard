@@ -45,6 +45,7 @@ const emit = defineEmits<{
       required
       :placeholder="passwordPlaceholder"
       :label="passwordLabel"
+      :error="passwordError"
       :hide-label="hideLabels"
       @update:model-value="emit('update:password', String($event))"
     >
@@ -52,9 +53,6 @@ const emit = defineEmits<{
         <Lock class="h-5 w-5 nv-text-subtle" />
       </template>
     </BaseInput>
-    <p v-if="passwordError" class="text-xs nv-form-error mt-1 ml-1">
-      {{ passwordError }}
-    </p>
   </div>
 
   <div>
@@ -67,6 +65,7 @@ const emit = defineEmits<{
       required
       :placeholder="confirmPasswordPlaceholder"
       :label="confirmPasswordLabel"
+      :error="confirmPasswordError"
       :hide-label="hideLabels"
       @update:model-value="emit('update:confirmPassword', String($event))"
     >
@@ -74,8 +73,5 @@ const emit = defineEmits<{
         <Lock class="h-5 w-5 nv-text-subtle" />
       </template>
     </BaseInput>
-    <p v-if="confirmPasswordError" class="text-xs nv-form-error mt-1 ml-1">
-      {{ confirmPasswordError }}
-    </p>
   </div>
 </template>

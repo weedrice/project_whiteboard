@@ -16,6 +16,7 @@ const props = withDefaults(defineProps<{
   layout?: 'stacked' | 'inline'
   emailLabel: string
   emailPlaceholder: string
+  emailError?: string
   codeLabel: string
   sendLabel: string
   sentLabel?: string
@@ -37,6 +38,7 @@ const props = withDefaults(defineProps<{
   verifiedLabel: undefined,
   expiredLabel: undefined,
   formatTime: undefined,
+  emailError: '',
 })
 
 const emit = defineEmits<{
@@ -61,6 +63,7 @@ const isInline = props.layout === 'inline'
           autocomplete="email"
           :label="emailLabel"
           :placeholder="emailPlaceholder"
+          :error="emailError"
           :disabled="emailDisabled || loading"
           hideLabel
           @update:model-value="emit('update:email', String($event))"
@@ -98,6 +101,7 @@ const isInline = props.layout === 'inline'
           autocomplete="one-time-code"
           :placeholder="codeLabel"
           :label="codeLabel"
+          :error="timeLeft !== undefined && timeLeft <= 0 ? expiredLabel : ''"
           hideLabel
           :disabled="timeLeft !== undefined && timeLeft <= 0"
           @update:model-value="emit('update:code', String($event))"
@@ -125,9 +129,6 @@ const isInline = props.layout === 'inline'
         {{ verifyLabel }}
       </BaseButton>
     </div>
-    <p v-if="codeSent && !verified && timeLeft !== undefined && timeLeft <= 0 && expiredLabel" class="text-xs nv-form-error mt-1 ml-1">
-      {{ expiredLabel }}
-    </p>
   </div>
 </template>
 

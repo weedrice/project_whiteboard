@@ -83,6 +83,7 @@ const { t } = useI18n()
             autocomplete="one-time-code"
             :label="t('auth.codePlaceholder')"
             :placeholder="t('auth.codePlaceholder')"
+            :error="verification.timeLeft <= 0 ? t('auth.codeExpired') : ''"
             hideLabel
             :disabled="verification.timeLeft <= 0"
             @update:model-value="$emit('update:code', String($event))"
@@ -98,10 +99,6 @@ const { t } = useI18n()
             {{ formatVerifyTime(verification.timeLeft) }}
           </span>
         </div>
-
-        <p v-if="verification.timeLeft <= 0" class="text-xs nv-form-error">
-          {{ t('auth.codeExpired') }}
-        </p>
 
         <BaseButton
           :disabled="verification.loading || verification.timeLeft <= 0 || !verification.code"
