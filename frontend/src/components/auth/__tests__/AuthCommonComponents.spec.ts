@@ -50,6 +50,16 @@ const BaseButtonStub = defineComponent({
 })
 
 describe('auth common components', () => {
+  it('uses the full mobile width and constrains content from the small breakpoint', () => {
+    const wrapper = mount(AuthFormShell, {
+      slots: {
+        default: '<form>Content</form>',
+      },
+    })
+
+    expect(wrapper.get('.mx-auto').classes()).toEqual(expect.arrayContaining(['w-full', 'sm:w-[80%]']))
+  })
+
   it('renders AuthFormShell header, back link, and constrained content', () => {
     const wrapper = mount(AuthFormShell, {
       props: {
@@ -113,5 +123,32 @@ describe('auth common components', () => {
     expect(wrapper.emitted('verify')).toHaveLength(1)
     expect(wrapper.text()).toContain('Resend')
     expect(wrapper.text()).toContain('Verify')
+  })
+
+  it('stacks inline email verification controls on mobile', () => {
+    const wrapper = mount(AuthEmailVerificationSection, {
+      props: {
+        email: '',
+        code: '',
+        layout: 'inline',
+        emailLabel: 'Email',
+        emailPlaceholder: 'email@example.com',
+        codeLabel: 'Code',
+        sendLabel: 'Send',
+        resendLabel: 'Resend',
+        verifyLabel: 'Verify',
+      },
+      global: {
+        stubs: {
+          BaseInput: BaseInputStub,
+          BaseButton: BaseButtonStub,
+          Mail: true,
+        },
+      },
+    })
+
+    const row = wrapper.get('.auth-email-verification-section > div')
+    expect(row.classes()).toEqual(expect.arrayContaining(['flex-col', 'sm:flex-row']))
+    expect(wrapper.get('button').classes()).toEqual(expect.arrayContaining(['w-full', 'sm:w-auto']))
   })
 })

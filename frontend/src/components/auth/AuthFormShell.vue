@@ -10,12 +10,12 @@ withDefaults(defineProps<{
   title: '',
   description: '',
   backTo: '',
-  contentWidthClass: 'w-[80%]',
+  contentWidthClass: 'w-full sm:w-[80%]',
 })
 </script>
 
 <template>
-  <div class="relative flex h-full flex-col justify-center p-8">
+  <div class="relative flex h-full flex-col justify-center p-5 sm:p-8">
     <div v-if="backTo" class="absolute left-4 top-4">
       <router-link
         :to="backTo"

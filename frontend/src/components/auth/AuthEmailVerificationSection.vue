@@ -51,8 +51,8 @@ const isInline = props.layout === 'inline'
 
 <template>
   <div class="auth-email-verification-section space-y-4">
-    <div :class="isInline ? 'flex items-end gap-2' : 'space-y-4'">
-      <div class="flex-grow">
+    <div :class="isInline ? 'flex flex-col gap-2 sm:flex-row sm:items-end' : 'space-y-4'">
+      <div class="min-w-0 flex-grow">
         <BaseInput
           :id="`${idPrefix}-email`"
           :model-value="email"
@@ -74,7 +74,7 @@ const isInline = props.layout === 'inline'
         v-if="!verified"
         type="button"
         variant="primary"
-        :class="isInline ? 'mb-[2px] h-[42px]' : 'w-full'"
+        :class="isInline ? 'w-full sm:mb-[2px] sm:w-auto' : 'w-full'"
         :loading="loading && !codeSent"
         :disabled="loading || resendCooldown > 0"
         @click="emit('send')"
@@ -87,8 +87,8 @@ const isInline = props.layout === 'inline'
       </span>
     </div>
 
-    <div v-if="codeSent && !verified" :class="isInline ? 'flex items-end gap-2 animate-fade-in-down' : 'space-y-4'">
-      <div class="flex-grow relative">
+    <div v-if="codeSent && !verified" :class="isInline ? 'flex flex-col gap-2 sm:flex-row sm:items-end animate-fade-in-down' : 'space-y-4'">
+      <div class="relative min-w-0 flex-grow">
         <BaseInput
           :id="`${idPrefix}-verification-code`"
           :model-value="code"
@@ -117,7 +117,7 @@ const isInline = props.layout === 'inline'
       <BaseButton
         type="button"
         variant="primary"
-        :class="isInline ? 'mb-[2px] h-[42px]' : 'w-full'"
+        :class="isInline ? 'w-full sm:mb-[2px] sm:w-auto' : 'w-full'"
         :loading="loading"
         :disabled="loading || (timeLeft !== undefined && timeLeft <= 0)"
         @click="emit('verify')"

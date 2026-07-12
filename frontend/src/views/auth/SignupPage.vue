@@ -30,7 +30,7 @@ const {
 </script>
 
 <template>
-  <div class="p-8 relative h-full flex flex-col justify-center">
+  <div class="relative flex h-full flex-col justify-center p-5 sm:p-8">
     <div class="absolute top-4 left-4">
       <router-link to="/login"
         class="flex items-center nv-text-subtle hover:text-[var(--nv-text)] transition-colors">
@@ -45,7 +45,7 @@ const {
     </div>
 
     <form class="space-y-6" @submit.prevent="handleSignup">
-      <div class="space-y-4 w-[80%] mx-auto">
+      <div class="mx-auto w-full space-y-4 sm:w-[80%]">
         <div>
           <BaseInput id="login-id" v-model="form.loginId" name="loginId" type="text" required
             :placeholder="$t('auth.placeholders.loginId')" :label="$t('common.loginId')" hideLabel
@@ -115,7 +115,7 @@ const {
 
 
       <div class="flex justify-center mt-8">
-        <BaseButton type="submit" :loading="isLoading" class="w-[80%]" variant="primary"
+        <BaseButton type="submit" :loading="isLoading" class="w-full sm:w-[80%]" variant="primary"
           :disabled="isReregister && form.loginId.includes('*')">
           {{ $t('auth.signup') }}
         </BaseButton>
