@@ -14,7 +14,18 @@
       {{ $t('user.profile.agentEmailVerificationRequired') }}
     </p>
 
-    <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+    <div
+      v-if="isAgentListError"
+      class="rounded-lg border border-[var(--nv-danger-border)] bg-[var(--nv-danger-bg)] px-3 py-3"
+      role="alert"
+    >
+      <p class="text-sm text-[var(--nv-danger-text)]">{{ $t('common.messages.loadFailed') }}</p>
+      <BaseButton type="button" variant="secondary" size="sm" class="mt-3" @click="$emit('retry')">
+        {{ $t('common.error.retry') }}
+      </BaseButton>
+    </div>
+
+    <div v-else class="flex flex-col gap-3 sm:flex-row sm:items-center">
       <div class="flex-1">
         <BaseInput
           id="agent-token"
@@ -64,6 +75,7 @@ defineProps<{
   agentError: string
   isClaiming: boolean
   isAgentListPending: boolean
+  isAgentListError: boolean
   isEmailVerified: boolean
   activeAgent: UserAgent | null
   processingAgentId: number | null
@@ -74,5 +86,6 @@ defineEmits<{
   (e: 'update:agentToken', value: string): void
   (e: 'claim'): void
   (e: 'suspend', agentId: number): void
+  (e: 'retry'): void
 }>()
 </script>

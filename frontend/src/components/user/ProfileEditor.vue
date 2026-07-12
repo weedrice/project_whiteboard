@@ -24,12 +24,14 @@
       :agent-error="agentError"
       :is-claiming="isClaiming"
       :is-agent-list-pending="isAgentListPending"
+      :is-agent-list-error="isAgentsError"
       :is-email-verified="isEmailVerified"
       :active-agent="activeAgent"
       :processing-agent-id="processingAgentId"
       :processing-action="processingAction"
       @claim="handleClaimAgent"
       @suspend="handleSuspendAgent"
+      @retry="refetchAgents()"
     />
 
     <hr class="nv-border my-4 sm:my-6" />
@@ -77,7 +79,13 @@ const { confirm } = useConfirm()
 const { useDeleteAccount, useMyAgents, useClaimAgent, useSuspendMyAgent, useUpdateMyProfile } = useUser()
 const { mutateAsync: updateProfileMutateAsync } = useUpdateMyProfile()
 const { mutateAsync: deleteAccount, isPending: isDeleting } = useDeleteAccount()
-const { data: agentsData, isLoading: isAgentsLoading, isFetching: isAgentsFetching } = useMyAgents()
+const {
+  data: agentsData,
+  isLoading: isAgentsLoading,
+  isFetching: isAgentsFetching,
+  isError: isAgentsError,
+  refetch: refetchAgents,
+} = useMyAgents()
 const { mutateAsync: claimAgent, isPending: isClaiming } = useClaimAgent()
 const { mutateAsync: suspendMyAgent } = useSuspendMyAgent()
 

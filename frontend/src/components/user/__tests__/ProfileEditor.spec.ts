@@ -12,6 +12,8 @@ const mocks = vi.hoisted(() => ({
   agentsData: { value: { agents: [] as Array<Record<string, unknown>> }, __v_isRef: true },
   isAgentsLoading: { value: false, __v_isRef: true },
   isAgentsFetching: { value: false, __v_isRef: true },
+  isAgentsError: { value: false, __v_isRef: true },
+  refetchAgents: vi.fn(),
   isClaiming: { value: false, __v_isRef: true },
   claimAgent: vi.fn(),
   suspendMyAgent: vi.fn(),
@@ -64,6 +66,8 @@ vi.mock('@/composables/useUser', () => ({
       data: mocks.agentsData,
       isLoading: mocks.isAgentsLoading,
       isFetching: mocks.isAgentsFetching,
+      isError: mocks.isAgentsError,
+      refetch: mocks.refetchAgents,
     }),
     useClaimAgent: () => ({
       mutateAsync: mocks.claimAgent,
@@ -190,6 +194,7 @@ describe('ProfileEditor', () => {
     mocks.agentsData.value = { agents: [] }
     mocks.isAgentsLoading.value = false
     mocks.isAgentsFetching.value = false
+    mocks.isAgentsError.value = false
     mocks.isClaiming.value = false
     mocks.user.isEmailVerified = true
     mocks.activateMyAgent.mockResolvedValue({ success: true })
@@ -355,5 +360,15 @@ describe('ProfileEditor', () => {
     expect(mocks.claimAgent).toHaveBeenCalledWith('agent-token')
     expect(mocks.addToast).toHaveBeenCalledWith('user.profile.agentClaimSuccess', 'success')
     expect(wrapper.emitted('refreshed')).toHaveLength(1)
+  })
+
+  it('blocks agent actions and retries when the agent list fails', async () => {
+    mocks.isAgentsError.value = true
+    const wrapper = mountProfileEditor()
+
+    expect(wrapper.find('[role="alert"]').text()).toContain('common.messages.loadFailed')
+    expect(wrapper.find('input[placeholder="user.profile.agentPlaceholder"]').exists()).toBe(false)
+    await findButtonByText(wrapper, 'common.error.retry').trigger('click')
+    expect(mocks.refetchAgents).toHaveBeenCalled()
   })
 })
