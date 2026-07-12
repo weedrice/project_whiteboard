@@ -106,6 +106,7 @@ function getElementRef(value: unknown): HTMLElement | null {
       class="color-panel"
       :style="colorPosition.popoverStyle.value"
       role="dialog"
+      aria-modal="true"
       aria-labelledby="editor-color-dialog-title"
       @keydown.enter.stop
       @keydown.escape.stop.prevent="emit('close-color-panel')"

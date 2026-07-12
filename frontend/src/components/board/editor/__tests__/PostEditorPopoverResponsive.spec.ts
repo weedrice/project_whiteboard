@@ -19,4 +19,12 @@ describe('post editor popover responsive styles', () => {
     expect(source).toContain('max-height: calc(100dvh - 24px)')
     expect(source).not.toContain('min-width: 320px')
   })
+
+  it('applies the shared modal focus contract to the color panel', () => {
+    const composable = readFileSync(resolve(process.cwd(), 'src/features/board/posts/editor/usePostEditorPopovers.ts'), 'utf8')
+    const panels = readFileSync(resolve(process.cwd(), 'src/components/board/editor/PostEditorFloatingPanels.vue'), 'utf8')
+
+    expect(composable).toContain('usePopoverFocus(colorPanelRef, showColorPanel)')
+    expect(panels).toMatch(/id="editor-color-dialog"[\s\S]*aria-modal="true"/)
+  })
 })

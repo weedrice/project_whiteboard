@@ -17,6 +17,7 @@ export function usePostEditorPopovers() {
   const colorTriggerElement = ref<HTMLElement | null>(null)
 
   usePopoverFocus(slashPopoverRef, showSlashMenu)
+  usePopoverFocus(colorPanelRef, showColorPanel)
   usePopoverFocus(linkPopoverRef, showLinkPopover)
   usePopoverFocus(tablePopoverRef, showTablePopover)
   usePopoverFocus(imageAltPopoverRef, showImageAltPopover)
