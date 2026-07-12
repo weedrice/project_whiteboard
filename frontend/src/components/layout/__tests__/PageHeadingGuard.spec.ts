@@ -26,6 +26,35 @@ describe('route page heading hierarchy', () => {
   })
 
   it.each([
+    'src/views/user/UserSettings.vue',
+    'src/views/search/SearchPage.vue',
+  ])('%s does not skip from its route heading to h3', (file) => {
+    const source = readFileSync(resolve(process.cwd(), file), 'utf8')
+
+    expect(source).toMatch(/<h1\b/)
+    expect(source).toMatch(/<h2\b/)
+  })
+
+  it('nests the administrator list below the shared admin page heading', () => {
+    const source = readFileSync(resolve(process.cwd(), 'src/views/admin/AdminManagement.vue'), 'utf8')
+
+    expect(source).toMatch(/<AdminDataPage\b/)
+    expect(source).toMatch(/<h2\b/)
+    expect(source).not.toMatch(/<h3\b/)
+  })
+
+  it.each([
+    'src/views/board/AllBoardsPage.vue',
+    'src/views/search/SearchPage.vue',
+    'src/views/tag/TagPage.vue',
+    'src/views/home/HomeFeed.vue',
+  ])('%s gives its page-level error an h2 title', (file) => {
+    const source = readFileSync(resolve(process.cwd(), file), 'utf8')
+
+    expect(source).toMatch(/<ErrorState[\s\S]*?title-tag="h2"/)
+  })
+
+  it.each([
     'src/components/board/PostFormHeader.vue',
     'src/views/board/BoardCreate.vue',
     'src/views/board/BoardEdit.vue',

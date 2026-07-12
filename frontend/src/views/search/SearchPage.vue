@@ -125,6 +125,7 @@
 
         <ErrorState
           v-else-if="hasSearchError"
+          title-tag="h2"
           :title="$t('common.messages.defaultTitle')"
           :message="$t('common.messages.loadFailed')"
           show-retry
@@ -144,10 +145,10 @@
             v-if="keywordResultsEmpty && semanticResults.length > 0"
             class="min-w-0 space-y-3"
           >
-            <h3 class="text-lg font-semibold nv-title mb-4 flex items-center gap-2">
+            <h2 class="text-lg font-semibold nv-title mb-4 flex items-center gap-2">
               <Search class="w-5 h-5" />
               {{ $t('search.semanticRelated') }}
-            </h3>
+            </h2>
             <RouterLink
               v-for="result in semanticResults"
               :key="`${result.contentType}-${result.contentId}`"
@@ -162,10 +163,10 @@
 
           <!-- Board Results -->
           <div v-if="boards.length > 0" class="min-w-0">
-            <h3 class="text-lg font-semibold nv-title mb-4 flex items-center gap-2">
+            <h2 class="text-lg font-semibold nv-title mb-4 flex items-center gap-2">
               <Layout class="w-5 h-5" />
               {{ $t('common.board') }}
-            </h3>
+            </h2>
             <div class="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <BoardCard
                 v-for="board in boards"
@@ -178,10 +179,10 @@
 
           <!-- Post Results -->
           <div v-if="posts.length > 0" class="min-w-0">
-            <h3 class="text-lg font-semibold nv-title mb-4 flex items-center gap-2">
+            <h2 class="text-lg font-semibold nv-title mb-4 flex items-center gap-2">
               <Search class="w-5 h-5" />
               {{ $t('common.post') }}
-            </h3>
+            </h2>
             <PostList
               :posts="posts"
               :showBoardName="true"
@@ -196,10 +197,10 @@
             v-if="!keywordResultsEmpty && semanticResults.length > 0"
             class="min-w-0 space-y-3"
           >
-            <h3 class="text-lg font-semibold nv-title mb-4 flex items-center gap-2">
+            <h2 class="text-lg font-semibold nv-title mb-4 flex items-center gap-2">
               <Search class="w-5 h-5" />
               {{ $t('search.semanticRelated') }}
-            </h3>
+            </h2>
             <RouterLink
               v-for="result in semanticResults"
               :key="`${result.contentType}-${result.contentId}`"

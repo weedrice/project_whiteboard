@@ -266,7 +266,7 @@ const handleRevokeOtherSessions = async () => {
         />
 
         <section v-show="activeSection === 'general'" id="general" aria-labelledby="settings-general-heading">
-          <h3 id="settings-general-heading" class="text-lg font-medium leading-6 nv-title">{{ $t('user.settings.general') }}</h3>
+          <h2 id="settings-general-heading" class="text-lg font-medium leading-6 nv-title">{{ $t('user.settings.general') }}</h2>
           <div class="mt-4 space-y-4">
             <div>
               <BaseSelect
@@ -305,9 +305,9 @@ const handleRevokeOtherSessions = async () => {
         </section>
 
         <section v-show="activeSection === 'notifications'" id="notifications" aria-labelledby="settings-notifications-heading">
-          <h3 id="settings-notifications-heading" class="text-lg font-medium leading-6 nv-title">
+          <h2 id="settings-notifications-heading" class="text-lg font-medium leading-6 nv-title">
             {{ $t('user.settings.notifications') }}
-          </h3>
+          </h2>
           <div class="mt-4 space-y-4">
             <BaseCheckbox
               v-for="option in notificationOptions"
@@ -339,7 +339,7 @@ const handleRevokeOtherSessions = async () => {
 
           <div class="mt-8 border-t nv-border pt-6">
             <div class="flex flex-col gap-1">
-              <h4 class="text-base font-semibold nv-title">{{ $t('user.settings.keywordSubscriptions') }}</h4>
+              <h3 class="text-base font-semibold nv-title">{{ $t('user.settings.keywordSubscriptions') }}</h3>
               <p class="text-sm nv-text-subtle">{{ $t('user.settings.keywordSubscriptionsDesc') }}</p>
               <p
                 v-if="!keywordNotificationEnabled"
@@ -406,7 +406,7 @@ const handleRevokeOtherSessions = async () => {
 
           <div class="mt-8 border-t nv-border pt-6">
             <div class="flex flex-col gap-1">
-              <h4 class="text-base font-semibold nv-title">{{ $t('user.settings.browserPush') }}</h4>
+              <h3 class="text-base font-semibold nv-title">{{ $t('user.settings.browserPush') }}</h3>
               <p class="text-sm nv-text-subtle">{{ $t('user.settings.browserPushDesc') }}</p>
               <p class="text-sm nv-text-subtle" role="status" aria-live="polite">
                 {{ $t(pushStatusKey) }}
@@ -447,7 +447,7 @@ const handleRevokeOtherSessions = async () => {
           <div>
             <div class="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h3 id="settings-security-heading" class="text-lg font-semibold nv-title">{{ $t('user.settings.sessions.title') }}</h3>
+                <h2 id="settings-security-heading" class="text-lg font-semibold nv-title">{{ $t('user.settings.sessions.title') }}</h2>
                 <p class="text-sm nv-text-subtle">{{ $t('user.settings.sessions.description') }}</p>
               </div>
               <BaseButton

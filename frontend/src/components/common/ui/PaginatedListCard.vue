@@ -184,7 +184,7 @@ const getLoadingRowClass = (preset: LoadingPreset) => {
           </div>
         </div>
       </template>
-      <ErrorState v-else-if="error" :message="error" show-retry @retry="emit('retry')" />
+      <ErrorState v-else-if="error" :title-tag="emptyTitleTag" :message="error" show-retry @retry="emit('retry')" />
       <EmptyState
         v-else-if="itemsCount === 0"
         :title-tag="emptyTitleTag"

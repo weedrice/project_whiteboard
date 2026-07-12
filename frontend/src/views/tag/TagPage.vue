@@ -95,6 +95,7 @@ function buildPageRoute(nextPageIndex: number) {
 
     <ErrorState
       v-else-if="isError"
+      title-tag="h2"
       :message="$t('search.tagLoadFailed')"
       :icon="Tag"
       show-retry

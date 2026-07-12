@@ -98,6 +98,7 @@ useHead({
 
     <ErrorState
       v-else-if="isError"
+      title-tag="h2"
       :message="$t('common.messages.loadFailed')"
       :show-retry="true"
       @retry="refetch"

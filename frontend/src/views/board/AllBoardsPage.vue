@@ -83,6 +83,7 @@ const filteredBoards = computed(() => {
 
     <ErrorState
       v-else-if="error"
+      title-tag="h2"
       :title="$t('common.messages.defaultTitle')"
       :message="$t('common.messages.loadFailed')"
       show-retry
