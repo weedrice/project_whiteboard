@@ -98,6 +98,54 @@
   color: var(--nv-ink);
 }
 
+@media (max-width: 639px) {
+  .tiptap-toolbar {
+    overflow: hidden;
+  }
+
+  .tiptap-toolbar-row--scrollable {
+    flex-wrap: nowrap;
+    margin-inline: -0.5rem;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    padding: 0.15rem 0.5rem 0.4rem;
+    scroll-padding-inline: 0.5rem;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 0.5rem, #000 calc(100% - 0.5rem), transparent 100%);
+    mask-image: linear-gradient(to right, transparent 0, #000 0.5rem, #000 calc(100% - 0.5rem), transparent 100%);
+  }
+
+  .tiptap-toolbar-row--scrollable .tiptap-toolbar-group,
+  .tiptap-toolbar-group--format {
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+    max-width: none;
+  }
+
+  .tiptap-btn {
+    height: 2.5rem;
+    width: 2.5rem;
+  }
+
+  .tiptap-btn-pill {
+    width: auto;
+  }
+
+  .tiptap-select {
+    height: 2.5rem;
+    min-width: 6.5rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tiptap-btn,
+  .tiptap-toolbar-row--scrollable {
+    scroll-behavior: auto;
+    transition: none;
+  }
+}
+
 .tiptap-color-input {
   border-radius: 0.85rem;
   border: 1px solid var(--nv-line);

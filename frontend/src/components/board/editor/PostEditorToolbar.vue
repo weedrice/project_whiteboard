@@ -73,7 +73,7 @@ const { t } = useI18n()
 
 <template>
   <div class="tiptap-toolbar flex flex-col gap-2 border-b border-[var(--nv-line)] bg-[var(--nv-surface-alt)] p-2">
-    <div class="tiptap-toolbar-row">
+    <div class="tiptap-toolbar-row tiptap-toolbar-row--scrollable">
       <div class="tiptap-toolbar-group tiptap-toolbar-group--format">
         <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('bold') }" :title="t('board.writePost.toolbar.bold')" :aria-label="t('board.writePost.toolbar.bold')" :aria-pressed="editor.isActive('bold')" @mousedown.prevent @click="emit('toggle-bold')">
           <span class="font-bold">B</span>
@@ -123,7 +123,7 @@ const { t } = useI18n()
       </div>
     </div>
 
-    <div class="tiptap-toolbar-row tiptap-toolbar-row--secondary">
+    <div class="tiptap-toolbar-row tiptap-toolbar-row--secondary tiptap-toolbar-row--scrollable">
       <div class="tiptap-toolbar-group">
         <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('link') }" :title="t('board.writePost.toolbar.link')" :aria-label="t('board.writePost.toolbar.link')" :aria-pressed="editor.isActive('link')" @mousedown.prevent @click="emit('open-link', $event.currentTarget as HTMLElement)">
           <Link2 class="h-4 w-4" aria-hidden="true" />
