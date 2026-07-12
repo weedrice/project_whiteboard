@@ -195,9 +195,9 @@ export function useAdminUserDetailTabs({
     const commentsParams = computed(() => ({ page: commentsPage.value, size: tabSize }))
     const subscriptionsParams = computed(() => ({ page: subscriptionsPage.value, size: tabSize }))
 
-    const { data: userPosts, isLoading: isPostsLoading } = useAdminUserPosts(activePostsUserId, postsParams)
-    const { data: userComments, isLoading: isCommentsLoading } = useAdminUserComments(activeCommentsUserId, commentsParams)
-    const { data: userSubscriptions, isLoading: isSubscriptionsLoading } = useAdminUserSubscriptions(
+    const { data: userPosts, isLoading: isPostsLoading, isError: isPostsError, refetch: refetchPosts } = useAdminUserPosts(activePostsUserId, postsParams)
+    const { data: userComments, isLoading: isCommentsLoading, isError: isCommentsError, refetch: refetchComments } = useAdminUserComments(activeCommentsUserId, commentsParams)
+    const { data: userSubscriptions, isLoading: isSubscriptionsLoading, isError: isSubscriptionsError, refetch: refetchSubscriptions } = useAdminUserSubscriptions(
         activeSubscriptionsUserId,
         subscriptionsParams
     )
@@ -242,8 +242,11 @@ export function useAdminUserDetailTabs({
         commentItems,
         commentsPage,
         isCommentsLoading,
+        isCommentsError,
         isPostsLoading,
+        isPostsError,
         isSubscriptionsLoading,
+        isSubscriptionsError,
         nextCommentsPage,
         nextPostsPage,
         postItems,
@@ -252,6 +255,9 @@ export function useAdminUserDetailTabs({
         prevCommentsPage,
         prevPostsPage,
         prevSubscriptionsPage,
+        refetchComments,
+        refetchPosts,
+        refetchSubscriptions,
         subscriptionItems,
         subscriptionsPage,
         userComments,

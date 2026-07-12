@@ -36,6 +36,7 @@
           :has-unsaved-changes="hasUnsavedChanges"
           :is-submitting="isSubmitting"
           :is-board-manager-loading="isBoardManagerLoading"
+          :is-board-manager-error="isBoardManagerError"
           :is-assigning-manager="isAssigningManager"
           :current-manager-label="currentManagerLabel"
           :set-file-input-ref="setFileInputRef"
@@ -45,6 +46,7 @@
           @icon-upload="handleFileUpload"
           @choose-icon="chooseIconFile"
           @open-manager="openManagerModal('single')"
+          @retry-manager="refetchBoardManager()"
         />
       </section>
     </div>
@@ -154,7 +156,12 @@ const updateBoardFormField = <K extends keyof AdminBoardEditorForm>(
   form[field] = value
 }
 
-const { data: boardManagerData, isLoading: isBoardManagerLoading } = useBoardManager(selectedBoardId)
+const {
+  data: boardManagerData,
+  isLoading: isBoardManagerLoading,
+  isError: isBoardManagerError,
+  refetch: refetchBoardManager,
+} = useBoardManager(selectedBoardId)
 const { mutateAsync: updateBoardManager } = useUpdateBoardManager()
 const {
   isAssigningManager,

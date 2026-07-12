@@ -3,6 +3,7 @@ import { useI18n } from 'vue-i18n'
 import AdminInlinePager from '@/components/admin/AdminInlinePager.vue'
 import AdminStatusBadge from '@/components/admin/AdminStatusBadge.vue'
 import SanitizedHtmlView from '@/components/common/SanitizedHtmlView.vue'
+import ErrorState from '@/components/common/ui/ErrorState.vue'
 import type { AdminUserCommentViewItem } from '@/features/admin/users/useAdminUserDetailTabs'
 import type { SanitizedHtml } from '@/utils/sanitize'
 
@@ -11,17 +12,19 @@ interface PageNavigationState {
   totalPages: number
 }
 
-defineProps<{
+withDefaults(defineProps<{
   items: AdminUserCommentViewItem[]
   loading: boolean
+  error?: boolean
   pageData?: PageNavigationState | null
   renderCommentContent: (content: string | null | undefined) => SanitizedHtml
   isCommentEmoticonOnly: (content: string | null | undefined) => boolean
-}>()
+}>(), { error: false })
 
 defineEmits<{
   previous: []
   next: []
+  retry: []
 }>()
 
 const { t } = useI18n()
@@ -30,6 +33,7 @@ const { t } = useI18n()
 <template>
   <div class="space-y-2">
     <div v-if="loading" class="py-6 text-center text-sm nv-text-subtle">{{ t('common.loading') }}</div>
+    <ErrorState v-else-if="error" title-tag="h3" :message="t('common.messages.loadFailed')" :show-icon="false" show-retry @retry="$emit('retry')" />
     <div v-else-if="!items.length" class="py-6 text-center text-sm nv-text-subtle">
       {{ t('admin.users.detail.commentsEmpty') }}
     </div>

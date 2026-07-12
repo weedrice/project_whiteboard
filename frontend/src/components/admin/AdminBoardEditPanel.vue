@@ -50,9 +50,11 @@
 
         <AdminBoardManagerSection
           :loading="isBoardManagerLoading"
+          :error="isBoardManagerError"
           :current-manager-label="currentManagerLabel"
           :is-assigning-manager="isAssigningManager"
           @open="emit('open-manager')"
+          @retry="emit('retry-manager')"
         />
 
         <div class="flex justify-end">
@@ -81,16 +83,17 @@ import AdminBoardManagerSection from '@/components/admin/AdminBoardManagerSectio
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   selectedBoard: AdminBoard | null
   form: AdminBoardEditorForm
   hasUnsavedChanges: boolean
   isSubmitting: boolean
   isBoardManagerLoading: boolean
+  isBoardManagerError?: boolean
   isAssigningManager: boolean
   currentManagerLabel: string
   setFileInputRef: (element: Element | ComponentPublicInstance | null) => void
-}>()
+}>(), { isBoardManagerError: false })
 
 const emit = defineEmits<{
   (event: 'toggle-status'): void
@@ -99,6 +102,7 @@ const emit = defineEmits<{
   (event: 'icon-upload', uploadEvent: Event): void
   (event: 'choose-icon'): void
   (event: 'open-manager'): void
+  (event: 'retry-manager'): void
 }>()
 
 const { t } = useI18n()

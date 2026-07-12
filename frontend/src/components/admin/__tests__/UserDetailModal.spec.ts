@@ -37,7 +37,9 @@ vi.mock('@/composables/useAdmin', () => ({
                 reportSummary: { pendingCount: 0 },
                 sanctionSummary: { count: 0 }
             }),
-            isLoading: ref(false)
+            isLoading: ref(false),
+            isError: ref(false),
+            refetch: vi.fn(),
         }),
         useAdminUserPosts: () => ({
             data: ref({
@@ -60,7 +62,9 @@ vi.mock('@/composables/useAdmin', () => ({
                 number: 0,
                 totalPages: 1
             }),
-            isLoading: ref(false)
+            isLoading: ref(false),
+            isError: ref(false),
+            refetch: vi.fn(),
         }),
         useAdminUserComments: () => ({
             data: ref({
@@ -87,7 +91,9 @@ vi.mock('@/composables/useAdmin', () => ({
                 number: 0,
                 totalPages: 1
             }),
-            isLoading: ref(false)
+            isLoading: ref(false),
+            isError: ref(false),
+            refetch: vi.fn(),
         }),
         useAdminUserSubscriptions: () => ({
             data: ref({
@@ -105,7 +111,9 @@ vi.mock('@/composables/useAdmin', () => ({
                 number: 0,
                 totalPages: 1
             }),
-            isLoading: ref(false)
+            isLoading: ref(false),
+            isError: ref(false),
+            refetch: vi.fn(),
         })
     })
 }))

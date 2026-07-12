@@ -43,6 +43,8 @@ vi.mock('@/composables/useAdmin', () => ({
     useAdminBoards: () => ({
       data: ref([]),
       isLoading: ref(false),
+      isError: ref(false),
+      refetch: vi.fn(),
     }),
     useCreateBoard: () => ({
       mutateAsync: mocks.createBoard,
@@ -53,6 +55,8 @@ vi.mock('@/composables/useAdmin', () => ({
     useBoardManager: () => ({
       data: ref(null),
       isLoading: ref(false),
+      isError: ref(false),
+      refetch: vi.fn(),
     }),
     useUpdateBoardManager: () => ({
       mutateAsync: mocks.updateBoardManager,

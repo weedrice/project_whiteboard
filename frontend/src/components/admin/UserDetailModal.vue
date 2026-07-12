@@ -6,6 +6,7 @@ import AdminStatusBadge from '@/components/admin/AdminStatusBadge.vue'
 import BooleanBadge from '@/components/admin/BooleanBadge.vue'
 import BaseSegmentedControl from '@/components/common/ui/BaseSegmentedControl.vue'
 import UserAvatar from '@/components/common/ui/UserAvatar.vue'
+import ErrorState from '@/components/common/ui/ErrorState.vue'
 import DescriptionItem from '@/components/admin/detail/DescriptionItem.vue'
 import AdminUserCommentsTab from '@/components/admin/user-detail/AdminUserCommentsTab.vue'
 import AdminUserPostsTab from '@/components/admin/user-detail/AdminUserPostsTab.vue'
@@ -37,19 +38,25 @@ defineEmits<{
 
 const queryUserId = computed<number | null>(() => (props.isOpen ? props.userId : null))
 
-const { data: userDetail, isLoading: isDetailLoading } = useAdminUserDetail(queryUserId)
+const { data: userDetail, isLoading: isDetailLoading, isError: isDetailError, refetch: refetchDetail } = useAdminUserDetail(queryUserId)
 const {
   activeTab,
   commentItems,
   isCommentsLoading,
+  isCommentsError,
   isPostsLoading,
+  isPostsError,
   isSubscriptionsLoading,
+  isSubscriptionsError,
   nextCommentsPage,
   nextPostsPage,
   nextSubscriptionsPage,
   prevCommentsPage,
   prevPostsPage,
   prevSubscriptionsPage,
+  refetchComments,
+  refetchPosts,
+  refetchSubscriptions,
   postItems,
   subscriptionItems,
   userComments,
@@ -100,11 +107,20 @@ function isCommentEmoticonOnly(content: string | null | undefined): boolean {
     :title="t('admin.users.detail.title')"
     size="2xl"
     :loading="isDetailLoading"
-    :empty="!userDetail"
+    :error="isDetailError"
+    :empty="!isDetailError && !userDetail"
     :loading-text="t('common.loading')"
     :empty-text="t('admin.users.detail.loadFailed')"
     @close="$emit('close')"
   >
+    <template #error>
+      <ErrorState
+        title-tag="h3"
+        :message="t('admin.users.detail.loadFailed')"
+        show-retry
+        @retry="refetchDetail()"
+      />
+    </template>
     <div v-if="userDetail" class="space-y-6">
       <div class="flex items-center gap-4 rounded-lg border nv-border p-4">
         <UserAvatar
@@ -184,29 +200,35 @@ function isCommentEmoticonOnly(content: string | null | undefined): boolean {
           v-if="activeTab === 'posts'"
           :items="postItems"
           :loading="isPostsLoading"
+          :error="isPostsError"
           :page-data="userPosts"
           @previous="prevPostsPage"
           @next="nextPostsPage"
+          @retry="refetchPosts()"
         />
 
         <AdminUserCommentsTab
           v-else-if="activeTab === 'comments'"
           :items="commentItems"
           :loading="isCommentsLoading"
+          :error="isCommentsError"
           :page-data="userComments"
           :render-comment-content="renderCommentContent"
           :is-comment-emoticon-only="isCommentEmoticonOnly"
           @previous="prevCommentsPage"
           @next="nextCommentsPage"
+          @retry="refetchComments()"
         />
 
         <AdminUserSubscriptionsTab
           v-else
           :items="subscriptionItems"
           :loading="isSubscriptionsLoading"
+          :error="isSubscriptionsError"
           :page-data="userSubscriptions"
           @previous="prevSubscriptionsPage"
           @next="nextSubscriptionsPage"
+          @retry="refetchSubscriptions()"
         />
       </div>
     </div>
