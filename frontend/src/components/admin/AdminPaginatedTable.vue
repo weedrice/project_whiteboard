@@ -30,6 +30,7 @@ withDefaults(defineProps<{
   footerLoading?: boolean
   tableClass?: string
   showFooter?: boolean
+  minWidthClass?: string
 }>(), {
   loading: false,
   emptyText: undefined,
@@ -48,6 +49,7 @@ withDefaults(defineProps<{
   footerLoading: undefined,
   tableClass: 'mt-4',
   showFooter: true,
+  minWidthClass: 'min-w-[48rem]',
 })
 
 const emit = defineEmits<{
@@ -75,6 +77,7 @@ const tableSlotNames = computed(() => Object.keys(slots).filter((name) => !name.
     :row-activation-event="rowActivationEvent"
     :current-sort-key="currentSortKey"
     :current-sort-direction="currentSortDirection"
+    :min-width-class="minWidthClass"
     @sort="emit('sort', $event)"
     @row-click="emit('rowClick', $event)"
     @row-dblclick="emit('rowDblclick', $event)"

@@ -4,6 +4,13 @@ export interface TableColumn<TKey extends string = string> {
   align?: 'left' | 'center' | 'right'
   width?: string
   sortable?: boolean
+  hideBelow?: 'sm' | 'lg'
+}
+
+export function getTableResponsiveClass(hideBelow?: 'sm' | 'lg'): string {
+  if (hideBelow === 'sm') return 'hidden sm:table-cell'
+  if (hideBelow === 'lg') return 'hidden lg:table-cell'
+  return ''
 }
 
 export type RowKeyResolver<TItem> = Extract<keyof TItem, string> | ((item: TItem, index: number) => string | number)

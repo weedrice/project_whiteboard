@@ -25,8 +25,8 @@ function onUnblock(ipAddress: string) {
 const columns = computed(() => [
   { key: 'ipAddress', label: t('admin.security.table.ipAddress'), width: '20%' },
   { key: 'reason', label: t('admin.security.table.reason'), width: '30%' },
-  { key: 'admin', label: t('admin.security.table.adminId'), width: '15%' },
-  { key: 'startDate', label: t('admin.security.table.createdAt'), width: '20%' },
+  { key: 'admin', label: t('admin.security.table.adminId'), width: '15%', hideBelow: 'lg' as const },
+  { key: 'startDate', label: t('admin.security.table.createdAt'), width: '20%', hideBelow: 'sm' as const },
   { key: 'actions', label: '', align: 'right' as const, width: '15%' }
 ])
 </script>

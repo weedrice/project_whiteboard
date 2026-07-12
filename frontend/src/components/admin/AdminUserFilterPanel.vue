@@ -23,6 +23,10 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 
+const activeFilters = computed(() => Object.entries(props.filterForm)
+  .filter(([, value]) => Boolean(value))
+  .map(([field, value]) => ({ field: field as keyof AdminUserFilterForm, value })))
+
 function createFilterModel(field: keyof AdminUserFilterForm) {
   return computed({
     get: () => props.filterForm[field],
@@ -63,7 +67,7 @@ function handleSearchKeyup(event: KeyboardEvent) {
 </script>
 
 <template>
-  <AdminFilterPanel>
+  <AdminFilterPanel collapsible :title="t('admin.users.filters.userSearch')">
     <div class="flex flex-col items-start gap-4">
       <div class="flex flex-wrap items-end gap-3">
         <AdminFilterField :label="t('admin.users.filters.status')" :for-id="filterControlIds.status">
@@ -104,6 +108,20 @@ function handleSearchKeyup(event: KeyboardEvent) {
             <option value="false">{{ t('admin.users.filters.activeOrSuspended') }}</option>
           </select>
         </AdminFilterField>
+      </div>
+
+      <div v-if="activeFilters.length" class="flex flex-wrap gap-2" aria-live="polite">
+        <button
+          v-for="filter in activeFilters"
+          :key="filter.field"
+          type="button"
+          class="nv-chip max-w-full"
+          :aria-label="`${filter.field}: ${filter.value}`"
+          @click="emit('updateFilter', filter.field, '')"
+        >
+          <span class="truncate">{{ filter.value }}</span>
+          <span aria-hidden="true">×</span>
+        </button>
       </div>
 
       <div class="flex flex-wrap items-end gap-3">

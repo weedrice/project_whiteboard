@@ -8,6 +8,7 @@ import {
     getTableAlignClass,
     getTableAriaSort,
     getTableCellValue,
+    getTableResponsiveClass,
     getTableSortButtonLabel,
     getTableSortIndicator,
     resolveBaseTableRowKey,
@@ -35,6 +36,7 @@ const props = withDefaults(defineProps<{
     interactiveRows?: boolean
     rowActionLabel?: RowActionLabelResolver<T>
     rowActivationEvent?: RowActivationEvent
+    minWidthClass?: string
 }>(), {
     loading: false,
     emptyText: undefined,
@@ -47,7 +49,8 @@ const props = withDefaults(defineProps<{
     rowKey: undefined,
     interactiveRows: false,
     rowActionLabel: undefined,
-    rowActivationEvent: 'row-click'
+    rowActivationEvent: 'row-click',
+    minWidthClass: 'min-w-[48rem]'
 })
 
 const emit = defineEmits<{
@@ -152,15 +155,15 @@ const bodyCellClasses = computed(() => [
 <template>
     <div :class="rootClasses">
         <div :class="scrollContainerClasses">
-            <table class="min-w-full table-fixed nv-base-table-table" style="table-layout: fixed;">
+            <table class="w-full table-fixed nv-base-table-table" :class="minWidthClass" style="table-layout: fixed;">
                 <colgroup>
-                    <col v-for="col in columns" :key="col.key" :style="{ width: col.width || 'auto' }" />
+                    <col v-for="col in columns" :key="col.key" :class="getTableResponsiveClass(col.hideBelow)" :style="{ width: col.width || 'auto' }" />
                 </colgroup>
                 <thead class="nv-base-table-head">
                     <tr>
                         <th v-for="col in columns" :key="col.key" scope="col"
                             :aria-sort="getAriaSort(col)"
-                            :class="[headerCellClasses, getTableAlignClass(col.align)]"
+                            :class="[headerCellClasses, getTableAlignClass(col.align), getTableResponsiveClass(col.hideBelow)]"
                             :style="{ width: col.width }">
                             <button
                                 v-if="col.sortable"
@@ -208,7 +211,7 @@ const bodyCellClasses = computed(() => [
                             @dblclick="handleRowDblclick(item)"
                             @keydown="handleRowKeydown($event, item)">
                             <td v-for="col in columns" :key="col.key"
-                                :class="[bodyCellClasses, getTableAlignClass(col.align)]">
+                                :class="[bodyCellClasses, getTableAlignClass(col.align), getTableResponsiveClass(col.hideBelow)]">
                                 <slot :name="`cell-${col.key}`" :item="item" :value="getTableCellValue(item, col.key)">
                                     {{ getTableCellValue(item, col.key) }}
                                 </slot>

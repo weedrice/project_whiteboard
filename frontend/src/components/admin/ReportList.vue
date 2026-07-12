@@ -43,16 +43,16 @@ function onSanction(report: Report) {
 }
 
 const columns = computed(() => [
-  { key: 'reportId', label: t('common.id'), width: '5%', align: 'center' as const },
-  { key: 'reporterDisplayName', label: t('admin.reports.table.reporter'), width: '8%', align: 'center' as const },
+  { key: 'reportId', label: t('common.id'), width: '5%', align: 'center' as const, hideBelow: 'lg' as const },
+  { key: 'reporterDisplayName', label: t('admin.reports.table.reporter'), width: '8%', align: 'center' as const, hideBelow: 'sm' as const },
   { key: 'targetType', label: t('admin.reports.targetType'), width: '5%', align: 'center' as const },
   { key: 'target', label: t('common.target'), width: '10%', align: 'center' as const },
-  { key: 'contents', label: t('admin.reports.targetContentId'), width: '7%', align: 'center' as const },
+  { key: 'contents', label: t('admin.reports.targetContentId'), width: '7%', align: 'center' as const, hideBelow: 'lg' as const },
   { key: 'reasonType', label: t('admin.reports.reasonType'), width: '7%', align: 'center' as const },
-  { key: 'processor', label: t('admin.reports.table.processor'), width: '8%', align: 'center' as const },
-  { key: 'remark', label: t('admin.reports.remark'), width: '20%', align: 'left' as const },
+  { key: 'processor', label: t('admin.reports.table.processor'), width: '8%', align: 'center' as const, hideBelow: 'lg' as const },
+  { key: 'remark', label: t('admin.reports.remark'), width: '20%', align: 'left' as const, hideBelow: 'sm' as const },
   { key: 'status', label: t('common.status'), width: '8%', align: 'center' as const },
-  { key: 'createdAt', label: t('common.createdAt'), width: '10%', align: 'center' as const },
+  { key: 'createdAt', label: t('common.createdAt'), width: '10%', align: 'center' as const, hideBelow: 'sm' as const },
   { key: 'actions', label: '', align: 'center' as const, width: '10%' }
 ])
 </script>

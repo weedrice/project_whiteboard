@@ -99,16 +99,16 @@ async function handleStatusChange(user: User, status: AdminUserMutableStatus) {
 }
 
 const columns = computed(() => [
-  { key: 'userId', label: getSortLabel(t('common.id'), 'userId'), width: '5%', sortable: true },
-  { key: 'profile', label: t('admin.users.detail.profile'), width: '7%', align: 'center' as const },
+  { key: 'userId', label: getSortLabel(t('common.id'), 'userId'), width: '5%', sortable: true, hideBelow: 'lg' as const },
+  { key: 'profile', label: t('admin.users.detail.profile'), width: '7%', align: 'center' as const, hideBelow: 'sm' as const },
   { key: 'loginId', label: getSortLabel(t('common.loginId'), 'loginId'), width: '10%', sortable: true },
   { key: 'displayName', label: getSortLabel(t('common.displayName'), 'displayName'), width: '11%', sortable: true },
-  { key: 'email', label: t('common.email'), width: '14%' },
-  { key: 'isEmailVerified', label: getSortLabel(t('admin.users.detail.emailVerified'), 'isEmailVerified'), width: '8%', sortable: true, align: 'center' as const },
-  { key: 'isSuperAdmin', label: getSortLabel(t('admin.users.detail.superAdmin'), 'isSuperAdmin'), width: '8%', sortable: true, align: 'center' as const },
+  { key: 'email', label: t('common.email'), width: '14%', hideBelow: 'sm' as const },
+  { key: 'isEmailVerified', label: getSortLabel(t('admin.users.detail.emailVerified'), 'isEmailVerified'), width: '8%', sortable: true, align: 'center' as const, hideBelow: 'lg' as const },
+  { key: 'isSuperAdmin', label: getSortLabel(t('admin.users.detail.superAdmin'), 'isSuperAdmin'), width: '8%', sortable: true, align: 'center' as const, hideBelow: 'lg' as const },
   { key: 'status', label: getSortLabel(t('admin.users.table.status'), 'status'), width: '8%', sortable: true, align: 'center' as const },
-  { key: 'lastLoginAt', label: getSortLabel(t('admin.users.detail.lastLoginAt'), 'lastLoginAt'), width: '9%', sortable: true },
-  { key: 'createdAt', label: getSortLabel(t('admin.users.table.joinedAt'), 'createdAt'), width: '9%', sortable: true },
+  { key: 'lastLoginAt', label: getSortLabel(t('admin.users.detail.lastLoginAt'), 'lastLoginAt'), width: '9%', sortable: true, hideBelow: 'lg' as const },
+  { key: 'createdAt', label: getSortLabel(t('admin.users.table.joinedAt'), 'createdAt'), width: '9%', sortable: true, hideBelow: 'sm' as const },
   { key: 'actions', label: '', align: 'right' as const, width: '10%' }
 ])
 </script>

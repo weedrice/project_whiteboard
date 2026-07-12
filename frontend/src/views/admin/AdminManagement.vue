@@ -92,11 +92,11 @@ async function toggleSuperAdminStatus(admin: SuperAdminRow) {
   }
 }
 
-const superAdminColumns: { key: string; label: string; width: string; align?: 'left' | 'center' | 'right' }[] = [
+const superAdminColumns: { key: string; label: string; width: string; align?: 'left' | 'center' | 'right'; hideBelow?: 'sm' | 'lg' }[] = [
   { key: 'loginId', label: t('common.loginId'), width: '20%' },
-  { key: 'displayName', label: t('common.name'), width: '20%' },
+  { key: 'displayName', label: t('common.name'), width: '20%', hideBelow: 'sm' },
   { key: 'status', label: t('common.status'), width: '20%' },
-  { key: 'createdAt', label: t('common.createdAt'), width: '25%' },
+  { key: 'createdAt', label: t('common.createdAt'), width: '25%', hideBelow: 'lg' },
   { key: 'actions', label: '', align: 'right', width: '15%' }
 ]
 </script>

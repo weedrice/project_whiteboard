@@ -28,7 +28,7 @@ const {
 
 const columns = [
   { key: 'key', label: t('common.key'), width: '20%' },
-  { key: 'description', label: t('common.description'), width: '35%' },
+  { key: 'description', label: t('common.description'), width: '35%', hideBelow: 'sm' as const },
   { key: 'value', label: t('common.value'), width: '35%' },
   { key: 'actions', label: '', align: 'right' as const, width: '10%' }
 ]
