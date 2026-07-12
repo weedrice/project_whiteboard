@@ -82,6 +82,7 @@ onMounted(async () => {
 
 <template>
   <div>
+    <h1 class="mb-4 text-2xl font-semibold tracking-[-0.04em] nv-title">{{ $t('common.myPage') }}</h1>
     <div v-if="isLoading" class="space-y-6">
       <!-- Profile Skeleton -->
       <div class="max-w-full mx-auto nv-surface shadow rounded-lg p-6">

@@ -138,6 +138,7 @@ useHead({
     <template v-else-if="board">
       <BoardDetailHeader
         :board="board"
+        :heading-tag="currentPostId ? 'h2' : 'h1'"
         :can-write="canWrite"
         :is-authenticated="authStore.isAuthenticated"
         :is-subscribe-pending="isSubscribePending"

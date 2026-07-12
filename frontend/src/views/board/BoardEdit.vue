@@ -70,7 +70,7 @@ watch([boardUrl, canManageBoard], async ([nextBoardUrl, manageable]) => {
       <!-- Header -->
       <div class="px-4 py-5 sm:px-6 border-b nv-border flex justify-between items-center">
         <div>
-          <h3 class="text-lg leading-6 font-medium nv-title">{{ $t('board.form.editTitle') }}</h3>
+          <h1 class="text-lg leading-6 font-medium nv-title">{{ $t('board.form.editTitle') }}</h1>
           <p class="mt-1 max-w-2xl text-sm nv-text-subtle">{{ $t('board.form.editDesc') }}</p>
         </div>
         <BaseButton type="button" @click="goBack" variant="secondary">

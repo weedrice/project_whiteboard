@@ -253,7 +253,7 @@ const handleRevokeOtherSessions = async () => {
     <div v-else class="nv-surface shadow overflow-hidden sm:rounded-lg transition-colors duration-200">
       <div class="px-4 py-5 sm:px-6 border-b nv-border flex items-center">
         <Settings class="h-5 w-5 mr-2 nv-text-subtle" />
-        <h3 class="text-lg leading-6 font-medium nv-title">{{ $t('common.settings') }}</h3>
+        <h1 class="text-lg leading-6 font-medium nv-title">{{ $t('common.settings') }}</h1>
       </div>
       <div class="px-4 py-5 sm:p-6 space-y-6">
         <BaseSegmentedControl

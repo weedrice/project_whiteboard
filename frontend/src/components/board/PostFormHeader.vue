@@ -20,9 +20,9 @@ defineEmits<{
 <template>
   <div class="nv-compose-header">
     <div class="min-w-0">
-      <h2 class="truncate text-2xl font-semibold tracking-[-0.05em] text-[var(--nv-ink)] sm:text-3xl">
+      <h1 class="truncate text-2xl font-semibold tracking-[-0.05em] text-[var(--nv-ink)] sm:text-3xl">
         {{ pageTitle }}
-      </h2>
+      </h1>
       <p v-if="!hideBoardLabel" class="mt-2 text-sm text-[var(--nv-ink-soft)]">
         {{ boardLabel }}
       </p>

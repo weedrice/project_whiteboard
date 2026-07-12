@@ -8,13 +8,16 @@ import type { BoardDetail } from '@/types/board'
 import { getOptimizedBoardIconUrl, handleImageError } from '@/utils/image'
 import { encodePathSegment } from '@/utils/urlPath'
 
-defineProps<{
+withDefaults(defineProps<{
   board: BoardDetail
   canWrite: boolean
   isAuthenticated: boolean
   isSubscribePending: boolean
   buildBoardListRoute: () => RouteLocationRaw
-}>()
+  headingTag?: 'h1' | 'h2'
+}>(), {
+  headingTag: 'h1',
+})
 
 const emit = defineEmits<{
   (e: 'subscribe'): void
@@ -43,9 +46,9 @@ const { t } = useI18n()
         <div class="min-w-0 flex-1 space-y-2.5">
           <div class="flex flex-wrap items-center gap-2">
             <router-link :to="buildBoardListRoute()" class="inline-flex min-w-0 max-w-full items-center gap-2">
-              <h1 class="truncate text-2xl font-semibold tracking-[-0.04em] text-[var(--nv-ink)] sm:text-3xl">
+              <component :is="headingTag" class="truncate text-2xl font-semibold tracking-[-0.04em] text-[var(--nv-ink)] sm:text-3xl">
                 {{ board.boardName }}
-              </h1>
+              </component>
             </router-link>
 
             <BaseButton
