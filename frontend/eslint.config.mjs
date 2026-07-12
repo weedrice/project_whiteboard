@@ -6,6 +6,8 @@ import vitest from '@vitest/eslint-plugin'
 import vueParser from 'vue-eslint-parser'
 
 const hasKoreanText = (value) => /[가-힣]/.test(value)
+const hasSuspiciousMojibake = (value) => /�/.test(value)
+const hasBareEnglishSentence = (value) => /\b[A-Za-z]+(?:\s+[A-Za-z]+){2,}[.!?]/.test(value)
 const legalDocumentFiles = new Set([
     'src/views/PrivacyPolicy.vue',
 ])
@@ -43,6 +45,8 @@ const localI18nPlugin = {
                 schema: [],
                 messages: {
                     bareText: 'Move Korean display text into locale messages and render it through $t()/t().',
+                    bareEnglish: 'Move English display sentences into locale messages and render them through $t()/t().',
+                    mojibake: 'Replace suspicious mojibake with a valid character, icon, or locale message.',
                 },
             },
             create(context) {
@@ -51,7 +55,12 @@ const localI18nPlugin = {
 
                 const templateVisitor = {
                     VText(node) {
-                        if (hasKoreanText(node.value.trim())
+                        const value = node.value.trim()
+                        if (hasSuspiciousMojibake(value)) {
+                            context.report({ node, messageId: 'mojibake' })
+                        } else if (hasBareEnglishSentence(value)) {
+                            context.report({ node, messageId: 'bareEnglish' })
+                        } else if (hasKoreanText(value)
                             && !isAllowedLegalDocumentCopy(node, relativeFilename)) {
                             context.report({ node, messageId: 'bareText' })
                         }

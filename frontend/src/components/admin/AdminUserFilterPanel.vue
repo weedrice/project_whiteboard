@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Search } from 'lucide-vue-next'
+import { Search, X } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import AdminFilterActions from '@/components/admin/AdminFilterActions.vue'
@@ -120,7 +120,7 @@ function handleSearchKeyup(event: KeyboardEvent) {
           @click="emit('updateFilter', filter.field, '')"
         >
           <span class="truncate">{{ filter.value }}</span>
-          <span aria-hidden="true">×</span>
+          <X class="h-3.5 w-3.5" aria-hidden="true" />
         </button>
       </div>
 

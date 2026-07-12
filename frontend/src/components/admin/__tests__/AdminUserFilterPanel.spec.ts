@@ -10,15 +10,16 @@ vi.mock('vue-i18n', () => ({
 }))
 
 describe('AdminUserFilterPanel', () => {
-  const mountPanel = () => mount(AdminUserFilterPanel, {
+  const mountPanel = (filterForm = createInitialAdminUserFilters()) => mount(AdminUserFilterPanel, {
     props: {
-      filterForm: createInitialAdminUserFilters(),
+      filterForm,
       getStatusLabel: (status: string) => status,
       getRoleLabel: (role: string) => role,
     },
     global: {
       stubs: {
         Search: true,
+        X: true,
       },
     },
   })
@@ -54,5 +55,13 @@ describe('AdminUserFilterPanel', () => {
 
     await input.trigger('keyup.enter')
     expect(wrapper.emitted('search')).toHaveLength(1)
+  })
+
+  it('uses an icon for active filter removal without text glyph artifacts', () => {
+    const wrapper = mountPanel({ ...createInitialAdminUserFilters(), status: 'ACTIVE' })
+    const chip = wrapper.get('.nv-chip')
+
+    expect(chip.find('svg').exists()).toBe(true)
+    expect(chip.text()).toBe('ACTIVE')
   })
 })

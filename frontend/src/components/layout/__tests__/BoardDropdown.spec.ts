@@ -10,7 +10,8 @@ const mocks = vi.hoisted(() => {
     allBoards: undefined as Ref<Array<{ boardUrl: string; boardName: string }>> | undefined,
     subscribedBoards: undefined as Ref<Array<{ boardUrl: string; boardName: string }>> | undefined,
     route: { name: null as string | null },
-    routerPush: vi.fn()
+    routerPush: vi.fn(),
+    allBoardsError: undefined as Ref<boolean> | undefined,
   }
 })
 
@@ -31,13 +32,14 @@ vi.mock('@/composables/useBoard', async () => {
   const { ref } = await vi.importActual<typeof import('vue')>('vue')
   mocks.allBoards = ref([])
   mocks.subscribedBoards = ref([])
+  mocks.allBoardsError = ref(false)
 
   return {
     useBoard: () => ({
       useBoards: () => ({
         data: mocks.allBoards,
         isLoading: ref(false),
-        isError: ref(false)
+        isError: mocks.allBoardsError
       }),
       useSubscribedBoards: () => ({
         data: mocks.subscribedBoards,
@@ -63,6 +65,7 @@ describe('BoardDropdown', () => {
     mocks.route.name = null
     mocks.allBoards!.value = []
     mocks.subscribedBoards!.value = []
+    mocks.allBoardsError!.value = false
   })
 
   it('updates keyboard items when async boards arrive after opening', async () => {
@@ -142,5 +145,20 @@ describe('BoardDropdown', () => {
     const button = wrapper.get('button')
     expect(button.attributes('aria-pressed')).toBe('true')
     expect(button.classes()).toContain('is-active')
+  })
+
+  it('renders the localized board load error', () => {
+    mocks.allBoardsError!.value = true
+
+    const wrapper = mount(BoardDropdown, {
+      props: { type: 'all', isOpen: true },
+      global: {
+        mocks: { $t: (key: string) => key },
+        stubs: { BaseButton: BaseButtonStub },
+      },
+    })
+
+    expect(wrapper.text()).toContain('board.loadFailed')
+    expect(wrapper.text()).not.toContain('Unable to load spaces.')
   })
 })
