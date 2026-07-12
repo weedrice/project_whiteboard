@@ -105,6 +105,13 @@ export const user: UserMessages = {
     cancelScheduledSuccess: '예약글을 취소했습니다.',
     cancelScheduledFailed: '예약글 취소에 실패했습니다.',
     openPublished: '게시글 열기',
+    scheduledStatus: {
+      SCHEDULED: '예약됨',
+      PUBLISHING: '게시 중',
+      PUBLISHED: '게시 완료',
+      CANCELED: '취소됨',
+      FAILED: '게시 실패',
+    },
   },
   reportList: {
     empty: '신고 내역이 없습니다.',

@@ -105,6 +105,13 @@ export const userEn: UserMessages = {
     cancelScheduledSuccess: 'The scheduled post has been canceled.',
     cancelScheduledFailed: 'Failed to cancel the scheduled post.',
     openPublished: 'Open published post',
+    scheduledStatus: {
+      SCHEDULED: 'Scheduled',
+      PUBLISHING: 'Publishing',
+      PUBLISHED: 'Published',
+      CANCELED: 'Canceled',
+      FAILED: 'Failed',
+    },
   },
   reportList: {
     empty: 'No report history.',

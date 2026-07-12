@@ -5,6 +5,7 @@ import { CalendarClock, ExternalLink, FileEdit, Pencil, Trash2, XCircle } from '
 import { RouterLink } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
+import BaseBadge from '@/components/common/ui/BaseBadge.vue'
 import PaginatedListCard from '@/components/common/ui/PaginatedListCard.vue'
 import { usePaginatedListState } from '@/composables/usePaginatedListState'
 import { useConfirm } from '@/composables/useConfirm'
@@ -96,6 +97,20 @@ function getScheduledTitle(post: ScheduledPost) {
 function getScheduledPostRoute(post: ScheduledPost) {
   if (!post.publishedPostId) return null
   return `/board/${encodePathSegment(post.boardUrl)}/post/${encodePathSegment(post.publishedPostId)}`
+}
+
+function getScheduledStatus(post: ScheduledPost) {
+  const variants: Record<ScheduledPost['status'], 'info' | 'warning' | 'success' | 'secondary' | 'danger'> = {
+    SCHEDULED: 'info',
+    PUBLISHING: 'warning',
+    PUBLISHED: 'success',
+    CANCELED: 'secondary',
+    FAILED: 'danger',
+  }
+  return {
+    label: t(`user.draftList.scheduledStatus.${post.status}`),
+    variant: variants[post.status],
+  }
 }
 
 async function handleCancelScheduledPost(post: ScheduledPost) {
@@ -209,7 +224,9 @@ async function handleCancelScheduledPost(post: ScheduledPost) {
             <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs nv-text-subtle">
               <span>{{ post.boardName || post.boardUrl }}</span>
               <span>{{ formatDateTimeOrDash(post.scheduledAt) }}</span>
-              <span>{{ post.status }}</span>
+              <BaseBadge :variant="getScheduledStatus(post).variant" size="sm">
+                {{ getScheduledStatus(post).label }}
+              </BaseBadge>
               <span v-if="post.failureReason" class="text-[var(--nv-danger-text)]">{{ post.failureReason }}</span>
             </div>
           </div>

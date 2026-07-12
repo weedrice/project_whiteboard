@@ -622,6 +622,13 @@ export interface UserMessages {
     cancelScheduledSuccess: string
     cancelScheduledFailed: string
     openPublished: string
+    scheduledStatus: {
+      SCHEDULED: string
+      PUBLISHING: string
+      PUBLISHED: string
+      CANCELED: string
+      FAILED: string
+    }
   }
   reportList: {
     empty: string
