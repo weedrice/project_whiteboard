@@ -155,15 +155,22 @@ describe('MyNotifications', () => {
     expect(markAllAsRead).toHaveBeenCalledTimes(1)
   })
 
-  it('uses tokenized surfaces for unread notification rows', () => {
+  it('uses a semantic button with tokenized surfaces for unread notification rows', async () => {
     notificationsData.value = makePage([makeNotification(false)])
     const wrapper = mountMyNotifications()
 
     const unreadRow = wrapper.get('li')
+    const notificationButton = unreadRow.get('button')
 
     expect(unreadRow.classes()).toContain('nv-hover-surface')
     expect(unreadRow.classes()).toContain('nv-unread-surface')
-    expect(unreadRow.get('a').classes()).toContain('active:bg-[var(--nv-surface-active)]')
+    expect(notificationButton.attributes('type')).toBe('button')
+    expect(notificationButton.attributes('href')).toBeUndefined()
+    expect(notificationButton.classes()).toContain('active:bg-[var(--nv-surface-active)]')
+
+    await notificationButton.trigger('click')
+
+    expect(navigateFromNotification).toHaveBeenCalledWith(expect.objectContaining({ notificationId: 2 }))
   })
 
   it('renders notification type labels', () => {

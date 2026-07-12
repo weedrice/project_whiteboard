@@ -75,8 +75,8 @@ function handleMarkAllAsRead() {
       <li v-for="notification in notifications" :key="notification.notificationId"
         class="nv-hover-surface transition duration-150 ease-in-out"
         :class="{ 'nv-unread-surface': !notification.isRead }">
-        <a href="#" @click.prevent="handleNotificationClick(notification)"
-          class="block px-3 py-3 sm:px-6 sm:py-4 min-h-[48px] active:bg-[var(--nv-surface-active)]">
+        <button type="button" @click="handleNotificationClick(notification)"
+          class="block w-full px-3 py-3 text-left sm:px-6 sm:py-4 min-h-[48px] active:bg-[var(--nv-surface-active)]">
           <div class="flex flex-row items-center justify-between gap-3">
             <span
               class="notification-icon flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full"
@@ -105,7 +105,7 @@ function handleMarkAllAsRead() {
               </div>
             </div>
           </div>
-        </a>
+        </button>
       </li>
     </ul>
   </PaginatedListCard>
