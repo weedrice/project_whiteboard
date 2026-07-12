@@ -14,6 +14,7 @@ import NetworkStatus from '@/components/common/NetworkStatus.vue'
 import { useAppSearchShortcut } from '@/composables/useAppSearchShortcut'
 import { useAppSeo } from '@/composables/useAppSeo'
 import { useAppUserSettingsSync } from '@/composables/useAppUserSettingsSync'
+import { useRouteFocusManagement } from '@/composables/useRouteFocusManagement'
 
 // Import layouts
 import DefaultLayout from '@/components/layout/DefaultLayout.vue'
@@ -36,6 +37,7 @@ let stopAuthStorageSync: (() => void) | null = null
 useAppSeo(route, t)
 useAppSearchShortcut(route, t)
 const { loadSettings } = useAppUserSettingsSync(authStore, themeStore, queryClient, locale)
+const { routeAnnouncement } = useRouteFocusManagement(route)
 
 onMounted(() => {
     stopAuthStorageSync = registerAuthStorageSync(authStore)
@@ -54,6 +56,7 @@ onUnmounted(() => {
 
 <template>
     <ErrorBoundary>
+        <p class="sr-only" role="status" aria-live="polite" aria-atomic="true">{{ routeAnnouncement }}</p>
         <NetworkStatus />
         <RouterView v-if="usesBareLayout" />
         <component v-else :is="layout">
