@@ -272,4 +272,21 @@ describe('BaseTable', () => {
             row,
         )
     })
+
+    it('applies responsive visibility classes and a horizontal overflow width contract', () => {
+        const wrapper = mount(BaseTable, {
+            props: {
+                columns: [
+                    { key: 'name', label: 'Name' },
+                    { key: 'email', label: 'Email', hideBelow: 'sm' },
+                    { key: 'createdAt', label: 'Created', hideBelow: 'lg' },
+                ],
+                items: [{ name: 'Noviis', email: 'n@example.com', createdAt: 'today' }],
+            },
+        })
+
+        expect(wrapper.get('table').classes()).toContain('min-w-[48rem]')
+        expect(wrapper.findAll('th')[1].classes()).toEqual(expect.arrayContaining(['hidden', 'sm:table-cell']))
+        expect(wrapper.findAll('td')[2].classes()).toEqual(expect.arrayContaining(['hidden', 'lg:table-cell']))
+    })
 })
