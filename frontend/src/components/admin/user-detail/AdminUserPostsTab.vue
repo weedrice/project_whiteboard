@@ -28,9 +28,9 @@ const { t } = useI18n()
 
 <template>
   <div class="space-y-2">
-    <div v-if="loading" class="py-6 text-center text-sm nv-text-subtle">{{ t('common.loading') }}</div>
+    <div v-if="loading" class="py-6 text-center text-sm nv-text-subtle" role="status" aria-live="polite">{{ t('common.loading') }}</div>
     <ErrorState v-else-if="error" title-tag="h3" :message="t('common.messages.loadFailed')" :show-icon="false" show-retry @retry="$emit('retry')" />
-    <div v-else-if="!items.length" class="py-6 text-center text-sm nv-text-subtle">
+    <div v-else-if="!items.length" class="py-6 text-center text-sm nv-text-subtle" role="status" aria-live="polite">
       {{ t('admin.users.detail.postsEmpty') }}
     </div>
     <div v-else class="max-h-72 space-y-2 overflow-y-auto pr-1">

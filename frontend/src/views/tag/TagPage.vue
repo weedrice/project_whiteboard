@@ -83,7 +83,14 @@ function buildPageRoute(nextPageIndex: number) {
       </p>
     </header>
 
-    <div v-if="isLoading" class="divide-y divide-[var(--nv-border)] rounded-lg border nv-border nv-surface">
+    <div
+      v-if="isLoading"
+      class="divide-y divide-[var(--nv-border)] rounded-lg border nv-border nv-surface"
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+      :aria-label="$t('common.loading')"
+    >
       <div v-for="index in 5" :key="index" class="px-4 py-4 sm:px-6">
         <BaseSkeleton width="70%" height="24px" className="mb-2" />
         <div class="flex gap-2">

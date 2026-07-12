@@ -24,18 +24,18 @@ const emit = defineEmits<{
     </div>
   </div>
 
-  <div v-else-if="state === 'empty'" class="empty-state">
-    <Smile class="w-8 h-8 nv-text-subtle mb-2" />
+  <div v-else-if="state === 'empty'" class="empty-state" role="status" aria-live="polite">
+    <Smile class="w-8 h-8 nv-text-subtle mb-2" aria-hidden="true" />
     <p>{{ message }}</p>
   </div>
 
-  <div v-else class="error-state">
+  <div v-else class="error-state" role="alert">
     <p>{{ message }}</p>
     <div v-if="retryLabel || backLabel" class="error-actions">
-      <button v-if="retryLabel" type="button" class="retry-btn" @click="emit('retry')">
+      <button v-if="retryLabel" type="button" class="retry-btn nv-focus-ring min-h-11" @click="emit('retry')">
         {{ retryLabel }}
       </button>
-      <button v-if="backLabel" type="button" class="retry-btn secondary" @click="emit('back')">
+      <button v-if="backLabel" type="button" class="retry-btn secondary nv-focus-ring min-h-11" @click="emit('back')">
         {{ backLabel }}
       </button>
     </div>
