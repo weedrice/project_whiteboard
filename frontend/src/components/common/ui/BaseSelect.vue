@@ -7,7 +7,7 @@
         >
             {{ label }}
         </label>
-        <select v-bind="{ ...$attrs, class: undefined }" :id="selectId" :value="modelValue" @change="updateValue"
+        <select v-bind="{ ...$attrs, class: undefined }" :id="selectId" :value="modelValue" @change="updateValue" @blur="$emit('blur', $event)"
             :disabled="disabled"
             :aria-invalid="error ? 'true' : undefined"
             :aria-describedby="error ? `${selectId}-error` : undefined"
@@ -67,6 +67,7 @@ const selectId = computed(() => props.id ?? generatedId)
 
 const emit = defineEmits<{
     (e: 'update:modelValue', value: string | number): void
+    (e: 'blur', event: FocusEvent): void
 }>()
 
 const normalizedOptions = computed(() => {

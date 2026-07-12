@@ -7,7 +7,7 @@
         >
             {{ label }}
         </label>
-        <textarea v-bind="{ ...$attrs, class: undefined }" :id="textareaId" :value="modelValue" @input="updateValue"
+        <textarea v-bind="{ ...$attrs, class: undefined }" :id="textareaId" :value="modelValue" @input="updateValue" @blur="$emit('blur', $event)"
             :disabled="disabled"
             :aria-invalid="error ? 'true' : undefined"
             :aria-describedby="error ? `${textareaId}-error` : undefined"
@@ -50,6 +50,7 @@ const textareaId = computed(() => props.id ?? generatedId)
 
 const emit = defineEmits<{
     (e: 'update:modelValue', value: string): void
+    (e: 'blur', event: FocusEvent): void
 }>()
 
 const updateValue = (event: Event) => {
