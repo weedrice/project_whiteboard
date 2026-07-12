@@ -105,6 +105,15 @@
           <p v-if="hasKeywordFilters" class="mt-2 text-xs nv-text-subtle">
             {{ $t('search.keywordFilterNotice') }}
           </p>
+          <p
+            v-if="hasSearchQuery && !isLoading && !isSemanticLoading && !hasSearchError"
+            class="mt-3 text-sm nv-text-subtle"
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+          >
+            {{ t('search.resultSummary', { count: totalResultCount }) }}
+          </p>
         </div>
 
         <div v-if="isLoading" class="text-center py-10">
@@ -360,6 +369,7 @@ const { data: recentKeywordData } = useRecentSearches(computed(() => authStore.i
 const posts = computed(() => searchData.value?.postResults || [])
 const boards = computed(() => searchData.value?.boardResults || [])
 const semanticResults = computed(() => semanticData.value?.content || [])
+const totalResultCount = computed(() => posts.value.length + boards.value.length + semanticResults.value.length)
 const keywordResultsEmpty = computed(() => posts.value.length === 0 && boards.value.length === 0)
 const hasAnyResults = computed(() => !keywordResultsEmpty.value || semanticResults.value.length > 0)
 const popularKeywords = computed(() => popularKeywordData.value || [])

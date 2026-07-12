@@ -12,8 +12,8 @@ const routeState = vi.hoisted(() => ({
 const searchState = vi.hoisted(() => ({
   lastParams: null as ReturnType<typeof computed<Record<string, unknown>>> | null,
   searchData: {
-    postResults: [],
-    boardResults: [],
+    postResults: [] as Array<Record<string, unknown>>,
+    boardResults: [] as Array<Record<string, unknown>>,
   },
   isLoading: false,
   error: null as Error | null,
@@ -41,7 +41,8 @@ vi.mock('vue-i18n', async (importOriginal) => {
   return {
     ...actual,
     useI18n: () => ({
-      t: (key: string, params?: Record<string, string>) => {
+      t: (key: string, params?: Record<string, string | number>) => {
+        if (params?.count !== undefined) return `${key}:${params.count}`
         if (params?.query) return `${key}:${params.query}`
         if (params?.value) return `${key}:${params.value}`
         if (params?.from || params?.to) return `${key}:${params.from ?? ''}:${params.to ?? ''}`
@@ -240,6 +241,23 @@ describe('SearchPage', () => {
     mountPage()
 
     expect(searchState.lastParams?.value.q).toBe('first')
+  })
+
+  it('announces the total number of completed search results', () => {
+    routeState.query = { q: 'vue' }
+    searchState.searchData = {
+      postResults: [{ postId: 1, title: 'Post' }],
+      boardResults: [{ boardId: 1, boardName: 'Board' }],
+    }
+
+    const wrapper = mountPage()
+    const status = wrapper.get('[role="status"]')
+
+    expect(status.attributes()).toMatchObject({
+      'aria-live': 'polite',
+      'aria-atomic': 'true',
+    })
+    expect(status.text()).toBe('search.resultSummary:2')
   })
 
   it('shows a retryable error instead of an empty result when search fails', async () => {

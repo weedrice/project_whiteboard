@@ -1,6 +1,7 @@
 import type { SearchMessages } from './types'
 
 export const search: SearchMessages = {
+  resultSummary: '검색 결과 {count}건',
   boards: '스페이스',
   boardResultsLabel: '스페이스 검색 결과',
   doSearch: '검색',
@@ -45,6 +46,7 @@ export const search: SearchMessages = {
 }
 
 export const searchEn: SearchMessages = {
+  resultSummary: '{count} search results',
   boards: 'Spaces',
   boardResultsLabel: 'Space search results',
   doSearch: 'Search',
