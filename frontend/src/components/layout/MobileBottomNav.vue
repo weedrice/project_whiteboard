@@ -19,6 +19,9 @@ const authStore = useAuthStore()
 const { requireAuth } = useAuthGuard()
 const { useUnreadCount } = useNotification()
 const { data: unreadCount } = useUnreadCount()
+const notificationsLabel = computed(() => unreadCount.value && unreadCount.value > 0
+  ? `${t('layout.mobileNav.alerts')}. ${t('notification.unreadNotifications', { count: unreadCount.value })}`
+  : t('layout.mobileNav.alerts'))
 const {
   fabButtonRef,
   sheetRef,
@@ -98,6 +101,7 @@ const handleProtectedNavigation = (event: MouseEvent, path: string) => {
         class="nv-mobile-nav-item relative"
         :class="{ 'is-active': isNotifications }"
         :aria-current="isNotifications ? 'page' : undefined"
+        :aria-label="notificationsLabel"
         @click="handleProtectedNavigation($event, '/mypage/notifications')"
       >
         <Bell class="h-5 w-5" aria-hidden="true" />

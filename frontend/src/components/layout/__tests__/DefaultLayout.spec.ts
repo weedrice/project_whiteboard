@@ -26,6 +26,7 @@ const keyboardStore = vi.hoisted(() => ({
 const notificationMocks = vi.hoisted(() => ({
     connectToSse: vi.fn(),
     closeSse: vi.fn(),
+    unreadCount: { __v_isRef: true as const, value: 0 },
 }))
 
 vi.mock('vue-router', () => ({
@@ -90,6 +91,7 @@ vi.mock('vue-i18n', async (importOriginal) => {
             t: (key: string, values?: Record<string, string>) => {
                 if (key === 'layout.a11y.openNotifications') return 'Open notifications'
                 if (key === 'layout.a11y.goToNotifications') return 'Go to notifications'
+                if (key === 'notification.unreadNotifications') return `${values?.count} unread notifications`
                 if (key === 'layout.a11y.homeLink') return `${values?.appName ?? 'Noviis'} home`
                 if (key === 'common.skipToContent') return 'Skip to content'
                 if (key === 'common.appName') return 'Noviis'
@@ -101,7 +103,7 @@ vi.mock('vue-i18n', async (importOriginal) => {
 
 vi.mock('@/composables/useNotification', () => ({
     useNotification: () => ({
-        useUnreadCount: () => ({ data: ref(0) }),
+        useUnreadCount: () => ({ data: notificationMocks.unreadCount }),
         connectToSse: notificationMocks.connectToSse,
         closeSse: notificationMocks.closeSse,
     }),
@@ -140,6 +142,7 @@ describe('DefaultLayout', () => {
         authMocks.authStore.isAuthenticated = false
         authMocks.authStore.user = null
         keyboardStore.isShortcutsModalOpen = false
+        notificationMocks.unreadCount.value = 0
         routeState.value = { name: 'home' }
         Object.defineProperty(window, 'matchMedia', {
             writable: true,
@@ -311,5 +314,33 @@ describe('DefaultLayout', () => {
 
         expect(notificationButton.attributes('aria-expanded')).toBe('true')
         expect(wrapper.find('#notification-dropdown-panel').exists()).toBe(true)
+    })
+
+    it('includes the unread count in notification controls and the live status', () => {
+        authMocks.authStore.isAuthenticated = true
+        authMocks.authStore.user = { displayName: 'Tester' }
+        notificationMocks.unreadCount.value = 3
+
+        const wrapper = mount(DefaultLayout, {
+            global: {
+                stubs: {
+                    'router-link': true,
+                    'router-view': true,
+                    NotificationDropdown: true,
+                    UserDropdown: true,
+                    BoardDropdown: true,
+                    Footer: true,
+                    GlobalSearchBar: true,
+                    KeyboardShortcutsModal: true,
+                    RecentBoardsBar: true,
+                    MobileBottomNav: MobileBottomNavStub,
+                },
+                mocks: { $t: (key: string) => key },
+            },
+        })
+
+        expect(wrapper.get('button[aria-controls="notification-dropdown-panel"]').attributes('aria-label'))
+            .toBe('Open notifications. 3 unread notifications')
+        expect(wrapper.get('[role="status"]').text()).toBe('3 unread notifications')
     })
 })

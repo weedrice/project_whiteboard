@@ -14,6 +14,7 @@ const { mocks, refLike } = vi.hoisted(() => ({
     goToBoardWrite: vi.fn(),
     handleSheetKeydown: vi.fn(),
     showWriteSheet: { __v_isRef: true as const, value: false },
+    unreadCount: { __v_isRef: true as const, value: 0 },
   },
 }))
 
@@ -26,7 +27,9 @@ vi.mock('vue-router', () => ({
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({
-    t: (key: string) => key
+    t: (key: string, values?: Record<string, number>) => (
+      key === 'notification.unreadNotifications' ? `${values?.count} unread notifications` : key
+    )
   })
 }))
 
@@ -39,7 +42,7 @@ vi.mock('@/stores/auth', () => ({
 vi.mock('@/composables/useNotification', () => ({
   useNotification: () => ({
     useUnreadCount: () => ({
-      data: refLike(0)
+      data: mocks.unreadCount
     })
   })
 }))
@@ -78,6 +81,7 @@ function mountNav(routeName: string | null) {
 describe('MobileBottomNav', () => {
   beforeEach(() => {
     mocks.showWriteSheet.value = false
+    mocks.unreadCount.value = 0
     vi.clearAllMocks()
   })
 
@@ -124,5 +128,14 @@ describe('MobileBottomNav', () => {
     expect(navItems).toHaveLength(4)
     expect(navItems.every((item) => item.element.tagName === 'A')).toBe(true)
     expect(wrapper.get('.nv-mobile-nav-fab').element.tagName).toBe('BUTTON')
+  })
+
+  it('includes the unread count in the notifications link label', () => {
+    mocks.unreadCount.value = 4
+    const wrapper = mountNav('home')
+    const navItems = wrapper.findAll('.nv-mobile-nav-item')
+
+    expect(navItems).toHaveLength(4)
+    expect(navItems[2]?.attributes('aria-label')).toBe('layout.mobileNav.alerts. 4 unread notifications')
   })
 })

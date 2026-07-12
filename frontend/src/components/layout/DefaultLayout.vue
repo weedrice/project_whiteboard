@@ -38,6 +38,13 @@ const { toggleTheme } = useThemePreference()
 const logoSrc = computed(() => (themeStore.isDark ? logoDark : logoLight))
 
 const { unreadCount } = useNotificationStream(() => authStore.isAuthenticated)
+const unreadNotificationText = computed(() => t('notification.unreadNotifications', { count: unreadCount.value ?? 0 }))
+const openNotificationsLabel = computed(() => unreadCount.value && unreadCount.value > 0
+  ? `${t('layout.a11y.openNotifications')}. ${unreadNotificationText.value}`
+  : t('layout.a11y.openNotifications'))
+const goToNotificationsLabel = computed(() => unreadCount.value && unreadCount.value > 0
+  ? `${t('layout.a11y.goToNotifications')}. ${unreadNotificationText.value}`
+  : t('layout.a11y.goToNotifications'))
 const {
   isNotificationOpen,
   activeDropdown,
@@ -151,7 +158,7 @@ const goToNotificationsPage = async () => {
               ref="notificationTriggerRef"
               type="button"
               class="nv-shell-icon-button"
-              :aria-label="t('layout.a11y.openNotifications')"
+              :aria-label="openNotificationsLabel"
               aria-controls="notification-dropdown-panel"
               :aria-expanded="isNotificationOpen"
               @click.stop="toggleNotification"
@@ -169,12 +176,16 @@ const goToNotificationsPage = async () => {
             v-if="authStore.isAuthenticated"
             type="button"
             class="nv-shell-icon-button sm:hidden"
-            :aria-label="t('layout.a11y.goToNotifications')"
+            :aria-label="goToNotificationsLabel"
             @click="goToNotificationsPage"
           >
             <Bell class="h-5 w-5" />
             <span v-if="unreadCount && unreadCount > 0" class="nv-shell-dot" />
           </button>
+
+          <span v-if="authStore.isAuthenticated" class="sr-only" role="status" aria-live="polite" aria-atomic="true">
+            {{ unreadNotificationText }}
+          </span>
 
           <div v-if="authStore.isAuthenticated" class="hidden items-center sm:flex">
             <UserDropdown :isOpen="activeDropdown === 'user'" @toggle="setActiveDropdown('user')" />
