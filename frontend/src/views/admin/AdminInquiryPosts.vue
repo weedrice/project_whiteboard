@@ -95,9 +95,9 @@ function handleRowClick(post: AdminInquiryListItem) {
       @page-change="handlePageChange"
     >
       <template #cell-title="{ item }">
-        <button type="button" class="max-w-[280px] truncate text-left hover:underline" @click.stop="openDetail(item.id)">
+        <span class="block max-w-[280px] truncate text-left">
           {{ item.title }}
-        </button>
+        </span>
       </template>
 
       <template #cell-status="{ item }">

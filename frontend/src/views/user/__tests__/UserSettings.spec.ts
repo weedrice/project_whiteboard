@@ -500,10 +500,12 @@ describe('UserSettings', () => {
     expect(createKeywordSubscription).toHaveBeenCalledWith({ keyword: 'spring' })
     expect(wrapper.text()).toContain('user.settings.keywordAdded')
 
-    await wrapper
+    const removeButton = wrapper
       .findAll('button')
       .find((button) => button.attributes('aria-label') === 'user.settings.keywordRemove')!
-      .trigger('click')
+    expect(removeButton.classes()).toEqual(expect.arrayContaining(['nv-touch-target-square', 'nv-focus-ring']))
+
+    await removeButton.trigger('click')
     await flushAll()
 
     expect(deleteKeywordSubscription).toHaveBeenCalledWith({ keyword: 'vue' })

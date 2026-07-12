@@ -20,7 +20,7 @@ import BaseSegmentedControl from '@/components/common/ui/BaseSegmentedControl.vu
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import { usePushNotifications } from '@/features/notifications/usePushNotifications'
 import { formatDateTimeOrDash } from '@/utils/date'
-import { Monitor, Settings } from 'lucide-vue-next'
+import { Monitor, Settings, X } from 'lucide-vue-next'
 import { useFieldValidation } from '@/composables/useFieldValidation'
 
 const { t, locale } = useI18n()
@@ -393,12 +393,12 @@ const handleRevokeOtherSessions = async () => {
                 <span>{{ subscription.keyword }}</span>
                 <button
                   type="button"
-                  class="nv-text-subtle hover:text-[var(--nv-text)]"
+                  class="nv-touch-target-square nv-focus-ring -my-2 -mr-2 inline-flex shrink-0 items-center justify-center rounded-full nv-text-subtle hover:text-[var(--nv-danger-text)]"
                   :aria-label="$t('user.settings.keywordRemove', { keyword: subscription.keyword })"
                   :disabled="isDeletingKeyword"
                   @click="removeKeyword(subscription.keyword)"
                 >
-                  x
+                  <X class="h-4 w-4" aria-hidden="true" />
                 </button>
               </li>
             </ul>

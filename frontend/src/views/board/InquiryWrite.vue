@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import PostForm from '@/components/board/PostForm.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
+import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { boardApi } from '@/api/board'
 import { extractErrorMessage } from '@/utils/errorHandler'
 import logger from '@/utils/logger'
@@ -76,7 +77,9 @@ onUnmounted(() => {
       class="rounded-lg nv-status-danger px-4 py-3 text-sm"
     >
       <p>{{ prepareError }}</p>
-      <button type="button" class="mt-2 underline" @click="ensureInquiryBoard">{{ t('common.error.retry') }}</button>
+      <BaseButton type="button" variant="ghost" size="sm" class="mt-2" @click="ensureInquiryBoard">
+        {{ t('common.error.retry') }}
+      </BaseButton>
     </div>
 
     <PostForm

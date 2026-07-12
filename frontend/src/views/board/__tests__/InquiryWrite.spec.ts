@@ -142,4 +142,14 @@ describe('InquiryWrite', () => {
 
     expect(config?.signal?.aborted).toBe(true)
   })
+
+  it('renders the retry action with the shared button treatment', async () => {
+    vi.mocked(boardApi.ensureInquiryBoard).mockRejectedValueOnce(new Error('failed'))
+
+    const { wrapper } = await mountInquiryWrite()
+    const retryButton = wrapper.get('button')
+
+    expect(retryButton.text()).toBe('common.error.retry')
+    expect(retryButton.classes()).toContain('btn-ghost')
+  })
 })

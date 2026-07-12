@@ -135,6 +135,7 @@ describe('AdminInquiryPosts', () => {
 
     expect(wrapper.text()).toContain('Need help')
     expect(wrapper.text()).toContain('Question summary')
+    expect(wrapper.find('tbody td button').exists()).toBe(false)
     expect(wrapper.text()).toContain('admin.inquiries.total:1')
     expect(wrapper.get('[data-test="pagination"]').text()).toContain('0/3')
 
