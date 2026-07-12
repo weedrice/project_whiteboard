@@ -10,9 +10,12 @@ import { useBoardCategoriesManager } from '@/composables/useBoardCategoriesManag
 
 const { t } = useI18n()
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   boardUrl: string
-}>()
+  headingTag?: 'h2' | 'h3' | 'h4'
+}>(), {
+  headingTag: 'h3',
+})
 
 const roles = computed(() => [
   { value: 'USER', label: t('admin.users.role.USER') },
@@ -46,7 +49,7 @@ onMounted(fetchCategories)
 
 <template>
   <div class="space-y-4">
-    <h3 class="text-lg font-medium leading-6 nv-title">{{ $t('common.category') }}</h3>
+    <component :is="headingTag" class="text-lg font-medium leading-6 nv-title">{{ $t('common.category') }}</component>
 
     <!-- Add Category -->
     <form @submit.prevent="handleAdd" class="flex gap-2">

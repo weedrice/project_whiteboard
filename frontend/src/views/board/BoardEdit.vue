@@ -81,7 +81,7 @@ watch([boardUrl, canManageBoard], async ([nextBoardUrl, manageable]) => {
         <div class="rounded-lg border nv-border p-4">
           <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h4 class="text-sm font-semibold nv-title">{{ $t('common.admin') }}</h4>
+              <h2 class="text-sm font-semibold nv-title">{{ $t('common.admin') }}</h2>
               <p class="mt-1 text-sm nv-text-muted">{{ currentManagerLabel }}</p>
             </div>
             <BaseButton type="button" @click="openManagerModal" :disabled="isTransferringManager">
@@ -94,14 +94,14 @@ watch([boardUrl, canManageBoard], async ([nextBoardUrl, manageable]) => {
 
         <!-- Category Manager -->
         <div class="py-6">
-          <CategoryManager :boardUrl="boardUrl" />
+          <CategoryManager :boardUrl="boardUrl" heading-tag="h2" />
         </div>
 
         <hr class="nv-border" />
 
         <div class="rounded-lg border nv-border">
           <div class="border-b nv-border px-4 py-3">
-            <h4 class="text-sm font-semibold nv-title">{{ t('admin.dashboard.auditLogs') }}</h4>
+            <h2 class="text-sm font-semibold nv-title">{{ t('admin.dashboard.auditLogs') }}</h2>
           </div>
           <AdminAuditLogTable
             :audits="managerAuditLogs"

@@ -3,9 +3,9 @@
     <div v-if="icon" class="nv-empty-state-icon mx-auto h-12 w-12 nv-text-subtle mb-4">
       <component :is="icon" class="h-full w-full" aria-hidden="true" />
     </div>
-    <h3 class="mt-2 text-sm font-medium nv-title">
+    <component :is="titleTag" class="mt-2 text-sm font-medium nv-title">
       {{ title || $t('common.noData') }}
-    </h3>
+    </component>
     <p v-if="description" class="mt-1 text-sm nv-text-subtle">
       {{ description }}
     </p>
@@ -34,14 +34,17 @@
 import type { Component } from 'vue'
 import type { RouteLocationRaw } from 'vue-router'
 
-defineProps<{
+withDefaults(defineProps<{
   title?: string
   description?: string
   icon?: Component
   containerClass?: string
   actionLabel?: string
   actionTo?: RouteLocationRaw
-}>()
+  titleTag?: 'h1' | 'h2' | 'h3' | 'h4'
+}>(), {
+  titleTag: 'h3',
+})
 
 defineEmits<{
   action: []

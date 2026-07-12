@@ -280,6 +280,7 @@ const columns = computed(() => createPostListColumns({
 
       <template v-else-if="posts.length === 0">
         <EmptyState
+          title-tag="h2"
           :title="effectiveEmptyTitle"
           :description="effectiveEmptyDescription"
           :icon="FileText"
@@ -326,6 +327,7 @@ const columns = computed(() => createPostListColumns({
 
     <div v-if="!loading && posts.length === 0" class="hidden sm:block">
       <EmptyState
+        title-tag="h2"
         :title="effectiveEmptyTitle"
         :description="effectiveEmptyDescription"
         :icon="FileText"

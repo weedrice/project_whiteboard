@@ -21,6 +21,7 @@
 
             <EmptyState
                 v-else-if="!hasSubscriptions"
+                title-tag="h2"
                 :title="$t('user.subscriptions.empty')"
                 :icon="Users"
             />

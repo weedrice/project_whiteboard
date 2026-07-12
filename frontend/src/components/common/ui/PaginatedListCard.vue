@@ -59,6 +59,11 @@ const slots = useSlots()
 const headerActionsClass = computed(() => props.actionsVisibility === 'always'
   ? 'flex items-center gap-2'
   : 'hidden sm:flex sm:items-center sm:gap-2')
+const emptyTitleTag = computed<'h2' | 'h3' | 'h4'>(() => {
+  if (props.titleTag === 'h1') return 'h2'
+  if (props.titleTag === 'h2') return 'h3'
+  return 'h4'
+})
 
 const getLoadingRowClass = (preset: LoadingPreset) => {
   switch (preset) {
@@ -182,6 +187,7 @@ const getLoadingRowClass = (preset: LoadingPreset) => {
       <ErrorState v-else-if="error" :message="error" show-retry @retry="emit('retry')" />
       <EmptyState
         v-else-if="itemsCount === 0"
+        :title-tag="emptyTitleTag"
         :title="emptyTitle"
         :description="emptyDescription"
         :icon="icon"

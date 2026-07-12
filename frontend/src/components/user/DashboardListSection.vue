@@ -46,6 +46,6 @@ const emit = defineEmits<{
         />
       </div>
     </div>
-    <EmptyState v-else :title="emptyTitle" :icon="icon" />
+    <EmptyState v-else title-tag="h4" :title="emptyTitle" :icon="icon" />
   </BaseCard>
 </template>

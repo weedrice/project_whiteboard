@@ -37,7 +37,7 @@ defineEmits<{ action: [] }>()
 
   <div v-else-if="empty" :class="paddingClass">
     <slot name="empty">
-      <EmptyState :title="resolvedEmptyText" :action-label="actionLabel" container-class="py-4" @action="$emit('action')">
+      <EmptyState title-tag="h2" :title="resolvedEmptyText" :action-label="actionLabel" container-class="py-4" @action="$emit('action')">
         <template v-if="$slots['empty-action']" #action>
           <slot name="empty-action" />
         </template>
