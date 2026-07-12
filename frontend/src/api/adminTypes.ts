@@ -39,6 +39,7 @@ export interface UserSearchParams extends PaginationParams {
 
 export interface ReportResolveData {
     status: 'RESOLVED' | 'REJECTED'
+    remark?: string
 }
 
 export interface ReportSearchParams {

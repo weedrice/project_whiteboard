@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.admin.service.ModerationActorResolver;
 import com.weedrice.whiteboard.domain.report.entity.Report;
 import com.weedrice.whiteboard.domain.report.repository.ReportRepository;
+import com.weedrice.whiteboard.domain.moderation.service.ModerationAuditLogService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -30,6 +31,8 @@ class ReportModerationCommandServiceTest {
     private ReportRepository reportRepository;
     @Mock
     private ModerationActorResolver moderationActorResolver;
+    @Mock
+    private ModerationAuditLogService moderationAuditLogService;
 
     @InjectMocks
     private ReportModerationCommandService reportModerationCommandService;
@@ -76,6 +79,13 @@ class ReportModerationCommandServiceTest {
         assertThat(report.getProcessedRemark()).isEqualTo("done");
         verify(reportRepository).findByIdForUpdate(7L);
         verify(reportRepository).save(report);
+        verify(moderationAuditLogService).recordUserAction(
+                adminUser,
+                ModerationAuditLogService.ACTION_REPORT_RESOLVE,
+                ModerationAuditLogService.TARGET_TYPE_REPORT,
+                7L,
+                null,
+                "done");
     }
 
     @Test
@@ -88,6 +98,24 @@ class ReportModerationCommandServiceTest {
         reportModerationCommandService.processReport(2L, 7L, "resolved", "done");
 
         assertThat(report.getStatus()).isEqualTo(Report.STATUS_RESOLVED);
+    }
+
+    @Test
+    @DisplayName("processReport records rejection reason in moderation audit log")
+    void processReport_rejected_recordsAuditReason() {
+        when(reportRepository.findByIdForUpdate(7L)).thenReturn(Optional.of(report));
+        when(moderationActorResolver.resolveModerationActor(2L))
+                .thenReturn(new ModerationActorResolver.ModerationActor(adminUser, admin));
+
+        reportModerationCommandService.processReport(2L, 7L, Report.STATUS_REJECTED, "  no evidence  ");
+
+        verify(moderationAuditLogService).recordUserAction(
+                adminUser,
+                ModerationAuditLogService.ACTION_REPORT_REJECT,
+                ModerationAuditLogService.TARGET_TYPE_REPORT,
+                7L,
+                null,
+                "no evidence");
     }
 
     @Test

@@ -32,8 +32,11 @@ public class ModerationAuditLogService {
     public static final String ACTION_POST_UNBLIND = "POST_UNBLIND";
     public static final String ACTION_POST_AUTO_BLIND = "POST_AUTO_BLIND";
     public static final String ACTION_COMMENT_AUTO_BLIND = "COMMENT_AUTO_BLIND";
+    public static final String ACTION_REPORT_RESOLVE = "REPORT_RESOLVE";
+    public static final String ACTION_REPORT_REJECT = "REPORT_REJECT";
     public static final String TARGET_TYPE_POST = "POST";
     public static final String TARGET_TYPE_COMMENT = "COMMENT";
+    public static final String TARGET_TYPE_REPORT = "REPORT";
 
     private final ModerationAuditLogRepository moderationAuditLogRepository;
     private final BoardRepository boardRepository;

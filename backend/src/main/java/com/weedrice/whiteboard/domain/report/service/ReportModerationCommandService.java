@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.report.service;
 
 import com.weedrice.whiteboard.domain.admin.service.ModerationActorResolver;
 import com.weedrice.whiteboard.domain.report.entity.Report;
+import com.weedrice.whiteboard.domain.moderation.service.ModerationAuditLogService;
 import com.weedrice.whiteboard.domain.report.repository.ReportRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -16,6 +17,7 @@ class ReportModerationCommandService {
 
     private final ReportRepository reportRepository;
     private final ModerationActorResolver moderationActorResolver;
+    private final ModerationAuditLogService moderationAuditLogService;
 
     @Transactional
     public Long processReport(Long adminUserId, Long reportId, String status, String remark) {
@@ -32,6 +34,15 @@ class ReportModerationCommandService {
                 normalizedStatus,
                 normalizedRemark);
         reportRepository.save(report);
+        moderationAuditLogService.recordUserAction(
+                moderationActor.user(),
+                Report.STATUS_RESOLVED.equals(normalizedStatus)
+                        ? ModerationAuditLogService.ACTION_REPORT_RESOLVE
+                        : ModerationAuditLogService.ACTION_REPORT_REJECT,
+                ModerationAuditLogService.TARGET_TYPE_REPORT,
+                report.getReportId(),
+                null,
+                normalizedRemark);
         return report.getReportId();
     }
 }
