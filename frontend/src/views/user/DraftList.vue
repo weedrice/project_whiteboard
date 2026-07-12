@@ -210,7 +210,7 @@ async function handleCancelScheduledPost(post: ScheduledPost) {
               <span>{{ post.boardName || post.boardUrl }}</span>
               <span>{{ formatDateTimeOrDash(post.scheduledAt) }}</span>
               <span>{{ post.status }}</span>
-              <span v-if="post.failureReason" class="text-red-500">{{ post.failureReason }}</span>
+              <span v-if="post.failureReason" class="text-[var(--nv-danger-text)]">{{ post.failureReason }}</span>
             </div>
           </div>
 
