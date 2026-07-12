@@ -160,7 +160,7 @@ const goToNotificationsPage = async () => {
               <span v-if="unreadCount && unreadCount > 0" class="nv-shell-dot" />
             </button>
 
-            <div v-if="isNotificationOpen" id="notification-dropdown-panel" ref="notificationPanelRef" class="absolute right-0 z-50 mt-3 w-80">
+            <div v-if="isNotificationOpen" id="notification-dropdown-panel" ref="notificationPanelRef" class="absolute right-0 z-50 mt-3 w-[min(20rem,calc(100vw-2rem))]">
               <NotificationDropdown />
             </div>
           </div>

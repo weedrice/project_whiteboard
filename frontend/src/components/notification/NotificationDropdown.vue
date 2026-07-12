@@ -42,7 +42,7 @@ function handleMarkAllAsRead() {
   <div
     role="dialog"
     :aria-label="$t('common.notifications')"
-    class="origin-top-right absolute right-0 mt-2 w-80 rounded-md shadow-lg py-1 nv-surface ring-1 ring-black/5 focus:outline-none z-50 transition-colors duration-200">
+    class="origin-top-right absolute right-0 mt-2 w-full rounded-md shadow-lg py-1 nv-surface ring-1 ring-black/5 focus:outline-none z-50 transition-colors duration-200">
     <div class="px-4 py-2 border-b nv-border flex justify-between items-center">
       <h3 class="text-sm font-medium nv-title">{{ $t('common.notifications') }}</h3>
       <BaseButton
@@ -50,14 +50,14 @@ function handleMarkAllAsRead() {
         variant="ghost"
         size="sm"
         :disabled="!hasUnreadNotifications || isMarkingAllAsRead"
-        class="text-xs flex items-center p-0"
+        class="min-h-11 text-xs flex items-center p-0"
       >
         <Check class="h-3 w-3 mr-1" />
         {{ $t('notification.markAllRead') }}
       </BaseButton>
     </div>
 
-    <div class="notification-scroll max-h-96 overflow-y-auto">
+    <div class="notification-scroll overflow-y-auto">
       <div v-if="isLoading && notifications.length === 0" class="px-4 py-4 text-center">
         <div class="notification-spinner mx-auto h-5 w-5 flex items-center justify-center">
           <BaseSpinner size="sm" class="scale-125" />
@@ -116,7 +116,7 @@ function handleMarkAllAsRead() {
 
     <div class="px-4 py-2 border-t nv-border text-center">
       <router-link to="/mypage/notifications"
-        class="text-xs font-medium notification-link">
+        class="notification-link inline-flex min-h-11 w-full items-center justify-center rounded-md text-xs font-medium">
         {{ $t('common.viewAll') }}
       </router-link>
     </div>
@@ -126,6 +126,7 @@ function handleMarkAllAsRead() {
 <style scoped>
 /* 스크롤 영역 다크모드: 스크롤바 색상 */
 .notification-scroll {
+  max-height: clamp(10rem, calc(100dvh - 12rem), 24rem);
   scrollbar-color: var(--nv-border-strong) transparent;
 }
 .dark .notification-scroll {

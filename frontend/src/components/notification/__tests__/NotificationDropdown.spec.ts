@@ -77,8 +77,8 @@ const mountDropdown = () =>
         BaseButton: BaseButtonStub,
         Check: true,
         RouterLink: defineComponent({
-          setup(_props, { slots }) {
-            return () => h('a', slots.default?.())
+          setup(_props, { attrs, slots }) {
+            return () => h('a', attrs, slots.default?.())
           },
         }),
       },
@@ -137,6 +137,9 @@ describe('NotificationDropdown', () => {
     const wrapper = mountDropdown()
 
     expect(wrapper.get('[role="dialog"]').attributes('aria-label')).toBe('common.notifications')
+    expect(wrapper.get('[role="dialog"]').classes()).toContain('w-full')
+    expect(wrapper.get('.notification-scroll').classes()).not.toContain('max-h-96')
+    expect(wrapper.get('a').classes()).toEqual(expect.arrayContaining(['min-h-11', 'w-full']))
   })
 
   it('uses the shared unread surface token for unread rows', () => {
