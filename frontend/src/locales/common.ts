@@ -64,6 +64,7 @@ export const common: CommonMessages = {
     chunkLoadErrorDescription: '페이지 리소스를 불러오는 중 오류가 발생했습니다. 페이지를 새로고침해주세요.',
     networkError: '네트워크 오류',
     networkErrorDescription: '네트워크 연결에 문제가 있습니다. 인터넷 연결을 확인해주세요.',
+    reportAccepted: '오류가 자동으로 접수되었습니다.',
   },
   messages: {
     error: '오류가 발생했습니다.',
@@ -201,6 +202,10 @@ export const commonEn: CommonMessages = {
   myPage: 'My',
   profile: 'Profile',
   pointEarned: '{points}P earned.',
+  error: {
+    ...common.error,
+    reportAccepted: 'This error was reported automatically.',
+  },
   title: 'Title',
   category: 'Category',
   write: 'Write',

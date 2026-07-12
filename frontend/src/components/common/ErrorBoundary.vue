@@ -1,6 +1,6 @@
 <template>
     <div v-if="hasError" class="error-boundary">
-        <ErrorState :title="title" :message="message">
+        <ErrorState :title="title" :message="message" :notice="reportAccepted ? t('common.error.reportAccepted') : ''" :show-icon="false">
                 <BaseButton @click="handleRetry" variant="primary">
                     {{ t('common.error.retry') }}
                 </BaseButton>
@@ -23,7 +23,7 @@ import { computed, ref, onErrorCaptured, provide, type ComponentPublicInstance }
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
-import ErrorState from '@/components/common/ErrorState.vue'
+import ErrorState from '@/components/common/ui/ErrorState.vue'
 import logger from '@/utils/logger'
 import { reportVueError } from '@/utils/clientErrorReporter'
 
@@ -48,6 +48,7 @@ const hasError = ref(false)
 const error = ref<Error | null>(null)
 const errorInfo = ref<string>('')
 const errorStack = ref<string>('')
+const reportAccepted = ref(false)
 
 const title = ref(t('common.error.unknown'))
 const message = ref(t('common.error.defaultMessage'))
@@ -68,7 +69,10 @@ onErrorCaptured((err: Error, instance: ComponentPublicInstance | null, info: str
     errorInfo.value = info
     errorStack.value = err.stack || err.toString()
 
-    reportVueError(err, instance, info)
+    reportAccepted.value = false
+    void Promise.resolve(reportVueError(err, instance, info)).then((accepted) => {
+        reportAccepted.value = accepted === true
+    })
 
     if (props.fallback) {
         props.fallback(err, instance, info)
@@ -95,6 +99,7 @@ const resetError = () => {
     error.value = null
     errorInfo.value = ''
     errorStack.value = ''
+    reportAccepted.value = false
 }
 
 const handleRetry = async () => {

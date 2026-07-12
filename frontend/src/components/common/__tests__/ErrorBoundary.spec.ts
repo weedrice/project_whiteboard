@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick } from 'vue'
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import ErrorBoundary from '../ErrorBoundary.vue'
 import { reportVueError } from '@/utils/clientErrorReporter'
 
@@ -19,6 +19,7 @@ vi.mock('vue-i18n', () => ({
             'common.error.retry': 'Retry',
             'common.error.goHome': 'Go home',
             'common.error.showDetails': 'Show details',
+            'common.error.reportAccepted': 'Reported automatically.',
         }[key] ?? key),
     }),
 }))
@@ -103,5 +104,17 @@ describe('ErrorBoundary', () => {
 
         expect(wrapper.find('details').exists()).toBe(true)
         expect(wrapper.find('pre').text()).toContain('internal database token leaked')
+    })
+
+    it('announces automatic reporting only after the report request succeeds', async () => {
+        vi.mocked(reportVueError).mockResolvedValueOnce(true)
+        const wrapper = mount(ErrorBoundary, {
+            slots: { default: () => h(ThrowingChild) },
+            global: { stubs: { BaseButton: { template: '<button><slot /></button>' } } },
+        })
+
+        await flushPromises()
+
+        expect(wrapper.text()).toContain('Reported automatically.')
     })
 })

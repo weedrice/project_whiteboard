@@ -107,14 +107,18 @@ function isDuplicate(request: ClientErrorLogRequest): boolean {
     return false
 }
 
-function send(payload: ErrorLogPayload, source: ClientErrorSource) {
+async function send(payload: ErrorLogPayload, source: ClientErrorSource): Promise<boolean> {
     const request = createRequest(payload, source)
-    if (isDuplicate(request)) return
+    if (isDuplicate(request)) return true
 
     logger.error('Client error captured:', request)
-    void clientErrorLogApi.create(request).catch((reportingError: unknown) => {
+    try {
+        await clientErrorLogApi.create(request)
+        return true
+    } catch (reportingError: unknown) {
         logger.warn('Client error report failed.', reportingError)
-    })
+        return false
+    }
 }
 
 export function reportVueError(
@@ -122,7 +126,7 @@ export function reportVueError(
     instance: ComponentPublicInstance | null,
     info: string,
 ) {
-    send(createVueErrorLogPayload(error, instance, info), 'VUE')
+    return send(createVueErrorLogPayload(error, instance, info), 'VUE')
 }
 
 export function installClientErrorReporting(app: App, options: ClientErrorReportingOptions = {}) {
@@ -132,7 +136,7 @@ export function installClientErrorReporting(app: App, options: ClientErrorReport
         instance: ComponentPublicInstance | null,
         info: string,
     ) => {
-        reportVueError(error, instance, info)
+        void reportVueError(error, instance, info)
         options.onVueError?.(error)
     }
     const windowErrorHandler = (event: ErrorEvent) => {
@@ -140,11 +144,11 @@ export function installClientErrorReporting(app: App, options: ClientErrorReport
         const location = event.filename
             ? `${event.filename}:${event.lineno || 0}:${event.colno || 0}`
             : undefined
-        send({ ...createErrorLogPayload(error), info: location }, 'WINDOW_ERROR')
+        void send({ ...createErrorLogPayload(error), info: location }, 'WINDOW_ERROR')
     }
     const rejectionHandler = (event: PromiseRejectionEvent) => {
         const reason = event.reason ?? new Error('Unhandled promise rejection')
-        send(createErrorLogPayload(reason), 'UNHANDLED_REJECTION')
+        void send(createErrorLogPayload(reason), 'UNHANDLED_REJECTION')
     }
 
     app.config.errorHandler = vueErrorHandler

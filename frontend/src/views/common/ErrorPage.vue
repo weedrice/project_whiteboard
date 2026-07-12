@@ -1,6 +1,6 @@
 <template>
     <div class="min-h-screen flex items-center justify-center nv-page py-12 px-4 sm:px-6 lg:px-8">
-        <ErrorState :code="status" :title="title" :message="message">
+        <ErrorState :code="status" :title="title" :message="message" :show-icon="false">
             <form v-if="numericStatus === 404" class="flex w-full gap-2 sm:order-first" @submit.prevent="search">
                 <BaseInput v-model="keyword" :label="t('common.search')" :placeholder="t('common.search')" hide-label class="min-w-0 flex-1" />
                 <BaseButton type="submit" :disabled="!keyword.trim()">{{ t('common.search') }}</BaseButton>
@@ -23,7 +23,7 @@ import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { getSingleQueryValue } from '@/utils/routeQueryValue'
-import ErrorState from '@/components/common/ErrorState.vue'
+import ErrorState from '@/components/common/ui/ErrorState.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { useAuthStore } from '@/stores/auth'

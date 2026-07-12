@@ -122,6 +122,7 @@ export interface CommonMessages {
     chunkLoadErrorDescription: string
     networkError: string
     networkErrorDescription: string
+    reportAccepted: string
   }
   messages: {
     error: string
