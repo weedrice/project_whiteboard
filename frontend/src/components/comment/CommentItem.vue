@@ -54,6 +54,7 @@ const {
   markReplyCreated,
   toggleReplies,
   loadMoreReplies,
+  refetchReplies,
 } = useCommentReplies(commentRef)
 const {
   isBlockedAuthor,
@@ -313,9 +314,16 @@ watch(isBlinded, (blinded) => {
           <p v-if="isRepliesLoading" class="text-xs nv-text-subtle">
             {{ $t('common.loading') }}
           </p>
-          <p v-else-if="repliesError" class="text-xs nv-form-error">
-            {{ $t('comment.loadRepliesFailed') }}
-          </p>
+          <div v-else-if="repliesError" class="text-xs nv-form-error" role="alert">
+            <p>{{ $t('comment.loadRepliesFailed') }}</p>
+            <button
+              type="button"
+              class="nv-focus-ring mt-2 min-h-11 rounded-md border nv-border px-3 text-xs font-medium"
+              @click="refetchReplies()"
+            >
+              {{ $t('common.error.retry') }}
+            </button>
+          </div>
           <div v-else-if="replies.length > 0" class="space-y-3 sm:space-y-4">
             <CommentItem
               v-for="child in replies"

@@ -14,7 +14,7 @@ export function useCommentReplies(comment: ComputedRef<Comment>) {
   const canLoadReplies = computed(() => !comment.value.isDeleted && Boolean(comment.value.hasReplies || optimisticHasReplies.value))
   const repliesEnabled = computed(() => isRepliesOpen.value && canLoadReplies.value)
 
-  const { data: repliesData, isLoading: isRepliesLoading, error: repliesError } =
+  const { data: repliesData, isLoading: isRepliesLoading, error: repliesError, refetch: refetchReplies } =
     useReplies(commentId, replyParams, repliesEnabled)
 
   const replies = computed(() => loadedReplies.value)
@@ -98,5 +98,6 @@ export function useCommentReplies(comment: ComputedRef<Comment>) {
     markReplyCreated,
     toggleReplies,
     loadMoreReplies,
+    refetchReplies,
   }
 }

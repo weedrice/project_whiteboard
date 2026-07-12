@@ -4,6 +4,7 @@ import HomePostCard from '@/components/home/HomePostCard.vue'
 import { useIntersectionObserver } from '@/composables/useIntersectionObserver'
 import { usePost } from '@/features/board/posts/queries/usePost'
 import { toFeedPosts } from '@/utils/postViewModel'
+import ErrorState from '@/components/common/ui/ErrorState.vue'
 
 const props = defineProps<{
   postId: string | number
@@ -12,7 +13,7 @@ const props = defineProps<{
 const shouldLoad = ref(false)
 const postIdRef = computed(() => props.postId)
 const { useRelatedPosts } = usePost()
-const { data: relatedPosts, isLoading } = useRelatedPosts(postIdRef, {
+const { data: relatedPosts, isLoading, isError, refetch } = useRelatedPosts(postIdRef, {
   enabled: shouldLoad,
   size: 5,
 })
@@ -31,7 +32,15 @@ watch(() => props.postId, () => {
 
 <template>
   <section ref="targetRef" class="nv-related-posts" :aria-busy="isLoading ? 'true' : 'false'">
-    <template v-if="feedPosts.length > 0">
+    <ErrorState
+      v-if="isError"
+      title-tag="h2"
+      :message="$t('common.messages.loadFailed')"
+      :show-icon="false"
+      show-retry
+      @retry="refetch()"
+    />
+    <template v-else-if="feedPosts.length > 0">
       <div>
         <p class="nv-kicker">{{ $t('board.postDetail.relatedKicker') }}</p>
         <h2 class="mt-1 text-lg font-semibold text-[var(--nv-ink)]">

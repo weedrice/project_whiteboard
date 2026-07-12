@@ -12,7 +12,7 @@ const toastStore = useToastStore()
 const { useMyAttendance, useCheckIn } = useAttendance()
 
 const enabled = computed(() => authStore.isAuthenticated)
-const { data: attendance, isLoading } = useMyAttendance(enabled)
+const { data: attendance, isLoading, isError, refetch } = useMyAttendance(enabled)
 const { mutateAsync: checkIn, isPending } = useCheckIn()
 
 const checkedInToday = computed(() => attendance.value?.checkedInToday === true)
@@ -34,6 +34,13 @@ async function handleCheckIn() {
 
 <template>
   <section v-if="authStore.isAuthenticated" class="nv-attendance-panel">
+    <div v-if="isError" class="w-full" role="alert">
+      <p class="text-sm text-[var(--nv-danger-text)]">{{ $t('common.messages.loadFailed') }}</p>
+      <button type="button" class="nv-attendance-retry mt-3" @click="refetch()">
+        {{ $t('common.error.retry') }}
+      </button>
+    </div>
+    <template v-else>
     <div class="flex min-w-0 items-center gap-3">
       <div class="nv-attendance-icon">
         <CalendarCheck class="h-5 w-5" aria-hidden="true" />
@@ -58,6 +65,7 @@ async function handleCheckIn() {
       <Flame class="h-4 w-4" aria-hidden="true" />
       {{ $t('home.attendance.milestone', { count: milestoneStreak }) }}
     </p>
+    </template>
   </section>
 </template>
 
@@ -129,5 +137,12 @@ async function handleCheckIn() {
 
 .nv-attendance-button:not(:disabled):hover {
   filter: brightness(0.96);
+}
+
+.nv-attendance-retry {
+  border: 1px solid var(--nv-line);
+  border-radius: var(--nv-radius-pill);
+  min-height: 2.75rem;
+  padding: 0.5rem 0.9rem;
 }
 </style>
