@@ -110,6 +110,7 @@ describe('InquiryWrite', () => {
 
     expect(boardApi.ensureInquiryBoard).toHaveBeenCalledWith('inquiry', {
       signal: expect.any(AbortSignal),
+      skipGlobalErrorHandler: true,
     })
     expect(postForm.exists()).toBe(true)
     expect(postForm.props()).toEqual(expect.objectContaining({

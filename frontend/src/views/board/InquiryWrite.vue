@@ -32,7 +32,10 @@ const prepareError = computed(() => prepareBoardTask.error.value || '')
 
 const ensureInquiryBoard = async () => {
   hasPreparedBoard.value = false
-  const result = await prepareBoardTask.run(({ signal }) => boardApi.ensureInquiryBoard(inquiryBoardUrl.value, { signal }))
+  const result = await prepareBoardTask.run(({ signal }) => boardApi.ensureInquiryBoard(inquiryBoardUrl.value, {
+    signal,
+    skipGlobalErrorHandler: true,
+  }))
   if (result) {
     hasPreparedBoard.value = true
   }
