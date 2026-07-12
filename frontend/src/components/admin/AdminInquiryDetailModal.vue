@@ -39,7 +39,7 @@ const { t } = useI18n()
   >
     <template #loading>
       <div class="flex items-center justify-center py-10">
-        <BaseSpinner size="lg" />
+        <BaseSpinner size="lg" aria-hidden="true" />
       </div>
     </template>
 

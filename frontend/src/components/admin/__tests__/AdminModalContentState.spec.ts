@@ -41,4 +41,24 @@ describe('AdminModalContentState', () => {
     })
     expect(empty.get('[role="status"]').attributes('aria-live')).toBe('polite')
   })
+
+  it('preserves state semantics when custom slots are provided', () => {
+    const loading = mount(AdminModalContentState, {
+      props: { loading: true },
+      slots: { loading: '<span>Custom loading</span>' },
+    })
+    expect(loading.get('[role="status"]').text()).toBe('Custom loading')
+
+    const error = mount(AdminModalContentState, {
+      props: { error: true },
+      slots: { error: '<span>Custom error</span>' },
+    })
+    expect(error.get('[role="alert"]').text()).toBe('Custom error')
+
+    const empty = mount(AdminModalContentState, {
+      props: { empty: true },
+      slots: { empty: '<span>Custom empty</span>' },
+    })
+    expect(empty.get('[role="status"]').text()).toBe('Custom empty')
+  })
 })

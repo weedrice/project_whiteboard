@@ -38,17 +38,17 @@ const resolvedEmptyText = computed(() => props.emptyText ?? t('common.noData'))
     </slot>
   </div>
 
-  <div v-else-if="error" :class="paddingClass">
+  <div v-else-if="error" :class="paddingClass" role="alert" aria-live="assertive">
     <slot name="error">
-      <div class="rounded nv-status-danger px-4 py-3 text-sm" role="alert" aria-live="assertive">
+      <div class="rounded nv-status-danger px-4 py-3 text-sm">
         {{ resolvedErrorText }}
       </div>
     </slot>
   </div>
 
-  <div v-else-if="empty" :class="paddingClass">
+  <div v-else-if="empty" :class="paddingClass" role="status" aria-live="polite">
     <slot name="empty">
-      <p v-if="resolvedEmptyText" class="text-center text-sm nv-text-subtle" role="status" aria-live="polite">{{ resolvedEmptyText }}</p>
+      <p v-if="resolvedEmptyText" class="text-center text-sm nv-text-subtle">{{ resolvedEmptyText }}</p>
     </slot>
   </div>
 
