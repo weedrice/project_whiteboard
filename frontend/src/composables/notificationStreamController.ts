@@ -20,6 +20,7 @@ import {
     getRawNotificationId,
 } from '@/composables/notificationCacheUpdater'
 import { NotificationStreamRuntime } from '@/composables/notificationReconnectRuntime'
+import { emitBadgeAwardEvent } from '@/composables/badgeAwardEvents'
 
 function isAbortError(error: unknown): boolean {
     return isCancellationError(error, {
@@ -77,11 +78,13 @@ export function createNotificationStreamController(
             const rawNotification = JSON.parse(payload) as NotificationRaw
             if (getRawNotificationId(rawNotification) == null) return
             const notification = normalizeIncomingNotification(rawNotification)
+            const isDuplicate = notificationStreamRuntime.state.recentNotificationIds.has(notification.notificationId)
             applyIncomingNotificationToCache(
                 queryClient,
                 notification,
                 notificationStreamRuntime.state.recentNotificationIds,
             )
+            if (!isDuplicate) emitBadgeAwardEvent(notification)
         } catch (error: unknown) {
             logger.error('Failed to parse SSE notification:', error)
         }

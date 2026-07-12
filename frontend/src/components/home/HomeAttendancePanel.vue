@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { CalendarCheck, Flame } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { useAttendance } from '@/composables/useAttendance'
@@ -17,9 +17,13 @@ const { mutateAsync: checkIn, isPending } = useCheckIn()
 
 const checkedInToday = computed(() => attendance.value?.checkedInToday === true)
 const streakCount = computed(() => attendance.value?.currentStreakCount ?? 0)
+const milestoneStreak = ref<number | null>(null)
 
 async function handleCheckIn() {
   const result = await checkIn()
+  if (!result.alreadyCheckedIn && (result.streakCount === 7 || result.streakCount === 30)) {
+    milestoneStreak.value = result.streakCount
+  }
   if (result.earnedPoints > 0) {
     toastStore.addToast(t('home.attendance.earned', { points: result.earnedPoints }), 'success')
   } else {
@@ -50,6 +54,10 @@ async function handleCheckIn() {
     >
       {{ checkedInToday ? $t('home.attendance.done') : $t('home.attendance.checkIn') }}
     </button>
+    <p v-if="milestoneStreak" class="nv-attendance-milestone" role="status" aria-live="polite">
+      <Flame class="h-4 w-4" aria-hidden="true" />
+      {{ $t('home.attendance.milestone', { count: milestoneStreak }) }}
+    </p>
   </section>
 </template>
 
@@ -58,18 +66,41 @@ async function handleCheckIn() {
   align-items: center;
   background: var(--nv-surface);
   border: 1px solid var(--nv-line);
-  border-radius: 16px;
+  border-radius: var(--nv-radius-lg);
   display: flex;
+  flex-wrap: wrap;
   gap: 1rem;
   justify-content: space-between;
   padding: 1rem;
+  position: relative;
+}
+
+.nv-attendance-milestone {
+  align-items: center;
+  animation: attendance-milestone-arrive 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  background: var(--nv-accent-soft);
+  border: 1px solid color-mix(in srgb, var(--nv-accent) 28%, var(--nv-line));
+  border-radius: var(--nv-radius-pill);
+  color: var(--nv-accent);
+  display: inline-flex;
+  font-size: 0.75rem;
+  font-weight: 700;
+  gap: 0.35rem;
+  flex-basis: 100%;
+  padding: 0.4rem 0.65rem;
+  position: static;
+}
+
+@keyframes attendance-milestone-arrive {
+  from { opacity: 0; transform: translateY(-0.25rem) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .nv-attendance-icon {
   align-items: center;
   background: color-mix(in srgb, var(--nv-accent) 12%, var(--nv-surface));
   border: 1px solid color-mix(in srgb, var(--nv-accent) 28%, var(--nv-line));
-  border-radius: 12px;
+  border-radius: var(--nv-radius-md);
   color: var(--nv-accent);
   display: inline-flex;
   flex-shrink: 0;
@@ -80,7 +111,7 @@ async function handleCheckIn() {
 
 .nv-attendance-button {
   background: var(--nv-accent);
-  border-radius: 999px;
+  border-radius: var(--nv-radius-pill);
   color: white;
   flex-shrink: 0;
   font-size: 0.875rem;

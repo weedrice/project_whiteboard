@@ -21,6 +21,7 @@ import GlobalSearchBar from '@/components/search/GlobalSearchBar.vue'
 import KeyboardShortcutsModal from '@/components/common/KeyboardShortcutsModal.vue'
 import RecentBoardsBar from '@/components/layout/RecentBoardsBar.vue'
 import MobileBottomNav from '@/components/layout/MobileBottomNav.vue'
+import BadgeAwardCelebration from '@/components/user/BadgeAwardCelebration.vue'
 
 import logoLight from '@/assets/noviis_logo.webp'
 import logoDark from '@/assets/noviis_logo_dark.webp'
@@ -178,6 +179,7 @@ const goToNotificationsPage = async () => {
     <Footer />
     <MobileBottomNav :hidden="!showMobileBottomNav || isEditorFocused" />
     <KeyboardShortcutsModal v-if="!isMobile" />
+    <BadgeAwardCelebration v-if="authStore.isAuthenticated" />
   </div>
 </template>
 
