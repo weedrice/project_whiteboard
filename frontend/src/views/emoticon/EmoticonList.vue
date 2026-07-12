@@ -110,6 +110,8 @@ function handleSearchKeyup(event: KeyboardEvent) {
       <EmoticonGridSkeleton v-if="popularLoading" :count="5" ranked />
       <ErrorState
         v-else-if="popularError"
+        :role="emoticonsError ? 'status' : 'alert'"
+        :live="emoticonsError ? 'polite' : 'assertive'"
         :message="t('emoticon.picker.listLoadFailed')"
         show-retry
         @retry="refetchPopularEmoticons"

@@ -250,6 +250,10 @@ describe('EmoticonList', () => {
 
     const wrapper = mountList()
 
+    expect(wrapper.findAll('[role="alert"]')).toHaveLength(1)
+    expect(wrapper.findAll('[role="status"]')).toHaveLength(1)
+    expect(wrapper.get('[role="status"]').attributes('aria-live')).toBe('polite')
+
     expect(wrapper.text()).toContain('노비콘 목록을 불러오지 못했습니다.')
     expect(wrapper.text()).not.toContain('인기 노비콘이 없습니다.')
     expect(wrapper.text()).not.toContain('등록된 노비콘이 없습니다.')

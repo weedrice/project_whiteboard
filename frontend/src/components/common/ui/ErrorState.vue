@@ -1,5 +1,5 @@
 <template>
-  <section class="mx-auto w-full max-w-lg text-center py-12" role="alert" :aria-live="live">
+  <section class="mx-auto w-full max-w-lg text-center py-12" :role="role" :aria-live="live">
     <p v-if="code" class="nv-kicker mb-3">{{ code }}</p>
     <div v-if="showIcon" class="mx-auto h-12 w-12 text-[var(--nv-danger-text)] mb-4">
       <component :is="icon" class="h-full w-full" aria-hidden="true" />
@@ -49,6 +49,7 @@ withDefaults(defineProps<{
   notice?: string
   titleTag?: 'h1' | 'h2' | 'h3' | 'h4'
   live?: 'polite' | 'assertive'
+  role?: 'alert' | 'status'
 }>(), {
   icon: () => AlertCircle,
   showRetry: false,
@@ -56,6 +57,7 @@ withDefaults(defineProps<{
   showIcon: true,
   titleTag: 'h3',
   live: 'assertive',
+  role: 'alert',
 })
 
 defineEmits<{

@@ -136,7 +136,8 @@ describe('NotificationDropdown', () => {
   it('exposes dialog semantics with a localized accessible name', () => {
     const wrapper = mountDropdown()
 
-    expect(wrapper.get('[role="dialog"]').attributes('aria-label')).toBe('common.notifications')
+    expect(wrapper.get('[role="dialog"]').attributes('aria-labelledby')).toBe('notification-dropdown-title')
+    expect(wrapper.get('#notification-dropdown-title').text()).toBe('common.notifications')
     expect(wrapper.get('[role="dialog"]').classes()).toContain('w-full')
     expect(wrapper.get('.notification-scroll').classes()).not.toContain('max-h-96')
     expect(wrapper.get('a').classes()).toEqual(expect.arrayContaining(['min-h-11', 'w-full']))

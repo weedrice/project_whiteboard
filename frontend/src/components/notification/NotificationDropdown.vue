@@ -41,10 +41,10 @@ function handleMarkAllAsRead() {
 <template>
   <div
     role="dialog"
-    :aria-label="$t('common.notifications')"
+    aria-labelledby="notification-dropdown-title"
     class="origin-top-right absolute right-0 mt-2 w-full rounded-md shadow-lg py-1 nv-surface ring-1 ring-black/5 focus:outline-none z-50 transition-colors duration-200">
     <div class="px-4 py-2 border-b nv-border flex justify-between items-center">
-      <h3 class="text-sm font-medium nv-title">{{ $t('common.notifications') }}</h3>
+      <h2 id="notification-dropdown-title" class="text-sm font-medium nv-title">{{ $t('common.notifications') }}</h2>
       <BaseButton
         @click="handleMarkAllAsRead"
         variant="ghost"
