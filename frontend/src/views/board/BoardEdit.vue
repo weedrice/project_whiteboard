@@ -5,6 +5,7 @@ import CategoryManager from '@/components/board/CategoryManager.vue'
 import BoardForm from '@/components/board/BoardForm.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
+import PageHeader from '@/components/common/ui/PageHeader.vue'
 import UserSelectModal from '@/components/common/widgets/UserSelectModal.vue'
 import AdminAuditLogTable from '@/components/admin/AdminAuditLogTable.vue'
 import { boardApi } from '@/api/board'
@@ -61,15 +62,18 @@ watch([boardUrl, canManageBoard], async ([nextBoardUrl, manageable]) => {
 
     <div v-else-if="canManageBoard" class="nv-surface shadow sm:rounded-lg overflow-hidden">
       <!-- Header -->
-      <div class="px-4 py-5 sm:px-6 border-b nv-border flex justify-between items-center">
-        <div>
-          <h1 class="text-lg leading-6 font-medium nv-title">{{ $t('board.form.editTitle') }}</h1>
-          <p class="mt-1 max-w-2xl text-sm nv-text-subtle">{{ $t('board.form.editDesc') }}</p>
-        </div>
-        <BaseButton type="button" @click="goBack" variant="secondary">
-          {{ $t('common.back') }}
-        </BaseButton>
-      </div>
+      <PageHeader
+        :title="$t('board.form.editTitle')"
+        :description="$t('board.form.editDesc')"
+        size="compact"
+        class="border-b nv-border px-4 py-5 sm:px-6"
+      >
+        <template #actions>
+          <BaseButton type="button" @click="goBack" variant="secondary">
+            {{ $t('common.back') }}
+          </BaseButton>
+        </template>
+      </PageHeader>
 
       <div class="px-4 py-5 sm:p-6 space-y-6">
         <!-- Board Form -->

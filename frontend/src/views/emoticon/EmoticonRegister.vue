@@ -11,6 +11,7 @@ import EmoticonTagSection from '@/components/emoticon/EmoticonTagSection.vue'
 import EmoticonThumbnailField from '@/components/emoticon/EmoticonThumbnailField.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseCard from '@/components/common/ui/BaseCard.vue'
+import PageHeader from '@/components/common/ui/PageHeader.vue'
 import { useEmoticonImageSelection } from '@/features/emoticon/form/useEmoticonImageSelection'
 import { useEmoticonImageFormState } from '@/features/emoticon/form/useEmoticonImageFormState'
 import { useEmoticonRegisterSubmit } from '@/features/emoticon/form/useEmoticonRegisterSubmit'
@@ -85,20 +86,22 @@ const goToList = () => {
 <template>
   <div class="mx-auto max-w-4xl">
     <!-- 페이지 제목과 목록으로 버튼 -->
-    <div class="mb-8 flex items-start justify-between">
-      <div>
-        <h1 class="text-2xl font-bold nv-title">{{ t('emoticon.register.title') }}</h1>
-        <p class="mt-1 text-sm nv-text-subtle">{{ t('emoticon.register.description') }}</p>
-      </div>
-      <button
-        type="button"
-        @click="goToList"
-        class="nv-focus-ring inline-flex min-h-11 items-center rounded-md px-2 text-sm nv-text-muted hover:text-[var(--nv-accent)] transition-colors"
-      >
-        <ArrowLeft class="w-4 h-4 mr-1" />
-        {{ t('emoticon.detail.backToList') }}
-      </button>
-    </div>
+    <PageHeader
+      :title="t('emoticon.register.title')"
+      :description="t('emoticon.register.description')"
+      class="mb-8"
+    >
+      <template #actions>
+        <button
+          type="button"
+          @click="goToList"
+          class="nv-focus-ring inline-flex min-h-11 items-center rounded-md px-2 text-sm nv-text-muted hover:text-[var(--nv-accent)] transition-colors"
+        >
+          <ArrowLeft class="w-4 h-4 mr-1" />
+          {{ t('emoticon.detail.backToList') }}
+        </button>
+      </template>
+    </PageHeader>
 
     <form @submit.prevent="handleSubmit" class="space-y-8">
       <!-- 이모티콘 이름과 썸네일 -->

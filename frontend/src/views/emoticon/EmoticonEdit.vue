@@ -7,6 +7,7 @@ import { ArrowLeft, EyeOff, Eye } from 'lucide-vue-next'
 import { useToastStore } from '@/stores/toast'
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
+import PageHeader from '@/components/common/ui/PageHeader.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import EmoticonFormActions from '@/components/emoticon/EmoticonFormActions.vue'
 import EmoticonImageGridUploader from '@/components/emoticon/EmoticonImageGridUploader.vue'
@@ -102,17 +103,19 @@ const goToDetail = () => {
 <template>
   <div class="mx-auto max-w-4xl">
     <!-- 페이지 제목과 뒤로가기 버튼 -->
-    <div class="mb-8 flex items-start justify-between">
-      <div>
-        <h1 class="text-2xl font-bold nv-title">{{ t('emoticon.form.editTitle') }}</h1>
-        <p class="mt-1 text-sm nv-text-subtle">{{ t('emoticon.form.editDescription') }}</p>
-      </div>
-      <button type="button" @click="goToDetail"
-        class="nv-focus-ring inline-flex min-h-11 items-center rounded-md px-2 text-sm nv-text-muted hover:text-[var(--nv-accent)] transition-colors">
-        <ArrowLeft class="w-4 h-4 mr-1" />
-        {{ t('emoticon.form.back') }}
-      </button>
-    </div>
+    <PageHeader
+      :title="t('emoticon.form.editTitle')"
+      :description="t('emoticon.form.editDescription')"
+      class="mb-8"
+    >
+      <template #actions>
+        <button type="button" @click="goToDetail"
+          class="nv-focus-ring inline-flex min-h-11 items-center rounded-md px-2 text-sm nv-text-muted hover:text-[var(--nv-accent)] transition-colors">
+          <ArrowLeft class="w-4 h-4 mr-1" />
+          {{ t('emoticon.form.back') }}
+        </button>
+      </template>
+    </PageHeader>
 
     <!-- 로딩 -->
     <div v-if="isLoading" class="animate-pulse space-y-8" role="status" aria-live="polite" aria-busy="true"

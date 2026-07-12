@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import PostForm from '@/components/board/PostForm.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
+import PageHeader from '@/components/common/ui/PageHeader.vue'
 import { boardApi } from '@/api/board'
 import { extractErrorMessage } from '@/utils/errorHandler'
 import logger from '@/utils/logger'
@@ -56,14 +57,12 @@ onUnmounted(() => {
 
 <template>
   <div class="space-y-4">
-    <section class="rounded-lg nv-status-info px-4 py-3">
-      <h1 class="text-base font-semibold">
-        {{ t('board.inquiryWrite.title') }}
-      </h1>
-      <p class="mt-1 text-sm">
-        {{ t('board.inquiryWrite.description') }}
-      </p>
-    </section>
+    <PageHeader
+      :title="t('board.inquiryWrite.title')"
+      :description="t('board.inquiryWrite.description')"
+      size="compact"
+      class="rounded-lg nv-status-info px-4 py-3"
+    />
 
     <div v-if="isPreparingBoard" class="rounded-lg border nv-border nv-surface p-6">
       <div class="flex items-center gap-3 text-sm nv-text-muted">

@@ -18,6 +18,7 @@ import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseSelect from '@/components/common/ui/BaseSelect.vue'
 import BaseSegmentedControl from '@/components/common/ui/BaseSegmentedControl.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
+import PageHeader from '@/components/common/ui/PageHeader.vue'
 import { usePushNotifications } from '@/features/notifications/usePushNotifications'
 import { formatDateTimeOrDash } from '@/utils/date'
 import { Monitor, Settings, X } from 'lucide-vue-next'
@@ -251,10 +252,11 @@ const handleRevokeOtherSessions = async () => {
     </div>
 
     <div v-else class="nv-surface shadow overflow-hidden sm:rounded-lg transition-colors duration-200">
-      <div class="px-4 py-5 sm:px-6 border-b nv-border flex items-center">
-        <Settings class="h-5 w-5 mr-2 nv-text-subtle" />
-        <h1 class="text-lg leading-6 font-medium nv-title">{{ $t('common.settings') }}</h1>
-      </div>
+      <PageHeader :title="$t('common.settings')" size="compact" class="border-b nv-border px-4 py-5 sm:px-6">
+        <template #icon>
+          <Settings class="h-5 w-5 shrink-0 nv-text-subtle" aria-hidden="true" />
+        </template>
+      </PageHeader>
       <div class="px-4 py-5 sm:p-6 space-y-6">
         <BaseSegmentedControl
           :model-value="activeSection"

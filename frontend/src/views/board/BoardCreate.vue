@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import BoardForm from '@/components/board/BoardForm.vue'
+import PageHeader from '@/components/common/ui/PageHeader.vue'
 import { useI18n } from 'vue-i18n'
 import { useFormSubmit } from '@/composables/useFormSubmit'
 import { useErrorHandler } from '@/composables/useErrorHandler'
@@ -49,13 +50,7 @@ async function handleCreate(formData: BoardData) {
 
 <template>
   <div class="max-w-3xl mx-auto">
-    <div class="md:flex md:items-center md:justify-between mb-6">
-      <div class="flex-1 min-w-0">
-        <h1 class="text-2xl font-bold leading-9 nv-title sm:text-3xl pb-1">
-          {{ $t('board.form.createTitle') }}
-        </h1>
-      </div>
-    </div>
+    <PageHeader :title="$t('board.form.createTitle')" size="hero" class="mb-6" />
 
     <BoardForm :isSubmitting="isSubmitting" :error="error" @submit="handleCreate" @cancel="router.back()" />
   </div>

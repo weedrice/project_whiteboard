@@ -26,7 +26,6 @@ describe('route page heading hierarchy', () => {
   })
 
   it.each([
-    'src/views/user/UserSettings.vue',
     'src/views/search/SearchPage.vue',
   ])('%s does not skip from its route heading to h3', (file) => {
     const source = readFileSync(resolve(process.cwd(), file), 'utf8')
@@ -56,15 +55,25 @@ describe('route page heading hierarchy', () => {
 
   it.each([
     'src/components/board/PostFormHeader.vue',
-    'src/views/board/BoardCreate.vue',
-    'src/views/board/BoardEdit.vue',
     'src/views/user/MyPageDashboard.vue',
-    'src/views/user/UserSettings.vue',
     'src/views/user/SubscribedBoards.vue',
   ])('%s exposes its route page heading as h1', (file) => {
     const source = readFileSync(resolve(process.cwd(), file), 'utf8')
 
     expect(source).toMatch(/<h1\b/)
+  })
+
+  it.each([
+    'src/views/board/BoardCreate.vue',
+    'src/views/board/BoardEdit.vue',
+    'src/views/board/InquiryWrite.vue',
+    'src/views/user/UserSettings.vue',
+    'src/views/emoticon/EmoticonRegister.vue',
+    'src/views/emoticon/EmoticonEdit.vue',
+  ])('%s uses the shared route page header', (file) => {
+    const source = readFileSync(resolve(process.cwd(), file), 'utf8')
+
+    expect(source).toMatch(/<PageHeader\b/)
   })
 
   it('demotes the board heading when a post detail supplies the page heading', () => {

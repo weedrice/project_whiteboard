@@ -47,7 +47,7 @@ withDefaults(defineProps<{
   showIcon?: boolean
   code?: string
   notice?: string
-  titleTag?: 'h1' | 'h2' | 'h3'
+  titleTag?: 'h1' | 'h2' | 'h3' | 'h4'
   live?: 'polite' | 'assertive'
 }>(), {
   icon: () => AlertCircle,
