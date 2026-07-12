@@ -9,6 +9,9 @@ export const usePromptStore = defineStore('prompt', () => {
     const placeholder = ref('')
     const confirmText = ref('Confirm')
     const cancelText = ref('Cancel')
+    const required = ref(false)
+    const errorMessage = ref('')
+    const confirmVariant = ref<'primary' | 'danger'>('primary')
     const resolvePromise = ref<((value: string | null) => void) | null>(null)
 
     function open(
@@ -16,7 +19,8 @@ export const usePromptStore = defineStore('prompt', () => {
         ttl: string = 'Input',
         placeholderText: string = '',
         confirmTxt: string = 'Confirm',
-        cancelTxt: string = 'Cancel'
+        cancelTxt: string = 'Cancel',
+        options: { required?: boolean; errorMessage?: string; confirmVariant?: 'primary' | 'danger' } = {}
     ): Promise<string | null> {
         if (resolvePromise.value) {
             resolvePromise.value(null)
@@ -29,6 +33,9 @@ export const usePromptStore = defineStore('prompt', () => {
         inputValue.value = ''
         confirmText.value = confirmTxt
         cancelText.value = cancelTxt
+        required.value = options.required ?? false
+        errorMessage.value = options.errorMessage ?? ''
+        confirmVariant.value = options.confirmVariant ?? 'primary'
         isOpen.value = true
 
         return new Promise((resolve) => {
@@ -37,8 +44,9 @@ export const usePromptStore = defineStore('prompt', () => {
     }
 
     function confirm() {
+        if (required.value && !inputValue.value.trim()) return
         if (resolvePromise.value) {
-            resolvePromise.value(inputValue.value || null)
+            resolvePromise.value(inputValue.value.trim() || null)
         }
         close()
     }
@@ -57,6 +65,9 @@ export const usePromptStore = defineStore('prompt', () => {
         message.value = ''
         inputValue.value = ''
         placeholder.value = ''
+        required.value = false
+        errorMessage.value = ''
+        confirmVariant.value = 'primary'
     }
 
     return {
@@ -67,6 +78,9 @@ export const usePromptStore = defineStore('prompt', () => {
         placeholder,
         confirmText,
         cancelText,
+        required,
+        errorMessage,
+        confirmVariant,
         open,
         confirm,
         cancel

@@ -14,9 +14,11 @@ import AdminPaginatedTable from '@/components/admin/AdminPaginatedTable.vue'
 import AdminStatusBadge from '@/components/admin/AdminStatusBadge.vue'
 import { formatDate } from '@/utils/date'
 import type { SuperAdminInfo } from '@/types'
+import { useConfirm } from '@/composables/useConfirm'
 
 const { t } = useI18n()
 const toastStore = useToastStore()
+const { confirm } = useConfirm()
 const {
   useSuperAdmins,
   useUpdateSuperAdminStatus
@@ -63,6 +65,9 @@ async function handleCreateSuperAdmin() {
     return
   }
 
+  const isConfirmed = await confirm(t('admin.admins.addSuperAdminDesc'))
+  if (!isConfirmed) return
+
   try {
     await updateSuperAdminStatus({ loginId, action: 'activate' })
     toastStore.addToast(t('admin.admins.messages.added'), 'success')
@@ -73,6 +78,11 @@ async function handleCreateSuperAdmin() {
 }
 
 async function toggleSuperAdminStatus(admin: SuperAdminRow) {
+  const isConfirmed = await confirm(
+    admin.superAdmin ? t('common.confirmDelete') : t('admin.admins.addSuperAdminDesc')
+  )
+  if (!isConfirmed) return
+
   try {
     const action = admin.superAdmin ? 'deactivate' : 'activate'
     await updateSuperAdminStatus({ loginId: String(admin.loginId ?? ''), action })

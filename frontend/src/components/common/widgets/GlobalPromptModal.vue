@@ -20,6 +20,7 @@ const handleConfirmKeyup = (event: KeyboardEvent) => {
                 {{ promptStore.message }}
             </p>
             <BaseInput v-model="promptStore.inputValue" :label="promptStore.placeholder || promptStore.title" :placeholder="promptStore.placeholder" hideLabel
+                :error="promptStore.required && !promptStore.inputValue.trim() ? promptStore.errorMessage : ''"
                 @keyup.enter="handleConfirmKeyup" />
         </div>
         <template #footer>
@@ -27,7 +28,8 @@ const handleConfirmKeyup = (event: KeyboardEvent) => {
                 <BaseButton @click="promptStore.cancel" variant="secondary">
                     {{ promptStore.cancelText }}
                 </BaseButton>
-                <BaseButton @click="promptStore.confirm" variant="primary">
+                <BaseButton @click="promptStore.confirm" :variant="promptStore.confirmVariant"
+                    :disabled="promptStore.required && !promptStore.inputValue.trim()">
                     {{ promptStore.confirmText }}
                 </BaseButton>
             </div>

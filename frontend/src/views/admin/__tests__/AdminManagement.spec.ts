@@ -23,6 +23,7 @@ const superAdminsData = ref([
 const isSuperAdminsLoading = ref(false)
 const updateSuperAdminStatus = vi.fn()
 const addToast = vi.fn()
+const confirm = vi.fn()
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({
@@ -32,6 +33,10 @@ vi.mock('vue-i18n', () => ({
 
 vi.mock('@/stores/toast', () => ({
   useToastStore: () => ({ addToast }),
+}))
+
+vi.mock('@/composables/useConfirm', () => ({
+  useConfirm: () => ({ confirm }),
 }))
 
 vi.mock('@/composables/useAdmin', () => ({
@@ -113,6 +118,7 @@ describe('AdminManagement', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     updateSuperAdminStatus.mockResolvedValue(undefined)
+    confirm.mockResolvedValue(true)
     superAdminsData.value = [
       {
         userId: 1,

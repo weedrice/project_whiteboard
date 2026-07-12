@@ -29,6 +29,22 @@ describe('Prompt Store', () => {
     await expect(result).resolves.toBeNull()
   })
 
+  it('keeps a required prompt open until a non-empty value is entered', async () => {
+    const result = store.open('Enter a reason', 'Confirm', 'Reason', 'Apply', 'Cancel', {
+      required: true,
+      errorMessage: 'Reason is required',
+      confirmVariant: 'danger',
+    })
+
+    store.confirm()
+    expect(store.isOpen).toBe(true)
+    expect(store.confirmVariant).toBe('danger')
+
+    store.inputValue = '  policy violation  '
+    store.confirm()
+    await expect(result).resolves.toBe('policy violation')
+  })
+
   it('resolves pending prompt as null when a new prompt opens', async () => {
     const first = store.open('First prompt')
     const second = store.open('Second prompt')

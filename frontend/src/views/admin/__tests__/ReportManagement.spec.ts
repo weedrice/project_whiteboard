@@ -35,6 +35,7 @@ const mocks = vi.hoisted(() => ({
   refetch: vi.fn(),
   resolveReport: vi.fn(),
   confirm: vi.fn(),
+  confirmWithReason: vi.fn(),
   addToast: vi.fn(),
   params: null as Ref<{ page: number; size: number }> | null,
 }))
@@ -58,6 +59,7 @@ vi.mock('@/composables/useAdmin', () => ({
 vi.mock('@/composables/useConfirm', () => ({
   useConfirm: () => ({
     confirm: mocks.confirm,
+    confirmWithReason: mocks.confirmWithReason,
   }),
 }))
 
@@ -223,26 +225,26 @@ describe('ReportManagement', () => {
   })
 
   it('does not directly refetch after resolving because mutation invalidates reports', async () => {
-    mocks.confirm.mockResolvedValueOnce(true)
+    mocks.confirmWithReason.mockResolvedValueOnce('reviewed')
     mocks.resolveReport.mockResolvedValueOnce(undefined)
     const wrapper = mountReportManagement()
 
     await wrapper.get('[data-testid="resolve-report"]').trigger('click')
     await flushPromises()
 
-    expect(mocks.resolveReport).toHaveBeenCalledWith({ reportId: 1, data: { status: 'RESOLVED' } })
+    expect(mocks.resolveReport).toHaveBeenCalledWith({ reportId: 1, data: { status: 'RESOLVED', remark: 'reviewed' } })
     expect(mocks.refetch).not.toHaveBeenCalled()
   })
 
   it('does not directly refetch after rejecting because mutation invalidates reports', async () => {
-    mocks.confirm.mockResolvedValueOnce(true)
+    mocks.confirmWithReason.mockResolvedValueOnce('insufficient evidence')
     mocks.resolveReport.mockResolvedValueOnce(undefined)
     const wrapper = mountReportManagement()
 
     await wrapper.get('[data-testid="reject-report"]').trigger('click')
     await flushPromises()
 
-    expect(mocks.resolveReport).toHaveBeenCalledWith({ reportId: 1, data: { status: 'REJECTED' } })
+    expect(mocks.resolveReport).toHaveBeenCalledWith({ reportId: 1, data: { status: 'REJECTED', remark: 'insufficient evidence' } })
     expect(mocks.refetch).not.toHaveBeenCalled()
   })
 

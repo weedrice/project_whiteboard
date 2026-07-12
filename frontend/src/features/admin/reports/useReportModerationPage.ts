@@ -16,7 +16,7 @@ interface SanctionTarget {
 export function useReportModerationPage() {
   const { t } = useI18n()
   const toastStore = useToastStore()
-  const { confirm } = useConfirm()
+  const { confirmWithReason } = useConfirm()
   const { useReports, useResolveReport } = useAdmin()
 
   const { page, size, params, handlePageChange, handleSizeChange } = usePaginatedQueryState({
@@ -91,10 +91,10 @@ export function useReportModerationPage() {
   }
 
   async function handleResolve(report: Report) {
-    const isConfirmed = await confirm(t('admin.reports.messages.confirmResolve'))
-    if (!isConfirmed) return
+    const remark = await confirmWithReason(t('admin.reports.messages.confirmResolve'), t('admin.reports.actions.resolve'), t('admin.reports.remark'))
+    if (!remark) return
     try {
-      await resolveReport({ reportId: report.reportId, data: { status: 'RESOLVED' } })
+      await resolveReport({ reportId: report.reportId, data: { status: 'RESOLVED', remark } })
       toastStore.addToast(t('admin.reports.messages.resolved'), 'success')
     } catch {
       // Error handled globally
@@ -102,10 +102,10 @@ export function useReportModerationPage() {
   }
 
   async function handleReject(report: Report) {
-    const isConfirmed = await confirm(t('admin.reports.messages.confirmReject'))
-    if (!isConfirmed) return
+    const remark = await confirmWithReason(t('admin.reports.messages.confirmReject'), t('admin.reports.actions.reject'), t('admin.reports.remark'))
+    if (!remark) return
     try {
-      await resolveReport({ reportId: report.reportId, data: { status: 'REJECTED' } })
+      await resolveReport({ reportId: report.reportId, data: { status: 'REJECTED', remark } })
       toastStore.addToast(t('admin.reports.messages.rejected'), 'success')
     } catch {
       // Error handled globally
