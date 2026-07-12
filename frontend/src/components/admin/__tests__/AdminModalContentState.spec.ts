@@ -23,4 +23,22 @@ describe('AdminModalContentState', () => {
       slots: { default: 'content' },
     }).text()).toContain('content')
   })
+
+  it('announces loading, error, and empty states with matching urgency', () => {
+    const loading = mount(AdminModalContentState, {
+      props: { loading: true, loadingText: 'loading' },
+    })
+    expect(loading.get('[role="status"]').attributes('aria-busy')).toBe('true')
+    expect(loading.get('[role="status"]').attributes('aria-live')).toBe('polite')
+
+    const error = mount(AdminModalContentState, {
+      props: { error: true, errorText: 'failed' },
+    })
+    expect(error.get('[role="alert"]').attributes('aria-live')).toBe('assertive')
+
+    const empty = mount(AdminModalContentState, {
+      props: { empty: true, emptyText: 'empty' },
+    })
+    expect(empty.get('[role="status"]').attributes('aria-live')).toBe('polite')
+  })
 })

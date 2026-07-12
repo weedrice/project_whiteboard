@@ -29,10 +29,10 @@ const resolvedEmptyText = computed(() => props.emptyText ?? t('common.noData'))
 </script>
 
 <template>
-  <div v-if="loading" :class="paddingClass">
+  <div v-if="loading" :class="paddingClass" role="status" aria-live="polite" aria-busy="true">
     <slot name="loading">
       <div class="flex flex-col items-center justify-center gap-2 text-sm nv-text-subtle">
-        <BaseSpinner size="lg" />
+        <BaseSpinner size="lg" aria-hidden="true" />
         <span v-if="resolvedLoadingText">{{ resolvedLoadingText }}</span>
       </div>
     </slot>
@@ -40,7 +40,7 @@ const resolvedEmptyText = computed(() => props.emptyText ?? t('common.noData'))
 
   <div v-else-if="error" :class="paddingClass">
     <slot name="error">
-      <div class="rounded nv-status-danger px-4 py-3 text-sm">
+      <div class="rounded nv-status-danger px-4 py-3 text-sm" role="alert" aria-live="assertive">
         {{ resolvedErrorText }}
       </div>
     </slot>
@@ -48,7 +48,7 @@ const resolvedEmptyText = computed(() => props.emptyText ?? t('common.noData'))
 
   <div v-else-if="empty" :class="paddingClass">
     <slot name="empty">
-      <p v-if="resolvedEmptyText" class="text-center text-sm nv-text-subtle">{{ resolvedEmptyText }}</p>
+      <p v-if="resolvedEmptyText" class="text-center text-sm nv-text-subtle" role="status" aria-live="polite">{{ resolvedEmptyText }}</p>
     </slot>
   </div>
 
