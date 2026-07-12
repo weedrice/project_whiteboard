@@ -69,6 +69,7 @@ export const adminSystemMessages = {
       deleteFailed: '스페이스 삭제 실패',
       confirmDelete: '정말 이 스페이스를 삭제하시겠습니까?',
       confirmDiscardChanges: '저장하지 않은 변경사항이 있습니다. 이동하시겠습니까?',
+      confirmDeactivate: '이 스페이스를 비활성화하시겠습니까? 사용자 접근과 새 글 작성에 영향을 줄 수 있습니다.',
     },
   },
   errorLogs: {
@@ -201,6 +202,7 @@ export const adminSystemMessagesEn = {
       deleteFailed: 'Failed to delete space',
       confirmDelete: 'Delete this space?',
       confirmDiscardChanges: 'You have unsaved changes. Leave this page?',
+      confirmDeactivate: 'Deactivate this space? This may affect user access and new posts.',
     },
   },
   errorLogs: {

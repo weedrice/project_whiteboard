@@ -311,6 +311,11 @@ export function useAdminBoardEditor({ boardsData, updateBoard }: UseAdminBoardEd
       return
     }
 
+    if (selectedBoard.value.isActive && !form.isActive) {
+      const isConfirmed = await confirm(t('admin.boards.messages.confirmDeactivate'))
+      if (!isConfirmed) return
+    }
+
     const snapshot = createSnapshot()
     applySelectedBoardForm()
 

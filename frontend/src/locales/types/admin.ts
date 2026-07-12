@@ -334,6 +334,7 @@ export interface AdminMessages {
       deleteFailed: string
       confirmDelete: string
       confirmDiscardChanges: string
+      confirmDeactivate: string
     }
   }
   errorLogs: {

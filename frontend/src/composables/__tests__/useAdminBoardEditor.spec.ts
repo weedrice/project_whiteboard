@@ -113,6 +113,20 @@ describe('useAdminBoardEditor', () => {
     expect(editor.selectedBoardId.value).toBe(1)
   })
 
+  it('does not save when board deactivation is cancelled', async () => {
+    const boardsData = ref([createBoard({ boardId: 10, boardUrl: 'old-url' })])
+    const updateBoard = vi.fn().mockResolvedValue(undefined)
+    const editor = useAdminBoardEditor({ boardsData, updateBoard })
+    await nextTick()
+    editor.form.isActive = false
+    confirmMock.mockResolvedValueOnce(false)
+
+    await editor.handleSaveChanges()
+
+    expect(confirmMock).toHaveBeenCalledWith('admin.boards.messages.confirmDeactivate')
+    expect(updateBoard).not.toHaveBeenCalled()
+  })
+
   it('blocks saving and shows the shared validation toast when required fields are missing', async () => {
     const boardsData = ref([
       createBoard({ boardId: 10, boardName: 'Old', boardUrl: 'old-url', sortOrder: 1 })
