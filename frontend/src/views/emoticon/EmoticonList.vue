@@ -74,7 +74,7 @@ function handleSearchKeyup(event: KeyboardEvent) {
 </script>
 
 <template>
-  <div class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+  <div class="mx-auto max-w-7xl">
     <div class="mb-8">
       <h1 class="text-2xl font-bold nv-title">{{ t('emoticon.title') }}</h1>
       <p class="mt-1 text-sm nv-text-subtle">{{ t('emoticon.list.description') }}</p>
@@ -187,14 +187,14 @@ function handleSearchKeyup(event: KeyboardEvent) {
         </div>
 
         <div class="flex-1 min-w-0 w-full sm:w-auto flex justify-end">
-          <router-link
+          <BaseButton
             v-if="authStore.isAuthenticated"
             to="/emoticons/register"
-            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-[var(--nv-accent)] hover:brightness-95 nv-focus-ring whitespace-nowrap"
+            class="whitespace-nowrap"
           >
             <PlusCircle class="-ml-1 mr-2 h-5 w-5" />
             {{ t('emoticon.list.register') }}
-          </router-link>
+          </BaseButton>
         </div>
       </div>
     </div>

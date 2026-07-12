@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { RouterLink } from 'vue-router'
 import { CircleDot, FileText, TrendingUp as TrendingUpIcon } from 'lucide-vue-next'
 import { useHead } from '@unhead/vue'
 import { useI18n } from 'vue-i18n'
 import ErrorState from '@/components/common/ui/ErrorState.vue'
 import BaseSegmentedControl from '@/components/common/ui/BaseSegmentedControl.vue'
+import BaseButton from '@/components/common/ui/BaseButton.vue'
 import HomeBoardStrip from '@/components/home/HomeBoardStrip.vue'
 import HomeAttendancePanel from '@/components/home/HomeAttendancePanel.vue'
 import HomeLandingSkeleton from '@/components/home/HomeLandingSkeleton.vue'
@@ -131,18 +131,17 @@ useHead({
               {{ $t('home.landing.emptyDescription') }}
             </p>
             <div v-if="!isFetching" class="mt-5 flex flex-wrap gap-2">
-              <RouterLink
+              <BaseButton
                 to="/board/create"
-                class="inline-flex items-center justify-center rounded-full bg-[var(--nv-accent)] px-4 py-2 text-sm font-semibold text-white transition hover:brightness-95"
               >
                 {{ $t('home.landing.emptyPrimaryAction') }}
-              </RouterLink>
-              <RouterLink
+              </BaseButton>
+              <BaseButton
                 to="/boards"
-                class="inline-flex items-center justify-center rounded-full border border-[var(--nv-line)] px-4 py-2 text-sm font-semibold text-[var(--nv-ink)] transition hover:bg-[var(--nv-surface-2)]"
+                variant="secondary"
               >
                 {{ $t('home.landing.emptySecondaryAction') }}
-              </RouterLink>
+              </BaseButton>
             </div>
           </div>
 

@@ -73,6 +73,29 @@ describe('BaseButton', () => {
         expect(wrapper.classes()).toContain('text-base')
     })
 
+    it('renders a router link with the same button styles when to is provided', () => {
+        const wrapper = mount(BaseButton, {
+            props: {
+                to: '/boards',
+                variant: 'secondary',
+            },
+            slots: {
+                default: 'Boards',
+            },
+            global: {
+                stubs: {
+                    RouterLink: {
+                        props: ['to'],
+                        template: '<a :href="to"><slot /></a>',
+                    },
+                },
+            },
+        })
+
+        expect(wrapper.get('a').attributes('href')).toBe('/boards')
+        expect(wrapper.get('a').classes()).toContain('btn-secondary')
+    })
+
     it('falls back to primary variant for unknown variant values', () => {
         const wrapper = mount(BaseButton, {
             props: {

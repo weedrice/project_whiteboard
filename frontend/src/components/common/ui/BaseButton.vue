@@ -1,16 +1,20 @@
 <template>
-  <button
-    :type="type"
+  <component
+    :is="to ? RouterLink : 'button'"
+    :to="to"
+    :type="to ? undefined : type"
     :class="[
     btnClass,
     sizeClass,
     'flex justify-center items-center',
     loading ? 'gap-2' : '',
-    isDisabled ? 'opacity-50 cursor-not-allowed' : ''
+    isDisabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
   ]"
-    :disabled="isDisabled"
+    :disabled="to ? undefined : isDisabled"
+    :aria-disabled="to && isDisabled ? 'true' : undefined"
+    :tabindex="to && isDisabled ? -1 : undefined"
     :aria-busy="loading ? 'true' : undefined"
-    @click="$emit('click', $event)"
+    @click="handleClick"
   >
     <BaseSpinner
       v-if="loading"
@@ -20,11 +24,12 @@
       class="shrink-0"
     />
     <slot></slot>
-  </button>
+  </component>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { RouterLink, type RouteLocationRaw } from 'vue-router'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 
 type ButtonType = 'button' | 'submit' | 'reset'
@@ -37,6 +42,7 @@ const props = withDefaults(defineProps<{
   disabled?: boolean
   fullWidth?: boolean
   loading?: boolean
+  to?: RouteLocationRaw
 }>(), {
   type: 'button',
   variant: 'primary',
@@ -46,7 +52,7 @@ const props = withDefaults(defineProps<{
   loading: false
 })
 
-defineEmits<{
+const emit = defineEmits<{
   (e: 'click', event: MouseEvent): void
 }>()
 
@@ -67,6 +73,15 @@ const btnClass = computed(() => {
 })
 
 const isDisabled = computed(() => props.disabled || props.loading)
+
+const handleClick = (event: MouseEvent) => {
+  if (isDisabled.value) {
+    event.preventDefault()
+    event.stopImmediatePropagation()
+    return
+  }
+  emit('click', event)
+}
 
 const sizeClass = computed(() => {
   switch (props.size) {
