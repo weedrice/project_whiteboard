@@ -1,4 +1,6 @@
 import { mount } from '@vue/test-utils'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import type { Editor } from '@tiptap/core'
 import PostEditorToolbar from '../PostEditorToolbar.vue'
@@ -36,5 +38,14 @@ describe('PostEditorToolbar responsive contract', () => {
 
     expect(wrapper.findAll('.tiptap-toolbar-row--scrollable')).toHaveLength(2)
     expect(wrapper.find('.tiptap-toolbar-group--format').exists()).toBe(true)
+  })
+
+  it('keeps toolbar and color controls at the shared touch target size', () => {
+    const toolbarStyles = readFileSync(resolve(process.cwd(), 'src/components/board/editor/editor-toolbar.css'), 'utf8')
+    const popoverStyles = readFileSync(resolve(process.cwd(), 'src/components/board/editor/editor-popovers.css'), 'utf8')
+
+    expect(toolbarStyles).toMatch(/\.tiptap-btn\s*{[\s\S]*?width: 2\.75rem;[\s\S]*?height: 2\.75rem;/)
+    expect(toolbarStyles).toMatch(/\.tiptap-select\s*{[\s\S]*?height: 2\.75rem;/)
+    expect(popoverStyles).toMatch(/\.color-panel-custom-input\s*{[\s\S]*?width: 44px;[\s\S]*?height: 44px;/)
   })
 })

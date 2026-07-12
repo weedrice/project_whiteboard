@@ -83,7 +83,11 @@
 }
 
 .link-popover-remove {
+  align-items: center;
+  display: inline-flex;
   margin-right: auto;
+  min-height: 2.75rem;
+  padding-inline: 0.5rem;
   font-size: 0.875rem;
   color: var(--nv-danger);
   background: none;
@@ -123,6 +127,7 @@
   align-items: center;
   gap: 8px;
   width: 100%;
+  min-height: 2.75rem;
   margin-bottom: 8px;
   padding: 6px 8px;
   border-radius: 0.7rem;
@@ -173,6 +178,7 @@
 
 .color-panel-swatch {
   width: 100%;
+  min-height: 2.75rem;
   aspect-ratio: 1;
   border-radius: 0.45rem;
   border: 2px solid transparent;
@@ -198,8 +204,8 @@
 }
 
 .color-panel-custom-input {
-  width: 28px;
-  height: 28px;
+  width: 44px;
+  height: 44px;
   border-radius: 0.45rem;
   border: 1px solid var(--nv-line);
   padding: 0;

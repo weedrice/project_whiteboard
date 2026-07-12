@@ -1,6 +1,6 @@
 .tiptap-btn {
-  width: 2.2rem;
-  height: 2.2rem;
+  width: 2.75rem;
+  height: 2.75rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -89,7 +89,7 @@
 }
 
 .tiptap-select {
-  height: 2.25rem;
+  height: 2.75rem;
   min-width: 7rem;
   padding: 0 0.75rem;
   border-radius: 0.85rem;
@@ -123,17 +123,11 @@
     max-width: none;
   }
 
-  .tiptap-btn {
-    height: 2.5rem;
-    width: 2.5rem;
-  }
-
   .tiptap-btn-pill {
     width: auto;
   }
 
   .tiptap-select {
-    height: 2.5rem;
     min-width: 6.5rem;
   }
 }

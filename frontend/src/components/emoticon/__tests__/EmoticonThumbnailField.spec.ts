@@ -24,5 +24,7 @@ describe('EmoticonThumbnailField', () => {
     expect(image.attributes('tabindex')).toBeUndefined()
     expect(image.attributes('title')).toBeUndefined()
     expect(editButton.attributes('aria-label')).toBe('common.edit')
+    expect(editButton.classes()).toEqual(expect.arrayContaining(['h-11', 'w-11']))
+    expect(editButton.classes()).not.toEqual(expect.arrayContaining(['sm:h-8', 'sm:w-8']))
   })
 })

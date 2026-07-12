@@ -33,7 +33,9 @@ describe('emoticon image layout', () => {
     })
 
     const image = wrapper.get('img')
+    const action = wrapper.get('button')
     expect(image.classes()).toEqual(expect.arrayContaining(['aspect-square', 'w-full']))
     expect(image.attributes('style')).toBeUndefined()
+    expect(action.classes()).toEqual(expect.arrayContaining(['h-11', 'w-11']))
   })
 })
