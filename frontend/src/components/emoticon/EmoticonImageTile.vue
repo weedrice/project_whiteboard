@@ -21,15 +21,14 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <div class="relative" :class="{ 'opacity-40': muted }">
+  <div class="relative min-w-0" :class="{ 'opacity-40': muted }">
     <img
       :src="src"
       :alt="alt"
-      class="w-full aspect-square object-contain rounded"
+      class="aspect-square w-full object-contain rounded"
       :class="variant === 'new'
         ? 'bg-[var(--nv-success-bg)] border-2 border-[var(--nv-success-border)]'
         : 'nv-surface-muted'"
-      style="width: 100px; height: 100px;"
     />
     <button
       type="button"

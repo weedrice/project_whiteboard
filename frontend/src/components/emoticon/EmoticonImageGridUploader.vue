@@ -49,7 +49,7 @@ function openFileInput() {
       {{ t('emoticon.form.imageHelp') }}
     </p>
 
-    <div class="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 gap-2 mb-4">
+    <div class="emoticon-image-grid mb-4 grid gap-2">
       <EmoticonImageTile
         v-for="image in existingImages"
         :key="'existing-' + image.imageId"
@@ -89,13 +89,12 @@ function openFileInput() {
         class="hidden"
         @change="emit('select', $event)"
       />
-      <div v-if="currentCount < maxCount">
+      <div v-if="currentCount < maxCount" class="min-w-0">
         <button
           type="button"
           :aria-label="$t('common.add')"
           :title="$t('common.add')"
-          class="w-full aspect-square border-2 border-dashed nv-border rounded flex flex-col items-center justify-center nv-text-subtle hover:border-[var(--nv-focus)] hover:text-[var(--nv-accent)] transition-colors"
-          style="width: 100px; height: 100px;"
+          class="aspect-square w-full border-2 border-dashed nv-border rounded flex flex-col items-center justify-center nv-text-subtle hover:border-[var(--nv-focus)] hover:text-[var(--nv-accent)] transition-colors"
           @click="openFileInput"
         >
           <Plus class="w-6 h-6" />
@@ -106,3 +105,9 @@ function openFileInput() {
     <slot name="meta" />
   </div>
 </template>
+
+<style scoped>
+.emoticon-image-grid {
+  grid-template-columns: repeat(auto-fill, minmax(min(4.5rem, 100%), 1fr));
+}
+</style>
