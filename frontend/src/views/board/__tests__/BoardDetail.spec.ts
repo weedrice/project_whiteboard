@@ -392,7 +392,7 @@ describe('BoardDetail', () => {
     })
 
     const searchInput = wrapper.find('#board-search-input')
-    const searchSelect = wrapper.find('select[aria-label="board.detail.searchScopeLabel"]')
+    const searchSelect = wrapper.find('#board-search-type')
     const searchButton = wrapper.findAll('button').find((button) => button.text() === 'search.doSearch')
     const searchWriteLink = wrapper.find('.nv-board-search-write-btn')
 
@@ -403,6 +403,7 @@ describe('BoardDetail', () => {
 
     expect(searchSelect.classes()).toContain('nv-board-search-select')
     expect(searchSelect.attributes('id')).toBe('board-search-type')
+    expect(wrapper.get('label[for="board-search-type"]').text()).toBe('board.detail.searchScopeLabel')
     expect(searchSelect.attributes('name')).toBe('searchType')
     expect(searchInput.attributes('name')).toBe('searchQuery')
     expect(searchInput.attributes('autocomplete')).toBe('off')
