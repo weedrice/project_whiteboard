@@ -38,6 +38,8 @@ const mountConfiguredModal = () => mount(BaseModal, {
     props: {
         isOpen: true,
         title: 'Configured',
+        description: 'A concise modal description.',
+        titleTag: 'h3' as const,
         headerClass: 'custom-header',
         bodyClass: 'custom-body',
         footerClass: 'custom-footer',
@@ -133,18 +135,31 @@ describe('BaseModal', () => {
         expect(wrapper.get('.modal-header .nv-title').text()).toBe('Modal')
     })
 
-    it('generates matching aria ids for the dialog title and body', async () => {
+    it('labels the dialog without treating the entire body as its description', async () => {
         const wrapper = track(mountModal(true))
         await nextTick()
 
         const dialog = wrapper.get('[role="dialog"]')
         const titleId = dialog.attributes('aria-labelledby')
-        const descriptionId = dialog.attributes('aria-describedby')
 
         expect(titleId).toBeTruthy()
-        expect(descriptionId).toBeTruthy()
+        expect(dialog.attributes('aria-describedby')).toBeUndefined()
         expect(wrapper.findAll('[id]').find((node) => node.attributes('id') === titleId)?.text()).toBe('Modal')
-        expect(wrapper.findAll('[id]').find((node) => node.attributes('id') === descriptionId)?.classes()).toContain('modal-body')
+        expect(wrapper.get('h2').text()).toBe('Modal')
+        expect(wrapper.get('.modal-body').attributes('id')).toBeUndefined()
+    })
+
+    it('links an optional concise description and supports a configured title level', async () => {
+        const wrapper = track(mountConfiguredModal())
+        await nextTick()
+
+        const dialog = wrapper.get('[role="dialog"]')
+        const descriptionId = dialog.attributes('aria-describedby')
+
+        expect(descriptionId).toBeTruthy()
+        expect(wrapper.get(`#${descriptionId}`).text()).toBe('A concise modal description.')
+        expect(wrapper.get(`#${descriptionId}`).classes()).toContain('sr-only')
+        expect(wrapper.get('h3').text()).toBe('Configured')
     })
 
     it('applies shell configuration without forcing backdrop or escape close', async () => {

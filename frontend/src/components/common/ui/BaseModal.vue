@@ -1,15 +1,15 @@
 <template>
   <Teleport to="body">
     <div v-if="isOpen" class="modal-overlay" :style="{ zIndex: String(zIndex) }" @click.self="handleBackdropClick" role="dialog" aria-modal="true"
-      :aria-labelledby="titleId" :aria-describedby="descriptionId">
+      :aria-labelledby="titleId" :aria-describedby="description ? descriptionId : undefined">
       <div :class="['modal-container', sizeClass, { 'modal-container-mobile-full': mobileFull && !mobileFitContent, 'modal-container-mobile-fit': mobileFitContent }]" ref="modalRef">
         <!-- Modal content -->
         <div class="modal-content">
           <!-- Modal header -->
           <div :class="['modal-header', headerClass]">
-            <h3 :id="titleId" class="text-xl font-medium nv-title">
+            <component :is="titleTag" :id="titleId" class="text-xl font-medium nv-title">
               {{ title || 'Modal' }}
-            </h3>
+            </component>
             <BaseButton
               @click="close"
               variant="ghost"
@@ -26,8 +26,9 @@
               <span class="sr-only">{{ closeAriaLabel || $t('common.close') }}</span>
             </BaseButton>
           </div>
+          <p v-if="description" :id="descriptionId" class="sr-only">{{ description }}</p>
           <!-- Modal body -->
-          <div :id="descriptionId" :class="['modal-body', bodyClass]">
+          <div :class="['modal-body', bodyClass]">
             <slot></slot>
           </div>
           <!-- Modal footer -->
@@ -41,26 +42,7 @@
 </template>
 
 <script lang="ts">
-let bodyScrollLockCount = 0
-let previousBodyOverflow: string | null = null
 const modalStack: symbol[] = []
-
-function lockBodyScroll() {
-  if (bodyScrollLockCount === 0) {
-    previousBodyOverflow = document.body.style.overflow
-  }
-  bodyScrollLockCount += 1
-  document.body.style.overflow = 'hidden'
-}
-
-function unlockBodyScroll() {
-  if (bodyScrollLockCount === 0) return
-  bodyScrollLockCount -= 1
-  if (bodyScrollLockCount === 0) {
-    document.body.style.overflow = previousBodyOverflow ?? ''
-    previousBodyOverflow = null
-  }
-}
 
 function registerOpenModal(modalId: symbol) {
   if (!modalStack.includes(modalId)) {
@@ -81,14 +63,17 @@ function isTopOpenModal(modalId: symbol) {
 </script>
 
 <script setup lang="ts">
-import { ref, computed, watch, onUnmounted, nextTick, useId } from 'vue'
+import { ref, computed, watch, onUnmounted, nextTick, toRef, useId } from 'vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { useEventListener } from '@/composables/useEventListener'
 import { useFocusTrap } from '@/composables/useFocusTrap'
+import { useBodyScrollLock } from '@/composables/useBodyScrollLock'
 
 const props = withDefaults(defineProps<{
   isOpen: boolean
   title?: string
+  description?: string
+  titleTag?: 'h1' | 'h2' | 'h3'
   size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'full'
   mobileFull?: boolean
   mobileFitContent?: boolean
@@ -103,6 +88,8 @@ const props = withDefaults(defineProps<{
   closeOnEscape?: boolean
 }>(), {
   size: 'md',
+  description: '',
+  titleTag: 'h2',
   mobileFull: false,
   mobileFitContent: false,
   zIndex: 50,
@@ -148,8 +135,7 @@ const modalStackId = Symbol(`base-modal-${modalId}`)
 const titleId = `${modalId}-title`
 const descriptionId = `${modalId}-description`
 const { trapFocus, restoreFocus } = useFocusTrap(modalRef, () => props.isOpen)
-
-let hasLockedBodyScroll = false
+useBodyScrollLock(toRef(props, 'isOpen'))
 
 const close = () => {
   emit('close')
@@ -159,18 +145,6 @@ const handleBackdropClick = () => {
   if (props.closeOnBackdrop) {
     close()
   }
-}
-
-function lockModalBodyScroll() {
-  if (hasLockedBodyScroll) return
-  lockBodyScroll()
-  hasLockedBodyScroll = true
-}
-
-function unlockModalBodyScroll() {
-  if (!hasLockedBodyScroll) return
-  unlockBodyScroll()
-  hasLockedBodyScroll = false
 }
 
 const handleKeyDown = (event: KeyboardEvent) => {
@@ -186,11 +160,9 @@ watch(() => props.isOpen, (isOpen) => {
     nextTick(() => {
       if (!props.isOpen) return
       trapFocus()
-      lockModalBodyScroll()
     })
   } else {
     unregisterOpenModal(modalStackId)
-    unlockModalBodyScroll()
     restoreFocus()
   }
 }, { immediate: true })
@@ -200,7 +172,6 @@ useEventListener(() => document, 'keydown', handleKeyDown)
 onUnmounted(() => {
   // Ensure body scroll is restored
   unregisterOpenModal(modalStackId)
-  unlockModalBodyScroll()
   restoreFocus()
 })
 </script>
