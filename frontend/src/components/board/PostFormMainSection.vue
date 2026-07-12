@@ -16,6 +16,7 @@ import type { PostFormPoll } from '@/utils/postForm'
 defineProps<{
   title: string
   content: string
+  titleError?: string
   tags: string[]
   poll: PostFormPoll | null
   mode: 'create' | 'edit'
@@ -47,6 +48,7 @@ const emit = defineEmits<{
   (event: 'insertVideo'): void
   (event: 'selectEmoticon', image: EmoticonImage): void
   (event: 'fileUploaded', fileId: number): void
+  (event: 'blurTitle'): void
 }>()
 </script>
 
@@ -67,9 +69,11 @@ const emit = defineEmits<{
         required
         :placeholder="$t('board.writePost.placeholder.title')"
         :label="$t('common.title')"
+        :error="titleError"
         labelClass="!text-xs !font-medium !uppercase !tracking-[0.18em] !text-[var(--nv-muted)]"
         inputClass="!rounded-xl !border-[var(--nv-line)] !bg-[var(--nv-elevated)] !px-4 !py-3 !text-sm sm:!text-base"
         @update:model-value="emit('update:title', String($event))"
+        @blur="emit('blurTitle')"
       />
 
       <PostFormEditorSection

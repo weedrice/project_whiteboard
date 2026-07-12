@@ -23,6 +23,7 @@ import PostPreviewModal from '@/components/board/PostPreviewModal.vue'
 import { requiresSandboxedPostHtml } from '@/utils/postHtmlSandbox'
 import { usePostComposerState } from '@/features/board/posts/form/usePostComposerState'
 import type { PostSeries } from '@/types'
+import { useFieldValidation } from '@/composables/useFieldValidation'
 
 const props = defineProps<{
   mode: 'create' | 'edit'
@@ -130,6 +131,15 @@ const {
   showNotice,
   canShowNsfw,
 })
+
+type PostRequiredField = 'title'
+const postValidation = useFieldValidation<PostRequiredField>({
+  validators: {
+    title: (values) => String(values.title ?? '').trim() ? '' : t('board.writePost.placeholder.title'),
+  },
+  fieldIds: { title: 'title' },
+})
+const postRequiredValues = computed(() => ({ title: form.value.title }))
 
 const {
   filteredCategories,
@@ -270,6 +280,11 @@ const { handleSubmit } = usePostComposerSubmit({
   scheduledAt,
   t,
   addToast: toastStore.addToast,
+  validateBeforeSubmit: () => {
+    const valid = postValidation.validateAll(postRequiredValues.value)
+    if (!valid) toastStore.addToast(t('board.writePost.validation'), 'error')
+    return valid
+  },
 })
 
 function handleCancel() {
@@ -371,6 +386,7 @@ defineExpose({
         <PostFormMainSection
           :title="form.title"
           :content="form.content"
+          :title-error="postValidation.visibleError('title')"
           :tags="form.tags"
           :poll="form.poll"
           :mode="props.mode"
@@ -388,6 +404,7 @@ defineExpose({
           :assign-video-popover="assignVideoPopover"
           @update:title="form.title = $event"
           @update:content="form.content = $event"
+          @blur-title="postValidation.touchField('title', postRequiredValues)"
           @update:tags="form.tags = $event"
           @update:poll="form.poll = $event"
           @update:editor-view-mode="handleEditorViewModeChange"

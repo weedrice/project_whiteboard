@@ -27,7 +27,8 @@ describe('useFieldValidation', () => {
     const focus = vi.fn()
     validation.registerFocus('title', focus)
 
-    await expect(validation.validateAll({ title: '', content: '' })).resolves.toBe(false)
+    expect(validation.validateAll({ title: '', content: '' })).toBe(false)
+    await Promise.resolve()
     expect(validation.visibleError('content')).toBe('Enter content')
     expect(focus).toHaveBeenCalledOnce()
   })

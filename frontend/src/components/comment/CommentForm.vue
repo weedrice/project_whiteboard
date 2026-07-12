@@ -18,6 +18,7 @@ import EmoticonPicker from '@/components/common/widgets/EmoticonPicker.vue'
 import type { EmoticonImage } from '@/types/emoticon'
 import type { CommentMention, MentionCandidate } from '@/types'
 import { Smile } from 'lucide-vue-next'
+import { useFieldValidation } from '@/composables/useFieldValidation'
 
 const toastStore = useToastStore()
 const authStore = useAuthStore()
@@ -50,6 +51,12 @@ const content = ref(props.initialContent)
 const isSubmitting = computed(() => isCreating.value || isUpdating.value)
 const trimmedContent = computed(() => content.value.trim())
 const canSubmit = computed(() => !!trimmedContent.value && !isSubmitting.value)
+const commentValues = computed(() => ({ content: content.value }))
+const commentValidation = useFieldValidation<'content'>({
+  validators: {
+    content: (values) => String(values.content ?? '').trim() ? '' : t('comment.writeComment'),
+  },
+})
 const showEmoticonPicker = ref(false)
 const selectedMentionUsers = ref<MentionCandidate[]>(
   props.initialMentions.map((mention) => ({
@@ -81,6 +88,7 @@ const getTextarea = () => {
   const root = textareaRoot.value?.$el as HTMLElement | undefined
   return root?.querySelector('textarea') ?? (document.getElementById(textareaId.value) as HTMLTextAreaElement | null)
 }
+commentValidation.registerFocus('content', () => getTextarea()?.focus())
 
 const findActiveMention = (textarea: HTMLTextAreaElement | null) => {
   if (!textarea || props.commentId) return null
@@ -176,6 +184,7 @@ const handleEmoticonSelect = (image: EmoticonImage) => {
 }
 
 async function handleSubmit() {
+  if (!await commentValidation.validateAll(commentValues.value)) return
   if (!canSubmit.value) return
 
   if (props.commentId) {
@@ -223,6 +232,8 @@ async function handleSubmit() {
       <BaseTextarea ref="textareaRoot" :id="textareaId" v-model="content" rows="3" maxlength="1000" name="comment-content"
         :label="parentId ? $t('comment.writeReply') : $t('comment.writeComment')"
         :placeholder="parentId ? $t('comment.writeReply') : $t('comment.writeComment')" required hideLabel
+        :error="commentValidation.visibleError('content')"
+        @blur="commentValidation.touchField('content', commentValues)"
         @keyup="updateMentionCandidates"
         @click="updateMentionCandidates"
         @keydown="handleMentionKeydown" />

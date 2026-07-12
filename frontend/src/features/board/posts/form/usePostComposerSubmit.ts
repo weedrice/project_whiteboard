@@ -78,6 +78,7 @@ type UsePostComposerSubmitOptions = {
   scheduledAt: Ref<string>
   t: (key: string, params?: Record<string, unknown>) => string
   addToast: (message: string, type: ComposerToastType) => void
+  validateBeforeSubmit?: () => Promise<boolean> | boolean
 }
 
 export function usePostComposerSubmit(options: UsePostComposerSubmitOptions) {
@@ -92,6 +93,11 @@ export function usePostComposerSubmit(options: UsePostComposerSubmitOptions) {
   }
 
   async function handleSubmit() {
+    if (options.validateBeforeSubmit) {
+      const validationResult = options.validateBeforeSubmit()
+      const isValid = validationResult instanceof Promise ? await validationResult : validationResult
+      if (!isValid) return
+    }
     if (!options.form.value.title.trim()) {
       options.addToast(options.t('board.writePost.validation'), 'error')
       return

@@ -9,8 +9,8 @@ interface UseFieldValidationOptions<TKey extends string> {
 }
 
 export function useFieldValidation<TKey extends string>({ validators, fieldIds = {} }: UseFieldValidationOptions<TKey>) {
-  const touched = reactive({} as Record<TKey, boolean>)
-  const errors = reactive({} as Record<TKey, string>)
+  const touched = reactive<Record<string, boolean>>({}) as Record<TKey, boolean>
+  const errors = reactive<Record<string, string>>({}) as Record<TKey, string>
   const submitted = ref(false)
   const focusHandlers = new Map<TKey, () => void>()
 
@@ -50,12 +50,12 @@ export function useFieldValidation<TKey extends string>({ validators, fieldIds =
     element?.scrollIntoView({ block: 'center', behavior: 'smooth' })
   }
 
-  async function validateAll(values: FieldValues<TKey>) {
+  function validateAll(values: FieldValues<TKey>) {
     submitted.value = true
     const valid = (Object.keys(validators) as TKey[])
       .map((field) => validateField(field, values))
       .every(Boolean)
-    if (!valid) await focusFirstError()
+    if (!valid) void focusFirstError()
     return valid
   }
 
