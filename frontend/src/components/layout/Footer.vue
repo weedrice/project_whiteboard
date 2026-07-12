@@ -46,21 +46,21 @@ const commitHash = __COMMIT_HASH__
               to="/inquiry"
               class="nv-footer-link inline-flex min-h-[44px] items-center justify-center rounded-md px-2 py-1 text-sm touch-manipulation sm:min-h-[36px] md:py-1.5 md:pl-3"
             >
-              {{ '\uBB38\uC758\uD558\uAE30' }}
+              {{ $t('common.footer.contact') }}
             </router-link>
             <span class="nv-footer-separator md:ml-2" aria-hidden="true">|</span>
             <router-link
               to="/terms"
               class="nv-footer-link inline-flex min-h-[44px] items-center justify-center rounded-md px-2 py-1 text-sm touch-manipulation sm:min-h-[36px] md:py-1.5 md:pl-3"
             >
-              {{ '\uC11C\uBE44\uC2A4\uC57D\uAD00' }}
+              {{ $t('common.footer.termsOfService') }}
             </router-link>
             <span class="nv-footer-separator md:ml-2" aria-hidden="true">|</span>
             <router-link
               to="/privacy"
               class="nv-footer-link inline-flex min-h-[44px] items-center justify-center rounded-md px-2 py-1 text-sm touch-manipulation sm:min-h-[36px] md:py-1.5"
             >
-              {{ '\uAC1C\uC778\uC815\uBCF4 \uCC98\uB9AC\uBC29\uCE68' }}
+              {{ $t('common.footer.privacyPolicy') }}
             </router-link>
           </nav>
         </div>

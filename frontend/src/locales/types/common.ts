@@ -125,6 +125,9 @@ export interface CommonMessages {
     github: string
     switchToLight: string
     switchToDark: string
+    contact: string
+    termsOfService: string
+    privacyPolicy: string
   }
   error: {
     goHome: string

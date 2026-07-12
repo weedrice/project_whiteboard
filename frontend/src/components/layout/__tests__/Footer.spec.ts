@@ -78,4 +78,22 @@ describe('Footer', () => {
         expect(button.attributes('aria-label')).toBe('common.footer.switchToDark')
         expect(button.find('svg').attributes('aria-hidden')).toBe('true')
     })
+
+    it('renders legal navigation with localized labels', () => {
+        const wrapper = mount(Footer, {
+            global: {
+                plugins: [router],
+                mocks: {
+                    $t: (msg: string) => msg
+                }
+            }
+        })
+
+        const links = wrapper.findAll('nav a')
+        expect(links.map(link => link.text())).toEqual([
+            'common.footer.contact',
+            'common.footer.termsOfService',
+            'common.footer.privacyPolicy'
+        ])
+    })
 })
