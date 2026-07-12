@@ -386,6 +386,31 @@ describe('HomeFeed', () => {
 
         expect(wrapper.find('[data-testid="home-skeleton"]').exists()).toBe(true)
         expect(wrapper.find('[data-testid="empty-state"]').exists()).toBe(false)
+        expect(wrapper.findAll('h1')).toHaveLength(1)
+        expect(wrapper.get('h1').text()).toBe('home.landing.curatedToday')
+    })
+
+    it('keeps one page heading while the landing data is in an error state', () => {
+        state.isError.value = true
+
+        const wrapper = mount(HomeFeed, {
+            global: {
+                mocks: { $t: (key: string) => key },
+                stubs: {
+                    RouterLink: RouterLinkStub,
+                    HomePostCard: HomePostCardStub,
+                    HomeActivityList: HomeActivityListStub,
+                    EmptyState: EmptyStateStub,
+                    ErrorState: ErrorStateStub,
+                    HomeAttendancePanel: true,
+                    HomeLandingSkeleton: HomeLandingSkeletonStub,
+                },
+            },
+        })
+
+        expect(wrapper.find('[data-testid="error-state"]').exists()).toBe(true)
+        expect(wrapper.findAll('h1')).toHaveLength(1)
+        expect(wrapper.get('h1').text()).toBe('home.landing.curatedToday')
     })
 
     it('changes the trending period through the filter bar', async () => {
