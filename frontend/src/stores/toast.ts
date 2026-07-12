@@ -16,7 +16,11 @@ export interface Toast {
 export const useToastStore = defineStore('toast', () => {
     const toasts = ref<Toast[]>([])
     let nextId = 0
-    const removalTimers = new Map<number, ReturnType<typeof setTimeout>>()
+    const removalTimers = new Map<number, {
+        timer: ReturnType<typeof setTimeout> | null
+        remaining: number
+        startedAt: number
+    }>()
     /** Last display timestamp for debouncing error toasts. */
     const lastErrorMessageShownAt = new Map<string, number>()
 
@@ -24,8 +28,16 @@ export const useToastStore = defineStore('toast', () => {
         const timer = removalTimers.get(id)
         if (!timer) return
 
-        clearTimeout(timer)
+        if (timer.timer) clearTimeout(timer.timer)
         removalTimers.delete(id)
+    }
+
+    const scheduleRemoval = (id: number, delay: number) => {
+        const timer = setTimeout(() => {
+            removalTimers.delete(id)
+            removeToast(id)
+        }, delay)
+        removalTimers.set(id, { timer, remaining: delay, startedAt: Date.now() })
     }
 
     const addToast = (message: string, type: Toast['type'] = 'info', duration = 3000, position: Toast['position'] = 'top-center') => {
@@ -53,12 +65,28 @@ export const useToastStore = defineStore('toast', () => {
         toasts.value.push(toast)
 
         if (duration > 0) {
-            const timer = setTimeout(() => {
-                removalTimers.delete(id)
-                removeToast(id)
-            }, duration)
-            removalTimers.set(id, timer)
+            scheduleRemoval(id, duration)
         }
+    }
+
+    const pauseToast = (id: number) => {
+        const removal = removalTimers.get(id)
+        if (!removal?.timer) return
+
+        clearTimeout(removal.timer)
+        removal.remaining = Math.max(0, removal.remaining - (Date.now() - removal.startedAt))
+        removal.timer = null
+    }
+
+    const resumeToast = (id: number) => {
+        const removal = removalTimers.get(id)
+        if (!removal || removal.timer) return
+        if (removal.remaining <= 0) {
+            removeToast(id)
+            return
+        }
+
+        scheduleRemoval(id, removal.remaining)
     }
 
     const removeToast = (id: number) => {
@@ -70,7 +98,9 @@ export const useToastStore = defineStore('toast', () => {
     }
 
     onScopeDispose(() => {
-        removalTimers.forEach((timer) => clearTimeout(timer))
+        removalTimers.forEach(({ timer }) => {
+            if (timer) clearTimeout(timer)
+        })
         removalTimers.clear()
         lastErrorMessageShownAt.clear()
     })
@@ -78,6 +108,8 @@ export const useToastStore = defineStore('toast', () => {
     return {
         toasts,
         addToast,
-        removeToast
+        removeToast,
+        pauseToast,
+        resumeToast,
     }
 })

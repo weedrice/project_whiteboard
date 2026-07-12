@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { X, CheckCircle, AlertCircle, Info, AlertTriangle } from 'lucide-vue-next'
-import type { Component } from 'vue'
+import { ref, type Component } from 'vue'
 import type { Toast } from '@/stores/toast'
 
 defineProps<{
@@ -9,7 +9,34 @@ defineProps<{
 
 const emit = defineEmits<{
   (e: 'close'): void
+  (e: 'pause'): void
+  (e: 'resume'): void
 }>()
+
+const toastRef = ref<HTMLElement | null>(null)
+const isHovered = ref(false)
+const hasFocusWithin = ref(false)
+
+const handleMouseEnter = () => {
+  if (!isHovered.value && !hasFocusWithin.value) emit('pause')
+  isHovered.value = true
+}
+
+const handleMouseLeave = () => {
+  isHovered.value = false
+  if (!hasFocusWithin.value) emit('resume')
+}
+
+const handleFocusIn = () => {
+  if (!isHovered.value && !hasFocusWithin.value) emit('pause')
+  hasFocusWithin.value = true
+}
+
+const handleFocusOut = (event: FocusEvent) => {
+  if (event.relatedTarget instanceof Node && toastRef.value?.contains(event.relatedTarget)) return
+  hasFocusWithin.value = false
+  if (!isHovered.value) emit('resume')
+}
 
 const icons: Record<Toast['type'], Component> = {
   success: CheckCircle,
@@ -28,10 +55,15 @@ const colors: Record<Toast['type'], string> = {
 
 <template>
   <div
+    ref="toastRef"
     class="pointer-events-auto w-full max-w-sm overflow-hidden rounded-lg border shadow-lg transition-all duration-300 ease-in-out transform hover:scale-102"
     :class="colors[toast.type] || colors.info"
-    role="status"
-    :aria-live="toast.type === 'error' ? 'assertive' : 'polite'"
+    :role="toast.type === 'error' ? 'alert' : 'status'"
+    :aria-live="toast.type === 'error' ? undefined : 'polite'"
+    @mouseenter="handleMouseEnter"
+    @mouseleave="handleMouseLeave"
+    @focusin="handleFocusIn"
+    @focusout="handleFocusOut"
   >
     <div class="p-4">
       <div class="flex items-start">

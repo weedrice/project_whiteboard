@@ -75,6 +75,22 @@ describe('Toast Store', () => {
             expect(store.toasts).toHaveLength(1)
         })
 
+        it('pauses and resumes the remaining display duration', () => {
+            store.addToast('Read me', 'info', 3000)
+            const id = store.toasts[0].id
+
+            vi.advanceTimersByTime(1000)
+            store.pauseToast(id)
+            vi.advanceTimersByTime(5000)
+            expect(store.toasts).toHaveLength(1)
+
+            store.resumeToast(id)
+            vi.advanceTimersByTime(1999)
+            expect(store.toasts).toHaveLength(1)
+            vi.advanceTimersByTime(1)
+            expect(store.toasts).toHaveLength(0)
+        })
+
         it('debounces duplicate error messages within 5 seconds', () => {
             store.addToast('same error', 'error', 0)
             store.addToast('same error', 'error', 0)

@@ -26,6 +26,7 @@ const hasMobileBottomNav = computed(() => (
         enter-from-class="-translate-y-2 opacity-0" enter-to-class="translate-y-0 opacity-100"
         leave-active-class="transition ease-in duration-100" leave-from-class="opacity-100" leave-to-class="opacity-0">
         <ToastMessage v-for="toast in topToasts" :key="toast.id" :toast="toast"
+          @pause="toastStore.pauseToast(toast.id)" @resume="toastStore.resumeToast(toast.id)"
           @close="toastStore.removeToast(toast.id)" />
       </TransitionGroup>
     </div>
@@ -39,6 +40,7 @@ const hasMobileBottomNav = computed(() => (
         enter-from-class="translate-y-2 opacity-0" enter-to-class="translate-y-0 opacity-100"
         leave-active-class="transition ease-in duration-100" leave-from-class="opacity-100" leave-to-class="opacity-0">
         <ToastMessage v-for="toast in bottomToasts" :key="toast.id" :toast="toast"
+          @pause="toastStore.pauseToast(toast.id)" @resume="toastStore.resumeToast(toast.id)"
           @close="toastStore.removeToast(toast.id)" />
       </TransitionGroup>
     </div>
