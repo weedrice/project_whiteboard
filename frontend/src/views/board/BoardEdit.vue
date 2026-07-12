@@ -6,12 +6,11 @@ import BoardForm from '@/components/board/BoardForm.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import UserSelectModal from '@/components/common/widgets/UserSelectModal.vue'
+import AdminAuditLogTable from '@/components/admin/AdminAuditLogTable.vue'
 import { boardApi } from '@/api/board'
 import { unwrapAxiosApiData } from '@/api/response'
 import { useBoardEditPage } from '@/composables/useBoardEditPage'
-import type { SupportedLocale } from '@/locales/types'
 import type { ModerationAuditLog } from '@/types'
-import { formatDateTimeOrDash } from '@/utils/date'
 
 const {
   boardUrl,
@@ -31,16 +30,10 @@ const {
   openManagerModal
 } = useBoardEditPage()
 
-const { t, locale } = useI18n()
+const { t } = useI18n()
 const managerAuditParams = computed(() => ({ page: 0, size: 5, sort: 'createdAt,desc' }))
 const managerAuditLogs = ref<ModerationAuditLog[]>([])
 let managerAuditLoadId = 0
-const auditActorLabel = (audit: ModerationAuditLog) => {
-  if (audit.actorType === 'SYSTEM') return 'SYSTEM'
-  return audit.actorDisplayName || (audit.actorUserId ? `#${audit.actorUserId}` : '-')
-}
-const auditTargetLabel = (audit: ModerationAuditLog) => `${audit.targetType} #${audit.targetId}`
-const formatAuditDate = (dateString: string) => formatDateTimeOrDash(dateString, locale.value as SupportedLocale)
 
 watch([boardUrl, canManageBoard], async ([nextBoardUrl, manageable]) => {
   const loadId = ++managerAuditLoadId
@@ -110,29 +103,11 @@ watch([boardUrl, canManageBoard], async ([nextBoardUrl, manageable]) => {
           <div class="border-b nv-border px-4 py-3">
             <h4 class="text-sm font-semibold nv-title">{{ t('admin.dashboard.auditLogs') }}</h4>
           </div>
-          <div v-if="managerAuditLogs.length > 0" class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-[var(--nv-border)] text-sm">
-              <thead class="nv-surface-muted nv-text-subtle">
-                <tr>
-                  <th class="px-4 py-3 text-left font-medium">{{ t('admin.dashboard.auditAction') }}</th>
-                  <th class="px-4 py-3 text-left font-medium">{{ t('admin.dashboard.auditActor') }}</th>
-                  <th class="px-4 py-3 text-left font-medium">{{ t('admin.dashboard.auditTarget') }}</th>
-                  <th class="px-4 py-3 text-left font-medium">{{ t('admin.dashboard.auditReason') }}</th>
-                  <th class="px-4 py-3 text-left font-medium">{{ t('admin.dashboard.auditCreatedAt') }}</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-[var(--nv-border)]">
-                <tr v-for="audit in managerAuditLogs" :key="audit.auditId">
-                  <td class="px-4 py-3 font-medium nv-title">{{ audit.action }}</td>
-                  <td class="px-4 py-3 nv-text-subtle">{{ auditActorLabel(audit) }}</td>
-                  <td class="px-4 py-3 nv-text-subtle">{{ auditTargetLabel(audit) }}</td>
-                  <td class="px-4 py-3 nv-text-subtle">{{ audit.reason || '-' }}</td>
-                  <td class="px-4 py-3 nv-text-subtle">{{ formatAuditDate(audit.createdAt) }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <p v-else class="px-4 py-5 text-center text-sm nv-text-subtle">{{ t('admin.dashboard.auditEmpty') }}</p>
+          <AdminAuditLogTable
+            :audits="managerAuditLogs"
+            :caption="t('admin.dashboard.auditLogs')"
+            :empty-text="t('admin.dashboard.auditEmpty')"
+          />
         </div>
 
         <hr class="nv-border" />

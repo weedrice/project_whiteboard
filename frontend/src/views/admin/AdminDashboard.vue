@@ -5,13 +5,12 @@ import { Users, FileText, Activity } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import AdminPanel from '@/components/admin/AdminPanel.vue'
 import AdminMetricCard from '@/components/admin/AdminMetricCard.vue'
+import AdminAuditLogTable from '@/components/admin/AdminAuditLogTable.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseSelect from '@/components/common/ui/BaseSelect.vue'
-import type { DashboardStats, ModerationAuditLog, ModerationAuditSearchParams } from '@/types/admin'
-import { formatDateTimeOrDash } from '@/utils/date'
-import type { SupportedLocale } from '@/locales/types'
+import type { DashboardStats, ModerationAuditSearchParams } from '@/types/admin'
 
-const { t, locale } = useI18n()
+const { t } = useI18n()
 const admin = useAdmin()
 const { useDashboardStats, useDeepDashboardStats } = admin
 const selectedDays = ref<30 | 90>(30)
@@ -88,12 +87,6 @@ const moderationItems = computed(() => {
   ]
 })
 const auditLogs = computed(() => auditData.value?.content ?? [])
-const actorLabel = (audit: ModerationAuditLog) => {
-  if (audit.actorType === 'SYSTEM') return 'SYSTEM'
-  return audit.actorDisplayName || (audit.actorUserId ? `#${audit.actorUserId}` : '-')
-}
-const targetLabel = (audit: ModerationAuditLog) => `${audit.targetType} #${audit.targetId}`
-const formattedDate = (dateString: string) => formatDateTimeOrDash(dateString, locale.value as SupportedLocale)
 </script>
 
 <template>
@@ -223,31 +216,12 @@ const formattedDate = (dateString: string) => formatDateTimeOrDash(dateString, l
             <BaseInput v-model="auditEndDate" type="date" :label="t('admin.dashboard.auditEndDate')" hide-label />
           </div>
         </div>
-        <div v-if="auditLogs.length > 0" class="overflow-x-auto">
-          <table class="min-w-full divide-y divide-[var(--nv-border)] text-sm">
-            <thead class="nv-surface-muted nv-text-subtle">
-              <tr>
-                <th class="px-4 py-3 text-left font-medium">{{ t('admin.dashboard.auditAction') }}</th>
-                <th class="px-4 py-3 text-left font-medium">{{ t('admin.dashboard.auditActor') }}</th>
-                <th class="px-4 py-3 text-left font-medium">{{ t('admin.dashboard.auditTarget') }}</th>
-                <th class="px-4 py-3 text-left font-medium">{{ t('admin.dashboard.auditBoardUrl') }}</th>
-                <th class="px-4 py-3 text-left font-medium">{{ t('admin.dashboard.auditReason') }}</th>
-                <th class="px-4 py-3 text-left font-medium">{{ t('admin.dashboard.auditCreatedAt') }}</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-[var(--nv-border)]">
-              <tr v-for="audit in auditLogs" :key="audit.auditId">
-                <td class="px-4 py-3 font-medium nv-title">{{ audit.action }}</td>
-                <td class="px-4 py-3 nv-text-subtle">{{ actorLabel(audit) }}</td>
-                <td class="px-4 py-3 nv-text-subtle">{{ targetLabel(audit) }}</td>
-                <td class="px-4 py-3 nv-text-subtle">{{ audit.boardUrl || '-' }}</td>
-                <td class="px-4 py-3 nv-text-subtle">{{ audit.reason || '-' }}</td>
-                <td class="px-4 py-3 nv-text-subtle">{{ formattedDate(audit.createdAt) }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <p v-else class="px-4 py-5 text-center nv-text-subtle">{{ t('admin.dashboard.auditEmpty') }}</p>
+        <AdminAuditLogTable
+          :audits="auditLogs"
+          :caption="t('admin.dashboard.auditLogs')"
+          :empty-text="t('admin.dashboard.auditEmpty')"
+          show-board-url
+        />
       </AdminPanel>
     </div>
   </div>
