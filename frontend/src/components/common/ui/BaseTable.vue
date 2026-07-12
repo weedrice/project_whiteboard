@@ -54,7 +54,7 @@ const props = withDefaults(defineProps<{
     rowActionLabel: undefined,
     rowSelected: undefined,
     rowActivationEvent: 'row-click',
-    minWidthClass: 'min-w-[48rem]',
+    minWidthClass: 'min-w-full sm:min-w-[48rem]',
     caption: undefined,
     scrollLabel: undefined,
 })
@@ -162,7 +162,7 @@ const bodyCellClasses = computed(() => [
 <template>
     <div :class="rootClasses">
         <div :class="scrollContainerClasses" :role="effectiveScrollLabel ? 'region' : undefined"
-            :aria-label="effectiveScrollLabel" :tabindex="effectiveScrollLabel ? 0 : undefined">
+            :aria-label="effectiveScrollLabel" :tabindex="scrollLabel ? 0 : undefined">
             <table class="w-full table-fixed nv-base-table-table" :class="minWidthClass" style="table-layout: fixed;">
                 <caption v-if="caption" class="sr-only">{{ caption }}</caption>
                 <colgroup>
@@ -207,7 +207,7 @@ const bodyCellClasses = computed(() => [
                     <tr v-else-if="items.length === 0">
                         <td :colspan="columns.length"
                             class="nv-base-table-status px-3 sm:px-6 py-6 sm:py-10 text-center text-xs sm:text-sm">
-                            {{ effectiveEmptyText }}
+                            <div role="status" aria-live="polite">{{ effectiveEmptyText }}</div>
                         </td>
                     </tr>
                     <template v-else>
@@ -216,6 +216,7 @@ const bodyCellClasses = computed(() => [
                             :class="rowClass?.(item) || ''"
                             :tabindex="interactiveRows ? 0 : undefined"
                             :aria-label="getRowActionLabel(item, index)"
+                            :aria-keyshortcuts="interactiveRows ? 'Enter Space' : undefined"
                             :aria-selected="interactiveRows && rowSelected ? rowSelected(item) : undefined"
                             @click="handleRowClick(item)"
                             @dblclick="handleRowDblclick(item)"
@@ -286,5 +287,10 @@ const bodyCellClasses = computed(() => [
 
 .nv-base-table-row:hover {
     background: color-mix(in srgb, var(--nv-surface-2) 78%, transparent);
+}
+
+.nv-base-table-row:focus-visible {
+    outline: 2px solid var(--nv-focus);
+    outline-offset: -2px;
 }
 </style>

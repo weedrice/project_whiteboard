@@ -142,6 +142,7 @@ describe('BaseTable', () => {
         expect(row.attributes('role')).toBeUndefined()
         expect(row.attributes('tabindex')).toBe('0')
         expect(row.attributes('aria-label')).toBe('Accessible row open')
+        expect(row.attributes('aria-keyshortcuts')).toBe('Enter Space')
 
         await row.trigger('keydown', { key: 'Enter' })
         await row.trigger('keydown', { key: ' ' })
@@ -286,7 +287,7 @@ describe('BaseTable', () => {
         expect(wrapper.findAll('tbody tr').map((row) => row.attributes('aria-selected'))).toEqual(['true', 'false'])
     })
 
-    it('labels the table and its keyboard-scrollable region when a caption is provided', () => {
+    it('labels the table region without adding a redundant tab stop for a caption alone', () => {
         const wrapper = mount(BaseTable, {
             props: {
                 columns: [{ key: 'title', label: 'Title' }],
@@ -299,8 +300,37 @@ describe('BaseTable', () => {
         expect(wrapper.get('caption').classes()).toContain('sr-only')
         expect(wrapper.get('[role="region"]').attributes()).toMatchObject({
             'aria-label': 'Search results',
+        })
+        expect(wrapper.get('[role="region"]').attributes('tabindex')).toBeUndefined()
+    })
+
+    it('makes an explicitly labelled horizontal scroll region keyboard focusable', () => {
+        const wrapper = mount(BaseTable, {
+            props: {
+                columns: [{ key: 'title', label: 'Title' }],
+                items: [{ title: 'Row' }],
+                scrollLabel: 'Scrollable search results',
+            },
+        })
+
+        expect(wrapper.get('[role="region"]').attributes()).toMatchObject({
+            'aria-label': 'Scrollable search results',
             tabindex: '0',
         })
+    })
+
+    it('announces an empty result through the shared status contract', () => {
+        const wrapper = mount(BaseTable, {
+            props: {
+                columns: [{ key: 'title', label: 'Title' }],
+                items: [],
+                emptyText: 'Nothing found',
+            },
+        })
+
+        const status = wrapper.get('[role="status"]')
+        expect(status.attributes('aria-live')).toBe('polite')
+        expect(status.text()).toBe('Nothing found')
     })
 
     it('applies responsive visibility classes and a horizontal overflow width contract', () => {
@@ -315,7 +345,7 @@ describe('BaseTable', () => {
             },
         })
 
-        expect(wrapper.get('table').classes()).toContain('min-w-[48rem]')
+        expect(wrapper.get('table').classes()).toEqual(expect.arrayContaining(['min-w-full', 'sm:min-w-[48rem]']))
         expect(wrapper.findAll('th')[1].classes()).toEqual(expect.arrayContaining(['hidden', 'sm:table-cell']))
         expect(wrapper.findAll('td')[2].classes()).toEqual(expect.arrayContaining(['hidden', 'lg:table-cell']))
     })

@@ -51,7 +51,7 @@ withDefaults(defineProps<{
   footerLoading: undefined,
   tableClass: 'mt-4',
   showFooter: true,
-  minWidthClass: 'min-w-[48rem]',
+  minWidthClass: 'min-w-full sm:min-w-[48rem]',
   caption: undefined,
   scrollLabel: undefined,
 })
