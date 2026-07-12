@@ -2,6 +2,7 @@
 import type { Component } from 'vue'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
 import Pagination from '@/components/common/ui/Pagination.vue'
+import BaseCard from '@/components/common/ui/BaseCard.vue'
 
 defineProps<{
   title: string
@@ -20,8 +21,8 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <div
-    class="nv-surface shadow overflow-hidden sm:rounded-lg transition-colors duration-200"
+  <BaseCard
+    no-padding
     :class="withBottomSpacing ? 'mb-6 pb-6' : ''"
   >
     <div class="px-4 py-4 sm:py-5 sm:px-6 border-b nv-border flex items-center">
@@ -46,5 +47,5 @@ const emit = defineEmits<{
       </div>
     </div>
     <EmptyState v-else :title="emptyTitle" :icon="icon" />
-  </div>
+  </BaseCard>
 </template>

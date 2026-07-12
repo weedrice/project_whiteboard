@@ -3,6 +3,7 @@ import { X } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
+import BaseCard from '@/components/common/ui/BaseCard.vue'
 import type { EmoticonTagItem } from '@/features/emoticon/form/useEmoticonTagItems'
 
 defineProps<{
@@ -22,7 +23,7 @@ const { t } = useI18n()
 </script>
 
 <template>
-  <div class="nv-surface rounded-lg shadow-sm border nv-border p-6">
+  <BaseCard padding="lg" bordered>
     <div class="mb-2 flex items-center gap-2">
       <span class="text-sm font-medium nv-text-muted">{{ t('emoticon.tag.label') }}</span>
       <span class="text-xs font-normal nv-text-subtle">({{ t('emoticon.tag.count', { count: tagCount }) }})</span>
@@ -67,5 +68,5 @@ const { t } = useI18n()
         </button>
       </span>
     </div>
-  </div>
+  </BaseCard>
 </template>

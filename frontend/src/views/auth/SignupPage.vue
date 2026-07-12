@@ -39,9 +39,9 @@ const {
       </router-link>
     </div>
     <div class="text-center mb-12 mt-16">
-      <h2 class="text-3xl font-extrabold nv-title">
+      <h1 class="text-3xl font-extrabold nv-title">
         {{ $t('auth.createAccountTitle') }}
-      </h2>
+      </h1>
     </div>
 
     <form class="space-y-6" @submit.prevent="handleSignup">

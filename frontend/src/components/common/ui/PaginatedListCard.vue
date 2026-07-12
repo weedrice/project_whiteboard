@@ -6,6 +6,7 @@ import PageSizeSelector from '@/components/common/widgets/PageSizeSelector.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
 import ErrorState from '@/components/common/ui/ErrorState.vue'
+import BaseCard from '@/components/common/ui/BaseCard.vue'
 
 type LoadingPreset =
   | 'none'
@@ -82,7 +83,7 @@ const getLoadingRowClass = (preset: LoadingPreset) => {
         : 'w-full',
     ]"
   >
-    <div class="nv-surface shadow overflow-hidden sm:rounded-lg transition-colors duration-200">
+    <BaseCard no-padding>
       <div
         :class="[
           headerClass,
@@ -193,6 +194,6 @@ const getLoadingRowClass = (preset: LoadingPreset) => {
         <slot name="footer-meta" />
         <Pagination :current-page="page" :total-pages="totalPages" @page-change="emit('page-change', $event)" />
       </div>
-    </div>
+    </BaseCard>
   </div>
 </template>

@@ -71,9 +71,9 @@ async function handleLogin() {
 <template>
   <AuthFormShell>
     <template #header>
-      <h2 class="text-3xl font-extrabold nv-title">
+      <h1 class="text-3xl font-extrabold nv-title">
         {{ $t('common.login') }}
-      </h2>
+      </h1>
       <p class="mt-2 text-xs sm:text-sm nv-text-muted">
         {{ $t('common.or') }}
         <router-link

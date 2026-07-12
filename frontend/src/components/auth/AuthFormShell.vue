@@ -28,7 +28,7 @@ withDefaults(defineProps<{
 
     <div v-if="title || description || $slots.header" class="mb-8 text-center">
       <slot name="header">
-        <h2 class="text-2xl font-bold nv-title">{{ title }}</h2>
+        <h1 class="text-2xl font-bold nv-title">{{ title }}</h1>
         <p v-if="description" class="mt-2 whitespace-pre-line text-sm nv-text-muted">{{ description }}</p>
       </slot>
     </div>

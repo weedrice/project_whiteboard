@@ -10,6 +10,7 @@ import EmoticonImageGridUploader from '@/components/emoticon/EmoticonImageGridUp
 import EmoticonTagSection from '@/components/emoticon/EmoticonTagSection.vue'
 import EmoticonThumbnailField from '@/components/emoticon/EmoticonThumbnailField.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
+import BaseCard from '@/components/common/ui/BaseCard.vue'
 import { useEmoticonImageSelection } from '@/features/emoticon/form/useEmoticonImageSelection'
 import { useEmoticonImageFormState } from '@/features/emoticon/form/useEmoticonImageFormState'
 import { useEmoticonRegisterSubmit } from '@/features/emoticon/form/useEmoticonRegisterSubmit'
@@ -100,7 +101,7 @@ const goToList = () => {
 
     <form @submit.prevent="handleSubmit" class="space-y-8">
       <!-- 이모티콘 이름과 썸네일 -->
-      <div class="nv-surface rounded-lg shadow-sm border nv-border p-6">
+      <BaseCard padding="lg" bordered>
         <div class="flex flex-col md:flex-row gap-6">
           <EmoticonThumbnailField
             input-id="emoticon-register-thumbnail-input"
@@ -126,7 +127,7 @@ const goToList = () => {
             />
           </div>
         </div>
-      </div>
+      </BaseCard>
 
       <EmoticonImageGridUploader
         input-id="emoticon-register-image-input"

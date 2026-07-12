@@ -88,7 +88,7 @@ describe('auth common components', () => {
     })
 
     expect(wrapper.get('a').attributes('to')).toBe('/login')
-    expect(wrapper.get('h2').text()).toBe('Reset password')
+    expect(wrapper.get('h1').text()).toBe('Reset password')
     expect(wrapper.text()).toContain('Enter a new password.')
     expect(wrapper.get('form').text()).toBe('Content')
   })

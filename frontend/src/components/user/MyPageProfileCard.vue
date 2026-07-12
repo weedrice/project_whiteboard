@@ -2,6 +2,7 @@
 import { Calendar, CheckCircle, Clock, Mail, ShieldCheck, User, XCircle } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
+import BaseCard from '@/components/common/ui/BaseCard.vue'
 import UserAvatar from '@/components/common/ui/UserAvatar.vue'
 import ProfileInfoRow from '@/components/user/ProfileInfoRow.vue'
 import { getOptimizedProfileImageUrl, handleImageError } from '@/utils/image'
@@ -24,7 +25,7 @@ const { t } = useI18n()
 </script>
 
 <template>
-  <div class="nv-surface shadow overflow-hidden sm:rounded-lg mb-6 transition-colors duration-200">
+  <BaseCard no-padding class="mb-6">
     <div class="px-4 py-4 sm:py-5 sm:px-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
       <div class="flex items-center min-w-0 flex-1">
         <UserAvatar
@@ -103,5 +104,5 @@ const { t } = useI18n()
         </ProfileInfoRow>
       </dl>
     </div>
-  </div>
+  </BaseCard>
 </template>
