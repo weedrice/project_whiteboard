@@ -5,6 +5,7 @@ import { usePostDetailKeyboardShortcuts } from '@/features/board/posts/detail/us
 import type { PostDetailViewModel } from '@/features/board/posts/detail/usePostDetailViewModel'
 import { useEventListener } from '@/composables/useEventListener'
 import { findPostDetailElementByHash, getPostDetailScrollTop } from '@/utils/postDetailScrollTarget'
+import { getMotionAwareScrollBehavior } from '@/utils/motion'
 
 interface UsePostDetailScrollEffectsOptions {
   route: RouteLocationNormalizedLoaded
@@ -63,7 +64,7 @@ export function usePostDetailScrollEffects({
   const commentsRef = ref<HTMLElement | null>(null)
 
   function scrollToTop() {
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    window.scrollTo({ top: 0, behavior: getMotionAwareScrollBehavior() })
   }
 
   function scrollToCommentComposer() {
@@ -75,7 +76,7 @@ export function usePostDetailScrollEffects({
       return
     }
 
-    composer.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    composer.scrollIntoView({ behavior: getMotionAwareScrollBehavior(), block: 'start' })
     scheduleComposerFocus(composer)
   }
 
@@ -87,7 +88,7 @@ export function usePostDetailScrollEffects({
 
     window.scrollTo({
       top: getPostDetailScrollTop(target),
-      behavior: 'smooth'
+      behavior: getMotionAwareScrollBehavior()
     })
   }
 
@@ -149,7 +150,7 @@ export function usePostDetailScrollEffects({
 
       const element = findPostDetailElementByHash(newHash)
       if (element) {
-        element.scrollIntoView({ behavior: 'smooth' })
+        element.scrollIntoView({ behavior: getMotionAwareScrollBehavior() })
       }
     })
   })
@@ -188,7 +189,7 @@ export function usePostDetailScrollEffects({
         if (hash) {
           const element = findPostDetailElementByHash(hash)
           if (element) {
-            element.scrollIntoView({ behavior: 'smooth' })
+            element.scrollIntoView({ behavior: getMotionAwareScrollBehavior() })
           }
         }
       })

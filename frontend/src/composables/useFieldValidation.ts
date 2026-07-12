@@ -1,4 +1,5 @@
 import { nextTick, reactive, ref } from 'vue'
+import { getMotionAwareScrollBehavior } from '@/utils/motion'
 
 type FieldValues<TKey extends string> = Record<TKey, unknown>
 type FieldValidator<TKey extends string> = (values: FieldValues<TKey>) => string
@@ -47,7 +48,7 @@ export function useFieldValidation<TKey extends string>({ validators, fieldIds =
 
     const element = document.getElementById(fieldIds[field] ?? field)
     element?.focus()
-    element?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    element?.scrollIntoView({ block: 'center', behavior: getMotionAwareScrollBehavior() })
   }
 
   function validateAll(values: FieldValues<TKey>) {

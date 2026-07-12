@@ -13,6 +13,7 @@ import { useShellDropdowns } from '@/composables/useShellDropdowns'
 import { useShellShortcuts } from '@/composables/useShellShortcuts'
 import { useShellViewport } from '@/composables/useShellViewport'
 import { useThemePreference } from '@/composables/useThemePreference'
+import { getMotionAwareScrollBehavior } from '@/utils/motion'
 import NotificationDropdown from '@/components/notification/NotificationDropdown.vue'
 import UserDropdown from '@/components/layout/UserDropdown.vue'
 import BoardDropdown from '@/components/layout/BoardDropdown.vue'
@@ -98,7 +99,7 @@ const skipToMainContent = (event: Event) => {
   if (!mainContent) return
 
   mainContent.focus()
-  mainContent.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  mainContent.scrollIntoView({ behavior: getMotionAwareScrollBehavior(), block: 'start' })
 }
 
 const goToNotificationsPage = async () => {

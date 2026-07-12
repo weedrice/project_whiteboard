@@ -30,6 +30,7 @@ import { useThrottleFn } from '@/composables/useThrottle'
 import { DEBOUNCE_DELAY } from '@/utils/constants'
 import { isNarrowViewport } from '@/utils/browserEnv'
 import { isInputFocused } from '@/utils/keyboard'
+import { getMotionAwareScrollBehavior } from '@/utils/motion'
 import type { UserNavigationTab } from '@/types/userNavigation'
 
 const props = defineProps<{
@@ -118,7 +119,7 @@ const scrollTabToCenter = (el: HTMLElement) => {
     const elLeft = el.offsetLeft
     const elWidth = el.offsetWidth
     const scrollTarget = elLeft - (containerWidth / 2) + (elWidth / 2)
-    container.scrollTo({ left: Math.max(0, scrollTarget), behavior: 'smooth' })
+    container.scrollTo({ left: Math.max(0, scrollTarget), behavior: getMotionAwareScrollBehavior() })
 }
 
 const updateUnderline = () => {
@@ -141,9 +142,9 @@ const updateUnderline = () => {
             const elWidth = el.offsetWidth
 
             if (elLeft < scrollLeft) {
-                container.scrollTo({ left: elLeft, behavior: 'smooth' })
+                container.scrollTo({ left: elLeft, behavior: getMotionAwareScrollBehavior() })
             } else if (elLeft + elWidth > scrollLeft + containerWidth) {
-                container.scrollTo({ left: elLeft + elWidth - containerWidth, behavior: 'smooth' })
+                container.scrollTo({ left: elLeft + elWidth - containerWidth, behavior: getMotionAwareScrollBehavior() })
             }
         }
     } else {

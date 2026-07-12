@@ -1,4 +1,5 @@
 import type { RouteLocationNormalized, RouterScrollBehavior } from 'vue-router'
+import { getMotionAwareScrollBehavior } from '@/utils/motion'
 
 const isSamePostDetailRoute = (to: RouteLocationNormalized, from: RouteLocationNormalized) => (
     to.name === 'post-detail'
@@ -17,7 +18,7 @@ export const scrollBehavior: RouterScrollBehavior = (to, from, savedPosition) =>
         return savedPosition
     }
     if (to.hash) {
-        return { el: to.hash, behavior: 'smooth' }
+        return { el: to.hash, behavior: getMotionAwareScrollBehavior() }
     }
     if (isPostDetailListPageNavigation(to, from)) {
         return false
