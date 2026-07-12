@@ -206,7 +206,7 @@
   }
 
   .list-search-select-inline {
-    @apply h-10 min-h-10 pl-3 pr-8 text-sm bg-transparent rounded-none rounded-l-md cursor-pointer focus:ring-0 focus:ring-offset-0 focus:outline-none shrink-0 border-r;
+    @apply h-11 min-h-11 pl-3 pr-8 text-sm bg-transparent rounded-none rounded-l-md cursor-pointer focus:ring-0 focus:ring-offset-0 focus:outline-none shrink-0 border-r;
     appearance: none;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
     background-position: right 0.5rem center;
@@ -234,7 +234,7 @@
   }
 
   .list-search-input {
-    @apply rounded-none bg-transparent h-10 min-h-10 py-2 box-border focus:ring-0 focus:ring-offset-0;
+    @apply rounded-none bg-transparent h-11 min-h-11 py-2 box-border focus:ring-0 focus:ring-offset-0;
     border: none !important;
     box-shadow: none !important;
     color: var(--nv-text);
@@ -251,7 +251,7 @@
   }
 
   .list-search-btn {
-    @apply rounded-none h-10 min-h-10 py-0 px-4 bg-transparent font-medium shrink-0 transition-colors border-l;
+    @apply rounded-none h-11 min-h-11 py-0 px-4 bg-transparent font-medium shrink-0 transition-colors border-l;
     border-top: none !important;
     border-right: none !important;
     border-bottom: none !important;

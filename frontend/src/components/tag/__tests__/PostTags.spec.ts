@@ -67,6 +67,8 @@ describe('PostTags', () => {
         const wrapper = mountPostTags({ modelValue: ['alpha', 'beta'] })
         const removeButtons = wrapper.findAll('button').filter((button) => button.find('.sr-only').exists())
 
+        expect(removeButtons[0].classes()).toEqual(expect.arrayContaining(['min-h-11', 'min-w-11']))
+
         await removeButtons[0].trigger('click')
 
         expect(wrapper.emitted('update:modelValue')?.[0]).toEqual([['beta']])
@@ -81,6 +83,7 @@ describe('PostTags', () => {
         const tagButton = wrapper.get('button')
 
         expect(wrapper.find('input').exists()).toBe(false)
+        expect(tagButton.classes()).toContain('min-h-11')
         await tagButton.trigger('click')
 
         expect(wrapper.emitted('tag-click')?.[0]).toEqual(['news'])

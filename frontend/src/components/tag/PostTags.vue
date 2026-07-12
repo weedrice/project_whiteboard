@@ -7,7 +7,7 @@
           :placeholder="$t('board.tags.placeholder')"
           class="flex-1 min-w-0 input-base rounded-full py-1 text-sm" />
         <button type="button" @click="addTag"
-          class="sm:hidden flex-shrink-0 px-3 py-1.5 text-xs font-medium rounded-full border border-[var(--nv-accent)] nv-accent-text bg-transparent nv-hover-surface nv-focus-ring">
+          class="nv-touch-target sm:hidden flex-shrink-0 px-3 py-1.5 text-xs font-medium rounded-full border border-[var(--nv-accent)] nv-accent-text bg-transparent nv-hover-surface nv-focus-ring">
           {{ $t('common.add') }}
         </button>
       </div>
@@ -18,7 +18,7 @@
       <template v-for="{ tag, index, key } in tagItems" :key="key">
         <button v-if="readOnly && boardUrl" type="button" @click="handleTagClick(tag)"
           :class="[
-            'inline-flex items-center rounded-full font-medium transition-colors cursor-pointer',
+            'inline-flex min-h-11 items-center rounded-full font-medium transition-colors cursor-pointer sm:min-h-0',
             compact
               ? 'px-2.5 py-1 text-[11px] nv-surface-muted nv-border border nv-hover-surface'
               : 'px-2 py-0.5 text-xs sm:text-sm nv-status-info nv-hover-surface'
@@ -34,7 +34,7 @@
           ]">
           #{{ tag }}
           <button v-if="!readOnly" @click="removeTag(index)" type="button"
-            class="ml-1 sm:ml-1.5 inline-flex items-center justify-center h-3 w-3 sm:h-4 sm:w-4 rounded-full nv-accent-text nv-hover-surface nv-focus-ring">
+            class="ml-1 inline-flex min-h-11 min-w-11 items-center justify-center rounded-full nv-accent-text nv-hover-surface nv-focus-ring sm:ml-1.5 sm:min-h-0 sm:min-w-0">
             <span class="sr-only">{{ $t('board.tags.remove') }}</span>
             <svg class="h-2 w-2" stroke="currentColor" fill="none" viewBox="0 0 8 8">
               <path stroke-linecap="round" stroke-width="1.5" d="M1 1l6 6m0-6L1 7" />

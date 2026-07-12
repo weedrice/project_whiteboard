@@ -41,7 +41,7 @@ describe('BaseSegmentedControl', () => {
     })
 
     expect(wrapper.get('[role="group"]').classes()).toEqual(expect.arrayContaining(['max-w-full', 'flex-wrap']))
-    expect(wrapper.get('button').classes()).toEqual(expect.arrayContaining(['min-w-0', 'whitespace-normal']))
+    expect(wrapper.get('button').classes()).toEqual(expect.arrayContaining(['min-h-11', 'min-w-11', 'whitespace-normal']))
   })
 
   it('uses roving tabindex for tab selection mode', () => {

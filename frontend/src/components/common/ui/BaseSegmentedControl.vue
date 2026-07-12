@@ -124,7 +124,7 @@ function handleTabKeydown(event: KeyboardEvent) {
             : 'border-transparent nv-text-subtle hover:text-[var(--nv-text)]',
         ],
         variant === 'pill' && [
-          'min-w-0 rounded-full px-3 py-1.5 text-center text-[11px] font-medium uppercase leading-tight tracking-[0.08em] whitespace-normal transition-colors',
+          'min-h-11 min-w-11 rounded-full px-3 py-2 text-center text-xs font-medium uppercase leading-tight tracking-[0.08em] whitespace-normal transition-colors touch-manipulation sm:min-h-0 sm:min-w-0 sm:py-1.5',
           modelValue === option.value
             ? 'bg-[var(--nv-ink)] text-[var(--nv-bg)]'
             : 'text-[var(--nv-ink-soft)] hover:text-[var(--nv-ink)]',

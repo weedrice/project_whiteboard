@@ -227,6 +227,11 @@ useEmoticonPickerDialogLifecycle({
 
 .back-btn,
 .close-btn {
+  align-items: center;
+  display: inline-flex;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 44px;
   padding: 4px;
   border-radius: 4px;
   color: var(--nv-text-muted);
@@ -265,6 +270,7 @@ useEmoticonPickerDialogLifecycle({
   border-radius: 6px;
   color: var(--nv-text);
   font-size: 13px;
+  min-height: 44px;
   outline: none;
   transition: border-color 0.2s, box-shadow 0.2s;
 }

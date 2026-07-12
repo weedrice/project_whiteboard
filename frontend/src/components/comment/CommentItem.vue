@@ -256,7 +256,7 @@ watch(isBlinded, (blinded) => {
           <button
             v-if="canLoadReplies"
             type="button"
-            class="rounded-md px-2 py-1.5 text-xs font-medium nv-text-subtle nv-hover-surface"
+            class="nv-touch-target rounded-md px-2 py-1.5 text-xs font-medium nv-text-subtle nv-hover-surface"
             @click="toggleReplies"
           >
             {{ replyToggleLabel }}
@@ -265,7 +265,7 @@ watch(isBlinded, (blinded) => {
           <button
             v-if="isAuthenticated && canUseCommentActions && !isBlinded"
             type="button"
-            class="rounded-md px-2 py-1.5 text-xs font-medium nv-text-subtle nv-hover-surface"
+            class="nv-touch-target rounded-md px-2 py-1.5 text-xs font-medium nv-text-subtle nv-hover-surface"
             @click="isReplying = !isReplying"
           >
             {{ $t('comment.reply') }}
@@ -275,14 +275,14 @@ watch(isBlinded, (blinded) => {
             <button
               v-if="!isEmoticonOnly"
               type="button"
-              class="rounded-md px-2 py-1.5 text-xs font-medium nv-text-subtle nv-hover-surface"
+              class="nv-touch-target rounded-md px-2 py-1.5 text-xs font-medium nv-text-subtle nv-hover-surface"
               @click="isEditing = !isEditing"
             >
               {{ $t('common.edit') }}
             </button>
             <button
               type="button"
-              class="rounded-md px-2 py-1.5 text-xs font-medium text-[var(--nv-danger-text)] transition-colors hover:bg-[var(--nv-danger-bg)]"
+              class="nv-touch-target rounded-md px-2 py-1.5 text-xs font-medium text-[var(--nv-danger-text)] transition-colors hover:bg-[var(--nv-danger-bg)]"
               @click="handleDelete"
             >
               {{ $t('common.delete') }}
@@ -330,7 +330,7 @@ watch(isBlinded, (blinded) => {
             <button
               v-if="replyHasNext"
               type="button"
-              class="rounded-md px-2 py-1.5 text-xs font-medium nv-text-subtle nv-hover-surface"
+              class="nv-touch-target rounded-md px-2 py-1.5 text-xs font-medium nv-text-subtle nv-hover-surface"
               @click="loadMoreReplies"
             >
               {{ $t('common.loadMore') }}
