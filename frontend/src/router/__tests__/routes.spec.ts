@@ -51,4 +51,8 @@ describe('routes table', () => {
             },
         })
     })
+
+    it('exposes the authenticated attendance calendar under my page', () => {
+        expect(byName.get('MyAttendance')).toMatchObject({ path: 'attendance' })
+    })
 })

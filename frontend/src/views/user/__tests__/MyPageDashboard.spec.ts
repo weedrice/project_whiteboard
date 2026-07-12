@@ -155,6 +155,7 @@ function mountDashboard() {
         BaseInput: BaseInputStub,
         BaseModal: { props: ['isOpen'], template: '<section v-if="isOpen"><slot /><slot name="footer" /></section>' },
         BaseSkeleton: true,
+        MyPageSummaryCards: true,
         CommentList: true,
         EmptyState: { template: '<div data-testid="empty-state"><slot /></div>' },
         Pagination: true,

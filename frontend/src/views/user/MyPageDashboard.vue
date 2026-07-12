@@ -11,6 +11,7 @@ import EmailVerificationModal from '@/components/user/EmailVerificationModal.vue
 import MyInquiryDetailModal from '@/components/user/MyInquiryDetailModal.vue'
 import MyPageCommentList from '@/components/user/MyPageCommentList.vue'
 import MyPageProfileCard from '@/components/user/MyPageProfileCard.vue'
+import MyPageSummaryCards from '@/components/user/MyPageSummaryCards.vue'
 import { useMyPageDashboardResource } from '@/features/user/dashboard/useMyPageDashboardResource'
 import { useInquiryDetailModal } from '@/composables/useInquiryDetailModal'
 import { useEmailVerificationFlow } from '@/composables/useEmailVerificationFlow'
@@ -30,6 +31,7 @@ const {
   myPostsSize,
   myPostsSort,
   myCommentItems,
+  myCommentsTotalCount,
   myCommentsTotalPages,
   myCommentsCurrentPage,
   isLoading,
@@ -108,6 +110,8 @@ onMounted(async () => {
     </div>
 
     <div v-else>
+      <MyPageSummaryCards :post-count="myPostsTotalCount" :comment-count="myCommentsTotalCount" />
+
       <!-- Profile Section -->
       <div class="max-w-full mx-auto">
         <MyPageProfileCard
