@@ -88,7 +88,7 @@ async function handleRepresentativeBadge(badgeCode: string | null) {
 </script>
 
 <template>
-  <main class="mx-auto max-w-5xl">
+  <div class="mx-auto max-w-5xl">
     <div v-if="profileLoading" class="flex justify-center py-12">
       <BaseSpinner />
     </div>
@@ -218,5 +218,5 @@ async function handleRepresentativeBadge(badgeCode: string | null) {
         </div>
       </section>
     </div>
-  </main>
+  </div>
 </template>

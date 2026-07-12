@@ -70,7 +70,7 @@ async function enablePush() {
 </script>
 
 <template>
-  <main class="mx-auto max-w-5xl">
+  <div class="mx-auto max-w-5xl">
     <section class="space-y-2">
       <p class="nv-kicker">{{ $t('onboarding.kicker') }}</p>
       <h1 class="text-2xl font-semibold nv-title">{{ $t('onboarding.title') }}</h1>
@@ -151,5 +151,5 @@ async function enablePush() {
         {{ $t('onboarding.finish') }}
       </BaseButton>
     </footer>
-  </main>
+  </div>
 </template>

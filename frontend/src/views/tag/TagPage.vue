@@ -74,7 +74,7 @@ function buildPageRoute(nextPageIndex: number) {
 </script>
 
 <template>
-  <main class="mx-auto max-w-6xl">
+  <div class="mx-auto max-w-6xl">
     <header class="mb-5">
       <p class="nv-kicker">TAG</p>
       <h1 class="mt-2 text-2xl font-semibold nv-title">#{{ tagName }}</h1>
@@ -134,5 +134,5 @@ function buildPageRoute(nextPageIndex: number) {
         </div>
       </section>
     </template>
-  </main>
+  </div>
 </template>

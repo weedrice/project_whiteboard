@@ -49,9 +49,9 @@ const activePath = computed(() => route.path)
     class="mx-auto max-w-7xl pb-[env(safe-area-inset-bottom)]">
     <div class="grid gap-6 lg:grid-cols-[14rem_minmax(0,1fr)] lg:gap-8">
       <MyPageNavigation :groups="myPageGroups" :active-path="activePath" />
-      <main class="min-w-0">
+      <div class="min-w-0">
         <router-view />
-      </main>
+      </div>
     </div>
   </div>
 </template>
