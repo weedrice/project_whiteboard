@@ -55,6 +55,11 @@ describe('auth common components', () => {
       slots: {
         default: '<form>Content</form>',
       },
+      global: {
+        stubs: {
+          RouterLink: RouterLinkStub,
+        },
+      },
     })
 
     expect(wrapper.get('.mx-auto').classes()).toEqual(expect.arrayContaining(['w-full', 'sm:w-[80%]']))

@@ -74,8 +74,6 @@ watch(() => props.post.postId, () => {
 <template>
   <article
     :class="cardClass"
-    :aria-label="t('home.card.ariaLabel', { boardName: post.boardName, title: post.title })"
-    @click="navigateToPost"
   >
     <div class="nv-home-card-top">
       <div class="flex min-w-0 items-center gap-3">

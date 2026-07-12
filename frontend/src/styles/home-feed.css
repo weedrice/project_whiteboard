@@ -49,14 +49,17 @@
     border-color: var(--nv-line);
     border-radius: var(--nv-radius-xl);
     box-shadow: var(--nv-shadow-card);
-    cursor: pointer;
   }
 
-  .nv-home-card:hover,
-  .nv-home-card:focus-visible {
+  .nv-home-card:hover {
     transform: translateY(-2px);
-    outline: none;
     border-color: color-mix(in srgb, var(--nv-accent) 35%, var(--nv-line));
+  }
+
+  .nv-home-card-title-link:focus-visible {
+    border-radius: 0.25rem;
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--nv-focus) 44%, transparent);
+    outline: none;
   }
 
   .nv-home-card-featured {

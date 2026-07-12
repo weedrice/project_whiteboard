@@ -78,7 +78,7 @@ async function handleLogin() {
         {{ $t('common.or') }}
         <router-link
           to="/signup"
-          class="font-medium nv-accent-text hover:brightness-95"
+          class="nv-focus-ring inline-flex min-h-11 items-center rounded-md px-1 font-medium nv-accent-text hover:brightness-95"
         >
           {{ $t('auth.createAccount') }}
         </router-link>
@@ -123,7 +123,7 @@ async function handleLogin() {
       <div class="flex justify-end">
         <router-link
           to="/auth/forgot-password"
-          class="text-xs sm:text-sm nv-text-muted hover:text-[var(--nv-accent)]"
+          class="nv-focus-ring inline-flex min-h-11 items-center rounded-md px-1 text-xs nv-text-muted hover:text-[var(--nv-accent)] sm:text-sm"
         >
           {{ $t('auth.findIdPassword') }}
         </router-link>

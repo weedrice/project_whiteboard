@@ -7,7 +7,7 @@
                     :ref="el => { if (el) tabRefs[index] = el as HTMLElement }"
                     @click="(e) => handleTabClick(e, tab.href)"
                     @keydown="(e) => handleTabKeyDown(e, index)"
-                    class="whitespace-nowrap py-3 sm:py-4 px-1 text-xs sm:text-sm min-h-[44px] min-w-[44px] flex items-center justify-center transition-colors duration-200 focus:outline-none rounded-t touch-manipulation"
+                    class="nv-focus-ring flex min-h-[44px] min-w-[44px] items-center justify-center whitespace-nowrap rounded-t px-1 py-3 text-xs transition-colors duration-200 touch-manipulation sm:py-4 sm:text-sm"
                     :class="[
                         isActive(tab.href)
                             ? 'text-[var(--nv-accent)] font-bold'

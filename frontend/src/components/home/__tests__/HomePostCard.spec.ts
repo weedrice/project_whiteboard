@@ -1,5 +1,5 @@
 import { mount } from '@vue/test-utils'
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import HomePostCard from '../HomePostCard.vue'
 import type { FeedPost } from '@/types'
 
@@ -48,6 +48,10 @@ const makePost = (overrides: Partial<FeedPost> = {}): FeedPost => ({
 })
 
 describe('HomePostCard', () => {
+  beforeEach(() => {
+    push.mockClear()
+  })
+
   it('renders formatted excerpt HTML and uses the no-media featured line limit', () => {
     const wrapper = mount(HomePostCard, {
       props: {
@@ -178,6 +182,9 @@ describe('HomePostCard', () => {
     expect(article.attributes('role')).toBeUndefined()
     expect(article.attributes('tabindex')).toBeUndefined()
     expect(titleLink.attributes('href')).toBe('/board/free/post/101')
+
+    await article.trigger('click')
+    expect(push).not.toHaveBeenCalled()
 
     await titleLink.trigger('click')
 

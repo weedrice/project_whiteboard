@@ -48,9 +48,6 @@ function openFileInput() {
         :src="preview"
         :alt="t('emoticon.form.thumbnailPreview')"
         class="w-32 h-32 object-contain nv-surface-muted rounded-lg"
-        :class="mode === 'edit' ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''"
-        :title="mode === 'edit' ? t('emoticon.form.changeImageTitle') : undefined"
-        @click="mode === 'edit' && openFileInput()"
       />
       <button
         v-if="mode === 'create'"

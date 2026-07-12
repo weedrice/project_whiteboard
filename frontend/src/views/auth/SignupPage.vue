@@ -33,7 +33,7 @@ const {
   <div class="relative flex h-full flex-col justify-center p-5 sm:p-8">
     <div class="absolute top-4 left-4">
       <router-link to="/login"
-        class="flex items-center nv-text-subtle hover:text-[var(--nv-text)] transition-colors">
+        class="nv-focus-ring flex min-h-11 items-center rounded-md px-1 nv-text-subtle transition-colors hover:text-[var(--nv-text)]">
         <ChevronLeft class="h-5 w-5 mr-1" />
         <span class="text-sm font-medium">{{ $t('common.back') }}</span>
       </router-link>
