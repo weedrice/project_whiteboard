@@ -50,7 +50,7 @@
                 v-for="chip in activeFilterChips"
                 :key="chip.key"
                 type="button"
-                class="inline-flex max-w-full items-center gap-1 rounded-full border nv-border px-3 py-1.5 text-xs font-medium nv-text nv-hover-surface"
+                class="nv-touch-target inline-flex max-w-full items-center gap-1 rounded-full border nv-border px-3 py-1.5 text-xs font-medium nv-text nv-hover-surface"
                 :aria-label="$t('search.clearFilter', { label: chip.label })"
                 @click="removeFilter(chip.key)"
               >
@@ -219,7 +219,7 @@
               v-for="keyword in popularKeywords"
               :key="keyword.keyword"
               type="button"
-              class="max-w-full rounded-full border nv-border px-3 py-1.5 text-sm nv-text nv-hover-surface"
+              class="nv-touch-target max-w-full rounded-full border nv-border px-3 py-1.5 text-sm nv-text nv-hover-surface"
               :aria-label="$t('search.searchByKeyword', { keyword: keyword.keyword })"
               @click="searchKeyword(keyword.keyword)"
             >
@@ -238,7 +238,7 @@
               v-for="tag in popularTags"
               :key="tag.tagId"
               :to="{ name: 'tag-posts', params: { name: tag.tagName } }"
-              class="max-w-full rounded-full border nv-border px-3 py-1.5 text-sm nv-text nv-hover-surface no-underline"
+              class="nv-touch-target inline-flex max-w-full items-center rounded-full border nv-border px-3 py-1.5 text-sm nv-text nv-hover-surface no-underline"
             >
               <span class="block max-w-full truncate">#{{ tag.tagName }}</span>
             </RouterLink>
@@ -254,7 +254,7 @@
             <button
               v-if="recentKeywords.length > 0"
               type="button"
-              class="text-xs font-medium nv-accent-text hover:underline"
+              class="nv-touch-target rounded-md px-1 text-xs font-medium nv-accent-text hover:underline"
               @click="clearRecentKeywords"
             >
               {{ $t('search.clearRecent') }}
@@ -264,7 +264,7 @@
             <div
               v-for="keyword in recentKeywords"
               :key="keyword.logId"
-              class="flex min-w-0 items-center gap-2 rounded-md border nv-border px-3 py-2"
+              class="flex min-h-11 min-w-0 items-center gap-2 rounded-md border nv-border px-3 py-2"
             >
               <button
                 type="button"
@@ -276,7 +276,7 @@
               </button>
               <button
                 type="button"
-                class="shrink-0 text-xs nv-text-subtle nv-hover-danger"
+                class="nv-touch-target-square -my-2 -mr-3 shrink-0 rounded-md text-xs nv-text-subtle nv-hover-danger"
                 :aria-label="$t('search.deleteRecent')"
                 @click="deleteRecentKeyword(keyword.logId)"
               >

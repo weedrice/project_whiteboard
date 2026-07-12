@@ -89,12 +89,12 @@ const rootClasses = computed(() => [
         </component>
       </div>
 
-      <span class="mt-0.5 flex-shrink-0 text-[11px] text-[var(--nv-muted)]">
+      <span class="mt-0.5 flex-shrink-0 text-xs text-[var(--nv-muted)]">
         {{ formatRelativeDate(post.createdAt) }}
       </span>
     </div>
 
-    <div class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-[11px] text-[var(--nv-ink-soft)]">
+    <div class="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-[var(--nv-ink-soft)]">
       <span class="inline-flex min-w-0 max-w-full items-center gap-1 overflow-hidden">
         <User class="h-3.5 w-3.5" />
         <UserMenu

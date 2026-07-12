@@ -96,9 +96,9 @@ const changeMonth = (offset: number) => {
             <span class="text-xs font-medium nv-title">{{ cell.day }}</span>
             <span
               v-if="cell.date === attendance?.today"
-              class="ml-1 text-[10px] font-semibold nv-accent-text"
+              class="ml-1 text-xs font-semibold nv-accent-text"
             >{{ $t('user.attendance.today') }}</span>
-            <div v-if="cell.checked" class="mt-2 flex items-center gap-1 text-[10px] font-semibold nv-accent-text sm:text-xs">
+            <div v-if="cell.checked" class="mt-2 flex items-center gap-1 text-xs font-semibold nv-accent-text">
               <Flame class="h-3 w-3" aria-hidden="true" />
               <span>{{ $t('user.attendance.checkedDay', { count: cell.streakCount }) }}</span>
             </div>

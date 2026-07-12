@@ -151,7 +151,7 @@ async function handleCancelScheduledPost(post: ScheduledPost) {
         <div class="flex flex-shrink-0 items-center gap-2">
           <RouterLink
             :to="getDraftRoute(draft)"
-            class="inline-flex min-h-[36px] items-center justify-center rounded-md border border-[var(--nv-border)] px-3 text-xs font-medium nv-text hover:bg-[var(--nv-surface-2)]"
+            class="inline-flex min-h-11 items-center justify-center rounded-md border border-[var(--nv-border)] px-3 text-xs font-medium nv-text hover:bg-[var(--nv-surface-2)]"
           >
             <Pencil class="mr-1.5 h-3.5 w-3.5" />
             {{ $t('user.draftList.continue') }}
@@ -214,7 +214,7 @@ async function handleCancelScheduledPost(post: ScheduledPost) {
             <RouterLink
               v-if="getScheduledPostRoute(post)"
               :to="getScheduledPostRoute(post)!"
-              class="inline-flex min-h-[36px] items-center justify-center rounded-md border border-[var(--nv-border)] px-3 text-xs font-medium nv-text hover:bg-[var(--nv-surface-2)]"
+              class="inline-flex min-h-11 items-center justify-center rounded-md border border-[var(--nv-border)] px-3 text-xs font-medium nv-text hover:bg-[var(--nv-surface-2)]"
             >
               <ExternalLink class="mr-1.5 h-3.5 w-3.5" />
               {{ $t('user.draftList.openPublished') }}

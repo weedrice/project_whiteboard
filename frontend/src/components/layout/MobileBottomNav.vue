@@ -123,7 +123,7 @@ const navigateOrLogin = async (path: string) => {
               <p class="text-xs font-medium tracking-[0.18em] text-[var(--nv-muted)]">{{ $t('layout.mobileNav.write') }}</p>
               <h2 id="mobile-write-sheet-title" class="text-lg font-semibold text-[var(--nv-ink)]">{{ $t('layout.mobileNav.chooseBoard') }}</h2>
             </div>
-            <button type="button" class="rounded-full border border-[var(--nv-line)] px-3 py-1.5 text-sm text-[var(--nv-ink-soft)]" @click="closeWriteSheet">
+            <button type="button" class="nv-touch-target rounded-full border border-[var(--nv-line)] px-3 py-1.5 text-sm text-[var(--nv-ink-soft)]" @click="closeWriteSheet">
               {{ $t('layout.mobileNav.closeSheet') }}
             </button>
           </div>

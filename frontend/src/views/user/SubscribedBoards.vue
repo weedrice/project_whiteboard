@@ -93,7 +93,7 @@
                             @click.stop="handleUnsubscribe(board)"
                             variant="danger"
                             size="sm"
-                            class="flex-shrink-0 px-2 py-1.5 sm:px-4 sm:py-2 text-[11px] sm:text-sm min-h-0 h-7 sm:min-h-[40px] rounded-md sm:rounded-lg touch-manipulation">
+                            class="min-h-11 flex-shrink-0 rounded-md px-3 py-1.5 text-xs touch-manipulation sm:min-h-10 sm:rounded-lg sm:px-4 sm:py-2 sm:text-sm">
                             {{ $t('user.subscriptions.unsubscribe') }}
                         </BaseButton>
                     </li>
@@ -114,7 +114,7 @@
                         </div>
                     </div>
                     <BaseButton @click.stop="handleUnsubscribe(board)" variant="danger" size="sm"
-                        class="flex-shrink-0 px-2 py-1.5 sm:px-4 sm:py-2 text-[11px] sm:text-sm min-h-0 h-7 sm:min-h-[40px] rounded-md sm:rounded-lg touch-manipulation">
+                        class="min-h-11 flex-shrink-0 rounded-md px-3 py-1.5 text-xs touch-manipulation sm:min-h-10 sm:rounded-lg sm:px-4 sm:py-2 sm:text-sm">
                         {{ $t('user.subscriptions.unsubscribe') }}
                     </BaseButton>
                 </li>

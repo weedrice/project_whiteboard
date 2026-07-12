@@ -121,7 +121,7 @@ watch(() => props.post.postId, () => {
         class="relative overflow-hidden rounded-[inherit] bg-[var(--nv-surface-2)]"
         :class="isFeatured ? 'w-fit max-w-full' : 'w-full'"
       >
-        <div class="absolute left-3 top-3 z-10 inline-flex items-center gap-1 rounded-full bg-black/60 px-2 py-1 text-[10px] font-medium text-white">
+        <div class="absolute left-3 top-3 z-10 inline-flex items-center gap-1 rounded-full bg-black/60 px-2 py-1 text-xs font-medium text-white">
           <Video class="h-3 w-3" />
           {{ t('home.card.video') }}
         </div>

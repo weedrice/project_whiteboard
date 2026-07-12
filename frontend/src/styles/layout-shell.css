@@ -82,7 +82,7 @@
   }
 
   .nv-mobile-nav-item {
-    @apply relative min-w-0 inline-flex min-h-[44px] cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2 text-[10px] font-semibold tracking-[0.04em] transition-colors;
+    @apply relative min-w-0 inline-flex min-h-[44px] cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2 text-xs font-semibold tracking-[0.02em] transition-colors;
     color: var(--nv-muted);
   }
 

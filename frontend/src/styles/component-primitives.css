@@ -145,6 +145,15 @@
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--nv-focus) 44%, transparent);
   }
 
+  .nv-touch-target {
+    min-height: 2.75rem;
+  }
+
+  .nv-touch-target-square {
+    min-height: 2.75rem;
+    min-width: 2.75rem;
+  }
+
   .nv-avatar-fallback {
     background: var(--nv-surface-muted);
     color: var(--nv-text-muted);
