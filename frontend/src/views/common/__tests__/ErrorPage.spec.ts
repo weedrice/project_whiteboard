@@ -3,8 +3,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import ErrorPage from '../ErrorPage.vue'
 
 const mocks = vi.hoisted(() => {
-    const route: { query: Record<string, unknown> } = {
+    const route: { query: Record<string, unknown>; fullPath: string } = {
         query: {},
+        fullPath: '/missing',
     }
 
     const messages: Record<string, string> = {
@@ -14,20 +15,31 @@ const mocks = vi.hoisted(() => {
         'common.error.serverError': 'Server Error',
         'common.error.unknown': 'Unknown Error',
         'common.error.goHome': 'Go Home',
+        'common.messages.notFound': 'Find another page.',
+        'common.messages.forbidden': 'Permission required.',
+        'common.messages.serverError': 'Try again later.',
+        'common.search': 'Search',
+        'common.login': 'Login',
     }
 
     return {
         route,
         t: (key: string) => messages[key] ?? key,
+        push: vi.fn(),
     }
 })
 
 vi.mock('vue-router', () => ({
     useRoute: () => mocks.route,
+    useRouter: () => ({ push: mocks.push }),
     RouterLink: {
         props: ['to'],
         template: '<a :href="to"><slot /></a>',
     },
+}))
+
+vi.mock('@/stores/auth', () => ({
+    useAuthStore: () => ({ isAuthenticated: false }),
 }))
 
 vi.mock('vue-i18n', () => ({
@@ -71,7 +83,7 @@ describe('ErrorPage', () => {
 
             expect(wrapper.text()).toContain(testCase.status)
             expect(wrapper.text()).toContain(testCase.title)
-            expect(wrapper.text()).toContain('Default error message')
+            expect(wrapper.text()).toContain({ 404: 'Find another page.', 403: 'Permission required.', 500: 'Try again later.' }[testCase.status as '404' | '403' | '500'])
             expect(wrapper.text()).not.toContain('custom')
         }
     })
@@ -86,7 +98,7 @@ describe('ErrorPage', () => {
 
         expect(wrapper.text()).toContain('404')
         expect(wrapper.text()).toContain('Not Found')
-        expect(wrapper.text()).toContain('Default error message')
+        expect(wrapper.text()).toContain('Find another page.')
         expect(wrapper.text()).not.toContain('first message')
         expect(wrapper.text()).not.toContain('second message')
     })

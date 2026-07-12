@@ -1,21 +1,19 @@
 <template>
     <div v-if="hasError" class="error-boundary">
-        <div class="error-boundary-content">
-            <h2 class="error-boundary-title">{{ title }}</h2>
-            <p class="error-boundary-message">{{ message }}</p>
-            <div class="error-boundary-actions">
+        <ErrorState :title="title" :message="message">
                 <BaseButton @click="handleRetry" variant="primary">
                     {{ t('common.error.retry') }}
                 </BaseButton>
                 <a :href="homeHref" class="btn-secondary flex items-center justify-center" @click="handleGoHome">
                     {{ t('common.error.goHome') }}
                 </a>
-            </div>
-            <details v-if="showDetails" class="error-boundary-details">
-                <summary>{{ t('common.error.showDetails') }}</summary>
-                <pre class="error-boundary-stack">{{ errorStack }}</pre>
-            </details>
-        </div>
+            <template #details>
+                <details v-if="showDetails" class="error-boundary-details">
+                    <summary>{{ t('common.error.showDetails') }}</summary>
+                    <pre class="error-boundary-stack">{{ errorStack }}</pre>
+                </details>
+            </template>
+        </ErrorState>
     </div>
     <slot v-else />
 </template>
@@ -25,6 +23,7 @@ import { computed, ref, onErrorCaptured, provide, type ComponentPublicInstance }
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
+import ErrorState from '@/components/common/ErrorState.vue'
 import logger from '@/utils/logger'
 import { reportVueError } from '@/utils/clientErrorReporter'
 
@@ -130,36 +129,6 @@ provide('resetError', resetError)
     justify-content: center;
     background-color: var(--nv-page);
     padding: 3rem 1rem;
-}
-
-.error-boundary-content {
-    max-width: 28rem;
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    gap: 2rem;
-    text-align: center;
-}
-
-.error-boundary-title {
-    margin-top: 1.5rem;
-    text-align: center;
-    font-size: 1.875rem;
-    font-weight: 800;
-    color: var(--nv-text);
-}
-
-.error-boundary-message {
-    margin-top: 0.5rem;
-    font-size: 0.875rem;
-    color: var(--nv-text-muted);
-}
-
-.error-boundary-actions {
-    margin-top: 1.25rem;
-    display: flex;
-    gap: 1rem;
-    justify-content: center;
 }
 
 .error-boundary-details {

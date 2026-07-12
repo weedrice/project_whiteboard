@@ -1,38 +1,61 @@
 <template>
     <div class="min-h-screen flex items-center justify-center nv-page py-12 px-4 sm:px-6 lg:px-8">
-        <div class="max-w-md w-full space-y-8 text-center">
-            <div>
-                <h2 class="mt-6 text-center text-9xl font-extrabold nv-title">
-                    {{ status }}
-                </h2>
-                <h2 class="mt-4 text-3xl font-bold nv-title">
-                    {{ title }}
-                </h2>
-                <p class="mt-2 text-sm nv-text-muted">
-                    {{ message }}
-                </p>
-            </div>
-            <div class="mt-5">
-                <a :href="homeHref" class="btn-primary flex w-full items-center justify-center">
-                    {{ $t('common.error.goHome') }}
-                </a>
-            </div>
-        </div>
+        <ErrorState :code="status" :title="title" :message="message">
+            <form v-if="numericStatus === 404" class="flex w-full gap-2 sm:order-first" @submit.prevent="search">
+                <BaseInput v-model="keyword" :label="t('common.search')" :placeholder="t('common.search')" hide-label class="min-w-0 flex-1" />
+                <BaseButton type="submit" :disabled="!keyword.trim()">{{ t('common.search') }}</BaseButton>
+            </form>
+            <BaseButton v-if="numericStatus === 500" type="button" variant="primary" @click="retry">
+                {{ t('common.error.retry') }}
+            </BaseButton>
+            <BaseButton v-if="numericStatus === 403 && !authStore.isAuthenticated" type="button" variant="primary" @click="goToLogin">
+                {{ t('common.login') }}
+            </BaseButton>
+            <a :href="homeHref" class="btn-secondary flex min-h-[44px] items-center justify-center px-4">
+                {{ t('common.error.goHome') }}
+            </a>
+        </ErrorState>
     </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { getSingleQueryValue } from '@/utils/routeQueryValue'
+import ErrorState from '@/components/common/ErrorState.vue'
+import BaseInput from '@/components/common/ui/BaseInput.vue'
+import BaseButton from '@/components/common/ui/BaseButton.vue'
+import { useAuthStore } from '@/stores/auth'
 
 const route = useRoute()
+const router = useRouter()
+const authStore = useAuthStore()
 const { t } = useI18n()
 
 const homeHref = computed(() => import.meta.env.BASE_URL || '/')
 const status = computed(() => getSingleQueryValue(route.query.status) || 'Error')
-const message = computed(() => t('common.error.defaultMessage'))
+const numericStatus = computed(() => Number(status.value))
+const keyword = ref('')
+const message = computed(() => {
+    if (numericStatus.value === 403) return t('common.messages.forbidden')
+    if (numericStatus.value === 404) return t('common.messages.notFound')
+    if (numericStatus.value === 500) return t('common.messages.serverError')
+    return t('common.error.defaultMessage')
+})
+
+function search() {
+    const q = keyword.value.trim()
+    if (q) void router.push({ name: 'search', query: { q } })
+}
+
+function retry() {
+    window.location.reload()
+}
+
+function goToLogin() {
+    void router.push({ name: 'login', query: { redirect: route.fullPath } })
+}
 
 const title = computed(() => {
     switch (Number(status.value)) {
