@@ -27,20 +27,45 @@
 
             <draggable v-else-if="accessibleBoards.length > 0" v-model="accessibleBoards" item-key="boardId" class="divide-y divide-[var(--nv-border)]"
                 tag="ul" :handle="isMobile ? undefined : '.handle'" :disabled="isMobile" @end="handleDragEnd">
-                <template #item="{ element: board }">
+                <template #item="{ element: board, index }">
                     <li
                         class="px-3 py-3 sm:px-6 sm:py-4 nv-hover-surface flex flex-row items-center justify-between gap-2 sm:gap-3 transition-colors duration-200">
+                        <div
+                            v-if="isAccessibleSubscription(board) && accessibleBoards.length > 1"
+                            class="flex shrink-0 items-center gap-1"
+                            role="group"
+                            :aria-label="$t('user.subscriptions.reorder', { name: board.boardName })"
+                        >
+                            <div
+                                class="handle hidden min-h-9 min-w-9 cursor-move items-center justify-center nv-text-subtle sm:flex"
+                                aria-hidden="true"
+                            >
+                                <GripVertical class="h-4 w-4" />
+                            </div>
+                            <button
+                                type="button"
+                                class="subscription-order-button nv-focus-ring inline-flex min-h-11 min-w-11 cursor-pointer items-center justify-center rounded-full nv-text-subtle nv-hover-surface disabled:cursor-not-allowed disabled:opacity-40 sm:min-h-9 sm:min-w-9"
+                                :aria-label="$t('user.subscriptions.moveUp', { name: board.boardName })"
+                                :disabled="index === 0 || isReordering"
+                                @click.stop="moveSubscription(board.boardUrl, 'up')"
+                            >
+                                <ChevronUp class="h-4 w-4" aria-hidden="true" />
+                            </button>
+                            <button
+                                type="button"
+                                class="subscription-order-button nv-focus-ring inline-flex min-h-11 min-w-11 cursor-pointer items-center justify-center rounded-full nv-text-subtle nv-hover-surface disabled:cursor-not-allowed disabled:opacity-40 sm:min-h-9 sm:min-w-9"
+                                :aria-label="$t('user.subscriptions.moveDown', { name: board.boardName })"
+                                :disabled="index === accessibleBoards.length - 1 || isReordering"
+                                @click.stop="moveSubscription(board.boardUrl, 'down')"
+                            >
+                                <ChevronDown class="h-4 w-4" aria-hidden="true" />
+                            </button>
+                        </div>
                         <router-link
                             v-if="isAccessibleSubscription(board)"
                             :to="`/board/${encodePathSegment(board.boardUrl)}`"
                             class="flex items-center flex-1 min-w-0"
                             :aria-label="board.boardName || $t('user.subscriptions.unavailableBoard')">
-                            <div
-                                v-if="!isMobile && isAccessibleSubscription(board)"
-                                class="handle mr-3 sm:mr-4 p-2 -m-2 cursor-move nv-text-subtle touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center"
-                                @click.prevent.stop>
-                                <Menu class="h-5 w-5" />
-                            </div>
                             <div class="flex-1 min-w-0 py-1 sm:py-0">
                                 <div class="flex items-center gap-2">
                                     <div class="text-sm font-medium nv-accent-text truncate">{{
@@ -100,7 +125,7 @@
 
 <script setup lang="ts">
 import draggable from 'vuedraggable'
-import { Menu, Users } from 'lucide-vue-next'
+import { ChevronDown, ChevronUp, GripVertical, Users } from 'lucide-vue-next'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
@@ -111,9 +136,11 @@ const {
     accessibleBoards,
     unavailableBoards,
     loading,
+    isReordering,
     isMobile,
     hasSubscriptions,
     handleDragEnd,
+    moveSubscription,
     handleUnsubscribe,
     isAccessibleSubscription,
 } = useSubscribedBoardsManager()

@@ -131,24 +131,51 @@ export function useSubscribedBoardsManager() {
     }
   }
 
-  async function handleDragEnd() {
-    if (isReordering.value) return
+  async function persistSubscriptionOrder(
+    accessibleSnapshot: SubscriptionBoardListItem[],
+    unavailableSnapshot: SubscriptionBoardListItem[],
+  ) {
+    if (isReordering.value) return false
 
-    const accessibleSnapshot = cloneBoards(accessibleBoards.value)
-      .sort((left, right) => left.sortOrder - right.sortOrder)
-    const unavailableSnapshot = cloneBoards(unavailableBoards.value)
     const boardUrls = accessibleBoards.value.map(board => board.boardUrl)
     isReordering.value = true
     try {
       await boardApi.updateSubscriptionOrder(boardUrls)
       invalidateSubscriptionCaches()
+      return true
     } catch (error) {
       handleSilentError(error, 'Failed to update subscription order')
       restoreSubscriptionSnapshot(accessibleSnapshot, unavailableSnapshot)
       await fetchSubscriptions()
+      return false
     } finally {
       isReordering.value = false
     }
+  }
+
+  async function handleDragEnd() {
+    const accessibleSnapshot = cloneBoards(accessibleBoards.value)
+      .sort((left, right) => left.sortOrder - right.sortOrder)
+    const unavailableSnapshot = cloneBoards(unavailableBoards.value)
+    await persistSubscriptionOrder(accessibleSnapshot, unavailableSnapshot)
+  }
+
+  async function moveSubscription(boardUrl: string, direction: 'up' | 'down') {
+    if (isReordering.value) return
+
+    const currentIndex = accessibleBoards.value.findIndex(board => board.boardUrl === boardUrl)
+    const targetIndex = currentIndex + (direction === 'up' ? -1 : 1)
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= accessibleBoards.value.length) return
+
+    const accessibleSnapshot = cloneBoards(accessibleBoards.value)
+    const unavailableSnapshot = cloneBoards(unavailableBoards.value)
+    const reorderedBoards = [...accessibleBoards.value]
+    const [movedBoard] = reorderedBoards.splice(currentIndex, 1)
+    if (!movedBoard) return
+    reorderedBoards.splice(targetIndex, 0, movedBoard)
+    accessibleBoards.value = reorderedBoards
+
+    await persistSubscriptionOrder(accessibleSnapshot, unavailableSnapshot)
   }
 
   onMounted(() => {
@@ -168,6 +195,7 @@ export function useSubscribedBoardsManager() {
     hasSubscriptions,
     fetchSubscriptions,
     handleDragEnd,
+    moveSubscription,
     handleUnsubscribe,
     isAccessibleSubscription,
   }

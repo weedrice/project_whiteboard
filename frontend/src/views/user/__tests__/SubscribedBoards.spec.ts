@@ -57,7 +57,7 @@ vi.mock('vuedraggable', () => ({
     name: 'Draggable',
     props: ['modelValue'],
     emits: ['update:modelValue', 'end'],
-    template: '<ul><slot v-for="element in modelValue" name="item" :element="element" /></ul>',
+    template: '<ul><slot v-for="(element, index) in modelValue" name="item" :element="element" :index="index" /></ul>',
   },
 }))
 
@@ -173,7 +173,9 @@ describe('SubscribedBoards', () => {
     await flushPromises()
     await flushPromises()
 
-    await wrapper.find('button').trigger('click')
+    const unsubscribeButton = wrapper.findAll('button')
+      .find(button => button.text() === 'user.subscriptions.unsubscribe')
+    await unsubscribeButton?.trigger('click')
     await flushPromises()
 
     expect(mocks.unsubscribeBoard).toHaveBeenCalledWith('free')
@@ -194,6 +196,24 @@ describe('SubscribedBoards', () => {
     expect(mocks.updateSubscriptionOrder).toHaveBeenCalledWith(['free'])
     expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['boards'] })
     expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['boards', 'subscriptions'] })
+  })
+
+  it('supports moving subscriptions with accessible order buttons', async () => {
+    mocks.getMySubscriptions.mockResolvedValue(pageResponse(0, 1, [
+      { ...subscription, boardId: 1, boardUrl: 'general', boardName: 'General', sortOrder: 1 },
+      { ...subscription, boardId: 2, boardUrl: 'news', boardName: 'News', sortOrder: 2 },
+    ]))
+
+    const wrapper = mountView()
+    await flushPromises()
+    await flushPromises()
+
+    const moveDownButton = wrapper.findAll('button')
+      .find(button => button.attributes('aria-label') === 'user.subscriptions.moveDown' && !button.attributes('disabled'))
+    await moveDownButton?.trigger('click')
+    await flushPromises()
+
+    expect(mocks.updateSubscriptionOrder).toHaveBeenCalledWith(['news', 'general'])
   })
 
   it('renders accessible subscriptions as real board links', async () => {

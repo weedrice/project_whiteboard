@@ -818,6 +818,9 @@ export interface UserMessages {
       unsubscribeFailed: string
       unavailableBoard: string
       unavailableBoardDescription: string
+      reorder: string
+      moveUp: string
+      moveDown: string
     }
   sanctioned: string
 }

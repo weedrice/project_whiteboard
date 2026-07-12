@@ -335,6 +335,9 @@ export const user: UserMessages = {
       unsubscribeFailed: '구독 취소에 실패했습니다.',
       unavailableBoard: '숨겨진 스페이스',
       unavailableBoardDescription: '접근 권한이 없어 구독 해지만 가능합니다.',
+      reorder: '{name} 순서 변경',
+      moveUp: '{name} 위로 이동',
+      moveDown: '{name} 아래로 이동',
     },
   sanctioned: '계정이 제재되었습니다. 로그아웃됩니다.',
 }

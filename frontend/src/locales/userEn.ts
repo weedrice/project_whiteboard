@@ -335,6 +335,9 @@ export const userEn: UserMessages = {
     unsubscribeFailed: 'Failed to unsubscribe.',
     unavailableBoard: 'Hidden space',
     unavailableBoardDescription: 'You do not have access, but you can still unsubscribe.',
+    reorder: 'Reorder {name}',
+    moveUp: 'Move {name} up',
+    moveDown: 'Move {name} down',
   },
   sanctioned: 'Your account has been sanctioned. You will be logged out.',
 }
