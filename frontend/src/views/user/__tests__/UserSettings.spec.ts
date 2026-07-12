@@ -57,6 +57,8 @@ const toastStoreMock = vi.hoisted(() => ({
   addToast: vi.fn(),
 }))
 const confirmMock = vi.hoisted(() => vi.fn().mockResolvedValue(true))
+const routeMock = vi.hoisted(() => ({ hash: '' }))
+const routerReplaceMock = vi.hoisted(() => vi.fn())
 const pushNotificationMock = vi.hoisted(() => ({
   enabled: { value: true },
   supported: { value: true },
@@ -70,6 +72,11 @@ const pushNotificationMock = vi.hoisted(() => ({
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({ t: identityT, locale: { value: 'ko' } }),
+}))
+
+vi.mock('vue-router', () => ({
+  useRoute: () => routeMock,
+  useRouter: () => ({ replace: routerReplaceMock }),
 }))
 
 vi.mock('@/composables/useUser', () => ({
@@ -229,6 +236,7 @@ const mountUserSettings = () => {
 describe('UserSettings', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    routeMock.hash = ''
 
     themeIsDark.value = false
     settingsData.value = {
@@ -341,6 +349,22 @@ describe('UserSettings', () => {
     expect((wrapper.get('#notification-like').element as HTMLInputElement).checked).toBe(false)
     expect((wrapper.get('#notification-comment').element as HTMLInputElement).checked).toBe(true)
     expect((wrapper.get('#notification-reply').element as HTMLInputElement).checked).toBe(true)
+  })
+
+  it('restores the selected section from the URL hash and updates deep links', async () => {
+    routeMock.hash = '#security'
+    const wrapper = mountUserSettings()
+    await nextTick()
+
+    expect(wrapper.get('#security').isVisible()).toBe(true)
+    expect(wrapper.get('#general').isVisible()).toBe(false)
+
+    const notificationTab = wrapper.findAll('[role="tab"]')
+      .find((tab) => tab.text() === 'user.settings.notifications')!
+    await notificationTab.trigger('click')
+
+    expect(routerReplaceMock).toHaveBeenCalledWith({ hash: '#notifications' })
+    expect(wrapper.get('#notifications').isVisible()).toBe(true)
   })
 
   it('enables save buttons only after each section changes', async () => {

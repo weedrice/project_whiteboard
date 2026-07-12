@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import { useThemeStore } from '@/stores/theme'
@@ -15,12 +16,15 @@ import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseCheckbox from '@/components/common/ui/BaseCheckbox.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseSelect from '@/components/common/ui/BaseSelect.vue'
+import BaseSegmentedControl from '@/components/common/ui/BaseSegmentedControl.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import { usePushNotifications } from '@/features/notifications/usePushNotifications'
 import { formatDateTimeOrDash } from '@/utils/date'
 import { Monitor, Settings } from 'lucide-vue-next'
 
 const { t, locale } = useI18n()
+const route = useRoute()
+const router = useRouter()
 const {
   useUserSettings,
   useNotificationSettings,
@@ -40,6 +44,25 @@ const toastStore = useToastStore()
 const { confirm } = useConfirm()
 const loginHistoryParams = ref({ page: 0, size: 10 })
 const showLoginHistory = ref(false)
+type SettingsSection = 'general' | 'notifications' | 'security'
+const SETTINGS_SECTIONS: SettingsSection[] = ['general', 'notifications', 'security']
+const activeSection = ref<SettingsSection>('general')
+const settingsSectionOptions = computed(() => [
+  { value: 'general', label: t('user.settings.general') },
+  { value: 'notifications', label: t('user.settings.notifications') },
+  { value: 'security', label: t('user.settings.sessions.title') },
+])
+
+watch(() => route.hash, (hash) => {
+  const requested = hash.replace(/^#/, '') as SettingsSection
+  activeSection.value = SETTINGS_SECTIONS.includes(requested) ? requested : 'general'
+}, { immediate: true })
+
+const selectSection = (section: string) => {
+  if (!SETTINGS_SECTIONS.includes(section as SettingsSection)) return
+  activeSection.value = section as SettingsSection
+  void router.replace({ hash: `#${section}` })
+}
 
 const { data: settingsData, isLoading: isSettingsLoading } = useUserSettings()
 const { data: notificationData, isLoading: isNotifLoading } = useNotificationSettings()
@@ -218,8 +241,17 @@ const handleRevokeOtherSessions = async () => {
         <h3 class="text-lg leading-6 font-medium nv-title">{{ $t('common.settings') }}</h3>
       </div>
       <div class="px-4 py-5 sm:p-6 space-y-6">
-        <div>
-          <h3 class="text-lg font-medium leading-6 nv-title">{{ $t('user.settings.general') }}</h3>
+        <BaseSegmentedControl
+          :model-value="activeSection"
+          :options="settingsSectionOptions"
+          :label="$t('user.settings.sectionNavigation')"
+          selection-mode="tab"
+          variant="joined"
+          @update:model-value="selectSection"
+        />
+
+        <section v-show="activeSection === 'general'" id="general" aria-labelledby="settings-general-heading">
+          <h3 id="settings-general-heading" class="text-lg font-medium leading-6 nv-title">{{ $t('user.settings.general') }}</h3>
           <div class="mt-4 space-y-4">
             <div>
               <BaseSelect
@@ -241,10 +273,10 @@ const handleRevokeOtherSessions = async () => {
               </BaseSelect>
             </div>
           </div>
-          <div class="mt-5 flex justify-end">
+          <div class="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
             <p
               v-if="generalMessage"
-              class="mr-4 text-sm flex items-center"
+              class="text-sm flex items-center"
               :role="generalIsError ? 'alert' : 'status'"
               :aria-live="generalIsError ? undefined : 'polite'"
               :class="generalIsError ? 'nv-form-error' : 'text-[var(--nv-success-text)]'"
@@ -255,12 +287,10 @@ const handleRevokeOtherSessions = async () => {
               {{ savingGeneral ? $t('user.settings.saving') : $t('user.settings.save') }}
             </BaseButton>
           </div>
-        </div>
+        </section>
 
-        <hr class="nv-border" />
-
-        <div>
-          <h3 class="text-lg font-medium leading-6 nv-title">
+        <section v-show="activeSection === 'notifications'" id="notifications" aria-labelledby="settings-notifications-heading">
+          <h3 id="settings-notifications-heading" class="text-lg font-medium leading-6 nv-title">
             {{ $t('user.settings.notifications') }}
           </h3>
           <div class="mt-4 space-y-4">
@@ -273,10 +303,10 @@ const handleRevokeOtherSessions = async () => {
               :description="option.description"
             />
           </div>
-          <div class="mt-5 flex justify-end">
+          <div class="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
             <p
               v-if="notificationMessage"
-              class="mr-4 text-sm flex items-center"
+              class="text-sm flex items-center"
               :role="notificationIsError ? 'alert' : 'status'"
               :aria-live="notificationIsError ? undefined : 'polite'"
               :class="notificationIsError ? 'nv-form-error' : 'text-[var(--nv-success-text)]'"
@@ -394,14 +424,17 @@ const handleRevokeOtherSessions = async () => {
               {{ pushMessage }}
             </p>
           </div>
+        </section>
 
-          <div class="mt-8 border-t nv-border pt-6">
-            <div class="flex items-center justify-between gap-3">
+        <section v-show="activeSection === 'security'" id="security" aria-labelledby="settings-security-heading">
+          <div>
+            <div class="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h4 class="text-base font-semibold nv-title">{{ $t('user.settings.sessions.title') }}</h4>
+                <h3 id="settings-security-heading" class="text-lg font-semibold nv-title">{{ $t('user.settings.sessions.title') }}</h3>
                 <p class="text-sm nv-text-subtle">{{ $t('user.settings.sessions.description') }}</p>
               </div>
               <BaseButton
+                class="w-full sm:w-auto"
                 size="sm"
                 variant="secondary"
                 :loading="isRevokingOtherSessions"
@@ -415,9 +448,9 @@ const handleRevokeOtherSessions = async () => {
               <div
                 v-for="session in sessions"
                 :key="session.sessionId"
-                class="rounded-md border nv-border p-3"
+                class="rounded-[var(--nv-radius-sm)] border nv-border p-3"
               >
-                <div class="flex items-start justify-between gap-3">
+                <div class="flex flex-col items-start gap-3 sm:flex-row sm:justify-between">
                   <div class="min-w-0">
                     <div class="flex flex-wrap items-center gap-2">
                       <Monitor class="h-4 w-4 nv-text-subtle" />
@@ -461,7 +494,7 @@ const handleRevokeOtherSessions = async () => {
                 <div
                   v-for="history in loginHistory"
                   :key="history.historyId"
-                  class="flex flex-col gap-1 rounded-md border nv-border px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between"
+                  class="flex flex-col gap-1 rounded-[var(--nv-radius-sm)] border nv-border px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between"
                 >
                   <span class="truncate nv-title">{{ history.deviceSummary }}</span>
                   <span class="shrink-0 nv-text-subtle">
@@ -471,7 +504,7 @@ const handleRevokeOtherSessions = async () => {
               </template>
             </div>
           </div>
-        </div>
+        </section>
       </div>
     </div>
   </div>
