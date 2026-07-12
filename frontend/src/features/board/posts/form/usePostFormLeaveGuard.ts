@@ -8,12 +8,10 @@ export interface PostFormLeaveGuardTarget {
 
 export type PostFormLeaveConfirm = (message: string) => boolean | Promise<boolean>
 
-const defaultConfirmLeave: PostFormLeaveConfirm = (message) => window.confirm(message)
-
 export function usePostFormLeaveGuard(
     postFormRef: Ref<PostFormLeaveGuardTarget | null>,
     fallbackMessage: string,
-    confirmLeave: PostFormLeaveConfirm = defaultConfirmLeave,
+    confirmLeave: PostFormLeaveConfirm,
 ) {
     onBeforeRouteLeave(async (_to, _from, next) => {
         const form = postFormRef.value

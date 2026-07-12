@@ -7,6 +7,7 @@ import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import PaginatedListCard from '@/components/common/ui/PaginatedListCard.vue'
 import { usePaginatedListState } from '@/composables/usePaginatedListState'
+import { useConfirm } from '@/composables/useConfirm'
 import { useUser, userQueryKeys } from '@/composables/useUser'
 import { usePost } from '@/features/board/posts/queries/usePost'
 import { useToastStore } from '@/stores/toast'
@@ -18,6 +19,7 @@ import type { ScheduledPost } from '@/api/post'
 const { t } = useI18n()
 const queryClient = useQueryClient()
 const toastStore = useToastStore()
+const { confirm } = useConfirm()
 const { useMyDrafts, useMyScheduledPosts } = useUser()
 const { useDeleteDraft, useCancelScheduledPost } = usePost()
 
@@ -75,7 +77,7 @@ function getDraftRoute(draft: DraftPostSummary) {
 }
 
 async function handleDeleteDraft(draft: DraftPostSummary) {
-  if (!window.confirm(t('user.draftList.deleteConfirm'))) return
+  if (!(await confirm(t('user.draftList.deleteConfirm')))) return
 
   try {
     await deleteDraft(draft.draftId)
@@ -97,7 +99,7 @@ function getScheduledPostRoute(post: ScheduledPost) {
 }
 
 async function handleCancelScheduledPost(post: ScheduledPost) {
-  if (!window.confirm(t('user.draftList.cancelScheduledConfirm'))) return
+  if (!(await confirm(t('user.draftList.cancelScheduledConfirm')))) return
 
   try {
     await cancelScheduledPost(post.scheduledPostId)

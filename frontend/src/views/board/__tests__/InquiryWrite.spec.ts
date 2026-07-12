@@ -8,6 +8,10 @@ import { boardApi } from '@/api/board'
 import { createDeferred } from '@/test/async'
 import type { ApiResponse } from '@/types'
 
+vi.mock('@/composables/useConfirm', () => ({
+  useConfirm: () => ({ confirm: vi.fn() }),
+}))
+
 vi.mock('@/api/board', () => ({
   boardApi: {
     ensureInquiryBoard: vi.fn(),

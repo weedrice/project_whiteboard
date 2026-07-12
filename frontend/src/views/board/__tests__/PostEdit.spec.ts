@@ -4,6 +4,12 @@ import { defineComponent, h } from 'vue'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import PostEdit from '../PostEdit.vue'
 
+vi.mock('@/composables/useConfirm', () => ({
+  useConfirm: () => ({
+    confirm: (message: string) => window.confirm(message),
+  }),
+}))
+
 afterEach(() => {
   vi.restoreAllMocks()
 })
