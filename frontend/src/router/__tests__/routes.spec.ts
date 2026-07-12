@@ -18,6 +18,10 @@ describe('routes table', () => {
     })
 
     it('protects write, edit and admin management routes with the expected meta flags', () => {
+        expect(routes.find((route) => route.path === '/auth')?.meta).toMatchObject({
+            guestOnly: true,
+            layout: 'BareLayout',
+        })
         expect(byName.get('post-write')?.meta).toMatchObject({
             requiresAuth: true,
             requiresWritableBoard: true,

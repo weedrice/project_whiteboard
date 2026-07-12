@@ -55,7 +55,7 @@ useHead({
 </script>
 
 <template>
-  <div class="max-w-5xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+  <div class="mx-auto max-w-5xl">
     <!-- 뒤로가기 버튼 -->
     <div class="mb-6">
       <button @click="goToList"

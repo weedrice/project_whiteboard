@@ -81,8 +81,15 @@
   }
 
   .nv-mobile-nav-item {
-    @apply relative min-w-0 inline-flex min-h-[44px] flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2 text-[10px] font-semibold tracking-[0.04em] transition-colors;
+    @apply relative min-w-0 inline-flex min-h-[44px] cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2 text-[10px] font-semibold tracking-[0.04em] transition-colors;
     color: var(--nv-muted);
+  }
+
+  .nv-mobile-nav-item:focus-visible,
+  .nv-mobile-nav-fab:focus-visible,
+  .nv-mobile-sheet-item:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--nv-focus) 44%, transparent);
   }
 
   .nv-mobile-nav-label {
@@ -102,7 +109,7 @@
   }
 
   .nv-mobile-nav-fab {
-    @apply mx-auto inline-flex h-14 w-14 items-center justify-center rounded-full text-white shadow-lg transition-transform;
+    @apply mx-auto inline-flex h-14 w-14 cursor-pointer items-center justify-center rounded-full text-white shadow-lg transition-transform;
     background: linear-gradient(135deg, var(--nv-accent), color-mix(in srgb, var(--nv-accent) 70%, white));
     transform: translateY(-0.9rem);
   }
@@ -120,7 +127,7 @@
   }
 
   .nv-mobile-sheet-item {
-    @apply flex w-full items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left text-sm transition-colors;
+    @apply flex w-full cursor-pointer items-center justify-between gap-3 rounded-2xl px-4 py-3 text-left text-sm transition-colors;
     background: var(--nv-surface-2);
     color: var(--nv-ink);
   }

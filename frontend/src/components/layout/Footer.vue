@@ -11,7 +11,7 @@ const commitHash = __COMMIT_HASH__
 </script>
 
 <template>
-  <footer class="nv-footer mt-auto pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+  <footer class="nv-footer mt-auto">
     <div class="max-w-7xl mx-auto py-1.5 sm:py-2 px-4 sm:px-6 lg:px-8">
       <div class="flex flex-col md:flex-row justify-between items-center gap-0.5 md:gap-0">
         <p class="nv-footer-copy text-sm text-center md:text-left order-3 md:order-1 leading-tight">
@@ -73,7 +73,14 @@ const commitHash = __COMMIT_HASH__
 .nv-footer {
   background: color-mix(in srgb, var(--nv-surface) 94%, transparent);
   border-top: 1px solid var(--nv-line);
+  padding-bottom: calc(var(--nv-bottom-nav-height) + env(safe-area-inset-bottom) + 0.5rem);
   transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+@media (min-width: 640px) {
+  .nv-footer {
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+  }
 }
 
 .nv-footer-copy,

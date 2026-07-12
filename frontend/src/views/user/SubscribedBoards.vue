@@ -1,5 +1,5 @@
 <template>
-    <div class="max-w-4xl mx-auto py-4 sm:py-6 md:py-8 px-4 sm:px-6 lg:px-8">
+    <div class="mx-auto max-w-4xl">
         <div class="nv-surface shadow overflow-hidden sm:rounded-lg transition-colors duration-200">
             <div class="px-4 py-4 sm:py-5 sm:px-6 border-b nv-border flex items-center">
                 <Users class="h-5 w-5 mr-2 nv-text-subtle flex-shrink-0" />

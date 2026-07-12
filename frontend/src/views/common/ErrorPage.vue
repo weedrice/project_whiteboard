@@ -1,5 +1,5 @@
 <template>
-    <div class="min-h-screen flex items-center justify-center nv-page py-12 px-4 sm:px-6 lg:px-8">
+    <div class="flex min-h-[60vh] items-center justify-center nv-page">
         <ErrorState :code="status" :title="title" :message="message" :show-icon="false">
             <form v-if="numericStatus === 404" class="flex w-full gap-2 sm:order-first" @submit.prevent="search">
                 <BaseInput v-model="keyword" :label="t('common.search')" :placeholder="t('common.search')" hide-label class="min-w-0 flex-1" />

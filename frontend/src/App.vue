@@ -27,6 +27,7 @@ const queryClient = useQueryClient()
 const layout = computed(() => {
     return route.meta.layout === 'AdminLayout' ? AdminLayout : DefaultLayout
 })
+const usesBareLayout = computed(() => route.matched.some(record => record.meta.layout === 'BareLayout'))
 
 const themeStore = useThemeStore()
 const configStore = useConfigStore()
@@ -54,7 +55,8 @@ onUnmounted(() => {
 <template>
     <ErrorBoundary>
         <NetworkStatus />
-        <component :is="layout">
+        <RouterView v-if="usesBareLayout" />
+        <component v-else :is="layout">
             <RouterView />
         </component>
         <ToastContainer />

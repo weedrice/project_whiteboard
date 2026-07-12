@@ -245,7 +245,7 @@ const handleRevokeOtherSessions = async () => {
 </script>
 
 <template>
-  <div class="max-w-2xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+  <div class="mx-auto max-w-2xl">
     <div v-if="loading" class="text-center py-10">
       <BaseSpinner />
     </div>

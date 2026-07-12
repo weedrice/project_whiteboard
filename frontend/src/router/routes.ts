@@ -9,7 +9,7 @@ export const routes: RouteRecordRaw[] = [
     {
         path: '/auth',
         component: () => import('@/views/auth/AuthLayout.vue'),
-        meta: { guestOnly: true },
+        meta: { guestOnly: true, layout: 'BareLayout' },
         children: [
             {
                 path: 'login',

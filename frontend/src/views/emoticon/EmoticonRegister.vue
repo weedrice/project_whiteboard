@@ -81,7 +81,7 @@ const goToList = () => {
 
 
 <template>
-  <div class="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+  <div class="mx-auto max-w-4xl">
     <!-- 페이지 제목과 목록으로 버튼 -->
     <div class="mb-8 flex items-start justify-between">
       <div>

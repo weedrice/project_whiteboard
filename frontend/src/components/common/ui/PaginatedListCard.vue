@@ -45,7 +45,7 @@ const props = withDefaults(defineProps<{
   titleTag: 'h3',
   loadingPreset: 'none',
   loadingRows: 5,
-  inset: true,
+  inset: false,
 })
 
 const emit = defineEmits<{
@@ -79,7 +79,7 @@ const getLoadingRowClass = (preset: LoadingPreset) => {
       maxWidthClass,
       inset
         ? 'mx-auto py-4 sm:py-6 md:py-8 px-4 sm:px-6 lg:px-8'
-        : 'w-full py-4 sm:py-6 md:py-8',
+        : 'w-full',
     ]"
   >
     <div class="nv-surface shadow overflow-hidden sm:rounded-lg transition-colors duration-200">

@@ -1,5 +1,5 @@
 <template>
-  <div class="container mx-auto px-4 py-8">
+  <div class="mx-auto max-w-4xl">
     <h1 class="text-3xl font-bold mb-6 nv-title">개인정보 처리방침</h1>
     <div class="nv-rich-content prose max-w-none dark:prose-invert">
       <p class="nv-text-muted">최종 수정일: {{ privacyPolicyLastRevisedDate }}</p>

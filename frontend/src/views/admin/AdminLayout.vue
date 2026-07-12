@@ -76,7 +76,7 @@ watch(
           </router-link>
           <button
             type="button"
-            class="inline-flex min-w-0 items-center gap-2 rounded-md border border-[var(--nv-border)] px-3 py-2 text-sm font-medium nv-text"
+            class="inline-flex min-w-0 cursor-pointer items-center gap-2 rounded-md border border-[var(--nv-border)] px-3 py-2 text-sm font-medium nv-text transition-colors nv-hover-surface nv-press-surface nv-focus-ring"
             :aria-expanded="isMobileMenuOpen"
             aria-controls="admin-mobile-nav"
             @click="isMobileMenuOpen = !isMobileMenuOpen"
