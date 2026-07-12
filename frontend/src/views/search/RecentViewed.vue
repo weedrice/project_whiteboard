@@ -30,6 +30,7 @@ const {
 
 <template>
   <PaginatedListCard
+    title-tag="h1"
     :title="$t('user.tabs.recent')"
     :icon="Clock"
     :items-count="posts.length"

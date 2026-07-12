@@ -39,6 +39,7 @@ function handleMarkAllAsRead() {
 
 <template>
   <PaginatedListCard
+    title-tag="h1"
     :title="$t('notification.title')"
     :icon="Bell"
     :items-count="notifications.length"

@@ -29,6 +29,7 @@ const {
 
 <template>
   <PaginatedListCard
+    title-tag="h1"
     :title="$t('user.tabs.reports')"
     :icon="Flag"
     :items-count="reports.length"

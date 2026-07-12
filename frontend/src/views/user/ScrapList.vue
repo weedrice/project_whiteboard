@@ -146,6 +146,7 @@ async function deleteFolder(folderId: number) {
 
 <template>
   <PaginatedListCard
+    title-tag="h1"
     :title="$t('user.tabs.scraps')"
     :icon="Bookmark"
     :items-count="scraps.length"

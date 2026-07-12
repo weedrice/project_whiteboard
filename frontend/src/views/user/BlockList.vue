@@ -1,5 +1,6 @@
 <template>
   <PaginatedListCard
+    title-tag="h1"
     :title="$t('user.blockList.title')"
     :icon="UserX"
     :items-count="blockedUsers.length"

@@ -113,6 +113,7 @@ async function handleCancelScheduledPost(post: ScheduledPost) {
 <template>
   <div class="space-y-6">
     <PaginatedListCard
+      title-tag="h1"
       :title="listTitle"
       :icon="FileEdit"
       :items-count="drafts.length"
@@ -172,6 +173,7 @@ async function handleCancelScheduledPost(post: ScheduledPost) {
     </PaginatedListCard>
 
     <PaginatedListCard
+      title-tag="h2"
       :title="scheduledListTitle"
       :icon="CalendarClock"
       :items-count="scheduledPosts.length"

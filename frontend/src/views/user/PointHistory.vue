@@ -51,6 +51,7 @@ const formatBalance = (balance: number) => `${balance.toLocaleString()} P`
 
 <template>
   <PaginatedListCard
+    title-tag="h1"
     :title="$t('user.tabs.points')"
     :icon="Coins"
     :items-count="history.length"
