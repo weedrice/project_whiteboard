@@ -12,6 +12,7 @@ import AdminFormPanel from '@/components/admin/AdminFormPanel.vue'
 import AdminInlineForm from '@/components/admin/AdminInlineForm.vue'
 import AdminPaginatedTable from '@/components/admin/AdminPaginatedTable.vue'
 import AdminStatusBadge from '@/components/admin/AdminStatusBadge.vue'
+import ErrorState from '@/components/common/ui/ErrorState.vue'
 import { formatDate } from '@/utils/date'
 import type { SuperAdminInfo } from '@/types'
 import { useConfirm } from '@/composables/useConfirm'
@@ -26,7 +27,7 @@ const {
 
 const newSuperAdminLoginId = ref('')
 
-const { data: superAdminsData, isLoading: isSuperAdminsLoading } = useSuperAdmins()
+const { data: superAdminsData, isLoading: isSuperAdminsLoading, isError: isSuperAdminsError, refetch: refetchSuperAdmins } = useSuperAdmins()
 const { mutateAsync: updateSuperAdminStatus } = useUpdateSuperAdminStatus()
 
 interface SuperAdminRow {
@@ -131,7 +132,15 @@ const superAdminColumns: { key: string; label: string; width: string; align?: 'l
     <div class="mt-8">
       <p class="nv-kicker mb-2">{{ t('common.status') }}</p>
       <h2 class="text-lg font-medium leading-6 nv-title mb-4">{{ t('admin.admins.superAdmins') }}</h2>
+      <ErrorState
+        v-if="isSuperAdminsError"
+        title-tag="h3"
+        :message="t('common.messages.loadFailed')"
+        show-retry
+        @retry="refetchSuperAdmins()"
+      />
       <AdminPaginatedTable
+        v-else
         table-class=""
         :columns="superAdminColumns"
         :caption="t('admin.admins.superAdmins')"

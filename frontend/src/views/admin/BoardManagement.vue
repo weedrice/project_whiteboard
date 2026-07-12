@@ -8,7 +8,15 @@
       </div>
     </template>
 
-    <div class="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-12">
+    <ErrorState
+      v-if="boardsError"
+      title-tag="h2"
+      :message="$t('common.messages.loadFailed')"
+      show-retry
+      @retry="refetchBoards()"
+    />
+
+    <div v-else class="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-12">
       <section class="xl:col-span-4">
         <AdminBoardListPanel
           :boards="boards"
@@ -85,6 +93,7 @@ import AdminBoardEditPanel from '@/components/admin/AdminBoardEditPanel.vue'
 import AdminBoardFormFields from '@/components/admin/AdminBoardFormFields.vue'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
+import ErrorState from '@/components/common/ui/ErrorState.vue'
 import UserSelectModal from '@/components/common/widgets/UserSelectModal.vue'
 const {
   useAdminBoards,
@@ -94,7 +103,7 @@ const {
   useUpdateBoardManager
 } = useAdmin()
 
-const { data: boardsData, isLoading: loading } = useAdminBoards()
+const { data: boardsData, isLoading: loading, isError: boardsError, refetch: refetchBoards } = useAdminBoards()
 const { mutateAsync: createBoard } = useCreateBoard()
 const { mutateAsync: updateBoard } = useUpdateBoard()
 const {

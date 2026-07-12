@@ -13,6 +13,7 @@ import UserDetailModal from '@/components/admin/UserDetailModal.vue'
 import AdminUserFilterPanel from '@/components/admin/AdminUserFilterPanel.vue'
 import UserAvatar from '@/components/common/ui/UserAvatar.vue'
 import BaseSelect from '@/components/common/ui/BaseSelect.vue'
+import ErrorState from '@/components/common/ui/ErrorState.vue'
 import { formatAdminPaginationSummary } from '@/utils/adminPaginationSummary'
 import { formatDateOnly } from '@/utils/date'
 import { useConfirm } from '@/composables/useConfirm'
@@ -48,7 +49,7 @@ const {
   size,
 } = useAdminUserListState()
 
-const { data: usersData, isLoading } = useUsers(params)
+const { data: usersData, isLoading, isError, refetch } = useUsers(params)
 const { mutateAsync: updateUserStatus } = useUpdateUserStatus()
 
 const {
@@ -128,7 +129,15 @@ const pageSizeOptions = [10, 20, 50]
       />
     </template>
 
+    <ErrorState
+      v-if="isError"
+      title-tag="h2"
+      :message="t('common.messages.loadFailed')"
+      show-retry
+      @retry="refetch()"
+    />
     <AdminPaginatedTable
+        v-else
         :columns="columns"
         :caption="t('admin.users.title')"
         :items="users"
