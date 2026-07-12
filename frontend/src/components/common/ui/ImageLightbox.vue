@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onUnmounted, ref, toRef, watch } from 'vue'
 import { ChevronLeft, ChevronRight, X } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { useEventListener } from '@/composables/useEventListener'
 import { useFocusTrap } from '@/composables/useFocusTrap'
 import { useLightboxGestures } from '@/composables/useLightboxGestures'
+import { useBodyScrollLock } from '@/composables/useBodyScrollLock'
 
 const props = withDefaults(defineProps<{
   isOpen: boolean
@@ -25,7 +26,7 @@ const dialogRef = ref<HTMLElement | null>(null)
 const { t } = useI18n()
 const currentIndex = ref(0)
 const { trapFocus, restoreFocus } = useFocusTrap(dialogRef, () => props.isOpen)
-let previousBodyOverflow: string | null = null
+useBodyScrollLock(toRef(props, 'isOpen'))
 
 const hasMultipleImages = computed(() => props.images.length > 1)
 const currentImage = computed(() => props.images[currentIndex.value] ?? '')
@@ -74,27 +75,13 @@ function handleKeydown(event: KeyboardEvent) {
   }
 }
 
-function lockScroll() {
-  if (previousBodyOverflow !== null) return
-  previousBodyOverflow = document.body.style.overflow
-  document.body.style.overflow = 'hidden'
-}
-
-function unlockScroll() {
-  if (previousBodyOverflow === null) return
-  document.body.style.overflow = previousBodyOverflow
-  previousBodyOverflow = null
-}
-
 watch(() => props.isOpen, async (isOpen) => {
   if (isOpen) {
     currentIndex.value = clampIndex(props.initialIndex)
     resetImageTransform()
-    lockScroll()
     await nextTick()
     trapFocus()
   } else {
-    unlockScroll()
     restoreFocus()
   }
 }, { immediate: true })
@@ -109,7 +96,6 @@ watch(() => props.initialIndex, (index) => {
 useEventListener(() => document, 'keydown', handleKeydown)
 
 onUnmounted(() => {
-  unlockScroll()
   restoreFocus()
 })
 </script>
@@ -148,7 +134,7 @@ onUnmounted(() => {
           v-if="currentImage"
           :src="currentImage"
           :alt="title"
-          class="max-h-[88vh] max-w-full touch-none select-none rounded-md object-contain shadow-2xl transition-transform duration-150"
+          class="lightbox-image max-w-full touch-none select-none rounded-md object-contain shadow-2xl transition-transform duration-150"
           :style="imageTransform"
           draggable="false"
           @dblclick="toggleZoom"
@@ -178,3 +164,10 @@ onUnmounted(() => {
     </div>
   </Teleport>
 </template>
+
+<style scoped>
+.lightbox-image {
+  max-height: 88vh;
+  max-height: 88dvh;
+}
+</style>

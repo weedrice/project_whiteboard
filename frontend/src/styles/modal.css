@@ -11,6 +11,11 @@
   }
 
   @media (max-width: 639px) {
+    .modal-overlay {
+      padding-top: max(1rem, env(safe-area-inset-top));
+      padding-bottom: max(1rem, env(safe-area-inset-bottom));
+    }
+
     .modal-container-mobile-full {
       @apply max-w-none w-full h-full max-h-full rounded-none;
     }
@@ -26,10 +31,12 @@
     /* Mobile modal variant that fits content height instead of filling the viewport. */
     .modal-container-mobile-fit {
       @apply max-w-none w-full max-h-[90vh] h-auto rounded-none my-auto;
+      max-height: min(90dvh, calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 2rem));
     }
 
     .modal-container-mobile-fit .modal-content {
       @apply rounded-none flex flex-col max-h-[90vh];
+      max-height: min(90dvh, calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 2rem));
     }
 
     .modal-container-mobile-fit .modal-body {
