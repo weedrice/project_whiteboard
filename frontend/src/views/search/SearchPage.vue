@@ -121,6 +121,14 @@
         <EmptyState v-else-if="!hasSearchQuery" :title="$t('search.placeholder')" :icon="Search"
           container-class="nv-surface shadow rounded-lg" />
 
+        <ErrorState
+          v-else-if="hasSearchError"
+          :title="$t('common.messages.defaultTitle')"
+          :message="$t('common.messages.loadFailed')"
+          show-retry
+          @retry="retrySearch"
+        />
+
         <EmptyState v-else-if="!hasAnyResults && !isSemanticLoading" :title="$t('search.noResults')"
           :description="searchQuery ? `${$t('search.noResultsFor', { query: searchQuery })} ${$t('search.noResultsSuggestion')}` : $t('search.noResultsSuggestion')" :icon="Search"
           container-class="nv-surface shadow rounded-lg" />
@@ -304,6 +312,7 @@ import { useSearchRouteQuery, type SearchFilterKey } from '@/composables/useSear
 import BoardCard from '@/components/board/BoardCard.vue'
 import PostList from '@/components/board/PostList.vue'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
+import ErrorState from '@/components/common/ui/ErrorState.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
@@ -334,9 +343,19 @@ const {
 } = useSearchRouteQuery()
 const isFilterOpen = ref(false)
 
-const { data: searchData, isLoading } = useIntegratedSearch(params)
+const {
+  data: searchData,
+  isLoading,
+  error: integratedSearchError,
+  refetch: refetchIntegratedSearch,
+} = useIntegratedSearch(params)
 const semanticParams = computed(() => ({ q: searchQuery.value, size: 5, contentType: 'ALL' }))
-const { data: semanticData, isLoading: isSemanticLoading } = useSemanticSearch(semanticParams)
+const {
+  data: semanticData,
+  isLoading: isSemanticLoading,
+  error: semanticSearchError,
+  refetch: refetchSemanticSearch,
+} = useSemanticSearch(semanticParams)
 const { data: popularKeywordData } = usePopularKeywords()
 const { data: popularTagData } = useApiQuery({
   queryKey: ['tags', 'popular'],
@@ -353,6 +372,7 @@ const popularKeywords = computed(() => popularKeywordData.value || [])
 const popularTags = computed(() => popularTagData.value?.tags || [])
 const recentKeywords = computed(() => recentKeywordData.value?.content || [])
 const hasKeywordFilters = computed(() => Boolean(params.value.author || params.value.period))
+const hasSearchError = computed(() => Boolean(integratedSearchError.value || semanticSearchError.value))
 const activeFilterChips = computed<Array<{ key: SearchFilterKey, label: string }>>(() => {
   const chips: Array<{ key: SearchFilterKey, label: string }> = []
   if (authorQuery.value) {
@@ -423,6 +443,13 @@ async function deleteRecentKeyword(logId: number) {
 async function clearRecentKeywords() {
   await searchApi.deleteAllRecentSearches()
   await queryClient.invalidateQueries({ queryKey: searchQueryKeys.recent })
+}
+
+async function retrySearch() {
+  await Promise.all([
+    refetchIntegratedSearch(),
+    refetchSemanticSearch(),
+  ])
 }
 
 </script>

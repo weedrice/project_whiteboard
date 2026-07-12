@@ -16,6 +16,9 @@ const searchState = vi.hoisted(() => ({
     boardResults: [],
   },
   isLoading: false,
+  error: null as Error | null,
+  refetchIntegrated: vi.fn(),
+  refetchSemantic: vi.fn(),
 }))
 
 vi.mock('vue-router', () => ({
@@ -74,11 +77,15 @@ vi.mock('@/composables/useSearch', () => ({
       return {
         data: ref(searchState.searchData),
         isLoading: ref(searchState.isLoading),
+        error: ref(searchState.error),
+        refetch: searchState.refetchIntegrated,
       }
     },
     useSemanticSearch: () => ({
       data: ref({ content: [] }),
       isLoading: ref(false),
+      error: ref(searchState.error),
+      refetch: searchState.refetchSemantic,
     }),
     usePopularKeywords: () => ({
       data: ref([]),
@@ -137,6 +144,9 @@ describe('SearchPage', () => {
       boardResults: [],
     }
     searchState.isLoading = false
+    searchState.error = null
+    searchState.refetchIntegrated.mockClear()
+    searchState.refetchSemantic.mockClear()
     routeState.routerPush.mockClear()
     routeState.invalidateQueries.mockClear()
   })
@@ -230,6 +240,19 @@ describe('SearchPage', () => {
     mountPage()
 
     expect(searchState.lastParams?.value.q).toBe('first')
+  })
+
+  it('shows a retryable error instead of an empty result when search fails', async () => {
+    routeState.query = { q: 'failed' }
+    searchState.error = new Error('network failed')
+    const wrapper = mountPage()
+
+    expect(wrapper.get('[role="alert"]').text()).toContain('common.messages.loadFailed')
+    expect(wrapper.find('[data-testid="empty-state"]').exists()).toBe(false)
+
+    await wrapper.get('[role="alert"] button').trigger('click')
+    expect(searchState.refetchIntegrated).toHaveBeenCalledOnce()
+    expect(searchState.refetchSemantic).toHaveBeenCalledOnce()
   })
 
   it('renders active filter chips and removes filters through the route query', async () => {

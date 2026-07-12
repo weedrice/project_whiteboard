@@ -7,13 +7,14 @@ import BoardGrid from '@/components/board/BoardGrid.vue'
 import BoardListSkeleton from '@/components/common/ui/BoardListSkeleton.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseSelect from '@/components/common/ui/BaseSelect.vue'
+import ErrorState from '@/components/common/ui/ErrorState.vue'
 import { useI18n } from 'vue-i18n'
 
 import { useHead } from '@unhead/vue'
 
 const authStore = useAuthStore()
 const { useBoards } = useBoard()
-const { data: boards, isLoading, error } = useBoards()
+const { data: boards, isLoading, error, refetch } = useBoards()
 const { t } = useI18n()
 const boardSearch = ref('')
 const boardSort = ref('default')
@@ -80,9 +81,13 @@ const filteredBoards = computed(() => {
 
     <BoardListSkeleton v-if="isLoading" :count="6" :show-subscribed="authStore.isAuthenticated" />
 
-    <div v-else-if="error" class="text-center py-20 nv-form-error">
-      {{ error }}
-    </div>
+    <ErrorState
+      v-else-if="error"
+      :title="$t('common.messages.defaultTitle')"
+      :message="$t('common.messages.loadFailed')"
+      show-retry
+      @retry="refetch()"
+    />
 
     <div v-else>
       <!-- Subscribed Boards -->
