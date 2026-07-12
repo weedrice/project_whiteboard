@@ -110,7 +110,7 @@ const { t } = useI18n()
   background: color-mix(in srgb, var(--nv-surface) 96%, transparent);
   border: 1px solid var(--nv-line);
   border-radius: 999px;
-  bottom: calc(var(--nv-bottom-nav-height) + env(safe-area-inset-bottom));
+  bottom: 1rem;
   box-shadow: var(--nv-shadow-card);
   display: grid;
   gap: 0.25rem;
@@ -122,6 +122,12 @@ const { t } = useI18n()
   transform: translateX(-50%);
   width: max-content;
   z-index: 35;
+}
+
+@media (max-width: 639px) {
+  .nv-post-mobile-actions {
+    bottom: calc(var(--nv-bottom-nav-height) + env(safe-area-inset-bottom));
+  }
 }
 
 .nv-post-mobile-action {

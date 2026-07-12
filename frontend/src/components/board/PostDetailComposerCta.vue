@@ -26,7 +26,7 @@ const emit = defineEmits<{
   background: var(--nv-surface);
   border: 1px solid var(--nv-line);
   border-radius: 9999px;
-  bottom: calc(1rem + env(safe-area-inset-bottom));
+  bottom: 5rem;
   box-shadow: var(--nv-shadow-popup);
   color: var(--nv-ink);
   left: 50%;
@@ -34,6 +34,12 @@ const emit = defineEmits<{
   position: fixed;
   transform: translateX(-50%);
   z-index: 75;
+}
+
+@media (max-width: 639px) {
+  .nv-post-mobile-comment-cta {
+    bottom: calc(var(--nv-bottom-nav-height) + env(safe-area-inset-bottom) + 4rem);
+  }
 }
 
 .slide-up-enter-active,
