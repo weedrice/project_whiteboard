@@ -44,6 +44,8 @@ unexpected one-character columns, inaccessible truncated labels, and layout shif
 
 ## Completion
 
+- Run `npm run check:ui` before the manual viewport pass. It guards responsive route views and color-token usage.
+- Run `npm run test:run` to cover heading hierarchy, tab relationships, shared page headers, and the fluid emoticon grid.
 - Record each defect with route, viewport, locale, theme, and screenshot.
 - Fix shared primitives before applying page-local overrides.
 - Re-run the affected screen at all four widths and run `npm run check:colors`, `npm run type-check`, and targeted tests.
