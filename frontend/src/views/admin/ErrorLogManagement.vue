@@ -55,15 +55,29 @@ const {
 
 const columns = computed<TableColumn[]>(() => [
   { key: 'httpStatus', label: t('admin.errorLogs.table.httpStatus'), width: '8%' },
-  { key: 'errorCode', label: t('admin.errorLogs.table.errorCode'), width: '13%' },
-  { key: 'errorType', label: t('admin.errorLogs.table.errorType'), width: '13%' },
+  { key: 'errorCode', label: t('admin.errorLogs.table.errorCode'), width: '13%', hideBelow: 'sm' },
+  { key: 'errorType', label: t('admin.errorLogs.table.errorType'), width: '13%', hideBelow: 'lg' },
   { key: 'message', label: t('admin.errorLogs.table.message'), width: '20%' },
-  { key: 'requestUri', label: t('admin.errorLogs.table.requestUri'), width: '16%' },
-  { key: 'ipAddress', label: t('admin.errorLogs.table.ipAddress'), width: '10%' },
+  { key: 'requestUri', label: t('admin.errorLogs.table.requestUri'), width: '16%', hideBelow: 'sm' },
+  { key: 'ipAddress', label: t('admin.errorLogs.table.ipAddress'), width: '10%', hideBelow: 'lg' },
   { key: 'isResolved', label: t('admin.errorLogs.table.isResolved'), width: '8%' },
-  { key: 'createdAt', label: t('admin.errorLogs.table.createdAt'), width: '10%' },
+  { key: 'createdAt', label: t('admin.errorLogs.table.createdAt'), width: '10%', hideBelow: 'sm' },
   { key: 'actions', label: '', align: 'right', width: '8%' },
 ])
+const filterChips = computed(() => [
+  filterStartDate.value && { key: 'start', label: filterStartDate.value },
+  filterEndDate.value && { key: 'end', label: filterEndDate.value },
+  filterHttpStatus.value && { key: 'http', label: String(filterHttpStatus.value) },
+  filterErrorType.value && { key: 'type', label: filterErrorType.value },
+  filterIsResolved.value && { key: 'resolved', label: filterIsResolved.value },
+].filter(Boolean) as Array<{ key: string; label: string }>)
+function removeFilterChip(key: string) {
+  if (key === 'start') filterStartDate.value = ''
+  if (key === 'end') filterEndDate.value = ''
+  if (key === 'http') filterHttpStatus.value = undefined
+  if (key === 'type') filterErrorType.value = ''
+  if (key === 'resolved') filterIsResolved.value = ''
+}
 
 function getRowClass(log: ErrorLogListItem): string {
   return log.isResolved === 'N' ? 'row-unresolved' : ''
@@ -101,7 +115,7 @@ function resolveFromDetail(log: ErrorLogDetail) {
         />
       </div>
 
-      <AdminFilterPanel>
+      <AdminFilterPanel collapsible :title="t('admin.errorLogs.title')" :chips="filterChips" @remove-chip="removeFilterChip">
         <div class="flex flex-wrap items-end gap-3">
           <AdminFilterField
             :label="t('admin.errorLogs.filter.startDate')"

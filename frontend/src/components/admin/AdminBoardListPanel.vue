@@ -2,7 +2,7 @@
   <AdminPanel padding="sm">
     <h2 class="text-sm font-semibold nv-title">{{ t('common.board') }}</h2>
 
-    <AdminContentState :loading="loading" :empty="boards.length === 0" :empty-text="t('common.noData')">
+    <AdminContentState :loading="loading" :empty="boards.length === 0" :empty-text="t('common.noData')" :action-label="t('admin.boards.addTitle')" @action="emit('create')">
       <draggable
         :model-value="boards"
         item-key="boardId"
@@ -59,6 +59,7 @@ const emit = defineEmits<{
   (event: 'update:boards', boards: AdminBoard[]): void
   (event: 'select', board: AdminBoard): void
   (event: 'drag-end'): void
+  (event: 'create'): void
 }>()
 
 const { t } = useI18n()

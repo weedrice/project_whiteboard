@@ -32,11 +32,12 @@ const {
 
 const columns = computed<TableColumn[]>(() => [
   { key: 'title', label: t('common.title'), width: '28%' },
-  { key: 'summaryText', label: t('admin.inquiries.table.summary'), width: '30%' },
-  { key: 'authorName', label: t('common.author'), width: '14%' },
-  { key: 'createdAtText', label: t('common.createdAt'), width: '16%' },
+  { key: 'summaryText', label: t('admin.inquiries.table.summary'), width: '30%', hideBelow: 'sm' },
+  { key: 'authorName', label: t('common.author'), width: '14%', hideBelow: 'lg' },
+  { key: 'createdAtText', label: t('common.createdAt'), width: '16%', hideBelow: 'sm' },
   { key: 'status', label: t('common.status'), width: '12%' },
 ])
+const filterChips = computed(() => sort.value === 'createdAt,desc' ? [] : [{ key: 'sort', label: t('admin.inquiries.sort.oldest') }])
 
 function getRowClass() {
   return 'cursor-pointer'
@@ -50,7 +51,7 @@ function handleRowClick(post: AdminInquiryListItem) {
 <template>
   <AdminDataPage :title="t('admin.inquiries.title')" :description="t('admin.inquiries.description')">
     <template #filters>
-      <AdminFilterPanel class-name="mt-4">
+      <AdminFilterPanel class-name="mt-4" collapsible :title="t('admin.inquiries.sort.label')" :chips="filterChips" @remove-chip="sort = 'createdAt,desc'">
         <div class="flex flex-wrap items-end gap-3">
           <AdminFilterField :label="t('admin.inquiries.sort.label')" for-id="inquiry-sort" width="select">
           <select

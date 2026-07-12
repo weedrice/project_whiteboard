@@ -15,6 +15,7 @@
           :loading="loading"
           :selected-board-id="selectedBoardId"
           @update:boards="updateBoards"
+          @create="openCreateModal"
           @select="selectBoard"
           @drag-end="handleDragEnd"
         />
