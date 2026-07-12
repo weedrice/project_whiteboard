@@ -10,12 +10,12 @@
         <select v-bind="{ ...$attrs, class: undefined }" :id="selectId" :value="modelValue" @change="updateValue" @blur="$emit('blur', $event)"
             :disabled="disabled"
             :aria-invalid="error ? 'true' : undefined"
-            :aria-describedby="error ? `${selectId}-error` : undefined"
+            :aria-describedby="describedBy"
             class="input-base" :class="[
                 { 'is-invalid': error },
                 inputClass
             ]">
-            <option v-if="placeholder" value="" disabled selected>{{ placeholder }}</option>
+            <option v-if="placeholder" value="" disabled>{{ placeholder }}</option>
             <template v-if="options && options.length > 0">
                 <option v-for="option in normalizedOptions" :key="option.value" :value="option.value">
                     {{ option.label }}
@@ -28,7 +28,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, useId } from 'vue'
+import { computed, useAttrs, useId } from 'vue'
 
 defineOptions({
     inheritAttrs: false
@@ -64,6 +64,11 @@ const props = withDefaults(defineProps<{
 
 const generatedId = useId()
 const selectId = computed(() => props.id ?? generatedId)
+const attrs = useAttrs()
+const describedBy = computed(() => [
+    attrs['aria-describedby'],
+    props.error ? `${selectId.value}-error` : undefined,
+].filter(Boolean).join(' ') || undefined)
 
 const emit = defineEmits<{
     (e: 'update:modelValue', value: string | number): void

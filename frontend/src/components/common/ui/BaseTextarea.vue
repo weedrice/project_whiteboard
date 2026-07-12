@@ -10,7 +10,7 @@
         <textarea v-bind="{ ...$attrs, class: undefined }" :id="textareaId" :value="modelValue" @input="updateValue" @blur="$emit('blur', $event)"
             :disabled="disabled"
             :aria-invalid="error ? 'true' : undefined"
-            :aria-describedby="error ? `${textareaId}-error` : undefined"
+            :aria-describedby="describedBy"
             class="input-base" :class="[
                 { 'is-invalid': error },
                 inputClass
@@ -20,7 +20,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, useId } from 'vue'
+import { computed, useAttrs, useId } from 'vue'
 
 defineOptions({
     inheritAttrs: false
@@ -47,6 +47,11 @@ const props = withDefaults(defineProps<{
 
 const generatedId = useId()
 const textareaId = computed(() => props.id ?? generatedId)
+const attrs = useAttrs()
+const describedBy = computed(() => [
+    attrs['aria-describedby'],
+    props.error ? `${textareaId.value}-error` : undefined,
+].filter(Boolean).join(' ') || undefined)
 
 const emit = defineEmits<{
     (e: 'update:modelValue', value: string): void

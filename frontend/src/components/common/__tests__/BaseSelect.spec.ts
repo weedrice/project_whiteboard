@@ -71,6 +71,7 @@ describe('BaseSelect', () => {
 
         const options = wrapper.findAll('option')
         expect(options[0].text()).toBe('Please choose')
+        expect(options[0].attributes('selected')).toBeUndefined()
         expect(options[1].text()).toBe('One')
         expect(options[2].text()).toBe('Two')
     })
@@ -131,5 +132,14 @@ describe('BaseSelect', () => {
         const exposed = getExposedVm<{ normalizedOptions: unknown[] }>(wrapper)
         expect(exposed.normalizedOptions).toEqual([])
         expect(wrapper.find('option[value="fallback"]').exists()).toBe(true)
+    })
+
+    it('preserves external help text when an error is present', () => {
+        const wrapper = mount(BaseSelect, {
+            attrs: { 'aria-describedby': 'category-help' },
+            props: { id: 'category', error: 'Required' },
+        })
+
+        expect(wrapper.get('select').attributes('aria-describedby')).toBe('category-help category-error')
     })
 })

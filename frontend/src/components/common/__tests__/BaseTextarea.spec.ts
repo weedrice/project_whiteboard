@@ -59,4 +59,13 @@ describe('BaseTextarea', () => {
         await wrapper.get('textarea').setValue('new value')
         expect(wrapper.emitted('update:modelValue')?.[0]).toEqual(['new value'])
     })
+
+    it('preserves external help text when an error is present', () => {
+        const wrapper = mount(BaseTextarea, {
+            attrs: { 'aria-describedby': 'bio-help' },
+            props: { id: 'bio', error: 'Required' },
+        })
+
+        expect(wrapper.get('textarea').attributes('aria-describedby')).toBe('bio-help bio-error')
+    })
 })
