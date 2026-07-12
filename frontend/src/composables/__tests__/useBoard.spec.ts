@@ -108,7 +108,9 @@ describe('useBoard', () => {
 
         expect(options.queryKey).toEqual(['boards'])
         expect(options.staleTime).toBe(QUERY_STALE_TIME.MEDIUM)
+        expect(options.meta).toEqual({ errorMessage: false })
         expect(result).toEqual([{ boardId: 1 }])
+        expect(boardApi.getBoards).toHaveBeenCalledWith({ skipGlobalErrorHandler: true })
         expect(query).toHaveProperty('data')
     })
 

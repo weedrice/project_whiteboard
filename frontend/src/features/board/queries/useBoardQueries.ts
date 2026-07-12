@@ -85,11 +85,12 @@ export function useBoardQueries() {
     return useApiQuery<BoardListItem[]>({
       queryKey: boardQueryKeys.all,
       request: (context) => callWithOptionalConfig(
-        optionalQuerySignal(undefined, context),
+        optionalQuerySignal({ skipGlobalErrorHandler: true }, context),
         (config) => boardApi.getBoards(config),
         () => boardApi.getBoards(),
       ),
       staleTime: QUERY_STALE_TIME.MEDIUM,
+      meta: { errorMessage: false },
     })
   }
 
