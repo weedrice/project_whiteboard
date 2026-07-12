@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import BaseButton from '@/components/common/ui/BaseButton.vue'
+import BaseCheckbox from '@/components/common/ui/BaseCheckbox.vue'
+import BaseInput from '@/components/common/ui/BaseInput.vue'
 import type { PostFormPoll } from '@/utils/postForm'
 
 const props = defineProps<{
@@ -60,37 +62,34 @@ function setClosesAt(closesAt: string) {
       </BaseButton>
     </div>
 
-    <label class="mt-4 block">
-      <span class="mb-1 block text-xs font-medium uppercase tracking-[0.18em] text-[var(--nv-muted)]">
-        {{ $t('board.writePost.poll.question') }}
-      </span>
-      <input
-        data-testid="poll-question"
-        :value="modelValue.question"
-        type="text"
-        class="form-input w-full"
-        :placeholder="$t('board.writePost.poll.questionPlaceholder')"
-        :disabled="mode === 'edit'"
-        @input="setQuestion(($event.target as HTMLInputElement).value)"
-      >
-    </label>
+    <BaseInput
+      id="poll-question"
+      data-testid="poll-question"
+      class="mt-4"
+      :model-value="modelValue.question"
+      :label="$t('board.writePost.poll.question')"
+      label-class="uppercase tracking-[0.18em] text-[var(--nv-muted)]"
+      :placeholder="$t('board.writePost.poll.questionPlaceholder')"
+      :disabled="mode === 'edit'"
+      @update:model-value="setQuestion(String($event))"
+    />
 
     <div class="mt-4 space-y-2">
-      <label
+      <div
         v-for="(option, index) in modelValue.options"
         :key="index"
         class="grid gap-2 sm:grid-cols-[1fr_auto]"
       >
-        <span class="sr-only">{{ $t('board.writePost.poll.option', { index: index + 1 }) }}</span>
-        <input
+        <BaseInput
+          :id="`poll-option-${index}`"
           :data-testid="`poll-option-${index}`"
-          :value="option"
-          type="text"
-          class="form-input w-full"
+          :model-value="option"
+          :label="$t('board.writePost.poll.option', { index: index + 1 })"
+          hide-label
           :placeholder="$t('board.writePost.poll.optionPlaceholder')"
           :disabled="mode === 'edit'"
-          @input="setOption(index, ($event.target as HTMLInputElement).value)"
-        >
+          @update:model-value="setOption(index, String($event))"
+        />
         <BaseButton
           type="button"
           variant="secondary"
@@ -100,7 +99,7 @@ function setClosesAt(closesAt: string) {
         >
           {{ $t('common.delete') }}
         </BaseButton>
-      </label>
+      </div>
     </div>
 
     <div class="mt-3">
@@ -116,37 +115,31 @@ function setClosesAt(closesAt: string) {
     </div>
 
     <div class="mt-4 grid gap-3 sm:grid-cols-2">
-      <label class="flex items-center gap-2 text-sm nv-title">
-        <input
-          data-testid="poll-multiple"
-          type="checkbox"
-          :checked="modelValue.multipleChoiceEnabled"
-          :disabled="mode === 'edit'"
-          @change="toggle('multipleChoiceEnabled', ($event.target as HTMLInputElement).checked)"
-        >
-        {{ $t('board.writePost.poll.multiple') }}
-      </label>
-      <label class="flex items-center gap-2 text-sm nv-title">
-        <input
-          type="checkbox"
-          :checked="modelValue.anonymousEnabled"
-          :disabled="mode === 'edit'"
-          @change="toggle('anonymousEnabled', ($event.target as HTMLInputElement).checked)"
-        >
-        {{ $t('board.writePost.poll.anonymous') }}
-      </label>
-      <label class="sm:col-span-2">
-        <span class="mb-1 block text-xs font-medium uppercase tracking-[0.18em] text-[var(--nv-muted)]">
-          {{ $t('board.writePost.poll.closesAt') }}
-        </span>
-        <input
-          :value="modelValue.closesAt ?? ''"
-          type="datetime-local"
-          class="form-input w-full"
-          :disabled="mode === 'edit'"
-          @input="setClosesAt(($event.target as HTMLInputElement).value)"
-        >
-      </label>
+      <BaseCheckbox
+        id="poll-multiple"
+        data-testid="poll-multiple"
+        :model-value="modelValue.multipleChoiceEnabled"
+        :label="$t('board.writePost.poll.multiple')"
+        :disabled="mode === 'edit'"
+        @update:model-value="toggle('multipleChoiceEnabled', Boolean($event))"
+      />
+      <BaseCheckbox
+        id="poll-anonymous"
+        :model-value="modelValue.anonymousEnabled"
+        :label="$t('board.writePost.poll.anonymous')"
+        :disabled="mode === 'edit'"
+        @update:model-value="toggle('anonymousEnabled', Boolean($event))"
+      />
+      <BaseInput
+        id="poll-closes-at"
+        type="datetime-local"
+        class="sm:col-span-2"
+        :model-value="modelValue.closesAt ?? ''"
+        :label="$t('board.writePost.poll.closesAt')"
+        label-class="uppercase tracking-[0.18em] text-[var(--nv-muted)]"
+        :disabled="mode === 'edit'"
+        @update:model-value="setClosesAt(String($event))"
+      />
     </div>
   </section>
 </template>

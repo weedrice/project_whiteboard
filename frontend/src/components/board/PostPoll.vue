@@ -90,11 +90,12 @@ async function cancelVote() {
       </div>
     </div>
 
-    <div class="mt-4 space-y-3">
+    <fieldset class="mt-4 space-y-3">
+      <legend class="sr-only">{{ poll.question }}</legend>
       <label
         v-for="option in poll.options"
         :key="option.optionId"
-        class="block rounded-md border nv-border p-3"
+        class="block min-h-11 rounded-md border nv-border p-3"
       >
         <div class="flex items-center gap-3">
           <input
@@ -117,7 +118,7 @@ async function cancelVote() {
           />
         </div>
       </label>
-    </div>
+    </fieldset>
 
     <p v-if="!isAuthenticated" class="mt-3 text-sm nv-text-subtle">
       {{ t('board.postDetail.poll.loginRequired') }}

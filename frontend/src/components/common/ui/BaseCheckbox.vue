@@ -1,7 +1,7 @@
 <template>
     <div class="flex items-start" :class="$attrs.class">
         <div class="flex items-center h-5">
-            <input :id="checkboxId" type="checkbox" :checked="checked" @change="updateValue" :disabled="disabled"
+            <input v-bind="{ ...$attrs, class: undefined }" :id="checkboxId" type="checkbox" :checked="checked" @change="updateValue" :disabled="disabled"
                 class="nv-checkbox h-4 w-4 rounded cursor-pointer"
                 :aria-describedby="description ? descriptionId : undefined"
                 :class="inputClass" />
