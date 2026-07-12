@@ -23,16 +23,9 @@
           </div>
         </button>
         <button
-          type="button"
-            class="mt-1.5 min-h-11 px-2 text-xs nv-text-subtle profile-photo-button sm:mt-auto sm:min-h-0"
-          @click="fileInputRef?.click()"
-        >
-          {{ $t('user.profile.choosePhoto') }}
-        </button>
-        <button
           v-if="canRemoveProfileImage"
           type="button"
-          class="mt-1 min-h-11 px-2 text-xs nv-form-error profile-photo-button sm:min-h-0"
+          class="mt-1 min-h-11 px-2 text-xs nv-form-error profile-photo-button"
           @click="$emit('remove-photo')"
         >
           {{ $t('user.profile.removePhoto') }}
@@ -45,7 +38,7 @@
           ref="fileInputRef"
           type="file"
           name="profileImage"
-          class="sr-only"
+          class="hidden"
           :accept="IMAGE_UPLOAD_ACCEPT"
           :aria-label="$t('user.profile.choosePhoto')"
           @change="$emit('file-change', $event)"

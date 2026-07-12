@@ -273,11 +273,14 @@ describe('ProfileEditor', () => {
     const wrapper = mountProfileEditor()
 
     expect(wrapper.get('button[aria-label="user.profile.choosePhoto"]').attributes('type')).toBe('button')
+    expect(wrapper.findAll('button[aria-label="user.profile.choosePhoto"]')).toHaveLength(1)
     expect(wrapper.get('#profile-photo-input').attributes()).toMatchObject({
       name: 'profileImage',
       accept: IMAGE_UPLOAD_ACCEPT,
       'aria-label': 'user.profile.choosePhoto',
     })
+    expect(wrapper.get('#profile-photo-input').classes()).toContain('hidden')
+    expect(wrapper.get('#profile-photo-input').classes()).not.toContain('sr-only')
   })
 
   it('uses localized messages when suspending an active agent', async () => {
