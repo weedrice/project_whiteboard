@@ -60,4 +60,24 @@ describe('BoardGrid', () => {
     expect(wrapper.text()).toContain('updated description')
     expect(wrapper.text()).toContain('Admin B')
   })
+
+  it('uses the requested heading level and visible keyboard focus style', () => {
+    const wrapper = mount(BoardGrid, {
+      props: {
+        boards: [makeBoard()],
+        headingTag: 'h2',
+      },
+      global: {
+        mocks: { $t: (key: string) => key },
+        stubs: {
+          RouterLink: RouterLinkStub,
+          User: true,
+          Users: true,
+        },
+      },
+    })
+
+    expect(wrapper.get('h2').text()).toBe('Free')
+    expect(wrapper.getComponent(RouterLinkStub).classes()).toContain('nv-focus-ring')
+  })
 })

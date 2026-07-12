@@ -7,15 +7,17 @@ import { encodePathSegment } from '@/utils/urlPath'
 withDefaults(defineProps<{
   board: BoardListItem | BoardSearchItem
   variant?: 'default' | 'compact'
+  headingTag?: 'h2' | 'h3' | 'h4'
 }>(), {
   variant: 'default',
+  headingTag: 'h3',
 })
 </script>
 
 <template>
   <router-link
     :to="`/board/${encodePathSegment(board.boardUrl)}`"
-    class="nv-surface overflow-hidden shadow rounded-lg hover:shadow-md transition-all duration-200 border nv-border block"
+    class="nv-focus-ring nv-surface overflow-hidden shadow rounded-lg hover:shadow-md transition-all duration-200 border nv-border block focus:outline-none"
     :class="variant === 'compact' ? 'p-4 flex items-center gap-3' : ''"
   >
     <template v-if="variant === 'compact'">
@@ -26,7 +28,7 @@ withDefaults(defineProps<{
         <span v-else class="text-sm">{{ board.boardName.substring(0, 1) }}</span>
       </div>
       <div class="flex-1 min-w-0">
-        <h4 class="font-medium nv-title truncate">{{ board.boardName }}</h4>
+        <component :is="headingTag" class="font-medium nv-title truncate">{{ board.boardName }}</component>
         <p class="text-sm nv-text-subtle mt-1 line-clamp-2">{{ board.description || $t('board.list.noDesc') }}</p>
       </div>
     </template>
@@ -39,7 +41,7 @@ withDefaults(defineProps<{
           <span v-else>{{ board.boardName.substring(0, 1) }}</span>
         </div>
         <div class="ml-4">
-          <h3 class="text-lg font-medium nv-title">{{ board.boardName }}</h3>
+          <component :is="headingTag" class="text-lg font-medium nv-title">{{ board.boardName }}</component>
           <div class="flex items-center mt-1 text-sm nv-text-subtle">
             <User class="flex-shrink-0 mr-1.5 h-4 w-4" />
             <span>{{ 'adminDisplayName' in board && board.adminDisplayName ? board.adminDisplayName : $t('common.admin') }}</span>

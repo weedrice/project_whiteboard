@@ -117,7 +117,10 @@ const filteredBoards = computed(() => {
           />
         </div>
       </div>
-      <BoardGrid :boards="filteredBoards" />
+      <BoardGrid
+        :boards="filteredBoards"
+        :heading-tag="authStore.isAuthenticated && subscribedBoards.length > 0 ? 'h3' : 'h2'"
+      />
     </div>
   </div>
 </template>
