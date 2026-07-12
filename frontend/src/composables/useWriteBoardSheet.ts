@@ -31,11 +31,12 @@ export function useWriteBoardSheet() {
   const shouldFetchSubscriptions = computed(() => authStore.isAuthenticated && showWriteSheet.value)
   useBodyScrollLock(showWriteSheet)
 
-  const { data: boards, isError: isBoardsError } = useBoards()
+  const { data: boards, isError: isBoardsError, refetch: refetchBoards } = useBoards()
   const {
     data: subscribedBoards,
     isLoading: isSubscribedBoardsLoading,
     isError: isSubscribedBoardsError,
+    refetch: refetchSubscribedBoards,
   } = useSubscribedBoards(8, shouldFetchSubscriptions)
 
   const publicBoards = computed(() => boards.value?.slice(0, 8) ?? [])
@@ -49,6 +50,13 @@ export function useWriteBoardSheet() {
 
   const closeWriteSheet = () => {
     showWriteSheet.value = false
+  }
+
+  const retryBoardOptions = () => {
+    void Promise.all([
+      refetchBoards(),
+      authStore.isAuthenticated ? refetchSubscribedBoards() : Promise.resolve(),
+    ])
   }
 
   const openWriteSheet = async () => {
@@ -143,5 +151,6 @@ export function useWriteBoardSheet() {
     closeWriteSheet,
     goToBoardWrite,
     handleSheetKeydown,
+    retryBoardOptions,
   }
 }

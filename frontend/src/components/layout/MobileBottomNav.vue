@@ -34,6 +34,7 @@ const {
   closeWriteSheet,
   goToBoardWrite,
   handleSheetKeydown,
+  retryBoardOptions,
 } = useWriteBoardSheet()
 
 const setFabButtonRef = (element: Element | ComponentPublicInstance | null) => {
@@ -142,8 +143,12 @@ const handleProtectedNavigation = (event: MouseEvent, path: string) => {
             <div
               v-if="isBoardsError || isSubscribedBoardsError"
               class="rounded-2xl border border-dashed border-[var(--nv-danger)]/30 px-4 py-5 text-sm text-[var(--nv-danger)]"
+              role="alert"
             >
-              {{ $t('layout.mobileNav.boardOptionsError') }}
+              <p>{{ $t('layout.mobileNav.boardOptionsError') }}</p>
+              <button type="button" class="nv-focus-ring mt-3 min-h-11 rounded-full border nv-border px-4" @click="retryBoardOptions">
+                {{ $t('common.error.retry') }}
+              </button>
             </div>
             <div
               v-else-if="isSubscribedBoardsLoading"

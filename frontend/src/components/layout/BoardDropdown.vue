@@ -35,12 +35,15 @@ const shouldFetchSubscriptions = computed(() => {
 })
 
 // Use TanStack Query for data fetching
-const { data: allBoards, isLoading: loadingAll, isError: allBoardsError } = useBoards()
+const { data: allBoards, isLoading: loadingAll, isError: allBoardsError, refetch: refetchAllBoards } = useBoards()
 const {
   data: subscribedBoards,
   isLoading: loadingSubscriptions,
   isError: subscriptionsError,
+  refetch: refetchSubscriptions,
 } = useSubscribedBoards(10, shouldFetchSubscriptions)
+
+const retryItems = () => props.type === 'subscription' ? refetchSubscriptions() : refetchAllBoards()
 
 // Computed values for items and loading state
 const items = computed(() => {
@@ -150,8 +153,11 @@ watch([() => props.isOpen, displayItems], ([isOpen, boards]) => {
         </div>
       </div>
 
-      <div v-else-if="isError" class="px-3 py-3 sm:py-3 text-center text-xs sm:text-sm nv-form-error">
-        <span>{{ $t('board.loadFailed') }}</span>
+      <div v-else-if="isError" class="px-3 py-3 sm:py-3 text-center text-xs sm:text-sm nv-form-error" role="alert">
+        <p>{{ $t('board.loadFailed') }}</p>
+        <BaseButton type="button" variant="secondary" size="sm" class="mt-3" @click="retryItems">
+          {{ $t('common.error.retry') }}
+        </BaseButton>
       </div>
 
       <div v-else-if="items.length > 0">
