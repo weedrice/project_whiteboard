@@ -59,6 +59,23 @@ export interface TermsOfServiceMessages {
   }
 }
 
+export interface PrivacyPolicyGroup {
+  title: string
+  items: string[]
+}
+
+export interface PrivacyPolicySection {
+  title: string
+  paragraphs: string[]
+  groups?: PrivacyPolicyGroup[]
+}
+
+export interface PrivacyPolicyMessages {
+  title: string
+  lastRevised: string
+  sections: PrivacyPolicySection[]
+}
+
 export interface CommonMessages {
   advertisement: string
   appName: string

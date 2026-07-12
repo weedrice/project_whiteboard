@@ -6,6 +6,7 @@ import type {
   CommonMessages,
   HomeMessages,
   LayoutMessages,
+  PrivacyPolicyMessages,
   SearchMessages,
 } from './common'
 import type {
@@ -49,6 +50,7 @@ export interface Messages {
   emoticon: EmoticonMessages
   admin: AdminMessages
   onboarding: OnboardingMessages
+  privacy: PrivacyPolicyMessages
 }
 
 export type SupportedLocale = 'ko' | 'en'
