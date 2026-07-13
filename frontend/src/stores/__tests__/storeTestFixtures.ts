@@ -1,5 +1,5 @@
 import { authApi } from '@/api/auth'
-import type { User } from '@/types'
+import type { LoginResponse, User } from '@/types'
 import {
     apiEnvelopeResponse,
     apiSuccessDataResponse,
@@ -18,7 +18,7 @@ export const authUser = (overrides: Partial<User> = {}): User => ({
 })
 
 export const authLoginResponse = (
-    user: User,
+    user: LoginResponse['user'],
     accessToken = 'new-token',
 ) => apiSuccessDataResponse<typeof authApi.login>({
     accessToken,
@@ -26,7 +26,7 @@ export const authLoginResponse = (
     user,
 })
 
-export const authLoginFailureResponse = (user: User, accessToken = 'ignored-token') =>
+export const authLoginFailureResponse = (user: LoginResponse['user'], accessToken = 'ignored-token') =>
     apiEnvelopeResponse<typeof authApi.login>(false, {
         accessToken,
         expiresIn: 1800,

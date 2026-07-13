@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.auth.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import lombok.Builder;
 import lombok.Getter;
@@ -22,5 +23,10 @@ public class LoginResponse {
         private String role;
         private String theme;
         private Integer points;
+
+        @JsonProperty("isEmailVerified")
+        public boolean isEmailVerified() {
+            return isEmailVerified;
+        }
     }
 }

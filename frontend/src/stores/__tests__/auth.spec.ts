@@ -3,6 +3,7 @@ import { setActivePinia, createPinia } from 'pinia'
 import { configureAuthSessionEffects, registerAuthStorageSync, useAuthStore } from '../auth'
 import { authApi } from '@/api/auth'
 import logger from '@/utils/logger'
+import { createDeferred } from '@/test/async'
 import {
     ACCESS_TOKEN_KEY,
     AUTH_SESSION_CLEARED_EVENT_PREFIX,
@@ -78,18 +79,37 @@ describe('Auth Store', () => {
 
     describe('login', () => {
         it('handles successful login', async () => {
-            const user = authUser({ theme: 'DARK' })
-            vi.mocked(authApi.login).mockResolvedValue(authLoginResponse(user))
+            const loginUser = authUser({ theme: 'DARK' })
+            const hydratedUser = authUser({ theme: 'DARK', isEmailVerified: true })
+            vi.mocked(authApi.login).mockResolvedValue(authLoginResponse(loginUser))
+            vi.mocked(authApi.getMe).mockResolvedValue(authUserResponse(hydratedUser))
 
             const result = await store.login({ loginId: 'test', password: 'password' })
 
             expect(result).toBe(true)
             expect(store.accessToken).toBe('new-token')
-            expect(store.user).toEqual(user)
+            expect(store.user).toEqual(hydratedUser)
             expect(getStoredAccessToken()).toBe('new-token')
             expect(localStorage.getItem('refreshToken')).toBeNull()
 
-            expect(mockSyncThemeFromUser).toHaveBeenCalledWith(user)
+            expect(authApi.getMe).toHaveBeenCalledWith({ skipAuthRefresh: true })
+            expect(mockSyncThemeFromUser).toHaveBeenLastCalledWith(hydratedUser)
+        })
+
+        it('keeps the normalized login user when profile hydration temporarily fails', async () => {
+            vi.mocked(authApi.login).mockResolvedValue(authLoginResponse({
+                userId: 1,
+                loginId: 'test',
+                displayName: 'Test User',
+                emailVerified: true,
+            }))
+            vi.mocked(authApi.getMe).mockRejectedValue(new Error('temporary failure'))
+
+            const result = await store.login({ loginId: 'test', password: 'password' })
+
+            expect(result).toBe(true)
+            expect(store.user?.isEmailVerified).toBe(true)
+            expect(store.accessToken).toBe('new-token')
         })
 
         it('handles login failure', async () => {
@@ -111,6 +131,21 @@ describe('Auth Store', () => {
             expect(store.user).toBeNull()
             expect(getStoredAccessToken()).toBeNull()
         })
+    })
+
+    it('ignores a user response that belongs to a replaced access token', async () => {
+        const pendingProfile = createDeferred<Awaited<ReturnType<typeof authApi.getMe>>>()
+        const currentUser = authUser({ userId: 2, loginId: 'current' })
+        store.accessToken = 'old-token'
+        vi.mocked(authApi.getMe).mockReturnValue(pendingProfile.promise)
+
+        const pendingFetch = store.fetchUser()
+        store.accessToken = 'new-token'
+        store.user = currentUser
+        pendingProfile.resolve(authUserResponse(authUser({ userId: 1, loginId: 'stale' })))
+
+        expect(await pendingFetch).toBe(true)
+        expect(store.user).toEqual(currentUser)
     })
 
     describe('logout', () => {

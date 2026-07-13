@@ -159,7 +159,7 @@ describe('useMyPageDashboardResource', () => {
     expect(userApi.getMyProfile).not.toHaveBeenCalled()
   })
 
-  it('keeps a matching fresh profile cache ahead of the auth store snapshot', async () => {
+  it('keeps a matching fresh profile cache while syncing auth verification state', async () => {
     mocks.authStore.user = {
       userId: 9,
       email: 'restored@example.com',
@@ -167,6 +167,7 @@ describe('useMyPageDashboardResource', () => {
       displayName: 'Restored',
       status: 'ACTIVE',
       createdAt: '2026-05-20T10:00:00',
+      isEmailVerified: true,
     }
     mocks.getQueryData.mockReturnValueOnce({
       userId: 9,
@@ -175,14 +176,44 @@ describe('useMyPageDashboardResource', () => {
       displayName: 'Cached',
       status: 'ACTIVE',
       createdAt: '2026-05-20T10:00:00',
+      isEmailVerified: false,
     })
     const resource = useMyPageDashboardResource(t)
 
     await resource.fetchMyProfile()
 
     expect(resource.profile.value?.email).toBe('cached@example.com')
-    expect(mocks.setQueryData).not.toHaveBeenCalled()
+    expect(resource.profile.value?.isEmailVerified).toBe(true)
+    expect(mocks.setQueryData).toHaveBeenCalledWith(['user', 'me'], resource.profile.value)
     expect(mocks.fetchQuery).not.toHaveBeenCalled()
+  })
+
+  it('keeps complete cached fields when login profile hydration temporarily failed', async () => {
+    mocks.authStore.user = {
+      userId: 9,
+      email: '',
+      loginId: 'fallback',
+      displayName: 'Fallback',
+      status: 'ACTIVE',
+      createdAt: '',
+      isEmailVerified: true,
+    }
+    mocks.getQueryData.mockReturnValueOnce({
+      userId: 9,
+      email: 'cached@example.com',
+      loginId: 'cached',
+      displayName: 'Cached',
+      status: 'ACTIVE',
+      createdAt: '2026-05-20T10:00:00',
+      isEmailVerified: false,
+    })
+    const resource = useMyPageDashboardResource(t)
+
+    await resource.fetchMyProfile()
+
+    expect(resource.profile.value?.email).toBe('cached@example.com')
+    expect(resource.profile.value?.isEmailVerified).toBe(true)
+    expect(mocks.setQueryData).toHaveBeenCalledWith(['user', 'me'], resource.profile.value)
   })
 
   it('replaces a stale profile cache when the authenticated user changed', async () => {
@@ -193,6 +224,7 @@ describe('useMyPageDashboardResource', () => {
       displayName: 'Restored',
       status: 'ACTIVE',
       createdAt: '2026-05-20T10:00:00',
+      isEmailVerified: false,
     }
     mocks.getQueryData.mockReturnValueOnce({
       userId: 10,
@@ -207,6 +239,7 @@ describe('useMyPageDashboardResource', () => {
     await resource.fetchMyProfile()
 
     expect(resource.profile.value?.email).toBe('restored@example.com')
+    expect(resource.profile.value?.isEmailVerified).toBe(false)
     expect(mocks.setQueryData).toHaveBeenCalledWith(['user', 'me'], mocks.authStore.user)
     expect(mocks.fetchQuery).not.toHaveBeenCalled()
   })

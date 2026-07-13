@@ -148,10 +148,11 @@ export function useEmailVerificationFlow(options: EmailVerificationFlowOptions) 
         if (!data.success) {
           throw new Error(t('auth.verificationFailed'))
         }
-        await Promise.all([
-          options.refreshProfile?.() ?? Promise.resolve(),
-          authStore.fetchUser()
-        ])
+        if (authStore.user) {
+          authStore.user.isEmailVerified = true
+        }
+        await authStore.fetchUser()
+        await options.refreshProfile?.()
       }
 
       await options.afterVerify?.({

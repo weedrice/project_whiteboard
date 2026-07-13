@@ -111,12 +111,15 @@ export function useMyPageDashboardResource(t: Translate) {
   async function fetchMyProfile() {
     if (authStore.user) {
       const cachedProfile = queryClient.getQueryData<User>(userQueryKeys.me)
-      if (cachedProfile?.userId === authStore.user.userId) {
-        profile.value = cachedProfile
-      } else {
-        profile.value = authStore.user
-        queryClient.setQueryData(userQueryKeys.me, authStore.user)
-      }
+      const profileSnapshot = cachedProfile?.userId === authStore.user.userId
+        ? {
+            ...cachedProfile,
+            isEmailVerified: authStore.user.isEmailVerified ?? cachedProfile.isEmailVerified,
+          }
+        : authStore.user
+
+      profile.value = profileSnapshot
+      queryClient.setQueryData(userQueryKeys.me, profileSnapshot)
       return
     }
 

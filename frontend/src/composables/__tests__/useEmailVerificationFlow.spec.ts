@@ -9,7 +9,8 @@ const toastMock = vi.hoisted(() => ({
 }))
 
 const authStoreMock = vi.hoisted(() => ({
-  fetchUser: vi.fn()
+  fetchUser: vi.fn(),
+  user: { isEmailVerified: false }
 }))
 
 vi.mock('vue-i18n', async (importOriginal) => {
@@ -46,6 +47,7 @@ vi.mock('@/stores/toast', () => ({
 describe('useEmailVerificationFlow', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    authStoreMock.user.isEmailVerified = false
   })
 
   it('sends change-email verification code with the existing purpose', async () => {
@@ -69,7 +71,7 @@ describe('useEmailVerificationFlow', () => {
       apiSuccessDataResponse<typeof authApi.verifyCode>({ verificationTicket: 'ticket-1' })
     )
     vi.mocked(userApi.verifyEmail).mockResolvedValue(apiSuccessResponse<typeof userApi.verifyEmail>())
-    authStoreMock.fetchUser.mockResolvedValue(true)
+    authStoreMock.fetchUser.mockResolvedValue(false)
     const refreshProfile = vi.fn().mockResolvedValue(undefined)
     const flow = useEmailVerificationFlow({
       getEmail: () => 'me@example.com',
@@ -88,6 +90,9 @@ describe('useEmailVerificationFlow', () => {
     })
     expect(refreshProfile).toHaveBeenCalled()
     expect(authStoreMock.fetchUser).toHaveBeenCalled()
+    expect(authStoreMock.user.isEmailVerified).toBe(true)
+    expect(authStoreMock.fetchUser.mock.invocationCallOrder[0])
+      .toBeLessThan(refreshProfile.mock.invocationCallOrder[0])
     expect(flow.isVerifyModalOpen.value).toBe(false)
   })
 })

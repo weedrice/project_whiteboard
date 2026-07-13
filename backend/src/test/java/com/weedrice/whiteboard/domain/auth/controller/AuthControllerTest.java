@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.auth.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.weedrice.whiteboard.domain.auth.dto.LoginRequest;
+import com.weedrice.whiteboard.domain.auth.dto.LoginResponse;
 import com.weedrice.whiteboard.domain.auth.dto.LoginResult;
 import com.weedrice.whiteboard.domain.auth.dto.OAuthSignupTicketResponse;
 import com.weedrice.whiteboard.domain.auth.dto.SignupRequest;
@@ -177,7 +178,13 @@ class AuthControllerTest {
                 .accessToken("access-token")
                 .refreshToken("refresh-token")
                 .expiresIn(1800L)
-                .user(null)
+                .user(LoginResponse.UserInfo.builder()
+                        .userId(1L)
+                        .loginId("testuser")
+                        .displayName("Test User")
+                        .isEmailVerified(true)
+                        .role("USER")
+                        .build())
                 .build();
         LoginClientMetadata metadata = new LoginClientMetadata("127.0.0.1", "test-agent");
         when(loginClientMetadataResolver.resolve(any())).thenReturn(metadata);
@@ -189,6 +196,8 @@ class AuthControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.accessToken").value("access-token"))
+                .andExpect(jsonPath("$.data.user.isEmailVerified").value(true))
+                .andExpect(jsonPath("$.data.user.emailVerified").doesNotExist())
                 .andExpect(cookie().exists("refreshToken"));
     }
 

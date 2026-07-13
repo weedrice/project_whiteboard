@@ -10,7 +10,7 @@ import {
     getStoredAccessToken,
     persistAccessToken,
 } from '@/utils/authTokenStorage'
-import type { User, LoginCredentials } from '@/types'
+import type { User, LoginCredentials, LoginUser } from '@/types'
 import type { AxiosRequestConfig } from 'axios'
 
 interface AuthSessionEffects {
@@ -24,6 +24,22 @@ const noopSessionEffects: AuthSessionEffects = {
 }
 
 let authSessionEffects: AuthSessionEffects = noopSessionEffects
+
+function createLoginUserFallback(userData: LoginUser): User {
+    return {
+        userId: userData.userId,
+        loginId: userData.loginId,
+        displayName: userData.displayName,
+        email: '',
+        role: userData.role,
+        status: 'ACTIVE',
+        profileImageUrl: userData.profileImageUrl,
+        theme: userData.theme,
+        isEmailVerified: userData.isEmailVerified ?? userData.emailVerified ?? false,
+        createdAt: '',
+        points: userData.points,
+    }
+}
 
 export function configureAuthSessionEffects(effects: Partial<AuthSessionEffects>) {
     authSessionEffects = {
@@ -65,9 +81,10 @@ export const useAuthStore = defineStore('auth', () => {
             if (data.success) {
                 const { accessToken: token, user: userData } = unwrapApiData(data)
 
-                applyAuthenticatedSession(token, userData)
+                applyAuthenticatedSession(token, createLoginUserFallback(userData))
 
-                return true
+                const hydrated = await fetchUser({ skipAuthRefresh: true })
+                return hydrated || Boolean(accessToken.value && user.value)
             }
             return false
         } catch (error: unknown) {
@@ -97,6 +114,9 @@ export const useAuthStore = defineStore('auth', () => {
 
         try {
             const { data } = await authApi.getMe(config)
+            if (accessToken.value !== token) {
+                return Boolean(accessToken.value && user.value)
+            }
             if (data.success) {
                 user.value = unwrapApiData(data)
 
