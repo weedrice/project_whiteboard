@@ -18,15 +18,26 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
+import org.springframework.web.servlet.HandlerMapping;
 
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 @Slf4j
 @Component
 public class RateLimitInterceptor implements HandlerInterceptor {
+
+    private static final String REFRESH_PATH = "/api/v1/auth/refresh";
+    private static final Set<String> STRICT_AUTH_PATHS = Set.of(
+            "/api/v1/auth/login",
+            "/api/v1/auth/signup",
+            "/api/v1/auth/password/send-reset-link",
+            "/api/v1/auth/password/send-reset-link-by-email",
+            "/api/v1/auth/password/reset",
+            "/api/v1/auth/password/reset-by-code");
 
     private final Map<String, Bucket> userBuckets;
     private final RateLimitConfig rateLimitConfig;
@@ -64,7 +75,7 @@ public class RateLimitInterceptor implements HandlerInterceptor {
         }
 
         String clientIp = clientIpResolver.resolve(request);
-        BucketResolution resolution = resolveBucket(path, clientIp);
+        BucketResolution resolution = resolveBucket(resolveRateLimitPath(request, path), clientIp);
         ConsumptionProbe probe = resolution.bucket().tryConsumeAndReturnRemaining(1);
         if (!probe.isConsumed()) {
             long retryAfterSeconds = RateLimitHeaderWriter.secondsUntilRefill(probe.getNanosToWaitForRefill());
@@ -84,7 +95,11 @@ public class RateLimitInterceptor implements HandlerInterceptor {
     }
 
     private BucketResolution resolveBucket(String path, String clientIp) {
-        if (path.startsWith("/api/v1/auth/")) {
+        if (REFRESH_PATH.equals(path)) {
+            return resolveApiBucket(clientIp);
+        }
+
+        if (STRICT_AUTH_PATHS.contains(path)) {
             String authIpKey = "auth:" + clientIp;
             return new BucketResolution(
                     ipBucketCache.asMap().computeIfAbsent(authIpKey, k -> rateLimitConfig.createAuthBucket()),
@@ -100,9 +115,18 @@ public class RateLimitInterceptor implements HandlerInterceptor {
                     rateLimitConfig.getUserLimit());
         }
 
+        return resolveApiBucket(clientIp);
+    }
+
+    private BucketResolution resolveApiBucket(String clientIp) {
         return new BucketResolution(
                 ipBucketCache.asMap().computeIfAbsent("api:" + clientIp, k -> rateLimitConfig.createApiBucket()),
                 rateLimitConfig.getApiLimit());
+    }
+
+    private String resolveRateLimitPath(HttpServletRequest request, String requestPath) {
+        Object matchingPattern = request.getAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE);
+        return matchingPattern != null ? matchingPattern.toString() : requestPath;
     }
 
     private boolean shouldSkipRateLimit(String path) {
