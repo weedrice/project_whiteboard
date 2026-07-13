@@ -52,6 +52,7 @@ public class PostResponse {
     private LocalDateTime lastViewedAt;
     private LocalDateTime createdAt;
     private LocalDateTime modifiedAt;
+    private int editCount;
     private List<String> imageUrls;
     private Integer boardListPage;
     private PollResponse poll;
@@ -112,6 +113,13 @@ public class PostResponse {
     public static PostResponse from(Post post, List<String> tags, ViewHistory viewHistory, boolean isLiked,
             boolean isScrapped, List<String> imageUrls, boolean isAdmin, Integer boardListPage,
             Integer viewCountOverride, PollResponse poll, PostSeriesNavigation seriesNavigation) {
+        return from(post, tags, viewHistory, isLiked, isScrapped, imageUrls, isAdmin, boardListPage,
+                viewCountOverride, poll, seriesNavigation, 0);
+    }
+
+    public static PostResponse from(Post post, List<String> tags, ViewHistory viewHistory, boolean isLiked,
+            boolean isScrapped, List<String> imageUrls, boolean isAdmin, Integer boardListPage,
+            Integer viewCountOverride, PollResponse poll, PostSeriesNavigation seriesNavigation, int editCount) {
         AuthorInfo authorInfo = AuthorInfo.builder()
                 .userId(post.getUser().getUserId())
                 .agentId(post.getAgent() != null ? post.getAgent().getAgentId() : null)
@@ -163,6 +171,7 @@ public class PostResponse {
                 .lastViewedAt(lastViewedAt)
                 .createdAt(post.getCreatedAt())
                 .modifiedAt(post.getModifiedAt())
+                .editCount(editCount)
                 .imageUrls(imageUrls)
                 .boardListPage(boardListPage)
                 .poll(poll)

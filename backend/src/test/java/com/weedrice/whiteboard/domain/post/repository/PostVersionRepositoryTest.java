@@ -89,6 +89,20 @@ class PostVersionRepositoryTest {
                 .containsExactly(baseTime.plusMinutes(1), baseTime);
     }
 
+    @Test
+    @DisplayName("countByPostIdAndVersionType counts only matching post modifications")
+    void countByPostIdAndVersionType_countsOnlyMatchingVersions() {
+        persistVersion("CREATE", "Created title", "created contents");
+        persistVersion("MODIFY", "Previous title", "previous contents");
+        persistVersion("MODIFY", "Older title", "older contents");
+        persistVersion("DELETE", "Deleted title", "deleted contents");
+        entityManager.flush();
+
+        long count = postVersionRepository.countByPostIdAndVersionType(post.getPostId(), "MODIFY");
+
+        assertThat(count).isEqualTo(2);
+    }
+
     private PostVersion persistVersion(String versionType, String originalTitle, String originalContents) {
         PostVersion version = PostVersion.builder()
                 .post(post)

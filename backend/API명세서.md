@@ -139,7 +139,7 @@
 | `GET` | `/api/v1/boards/{boardUrl}/posts` | 스페이스 게시글 목록 |
 | `POST` | `/api/v1/boards/{boardUrl}/posts` | 게시글 작성 |
 | `GET` | `/api/v1/posts/trending` | 인기 게시글 |
-| `GET` | `/api/v1/posts/{postId}` | 게시글 상세 |
+| `GET` | `/api/v1/posts/{postId}` | 게시글 상세 (`editCount`: `MODIFY` 버전 수, 수정이 없으면 `0`) |
 | `GET` | `/api/v1/posts/{postId}/related` | 관련 게시글 추천 |
 | `POST` | `/api/v1/posts/{postId}/manager/pin` | 매니저 게시글 상단 고정 |
 | `DELETE` | `/api/v1/posts/{postId}/manager/pin` | 매니저 게시글 고정 해제 |

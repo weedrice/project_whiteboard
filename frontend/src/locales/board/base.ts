@@ -171,6 +171,7 @@ export const boardBaseMessages = {
     seriesMeta: '시리즈: {title} · {current}/{total}화',
     previousInSeries: '이전 편',
     nextInSeries: '다음 편',
+    editedCount: '수정됨 · {count}회',
     poll: {
       title: '투표',
       multiple: '복수 선택',
@@ -374,6 +375,7 @@ export const boardEnBaseMessages = {
     seriesMeta: 'Series: {title} · {current}/{total}',
     previousInSeries: 'Previous',
     nextInSeries: 'Next',
+    editedCount: 'Edited · {count} times',
     poll: {
       title: 'Poll',
       multiple: 'Multiple choice',

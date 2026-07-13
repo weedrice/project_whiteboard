@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.post.dto.PostResponse;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
+import com.weedrice.whiteboard.domain.post.repository.PostVersionRepository;
 import com.weedrice.whiteboard.domain.tag.service.TagAssignmentService;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import lombok.RequiredArgsConstructor;
@@ -19,8 +20,10 @@ import java.util.List;
 public class PostDetailReadService {
 
     private static final int DEFAULT_BOARD_PAGE_SIZE = 20;
+    private static final String MODIFY_VERSION_TYPE = "MODIFY";
 
     private final PostRepository postRepository;
+    private final PostVersionRepository postVersionRepository;
     private final TagAssignmentService tagAssignmentService;
     private final PostImageAttachmentReader postImageAttachmentReader;
     private final PostInteractionContextResolver postInteractionContextResolver;
@@ -67,7 +70,11 @@ public class PostDetailReadService {
         return PostResponse.from(
                 post, tags, context.viewHistory(), isLiked, isScrapped, imageUrls, isAdmin, boardListPage,
                 viewCountOverride, pollService.getPollResponse(post.getPostId(), context.readContext().viewerUserId()),
-                postSeriesService.getNavigation(post));
+                postSeriesService.getNavigation(post), resolveEditCount(post.getPostId()));
+    }
+
+    private int resolveEditCount(Long postId) {
+        return Math.toIntExact(postVersionRepository.countByPostIdAndVersionType(postId, MODIFY_VERSION_TYPE));
     }
 
     private List<String> getTagsForPost(Post post) {

@@ -9,6 +9,9 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 
 public interface PostVersionRepository extends JpaRepository<PostVersion, Long> {
+    @Query("select count(version) from PostVersion version where version.post.postId = :postId and version.versionType = :versionType")
+    long countByPostIdAndVersionType(@Param("postId") Long postId, @Param("versionType") String versionType);
+
     @Query("""
             select new com.weedrice.whiteboard.domain.post.dto.PostVersionResponse(
                 version.historyId,

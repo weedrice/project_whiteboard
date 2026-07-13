@@ -15,6 +15,7 @@ const postView = (overrides: Partial<PostDetailViewModel> = {}): PostDetailViewM
   postId: 1,
   title: 'Post title',
   createdAt: '2026-07-01T00:00:00',
+  editCount: 0,
   viewCount: 10,
   commentCount: 2,
   likeCount: 4,

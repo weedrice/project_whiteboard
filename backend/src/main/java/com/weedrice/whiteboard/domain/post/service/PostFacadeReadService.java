@@ -29,6 +29,8 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class PostFacadeReadService {
 
+    private static final String MODIFY_VERSION_TYPE = "MODIFY";
+
     private final PostRepository postRepository;
     private final PostVersionRepository postVersionRepository;
     private final TagAssignmentService tagAssignmentService;
@@ -47,7 +49,10 @@ public class PostFacadeReadService {
 
         List<String> tags = tagAssignmentService.getTagNames(post);
         List<String> imageUrls = getPostImageUrls(postId);
-        return PostResponse.from(post, tags, null, false, false, imageUrls, true);
+        int editCount = Math.toIntExact(
+                postVersionRepository.countByPostIdAndVersionType(postId, MODIFY_VERSION_TYPE));
+        return PostResponse.from(
+                post, tags, null, false, false, imageUrls, true, null, null, null, null, editCount);
     }
 
     public List<PostVersionResponse> getPostVersions(@NonNull Long postId, @NonNull Long userId) {

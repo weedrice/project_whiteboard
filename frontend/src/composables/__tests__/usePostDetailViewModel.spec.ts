@@ -26,6 +26,7 @@ const basePost: Post = {
   tags: ['vue'],
   liked: false,
   scrapped: true,
+  editCount: 2,
   createdAt: '2026-04-22T10:00:00',
   modifiedAt: '2026-04-22T10:00:00'
 }
@@ -36,6 +37,7 @@ describe('toPostDetailViewModel', () => {
       postId: 15,
       title: 'Test post',
       createdAt: '2026-04-22T10:00:00',
+      editCount: 2,
       viewCount: 12,
       commentCount: 2,
       likeCount: 4,

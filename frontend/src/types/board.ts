@@ -149,6 +149,7 @@ export interface Post {
     boardListPage?: number
     createdAt: string
     modifiedAt?: string
+    editCount?: number
 }
 
 export interface PostSummary {

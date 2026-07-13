@@ -6,6 +6,7 @@ export interface PostDetailViewModel {
   postId: number
   title: string
   createdAt: string
+  editCount: number
   viewCount: number
   commentCount: number
   likeCount: number
@@ -33,6 +34,7 @@ export function toPostDetailViewModel(post: Post): PostDetailViewModel {
     postId: post.postId,
     title: post.title,
     createdAt: post.createdAt,
+    editCount: post.editCount ?? 0,
     viewCount: post.viewCount,
     commentCount: post.commentCount,
     likeCount: post.likeCount,

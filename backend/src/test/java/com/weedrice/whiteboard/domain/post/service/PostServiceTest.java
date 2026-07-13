@@ -197,6 +197,7 @@ class PostServiceTest {
         PostViewCountWriter postViewCountWriter = new PostViewCountWriter(postRepository);
         postDetailReadService = new PostDetailReadService(
                 postRepository,
+                postVersionRepository,
                 tagAssignmentService,
                 postImageAttachmentReader,
                 postInteractionContextResolver,
@@ -2856,6 +2857,7 @@ class PostServiceTest {
                 .thenReturn(45L);
         lenient().when(postRepository.incrementViewCount(1L)).thenReturn(1);
         lenient().when(postRepository.findViewCountByPostId(1L)).thenReturn(1);
+        lenient().when(postVersionRepository.countByPostIdAndVersionType(1L, "MODIFY")).thenReturn(2L);
 
         PostResponse response = postService.getPostResponse(1L, 1L);
 
@@ -2865,6 +2867,7 @@ class PostServiceTest {
         assertThat(response.getBoardListPage()).isEqualTo(2);
         assertThat(response.isLiked()).isTrue();
         assertThat(response.isScrapped()).isTrue();
+        assertThat(response.getEditCount()).isEqualTo(2);
         verify(postRepository, times(1)).findByIdWithRelations(1L);
         verify(boardSubscriptionRepository, never()).findBoardUrlsByUserIdAndBoardIdIn(eq(1L), anyCollection());
     }

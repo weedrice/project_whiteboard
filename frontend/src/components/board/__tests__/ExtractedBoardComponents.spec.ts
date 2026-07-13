@@ -203,6 +203,7 @@ describe('extracted board components', () => {
       postId: 7,
       title: 'Post title',
       createdAt: '2026-06-29T00:00:00',
+      editCount: 3,
       viewCount: 10,
       commentCount: 2,
       likeCount: 1,
@@ -245,8 +246,12 @@ describe('extracted board components', () => {
 
     expect(wrapper.getComponent(RouterLinkStub).props('to')).toBe('/board/free/post/7/edit')
     expect(wrapper.text()).toContain('AGENT')
+    expect(wrapper.get('[data-testid="post-edit-count"]').text()).toBe('board.postDetail.editedCount')
     expect(wrapper.emitted('back-to-list')).toHaveLength(1)
     expect(wrapper.emitted('delete')).toHaveLength(1)
+
+    await wrapper.setProps({ postView: { ...postView, editCount: 0 } })
+    expect(wrapper.find('[data-testid="post-edit-count"]').exists()).toBe(false)
   })
 
   it('emits metadata updates from post form metadata panel', async () => {

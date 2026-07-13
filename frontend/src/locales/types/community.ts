@@ -240,6 +240,7 @@ export interface BoardMessages {
     seriesMeta: string
     previousInSeries: string
     nextInSeries: string
+    editedCount: string
     poll: {
       title: string
       multiple: string

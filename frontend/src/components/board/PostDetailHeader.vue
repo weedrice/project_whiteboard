@@ -156,6 +156,9 @@ const seriesMeta = (postView: PostDetailViewModel) => {
               <Clock class="h-4 w-4" />
               {{ formatDate(postView.createdAt) }}
             </span>
+            <span v-if="postView.editCount > 0" data-testid="post-edit-count">
+              {{ t('board.postDetail.editedCount', { count: postView.editCount }) }}
+            </span>
             <span class="inline-flex items-center gap-1.5">
               <Eye class="h-4 w-4" />
               {{ postView.viewCount }}
