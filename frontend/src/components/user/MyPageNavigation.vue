@@ -35,7 +35,7 @@ const activeGroupKey = computed(() => props.groups.find((group) => (
             :key="item.href"
             :to="item.href"
             class="flex min-h-11 min-w-0 items-center rounded-[var(--nv-radius-sm)] px-3 py-2 text-sm leading-snug nv-text-subtle nv-hover-surface"
-            :class="isActive(item.href) && 'bg-[var(--nv-accent-soft)] font-semibold nv-accent-text'"
+            :class="isActive(item.href) && 'bg-[var(--nv-accent-bg)] font-semibold nv-accent-text'"
             :aria-current="isActive(item.href) ? 'page' : undefined"
           >
             {{ $t(item.nameKey) }}
@@ -53,7 +53,7 @@ const activeGroupKey = computed(() => props.groups.find((group) => (
             :key="item.href"
             :to="item.href"
             class="block rounded-[var(--nv-radius-sm)] px-3 py-2 text-sm font-medium nv-text-subtle nv-hover-surface"
-            :class="isActive(item.href) && 'bg-[var(--nv-accent-soft)] nv-accent-text'"
+            :class="isActive(item.href) && 'bg-[var(--nv-accent-bg)] nv-accent-text'"
             :aria-current="isActive(item.href) ? 'page' : undefined"
           >
             {{ $t(item.nameKey) }}

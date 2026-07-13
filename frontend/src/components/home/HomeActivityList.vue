@@ -20,7 +20,7 @@ const goToPost = (post: FeedPost) => {
 </script>
 
 <template>
-  <div class="nv-home-activity-panel">
+  <div class="nv-home-activity-panel nv-elevated-surface">
     <button
       v-for="post in visiblePosts"
       :key="post.postId"

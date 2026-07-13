@@ -6,12 +6,12 @@
     @apply shadow rounded-lg overflow-hidden border;
     background: var(--nv-surface);
     border-color: transparent;
-    color: var(--nv-text);
+    color: var(--nv-ink);
   }
 
   .card-header {
     @apply px-4 py-5 sm:px-6 border-b;
-    border-color: var(--nv-border);
+    border-color: var(--nv-line);
   }
 
   .card-body {
@@ -25,7 +25,7 @@
 
   .table-base {
     @apply min-w-full divide-y;
-    border-color: var(--nv-border);
+    border-color: var(--nv-line);
   }
 
   .table-head {
@@ -34,13 +34,13 @@
 
   .table-th {
     @apply px-6 py-3 text-xs font-medium uppercase tracking-wider text-left;
-    color: var(--nv-text-subtle);
+    color: var(--nv-muted);
   }
 
   .table-body {
     @apply divide-y;
     background: var(--nv-surface);
-    border-color: var(--nv-border);
+    border-color: var(--nv-line);
   }
 
   .table-row {
@@ -53,7 +53,7 @@
 
   .table-td {
     @apply px-6 py-4 whitespace-nowrap text-sm;
-    color: var(--nv-text-muted);
+    color: var(--nv-ink-soft);
   }
 
   /* Badge Component */
@@ -63,7 +63,7 @@
 
   .badge-gray {
     background: var(--nv-surface-muted);
-    color: var(--nv-text-muted);
+    color: var(--nv-ink-soft);
   }
 
   .badge-red {
@@ -76,11 +76,11 @@
     @apply block w-full rounded-md shadow-sm text-xs sm:text-sm px-3 py-2;
     background: var(--nv-surface);
     border-color: var(--nv-border-strong);
-    color: var(--nv-text);
+    color: var(--nv-ink);
   }
 
   .input-base::placeholder {
-    color: var(--nv-text-subtle);
+    color: var(--nv-muted);
   }
 
   .input-base:focus {
@@ -99,7 +99,7 @@
 
   .input-base:disabled {
     background: var(--nv-surface-muted);
-    color: var(--nv-text-subtle);
+    color: var(--nv-muted);
   }
 
   .btn-primary {
@@ -134,7 +134,7 @@
   .btn-secondary:hover,
   .btn-ghost:hover {
     background: var(--nv-surface-hover);
-    color: var(--nv-text);
+    color: var(--nv-ink);
   }
 
   .btn-danger:hover {
@@ -177,11 +177,11 @@
   /* List Group */
   .list-group {
     @apply divide-y rounded-md;
-    border: 1px solid var(--nv-border);
+    border: 1px solid var(--nv-line);
   }
 
   .list-group > :not([hidden]) ~ :not([hidden]) {
-    border-color: var(--nv-border);
+    border-color: var(--nv-line);
   }
 
   .list-group-item {
@@ -211,8 +211,8 @@
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
     background-position: right 0.5rem center;
     background-repeat: no-repeat;
-    border-color: var(--nv-border);
-    color: var(--nv-text);
+    border-color: var(--nv-line);
+    color: var(--nv-ink);
   }
 
   .dark .list-search-select-inline {
@@ -221,7 +221,7 @@
 
   .list-search-select-inline option {
     background: var(--nv-surface);
-    color: var(--nv-text);
+    color: var(--nv-ink);
   }
 
   .list-search-input-inner {
@@ -237,12 +237,12 @@
     @apply rounded-none bg-transparent h-11 min-h-11 py-2 box-border focus:ring-0 focus:ring-offset-0;
     border: none !important;
     box-shadow: none !important;
-    color: var(--nv-text);
+    color: var(--nv-ink);
     outline: none;
   }
 
   .list-search-input::placeholder {
-    color: var(--nv-text-subtle);
+    color: var(--nv-muted);
   }
 
   .list-search-input:focus {
@@ -255,9 +255,9 @@
     border-top: none !important;
     border-right: none !important;
     border-bottom: none !important;
-    border-color: var(--nv-border);
+    border-color: var(--nv-line);
     box-shadow: none !important;
-    color: var(--nv-text-muted);
+    color: var(--nv-ink-soft);
   }
 
   .list-search-btn:hover {

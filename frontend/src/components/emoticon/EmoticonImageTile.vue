@@ -39,7 +39,7 @@ const emit = defineEmits<{
       class="absolute -right-3 -top-3 flex h-11 w-11 items-center justify-center rounded-full text-xs"
       :class="action === 'delete'
         ? 'bg-[var(--nv-danger)] text-white hover:brightness-95'
-        : 'bg-[var(--nv-surface-muted)] text-[var(--nv-text-muted)] hover:bg-[var(--nv-surface-hover)]'"
+        : 'bg-[var(--nv-surface-muted)] text-[var(--nv-ink-soft)] hover:bg-[var(--nv-surface-hover)]'"
       @click="emit('action')"
     >
       <X v-if="action === 'delete'" class="h-4 w-4" />

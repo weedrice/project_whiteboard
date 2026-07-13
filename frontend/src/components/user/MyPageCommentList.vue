@@ -18,7 +18,7 @@ function renderCommentContent(content: string | null | undefined): SanitizedHtml
 </script>
 
 <template>
-  <ul role="list" class="divide-y divide-[var(--nv-border)]">
+  <ul role="list" class="divide-y divide-[var(--nv-line)]">
     <li
       v-for="comment in comments"
       :key="comment.commentId"

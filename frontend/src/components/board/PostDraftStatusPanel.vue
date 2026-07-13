@@ -13,7 +13,7 @@ defineEmits<{
 </script>
 
 <template>
-  <section class="nv-compose-side-card rounded-2xl border border-[var(--nv-line)] bg-[var(--nv-surface)] p-4 shadow-[var(--nv-shadow-soft)]">
+  <section class="nv-compose-side-card nv-elevated-surface rounded-2xl border border-[var(--nv-line)] bg-[var(--nv-surface)] p-4 shadow-[var(--nv-shadow-soft)]">
     <div class="mb-3">
       <p class="nv-kicker">{{ $t('board.writePost.sections.draftState') }}</p>
     </div>

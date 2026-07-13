@@ -89,6 +89,6 @@ const fallbackInitial = computed(() => (props.displayName || props.fallbackDispl
 
 <style scoped>
 .profile-photo-button:hover {
-  color: var(--nv-text);
+  color: var(--nv-ink);
 }
 </style>

@@ -121,7 +121,7 @@
         </div>
 
         <EmptyState v-else-if="!hasSearchQuery" title-tag="h2" :title="$t('search.placeholder')" :icon="Search"
-          container-class="nv-surface shadow rounded-lg" />
+          container-class="nv-surface nv-elevated-surface shadow rounded-lg" />
 
         <ErrorState
           v-else-if="hasSearchError"
@@ -134,7 +134,7 @@
 
         <EmptyState v-else-if="!hasAnyResults && !isSemanticLoading" title-tag="h2" :title="$t('search.noResults')"
           :description="searchQuery ? `${$t('search.noResultsFor', { query: searchQuery })} ${$t('search.noResultsSuggestion')}` : $t('search.noResultsSuggestion')" :icon="Search"
-          container-class="nv-surface shadow rounded-lg" />
+          container-class="nv-surface nv-elevated-surface shadow rounded-lg" />
 
         <div v-else class="space-y-8">
           <div v-if="keywordResultsEmpty && isSemanticLoading" class="text-center py-6">

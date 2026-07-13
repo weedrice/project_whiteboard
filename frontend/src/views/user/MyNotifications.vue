@@ -71,7 +71,7 @@ function handleMarkAllAsRead() {
       </BaseButton>
     </template>
 
-    <ul class="divide-y divide-[var(--nv-border)]">
+    <ul class="divide-y divide-[var(--nv-line)]">
       <li v-for="notification in notifications" :key="notification.notificationId"
         class="nv-hover-surface transition duration-150 ease-in-out"
         :class="{ 'nv-unread-surface': !notification.isRead }">
@@ -115,7 +115,7 @@ function handleMarkAllAsRead() {
 .notification-icon-default,
 .notification-badge-default {
   background: var(--nv-surface-muted);
-  color: var(--nv-text-subtle);
+  color: var(--nv-muted);
 }
 
 .notification-icon-like,

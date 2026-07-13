@@ -35,7 +35,7 @@ const toneClass = computed(() => {
 
 <style scoped>
 .admin-metric-card {
-  border: 1px solid var(--nv-border);
+  border: 1px solid var(--nv-line);
   border-radius: 8px;
   background: var(--nv-surface);
   box-shadow: var(--nv-shadow-card);
@@ -58,7 +58,7 @@ const toneClass = computed(() => {
 }
 
 .admin-metric-card__icon {
-  color: var(--nv-text-subtle);
+  color: var(--nv-muted);
   flex-shrink: 0;
 }
 
@@ -67,7 +67,7 @@ const toneClass = computed(() => {
 }
 
 .admin-metric-card__label {
-  color: var(--nv-text-subtle);
+  color: var(--nv-muted);
   font-size: 0.75rem;
   font-weight: 500;
   letter-spacing: 0.05em;
@@ -76,14 +76,14 @@ const toneClass = computed(() => {
 
 .admin-metric-card__value {
   margin-top: 4px;
-  color: var(--nv-text);
+  color: var(--nv-ink);
   font-size: 1.5rem;
   font-weight: 700;
 }
 
 .admin-metric-card__footer {
   background: var(--nv-surface-muted);
-  border-top: 1px solid var(--nv-border);
+  border-top: 1px solid var(--nv-line);
   padding: 10px 20px;
 }
 </style>

@@ -79,7 +79,7 @@ const { t } = useI18n()
 }
 
 .emoticon-name {
-  color: var(--nv-text-muted);
+  color: var(--nv-ink-soft);
   font-size: 11px;
   margin-top: 4px;
   max-width: 100%;

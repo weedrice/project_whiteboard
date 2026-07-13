@@ -90,13 +90,13 @@
 .tiptap-editor-wrap .ProseMirror .hljs-string,
 .tiptap-editor-wrap .ProseMirror .hljs-attr,
 .tiptap-editor-wrap .ProseMirror .hljs-symbol {
-  color: var(--nv-success);
+  color: var(--nv-success-text);
 }
 
 .tiptap-editor-wrap .ProseMirror .hljs-number,
 .tiptap-editor-wrap .ProseMirror .hljs-literal,
 .tiptap-editor-wrap .ProseMirror .hljs-built_in {
-  color: var(--nv-warning);
+  color: var(--nv-warning-text);
 }
 
 .tiptap-editor-wrap .ProseMirror .hljs-comment,
@@ -186,7 +186,7 @@
   min-width: 12rem;
   padding: 0.25rem;
   position: absolute;
-  z-index: 90;
+  z-index: var(--nv-z-popup);
 }
 
 .mention-suggestion-item {

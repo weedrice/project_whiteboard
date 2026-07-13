@@ -189,6 +189,6 @@ onUnmounted(() => {
 
 <style scoped>
 .user-nav-link:hover {
-    color: var(--nv-text);
+    color: var(--nv-ink);
 }
 </style>

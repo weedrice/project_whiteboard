@@ -134,7 +134,7 @@ const handleRowKeydown = (event: KeyboardEvent, item: T) => {
 }
 
 const rootClasses = computed(() => [
-    'nv-base-table overflow-hidden',
+    'nv-base-table nv-elevated-surface overflow-hidden',
     props.shadow ? 'shadow' : '',
 ])
 

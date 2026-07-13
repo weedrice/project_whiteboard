@@ -56,7 +56,7 @@ onUnmounted(() => {
     top: 0;
     left: 0;
     right: 0;
-    z-index: 9999;
+    z-index: var(--nv-z-toast);
     padding: 0.75rem 1rem;
     text-align: center;
     font-weight: 500;

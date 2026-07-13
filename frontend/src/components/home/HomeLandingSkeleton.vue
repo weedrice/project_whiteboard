@@ -10,7 +10,7 @@ import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
     aria-busy="true"
     :aria-label="$t('common.loading')"
   >
-    <section class="nv-home-hero">
+    <section class="nv-home-hero nv-elevated-surface">
       <div class="flex items-center justify-between gap-4">
         <div class="nv-home-live-rollup">
           <BaseSkeleton width="0.875rem" height="0.875rem" rounded="rounded-full" className="flex-shrink-0" />
@@ -21,7 +21,7 @@ import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
       </div>
 
       <div class="mt-5 grid gap-5 lg:grid-cols-[1.45fr_0.95fr]">
-        <article class="nv-home-card nv-home-card-featured">
+        <article class="nv-home-card nv-elevated-surface nv-home-card-featured">
           <div class="nv-home-card-top">
             <div class="flex min-w-0 items-center gap-3">
               <BaseSkeleton width="2.25rem" height="2.25rem" rounded="rounded-full" className="flex-shrink-0" />
@@ -98,7 +98,7 @@ import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
         <article
           v-for="index in 2"
           :key="index"
-          class="nv-home-card nv-home-card-grid"
+          class="nv-home-card nv-elevated-surface nv-home-card-grid"
         >
           <div class="nv-home-card-top">
             <div class="flex min-w-0 items-center gap-3">
@@ -123,7 +123,7 @@ import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 
     <section class="space-y-4">
       <BaseSkeleton width="9.5rem" height="1.75rem" />
-      <div class="nv-home-activity-panel">
+      <div class="nv-home-activity-panel nv-elevated-surface">
         <div
           v-for="index in 4"
           :key="index"

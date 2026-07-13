@@ -50,7 +50,7 @@ const { t } = useI18n()
       </BaseButton>
     </div>
     <div class="border-t nv-border px-4 py-5 sm:p-0">
-      <dl class="sm:divide-y sm:divide-[var(--nv-border)]">
+      <dl class="sm:divide-y sm:divide-[var(--nv-line)]">
         <ProfileInfoRow :icon="User" :label="t('user.profile.displayName')">
           {{ profile?.displayName }}
         </ProfileInfoRow>

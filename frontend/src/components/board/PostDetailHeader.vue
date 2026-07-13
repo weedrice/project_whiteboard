@@ -209,11 +209,11 @@ const seriesMeta = (postView: PostDetailViewModel) => {
 }
 
 .nv-post-header-action.is-danger {
-  color: var(--nv-danger);
+  color: var(--nv-danger-text);
 }
 
 .nv-post-header-action.is-danger:hover {
   background: color-mix(in srgb, var(--nv-danger) 10%, var(--nv-surface));
-  color: var(--nv-danger);
+  color: var(--nv-danger-text);
 }
 </style>

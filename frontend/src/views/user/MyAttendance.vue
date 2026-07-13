@@ -122,7 +122,7 @@ const changeMonth = (offset: number) => {
           v-for="(cell, index) in week"
           :key="cell?.date ?? `empty-${weekIndex}-${index}`"
           class="relative min-h-16 border-b border-r nv-border p-1.5 sm:min-h-20 sm:p-2"
-          :class="cell?.checked && 'bg-[var(--nv-accent-soft)]'"
+          :class="cell?.checked && 'bg-[var(--nv-accent-bg)]'"
           role="gridcell"
           :aria-label="cell ? getCellLabel(cell) : undefined"
           :aria-current="cell?.date === attendance?.today ? 'date' : undefined"

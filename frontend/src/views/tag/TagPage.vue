@@ -85,7 +85,7 @@ function buildPageRoute(nextPageIndex: number) {
 
     <div
       v-if="isLoading"
-      class="divide-y divide-[var(--nv-border)] rounded-lg border nv-border nv-surface"
+      class="divide-y divide-[var(--nv-line)] rounded-lg border nv-border nv-surface"
       role="status"
       aria-live="polite"
       aria-busy="true"

@@ -26,7 +26,7 @@
       <div
         v-for="i in count"
         :key="i"
-        class="block overflow-hidden rounded-lg border nv-border nv-surface shadow transition-colors duration-200"
+        class="block overflow-hidden rounded-lg border nv-border nv-surface nv-elevated-surface shadow transition-colors duration-200"
       >
         <div class="p-6">
           <div class="flex items-center">
@@ -45,7 +45,7 @@
             <BaseSkeleton width="72%" height="1rem" />
           </div>
 
-          <div class="mt-4 flex items-center justify-between border-t border-[var(--nv-border)] pt-4">
+          <div class="mt-4 flex items-center justify-between border-t border-[var(--nv-line)] pt-4">
             <div class="flex items-center">
               <BaseSkeleton width="1rem" height="1rem" rounded="rounded-full" className="mr-1.5 flex-shrink-0" />
               <BaseSkeleton width="7.5rem" height="1rem" />

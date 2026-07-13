@@ -105,7 +105,7 @@ useHead({
     />
 
     <template v-else>
-      <section class="nv-home-hero">
+      <section class="nv-home-hero nv-elevated-surface">
         <div class="flex items-center justify-between gap-4">
           <div class="nv-home-live-rollup">
             <CircleDot class="nv-home-live-dot h-3.5 w-3.5 flex-shrink-0 text-[var(--nv-accent)]" />

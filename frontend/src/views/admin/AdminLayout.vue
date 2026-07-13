@@ -69,14 +69,14 @@ watch(
 
     <!-- Main content -->
     <div class="md:pl-64 flex flex-col flex-1">
-      <header class="md:hidden sticky top-0 z-40 border-b border-[var(--nv-border)] bg-[var(--nv-surface)]/95 backdrop-blur">
+      <header class="md:hidden sticky top-0 z-40 border-b border-[var(--nv-line)] bg-[var(--nv-surface)]/95 backdrop-blur">
         <div class="flex h-14 items-center justify-between gap-3 px-4">
           <router-link to="/" class="min-w-0 text-base font-semibold nv-title">
             {{ t('admin.layout.title') }}
           </router-link>
           <button
             type="button"
-            class="inline-flex min-w-0 cursor-pointer items-center gap-2 rounded-md border border-[var(--nv-border)] px-3 py-2 text-sm font-medium nv-text transition-colors nv-hover-surface nv-press-surface nv-focus-ring"
+            class="inline-flex min-w-0 cursor-pointer items-center gap-2 rounded-md border border-[var(--nv-line)] px-3 py-2 text-sm font-medium nv-text transition-colors nv-hover-surface nv-press-surface nv-focus-ring"
             :aria-expanded="isMobileMenuOpen"
             aria-controls="admin-mobile-nav"
             @click="isMobileMenuOpen = !isMobileMenuOpen"
@@ -94,7 +94,7 @@ watch(
         <nav
           v-if="isMobileMenuOpen"
           id="admin-mobile-nav"
-          class="border-t border-[var(--nv-border)] px-2 py-2"
+          class="border-t border-[var(--nv-line)] px-2 py-2"
           :aria-label="t('admin.layout.title')"
         >
           <router-link

@@ -213,6 +213,6 @@ watch(() => props.isOpen, (isOpen) => {
 
 <style scoped>
 .user-dropdown-trigger:hover {
-  color: var(--nv-text);
+  color: var(--nv-ink);
 }
 </style>

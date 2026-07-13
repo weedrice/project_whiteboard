@@ -72,7 +72,7 @@ const { t } = useI18n()
 </script>
 
 <template>
-  <div class="tiptap-toolbar flex flex-col gap-2 border-b border-[var(--nv-line)] bg-[var(--nv-surface-alt)] p-2">
+  <div class="tiptap-toolbar flex flex-col gap-2 border-b border-[var(--nv-line)] bg-[var(--nv-surface-2)] p-2">
     <div class="tiptap-toolbar-row tiptap-toolbar-row--scrollable">
       <div class="tiptap-toolbar-group tiptap-toolbar-group--format">
         <button type="button" class="tiptap-btn" :class="{ active: editor.isActive('bold') }" :title="t('board.writePost.toolbar.bold')" :aria-label="t('board.writePost.toolbar.bold')" :aria-pressed="editor.isActive('bold')" @mousedown.prevent @click="emit('toggle-bold')">

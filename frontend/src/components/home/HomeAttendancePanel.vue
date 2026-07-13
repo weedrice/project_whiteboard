@@ -86,7 +86,7 @@ async function handleCheckIn() {
 .nv-attendance-milestone {
   align-items: center;
   animation: attendance-milestone-arrive 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
-  background: var(--nv-accent-soft);
+  background: var(--nv-accent-bg);
   border: 1px solid color-mix(in srgb, var(--nv-accent) 28%, var(--nv-line));
   border-radius: var(--nv-radius-pill);
   color: var(--nv-accent);

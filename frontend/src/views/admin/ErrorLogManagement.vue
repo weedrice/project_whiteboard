@@ -280,23 +280,23 @@ function resolveFromDetail(log: ErrorLogDetail) {
 :deep(.filter-input) {
   width: 100%;
   padding: 6px 10px;
-  border: 1px solid var(--nv-border);
+  border: 1px solid var(--nv-line);
   border-radius: 6px;
   background: var(--nv-surface);
-  color: var(--nv-text);
+  color: var(--nv-ink);
   font-size: 0.8125rem;
 }
 
 .error-log-table-wrapper {
   overflow-x: auto;
-  border: 1px solid var(--nv-border);
+  border: 1px solid var(--nv-line);
   border-radius: 8px;
   background: var(--nv-surface);
 }
 
 .loading-indicator {
   padding: 40px;
-  color: var(--nv-text-subtle);
+  color: var(--nv-muted);
   text-align: center;
 }
 

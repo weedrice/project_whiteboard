@@ -122,7 +122,7 @@ const emit = defineEmits<{
 
 <style scoped>
 .detail-label {
-  color: var(--nv-text-subtle);
+  color: var(--nv-muted);
   font-size: 0.6875rem;
   font-weight: 500;
   letter-spacing: 0.05em;
@@ -130,7 +130,7 @@ const emit = defineEmits<{
 }
 
 .detail-value {
-  color: var(--nv-text);
+  color: var(--nv-ink);
   font-size: 0.8125rem;
   word-break: break-all;
 }

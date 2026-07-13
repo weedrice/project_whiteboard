@@ -133,7 +133,7 @@ provide('resetError', resetError)
     display: flex;
     align-items: center;
     justify-content: center;
-    background-color: var(--nv-page);
+    background-color: var(--nv-bg);
     padding: 3rem 1rem;
 }
 

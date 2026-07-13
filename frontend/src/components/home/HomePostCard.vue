@@ -54,9 +54,9 @@ const bodyContentClass = computed(() =>
 )
 
 const cardClass = computed(() => {
-  if (props.variant === 'featured') return 'nv-home-card nv-home-card-featured'
-  if (props.variant === 'compact') return 'nv-home-card nv-home-card-compact'
-  return 'nv-home-card nv-home-card-grid'
+  if (props.variant === 'featured') return 'nv-home-card nv-elevated-surface nv-home-card-featured'
+  if (props.variant === 'compact') return 'nv-home-card nv-elevated-surface nv-home-card-compact'
+  return 'nv-home-card nv-elevated-surface nv-home-card-grid'
 })
 const postDetailPath = computed(() => buildPostDetailPath(props.post.boardUrl, props.post.postId))
 

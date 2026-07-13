@@ -44,7 +44,7 @@ const {
       isMobile && !isExpanded
         ? 'relative w-11 flex-shrink-0 sm:w-10'
         : isMobile && isExpanded
-          ? 'nv-global-search-mobile fixed inset-x-0 top-0 z-[100] h-16 px-4 shadow-sm border-b'
+          ? 'nv-global-search-mobile fixed inset-x-0 top-0 z-[var(--nv-z-popup)] h-16 px-4 shadow-sm border-b'
           : 'relative w-full max-w-[5rem] sm:max-w-xs md:max-w-md'
     ">
     <!-- Mobile collapsed search button -->
@@ -95,7 +95,7 @@ const {
     <Teleport to="body">
       <div
         v-if="showDropdown && isMobile && isExpanded"
-        class="nv-global-search-dropdown nv-global-search-mobile-results fixed inset-x-0 top-16 z-[99] mx-0 rounded-t-none border-t-0 shadow-lg border overflow-y-auto">
+        class="nv-global-search-dropdown nv-global-search-mobile-results fixed inset-x-0 top-16 z-[var(--nv-z-overlay)] mx-0 rounded-t-none border-t-0 shadow-lg border overflow-y-auto">
         <BoardAutocompleteList
           :boards="filteredBoards"
           :listbox-id="searchListboxId"

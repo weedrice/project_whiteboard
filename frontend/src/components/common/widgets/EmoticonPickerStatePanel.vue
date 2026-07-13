@@ -56,7 +56,7 @@ const emit = defineEmits<{
   align-items: center;
   justify-content: center;
   padding: 40px 0;
-  color: var(--nv-text-subtle);
+  color: var(--nv-muted);
   font-size: 13px;
 }
 
@@ -88,7 +88,7 @@ const emit = defineEmits<{
 
 .retry-btn.secondary {
   background: var(--nv-surface-muted);
-  color: var(--nv-text-muted);
+  color: var(--nv-ink-soft);
 }
 
 .retry-btn:hover {
@@ -97,6 +97,6 @@ const emit = defineEmits<{
 
 .retry-btn.secondary:hover {
   background: var(--nv-surface-hover);
-  color: var(--nv-text);
+  color: var(--nv-ink);
 }
 </style>

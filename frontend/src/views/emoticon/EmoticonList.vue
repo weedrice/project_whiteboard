@@ -198,7 +198,7 @@ function handleSearchKeyup(event: KeyboardEvent) {
                       v-if="isSearching"
                       type="button"
                       :aria-label="$t('emoticon.search.clear')"
-                      class="nv-text-subtle hover:text-[var(--nv-text)] cursor-pointer"
+                      class="nv-text-subtle hover:text-[var(--nv-ink)] cursor-pointer"
                       @click="clearSearch"
                     >
                       <X class="h-5 w-5" />

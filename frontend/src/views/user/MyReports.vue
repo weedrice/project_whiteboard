@@ -44,7 +44,7 @@ const {
     @page-change="handlePageChange"
     @size-change="handleSizeChange"
   >
-    <ul role="list" class="divide-y divide-[var(--nv-border)]">
+    <ul role="list" class="divide-y divide-[var(--nv-line)]">
       <li v-for="report in reports" :key="report.reportId"
         class="px-4 py-4 sm:px-6 nv-hover-surface transition-colors duration-200 min-h-[44px] flex flex-row items-center justify-between gap-3">
         <div class="flex flex-col min-w-0 flex-1">

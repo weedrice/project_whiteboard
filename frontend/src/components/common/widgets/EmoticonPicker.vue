@@ -169,7 +169,7 @@ useEmoticonPickerDialogLifecycle({
 .emoticon-picker-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 99;
+  z-index: var(--nv-z-overlay);
   cursor: default;
 }
 
@@ -183,8 +183,8 @@ useEmoticonPickerDialogLifecycle({
   background: var(--nv-surface);
   border-radius: 8px;
   box-shadow: var(--nv-shadow-popup);
-  color: var(--nv-text);
-  z-index: 100;
+  color: var(--nv-ink);
+  z-index: var(--nv-z-popup);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -206,7 +206,7 @@ useEmoticonPickerDialogLifecycle({
   display: flex;
   align-items: center;
   padding: 10px 12px;
-  border-bottom: 1px solid var(--nv-border);
+  border-bottom: 1px solid var(--nv-line);
   gap: 8px;
   flex-shrink: 0;
 }
@@ -221,7 +221,7 @@ useEmoticonPickerDialogLifecycle({
   flex: 1;
   font-weight: 600;
   font-size: 14px;
-  color: var(--nv-text);
+  color: var(--nv-ink);
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -243,7 +243,7 @@ useEmoticonPickerDialogLifecycle({
   min-width: 44px;
   padding: 4px;
   border-radius: 4px;
-  color: var(--nv-text-muted);
+  color: var(--nv-ink-soft);
   cursor: pointer;
   transition: all 0.2s;
 }
@@ -251,7 +251,7 @@ useEmoticonPickerDialogLifecycle({
 .back-btn:hover,
 .close-btn:hover {
   background: var(--nv-surface-hover);
-  color: var(--nv-text);
+  color: var(--nv-ink);
 }
 
 .picker-content {
@@ -275,9 +275,9 @@ useEmoticonPickerDialogLifecycle({
   width: 100%;
   padding: 8px 8px 8px 32px;
   background: var(--nv-surface);
-  border: 1px solid var(--nv-border);
+  border: 1px solid var(--nv-line);
   border-radius: 6px;
-  color: var(--nv-text);
+  color: var(--nv-ink);
   font-size: 13px;
   min-height: 44px;
   outline: none;
@@ -285,7 +285,7 @@ useEmoticonPickerDialogLifecycle({
 }
 
 :deep(.search-input::placeholder) {
-  color: var(--nv-text-subtle);
+  color: var(--nv-muted);
 }
 
 :deep(.search-input:focus) {

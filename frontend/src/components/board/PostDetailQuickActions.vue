@@ -18,7 +18,7 @@ const { t } = useI18n()
 <template>
   <template v-if="visible">
     <div
-      class="nv-post-mobile-actions"
+      class="nv-post-mobile-actions nv-elevated-surface"
       role="navigation"
       :aria-label="t('board.postDetail.quickActions')"
     >

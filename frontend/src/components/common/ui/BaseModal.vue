@@ -77,7 +77,7 @@ const props = withDefaults(defineProps<{
   size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'full'
   mobileFull?: boolean
   mobileFitContent?: boolean
-  zIndex?: number
+  zIndex?: number | string
   closeAriaLabel?: string
   closeButtonClass?: string
   headerClass?: string
@@ -92,7 +92,7 @@ const props = withDefaults(defineProps<{
   titleTag: 'h2',
   mobileFull: false,
   mobileFitContent: false,
-  zIndex: 50,
+  zIndex: 'var(--nv-z-overlay)',
   closeAriaLabel: '',
   closeButtonClass: '',
   headerClass: '',

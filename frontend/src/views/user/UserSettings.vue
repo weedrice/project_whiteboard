@@ -265,7 +265,7 @@ const handleRevokeOtherSessions = async () => {
       @retry="retryCriticalSettings"
     />
 
-    <div v-else class="nv-surface shadow overflow-hidden sm:rounded-lg transition-colors duration-200">
+    <div v-else class="nv-surface nv-elevated-surface shadow overflow-hidden sm:rounded-lg transition-colors duration-200">
       <PageHeader :title="$t('common.settings')" size="compact" class="border-b nv-border px-4 py-5 sm:px-6">
         <template #icon>
           <Settings class="h-5 w-5 shrink-0 nv-text-subtle" aria-hidden="true" />
@@ -497,7 +497,7 @@ const handleRevokeOtherSessions = async () => {
                       <p class="font-medium nv-title">{{ session.deviceSummary }}</p>
                       <span
                         v-if="session.current"
-                        class="rounded-full bg-[var(--nv-accent-soft)] px-2 py-0.5 text-xs nv-accent-text"
+                        class="rounded-full bg-[var(--nv-accent-bg)] px-2 py-0.5 text-xs nv-accent-text"
                       >
                         {{ $t('user.settings.sessions.current') }}
                       </span>

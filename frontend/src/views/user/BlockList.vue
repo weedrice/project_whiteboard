@@ -16,7 +16,7 @@
     @page-change="handlePageChange"
     @size-change="handleSizeChange"
   >
-    <ul role="list" class="divide-y divide-[var(--nv-border)]">
+    <ul role="list" class="divide-y divide-[var(--nv-line)]">
       <li v-for="user in blockedUsers" :key="user.userId"
         class="px-4 py-4 sm:px-6 nv-hover-surface transition-colors duration-200">
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">

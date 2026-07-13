@@ -32,7 +32,7 @@
             />
         </template>
 
-        <ul class="divide-y divide-[var(--nv-border)]">
+        <ul class="divide-y divide-[var(--nv-line)]">
             <li v-for="msg in messages" :key="msg.id"
                 class="p-3 sm:p-4 nv-hover-surface flex items-stretch transition-colors duration-200 min-h-[52px]">
                 <div class="flex items-center justify-center h-full mr-3 sm:mr-4 p-2 -ml-1 cursor-pointer flex-shrink-0" @click.stop>

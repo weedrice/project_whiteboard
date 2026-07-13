@@ -72,7 +72,7 @@ const isSubmitting = computed(() => props.isSubmitting || localIsSubmitting.valu
 
 <template>
   <form @submit.prevent="handleSubmit"
-    class="space-y-6 nv-surface shadow px-4 py-5 sm:rounded-lg sm:p-6 transition-colors duration-200">
+    class="space-y-6 nv-surface nv-elevated-surface shadow px-4 py-5 sm:rounded-lg sm:p-6 transition-colors duration-200">
     <div v-if="error" class="rounded-md nv-status-danger p-4" role="alert" aria-live="assertive">
       <div class="flex">
         <div class="ml-3">

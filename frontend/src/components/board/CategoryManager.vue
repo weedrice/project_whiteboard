@@ -86,7 +86,7 @@ onMounted(fetchCategories)
     </div>
 
     <div
-      class="border nv-border rounded-md divide-y divide-[var(--nv-border)] nv-surface"
+      class="border nv-border rounded-md divide-y divide-[var(--nv-line)] nv-surface"
       v-else>
       <!-- Default Category (Static) -->
       <div v-if="defaultCategory" class="px-4 py-3 flex items-center justify-between nv-surface-muted">
@@ -134,7 +134,7 @@ onMounted(fetchCategories)
       </div>
 
       <!-- Draggable List -->
-      <transition-group name="list" tag="ul" class="divide-y divide-[var(--nv-border)]">
+      <transition-group name="list" tag="ul" class="divide-y divide-[var(--nv-line)]">
         <li v-for="(category, index) in draggableCategories" :key="category.categoryId"
           class="px-4 py-3 flex items-center justify-between group nv-surface" @dragover.prevent
           @dragenter.prevent @drop="onDrop(index)">

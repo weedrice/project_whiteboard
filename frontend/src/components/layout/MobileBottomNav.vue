@@ -117,11 +117,11 @@ const handleProtectedNavigation = (event: MouseEvent, path: string) => {
     </nav>
 
     <Teleport to="body">
-      <div v-if="showWriteSheet" class="fixed inset-0 z-[90] bg-black/40 backdrop-blur-[1px]" @click="closeWriteSheet">
+      <div v-if="showWriteSheet" class="fixed inset-0 z-[var(--nv-z-overlay)] bg-black/40 backdrop-blur-[1px]" @click="closeWriteSheet">
         <div
           id="mobile-write-sheet"
           :ref="setSheetRef"
-          class="nv-mobile-sheet"
+          class="nv-mobile-sheet nv-elevated-surface"
           role="dialog"
           aria-modal="true"
           aria-labelledby="mobile-write-sheet-title"
@@ -142,7 +142,7 @@ const handleProtectedNavigation = (event: MouseEvent, path: string) => {
           <div class="space-y-2">
             <div
               v-if="isBoardsError || isSubscribedBoardsError"
-              class="rounded-2xl border border-dashed border-[var(--nv-danger)]/30 px-4 py-5 text-sm text-[var(--nv-danger)]"
+              class="rounded-2xl border border-dashed border-[var(--nv-danger)]/30 px-4 py-5 text-sm text-[var(--nv-danger-text)]"
               role="alert"
             >
               <p>{{ $t('layout.mobileNav.boardOptionsError') }}</p>

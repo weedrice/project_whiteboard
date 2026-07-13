@@ -84,7 +84,7 @@ function createMentionListRenderer() {
       })
       element = renderer.element as HTMLElement
       element.style.position = 'absolute'
-      element.style.zIndex = '90'
+      element.style.zIndex = 'var(--nv-z-popup)'
       element.style.right = 'auto'
       element.style.bottom = 'auto'
       document.body.appendChild(element)

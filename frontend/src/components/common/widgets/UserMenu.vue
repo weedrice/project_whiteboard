@@ -229,6 +229,6 @@ useEventListener(() => document, 'click', handleClickOutside)
 }
 
 .nv-user-menu-button:hover:not(:disabled) {
-  color: var(--nv-text);
+  color: var(--nv-ink);
 }
 </style>

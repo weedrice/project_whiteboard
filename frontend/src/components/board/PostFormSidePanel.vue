@@ -25,7 +25,7 @@ defineEmits<{
 
 <template>
   <aside class="space-y-4 lg:sticky lg:top-24 lg:self-start">
-    <section class="nv-compose-side-card rounded-2xl border border-[var(--nv-line)] bg-[var(--nv-surface)] p-4 shadow-[var(--nv-shadow-soft)]">
+    <section class="nv-compose-side-card nv-elevated-surface rounded-2xl border border-[var(--nv-line)] bg-[var(--nv-surface)] p-4 shadow-[var(--nv-shadow-soft)]">
       <PostFormMetadataPanel
         layout="desktop"
         v-bind="metadataPanelProps"
@@ -42,7 +42,7 @@ defineEmits<{
 
     <section
       v-if="showScheduler"
-      class="nv-compose-side-card rounded-2xl border border-[var(--nv-line)] bg-[var(--nv-surface)] p-4 shadow-[var(--nv-shadow-soft)]"
+      class="nv-compose-side-card nv-elevated-surface rounded-2xl border border-[var(--nv-line)] bg-[var(--nv-surface)] p-4 shadow-[var(--nv-shadow-soft)]"
     >
       <BaseInput
         id="scheduled-at"

@@ -4,7 +4,7 @@ import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 
 <template>
   <div class="nv-board-stack">
-    <section class="nv-board-panel nv-board-header-panel p-4 sm:p-6">
+    <section class="nv-board-panel nv-elevated-surface nv-board-header-panel p-4 sm:p-6">
       <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div class="flex items-start gap-3">
           <BaseSkeleton width="5rem" height="5rem" rounded="rounded-[14px]" className="flex-shrink-0" />
@@ -24,7 +24,7 @@ import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
       </div>
     </section>
 
-    <section class="nv-board-panel nv-board-list-panel overflow-hidden">
+    <section class="nv-board-panel nv-elevated-surface nv-board-list-panel overflow-hidden">
       <div class="border-b border-[var(--nv-line)] px-4 py-3 sm:px-5">
         <div class="flex gap-2 overflow-hidden">
           <BaseSkeleton v-for="index in 4" :key="index" width="72px" height="34px" rounded="rounded-[10px]" />

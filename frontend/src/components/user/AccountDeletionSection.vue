@@ -2,7 +2,7 @@
   <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
     <button
       type="button"
-      class="text-left text-xs nv-text-subtle underline underline-offset-2 hover:text-[var(--nv-danger)]"
+      class="text-left text-xs nv-text-subtle underline underline-offset-2 hover:text-[var(--nv-danger-text)]"
       @click="$emit('update:showDeleteModal', true)"
     >
       {{ $t('user.settings.deleteAccount') }}

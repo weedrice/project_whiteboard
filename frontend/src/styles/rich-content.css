@@ -159,11 +159,11 @@
   }
 
   .nv-rich-content :where(.hljs-string, .hljs-attr, .hljs-symbol) {
-    color: var(--nv-success);
+    color: var(--nv-success-text);
   }
 
   .nv-rich-content :where(.hljs-number, .hljs-literal, .hljs-built_in) {
-    color: var(--nv-warning);
+    color: var(--nv-warning-text);
   }
 
   .nv-rich-content :where(.hljs-comment, .hljs-quote) {

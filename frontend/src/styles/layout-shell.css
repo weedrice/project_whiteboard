@@ -10,7 +10,7 @@
   .nv-topnav {
     position: sticky;
     top: 0;
-    z-index: 60;
+    z-index: var(--nv-z-sticky);
     border-bottom: 1px solid var(--nv-line);
     background: color-mix(in srgb, var(--nv-surface) 88%, transparent);
     backdrop-filter: blur(16px);
@@ -73,7 +73,7 @@
   }
 
   .nv-mobile-nav {
-    @apply fixed inset-x-0 bottom-0 z-[70] mx-auto grid max-w-xl grid-cols-5 items-center gap-2 px-4 py-3 sm:hidden;
+    @apply fixed inset-x-0 bottom-0 z-[var(--nv-z-nav)] mx-auto grid max-w-xl grid-cols-5 items-center gap-2 px-4 py-3 sm:hidden;
     min-height: var(--nv-bottom-nav-height);
     padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
     background: color-mix(in srgb, var(--nv-surface) 92%, transparent);

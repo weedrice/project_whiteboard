@@ -146,7 +146,7 @@ async function handleCancelScheduledPost(post: ScheduledPost) {
       @page-change="handlePageChange"
       @size-change="handleSizeChange"
     >
-    <ul class="divide-y divide-[var(--nv-border)]">
+    <ul class="divide-y divide-[var(--nv-line)]">
       <li
         v-for="draft in drafts"
         :key="draft.draftId"
@@ -169,7 +169,7 @@ async function handleCancelScheduledPost(post: ScheduledPost) {
         <div class="flex flex-shrink-0 items-center gap-2">
           <RouterLink
             :to="getDraftRoute(draft)"
-            class="inline-flex min-h-11 items-center justify-center rounded-md border border-[var(--nv-border)] px-3 text-xs font-medium nv-text hover:bg-[var(--nv-surface-2)]"
+            class="inline-flex min-h-11 items-center justify-center rounded-md border border-[var(--nv-line)] px-3 text-xs font-medium nv-text hover:bg-[var(--nv-surface-2)]"
           >
             <Pencil class="mr-1.5 h-3.5 w-3.5" />
             {{ $t('user.draftList.continue') }}
@@ -206,7 +206,7 @@ async function handleCancelScheduledPost(post: ScheduledPost) {
       @page-change="handleScheduledPageChange"
       @size-change="handleScheduledSizeChange"
     >
-      <ul class="divide-y divide-[var(--nv-border)]">
+      <ul class="divide-y divide-[var(--nv-line)]">
         <li
           v-for="post in scheduledPosts"
           :key="post.scheduledPostId"
@@ -235,7 +235,7 @@ async function handleCancelScheduledPost(post: ScheduledPost) {
             <RouterLink
               v-if="getScheduledPostRoute(post)"
               :to="getScheduledPostRoute(post)!"
-              class="inline-flex min-h-11 items-center justify-center rounded-md border border-[var(--nv-border)] px-3 text-xs font-medium nv-text hover:bg-[var(--nv-surface-2)]"
+              class="inline-flex min-h-11 items-center justify-center rounded-md border border-[var(--nv-line)] px-3 text-xs font-medium nv-text hover:bg-[var(--nv-surface-2)]"
             >
               <ExternalLink class="mr-1.5 h-3.5 w-3.5" />
               {{ $t('user.draftList.openPublished') }}

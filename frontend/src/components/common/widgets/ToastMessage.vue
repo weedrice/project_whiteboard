@@ -83,7 +83,7 @@ const colors: Record<Toast['type'], string> = {
           <button
             type="button"
             :aria-label="$t('common.close')"
-            class="-m-3 inline-flex min-h-11 min-w-11 items-center justify-center rounded-md bg-transparent nv-text-subtle hover:text-[var(--nv-text)] nv-focus-ring"
+            class="-m-3 inline-flex min-h-11 min-w-11 items-center justify-center rounded-md bg-transparent nv-text-subtle hover:text-[var(--nv-ink)] nv-focus-ring"
             @click="emit('close')"
           >
             <span class="sr-only">{{ $t('common.close') }}</span>

@@ -16,7 +16,7 @@ const hasMobileBottomNav = computed(() => (
 </script>
 
 <template>
-  <div class="pointer-events-none fixed inset-0 z-[9999]">
+  <div class="pointer-events-none fixed inset-0 z-[var(--nv-z-toast)]">
     <!-- Top Center Container -->
     <div
       class="nv-toast-top-container absolute left-0 right-0 flex flex-col items-center space-y-4"

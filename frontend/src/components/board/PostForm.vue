@@ -439,7 +439,7 @@ defineExpose({
       </form>
     </div>
 
-    <div class="nv-compose-mobile-actions sm:hidden">
+    <div class="nv-compose-mobile-actions nv-elevated-surface sm:hidden">
       <div v-if="draftStatusLabel" class="truncate px-1 text-xs font-medium text-[var(--nv-muted)]">
         {{ draftStatusLabel }}
       </div>

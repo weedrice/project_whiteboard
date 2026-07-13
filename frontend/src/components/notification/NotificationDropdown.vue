@@ -150,7 +150,7 @@ function handleMarkAllAsRead() {
   background: var(--nv-border-strong);
 }
 .dark .notification-scroll::-webkit-scrollbar-thumb:hover {
-  background: var(--nv-text-subtle);
+  background: var(--nv-muted);
 }
 
 .nv-unread-surface {
@@ -166,13 +166,13 @@ function handleMarkAllAsRead() {
 }
 
 .notification-link:hover {
-  color: color-mix(in srgb, var(--nv-accent) 82%, var(--nv-text) 18%);
+  color: color-mix(in srgb, var(--nv-accent) 82%, var(--nv-ink) 18%);
 }
 
 .notification-icon-default,
 .notification-badge-default {
   background: var(--nv-surface-muted);
-  color: var(--nv-text-subtle);
+  color: var(--nv-muted);
 }
 
 .notification-icon-like,

@@ -55,23 +55,23 @@
   .modal-content {
     @apply relative rounded-lg shadow border;
     background: var(--nv-surface);
-    border-color: var(--nv-border);
-    color: var(--nv-text);
+    border-color: var(--nv-line);
+    color: var(--nv-ink);
   }
 
   .modal-header {
     @apply flex items-center justify-between p-5 border-b rounded-t;
-    border-color: var(--nv-border);
+    border-color: var(--nv-line);
   }
 
   .modal-body {
     @apply p-4 sm:p-6 space-y-4 sm:space-y-6;
-    color: var(--nv-text-muted);
+    color: var(--nv-ink-soft);
   }
 
   .modal-footer {
     @apply flex items-center justify-end w-full p-6 space-x-2 border-t rounded-b;
-    border-color: var(--nv-border);
+    border-color: var(--nv-line);
   }
 
 }

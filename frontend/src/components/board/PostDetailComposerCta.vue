@@ -33,7 +33,7 @@ const emit = defineEmits<{
   padding: 0.75rem 1rem;
   position: fixed;
   transform: translateX(-50%);
-  z-index: 75;
+  z-index: var(--nv-z-floating);
 }
 
 @media (max-width: 639px) {

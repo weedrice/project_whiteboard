@@ -139,14 +139,14 @@ const auditLogs = computed(() => auditData.value?.content ?? [])
         <AdminPanel class="xl:col-span-2" padding="md">
           <h3 class="text-base font-medium nv-title">{{ t('admin.dashboard.dailyActivity') }}</h3>
           <svg viewBox="0 0 320 150" class="mt-4 h-48 w-full" role="img" :aria-label="t('admin.dashboard.dailyActivity')">
-            <line x1="0" y1="120" x2="320" y2="120" stroke="var(--nv-border)" />
+            <line x1="0" y1="120" x2="320" y2="120" stroke="var(--nv-line)" />
             <g v-for="(item, index) in daily" :key="item.date">
               <rect
                 :x="index * barWidth + 1"
                 :y="120 - (item.comments / maxDailyValue) * 120"
                 :width="Math.max(1, barWidth - 2)"
                 :height="(item.comments / maxDailyValue) * 120"
-                fill="var(--nv-accent-soft)"
+                fill="var(--nv-accent-bg)"
               />
             </g>
             <polyline
@@ -181,7 +181,7 @@ const auditLogs = computed(() => auditData.value?.content ?? [])
         <div class="border-b nv-border px-4 py-3">
           <h3 class="text-base font-medium nv-title">{{ t('admin.dashboard.topSpaces') }}</h3>
         </div>
-        <ul v-if="topBoards.length > 0" role="list" class="divide-y divide-[var(--nv-border)]">
+        <ul v-if="topBoards.length > 0" role="list" class="divide-y divide-[var(--nv-line)]">
           <li v-for="board in topBoards" :key="board.boardId" class="flex items-center justify-between gap-3 px-4 py-3">
             <div class="min-w-0">
               <p class="truncate font-medium nv-title">{{ board.boardName }}</p>

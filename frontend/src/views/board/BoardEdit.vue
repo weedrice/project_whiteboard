@@ -60,7 +60,7 @@ watch([boardUrl, canManageBoard], async ([nextBoardUrl, manageable]) => {
       <BaseSpinner size="lg" />
     </div>
 
-    <div v-else-if="canManageBoard" class="nv-surface shadow sm:rounded-lg overflow-hidden">
+    <div v-else-if="canManageBoard" class="nv-surface nv-elevated-surface shadow sm:rounded-lg overflow-hidden">
       <!-- Header -->
       <PageHeader
         :title="$t('board.form.editTitle')"

@@ -85,7 +85,7 @@ onMounted(async () => {
     <h1 class="mb-4 text-2xl font-semibold tracking-[-0.04em] nv-title">{{ $t('common.myPage') }}</h1>
     <div v-if="isLoading" class="space-y-6">
       <!-- Profile Skeleton -->
-      <div class="max-w-full mx-auto nv-surface shadow rounded-lg p-6">
+      <div class="max-w-full mx-auto nv-surface nv-elevated-surface shadow rounded-lg p-6">
         <div class="flex items-center mb-6">
           <BaseSkeleton width="4rem" height="4rem" rounded="rounded-full" className="mr-4" />
           <div class="flex-1">
@@ -98,7 +98,7 @@ onMounted(async () => {
         </div>
       </div>
       <!-- Posts Skeleton -->
-      <div class="max-w-full mx-auto nv-surface shadow rounded-lg p-6">
+      <div class="max-w-full mx-auto nv-surface nv-elevated-surface shadow rounded-lg p-6">
         <BaseSkeleton width="120px" height="24px" className="mb-4" />
         <div class="space-y-4">
           <BaseSkeleton v-for="i in 3" :key="i" width="100%" height="60px" />

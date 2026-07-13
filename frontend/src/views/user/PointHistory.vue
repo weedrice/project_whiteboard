@@ -68,7 +68,7 @@ const formatBalance = (balance: number) => `${balance.toLocaleString()} P`
     @page-change="handlePageChange"
     @size-change="handleSizeChange"
   >
-    <ul role="list" class="divide-y divide-[var(--nv-border)]">
+    <ul role="list" class="divide-y divide-[var(--nv-line)]">
       <li v-for="item in history" :key="item.historyId"
         class="px-3 py-3 sm:px-6 sm:py-4 nv-hover-surface transition-colors duration-200">
         <div class="flex items-start justify-between w-full gap-3 min-w-0">

@@ -19,7 +19,7 @@ const emit = defineEmits<{
 }>()
 
 const toneClasses = {
-  neutral: 'nv-text-subtle hover:text-[var(--nv-text)]',
+  neutral: 'nv-text-subtle hover:text-[var(--nv-ink)]',
   accent: 'nv-accent-text hover:brightness-95',
   success: 'text-[var(--nv-success-text)] hover:text-[var(--nv-success-text)]',
   danger: 'text-[var(--nv-danger-text)] hover:brightness-95',

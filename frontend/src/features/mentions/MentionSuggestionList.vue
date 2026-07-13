@@ -45,7 +45,7 @@ const emit = defineEmits<{
   max-height: 14rem;
   min-width: 12rem;
   overflow-y: auto;
-  border: 1px solid var(--nv-border, var(--nv-line));
+  border: 1px solid var(--nv-line);
   border-radius: 0.5rem;
   background: var(--nv-surface);
   box-shadow: var(--nv-shadow-lg, 0 12px 28px color-mix(in srgb, var(--nv-ink) 16%, transparent));
@@ -59,7 +59,7 @@ const emit = defineEmits<{
   gap: 0.5rem;
   border-radius: 0.375rem;
   padding: 0.45rem 0.5rem;
-  color: var(--nv-text, var(--nv-ink));
+  color: var(--nv-ink);
   text-align: left;
   font-size: 0.875rem;
   transition: background-color 0.15s ease, color 0.15s ease;
@@ -84,7 +84,7 @@ const emit = defineEmits<{
   align-items: center;
   justify-content: center;
   background: var(--nv-surface-hover, var(--nv-surface-2));
-  color: var(--nv-text-muted);
+  color: var(--nv-ink-soft);
   font-size: 0.75rem;
   font-weight: 700;
 }

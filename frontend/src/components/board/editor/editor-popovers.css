@@ -1,7 +1,7 @@
 .link-popover-mask {
   position: fixed;
   inset: 0;
-  z-index: 9999;
+  z-index: var(--nv-z-overlay);
   background: rgba(9, 12, 22, 0.28);
 }
 
@@ -89,7 +89,7 @@
   min-height: 2.75rem;
   padding-inline: 0.5rem;
   font-size: 0.875rem;
-  color: var(--nv-danger);
+  color: var(--nv-danger-text);
   background: none;
   border: none;
   cursor: pointer;
@@ -119,7 +119,7 @@
   border: 1px solid var(--nv-line);
   border-radius: 1rem;
   box-shadow: var(--nv-shadow-soft);
-  z-index: 10000;
+  z-index: var(--nv-z-popup);
 }
 
 .color-panel-default {

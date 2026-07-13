@@ -47,7 +47,7 @@ onUnmounted(() => {
     <main
         class="min-h-dvh flex items-center justify-center nv-page px-4 py-10 sm:px-6 sm:py-16 transition-colors duration-200">
         <div
-            class="auth-card max-w-lg w-full nv-surface shadow-xl rounded-2xl overflow-hidden relative flex flex-col transition-[min-height] duration-300 ease-out"
+            class="auth-card max-w-lg w-full nv-surface nv-elevated-surface shadow-xl rounded-2xl overflow-hidden relative flex flex-col transition-[min-height] duration-300 ease-out"
             :style="cardHeight !== null ? { minHeight: `${cardHeight}px` } : {}"
         >
             <div ref="contentRef" class="flex flex-col min-h-0">

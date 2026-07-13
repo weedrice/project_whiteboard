@@ -7,7 +7,7 @@ const confirmStore = useConfirmStore()
 </script>
 
 <template>
-    <BaseModal :isOpen="confirmStore.isOpen" :title="confirmStore.title" :z-index="60" @close="confirmStore.cancel">
+    <BaseModal :isOpen="confirmStore.isOpen" :title="confirmStore.title" @close="confirmStore.cancel">
         <div class="text-sm nv-text-subtle">
             {{ confirmStore.message }}
         </div>

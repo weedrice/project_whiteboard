@@ -67,7 +67,7 @@ const emit = defineEmits<{
 .video-url-popover-mask {
   position: fixed;
   inset: 0;
-  z-index: 9999;
+  z-index: var(--nv-z-overlay);
   background: transparent;
 }
 
@@ -83,7 +83,7 @@ const emit = defineEmits<{
   border: 1px solid var(--nv-line);
   border-radius: 10px;
   box-shadow: var(--nv-shadow-soft);
-  z-index: 10000;
+  z-index: var(--nv-z-popup);
 }
 
 .video-url-popover-label {

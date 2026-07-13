@@ -35,7 +35,7 @@ const formattedDate = (dateString: string) => formatDateTimeOrDash(dateString, l
 
 <template>
   <div v-if="audits.length > 0" class="overflow-x-auto" role="region" :aria-label="caption" tabindex="0">
-    <table class="min-w-[48rem] divide-y divide-[var(--nv-border)] text-sm">
+    <table class="min-w-[48rem] divide-y divide-[var(--nv-line)] text-sm">
       <caption class="sr-only">{{ caption }}</caption>
       <thead class="nv-surface-muted nv-text-subtle">
         <tr>
@@ -49,7 +49,7 @@ const formattedDate = (dateString: string) => formatDateTimeOrDash(dateString, l
           <th scope="col" class="px-4 py-3 text-left font-medium">{{ t('admin.dashboard.auditCreatedAt') }}</th>
         </tr>
       </thead>
-      <tbody class="divide-y divide-[var(--nv-border)]">
+      <tbody class="divide-y divide-[var(--nv-line)]">
         <tr v-for="audit in audits" :key="audit.auditId">
           <td class="px-4 py-3 font-medium nv-title">{{ actionLabel(audit) }}</td>
           <td class="px-4 py-3 nv-text-subtle">{{ actorLabel(audit) }}</td>

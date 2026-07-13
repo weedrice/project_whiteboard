@@ -94,8 +94,11 @@
     opacity: 1;
   }
 
+  .recent-board-remove:hover svg {
+    stroke: var(--nv-danger);
+  }
+
   .recent-board-remove:hover {
-    color: var(--nv-danger);
     background: color-mix(in srgb, var(--nv-danger) 12%, transparent);
   }
 
@@ -112,7 +115,7 @@
   }
 
   .recent-boards-clear:hover {
-    color: var(--nv-danger);
+    color: var(--nv-danger-text);
   }
 
   @media (max-width: 639px) {

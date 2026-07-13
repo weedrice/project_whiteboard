@@ -122,7 +122,7 @@ const getLoadingRowClass = (preset: LoadingPreset) => {
         <slot v-if="slots.loading" name="loading" />
         <div
           v-else-if="loadingPreset !== 'none'"
-          class="divide-y divide-[var(--nv-border)]"
+          class="divide-y divide-[var(--nv-line)]"
           role="status"
           aria-live="polite"
           aria-busy="true"

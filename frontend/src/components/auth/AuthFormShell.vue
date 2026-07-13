@@ -19,7 +19,7 @@ withDefaults(defineProps<{
     <div v-if="backTo" class="absolute left-4 top-4">
       <router-link
         :to="backTo"
-        class="nv-focus-ring flex min-h-11 items-center rounded-md px-1 nv-text-subtle transition-colors hover:text-[var(--nv-text)]"
+        class="nv-focus-ring flex min-h-11 items-center rounded-md px-1 nv-text-subtle transition-colors hover:text-[var(--nv-ink)]"
       >
         <ChevronLeft class="mr-1 h-5 w-5" />
         <span class="text-sm font-medium">{{ $t('common.back') }}</span>

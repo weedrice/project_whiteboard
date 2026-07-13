@@ -27,7 +27,7 @@ const { t } = useI18n()
 </script>
 
 <template>
-  <section class="nv-board-panel nv-board-header-panel p-4 sm:p-6">
+  <section class="nv-board-panel nv-elevated-surface nv-board-header-panel p-4 sm:p-6">
     <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
       <div class="flex min-w-0 flex-1 items-start gap-3 sm:gap-4">
         <router-link :to="buildBoardListRoute()" class="nv-board-icon-wrap flex-shrink-0">

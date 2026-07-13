@@ -1,12 +1,12 @@
 <template>
     <div class="mx-auto max-w-4xl">
-        <div class="nv-surface shadow overflow-hidden sm:rounded-lg transition-colors duration-200">
+        <div class="nv-surface nv-elevated-surface shadow overflow-hidden sm:rounded-lg transition-colors duration-200">
             <div class="px-4 py-4 sm:py-5 sm:px-6 border-b nv-border flex items-center">
                 <Users class="h-5 w-5 mr-2 nv-text-subtle flex-shrink-0" />
                 <h1 class="text-lg leading-6 font-medium nv-title">{{ $t('user.subscriptions.title') }}</h1>
             </div>
 
-            <div v-if="loading" class="divide-y divide-[var(--nv-border)]">
+            <div v-if="loading" class="divide-y divide-[var(--nv-line)]">
                 <div v-for="i in 5" :key="i" class="px-4 py-4 sm:px-6 flex justify-between items-center">
                     <div class="flex items-center flex-1">
                         <BaseSkeleton width="20px" height="20px" className="mr-4" />
@@ -26,7 +26,7 @@
                 :icon="Users"
             />
 
-            <draggable v-else-if="accessibleBoards.length > 0" v-model="accessibleBoards" item-key="boardId" class="divide-y divide-[var(--nv-border)]"
+            <draggable v-else-if="accessibleBoards.length > 0" v-model="accessibleBoards" item-key="boardId" class="divide-y divide-[var(--nv-line)]"
                 tag="ul" :handle="isMobile ? undefined : '.handle'" :disabled="isMobile" @end="handleDragEnd">
                 <template #item="{ element: board, index }">
                     <li
@@ -101,7 +101,7 @@
                 </template>
             </draggable>
 
-            <ul v-if="unavailableBoards.length > 0" class="divide-y divide-[var(--nv-border)]">
+            <ul v-if="unavailableBoards.length > 0" class="divide-y divide-[var(--nv-line)]">
                 <li
                     v-for="board in unavailableBoards"
                     :key="board.boardId"

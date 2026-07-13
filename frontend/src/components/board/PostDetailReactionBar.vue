@@ -126,8 +126,8 @@ const { t } = useI18n()
   color: var(--nv-warning-text);
 }
 
-.nv-post-action-btn.is-report {
-  color: var(--nv-danger);
+.nv-post-action-btn.is-report svg {
+  stroke: var(--nv-danger);
 }
 
 .nv-post-action-btn-circle {

@@ -295,7 +295,7 @@ watch(isBlinded, (blinded) => {
 
         <div
           v-if="isReplying"
-          class="nv-comment-reply-branch mt-3 border-l-2 border-[var(--nv-border)] pl-2 sm:mt-4 sm:pl-4"
+          class="nv-comment-reply-branch mt-3 border-l-2 border-[var(--nv-line)] pl-2 sm:mt-4 sm:pl-4"
           :class="{ 'nv-comment-reply-branch-capped': depth >= 2 }"
         >
           <CommentForm
@@ -308,7 +308,7 @@ watch(isBlinded, (blinded) => {
 
         <div
           v-if="isRepliesOpen"
-          class="nv-comment-reply-branch mt-3 border-l-2 border-[var(--nv-border)] pl-3 sm:mt-4 sm:pl-4"
+          class="nv-comment-reply-branch mt-3 border-l-2 border-[var(--nv-line)] pl-3 sm:mt-4 sm:pl-4"
           :class="{ 'nv-comment-reply-branch-capped': depth >= 2 }"
         >
           <p v-if="isRepliesLoading" class="text-xs nv-text-subtle">
