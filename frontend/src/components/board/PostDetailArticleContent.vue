@@ -83,7 +83,7 @@ const {
       <PostContentView
         v-else
         :ref="assignContentRef"
-        class="ql-editor nv-rich-content nv-post-readable nv-post-readable-fluid prose prose-sm sm:prose-base dark:prose-invert"
+        class="ql-editor nv-rich-content nv-post-readable nv-post-readable-fluid prose prose-sm max-w-none sm:prose-base dark:prose-invert"
         :class="{ 'blur-md select-none': isBlurred }"
         :content="postContents"
         :sandbox-title="postView.title"
