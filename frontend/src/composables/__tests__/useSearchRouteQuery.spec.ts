@@ -34,7 +34,7 @@ describe('useSearchRouteQuery', () => {
     let routeQuery = useSearchRouteQuery()
 
     expect(routeQuery.searchQuery.value).toBe('vue')
-    expect(routeQuery.params.value).toEqual({ q: 'vue', page: 0, size: 20 })
+    expect(routeQuery.params.value).toEqual({ q: 'vue', page: 0, size: 20, searchType: 'TITLE_CONTENT' })
 
     routeState.query = { keyword: ['pinia', 'second'] }
     routeQuery = useSearchRouteQuery()
@@ -104,6 +104,58 @@ describe('useSearchRouteQuery', () => {
     expect(routeQuery.buildQueryWithoutFilter('period')).toEqual({
       q: 'vue',
       author: 'hong',
+    })
+  })
+
+  it('preserves the selected scope and filters when the search text changes', () => {
+    routeState.query = { q: 'old', searchType: 'TITLE', author: 'hong', period: 'WEEK' }
+    const routeQuery = useSearchRouteQuery()
+
+    routeQuery.searchInput.value = 'new'
+    routeQuery.handleSearchSubmit()
+
+    expect(routerPush).toHaveBeenCalledWith({
+      name: 'search',
+      query: {
+        q: 'new',
+        searchType: 'TITLE',
+        author: 'hong',
+        period: 'WEEK',
+      },
+    })
+  })
+
+  it.each(['TITLE_CONTENT', 'TITLE', 'CONTENT', 'AUTHOR'] as const)(
+    'round-trips the %s post search scope',
+    (searchType) => {
+      routeState.query = { q: 'vue', searchType, author: 'hong' }
+      const routeQuery = useSearchRouteQuery()
+
+      expect(routeQuery.searchTypeQuery.value).toBe(searchType)
+      expect(routeQuery.params.value.searchType).toBe(searchType)
+      expect(routeQuery.params.value.author).toBe(searchType === 'AUTHOR' ? undefined : 'hong')
+
+      routeQuery.searchTypeInput.value = searchType
+      expect(routeQuery.buildFilterQuery()).toEqual({
+        q: 'vue',
+        ...(searchType === 'TITLE_CONTENT' ? {} : { searchType }),
+        ...(searchType === 'AUTHOR' ? {} : { author: 'hong' }),
+      })
+    },
+  )
+
+  it('normalizes unknown scopes and removes a scope without losing other filters', () => {
+    routeState.query = { q: 'vue', searchType: 'UNKNOWN', period: 'WEEK' }
+    let routeQuery = useSearchRouteQuery()
+
+    expect(routeQuery.searchTypeQuery.value).toBe('TITLE_CONTENT')
+    expect(routeQuery.params.value.searchType).toBe('TITLE_CONTENT')
+
+    routeState.query = { q: 'vue', searchType: 'CONTENT', period: 'WEEK' }
+    routeQuery = useSearchRouteQuery()
+    expect(routeQuery.buildQueryWithoutFilter('searchType')).toEqual({
+      q: 'vue',
+      period: 'WEEK',
     })
   })
 })

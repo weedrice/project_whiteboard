@@ -42,13 +42,15 @@ export interface SemanticSearchResult {
     author?: SemanticSearchAuthor | null
 }
 
+export type PostSearchType = 'TITLE_CONTENT' | 'TITLE' | 'CONTENT' | 'AUTHOR'
+
 export interface SearchParams {
     q?: string
     keyword?: string
     page?: number
     size?: number
     type?: string
-    searchType?: string
+    searchType?: PostSearchType | string
     author?: string
     from?: string
     to?: string

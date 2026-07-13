@@ -180,6 +180,7 @@ describe('SearchPage', () => {
       q: 'vue',
       page: 0,
       size: 20,
+      searchType: 'TITLE_CONTENT',
     })
     expect(wrapper.text()).toContain('"vue"')
     expect(wrapper.find('[data-testid="empty-state"]').attributes('data-description')).toBe('search.noResultsFor:vue search.noResultsSuggestion')
@@ -300,5 +301,41 @@ describe('SearchPage', () => {
         to: '2026-07-08',
       },
     })
+  })
+
+  it('shows all post scopes and applies the selected scope to the route', async () => {
+    routeState.query = { q: 'vue' }
+    const wrapper = mountPage()
+
+    const filterToggle = wrapper.findAll('button').find((button) => button.text() === 'search.filterToggle')
+    await filterToggle?.trigger('click')
+
+    const scope = wrapper.get('select[name="searchType"]')
+    expect(scope.findAll('option').map((option) => option.attributes('value'))).toEqual([
+      'TITLE_CONTENT', 'TITLE', 'CONTENT', 'AUTHOR',
+    ])
+    await scope.setValue('CONTENT')
+    await scope.element.closest('form')?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+
+    expect(routeState.routerPush).toHaveBeenCalledWith({
+      name: 'search',
+      query: { q: 'vue', searchType: 'CONTENT' },
+    })
+  })
+
+  it('uses AUTHOR as the keyword scope without sending the separate author filter', async () => {
+    routeState.query = { q: 'hong', searchType: 'AUTHOR', author: 'duplicate' }
+    const wrapper = mountPage()
+
+    expect(searchState.lastParams?.value).toMatchObject({
+      q: 'hong',
+      searchType: 'AUTHOR',
+    })
+    expect(searchState.lastParams?.value.author).toBeUndefined()
+    expect(wrapper.text()).toContain('search.scopeFilterChip')
+
+    const filterToggle = wrapper.findAll('button').find((button) => button.text() === 'search.filterToggle')
+    await filterToggle?.trigger('click')
+    expect(wrapper.find('#search-author-filter').exists()).toBe(false)
   })
 })

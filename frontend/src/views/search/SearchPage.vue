@@ -62,10 +62,18 @@
 
           <form
             v-if="hasSearchQuery && isFilterOpen"
-            class="mt-4 grid gap-3 rounded-lg border nv-border nv-surface p-4 sm:grid-cols-2 lg:grid-cols-[1fr_0.9fr_0.9fr_0.9fr_auto]"
+            class="mt-4 grid gap-3 rounded-lg border nv-border nv-surface p-4 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_0.9fr_0.9fr_0.9fr_auto]"
             @submit.prevent="applyFilters"
           >
+            <BaseSelect
+              v-model="searchTypeInput"
+              name="searchType"
+              :label="$t('search.scopeFilter')"
+              :options="searchTypeOptions"
+              input-class="h-10"
+            />
             <BaseInput
+              v-if="searchTypeInput !== 'AUTHOR'"
               id="search-author-filter"
               v-model="authorInput"
               name="author"
@@ -330,11 +338,13 @@ const { t } = useI18n()
 const { useIntegratedSearch, useSemanticSearch, usePopularKeywords, useRecentSearches } = useSearch()
 const {
   searchInput,
+  searchTypeInput,
   authorInput,
   periodInput,
   fromInput,
   toInput,
   searchQuery,
+  searchTypeQuery,
   authorQuery,
   periodQuery,
   fromQuery,
@@ -376,7 +386,15 @@ const hasAnyResults = computed(() => !keywordResultsEmpty.value || semanticResul
 const popularKeywords = computed(() => popularKeywordData.value || [])
 const popularTags = computed(() => popularTagData.value?.tags || [])
 const recentKeywords = computed(() => recentKeywordData.value?.content || [])
-const hasKeywordFilters = computed(() => Boolean(params.value.author || params.value.period))
+const hasKeywordFilters = computed(() => Boolean(
+  params.value.searchType !== 'TITLE_CONTENT' || params.value.author || params.value.period,
+))
+const searchTypeOptions = computed(() => [
+  { value: 'TITLE_CONTENT', label: t('search.scopeTitleContent') },
+  { value: 'TITLE', label: t('search.scopeTitle') },
+  { value: 'CONTENT', label: t('search.scopeContent') },
+  { value: 'AUTHOR', label: t('search.scopeAuthor') },
+])
 const periodOptions = computed(() => [
   { value: '', label: t('search.periodAll') },
   { value: 'TODAY', label: t('search.periodToday') },
@@ -387,7 +405,13 @@ const periodOptions = computed(() => [
 const hasSearchError = computed(() => Boolean(integratedSearchError.value || semanticSearchError.value))
 const activeFilterChips = computed<Array<{ key: SearchFilterKey, label: string }>>(() => {
   const chips: Array<{ key: SearchFilterKey, label: string }> = []
-  if (authorQuery.value) {
+  if (searchTypeQuery.value !== 'TITLE_CONTENT') {
+    chips.push({
+      key: 'searchType',
+      label: t('search.scopeFilterChip', { value: getSearchTypeLabel(searchTypeQuery.value) }),
+    })
+  }
+  if (authorQuery.value && searchTypeQuery.value !== 'AUTHOR') {
     chips.push({
       key: 'author',
       label: t('search.authorFilterChip', { value: authorQuery.value }),
@@ -410,6 +434,19 @@ const activeFilterChips = computed<Array<{ key: SearchFilterKey, label: string }
   }
   return chips
 })
+
+function getSearchTypeLabel(searchType: string) {
+  switch (searchType) {
+    case 'TITLE':
+      return t('search.scopeTitle')
+    case 'CONTENT':
+      return t('search.scopeContent')
+    case 'AUTHOR':
+      return t('search.scopeAuthor')
+    default:
+      return t('search.scopeTitleContent')
+  }
+}
 
 function getPeriodLabel(period: string) {
   switch (period) {

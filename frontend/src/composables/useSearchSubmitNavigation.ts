@@ -12,7 +12,7 @@ export function useSearchSubmitNavigation(options: UseSearchSubmitNavigationOpti
   const route = useRoute()
   const queryClient = useQueryClient()
 
-  function submitSearch(rawQuery: string) {
+  function submitSearch(rawQuery: string, additionalQuery: Record<string, string> = {}) {
     const q = rawQuery.trim()
     if (!q) return false
 
@@ -24,7 +24,7 @@ export function useSearchSubmitNavigation(options: UseSearchSubmitNavigationOpti
 
     router.push({
       name: 'search',
-      query: { q },
+      query: { q, ...additionalQuery },
     })
     return true
   }

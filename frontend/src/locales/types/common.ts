@@ -291,6 +291,12 @@ export interface SearchMessages {
   semanticEmpty: string
   semanticSource: string
   authorFilter: string
+  scopeFilter: string
+  scopeTitleContent: string
+  scopeTitle: string
+  scopeContent: string
+  scopeAuthor: string
+  scopeFilterChip: string
   periodFilter: string
   periodAll: string
   periodToday: string
