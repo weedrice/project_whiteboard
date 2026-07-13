@@ -361,6 +361,24 @@ export interface HomeMessages {
       commentsMeta: string
     }
   }
+  views: {
+    label: string
+    recommended: string
+    personal: string
+  }
+  personal: {
+    kicker: string
+    title: string
+    description: string
+    loading: string
+    loadFailed: string
+    emptyTitle: string
+    emptyDescription: string
+    browseSpaces: string
+    manageSubscriptions: string
+    loadMore: string
+    loadingMore: string
+  }
   attendance: {
     title: string
     streak: string

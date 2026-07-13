@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import { CircleDot, FileText, TrendingUp as TrendingUpIcon } from 'lucide-vue-next'
 import { useHead } from '@unhead/vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute, useRouter } from 'vue-router'
 import ErrorState from '@/components/common/ui/ErrorState.vue'
 import BaseSegmentedControl from '@/components/common/ui/BaseSegmentedControl.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
@@ -11,7 +12,9 @@ import HomeAttendancePanel from '@/components/home/HomeAttendancePanel.vue'
 import HomeLandingSkeleton from '@/components/home/HomeLandingSkeleton.vue'
 import HomePostCard from '@/components/home/HomePostCard.vue'
 import HomeActivityList from '@/components/home/HomeActivityList.vue'
+import HomePersonalFeed from '@/components/home/HomePersonalFeed.vue'
 import { useHomeLanding } from '@/composables/useHomeLanding'
+import { useAuthStore } from '@/stores/auth'
 import type { HomeLandingPeriod } from '@/types'
 import {
   createHomeStatsCards,
@@ -23,7 +26,44 @@ import {
 } from '@/views/home/homeFeedModel'
 
 const { t, locale } = useI18n()
+const route = useRoute()
+const router = useRouter()
+const authStore = useAuthStore()
 const homeTitle = computed(() => t('common.appName'))
+
+type HomeView = 'recommended' | 'feed'
+
+const activeHomeView = computed<HomeView>(() => (
+  authStore.isAuthenticated && route.query.view === 'feed' ? 'feed' : 'recommended'
+))
+const homeViewOptions = computed(() => [
+  {
+    value: 'recommended',
+    label: t('home.views.recommended'),
+    id: 'home-recommended-tab',
+    controls: 'home-recommended-panel',
+  },
+  {
+    value: 'feed',
+    label: t('home.views.personal'),
+    id: 'home-personal-feed-tab',
+    controls: 'home-personal-feed-panel',
+  },
+])
+
+function setHomeView(view: HomeView) {
+  const query = { ...route.query }
+  if (view === 'feed') query.view = 'feed'
+  else delete query.view
+  void router.push({ name: route.name ?? 'home', query })
+}
+
+watch(() => authStore.isAuthenticated, (isAuthenticated) => {
+  if (isAuthenticated || route.query.view !== 'feed') return
+  const query = { ...route.query }
+  delete query.view
+  void router.replace({ name: route.name ?? 'home', query })
+}, { immediate: true })
 
 const {
   featured,
@@ -94,17 +134,35 @@ useHead({
   <div class="space-y-8 pb-8">
     <h1 class="sr-only">{{ $t('home.landing.curatedToday') }}</h1>
 
-    <HomeLandingSkeleton v-if="isLoading" />
-
-    <ErrorState
-      v-else-if="isError"
-      title-tag="h2"
-      :message="$t('common.messages.loadFailed')"
-      :show-retry="true"
-      @retry="refetch"
+    <BaseSegmentedControl
+      v-if="authStore.isAuthenticated"
+      :model-value="activeHomeView"
+      :options="homeViewOptions"
+      :label="$t('home.views.label')"
+      variant="underline"
+      selection-mode="tab"
+      @update:model-value="setHomeView($event as HomeView)"
     />
 
-    <template v-else>
+    <template v-if="activeHomeView === 'recommended'">
+      <div
+        id="home-recommended-panel"
+        role="tabpanel"
+        aria-labelledby="home-recommended-tab"
+        class="space-y-8"
+      >
+
+        <HomeLandingSkeleton v-if="isLoading" />
+
+        <ErrorState
+          v-else-if="isError"
+          title-tag="h2"
+          :message="$t('common.messages.loadFailed')"
+          :show-retry="true"
+          @retry="refetch"
+        />
+
+        <template v-else>
       <section class="nv-home-hero nv-elevated-surface">
         <div class="flex items-center justify-between gap-4">
           <div class="nv-home-live-rollup">
@@ -229,7 +287,11 @@ useHead({
           {{ $t('home.landing.liveActivityEmpty') }}
         </div>
       </section>
+        </template>
+      </div>
     </template>
+
+    <HomePersonalFeed v-else />
   </div>
 </template>
 

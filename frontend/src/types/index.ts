@@ -13,6 +13,7 @@ export * from './notification'
 export * from './report'
 export * from './admin'
 export * from './search'
+export * from './feed'
 export * from '../api/file'
 
 export interface IntegratedSearchResultGroup<T> {

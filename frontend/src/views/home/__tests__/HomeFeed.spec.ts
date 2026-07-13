@@ -42,6 +42,29 @@ const state = vi.hoisted(() => {
     }
 })
 
+const navigation = vi.hoisted(() => ({
+    route: { name: 'home', query: {} as Record<string, unknown> },
+    push: vi.fn(),
+    replace: vi.fn(),
+    isAuthenticated: false,
+}))
+
+vi.mock('vue-router', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('vue-router')>()
+    return {
+        ...actual,
+        useRoute: () => navigation.route,
+        useRouter: () => ({
+            push: navigation.push,
+            replace: navigation.replace,
+        }),
+    }
+})
+
+vi.mock('@/stores/auth', () => ({
+    useAuthStore: () => navigation,
+}))
+
 vi.mock('@unhead/vue', () => ({
     useHead: vi.fn(),
 }))
@@ -188,6 +211,10 @@ describe('HomeFeed', () => {
         state.isBoardsLoading.value = false
         state.isBoardsError.value = false
         state.refetch.mockReset()
+        navigation.route.query = {}
+        navigation.push.mockReset()
+        navigation.replace.mockReset()
+        navigation.isAuthenticated = false
         document.title = ''
     })
 
@@ -438,5 +465,53 @@ describe('HomeFeed', () => {
         expect(target?.attributes('aria-pressed')).toBe('false')
         await target!.trigger('click')
         expect(state.setPeriod).toHaveBeenCalledWith('7d')
+    })
+
+    it('shows the personal feed tab to authenticated users and preserves it in the URL', async () => {
+        navigation.isAuthenticated = true
+
+        const wrapper = mount(HomeFeed, {
+            global: {
+                mocks: { $t: (key: string) => key },
+                stubs: {
+                    RouterLink: RouterLinkStub,
+                    HomePostCard: HomePostCardStub,
+                    HomeActivityList: HomeActivityListStub,
+                    HomePersonalFeed: true,
+                    EmptyState: EmptyStateStub,
+                    ErrorState: ErrorStateStub,
+                    HomeAttendancePanel: true,
+                    HomeLandingSkeleton: HomeLandingSkeletonStub,
+                },
+            },
+        })
+
+        const tabs = wrapper.findAll('[role="tab"]')
+        expect(tabs).toHaveLength(2)
+        await tabs[1].trigger('click')
+        expect(navigation.push).toHaveBeenCalledWith({ name: 'home', query: { view: 'feed' } })
+    })
+
+    it('normalizes a guest feed URL to the recommended home view', () => {
+        navigation.route.query = { view: 'feed' }
+
+        const wrapper = mount(HomeFeed, {
+            global: {
+                mocks: { $t: (key: string) => key },
+                stubs: {
+                    RouterLink: RouterLinkStub,
+                    HomePostCard: HomePostCardStub,
+                    HomeActivityList: HomeActivityListStub,
+                    EmptyState: EmptyStateStub,
+                    ErrorState: ErrorStateStub,
+                    HomeAttendancePanel: true,
+                    HomeLandingSkeleton: HomeLandingSkeletonStub,
+                },
+            },
+        })
+
+        expect(wrapper.find('[role="tablist"]').exists()).toBe(false)
+        expect(wrapper.find('[aria-labelledby="home-recommended-tab"]').exists()).toBe(true)
+        expect(navigation.replace).toHaveBeenCalledWith({ name: 'home', query: {} })
     })
 })
