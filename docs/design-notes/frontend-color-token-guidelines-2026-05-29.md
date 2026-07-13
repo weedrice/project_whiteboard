@@ -6,8 +6,11 @@
 
 ## 기본 원칙
 
+- 색온도 원칙: 라이트는 웜 페이퍼, 다크는 쿨 잉크를 사용한다.
+- 라이트 브랜드 accent는 차분한 잉크 블루 `#2447b8`을 사용하며, 다크 accent는 별도 고대비 값을 유지한다.
 - 페이지 배경: `nv-page`
 - 카드, 모달, 드롭다운, 패널 표면: `nv-surface`
+- 다크에서 한 단계 승격되는 카드·패널 표면: `nv-elevated-surface`
 - 보조 표면, 스켈레톤, 비활성 배경: `nv-surface-muted`
 - hover 표면: `nv-hover-surface`
 - active/selected 표면: `nv-active-surface`
@@ -27,7 +30,36 @@
 - 경고/주의: `nv-status-warning`
 - 오류/위험: `nv-status-danger`
 
-브랜드 CTA나 링크의 accent 색상은 기존 `text-indigo-*`, `bg-indigo-*`를 제한적으로 유지할 수 있다. 다만 일반 표면, hover 배경, unread 배경, 카드 배경에는 직접 `blue`, `indigo`, `sky`, `cyan` 계열 dark background를 쓰지 않는다.
+원색 상태 토큰 `--nv-danger`, `--nv-warning`, `--nv-success`는 아이콘, 보더, 배경에만 사용한다. 상태 텍스트에는 반드시 대응하는 `--nv-*-text` 토큰을 사용한다. [WCAG 2.2 대비 기준](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html)의 3:1 예외는 일반 24px 이상 또는 굵은 글자 약 18.66px 이상의 대형 텍스트와 아이콘·UI 그래픽에만 적용한다.
+
+브랜드 CTA나 링크에는 `--nv-accent` 또는 기존 accent utility를 사용한다. 일반 표면, hover 배경, unread 배경, 카드 배경에는 직접 `blue`, `indigo`, `sky`, `cyan` 계열 dark background를 쓰지 않는다.
+
+## 토큰 어휘와 레이어
+
+CSS 변수의 주 어휘는 `ink`, `line`, `bg`, `muted`, `ink-soft`, `surface-2`, `accent-bg`다. 다음 기능 계열 변수는 하위 호환 선언으로만 남아 있으며 새 코드에서 사용하지 않는다.
+
+```text
+--nv-text        -> --nv-ink
+--nv-border      -> --nv-line
+--nv-page        -> --nv-bg
+--nv-text-subtle -> --nv-muted
+--nv-text-muted  -> --nv-ink-soft
+--nv-surface-alt -> --nv-surface-2
+--nv-accent-soft -> --nv-accent-bg
+```
+
+컴포넌트 class인 `nv-text`, `nv-border`, `nv-page`는 호환 가능한 공개 utility이므로 계속 사용할 수 있다.
+
+전역 레이어는 아래 토큰을 사용한다. 컴포넌트 내부의 낮은 z-index만 지역 숫자로 유지한다.
+
+```text
+--nv-z-sticky: 60
+--nv-z-nav: 70
+--nv-z-floating: 80
+--nv-z-overlay: 90
+--nv-z-popup: 100
+--nv-z-toast: 110
+```
 
 ## 비허용 패턴
 
@@ -43,6 +75,9 @@ dark:bg-blue-*
 dark:bg-indigo-*
 dark:bg-sky-*
 dark:bg-cyan-*
+color: var(--nv-danger|warning|success)
+text-[var(--nv-danger|warning|success)]
+var(--nv-text|border|page|text-subtle|text-muted|surface-alt|accent-soft)
 ```
 
 위 패턴이 필요해 보이면 먼저 토큰 class로 바꾼다.
