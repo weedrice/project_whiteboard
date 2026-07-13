@@ -163,7 +163,15 @@ describe('MyMessages', () => {
         expect(wrapper.find('[data-message-direction="received"]').exists()).toBe(true)
         expect(wrapper.find('[data-message-direction="sent"]').exists()).toBe(true)
         expect(wrapper.find('base-textarea-stub').attributes('label')).toBe('user.message.replyTitle')
-        expect(wrapper.findAllComponents(baseModalStub)).toHaveLength(1)
+        const modal = wrapper.findComponent(baseModalStub)
+        expect(modal.props('size')).toBe('2xl')
+        expect(modal.props('title')).toBe('user.message.detailTitle')
+        expect(modal.props('mobileFull')).toBe(true)
+        expect(modal.props('mobileFitContent')).toBe(true)
+
+        const content = wrapper.find('[data-testid="message-detail-content"]')
+        expect(content.classes()).not.toContain('p-4')
+        expect(content.classes()).not.toContain('sm:p-6')
     })
 
     it('exposes mailbox view and message row controls to assistive technology', async () => {

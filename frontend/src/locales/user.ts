@@ -302,6 +302,7 @@ export const user: UserMessages = {
   },
   message: {
     title: '쪽지 보내기',
+    detailTitle: '쪽지 상세',
     receiver: '받는 사람',
     content: '내용',
     inputContent: '내용을 입력해주세요.',

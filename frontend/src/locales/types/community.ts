@@ -785,6 +785,7 @@ export interface UserMessages {
   }
   message: {
     title: string
+    detailTitle: string
     receiver: string
     content: string
     inputContent: string

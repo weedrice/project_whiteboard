@@ -67,9 +67,9 @@
         </ul>
     </PaginatedListCard>
 
-    <BaseModal :isOpen="!!selectedMessage" :title="$t('user.message.title')" @close="selectedMessage = null"
-        mobile-full mobile-fit-content size="lg">
-        <div v-if="selectedMessage" class="p-4 sm:p-6 space-y-4">
+    <BaseModal :isOpen="!!selectedMessage" :title="$t('user.message.detailTitle')" @close="selectedMessage = null"
+        mobile-full mobile-fit-content size="2xl">
+        <div v-if="selectedMessage" data-testid="message-detail-content" class="space-y-4">
             <div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,20rem)]">
                 <section class="min-w-0">
                     <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 border-b nv-border pb-3">

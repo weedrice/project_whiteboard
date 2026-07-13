@@ -302,6 +302,7 @@ export const userEn: UserMessages = {
   },
   message: {
     title: 'Send message',
+    detailTitle: 'Message details',
     receiver: 'Recipient',
     content: 'Message',
     inputContent: 'Enter a message.',

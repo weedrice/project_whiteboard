@@ -69,7 +69,13 @@ vi.mock('vue-router', () => ({
 export { addToast, extractErrorResponseMock, messageApi }
 
 export const baseModalStub = {
-    props: ['isOpen', 'title'],
+    props: {
+        isOpen: Boolean,
+        title: String,
+        size: String,
+        mobileFull: Boolean,
+        mobileFitContent: Boolean,
+    },
     template: '<div v-if="isOpen"><slot /></div>',
 }
 
