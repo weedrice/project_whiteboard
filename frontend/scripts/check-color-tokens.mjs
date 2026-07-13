@@ -5,8 +5,27 @@ import { fileURLToPath } from 'node:url'
 const rootDir = fileURLToPath(new URL('..', import.meta.url))
 const srcDir = join(rootDir, 'src')
 const extensions = new Set(['.vue', '.ts', '.css'])
+const deprecatedNvTokens = new Map([
+  ['--nv-text', '--nv-ink'],
+  ['--nv-border', '--nv-line'],
+  ['--nv-page', '--nv-bg'],
+  ['--nv-text-subtle', '--nv-muted'],
+  ['--nv-text-muted', '--nv-ink-soft'],
+  ['--nv-surface-alt', '--nv-surface-2'],
+  ['--nv-accent-soft', '--nv-accent-bg'],
+])
 
 const rules = [
+  {
+    name: 'raw status text color',
+    pattern: /(?<![-\w])color\s*:\s*var\(\s*--nv-(?:danger|warning|success)\s*\)/g,
+    message: 'Use the corresponding --nv-*-text token for text. Raw status tokens are reserved for backgrounds, borders, and icons.',
+  },
+  {
+    name: 'raw status Tailwind text color',
+    pattern: /(?:[\w-]+:)*text-\[var\(\s*--nv-(?:danger|warning|success)\s*\)\]/g,
+    message: 'Use the corresponding --nv-*-text token for text. Raw status tokens are reserved for backgrounds, borders, and icons.',
+  },
   {
     name: 'dark brand background',
     pattern: /\b[\w:-]*dark:[\w:-]*bg-(?:blue|indigo|sky|cyan)-\S*/g,
@@ -79,6 +98,20 @@ for (const file of files) {
         message: rule.message,
       })
     }
+  }
+
+  for (const match of source.matchAll(/var\(\s*(--nv-(?:text-subtle|text-muted|surface-alt|accent-soft|text|border|page))\s*[,)]/g)) {
+    const token = match[1]
+    const replacement = deprecatedNvTokens.get(token)
+    const before = source.slice(0, match.index)
+    const line = before.split(/\r?\n/).length
+    violations.push({
+      file: relative(rootDir, file).replaceAll('\\', '/'),
+      line,
+      rule: 'deprecated nv token',
+      match: token,
+      message: `Use ${replacement} instead. Deprecated aliases are compatibility declarations only.`,
+    })
   }
 
   for (const match of source.matchAll(/var\(\s*(--nv-[\w-]+)\s*(,)?/g)) {
