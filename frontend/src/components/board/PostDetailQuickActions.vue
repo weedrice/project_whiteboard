@@ -18,53 +18,19 @@ const { t } = useI18n()
 <template>
   <template v-if="visible">
     <div
-      class="nv-post-board-actions hidden xl:flex"
+      class="nv-post-mobile-actions"
       role="navigation"
       :aria-label="t('board.postDetail.quickActions')"
     >
-      <button
-        type="button"
-        class="nv-post-board-action"
-        :aria-label="t('board.postDetail.comments')"
-        :title="t('board.postDetail.comments')"
-        @click="emit('comments')"
-      >
-        <MessageSquare class="h-4 w-4" />
-      </button>
-      <button
-        type="button"
-        class="nv-post-board-action"
-        :aria-label="t('board.postDetail.toList')"
-        :title="t('board.postDetail.toList')"
-        @click="emit('list')"
-      >
-        <List class="h-4 w-4" />
-      </button>
-      <button
-        type="button"
-        class="nv-post-board-action"
-        :aria-label="t('board.postDetail.scrollTop')"
-        :title="t('board.postDetail.scrollTop')"
-        @click="emit('top')"
-      >
-        <ArrowLeft class="h-4 w-4 rotate-90" />
-      </button>
-    </div>
-
-    <div
-      class="nv-post-mobile-actions xl:hidden"
-      role="navigation"
-      :aria-label="t('board.postDetail.quickActions')"
-    >
-      <button type="button" class="nv-post-mobile-action" @click="emit('comments')">
+      <button type="button" class="nv-post-mobile-action" :aria-label="t('board.postDetail.comments')" @click="emit('comments')">
         <MessageSquare class="h-4 w-4" />
         <span>{{ t('board.postDetail.comments') }}</span>
       </button>
-      <button type="button" class="nv-post-mobile-action" @click="emit('list')">
+      <button type="button" class="nv-post-mobile-action" :aria-label="t('board.postDetail.toList')" @click="emit('list')">
         <List class="h-4 w-4" />
         <span>{{ t('board.postDetail.toList') }}</span>
       </button>
-      <button type="button" class="nv-post-mobile-action" @click="emit('top')">
+      <button type="button" class="nv-post-mobile-action" :aria-label="t('board.postDetail.scrollTop')" @click="emit('top')">
         <ArrowLeft class="h-4 w-4 rotate-90" />
         <span>{{ t('board.postDetail.scrollTop') }}</span>
       </button>
@@ -73,38 +39,6 @@ const { t } = useI18n()
 </template>
 
 <style scoped>
-.nv-post-board-actions {
-  flex-direction: column;
-  gap: 0.75rem;
-  position: fixed;
-  right: clamp(0.5rem, calc((100vw - 1120px) / 2 - 4.5rem), 3.5rem);
-  top: 10rem;
-  z-index: 25;
-}
-
-.nv-post-board-action {
-  align-items: center;
-  background: var(--nv-surface);
-  border: 1px solid var(--nv-line);
-  border-radius: 1.1rem;
-  box-shadow: var(--nv-shadow-card);
-  color: var(--nv-ink-soft);
-  display: inline-flex;
-  gap: 0.55rem;
-  height: 2.9rem;
-  justify-content: center;
-  min-height: 3rem;
-  min-width: 0;
-  padding: 0;
-  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
-  width: 2.9rem;
-}
-
-.nv-post-board-action:hover {
-  background: var(--nv-surface-2);
-  color: var(--nv-ink);
-}
-
 .nv-post-mobile-actions {
   align-items: center;
   background: color-mix(in srgb, var(--nv-surface) 96%, transparent);

@@ -256,7 +256,7 @@ describe('PostDetail', () => {
     })
   })
 
-  it('renders the floating board actions and header URL chip', async () => {
+  it('renders only the bottom quick actions and header URL chip', async () => {
     Object.defineProperty(window, 'innerWidth', {
       configurable: true,
       value: 1440
@@ -282,20 +282,20 @@ describe('PostDetail', () => {
     await wrapper.vm.$nextTick()
 
     const urlChip = wrapper.find('.nv-post-url-chip')
-    const boardActions = wrapper.find('.nv-post-board-actions')
+    const quickActions = wrapper.find('.nv-post-mobile-actions')
 
     expect(urlChip.exists()).toBe(true)
-    expect(boardActions.exists()).toBe(true)
-    expect(boardActions.attributes('role')).toBe('navigation')
-    expect(boardActions.attributes('aria-label')).toBe('board.postDetail.quickActions')
+    expect(wrapper.find('.nv-post-board-actions').exists()).toBe(false)
+    expect(quickActions.attributes('role')).toBe('navigation')
+    expect(quickActions.attributes('aria-label')).toBe('board.postDetail.quickActions')
     expect(urlChip.text()).toContain('/board/free/post/15')
     await urlChip.trigger('click')
 
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('/board/free/post/15?page=2'))
     expect(wrapper.text()).not.toContain('board.postDetail.reactions')
-    expect(boardActions.find('[aria-label="board.postDetail.comments"]').exists()).toBe(true)
-    expect(boardActions.find('[aria-label="board.postDetail.toList"]').exists()).toBe(true)
-    expect(boardActions.find('[aria-label="board.postDetail.scrollTop"]').exists()).toBe(true)
+    expect(quickActions.text()).toContain('board.postDetail.comments')
+    expect(quickActions.text()).toContain('board.postDetail.toList')
+    expect(quickActions.text()).toContain('board.postDetail.scrollTop')
     expect(wrapper.findAll('.nv-post-action-btn-circle')).toHaveLength(3)
     expect(wrapper.find('.nv-post-action-btn-circle[aria-label="common.likes"]').exists()).toBe(true)
     expect(wrapper.find('.nv-post-action-btn-circle[aria-label="board.postDetail.bookmark"]').exists()).toBe(true)
