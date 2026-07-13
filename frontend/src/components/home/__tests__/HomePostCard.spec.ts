@@ -63,6 +63,7 @@ describe('HomePostCard', () => {
     const body = wrapper.get('.nv-home-card-body')
     const content = body.get('.nv-home-curation-body')
 
+    expect(wrapper.get('.nv-home-card').classes()).toContain('nv-elevated-surface')
     expect(content.classes()).toContain('nv-rich-content')
     expect(content.classes()).toContain('prose')
     expect(body.classes()).toContain('nv-home-card-body-featured-no-media')

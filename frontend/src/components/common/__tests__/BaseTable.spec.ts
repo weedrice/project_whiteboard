@@ -121,7 +121,7 @@ describe('BaseTable', () => {
             },
         })
 
-        expect(wrapper.find('.nv-base-table').exists()).toBe(true)
+        expect(wrapper.get('.nv-base-table').classes()).toContain('nv-elevated-surface')
         expect(wrapper.find('.nv-base-table-head').exists()).toBe(true)
         expect(wrapper.find('.nv-base-table-row').exists()).toBe(true)
         expect(wrapper.find('.nv-base-table-cell').exists()).toBe(true)

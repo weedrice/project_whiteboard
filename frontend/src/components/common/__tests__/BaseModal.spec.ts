@@ -133,6 +133,7 @@ describe('BaseModal', () => {
 
         expect(wrapper.find('.modal-content').exists()).toBe(true)
         expect(wrapper.get('.modal-header .nv-title').text()).toBe('Modal')
+        expect(wrapper.get('.modal-overlay').attributes('style')).toContain('z-index: var(--nv-z-overlay)')
     })
 
     it('labels the dialog without treating the entire body as its description', async () => {
