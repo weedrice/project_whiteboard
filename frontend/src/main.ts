@@ -17,7 +17,7 @@ import { useThemeStore } from '@/stores/theme'
 import { useToastStore } from '@/stores/toast'
 import { validateEnv } from '@/utils/env'
 import { installClientErrorReporting } from '@/utils/clientErrorReporter'
-import { registerPwaUpdatePrompt } from '@/pwa'
+import { registerPwaAutoUpdate } from '@/pwa'
 
 validateEnv()
 
@@ -59,7 +59,7 @@ installClientErrorReporting(app, {
 })
 
 app.mount('#app')
-registerPwaUpdatePrompt(pinia, i18n.global.t)
+registerPwaAutoUpdate(pinia, i18n.global.t)
 
 if (import.meta.env.PROD) {
     import('@/utils/performance').then(({ reportWebVitals, logMetric }) => {

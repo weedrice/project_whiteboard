@@ -9,7 +9,8 @@ export default defineConfig({
     resolve: {
         alias: {
             '@': fileURLToPath(new URL('./src', import.meta.url)),
-            'lowlight': fileURLToPath(new URL('./src/test/mocks/lowlight.ts', import.meta.url))
+            'lowlight': fileURLToPath(new URL('./src/test/mocks/lowlight.ts', import.meta.url)),
+            'virtual:pwa-register': fileURLToPath(new URL('./src/test/mocks/pwaRegister.ts', import.meta.url))
         },
     },
     define: {

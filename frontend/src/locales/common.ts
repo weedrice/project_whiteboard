@@ -110,6 +110,7 @@ export const common: CommonMessages = {
   },
   pwa: {
     updateReady: '새 버전이 준비되었습니다. 새로고침하면 적용됩니다.',
+    updateDeferred: '새 버전이 준비되었습니다. 작성 중인 내용을 안전하게 처리한 뒤 자동으로 적용합니다.',
     offlineReady: '오프라인에서도 열 수 있는 기본 화면이 준비되었습니다.',
   },
   title: '제목',
@@ -363,6 +364,7 @@ export const commonEn: CommonMessages = {
   },
   pwa: {
     updateReady: 'A new version is ready. Refresh to apply it.',
+    updateDeferred: 'A new version is ready and will be applied automatically after your current edits are safe.',
     offlineReady: 'Core pages are ready for offline use.',
   },
   paginationSummary: {

@@ -185,6 +185,7 @@ export interface CommonMessages {
   }
   pwa: {
     updateReady: string
+    updateDeferred: string
     offlineReady: string
   }
   title: string

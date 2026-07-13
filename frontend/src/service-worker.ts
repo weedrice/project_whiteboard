@@ -3,16 +3,22 @@
 import { clientsClaim } from 'workbox-core'
 import { NavigationRoute, registerRoute } from 'workbox-routing'
 import { NetworkOnly } from 'workbox-strategies'
-import { createHandlerBoundToURL, precacheAndRoute } from 'workbox-precaching'
+import { cleanupOutdatedCaches, createHandlerBoundToURL, precacheAndRoute } from 'workbox-precaching'
 
 declare const self: ServiceWorkerGlobalScope & {
   __WB_MANIFEST: Array<{ url: string, revision: string | null }>
 }
 
 clientsClaim()
-self.skipWaiting()
 
+cleanupOutdatedCaches()
 precacheAndRoute(self.__WB_MANIFEST)
+
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'SKIP_WAITING') {
+    void self.skipWaiting()
+  }
+})
 
 registerRoute(({ url }) => url.pathname.startsWith('/api/'), new NetworkOnly())
 registerRoute(({ url }) => url.pathname.startsWith('/oauth2/'), new NetworkOnly())

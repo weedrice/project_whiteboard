@@ -24,6 +24,7 @@ import { requiresSandboxedPostHtml } from '@/utils/postHtmlSandbox'
 import { usePostComposerState } from '@/features/board/posts/form/usePostComposerState'
 import type { PostSeries } from '@/types'
 import { useFieldValidation } from '@/composables/useFieldValidation'
+import { usePwaReloadBlocker } from '@/pwaReloadGuard'
 
 const props = defineProps<{
   mode: 'create' | 'edit'
@@ -258,6 +259,12 @@ const {
   t,
   addToast: toastStore.addToast,
 })
+
+usePwaReloadBlocker(computed(() => isDirty.value))
+usePwaReloadBlocker(
+  computed(() => isSubmitting.value || isSavingDraft.value),
+  { retainWhileBlockedOnDispose: true },
+)
 
 const { handleSubmit } = usePostComposerSubmit({
   mode: () => props.mode,

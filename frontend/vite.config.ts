@@ -32,6 +32,7 @@ export default defineConfig(({ mode }) => {
                 strategies: 'injectManifest',
                 srcDir: 'src',
                 filename: 'service-worker.ts',
+                // pwa.ts applies waiting updates automatically after active form guards clear.
                 registerType: 'prompt',
                 includeAssets: [
                     'favicon.ico',

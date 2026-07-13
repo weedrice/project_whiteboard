@@ -29,6 +29,7 @@ import {
 
 import logger from '@/utils/logger'
 import { getExposedVm } from '@/test/vue-test-helpers'
+import { whenPwaReloadSafe } from '@/pwaReloadGuard'
 
 type PostFormExposed = {
     hasUnsavedChanges: () => boolean
@@ -567,6 +568,22 @@ describe('PostForm', () => {
         const beforeUnloadEvent = new Event('beforeunload', { cancelable: true }) as BeforeUnloadEvent
         window.dispatchEvent(beforeUnloadEvent)
         expect(beforeUnloadEvent.defaultPrevented).toBe(true)
+    })
+
+    it('defers a PWA reload while the post form has unsaved changes', async () => {
+        const wrapper = mountPostForm('create')
+        const reload = vi.fn()
+
+        await nextTick()
+        await wrapper.get('#title').setValue('Unsaved post')
+        await nextTick()
+
+        expect(whenPwaReloadSafe(reload)).toBe(false)
+        expect(reload).not.toHaveBeenCalled()
+
+        unmountPostFormWrappers()
+
+        expect(reload).toHaveBeenCalledTimes(1)
     })
 
     it('shows spinner while loading', () => {
