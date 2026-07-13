@@ -13,8 +13,10 @@ import { formatInteger } from '@/utils/numberFormat'
 const props = withDefaults(defineProps<{
   post: FeedPost
   variant?: 'featured' | 'compact' | 'grid'
+  showMediaPreview?: boolean
 }>(), {
   variant: 'grid',
+  showMediaPreview: true,
 })
 
 const router = useRouter()
@@ -22,7 +24,7 @@ const { t } = useI18n()
 
 const isBlinded = computed(() => Boolean(props.post.isBlinded))
 const bodyHtml = computed(() => (isBlinded.value ? null : getFeedBodyHtml(props.post)))
-const mediaPreview = computed(() => (isBlinded.value
+const mediaPreview = computed(() => (!props.showMediaPreview || isBlinded.value
   ? { showFirstVideo: false, videoUrl: null, imageUrl: null }
   : getFeedMediaPreview(props.post)))
 const isVideoPreviewLoaded = ref(false)

@@ -15,7 +15,7 @@ const postIdRef = computed(() => props.postId)
 const { useRelatedPosts } = usePost()
 const { data: relatedPosts, isLoading, isError, refetch } = useRelatedPosts(postIdRef, {
   enabled: shouldLoad,
-  size: 5,
+  size: 3,
 })
 const feedPosts = computed(() => toFeedPosts(relatedPosts.value))
 
@@ -47,12 +47,13 @@ watch(() => props.postId, () => {
           {{ $t('board.postDetail.relatedTitle') }}
         </h2>
       </div>
-      <div class="grid gap-4 md:grid-cols-2">
+      <div class="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
         <HomePostCard
           v-for="post in feedPosts"
           :key="post.postId"
           :post="post"
           variant="compact"
+          :show-media-preview="false"
         />
       </div>
     </template>

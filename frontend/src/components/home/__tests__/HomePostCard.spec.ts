@@ -86,6 +86,23 @@ describe('HomePostCard', () => {
     expect(wrapper.get('.nv-home-card-body').classes()).toContain('nv-home-card-body-featured-with-media')
   })
 
+  it('omits media previews when they are disabled', () => {
+    const wrapper = mount(HomePostCard, {
+      props: {
+        post: makePost({
+          firstMediaType: 'image',
+          firstMediaUrl: '/api/v1/files/1',
+        }),
+        variant: 'compact',
+        showMediaPreview: false,
+      },
+    })
+
+    expect(wrapper.find('.nv-home-media').exists()).toBe(false)
+    expect(wrapper.find('img[src="/api/v1/files/1"]').exists()).toBe(false)
+    expect(wrapper.get('.nv-home-card-body').classes()).toContain('nv-home-card-body-no-media')
+  })
+
   it('keeps grid cards on the lightweight feed preview renderer', () => {
     const wrapper = mount(HomePostCard, {
       props: {
