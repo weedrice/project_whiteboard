@@ -187,6 +187,12 @@ export interface CommonMessages {
     updateReady: string
     updateDeferred: string
     offlineReady: string
+    pullToRefresh: {
+      pull: string
+      release: string
+      refreshing: string
+      complete: string
+    }
   }
   title: string
   content: string

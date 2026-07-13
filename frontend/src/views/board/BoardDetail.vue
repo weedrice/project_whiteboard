@@ -10,6 +10,7 @@ import BoardPostFilters from '@/components/board/BoardPostFilters.vue'
 import BoardPostSearch from '@/components/board/BoardPostSearch.vue'
 import PostList from '@/components/board/PostList.vue'
 import Pagination from '@/components/common/ui/Pagination.vue'
+import PullToRefresh from '@/components/common/ui/PullToRefresh.vue'
 import { useBoardDetailNavigation } from '@/composables/useBoardDetailNavigation'
 import { useBoardDetailResource } from '@/composables/useBoardDetailResource'
 import { useBoardListState } from '@/composables/useBoardListState'
@@ -67,7 +68,8 @@ const {
   totalPages,
   transientListError,
   visibleNotices,
-  notices
+  notices,
+  refresh,
 } = useBoardDetailResource({
   boardUrl,
   queryParams,
@@ -127,6 +129,7 @@ useHead({
 </script>
 
 <template>
+  <PullToRefresh :enabled="!currentPostId" :refresh="refresh">
   <div class="nv-board-shell">
     <BoardDetailLoadingState v-if="isInitialLoading" />
 
@@ -217,6 +220,7 @@ useHead({
       </section>
     </template>
   </div>
+  </PullToRefresh>
 </template>
 
 <style scoped>

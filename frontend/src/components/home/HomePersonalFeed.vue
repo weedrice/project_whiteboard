@@ -31,6 +31,8 @@ function loadMore() {
 const { targetRef } = useIntersectionObserver((isIntersecting) => {
   if (isIntersecting) loadMore()
 }, { rootMargin: '240px 0px' })
+
+defineExpose({ refresh: refetch })
 </script>
 
 <template>

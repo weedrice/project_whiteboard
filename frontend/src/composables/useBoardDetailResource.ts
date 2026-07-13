@@ -44,7 +44,8 @@ export function useBoardDetailResource({
   const {
     data: board,
     isLoading: isBoardLoading,
-    error: boardError
+    error: boardError,
+    refetch: refetchBoard,
   } = useBoardDetail(boardUrl, {
     meta: { errorMessage: false },
     requestConfig: { skipGlobalErrorHandler: true }
@@ -63,7 +64,8 @@ export function useBoardDetailResource({
     data: postsData,
     isLoading: isPostsLoading,
     isFetching: isPostsFetching,
-    error: postsError
+    error: postsError,
+    refetch: refetchPosts,
   } = useBoardPosts(boardUrl, queryParams, isSearching, pagedPostsEnabled, {
     meta: { errorMessage: false },
     requestConfig: { skipGlobalErrorHandler: true }
@@ -75,14 +77,16 @@ export function useBoardDetailResource({
     isFetchingNextPage: isFetchingNextPostPage,
     hasNextPage: hasMorePosts,
     fetchNextPage,
-    error: infinitePostsError
+    error: infinitePostsError,
+    refetch: refetchInfinitePosts,
   } = useInfiniteBoardPosts(boardUrl, queryParams, isSearching, infinitePostsEnabled, {
     meta: { errorMessage: false },
     requestConfig: { skipGlobalErrorHandler: true }
   })
 
   const {
-    data: noticesData
+    data: noticesData,
+    refetch: refetchNotices,
   } = useBoardNotices(boardUrl, boardContentEnabled, {
     meta: { errorMessage: false },
     requestConfig: { skipGlobalErrorHandler: true }
@@ -184,6 +188,14 @@ export function useBoardDetailResource({
     isNoticesExpanded.value = false
   }
 
+  async function refresh() {
+    await Promise.all([
+      refetchBoard(),
+      refetchNotices(),
+      isMobilePostList.value ? refetchInfinitePosts() : refetchPosts(),
+    ])
+  }
+
   return {
     board,
     boardTitle,
@@ -205,5 +217,6 @@ export function useBoardDetailResource({
     visibleNotices,
     notices,
     resetNoticeState,
+    refresh,
   }
 }

@@ -6,10 +6,12 @@ const mocks = vi.hoisted(() => ({
   board: { value: null as unknown },
   isBoardLoading: { value: false },
   boardError: { value: null as unknown },
+  refetchBoard: vi.fn(),
   postsData: { value: null as unknown },
   isPostsLoading: { value: false },
   isPostsFetching: { value: false },
   postsError: { value: null as unknown },
+  refetchPosts: vi.fn(),
   infinitePostsData: { value: null as unknown },
   isInfinitePostsLoading: { value: false },
   isInfinitePostsFetching: { value: false },
@@ -17,7 +19,9 @@ const mocks = vi.hoisted(() => ({
   hasMorePosts: { value: false },
   fetchNextPage: vi.fn(),
   infinitePostsError: { value: null as unknown },
+  refetchInfinitePosts: vi.fn(),
   noticesData: { value: [] as unknown[] },
+  refetchNotices: vi.fn(),
   subscribeMutate: vi.fn(),
   isSubscribePending: { value: false },
   isMobilePostList: { value: false },
@@ -29,12 +33,14 @@ vi.mock('@/composables/useBoard', () => ({
       data: mocks.board,
       isLoading: mocks.isBoardLoading,
       error: mocks.boardError,
+      refetch: mocks.refetchBoard,
     }),
     useBoardPosts: () => ({
       data: mocks.postsData,
       isLoading: mocks.isPostsLoading,
       isFetching: mocks.isPostsFetching,
       error: mocks.postsError,
+      refetch: mocks.refetchPosts,
     }),
     useInfiniteBoardPosts: () => ({
       data: mocks.infinitePostsData,
@@ -44,9 +50,11 @@ vi.mock('@/composables/useBoard', () => ({
       hasNextPage: mocks.hasMorePosts,
       fetchNextPage: mocks.fetchNextPage,
       error: mocks.infinitePostsError,
+      refetch: mocks.refetchInfinitePosts,
     }),
     useBoardNotices: () => ({
       data: mocks.noticesData,
+      refetch: mocks.refetchNotices,
     }),
     useSubscribeBoard: () => ({
       mutate: mocks.subscribeMutate,
@@ -64,10 +72,12 @@ describe('useBoardDetailResource', () => {
     mocks.board = ref(null)
     mocks.isBoardLoading = ref(false)
     mocks.boardError = ref(null)
+    mocks.refetchBoard.mockReset()
     mocks.postsData = ref(null)
     mocks.isPostsLoading = ref(false)
     mocks.isPostsFetching = ref(false)
     mocks.postsError = ref(null)
+    mocks.refetchPosts.mockReset()
     mocks.infinitePostsData = ref(null)
     mocks.isInfinitePostsLoading = ref(false)
     mocks.isInfinitePostsFetching = ref(false)
@@ -75,7 +85,9 @@ describe('useBoardDetailResource', () => {
     mocks.hasMorePosts = ref(false)
     mocks.fetchNextPage.mockClear()
     mocks.infinitePostsError = ref(null)
+    mocks.refetchInfinitePosts.mockReset()
     mocks.noticesData = ref([])
+    mocks.refetchNotices.mockReset()
     mocks.isSubscribePending = ref(false)
     mocks.subscribeMutate.mockClear()
     mocks.isMobilePostList = ref(false)
@@ -204,5 +216,26 @@ describe('useBoardDetailResource', () => {
     await nextTick()
 
     expect(resource.showPostListLoading.value).toBe(false)
+  })
+
+  it('refreshes board, notices, and only the active desktop list query', async () => {
+    const resource = createResource()
+
+    await resource.refresh()
+
+    expect(mocks.refetchBoard).toHaveBeenCalledOnce()
+    expect(mocks.refetchNotices).toHaveBeenCalledOnce()
+    expect(mocks.refetchPosts).toHaveBeenCalledOnce()
+    expect(mocks.refetchInfinitePosts).not.toHaveBeenCalled()
+  })
+
+  it('refreshes the infinite list query on mobile', async () => {
+    mocks.isMobilePostList.value = true
+    const resource = createResource()
+
+    await resource.refresh()
+
+    expect(mocks.refetchInfinitePosts).toHaveBeenCalledOnce()
+    expect(mocks.refetchPosts).not.toHaveBeenCalled()
   })
 })

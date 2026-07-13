@@ -2,3 +2,7 @@
 @plugin "@tailwindcss/typography";
 @variant dark (&:where(.dark, .dark *));
 
+html.nv-standalone {
+  overscroll-behavior-y: none;
+}
+

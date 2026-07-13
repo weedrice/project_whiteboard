@@ -18,8 +18,10 @@ import { useToastStore } from '@/stores/toast'
 import { validateEnv } from '@/utils/env'
 import { installClientErrorReporting } from '@/utils/clientErrorReporter'
 import { registerPwaAutoUpdate } from '@/pwa'
+import { applyStandaloneDisplayModeClass } from '@/pwaDisplayMode'
 
 validateEnv()
+applyStandaloneDisplayModeClass()
 
 const app = createApp(App)
 const head = createHead()

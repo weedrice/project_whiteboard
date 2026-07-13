@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { CircleDot, FileText, TrendingUp as TrendingUpIcon } from 'lucide-vue-next'
 import { useHead } from '@unhead/vue'
 import { useI18n } from 'vue-i18n'
@@ -13,6 +13,7 @@ import HomeLandingSkeleton from '@/components/home/HomeLandingSkeleton.vue'
 import HomePostCard from '@/components/home/HomePostCard.vue'
 import HomeActivityList from '@/components/home/HomeActivityList.vue'
 import HomePersonalFeed from '@/components/home/HomePersonalFeed.vue'
+import PullToRefresh from '@/components/common/ui/PullToRefresh.vue'
 import { useHomeLanding } from '@/composables/useHomeLanding'
 import { useAuthStore } from '@/stores/auth'
 import type { HomeLandingPeriod } from '@/types'
@@ -29,6 +30,7 @@ const { t, locale } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const personalFeedRef = ref<InstanceType<typeof HomePersonalFeed> | null>(null)
 const homeTitle = computed(() => t('common.appName'))
 
 type HomeView = 'recommended' | 'feed'
@@ -82,6 +84,14 @@ const {
   refetch,
 } = useHomeLanding()
 
+async function refreshActiveHomeView() {
+  if (activeHomeView.value === 'feed') {
+    await personalFeedRef.value?.refresh()
+    return
+  }
+  await refetch()
+}
+
 const heroPost = computed(() => selectHomeHeroPost(featured.value, editorPicks.value, trending.value))
 const heroPostId = computed(() => heroPost.value?.postId ?? null)
 const visibleTrending = computed(() => filterHomePostsExcludingHero(trending.value, heroPostId.value))
@@ -131,6 +141,7 @@ useHead({
 </script>
 
 <template>
+  <PullToRefresh :refresh="refreshActiveHomeView">
   <div class="space-y-8 pb-8">
     <h1 class="sr-only">{{ $t('home.landing.curatedToday') }}</h1>
 
@@ -291,7 +302,8 @@ useHead({
       </div>
     </template>
 
-    <HomePersonalFeed v-else />
+    <HomePersonalFeed v-else ref="personalFeedRef" />
   </div>
+  </PullToRefresh>
 </template>
 
