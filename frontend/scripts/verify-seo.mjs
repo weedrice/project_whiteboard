@@ -25,6 +25,19 @@ async function fetchText(url, userAgent) {
     return { ok: response.ok, status: response.status, text: await response.text() }
 }
 
+async function fetchImageMetadata(url, userAgent) {
+    const response = await fetch(url, {
+        headers: userAgent ? { 'User-Agent': userAgent } : undefined,
+        signal: AbortSignal.timeout(requestTimeoutMs)
+    })
+    await response.body?.cancel()
+    return {
+        ok: response.ok,
+        status: response.status,
+        contentType: response.headers.get('content-type') ?? ''
+    }
+}
+
 function parseSitemapUrls(xmlText) {
     return [...xmlText.matchAll(/<loc>(.*?)<\/loc>/g)]
         .map((match) => match[1].trim())
@@ -46,6 +59,22 @@ function assertContains(text, pattern, message, failures) {
     if (!pattern.test(text)) {
         failures.push(message)
     }
+}
+
+function escapeRegExp(value) {
+    return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function extractMetaContent(html, key) {
+    const escapedKey = escapeRegExp(key)
+    const forward = new RegExp(`<meta[^>]+(?:property|name)=["']${escapedKey}["'][^>]+content=["']([^"']+)["'][^>]*>`, 'i')
+    const reverse = new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']${escapedKey}["'][^>]*>`, 'i')
+    return (html.match(forward)?.[1] ?? html.match(reverse)?.[1] ?? '')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
 }
 
 async function main() {
@@ -83,6 +112,27 @@ async function main() {
             if (shouldCheckArticleSignals) {
                 assertContains(res.text, /rel=["']canonical["']/i, `[${ua.name}] ${url} missing canonical`, failures)
                 assertContains(res.text, /application\/ld\+json/i, `[${ua.name}] ${url} missing JSON-LD`, failures)
+                assertContains(res.text, /(?:property|name)=["']og:image["']/i, `[${ua.name}] ${url} missing og:image`, failures)
+                assertContains(res.text, /(?:property|name)=["']og:image:alt["']/i, `[${ua.name}] ${url} missing og:image:alt`, failures)
+                assertContains(res.text, /name=["']twitter:card["'][^>]+content=["']summary_large_image["']/i,
+                    `[${ua.name}] ${url} missing twitter:card`, failures)
+                assertContains(res.text, /name=["']twitter:image["']/i, `[${ua.name}] ${url} missing twitter:image`, failures)
+
+                const imageUrl = extractMetaContent(res.text, 'og:image')
+                let parsedImageUrl
+                try {
+                    parsedImageUrl = new URL(imageUrl)
+                } catch {
+                    failures.push(`[${ua.name}] ${url} has a non-absolute og:image URL`)
+                }
+                if (parsedImageUrl) {
+                    const image = await fetchImageMetadata(parsedImageUrl.toString(), ua.value)
+                    if (!image.ok) {
+                        failures.push(`[${ua.name}] ${url} og:image returned HTTP ${image.status}`)
+                    } else if (!image.contentType.toLowerCase().startsWith('image/')) {
+                        failures.push(`[${ua.name}] ${url} og:image returned non-image MIME ${image.contentType || '(missing)'}`)
+                    }
+                }
             }
         }
     }
