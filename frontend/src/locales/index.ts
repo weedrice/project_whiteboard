@@ -14,6 +14,7 @@ import { emoticon, emoticonEn } from './emoticon'
 import { admin, adminEn } from './admin'
 import { onboarding, onboardingEn } from './onboarding'
 import { privacyPolicy, privacyPolicyEn } from './privacy'
+import { shop, shopEn } from './shop'
 
 export const messages = {
   ko: {
@@ -31,6 +32,7 @@ export const messages = {
     admin,
     onboarding,
     privacy: privacyPolicy,
+    shop,
   },
   en: {
     common: commonEn,
@@ -47,6 +49,7 @@ export const messages = {
     admin: adminEn,
     onboarding: onboardingEn,
     privacy: privacyPolicyEn,
+    shop: shopEn,
   },
 } satisfies LocaleMessages
 

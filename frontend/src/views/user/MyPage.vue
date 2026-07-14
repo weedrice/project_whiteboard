@@ -20,6 +20,7 @@ const myPageGroups: UserNavigationGroup[] = [
     nameKey: 'user.navigation.activity',
     items: [
       { nameKey: 'common.points', href: '/mypage/points' },
+      { nameKey: 'shop.purchases.title', href: '/mypage/purchases' },
       { nameKey: 'user.navigation.attendance', href: '/mypage/attendance' },
       { nameKey: 'user.tabs.subscriptions', href: '/mypage/subscriptions' },
     ],

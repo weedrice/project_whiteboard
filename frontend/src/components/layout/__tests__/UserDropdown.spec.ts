@@ -49,6 +49,7 @@ vi.mock('lucide-vue-next', () => {
     Star: Icon,
     Slash: Icon,
     Smile: Icon,
+    ShoppingBag: Icon,
   }
 })
 
@@ -132,6 +133,8 @@ describe('UserDropdown', () => {
     expect(keyboardStore.setOpenDropdown.mock.calls[0][1]).toHaveLength(9)
     expect(wrapper.text()).toContain('layout.menu.createBoard')
     expect(wrapper.text()).toContain('emoticon.title')
+    expect(wrapper.text()).toContain('shop.title')
+    expect(wrapper.text()).toContain('shop.purchases.title')
   })
 
   it('keeps point query disabled while closed', () => {
