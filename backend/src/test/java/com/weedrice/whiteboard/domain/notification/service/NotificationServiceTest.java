@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.notification.service;
 import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
 import com.weedrice.whiteboard.domain.notification.constant.NotificationSourceType;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
+import com.weedrice.whiteboard.domain.notification.dto.NotificationMessageParamsCodec;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationResponse;
 import com.weedrice.whiteboard.domain.notification.entity.Notification;
 import com.weedrice.whiteboard.domain.notification.repository.NotificationRepository;
@@ -10,6 +11,7 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.entity.UserNotificationSettings;
 import com.weedrice.whiteboard.domain.user.repository.UserNotificationSettingsRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,11 +28,13 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.context.MessageSource;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.Collections;
 import java.util.Optional;
+import java.util.Locale;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
@@ -39,6 +43,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -56,6 +61,10 @@ class NotificationServiceTest {
     private UserNotificationSettingsRepository userNotificationSettingsRepository;
     @Mock
     private PushNotificationDispatcher pushNotificationDispatcher;
+    @Mock
+    private UserSettingsRepository userSettingsRepository;
+    @Mock
+    private MessageSource messageSource;
 
     private NotificationService notificationService;
 
@@ -128,6 +137,49 @@ class NotificationServiceTest {
         ArgumentCaptor<Notification> notificationCaptor = ArgumentCaptor.forClass(Notification.class);
         verify(notificationRepository).save(notificationCaptor.capture());
         assertThat(notificationCaptor.getValue().getSourceType()).isEqualTo("POST");
+    }
+
+    @Test
+    @DisplayName("Localized notification stores rendered legacy content and structured message metadata")
+    void handleNotificationEvent_localizesAndDualWritesMessage() {
+        UserSettingsRepository.SettingsReadProjection settings =
+                mock(UserSettingsRepository.SettingsReadProjection.class);
+        when(settings.getLanguage()).thenReturn("en");
+        when(userSettingsRepository.findSettingsReadByUserId(1L)).thenReturn(Optional.of(settings));
+        when(messageSource.getMessage(eq("notification.comment.created"), any(),
+                eq("notification.comment.created"), eq(Locale.ENGLISH)))
+                .thenReturn("Alice commented on your post.");
+        when(notificationRepository.save(any(Notification.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        NotificationPreferenceService preferenceService =
+                new NotificationPreferenceService(userNotificationSettingsRepository);
+        NotificationCommandService commandService = new NotificationCommandService(
+                notificationRepository,
+                preferenceService,
+                userRepository,
+                pushNotificationDispatcher,
+                userSettingsRepository,
+                messageSource);
+        NotificationEvent event = NotificationEvent.localized(user, actor, NotificationType.COMMENT,
+                NotificationSourceType.POST, 1L, "notification.comment.created", "Alice");
+
+        Notification saved = commandService.handleNotificationEvent(event);
+
+        assertThat(saved.getContent()).isEqualTo("Alice commented on your post.");
+        assertThat(saved.getMessageKey()).isEqualTo("notification.comment.created");
+        assertThat(saved.getMessageParams()).isEqualTo("[\"Alice\"]");
+        NotificationResponse.NotificationSummary response = NotificationResponse.NotificationSummary.from(saved);
+        assertThat(response.getMessage()).isEqualTo("Alice commented on your post.");
+        assertThat(response.getMessageKey()).isEqualTo("notification.comment.created");
+        assertThat(response.getMessageParams()).containsExactly("Alice");
+    }
+
+    @Test
+    @DisplayName("Notification message parameter decoding ignores null entries and malformed JSON")
+    void decodeNotificationMessageParams_isDefensive() {
+        assertThat(NotificationMessageParamsCodec.decode("[\"Alice\",null,\"Post\"]"))
+                .containsExactly("Alice", "Post");
+        assertThat(NotificationMessageParamsCodec.decode("not-json")).isEmpty();
     }
 
     @Test

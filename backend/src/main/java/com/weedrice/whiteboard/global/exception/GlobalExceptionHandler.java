@@ -121,7 +121,12 @@ public class GlobalExceptionHandler {
     }
 
     private String resolveBusinessExceptionMessage(BusinessException e) {
-        // Custom message (2-arg constructor) takes precedence over message key
+        if (e.getMessageKey() != null) {
+            return messageSource.getMessage(e.getMessageKey(), e.getMessageArguments(),
+                    LocaleContextHolder.getLocale());
+        }
+
+        // Legacy custom messages remain supported while callers migrate to message keys.
         return (e.getMessage() != null && !e.getMessage().equals(e.getErrorCode().getMessage()))
                 ? e.getMessage()
                 : messageSource.getMessage(e.getErrorCode().getMessage(), null, LocaleContextHolder.getLocale());

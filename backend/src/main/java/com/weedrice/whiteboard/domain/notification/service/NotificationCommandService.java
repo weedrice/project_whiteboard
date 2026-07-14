@@ -1,18 +1,23 @@
 package com.weedrice.whiteboard.domain.notification.service;
 
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
+import com.weedrice.whiteboard.domain.notification.dto.NotificationMessageParamsCodec;
 import com.weedrice.whiteboard.domain.notification.entity.Notification;
 import com.weedrice.whiteboard.domain.notification.repository.NotificationRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.MessageSource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 @Service
@@ -24,30 +29,39 @@ class NotificationCommandService {
     private final NotificationPreferenceService preferenceService;
     private final UserRepository userRepository;
     private final PushNotificationDispatcher pushNotificationDispatcher;
+    private final UserSettingsRepository userSettingsRepository;
+    private final MessageSource messageSource;
 
     NotificationCommandService(NotificationRepository notificationRepository,
                                NotificationPreferenceService preferenceService,
                                UserRepository userRepository) {
-        this(notificationRepository, preferenceService, userRepository, null);
+        this(notificationRepository, preferenceService, userRepository, null, null, null);
+    }
+
+    NotificationCommandService(NotificationRepository notificationRepository,
+                               NotificationPreferenceService preferenceService,
+                               UserRepository userRepository,
+                               PushNotificationDispatcher pushNotificationDispatcher) {
+        this(notificationRepository, preferenceService, userRepository, pushNotificationDispatcher, null, null);
     }
 
     @Autowired
     NotificationCommandService(NotificationRepository notificationRepository,
                                NotificationPreferenceService preferenceService,
                                UserRepository userRepository,
-                               PushNotificationDispatcher pushNotificationDispatcher) {
+                               PushNotificationDispatcher pushNotificationDispatcher,
+                               UserSettingsRepository userSettingsRepository,
+                               MessageSource messageSource) {
         this.notificationRepository = notificationRepository;
         this.preferenceService = preferenceService;
         this.userRepository = userRepository;
         this.pushNotificationDispatcher = pushNotificationDispatcher;
+        this.userSettingsRepository = userSettingsRepository;
+        this.messageSource = messageSource;
     }
 
     Notification handleNotificationEvent(NotificationEvent event) {
         if (!hasRequiredPayload(event)) {
-            return null;
-        }
-        String content = normalizeContent(event.getContent());
-        if (content == null) {
             return null;
         }
         User receiver = resolveActiveReceiver(event);
@@ -57,6 +71,11 @@ class NotificationCommandService {
         if (preferenceService.isSelfNotification(event) || !preferenceService.isNotificationEnabled(event)) {
             return null;
         }
+        String content = normalizeContent(resolveContent(event, receiver.getUserId()));
+        if (content == null) {
+            return null;
+        }
+        String messageParams = NotificationMessageParamsCodec.encode(event.getMessageParams());
 
         LocalDateTime eventAt = LocalDateTime.now();
         String groupKey = createGroupKey(receiver.getUserId(), event);
@@ -68,7 +87,8 @@ class NotificationCommandService {
                             false)
                     .orElse(null);
             if (existing != null) {
-                existing.merge(event.getActor(), event.getActorAgent(), content, eventAt);
+                existing.merge(event.getActor(), event.getActorAgent(), content, event.getMessageKey(), messageParams,
+                        eventAt);
                 dispatchPushAfterCommit(existing);
                 return existing;
             }
@@ -82,6 +102,8 @@ class NotificationCommandService {
                 .sourceType(event.getSourceType().getValue())
                 .sourceId(event.getSourceId())
                 .content(content)
+                .messageKey(event.getMessageKey())
+                .messageParams(messageParams)
                 .groupKey(groupKey)
                 .lastEventAt(eventAt)
                 .build());
@@ -127,7 +149,34 @@ class NotificationCommandService {
                 && event.getUserToNotify().getUserId() != null
                 && event.getNotificationType() != null
                 && event.getSourceType() != null
-                && event.getSourceId() != null;
+                && event.getSourceId() != null
+                && (hasText(event.getContent()) || hasText(event.getMessageKey()));
+    }
+
+    private String resolveContent(NotificationEvent event, Long receiverUserId) {
+        if (!hasText(event.getMessageKey()) || messageSource == null) {
+            return event.getContent();
+        }
+        List<String> params = event.getMessageParams() == null ? List.of() : event.getMessageParams();
+        return messageSource.getMessage(
+                event.getMessageKey(),
+                params.toArray(),
+                hasText(event.getContent()) ? event.getContent() : event.getMessageKey(),
+                resolveLocale(receiverUserId));
+    }
+
+    private Locale resolveLocale(Long userId) {
+        if (userSettingsRepository == null || userId == null) {
+            return Locale.KOREAN;
+        }
+        String language = userSettingsRepository.findSettingsReadByUserId(userId)
+                .map(UserSettingsRepository.SettingsReadProjection::getLanguage)
+                .orElse("ko");
+        return "en".equalsIgnoreCase(language) ? Locale.ENGLISH : Locale.KOREAN;
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
     }
 
     private User resolveActiveReceiver(NotificationEvent event) {

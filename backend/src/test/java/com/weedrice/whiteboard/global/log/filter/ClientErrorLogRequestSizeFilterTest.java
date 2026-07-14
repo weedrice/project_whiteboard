@@ -9,8 +9,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.context.support.StaticMessageSource;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -29,7 +31,11 @@ class ClientErrorLogRequestSizeFilterTest {
     @BeforeEach
     void setUp() {
         objectMapper = new ObjectMapper();
-        filter = new ClientErrorLogRequestSizeFilter(objectMapper);
+        StaticMessageSource messageSource = new StaticMessageSource();
+        messageSource.addMessage(
+                "validation.clientErrorLog.body.max", Locale.ENGLISH,
+                "Client error log request body must not exceed 32 KiB.");
+        filter = new ClientErrorLogRequestSizeFilter(objectMapper, messageSource);
     }
 
     @Test

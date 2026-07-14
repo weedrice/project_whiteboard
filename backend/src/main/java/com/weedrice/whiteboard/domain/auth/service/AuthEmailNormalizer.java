@@ -14,11 +14,11 @@ public final class AuthEmailNormalizer {
 
     public static String normalize(String email) {
         if (email == null || email.isBlank()) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "email is required");
+            throw BusinessException.withMessageKey(ErrorCode.VALIDATION_ERROR, "validation.email.required");
         }
         String normalizedEmail = email.trim().toLowerCase(Locale.ROOT);
         if (normalizedEmail.length() > MAX_EMAIL_LENGTH) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "email must be 100 characters or less");
+            throw BusinessException.withMessageKey(ErrorCode.VALIDATION_ERROR, "validation.email.max");
         }
         return normalizedEmail;
     }

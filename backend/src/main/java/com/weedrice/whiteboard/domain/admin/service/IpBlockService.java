@@ -49,10 +49,10 @@ public class IpBlockService {
         String normalizedIpAddress = normalizeIpAddress(ipAddress);
 
         if (endDate != null && !endDate.isAfter(now)) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "endDate must be in the future");
+            throw BusinessException.withMessageKey(ErrorCode.VALIDATION_ERROR, "validation.ipBlock.endDate.future");
         }
         if (reason != null && reason.length() > MAX_REASON_LENGTH) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "reason must be 255 characters or less");
+            throw BusinessException.withMessageKey(ErrorCode.VALIDATION_ERROR, "validation.ipBlock.reason.size");
         }
 
         IpBlock ipBlock = ipBlockRepository.findByIdForUpdate(normalizedIpAddress)
@@ -111,9 +111,9 @@ public class IpBlockService {
 
     private String normalizeIpAddress(String ipAddress) {
         if (ipAddress == null || ipAddress.isBlank()) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "ipAddress is required");
+            throw BusinessException.withMessageKey(ErrorCode.VALIDATION_ERROR, "validation.ipBlock.ipAddress.required");
         }
         return IpAddressCanonicalizer.canonicalize(ipAddress)
-                .orElseThrow(() -> new BusinessException(ErrorCode.VALIDATION_ERROR, "ipAddress is invalid"));
+                .orElseThrow(() -> BusinessException.withMessageKey(ErrorCode.VALIDATION_ERROR, "validation.ipBlock.ipAddress.invalid"));
     }
 }

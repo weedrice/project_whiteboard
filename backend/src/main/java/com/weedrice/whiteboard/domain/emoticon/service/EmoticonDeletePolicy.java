@@ -6,7 +6,7 @@ import com.weedrice.whiteboard.global.exception.ErrorCode;
 
 class EmoticonDeletePolicy {
 
-    private static final String PURCHASE_HISTORY_DELETE_BLOCKED_MESSAGE = "구매 이력이 있는 이모티콘은 삭제할 수 없습니다.";
+    private static final String PURCHASE_HISTORY_DELETE_BLOCKED_MESSAGE_KEY = "validation.emoticon.delete.purchaseHistory";
 
     private final EmoticonPurchaseRepository emoticonPurchaseRepository;
 
@@ -21,6 +21,6 @@ class EmoticonDeletePolicy {
     }
 
     BusinessException purchaseHistoryDeleteBlocked() {
-        return new BusinessException(ErrorCode.VALIDATION_ERROR, PURCHASE_HISTORY_DELETE_BLOCKED_MESSAGE);
+        return BusinessException.withMessageKey(ErrorCode.VALIDATION_ERROR, PURCHASE_HISTORY_DELETE_BLOCKED_MESSAGE_KEY);
     }
 }

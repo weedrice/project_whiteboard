@@ -6,6 +6,9 @@ import com.weedrice.whiteboard.domain.auth.repository.VerificationCodeRepository
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,8 +26,8 @@ import java.util.concurrent.locks.ReentrantLock;
 public class VerificationCodeDeliveryService {
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
     private static final String VERIFICATION_EMAIL_SUBJECT = "[NoviIs] 이메일 인증 코드";
-    private static final String VERIFICATION_EMAIL_BODY_TEMPLATE =
-            "<h1>이메일 인증 코드</h1><p>아래 인증 코드를 입력하여 이메일 인증을 완료해 주세요.</p><h3>%s</h3>";
+    private static final String VERIFICATION_EMAIL_BODY =
+            "<h1>이메일 인증 코드</h1><p>아래 인증 코드를 입력하여 이메일 인증을 완료해 주세요.</p><h3>{0}</h3>";
     private static final int RESEND_COOLDOWN_SECONDS = 60;
     private static final int SEND_ATTEMPT_WINDOW_HOURS = 1;
     private static final int MAX_SEND_ATTEMPTS_PER_WINDOW = 5;
@@ -36,16 +39,29 @@ public class VerificationCodeDeliveryService {
     private final TransactionTemplate transactionTemplate;
     private final Clock clock;
     private final ReentrantLock[] verificationSendLocks = createVerificationSendLocks();
+    private MessageSource messageSource;
+
+    @Autowired
+    void setMessageSource(MessageSource messageSource) {
+        this.messageSource = messageSource;
+    }
 
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void sendVerificationCode(String email, VerificationPurpose purpose) {
         String code = generateRandomCode();
         LocalDateTime expiryDate = now().plusMinutes(5);
-        String body = VERIFICATION_EMAIL_BODY_TEMPLATE.formatted(code);
+        var locale = LocaleContextHolder.getLocale();
+        String subject = messageSource == null
+                ? VERIFICATION_EMAIL_SUBJECT
+                : messageSource.getMessage("mail.verification.subject", null, VERIFICATION_EMAIL_SUBJECT, locale);
+        String body = messageSource == null
+                ? VERIFICATION_EMAIL_BODY.replace("{0}", code)
+                : messageSource.getMessage("mail.verification.body", new Object[]{code}, VERIFICATION_EMAIL_BODY,
+                        locale);
 
         mailDeliveryOrchestrationService.send(new AuthMailDeliveryOrchestrationService.MailDeliveryCommand(
                 email,
-                VERIFICATION_EMAIL_SUBJECT,
+                subject,
                 body,
                 () -> createPendingVerificationCode(email, purpose, code, expiryDate),
                 this::markDeliveryFailed,

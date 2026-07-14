@@ -1254,7 +1254,7 @@ class BoardServiceTest {
                 () -> boardService.createCategory("test-board", request, 1L));
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.DUPLICATE_RESOURCE);
-        assertThat(exception.getMessage()).isEqualTo("Duplicate active board category");
+        assertThat(exception.getMessageKey()).isEqualTo("error.board.category.duplicateActive");
     }
 
     @Test
@@ -1311,7 +1311,7 @@ class BoardServiceTest {
                 () -> boardService.updateCategory(10L, request, 1L));
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.DUPLICATE_RESOURCE);
-        assertThat(exception.getMessage()).isEqualTo("Duplicate active board category");
+        assertThat(exception.getMessageKey()).isEqualTo("error.board.category.duplicateActive");
     }
 
     @Test

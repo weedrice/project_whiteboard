@@ -750,7 +750,8 @@ class CommentServiceTest {
         verify(eventPublisher).publishEvent(eventCaptor.capture());
         NotificationEvent notificationEvent = (NotificationEvent) eventCaptor.getValue();
         assertThat(notificationEvent.getActorAgent()).isNotNull();
-        assertThat(notificationEvent.getContent()).isEqualTo("agent-writer님이 회원님의 댓글에 답글을 남겼습니다.");
+        assertThat(notificationEvent.getMessageKey()).isEqualTo("notification.reply.created");
+        assertThat(notificationEvent.getMessageParams()).containsExactly("agent-writer");
     }
 
     @Test

@@ -115,6 +115,8 @@ class MessageServiceTest {
         assertThat(event.getNotificationType()).isEqualTo(NotificationType.MESSAGE);
         assertThat(event.getSourceType()).isEqualTo(NotificationSourceType.MESSAGE);
         assertThat(event.getSourceId()).isEqualTo(1L);
+        assertThat(event.getMessageKey()).isEqualTo("notification.message.received");
+        assertThat(event.getMessageParams()).containsExactly("");
     }
 
     @Test

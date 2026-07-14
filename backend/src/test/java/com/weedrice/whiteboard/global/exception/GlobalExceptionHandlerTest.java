@@ -343,6 +343,26 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    @DisplayName("메시지 키와 인자를 현재 locale로 해석")
+    void handleBusinessException_resolvesExplicitMessageKeyAndArguments() {
+        BusinessException ex = BusinessException.withMessageKey(
+                ErrorCode.INVALID_TARGET, "validation.report.targetType.invalid", "UNKNOWN");
+        when(messageSource.getMessage(
+                eq("validation.report.targetType.invalid"),
+                any(Object[].class),
+                any(Locale.class)))
+                .thenReturn("유효하지 않은 신고 대상 유형입니다: UNKNOWN.");
+
+        ResponseEntity<ApiResponse<Void>> response = globalExceptionHandler.handleBusinessException(ex, request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getError().getCode()).isEqualTo(ErrorCode.INVALID_TARGET.getCode());
+        assertThat(response.getBody().getError().getMessage())
+                .isEqualTo("유효하지 않은 신고 대상 유형입니다: UNKNOWN.");
+    }
+
+    @Test
     @DisplayName("쿼리 파라미터 타입 변환 예외는 400으로 처리")
     void handleMethodArgumentTypeMismatchException() {
         MethodArgumentTypeMismatchException ex = new MethodArgumentTypeMismatchException(

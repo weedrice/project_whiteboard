@@ -20,9 +20,9 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class VerificationTicketService {
-    private static final String EXPIRED_CODE_MESSAGE = "만료된 인증 코드입니다.";
-    private static final String INVALID_CODE_MESSAGE = "잘못된 인증 코드입니다.";
-    private static final String USED_CODE_MESSAGE = "이미 사용된 인증 코드입니다.";
+    private static final String EXPIRED_CODE_MESSAGE_KEY = "validation.verification.code.expired";
+    private static final String INVALID_CODE_MESSAGE_KEY = "validation.verification.code.invalid";
+    private static final String USED_CODE_MESSAGE_KEY = "validation.verification.code.used";
     private static final String VERIFICATION_CODE_NOT_FOUND_MESSAGE =
             "인증 코드를 찾을 수 없습니다. 이메일을 변경했다면 다시 인증 코드를 발송해 주세요.";
 
@@ -40,24 +40,24 @@ public class VerificationTicketService {
         LocalDateTime now = now();
 
         if (verificationCode.isExpiredAt(now)) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, EXPIRED_CODE_MESSAGE);
+            throw BusinessException.withMessageKey(ErrorCode.VALIDATION_ERROR, EXPIRED_CODE_MESSAGE_KEY);
         }
 
         if (Boolean.TRUE.equals(verificationCode.getIsVerified())) {
             if (verificationCode.hasActiveVerificationTicketAt(now)) {
                 if (!codeMatches) {
-                    throw new BusinessException(ErrorCode.VALIDATION_ERROR, INVALID_CODE_MESSAGE);
+                    throw BusinessException.withMessageKey(ErrorCode.VALIDATION_ERROR, INVALID_CODE_MESSAGE_KEY);
                 }
                 return verifyCodeResponseAssembler.assemble(email, purpose, verificationCode.getVerificationTicket());
             }
             if (!codeMatches) {
-                throw new BusinessException(ErrorCode.VALIDATION_ERROR, INVALID_CODE_MESSAGE);
+                throw BusinessException.withMessageKey(ErrorCode.VALIDATION_ERROR, INVALID_CODE_MESSAGE_KEY);
             }
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, USED_CODE_MESSAGE);
+            throw BusinessException.withMessageKey(ErrorCode.VALIDATION_ERROR, USED_CODE_MESSAGE_KEY);
         }
 
         if (!codeMatches) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, INVALID_CODE_MESSAGE);
+            throw BusinessException.withMessageKey(ErrorCode.VALIDATION_ERROR, INVALID_CODE_MESSAGE_KEY);
         }
 
         String verificationTicket = UUID.randomUUID().toString();

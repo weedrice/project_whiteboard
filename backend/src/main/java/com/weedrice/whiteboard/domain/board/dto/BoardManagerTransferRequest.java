@@ -11,6 +11,6 @@ import lombok.NoArgsConstructor;
 public class BoardManagerTransferRequest {
     @NotBlank
     @Size(min = 4, max = 30)
-    @Pattern(regexp = "^[a-zA-Z0-9_]+$", message = "아이디는 영문, 숫자, 언더스코어만 사용 가능합니다")
+    @Pattern(regexp = "^[a-zA-Z0-9_]+$", message = "{validation.loginId.pattern}")
     private String loginId;
 }

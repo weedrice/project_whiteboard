@@ -67,13 +67,13 @@ public class BadgeAwardService {
     }
 
     private void publishAwardNotification(User user, UserBadge userBadge) {
-        String content = "New badge acquired: " + userBadge.getBadge().getName();
-        eventPublisher.publishEvent(new NotificationEvent(
+        eventPublisher.publishEvent(NotificationEvent.localized(
                 user,
                 null,
                 NotificationType.BADGE,
                 NotificationSourceType.SYSTEM,
                 userBadge.getUserBadgeId(),
-                content));
+                "notification.badge.awarded",
+                userBadge.getBadge().getName()));
     }
 }

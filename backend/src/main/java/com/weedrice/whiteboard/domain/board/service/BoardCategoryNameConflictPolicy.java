@@ -37,6 +37,6 @@ class BoardCategoryNameConflictPolicy {
     }
 
     private BusinessException duplicateActiveName() {
-        return new BusinessException(ErrorCode.DUPLICATE_RESOURCE, "Duplicate active board category");
+        return BusinessException.withMessageKey(ErrorCode.DUPLICATE_RESOURCE, "error.board.category.duplicateActive");
     }
 }

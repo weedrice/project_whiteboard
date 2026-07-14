@@ -78,13 +78,14 @@ public class MessageService {
                 .content(sanitizedContent)
                 .build();
         Message savedMessage = messageRepository.save(message);
-        eventPublisher.publishEvent(new NotificationEvent(
+        eventPublisher.publishEvent(NotificationEvent.localized(
                 receiver,
                 sender,
                 NotificationType.MESSAGE,
                 NotificationSourceType.MESSAGE,
                 savedMessage.getMessageId(),
-                "??硫붿떆吏媛 ?꾩갑?덉뒿?덈떎."));
+                "notification.message.received",
+                sender.getDisplayName()));
         return savedMessage.getMessageId();
     }
 

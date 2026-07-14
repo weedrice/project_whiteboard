@@ -44,7 +44,8 @@ class EmoticonDeletePolicyTest {
                 .satisfies(exception -> {
                     BusinessException businessException = (BusinessException) exception;
                     assertThat(businessException.getErrorCode()).isEqualTo(ErrorCode.VALIDATION_ERROR);
-                    assertThat(businessException.getMessage()).isEqualTo("구매 이력이 있는 이모티콘은 삭제할 수 없습니다.");
+                    assertThat(businessException.getMessageKey())
+                            .isEqualTo("validation.emoticon.delete.purchaseHistory");
                 });
     }
 }

@@ -51,7 +51,7 @@ public class OperationalPrivilegeRevocationGuard {
         long otherActiveBoardAdmins = adminRepository.countByBoardAndRoleAndIsActiveAndAdminIdNot(
                 board, Role.BOARD_ADMIN, true, admin.getAdminId());
         if (otherActiveBoardAdmins == 0) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "At least one active board manager is required");
+            throw BusinessException.withMessageKey(ErrorCode.VALIDATION_ERROR, "validation.board.activeManager.required");
         }
     }
 
@@ -123,7 +123,7 @@ public class OperationalPrivilegeRevocationGuard {
 
         for (Long boardId : boardIds) {
             if (remainingAdminCounts.getOrDefault(boardId, 0L) == 0) {
-                throw new BusinessException(ErrorCode.VALIDATION_ERROR, "At least one active board manager is required");
+                throw BusinessException.withMessageKey(ErrorCode.VALIDATION_ERROR, "validation.board.activeManager.required");
             }
         }
     }

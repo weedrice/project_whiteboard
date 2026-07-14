@@ -28,8 +28,8 @@ class ReportTargetValidator {
         try {
             reportTargetType = ReportTargetType.from(targetType);
         } catch (IllegalArgumentException ex) {
-            throw new BusinessException(ErrorCode.INVALID_TARGET,
-                    "Invalid target type: " + targetType + ". Must be POST, COMMENT, or USER.");
+            throw BusinessException.withMessageKey(ErrorCode.INVALID_TARGET,
+                    "validation.report.targetType.invalid", targetType);
         }
 
         switch (reportTargetType) {

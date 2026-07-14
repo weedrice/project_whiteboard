@@ -66,6 +66,12 @@ public class Notification extends BaseTimeEntity {
     @Column(name = "content", length = 255, nullable = false)
     private String content;
 
+    @Column(name = "message_key", length = 160)
+    private String messageKey;
+
+    @Column(name = "message_params", columnDefinition = "TEXT")
+    private String messageParams;
+
     @Column(name = "group_key", length = 160)
     private String groupKey;
 
@@ -81,7 +87,8 @@ public class Notification extends BaseTimeEntity {
 
     @Builder
     public Notification(User user, User actor, Agent actorAgent, NotificationType notificationType, String sourceType,
-            Long sourceId, String content, String groupKey, LocalDateTime lastEventAt) {
+            Long sourceId, String content, String messageKey, String messageParams, String groupKey,
+            LocalDateTime lastEventAt) {
         this.user = user;
         this.actor = actor;
         this.actorAgent = actorAgent;
@@ -89,16 +96,21 @@ public class Notification extends BaseTimeEntity {
         this.sourceType = sourceType;
         this.sourceId = sourceId;
         this.content = content;
+        this.messageKey = messageKey;
+        this.messageParams = messageParams;
         this.groupKey = groupKey;
         this.groupCount = 1;
         this.lastEventAt = lastEventAt != null ? lastEventAt : LocalDateTime.now();
         this.isRead = false;
     }
 
-    public void merge(User actor, Agent actorAgent, String content, LocalDateTime eventAt) {
+    public void merge(User actor, Agent actorAgent, String content, String messageKey, String messageParams,
+            LocalDateTime eventAt) {
         this.actor = actor;
         this.actorAgent = actorAgent;
         this.content = content;
+        this.messageKey = messageKey;
+        this.messageParams = messageParams;
         this.groupCount = this.groupCount == null ? 2 : this.groupCount + 1;
         this.lastEventAt = eventAt != null ? eventAt : LocalDateTime.now();
     }

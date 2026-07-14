@@ -20,7 +20,7 @@ import java.lang.annotation.Target;
 @Target({ElementType.FIELD, ElementType.PARAMETER})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface NoHtml {
-    String message() default "HTML 태그는 허용되지 않습니다";
+    String message() default "{validation.noHtml}";
     Class<?>[] groups() default {};
     Class<? extends Payload>[] payload() default {};
 }

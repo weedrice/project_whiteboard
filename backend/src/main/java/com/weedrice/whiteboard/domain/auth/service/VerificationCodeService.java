@@ -58,7 +58,7 @@ public class VerificationCodeService {
 
     private void requirePurpose(VerificationPurpose purpose) {
         if (purpose == null) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "purpose is required");
+            throw BusinessException.withMessageKey(ErrorCode.VALIDATION_ERROR, "validation.verification.purpose.required");
         }
     }
 

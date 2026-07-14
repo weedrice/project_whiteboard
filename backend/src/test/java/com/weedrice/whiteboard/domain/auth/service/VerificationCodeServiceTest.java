@@ -188,7 +188,8 @@ class VerificationCodeServiceTest {
         assertThatThrownBy(() -> verificationCodeService.sendVerificationCode("test@example.com", null, null))
                 .isInstanceOfSatisfying(BusinessException.class, businessException -> {
                     assertThat(businessException.getErrorCode()).isEqualTo(ErrorCode.VALIDATION_ERROR);
-                    assertThat(businessException.getMessage()).isEqualTo("purpose is required");
+                    assertThat(businessException.getMessageKey())
+                            .isEqualTo("validation.verification.purpose.required");
                 });
 
         assertThat(verificationCodes).isEmpty();
@@ -200,7 +201,8 @@ class VerificationCodeServiceTest {
         assertThatThrownBy(() -> verificationCodeService.verifyCode("test@example.com", "123456", null))
                 .isInstanceOfSatisfying(BusinessException.class, businessException -> {
                     assertThat(businessException.getErrorCode()).isEqualTo(ErrorCode.VALIDATION_ERROR);
-                    assertThat(businessException.getMessage()).isEqualTo("purpose is required");
+                    assertThat(businessException.getMessageKey())
+                            .isEqualTo("validation.verification.purpose.required");
                 });
 
         verify(verificationCodeRepository, never()).findLatestSentByEmailAndPurposeForUpdate(anyString(), anyString());
@@ -538,7 +540,8 @@ class VerificationCodeServiceTest {
                 .satisfies(ex -> {
                     BusinessException businessException = (BusinessException) ex;
                     assertThat(businessException.getErrorCode()).isEqualTo(ErrorCode.VALIDATION_ERROR);
-                    assertThat(businessException.getMessage()).isEqualTo("만료된 인증 코드입니다.");
+                    assertThat(businessException.getMessageKey())
+                            .isEqualTo("validation.verification.code.expired");
                 });
     }
 
@@ -557,7 +560,8 @@ class VerificationCodeServiceTest {
                 .satisfies(ex -> {
                     BusinessException businessException = (BusinessException) ex;
                     assertThat(businessException.getErrorCode()).isEqualTo(ErrorCode.VALIDATION_ERROR);
-                    assertThat(businessException.getMessage()).isEqualTo("잘못된 인증 코드입니다.");
+                    assertThat(businessException.getMessageKey())
+                            .isEqualTo("validation.verification.code.invalid");
                 });
     }
 
@@ -576,7 +580,8 @@ class VerificationCodeServiceTest {
                 .satisfies(ex -> {
                     BusinessException businessException = (BusinessException) ex;
                     assertThat(businessException.getErrorCode()).isEqualTo(ErrorCode.VALIDATION_ERROR);
-                    assertThat(businessException.getMessage()).isEqualTo("만료된 인증 코드입니다.");
+                    assertThat(businessException.getMessageKey())
+                            .isEqualTo("validation.verification.code.expired");
                 });
     }
 
@@ -594,7 +599,8 @@ class VerificationCodeServiceTest {
                 .satisfies(ex -> {
                     BusinessException businessException = (BusinessException) ex;
                     assertThat(businessException.getErrorCode()).isEqualTo(ErrorCode.VALIDATION_ERROR);
-                    assertThat(businessException.getMessage()).isEqualTo("잘못된 인증 코드입니다.");
+                    assertThat(businessException.getMessageKey())
+                            .isEqualTo("validation.verification.code.invalid");
                 });
     }
 
@@ -614,7 +620,8 @@ class VerificationCodeServiceTest {
                 .satisfies(ex -> {
                     BusinessException businessException = (BusinessException) ex;
                     assertThat(businessException.getErrorCode()).isEqualTo(ErrorCode.VALIDATION_ERROR);
-                    assertThat(businessException.getMessage()).isEqualTo("이미 사용된 인증 코드입니다.");
+                    assertThat(businessException.getMessageKey())
+                            .isEqualTo("validation.verification.code.used");
                 });
     }
 

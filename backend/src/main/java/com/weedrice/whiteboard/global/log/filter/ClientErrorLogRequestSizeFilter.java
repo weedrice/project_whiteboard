@@ -13,6 +13,8 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.MessageSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -26,9 +28,12 @@ public class ClientErrorLogRequestSizeFilter extends OncePerRequestFilter {
     private static final String CLIENT_ERROR_LOG_PATH = "/api/v1/logs/client";
 
     private final ObjectMapper objectMapper;
+    private final MessageSource messageSource;
 
-    public ClientErrorLogRequestSizeFilter(ObjectMapper objectMapper) {
+    @Autowired
+    public ClientErrorLogRequestSizeFilter(ObjectMapper objectMapper, MessageSource messageSource) {
         this.objectMapper = objectMapper;
+        this.messageSource = messageSource;
     }
 
     @Override
@@ -51,11 +56,15 @@ public class ClientErrorLogRequestSizeFilter extends OncePerRequestFilter {
                     response.getWriter(),
                     ApiResponse.error(
                             ErrorCode.VALIDATION_ERROR.getCode(),
-                            "클라이언트 오류 로그 요청 본문은 32 KiB 이하여야 합니다."));
+                            resolveMessage(request)));
             return;
         }
 
         filterChain.doFilter(new CachedBodyRequest(request, body), response);
+    }
+
+    private String resolveMessage(HttpServletRequest request) {
+        return messageSource.getMessage("validation.clientErrorLog.body.max", null, request.getLocale());
     }
 
     private static final class CachedBodyRequest extends HttpServletRequestWrapper {

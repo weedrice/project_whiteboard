@@ -13,7 +13,7 @@ import java.util.List;
 @NoArgsConstructor
 public class CommentUpdateRequest {
     @NotBlank
-    @Size(min = 1, max = CommentConstraints.MAX_CONTENT_LENGTH, message = "댓글은 1자 이상 1,000자 이하여야 합니다")
+    @Size(min = 1, max = CommentConstraints.MAX_CONTENT_LENGTH, message = "{validation.comment.content.size}")
     @NoHtml
     private String content;
     @Size(max = 10)

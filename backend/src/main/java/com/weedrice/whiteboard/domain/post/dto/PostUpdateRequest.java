@@ -22,12 +22,12 @@ public class PostUpdateRequest {
     @NoHtml
     private String title;
 
-    @Size(max = 100000, message = "본문은 100,000자를 초과할 수 없습니다")
+    @Size(max = 100000, message = "{validation.post.content.max}")
     private String contents;
 
-    @Size(max = TagConstraints.MAX_POST_TAG_COUNT, message = "태그 개수 제한을 초과했습니다")
-    private List<@NotBlank(message = "태그명은 공백일 수 없습니다")
-            @Size(max = TagConstraints.MAX_TAG_NAME_LENGTH, message = "태그명 길이 제한을 초과했습니다") String> tags;
+    @Size(max = TagConstraints.MAX_POST_TAG_COUNT, message = "{validation.post.tags.max}")
+    private List<@NotBlank(message = "{validation.post.tagName.required}")
+            @Size(max = TagConstraints.MAX_TAG_NAME_LENGTH, message = "{validation.post.tagName.max}") String> tags;
     @JsonProperty("isNsfw")
     private boolean isNsfw;
 
@@ -42,7 +42,7 @@ public class PostUpdateRequest {
 
     private Long draftId;
 
-    @Size(max = FileAssociationConstraints.MAX_POST_FILE_COUNT, message = "첨부 파일 개수 제한을 초과했습니다")
+    @Size(max = FileAssociationConstraints.MAX_POST_FILE_COUNT, message = "{validation.post.files.max}")
     private List<Long> fileIds;
 
     private PollRequest poll;

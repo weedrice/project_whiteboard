@@ -16,15 +16,15 @@ import java.util.List;
 @AllArgsConstructor
 public class EmoticonCreateRequest {
 
-    @NotBlank(message = "이모티콘 이름을 입력해주세요.")
-    @Size(max = 100, message = "이모티콘 이름은 100자 이하로 입력해주세요.")
+    @NotBlank(message = "{validation.emoticon.name.required}")
+    @Size(max = 100, message = "{validation.emoticon.name.max}")
     private String name;
 
     private Long thumbnailFileId;
 
-    @Size(max = 10, message = "태그는 최대 10개까지 입력할 수 있습니다.")
+    @Size(max = 10, message = "{validation.emoticon.tags.max}")
     private List<String> tags;
 
-    @Size(max = FileAssociationConstraints.MAX_EMOTICON_IMAGE_COUNT, message = "이모티콘 이미지는 최대 20개까지 등록할 수 있습니다.")
+    @Size(max = FileAssociationConstraints.MAX_EMOTICON_IMAGE_COUNT, message = "{validation.emoticon.images.max}")
     private List<Long> imageFileIds;
 }

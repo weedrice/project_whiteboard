@@ -191,10 +191,9 @@ public class PostInteractionService {
         incrementPostLikeCount(postId);
         int likeCount = getPostLikeCount(postId);
 
-        String content = resolveNotificationActorName(user, actorAgent)
-                + "\uB2D8\uC774 \uD68C\uC6D0\uB2D8\uC758 \uAC8C\uC2DC\uAE00\uC744 \uC88B\uC544\uD569\uB2C8\uB2E4.";
-        NotificationEvent event = new NotificationEvent(postOwner, user, actorAgent, NotificationType.LIKE,
-                NotificationSourceType.POST, postId, content);
+        NotificationEvent event = NotificationEvent.localized(postOwner, user, actorAgent, NotificationType.LIKE,
+                NotificationSourceType.POST, postId, "notification.post.liked",
+                resolveNotificationActorName(user, actorAgent));
         eventPublisher.publishEvent(event);
         badgeEvaluationService.evaluatePopularPostBadges(postOwner.getUserId(), likeCount);
 

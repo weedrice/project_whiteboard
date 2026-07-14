@@ -28,6 +28,8 @@ public class NotificationResponse {
         private Long notificationId;
         private String notificationType;
         private String message;
+        private String messageKey;
+        private List<String> messageParams;
         private ActorInfo actor;
         private String sourceType;
         private Long sourceId;
@@ -47,6 +49,8 @@ public class NotificationResponse {
                     .notificationId(notification.getNotificationId())
                     .notificationType(notification.getNotificationType().name())
                     .message(notification.getContent())
+                    .messageKey(notification.getMessageKey())
+                    .messageParams(NotificationMessageParamsCodec.decode(notification.getMessageParams()))
                     .actor(ActorInfo.from(notification))
                     .sourceType(notification.getSourceType())
                     .sourceId(notification.getSourceId())

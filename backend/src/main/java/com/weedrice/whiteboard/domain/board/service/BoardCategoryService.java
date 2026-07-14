@@ -57,10 +57,10 @@ class BoardCategoryService {
 
     CategoryResponse updateCategory(Long categoryId, CategoryRequest request, Long userId) {
         if (categoryId == null) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "Category ID cannot be null");
+            throw BusinessException.withMessageKey(ErrorCode.VALIDATION_ERROR, "validation.category.id.required");
         }
         if (request.getSortOrder() == null) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "Category sortOrder cannot be null");
+            throw BusinessException.withMessageKey(ErrorCode.VALIDATION_ERROR, "validation.category.sortOrder.required");
         }
         BoardCategory category = mutationResolver.resolveCategoryForUpdate(categoryId, userId);
 
@@ -69,10 +69,10 @@ class BoardCategoryService {
             nameConflictPolicy.validateUpdatable(category.getBoard().getBoardId(), normalizedName, categoryId);
         }
         if (!Boolean.TRUE.equals(category.getIsActive()) && Boolean.TRUE.equals(request.getIsDefault())) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "Inactive category cannot be default");
+            throw BusinessException.withMessageKey(ErrorCode.VALIDATION_ERROR, "validation.category.inactiveDefault");
         }
         if (category.isDefaultCategory() && Boolean.FALSE.equals(request.getIsDefault())) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "Default category cannot be unset directly");
+            throw BusinessException.withMessageKey(ErrorCode.VALIDATION_ERROR, "validation.category.defaultUnset");
         }
         if (Boolean.TRUE.equals(request.getIsDefault())) {
             defaultCommand.clearDefaultCategories(category.getBoard().getBoardId(), categoryId);
@@ -91,7 +91,7 @@ class BoardCategoryService {
         BoardCategory category = mutationResolver.resolveCategoryForUpdate(categoryId, userId);
 
         if (category.isDefaultCategory()) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "Default category cannot be deleted");
+            throw BusinessException.withMessageKey(ErrorCode.VALIDATION_ERROR, "validation.category.defaultDelete");
         }
 
         category.deactivate();
@@ -99,7 +99,7 @@ class BoardCategoryService {
 
     private String normalizeCategoryName(String name) {
         if (name == null || name.isBlank()) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "Category name cannot be blank");
+            throw BusinessException.withMessageKey(ErrorCode.VALIDATION_ERROR, "validation.category.name.required");
         }
         return name.trim();
     }

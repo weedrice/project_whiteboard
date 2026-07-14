@@ -5,11 +5,15 @@ import com.weedrice.whiteboard.domain.auth.entity.VerificationPurpose;
 import com.weedrice.whiteboard.domain.auth.repository.PasswordResetTokenRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
 import com.weedrice.whiteboard.domain.user.service.PasswordHistoryPolicy;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,6 +22,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Objects;
+import java.util.Locale;
 import java.util.UUID;
 
 @Service
@@ -35,6 +40,15 @@ public class PasswordResetService {
     private final TransactionTemplate transactionTemplate;
     private final AuthAccountEligibilityPolicy authAccountEligibilityPolicy;
     private final Clock clock;
+    private MessageSource messageSource;
+    private UserSettingsRepository userSettingsRepository;
+
+    @Autowired
+    void setMailLocalizationDependencies(MessageSource messageSource,
+            UserSettingsRepository userSettingsRepository) {
+        this.messageSource = messageSource;
+        this.userSettingsRepository = userSettingsRepository;
+    }
 
     @Value("${cloud.aws.password-reset.frontend-url}")
     private String passwordResetFrontendUrl;
@@ -92,8 +106,10 @@ public class PasswordResetService {
             User user = getUsablePasswordResetUser(normalizedEmail, notFoundErrorCode);
             Long tokenId = passwordResetTokenOrchestrationService
                     .createPendingPasswordResetTokenForCurrentTransaction(user, rawToken);
-            String subject = "[noviIs] Password reset link";
-            String body = buildPasswordResetBody(user, rawToken, includeLoginId);
+            Locale locale = resolveUserLocale(user.getUserId());
+            String subject = resolveMessage("mail.password-reset.subject", null,
+                    "[NoviIs] Password reset link", locale);
+            String body = buildPasswordResetBody(user, rawToken, includeLoginId, locale);
             return new PasswordResetMailCommand(
                     user,
                     normalizedEmail,
@@ -105,16 +121,45 @@ public class PasswordResetService {
         }));
     }
 
-    private String buildPasswordResetBody(User user, String rawToken, boolean includeLoginId) {
+    private String buildPasswordResetBody(User user, String rawToken, boolean includeLoginId, Locale locale) {
         String resetLink = passwordResetFrontendUrl + rawToken;
-        String loginIdLine = includeLoginId
-                ? "<p>Registered ID for this email: <strong>" + user.getLoginId() + "</strong></p>"
-                : "";
-        String linkText = includeLoginId ? "Reset password" : resetLink;
-        return "<h1>Password reset</h1>"
-                + loginIdLine
-                + "<p>Use the link below to reset your password.</p>"
-                + "<p><a href=\"" + resetLink + "\">" + linkText + "</a></p>";
+        if (includeLoginId) {
+            String fallback = "<h1>Password reset</h1><p>Registered ID for this email: <strong>{0}</strong></p>"
+                    + "<p>Use the link below to reset your password.</p>"
+                    + "<p><a href=\"{1}\">Reset password</a></p>";
+            return resolveMessage("mail.password-reset.body-with-login-id",
+                    new Object[]{user.getLoginId(), resetLink}, fallback, locale);
+        }
+        String fallback = "<h1>Password reset</h1><p>Use the link below to reset your password.</p>"
+                + "<p><a href=\"{0}\">{0}</a></p>";
+        return resolveMessage("mail.password-reset.body", new Object[]{resetLink}, fallback, locale);
+    }
+
+    private Locale resolveUserLocale(Long userId) {
+        if (userSettingsRepository == null || userId == null) {
+            return LocaleContextHolder.getLocale();
+        }
+        return userSettingsRepository.findSettingsReadByUserId(userId)
+                .map(UserSettingsRepository.SettingsReadProjection::getLanguage)
+                .filter("en"::equalsIgnoreCase)
+                .map(ignored -> Locale.ENGLISH)
+                .orElse(Locale.KOREAN);
+    }
+
+    private String resolveMessage(String key, Object[] args, String fallback, Locale locale) {
+        return messageSource == null ? formatFallback(fallback, args)
+                : messageSource.getMessage(key, args, fallback, locale);
+    }
+
+    private String formatFallback(String fallback, Object[] args) {
+        if (args == null) {
+            return fallback;
+        }
+        String result = fallback;
+        for (int index = 0; index < args.length; index++) {
+            result = result.replace("{" + index + "}", String.valueOf(args[index]));
+        }
+        return result;
     }
 
     @Transactional

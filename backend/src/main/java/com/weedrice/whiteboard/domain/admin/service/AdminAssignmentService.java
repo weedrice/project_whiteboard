@@ -27,10 +27,10 @@ public class AdminAssignmentService {
     @Transactional
     public AdminResponse createAdmin(String loginId, Long boardId, AdminRole role) {
         if (boardId == null) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "boardId is required");
+            throw BusinessException.withMessageKey(ErrorCode.VALIDATION_ERROR, "validation.admin.boardId.required");
         }
         if (role == null) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "role is required");
+            throw BusinessException.withMessageKey(ErrorCode.VALIDATION_ERROR, "validation.admin.role.required");
         }
 
         String roleValue = role.name();

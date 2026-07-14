@@ -4,13 +4,13 @@
 | --- | --- |
 | Date | 2026-07-08 |
 | Scope | Notification message rendering model |
-| Status | Follow-up implementation plan |
+| Status | Phase 1 implemented (2026-07-14) |
 
 ## Problem
 
-Notification producers currently store completed Korean message strings in
-`notifications.content`. This makes copy changes producer-dependent and prevents
-the frontend from rendering the same notification in `ko` and `en`.
+Notification producers previously stored completed Korean message strings in
+`notifications.content`. Phase 1 now stores structured message metadata while
+retaining the completed content as a compatibility fallback.
 
 ## Target Model
 
@@ -29,30 +29,34 @@ Example:
 {
   "notificationType": "MENTION",
   "messageKey": "notification.message.mention",
-  "messageParams": {
-    "actorName": "Alice"
-  },
+  "messageParams": ["Alice"],
   "content": "Alice님이 회원님을 언급했습니다."
 }
 ```
 
-## Backend Steps
+## Implemented Backend
 
-1. Add nullable columns:
-   - `notifications.message_key`
-   - `notifications.message_params`
-2. Add a small value object such as `NotificationMessage`.
-3. Change producers to publish type-safe message keys and params.
-4. Keep `NotificationResponse.content` populated with the existing fallback.
-5. Add `messageKey` and `messageParams` to `NotificationResponse` only after the
-   frontend is ready to consume them.
+- `V48__notification_message_i18n.sql` adds nullable `message_key` and
+  `message_params` columns.
+- `message_params` is stored as a JSON string and exposed as `List<String>`.
+- Producers for comments, replies, likes, badges, scheduled posts, messages,
+  mentions, and keyword matches publish structured keys and parameters.
+- The command service renders and stores legacy `content` in the recipient's
+  configured language, then dual-writes the structured metadata.
+- `NotificationResponse` adds optional `messageKey` and `messageParams` fields;
+  the existing `message` field and response envelope remain unchanged.
+- Invalid or legacy parameter JSON degrades to an empty parameter list instead
+  of failing notification reads.
 
-## Frontend Steps
+## Implemented Frontend
 
-1. Extend the notification normalizer to prefer `messageKey + messageParams`.
-2. Add locale entries for each notification message key.
-3. Keep fallback rendering from `content`.
-4. Move producer-specific display logic into `features/notifications`.
+- The API normalizer accepts camelCase and snake_case structured fields.
+- Presentation resolves an allowlisted message key in the current app locale
+  and falls back to legacy `message` for old or unsupported records.
+- System and unknown actors use locale keys rather than English constants.
+- API and SSE requests send the current locale through `Accept-Language`.
+- A static i18n guard checks locale parity, registered static keys, and reviewed
+  dynamic key families in CI.
 
 ## Migration Strategy
 
@@ -72,12 +76,15 @@ Phase 3:
 - Decide whether `content` remains as denormalized fallback or is removed in a
   later breaking migration.
 
-## Open Decisions
+## Remaining Decisions
 
-- Whether `message_params` should be `jsonb` in PostgreSQL and plain text in H2
-  tests, or a string column with application-level JSON serialization.
+- Whether to migrate `message_params` from text JSON to PostgreSQL `jsonb`.
 - Whether admin/system notifications need richer params such as route labels or
   action buttons.
 - Whether actor display names should be snapshotted at notification time or
   resolved live from actor IDs.
+- Whether recent legacy rows need a backfill. They remain supported without one.
+- Whether point-history descriptions should later adopt the same structured
+  key/parameter model. They are currently localized when the ledger row is
+  created, so changing the user's language does not re-render old history rows.
 

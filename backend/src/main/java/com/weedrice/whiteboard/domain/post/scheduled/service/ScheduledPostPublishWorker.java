@@ -46,9 +46,7 @@ public class ScheduledPostPublishWorker {
                 scheduledPost.getBoard().getBoardUrl(),
                 payloadMapper.toPostCreateRequest(scheduledPost));
         scheduledPostRepository.markPublished(scheduledPostId, claimedAt, created.getPostId(), now());
-        publishSystemNotification(
-                scheduledPost,
-                "Scheduled post published: " + scheduledPost.getTitle());
+        publishSystemNotification(scheduledPost, "notification.scheduled.published");
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -60,9 +58,7 @@ public class ScheduledPostPublishWorker {
         String reason = normalizeFailureReason(exception);
         scheduledPostRepository.markFailed(scheduledPostId, claimedAt, reason);
         log.warn("Scheduled post publish failed. scheduledPostId={}, reason={}", scheduledPostId, reason);
-        publishSystemNotification(
-                scheduledPost,
-                "Scheduled post failed: " + scheduledPost.getTitle());
+        publishSystemNotification(scheduledPost, "notification.scheduled.failed");
     }
 
     private ScheduledPost loadClaimed(Long scheduledPostId, LocalDateTime claimedAt) {
@@ -87,13 +83,14 @@ public class ScheduledPostPublishWorker {
                 : normalized.substring(0, MAX_FAILURE_REASON_LENGTH);
     }
 
-    private void publishSystemNotification(ScheduledPost scheduledPost, String content) {
-        eventPublisher.publishEvent(new NotificationEvent(
+    private void publishSystemNotification(ScheduledPost scheduledPost, String messageKey) {
+        eventPublisher.publishEvent(NotificationEvent.localized(
                 scheduledPost.getUser(),
                 null,
                 NotificationType.SYSTEM,
                 NotificationSourceType.SYSTEM,
                 scheduledPost.getScheduledPostId(),
-                content));
+                messageKey,
+                scheduledPost.getTitle()));
     }
 }

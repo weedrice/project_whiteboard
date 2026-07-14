@@ -87,14 +87,15 @@ public class MentionService {
                 .filter(user -> !user.getUserId().equals(actor.getUserId()))
                 .filter(user -> !userBlockRepository.existsEitherDirection(actor.getUserId(), user.getUserId()))
                 .limit(MENTION_NOTIFICATION_LIMIT)
-                .forEach(user -> eventPublisher.publishEvent(new NotificationEvent(
+                .forEach(user -> eventPublisher.publishEvent(NotificationEvent.localized(
                         user,
                         actor,
                         actorAgent,
                         NotificationType.MENTION,
                         sourceType,
                         sourceId,
-                        actorName + "?섏씠 ?뚯썝?섏쓣 ?멸툒?덉뒿?덈떎.")));
+                        "notification.mention.created",
+                        actorName)));
     }
 
     private Set<Long> extractMentionUserIds(String html) {

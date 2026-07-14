@@ -17,6 +17,9 @@ import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -51,6 +54,12 @@ public class CommentQueryService {
     private final CommentReadSupport commentReadSupport;
     private final CommentReadModelAssembler commentReadModelAssembler;
     private final CommentMentionRepository commentMentionRepository;
+    private MessageSource messageSource;
+
+    @Autowired
+    void setMessageSource(MessageSource messageSource) {
+        this.messageSource = messageSource;
+    }
 
     // Contract: /posts/{postId}/comments pages only parent comments; replies are fetched lazily via /comments/{id}/replies.
     public Page<CommentResponse> getComments(Long postId, Long currentUserId, Pageable pageable) {
@@ -265,7 +274,10 @@ public class CommentQueryService {
     private String resolveCommentResponseContent(CommentReadModel model) {
         return switch (model.status()) {
             case ACTIVE -> model.comment().getContent();
-            case DELETED -> CommentResponse.DELETED_CONTENT;
+            case DELETED -> messageSource == null
+                    ? CommentResponse.DELETED_CONTENT
+                    : messageSource.getMessage("comment.deleted-content", null, CommentResponse.DELETED_CONTENT,
+                            LocaleContextHolder.getLocale());
             case BLINDED -> null;
             case BLOCKED_AUTHOR -> null;
         };

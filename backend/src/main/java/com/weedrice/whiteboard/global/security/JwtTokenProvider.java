@@ -1,5 +1,7 @@
 package com.weedrice.whiteboard.global.security;
 
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
@@ -78,14 +80,14 @@ public class JwtTokenProvider {
         Claims claims = parseClaims(accessToken);
 
         if (claims.get(AUTHORITIES_KEY) == null) {
-            throw new RuntimeException("권한 정보가 없는 토큰입니다.");
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
         }
 
         // DB에서 최신 유저 정보 조회 (상태 체크 포함)
         UserDetails userDetails = customUserDetailsService.loadUserByUsername(claims.getSubject());
         if (!userDetails.isEnabled() || !userDetails.isAccountNonLocked()
                 || !userDetails.isAccountNonExpired() || !userDetails.isCredentialsNonExpired()) {
-            throw new RuntimeException("User account is not active");
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
         }
 
         return new UsernamePasswordAuthenticationToken(userDetails, "", userDetails.getAuthorities());

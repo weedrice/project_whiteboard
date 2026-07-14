@@ -64,13 +64,14 @@ public class KeywordNotificationEventListener {
                     || isCoolingDown(subscription, cooldownThreshold)) {
                 continue;
             }
-            NotificationEvent notificationEvent = new NotificationEvent(
+            NotificationEvent notificationEvent = NotificationEvent.localized(
                     subscription.getUser(),
                     post.getUser(),
                     post.getAgent(),
                     NotificationType.KEYWORD,
                     NotificationSourceType.POST,
                     post.getPostId(),
+                    "notification.keyword.matched",
                     post.getTitle());
             if (notificationCommandService.handleNotificationEvent(notificationEvent) != null) {
                 subscription.markNotified(now);

@@ -29,7 +29,7 @@ public final class BoardUrlNormalizer {
     public static String normalizeCreatable(String boardUrl) {
         String normalizedBoardUrl = normalizeWritable(boardUrl);
         if (BoardPolicyConstants.INQUIRY_BOARD_URL.equalsIgnoreCase(normalizedBoardUrl)) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR, "Reserved board URL");
+            throw BusinessException.withMessageKey(ErrorCode.VALIDATION_ERROR, "validation.board.url.reserved");
         }
         return normalizedBoardUrl;
     }

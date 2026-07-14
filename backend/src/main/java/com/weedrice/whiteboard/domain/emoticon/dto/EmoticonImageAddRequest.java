@@ -10,6 +10,6 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class EmoticonImageAddRequest {
 
-    @NotNull(message = "파일 ID는 필수입니다.")
+    @NotNull(message = "{validation.file.id.required}")
     private Long fileId;
 }

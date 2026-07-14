@@ -13,6 +13,10 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.text.MessageFormat;
+import java.util.Locale;
+import java.util.MissingResourceException;
+import java.util.ResourceBundle;
 
 @RequiredArgsConstructor
 public class AgentAuthenticationFilter extends OncePerRequestFilter {
@@ -61,7 +65,24 @@ public class AgentAuthenticationFilter extends OncePerRequestFilter {
             SecurityContextHolder.getContext().setAuthentication(new AgentAuthenticationToken(principal, rawToken));
             filterChain.doFilter(request, response);
         } catch (BusinessException e) {
-            response.sendError(e.getErrorCode().getStatus().value(), e.getMessage());
+            response.sendError(e.getErrorCode().getStatus().value(), resolveEnglishMessage(e));
+        }
+    }
+
+    private String resolveEnglishMessage(BusinessException exception) {
+        String key = exception.getMessageKey();
+        if (key == null && exception.getErrorCode().getMessage().equals(exception.getMessage())) {
+            key = exception.getErrorCode().getMessage();
+        }
+        if (key == null) {
+            return exception.getMessage();
+        }
+
+        try {
+            String pattern = ResourceBundle.getBundle("messages", Locale.ENGLISH).getString(key);
+            return MessageFormat.format(pattern, exception.getMessageArguments());
+        } catch (MissingResourceException ignored) {
+            return "Unauthorized";
         }
     }
 

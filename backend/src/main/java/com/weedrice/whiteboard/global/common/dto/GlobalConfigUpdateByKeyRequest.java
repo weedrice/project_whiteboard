@@ -11,10 +11,10 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class GlobalConfigUpdateByKeyRequest {
 
-    @NotBlank(message = "설정 값은 필수입니다.")
-    @Size(max = 10000, message = "설정 값은 10000자 이하여야 합니다.")
+    @NotBlank(message = "{validation.config.value.required}")
+    @Size(max = 10000, message = "{validation.config.value.max}")
     private String value;
 
-    @Size(max = 255, message = "설명은 255자 이하여야 합니다.")
+    @Size(max = 255, message = "{validation.config.description.max}")
     private String description;
 }

@@ -25,7 +25,7 @@ class BoardSubscriptionWritePolicy {
 
     BusinessException resolveSubscriptionConflict(Board board, DataIntegrityViolationException ex) {
         if (ConstraintNameMatcher.containsConstraint(ex, USER_SORT_ORDER_CONSTRAINT)) {
-            return new BusinessException(ErrorCode.DUPLICATE_RESOURCE, "Duplicate board subscription sort order");
+            return BusinessException.withMessageKey(ErrorCode.DUPLICATE_RESOURCE, "error.board.subscription.duplicateSortOrder");
         }
         if (board != null) {
             return new BusinessException(ErrorCode.ALREADY_SUBSCRIBED);

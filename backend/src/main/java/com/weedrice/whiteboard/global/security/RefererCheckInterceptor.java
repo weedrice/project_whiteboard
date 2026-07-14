@@ -21,7 +21,7 @@ public class RefererCheckInterceptor implements HandlerInterceptor {
         String referer = request.getHeader("Referer");
 
         if (!FrontendOriginMatcher.isAllowedReferer(frontendUrl, referer)) {
-            throw new BusinessException(ErrorCode.FORBIDDEN, "Invalid Referer");
+            throw BusinessException.withMessageKey(ErrorCode.FORBIDDEN, "error.security.invalidReferer");
         }
 
         return true;

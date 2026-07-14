@@ -3858,7 +3858,8 @@ class PostServiceTest {
         verify(eventPublisher).publishEvent(eventCaptor.capture());
         NotificationEvent notificationEvent = (NotificationEvent) eventCaptor.getValue();
         assertThat(notificationEvent.getActorAgent()).isNotNull();
-        assertThat(notificationEvent.getContent()).isEqualTo("agent-liker님이 회원님의 게시글을 좋아합니다.");
+        assertThat(notificationEvent.getMessageKey()).isEqualTo("notification.post.liked");
+        assertThat(notificationEvent.getMessageParams()).containsExactly("agent-liker");
     }
 
     @Test

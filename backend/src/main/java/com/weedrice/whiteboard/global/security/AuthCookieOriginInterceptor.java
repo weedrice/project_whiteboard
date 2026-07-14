@@ -24,7 +24,7 @@ public class AuthCookieOriginInterceptor implements HandlerInterceptor {
             if (FrontendOriginMatcher.isAllowedOriginHeader(frontendUrl, origin)) {
                 return true;
             }
-            throw new BusinessException(ErrorCode.FORBIDDEN, "Invalid Origin");
+            throw BusinessException.withMessageKey(ErrorCode.FORBIDDEN, "error.security.invalidOrigin");
         }
 
         String referer = request.getHeader("Referer");
@@ -32,6 +32,6 @@ public class AuthCookieOriginInterceptor implements HandlerInterceptor {
             return true;
         }
 
-        throw new BusinessException(ErrorCode.FORBIDDEN, "Missing Origin");
+        throw BusinessException.withMessageKey(ErrorCode.FORBIDDEN, "error.security.missingOrigin");
     }
 }

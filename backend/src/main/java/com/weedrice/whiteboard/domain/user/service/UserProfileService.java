@@ -16,6 +16,9 @@ import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.MessageSource;
+import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -50,6 +53,12 @@ public class UserProfileService {
     private final UserWritableResolver userWritableResolver;
     private final UserLifecycleService userLifecycleService;
     private final Clock clock;
+    private MessageSource messageSource;
+
+    @Autowired
+    void setMessageSource(MessageSource messageSource) {
+        this.messageSource = messageSource;
+    }
 
     public Long findUserIdByLoginId(String loginId) {
         User user = userRepository.findByLoginId(loginId)
@@ -112,7 +121,7 @@ public class UserProfileService {
     private UserProfileResponse restrictedProfile(Long targetUserId) {
         return UserProfileResponse.builder()
                 .userId(targetUserId)
-                .displayName(BLOCKED_PUBLIC_PROFILE_DISPLAY_NAME)
+                .displayName(resolveMessage("user.profile.blocked", null, BLOCKED_PUBLIC_PROFILE_DISPLAY_NAME))
                 .profileImageUrl(null)
                 .createdAt(null)
                 .postCount(0)
@@ -184,7 +193,10 @@ public class UserProfileService {
         pointService.spendPointForPrevalidatedUser(
                 user,
                 cost,
-                PROFILE_IMAGE_CHANGE_DESCRIPTION,
+                resolveMessage(
+                        "point.description.profile-image-change",
+                        null,
+                        PROFILE_IMAGE_CHANGE_DESCRIPTION),
                 profileImageId,
                 PROFILE_IMAGE_RELATED_TYPE);
         return new ProfileImageChargeResult(cost, pointService.getCurrentBalance(user.getUserId()));
@@ -206,6 +218,12 @@ public class UserProfileService {
                 globalConfigService.getConfig(PROFILE_IMAGE_CHANGE_COST_CONFIG_KEY),
                 DEFAULT_PROFILE_IMAGE_CHANGE_COST,
                 0);
+    }
+
+    private String resolveMessage(String key, Object[] arguments, String fallback) {
+        return messageSource == null
+                ? fallback
+                : messageSource.getMessage(key, arguments, fallback, LocaleContextHolder.getLocale());
     }
 
     private String normalizeDisplayName(String displayName) {

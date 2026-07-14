@@ -21,7 +21,7 @@ import java.lang.annotation.Target;
 @Target({ElementType.FIELD, ElementType.PARAMETER})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface PasswordStrength {
-    String message() default "비밀번호는 영문 대소문자, 숫자, 특수문자 중 최소 3종류를 포함하여 8자 이상이어야 합니다";
+    String message() default "{validation.password.strength}";
     Class<?>[] groups() default {};
     Class<? extends Payload>[] payload() default {};
 }

@@ -19,13 +19,13 @@ public class NoHtmlValidator implements ConstraintValidator<NoHtml, String> {
 
         if (HtmlSafetyUtils.containsScriptTag(value)) {
             context.disableDefaultConstraintViolation();
-            context.buildConstraintViolationWithTemplate("스크립트 태그는 허용되지 않습니다").addConstraintViolation();
+            context.buildConstraintViolationWithTemplate("{validation.noHtml.script}").addConstraintViolation();
             return false;
         }
 
         if (HtmlSafetyUtils.containsEventHandler(value)) {
             context.disableDefaultConstraintViolation();
-            context.buildConstraintViolationWithTemplate("이벤트 핸들러는 허용되지 않습니다").addConstraintViolation();
+            context.buildConstraintViolationWithTemplate("{validation.noHtml.eventHandler}").addConstraintViolation();
             return false;
         }
 
