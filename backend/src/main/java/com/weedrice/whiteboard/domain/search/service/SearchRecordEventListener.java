@@ -14,7 +14,7 @@ public class SearchRecordEventListener {
 
     private final SearchService searchService;
 
-    @Async("taskExecutor")
+    @Async("observabilityTaskExecutor")
     @EventListener
     public void handle(SearchRecordedEvent event) {
         try {

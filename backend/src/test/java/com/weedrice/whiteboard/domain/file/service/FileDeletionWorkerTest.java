@@ -74,7 +74,9 @@ class FileDeletionWorkerTest {
 
         when(fileRepository.findDeletionClaimCandidateForUpdate(eq(10L), eq(5), any()))
                 .thenReturn(Optional.of(file));
-        when(fileRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(file), Optional.of(file));
+        when(fileRepository.findByIdForUpdate(10L))
+                .thenReturn(Optional.of(file))
+                .thenReturn(Optional.of(file));
         when(fileVariantRepository.findByFileFileId(10L)).thenReturn(List.of(variant(file)));
         executeTransactions();
 
@@ -114,7 +116,9 @@ class FileDeletionWorkerTest {
 
         when(fileRepository.findDeletionClaimCandidateForUpdate(eq(10L), eq(5), any()))
                 .thenReturn(Optional.of(file));
-        when(fileRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(file), Optional.of(file));
+        when(fileRepository.findByIdForUpdate(10L))
+                .thenReturn(Optional.of(file))
+                .thenReturn(Optional.of(file));
         when(fileVariantRepository.findByFileFileId(10L)).thenReturn(List.of());
         executeTransactions();
 
@@ -134,7 +138,9 @@ class FileDeletionWorkerTest {
 
         when(fileRepository.findDeletionClaimCandidateForUpdate(eq(10L), eq(5), any()))
                 .thenReturn(Optional.of(file));
-        when(fileRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(file), Optional.of(file));
+        when(fileRepository.findByIdForUpdate(10L))
+                .thenReturn(Optional.of(file))
+                .thenReturn(Optional.of(file));
         when(fileVariantRepository.findByFileFileId(10L)).thenReturn(List.of());
         executeTransactions();
         doThrow(new BusinessException(ErrorCode.FILE_DELETE_ERROR))
@@ -179,7 +185,9 @@ class FileDeletionWorkerTest {
 
         when(fileRepository.findDeletionClaimCandidateForUpdate(eq(10L), eq(5), any()))
                 .thenReturn(Optional.of(file));
-        when(fileRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(file), Optional.of(file));
+        when(fileRepository.findByIdForUpdate(10L))
+                .thenReturn(Optional.of(file))
+                .thenReturn(Optional.of(file));
         when(emoticonFileReferenceService.isReferenced(10L)).thenReturn(false);
         when(fileVariantRepository.findByFileFileId(10L)).thenReturn(List.of());
         executeTransactions();
@@ -216,7 +224,9 @@ class FileDeletionWorkerTest {
 
         when(fileRepository.findDeletionClaimCandidateForUpdate(eq(10L), eq(5), any()))
                 .thenReturn(Optional.of(file));
-        when(fileRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(file), Optional.of(changedFile));
+        when(fileRepository.findByIdForUpdate(10L))
+                .thenReturn(Optional.of(file))
+                .thenReturn(Optional.of(changedFile));
         when(fileVariantRepository.findByFileFileId(10L)).thenReturn(List.of());
         executeTransactions();
 

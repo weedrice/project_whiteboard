@@ -6,20 +6,23 @@ import com.weedrice.whiteboard.global.ratelimit.RateLimitInterceptor;
 import com.weedrice.whiteboard.global.ratelimit.RateLimitConfig;
 import com.weedrice.whiteboard.global.security.RefererCheckInterceptor;
 import io.swagger.v3.oas.models.OpenAPI;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.cache.CacheManager;
 import org.springframework.context.ApplicationContext;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.MessageSource;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import software.amazon.awssdk.services.s3.S3Client;
-
-import java.util.concurrent.Executor;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -37,7 +40,7 @@ import static org.assertj.core.api.Assertions.assertThat;
     classes = {
         S3Config.class, WebConfig.class, AsyncConfig.class, ClientIpConfig.class,
         CacheConfig.class, MessageConfig.class, RateLimitConfig.class,
-        OpenApiConfig.class
+        OpenApiConfig.class, ConfigBeanTest.MetricsTestConfig.class
     },
     webEnvironment = SpringBootTest.WebEnvironment.NONE
 )
@@ -84,8 +87,19 @@ class ConfigBeanTest {
     @Test
     @DisplayName("Async Executor 빈 등록 확인")
     void asyncExecutorBeanExists() {
-        Executor executor = applicationContext.getBean("taskExecutor", Executor.class);
-        assertThat(executor).isNotNull();
+        ThreadPoolTaskExecutor durable = applicationContext.getBean(
+                "durableTaskExecutor", ThreadPoolTaskExecutor.class);
+        ThreadPoolTaskExecutor notification = applicationContext.getBean(
+                "notificationTaskExecutor", ThreadPoolTaskExecutor.class);
+        ThreadPoolTaskExecutor observability = applicationContext.getBean(
+                "observabilityTaskExecutor", ThreadPoolTaskExecutor.class);
+
+        assertThat(durable.getCorePoolSize()).isEqualTo(4);
+        assertThat(durable.getMaxPoolSize()).isEqualTo(8);
+        assertThat(notification.getCorePoolSize()).isEqualTo(4);
+        assertThat(notification.getMaxPoolSize()).isEqualTo(8);
+        assertThat(observability.getCorePoolSize()).isEqualTo(2);
+        assertThat(observability.getMaxPoolSize()).isEqualTo(4);
     }
 
     @Test
@@ -110,5 +124,13 @@ class ConfigBeanTest {
     void openApiBeanExists() {
         OpenAPI openAPI = applicationContext.getBean(OpenAPI.class);
         assertThat(openAPI).isNotNull();
+    }
+
+    @TestConfiguration
+    static class MetricsTestConfig {
+        @Bean
+        MeterRegistry meterRegistry() {
+            return new SimpleMeterRegistry();
+        }
     }
 }

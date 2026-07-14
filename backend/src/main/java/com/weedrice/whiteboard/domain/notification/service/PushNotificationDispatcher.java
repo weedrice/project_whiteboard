@@ -30,7 +30,7 @@ public class PushNotificationDispatcher {
     private final UserSettingsRepository userSettingsRepository;
     private final ObjectMapper objectMapper;
 
-    @Async("taskExecutor")
+    @Async("notificationTaskExecutor")
     @Transactional
     public void dispatch(Notification notification) {
         if (!webPushProperties.isEnabled()

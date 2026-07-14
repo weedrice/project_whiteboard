@@ -42,7 +42,7 @@ public class MqueueService {
         messageQueueRepository.save(message);
     }
 
-    @Async("taskExecutor")
+    @Async("durableTaskExecutor")
     public void sendEmail(Long queueId, LocalDateTime claimedAt) {
         MessageQueue message = messageQueueRepository.findByIdWithTargetUser(queueId).orElse(null);
         if (message == null || !isCurrentLease(message, claimedAt)) {
@@ -51,7 +51,7 @@ public class MqueueService {
         sendEmail(new EmailDispatchCommand(queueId, message.getTargetUser().getEmail(), message.getContent()), claimedAt);
     }
 
-    @Async("taskExecutor")
+    @Async("durableTaskExecutor")
     public void sendEmail(EmailDispatchProjection dispatch, LocalDateTime claimedAt) {
         if (dispatch == null || dispatch.getQueueId() == null) {
             return;

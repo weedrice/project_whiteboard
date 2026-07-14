@@ -26,13 +26,13 @@ public class LogService {
 
     private final LogRepository logRepository;
 
-    @Async("taskExecutor")
+    @Async("observabilityTaskExecutor")
     @Transactional(propagation = REQUIRES_NEW)
     public void saveLog(Log log) {
         logRepository.save(log);
     }
 
-    @Async("taskExecutor")
+    @Async("observabilityTaskExecutor")
     @Transactional(propagation = REQUIRES_NEW)
     public void saveLog(Long userId, String actionType, String ipAddress, String details) {
         Log log = Log.builder()

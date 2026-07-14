@@ -50,7 +50,7 @@ public class ErrorLogService {
      * 에러 로그 비동기 저장
      * 별도 트랜잭션으로 실행하여 원래 요청의 트랜잭션에 영향을 주지 않음
      */
-    @Async("taskExecutor")
+    @Async("observabilityTaskExecutor")
     @Transactional(propagation = REQUIRES_NEW)
     public void saveErrorLog(ErrorLog errorLog) {
         errorLogRepository.save(buildErrorLog(
@@ -69,7 +69,7 @@ public class ErrorLogService {
     /**
      * 에러 로그 비동기 저장 (빌더 파라미터)
      */
-    @Async("taskExecutor")
+    @Async("observabilityTaskExecutor")
     @Transactional(propagation = REQUIRES_NEW)
     public void saveErrorLog(String errorCode, String errorType, int httpStatus, String message,
             String requestUri, String requestMethod, Long userId,
@@ -79,7 +79,7 @@ public class ErrorLogService {
                 ipAddress, userAgent, stackTrace));
     }
 
-    @Async("taskExecutor")
+    @Async("observabilityTaskExecutor")
     @Transactional(propagation = REQUIRES_NEW)
     public void saveClientErrorLog(
             ClientErrorLogRequest request,
