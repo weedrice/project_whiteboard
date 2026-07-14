@@ -23,7 +23,7 @@
     "smoke:local": "node ./scripts/smoke-local.mjs",
     "check:ui": "node ./scripts/check-responsive-ui.mjs && node ./scripts/check-color-tokens.mjs",
     "check:colors": "node ./scripts/check-color-tokens.mjs",
-    "check:i18n": "eslint \"src/**/*.vue\" --no-cache",
+    "check:i18n": "eslint \"src/**/*.vue\" --no-cache && vitest run src/locales/__tests__/messages.spec.ts src/locales/__tests__/keyUsage.spec.ts",
     "type-check": "vue-tsc --noEmit",
     "test": "vitest",
     "test:run": "vitest run",

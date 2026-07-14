@@ -73,6 +73,10 @@ jobs:
         run: npm run lint:ci
         working-directory: frontend
 
+      - name: Check i18n keys
+        run: npm run check:i18n
+        working-directory: frontend
+
       - name: Type check
         run: npm run type-check
         working-directory: frontend
