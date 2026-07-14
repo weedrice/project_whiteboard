@@ -6,7 +6,6 @@ import com.weedrice.whiteboard.global.common.util.ClientIpResolver;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
-import io.github.bucket4j.Refill;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -270,7 +269,10 @@ class RateLimitInterceptorTest {
 
     private Bucket oneRequestBucket() {
         return Bucket.builder()
-                .addLimit(Bandwidth.classic(1, Refill.greedy(1, Duration.ofMinutes(1))))
+                .addLimit(Bandwidth.builder()
+                        .capacity(1)
+                        .refillGreedy(1, Duration.ofMinutes(1))
+                        .build())
                 .build();
     }
 }
