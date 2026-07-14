@@ -62,13 +62,30 @@ export interface UserSummary {
 // User settings
 export interface UserSettings {
     theme: 'LIGHT' | 'DARK'
-    language: 'KO' | 'EN'
+    language: 'ko' | 'en'
+    timezone: string
+    hideNsfw: boolean
+    pushEnabled: boolean
+    onboardingCompletedAt?: string | null
+}
+
+export interface UserSettingsUpdatePayload {
+    theme?: UserSettings['theme']
+    language?: UserSettings['language']
     timezone?: string
     hideNsfw?: boolean
-    emailNotification: boolean
-    pushNotification: boolean
-    pushEnabled?: boolean
-    onboardingCompletedAt?: string | null
+}
+
+export interface UpdateProfileResponse {
+    userId: number
+    displayName: string
+    profileImageUrl: string | null
+    spentPoints: number | null
+    remainingPoints: number | null
+}
+
+export interface ActionMessageResponse {
+    message: string
 }
 
 // Point history

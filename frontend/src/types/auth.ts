@@ -35,6 +35,13 @@ export interface SignupData {
     oauthRegistrationTicket?: string | null
 }
 
+export interface SignupResponse {
+    userId: number
+    loginId: string
+    email: string
+    displayName: string
+}
+
 export interface OAuthSignupTicket {
     email: string
     name: string

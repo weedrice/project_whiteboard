@@ -1,7 +1,7 @@
 import { computed, reactive, ref, watch, type Ref } from 'vue'
 import type { NotificationSettingType, NotificationSettingsBulkPayload, NotificationSettingsPayload } from '@/api/user'
 import logger from '@/utils/logger'
-import type { UserSettings } from '@/types'
+import type { UserSettings, UserSettingsUpdatePayload } from '@/types'
 
 export const NOTIFICATION_TYPES: NotificationSettingType[] = ['LIKE', 'COMMENT', 'REPLY', 'MENTION', 'MESSAGE', 'SYSTEM', 'SANCTION', 'KEYWORD', 'BADGE']
 
@@ -16,7 +16,7 @@ interface UseUserSettingsFormOptions {
   settingsData: Ref<UserSettings | undefined>
   isSaving: Ref<boolean>
   themeIsDark: () => boolean
-  updateSettings: (payload: Partial<UserSettings>) => Promise<unknown>
+  updateSettings: (payload: UserSettingsUpdatePayload) => Promise<unknown>
   setTheme: (theme: 'LIGHT' | 'DARK') => void
   t: (key: string) => string
 }

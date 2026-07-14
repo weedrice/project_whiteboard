@@ -8,15 +8,15 @@ import {
 } from '@/api/user'
 import { unwrapAxiosApiData } from '@/api/response'
 import { computed, type Ref } from 'vue'
-import type { DraftPostListResponse, DraftPostSummary, LoginHistory, PageResponse, UserPoint, UserSettings } from '@/types'
+import type { DraftPostListResponse, DraftPostSummary, LoginHistory, PageResponse, UserPoint, UserSettings, UserSettingsUpdatePayload } from '@/types'
 import { QUERY_STALE_TIME } from '@/utils/constants'
 import type { AxiosRequestConfig } from 'axios'
 import { callWithOptionalQuerySignal, withQuerySignal } from '@/utils/querySignal'
-import { useApiQuery } from '@/composables/useApiQuery'
+import { useApiPageQuery, useApiQuery } from '@/composables/useApiQuery'
 import { userQueryKeys, type UserQueryPaginationParams } from '@/composables/userQueryKeys'
-import { postApi, type BackendPageResponse, type ScheduledPost } from '@/api/post'
+import { postApi, type ScheduledPost } from '@/api/post'
 import { badgeApi } from '@/api/badge'
-import { normalizePageResponse } from '@/utils/pageResponse'
+import { normalizePageResponse, type PageResponseRaw } from '@/utils/pageResponse'
 
 interface PasswordUpdateData {
     currentPassword: string
@@ -144,7 +144,7 @@ export function useUser() {
     }
 
     const useMyLoginHistory = (params?: Ref<PaginationParams>) => {
-        return useApiQuery<PageResponse<LoginHistory>>({
+        return useApiPageQuery<LoginHistory>({
             queryKey: userQueryKeys.loginHistory(params),
             request: (context) => userApi.getMyLoginHistory(params?.value ?? {}, withQuerySignal(undefined, context)),
             staleTime: QUERY_STALE_TIME.SHORT,
@@ -161,7 +161,7 @@ export function useUser() {
     }
 
     const useMyScraps = (params?: Ref<PaginationParams>) => {
-        return useApiQuery({
+        return useApiPageQuery({
             queryKey: userQueryKeys.scraps(params),
             request: (context) => userApi.getMyScraps(params?.value ?? {}, withQuerySignal(undefined, context)),
         })
@@ -176,7 +176,7 @@ export function useUser() {
     }
 
     const useMyScheduledPosts = (params?: Ref<PaginationParams>) => {
-        return useApiQuery<BackendPageResponse<ScheduledPost>, PageResponse<ScheduledPost>>({
+        return useApiQuery<PageResponseRaw<ScheduledPost>, PageResponse<ScheduledPost>>({
             queryKey: userQueryKeys.scheduledPosts(params),
             request: (context) => postApi.getMyScheduledPosts(params?.value ?? {}, withQuerySignal(undefined, context)),
             selectData: (response) => normalizePageResponse(response),
@@ -259,7 +259,7 @@ export function useUser() {
 
     const useUpdateUserSettings = () => {
         return useMutation({
-            mutationFn: async (data: Partial<UserSettings>) => {
+            mutationFn: async (data: UserSettingsUpdatePayload) => {
                 return resolveResponseData(userApi.updateUserSettings(data))
             },
             onSuccess: () => {
@@ -402,7 +402,7 @@ export function useUser() {
     }
 
     const usePublicProfilePosts = (userId: Ref<string | number>, params: Ref<PaginationParams>) => {
-        return useApiQuery({
+        return useApiPageQuery({
             queryKey: userQueryKeys.publicPosts(userId, params),
             request: (context) => callWithOptionalQuerySignal(
                 context,
@@ -414,7 +414,7 @@ export function useUser() {
     }
 
     const usePublicProfileComments = (userId: Ref<string | number>, params: Ref<PaginationParams>) => {
-        return useApiQuery({
+        return useApiPageQuery({
             queryKey: userQueryKeys.publicComments(userId, params),
             request: (context) => callWithOptionalQuerySignal(
                 context,
