@@ -117,7 +117,7 @@ function handleLike() {
   toggleCommentLike({
     commentId: props.comment.commentId,
     postId: props.postId,
-    liked: !Boolean(props.comment.liked),
+    liked: !props.comment.liked,
   })
 }
 
