@@ -1,1 +1,1 @@
-export { board, boardEn } from './board/index'
+export { board } from './board/index'

@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import messages from '../index'
+import englishMessages from '../en'
 import type { SupportedLocale } from '../types'
 
 type MessageRecord = Record<string, unknown>
 
 const supportedLocales: SupportedLocale[] = ['ko', 'en']
+const allMessages = { ko: messages.ko, en: englishMessages }
 const translatedDomains = ['search', 'user', 'admin'] as const
 const verifiedEnglishDomains = [
   'common',
@@ -56,8 +58,8 @@ function collectInterpolationKeys(message: unknown): string[] {
 }
 
 describe('locale messages', () => {
-  it('registers every supported locale', () => {
-    expect(Object.keys(messages).sort()).toEqual([...supportedLocales].sort())
+  it('keeps only Korean in the initial message bundle', () => {
+    expect(Object.keys(messages)).toEqual(['ko'])
   })
 
   it('keeps locale message leaf keys in sync', () => {
@@ -66,7 +68,7 @@ describe('locale messages', () => {
     supportedLocales
       .filter((locale) => locale !== 'ko')
       .forEach((locale) => {
-        expect(collectLeafKeys(messages[locale])).toEqual(koKeys)
+        expect(collectLeafKeys(allMessages[locale])).toEqual(koKeys)
       })
   })
 
@@ -77,7 +79,7 @@ describe('locale messages', () => {
       .filter((locale) => locale !== 'ko')
       .forEach((locale) => {
         koKeys.forEach((key) => {
-          expect(collectInterpolationKeys(getValueByPath(messages[locale], key))).toEqual(
+          expect(collectInterpolationKeys(getValueByPath(allMessages[locale], key))).toEqual(
             collectInterpolationKeys(getValueByPath(messages.ko, key)),
           )
         })
@@ -85,23 +87,23 @@ describe('locale messages', () => {
   })
 
   it.each(translatedDomains)('uses a dedicated English object for the %s domain', (domain) => {
-    expect(messages.en[domain]).not.toBe(messages.ko[domain])
+    expect(allMessages.en[domain]).not.toBe(messages.ko[domain])
   })
 
   it.each(verifiedEnglishDomains)('keeps %s English keys aligned with Korean keys', (domain) => {
-    expect(collectLeafKeys(messages.en[domain])).toEqual(collectLeafKeys(messages.ko[domain]))
+    expect(collectLeafKeys(allMessages.en[domain])).toEqual(collectLeafKeys(messages.ko[domain]))
   })
 
   it.each(verifiedEnglishDomains)('keeps %s interpolation parameters aligned', (domain) => {
     collectLeafKeys(messages.ko[domain]).forEach((key) => {
-      expect(collectInterpolationKeys(getValueByPath(messages.en[domain], key))).toEqual(
+      expect(collectInterpolationKeys(getValueByPath(allMessages.en[domain], key))).toEqual(
         collectInterpolationKeys(getValueByPath(messages.ko[domain], key)),
       )
     })
   })
 
   it.each(verifiedEnglishDomains)('contains translated English text for the %s domain', (domain) => {
-    const englishStrings = collectLeafValues(messages.en[domain]).filter(
+    const englishStrings = collectLeafValues(allMessages.en[domain]).filter(
       (value): value is string => typeof value === 'string',
     )
     expect(englishStrings).not.toHaveLength(0)

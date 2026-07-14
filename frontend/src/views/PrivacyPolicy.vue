@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { privacyPolicy, privacyPolicyEn } from '@/locales/privacy'
+import type { PrivacyPolicyMessages } from '@/locales/types'
 
-const { locale } = useI18n()
+const { locale, tm } = useI18n()
 const PRIVACY_POLICY_LAST_REVISED_AT = new Date(2026, 5, 30)
-const policy = computed(() => locale.value === 'ko' ? privacyPolicy : privacyPolicyEn)
+const policy = computed(() => tm('privacy') as unknown as PrivacyPolicyMessages)
 const privacyPolicyLastRevisedDate = computed(() => PRIVACY_POLICY_LAST_REVISED_AT.toLocaleDateString(
   locale.value === 'ko' ? 'ko-KR' : 'en-US',
 ))

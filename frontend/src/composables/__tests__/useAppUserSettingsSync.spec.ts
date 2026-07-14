@@ -1,8 +1,18 @@
-import { reactive, ref } from 'vue'
-import { describe, expect, it, vi } from 'vitest'
+import { reactive } from 'vue'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAppUserSettingsSync } from '../useAppUserSettingsSync'
 import { createDeferred } from '@/test/async'
 import type { UserSettings } from '@/types/user'
+
+const localeMocks = vi.hoisted(() => ({
+  setAppLocale: vi.fn().mockResolvedValue(true),
+  loggerWarn: vi.fn(),
+}))
+
+vi.mock('@/i18n', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@/i18n')>(),
+  setAppLocale: localeMocks.setAppLocale,
+}))
 
 vi.mock('@/api/user', () => ({
   userApi: {
@@ -12,7 +22,7 @@ vi.mock('@/api/user', () => ({
 
 vi.mock('@/utils/logger', () => ({
   default: {
-    warn: vi.fn(),
+    warn: localeMocks.loggerWarn,
   },
 }))
 
@@ -23,10 +33,14 @@ vi.mock('@/utils/storage', () => ({
 }))
 
 describe('useAppUserSettingsSync', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    localeMocks.setAppLocale.mockResolvedValue(true)
+  })
+
   it('does not apply settings that resolve after logout', async () => {
     const authStore = reactive({ isAuthenticated: true })
     const setTheme = vi.fn()
-    const locale = ref('ko')
     const settingsResult = createDeferred<UserSettings | null>()
     const queryClient = {
       fetchQuery: vi.fn(() => settingsResult.promise),
@@ -36,7 +50,6 @@ describe('useAppUserSettingsSync', () => {
       authStore,
       { setTheme },
       queryClient as never,
-      locale,
     )
 
     const pending = sync.loadSettings()
@@ -51,13 +64,12 @@ describe('useAppUserSettingsSync', () => {
     await pending
 
     expect(setTheme).not.toHaveBeenCalledWith('DARK')
-    expect(locale.value).toBe('ko')
+    expect(localeMocks.setAppLocale).not.toHaveBeenCalled()
   })
 
   it('applies settings while still authenticated', async () => {
     const authStore = reactive({ isAuthenticated: true })
     const setTheme = vi.fn()
-    const locale = ref('ko')
     const queryClient = {
       fetchQuery: vi.fn().mockResolvedValue({
         theme: 'DARK',
@@ -72,12 +84,31 @@ describe('useAppUserSettingsSync', () => {
       authStore,
       { setTheme },
       queryClient as never,
-      locale,
     )
 
     await sync.loadSettings()
 
     expect(setTheme).toHaveBeenCalledWith('DARK')
-    expect(locale.value).toBe('en')
+    expect(localeMocks.setAppLocale).toHaveBeenCalledWith('en')
+  })
+
+  it('keeps the current locale and logs a warning when lazy loading fails', async () => {
+    localeMocks.setAppLocale.mockResolvedValue(false)
+    const queryClient = {
+      fetchQuery: vi.fn().mockResolvedValue({ theme: 'DARK', language: 'en' }),
+      removeQueries: vi.fn(),
+    }
+    const sync = useAppUserSettingsSync(
+      reactive({ isAuthenticated: true }),
+      { setTheme: vi.fn() },
+      queryClient as never,
+    )
+
+    await sync.loadSettings()
+
+    expect(localeMocks.setAppLocale).toHaveBeenCalledWith('en')
+    expect(localeMocks.loggerWarn).toHaveBeenCalledWith(
+      'Failed to load locale messages during settings sync',
+    )
   })
 })

@@ -24,6 +24,7 @@ import { usePushNotifications } from '@/features/notifications/usePushNotificati
 import { formatDateTimeOrDash } from '@/utils/date'
 import { Monitor, Settings, X } from 'lucide-vue-next'
 import { useFieldValidation } from '@/composables/useFieldValidation'
+import { setAppLocale } from '@/i18n'
 
 const { t, locale } = useI18n()
 const route = useRoute()
@@ -147,6 +148,7 @@ const {
   themeIsDark: () => themeStore.isDark,
   updateSettings,
   setTheme: themeStore.setTheme,
+  setLocale: setAppLocale,
   t
 })
 

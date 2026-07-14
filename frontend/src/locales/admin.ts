@@ -1,1 +1,1 @@
-export { admin, adminEn } from './admin/index'
+export { admin } from './admin/index'

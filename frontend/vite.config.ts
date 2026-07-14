@@ -76,7 +76,28 @@ export default defineConfig(({ mode }) => {
                     ],
                 },
                 injectManifest: {
-                    globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff2}'],
+                    globPatterns: [
+                        'index.html',
+                        'assets/index-*.css',
+                        'assets/HomeFeed-*.css',
+                        'assets/EmptyState-*.css',
+                        'assets/PullToRefresh-*.css',
+                        'js/index-*.js',
+                        'js/HomeFeed-*.js',
+                        'js/BaseSegmentedControl.*.js',
+                        'js/BaseSkeleton.*.js',
+                        'js/EmptyState-*.js',
+                        'js/PullToRefresh-*.js',
+                        'js/postViewModel-*.js',
+                        'js/sanitize-*.js',
+                        'js/useAttendance-*.js',
+                        'js/vendor-vue-*.js',
+                        'js/vendor-query-*.js',
+                        'js/vendor-i18n-*.js',
+                        'js/vendor-http-*.js',
+                        'js/vendor-icons-*.js',
+                        'js/vendor-core-*.js',
+                    ],
                 },
             }),
             ...(!isProduction ? [vueDevTools()] : []),
@@ -150,19 +171,10 @@ export default defineConfig(({ mode }) => {
                             if (normalizedId.includes('/node_modules/axios/')) {
                                 return 'vendor-http'
                             }
-                            return 'vendor'
-                        }
-
-                        if (normalizedId.includes('/views/admin/') || normalizedId.includes('/components/admin/')) {
-                            return 'admin'
+                            return 'vendor-core'
                         }
                     },
-                    chunkFileNames: (chunkInfo) => {
-                        const facadeModuleId = chunkInfo.facadeModuleId
-                            ? chunkInfo.facadeModuleId.split('/').pop()
-                            : 'chunk'
-                        return `js/${facadeModuleId}-[hash].js`
-                    },
+                    chunkFileNames: 'js/[name]-[hash].js',
                     entryFileNames: 'js/[name]-[hash].js',
                     assetFileNames: (assetInfo) => {
                         const info = assetInfo.name.split('.')
@@ -177,7 +189,7 @@ export default defineConfig(({ mode }) => {
                     },
                 },
             },
-            chunkSizeWarningLimit: 500,
+            chunkSizeWarningLimit: 450,
         },
         server: {
             proxy: {

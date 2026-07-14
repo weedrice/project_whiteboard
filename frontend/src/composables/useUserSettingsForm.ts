@@ -18,6 +18,7 @@ interface UseUserSettingsFormOptions {
   themeIsDark: () => boolean
   updateSettings: (payload: UserSettingsUpdatePayload) => Promise<unknown>
   setTheme: (theme: 'LIGHT' | 'DARK') => void
+  setLocale?: (locale: UserSettings['language']) => Promise<boolean>
   t: (key: string) => string
 }
 
@@ -78,7 +79,16 @@ export function useUserSettingsForm(options: UseUserSettingsFormOptions) {
 
     message.value = ''
     isError.value = false
+    const previousLanguage = baseline.value?.language as UserSettings['language'] | undefined
     try {
+      const localeApplied = options.setLocale
+        ? await options.setLocale(form.language as UserSettings['language'])
+        : true
+      if (!localeApplied) {
+        message.value = options.t('user.settings.failed')
+        isError.value = true
+        return
+      }
       await options.updateSettings({
         theme: form.theme,
         language: form.language as UserSettings['language'],
@@ -90,6 +100,9 @@ export function useUserSettingsForm(options: UseUserSettingsFormOptions) {
       baseline.value = { ...form }
       message.value = options.t('user.settings.saved')
     } catch (error: unknown) {
+      if (previousLanguage && options.setLocale) {
+        await options.setLocale(previousLanguage)
+      }
       logger.error('Failed to save general settings:', error)
       message.value = options.t('user.settings.failed')
       isError.value = true

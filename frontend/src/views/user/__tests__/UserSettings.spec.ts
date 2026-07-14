@@ -60,6 +60,7 @@ const toastStoreMock = vi.hoisted(() => ({
 const confirmMock = vi.hoisted(() => vi.fn().mockResolvedValue(true))
 const routeMock = vi.hoisted(() => ({ hash: '' }))
 const routerReplaceMock = vi.hoisted(() => vi.fn())
+const setAppLocaleMock = vi.hoisted(() => vi.fn().mockResolvedValue(true))
 const pushNotificationMock = vi.hoisted(() => ({
   enabled: { value: true },
   supported: { value: true },
@@ -73,6 +74,10 @@ const pushNotificationMock = vi.hoisted(() => ({
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({ t: identityT, locale: { value: 'ko' } }),
+}))
+
+vi.mock('@/i18n', () => ({
+  setAppLocale: setAppLocaleMock,
 }))
 
 vi.mock('vue-router', () => ({
@@ -256,6 +261,7 @@ const mountUserSettings = () => {
 describe('UserSettings', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    setAppLocaleMock.mockResolvedValue(true)
     routeMock.hash = ''
 
     themeIsDark.value = false

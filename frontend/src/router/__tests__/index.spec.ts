@@ -9,7 +9,7 @@ import { emoticonApi } from '@/api/emoticon'
 import { postApi } from '@/api/post'
 import { userApi } from '@/api/user'
 import { postDetailQueryKey } from '@/features/board/posts/queries/postQueryKeys'
-import i18n from '@/i18n'
+import i18n, { setAppLocale } from '@/i18n'
 import { useToastStore } from '@/stores/toast'
 import { apiDataResponse } from '@/test/apiResponseFixtures'
 import { QUERY_STALE_TIME } from '@/utils/constants'
@@ -374,7 +374,7 @@ describe('Router Navigation Guards', () => {
     it('uses the English permission toast when the active locale is English', async () => {
         mockAuthStore.isAuthenticated = true
         mockAuthStore.user = { role: 'USER' }
-        i18n.global.locale.value = 'en'
+        await setAppLocale('en')
         vi.mocked(boardApi.getBoard).mockResolvedValueOnce(boardPermissionResponse({
             isAdmin: false,
             categories: [{ categoryId: 1, name: 'Admins', minWriteRole: 'BOARD_ADMIN' }]
