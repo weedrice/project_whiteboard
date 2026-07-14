@@ -32,7 +32,8 @@ class SemanticSearchBackfillServiceTest {
     @Test
     void enqueueBackfill_selectsOnlyMissingOrTombstonedEmbeddings() {
         when(jdbcTemplate.queryForList(anyString(), eq(Long.class), eq(10)))
-                .thenReturn(List.of(1L, 2L), List.of(11L));
+                .thenReturn(List.of(1L, 2L))
+                .thenReturn(List.of(11L));
 
         int count = backfillService.enqueueBackfill("ALL", 10);
 
@@ -78,7 +79,8 @@ class SemanticSearchBackfillServiceTest {
     @Test
     void enqueueBackfill_propagatesCommentEnqueueFailureAfterPostEnqueue() {
         when(jdbcTemplate.queryForList(anyString(), eq(Long.class), eq(10)))
-                .thenReturn(List.of(1L), List.of(11L));
+                .thenReturn(List.of(1L))
+                .thenReturn(List.of(11L));
         doThrow(new IllegalStateException("comment enqueue failed"))
                 .when(jobRepository).enqueueAll("COMMENT", List.of(11L), SemanticSearchIndexAction.UPSERT);
 

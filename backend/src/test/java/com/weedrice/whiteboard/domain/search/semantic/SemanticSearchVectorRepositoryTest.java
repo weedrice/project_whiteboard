@@ -30,7 +30,10 @@ class SemanticSearchVectorRepositoryTest {
 
     @Test
     void search_buildsUnionSqlWithSimilarityAndResponseColumns() {
-        when(jdbcTemplate.query(anyString(), any(MapSqlParameterSource.class), any(RowMapper.class)))
+        when(jdbcTemplate.query(
+                anyString(),
+                any(MapSqlParameterSource.class),
+                org.mockito.ArgumentMatchers.<RowMapper<SemanticSearchRow>>any()))
                 .thenReturn(List.of());
         SemanticSearchQuery query = new SemanticSearchQuery(
                 SemanticSearchContentType.ALL,
@@ -46,7 +49,10 @@ class SemanticSearchVectorRepositoryTest {
 
         ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
         ArgumentCaptor<MapSqlParameterSource> paramsCaptor = ArgumentCaptor.forClass(MapSqlParameterSource.class);
-        verify(jdbcTemplate).query(sqlCaptor.capture(), paramsCaptor.capture(), any(RowMapper.class));
+        verify(jdbcTemplate).query(
+                sqlCaptor.capture(),
+                paramsCaptor.capture(),
+                org.mockito.ArgumentMatchers.<RowMapper<SemanticSearchRow>>any());
 
         assertThat(sqlCaptor.getValue())
                 .contains("1 - (e.embedding <=> CAST(:queryEmbedding AS vector)) AS similarity")

@@ -18,10 +18,10 @@ const TestHost = defineComponent({
   },
   setup(props) {
     const postId = ref(15)
-    const enabled = ref(props.enabled)
+    const enabledRef = ref(props.enabled)
     const initialLastReadCommentId = ref<number | null>(props.initialCommentId || null)
-    const history = usePostViewHistory({ postId, enabled, initialLastReadCommentId })
-    return { ...history, enabled, postId }
+    const history = usePostViewHistory({ postId, enabled: enabledRef, initialLastReadCommentId })
+    return { ...history, enabledRef, postId }
   },
   template: '<div />',
 })

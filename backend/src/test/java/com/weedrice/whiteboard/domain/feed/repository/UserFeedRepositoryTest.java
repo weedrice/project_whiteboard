@@ -230,10 +230,11 @@ class UserFeedRepositoryTest {
         entityManager.clear();
 
         String targetSelectQuery = extractSubscriptionPostFeedTargetSelectQuery();
-        List<Long> targetUserIds = entityManager.getEntityManager()
+        java.util.stream.Stream<?> targetResults = entityManager.getEntityManager()
                 .createNativeQuery(targetSelectQuery)
                 .setParameter("boardId", publicBoard.getBoardId())
-                .getResultStream()
+                .getResultStream();
+        List<Long> targetUserIds = targetResults
                 .map(result -> ((Number) result).longValue())
                 .toList();
 

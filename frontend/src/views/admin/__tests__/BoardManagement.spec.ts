@@ -1,4 +1,4 @@
-import { mount } from '@vue/test-utils'
+import { mount, RouterLinkStub } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, ref } from 'vue'
 import BoardManagement from '../BoardManagement.vue'
@@ -101,6 +101,7 @@ describe('BoardManagement', () => {
           BaseSpinner: true,
           UserSelectModal: true,
           GripVertical: true,
+          RouterLink: RouterLinkStub,
         },
       },
     })
@@ -129,6 +130,7 @@ describe('BoardManagement', () => {
           BaseSpinner: true,
           UserSelectModal: true,
           GripVertical: true,
+          RouterLink: RouterLinkStub,
         },
       },
     })

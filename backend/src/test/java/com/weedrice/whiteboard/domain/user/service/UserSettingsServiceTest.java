@@ -178,7 +178,9 @@ class UserSettingsServiceTest {
         UserSettings settings = new UserSettings(user);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(userSettingsRepository.findById(1L)).thenReturn(Optional.empty(), Optional.of(settings));
+        when(userSettingsRepository.findById(1L))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.of(settings));
         when(userSettingsRepository.saveAndFlush(any(UserSettings.class)))
                 .thenThrow(new DataIntegrityViolationException("duplicate user_settings"));
 
@@ -196,7 +198,9 @@ class UserSettingsServiceTest {
         UserSettings settings = new UserSettings(user);
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(userSettingsRepository.findById(1L)).thenReturn(Optional.empty(), Optional.of(settings));
+        when(userSettingsRepository.findById(1L))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.of(settings));
         when(userSettingsRepository.saveAndFlush(any(UserSettings.class)))
                 .thenThrow(new DataIntegrityViolationException("duplicate user_settings"));
         when(userSettingsRepository.save(settings)).thenReturn(settings);
