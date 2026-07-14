@@ -1,6 +1,6 @@
 import api from './index'
 import type { AxiosRequestConfig, AxiosResponse } from 'axios'
-import { unwrapApiData } from '@/api/response'
+import { mapApiDataResponse, unwrapApiData } from '@/api/response'
 import type {
     EmoticonCreateRequest,
     EmoticonMaster,
@@ -10,11 +10,34 @@ import type {
 } from '@/types/emoticon'
 import type { ApiResponse } from '@/types'
 import type { PageResponse } from '@/types/common'
+import { normalizePageResponseItems, type PageResponseRaw } from '@/utils/pageResponse'
 import { encodePathSegment } from '@/utils/urlPath'
 
 type EmoticonResponse<T> = AxiosResponse<ApiResponse<T>>
 type EmoticonPeriod = 'daily' | 'weekly' | 'monthly'
 type EmoticonPageParams = { page?: number; size?: number }
+type EmoticonMasterWire = Omit<EmoticonMaster, 'images'> & {
+    images?: EmoticonMaster['images'] | null
+}
+
+export function normalizeEmoticonMaster(emoticon: EmoticonMasterWire): EmoticonMaster {
+    return {
+        ...emoticon,
+        images: emoticon.images ?? [],
+    }
+}
+
+const mapEmoticonResponse = (response: EmoticonResponse<EmoticonMasterWire>) =>
+    mapApiDataResponse(response, normalizeEmoticonMaster)
+
+const mapEmoticonListResponse = (response: EmoticonResponse<EmoticonMasterWire[]>) =>
+    mapApiDataResponse(response, (emoticons) => emoticons.map(normalizeEmoticonMaster))
+
+const mapEmoticonPageResponse = (response: EmoticonResponse<PageResponseRaw<EmoticonMasterWire>>) =>
+    mapApiDataResponse(
+        response,
+        (page): PageResponse<EmoticonMaster> => normalizePageResponseItems(page, normalizeEmoticonMaster),
+    )
 
 export function unwrapEmoticonResponse<T>(response: EmoticonResponse<T>): T {
     return unwrapApiData(response.data)
@@ -23,7 +46,8 @@ export function unwrapEmoticonResponse<T>(response: EmoticonResponse<T>): T {
 export const emoticonApi = {
     // List emoticon packs.
     getEmoticons(params?: EmoticonSearchParams, config?: AxiosRequestConfig) {
-        return api.get<ApiResponse<PageResponse<EmoticonMaster>>>('/emoticons', { ...config, params })
+        return api.get<ApiResponse<PageResponseRaw<EmoticonMasterWire>>>('/emoticons', { ...config, params })
+            .then(mapEmoticonPageResponse)
     },
     async getEmoticonsData(params?: EmoticonSearchParams, config?: AxiosRequestConfig) {
         return unwrapEmoticonResponse(await emoticonApi.getEmoticons(params, config))
@@ -31,10 +55,10 @@ export const emoticonApi = {
 
     // List popular emoticon packs by period.
     getPopularEmoticons(period: EmoticonPeriod = 'daily', config?: AxiosRequestConfig) {
-        return api.get<ApiResponse<EmoticonMaster[]>>('/emoticons/popular', {
+        return api.get<ApiResponse<EmoticonMasterWire[]>>('/emoticons/popular', {
             ...config,
             params: { ...config?.params, period },
-        })
+        }).then(mapEmoticonListResponse)
     },
     async getPopularEmoticonsData(period: EmoticonPeriod = 'daily', config?: AxiosRequestConfig) {
         return unwrapEmoticonResponse(await emoticonApi.getPopularEmoticons(period, config))
@@ -42,7 +66,8 @@ export const emoticonApi = {
 
     // Search by keyword, tag, creator, or pack name.
     searchAll(params?: EmoticonSearchParams, config?: AxiosRequestConfig) {
-        return api.get<ApiResponse<PageResponse<EmoticonMaster>>>('/emoticons/search/all', { ...config, params })
+        return api.get<ApiResponse<PageResponseRaw<EmoticonMasterWire>>>('/emoticons/search/all', { ...config, params })
+            .then(mapEmoticonPageResponse)
     },
     async searchAllData(params?: EmoticonSearchParams, config?: AxiosRequestConfig) {
         return unwrapEmoticonResponse(await emoticonApi.searchAll(params, config))
@@ -50,9 +75,9 @@ export const emoticonApi = {
 
     // Search emoticon packs by tag.
     searchByTag(tag: string, params?: EmoticonPageParams) {
-        return api.get<ApiResponse<PageResponse<EmoticonMaster>>>('/emoticons/search/tag', {
+        return api.get<ApiResponse<PageResponseRaw<EmoticonMasterWire>>>('/emoticons/search/tag', {
             params: { tag, ...params },
-        })
+        }).then(mapEmoticonPageResponse)
     },
     async searchByTagData(tag: string, params?: EmoticonPageParams) {
         return unwrapEmoticonResponse(await emoticonApi.searchByTag(tag, params))
@@ -60,9 +85,9 @@ export const emoticonApi = {
 
     // Search emoticon packs by keyword.
     searchByKeyword(keyword: string, params?: EmoticonPageParams) {
-        return api.get<ApiResponse<PageResponse<EmoticonMaster>>>('/emoticons/search', {
+        return api.get<ApiResponse<PageResponseRaw<EmoticonMasterWire>>>('/emoticons/search', {
             params: { keyword, ...params },
-        })
+        }).then(mapEmoticonPageResponse)
     },
     async searchByKeywordData(keyword: string, params?: EmoticonPageParams) {
         return unwrapEmoticonResponse(await emoticonApi.searchByKeyword(keyword, params))
@@ -70,7 +95,8 @@ export const emoticonApi = {
 
     // List emoticon packs owned by the current user.
     getMyEmoticons(params?: EmoticonPageParams, config?: AxiosRequestConfig) {
-        return api.get<ApiResponse<PageResponse<EmoticonMaster>>>('/emoticons/my', { ...config, params })
+        return api.get<ApiResponse<PageResponseRaw<EmoticonMasterWire>>>('/emoticons/my', { ...config, params })
+            .then(mapEmoticonPageResponse)
     },
     async getMyEmoticonsData(params?: EmoticonPageParams, config?: AxiosRequestConfig) {
         return unwrapEmoticonResponse(await emoticonApi.getMyEmoticons(params, config))
@@ -80,9 +106,9 @@ export const emoticonApi = {
     getEmoticon(emoticonId: number, config?: AxiosRequestConfig) {
         const encodedId = encodePathSegment(emoticonId)
         if (config) {
-            return api.get<ApiResponse<EmoticonMaster>>(`/emoticons/${encodedId}`, config)
+            return api.get<ApiResponse<EmoticonMasterWire>>(`/emoticons/${encodedId}`, config).then(mapEmoticonResponse)
         }
-        return api.get<ApiResponse<EmoticonMaster>>(`/emoticons/${encodedId}`)
+        return api.get<ApiResponse<EmoticonMasterWire>>(`/emoticons/${encodedId}`).then(mapEmoticonResponse)
     },
     async getEmoticonData(emoticonId: number, config?: AxiosRequestConfig) {
         return unwrapEmoticonResponse(await emoticonApi.getEmoticon(emoticonId, config))
@@ -91,9 +117,9 @@ export const emoticonApi = {
     // Create an emoticon pack.
     createEmoticon(data: EmoticonCreateRequest, config?: AxiosRequestConfig) {
         if (config) {
-            return api.post<ApiResponse<EmoticonMaster>>('/emoticons', data, config)
+            return api.post<ApiResponse<EmoticonMasterWire>>('/emoticons', data, config).then(mapEmoticonResponse)
         }
-        return api.post<ApiResponse<EmoticonMaster>>('/emoticons', data)
+        return api.post<ApiResponse<EmoticonMasterWire>>('/emoticons', data).then(mapEmoticonResponse)
     },
     async createEmoticonData(data: EmoticonCreateRequest, config?: AxiosRequestConfig) {
         return unwrapEmoticonResponse(await emoticonApi.createEmoticon(data, config))
@@ -103,9 +129,9 @@ export const emoticonApi = {
     updateEmoticon(emoticonId: number, data: EmoticonUpdateRequest, config?: AxiosRequestConfig) {
         const encodedId = encodePathSegment(emoticonId)
         if (config) {
-            return api.put<ApiResponse<EmoticonMaster>>(`/emoticons/${encodedId}`, data, config)
+            return api.put<ApiResponse<EmoticonMasterWire>>(`/emoticons/${encodedId}`, data, config).then(mapEmoticonResponse)
         }
-        return api.put<ApiResponse<EmoticonMaster>>(`/emoticons/${encodedId}`, data)
+        return api.put<ApiResponse<EmoticonMasterWire>>(`/emoticons/${encodedId}`, data).then(mapEmoticonResponse)
     },
     async updateEmoticonData(emoticonId: number, data: EmoticonUpdateRequest, config?: AxiosRequestConfig) {
         return unwrapEmoticonResponse(await emoticonApi.updateEmoticon(emoticonId, data, config))
@@ -113,7 +139,8 @@ export const emoticonApi = {
 
     // Toggle sale or visibility state.
     toggleVisibility(emoticonId: number) {
-        return api.patch<ApiResponse<EmoticonMaster>>(`/emoticons/${encodePathSegment(emoticonId)}/visibility`)
+        return api.patch<ApiResponse<EmoticonMasterWire>>(`/emoticons/${encodePathSegment(emoticonId)}/visibility`)
+            .then(mapEmoticonResponse)
     },
     async toggleVisibilityData(emoticonId: number) {
         return unwrapEmoticonResponse(await emoticonApi.toggleVisibility(emoticonId))
@@ -128,9 +155,11 @@ export const emoticonApi = {
     addImage(emoticonId: number, fileId: number, config?: AxiosRequestConfig) {
         const encodedId = encodePathSegment(emoticonId)
         if (config) {
-            return api.post<ApiResponse<EmoticonMaster>>(`/emoticons/${encodedId}/images`, { fileId }, config)
+            return api.post<ApiResponse<EmoticonMasterWire>>(`/emoticons/${encodedId}/images`, { fileId }, config)
+                .then(mapEmoticonResponse)
         }
-        return api.post<ApiResponse<EmoticonMaster>>(`/emoticons/${encodedId}/images`, { fileId })
+        return api.post<ApiResponse<EmoticonMasterWire>>(`/emoticons/${encodedId}/images`, { fileId })
+            .then(mapEmoticonResponse)
     },
     async addImageData(emoticonId: number, fileId: number, config?: AxiosRequestConfig) {
         return unwrapEmoticonResponse(await emoticonApi.addImage(emoticonId, fileId, config))
@@ -147,7 +176,8 @@ export const emoticonApi = {
 
     // Purchase an emoticon pack.
     purchaseEmoticon(emoticonId: number) {
-        return api.post<ApiResponse<EmoticonMaster>>(`/emoticons/${encodePathSegment(emoticonId)}/purchase`)
+        return api.post<ApiResponse<EmoticonMasterWire>>(`/emoticons/${encodePathSegment(emoticonId)}/purchase`)
+            .then(mapEmoticonResponse)
     },
     async purchaseEmoticonData(emoticonId: number) {
         return unwrapEmoticonResponse(await emoticonApi.purchaseEmoticon(emoticonId))
@@ -155,7 +185,8 @@ export const emoticonApi = {
 
     // List purchased emoticon packs.
     getPurchasedEmoticons(params?: EmoticonPageParams, config?: AxiosRequestConfig) {
-        return api.get<ApiResponse<PageResponse<EmoticonMaster>>>('/emoticons/purchased', { ...config, params })
+        return api.get<ApiResponse<PageResponseRaw<EmoticonMasterWire>>>('/emoticons/purchased', { ...config, params })
+            .then(mapEmoticonPageResponse)
     },
     async getPurchasedEmoticonsData(params?: EmoticonPageParams, config?: AxiosRequestConfig) {
         return unwrapEmoticonResponse(await emoticonApi.getPurchasedEmoticons(params, config))
