@@ -14,6 +14,7 @@ defineProps<{
   canEdit: boolean
   canDelete: boolean
   canManage: boolean
+  canViewHistory: boolean
 }>()
 
 const emit = defineEmits<{
@@ -23,6 +24,7 @@ const emit = defineEmits<{
   (event: 'unpin'): void
   (event: 'blind'): void
   (event: 'unblind'): void
+  (event: 'show-history'): void
 }>()
 
 const { t } = useI18n()
@@ -156,7 +158,17 @@ const seriesMeta = (postView: PostDetailViewModel) => {
               <Clock class="h-4 w-4" />
               {{ formatDate(postView.createdAt) }}
             </span>
-            <span v-if="postView.editCount > 0" data-testid="post-edit-count">
+            <button
+              v-if="canViewHistory"
+              type="button"
+              class="nv-focus-ring cursor-pointer rounded px-1 py-0.5 nv-hover-surface"
+              data-testid="post-edit-count"
+              :aria-label="t('board.postDetail.versionHistory')"
+              @click="emit('show-history')"
+            >
+              {{ t('board.postDetail.editedCount', { count: postView.editCount }) }}
+            </button>
+            <span v-else-if="postView.editCount > 0" data-testid="post-edit-count">
               {{ t('board.postDetail.editedCount', { count: postView.editCount }) }}
             </span>
             <span class="inline-flex items-center gap-1.5">

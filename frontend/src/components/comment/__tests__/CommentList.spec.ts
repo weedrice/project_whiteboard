@@ -95,7 +95,7 @@ const mountCommentList = () => mount(CommentList, {
       CommentItem: {
         emits: ['delete'],
         props: ['comment'],
-        template: '<div data-testid="comment-item"><span>{{ comment.content }}</span><button type="button" data-testid="delete-comment" @click="$emit(\'delete\', comment)">delete</button></div>',
+        template: '<div data-testid="comment-item" :data-comment-id="comment.commentId"><span>{{ comment.content }}</span><button type="button" data-testid="delete-comment" @click="$emit(\'delete\', comment)">delete</button></div>',
       },
       BaseSkeleton: true,
       BaseButton: {
@@ -183,5 +183,30 @@ describe('CommentList', () => {
       { commentId: 1, postId: 1 },
       expect.any(Object),
     )
+  })
+
+  it('emits the latest comment entering the reading viewport band', () => {
+    const intersectionCallback: { value?: IntersectionObserverCallback } = {}
+    class ReadingIntersectionObserver {
+      constructor(callback: IntersectionObserverCallback) {
+        intersectionCallback.value = callback
+      }
+      observe() {}
+      disconnect() {}
+      unobserve() {}
+      takeRecords() { return [] }
+      readonly root = null
+      readonly rootMargin = ''
+      readonly thresholds = []
+    }
+    vi.stubGlobal('IntersectionObserver', ReadingIntersectionObserver)
+    const wrapper = mountCommentList()
+    const target = wrapper.get('[data-comment-id="1"]').element
+
+    intersectionCallback.value?.([
+      { isIntersecting: true, target } as IntersectionObserverEntry,
+    ], {} as IntersectionObserver)
+
+    expect(wrapper.emitted('last-read-comment')).toEqual([[1]])
   })
 })

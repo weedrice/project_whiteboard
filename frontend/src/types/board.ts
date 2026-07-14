@@ -146,6 +146,7 @@ export interface Post {
     tags?: string[]
     liked?: boolean
     scrapped?: boolean
+    lastReadCommentId?: number | null
     lastViewedAt?: string | null
     poll?: PostPoll | null
     seriesNavigation?: PostSeriesNavigation | null

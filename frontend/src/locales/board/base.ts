@@ -172,6 +172,14 @@ export const boardBaseMessages = {
     previousInSeries: '이전 편',
     nextInSeries: '다음 편',
     editedCount: '수정됨 · {count}회',
+    versionHistory: '게시글 수정 이력',
+    versionEmpty: '표시할 수정 이력이 없습니다.',
+    versionLoadFailed: '수정 이력을 불러오지 못했습니다.',
+    versionActions: {
+      CREATE: '작성',
+      MODIFY: '수정',
+      DELETE: '삭제',
+    },
     poll: {
       title: '투표',
       multiple: '복수 선택',
@@ -376,6 +384,14 @@ export const boardEnBaseMessages = {
     previousInSeries: 'Previous',
     nextInSeries: 'Next',
     editedCount: 'Edited · {count} times',
+    versionHistory: 'Post version history',
+    versionEmpty: 'No version history is available.',
+    versionLoadFailed: 'Failed to load version history.',
+    versionActions: {
+      CREATE: 'Created',
+      MODIFY: 'Edited',
+      DELETE: 'Deleted',
+    },
     poll: {
       title: 'Poll',
       multiple: 'Multiple choice',

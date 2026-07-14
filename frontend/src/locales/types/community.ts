@@ -241,6 +241,14 @@ export interface BoardMessages {
     previousInSeries: string
     nextInSeries: string
     editedCount: string
+    versionHistory: string
+    versionEmpty: string
+    versionLoadFailed: string
+    versionActions: {
+      CREATE: string
+      MODIFY: string
+      DELETE: string
+    }
     poll: {
       title: string
       multiple: string

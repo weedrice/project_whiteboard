@@ -43,6 +43,7 @@ describe('toPostDetailViewModel', () => {
       likeCount: 4,
       liked: false,
       scrapped: true,
+      lastReadCommentId: null,
       lastViewedAt: null,
       seriesNavigation: null,
       poll: null,

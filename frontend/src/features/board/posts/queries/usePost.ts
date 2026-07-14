@@ -59,6 +59,20 @@ export function usePost() {
         })
     }
 
+    const usePostVersions = (postId: Ref<string | number>, enabled: Ref<boolean>) => {
+        return useQuery({
+            queryKey: computed(() => postQueryKeys.versions(postId.value)),
+            queryFn: async (context?: { signal?: AbortSignal }) => unwrapAxiosApiData(
+                await postApi.getPostVersions(postId.value, withQuerySignal(
+                    { skipGlobalErrorHandler: true },
+                    context,
+                )),
+            ),
+            enabled: computed(() => Boolean(postId.value) && enabled.value),
+            retry: false,
+        })
+    }
+
     const useCreatePost = () => {
         return useMutation({
             mutationFn: async ({ boardUrl, data }: { boardUrl: string, data: PostCreateData }) => {
@@ -266,6 +280,7 @@ export function usePost() {
     return {
         usePostDetail,
         useRelatedPosts,
+        usePostVersions,
         useCreatePost,
         useCreateScheduledPost,
         useUpdatePost,

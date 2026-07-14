@@ -158,6 +158,12 @@ vi.mock('@/features/board/posts/queries/usePost', () => ({
     }),
     useUnblindPostByManager: () => ({
       mutateAsync: unblindPostMutateAsync
+    }),
+    usePostVersions: () => ({
+      data: ref([]),
+      isLoading: ref(false),
+      isError: ref(false),
+      refetch: vi.fn()
     })
   })
 }))
@@ -561,7 +567,7 @@ describe('PostDetail', () => {
     expect(ctaButton?.exists()).toBe(true)
 
     await ctaButton?.trigger('click')
-    vi.runAllTimers()
+    vi.runOnlyPendingTimers()
 
     expect(scrollSpy).toHaveBeenCalled()
     expect(focusSpy).toHaveBeenCalled()

@@ -165,6 +165,7 @@ watch(isBlinded, (blinded) => {
 <template>
   <div
     :id="`comment-${comment.commentId}`"
+    :data-comment-id="comment.commentId"
     class="space-y-3 rounded-lg transition-colors sm:space-y-4"
     :class="{ 'nv-comment-item-new': isNewSinceLastView }"
   >

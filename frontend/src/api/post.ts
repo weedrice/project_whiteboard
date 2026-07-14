@@ -92,6 +92,18 @@ export interface PostCreateResponse {
     earnedPoints?: number | null
 }
 
+export interface ViewHistoryPayload {
+    lastReadCommentId?: number
+    durationMs?: number
+}
+
+export interface PostVersion {
+    versionId: number
+    actionType: string
+    title: string
+    createdAt: string
+}
+
 export interface ScheduledPostData extends PostCreateData {
     scheduledAt: string
 }
@@ -209,6 +221,15 @@ export const postApi = {
 
     // Increment post view count
     incrementView: (postId: string | number) => api.post<ApiResponse<void>>(`/posts/${encodePathSegment(postId)}/view`),
+
+    updateViewHistory: (
+        postId: string | number,
+        data: ViewHistoryPayload,
+        config?: AxiosRequestConfig,
+    ) => api.put<ApiResponse<void>>(`/posts/${encodePathSegment(postId)}/history`, data, config),
+
+    getPostVersions: (postId: string | number, config?: AxiosRequestConfig) =>
+        api.get<ApiResponse<PostVersion[]>>(`/posts/${encodePathSegment(postId)}/versions`, config),
 
     // Like post
     likePost: (postId: string | number) => api.post<ApiResponse<number>>(`/posts/${encodePathSegment(postId)}/like`),

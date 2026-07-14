@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { Comment } from '@/api/comment'
 import { useComment } from '@/composables/useComment'
@@ -24,10 +24,15 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (event: 'refresh-comments'): void
+  (event: 'last-read-comment', commentId: number): void
 }>()
 
 const { t } = useI18n()
 const authStore = useAuthStore()
+const commentListRoot = ref<HTMLElement | null>(null)
+const observedCommentElements = new WeakSet<Element>()
+let readObserver: IntersectionObserver | null = null
+let commentMutationObserver: MutationObserver | null = null
 const { useBestComments, useInfiniteComments, useDeleteComment } = useComment()
 
 const COMMENT_PAGE_INCREMENT = 50
@@ -101,10 +106,54 @@ function isNewComment(comment: Comment) {
   const createdAt = new Date(comment.createdAt).getTime()
   return !Number.isNaN(createdAt) && createdAt > lastViewedTime.value
 }
+
+function observeCommentElements() {
+  if (!readObserver || !commentListRoot.value) return
+
+  commentListRoot.value.querySelectorAll<HTMLElement>('[data-comment-id]').forEach((element) => {
+    if (observedCommentElements.has(element)) return
+    observedCommentElements.add(element)
+    readObserver?.observe(element)
+  })
+}
+
+watch([comments, bestComments], () => {
+  void nextTick(observeCommentElements)
+})
+
+onMounted(() => {
+  if (typeof IntersectionObserver === 'undefined') return
+
+  readObserver = new IntersectionObserver((entries) => {
+    const latestVisibleEntry = entries.filter((entry) => entry.isIntersecting).at(-1)
+    const rawCommentId = (latestVisibleEntry?.target as HTMLElement | undefined)?.dataset.commentId
+    const commentId = Number(rawCommentId)
+    if (Number.isInteger(commentId) && commentId > 0) {
+      emit('last-read-comment', commentId)
+    }
+  }, {
+    rootMargin: '-20% 0px -60% 0px',
+    threshold: 0,
+  })
+
+  if (typeof MutationObserver !== 'undefined' && commentListRoot.value) {
+    commentMutationObserver = new MutationObserver(observeCommentElements)
+    commentMutationObserver.observe(commentListRoot.value, { childList: true, subtree: true })
+  }
+
+  observeCommentElements()
+})
+
+onBeforeUnmount(() => {
+  readObserver?.disconnect()
+  readObserver = null
+  commentMutationObserver?.disconnect()
+  commentMutationObserver = null
+})
 </script>
 
 <template>
-  <div class="mt-6 sm:mt-8">
+  <div ref="commentListRoot" class="mt-6 sm:mt-8">
     <h3 class="mb-4 text-base font-medium nv-title sm:mb-6 sm:text-lg">
       {{ $t('comment.title') }}
     </h3>

@@ -224,6 +224,7 @@ describe('extracted board components', () => {
         canEdit: true,
         canDelete: true,
         canManage: true,
+        canViewHistory: true,
       },
       global: {
         stubs: {
@@ -248,9 +249,11 @@ describe('extracted board components', () => {
     expect(wrapper.get('[data-testid="post-edit-count"]').text()).toBe('board.postDetail.editedCount')
     expect(wrapper.emitted('back-to-list')).toHaveLength(1)
     expect(wrapper.emitted('delete')).toHaveLength(1)
+    await wrapper.get('[data-testid="post-edit-count"]').trigger('click')
+    expect(wrapper.emitted('show-history')).toHaveLength(1)
 
     await wrapper.setProps({ postView: { ...postView, editCount: 0 } })
-    expect(wrapper.find('[data-testid="post-edit-count"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="post-edit-count"]').exists()).toBe(true)
   })
 
   it('emits metadata updates from post form metadata panel', async () => {

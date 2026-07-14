@@ -11,6 +11,7 @@ export interface PostDetailViewModel {
   likeCount: number
   liked: boolean
   scrapped: boolean
+  lastReadCommentId?: number | null
   lastViewedAt?: string | null
   tags: string[]
   boardName: string
@@ -37,6 +38,7 @@ export function toPostDetailViewModel(post: Post): PostDetailViewModel {
     likeCount: post.likeCount,
     liked: post.liked ?? false,
     scrapped: post.scrapped ?? false,
+    lastReadCommentId: post.lastReadCommentId ?? null,
     lastViewedAt: post.lastViewedAt ?? null,
     tags: post.tags ?? [],
     boardName: post.board.boardName,
