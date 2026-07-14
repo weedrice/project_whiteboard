@@ -72,8 +72,30 @@ public interface FileRepository extends JpaRepository<File, Long> {
               AND (f.storageStatus = :storageStatus
                    OR (:storageStatus = com.weedrice.whiteboard.domain.file.entity.FileStorageStatus.ACTIVE
                        AND f.storageStatus IS NULL))
-              AND (:lastCreatedAt IS NULL
-                   OR f.createdAt > :lastCreatedAt
+            ORDER BY f.createdAt ASC, f.fileId ASC
+            """)
+    List<FileCleanupCandidateProjection> findTemporaryFileCleanupCandidates(
+            @Param("dateTime") LocalDateTime dateTime,
+            @Param("storageStatus") FileStorageStatus storageStatus,
+            Pageable pageable);
+
+    default List<FileCleanupCandidateProjection> findTemporaryFileCleanupCandidates(
+            LocalDateTime dateTime,
+            Pageable pageable) {
+        return findTemporaryFileCleanupCandidates(dateTime, FileStorageStatus.ACTIVE, pageable);
+    }
+
+    @Query("""
+            SELECT f.fileId AS fileId,
+                   f.createdAt AS createdAt
+            FROM File f
+            WHERE f.relatedId IS NULL
+              AND f.relatedType IS NULL
+              AND f.createdAt < :dateTime
+              AND (f.storageStatus = :storageStatus
+                   OR (:storageStatus = com.weedrice.whiteboard.domain.file.entity.FileStorageStatus.ACTIVE
+                       AND f.storageStatus IS NULL))
+              AND (f.createdAt > :lastCreatedAt
                    OR (f.createdAt = :lastCreatedAt AND f.fileId > :lastFileId))
             ORDER BY f.createdAt ASC, f.fileId ASC
             """)

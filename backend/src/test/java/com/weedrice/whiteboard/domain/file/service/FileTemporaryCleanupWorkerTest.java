@@ -18,7 +18,6 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -88,10 +87,8 @@ class FileTemporaryCleanupWorkerTest {
         LocalDateTime firstCreatedAt = LocalDateTime.of(2026, 5, 6, 10, 0);
         LocalDateTime secondCreatedAt = LocalDateTime.of(2026, 5, 6, 10, 1);
         LocalDateTime thirdCreatedAt = LocalDateTime.of(2026, 5, 6, 10, 2);
-        when(fileRepository.findTemporaryFileCleanupCandidatesAfter(
+        when(fileRepository.findTemporaryFileCleanupCandidates(
                 eq(cutoff),
-                isNull(),
-                isNull(),
                 eq(PageRequest.of(0, 500))))
                 .thenReturn(List.of(
                         cleanupCandidate(10L, firstCreatedAt),
@@ -119,10 +116,8 @@ class FileTemporaryCleanupWorkerTest {
         LocalDateTime deleteRequestedAt = LocalDateTime.of(2026, 5, 8, 10, 0);
         LocalDateTime firstCreatedAt = LocalDateTime.of(2026, 5, 6, 10, 0);
         LocalDateTime secondCreatedAt = LocalDateTime.of(2026, 5, 6, 10, 1);
-        when(fileRepository.findTemporaryFileCleanupCandidatesAfter(
+        when(fileRepository.findTemporaryFileCleanupCandidates(
                 eq(cutoff),
-                isNull(),
-                isNull(),
                 eq(PageRequest.of(0, 500))))
                 .thenReturn(List.of(
                         cleanupCandidate(10L, firstCreatedAt),
@@ -145,10 +140,8 @@ class FileTemporaryCleanupWorkerTest {
     void requestDeletionBatch_returnsFinishedWhenNoCandidates() {
         LocalDateTime cutoff = LocalDateTime.of(2026, 5, 7, 10, 0);
         LocalDateTime deleteRequestedAt = LocalDateTime.of(2026, 5, 8, 10, 0);
-        when(fileRepository.findTemporaryFileCleanupCandidatesAfter(
+        when(fileRepository.findTemporaryFileCleanupCandidates(
                 eq(cutoff),
-                isNull(),
-                isNull(),
                 eq(PageRequest.of(0, 500))))
                 .thenReturn(List.of());
 
@@ -160,6 +153,29 @@ class FileTemporaryCleanupWorkerTest {
         assertThat(result.requestedCount()).isZero();
         verifyNoInteractions(emoticonFileReferenceService);
         verify(fileRepository, never()).requestDeletionForTemporaryFiles(any(), any());
+    }
+
+    @Test
+    @DisplayName("첫 배치 이후에는 createdAt/fileId 커서 조회를 사용한다")
+    void requestDeletionBatch_usesCursorQueryAfterFirstBatch() {
+        LocalDateTime cutoff = LocalDateTime.of(2026, 5, 7, 10, 0);
+        LocalDateTime deleteRequestedAt = LocalDateTime.of(2026, 5, 8, 10, 0);
+        LocalDateTime lastCreatedAt = LocalDateTime.of(2026, 5, 6, 10, 0);
+        LocalDateTime nextCreatedAt = LocalDateTime.of(2026, 5, 6, 10, 1);
+        when(fileRepository.findTemporaryFileCleanupCandidatesAfter(
+                cutoff,
+                lastCreatedAt,
+                10L,
+                PageRequest.of(0, 500)))
+                .thenReturn(List.of(cleanupCandidate(11L, nextCreatedAt)));
+        when(emoticonFileReferenceService.excludeReferencedFileIds(List.of(11L))).thenReturn(List.of());
+
+        FileTemporaryCleanupWorker.CleanupBatchResult result = worker.requestDeletionBatch(
+                cutoff, lastCreatedAt, 10L, 500, deleteRequestedAt);
+
+        assertThat(result.lastCreatedAt()).isEqualTo(nextCreatedAt);
+        assertThat(result.lastFileId()).isEqualTo(11L);
+        verify(fileRepository, never()).findTemporaryFileCleanupCandidates(any(), any());
     }
 
     private FileRepository.FileCleanupCandidateProjection cleanupCandidate(Long fileId, LocalDateTime createdAt) {

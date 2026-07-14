@@ -226,6 +226,27 @@ class FileRepositoryTest {
     }
 
     @Test
+    @DisplayName("임시 파일 정리 첫 페이지는 nullable 커서 없이 조회한다")
+    void findTemporaryFileCleanupCandidates_returnsFirstPageWithoutCursor() {
+        LocalDateTime firstCreatedAt = LocalDateTime.of(2026, 5, 6, 10, 0);
+        LocalDateTime nextCreatedAt = LocalDateTime.of(2026, 5, 6, 10, 1);
+        File first = persistTemporaryFile("first-page.jpg");
+        File next = persistTemporaryFile("next-page.jpg");
+        setCreatedAt(first, firstCreatedAt);
+        setCreatedAt(next, nextCreatedAt);
+        entityManager.flush();
+        entityManager.clear();
+
+        List<FileRepository.FileCleanupCandidateProjection> candidates =
+                fileRepository.findTemporaryFileCleanupCandidates(
+                        LocalDateTime.of(2026, 5, 7, 10, 0),
+                        PageRequest.of(0, 10));
+
+        assertThat(candidates).extracting(FileRepository.FileCleanupCandidateProjection::getFileId)
+                .containsExactly(first.getFileId(), next.getFileId());
+    }
+
+    @Test
     @DisplayName("임시 파일 정리 후보는 createdAt/fileId 커서 이후 항목만 조회한다")
     void findTemporaryFileCleanupCandidatesAfter_usesCreatedAtAndFileIdCursor() {
         LocalDateTime firstCreatedAt = LocalDateTime.of(2026, 5, 6, 10, 0);

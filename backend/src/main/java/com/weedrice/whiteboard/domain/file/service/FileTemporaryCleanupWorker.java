@@ -30,11 +30,14 @@ public class FileTemporaryCleanupWorker {
             Long lastFileId,
             int batchSize,
             LocalDateTime deleteRequestedAt) {
-        List<FileCleanupCandidateProjection> candidates = fileRepository.findTemporaryFileCleanupCandidatesAfter(
-                cutoffCreatedAt,
-                lastCreatedAt,
-                lastFileId,
-                PageRequest.of(0, batchSize));
+        PageRequest pageRequest = PageRequest.of(0, batchSize);
+        List<FileCleanupCandidateProjection> candidates = lastCreatedAt == null
+                ? fileRepository.findTemporaryFileCleanupCandidates(cutoffCreatedAt, pageRequest)
+                : fileRepository.findTemporaryFileCleanupCandidatesAfter(
+                        cutoffCreatedAt,
+                        lastCreatedAt,
+                        lastFileId,
+                        pageRequest);
         if (candidates.isEmpty()) {
             return CleanupBatchResult.completed();
         }
