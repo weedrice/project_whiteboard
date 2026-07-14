@@ -8,6 +8,7 @@ import com.weedrice.whiteboard.domain.auth.entity.PasswordResetToken;
 import com.weedrice.whiteboard.domain.auth.entity.RefreshToken;
 import com.weedrice.whiteboard.domain.auth.entity.VerificationPurpose;
 import com.weedrice.whiteboard.domain.auth.repository.PasswordResetTokenRepository;
+import com.weedrice.whiteboard.domain.auth.repository.OAuthSignupTicketRepository;
 import com.weedrice.whiteboard.domain.auth.repository.RefreshTokenRepository;
 import com.weedrice.whiteboard.domain.point.repository.UserPointRepository;
 import com.weedrice.whiteboard.domain.point.service.PointService;
@@ -144,7 +145,10 @@ class AuthServiceTest {
                 socialAccountLinkService, verificationCodeService, globalConfigService,
                 entityManager, refreshTokenLifecycleService, userPrivilegeCleanupService, passwordHistoryPolicy,
                 authAccountEligibilityPolicy, new AccountUniquenessPolicy(userRepository),
-                new OAuthSignupTicketService());
+                new OAuthSignupTicketService(
+                        mock(OAuthSignupTicketRepository.class),
+                        tokenHashService,
+                        FIXED_CLOCK));
         RateLimitProperties rateLimitProperties = new RateLimitProperties();
         rateLimitProperties.setAuthAccountLimit(1_000);
         LoginAccountRateLimiter loginAccountRateLimiter = new LoginAccountRateLimiter(
@@ -292,7 +296,9 @@ class AuthServiceTest {
     void signup_fail_duplicateEmail_onFlush() {
         SignupRequest request = signupRequest();
 
-        when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.empty(), Optional.of(user));
+        when(userRepository.findByEmail(request.getEmail()))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.of(user));
         when(userRepository.existsByLoginId(request.getLoginId())).thenReturn(false);
         when(passwordEncoder.encode(request.getPassword())).thenReturn("encodedPassword");
         when(userRepository.saveAndFlush(any(User.class)))
@@ -313,7 +319,9 @@ class AuthServiceTest {
     void signup_fail_duplicateLoginId_onFlush() {
         SignupRequest request = signupRequest();
 
-        when(userRepository.findByEmail(request.getEmail())).thenReturn(Optional.empty(), Optional.empty());
+        when(userRepository.findByEmail(request.getEmail()))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.empty());
         when(userRepository.existsByLoginId(request.getLoginId())).thenReturn(false, true);
         when(passwordEncoder.encode(request.getPassword())).thenReturn("encodedPassword");
         when(userRepository.saveAndFlush(any(User.class)))
