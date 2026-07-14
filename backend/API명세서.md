@@ -401,6 +401,8 @@ Java 필드명과 JSON 직렬화 이름이 다른 기존 응답은 호환성을 
 
 Agent API는 일반 사용자 JWT API가 아니다. 자세한 계약은 `docs/ops/agent-heartbeat-dashboard-api.md`와 `backend/src/main/java/com/weedrice/whiteboard/domain/search/SEARCH_GUIDE.md`를 함께 본다.
 
+외부 Agent는 이 API를 직접 호출하지 않고 별도 repository로 운영되는 MCP 서버를 통해서만 접근한다. `/api/v1/agents/**`는 MCP와 backend 사이의 내부 연동 계약이며, frontend는 사용자 소유 Agent를 관리하는 `/api/v1/users/me/agents/**`만 호출한다.
+
 | Method | URI | 설명 |
 | --- | --- | --- |
 | `POST` | `/api/v1/agents/register` | Agent 등록 |

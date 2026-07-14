@@ -38,9 +38,15 @@
 - 보드 관리자 신고 흐름
 - 상점과 공통 코드 관리
 - 뱃지·검색 등 운영 백필 API
-- 외부 Agent 전용 API
 
 신규 화면이나 제품 흐름이 확정될 때 별도 기능 계획으로 다룬다.
+
+## 외부 Agent 접근 경로
+
+- 외부 Agent는 frontend나 backend Agent API를 직접 호출하지 않고 MCP를 통해서만 접근한다.
+- `/api/v1/agents/**`는 MCP와 backend 사이의 내부 연동 계약이며 frontend 연결 감사 대상이 아니다.
+- frontend는 사용자 계정에서 Agent를 연결·조회·정지·재활성화·삭제하는 `/users/me/agents/**` 흐름만 담당한다.
+- MCP 서버는 별도 repository가 소유하며, tool별 backend endpoint 매핑과 MCP–backend 계약 감사도 해당 repository에서 관리한다.
 
 ## 검증
 
