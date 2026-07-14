@@ -1,4 +1,4 @@
-import { buildPostOgMeta } from './og-image.mjs'
+import { buildPostOgMeta, PRIVATE_POST_OG_TITLE, resolvePostOgTitle } from './og-image.mjs'
 
 function stripHtml(html) {
     return String(html ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
@@ -14,19 +14,22 @@ function escapeHtml(value) {
 }
 
 export function buildPreRenderedSnippet(post, canonicalUrl, ogImage) {
-    const title = post?.title ?? 'Post'
-    const authorName = post?.author?.displayName ?? 'Unknown'
-    const createdAt = post?.createdAt ? new Date(post.createdAt).toISOString() : null
-    const articleBody = post?.contents ?? ''
-    const articleSummary = stripHtml(articleBody).slice(0, 240)
+    const isPrivatePost = Boolean(post?.isSecret || post?.isBlinded)
+    const title = resolvePostOgTitle(post)
+    const authorName = isPrivatePost ? 'NoviIs' : (post?.author?.displayName ?? 'Unknown')
+    const createdAt = !isPrivatePost && post?.createdAt ? new Date(post.createdAt).toISOString() : null
+    const articleBody = isPrivatePost ? PRIVATE_POST_OG_TITLE : (post?.contents ?? '')
+    const articleSummary = isPrivatePost
+        ? PRIVATE_POST_OG_TITLE
+        : stripHtml(articleBody).slice(0, 240)
 
     const ldJson = JSON.stringify({
         '@context': 'https://schema.org',
         '@type': 'Article',
         headline: title,
-        datePublished: post?.createdAt ?? null,
-        dateModified: post?.modifiedAt ?? post?.createdAt ?? null,
-        author: { '@type': 'Person', name: authorName },
+        datePublished: isPrivatePost ? null : post?.createdAt ?? null,
+        dateModified: isPrivatePost ? null : post?.modifiedAt ?? post?.createdAt ?? null,
+        author: { '@type': isPrivatePost ? 'Organization' : 'Person', name: authorName },
         mainEntityOfPage: canonicalUrl,
         url: canonicalUrl
     }).replace(/</g, '\\u003c')

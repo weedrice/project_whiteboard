@@ -6,10 +6,13 @@ import { Resvg } from '@resvg/resvg-js'
 
 export const OG_IMAGE_WIDTH = 1200
 export const OG_IMAGE_HEIGHT = 630
-export const OG_TEMPLATE_VERSION = 'warm-paper-v1'
+export const OG_TEMPLATE_VERSION = 'icon-title-v1'
+export const PRIVATE_POST_OG_TITLE = '\uacf5\uac1c\ub418\uc9c0 \uc54a\uc740 \uac8c\uc2dc\uae00\uc785\ub2c8\ub2e4'
 
 const fontPath = resolve(process.cwd(), 'scripts', 'assets', 'fonts', 'NotoSansKR-Regular.otf')
+const iconPath = resolve(process.cwd(), 'public', 'favicon.ico')
 let fontDataPromise
+let iconDataUrlPromise
 
 const text = (value, style = {}) => ({
     type: 'div',
@@ -24,39 +27,33 @@ export async function loadOgFont() {
     return fontDataPromise
 }
 
+export async function loadOgIcon() {
+    iconDataUrlPromise ??= readFile(iconPath)
+        .then((icon) => `data:image/png;base64,${icon.toString('base64')}`)
+    return iconDataUrlPromise
+}
+
+export function resolvePostOgTitle(post) {
+    if (post?.isSecret || post?.isBlinded) return PRIVATE_POST_OG_TITLE
+    return String(post?.title ?? 'Post').trim() || 'Post'
+}
+
 export function createPostOgImageFilename(post) {
     const identity = [
         OG_TEMPLATE_VERSION,
-        post?.title ?? '',
+        resolvePostOgTitle(post),
         post?.board?.boardName ?? post?.boardName ?? '',
     ].join('\u0000')
     const hash = createHash('sha256').update(identity).digest('hex').slice(0, 12)
     return `post-${post?.postId}-${hash}.png`
 }
 
-export function canUsePostAttachment(post) {
-    return !post?.isNsfw
-        && !post?.isSpoiler
-        && !post?.isSecret
-        && !post?.isBlinded
-        && Array.isArray(post?.imageUrls)
-        && post.imageUrls.some(Boolean)
-}
-
-export function selectPostOgImage(post, siteUrl) {
-    if (!canUsePostAttachment(post)) return null
-    const firstImage = post.imageUrls.find(Boolean)
-    try {
-        const imageUrl = new URL(firstImage, `${String(siteUrl).replace(/\/+$/, '')}/`)
-        return ['http:', 'https:'].includes(imageUrl.protocol) ? imageUrl.toString() : null
-    } catch {
-        return null
-    }
-}
-
-export async function renderPostOgImage(post, fontData) {
-    const resolvedFontData = fontData ?? await loadOgFont()
-    const title = String(post?.title ?? 'Post').trim() || 'Post'
+export async function renderPostOgImage(post, fontData, iconDataUrl) {
+    const [resolvedFontData, resolvedIconDataUrl] = await Promise.all([
+        fontData ?? loadOgFont(),
+        iconDataUrl ?? loadOgIcon(),
+    ])
+    const title = resolvePostOgTitle(post)
     const boardName = String(post?.board?.boardName ?? post?.boardName ?? 'NoviIs').trim() || 'NoviIs'
     const tree = {
         type: 'div',
@@ -74,19 +71,77 @@ export async function renderPostOgImage(post, fontData) {
                 width: '100%',
             },
             children: [
-                text(boardName.toUpperCase(), {
-                    color: '#2447b8',
-                    fontSize: 25,
-                    fontWeight: 700,
-                    letterSpacing: '0.18em',
-                }),
+                {
+                    type: 'div',
+                    props: {
+                        style: {
+                            alignItems: 'center',
+                            display: 'flex',
+                            gap: '24px',
+                        },
+                        children: [
+                            {
+                                type: 'div',
+                                props: {
+                                    style: {
+                                        alignItems: 'center',
+                                        background: '#e6e8f2',
+                                        border: '2px solid #d5d9ea',
+                                        borderRadius: '24px',
+                                        display: 'flex',
+                                        height: '96px',
+                                        justifyContent: 'center',
+                                        width: '96px',
+                                    },
+                                    children: {
+                                        type: 'img',
+                                        props: {
+                                            alt: '',
+                                            height: 56,
+                                            src: resolvedIconDataUrl,
+                                            style: {
+                                                height: '56px',
+                                                objectFit: 'contain',
+                                                width: '56px',
+                                            },
+                                            width: 56,
+                                        },
+                                    },
+                                },
+                            },
+                            {
+                                type: 'div',
+                                props: {
+                                    style: {
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '7px',
+                                    },
+                                    children: [
+                                        text('NOVIIS', {
+                                            color: '#1d2433',
+                                            fontSize: 30,
+                                            fontWeight: 700,
+                                            letterSpacing: '0.12em',
+                                        }),
+                                        text(boardName, {
+                                            color: '#646772',
+                                            fontSize: 22,
+                                            fontWeight: 500,
+                                        }),
+                                    ],
+                                },
+                            },
+                        ],
+                    },
+                },
                 text(title, {
                     display: 'block',
-                    fontSize: title.length > 54 ? 54 : 66,
+                    fontSize: title.length > 54 ? 46 : 56,
                     fontWeight: 700,
-                    letterSpacing: '-0.045em',
+                    letterSpacing: '-0.035em',
                     lineClamp: 3,
-                    lineHeight: 1.2,
+                    lineHeight: 1.25,
                     maxWidth: '1044px',
                     overflow: 'hidden',
                 }),
@@ -101,10 +156,10 @@ export async function renderPostOgImage(post, fontData) {
                             paddingTop: '26px',
                         },
                         children: [
-                            text('NOVIIS', {
-                                fontSize: 30,
-                                fontWeight: 700,
-                                letterSpacing: '0.12em',
+                            text('생각을 나누는 커뮤니티', {
+                                color: '#646772',
+                                fontSize: 21,
+                                fontWeight: 500,
                             }),
                             text('noviis.kr', {
                                 color: '#646772',
@@ -134,12 +189,7 @@ export async function renderPostOgImage(post, fontData) {
 }
 
 export async function resolvePostOgImage(post, { siteUrl, distDir }) {
-    const attachmentUrl = selectPostOgImage(post, siteUrl)
-    const title = String(post?.title ?? 'Post').trim() || 'Post'
-    if (attachmentUrl) {
-        return { url: attachmentUrl, alt: `${title} 대표 이미지`, generated: false }
-    }
-
+    const title = resolvePostOgTitle(post)
     const filename = createPostOgImageFilename(post)
     const outputPath = resolve(distDir, 'img', 'og', filename)
     const png = await renderPostOgImage(post)
