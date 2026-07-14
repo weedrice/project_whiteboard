@@ -9,10 +9,12 @@ vi.mock('@/api', () => ({
 }))
 
 import { feedApi } from '../feed'
+import { axiosApiResponse, apiEmptySuccess } from '@/test/factories'
 
 describe('feedApi', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    apiMock.get.mockResolvedValue(axiosApiResponse(apiEmptySuccess()))
   })
 
   it('requests the authenticated user feed with pagination and request options', () => {

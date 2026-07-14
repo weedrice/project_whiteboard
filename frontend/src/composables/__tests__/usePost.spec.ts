@@ -161,7 +161,12 @@ describe('usePost', () => {
 
     it('registers post detail query and fetches post data with incrementView', async () => {
         vi.mocked(postApi.getPost).mockResolvedValueOnce(
-            apiDataResponse<typeof postApi.getPost>({ postId: 1, title: 'Test Post' })
+            apiDataResponse<typeof postApi.getPost>({
+                postId: 1,
+                title: 'Test Post',
+                liked: false,
+                scrapped: false,
+            })
         )
 
         const { usePostDetail } = usePost()
@@ -193,13 +198,13 @@ describe('usePost', () => {
         expect(postApi.getPost).toHaveBeenCalledWith(1, { params: { incrementView: false } })
     })
 
-    it('normalizes post detail reaction aliases from the API response', async () => {
+    it('uses normalized post detail reaction flags from the API response', async () => {
         vi.mocked(postApi.getPost).mockResolvedValueOnce(
             apiDataResponse<typeof postApi.getPost>({
                 postId: 1,
                 title: 'Alias Post',
-                isLiked: true,
-                isScrapped: true,
+                liked: true,
+                scrapped: true,
             })
         )
 

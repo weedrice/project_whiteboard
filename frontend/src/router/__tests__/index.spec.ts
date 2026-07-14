@@ -153,11 +153,9 @@ const postDetailResponse = (authorUserId: number) =>
 const completedUserSettingsResponse = () =>
     apiDataResponse<typeof userApi.getUserSettings>({
         theme: 'LIGHT',
-        language: 'KO',
+        language: 'ko',
         timezone: 'Asia/Seoul',
         hideNsfw: false,
-        emailNotification: true,
-        pushNotification: true,
         pushEnabled: false,
         onboardingCompletedAt: '2026-07-09T00:00:00',
     })
@@ -279,11 +277,9 @@ describe('Router Navigation Guards', () => {
         await router.push('/')
         vi.mocked(userApi.getUserSettings).mockResolvedValueOnce(apiDataResponse<typeof userApi.getUserSettings>({
             theme: 'LIGHT',
-            language: 'KO',
+            language: 'ko',
             timezone: 'Asia/Seoul',
             hideNsfw: false,
-            emailNotification: true,
-            pushNotification: true,
             pushEnabled: false,
             onboardingCompletedAt: null,
         }))
@@ -299,11 +295,9 @@ describe('Router Navigation Guards', () => {
         mockAuthStore.user = { role: 'USER' }
         vi.mocked(userApi.getUserSettings).mockResolvedValueOnce(apiDataResponse<typeof userApi.getUserSettings>({
             theme: 'LIGHT',
-            language: 'KO',
+            language: 'ko',
             timezone: 'Asia/Seoul',
             hideNsfw: false,
-            emailNotification: true,
-            pushNotification: true,
             pushEnabled: false,
             onboardingCompletedAt: null,
         }))

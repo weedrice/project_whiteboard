@@ -36,8 +36,8 @@ describe('board utils', () => {
 
   it('uses explicit default category flags before legacy name fallback', () => {
     const categories = [
-      { categoryId: 1, name: '\uC77C\uBC18', sortOrder: 1, isActive: true, minWriteRole: 'USER' },
-      { categoryId: 2, name: 'Restricted', sortOrder: 2, isActive: true, minWriteRole: 'BOARD_ADMIN', isDefault: true }
+      { categoryId: 1, name: '\uC77C\uBC18', sortOrder: 1, minWriteRole: 'USER' },
+      { categoryId: 2, name: 'Restricted', sortOrder: 2, minWriteRole: 'BOARD_ADMIN', isDefault: true }
     ]
 
     expect(isDefaultCategory(categories[1])).toBe(true)
@@ -48,7 +48,7 @@ describe('board utils', () => {
     expect(canWriteBoardPost({
       isAdmin: false,
       categories: [
-        { categoryId: 2, name: 'QnA', sortOrder: 1, isActive: true, minWriteRole: 'USER' }
+        { categoryId: 2, name: 'QnA', sortOrder: 1, minWriteRole: 'USER' }
       ]
     }, true, 'USER')).toBe(true)
   })
@@ -57,7 +57,7 @@ describe('board utils', () => {
     expect(canWriteBoardPost({
       isAdmin: false,
       categories: [
-        { categoryId: 1, name: '\uC77C\uBC18', sortOrder: 1, isActive: true, minWriteRole: 'USER' }
+        { categoryId: 1, name: '\uC77C\uBC18', sortOrder: 1, minWriteRole: 'USER' }
       ]
     }, false, 'USER')).toBe(false)
   })
@@ -66,8 +66,8 @@ describe('board utils', () => {
     const board = {
       isAdmin: false,
       categories: [
-        { categoryId: 1, name: '\uC77C\uBC18', sortOrder: 1, isActive: true, minWriteRole: 'BOARD_ADMIN' },
-        { categoryId: 2, name: 'Open', sortOrder: 2, isActive: true, minWriteRole: 'USER' }
+        { categoryId: 1, name: '\uC77C\uBC18', sortOrder: 1, minWriteRole: 'BOARD_ADMIN' },
+        { categoryId: 2, name: 'Open', sortOrder: 2, minWriteRole: 'USER' }
       ]
     }
 
@@ -80,8 +80,8 @@ describe('board utils', () => {
     const board = {
       isAdmin: false,
       categories: [
-        { categoryId: 1, name: 'Admins', sortOrder: 1, isActive: true, minWriteRole: 'BOARD_ADMIN' },
-        { categoryId: 2, name: 'Restricted', sortOrder: 2, isActive: true, minWriteRole: 'BOARD_ADMIN', isDefault: true }
+        { categoryId: 1, name: 'Admins', sortOrder: 1, minWriteRole: 'BOARD_ADMIN' },
+        { categoryId: 2, name: 'Restricted', sortOrder: 2, minWriteRole: 'BOARD_ADMIN', isDefault: true }
       ]
     }
 

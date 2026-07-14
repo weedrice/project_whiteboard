@@ -13,11 +13,10 @@ const superAdminsData = ref([
   },
   {
     userId: 2,
-    loginId: 'legacy',
-    displayName: 'Legacy',
+    loginId: 'manager',
+    displayName: 'Manager',
     createdAt: '2026-01-02T00:00:00',
-    superAdmin: false,
-    isSuperAdmin: true,
+    isSuperAdmin: false,
   },
 ])
 const isSuperAdminsLoading = ref(false)
@@ -129,22 +128,21 @@ describe('AdminManagement', () => {
       },
       {
         userId: 2,
-        loginId: 'legacy',
-        displayName: 'Legacy',
+        loginId: 'manager',
+        displayName: 'Manager',
         createdAt: '2026-01-02T00:00:00',
-        superAdmin: false,
-        isSuperAdmin: true,
+        isSuperAdmin: false,
       },
     ]
   })
 
-  it('maps current and legacy super admin flags into table rows', () => {
+  it('maps normalized super admin flags into table rows', () => {
     const wrapper = mountAdminManagement()
     const rows = wrapper.findAll('[data-testid="admin-row"]')
 
     expect(rows[0].text()).toContain('root')
     expect(rows[0].text()).toContain('common.active')
-    expect(rows[1].text()).toContain('legacy')
+    expect(rows[1].text()).toContain('manager')
     expect(rows[1].text()).toContain('common.inactive')
   })
 

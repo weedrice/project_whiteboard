@@ -16,8 +16,7 @@ describe('useUserSettingsForm', () => {
       language: 'ko' as UserSettings['language'],
       timezone: 'Asia/Seoul',
       hideNsfw: true,
-      emailNotification: true,
-      pushNotification: true
+      pushEnabled: false
     })
     const updateSettings = vi.fn().mockResolvedValue(undefined)
     const setTheme = vi.fn()
@@ -58,8 +57,7 @@ describe('useUserSettingsForm', () => {
       language: 'ko' as UserSettings['language'],
       timezone: 'Asia/Seoul',
       hideNsfw: true,
-      emailNotification: true,
-      pushNotification: true
+      pushEnabled: false
     })
     const form = useUserSettingsForm({
       settingsData,
@@ -89,8 +87,7 @@ describe('useUserSettingsForm', () => {
       language: 'ko' as UserSettings['language'],
       timezone: 'Asia/Seoul',
       hideNsfw: true,
-      emailNotification: true,
-      pushNotification: true
+      pushEnabled: false
     })
     const form = useUserSettingsForm({
       settingsData,

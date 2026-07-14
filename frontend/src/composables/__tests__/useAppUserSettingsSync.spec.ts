@@ -43,8 +43,11 @@ describe('useAppUserSettingsSync', () => {
     authStore.isAuthenticated = false
     settingsResult.resolve({
       theme: 'DARK',
-      language: 'EN',
-    } as UserSettings)
+      language: 'en',
+      timezone: 'Asia/Seoul',
+      hideNsfw: false,
+      pushEnabled: false,
+    })
     await pending
 
     expect(setTheme).not.toHaveBeenCalledWith('DARK')
@@ -58,7 +61,10 @@ describe('useAppUserSettingsSync', () => {
     const queryClient = {
       fetchQuery: vi.fn().mockResolvedValue({
         theme: 'DARK',
-        language: 'EN',
+        language: 'en',
+        timezone: 'Asia/Seoul',
+        hideNsfw: false,
+        pushEnabled: false,
       }),
       removeQueries: vi.fn(),
     }

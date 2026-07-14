@@ -27,6 +27,15 @@ vi.mock('@tanstack/vue-query', () => ({
             refetch: vi.fn(),
         }
     }),
+    useInfiniteQuery: vi.fn((options) => {
+        mockQueryOptions.push(options)
+        return {
+            data: ref(null),
+            isLoading: ref(false),
+            error: ref(null),
+            fetchNextPage: vi.fn(),
+        }
+    }),
     useMutation: vi.fn((options) => ({
         mutate: async (variables: unknown) => {
             const result = await options.mutationFn(variables)
@@ -81,6 +90,33 @@ describe('useComment', () => {
             totalElements: 1,
             totalPages: 1,
         })
+    })
+
+    it('normalizes backend pages before calculating the next infinite comment page', async () => {
+        vi.mocked(commentApi.getComments).mockResolvedValueOnce(
+            apiDataResponse<typeof commentApi.getComments>({
+                content: [{ commentId: 1, content: 'hello' }],
+                page: 1,
+                size: 10,
+                totalElements: 21,
+                totalPages: 3,
+                hasNext: true,
+                hasPrevious: true,
+            })
+        )
+
+        const { useInfiniteComments } = useComment()
+        useInfiniteComments(ref(1), ref({ page: 0, size: 10 }))
+        const options = mockQueryOptions[0]
+        const page = await (options.queryFn as (context: { pageParam: number, signal?: AbortSignal }) => Promise<{
+            number: number
+            last: boolean
+        }>)({ pageParam: 1 })
+        const getNextPageParam = options.getNextPageParam as (page: { number: number, last: boolean }) => number | undefined
+
+        expect(page).toMatchObject({ number: 1, last: false })
+        expect(getNextPageParam(page)).toBe(2)
+        expect(getNextPageParam({ number: 2, last: true })).toBeUndefined()
     })
 
     it('fetches replies with a dedicated query key', async () => {

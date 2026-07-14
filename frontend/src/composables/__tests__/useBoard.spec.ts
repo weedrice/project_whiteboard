@@ -329,6 +329,10 @@ describe('useBoard', () => {
             number: 2,
             last: false,
         })).toBe(3)
+        expect((options.getNextPageParam as (page: { number: number, last: boolean }) => number | undefined)({
+            number: 3,
+            last: true,
+        })).toBeUndefined()
         expect(result).toEqual({ content: [{ postId: 3 }], number: 2, last: false })
     })
 

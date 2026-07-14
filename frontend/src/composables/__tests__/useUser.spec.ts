@@ -262,7 +262,14 @@ describe('useUser', () => {
         let result = await (options.queryFn as (context: { signal: AbortSignal }) => Promise<unknown>)({
             signal: new AbortController().signal,
         })
-        expect(result).toEqual({ content: [{ postId: 1 }], totalPages: 1 })
+        expect(result).toMatchObject({
+            content: [{ postId: 1 }],
+            totalPages: 1,
+            number: 0,
+            first: true,
+            last: true,
+            empty: false,
+        })
         expect(userApi.getMyScraps).toHaveBeenCalledWith({ page: 1, size: 15 }, expect.objectContaining({ signal: expect.any(AbortSignal) }))
 
         useMyPointHistories(params)

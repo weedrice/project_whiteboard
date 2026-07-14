@@ -24,6 +24,15 @@ import { apiEmptySuccess, apiSuccess, axiosApiResponse, axiosApiSuccess } from '
 import type { BoardCreateData, BoardUpdateData, SearchParams } from '@/types'
 import type { EmoticonCreateRequest, EmoticonUpdateRequest } from '@/types/emoticon'
 
+beforeEach(() => {
+    const emptyResponse = axiosApiResponse(apiEmptySuccess())
+    apiMock.get.mockReset().mockResolvedValue(emptyResponse)
+    apiMock.post.mockReset().mockResolvedValue(emptyResponse)
+    apiMock.put.mockReset().mockResolvedValue(emptyResponse)
+    apiMock.delete.mockReset().mockResolvedValue(emptyResponse)
+    apiMock.patch.mockReset().mockResolvedValue(emptyResponse)
+})
+
 describe('boardApi', () => {
     beforeEach(() => {
         vi.clearAllMocks()
@@ -33,7 +42,7 @@ describe('boardApi', () => {
         const boardData: BoardCreateData = { boardName: 'General', boardUrl: 'general', description: 'desc' }
         const updateData: BoardUpdateData = { boardName: 'General Board' }
         const categoryData = { name: 'Notice', sortOrder: 1 }
-        const categoryUpdateData = { name: 'Updated', isActive: true }
+        const categoryUpdateData = { name: 'Updated', sortOrder: 2 }
         const params = { page: 0, size: 20, categoryId: 7, sort: 'latest' }
 
         boardApi.getBoards()
@@ -232,11 +241,11 @@ describe('searchApi', () => {
 
     it('calls search endpoints with params', async () => {
         const params: SearchParams = { keyword: 'vue', page: 1, size: 20, type: 'post' }
-        apiMock.get.mockResolvedValue(axiosApiSuccess({
-            keywords: [
-                { rank: 1, keyword: 'vue', count: 10 },
-            ],
-        }))
+        apiMock.get.mockImplementation((url: string) => Promise.resolve(
+            url === '/search/popular'
+                ? axiosApiSuccess({ keywords: [{ rank: 1, keyword: 'vue', count: 10 }] })
+                : axiosApiResponse(apiEmptySuccess())
+        ))
 
         searchApi.search(params)
         searchApi.searchPosts(params)
@@ -414,10 +423,14 @@ describe('emoticonApi', () => {
             .mockResolvedValueOnce(axiosApiSuccess(purchaseStatus))
         apiMock.patch.mockResolvedValueOnce(axiosApiResponse(apiSuccess({ ...detail, isActive: false })))
 
-        await expect(emoticonApi.searchAllData({ keyword: 'cat' })).resolves.toBe(listPage)
-        await expect(emoticonApi.getEmoticonData(1)).resolves.toBe(detail)
+        await expect(emoticonApi.searchAllData({ keyword: 'cat' })).resolves.toMatchObject({
+            content: [{ emoticonId: 1, name: 'cat', images: [] }],
+            number: 0,
+            last: true,
+        })
+        await expect(emoticonApi.getEmoticonData(1)).resolves.toEqual({ ...detail, images: [] })
         await expect(emoticonApi.checkPurchaseStatusData(1)).resolves.toBe(purchaseStatus)
-        await expect(emoticonApi.toggleVisibilityData(1)).resolves.toEqual({ ...detail, isActive: false })
+        await expect(emoticonApi.toggleVisibilityData(1)).resolves.toEqual({ ...detail, isActive: false, images: [] })
 
         expect(apiMock.get).toHaveBeenNthCalledWith(1, '/emoticons/search/all', { params: { keyword: 'cat' } })
         expect(apiMock.get).toHaveBeenNthCalledWith(2, '/emoticons/1')
@@ -431,7 +444,7 @@ describe('emoticonApi', () => {
 
         apiMock.get.mockResolvedValueOnce(axiosApiSuccess(detail))
 
-        await expect(getEmoticonData(7)).resolves.toBe(detail)
+        await expect(getEmoticonData(7)).resolves.toEqual({ ...detail, images: [] })
 
         expect(apiMock.get).toHaveBeenCalledWith('/emoticons/7')
     })

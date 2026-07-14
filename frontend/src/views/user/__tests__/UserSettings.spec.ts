@@ -174,8 +174,7 @@ const settingsData = ref<UserSettingsFixture>({
   language: 'ko',
   timezone: 'Asia/Seoul',
   hideNsfw: true,
-  emailNotification: true,
-  pushNotification: true,
+  pushEnabled: false,
 })
 const notificationData = ref<NotificationSettingsPayload[]>([
   { notificationType: 'LIKE' as const, isEnabled: false },
@@ -265,8 +264,7 @@ describe('UserSettings', () => {
       language: 'ko',
       timezone: 'Asia/Seoul',
       hideNsfw: true,
-      emailNotification: true,
-      pushNotification: true,
+      pushEnabled: false,
     }
     notificationData.value = [
       { notificationType: 'LIKE', isEnabled: false },
