@@ -9,7 +9,7 @@ import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { useNotificationListState } from '@/composables/useNotificationListState'
 import { usePaginatedQueryState } from '@/composables/usePaginatedQueryState'
 import { formatDate } from '@/utils/date'
-import { getNotificationPresentation } from '@/features/notifications/notificationPresentation'
+import { getNotificationMessage, getNotificationPresentation } from '@/features/notifications/notificationPresentation'
 import type { Notification } from '@/types'
 
 const { t } = useI18n()
@@ -98,7 +98,7 @@ function handleMarkAllAsRead() {
                 </span>
               </div>
               <div class="text-xs sm:text-sm nv-text-subtle line-clamp-2">
-                {{ notification.message }}
+                {{ getNotificationMessage(notification, t) }}
               </div>
               <div v-if="notification.grouped" class="mt-1 text-xs font-medium nv-accent-text">
                 {{ t('notification.groupedCount', { count: notification.groupCount }) }}

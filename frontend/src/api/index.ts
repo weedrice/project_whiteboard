@@ -6,6 +6,7 @@ import {
   isLoginPathname,
 } from '@/api/apiInterceptors'
 import { configureApiStoreResolvers } from '@/api/apiStoreResolvers'
+import { configureApiLocaleResolver } from '@/api/apiLocaleHeader'
 
 declare module 'axios' {
   export interface AxiosRequestConfig {
@@ -33,6 +34,7 @@ installApiInterceptors(api)
 
 export {
   configureApiStoreResolvers,
+  configureApiLocaleResolver,
   getCurrentPathname,
   isLoginPathname,
 }

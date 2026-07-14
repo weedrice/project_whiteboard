@@ -135,7 +135,7 @@ useHead({
 
     <section v-else-if="blockingError" class="nv-board-panel nv-elevated-surface nv-board-state-panel px-4 py-12 text-center sm:px-6"
       role="alert" aria-live="assertive">
-      <p class="nv-kicker">NODE</p>
+      <p class="nv-kicker">{{ t('common.board') }}</p>
       <p class="mt-3 text-sm nv-form-error">{{ blockingError }}</p>
     </section>
 

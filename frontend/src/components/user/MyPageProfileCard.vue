@@ -31,7 +31,7 @@ const { t } = useI18n()
         <UserAvatar
           :image-url="profile?.profileImageUrl ? getOptimizedProfileImageUrl(profile.profileImageUrl) : null"
           :name="profile?.displayName || 'U'"
-          alt="Profile"
+          :alt="t('common.profile')"
           size-class="h-16 w-16"
           fallback-class="font-bold text-2xl"
           class="mr-4"

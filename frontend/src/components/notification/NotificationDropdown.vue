@@ -10,7 +10,11 @@ import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import { useNotificationListState } from '@/composables/useNotificationListState'
 import { formatTimeAgo } from '@/utils/date'
-import { getNotificationPresentation } from '@/features/notifications/notificationPresentation'
+import {
+  getNotificationActorDisplayName,
+  getNotificationMessage,
+  getNotificationPresentation,
+} from '@/features/notifications/notificationPresentation'
 
 const { t } = useI18n()
 const { useMarkAllAsRead } = useNotification()
@@ -67,7 +71,7 @@ function handleMarkAllAsRead() {
       <div v-else-if="isError" class="space-y-3 px-4 py-4 text-center text-sm nv-form-error">
         <p>{{ errorMessage }}</p>
         <BaseButton type="button" variant="secondary" size="sm" @click="() => refetch()">
-          {{ $t('common.retry') }}
+          {{ $t('common.error.retry') }}
         </BaseButton>
       </div>
 
@@ -92,10 +96,10 @@ function handleMarkAllAsRead() {
           </div>
           <div class="ml-3 w-0 flex-1">
             <p class="text-sm font-medium nv-title">
-              {{ notification.actorDisplayName }}
+              {{ getNotificationActorDisplayName(notification, t) }}
             </p>
             <p class="text-sm nv-text-subtle truncate">
-              {{ notification.message }}
+              {{ getNotificationMessage(notification, t) }}
             </p>
             <p class="mt-1 text-xs nv-text-subtle">
               <span

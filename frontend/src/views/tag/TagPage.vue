@@ -76,7 +76,7 @@ function buildPageRoute(nextPageIndex: number) {
 <template>
   <div class="mx-auto max-w-6xl">
     <header class="mb-5">
-      <p class="nv-kicker">TAG</p>
+      <p class="nv-kicker">{{ t('common.tags') }}</p>
       <h1 class="mt-2 text-2xl font-semibold nv-title">#{{ tagName }}</h1>
       <p class="mt-2 text-sm nv-text-subtle">
         {{ $t('search.tagPostCount', { count: totalElements }) }}

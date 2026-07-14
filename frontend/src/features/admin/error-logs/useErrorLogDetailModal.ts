@@ -22,7 +22,7 @@ export function useErrorLogDetailModal() {
             selectedLog.value = await fetchErrorLogDetail(log.errorLogId)
             isDetailModalOpen.value = true
         } catch {
-            toastStore.addToast(t('common.error'), 'error')
+            toastStore.addToast(t('common.messages.error'), 'error')
         }
     }
 

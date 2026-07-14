@@ -71,7 +71,7 @@ export const handleApiError = (error: AxiosError, toastStore: ToastStore, t: Tra
 
         if (isRetryable) {
             toastStore.addToast(
-                t('common.messages.networkRetry') || 'Network error. Please check your connection and try again.',
+                t('common.messages.networkRetry'),
                 'error',
                 5000,
                 'top-center'

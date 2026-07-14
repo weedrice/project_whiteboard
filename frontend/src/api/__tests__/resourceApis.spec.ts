@@ -343,6 +343,7 @@ describe('notificationApi', () => {
             method: 'GET',
             headers: {
                 Accept: 'text/event-stream',
+                'Accept-Language': 'ko',
                 Authorization: 'Bearer token',
             },
             cache: 'no-store',

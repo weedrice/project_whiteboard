@@ -10,7 +10,7 @@ import './style.css'
 import './styles/foundation.css'
 import './styles/components.css'
 
-import { configureApiStoreResolvers } from '@/api'
+import { configureApiLocaleResolver, configureApiStoreResolvers } from '@/api'
 import { queryClient, configureQueryClientStoreResolvers } from '@/queryClient'
 import { configureAuthSessionEffects, useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
@@ -34,6 +34,8 @@ configureApiStoreResolvers({
     resolveToastStore: () => useToastStore(pinia),
     resolveAuthStore: () => useAuthStore(pinia),
 })
+
+configureApiLocaleResolver(() => i18n.global.locale.value)
 
 configureQueryClientStoreResolvers({
     resolveToastStore: () => useToastStore(pinia),

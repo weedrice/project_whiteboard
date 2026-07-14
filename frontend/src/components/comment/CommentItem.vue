@@ -66,7 +66,8 @@ const {
 const renderedContent = computed<SanitizedHtml>(() => renderCommentContentHtml(
   props.comment.content ?? '',
   'comment-emoticon',
-  props.comment.mentions ?? []
+  props.comment.mentions ?? [],
+  t('comment.emoticonAlt')
 ))
 const childReplyTargetName = computed(() => (
   props.comment.author?.displayName?.trim() || t('user.deletedUser')

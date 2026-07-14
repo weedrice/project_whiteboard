@@ -3,6 +3,39 @@ import { AtSign, Award, Bell, Heart, Mail, MessageCircle, Megaphone, Reply, Shie
 import type { Notification } from '@/types'
 
 type NotificationType = Notification['notificationType']
+type Translate = (key: string, ...args: unknown[]) => string
+
+const LOCALIZED_MESSAGE_KEYS = new Set([
+    'notification.comment.created',
+    'notification.reply.created',
+    'notification.comment.liked',
+    'notification.post.liked',
+    'notification.badge.awarded',
+    'notification.scheduled.published',
+    'notification.scheduled.failed',
+    'notification.message.received',
+    'notification.mention.created',
+    'notification.keyword.matched',
+])
+
+export function getNotificationMessage(
+    notification: Pick<Notification, 'message' | 'messageKey' | 'messageParams'>,
+    t: Translate,
+): string {
+    if (!notification.messageKey || !LOCALIZED_MESSAGE_KEYS.has(notification.messageKey)) {
+        return notification.message
+    }
+
+    const translated = t(notification.messageKey, notification.messageParams ?? [])
+    return translated && translated !== notification.messageKey ? translated : notification.message
+}
+
+export function getNotificationActorDisplayName(
+    notification: Pick<Notification, 'actorDisplayName' | 'actorLabelKey'>,
+    t: Translate,
+): string {
+    return notification.actorDisplayName || (notification.actorLabelKey ? t(notification.actorLabelKey) : '')
+}
 
 export interface NotificationPresentation {
     icon: Component

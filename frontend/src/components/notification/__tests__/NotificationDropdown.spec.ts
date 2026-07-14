@@ -189,7 +189,7 @@ describe('NotificationDropdown', () => {
     expect(wrapper.text()).toContain('common.messages.loadFailed')
     expect(wrapper.text()).not.toContain('raw backend detail')
 
-    const retryButton = wrapper.findAll('button').find((button) => button.text().includes('common.retry'))
+    const retryButton = wrapper.findAll('button').find((button) => button.text().includes('common.error.retry'))
     await retryButton!.trigger('click')
 
     expect(refetchNotifications).toHaveBeenCalledTimes(1)

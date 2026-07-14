@@ -51,7 +51,8 @@ function renderTextWithMentions(text: string, mentions: CommentMention[]): strin
 export function renderCommentContentHtml(
     content: string | null | undefined,
     className = 'comment-emoticon',
-    mentions: CommentMention[] = []
+    mentions: CommentMention[] = [],
+    emoticonAlt = ''
 ): SanitizedHtml {
     if (!content) return asSanitizedHtml('')
 
@@ -62,7 +63,7 @@ export function renderCommentContentHtml(
         rendered += renderTextWithMentions(content.slice(lastIndex, offset), mentions)
         const safeUrl = normalizeEmoticonUrl(rawUrl)
         if (safeUrl) {
-            rendered += `<img src="${escapeHtmlAttribute(safeUrl)}" class="${escapeHtmlAttribute(className)}" alt="emoticon" loading="lazy" />`
+            rendered += `<img src="${escapeHtmlAttribute(safeUrl)}" class="${escapeHtmlAttribute(className)}" alt="${escapeHtmlAttribute(emoticonAlt)}" loading="lazy" />`
         }
         lastIndex = offset + match.length
         return match

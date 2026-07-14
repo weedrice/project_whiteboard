@@ -39,7 +39,7 @@ const { t } = useI18n()
               name="emailVerificationEmail"
               autocomplete="email"
               :label="t('user.profile.email')"
-              :placeholder="t('auth.emailPlaceholder')"
+              :placeholder="t('auth.placeholders.newEmail')"
               :disabled="verification.isCodeSent"
               inputClass="h-11 min-h-[44px]"
               hideLabel

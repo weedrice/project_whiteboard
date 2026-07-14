@@ -97,7 +97,7 @@ const columns = computed(() => [
       </template>
 
       <template #cell-processor="{ item }">
-        {{ getReportProcessorText(item) }}
+        {{ getReportProcessorText(t, item) }}
       </template>
 
       <template #cell-remark="{ item }">

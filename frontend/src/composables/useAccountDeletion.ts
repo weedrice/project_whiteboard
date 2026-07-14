@@ -41,7 +41,7 @@ export function useAccountDeletion(options: UseAccountDeletionOptions) {
       }
 
       const errorMessage = extractErrorMessage(axiosError)
-      deleteError.value = errorMessage || options.t('common.errorOccurred')
+      deleteError.value = errorMessage || options.t('common.messages.error')
     }
   }
 

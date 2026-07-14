@@ -5,6 +5,7 @@ import type { AxiosRequestConfig, AxiosResponse } from 'axios'
 import { API } from '@/utils/constants'
 import { normalizePageResponse, type PageResponseRaw } from '@/utils/pageResponse'
 import { encodePathSegment } from '@/utils/urlPath'
+import { getApiLocale } from '@/api/apiLocaleHeader'
 
 export interface NotificationParams {
     page?: number;
@@ -37,6 +38,10 @@ export interface NotificationRaw {
     notificationId?: number;
     notification_id?: number;
     message?: string;
+    messageKey?: string;
+    message_key?: string;
+    messageParams?: string[];
+    message_params?: string[];
     notificationType?: Notification['notificationType'];
     notification_type?: Notification['notificationType'];
     sourceType?: Notification['sourceType'];
@@ -63,19 +68,17 @@ interface NotificationPageRaw extends PageResponseRaw<NotificationRaw> {
     hasPrevious?: boolean;
 }
 
-export const NOTIFICATION_SYSTEM_ACTOR_DISPLAY_NAME = 'System'
-export const NOTIFICATION_UNKNOWN_ACTOR_DISPLAY_NAME = 'Unknown'
 export const NOTIFICATION_UNKNOWN_ACTOR_INITIAL = '?'
 
-function getActorDisplayName(raw: NotificationRaw): string {
+function getActorPresentation(raw: NotificationRaw): Pick<Notification, 'actorDisplayName' | 'actorLabelKey'> {
     const actor = raw.actor
     const displayName = (actor?.displayName || actor?.display_name || '').trim()
-    if (displayName) return displayName
+    if (displayName) return { actorDisplayName: displayName }
     const authorType = actor?.authorType || actor?.author_type
     const sourceType = raw.sourceType || raw.source_type
     return authorType === 'SYSTEM' || sourceType === 'SYSTEM'
-        ? NOTIFICATION_SYSTEM_ACTOR_DISPLAY_NAME
-        : NOTIFICATION_UNKNOWN_ACTOR_DISPLAY_NAME
+        ? { actorDisplayName: '', actorLabelKey: 'notification.actors.system' }
+        : { actorDisplayName: '', actorLabelKey: 'notification.actors.unknown' }
 }
 
 function getActorInitial(displayName: string): string {
@@ -83,7 +86,7 @@ function getActorInitial(displayName: string): string {
 }
 
 export function normalizeNotification(raw: NotificationRaw): Notification {
-    const actorDisplayName = getActorDisplayName(raw)
+    const actorPresentation = getActorPresentation(raw)
 
     return {
         notificationId: raw.notificationId || raw.notification_id || 0,
@@ -96,6 +99,8 @@ export function normalizeNotification(raw: NotificationRaw): Notification {
         grouped: raw.grouped ?? ((raw.groupCount ?? raw.group_count ?? 1) > 1),
         lastEventAt: raw.lastEventAt || raw.last_event_at,
         message: raw.message || '',
+        messageKey: raw.messageKey || raw.message_key,
+        messageParams: raw.messageParams || raw.message_params,
         actor: {
             userId: raw.actor?.userId || raw.actor?.user_id || 0,
             agentId: raw.actor?.agentId || raw.actor?.agent_id,
@@ -103,8 +108,8 @@ export function normalizeNotification(raw: NotificationRaw): Notification {
             displayName: raw.actor?.displayName || raw.actor?.display_name || '',
             profileImageUrl: raw.actor?.profileImageUrl || raw.actor?.profile_image_url
         },
-        actorDisplayName,
-        actorInitial: getActorInitial(actorDisplayName),
+        ...actorPresentation,
+        actorInitial: getActorInitial(actorPresentation.actorDisplayName),
         targetUrl: raw.targetUrl || raw.target_url
     }
 }
@@ -161,6 +166,7 @@ export const notificationApi = {
             method: 'GET',
             headers: {
                 Accept: 'text/event-stream',
+                'Accept-Language': getApiLocale(),
                 Authorization: `Bearer ${token}`,
             },
             cache: 'no-store',

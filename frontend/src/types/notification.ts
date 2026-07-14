@@ -11,6 +11,8 @@ export interface Notification {
     notificationId: number;
     notificationType: 'LIKE' | 'COMMENT' | 'REPLY' | 'MENTION' | 'MESSAGE' | 'SYSTEM' | 'SANCTION' | 'KEYWORD' | 'BADGE';
     message: string;
+    messageKey?: string;
+    messageParams?: string[];
     sourceType: 'POST' | 'COMMENT' | 'MESSAGE' | 'SYSTEM';
     sourceId: number;
     isRead: boolean;
@@ -20,6 +22,7 @@ export interface Notification {
     lastEventAt?: string;
     actor: NotificationActor;
     actorDisplayName: string;
+    actorLabelKey?: 'notification.actors.system' | 'notification.actors.unknown';
     actorInitial: string;
     targetUrl?: string; // Optional if needed
 }

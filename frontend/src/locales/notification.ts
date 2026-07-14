@@ -2,11 +2,30 @@ import type { NotificationMessages } from './types'
 
 export const notification: NotificationMessages = {
   title: '알림 목록',
+  unreadNotifications: '읽지 않은 알림 {count}개',
   markAllRead: '모두 읽음으로 표시',
   markAllReadShort: '모두 읽음',
   empty: '새로운 알림이 없습니다.',
   emptyDescription: '새 댓글, 멘션, 쪽지가 생기면 여기에 모입니다.',
   groupedCount: '{count}개 알림이 묶였어요',
+  actors: {
+    system: '시스템',
+    unknown: '알 수 없음',
+  },
+  comment: {
+    created: '{0}님이 댓글을 남겼습니다.',
+    liked: '{0}님이 댓글을 추천했습니다.',
+  },
+  reply: { created: '{0}님이 답글을 남겼습니다.' },
+  post: { liked: '{0}님이 게시글을 추천했습니다.' },
+  badge: { awarded: '{0} 뱃지를 획득했습니다.' },
+  scheduled: {
+    published: '예약 게시글 “{0}”이 발행되었습니다.',
+    failed: '예약 게시글 “{0}” 발행에 실패했습니다.',
+  },
+  message: { received: '{0}님이 쪽지를 보냈습니다.' },
+  mention: { created: '{0}님이 회원님을 언급했습니다.' },
+  keyword: { matched: '관심 키워드와 일치하는 게시글 “{0}”이 등록되었습니다.' },
   sourceTypes: {
     post: '게시글',
     comment: '댓글',
@@ -28,11 +47,30 @@ export const notification: NotificationMessages = {
 
 export const notificationEn: NotificationMessages = {
   title: 'Notifications',
+  unreadNotifications: '{count} unread notifications',
   markAllRead: 'Mark all as read',
   markAllReadShort: 'Mark all read',
   empty: 'No new notifications.',
   emptyDescription: 'New comments, mentions, and messages will appear here.',
   groupedCount: '{count} notifications are grouped.',
+  actors: {
+    system: 'System',
+    unknown: 'Unknown',
+  },
+  comment: {
+    created: '{0} left a comment.',
+    liked: '{0} liked your comment.',
+  },
+  reply: { created: '{0} left a reply.' },
+  post: { liked: '{0} liked your post.' },
+  badge: { awarded: 'You earned the {0} badge.' },
+  scheduled: {
+    published: 'Scheduled post “{0}” was published.',
+    failed: 'Failed to publish scheduled post “{0}”.',
+  },
+  message: { received: '{0} sent you a message.' },
+  mention: { created: '{0} mentioned you.' },
+  keyword: { matched: 'A post matching your keyword, “{0}”, was published.' },
   sourceTypes: {
     post: 'Post',
     comment: 'Comment',

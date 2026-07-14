@@ -56,7 +56,7 @@ export function useReportModerationPage() {
 
     selectedUser.value = {
       id: userId,
-      name: report.targetDisplayName ?? 'Unknown',
+      name: report.targetDisplayName ?? t('notification.actors.unknown'),
       sanctionContentId: report.targetId,
       sanctionContentType: report.targetType
     }

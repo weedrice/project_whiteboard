@@ -64,6 +64,7 @@ describe('notificationApi', () => {
             method: 'GET',
             headers: {
                 Accept: 'text/event-stream',
+                'Accept-Language': 'ko',
                 Authorization: 'Bearer access-token',
             },
             cache: 'no-store',
@@ -143,8 +144,9 @@ describe('notificationApi', () => {
                 authorType: 'SYSTEM',
                 displayName: '',
             },
-            actorDisplayName: 'System',
-            actorInitial: 'S',
+            actorDisplayName: '',
+            actorLabelKey: 'notification.actors.system',
+            actorInitial: '?',
         })
     })
 
@@ -155,8 +157,23 @@ describe('notificationApi', () => {
         })).toMatchObject({
             notificationId: 14,
             sourceType: 'SYSTEM',
-            actorDisplayName: 'System',
-            actorInitial: 'S',
+            actorDisplayName: '',
+            actorLabelKey: 'notification.actors.system',
+            actorInitial: '?',
+        })
+    })
+
+    it('normalizes structured localized message fields', () => {
+        expect(normalizeNotification({
+            notification_id: 16,
+            message: 'legacy fallback',
+            message_key: 'notification.mention.created',
+            message_params: ['Alice'],
+        })).toMatchObject({
+            notificationId: 16,
+            message: 'legacy fallback',
+            messageKey: 'notification.mention.created',
+            messageParams: ['Alice'],
         })
     })
 })

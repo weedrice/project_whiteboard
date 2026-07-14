@@ -58,6 +58,7 @@ export const auth: AuthMessages = {
   verificationRequired: '이메일 인증을 완료해주세요.',
   sendCodeFailed: '인증 코드 발송에 실패했습니다.',
   emailRequired: '이메일을 입력해 주세요.',
+  passwordRequired: '비밀번호를 입력해 주세요.',
   validation: {
     passwordStrength: '비밀번호는 8~20자이며, 영대문자/영소문자/숫자/특수문자 중 3종류 이상을 포함해야 합니다.',
     loginIdFormat: '아이디는 4~30자의 영문, 숫자, 언더스코어(_)만 사용 가능합니다.',
@@ -124,6 +125,7 @@ export const authEn: AuthMessages = {
   verificationRequired: 'Please complete email verification.',
   sendCodeFailed: 'Failed to send verification code.',
   emailRequired: 'Please enter your email.',
+  passwordRequired: 'Please enter your password.',
   validation: {
     passwordStrength: 'Password must be 8-20 characters and include at least 3 of uppercase, lowercase, number, and special character.',
     loginIdFormat: 'ID can use only 4-30 letters, numbers, and underscores.',

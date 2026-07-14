@@ -1,6 +1,7 @@
 import type { AxiosError, AxiosInstance, AxiosResponse } from 'axios'
 import { applyAuthHeader } from '@/api/apiAuthHeader'
 import { handleResponseError } from '@/api/apiResponseErrorHandler'
+import { applyApiLocaleHeader } from '@/api/apiLocaleHeader'
 
 export { getCurrentPathname, isLoginPathname } from '@/api/apiAuthHeader'
 export { applyAuthHeader }
@@ -9,7 +10,7 @@ export { handleGlobalApiError, handleResponseError } from '@/api/apiResponseErro
 
 export function installApiInterceptors(api: AxiosInstance) {
   api.interceptors.request.use(
-    applyAuthHeader,
+    (config) => applyApiLocaleHeader(applyAuthHeader(config)),
     (error: AxiosError) => Promise.reject(error),
   )
 

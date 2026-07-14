@@ -45,9 +45,9 @@ describe('reportDisplay', () => {
   })
 
   it('formats admin report processor, reason, and target display text', () => {
-    expect(getReportProcessorText({ adminId: 7, processorUserId: null })).toBe('ADMIN #7')
-    expect(getReportProcessorText({ adminId: null, processorUserId: 9 })).toBe('USER #9')
-    expect(getReportProcessorText({ adminId: null, processorUserId: null })).toBe('-')
+    expect(getReportProcessorText(t, { adminId: 7, processorUserId: null })).toBe('translated:common.defaultAdminName #7')
+    expect(getReportProcessorText(t, { adminId: null, processorUserId: 9 })).toBe('translated:common.user #9')
+    expect(getReportProcessorText(t, { adminId: null, processorUserId: null })).toBe('-')
 
     expect(getReportReasonText({ contents: '  abuse  ', remark: 'fallback' })).toBe('abuse')
     expect(getReportReasonText({ contents: ' ', remark: '  fallback  ' })).toBe('fallback')

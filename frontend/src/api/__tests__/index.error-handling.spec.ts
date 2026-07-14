@@ -240,7 +240,7 @@ describe('API Interceptors', () => {
         await expect(responseRejected(setupError)).rejects.toBe(setupError)
 
         expect(mocks.mockAddToast).toHaveBeenCalledWith(
-            'Network error. Please check your connection and try again.',
+            '',
             'error',
             5000,
             'top-center',

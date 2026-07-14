@@ -7,7 +7,6 @@ const props = withDefaults(defineProps<{
   title?: string
   minHeight?: number
 }>(), {
-  title: 'Embedded HTML content',
   minHeight: 240,
 })
 

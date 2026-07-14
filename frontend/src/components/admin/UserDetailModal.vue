@@ -92,7 +92,7 @@ const detailTabOptions = computed(() => [
 ])
 
 function renderCommentContent(content: string | null | undefined): SanitizedHtml {
-  return renderCommentContentHtml(content, 'comment-emoticon comment-emoticon-list')
+  return renderCommentContentHtml(content, 'comment-emoticon comment-emoticon-list', [], t('comment.emoticonAlt'))
 }
 
 function isCommentEmoticonOnly(content: string | null | undefined): boolean {

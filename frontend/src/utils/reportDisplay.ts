@@ -33,12 +33,12 @@ export function getCommonReportTargetTypeLabel(t: TranslateFn, targetType: Repor
   }
 }
 
-export function getReportProcessorText(report: Pick<Report, 'adminId' | 'processorUserId'>) {
+export function getReportProcessorText(t: TranslateFn, report: Pick<Report, 'adminId' | 'processorUserId'>) {
   if (report.adminId != null) {
-    return `ADMIN #${report.adminId}`
+    return `${t('common.defaultAdminName')} #${report.adminId}`
   }
   if (report.processorUserId != null) {
-    return `USER #${report.processorUserId}`
+    return `${t('common.user')} #${report.processorUserId}`
   }
   return '-'
 }

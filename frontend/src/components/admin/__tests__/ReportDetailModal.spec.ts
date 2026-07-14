@@ -83,7 +83,7 @@ describe('ReportDetailModal', () => {
         expect(wrapper.text()).toContain('Target Name')
         expect(wrapper.text()).toContain('target-login')
         expect(wrapper.text()).toContain('admin.reports.status.RESOLVED')
-        expect(wrapper.text()).toContain('ADMIN #9')
+        expect(wrapper.text()).toContain('common.defaultAdminName #9')
         expect(wrapper.text()).toContain('resolved reason')
     })
 
@@ -98,6 +98,6 @@ describe('ReportDetailModal', () => {
         })
 
         expect(wrapper.text()).toContain('common.comment #42')
-        expect(wrapper.text()).toContain('USER #5')
+        expect(wrapper.text()).toContain('common.user #5')
     })
 })

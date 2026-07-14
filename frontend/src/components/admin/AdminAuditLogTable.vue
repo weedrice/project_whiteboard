@@ -16,7 +16,7 @@ withDefaults(defineProps<{
 const { t, locale } = useI18n()
 
 const actorLabel = (audit: ModerationAuditLog) => {
-  if (audit.actorType === 'SYSTEM') return 'SYSTEM'
+  if (audit.actorType === 'SYSTEM') return t('notification.actors.system')
   return audit.actorDisplayName || (audit.actorUserId ? `#${audit.actorUserId}` : '-')
 }
 

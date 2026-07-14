@@ -60,6 +60,7 @@ export interface AuthMessages {
   verificationRequired: string
   sendCodeFailed: string
   emailRequired: string
+  passwordRequired: string
   validation: {
     passwordStrength: string
     loginIdFormat: string
@@ -469,6 +470,7 @@ export interface CommentMessages {
   blinded: string
   reply: string
   agentBadge: string
+  emoticonAlt: string
   viewReplies: string
   hideReplies: string
   loadRepliesFailed: string
@@ -498,11 +500,30 @@ export interface CommentMessages {
 // 알림 메시지 타입
 export interface NotificationMessages {
   title: string
+  unreadNotifications: string
   markAllRead: string
   markAllReadShort?: string
   empty: string
   emptyDescription: string
   groupedCount: string
+  actors: {
+    system: string
+    unknown: string
+  }
+  comment: {
+    created: string
+    liked: string
+  }
+  reply: { created: string }
+  post: { liked: string }
+  badge: { awarded: string }
+  scheduled: {
+    published: string
+    failed: string
+  }
+  message: { received: string }
+  mention: { created: string }
+  keyword: { matched: string }
   sourceTypes: {
     post: string
     comment: string

@@ -66,7 +66,7 @@ defineExpose({
   >
     <SandboxedHtmlFrame
       :html="sandboxHtml ?? ''"
-      :title="sandboxTitle"
+      :title="sandboxTitle ?? t('common.content')"
     />
   </div>
   <SanitizedHtmlView

@@ -2,8 +2,8 @@
     <div class="flex min-h-[60vh] items-center justify-center nv-page">
         <ErrorState title-tag="h1" :code="status" :title="title" :message="message" :show-icon="false">
             <form v-if="numericStatus === 404" class="flex w-full gap-2 sm:order-first" @submit.prevent="search">
-                <BaseInput v-model="keyword" :label="t('common.search')" :placeholder="t('common.search')" hide-label class="min-w-0 flex-1" />
-                <BaseButton type="submit" :disabled="!keyword.trim()">{{ t('common.search') }}</BaseButton>
+                <BaseInput v-model="keyword" :label="t('search.placeholder')" :placeholder="t('search.placeholder')" hide-label class="min-w-0 flex-1" />
+                <BaseButton type="submit" :disabled="!keyword.trim()">{{ t('search.doSearch') }}</BaseButton>
             </form>
             <BaseButton v-if="numericStatus === 500" type="button" variant="primary" @click="retry">
                 {{ t('common.error.retry') }}
@@ -34,7 +34,7 @@ const authStore = useAuthStore()
 const { t } = useI18n()
 
 const homeHref = computed(() => import.meta.env.BASE_URL || '/')
-const status = computed(() => getSingleQueryValue(route.query.status) || 'Error')
+const status = computed(() => getSingleQueryValue(route.query.status) || t('common.error.unknown'))
 const numericStatus = computed(() => Number(status.value))
 const keyword = ref('')
 const message = computed(() => {

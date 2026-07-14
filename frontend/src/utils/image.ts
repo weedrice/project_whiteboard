@@ -1,7 +1,7 @@
 import { setImageFallback } from '@/utils/imageFallback'
 
 const DEFAULT_IMAGE_PLACEHOLDER_URL =
-    'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200"%3E%3Crect width="200" height="200" fill="%23e5e7eb"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%239ca3af" font-size="14"%3ENo Image%3C/text%3E%3C/svg%3E'
+    'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200" aria-hidden="true"%3E%3Crect width="200" height="200" fill="%23e5e7eb"/%3E%3Cpath d="M55 130l28-32 18 20 14-16 30 28H55z" fill="%239ca3af"/%3E%3Ccircle cx="78" cy="72" r="12" fill="%239ca3af"/%3E%3C/svg%3E'
 
 export function getOptimizedImageUrl(
     url: string | null | undefined,
