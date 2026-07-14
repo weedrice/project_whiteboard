@@ -1,6 +1,8 @@
 import type { CommentMessages } from './types'
 
 export const comment: CommentMessages = {
+  like: '좋아요',
+  unlike: '좋아요 취소',
   title: '댓글',
   deleted: '삭제된 댓글입니다.',
   blockedAuthor: '차단한 사용자',
@@ -35,6 +37,8 @@ export const comment: CommentMessages = {
 }
 
 export const commentEn: CommentMessages = {
+  like: 'Like',
+  unlike: 'Unlike',
   title: 'Comments',
   deleted: 'This comment has been deleted.',
   blockedAuthor: 'Blocked user',

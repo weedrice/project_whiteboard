@@ -40,6 +40,10 @@ export const commentApi = {
     // Update a comment
     updateComment: (commentId: string | number, data: CommentPayload) => api.put<ApiResponse<number>>(`/comments/${encodePathSegment(commentId)}`, data),
 
+    likeComment: (commentId: string | number) => api.post<ApiResponse<void>>(`/comments/${encodePathSegment(commentId)}/like`),
+
+    unlikeComment: (commentId: string | number) => api.delete<ApiResponse<void>>(`/comments/${encodePathSegment(commentId)}/like`),
+
     getComment: (commentId: string | number, config?: AxiosRequestConfig) => config
         ? api.get<ApiResponse<CommentWithNavigation>>(`/comments/${encodePathSegment(commentId)}`, config)
         : api.get<ApiResponse<CommentWithNavigation>>(`/comments/${encodePathSegment(commentId)}`)

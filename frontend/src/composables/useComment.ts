@@ -1,4 +1,4 @@
-import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
+import { useInfiniteQuery, useMutation, useQueryClient, type QueryKey } from '@tanstack/vue-query'
 import { computed, type Ref } from 'vue'
 import { commentApi, type CommentParams, type CommentPayload } from '@/api/comment'
 import { unwrapAxiosApiPageData } from '@/api/response'
@@ -21,6 +21,56 @@ type UpdateCommentVariables = CommentMutationWithPostId<{
 type DeleteCommentVariables = string | number | {
     commentId: string | number
     postId?: string | number
+}
+
+type CommentLikeVariables = {
+    commentId: string | number
+    postId: string | number
+    liked: boolean
+}
+
+type CommentCacheSnapshot = [QueryKey, unknown]
+
+export function updateCommentLikeCache(
+    value: unknown,
+    commentId: string | number,
+    liked: boolean,
+): unknown {
+    if (Array.isArray(value)) {
+        return value.map((item) => updateCommentLikeCache(item, commentId, liked))
+    }
+
+    if (!value || typeof value !== 'object') {
+        return value
+    }
+
+    const record = value as Record<string, unknown>
+    let nextRecord = record
+
+    if (String(record.commentId ?? '') === String(commentId)) {
+        const previousLiked = Boolean(record.liked)
+        const previousCount = Number(record.likeCount ?? 0)
+        nextRecord = {
+            ...record,
+            liked,
+            likeCount: previousLiked === liked
+                ? previousCount
+                : Math.max(0, previousCount + (liked ? 1 : -1)),
+        }
+    }
+
+    for (const key of ['content', 'children', 'pages']) {
+        const nested = nextRecord[key]
+        if (!Array.isArray(nested)) continue
+
+        const updated = updateCommentLikeCache(nested, commentId, liked)
+        if (updated !== nested) {
+            nextRecord = nextRecord === record ? { ...record } : nextRecord
+            nextRecord[key] = updated
+        }
+    }
+
+    return nextRecord
 }
 
 export function useComment() {
@@ -144,6 +194,36 @@ export function useComment() {
         })
     }
 
+    const useToggleCommentLike = () => {
+        return useMutation({
+            mutationFn: async ({ commentId, liked }: CommentLikeVariables) => {
+                return liked
+                    ? await commentApi.likeComment(commentId)
+                    : await commentApi.unlikeComment(commentId)
+            },
+            onMutate: async (variables): Promise<{ snapshots: CommentCacheSnapshot[] }> => {
+                await queryClient.cancelQueries({ queryKey: commentQueryKeys.all })
+                const snapshots = queryClient.getQueriesData({ queryKey: commentQueryKeys.all }) as CommentCacheSnapshot[]
+
+                queryClient.setQueriesData(
+                    { queryKey: commentQueryKeys.all },
+                    (current) => updateCommentLikeCache(current, variables.commentId, variables.liked),
+                )
+
+                return { snapshots }
+            },
+            onError: (_error, _variables, context) => {
+                context?.snapshots.forEach(([queryKey, value]) => {
+                    queryClient.setQueryData(queryKey, value)
+                })
+            },
+            onSettled: (_data, _error, variables) => {
+                invalidatePostCommentQueries(variables.postId)
+                queryClient.invalidateQueries({ queryKey: commentQueryKeys.all })
+            },
+        })
+    }
+
     return {
         useComments,
         useInfiniteComments,
@@ -152,5 +232,6 @@ export function useComment() {
         useCreateComment,
         useUpdateComment,
         useDeleteComment,
+        useToggleCommentLike,
     }
 }

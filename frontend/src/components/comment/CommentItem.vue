@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { User as UserIcon, CornerDownRight } from 'lucide-vue-next'
+import { User as UserIcon, CornerDownRight, Heart } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import type { Comment } from '@/api/comment'
 import { useCommentReplies } from '@/composables/useCommentReplies'
 import { useCommentAuthorState } from '@/composables/useCommentAuthorState'
 import { useAuthStore } from '@/stores/auth'
+import { useComment } from '@/composables/useComment'
 import { formatDate, formatDateShort } from '@/utils/date'
 import { isEmoticonOnlyContent, renderCommentContentHtml } from '@/features/comments/commentContent'
 import type { SanitizedHtml } from '@/utils/sanitize'
@@ -40,6 +41,8 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const router = useRouter()
 const authStore = useAuthStore() as ReturnType<typeof useAuthStore> | undefined
+const { useToggleCommentLike } = useComment()
+const { mutate: toggleCommentLike, isPending: isLikePending } = useToggleCommentLike()
 
 const isReplying = ref(false)
 const isEditing = ref(false)
@@ -97,6 +100,25 @@ function handleEditSuccess() {
 
 function handleDelete() {
   emit('delete', props.comment)
+}
+
+function handleLike() {
+  if (!authStore?.isAuthenticated) {
+    void router.push({
+      name: 'login',
+      query: {
+        redirect: `/board/${encodeURIComponent(props.boardUrl)}/post/${encodeURIComponent(String(props.postId))}`,
+      },
+    })
+    return
+  }
+  if (isLikePending.value) return
+
+  toggleCommentLike({
+    commentId: props.comment.commentId,
+    postId: props.postId,
+    liked: !Boolean(props.comment.liked),
+  })
 }
 
 function navigateToMention(target: EventTarget | null): boolean {
@@ -256,6 +278,20 @@ watch(isBlinded, (blinded) => {
         </template>
 
         <div class="mt-2 flex flex-wrap items-center gap-1 sm:gap-2">
+          <button
+            v-if="canUseCommentActions && !isBlinded"
+            type="button"
+            class="nv-touch-target nv-focus-ring inline-flex cursor-pointer items-center gap-1 rounded-md px-2 py-1.5 text-xs font-medium nv-text-subtle nv-hover-surface active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+            :class="{ 'text-[var(--nv-danger-text)]': comment.liked }"
+            :aria-label="comment.liked ? $t('comment.unlike') : $t('comment.like')"
+            :aria-pressed="Boolean(comment.liked)"
+            :disabled="isLikePending"
+            @click="handleLike"
+          >
+            <Heart class="h-3.5 w-3.5" :fill="comment.liked ? 'currentColor' : 'none'" aria-hidden="true" />
+            <span>{{ comment.likeCount }}</span>
+          </button>
+
           <button
             v-if="canLoadReplies"
             type="button"

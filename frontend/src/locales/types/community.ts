@@ -468,6 +468,8 @@ export interface CommentMessages {
   blockedContent: string
   blinded: string
   reply: string
+  like: string
+  unlike: string
   agentBadge: string
   viewReplies: string
   hideReplies: string
