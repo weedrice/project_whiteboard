@@ -63,6 +63,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.lang.reflect.Method;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -193,6 +194,11 @@ class PostServiceTest {
                 boardCategoryRepository,
                 new BoardCategoryWritePolicy(boardAccessPolicy));
         userWritableResolver = new UserWritableResolver(userRepository, sanctionService);
+        PostDraftCleanupService postDraftCleanupService = new PostDraftCleanupService(
+                draftPostRepository,
+                fileService,
+                Clock.systemUTC(),
+                mock(PostDraftCleanupBatchService.class));
         viewHistoryCommandService = new ViewHistoryCommandService(viewHistoryRepository);
         PostViewCountWriter postViewCountWriter = new PostViewCountWriter(postRepository);
         postDetailReadService = new PostDetailReadService(
@@ -215,12 +221,15 @@ class PostServiceTest {
                 boardRepository,
                 boardCategoryRepository,
                 postRepository,
+                mock(PostSeriesRepository.class),
                 draftPostRepository,
+                mock(com.weedrice.whiteboard.domain.post.scheduled.repository.ScheduledPostRepository.class),
                 fileService,
                 userWritableResolver,
                 sanctionService,
                 boardAccessPolicy,
-                postAuthorCommandPolicy);
+                postAuthorCommandPolicy,
+                postDraftCleanupService);
         postInteractionService = new PostInteractionService(
                 postRepository,
                 postLikeRepository,
@@ -1986,7 +1995,7 @@ class PostServiceTest {
     @DisplayName("초안 저장 - 신규")
     void saveDraftPost_new() {
         PostDraftRequest request = new PostDraftRequest(null, "free", "Draft Title", "Draft Content", null);
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
         when(draftPostRepository.saveAndFlush(any(DraftPost.class))).thenAnswer(i -> {
             DraftPost draftPost = i.getArgument(0);
@@ -2010,7 +2019,7 @@ class PostServiceTest {
                 "Draft Title",
                 "<p style=\"color:red; background-image:url(javascript:alert(1))\">Draft</p><script>alert(1)</script>",
                 null);
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
         when(draftPostRepository.saveAndFlush(any(DraftPost.class))).thenAnswer(i -> {
             DraftPost draftPost = i.getArgument(0);
@@ -2043,7 +2052,7 @@ class PostServiceTest {
                 .originalPostId(77L)
                 .build();
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
         when(boardCategoryRepository.findByCategoryIdAndBoard_BoardIdAndIsActive(1L, 1L, true))
                 .thenReturn(Optional.of(category));
@@ -2070,7 +2079,7 @@ class PostServiceTest {
     @DisplayName("활성 BAN 사용자는 초안을 저장할 수 없다")
     void saveDraftPost_bannedUser_forbidden() {
         PostDraftRequest request = new PostDraftRequest(null, "free", "Draft Title", "Draft Content", null);
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotBanned(user);
 
         assertThatThrownBy(() -> postService.saveDraftPost(1L, request))
@@ -2081,13 +2090,82 @@ class PostServiceTest {
     }
 
     @Test
+    @DisplayName("MUTE 사용자는 초안을 저장할 수 없다")
+    void saveDraftPost_mutedUser_forbidden() {
+        PostDraftRequest request = new PostDraftRequest(null, "free", "Draft Title", "Draft Content", null);
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        doThrow(new BusinessException(ErrorCode.FORBIDDEN)).when(sanctionService).validateNotMuted(user);
+
+        assertThatThrownBy(() -> postService.saveDraftPost(1L, request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+
+        verify(boardRepository, never()).findByBoardUrl(anyString());
+        verify(draftPostRepository, never()).saveAndFlush(any(DraftPost.class));
+    }
+
+    @Test
+    @DisplayName("게시판 관리자가 아니면 공지 초안을 저장할 수 없다")
+    void saveDraftPost_noticeWithoutBoardAdmin_forbidden() {
+        PostDraftRequest request = PostDraftRequest.builder()
+                .boardUrl("free")
+                .title("Notice Draft")
+                .contents("Content")
+                .isNotice(true)
+                .build();
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+        when(adminRepository.existsByUserAndBoardAndIsActive(user, board, true)).thenReturn(false);
+
+        assertThatThrownBy(() -> postService.saveDraftPost(1L, request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+
+        verify(draftPostRepository, never()).saveAndFlush(any(DraftPost.class));
+    }
+
+    @Test
+    @DisplayName("게시판 관리자는 공지 초안을 저장할 수 있다")
+    void saveDraftPost_noticeWithBoardAdmin_success() {
+        PostDraftRequest request = PostDraftRequest.builder()
+                .boardUrl("free")
+                .title("Notice Draft")
+                .contents("Content")
+                .isNotice(true)
+                .fileIds(Collections.emptyList())
+                .build();
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+        when(adminRepository.existsByUserAndBoardAndIsActive(user, board, true)).thenReturn(true);
+        when(draftPostRepository.saveAndFlush(any(DraftPost.class))).thenAnswer(invocation -> {
+            DraftPost saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "draftId", 24L);
+            return saved;
+        });
+
+        DraftResponse response = postService.saveDraftPost(1L, request);
+
+        assertThat(response.isNotice()).isTrue();
+        verify(fileService).syncDraftFiles(Collections.emptyList(), 1L, 24L);
+    }
+
+    @Test
     @DisplayName("초안 저장 - 수정")
     void saveDraftPost_update() {
         DraftPost existingDraft = DraftPost.builder().user(user).board(board).title("Old").build();
         ReflectionTestUtils.setField(existingDraft, "draftId", 10L);
-        PostDraftRequest request = new PostDraftRequest(10L, "free", "New Title", "New Content", null);
+        LocalDateTime version = LocalDateTime.of(2025, 1, 2, 12, 0, 0, 123_456_000);
+        ReflectionTestUtils.setField(existingDraft, "modifiedAt", version);
+        PostDraftRequest request = PostDraftRequest.builder()
+                .draftId(10L)
+                .boardUrl("free")
+                .title("New Title")
+                .contents("New Content")
+                .fileIds(Collections.emptyList())
+                .updatedAt(version)
+                .build();
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
         when(draftPostRepository.findByDraftIdAndUserForUpdate(10L, user)).thenReturn(Optional.of(existingDraft));
         when(draftPostRepository.saveAndFlush(any(DraftPost.class))).thenAnswer(i -> i.getArgument(0));
@@ -2104,14 +2182,18 @@ class PostServiceTest {
     void saveDraftPost_updateSanitizesContents() {
         DraftPost existingDraft = DraftPost.builder().user(user).board(board).title("Old").build();
         ReflectionTestUtils.setField(existingDraft, "draftId", 10L);
-        PostDraftRequest request = new PostDraftRequest(
-                10L,
-                "free",
-                "New Title",
-                "<iframe src=\"https://evil.example/embed/1\"></iframe><strong>Safe</strong>",
-                null);
+        LocalDateTime version = LocalDateTime.of(2025, 1, 2, 12, 0, 0, 123_456_000);
+        ReflectionTestUtils.setField(existingDraft, "modifiedAt", version);
+        PostDraftRequest request = PostDraftRequest.builder()
+                .draftId(10L)
+                .boardUrl("free")
+                .title("New Title")
+                .contents("<iframe src=\"https://evil.example/embed/1\"></iframe><strong>Safe</strong>")
+                .fileIds(Collections.emptyList())
+                .updatedAt(version)
+                .build();
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
         when(draftPostRepository.findByDraftIdAndUserForUpdate(10L, user)).thenReturn(Optional.of(existingDraft));
         when(draftPostRepository.saveAndFlush(any(DraftPost.class))).thenAnswer(i -> i.getArgument(0));
@@ -2143,7 +2225,7 @@ class PostServiceTest {
                 .originalPostId(77L)
                 .build();
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
         when(boardCategoryRepository.findByCategoryIdAndBoard_BoardIdAndIsActive(1L, 1L, true))
                 .thenReturn(Optional.of(category));
@@ -2177,7 +2259,7 @@ class PostServiceTest {
                 .originalPostId(77L)
                 .build();
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
         when(boardCategoryRepository.findByCategoryIdAndBoard_BoardIdAndIsActive(1L, 1L, true))
                 .thenReturn(Optional.of(category));
@@ -2211,7 +2293,7 @@ class PostServiceTest {
                 .originalPostId(77L)
                 .build();
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
         when(postRepository.findById(77L)).thenReturn(Optional.of(originalPost));
 
@@ -2245,7 +2327,7 @@ class PostServiceTest {
                 .originalPostId(77L)
                 .build();
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
         when(boardCategoryRepository.findByCategoryIdAndBoard_BoardIdAndIsActive(1L, 1L, true))
                 .thenReturn(Optional.of(category));
@@ -2272,7 +2354,7 @@ class PostServiceTest {
                 .updatedAt(LocalDateTime.of(2025, 1, 1, 12, 0))
                 .build();
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
         when(draftPostRepository.findByDraftIdAndUserForUpdate(10L, user)).thenReturn(Optional.of(existingDraft));
 
@@ -2284,22 +2366,22 @@ class PostServiceTest {
     }
 
     @Test
-    @DisplayName("draft update accepts matching version when only fractional seconds differ")
-    void saveDraftPost_acceptsSameSecondVersion() {
+    @DisplayName("초안 수정은 DB 마이크로초 정밀도에서 같은 버전을 허용한다")
+    void saveDraftPost_acceptsMatchingMicrosecondVersion() {
         DraftPost existingDraft = DraftPost.builder().user(user).board(board).title("Old").build();
         ReflectionTestUtils.setField(existingDraft, "draftId", 10L);
         ReflectionTestUtils.setField(existingDraft, "modifiedAt",
-                LocalDateTime.of(2025, 1, 2, 12, 0, 0, 987_000_000));
+                LocalDateTime.of(2025, 1, 2, 12, 0, 0, 987_654_321));
         PostDraftRequest request = PostDraftRequest.builder()
                 .draftId(10L)
                 .boardUrl("free")
                 .title("New Title")
                 .contents("New Content")
                 .fileIds(Collections.emptyList())
-                .updatedAt(LocalDateTime.of(2025, 1, 2, 12, 0))
+                .updatedAt(LocalDateTime.of(2025, 1, 2, 12, 0, 0, 987_654_000))
                 .build();
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
         when(draftPostRepository.findByDraftIdAndUserForUpdate(10L, user)).thenReturn(Optional.of(existingDraft));
         when(draftPostRepository.saveAndFlush(any(DraftPost.class))).thenAnswer(i -> i.getArgument(0));
@@ -2311,6 +2393,53 @@ class PostServiceTest {
     }
 
     @Test
+    @DisplayName("기존 초안 수정은 updatedAt이 없으면 충돌을 반환한다")
+    void saveDraftPost_updateWithoutVersion_rejected() {
+        DraftPost existingDraft = DraftPost.builder().user(user).board(board).title("Old").build();
+        ReflectionTestUtils.setField(existingDraft, "modifiedAt", LocalDateTime.of(2025, 1, 2, 12, 0));
+        PostDraftRequest request = PostDraftRequest.builder()
+                .draftId(10L)
+                .boardUrl("free")
+                .title("New Title")
+                .contents("New Content")
+                .build();
+
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+        when(draftPostRepository.findByDraftIdAndUserForUpdate(10L, user)).thenReturn(Optional.of(existingDraft));
+
+        assertThatThrownBy(() -> postService.saveDraftPost(1L, request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.DRAFT_OUTDATED);
+
+        verify(fileService, never()).syncDraftFiles(any(), anyLong(), anyLong());
+    }
+
+    @Test
+    @DisplayName("현재 버전보다 미래인 updatedAt도 충돌을 반환한다")
+    void saveDraftPost_futureVersion_rejected() {
+        DraftPost existingDraft = DraftPost.builder().user(user).board(board).title("Old").build();
+        ReflectionTestUtils.setField(existingDraft, "modifiedAt", LocalDateTime.of(2025, 1, 2, 12, 0));
+        PostDraftRequest request = PostDraftRequest.builder()
+                .draftId(10L)
+                .boardUrl("free")
+                .title("New Title")
+                .contents("New Content")
+                .updatedAt(LocalDateTime.of(2025, 1, 2, 12, 0, 1))
+                .build();
+
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+        when(draftPostRepository.findByDraftIdAndUserForUpdate(10L, user)).thenReturn(Optional.of(existingDraft));
+
+        assertThatThrownBy(() -> postService.saveDraftPost(1L, request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.DRAFT_OUTDATED);
+
+        verify(fileService, never()).syncDraftFiles(any(), anyLong(), anyLong());
+    }
+
+    @Test
     @DisplayName("draft save requires writable board")
     void saveDraftPost_requiresWritableBoard() {
         PostDraftRequest request = new PostDraftRequest(null, "free", "Draft Title", "Draft Content", null);
@@ -2319,7 +2448,7 @@ class PostServiceTest {
         ReflectionTestUtils.setField(board, "creator", otherCreator);
         ReflectionTestUtils.setField(board, "isPublic", false);
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
 
         assertThatThrownBy(() -> postService.saveDraftPost(1L, request))
@@ -2338,7 +2467,7 @@ class PostServiceTest {
         ReflectionTestUtils.setField(board, "creator", otherCreator);
         ReflectionTestUtils.setField(board, "isPublic", false);
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
 
         assertThatThrownBy(() -> postService.saveDraftPost(1L, request))
@@ -2362,7 +2491,7 @@ class PostServiceTest {
                 .isDefault(true)
                 .build();
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
         when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(1L, true))
                 .thenReturn(List.of(generalCategory));
@@ -2393,7 +2522,7 @@ class PostServiceTest {
                 .minWriteRole("BOARD_ADMIN")
                 .build();
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
         when(boardCategoryRepository.findByCategoryIdAndBoard_BoardIdAndIsActive(2L, 1L, true))
                 .thenReturn(Optional.of(adminOnlyCategory));
@@ -2426,7 +2555,7 @@ class PostServiceTest {
                 .build();
         ReflectionTestUtils.setField(selectedCategory, "categoryId", 2L);
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
         when(boardCategoryRepository.findByCategoryIdAndBoard_BoardIdAndIsActive(2L, 1L, true))
                 .thenReturn(Optional.of(selectedCategory));
@@ -3950,7 +4079,7 @@ class PostServiceTest {
                 .categoryId(1L)
                 .originalPostId(1L)
                 .build();
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
         when(boardCategoryRepository.findByCategoryIdAndBoard_BoardIdAndIsActive(1L, 1L, true))
                 .thenReturn(Optional.of(category));
@@ -4244,6 +4373,62 @@ class PostServiceTest {
                 any(User.class), anyCollection(), anyBoolean());
         verify(adminRepository, never()).existsByUserAndBoardAndIsActive(
                 any(User.class), any(Board.class), anyBoolean());
+    }
+
+    @Test
+    @DisplayName("초안 투표는 질문, 선택지 개수와 선택지 길이 상한을 검증한다")
+    void saveDraftPost_rejectsPollAboveDraftUpperBounds() {
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+
+        PollRequest longQuestion = new PollRequest();
+        longQuestion.setQuestion("q".repeat(201));
+        assertThatThrownBy(() -> postService.saveDraftPost(1L, draftRequest(longQuestion)))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+
+        PollRequest tooManyOptions = new PollRequest();
+        tooManyOptions.setOptions(java.util.stream.IntStream.range(0, 11).mapToObj(i -> "option").toList());
+        assertThatThrownBy(() -> postService.saveDraftPost(1L, draftRequest(tooManyOptions)))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+
+        PollRequest longOption = new PollRequest();
+        longOption.setOptions(List.of("o".repeat(101)));
+        assertThatThrownBy(() -> postService.saveDraftPost(1L, draftRequest(longOption)))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(draftPostRepository, never()).saveAndFlush(any(DraftPost.class));
+    }
+
+    @Test
+    @DisplayName("초안 투표는 비어 있는 질문과 선택지 한 개를 허용한다")
+    void saveDraftPost_allowsIncompletePollWithinUpperBounds() {
+        PollRequest incompletePoll = new PollRequest();
+        incompletePoll.setQuestion("");
+        incompletePoll.setOptions(List.of(""));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+        when(draftPostRepository.saveAndFlush(any(DraftPost.class))).thenAnswer(invocation -> {
+            DraftPost saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "draftId", 88L);
+            return saved;
+        });
+
+        DraftResponse response = postService.saveDraftPost(1L, draftRequest(incompletePoll));
+
+        assertThat(response.getPoll()).isSameAs(incompletePoll);
+    }
+
+    private PostDraftRequest draftRequest(PollRequest poll) {
+        return PostDraftRequest.builder()
+                .boardUrl("free")
+                .title("draft")
+                .contents("")
+                .fileIds(Collections.emptyList())
+                .poll(poll)
+                .build();
     }
 
     private User createUser(Long userId, String loginId) {

@@ -5,10 +5,12 @@ defineProps<{
   label: string
   draftEnabled: boolean
   isSavingDraft: boolean
+  draftConflict: boolean
 }>()
 
 defineEmits<{
   saveDraft: []
+  reloadServerDraft: []
 }>()
 </script>
 
@@ -20,7 +22,17 @@ defineEmits<{
     <div class="flex flex-col gap-3">
       <p class="text-sm text-[var(--nv-ink-soft)]">{{ label }}</p>
       <BaseButton
-        v-if="draftEnabled"
+        v-if="draftConflict"
+        type="button"
+        variant="secondary"
+        size="sm"
+        full-width
+        @click="$emit('reloadServerDraft')"
+      >
+        {{ $t('board.writePost.draftStatus.reloadServer') }}
+      </BaseButton>
+      <BaseButton
+        v-else-if="draftEnabled"
         type="button"
         variant="secondary"
         size="sm"

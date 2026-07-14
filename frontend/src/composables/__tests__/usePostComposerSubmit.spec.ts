@@ -27,7 +27,9 @@ function createSubmit(overrides: {
   categoryId?: string | number
   hideCategory?: boolean
   draftEnabled?: boolean
+  draftConflict?: boolean
   draftId?: number | null
+  scheduledAt?: string
   saveDraftNow?: () => Promise<{ draftId?: number | null } | null>
   createSuccessToastMessage?: () => string | undefined
 } = {}) {
@@ -37,6 +39,7 @@ function createSubmit(overrides: {
   const addToast = vi.fn()
   const markCurrentSnapshotSaved = vi.fn()
   const cleanupPublishedDraft = vi.fn()
+  const clearScheduledDraftRecovery = vi.fn()
   const onSubmitted = vi.fn()
   const submit = usePostComposerSubmit({
     mode: () => overrides.mode ?? 'create',
@@ -49,15 +52,17 @@ function createSubmit(overrides: {
     }),
     hideCategory: () => overrides.hideCategory,
     draftEnabled: ref(overrides.draftEnabled ?? false),
+    draftConflict: ref(overrides.draftConflict ?? false),
     draftId: ref(overrides.draftId ?? null),
     saveDraftNow: overrides.saveDraftNow ?? vi.fn().mockResolvedValue(null),
     buildPayload: () => basePayload,
     markCurrentSnapshotSaved,
     cleanupPublishedDraft,
+    clearScheduledDraftRecovery,
     createPost,
     createScheduledPost,
     updatePost,
-    scheduledAt: ref(''),
+    scheduledAt: ref(overrides.scheduledAt ?? ''),
     onSubmitted: () => onSubmitted,
     createSuccessToastMessage: overrides.createSuccessToastMessage ?? (() => undefined),
     t: (key: string) => key,
@@ -68,6 +73,7 @@ function createSubmit(overrides: {
     ...submit,
     addToast,
     cleanupPublishedDraft,
+    clearScheduledDraftRecovery,
     createPost,
     createScheduledPost,
     markCurrentSnapshotSaved,
@@ -145,6 +151,49 @@ describe('usePostComposerSubmit', () => {
     expect(logger.error).toHaveBeenCalledWith('Failed to save draft before submit:', error)
     expect(submit.addToast).toHaveBeenCalledWith('common.error.unknown', 'error')
     expect(submit.createPost).not.toHaveBeenCalled()
+    expect(submit.updatePost).not.toHaveBeenCalled()
+  })
+
+  it('keeps the server draft for scheduled publishing and clears only local recovery', async () => {
+    const submit = createSubmit({
+      draftEnabled: true,
+      draftId: 4,
+      scheduledAt: '2026-07-14T12:00',
+      saveDraftNow: vi.fn().mockResolvedValue({ draftId: 91 }),
+    })
+
+    await submit.handleSubmit()
+
+    expect(submit.createScheduledPost).toHaveBeenCalledWith({
+      boardUrl: 'free',
+      data: { ...basePayload, draftId: 91, scheduledAt: '2026-07-14T12:00' },
+    }, expect.any(Object))
+
+    const scheduleOptions = submit.createScheduledPost.mock.calls[0][1]
+    scheduleOptions.onSuccess({
+      data: { data: { scheduledPostId: 44, scheduledAt: '2026-07-14T12:00' } },
+    })
+
+    expect(submit.clearScheduledDraftRecovery).toHaveBeenCalledOnce()
+    expect(submit.cleanupPublishedDraft).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['immediate create', { mode: 'create' as const }],
+    ['scheduled create', { mode: 'create' as const, scheduledAt: '2026-07-14T12:00' }],
+    ['update', { mode: 'edit' as const }],
+  ])('blocks %s while the server draft is conflicted', async (_label, overrides) => {
+    const submit = createSubmit({
+      ...overrides,
+      draftEnabled: true,
+      draftConflict: true,
+    })
+
+    await submit.handleSubmit()
+
+    expect(submit.addToast).toHaveBeenCalledWith('board.writePost.draftStatus.conflict', 'error')
+    expect(submit.createPost).not.toHaveBeenCalled()
+    expect(submit.createScheduledPost).not.toHaveBeenCalled()
     expect(submit.updatePost).not.toHaveBeenCalled()
   })
 

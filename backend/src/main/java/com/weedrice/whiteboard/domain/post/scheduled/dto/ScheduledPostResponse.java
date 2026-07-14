@@ -16,6 +16,7 @@ public class ScheduledPostResponse {
     private String boardUrl;
     private String boardName;
     private Long categoryId;
+    private Long draftId;
     private String title;
     private LocalDateTime scheduledAt;
     private Long publishedPostId;
@@ -34,6 +35,7 @@ public class ScheduledPostResponse {
                 .boardUrl(scheduledPost.getBoard().getBoardUrl())
                 .boardName(scheduledPost.getBoard().getBoardName())
                 .categoryId(scheduledPost.getCategoryId())
+                .draftId(scheduledPost.getDraftId())
                 .title(scheduledPost.getTitle())
                 .scheduledAt(scheduledPost.getScheduledAt())
                 .publishedPostId(scheduledPost.getPublishedPostId())

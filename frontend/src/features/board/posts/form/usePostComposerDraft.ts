@@ -38,6 +38,10 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     clearRecovery,
     writeLocalSnapshot,
     lastSavedAt,
+    lastSaveScope,
+    lastSaveFailed,
+    draftConflict,
+    reloadServerDraft,
     isSavingDraft,
     restoreSource,
     draftId,
@@ -45,6 +49,7 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
   } = usePostDraft({
     enabled: draftEnabled,
     storageKey: draftStorageKey,
+    ownerId: options.userId,
     preferredDraftId: options.preferredDraftId,
     buildPayload: () => ({
       ...options.buildPayload('draft'),
@@ -52,12 +57,20 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
       originalPostId: options.mode() === 'edit' ? Number(options.postId.value) : undefined,
     }),
     applyDraft: options.applyDraft,
+    onSaved: options.markCurrentSnapshotSaved,
   })
 
   const draftStatusLabel = computed(() => {
     if (!draftEnabled.value) return ''
     if (isSavingDraft.value) return options.t('board.writePost.draftStatus.saving')
+    if (draftConflict.value) return options.t('board.writePost.draftStatus.conflict')
+    if (lastSaveFailed.value) return options.t('board.writePost.draftStatus.failed')
     if (lastSavedAt.value) {
+      if (lastSaveScope.value === 'browser') {
+        return options.t('board.writePost.draftStatus.savedBrowserAt', {
+          time: new Date(lastSavedAt.value).toLocaleTimeString(),
+        })
+      }
       return options.t('board.writePost.draftStatus.savedAt', {
         time: new Date(lastSavedAt.value).toLocaleTimeString(),
       })
@@ -102,7 +115,7 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
   )
 
   const draftSignature = computed(() => JSON.stringify({
-    ...options.buildPayload(),
+    ...options.buildPayload('draft'),
     boardUrl: options.boardUrl.value,
     originalPostId: options.mode() === 'edit' ? Number(options.postId.value) : undefined,
   }))
@@ -123,6 +136,8 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
       if (savedDraft) {
         options.markCurrentSnapshotSaved()
         options.addToast(options.t('board.writePost.draftStatus.saved'), 'success')
+      } else if (lastSaveScope.value === 'browser') {
+        options.addToast(options.t('board.writePost.draftStatus.savedBrowser'), 'success')
       }
     } catch (error) {
       logger.error('Failed to save draft:', error)
@@ -130,13 +145,27 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     }
   }
 
+  async function handleReloadServerDraft() {
+    try {
+      if (await reloadServerDraft()) {
+        options.addToast(options.t('board.writePost.draftStatus.restoredServer'), 'info')
+      }
+    } catch (error) {
+      logger.error('Failed to reload server draft:', error)
+      options.addToast(options.t('common.error.unknown'), 'error')
+    }
+  }
+
   return {
     draftEnabled,
     draftStatusLabel,
     draftId,
+    draftConflict,
     isSavingDraft,
     saveDraftNow,
     handleSaveDraft,
+    handleReloadServerDraft,
     cleanupPublishedDraft: clearRecovery,
+    clearScheduledDraftRecovery: clearRecovery,
   }
 }

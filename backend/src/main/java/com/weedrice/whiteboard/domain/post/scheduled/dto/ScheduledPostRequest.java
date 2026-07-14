@@ -51,6 +51,8 @@ public class ScheduledPostRequest {
 
     private Long seriesId;
 
+    private Long draftId;
+
     @NotNull
     private LocalDateTime scheduledAt;
 }

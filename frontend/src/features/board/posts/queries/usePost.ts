@@ -236,6 +236,9 @@ export function usePost() {
             mutationFn: async (data: PostDraftData) => {
                 return await postApi.saveDraft(data)
             },
+            onSuccess: () => {
+                queryClient.invalidateQueries({ queryKey: userQueryKeys.draftsRoot })
+            },
         })
     }
 
@@ -243,6 +246,9 @@ export function usePost() {
         return useMutation({
             mutationFn: async (draftId: string | number) => {
                 return await postApi.deleteDraft(draftId)
+            },
+            onSuccess: () => {
+                queryClient.invalidateQueries({ queryKey: userQueryKeys.draftsRoot })
             },
         })
     }

@@ -233,10 +233,13 @@ const {
   draftEnabled,
   draftStatusLabel,
   draftId,
+  draftConflict,
   isSavingDraft,
   saveDraftNow,
   handleSaveDraft,
+  handleReloadServerDraft,
   cleanupPublishedDraft,
+  clearScheduledDraftRecovery,
 } = usePostComposerDraft({
   isAuthenticated: computed(() => Boolean(authStore.isAuthenticated)),
   userId: computed(() => authStore.user?.userId),
@@ -274,11 +277,13 @@ const { handleSubmit } = usePostComposerSubmit({
   form,
   hideCategory: () => props.hideCategory,
   draftEnabled,
+  draftConflict,
   draftId,
   saveDraftNow,
   buildPayload,
   markCurrentSnapshotSaved,
   cleanupPublishedDraft,
+  clearScheduledDraftRecovery,
   createPost,
   createScheduledPost,
   updatePost,
@@ -431,9 +436,11 @@ defineExpose({
           :draft-status-label="draftStatusLabel"
           :draft-enabled="draftEnabled"
           :is-saving-draft="isSavingDraft"
+          :draft-conflict="draftConflict"
           :scheduled-at="scheduledAt"
           :show-scheduler="props.mode === 'create'"
           @save-draft="handleSaveDraft"
+          @reload-server-draft="handleReloadServerDraft"
           @update:scheduled-at="scheduledAt = $event"
         />
       </form>
@@ -443,6 +450,16 @@ defineExpose({
       <div v-if="draftStatusLabel" class="truncate px-1 text-xs font-medium text-[var(--nv-muted)]">
         {{ draftStatusLabel }}
       </div>
+      <BaseButton
+        v-if="draftConflict"
+        type="button"
+        variant="secondary"
+        size="sm"
+        class="min-h-[36px] w-full"
+        @click="handleReloadServerDraft"
+      >
+        {{ $t('board.writePost.draftStatus.reloadServer') }}
+      </BaseButton>
       <div class="flex items-center gap-2">
         <BaseButton type="button" variant="secondary" size="sm" class="min-h-[40px]" @click="handleCancel">
           {{ $t('common.cancel') }}

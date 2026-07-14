@@ -20,6 +20,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Table(name = "scheduled_posts")
@@ -31,6 +32,8 @@ public class ScheduledPost extends BaseTimeEntity {
     public static final String STATUS_PUBLISHED = "PUBLISHED";
     public static final String STATUS_CANCELED = "CANCELED";
     public static final String STATUS_FAILED = "FAILED";
+    public static final List<String> PROTECTED_DRAFT_STATUSES = List.of(
+            STATUS_SCHEDULED, STATUS_PUBLISHING, STATUS_FAILED);
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -82,6 +85,9 @@ public class ScheduledPost extends BaseTimeEntity {
     @Column(name = "series_id")
     private Long seriesId;
 
+    @Column(name = "draft_id")
+    private Long draftId;
+
     @Column(name = "scheduled_at", nullable = false)
     private LocalDateTime scheduledAt;
 
@@ -106,7 +112,8 @@ public class ScheduledPost extends BaseTimeEntity {
     @Builder
     public ScheduledPost(User user, Board board, Long categoryId, String title, String contents,
             boolean isNotice, boolean isNsfw, boolean isSpoiler, boolean isSecret,
-            String tagsJson, String fileIdsJson, String pollJson, Long seriesId, LocalDateTime scheduledAt) {
+            String tagsJson, String fileIdsJson, String pollJson, Long seriesId, Long draftId,
+            LocalDateTime scheduledAt) {
         this.user = user;
         this.board = board;
         this.categoryId = categoryId;
@@ -120,13 +127,14 @@ public class ScheduledPost extends BaseTimeEntity {
         this.fileIdsJson = fileIdsJson;
         this.pollJson = pollJson;
         this.seriesId = seriesId;
+        this.draftId = draftId;
         this.scheduledAt = scheduledAt;
         this.status = STATUS_SCHEDULED;
     }
 
     public void update(Long categoryId, String title, String contents, boolean isNotice, boolean isNsfw,
             boolean isSpoiler, boolean isSecret, String tagsJson, String fileIdsJson, String pollJson,
-            Long seriesId, LocalDateTime scheduledAt) {
+            Long seriesId, Long draftId, LocalDateTime scheduledAt) {
         this.categoryId = categoryId;
         this.title = title;
         this.contents = contents;
@@ -138,6 +146,7 @@ public class ScheduledPost extends BaseTimeEntity {
         this.fileIdsJson = fileIdsJson;
         this.pollJson = pollJson;
         this.seriesId = seriesId;
+        this.draftId = draftId;
         this.scheduledAt = scheduledAt;
         this.status = STATUS_SCHEDULED;
         this.failureReason = null;

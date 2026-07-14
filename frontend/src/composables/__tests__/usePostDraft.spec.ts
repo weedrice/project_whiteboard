@@ -1,9 +1,11 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
-import { defineComponent, h, nextTick, ref } from 'vue'
+import { defineComponent, h, nextTick, ref, type Ref } from 'vue'
 import { mount } from '@vue/test-utils'
 import { usePostDraft } from '../usePostDraft'
 import type { DraftRecoverySnapshot } from '../usePostDraft'
+import type { PostDraftData } from '@/api/post'
 import { Storage } from '@/utils/storage'
+import { markDraftDeletedLocally } from '@/features/board/posts/draft/postDraftTombstone'
 
 const mocks = vi.hoisted(() => {
     const saveDraftMutateAsync = vi.fn()
@@ -48,13 +50,13 @@ vi.mock('@/utils/logger', () => ({
     default: { error: vi.fn() },
 }))
 
-function mountComposable(payloadRef = ref({
+function mountComposable(payloadRef: Ref<PostDraftData> = ref({
     boardUrl: 'free',
     title: 'Draft title',
     contents: 'Draft body',
     fileIds: [7],
     originalPostId: undefined as number | undefined,
-}), storageKeyRef = ref('noviis:test:draft'), enabledRef = ref(true)) {
+}), storageKeyRef = ref('noviis:test:draft'), enabledRef = ref(true), ownerIdRef = ref<number | null>(null)) {
     const appliedDrafts: DraftRecoverySnapshot[] = []
     let composable: ReturnType<typeof usePostDraft> | null = null
 
@@ -63,6 +65,7 @@ function mountComposable(payloadRef = ref({
             composable = usePostDraft({
                 enabled: enabledRef,
                 storageKey: storageKeyRef,
+                ownerId: ownerIdRef,
                 buildPayload: () => payloadRef.value,
                 applyDraft: (draft) => appliedDrafts.push(draft),
             })
@@ -177,8 +180,8 @@ describe('usePostDraft', () => {
         }))
     })
 
-    it('refreshes an outdated draft version and retries the current save once', async () => {
-        const { composable, payloadRef } = mountComposable()
+    it('stops autosave on an outdated draft and reloads the server copy explicitly', async () => {
+        const { composable, payloadRef, appliedDrafts } = mountComposable()
 
         await composable.saveNow()
 
@@ -217,45 +220,29 @@ describe('usePostDraft', () => {
                 },
             },
         })
-        mocks.saveDraftMutateAsync.mockResolvedValueOnce({
-            data: {
-                data: {
-                    draftId: 91,
-                    boardId: 1,
-                    boardUrl: 'free',
-                    boardName: 'Free',
-                    title: 'Current editor title',
-                    contents: 'Draft body',
-                    tags: [],
-                    fileIds: [7],
-                    isNotice: false,
-                    isNsfw: false,
-                    isSpoiler: false,
-                    isSecret: false,
-                    updatedAt: '2025-01-03T00:00:00.000Z',
-                    modifiedAt: '2025-01-03T00:00:00.000Z',
-                },
-            },
+        await expect(composable.saveNow()).rejects.toMatchObject({
+            response: { status: 409 },
         })
 
-        const savedDraft = await composable.saveNow()
-
-        expect(savedDraft?.updatedAt).toBe('2025-01-03T00:00:00.000Z')
-        expect(mocks.getDraft).toHaveBeenCalledWith(91)
+        expect(composable.draftConflict.value).toBe(true)
+        expect(mocks.getDraft).not.toHaveBeenCalled()
         expect(mocks.saveDraftMutateAsync).toHaveBeenNthCalledWith(2, expect.objectContaining({
             draftId: 91,
             title: 'Current editor title',
             updatedAt: '2025-01-01T00:00:00.000Z',
         }))
-        expect(mocks.saveDraftMutateAsync).toHaveBeenNthCalledWith(3, expect.objectContaining({
-            draftId: 91,
-            title: 'Current editor title',
+        expect(mocks.saveDraftMutateAsync).toHaveBeenCalledTimes(2)
+
+        expect(await composable.reloadServerDraft()).toBe(true)
+        expect(composable.draftConflict.value).toBe(false)
+        expect(appliedDrafts[0]).toEqual(expect.objectContaining({
+            title: 'Server title',
             updatedAt: '2025-01-02T00:00:00.000Z',
         }))
         expect(Storage.get('noviis:test:draft')).toEqual(expect.objectContaining({
             draftId: 91,
-            title: 'Current editor title',
-            updatedAt: '2025-01-03T00:00:00.000Z',
+            title: 'Server title',
+            updatedAt: '2025-01-02T00:00:00.000Z',
         }))
     })
 
@@ -304,6 +291,14 @@ describe('usePostDraft', () => {
                     isNsfw: false,
                     isSpoiler: false,
                     isSecret: true,
+                    poll: {
+                        question: 'Pick one',
+                        options: ['A', 'B'],
+                        multipleChoiceEnabled: true,
+                        anonymousEnabled: false,
+                        closesAt: null,
+                    },
+                    seriesId: 42,
                     originalPostId: 7,
                     updatedAt: '2025-01-02T00:00:00.000Z',
                     modifiedAt: '2025-01-02T00:00:00.000Z',
@@ -319,6 +314,8 @@ describe('usePostDraft', () => {
         expect(appliedDrafts[0]).toEqual(expect.objectContaining({
             title: 'Recovered draft',
             fileIds: [21],
+            poll: expect.objectContaining({ options: ['A', 'B'] }),
+            seriesId: 42,
             originalPostId: 7,
         }))
         expect(composable.restoreSource.value).toBe('server')
@@ -389,6 +386,137 @@ describe('usePostDraft', () => {
         await expect(savePromise).resolves.toBeNull()
         expect(composable.draftId.value).toBeNull()
         expect(composable.lastSavedAt.value).toBeNull()
+    })
+
+    it('does not resurrect recovery state when it is cleared during an in-flight save', async () => {
+        let resolveSave: (value: unknown) => void = () => undefined
+        mocks.saveDraftMutateAsync.mockReturnValueOnce(new Promise((resolve) => {
+            resolveSave = resolve
+        }))
+        const { composable } = mountComposable()
+
+        const savePromise = composable.saveNow()
+        expect(Storage.get('noviis:test:draft')).toEqual(expect.objectContaining({ title: 'Draft title' }))
+
+        composable.clearRecovery()
+        resolveSave({
+            data: {
+                data: {
+                    draftId: 91,
+                    boardUrl: 'free',
+                    title: 'Late server draft',
+                    contents: 'Late body',
+                    tags: [],
+                    fileIds: [],
+                    isNotice: false,
+                    isNsfw: false,
+                    isSpoiler: false,
+                    isSecret: false,
+                    updatedAt: '2025-01-01T00:00:00.000Z',
+                },
+            },
+        })
+
+        await expect(savePromise).resolves.toBeNull()
+        expect(Storage.get('noviis:test:draft')).toBeNull()
+        expect(composable.draftId.value).toBeNull()
+        expect(composable.updatedAt.value).toBeNull()
+        expect(composable.lastSavedAt.value).toBeNull()
+    })
+
+    it('does not let a rejected save from an old form identity set failure or conflict state', async () => {
+        let rejectSave: (reason: unknown) => void = () => undefined
+        mocks.saveDraftMutateAsync.mockReturnValueOnce(new Promise((_resolve, reject) => {
+            rejectSave = reject
+        }))
+        const { composable } = mountComposable()
+
+        const savePromise = composable.saveNow()
+        composable.resetSession()
+        rejectSave({
+            isAxiosError: true,
+            response: { status: 409, data: { error: { code: 'P004' } } },
+        })
+
+        await expect(savePromise).rejects.toMatchObject({ response: { status: 409 } })
+        expect(composable.draftConflict.value).toBe(false)
+        expect(composable.lastSaveFailed.value).toBe(false)
+    })
+
+    it('ignores a server reload that finishes after the form identity changes', async () => {
+        const { composable, appliedDrafts } = mountComposable()
+        await composable.saveNow()
+        let resolveDraft: (value: unknown) => void = () => undefined
+        mocks.getDraft.mockReturnValueOnce(new Promise((resolve) => {
+            resolveDraft = resolve
+        }))
+
+        const reloadPromise = composable.reloadServerDraft()
+        composable.resetSession()
+        resolveDraft({
+            data: {
+                data: {
+                    draftId: 91,
+                    boardUrl: 'free',
+                    title: 'Stale server title',
+                    contents: 'Stale server body',
+                    tags: [],
+                    fileIds: [],
+                    isNotice: false,
+                    isNsfw: false,
+                    isSpoiler: false,
+                    isSecret: false,
+                    updatedAt: '2025-01-02T00:00:00.000Z',
+                },
+            },
+        })
+
+        await expect(reloadPromise).resolves.toBe(false)
+        expect(composable.draftId.value).toBeNull()
+        expect(appliedDrafts).toHaveLength(0)
+    })
+
+    it('queues the latest edit while a previous save is still in flight', async () => {
+        let resolveFirstSave: (value: unknown) => void = () => undefined
+        mocks.saveDraftMutateAsync.mockReturnValueOnce(new Promise((resolve) => {
+            resolveFirstSave = resolve
+        }))
+        const { composable, payloadRef } = mountComposable()
+
+        const firstSave = composable.saveNow()
+        payloadRef.value = { ...payloadRef.value, title: 'Latest editor title' }
+        composable.writeLocalSnapshot()
+        const queuedSave = composable.saveNow()
+        resolveFirstSave({
+            data: {
+                data: {
+                    draftId: 91,
+                    boardUrl: 'free',
+                    title: 'Draft title',
+                    contents: 'Draft body',
+                    tags: [],
+                    fileIds: [7],
+                    isNotice: false,
+                    isNsfw: false,
+                    isSpoiler: false,
+                    isSecret: false,
+                    updatedAt: '2025-01-01T00:00:00.000Z',
+                    modifiedAt: '2025-01-01T00:00:00.000Z',
+                },
+            },
+        })
+
+        await Promise.all([firstSave, queuedSave])
+
+        expect(mocks.saveDraftMutateAsync).toHaveBeenCalledTimes(2)
+        expect(mocks.saveDraftMutateAsync).toHaveBeenLastCalledWith(expect.objectContaining({
+            draftId: 91,
+            title: 'Latest editor title',
+        }))
+        expect(Storage.get('noviis:test:draft')).toEqual(expect.objectContaining({
+            draftId: 91,
+            title: 'Latest editor title',
+        }))
     })
 
     it('does not auto-restore create drafts when multiple server drafts match the same board', async () => {
@@ -580,6 +708,88 @@ describe('usePostDraft', () => {
             contents: 'Local contents',
         }))
         expect(Storage.get('noviis:test:draft')).not.toHaveProperty('draftId')
+    })
+
+    it('updates an existing server draft when only its category remains', async () => {
+        const { composable, payloadRef } = mountComposable()
+        await composable.saveNow()
+        payloadRef.value = {
+            ...payloadRef.value,
+            title: '',
+            contents: '',
+            fileIds: [],
+            categoryId: 5,
+        }
+
+        await composable.saveNow()
+
+        expect(mocks.deleteDraftMutateAsync).not.toHaveBeenCalled()
+        expect(mocks.saveDraftMutateAsync).toHaveBeenLastCalledWith(expect.objectContaining({
+            draftId: 91,
+            categoryId: 5,
+        }))
+        expect(composable.draftId.value).toBe(91)
+    })
+
+    it('keeps a new category-only draft in the browser without creating a server draft', async () => {
+        const { composable } = mountComposable(ref({
+            boardUrl: 'free',
+            title: '',
+            contents: '',
+            fileIds: [],
+            categoryId: 5,
+            originalPostId: undefined,
+        }))
+
+        await composable.saveNow()
+
+        expect(mocks.saveDraftMutateAsync).not.toHaveBeenCalled()
+        expect(mocks.deleteDraftMutateAsync).not.toHaveBeenCalled()
+        expect(composable.lastSaveScope.value).toBe('browser')
+        expect(Storage.get('noviis:test:draft')).toEqual(expect.objectContaining({ categoryId: 5 }))
+    })
+
+    it('persists poll and series settings in a server draft', async () => {
+        const { composable } = mountComposable(ref({
+            boardUrl: 'free',
+            title: '',
+            contents: '',
+            fileIds: [],
+            seriesId: 7,
+            poll: { question: 'Pick', options: ['A', 'B'] },
+            originalPostId: undefined,
+        }))
+
+        await composable.saveNow()
+
+        expect(mocks.saveDraftMutateAsync).toHaveBeenCalledWith(expect.objectContaining({
+            seriesId: 7,
+            poll: { question: 'Pick', options: ['A', 'B'] },
+        }))
+        expect(composable.lastSaveScope.value).toBe('server')
+    })
+
+    it('does not restore a locally deleted server draft from browser recovery storage', async () => {
+        Storage.set('noviis:test:draft', {
+            boardUrl: 'free',
+            title: 'Deleted local copy',
+            contents: 'Should not return',
+            draftId: 91,
+            updatedAt: '2025-01-01T00:00:00.000Z',
+        })
+        markDraftDeletedLocally(7, 91)
+        const { composable, appliedDrafts } = mountComposable(
+            undefined,
+            ref('noviis:test:draft'),
+            ref(true),
+            ref(7),
+        )
+
+        await composable.restoreDraft()
+
+        expect(mocks.getDraft).not.toHaveBeenCalled()
+        expect(appliedDrafts).toHaveLength(0)
+        expect(Storage.get('noviis:test:draft')).toBeNull()
     })
 
     it('falls back to a replacement server draft after a stale local draft id returns 404', async () => {

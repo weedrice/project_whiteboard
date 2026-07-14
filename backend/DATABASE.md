@@ -4,9 +4,9 @@
 
 | 항목 | 내용 |
 | --- | --- |
-| 기준일 | 2026-05-29 |
+| 기준일 | 2026-07-13 |
 | 기준 소스 | `backend/src/main/resources/db/migration` |
-| 마이그레이션 범위 | `V1__baseline_schema.sql` - `V26__rename_node_common_code_labels_to_space.sql` |
+| 마이그레이션 범위 | `V1__baseline_schema.sql` - `V47__draft_content_and_scheduled_draft.sql` |
 | 현재 테이블 수 | 62개 |
 | DB | PostgreSQL |
 
@@ -51,9 +51,18 @@
 | `scraps` | 게시글 스크랩 |
 | `post_tags` | 게시글-태그 연결 |
 | `post_versions` | 게시글 버전 이력 |
-| `draft_posts` | 게시글 초안 |
+| `draft_posts` | 게시글 초안. 사용자·스페이스·카테고리·원본 게시글, 본문/상태/태그/파일 ID, 투표·시리즈와 수정 시각을 보존 |
 | `popular_posts` | 인기글 캐시 |
 | `view_histories` | 사용자별 게시글 열람 이력 |
+
+#### `draft_posts` 보존 정책
+
+- 초안 수정의 버전 값은 `modified_at`이며 API의 `updatedAt`과 DB microsecond 정밀도로 정확히 일치해야 한다.
+- 사용자당 최근 100개를 유지한다. 새 초안 저장 후 한도를 초과하면 `modified_at ASC`, `draft_id ASC` 순서의 오래된 초안을 먼저 삭제한다.
+- `modified_at`이 현재 시각 기준 90일보다 오래된 초안은 매일 03:15(Asia/Seoul) 정리 대상이다.
+- 초안 레코드를 삭제하기 전에 `DRAFT_POST`로 연결된 활성 파일을 삭제 대기 상태로 전환한다. 게시글 발행에서는 선택 파일을 `POST_CONTENT`로 승격한 뒤 초안을 정리한다.
+- `draft_posts.poll_json`은 불완전한 작성 중 투표 payload도 보존하고, `series_id`는 시리즈 삭제 시 `NULL`로 전환한다.
+- `scheduled_posts.draft_id`는 nullable unique index로 한 초안당 하나의 예약만 허용하고 source 초안을 실제 예약 발행 시점까지 보존한다. `SCHEDULED`, `PUBLISHING`, `FAILED` 참조 초안은 정리 대상에서 제외하며, 취소 시 참조를 해제하고 발행 시 파일 승격 후 FK를 `NULL`로 전환해 초안을 정리한다.
 
 ### 댓글
 
@@ -177,6 +186,14 @@
 | `V24` | active Agent name unique index |
 | `V25` | rename board common code labels to node |
 | `V26` | rename node common code labels to space |
+| `V27` - `V31` | 알림 설정 확장, 메시지 알림, 댓글 멘션, Push/온보딩, 키워드 구독 |
+| `V32` - `V33` | 게시글 투표와 복수 선택 투표 제약 |
+| `V34` - `V39` | 스페이스 방문, 알림 그룹핑, 스크랩 폴더, 게시글 시리즈, 이미지 variant, 온보딩 backfill |
+| `V40` - `V43` | 출석, 콘텐츠 자동 블라인드, 게시글 매니저 도구, 뱃지 |
+| `V44` | 예약 게시글 |
+| `V45` | 프로필 이미지 변경 비용 |
+| `V46` | moderation 감사 로그 |
+| `V47` | 초안 투표·시리즈와 예약 발행 source draft 연결 |
 
 ## 운영 주의
 

@@ -51,6 +51,14 @@ export interface PollPayload {
     closesAt?: string | null
 }
 
+export interface DraftPollPayload {
+    question: string
+    options: string[]
+    multipleChoiceEnabled?: boolean
+    anonymousEnabled?: boolean
+    closesAt?: string | null
+}
+
 export interface PollVotePayload {
     optionIds: number[]
 }
@@ -67,7 +75,8 @@ export interface PostDraftData {
     isSpoiler?: boolean
     isSecret?: boolean
     fileIds?: number[]
-    poll?: PollPayload | null
+    poll?: DraftPollPayload | null
+    seriesId?: number | null
     updatedAt?: string
     originalPostId?: number
 }

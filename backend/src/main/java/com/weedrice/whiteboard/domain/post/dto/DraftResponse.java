@@ -28,6 +28,8 @@ public class DraftResponse {
     @JsonProperty("isSecret")
     private boolean isSecret;
     private List<Long> fileIds;
+    private PollRequest poll;
+    private Long seriesId;
     private Long originalPostId;
     private LocalDateTime updatedAt;
     private LocalDateTime modifiedAt;
@@ -47,6 +49,8 @@ public class DraftResponse {
                 .isSpoiler(draftPost.isSpoiler())
                 .isSecret(draftPost.isSecret())
                 .fileIds(draftPost.getFileIds())
+                .poll(draftPost.getPoll())
+                .seriesId(draftPost.getSeries() != null ? draftPost.getSeries().getSeriesId() : null)
                 .originalPostId(draftPost.getOriginalPost() != null ? draftPost.getOriginalPost().getPostId() : null)
                 .updatedAt(draftPost.getModifiedAt())
                 .modifiedAt(draftPost.getModifiedAt())

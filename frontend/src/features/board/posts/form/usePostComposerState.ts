@@ -32,6 +32,7 @@ export type PostComposerSnapshot = {
   isSpoiler?: boolean
   isNotice?: boolean
   isSecret?: boolean
+  seriesId?: number | null
   seriesNavigation?: { series?: { seriesId?: number | null } | null } | null
   poll?: {
     question: string
@@ -126,7 +127,7 @@ export function usePostComposerState(options: UsePostComposerStateOptions) {
       isSpoiler: Boolean(draft.isSpoiler),
       isNotice: Boolean(draft.isNotice),
       isSecret: Boolean(draft.isSecret),
-      seriesId: draft.seriesNavigation?.series?.seriesId ?? '',
+      seriesId: draft.seriesNavigation?.series?.seriesId ?? draft.seriesId ?? '',
       poll: draft.poll ? {
         question: draft.poll.question,
         options: draft.poll.options.map((option) => typeof option === 'string' ? option : option.optionText),
@@ -139,7 +140,7 @@ export function usePostComposerState(options: UsePostComposerStateOptions) {
   }
 
   const buildPayload = (fileIdScope: PostFormFileIdScope = 'content') => {
-    return buildPostFormPayload({
+    const payload = buildPostFormPayload({
       form: form.value,
       mode: options.mode(),
       hideCategory: options.hideCategory(),
@@ -150,6 +151,17 @@ export function usePostComposerState(options: UsePostComposerStateOptions) {
       canShowNsfw: options.canShowNsfw.value,
       fileIds: resolvePostFormFileIds(form.value.content, draftFileIds.value, fileIdScope),
     })
+    if (fileIdScope !== 'draft' || !form.value.poll) return payload
+    return {
+      ...payload,
+      poll: {
+        question: form.value.poll.question,
+        options: [...form.value.poll.options],
+        multipleChoiceEnabled: form.value.poll.multipleChoiceEnabled,
+        anonymousEnabled: form.value.poll.anonymousEnabled,
+        closesAt: form.value.poll.closesAt || null,
+      },
+    }
   }
 
   function trackUploadedFile(fileId: number) {

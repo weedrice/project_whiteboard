@@ -13,12 +13,14 @@ defineProps<{
   draftStatusLabel: string
   draftEnabled: boolean
   isSavingDraft: boolean
+  draftConflict: boolean
   scheduledAt: string
   showScheduler: boolean
 }>()
 
 defineEmits<{
   saveDraft: []
+  reloadServerDraft: []
   'update:scheduledAt': [value: string]
 }>()
 </script>
@@ -37,7 +39,9 @@ defineEmits<{
       :label="draftStatusLabel"
       :draft-enabled="draftEnabled"
       :is-saving-draft="isSavingDraft"
+      :draft-conflict="draftConflict"
       @save-draft="$emit('saveDraft')"
+      @reload-server-draft="$emit('reloadServerDraft')"
     />
 
     <section

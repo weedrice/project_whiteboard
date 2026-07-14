@@ -47,7 +47,7 @@ class ScheduledPostPayloadMapper {
                 Boolean.TRUE.equals(scheduledPost.getIsNsfw()),
                 Boolean.TRUE.equals(scheduledPost.getIsSpoiler()),
                 Boolean.TRUE.equals(scheduledPost.getIsSecret()),
-                null,
+                scheduledPost.getDraftId(),
                 fromJson(scheduledPost.getFileIdsJson(), LONG_LIST_TYPE),
                 fromJson(scheduledPost.getPollJson(), PollRequest.class),
                 scheduledPost.getSeriesId());

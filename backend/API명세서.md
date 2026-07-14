@@ -4,7 +4,7 @@
 
 | 항목 | 내용 |
 | --- | --- |
-| 기준일 | 2026-07-10 |
+| 기준일 | 2026-07-13 |
 | 기준 소스 | `backend/src/main/java/com/weedrice/whiteboard/**/*Controller.java` |
 | Base URL | `/api/v1` |
 | 상세 DTO 기준 | 실행 중 Swagger UI / OpenAPI JSON |
@@ -174,6 +174,38 @@
 | `GET` | `/api/v1/scheduled-posts/{scheduledPostId}` | 예약 게시글 상세 |
 | `PUT` | `/api/v1/scheduled-posts/{scheduledPostId}` | 예약 게시글 수정 |
 | `DELETE` | `/api/v1/scheduled-posts/{scheduledPostId}` | 예약 게시글 취소 |
+
+#### 게시글 초안 계약
+
+게시글 초안 API는 로그인한 사용자만 호출할 수 있으며, 조회·수정·삭제 대상은 항상 현재 사용자가 소유한 초안으로 제한한다. `POST /api/v1/drafts`는 신규 저장과 기존 초안 수정을 함께 처리하고 성공 시 `201 Created`를 반환한다.
+
+| 필드 | 필수 여부 | 설명 |
+| --- | --- | --- |
+| `draftId` | 신규 저장 시 선택, 수정 시 필수 | 생략하면 새 초안을 생성하고, 지정하면 현재 사용자 소유 초안을 수정한다. |
+| `boardUrl` | 필수 | 초안을 작성할 스페이스 URL. 현재 사용자가 해당 스페이스·카테고리에 글을 쓸 수 있어야 한다. |
+| `title` | 선택 | 빈 제목을 허용하되 최대 200자이며 HTML은 허용하지 않는다. |
+| `contents` | 선택 | 최대 100,000자. 저장 전에 게시글 본문과 같은 HTML 정규화 정책을 적용한다. |
+| `categoryId` | 선택 | 지정하면 해당 스페이스의 활성 카테고리와 작성 권한을 검증한다. |
+| `tags` | 선택 | 게시글 태그 개수·태그명 길이 정책을 적용한다. |
+| `isNotice`, `isNsfw`, `isSpoiler`, `isSecret` | 선택 | 생략 시 `false`. 공지 초안은 스페이스 관리자 권한이 필요하다. |
+| `fileIds` | 선택 | 초안에 연결할 현재 사용자 소유 파일 ID 목록. |
+| `poll` | 선택 | 작성 중인 투표 payload. 질문·선택지가 불완전한 상태도 보존하되 질문 200자, 선택지 10개, 선택지별 100자 상한은 적용한다. |
+| `seriesId` | 선택 | 현재 사용자 소유 시리즈 ID. |
+| `updatedAt` | 기존 초안 수정 시 필수 | 마지막 단건 조회 또는 저장 응답의 `updatedAt`. DB microsecond 정밀도로 현재 `modifiedAt`과 정확히 일치해야 한다. |
+| `originalPostId` | 수정 초안에서 선택 | 원본 게시글은 현재 사용자 소유이고 삭제되지 않았으며 요청 스페이스와 일치해야 한다. |
+
+초안 단건 응답은 `draftId`, 스페이스 정보, 제목·본문·카테고리·태그·상태 플래그·`fileIds`, `poll`, `seriesId`, `originalPostId`, `updatedAt`, `modifiedAt`을 반환한다. `updatedAt`과 `modifiedAt`은 현재 동일한 초안 버전 시각을 나타낸다.
+
+- 기존 초안 수정에서 `updatedAt`이 없거나 현재 버전과 정확히 일치하지 않으면 `409 Conflict`, 오류 코드 `P004`(`DRAFT_OUTDATED`)를 반환한다.
+- 프론트엔드 자동 저장은 충돌 후 자동 덮어쓰기를 중단한다. 사용자가 서버 초안을 다시 불러온 뒤 편집을 계속해야 한다.
+- 초안 목록은 `modifiedAt DESC`, `draftId DESC` 순서이며 기본 크기는 20이다.
+- `DELETE /api/v1/drafts/{draftId}`는 연결 파일을 삭제 대기 상태로 전환한 뒤 초안을 삭제한다.
+- 게시글 발행 요청에 현재 사용자 소유 `draftId`를 전달하면 파일을 게시글로 승격한 뒤 해당 초안을 정리한다.
+- 예약 게시글 요청의 `draftId`는 현재 사용자 소유이며 같은 스페이스인 초안만 허용한다. 예약 생성 성공 시 서버 초안은 유지하고 실제 발행 트랜잭션에서 파일 승격 후 정리한다.
+- 하나의 초안은 동시에 하나의 예약 게시글만 참조할 수 있다. 예약 취소 시 참조를 해제해 같은 초안을 다시 예약할 수 있다.
+- `SCHEDULED`, `PUBLISHING`, `FAILED` 예약이 참조하는 초안은 수동 삭제와 개수·기간 정리에서 보호한다. 예약 취소 후에는 보호가 해제된다.
+
+프론트엔드 작성기는 로그인 사용자에게 1.5초 debounce 자동 저장과 수동 저장을 제공한다. 서버 요청 전 localStorage 복구본을 갱신하며, 제목·본문·태그·파일·투표·시리즈와 공지/NSFW/spoiler/비밀 설정을 의미 있는 편집 상태로 본다. 카테고리는 로컬 복구본에는 보존하지만 기본 카테고리 선택만으로 빈 서버 초안을 만들지는 않는다.
 
 ### Comments
 

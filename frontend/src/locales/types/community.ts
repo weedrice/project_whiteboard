@@ -338,10 +338,15 @@ export interface BoardMessages {
     draftStatus: {
       saving: string
       savedAt: string
+      savedBrowserAt: string
       ready: string
+      failed: string
+      conflict: string
+      reloadServer: string
       restoredLocal: string
       restoredServer: string
       saved: string
+      savedBrowser: string
       cleanupFailed: string
       clearLocalBackup: string
     }

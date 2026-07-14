@@ -3,16 +3,13 @@ package com.weedrice.whiteboard.domain.post.scheduled.service;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.util.BoardUrlNormalizer;
-import com.weedrice.whiteboard.domain.notification.constant.NotificationSourceType;
-import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
-import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
-import com.weedrice.whiteboard.domain.post.dto.PostCreateResponse;
+import com.weedrice.whiteboard.domain.post.entity.DraftPost;
+import com.weedrice.whiteboard.domain.post.repository.DraftPostRepository;
 import com.weedrice.whiteboard.domain.post.scheduled.dto.ScheduledPostRequest;
 import com.weedrice.whiteboard.domain.post.scheduled.dto.ScheduledPostResponse;
 import com.weedrice.whiteboard.domain.post.scheduled.entity.ScheduledPost;
 import com.weedrice.whiteboard.domain.post.scheduled.repository.ScheduledPostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostAuthorCommandPolicy;
-import com.weedrice.whiteboard.domain.post.service.PostCommandService;
 import com.weedrice.whiteboard.domain.post.service.PostTitleValidator;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -22,7 +19,7 @@ import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -44,19 +41,18 @@ public class ScheduledPostService {
     private static final int PUBLISH_BATCH_SIZE = 20;
     private static final int MIN_SCHEDULE_MINUTES = 5;
     private static final int MAX_SCHEDULE_DAYS = 30;
-    private static final int MAX_FAILURE_REASON_LENGTH = 255;
     private static final Sort DEFAULT_SORT = Sort.by(
             Sort.Order.desc("scheduledAt"),
             Sort.Order.desc("scheduledPostId"));
 
     private final ScheduledPostRepository scheduledPostRepository;
+    private final DraftPostRepository draftPostRepository;
     private final BoardRepository boardRepository;
     private final UserWritableResolver userWritableResolver;
     private final SanctionService sanctionService;
     private final PostAuthorCommandPolicy postAuthorCommandPolicy;
-    private final PostCommandService postCommandService;
     private final ScheduledPostPayloadMapper payloadMapper;
-    private final ApplicationEventPublisher eventPublisher;
+    private final ScheduledPostPublishWorker publishWorker;
     private final Clock clock;
 
     @Transactional
@@ -68,6 +64,8 @@ public class ScheduledPostService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
         postAuthorCommandPolicy.validateBoardWritable(board, user);
         validateRequest(request);
+        validateDraftReference(request.getDraftId(), user, board);
+        validateDraftAvailability(request.getDraftId(), null);
 
         ScheduledPost scheduledPost = ScheduledPost.builder()
                 .user(user)
@@ -83,9 +81,14 @@ public class ScheduledPostService {
                 .fileIdsJson(payloadMapper.fileIdsJson(request))
                 .pollJson(payloadMapper.pollJson(request))
                 .seriesId(request.getSeriesId())
+                .draftId(request.getDraftId())
                 .scheduledAt(request.getScheduledAt())
                 .build();
-        return ScheduledPostResponse.from(scheduledPostRepository.save(scheduledPost));
+        try {
+            return ScheduledPostResponse.from(scheduledPostRepository.saveAndFlush(scheduledPost));
+        } catch (DataIntegrityViolationException exception) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
     }
 
     public Page<ScheduledPostResponse> getMine(Long userId, Pageable pageable) {
@@ -109,6 +112,8 @@ public class ScheduledPostService {
         }
         postAuthorCommandPolicy.validateBoardWritable(scheduledPost.getBoard(), user);
         validateRequest(request);
+        validateDraftReference(request.getDraftId(), user, scheduledPost.getBoard());
+        validateDraftAvailability(request.getDraftId(), scheduledPostId);
         scheduledPost.update(
                 request.getCategoryId(),
                 request.getTitle(),
@@ -121,8 +126,14 @@ public class ScheduledPostService {
                 payloadMapper.fileIdsJson(request),
                 payloadMapper.pollJson(request),
                 request.getSeriesId(),
+                request.getDraftId(),
                 request.getScheduledAt());
-        return ScheduledPostResponse.from(scheduledPost);
+        try {
+            scheduledPostRepository.flush();
+            return ScheduledPostResponse.from(scheduledPost);
+        } catch (DataIntegrityViolationException exception) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
     }
 
     @Transactional
@@ -134,7 +145,7 @@ public class ScheduledPostService {
         }
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public int publishDuePosts() {
         LocalDateTime now = now();
         List<Long> dueIds = scheduledPostRepository
@@ -144,53 +155,18 @@ public class ScheduledPostService {
                 .toList();
         int publishedCount = 0;
         for (Long scheduledPostId : dueIds) {
-            if (claimAndPublish(scheduledPostId, now)) {
+            LocalDateTime claimedAt = now();
+            if (!publishWorker.claim(scheduledPostId, now, claimedAt)) {
+                continue;
+            }
+            try {
+                publishWorker.publishClaimed(scheduledPostId, claimedAt);
                 publishedCount++;
+            } catch (RuntimeException exception) {
+                publishWorker.markFailed(scheduledPostId, claimedAt, exception);
             }
         }
         return publishedCount;
-    }
-
-    private boolean claimAndPublish(Long scheduledPostId, LocalDateTime now) {
-        LocalDateTime claimedAt = now();
-        int claimed = scheduledPostRepository.claimForPublishing(scheduledPostId, now, claimedAt);
-        if (claimed != 1) {
-            return false;
-        }
-        publishClaimedPost(scheduledPostId, claimedAt);
-        return true;
-    }
-
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    void publishClaimedPost(Long scheduledPostId, LocalDateTime claimedAt) {
-        ScheduledPost scheduledPost = scheduledPostRepository
-                .findByScheduledPostIdAndStatusAndProcessingStartedAt(
-                        scheduledPostId,
-                        ScheduledPost.STATUS_PUBLISHING,
-                        claimedAt)
-                .orElse(null);
-        if (scheduledPost == null) {
-            return;
-        }
-        try {
-            PostCreateResponse created = postCommandService.createPostWithResponse(
-                    scheduledPost.getUser().getUserId(),
-                    scheduledPost.getBoard().getBoardUrl(),
-                    payloadMapper.toPostCreateRequest(scheduledPost));
-            scheduledPostRepository.markPublished(scheduledPostId, claimedAt, created.getPostId(), now());
-            publishSystemNotification(
-                    scheduledPost.getUser(),
-                    scheduledPostId,
-                    "Scheduled post published: " + scheduledPost.getTitle());
-        } catch (RuntimeException exception) {
-            String reason = normalizeFailureReason(exception);
-            log.warn("Scheduled post publish failed. scheduledPostId={}, reason={}", scheduledPostId, reason);
-            scheduledPostRepository.markFailed(scheduledPostId, claimedAt, reason);
-            publishSystemNotification(
-                    scheduledPost.getUser(),
-                    scheduledPostId,
-                    "Scheduled post failed: " + scheduledPost.getTitle());
-        }
     }
 
     private ScheduledPost loadOwned(Long userId, Long scheduledPostId) {
@@ -218,29 +194,32 @@ public class ScheduledPostService {
         }
     }
 
+    private void validateDraftReference(Long draftId, User user, Board board) {
+        if (draftId == null) {
+            return;
+        }
+        DraftPost draft = draftPostRepository.findByDraftIdAndUserForUpdate(draftId, user)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+        if (!draft.getBoard().getBoardId().equals(board.getBoardId())) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+    }
+
+    private void validateDraftAvailability(Long draftId, Long scheduledPostId) {
+        if (draftId == null) {
+            return;
+        }
+        boolean alreadyScheduled = scheduledPostId == null
+                ? scheduledPostRepository.existsByDraftId(draftId)
+                : scheduledPostRepository.existsByDraftIdAndScheduledPostIdNot(draftId, scheduledPostId);
+        if (alreadyScheduled) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+    }
+
     private LocalDateTime now() {
-        return LocalDateTime.now(clock);
+        LocalDateTime now = LocalDateTime.now(clock);
+        return now.withNano((now.getNano() / 1_000) * 1_000);
     }
 
-    private String normalizeFailureReason(RuntimeException exception) {
-        String message = exception.getMessage();
-        if (message == null || message.isBlank()) {
-            message = exception.getClass().getSimpleName();
-        }
-        String normalized = message.strip();
-        if (normalized.length() <= MAX_FAILURE_REASON_LENGTH) {
-            return normalized;
-        }
-        return normalized.substring(0, MAX_FAILURE_REASON_LENGTH);
-    }
-
-    private void publishSystemNotification(User user, Long scheduledPostId, String content) {
-        eventPublisher.publishEvent(new NotificationEvent(
-                user,
-                null,
-                NotificationType.SYSTEM,
-                NotificationSourceType.SYSTEM,
-                scheduledPostId,
-                content));
-    }
 }

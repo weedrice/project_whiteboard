@@ -809,6 +809,60 @@ class PostControllerTest {
         }
 
         @Test
+        @DisplayName("임시글 제목은 200자를 초과할 수 없다")
+        void saveDraft_rejectsTooLongTitle() throws Exception {
+            PostDraftRequest request = PostDraftRequest.builder()
+                    .boardUrl("free")
+                    .title("a".repeat(201))
+                    .contents("Content")
+                    .build();
+            clearInvocations(postService);
+
+            mockMvc.perform(post("/api/v1/drafts").with(user(customUserDetails))
+                    .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.success").value(false));
+
+            verify(postService, never()).saveDraftPost(anyLong(), any());
+        }
+
+        @Test
+        @DisplayName("임시글 제목에는 HTML을 사용할 수 없다")
+        void saveDraft_rejectsHtmlTitle() throws Exception {
+            PostDraftRequest request = PostDraftRequest.builder()
+                    .boardUrl("free")
+                    .title("<strong>Draft</strong>")
+                    .contents("Content")
+                    .build();
+            clearInvocations(postService);
+
+            mockMvc.perform(post("/api/v1/drafts").with(user(customUserDetails))
+                    .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.success").value(false));
+
+            verify(postService, never()).saveDraftPost(anyLong(), any());
+        }
+
+        @Test
+        @DisplayName("임시글은 빈 제목으로도 저장할 수 있다")
+        void saveDraft_allowsBlankTitle() throws Exception {
+            PostDraftRequest request = PostDraftRequest.builder()
+                    .boardUrl("free")
+                    .title("")
+                    .contents("Content")
+                    .build();
+            when(postService.saveDraftPost(anyLong(), any())).thenReturn(DraftResponse.builder().draftId(1L).build());
+
+            mockMvc.perform(post("/api/v1/drafts").with(user(customUserDetails))
+                    .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.data.draftId").value(1));
+
+            verify(postService).saveDraftPost(anyLong(), any(PostDraftRequest.class));
+        }
+
+        @Test
         @DisplayName("임시글 저장은 잘못된 boardUrl을 거부한다")
         void saveDraft_rejectsInvalidBoardUrl() throws Exception {
             PostDraftRequest request = PostDraftRequest.builder()

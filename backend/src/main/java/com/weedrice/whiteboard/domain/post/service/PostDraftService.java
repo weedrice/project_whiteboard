@@ -10,10 +10,15 @@ import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.post.dto.DraftListResponse;
 import com.weedrice.whiteboard.domain.post.dto.DraftResponse;
 import com.weedrice.whiteboard.domain.post.dto.PostDraftRequest;
+import com.weedrice.whiteboard.domain.post.dto.PollRequest;
 import com.weedrice.whiteboard.domain.post.entity.DraftPost;
 import com.weedrice.whiteboard.domain.post.entity.Post;
+import com.weedrice.whiteboard.domain.post.entity.PostSeries;
 import com.weedrice.whiteboard.domain.post.repository.DraftPostRepository;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
+import com.weedrice.whiteboard.domain.post.repository.PostSeriesRepository;
+import com.weedrice.whiteboard.domain.post.scheduled.entity.ScheduledPost;
+import com.weedrice.whiteboard.domain.post.scheduled.repository.ScheduledPostRepository;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
@@ -31,7 +36,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
 import java.util.Objects;
 
 @Service
@@ -39,6 +43,9 @@ import java.util.Objects;
 @Transactional(readOnly = true)
 public class PostDraftService {
     private static final int DEFAULT_DRAFT_PAGE_SIZE = 20;
+    private static final int MAX_DRAFT_POLL_QUESTION_LENGTH = 200;
+    private static final int MAX_DRAFT_POLL_OPTION_COUNT = 10;
+    private static final int MAX_DRAFT_POLL_OPTION_LENGTH = 100;
     private static final Sort DEFAULT_DRAFT_SORT = Sort.by(
             Sort.Order.desc("modifiedAt"),
             Sort.Order.desc("draftId"));
@@ -47,12 +54,15 @@ public class PostDraftService {
     private final BoardRepository boardRepository;
     private final BoardCategoryRepository boardCategoryRepository;
     private final PostRepository postRepository;
+    private final PostSeriesRepository postSeriesRepository;
     private final DraftPostRepository draftPostRepository;
+    private final ScheduledPostRepository scheduledPostRepository;
     private final FileService fileService;
     private final UserWritableResolver userWritableResolver;
     private final SanctionService sanctionService;
     private final BoardAccessPolicy boardAccessPolicy;
     private final PostAuthorCommandPolicy postAuthorCommandPolicy;
+    private final PostDraftCleanupService postDraftCleanupService;
 
     public DraftListResponse getDraftPosts(@NonNull Long userId, @NonNull Pageable pageable) {
         User user = userRepository.findById(userId)
@@ -72,12 +82,13 @@ public class PostDraftService {
 
     @Transactional
     public DraftResponse saveDraftPost(@NonNull Long userId, PostDraftRequest request) {
-        User user = userWritableResolver.resolve(userId);
+        User user = userWritableResolver.resolveForUpdate(userId);
         sanctionService.validateNotMuted(user);
         String normalizedBoardUrl = BoardUrlNormalizer.normalizeLookup(request.getBoardUrl());
         Board board = boardRepository.findByBoardUrl(normalizedBoardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
         postAuthorCommandPolicy.validateBoardWritable(board, user);
+        validateDraftPoll(request.getPoll());
 
         BoardCategory category = null;
         if (request.getCategoryId() != null) {
@@ -95,9 +106,16 @@ public class PostDraftService {
             validateOriginalPostForDraft(originalPost, user, board, category);
         }
 
-        DraftPost draftPost = resolveDraftPost(user, request, board, category, originalPost);
+        PostSeries series = null;
+        if (request.getSeriesId() != null) {
+            series = postSeriesRepository.findBySeriesIdAndOwner_UserId(request.getSeriesId(), userId)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+        }
+
+        DraftPost draftPost = resolveDraftPost(user, request, board, category, series, originalPost);
         DraftPost savedDraftPost = draftPostRepository.saveAndFlush(draftPost);
         fileService.syncDraftFiles(request.getFileIds(), userId, savedDraftPost.getDraftId());
+        postDraftCleanupService.enforceUserDraftLimit(user);
         return DraftResponse.from(savedDraftPost);
     }
 
@@ -106,12 +124,15 @@ public class PostDraftService {
         User user = userWritableResolver.resolve(userId);
         DraftPost draftPost = draftPostRepository.findByDraftIdAndUserForUpdate(draftId, user)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+        if (scheduledPostRepository.existsByDraftIdAndStatusIn(draftId, ScheduledPost.PROTECTED_DRAFT_STATUSES)) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
         fileService.markDraftFilesDeletionPending(draftId);
         draftPostRepository.delete(draftPost);
     }
 
     private DraftPost resolveDraftPost(User user, PostDraftRequest request, Board board,
-                                       BoardCategory category, Post originalPost) {
+                                       BoardCategory category, PostSeries series, Post originalPost) {
         String sanitizedContents = sanitizeDraftContents(request.getContents());
         if (request.getDraftId() == null) {
             return DraftPost.builder()
@@ -126,13 +147,15 @@ public class PostDraftService {
                     .isSpoiler(request.isSpoiler())
                     .isSecret(request.isSecret())
                     .fileIds(request.getFileIds())
+                    .poll(request.getPoll())
+                    .series(series)
                     .originalPost(originalPost)
                     .build();
         }
 
         DraftPost draftPost = draftPostRepository.findByDraftIdAndUserForUpdate(request.getDraftId(), user)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
-        if (isOutdatedDraftVersion(request.getUpdatedAt(), draftPost.getModifiedAt())) {
+        if (!isMatchingDraftVersion(request.getUpdatedAt(), draftPost.getModifiedAt())) {
             throw new BusinessException(ErrorCode.DRAFT_OUTDATED);
         }
         draftPost.updateDraft(
@@ -146,21 +169,44 @@ public class PostDraftService {
                 request.isSpoiler(),
                 request.isSecret(),
                 request.getFileIds(),
+                request.getPoll(),
+                series,
                 originalPost);
         return draftPost;
     }
 
-    private boolean isOutdatedDraftVersion(LocalDateTime requestUpdatedAt, LocalDateTime draftModifiedAt) {
+    private boolean isMatchingDraftVersion(LocalDateTime requestUpdatedAt, LocalDateTime draftModifiedAt) {
         if (requestUpdatedAt == null || draftModifiedAt == null) {
             return false;
         }
-        LocalDateTime requestVersion = requestUpdatedAt.truncatedTo(ChronoUnit.SECONDS);
-        LocalDateTime currentVersion = draftModifiedAt.truncatedTo(ChronoUnit.SECONDS);
-        return requestVersion.isBefore(currentVersion);
+        return requestUpdatedAt.withNano(toMicrosecondPrecision(requestUpdatedAt.getNano()))
+                .equals(draftModifiedAt.withNano(toMicrosecondPrecision(draftModifiedAt.getNano())));
+    }
+
+    private int toMicrosecondPrecision(int nanos) {
+        return (nanos / 1_000) * 1_000;
     }
 
     private String sanitizeDraftContents(String contents) {
         return Objects.toString(InputSanitizer.sanitizePostHtml(contents), "");
+    }
+
+    private void validateDraftPoll(PollRequest poll) {
+        if (poll == null) {
+            return;
+        }
+        if (poll.getQuestion() != null && poll.getQuestion().length() > MAX_DRAFT_POLL_QUESTION_LENGTH) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        if (poll.getOptions() == null) {
+            return;
+        }
+        if (poll.getOptions().size() > MAX_DRAFT_POLL_OPTION_COUNT
+                || poll.getOptions().stream()
+                        .filter(Objects::nonNull)
+                        .anyMatch(option -> option.length() > MAX_DRAFT_POLL_OPTION_LENGTH)) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
     }
 
     private BoardCategory findActiveCategory(Board board, Long categoryId) {

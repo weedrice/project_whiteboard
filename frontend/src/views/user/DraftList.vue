@@ -11,6 +11,8 @@ import { usePaginatedListState } from '@/composables/usePaginatedListState'
 import { useConfirm } from '@/composables/useConfirm'
 import { useUser, userQueryKeys } from '@/composables/useUser'
 import { usePost } from '@/features/board/posts/queries/usePost'
+import { markDraftDeletedLocally } from '@/features/board/posts/draft/postDraftTombstone'
+import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import { formatDateTimeOrDash } from '@/utils/date'
 import { encodePathSegment } from '@/utils/urlPath'
@@ -19,6 +21,7 @@ import type { ScheduledPost } from '@/api/post'
 
 const { t } = useI18n()
 const queryClient = useQueryClient()
+const authStore = useAuthStore()
 const toastStore = useToastStore()
 const { confirm } = useConfirm()
 const { useMyDrafts, useMyScheduledPosts } = useUser()
@@ -82,6 +85,9 @@ async function handleDeleteDraft(draft: DraftPostSummary) {
 
   try {
     await deleteDraft(draft.draftId)
+    if (authStore.user?.userId != null) {
+      markDraftDeletedLocally(authStore.user.userId, draft.draftId)
+    }
     toastStore.addToast(t('user.draftList.deleted'), 'success')
     queryClient.invalidateQueries({ queryKey: userQueryKeys.draftsRoot })
     refetch()

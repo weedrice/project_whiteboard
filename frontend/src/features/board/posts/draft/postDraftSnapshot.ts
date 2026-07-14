@@ -21,6 +21,8 @@ export function createStoredSavedDraftSnapshot(
 ): DraftRecoverySnapshot {
   return {
     ...payload,
+    poll: savedDraft.poll ?? null,
+    seriesId: savedDraft.seriesId ?? undefined,
     draftId: savedDraft.draftId,
     updatedAt: getDraftUpdatedAt(savedDraft) ?? fallbackUpdatedAt,
   }
@@ -31,7 +33,20 @@ export function hasMeaningfulDraftContent(payload: PostDraftData): boolean {
     payload.title?.trim()
     || payload.contents?.trim()
     || payload.tags?.length
-    || payload.fileIds?.length,
+    || payload.fileIds?.length
+    || payload.isNotice
+    || payload.isNsfw
+    || payload.isSpoiler
+    || payload.isSecret
+    || payload.poll
+    || payload.seriesId != null,
+  )
+}
+
+export function hasBrowserDraftContent(payload: PostDraftData): boolean {
+  return Boolean(
+    hasMeaningfulDraftContent(payload)
+    || payload.categoryId != null,
   )
 }
 

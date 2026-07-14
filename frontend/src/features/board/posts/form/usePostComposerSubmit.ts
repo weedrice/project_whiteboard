@@ -65,11 +65,13 @@ type UsePostComposerSubmitOptions = {
   form: Ref<{ title: string, categoryId: string | number }>
   hideCategory: () => boolean | undefined
   draftEnabled: Ref<boolean>
+  draftConflict: Ref<boolean>
   draftId: Ref<number | null>
   saveDraftNow: () => Promise<{ draftId?: number | null } | null>
   buildPayload: () => Omit<PostComposerPayload, 'draftId'>
   markCurrentSnapshotSaved: () => void
   cleanupPublishedDraft: () => void
+  clearScheduledDraftRecovery: () => void
   createPost: CreatePostMutate
   createScheduledPost: CreateScheduledPostMutate
   updatePost: UpdatePostMutate
@@ -93,6 +95,10 @@ export function usePostComposerSubmit(options: UsePostComposerSubmitOptions) {
   }
 
   async function handleSubmit() {
+    if (options.draftConflict.value) {
+      options.addToast(options.t('board.writePost.draftStatus.conflict'), 'error')
+      return
+    }
     if (options.validateBeforeSubmit) {
       const validationResult = options.validateBeforeSubmit()
       const isValid = validationResult instanceof Promise ? await validationResult : validationResult
@@ -131,7 +137,7 @@ export function usePostComposerSubmit(options: UsePostComposerSubmitOptions) {
         options.createScheduledPost({ boardUrl: options.boardUrl.value, data: { ...payload, scheduledAt } }, {
           onSuccess: (response) => {
             options.markCurrentSnapshotSaved()
-            options.cleanupPublishedDraft()
+            options.clearScheduledDraftRecovery()
             const scheduledPost = unwrapApiData(response.data)
             options.addToast(options.t('board.writePost.scheduleSuccess'), 'success')
             options.onSubmitted()?.({

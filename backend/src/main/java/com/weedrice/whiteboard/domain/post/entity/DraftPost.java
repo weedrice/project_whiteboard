@@ -3,7 +3,9 @@ package com.weedrice.whiteboard.domain.post.entity;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
 import com.weedrice.whiteboard.domain.post.converter.LongListJsonConverter;
+import com.weedrice.whiteboard.domain.post.converter.PollRequestJsonConverter;
 import com.weedrice.whiteboard.domain.post.converter.StringListJsonConverter;
+import com.weedrice.whiteboard.domain.post.dto.PollRequest;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.common.entity.BaseTimeEntity;
 import jakarta.persistence.Column;
@@ -76,6 +78,14 @@ public class DraftPost extends BaseTimeEntity {
     @Column(name = "file_ids_json", columnDefinition = "TEXT")
     private List<Long> fileIds;
 
+    @Convert(converter = PollRequestJsonConverter.class)
+    @Column(name = "poll_json", columnDefinition = "TEXT")
+    private PollRequest poll;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "series_id")
+    private PostSeries series;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "original_post_id")
     private Post originalPost;
@@ -83,7 +93,7 @@ public class DraftPost extends BaseTimeEntity {
     @Builder
     public DraftPost(User user, Board board, BoardCategory category, String title, String contents, List<String> tags,
             boolean isNotice, boolean isNsfw, boolean isSpoiler, boolean isSecret, List<Long> fileIds,
-            Post originalPost) {
+            PollRequest poll, PostSeries series, Post originalPost) {
         this.user = user;
         this.board = board;
         this.category = category;
@@ -95,12 +105,14 @@ public class DraftPost extends BaseTimeEntity {
         this.isSpoiler = isSpoiler;
         this.isSecret = isSecret;
         this.fileIds = fileIds != null ? new ArrayList<>(fileIds) : new ArrayList<>();
+        this.poll = poll;
+        this.series = series;
         this.originalPost = originalPost;
     }
 
     public void updateDraft(Board board, BoardCategory category, String title, String contents, List<String> tags,
             boolean isNotice, boolean isNsfw, boolean isSpoiler, boolean isSecret, List<Long> fileIds,
-            Post originalPost) {
+            PollRequest poll, PostSeries series, Post originalPost) {
         this.board = board;
         this.category = category;
         this.title = title;
@@ -111,6 +123,8 @@ public class DraftPost extends BaseTimeEntity {
         this.isSpoiler = isSpoiler;
         this.isSecret = isSecret;
         this.fileIds = fileIds != null ? new ArrayList<>(fileIds) : new ArrayList<>();
+        this.poll = poll;
+        this.series = series;
         this.originalPost = originalPost;
     }
 }

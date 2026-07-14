@@ -4,6 +4,7 @@ import type { DraftPost } from '@/types'
 import logger from '@/utils/logger'
 import {
   findMatchingServerDraftId,
+  isMatchingLoadedDraft,
   loadDraftById,
   type DraftRecoverySnapshot,
 } from '@/features/board/posts/draft/postDraftRecovery'
@@ -47,7 +48,18 @@ export async function resolveServerDraftForRecovery({
 
   try {
     if (!generationIsCurrent()) return { localSnapshot: nextLocalSnapshot, serverDraft }
-    serverDraft = await loadDraftById(serverDraftId)
+    const loadedDraft = await loadDraftById(serverDraftId)
+    if (isMatchingLoadedDraft(loadedDraft, payload)) {
+      serverDraft = loadedDraft
+    } else {
+      const fallbackDraftId = await findMatchingServerDraftId(payload)
+      if (fallbackDraftId != null && fallbackDraftId !== serverDraftId) {
+        const fallbackDraft = await loadDraftById(fallbackDraftId)
+        if (isMatchingLoadedDraft(fallbackDraft, payload)) {
+          serverDraft = fallbackDraft
+        }
+      }
+    }
   } catch (error: unknown) {
     if (!generationIsCurrent()) return { localSnapshot: nextLocalSnapshot, serverDraft }
     if (

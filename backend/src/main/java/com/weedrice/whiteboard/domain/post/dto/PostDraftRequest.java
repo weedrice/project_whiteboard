@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.weedrice.whiteboard.domain.board.util.BoardUrlNormalizer;
 import com.weedrice.whiteboard.domain.file.support.FileAssociationConstraints;
 import com.weedrice.whiteboard.domain.tag.constant.TagConstraints;
+import com.weedrice.whiteboard.global.validation.NoHtml;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -25,6 +26,8 @@ public class PostDraftRequest {
     @Size(max = 100)
     @Pattern(regexp = BoardUrlNormalizer.BOARD_URL_PATTERN, message = "{validation.board.url.pattern}")
     private String boardUrl;
+    @Size(max = 200, message = "제목은 200자를 초과할 수 없습니다")
+    @NoHtml
     private String title;
     @Size(max = 100000, message = "본문은 100,000자를 초과할 수 없습니다")
     private String contents;
@@ -42,6 +45,8 @@ public class PostDraftRequest {
     private boolean isSecret;
     @Size(max = FileAssociationConstraints.MAX_POST_FILE_COUNT, message = "첨부 파일 개수 제한을 초과했습니다")
     private List<Long> fileIds;
+    private PollRequest poll;
+    private Long seriesId;
     private LocalDateTime updatedAt;
     private Long originalPostId;
 

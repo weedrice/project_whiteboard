@@ -16,6 +16,12 @@ import java.util.Optional;
 
 public interface ScheduledPostRepository extends JpaRepository<ScheduledPost, Long> {
 
+    boolean existsByDraftIdAndStatusIn(Long draftId, List<String> statuses);
+
+    boolean existsByDraftId(Long draftId);
+
+    boolean existsByDraftIdAndScheduledPostIdNot(Long draftId, Long scheduledPostId);
+
     interface ScheduledPostIdProjection {
         Long getScheduledPostId();
     }
@@ -98,7 +104,8 @@ public interface ScheduledPostRepository extends JpaRepository<ScheduledPost, Lo
             UPDATE ScheduledPost s
             SET s.status = 'CANCELED',
                 s.canceledAt = :canceledAt,
-                s.processingStartedAt = null
+                s.processingStartedAt = null,
+                s.draftId = null
             WHERE s.scheduledPostId = :scheduledPostId
               AND s.user.userId = :userId
               AND s.status IN ('SCHEDULED', 'FAILED')

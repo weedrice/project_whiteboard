@@ -1,3 +1,4 @@
+import type { DraftPollPayload } from '@/api/post'
 import type { UserSummary } from './user'
 
 export interface BoardListItem {
@@ -327,7 +328,8 @@ export interface DraftPost {
     isSpoiler: boolean
     isSecret: boolean
     fileIds: number[]
-    poll?: PostPoll | null
+    poll?: DraftPollPayload | null
+    seriesId?: number | null
     originalPostId?: number | null
     updatedAt?: string
     modifiedAt?: string
