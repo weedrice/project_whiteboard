@@ -15,7 +15,6 @@ import { postDetailQueryKey } from '@/features/board/posts/queries/postQueryKeys
 import { QUERY_STALE_TIME } from '@/utils/constants'
 import logger from '@/utils/logger'
 import i18n from '@/i18n'
-import { normalizePostReactionFlags, type PostReactionAlias } from '@/utils/postViewModel'
 import type { Post } from '@/types'
 import { getRouteFetchErrorStatus, getStringRouteParam } from '@/router/routeGuardModel'
 
@@ -28,7 +27,7 @@ async function fetchPostForAuthorGuard(postId: string): Promise<Post> {
                     incrementView: false,
                 },
             }))
-            return normalizePostReactionFlags(post as PostReactionAlias)
+            return post
         },
         retry: false,
     })

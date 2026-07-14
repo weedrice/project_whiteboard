@@ -13,7 +13,6 @@ import {
 import { homeQueryKeys } from '@/composables/homeQueryKeys'
 import { userQueryKeys } from '@/composables/userQueryKeys'
 import { postDetailQueryKey, postQueryKeys } from '@/features/board/posts/queries/postQueryKeys'
-import { normalizePostReactionFlags, type PostReactionAlias } from '@/utils/postViewModel'
 import { withQuerySignal } from '@/utils/querySignal'
 
 export { postDetailQueryKey, postQueryKeys } from '@/features/board/posts/queries/postQueryKeys'
@@ -38,7 +37,7 @@ export function usePost() {
                         ...(requestConfig?.params || {}),
                     },
                 }))
-                return normalizePostReactionFlags(post as PostReactionAlias)
+                return post
             },
             enabled: computed(() => !!postId.value),
             ...queryOptions,

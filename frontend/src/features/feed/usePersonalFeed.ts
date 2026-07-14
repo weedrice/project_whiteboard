@@ -22,7 +22,7 @@ export function usePersonalFeed(
         optionalQuerySignal(undefined, { signal }),
       ),
     ),
-    getNextPageParam: (lastPage) => lastPage.hasNext ? lastPage.page + 1 : undefined,
+    getNextPageParam: (lastPage) => lastPage.last ? undefined : lastPage.number + 1,
     enabled: computed(() => enabled.value && userId.value != null),
   })
 

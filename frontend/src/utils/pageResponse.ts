@@ -52,3 +52,15 @@ export function normalizePageResponse<T>(
     empty,
   }
 }
+
+export function normalizePageResponseItems<TSource, TTarget>(
+  raw: PageResponseRaw<TSource> | null | undefined,
+  mapItem: (item: TSource) => TTarget,
+  options: NormalizePageResponseOptions = {}
+): PageResponse<TTarget> {
+  const page = normalizePageResponse(raw, options)
+  return {
+    ...page,
+    content: page.content.map(mapItem),
+  }
+}

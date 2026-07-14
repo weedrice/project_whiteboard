@@ -1,17 +1,4 @@
-import type { FeedPost, Post, PostSummary } from '@/types'
-
-export type PostReactionAlias = Post & {
-    isLiked?: boolean
-    isScrapped?: boolean
-}
-
-export function normalizePostReactionFlags(post: PostReactionAlias): Post {
-    return {
-        ...post,
-        liked: post.liked ?? post.isLiked ?? false,
-        scrapped: post.scrapped ?? post.isScrapped ?? false,
-    }
-}
+import type { FeedPost, PostSummary } from '@/types'
 
 export function toFeedPost(post: FeedPost | PostSummary): FeedPost | null {
     const authorName = post.authorName ?? post.author?.displayName

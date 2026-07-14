@@ -1,7 +1,7 @@
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/vue-query'
 import { computed, type Ref } from 'vue'
 import { commentApi, type CommentParams, type CommentPayload } from '@/api/comment'
-import { unwrapAxiosApiData } from '@/api/response'
+import { unwrapAxiosApiPageData } from '@/api/response'
 import { commentQueryKeys } from '@/composables/commentQueryKeys'
 import { postQueryKeys } from '@/features/board/posts/queries/postQueryKeys'
 import { userQueryKeys } from '@/composables/userQueryKeys'
@@ -69,7 +69,7 @@ export function useComment() {
                 { size: params.value.size, sort: params.value.sort },
             ] as const),
             initialPageParam: 0,
-            queryFn: async ({ pageParam, signal }) => unwrapAxiosApiData(await commentApi.getComments(
+            queryFn: async ({ pageParam, signal }) => unwrapAxiosApiPageData(await commentApi.getComments(
                 postId.value,
                 { ...params.value, page: Number(pageParam) },
                 { signal },
