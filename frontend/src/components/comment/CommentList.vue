@@ -168,7 +168,7 @@ onBeforeUnmount(() => {
       <div v-else class="text-xs nv-text-subtle sm:text-sm">
         <router-link
           to="/login"
-          class="nv-accent-text hover:brightness-95"
+          class="nv-accent-text underline underline-offset-2 hover:brightness-95"
         >
           {{ $t('common.login') }}
         </router-link>

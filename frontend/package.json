@@ -11,10 +11,11 @@
   ],
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
-    "build:seo": "npm run sitemap:generate && vite build && npm run prerender:posts",
+    "build": "vite build && npm run pwa:verify",
+    "build:seo": "npm run sitemap:generate && npm run build && npm run prerender:posts",
     "build:analyze": "vite build --mode analyze",
     "preview": "vite preview",
+    "pwa:verify": "node ./scripts/verify-pwa-budget.mjs",
     "prerender:posts": "node ./scripts/prerender-posts.mjs",
     "seo:verify": "node ./scripts/verify-seo.mjs",
     "seo:verify:dist": "node ./scripts/verify-prerender-output.mjs",
@@ -27,7 +28,11 @@
     "type-check": "vue-tsc --noEmit",
     "test": "vitest",
     "test:run": "vitest run",
-    "coverage": "vitest run --coverage",
+    "test:e2e": "npm run build && playwright test",
+    "test:e2e:run": "playwright test",
+    "test:e2e:full": "playwright test --config playwright.full.config.ts",
+    "coverage": "vitest run --coverage && npm run coverage:focused",
+    "coverage:focused": "node ./scripts/verify-focused-coverage.mjs",
     "lint": "eslint \"src/**/*.{ts,vue}\" --cache",
     "lint:fix": "eslint \"src/**/*.{ts,vue}\" --fix",
     "lint:ci": "eslint \"src/**/*.{ts,vue}\" --max-warnings=0"
@@ -68,7 +73,9 @@
     "web-vitals": "^5.1.0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.12.1",
     "@eslint/js": "^9.39.4",
+    "@playwright/test": "^1.61.1",
     "@resvg/resvg-js": "^2.6.2",
     "@tailwindcss/postcss": "^4.1.17",
     "@tailwindcss/typography": "^0.5.19",
