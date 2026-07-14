@@ -1,33 +1,68 @@
 package com.weedrice.whiteboard.global.security;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
-import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
-import java.util.Map;
-
-import static org.assertj.core.api.Assertions.assertThatNoException;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 class CspReportControllerTest {
 
-    private final CspReportController controller = new CspReportController();
+    private final MockMvc mockMvc = MockMvcBuilders
+            .standaloneSetup(new CspReportController(new ObjectMapper()))
+            .build();
 
     @Test
-    void receiveCspReportAcceptsStandardNestedPayload() {
-        MockHttpServletRequest request = new MockHttpServletRequest();
-        request.setRemoteAddr("127.0.0.1");
-        Map<String, Object> payload = Map.of(
-                "csp-report", Map.of(
-                        "document-uri", "https://noviis.kr/",
-                        "violated-directive", "script-src-elem",
-                        "blocked-uri", "inline"));
+    void receiveCspReportAcceptsStandardContentTypeWithCharset() throws Exception {
+        String payload = """
+                {
+                  "csp-report": {
+                    "document-uri": "https://noviis.kr/",
+                    "violated-directive": "script-src-elem",
+                    "blocked-uri": "inline"
+                  }
+                }
+                """;
 
-        assertThatNoException().isThrownBy(() -> controller.receiveCspReport(payload, request));
+        mockMvc.perform(post("/api/v1/security/csp-report")
+                        .contentType(MediaType.parseMediaType("application/csp-report;charset=UTF-8"))
+                        .content(payload))
+                .andExpect(status().isNoContent());
     }
 
     @Test
-    void receiveCspReportAcceptsEmptyPayload() {
-        MockHttpServletRequest request = new MockHttpServletRequest();
+    void receiveCspReportAcceptsApplicationJson() throws Exception {
+        mockMvc.perform(post("/api/v1/security/csp-report")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"document-uri\":\"https://noviis.kr/\"}"))
+                .andExpect(status().isNoContent());
+    }
 
-        assertThatNoException().isThrownBy(() -> controller.receiveCspReport(null, request));
+    @Test
+    void receiveCspReportIgnoresMalformedPayload() throws Exception {
+        mockMvc.perform(post("/api/v1/security/csp-report")
+                        .contentType("application/csp-report")
+                        .content("{not-json"))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void receiveCspReportAcceptsEmptyPayload() throws Exception {
+        mockMvc.perform(post("/api/v1/security/csp-report")
+                        .contentType("application/csp-report"))
+                .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void receiveCspReportIgnoresOversizedPayload() throws Exception {
+        String payload = "{\"value\":\"" + "a".repeat(32 * 1024) + "\"}";
+
+        mockMvc.perform(post("/api/v1/security/csp-report")
+                        .contentType("application/csp-report")
+                        .content(payload))
+                .andExpect(status().isNoContent());
     }
 }
