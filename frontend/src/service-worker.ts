@@ -22,9 +22,10 @@ self.addEventListener('message', (event) => {
 
 registerRoute(({ url }) => url.pathname.startsWith('/api/'), new NetworkOnly())
 registerRoute(({ url }) => url.pathname.startsWith('/oauth2/'), new NetworkOnly())
+registerRoute(({ url }) => url.pathname.startsWith('/login/oauth2/'), new NetworkOnly())
 
 const navigationRoute = new NavigationRoute(createHandlerBoundToURL('/index.html'), {
-  denylist: [/^\/api\//, /^\/oauth2\//, /^\/robots\.txt$/, /^\/sitemap.*\.xml$/],
+  denylist: [/^\/api\//, /^\/oauth2\//, /^\/login\/oauth2\//, /^\/robots\.txt$/, /^\/sitemap.*\.xml$/],
 })
 registerRoute(navigationRoute)
 
