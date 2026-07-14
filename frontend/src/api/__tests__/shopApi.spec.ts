@@ -52,7 +52,7 @@ describe('shopApi', () => {
           hasPrevious: true,
         },
       },
-    } as AxiosResponse<ApiResponse<PageResponseRaw<ShopItem>>>
+    } as unknown as AxiosResponse<ApiResponse<PageResponseRaw<ShopItem>>>
 
     expect(unwrapAxiosApiPageData(response)).toMatchObject({
       number: 1,
@@ -76,7 +76,7 @@ describe('shopApi', () => {
           hasPrevious: false,
         },
       },
-    } as AxiosResponse<ApiResponse<PageResponseRaw<ShopItem>>>
+    } as unknown as AxiosResponse<ApiResponse<PageResponseRaw<ShopItem>>>
 
     const page = unwrapAxiosApiPageData(response)
     expect(page).toMatchObject({ number: 0, first: true, last: true, empty: true })
@@ -102,7 +102,7 @@ describe('shopApi', () => {
           hasPrevious: true,
         },
       },
-    } as AxiosResponse<ApiResponse<PageResponseRaw<PurchaseHistory>>>
+    } as unknown as AxiosResponse<ApiResponse<PageResponseRaw<PurchaseHistory>>>
 
     const page = unwrapAxiosApiPageData(response)
     expect(page).toMatchObject({ number: 2, first: false, last: true })
