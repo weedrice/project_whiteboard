@@ -53,7 +53,14 @@ class FileAssociationService {
     @Transactional
     public List<String> associateFilesWithEntity(List<Long> fileIds, Long ownerUserId, Long relatedId,
             String relatedType) {
-        Set<Long> orderedFileIds = normalizeFileIds(fileIds);
+        return associateFilesWithEntity(
+                fileIds, ownerUserId, relatedId, relatedType, FileAssociationConstraints.MAX_POST_FILE_COUNT);
+    }
+
+    @Transactional
+    public List<String> associateFilesWithEntity(List<Long> fileIds, Long ownerUserId, Long relatedId,
+            String relatedType, int maxFileCount) {
+        Set<Long> orderedFileIds = normalizeFileIds(fileIds, maxFileCount);
         if (orderedFileIds.isEmpty()) {
             return List.of();
         }
@@ -74,7 +81,7 @@ class FileAssociationService {
 
     @Transactional
     public void syncDraftFiles(List<Long> fileIds, Long ownerUserId, Long draftId) {
-        Set<Long> requestedFileIds = normalizeFileIds(fileIds);
+        Set<Long> requestedFileIds = normalizeFileIds(fileIds, FileAssociationConstraints.MAX_POST_FILE_COUNT);
         LocalDateTime deleteRequestedAt = now();
         List<File> existingDraftFiles = fileRepository.findActiveByRelatedIdAndRelatedTypeForUpdate(
                 draftId,
@@ -97,7 +104,7 @@ class FileAssociationService {
     @Transactional
     public void attachFilesToPost(List<Long> fileIds, Long ownerUserId, Long postId, Long sourceDraftId) {
         associateOrMoveOwnedFiles(
-                normalizeFileIds(fileIds),
+                normalizeFileIds(fileIds, FileAssociationConstraints.MAX_POST_FILE_COUNT),
                 ownerUserId,
                 postId,
                 RELATED_TYPE_POST_CONTENT,
@@ -111,7 +118,7 @@ class FileAssociationService {
 
     @Transactional
     public void syncPostFiles(List<Long> fileIds, Long ownerUserId, Long postId, Long sourceDraftId) {
-        Set<Long> requestedFileIds = normalizeFileIds(fileIds);
+        Set<Long> requestedFileIds = normalizeFileIds(fileIds, FileAssociationConstraints.MAX_POST_FILE_COUNT);
         LocalDateTime deleteRequestedAt = now();
         List<File> existingPostFiles = fileRepository.findActiveByRelatedIdAndRelatedTypeForUpdate(
                 postId,
@@ -178,7 +185,7 @@ class FileAssociationService {
         return FileUrlResolver.resolve(boardIconFileId);
     }
 
-    private Set<Long> normalizeFileIds(List<Long> fileIds) {
+    private Set<Long> normalizeFileIds(List<Long> fileIds, int maxFileCount) {
         if (fileIds == null || fileIds.isEmpty()) {
             return Set.of();
         }
@@ -186,7 +193,7 @@ class FileAssociationService {
             throw new BusinessException(ErrorCode.NOT_FOUND);
         }
         Set<Long> normalizedFileIds = new LinkedHashSet<>(fileIds);
-        if (normalizedFileIds.size() > FileAssociationConstraints.MAX_POST_FILE_COUNT) {
+        if (maxFileCount < 0 || normalizedFileIds.size() > maxFileCount) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
         return normalizedFileIds;

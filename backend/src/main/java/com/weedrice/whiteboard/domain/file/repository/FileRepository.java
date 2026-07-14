@@ -380,6 +380,23 @@ public interface FileRepository extends JpaRepository<File, Long> {
             SET f.storageStatus = com.weedrice.whiteboard.domain.file.entity.FileStorageStatus.PENDING_DELETE,
                 f.deleteRequestedAt = :deleteRequestedAt,
                 f.deleteLastError = NULL
+            WHERE f.fileId IN :fileIds
+              AND f.uploader.userId = :uploaderId
+              AND f.relatedId IS NULL
+              AND f.relatedType IS NULL
+              AND (f.storageStatus = com.weedrice.whiteboard.domain.file.entity.FileStorageStatus.ACTIVE
+                   OR f.storageStatus IS NULL)
+            """)
+    int requestDeletionForOwnedTemporaryFiles(@Param("fileIds") List<Long> fileIds,
+            @Param("uploaderId") Long uploaderId,
+            @Param("deleteRequestedAt") LocalDateTime deleteRequestedAt);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("""
+            UPDATE File f
+            SET f.storageStatus = com.weedrice.whiteboard.domain.file.entity.FileStorageStatus.PENDING_DELETE,
+                f.deleteRequestedAt = :deleteRequestedAt,
+                f.deleteLastError = NULL
             WHERE f.relatedId IS NULL
               AND f.relatedType IS NULL
               AND f.createdAt < :cutoffCreatedAt

@@ -1,6 +1,6 @@
 import type { ComputedRef, Ref } from 'vue'
 import type { useEmoticonUploadSession } from '@/features/emoticon/form/useEmoticonUploadSession'
-import { extractErrorMessage } from '@/utils/errorHandler'
+import { extractErrorCode, extractErrorMessage } from '@/utils/errorHandler'
 
 type EmoticonUploadSession = ReturnType<typeof useEmoticonUploadSession>
 
@@ -10,6 +10,7 @@ interface UseEmoticonSubmitGuardOptions {
   uploadSession: EmoticonUploadSession
   fallbackErrorMessage: string
   onError: (message: string) => void
+  onLimitExceeded?: () => void
 }
 
 export function useEmoticonSubmitGuard({
@@ -18,6 +19,7 @@ export function useEmoticonSubmitGuard({
   uploadSession,
   fallbackErrorMessage,
   onError,
+  onLimitExceeded,
 }: UseEmoticonSubmitGuardOptions) {
   const runSubmit = async (submit: (runId: number) => Promise<void>) => {
     if (!isFormValid.value || isSubmitting.value) return
@@ -28,6 +30,10 @@ export function useEmoticonSubmitGuard({
     try {
       await submit(currentRunId)
     } catch (error: unknown) {
+      await uploadSession.discardTrackedUploads()
+      if (extractErrorCode(error) === 'EM006') {
+        onLimitExceeded?.()
+      }
       const isStaleCancellation = !uploadSession.isSubmitActive(currentRunId)
         && uploadSession.isUploadCancelledError(error)
       if (!uploadSession.isDisposed.value && !isStaleCancellation) {

@@ -2,12 +2,16 @@ package com.weedrice.whiteboard.domain.file.controller;
 
 import com.weedrice.whiteboard.domain.file.dto.FileDownloadResponse;
 import com.weedrice.whiteboard.domain.file.dto.FileSimpleResponse;
+import com.weedrice.whiteboard.domain.file.dto.FileUploadDiscardRequest;
+import com.weedrice.whiteboard.domain.file.dto.FileUploadDiscardResponse;
 import com.weedrice.whiteboard.domain.file.dto.FileUploadResponse;
 import com.weedrice.whiteboard.domain.file.entity.FileVariantType;
 import com.weedrice.whiteboard.domain.file.service.FileDownloadService;
 import com.weedrice.whiteboard.domain.file.service.FileService;
+import com.weedrice.whiteboard.domain.file.service.FileUploadDiscardService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.security.CurrentUserId;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
@@ -16,6 +20,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
@@ -28,6 +33,7 @@ public class FileController {
 
     private final FileService fileService;
     private final FileDownloadService fileDownloadService;
+    private final FileUploadDiscardService fileUploadDiscardService;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -43,6 +49,13 @@ public class FileController {
             @RequestParam("file") MultipartFile multipartFile,
             @CurrentUserId Long userId) {
         return ApiResponse.success(fileService.uploadSimpleFile(userId, multipartFile));
+    }
+
+    @PostMapping("/uploads/discard")
+    public ApiResponse<FileUploadDiscardResponse> discardTemporaryUploads(
+            @Valid @RequestBody FileUploadDiscardRequest request,
+            @CurrentUserId Long userId) {
+        return ApiResponse.success(fileUploadDiscardService.discardTemporaryUploads(userId, request.fileIds()));
     }
 
     @GetMapping("/{fileId}")

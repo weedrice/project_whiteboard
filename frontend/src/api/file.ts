@@ -8,6 +8,10 @@ export interface FileUploadResponse {
     fileUrl?: string
 }
 
+export interface FileDiscardResponse {
+    discardedCount: number
+}
+
 export function resolveFileUploadUrl(uploadedFile: FileUploadResponse): string | null {
     return uploadedFile.url ?? uploadedFile.fileUrl ?? null
 }
@@ -24,5 +28,8 @@ export const fileApi = {
                 ...config?.headers
             }
         })
-    }
+    },
+    discardUploads: (fileIds: number[], config?: AxiosRequestConfig) => (
+        api.post<ApiResponse<FileDiscardResponse>>('/files/uploads/discard', { fileIds }, config)
+    )
 }

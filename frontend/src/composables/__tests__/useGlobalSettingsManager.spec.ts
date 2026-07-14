@@ -19,6 +19,14 @@ const mocks = vi.hoisted(() => ({
   deleteConfig: vi.fn(),
   isLoading: { __v_isRef: true, value: false },
   updateConfig: vi.fn(),
+  refreshImagePolicy: vi.fn(),
+}))
+
+vi.mock('@/features/emoticon/form/useEmoticonImagePolicy', () => ({
+  EMOTICON_IMAGE_MAX_COUNT_KEY: 'EMOTICON_IMAGE_MAX_COUNT',
+  useEmoticonImagePolicy: () => ({
+    refresh: mocks.refreshImagePolicy,
+  }),
 }))
 
 vi.mock('vue-i18n', () => ({
@@ -85,6 +93,20 @@ describe('useGlobalSettingsManager', () => {
       description: 'Updated description',
     })
     expect(mocks.addToast).toHaveBeenCalledWith('admin.settings.messages.saved', 'success')
+  })
+
+  it('refreshes the public policy after saving the emoticon image limit', async () => {
+    mocks.configsData.value = [{
+      key: 'EMOTICON_IMAGE_MAX_COUNT',
+      value: '20',
+      description: 'limit',
+    }]
+    const manager = useGlobalSettingsManager()
+
+    manager.updateDraft('EMOTICON_IMAGE_MAX_COUNT', { value: '30' })
+    await manager.handleSave('EMOTICON_IMAGE_MAX_COUNT')
+
+    expect(mocks.refreshImagePolicy).toHaveBeenCalledTimes(1)
   })
 
   it('skips saving when the draft value is blank after trimming', async () => {

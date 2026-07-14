@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import EmoticonRegister from '../EmoticonRegister.vue'
 import { emoticonApiData, emoticonApiSuccess } from '@/test/emoticonApiFixtures'
 import { getExposedVm } from '@/test/vue-test-helpers'
+import { ref } from 'vue'
 
 type EmoticonPreviewFixture = { clientId: string; file: File; preview: string; width: number; height: number }
 type EmoticonRegisterExposed = {
@@ -22,6 +23,14 @@ const mocks = vi.hoisted(() => ({
   addToast: vi.fn(),
   uploadEmoticonImagePreviews: vi.fn(),
   revokeEmoticonPreviewUrl: vi.fn(),
+  refreshImagePolicy: vi.fn(),
+}))
+
+vi.mock('@/features/emoticon/form/useEmoticonImagePolicy', () => ({
+  useEmoticonImagePolicy: () => ({
+    maxImageCount: ref(20),
+    refresh: mocks.refreshImagePolicy,
+  }),
 }))
 
 vi.mock('vue-router', () => ({
@@ -61,6 +70,7 @@ vi.mock('@unhead/vue', () => ({
 
 vi.mock('@/utils/errorHandler', () => ({
   extractErrorMessage: vi.fn(),
+  extractErrorCode: vi.fn(() => null),
 }))
 
 vi.mock('vue-i18n', () => ({
@@ -166,7 +176,7 @@ describe('EmoticonRegister', () => {
 
     await flushPromises()
 
-    getExposedVm<Pick<EmoticonRegisterExposed, 'emoticonPreviews'>>(wrapper).emoticonPreviews = Array.from({ length: 100 }, (_, index) => ({
+    getExposedVm<Pick<EmoticonRegisterExposed, 'emoticonPreviews'>>(wrapper).emoticonPreviews = Array.from({ length: 20 }, (_, index) => ({
       clientId: `image-${index + 1}`,
       file: new File(['image'], `${index + 1}.png`, { type: 'image/png' }),
       preview: `blob:${index + 1}.png`,

@@ -28,6 +28,7 @@ async function mapWithConcurrency<T, R>(
   let completedCount = 0
   let nextIndex = 0
   let stopped = false
+  let firstError: unknown
 
   return new Promise<R[]>((resolve, reject) => {
     const runNext = () => {
@@ -49,14 +50,25 @@ async function mapWithConcurrency<T, R>(
           .then(() => task(items[currentIndex], currentIndex))
           .then((result) => {
             activeCount -= 1
+            if (stopped) {
+              if (activeCount === 0) {
+                reject(firstError)
+              }
+              return
+            }
             completedCount += 1
             results[currentIndex] = result
             runNext()
           })
           .catch((error) => {
             activeCount -= 1
-            stopped = true
-            reject(error)
+            if (!stopped) {
+              stopped = true
+              firstError = error
+            }
+            if (activeCount === 0) {
+              reject(firstError)
+            }
           })
       }
     }
@@ -83,8 +95,10 @@ export function useEmoticonImageUploader(uploadSession: EmoticonUploadSession) {
         signal: controller.signal,
         skipGlobalErrorHandler: options.skipGlobalErrorHandler
       })
+      const fileId = unwrapAxiosApiData(response).fileId
+      uploadSession.recordUploadedFile(fileId)
       uploadSession.assertSubmitActive(runId)
-      return unwrapAxiosApiData(response).fileId
+      return fileId
     } catch (error) {
       uploadSession.abortPendingUploads()
       throw error

@@ -1,7 +1,17 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
 import { mount } from '@vue/test-utils'
 import { useEmoticonUploadSession } from '../useEmoticonUploadSession'
+
+const mocks = vi.hoisted(() => ({
+  discardUploads: vi.fn(),
+}))
+
+vi.mock('@/api/file', () => ({
+  fileApi: {
+    discardUploads: mocks.discardUploads,
+  },
+}))
 
 function mountSession() {
   const holder: { session?: ReturnType<typeof useEmoticonUploadSession> } = {}
@@ -19,6 +29,11 @@ function mountSession() {
 }
 
 describe('useEmoticonUploadSession', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mocks.discardUploads.mockResolvedValue({ data: { data: { discardedCount: 2 } } })
+  })
+
   it('tracks progress and cancels active upload controllers on unmount', () => {
     const { wrapper, session } = mountSession()
     const controller = session.createUploadController()
@@ -54,5 +69,20 @@ describe('useEmoticonUploadSession', () => {
     expect(session.isUploadCancelledError(new DOMException('cancelled', 'AbortError'))).toBe(true)
     expect(session.isUploadCancelledError({ code: 'ERR_CANCELED' })).toBe(true)
     expect(session.isUploadCancelledError(new Error('network'))).toBe(false)
+  })
+
+  it('deduplicates and discards tracked uploads before clearing them', async () => {
+    const { session } = mountSession()
+
+    session.recordUploadedFile(11)
+    session.recordUploadedFile(11)
+    session.recordUploadedFile(12)
+
+    await session.discardTrackedUploads()
+
+    expect(mocks.discardUploads).toHaveBeenCalledWith([11, 12], {
+      skipGlobalErrorHandler: true,
+    })
+    expect(session.trackedUploadedFileIds.value).toEqual([])
   })
 })

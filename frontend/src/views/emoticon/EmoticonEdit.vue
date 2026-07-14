@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useQueryClient } from '@tanstack/vue-query'
 import { useHead } from '@unhead/vue'
@@ -18,6 +18,7 @@ import { useEmoticonEditForm } from '@/features/emoticon/form/useEmoticonEditFor
 import { useEmoticonEditResource } from '@/features/emoticon/form/useEmoticonEditResource'
 import { useEmoticonEditSubmit } from '@/features/emoticon/form/useEmoticonEditSubmit'
 import { useEmoticonImageSelection } from '@/features/emoticon/form/useEmoticonImageSelection'
+import { useEmoticonImagePolicy } from '@/features/emoticon/form/useEmoticonImagePolicy'
 import { SUPPORTED_EMOTICON_IMAGE_ACCEPT } from '@/utils/emoticonImage'
 
 const { t } = useI18n()
@@ -25,8 +26,15 @@ const route = useRoute()
 const router = useRouter()
 const toastStore = useToastStore()
 const queryClient = useQueryClient()
-const { selectThumbnailImage, selectEmoticonImages } = useEmoticonImageSelection(t, toastStore)
+const { maxImageCount, refresh: refreshImagePolicy } = useEmoticonImagePolicy()
+const { selectThumbnailImage, selectEmoticonImages } = useEmoticonImageSelection(t, toastStore, {
+  getMaxCount: () => maxImageCount.value,
+})
 const { confirm } = useConfirm()
+
+onMounted(() => {
+  void refreshImagePolicy()
+})
 
 const emoticonId = computed(() => Number(route.params.emoticonId))
 const { emoticon, editFormState, isLoading } = useEmoticonEditResource({ emoticonId })
@@ -60,6 +68,7 @@ const {
   unmarkImageForDeletion,
   totalImageCount,
   isFormValid,
+  canAddImages,
 } = useEmoticonEditForm({
   emoticonId,
   emoticon,
@@ -70,7 +79,8 @@ const {
   t,
   onMaxTags: () => {
     toastStore.addToast(t('emoticon.validation.maxTags'), 'error')
-  }
+  },
+  maxImageCount,
 })
 
 const { handleSubmit } = useEmoticonEditSubmit({
@@ -91,6 +101,9 @@ const { handleSubmit } = useEmoticonEditSubmit({
   },
   onError: (message) => {
     toastStore.addToast(message, 'error')
+  },
+  onLimitExceeded: () => {
+    void refreshImagePolicy()
   },
 })
 
@@ -191,6 +204,8 @@ const goToDetail = () => {
         input-id="emoticon-image-input"
         :accept="SUPPORTED_IMAGE_ACCEPT"
         :current-count="totalImageCount"
+        :max-count="maxImageCount"
+        :allow-add="canAddImages"
         :new-images="newEmoticonPreviews"
         :existing-images="existingImages"
         :images-to-delete="imagesToDelete"

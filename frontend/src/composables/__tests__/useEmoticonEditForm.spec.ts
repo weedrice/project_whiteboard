@@ -52,6 +52,7 @@ const mountForm = (options: {
         confirm,
         t: (key: string) => key,
         onMaxTags: vi.fn(),
+        maxImageCount: computed(() => 20),
       })
 
       return () => null

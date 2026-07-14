@@ -5,6 +5,10 @@ import { useConfigEditor } from '@/composables/useConfigEditor'
 import { useConfirm } from '@/composables/useConfirm'
 import { useToastStore } from '@/stores/toast'
 import { normalizeConfigWritePayload } from '@/utils/inputNormalization'
+import {
+  EMOTICON_IMAGE_MAX_COUNT_KEY,
+  useEmoticonImagePolicy,
+} from '@/features/emoticon/form/useEmoticonImagePolicy'
 
 function createEmptyConfigForm() {
   return {
@@ -18,6 +22,7 @@ export function useGlobalSettingsManager() {
   const { t } = useI18n()
   const toastStore = useToastStore()
   const { confirm } = useConfirm()
+  const { refresh: refreshEmoticonImagePolicy } = useEmoticonImagePolicy()
   const { useConfigs, useUpdateConfig, useCreateConfig, useDeleteConfig } = useAdmin()
 
   const isModalOpen = ref(false)
@@ -50,6 +55,9 @@ export function useGlobalSettingsManager() {
 
     try {
       await updateConfig({ key: config.key, value: payload.value, description: payload.description })
+      if (config.key === EMOTICON_IMAGE_MAX_COUNT_KEY) {
+        await refreshEmoticonImagePolicy()
+      }
       toastStore.addToast(t('admin.settings.messages.saved'), 'success')
     } catch {
       // Error handled globally
@@ -66,6 +74,9 @@ export function useGlobalSettingsManager() {
         value: payload.value,
         description: payload.description,
       })
+      if (payload.key === EMOTICON_IMAGE_MAX_COUNT_KEY) {
+        await refreshEmoticonImagePolicy()
+      }
 
       toastStore.addToast(t('admin.settings.messages.saved'), 'success')
       closeCreateModal()
@@ -81,6 +92,9 @@ export function useGlobalSettingsManager() {
 
     try {
       await deleteConfig(key)
+      if (key === EMOTICON_IMAGE_MAX_COUNT_KEY) {
+        await refreshEmoticonImagePolicy()
+      }
       toastStore.addToast(t('common.deleted'), 'success')
     } catch {
       // Error handled globally

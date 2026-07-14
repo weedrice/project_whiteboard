@@ -3,12 +3,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useEmoticonRegisterSubmit } from '../useEmoticonRegisterSubmit'
 import type { EmoticonImagePreview } from '@/utils/emoticonImage'
 import { emoticonApiData, emoticonApiSuccess } from '@/test/emoticonApiFixtures'
+import { createDeferred } from '@/test/async'
 
 const mocks = vi.hoisted(() => ({
   createEmoticon: vi.fn(),
   uploadFile: vi.fn(),
   createUploadableEmoticonImageFile: vi.fn(),
   createUploadableEmoticonThumbnailFile: vi.fn(),
+  extractErrorCode: vi.fn(),
 }))
 
 vi.mock('@/api/emoticon', () => ({
@@ -35,6 +37,7 @@ vi.mock('@/utils/emoticonImage', async (importOriginal) => {
 
 vi.mock('@/utils/errorHandler', () => ({
   extractErrorMessage: vi.fn(() => ''),
+  extractErrorCode: mocks.extractErrorCode,
 }))
 
 const createUploadSession = () => {
@@ -43,6 +46,7 @@ const createUploadSession = () => {
 
   return {
     uploadProgress: ref({ current: 0, total: 0 }),
+    trackedUploadedFileIds: computed(() => []),
     isDisposed,
     startSubmitRun: vi.fn(() => {
       activeRunId += 1
@@ -60,6 +64,9 @@ const createUploadSession = () => {
     abortPendingUploads: vi.fn(),
     createUploadCancelledError: vi.fn(() => new DOMException('cancelled', 'AbortError')),
     isUploadCancelledError: vi.fn((error: unknown) => error instanceof DOMException && error.name === 'AbortError'),
+    recordUploadedFile: vi.fn(),
+    clearTrackedUploads: vi.fn(),
+    discardTrackedUploads: vi.fn().mockResolvedValue(undefined),
   }
 }
 
@@ -75,6 +82,7 @@ describe('useEmoticonRegisterSubmit', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.createEmoticon.mockResolvedValue(emoticonApiSuccess())
+    mocks.extractErrorCode.mockReturnValue(null)
     mocks.createUploadableEmoticonImageFile.mockImplementation((item) => Promise.resolve(item.file))
     mocks.createUploadableEmoticonThumbnailFile.mockImplementation((file) => Promise.resolve(file))
     mocks.uploadFile.mockImplementation((file: File) => Promise.resolve(
@@ -119,6 +127,7 @@ describe('useEmoticonRegisterSubmit', () => {
     })
     expect(onSuccess).toHaveBeenCalledTimes(1)
     expect(onError).not.toHaveBeenCalled()
+    expect(uploadSession.clearTrackedUploads).toHaveBeenCalledTimes(1)
     expect(isSubmitting.value).toBe(false)
   })
 
@@ -145,5 +154,65 @@ describe('useEmoticonRegisterSubmit', () => {
     expect(mocks.createEmoticon).not.toHaveBeenCalled()
     expect(onSuccess).not.toHaveBeenCalled()
     expect(onError).toHaveBeenCalledWith('failed')
+    expect(uploadSession.discardTrackedUploads).toHaveBeenCalledTimes(1)
+  })
+
+  it('waits for a late image upload success before discarding after thumbnail failure', async () => {
+    const thumbnailError = new Error('thumbnail upload failed')
+    const lateImageUpload = createDeferred<ReturnType<typeof emoticonApiData<{ fileId: number }>>>()
+    mocks.uploadFile.mockImplementation((file: File) => (
+      file.name === 'thumb.png'
+        ? Promise.reject(thumbnailError)
+        : lateImageUpload.promise
+    ))
+    const uploadSession = createUploadSession()
+    const { handleSubmit } = useEmoticonRegisterSubmit({
+      isFormValid: computed(() => true),
+      isSubmitting: ref(false),
+      thumbnailFile: ref(new File(['thumb'], 'thumb.png', { type: 'image/png' })),
+      emoticonPreviews: ref([createPreview('image.png')]),
+      emoticonName: ref('New pack'),
+      tags: ref([]),
+      uploadSession,
+      fallbackErrorMessage: 'failed',
+      onSuccess: vi.fn(),
+      onError: vi.fn(),
+    })
+
+    const submitPromise = handleSubmit()
+    await vi.waitFor(() => expect(mocks.uploadFile).toHaveBeenCalledTimes(2))
+    expect(uploadSession.discardTrackedUploads).not.toHaveBeenCalled()
+
+    lateImageUpload.resolve(emoticonApiData({ fileId: 20 }))
+    await submitPromise
+
+    expect(uploadSession.recordUploadedFile).toHaveBeenCalledWith(20)
+    expect(uploadSession.discardTrackedUploads).toHaveBeenCalledTimes(1)
+    expect(mocks.createEmoticon).not.toHaveBeenCalled()
+  })
+
+  it('refreshes the image policy when the server returns EM006', async () => {
+    mocks.createEmoticon.mockRejectedValueOnce(new Error('limit exceeded'))
+    mocks.extractErrorCode.mockReturnValueOnce('EM006')
+    const uploadSession = createUploadSession()
+    const onLimitExceeded = vi.fn()
+    const { handleSubmit } = useEmoticonRegisterSubmit({
+      isFormValid: computed(() => true),
+      isSubmitting: ref(false),
+      thumbnailFile: ref(new File(['thumb'], 'thumb.png', { type: 'image/png' })),
+      emoticonPreviews: ref([createPreview('image.png')]),
+      emoticonName: ref('New pack'),
+      tags: ref([]),
+      uploadSession,
+      fallbackErrorMessage: 'failed',
+      onSuccess: vi.fn(),
+      onError: vi.fn(),
+      onLimitExceeded,
+    })
+
+    await handleSubmit()
+
+    expect(onLimitExceeded).toHaveBeenCalledTimes(1)
+    expect(uploadSession.discardTrackedUploads).toHaveBeenCalledTimes(1)
   })
 })

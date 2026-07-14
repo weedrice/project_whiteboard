@@ -16,6 +16,7 @@ interface UseEmoticonEditFormOptions {
   confirm: (message: string) => Promise<boolean>
   t: (key: string) => string
   onMaxTags: () => void
+  maxImageCount: ComputedRef<number>
 }
 
 export function useEmoticonEditForm({
@@ -27,6 +28,7 @@ export function useEmoticonEditForm({
   confirm,
   t,
   onMaxTags,
+  maxImageCount,
 }: UseEmoticonEditFormOptions) {
   const emoticonName = ref('')
   const originalThumbnailUrl = ref<string | null>(null)
@@ -54,7 +56,9 @@ export function useEmoticonEditForm({
   } = useEmoticonImageFormState({
     selectThumbnailImage,
     selectEmoticonImages,
-    getRemainingSlots: () => 100 - totalImageCount.value,
+    getRemainingSlots: () => existingImages.value.length > maxImageCount.value
+      ? 0
+      : Math.max(0, maxImageCount.value - totalImageCount.value),
   })
 
   const changeThumbnail = openThumbnailInput
@@ -102,11 +106,16 @@ export function useEmoticonEditForm({
     return existingCount + newEmoticonPreviews.value.length
   })
 
+  const canAddImages = computed(() => (
+    existingImages.value.length <= maxImageCount.value
+      && totalImageCount.value < maxImageCount.value
+  ))
+
   const isFormValid = computed(() => {
     return emoticonName.value.trim() !== ''
       && thumbnailPreview.value !== null
       && totalImageCount.value > 0
-      && totalImageCount.value <= 100
+      && (totalImageCount.value <= maxImageCount.value || newEmoticonPreviews.value.length === 0)
   })
 
   return {
@@ -137,6 +146,7 @@ export function useEmoticonEditForm({
     markImageForDeletion,
     unmarkImageForDeletion,
     totalImageCount,
+    canAddImages,
     isFormValid,
   }
 }

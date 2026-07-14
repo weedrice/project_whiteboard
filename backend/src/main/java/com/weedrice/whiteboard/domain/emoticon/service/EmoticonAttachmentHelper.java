@@ -18,8 +18,8 @@ class EmoticonAttachmentHelper {
         return FileUrlResolver.resolve(fileId);
     }
 
-    List<String> attachFiles(List<Long> fileIds, Long userId, Long emoticonId, String relatedType) {
-        return fileService.associateFilesWithEntity(fileIds, userId, emoticonId, relatedType);
+    List<String> attachFiles(List<Long> fileIds, Long userId, Long emoticonId, String relatedType, int maxFileCount) {
+        return fileService.associateFilesWithEntity(fileIds, userId, emoticonId, relatedType, maxFileCount);
     }
 
     void deleteAssociatedFile(String fileUrl, Long emoticonId, String relatedType) {

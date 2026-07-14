@@ -7,7 +7,9 @@ import org.springframework.http.HttpStatus;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.text.MessageFormat;
 import java.util.Arrays;
+import java.util.Locale;
 import java.util.Properties;
 import java.util.stream.Collectors;
 
@@ -63,6 +65,20 @@ class GlobalExceptionTest {
                     .as("English message key for %s", errorCode.name())
                     .containsKey(errorCode.getMessage());
         }
+    }
+
+    @Test
+    @DisplayName("Emoticon image limit messages include the configured limit in Korean and English")
+    void emoticonImageLimitMessages_includeConfiguredLimit() throws Exception {
+        String key = ErrorCode.EMOTICON_IMAGE_LIMIT_EXCEEDED.getMessage();
+        String koreanPattern = loadMessages("messages.properties").getProperty(key);
+        String englishPattern = loadMessages("messages_en.properties").getProperty(key);
+
+        assertThat(new MessageFormat(koreanPattern, Locale.KOREAN).format(new Object[]{35}))
+                .contains("35");
+        assertThat(new MessageFormat(englishPattern, Locale.ENGLISH).format(new Object[]{35}))
+                .contains("35");
+        assertThat(ErrorCode.EMOTICON_DUPLICATE_IMAGE_FILE.getCode()).isEqualTo("EM007");
     }
 
     @Test

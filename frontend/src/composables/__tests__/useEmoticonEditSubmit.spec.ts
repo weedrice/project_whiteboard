@@ -40,6 +40,7 @@ vi.mock('@/utils/emoticonImage', async (importOriginal) => {
 
 vi.mock('@/utils/errorHandler', () => ({
   extractErrorMessage: vi.fn(() => ''),
+  extractErrorCode: vi.fn(() => null),
 }))
 
 const createUploadSession = () => {
@@ -48,6 +49,7 @@ const createUploadSession = () => {
 
   return {
     uploadProgress: ref({ current: 0, total: 0 }),
+    trackedUploadedFileIds: computed(() => []),
     isDisposed,
     startSubmitRun: vi.fn(() => {
       activeRunId += 1
@@ -65,6 +67,9 @@ const createUploadSession = () => {
     abortPendingUploads: vi.fn(),
     createUploadCancelledError: vi.fn(() => new DOMException('cancelled', 'AbortError')),
     isUploadCancelledError: vi.fn((error: unknown) => error instanceof DOMException && error.name === 'AbortError'),
+    recordUploadedFile: vi.fn(),
+    clearTrackedUploads: vi.fn(),
+    discardTrackedUploads: vi.fn().mockResolvedValue(undefined),
   }
 }
 
@@ -117,7 +122,7 @@ describe('useEmoticonEditSubmit', () => {
 
     await handleSubmit()
 
-    expect(mocks.deleteImage).toHaveBeenCalledWith(10, { skipGlobalErrorHandler: true })
+    expect(mocks.deleteImage).not.toHaveBeenCalled()
     expect(mocks.createUploadableEmoticonThumbnailFile).toHaveBeenCalledWith(expect.objectContaining({
       name: 'thumb.png',
     }))
@@ -125,11 +130,13 @@ describe('useEmoticonEditSubmit', () => {
       signal: expect.any(AbortSignal),
       skipGlobalErrorHandler: true,
     })
-    expect(mocks.addImage).toHaveBeenCalledWith(7, 20, { skipGlobalErrorHandler: true })
+    expect(mocks.addImage).not.toHaveBeenCalled()
     expect(mocks.updateEmoticon).toHaveBeenCalledWith(7, {
       name: 'Updated',
       thumbnailFileId: 10,
       tags: ['fun'],
+      addImageFileIds: [20],
+      deleteImageIds: [10],
     }, {
       skipGlobalErrorHandler: true,
     })
@@ -137,6 +144,7 @@ describe('useEmoticonEditSubmit', () => {
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['emoticons'] })
     expect(onSuccess).toHaveBeenCalledTimes(1)
     expect(onError).not.toHaveBeenCalled()
+    expect(uploadSession.clearTrackedUploads).toHaveBeenCalledTimes(1)
     expect(isSubmitting.value).toBe(false)
   })
 
@@ -169,5 +177,6 @@ describe('useEmoticonEditSubmit', () => {
     expect(mocks.updateEmoticon).not.toHaveBeenCalled()
     expect(onSuccess).not.toHaveBeenCalled()
     expect(onError).toHaveBeenCalledWith('failed')
+    expect(uploadSession.discardTrackedUploads).toHaveBeenCalledTimes(1)
   })
 })

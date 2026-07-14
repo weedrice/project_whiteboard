@@ -302,6 +302,16 @@ describe('fileApi', () => {
         expect(resolveFileUploadUrl({ fileId: 2, url: 'https://cdn.test/2.png' })).toBe('https://cdn.test/2.png')
         expect(resolveFileUploadUrl({ fileId: 3 })).toBeNull()
     })
+
+    it('discards uploaded files with the provided request config', () => {
+        const config = { skipGlobalErrorHandler: true }
+
+        fileApi.discardUploads([1, 2], config)
+
+        expect(apiMock.post).toHaveBeenCalledWith('/files/uploads/discard', {
+            fileIds: [1, 2],
+        }, config)
+    })
 })
 
 describe('adApi', () => {

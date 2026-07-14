@@ -15,11 +15,13 @@ withDefaults(defineProps<{
   newImages: EmoticonImagePreview[]
   existingImages?: EmoticonImage[]
   imagesToDelete?: number[]
+  allowAdd?: boolean
 }>(), {
   inputName: 'emoticonImages',
-  maxCount: 100,
+  maxCount: 20,
   existingImages: () => [],
   imagesToDelete: () => [],
+  allowAdd: true,
 })
 
 const emit = defineEmits<{
@@ -46,7 +48,7 @@ function openFileInput() {
       </span>
     </label>
     <p class="text-xs nv-text-subtle mb-4">
-      {{ t('emoticon.form.imageHelp') }}
+      {{ t('emoticon.form.imageHelp', { count: maxCount }) }}
     </p>
 
     <div class="emoticon-image-grid mb-4 grid gap-2">
@@ -85,11 +87,11 @@ function openFileInput() {
         :name="inputName"
         :accept="accept"
         multiple
-        :disabled="currentCount >= maxCount"
+        :disabled="!allowAdd || currentCount >= maxCount"
         class="hidden"
         @change="emit('select', $event)"
       />
-      <div v-if="currentCount < maxCount" class="min-w-0">
+      <div v-if="allowAdd && currentCount < maxCount" class="min-w-0">
         <button
           type="button"
           :aria-label="$t('common.add')"

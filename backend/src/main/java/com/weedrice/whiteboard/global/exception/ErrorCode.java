@@ -97,6 +97,8 @@ public enum ErrorCode {
     EMOTICON_CANNOT_PURCHASE_OWN(HttpStatus.BAD_REQUEST, "EM003", "error.emoticon.cannotPurchaseOwn"),
     EMOTICON_IMAGE_NOT_FOUND(HttpStatus.NOT_FOUND, "EM004", "error.emoticon.imageNotFound"),
     EMOTICON_HIDDEN(HttpStatus.BAD_REQUEST, "EM005", "error.emoticon.hidden"),
+    EMOTICON_IMAGE_LIMIT_EXCEEDED(HttpStatus.BAD_REQUEST, "EM006", "error.emoticon.imageLimitExceeded"),
+    EMOTICON_DUPLICATE_IMAGE_FILE(HttpStatus.BAD_REQUEST, "EM007", "error.emoticon.duplicateImageFile"),
 
     // Agent
     AGENT_NOT_FOUND(HttpStatus.NOT_FOUND, "AG001", "error.common.notFound");

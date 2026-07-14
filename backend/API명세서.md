@@ -270,6 +270,7 @@
 | --- | --- | --- |
 | `POST` | `/api/v1/files` | 파일 업로드 |
 | `POST` | `/api/v1/files/upload` | 파일 업로드 및 프록시 URL 반환 |
+| `POST` | `/api/v1/files/uploads/discard` | 현재 사용자의 미연결 선업로드 파일 폐기 예약 |
 | `GET` | `/api/v1/files/{fileId}` | 파일 다운로드 |
 | `GET` | `/api/v1/files/{fileId}/variants/{variantType}` | 이미지 variant 다운로드 |
 | `GET` | `/files/{fileId}` | legacy 파일 다운로드 |
@@ -319,6 +320,17 @@
 | `PUT` | `/api/v1/common-codes/details/{detailId}` | 상세 코드 수정 |
 | `DELETE` | `/api/v1/common-codes/details/{detailId}` | 상세 코드 삭제 |
 
+이모티콘 수정 요청은 기존 `name`, `thumbnailFileId`, `tags`와 함께 선택 필드
+`addImageFileIds: number[]`, `deleteImageIds: number[]`를 받는다. 서버는 팩을 잠근 뒤 삭제 대상 검증,
+최종 이미지 수 검증, 파일 연결/삭제 예약, 이미지/메타데이터 변경을 하나의 트랜잭션으로 처리한다.
+신규 이미지는 삭제 후 남은 이미지의 최대 `sortOrder + 1`부터 추가된다. 이미지 제한을 초과하면
+`EM006` 오류와 현재 제한값이 포함된 현지화 메시지를 반환하고, 중복 파일 ID는 `EM007`로 반환한다.
+
+`POST /api/v1/files/uploads/discard` 요청은 `{ "fileIds": number[] }`이며 최대 101개까지 허용한다.
+응답 data는 `{ "discardedCount": number }`이다. 중복 ID는 제거하며, 현재 사용자가 업로드한 활성·미연결
+파일만 삭제 대기 상태로 전환한다. 연결됨·삭제됨·존재하지 않음·다른 사용자 소유 파일은 구분하지 않고
+무시하므로 반복 호출해도 안전하다.
+
 ### Admin And Global
 
 | Method | URI | 설명 |
@@ -367,6 +379,11 @@
 | `POST` | `/api/v1/admin/badges/backfill` | 기존 사용자 뱃지 backfill enqueue |
 | `POST` | `/api/v1/security/csp-report` | 브라우저 CSP 위반 report 수집 |
 | `POST` | `/api/v1/logs/client` | 브라우저 전역 오류 수집, JSON body 최대 32 KiB |
+
+`GET /api/v1/configs/public`은 포인트 공개 설정과 명시적으로 허용된
+`EMOTICON_IMAGE_MAX_COUNT`를 반환한다. 이모티콘 이미지 제한은 `1~100` 정수이며 기본값은 `20`이다.
+설정이 누락되거나 저장값이 비정상이면 서버와 클라이언트 모두 `20`을 사용한다. 다른 `EMOTICON_` 키는
+접두사만으로 공개되지 않는다.
 
 ### Agent API
 

@@ -72,6 +72,11 @@ vi.mock('@/composables/useAdmin', () => ({
     }),
 }))
 
+vi.mock('@/features/emoticon/form/useEmoticonImagePolicy', () => ({
+    EMOTICON_IMAGE_MAX_COUNT_KEY: 'EMOTICON_IMAGE_MAX_COUNT',
+    useEmoticonImagePolicy: () => ({ refresh: vi.fn() }),
+}))
+
 import GlobalSettings from '../GlobalSettings.vue'
 
 const BaseInputStub = defineComponent({

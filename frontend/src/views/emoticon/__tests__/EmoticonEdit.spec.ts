@@ -2,7 +2,6 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { nextTick, ref } from 'vue'
 import { emoticonApiData, emoticonApiSuccess } from '@/test/emoticonApiFixtures'
-import { createDeferred } from '@/test/async'
 import { getExposedVm } from '@/test/vue-test-helpers'
 
 type ExistingEmoticonImageFixture = { imageId: number; emoticonId: number; imageUrl: string; sortOrder: number }
@@ -33,6 +32,14 @@ const mocks = vi.hoisted(() => ({
   selectEmoticonImages: vi.fn(),
   createUploadableEmoticonImageFile: vi.fn(),
   createUploadableEmoticonThumbnailFile: vi.fn(),
+  refreshImagePolicy: vi.fn(),
+}))
+
+vi.mock('@/features/emoticon/form/useEmoticonImagePolicy', () => ({
+  useEmoticonImagePolicy: () => ({
+    maxImageCount: ref(20),
+    refresh: mocks.refreshImagePolicy,
+  }),
 }))
 
 vi.mock('vue-router', () => ({
@@ -119,6 +126,7 @@ vi.mock('@unhead/vue', () => ({
 
 vi.mock('@/utils/errorHandler', () => ({
   extractErrorMessage: vi.fn(),
+  extractErrorCode: vi.fn(() => null),
 }))
 
 vi.mock('vue-i18n', () => ({
@@ -242,7 +250,7 @@ describe('EmoticonEdit', () => {
 
     await flushPromises()
 
-    getExposedVm<Pick<EmoticonEditExposed, 'existingImages'>>(wrapper).existingImages = Array.from({ length: 100 }, (_, index) => ({
+    getExposedVm<Pick<EmoticonEditExposed, 'existingImages'>>(wrapper).existingImages = Array.from({ length: 20 }, (_, index) => ({
       imageId: index + 1,
       emoticonId: 7,
       imageUrl: `https://cdn.example.com/${index + 1}.png`,
@@ -254,7 +262,7 @@ describe('EmoticonEdit', () => {
     expect(wrapper.get('#emoticon-image-input').attributes('disabled')).toBeDefined()
   })
 
-  it('deletes selected images before uploading files and adds new images in selection order', async () => {
+  it('submits image deletion and additions in one update request', async () => {
     const wrapper = mount(EmoticonEdit, {
       global: {
         mocks: {
@@ -286,72 +294,15 @@ describe('EmoticonEdit', () => {
     await wrapper.find('form').trigger('submit')
     await flushPromises()
 
-    expect(mocks.deleteImage).toHaveBeenCalledWith(10, { skipGlobalErrorHandler: true })
+    expect(mocks.deleteImage).not.toHaveBeenCalled()
     expect(mocks.uploadFile).toHaveBeenCalledTimes(2)
-    expect(mocks.addImage).toHaveBeenNthCalledWith(1, 7, 101, { skipGlobalErrorHandler: true })
-    expect(mocks.addImage).toHaveBeenNthCalledWith(2, 7, 102, { skipGlobalErrorHandler: true })
-    expect(mocks.deleteImage.mock.invocationCallOrder[0]).toBeLessThan(
-      mocks.uploadFile.mock.invocationCallOrder[0]
-    )
+    expect(mocks.addImage).not.toHaveBeenCalled()
     expect(mocks.updateEmoticon).toHaveBeenCalledWith(7, {
       name: 'Original',
       thumbnailFileId: undefined,
       tags: ['tag'],
-    }, {
-      skipGlobalErrorHandler: true,
-    })
-  })
-
-  it('starts image add requests together and waits for all before updating metadata', async () => {
-    const firstAdd = createDeferred<ReturnType<typeof emoticonApiSuccess>>()
-    const secondAdd = createDeferred<ReturnType<typeof emoticonApiSuccess>>()
-    mocks.addImage.mockImplementation((_: number, fileId: number) => (
-      fileId === 101 ? firstAdd.promise : secondAdd.promise
-    ))
-
-    const wrapper = mount(EmoticonEdit, {
-      global: {
-        mocks: {
-          $t: (key: string) => key,
-        },
-        stubs: {
-          BaseButton: baseButtonStub,
-          ArrowLeft: true,
-          Upload: true,
-          X: true,
-          Plus: true,
-          EyeOff: true,
-          Eye: true,
-        },
-      },
-    })
-
-    await flushPromises()
-
-    const fileInput = wrapper.find('input[type="file"][multiple]')
-    Object.defineProperty(fileInput.element, 'files', {
-      value: [new File(['upload'], 'selected.png', { type: 'image/png' })],
-      configurable: true,
-    })
-    await fileInput.trigger('change')
-    await flushPromises()
-
-    await wrapper.find('form').trigger('submit')
-    await flushPromises()
-
-    expect(mocks.addImage).toHaveBeenCalledTimes(2)
-    expect(mocks.updateEmoticon).not.toHaveBeenCalled()
-
-    secondAdd.resolve(emoticonApiSuccess())
-    await flushPromises()
-    expect(mocks.updateEmoticon).not.toHaveBeenCalled()
-
-    firstAdd.resolve(emoticonApiSuccess())
-    await flushPromises()
-    expect(mocks.updateEmoticon).toHaveBeenCalledWith(7, {
-      name: 'Original',
-      thumbnailFileId: undefined,
-      tags: ['tag'],
+      addImageFileIds: [101, 102],
+      deleteImageIds: [10],
     }, {
       skipGlobalErrorHandler: true,
     })

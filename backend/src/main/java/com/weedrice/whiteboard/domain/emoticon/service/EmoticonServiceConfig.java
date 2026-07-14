@@ -41,13 +41,15 @@ class EmoticonServiceConfig {
                                                     EmoticonImageRepository emoticonImageRepository,
                                                     UserWritableResolver userWritableResolver,
                                                     EmoticonAttachmentHelper attachmentHelper,
-                                                    EmoticonDeletePolicy deletePolicy) {
+                                                    EmoticonDeletePolicy deletePolicy,
+                                                    EmoticonImageLimitPolicy imageLimitPolicy) {
         return new EmoticonCommandService(
                 emoticonMasterRepository,
                 emoticonImageRepository,
                 userWritableResolver,
                 attachmentHelper,
                 deletePolicy,
+                imageLimitPolicy,
                 EMOTICON_THUMBNAIL,
                 EMOTICON_IMAGE);
     }

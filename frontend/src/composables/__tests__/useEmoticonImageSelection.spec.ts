@@ -102,7 +102,7 @@ describe('useEmoticonImageSelection', () => {
     await expect(selectEmoticonImages(asFileList([
       new File(['image'], 'valid.png', { type: 'image/png' })
     ]), 0)).resolves.toEqual([])
-    expect(addToast).toHaveBeenCalledWith('emoticon.validation.maxImages', 'error')
+    expect(addToast).toHaveBeenCalledWith('emoticon.validation.maxImages:{"count":20}', 'error')
     expect(createObjectURL).not.toHaveBeenCalled()
   })
 })

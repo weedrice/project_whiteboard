@@ -91,6 +91,19 @@ class GlobalConfigServiceTest {
     }
 
     @Test
+    @DisplayName("getConfigFresh reads the repository without cache access")
+    void getConfigFresh_readsRepositoryDirectly() {
+        GlobalConfig config = new GlobalConfig("key", "fresh", "desc");
+        when(globalConfigRepository.findById("key")).thenReturn(Optional.of(config));
+
+        String value = globalConfigService.getConfigFresh(" key ");
+
+        assertThat(value).isEqualTo("fresh");
+        verify(globalConfigRepository).findById("key");
+        verifyNoInteractions(cacheManager);
+    }
+
+    @Test
     @DisplayName("getConfigOrThrow returns config value")
     void getConfigOrThrow_success() {
         GlobalConfig config = new GlobalConfig("key", "value", "desc");
@@ -150,6 +163,15 @@ class GlobalConfigServiceTest {
     }
 
     @Test
+    @DisplayName("bounded integer config parser accepts only values within both boundaries")
+    void parseIntConfigOrDefault_boundedRange() {
+        assertThat(GlobalConfigService.parseIntConfigOrDefault("1", 20, 1, 100)).isEqualTo(1);
+        assertThat(GlobalConfigService.parseIntConfigOrDefault("100", 20, 1, 100)).isEqualTo(100);
+        assertThat(GlobalConfigService.parseIntConfigOrDefault("0", 20, 1, 100)).isEqualTo(20);
+        assertThat(GlobalConfigService.parseIntConfigOrDefault("101", 20, 1, 100)).isEqualTo(20);
+    }
+
+    @Test
     @DisplayName("getAllConfigs returns DTO list")
     void getAllConfigs_returnsResponses() {
         when(globalConfigRepository.findAll()).thenReturn(List.of(new GlobalConfig("key", "value", "desc")));
@@ -180,12 +202,20 @@ class GlobalConfigServiceTest {
     void getPublicConfigs_returnsResponses() {
         when(globalConfigRepository.findByConfigKeyStartingWith("POINT_"))
                 .thenReturn(List.of(new GlobalConfig("POINT_SIGNUP_BONUS", "10", "desc")));
+        when(globalConfigRepository.findAllById(List.of(GlobalConfigService.EMOTICON_IMAGE_MAX_COUNT_CONFIG_KEY)))
+                .thenReturn(List.of(new GlobalConfig(
+                        GlobalConfigService.EMOTICON_IMAGE_MAX_COUNT_CONFIG_KEY,
+                        "20",
+                        "emoticon limit")));
 
         var responses = globalConfigService.getPublicConfigs();
 
-        assertThat(responses).hasSize(1);
-        assertThat(responses.getFirst().getKey()).isEqualTo("POINT_SIGNUP_BONUS");
-        assertThat(responses.getFirst().getValue()).isEqualTo("10");
+        assertThat(responses)
+                .extracting(GlobalConfigResponse::getKey)
+                .containsExactly(
+                        "POINT_SIGNUP_BONUS",
+                        GlobalConfigService.EMOTICON_IMAGE_MAX_COUNT_CONFIG_KEY);
+        verify(globalConfigRepository, never()).findByConfigKeyStartingWith("EMOTICON_");
         verifyNoInteractions(superAdminPolicy);
     }
 
@@ -310,6 +340,51 @@ class GlobalConfigServiceTest {
         verify(globalConfigRepository, never()).existsById(anyString());
         verify(globalConfigRepository, never()).saveAndFlush(any());
         verify(cacheManager, never()).getCache("globalConfig");
+    }
+
+    @Test
+    @DisplayName("createConfig accepts emoticon image limits from 1 through 100")
+    void createConfig_emoticonImageLimit_acceptsBoundaries() {
+        when(globalConfigRepository.existsById(GlobalConfigService.EMOTICON_IMAGE_MAX_COUNT_CONFIG_KEY))
+                .thenReturn(false);
+        when(globalConfigRepository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        GlobalConfigResponse created = globalConfigService.createConfig(
+                ACTOR_USER_ID,
+                GlobalConfigService.EMOTICON_IMAGE_MAX_COUNT_CONFIG_KEY,
+                "1",
+                "desc");
+
+        assertThat(created.getValue()).isEqualTo("1");
+    }
+
+    @Test
+    @DisplayName("createConfig rejects emoticon image limits outside 1 through 100")
+    void createConfig_emoticonImageLimit_rejectsInvalidValues() {
+        assertThatThrownBy(() -> globalConfigService.createConfig(
+                ACTOR_USER_ID,
+                GlobalConfigService.EMOTICON_IMAGE_MAX_COUNT_CONFIG_KEY,
+                "0",
+                "desc"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+        assertThatThrownBy(() -> globalConfigService.createConfig(
+                ACTOR_USER_ID,
+                GlobalConfigService.EMOTICON_IMAGE_MAX_COUNT_CONFIG_KEY,
+                "101",
+                "desc"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+        assertThatThrownBy(() -> globalConfigService.createConfig(
+                ACTOR_USER_ID,
+                GlobalConfigService.EMOTICON_IMAGE_MAX_COUNT_CONFIG_KEY,
+                "invalid",
+                "desc"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(globalConfigRepository, never()).existsById(anyString());
+        verify(globalConfigRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -484,6 +559,43 @@ class GlobalConfigServiceTest {
                 "desc"))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(globalConfigRepository, never()).findById(anyString());
+        verify(globalConfigRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("updateConfig accepts the absolute emoticon image limit")
+    void updateConfig_emoticonImageLimit_acceptsAbsoluteMaximum() {
+        GlobalConfig config = new GlobalConfig(
+                GlobalConfigService.EMOTICON_IMAGE_MAX_COUNT_CONFIG_KEY,
+                "20",
+                "desc");
+        when(globalConfigRepository.findById(GlobalConfigService.EMOTICON_IMAGE_MAX_COUNT_CONFIG_KEY))
+                .thenReturn(Optional.of(config));
+        when(globalConfigRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        GlobalConfigResponse updated = globalConfigService.updateConfig(
+                ACTOR_USER_ID,
+                GlobalConfigService.EMOTICON_IMAGE_MAX_COUNT_CONFIG_KEY,
+                "100",
+                "desc");
+
+        assertThat(updated.getValue()).isEqualTo("100");
+    }
+
+    @Test
+    @DisplayName("updateConfig rejects invalid emoticon image limits")
+    void updateConfig_emoticonImageLimit_rejectsInvalidValues() {
+        for (String invalidValue : List.of("0", "101", "1.5", "invalid")) {
+            assertThatThrownBy(() -> globalConfigService.updateConfig(
+                    ACTOR_USER_ID,
+                    GlobalConfigService.EMOTICON_IMAGE_MAX_COUNT_CONFIG_KEY,
+                    invalidValue,
+                    "desc"))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+        }
 
         verify(globalConfigRepository, never()).findById(anyString());
         verify(globalConfigRepository, never()).save(any());

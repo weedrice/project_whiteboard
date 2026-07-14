@@ -19,6 +19,8 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.List;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 @Service
 @Slf4j
@@ -28,6 +30,10 @@ public class GlobalConfigService {
 
     private static final String GLOBAL_CONFIG_CACHE = "globalConfig";
     private static final String POINT_CONFIG_PREFIX = "POINT_";
+    public static final String EMOTICON_IMAGE_MAX_COUNT_CONFIG_KEY = "EMOTICON_IMAGE_MAX_COUNT";
+    public static final int EMOTICON_IMAGE_MAX_COUNT_MIN = 1;
+    public static final int EMOTICON_IMAGE_MAX_COUNT_MAX = 100;
+    private static final List<String> PUBLIC_CONFIG_KEYS = List.of(EMOTICON_IMAGE_MAX_COUNT_CONFIG_KEY);
     private static final int MAX_CONFIG_KEY_LENGTH = 100;
     private static final int MAX_CONFIG_VALUE_LENGTH = 10_000;
     private static final int MAX_CONFIG_DESCRIPTION_LENGTH = 255;
@@ -40,6 +46,16 @@ public class GlobalConfigService {
     @Cacheable(value = GLOBAL_CONFIG_CACHE,
             key = "T(com.weedrice.whiteboard.global.common.service.GlobalConfigService).normalizeConfigKey(#key)")
     public String getConfig(String key) {
+        String normalizedKey = normalizeConfigKey(key);
+        return globalConfigRepository.findById(normalizedKey)
+                .map(GlobalConfig::getConfigValue)
+                .orElse(null);
+    }
+
+    /**
+     * Reads the latest persisted value without using the local application cache.
+     */
+    public String getConfigFresh(String key) {
         String normalizedKey = normalizeConfigKey(key);
         return globalConfigRepository.findById(normalizedKey)
                 .map(GlobalConfig::getConfigValue)
@@ -68,6 +84,13 @@ public class GlobalConfigService {
         return parsedValue != null && parsedValue >= minValue ? parsedValue : defaultValue;
     }
 
+    public static int parseIntConfigOrDefault(String value, int defaultValue, int minValue, int maxValue) {
+        Integer parsedValue = parseIntConfigValue(value);
+        return parsedValue != null && parsedValue >= minValue && parsedValue <= maxValue
+                ? parsedValue
+                : defaultValue;
+    }
+
     public List<GlobalConfigResponse> getAllConfigs(Long actorUserId) {
         superAdminPolicy.requireUsableSuperAdmin(actorUserId);
         return globalConfigRepository.findAll().stream()
@@ -76,8 +99,13 @@ public class GlobalConfigService {
     }
 
     public List<GlobalConfigResponse> getPublicConfigs() {
-        // POINT_ 로 시작하는 설정값만 반환
-        return globalConfigRepository.findByConfigKeyStartingWith("POINT_").stream()
+        Map<String, GlobalConfig> publicConfigs = new LinkedHashMap<>();
+        globalConfigRepository.findByConfigKeyStartingWith(POINT_CONFIG_PREFIX)
+                .forEach(config -> publicConfigs.put(config.getConfigKey(), config));
+        globalConfigRepository.findAllById(PUBLIC_CONFIG_KEYS)
+                .forEach(config -> publicConfigs.put(config.getConfigKey(), config));
+
+        return publicConfigs.values().stream()
                 .map(GlobalConfigResponse::from)
                 .toList();
     }
@@ -180,6 +208,15 @@ public class GlobalConfigService {
     }
 
     private void validateConfigValue(String key, String value) {
+        if (EMOTICON_IMAGE_MAX_COUNT_CONFIG_KEY.equals(key)) {
+            Integer parsedValue = parseIntConfigValue(value);
+            if (parsedValue == null
+                    || parsedValue < EMOTICON_IMAGE_MAX_COUNT_MIN
+                    || parsedValue > EMOTICON_IMAGE_MAX_COUNT_MAX) {
+                throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+            }
+            return;
+        }
         if (key == null || !key.startsWith(POINT_CONFIG_PREFIX)) {
             return;
         }

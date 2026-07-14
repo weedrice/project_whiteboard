@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useHead } from '@unhead/vue'
 import { ArrowLeft } from 'lucide-vue-next'
@@ -17,12 +17,20 @@ import { useEmoticonImageFormState } from '@/features/emoticon/form/useEmoticonI
 import { useEmoticonRegisterSubmit } from '@/features/emoticon/form/useEmoticonRegisterSubmit'
 import { useEmoticonTags } from '@/features/emoticon/form/useEmoticonTags'
 import { useEmoticonUploadSession } from '@/features/emoticon/form/useEmoticonUploadSession'
+import { useEmoticonImagePolicy } from '@/features/emoticon/form/useEmoticonImagePolicy'
 import { SUPPORTED_EMOTICON_IMAGE_ACCEPT } from '@/utils/emoticonImage'
 
 const { t } = useI18n()
 const router = useRouter()
 const toastStore = useToastStore()
-const { selectThumbnailImage, selectEmoticonImages } = useEmoticonImageSelection(t, toastStore)
+const { maxImageCount, refresh: refreshImagePolicy } = useEmoticonImagePolicy()
+const { selectThumbnailImage, selectEmoticonImages } = useEmoticonImageSelection(t, toastStore, {
+  getMaxCount: () => maxImageCount.value,
+})
+
+onMounted(() => {
+  void refreshImagePolicy()
+})
 
 useHead({
   title: computed(() => t('emoticon.register.title'))
@@ -50,13 +58,14 @@ const {
 } = useEmoticonImageFormState({
   selectThumbnailImage,
   selectEmoticonImages,
-  getRemainingSlots: () => 100 - emoticonPreviews.value.length,
+  getRemainingSlots: () => Math.max(0, maxImageCount.value - emoticonPreviews.value.length),
 })
 
 const isFormValid = computed(() => {
   return emoticonName.value.trim() !== '' && 
          thumbnailFile.value !== null &&
-         emoticonPreviews.value.length > 0
+         emoticonPreviews.value.length > 0 &&
+         emoticonPreviews.value.length <= maxImageCount.value
 })
 
 const { handleSubmit } = useEmoticonRegisterSubmit({
@@ -74,6 +83,9 @@ const { handleSubmit } = useEmoticonRegisterSubmit({
   },
   onError: (message) => {
     toastStore.addToast(message, 'error')
+  },
+  onLimitExceeded: () => {
+    void refreshImagePolicy()
   },
 })
 
@@ -137,6 +149,7 @@ const goToList = () => {
         input-id="emoticon-register-image-input"
         :accept="SUPPORTED_IMAGE_ACCEPT"
         :current-count="emoticonPreviews.length"
+        :max-count="maxImageCount"
         :new-images="emoticonPreviews"
         @select="handleEmoticonSelect"
         @remove-new="removeEmoticonImage"

@@ -36,7 +36,8 @@ function createSession() {
       createUploadCancelledError: vi.fn(() => new DOMException('cancelled', 'AbortError')),
       isSubmitActive: vi.fn(() => true),
       setUploadProgress: vi.fn(),
-      resetUploadProgress: vi.fn()
+      resetUploadProgress: vi.fn(),
+      recordUploadedFile: vi.fn()
     } as unknown as ReturnType<typeof useEmoticonUploadSession>
   }
 }
@@ -69,6 +70,7 @@ describe('useEmoticonImageUploader', () => {
     expect(session.setUploadProgress).toHaveBeenNthCalledWith(1, 0, 1)
     expect(session.setUploadProgress).toHaveBeenNthCalledWith(2, 1)
     expect(session.releaseUploadController).toHaveBeenCalledWith(controller)
+    expect(session.recordUploadedFile).toHaveBeenCalledWith(11)
   })
 
   it('aborts pending uploads when a preview upload fails', async () => {
@@ -170,11 +172,20 @@ describe('useEmoticonImageUploader', () => {
     expect(maxActiveCount).toBe(3)
 
     deferreds[0].reject(error)
+    await flushPromises()
+
+    expect(started).toEqual(['image-0.png', 'image-1.png', 'image-2.png'])
+    expect(fileApi.uploadFile).toHaveBeenCalledTimes(3)
+
+    deferreds[1].resolve(apiDataResponse<typeof fileApi.uploadFile>({ fileId: 21 }))
+    deferreds[2].resolve(apiDataResponse<typeof fileApi.uploadFile>({ fileId: 22 }))
 
     await expect(resultPromise).rejects.toBe(error)
     expect(started).toEqual(['image-0.png', 'image-1.png', 'image-2.png'])
     expect(fileApi.uploadFile).toHaveBeenCalledTimes(3)
     expect(session.abortPendingUploads).toHaveBeenCalled()
+    expect(session.recordUploadedFile).toHaveBeenCalledWith(21)
+    expect(session.recordUploadedFile).toHaveBeenCalledWith(22)
     expect(maxActiveCount).toBe(3)
   })
 })

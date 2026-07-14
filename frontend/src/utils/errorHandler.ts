@@ -127,6 +127,16 @@ export function extractErrorMessage(error: unknown): string {
     return t('common.messages.serverError')
 }
 
+export function extractErrorCode(error: unknown): string | null {
+    if (!axios.isAxiosError(error)) {
+        return null
+    }
+
+    const errorData = error.response?.data as ApiErrorResponse | undefined
+    const apiError = errorData?.error || errorData
+    return apiError?.code ?? null
+}
+
 /**
  * Axios 에러에서 ErrorResponse를 추출합니다.
  * @param error Axios 에러 객체

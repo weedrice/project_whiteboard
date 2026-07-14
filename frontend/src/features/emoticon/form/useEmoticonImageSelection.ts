@@ -10,7 +10,15 @@ type ToastStore = {
   addToast: (message: string, type: 'error') => void
 }
 
-export function useEmoticonImageSelection(t: Translate, toastStore: ToastStore) {
+interface EmoticonImageSelectionOptions {
+  getMaxCount?: () => number
+}
+
+export function useEmoticonImageSelection(
+  t: Translate,
+  toastStore: ToastStore,
+  options: EmoticonImageSelectionOptions = {}
+) {
   const selectThumbnailImage = async (file: File): Promise<EmoticonImagePreview | null> => {
     const validationError = validateEmoticonImageFile(file, { nonImageReason: 'imageOnly' })
     if (validationError === 'imageOnly') {
@@ -47,7 +55,9 @@ export function useEmoticonImageSelection(t: Translate, toastStore: ToastStore) 
     remainingSlots: number
   ): Promise<EmoticonImagePreview[]> => {
     if (remainingSlots <= 0) {
-      toastStore.addToast(t('emoticon.validation.maxImages'), 'error')
+      toastStore.addToast(t('emoticon.validation.maxImages', {
+        count: options.getMaxCount?.() ?? 20,
+      }), 'error')
       return []
     }
 

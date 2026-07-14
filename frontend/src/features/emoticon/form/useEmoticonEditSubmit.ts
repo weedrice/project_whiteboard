@@ -24,6 +24,7 @@ interface UseEmoticonEditSubmitOptions {
   fallbackErrorMessage: string
   onSuccess: () => void
   onError: (message: string) => void
+  onLimitExceeded?: () => void
 }
 
 export function useEmoticonEditSubmit({
@@ -40,6 +41,7 @@ export function useEmoticonEditSubmit({
   fallbackErrorMessage,
   onSuccess,
   onError,
+  onLimitExceeded,
 }: UseEmoticonEditSubmitOptions) {
   const imageUploader = useEmoticonImageUploader(uploadSession)
   const skipGlobalErrorHandler = { skipGlobalErrorHandler: true }
@@ -49,6 +51,7 @@ export function useEmoticonEditSubmit({
     uploadSession,
     fallbackErrorMessage,
     onError,
+    onLimitExceeded,
   })
 
   const handleSubmit = () => runSubmit(async (currentRunId) => {
@@ -74,33 +77,27 @@ export function useEmoticonEditSubmit({
       )
     }
 
-    await Promise.all(submitSnapshot.imagesToDelete.map(async (imageId) => {
-      await emoticonApi.deleteImage(imageId, skipGlobalErrorHandler)
-      uploadSession.assertSubmitActive(currentRunId)
-    }))
-
+    let imageFileIds: number[] = []
     if (uploadFiles.length > 0) {
-      const imageFileIds = await imageUploader.uploadFiles(
+      imageFileIds = await imageUploader.uploadFiles(
         uploadFiles,
         currentRunId,
         skipGlobalErrorHandler
       )
-      await Promise.all(imageFileIds.map(async (fileId) => {
-        uploadSession.assertSubmitActive(currentRunId)
-        await emoticonApi.addImage(submitSnapshot.emoticonId, fileId, skipGlobalErrorHandler)
-        uploadSession.assertSubmitActive(currentRunId)
-      }))
     }
 
     uploadSession.assertSubmitActive(currentRunId)
     await emoticonApi.updateEmoticon(submitSnapshot.emoticonId, {
       name: submitSnapshot.name,
       thumbnailFileId,
-      tags: submitSnapshot.tags
+      tags: submitSnapshot.tags,
+      addImageFileIds: imageFileIds,
+      deleteImageIds: submitSnapshot.imagesToDelete,
     }, {
       skipGlobalErrorHandler: true
     })
     uploadSession.assertSubmitActive(currentRunId)
+    uploadSession.clearTrackedUploads()
 
     queryClient.invalidateQueries({ queryKey: emoticonDetailQueryKey(emoticonId) })
     queryClient.invalidateQueries({ queryKey: emoticonListQueryKey })

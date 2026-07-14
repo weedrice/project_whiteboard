@@ -30,6 +30,8 @@ export interface EmoticonUpdateRequest {
     name?: string
     thumbnailFileId?: number
     tags?: string[]
+    addImageFileIds?: number[]
+    deleteImageIds?: number[]
 }
 
 export interface EmoticonSearchParams {

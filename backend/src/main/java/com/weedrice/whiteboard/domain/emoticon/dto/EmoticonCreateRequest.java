@@ -1,7 +1,7 @@
 package com.weedrice.whiteboard.domain.emoticon.dto;
 
-import com.weedrice.whiteboard.domain.file.support.FileAssociationConstraints;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -25,6 +25,6 @@ public class EmoticonCreateRequest {
     @Size(max = 10, message = "{validation.emoticon.tags.max}")
     private List<String> tags;
 
-    @Size(max = FileAssociationConstraints.MAX_EMOTICON_IMAGE_COUNT, message = "{validation.emoticon.images.max}")
-    private List<Long> imageFileIds;
+    @Size(max = 101)
+    private List<@NotNull Long> imageFileIds;
 }

@@ -19,6 +19,7 @@ interface UseEmoticonRegisterSubmitOptions {
   fallbackErrorMessage: string
   onSuccess: () => void
   onError: (message: string) => void
+  onLimitExceeded?: () => void
 }
 
 export function useEmoticonRegisterSubmit({
@@ -32,6 +33,7 @@ export function useEmoticonRegisterSubmit({
   fallbackErrorMessage,
   onSuccess,
   onError,
+  onLimitExceeded,
 }: UseEmoticonRegisterSubmitOptions) {
   const imageUploader = useEmoticonImageUploader(uploadSession)
   const { runSubmit } = useEmoticonSubmitGuard({
@@ -40,6 +42,7 @@ export function useEmoticonRegisterSubmit({
     uploadSession,
     fallbackErrorMessage,
     onError,
+    onLimitExceeded,
   })
 
   const handleSubmit = () => runSubmit(async (currentRunId) => {
@@ -53,7 +56,7 @@ export function useEmoticonRegisterSubmit({
       tags: [...tags.value],
     }
 
-    const [thumbnailFileId, imageFileIds] = await Promise.all([
+    const [thumbnailUpload, imageUploads] = await Promise.allSettled([
       imageUploader.uploadFile(submitSnapshot.thumbnail, currentRunId, {
         skipGlobalErrorHandler: true
       }),
@@ -61,6 +64,14 @@ export function useEmoticonRegisterSubmit({
         skipGlobalErrorHandler: true
       })
     ])
+    if (thumbnailUpload.status === 'rejected') {
+      throw thumbnailUpload.reason
+    }
+    if (imageUploads.status === 'rejected') {
+      throw imageUploads.reason
+    }
+    const thumbnailFileId = thumbnailUpload.value
+    const imageFileIds = imageUploads.value
     uploadSession.assertSubmitActive(currentRunId)
 
     await emoticonApi.createEmoticon({
@@ -72,6 +83,7 @@ export function useEmoticonRegisterSubmit({
       skipGlobalErrorHandler: true
     })
     uploadSession.assertSubmitActive(currentRunId)
+    uploadSession.clearTrackedUploads()
 
     onSuccess()
   })

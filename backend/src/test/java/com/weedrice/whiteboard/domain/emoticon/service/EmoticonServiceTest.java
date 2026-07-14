@@ -61,6 +61,8 @@ class EmoticonServiceTest {
     private UserWritableResolver userWritableResolver;
     @Mock
     private FileService fileService;
+    @Mock
+    private EmoticonImageLimitPolicy imageLimitPolicy;
 
     private EmoticonService emoticonService;
 
@@ -93,6 +95,7 @@ class EmoticonServiceTest {
                 .build();
         ReflectionTestUtils.setField(emoticonShopItem, "itemId", 10L);
         lenient().when(userRepository.findAllById(any())).thenReturn(List.of(user));
+        lenient().when(imageLimitPolicy.getCurrentLimit()).thenReturn(20);
 
         EmoticonAttachmentHelper attachmentHelper = new EmoticonAttachmentHelper(fileService);
         EmoticonCatalogService catalogService = new EmoticonCatalogService(
@@ -108,6 +111,7 @@ class EmoticonServiceTest {
                 userWritableResolver,
                 attachmentHelper,
                 deletePolicy,
+                imageLimitPolicy,
                 "EMOTICON_THUMBNAIL",
                 "EMOTICON_IMAGE");
         EmoticonPurchaseService purchaseService = new EmoticonPurchaseService(
@@ -710,7 +714,8 @@ class EmoticonServiceTest {
                     eq(List.of(11L, 12L)),
                     eq(1L),
                     eq(10L),
-                    eq("EMOTICON_IMAGE")))
+                    eq("EMOTICON_IMAGE"),
+                    eq(20)))
                     .thenReturn(List.of("/api/v1/files/11", "/api/v1/files/12"));
 
             EmoticonMasterDto result = emoticonService.createEmoticon(1L, request);
@@ -726,7 +731,8 @@ class EmoticonServiceTest {
                     eq(List.of(11L, 12L)),
                     eq(1L),
                     eq(10L),
-                    eq("EMOTICON_IMAGE"));
+                    eq("EMOTICON_IMAGE"),
+                    eq(20));
         }
 
         @Test
@@ -766,12 +772,12 @@ class EmoticonServiceTest {
             assertThatThrownBy(() -> emoticonService.createEmoticon(1L, request))
                     .isInstanceOf(BusinessException.class)
                     .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode())
-                            .isEqualTo(ErrorCode.INVALID_INPUT_VALUE));
+                            .isEqualTo(ErrorCode.EMOTICON_DUPLICATE_IMAGE_FILE));
 
             verify(userWritableResolver, never()).resolve(anyLong());
             verify(emoticonMasterRepository, never()).save(any(EmoticonMaster.class));
             verify(fileService, never()).associateFileWithEntity(any(), any(), any(), any());
-            verify(fileService, never()).associateFilesWithEntity(any(), any(), any(), any());
+            verify(fileService, never()).associateFilesWithEntity(any(), any(), any(), any(), anyInt());
         }
 
         @Test
@@ -816,20 +822,20 @@ class EmoticonServiceTest {
                     .build();
 
             givenWritableUser();
-            when(emoticonMasterRepository.findById(1L)).thenReturn(Optional.of(emoticonMaster));
+            when(emoticonMasterRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(emoticonMaster));
 
             EmoticonMasterDto result = emoticonService.updateEmoticon(1L, 1L, request);
 
             assertThat(result).isNotNull();
             assertThat(emoticonMaster.getName()).isEqualTo("수정된 이름");
             assertThat(emoticonMaster.getThumbnailUrl()).isEqualTo("/api/v1/files/20");
-            verify(emoticonMasterRepository).findById(1L);
+            verify(emoticonMasterRepository).findByIdForUpdate(1L);
         }
 
         @Test
         @DisplayName("emoticon update rejects blank name")
         void updateEmoticon_blankName_invalidInput() {
-            when(emoticonMasterRepository.findById(1L)).thenReturn(Optional.of(emoticonMaster));
+            when(emoticonMasterRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(emoticonMaster));
             EmoticonUpdateRequest request = EmoticonUpdateRequest.builder().name("   ").build();
             String previousName = emoticonMaster.getName();
 
@@ -852,7 +858,7 @@ class EmoticonServiceTest {
                     .build();
 
             givenWritableUser();
-            when(emoticonMasterRepository.findById(1L)).thenReturn(Optional.of(emoticonMaster));
+            when(emoticonMasterRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(emoticonMaster));
 
             emoticonService.updateEmoticon(1L, 1L, request);
 
@@ -869,7 +875,7 @@ class EmoticonServiceTest {
                     .build();
 
             givenWritableUser();
-            when(emoticonMasterRepository.findById(1L)).thenReturn(Optional.of(emoticonMaster));
+            when(emoticonMasterRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(emoticonMaster));
 
             emoticonService.updateEmoticon(1L, 1L, request);
 
@@ -883,7 +889,7 @@ class EmoticonServiceTest {
         @Test
         @DisplayName("이모티콘 수정 - 소유자가 아니면 FORBIDDEN")
         void updateEmoticon_forbidden() {
-            when(emoticonMasterRepository.findById(1L)).thenReturn(Optional.of(emoticonMaster));
+            when(emoticonMasterRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(emoticonMaster));
             EmoticonUpdateRequest request = EmoticonUpdateRequest.builder().name("수정").build();
 
             assertThatThrownBy(() -> emoticonService.updateEmoticon(2L, 1L, request))
@@ -897,7 +903,7 @@ class EmoticonServiceTest {
         @Test
         @DisplayName("이모티콘 수정 - 제재 소유자는 USER_NOT_ACTIVE")
         void updateEmoticon_bannedOwner() {
-            when(emoticonMasterRepository.findById(1L)).thenReturn(Optional.of(emoticonMaster));
+            when(emoticonMasterRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(emoticonMaster));
             when(userWritableResolver.resolve(1L))
                     .thenThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE));
             EmoticonUpdateRequest request = EmoticonUpdateRequest.builder().name("수정").build();
@@ -913,7 +919,7 @@ class EmoticonServiceTest {
         @Test
         @DisplayName("이모티콘 수정 - 일부 필드 null이면 기존 값 유지")
         void updateEmoticon_partialNullKeepsExisting() {
-            when(emoticonMasterRepository.findById(1L)).thenReturn(Optional.of(emoticonMaster));
+            when(emoticonMasterRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(emoticonMaster));
             EmoticonUpdateRequest request = EmoticonUpdateRequest.builder()
                     .name(null)
                     .thumbnailFileId(null)
@@ -927,6 +933,116 @@ class EmoticonServiceTest {
             assertThat(emoticonMaster.getName()).isEqualTo("테스트 이모티콘");
             assertThat(emoticonMaster.getThumbnailUrl()).isEqualTo("https://example.com/thumb.png");
             assertThat(emoticonMaster.getTags()).containsExactly("웃음", "감사");
+        }
+
+        @Test
+        @DisplayName("이모티콘 수정 - 이미지 삭제와 추가를 한 요청으로 처리하고 기존 최대 순번 다음부터 추가한다")
+        void updateEmoticon_deleteAndAddImages_successWithNextSortOrder() {
+            ReflectionTestUtils.setField(emoticonMaster, "images", emoticonImages(3));
+            EmoticonUpdateRequest request = EmoticonUpdateRequest.builder()
+                    .addImageFileIds(List.of(500L, 501L))
+                    .deleteImageIds(List.of(101L))
+                    .build();
+
+            givenWritableUser();
+            when(emoticonMasterRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(emoticonMaster));
+            when(fileService.associateFilesWithEntity(
+                    eq(List.of(500L, 501L)),
+                    eq(1L),
+                    eq(1L),
+                    eq("EMOTICON_IMAGE"),
+                    eq(20)))
+                    .thenReturn(List.of("/api/v1/files/500", "/api/v1/files/501"));
+
+            EmoticonMasterDto result = emoticonService.updateEmoticon(1L, 1L, request);
+
+            assertThat(result.getImages()).extracting("imageUrl")
+                    .containsExactly(
+                            "/api/v1/files/100",
+                            "/api/v1/files/102",
+                            "/api/v1/files/500",
+                            "/api/v1/files/501");
+            assertThat(result.getImages()).extracting("sortOrder").containsExactly(0, 2, 3, 4);
+            verify(fileService).deleteFileWithStorageIfAssociated(101L, 1L, "EMOTICON_IMAGE");
+            verify(fileService).associateFilesWithEntity(
+                    List.of(500L, 501L), 1L, 1L, "EMOTICON_IMAGE", 20);
+        }
+
+        @Test
+        @DisplayName("이모티콘 수정 - 다른 팩의 이미지 ID 삭제는 EMOTICON_IMAGE_NOT_FOUND")
+        void updateEmoticon_deleteImageFromOtherPack_rejected() {
+            ReflectionTestUtils.setField(emoticonMaster, "images", emoticonImages(2));
+            EmoticonUpdateRequest request = EmoticonUpdateRequest.builder()
+                    .deleteImageIds(List.of(900L))
+                    .build();
+
+            givenWritableUser();
+            when(emoticonMasterRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(emoticonMaster));
+
+            assertThatThrownBy(() -> emoticonService.updateEmoticon(1L, 1L, request))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.EMOTICON_IMAGE_NOT_FOUND);
+
+            assertThat(emoticonMaster.getImages()).hasSize(2);
+            verifyNoInteractions(fileService);
+        }
+
+        @Test
+        @DisplayName("이미 한도를 초과한 팩은 메타데이터 수정과 이미지 삭제를 허용한다")
+        void updateEmoticon_existingOverLimitPack_allowsMetadataAndDeletion() {
+            ReflectionTestUtils.setField(emoticonMaster, "images", emoticonImages(21));
+            EmoticonUpdateRequest request = EmoticonUpdateRequest.builder()
+                    .name("정리한 이모티콘")
+                    .deleteImageIds(List.of(100L))
+                    .build();
+
+            givenWritableUser();
+            when(emoticonMasterRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(emoticonMaster));
+
+            EmoticonMasterDto result = emoticonService.updateEmoticon(1L, 1L, request);
+
+            assertThat(result.getName()).isEqualTo("정리한 이모티콘");
+            assertThat(result.getImages()).hasSize(20);
+            verify(fileService).deleteFileWithStorageIfAssociated(100L, 1L, "EMOTICON_IMAGE");
+        }
+
+        @Test
+        @DisplayName("이미 한도를 초과한 팩은 동시 삭제가 있어도 이미지 추가를 거부한다")
+        void updateEmoticon_existingOverLimitPack_rejectsAdditionEvenWithDeletion() {
+            ReflectionTestUtils.setField(emoticonMaster, "images", emoticonImages(21));
+            EmoticonUpdateRequest request = EmoticonUpdateRequest.builder()
+                    .addImageFileIds(List.of(500L))
+                    .deleteImageIds(List.of(100L, 101L))
+                    .build();
+
+            givenWritableUser();
+            when(emoticonMasterRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(emoticonMaster));
+
+            assertThatThrownBy(() -> emoticonService.updateEmoticon(1L, 1L, request))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.EMOTICON_IMAGE_LIMIT_EXCEEDED);
+
+            assertThat(emoticonMaster.getImages()).hasSize(21);
+            verifyNoInteractions(fileService);
+        }
+
+        @Test
+        @DisplayName("이모티콘 수정 - 이미 연결된 파일 ID 재추가는 중복 오류")
+        void updateEmoticon_readdingAlreadyAttachedFile_rejectedAsDuplicate() {
+            ReflectionTestUtils.setField(emoticonMaster, "images", emoticonImages(2));
+            EmoticonUpdateRequest request = EmoticonUpdateRequest.builder()
+                    .addImageFileIds(List.of(101L))
+                    .build();
+
+            givenWritableUser();
+            when(emoticonMasterRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(emoticonMaster));
+
+            assertThatThrownBy(() -> emoticonService.updateEmoticon(1L, 1L, request))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.EMOTICON_DUPLICATE_IMAGE_FILE);
+
+            assertThat(emoticonMaster.getImages()).hasSize(2);
+            verifyNoInteractions(fileService);
         }
 
         @Test
@@ -960,7 +1076,7 @@ class EmoticonServiceTest {
         @Test
         @DisplayName("이모티콘 수정 - EMOTICON_NOT_FOUND")
         void updateEmoticon_notFound() {
-            when(emoticonMasterRepository.findById(999L)).thenReturn(Optional.empty());
+            when(emoticonMasterRepository.findByIdForUpdate(999L)).thenReturn(Optional.empty());
             EmoticonUpdateRequest request = EmoticonUpdateRequest.builder().name("x").build();
 
             assertThatThrownBy(() -> emoticonService.updateEmoticon(1L, 999L, request))
@@ -1118,10 +1234,32 @@ class EmoticonServiceTest {
 
             assertThatThrownBy(() -> emoticonService.addImage(1L, 1L, 30L))
                     .isInstanceOf(BusinessException.class)
-                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.EMOTICON_IMAGE_LIMIT_EXCEEDED);
 
             assertThat(emoticonMaster.getImages()).hasSize(20);
             verify(fileService, never()).associateFileWithEntity(anyLong(), anyLong(), anyLong(), anyString());
+        }
+
+        @Test
+        @DisplayName("동적 한도가 100이면 100번째는 허용하고 101번째는 거부한다")
+        void addImage_dynamicLimit100_allows100AndRejects101() {
+            ReflectionTestUtils.setField(emoticonMaster, "images", emoticonImages(99));
+            givenWritableUser();
+            when(imageLimitPolicy.getCurrentLimit()).thenReturn(100);
+            when(emoticonMasterRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(emoticonMaster));
+
+            EmoticonMasterDto result = emoticonService.addImage(1L, 1L, 500L);
+
+            assertThat(result.getImages()).hasSize(100);
+            assertThat(result.getImages().get(99).getSortOrder()).isEqualTo(99);
+
+            assertThatThrownBy(() -> emoticonService.addImage(1L, 1L, 501L))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.EMOTICON_IMAGE_LIMIT_EXCEEDED);
+
+            assertThat(emoticonMaster.getImages()).hasSize(100);
+            verify(fileService).associateFileWithEntity(500L, 1L, 1L, "EMOTICON_IMAGE");
+            verify(fileService, never()).associateFileWithEntity(501L, 1L, 1L, "EMOTICON_IMAGE");
         }
 
         @Test
@@ -1171,9 +1309,11 @@ class EmoticonServiceTest {
                     .sortOrder(0)
                     .build();
             ReflectionTestUtils.setField(image, "imageId", 10L);
+            ReflectionTestUtils.setField(emoticonMaster, "images", new java.util.ArrayList<>(List.of(image)));
 
             givenWritableUser();
             when(emoticonImageRepository.findById(10L)).thenReturn(Optional.of(image));
+            when(emoticonMasterRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(emoticonMaster));
 
             emoticonService.deleteImage(1L, 10L);
 
@@ -1208,8 +1348,10 @@ class EmoticonServiceTest {
                     .sortOrder(0)
                     .build();
             ReflectionTestUtils.setField(image, "imageId", 10L);
+            ReflectionTestUtils.setField(otherMaster, "images", new java.util.ArrayList<>(List.of(image)));
 
             when(emoticonImageRepository.findById(10L)).thenReturn(Optional.of(image));
+            when(emoticonMasterRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(otherMaster));
 
             assertThatThrownBy(() -> emoticonService.deleteImage(1L, 10L))
                     .isInstanceOf(BusinessException.class)
@@ -1228,8 +1370,10 @@ class EmoticonServiceTest {
                     .sortOrder(0)
                     .build();
             ReflectionTestUtils.setField(image, "imageId", 10L);
+            ReflectionTestUtils.setField(emoticonMaster, "images", new java.util.ArrayList<>(List.of(image)));
 
             when(emoticonImageRepository.findById(10L)).thenReturn(Optional.of(image));
+            when(emoticonMasterRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(emoticonMaster));
             when(userWritableResolver.resolve(1L))
                     .thenThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE));
 

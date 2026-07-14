@@ -2,10 +2,12 @@ package com.weedrice.whiteboard.domain.file.controller;
 
 import com.weedrice.whiteboard.domain.file.dto.FileDownloadResponse;
 import com.weedrice.whiteboard.domain.file.dto.FileSimpleResponse;
+import com.weedrice.whiteboard.domain.file.dto.FileUploadDiscardResponse;
 import com.weedrice.whiteboard.domain.file.dto.FileUploadResponse;
 import com.weedrice.whiteboard.domain.file.entity.FileVariantType;
 import com.weedrice.whiteboard.domain.file.service.FileDownloadService;
 import com.weedrice.whiteboard.domain.file.service.FileService;
+import com.weedrice.whiteboard.domain.file.service.FileUploadDiscardService;
 import com.weedrice.whiteboard.global.config.CurrentUserIdWebMvcConfig;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -33,6 +35,7 @@ import java.util.Collections;
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -74,6 +77,9 @@ class FileControllerTest {
 
     @MockitoBean
     private FileDownloadService fileDownloadService;
+
+    @MockitoBean
+    private FileUploadDiscardService fileUploadDiscardService;
 
     @MockitoBean
     private com.weedrice.whiteboard.global.security.JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -142,6 +148,49 @@ class FileControllerTest {
                         .with(user(customUserDetails)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
+    @DisplayName("임시 업로드 파일 폐기 성공")
+    void discardTemporaryUploads_returnsDiscardedCount() throws Exception {
+        when(fileUploadDiscardService.discardTemporaryUploads(1L, java.util.List.of(3L, 3L, 4L)))
+                .thenReturn(new FileUploadDiscardResponse(2));
+
+        mockMvc.perform(post("/api/v1/files/uploads/discard")
+                        .with(user(customUserDetails))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"fileIds\":[3,3,4]}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.discardedCount").value(2));
+    }
+
+    @Test
+    @DisplayName("임시 업로드 파일 폐기는 빈 목록을 거부한다")
+    void discardTemporaryUploads_rejectsEmptyFileIds() throws Exception {
+        mockMvc.perform(post("/api/v1/files/uploads/discard")
+                        .with(user(customUserDetails))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"fileIds\":[]}"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(fileUploadDiscardService);
+    }
+
+    @Test
+    @DisplayName("임시 업로드 파일 폐기는 101개를 초과한 목록을 거부한다")
+    void discardTemporaryUploads_rejectsMoreThan101FileIds() throws Exception {
+        String fileIds = java.util.stream.LongStream.rangeClosed(1, 102)
+                .mapToObj(Long::toString)
+                .collect(java.util.stream.Collectors.joining(","));
+
+        mockMvc.perform(post("/api/v1/files/uploads/discard")
+                        .with(user(customUserDetails))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"fileIds\":[" + fileIds + "]}"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(fileUploadDiscardService);
     }
 
     @Test

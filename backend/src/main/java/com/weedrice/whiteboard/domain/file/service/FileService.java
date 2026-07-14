@@ -65,6 +65,13 @@ public class FileService {
     }
 
     @Transactional
+    public List<String> associateFilesWithEntity(List<Long> fileIds, Long ownerUserId, Long relatedId,
+            String relatedType, int maxFileCount) {
+        return fileAssociationService.associateFilesWithEntity(
+                fileIds, ownerUserId, relatedId, relatedType, maxFileCount);
+    }
+
+    @Transactional
     public void syncDraftFiles(List<Long> fileIds, Long ownerUserId, Long draftId) {
         fileAssociationService.syncDraftFiles(fileIds, ownerUserId, draftId);
     }
