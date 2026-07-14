@@ -1,0 +1,25 @@
+[Unit]
+Description=Noviis Spring Boot application
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+WorkingDirectory=/opt/app/backend
+EnvironmentFile=/etc/noviis/app.env
+ExecStart=/usr/bin/java -jar /opt/app/backend/app.jar
+Restart=on-failure
+RestartSec=5
+SuccessExitStatus=143
+TimeoutStopSec=35
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=noviis-app
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

@@ -84,6 +84,9 @@ jobs:
             RELEASE_DIR="$APP_DIR/releases/${{ github.sha }}"
             NEXT_JAR="$(find "$RELEASE_DIR" -maxdepth 1 -type f -name '*.jar' | head -n 1)"
             test -n "$NEXT_JAR"
+            test -d /opt/app/logs
+            test -w /opt/app/logs
+            sudo test -r /etc/noviis/app.env
 
             if [ -f "$APP_DIR/app.jar" ]; then
               sudo cp "$APP_DIR/app.jar" "$APP_DIR/app.jar.rollback"
@@ -95,16 +98,20 @@ jobs:
             sudo systemctl daemon-reload
 
             if ! sudo systemctl start app; then
+              sudo systemctl status app --no-pager || true
+              sudo journalctl -u app -n 80 --no-pager || true
+              sudo tail -n 120 /opt/app/logs/whiteboard-active.log || true
+              sudo tail -n 120 /opt/app/logs/whiteboard-error.log || true
               if [ -f "$APP_DIR/app.jar.rollback" ]; then
                 sudo cp "$APP_DIR/app.jar.rollback" "$APP_DIR/app.jar"
                 sudo systemctl start app || true
               fi
-              sudo systemctl status app --no-pager || true
               exit 1
             fi
 
             for i in $(seq 1 30); do
               if curl -fsS --max-time 3 http://127.0.0.1:8080/actuator/health >/dev/null; then
+                sudo test -s /opt/app/logs/whiteboard-active.log
                 sudo systemctl status app --no-pager
                 find "$APP_DIR/releases" -mindepth 1 -maxdepth 1 -type d | sort | head -n -5 | xargs -r rm -rf
                 exit 0
@@ -113,10 +120,13 @@ jobs:
             done
 
             echo "Backend health check failed after deploy"
+            sudo systemctl status app --no-pager || true
+            sudo journalctl -u app -n 80 --no-pager || true
+            sudo tail -n 120 /opt/app/logs/whiteboard-active.log || true
+            sudo tail -n 120 /opt/app/logs/whiteboard-error.log || true
             if [ -f "$APP_DIR/app.jar.rollback" ]; then
               sudo cp "$APP_DIR/app.jar.rollback" "$APP_DIR/app.jar"
               sudo systemctl restart app || true
             fi
             sudo systemctl status app --no-pager
-            sudo journalctl -u app -n 120 --no-pager || true
             exit 1
