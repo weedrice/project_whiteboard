@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { computed, ref } from 'vue'
-import { useUser } from '../useUser'
+import { useUser } from '@/features/user/useUser'
 import { userApi } from '@/api/user'
 import { QUERY_STALE_TIME } from '@/utils/constants'
 import { apiDataResponse, apiSuccessResponse } from '@/test/apiResponseFixtures'
