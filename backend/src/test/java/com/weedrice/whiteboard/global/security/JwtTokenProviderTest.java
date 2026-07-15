@@ -208,11 +208,11 @@ class JwtTokenProviderTest {
     }
 
     private Claims parseClaims(String token) {
-        return Jwts.parserBuilder()
-                .setSigningKey(Keys.hmacShaKeyFor(Decoders.BASE64.decode(secret)))
-                .setClock(() -> java.util.Date.from(FIXED_CLOCK.instant()))
+        return Jwts.parser()
+                .verifyWith(Keys.hmacShaKeyFor(Decoders.BASE64.decode(secret)))
+                .clock(() -> java.util.Date.from(FIXED_CLOCK.instant()))
                 .build()
-                .parseClaimsJws(token)
-                .getBody();
+                .parseSignedClaims(token)
+                .getPayload();
     }
 }

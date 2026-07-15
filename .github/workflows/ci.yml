@@ -7,7 +7,32 @@ on:
     branches: [ main, develop ]
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Detect changed areas
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+              - 'docker-compose.yml'
+              - '.github/workflows/ci.yml'
+            frontend:
+              - 'frontend/**'
+              - 'docker-compose.yml'
+              - '.github/workflows/ci.yml'
+
   backend-test:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -25,15 +50,7 @@ jobs:
         working-directory: backend
 
       - name: Run tests
-        run: ./gradlew test
-        working-directory: backend
-
-      - name: Generate coverage report
-        run: ./gradlew jacocoTestReport
-        working-directory: backend
-
-      - name: Verify coverage
-        run: ./gradlew jacocoTestCoverageVerification
+        run: ./gradlew test jacocoTestCoverageVerification
         working-directory: backend
 
       - name: Upload test report
@@ -53,6 +70,8 @@ jobs:
           retention-days: 30
 
   frontend-test:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -118,6 +137,8 @@ jobs:
           retention-days: 30
 
   backend-postgres-migration:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -174,3 +195,32 @@ jobs:
           POSTGRES_SMOKE_DATASOURCE_URL: jdbc:postgresql://localhost:5432/noviis_ci_app
           POSTGRES_SMOKE_DATASOURCE_USERNAME: noviis_ci
           POSTGRES_SMOKE_DATASOURCE_PASSWORD: noviis_ci
+
+  ci-gate:
+    name: CI Gate
+    if: always()
+    needs:
+      - changes
+      - backend-test
+      - frontend-test
+      - backend-postgres-migration
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify required jobs
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          BACKEND_RESULT: ${{ needs.backend-test.result }}
+          FRONTEND_RESULT: ${{ needs.frontend-test.result }}
+          POSTGRES_RESULT: ${{ needs.backend-postgres-migration.result }}
+        run: |
+          if [ "$CHANGES_RESULT" != "success" ]; then
+            echo "Change detection failed: $CHANGES_RESULT"
+            exit 1
+          fi
+
+          for result in "$BACKEND_RESULT" "$FRONTEND_RESULT" "$POSTGRES_RESULT"; do
+            if [ "$result" != "success" ] && [ "$result" != "skipped" ]; then
+              echo "Required CI job failed or was cancelled: $result"
+              exit 1
+            fi
+          done

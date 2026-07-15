@@ -50,4 +50,4 @@ backend/.settings/
 uploads/
 
 # Gradle
-.gradle-home/
+.gradle-*/

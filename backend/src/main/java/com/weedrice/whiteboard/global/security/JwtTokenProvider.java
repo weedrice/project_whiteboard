@@ -13,7 +13,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
-import java.security.Key;
+import javax.crypto.SecretKey;
 import java.time.Clock;
 import java.util.Arrays;
 import java.util.Collection;
@@ -27,7 +27,7 @@ public class JwtTokenProvider {
 
     private static final String AUTHORITIES_KEY = "auth";
     private static final String USER_ID_KEY = "userId";
-    private final Key key;
+    private final SecretKey key;
     private final long accessTokenValidityInMilliseconds;
     private final long refreshTokenValidityInMilliseconds;
     private final CustomUserDetailsService customUserDetailsService;
@@ -55,11 +55,11 @@ public class JwtTokenProvider {
         Date validity = Date.from(clock.instant().plusMillis(this.accessTokenValidityInMilliseconds));
 
         return Jwts.builder()
-                .setSubject(authentication.getName())
+                .subject(authentication.getName())
                 .claim(USER_ID_KEY, userDetails.getUserId())
                 .claim(AUTHORITIES_KEY, authorities)
-                .setExpiration(validity)
-                .signWith(key, SignatureAlgorithm.HS256)
+                .expiration(validity)
+                .signWith(key, Jwts.SIG.HS256)
                 .compact();
     }
 
@@ -68,11 +68,11 @@ public class JwtTokenProvider {
         Date validity = Date.from(clock.instant().plusMillis(this.refreshTokenValidityInMilliseconds));
 
         return Jwts.builder()
-                .setSubject(authentication.getName())
+                .subject(authentication.getName())
                 .claim(USER_ID_KEY, userDetails.getUserId())
-                .setId(UUID.randomUUID().toString())
-                .setExpiration(validity)
-                .signWith(key, SignatureAlgorithm.HS256)
+                .id(UUID.randomUUID().toString())
+                .expiration(validity)
+                .signWith(key, Jwts.SIG.HS256)
                 .compact();
     }
 
@@ -95,7 +95,7 @@ public class JwtTokenProvider {
 
     public boolean validateToken(String token) {
         try {
-            createParser().parseClaimsJws(token);
+            createParser().parseSignedClaims(token);
             return true;
         } catch (io.jsonwebtoken.security.SecurityException | MalformedJwtException e) {
             log.debug("Invalid JWT signature");
@@ -111,16 +111,16 @@ public class JwtTokenProvider {
 
     private Claims parseClaims(String accessToken) {
         try {
-            return createParser().parseClaimsJws(accessToken).getBody();
+            return createParser().parseSignedClaims(accessToken).getPayload();
         } catch (ExpiredJwtException e) {
             return e.getClaims();
         }
     }
 
     private JwtParser createParser() {
-        return Jwts.parserBuilder()
-                .setSigningKey(key)
-                .setClock(() -> Date.from(clock.instant()))
+        return Jwts.parser()
+                .verifyWith(key)
+                .clock(() -> Date.from(clock.instant()))
                 .build();
     }
 
