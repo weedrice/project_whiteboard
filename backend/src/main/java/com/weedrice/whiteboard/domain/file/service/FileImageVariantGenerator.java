@@ -27,6 +27,8 @@ class FileImageVariantGenerator {
 
     private static final String JPEG_MIME_TYPE = "image/jpeg";
     private static final String PNG_MIME_TYPE = "image/png";
+    private static final String WEBP_MIME_TYPE = "image/webp";
+    private static final String WEBP_FORMAT_NAME = "webp";
 
     private final FileStorageService fileStorageService;
     private final FileVariantRepository fileVariantRepository;
@@ -42,7 +44,7 @@ class FileImageVariantGenerator {
                 return;
             }
             for (FileVariantType variantType : FileVariantType.values()) {
-                generateVariant(originalFile, originalImage, mimeType, variantType);
+                generateVariant(originalFile, originalImage, variantType);
             }
         } catch (IOException | RuntimeException e) {
             log.warn("Failed to generate image variants. fileId={}", originalFile.getFileId(), e);
@@ -52,8 +54,11 @@ class FileImageVariantGenerator {
     private void generateVariant(
             File originalFile,
             BufferedImage originalImage,
-            String mimeType,
             FileVariantType variantType) throws IOException {
+        if (fileVariantRepository.findByFileFileIdAndVariantType(originalFile.getFileId(), variantType).isPresent()) {
+            return;
+        }
+
         ImageSize targetSize = resolveTargetSize(
                 originalImage.getWidth(),
                 originalImage.getHeight(),
@@ -62,23 +67,30 @@ class FileImageVariantGenerator {
             return;
         }
 
-        BufferedImage resizedImage = resize(originalImage, targetSize, mimeType);
-        byte[] contents = encode(resizedImage, mimeType);
-        String filePath = buildVariantFilePath(originalFile.getFileId(), variantType, mimeType);
-        fileStorageService.storeBytesAs(contents, mimeType, filePath);
-        fileVariantRepository.save(FileVariant.builder()
-                .file(originalFile)
-                .variantType(variantType)
-                .filePath(filePath)
-                .fileSize((long) contents.length)
-                .mimeType(mimeType)
-                .width(targetSize.width())
-                .height(targetSize.height())
-                .build());
+        BufferedImage resizedImage = resize(originalImage, targetSize);
+        byte[] contents = encodeWebp(resizedImage);
+        String filePath = buildVariantFilePath(originalFile.getFileId(), variantType);
+        fileStorageService.storeBytesAs(contents, WEBP_MIME_TYPE, filePath);
+        try {
+            fileVariantRepository.save(FileVariant.builder()
+                    .file(originalFile)
+                    .variantType(variantType)
+                    .filePath(filePath)
+                    .fileSize((long) contents.length)
+                    .mimeType(WEBP_MIME_TYPE)
+                    .width(targetSize.width())
+                    .height(targetSize.height())
+                    .build());
+        } catch (RuntimeException e) {
+            fileStorageService.deleteFile(filePath);
+            throw e;
+        }
     }
 
     private boolean isResizableMimeType(String mimeType) {
-        return JPEG_MIME_TYPE.equalsIgnoreCase(mimeType) || PNG_MIME_TYPE.equalsIgnoreCase(mimeType);
+        return JPEG_MIME_TYPE.equalsIgnoreCase(mimeType)
+                || PNG_MIME_TYPE.equalsIgnoreCase(mimeType)
+                || WEBP_MIME_TYPE.equalsIgnoreCase(mimeType);
     }
 
     private ImageSize resolveTargetSize(int width, int height, int maxDimension) {
@@ -93,8 +105,8 @@ class FileImageVariantGenerator {
                 true);
     }
 
-    private BufferedImage resize(BufferedImage originalImage, ImageSize targetSize, String mimeType) {
-        int imageType = PNG_MIME_TYPE.equalsIgnoreCase(mimeType)
+    private BufferedImage resize(BufferedImage originalImage, ImageSize targetSize) {
+        int imageType = originalImage.getColorModel().hasAlpha()
                 ? BufferedImage.TYPE_INT_ARGB
                 : BufferedImage.TYPE_INT_RGB;
         BufferedImage resizedImage = new BufferedImage(targetSize.width(), targetSize.height(), imageType);
@@ -114,22 +126,19 @@ class FileImageVariantGenerator {
         }
     }
 
-    private byte[] encode(BufferedImage image, String mimeType) throws IOException {
-        String formatName = JPEG_MIME_TYPE.equalsIgnoreCase(mimeType) ? "jpg" : "png";
+    private byte[] encodeWebp(BufferedImage image) throws IOException {
         try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
-            if (!ImageIO.write(image, formatName, outputStream)) {
-                throw new IOException("No image writer for " + formatName);
+            if (!ImageIO.write(image, WEBP_FORMAT_NAME, outputStream)) {
+                throw new IOException("No image writer for " + WEBP_FORMAT_NAME);
             }
             return outputStream.toByteArray();
         }
     }
 
-    private String buildVariantFilePath(Long fileId, FileVariantType variantType, String mimeType) {
-        String extension = JPEG_MIME_TYPE.equalsIgnoreCase(mimeType) ? "jpg" : "png";
-        return "variants/%d/%s.%s".formatted(
+    private String buildVariantFilePath(Long fileId, FileVariantType variantType) {
+        return "variants/%d/%s.webp".formatted(
                 fileId,
-                variantType.getPathSegment().toLowerCase(Locale.ROOT),
-                extension);
+                variantType.getPathSegment().toLowerCase(Locale.ROOT));
     }
 
     private record ImageSize(int width, int height, boolean shouldResize) {

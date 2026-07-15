@@ -47,8 +47,8 @@ class FileImageVariantGeneratorTest {
         generator.generateVariants(file, multipartFile, "image/jpeg");
 
         ArgumentCaptor<byte[]> contentsCaptor = ArgumentCaptor.forClass(byte[].class);
-        verify(fileStorageService).storeBytesAs(contentsCaptor.capture(), eq("image/jpeg"), eq("variants/10/thumbnail.jpg"));
-        verify(fileStorageService).storeBytesAs(any(byte[].class), eq("image/jpeg"), eq("variants/10/medium.jpg"));
+        verify(fileStorageService).storeBytesAs(contentsCaptor.capture(), eq("image/webp"), eq("variants/10/thumbnail.webp"));
+        verify(fileStorageService).storeBytesAs(any(byte[].class), eq("image/webp"), eq("variants/10/medium.webp"));
 
         ArgumentCaptor<FileVariant> variantCaptor = ArgumentCaptor.forClass(FileVariant.class);
         verify(fileVariantRepository, org.mockito.Mockito.times(2)).save(variantCaptor.capture());
@@ -70,7 +70,7 @@ class FileImageVariantGeneratorTest {
         FileImageVariantGenerator generator = new FileImageVariantGenerator(fileStorageService, fileVariantRepository);
 
         generator.generateVariants(file, multipartFile, "image/jpeg");
-        generator.generateVariants(file, multipartFile, "image/webp");
+        generator.generateVariants(file, multipartFile, "image/gif");
 
         verify(fileStorageService, never()).storeBytesAs(any(), any(), any());
         verify(fileVariantRepository, never()).save(any());
