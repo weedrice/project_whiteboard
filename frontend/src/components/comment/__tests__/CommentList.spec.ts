@@ -53,7 +53,7 @@ vi.mock('@/composables/useConfirm', () => ({
   }),
 }))
 
-vi.mock('@/composables/useComment', () => ({
+vi.mock('@/features/comments/queries/useComment', () => ({
   useComment: () => ({
     useInfiniteComments: (_postId: Ref<string | number>, params: Ref<{ page: number; size: number; sort: string }>) => {
       capturedCommentParams = params

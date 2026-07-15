@@ -23,7 +23,7 @@ vi.mock('vue-i18n', () => ({
   useI18n: () => ({ t: (key: string) => key }),
 }))
 
-vi.mock('@/composables/useBoardCategoriesManager', () => ({
+vi.mock('@/features/board/categories/useBoardCategoriesManager', () => ({
   useBoardCategoriesManager: () => ({
     categories,
     isLoading,

@@ -21,7 +21,7 @@ vi.mock('vue-i18n', () => ({
   useI18n: () => ({ t: (key: string) => key }),
 }))
 
-vi.mock('@/composables/useComment', () => ({
+vi.mock('@/features/comments/queries/useComment', () => ({
   useComment: () => ({
     useCreateComment: () => ({ mutate: createComment, isPending: isCreating }),
     useUpdateComment: () => ({ mutate: updateComment, isPending: isUpdating }),

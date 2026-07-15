@@ -9,7 +9,7 @@ const useAuthStoreMock = vi.fn()
 const toggleCommentLikeMock = vi.fn()
 const routerPushMock = vi.fn()
 
-vi.mock('@/composables/useComment', () => ({
+vi.mock('@/features/comments/queries/useComment', () => ({
     useComment: () => ({
         useReplies: useRepliesMock,
         useToggleCommentLike: () => ({

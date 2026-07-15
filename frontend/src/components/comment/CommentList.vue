@@ -2,7 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { Comment } from '@/api/comment'
-import { useComment } from '@/composables/useComment'
+import { useComment } from '@/features/comments/queries/useComment'
 import { useAuthStore } from '@/stores/auth'
 import { useConfirm } from '@/composables/useConfirm'
 import logger from '@/utils/logger'

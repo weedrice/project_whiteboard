@@ -28,8 +28,8 @@ import { usePostViewHistory } from '@/features/board/posts/detail/usePostViewHis
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import { notificationApi } from '@/api/notification'
-import { onCommentStreamEvent } from '@/composables/commentStreamEvents'
-import { commentQueryKeys } from '@/composables/commentQueryKeys'
+import { onCommentStreamEvent } from '@/features/comments/commentStreamEvents'
+import { commentQueryKeys } from '@/features/comments/queries/commentQueryKeys'
 import { isRestrictedResourceError } from '@/utils/errorHandler'
 
 const route = useRoute()

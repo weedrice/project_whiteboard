@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, ref } from 'vue'
-import { useComment } from '@/composables/useComment'
+import { useComment } from '@/features/comments/queries/useComment'
 import { unwrapAxiosApiData } from '@/api/response'
 import type { CommentCreateResponse } from '@/api/comment'
 import type { ApiResponse } from '@/types'

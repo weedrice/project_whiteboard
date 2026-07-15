@@ -10,7 +10,7 @@ import {
 import logger from '@/utils/logger'
 import { useAuthStore } from '@/stores/auth'
 import { isCancellationError } from '@/utils/cancellationError'
-import { emitCommentStreamEvent } from '@/composables/commentStreamEvents'
+import { emitCommentStreamEvent } from '@/features/comments/commentStreamEvents'
 import { consumeSseStream } from '@/composables/notificationSseStream'
 import {
     shouldStopNotificationReconnectAfterRefresh,

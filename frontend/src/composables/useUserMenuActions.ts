@@ -2,7 +2,7 @@ import { computed, ref, type Ref } from 'vue'
 import { useQueryClient } from '@tanstack/vue-query'
 import { userApi } from '@/api/user'
 import { useAuthStore } from '@/stores/auth'
-import { commentQueryKeys } from '@/composables/commentQueryKeys'
+import { commentQueryKeys } from '@/features/comments/queries/commentQueryKeys'
 import { useUserBlockAction } from '@/composables/useUserBlockAction'
 import { userQueryKeys } from '@/composables/userQueryKeys'
 

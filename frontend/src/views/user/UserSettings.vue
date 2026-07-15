@@ -11,7 +11,7 @@ import {
   NOTIFICATION_TYPES,
   useNotificationSettingsForm,
   useUserSettingsForm
-} from '@/composables/useUserSettingsForm'
+} from '@/features/user/settings/useUserSettingsForm'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseCheckbox from '@/components/common/ui/BaseCheckbox.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'

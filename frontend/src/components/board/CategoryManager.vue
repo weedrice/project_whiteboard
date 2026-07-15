@@ -6,7 +6,7 @@ import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSelect from '@/components/common/ui/BaseSelect.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
-import { useBoardCategoriesManager } from '@/composables/useBoardCategoriesManager'
+import { useBoardCategoriesManager } from '@/features/board/categories/useBoardCategoriesManager'
 
 const { t } = useI18n()
 
