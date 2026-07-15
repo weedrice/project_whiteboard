@@ -25,6 +25,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
+import org.springframework.cache.annotation.Cacheable;
+import com.weedrice.whiteboard.global.config.CacheNames;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
@@ -236,6 +238,9 @@ public class PostListReadService {
         return postSummaryAssembler.assembleTrendingPosts(posts, currentUserId);
     }
 
+    @Cacheable(cacheNames = CacheNames.TRENDING_POSTS_ANONYMOUS,
+            key = "T(com.weedrice.whiteboard.global.config.AnonymousCacheKey).trending(#pageable, #period)",
+            condition = "#currentUserId == null && @cacheFeatureProperties.isReadOptimizationEnabled()", sync = true)
     public Page<PostSummary> getTrendingPostsPage(Pageable pageable, Long currentUserId, String period) {
         Pageable safePageable = normalizeTrendingPageable(pageable);
         LocalDateTime since = resolveTrendingSince(period);

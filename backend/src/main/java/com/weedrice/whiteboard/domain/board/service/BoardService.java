@@ -15,6 +15,7 @@ import com.weedrice.whiteboard.domain.board.util.BoardUrlNormalizer;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import com.weedrice.whiteboard.global.config.AnonymousReadCacheInvalidator;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -35,15 +36,19 @@ public class BoardService {
     private final BoardCategoryService categoryService;
     private final BoardAccessPolicy boardAccessPolicy;
     private final BoardVisitService boardVisitService;
+    private final BoardAnonymousCacheService anonymousCacheService;
+    private final AnonymousReadCacheInvalidator cacheInvalidator;
 
     public BoardService(BoardQueryService queryService,
                           BoardProvisioningService provisioningService,
                           BoardCommandService boardCommandService,
                           BoardProvisioningSideEffectService provisioningSideEffectService,
                           BoardSubscriptionService subscriptionService,
-                          BoardCategoryService categoryService,
-                          BoardAccessPolicy boardAccessPolicy,
-                          BoardVisitService boardVisitService) {
+                           BoardCategoryService categoryService,
+                           BoardAccessPolicy boardAccessPolicy,
+                           BoardVisitService boardVisitService,
+                           BoardAnonymousCacheService anonymousCacheService,
+                           AnonymousReadCacheInvalidator cacheInvalidator) {
         this.queryService = queryService;
         this.provisioningService = provisioningService;
         this.boardCommandService = boardCommandService;
@@ -52,10 +57,12 @@ public class BoardService {
         this.categoryService = categoryService;
         this.boardAccessPolicy = boardAccessPolicy;
         this.boardVisitService = boardVisitService;
+        this.anonymousCacheService = anonymousCacheService;
+        this.cacheInvalidator = cacheInvalidator;
     }
 
     public List<BoardListResponse> getActiveBoards(Long userId) {
-        return queryService.getActiveBoards(userId);
+        return userId == null ? anonymousCacheService.getActiveBoards() : queryService.getActiveBoards(userId);
     }
 
     public List<BoardListResponse> getTopBoards(Long userId) {
@@ -67,7 +74,9 @@ public class BoardService {
     }
 
     public List<BoardListResponse> getTopBoardsByUserId(Long userId, int limit) {
-        return queryService.getTopBoardsByUserId(userId, limit);
+        return userId == null
+                ? anonymousCacheService.getTopBoards(limit)
+                : queryService.getTopBoardsByUserId(userId, limit);
     }
 
     public List<BoardListResponse> getRecommendations(List<String> topics, Long userId) {
@@ -92,7 +101,9 @@ public class BoardService {
 
     public BoardDetailResponse getBoardDetails(String boardUrl, Long userId) {
         String normalizedBoardUrl = validatePublicBoardPath(boardUrl);
-        BoardDetailResponse response = queryService.getBoardDetails(normalizedBoardUrl, userId);
+        BoardDetailResponse response = userId == null
+                ? anonymousCacheService.getBoardDetails(normalizedBoardUrl)
+                : queryService.getBoardDetails(normalizedBoardUrl, userId);
         boardVisitService.touchVisit(userId, normalizedBoardUrl);
         return response;
     }
@@ -146,6 +157,7 @@ public class BoardService {
     public BoardCommandResult createBoard(Long creatorId, BoardCreateRequest request) {
         BoardCreateCommandResult result = boardCommandService.createBoard(creatorId, request);
         provisioningSideEffectService.applyCreateSideEffects(result);
+        cacheInvalidator.evictBoardRelatedCachesAfterCommit();
         return new BoardCommandResult(result.board().getBoardUrl());
     }
 
@@ -154,6 +166,7 @@ public class BoardService {
         String normalizedBoardUrl = validatePublicBoardPath(boardUrl);
         BoardUpdateCommandResult result = boardCommandService.updateBoard(normalizedBoardUrl, request, userId);
         provisioningSideEffectService.applyUpdateSideEffects(result);
+        cacheInvalidator.evictBoardRelatedCachesAfterCommit();
         return new BoardCommandResult(result.board().getBoardUrl());
     }
 
@@ -161,6 +174,7 @@ public class BoardService {
     public BoardCommandResult transferBoardManager(String boardUrl, String loginId, Long userId) {
         String normalizedBoardUrl = validatePublicBoardPath(boardUrl);
         provisioningService.transferBoardManager(normalizedBoardUrl, loginId, userId);
+        cacheInvalidator.evictBoardRelatedCachesAfterCommit();
         return new BoardCommandResult(normalizedBoardUrl);
     }
 
@@ -168,22 +182,28 @@ public class BoardService {
     public void deleteBoard(String boardUrl, Long userId) {
         String normalizedBoardUrl = validatePublicBoardPath(boardUrl);
         provisioningService.deleteBoard(normalizedBoardUrl, userId);
+        cacheInvalidator.evictBoardRelatedCachesAfterCommit();
     }
 
     @Transactional
     public CategoryResponse createCategory(String boardUrl, CategoryRequest request, Long userId) {
         String normalizedBoardUrl = validatePublicBoardPath(boardUrl);
-        return categoryService.createCategory(normalizedBoardUrl, request, userId);
+        CategoryResponse response = categoryService.createCategory(normalizedBoardUrl, request, userId);
+        cacheInvalidator.evictBoardRelatedCachesAfterCommit();
+        return response;
     }
 
     @Transactional
     public CategoryResponse updateCategory(Long categoryId, CategoryRequest request, Long userId) {
-        return categoryService.updateCategory(categoryId, request, userId);
+        CategoryResponse response = categoryService.updateCategory(categoryId, request, userId);
+        cacheInvalidator.evictBoardRelatedCachesAfterCommit();
+        return response;
     }
 
     @Transactional
     public void deleteCategory(Long categoryId, Long userId) {
         categoryService.deleteCategory(categoryId, userId);
+        cacheInvalidator.evictBoardRelatedCachesAfterCommit();
     }
 
     @Transactional

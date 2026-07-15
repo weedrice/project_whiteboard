@@ -19,6 +19,11 @@ import java.util.concurrent.TimeUnit;
 @EnableCaching
 public class CacheConfig {
 
+    @Bean
+    public CacheFeatureProperties cacheFeatureProperties() {
+        return new CacheFeatureProperties();
+    }
+
     /**
      * Caffeine CacheManager 설정
      * 
@@ -28,19 +33,25 @@ public class CacheConfig {
     @Bean
     public CacheManager cacheManager() {
         CaffeineCacheManager cacheManager = new CaffeineCacheManager();
-        
-        // globalConfig 캐시 설정
-        @SuppressWarnings("null")
-        Cache<Object, Object> globalConfigCache = Caffeine.newBuilder()
-                .maximumSize(1000)                    // 최대 1000개 항목
-                .expireAfterWrite(10, TimeUnit.MINUTES) // 10분 후 만료
-                .recordStats()                        // 통계 수집 (모니터링용)
-                .build();
-        cacheManager.registerCustomCache("globalConfig", globalConfigCache);
-        
-        // 필요시 다른 캐시도 여기에 추가 가능
-        // 예: 사용자 정보, 스페이스 목록 등
-        
+        register(cacheManager, CacheNames.GLOBAL_CONFIG, 1000, 10, TimeUnit.MINUTES);
+        register(cacheManager, CacheNames.BOARD_CATALOG_ANONYMOUS, 32, 60, TimeUnit.SECONDS);
+        register(cacheManager, CacheNames.BOARD_DETAIL_ANONYMOUS, 500, 30, TimeUnit.SECONDS);
+        register(cacheManager, CacheNames.TRENDING_POSTS_ANONYMOUS, 200, 30, TimeUnit.SECONDS);
+        register(cacheManager, CacheNames.HOME_LANDING_ANONYMOUS, 16, 30, TimeUnit.SECONDS);
         return cacheManager;
+    }
+
+    @SuppressWarnings("null")
+    private void register(
+            CaffeineCacheManager cacheManager,
+            String cacheName,
+            long maximumSize,
+            long duration,
+            TimeUnit timeUnit) {
+        Cache<Object, Object> cache = Caffeine.newBuilder()
+                .maximumSize(maximumSize)
+                .expireAfterWrite(duration, timeUnit)
+                .build();
+        cacheManager.registerCustomCache(cacheName, cache);
     }
 }

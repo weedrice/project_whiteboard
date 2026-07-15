@@ -37,6 +37,7 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
+import com.weedrice.whiteboard.global.config.AnonymousReadCacheInvalidator;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.hibernate.exception.ConstraintViolationException;
@@ -125,6 +126,8 @@ class BoardServiceTest {
     private SemanticSearchEventPublisher semanticSearchEventPublisher;
     @Mock
     private BoardVisitService boardVisitService;
+    @Mock
+    private AnonymousReadCacheInvalidator cacheInvalidator;
     private BoardResponseReadService boardResponseReadService;
     private BoardResponseAssembler boardResponseAssembler;
 
@@ -209,7 +212,9 @@ class BoardServiceTest {
                 subscriptionService,
                 categoryService,
                 boardAccessPolicy,
-                boardVisitService);
+                boardVisitService,
+                new BoardAnonymousCacheService(queryService),
+                cacheInvalidator);
         boardApplicationService = new BoardApplicationService(boardService, queryService);
 
         lenient().when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(anyLong(), any()))

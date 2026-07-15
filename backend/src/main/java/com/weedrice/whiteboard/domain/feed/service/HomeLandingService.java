@@ -13,6 +13,8 @@ import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.cache.annotation.Cacheable;
+import com.weedrice.whiteboard.global.config.CacheNames;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
@@ -37,6 +39,9 @@ public class HomeLandingService {
     private final UserRepository userRepository;
     private final Clock clock;
 
+    @Cacheable(cacheNames = CacheNames.HOME_LANDING_ANONYMOUS,
+            key = "T(com.weedrice.whiteboard.global.config.AnonymousCacheKey).normalizePeriod(#period)",
+            condition = "#userId == null && @cacheFeatureProperties.isReadOptimizationEnabled()", sync = true)
     public HomeLandingResponse getLanding(Long userId, String period) {
         List<FeedPostSummary> curatedPosts = getCuratedPosts(userId, period);
         List<FeedPostSummary> latestPosts = getLatestPosts(userId);
