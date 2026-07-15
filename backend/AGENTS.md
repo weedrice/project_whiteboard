@@ -2,7 +2,7 @@
 
 ## Module Overview
 
-This directory contains the NoviIs backend API server built with Java 21, Spring Boot 3.x, JPA, and PostgreSQL. From an AI agent perspective, this module owns:
+This directory contains the NoviIs backend API server built with Java 21, Spring Boot 4.1, Gradle 9.6.1, JPA, and PostgreSQL. From an AI agent perspective, this module owns:
 
 - Authentication and authorization
 - Boards, posts, comments, tags, reports, sanctions, notifications, and admin APIs

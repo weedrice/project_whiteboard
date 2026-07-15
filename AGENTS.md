@@ -6,7 +6,7 @@ NoviIs (`noviis.kr`) is a production-adjacent community platform. For agent work
 
 This repository is a monorepo, but most report-driven maintenance work is expected to touch:
 
-- `backend/`: Spring Boot 3.x API server
+- `backend/`: Spring Boot 4.1 API server (Java 21, Gradle 9.6.1)
 - `docs/`: reports, audits, and project documentation
 - `logs/`: runtime logs; do not commit generated files
 - `uploads/`: local upload storage; do not commit generated files
