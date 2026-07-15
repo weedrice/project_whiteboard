@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.admin.interceptor.IpBlockInterceptor;
 import com.weedrice.whiteboard.global.common.util.ClientIpProperties;
 import com.weedrice.whiteboard.global.ratelimit.RateLimitInterceptor;
 import com.weedrice.whiteboard.global.ratelimit.RateLimitConfig;
+import com.weedrice.whiteboard.global.security.AuthCookieOriginInterceptor;
 import com.weedrice.whiteboard.global.security.RefererCheckInterceptor;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -58,6 +59,9 @@ class ConfigBeanTest {
 
     @MockitoBean
     private RefererCheckInterceptor refererCheckInterceptor;
+
+    @MockitoBean
+    private AuthCookieOriginInterceptor authCookieOriginInterceptor;
 
     @MockitoBean
     private RateLimitInterceptor rateLimitInterceptor;

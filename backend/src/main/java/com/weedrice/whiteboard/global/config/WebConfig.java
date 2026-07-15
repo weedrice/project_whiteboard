@@ -3,8 +3,9 @@ package com.weedrice.whiteboard.global.config;
 import com.weedrice.whiteboard.domain.admin.interceptor.IpBlockInterceptor;
 import com.weedrice.whiteboard.global.ratelimit.RateLimitInterceptor;
 import com.weedrice.whiteboard.global.ratelimit.RateLimitProperties;
+import com.weedrice.whiteboard.global.security.AuthCookieOriginInterceptor;
+import com.weedrice.whiteboard.global.security.RefererCheckInterceptor;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
@@ -14,8 +15,8 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 public class WebConfig implements WebMvcConfigurer {
 
     private final IpBlockInterceptor ipBlockInterceptor;
-    private final com.weedrice.whiteboard.global.security.RefererCheckInterceptor refererCheckInterceptor;
-    private final ObjectProvider<com.weedrice.whiteboard.global.security.AuthCookieOriginInterceptor> authCookieOriginInterceptorProvider;
+    private final RefererCheckInterceptor refererCheckInterceptor;
+    private final AuthCookieOriginInterceptor authCookieOriginInterceptor;
     private final RateLimitInterceptor rateLimitInterceptor;
     private final RateLimitProperties rateLimitProperties;
 
@@ -32,13 +33,9 @@ public class WebConfig implements WebMvcConfigurer {
                     .order(1);
         }
 
-        com.weedrice.whiteboard.global.security.AuthCookieOriginInterceptor authCookieOriginInterceptor =
-                authCookieOriginInterceptorProvider.getIfAvailable();
-        if (authCookieOriginInterceptor != null) {
-            registry.addInterceptor(authCookieOriginInterceptor)
-                    .addPathPatterns("/api/v1/auth/refresh", "/api/v1/auth/logout")
-                    .order(2);
-        }
+        registry.addInterceptor(authCookieOriginInterceptor)
+                .addPathPatterns("/api/v1/auth/refresh", "/api/v1/auth/logout")
+                .order(2);
 
         // Referer 체크 인터셉터
         registry.addInterceptor(refererCheckInterceptor)

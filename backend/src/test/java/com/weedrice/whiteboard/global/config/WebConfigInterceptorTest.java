@@ -98,6 +98,28 @@ class WebConfigInterceptorTest {
     }
 
     @Test
+    @DisplayName("refresh token cookie endpoint always applies origin validation")
+    void authRefresh_appliesCookieOriginInterceptor() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/refresh"))
+                .andExpect(status().isOk())
+                .andExpect(content().string("refreshed"));
+
+        verify(authCookieOriginInterceptor).preHandle(any(), any(), any());
+        verifyNoInteractions(refererCheckInterceptor);
+    }
+
+    @Test
+    @DisplayName("logout cookie endpoint always applies origin validation")
+    void authLogout_appliesCookieOriginInterceptor() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/logout"))
+                .andExpect(status().isOk())
+                .andExpect(content().string("logged-out"));
+
+        verify(authCookieOriginInterceptor).preHandle(any(), any(), any());
+        verifyNoInteractions(refererCheckInterceptor);
+    }
+
+    @Test
     @DisplayName("uploads path is not exposed as a static resource")
     void uploadsPath_notExposedAsStaticResource() throws Exception {
         assertThat(Arrays.stream(WebConfig.class.getDeclaredMethods())
@@ -117,6 +139,16 @@ class WebConfigInterceptorTest {
         @PostMapping("/security/csp-report")
         String reportCsp() {
             return "reported";
+        }
+
+        @PostMapping("/auth/refresh")
+        String refresh() {
+            return "refreshed";
+        }
+
+        @PostMapping("/auth/logout")
+        String logout() {
+            return "logged-out";
         }
     }
 }
