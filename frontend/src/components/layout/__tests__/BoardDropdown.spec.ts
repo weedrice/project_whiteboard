@@ -28,7 +28,7 @@ vi.mock('@/stores/auth', () => ({
   })
 }))
 
-vi.mock('@/composables/useBoard', async () => {
+vi.mock('@/features/board/useBoard', async () => {
   const { ref } = await vi.importActual<typeof import('vue')>('vue')
   mocks.allBoards = ref([])
   mocks.subscribedBoards = ref([])

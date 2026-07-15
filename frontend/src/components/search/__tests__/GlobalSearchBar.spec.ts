@@ -48,7 +48,7 @@ vi.mock('vue-i18n', () => ({
     }),
 }))
 
-vi.mock('@/composables/useBoard', () => ({
+vi.mock('@/features/board/useBoard', () => ({
     useBoard: () => ({
         useBoards: () => ({
             data: ref(boards),

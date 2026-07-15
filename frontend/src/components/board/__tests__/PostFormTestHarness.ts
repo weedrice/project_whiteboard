@@ -3,7 +3,7 @@ import { defineComponent, h, nextTick, ref } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import type { EmoticonImage } from '@/types/emoticon'
 import PostForm from '../PostForm.vue'
-import { useBoard } from '@/composables/useBoard'
+import { useBoard } from '@/features/board/useBoard'
 import { usePost } from '@/features/board/posts/queries/usePost'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
@@ -14,7 +14,7 @@ vi.mock('vue-i18n', () => ({
     useI18n: () => ({ t: (key: string) => key }),
 }))
 
-vi.mock('@/composables/useBoard', () => ({
+vi.mock('@/features/board/useBoard', () => ({
     useBoard: vi.fn(),
 }))
 

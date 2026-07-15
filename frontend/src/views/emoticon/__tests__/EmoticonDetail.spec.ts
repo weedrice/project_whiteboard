@@ -107,7 +107,7 @@ vi.mock('@unhead/vue', () => ({
   useHead: vi.fn(),
 }))
 
-vi.mock('@/composables/useToggleEmoticonVisibility', () => ({
+vi.mock('@/features/emoticon/useToggleEmoticonVisibility', () => ({
   useToggleEmoticonVisibility: () => ({
     mutate: vi.fn(),
     isPending: ref(false),

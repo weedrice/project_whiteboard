@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { BOARD_DETAIL_SEARCH_INPUT_ID } from '@/composables/useBoardDetailNavigation'
+import { BOARD_DETAIL_SEARCH_INPUT_ID } from '@/features/board/detail/useBoardDetailNavigation'
 import { getAppSearchInput, shouldNoIndexAppRoute } from '../appShellModel'
 
 const route = (name: string | undefined, meta: Record<string, unknown> = {}) => ({

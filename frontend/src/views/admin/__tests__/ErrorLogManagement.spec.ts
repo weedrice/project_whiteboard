@@ -131,7 +131,7 @@ vi.mock('@/stores/toast', () => ({
 }))
 
 // Mock useAdmin composable
-vi.mock('@/composables/useAdmin', () => ({
+vi.mock('@/features/admin/useAdmin', () => ({
     useAdmin: () => ({
         useErrorLogs: () => ({
             data: ref(mockPageData),

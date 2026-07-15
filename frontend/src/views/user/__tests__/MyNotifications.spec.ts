@@ -28,7 +28,7 @@ vi.mock('vue-i18n', () => ({
   useI18n: () => ({ t: testI18n.translate }),
 }))
 
-vi.mock('@/composables/useNotification', () => ({
+vi.mock('@/features/notifications/queries/useNotification', () => ({
   useNotification: () => ({
     useNotifications: (params: Ref<{ page: number; size: number }>) => {
       latestParams = params
@@ -38,7 +38,7 @@ vi.mock('@/composables/useNotification', () => ({
   }),
 }))
 
-vi.mock('@/composables/useNotificationNavigation', () => ({
+vi.mock('@/features/notifications/navigation/useNotificationNavigation', () => ({
   useNotificationNavigation: () => ({ navigateFromNotification }),
 }))
 

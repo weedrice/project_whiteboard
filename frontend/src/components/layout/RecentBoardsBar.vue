@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { useApiQuery } from '@/composables/useApiQuery'
 import { boardApi } from '@/api/board'
-import { useRecentBoards } from '@/composables/useRecentBoards'
+import { useRecentBoards } from '@/features/board/recent/useRecentBoards'
 import { X } from 'lucide-vue-next'
 import { getOptimizedBoardIconUrl, handleImageError } from '@/utils/image'
 import { encodePathSegment } from '@/utils/urlPath'

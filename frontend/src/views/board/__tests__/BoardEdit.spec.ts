@@ -72,7 +72,7 @@ vi.mock('@/composables/useErrorHandler', () => ({
   useErrorHandler: () => ({ handleError: vi.fn() }),
 }))
 
-vi.mock('@/composables/useBoard', () => ({
+vi.mock('@/features/board/useBoard', () => ({
   useBoard: () => ({
     useBoardDetail: (boardUrl: { value: string }) => {
       const data = ref<BoardDetail | null>(null)

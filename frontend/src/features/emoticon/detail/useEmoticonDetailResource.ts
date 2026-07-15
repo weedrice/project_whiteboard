@@ -6,7 +6,7 @@ import { emoticonApi } from '@/api/emoticon'
 import { useApiQuery } from '@/composables/useApiQuery'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
-import { useToggleEmoticonVisibility } from '@/composables/useToggleEmoticonVisibility'
+import { useToggleEmoticonVisibility } from '@/features/emoticon/useToggleEmoticonVisibility'
 import { useEmoticonPermissions } from '@/features/emoticon/detail/useEmoticonPermissions'
 import { useEmoticonDetailViewModel } from '@/features/emoticon/detail/useEmoticonDetailViewModel'
 import {

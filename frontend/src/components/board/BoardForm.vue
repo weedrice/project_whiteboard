@@ -4,9 +4,9 @@ import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
 import BaseCheckbox from '@/components/common/ui/BaseCheckbox.vue'
-import { useBoardCreationPolicy } from '@/composables/useBoardCreationPolicy'
-import { useBoardFormState, type BoardFormData } from '@/composables/useBoardFormState'
-import { useBoardFormSubmit } from '@/composables/useBoardFormSubmit'
+import { useBoardCreationPolicy } from '@/features/board/form/useBoardCreationPolicy'
+import { useBoardFormState, type BoardFormData } from '@/features/board/form/useBoardFormState'
+import { useBoardFormSubmit } from '@/features/board/form/useBoardFormSubmit'
 import { IMAGE_UPLOAD_ACCEPT } from '@/utils/imageUploadPolicy'
 
 type BoardData = BoardFormData

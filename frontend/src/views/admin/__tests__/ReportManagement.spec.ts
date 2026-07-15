@@ -40,7 +40,7 @@ const mocks = vi.hoisted(() => ({
   params: null as Ref<{ page: number; size: number }> | null,
 }))
 
-vi.mock('@/composables/useAdmin', () => ({
+vi.mock('@/features/admin/useAdmin', () => ({
   useAdmin: () => ({
     useReports: (params: Ref<{ page: number; size: number }>) => {
       mocks.params = params

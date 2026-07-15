@@ -13,7 +13,7 @@ import {
   type BoardListFilterState,
   type BoardListQueryParams,
   type BoardListSearchState,
-} from '@/composables/boardListStateModel'
+} from '@/features/board/detail/boardListStateModel'
 
 type BoardListRoute = {
   path: string

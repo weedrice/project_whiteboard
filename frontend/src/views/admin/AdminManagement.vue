@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { useAdmin } from '@/composables/useAdmin'
+import { useAdmin } from '@/features/admin/useAdmin'
 import { UserPlus } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { useToastStore } from '@/stores/toast'

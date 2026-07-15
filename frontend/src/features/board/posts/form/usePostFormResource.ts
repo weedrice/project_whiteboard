@@ -1,5 +1,5 @@
 import { computed, type Ref } from 'vue'
-import { useBoard } from '@/composables/useBoard'
+import { useBoard } from '@/features/board/useBoard'
 import { usePost } from '@/features/board/posts/queries/usePost'
 
 type UsePostFormResourceOptions = {

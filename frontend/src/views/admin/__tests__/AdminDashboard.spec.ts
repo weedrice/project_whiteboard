@@ -29,7 +29,7 @@ const mocks = vi.hoisted(() => ({
   },
 }))
 
-vi.mock('@/composables/useAdmin', () => ({
+vi.mock('@/features/admin/useAdmin', () => ({
   useAdmin: () => ({
     useDashboardStats: () => ({
       data: mocks.stats,

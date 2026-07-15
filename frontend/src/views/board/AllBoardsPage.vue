@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
-import { useBoard } from '@/composables/useBoard'
+import { useBoard } from '@/features/board/useBoard'
 import SubscribedBoardList from '@/components/board/SubscribedBoardList.vue'
 import BoardGrid from '@/components/board/BoardGrid.vue'
 import BoardListSkeleton from '@/components/common/ui/BoardListSkeleton.vue'

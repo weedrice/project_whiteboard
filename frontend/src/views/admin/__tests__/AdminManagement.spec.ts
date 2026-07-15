@@ -38,7 +38,7 @@ vi.mock('@/composables/useConfirm', () => ({
   useConfirm: () => ({ confirmWithReason }),
 }))
 
-vi.mock('@/composables/useAdmin', () => ({
+vi.mock('@/features/admin/useAdmin', () => ({
   useAdmin: () => ({
     useSuperAdmins: () => ({
       data: superAdminsData,

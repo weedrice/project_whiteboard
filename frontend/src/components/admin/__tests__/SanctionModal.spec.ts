@@ -22,7 +22,7 @@ vi.mock('vue-i18n', () => ({
     })
 }))
 
-vi.mock('@/composables/useAdmin', () => ({
+vi.mock('@/features/admin/useAdmin', () => ({
     useAdmin: () => ({
         useSanctionUser: () => ({
             mutateAsync: mocks.sanctionUser,

@@ -48,7 +48,7 @@ import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseSelect from '@/components/common/ui/BaseSelect.vue'
 import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
 import AdminModalActions from '@/components/admin/AdminModalActions.vue'
-import { useAdmin } from '@/composables/useAdmin'
+import { useAdmin } from '@/features/admin/useAdmin'
 import { useToastStore } from '@/stores/toast'
 import { useFieldValidation } from '@/composables/useFieldValidation'
 

@@ -9,7 +9,7 @@ import { computed, ref } from 'vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { useI18n } from 'vue-i18n'
 import { useUser } from '@/composables/useUser'
-import { useUserBlockAction } from '@/composables/useUserBlockAction'
+import { useUserBlockAction } from '@/features/user/menu/useUserBlockAction'
 
 const { t } = useI18n()
 const { useBlockUser, useUnblockUser } = useUser()

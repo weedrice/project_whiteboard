@@ -13,7 +13,7 @@ import MyPageCommentList from '@/components/user/MyPageCommentList.vue'
 import MyPageProfileCard from '@/components/user/MyPageProfileCard.vue'
 import MyPageSummaryCards from '@/components/user/MyPageSummaryCards.vue'
 import { useMyPageDashboardResource } from '@/features/user/dashboard/useMyPageDashboardResource'
-import { useInquiryDetailModal } from '@/composables/useInquiryDetailModal'
+import { useInquiryDetailModal } from '@/features/user/dashboard/useInquiryDetailModal'
 import { useEmailVerificationFlow } from '@/composables/useEmailVerificationFlow'
 import { resolveBoardRoute, resolvePostDetailRoute } from '@/utils/postNavigation'
 

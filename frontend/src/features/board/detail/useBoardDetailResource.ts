@@ -1,5 +1,5 @@
 import { computed, ref, watch, type Ref } from 'vue'
-import { useBoard } from '@/composables/useBoard'
+import { useBoard } from '@/features/board/useBoard'
 import { useMobileViewport } from '@/composables/useMediaQuery'
 import { usePageResponseState } from '@/composables/usePaginatedQueryState'
 import { resolveDefaultCategory } from '@/utils/board'

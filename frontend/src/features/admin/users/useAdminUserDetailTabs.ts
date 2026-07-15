@@ -1,5 +1,5 @@
 import { computed, ref, watch, type Ref } from 'vue'
-import { useAdmin } from '@/composables/useAdmin'
+import { useAdmin } from '@/features/admin/useAdmin'
 import { formatDate } from '@/utils/date'
 import { formatInteger } from '@/utils/numberFormat'
 import type { AdminUserCommentItem, AdminUserPostItem, AdminUserSubscriptionItem } from '@/types'

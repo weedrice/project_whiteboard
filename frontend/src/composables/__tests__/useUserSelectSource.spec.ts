@@ -40,7 +40,7 @@ vi.mock('vue-i18n', () => ({
   }),
 }))
 
-vi.mock('@/composables/useAdmin', () => ({
+vi.mock('@/features/admin/useAdmin', () => ({
   useAdmin: () => ({
     useUsers: (params: Ref<{ page: number; size: number; q: string }>) => {
       mocks.adminParams = params
@@ -52,7 +52,7 @@ vi.mock('@/composables/useAdmin', () => ({
   }),
 }))
 
-vi.mock('@/composables/useBoard', () => ({
+vi.mock('@/features/board/useBoard', () => ({
   useBoard: () => ({
     useBoardManagerCandidates: (
       _boardUrl: Ref<string>,

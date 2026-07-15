@@ -10,7 +10,7 @@ import UserSelectModal from '@/components/common/widgets/UserSelectModal.vue'
 import AdminAuditLogTable from '@/components/admin/AdminAuditLogTable.vue'
 import { boardApi } from '@/api/board'
 import { unwrapAxiosApiPageData } from '@/api/response'
-import { useBoardEditPage } from '@/composables/useBoardEditPage'
+import { useBoardEditPage } from '@/features/board/edit/useBoardEditPage'
 import type { ModerationAuditLog } from '@/types'
 
 const {

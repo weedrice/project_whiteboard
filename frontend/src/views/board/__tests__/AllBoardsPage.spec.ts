@@ -9,7 +9,7 @@ vi.mock('@/stores/auth', () => ({
   useAuthStore: () => ({ isAuthenticated: false }),
 }))
 
-vi.mock('@/composables/useBoard', () => ({
+vi.mock('@/features/board/useBoard', () => ({
   useBoard: () => ({
     useBoards: () => ({
       data: ref([]),

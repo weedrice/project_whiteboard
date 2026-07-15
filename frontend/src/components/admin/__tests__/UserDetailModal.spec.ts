@@ -19,7 +19,7 @@ vi.mock('@/utils/commentContent', () => ({
     renderCommentContentHtml: (content?: string) => content ?? ''
 }))
 
-vi.mock('@/composables/useAdmin', () => ({
+vi.mock('@/features/admin/useAdmin', () => ({
     useAdmin: () => ({
         useAdminUserDetail: () => ({
             data: ref({

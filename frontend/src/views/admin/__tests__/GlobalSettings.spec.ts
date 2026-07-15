@@ -54,7 +54,7 @@ vi.mock('@/composables/useConfirm', () => ({
     }),
 }))
 
-vi.mock('@/composables/useAdmin', () => ({
+vi.mock('@/features/admin/useAdmin', () => ({
     useAdmin: () => ({
         useConfigs: () => ({
             data: mocks.configsData,

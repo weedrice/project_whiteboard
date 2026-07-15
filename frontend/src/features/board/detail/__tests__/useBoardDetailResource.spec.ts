@@ -27,7 +27,7 @@ const mocks = vi.hoisted(() => ({
   isMobilePostList: { value: false },
 }))
 
-vi.mock('@/composables/useBoard', () => ({
+vi.mock('@/features/board/useBoard', () => ({
   useBoard: () => ({
     useBoardDetail: () => ({
       data: mocks.board,

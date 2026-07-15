@@ -109,7 +109,7 @@ vi.mock('@/stores/auth', () => ({
   })
 }))
 
-vi.mock('@/composables/useRecentBoards', () => ({
+vi.mock('@/features/board/recent/useRecentBoards', () => ({
   useRecentBoards: () => ({
     addRecentBoard
   })
@@ -121,7 +121,7 @@ vi.mock('@/composables/useConfirm', () => ({
   })
 }))
 
-vi.mock('@/composables/useBoard', () => ({
+vi.mock('@/features/board/useBoard', () => ({
   useBoard: () => ({
     useBoardDetail: () => ({
       data: ref(boardState.value),

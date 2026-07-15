@@ -9,7 +9,7 @@ import {
     BOARD_WRITE_FORBIDDEN_MESSAGE_KEY,
     canUserWriteBoardPost,
     fetchBoardForWriteAccess,
-} from '@/composables/useBoardWriteAccess'
+} from '@/features/board/access/useBoardWriteAccess'
 import { emoticonDetailQueryKey } from '@/features/emoticon/form/useEmoticonEditResource'
 import { postDetailQueryKey } from '@/features/board/posts/queries/postQueryKeys'
 import { QUERY_STALE_TIME } from '@/utils/constants'

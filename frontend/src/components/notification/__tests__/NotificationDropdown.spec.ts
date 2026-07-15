@@ -17,14 +17,14 @@ vi.mock('vue-i18n', () => ({
   useI18n: () => ({ t: (key: string) => key }),
 }))
 
-vi.mock('@/composables/useNotification', () => ({
+vi.mock('@/features/notifications/queries/useNotification', () => ({
   useNotification: () => ({
     useNotifications: () => ({ data: notificationsData, isLoading, isError, error, refetch: refetchNotifications }),
     useMarkAllAsRead: () => ({ mutate: markAllAsRead, isPending: isMarkingAllAsRead }),
   }),
 }))
 
-vi.mock('@/composables/useNotificationNavigation', () => ({
+vi.mock('@/features/notifications/navigation/useNotificationNavigation', () => ({
   useNotificationNavigation: () => ({ navigateFromNotification }),
 }))
 

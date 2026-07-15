@@ -70,7 +70,7 @@ vi.mock('@/features/user/dashboard/useMyPageDashboardResource', () => ({
   }),
 }))
 
-vi.mock('@/composables/useInquiryDetailModal', () => ({
+vi.mock('@/features/user/dashboard/useInquiryDetailModal', () => ({
   useInquiryDetailModal: () => ({
     isInquiryDetailOpen: mocks.isInquiryDetailOpen,
     selectedInquiryPost: mocks.selectedInquiryPost,

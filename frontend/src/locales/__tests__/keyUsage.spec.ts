@@ -39,7 +39,7 @@ const allowedDynamicCallSites: ReadonlyArray<{ file: string; line: RegExp }> = [
   { file: 'composables/useAuthEmailVerificationSection.ts', line: /options\.t\(options\.verifyLabelKey/ },
   { file: 'router/resourceAccessGuards.ts', line: /i18n\.global\.t\(BOARD_WRITE_FORBIDDEN_MESSAGE_KEY/ },
   { file: 'views/user/MyNotifications.vue', line: /t\(getNotificationPresentation/ },
-  { file: 'composables/useBoardFormSubmit.ts', line: /t\(requiredFieldValidation\.messageKey/ },
+  { file: 'features/board/form/useBoardFormSubmit.ts', line: /t\(requiredFieldValidation\.messageKey/ },
   { file: 'utils/listLoadError.ts', line: /t\(LIST_LOAD_ERROR_MESSAGE_KEY/ },
   { file: 'utils/errorHandler.ts', line: /t\(DEFAULT_API_ERROR_MESSAGE_KEY/ },
   { file: 'features/admin/boards/useAdminBoardCreateModal.ts', line: /t\(requiredFieldValidation\.messageKey/ },
@@ -47,7 +47,7 @@ const allowedDynamicCallSites: ReadonlyArray<{ file: string; line: RegExp }> = [
   { file: 'components/board/boardPostSearchModel.ts', line: /t\(SEARCH_TYPE_LABEL_KEYS/ },
   { file: 'components/board/editor/PostEditorSlashMenu.vue', line: /t\(actionLabels/ },
   { file: 'components/common/ui/PullToRefresh.vue', line: /\$t\(indicatorLabel/ },
-  { file: 'composables/useWriteBoardSheet.ts', line: /i18n\.global\.t\(BOARD_WRITE_(FORBIDDEN|VERIFY_FAILED)_MESSAGE_KEY/ },
+  { file: 'features/board/write/useWriteBoardSheet.ts', line: /i18n\.global\.t\(BOARD_WRITE_(FORBIDDEN|VERIFY_FAILED)_MESSAGE_KEY/ },
 ]
 
 function isMessageRecord(value: unknown): value is MessageRecord {

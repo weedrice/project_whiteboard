@@ -1,6 +1,6 @@
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useAdmin } from '@/composables/useAdmin'
+import { useAdmin } from '@/features/admin/useAdmin'
 import { useToastStore } from '@/stores/toast'
 import type { ErrorLogDetail, ErrorLogListItem } from '@/types'
 

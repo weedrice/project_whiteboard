@@ -1,5 +1,5 @@
 import { ref } from 'vue'
-import { useAdmin } from '@/composables/useAdmin'
+import { useAdmin } from '@/features/admin/useAdmin'
 import { usePageResponseState, usePaginatedQueryState } from '@/composables/usePaginatedQueryState'
 import { optionalTrimmedText } from '@/utils/inputNormalization'
 import type { ErrorLogSearchParams } from '@/types'

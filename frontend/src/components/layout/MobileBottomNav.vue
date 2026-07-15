@@ -5,8 +5,8 @@ import { Bell, Home, Layers3, PenSquare, UserRound } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { useAuthGuard } from '@/composables/useAuthGuard'
-import { useNotification } from '@/composables/useNotification'
-import { useWriteBoardSheet } from '@/composables/useWriteBoardSheet'
+import { useNotification } from '@/features/notifications/queries/useNotification'
+import { useWriteBoardSheet } from '@/features/board/write/useWriteBoardSheet'
 
 defineProps<{
   hidden?: boolean

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { useReport } from '@/composables/useReport'
+import { useReport } from '@/features/user/reports/useReport'
 import { formatDate } from '@/utils/date'
 import PaginatedListCard from '@/components/common/ui/PaginatedListCard.vue'
 import { Flag } from 'lucide-vue-next'

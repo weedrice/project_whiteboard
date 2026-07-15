@@ -1,0 +1,75 @@
+import { useI18n } from 'vue-i18n'
+import { type ComputedRef, type Ref } from 'vue'
+import { useToastStore } from '@/stores/toast'
+import { useFormSubmit } from '@/composables/useFormSubmit'
+import { useErrorHandler } from '@/composables/useErrorHandler'
+import { uploadBoardIconFile, validateBoardIconFile } from '@/features/board/icons/useBoardIconUpload'
+import { validateRequiredBoardFields } from '@/utils/board'
+import { normalizeBoardWritePayload, trimText } from '@/utils/inputNormalization'
+import type { BoardFormData } from '@/features/board/form/useBoardFormState'
+
+interface UseBoardFormSubmitOptions {
+  form: Ref<BoardFormData>
+  selectedFile: Ref<File | null>
+  isEdit: () => boolean
+  canCreate: ComputedRef<boolean>
+  boardCreateCost: ComputedRef<number>
+  emitSubmit: (data: BoardFormData) => void
+}
+
+function toBoardSubmitPayload(form: BoardFormData, iconUrl: string): BoardFormData {
+  return normalizeBoardWritePayload({
+    ...form,
+    iconUrl: trimText(iconUrl),
+  })
+}
+
+export function useBoardFormSubmit(options: UseBoardFormSubmitOptions) {
+  const { t } = useI18n()
+  const toastStore = useToastStore()
+  const { isSubmitting, submit } = useFormSubmit()
+  const { handleError } = useErrorHandler()
+
+  async function handleSubmit() {
+    const requiredFieldValidation = validateRequiredBoardFields(options.form.value)
+    if (!requiredFieldValidation.valid) {
+      toastStore.addToast(t(requiredFieldValidation.messageKey), requiredFieldValidation.toastType)
+      return
+    }
+
+    if (!options.isEdit() && !options.canCreate.value) {
+      toastStore.addToast(t('board.form.insufficientPoints', { cost: options.boardCreateCost.value }), 'error')
+      return
+    }
+
+    await submit(async () => {
+      let iconUrl = options.form.value.iconUrl
+
+      try {
+        if (options.selectedFile.value) {
+          const validationError = validateBoardIconFile(options.selectedFile.value)
+          if (validationError === 'type') {
+            toastStore.addToast(t('board.form.invalidIconType'), 'error')
+            return
+          }
+          if (validationError === 'size') {
+            toastStore.addToast(t('board.form.iconTooLarge'), 'error')
+            return
+          }
+
+          iconUrl = await uploadBoardIconFile(options.selectedFile.value) ?? iconUrl
+        }
+
+        options.emitSubmit(toBoardSubmitPayload(options.form.value, iconUrl))
+      } catch (err) {
+        handleError(err, t('board.form.uploadFailed'))
+        throw err
+      }
+    })
+  }
+
+  return {
+    isSubmitting,
+    handleSubmit,
+  }
+}

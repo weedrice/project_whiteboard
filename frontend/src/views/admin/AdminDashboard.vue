@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { useAdmin } from '@/composables/useAdmin'
+import { useAdmin } from '@/features/admin/useAdmin'
 import { Users, FileText, Activity } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import AdminPanel from '@/components/admin/AdminPanel.vue'

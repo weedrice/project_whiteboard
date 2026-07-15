@@ -39,7 +39,7 @@ vi.mock('@/stores/auth', () => ({
   })
 }))
 
-vi.mock('@/composables/useNotification', () => ({
+vi.mock('@/features/notifications/queries/useNotification', () => ({
   useNotification: () => ({
     useUnreadCount: () => ({
       data: mocks.unreadCount
@@ -47,7 +47,7 @@ vi.mock('@/composables/useNotification', () => ({
   })
 }))
 
-vi.mock('@/composables/useWriteBoardSheet', () => ({
+vi.mock('@/features/board/write/useWriteBoardSheet', () => ({
   useWriteBoardSheet: () => ({
     fabButtonRef: refLike(null),
     sheetRef: refLike(null),

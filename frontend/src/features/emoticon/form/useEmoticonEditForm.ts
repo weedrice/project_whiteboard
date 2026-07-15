@@ -4,7 +4,7 @@ import type { EmoticonImagePreview } from '@/utils/emoticonImage'
 import { useEmoticonImageFormState } from '@/features/emoticon/form/useEmoticonImageFormState'
 import type { EmoticonEditFormState } from '@/features/emoticon/form/useEmoticonEditResource'
 import { useEmoticonTags } from '@/features/emoticon/form/useEmoticonTags'
-import { useToggleEmoticonVisibility } from '@/composables/useToggleEmoticonVisibility'
+import { useToggleEmoticonVisibility } from '@/features/emoticon/useToggleEmoticonVisibility'
 import { useEmoticonUploadSession } from '@/features/emoticon/form/useEmoticonUploadSession'
 
 interface UseEmoticonEditFormOptions {

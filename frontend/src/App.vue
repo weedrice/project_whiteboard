@@ -13,7 +13,7 @@ import ErrorBoundary from '@/components/common/ErrorBoundary.vue'
 import NetworkStatus from '@/components/common/NetworkStatus.vue'
 import { useAppSearchShortcut } from '@/composables/useAppSearchShortcut'
 import { useAppSeo } from '@/composables/useAppSeo'
-import { useAppUserSettingsSync } from '@/composables/useAppUserSettingsSync'
+import { useAppUserSettingsSync } from '@/features/user/settings/useAppUserSettingsSync'
 import { useRouteFocusManagement } from '@/composables/useRouteFocusManagement'
 
 // Import layouts

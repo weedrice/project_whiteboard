@@ -82,7 +82,7 @@
 
 <script setup lang="ts">
 import { type ComponentPublicInstance } from 'vue'
-import { useAdmin } from '@/composables/useAdmin'
+import { useAdmin } from '@/features/admin/useAdmin'
 import { useAdminBoardEditor, type AdminBoardEditorForm } from '@/features/admin/boards/useAdminBoardEditor'
 import { useAdminBoardCreateModal } from '@/features/admin/boards/useAdminBoardCreateModal'
 import { useBoardManagerAssignment } from '@/features/admin/boards/useBoardManagerAssignment'

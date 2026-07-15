@@ -1,6 +1,6 @@
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useAdmin } from '@/composables/useAdmin'
+import { useAdmin } from '@/features/admin/useAdmin'
 import { useConfirm } from '@/composables/useConfirm'
 import { usePageResponseState } from '@/composables/usePaginatedQueryState'
 import { useToastStore } from '@/stores/toast'

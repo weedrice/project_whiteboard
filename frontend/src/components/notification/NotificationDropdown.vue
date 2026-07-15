@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { useNotification } from '@/composables/useNotification'
-import { useNotificationNavigation } from '@/composables/useNotificationNavigation'
+import { useNotification } from '@/features/notifications/queries/useNotification'
+import { useNotificationNavigation } from '@/features/notifications/navigation/useNotificationNavigation'
 import { Check } from 'lucide-vue-next'
 import type { NotificationParams } from '@/api/notification'
 import type { Notification } from '@/types'
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
-import { useNotificationListState } from '@/composables/useNotificationListState'
+import { useNotificationListState } from '@/features/notifications/list/useNotificationListState'
 import { formatTimeAgo } from '@/utils/date'
 import {
   getNotificationActorDisplayName,

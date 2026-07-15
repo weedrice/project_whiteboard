@@ -25,7 +25,7 @@ const mocks = vi.hoisted(() => ({
   boardLoading: false,
 }))
 
-vi.mock('@/composables/useAdmin', () => ({
+vi.mock('@/features/admin/useAdmin', () => ({
   useAdmin: () => ({
     useUsers: (params: Ref<Record<string, unknown>>, enabled: Ref<boolean>) => {
       mocks.adminCalls.push({ params, enabled })
@@ -39,7 +39,7 @@ vi.mock('@/composables/useAdmin', () => ({
   }),
 }))
 
-vi.mock('@/composables/useBoard', () => ({
+vi.mock('@/features/board/useBoard', () => ({
   useBoard: () => ({
     useBoardManagerCandidates: (
       boardUrl: Ref<string>,

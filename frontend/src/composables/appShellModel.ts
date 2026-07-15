@@ -1,4 +1,4 @@
-import { BOARD_DETAIL_SEARCH_INPUT_ID } from '@/composables/useBoardDetailNavigation'
+import { BOARD_DETAIL_SEARCH_INPUT_ID } from '@/features/board/detail/useBoardDetailNavigation'
 
 type AppRouteLike = {
     name?: unknown

@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import { Search, X } from 'lucide-vue-next'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BoardAutocompleteList from '@/components/search/BoardAutocompleteList.vue'
-import { useBoardAutocomplete } from '@/composables/useBoardAutocomplete'
+import { useBoardAutocomplete } from '@/features/board/search/useBoardAutocomplete'
 import { useGlobalSearchController } from '@/composables/useGlobalSearchController'
 
 const searchContainer = ref<HTMLElement | null>(null)

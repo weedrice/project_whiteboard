@@ -1,7 +1,7 @@
 import { computed, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useAdmin } from '@/composables/useAdmin'
-import { useBoard } from '@/composables/useBoard'
+import { useAdmin } from '@/features/admin/useAdmin'
+import { useBoard } from '@/features/board/useBoard'
 import type { TableColumn } from '@/components/common/ui/BaseTable.vue'
 
 export type SelectionMode = 'single' | 'multiple'

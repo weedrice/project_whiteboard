@@ -101,7 +101,7 @@ vi.mock('vue-i18n', async (importOriginal) => {
     }
 })
 
-vi.mock('@/composables/useNotification', () => ({
+vi.mock('@/features/notifications/queries/useNotification', () => ({
     useNotification: () => ({
         useUnreadCount: () => ({ data: notificationMocks.unreadCount }),
         connectToSse: notificationMocks.connectToSse,

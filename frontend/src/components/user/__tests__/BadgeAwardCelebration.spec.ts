@@ -1,7 +1,7 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { describe, expect, it, vi } from 'vitest'
 import BadgeAwardCelebration from '../BadgeAwardCelebration.vue'
-import { emitBadgeAwardEvent } from '@/composables/badgeAwardEvents'
+import { emitBadgeAwardEvent } from '@/features/notifications/events/badgeAwardEvents'
 import type { Notification } from '@/types'
 
 const mocks = vi.hoisted(() => ({
