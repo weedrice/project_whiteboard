@@ -109,6 +109,22 @@ vi.mock('@/features/notifications/queries/useNotification', () => ({
     }),
 }))
 
+vi.mock('@/features/notifications/stream/useNotificationStream', async () => {
+    const { onUnmounted } = await vi.importActual<typeof import('vue')>('vue')
+
+    return {
+        useNotificationStream: (isAuthenticated: () => boolean) => {
+            if (isAuthenticated()) {
+                notificationMocks.connectToSse()
+            } else {
+                notificationMocks.closeSse()
+            }
+            onUnmounted(notificationMocks.closeSse)
+            return { unreadCount: notificationMocks.unreadCount }
+        },
+    }
+})
+
 vi.mock('@/components/user/BadgeAwardCelebration.vue', () => ({
     default: defineComponent({
         name: 'BadgeAwardCelebration',
