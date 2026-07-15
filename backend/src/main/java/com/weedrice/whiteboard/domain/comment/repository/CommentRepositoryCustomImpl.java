@@ -68,7 +68,7 @@ public class CommentRepositoryCustomImpl implements CommentRepositoryCustom {
     }
 
     @Override
-    public java.util.Optional<Comment> findByIdWithRelations(@org.springframework.lang.NonNull Long commentId) {
+    public java.util.Optional<Comment> findByIdWithRelations(@org.jspecify.annotations.NonNull Long commentId) {
         Comment result = queryFactory
                 .selectFrom(comment)
                 .join(comment.user).fetchJoin()
@@ -82,7 +82,7 @@ public class CommentRepositoryCustomImpl implements CommentRepositoryCustom {
     }
 
     @Override
-    public java.util.Optional<Comment> findNonDeletedByIdWithRelations(@org.springframework.lang.NonNull Long commentId) {
+    public java.util.Optional<Comment> findNonDeletedByIdWithRelations(@org.jspecify.annotations.NonNull Long commentId) {
         Comment result = queryFactory
                 .selectFrom(comment)
                 .join(comment.user).fetchJoin()

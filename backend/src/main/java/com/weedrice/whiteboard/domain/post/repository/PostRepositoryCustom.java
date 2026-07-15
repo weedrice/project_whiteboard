@@ -3,7 +3,7 @@ package com.weedrice.whiteboard.domain.post.repository;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.lang.NonNull;
+import org.jspecify.annotations.NonNull;
 
 import java.time.LocalDateTime;
 import java.util.Collection;

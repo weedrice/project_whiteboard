@@ -12,7 +12,7 @@ public interface CommentRepositoryCustom {
      * Comment를 ID로 조회하면서 연관된 User, Post, Board를 함께 fetch join합니다.
      * N+1 쿼리 문제를 방지하기 위해 사용합니다.
      */
-    java.util.Optional<Comment> findByIdWithRelations(@org.springframework.lang.NonNull Long commentId);
+    java.util.Optional<Comment> findByIdWithRelations(@org.jspecify.annotations.NonNull Long commentId);
 
-    java.util.Optional<Comment> findNonDeletedByIdWithRelations(@org.springframework.lang.NonNull Long commentId);
+    java.util.Optional<Comment> findNonDeletedByIdWithRelations(@org.jspecify.annotations.NonNull Long commentId);
 }

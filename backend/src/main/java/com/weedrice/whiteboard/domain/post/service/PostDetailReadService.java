@@ -8,7 +8,7 @@ import com.weedrice.whiteboard.domain.post.repository.PostVersionRepository;
 import com.weedrice.whiteboard.domain.tag.service.TagAssignmentService;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import lombok.RequiredArgsConstructor;
-import org.springframework.lang.NonNull;
+import org.jspecify.annotations.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 

@@ -3,7 +3,7 @@ package com.weedrice.whiteboard.global.ratelimit;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.weedrice.whiteboard.global.common.util.ClientMetadataNormalizer;
-import org.springframework.lang.NonNull;
+import org.jspecify.annotations.NonNull;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
