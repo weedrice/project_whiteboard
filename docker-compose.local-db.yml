@@ -1,0 +1,25 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-whiteboard}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-whiteboard}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - noviis-postgres-data:/var/lib/postgresql/data
+
+  backend:
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-whiteboard}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  noviis-postgres-data:

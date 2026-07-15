@@ -27,6 +27,14 @@ The PostgreSQL database must already exist and must provide the extensions requi
 and `vector`. Override `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER`, and `POSTGRES_PASSWORD` when
 your local database is not reachable through the defaults.
 
+To run a repository-managed PostgreSQL 16 with pgvector instead, use the optional override:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.local-db.yml up -d --build
+```
+
+The override uses the named volume `noviis-postgres-data`; the default compose behavior remains connected to an external database.
+
 ## Defaults And Overrides
 
 Set shell variables or create an untracked `.env` file before running compose:
