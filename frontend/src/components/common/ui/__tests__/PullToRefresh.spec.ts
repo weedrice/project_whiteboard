@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
@@ -75,6 +77,51 @@ describe('PullToRefresh', () => {
     await nextTick()
 
     expect(refresh).toHaveBeenCalledOnce()
+  })
+
+  it('only promotes content for transforms while a pull is active', async () => {
+    const source = readFileSync(resolve(process.cwd(), 'src/components/common/ui/PullToRefresh.vue'), 'utf8')
+    const contentCss = source.match(/\.nv-pull-to-refresh-content\s*\{([^}]*)\}/)?.[1]
+    const wrapper = mountPull()
+    const root = wrapper.get('.nv-pull-to-refresh').element
+    const content = wrapper.get<HTMLElement>('.nv-pull-to-refresh-content')
+
+    expect(contentCss).not.toContain('will-change')
+    expect(content.element.style.transform).toBe('')
+    expect(content.element.style.willChange).toBe('')
+
+    root.dispatchEvent(pointerEvent('pointerdown'))
+    root.dispatchEvent(pointerEvent('pointermove', { clientY: 40 }))
+    await nextTick()
+
+    expect(content.element.style.transform).toBe('translateY(18px)')
+    expect(content.element.style.willChange).toBe('transform')
+
+    root.dispatchEvent(pointerEvent('pointercancel', { clientY: 40 }))
+    await nextTick()
+
+    expect(content.element.style.transform).toBe('')
+    expect(content.element.style.willChange).toBe('')
+  })
+
+  it('removes the transform containing block when pull-to-refresh becomes disabled', async () => {
+    const refresh = vi.fn().mockReturnValue(new Promise(() => undefined))
+    const wrapper = mountPull(refresh)
+    const root = wrapper.get('.nv-pull-to-refresh').element
+    const content = wrapper.get<HTMLElement>('.nv-pull-to-refresh-content')
+
+    root.dispatchEvent(pointerEvent('pointerdown'))
+    root.dispatchEvent(pointerEvent('pointermove', { clientY: 100 }))
+    root.dispatchEvent(pointerEvent('pointerup', { clientY: 100 }))
+    await nextTick()
+
+    expect(content.element.style.transform).toBe('translateY(48px)')
+    expect(content.element.style.willChange).toBe('transform')
+
+    await wrapper.setProps({ enabled: false })
+
+    expect(content.element.style.transform).toBe('')
+    expect(content.element.style.willChange).toBe('')
   })
 
   it('ignores excluded controls, horizontal gestures, and a second pointer', async () => {

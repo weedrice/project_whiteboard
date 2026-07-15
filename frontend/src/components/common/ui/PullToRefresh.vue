@@ -33,7 +33,8 @@ const indicatorLabel = computed(() => {
   return 'common.pwa.pullToRefresh.pull'
 })
 const contentStyle = computed(() => ({
-  transform: pullDistance.value > 0 ? `translateY(${pullDistance.value}px)` : undefined,
+  transform: active.value && pullDistance.value > 0 ? `translateY(${pullDistance.value}px)` : undefined,
+  willChange: active.value && pullDistance.value > 0 ? 'transform' : undefined,
 }))
 const indicatorStyle = computed(() => ({
   opacity: Math.min(1, pullDistance.value / 36),
@@ -165,7 +166,6 @@ onMounted(() => {
 
 .nv-pull-to-refresh-content {
   transition: transform 180ms ease-out;
-  will-change: transform;
 }
 
 @media (prefers-reduced-motion: reduce) {
