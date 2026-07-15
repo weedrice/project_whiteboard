@@ -3,7 +3,7 @@
 @layer components {
   /* Modal Component */
   .modal-overlay {
-    @apply fixed inset-0 z-50 flex items-center justify-center overflow-y-auto overflow-x-hidden bg-black/50 p-4 md:inset-0 h-full;
+    @apply fixed inset-0 flex items-center justify-center overflow-y-auto overflow-x-hidden bg-black/50 p-4 md:inset-0 h-full;
   }
 
   .modal-container {
