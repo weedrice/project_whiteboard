@@ -1,6 +1,6 @@
 package com.weedrice.whiteboard.global.log.filter;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import jakarta.servlet.FilterChain;
@@ -44,7 +44,7 @@ public class ClientErrorLogRequestSizeFilter extends OncePerRequestFilter {
             FilterChain filterChain) throws ServletException, IOException {
         byte[] body = request.getInputStream().readNBytes(MAX_REQUEST_BODY_BYTES + 1);
         if (body.length > MAX_REQUEST_BODY_BYTES) {
-            response.setStatus(HttpStatus.PAYLOAD_TOO_LARGE.value());
+            response.setStatus(HttpStatus.CONTENT_TOO_LARGE.value());
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
             response.setCharacterEncoding("UTF-8");
             objectMapper.writeValue(
