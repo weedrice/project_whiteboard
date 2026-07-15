@@ -78,7 +78,7 @@
     "@playwright/test": "^1.61.1",
     "@resvg/resvg-js": "^2.6.2",
     "@tailwindcss/postcss": "^4.1.17",
-    "@tailwindcss/typography": "^0.5.19",
+    "@tailwindcss/typography": "^0.5.20",
     "@types/loglevel": "^1.5.4",
     "@types/node": "^24.10.2",
     "@vitejs/plugin-vue": "^6.0.1",
