@@ -13,15 +13,14 @@ export function usePostFormLeaveGuard(
     fallbackMessage: string,
     confirmLeave: PostFormLeaveConfirm,
 ) {
-    onBeforeRouteLeave(async (_to, _from, next) => {
+    onBeforeRouteLeave(async () => {
         const form = postFormRef.value
         if (form?.hasUnsavedChanges?.()) {
             const message = form.getLeaveConfirmMessage?.() ?? fallbackMessage
             if (!await confirmLeave(message)) {
-                next(false)
-                return
+                return false
             }
         }
-        next()
+        return true
     })
 }

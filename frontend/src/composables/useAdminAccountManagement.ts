@@ -32,7 +32,7 @@ import type {
 export function useAdminAccountManagement(queryClient: QueryClient) {
     const useAdmins = (params: Ref<{ page?: number, size?: number }>) => {
         return useAdminPageQuery<BoardAdminInfo>(
-            adminQueryKeys.admins(params),
+            computed(() => adminQueryKeys.admins(params.value)),
             (config) => callAdminApiWithOptionalConfig(
                 config,
                 (requestConfig) => adminApi.getAdmins(params.value, requestConfig),
@@ -77,7 +77,7 @@ export function useAdminAccountManagement(queryClient: QueryClient) {
 
     const useUsers = (params: Ref<UserSearchParams>, enabled?: Ref<boolean>) => {
         return useAdminPageQuery<User>(
-            adminQueryKeys.users(params),
+            computed(() => adminQueryKeys.users(params.value)),
             (config) => callAdminApiWithOptionalConfig(
                 config,
                 (requestConfig) => adminApi.getUsers(params.value, requestConfig),
@@ -101,7 +101,7 @@ export function useAdminAccountManagement(queryClient: QueryClient) {
     const useAdminUserDetail = (userId: Ref<number | null>) => {
         const enabled = computed(() => userId.value !== null)
         return useAdminNullableDataQuery<AdminUserDetail>(
-            adminQueryKeys.userDetail(userId),
+            computed(() => adminQueryKeys.userDetail(userId.value)),
             (config) => userId.value == null
                 ? null
                 : callAdminApiWithOptionalConfig(
@@ -117,7 +117,7 @@ export function useAdminAccountManagement(queryClient: QueryClient) {
         const enabled = computed(() => userId.value !== null)
 
         return useAdminNullablePageQuery<AdminUserPostItem>(
-            adminQueryKeys.userPosts(userId, params),
+            computed(() => adminQueryKeys.userPosts(userId.value, params.value)),
             (config) => userId.value == null
                 ? null
                 : callAdminApiWithOptionalConfig(
@@ -133,7 +133,7 @@ export function useAdminAccountManagement(queryClient: QueryClient) {
         const enabled = computed(() => userId.value !== null)
 
         return useAdminNullablePageQuery<AdminUserCommentItem>(
-            adminQueryKeys.userComments(userId, params),
+            computed(() => adminQueryKeys.userComments(userId.value, params.value)),
             (config) => userId.value == null
                 ? null
                 : callAdminApiWithOptionalConfig(
@@ -149,7 +149,7 @@ export function useAdminAccountManagement(queryClient: QueryClient) {
         const enabled = computed(() => userId.value !== null)
 
         return useAdminNullablePageQuery<AdminUserSubscriptionItem>(
-            adminQueryKeys.userSubscriptions(userId, params),
+            computed(() => adminQueryKeys.userSubscriptions(userId.value, params.value)),
             (config) => userId.value == null
                 ? null
                 : callAdminApiWithOptionalConfig(

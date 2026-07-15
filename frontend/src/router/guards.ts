@@ -1,4 +1,4 @@
-import type { NavigationGuardNext, RouteLocationNormalized } from 'vue-router'
+import type { RouteLocationNormalized } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { userApi } from '@/api/user'
 import { unwrapAxiosApiData } from '@/api/response'
@@ -29,23 +29,20 @@ declare module 'vue-router' {
 }
 
 export function createAppNavigationGuard() {
-    return async (to: RouteLocationNormalized, from: RouteLocationNormalized, next: NavigationGuardNext) => {
+    return async (to: RouteLocationNormalized, from: RouteLocationNormalized) => {
         const authStore = useAuthStore()
 
-        if (!await ensureHydratedAuth(to, next)) {
-            return
-        }
+        const authResult = await ensureHydratedAuth(to)
+        if (authResult !== true) return authResult
 
         if (authStore.user?.status === 'SANCTIONED') {
             await authStore.handleSanctionedSession()
-            next({ name: 'login' })
-            return
+            return { name: 'login' }
         }
 
         const boardUrlParam = getStringRouteParam(to.params.boardUrl)
         if (isReservedBoardUrl(boardUrlParam)) {
-            next({ name: 'error', query: { status: '404' } })
-            return
+            return { name: 'error', query: { status: '404' } }
         }
 
         if (to.meta.guestOnly && to.name !== 'oauth-callback' && !authStore.isAuthenticated) {
@@ -55,16 +52,13 @@ export function createAppNavigationGuard() {
         }
 
         if (to.meta.requiresAuth && !authStore.isAuthenticated) {
-            next({ name: 'login', query: { redirect: to.fullPath } })
-            return
+            return { name: 'login', query: { redirect: to.fullPath } }
         }
         if (to.meta.roles && !to.meta.roles.includes(authStore.user?.role || '')) {
-            next({ name: 'home' })
-            return
+            return { name: 'home' }
         }
         if (to.meta.guestOnly && authStore.isAuthenticated && authStore.user && to.name !== 'oauth-callback') {
-            next({ name: 'home' })
-            return
+            return { name: 'home' }
         }
 
         if (authStore.isAuthenticated) {
@@ -75,18 +69,20 @@ export function createAppNavigationGuard() {
                     staleTime: QUERY_STALE_TIME.MEDIUM,
                 })
                 if (shouldRedirectToOnboarding(to.name, to.meta.skipOnboarding, settings?.onboardingCompletedAt)) {
-                    next({ name: 'onboarding', query: { redirect: to.fullPath } })
-                    return
+                    return { name: 'onboarding', query: { redirect: to.fullPath } }
                 }
             } catch {
                 // Settings failures should not block route entry.
             }
         }
 
-        if (!await guardEmoticonOwner(to, next)) return
-        if (!await guardBoardAccess(to, next)) return
-        if (!await guardPostAuthor(to, next)) return
+        const emoticonResult = await guardEmoticonOwner(to)
+        if (emoticonResult !== true) return emoticonResult
+        const boardResult = await guardBoardAccess(to)
+        if (boardResult !== true) return boardResult
+        const postResult = await guardPostAuthor(to)
+        if (postResult !== true) return postResult
 
-        next()
+        return true
     }
 }

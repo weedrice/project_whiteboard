@@ -101,7 +101,7 @@ export function useAdminInquiryPosts() {
     isFetching,
     error,
   } = useAdminPageQuery<AdminInquirySummary, PageResponse<AdminInquiryListItem>>(
-    adminInquiryQueryKeys.listPage(page, size, sort),
+    computed(() => adminInquiryQueryKeys.listPage(page.value, size.value, sort.value)),
     (config) => {
       const params = {
         page: page.value,
@@ -123,7 +123,7 @@ export function useAdminInquiryPosts() {
     isFetching: isDetailFetching,
     error: detailError,
   } = useAdminNullableDataQuery<Post, AdminInquiryDetail>(
-    adminInquiryQueryKeys.detail(selectedPostId),
+    computed(() => adminInquiryQueryKeys.detail(selectedPostId.value)),
     (config) => {
       const postId = selectedPostId.value
       if (!postId) return null

@@ -65,7 +65,7 @@ export function useAdminBoardManagement(queryClient: QueryClient) {
     }
 
     const useBoardManager = (boardId: Ref<number | null>) => {
-        const boardManagerQueryKey = adminQueryKeys.boardManager(boardId)
+        const boardManagerQueryKey = computed(() => adminQueryKeys.boardManager(boardId.value))
         const enabled = computed(() => boardId.value !== null)
 
         return useAdminNullableDataQuery<BoardAdminInfo | null>(

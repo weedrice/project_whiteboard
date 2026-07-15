@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   createSseStream,
+  createTestNotificationStreamController as useNotification,
   flushAsync,
   getNotificationMocks,
   setupNotificationTest,
 } from './notificationTestHarness'
-import { useNotification } from '../useNotification'
 
 const mocks = getNotificationMocks()
 

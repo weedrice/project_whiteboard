@@ -52,22 +52,37 @@ export const useAuthStore = defineStore('auth', () => {
     const user = ref<User | null>(null)
     const accessToken = ref<string | null>(null)
     const isAuthenticated = computed(() => !!accessToken.value)
+    let bootstrapAttempted = false
+    let bootstrapInFlight: Promise<boolean> | null = null
+    let sessionRevision = 0
+
+    function resetBootstrapState() {
+        bootstrapAttempted = false
+        bootstrapInFlight = null
+        sessionRevision += 1
+    }
 
     function syncThemeFromUser(userData: User | null) {
         authSessionEffects.syncThemeFromUser(userData)
     }
 
     function applyAuthenticatedSession(token: string, userData: User) {
+        resetBootstrapState()
         accessToken.value = token
         user.value = userData
         persistAccessToken(token)
         syncThemeFromUser(userData)
     }
 
-    function clearSessionState() {
+    function clearSessionValues() {
         accessToken.value = null
         user.value = null
         clearStoredAuthTokens()
+    }
+
+    function clearSessionState() {
+        resetBootstrapState()
+        clearSessionValues()
     }
 
     async function handleSanctionedSession() {
@@ -138,6 +153,7 @@ export const useAuthStore = defineStore('auth', () => {
 
     async function syncFromStoredAccessToken(token: string | null): Promise<boolean> {
         if (!token) {
+            resetBootstrapState()
             accessToken.value = null
             user.value = null
             return false
@@ -147,6 +163,7 @@ export const useAuthStore = defineStore('auth', () => {
             return true
         }
 
+        resetBootstrapState()
         accessToken.value = token
         return fetchUser({ skipAuthRefresh: true })
     }
@@ -155,27 +172,53 @@ export const useAuthStore = defineStore('auth', () => {
         if (accessToken.value && user.value) {
             return true
         }
+        if (bootstrapInFlight) {
+            return bootstrapInFlight
+        }
+        if (bootstrapAttempted) {
+            return false
+        }
 
-        try {
-            const { data } = await authApi.refreshToken({
-                skipAuthRefresh: true,
-                skipGlobalErrorHandler: true,
-            })
-            if (!data.success) {
-                clearSessionState()
+        bootstrapAttempted = true
+        const revision = sessionRevision
+        const request = (async () => {
+            try {
+                const { data } = await authApi.refreshToken({
+                    skipAuthRefresh: true,
+                    skipGlobalErrorHandler: true,
+                })
+                if (revision !== sessionRevision) {
+                    return Boolean(accessToken.value && user.value)
+                }
+                if (!data.success) {
+                    clearSessionValues()
+                    return false
+                }
+                const { accessToken: token } = unwrapApiData(data)
+                accessToken.value = token
+                persistAccessToken(token)
+                return fetchUser({ skipAuthRefresh: true })
+            } catch (error: unknown) {
+                logger.error('Bootstrap session failed:', error)
+                if (revision === sessionRevision) {
+                    clearSessionValues()
+                }
                 return false
             }
-            const { accessToken: token } = unwrapApiData(data)
-            setTokens(token)
-            return fetchUser({ skipAuthRefresh: true })
-        } catch (error: unknown) {
-            logger.error('Bootstrap session failed:', error)
-            clearSessionState()
-            return false
+        })()
+        bootstrapInFlight = request
+
+        try {
+            return await request
+        } finally {
+            if (bootstrapInFlight === request) {
+                bootstrapInFlight = null
+            }
         }
     }
 
     function setTokens(token: string) {
+        resetBootstrapState()
         accessToken.value = token
         persistAccessToken(token)
     }

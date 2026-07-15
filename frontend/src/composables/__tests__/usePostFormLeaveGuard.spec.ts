@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import { usePostFormLeaveGuard } from '@/features/board/posts/form/usePostFormLeaveGuard'
 
 const routeGuard = vi.hoisted(() => ({
-    callback: undefined as undefined | ((to: unknown, from: unknown, next: (value?: boolean) => void) => void | Promise<void>),
+    callback: undefined as undefined | (() => boolean | Promise<boolean>),
 }))
 
 vi.mock('vue-router', () => ({
@@ -13,9 +13,7 @@ vi.mock('vue-router', () => ({
 }))
 
 const runGuard = async () => {
-    const next = vi.fn()
-    await routeGuard.callback?.({}, {}, next)
-    return next
+    return routeGuard.callback?.()
 }
 
 describe('usePostFormLeaveGuard', () => {
@@ -27,10 +25,10 @@ describe('usePostFormLeaveGuard', () => {
 
         usePostFormLeaveGuard(postFormRef, 'fallback', confirmLeave)
 
-        const next = await runGuard()
+        const result = await runGuard()
 
         expect(confirmLeave).not.toHaveBeenCalled()
-        expect(next).toHaveBeenCalledWith()
+        expect(result).toBe(true)
     })
 
     it('blocks navigation when confirm rejects leaving', async () => {
@@ -42,10 +40,10 @@ describe('usePostFormLeaveGuard', () => {
 
         usePostFormLeaveGuard(postFormRef, 'fallback', confirmLeave)
 
-        const next = await runGuard()
+        const result = await runGuard()
 
         expect(confirmLeave).toHaveBeenCalledWith('custom message')
-        expect(next).toHaveBeenCalledWith(false)
+        expect(result).toBe(false)
     })
 
     it('continues with fallback message when confirm accepts leaving', async () => {
@@ -56,9 +54,9 @@ describe('usePostFormLeaveGuard', () => {
 
         usePostFormLeaveGuard(postFormRef, 'fallback', confirmLeave)
 
-        const next = await runGuard()
+        const result = await runGuard()
 
         expect(confirmLeave).toHaveBeenCalledWith('fallback')
-        expect(next).toHaveBeenCalledWith()
+        expect(result).toBe(true)
     })
 })

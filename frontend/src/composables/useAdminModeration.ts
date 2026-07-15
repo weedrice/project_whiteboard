@@ -1,5 +1,5 @@
 import { useMutation, type QueryClient } from '@tanstack/vue-query'
-import type { Ref } from 'vue'
+import { computed, type Ref } from 'vue'
 import { adminApi } from '@/api/admin'
 import { adminQueryKeys } from '@/features/admin/queries/adminQueryKeys'
 import {
@@ -17,7 +17,7 @@ import type { IpBlock, Report } from '@/types'
 export function useAdminModeration(queryClient: QueryClient) {
     const useReports = (params: Ref<ReportSearchParams>) => {
         return useAdminPageQuery<Report>(
-            adminQueryKeys.reports(params),
+            computed(() => adminQueryKeys.reports(params.value)),
             (config) => callAdminApiWithOptionalConfig(
                 config,
                 (requestConfig) => adminApi.getReports(params.value, requestConfig),
@@ -35,7 +35,7 @@ export function useAdminModeration(queryClient: QueryClient) {
 
     const useIpBlocks = (params: Ref<{ page?: number, size?: number }>) => {
         return useAdminPageQuery<IpBlock>(
-            adminQueryKeys.ipBlocks(params),
+            computed(() => adminQueryKeys.ipBlocks(params.value)),
             (config) => callAdminApiWithOptionalConfig(
                 config,
                 (requestConfig) => adminApi.getIpBlocks(params.value, requestConfig),

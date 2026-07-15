@@ -1,4 +1,4 @@
-import type { NavigationGuardNext, RouteLocationNormalized } from 'vue-router'
+import type { RouteLocationNormalized, RouteLocationRaw } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import { emoticonApi } from '@/api/emoticon'
@@ -33,7 +33,9 @@ async function fetchPostForAuthorGuard(postId: string): Promise<Post> {
     })
 }
 
-export async function ensureHydratedAuth(to: RouteLocationNormalized, next: NavigationGuardNext) {
+type ResourceGuardResult = true | RouteLocationRaw
+
+export async function ensureHydratedAuth(to: RouteLocationNormalized): Promise<ResourceGuardResult> {
     const authStore = useAuthStore()
     if (authStore.user) {
         return true
@@ -42,8 +44,7 @@ export async function ensureHydratedAuth(to: RouteLocationNormalized, next: Navi
     if (!authStore.accessToken) {
         const didBootstrap = await authStore.bootstrapSession()
         if (!didBootstrap && to.meta.requiresAuth) {
-            next({ name: 'login', query: { redirect: to.fullPath } })
-            return false
+            return { name: 'login', query: { redirect: to.fullPath } }
         }
         return true
     }
@@ -53,24 +54,22 @@ export async function ensureHydratedAuth(to: RouteLocationNormalized, next: Navi
         if (to.meta.requiresAuth && (!didFetchUser || !authStore.user)) {
             if (!authStore.isAuthenticated) {
                 await authStore.logout()
-                next({ name: 'login', query: { redirect: to.fullPath } })
+                return { name: 'login', query: { redirect: to.fullPath } }
             } else {
-                next({ name: 'error', query: { status: '503' } })
+                return { name: 'error', query: { status: '503' } }
             }
-            return false
         }
     } catch {
         await authStore.logout()
         if (to.meta.requiresAuth) {
-            next({ name: 'login', query: { redirect: to.fullPath } })
-            return false
+            return { name: 'login', query: { redirect: to.fullPath } }
         }
     }
 
     return true
 }
 
-export async function guardEmoticonOwner(to: RouteLocationNormalized, next: NavigationGuardNext) {
+export async function guardEmoticonOwner(to: RouteLocationNormalized): Promise<ResourceGuardResult> {
     if (!to.meta.requiresEmoticonOwner) {
         return true
     }
@@ -78,8 +77,7 @@ export async function guardEmoticonOwner(to: RouteLocationNormalized, next: Navi
     const authStore = useAuthStore()
     const emoticonIdParam = typeof to.params.emoticonId === 'string' ? Number(to.params.emoticonId) : NaN
     if (!Number.isFinite(emoticonIdParam)) {
-        next({ name: 'error', query: { status: '404' } })
-        return false
+        return { name: 'error', query: { status: '404' } }
     }
 
     try {
@@ -91,19 +89,17 @@ export async function guardEmoticonOwner(to: RouteLocationNormalized, next: Navi
         })
         if (emoticon.creatorId !== authStore.user?.userId) {
             useToastStore().addToast(i18n.global.t('emoticon.edit.noPermission'), 'error')
-            next({ name: 'emoticon-detail', params: { emoticonId: to.params.emoticonId } })
-            return false
+            return { name: 'emoticon-detail', params: { emoticonId: to.params.emoticonId } }
         }
     } catch (error) {
         logger.error('Failed to verify emoticon edit access:', error)
-        next({ name: 'error', query: { status: getRouteFetchErrorStatus(error) } })
-        return false
+        return { name: 'error', query: { status: getRouteFetchErrorStatus(error) } }
     }
 
     return true
 }
 
-export async function guardBoardAccess(to: RouteLocationNormalized, next: NavigationGuardNext) {
+export async function guardBoardAccess(to: RouteLocationNormalized): Promise<ResourceGuardResult> {
     if (!to.meta.requiresBoardAdmin && !to.meta.requiresWritableBoard) {
         return true
     }
@@ -111,32 +107,28 @@ export async function guardBoardAccess(to: RouteLocationNormalized, next: Naviga
     const authStore = useAuthStore()
     const boardUrl = getStringRouteParam(to.params.boardUrl)
     if (!boardUrl) {
-        next({ name: 'error', query: { status: '404' } })
-        return false
+        return { name: 'error', query: { status: '404' } }
     }
 
     try {
         const board = await fetchBoardForWriteAccess(queryClient, boardUrl)
         if (to.meta.requiresBoardAdmin && !board.isAdmin) {
             useToastStore().addToast(i18n.global.t('common.messages.boardManageForbidden'), 'error')
-            next({ name: 'board-detail', params: { boardUrl } })
-            return false
+            return { name: 'board-detail', params: { boardUrl } }
         }
         if (to.meta.requiresWritableBoard && !canUserWriteBoardPost(board, authStore.isAuthenticated, authStore.user?.role)) {
             useToastStore().addToast(i18n.global.t(BOARD_WRITE_FORBIDDEN_MESSAGE_KEY), 'error')
-            next({ name: 'board-detail', params: { boardUrl } })
-            return false
+            return { name: 'board-detail', params: { boardUrl } }
         }
     } catch (error) {
         logger.error('Failed to verify board access:', error)
-        next({ name: 'error', query: { status: getRouteFetchErrorStatus(error) } })
-        return false
+        return { name: 'error', query: { status: getRouteFetchErrorStatus(error) } }
     }
 
     return true
 }
 
-export async function guardPostAuthor(to: RouteLocationNormalized, next: NavigationGuardNext) {
+export async function guardPostAuthor(to: RouteLocationNormalized): Promise<ResourceGuardResult> {
     if (!to.meta.requiresPostAuthor) {
         return true
     }
@@ -146,25 +138,21 @@ export async function guardPostAuthor(to: RouteLocationNormalized, next: Navigat
     const postId = getStringRouteParam(to.params.postId)
     const currentUserId = authStore.user?.userId
     if (!boardUrl || !postId) {
-        next({ name: 'error', query: { status: '404' } })
-        return false
+        return { name: 'error', query: { status: '404' } }
     }
     if (!currentUserId) {
-        next({ name: 'error', query: { status: '503' } })
-        return false
+        return { name: 'error', query: { status: '503' } }
     }
 
     try {
         const post = await fetchPostForAuthorGuard(postId)
         if (post.author.userId !== currentUserId) {
             useToastStore().addToast(i18n.global.t('common.messages.postEditForbidden'), 'error')
-            next({ name: 'post-detail', params: { boardUrl, postId } })
-            return false
+            return { name: 'post-detail', params: { boardUrl, postId } }
         }
     } catch (error) {
         logger.error('Failed to verify post author:', error)
-        next({ name: 'error', query: { status: getRouteFetchErrorStatus(error) } })
-        return false
+        return { name: 'error', query: { status: getRouteFetchErrorStatus(error) } }
     }
 
     return true

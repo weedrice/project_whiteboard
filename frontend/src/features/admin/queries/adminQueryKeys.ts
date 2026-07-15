@@ -1,45 +1,46 @@
-import { computed, type Ref } from 'vue'
+function snapshotParams<TParams extends object>(params: TParams): TParams {
+    return { ...params }
+}
 
 export const adminQueryKeys = {
     adminsRoot: ['admin', 'admins'] as const,
-    admins: (params: Ref<unknown>) => computed(() => ['admin', 'admins', params.value ?? {}] as const),
+    admins: <TParams extends object>(params: TParams) => ['admin', 'admins', snapshotParams(params)] as const,
     superAdmins: ['admin', 'super'] as const,
     usersRoot: ['admin', 'users'] as const,
-    users: (params: Ref<unknown>) => computed(() => ['admin', 'users', params.value ?? {}] as const),
+    users: <TParams extends object>(params: TParams) => ['admin', 'users', snapshotParams(params)] as const,
     userDetailRoot: ['admin', 'users', 'detail'] as const,
-    userDetail: (userId: Ref<number | null>) => computed(() => ['admin', 'users', 'detail', userId.value] as const),
-    userPosts: (userId: Ref<number | null>, params: Ref<unknown>) =>
-        computed(() => ['admin', 'users', 'detail', userId.value, 'posts', params.value ?? {}] as const),
-    userComments: (userId: Ref<number | null>, params: Ref<unknown>) =>
-        computed(() => ['admin', 'users', 'detail', userId.value, 'comments', params.value ?? {}] as const),
-    userSubscriptions: (userId: Ref<number | null>, params: Ref<unknown>) =>
-        computed(() => ['admin', 'users', 'detail', userId.value, 'subscriptions', params.value ?? {}] as const),
+    userDetail: (userId: number | null) => ['admin', 'users', 'detail', userId] as const,
+    userPosts: <TParams extends object>(userId: number | null, params: TParams) =>
+        ['admin', 'users', 'detail', userId, 'posts', snapshotParams(params)] as const,
+    userComments: <TParams extends object>(userId: number | null, params: TParams) =>
+        ['admin', 'users', 'detail', userId, 'comments', snapshotParams(params)] as const,
+    userSubscriptions: <TParams extends object>(userId: number | null, params: TParams) =>
+        ['admin', 'users', 'detail', userId, 'subscriptions', snapshotParams(params)] as const,
     reportsRoot: ['admin', 'reports'] as const,
-    reports: (params: Ref<unknown>) => computed(() => ['admin', 'reports', params.value ?? {}] as const),
+    reports: <TParams extends object>(params: TParams) => ['admin', 'reports', snapshotParams(params)] as const,
     moderationAuditsRoot: ['admin', 'moderation-audits'] as const,
-    moderationAudits: (params: Ref<unknown>) =>
-        computed(() => ['admin', 'moderation-audits', params.value ?? {}] as const),
+    moderationAudits: <TParams extends object>(params: TParams) =>
+        ['admin', 'moderation-audits', snapshotParams(params)] as const,
     ipBlocksRoot: ['admin', 'ip-blocks'] as const,
-    ipBlocks: (params: Ref<unknown>) => computed(() => ['admin', 'ip-blocks', params.value ?? {}] as const),
+    ipBlocks: <TParams extends object>(params: TParams) => ['admin', 'ip-blocks', snapshotParams(params)] as const,
     configs: ['admin', 'configs'] as const,
     stats: ['admin', 'stats'] as const,
-    deepStats: (days: Ref<30 | 90>) => computed(() => ['admin', 'stats', 'deep', days.value] as const),
+    deepStats: (days: 30 | 90) => ['admin', 'stats', 'deep', days] as const,
     boards: ['admin', 'boards'] as const,
-    boardManager: (boardId: Ref<number | null>) => computed(() => ['admin', 'board-manager', boardId.value] as const),
+    boardManager: (boardId: number | null) => ['admin', 'board-manager', boardId] as const,
     boardManagerById: (boardId: number) => ['admin', 'board-manager', boardId] as const,
     errorLogsRoot: ['admin', 'error-logs'] as const,
-    errorLogs: (params: Ref<unknown>) => computed(() => ['admin', 'error-logs', params.value ?? {}] as const),
+    errorLogs: <TParams extends object>(params: TParams) => ['admin', 'error-logs', snapshotParams(params)] as const,
     errorLogDetailRoot: ['admin', 'error-logs', 'detail'] as const,
-    errorLogDetail: (errorLogId: Ref<number | null>) =>
-        computed(() => ['admin', 'error-logs', 'detail', errorLogId.value] as const),
+    errorLogDetail: (errorLogId: number | null) => ['admin', 'error-logs', 'detail', errorLogId] as const,
     errorLogDetailById: (errorLogId: number) => ['admin', 'error-logs', 'detail', errorLogId] as const,
     errorLogStats: ['admin', 'error-log-stats'] as const,
 }
 
 export const adminInquiryQueryKeys = {
     list: ['admin', 'inquiry-posts'] as const,
-    listPage: (page: Ref<number>, size: Ref<number>, sort: Ref<string>) =>
-        computed(() => ['admin', 'inquiry-posts', page.value, size.value, sort.value] as const),
-    detail: (selectedPostId: Ref<number | null>) =>
-        computed(() => ['admin', 'inquiry-post-detail', selectedPostId.value] as const),
+    listPage: (page: number, size: number, sort: string) =>
+        ['admin', 'inquiry-posts', page, size, sort] as const,
+    detail: (selectedPostId: number | null) =>
+        ['admin', 'inquiry-post-detail', selectedPostId] as const,
 }

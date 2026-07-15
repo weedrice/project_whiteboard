@@ -12,17 +12,10 @@ import {
     notificationUnreadCountQueryKey,
 } from '@/composables/notificationQueryKeys'
 import { useApiPageQuery, useApiQuery } from '@/composables/useApiQuery'
-import {
-    createNotificationStreamController,
-    resetNotificationStreamStateForTest,
-} from '@/composables/notificationStreamController'
 import { callWithOptionalQuerySignal } from '@/utils/querySignal'
-
-export { resetNotificationStreamStateForTest }
 
 export function useNotification() {
     const queryClient = useQueryClient()
-    const { connectToSse, closeSse } = createNotificationStreamController(queryClient)
 
     const useNotifications = (params: Ref<NotificationParams>) => {
         return useApiPageQuery<Notification>({
@@ -80,8 +73,6 @@ export function useNotification() {
         useNotifications,
         useUnreadCount,
         useMarkAsRead,
-        useMarkAllAsRead,
-        connectToSse,
-        closeSse
+        useMarkAllAsRead
     }
 }

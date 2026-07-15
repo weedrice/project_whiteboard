@@ -1,7 +1,11 @@
 import { vi } from 'vitest'
 import { ref } from 'vue'
 import { setActivePinia, createPinia } from 'pinia'
-import { resetNotificationStreamStateForTest } from '../useNotification'
+import type { QueryClient } from '@tanstack/vue-query'
+import {
+  createNotificationStreamController,
+  resetNotificationStreamStateForTest,
+} from '../notificationStreamController'
 
 const notificationMocks = vi.hoisted(() => {
   const notificationApi = {
@@ -164,4 +168,8 @@ export function setupNotificationTest() {
 
 export function getNotificationMocks() {
   return notificationMocks
+}
+
+export function createTestNotificationStreamController() {
+  return createNotificationStreamController(notificationMocks.queryClient as unknown as QueryClient)
 }

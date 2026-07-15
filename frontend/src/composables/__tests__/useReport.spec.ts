@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { computed, ref } from 'vue'
+import { isRef, ref } from 'vue'
 import { useReport } from '../useReport'
 import { reportApi } from '@/api/report'
 import { apiDataResponse } from '@/test/apiResponseFixtures'
@@ -42,7 +42,14 @@ describe('useReport', () => {
     useMyReports(params)
 
     const options = mocks.queryOptions.at(-1)!
-    expect((options.queryKey as ReturnType<typeof computed>).value).toEqual(['reports', 'me', { page: 2, size: 15 }])
+    const queryKey = options.queryKey as { value: readonly unknown[] }
+    const initialKey = queryKey.value
+    expect(initialKey).toEqual(['reports', 'me', { page: 2, size: 15 }])
+    expect(initialKey.some(isRef)).toBe(false)
+    params.value = { page: 3, size: 30 }
+    expect(queryKey.value).toEqual(['reports', 'me', { page: 3, size: 30 }])
+    expect(initialKey).toEqual(['reports', 'me', { page: 2, size: 15 }])
+    params.value = { page: 2, size: 15 }
 
     const signal = new AbortController().signal
     const result = await (options.queryFn as (context: { signal: AbortSignal }) => Promise<unknown>)({ signal })

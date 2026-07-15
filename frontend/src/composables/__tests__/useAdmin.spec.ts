@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { ref } from 'vue'
+import { isRef, ref } from 'vue'
 import { useAdmin } from '../useAdmin'
 import { adminApi } from '@/api/admin'
 import { apiDataResponse, apiSuccessResponse } from '@/test/apiResponseFixtures'
@@ -106,6 +106,21 @@ describe('useAdmin', () => {
 
             expect(result).toHaveProperty('data')
             expect(result).toHaveProperty('isLoading')
+        })
+
+        it('uses value snapshots in admin keys and recomputes when params change', () => {
+            const { useAdmins } = useAdmin()
+            const params = ref({ page: 0, size: 20 })
+
+            useAdmins(params)
+            const queryKey = mockQueryOptions.at(-1)?.queryKey as { value: readonly unknown[] }
+            const initialKey = queryKey.value
+
+            expect(initialKey).toEqual(['admin', 'admins', { page: 0, size: 20 }])
+            expect(initialKey.some(isRef)).toBe(false)
+            params.value = { page: 1, size: 50 }
+            expect(queryKey.value).toEqual(['admin', 'admins', { page: 1, size: 50 }])
+            expect(initialKey).toEqual(['admin', 'admins', { page: 0, size: 20 }])
         })
 
         it('useAdmins queryFn forwards params and preserves placeholder data', async () => {

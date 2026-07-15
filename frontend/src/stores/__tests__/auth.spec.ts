@@ -281,6 +281,34 @@ describe('Auth Store', () => {
     })
 
     describe('bootstrapSession', () => {
+        it('deduplicates concurrent refresh-cookie bootstrap calls', async () => {
+            const user = authUser()
+            const pendingRefresh = createDeferred<Awaited<ReturnType<typeof authApi.refreshToken>>>()
+            vi.mocked(authApi.refreshToken).mockReturnValue(pendingRefresh.promise)
+            vi.mocked(authApi.getMe).mockResolvedValue(authUserResponse(user))
+
+            const first = store.bootstrapSession()
+            const second = store.bootstrapSession()
+            pendingRefresh.resolve(authLoginResponse(user, 'boot-token'))
+
+            await expect(Promise.all([first, second])).resolves.toEqual([true, true])
+            expect(authApi.refreshToken).toHaveBeenCalledTimes(1)
+        })
+
+        it('attempts refresh-cookie bootstrap only once until the session changes', async () => {
+            vi.mocked(authApi.refreshToken)
+                .mockRejectedValueOnce(new Error('refresh failed'))
+                .mockResolvedValueOnce(authLoginFailureResponse(authUser(), 'ignored'))
+
+            await expect(store.bootstrapSession()).resolves.toBe(false)
+            await expect(store.bootstrapSession()).resolves.toBe(false)
+            expect(authApi.refreshToken).toHaveBeenCalledTimes(1)
+
+            store.clearSessionState()
+            await expect(store.bootstrapSession()).resolves.toBe(false)
+            expect(authApi.refreshToken).toHaveBeenCalledTimes(2)
+        })
+
         it('restores a session from refresh cookie and fetches the user', async () => {
             const user = authUser({ theme: 'DARK' })
             vi.mocked(authApi.refreshToken).mockResolvedValue(authLoginResponse(user, 'boot-token'))

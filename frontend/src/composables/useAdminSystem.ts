@@ -62,7 +62,7 @@ export function useAdminSystem(queryClient: QueryClient) {
 
     const useDeepDashboardStats = (days: Ref<30 | 90>) => {
         return useAdminDataQuery<DeepDashboardStats>(
-            adminQueryKeys.deepStats(days),
+            computed(() => adminQueryKeys.deepStats(days.value)),
             (config) => callAdminApiWithOptionalConfig(
                 config,
                 (requestConfig) => adminApi.getDeepDashboardStats(days.value, requestConfig),
@@ -73,7 +73,7 @@ export function useAdminSystem(queryClient: QueryClient) {
 
     const useErrorLogs = (params: Ref<ErrorLogSearchParams>) => {
         return useAdminPageQuery<ErrorLogListItem>(
-            adminQueryKeys.errorLogs(params),
+            computed(() => adminQueryKeys.errorLogs(params.value)),
             (config) => callAdminApiWithOptionalConfig(
                 config,
                 (requestConfig) => adminApi.getErrorLogs(params.value, requestConfig),
@@ -84,7 +84,7 @@ export function useAdminSystem(queryClient: QueryClient) {
 
     const useModerationAudits = (params: Ref<ModerationAuditSearchParams>) => {
         return useAdminPageQuery<ModerationAuditLog>(
-            adminQueryKeys.moderationAudits(params),
+            computed(() => adminQueryKeys.moderationAudits(params.value)),
             (config) => callAdminApiWithOptionalConfig(
                 config,
                 (requestConfig) => adminApi.getModerationAudits(params.value, requestConfig),
@@ -98,7 +98,7 @@ export function useAdminSystem(queryClient: QueryClient) {
     function useErrorLog(errorLogId?: Ref<number | null>) {
         if (errorLogId) {
             return useAdminNullableDataQuery<ErrorLogDetail>(
-                adminQueryKeys.errorLogDetail(errorLogId),
+                computed(() => adminQueryKeys.errorLogDetail(errorLogId.value)),
                 (config) => {
                     if (errorLogId.value === null) {
                         return null
