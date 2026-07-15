@@ -44,5 +44,6 @@ export interface EmoticonSearchParams {
 
 export interface EmoticonPurchaseStatus {
     purchased: boolean
+    available: boolean
     price: number
 }

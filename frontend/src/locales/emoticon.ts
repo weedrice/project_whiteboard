@@ -5,12 +5,13 @@ export const emoticon: EmoticonMessages = {
   purchase: {
     success: '노비콘을 구매했습니다!',
     failed: '구매에 실패했습니다.',
-    confirm: '100포인트를 사용하여 이 노비콘을 구매하시겠습니까?',
+    confirm: '{price}포인트를 사용하여 이 노비콘을 구매하시겠습니까?',
     purchasing: '구매 중...',
     button: {
       loginRequired: '로그인 필요',
       purchased: '구매 완료',
       myEmoticon: '내가 등록한 노비콘',
+      unavailable: '판매 중단',
       buyWithPrice: '{price}P로 구매하기',
     },
   },

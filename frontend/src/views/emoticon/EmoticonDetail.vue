@@ -29,6 +29,7 @@ const {
   isToggling,
   purchase,
   purchaseButtonText,
+  purchasePrice,
   toggleVisibility,
 } = useEmoticonDetailResource(emoticonId)
 
@@ -43,6 +44,7 @@ const {
   emoticonId,
   emoticonView,
   purchase,
+  purchasePrice,
   router,
   t,
   toggleVisibility,

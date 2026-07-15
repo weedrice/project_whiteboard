@@ -41,6 +41,7 @@ export function useEmoticonDetailResource(emoticonId: ComputedRef<number>) {
     data: purchaseStatus,
     isLoading: isPurchaseStatusLoading,
     isFetching: isPurchaseStatusFetching,
+    error: purchaseStatusError,
   } = useApiQuery({
     queryKey: emoticonPurchaseStatusQueryKey(emoticonId),
     request: (context) => callWithOptionalQuerySignal(
@@ -48,7 +49,7 @@ export function useEmoticonDetailResource(emoticonId: ComputedRef<number>) {
       () => emoticonApi.checkPurchaseStatus(emoticonId.value),
       (config) => emoticonApi.checkPurchaseStatus(emoticonId.value, config),
     ) as Promise<AxiosResponse<ApiResponse<EmoticonPurchaseStatus>>>,
-    enabled: computed(() => !!emoticonId.value && authStore.isAuthenticated),
+    enabled: computed(() => !!emoticonId.value),
   })
 
   const emoticonView = useEmoticonDetailViewModel(emoticon)
@@ -76,8 +77,7 @@ export function useEmoticonDetailResource(emoticonId: ComputedRef<number>) {
   })
 
   const isPurchaseStatusPending = computed(() => (
-    authStore.isAuthenticated
-    && !!emoticonId.value
+    !!emoticonId.value
     && (isPurchaseStatusLoading.value || isPurchaseStatusFetching.value)
   ))
 
@@ -85,17 +85,24 @@ export function useEmoticonDetailResource(emoticonId: ComputedRef<number>) {
     if (!authStore.isAuthenticated) return false
     if (!emoticonView.value) return false
     if (isPurchaseStatusPending.value) return false
+    if (purchaseStatusError.value) return false
     if (!emoticonView.value.isActive) return false
+    if (purchaseStatus.value?.available !== true) return false
     if (purchaseStatus.value?.purchased) return false
     if (isOwner.value) return false
     return true
   })
 
+  const purchasePrice = computed(() => purchaseStatus.value?.price ?? 100)
+
   const purchaseButtonText = computed(() => {
+    if (purchaseStatusError.value || purchaseStatus.value?.available !== true) {
+      return t('emoticon.purchase.button.unavailable')
+    }
     if (!authStore.isAuthenticated) return t('emoticon.purchase.button.loginRequired')
     if (purchaseStatus.value?.purchased) return t('emoticon.purchase.button.purchased')
     if (isOwner.value) return t('emoticon.purchase.button.myEmoticon')
-    return t('emoticon.purchase.button.buyWithPrice', { price: purchaseStatus.value?.price || 100 })
+    return t('emoticon.purchase.button.buyWithPrice', { price: purchasePrice.value })
   })
 
   const { mutate: toggleVisibility, isPending: isToggling } = useToggleEmoticonVisibility(emoticonId, {
@@ -113,6 +120,7 @@ export function useEmoticonDetailResource(emoticonId: ComputedRef<number>) {
     isToggling,
     purchase,
     purchaseButtonText,
+    purchasePrice,
     toggleVisibility,
   }
 }

@@ -1,4 +1,4 @@
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
 
@@ -6,11 +6,17 @@ const routeParams = vi.hoisted(() => ({ emoticonId: '9' }))
 const invalidateQueries = vi.hoisted(() => vi.fn())
 const addToast = vi.hoisted(() => vi.fn())
 const purchaseEmoticon = vi.hoisted(() => vi.fn())
+const purchaseMutate = vi.hoisted(() => vi.fn())
+const confirmPurchase = vi.hoisted(() => vi.fn(async () => true))
 const mutationOptions = vi.hoisted(() => [] as Array<Record<string, unknown>>)
 const purchaseStatusState = vi.hoisted(() => ({
+  hasStatus: true,
+  available: true,
   isLoading: false,
   isFetching: false,
+  hasError: false,
   purchased: false,
+  price: 100,
 }))
 
 vi.mock('@tanstack/vue-query', () => ({
@@ -19,10 +25,14 @@ vi.mock('@tanstack/vue-query', () => ({
     const key = options.queryKey as unknown[]
     if (Array.isArray(key) && key[2] === 'purchased') {
       return {
-        data: ref({ purchased: purchaseStatusState.purchased, price: 100 }),
+        data: ref(purchaseStatusState.hasStatus ? {
+          purchased: purchaseStatusState.purchased,
+          available: purchaseStatusState.available,
+          price: purchaseStatusState.price,
+        } : undefined),
         isLoading: ref(purchaseStatusState.isLoading),
         isFetching: ref(purchaseStatusState.isFetching),
-        error: ref(null),
+        error: ref(purchaseStatusState.hasError ? new Error('status failed') : null),
       }
     }
 
@@ -45,7 +55,7 @@ vi.mock('@tanstack/vue-query', () => ({
   useMutation: vi.fn((options: Record<string, unknown>) => {
     mutationOptions.push(options)
     return {
-      mutate: vi.fn(),
+      mutate: purchaseMutate,
       isPending: ref(false),
     }
   }),
@@ -77,7 +87,7 @@ vi.mock('@/stores/toast', () => ({
 
 vi.mock('@/composables/useConfirm', () => ({
   useConfirm: () => ({
-    confirm: vi.fn(async () => true),
+    confirm: confirmPurchase,
   }),
 }))
 
@@ -86,7 +96,9 @@ vi.mock('vue-i18n', async (importOriginal) => {
   return {
     ...actual,
     useI18n: () => ({
-      t: (key: string) => key,
+      t: (key: string, params?: Record<string, unknown>) => (
+        params?.price === undefined ? key : `${key}:${params.price}`
+      ),
     }),
   }
 })
@@ -131,9 +143,13 @@ describe('EmoticonDetail', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mutationOptions.length = 0
+    purchaseStatusState.hasStatus = true
+    purchaseStatusState.available = true
     purchaseStatusState.isLoading = false
     purchaseStatusState.isFetching = false
+    purchaseStatusState.hasError = false
     purchaseStatusState.purchased = false
+    purchaseStatusState.price = 100
   })
 
   it('invalidates user point cache after purchase success', () => {
@@ -170,6 +186,76 @@ describe('EmoticonDetail', () => {
       .find((button) => button.text().includes('emoticon.purchase.button.buyWithPrice'))
 
     expect(purchaseButton?.attributes('disabled')).toBeDefined()
+  })
+
+  it.each([
+    ['missing', false, true, false],
+    ['unavailable', true, false, false],
+    ['failed with stale data', true, true, true],
+  ])('fails closed when purchase status is %s', (_label, hasStatus, available, hasError) => {
+    purchaseStatusState.hasStatus = hasStatus
+    purchaseStatusState.available = available
+    purchaseStatusState.hasError = hasError
+
+    const wrapper = mount(EmoticonDetail, {
+      global: {
+        stubs: {
+          RouterLink: true,
+        },
+      },
+    })
+
+    const purchaseButton = wrapper.findAll('button')
+      .find((button) => button.text().includes('emoticon.purchase.button.unavailable'))
+
+    expect(purchaseButton?.attributes('disabled')).toBeDefined()
+  })
+
+  it('shows unavailable before purchased when the item is no longer for sale', () => {
+    purchaseStatusState.available = false
+    purchaseStatusState.purchased = true
+
+    const wrapper = mount(EmoticonDetail, {
+      global: { stubs: { RouterLink: true } },
+    })
+
+    expect(wrapper.text()).toContain('emoticon.purchase.button.unavailable')
+    expect(wrapper.text()).not.toContain('emoticon.purchase.button.purchased')
+  })
+
+  it('uses the API price in the purchase confirmation', async () => {
+    purchaseStatusState.price = 275
+
+    const wrapper = mount(EmoticonDetail, {
+      global: {
+        stubs: {
+          RouterLink: true,
+        },
+      },
+    })
+
+    const purchaseButton = wrapper.findAll('button')
+      .find((button) => button.text().includes('emoticon.purchase.button.buyWithPrice:275'))
+
+    await purchaseButton?.trigger('click')
+    await flushPromises()
+
+    expect(confirmPurchase).toHaveBeenCalledWith('emoticon.purchase.confirm:275')
+    expect(purchaseMutate).toHaveBeenCalledOnce()
+  })
+
+  it('preserves a free price instead of falling back to 100', () => {
+    purchaseStatusState.price = 0
+
+    const wrapper = mount(EmoticonDetail, {
+      global: {
+        stubs: {
+          RouterLink: true,
+        },
+      },
+    })
+
+    expect(wrapper.text()).toContain('emoticon.purchase.button.buyWithPrice:0')
   })
 
   it('uses fluid image tiles without fixed pixel dimensions', () => {

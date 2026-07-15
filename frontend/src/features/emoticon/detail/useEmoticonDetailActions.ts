@@ -8,8 +8,9 @@ interface UseEmoticonDetailActionsOptions {
   emoticonId: ComputedRef<number>
   emoticonView: ComputedRef<EmoticonDetailViewModel | null>
   purchase: () => void
+  purchasePrice: ComputedRef<number>
   router: Router
-  t: (key: string) => string
+  t: (key: string, params?: Record<string, unknown>) => string
   toggleVisibility: () => void
 }
 
@@ -24,7 +25,9 @@ export function useEmoticonDetailActions(options: UseEmoticonDetailActionsOption
 
   async function handlePurchase() {
     if (!options.canPurchase.value) return
-    const isConfirmed = await options.confirm(options.t('emoticon.purchase.confirm'))
+    const isConfirmed = await options.confirm(options.t('emoticon.purchase.confirm', {
+      price: options.purchasePrice.value,
+    }))
     if (!isConfirmed) return
 
     options.purchase()

@@ -7,12 +7,13 @@ export const emoticonEn: EmoticonMessages = {
   purchase: {
     success: 'Noviicon purchased.',
     failed: 'Purchase failed.',
-    confirm: 'Buy this Noviicon with 100 points?',
+    confirm: 'Buy this Noviicon with {price} points?',
     purchasing: 'Purchasing...',
     button: {
       loginRequired: 'Sign in required',
       purchased: 'Purchased',
       myEmoticon: 'My Noviicon',
+      unavailable: 'No longer for sale',
       buyWithPrice: 'Buy for {price}P',
     },
   },

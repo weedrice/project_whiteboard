@@ -430,7 +430,7 @@ describe('emoticonApi', () => {
     it('unwraps emoticon response helpers without changing endpoint calls', async () => {
         const listPage = { content: [{ emoticonId: 1, name: 'cat' }], totalPages: 1, totalElements: 1 }
         const detail = { emoticonId: 1, name: 'cat', isActive: true }
-        const purchaseStatus = { purchased: false, price: 100 }
+        const purchaseStatus = { purchased: false, available: true, price: 100 }
 
         apiMock.get
             .mockResolvedValueOnce(axiosApiSuccess(listPage))

@@ -899,6 +899,7 @@ export interface EmoticonMessages {
       loginRequired: string
       purchased: string
       myEmoticon: string
+      unavailable: string
       buyWithPrice: string
     }
   }

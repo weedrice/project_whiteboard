@@ -88,13 +88,23 @@ describe('useEmoticonDetailResource', () => {
     expect((purchaseOptions.enabled as ComputedRef<boolean>).value).toBe(true)
 
     mocks.getEmoticon.mockResolvedValueOnce(emoticonApiData({ emoticonId: 11 }))
-    mocks.checkPurchaseStatus.mockResolvedValueOnce(emoticonApiData({ purchased: false, price: 100 }))
+    mocks.checkPurchaseStatus.mockResolvedValueOnce(emoticonApiData({ purchased: false, available: true, price: 100 }))
 
     await (detailOptions.request as () => Promise<unknown>)()
     await (purchaseOptions.request as () => Promise<unknown>)()
 
     expect(mocks.getEmoticon).toHaveBeenCalledWith(11)
     expect(mocks.checkPurchaseStatus).toHaveBeenCalledWith(11)
+  })
+
+  it('loads public purchase availability for anonymous visitors', () => {
+    mocks.isAuthenticated = false
+    const emoticonId = computed(() => 13)
+
+    useEmoticonDetailResource(emoticonId)
+
+    const purchaseOptions = mocks.apiQueryOptions[1]
+    expect((purchaseOptions.enabled as ComputedRef<boolean>).value).toBe(true)
   })
 
   it('keeps purchase cache invalidation behavior', async () => {
