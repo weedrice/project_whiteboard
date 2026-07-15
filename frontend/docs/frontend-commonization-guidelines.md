@@ -3,7 +3,8 @@
 ## Feature Boundaries
 
 - Put domain-specific orchestration under `src/features/{domain}` instead of adding new implementation logic to root `src/composables`.
-- Current feature slices include `admin`, `board`, `board/posts`, `emoticon`, and `user`.
+- Current top-level feature slices are `admin`, `board`, `comments`, `emoticon`, `feed`, `mentions`, `notifications`, `shop`, and `user`; `board/posts` is a nested post slice under `board`.
+- Feature slices may be adopted incrementally; the presence of a domain directory does not mean every root composable for that domain has already moved.
 - `src/composables` should hold shared cross-feature helpers, low-level reusable behavior, query key helpers that are still intentionally global, or thin compatibility re-export shims.
 - When moving existing composables, keep a root shim if older imports, tests, or gradual migration require it. New consumers should import from `src/features/...`.
 - Prefer feature-local test helpers and harnesses when a spec grows around one route or component workflow.
