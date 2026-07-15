@@ -47,7 +47,7 @@ Spring Framework 및 라이브러리 설정을 담당합니다.
 - **repository/ErrorLogRepository.java**: `JpaRepository` + `ErrorLogRepositoryCustom`을 상속하여 기본 CRUD와 QueryDSL 기반 동적 검색을 지원합니다.
 - **repository/ErrorLogRepositoryCustom.java**: QueryDSL 기반 에러 로그 동적 검색 인터페이스.
 - **repository/ErrorLogRepositoryCustomImpl.java**: QueryDSL 기반 검색 구현. 에러 타입, 코드, HTTP 상태, 확인 여부, 날짜 범위, URI 등 다양한 필터를 지원합니다.
-- **service/ErrorLogService.java**: 에러 로그 비즈니스 로직. 저장은 `@Async("taskExecutor")` + `@Transactional(propagation = REQUIRES_NEW)` 비동기 방식. 메시지/URI/UA 길이 초과 시 자동 잘라냅니다.
+- **service/ErrorLogService.java**: 에러 로그 비즈니스 로직. 저장은 `@Async("observabilityTaskExecutor")` + `@Transactional(propagation = REQUIRES_NEW)` 비동기 방식. 메시지/URI/UA 길이 초과 시 자동 잘라냅니다.
 - **controller/ErrorLogController.java**: 관리자용 에러 로그 API (`/api/v1/admin/error-logs`). `@PreAuthorize("hasRole('SUPER_ADMIN')")` 적용.
   - `GET /`: 에러 로그 목록 조회 (검색/필터/페이징)
   - `GET /{errorLogId}`: 에러 로그 상세 조회

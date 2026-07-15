@@ -45,14 +45,15 @@ const makePost = (postId: number): PostSummary => ({
   boardName: 'Free',
 })
 
-const makePage = (content: PersonalFeedPage['content'], page = 0, hasNext = false): PersonalFeedPage => ({
+const makePage = (content: PersonalFeedPage['content'], number = 0, hasNext = false): PersonalFeedPage => ({
   content,
-  page,
+  number,
   size: 20,
   totalElements: content.length,
-  totalPages: hasNext ? page + 2 : page + 1,
-  hasNext,
-  hasPrevious: page > 0,
+  totalPages: hasNext ? number + 2 : number + 1,
+  first: number === 0,
+  last: !hasNext,
+  empty: content.length === 0,
 })
 
 describe('usePersonalFeed', () => {
@@ -80,7 +81,7 @@ describe('usePersonalFeed', () => {
     expect(queryKey.value).toEqual(['feed', 'personal', 42])
     expect(enabled.value).toBe(true)
     expect(feedApiMock.getMyFeeds).toHaveBeenCalledWith(2, 20, { signal })
-    expect(result.page).toBe(2)
+    expect(result.number).toBe(2)
     expect((options.getNextPageParam as (page: PersonalFeedPage) => number | undefined)(makePage([], 2, true))).toBe(3)
   })
 
@@ -102,6 +103,7 @@ describe('usePersonalFeed', () => {
           feedType: 'FUTURE',
           contentType: 'COMMENT',
           contentId: 8,
+          isRead: false,
           createdAt: '2026-07-13T00:00:00',
           post: null,
         },

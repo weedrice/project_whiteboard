@@ -119,6 +119,44 @@ tasks.named('jacocoTestCoverageVerification') {
 	}
 }
 
+tasks.named('jacocoTestCoverageVerification').configure {
+	violationRules {
+		rule {
+			limit {
+				counter = 'LINE'
+				value = 'COVEREDRATIO'
+				minimum = 0.75
+			}
+			limit {
+				counter = 'BRANCH'
+				value = 'COVEREDRATIO'
+				minimum = 0.55
+			}
+		}
+		rule {
+			element = 'CLASS'
+			includes = [
+				'com.weedrice.whiteboard.domain.post.service.PollService',
+				'com.weedrice.whiteboard.domain.attendance.service.AttendanceService',
+				'com.weedrice.whiteboard.domain.badge.service.BadgeAwardService',
+				'com.weedrice.whiteboard.domain.badge.service.BadgeEvaluationService',
+				'com.weedrice.whiteboard.domain.user.service.UserSessionService',
+				'com.weedrice.whiteboard.domain.moderation.service.ModerationAuditLogService',
+				'com.weedrice.whiteboard.domain.post.service.PostManagerModerationService',
+				'com.weedrice.whiteboard.domain.report.service.ReportAutoBlindService',
+				'com.weedrice.whiteboard.domain.notification.service.MentionService',
+				'com.weedrice.whiteboard.domain.notification.service.KeywordSubscriptionService',
+				'com.weedrice.whiteboard.domain.notification.service.PushSubscriptionService'
+			]
+			limit {
+				counter = 'LINE'
+				value = 'COVEREDRATIO'
+				minimum = 0.80
+			}
+		}
+	}
+}
+
 // Querydsl
 def querydslDir = "$buildDir/generated/querydsl"
 
@@ -128,6 +166,7 @@ sourceSets {
 
 tasks.withType(JavaCompile) {
 	options.getGeneratedSourceOutputDirectory().set(file(querydslDir))
+	options.compilerArgs.addAll(['-Xlint:deprecation', '-Xlint:unchecked'])
 	options.encoding = 'UTF-8'  // Java 소스 파일 인코딩
 }
 

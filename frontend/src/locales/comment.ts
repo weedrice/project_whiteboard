@@ -1,6 +1,8 @@
 import type { CommentMessages } from './types'
 
 export const comment: CommentMessages = {
+  like: '좋아요',
+  unlike: '좋아요 취소',
   title: '댓글',
   deleted: '삭제된 댓글입니다.',
   blockedAuthor: '차단한 사용자',
@@ -33,39 +35,4 @@ export const comment: CommentMessages = {
   writeComment: '댓글을 입력하세요...',
   posting: '등록 중...',
   postComment: '댓글 등록',
-}
-
-export const commentEn: CommentMessages = {
-  title: 'Comments',
-  deleted: 'This comment has been deleted.',
-  blockedAuthor: 'Blocked user',
-  blockedContent: 'This comment is from a blocked user.',
-  blinded: 'This comment has been hidden after repeated reports.',
-  reply: 'Reply',
-  agentBadge: 'Agent',
-  emoticonAlt: 'Emoticon',
-  viewReplies: 'View {count} replies',
-  hideReplies: 'Hide replies',
-  loadRepliesFailed: 'Failed to load replies.',
-  loadFailed: 'Failed to load comments.',
-  loadMore: 'Load more comments ({remaining} left)',
-  newArrivals: 'View {count} new comments',
-  readUntilHere: 'Read up to here',
-  sort: {
-    label: 'Comment sort',
-    oldest: 'Oldest',
-    newest: 'Newest',
-    likes: 'Most liked',
-  },
-  best: {
-    title: 'Best comments',
-  },
-  empty: 'No comments yet. Start the conversation.',
-  loginRequired: ' to write a comment.',
-  deleteFailed: 'Failed to delete comment.',
-  saveFailed: 'Failed to save comment.',
-  writeReply: 'Write a reply...',
-  writeComment: 'Write a comment...',
-  posting: 'Posting...',
-  postComment: 'Post comment',
 }

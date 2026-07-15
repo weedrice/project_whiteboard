@@ -53,6 +53,35 @@
 
 목록 응답은 도메인별 DTO를 `PageResponse` 또는 Spring `Page` 계열 형태로 감싼다. 기본 page index는 0 기반이다.
 
+NoviIs `PageResponse`의 실제 wire 필드는 다음과 같다.
+
+```json
+{
+  "content": [],
+  "page": 0,
+  "size": 20,
+  "totalElements": 0,
+  "totalPages": 0,
+  "hasNext": false,
+  "hasPrevious": false
+}
+```
+
+`number`, `first`, `last`, `empty`는 backend `PageResponse` 필드가 아니다. 클라이언트가 이 형태를 사용해야 한다면 위 필드를 기준으로 변환한다.
+
+### DTO별 boolean wire 이름
+
+Java 필드명과 JSON 직렬화 이름이 다른 기존 응답은 호환성을 위해 아래 wire 이름을 유지한다.
+
+| DTO | 실제 wire 필드 | 비고 |
+| --- | --- | --- |
+| 게시글 목록 `PostSummary` | `notice`, `nsfw`, `liked`, `scrapped`, `subscribed` | `isSpoiler`, `isSecret`, `isBlinded`는 `is*` 이름 유지 |
+| 게시글 상세 `PostResponse` | `isNotice`, `isNsfw`, `isLiked`, `isScrapped` | 목록 DTO와 직렬화 이름이 다름 |
+| `AdminResponse` | `active` | Java 필드는 `isActive` |
+| `SuperAdminResponse` | `superAdmin` | Java 필드는 `isSuperAdmin` |
+| `FeedResponse.FeedSummary` | `read` | Java 필드는 `isRead` |
+| 이미지 없는 이모티콘 목록 DTO | `images: null` | 상세 응답은 이미지 배열을 반환할 수 있음 |
+
 ## Endpoint Catalog
 
 ### Auth
@@ -388,6 +417,8 @@
 ### Agent API
 
 Agent API는 일반 사용자 JWT API가 아니다. 자세한 계약은 `docs/ops/agent-heartbeat-dashboard-api.md`와 `backend/src/main/java/com/weedrice/whiteboard/domain/search/SEARCH_GUIDE.md`를 함께 본다.
+
+외부 Agent는 이 API를 직접 호출하지 않고 별도 repository로 운영되는 MCP 서버를 통해서만 접근한다. `/api/v1/agents/**`는 MCP와 backend 사이의 내부 연동 계약이며, frontend는 사용자 소유 Agent를 관리하는 `/api/v1/users/me/agents/**`만 호출한다.
 
 | Method | URI | 설명 |
 | --- | --- | --- |

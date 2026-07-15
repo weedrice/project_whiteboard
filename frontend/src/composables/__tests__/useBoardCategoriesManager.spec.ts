@@ -57,7 +57,6 @@ function makeCategory(overrides: Partial<Category>): Category {
         categoryId: 1,
         name: 'General',
         sortOrder: 1,
-        isActive: true,
         minWriteRole: 'USER',
         ...overrides,
     }
@@ -181,7 +180,6 @@ describe('useBoardCategoriesManager', () => {
             sortOrder: 2,
             minWriteRole: 'BOARD_ADMIN',
             isDefault: undefined,
-            isActive: true,
         })
         expect(manager.categories.value[0].name).toBe('New')
         expect(manager.editingId.value).toBeNull()
@@ -225,14 +223,12 @@ describe('useBoardCategoriesManager', () => {
             sortOrder: 2,
             minWriteRole: 'USER',
             isDefault: undefined,
-            isActive: true,
         })
         expect(boardApi.updateCategory).toHaveBeenCalledWith('free-board', 2, {
             name: 'A',
             sortOrder: 3,
             minWriteRole: 'USER',
             isDefault: undefined,
-            isActive: true,
         })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({
             queryKey: ['board', 'categories', expect.any(Object)],

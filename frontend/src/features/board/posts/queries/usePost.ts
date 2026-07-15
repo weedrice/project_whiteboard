@@ -13,7 +13,6 @@ import {
 import { homeQueryKeys } from '@/composables/homeQueryKeys'
 import { userQueryKeys } from '@/composables/userQueryKeys'
 import { postDetailQueryKey, postQueryKeys } from '@/features/board/posts/queries/postQueryKeys'
-import { normalizePostReactionFlags, type PostReactionAlias } from '@/utils/postViewModel'
 import { withQuerySignal } from '@/utils/querySignal'
 
 export { postDetailQueryKey, postQueryKeys } from '@/features/board/posts/queries/postQueryKeys'
@@ -38,7 +37,7 @@ export function usePost() {
                         ...(requestConfig?.params || {}),
                     },
                 }))
-                return normalizePostReactionFlags(post as PostReactionAlias)
+                return post
             },
             enabled: computed(() => !!postId.value),
             ...queryOptions,
@@ -57,6 +56,20 @@ export function usePost() {
             ),
             enabled: computed(() => !!postId.value && (enabled?.value ?? true)),
             ...queryOptions,
+        })
+    }
+
+    const usePostVersions = (postId: Ref<string | number>, enabled: Ref<boolean>) => {
+        return useQuery({
+            queryKey: computed(() => postQueryKeys.versions(postId.value)),
+            queryFn: async (context?: { signal?: AbortSignal }) => unwrapAxiosApiData(
+                await postApi.getPostVersions(postId.value, withQuerySignal(
+                    { skipGlobalErrorHandler: true },
+                    context,
+                )),
+            ),
+            enabled: computed(() => Boolean(postId.value) && enabled.value),
+            retry: false,
         })
     }
 
@@ -267,6 +280,7 @@ export function usePost() {
     return {
         usePostDetail,
         useRelatedPosts,
+        usePostVersions,
         useCreatePost,
         useCreateScheduledPost,
         useUpdatePost,

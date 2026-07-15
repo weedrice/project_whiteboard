@@ -1,16 +1,20 @@
 import api from './index'
 import { mapApiDataResponse } from '@/api/response'
+import {
+    normalizePostSummary,
+    normalizePostSummaryPage,
+    type PostSummaryWire,
+} from '@/api/postContract'
 import type { AxiosRequestConfig } from 'axios'
 import type {
     ApiResponse,
-    PageResponse,
-    PostSummary,
     PopularKeyword,
     RecentSearchResponse,
     SearchParams,
     SemanticSearchResult,
     IntegratedSearchResponse
 } from '@/types'
+import type { PageResponseRaw } from '@/utils/pageResponse'
 
 interface PopularKeywordResponse {
     keywords: Array<{
@@ -22,18 +26,34 @@ interface PopularKeywordResponse {
 const toPopularKeywords = (response: PopularKeywordResponse): PopularKeyword[] =>
     response.keywords.map(({ keyword, count }) => ({ keyword, count }))
 
+type IntegratedSearchResponseWire = Omit<IntegratedSearchResponse, 'postResults'> & {
+    postResults: Omit<IntegratedSearchResponse['postResults'], 'items'> & {
+        items: PostSummaryWire[]
+    }
+}
+
+const normalizeIntegratedSearch = (response: IntegratedSearchResponseWire): IntegratedSearchResponse => ({
+    ...response,
+    postResults: {
+        ...response.postResults,
+        items: response.postResults.items.map(normalizePostSummary),
+    },
+})
+
 export const searchApi = {
     // General search
     search: (params: SearchParams, config?: AxiosRequestConfig) =>
-        api.get<ApiResponse<IntegratedSearchResponse>>('/search', { ...config, params }),
+        api.get<ApiResponse<IntegratedSearchResponseWire>>('/search', { ...config, params })
+            .then((response) => mapApiDataResponse(response, normalizeIntegratedSearch)),
 
     // Search posts
     searchPosts: (params: SearchParams, config?: AxiosRequestConfig) =>
-        api.get<ApiResponse<PageResponse<PostSummary>>>('/search/posts', { ...config, params }),
+        api.get<ApiResponse<PageResponseRaw<PostSummaryWire>>>('/search/posts', { ...config, params })
+            .then((response) => mapApiDataResponse(response, normalizePostSummaryPage)),
 
     // Semantic search
     semanticSearch: (params: SearchParams, config?: AxiosRequestConfig) =>
-        api.get<ApiResponse<PageResponse<SemanticSearchResult>>>('/search/semantic', { ...config, params }),
+        api.get<ApiResponse<PageResponseRaw<SemanticSearchResult>>>('/search/semantic', { ...config, params }),
 
     // Get popular keywords
     async getPopularKeywords(config?: AxiosRequestConfig) {

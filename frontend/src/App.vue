@@ -23,7 +23,7 @@ const AdminLayout = defineAsyncComponent(() => import('@/views/admin/AdminLayout
 
 const route = useRoute()
 const authStore = useAuthStore()
-const { locale, t } = useI18n()
+const { t } = useI18n()
 const queryClient = useQueryClient()
 const layout = computed(() => {
     return route.meta.layout === 'AdminLayout' ? AdminLayout : DefaultLayout
@@ -36,7 +36,7 @@ let stopAuthStorageSync: (() => void) | null = null
 
 useAppSeo(route, t)
 useAppSearchShortcut(route, t)
-const { loadSettings } = useAppUserSettingsSync(authStore, themeStore, queryClient, locale)
+const { loadSettings } = useAppUserSettingsSync(authStore, themeStore, queryClient)
 const { routeAnnouncement } = useRouteFocusManagement(route)
 
 onMounted(() => {

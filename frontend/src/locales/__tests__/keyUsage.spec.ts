@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { relative, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import messages from '../index'
+import englishMessages from '../en'
 
 type MessageRecord = Record<string, unknown>
 
@@ -17,6 +18,7 @@ const allowedTemplateCalls = [
   { template: 'user.pointsHistory.transaction.${transactionKind(item)}', keys: /^user\.pointsHistory\.transaction\.[^.]+$/ },
   { template: 'user.draftList.scheduledStatus.${post.status}', keys: /^user\.draftList\.scheduledStatus\.[^.]+$/ },
   { template: 'board.writePost.colorLabels.${colorLabelKeys[index]}', keys: /^board\.writePost\.colorLabels\.[^.]+$/ },
+  { template: 'board.postDetail.versionActions.${normalized}', keys: /^board\.postDetail\.versionActions\.(CREATE|MODIFY|DELETE)$/ },
   { template: 'admin.users.status.${status}', keys: /^admin\.users\.status\.[^.]+$/ },
   { template: 'admin.users.role.${role}', keys: /^admin\.users\.role\.[^.]+$/ },
   { template: 'admin.reports.status.${status}', keys: /^admin\.reports\.status\.[^.]+$/ },
@@ -77,7 +79,7 @@ function sourceEntries() {
 describe('i18n key usage guard', () => {
   const sources = sourceEntries()
   const koKeys = collectLeafKeys(messages.ko).sort()
-  const enKeys = collectLeafKeys(messages.en).sort()
+  const enKeys = collectLeafKeys(englishMessages).sort()
   const registeredKeys = new Set(koKeys)
 
   it('keeps Korean and English leaf keys in parity', () => {

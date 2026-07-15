@@ -43,6 +43,7 @@ describe('toPostDetailViewModel', () => {
       likeCount: 4,
       liked: false,
       scrapped: true,
+      lastReadCommentId: null,
       lastViewedAt: null,
       seriesNavigation: null,
       poll: null,
@@ -59,17 +60,15 @@ describe('toPostDetailViewModel', () => {
     })
   })
 
-  it('normalizes backend boolean names without changing the cached post shape', () => {
-    const backendPost = {
+  it('uses canonical reaction flags without changing the cached post shape', () => {
+    const normalizedPost = {
       ...basePost,
-      liked: undefined,
-      scrapped: undefined,
-      isLiked: true,
-      isScrapped: false,
+      liked: true,
+      scrapped: false,
       tags: undefined
-    } as Post & { isLiked: boolean; isScrapped: boolean }
+    } as Post
 
-    const viewModel = toPostDetailViewModel(backendPost)
+    const viewModel = toPostDetailViewModel(normalizedPost)
 
     expect(viewModel.liked).toBe(true)
     expect(viewModel.scrapped).toBe(false)

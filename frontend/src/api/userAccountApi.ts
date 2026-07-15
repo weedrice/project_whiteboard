@@ -1,7 +1,19 @@
 import api from '@/api'
 import type { AxiosRequestConfig } from 'axios'
-import type { ApiResponse, LoginHistory, MentionCandidate, PageResponse, PublicUserProfile, User, UserSession, UserSettings } from '@/types'
+import type {
+    ActionMessageResponse,
+    ApiResponse,
+    LoginHistory,
+    MentionCandidate,
+    PublicUserProfile,
+    UpdateProfileResponse,
+    User,
+    UserSession,
+    UserSettings,
+    UserSettingsUpdatePayload,
+} from '@/types'
 import { encodePathSegment } from '@/utils/urlPath'
+import type { PageResponseRaw } from '@/utils/pageResponse'
 
 export interface UserUpdatePayload {
     displayName?: string
@@ -67,7 +79,7 @@ export const userAccountApi = {
         })
     },
     updateMyProfile(data: UserUpdatePayload) {
-        return api.put<ApiResponse<User>>('/users/me', data)
+        return api.put<ApiResponse<UpdateProfileResponse>>('/users/me', data)
     },
     getMySessions(config?: AxiosRequestConfig) {
         return config
@@ -82,14 +94,14 @@ export const userAccountApi = {
     },
     getMyLoginHistory(params?: { page?: number, size?: number }, config?: AxiosRequestConfig) {
         return config
-            ? api.get<ApiResponse<PageResponse<LoginHistory>>>('/users/me/login-history', { ...config, params })
-            : api.get<ApiResponse<PageResponse<LoginHistory>>>('/users/me/login-history', { params })
+            ? api.get<ApiResponse<PageResponseRaw<LoginHistory>>>('/users/me/login-history', { ...config, params })
+            : api.get<ApiResponse<PageResponseRaw<LoginHistory>>>('/users/me/login-history', { params })
     },
     updatePassword(currentPassword: string, newPassword: string) {
-        return api.put<ApiResponse<void>>('/users/me/password', { currentPassword, newPassword })
+        return api.put<ApiResponse<ActionMessageResponse>>('/users/me/password', { currentPassword, newPassword })
     },
     deleteAccount(password: string) {
-        return api.delete<ApiResponse<void>>('/users/me', { data: { password } })
+        return api.delete<ApiResponse<ActionMessageResponse>>('/users/me', { data: { password } })
     },
     verifyEmail(payload: { email: string, verificationTicket: string }) {
         return api.post<ApiResponse<void>>('/users/me/email-verification', payload)
@@ -99,7 +111,7 @@ export const userAccountApi = {
             ? api.get<ApiResponse<UserSettings>>('/users/me/settings', config)
             : api.get<ApiResponse<UserSettings>>('/users/me/settings')
     },
-    updateUserSettings(data: Partial<UserSettings>) {
+    updateUserSettings(data: UserSettingsUpdatePayload) {
         return api.put<ApiResponse<UserSettings>>('/users/me/settings', data)
     },
     completeOnboarding() {

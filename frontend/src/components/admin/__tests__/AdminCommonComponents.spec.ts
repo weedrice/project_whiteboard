@@ -1,4 +1,4 @@
-import { mount } from '@vue/test-utils'
+import { mount, RouterLinkStub } from '@vue/test-utils'
 import { defineComponent } from 'vue'
 import { describe, expect, it, vi } from 'vitest'
 import AdminActionButton from '../AdminActionButton.vue'
@@ -260,6 +260,7 @@ describe('admin common components', () => {
     expect(mount(AdminContentState, {
       props: { empty: true, emptyText: 'No rows' },
       slots: { default: '<p>Loaded</p>' },
+      global: { stubs: { RouterLink: RouterLinkStub } },
     }).text()).toContain('No rows')
 
     expect(mount(AdminContentState, {

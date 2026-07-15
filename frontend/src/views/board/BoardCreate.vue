@@ -37,7 +37,16 @@ async function handleCreate(formData: BoardData) {
 
   await submit(async () => {
     try {
-      const board = await createBoard(formData as BoardCreateData)
+      const createData: BoardCreateData = {
+        boardName: formData.boardName,
+        boardUrl: formData.boardUrl,
+        description: formData.description,
+        iconUrl: formData.iconUrl,
+        isPublic: formData.isPublic,
+        agentUseYn: formData.agentUseYn,
+        guidePrompt: formData.guidePrompt,
+      }
+      const board = await createBoard(createData)
       router.push(`/board/${encodePathSegment(board.boardUrl)}`)
     } catch (err: unknown) {
       error.value = extractErrorMessage(err) || t('board.form.createFailed')

@@ -2,21 +2,21 @@ import api from '@/api'
 import type { AxiosRequestConfig } from 'axios'
 import type {
     ApiResponse,
+    ActionMessageResponse,
     DraftPostListResponse,
     MyComment,
-    PageResponse,
     PointHistory,
     PointHistoryResponse,
     PostSeries,
     PostSeriesPayload,
-    PostSummary,
     ScrapFolder,
     ScrapFolderPayload,
     ScrapListResponse,
     SubscriptionBoardListItem,
     UserPoint,
 } from '@/types'
-import { mapApiPageResponse } from '@/api/response'
+import { mapApiDataResponse, mapApiPageResponse } from '@/api/response'
+import { normalizePostSummaryPage, type PostSummaryWire } from '@/api/postContract'
 import { normalizePageResponse, type PageResponseRaw } from '@/utils/pageResponse'
 import { encodePathSegment } from '@/utils/urlPath'
 import {
@@ -38,10 +38,10 @@ interface SubscriptionParams extends PaginationParams {
 
 export const userActivityApi = {
     blockUser(userId: string | number) {
-        return api.post<ApiResponse<void>>(`/users/${encodePathSegment(userId)}/block`)
+        return api.post<ApiResponse<ActionMessageResponse>>(`/users/${encodePathSegment(userId)}/block`)
     },
     unblockUser(userId: string | number) {
-        return api.delete<ApiResponse<void>>(`/users/${encodePathSegment(userId)}/block`)
+        return api.delete<ApiResponse<ActionMessageResponse>>(`/users/${encodePathSegment(userId)}/block`)
     },
     getBlockList(params?: PaginationParams, config?: AxiosRequestConfig) {
         if (params) {
@@ -54,16 +54,18 @@ export const userActivityApi = {
             .then((response) => mapApiPageResponse(response, toBlockedUserPage))
     },
     getMyPosts(params: PaginationParams, config?: AxiosRequestConfig) {
-        return api.get<ApiResponse<PageResponse<PostSummary>>>('/users/me/posts', { ...config, params })
+        return api.get<ApiResponse<PageResponseRaw<PostSummaryWire>>>('/users/me/posts', { ...config, params })
+            .then((response) => mapApiDataResponse(response, normalizePostSummaryPage))
     },
     getMyComments(params: PaginationParams, config?: AxiosRequestConfig) {
-        return api.get<ApiResponse<PageResponse<MyComment>>>('/users/me/comments', { ...config, params })
+        return api.get<ApiResponse<PageResponseRaw<MyComment>>>('/users/me/comments', { ...config, params })
     },
     getPublicUserPosts(userId: string | number, params: PaginationParams, config?: AxiosRequestConfig) {
-        return api.get<ApiResponse<PageResponse<PostSummary>>>(`/users/${encodePathSegment(userId)}/posts`, { ...config, params })
+        return api.get<ApiResponse<PageResponseRaw<PostSummaryWire>>>(`/users/${encodePathSegment(userId)}/posts`, { ...config, params })
+            .then((response) => mapApiDataResponse(response, normalizePostSummaryPage))
     },
     getPublicUserComments(userId: string | number, params: PaginationParams, config?: AxiosRequestConfig) {
-        return api.get<ApiResponse<PageResponse<MyComment>>>(`/users/${encodePathSegment(userId)}/comments`, { ...config, params })
+        return api.get<ApiResponse<PageResponseRaw<MyComment>>>(`/users/${encodePathSegment(userId)}/comments`, { ...config, params })
     },
     getMyScraps(params: PaginationParams, config?: AxiosRequestConfig) {
         return api.get<ApiResponse<ScrapListResponse>>('/users/me/scraps', { ...config, params })
@@ -97,10 +99,11 @@ export const userActivityApi = {
         return api.get<ApiResponse<DraftPostListResponse>>('/users/me/drafts', { ...config, params })
     },
     getRecentlyViewedPosts(params: PaginationParams, config?: AxiosRequestConfig) {
-        return api.get<ApiResponse<PageResponse<PostSummary>>>('/users/me/history/views', { ...config, params })
+        return api.get<ApiResponse<PageResponseRaw<PostSummaryWire>>>('/users/me/history/views', { ...config, params })
+            .then((response) => mapApiDataResponse(response, normalizePostSummaryPage))
     },
     getMySubscriptions(params: SubscriptionParams, config?: AxiosRequestConfig) {
-        return api.get<ApiResponse<PageResponse<SubscriptionBoardListItem>>>('/users/me/subscriptions', { ...config, params })
+        return api.get<ApiResponse<PageResponseRaw<SubscriptionBoardListItem>>>('/users/me/subscriptions', { ...config, params })
     },
     getMyPoint() {
         return api.get<ApiResponse<UserPoint>>('/points/me')

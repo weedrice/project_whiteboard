@@ -40,7 +40,7 @@ class KeywordNotificationEventListenerTest {
         Transactional transactional = method.getAnnotation(Transactional.class);
 
         assertThat(async).isNotNull();
-        assertThat(async.value()).isEqualTo("taskExecutor");
+        assertThat(async.value()).isEqualTo("notificationTaskExecutor");
         assertThat(listener.phase()).isEqualTo(TransactionPhase.AFTER_COMMIT);
         assertThat(transactional.propagation()).isEqualTo(Propagation.REQUIRES_NEW);
     }

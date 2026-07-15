@@ -96,7 +96,7 @@ Useful targeted command:
 Backend test notes:
 
 - Tests use JUnit 5, Mockito, Spring Boot Test, Spring Security Test, and H2 in PostgreSQL mode.
-- `test` is configured with `ignoreFailures = true`, so do not trust `BUILD SUCCESSFUL` by itself.
+- `test` fails the Gradle task when tests fail; still confirm the actual test count, failure count, error count, and skipped count.
 - Always check the actual test count, failure count, error count, and skipped count.
 - For targeted verification after code changes, use `--rerun-tasks` so Gradle does not report stale `UP-TO-DATE` results as a real check.
 - Some test XML can be hard to parse because display names may contain broken encoding. If XML parsing fails, read the Gradle console summary or extract only `<testsuite ... tests/failures/errors/skipped>` attributes.

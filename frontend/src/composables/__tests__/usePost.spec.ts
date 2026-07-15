@@ -104,6 +104,7 @@ vi.mock('@tanstack/vue-query', () => ({
 vi.mock('@/api/post', () => ({
     postApi: {
         getPost: vi.fn(),
+        getPostVersions: vi.fn(),
         createPost: vi.fn(),
         updatePost: vi.fn(),
         deletePost: vi.fn(),
@@ -161,7 +162,12 @@ describe('usePost', () => {
 
     it('registers post detail query and fetches post data with incrementView', async () => {
         vi.mocked(postApi.getPost).mockResolvedValueOnce(
-            apiDataResponse<typeof postApi.getPost>({ postId: 1, title: 'Test Post' })
+            apiDataResponse<typeof postApi.getPost>({
+                postId: 1,
+                title: 'Test Post',
+                liked: false,
+                scrapped: false,
+            })
         )
 
         const { usePostDetail } = usePost()
@@ -193,13 +199,13 @@ describe('usePost', () => {
         expect(postApi.getPost).toHaveBeenCalledWith(1, { params: { incrementView: false } })
     })
 
-    it('normalizes post detail reaction aliases from the API response', async () => {
+    it('uses normalized post detail reaction flags from the API response', async () => {
         vi.mocked(postApi.getPost).mockResolvedValueOnce(
             apiDataResponse<typeof postApi.getPost>({
                 postId: 1,
                 title: 'Alias Post',
-                isLiked: true,
-                isScrapped: true,
+                liked: true,
+                scrapped: true,
             })
         )
 
@@ -223,6 +229,28 @@ describe('usePost', () => {
 
         const query = mocks.queryOptions.at(-1)!
         expect((query.enabled as ReturnType<typeof computed>).value).toBe(false)
+    })
+
+    it('loads post versions only when the history modal is enabled', async () => {
+        vi.mocked(postApi.getPostVersions).mockResolvedValueOnce(
+            apiDataResponse<typeof postApi.getPostVersions>([
+                { versionId: 3, actionType: 'MODIFY', title: 'Changed', createdAt: '2026-07-14T10:00:00' },
+            ]),
+        )
+        const { usePostVersions } = usePost()
+        const enabled = ref(false)
+        usePostVersions(ref(1), enabled)
+
+        const query = mocks.queryOptions.at(-1)!
+        expect((query.enabled as ReturnType<typeof computed>).value).toBe(false)
+
+        enabled.value = true
+        expect((query.enabled as ReturnType<typeof computed>).value).toBe(true)
+        await expect((query.queryFn as () => Promise<unknown>)()).resolves.toEqual([
+            { versionId: 3, actionType: 'MODIFY', title: 'Changed', createdAt: '2026-07-14T10:00:00' },
+        ])
+        expect(postApi.getPostVersions).toHaveBeenCalledWith(1, { skipGlobalErrorHandler: true })
+        expect(query.retry).toBe(false)
     })
 
     it('invalidates all board post list queries after create', async () => {

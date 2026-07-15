@@ -9,7 +9,7 @@ import PageHeader from '@/components/common/ui/PageHeader.vue'
 import UserSelectModal from '@/components/common/widgets/UserSelectModal.vue'
 import AdminAuditLogTable from '@/components/admin/AdminAuditLogTable.vue'
 import { boardApi } from '@/api/board'
-import { unwrapAxiosApiData } from '@/api/response'
+import { unwrapAxiosApiPageData } from '@/api/response'
 import { useBoardEditPage } from '@/composables/useBoardEditPage'
 import type { ModerationAuditLog } from '@/types'
 
@@ -42,7 +42,7 @@ watch([boardUrl, canManageBoard], async ([nextBoardUrl, manageable]) => {
   if (!manageable || !nextBoardUrl || typeof boardApi.getManagerAudits !== 'function') return
 
   try {
-    const page = unwrapAxiosApiData(await boardApi.getManagerAudits(nextBoardUrl, managerAuditParams.value))
+    const page = unwrapAxiosApiPageData(await boardApi.getManagerAudits(nextBoardUrl, managerAuditParams.value))
     if (loadId === managerAuditLoadId) {
       managerAuditLogs.value = page.content
     }

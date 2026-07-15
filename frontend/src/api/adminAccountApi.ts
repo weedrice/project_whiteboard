@@ -1,6 +1,8 @@
 import api from '@/api'
 import type { AxiosRequestConfig } from 'axios'
 import type { ApiResponse, BoardAdminInfo, PageResponse, SuperAdminInfo } from '@/types'
+import { mapApiDataResponse } from '@/api/response'
+import { normalizePageResponseItems, type PageResponseRaw } from '@/utils/pageResponse'
 import { encodePathSegment } from '@/utils/urlPath'
 import {
     getWithOptionalConfig,
@@ -10,12 +12,47 @@ import {
     type SuperAdminData,
 } from '@/api/adminTypes'
 
+export interface BoardAdminInfoWire extends Omit<BoardAdminInfo, 'isActive'> {
+    active: boolean
+}
+
+export interface SuperAdminInfoWire extends Omit<SuperAdminInfo, 'isSuperAdmin'> {
+    superAdmin: boolean
+}
+
+export interface SuperAdminStatusResponse {
+    loginId: string
+    isSuperAdmin: boolean
+}
+
+interface SuperAdminStatusResponseWire extends Omit<SuperAdminStatusResponse, 'isSuperAdmin'> {
+    superAdmin: boolean
+}
+
+export const normalizeBoardAdmin = (admin: BoardAdminInfoWire): BoardAdminInfo => ({
+    ...admin,
+    isActive: admin.active,
+})
+
+export const normalizeSuperAdmin = (admin: SuperAdminInfoWire): SuperAdminInfo => ({
+    ...admin,
+    isSuperAdmin: admin.superAdmin,
+})
+
+const normalizeSuperAdminStatus = (admin: SuperAdminStatusResponseWire): SuperAdminStatusResponse => ({
+    ...admin,
+    isSuperAdmin: admin.superAdmin,
+})
+
 export const adminAccountApi = {
-    getAdmins(params: PaginationParams, config?: AxiosRequestConfig) {
-        return api.get<ApiResponse<PageResponse<BoardAdminInfo>>>('/admin/admins', { ...config, params })
+    async getAdmins(params: PaginationParams, config?: AxiosRequestConfig) {
+        const response = await api.get<ApiResponse<PageResponseRaw<BoardAdminInfoWire>>>('/admin/admins', { ...config, params })
+        return mapApiDataResponse(response, (page): PageResponse<BoardAdminInfo> =>
+            normalizePageResponseItems(page, normalizeBoardAdmin))
     },
-    createAdmin(data: AdminCreateData) {
-        return api.post<ApiResponse<BoardAdminInfo>>('/admin/admins', data)
+    async createAdmin(data: AdminCreateData) {
+        const response = await api.post<ApiResponse<BoardAdminInfoWire>>('/admin/admins', data)
+        return mapApiDataResponse(response, normalizeBoardAdmin)
     },
     deactivateAdmin(adminId: string | number) {
         return api.put<ApiResponse<void>>(`/admin/admins/${encodePathSegment(adminId)}/deactivate`)
@@ -23,19 +60,24 @@ export const adminAccountApi = {
     activateAdmin(adminId: string | number) {
         return api.put<ApiResponse<void>>(`/admin/admins/${encodePathSegment(adminId)}/activate`)
     },
-    getBoardManager(boardId: number, config?: AxiosRequestConfig) {
-        return getWithOptionalConfig<ApiResponse<BoardAdminInfo | null>>(`/admin/boards/${encodePathSegment(boardId)}/manager`, config)
+    async getBoardManager(boardId: number, config?: AxiosRequestConfig) {
+        const response = await getWithOptionalConfig<ApiResponse<BoardAdminInfoWire | null>>(`/admin/boards/${encodePathSegment(boardId)}/manager`, config)
+        return mapApiDataResponse(response, (admin) => admin ? normalizeBoardAdmin(admin) : null)
     },
-    updateBoardManager(boardId: number, data: BoardManagerUpdateData) {
-        return api.put<ApiResponse<BoardAdminInfo>>(`/admin/boards/${encodePathSegment(boardId)}/manager`, data)
+    async updateBoardManager(boardId: number, data: BoardManagerUpdateData) {
+        const response = await api.put<ApiResponse<BoardAdminInfoWire>>(`/admin/boards/${encodePathSegment(boardId)}/manager`, data)
+        return mapApiDataResponse(response, normalizeBoardAdmin)
     },
-    getSuperAdmin(config?: AxiosRequestConfig) {
-        return getWithOptionalConfig<ApiResponse<SuperAdminInfo[]>>('/admin/super', config)
+    async getSuperAdmin(config?: AxiosRequestConfig) {
+        const response = await getWithOptionalConfig<ApiResponse<SuperAdminInfoWire[]>>('/admin/super', config)
+        return mapApiDataResponse(response, (admins) => admins.map(normalizeSuperAdmin))
     },
-    activeSuperAdmin(data: SuperAdminData) {
-        return api.put<ApiResponse<void>>('/admin/super/active', data)
+    async activeSuperAdmin(data: SuperAdminData) {
+        const response = await api.put<ApiResponse<SuperAdminStatusResponseWire>>('/admin/super/active', data)
+        return mapApiDataResponse(response, normalizeSuperAdminStatus)
     },
-    deactivateSuperAdmin(data: SuperAdminData) {
-        return api.put<ApiResponse<void>>('/admin/super/deactive', data)
+    async deactivateSuperAdmin(data: SuperAdminData) {
+        const response = await api.put<ApiResponse<SuperAdminStatusResponseWire>>('/admin/super/deactive', data)
+        return mapApiDataResponse(response, normalizeSuperAdminStatus)
     },
 }

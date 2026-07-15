@@ -2,6 +2,30 @@ export * from './common'
 export * from './community'
 export * from './admin'
 
+export interface ShopMessages {
+  title: string
+  description: string
+  currentPoints: string
+  loginHint: string
+  loginToPurchase: string
+  itemType: string
+  price: string
+  purchase: string
+  purchasing: string
+  purchaseConfirm: string
+  purchaseSuccess: string
+  purchaseFailed: string
+  insufficientPoints: string
+  empty: string
+  purchases: {
+    title: string
+    empty: string
+    purchasedAt: string
+    purchasedPrice: string
+    imageAlt: string
+  }
+}
+
 import type {
   CommonMessages,
   HomeMessages,
@@ -51,6 +75,7 @@ export interface Messages {
   admin: AdminMessages
   onboarding: OnboardingMessages
   privacy: PrivacyPolicyMessages
+  shop: ShopMessages
 }
 
 export type SupportedLocale = 'ko' | 'en'

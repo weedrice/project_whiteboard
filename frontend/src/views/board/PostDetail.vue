@@ -11,6 +11,7 @@ import PostDetailErrorState from '@/components/board/PostDetailErrorState.vue'
 import PostDetailHeader from '@/components/board/PostDetailHeader.vue'
 import PostDetailQuickActions from '@/components/board/PostDetailQuickActions.vue'
 import PostDetailSkeleton from '@/components/board/PostDetailSkeleton.vue'
+import PostVersionHistoryModal from '@/components/board/PostVersionHistoryModal.vue'
 import PostRelatedSection from '@/components/board/PostRelatedSection.vue'
 import ReportModal from '@/components/report/ReportModal.vue'
 import { usePost } from '@/features/board/posts/queries/usePost'
@@ -23,6 +24,7 @@ import { usePostDetailSeo } from '@/features/board/posts/detail/usePostDetailSeo
 import { usePostDetailUiEffects } from '@/features/board/posts/detail/usePostDetailUiEffects'
 import { usePostDetailViewModel } from '@/features/board/posts/detail/usePostDetailViewModel'
 import { usePostContentViewRef } from '@/features/board/posts/detail/usePostContentViewRef'
+import { usePostViewHistory } from '@/features/board/posts/detail/usePostViewHistory'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import { notificationApi } from '@/api/notification'
@@ -51,6 +53,7 @@ const {
   useUnpinPostByManager,
   useBlindPostByManager,
   useUnblindPostByManager,
+  usePostVersions,
 } = usePost()
 
 const postId = computed(() => route.params.postId as string)
@@ -87,6 +90,7 @@ const currentUserId = computed(() => authStore.user?.userId)
 const isAuthenticated = computed(() => authStore.isAuthenticated)
 const authIsAdmin = computed(() => authStore.isAdmin)
 const {
+  isAuthor,
   isAgentAuthor,
   canEdit,
   canDelete,
@@ -279,6 +283,22 @@ const stopCommentStreamListener = onCommentStreamEvent((event) => {
   if (event.action !== 'CREATED' || event.actorUserId === currentUserId.value) return
   pendingCommentCount.value += 1
 })
+const canViewHistory = computed(() => isAuthor.value || canManage.value)
+const isVersionHistoryOpen = ref(false)
+const versionQueryEnabled = computed(() => isVersionHistoryOpen.value && canViewHistory.value)
+const {
+  data: postVersions,
+  isLoading: isPostVersionsLoading,
+  isError: isPostVersionsError,
+  refetch: refetchPostVersions,
+} = usePostVersions(postId, versionQueryEnabled)
+const viewHistoryEnabled = computed(() => isAuthenticated.value && Boolean(post.value) && !error.value)
+const initialLastReadCommentId = computed(() => postView.value?.lastReadCommentId)
+const { setLastReadCommentId } = usePostViewHistory({
+  postId,
+  enabled: viewHistoryEnabled,
+  initialLastReadCommentId,
+})
 
 watch([postId, isAuthenticated], ([nextPostId, authenticated]) => {
   pendingCommentCount.value = 0
@@ -317,12 +337,14 @@ onBeforeUnmount(() => {
           :can-edit="canEdit"
           :can-delete="canDelete"
           :can-manage="canManage"
+          :can-view-history="canViewHistory"
           @back-to-list="router.push(buildBoardListRoute(postView.boardUrl))"
           @delete="handleDelete"
           @pin="handleManagerPin"
           @unpin="handleManagerUnpin"
           @blind="handleManagerBlind"
           @unblind="handleManagerUnblind"
+          @show-history="isVersionHistoryOpen = true"
         />
 
         <div class="px-4 pt-5 lg:px-6">
@@ -356,6 +378,7 @@ onBeforeUnmount(() => {
                 :last-viewed-at="postView.lastViewedAt"
                 :pending-comment-count="pendingCommentCount"
                 @refresh-comments="refreshComments"
+                @last-read-comment="setLastReadCommentId"
               />
             </section>
           </article>
@@ -380,6 +403,15 @@ onBeforeUnmount(() => {
       :submitLabel="$t('common.submit')"
       submitVariant="danger"
       @close="showReportModal = false"
+    />
+
+    <PostVersionHistoryModal
+      :isOpen="isVersionHistoryOpen"
+      :versions="postVersions"
+      :is-loading="isPostVersionsLoading"
+      :is-error="isPostVersionsError"
+      @close="isVersionHistoryOpen = false"
+      @retry="refetchPostVersions()"
     />
   </div>
 </template>

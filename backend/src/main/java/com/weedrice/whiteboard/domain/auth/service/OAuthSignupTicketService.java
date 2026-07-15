@@ -1,34 +1,47 @@
 package com.weedrice.whiteboard.domain.auth.service;
 
-import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
 import com.weedrice.whiteboard.domain.auth.dto.OAuthSignupTicketResponse;
+import com.weedrice.whiteboard.domain.auth.entity.OAuthSignupTicketEntity;
+import com.weedrice.whiteboard.domain.auth.repository.OAuthSignupTicketRepository;
 import com.weedrice.whiteboard.global.common.util.TextInputNormalizer;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Service
+@RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class OAuthSignupTicketService {
 
     private static final int TICKET_LENGTH = 36;
+    private static final Duration TICKET_TTL = Duration.ofMinutes(10);
 
-    private final Cache<String, OAuthSignupTicket> tickets = Caffeine.newBuilder()
-            .expireAfterWrite(Duration.ofMinutes(10))
-            .maximumSize(10_000)
-            .build();
+    private final OAuthSignupTicketRepository ticketRepository;
+    private final TokenHashService tokenHashService;
+    private final Clock clock;
 
+    @Transactional
     public String issue(String email, String name, String provider, String providerId) {
         String ticket = UUID.randomUUID().toString();
-        tickets.put(ticket, new OAuthSignupTicket(email, name, provider, providerId));
+        ticketRepository.save(new OAuthSignupTicketEntity(
+                tokenHashService.hashSha256(ticket),
+                email,
+                name,
+                provider,
+                providerId,
+                now().plus(TICKET_TTL)));
         return ticket;
     }
 
     public OAuthSignupTicketResponse getResponse(String ticket) {
-        OAuthSignupTicket payload = get(ticket);
+        OAuthSignupTicket payload = getActive(ticket, false);
         return OAuthSignupTicketResponse.builder()
                 .email(payload.email())
                 .name(payload.name())
@@ -36,19 +49,34 @@ public class OAuthSignupTicketService {
                 .build();
     }
 
+    @Transactional
     public OAuthSignupTicket consume(String ticket) {
-        OAuthSignupTicket payload = get(ticket);
-        tickets.invalidate(ticket);
+        OAuthSignupTicketEntity entity = getActiveEntity(ticket, true);
+        OAuthSignupTicket payload = toPayload(entity);
+        ticketRepository.delete(entity);
         return payload;
     }
 
-    private OAuthSignupTicket get(String ticket) {
+    @Transactional
+    public int deleteExpiredTickets() {
+        return ticketRepository.deleteExpiredAtOrBefore(now());
+    }
+
+    private OAuthSignupTicket getActive(String ticket, boolean forUpdate) {
+        return toPayload(getActiveEntity(ticket, forUpdate));
+    }
+
+    private OAuthSignupTicketEntity getActiveEntity(String ticket, boolean forUpdate) {
         String normalizedTicket = normalizeTicket(ticket);
-        OAuthSignupTicket payload = tickets.getIfPresent(normalizedTicket);
-        if (payload == null) {
+        String ticketHash = tokenHashService.hashSha256(normalizedTicket);
+        OAuthSignupTicketEntity entity = (forUpdate
+                ? ticketRepository.findByTicketHashForUpdate(ticketHash)
+                : ticketRepository.findById(ticketHash))
+                .orElseThrow(this::invalidTicket);
+        if (entity.isExpiredAt(now())) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
-        return payload;
+        return entity;
     }
 
     private String normalizeTicket(String ticket) {
@@ -59,6 +87,22 @@ public class OAuthSignupTicketService {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
         return normalizedTicket;
+    }
+
+    private OAuthSignupTicket toPayload(OAuthSignupTicketEntity entity) {
+        return new OAuthSignupTicket(
+                entity.getEmail(),
+                entity.getDisplayName(),
+                entity.getProvider(),
+                entity.getProviderId());
+    }
+
+    private BusinessException invalidTicket() {
+        return new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+    }
+
+    private LocalDateTime now() {
+        return LocalDateTime.now(clock);
     }
 
     public record OAuthSignupTicket(String email, String name, String provider, String providerId) {

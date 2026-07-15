@@ -35,7 +35,7 @@ public class KeywordNotificationEventListener {
     private final UserBlockService userBlockService;
 
     @Order(Ordered.LOWEST_PRECEDENCE)
-    @Async("taskExecutor")
+    @Async("notificationTaskExecutor")
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void handlePostPublished(PostPublishedEvent event) {

@@ -14,6 +14,16 @@ vi.mock('../index', () => ({
 
 import { adminApi } from '../admin'
 import type { BoardCreateData, BoardUpdateData } from '@/types'
+import { apiEmptySuccess, axiosApiResponse } from '@/test/factories'
+
+beforeEach(() => {
+    const emptyResponse = axiosApiResponse(apiEmptySuccess())
+    apiMock.get.mockReset().mockResolvedValue(emptyResponse)
+    apiMock.post.mockReset().mockResolvedValue(emptyResponse)
+    apiMock.put.mockReset().mockResolvedValue(emptyResponse)
+    apiMock.delete.mockReset().mockResolvedValue(emptyResponse)
+    apiMock.patch.mockReset().mockResolvedValue(emptyResponse)
+})
 
 describe('adminApi - Error Log Management', () => {
     beforeEach(() => {

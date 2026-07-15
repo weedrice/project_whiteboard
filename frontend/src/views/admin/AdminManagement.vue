@@ -39,12 +39,8 @@ interface SuperAdminRow {
   createdAt: string
 }
 
-type SuperAdminInfoWithLegacyFlag = SuperAdminInfo & {
-  superAdmin?: boolean
-}
-
-const toSuperAdminRow = (admin: SuperAdminInfoWithLegacyFlag): SuperAdminRow => {
-  const superAdmin = admin.superAdmin ?? admin.isSuperAdmin
+const toSuperAdminRow = (admin: SuperAdminInfo): SuperAdminRow => {
+  const superAdmin = admin.isSuperAdmin
   return {
     userId: admin.userId,
     loginId: admin.loginId,

@@ -44,7 +44,7 @@ public class FileDeletionWorker {
         processingFileIds.remove(fileId);
     }
 
-    @Async("taskExecutor")
+    @Async("durableTaskExecutor")
     public void processDeletion(Long fileId) {
         try {
             FileDeletionSnapshot snapshot = claimDeletion(fileId);

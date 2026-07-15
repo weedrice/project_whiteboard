@@ -1,8 +1,15 @@
 import api from './index'
-import type { AxiosRequestConfig } from 'axios'
+import type { AxiosRequestConfig, AxiosResponse } from 'axios'
+import { mapApiDataResponse } from '@/api/response'
+import {
+    normalizePostSummaryList,
+    normalizePostSummaryPage,
+    normalizeBoardDetail,
+    type BoardDetailWire,
+    type PostSummaryWire,
+} from '@/api/postContract'
 import type {
     ApiResponse,
-    PageResponse,
     BoardCreateData,
     BoardDetail,
     BoardListItem,
@@ -12,8 +19,8 @@ import type {
     Category,
     ModerationAuditLog,
     ModerationAuditSearchParams,
-    PostSummary
 } from '@/types'
+import type { PageResponseRaw } from '@/utils/pageResponse'
 import { encodePathSegment } from '@/utils/urlPath'
 
 interface PostsParams {
@@ -24,20 +31,16 @@ interface PostsParams {
     sort?: string
 }
 
-interface CategoryCreateData {
+export interface CategoryWriteData {
     name: string
-    sortOrder?: number
+    sortOrder: number
     minWriteRole?: string
     isDefault?: boolean
 }
 
-interface CategoryUpdateData {
-    name?: string
-    sortOrder?: number
-    isActive?: boolean
-    minWriteRole?: string
-    isDefault?: boolean
-}
+const mapBoardDetailResponse = (
+    response: AxiosResponse<ApiResponse<BoardDetailWire>>,
+): AxiosResponse<ApiResponse<BoardDetail>> => mapApiDataResponse(response, normalizeBoardDetail)
 
 interface BoardManagerTransferData {
     loginId: string
@@ -75,10 +78,12 @@ export const boardApi = {
         }),
 
     // Get board details
-    getBoard: (boardUrl: string, config?: AxiosRequestConfig) => api.get<ApiResponse<BoardDetail>>(`/boards/${encodePathSegment(boardUrl)}`, config),
+    getBoard: (boardUrl: string, config?: AxiosRequestConfig) =>
+        api.get<ApiResponse<BoardDetailWire>>(`/boards/${encodePathSegment(boardUrl)}`, config).then(mapBoardDetailResponse),
 
     // Create a new board
-    createBoard: (data: BoardCreateData) => api.post<ApiResponse<BoardDetail>>('/boards', data),
+    createBoard: (data: BoardCreateData) =>
+        api.post<ApiResponse<BoardDetailWire>>('/boards', data).then(mapBoardDetailResponse),
 
     // Ensure inquiry board exists (create if absent)
     ensureInquiryBoard: (boardUrl?: string, config?: AxiosRequestConfig) =>
@@ -92,7 +97,8 @@ export const boardApi = {
 
     // Get posts in a board
     getPosts: (boardUrl: string, params: PostsParams, config?: AxiosRequestConfig) =>
-        api.get<ApiResponse<PageResponse<PostSummary>>>(`/boards/${encodePathSegment(boardUrl)}/posts`, { ...config, params }),
+        api.get<ApiResponse<PageResponseRaw<PostSummaryWire>>>(`/boards/${encodePathSegment(boardUrl)}/posts`, { ...config, params })
+            .then((response) => mapApiDataResponse(response, normalizePostSummaryPage)),
 
     // Get board categories
     getCategories: (boardUrl: string, config?: AxiosRequestConfig) =>
@@ -101,27 +107,28 @@ export const boardApi = {
             : api.get<ApiResponse<Category[]>>(`/boards/${encodePathSegment(boardUrl)}/categories`),
 
     // Update board
-    updateBoard: (boardUrl: string, data: BoardUpdateData) => api.put<ApiResponse<BoardDetail>>(`/boards/${encodePathSegment(boardUrl)}`, data),
+    updateBoard: (boardUrl: string, data: BoardUpdateData) =>
+        api.put<ApiResponse<BoardDetailWire>>(`/boards/${encodePathSegment(boardUrl)}`, data).then(mapBoardDetailResponse),
 
     // Transfer board manager
     updateBoardManager: (boardUrl: string, data: BoardManagerTransferData) =>
-        api.put<ApiResponse<BoardDetail>>(`/boards/${encodePathSegment(boardUrl)}/manager`, data),
+        api.put<ApiResponse<BoardDetailWire>>(`/boards/${encodePathSegment(boardUrl)}/manager`, data).then(mapBoardDetailResponse),
 
     // Get board manager candidates
     getBoardManagerCandidates: (boardUrl: string, params: BoardManagerCandidateParams, config?: AxiosRequestConfig) =>
-        api.get<ApiResponse<PageResponse<BoardManagerCandidate>>>(`/boards/${encodePathSegment(boardUrl)}/manager-candidates`, { ...config, params }),
+        api.get<ApiResponse<PageResponseRaw<BoardManagerCandidate>>>(`/boards/${encodePathSegment(boardUrl)}/manager-candidates`, { ...config, params }),
 
     getManagerAudits: (boardUrl: string, params: ModerationAuditSearchParams, config?: AxiosRequestConfig) =>
-        api.get<ApiResponse<PageResponse<ModerationAuditLog>>>(`/boards/${encodePathSegment(boardUrl)}/manager/audits`, { ...config, params }),
+        api.get<ApiResponse<PageResponseRaw<ModerationAuditLog>>>(`/boards/${encodePathSegment(boardUrl)}/manager/audits`, { ...config, params }),
 
     // Delete board
     deleteBoard: (boardUrl: string) => api.delete<ApiResponse<void>>(`/boards/${encodePathSegment(boardUrl)}`),
 
     // Create category
-    createCategory: (boardUrl: string, data: CategoryCreateData) => api.post<ApiResponse<Category>>(`/boards/${encodePathSegment(boardUrl)}/categories`, data),
+    createCategory: (boardUrl: string, data: CategoryWriteData) => api.post<ApiResponse<Category>>(`/boards/${encodePathSegment(boardUrl)}/categories`, data),
 
     // Update category
-    updateCategory: (_boardUrl: string, categoryId: string | number, data: CategoryUpdateData) => api.put<ApiResponse<Category>>(`/boards/categories/${encodePathSegment(categoryId)}`, data),
+    updateCategory: (_boardUrl: string, categoryId: string | number, data: CategoryWriteData) => api.put<ApiResponse<Category>>(`/boards/categories/${encodePathSegment(categoryId)}`, data),
 
     // Delete category
     deleteCategory: (_boardUrl: string, categoryId: string | number) => api.delete<ApiResponse<void>>(`/boards/categories/${encodePathSegment(categoryId)}`),
@@ -129,8 +136,10 @@ export const boardApi = {
     // Get board notices
     getNotices: (boardUrl: string, config?: AxiosRequestConfig) =>
         config
-            ? api.get<ApiResponse<PostSummary[]>>(`/boards/${encodePathSegment(boardUrl)}/notices`, config)
-            : api.get<ApiResponse<PostSummary[]>>(`/boards/${encodePathSegment(boardUrl)}/notices`),
+            ? api.get<ApiResponse<PostSummaryWire[]>>(`/boards/${encodePathSegment(boardUrl)}/notices`, config)
+                .then((response) => mapApiDataResponse(response, normalizePostSummaryList))
+            : api.get<ApiResponse<PostSummaryWire[]>>(`/boards/${encodePathSegment(boardUrl)}/notices`)
+                .then((response) => mapApiDataResponse(response, normalizePostSummaryList)),
 
     // Subscribe to board
     subscribeBoard: (boardUrl: string, config?: AxiosRequestConfig) =>

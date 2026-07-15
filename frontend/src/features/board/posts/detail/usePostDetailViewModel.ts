@@ -1,6 +1,5 @@
 import { computed, type Ref } from 'vue'
 import type { BadgeCompact, Post } from '@/types'
-import { normalizePostReactionFlags } from '@/utils/postViewModel'
 
 export interface PostDetailViewModel {
   postId: number
@@ -12,6 +11,7 @@ export interface PostDetailViewModel {
   likeCount: number
   liked: boolean
   scrapped: boolean
+  lastReadCommentId?: number | null
   lastViewedAt?: string | null
   tags: string[]
   boardName: string
@@ -28,8 +28,6 @@ export interface PostDetailViewModel {
 }
 
 export function toPostDetailViewModel(post: Post): PostDetailViewModel {
-  const normalizedPost = normalizePostReactionFlags(post)
-
   return {
     postId: post.postId,
     title: post.title,
@@ -38,8 +36,9 @@ export function toPostDetailViewModel(post: Post): PostDetailViewModel {
     viewCount: post.viewCount,
     commentCount: post.commentCount,
     likeCount: post.likeCount,
-    liked: normalizedPost.liked ?? false,
-    scrapped: normalizedPost.scrapped ?? false,
+    liked: post.liked ?? false,
+    scrapped: post.scrapped ?? false,
+    lastReadCommentId: post.lastReadCommentId ?? null,
     lastViewedAt: post.lastViewedAt ?? null,
     tags: post.tags ?? [],
     boardName: post.board.boardName,

@@ -6,10 +6,16 @@ import CommentItem from '../CommentItem.vue'
 
 const useRepliesMock = vi.fn()
 const useAuthStoreMock = vi.fn()
+const toggleCommentLikeMock = vi.fn()
+const routerPushMock = vi.fn()
 
 vi.mock('@/composables/useComment', () => ({
     useComment: () => ({
         useReplies: useRepliesMock,
+        useToggleCommentLike: () => ({
+            mutate: toggleCommentLikeMock,
+            isPending: ref(false),
+        }),
     }),
 }))
 
@@ -23,7 +29,7 @@ vi.mock('vue-router', async (importOriginal) => {
     return {
         ...actual,
         useRouter: () => ({
-            push: vi.fn(),
+            push: routerPushMock,
         }),
     }
 })
@@ -185,7 +191,8 @@ describe('CommentItem', () => {
         const enabled = useRepliesMock.mock.calls[0][2]
         expect((enabled as ReturnType<typeof computed>).value).toBe(true)
 
-        await wrapper.get('button').trigger('click')
+        const repliesToggle = wrapper.findAll('button').find((button) => button.text() === commentLocale.hideReplies)
+        await repliesToggle?.trigger('click')
         await flushPromises()
 
         expect((enabled as ReturnType<typeof computed>).value).toBe(false)
@@ -342,6 +349,86 @@ describe('CommentItem', () => {
         expect(wrapper.findAll('button').some((button) => button.text() === commentLocale.reply)).toBe(false)
         expect(wrapper.text()).not.toContain('common.edit')
         expect(wrapper.text()).not.toContain('common.delete')
+    })
+
+    it('optimistically requests a like for an authenticated user', async () => {
+        useAuthStoreMock.mockReturnValueOnce({
+            isAuthenticated: true,
+            user: { userId: 9 },
+        })
+
+        const wrapper = mount(CommentItem, {
+            props: {
+                comment: {
+                    commentId: 1,
+                    content: 'comment',
+                    author: { userId: 1, displayName: 'author', authorType: 'USER' },
+                    likeCount: 2,
+                    liked: false,
+                    isDeleted: false,
+                    createdAt: '2026-04-20T12:00:00',
+                    hasReplies: false,
+                    replyCount: 0,
+                    children: [],
+                },
+                postId: 100,
+                boardUrl: 'free',
+            },
+            global: {
+                mocks: { $t: (key: string) => key },
+                stubs: {
+                    UserMenu: { props: ['displayName'], template: '<span>{{ displayName }}</span>' },
+                    CommentForm: { template: '<div />' },
+                },
+            },
+        })
+
+        const likeButton = wrapper.get('[aria-label="comment.like"]')
+        expect(likeButton.attributes('aria-pressed')).toBe('false')
+        expect(likeButton.text()).toContain('2')
+
+        await likeButton.trigger('click')
+
+        expect(toggleCommentLikeMock).toHaveBeenCalledWith({
+            commentId: 1,
+            postId: 100,
+            liked: true,
+        })
+    })
+
+    it('redirects an anonymous like attempt back to the post after login', async () => {
+        const wrapper = mount(CommentItem, {
+            props: {
+                comment: {
+                    commentId: 1,
+                    content: 'comment',
+                    author: { userId: 1, displayName: 'author', authorType: 'USER' },
+                    likeCount: 0,
+                    isDeleted: false,
+                    createdAt: '2026-04-20T12:00:00',
+                    hasReplies: false,
+                    replyCount: 0,
+                    children: [],
+                },
+                postId: 100,
+                boardUrl: 'free board',
+            },
+            global: {
+                mocks: { $t: (key: string) => key },
+                stubs: {
+                    UserMenu: { props: ['displayName'], template: '<span>{{ displayName }}</span>' },
+                    CommentForm: { template: '<div />' },
+                },
+            },
+        })
+
+        await wrapper.get('[aria-label="comment.like"]').trigger('click')
+
+        expect(routerPushMock).toHaveBeenCalledWith({
+            name: 'login',
+            query: { redirect: '/board/free%20board/post/100' },
+        })
+        expect(toggleCommentLikeMock).not.toHaveBeenCalled()
     })
 
     it('shows a reply target and caps visual indentation for deep replies', () => {

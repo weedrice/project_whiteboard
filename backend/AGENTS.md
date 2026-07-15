@@ -186,7 +186,7 @@ Test notes:
 
 - Tests use JUnit 5, Mockito, Spring Boot Test, Spring Security Test, and H2
 - H2 runs in PostgreSQL mode, which helps but does not fully replace PostgreSQL behavior
-- `test` currently uses `ignoreFailures = true`; always inspect the actual test summary
+- `test` fails the Gradle task when tests fail; still inspect the actual test summary and XML counts
 - Use `--rerun-tasks` for targeted verification after edits when you need proof that tests actually executed instead of being reported as `UP-TO-DATE`
 - Do not rely on `BUILD SUCCESSFUL`; confirm the Gradle summary and/or test result attributes for `failures` and `errors`
 - Some generated test XML can fail strict XML parsing when display names are garbled. If that happens, extract only the first `<testsuite ...>` line with text/regex and read `tests`, `failures`, `errors`, and `skipped`

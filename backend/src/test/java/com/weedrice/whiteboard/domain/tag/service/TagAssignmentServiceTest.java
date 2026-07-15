@@ -61,7 +61,8 @@ class TagAssignmentServiceTest {
         Tag savedTag = new Tag("newTag");
         ReflectionTestUtils.setField(savedTag, "tagId", 20L);
         when(tagRepository.findByTagNameInForUpdate(Collections.singleton("newTag")))
-                .thenReturn(List.of(), List.of(savedTag));
+                .thenReturn(List.of())
+                .thenReturn(List.of(savedTag));
 
         tagAssignmentService.assignTags(post, Collections.singletonList("newTag"));
 
@@ -77,7 +78,8 @@ class TagAssignmentServiceTest {
         Tag concurrentlyCreatedTag = new Tag("newTag");
         ReflectionTestUtils.setField(concurrentlyCreatedTag, "tagId", 20L);
         when(tagRepository.findByTagNameInForUpdate(Collections.singleton("newTag")))
-                .thenReturn(List.of(), List.of(concurrentlyCreatedTag));
+                .thenReturn(List.of())
+                .thenReturn(List.of(concurrentlyCreatedTag));
         when(tagRepository.insertIgnoreAll(List.of("newTag"))).thenReturn(0);
 
         tagAssignmentService.assignTags(post, Collections.singletonList("newTag"));
@@ -97,7 +99,8 @@ class TagAssignmentServiceTest {
         ReflectionTestUtils.setField(zuluTag, "tagId", 22L);
         Set<String> requestedTags = new LinkedHashSet<>(Arrays.asList("zulu", "alpha"));
         when(tagRepository.findByTagNameInForUpdate(requestedTags))
-                .thenReturn(List.of(), List.of(alphaTag, zuluTag));
+                .thenReturn(List.of())
+                .thenReturn(List.of(alphaTag, zuluTag));
 
         tagAssignmentService.assignTags(post, Arrays.asList("zulu", "alpha"));
 
@@ -110,7 +113,8 @@ class TagAssignmentServiceTest {
     void assignTags_preservesDuplicateErrorWhenInsertedTagCannotBeLoaded() {
         when(postTagRepository.findByPost(post)).thenReturn(Collections.emptyList());
         when(tagRepository.findByTagNameInForUpdate(Collections.singleton("newTag")))
-                .thenReturn(List.of(), List.of());
+                .thenReturn(List.of())
+                .thenReturn(List.of());
 
         assertThatThrownBy(() -> tagAssignmentService.assignTags(post, Collections.singletonList("newTag")))
                 .isInstanceOf(BusinessException.class)
@@ -165,7 +169,8 @@ class TagAssignmentServiceTest {
         Tag savedTag = new Tag("newTag");
         ReflectionTestUtils.setField(savedTag, "tagId", 12L);
         when(tagRepository.findByTagNameInForUpdate(Collections.singleton("newTag")))
-                .thenReturn(List.of(), List.of(savedTag));
+                .thenReturn(List.of())
+                .thenReturn(List.of(savedTag));
 
         tagAssignmentService.assignTags(post, Arrays.asList("existingTag", "newTag"));
 

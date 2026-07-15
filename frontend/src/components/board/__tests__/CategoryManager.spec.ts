@@ -114,7 +114,6 @@ const makeCategory = (overrides: Partial<Category>): Category => ({
   categoryId: 1,
   name: 'General',
   sortOrder: 1,
-  isActive: true,
   minWriteRole: 'USER',
   ...overrides,
 })

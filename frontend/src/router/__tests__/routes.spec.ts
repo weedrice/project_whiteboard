@@ -59,4 +59,10 @@ describe('routes table', () => {
     it('exposes the authenticated attendance calendar under my page', () => {
         expect(byName.get('MyAttendance')).toMatchObject({ path: 'attendance' })
     })
+
+    it('exposes the public shop and protects purchase history through my page', () => {
+        expect(byName.get('shop')).toMatchObject({ path: '/shop' })
+        expect(byName.get('purchase-history')).toMatchObject({ path: 'purchases' })
+        expect(routes.find((route) => route.path === '/mypage')?.meta).toMatchObject({ requiresAuth: true })
+    })
 })

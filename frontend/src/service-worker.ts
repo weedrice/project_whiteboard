@@ -2,7 +2,8 @@
 
 import { clientsClaim } from 'workbox-core'
 import { NavigationRoute, registerRoute } from 'workbox-routing'
-import { NetworkOnly } from 'workbox-strategies'
+import { CacheFirst, NetworkOnly } from 'workbox-strategies'
+import { ExpirationPlugin } from 'workbox-expiration'
 import { cleanupOutdatedCaches, createHandlerBoundToURL, precacheAndRoute } from 'workbox-precaching'
 
 declare const self: ServiceWorkerGlobalScope & {
@@ -24,7 +25,27 @@ registerRoute(({ url }) => url.pathname.startsWith('/api/'), new NetworkOnly())
 registerRoute(({ url }) => url.pathname.startsWith('/oauth2/'), new NetworkOnly())
 registerRoute(({ url }) => url.pathname.startsWith('/login/oauth2/'), new NetworkOnly())
 
-const navigationRoute = new NavigationRoute(createHandlerBoundToURL('/index.html'), {
+registerRoute(
+  ({ url }) => url.origin === self.location.origin
+    && /^\/(?:js|assets|img|fonts)\/.*-[A-Za-z0-9_-]{8,}\.[A-Za-z0-9]+$/.test(url.pathname),
+  new CacheFirst({
+    cacheName: 'noviis-static-v1',
+    plugins: [new ExpirationPlugin({ maxEntries: 150, maxAgeSeconds: 30 * 24 * 60 * 60 })],
+  }),
+)
+
+const appShellHandler = createHandlerBoundToURL('/index.html')
+const offlineHandler = createHandlerBoundToURL('/offline.html')
+const navigationRoute = new NavigationRoute(async (options) => {
+  try {
+    return await fetch(options.request)
+  } catch {
+    const pathname = new URL(options.request.url).pathname
+    return pathname === '/' || pathname === '/index.html'
+      ? appShellHandler(options)
+      : offlineHandler(options)
+  }
+}, {
   denylist: [/^\/api\//, /^\/oauth2\//, /^\/login\/oauth2\//, /^\/robots\.txt$/, /^\/sitemap.*\.xml$/],
 })
 registerRoute(navigationRoute)

@@ -21,6 +21,7 @@ import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.http.MockHttpInputMessage;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.validation.BindingResult;
@@ -326,7 +327,9 @@ class GlobalExceptionHandlerTest {
     @Test
     @DisplayName("HttpMessageNotReadableException 처리")
     void handleHttpMessageNotReadableException() {
-        HttpMessageNotReadableException ex = new HttpMessageNotReadableException("Malformed request");
+        HttpMessageNotReadableException ex = new HttpMessageNotReadableException(
+                "Malformed request",
+                new MockHttpInputMessage(new byte[0]));
         when(messageSource.getMessage(eq("error.common.validationFailedSummary"), isNull(), any(Locale.class)))
                 .thenReturn("Validation failed.");
 

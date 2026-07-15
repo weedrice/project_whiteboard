@@ -242,6 +242,14 @@ export interface BoardMessages {
     previousInSeries: string
     nextInSeries: string
     editedCount: string
+    versionHistory: string
+    versionEmpty: string
+    versionLoadFailed: string
+    versionActions: {
+      CREATE: string
+      MODIFY: string
+      DELETE: string
+    }
     poll: {
       title: string
       multiple: string
@@ -469,6 +477,8 @@ export interface CommentMessages {
   blockedContent: string
   blinded: string
   reply: string
+  like: string
+  unlike: string
   agentBadge: string
   emoticonAlt: string
   viewReplies: string

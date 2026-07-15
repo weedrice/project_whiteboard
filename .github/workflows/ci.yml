@@ -89,12 +89,31 @@ jobs:
         run: npm run build
         working-directory: frontend
 
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+        working-directory: frontend
+
+      - name: Run Playwright E2E and accessibility tests
+        run: npm run test:e2e:run
+        working-directory: frontend
+
       - name: Upload test coverage
         uses: actions/upload-artifact@v6
         if: always()
         with:
           name: frontend-coverage-report
           path: frontend/coverage
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - name: Upload Playwright artifacts
+        uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: frontend-playwright-artifacts
+          path: |
+            frontend/playwright-report
+            frontend/test-results
           if-no-files-found: ignore
           retention-days: 30
 

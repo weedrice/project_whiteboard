@@ -6,14 +6,14 @@ import type {
     ErrorLogListItem,
     ErrorLogSearchParams,
     ErrorLogStats,
-    PageResponse,
 } from '@/types'
+import type { PageResponseRaw } from '@/utils/pageResponse'
 import { encodePathSegment } from '@/utils/urlPath'
 import { getWithOptionalConfig } from '@/api/adminTypes'
 
 export const adminErrorLogApi = {
     getErrorLogs(params: ErrorLogSearchParams, config?: AxiosRequestConfig) {
-        return api.get<ApiResponse<PageResponse<ErrorLogListItem>>>('/admin/error-logs', { ...config, params })
+        return api.get<ApiResponse<PageResponseRaw<ErrorLogListItem>>>('/admin/error-logs', { ...config, params })
     },
     getErrorLog(errorLogId: number, config?: AxiosRequestConfig) {
         return getWithOptionalConfig<ApiResponse<ErrorLogDetail>>(`/admin/error-logs/${encodePathSegment(errorLogId)}`, config)

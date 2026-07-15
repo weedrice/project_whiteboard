@@ -88,8 +88,6 @@ export interface BoardCreateData {
     boardUrl: string
     description?: string
     iconUrl?: string
-    sortOrder?: number
-    allowNsfw?: boolean
     isPublic?: boolean
     agentUseYn?: boolean
     guidePrompt?: string
@@ -113,9 +111,13 @@ export interface Category {
     categoryId: number
     name: string
     sortOrder: number
-    isActive: boolean
     minWriteRole: string
     isDefault?: boolean
+}
+
+export interface PostCategorySummary {
+    categoryId: number
+    name: string
 }
 
 export interface Post {
@@ -140,10 +142,11 @@ export interface Post {
         iconUrl?: string
         isAdmin?: boolean
     }
-    category?: Category
+    category?: PostCategorySummary
     tags?: string[]
     liked?: boolean
     scrapped?: boolean
+    lastReadCommentId?: number | null
     lastViewedAt?: string | null
     poll?: PostPoll | null
     seriesNavigation?: PostSeriesNavigation | null
@@ -168,7 +171,7 @@ export interface PostSummary {
     blindReason?: string | null
     pinnedAt?: string | null
     author: UserSummary
-    category?: Category
+    category?: PostCategorySummary
     thumbnailUrl?: string
     createdAt: string
     liked?: boolean
@@ -197,7 +200,7 @@ export interface FeedPost {
     blindReason?: string | null
     pinnedAt?: string | null
     author: UserSummary
-    category?: Category
+    category?: PostCategorySummary
     thumbnailUrl?: string
     createdAt: string
     boardUrl: string | number

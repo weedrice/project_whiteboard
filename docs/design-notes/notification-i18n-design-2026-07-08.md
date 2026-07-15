@@ -36,7 +36,7 @@ Example:
 
 ## Implemented Backend
 
-- `V48__notification_message_i18n.sql` adds nullable `message_key` and
+- `V49__notification_message_i18n.sql` adds nullable `message_key` and
   `message_params` columns.
 - `message_params` is stored as a JSON string and exposed as `List<String>`.
 - Producers for comments, replies, likes, badges, scheduled posts, messages,

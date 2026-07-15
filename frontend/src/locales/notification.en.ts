@@ -1,0 +1,46 @@
+import type { NotificationMessages } from './types'
+
+export const notificationEn: NotificationMessages = {
+  title: 'Notifications',
+  unreadNotifications: '{count} unread notifications',
+  markAllRead: 'Mark all as read',
+  markAllReadShort: 'Mark all read',
+  empty: 'No new notifications.',
+  emptyDescription: 'New comments, mentions, and messages will appear here.',
+  groupedCount: '{count} notifications are grouped.',
+  actors: {
+    system: 'System',
+    unknown: 'Unknown',
+  },
+  comment: {
+    created: '{0} left a comment.',
+    liked: '{0} liked your comment.',
+  },
+  reply: { created: '{0} left a reply.' },
+  post: { liked: '{0} liked your post.' },
+  badge: { awarded: 'You earned the {0} badge.' },
+  scheduled: {
+    published: 'Scheduled post "{0}" was published.',
+    failed: 'Failed to publish scheduled post "{0}".',
+  },
+  message: { received: '{0} sent you a message.' },
+  mention: { created: '{0} mentioned you.' },
+  keyword: { matched: 'A post matching your keyword, "{0}", was published.' },
+  sourceTypes: {
+    post: 'Post',
+    comment: 'Comment',
+    message: 'Message',
+  },
+  types: {
+    default: 'Notification',
+    like: 'Like',
+    comment: 'Comment',
+    reply: 'Reply',
+    mention: 'Mention',
+    message: 'Message',
+    system: 'System',
+    sanction: 'Sanction',
+    keyword: 'Keyword',
+    badge: 'Badge',
+  },
+}

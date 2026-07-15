@@ -1,35 +1,43 @@
 import api from '@/api'
 import type { AxiosRequestConfig } from 'axios'
+import { mapApiDataResponse } from '@/api/response'
+import {
+    normalizeBoardDetail,
+    normalizePostDetail,
+    type BoardDetailWire,
+    type PostDetailWire,
+} from '@/api/postContract'
 import type {
     AdminBoard,
     AdminInquirySummary,
     ApiResponse,
     BoardCreateData,
-    BoardDetail,
     BoardUpdateData,
-    PageResponse,
-    Post,
 } from '@/types'
+import type { PageResponseRaw } from '@/utils/pageResponse'
 import { encodePathSegment } from '@/utils/urlPath'
 import { getWithOptionalConfig, type PaginationParams } from '@/api/adminTypes'
 
 export const adminBoardApi = {
     getInquiryPosts(params: PaginationParams & { sort?: string }, config?: AxiosRequestConfig) {
-        return api.get<ApiResponse<PageResponse<AdminInquirySummary>>>('/admin/inquiries', { ...config, params })
+        return api.get<ApiResponse<PageResponseRaw<AdminInquirySummary>>>('/admin/inquiries', { ...config, params })
     },
     getInquiryPost(postId: string | number, config?: AxiosRequestConfig) {
-        return config
-            ? api.get<ApiResponse<Post>>(`/admin/inquiries/${encodePathSegment(postId)}`, config)
-            : api.get<ApiResponse<Post>>(`/admin/inquiries/${encodePathSegment(postId)}`)
+        const request = config
+            ? api.get<ApiResponse<PostDetailWire>>(`/admin/inquiries/${encodePathSegment(postId)}`, config)
+            : api.get<ApiResponse<PostDetailWire>>(`/admin/inquiries/${encodePathSegment(postId)}`)
+        return request.then((response) => mapApiDataResponse(response, normalizePostDetail))
     },
     getBoards(config?: AxiosRequestConfig) {
         return getWithOptionalConfig<ApiResponse<AdminBoard[]>>('/boards/all', config)
     },
     createBoard(data: BoardCreateData) {
-        return api.post<ApiResponse<BoardDetail>>('/boards', data)
+        return api.post<ApiResponse<BoardDetailWire>>('/boards', data)
+            .then((response) => mapApiDataResponse(response, normalizeBoardDetail))
     },
     updateBoard(boardUrl: string, data: BoardUpdateData) {
-        return api.put<ApiResponse<BoardDetail>>(`/boards/${encodePathSegment(boardUrl)}`, data)
+        return api.put<ApiResponse<BoardDetailWire>>(`/boards/${encodePathSegment(boardUrl)}`, data)
+            .then((response) => mapApiDataResponse(response, normalizeBoardDetail))
     },
     deleteBoard(boardUrl: string) {
         return api.delete<ApiResponse<void>>(`/boards/${encodePathSegment(boardUrl)}`)

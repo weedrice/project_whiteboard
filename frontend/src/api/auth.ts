@@ -1,6 +1,6 @@
 import api from './index'
 import type { AxiosRequestConfig } from 'axios'
-import type { LoginCredentials, SignupData, ApiResponse, LoginResponse, OAuthSignupTicket, User } from '@/types'
+import type { LoginCredentials, SignupData, SignupResponse, ApiResponse, LoginResponse, OAuthSignupTicket, User } from '@/types'
 
 export type VerificationPurpose = 'SIGNUP' | 'FIND_ID' | 'PASSWORD_RESET' | 'CHANGE_EMAIL'
 
@@ -27,7 +27,7 @@ export const authApi = {
         api.post<ApiResponse<LoginResponse>>('/auth/login', credentials, { skipGlobalErrorHandler: true }),
 
     signup: (data: SignupData) =>
-        api.post<ApiResponse<User>>('/auth/signup', data, { skipGlobalErrorHandler: true }),
+        api.post<ApiResponse<SignupResponse>>('/auth/signup', data, { skipGlobalErrorHandler: true }),
 
     logout: () => api.post<ApiResponse<void>>(
         '/auth/logout',

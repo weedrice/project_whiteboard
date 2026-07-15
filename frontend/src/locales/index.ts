@@ -1,19 +1,19 @@
 import type { LocaleMessages } from './types'
-import { common, commonEn } from './common'
-import { search, searchEn } from './search'
-import { home, homeEn } from './home'
-import { layout, layoutEn } from './layout'
-import { auth, authEn } from './auth'
-import { board, boardEn } from './board'
-import { comment, commentEn } from './comment'
-import { notification, notificationEn } from './notification'
+import { common } from './common'
+import { search } from './search'
+import { home } from './home'
+import { layout } from './layout'
+import { auth } from './auth'
+import { board } from './board'
+import { comment } from './comment'
+import { notification } from './notification'
 import { user } from './user'
-import { userEn } from './userEn'
-import { report, reportEn } from './report'
-import { emoticon, emoticonEn } from './emoticon'
-import { admin, adminEn } from './admin'
-import { onboarding, onboardingEn } from './onboarding'
-import { privacyPolicy, privacyPolicyEn } from './privacy'
+import { report } from './report'
+import { emoticon } from './emoticon'
+import { admin } from './admin'
+import { onboarding } from './onboarding'
+import { privacyPolicy } from './privacy'
+import { shop } from './shop'
 
 export const messages = {
   ko: {
@@ -31,24 +31,9 @@ export const messages = {
     admin,
     onboarding,
     privacy: privacyPolicy,
+    shop,
   },
-  en: {
-    common: commonEn,
-    search: searchEn,
-    home: homeEn,
-    layout: layoutEn,
-    auth: authEn,
-    board: boardEn,
-    comment: commentEn,
-    notification: notificationEn,
-    user: userEn,
-    report: reportEn,
-    emoticon: emoticonEn,
-    admin: adminEn,
-    onboarding: onboardingEn,
-    privacy: privacyPolicyEn,
-  },
-} satisfies LocaleMessages
+} satisfies Pick<LocaleMessages, 'ko'>
 
 export type AppLocaleMessages = typeof messages
 

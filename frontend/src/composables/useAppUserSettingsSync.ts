@@ -1,4 +1,4 @@
-import { watch, type Ref } from 'vue'
+import { watch } from 'vue'
 import type { QueryClient } from '@tanstack/vue-query'
 import { userApi } from '@/api/user'
 import { unwrapApiData } from '@/api/response'
@@ -6,6 +6,7 @@ import { userSettingsQueryKey } from '@/composables/useUser'
 import type { UserSettings } from '@/types/user'
 import logger from '@/utils/logger'
 import { Storage } from '@/utils/storage'
+import { setAppLocale } from '@/i18n'
 
 type AppAuthStore = {
     isAuthenticated: boolean
@@ -19,14 +20,16 @@ export function useAppUserSettingsSync(
     authStore: AppAuthStore,
     themeStore: AppThemeStore,
     queryClient: QueryClient,
-    locale: Ref<string>,
 ) {
-    const applySettings = (settings: Partial<UserSettings>) => {
+    const applySettings = async (settings: Partial<UserSettings>) => {
         if (settings.theme) {
             themeStore.setTheme(settings.theme)
         }
         if (settings.language) {
-            locale.value = settings.language.toLowerCase()
+            const applied = await setAppLocale(settings.language.toLowerCase() as UserSettings['language'])
+            if (!applied) {
+                logger.warn('Failed to load locale messages during settings sync')
+            }
         }
     }
 
@@ -42,7 +45,7 @@ export function useAppUserSettingsSync(
                 },
             })
             if (authStore.isAuthenticated && settings) {
-                applySettings(settings)
+                await applySettings(settings)
             }
         } catch (error) {
             logger.warn('Failed to load user settings:', error)

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
 import { commentApi } from '@/api/comment'
 import { apiDataResponse, apiSuccessResponse } from '@/test/apiResponseFixtures'
-import { useComment } from '../useComment'
+import { updateCommentLikeCache, useComment } from '../useComment'
 
 vi.mock('@/api/comment', () => ({
     commentApi: {
@@ -11,10 +11,16 @@ vi.mock('@/api/comment', () => ({
         createComment: vi.fn(),
         updateComment: vi.fn(),
         deleteComment: vi.fn(),
+        likeComment: vi.fn(),
+        unlikeComment: vi.fn(),
     },
 }))
 
 const mockInvalidateQueries = vi.fn()
+const mockCancelQueries = vi.fn()
+const mockGetQueriesData = vi.fn((): Array<[readonly unknown[], unknown]> => [])
+const mockSetQueriesData = vi.fn()
+const mockSetQueryData = vi.fn()
 const mockQueryOptions: Array<Record<string, unknown>> = []
 
 vi.mock('@tanstack/vue-query', () => ({
@@ -27,22 +33,43 @@ vi.mock('@tanstack/vue-query', () => ({
             refetch: vi.fn(),
         }
     }),
-    useMutation: vi.fn((options) => ({
-        mutate: async (variables: unknown) => {
-            const result = await options.mutationFn(variables)
-            options.onSuccess?.(result, variables)
-            return result
-        },
-        mutateAsync: async (variables: unknown) => {
-            const result = await options.mutationFn(variables)
-            options.onSuccess?.(result, variables)
-            return result
-        },
+    useInfiniteQuery: vi.fn((options) => {
+        mockQueryOptions.push(options)
+        return {
+            data: ref(null),
+            isLoading: ref(false),
+            error: ref(null),
+            fetchNextPage: vi.fn(),
+        }
+    }),
+    useMutation: vi.fn((options) => {
+        const execute = async (variables: unknown) => {
+            const context = await options.onMutate?.(variables)
+            try {
+                const result = await options.mutationFn(variables)
+                options.onSuccess?.(result, variables, context)
+                options.onSettled?.(result, null, variables, context)
+                return result
+            } catch (error) {
+                options.onError?.(error, variables, context)
+                options.onSettled?.(undefined, error, variables, context)
+                throw error
+            }
+        }
+
+        return {
+        mutate: execute,
+        mutateAsync: execute,
         isLoading: ref(false),
+        isPending: ref(false),
         error: ref(null),
-    })),
+    }}),
     useQueryClient: vi.fn(() => ({
         invalidateQueries: mockInvalidateQueries,
+        cancelQueries: mockCancelQueries,
+        getQueriesData: mockGetQueriesData,
+        setQueriesData: mockSetQueriesData,
+        setQueryData: mockSetQueryData,
     })),
 }))
 
@@ -81,6 +108,33 @@ describe('useComment', () => {
             totalElements: 1,
             totalPages: 1,
         })
+    })
+
+    it('normalizes backend pages before calculating the next infinite comment page', async () => {
+        vi.mocked(commentApi.getComments).mockResolvedValueOnce(
+            apiDataResponse<typeof commentApi.getComments>({
+                content: [{ commentId: 1, content: 'hello' }],
+                page: 1,
+                size: 10,
+                totalElements: 21,
+                totalPages: 3,
+                hasNext: true,
+                hasPrevious: true,
+            })
+        )
+
+        const { useInfiniteComments } = useComment()
+        useInfiniteComments(ref(1), ref({ page: 0, size: 10 }))
+        const options = mockQueryOptions[0]
+        const page = await (options.queryFn as (context: { pageParam: number, signal?: AbortSignal }) => Promise<{
+            number: number
+            last: boolean
+        }>)({ pageParam: 1 })
+        const getNextPageParam = options.getNextPageParam as (page: { number: number, last: boolean }) => number | undefined
+
+        expect(page).toMatchObject({ number: 1, last: false })
+        expect(getNextPageParam(page)).toBe(2)
+        expect(getNextPageParam({ number: 2, last: true })).toBeUndefined()
     })
 
     it('fetches replies with a dedicated query key', async () => {
@@ -167,5 +221,62 @@ describe('useComment', () => {
         expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['post', 123] })
         expect(mockInvalidateQueries).not.toHaveBeenCalledWith({ queryKey: ['comments'] })
         expect(mockInvalidateQueries).not.toHaveBeenCalledWith({ queryKey: ['post'] })
+    })
+
+    it('updates matching comments across infinite pages, replies, and children', () => {
+        const cache = {
+            pages: [
+                {
+                    content: [
+                        {
+                            commentId: 1,
+                            likeCount: 2,
+                            liked: false,
+                            children: [{ commentId: 2, likeCount: 0, liked: false }],
+                        },
+                    ],
+                },
+            ],
+        }
+
+        const liked = updateCommentLikeCache(cache, 1, true) as typeof cache
+        const childLiked = updateCommentLikeCache(liked, 2, true) as typeof cache
+
+        expect(liked.pages[0].content[0]).toMatchObject({ liked: true, likeCount: 3 })
+        expect(childLiked.pages[0].content[0].children[0]).toMatchObject({ liked: true, likeCount: 1 })
+        expect(updateCommentLikeCache(childLiked, 2, false)).toMatchObject({
+            pages: [{ content: [{ children: [{ liked: false, likeCount: 0 }] }] }],
+        })
+    })
+
+    it('likes and unlikes comments, then refreshes all related comment caches', async () => {
+        vi.mocked(commentApi.likeComment).mockResolvedValue(apiSuccessResponse<typeof commentApi.likeComment>())
+        vi.mocked(commentApi.unlikeComment).mockResolvedValue(apiSuccessResponse<typeof commentApi.unlikeComment>())
+        const { useToggleCommentLike } = useComment()
+        const mutation = useToggleCommentLike()
+
+        await mutation.mutateAsync({ commentId: 7, postId: 123, liked: true })
+        await mutation.mutateAsync({ commentId: 7, postId: 123, liked: false })
+
+        expect(commentApi.likeComment).toHaveBeenCalledWith(7)
+        expect(commentApi.unlikeComment).toHaveBeenCalledWith(7)
+        expect(mockCancelQueries).toHaveBeenCalledWith({ queryKey: ['comments'] })
+        expect(mockSetQueriesData).toHaveBeenCalled()
+        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['comments', 'post', 123] })
+        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['comments'] })
+    })
+
+    it('restores comment query snapshots when a like request fails', async () => {
+        const failure = new Error('like failed')
+        const snapshot = { content: [{ commentId: 7, liked: false, likeCount: 2 }] }
+        mockGetQueriesData.mockReturnValueOnce([[['comments', 'post', 123], snapshot]])
+        vi.mocked(commentApi.likeComment).mockRejectedValueOnce(failure)
+        const { useToggleCommentLike } = useComment()
+        const mutation = useToggleCommentLike()
+
+        await expect(mutation.mutateAsync({ commentId: 7, postId: 123, liked: true })).rejects.toThrow('like failed')
+
+        expect(mockSetQueryData).toHaveBeenCalledWith(['comments', 'post', 123], snapshot)
+        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['comments'] })
     })
 })

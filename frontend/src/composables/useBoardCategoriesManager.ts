@@ -110,7 +110,6 @@ export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
                 sortOrder: category.sortOrder,
                 minWriteRole: editingRole.value,
                 isDefault: category.isDefault,
-                isActive: true,
             })
             if (data.success) {
                 const index = categories.value.findIndex(item => item.categoryId === category.categoryId)
@@ -179,7 +178,6 @@ export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
                     sortOrder: idx + 1,
                     minWriteRole: category.minWriteRole,
                     isDefault: category.isDefault,
-                    isActive: category.isActive,
                 })
             })
             await Promise.all(updatePromises)

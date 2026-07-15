@@ -3,7 +3,7 @@ import { watch, computed, type Component } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useKeyboardStore, type DropdownItem } from '@/stores/keyboard'
-import { User, LogOut, CreditCard, FileText, Clock, AlertTriangle, PlusSquare, ChevronDown, Bell, LayoutDashboard, Mail, Star, Slash, Smile } from 'lucide-vue-next'
+import { User, LogOut, CreditCard, FileText, Clock, AlertTriangle, PlusSquare, ChevronDown, Bell, LayoutDashboard, Mail, Star, Slash, Smile, ShoppingBag } from 'lucide-vue-next'
 import { useUser } from '@/composables/useUser'
 import { useNumberedDropdownKeyboard } from '@/composables/useNumberedDropdownKeyboard'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
@@ -63,6 +63,7 @@ const mainMenuItems: UserDropdownMenuItem[] = [
 const activityMenuItems: UserDropdownMenuItem[] = [
   { key: '5', route: '/mypage/scraps', label: 'common.scrap', icon: FileText },
   { key: '6', route: '/mypage/subscriptions', label: 'user.tabs.subscriptions', icon: Star },
+  { route: '/mypage/purchases', label: 'shop.purchases.title', icon: ShoppingBag },
 ]
 
 const historyMenuItems: UserDropdownMenuItem[] = [
@@ -71,6 +72,7 @@ const historyMenuItems: UserDropdownMenuItem[] = [
   { key: '9', route: '/mypage/blocked', label: 'user.tabs.blocked', icon: Slash },
   { route: '/board/create', label: 'layout.menu.createBoard', icon: PlusSquare },
   { route: '/emoticons', label: 'emoticon.title', icon: Smile },
+  { route: '/shop', label: 'shop.title', icon: ShoppingBag },
 ]
 
 const menuSections = computed<UserDropdownMenuSection[]>(() => {

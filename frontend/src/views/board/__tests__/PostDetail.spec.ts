@@ -18,7 +18,8 @@ const {
   unpinPostMutateAsync,
   blindPostMutateAsync,
   unblindPostMutateAsync,
-  toastAdd
+  toastAdd,
+  invalidateQueries,
 } = vi.hoisted(() => ({
   route: {
     params: { postId: '15' },
@@ -88,8 +89,17 @@ const {
   unpinPostMutateAsync: vi.fn(async () => undefined),
   blindPostMutateAsync: vi.fn(async () => undefined),
   unblindPostMutateAsync: vi.fn(async () => undefined),
-  toastAdd: vi.fn()
+  toastAdd: vi.fn(),
+  invalidateQueries: vi.fn(),
 }))
+
+vi.mock('@tanstack/vue-query', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@tanstack/vue-query')>()
+  return {
+    ...actual,
+    useQueryClient: () => ({ invalidateQueries }),
+  }
+})
 
 vi.mock('vue-router', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-router')>()
@@ -158,6 +168,12 @@ vi.mock('@/features/board/posts/queries/usePost', () => ({
     }),
     useUnblindPostByManager: () => ({
       mutateAsync: unblindPostMutateAsync
+    }),
+    usePostVersions: () => ({
+      data: ref([]),
+      isLoading: ref(false),
+      isError: ref(false),
+      refetch: vi.fn()
     })
   })
 }))
@@ -215,6 +231,7 @@ describe('PostDetail', () => {
     router.replace.mockReset()
     router.back.mockReset()
     toastAdd.mockReset()
+    invalidateQueries.mockReset()
     route.query = { page: '2' }
     route.fullPath = '/board/free/post/15?page=2'
     authState.isAuthenticated = true
@@ -561,7 +578,7 @@ describe('PostDetail', () => {
     expect(ctaButton?.exists()).toBe(true)
 
     await ctaButton?.trigger('click')
-    vi.runAllTimers()
+    vi.runOnlyPendingTimers()
 
     expect(scrollSpy).toHaveBeenCalled()
     expect(focusSpy).toHaveBeenCalled()

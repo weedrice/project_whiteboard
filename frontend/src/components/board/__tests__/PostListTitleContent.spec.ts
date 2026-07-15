@@ -56,9 +56,6 @@ describe('PostListTitleContent', () => {
           category: {
             categoryId: 2,
             name: 'QnA',
-            sortOrder: 1,
-            isActive: true,
-            minWriteRole: 'USER'
           }
         })
       }
@@ -72,9 +69,6 @@ describe('PostListTitleContent', () => {
           category: {
             categoryId: 1,
             name: '일반',
-            sortOrder: 1,
-            isActive: true,
-            minWriteRole: 'USER'
           }
         })
       }

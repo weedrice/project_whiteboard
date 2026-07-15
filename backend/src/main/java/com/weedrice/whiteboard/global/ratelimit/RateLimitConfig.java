@@ -2,7 +2,6 @@ package com.weedrice.whiteboard.global.ratelimit;
 
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
-import io.github.bucket4j.Refill;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -102,7 +101,10 @@ public class RateLimitConfig {
 
     private Bucket createBucket(int limit) {
         return Bucket.builder()
-                .addLimit(Bandwidth.classic(limit, Refill.intervally(limit, Duration.ofMinutes(1))))
+                .addLimit(Bandwidth.builder()
+                        .capacity(limit)
+                        .refillIntervally(limit, Duration.ofMinutes(1))
+                        .build())
                 .build();
     }
 }

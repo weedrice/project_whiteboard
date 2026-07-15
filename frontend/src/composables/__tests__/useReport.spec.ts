@@ -47,7 +47,14 @@ describe('useReport', () => {
     const signal = new AbortController().signal
     const result = await (options.queryFn as (context: { signal: AbortSignal }) => Promise<unknown>)({ signal })
 
-    expect(result).toEqual({ content: [{ reportId: 1 }], totalPages: 1 })
+    expect(result).toMatchObject({
+      content: [{ reportId: 1 }],
+      totalPages: 1,
+      number: 0,
+      first: true,
+      last: true,
+      empty: false,
+    })
     expect(reportApi.getMyReports).toHaveBeenCalledWith({ page: 2, size: 15 }, { signal })
   })
 })

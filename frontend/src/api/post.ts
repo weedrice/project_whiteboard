@@ -1,5 +1,12 @@
 import api from './index'
 import { mapApiDataResponse } from '@/api/response'
+import {
+    normalizePostDetail,
+    normalizePostSummaryList,
+    normalizePostSummaryPage,
+    type PostDetailWire,
+    type PostSummaryWire,
+} from '@/api/postContract'
 import type { AxiosRequestConfig, AxiosResponse } from 'axios'
 import type {
     ApiResponse,
@@ -7,11 +14,10 @@ import type {
     HomeLandingPeriod,
     HomeLandingResponse,
     HomeLandingStats,
-    PageResponse,
-    Post,
-    PostSummary
+    Post
 } from '@/types'
 import { encodePathSegment } from '@/utils/urlPath'
+import type { PageResponseRaw } from '@/utils/pageResponse'
 
 export interface PostCreateData {
     title: string
@@ -86,6 +92,18 @@ export interface PostCreateResponse {
     earnedPoints?: number | null
 }
 
+export interface ViewHistoryPayload {
+    lastReadCommentId?: number
+    durationMs?: number
+}
+
+export interface PostVersion {
+    versionId: number
+    actionType: string
+    title: string
+    createdAt: string
+}
+
 export interface ScheduledPostData extends PostCreateData {
     scheduledAt: string
 }
@@ -111,13 +129,6 @@ export interface ScheduledPost {
 export interface ReportData {
     targetPostId: string | number
     reason: string
-}
-
-export type BackendPageResponse<T> = Partial<PageResponse<T>> & {
-    content: T[]
-    page?: number
-    hasNext?: boolean
-    hasPrevious?: boolean
 }
 
 const emptyStats = (): HomeLandingStats => ({
@@ -165,7 +176,7 @@ export const postApi = {
         api.post<ApiResponse<ScheduledPost>>(`/boards/${encodePathSegment(boardUrl)}/scheduled-posts`, data),
 
     getMyScheduledPosts: (params?: Record<string, unknown>, config?: AxiosRequestConfig) =>
-        api.get<ApiResponse<BackendPageResponse<ScheduledPost>>>('/users/me/scheduled-posts', {
+        api.get<ApiResponse<PageResponseRaw<ScheduledPost>>>('/users/me/scheduled-posts', {
             ...config,
             params: { ...params, ...config?.params },
         }),
@@ -180,13 +191,15 @@ export const postApi = {
         api.delete<ApiResponse<void>>(`/scheduled-posts/${encodePathSegment(scheduledPostId)}`),
 
     // Get post details
-    getPost: (postId: string | number, config?: AxiosRequestConfig) => api.get<ApiResponse<Post>>(`/posts/${encodePathSegment(postId)}`, config),
+    getPost: (postId: string | number, config?: AxiosRequestConfig) =>
+        api.get<ApiResponse<PostDetailWire>>(`/posts/${encodePathSegment(postId)}`, config)
+            .then((response) => mapApiDataResponse(response, normalizePostDetail)),
 
     getRelatedPosts: (postId: string | number, size = 5, config?: AxiosRequestConfig) =>
-        api.get<ApiResponse<PostSummary[]>>(`/posts/${encodePathSegment(postId)}/related`, {
+        api.get<ApiResponse<PostSummaryWire[]>>(`/posts/${encodePathSegment(postId)}/related`, {
             ...config,
             params: { ...config?.params, size },
-        }),
+        }).then((response) => mapApiDataResponse(response, normalizePostSummaryList)),
 
     pinPostByManager: (postId: string | number) =>
         api.post<ApiResponse<void>>(`/posts/${encodePathSegment(postId)}/manager/pin`),
@@ -209,11 +222,20 @@ export const postApi = {
     // Increment post view count
     incrementView: (postId: string | number) => api.post<ApiResponse<void>>(`/posts/${encodePathSegment(postId)}/view`),
 
+    updateViewHistory: (
+        postId: string | number,
+        data: ViewHistoryPayload,
+        config?: AxiosRequestConfig,
+    ) => api.put<ApiResponse<void>>(`/posts/${encodePathSegment(postId)}/history`, data, config),
+
+    getPostVersions: (postId: string | number, config?: AxiosRequestConfig) =>
+        api.get<ApiResponse<PostVersion[]>>(`/posts/${encodePathSegment(postId)}/versions`, config),
+
     // Like post
-    likePost: (postId: string | number) => api.post<ApiResponse<void>>(`/posts/${encodePathSegment(postId)}/like`),
+    likePost: (postId: string | number) => api.post<ApiResponse<number>>(`/posts/${encodePathSegment(postId)}/like`),
 
     // Unlike post
-    unlikePost: (postId: string | number) => api.delete<ApiResponse<void>>(`/posts/${encodePathSegment(postId)}/like`),
+    unlikePost: (postId: string | number) => api.delete<ApiResponse<number>>(`/posts/${encodePathSegment(postId)}/like`),
 
     votePoll: (postId: string | number, data: PollVotePayload) =>
         api.post<ApiResponse<Post['poll']>>(`/posts/${encodePathSegment(postId)}/poll/vote`, data),
@@ -228,7 +250,9 @@ export const postApi = {
     unscrapPost: (postId: string | number) => api.delete<ApiResponse<void>>(`/posts/${encodePathSegment(postId)}/scrap`),
 
     // Get trending posts
-    getTrendingPosts: (page: number = 0, size: number = 10, period: HomeLandingPeriod = '24h') => api.get<ApiResponse<BackendPageResponse<PostSummary>>>('/posts/trending', { params: { page, size, period } }),
+    getTrendingPosts: (page: number = 0, size: number = 10, period: HomeLandingPeriod = '24h') =>
+        api.get<ApiResponse<PageResponseRaw<PostSummaryWire>>>('/posts/trending', { params: { page, size, period } })
+            .then((response) => mapApiDataResponse(response, normalizePostSummaryPage)),
 
     // Get home landing data
     getHomeLanding: (period: HomeLandingPeriod = '24h', config?: AxiosRequestConfig) => api.get<ApiResponse<HomeLandingResponse>>('/home/landing', {

@@ -10,14 +10,37 @@ import {
 const t = (key: string) => key
 
 describe('useUserSettingsForm', () => {
+  it('stops the save and shows an error when locale messages cannot be loaded', async () => {
+    const updateSettings = vi.fn()
+    const form = useUserSettingsForm({
+      settingsData: ref<UserSettings>({
+        theme: 'LIGHT', language: 'ko', timezone: 'Asia/Seoul', hideNsfw: true, pushEnabled: false,
+      }),
+      isSaving: ref(false),
+      themeIsDark: () => false,
+      updateSettings,
+      setTheme: vi.fn(),
+      setLocale: vi.fn().mockResolvedValue(false),
+      t,
+    })
+    await nextTick()
+    form.form.language = 'en'
+    await nextTick()
+
+    await form.save()
+
+    expect(updateSettings).not.toHaveBeenCalled()
+    expect(form.isError.value).toBe(true)
+    expect(form.message.value).toBe('user.settings.failed')
+  })
+
   it('hydrates general settings without marking the form dirty', async () => {
     const settingsData = ref<UserSettings>({
       theme: 'LIGHT',
       language: 'ko' as UserSettings['language'],
       timezone: 'Asia/Seoul',
       hideNsfw: true,
-      emailNotification: true,
-      pushNotification: true
+      pushEnabled: false
     })
     const updateSettings = vi.fn().mockResolvedValue(undefined)
     const setTheme = vi.fn()
@@ -58,8 +81,7 @@ describe('useUserSettingsForm', () => {
       language: 'ko' as UserSettings['language'],
       timezone: 'Asia/Seoul',
       hideNsfw: true,
-      emailNotification: true,
-      pushNotification: true
+      pushEnabled: false
     })
     const form = useUserSettingsForm({
       settingsData,
@@ -89,8 +111,7 @@ describe('useUserSettingsForm', () => {
       language: 'ko' as UserSettings['language'],
       timezone: 'Asia/Seoul',
       hideNsfw: true,
-      emailNotification: true,
-      pushNotification: true
+      pushEnabled: false
     })
     const form = useUserSettingsForm({
       settingsData,

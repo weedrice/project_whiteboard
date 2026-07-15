@@ -12,7 +12,17 @@ vi.mock('@/api', () => ({
 }))
 
 import { toBlockedUserPage, toScrapPostSummaryPage, userApi } from '../user'
-import type { UserSettings } from '@/types'
+import type { UserSettingsUpdatePayload } from '@/types'
+import { apiEmptySuccess, axiosApiResponse } from '@/test/factories'
+
+beforeEach(() => {
+    const emptyResponse = axiosApiResponse(apiEmptySuccess())
+    apiMock.get.mockReset().mockResolvedValue(emptyResponse)
+    apiMock.post.mockReset().mockResolvedValue(emptyResponse)
+    apiMock.put.mockReset().mockResolvedValue(emptyResponse)
+    apiMock.delete.mockReset().mockResolvedValue(emptyResponse)
+    apiMock.patch.mockReset().mockResolvedValue(emptyResponse)
+})
 
 describe('userApi', () => {
     beforeEach(() => {
@@ -22,7 +32,7 @@ describe('userApi', () => {
     it('calls profile and settings endpoints', () => {
         const profileData = { displayName: 'tester', profileImageId: 10 }
         const passwordData = { currentPassword: 'old', newPassword: 'new' }
-        const settingsData: Partial<UserSettings> = { language: 'KO' }
+        const settingsData: UserSettingsUpdatePayload = { language: 'ko' }
         const notificationBulkData = {
             settings: [
                 { notificationType: 'LIKE' as const, isEnabled: true },
@@ -125,7 +135,7 @@ describe('userApi', () => {
                     },
                 })
             }
-            return undefined
+            return Promise.resolve(axiosApiResponse(apiEmptySuccess()))
         })
 
         userApi.blockUser(3)

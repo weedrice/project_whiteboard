@@ -3,11 +3,16 @@ import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import PrivacyPolicy from '@/views/PrivacyPolicy.vue'
 import TermsOfService from '@/views/TermsOfService.vue'
+import { privacyPolicy } from '@/locales/privacy'
+import { privacyPolicyEn } from '@/locales/privacy.en'
 
 const locale = ref('ko')
 
 vi.mock('vue-i18n', () => ({
-  useI18n: () => ({ locale }),
+  useI18n: () => ({
+    locale,
+    tm: () => locale.value === 'ko' ? privacyPolicy : privacyPolicyEn,
+  }),
 }))
 
 describe('legal pages', () => {

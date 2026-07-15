@@ -37,7 +37,7 @@ public class FeedGenerationEventListener {
         }
     }
 
-    @Async("taskExecutor")
+    @Async("durableTaskExecutor")
     @Order(Ordered.LOWEST_PRECEDENCE)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handlePostPublished(PostPublishedEvent event) {

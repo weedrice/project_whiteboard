@@ -175,7 +175,8 @@ class SocialAccountLinkServiceTest {
                 .build();
 
         when(socialAccountRepository.findAllByNormalizedProviderAndProviderId("google", "google-user-1"))
-                .thenReturn(List.of(), List.of(existingLink));
+                .thenReturn(List.of())
+                .thenReturn(List.of(existingLink));
         when(socialAccountRepository.findAllByUserAndNormalizedProvider(user, "google"))
                 .thenReturn(List.of());
         when(socialAccountRepository.insertSocialAccountIfAbsent(1L, "google", "google-user-1"))
@@ -197,9 +198,11 @@ class SocialAccountLinkServiceTest {
                 .build();
 
         when(socialAccountRepository.findAllByNormalizedProviderAndProviderId("google", "google-user-1"))
-                .thenReturn(List.of(), List.of());
+                .thenReturn(List.of())
+                .thenReturn(List.of());
         when(socialAccountRepository.findAllByUserAndNormalizedProvider(user, "google"))
-                .thenReturn(List.of(), List.of(existingLink));
+                .thenReturn(List.of())
+                .thenReturn(List.of(existingLink));
         when(socialAccountRepository.insertSocialAccountIfAbsent(1L, "google", "google-user-1"))
                 .thenReturn(0);
 
@@ -219,9 +222,11 @@ class SocialAccountLinkServiceTest {
                 .build();
 
         when(socialAccountRepository.findAllByNormalizedProviderAndProviderId("google", "google-user-1"))
-                .thenReturn(List.of(), List.of());
+                .thenReturn(List.of())
+                .thenReturn(List.of());
         when(socialAccountRepository.findAllByUserAndNormalizedProvider(user, "google"))
-                .thenReturn(List.of(), List.of(existingLink));
+                .thenReturn(List.of())
+                .thenReturn(List.of(existingLink));
         when(socialAccountRepository.insertSocialAccountIfAbsent(1L, "google", "google-user-1"))
                 .thenReturn(0);
 
