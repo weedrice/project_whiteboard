@@ -67,18 +67,20 @@ class PostgresApplicationContextSmokeTest {
         jdbcTemplate.execute("CREATE SCHEMA " + schema);
 
         try (Connection connection = dataSource.getConnection()) {
-            Flyway flywayToV51 = Flyway.configure()
+            String originalSchema = connection.getSchema();
+            try {
+                Flyway flywayToV51 = Flyway.configure()
                     .dataSource(dataSource)
                     .schemas(schema)
                     .defaultSchema(schema)
                     .locations("classpath:db/migration")
                     .target(MigrationVersion.fromVersion("51"))
                     .load();
-            flywayToV51.migrate();
+                flywayToV51.migrate();
 
-            connection.setSchema(schema);
-            JdbcTemplate isolated = new JdbcTemplate(new SingleConnectionDataSource(connection, true));
-            isolated.update("""
+                connection.setSchema(schema);
+                JdbcTemplate isolated = new JdbcTemplate(new SingleConnectionDataSource(connection, true));
+                isolated.update("""
                     INSERT INTO users
                         (user_id, created_at, modified_at, display_name, email, is_email_verified,
                          is_super_admin, login_id, password, status)
@@ -86,14 +88,14 @@ class PostgresApplicationContextSmokeTest {
                         (3001, NOW(), NOW(), 'Migration User', 'migration@example.com', 'Y',
                          'N', 'migration-user', 'encoded', 'ACTIVE')
                     """);
-            isolated.update("""
+                isolated.update("""
                     INSERT INTO emoticon_masters
                         (emoticon_id, created_at, modified_at, is_active, name, purchase_count, tags, thumbnail_url)
                     VALUES
                         (1001, NOW(), NOW(), 'Y', 'Missing Active', 0, ARRAY[]::TEXT[], REPEAT('x', 400)),
                         (1002, NOW(), NOW(), 'N', 'Existing Hidden', 0, ARRAY[]::TEXT[], '/hidden.png')
                     """);
-            isolated.update("""
+                isolated.update("""
                     INSERT INTO shop_items
                         (item_id, created_at, modified_at, item_name, price, item_type, target_id, image_url, is_active)
                     VALUES
@@ -102,18 +104,18 @@ class PostgresApplicationContextSmokeTest {
                         (2003, NOW(), NOW(), 'Legacy Untargeted', 100, 'EMOTICON', NULL, NULL, 'Y'),
                         (2004, NOW(), NOW(), 'Orphan', 100, 'EMOTICON', 9999, NULL, 'Y')
                     """);
-            isolated.update("""
+                isolated.update("""
                     INSERT INTO purchase_history
                         (purchase_id, created_at, modified_at, purchased_price, item_id, user_id)
                     VALUES (4001, NOW(), NOW(), 250, 2001, 3001)
                     """);
-            isolated.update("""
+                isolated.update("""
                     INSERT INTO global_configs
                         (config_key, config_value, description, created_at, modified_at)
                     VALUES ('NOBICON_PRICE', 'invalid', 'legacy invalid price', NOW(), NOW())
                     """);
 
-            Flyway.configure()
+                Flyway.configure()
                     .dataSource(dataSource)
                     .schemas(schema)
                     .defaultSchema(schema)
@@ -121,51 +123,54 @@ class PostgresApplicationContextSmokeTest {
                     .load()
                     .migrate();
 
-            assertEquals(100, isolated.queryForObject(
+                assertEquals(100, isolated.queryForObject(
                     "SELECT price FROM shop_items WHERE item_type = 'EMOTICON' AND target_id = 1001",
                     Integer.class));
-            assertEquals("Y", isolated.queryForObject(
+                assertEquals("Y", isolated.queryForObject(
                     "SELECT is_active FROM shop_items WHERE item_type = 'EMOTICON' AND target_id = 1001",
                     String.class));
-            assertEquals(999, isolated.queryForObject(
+                assertEquals(999, isolated.queryForObject(
                     "SELECT price FROM shop_items WHERE item_type = 'EMOTICON' AND target_id = 1002",
                     Integer.class));
-            assertEquals("Existing Hidden", isolated.queryForObject(
+                assertEquals("Existing Hidden", isolated.queryForObject(
                     "SELECT item_name FROM shop_items WHERE item_type = 'EMOTICON' AND target_id = 1002",
                     String.class));
-            assertEquals("N", isolated.queryForObject(
+                assertEquals("N", isolated.queryForObject(
                     "SELECT is_active FROM shop_items WHERE item_type = 'EMOTICON' AND target_id = 1002",
                     String.class));
-            assertEquals(3, isolated.queryForObject(
+                assertEquals(3, isolated.queryForObject(
                     "SELECT COUNT(*) FROM shop_items WHERE item_type = 'EMOTICON' AND target_id IS NULL",
                     Integer.class));
-            assertEquals("N", isolated.queryForObject(
+                assertEquals("N", isolated.queryForObject(
                     "SELECT is_active FROM shop_items WHERE item_id = 2003",
                     String.class));
-            assertEquals("N", isolated.queryForObject(
+                assertEquals("N", isolated.queryForObject(
                     "SELECT is_active FROM shop_items WHERE item_id = 2001",
                     String.class));
-            assertEquals(0, isolated.queryForObject(
+                assertEquals(0, isolated.queryForObject(
                     "SELECT COUNT(*) FROM shop_items WHERE item_id = 2001 AND target_id IS NOT NULL",
                     Integer.class));
-            assertEquals("N", isolated.queryForObject(
+                assertEquals("N", isolated.queryForObject(
                     "SELECT is_active FROM shop_items WHERE item_id = 2004",
                     String.class));
-            assertEquals(0, isolated.queryForObject(
+                assertEquals(0, isolated.queryForObject(
                     "SELECT COUNT(*) FROM shop_items WHERE item_id = 2004 AND target_id IS NOT NULL",
                     Integer.class));
-            assertEquals(2001L, isolated.queryForObject(
+                assertEquals(2001L, isolated.queryForObject(
                     "SELECT item_id FROM purchase_history WHERE purchase_id = 4001",
                     Long.class));
-            assertEquals("100", isolated.queryForObject(
+                assertEquals("100", isolated.queryForObject(
                     "SELECT config_value FROM global_configs WHERE config_key = 'NOBICON_PRICE'",
                     String.class));
 
-            assertThrows(DuplicateKeyException.class, () -> isolated.update("""
+                assertThrows(DuplicateKeyException.class, () -> isolated.update("""
                     INSERT INTO shop_items
                         (created_at, modified_at, item_name, price, item_type, target_id, is_active)
                     VALUES (NOW(), NOW(), 'Duplicate Target', 100, 'EMOTICON', 1001, 'N')
                     """));
+            } finally {
+                connection.setSchema(originalSchema);
+            }
         } finally {
             jdbcTemplate.execute("DROP SCHEMA IF EXISTS " + schema + " CASCADE");
         }
