@@ -57,7 +57,7 @@
     "@tiptap/suggestion": "3.27.4",
     "@tiptap/vue-3": "3.27.4",
     "@types/dompurify": "^3.0.5",
-    "@unhead/vue": "^2.1.2",
+    "@unhead/vue": "^3.1.8",
     "axios": "^1.13.2",
     "date-fns": "^4.1.0",
     "dompurify": "^3.3.1",
