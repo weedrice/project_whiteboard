@@ -1,6 +1,6 @@
 package com.weedrice.whiteboard.global.common.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.global.common.dto.GlobalConfigResponse;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;

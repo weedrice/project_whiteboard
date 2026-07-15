@@ -1,6 +1,6 @@
 package com.weedrice.whiteboard.domain.post.converter;
 
-import com.fasterxml.jackson.core.type.TypeReference;
+import tools.jackson.core.type.TypeReference;
 import jakarta.persistence.Converter;
 
 import java.util.List;

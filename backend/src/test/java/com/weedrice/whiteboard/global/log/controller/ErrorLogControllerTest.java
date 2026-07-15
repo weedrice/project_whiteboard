@@ -1,6 +1,6 @@
 package com.weedrice.whiteboard.global.log.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.weedrice.whiteboard.global.config.CurrentUserIdWebMvcConfig;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.log.dto.ErrorLogResolveRequest;

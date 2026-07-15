@@ -1,8 +1,8 @@
 package com.weedrice.whiteboard.domain.post.scheduled.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 import com.weedrice.whiteboard.domain.post.dto.PollRequest;
 import com.weedrice.whiteboard.domain.post.dto.PostCreateRequest;
 import com.weedrice.whiteboard.domain.post.scheduled.dto.ScheduledPostRequest;
@@ -59,7 +59,7 @@ class ScheduledPostPayloadMapper {
         }
         try {
             return objectMapper.writeValueAsString(value);
-        } catch (JsonProcessingException exception) {
+        } catch (JacksonException exception) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
     }
@@ -70,7 +70,7 @@ class ScheduledPostPayloadMapper {
         }
         try {
             return objectMapper.readValue(value, typeReference);
-        } catch (JsonProcessingException exception) {
+        } catch (JacksonException exception) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
     }
@@ -81,7 +81,7 @@ class ScheduledPostPayloadMapper {
         }
         try {
             return objectMapper.readValue(value, type);
-        } catch (JsonProcessingException exception) {
+        } catch (JacksonException exception) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
     }

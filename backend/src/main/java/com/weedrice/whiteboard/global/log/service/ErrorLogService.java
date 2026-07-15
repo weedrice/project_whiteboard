@@ -1,6 +1,6 @@
 package com.weedrice.whiteboard.global.log.service;
 
-import com.fasterxml.jackson.databind.node.ObjectNode;
+import tools.jackson.databind.node.ObjectNode;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.global.common.util.ClientMetadataNormalizer;
 import com.weedrice.whiteboard.global.common.util.TextInputNormalizer;
@@ -44,7 +44,7 @@ public class ErrorLogService {
 
     private final ErrorLogRepository errorLogRepository;
     private final Clock clock;
-    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+    private final tools.jackson.databind.ObjectMapper objectMapper;
 
     /**
      * 에러 로그 비동기 저장

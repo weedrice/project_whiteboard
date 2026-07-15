@@ -1,6 +1,6 @@
 package com.weedrice.whiteboard.domain.auth.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.weedrice.whiteboard.domain.auth.dto.LoginRequest;
 import com.weedrice.whiteboard.domain.auth.dto.LoginResponse;
 import com.weedrice.whiteboard.domain.auth.dto.LoginResult;

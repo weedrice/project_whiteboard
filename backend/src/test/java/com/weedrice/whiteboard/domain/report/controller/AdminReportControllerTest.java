@@ -1,6 +1,6 @@
 package com.weedrice.whiteboard.domain.report.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.weedrice.whiteboard.domain.report.dto.ReportProcessRequest;
 import com.weedrice.whiteboard.domain.report.dto.ReportResponse;
 import com.weedrice.whiteboard.domain.report.entity.ReportStatus;

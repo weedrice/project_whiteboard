@@ -1,6 +1,6 @@
 package com.weedrice.whiteboard.domain.comment.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.weedrice.whiteboard.domain.comment.dto.CommentCreateResponse;
 import com.weedrice.whiteboard.domain.comment.dto.CommentCreateRequest;
 import com.weedrice.whiteboard.domain.comment.dto.CommentListResponse;

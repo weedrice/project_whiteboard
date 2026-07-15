@@ -1,6 +1,6 @@
 package com.weedrice.whiteboard.domain.message.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.weedrice.whiteboard.domain.message.dto.MessageCreateRequest;
 import com.weedrice.whiteboard.domain.message.dto.MessageResponse;
 import com.weedrice.whiteboard.domain.message.service.MessageService;

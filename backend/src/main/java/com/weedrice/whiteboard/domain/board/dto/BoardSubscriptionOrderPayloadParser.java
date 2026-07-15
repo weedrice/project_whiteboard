@@ -1,6 +1,6 @@
 package com.weedrice.whiteboard.domain.board.dto;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 
@@ -30,10 +30,10 @@ final class BoardSubscriptionOrderPayloadParser {
     private static List<String> toBoardUrls(JsonNode boardUrlsNode) {
         return StreamSupport.stream(boardUrlsNode.spliterator(), false)
                 .map(node -> {
-                    if (!node.isTextual()) {
+                    if (!node.isString()) {
                         throw invalidInput();
                     }
-                    return node.asText();
+                    return node.asString();
                 })
                 .toList();
     }

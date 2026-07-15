@@ -1,7 +1,7 @@
 package com.weedrice.whiteboard.global.log.filter;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.BeforeEach;
@@ -75,8 +75,8 @@ class ClientErrorLogRequestSizeFilterTest {
         assertThat(response.getContentType()).startsWith("application/json");
         JsonNode responseBody = objectMapper.readTree(response.getContentAsByteArray());
         assertThat(responseBody.get("success").asBoolean()).isFalse();
-        assertThat(responseBody.at("/error/code").asText()).isEqualTo("C008");
-        assertThat(responseBody.at("/error/message").asText()).contains("32 KiB");
+        assertThat(responseBody.at("/error/code").asString()).isEqualTo("C008");
+        assertThat(responseBody.at("/error/message").asString()).contains("32 KiB");
         verifyNoInteractions(chain);
     }
 

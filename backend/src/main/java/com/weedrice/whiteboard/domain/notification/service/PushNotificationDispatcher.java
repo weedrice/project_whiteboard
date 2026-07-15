@@ -1,7 +1,7 @@
 package com.weedrice.whiteboard.domain.notification.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import com.weedrice.whiteboard.domain.notification.config.WebPushProperties;
 import com.weedrice.whiteboard.domain.notification.entity.Notification;
 import com.weedrice.whiteboard.domain.notification.entity.PushSubscription;
@@ -99,7 +99,7 @@ public class PushNotificationDispatcher {
     private String toJson(PushPayload payload) {
         try {
             return objectMapper.writeValueAsString(payload);
-        } catch (JsonProcessingException ex) {
+        } catch (JacksonException ex) {
             return "{\"title\":\"" + DEFAULT_TITLE + "\",\"body\":\"" + DEFAULT_TITLE + "\",\"url\":\"" + DEFAULT_URL + "\"}";
         }
     }

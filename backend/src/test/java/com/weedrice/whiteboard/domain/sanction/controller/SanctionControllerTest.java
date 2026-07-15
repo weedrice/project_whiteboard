@@ -1,6 +1,6 @@
 package com.weedrice.whiteboard.domain.sanction.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.weedrice.whiteboard.domain.sanction.dto.SanctionCreateRequest;
 import com.weedrice.whiteboard.domain.sanction.dto.SanctionResponse;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;

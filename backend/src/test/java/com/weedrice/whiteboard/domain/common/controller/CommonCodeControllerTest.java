@@ -1,6 +1,6 @@
 package com.weedrice.whiteboard.domain.common.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.weedrice.whiteboard.domain.common.dto.CommonCodeDetailRequest;
 import com.weedrice.whiteboard.domain.common.dto.CommonCodeDetailResponse;
 import com.weedrice.whiteboard.domain.common.dto.CommonCodeRequest;

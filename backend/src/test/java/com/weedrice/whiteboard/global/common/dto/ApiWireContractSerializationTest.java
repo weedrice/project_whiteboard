@@ -1,8 +1,8 @@
 package com.weedrice.whiteboard.global.common.dto;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.json.JsonMapper;
 import com.weedrice.whiteboard.domain.admin.dto.AdminResponse;
 import com.weedrice.whiteboard.domain.admin.dto.SuperAdminResponse;
 import com.weedrice.whiteboard.domain.admin.dto.SuperAdminUpdateResponse;

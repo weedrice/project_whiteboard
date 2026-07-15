@@ -1,7 +1,7 @@
 package com.weedrice.whiteboard.global.log.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.log.dto.ClientErrorLogRequest;
@@ -228,10 +228,10 @@ class ErrorLogServiceTest {
 
         String[] stackTraceParts = saved.getStackTrace().split(System.lineSeparator(), 2);
         JsonNode metadata = objectMapper.readTree(stackTraceParts[0]);
-        assertThat(metadata.get("source").asText()).isEqualTo("VUE");
-        assertThat(metadata.get("component").asText()).isEqualTo("AppShell");
-        assertThat(metadata.get("info").asText()).isEqualTo("render function");
-        assertThat(metadata.get("commitHash").asText()).isEqualTo("abc123def456");
+        assertThat(metadata.get("source").asString()).isEqualTo("VUE");
+        assertThat(metadata.get("component").asString()).isEqualTo("AppShell");
+        assertThat(metadata.get("info").asString()).isEqualTo("render function");
+        assertThat(metadata.get("commitHash").asString()).isEqualTo("abc123def456");
         assertThat(stackTraceParts[1]).isEqualTo("TypeError: failed\n    at render (App.vue:42:7)");
     }
 

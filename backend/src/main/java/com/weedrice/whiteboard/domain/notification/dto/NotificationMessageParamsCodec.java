@@ -1,8 +1,8 @@
 package com.weedrice.whiteboard.domain.notification.dto;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 
 import java.util.List;
 import java.util.Objects;
@@ -19,7 +19,7 @@ public final class NotificationMessageParamsCodec {
         }
         try {
             return OBJECT_MAPPER.writeValueAsString(params);
-        } catch (JsonProcessingException exception) {
+        } catch (JacksonException exception) {
             throw new IllegalArgumentException("Notification message parameters could not be encoded", exception);
         }
     }
@@ -33,7 +33,7 @@ public final class NotificationMessageParamsCodec {
             return params == null
                     ? List.of()
                     : params.stream().filter(Objects::nonNull).toList();
-        } catch (JsonProcessingException exception) {
+        } catch (JacksonException exception) {
             return List.of();
         }
     }

@@ -1,6 +1,6 @@
 package com.weedrice.whiteboard.domain.post.scheduled.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.post.dto.PostCreateRequest;
 import com.weedrice.whiteboard.domain.post.scheduled.entity.ScheduledPost;

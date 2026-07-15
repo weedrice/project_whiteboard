@@ -1,6 +1,6 @@
 package com.weedrice.whiteboard.domain.feed.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.weedrice.whiteboard.domain.feed.dto.FeedResponse;
 import com.weedrice.whiteboard.domain.feed.service.FeedService;
 import com.weedrice.whiteboard.global.config.CurrentUserIdWebMvcConfig;

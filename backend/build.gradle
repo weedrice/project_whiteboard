@@ -31,8 +31,6 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 	implementation 'org.springframework.boot:spring-boot-starter-cache'
 	implementation 'org.springframework.boot:spring-boot-starter-aspectj'
-	// Temporary Jackson 2 bridge while API serialization migrates to Jackson 3.
-	implementation 'org.springframework.boot:spring-boot-jackson2'
 	implementation 'org.springframework.boot:spring-boot-starter-flyway'
 	implementation 'org.flywaydb:flyway-database-postgresql'
 	implementation 'com.github.ben-manes.caffeine:caffeine'

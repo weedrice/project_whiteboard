@@ -1,8 +1,8 @@
 package com.weedrice.whiteboard.domain.post.converter;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 import jakarta.persistence.AttributeConverter;
 
 import java.util.ArrayList;
@@ -24,7 +24,7 @@ abstract class JsonListAttributeConverter<T> implements AttributeConverter<List<
     public String convertToDatabaseColumn(List<T> attribute) {
         try {
             return OBJECT_MAPPER.writeValueAsString(attribute == null ? List.of() : attribute);
-        } catch (JsonProcessingException exception) {
+        } catch (JacksonException exception) {
             throw new IllegalArgumentException("Failed to serialize " + listDescription, exception);
         }
     }
@@ -37,7 +37,7 @@ abstract class JsonListAttributeConverter<T> implements AttributeConverter<List<
 
         try {
             return new ArrayList<>(OBJECT_MAPPER.readValue(dbData, typeReference));
-        } catch (JsonProcessingException exception) {
+        } catch (JacksonException exception) {
             throw new IllegalArgumentException("Failed to deserialize " + listDescription, exception);
         }
     }

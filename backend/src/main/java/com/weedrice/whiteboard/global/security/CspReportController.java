@@ -1,8 +1,8 @@
 package com.weedrice.whiteboard.global.security;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -52,9 +52,9 @@ public class CspReportController {
         log.warn(
                 "CSP violation report received. remoteAddress={}, documentUri={}, violatedDirective={}, blockedUri={}",
                 request.getRemoteAddr(),
-                sanitizeUri(report.path("document-uri").asText("")),
-                sanitizeLogValue(report.path("violated-directive").asText("")),
-                sanitizeUri(report.path("blocked-uri").asText("")));
+                sanitizeUri(report.path("document-uri").asString("")),
+                sanitizeLogValue(report.path("violated-directive").asString("")),
+                sanitizeUri(report.path("blocked-uri").asString("")));
     }
 
     private JsonNode extractReport(String payload) {
@@ -68,7 +68,7 @@ public class CspReportController {
             }
             JsonNode nestedReport = root.get("csp-report");
             return nestedReport != null && nestedReport.isObject() ? nestedReport : root;
-        } catch (JsonProcessingException ex) {
+        } catch (JacksonException ex) {
             return null;
         }
     }

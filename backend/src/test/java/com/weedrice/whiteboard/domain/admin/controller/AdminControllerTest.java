@@ -1,6 +1,6 @@
 package com.weedrice.whiteboard.domain.admin.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import com.weedrice.whiteboard.domain.admin.dto.AdminCreateRequest;
 import com.weedrice.whiteboard.domain.admin.dto.AdminResponse;
 import com.weedrice.whiteboard.domain.admin.dto.BoardManagerUpdateRequest;
