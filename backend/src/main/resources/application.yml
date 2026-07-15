@@ -81,3 +81,7 @@ rate-limit:
   api-limit: 200
   # 인증된 사용자 제한
   user-limit: 500
+
+semantic-search:
+  related-post:
+    min-similarity: ${SEMANTIC_SEARCH_RELATED_POST_MIN_SIMILARITY:0.55}

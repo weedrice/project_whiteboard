@@ -20,9 +20,16 @@ public class SemanticSearchProperties {
     private int embeddingDimension = REQUIRED_EMBEDDING_DIMENSION;
     private OpenAi openai = new OpenAi();
     private Job job = new Job();
+    private RelatedPost relatedPost = new RelatedPost();
 
     @PostConstruct
     void validateContract() {
+        if (!Double.isFinite(relatedPost.minSimilarity)
+                || relatedPost.minSimilarity < -1.0
+                || relatedPost.minSimilarity > 1.0) {
+            throw new IllegalStateException(
+                    "semantic-search.related-post.min-similarity must be between -1.0 and 1.0");
+        }
         if (!enabled) {
             return;
         }
@@ -60,5 +67,11 @@ public class SemanticSearchProperties {
         private int batchSize = 20;
         private int maxRetryCount = 5;
         private int processingLeaseMinutes = 10;
+    }
+
+    @Getter
+    @Setter
+    public static class RelatedPost {
+        private double minSimilarity = 0.55;
     }
 }

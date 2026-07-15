@@ -6,6 +6,7 @@ import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Map;
 
 @Repository
 @RequiredArgsConstructor
@@ -191,9 +192,26 @@ class SemanticSearchVectorRepository {
                 .addValue("queryEmbedding", query.embeddingVector());
     }
 
-    List<Long> findRelatedPostIds(Long sourcePostId, SemanticSearchQueryContext context, int size) {
-        return jdbcTemplate.queryForList(relatedPostSql(context), relatedPostParams(sourcePostId, context, size),
-                Long.class);
+    SemanticRelatedPostResult findRelatedPostIds(
+            Long sourcePostId,
+            SemanticSearchQueryContext context,
+            int size,
+            double minSimilarity) {
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                relatedPostSql(context),
+                relatedPostParams(sourcePostId, context, size, minSimilarity));
+        if (rows.isEmpty()) {
+            return SemanticRelatedPostResult.sourceEmbeddingUnavailable();
+        }
+
+        boolean sourceEmbeddingAvailable = Boolean.TRUE.equals(rows.get(0).get("source_embedding_available"));
+        List<Long> postIds = rows.stream()
+                .map(row -> row.get("post_id"))
+                .filter(Number.class::isInstance)
+                .map(Number.class::cast)
+                .map(Number::longValue)
+                .toList();
+        return new SemanticRelatedPostResult(sourceEmbeddingAvailable, postIds);
     }
 
     private String relatedPostSql(SemanticSearchQueryContext context) {
@@ -220,36 +238,55 @@ class SemanticSearchVectorRepository {
                       %s
                     LIMIT 1
                 )
-                SELECT p.post_id
-                FROM semantic_search_embeddings e
-                JOIN source_embedding source ON TRUE
-                JOIN posts p ON p.post_id = e.content_id
-                JOIN boards b ON b.board_id = p.board_id
-                JOIN users u ON u.user_id = p.user_id
-                WHERE e.content_type = 'POST'
-                  AND e.deleted_at IS NULL
-                  AND p.post_id <> :sourcePostId
-                  AND p.is_deleted = 'N'
-                  AND p.is_blinded = 'N'
-                  AND p.is_secret = 'N'
-                  AND b.is_active = 'Y'
-                  AND b.is_public = 'Y'
-                  AND u.status = 'ACTIVE'
-                  AND u.deleted_at IS NULL
-                  %s
-                  %s
-                ORDER BY 1 - (e.embedding <=> source.embedding) DESC, p.created_at DESC, p.post_id DESC
-                LIMIT :limit
+                , candidates AS (
+                    SELECT
+                        p.post_id,
+                        1 - (e.embedding <=> source.embedding) AS similarity,
+                        p.created_at
+                    FROM semantic_search_embeddings e
+                    JOIN source_embedding source ON TRUE
+                    JOIN posts p ON p.post_id = e.content_id
+                    JOIN boards b ON b.board_id = p.board_id
+                    JOIN users u ON u.user_id = p.user_id
+                    WHERE e.content_type = 'POST'
+                      AND e.deleted_at IS NULL
+                      AND p.post_id <> :sourcePostId
+                      AND p.is_deleted = 'N'
+                      AND p.is_blinded = 'N'
+                      AND p.is_secret = 'N'
+                      AND b.is_active = 'Y'
+                      AND b.is_public = 'Y'
+                      AND u.status = 'ACTIVE'
+                      AND u.deleted_at IS NULL
+                      AND 1 - (e.embedding <=> source.embedding) >= :minSimilarity
+                      %s
+                      %s
+                    ORDER BY e.embedding <=> source.embedding ASC, p.created_at DESC, p.post_id DESC
+                    LIMIT :limit
+                )
+                SELECT
+                    EXISTS (SELECT 1 FROM source_embedding) AS source_embedding_available,
+                    candidates.post_id
+                FROM (SELECT TRUE AS marker) marker
+                LEFT JOIN candidates ON TRUE
+                ORDER BY candidates.similarity DESC NULLS LAST,
+                         candidates.created_at DESC NULLS LAST,
+                         candidates.post_id DESC NULLS LAST
                 """.formatted(boardPredicate, boardPredicate, blockedPredicate);
     }
 
-    private MapSqlParameterSource relatedPostParams(Long sourcePostId, SemanticSearchQueryContext context, int size) {
+    private MapSqlParameterSource relatedPostParams(
+            Long sourcePostId,
+            SemanticSearchQueryContext context,
+            int size,
+            double minSimilarity) {
         return new MapSqlParameterSource()
                 .addValue("sourcePostId", sourcePostId)
                 .addValue("boardUrl", context.boardUrl())
                 .addValue("blockedUserIds", context.blockedUserIds() == null || context.blockedUserIds().isEmpty()
                         ? List.of(-1L)
                         : context.blockedUserIds())
+                .addValue("minSimilarity", minSimilarity)
                 .addValue("limit", size);
     }
 }

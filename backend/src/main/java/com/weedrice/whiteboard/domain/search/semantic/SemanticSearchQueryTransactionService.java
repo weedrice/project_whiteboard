@@ -53,8 +53,12 @@ class SemanticSearchQueryTransactionService {
     }
 
     @Transactional(readOnly = true)
-    public List<Long> findRelatedPostIds(Long postId, SemanticSearchQueryContext context, int size) {
-        return vectorRepository.findRelatedPostIds(postId, context, size);
+    public SemanticRelatedPostResult findRelatedPostIds(
+            Long postId,
+            SemanticSearchQueryContext context,
+            int size,
+            double minSimilarity) {
+        return vectorRepository.findRelatedPostIds(postId, context, size, minSimilarity);
     }
 
     private void validateBoardAccess(String normalizedBoardUrl, User viewer) {

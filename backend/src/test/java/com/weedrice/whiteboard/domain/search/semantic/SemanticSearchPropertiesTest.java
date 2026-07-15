@@ -3,9 +3,27 @@ package com.weedrice.whiteboard.domain.search.semantic;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class SemanticSearchPropertiesTest {
+
+    @Test
+    void relatedPostMinimumSimilarity_defaultsToPointFiveFive() {
+        SemanticSearchProperties properties = new SemanticSearchProperties();
+
+        assertThat(properties.getRelatedPost().getMinSimilarity()).isEqualTo(0.55);
+    }
+
+    @Test
+    void validateContract_rejectsRelatedPostMinimumSimilarityOutsideCosineRange() {
+        SemanticSearchProperties properties = new SemanticSearchProperties();
+        properties.getRelatedPost().setMinSimilarity(1.01);
+
+        assertThatThrownBy(properties::validateContract)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("semantic-search.related-post.min-similarity");
+    }
 
     @Test
     void validateContract_allowsDisabledCustomValues() {

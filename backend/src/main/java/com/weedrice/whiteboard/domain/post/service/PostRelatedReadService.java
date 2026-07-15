@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.search.semantic.SemanticRelatedPostService;
+import com.weedrice.whiteboard.domain.search.semantic.SemanticRelatedPostResult;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -40,16 +41,21 @@ class PostRelatedReadService {
         postAccessPolicy.validateReadable(sourcePost, context.viewer(), context.isAuthorBlocked(sourcePost),
                 context.activeAdminBoardIds());
 
-        List<Long> relatedPostIds = semanticRelatedPostService.findRelatedPostIds(
+        SemanticRelatedPostResult semanticResult = semanticRelatedPostService.findRelatedPostIds(
                 sourcePost.getPostId(),
                 sourcePost.getBoard().getBoardUrl(),
                 currentUserId,
                 normalizedSize);
-        if (relatedPostIds.isEmpty()) {
+        List<Long> relatedPostIds = semanticResult.postIds();
+        if (!semanticResult.sourceEmbeddingAvailable()) {
             relatedPostIds = postRepository.findPublicRelatedFallbackPostIds(
                     sourcePost.getBoard().getBoardId(),
                     sourcePost.getPostId(),
                     PageRequest.of(0, normalizedSize));
+        }
+
+        if (relatedPostIds.isEmpty()) {
+            return List.of();
         }
 
         Map<Long, PostSummary> summariesById = postFacadeReadService.getPostSummariesByIds(relatedPostIds,

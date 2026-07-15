@@ -8,6 +8,8 @@ import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
 import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -103,5 +105,49 @@ class SemanticSearchVectorRepositoryTest {
                 .doesNotContain("ORDER BY")
                 .doesNotContain("LIMIT :limit")
                 .doesNotContain("OFFSET :offset");
+    }
+
+    @Test
+    void findRelatedPostIds_filtersByMinimumSimilarityBeforeCandidateLimit() {
+        Map<String, Object> noMatchRow = new HashMap<>();
+        noMatchRow.put("source_embedding_available", true);
+        noMatchRow.put("post_id", null);
+        when(jdbcTemplate.queryForList(anyString(), any(MapSqlParameterSource.class)))
+                .thenReturn(List.of(noMatchRow));
+        SemanticSearchQueryContext context = new SemanticSearchQueryContext("free", 7L, false, List.of(9L));
+
+        SemanticRelatedPostResult result = repository.findRelatedPostIds(1L, context, 3, 0.55);
+
+        assertThat(result.sourceEmbeddingAvailable()).isTrue();
+        assertThat(result.postIds()).isEmpty();
+        ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<MapSqlParameterSource> paramsCaptor = ArgumentCaptor.forClass(MapSqlParameterSource.class);
+        verify(jdbcTemplate).queryForList(sqlCaptor.capture(), paramsCaptor.capture());
+        assertThat(sqlCaptor.getValue())
+                .contains("1 - (e.embedding <=> source.embedding) >= :minSimilarity")
+                .contains("ORDER BY e.embedding <=> source.embedding ASC")
+                .contains("LEFT JOIN candidates ON TRUE");
+        assertThat(sqlCaptor.getValue().indexOf(">= :minSimilarity"))
+                .isLessThan(sqlCaptor.getValue().lastIndexOf("LIMIT :limit"));
+        assertThat(paramsCaptor.getValue().getValue("minSimilarity")).isEqualTo(0.55);
+        assertThat(paramsCaptor.getValue().getValue("limit")).isEqualTo(3);
+    }
+
+    @Test
+    void findRelatedPostIds_distinguishesMissingSourceEmbeddingFromNoMatches() {
+        Map<String, Object> missingSourceRow = new HashMap<>();
+        missingSourceRow.put("source_embedding_available", false);
+        missingSourceRow.put("post_id", null);
+        when(jdbcTemplate.queryForList(anyString(), any(MapSqlParameterSource.class)))
+                .thenReturn(List.of(missingSourceRow));
+
+        SemanticRelatedPostResult result = repository.findRelatedPostIds(
+                1L,
+                new SemanticSearchQueryContext("free", null, false, List.of()),
+                3,
+                0.55);
+
+        assertThat(result.sourceEmbeddingAvailable()).isFalse();
+        assertThat(result.postIds()).isEmpty();
     }
 }
