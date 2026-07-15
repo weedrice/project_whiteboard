@@ -19,6 +19,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
+import java.time.LocalDateTime;
 
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -168,6 +169,70 @@ class PostgresApplicationContextSmokeTest {
                         (created_at, modified_at, item_name, price, item_type, target_id, is_active)
                     VALUES (NOW(), NOW(), 'Duplicate Target', 100, 'EMOTICON', 1001, 'N')
                     """));
+            } finally {
+                connection.setSchema(originalSchema);
+            }
+        } finally {
+            jdbcTemplate.execute("DROP SCHEMA IF EXISTS " + schema + " CASCADE");
+        }
+    }
+
+    @Test
+    void globalConfigContractMigrationSeedsMissingKeysAndPreservesOperatorValue() throws Exception {
+        String schema = "global_config_migration_" + UUID.randomUUID().toString().replace("-", "");
+        jdbcTemplate.execute("CREATE SCHEMA " + schema);
+
+        try (Connection connection = dataSource.getConnection()) {
+            String originalSchema = connection.getSchema();
+            try {
+                Flyway.configure()
+                    .dataSource(dataSource)
+                    .schemas(schema)
+                    .defaultSchema(schema)
+                    .locations("classpath:db/migration")
+                    .target(MigrationVersion.fromVersion("52"))
+                    .load()
+                    .migrate();
+
+                connection.setSchema(schema);
+                JdbcTemplate isolated = new JdbcTemplate(new SingleConnectionDataSource(connection, true));
+                LocalDateTime operatorModifiedAt = LocalDateTime.of(2026, 1, 2, 3, 4, 5);
+                isolated.update("""
+                    INSERT INTO global_configs
+                        (config_key, config_value, description, created_at, modified_at)
+                    VALUES ('POINT_SIGNUP_BONUS', '777', 'operator override', ?, ?)
+                    """, operatorModifiedAt, operatorModifiedAt);
+
+                Flyway.configure()
+                    .dataSource(dataSource)
+                    .schemas(schema)
+                    .defaultSchema(schema)
+                    .locations("classpath:db/migration")
+                    .load()
+                    .migrate();
+
+                assertEquals("777", isolated.queryForObject(
+                    "SELECT config_value FROM global_configs WHERE config_key = 'POINT_SIGNUP_BONUS'",
+                    String.class));
+                assertEquals("operator override", isolated.queryForObject(
+                    "SELECT description FROM global_configs WHERE config_key = 'POINT_SIGNUP_BONUS'",
+                    String.class));
+                assertEquals(operatorModifiedAt, isolated.queryForObject(
+                    "SELECT modified_at FROM global_configs WHERE config_key = 'POINT_SIGNUP_BONUS'",
+                    LocalDateTime.class));
+                assertEquals("500", isolated.queryForObject(
+                    "SELECT config_value FROM global_configs WHERE config_key = 'POINT_BOARD_CREATE_COST'",
+                    String.class));
+                assertEquals("50", isolated.queryForObject(
+                    "SELECT config_value FROM global_configs WHERE config_key = 'POINT_POST_CREATE_REWARD'",
+                    String.class));
+                assertEquals("10", isolated.queryForObject(
+                    "SELECT config_value FROM global_configs WHERE config_key = 'POINT_COMMENT_CREATE_REWARD'",
+                    String.class));
+                assertEquals("신규 노비콘 상품 기본 가격 (기존 상품 가격에는 적용되지 않음)",
+                    isolated.queryForObject(
+                        "SELECT description FROM global_configs WHERE config_key = 'NOBICON_PRICE'",
+                        String.class));
             } finally {
                 connection.setSchema(originalSchema);
             }
