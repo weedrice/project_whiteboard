@@ -51,7 +51,7 @@ jobs:
         working-directory: backend
 
       - name: Prepare backend release directory
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
@@ -73,7 +73,7 @@ jobs:
           strip_components: 3
 
       - name: Activate backend release
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1.2.5
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
