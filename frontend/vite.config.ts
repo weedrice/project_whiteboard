@@ -126,53 +126,22 @@ export default defineConfig(({ mode }) => {
             minify: 'esbuild',
             cssMinify: true,
             sourcemap: !isProduction,
-            rollupOptions: {
+            rolldownOptions: {
                 output: {
-                    manualChunks: (id) => {
-                        const normalizedId = id.replace(/\\/g, '/')
-
-                        if (normalizedId.includes('/node_modules/')) {
-                            if (
-                                normalizedId.includes('/node_modules/vue/')
-                                || normalizedId.includes('/node_modules/vue-router/')
-                                || normalizedId.includes('/node_modules/pinia/')
-                            ) {
-                                return 'vendor-vue'
-                            }
-                            if (normalizedId.includes('/node_modules/@tanstack/')) {
-                                return 'vendor-query'
-                            }
-                            if (
-                                normalizedId.includes('/node_modules/lowlight/')
-                                || normalizedId.includes('/node_modules/highlight.js/')
-                            ) {
-                                return 'vendor-highlight'
-                            }
-                            if (
-                                normalizedId.includes('/node_modules/@tiptap/')
-                                || normalizedId.includes('/node_modules/prosemirror-')
-                                || normalizedId.includes('/node_modules/prosemirror/')
-                                || normalizedId.includes('/node_modules/linkifyjs/')
-                            ) {
-                                return 'vendor-editor'
-                            }
-                            if (normalizedId.includes('/node_modules/lucide-vue-next/')) {
-                                return 'vendor-icons'
-                            }
-                            if (normalizedId.includes('/node_modules/date-fns/')) {
-                                return 'vendor-date'
-                            }
-                            if (normalizedId.includes('/node_modules/vuedraggable/')) {
-                                return 'vendor-drag'
-                            }
-                            if (normalizedId.includes('/node_modules/vue-i18n/')) {
-                                return 'vendor-i18n'
-                            }
-                            if (normalizedId.includes('/node_modules/axios/')) {
-                                return 'vendor-http'
-                            }
-                            return 'vendor-core'
-                        }
+                    codeSplitting: {
+                        groups: [
+                            { name: 'vendor-prosemirror', test: /node_modules[\\/]prosemirror(?:-|[\\/])/, priority: 30 },
+                            { name: 'vendor-vue', test: /node_modules[\\/](?:vue|vue-router|pinia)[\\/]/, priority: 20 },
+                            { name: 'vendor-query', test: /node_modules[\\/]@tanstack[\\/]/, priority: 20 },
+                            { name: 'vendor-highlight', test: /node_modules[\\/](?:lowlight|highlight\.js)[\\/]/, priority: 20 },
+                            { name: 'vendor-editor', test: /node_modules[\\/](?:@tiptap|linkifyjs)[\\/]/, priority: 20 },
+                            { name: 'vendor-icons', test: /node_modules[\\/]lucide-vue-next[\\/]/, priority: 20 },
+                            { name: 'vendor-date', test: /node_modules[\\/]date-fns[\\/]/, priority: 20 },
+                            { name: 'vendor-drag', test: /node_modules[\\/]vuedraggable[\\/]/, priority: 20 },
+                            { name: 'vendor-i18n', test: /node_modules[\\/]vue-i18n[\\/]/, priority: 20 },
+                            { name: 'vendor-http', test: /node_modules[\\/]axios[\\/]/, priority: 20 },
+                            { name: 'vendor-core', test: /node_modules[\\/]/, priority: 10 },
+                        ],
                     },
                     chunkFileNames: 'js/[name]-[hash].js',
                     entryFileNames: 'js/[name]-[hash].js',
