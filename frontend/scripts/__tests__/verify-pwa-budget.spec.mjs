@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   extractPrecacheUrls,
+  extractStaticImportSpecifiers,
+  findMissingPrecacheStaticImports,
   measurePrecache,
   verifyJavaScriptChunkBudget,
   verifyPrecacheBudget,
@@ -44,5 +46,23 @@ describe('PWA precache budget verification', () => {
     expect(() => verifyJavaScriptChunkBudget([
       { file: 'js/app.js', bytes: 450_000 },
     ], 450_000)).not.toThrow()
+  })
+
+  it('extracts static imports without treating dynamic imports as precache dependencies', () => {
+    const source = 'import "./setup.js";import{a}from"./shared.js";const lazy=()=>import("./lazy.js")'
+
+    expect(extractStaticImportSpecifiers(source)).toEqual(['./setup.js', './shared.js'])
+  })
+
+  it('reports static imports that are outside the precache manifest', () => {
+    const sources = new Map([
+      ['js/app.js', 'import "./shared.js";import "./missing.js"'],
+      ['js/shared.js', ''],
+    ])
+
+    expect(findMissingPrecacheStaticImports(
+      ['index.html', 'js/app.js', 'js/shared.js'],
+      (url) => sources.get(url) ?? '',
+    )).toEqual([{ importer: 'js/app.js', imported: 'js/missing.js' }])
   })
 })

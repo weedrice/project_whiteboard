@@ -35,6 +35,52 @@ export function measurePrecache({ distDirectory, serviceWorkerSource }) {
   return { urls, totalBytes }
 }
 
+export function extractStaticImportSpecifiers(source) {
+  return [...source.matchAll(/(?:\bfrom\s*|\bimport\s*)["'](\.{1,2}\/[^"']+)["']/g)]
+    .map((match) => match[1])
+}
+
+export function findMissingPrecacheStaticImports(precacheUrls, readSourceForUrl) {
+  const normalizedUrls = new Set(
+    precacheUrls.map((url) => decodeURIComponent(url.split(/[?#]/, 1)[0]).replace(/^\/+/, '')),
+  )
+  const missing = []
+
+  for (const importer of normalizedUrls) {
+    if (!importer.endsWith('.js')) continue
+
+    for (const specifier of extractStaticImportSpecifiers(readSourceForUrl(importer))) {
+      const imported = path.posix
+        .normalize(path.posix.join(path.posix.dirname(importer), specifier.split(/[?#]/, 1)[0]))
+        .replace(/^\/+/, '')
+      if (!normalizedUrls.has(imported)) {
+        missing.push({ importer, imported })
+      }
+    }
+  }
+
+  return missing
+}
+
+export function verifyPrecacheStaticImportClosure({ distDirectory, precacheUrls }) {
+  const missing = findMissingPrecacheStaticImports(precacheUrls, (url) => {
+    const filePath = path.resolve(distDirectory, url)
+    const relativeToDist = path.relative(distDirectory, filePath)
+    if (relativeToDist.startsWith('..') || path.isAbsolute(relativeToDist)) {
+      throw new Error(`Precache URL escapes dist: ${url}`)
+    }
+    return readFileSync(filePath, 'utf8')
+  })
+
+  if (missing.length > 0) {
+    throw new Error(
+      `PWA precache static import closure is incomplete: ${missing
+        .map(({ importer, imported }) => `${importer} -> ${imported}`)
+        .join(', ')}`,
+    )
+  }
+}
+
 export function verifyPrecacheBudget({ totalBytes, entryCount, maxBytes, maxEntries }) {
   if (totalBytes > maxBytes) {
     throw new Error(`PWA precache is ${totalBytes} bytes; budget is ${maxBytes} bytes.`)
@@ -87,6 +133,7 @@ export function runPrecacheBudgetCheck({
 
   const serviceWorkerSource = readFileSync(serviceWorkerPath, 'utf8')
   const measurement = measurePrecache({ distDirectory, serviceWorkerSource })
+  verifyPrecacheStaticImportClosure({ distDirectory, precacheUrls: measurement.urls })
   verifyPrecacheBudget({
     totalBytes: measurement.totalBytes,
     entryCount: measurement.urls.length,

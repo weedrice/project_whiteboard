@@ -3,16 +3,29 @@ import { installMockApi } from './fixtures/mockApi'
 
 test.use({ serviceWorkers: 'allow' })
 
-test('PWA provides the app shell at root and an offline page for uncached direct paths', async ({ page, context }) => {
+test('PWA provides a cold offline app shell and an offline page for uncached direct paths', async ({ page, context }) => {
   await installMockApi(page)
   await page.goto('/')
   await page.evaluate(async () => navigator.serviceWorker?.ready)
-  await page.reload()
+
+  await page.evaluate(async () => {
+    const cacheNames = await caches.keys()
+    await Promise.all(
+      cacheNames
+        .filter((cacheName) => !cacheName.includes('precache'))
+        .map((cacheName) => caches.delete(cacheName)),
+    )
+  })
+  const cdpSession = await context.newCDPSession(page)
+  await cdpSession.send('Network.clearBrowserCache')
+  await page.close()
 
   await context.setOffline(true)
-  await page.goto('/')
-  await expect(page.locator('#app')).toBeAttached()
+  const offlinePage = await context.newPage()
+  await offlinePage.goto('/')
+  await expect(offlinePage.locator('#app')).toBeAttached()
+  await expect(offlinePage.locator('#app > *').first()).toBeAttached()
 
-  await page.goto('/never-visited-offline')
-  await expect(page).toHaveTitle(/Offline/)
+  await offlinePage.goto('/never-visited-offline')
+  await expect(offlinePage).toHaveTitle(/Offline/)
 })
