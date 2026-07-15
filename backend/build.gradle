@@ -46,7 +46,7 @@ dependencies {
 	
 	// Bucket4j for Rate Limiting
 	implementation 'com.bucket4j:bucket4j-core:8.10.1'
-	implementation 'nl.martijndwars:web-push:5.1.1'
+	implementation 'nl.martijndwars:web-push:5.1.2'
 
 	compileOnly 'org.projectlombok:lombok'
 	runtimeOnly 'org.postgresql:postgresql'
