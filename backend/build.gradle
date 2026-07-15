@@ -42,7 +42,7 @@ dependencies {
 	annotationProcessor "jakarta.persistence:jakarta.persistence-api"
 
 	// SpringDoc OpenAPI (Swagger)
-	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.17'
+	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.3'
 	
 	// Bucket4j for Rate Limiting
 	implementation 'com.bucket4j:bucket4j-core:8.10.1'
