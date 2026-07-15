@@ -531,6 +531,7 @@ class EmoticonControllerTest {
         void hasPurchased_authenticatedTrue() throws Exception {
             when(emoticonService.getPurchaseStatus(1L, 1L)).thenReturn(EmoticonPurchaseStatusResponse.builder()
                     .purchased(true)
+                    .available(true)
                     .price(100)
                     .build());
 
@@ -540,6 +541,7 @@ class EmoticonControllerTest {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true))
                     .andExpect(jsonPath("$.data.purchased").value(true))
+                    .andExpect(jsonPath("$.data.available").value(true))
                     .andExpect(jsonPath("$.data.price").value(100));
 
             verify(emoticonService).getPurchaseStatus(1L, 1L);
@@ -550,6 +552,7 @@ class EmoticonControllerTest {
         void hasPurchased_authenticatedFalse() throws Exception {
             when(emoticonService.getPurchaseStatus(1L, 1L)).thenReturn(EmoticonPurchaseStatusResponse.builder()
                     .purchased(false)
+                    .available(true)
                     .price(100)
                     .build());
 
@@ -559,6 +562,7 @@ class EmoticonControllerTest {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true))
                     .andExpect(jsonPath("$.data.purchased").value(false))
+                    .andExpect(jsonPath("$.data.available").value(true))
                     .andExpect(jsonPath("$.data.price").value(100));
 
             verify(emoticonService).getPurchaseStatus(1L, 1L);
@@ -569,6 +573,7 @@ class EmoticonControllerTest {
         void hasPurchased_anonymous() throws Exception {
             when(emoticonService.getPurchaseStatus(null, 1L)).thenReturn(EmoticonPurchaseStatusResponse.builder()
                     .purchased(false)
+                    .available(true)
                     .price(100)
                     .build());
 
@@ -577,6 +582,7 @@ class EmoticonControllerTest {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true))
                     .andExpect(jsonPath("$.data.purchased").value(false))
+                    .andExpect(jsonPath("$.data.available").value(true))
                     .andExpect(jsonPath("$.data.price").value(100));
 
             verify(emoticonService).getPurchaseStatus(null, 1L);

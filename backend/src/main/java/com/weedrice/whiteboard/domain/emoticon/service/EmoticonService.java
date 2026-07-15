@@ -108,9 +108,11 @@ public class EmoticonService {
 
     public EmoticonPurchaseStatusResponse getPurchaseStatus(Long userId, Long emoticonId) {
         boolean purchased = userId != null && catalogService.hasPurchased(userId, emoticonId);
+        EmoticonShopItemLifecycleService.PurchaseOffer offer = purchaseService.getPurchaseOffer(emoticonId);
         return EmoticonPurchaseStatusResponse.builder()
                 .purchased(purchased)
-                .price(purchaseService.getEmoticonPrice(emoticonId))
+                .available(offer.available())
+                .price(offer.price())
                 .build();
     }
 }

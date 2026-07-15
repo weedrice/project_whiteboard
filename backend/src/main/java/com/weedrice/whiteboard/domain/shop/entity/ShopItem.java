@@ -37,7 +37,7 @@ public class ShopItem extends BaseTimeEntity {
     @Column(name = "target_id")
     private Long targetId;
 
-    @Column(name = "image_url", length = 255) // imageUrl 필드 추가
+    @Column(name = "image_url", length = 500)
     private String imageUrl;
 
     @Convert(converter = BooleanToYNConverter.class)
@@ -53,5 +53,23 @@ public class ShopItem extends BaseTimeEntity {
         this.targetId = targetId;
         this.imageUrl = imageUrl;
         this.isActive = true;
+    }
+
+    public void updatePresentation(String itemName, String imageUrl) {
+        this.itemName = itemName;
+        this.imageUrl = imageUrl;
+    }
+
+    public void activate() {
+        this.isActive = true;
+    }
+
+    public void deactivate() {
+        this.isActive = false;
+    }
+
+    public void retire() {
+        this.isActive = false;
+        this.targetId = null;
     }
 }

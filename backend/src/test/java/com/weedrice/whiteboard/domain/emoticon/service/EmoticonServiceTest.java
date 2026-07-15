@@ -14,12 +14,14 @@ import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonSearchConditio
 import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonSearchCondition.SortType;
 import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.shop.entity.ShopItem;
+import com.weedrice.whiteboard.domain.shop.repository.ShopItemRepository;
 import com.weedrice.whiteboard.domain.shop.service.ShopService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -57,6 +59,10 @@ class EmoticonServiceTest {
     private UserRepository userRepository;
     @Mock
     private ShopService shopService;
+    @Mock
+    private ShopItemRepository shopItemRepository;
+    @Mock
+    private GlobalConfigService globalConfigService;
     @Mock
     private UserWritableResolver userWritableResolver;
     @Mock
@@ -96,6 +102,10 @@ class EmoticonServiceTest {
         ReflectionTestUtils.setField(emoticonShopItem, "itemId", 10L);
         lenient().when(userRepository.findAllById(any())).thenReturn(List.of(user));
         lenient().when(imageLimitPolicy.getCurrentLimit()).thenReturn(20);
+        lenient().when(shopItemRepository.findByItemTypeAndTargetId("EMOTICON", 1L))
+                .thenReturn(List.of(emoticonShopItem));
+        lenient().when(globalConfigService.getConfigFresh(GlobalConfigService.NOBICON_PRICE_CONFIG_KEY))
+                .thenReturn("100");
 
         EmoticonAttachmentHelper attachmentHelper = new EmoticonAttachmentHelper(fileService);
         EmoticonCatalogService catalogService = new EmoticonCatalogService(
@@ -105,6 +115,9 @@ class EmoticonServiceTest {
                         java.time.Instant.parse("2026-07-07T00:00:00Z"),
                         java.time.ZoneOffset.UTC));
         EmoticonDeletePolicy deletePolicy = new EmoticonDeletePolicy(emoticonPurchaseRepository);
+        EmoticonShopItemLifecycleService shopItemLifecycleService = new EmoticonShopItemLifecycleService(
+                shopItemRepository,
+                globalConfigService);
         EmoticonCommandService commandService = new EmoticonCommandService(
                 emoticonMasterRepository,
                 emoticonImageRepository,
@@ -112,11 +125,13 @@ class EmoticonServiceTest {
                 attachmentHelper,
                 deletePolicy,
                 imageLimitPolicy,
+                shopItemLifecycleService,
                 "EMOTICON_THUMBNAIL",
                 "EMOTICON_IMAGE");
         EmoticonPurchaseService purchaseService = new EmoticonPurchaseService(
                 shopService,
-                catalogService);
+                catalogService,
+                shopItemLifecycleService);
         emoticonService = new EmoticonService(catalogService, commandService, purchaseService);
     }
 
@@ -695,6 +710,42 @@ class EmoticonServiceTest {
         }
 
         @Test
+        @DisplayName("이모티콘 생성 시 현재 설정 가격을 상품 스냅샷으로 저장한다")
+        void createEmoticon_usesCurrentPriceSnapshot() {
+            EmoticonCreateRequest request = EmoticonCreateRequest.builder().name("가격 상품").build();
+            givenWritableUser();
+            when(globalConfigService.getConfigFresh(GlobalConfigService.NOBICON_PRICE_CONFIG_KEY)).thenReturn("275");
+            when(emoticonMasterRepository.save(any(EmoticonMaster.class))).thenAnswer(invocation -> {
+                EmoticonMaster master = invocation.getArgument(0);
+                ReflectionTestUtils.setField(master, "emoticonId", 10L);
+                return master;
+            });
+
+            emoticonService.createEmoticon(1L, request);
+
+            verify(shopItemRepository).save(argThat(item -> item.getPrice() == 275
+                    && item.getTargetId() == 10L
+                    && "EMOTICON".equals(item.getItemType())));
+        }
+
+        @Test
+        @DisplayName("상품 저장 실패는 이모티콘 생성 오류로 전파된다")
+        void createEmoticon_shopItemSaveFailurePropagates() {
+            EmoticonCreateRequest request = EmoticonCreateRequest.builder().name("실패 상품").build();
+            givenWritableUser();
+            when(emoticonMasterRepository.save(any(EmoticonMaster.class))).thenAnswer(invocation -> {
+                EmoticonMaster master = invocation.getArgument(0);
+                ReflectionTestUtils.setField(master, "emoticonId", 10L);
+                return master;
+            });
+            when(shopItemRepository.save(any(ShopItem.class)))
+                    .thenThrow(new DataIntegrityViolationException("shop item save failed"));
+
+            assertThatThrownBy(() -> emoticonService.createEmoticon(1L, request))
+                    .isInstanceOf(DataIntegrityViolationException.class);
+        }
+
+        @Test
         @DisplayName("이모티콘 생성 성공 - 이미지 URL 목록 포함")
         void createEmoticon_successWithImages() {
             EmoticonCreateRequest request = EmoticonCreateRequest.builder()
@@ -829,6 +880,9 @@ class EmoticonServiceTest {
             assertThat(result).isNotNull();
             assertThat(emoticonMaster.getName()).isEqualTo("수정된 이름");
             assertThat(emoticonMaster.getThumbnailUrl()).isEqualTo("/api/v1/files/20");
+            assertThat(emoticonShopItem.getItemName()).isEqualTo("수정된 이름");
+            assertThat(emoticonShopItem.getImageUrl()).isEqualTo("/api/v1/files/20");
+            assertThat(emoticonShopItem.getPrice()).isEqualTo(250);
             verify(emoticonMasterRepository).findByIdForUpdate(1L);
         }
 
@@ -1074,6 +1128,18 @@ class EmoticonServiceTest {
         }
 
         @Test
+        @DisplayName("이모티콘 공개 상태를 상품 활성 상태와 동기화한다")
+        void toggleVisibility_synchronizesShopItem() {
+            givenWritableUser();
+            when(emoticonMasterRepository.findByIdWithImages(1L)).thenReturn(Optional.of(emoticonMaster));
+
+            emoticonService.toggleVisibility(1L, 1L);
+
+            assertThat(emoticonMaster.getIsActive()).isEqualTo("N");
+            assertThat(emoticonShopItem.getIsActive()).isFalse();
+        }
+
+        @Test
         @DisplayName("이모티콘 수정 - EMOTICON_NOT_FOUND")
         void updateEmoticon_notFound() {
             when(emoticonMasterRepository.findByIdForUpdate(999L)).thenReturn(Optional.empty());
@@ -1106,6 +1172,8 @@ class EmoticonServiceTest {
             inOrder.verify(emoticonMasterRepository).flush();
             inOrder.verify(fileService).deleteFileWithStorageIfAssociated(10L, 1L, "EMOTICON_THUMBNAIL");
             inOrder.verify(fileService).deleteFileWithStorageIfAssociated(20L, 1L, "EMOTICON_IMAGE");
+            assertThat(emoticonShopItem.getIsActive()).isFalse();
+            assertThat(emoticonShopItem.getTargetId()).isNull();
         }
 
         @Test
@@ -1499,27 +1567,66 @@ class EmoticonServiceTest {
         @DisplayName("구매 상태 조회는 구매 여부와 가격을 함께 반환한다")
         void getPurchaseStatus_authenticated() {
             when(emoticonMasterRepository.canUseEmoticon(1L, 1L)).thenReturn(true);
-            when(shopService.resolveSingleActiveItemByTarget("EMOTICON", 1L)).thenReturn(emoticonShopItem);
 
             EmoticonPurchaseStatusResponse result = emoticonService.getPurchaseStatus(1L, 1L);
 
             assertThat(result.isPurchased()).isTrue();
+            assertThat(result.isAvailable()).isTrue();
             assertThat(result.getPrice()).isEqualTo(250);
             verify(emoticonMasterRepository).canUseEmoticon(1L, 1L);
-            verify(shopService).resolveSingleActiveItemByTarget("EMOTICON", 1L);
+            verify(shopItemRepository).findByItemTypeAndTargetId("EMOTICON", 1L);
         }
 
         @Test
         @DisplayName("비인증 구매 상태 조회는 가격만 조회하고 purchased false를 반환한다")
         void getPurchaseStatus_anonymous() {
-            when(shopService.resolveSingleActiveItemByTarget("EMOTICON", 1L)).thenReturn(emoticonShopItem);
+            EmoticonPurchaseStatusResponse result = emoticonService.getPurchaseStatus(null, 1L);
+
+            assertThat(result.isPurchased()).isFalse();
+            assertThat(result.isAvailable()).isTrue();
+            assertThat(result.getPrice()).isEqualTo(250);
+            verify(emoticonMasterRepository, never()).canUseEmoticon(anyLong(), anyLong());
+            verify(shopItemRepository).findByItemTypeAndTargetId("EMOTICON", 1L);
+        }
+
+        @Test
+        @DisplayName("비활성 상품 구매 상태는 저장 가격과 available false를 반환한다")
+        void getPurchaseStatus_inactiveItem() {
+            emoticonShopItem.deactivate();
 
             EmoticonPurchaseStatusResponse result = emoticonService.getPurchaseStatus(null, 1L);
 
             assertThat(result.isPurchased()).isFalse();
+            assertThat(result.isAvailable()).isFalse();
             assertThat(result.getPrice()).isEqualTo(250);
-            verify(emoticonMasterRepository, never()).canUseEmoticon(anyLong(), anyLong());
-            verify(shopService).resolveSingleActiveItemByTarget("EMOTICON", 1L);
+        }
+
+        @Test
+        @DisplayName("상품이 없으면 현재 설정 가격과 available false를 반환한다")
+        void getPurchaseStatus_missingItem() {
+            when(shopItemRepository.findByItemTypeAndTargetId("EMOTICON", 1L)).thenReturn(List.of());
+            when(globalConfigService.getConfigFresh(GlobalConfigService.NOBICON_PRICE_CONFIG_KEY)).thenReturn("0");
+
+            EmoticonPurchaseStatusResponse result = emoticonService.getPurchaseStatus(null, 1L);
+
+            assertThat(result.isAvailable()).isFalse();
+            assertThat(result.getPrice()).isZero();
+        }
+
+        @Test
+        @DisplayName("상품이 없고 설정이 누락되거나 비정상이면 기본 가격 100을 반환한다")
+        void getPurchaseStatus_missingItemUsesDefaultForInvalidConfig() {
+            when(shopItemRepository.findByItemTypeAndTargetId("EMOTICON", 1L)).thenReturn(List.of());
+
+            for (String configValue : new String[] {null, "invalid", "-1"}) {
+                when(globalConfigService.getConfigFresh(GlobalConfigService.NOBICON_PRICE_CONFIG_KEY))
+                        .thenReturn(configValue);
+
+                EmoticonPurchaseStatusResponse result = emoticonService.getPurchaseStatus(null, 1L);
+
+                assertThat(result.isAvailable()).isFalse();
+                assertThat(result.getPrice()).isEqualTo(100);
+            }
         }
 
     }

@@ -5,8 +5,10 @@ import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonMasterReposito
 import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonPurchaseRepository;
 import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.shop.service.ShopService;
+import com.weedrice.whiteboard.domain.shop.repository.ShopItemRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
+import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import jakarta.persistence.EntityManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -42,7 +44,8 @@ class EmoticonServiceConfig {
                                                     UserWritableResolver userWritableResolver,
                                                     EmoticonAttachmentHelper attachmentHelper,
                                                     EmoticonDeletePolicy deletePolicy,
-                                                    EmoticonImageLimitPolicy imageLimitPolicy) {
+                                                    EmoticonImageLimitPolicy imageLimitPolicy,
+                                                    EmoticonShopItemLifecycleService shopItemLifecycleService) {
         return new EmoticonCommandService(
                 emoticonMasterRepository,
                 emoticonImageRepository,
@@ -50,8 +53,16 @@ class EmoticonServiceConfig {
                 attachmentHelper,
                 deletePolicy,
                 imageLimitPolicy,
+                shopItemLifecycleService,
                 EMOTICON_THUMBNAIL,
                 EMOTICON_IMAGE);
+    }
+
+    @Bean
+    EmoticonShopItemLifecycleService emoticonShopItemLifecycleService(
+            ShopItemRepository shopItemRepository,
+            GlobalConfigService globalConfigService) {
+        return new EmoticonShopItemLifecycleService(shopItemRepository, globalConfigService);
     }
 
     @Bean
@@ -68,9 +79,11 @@ class EmoticonServiceConfig {
 
     @Bean
     EmoticonPurchaseService emoticonPurchaseService(ShopService shopService,
-                                                    EmoticonCatalogService catalogService) {
+                                                    EmoticonCatalogService catalogService,
+                                                    EmoticonShopItemLifecycleService shopItemLifecycleService) {
         return new EmoticonPurchaseService(
                 shopService,
-                catalogService);
+                catalogService,
+                shopItemLifecycleService);
     }
 }

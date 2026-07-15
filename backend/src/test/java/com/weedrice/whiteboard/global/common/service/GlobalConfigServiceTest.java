@@ -343,6 +343,31 @@ class GlobalConfigServiceTest {
     }
 
     @Test
+    @DisplayName("NOBICON_PRICE는 0 이상의 정수만 허용한다")
+    void createConfig_nobiconPrice_validatesNonNegativeInteger() {
+        when(globalConfigRepository.existsById(GlobalConfigService.NOBICON_PRICE_CONFIG_KEY)).thenReturn(false);
+        when(globalConfigRepository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        GlobalConfigResponse created = globalConfigService.createConfig(
+                ACTOR_USER_ID,
+                GlobalConfigService.NOBICON_PRICE_CONFIG_KEY,
+                "0",
+                "desc");
+
+        assertThat(created.getValue()).isEqualTo("0");
+
+        for (String invalidValue : List.of("-1", "1.5", "invalid")) {
+            assertThatThrownBy(() -> globalConfigService.createConfig(
+                    ACTOR_USER_ID,
+                    GlobalConfigService.NOBICON_PRICE_CONFIG_KEY,
+                    invalidValue,
+                    "desc"))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+        }
+    }
+
+    @Test
     @DisplayName("createConfig accepts emoticon image limits from 1 through 100")
     void createConfig_emoticonImageLimit_acceptsBoundaries() {
         when(globalConfigRepository.existsById(GlobalConfigService.EMOTICON_IMAGE_MAX_COUNT_CONFIG_KEY))

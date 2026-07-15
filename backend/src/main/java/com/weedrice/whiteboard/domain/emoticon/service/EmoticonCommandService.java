@@ -30,6 +30,7 @@ class EmoticonCommandService {
     private final EmoticonAttachmentHelper attachmentHelper;
     private final EmoticonDeletePolicy deletePolicy;
     private final EmoticonImageLimitPolicy imageLimitPolicy;
+    private final EmoticonShopItemLifecycleService shopItemLifecycleService;
     private final String emoticonThumbnailType;
     private final String emoticonImageType;
 
@@ -39,6 +40,7 @@ class EmoticonCommandService {
                             EmoticonAttachmentHelper attachmentHelper,
                             EmoticonDeletePolicy deletePolicy,
                             EmoticonImageLimitPolicy imageLimitPolicy,
+                            EmoticonShopItemLifecycleService shopItemLifecycleService,
                             String emoticonThumbnailType,
                             String emoticonImageType) {
         this.emoticonMasterRepository = emoticonMasterRepository;
@@ -47,6 +49,7 @@ class EmoticonCommandService {
         this.attachmentHelper = attachmentHelper;
         this.deletePolicy = deletePolicy;
         this.imageLimitPolicy = imageLimitPolicy;
+        this.shopItemLifecycleService = shopItemLifecycleService;
         this.emoticonThumbnailType = emoticonThumbnailType;
         this.emoticonImageType = emoticonImageType;
     }
@@ -94,6 +97,8 @@ class EmoticonCommandService {
                 master.addImage(image);
             }
         }
+
+        shopItemLifecycleService.createFor(master);
 
         return EmoticonMasterDto.from(master);
     }
@@ -194,6 +199,7 @@ class EmoticonCommandService {
                 normalizeUpdateName(request.getName(), master.getName()),
                 thumbnailUrl,
                 request.getTags() != null ? request.getTags() : master.getTags());
+        shopItemLifecycleService.updatePresentation(master);
 
         return EmoticonMasterDto.from(master);
     }
@@ -217,8 +223,10 @@ class EmoticonCommandService {
 
         if ("Y".equals(master.getIsActive())) {
             master.deactivate();
+            shopItemLifecycleService.setActive(emoticonId, false);
         } else {
             master.activate();
+            shopItemLifecycleService.setActive(emoticonId, true);
         }
 
         return EmoticonMasterDto.from(master);
@@ -231,6 +239,7 @@ class EmoticonCommandService {
         validateWritableOwner(master, userId);
 
         deletePolicy.validateDeletable(emoticonId);
+        shopItemLifecycleService.retire(emoticonId);
 
         Long masterId = master.getEmoticonId();
         String thumbnailUrl = master.getThumbnailUrl();

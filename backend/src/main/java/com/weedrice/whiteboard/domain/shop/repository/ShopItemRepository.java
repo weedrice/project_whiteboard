@@ -17,4 +17,5 @@ public interface ShopItemRepository extends JpaRepository<ShopItem, Long> {
             Boolean isActive,
             String itemType,
             Long targetId);
+    List<ShopItem> findByItemTypeAndTargetId(String itemType, Long targetId);
 }

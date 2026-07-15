@@ -7,5 +7,6 @@ import lombok.Getter;
 @Builder
 public class EmoticonPurchaseStatusResponse {
     private boolean purchased;
+    private boolean available;
     private int price;
 }

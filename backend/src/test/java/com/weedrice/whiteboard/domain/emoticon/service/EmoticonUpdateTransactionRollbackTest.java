@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.emoticon.service;
 
+import com.weedrice.whiteboard.domain.emoticon.dto.EmoticonCreateRequest;
 import com.weedrice.whiteboard.domain.emoticon.dto.EmoticonUpdateRequest;
 import com.weedrice.whiteboard.domain.emoticon.entity.EmoticonImage;
 import com.weedrice.whiteboard.domain.emoticon.entity.EmoticonMaster;
@@ -24,21 +25,26 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.context.jdbc.Sql;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.when;
 
 @DataJpaTest
@@ -80,9 +86,14 @@ class EmoticonUpdateTransactionRollbackTest {
     private UserWritableResolver userWritableResolver;
     @Autowired
     private EmoticonImageLimitPolicy imageLimitPolicy;
+    @Autowired
+    private EmoticonShopItemLifecycleService shopItemLifecycleService;
+    @Autowired
+    private UserRepository userRepository;
 
     @BeforeEach
     void setUpFileStateChanges() {
+        reset(shopItemLifecycleService);
         when(imageLimitPolicy.getCurrentLimit()).thenReturn(20);
         when(userWritableResolver.resolve(anyLong())).thenReturn(null);
 
@@ -143,6 +154,45 @@ class EmoticonUpdateTransactionRollbackTest {
         assertThat(newFile.getRelatedType()).isNull();
     }
 
+    @Test
+    @DisplayName("상품 생성 실패 시 이모티콘 생성도 함께 롤백한다")
+    void createEmoticon_shopItemFailure_rollsBackMaster() {
+        User user = userRepository.save(User.builder()
+                .loginId("emoticon-create-rollback")
+                .email("emoticon-create-rollback@test.com")
+                .password("password")
+                .displayName("Create Rollback")
+                .build());
+        when(userWritableResolver.resolve(user.getUserId())).thenReturn(user);
+        doThrow(new DataIntegrityViolationException("shop item save failed"))
+                .when(shopItemLifecycleService).createFor(any(EmoticonMaster.class));
+        long beforeCount = emoticonMasterRepository.count();
+
+        assertThatThrownBy(() -> updater.create(
+                user.getUserId(),
+                EmoticonCreateRequest.builder().name("롤백 상품").build()))
+                .isInstanceOf(DataIntegrityViolationException.class);
+
+        assertThat(emoticonMasterRepository.count()).isEqualTo(beforeCount);
+    }
+
+    @Test
+    @DisplayName("상품 메타데이터 동기화 실패 시 이모티콘 수정도 함께 롤백한다")
+    void updateEmoticon_shopItemFailure_rollsBackMaster() {
+        SeedData seed = testDataService.seed();
+        doThrow(new DataIntegrityViolationException("shop item update failed"))
+                .when(shopItemLifecycleService).updatePresentation(any(EmoticonMaster.class));
+
+        assertThatThrownBy(() -> updater.update(
+                seed.userId(),
+                seed.emoticonId(),
+                EmoticonUpdateRequest.builder().name("변경 이름").build()))
+                .isInstanceOf(DataIntegrityViolationException.class);
+
+        EmoticonMaster persistedMaster = emoticonMasterRepository.findById(seed.emoticonId()).orElseThrow();
+        assertThat(persistedMaster.getName()).isEqualTo("원래 이름");
+    }
+
     private record SeedData(
             Long userId,
             Long emoticonId,
@@ -163,9 +213,16 @@ class EmoticonUpdateTransactionRollbackTest {
         void update(Long userId, Long emoticonId, EmoticonUpdateRequest request) {
             commandService.updateEmoticon(userId, emoticonId, request);
         }
+
+        @Transactional
+        void create(Long userId, EmoticonCreateRequest request) {
+            commandService.createEmoticon(userId, request);
+        }
     }
 
     static class TestDataService {
+
+        private static final AtomicLong SEQUENCE = new AtomicLong();
 
         private final UserRepository userRepository;
         private final EmoticonMasterRepository emoticonMasterRepository;
@@ -182,9 +239,10 @@ class EmoticonUpdateTransactionRollbackTest {
 
         @Transactional
         SeedData seed() {
+            long suffix = SEQUENCE.incrementAndGet();
             User user = userRepository.save(User.builder()
-                    .loginId("emoticon-rollback-user")
-                    .email("emoticon-rollback@test.com")
+                    .loginId("emoticon-rollback-user-" + suffix)
+                    .email("emoticon-rollback-" + suffix + "@test.com")
                     .password("password")
                     .displayName("Rollback User")
                     .build());
@@ -249,6 +307,11 @@ class EmoticonUpdateTransactionRollbackTest {
         }
 
         @Bean
+        EmoticonShopItemLifecycleService emoticonShopItemLifecycleService() {
+            return mock(EmoticonShopItemLifecycleService.class);
+        }
+
+        @Bean
         EmoticonAttachmentHelper emoticonAttachmentHelper(FileService fileService) {
             return new EmoticonAttachmentHelper(fileService);
         }
@@ -260,7 +323,8 @@ class EmoticonUpdateTransactionRollbackTest {
                 UserWritableResolver userWritableResolver,
                 EmoticonAttachmentHelper attachmentHelper,
                 EmoticonDeletePolicy deletePolicy,
-                EmoticonImageLimitPolicy imageLimitPolicy) {
+                EmoticonImageLimitPolicy imageLimitPolicy,
+                EmoticonShopItemLifecycleService shopItemLifecycleService) {
             return new EmoticonCommandService(
                     emoticonMasterRepository,
                     emoticonImageRepository,
@@ -268,6 +332,7 @@ class EmoticonUpdateTransactionRollbackTest {
                     attachmentHelper,
                     deletePolicy,
                     imageLimitPolicy,
+                    shopItemLifecycleService,
                     "EMOTICON_THUMBNAIL",
                     EMOTICON_IMAGE_TYPE);
         }

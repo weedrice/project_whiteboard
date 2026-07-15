@@ -30,6 +30,7 @@ public class GlobalConfigService {
 
     private static final String GLOBAL_CONFIG_CACHE = "globalConfig";
     private static final String POINT_CONFIG_PREFIX = "POINT_";
+    public static final String NOBICON_PRICE_CONFIG_KEY = "NOBICON_PRICE";
     public static final String EMOTICON_IMAGE_MAX_COUNT_CONFIG_KEY = "EMOTICON_IMAGE_MAX_COUNT";
     public static final int EMOTICON_IMAGE_MAX_COUNT_MIN = 1;
     public static final int EMOTICON_IMAGE_MAX_COUNT_MAX = 100;
@@ -208,6 +209,13 @@ public class GlobalConfigService {
     }
 
     private void validateConfigValue(String key, String value) {
+        if (NOBICON_PRICE_CONFIG_KEY.equals(key)) {
+            Integer parsedValue = parseIntConfigValue(value);
+            if (parsedValue == null || parsedValue < 0) {
+                throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+            }
+            return;
+        }
         if (EMOTICON_IMAGE_MAX_COUNT_CONFIG_KEY.equals(key)) {
             Integer parsedValue = parseIntConfigValue(value);
             if (parsedValue == null
