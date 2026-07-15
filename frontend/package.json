@@ -68,7 +68,7 @@
     "pinia": "^3.0.4",
     "vue": "^3.5.22",
     "vue-i18n": "^11.2.2",
-    "vue-router": "^4.6.3",
+    "vue-router": "^5.2.0",
     "vuedraggable": "^4.1.0",
     "web-vitals": "^5.1.0"
   },
