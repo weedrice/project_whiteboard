@@ -23,6 +23,7 @@ jobs:
           filters: |
             backend:
               - 'backend/**'
+              - 'deploy/nginx/**'
               - 'docker-compose.yml'
               - '.github/workflows/ci.yml'
             frontend:

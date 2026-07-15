@@ -17,11 +17,7 @@ public class ClientIpResolver {
 
     private static final List<String> FORWARDED_HEADER_NAMES = List.of(
             "X-Forwarded-For",
-            "X-Real-IP",
-            "Proxy-Client-IP",
-            "WL-Proxy-Client-IP",
-            "HTTP_CLIENT_IP",
-            "HTTP_X_FORWARDED_FOR");
+            "X-Real-IP");
 
     private final ClientIpProperties clientIpProperties;
 

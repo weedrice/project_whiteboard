@@ -4,7 +4,6 @@ import com.weedrice.whiteboard.domain.agent.exception.AgentWriteErrorCode;
 import com.weedrice.whiteboard.domain.agent.exception.AgentWriteException;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.util.ClientIpResolver;
-import com.weedrice.whiteboard.global.common.util.ClientUtils;
 import com.weedrice.whiteboard.global.log.service.ErrorLogService;
 import com.weedrice.whiteboard.global.ratelimit.RateLimitExceededException;
 import com.weedrice.whiteboard.global.ratelimit.RateLimitHeaderWriter;
@@ -15,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.HttpStatus;
@@ -70,12 +70,10 @@ public class GlobalExceptionHandler {
             .collect(Collectors.toUnmodifiableSet());
 
     private final MessageSource messageSource;
+    private final ObjectProvider<ClientIpResolver> clientIpResolverProvider;
 
     @Autowired(required = false)
     private ErrorLogService errorLogService;
-
-    @Autowired(required = false)
-    private ClientIpResolver clientIpResolver;
 
     @ExceptionHandler(AgentWriteException.class)
     public ResponseEntity<ApiResponse<Object>> handleAgentWriteException(AgentWriteException e,
@@ -358,10 +356,8 @@ public class GlobalExceptionHandler {
     }
 
     private String resolveClientIp(HttpServletRequest request) {
-        if (clientIpResolver != null) {
-            return clientIpResolver.resolve(request);
-        }
-        return ClientUtils.getIp(request);
+        ClientIpResolver clientIpResolver = clientIpResolverProvider.getIfAvailable();
+        return clientIpResolver != null ? clientIpResolver.resolve(request) : request.getRemoteAddr();
     }
 
     /**

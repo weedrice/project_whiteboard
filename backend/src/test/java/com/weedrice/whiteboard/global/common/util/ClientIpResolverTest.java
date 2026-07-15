@@ -133,6 +133,20 @@ class ClientIpResolverTest {
     }
 
     @Test
+    @DisplayName("legacy proxy headers are ignored even for trusted proxies")
+    void resolve_ignoresLegacyProxyHeaders() {
+        ClientIpProperties properties = trustedProxyProperties("10.0.0.10");
+        ClientIpResolver resolver = new ClientIpResolver(properties);
+        MockHttpServletRequest request = request("10.0.0.10");
+        request.addHeader("Proxy-Client-IP", "203.0.113.12");
+        request.addHeader("HTTP_X_FORWARDED_FOR", "203.0.113.13");
+
+        String clientIp = resolver.resolve(request);
+
+        assertThat(clientIp).isEqualTo("10.0.0.10");
+    }
+
+    @Test
     @DisplayName("trusted proxy CIDR 안의 remoteAddr이면 forwarded header를 신뢰한다")
     void resolve_trustsRemoteAddrMatchedByCidr() {
         ClientIpProperties properties = trustedProxyProperties("10.0.0.0/8");

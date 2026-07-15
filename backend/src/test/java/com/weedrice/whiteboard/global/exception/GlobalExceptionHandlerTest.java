@@ -8,6 +8,7 @@ import com.weedrice.whiteboard.domain.agent.exception.AgentWriteException;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.util.ClientIpResolver;
 import com.weedrice.whiteboard.global.log.service.ErrorLogService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -16,6 +17,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.MessageSource;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpStatus;
@@ -52,6 +54,12 @@ class GlobalExceptionHandlerTest {
     @Mock
     private ErrorLogService errorLogService;
 
+    @Mock
+    private ClientIpResolver clientIpResolver;
+
+    @Mock
+    private ObjectProvider<ClientIpResolver> clientIpResolverProvider;
+
     private MockHttpServletRequest request;
 
     @BeforeEach
@@ -59,6 +67,8 @@ class GlobalExceptionHandlerTest {
         request = new MockHttpServletRequest();
         request.setRequestURI("/test/uri");
         ReflectionTestUtils.setField(globalExceptionHandler, "errorLogService", errorLogService);
+        lenient().when(clientIpResolverProvider.getIfAvailable()).thenReturn(clientIpResolver);
+        lenient().when(clientIpResolver.resolve(any(HttpServletRequest.class))).thenReturn("127.0.0.1");
     }
 
     @Test
@@ -166,8 +176,6 @@ class GlobalExceptionHandlerTest {
 
     @Test
     void handleBusinessException_logsResolvedClientIpWhenAvailable() {
-        ClientIpResolver clientIpResolver = mock(ClientIpResolver.class);
-        ReflectionTestUtils.setField(globalExceptionHandler, "clientIpResolver", clientIpResolver);
         when(clientIpResolver.resolve(request)).thenReturn("203.0.113.11");
         when(messageSource.getMessage(eq(ErrorCode.USER_NOT_FOUND.getMessage()), isNull(), any(Locale.class)))
                 .thenReturn(ErrorCode.USER_NOT_FOUND.getMessage());
@@ -185,6 +193,30 @@ class GlobalExceptionHandlerTest {
                 eq("203.0.113.11"),
                 isNull(),
                 isNull());
+    }
+
+    @Test
+    void handleBusinessException_ignoresForwardedHeadersWhenResolverIsUnavailable() {
+        when(clientIpResolverProvider.getIfAvailable()).thenReturn(null);
+        request.setRemoteAddr("198.51.100.10");
+        request.addHeader("X-Forwarded-For", "203.0.113.99");
+        when(messageSource.getMessage(eq(ErrorCode.USER_NOT_FOUND.getMessage()), isNull(), any(Locale.class)))
+                .thenReturn(ErrorCode.USER_NOT_FOUND.getMessage());
+
+        globalExceptionHandler.handleBusinessException(new BusinessException(ErrorCode.USER_NOT_FOUND), request);
+
+        verify(errorLogService).saveErrorLog(
+                eq(ErrorCode.USER_NOT_FOUND.getCode()),
+                eq("BusinessException"),
+                eq(HttpStatus.NOT_FOUND.value()),
+                anyString(),
+                anyString(),
+                anyString(),
+                isNull(),
+                eq("198.51.100.10"),
+                isNull(),
+                isNull());
+        verifyNoInteractions(clientIpResolver);
     }
 
     @Test
