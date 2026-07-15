@@ -21,6 +21,7 @@ import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
 import java.time.LocalDateTime;
+import java.util.Set;
 
 @Component
 @Slf4j
@@ -58,9 +59,14 @@ public class KeywordNotificationEventListener {
     private void notifyMatchingSubscribers(Post post) {
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime cooldownThreshold = now.minusMinutes(COOLDOWN_MINUTES);
-        for (UserKeywordSubscription subscription : keywordSubscriptionRepository.findMatchingTitle(post.getTitle())) {
+        var subscriptions = keywordSubscriptionRepository.findMatchingTitle(post.getTitle());
+        if (subscriptions.isEmpty()) {
+            return;
+        }
+        Set<Long> blockedUserIds = resolveBlockedUserIds(post);
+        for (UserKeywordSubscription subscription : subscriptions) {
             if (isAuthor(subscription, post)
-                    || isBlocked(subscription, post)
+                    || isBlocked(subscription, blockedUserIds)
                     || isCoolingDown(subscription, cooldownThreshold)) {
                 continue;
             }
@@ -90,13 +96,17 @@ public class KeywordNotificationEventListener {
                 && subscription.getLastNotifiedAt().isAfter(cooldownThreshold);
     }
 
-    private boolean isBlocked(UserKeywordSubscription subscription, Post post) {
-        if (subscription.getUser() == null || subscription.getUser().getUserId() == null
-                || post.getUser() == null || post.getUser().getUserId() == null) {
-            return false;
+    private Set<Long> resolveBlockedUserIds(Post post) {
+        if (post.getUser() == null || post.getUser().getUserId() == null) {
+            return Set.of();
         }
-        return userBlockService.isEitherDirectionBlocked(
-                subscription.getUser().getUserId(),
-                post.getUser().getUserId());
+        return Set.copyOf(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(
+                post.getUser().getUserId()));
+    }
+
+    private boolean isBlocked(UserKeywordSubscription subscription, Set<Long> blockedUserIds) {
+        return subscription.getUser() != null
+                && subscription.getUser().getUserId() != null
+                && blockedUserIds.contains(subscription.getUser().getUserId());
     }
 }

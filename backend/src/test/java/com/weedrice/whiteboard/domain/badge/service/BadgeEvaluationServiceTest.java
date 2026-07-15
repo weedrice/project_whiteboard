@@ -10,11 +10,17 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
+import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -65,5 +71,34 @@ class BadgeEvaluationServiceTest {
         assertEquals(2, service.evaluateAttendanceStreakBadges(3L, 30));
         assertEquals(1, service.evaluatePopularPostBadges(3L, 50));
         assertEquals(0, service.evaluateAttendanceStreakBadges(3L, 6));
+    }
+
+    @Test
+    void evaluatesContentCountsWithOneAggregateQueryPerRepository() {
+        User first = mock(User.class);
+        User second = mock(User.class);
+        PostRepository.UserPostCountProjection firstPostCount = mock(PostRepository.UserPostCountProjection.class);
+        CommentRepository.UserCommentCountProjection secondCommentCount = mock(CommentRepository.UserCommentCountProjection.class);
+        when(first.isActiveAccount()).thenReturn(true);
+        when(first.getUserId()).thenReturn(1L);
+        when(second.isActiveAccount()).thenReturn(true);
+        when(second.getUserId()).thenReturn(2L);
+        when(firstPostCount.getUserId()).thenReturn(1L);
+        when(firstPostCount.getPostCount()).thenReturn(10L);
+        when(secondCommentCount.getUserId()).thenReturn(2L);
+        when(secondCommentCount.getCommentCount()).thenReturn(1L);
+        when(posts.countActiveByUserIds(Set.of(1L, 2L))).thenReturn(List.of(firstPostCount));
+        when(comments.countActiveByUserIds(Set.of(1L, 2L))).thenReturn(List.of(secondCommentCount));
+        when(awards.awardMissingContentBadges(anyMap(), anyMap())).thenReturn(3);
+
+        assertEquals(3, service.evaluateContentCountBadges(List.of(first, second)));
+
+        verify(posts).countActiveByUserIds(Set.of(1L, 2L));
+        verify(comments).countActiveByUserIds(Set.of(1L, 2L));
+        verify(awards).awardMissingContentBadges(anyMap(), argThat(eligible ->
+                eligible.get(1L).equals(Set.of(BadgeCode.FIRST_POST, BadgeCode.POSTS_10))
+                        && eligible.get(2L).equals(Set.of(BadgeCode.FIRST_COMMENT))));
+        verify(awards, never()).awardIfMissing(1L, BadgeCode.FIRST_POST);
+        verifyNoInteractions(users);
     }
 }

@@ -26,6 +26,12 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                 Long getPostCount();
         }
 
+        interface UserPostCountProjection {
+                Long getUserId();
+
+                Long getPostCount();
+        }
+
         interface PublicLandingPostStatsProjection {
                 Long getTotalPosts();
 
@@ -197,6 +203,15 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
         Optional<Post> findByIdWithRelationsForUpdate(@Param("postId") Long postId);
     
         long countByUserAndIsDeleted(User user, Boolean isDeleted);
+
+        @Query("""
+                SELECT p.user.userId AS userId, COUNT(p) AS postCount
+                FROM Post p
+                WHERE p.user.userId IN :userIds
+                  AND p.isDeleted = false
+                GROUP BY p.user.userId
+                """)
+        List<UserPostCountProjection> countActiveByUserIds(@Param("userIds") Collection<Long> userIds);
 
         @Query("""
                 SELECT COUNT(p)

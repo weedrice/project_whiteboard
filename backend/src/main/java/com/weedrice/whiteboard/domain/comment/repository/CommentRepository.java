@@ -26,6 +26,12 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                 long getReplyCount();
         }
 
+        interface UserCommentCountProjection {
+                Long getUserId();
+
+                Long getCommentCount();
+        }
+
         interface UnreadAgentPostActivityProjection {
                 Long getPostId();
 
@@ -424,6 +430,17 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
 
         long countByUser(User user);
         long countByUserAndIsDeleted(User user, Boolean isDeleted);
+
+        @Query("""
+                        SELECT c.user.userId AS userId, COUNT(c) AS commentCount
+                        FROM Comment c
+                        WHERE c.user.userId IN :userIds
+                          AND c.isDeleted = false
+                        GROUP BY c.user.userId
+                        """)
+        List<UserCommentCountProjection> countActiveByUserIds(
+                        @org.springframework.data.repository.query.Param("userIds") Collection<Long> userIds);
+
         @Query("""
                         SELECT COUNT(c)
                         FROM Comment c

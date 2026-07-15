@@ -83,14 +83,11 @@ public class BadgeService {
         Page<User> users;
         do {
             users = userRepository.findAll(PageRequest.of(page, BACKFILL_PAGE_SIZE));
-            for (User user : users.getContent()) {
-                if (!user.isActiveAccount()) {
-                    continue;
-                }
-                scannedUsers++;
-                awardedBadges += badgeEvaluationService.evaluatePostCountBadges(user.getUserId());
-                awardedBadges += badgeEvaluationService.evaluateCommentCountBadges(user.getUserId());
-            }
+            List<User> activeUsers = users.getContent().stream()
+                    .filter(User::isActiveAccount)
+                    .toList();
+            scannedUsers += activeUsers.size();
+            awardedBadges += badgeEvaluationService.evaluateContentCountBadges(activeUsers);
             page++;
         } while (users.hasNext());
         return BadgeBackfillResponse.builder()

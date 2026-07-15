@@ -13,12 +13,16 @@ import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -47,17 +51,71 @@ public class BadgeAwardService {
         Badge badge = badgeRepository.findById(badgeCode)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
 
-        UserBadge userBadge = UserBadge.builder()
-                .user(user)
-                .badge(badge)
-                .acquiredAt(LocalDateTime.now(clock))
-                .build();
-        try {
-            userBadge = userBadgeRepository.saveAndFlush(userBadge);
-        } catch (DataIntegrityViolationException exception) {
+        return award(user, badge);
+    }
+
+    @Transactional
+    public int awardMissingContentBadges(
+            Map<Long, User> usersById,
+            Map<Long, Set<BadgeCode>> eligibleBadgesByUserId) {
+        if (usersById == null || usersById.isEmpty()
+                || eligibleBadgesByUserId == null || eligibleBadgesByUserId.isEmpty()) {
+            return 0;
+        }
+
+        Set<String> badgeCodes = eligibleBadgesByUserId.values().stream()
+                .flatMap(Set::stream)
+                .map(Enum::name)
+                .collect(Collectors.toSet());
+        if (badgeCodes.isEmpty()) {
+            return 0;
+        }
+
+        Set<UserBadgeKey> awardedKeys = userBadgeRepository
+                .findByUser_UserIdInAndBadge_BadgeCodeIn(usersById.keySet(), badgeCodes)
+                .stream()
+                .map(userBadge -> new UserBadgeKey(
+                        userBadge.getUser().getUserId(),
+                        userBadge.getBadge().getBadgeCode()))
+                .collect(Collectors.toCollection(HashSet::new));
+        Map<String, Badge> badgesByCode = badgeRepository.findAllById(badgeCodes).stream()
+                .collect(Collectors.toMap(Badge::getBadgeCode, Function.identity()));
+
+        int awarded = 0;
+        for (Map.Entry<Long, Set<BadgeCode>> entry : eligibleBadgesByUserId.entrySet()) {
+            User user = usersById.get(entry.getKey());
+            if (user == null || !user.isActiveAccount()) {
+                continue;
+            }
+            for (BadgeCode badgeCode : entry.getValue()) {
+                UserBadgeKey key = new UserBadgeKey(entry.getKey(), badgeCode.name());
+                if (!awardedKeys.add(key)) {
+                    continue;
+                }
+                Badge badge = badgesByCode.get(badgeCode.name());
+                if (badge == null) {
+                    throw new BusinessException(ErrorCode.NOT_FOUND);
+                }
+                if (award(user, badge)) {
+                    awarded++;
+                }
+            }
+        }
+        return awarded;
+    }
+
+    private boolean award(User user, Badge badge) {
+        int inserted = userBadgeRepository.insertIgnore(
+                user.getUserId(),
+                badge.getBadgeCode(),
+                LocalDateTime.now(clock));
+        if (inserted == 0) {
             return false;
         }
 
+        UserBadge userBadge = userBadgeRepository
+                .findByUser_UserIdAndBadge_BadgeCode(user.getUserId(), badge.getBadgeCode())
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
         publishAwardNotification(user, userBadge);
         return true;
     }
@@ -75,5 +133,8 @@ public class BadgeAwardService {
                 userBadge.getUserBadgeId(),
                 "notification.badge.awarded",
                 userBadge.getBadge().getName()));
+    }
+
+    private record UserBadgeKey(Long userId, String badgeCode) {
     }
 }
