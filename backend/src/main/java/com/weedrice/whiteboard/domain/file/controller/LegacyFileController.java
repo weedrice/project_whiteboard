@@ -8,6 +8,7 @@ import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -21,9 +22,10 @@ class LegacyFileController {
     @GetMapping("/{fileId}")
     public ResponseEntity<Resource> downloadFile(
             @PathVariable Long fileId,
+            @RequestHeader(value = "If-None-Match", required = false) String ifNoneMatch,
             @CurrentUserId(required = false) Long viewerUserId) {
         FileDownloadResponse download = fileDownloadService.downloadFile(fileId, viewerUserId);
 
-        return FileDownloadResponseAssembler.toResponse(download);
+        return FileDownloadResponseAssembler.toResponse(download, ifNoneMatch);
     }
 }

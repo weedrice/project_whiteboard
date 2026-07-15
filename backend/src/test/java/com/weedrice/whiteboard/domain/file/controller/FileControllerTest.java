@@ -31,7 +31,9 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.io.ByteArrayInputStream;
 import java.util.Collections;
+import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.doAnswer;
@@ -244,6 +246,29 @@ class FileControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(header().string("Content-Disposition", containsString("inline")))
                 .andExpect(header().string("X-Content-Type-Options", "nosniff"));
+    }
+
+    @Test
+    void downloadFile_matchingEmoticonEntityTagReturns304WithoutOpeningStream() throws Exception {
+        Long fileId = 5L;
+        AtomicInteger streamOpenCount = new AtomicInteger();
+        when(fileDownloadService.downloadFile(eq(fileId), isNull())).thenReturn(new FileDownloadResponse(
+                () -> {
+                    streamOpenCount.incrementAndGet();
+                    return new ByteArrayInputStream("test content".getBytes());
+                },
+                "emoticon.png",
+                "image/png",
+                true,
+                "etag-value"));
+
+        mockMvc.perform(get("/api/v1/files/{fileId}", fileId)
+                        .header("If-None-Match", "\"etag-value\""))
+                .andExpect(status().isNotModified())
+                .andExpect(header().string("Cache-Control", "max-age=600, private"))
+                .andExpect(header().string("ETag", "\"etag-value\""));
+
+        assertThat(streamOpenCount).hasValue(0);
     }
 
     @Test

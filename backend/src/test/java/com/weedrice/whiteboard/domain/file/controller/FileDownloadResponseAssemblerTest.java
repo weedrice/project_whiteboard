@@ -8,6 +8,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 
 import java.io.ByteArrayInputStream;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -56,10 +57,60 @@ class FileDownloadResponseAssemblerTest {
         assertThat(response.getHeaders().getFirst(HttpHeaders.CONTENT_DISPOSITION)).contains("bad_name_.txt");
     }
 
+    @Test
+    void toResponse_cacheableEmoticonAddsPrivateFreshnessAndEntityTag() {
+        FileDownloadResponse download = cacheableDownload(new AtomicInteger());
+
+        ResponseEntity<Resource> response = FileDownloadResponseAssembler.toResponse(download, null);
+
+        assertThat(response.getStatusCode().value()).isEqualTo(200);
+        assertThat(response.getHeaders().getCacheControl()).isEqualTo("max-age=600, private");
+        assertThat(response.getHeaders().getETag()).isEqualTo("\"etag-value\"");
+    }
+
+    @Test
+    void toResponse_matchingEntityTagReturns304WithoutOpeningStorageStream() {
+        AtomicInteger streamOpenCount = new AtomicInteger();
+        FileDownloadResponse download = cacheableDownload(streamOpenCount);
+
+        ResponseEntity<Resource> response = FileDownloadResponseAssembler.toResponse(
+                download,
+                "W/\"etag-value\"");
+
+        assertThat(response.getStatusCode().value()).isEqualTo(304);
+        assertThat(response.getBody()).isNull();
+        assertThat(response.getHeaders().getCacheControl()).isEqualTo("max-age=600, private");
+        assertThat(response.getHeaders().getETag()).isEqualTo("\"etag-value\"");
+        assertThat(streamOpenCount).hasValue(0);
+    }
+
+    @Test
+    void toResponse_nonCacheableFileIgnoresMatchingEntityTag() {
+        ResponseEntity<Resource> response = FileDownloadResponseAssembler.toResponse(
+                download("document", "text/plain"),
+                "*");
+
+        assertThat(response.getStatusCode().value()).isEqualTo(200);
+        assertThat(response.getHeaders().getCacheControl()).isNullOrEmpty();
+        assertThat(response.getHeaders().getETag()).isNull();
+    }
+
     private FileDownloadResponse download(String originalName, String mimeType) {
         return new FileDownloadResponse(
                 new ByteArrayInputStream("content".getBytes()),
                 originalName,
                 mimeType);
+    }
+
+    private FileDownloadResponse cacheableDownload(AtomicInteger streamOpenCount) {
+        return new FileDownloadResponse(
+                () -> {
+                    streamOpenCount.incrementAndGet();
+                    return new ByteArrayInputStream("content".getBytes());
+                },
+                "emoticon.png",
+                "image/png",
+                true,
+                "etag-value");
     }
 }

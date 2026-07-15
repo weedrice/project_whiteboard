@@ -23,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -39,55 +40,70 @@ class FileAccessService {
     private final EmoticonMasterRepository emoticonMasterRepository;
 
     public File getFileForDownload(Long fileId, Long viewerUserId) {
-        File file = fileRepository.findByFileIdAndStorageStatus(fileId, FileStorageStatus.ACTIVE)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
-        validateReadable(file, viewerUserId);
-        return file;
+        return getFileAccessForDownload(fileId, viewerUserId).file();
     }
 
-    private void validateReadable(File file, Long viewerUserId) {
+    FileAccessResult getFileAccessForDownload(Long fileId, Long viewerUserId) {
+        File file = fileRepository.findByFileIdAndStorageStatus(fileId, FileStorageStatus.ACTIVE)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+        FileAccessResult.CacheScope cacheScope = validateReadable(file, viewerUserId);
+        return new FileAccessResult(file, cacheScope);
+    }
+
+    private FileAccessResult.CacheScope validateReadable(File file, Long viewerUserId) {
         String relatedType = file.getRelatedType();
         if (relatedType == null && file.getRelatedId() == null) {
-            if (tryValidateReferencedEmoticonReadable(file, viewerUserId)) {
-                return;
+            Optional<FileAccessResult.CacheScope> emoticonScope = validateReferencedEmoticonIfPresent(
+                    file, viewerUserId);
+            if (emoticonScope.isPresent()) {
+                return emoticonScope.get();
             }
             validateUploader(file, viewerUserId);
-            return;
+            return FileAccessResult.CacheScope.OTHER;
         }
         if (relatedType == null || file.getRelatedId() == null) {
-            if (tryValidateReferencedEmoticonReadable(file, viewerUserId)) {
-                return;
+            Optional<FileAccessResult.CacheScope> emoticonScope = validateReferencedEmoticonIfPresent(
+                    file, viewerUserId);
+            if (emoticonScope.isPresent()) {
+                return emoticonScope.get();
             }
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
 
-        switch (relatedType) {
+        return switch (relatedType) {
             case FileRelatedType.POST_CONTENT -> {
                 Post post = postRepository.findByIdWithRelations(file.getRelatedId())
                         .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
                 User viewer = resolveViewer(viewerUserId);
                 boolean authorBlocked = isBlockedBetweenAuthorAndViewer(post, viewer);
                 postAccessPolicy.validateReadable(post, viewer, authorBlocked);
+                yield FileAccessResult.CacheScope.OTHER;
             }
-            case FileRelatedType.USER_PROFILE -> {
-                return;
+            case FileRelatedType.USER_PROFILE -> FileAccessResult.CacheScope.OTHER;
+            case FileRelatedType.BOARD_ICON -> {
+                validateBoardIconReadable(file, viewerUserId);
+                yield FileAccessResult.CacheScope.OTHER;
             }
-            case FileRelatedType.BOARD_ICON -> validateBoardIconReadable(file, viewerUserId);
             case FileRelatedType.EMOTICON_THUMBNAIL,
                     FileRelatedType.EMOTICON_IMAGE -> validateEmoticonFile(file, viewerUserId);
             case FileRelatedType.DRAFT_POST -> {
-                if (tryValidateReferencedEmoticonReadable(file, viewerUserId)) {
-                    return;
+                Optional<FileAccessResult.CacheScope> emoticonScope = validateReferencedEmoticonIfPresent(
+                        file, viewerUserId);
+                if (emoticonScope.isPresent()) {
+                    yield emoticonScope.get();
                 }
                 validateUploader(file, viewerUserId);
+                yield FileAccessResult.CacheScope.OTHER;
             }
             default -> {
-                if (tryValidateReferencedEmoticonReadable(file, viewerUserId)) {
-                    return;
+                Optional<FileAccessResult.CacheScope> emoticonScope = validateReferencedEmoticonIfPresent(
+                        file, viewerUserId);
+                if (emoticonScope.isPresent()) {
+                    yield emoticonScope.get();
                 }
                 throw new BusinessException(ErrorCode.FORBIDDEN);
             }
-        }
+        };
     }
 
     private void validateBoardIconReadable(File file, Long viewerUserId) {
@@ -97,21 +113,24 @@ class FileAccessService {
         boardAccessPolicy.validateReadable(board, viewer);
     }
 
-    private void validateEmoticonFile(File file, Long viewerUserId) {
+    private FileAccessResult.CacheScope validateEmoticonFile(File file, Long viewerUserId) {
         List<EmoticonMaster> masters = findEmoticonFileAccessTargets(file, file.getRelatedId());
         if (masters.isEmpty()) {
             throw new BusinessException(ErrorCode.NOT_FOUND);
         }
         validateEmoticonMastersReadable(masters, viewerUserId);
+        return resolveEmoticonCacheScope(masters);
     }
 
-    private boolean tryValidateReferencedEmoticonReadable(File file, Long viewerUserId) {
+    private Optional<FileAccessResult.CacheScope> validateReferencedEmoticonIfPresent(
+            File file,
+            Long viewerUserId) {
         List<EmoticonMaster> masters = findEmoticonFileAccessTargets(file, null);
         if (masters.isEmpty()) {
-            return false;
+            return Optional.empty();
         }
         validateEmoticonMastersReadable(masters, viewerUserId);
-        return true;
+        return Optional.of(resolveEmoticonCacheScope(masters));
     }
 
     private List<EmoticonMaster> findEmoticonFileAccessTargets(File file, Long emoticonId) {
@@ -152,6 +171,13 @@ class FileAccessService {
 
     private boolean isActiveEmoticon(EmoticonMaster master) {
         return "Y".equals(master.getIsActive());
+    }
+
+    private FileAccessResult.CacheScope resolveEmoticonCacheScope(List<EmoticonMaster> masters) {
+        boolean allActive = masters.stream().allMatch(this::isActiveEmoticon);
+        return allActive
+                ? FileAccessResult.CacheScope.PUBLIC_EMOTICON
+                : FileAccessResult.CacheScope.RESTRICTED_EMOTICON;
     }
 
     private void validateUploader(File file, Long viewerUserId) {

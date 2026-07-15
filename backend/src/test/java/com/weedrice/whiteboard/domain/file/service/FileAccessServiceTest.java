@@ -229,6 +229,21 @@ class FileAccessServiceTest {
     }
 
     @Test
+    void getFileAccessForDownload_activeEmoticonFile_isPubliclyCacheable() {
+        File file = file(FileRelatedType.EMOTICON_IMAGE, 100L);
+        ReflectionTestUtils.setField(file, "fileId", 10L);
+        EmoticonMaster master = emoticonMaster(100L, User.builder().build(), true);
+        when(fileRepository.findByFileIdAndStorageStatus(10L, FileStorageStatus.ACTIVE)).thenReturn(Optional.of(file));
+        when(emoticonMasterRepository.findFileAccessTargets(100L, List.of("/api/v1/files/10", "/files/10")))
+                .thenReturn(List.of(master));
+
+        FileAccessResult result = fileAccessService.getFileAccessForDownload(10L, null);
+
+        assertThat(result.file()).isSameAs(file);
+        assertThat(result.cacheScope()).isEqualTo(FileAccessResult.CacheScope.PUBLIC_EMOTICON);
+    }
+
+    @Test
     @DisplayName("inactive emoticon files are available to the owner")
     void getFileForDownload_inactiveEmoticonFile_allowsOwner() {
         User owner = User.builder().build();
@@ -244,6 +259,22 @@ class FileAccessServiceTest {
 
         assertThat(result).isSameAs(file);
         verify(emoticonMasterRepository, never()).canUseAllEmoticons(anyLong(), anyList(), anyLong());
+    }
+
+    @Test
+    void getFileAccessForDownload_inactiveEmoticonFile_isRestricted() {
+        User owner = User.builder().build();
+        ReflectionTestUtils.setField(owner, "userId", 1L);
+        File file = file(FileRelatedType.EMOTICON_THUMBNAIL, 100L);
+        ReflectionTestUtils.setField(file, "fileId", 10L);
+        EmoticonMaster master = emoticonMaster(100L, owner, false);
+        when(fileRepository.findByFileIdAndStorageStatus(10L, FileStorageStatus.ACTIVE)).thenReturn(Optional.of(file));
+        when(emoticonMasterRepository.findFileAccessTargets(100L, List.of("/api/v1/files/10", "/files/10")))
+                .thenReturn(List.of(master));
+
+        FileAccessResult result = fileAccessService.getFileAccessForDownload(10L, 1L);
+
+        assertThat(result.cacheScope()).isEqualTo(FileAccessResult.CacheScope.RESTRICTED_EMOTICON);
     }
 
     @Test
@@ -409,6 +440,20 @@ class FileAccessServiceTest {
 
         assertThat(result).isSameAs(file);
         verifyNoInteractions(postRepository, userRepository, postAccessPolicy, userBlockService);
+    }
+
+    @Test
+    void getFileAccessForDownload_legacyActiveEmoticonFile_isPubliclyCacheable() {
+        File file = file(null, null, User.builder().build());
+        ReflectionTestUtils.setField(file, "fileId", 10L);
+        EmoticonMaster master = emoticonMaster(100L, User.builder().build(), true);
+        when(fileRepository.findByFileIdAndStorageStatus(10L, FileStorageStatus.ACTIVE)).thenReturn(Optional.of(file));
+        when(emoticonMasterRepository.findFileAccessTargets(null, List.of("/api/v1/files/10", "/files/10")))
+                .thenReturn(List.of(master));
+
+        FileAccessResult result = fileAccessService.getFileAccessForDownload(10L, null);
+
+        assertThat(result.cacheScope()).isEqualTo(FileAccessResult.CacheScope.PUBLIC_EMOTICON);
     }
 
     @Test
