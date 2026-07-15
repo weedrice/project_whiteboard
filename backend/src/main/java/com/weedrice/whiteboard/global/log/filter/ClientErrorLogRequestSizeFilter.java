@@ -10,10 +10,10 @@ import jakarta.servlet.ServletInputStream;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletRequestWrapper;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.MessageSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -22,6 +22,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 
 @Component
+@RequiredArgsConstructor
 public class ClientErrorLogRequestSizeFilter extends OncePerRequestFilter {
 
     static final int MAX_REQUEST_BODY_BYTES = 32 * 1024;
@@ -29,12 +30,6 @@ public class ClientErrorLogRequestSizeFilter extends OncePerRequestFilter {
 
     private final ObjectMapper objectMapper;
     private final MessageSource messageSource;
-
-    @Autowired
-    public ClientErrorLogRequestSizeFilter(ObjectMapper objectMapper, MessageSource messageSource) {
-        this.objectMapper = objectMapper;
-        this.messageSource = messageSource;
-    }
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {

@@ -24,6 +24,7 @@ import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
 import com.weedrice.whiteboard.domain.file.service.FileService;
+import com.weedrice.whiteboard.domain.moderation.service.ModerationAuditLogService;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.repository.DraftPostRepository;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
@@ -49,6 +50,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.support.StaticMessageSource;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -128,6 +130,8 @@ class BoardServiceTest {
     private BoardVisitService boardVisitService;
     @Mock
     private AnonymousReadCacheInvalidator cacheInvalidator;
+    @Mock
+    private ModerationAuditLogService moderationAuditLogService;
     private BoardResponseReadService boardResponseReadService;
     private BoardResponseAssembler boardResponseAssembler;
 
@@ -162,7 +166,8 @@ class BoardServiceTest {
         BoardIconAttachmentService boardIconAttachmentService = new BoardIconAttachmentService(fileService);
         BoardCreationBillingService boardCreationBillingService = new BoardCreationBillingService(
                 pointService,
-                globalConfigService);
+                globalConfigService,
+                new StaticMessageSource());
         BoardAiInfoService boardAiInfoService = new BoardAiInfoService(boardAiInfoRepository);
         BoardCreationInitializer boardCreationInitializer = new BoardCreationInitializer(
                 boardAiInfoService,
@@ -181,7 +186,8 @@ class BoardServiceTest {
                 boardRepository,
                 userRepository,
                 adminEligibleUserService,
-                boardAccessPolicy);
+                boardAccessPolicy,
+                moderationAuditLogService);
         BoardProvisioningSideEffectService provisioningSideEffectService = new BoardProvisioningSideEffectService(
                 boardIconAttachmentService,
                 boardCreationBillingService,

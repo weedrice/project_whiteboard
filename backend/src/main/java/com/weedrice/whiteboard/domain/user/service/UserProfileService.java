@@ -16,7 +16,6 @@ import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -53,12 +52,7 @@ public class UserProfileService {
     private final UserWritableResolver userWritableResolver;
     private final UserLifecycleService userLifecycleService;
     private final Clock clock;
-    private MessageSource messageSource;
-
-    @Autowired
-    void setMessageSource(MessageSource messageSource) {
-        this.messageSource = messageSource;
-    }
+    private final MessageSource messageSource;
 
     public Long findUserIdByLoginId(String loginId) {
         User user = userRepository.findByLoginId(loginId)
@@ -221,9 +215,7 @@ public class UserProfileService {
     }
 
     private String resolveMessage(String key, Object[] arguments, String fallback) {
-        return messageSource == null
-                ? fallback
-                : messageSource.getMessage(key, arguments, fallback, LocaleContextHolder.getLocale());
+        return messageSource.getMessage(key, arguments, fallback, LocaleContextHolder.getLocale());
     }
 
     private String normalizeDisplayName(String displayName) {

@@ -18,6 +18,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.context.support.StaticMessageSource;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.support.TransactionTemplate;
 
@@ -144,7 +145,8 @@ class VerificationCodeServiceTest {
                 new AuthMailDeliveryOrchestrationService(emailService),
                 tokenHashService,
                 transactionTemplate,
-                FIXED_CLOCK);
+                FIXED_CLOCK,
+                new StaticMessageSource());
         VerificationTicketService verificationTicketService = new VerificationTicketService(
                 verificationCodeRepository,
                 tokenHashService,

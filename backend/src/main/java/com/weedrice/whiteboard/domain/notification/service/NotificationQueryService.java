@@ -4,10 +4,10 @@ import com.weedrice.whiteboard.domain.notification.dto.NotificationResponse;
 import com.weedrice.whiteboard.domain.notification.entity.Notification;
 import com.weedrice.whiteboard.domain.notification.repository.NotificationRepository;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
+import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,6 +15,7 @@ import java.util.Map;
 import java.util.Set;
 
 @Service
+@RequiredArgsConstructor
 @Transactional(readOnly = true)
 class NotificationQueryService {
 
@@ -26,18 +27,6 @@ class NotificationQueryService {
 
     private final NotificationRepository notificationRepository;
     private final NotificationTargetUrlResolver targetUrlResolver;
-
-    NotificationQueryService(NotificationRepository notificationRepository) {
-        this(notificationRepository, NotificationTargetUrlResolver.noop());
-    }
-
-    @Autowired
-    NotificationQueryService(
-            NotificationRepository notificationRepository,
-            NotificationTargetUrlResolver targetUrlResolver) {
-        this.notificationRepository = notificationRepository;
-        this.targetUrlResolver = targetUrlResolver;
-    }
 
     public NotificationResponse getNotifications(Long userId, Pageable pageable) {
         Pageable safePageable = PageRequestUtils.of(

@@ -35,7 +35,7 @@ class NotificationEventHandlerTest {
 
     @BeforeEach
     void setUp() {
-        eventHandler = new NotificationEventHandler(commandService, streamPublisher);
+        eventHandler = new NotificationEventHandler(commandService, streamPublisher, notifications -> Map.of());
         receiver = User.builder().build();
         ReflectionTestUtils.setField(receiver, "userId", 1L);
         notification = Notification.builder()

@@ -369,7 +369,9 @@ class NotificationServiceTest {
                 notificationRepository,
                 preferenceService,
                 userRepository,
-                pushNotificationDispatcher);
+                pushNotificationDispatcher,
+                userSettingsRepository,
+                messageSource);
 
         TransactionSynchronizationManager.initSynchronization();
         try {
@@ -588,9 +590,17 @@ class NotificationServiceTest {
         NotificationCommandService commandService = new NotificationCommandService(
                 notificationRepository,
                 preferenceService,
-                userRepository);
-        NotificationEventHandler eventHandler = new NotificationEventHandler(commandService, streamPublisher);
-        NotificationQueryService queryService = new NotificationQueryService(notificationRepository);
+                userRepository,
+                pushNotificationDispatcher,
+                userSettingsRepository,
+                messageSource);
+        NotificationEventHandler eventHandler = new NotificationEventHandler(
+                commandService,
+                streamPublisher,
+                notifications -> Collections.emptyMap());
+        NotificationQueryService queryService = new NotificationQueryService(
+                notificationRepository,
+                notifications -> Collections.emptyMap());
         NotificationReadCommandService readCommandService =
                 new NotificationReadCommandService(commandService);
         return new NotificationService(eventHandler, queryService, readCommandService, userRepository);

@@ -1,7 +1,6 @@
 package com.weedrice.whiteboard.domain.post.controller;
 
 import com.weedrice.whiteboard.domain.post.dto.*;
-import com.weedrice.whiteboard.domain.post.entity.ViewHistory;
 import com.weedrice.whiteboard.domain.post.service.PollService;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.global.common.ApiResponse;

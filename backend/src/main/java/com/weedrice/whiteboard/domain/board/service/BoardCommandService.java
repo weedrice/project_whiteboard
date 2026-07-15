@@ -12,13 +12,14 @@ import com.weedrice.whiteboard.global.common.util.TextInputNormalizer;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.domain.moderation.service.ModerationAuditLogService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
-import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.Objects;
 
 @Service
+@RequiredArgsConstructor
 class BoardCommandService {
 
     private final BoardRepository boardRepository;
@@ -26,26 +27,6 @@ class BoardCommandService {
     private final AdminEligibleUserService adminEligibleUserService;
     private final BoardAccessPolicy boardAccessPolicy;
     private final ModerationAuditLogService moderationAuditLogService;
-
-    @Autowired
-    BoardCommandService(BoardRepository boardRepository,
-                        UserRepository userRepository,
-                        AdminEligibleUserService adminEligibleUserService,
-                        BoardAccessPolicy boardAccessPolicy,
-                        ModerationAuditLogService moderationAuditLogService) {
-        this.boardRepository = boardRepository;
-        this.userRepository = userRepository;
-        this.adminEligibleUserService = adminEligibleUserService;
-        this.boardAccessPolicy = boardAccessPolicy;
-        this.moderationAuditLogService = moderationAuditLogService;
-    }
-
-    BoardCommandService(BoardRepository boardRepository,
-                        UserRepository userRepository,
-                        AdminEligibleUserService adminEligibleUserService,
-                        BoardAccessPolicy boardAccessPolicy) {
-        this(boardRepository, userRepository, adminEligibleUserService, boardAccessPolicy, null);
-    }
 
     BoardCreateCommandResult createBoard(Long creatorId, BoardCreateRequest request) {
         User creator = getCurrentUser(creatorId);
@@ -111,7 +92,7 @@ class BoardCommandService {
             if (request.getModerationReason() == null || request.getModerationReason().isBlank()) {
                 throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
             }
-            if (moderationAuditLogService != null) moderationAuditLogService.recordUserAction(currentUser,
+            moderationAuditLogService.recordUserAction(currentUser,
                     ModerationAuditLogService.ACTION_BOARD_DEACTIVATE,
                     ModerationAuditLogService.TARGET_TYPE_BOARD,
                     board.getBoardId(), board, request.getModerationReason());

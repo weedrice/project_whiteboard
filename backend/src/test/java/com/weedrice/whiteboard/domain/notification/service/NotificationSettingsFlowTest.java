@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.support.StaticMessageSource;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.ArrayList;
@@ -61,6 +62,9 @@ class NotificationSettingsFlowTest {
     @Mock
     private EntityManager entityManager;
 
+    @Mock
+    private PushNotificationDispatcher pushNotificationDispatcher;
+
     private UserSettingsService userSettingsService;
     private NotificationService notificationService;
 
@@ -83,9 +87,17 @@ class NotificationSettingsFlowTest {
         NotificationCommandService commandService = new NotificationCommandService(
                 notificationRepository,
                 preferenceService,
-                userRepository);
-        NotificationEventHandler eventHandler = new NotificationEventHandler(commandService, streamPublisher);
-        NotificationQueryService queryService = new NotificationQueryService(notificationRepository);
+                userRepository,
+                pushNotificationDispatcher,
+                userSettingsRepository,
+                new StaticMessageSource());
+        NotificationEventHandler eventHandler = new NotificationEventHandler(
+                commandService,
+                streamPublisher,
+                notifications -> Map.of());
+        NotificationQueryService queryService = new NotificationQueryService(
+                notificationRepository,
+                notifications -> Map.of());
         NotificationReadCommandService readCommandService =
                 new NotificationReadCommandService(commandService);
         notificationService = new NotificationService(eventHandler, queryService, readCommandService, userRepository);

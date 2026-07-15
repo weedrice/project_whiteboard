@@ -18,6 +18,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -36,7 +37,7 @@ class NotificationQueryServiceTest {
 
     @BeforeEach
     void setUp() {
-        queryService = new NotificationQueryService(notificationRepository);
+        queryService = new NotificationQueryService(notificationRepository, notifications -> Map.of());
         User user = User.builder().build();
         ReflectionTestUtils.setField(user, "userId", 1L);
         notification = Notification.builder()

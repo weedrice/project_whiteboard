@@ -48,6 +48,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.support.StaticMessageSource;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -142,7 +143,8 @@ class CommentServiceTest {
                 commentPostAccessService,
                 commentReadSupport,
                 commentReadModelAssembler,
-                commentMentionRepository);
+                commentMentionRepository,
+                new StaticMessageSource());
         ContentRewardService contentRewardService = new ContentRewardService(
                 pointService,
                 pointHistoryRepository,

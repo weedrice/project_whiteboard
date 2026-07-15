@@ -6,7 +6,6 @@ import com.weedrice.whiteboard.domain.auth.repository.VerificationCodeRepository
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.stereotype.Service;
@@ -39,25 +38,17 @@ public class VerificationCodeDeliveryService {
     private final TransactionTemplate transactionTemplate;
     private final Clock clock;
     private final ReentrantLock[] verificationSendLocks = createVerificationSendLocks();
-    private MessageSource messageSource;
-
-    @Autowired
-    void setMessageSource(MessageSource messageSource) {
-        this.messageSource = messageSource;
-    }
+    private final MessageSource messageSource;
 
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void sendVerificationCode(String email, VerificationPurpose purpose) {
         String code = generateRandomCode();
         LocalDateTime expiryDate = now().plusMinutes(5);
         var locale = LocaleContextHolder.getLocale();
-        String subject = messageSource == null
-                ? VERIFICATION_EMAIL_SUBJECT
-                : messageSource.getMessage("mail.verification.subject", null, VERIFICATION_EMAIL_SUBJECT, locale);
-        String body = messageSource == null
-                ? VERIFICATION_EMAIL_BODY.replace("{0}", code)
-                : messageSource.getMessage("mail.verification.body", new Object[]{code}, VERIFICATION_EMAIL_BODY,
-                        locale);
+        String subject = messageSource.getMessage(
+                "mail.verification.subject", null, VERIFICATION_EMAIL_SUBJECT, locale);
+        String body = messageSource.getMessage(
+                "mail.verification.body", new Object[]{code}, VERIFICATION_EMAIL_BODY, locale);
 
         mailDeliveryOrchestrationService.send(new AuthMailDeliveryOrchestrationService.MailDeliveryCommand(
                 email,

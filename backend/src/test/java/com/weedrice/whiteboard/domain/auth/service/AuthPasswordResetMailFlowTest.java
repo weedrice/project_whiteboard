@@ -6,6 +6,7 @@ import com.weedrice.whiteboard.domain.auth.repository.PasswordResetTokenReposito
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.PasswordHistoryRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
 import com.weedrice.whiteboard.domain.user.service.PasswordHistoryPolicy;
 import com.weedrice.whiteboard.global.email.EmailService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -18,6 +19,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.context.support.StaticMessageSource;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -63,6 +65,7 @@ class AuthPasswordResetMailFlowTest {
     @Mock private EmailService emailService;
     @Mock private TransactionTemplate transactionTemplate;
     @Mock private RefreshTokenLifecycleService refreshTokenLifecycleService;
+    @Mock private UserSettingsRepository userSettingsRepository;
 
     private PasswordResetService passwordResetService;
 
@@ -87,7 +90,8 @@ class AuthPasswordResetMailFlowTest {
         passwordResetService = new PasswordResetService(
                 userRepository, verificationCodeService, passwordResetTokenRepository,
                 passwordHistoryPolicy, refreshTokenLifecycleService, tokenHashService,
-                passwordResetTokenOrchestrationService, transactionTemplate, new AuthAccountEligibilityPolicy(), FIXED_CLOCK);
+                passwordResetTokenOrchestrationService, transactionTemplate, new AuthAccountEligibilityPolicy(), FIXED_CLOCK,
+                new StaticMessageSource(), userSettingsRepository);
 
         user = User.builder()
                 .loginId("testuser")

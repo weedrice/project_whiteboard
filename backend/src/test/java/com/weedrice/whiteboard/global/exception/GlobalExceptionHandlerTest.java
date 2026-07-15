@@ -14,7 +14,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.ObjectProvider;
@@ -25,7 +24,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.http.MockHttpInputMessage;
 import org.springframework.security.access.AccessDeniedException;
-import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -48,7 +46,6 @@ class GlobalExceptionHandlerTest {
     @Mock
     private MessageSource messageSource;
 
-    @InjectMocks
     private GlobalExceptionHandler globalExceptionHandler;
 
     @Mock
@@ -60,14 +57,21 @@ class GlobalExceptionHandlerTest {
     @Mock
     private ObjectProvider<ClientIpResolver> clientIpResolverProvider;
 
+    @Mock
+    private ObjectProvider<ErrorLogService> errorLogServiceProvider;
+
     private MockHttpServletRequest request;
 
     @BeforeEach
     void setUp() {
         request = new MockHttpServletRequest();
         request.setRequestURI("/test/uri");
-        ReflectionTestUtils.setField(globalExceptionHandler, "errorLogService", errorLogService);
+        globalExceptionHandler = new GlobalExceptionHandler(
+                messageSource,
+                clientIpResolverProvider,
+                errorLogServiceProvider);
         lenient().when(clientIpResolverProvider.getIfAvailable()).thenReturn(clientIpResolver);
+        lenient().when(errorLogServiceProvider.getIfAvailable()).thenReturn(errorLogService);
         lenient().when(clientIpResolver.resolve(any(HttpServletRequest.class))).thenReturn("127.0.0.1");
     }
 

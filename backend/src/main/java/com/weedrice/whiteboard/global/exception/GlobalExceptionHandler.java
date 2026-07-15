@@ -13,7 +13,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
@@ -71,9 +70,7 @@ public class GlobalExceptionHandler {
 
     private final MessageSource messageSource;
     private final ObjectProvider<ClientIpResolver> clientIpResolverProvider;
-
-    @Autowired(required = false)
-    private ErrorLogService errorLogService;
+    private final ObjectProvider<ErrorLogService> errorLogServiceProvider;
 
     @ExceptionHandler(AgentWriteException.class)
     public ResponseEntity<ApiResponse<Object>> handleAgentWriteException(AgentWriteException e,
@@ -337,6 +334,7 @@ public class GlobalExceptionHandler {
     private void saveErrorLog(String errorCode, String errorType, int httpStatus,
             String message, HttpServletRequest request, String stackTrace) {
         try {
+            ErrorLogService errorLogService = errorLogServiceProvider.getIfAvailable();
             if (errorLogService == null) {
                 return;
             }

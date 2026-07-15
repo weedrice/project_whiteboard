@@ -11,7 +11,6 @@ import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.stereotype.Service;
@@ -40,15 +39,8 @@ public class PasswordResetService {
     private final TransactionTemplate transactionTemplate;
     private final AuthAccountEligibilityPolicy authAccountEligibilityPolicy;
     private final Clock clock;
-    private MessageSource messageSource;
-    private UserSettingsRepository userSettingsRepository;
-
-    @Autowired
-    void setMailLocalizationDependencies(MessageSource messageSource,
-            UserSettingsRepository userSettingsRepository) {
-        this.messageSource = messageSource;
-        this.userSettingsRepository = userSettingsRepository;
-    }
+    private final MessageSource messageSource;
+    private final UserSettingsRepository userSettingsRepository;
 
     @Value("${cloud.aws.password-reset.frontend-url}")
     private String passwordResetFrontendUrl;
@@ -136,7 +128,7 @@ public class PasswordResetService {
     }
 
     private Locale resolveUserLocale(Long userId) {
-        if (userSettingsRepository == null || userId == null) {
+        if (userId == null) {
             return LocaleContextHolder.getLocale();
         }
         return userSettingsRepository.findSettingsReadByUserId(userId)
@@ -147,19 +139,7 @@ public class PasswordResetService {
     }
 
     private String resolveMessage(String key, Object[] args, String fallback, Locale locale) {
-        return messageSource == null ? formatFallback(fallback, args)
-                : messageSource.getMessage(key, args, fallback, locale);
-    }
-
-    private String formatFallback(String fallback, Object[] args) {
-        if (args == null) {
-            return fallback;
-        }
-        String result = fallback;
-        for (int index = 0; index < args.length; index++) {
-            result = result.replace("{" + index + "}", String.valueOf(args[index]));
-        }
-        return result;
+        return messageSource.getMessage(key, args, fallback, locale);
     }
 
     @Transactional

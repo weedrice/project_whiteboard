@@ -17,7 +17,4 @@ interface NotificationTargetUrlResolver {
         return resolveAll(java.util.List.of(notification)).get(notification.getNotificationId());
     }
 
-    static NotificationTargetUrlResolver noop() {
-        return notifications -> Map.of();
-    }
 }

@@ -41,6 +41,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.context.support.StaticMessageSource;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
@@ -139,7 +140,8 @@ class AuthServiceTest {
         PasswordResetService passwordResetService = new PasswordResetService(
                 userRepository, verificationCodeService, passwordResetTokenRepository,
                 passwordHistoryPolicy, refreshTokenLifecycleService, tokenHashService,
-                passwordResetTokenOrchestrationService, transactionTemplate, authAccountEligibilityPolicy, FIXED_CLOCK);
+                passwordResetTokenOrchestrationService, transactionTemplate, authAccountEligibilityPolicy, FIXED_CLOCK,
+                new StaticMessageSource(), userSettingsRepository);
         SignupService signupService = new SignupService(
                 userRepository, pointService, userSettingsRepository,
                 socialAccountLinkService, verificationCodeService, globalConfigService,

@@ -9,7 +9,7 @@ import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.MessageSource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -21,6 +21,7 @@ import java.util.Locale;
 import java.util.Set;
 
 @Service
+@RequiredArgsConstructor
 class NotificationCommandService {
     private static final int MAX_CONTENT_LENGTH = 255;
     private static final Set<String> GROUPABLE_TYPES = Set.of("COMMENT", "REPLY", "LIKE", "KEYWORD");
@@ -31,34 +32,6 @@ class NotificationCommandService {
     private final PushNotificationDispatcher pushNotificationDispatcher;
     private final UserSettingsRepository userSettingsRepository;
     private final MessageSource messageSource;
-
-    NotificationCommandService(NotificationRepository notificationRepository,
-                               NotificationPreferenceService preferenceService,
-                               UserRepository userRepository) {
-        this(notificationRepository, preferenceService, userRepository, null, null, null);
-    }
-
-    NotificationCommandService(NotificationRepository notificationRepository,
-                               NotificationPreferenceService preferenceService,
-                               UserRepository userRepository,
-                               PushNotificationDispatcher pushNotificationDispatcher) {
-        this(notificationRepository, preferenceService, userRepository, pushNotificationDispatcher, null, null);
-    }
-
-    @Autowired
-    NotificationCommandService(NotificationRepository notificationRepository,
-                               NotificationPreferenceService preferenceService,
-                               UserRepository userRepository,
-                               PushNotificationDispatcher pushNotificationDispatcher,
-                               UserSettingsRepository userSettingsRepository,
-                               MessageSource messageSource) {
-        this.notificationRepository = notificationRepository;
-        this.preferenceService = preferenceService;
-        this.userRepository = userRepository;
-        this.pushNotificationDispatcher = pushNotificationDispatcher;
-        this.userSettingsRepository = userSettingsRepository;
-        this.messageSource = messageSource;
-    }
 
     Notification handleNotificationEvent(NotificationEvent event) {
         if (!hasRequiredPayload(event)) {
@@ -112,7 +85,7 @@ class NotificationCommandService {
     }
 
     private void dispatchPushAfterCommit(Notification notification) {
-        if (pushNotificationDispatcher == null || notification == null) {
+        if (notification == null) {
             return;
         }
         if (!TransactionSynchronizationManager.isSynchronizationActive()) {
@@ -154,7 +127,7 @@ class NotificationCommandService {
     }
 
     private String resolveContent(NotificationEvent event, Long receiverUserId) {
-        if (!hasText(event.getMessageKey()) || messageSource == null) {
+        if (!hasText(event.getMessageKey())) {
             return event.getContent();
         }
         List<String> params = event.getMessageParams() == null ? List.of() : event.getMessageParams();
@@ -166,7 +139,7 @@ class NotificationCommandService {
     }
 
     private Locale resolveLocale(Long userId) {
-        if (userSettingsRepository == null || userId == null) {
+        if (userId == null) {
             return Locale.KOREAN;
         }
         String language = userSettingsRepository.findSettingsReadByUserId(userId)
