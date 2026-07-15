@@ -11,3 +11,6 @@ coverage
 .idea
 .vscode
 __screenshots__
+playwright-report
+test-results
+test-results-full

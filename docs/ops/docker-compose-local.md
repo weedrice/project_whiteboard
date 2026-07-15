@@ -6,6 +6,7 @@ outside the Compose stack, defaulting to `host.docker.internal:5432`.
 ## Required Secret
 
 `JWT_SECRET_DEV` must be provided from your shell or an untracked `.env` file. Use a Base64-encoded HS256 key.
+Compose passes this value to the backend container and fails during configuration if it is missing.
 
 Do not commit `.env`.
 
@@ -45,6 +46,7 @@ POSTGRES_HOST=host.docker.internal
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=password
 POSTGRES_PORT=5432
+JWT_SECRET_DEV=<base64-encoded-hs256-key>
 BACKEND_PORT=8080
 FRONTEND_PORT=5173
 APP_FRONTEND_URL=http://localhost:5173

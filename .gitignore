@@ -31,6 +31,9 @@ frontend/.eslintcache
 frontend/*.tsbuildinfo
 frontend/public/sitemap.xml
 frontend/__screenshots__/
+frontend/playwright-report/
+frontend/test-results/
+frontend/test-results-full/
 frontend/cypress/videos/
 frontend/cypress/screenshots/
 frontend/coverage*.txt

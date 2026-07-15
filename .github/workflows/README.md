@@ -4,7 +4,7 @@
 
 | 항목 | 내용 |
 | --- | --- |
-| 갱신일 | 2026-05-29 |
+| 갱신일 | 2026-07-15 |
 | 위치 | `.github/workflows` |
 
 ## 현재 워크플로우
@@ -20,15 +20,20 @@
 
 작업:
 
+- 변경 경로를 감지해 backend와 frontend job을 필요한 경우에만 실행
 - Backend: Java 21 설정, Gradle test, JaCoCo report, coverage verification
-- Frontend: Node 22 설정, `npm ci`, `npm run lint:ci`, `npm run type-check`, `npm run coverage`, `npm run build`
+- PostgreSQL: migration SQL 적용과 Spring/Flyway application context smoke test
+- Frontend: Node 22 설정, `npm ci`, lint, i18n key 검사, type-check, coverage, build, Playwright E2E·접근성 검사
+- CI Gate: 변경 감지와 필요한 test/smoke job의 성공·건너뜀 상태 확인
 - Frontend coverage artifact 업로드 단계는 `npm run coverage` 결과인 `frontend/coverage`를 업로드한다.
 
 특징:
 
 - backend coverage verification은 실패 시 CI를 실패시킨다.
-- backend test/coverage artifact와 frontend coverage 경로를 업로드한다.
-- Actions는 현재 `checkout@v5`, `setup-java@v5`, `setup-node@v5`, `upload-artifact@v6`를 사용한다.
+- backend test/coverage artifact와 frontend coverage·Playwright artifact를 업로드한다.
+- Actions는 현재 `checkout@v7`, `setup-java@v5`, `setup-node@v7`, `upload-artifact@v7`를 사용한다.
+- workflow 기본 권한은 `contents: read`이고, 변경 감지 job에만 `pull-requests: read`를 추가한다.
+- job timeout은 변경 감지·gate 5분, backend·PostgreSQL 30분, frontend 40분이다.
 
 ### Deploy Backend
 
@@ -44,14 +49,16 @@
 1. Java 21 설정
 2. 테스트 실행
 3. coverage report 생성
-4. Gradle bootJar 빌드
-5. EC2로 JAR 업로드
-6. 원격 서비스 재시작
+4. coverage 기준 검증
+5. Gradle bootJar 빌드
+6. EC2 release 디렉터리로 JAR 업로드
+7. 서비스 재시작, health/log 검증, 실패 시 이전 JAR 복구
 
 특징:
 
-- coverage report는 선택적이다.
+- coverage verification 실패는 배포를 차단한다.
 - 배포 SSH 접속은 GitHub Secrets를 사용한다.
+- workflow 권한은 `contents: read`, job timeout은 30분이다.
 
 ### Deploy Frontend
 
@@ -70,9 +77,9 @@
    - `sitemap:generate`
    - `vite build`
    - `prerender:posts`
-4. EC2의 `/var/www/app` 정리
-5. `frontend/dist` 정적 파일 업로드
-6. 배포 결과 검증
+4. EC2 release 디렉터리에 `frontend/dist` 정적 파일 업로드
+5. `/var/www/app` symlink를 새 release로 원자적으로 전환
+6. 배포 결과와 pre-render metadata 검증
 7. `npm run seo:verify` 실행
 8. `npm run seo:submit` 실행
 
@@ -81,6 +88,7 @@
 - `seo:verify`는 배포 후 검증 단계이며 실패하면 워크플로우가 실패한다.
 - `seo:submit`은 `continue-on-error: true`로 설정되어 검색 엔진 제출 실패가 배포 결과를 막지 않는다.
 - sitemap 생성에는 `SITEMAP_SITE_URL`, `SITEMAP_API_BASE_URL` 환경 변수를 사용한다.
+- workflow 권한은 `contents: read`, job timeout은 30분이다.
 
 ### SEO Monitor
 
@@ -95,6 +103,7 @@
 
 - sitemap/SEO 상태 확인
 - Google Search Console 또는 custom submit URL 관련 환경 변수는 Secrets에서 주입
+- workflow 권한은 `contents: read`, job timeout은 15분
 
 ## 필요한 Secrets
 

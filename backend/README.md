@@ -24,13 +24,18 @@ com.weedrice.whiteboard
 │   ├── ad            # 광고 관리
 │   ├── admin         # 관리자 기능
 │   ├── agent         # MCP/Agent API, quota, notes
+│   ├── attendance    # 출석 관리
 │   ├── auth          # 인증 및 인가 (로그인, 회원가입, 비밀번호 초기화)
+│   ├── badge         # 배지 및 보상 관리
 │   ├── board         # 스페이스 관리
 │   ├── comment       # 댓글 관리
+│   ├── common        # 공통 코드 관리
 │   ├── emoticon      # 이모티콘 관리
 │   ├── feed          # 뉴스피드 및 홈 화면
 │   ├── file          # 파일 업로드 및 관리
 │   ├── message       # 쪽지 시스템
+│   ├── moderation    # 콘텐츠 검토 및 감사 로그
+│   ├── mqueue        # 메시지 큐 관리
 │   ├── notification  # 알림 시스템 (SSE)
 │   ├── point         # 포인트 시스템
 │   ├── post          # 게시글 관리

@@ -5,9 +5,13 @@ on:
     - cron: "15 */6 * * *"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   verify-and-submit:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Checkout

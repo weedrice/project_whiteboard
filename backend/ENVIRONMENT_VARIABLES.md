@@ -34,7 +34,13 @@ shell environment, CI/CD secrets, or an approved secret manager.
 | --- | --- |
 | `SPRING_PROFILES_ACTIVE` | Active Spring profile. Production should include `prod`. |
 | `SERVER_FORWARD_HEADERS_STRATEGY` | Reverse proxy header handling override when needed. |
-| `LOG_LEVEL` | Deployment-specific logging verbosity override when supported. |
+| `LOG_PATH` | Production log directory. Defaults to `/opt/app/logs`. |
+| `FLYWAY_BASELINE_ON_MIGRATE` | Enables Flyway baseline-on-migrate. Defaults to `false`. |
+| `APP_CACHE_READ_OPTIMIZATION_ENABLED` | Enables the application read-optimization cache path. Defaults to `false`. |
+| `APP_ERROR_LOG_CLIENT_RETENTION_DAYS` | Client error-log retention period. Defaults to `30` days. |
+| `APP_ERROR_LOG_RESOLVED_RETENTION_DAYS` | Resolved error-log retention period. Defaults to `90` days. |
+| `APP_ERROR_LOG_CLEANUP_BATCH_SIZE` | Maximum error-log cleanup batch size. Defaults to `500`. |
+| `SEMANTIC_SEARCH_RELATED_POST_MIN_SIMILARITY` | Minimum similarity for related posts. Defaults to `0.55`. |
 | `DB_MAX_POOL_SIZE` | Production Hikari maximum pool size override. Defaults to `20`. |
 | `DB_MIN_IDLE` | Production Hikari minimum idle connection override. Defaults to `5`. |
 | `RATE_LIMIT_AUTH_ACCOUNT_LIMIT` | Per-account auth rate-limit capacity override. |
