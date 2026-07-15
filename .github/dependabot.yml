@@ -9,6 +9,11 @@ updates:
       time: "09:00"
       timezone: Asia/Seoul
     open-pull-requests-limit: 10
+    ignore:
+      # H2 2.4.240 has a known cross-session CHECK constraint regression.
+      - dependency-name: "com.h2database:h2"
+        versions:
+          - "2.4.240"
 
   - package-ecosystem: npm
     directory: /frontend
