@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { ref, type Ref } from 'vue'
+import { computed, ref, type Ref } from 'vue'
 import { apiSuccessResponse, pageResponseFixture } from '@/test/apiResponseFixtures'
 import { getNotificationMocks, setupNotificationTest } from './notificationTestHarness'
 import { useNotification } from '../useNotification'
@@ -24,9 +24,14 @@ describe('useNotification queries and mutations', () => {
     const options = mocks.queryOptions[0]
     const result = await (options.queryFn as () => Promise<unknown>)()
 
+    const queryKey = options.queryKey as ReturnType<typeof computed>
+    expect(queryKey.value).toEqual(['notifications', { page: 0, size: 20 }])
     expect(mocks.notificationApi.getNotifications).toHaveBeenCalledWith(params.value)
     expect(result).toEqual(pageResponse)
     expect((options.placeholderData as (prev: unknown) => unknown)('keep-me')).toBe('keep-me')
+
+    params.value = { page: 1, size: 10 }
+    expect(queryKey.value).toEqual(['notifications', { page: 1, size: 10 }])
   })
 
   it('fetches unread count with auth-aware enabled flag', async () => {

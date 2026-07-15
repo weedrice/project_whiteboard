@@ -28,7 +28,7 @@ export function usePost() {
         const incrementView = requestConfig?.params?.incrementView !== false
 
         return useQuery({
-            queryKey: postDetailQueryKey(postId, incrementView),
+            queryKey: computed(() => postDetailQueryKey(postId.value, incrementView)),
             queryFn: async (context?: { signal?: AbortSignal }) => {
                 const post = unwrapAxiosApiData(await postApi.getPost(postId.value, {
                     ...withQuerySignal(requestConfig, context),

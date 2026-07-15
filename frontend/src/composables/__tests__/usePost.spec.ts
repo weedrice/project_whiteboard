@@ -175,12 +175,16 @@ describe('usePost', () => {
         usePostDetail(postId)
 
         const query = mocks.queryOptions.at(-1)!
-        expect(query.queryKey).toEqual(postDetailQueryKey(postId))
+        const queryKey = query.queryKey as ReturnType<typeof computed>
+        expect(queryKey.value).toEqual(postDetailQueryKey(1))
         expect((query.enabled as ReturnType<typeof computed>).value).toBe(true)
 
         const result = await (query.queryFn as () => Promise<unknown>)()
         expect(result).toEqual({ postId: 1, title: 'Test Post', liked: false, scrapped: false })
         expect(postApi.getPost).toHaveBeenCalledWith(1, { params: { incrementView: true } })
+
+        postId.value = 2
+        expect(queryKey.value).toEqual(postDetailQueryKey(2))
     })
 
     it('registers post detail query without incrementing views when requested', async () => {
@@ -193,7 +197,7 @@ describe('usePost', () => {
         usePostDetail(postId, { requestConfig: { params: { incrementView: false } } })
 
         const query = mocks.queryOptions.at(-1)!
-        expect(query.queryKey).toEqual(postDetailQueryKey(postId, false))
+        expect((query.queryKey as ReturnType<typeof computed>).value).toEqual(postDetailQueryKey(1, false))
 
         await (query.queryFn as () => Promise<unknown>)()
         expect(postApi.getPost).toHaveBeenCalledWith(1, { params: { incrementView: false } })

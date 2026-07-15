@@ -29,7 +29,7 @@ export interface BoardManagerCandidateParams {
   q?: string
 }
 
-export const boardDetailQueryKey = (boardUrl: string | Ref<string>) => boardQueryKeys.detail(boardUrl)
+export const boardDetailQueryKey = (boardUrl: string) => boardQueryKeys.detail(boardUrl)
 
 export async function fetchBoardDetail(boardUrl: string, requestConfig?: AxiosRequestConfig) {
   const response = requestConfig
@@ -60,10 +60,10 @@ export async function fetchBoardPosts(
   return unwrapAxiosApiData(response)
 }
 
-export const createBoardDetailQueryOptions = (boardUrl: string | Ref<string>, requestConfig?: AxiosRequestConfig) => ({
+export const createBoardDetailQueryOptions = (boardUrl: string, requestConfig?: AxiosRequestConfig) => ({
   queryKey: boardDetailQueryKey(boardUrl),
   queryFn: (context?: { signal?: AbortSignal }) => fetchBoardDetail(
-    typeof boardUrl === 'string' ? boardUrl : boardUrl.value,
+    boardUrl,
     optionalQuerySignal(requestConfig, context),
   ),
   staleTime: QUERY_STALE_TIME.SHORT,
@@ -118,7 +118,12 @@ export function useBoardQueries() {
   ) => {
     const { requestConfig, ...queryOptions } = options
     return useQuery({
-      ...createBoardDetailQueryOptions(boardUrl, requestConfig),
+      queryKey: computed(() => boardDetailQueryKey(boardUrl.value)),
+      queryFn: (context?: { signal?: AbortSignal }) => fetchBoardDetail(
+        boardUrl.value,
+        optionalQuerySignal(requestConfig, context),
+      ),
+      staleTime: QUERY_STALE_TIME.SHORT,
       enabled: computed(() => !!boardUrl.value),
       ...queryOptions,
     })
@@ -133,7 +138,7 @@ export function useBoardQueries() {
   ) => {
     const { requestConfig, ...queryOptions } = options
     return useQuery({
-      queryKey: boardQueryKeys.posts(boardUrl, params, isSearching),
+      queryKey: computed(() => boardQueryKeys.posts(boardUrl.value, params.value, isSearching?.value)),
       queryFn: (context?: { signal?: AbortSignal }) => fetchBoardPosts(
         boardUrl.value,
         params.value,
@@ -160,7 +165,11 @@ export function useBoardQueries() {
     })
 
     return useInfiniteQuery({
-      queryKey: boardQueryKeys.infinitePosts(boardUrl, infiniteParams, isSearching),
+      queryKey: computed(() => boardQueryKeys.infinitePosts(
+        boardUrl.value,
+        infiniteParams.value,
+        isSearching?.value,
+      )),
       initialPageParam: params.value.page ?? 0,
       queryFn: ({ pageParam, signal }) => fetchBoardPosts(
         boardUrl.value,
@@ -184,7 +193,7 @@ export function useBoardQueries() {
   ) => {
     const { requestConfig, ...queryOptions } = options
     return useApiQuery<PostSummary[]>({
-      queryKey: boardQueryKeys.notices(boardUrl),
+      queryKey: computed(() => boardQueryKeys.notices(boardUrl.value)),
       request: (context) => callWithOptionalConfig(
         optionalQuerySignal(requestConfig, context),
         (config) => boardApi.getNotices(boardUrl.value, config),
@@ -198,7 +207,7 @@ export function useBoardQueries() {
 
   const useBoardCategories = (boardUrl: Ref<string>, options = {}) => {
     return useApiQuery({
-      queryKey: boardQueryKeys.categories(boardUrl),
+      queryKey: computed(() => boardQueryKeys.categories(boardUrl.value)),
       request: (context) => callWithOptionalConfig(
         optionalQuerySignal(undefined, context),
         (config) => boardApi.getCategories(boardUrl.value, config),
@@ -215,7 +224,7 @@ export function useBoardQueries() {
     enabled?: Ref<boolean>
   ) => {
     return useApiPageQuery<BoardManagerCandidate>({
-      queryKey: boardQueryKeys.managerCandidates(boardUrl, params),
+      queryKey: computed(() => boardQueryKeys.managerCandidates(boardUrl.value, params.value)),
       request: (context) => callWithOptionalConfig(
         optionalQuerySignal(undefined, context),
         (config) => boardApi.getBoardManagerCandidates(boardUrl.value, params.value, config),

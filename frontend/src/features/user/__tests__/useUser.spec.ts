@@ -115,12 +115,16 @@ describe('useUser', () => {
         const userId = ref(9)
         useUserProfile(userId)
         let options = mocks.queryOptions.at(-1)!
-        expect(options.queryKey).toEqual(['user', userId])
+        const queryKey = options.queryKey as ReturnType<typeof computed>
+        expect(queryKey.value).toEqual(['user', 9])
         expect((options.enabled as ReturnType<typeof computed>).value).toBe(true)
 
         const result = await (options.queryFn as () => Promise<unknown>)()
         expect(result).toEqual({ userId: 9 })
         expect(userApi.getUserProfile).toHaveBeenCalledWith(9)
+
+        userId.value = 10
+        expect(queryKey.value).toEqual(['user', 10])
 
         useUserProfile(ref(''))
         options = mocks.queryOptions.at(-1)!
@@ -204,7 +208,7 @@ describe('useUser', () => {
 
         useRecentlyViewedPosts()
         let options = mocks.queryOptions.at(-1)!
-        expect(options.queryKey).toEqual(['user', 'history', 'views', undefined])
+        expect((options.queryKey as ReturnType<typeof computed>).value).toEqual(['user', 'history', 'views', undefined])
         let result = await (options.queryFn as (context: { signal: AbortSignal }) => Promise<unknown>)({
             signal: new AbortController().signal,
         })
@@ -214,12 +218,16 @@ describe('useUser', () => {
         const params = ref({ page: 1, size: 20 })
         useRecentlyViewedPosts(params)
         options = mocks.queryOptions.at(-1)!
-        expect(options.queryKey).toEqual(['user', 'history', 'views', params])
+        const queryKey = options.queryKey as ReturnType<typeof computed>
+        expect(queryKey.value).toEqual(['user', 'history', 'views', { page: 1, size: 20 }])
         result = await (options.queryFn as (context: { signal: AbortSignal }) => Promise<unknown>)({
             signal: new AbortController().signal,
         })
         expect(userApi.getRecentlyViewedPosts).toHaveBeenNthCalledWith(2, { page: 1, size: 20 }, expect.objectContaining({ signal: expect.any(AbortSignal) }))
         expect(result).toEqual({ content: [{ postId: 2 }] })
+
+        params.value = { page: 2, size: 10 }
+        expect(queryKey.value).toEqual(['user', 'history', 'views', { page: 2, size: 10 }])
     })
 
     it('fetches my points with user-scoped query key and enabled guard', async () => {

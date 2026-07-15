@@ -1,5 +1,3 @@
-import { computed, type Ref } from 'vue'
-
 /** Shared query-key factory for the user feature and its compatibility consumers. */
 
 export interface UserQueryPaginationParams {
@@ -11,35 +9,36 @@ export interface UserQueryPaginationParams {
 
 export const userQueryKeys = {
     me: ['user', 'me'] as const,
-    profile: (userId: Ref<string | number>) => ['user', userId] as const,
+    profile: (userId: string | number) => ['user', userId] as const,
     settings: ['user', 'settings'] as const,
     blocksRoot: ['user', 'blocks'] as const,
-    blocks: (params?: Ref<UserQueryPaginationParams>) => computed(() => ['user', 'blocks', params?.value ?? {}] as const),
+    blocks: (params: Readonly<UserQueryPaginationParams> = {}) => ['user', 'blocks', { ...params }] as const,
     notificationSettings: ['user', 'notification-settings'] as const,
     keywordSubscriptions: ['user', 'keyword-subscriptions'] as const,
     agents: ['user', 'agents'] as const,
     sessions: ['user', 'sessions'] as const,
-    loginHistory: (params?: Ref<UserQueryPaginationParams>) =>
-        computed(() => ['user', 'login-history', params?.value ?? {}] as const),
+    loginHistory: (params: Readonly<UserQueryPaginationParams> = {}) =>
+        ['user', 'login-history', { ...params }] as const,
     pointsRoot: ['user', 'points'] as const,
     draftsRoot: ['user', 'drafts'] as const,
     scheduledPostsRoot: ['user', 'scheduled-posts'] as const,
     badgesRoot: ['user', 'badges'] as const,
     scrapFolders: ['user', 'scrap-folders'] as const,
     postSeries: ['user', 'post-series'] as const,
-    myPoints: (userIdentity?: Ref<string | number | null | undefined>) =>
-        computed(() => ['user', 'points', 'me', userIdentity?.value ?? 'anonymous'] as const),
-    myPosts: (params: UserQueryPaginationParams) => ['user', 'me', 'posts', params] as const,
-    myComments: (params: UserQueryPaginationParams) => ['user', 'me', 'comments', params] as const,
-    publicPosts: (userId: Ref<string | number>, params?: Ref<UserQueryPaginationParams>) =>
-        computed(() => ['user', userId.value, 'posts', params?.value ?? {}] as const),
-    publicComments: (userId: Ref<string | number>, params?: Ref<UserQueryPaginationParams>) =>
-        computed(() => ['user', userId.value, 'comments', params?.value ?? {}] as const),
-    drafts: (params?: Ref<UserQueryPaginationParams>) => computed(() => ['user', 'drafts', params?.value ?? {}] as const),
-    scheduledPosts: (params?: Ref<UserQueryPaginationParams>) => computed(() => ['user', 'scheduled-posts', params?.value ?? {}] as const),
-    badges: (userId: Ref<string | number>) => computed(() => ['user', 'badges', userId.value] as const),
-    scraps: (params?: Ref<UserQueryPaginationParams>) => computed(() => ['user', 'scraps', params?.value ?? {}] as const),
-    pointHistories: (params?: Ref<UserQueryPaginationParams>) =>
-        computed(() => ['user', 'points', 'history', params?.value ?? {}] as const),
-    recentlyViewedPosts: (params?: Ref<UserQueryPaginationParams>) => ['user', 'history', 'views', params] as const,
+    myPoints: (userIdentity?: string | number | null) =>
+        ['user', 'points', 'me', userIdentity ?? 'anonymous'] as const,
+    myPosts: (params: Readonly<UserQueryPaginationParams>) => ['user', 'me', 'posts', { ...params }] as const,
+    myComments: (params: Readonly<UserQueryPaginationParams>) => ['user', 'me', 'comments', { ...params }] as const,
+    publicPosts: (userId: string | number, params: Readonly<UserQueryPaginationParams> = {}) =>
+        ['user', userId, 'posts', { ...params }] as const,
+    publicComments: (userId: string | number, params: Readonly<UserQueryPaginationParams> = {}) =>
+        ['user', userId, 'comments', { ...params }] as const,
+    drafts: (params: Readonly<UserQueryPaginationParams> = {}) => ['user', 'drafts', { ...params }] as const,
+    scheduledPosts: (params: Readonly<UserQueryPaginationParams> = {}) => ['user', 'scheduled-posts', { ...params }] as const,
+    badges: (userId: string | number) => ['user', 'badges', userId] as const,
+    scraps: (params: Readonly<UserQueryPaginationParams> = {}) => ['user', 'scraps', { ...params }] as const,
+    pointHistories: (params: Readonly<UserQueryPaginationParams> = {}) =>
+        ['user', 'points', 'history', { ...params }] as const,
+    recentlyViewedPosts: (params?: Readonly<UserQueryPaginationParams>) =>
+        ['user', 'history', 'views', params ? { ...params } : undefined] as const,
 }

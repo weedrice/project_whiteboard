@@ -26,7 +26,7 @@ export function useNotification() {
 
     const useNotifications = (params: Ref<NotificationParams>) => {
         return useApiPageQuery<Notification>({
-            queryKey: notificationListQueryKey(params),
+            queryKey: computed(() => notificationListQueryKey(params.value)),
             request: (context) => callWithOptionalQuerySignal(
                 context,
                 () => notificationApi.getNotifications(params.value),

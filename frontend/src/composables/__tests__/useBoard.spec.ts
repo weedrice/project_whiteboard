@@ -157,11 +157,15 @@ describe('useBoard', () => {
 
         useBoardDetail(boardUrl)
         const options = mocks.queryOptions.at(-1)!
-        expect(options.queryKey).toEqual(['board', 'detail', boardUrl])
+        const queryKey = options.queryKey as ReturnType<typeof computed>
+        expect(queryKey.value).toEqual(['board', 'detail', 'free'])
         expect((options.enabled as ReturnType<typeof computed>).value).toBe(true)
         const result = await (options.queryFn as () => Promise<unknown>)()
         expect(result).toEqual({ boardId: 2, boardUrl: 'free' })
         expect(boardApi.getBoard).toHaveBeenCalledWith('free')
+
+        boardUrl.value = 'notice'
+        expect(queryKey.value).toEqual(['board', 'detail', 'notice'])
     })
 
     it('fetches board notices with enabled guards', async () => {
@@ -174,7 +178,7 @@ describe('useBoard', () => {
 
         useBoardNotices(boardUrl, enabled)
         const options = mocks.queryOptions.at(-1)!
-        expect(options.queryKey).toEqual(['board', 'notices', boardUrl])
+        expect((options.queryKey as ReturnType<typeof computed>).value).toEqual(['board', 'notices', 'free'])
         expect((options.enabled as ReturnType<typeof computed>).value).toBe(true)
         const result = await (options.queryFn as () => Promise<unknown>)()
         expect(result).toEqual([{ postId: 11, title: 'Notice' }])
@@ -200,6 +204,25 @@ describe('useBoard', () => {
         expect((options.placeholderData as (prev: unknown) => unknown)('prev')).toBe('prev')
         expect(boardApi.getPosts).toHaveBeenCalledWith('free', { page: 0, size: 20, sort: 'latest' })
         expect(result).toEqual({ content: [{ postId: 1 }] })
+
+        const queryKey = options.queryKey as ReturnType<typeof computed>
+        expect(queryKey.value).toEqual([
+            'board',
+            'posts',
+            'free',
+            { page: 0, size: 20, sort: 'latest' },
+            false,
+        ])
+        boardUrl.value = 'notice'
+        params.value = { page: 1, size: 10, sort: 'oldest' }
+        isSearching.value = true
+        expect(queryKey.value).toEqual([
+            'board',
+            'posts',
+            'notice',
+            { page: 1, size: 10, sort: 'oldest' },
+            true,
+        ])
     })
 
     it('disables board posts when boardUrl is empty or caller enabled flag is false', () => {
@@ -313,13 +336,14 @@ describe('useBoard', () => {
         const result = await (options.queryFn as (context: { pageParam: number, signal?: AbortSignal }) => Promise<unknown>)({
             pageParam: 2,
         })
-        const [, , , , paramsRef] = options.queryKey as unknown[]
-
-        expect((paramsRef as { value: Record<string, unknown> }).value).toEqual({
-            size: 20,
-            sort: 'createdAt,desc',
-            categoryId: 2,
-        })
+        expect((options.queryKey as ReturnType<typeof computed>).value).toEqual([
+            'board',
+            'posts',
+            'infinite',
+            'free',
+            { size: 20, sort: 'createdAt,desc', categoryId: 2 },
+            false,
+        ])
         expect(boardApi.getPosts).toHaveBeenCalledWith(
             'free',
             { size: 20, sort: 'createdAt,desc', categoryId: 2, page: 2 },
@@ -470,7 +494,12 @@ describe('useBoard', () => {
 
         useBoardManagerCandidates(boardUrl, params, enabled)
         let options = mocks.queryOptions.at(-1)!
-        expect(options.queryKey).toEqual(['board', 'manager-candidates', boardUrl, params])
+        expect((options.queryKey as ReturnType<typeof computed>).value).toEqual([
+            'board',
+            'manager-candidates',
+            'free',
+            { page: 0, size: 10, q: 'manager' },
+        ])
         expect((options.enabled as ReturnType<typeof computed>).value).toBe(false)
 
         enabled.value = true

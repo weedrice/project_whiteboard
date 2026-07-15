@@ -101,7 +101,7 @@ export function useComment() {
 
     const useComments = (postId: Ref<string | number>, params: Ref<CommentParams>) => {
         return useApiPageQuery<Comment>({
-            queryKey: commentQueryKeys.list(postId, params),
+            queryKey: computed(() => commentQueryKeys.list(postId.value, params.value)),
             request: (context) => callWithOptionalQuerySignal(
                 context,
                 () => commentApi.getComments(postId.value, params.value),
@@ -114,7 +114,7 @@ export function useComment() {
     const useInfiniteComments = (postId: Ref<string | number>, params: Ref<CommentParams>) => {
         return useInfiniteQuery({
             queryKey: computed(() => [
-                ...commentQueryKeys.postRoot(postId),
+                ...commentQueryKeys.postRoot(postId.value),
                 'infinite',
                 { size: params.value.size, sort: params.value.sort },
             ] as const),
@@ -131,7 +131,7 @@ export function useComment() {
 
     const useBestComments = (postId: Ref<string | number>) => {
         return useApiQuery<Comment[]>({
-            queryKey: computed(() => [...commentQueryKeys.postRoot(postId), 'best'] as const),
+            queryKey: computed(() => [...commentQueryKeys.postRoot(postId.value), 'best'] as const),
             request: (context) => callWithOptionalQuerySignal(
                 context,
                 () => commentApi.getBestComments(postId.value),
@@ -147,7 +147,7 @@ export function useComment() {
         enabled?: Ref<boolean>,
     ) => {
         return useApiQuery<CommentListResponse>({
-            queryKey: commentQueryKeys.replies(parentId, params),
+            queryKey: computed(() => commentQueryKeys.replies(parentId.value, params.value)),
             request: (context) => callWithOptionalQuerySignal(
                 context,
                 () => commentApi.getReplies(parentId.value, params.value),

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { commentApi } from '@/api/comment'
 import { apiDataResponse, apiSuccessResponse } from '@/test/apiResponseFixtures'
 import { updateCommentLikeCache, useComment } from '../useComment'
@@ -94,7 +94,8 @@ describe('useComment', () => {
         const options = mockQueryOptions[0]
         const result = await (options.queryFn as () => Promise<unknown>)()
 
-        expect(options.queryKey).toEqual(['comments', 'post', postId, params])
+        const queryKey = options.queryKey as ReturnType<typeof computed>
+        expect(queryKey.value).toEqual(['comments', 'post', 1, { page: 0, size: 10 }])
         expect((options.enabled as { value: boolean }).value).toBe(true)
         expect((options.placeholderData as (prev: unknown) => unknown)('keep')).toBe('keep')
         expect(commentApi.getComments).toHaveBeenCalledWith(1, { page: 0, size: 10 })
@@ -108,6 +109,10 @@ describe('useComment', () => {
             totalElements: 1,
             totalPages: 1,
         })
+
+        postId.value = 2
+        params.value = { page: 1, size: 20 }
+        expect(queryKey.value).toEqual(['comments', 'post', 2, { page: 1, size: 20 }])
     })
 
     it('normalizes backend pages before calculating the next infinite comment page', async () => {
@@ -154,7 +159,12 @@ describe('useComment', () => {
         const options = mockQueryOptions[0]
         const result = await (options.queryFn as () => Promise<unknown>)()
 
-        expect(options.queryKey).toEqual(['comments', 'replies', parentId, params])
+        expect((options.queryKey as ReturnType<typeof computed>).value).toEqual([
+            'comments',
+            'replies',
+            10,
+            { page: 0, size: 10 },
+        ])
         expect((options.enabled as { value: boolean }).value).toBe(true)
         expect(commentApi.getReplies).toHaveBeenCalledWith(10, { page: 0, size: 10 })
         expect(result).toEqual({ content: [{ commentId: 2, content: 'reply' }], totalElements: 1 })

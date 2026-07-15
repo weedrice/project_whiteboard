@@ -72,7 +72,7 @@ export function useUser() {
 
     const useUserProfile = (userId: Ref<string | number>) => {
         return useApiQuery({
-            queryKey: userQueryKeys.profile(userId),
+            queryKey: computed(() => userQueryKeys.profile(userId.value)),
             request: (context) => callWithOptionalQuerySignal(
                 context,
                 () => userApi.getUserProfile(userId.value),
@@ -96,7 +96,7 @@ export function useUser() {
 
     const useBlockList = (params?: Ref<PaginationParams>) => {
         return useApiQuery({
-            queryKey: userQueryKeys.blocks(params),
+            queryKey: computed(() => userQueryKeys.blocks(params?.value)),
             request: (context) => callWithOptionalQuerySignal(
                 context,
                 () => userApi.getBlockList(params?.value),
@@ -145,7 +145,7 @@ export function useUser() {
 
     const useMyLoginHistory = (params?: Ref<PaginationParams>) => {
         return useApiPageQuery<LoginHistory>({
-            queryKey: userQueryKeys.loginHistory(params),
+            queryKey: computed(() => userQueryKeys.loginHistory(params?.value)),
             request: (context) => userApi.getMyLoginHistory(params?.value ?? {}, withQuerySignal(undefined, context)),
             staleTime: QUERY_STALE_TIME.SHORT,
         })
@@ -153,7 +153,7 @@ export function useUser() {
 
     const useMyPoint = (enabled?: Ref<boolean>, userIdentity?: Ref<string | number | null | undefined>) => {
         return useApiQuery<UserPoint>({
-            queryKey: userQueryKeys.myPoints(userIdentity),
+            queryKey: computed(() => userQueryKeys.myPoints(userIdentity?.value)),
             request: () => userApi.getMyPoint(),
             enabled: computed(() => enabled?.value ?? true),
             staleTime: QUERY_STALE_TIME.SHORT,
@@ -162,14 +162,14 @@ export function useUser() {
 
     const useMyScraps = (params?: Ref<PaginationParams>) => {
         return useApiPageQuery({
-            queryKey: userQueryKeys.scraps(params),
+            queryKey: computed(() => userQueryKeys.scraps(params?.value)),
             request: (context) => userApi.getMyScraps(params?.value ?? {}, withQuerySignal(undefined, context)),
         })
     }
 
     const useMyDrafts = (params?: Ref<PaginationParams>) => {
         return useApiQuery<DraftPostListResponse, PageResponse<DraftPostSummary>>({
-            queryKey: userQueryKeys.drafts(params),
+            queryKey: computed(() => userQueryKeys.drafts(params?.value)),
             request: (context) => userApi.getMyDrafts(params?.value ?? {}, withQuerySignal(undefined, context)),
             selectData: toDraftPageResponse,
         })
@@ -177,7 +177,7 @@ export function useUser() {
 
     const useMyScheduledPosts = (params?: Ref<PaginationParams>) => {
         return useApiQuery<PageResponseRaw<ScheduledPost>, PageResponse<ScheduledPost>>({
-            queryKey: userQueryKeys.scheduledPosts(params),
+            queryKey: computed(() => userQueryKeys.scheduledPosts(params?.value)),
             request: (context) => postApi.getMyScheduledPosts(params?.value ?? {}, withQuerySignal(undefined, context)),
             selectData: (response) => normalizePageResponse(response),
         })
@@ -185,7 +185,7 @@ export function useUser() {
 
     const useUserBadges = (userId: Ref<string | number>) => {
         return useApiQuery({
-            queryKey: userQueryKeys.badges(userId),
+            queryKey: computed(() => userQueryKeys.badges(userId.value)),
             request: (context) => callWithOptionalQuerySignal(
                 context,
                 () => badgeApi.getUserBadges(userId.value),
@@ -197,7 +197,7 @@ export function useUser() {
 
     const useMyPointHistories = (params?: Ref<PaginationParams>) => {
         return useApiQuery({
-            queryKey: userQueryKeys.pointHistories(params),
+            queryKey: computed(() => userQueryKeys.pointHistories(params?.value)),
             request: (context) => userApi.getMyPointHistories(params?.value ?? {}, withQuerySignal(undefined, context)),
         })
     }
@@ -392,7 +392,7 @@ export function useUser() {
 
     const useRecentlyViewedPosts = (params?: Ref<PaginationParams>) => {
         return useApiQuery({
-            queryKey: userQueryKeys.recentlyViewedPosts(params),
+            queryKey: computed(() => userQueryKeys.recentlyViewedPosts(params?.value)),
             request: (context) => callWithOptionalQuerySignal(
                 context,
                 () => userApi.getRecentlyViewedPosts(params?.value || {}),
@@ -403,7 +403,7 @@ export function useUser() {
 
     const usePublicProfilePosts = (userId: Ref<string | number>, params: Ref<PaginationParams>) => {
         return useApiPageQuery({
-            queryKey: userQueryKeys.publicPosts(userId, params),
+            queryKey: computed(() => userQueryKeys.publicPosts(userId.value, params.value)),
             request: (context) => callWithOptionalQuerySignal(
                 context,
                 () => userApi.getPublicUserPosts(userId.value, params.value),
@@ -415,7 +415,7 @@ export function useUser() {
 
     const usePublicProfileComments = (userId: Ref<string | number>, params: Ref<PaginationParams>) => {
         return useApiPageQuery({
-            queryKey: userQueryKeys.publicComments(userId, params),
+            queryKey: computed(() => userQueryKeys.publicComments(userId.value, params.value)),
             request: (context) => callWithOptionalQuerySignal(
                 context,
                 () => userApi.getPublicUserComments(userId.value, params.value),

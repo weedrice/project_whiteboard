@@ -52,7 +52,8 @@ describe('useSearch', () => {
         useSearchPosts(params)
 
         const options = mocks.queryOptions.at(-1)!
-        expect(options.queryKey).toEqual(['search', 'posts', params])
+        const queryKey = options.queryKey as ReturnType<typeof computed>
+        expect(queryKey.value).toEqual(['search', 'posts', { q: 'vue', page: 0, size: 20 }])
         expect((options.enabled as ReturnType<typeof computed>).value).toBe(true)
         expect((options.placeholderData as (prev: unknown) => unknown)('prev')).toBe('prev')
 
@@ -68,6 +69,9 @@ describe('useSearch', () => {
             totalElements: 1,
             totalPages: 1,
         })
+
+        params.value = { q: 'vite', page: 1, size: 10 }
+        expect(queryKey.value).toEqual(['search', 'posts', { q: 'vite', page: 1, size: 10 }])
 
         const keywordParams = ref<SearchParams>({ keyword: 'vite' })
         useSearchPosts(keywordParams)
@@ -122,7 +126,11 @@ describe('useSearch', () => {
         useIntegratedSearch(params)
 
         const options = mocks.queryOptions.at(-1)!
-        expect(options.queryKey).toEqual(['search', 'integrated', params])
+        expect((options.queryKey as ReturnType<typeof computed>).value).toEqual([
+            'search',
+            'integrated',
+            { q: 'pinia', size: 5 },
+        ])
         expect((options.enabled as ReturnType<typeof computed>).value).toBe(true)
         expect((options.placeholderData as (prev: unknown) => unknown)('keep')).toBe('keep')
 

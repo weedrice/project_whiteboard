@@ -32,7 +32,7 @@ export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
         categories.value.filter(category => category.categoryId !== defaultCategory.value?.categoryId)
     )
     const invalidateCategories = () => {
-        queryClient.invalidateQueries({ queryKey: boardQueryKeys.categories(boardUrl) })
+        queryClient.invalidateQueries({ queryKey: boardQueryKeys.categories(boardUrl.value) })
     }
 
     async function fetchCategories() {

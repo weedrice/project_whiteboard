@@ -50,7 +50,7 @@ export function useSearch() {
 
     const useSearchPosts = (params: Ref<SearchParams>) => {
         return useApiPageQuery<PostSummary>({
-            queryKey: searchQueryKeys.posts(params),
+            queryKey: computed(() => searchQueryKeys.posts(params.value)),
             request: (context) => callWithOptionalQuerySignal(
                 context,
                 () => searchApi.searchPosts(params.value),
@@ -62,7 +62,7 @@ export function useSearch() {
 
     const useSemanticSearch = (params: Ref<SearchParams>) => {
         return useApiPageQuery<SemanticSearchResult>({
-            queryKey: searchQueryKeys.semantic(params),
+            queryKey: computed(() => searchQueryKeys.semantic(params.value)),
             request: (context) => callWithOptionalQuerySignal(
                 context,
                 () => searchApi.semanticSearch(params.value),
@@ -74,7 +74,7 @@ export function useSearch() {
 
     const useIntegratedSearch = (params: Ref<SearchParams>) => {
         return useApiQuery<IntegratedSearchResponse, SearchPageViewModel>({
-            queryKey: searchQueryKeys.integrated(params),
+            queryKey: computed(() => searchQueryKeys.integrated(params.value)),
             request: (context) => callWithOptionalQuerySignal(
                 context,
                 () => searchApi.search(params.value),
