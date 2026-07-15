@@ -87,11 +87,6 @@ export const routes: RouteRecordRaw[] = [
         meta: { requiresAuth: true },
     },
     {
-        path: '/shop',
-        name: 'shop',
-        component: () => import('@/views/shop/ShopPage.vue'),
-    },
-    {
         path: '/emoticons',
         name: 'emoticon-list',
         component: () => import('@/views/emoticon/EmoticonList.vue'),

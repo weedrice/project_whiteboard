@@ -72,7 +72,6 @@ const historyMenuItems: UserDropdownMenuItem[] = [
   { key: '9', route: '/mypage/blocked', label: 'user.tabs.blocked', icon: Slash },
   { route: '/board/create', label: 'layout.menu.createBoard', icon: PlusSquare },
   { route: '/emoticons', label: 'emoticon.title', icon: Smile },
-  { route: '/shop', label: 'shop.title', icon: ShoppingBag },
 ]
 
 const menuSections = computed<UserDropdownMenuSection[]>(() => {
