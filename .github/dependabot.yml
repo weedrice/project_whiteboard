@@ -22,6 +22,10 @@ updates:
       tiptap:
         patterns:
           - "@tiptap/*"
+    ignore:
+      - dependency-name: "pinia"
+        versions:
+          - "4.0.1"
 
   - package-ecosystem: github-actions
     directory: /
