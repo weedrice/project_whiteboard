@@ -72,7 +72,7 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-mail'
 
 	// AWS SDK v2 (S3 only)
-	implementation platform('software.amazon.awssdk:bom:2.46.8')
+	implementation platform('software.amazon.awssdk:bom:2.48.0')
 	implementation 'software.amazon.awssdk:s3'
 
 	// HTML sanitization
