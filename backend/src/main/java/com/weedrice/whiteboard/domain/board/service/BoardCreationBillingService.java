@@ -11,7 +11,8 @@ import org.springframework.stereotype.Service;
 @Service
 class BoardCreationBillingService {
 
-    private static final String POINT_BOARD_CREATE_COST_CONFIG_KEY = "POINT_BOARD_CREATE_COST";
+    private static final String POINT_BOARD_CREATE_COST_CONFIG_KEY =
+            GlobalConfigService.POINT_BOARD_CREATE_COST_CONFIG_KEY;
     private static final int DEFAULT_BOARD_CREATE_COST = 500;
 
     private final PointService pointService;

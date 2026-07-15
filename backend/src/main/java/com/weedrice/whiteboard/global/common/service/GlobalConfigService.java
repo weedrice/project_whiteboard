@@ -21,6 +21,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
 
 @Service
 @Slf4j
@@ -30,11 +31,18 @@ public class GlobalConfigService {
 
     private static final String GLOBAL_CONFIG_CACHE = "globalConfig";
     private static final String POINT_CONFIG_PREFIX = "POINT_";
+    public static final String POINT_BOARD_CREATE_COST_CONFIG_KEY = "POINT_BOARD_CREATE_COST";
     public static final String NOBICON_PRICE_CONFIG_KEY = "NOBICON_PRICE";
     public static final String EMOTICON_IMAGE_MAX_COUNT_CONFIG_KEY = "EMOTICON_IMAGE_MAX_COUNT";
+    public static final String REPORT_AUTO_BLIND_THRESHOLD_CONFIG_KEY = "REPORT_AUTO_BLIND_THRESHOLD";
+    public static final String AGENT_RULES_VERSION_CONFIG_KEY = "AGENT_RULES_VERSION";
+    public static final int MAX_POINT_CONFIG_VALUE = 1_000_000;
     public static final int EMOTICON_IMAGE_MAX_COUNT_MIN = 1;
     public static final int EMOTICON_IMAGE_MAX_COUNT_MAX = 100;
-    private static final List<String> PUBLIC_CONFIG_KEYS = List.of(EMOTICON_IMAGE_MAX_COUNT_CONFIG_KEY);
+    public static final int AGENT_RULES_VERSION_MAX_LENGTH = 100;
+    private static final List<String> PUBLIC_CONFIG_KEYS = List.of(
+            POINT_BOARD_CREATE_COST_CONFIG_KEY,
+            EMOTICON_IMAGE_MAX_COUNT_CONFIG_KEY);
     private static final int MAX_CONFIG_KEY_LENGTH = 100;
     private static final int MAX_CONFIG_VALUE_LENGTH = 10_000;
     private static final int MAX_CONFIG_DESCRIPTION_LENGTH = 255;
@@ -101,12 +109,12 @@ public class GlobalConfigService {
 
     public List<GlobalConfigResponse> getPublicConfigs() {
         Map<String, GlobalConfig> publicConfigs = new LinkedHashMap<>();
-        globalConfigRepository.findByConfigKeyStartingWith(POINT_CONFIG_PREFIX)
-                .forEach(config -> publicConfigs.put(config.getConfigKey(), config));
         globalConfigRepository.findAllById(PUBLIC_CONFIG_KEYS)
                 .forEach(config -> publicConfigs.put(config.getConfigKey(), config));
 
-        return publicConfigs.values().stream()
+        return PUBLIC_CONFIG_KEYS.stream()
+                .map(publicConfigs::get)
+                .filter(Objects::nonNull)
                 .map(GlobalConfigResponse::from)
                 .toList();
     }
@@ -210,17 +218,19 @@ public class GlobalConfigService {
 
     private void validateConfigValue(String key, String value) {
         if (NOBICON_PRICE_CONFIG_KEY.equals(key)) {
-            Integer parsedValue = parseIntConfigValue(value);
-            if (parsedValue == null || parsedValue < 0) {
-                throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
-            }
+            validateIntegerRange(value, 0, MAX_POINT_CONFIG_VALUE);
             return;
         }
         if (EMOTICON_IMAGE_MAX_COUNT_CONFIG_KEY.equals(key)) {
-            Integer parsedValue = parseIntConfigValue(value);
-            if (parsedValue == null
-                    || parsedValue < EMOTICON_IMAGE_MAX_COUNT_MIN
-                    || parsedValue > EMOTICON_IMAGE_MAX_COUNT_MAX) {
+            validateIntegerRange(value, EMOTICON_IMAGE_MAX_COUNT_MIN, EMOTICON_IMAGE_MAX_COUNT_MAX);
+            return;
+        }
+        if (REPORT_AUTO_BLIND_THRESHOLD_CONFIG_KEY.equals(key)) {
+            validateIntegerRange(value, 1, Integer.MAX_VALUE);
+            return;
+        }
+        if (AGENT_RULES_VERSION_CONFIG_KEY.equals(key)) {
+            if (value.length() > AGENT_RULES_VERSION_MAX_LENGTH) {
                 throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
             }
             return;
@@ -228,8 +238,12 @@ public class GlobalConfigService {
         if (key == null || !key.startsWith(POINT_CONFIG_PREFIX)) {
             return;
         }
+        validateIntegerRange(value, 0, MAX_POINT_CONFIG_VALUE);
+    }
+
+    private void validateIntegerRange(String value, int minValue, int maxValue) {
         Integer parsedValue = parseIntConfigValue(value);
-        if (parsedValue == null || parsedValue < 0) {
+        if (parsedValue == null || parsedValue < minValue || parsedValue > maxValue) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
     }

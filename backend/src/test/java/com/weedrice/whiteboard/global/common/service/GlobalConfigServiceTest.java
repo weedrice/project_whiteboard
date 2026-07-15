@@ -198,24 +198,29 @@ class GlobalConfigServiceTest {
     }
 
     @Test
-    @DisplayName("getPublicConfigs returns DTO list")
-    void getPublicConfigs_returnsResponses() {
-        when(globalConfigRepository.findByConfigKeyStartingWith("POINT_"))
-                .thenReturn(List.of(new GlobalConfig("POINT_SIGNUP_BONUS", "10", "desc")));
-        when(globalConfigRepository.findAllById(List.of(GlobalConfigService.EMOTICON_IMAGE_MAX_COUNT_CONFIG_KEY)))
-                .thenReturn(List.of(new GlobalConfig(
-                        GlobalConfigService.EMOTICON_IMAGE_MAX_COUNT_CONFIG_KEY,
-                        "20",
-                        "emoticon limit")));
+    @DisplayName("getPublicConfigs returns only explicitly allowed keys in stable order")
+    void getPublicConfigs_returnsOnlyAllowlistedResponses() {
+        when(globalConfigRepository.findAllById(List.of(
+                GlobalConfigService.POINT_BOARD_CREATE_COST_CONFIG_KEY,
+                GlobalConfigService.EMOTICON_IMAGE_MAX_COUNT_CONFIG_KEY)))
+                .thenReturn(List.of(
+                        new GlobalConfig(
+                                GlobalConfigService.EMOTICON_IMAGE_MAX_COUNT_CONFIG_KEY,
+                                "20",
+                                "emoticon limit"),
+                        new GlobalConfig(
+                                GlobalConfigService.POINT_BOARD_CREATE_COST_CONFIG_KEY,
+                                "500",
+                                "board cost"),
+                        new GlobalConfig("POINT_SIGNUP_BONUS", "500", "not public")));
 
         var responses = globalConfigService.getPublicConfigs();
 
         assertThat(responses)
                 .extracting(GlobalConfigResponse::getKey)
                 .containsExactly(
-                        "POINT_SIGNUP_BONUS",
+                        GlobalConfigService.POINT_BOARD_CREATE_COST_CONFIG_KEY,
                         GlobalConfigService.EMOTICON_IMAGE_MAX_COUNT_CONFIG_KEY);
-        verify(globalConfigRepository, never()).findByConfigKeyStartingWith("EMOTICON_");
         verifyNoInteractions(superAdminPolicy);
     }
 
@@ -317,6 +322,21 @@ class GlobalConfigServiceTest {
     }
 
     @Test
+    @DisplayName("createConfig accepts the point config safety maximum")
+    void createConfig_pointConfig_acceptsSafetyMaximum() {
+        when(globalConfigRepository.existsById("POINT_POST_CREATE_REWARD")).thenReturn(false);
+        when(globalConfigRepository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        GlobalConfigResponse created = globalConfigService.createConfig(
+                ACTOR_USER_ID,
+                "POINT_POST_CREATE_REWARD",
+                String.valueOf(GlobalConfigService.MAX_POINT_CONFIG_VALUE),
+                "desc");
+
+        assertThat(created.getValue()).isEqualTo(String.valueOf(GlobalConfigService.MAX_POINT_CONFIG_VALUE));
+    }
+
+    @Test
     @DisplayName("createConfig rejects invalid point config values")
     void createConfig_pointConfig_rejectsInvalidValue() {
         assertThatThrownBy(() -> globalConfigService.createConfig(ACTOR_USER_ID, "POINT_SIGNUP_BONUS", "invalid", "desc"))
@@ -333,6 +353,13 @@ class GlobalConfigServiceTest {
                 ACTOR_USER_ID,
                 " POINT_SIGNUP_BONUS ",
                 "invalid",
+                "desc"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+        assertThatThrownBy(() -> globalConfigService.createConfig(
+                ACTOR_USER_ID,
+                "POINT_COMMENT_CREATE_REWARD",
+                String.valueOf(GlobalConfigService.MAX_POINT_CONFIG_VALUE + 1),
                 "desc"))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
@@ -356,7 +383,11 @@ class GlobalConfigServiceTest {
 
         assertThat(created.getValue()).isEqualTo("0");
 
-        for (String invalidValue : List.of("-1", "1.5", "invalid")) {
+        for (String invalidValue : List.of(
+                "-1",
+                "1.5",
+                "invalid",
+                String.valueOf(GlobalConfigService.MAX_POINT_CONFIG_VALUE + 1))) {
             assertThatThrownBy(() -> globalConfigService.createConfig(
                     ACTOR_USER_ID,
                     GlobalConfigService.NOBICON_PRICE_CONFIG_KEY,
@@ -365,6 +396,54 @@ class GlobalConfigServiceTest {
                     .isInstanceOf(BusinessException.class)
                     .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
         }
+    }
+
+    @Test
+    @DisplayName("REPORT_AUTO_BLIND_THRESHOLD는 1 이상의 정수만 허용한다")
+    void createConfig_reportAutoBlindThreshold_validatesPositiveInteger() {
+        when(globalConfigRepository.existsById(GlobalConfigService.REPORT_AUTO_BLIND_THRESHOLD_CONFIG_KEY))
+                .thenReturn(false);
+        when(globalConfigRepository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        GlobalConfigResponse created = globalConfigService.createConfig(
+                ACTOR_USER_ID,
+                GlobalConfigService.REPORT_AUTO_BLIND_THRESHOLD_CONFIG_KEY,
+                "1",
+                "desc");
+
+        assertThat(created.getValue()).isEqualTo("1");
+        for (String invalidValue : List.of("0", "-1", "1.5", "invalid")) {
+            assertThatThrownBy(() -> globalConfigService.createConfig(
+                    ACTOR_USER_ID,
+                    GlobalConfigService.REPORT_AUTO_BLIND_THRESHOLD_CONFIG_KEY,
+                    invalidValue,
+                    "desc"))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+        }
+    }
+
+    @Test
+    @DisplayName("AGENT_RULES_VERSION은 100자 이하만 허용한다")
+    void createConfig_agentRulesVersion_validatesMaximumLength() {
+        when(globalConfigRepository.existsById(GlobalConfigService.AGENT_RULES_VERSION_CONFIG_KEY))
+                .thenReturn(false);
+        when(globalConfigRepository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        GlobalConfigResponse created = globalConfigService.createConfig(
+                ACTOR_USER_ID,
+                GlobalConfigService.AGENT_RULES_VERSION_CONFIG_KEY,
+                "v".repeat(GlobalConfigService.AGENT_RULES_VERSION_MAX_LENGTH),
+                "desc");
+
+        assertThat(created.getValue()).hasSize(GlobalConfigService.AGENT_RULES_VERSION_MAX_LENGTH);
+        assertThatThrownBy(() -> globalConfigService.createConfig(
+                ACTOR_USER_ID,
+                GlobalConfigService.AGENT_RULES_VERSION_CONFIG_KEY,
+                "v".repeat(GlobalConfigService.AGENT_RULES_VERSION_MAX_LENGTH + 1),
+                "desc"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
     }
 
     @Test
@@ -581,6 +660,35 @@ class GlobalConfigServiceTest {
                 ACTOR_USER_ID,
                 "POINT_BOARD_CREATE_COST",
                 "-1",
+                "desc"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+        assertThatThrownBy(() -> globalConfigService.updateConfig(
+                ACTOR_USER_ID,
+                "POINT_BOARD_CREATE_COST",
+                String.valueOf(GlobalConfigService.MAX_POINT_CONFIG_VALUE + 1),
+                "desc"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(globalConfigRepository, never()).findById(anyString());
+        verify(globalConfigRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("updateConfig은 신고 임계값과 규칙 버전 계약을 동일하게 검증한다")
+    void updateConfig_knownConfigContracts_rejectInvalidValues() {
+        assertThatThrownBy(() -> globalConfigService.updateConfig(
+                ACTOR_USER_ID,
+                GlobalConfigService.REPORT_AUTO_BLIND_THRESHOLD_CONFIG_KEY,
+                "0",
+                "desc"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+        assertThatThrownBy(() -> globalConfigService.updateConfig(
+                ACTOR_USER_ID,
+                GlobalConfigService.AGENT_RULES_VERSION_CONFIG_KEY,
+                "v".repeat(GlobalConfigService.AGENT_RULES_VERSION_MAX_LENGTH + 1),
                 "desc"))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);

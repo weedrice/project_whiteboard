@@ -398,7 +398,7 @@ Java 필드명과 JSON 직렬화 이름이 다른 기존 응답은 호환성을 
 | `GET` | `/api/v1/admin/error-logs/{errorLogId}` | 에러 로그 상세 |
 | `PUT` | `/api/v1/admin/error-logs/{errorLogId}/resolve` | 에러 로그 확인 처리 |
 | `GET` | `/api/v1/admin/error-logs/stats` | 에러 로그 통계 |
-| `GET` | `/api/v1/configs/{key}` | 공개/허용 전역 설정 조회 |
+| `GET` | `/api/v1/configs/{key}` | 전역 설정 단건 조회(슈퍼 관리자) |
 | `GET` | `/api/v1/configs/public` | 공개 전역 설정 목록 |
 | `GET` | `/api/v1/admin/configs` | 전역 설정 관리자 목록 |
 | `POST` | `/api/v1/admin/configs` | 전역 설정 생성 |
@@ -409,10 +409,10 @@ Java 필드명과 JSON 직렬화 이름이 다른 기존 응답은 호환성을 
 | `POST` | `/api/v1/security/csp-report` | 브라우저 CSP 위반 report 수집 |
 | `POST` | `/api/v1/logs/client` | 브라우저 전역 오류 수집, JSON body 최대 32 KiB |
 
-`GET /api/v1/configs/public`은 포인트 공개 설정과 명시적으로 허용된
-`EMOTICON_IMAGE_MAX_COUNT`를 반환한다. 이모티콘 이미지 제한은 `1~100` 정수이며 기본값은 `20`이다.
-설정이 누락되거나 저장값이 비정상이면 서버와 클라이언트 모두 `20`을 사용한다. 다른 `EMOTICON_` 키는
-접두사만으로 공개되지 않는다.
+`GET /api/v1/configs/public`은 명시적으로 허용된 `POINT_BOARD_CREATE_COST`와
+`EMOTICON_IMAGE_MAX_COUNT`만 반환한다. 이모티콘 이미지 제한은 `1~100` 정수이며 기본값은 `20`이다.
+설정이 누락되거나 저장값이 비정상이면 서버와 클라이언트 모두 `20`을 사용한다. 다른 `POINT_` 및
+`EMOTICON_` 키는 접두사만으로 공개되지 않는다.
 
 ### Agent API
 

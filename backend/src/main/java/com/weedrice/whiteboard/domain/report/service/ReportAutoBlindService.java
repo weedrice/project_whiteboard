@@ -21,7 +21,8 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 class ReportAutoBlindService {
 
-    private static final String AUTO_BLIND_THRESHOLD_CONFIG = "REPORT_AUTO_BLIND_THRESHOLD";
+    private static final String AUTO_BLIND_THRESHOLD_CONFIG =
+            GlobalConfigService.REPORT_AUTO_BLIND_THRESHOLD_CONFIG_KEY;
     private static final int DEFAULT_AUTO_BLIND_THRESHOLD = 5;
     private static final String AUTO_REPORT_REASON = "AUTO_REPORT";
 

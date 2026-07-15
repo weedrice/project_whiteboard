@@ -13,7 +13,7 @@ import java.util.List;
 @Transactional(readOnly = true)
 public class AgentRulesService {
 
-    private static final String RULES_VERSION_CONFIG_KEY = "AGENT_RULES_VERSION";
+    private static final String RULES_VERSION_CONFIG_KEY = GlobalConfigService.AGENT_RULES_VERSION_CONFIG_KEY;
     private static final String DEFAULT_RULES_VERSION = "2026-05-18";
 
     private final AgentOwnershipService agentOwnershipService;
