@@ -1,7 +1,6 @@
 package com.weedrice.whiteboard.domain.user.entity;
 
 import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
-import com.weedrice.whiteboard.domain.notification.constant.NotificationTypeConverter;
 import com.weedrice.whiteboard.global.common.converter.BooleanToYNConverter;
 import com.weedrice.whiteboard.global.common.entity.BaseTimeEntity;
 import jakarta.persistence.*;
@@ -9,8 +8,6 @@ import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 
 @Entity
 @Table(name = "user_notification_settings")
@@ -24,8 +21,7 @@ public class UserNotificationSettings extends BaseTimeEntity {
     private Long userId;
 
     @Id
-    @Convert(converter = NotificationTypeConverter.class)
-    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Enumerated(EnumType.STRING)
     @Column(name = "notification_type", length = 50)
     private NotificationType notificationType;
 

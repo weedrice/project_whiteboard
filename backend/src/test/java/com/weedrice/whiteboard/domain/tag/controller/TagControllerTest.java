@@ -14,7 +14,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
@@ -52,7 +52,7 @@ import static org.mockito.Mockito.when;
         @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.WebConfig.class),
         @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.SecurityConfig.class)
     })
-@org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
+@org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 @org.springframework.context.annotation.Import({
         TagControllerTest.TestSecurityConfig.class,
         CurrentUserIdWebMvcConfig.class,

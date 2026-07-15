@@ -24,9 +24,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
-import org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.security.autoconfigure.SecurityAutoConfiguration;
+import org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration;
+import org.springframework.boot.security.autoconfigure.web.servlet.SecurityFilterAutoConfiguration;
+import org.springframework.boot.security.autoconfigure.web.servlet.ServletWebSecurityAutoConfiguration;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
 import org.springframework.context.annotation.Import;
@@ -63,7 +65,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
     },
     excludeAutoConfiguration = {
         SecurityAutoConfiguration.class,
-        UserDetailsServiceAutoConfiguration.class
+        UserDetailsServiceAutoConfiguration.class,
+        SecurityFilterAutoConfiguration.class,
+        ServletWebSecurityAutoConfiguration.class
     })
 @Import({
         CurrentUserIdWebMvcConfig.class,

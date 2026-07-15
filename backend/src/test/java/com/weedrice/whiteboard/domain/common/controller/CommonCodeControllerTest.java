@@ -15,7 +15,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
@@ -44,8 +44,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.SecurityConfig.class)
     },
     excludeAutoConfiguration = {
-        org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration.class,
-        org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration.class
+        org.springframework.boot.security.autoconfigure.SecurityAutoConfiguration.class,
+        org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration.class,
+        org.springframework.boot.security.autoconfigure.web.servlet.SecurityFilterAutoConfiguration.class,
+        org.springframework.boot.security.autoconfigure.web.servlet.ServletWebSecurityAutoConfiguration.class
     })
 class CommonCodeControllerTest {
 

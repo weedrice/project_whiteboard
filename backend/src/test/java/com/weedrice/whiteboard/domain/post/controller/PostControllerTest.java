@@ -20,7 +20,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
@@ -52,7 +52,7 @@ import jakarta.servlet.http.HttpServletResponse;
 
 @WebMvcTest(controllers = PostController.class,
     excludeFilters = @ComponentScan.Filter(type = FilterType.ASSIGNABLE_TYPE, classes = com.weedrice.whiteboard.global.config.WebConfig.class))
-@org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc
+@org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc
 @Import({
         PostControllerTest.TestSecurityConfig.class,
         CurrentUserIdWebMvcConfig.class,
