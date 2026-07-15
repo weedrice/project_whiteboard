@@ -34,6 +34,19 @@ export default defineConfig(({ mode }) => {
                 filename: 'service-worker.ts',
                 // pwa.ts applies waiting updates automatically after active form guards clear.
                 registerType: 'prompt',
+                integration: {
+                    configureCustomSWViteBuild(config) {
+                        if (!config.build) return
+
+                        // vite-plugin-pwa 1.3.0 still emits Rollup's deprecated single-chunk option under Vite 8.
+                        const output = config.build.rollupOptions?.output
+                        if (output && !Array.isArray(output)) {
+                            delete output.inlineDynamicImports
+                            output.codeSplitting = false
+                        }
+                        config.build.rolldownOptions = config.build.rollupOptions
+                    },
+                },
                 includeAssets: [
                     'favicon.ico',
                     'favicon_dark.ico',
