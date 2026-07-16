@@ -1,12 +1,7 @@
 name: Deploy Frontend
 
 on:
-  push:
-    branches: ["main"]
-    paths:
-      - "frontend/**"
-      - ".github/workflows/deploy-frontend.yml"
-  workflow_dispatch:
+  workflow_call:
 
 concurrency:
   group: deploy-production-${{ github.ref }}
@@ -19,13 +14,14 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    environment: production
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
 
       - name: Setup Node
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
           cache: "npm"
@@ -33,18 +29,6 @@ jobs:
 
       - name: Install frontend dependencies
         run: npm ci
-        working-directory: frontend
-
-      - name: Lint frontend
-        run: npm run lint:ci
-        working-directory: frontend
-
-      - name: Type check frontend
-        run: npm run type-check
-        working-directory: frontend
-
-      - name: Test frontend
-        run: npm run test:run
         working-directory: frontend
 
       - name: Build frontend
@@ -61,7 +45,7 @@ jobs:
         working-directory: frontend
 
       - name: Prepare frontend release directory
-        uses: appleboy/ssh-action@v1.2.5
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
@@ -74,7 +58,7 @@ jobs:
             install -d -m 755 "$RELEASE_DIR"
 
       - name: Upload frontend build to release
-        uses: appleboy/scp-action@v1.0.0
+        uses: appleboy/scp-action@ff85246acaad7bdce478db94a363cd2bf7c90345 # v1.0.0
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
@@ -84,7 +68,7 @@ jobs:
           strip_components: 2
 
       - name: Activate frontend release
-        uses: appleboy/ssh-action@v1.2.5
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu

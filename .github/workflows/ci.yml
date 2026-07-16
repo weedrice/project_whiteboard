@@ -5,6 +5,18 @@ on:
     branches: [ main, develop ]
   pull_request:
     branches: [ main, develop ]
+  workflow_dispatch:
+    inputs:
+      deploy_backend:
+        description: Run the backend validation chain and deploy after the CI gate
+        required: false
+        type: boolean
+        default: false
+      deploy_frontend:
+        description: Run the frontend validation chain and deploy after the CI gate
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -17,26 +29,56 @@ jobs:
       contents: read
       pull-requests: read
     outputs:
-      backend: ${{ steps.filter.outputs.backend }}
-      frontend: ${{ steps.filter.outputs.frontend }}
+      backend: ${{ steps.scope.outputs.backend }}
+      frontend: ${{ steps.scope.outputs.frontend }}
+      ops: ${{ steps.filter.outputs.ops }}
+      backend_changed: ${{ steps.filter.outputs.backend }}
+      frontend_changed: ${{ steps.filter.outputs.frontend }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
 
       - name: Detect changed areas
         id: filter
-        uses: dorny/paths-filter@v4
+        uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4
         with:
           filters: |
             backend:
               - 'backend/**'
               - 'deploy/nginx/**'
+              - 'deploy/scripts/activate-backend-release.sh'
               - 'docker-compose.yml'
               - '.github/workflows/ci.yml'
+              - '.github/workflows/deploy-backend.yml'
             frontend:
               - 'frontend/**'
               - 'docker-compose.yml'
               - '.github/workflows/ci.yml'
+              - '.github/workflows/deploy-frontend.yml'
+            ops:
+              - 'deploy/**'
+              - 'backend/scripts/**'
+              - 'docker-compose*.yml'
+              - 'backend/Dockerfile'
+              - 'frontend/Dockerfile'
+              - 'backend/gradle/wrapper/**'
+              - '.github/workflows/**'
+              - '.github/dependabot.yml'
+
+      - name: Resolve validation scope
+        id: scope
+        env:
+          BACKEND_CHANGED: ${{ steps.filter.outputs.backend }}
+          FRONTEND_CHANGED: ${{ steps.filter.outputs.frontend }}
+          MANUAL_BACKEND: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_backend || false }}
+          MANUAL_FRONTEND: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_frontend || false }}
+        run: |
+          backend="$BACKEND_CHANGED"
+          frontend="$FRONTEND_CHANGED"
+          if [ "$MANUAL_BACKEND" = "true" ]; then backend=true; fi
+          if [ "$MANUAL_FRONTEND" = "true" ]; then frontend=true; fi
+          echo "backend=$backend" >> "$GITHUB_OUTPUT"
+          echo "frontend=$frontend" >> "$GITHUB_OUTPUT"
 
   backend-test:
     needs: changes
@@ -45,10 +87,10 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
 
       - name: Setup JDK 21
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@dded0888837ed1f317902acf8a20df0ad188d165 # v5.0.0
         with:
           distribution: temurin
           java-version: 21
@@ -63,7 +105,7 @@ jobs:
         working-directory: backend
 
       - name: Upload test report
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         if: always()
         with:
           name: backend-test-report
@@ -71,7 +113,7 @@ jobs:
           retention-days: 30
 
       - name: Upload coverage report
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         if: always()
         with:
           name: backend-coverage-report
@@ -85,10 +127,10 @@ jobs:
     timeout-minutes: 40
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
 
       - name: Setup Node
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
           cache: 'npm'
@@ -104,6 +146,10 @@ jobs:
 
       - name: Check i18n keys
         run: npm run check:i18n
+        working-directory: frontend
+
+      - name: Check UI conventions
+        run: npm run check:ui
         working-directory: frontend
 
       - name: Type check
@@ -127,7 +173,7 @@ jobs:
         working-directory: frontend
 
       - name: Upload test coverage
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         if: always()
         with:
           name: frontend-coverage-report
@@ -136,7 +182,7 @@ jobs:
           retention-days: 30
 
       - name: Upload Playwright artifacts
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         if: always()
         with:
           name: frontend-playwright-artifacts
@@ -153,7 +199,7 @@ jobs:
     timeout-minutes: 30
     services:
       postgres:
-        image: pgvector/pgvector:pg16
+        image: pgvector/pgvector:pg16@sha256:1d533553fefe4f12e5d80c7b80622ba0c382abb5758856f52983d8789179f0fb
         env:
           POSTGRES_DB: noviis_ci
           POSTGRES_USER: noviis_ci
@@ -167,7 +213,14 @@ jobs:
           --health-retries 5
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+        with:
+          fetch-depth: 0
+
+      - name: Check migration compatibility
+        env:
+          BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
+        run: bash backend/scripts/check-migration-compatibility.sh "$BASE_REF" HEAD
 
       - name: Install PostgreSQL client
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
@@ -183,7 +236,7 @@ jobs:
           DATABASE_URL: postgresql://noviis_ci:noviis_ci@localhost:5432/noviis_ci
 
       - name: Setup JDK 21
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@dded0888837ed1f317902acf8a20df0ad188d165 # v5.0.0
         with:
           distribution: temurin
           java-version: 21
@@ -207,6 +260,61 @@ jobs:
           POSTGRES_SMOKE_DATASOURCE_USERNAME: noviis_ci
           POSTGRES_SMOKE_DATASOURCE_PASSWORD: noviis_ci
 
+  ops-config-test:
+    needs: changes
+    if: needs.changes.outputs.ops == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+
+      - name: Validate GitHub Actions workflows
+        run: >-
+          docker run --rm -v "$PWD:/repo" -w /repo
+          rhysd/actionlint:1.7.7@sha256:887a259a5a534f3c4f36cb02dca341673c6089431057242cdc931e9f133147e9
+
+      - name: Validate Prometheus configuration and rules
+        run: |
+          docker run --rm --entrypoint /bin/promtool \
+            -v "$PWD/deploy/monitoring/prometheus:/etc/prometheus:ro" \
+            prom/prometheus:v3.5.0@sha256:63805ebb8d2b3920190daf1cb14a60871b16fd38bed42b857a3182bc621f4996 \
+            check config /etc/prometheus/prometheus.yml
+          docker run --rm --entrypoint /bin/promtool \
+            -v "$PWD/deploy/monitoring/prometheus:/etc/prometheus:ro" \
+            prom/prometheus:v3.5.0@sha256:63805ebb8d2b3920190daf1cb14a60871b16fd38bed42b857a3182bc621f4996 \
+            check rules /etc/prometheus/noviis-alerts.yml
+
+      - name: Validate Grafana dashboard JSON
+        run: jq -e . deploy/monitoring/grafana/dashboards/noviis-overview.json >/dev/null
+
+      - name: Validate shell scripts
+        run: |
+          find deploy -type f -name '*.sh' -print0 | xargs -0 -r -n1 bash -n
+          find backend/scripts -type f -name '*.sh' -print0 | xargs -0 -r -n1 bash -n
+          find deploy -type f -name '*.sh' -print0 | xargs -0 -r shellcheck
+          find backend/scripts -type f -name '*.sh' -print0 | xargs -0 -r shellcheck
+
+      - name: Run deployment script fixtures
+        run: bash deploy/scripts/tests/activate-backend-release-test.sh
+
+      - name: Validate systemd units and drop-ins
+        run: |
+          systemd-analyze verify deploy/systemd/app.service
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+          for service in prometheus grafana-server; do
+            mkdir -p "$tmp/${service}.service.d"
+            printf '[Unit]\nDescription=CI fixture\n[Service]\nExecStart=/bin/true\n' > "$tmp/${service}.service"
+            cp "deploy/monitoring/systemd/${service}.service.d/override.conf" "$tmp/${service}.service.d/override.conf"
+            SYSTEMD_UNIT_PATH="$tmp" systemd-analyze verify "${service}.service"
+          done
+
+      - name: Validate Compose configuration
+        env:
+          JWT_SECRET_DEV: Y2ktb25seS1kdW1teS1qd3Qtc2VjcmV0LWtleS0zMi1ieXRlcw==
+        run: docker compose config --quiet
+
   ci-gate:
     name: CI Gate
     if: always()
@@ -215,6 +323,7 @@ jobs:
       - backend-test
       - frontend-test
       - backend-postgres-migration
+      - ops-config-test
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -224,15 +333,34 @@ jobs:
           BACKEND_RESULT: ${{ needs.backend-test.result }}
           FRONTEND_RESULT: ${{ needs.frontend-test.result }}
           POSTGRES_RESULT: ${{ needs.backend-postgres-migration.result }}
+          OPS_RESULT: ${{ needs.ops-config-test.result }}
         run: |
           if [ "$CHANGES_RESULT" != "success" ]; then
             echo "Change detection failed: $CHANGES_RESULT"
             exit 1
           fi
 
-          for result in "$BACKEND_RESULT" "$FRONTEND_RESULT" "$POSTGRES_RESULT"; do
+          for result in "$BACKEND_RESULT" "$FRONTEND_RESULT" "$POSTGRES_RESULT" "$OPS_RESULT"; do
             if [ "$result" != "success" ] && [ "$result" != "skipped" ]; then
               echo "Required CI job failed or was cancelled: $result"
               exit 1
             fi
           done
+
+  deploy-backend:
+    needs: [changes, ci-gate]
+    if: >-
+      needs.ci-gate.result == 'success' &&
+      ((github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.backend_changed == 'true') ||
+      (github.event_name == 'workflow_dispatch' && inputs.deploy_backend))
+    uses: ./.github/workflows/deploy-backend.yml
+    secrets: inherit
+
+  deploy-frontend:
+    needs: [changes, ci-gate]
+    if: >-
+      needs.ci-gate.result == 'success' &&
+      ((github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.frontend_changed == 'true') ||
+      (github.event_name == 'workflow_dispatch' && inputs.deploy_frontend))
+    uses: ./.github/workflows/deploy-frontend.yml
+    secrets: inherit
