@@ -12,7 +12,7 @@ class SemanticSearchJobScheduler {
 
     private final SemanticSearchJobService jobService;
 
-    @Scheduled(cron = "0 * * * * ?")
+    @Scheduled(cron = "0 * * * * ?", scheduler = "semanticSearchTaskScheduler")
     public void processPendingSemanticSearchJobs() {
         int processedCount = jobService.processPendingJobs();
         if (processedCount > 0) {

@@ -185,6 +185,20 @@ class SemanticSearchJobRepository {
                 """, maxRetryCount, lastErrorMessage, now(), jobId, expectedProcessingStartedAt);
     }
 
+    long countPendingJobs() {
+        Long count = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM semantic_search_jobs WHERE status = 'PENDING'",
+                Long.class);
+        return count == null ? 0L : count;
+    }
+
+    Optional<LocalDateTime> findOldestPendingCreatedAt() {
+        List<LocalDateTime> results = jdbcTemplate.query(
+                "SELECT MIN(created_at) AS oldest_created_at FROM semantic_search_jobs WHERE status = 'PENDING'",
+                (rs, rowNum) -> toLocalDateTime(rs.getTimestamp("oldest_created_at")));
+        return results.stream().filter(java.util.Objects::nonNull).findFirst();
+    }
+
     private LocalDateTime now() {
         return LocalDateTime.now(clock);
     }

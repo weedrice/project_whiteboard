@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
@@ -91,4 +92,47 @@ public interface AgentRepository extends JpaRepository<Agent, Long> {
     List<Agent> findExpiredPendingClaimsForUpdate(
             @Param("status") String status,
             @Param("expiresBefore") LocalDateTime expiresBefore);
+
+    @Query("""
+            SELECT a.agentId
+            FROM Agent a
+            WHERE a.status = :status
+              AND a.isDeleted = true
+              AND a.user IS NULL
+              AND a.claimedAt IS NULL
+              AND a.modifiedAt < :purgeBefore
+            ORDER BY a.modifiedAt ASC, a.agentId ASC
+            """)
+    List<Long> findPendingClaimPurgeCandidateIds(
+            @Param("status") String status,
+            @Param("purgeBefore") LocalDateTime purgeBefore,
+            Pageable pageable);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            DELETE FROM Agent a
+            WHERE a.agentId IN :agentIds
+              AND a.status = :status
+              AND a.isDeleted = true
+              AND a.user IS NULL
+              AND a.claimedAt IS NULL
+              AND a.modifiedAt < :purgeBefore
+            """)
+    int hardDeleteEligiblePendingClaims(
+            @Param("agentIds") List<Long> agentIds,
+            @Param("status") String status,
+            @Param("purgeBefore") LocalDateTime purgeBefore);
+
+    @Query("""
+            SELECT COUNT(a)
+            FROM Agent a
+            WHERE a.status = :status
+              AND a.isDeleted = true
+              AND a.user IS NULL
+              AND a.claimedAt IS NULL
+              AND a.modifiedAt < :purgeBefore
+            """)
+    long countPendingClaimsEligibleForPurge(
+            @Param("status") String status,
+            @Param("purgeBefore") LocalDateTime purgeBefore);
 }

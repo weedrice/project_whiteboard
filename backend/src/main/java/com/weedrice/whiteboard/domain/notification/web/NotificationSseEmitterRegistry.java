@@ -5,6 +5,11 @@ import com.weedrice.whiteboard.domain.notification.dto.NotificationResponse;
 import com.weedrice.whiteboard.domain.notification.service.CommentStreamPublisher;
 import com.weedrice.whiteboard.domain.notification.service.NotificationStreamPublisher;
 import lombok.extern.slf4j.Slf4j;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Metrics;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -33,16 +38,30 @@ public class NotificationSseEmitterRegistry implements NotificationStreamPublish
             new ConcurrentHashMap<>();
     private final Map<Long, Object> userLocks = new ConcurrentHashMap<>();
     private final AtomicLong connectionSequence = new AtomicLong();
+    private final AtomicLong lastHeartbeatMillis = new AtomicLong();
+    private final Counter heartbeatFailures;
     private final long timeoutMillis;
     private final int maxConnectionsPerUser;
 
+    @Autowired
     NotificationSseEmitterRegistry(
             @Value("${notification.stream.timeout-millis:1800000}") long timeoutMillis,
-            @Value("${notification.stream.max-connections-per-user:5}") int maxConnectionsPerUser) {
+            @Value("${notification.stream.max-connections-per-user:5}") int maxConnectionsPerUser,
+            MeterRegistry meterRegistry) {
         this.timeoutMillis = timeoutMillis > 0 ? timeoutMillis : DEFAULT_TIMEOUT_MILLIS;
         this.maxConnectionsPerUser = maxConnectionsPerUser > 0
                 ? maxConnectionsPerUser
                 : DEFAULT_MAX_CONNECTIONS_PER_USER;
+        this.heartbeatFailures = meterRegistry.counter("noviis.sse.heartbeat.failures");
+        Gauge.builder("noviis.sse.connections.active", this, NotificationSseEmitterRegistry::activeConnections)
+                .register(meterRegistry);
+        Gauge.builder("noviis.sse.heartbeat.gap", this, NotificationSseEmitterRegistry::heartbeatGapSeconds)
+                .baseUnit("seconds")
+                .register(meterRegistry);
+    }
+
+    NotificationSseEmitterRegistry(long timeoutMillis, int maxConnectionsPerUser) {
+        this(timeoutMillis, maxConnectionsPerUser, Metrics.globalRegistry);
     }
 
     public SseEmitter subscribe(Long userId) {
@@ -83,8 +102,9 @@ public class NotificationSseEmitterRegistry implements NotificationStreamPublish
         return emitter;
     }
 
-    @Scheduled(fixedRate = 25_000)
+    @Scheduled(fixedRate = 25_000, scheduler = "heartbeatTaskScheduler")
     public void sendHeartbeat() {
+        lastHeartbeatMillis.set(System.currentTimeMillis());
         if (emitters.isEmpty()) {
             return;
         }
@@ -100,6 +120,7 @@ public class NotificationSseEmitterRegistry implements NotificationStreamPublish
                 try {
                     entry.getValue().emitter().send(SseEmitter.event().comment("heartbeat"));
                 } catch (IOException | RuntimeException e) {
+                    heartbeatFailures.increment();
                     completeWithError(userId, entry.getKey(), entry.getValue().emitter(), e);
                 }
             }
@@ -282,6 +303,15 @@ public class NotificationSseEmitterRegistry implements NotificationStreamPublish
                 userLocks.remove(userId, lock);
             }
         }
+    }
+
+    private double activeConnections() {
+        return emitters.values().stream().mapToLong(Map::size).sum();
+    }
+
+    private double heartbeatGapSeconds() {
+        long lastHeartbeat = lastHeartbeatMillis.get();
+        return lastHeartbeat == 0L ? 0.0 : Math.max(0L, System.currentTimeMillis() - lastHeartbeat) / 1_000.0;
     }
 
     private record EmitterConnection(SseEmitter emitter, long createdOrder) {
