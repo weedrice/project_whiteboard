@@ -70,8 +70,9 @@ const mountPage = () => {
       mutations: { retry: false },
     },
   })
+  const invalidateQueries = vi.spyOn(queryClient, 'invalidateQueries')
 
-  return mount(OnboardingPage, {
+  const wrapper = mount(OnboardingPage, {
     global: {
       plugins: [[VueQueryPlugin, { queryClient }]],
       stubs: {
@@ -80,6 +81,8 @@ const mountPage = () => {
       },
     },
   })
+
+  return { invalidateQueries, queryClient, wrapper }
 }
 
 describe('OnboardingPage', () => {
@@ -95,7 +98,7 @@ describe('OnboardingPage', () => {
   })
 
   it('renders recommended boards and subscribes to a board', async () => {
-    const wrapper = mountPage()
+    const { invalidateQueries, queryClient, wrapper } = mountPage()
     await flushAll()
 
     expect(wrapper.text()).toContain('General')
@@ -103,10 +106,27 @@ describe('OnboardingPage', () => {
     await flushAll()
 
     expect(subscribeBoard).toHaveBeenCalledWith('general')
+    expect(queryClient.getQueryData<BoardListItem[]>(['onboarding', 'board-recommendations'])?.[0]?.isSubscribed).toBe(true)
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['board', 'detail', 'general'] })
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['boards'] })
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['boards', 'subscriptions'] })
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['home', 'landing'] })
+  })
+
+  it('keeps the recommendation state unchanged when subscription fails', async () => {
+    subscribeBoard.mockRejectedValueOnce(new Error('network'))
+    const { invalidateQueries, queryClient, wrapper } = mountPage()
+    await flushAll()
+
+    await wrapper.findAll('button')[0].trigger('click')
+    await flushAll()
+
+    expect(queryClient.getQueryData<BoardListItem[]>(['onboarding', 'board-recommendations'])?.[0]?.isSubscribed).toBe(false)
+    expect(invalidateQueries).not.toHaveBeenCalled()
   })
 
   it('completes onboarding and returns to the redirect target', async () => {
-    const wrapper = mountPage()
+    const { wrapper } = mountPage()
     await flushAll()
 
     await wrapper.findAll('button')[4].trigger('click')
@@ -117,7 +137,7 @@ describe('OnboardingPage', () => {
   })
 
   it('can enable push without completing onboarding', async () => {
-    const wrapper = mountPage()
+    const { wrapper } = mountPage()
     await flushAll()
 
     await wrapper.findAll('button')[2].trigger('click')
@@ -130,7 +150,7 @@ describe('OnboardingPage', () => {
   it('renders a retryable error when recommendations fail', async () => {
     getBoardRecommendations.mockRejectedValueOnce(new Error('network'))
 
-    const wrapper = mountPage()
+    const { wrapper } = mountPage()
     await flushAll()
 
     expect(wrapper.text()).toContain('데이터를 불러오는데 실패했습니다.')

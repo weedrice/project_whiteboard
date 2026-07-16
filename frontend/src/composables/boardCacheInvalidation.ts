@@ -1,1 +1,4 @@
-export { invalidateBoardListCaches } from '@/features/board/queries/boardCacheInvalidation'
+export {
+  invalidateBoardListCaches,
+  invalidateBoardSubscriptionCaches,
+} from '@/features/board/queries/boardCacheInvalidation'

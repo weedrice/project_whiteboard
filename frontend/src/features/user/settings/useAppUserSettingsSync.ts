@@ -21,6 +21,8 @@ export function useAppUserSettingsSync(
     themeStore: AppThemeStore,
     queryClient: QueryClient,
 ) {
+    let settingsLoadGeneration = 0
+
     const applySettings = async (settings: Partial<UserSettings>) => {
         if (settings.theme) {
             themeStore.setTheme(settings.theme)
@@ -34,6 +36,7 @@ export function useAppUserSettingsSync(
     }
 
     const loadSettings = async () => {
+        const loadGeneration = ++settingsLoadGeneration
         if (!authStore.isAuthenticated) return
 
         try {
@@ -44,7 +47,11 @@ export function useAppUserSettingsSync(
                     return data.success ? unwrapApiData(data) : null
                 },
             })
-            if (authStore.isAuthenticated && settings) {
+            if (
+                loadGeneration === settingsLoadGeneration
+                && authStore.isAuthenticated
+                && settings
+            ) {
                 await applySettings(settings)
             }
         } catch (error) {
@@ -56,6 +63,7 @@ export function useAppUserSettingsSync(
         if (newVal) {
             loadSettings()
         } else {
+            settingsLoadGeneration += 1
             queryClient.removeQueries({ queryKey: userSettingsQueryKey })
             const storedTheme = Storage.getString('theme')
             if (storedTheme) {

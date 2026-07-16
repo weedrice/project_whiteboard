@@ -1,4 +1,4 @@
-import { reactive } from 'vue'
+import { nextTick, reactive } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAppUserSettingsSync } from '../useAppUserSettingsSync'
 import { createDeferred } from '@/test/async'
@@ -90,6 +90,54 @@ describe('useAppUserSettingsSync', () => {
 
     expect(setTheme).toHaveBeenCalledWith('DARK')
     expect(localeMocks.setAppLocale).toHaveBeenCalledWith('en')
+  })
+
+  it('ignores account A settings after logout and account B login', async () => {
+    const authStore = reactive({ isAuthenticated: true })
+    const setTheme = vi.fn()
+    const accountASettings = createDeferred<UserSettings | null>()
+    const accountBSettings = createDeferred<UserSettings | null>()
+    const queryClient = {
+      fetchQuery: vi.fn()
+        .mockReturnValueOnce(accountASettings.promise)
+        .mockReturnValueOnce(accountBSettings.promise),
+      removeQueries: vi.fn(),
+    }
+    const sync = useAppUserSettingsSync(
+      authStore,
+      { setTheme },
+      queryClient as never,
+    )
+
+    const pendingAccountA = sync.loadSettings()
+    authStore.isAuthenticated = false
+    await nextTick()
+    authStore.isAuthenticated = true
+    await nextTick()
+
+    accountBSettings.resolve({
+      theme: 'LIGHT',
+      language: 'ko',
+      timezone: 'Asia/Seoul',
+      hideNsfw: false,
+      pushEnabled: false,
+    })
+    await vi.waitFor(() => {
+      expect(setTheme).toHaveBeenCalledWith('LIGHT')
+    })
+
+    accountASettings.resolve({
+      theme: 'DARK',
+      language: 'en',
+      timezone: 'Asia/Seoul',
+      hideNsfw: false,
+      pushEnabled: false,
+    })
+    await pendingAccountA
+
+    expect(setTheme).not.toHaveBeenCalledWith('DARK')
+    expect(localeMocks.setAppLocale).toHaveBeenCalledTimes(1)
+    expect(localeMocks.setAppLocale).toHaveBeenCalledWith('ko')
   })
 
   it('keeps the current locale and logs a warning when lazy loading fails', async () => {

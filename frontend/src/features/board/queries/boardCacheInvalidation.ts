@@ -10,3 +10,12 @@ export function invalidateBoardListCaches(queryClient: QueryClient) {
     homeQueryKeys.landingRoot,
   ])
 }
+
+export function invalidateBoardSubscriptionCaches(queryClient: QueryClient, boardUrl: string) {
+  invalidateQueryKeys(queryClient, [
+    boardQueryKeys.detail(boardUrl),
+    boardQueryKeys.all,
+    boardQueryKeys.subscriptions,
+    homeQueryKeys.landingRoot,
+  ])
+}

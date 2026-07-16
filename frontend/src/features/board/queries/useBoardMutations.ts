@@ -3,7 +3,10 @@ import type { AxiosRequestConfig } from 'axios'
 import { unwrapAxiosApiData } from '@/api/response'
 import { boardApi } from '@/api/board'
 import { boardQueryKeys } from '@/features/board/queries/boardQueryKeys'
-import { invalidateBoardListCaches } from '@/features/board/queries/boardCacheInvalidation'
+import {
+  invalidateBoardListCaches,
+  invalidateBoardSubscriptionCaches,
+} from '@/features/board/queries/boardCacheInvalidation'
 import type { BoardCreateData, BoardUpdateData } from '@/types'
 
 export function useBoardMutations() {
@@ -28,8 +31,7 @@ export function useBoardMutations() {
         }
       },
       onSuccess: (_, { boardUrl }) => {
-        queryClient.invalidateQueries({ queryKey: boardQueryKeys.detail(boardUrl) })
-        invalidateBoardListCaches(queryClient)
+        invalidateBoardSubscriptionCaches(queryClient, boardUrl)
       },
       ...mutationOptions,
     })

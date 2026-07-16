@@ -10,6 +10,7 @@ import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import ErrorState from '@/components/common/ui/ErrorState.vue'
 import { useUser } from '@/composables/useUser'
+import { invalidateBoardSubscriptionCaches } from '@/features/board/queries/boardCacheInvalidation'
 import { usePushNotifications } from '@/features/notifications/usePushNotifications'
 import type { BoardListItem } from '@/types'
 
@@ -41,6 +42,7 @@ const subscribeMutation = useMutation({
   onSuccess: (board) => {
     queryClient.setQueryData<BoardListItem[]>(['onboarding', 'board-recommendations'], (current) =>
       current?.map((item) => item.boardUrl === board.boardUrl ? { ...item, isSubscribed: true } : item))
+    invalidateBoardSubscriptionCaches(queryClient, board.boardUrl)
   },
 })
 
@@ -53,8 +55,8 @@ async function finishOnboarding() {
   await router.replace(redirectTarget.value)
 }
 
-async function subscribe(board: BoardListItem) {
-  await subscribeMutation.mutateAsync(board)
+function subscribe(board: BoardListItem) {
+  subscribeMutation.mutate(board)
 }
 
 async function enablePush() {
