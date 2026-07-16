@@ -139,6 +139,7 @@ Important implementation note:
 - Reuse repository and Querydsl patterns already in the codebase
 - Be careful with pagination, sorting, and entity loading to avoid N+1 regressions
 - When changing database behavior, review `DATABASE.md`, related repositories, and entity indexes
+- Follow `docs/ops/database-migration-policy.md`: never edit an applied `V*.sql`, keep automatic releases expand-compatible with the previous JAR, and defer destructive contract changes until the rollback window has closed.
 
 ### Security rules
 

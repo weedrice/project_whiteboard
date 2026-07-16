@@ -1,5 +1,7 @@
 # Amazon RDS PostgreSQL 백업·복구
 
+스키마 변경은 `docs/ops/database-migration-policy.md`의 expand/backfill/application-switch/contract 절차를 함께 따른다. 별도로 승인된 contract migration 전에는 백업을 생성하고 실제 복구 가능성을 검증한다.
+
 ## 운영 정책
 
 - 복구 목표는 RPO 24시간, RTO 2시간이다. RTO는 서비스 중단을 인지한 시점부터 핵심 읽기·쓰기를 재개할 때까지로 측정한다.
