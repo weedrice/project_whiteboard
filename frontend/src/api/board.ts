@@ -38,6 +38,10 @@ export interface CategoryWriteData {
     isDefault?: boolean
 }
 
+export interface CategoryOrderData {
+    categoryIds: number[]
+}
+
 const mapBoardDetailResponse = (
     response: AxiosResponse<ApiResponse<BoardDetailWire>>,
 ): AxiosResponse<ApiResponse<BoardDetail>> => mapApiDataResponse(response, normalizeBoardDetail)
@@ -126,6 +130,9 @@ export const boardApi = {
 
     // Create category
     createCategory: (boardUrl: string, data: CategoryWriteData) => api.post<ApiResponse<Category>>(`/boards/${encodePathSegment(boardUrl)}/categories`, data),
+
+    reorderCategories: (boardUrl: string, data: CategoryOrderData) =>
+        api.put<ApiResponse<Category[]>>(`/boards/${encodePathSegment(boardUrl)}/categories/order`, data),
 
     // Update category
     updateCategory: (_boardUrl: string, categoryId: string | number, data: CategoryWriteData) => api.put<ApiResponse<Category>>(`/boards/categories/${encodePathSegment(categoryId)}`, data),

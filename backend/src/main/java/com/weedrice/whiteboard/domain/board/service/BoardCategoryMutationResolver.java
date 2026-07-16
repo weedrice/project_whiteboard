@@ -37,6 +37,10 @@ class BoardCategoryMutationResolver {
         return board;
     }
 
+    Board resolveBoardForUpdate(String boardUrl, Long userId) {
+        return resolveBoardForCreate(boardUrl, userId);
+    }
+
     BoardCategory resolveCategoryForUpdate(Long categoryId, Long userId) {
         BoardCategory category = findCategoryForUpdate(categoryId);
         boardAccessPolicy.validateBoardAdmin(category.getBoard(), getCurrentUser(userId));

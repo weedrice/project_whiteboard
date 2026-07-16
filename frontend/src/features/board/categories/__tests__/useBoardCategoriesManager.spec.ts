@@ -24,6 +24,7 @@ vi.mock('@/api/board', () => ({
         getCategories: vi.fn(),
         createCategory: vi.fn(),
         updateCategory: vi.fn(),
+        reorderCategories: vi.fn(),
         deleteCategory: vi.fn(),
     },
 }))
@@ -86,7 +87,10 @@ describe('useBoardCategoriesManager', () => {
 
         await manager.fetchCategories()
 
-        expect(boardApi.getCategories).toHaveBeenCalledWith('free-board')
+        expect(boardApi.getCategories).toHaveBeenCalledWith(
+            'free-board',
+            expect.objectContaining({ signal: expect.anything() }),
+        )
         expect(manager.categories.value.map(category => category.categoryId)).toEqual([1, 2])
         expect(manager.isLoading.value).toBe(false)
     })
@@ -203,33 +207,21 @@ describe('useBoardCategoriesManager', () => {
         expect(boardApi.updateCategory).not.toHaveBeenCalled()
     })
 
-    it('reorders draggable categories after the default category', async () => {
+    it('reorders all active categories with one request and applies the server order', async () => {
         const manager = createManager()
-        manager.categories.value = [
-            makeCategory({ categoryId: 1, name: 'General', sortOrder: 1, isDefault: true }),
-            makeCategory({ categoryId: 2, name: 'A', sortOrder: 2 }),
-            makeCategory({ categoryId: 3, name: 'B', sortOrder: 3 }),
-        ]
-        vi.mocked(boardApi.updateCategory).mockResolvedValue(
-            axiosApiResponse(apiSuccess(makeCategory({})))
+        manager.categories.value = initialCategories()
+        vi.mocked(boardApi.reorderCategories).mockResolvedValue(
+            reorderedResponse()
         )
 
         manager.onDragStart({ dataTransfer: { effectAllowed: 'copy' } } as unknown as DragEvent, 1)
         await manager.onDrop(0)
 
+        expect(boardApi.reorderCategories).toHaveBeenCalledTimes(1)
+        expect(boardApi.reorderCategories).toHaveBeenCalledWith('free-board', {
+            categoryIds: [1, 3, 2],
+        })
         expect(manager.categories.value.map(category => category.categoryId)).toEqual([1, 3, 2])
-        expect(boardApi.updateCategory).toHaveBeenCalledWith('free-board', 3, {
-            name: 'B',
-            sortOrder: 2,
-            minWriteRole: 'USER',
-            isDefault: undefined,
-        })
-        expect(boardApi.updateCategory).toHaveBeenCalledWith('free-board', 2, {
-            name: 'A',
-            sortOrder: 3,
-            minWriteRole: 'USER',
-            isDefault: undefined,
-        })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({
             queryKey: ['board', 'categories', 'free-board'],
         })
@@ -237,99 +229,122 @@ describe('useBoardCategoriesManager', () => {
 
     it('moves categories with the keyboard reorder API', async () => {
         const manager = createManager()
-        manager.categories.value = [
-            makeCategory({ categoryId: 1, name: 'General', sortOrder: 1, isDefault: true }),
-            makeCategory({ categoryId: 2, name: 'A', sortOrder: 2 }),
-            makeCategory({ categoryId: 3, name: 'B', sortOrder: 3 }),
-        ]
-        vi.mocked(boardApi.updateCategory).mockResolvedValue(
-            axiosApiResponse(apiSuccess(makeCategory({})))
-        )
+        manager.categories.value = initialCategories()
+        vi.mocked(boardApi.reorderCategories).mockResolvedValue(reorderedResponse())
 
         expect(await manager.moveCategory(0, 1)).toBe(true)
 
         expect(manager.categories.value.map(category => category.categoryId)).toEqual([1, 3, 2])
-        expect(boardApi.updateCategory).toHaveBeenCalledTimes(2)
+        expect(boardApi.reorderCategories).toHaveBeenCalledTimes(1)
     })
 
-    it('reloads categories when reorder update fails', async () => {
+    it('restores the snapshot when the atomic reorder fails', async () => {
         const manager = createManager()
-        manager.categories.value = [
-            makeCategory({ categoryId: 1, name: 'General', sortOrder: 1, isDefault: true }),
-            makeCategory({ categoryId: 2, name: 'A', sortOrder: 2 }),
-            makeCategory({ categoryId: 3, name: 'B', sortOrder: 3 }),
-        ]
-        vi.mocked(boardApi.updateCategory).mockRejectedValueOnce(new Error('failed'))
-        vi.mocked(boardApi.getCategories).mockResolvedValueOnce(
-            axiosApiResponse(
-                apiSuccess([
-                    makeCategory({ categoryId: 1, name: 'General', sortOrder: 1, isDefault: true }),
-                    makeCategory({ categoryId: 2, name: 'A', sortOrder: 2 }),
-                    makeCategory({ categoryId: 3, name: 'B', sortOrder: 3 }),
-                ])
-            )
-        )
+        manager.categories.value = initialCategories()
+        vi.mocked(boardApi.reorderCategories).mockRejectedValueOnce(new Error('failed'))
 
         manager.onDragStart({ dataTransfer: null } as unknown as DragEvent, 1)
         await manager.onDrop(0)
 
         expect(mocks.addToast).toHaveBeenCalledWith('board.category.orderFailed', 'error')
-        expect(boardApi.getCategories).toHaveBeenCalledWith('free-board')
         expect(manager.categories.value.map(category => category.categoryId)).toEqual([1, 2, 3])
         expect(manager.isReordering.value).toBe(false)
         expect(mocks.invalidateQueries).not.toHaveBeenCalled()
     })
 
-    it('keeps the rollback snapshot when reorder reload also fails', async () => {
-        const manager = createManager()
-        manager.categories.value = [
-            makeCategory({ categoryId: 1, name: 'General', sortOrder: 1, isDefault: true }),
-            makeCategory({ categoryId: 2, name: 'A', sortOrder: 2 }),
-            makeCategory({ categoryId: 3, name: 'B', sortOrder: 3 }),
-        ]
-        vi.mocked(boardApi.updateCategory).mockRejectedValueOnce(new Error('failed'))
-        vi.mocked(boardApi.getCategories).mockRejectedValueOnce(new Error('reload failed'))
-
-        manager.onDragStart({ dataTransfer: null } as unknown as DragEvent, 1)
-        await manager.onDrop(0)
-
-        expect(mocks.addToast).toHaveBeenCalledWith('board.category.orderFailed', 'error')
-        expect(boardApi.getCategories).toHaveBeenCalledWith('free-board')
-        expect(manager.categories.value.map(category => category.categoryId)).toEqual([1, 2, 3])
-        expect(manager.isReordering.value).toBe(false)
-    })
-
     it('ignores additional drops while a reorder request is pending', async () => {
         const manager = createManager()
-        const reorderResponse = axiosApiResponse(apiSuccess(makeCategory({})))
-        const firstUpdate = createDeferred<typeof reorderResponse>()
-        const secondUpdate = createDeferred<typeof reorderResponse>()
-        manager.categories.value = [
-            makeCategory({ categoryId: 1, name: 'General', sortOrder: 1, isDefault: true }),
-            makeCategory({ categoryId: 2, name: 'A', sortOrder: 2 }),
-            makeCategory({ categoryId: 3, name: 'B', sortOrder: 3 }),
-        ]
-        vi.mocked(boardApi.updateCategory)
-            .mockReturnValueOnce(firstUpdate.promise)
-            .mockReturnValueOnce(secondUpdate.promise)
+        const reorderResponse = reorderedResponse()
+        const reorder = createDeferred<typeof reorderResponse>()
+        manager.categories.value = initialCategories()
+        vi.mocked(boardApi.reorderCategories).mockReturnValueOnce(reorder.promise)
 
         manager.onDragStart({ dataTransfer: null } as unknown as DragEvent, 1)
         const firstDrop = manager.onDrop(0)
 
-        expect(manager.isReordering.value).toBe(true)
-        expect(manager.categories.value.map(category => category.categoryId)).toEqual([1, 3, 2])
-
         manager.onDragStart({ dataTransfer: null } as unknown as DragEvent, 0)
         await manager.onDrop(1)
 
-        expect(boardApi.updateCategory).toHaveBeenCalledTimes(2)
+        expect(boardApi.reorderCategories).toHaveBeenCalledTimes(1)
         expect(manager.dragIndex.value).toBeNull()
 
-        firstUpdate.resolve(reorderResponse)
-        secondUpdate.resolve(reorderResponse)
+        reorder.resolve(reorderResponse)
         await firstDrop
 
         expect(manager.isReordering.value).toBe(false)
         expect(manager.categories.value.map(category => category.categoryId)).toEqual([1, 3, 2])
     })
+
+    it('does not clear a newer board reorder when an older request settles', async () => {
+        const boardUrl = ref('board-a')
+        const manager = useBoardCategoriesManager(boardUrl)
+        const first = createDeferred<ReturnType<typeof reorderedResponse>>()
+        const second = createDeferred<ReturnType<typeof reorderedResponse>>()
+        vi.mocked(boardApi.reorderCategories)
+            .mockReturnValueOnce(first.promise)
+            .mockReturnValueOnce(second.promise)
+
+        manager.categories.value = initialCategories()
+        manager.onDragStart({ dataTransfer: null } as unknown as DragEvent, 1)
+        const firstDrop = manager.onDrop(0)
+
+        boardUrl.value = 'board-b'
+        manager.resetState()
+        manager.categories.value = initialCategories()
+        manager.onDragStart({ dataTransfer: null } as unknown as DragEvent, 1)
+        const secondDrop = manager.onDrop(0)
+
+        first.resolve(reorderedResponse())
+        await firstDrop
+        expect(manager.isReordering.value).toBe(true)
+
+        second.resolve(reorderedResponse())
+        await secondDrop
+        expect(manager.isReordering.value).toBe(false)
+    })
+
+    it('aborts the previous request and keeps only the latest board response', async () => {
+        const boardUrl = ref('board-a')
+        const manager = useBoardCategoriesManager(boardUrl)
+        const responseA = axiosApiResponse(apiSuccess([
+            makeCategory({ categoryId: 10, name: 'A', sortOrder: 1 }),
+        ]))
+        const responseB = axiosApiResponse(apiSuccess([
+            makeCategory({ categoryId: 20, name: 'B', sortOrder: 1 }),
+        ]))
+        const first = createDeferred<typeof responseA>()
+        const second = createDeferred<typeof responseB>()
+        vi.mocked(boardApi.getCategories)
+            .mockReturnValueOnce(first.promise)
+            .mockReturnValueOnce(second.promise)
+
+        const firstLoad = manager.fetchCategories()
+        const firstSignal = vi.mocked(boardApi.getCategories).mock.calls[0][1]?.signal
+        boardUrl.value = 'board-b'
+        const secondLoad = manager.fetchCategories()
+
+        expect(firstSignal?.aborted).toBe(true)
+        second.resolve(responseB)
+        await secondLoad
+        first.resolve(responseA)
+        await firstLoad
+
+        expect(manager.categories.value.map(category => category.categoryId)).toEqual([20])
+    })
 })
+
+function initialCategories(): Category[] {
+    return [
+        makeCategory({ categoryId: 1, name: 'General', sortOrder: 1, isDefault: true }),
+        makeCategory({ categoryId: 2, name: 'A', sortOrder: 2 }),
+        makeCategory({ categoryId: 3, name: 'B', sortOrder: 3 }),
+    ]
+}
+
+function reorderedResponse() {
+    return axiosApiResponse(apiSuccess([
+        makeCategory({ categoryId: 1, name: 'General', sortOrder: 1, isDefault: true }),
+        makeCategory({ categoryId: 3, name: 'B', sortOrder: 2 }),
+        makeCategory({ categoryId: 2, name: 'A', sortOrder: 3 }),
+    ]))
+}

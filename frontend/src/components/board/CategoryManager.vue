@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, toRef } from 'vue'
+import { computed, ref, toRef, watch } from 'vue'
 import { Trash2, Edit2, Check, X, Plus, GripVertical, ChevronUp, ChevronDown } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSelect from '@/components/common/ui/BaseSelect.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
+import ErrorState from '@/components/common/ui/ErrorState.vue'
 import { useBoardCategoriesManager } from '@/features/board/categories/useBoardCategoriesManager'
 
 const { t } = useI18n()
@@ -31,10 +32,12 @@ const {
   editingId,
   editingName,
   editingRole,
+  error,
   isReordering,
   defaultCategory,
   draggableCategories,
   fetchCategories,
+  resetState,
   handleAdd,
   handleDelete,
   startEdit,
@@ -53,7 +56,10 @@ const handleKeyboardMove = async (index: number, offset: -1 | 1, name: string) =
   }
 }
 
-onMounted(fetchCategories)
+watch(() => props.boardUrl, () => {
+  resetState()
+  void fetchCategories()
+}, { immediate: true })
 </script>
 
 <template>
@@ -84,6 +90,14 @@ onMounted(fetchCategories)
     <div v-if="isLoading" class="text-center py-4">
       <BaseSpinner size="md" />
     </div>
+
+    <ErrorState
+      v-else-if="error"
+      :message="error"
+      :show-retry="true"
+      title-tag="h4"
+      @retry="fetchCategories"
+    />
 
     <div
       class="border nv-border rounded-md divide-y divide-[var(--nv-line)] nv-surface"
@@ -206,7 +220,7 @@ onMounted(fetchCategories)
         </li>
       </transition-group>
     </div>
-    <div v-if="!isLoading && categories.length === 0" class="text-sm nv-text-subtle text-center">
+    <div v-if="!isLoading && !error && categories.length === 0" class="text-sm nv-text-subtle text-center">
       {{ $t('board.category.empty') }}
     </div>
   </div>

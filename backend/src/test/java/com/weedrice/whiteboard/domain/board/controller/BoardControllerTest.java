@@ -429,6 +429,60 @@ class BoardControllerTest {
     }
 
     @Test
+    @DisplayName("카테고리 전체 순서 변경 요청을 서비스에 전달한다")
+    void reorderCategories_acceptsCompleteOrder() throws Exception {
+        when(boardService.reorderCategories("free", List.of(1L, 3L, 2L), 1L)).thenReturn(List.of());
+
+        mockMvc.perform(put("/api/v1/boards/{boardUrl}/categories/order", "free")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"categoryIds\":[1,3,2]}")
+                        .with(user(customUserDetails))
+                        .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data").isArray());
+
+        verify(boardService).reorderCategories("free", List.of(1L, 3L, 2L), 1L);
+    }
+
+    @Test
+    @DisplayName("카테고리 전체 순서 변경은 빈 목록과 잘못된 ID를 거부한다")
+    void reorderCategories_rejectsInvalidRequestShape() throws Exception {
+        for (String body : List.of(
+                "{\"categoryIds\":[]}",
+                "{\"categoryIds\":[1,null]}",
+                "{\"categoryIds\":[1,0]}",
+                "{\"categoryIds\":[1,-2]}")) {
+            mockMvc.perform(put("/api/v1/boards/{boardUrl}/categories/order", "free")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(body)
+                            .with(user(customUserDetails))
+                            .with(csrf()))
+                    .andExpect(status().isBadRequest());
+        }
+
+        verify(boardService, never()).reorderCategories(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("카테고리 전체 순서 변경은 500개를 초과한 목록을 거부한다")
+    void reorderCategories_rejectsMoreThanFiveHundredIds() throws Exception {
+        String categoryIds = IntStream.rangeClosed(1, 501)
+                .mapToObj(String::valueOf)
+                .reduce((left, right) -> left + "," + right)
+                .orElseThrow();
+
+        mockMvc.perform(put("/api/v1/boards/{boardUrl}/categories/order", "free")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"categoryIds\":[" + categoryIds + "]}")
+                        .with(user(customUserDetails))
+                        .with(csrf()))
+                .andExpect(status().isBadRequest());
+
+        verify(boardService, never()).reorderCategories(any(), any(), any());
+    }
+
+    @Test
     @DisplayName("카테고리 생성은 음수 sortOrder를 거부한다")
     void createCategory_negativeSortOrder_badRequest() throws Exception {
         mockMvc.perform(post("/api/v1/boards/{boardUrl}/categories", "free")

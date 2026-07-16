@@ -78,6 +78,10 @@ public class BoardCategory extends BaseTimeEntity {
         this.isDefault = Boolean.TRUE.equals(isDefault);
     }
 
+    public void updateSortOrder(int sortOrder) {
+        this.sortOrder = sortOrder;
+    }
+
     public boolean isDefaultCategory() {
         return Boolean.TRUE.equals(isDefault);
     }

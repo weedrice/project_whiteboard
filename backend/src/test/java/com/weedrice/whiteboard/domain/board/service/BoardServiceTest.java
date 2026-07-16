@@ -1205,6 +1205,23 @@ class BoardServiceTest {
     }
 
     @Test
+    @DisplayName("카테고리 전체 순서 변경은 보드를 잠그고 캐시를 커밋 후 무효화한다")
+    void reorderCategories_locksBoardAndEvictsCachesAfterCommit() {
+        BoardCategory defaultCategory = categoryWithId(10L, "General", 1, true);
+        BoardCategory nextCategory = categoryWithId(11L, "News", 2, false);
+        when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
+        when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(1L, true))
+                .thenReturn(List.of(defaultCategory, nextCategory));
+
+        List<CategoryResponse> responses = boardService.reorderCategories(
+                "test-board", List.of(10L, 11L), 1L);
+
+        assertThat(responses).extracting(CategoryResponse::getCategoryId).containsExactly(10L, 11L);
+        verify(boardRepository).findByBoardUrlForUpdate("test-board");
+        verify(cacheInvalidator).evictBoardRelatedCachesAfterCommit();
+    }
+
+    @Test
     @DisplayName("기본 카테고리 생성 요청은 기존 기본 카테고리를 해제하고 새 기본으로 저장한다")
     void createCategory_defaultRequest_clearsExistingDefault() {
         CategoryRequest request = categoryRequest("Default", 2, "BOARD_ADMIN", true);
@@ -2839,6 +2856,18 @@ class BoardServiceTest {
 
     private CategoryRequest categoryRequest(String name, Integer sortOrder, String minWriteRole) {
         return categoryRequest(name, sortOrder, minWriteRole, null);
+    }
+
+    private BoardCategory categoryWithId(Long categoryId, String name, int sortOrder, boolean isDefault) {
+        BoardCategory category = BoardCategory.builder()
+                .board(board)
+                .name(name)
+                .sortOrder(sortOrder)
+                .minWriteRole("USER")
+                .isDefault(isDefault)
+                .build();
+        ReflectionTestUtils.setField(category, "categoryId", categoryId);
+        return category;
     }
 
     private CategoryRequest categoryRequest(String name, Integer sortOrder, String minWriteRole, Boolean isDefault) {

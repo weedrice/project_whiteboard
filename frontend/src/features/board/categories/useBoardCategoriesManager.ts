@@ -5,6 +5,7 @@ import { boardApi } from '@/api/board'
 import { unwrapApiData } from '@/api/response'
 import { boardQueryKeys } from '@/features/board/queries/boardQueryKeys'
 import { useConfirm } from '@/composables/useConfirm'
+import { useLatestAsyncTask } from '@/composables/useLatestAsyncTask'
 import { useToastStore } from '@/stores/toast'
 import logger from '@/utils/logger'
 import { resolveDefaultCategory } from '@/utils/board'
@@ -17,8 +18,12 @@ export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
     const queryClient = useQueryClient()
 
     const categories = ref<Category[]>([])
-    const isLoading = ref(true)
-    const error = ref('')
+    const categoryLoadTask = useLatestAsyncTask<string>({
+        getErrorValue: () => t('board.category.loadFailed'),
+        onError: (caughtError) => logger.error('Failed to load categories:', caughtError),
+    })
+    const isLoading = categoryLoadTask.loading
+    const error = categoryLoadTask.error
     const newCategoryName = ref('')
     const newCategoryRole = ref('USER')
     const editingId = ref<number | null>(null)
@@ -26,28 +31,39 @@ export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
     const editingRole = ref('USER')
     const dragIndex = ref<number | null>(null)
     const isReordering = ref(false)
+    let reorderGeneration = 0
 
     const defaultCategory = computed(() => resolveDefaultCategory(categories.value))
     const draggableCategories = computed(() =>
         categories.value.filter(category => category.categoryId !== defaultCategory.value?.categoryId)
     )
-    const invalidateCategories = () => {
-        queryClient.invalidateQueries({ queryKey: boardQueryKeys.categories(boardUrl.value) })
+    const invalidateCategories = (targetBoardUrl = boardUrl.value) => {
+        queryClient.invalidateQueries({ queryKey: boardQueryKeys.categories(targetBoardUrl) })
     }
 
     async function fetchCategories() {
-        isLoading.value = true
-        try {
-            const { data } = await boardApi.getCategories(boardUrl.value)
-            if (data.success) {
-                categories.value = unwrapApiData(data).sort((left, right) => left.sortOrder - right.sortOrder)
-            }
-        } catch (err: unknown) {
-            logger.error('Failed to load categories:', err)
-            error.value = t('board.category.loadFailed')
-        } finally {
-            isLoading.value = false
+        const requestedBoardUrl = boardUrl.value
+        const loadedCategories = await categoryLoadTask.run(async ({ signal }) => {
+            const { data } = await boardApi.getCategories(requestedBoardUrl, { signal })
+            if (!data.success) throw new Error('Category load failed')
+            return unwrapApiData(data).sort((left, right) => left.sortOrder - right.sortOrder)
+        })
+        if (loadedCategories) {
+            categories.value = loadedCategories
         }
+    }
+
+    function resetState() {
+        categoryLoadTask.reset()
+        reorderGeneration += 1
+        categories.value = []
+        newCategoryName.value = ''
+        newCategoryRole.value = 'USER'
+        editingId.value = null
+        editingName.value = ''
+        editingRole.value = 'USER'
+        dragIndex.value = null
+        isReordering.value = false
     }
 
     async function handleAdd() {
@@ -149,9 +165,6 @@ export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
         }
 
         const previousCategories = categories.value.map(category => ({ ...category }))
-        const previousSortById = new Map(
-            previousCategories.map(category => [category.categoryId, category.sortOrder])
-        )
         const newDraggables = [...draggableCategories.value]
         const [movedItem] = newDraggables.splice(fromIndex, 1)
         newDraggables.splice(toIndex, 0, movedItem)
@@ -168,29 +181,28 @@ export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
         categories.value = newCategories
         dragIndex.value = null
         isReordering.value = true
+        const requestedBoardUrl = boardUrl.value
+        const currentReorderGeneration = ++reorderGeneration
 
         try {
-            const updatePromises = categories.value.map((category, idx) => {
-                if (previousSortById.get(category.categoryId) === idx + 1) return Promise.resolve()
-
-                return boardApi.updateCategory(boardUrl.value, category.categoryId, {
-                    name: category.name,
-                    sortOrder: idx + 1,
-                    minWriteRole: category.minWriteRole,
-                    isDefault: category.isDefault,
-                })
+            const { data } = await boardApi.reorderCategories(requestedBoardUrl, {
+                categoryIds: categories.value.map(category => category.categoryId),
             })
-            await Promise.all(updatePromises)
-            invalidateCategories()
+            if (boardUrl.value !== requestedBoardUrl) return false
+            if (!data.success) throw new Error('Category reorder failed')
+            categories.value = unwrapApiData(data).sort((left, right) => left.sortOrder - right.sortOrder)
+            invalidateCategories(requestedBoardUrl)
             return true
         } catch (err: unknown) {
+            if (boardUrl.value !== requestedBoardUrl) return false
             logger.error('Failed to reorder categories:', err)
             toastStore.addToast(t('board.category.orderFailed'), 'error')
             categories.value = previousCategories
-            await fetchCategories()
             return false
         } finally {
-            isReordering.value = false
+            if (currentReorderGeneration === reorderGeneration) {
+                isReordering.value = false
+            }
         }
     }
 
@@ -216,6 +228,7 @@ export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
         defaultCategory,
         draggableCategories,
         fetchCategories,
+        resetState,
         handleAdd,
         handleDelete,
         startEdit,

@@ -9,6 +9,7 @@ import com.weedrice.whiteboard.domain.board.dto.BoardListResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardRecentUpdateResponse;
 import com.weedrice.whiteboard.domain.board.dto.BoardSubscriptionOrderRequest;
 import com.weedrice.whiteboard.domain.board.dto.BoardUpdateRequest;
+import com.weedrice.whiteboard.domain.board.dto.CategoryOrderRequest;
 import com.weedrice.whiteboard.domain.board.dto.CategoryRequest;
 import com.weedrice.whiteboard.domain.board.dto.CategoryResponse;
 import com.weedrice.whiteboard.domain.board.service.BoardApplicationService;
@@ -160,6 +161,13 @@ public class BoardController {
             @Valid @RequestBody CategoryRequest request,
             @CurrentUserId Long userId) {
         return ApiResponse.success(boardService.createCategory(boardUrl, request, userId));
+    }
+
+    @PutMapping("/{boardUrl}/categories/order")
+    public ApiResponse<List<CategoryResponse>> reorderCategories(@PathVariable String boardUrl,
+            @Valid @RequestBody CategoryOrderRequest request,
+            @CurrentUserId Long userId) {
+        return ApiResponse.success(boardService.reorderCategories(boardUrl, request.categoryIds(), userId));
     }
 
     @PutMapping("/categories/{categoryId}")

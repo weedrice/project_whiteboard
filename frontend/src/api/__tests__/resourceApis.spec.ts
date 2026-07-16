@@ -43,6 +43,7 @@ describe('boardApi', () => {
         const updateData: BoardUpdateData = { boardName: 'General Board' }
         const categoryData = { name: 'Notice', sortOrder: 1 }
         const categoryUpdateData = { name: 'Updated', sortOrder: 2 }
+        const categoryOrderData = { categoryIds: [1, 2] }
         const params = { page: 0, size: 20, categoryId: 7, sort: 'latest' }
 
         boardApi.getBoards()
@@ -56,6 +57,7 @@ describe('boardApi', () => {
         boardApi.deleteBoard('general')
         boardApi.createCategory('general', categoryData)
         boardApi.updateCategory('general', 12, categoryUpdateData)
+        boardApi.reorderCategories('general', categoryOrderData)
         boardApi.deleteCategory('general', 12)
         boardApi.getNotices('general')
         boardApi.subscribeBoard('general')
@@ -73,11 +75,12 @@ describe('boardApi', () => {
         expect(apiMock.delete).toHaveBeenNthCalledWith(1, '/boards/general')
         expect(apiMock.post).toHaveBeenNthCalledWith(2, '/boards/general/categories', categoryData)
         expect(apiMock.put).toHaveBeenNthCalledWith(3, '/boards/categories/12', categoryUpdateData)
+        expect(apiMock.put).toHaveBeenNthCalledWith(4, '/boards/general/categories/order', categoryOrderData)
         expect(apiMock.delete).toHaveBeenNthCalledWith(2, '/boards/categories/12')
         expect(apiMock.get).toHaveBeenNthCalledWith(6, '/boards/general/notices')
         expect(apiMock.post).toHaveBeenNthCalledWith(3, '/boards/general/subscribe')
         expect(apiMock.delete).toHaveBeenNthCalledWith(3, '/boards/general/subscribe')
-        expect(apiMock.put).toHaveBeenNthCalledWith(4, '/boards/subscriptions/order', { boardUrls: ['general', 'tech'] })
+        expect(apiMock.put).toHaveBeenNthCalledWith(5, '/boards/subscriptions/order', { boardUrls: ['general', 'tech'] })
     })
 
     it('passes inquiry board ensure params with request config', () => {

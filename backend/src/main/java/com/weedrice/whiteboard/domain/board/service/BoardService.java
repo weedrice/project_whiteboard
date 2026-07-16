@@ -207,6 +207,14 @@ public class BoardService {
     }
 
     @Transactional
+    public List<CategoryResponse> reorderCategories(String boardUrl, List<Long> categoryIds, Long userId) {
+        String normalizedBoardUrl = validatePublicBoardPath(boardUrl);
+        List<CategoryResponse> response = categoryService.reorderCategories(normalizedBoardUrl, categoryIds, userId);
+        cacheInvalidator.evictBoardRelatedCachesAfterCommit();
+        return response;
+    }
+
+    @Transactional
     public void updateSubscriptionOrder(Long userId, List<String> boardUrls) {
         subscriptionService.updateSubscriptionOrder(userId, boardUrls);
     }

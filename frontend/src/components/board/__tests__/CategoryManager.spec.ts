@@ -6,6 +6,8 @@ import type { Category } from '@/types'
 
 const categories = ref<Category[]>([])
 const isLoading = ref(false)
+const error = ref<string | null>(null)
+const isReordering = ref(false)
 const newCategoryName = ref('')
 const newCategoryRole = ref('USER')
 const editingId = ref<number | null>(null)
@@ -18,6 +20,7 @@ const cancelEdit = vi.fn()
 const saveEdit = vi.fn()
 const fetchCategories = vi.fn()
 const moveCategory = vi.fn()
+const resetState = vi.fn()
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({ t: (key: string) => key }),
@@ -27,14 +30,17 @@ vi.mock('@/features/board/categories/useBoardCategoriesManager', () => ({
   useBoardCategoriesManager: () => ({
     categories,
     isLoading,
+    error,
     newCategoryName,
     newCategoryRole,
     editingId,
     editingName,
     editingRole,
+    isReordering,
     defaultCategory: computed(() => categories.value.find((category) => category.isDefault) ?? null),
     draggableCategories: computed(() => categories.value.filter((category) => !category.isDefault)),
     fetchCategories,
+    resetState,
     handleAdd,
     handleDelete,
     startEdit,
@@ -151,7 +157,35 @@ describe('CategoryManager', () => {
       makeCategory({ categoryId: 2, name: 'News', sortOrder: 2 }),
     ]
     isLoading.value = false
+    error.value = null
+    isReordering.value = false
     editingId.value = null
+  })
+
+  it('loads immediately and reloads after the board route changes', async () => {
+    const wrapper = mountCategoryManager()
+
+    expect(resetState).toHaveBeenCalledTimes(1)
+    expect(fetchCategories).toHaveBeenCalledTimes(1)
+
+    await wrapper.setProps({ boardUrl: 'news' })
+
+    expect(resetState).toHaveBeenCalledTimes(2)
+    expect(fetchCategories).toHaveBeenCalledTimes(2)
+  })
+
+  it('renders a retryable error instead of an empty category state', async () => {
+    categories.value = []
+    error.value = 'board.category.loadFailed'
+    const wrapper = mountCategoryManager()
+
+    expect(wrapper.text()).toContain('board.category.loadFailed')
+    expect(wrapper.text()).not.toContain('board.category.empty')
+
+    const retryButton = wrapper.findAll('button').find(button => button.text() === 'common.error.retry')
+    expect(retryButton).toBeDefined()
+    await retryButton!.trigger('click')
+    expect(fetchCategories).toHaveBeenCalled()
   })
 
   it('adds accessible labels to icon-only category actions', () => {
