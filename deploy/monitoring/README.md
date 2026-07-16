@@ -29,6 +29,17 @@ Store the Grafana administrator password only on the server in `/etc/noviis/moni
 GF_SECURITY_ADMIN_PASSWORD=<strong unique password>
 ```
 
+Create the file before Grafana's first start, keep it owned by `root:root` with mode `0600`, and use a password of at least 16 characters. The systemd unit fails closed when the file, ownership, permissions, or password length is invalid. Never print the value in workflow output or copy it into the repository.
+
+Changing this environment variable does not rotate the administrator password in an already initialized Grafana database. Rotate an existing password explicitly on the host with Grafana CLI, then restart the service:
+
+```bash
+read -rsp 'New Grafana administrator password: ' GRAFANA_NEW_PASSWORD && echo
+sudo grafana cli admin reset-admin-password "$GRAFANA_NEW_PASSWORD"
+unset GRAFANA_NEW_PASSWORD
+sudo systemctl restart grafana-server
+```
+
 Validate and start:
 
 ```bash
@@ -43,4 +54,6 @@ curl -fsS http://127.0.0.1:3000/api/health
 
 Open Grafana only through an SSH tunnel: `ssh -L 3000:127.0.0.1:3000 ubuntu@<host>` and browse to `http://127.0.0.1:3000`.
 
-Alert rules are evaluated by Prometheus but no Alertmanager route is installed. Before running more than one backend JVM, replace the local Caffeine rate-limit store with a shared Redis-backed implementation; local buckets do not coordinate across instances.
+Alert rules are evaluated by Prometheus, but no Alertmanager route or external notification receiver is installed. A rule entering the firing state therefore does not send Slack or email notifications.
+
+Before running more than one backend JVM, replace the local Caffeine rate-limit store with a shared implementation and define cross-node invalidation for the `GlobalConfig` cache. Local buckets do not coordinate across instances and process-local configuration caches may diverge. Multi-instance rollout is blocked until both mechanisms have tests and rollback procedures.

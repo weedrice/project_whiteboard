@@ -73,7 +73,9 @@ cd backend
 - API: `http://localhost:8080`
 - Swagger UI: `http://localhost:8080/swagger-ui.html`
 - OpenAPI JSON: `http://localhost:8080/api-docs`
-- Health: `http://localhost:8080/actuator/health`
+- Local bootRun health: `http://localhost:8081/actuator/health`
+
+Docker Compose keeps the backend management port internal to the container and does not publish port 8081 to the host. Check container health with `docker compose ps`; do not expose the actuator through Nginx or the host firewall.
 
 ### 3. 프론트엔드 실행
 

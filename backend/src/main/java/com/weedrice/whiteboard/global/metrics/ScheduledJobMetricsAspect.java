@@ -30,7 +30,7 @@ public class ScheduledJobMetricsAspect {
             throw throwable;
         } finally {
             sample.stop(Timer.builder("noviis.scheduler.execution")
-                    .tag("job", job)
+                    .tag("scheduled_job", job)
                     .tag("outcome", outcome)
                     .register(meterRegistry));
         }

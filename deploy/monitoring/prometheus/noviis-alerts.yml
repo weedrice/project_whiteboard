@@ -9,7 +9,9 @@ groups:
       - alert: NoviIsScheduledJobFailure
         expr: increase(noviis_scheduler_execution_seconds_count{outcome="error"}[5m]) > 0
         labels: { severity: warning }
-        annotations: { summary: "A scheduled job failed" }
+        annotations:
+          summary: "Scheduled job {{ $labels.scheduled_job }} failed"
+          description: "The scheduled job {{ $labels.scheduled_job }} recorded an error outcome."
       - alert: NoviIsHeartbeatDelayed
         expr: noviis_sse_heartbeat_gap_seconds > 40
         for: 1m
