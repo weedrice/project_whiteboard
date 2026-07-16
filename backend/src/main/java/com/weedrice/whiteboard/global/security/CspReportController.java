@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.global.security;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
+import com.weedrice.whiteboard.global.common.util.ClientIpResolver;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,10 +22,10 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/security")
 public class CspReportController {
 
-    private static final int MAX_REPORT_PAYLOAD_LENGTH = 32 * 1024;
     private static final int MAX_LOG_VALUE_LENGTH = 180;
 
     private final ObjectMapper objectMapper;
+    private final ClientIpResolver clientIpResolver;
 
     @PostMapping(value = "/csp-report", consumes = {
             MediaType.APPLICATION_JSON_VALUE,
@@ -34,24 +35,18 @@ public class CspReportController {
     public void receiveCspReport(
             @RequestBody(required = false) String payload,
             HttpServletRequest request) {
-        if (payload != null && payload.length() > MAX_REPORT_PAYLOAD_LENGTH) {
-            log.warn(
-                    "Oversized CSP violation report ignored. remoteAddress={}, payloadLength={}",
-                    request.getRemoteAddr(),
-                    payload.length());
-            return;
-        }
+        String clientIp = clientIpResolver.resolve(request);
         JsonNode report = extractReport(payload);
         if (report == null) {
             log.warn(
                     "Malformed CSP violation report ignored. remoteAddress={}, payloadLength={}",
-                    request.getRemoteAddr(),
+                    clientIp,
                     payload == null ? 0 : payload.length());
             return;
         }
         log.warn(
                 "CSP violation report received. remoteAddress={}, documentUri={}, violatedDirective={}, blockedUri={}",
-                request.getRemoteAddr(),
+                clientIp,
                 sanitizeUri(report.path("document-uri").asString("")),
                 sanitizeLogValue(report.path("violated-directive").asString("")),
                 sanitizeUri(report.path("blocked-uri").asString("")));

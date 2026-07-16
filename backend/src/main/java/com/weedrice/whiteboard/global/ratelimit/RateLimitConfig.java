@@ -2,13 +2,10 @@ package com.weedrice.whiteboard.global.ratelimit;
 
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
-import com.github.benmanes.caffeine.cache.Caffeine;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.time.Duration;
-import java.util.Map;
 
 /**
  * Rate Limiting 설정
@@ -24,42 +21,6 @@ public class RateLimitConfig {
 
     public RateLimitConfig(RateLimitProperties properties) {
         this.properties = properties;
-    }
-
-    /**
-     * 기본 Rate Limit (IP 기반) - rate-limit.default-limit 사용
-     */
-    @Bean
-    public Bucket defaultBucket() {
-        return createBucket(properties.getDefaultLimit());
-    }
-
-    /**
-     * 인증 엔드포인트용 Rate Limit - rate-limit.auth-limit 사용 (무차별 대입 방지)
-     */
-    @Bean(name = "authBucket")
-    public Bucket authBucket() {
-        return createBucket(properties.getAuthLimit());
-    }
-
-    /**
-     * 일반 API 엔드포인트용 Rate Limit - rate-limit.api-limit 사용
-     */
-    @Bean(name = "apiBucket")
-    public Bucket apiBucket() {
-        return createBucket(properties.getApiLimit());
-    }
-
-    /**
-     * 사용자별 Rate Limit 저장소
-     */
-    @Bean
-    public Map<String, Bucket> userBuckets() {
-        return Caffeine.newBuilder()
-                .maximumSize(properties.getBucketCacheMaxSize())
-                .expireAfterAccess(Duration.ofMinutes(properties.getBucketCacheTtlMinutes()))
-                .<String, Bucket>build()
-                .asMap();
     }
 
     /**
@@ -83,12 +44,31 @@ public class RateLimitConfig {
         return createBucket(properties.getAuthLimit());
     }
 
+    public Bucket createAgentRegisterBucket() {
+        return createBucket(properties.getAgentRegisterLimit());
+    }
+
+    /**
+     * IP별 공개 로그 수집 API rate limit 버킷 생성.
+     */
+    public Bucket createPublicLogBucket() {
+        return createBucket(properties.getPublicLogLimit());
+    }
+
     public Bucket createAuthAccountBucket() {
         return createBucket(properties.getAuthAccountLimit());
     }
 
     public int getAuthLimit() {
         return properties.getAuthLimit();
+    }
+
+    public int getAgentRegisterLimit() {
+        return properties.getAgentRegisterLimit();
+    }
+
+    public int getPublicLogLimit() {
+        return properties.getPublicLogLimit();
     }
 
     public int getApiLimit() {

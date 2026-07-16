@@ -7,6 +7,8 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.context.support.StaticMessageSource;
@@ -21,29 +23,33 @@ import static org.mockito.Mockito.same;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
-class ClientErrorLogRequestSizeFilterTest {
+class PublicLogRequestSizeFilterTest {
 
-    private static final int MAX_BODY_BYTES = ClientErrorLogRequestSizeFilter.MAX_REQUEST_BODY_BYTES;
+    private static final int MAX_BODY_BYTES = PublicLogRequestSizeFilter.MAX_REQUEST_BODY_BYTES;
 
     private ObjectMapper objectMapper;
-    private ClientErrorLogRequestSizeFilter filter;
+    private PublicLogRequestSizeFilter filter;
 
     @BeforeEach
     void setUp() {
         objectMapper = new ObjectMapper();
         StaticMessageSource messageSource = new StaticMessageSource();
         messageSource.addMessage(
-                "validation.clientErrorLog.body.max", Locale.ENGLISH,
-                "Client error log request body must not exceed 32 KiB.");
-        filter = new ClientErrorLogRequestSizeFilter(objectMapper, messageSource);
+                "validation.publicLog.body.max", Locale.ENGLISH,
+                "Public log collection request body must not exceed 32 KiB.");
+        filter = new PublicLogRequestSizeFilter(objectMapper, messageSource);
     }
 
-    @Test
-    @DisplayName("client error log body at the configured boundary reaches the filter chain")
-    void exactMaxBody_reachesFilterChainWithCachedBody() throws Exception {
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "/api/v1/logs/client",
+            "/api/v1/security/csp-report"
+    })
+    @DisplayName("공개 로그 body가 제한 경계와 같으면 캐시된 body로 필터 체인에 전달한다")
+    void exactMaxBody_reachesFilterChainWithCachedBody(String path) throws Exception {
         byte[] body = "a".repeat(MAX_BODY_BYTES)
                 .getBytes(StandardCharsets.UTF_8);
-        MockHttpServletRequest request = request("POST", "/api/v1/logs/client", body);
+        MockHttpServletRequest request = request("POST", path, body);
         MockHttpServletResponse response = new MockHttpServletResponse();
         AtomicReference<HttpServletRequest> downstreamRequest = new AtomicReference<>();
         AtomicReference<byte[]> downstreamBody = new AtomicReference<>();
@@ -60,12 +66,52 @@ class ClientErrorLogRequestSizeFilterTest {
         assertThat(downstreamBody.get()).containsExactly(body);
     }
 
-    @Test
-    @DisplayName("client error log body over the configured limit is rejected with 413")
-    void bodyOverMax_returnsPayloadTooLarge() throws Exception {
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "/api/v1/logs/client",
+            "/api/v1/security/csp-report"
+    })
+    @DisplayName("공개 로그 body가 제한을 넘으면 413을 반환한다")
+    void bodyOverMax_returnsPayloadTooLarge(String path) throws Exception {
         byte[] body = "a".repeat(MAX_BODY_BYTES + 1)
                 .getBytes(StandardCharsets.UTF_8);
-        MockHttpServletRequest request = request("POST", "/api/v1/logs/client", body);
+        assertPayloadTooLarge(path, body);
+    }
+
+    @Test
+    @DisplayName("CSP report는 문자 수가 작아도 UTF-8 byte 제한을 넘으면 413을 반환한다")
+    void multibyteCspBodyOverMax_returnsPayloadTooLarge() throws Exception {
+        byte[] body = "가".repeat(11_000).getBytes(StandardCharsets.UTF_8);
+
+        assertThat(body.length).isGreaterThan(MAX_BODY_BYTES);
+        assertPayloadTooLarge("/api/v1/security/csp-report", body);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "/api/v1/logs/client;source=browser",
+            "/api/v1/security/csp-report;v=1"
+    })
+    void matrixParameters_doNotBypassLimit(String path) throws Exception {
+        assertPayloadTooLarge(path, "a".repeat(MAX_BODY_BYTES + 1).getBytes(StandardCharsets.UTF_8));
+    }
+
+    @Test
+    void contextPath_doesNotBypassLimit() throws Exception {
+        byte[] body = "a".repeat(MAX_BODY_BYTES + 1).getBytes(StandardCharsets.UTF_8);
+        MockHttpServletRequest request = request("POST", "/noviis/api/v1/logs/client", body);
+        request.setContextPath("/noviis");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        FilterChain chain = mock(FilterChain.class);
+
+        filter.doFilter(request, response, chain);
+
+        assertThat(response.getStatus()).isEqualTo(413);
+        verifyNoInteractions(chain);
+    }
+
+    private void assertPayloadTooLarge(String path, byte[] body) throws Exception {
+        MockHttpServletRequest request = request("POST", path, body);
         MockHttpServletResponse response = new MockHttpServletResponse();
         FilterChain chain = mock(FilterChain.class);
 

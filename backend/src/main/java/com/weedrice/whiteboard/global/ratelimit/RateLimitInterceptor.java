@@ -2,13 +2,14 @@ package com.weedrice.whiteboard.global.ratelimit;
 
 import tools.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.Cache;
-import com.github.benmanes.caffeine.cache.Caffeine;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.util.ClientIpResolver;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import io.github.bucket4j.Bucket;
 import io.github.bucket4j.ConsumptionProbe;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Metrics;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
@@ -21,7 +22,6 @@ import org.springframework.web.servlet.HandlerInterceptor;
 import org.springframework.web.servlet.HandlerMapping;
 
 import java.io.IOException;
-import java.time.Duration;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -38,30 +38,49 @@ public class RateLimitInterceptor implements HandlerInterceptor {
             "/api/v1/auth/password/send-reset-link-by-email",
             "/api/v1/auth/password/reset",
             "/api/v1/auth/password/reset-by-code");
+    private static final String AGENT_REGISTER_PATH = "/api/v1/agents/register";
+    private static final Set<String> PUBLIC_LOG_PATHS = Set.of(
+            "/api/v1/logs/client",
+            "/api/v1/security/csp-report");
 
-    private final Map<String, Bucket> userBuckets;
+    private final RateLimitBucketStore bucketStore;
     private final RateLimitConfig rateLimitConfig;
     private final ObjectMapper objectMapper;
     private final MessageSource messageSource;
     private final ClientIpResolver clientIpResolver;
+    private final MeterRegistry meterRegistry;
     private final Cache<String, Bucket> ipBucketCache;
 
     public RateLimitInterceptor(
-            Map<String, Bucket> userBuckets,
+            RateLimitBucketStore bucketStore,
+            RateLimitConfig rateLimitConfig,
+            ObjectMapper objectMapper,
+            MessageSource messageSource,
+            ClientIpResolver clientIpResolver,
+            MeterRegistry meterRegistry) {
+        this.bucketStore = bucketStore;
+        this.rateLimitConfig = rateLimitConfig;
+        this.objectMapper = objectMapper;
+        this.messageSource = messageSource;
+        this.clientIpResolver = clientIpResolver;
+        this.meterRegistry = meterRegistry;
+        this.ipBucketCache = bucketStore.ipBuckets();
+    }
+
+    RateLimitInterceptor(
+            Map<String, Bucket> ignoredLegacyUserBuckets,
             RateLimitConfig rateLimitConfig,
             ObjectMapper objectMapper,
             MessageSource messageSource,
             ClientIpResolver clientIpResolver,
             RateLimitProperties properties) {
-        this.userBuckets = userBuckets;
-        this.rateLimitConfig = rateLimitConfig;
-        this.objectMapper = objectMapper;
-        this.messageSource = messageSource;
-        this.clientIpResolver = clientIpResolver;
-        this.ipBucketCache = Caffeine.newBuilder()
-                .maximumSize(properties.getBucketCacheMaxSize())
-                .expireAfterAccess(Duration.ofMinutes(properties.getBucketCacheTtlMinutes()))
-                .<String, Bucket>build();
+        this(
+                new RateLimitBucketStore(properties, Metrics.globalRegistry),
+                rateLimitConfig,
+                objectMapper,
+                messageSource,
+                clientIpResolver,
+                Metrics.globalRegistry);
     }
 
     @Override
@@ -78,6 +97,7 @@ public class RateLimitInterceptor implements HandlerInterceptor {
         BucketResolution resolution = resolveBucket(resolveRateLimitPath(request, path), clientIp);
         ConsumptionProbe probe = resolution.bucket().tryConsumeAndReturnRemaining(1);
         if (!probe.isConsumed()) {
+            meterRegistry.counter("noviis.ratelimit.rejected", "tier", resolution.tier()).increment();
             long retryAfterSeconds = RateLimitHeaderWriter.secondsUntilRefill(probe.getNanosToWaitForRefill());
             RateLimitHeaderWriter.write(response, RateLimitSnapshot.rejected(
                     resolution.limit(),
@@ -102,8 +122,25 @@ public class RateLimitInterceptor implements HandlerInterceptor {
         if (STRICT_AUTH_PATHS.contains(path)) {
             String authIpKey = "auth:" + clientIp;
             return new BucketResolution(
-                    ipBucketCache.asMap().computeIfAbsent(authIpKey, k -> rateLimitConfig.createAuthBucket()),
-                    rateLimitConfig.getAuthLimit());
+                    bucketStore.getIpBucket(authIpKey, rateLimitConfig::createAuthBucket),
+                    rateLimitConfig.getAuthLimit(),
+                    "auth");
+        }
+
+        if (AGENT_REGISTER_PATH.equals(path)) {
+            String agentRegisterKey = "agent-register:" + clientIp;
+            return new BucketResolution(
+                    bucketStore.getIpBucket(agentRegisterKey, rateLimitConfig::createAgentRegisterBucket),
+                    rateLimitConfig.getAgentRegisterLimit(),
+                    "agent-register");
+        }
+
+        if (PUBLIC_LOG_PATHS.contains(path)) {
+            String publicLogIpKey = "public-log:" + clientIp;
+            return new BucketResolution(
+                    bucketStore.getIpBucket(publicLogIpKey, rateLimitConfig::createPublicLogBucket),
+                    rateLimitConfig.getPublicLogLimit(),
+                    "public-log");
         }
 
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -111,8 +148,9 @@ public class RateLimitInterceptor implements HandlerInterceptor {
             CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
             Long userId = userDetails.getUserId();
             return new BucketResolution(
-                    userBuckets.computeIfAbsent("user:" + userId, k -> rateLimitConfig.createUserBucket()),
-                    rateLimitConfig.getUserLimit());
+                    bucketStore.getUserBucket("user:" + userId, rateLimitConfig::createUserBucket),
+                    rateLimitConfig.getUserLimit(),
+                    "user");
         }
 
         return resolveApiBucket(clientIp);
@@ -120,8 +158,9 @@ public class RateLimitInterceptor implements HandlerInterceptor {
 
     private BucketResolution resolveApiBucket(String clientIp) {
         return new BucketResolution(
-                ipBucketCache.asMap().computeIfAbsent("api:" + clientIp, k -> rateLimitConfig.createApiBucket()),
-                rateLimitConfig.getApiLimit());
+                bucketStore.getIpBucket("api:" + clientIp, rateLimitConfig::createApiBucket),
+                rateLimitConfig.getApiLimit(),
+                "api");
     }
 
     private String resolveRateLimitPath(HttpServletRequest request, String requestPath) {
@@ -149,6 +188,6 @@ public class RateLimitInterceptor implements HandlerInterceptor {
         objectMapper.writeValue(response.getWriter(), errorResponse);
     }
 
-    private record BucketResolution(Bucket bucket, long limit) {
+    private record BucketResolution(Bucket bucket, long limit, String tier) {
     }
 }

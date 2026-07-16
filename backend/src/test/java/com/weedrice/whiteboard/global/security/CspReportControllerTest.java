@@ -1,6 +1,8 @@
 package com.weedrice.whiteboard.global.security;
 
 import tools.jackson.databind.ObjectMapper;
+import com.weedrice.whiteboard.global.common.util.ClientIpProperties;
+import com.weedrice.whiteboard.global.common.util.ClientIpResolver;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -12,7 +14,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class CspReportControllerTest {
 
     private final MockMvc mockMvc = MockMvcBuilders
-            .standaloneSetup(new CspReportController(new ObjectMapper()))
+            .standaloneSetup(new CspReportController(
+                    new ObjectMapper(),
+                    new ClientIpResolver(new ClientIpProperties())))
             .build();
 
     @Test

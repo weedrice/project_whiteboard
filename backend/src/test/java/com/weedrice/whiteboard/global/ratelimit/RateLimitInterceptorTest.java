@@ -6,6 +6,7 @@ import com.weedrice.whiteboard.global.common.util.ClientIpResolver;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -99,8 +100,8 @@ class RateLimitInterceptorTest {
             "/api/v1/auth/password/reset",
             "/api/v1/auth/password/reset-by-code"
     })
-    @DisplayName("민감한 인증 API만 auth 버킷을 사용한다")
-    void preHandle_sensitiveAuthApiUsesAuthBucket(String path) throws Exception {
+    @DisplayName("strict 경로는 auth 버킷을 사용한다")
+    void preHandle_strictPathUsesAuthBucket(String path) throws Exception {
         RateLimitInterceptor interceptor = new RateLimitInterceptor(
                 new ConcurrentHashMap<>(),
                 rateLimitConfig,
@@ -121,6 +122,73 @@ class RateLimitInterceptorTest {
         assertThat(response.getHeader(RateLimitHeaderWriter.HEADER_LIMIT)).isEqualTo("5");
         verify(rateLimitConfig).createAuthBucket();
         verify(rateLimitConfig, never()).createApiBucket();
+    }
+
+    @Test
+    @DisplayName("공개 로그 경로는 인증 여부와 무관하게 IP별 전용 버킷을 공유한다")
+    void preHandle_publicLogPathsShareDedicatedIpBucketEvenWhenAuthenticated() throws Exception {
+        RateLimitInterceptor interceptor = newInterceptor(new RateLimitProperties());
+        MockHttpServletRequest clientLogRequest =
+                new MockHttpServletRequest("POST", "/api/v1/logs/client");
+        MockHttpServletRequest cspReportRequest =
+                new MockHttpServletRequest("POST", "/api/v1/security/csp-report");
+        MockHttpServletResponse clientLogResponse = new MockHttpServletResponse();
+        MockHttpServletResponse cspReportResponse = new MockHttpServletResponse();
+        CustomUserDetails userDetails = org.mockito.Mockito.mock(CustomUserDetails.class);
+        Authentication authentication = new UsernamePasswordAuthenticationToken(userDetails, null, List.of());
+
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+        when(clientIpResolver.resolve(clientLogRequest)).thenReturn("203.0.113.16");
+        when(clientIpResolver.resolve(cspReportRequest)).thenReturn("203.0.113.16");
+        when(rateLimitConfig.createPublicLogBucket()).thenReturn(oneRequestBucket());
+        when(rateLimitConfig.getPublicLogLimit()).thenReturn(10);
+        when(messageSource.getMessage(eq("error.common.rateLimitExceeded"), isNull(), any(Locale.class)))
+                .thenReturn("Too many requests");
+
+        boolean clientLogResult = interceptor.preHandle(clientLogRequest, clientLogResponse, new Object());
+        boolean cspReportResult = interceptor.preHandle(cspReportRequest, cspReportResponse, new Object());
+
+        assertThat(clientLogResult).isTrue();
+        assertThat(cspReportResult).isFalse();
+        assertThat(clientLogResponse.getHeader(RateLimitHeaderWriter.HEADER_LIMIT)).isEqualTo("10");
+        assertThat(cspReportResponse.getStatus()).isEqualTo(429);
+        assertThat(cspReportResponse.getHeader(RateLimitHeaderWriter.HEADER_LIMIT)).isEqualTo("10");
+        verify(rateLimitConfig).createPublicLogBucket();
+        verify(rateLimitConfig, never()).createUserBucket();
+        verify(rateLimitConfig, never()).createApiBucket();
+        verify(rateLimitConfig, never()).createAuthBucket();
+    }
+
+    @Test
+    @DisplayName("에이전트 등록 5회 한도는 같은 IP의 auth 버킷과 독립적이다")
+    void preHandle_agentRegisterBucketIsIndependentFromAuthBucket() throws Exception {
+        RateLimitProperties properties = new RateLimitProperties();
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+        RateLimitInterceptor interceptor = new RateLimitInterceptor(
+                new RateLimitBucketStore(properties, registry),
+                rateLimitConfig,
+                new ObjectMapper(),
+                messageSource,
+                clientIpResolver,
+                registry);
+        MockHttpServletRequest register = new MockHttpServletRequest("POST", "/api/v1/agents/register");
+        MockHttpServletRequest login = new MockHttpServletRequest("POST", "/api/v1/auth/login");
+        when(clientIpResolver.resolve(register)).thenReturn("203.0.113.19");
+        when(clientIpResolver.resolve(login)).thenReturn("203.0.113.19");
+        when(rateLimitConfig.createAgentRegisterBucket()).thenReturn(requestBucket(5));
+        when(rateLimitConfig.getAgentRegisterLimit()).thenReturn(5);
+        when(rateLimitConfig.createAuthBucket()).thenReturn(oneRequestBucket());
+        when(rateLimitConfig.getAuthLimit()).thenReturn(5);
+        when(messageSource.getMessage(eq("error.common.rateLimitExceeded"), isNull(), any(Locale.class)))
+                .thenReturn("Too many requests");
+
+        for (int requestCount = 0; requestCount < 5; requestCount++) {
+            assertThat(interceptor.preHandle(register, new MockHttpServletResponse(), new Object())).isTrue();
+        }
+        assertThat(interceptor.preHandle(register, new MockHttpServletResponse(), new Object())).isFalse();
+        assertThat(interceptor.preHandle(login, new MockHttpServletResponse(), new Object())).isTrue();
+        assertThat(registry.counter("noviis.ratelimit.rejected", "tier", "agent-register").count())
+                .isEqualTo(1.0);
     }
 
     @Test
@@ -268,11 +336,26 @@ class RateLimitInterceptorTest {
     }
 
     private Bucket oneRequestBucket() {
+        return requestBucket(1);
+    }
+
+    private Bucket requestBucket(int capacity) {
         return Bucket.builder()
                 .addLimit(Bandwidth.builder()
-                        .capacity(1)
-                        .refillGreedy(1, Duration.ofMinutes(1))
+                        .capacity(capacity)
+                        .refillGreedy(capacity, Duration.ofMinutes(1))
                         .build())
                 .build();
+    }
+
+    private RateLimitInterceptor newInterceptor(RateLimitProperties properties) {
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+        return new RateLimitInterceptor(
+                new RateLimitBucketStore(properties, registry),
+                rateLimitConfig,
+                new ObjectMapper(),
+                messageSource,
+                clientIpResolver,
+                registry);
     }
 }

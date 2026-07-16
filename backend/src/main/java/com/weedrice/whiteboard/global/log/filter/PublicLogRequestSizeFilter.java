@@ -11,22 +11,25 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletRequestWrapper;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.MessageSource;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.context.MessageSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.util.Set;
 
 @Component
 @RequiredArgsConstructor
-public class ClientErrorLogRequestSizeFilter extends OncePerRequestFilter {
+public class PublicLogRequestSizeFilter extends OncePerRequestFilter {
 
     static final int MAX_REQUEST_BODY_BYTES = 32 * 1024;
-    private static final String CLIENT_ERROR_LOG_PATH = "/api/v1/logs/client";
+    private static final Set<String> PUBLIC_LOG_PATHS = Set.of(
+            "/api/v1/logs/client",
+            "/api/v1/security/csp-report");
 
     private final ObjectMapper objectMapper;
     private final MessageSource messageSource;
@@ -34,7 +37,7 @@ public class ClientErrorLogRequestSizeFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         return !HttpMethod.POST.matches(request.getMethod())
-                || !CLIENT_ERROR_LOG_PATH.equals(request.getRequestURI());
+                || !PUBLIC_LOG_PATHS.contains(normalizePath(request));
     }
 
     @Override
@@ -42,28 +45,55 @@ public class ClientErrorLogRequestSizeFilter extends OncePerRequestFilter {
             HttpServletRequest request,
             HttpServletResponse response,
             FilterChain filterChain) throws ServletException, IOException {
+        if (request.getContentLengthLong() > MAX_REQUEST_BODY_BYTES) {
+            reject(request, response);
+            return;
+        }
+
         byte[] body = request.getInputStream().readNBytes(MAX_REQUEST_BODY_BYTES + 1);
         if (body.length > MAX_REQUEST_BODY_BYTES) {
-            response.setStatus(HttpStatus.CONTENT_TOO_LARGE.value());
-            response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-            response.setCharacterEncoding("UTF-8");
-            objectMapper.writeValue(
-                    response.getWriter(),
-                    ApiResponse.error(
-                            ErrorCode.VALIDATION_ERROR.getCode(),
-                            resolveMessage(request)));
+            reject(request, response);
             return;
         }
 
         filterChain.doFilter(new CachedBodyRequest(request, body), response);
     }
 
-    private String resolveMessage(HttpServletRequest request) {
-        return messageSource.getMessage("validation.clientErrorLog.body.max", null, request.getLocale());
+    private void reject(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        response.setStatus(HttpStatus.CONTENT_TOO_LARGE.value());
+        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
+        response.setCharacterEncoding("UTF-8");
+        objectMapper.writeValue(
+                response.getWriter(),
+                ApiResponse.error(
+                        ErrorCode.VALIDATION_ERROR.getCode(),
+                        messageSource.getMessage("validation.publicLog.body.max", null, request.getLocale())));
+    }
+
+    private String normalizePath(HttpServletRequest request) {
+        String path = request.getRequestURI();
+        String contextPath = request.getContextPath();
+        if (!contextPath.isEmpty() && path.startsWith(contextPath)) {
+            path = path.substring(contextPath.length());
+        }
+
+        StringBuilder normalized = new StringBuilder(path.length());
+        boolean matrixParameter = false;
+        for (int index = 0; index < path.length(); index++) {
+            char character = path.charAt(index);
+            if (character == ';') {
+                matrixParameter = true;
+            } else if (character == '/') {
+                matrixParameter = false;
+                normalized.append(character);
+            } else if (!matrixParameter) {
+                normalized.append(character);
+            }
+        }
+        return normalized.toString();
     }
 
     private static final class CachedBodyRequest extends HttpServletRequestWrapper {
-
         private final byte[] body;
 
         private CachedBodyRequest(HttpServletRequest request, byte[] body) {
