@@ -89,7 +89,8 @@ public class SecurityConfig {
                                                 .authenticated()
                                                 .requestMatchers("/api/v1/agents/register").permitAll()
                                                 .requestMatchers("/api/v1/auth/**", "/api/v1/codes/**",
-                                                                "/actuator/health")
+                                                                "/actuator/health",
+                                                                "/actuator/prometheus")
                                                 .permitAll()
                                                 .requestMatchers(HttpMethod.GET,
                                                                 "/api/v1/emoticons/my",

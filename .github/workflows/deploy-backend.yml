@@ -110,7 +110,7 @@ jobs:
             fi
 
             for i in $(seq 1 30); do
-              if curl -fsS --max-time 3 http://127.0.0.1:8080/actuator/health >/dev/null; then
+              if curl -fsS --max-time 3 http://127.0.0.1:8081/actuator/health >/dev/null; then
                 sudo test -s /opt/app/logs/whiteboard-active.log
                 sudo systemctl status app --no-pager
                 find "$APP_DIR/releases" -mindepth 1 -maxdepth 1 -type d | sort | head -n -5 | xargs -r rm -rf

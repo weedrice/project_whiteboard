@@ -1,0 +1,36 @@
+groups:
+  - name: noviis
+    rules:
+      - alert: NoviIsBackendDown
+        expr: up{job="noviis-backend"} == 0
+        for: 2m
+        labels: { severity: critical }
+        annotations: { summary: "NoviIs backend metrics scrape has failed for 2 minutes" }
+      - alert: NoviIsScheduledJobFailure
+        expr: increase(noviis_scheduler_execution_seconds_count{outcome="error"}[5m]) > 0
+        labels: { severity: warning }
+        annotations: { summary: "A scheduled job failed" }
+      - alert: NoviIsHeartbeatDelayed
+        expr: noviis_sse_heartbeat_gap_seconds > 40
+        for: 1m
+        labels: { severity: critical }
+        annotations: { summary: "SSE heartbeat has not run within 40 seconds" }
+      - alert: NoviIsSemanticBacklogOld
+        expr: noviis_semantic_jobs_oldest_age_seconds > 300
+        for: 10m
+        labels: { severity: warning }
+        annotations: { summary: "The oldest semantic search job has waited over 5 minutes" }
+      - alert: NoviIsJvmHeapHigh
+        expr: sum(jvm_memory_used_bytes{area="heap"}) / sum(jvm_memory_max_bytes{area="heap"}) > 0.85
+        for: 10m
+        labels: { severity: warning }
+        annotations: { summary: "JVM heap usage has exceeded 85 percent" }
+      - alert: NoviIsAgentPurgeBacklog
+        expr: noviis_agent_pending_claim_purge_eligible > 5000
+        for: 1h
+        labels: { severity: warning }
+        annotations: { summary: "More than 5000 pending agent rows await purge" }
+      - alert: NoviIsSensitiveRateLimitSurge
+        expr: sum(increase(noviis_ratelimit_rejected_total{tier=~"auth|agent-register|public-log"}[5m])) > 20
+        labels: { severity: warning }
+        annotations: { summary: "Sensitive unauthenticated endpoints are being rate limited heavily" }

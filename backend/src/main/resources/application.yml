@@ -29,6 +29,10 @@ spring:
     encoding: UTF-8
   lifecycle:
     timeout-per-shutdown-phase: 30s
+  task:
+    scheduling:
+      pool:
+        size: 4
   cache:
     type: caffeine
 
@@ -39,15 +43,22 @@ app:
     client-retention-days: ${APP_ERROR_LOG_CLIENT_RETENTION_DAYS:30}
     resolved-retention-days: ${APP_ERROR_LOG_RESOLVED_RETENTION_DAYS:90}
     cleanup-batch-size: ${APP_ERROR_LOG_CLEANUP_BATCH_SIZE:500}
+  agent:
+    pending-claim-hard-delete-days: ${APP_AGENT_PENDING_CLAIM_HARD_DELETE_DAYS:7}
+    pending-claim-purge-batch-size: ${APP_AGENT_PENDING_CLAIM_PURGE_BATCH_SIZE:500}
+    pending-claim-purge-max-batches: ${APP_AGENT_PENDING_CLAIM_PURGE_MAX_BATCHES:10}
 
 server:
   shutdown: graceful
 
 management:
+  server:
+    address: 127.0.0.1
+    port: 8081
   endpoints:
     web:
       exposure:
-        include: health
+        include: health,prometheus
   endpoint:
     health:
       show-details: never
@@ -68,10 +79,12 @@ springdoc:
 # Rate Limiting 설정
 rate-limit:
   enabled: true
-  # IP 기반 기본 제한 (requests per minute)
-  default-limit: 100
   # 인증 엔드포인트 제한 (무차별 대입 공격 방지)
   auth-limit: 5
+  # 에이전트 등록 전용 IP 제한
+  agent-register-limit: 5
+  # 비인증 로그 수집 엔드포인트 제한
+  public-log-limit: 10
   # 계정별 로그인 실패 제한
   auth-account-limit: 5
   # 일반 API 엔드포인트 제한

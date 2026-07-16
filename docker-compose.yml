@@ -32,7 +32,7 @@ services:
       - ./uploads:/app/uploads
       - ./logs/backend:/app/logs
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health | grep -q '\"status\":\"UP\"'"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8081/actuator/health | grep -q '\"status\":\"UP\"'"]
       interval: 15s
       timeout: 5s
       retries: 10
