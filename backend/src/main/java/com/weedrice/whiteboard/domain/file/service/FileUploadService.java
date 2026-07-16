@@ -48,7 +48,7 @@ class FileUploadService {
                 uploader);
         try {
             fileStorageService.storeFileAs(multipartFile, validatedUpload.detectedMimeType(), storedFileName);
-            imageVariantGenerator.generateVariants(pendingUploadFile, multipartFile, validatedUpload.detectedMimeType());
+            imageVariantGenerator.generateVariants(pendingUploadFile, multipartFile, validatedUpload);
             return stateCommand.completePendingUpload(pendingUploadFile.getFileId());
         } catch (Exception e) {
             try {

@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.file.entity.File;
 import com.weedrice.whiteboard.domain.file.entity.FileVariant;
 import com.weedrice.whiteboard.domain.file.entity.FileVariantType;
 import com.weedrice.whiteboard.domain.file.repository.FileVariantRepository;
+import com.weedrice.whiteboard.domain.file.service.FileUploadValidationPolicy.ValidatedUpload;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.common.util.FileStorageService;
 import org.junit.jupiter.api.Test;
@@ -44,7 +45,7 @@ class FileImageVariantGeneratorTest {
         when(fileVariantRepository.save(any(FileVariant.class))).thenAnswer(invocation -> invocation.getArgument(0));
         FileImageVariantGenerator generator = new FileImageVariantGenerator(fileStorageService, fileVariantRepository);
 
-        generator.generateVariants(file, multipartFile, "image/jpeg");
+        generator.generateVariants(file, multipartFile, validated("image/jpeg", 1600, 800));
 
         ArgumentCaptor<byte[]> contentsCaptor = ArgumentCaptor.forClass(byte[].class);
         verify(fileStorageService).storeBytesAs(contentsCaptor.capture(), eq("image/webp"), eq("variants/10/thumbnail.webp"));
@@ -69,8 +70,8 @@ class FileImageVariantGeneratorTest {
         MockMultipartFile multipartFile = jpegFile("small.jpg", 100, 80);
         FileImageVariantGenerator generator = new FileImageVariantGenerator(fileStorageService, fileVariantRepository);
 
-        generator.generateVariants(file, multipartFile, "image/jpeg");
-        generator.generateVariants(file, multipartFile, "image/gif");
+        generator.generateVariants(file, multipartFile, validated("image/jpeg", 100, 80));
+        generator.generateVariants(file, multipartFile, validated("image/gif", 100, 80));
 
         verify(fileStorageService, never()).storeBytesAs(any(), any(), any());
         verify(fileVariantRepository, never()).save(any());
@@ -101,5 +102,9 @@ class FileImageVariantGeneratorTest {
             ImageIO.write(image, "jpg", outputStream);
             return new MockMultipartFile("file", filename, "image/jpeg", outputStream.toByteArray());
         }
+    }
+
+    private ValidatedUpload validated(String mimeType, int width, int height) {
+        return new ValidatedUpload("test.jpg", mimeType, 1L, "JPEG", width, height);
     }
 }

@@ -15,6 +15,7 @@ import com.weedrice.whiteboard.global.common.util.FileStorageService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import jakarta.persistence.EntityManager;
+import javax.imageio.ImageIO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -29,7 +30,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.io.InputStream;
+import java.io.ByteArrayOutputStream;
+import java.awt.image.BufferedImage;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -111,7 +113,7 @@ class FileServiceTest {
     void uploadFile_success() {
         Long uploaderId = 1L;
         User uploader = User.builder().build();
-        byte[] jpegHeader = new byte[] {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xD9};
+        byte[] jpegHeader = validJpegBytes();
         MultipartFile multipartFile = new MockMultipartFile("file", "test.jpg", "image/jpeg", jpegHeader);
         when(userWritableResolver.resolve(uploaderId)).thenReturn(uploader);
         stubSuccessfulUpload(multipartFile, "test.jpg", "image/jpeg", "storedFileName.jpg");
@@ -123,7 +125,8 @@ class FileServiceTest {
         assertThat(uploadedFile.getFileUrl()).isEqualTo("/api/v1/files/10");
         assertThat(uploadedFile.getMimeType()).isEqualTo("image/jpeg");
         verify(fileStorageService).storeFileAs(multipartFile, "image/jpeg", "storedFileName.jpg");
-        verify(imageVariantGenerator).generateVariants(any(File.class), eq(multipartFile), eq("image/jpeg"));
+        verify(imageVariantGenerator).generateVariants(
+                any(File.class), eq(multipartFile), any(FileUploadValidationPolicy.ValidatedUpload.class));
     }
 
     @Test
@@ -131,7 +134,7 @@ class FileServiceTest {
     void uploadFile_jpgAliasStoresDetectedMimeType() {
         Long uploaderId = 1L;
         User uploader = User.builder().build();
-        byte[] jpegHeader = new byte[] {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xD9};
+        byte[] jpegHeader = validJpegBytes();
         MultipartFile multipartFile = new MockMultipartFile("file", "test.jpg", "image/jpg", jpegHeader);
         when(userWritableResolver.resolve(uploaderId)).thenReturn(uploader);
         stubSuccessfulUpload(multipartFile, "test.jpg", "image/jpeg", "storedFileName.jpg");
@@ -147,23 +150,20 @@ class FileServiceTest {
     void uploadFile_detectsImageMimeTypeFromHeaderStream() throws Exception {
         Long uploaderId = 1L;
         User uploader = User.builder().build();
-        byte[] pngHeader = new byte[] {
-                (byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
-                0x00, 0x00, 0x00, 0x00, 0x49, 0x48, 0x44, 0x52
-        };
+        byte[] pngHeader = validPngBytes();
         MultipartFile multipartFile = mock(MultipartFile.class);
         when(multipartFile.isEmpty()).thenReturn(false);
         when(multipartFile.getSize()).thenReturn(10L);
         when(multipartFile.getContentType()).thenReturn("image/png");
         when(multipartFile.getOriginalFilename()).thenReturn("test.png");
-        when(multipartFile.getInputStream()).thenReturn(new HeaderLimitedInputStream(pngHeader, 12));
+        when(multipartFile.getInputStream()).thenAnswer(ignored -> new java.io.ByteArrayInputStream(pngHeader));
         when(userWritableResolver.resolve(uploaderId)).thenReturn(uploader);
         stubSuccessfulUpload(multipartFile, "test.png", "image/png", "storedFileName.png");
 
         FileUploadResponse uploadedFile = fileService.uploadFile(uploaderId, multipartFile);
 
         assertThat(uploadedFile.getMimeType()).isEqualTo("image/png");
-        verify(multipartFile).getInputStream();
+        verify(multipartFile, times(2)).getInputStream();
         verify(multipartFile, never()).getBytes();
         verify(fileStorageService).storeFileAs(multipartFile, "image/png", "storedFileName.png");
     }
@@ -172,7 +172,7 @@ class FileServiceTest {
     @DisplayName("선언 MIME과 감지 MIME이 다르면 스토리지 저장 전에 거절한다")
     void uploadFile_declaredMimeMismatch_rejectedBeforeStorage() {
         Long uploaderId = 1L;
-        byte[] jpegHeader = new byte[] {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xD9};
+        byte[] jpegHeader = validJpegBytes();
         MultipartFile multipartFile = new MockMultipartFile("file", "test.jpg", "image/png", jpegHeader);
 
         assertThatThrownBy(() -> fileService.uploadFile(uploaderId, multipartFile))
@@ -187,7 +187,7 @@ class FileServiceTest {
     @DisplayName("원본 파일명이 255자를 초과하면 스토리지 저장 전에 거절한다")
     void uploadFile_longOriginalFilename_rejectedBeforeStorage() {
         Long uploaderId = 1L;
-        byte[] jpegHeader = new byte[] {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xD9};
+        byte[] jpegHeader = validJpegBytes();
         String longFilename = "a".repeat(252) + ".jpg";
         MultipartFile multipartFile = new MockMultipartFile("file", longFilename, "image/jpeg", jpegHeader);
 
@@ -206,7 +206,7 @@ class FileServiceTest {
     @DisplayName("빈 원본 파일명은 스토리지 저장 전에 거절한다")
     void uploadFile_blankOriginalFilename_rejectedBeforeStorage() {
         Long uploaderId = 1L;
-        byte[] jpegHeader = new byte[] {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xD9};
+        byte[] jpegHeader = validJpegBytes();
         MultipartFile multipartFile = new MockMultipartFile("file", "   ", "image/jpeg", jpegHeader);
 
         assertThatThrownBy(() -> fileService.uploadFile(uploaderId, multipartFile))
@@ -225,7 +225,7 @@ class FileServiceTest {
     void uploadFile_maxLengthOriginalFilename_success() {
         Long uploaderId = 1L;
         User uploader = User.builder().build();
-        byte[] jpegHeader = new byte[] {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xD9};
+        byte[] jpegHeader = validJpegBytes();
         String maxLengthFilename = "a".repeat(251) + ".jpg";
         MultipartFile multipartFile = new MockMultipartFile("file", maxLengthFilename, "image/jpeg", jpegHeader);
 
@@ -243,7 +243,7 @@ class FileServiceTest {
     void uploadFile_pathOriginalFilename_savesOnlyFilename() {
         Long uploaderId = 1L;
         User uploader = User.builder().build();
-        byte[] jpegHeader = new byte[] {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xD9};
+        byte[] jpegHeader = validJpegBytes();
         MultipartFile multipartFile = new MockMultipartFile("file", "../avatar.jpg", "image/jpeg", jpegHeader);
 
         when(userWritableResolver.resolve(uploaderId)).thenReturn(uploader);
@@ -261,7 +261,7 @@ class FileServiceTest {
     void uploadFile_storageFailureMarksPendingUploadForDeletion() {
         Long uploaderId = 1L;
         User uploader = User.builder().build();
-        byte[] jpegHeader = new byte[] {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xD9};
+        byte[] jpegHeader = validJpegBytes();
         MultipartFile multipartFile = new MockMultipartFile("file", "test.jpg", "image/jpeg", jpegHeader);
         File[] savedFile = new File[1];
 
@@ -301,7 +301,7 @@ class FileServiceTest {
     void uploadFile_doesNotCompletePendingUploadAlreadyClaimedForDeletion() {
         Long uploaderId = 1L;
         User uploader = User.builder().build();
-        byte[] jpegHeader = new byte[] {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xD9};
+        byte[] jpegHeader = validJpegBytes();
         MultipartFile multipartFile = new MockMultipartFile("file", "test.jpg", "image/jpeg", jpegHeader);
         File[] savedFile = new File[1];
 
@@ -340,7 +340,7 @@ class FileServiceTest {
     @DisplayName("업로드 권한이 없는 사용자는 스토리지 저장 전에 거절한다")
     void uploadFile_rejectsUnwritableUploaderBeforeStorage() {
         Long uploaderId = 1L;
-        byte[] jpegHeader = new byte[] {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xD9};
+        byte[] jpegHeader = validJpegBytes();
         MultipartFile multipartFile = new MockMultipartFile("file", "test.jpg", "image/jpeg", jpegHeader);
 
         when(userWritableResolver.resolve(uploaderId))
@@ -1191,26 +1191,20 @@ class FileServiceTest {
         when(fileRepository.findByIdForUpdate(10L)).thenAnswer(invocation -> Optional.of(savedFile[0]));
     }
 
-    private static class HeaderLimitedInputStream extends InputStream {
+    private byte[] validJpegBytes() {
+        return encodedImage("jpg");
+    }
 
-        private final byte[] data;
-        private final int maxReadableBytes;
-        private int position;
+    private byte[] validPngBytes() {
+        return encodedImage("png");
+    }
 
-        private HeaderLimitedInputStream(byte[] data, int maxReadableBytes) {
-            this.data = data;
-            this.maxReadableBytes = maxReadableBytes;
-        }
-
-        @Override
-        public int read() throws IOException {
-            if (position >= data.length) {
-                return -1;
-            }
-            if (position >= maxReadableBytes) {
-                throw new IOException("Read more than header bytes");
-            }
-            return data[position++] & 0xFF;
+    private byte[] encodedImage(String format) {
+        try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+            ImageIO.write(new BufferedImage(2, 2, BufferedImage.TYPE_INT_RGB), format, outputStream);
+            return outputStream.toByteArray();
+        } catch (IOException e) {
+            throw new AssertionError(e);
         }
     }
 

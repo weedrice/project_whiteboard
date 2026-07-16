@@ -10,7 +10,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.weedrice.whiteboard.domain.file.service.FileUploadValidationPolicy.ValidatedUpload;
+
 import javax.imageio.ImageIO;
+import javax.imageio.ImageReadParam;
+import javax.imageio.ImageReader;
+import javax.imageio.stream.ImageInputStream;
 import java.awt.Graphics2D;
 import java.awt.Image;
 import java.awt.RenderingHints;
@@ -19,6 +24,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Locale;
+import java.util.Iterator;
 
 @Slf4j
 @Component
@@ -33,18 +39,14 @@ class FileImageVariantGenerator {
     private final FileStorageService fileStorageService;
     private final FileVariantRepository fileVariantRepository;
 
-    public void generateVariants(File originalFile, MultipartFile multipartFile, String mimeType) {
-        if (!isResizableMimeType(mimeType) || originalFile.getFileId() == null) {
+    public void generateVariants(File originalFile, MultipartFile multipartFile, ValidatedUpload upload) {
+        if (!isResizableMimeType(upload.detectedMimeType()) || originalFile.getFileId() == null) {
             return;
         }
 
-        try (InputStream inputStream = multipartFile.getInputStream()) {
-            BufferedImage originalImage = ImageIO.read(inputStream);
-            if (originalImage == null) {
-                return;
-            }
+        try {
             for (FileVariantType variantType : FileVariantType.values()) {
-                generateVariant(originalFile, originalImage, variantType);
+                generateVariant(originalFile, multipartFile, upload, variantType);
             }
         } catch (IOException | RuntimeException e) {
             log.warn("Failed to generate image variants. fileId={}", originalFile.getFileId(), e);
@@ -53,21 +55,26 @@ class FileImageVariantGenerator {
 
     private void generateVariant(
             File originalFile,
-            BufferedImage originalImage,
+            MultipartFile multipartFile,
+            ValidatedUpload upload,
             FileVariantType variantType) throws IOException {
         if (fileVariantRepository.findByFileFileIdAndVariantType(originalFile.getFileId(), variantType).isPresent()) {
             return;
         }
 
         ImageSize targetSize = resolveTargetSize(
-                originalImage.getWidth(),
-                originalImage.getHeight(),
+                upload.width(),
+                upload.height(),
                 variantType.getMaxDimension());
         if (!targetSize.shouldResize()) {
             return;
         }
 
-        BufferedImage resizedImage = resize(originalImage, targetSize);
+        BufferedImage decodedImage = readSubsampled(multipartFile, upload, variantType.getMaxDimension());
+        BufferedImage resizedImage = decodedImage.getWidth() == targetSize.width()
+                && decodedImage.getHeight() == targetSize.height()
+                ? decodedImage
+                : resize(decodedImage, targetSize);
         byte[] contents = encodeWebp(resizedImage);
         String filePath = buildVariantFilePath(originalFile.getFileId(), variantType);
         fileStorageService.storeBytesAs(contents, WEBP_MIME_TYPE, filePath);
@@ -84,6 +91,37 @@ class FileImageVariantGenerator {
         } catch (RuntimeException e) {
             fileStorageService.deleteFile(filePath);
             throw e;
+        }
+    }
+
+    private BufferedImage readSubsampled(
+            MultipartFile multipartFile,
+            ValidatedUpload upload,
+            int maxDimension) throws IOException {
+        try (InputStream inputStream = multipartFile.getInputStream();
+                ImageInputStream imageInputStream = ImageIO.createImageInputStream(inputStream)) {
+            if (imageInputStream == null) {
+                throw new IOException("Unable to open image input stream");
+            }
+            Iterator<ImageReader> readers = ImageIO.getImageReaders(imageInputStream);
+            if (!readers.hasNext()) {
+                throw new IOException("No image reader available");
+            }
+            ImageReader reader = readers.next();
+            try {
+                reader.setInput(imageInputStream, true, true);
+                int longerSide = Math.max(upload.width(), upload.height());
+                int subsampling = Math.max(1, longerSide / maxDimension);
+                ImageReadParam readParam = reader.getDefaultReadParam();
+                readParam.setSourceSubsampling(subsampling, subsampling, 0, 0);
+                BufferedImage image = reader.read(0, readParam);
+                if (image == null) {
+                    throw new IOException("Unable to decode image");
+                }
+                return image;
+            } finally {
+                reader.dispose();
+            }
         }
     }
 

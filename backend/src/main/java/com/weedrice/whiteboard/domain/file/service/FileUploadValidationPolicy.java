@@ -10,6 +10,10 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
+import java.util.Iterator;
+import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
+import javax.imageio.stream.ImageInputStream;
 
 @Component
 class FileUploadValidationPolicy {
@@ -17,6 +21,8 @@ class FileUploadValidationPolicy {
     private static final int MAX_ORIGINAL_FILENAME_LENGTH = 255;
     private static final int IMAGE_SIGNATURE_READ_BYTES = 12;
     private static final long MAX_FILE_SIZE = 10 * 1024 * 1024;
+    static final int MAX_IMAGE_DIMENSION = 16_384;
+    static final long MAX_IMAGE_PIXELS = 50_000_000L;
 
     ValidatedUpload validate(MultipartFile multipartFile) {
         if (multipartFile.isEmpty()) {
@@ -43,7 +49,15 @@ class FileUploadValidationPolicy {
             throw new BusinessException(ErrorCode.INVALID_FILE_TYPE);
         }
 
-        return new ValidatedUpload(originalFilename, detectedMimeType, multipartFile.getSize());
+        ImageMetadata metadata = readImageMetadata(multipartFile);
+        validateImageDimensions(metadata);
+        return new ValidatedUpload(
+                originalFilename,
+                detectedMimeType,
+                multipartFile.getSize(),
+                metadata.formatName(),
+                metadata.width(),
+                metadata.height());
     }
 
     private String normalizeOriginalFilename(String originalFilename) {
@@ -143,6 +157,49 @@ class FileUploadValidationPolicy {
                 && data[11] == 'P';
     }
 
-    record ValidatedUpload(String originalFilename, String detectedMimeType, Long fileSize) {
+    private ImageMetadata readImageMetadata(MultipartFile multipartFile) {
+        try (InputStream inputStream = multipartFile.getInputStream();
+                ImageInputStream imageInputStream = ImageIO.createImageInputStream(inputStream)) {
+            if (imageInputStream == null) {
+                throw new BusinessException(ErrorCode.INVALID_FILE_TYPE);
+            }
+            Iterator<ImageReader> readers = ImageIO.getImageReaders(imageInputStream);
+            if (!readers.hasNext()) {
+                throw new BusinessException(ErrorCode.INVALID_FILE_TYPE);
+            }
+            ImageReader reader = readers.next();
+            try {
+                reader.setInput(imageInputStream, true, true);
+                return new ImageMetadata(reader.getFormatName(), reader.getWidth(0), reader.getHeight(0));
+            } finally {
+                reader.dispose();
+            }
+        } catch (BusinessException e) {
+            throw e;
+        } catch (IOException | RuntimeException e) {
+            throw new BusinessException(ErrorCode.INVALID_FILE_TYPE);
+        }
+    }
+
+    private void validateImageDimensions(ImageMetadata metadata) {
+        if (metadata.width() <= 0
+                || metadata.height() <= 0
+                || metadata.width() > MAX_IMAGE_DIMENSION
+                || metadata.height() > MAX_IMAGE_DIMENSION
+                || (long) metadata.width() * metadata.height() > MAX_IMAGE_PIXELS) {
+            throw new BusinessException(ErrorCode.INVALID_FILE_TYPE);
+        }
+    }
+
+    private record ImageMetadata(String formatName, int width, int height) {
+    }
+
+    record ValidatedUpload(
+            String originalFilename,
+            String detectedMimeType,
+            Long fileSize,
+            String imageFormat,
+            int width,
+            int height) {
     }
 }
