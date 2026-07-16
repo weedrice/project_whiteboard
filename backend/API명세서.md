@@ -101,6 +101,11 @@ Java 필드명과 JSON 직렬화 이름이 다른 기존 응답은 호환성을 
 | `POST` | `/api/v1/auth/password/reset` | 토큰 기반 비밀번호 재설정 |
 | `POST` | `/api/v1/auth/password/reset-by-code` | 인증 코드 기반 비밀번호 재설정 |
 
+이메일 인증 코드는 행 잠금으로 오입력 횟수를 직렬화하며 코드별 5회 실패 후 소진된다. 인증에 성공해
+발급된 활성 ticket은 이후 오입력과 관계없이 올바른 코드로 재조회할 수 있다. 재가입 사전 확인 API는
+계정 존재 여부를 노출하지 않도록 호환 응답 `{canReregister:false, maskedLoginId:null}`만 반환하며,
+재가입 여부와 기존 로그인 ID는 이메일 인증 성공 응답에서만 제공한다.
+
 ### Users
 
 | Method | URI | 설명 |
@@ -160,6 +165,7 @@ Java 필드명과 JSON 직렬화 이름이 다른 기존 응답은 호환성을 
 | `DELETE` | `/api/v1/boards/{boardUrl}` | 스페이스 비활성화 |
 | `GET` | `/api/v1/boards/{boardUrl}/categories` | 카테고리 목록 |
 | `POST` | `/api/v1/boards/{boardUrl}/categories` | 카테고리 생성 |
+| `PUT` | `/api/v1/boards/{boardUrl}/categories/order` | 활성 카테고리 전체 순서 변경 |
 | `PUT` | `/api/v1/boards/categories/{categoryId}` | 카테고리 수정 |
 | `DELETE` | `/api/v1/boards/categories/{categoryId}` | 카테고리 비활성화 |
 | `POST` | `/api/v1/boards/{boardUrl}/subscribe` | 스페이스 구독 |
@@ -203,6 +209,8 @@ Java 필드명과 JSON 직렬화 이름이 다른 기존 응답은 호환성을 
 | `GET` | `/api/v1/scheduled-posts/{scheduledPostId}` | 예약 게시글 상세 |
 | `PUT` | `/api/v1/scheduled-posts/{scheduledPostId}` | 예약 게시글 수정 |
 | `DELETE` | `/api/v1/scheduled-posts/{scheduledPostId}` | 예약 게시글 취소 |
+
+카테고리 순서 변경 요청은 `{ "categoryIds": [1, 2, 3] }` 형태다. 해당 스페이스의 활성 카테고리 ID 전체를 중복 없이 정확히 한 번씩 포함해야 하며, 기본 카테고리가 존재하면 첫 번째 ID여야 한다. 검증 실패 시 어떤 순서도 변경하지 않으며, 성공 시 1부터 다시 매긴 정렬 순서의 카테고리 목록을 반환한다.
 
 #### 게시글 초안 계약
 
@@ -312,6 +320,9 @@ Java 필드명과 JSON 직렬화 이름이 다른 기존 응답은 호환성을 
 | `POST` | `/api/v1/shop/items/{itemId}/purchase` | 아이템 구매 |
 | `GET` | `/api/v1/shop/me/purchases` | 내 구매 이력 |
 | `POST` | `/api/v1/reports/users` | 사용자 신고 |
+
+이미지 업로드는 10 MiB 파일 제한과 형식 검증 외에 최대 한 변 `16,384px`, 최대 `50,000,000` 픽셀을
+적용한다. 제한을 넘거나 메타데이터를 해석할 수 없는 이미지는 저장 전에 거부한다.
 | `POST` | `/api/v1/reports/posts` | 게시글 신고 |
 | `POST` | `/api/v1/reports/comments` | 댓글 신고 |
 | `POST` | `/api/v1/reports` | 범용 신고 |
