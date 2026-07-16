@@ -1,7 +1,6 @@
 package com.weedrice.whiteboard.global.ratelimit;
 
 import tools.jackson.databind.ObjectMapper;
-import com.github.benmanes.caffeine.cache.Cache;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.util.ClientIpResolver;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -9,7 +8,6 @@ import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import io.github.bucket4j.Bucket;
 import io.github.bucket4j.ConsumptionProbe;
 import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.Metrics;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
@@ -23,7 +21,6 @@ import org.springframework.web.servlet.HandlerMapping;
 
 import java.io.IOException;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Set;
 
 @Slf4j
@@ -49,7 +46,6 @@ public class RateLimitInterceptor implements HandlerInterceptor {
     private final MessageSource messageSource;
     private final ClientIpResolver clientIpResolver;
     private final MeterRegistry meterRegistry;
-    private final Cache<String, Bucket> ipBucketCache;
 
     public RateLimitInterceptor(
             RateLimitBucketStore bucketStore,
@@ -64,23 +60,6 @@ public class RateLimitInterceptor implements HandlerInterceptor {
         this.messageSource = messageSource;
         this.clientIpResolver = clientIpResolver;
         this.meterRegistry = meterRegistry;
-        this.ipBucketCache = bucketStore.ipBuckets();
-    }
-
-    RateLimitInterceptor(
-            Map<String, Bucket> ignoredLegacyUserBuckets,
-            RateLimitConfig rateLimitConfig,
-            ObjectMapper objectMapper,
-            MessageSource messageSource,
-            ClientIpResolver clientIpResolver,
-            RateLimitProperties properties) {
-        this(
-                new RateLimitBucketStore(properties, Metrics.globalRegistry),
-                rateLimitConfig,
-                objectMapper,
-                messageSource,
-                clientIpResolver,
-                Metrics.globalRegistry);
     }
 
     @Override

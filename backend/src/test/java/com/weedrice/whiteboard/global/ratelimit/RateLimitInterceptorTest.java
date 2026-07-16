@@ -21,13 +21,11 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.servlet.HandlerMapping;
 
 import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -59,13 +57,7 @@ class RateLimitInterceptorTest {
     @Test
     @DisplayName("인증 API rate limit은 resolver가 반환한 IP를 bucket key로 사용한다")
     void preHandle_authApiUsesResolvedClientIpBucket() throws Exception {
-        RateLimitInterceptor interceptor = new RateLimitInterceptor(
-                new ConcurrentHashMap<>(),
-                rateLimitConfig,
-                new ObjectMapper(),
-                messageSource,
-                clientIpResolver,
-                new RateLimitProperties());
+        RateLimitInterceptor interceptor = newInterceptor(new RateLimitProperties());
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/auth/login");
         MockHttpServletResponse firstResponse = new MockHttpServletResponse();
         MockHttpServletResponse secondResponse = new MockHttpServletResponse();
@@ -102,13 +94,7 @@ class RateLimitInterceptorTest {
     })
     @DisplayName("strict 경로는 auth 버킷을 사용한다")
     void preHandle_strictPathUsesAuthBucket(String path) throws Exception {
-        RateLimitInterceptor interceptor = new RateLimitInterceptor(
-                new ConcurrentHashMap<>(),
-                rateLimitConfig,
-                new ObjectMapper(),
-                messageSource,
-                clientIpResolver,
-                new RateLimitProperties());
+        RateLimitInterceptor interceptor = newInterceptor(new RateLimitProperties());
         MockHttpServletRequest request = new MockHttpServletRequest("POST", path);
         MockHttpServletResponse response = new MockHttpServletResponse();
 
@@ -194,13 +180,7 @@ class RateLimitInterceptorTest {
     @Test
     @DisplayName("matrix parameter가 포함된 민감 인증 API도 매칭 패턴 기준 auth 버킷을 사용한다")
     void preHandle_sensitiveAuthApiWithMatrixParameterUsesAuthBucket() throws Exception {
-        RateLimitInterceptor interceptor = new RateLimitInterceptor(
-                new ConcurrentHashMap<>(),
-                rateLimitConfig,
-                new ObjectMapper(),
-                messageSource,
-                clientIpResolver,
-                new RateLimitProperties());
+        RateLimitInterceptor interceptor = newInterceptor(new RateLimitProperties());
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/auth/login;variant=1");
         MockHttpServletResponse response = new MockHttpServletResponse();
         request.setAttribute(HandlerMapping.BEST_MATCHING_PATTERN_ATTRIBUTE, "/api/v1/auth/login");
@@ -220,13 +200,7 @@ class RateLimitInterceptorTest {
     @Test
     @DisplayName("토큰 갱신은 인증 상태와 무관하게 API IP 버킷을 사용한다")
     void preHandle_refreshUsesApiBucketEvenWhenAuthenticated() throws Exception {
-        RateLimitInterceptor interceptor = new RateLimitInterceptor(
-                new ConcurrentHashMap<>(),
-                rateLimitConfig,
-                new ObjectMapper(),
-                messageSource,
-                clientIpResolver,
-                new RateLimitProperties());
+        RateLimitInterceptor interceptor = newInterceptor(new RateLimitProperties());
         MockHttpServletRequest refreshRequest = new MockHttpServletRequest("POST", "/api/v1/auth/refresh");
         MockHttpServletRequest apiRequest = new MockHttpServletRequest("GET", "/api/v1/posts");
         MockHttpServletResponse refreshResponse = new MockHttpServletResponse();
@@ -258,13 +232,7 @@ class RateLimitInterceptorTest {
     @Test
     @DisplayName("비민감 auth API는 익명 요청일 때 API IP 버킷을 사용한다")
     void preHandle_nonSensitiveAuthApiUsesApiBucket() throws Exception {
-        RateLimitInterceptor interceptor = new RateLimitInterceptor(
-                new ConcurrentHashMap<>(),
-                rateLimitConfig,
-                new ObjectMapper(),
-                messageSource,
-                clientIpResolver,
-                new RateLimitProperties());
+        RateLimitInterceptor interceptor = newInterceptor(new RateLimitProperties());
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/auth/email/verify");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
@@ -283,13 +251,7 @@ class RateLimitInterceptorTest {
     @Test
     @DisplayName("비민감 auth API는 인증 요청일 때 사용자 버킷을 사용한다")
     void preHandle_authenticatedNonSensitiveAuthApiUsesUserBucket() throws Exception {
-        RateLimitInterceptor interceptor = new RateLimitInterceptor(
-                new ConcurrentHashMap<>(),
-                rateLimitConfig,
-                new ObjectMapper(),
-                messageSource,
-                clientIpResolver,
-                new RateLimitProperties());
+        RateLimitInterceptor interceptor = newInterceptor(new RateLimitProperties());
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/auth/logout");
         MockHttpServletResponse response = new MockHttpServletResponse();
         CustomUserDetails userDetails = org.mockito.Mockito.mock(CustomUserDetails.class);
@@ -315,24 +277,20 @@ class RateLimitInterceptorTest {
         RateLimitProperties properties = new RateLimitProperties();
         properties.setBucketCacheMaxSize(7);
         properties.setBucketCacheTtlMinutes(13);
-        RateLimitInterceptor interceptor = new RateLimitInterceptor(
-                new ConcurrentHashMap<>(),
-                rateLimitConfig,
-                new ObjectMapper(),
-                messageSource,
-                clientIpResolver,
-                properties);
-
-        @SuppressWarnings("unchecked")
-        Cache<String, Bucket> ipBucketCache = (Cache<String, Bucket>) ReflectionTestUtils.getField(
-                interceptor,
-                "ipBucketCache");
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+        RateLimitBucketStore bucketStore = new RateLimitBucketStore(properties, registry);
+        Cache<String, Bucket> ipBucketCache = bucketStore.ipBuckets();
 
         assertThat(ipBucketCache.policy().eviction()).isPresent();
         assertThat(ipBucketCache.policy().eviction().orElseThrow().getMaximum()).isEqualTo(7);
         assertThat(ipBucketCache.policy().expireAfterAccess()).isPresent();
         assertThat(ipBucketCache.policy().expireAfterAccess().orElseThrow().getExpiresAfter(TimeUnit.MINUTES))
                 .isEqualTo(13);
+    }
+
+    @Test
+    void interceptor_hasSingleConstructorForSpringInjection() {
+        assertThat(RateLimitInterceptor.class.getDeclaredConstructors()).hasSize(1);
     }
 
     private Bucket oneRequestBucket() {
