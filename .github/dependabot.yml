@@ -40,3 +40,30 @@ updates:
       time: "10:00"
       timezone: Asia/Seoul
     open-pull-requests-limit: 10
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "10:30"
+      timezone: Asia/Seoul
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: docker
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: monday
+      time: "10:40"
+      timezone: Asia/Seoul
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: docker
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: monday
+      time: "10:50"
+      timezone: Asia/Seoul
+    open-pull-requests-limit: 5

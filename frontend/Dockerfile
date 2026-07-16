@@ -1,5 +1,5 @@
-ARG NODE_IMAGE=node:22.12.0-alpine
-ARG NGINX_IMAGE=nginx:1.27.4-alpine
+ARG NODE_IMAGE=node:22.12.0-alpine@sha256:51eff88af6dff26f59316b6e356188ffa2c422bd3c3b76f2556a2e7e89d080bd
+ARG NGINX_IMAGE=nginx:1.27.4-alpine@sha256:4ff102c5d78d254a6f0da062b3cf39eaf07f01eec0927fd21e219d0af8bc0591
 
 FROM ${NODE_IMAGE} AS build
 
