@@ -148,14 +148,8 @@ public class SignupService {
     }
 
     public ReregisterCheckResponse checkEmailForReregister(String email) {
-        String normalizedEmail = AuthEmailNormalizer.normalize(email);
-        return userRepository.findByEmail(normalizedEmail)
-                .filter(user -> "DELETED".equals(user.getStatus()))
-                .map(user -> ReregisterCheckResponse.builder()
-                        .canReregister(true)
-                        .maskedLoginId(maskLoginId(user.getLoginId()))
-                        .build())
-                .orElse(ReregisterCheckResponse.builder().canReregister(false).build());
+        AuthEmailNormalizer.normalize(email);
+        return ReregisterCheckResponse.builder().canReregister(false).build();
     }
 
     @Transactional
@@ -218,15 +212,4 @@ public class SignupService {
         socialAccountLinkService.linkSocialAccount(user, provider, providerId);
     }
 
-    private String maskLoginId(String loginId) {
-        if (loginId == null || loginId.isEmpty()) {
-            return "****";
-        }
-        if (loginId.length() <= 4) {
-            return "****";
-        }
-        String start = loginId.substring(0, 2);
-        String end = loginId.substring(loginId.length() - 2);
-        return start + "****" + end;
-    }
 }

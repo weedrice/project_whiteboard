@@ -28,7 +28,7 @@ public class VerificationCodeService {
         verificationCodeDeliveryService.sendVerificationCode(normalizedEmail, purpose);
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public VerifyCodeResponse verifyCode(String email, String code, VerificationPurpose purpose) {
         String normalizedEmail = AuthEmailNormalizer.normalize(email);
         requirePurpose(purpose);

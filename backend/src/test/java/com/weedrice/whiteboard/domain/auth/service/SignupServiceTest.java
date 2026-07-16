@@ -38,6 +38,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -59,6 +60,18 @@ class SignupServiceTest {
 
     @InjectMocks
     private SignupService signupService;
+
+    @Test
+    @DisplayName("재가입 사전 조회는 계정 상태와 무관한 비식별 응답을 반환한다")
+    void checkEmailForReregister_returnsGenericResponseWithoutAccountLookup() {
+        for (String email : new String[]{"active@example.com", "deleted@example.com", "unknown@example.com"}) {
+            var response = signupService.checkEmailForReregister(email);
+
+            assertThat(response.isCanReregister()).isFalse();
+            assertThat(response.getMaskedLoginId()).isNull();
+        }
+        verifyNoInteractions(userRepository);
+    }
 
     @Test
     @DisplayName("재가입 시 삭제 계정 재활성화 전에 활성 refresh token을 모두 회수한다")

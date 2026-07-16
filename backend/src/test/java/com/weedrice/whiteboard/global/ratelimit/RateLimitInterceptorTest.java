@@ -230,22 +230,22 @@ class RateLimitInterceptorTest {
     }
 
     @Test
-    @DisplayName("비민감 auth API는 익명 요청일 때 API IP 버킷을 사용한다")
-    void preHandle_nonSensitiveAuthApiUsesApiBucket() throws Exception {
+    @DisplayName("이메일 인증 검증은 엄격한 auth 버킷을 사용한다")
+    void preHandle_emailVerificationUsesStrictAuthBucket() throws Exception {
         RateLimitInterceptor interceptor = newInterceptor(new RateLimitProperties());
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/auth/email/verify");
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         when(clientIpResolver.resolve(request)).thenReturn("203.0.113.13");
-        when(rateLimitConfig.createApiBucket()).thenReturn(oneRequestBucket());
-        when(rateLimitConfig.getApiLimit()).thenReturn(200);
+        when(rateLimitConfig.createAuthBucket()).thenReturn(oneRequestBucket());
+        when(rateLimitConfig.getAuthLimit()).thenReturn(5);
 
         boolean result = interceptor.preHandle(request, response, new Object());
 
         assertThat(result).isTrue();
-        assertThat(response.getHeader(RateLimitHeaderWriter.HEADER_LIMIT)).isEqualTo("200");
-        verify(rateLimitConfig).createApiBucket();
-        verify(rateLimitConfig, never()).createAuthBucket();
+        assertThat(response.getHeader(RateLimitHeaderWriter.HEADER_LIMIT)).isEqualTo("5");
+        verify(rateLimitConfig).createAuthBucket();
+        verify(rateLimitConfig, never()).createApiBucket();
     }
 
     @Test

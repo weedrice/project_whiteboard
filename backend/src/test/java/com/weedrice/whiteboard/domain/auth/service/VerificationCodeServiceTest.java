@@ -147,9 +147,13 @@ class VerificationCodeServiceTest {
                 transactionTemplate,
                 FIXED_CLOCK,
                 new StaticMessageSource());
-        VerificationTicketService verificationTicketService = new VerificationTicketService(
+        VerificationCodeAttemptService verificationCodeAttemptService = new VerificationCodeAttemptService(
                 verificationCodeRepository,
                 tokenHashService,
+                FIXED_CLOCK);
+        VerificationTicketService verificationTicketService = new VerificationTicketService(
+                verificationCodeRepository,
+                verificationCodeAttemptService,
                 new VerifyCodeResponseAssembler(userRepository),
                 FIXED_CLOCK);
         verificationCodeService = new VerificationCodeService(
@@ -604,6 +608,46 @@ class VerificationCodeServiceTest {
                     assertThat(businessException.getMessageKey())
                             .isEqualTo("validation.verification.code.invalid");
                 });
+
+        assertThat(sentCode.getFailedAttempts()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("인증 코드 오입력 5회 후에는 올바른 코드도 거부한다")
+    void verifyCode_exhaustsAfterFiveInvalidAttempts() {
+        VerificationCode sentCode = createSentCode(1L, "test@example.com", VerificationPurpose.SIGNUP, "123456");
+        verificationCodes.put(1L, sentCode);
+
+        for (int attempt = 0; attempt < VerificationCode.MAX_FAILED_ATTEMPTS; attempt++) {
+            assertThatThrownBy(() -> verificationCodeService.verifyCode(
+                    "test@example.com", "000000", VerificationPurpose.SIGNUP))
+                    .isInstanceOf(BusinessException.class);
+        }
+
+        assertThat(sentCode.getFailedAttempts()).isEqualTo(VerificationCode.MAX_FAILED_ATTEMPTS);
+        assertThatThrownBy(() -> verificationCodeService.verifyCode(
+                "test@example.com", "123456", VerificationPurpose.SIGNUP))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> assertThat(((BusinessException) ex).getMessageKey())
+                        .isEqualTo("validation.verification.code.invalid"));
+    }
+
+    @Test
+    @DisplayName("활성 ticket은 오입력 횟수가 소진되어도 올바른 코드로 재조회할 수 있다")
+    void verifyCode_activeTicketRemainsUsableAfterInvalidAttempts() {
+        VerificationCode sentCode = createSentCode(1L, "test@example.com", VerificationPurpose.FIND_ID, "123456");
+        sentCode.issueVerificationTicket("ticket-1", FIXED_NOW.plusMinutes(5));
+        verificationCodes.put(1L, sentCode);
+
+        for (int attempt = 0; attempt < VerificationCode.MAX_FAILED_ATTEMPTS; attempt++) {
+            assertThatThrownBy(() -> verificationCodeService.verifyCode(
+                    "test@example.com", "000000", VerificationPurpose.FIND_ID))
+                    .isInstanceOf(BusinessException.class);
+        }
+
+        VerifyCodeResponse response = verificationCodeService.verifyCode(
+                "test@example.com", "123456", VerificationPurpose.FIND_ID);
+        assertThat(response.getVerificationTicket()).isEqualTo("ticket-1");
     }
 
     @Test

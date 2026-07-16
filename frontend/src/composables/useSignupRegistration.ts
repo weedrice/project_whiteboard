@@ -2,7 +2,7 @@ import { onMounted, reactive, ref, watch } from 'vue'
 import type { RouteLocationNormalizedLoaded, Router } from 'vue-router'
 import type { ComposerTranslation } from 'vue-i18n'
 import { authApi } from '@/api/auth'
-import { unwrapApiData, unwrapAxiosApiData } from '@/api/response'
+import { unwrapApiData } from '@/api/response'
 import { useAuthPasswordValidation } from '@/composables/useAuthPasswordValidation'
 import { useEmailVerificationFlow } from '@/composables/useEmailVerificationFlow'
 import {
@@ -15,7 +15,6 @@ import {
   hydrateSignupFormFromQuery,
   isMaskedReregisterLoginBlocked,
   markAllSignupFieldsTouched,
-  resolveReregisterLoginState,
   type SignupForm,
 } from '@/composables/signupRegistrationModel'
 import { useToastStore } from '@/stores/toast'
@@ -46,14 +45,6 @@ export function useSignupRegistration({ route, router, t }: SignupRegistrationOp
   const isLoading = ref(false)
   const isReregister = ref(false)
 
-  async function checkEmailForReregister(email: string) {
-    const checkRes = await authApi.checkEmailForReregister(email)
-    const reregister = unwrapAxiosApiData(checkRes)
-    const loginState = resolveReregisterLoginState(checkRes.data.success ? reregister : null)
-    isReregister.value = loginState.isReregister
-    form.value.loginId = loginState.loginId
-  }
-
   const {
     emailVerification: verification,
     formatVerifyTime: formatTime,
@@ -65,8 +56,8 @@ export function useSignupRegistration({ route, router, t }: SignupRegistrationOp
     validateEmailFormat: false,
     closeOnVerifySuccess: false,
     emailRequiredMessage: t('auth.placeholders.email'),
-    beforeSend: checkEmailForReregister,
     afterVerify: ({ response }) => {
+      isReregister.value = response.isReregister
       if (response.isReregister && response.loginId) {
         form.value.loginId = response.loginId
       }
@@ -225,31 +216,15 @@ export function useSignupRegistration({ route, router, t }: SignupRegistrationOp
     const oauthRegistrationTicket = Array.isArray(route.query.oauthRegistrationTicket)
       ? route.query.oauthRegistrationTicket[0]
       : route.query.oauthRegistrationTicket
-    let emailForReregisterCheck: string | null = null
-
     if (oauthRegistrationTicket) {
       try {
         const { data } = await authApi.getOAuthSignupTicket(oauthRegistrationTicket)
         hydrateSignupFormFromOAuthTicket(form.value, unwrapApiData(data))
-        emailForReregisterCheck = form.value.email
       } catch {
         toastStore.addToast(t('auth.signupFailed'), 'error')
       }
     } else {
-      const { email } = hydrateSignupFormFromQuery(form.value, route.query)
-      emailForReregisterCheck = email
-    }
-
-    if (emailForReregisterCheck) {
-      try {
-        const { data } = await authApi.checkEmailForReregister(emailForReregisterCheck)
-        const reregister = unwrapApiData(data)
-        const loginState = resolveReregisterLoginState(data.success ? reregister : null)
-        isReregister.value = loginState.isReregister
-        form.value.loginId = loginState.loginId
-      } catch {
-        // Continue as a normal signup when reregister lookup fails.
-      }
+      hydrateSignupFormFromQuery(form.value, route.query)
     }
   }
 

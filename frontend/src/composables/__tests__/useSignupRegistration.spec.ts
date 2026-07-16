@@ -24,7 +24,6 @@ const mocks = vi.hoisted(() => {
     resendCooldown: 0
   }
   let flowOptions: {
-    beforeSend?: (email: string) => Promise<void> | void
     afterVerify?: (context: { response: { isReregister: boolean; loginId?: string } }) => void
   } | null = null
 
@@ -59,9 +58,7 @@ vi.mock('@/composables/useEmailVerificationFlow', () => ({
     return {
       emailVerification: mocks.verification,
       formatVerifyTime: (seconds: number) => String(seconds),
-      sendVerifyCode: vi.fn(async () => {
-        await options?.beforeSend?.('user@example.com')
-      }),
+      sendVerifyCode: vi.fn(async () => undefined),
       verifyEmailCode: vi.fn(async () => {
         options?.afterVerify?.({
           response: {
@@ -120,11 +117,6 @@ describe('useSignupRegistration', () => {
       timeLeft: 0,
       resendCooldown: 0
     })
-    vi.mocked(authApi.checkEmailForReregister).mockResolvedValue(
-      apiSuccessDataResponse<typeof authApi.checkEmailForReregister>({
-        canReregister: false
-      })
-    )
     vi.mocked(authApi.getOAuthSignupTicket).mockResolvedValue(
       apiSuccessDataResponse<typeof authApi.getOAuthSignupTicket>({
         email: 'oauth@example.com',
@@ -135,14 +127,7 @@ describe('useSignupRegistration', () => {
     vi.mocked(authApi.signup).mockResolvedValue(apiSuccessResponse<typeof authApi.signup>())
   })
 
-  it('hydrates query email/name and masked reregister login on mount', async () => {
-    vi.mocked(authApi.checkEmailForReregister).mockResolvedValueOnce(
-      apiSuccessDataResponse<typeof authApi.checkEmailForReregister>({
-        canReregister: true,
-        maskedLoginId: 'ma***ed'
-      })
-    )
-
+  it('hydrates query email and name without performing a reregister lookup', async () => {
     const { composable, wrapper } = mountSignupRegistration({
       email: 'user@example.com',
       name: 'Display'
@@ -151,25 +136,21 @@ describe('useSignupRegistration', () => {
 
     expect(composable.form.value.email).toBe('user@example.com')
     expect(composable.form.value.displayName).toBe('Display')
-    expect(composable.form.value.loginId).toBe('ma***ed')
-    expect(composable.isReregister.value).toBe(true)
+    expect(composable.form.value.loginId).toBe('')
+    expect(composable.isReregister.value).toBe(false)
+    expect(authApi.checkEmailForReregister).not.toHaveBeenCalled()
     wrapper.unmount()
   })
 
-  it('runs reregister lookup before sending verification and replaces login id after verify', async () => {
-    vi.mocked(authApi.checkEmailForReregister).mockResolvedValueOnce(
-      apiSuccessDataResponse<typeof authApi.checkEmailForReregister>({
-        canReregister: true,
-        maskedLoginId: 'ma***ed'
-      })
-    )
+  it('learns reregister state only from the verified response', async () => {
     const { composable, wrapper } = mountSignupRegistration()
 
     await composable.sendVerificationCode()
     await composable.verifyCode()
 
-    expect(authApi.checkEmailForReregister).toHaveBeenCalledWith('user@example.com')
+    expect(authApi.checkEmailForReregister).not.toHaveBeenCalled()
     expect(composable.form.value.loginId).toBe('restored-login')
+    expect(composable.isReregister.value).toBe(true)
     wrapper.unmount()
   })
 
@@ -224,7 +205,7 @@ describe('useSignupRegistration', () => {
 
     expect(composable.form.value.email).toBe('user@example.com')
     expect(composable.form.value.displayName).toBe('Display')
-    expect(authApi.checkEmailForReregister).toHaveBeenCalledWith('user@example.com')
+    expect(authApi.checkEmailForReregister).not.toHaveBeenCalled()
     expect(authApi.signup).toHaveBeenCalledWith(expect.objectContaining({
       oauthRegistrationTicket: null
     }))

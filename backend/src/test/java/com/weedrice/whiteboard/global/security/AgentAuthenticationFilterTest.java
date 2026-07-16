@@ -97,6 +97,7 @@ class AgentAuthenticationFilterTest {
 
             assertThat(response.getStatus()).isEqualTo(200);
             assertThat(SecurityContextHolder.getContext().getAuthentication()).isInstanceOf(AgentAuthenticationToken.class);
+            assertThat(SecurityContextHolder.getContext().getAuthentication().getCredentials()).isNull();
             verify(agentAuthService).authenticate("noviis_agt_token");
             verify(chain).doFilter(request, response);
         } finally {

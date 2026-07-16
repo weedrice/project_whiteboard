@@ -1,5 +1,4 @@
 import type { LocationQuery } from 'vue-router'
-import type { ReregisterCheckResponse } from '@/api/auth'
 import { getSingleQueryValue } from '@/utils/routeQueryValue'
 
 export type SignupForm = {
@@ -16,11 +15,6 @@ export type SignupTouchedState = Record<keyof SignupForm, boolean>
 export type SignupPayload = Omit<SignupForm, 'passwordConfirm'> & {
   verificationTicket: string
   oauthRegistrationTicket: string | null
-}
-
-export type ReregisterLoginState = {
-  isReregister: boolean
-  loginId: string
 }
 
 export function createSignupForm(): SignupForm {
@@ -61,22 +55,6 @@ export function markAllSignupFieldsTouched(touched: SignupTouchedState) {
 
 export function hasSignupFieldErrors(fieldErrors: SignupFieldState): boolean {
   return Object.values(fieldErrors).some(Boolean)
-}
-
-export function resolveReregisterLoginState(
-  response: ReregisterCheckResponse | null | undefined,
-): ReregisterLoginState {
-  if (response?.canReregister && response.maskedLoginId) {
-    return {
-      isReregister: true,
-      loginId: response.maskedLoginId,
-    }
-  }
-
-  return {
-    isReregister: false,
-    loginId: '',
-  }
 }
 
 export function hydrateSignupFormFromQuery(form: SignupForm, query: LocationQuery) {

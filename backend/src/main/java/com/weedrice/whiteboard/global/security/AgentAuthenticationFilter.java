@@ -62,7 +62,7 @@ public class AgentAuthenticationFilter extends OncePerRequestFilter {
                     agent.getUser() != null ? agent.getUser().getUserId() : null,
                     agent.getName(),
                     agent.getStatus());
-            SecurityContextHolder.getContext().setAuthentication(new AgentAuthenticationToken(principal, rawToken));
+            SecurityContextHolder.getContext().setAuthentication(new AgentAuthenticationToken(principal));
             filterChain.doFilter(request, response);
         } catch (BusinessException e) {
             response.sendError(e.getErrorCode().getStatus().value(), resolveEnglishMessage(e));

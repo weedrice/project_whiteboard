@@ -17,6 +17,7 @@ import java.time.LocalDateTime;
 public class VerificationCode extends BaseTimeEntity {
     public static final int LEGACY_PLAIN_CODE_LENGTH = 6;
     public static final int CODE_HASH_LENGTH = 64;
+    public static final int MAX_FAILED_ATTEMPTS = 5;
     public static final String DELIVERY_STATUS_PENDING = "PENDING";
     public static final String DELIVERY_STATUS_SENT = "SENT";
     public static final String DELIVERY_STATUS_FAILED = "FAILED";
@@ -56,6 +57,9 @@ public class VerificationCode extends BaseTimeEntity {
     @Column(name = "is_ticket_consumed", nullable = false, length = 1)
     private Boolean isTicketConsumed;
 
+    @Column(name = "failed_attempts", nullable = false)
+    private Integer failedAttempts;
+
     @Builder
     public VerificationCode(String email, VerificationPurpose purpose, String code, LocalDateTime expiryDate) {
         this.email = email;
@@ -65,6 +69,7 @@ public class VerificationCode extends BaseTimeEntity {
         this.isVerified = false;
         this.deliveryStatus = DELIVERY_STATUS_PENDING;
         this.isTicketConsumed = false;
+        this.failedAttempts = 0;
     }
 
     public void verify() {
@@ -117,6 +122,15 @@ public class VerificationCode extends BaseTimeEntity {
 
     public boolean isVerificationTicketExpiredAt(LocalDateTime now) {
         return this.ticketExpiryDate == null || now.isAfter(this.ticketExpiryDate);
+    }
+
+    public void recordFailedAttempt() {
+        int currentAttempts = failedAttempts == null ? 0 : failedAttempts;
+        failedAttempts = Math.min(MAX_FAILED_ATTEMPTS, currentAttempts + 1);
+    }
+
+    public boolean hasExhaustedFailedAttempts() {
+        return failedAttempts != null && failedAttempts >= MAX_FAILED_ATTEMPTS;
     }
 
     private void clearVerificationTicket() {

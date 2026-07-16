@@ -8,7 +8,6 @@ import {
   hydrateSignupFormFromQuery,
   isMaskedReregisterLoginBlocked,
   markAllSignupFieldsTouched,
-  resolveReregisterLoginState,
 } from '../signupRegistrationModel'
 
 describe('signupRegistrationModel', () => {
@@ -49,19 +48,7 @@ describe('signupRegistrationModel', () => {
     })
   })
 
-  it('resolves reregister and validation state helpers', () => {
-    expect(resolveReregisterLoginState({
-      canReregister: true,
-      maskedLoginId: 'ma***ed',
-    })).toEqual({
-      isReregister: true,
-      loginId: 'ma***ed',
-    })
-    expect(resolveReregisterLoginState({ canReregister: false })).toEqual({
-      isReregister: false,
-      loginId: '',
-    })
-
+  it('resolves validation state helpers', () => {
     const touched = createSignupTouchedState()
     markAllSignupFieldsTouched(touched)
     expect(Object.values(touched).every(Boolean)).toBe(true)

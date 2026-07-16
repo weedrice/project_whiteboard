@@ -5,18 +5,16 @@ import org.springframework.security.core.authority.AuthorityUtils;
 
 public class AgentAuthenticationToken extends AbstractAuthenticationToken {
     private final AgentPrincipal principal;
-    private final String credentials;
 
-    public AgentAuthenticationToken(AgentPrincipal principal, String credentials) {
+    public AgentAuthenticationToken(AgentPrincipal principal) {
         super(AuthorityUtils.NO_AUTHORITIES);
         this.principal = principal;
-        this.credentials = credentials;
         setAuthenticated(true);
     }
 
     @Override
     public Object getCredentials() {
-        return credentials;
+        return null;
     }
 
     @Override
