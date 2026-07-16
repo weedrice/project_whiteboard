@@ -42,6 +42,16 @@ describe('useGlobalShortcuts', () => {
     vi.restoreAllMocks()
   })
 
+  it('ignores synthetic keydown events without a key', async () => {
+    const wrapper = mount(TestHost)
+
+    await nextTick()
+
+    expect(() => document.dispatchEvent(new Event('keydown'))).not.toThrow()
+
+    wrapper.unmount()
+  })
+
   it('removes global keydown listeners and clears the g-key timer on unmount', async () => {
     const clearTimeoutSpy = vi.spyOn(globalThis, 'clearTimeout')
     const wrapper = mount(TestHost)

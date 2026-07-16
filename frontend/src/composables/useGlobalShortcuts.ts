@@ -28,6 +28,10 @@ export function useGlobalShortcuts() {
   }
 
   const handleKeyDown = (event: KeyboardEvent) => {
+    if (typeof event.key !== 'string' || event.key.length === 0) {
+      return
+    }
+
     const alwaysActiveKeys = ['Escape']
     if (isInputFocused() && !alwaysActiveKeys.includes(event.key)) {
       return
