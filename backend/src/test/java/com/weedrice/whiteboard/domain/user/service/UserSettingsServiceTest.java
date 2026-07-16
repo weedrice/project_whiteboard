@@ -13,7 +13,6 @@ import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
-import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -59,18 +58,12 @@ class UserSettingsServiceTest {
     @Mock
     private SanctionService sanctionService;
 
-    @Mock
-    private EntityManager entityManager;
-
     @BeforeEach
     void setUp() {
         UserWritableResolver userWritableResolver = new UserWritableResolver(userRepository, sanctionService);
-        UserReadableResolver userReadableResolver = new UserReadableResolver(userRepository);
         userSettingsService = new UserSettingsService(
                 userSettingsRepository,
                 userNotificationSettingsRepository,
-                entityManager,
-                userReadableResolver,
                 userWritableResolver);
     }
 
@@ -109,7 +102,7 @@ class UserSettingsServiceTest {
         ReflectionTestUtils.setField(user, "userId", 1L);
         UserSettings settings = new UserSettings(user);
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(userSettingsRepository.findById(1L)).thenReturn(Optional.of(settings));
         when(userSettingsRepository.save(any())).thenReturn(settings);
 
@@ -119,7 +112,7 @@ class UserSettingsServiceTest {
         assertThat(response.getLanguage()).isEqualTo("en");
         assertThat(response.getTimezone()).isEqualTo("UTC");
         assertThat(response.isHideNsfw()).isTrue();
-        verify(userRepository).findById(1L);
+        verify(userRepository).findByIdForUpdate(1L);
     }
 
     @Test
@@ -171,39 +164,34 @@ class UserSettingsServiceTest {
     }
 
     @Test
-    @DisplayName("Settings row creation recovers when another request creates the row first")
-    void getOrCreateSettingsEntity_recoversAfterDuplicateInsert() {
+    @DisplayName("Settings row creation serializes on the user row")
+    void getOrCreateSettingsEntity_usesUserWriteLock() {
         User user = User.builder().build();
         ReflectionTestUtils.setField(user, "userId", 1L);
         UserSettings settings = new UserSettings(user);
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(userSettingsRepository.findById(1L))
-                .thenReturn(Optional.empty())
-                .thenReturn(Optional.of(settings));
-        when(userSettingsRepository.saveAndFlush(any(UserSettings.class)))
-                .thenThrow(new DataIntegrityViolationException("duplicate user_settings"));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(userSettingsRepository.findById(1L)).thenReturn(Optional.of(settings));
 
         UserSettings result = userSettingsService.getOrCreateSettingsEntity(1L);
 
         assertThat(result).isSameAs(settings);
-        verify(entityManager).clear();
+        verify(userRepository).findByIdForUpdate(1L);
     }
 
     @Test
-    @DisplayName("Settings update recovers when another request creates the row first")
-    void updateSettingsEntity_recoversAfterDuplicateInsert() {
+    @DisplayName("Settings update creates a missing row while holding the user lock")
+    void updateSettingsEntity_createsMissingRowWithUserWriteLock() {
         User user = User.builder().build();
         ReflectionTestUtils.setField(user, "userId", 1L);
         UserSettings settings = new UserSettings(user);
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(userSettingsRepository.findById(1L))
-                .thenReturn(Optional.empty())
-                .thenReturn(Optional.of(settings));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(userSettingsRepository.findById(1L)).thenReturn(Optional.empty());
         when(userSettingsRepository.saveAndFlush(any(UserSettings.class)))
-                .thenThrow(new DataIntegrityViolationException("duplicate user_settings"));
-        when(userSettingsRepository.save(settings)).thenReturn(settings);
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(userSettingsRepository.save(any(UserSettings.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
         UserSettings result = userSettingsService.updateSettingsEntity(1L, "DARK", "en", "UTC", false);
 
@@ -211,7 +199,7 @@ class UserSettingsServiceTest {
         assertThat(result.getLanguage()).isEqualTo("en");
         assertThat(result.getTimezone()).isEqualTo("UTC");
         assertThat(result.getHideNsfw()).isFalse();
-        verify(entityManager).clear();
+        verify(userRepository).findByIdForUpdate(1L);
     }
 
     @Test
@@ -274,7 +262,7 @@ class UserSettingsServiceTest {
     @Test
     @DisplayName("Settings update fails when user does not exist")
     void updateSettings_userNotFound() {
-        when(userRepository.findById(1L)).thenReturn(Optional.empty());
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> userSettingsService.updateSettings(1L, "LIGHT", "ko", "Asia/Seoul", true))
                 .isInstanceOf(BusinessException.class)
@@ -286,7 +274,7 @@ class UserSettingsServiceTest {
     @DisplayName("Settings update fails when user is sanctioned")
     void updateSettings_bannedUser() {
         User user = User.builder().build();
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotBanned(user);
 
         assertThatThrownBy(() -> userSettingsService.updateSettings(1L, "LIGHT", "ko", "Asia/Seoul", true))
@@ -364,36 +352,20 @@ class UserSettingsServiceTest {
     }
 
     @Test
-    @DisplayName("Bulk notification settings update reloads and reapplies when concurrent insert wins")
-    void updateNotificationSettings_duplicateInsert_reloadsAndReapplies() {
+    @DisplayName("Bulk notification settings update propagates unexpected duplicate after user serialization")
+    void updateNotificationSettings_duplicateInsert_propagates() {
         User user = User.builder().build();
         ReflectionTestUtils.setField(user, "userId", 1L);
-        UserNotificationSettings reloadedCommentSetting =
-                new UserNotificationSettings(1L, NotificationType.COMMENT, true);
-
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(userNotificationSettingsRepository.findByUserIdOrderByModifiedAtDescCreatedAtDesc(1L))
-                .thenReturn(List.of())
-                .thenReturn(List.of(reloadedCommentSetting));
+                .thenReturn(List.of());
         when(userNotificationSettingsRepository.saveAllAndFlush(
                 org.mockito.ArgumentMatchers.<Iterable<UserNotificationSettings>>any()))
-                .thenThrow(new DataIntegrityViolationException("duplicate notification setting"))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                .thenThrow(new DataIntegrityViolationException("duplicate notification setting"));
 
-        List<NotificationSettingResponse> responses = userSettingsService.updateNotificationSettings(1L, List.of(
-                new UpdateNotificationSettingItem("comment", false)));
-
-        assertThat(responses)
-                .filteredOn(response -> NotificationType.COMMENT.name().equals(response.getNotificationType()))
-                .singleElement()
-                .extracting(NotificationSettingResponse::isEnabled)
-                .isEqualTo(false);
-        assertThat(reloadedCommentSetting.getIsEnabled()).isFalse();
-        verify(entityManager).clear();
-        verify(userNotificationSettingsRepository, times(2)).saveAllAndFlush(argThat((Iterable<UserNotificationSettings> settings) ->
-                StreamSupport.stream(settings.spliterator(), false)
-                        .anyMatch(setting -> setting.getNotificationType() == NotificationType.COMMENT
-                                && !setting.getIsEnabled())));
+        assertThatThrownBy(() -> userSettingsService.updateNotificationSettings(1L, List.of(
+                new UpdateNotificationSettingItem("comment", false))))
+                .isInstanceOf(DataIntegrityViolationException.class);
     }
 
     @Test

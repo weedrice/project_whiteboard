@@ -8,7 +8,6 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
@@ -26,10 +25,6 @@ import java.time.LocalDate;
         uniqueConstraints = {
                 @UniqueConstraint(name = "uk_user_attendance_user_date",
                         columnNames = {"user_id", "attendance_date"})
-        },
-        indexes = {
-                @Index(name = "idx_user_attendance_user_date",
-                        columnList = "user_id, attendance_date")
         })
 public class UserAttendance extends BaseTimeEntity {
 

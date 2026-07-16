@@ -11,10 +11,8 @@ import com.weedrice.whiteboard.domain.user.repository.UserNotificationSettingsRe
 import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
-import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -40,8 +38,6 @@ public class UserSettingsService {
 
         private final UserSettingsRepository userSettingsRepository;
         private final UserNotificationSettingsRepository userNotificationSettingsRepository;
-        private final EntityManager entityManager;
-        private final UserReadableResolver userReadableResolver;
         private final UserWritableResolver userWritableResolver;
 
         public UserSettingsResponse getSettings(Long userId) {
@@ -87,7 +83,7 @@ public class UserSettingsService {
 
         @Transactional
         public UserSettings getOrCreateSettingsEntity(Long userId) {
-                return getOrCreateSettingsEntity(userReadableResolver.resolve(userId));
+                return getOrCreateSettingsEntity(userWritableResolver.resolveForUpdate(userId));
         }
 
         private UserSettings getOrCreateSettingsEntity(User user) {
@@ -129,7 +125,7 @@ public class UserSettingsService {
                                 settingsByType);
 
                 if (!settingsToSave.isEmpty()) {
-                        saveNotificationSettingsWithRetry(userId, normalizedRequests, settingsByType, settingsToSave);
+                        userNotificationSettingsRepository.saveAllAndFlush(settingsToSave);
                 }
 
                 return buildNotificationSettingResponses(settingsByType);
@@ -161,30 +157,8 @@ public class UserSettingsService {
                 return settingsToSave;
         }
 
-        private void saveNotificationSettingsWithRetry(Long userId,
-                        List<NormalizedNotificationSettingRequest> normalizedRequests,
-                        Map<NotificationType, UserNotificationSettings> settingsByType,
-                        List<UserNotificationSettings> settingsToSave) {
-                try {
-                        userNotificationSettingsRepository.saveAllAndFlush(settingsToSave);
-                } catch (DataIntegrityViolationException ex) {
-                        entityManager.clear();
-                        Map<NotificationType, UserNotificationSettings> reloadedSettingsByType =
-                                        loadNotificationSettingsByType(userId);
-                        List<UserNotificationSettings> retrySettingsToSave = applyNotificationSettingRequests(
-                                        userId,
-                                        normalizedRequests,
-                                        reloadedSettingsByType);
-                        if (!retrySettingsToSave.isEmpty()) {
-                                userNotificationSettingsRepository.saveAllAndFlush(retrySettingsToSave);
-                        }
-                        settingsByType.clear();
-                        settingsByType.putAll(reloadedSettingsByType);
-                }
-        }
-
         private User validateUserCanWrite(Long userId) {
-                return userWritableResolver.resolve(userId);
+                return userWritableResolver.resolveForUpdate(userId);
         }
 
         private UserSettingsResponse toReadResponse(UserSettingsRepository.SettingsReadProjection settings) {
@@ -347,13 +321,7 @@ public class UserSettingsService {
                 UserSettings settings = UserSettings.builder()
                                 .user(user)
                                 .build();
-                try {
-                        return userSettingsRepository.saveAndFlush(settings);
-                } catch (DataIntegrityViolationException ex) {
-                        entityManager.clear();
-                        return userSettingsRepository.findById(user.getUserId())
-                                        .orElseThrow(() -> ex);
-                }
+                return userSettingsRepository.saveAndFlush(settings);
         }
 
         private record NormalizedNotificationSettingRequest(NotificationType notificationType, boolean enabled) {

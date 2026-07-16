@@ -11,7 +11,6 @@ import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,7 +33,7 @@ public class AttendanceService {
 
     @Transactional
     public AttendanceCheckInResponse checkIn(Long userId) {
-        User user = userWritableResolver.resolve(userId);
+        User user = userWritableResolver.resolveForUpdate(userId);
         sanctionService.validateNotBanned(user);
         LocalDate today = LocalDate.now(clock);
 
@@ -46,14 +45,8 @@ public class AttendanceService {
         }
 
         int streakCount = calculateStreakCount(userId, today);
-        UserAttendance attendance = new UserAttendance(user, today, streakCount);
-        try {
-            attendance = attendanceRepository.saveAndFlush(attendance);
-        } catch (DataIntegrityViolationException ex) {
-            return attendanceRepository.findByUser_UserIdAndAttendanceDate(userId, today)
-                    .map(found -> response(found, true, 0))
-                    .orElseThrow(() -> ex);
-        }
+        UserAttendance attendance = attendanceRepository.saveAndFlush(
+                new UserAttendance(user, today, streakCount));
 
         int earnedPoints = rewardAttendance(userId, attendance.getAttendanceId(), streakCount);
         badgeEvaluationService.evaluateAttendanceStreakBadges(userId, streakCount);

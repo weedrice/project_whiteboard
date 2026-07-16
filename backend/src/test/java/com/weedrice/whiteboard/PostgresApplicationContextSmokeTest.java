@@ -2,6 +2,8 @@ package com.weedrice.whiteboard;
 
 import com.weedrice.whiteboard.domain.auth.service.OAuthSignupTicketService;
 import com.weedrice.whiteboard.domain.auth.service.TokenHashService;
+import com.weedrice.whiteboard.domain.auth.service.VerificationCodeService;
+import com.weedrice.whiteboard.domain.auth.entity.VerificationPurpose;
 import com.weedrice.whiteboard.domain.post.repository.PopularPostAggregationLockRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import org.flywaydb.core.Flyway;
@@ -50,6 +52,9 @@ class PostgresApplicationContextSmokeTest {
     private TokenHashService tokenHashService;
 
     @Autowired
+    private VerificationCodeService verificationCodeService;
+
+    @Autowired
     private JdbcTemplate jdbcTemplate;
 
     @Autowired
@@ -60,6 +65,103 @@ class PostgresApplicationContextSmokeTest {
 
     @Test
     void contextLoadsWithPostgresMigrations() {
+    }
+
+    @Test
+    void verificationAttemptLimitAndRedundantIndexCleanupAreApplied() {
+        Integer failedAttemptColumns = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*)
+                FROM information_schema.columns
+                WHERE table_schema = current_schema()
+                  AND table_name = 'verification_codes'
+                  AND column_name = 'failed_attempts'
+                  AND is_nullable = 'NO'
+                  AND column_default LIKE '0%'
+                """, Integer.class);
+        Integer attemptConstraints = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*)
+                FROM pg_constraint
+                WHERE connamespace = current_schema()::regnamespace
+                  AND conname = 'chk_verification_codes_failed_attempts'
+                """, Integer.class);
+        Integer redundantIndexes = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*)
+                FROM pg_indexes
+                WHERE schemaname = current_schema()
+                  AND indexname IN (
+                    'idx_agent_daily_quotas_lookup',
+                    'idx_refresh_tokens_hash',
+                    'idx_agent_note_threads_low',
+                    'idx_user_keyword_subscriptions_user',
+                    'idx_comment_mentions_comment',
+                    'idx_poll_options_poll',
+                    'idx_poll_votes_poll',
+                    'idx_user_attendance_user_date'
+                  )
+                """, Integer.class);
+        Integer uniqueConstraints = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*)
+                FROM pg_constraint
+                WHERE connamespace = current_schema()::regnamespace
+                  AND conname IN (
+                    'uk_agent_daily_quotas_agent_date_action',
+                    'refresh_tokens_token_hash_key',
+                    'uk_agent_note_threads_pair',
+                    'uk_user_keyword_subscriptions_user_keyword',
+                    'uk_comment_mentions_comment_user',
+                    'uk_poll_options_poll_sort',
+                    'uk_poll_votes_user_option',
+                    'uk_user_attendance_user_date'
+                  )
+                """, Integer.class);
+
+        assertEquals(1, failedAttemptColumns);
+        assertEquals(1, attemptConstraints);
+        assertEquals(0, redundantIndexes);
+        assertEquals(8, uniqueConstraints);
+    }
+
+    @Test
+    void concurrentWrongVerificationCodesCommitAndExhaustTheCode() throws Exception {
+        String email = "postgres-verification-attempts-" + UUID.randomUUID() + "@example.com";
+        String rawCode = "123456";
+        jdbcTemplate.update("""
+                INSERT INTO verification_codes
+                    (created_at, modified_at, code, delivery_status, email, expiry_date,
+                     is_ticket_consumed, is_verified, purpose, failed_attempts)
+                VALUES
+                    (NOW(), NOW(), ?, 'SENT', ?, NOW() + INTERVAL '10 minutes',
+                     'N', 'N', 'SIGNUP', 0)
+                """, tokenHashService.hashSha256(rawCode), email);
+
+        ExecutorService executor = Executors.newFixedThreadPool(5);
+        CountDownLatch start = new CountDownLatch(1);
+        try {
+            List<Future<Boolean>> attempts = java.util.stream.IntStream.range(0, 5)
+                    .mapToObj(ignored -> executor.submit(() -> {
+                        start.await(5, TimeUnit.SECONDS);
+                        try {
+                            verificationCodeService.verifyCode(email, "000000", VerificationPurpose.SIGNUP);
+                            return false;
+                        } catch (BusinessException expected) {
+                            return true;
+                        }
+                    }))
+                    .toList();
+            start.countDown();
+            for (Future<Boolean> attempt : attempts) {
+                assertTrue(attempt.get(10, TimeUnit.SECONDS));
+            }
+        } finally {
+            executor.shutdownNow();
+        }
+
+        assertEquals(5, jdbcTemplate.queryForObject(
+                "SELECT failed_attempts FROM verification_codes WHERE email = ?",
+                Integer.class,
+                email));
+        assertThrows(BusinessException.class, () ->
+                verificationCodeService.verifyCode(email, rawCode, VerificationPurpose.SIGNUP));
     }
 
     @Test

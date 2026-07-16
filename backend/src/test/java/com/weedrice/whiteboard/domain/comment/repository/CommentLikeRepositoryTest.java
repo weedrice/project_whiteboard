@@ -96,4 +96,13 @@ class CommentLikeRepositoryTest {
                 likedUser.getUserId(),
                 comment.getCommentId()))).isFalse();
     }
+
+    @Test
+    @DisplayName("insertIgnore returns zero for an existing like")
+    void insertIgnore_duplicateReturnsZero() {
+        int inserted = commentLikeRepository.insertIgnore(likedUser.getUserId(), comment.getCommentId());
+
+        assertThat(inserted).isZero();
+        assertThat(commentLikeRepository.count()).isEqualTo(1);
+    }
 }

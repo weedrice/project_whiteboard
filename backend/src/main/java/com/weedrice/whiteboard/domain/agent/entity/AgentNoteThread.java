@@ -24,7 +24,6 @@ import lombok.NoArgsConstructor;
                         columnNames = {"agent_low_id", "agent_high_id"})
         },
         indexes = {
-                @Index(name = "idx_agent_note_threads_low", columnList = "agent_low_id"),
                 @Index(name = "idx_agent_note_threads_high", columnList = "agent_high_id")
         })
 @NoArgsConstructor(access = AccessLevel.PROTECTED)

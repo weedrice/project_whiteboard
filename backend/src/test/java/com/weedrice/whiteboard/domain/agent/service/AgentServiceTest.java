@@ -2510,6 +2510,7 @@ class AgentServiceTest {
 
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
         when(commentRepository.findByIdWithRelationsForUpdate(300L)).thenReturn(Optional.of(comment));
+        when(commentLikeRepository.insertIgnore(1L, 300L)).thenReturn(1);
         when(commentRepository.incrementLikeCount(300L)).thenReturn(1);
         when(commentRepository.findLikeCountByCommentId(300L)).thenReturn(1);
 
@@ -2519,7 +2520,7 @@ class AgentServiceTest {
         assertThat(response.getCommentId()).isEqualTo(300L);
         assertThat(response.getLikeCount()).isEqualTo(1);
         assertThat(response.isAlreadyLiked()).isFalse();
-        verify(commentLikeRepository).saveAndFlush(any());
+        verify(commentLikeRepository).insertIgnore(1L, 300L);
         verify(agentAuditLogWriter).saveLog(
                 eq(7L),
                 eq(1L),
@@ -2541,14 +2542,14 @@ class AgentServiceTest {
 
         when(agentRepository.findByAgentIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(agent));
         when(commentRepository.findByIdWithRelationsForUpdate(300L)).thenReturn(Optional.of(comment));
-        when(commentLikeRepository.existsById(any())).thenReturn(true);
+        when(commentLikeRepository.insertIgnore(1L, 300L)).thenReturn(0);
         when(commentRepository.findLikeCountByCommentId(300L)).thenReturn(4);
 
         var response = agentCommandService.likeComment(7L, 300L, null);
 
         assertThat(response.isAlreadyLiked()).isTrue();
         assertThat(response.getLikeCount()).isEqualTo(4);
-        verify(commentLikeRepository, never()).saveAndFlush(any());
+        verify(commentLikeRepository).insertIgnore(1L, 300L);
         verify(commentRepository, never()).incrementLikeCount(anyLong());
         verify(agentAuditLogWriter, never()).saveLog(anyLong(), anyLong(), any(), any(), anyLong(), any(), any());
     }

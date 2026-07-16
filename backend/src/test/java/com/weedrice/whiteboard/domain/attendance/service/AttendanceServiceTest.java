@@ -13,7 +13,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.dao.DataIntegrityViolationException;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -53,7 +52,7 @@ class AttendanceServiceTest {
     void duplicateCheckInReturnsExistingWithoutReward() {
         User user = mock(User.class);
         UserAttendance existing = new UserAttendance(user, TODAY, 3);
-        when(users.resolve(1L)).thenReturn(user);
+        when(users.resolveForUpdate(1L)).thenReturn(user);
         when(attendances.findByUser_UserIdAndAttendanceDate(1L, TODAY)).thenReturn(Optional.of(existing));
 
         var response = service.checkIn(1L);
@@ -67,7 +66,7 @@ class AttendanceServiceTest {
     void seventhConsecutiveCheckInAwardsBaseBonusAndBadge() {
         User user = mock(User.class);
         UserAttendance previous = new UserAttendance(user, TODAY.minusDays(1), 6);
-        when(users.resolve(2L)).thenReturn(user);
+        when(users.resolveForUpdate(2L)).thenReturn(user);
         when(attendances.findByUser_UserIdAndAttendanceDate(2L, TODAY)).thenReturn(Optional.empty());
         when(attendances.findTopByUser_UserIdAndAttendanceDateBeforeOrderByAttendanceDateDesc(2L, TODAY))
                 .thenReturn(Optional.of(previous));
@@ -84,18 +83,16 @@ class AttendanceServiceTest {
     }
 
     @Test
-    void concurrentInsertReturnsWinnerRecord() {
+    void checkInUsesUserWriteLockBeforeInsert() {
         User user = mock(User.class);
-        UserAttendance winner = new UserAttendance(user, TODAY, 1);
-        when(users.resolve(3L)).thenReturn(user);
-        when(attendances.findByUser_UserIdAndAttendanceDate(3L, TODAY))
-                .thenReturn(Optional.empty())
-                .thenReturn(Optional.of(winner));
+        when(users.resolveForUpdate(3L)).thenReturn(user);
+        when(attendances.findByUser_UserIdAndAttendanceDate(3L, TODAY)).thenReturn(Optional.empty());
         when(attendances.findTopByUser_UserIdAndAttendanceDateBeforeOrderByAttendanceDateDesc(3L, TODAY))
                 .thenReturn(Optional.empty());
-        when(attendances.saveAndFlush(any())).thenThrow(new DataIntegrityViolationException("race"));
+        when(attendances.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        assertTrue(service.checkIn(3L).isAlreadyCheckedIn());
+        assertFalse(service.checkIn(3L).isAlreadyCheckedIn());
+        verify(users).resolveForUpdate(3L);
     }
 
     @Test

@@ -1,15 +1,12 @@
 package com.weedrice.whiteboard.domain.comment.service;
 
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
-import com.weedrice.whiteboard.domain.comment.entity.CommentLike;
-import com.weedrice.whiteboard.domain.comment.entity.CommentLikeId;
 import com.weedrice.whiteboard.domain.comment.repository.CommentLikeRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -20,25 +17,13 @@ public class CommentLikeCommand {
     private final CommentLikeRepository commentLikeRepository;
 
     public CommentLikeResult like(User user, Comment comment, DuplicatePolicy duplicatePolicy) {
-        boolean alreadyLiked = false;
         Long commentId = comment.getCommentId();
-
-        if (duplicatePolicy == DuplicatePolicy.RETURN_ALREADY_LIKED
-                && commentLikeRepository.existsById(new CommentLikeId(user.getUserId(), commentId))) {
-            alreadyLiked = true;
-        } else {
-            try {
-                commentLikeRepository.saveAndFlush(CommentLike.builder()
-                        .user(user)
-                        .comment(comment)
-                        .build());
-                incrementCommentLikeCount(commentId);
-            } catch (DataIntegrityViolationException ex) {
-                if (duplicatePolicy == DuplicatePolicy.THROW_ALREADY_LIKED) {
-                    throw new BusinessException(ErrorCode.ALREADY_LIKED);
-                }
-                alreadyLiked = true;
-            }
+        boolean alreadyLiked = commentLikeRepository.insertIgnore(user.getUserId(), commentId) == 0;
+        if (alreadyLiked && duplicatePolicy == DuplicatePolicy.THROW_ALREADY_LIKED) {
+            throw new BusinessException(ErrorCode.ALREADY_LIKED);
+        }
+        if (!alreadyLiked) {
+            incrementCommentLikeCount(commentId);
         }
 
         return new CommentLikeResult(resolveCommentLikeCount(commentId), alreadyLiked);

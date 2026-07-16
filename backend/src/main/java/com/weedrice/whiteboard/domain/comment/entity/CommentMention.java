@@ -14,7 +14,6 @@ import lombok.NoArgsConstructor;
 @Table(name = "comment_mentions",
         uniqueConstraints = @UniqueConstraint(name = "uk_comment_mentions_comment_user", columnNames = {"comment_id", "user_id"}),
         indexes = {
-                @Index(name = "idx_comment_mentions_comment", columnList = "comment_id"),
                 @Index(name = "idx_comment_mentions_user", columnList = "user_id")
         })
 public class CommentMention extends BaseTimeEntity {

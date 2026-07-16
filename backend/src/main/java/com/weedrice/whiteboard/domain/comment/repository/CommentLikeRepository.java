@@ -7,7 +7,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-public interface CommentLikeRepository extends JpaRepository<CommentLike, CommentLikeId> {
+public interface CommentLikeRepository extends JpaRepository<CommentLike, CommentLikeId>, CommentLikeRepositoryCustom {
     @Modifying(flushAutomatically = true)
     @Query("DELETE FROM CommentLike cl WHERE cl.user.userId = :userId AND cl.comment.commentId = :commentId")
     int deleteByUserIdAndCommentId(@Param("userId") Long userId, @Param("commentId") Long commentId);

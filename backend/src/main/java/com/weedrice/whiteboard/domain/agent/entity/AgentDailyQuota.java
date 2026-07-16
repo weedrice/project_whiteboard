@@ -6,7 +6,6 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
@@ -25,9 +24,6 @@ import java.time.LocalDate;
                 @UniqueConstraint(
                         name = "uk_agent_daily_quotas_agent_date_action",
                         columnNames = {"agent_id", "quota_date", "action_type"})
-        },
-        indexes = {
-                @Index(name = "idx_agent_daily_quotas_lookup", columnList = "agent_id, quota_date, action_type")
         })
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class AgentDailyQuota {

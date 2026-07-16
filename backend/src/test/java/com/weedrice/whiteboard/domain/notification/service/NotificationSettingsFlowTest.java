@@ -13,10 +13,8 @@ import com.weedrice.whiteboard.domain.user.entity.UserNotificationSettingsId;
 import com.weedrice.whiteboard.domain.user.repository.UserNotificationSettingsRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
-import com.weedrice.whiteboard.domain.user.service.UserReadableResolver;
 import com.weedrice.whiteboard.domain.user.service.UserSettingsService;
 import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
-import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -60,9 +58,6 @@ class NotificationSettingsFlowTest {
     private SanctionService sanctionService;
 
     @Mock
-    private EntityManager entityManager;
-
-    @Mock
     private PushNotificationDispatcher pushNotificationDispatcher;
 
     private UserSettingsService userSettingsService;
@@ -78,8 +73,6 @@ class NotificationSettingsFlowTest {
         userSettingsService = new UserSettingsService(
                 userSettingsRepository,
                 userNotificationSettingsRepository,
-                entityManager,
-                new UserReadableResolver(userRepository),
                 new UserWritableResolver(userRepository, sanctionService));
         NotificationPreferenceService preferenceService = new NotificationPreferenceService(userNotificationSettingsRepository);
         NotificationStreamPublisher streamPublisher = (userId, summary) -> {

@@ -11,7 +11,6 @@ import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.board.service.BoardCategoryWritePolicy;
 import com.weedrice.whiteboard.domain.comment.dto.CommentResponse;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
-import com.weedrice.whiteboard.domain.comment.entity.CommentLike;
 import com.weedrice.whiteboard.domain.comment.repository.CommentClosureRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentLikeRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentMentionRepository;
@@ -49,7 +48,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.support.StaticMessageSource;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -1365,14 +1363,13 @@ class CommentServiceTest {
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(commentRepository.findById(10L)).thenReturn(Optional.of(comment));
-        when(commentLikeRepository.saveAndFlush(any()))
-                .thenReturn(CommentLike.builder().user(user).comment(comment).build());
+        when(commentLikeRepository.insertIgnore(1L, 10L)).thenReturn(1);
         when(commentRepository.incrementLikeCount(10L)).thenReturn(1);
         when(commentRepository.findLikeCountByCommentId(10L)).thenReturn(1);
 
         commentService.likeComment(1L, 10L);
 
-        verify(commentLikeRepository).saveAndFlush(any());
+        verify(commentLikeRepository).insertIgnore(1L, 10L);
         verify(commentRepository).incrementLikeCount(10L);
     }
 
@@ -1405,8 +1402,7 @@ class CommentServiceTest {
 
         when(userRepository.findById(2L)).thenReturn(Optional.of(actor));
         when(commentRepository.findById(10L)).thenReturn(Optional.of(comment));
-        when(commentLikeRepository.saveAndFlush(any(CommentLike.class)))
-                .thenReturn(CommentLike.builder().user(actor).comment(comment).build());
+        when(commentLikeRepository.insertIgnore(2L, 10L)).thenReturn(1);
         when(commentRepository.incrementLikeCount(10L)).thenReturn(1);
         when(commentRepository.findLikeCountByCommentId(10L)).thenReturn(1);
 
@@ -1476,8 +1472,7 @@ class CommentServiceTest {
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(commentRepository.findById(10L)).thenReturn(Optional.of(comment));
-        when(commentLikeRepository.saveAndFlush(any()))
-                .thenThrow(new DataIntegrityViolationException("duplicate"));
+        when(commentLikeRepository.insertIgnore(1L, 10L)).thenReturn(0);
 
         assertThatThrownBy(() -> commentService.likeComment(1L, 10L))
                 .isInstanceOf(BusinessException.class)
@@ -1500,6 +1495,7 @@ class CommentServiceTest {
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(commentRepository.findById(10L)).thenReturn(Optional.of(comment));
+        when(commentLikeRepository.insertIgnore(1L, 10L)).thenReturn(1);
         when(commentRepository.incrementLikeCount(10L)).thenReturn(0);
 
         assertThatThrownBy(() -> commentService.likeComment(1L, 10L))
