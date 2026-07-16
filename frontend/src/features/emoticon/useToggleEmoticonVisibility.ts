@@ -4,11 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { emoticonApi } from '@/api/emoticon'
 import { useToastStore } from '@/stores/toast'
 import { extractErrorMessage } from '@/utils/errorHandler'
-import {
-  emoticonDetailQueryKey,
-  emoticonListQueryKey,
-  emoticonPurchaseStatusQueryKey,
-} from '@/features/emoticon/form/useEmoticonEditResource'
+import { emoticonQueryKeys } from '@/features/emoticon/emoticonQueryKeys'
 
 interface UseToggleEmoticonVisibilityOptions {
   invalidatePurchaseStatus?: boolean
@@ -23,18 +19,22 @@ export function useToggleEmoticonVisibility(
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: () => emoticonApi.toggleVisibilityData(emoticonId.value),
-    onSuccess: (updatedEmoticon) => {
+    mutationFn: async () => {
+      const targetEmoticonId = emoticonId.value
+      const updatedEmoticon = await emoticonApi.toggleVisibilityData(targetEmoticonId)
+      return { targetEmoticonId, updatedEmoticon }
+    },
+    onSuccess: ({ targetEmoticonId, updatedEmoticon }) => {
       const isNowActive = updatedEmoticon.isActive
       toastStore.addToast(
         isNowActive ? t('emoticon.visibility.showSuccess') : t('emoticon.visibility.hiddenSuccess'),
         'success'
       )
-      queryClient.invalidateQueries({ queryKey: emoticonDetailQueryKey(emoticonId) })
+      queryClient.invalidateQueries({ queryKey: emoticonQueryKeys.detail(targetEmoticonId) })
       if (options.invalidatePurchaseStatus) {
-        queryClient.invalidateQueries({ queryKey: emoticonPurchaseStatusQueryKey(emoticonId) })
+        queryClient.invalidateQueries({ queryKey: emoticonQueryKeys.purchaseStatus(targetEmoticonId) })
       }
-      queryClient.invalidateQueries({ queryKey: emoticonListQueryKey })
+      queryClient.invalidateQueries({ queryKey: emoticonQueryKeys.listRoot })
     },
     onError: (err: unknown) => {
       const message = extractErrorMessage(err) || t('emoticon.edit.failed')

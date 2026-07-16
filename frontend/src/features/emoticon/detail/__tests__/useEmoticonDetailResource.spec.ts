@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { computed, ref, type ComputedRef } from 'vue'
 import { useEmoticonDetailResource } from '../useEmoticonDetailResource'
 import { emoticonApiData, emoticonApiSuccess } from '@/test/emoticonApiFixtures'
+import { createDeferred } from '@/test/async'
 
 const mocks = vi.hoisted(() => ({
   apiQueryOptions: [] as Array<Record<string, unknown>>,
@@ -21,7 +22,7 @@ vi.mock('@tanstack/vue-query', () => ({
   useMutation: (options: Record<string, unknown>) => ({
     mutate: async () => {
       const result = await (options.mutationFn as () => Promise<unknown>)()
-      await (options.onSuccess as (() => void) | undefined)?.()
+      await (options.onSuccess as ((result: unknown) => void) | undefined)?.(result)
       return result
     },
     isPending: ref(false),
@@ -83,7 +84,8 @@ describe('useEmoticonDetailResource', () => {
     const detailOptions = mocks.apiQueryOptions[0]
     const purchaseOptions = mocks.apiQueryOptions[1]
 
-    expect(detailOptions.queryKey).toEqual(['emoticon', emoticonId])
+    expect((detailOptions.queryKey as ComputedRef<unknown[]>).value).toEqual(['emoticon', 11])
+    expect((purchaseOptions.queryKey as ComputedRef<unknown[]>).value).toEqual(['emoticon', 11, 'purchased'])
     expect((detailOptions.enabled as ComputedRef<boolean>).value).toBe(true)
     expect((purchaseOptions.enabled as ComputedRef<boolean>).value).toBe(true)
 
@@ -116,11 +118,29 @@ describe('useEmoticonDetailResource', () => {
 
     expect(mocks.purchaseEmoticon).toHaveBeenCalledWith(12)
     expect(mocks.addToast).toHaveBeenCalledWith('emoticon.purchase.success', 'success')
-    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['emoticon', emoticonId] })
-    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['emoticon', emoticonId, 'purchased'] })
+    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['emoticon', 12] })
+    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['emoticon', 12, 'purchased'] })
     expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['emoticons', 'accessible', 'picker'] })
     expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['emoticons'] })
     expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['user', 'points'] })
     expect(mocks.invalidateQueries).toHaveBeenCalledTimes(5)
+  })
+
+  it('invalidates the purchased emoticon when the route changes before success', async () => {
+    const currentId = ref(12)
+    const emoticonId = computed(() => currentId.value)
+    const purchaseResponse = emoticonApiSuccess()
+    const purchase = createDeferred<typeof purchaseResponse>()
+    mocks.purchaseEmoticon.mockReturnValueOnce(purchase.promise)
+
+    const resource = useEmoticonDetailResource(emoticonId)
+    const pendingPurchase = resource.purchase()
+    currentId.value = 13
+    purchase.resolve(purchaseResponse)
+    await pendingPurchase
+
+    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['emoticon', 12] })
+    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['emoticon', 12, 'purchased'] })
+    expect(mocks.invalidateQueries).not.toHaveBeenCalledWith({ queryKey: ['emoticon', 13] })
   })
 })

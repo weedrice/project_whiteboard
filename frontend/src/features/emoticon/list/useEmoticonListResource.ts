@@ -1,7 +1,7 @@
 import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { emoticonApi } from '@/api/emoticon'
-import { popularEmoticonsQueryKey, searchableEmoticonsQueryKey } from '@/features/emoticon/form/useEmoticonEditResource'
+import { emoticonQueryKeys } from '@/features/emoticon/emoticonQueryKeys'
 import { useApiPageQuery, useApiQuery } from '@/composables/useApiQuery'
 import { usePageResponseState, usePaginatedQueryState } from '@/composables/usePaginatedQueryState'
 import type { EmoticonMaster, EmoticonSearchParams } from '@/types/emoticon'
@@ -29,7 +29,7 @@ export function useEmoticonListResource() {
     isError: popularError,
     refetch: refetchPopularEmoticons,
   } = useApiQuery({
-    queryKey: computed(() => popularEmoticonsQueryKey(popularPeriod.value)),
+    queryKey: computed(() => emoticonQueryKeys.popular(popularPeriod.value)),
     request: (context) => {
       const requestConfig = optionalQuerySignal(undefined, context)
       return requestConfig
@@ -44,7 +44,7 @@ export function useEmoticonListResource() {
     isError: emoticonsError,
     refetch: refetchEmoticons,
   } = useApiPageQuery<EmoticonMaster>({
-    queryKey: computed(() => searchableEmoticonsQueryKey(
+    queryKey: computed(() => emoticonQueryKeys.searchable(
       currentPage.value,
       sortBy.value,
       searchKeyword.value,

@@ -10,7 +10,7 @@ import {
     canUserWriteBoardPost,
     fetchBoardForWriteAccess,
 } from '@/features/board/access/useBoardWriteAccess'
-import { emoticonDetailQueryKey } from '@/features/emoticon/form/useEmoticonEditResource'
+import { emoticonQueryKeys } from '@/features/emoticon/emoticonQueryKeys'
 import { postDetailQueryKey } from '@/features/board/posts/queries/postQueryKeys'
 import { QUERY_STALE_TIME } from '@/utils/constants'
 import logger from '@/utils/logger'
@@ -82,7 +82,7 @@ export async function guardEmoticonOwner(to: RouteLocationNormalized): Promise<R
 
     try {
         const emoticon = await queryClient.fetchQuery({
-            queryKey: emoticonDetailQueryKey(emoticonIdParam),
+            queryKey: emoticonQueryKeys.detail(emoticonIdParam),
             queryFn: () => emoticonApi.getEmoticonData(emoticonIdParam),
             retry: false,
             staleTime: QUERY_STALE_TIME.SHORT,

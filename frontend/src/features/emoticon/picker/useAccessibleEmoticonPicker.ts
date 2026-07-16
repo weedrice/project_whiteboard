@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/vue-query'
 import { emoticonApi } from '@/api/emoticon'
-import { accessibleEmoticonPickerQueryKey } from '@/features/emoticon/form/useEmoticonEditResource'
+import { emoticonQueryKeys } from '@/features/emoticon/emoticonQueryKeys'
 import type { EmoticonMaster } from '@/types/emoticon'
 
 export function mergeUniqueEmoticons(...groups: EmoticonMaster[][]) {
@@ -16,7 +16,7 @@ export function mergeUniqueEmoticons(...groups: EmoticonMaster[][]) {
 
 export function useAccessibleEmoticonPicker(isEnabled: () => boolean) {
   return useQuery({
-    queryKey: accessibleEmoticonPickerQueryKey,
+    queryKey: emoticonQueryKeys.accessiblePicker,
     queryFn: async (context?: { signal?: AbortSignal }) => {
       const requestConfig = context?.signal ? { signal: context.signal } : undefined
       const [purchasedPage, myPage] = await Promise.all([

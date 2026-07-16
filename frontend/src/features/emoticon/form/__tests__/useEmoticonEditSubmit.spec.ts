@@ -140,7 +140,7 @@ describe('useEmoticonEditSubmit', () => {
     }, {
       skipGlobalErrorHandler: true,
     })
-    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['emoticon', expect.any(Object)] })
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['emoticon', 7] })
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['emoticons'] })
     expect(onSuccess).toHaveBeenCalledTimes(1)
     expect(onError).not.toHaveBeenCalled()

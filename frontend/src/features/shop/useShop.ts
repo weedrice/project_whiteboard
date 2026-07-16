@@ -2,36 +2,22 @@ import { computed, type Ref } from 'vue'
 import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import { shopApi, type ShopItemPageParams, type ShopPageParams } from '@/api/shop'
 import { useApiPageQuery } from '@/composables/useApiQuery'
+import { shopQueryKeys } from '@/features/shop/shopQueryKeys'
 import { userQueryKeys } from '@/composables/userQueryKeys'
 import { withQuerySignal } from '@/utils/querySignal'
 
-export const shopQueryKeys = {
-  root: ['shop'] as const,
-  itemsRoot: ['shop', 'items'] as const,
-  items: (params: Ref<ShopItemPageParams>) => computed(() => [
-    ...shopQueryKeys.itemsRoot,
-    params.value.page ?? 0,
-    params.value.size ?? 20,
-    params.value.itemType ?? '',
-  ] as const),
-  purchasesRoot: ['shop', 'purchases'] as const,
-  purchases: (params: Ref<ShopPageParams>) => computed(() => [
-    ...shopQueryKeys.purchasesRoot,
-    params.value.page ?? 0,
-    params.value.size ?? 20,
-  ] as const),
-}
+export { shopQueryKeys } from '@/features/shop/shopQueryKeys'
 
 export function useShopItems(params: Ref<ShopItemPageParams>) {
   return useApiPageQuery({
-    queryKey: shopQueryKeys.items(params),
+    queryKey: computed(() => shopQueryKeys.items(params.value)),
     request: (context) => shopApi.getItems(params.value, withQuerySignal(undefined, context)),
   })
 }
 
 export function useMyPurchases(params: Ref<ShopPageParams>) {
   return useApiPageQuery({
-    queryKey: shopQueryKeys.purchases(params),
+    queryKey: computed(() => shopQueryKeys.purchases(params.value)),
     request: (context) => shopApi.getMyPurchases(params.value, withQuerySignal(undefined, context)),
   })
 }

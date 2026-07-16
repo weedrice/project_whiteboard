@@ -9,12 +9,7 @@ import { useToastStore } from '@/stores/toast'
 import { useToggleEmoticonVisibility } from '@/features/emoticon/useToggleEmoticonVisibility'
 import { useEmoticonPermissions } from '@/features/emoticon/detail/useEmoticonPermissions'
 import { useEmoticonDetailViewModel } from '@/features/emoticon/detail/useEmoticonDetailViewModel'
-import {
-  accessibleEmoticonPickerQueryKey,
-  emoticonDetailQueryKey,
-  emoticonListQueryKey,
-  emoticonPurchaseStatusQueryKey,
-} from '@/features/emoticon/form/useEmoticonEditResource'
+import { emoticonQueryKeys } from '@/features/emoticon/emoticonQueryKeys'
 import { userQueryKeys } from '@/composables/userQueryKeys'
 import { extractErrorMessage } from '@/utils/errorHandler'
 import { callWithOptionalQuerySignal } from '@/utils/querySignal'
@@ -28,7 +23,7 @@ export function useEmoticonDetailResource(emoticonId: ComputedRef<number>) {
   const toastStore = useToastStore()
 
   const { data: emoticon, isLoading, error } = useApiQuery({
-    queryKey: emoticonDetailQueryKey(emoticonId),
+    queryKey: computed(() => emoticonQueryKeys.detail(emoticonId.value)),
     request: (context) => callWithOptionalQuerySignal(
       context,
       () => emoticonApi.getEmoticon(emoticonId.value),
@@ -43,7 +38,7 @@ export function useEmoticonDetailResource(emoticonId: ComputedRef<number>) {
     isFetching: isPurchaseStatusFetching,
     error: purchaseStatusError,
   } = useApiQuery({
-    queryKey: emoticonPurchaseStatusQueryKey(emoticonId),
+    queryKey: computed(() => emoticonQueryKeys.purchaseStatus(emoticonId.value)),
     request: (context) => callWithOptionalQuerySignal(
       context,
       () => emoticonApi.checkPurchaseStatus(emoticonId.value),
@@ -55,13 +50,17 @@ export function useEmoticonDetailResource(emoticonId: ComputedRef<number>) {
   const emoticonView = useEmoticonDetailViewModel(emoticon)
 
   const { mutate: purchase, isPending: isPurchasing } = useMutation({
-    mutationFn: () => emoticonApi.purchaseEmoticon(emoticonId.value),
-    onSuccess: () => {
+    mutationFn: async () => {
+      const targetEmoticonId = emoticonId.value
+      await emoticonApi.purchaseEmoticon(targetEmoticonId)
+      return { targetEmoticonId }
+    },
+    onSuccess: ({ targetEmoticonId }) => {
       toastStore.addToast(t('emoticon.purchase.success'), 'success')
-      queryClient.invalidateQueries({ queryKey: emoticonDetailQueryKey(emoticonId) })
-      queryClient.invalidateQueries({ queryKey: emoticonPurchaseStatusQueryKey(emoticonId) })
-      queryClient.invalidateQueries({ queryKey: accessibleEmoticonPickerQueryKey })
-      queryClient.invalidateQueries({ queryKey: emoticonListQueryKey })
+      queryClient.invalidateQueries({ queryKey: emoticonQueryKeys.detail(targetEmoticonId) })
+      queryClient.invalidateQueries({ queryKey: emoticonQueryKeys.purchaseStatus(targetEmoticonId) })
+      queryClient.invalidateQueries({ queryKey: emoticonQueryKeys.accessiblePicker })
+      queryClient.invalidateQueries({ queryKey: emoticonQueryKeys.listRoot })
       queryClient.invalidateQueries({ queryKey: userQueryKeys.pointsRoot })
     },
     onError: (error: unknown) => {

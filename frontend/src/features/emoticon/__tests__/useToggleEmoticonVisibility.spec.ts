@@ -1,4 +1,4 @@
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useToggleEmoticonVisibility } from '../useToggleEmoticonVisibility'
 import { emoticonApi } from '@/api/emoticon'
@@ -77,13 +77,14 @@ describe('useToggleEmoticonVisibility', () => {
     useToggleEmoticonVisibility(emoticonId, { invalidatePurchaseStatus: true })
     const options = mocks.mutationOptions.at(-1)!
 
-    await expect((options.mutationFn as () => Promise<unknown>)()).resolves.toEqual(toggleResult)
-    ;(options.onSuccess as (value: { isActive: boolean }) => void)({ isActive: false })
+    const mutationResult = await (options.mutationFn as () => Promise<unknown>)()
+    expect(mutationResult).toEqual({ targetEmoticonId: 7, updatedEmoticon: toggleResult })
+    ;(options.onSuccess as (value: unknown) => void)(mutationResult)
 
     expect(emoticonApi.toggleVisibilityData).toHaveBeenCalledWith(7)
     expect(mocks.addToast).toHaveBeenCalledWith('emoticon.visibility.hiddenSuccess', 'success')
-    expect(mocks.invalidateQueries).toHaveBeenNthCalledWith(1, { queryKey: ['emoticon', emoticonId] })
-    expect(mocks.invalidateQueries).toHaveBeenNthCalledWith(2, { queryKey: ['emoticon', emoticonId, 'purchased'] })
+    expect(mocks.invalidateQueries).toHaveBeenNthCalledWith(1, { queryKey: ['emoticon', 7] })
+    expect(mocks.invalidateQueries).toHaveBeenNthCalledWith(2, { queryKey: ['emoticon', 7, 'purchased'] })
     expect(mocks.invalidateQueries).toHaveBeenNthCalledWith(3, { queryKey: ['emoticons'] })
   })
 
@@ -93,12 +94,31 @@ describe('useToggleEmoticonVisibility', () => {
     useToggleEmoticonVisibility(emoticonId)
     const options = mocks.mutationOptions.at(-1)!
 
-    ;(options.onSuccess as (value: { isActive: boolean }) => void)({ isActive: true })
+    ;(options.onSuccess as (value: unknown) => void)({
+      targetEmoticonId: 9,
+      updatedEmoticon: { isActive: true },
+    })
 
     expect(mocks.addToast).toHaveBeenCalledWith('emoticon.visibility.showSuccess', 'success')
     expect(mocks.invalidateQueries).toHaveBeenCalledTimes(2)
-    expect(mocks.invalidateQueries).toHaveBeenNthCalledWith(1, { queryKey: ['emoticon', emoticonId] })
+    expect(mocks.invalidateQueries).toHaveBeenNthCalledWith(1, { queryKey: ['emoticon', 9] })
     expect(mocks.invalidateQueries).toHaveBeenNthCalledWith(2, { queryKey: ['emoticons'] })
+  })
+
+  it('invalidates the request target when the current route changes before success', async () => {
+    const toggleResult = createToggleResult({ isActive: true })
+    vi.mocked(emoticonApi.toggleVisibilityData).mockResolvedValueOnce(toggleResult)
+    const currentId = ref(7)
+    const emoticonId = computed(() => currentId.value)
+
+    useToggleEmoticonVisibility(emoticonId)
+    const options = mocks.mutationOptions.at(-1)!
+    const mutationResult = await (options.mutationFn as () => Promise<unknown>)()
+    currentId.value = 8
+    ;(options.onSuccess as (value: unknown) => void)(mutationResult)
+
+    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['emoticon', 7] })
+    expect(mocks.invalidateQueries).not.toHaveBeenCalledWith({ queryKey: ['emoticon', 8] })
   })
 
   it('shows extracted error messages before fallback text', () => {

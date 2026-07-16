@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 
 const invalidateQueries = vi.hoisted(() => vi.fn(async () => undefined))
 const mutationOptions = vi.hoisted(() => [] as Array<Record<string, unknown>>)
@@ -47,6 +47,18 @@ describe('shop resources', () => {
 
     expect((pageQueryOptions[0]?.queryKey as { value: unknown[] }).value).toEqual(['shop', 'items', 0, 12, ''])
     expect((pageQueryOptions[1]?.queryKey as { value: unknown[] }).value).toEqual(['shop', 'purchases', 2, 15])
+  })
+
+  it('keeps refs out of factories and updates computed consumer keys', () => {
+    const params = ref({ page: 0, size: 12, itemType: 'EMOTICON' as const })
+    const key = computed(() => shopQueryKeys.items(params.value))
+
+    expect(shopQueryKeys.items(params.value)).not.toContain(params)
+    expect(key.value).toEqual(['shop', 'items', 0, 12, 'EMOTICON'])
+
+    params.value = { page: 3, size: 24, itemType: 'EMOTICON' }
+
+    expect(key.value).toEqual(['shop', 'items', 3, 24, 'EMOTICON'])
   })
 
   it('suppresses the global purchase error and invalidates points, catalog, history, and emoticons', async () => {
