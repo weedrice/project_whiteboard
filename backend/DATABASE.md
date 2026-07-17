@@ -197,10 +197,16 @@
 | `V45` | 프로필 이미지 변경 비용 |
 | `V46` | moderation 감사 로그 |
 | `V47` | 초안 투표·시리즈와 예약 발행 source draft 연결 |
+| `V48` - `V53` | OAuth 가입 ticket, 알림 메시지 i18n, 이모티콘 설정·backfill, 전역 설정 계약 정렬 |
 | `V55` | 이메일 인증 코드 오입력 횟수와 5회 상한 제약 |
 | `V56` | unique index와 중복되는 일반 인덱스 제거 |
 | `V57` | Refresh Token session family 추가와 기존 토큰 행 backfill |
 | `V58` | 스페이스 순서 변경 직렬화를 위한 `domain_locks` 도입 |
+| `V59` | 사용자 엔티티 optimistic locking version 추가 |
+| `V60` | 사용자 보안 상태 version 추가 |
+| `V61` - `V62` | 예약 게시글 첨부파일 보호 테이블과 legacy 참조 감사·backfill |
+| `V63` | durable 알림 전달 job, lease, 재시도·dead-letter 상태 추가 |
+| `V64` | 이미지 variant 저장소 상태와 stale cleanup 인덱스 추가 |
 
 ## 운영 주의
 
