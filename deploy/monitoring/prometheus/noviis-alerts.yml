@@ -52,6 +52,43 @@ groups:
         for: 2m
         labels: { severity: critical }
         annotations: { summary: "NoviIs backend metrics scrape has failed for 2 minutes" }
+      - alert: NoviIsPrometheusSelfScrapeDown
+        expr: up{job="prometheus"} == 0 or absent(up{job="prometheus"})
+        for: 2m
+        labels: { severity: critical }
+        annotations: { summary: "Prometheus has failed to scrape its own metrics for 2 minutes" }
+      - alert: NoviIsPrometheusRuleEvaluationFailure
+        expr: increase(prometheus_rule_evaluation_failures_total[5m]) > 0
+        labels: { severity: critical }
+        annotations: { summary: "Prometheus recorded a rule evaluation failure" }
+      - alert: NoviIsPrometheusConfigReloadFailure
+        expr: prometheus_config_last_reload_successful != 1
+        for: 2m
+        labels: { severity: critical }
+        annotations: { summary: "Prometheus configuration reload is failing" }
+      - alert: NoviIsPrometheusTsdbFailure
+        expr: >-
+          increase(prometheus_tsdb_wal_corruptions_total[5m]) > 0
+          or increase(prometheus_tsdb_head_truncations_failed_total[5m]) > 0
+          or increase(prometheus_tsdb_compactions_failed_total[5m]) > 0
+          or increase(prometheus_tsdb_checkpoint_creations_failed_total[5m]) > 0
+        labels: { severity: critical }
+        annotations: { summary: "Prometheus TSDB recorded a persistence failure" }
+      - alert: NoviIsRequiredBackendMetricMissing
+        expr: >-
+          (
+            label_replace(absent(noviis_sse_heartbeat_gap_seconds), "missing_metric", "noviis_sse_heartbeat_gap_seconds", "", "")
+            or label_replace(absent(noviis_semantic_jobs_pending), "missing_metric", "noviis_semantic_jobs_pending", "", "")
+            or label_replace(absent(noviis_semantic_jobs_oldest_age_seconds), "missing_metric", "noviis_semantic_jobs_oldest_age_seconds", "", "")
+            or label_replace(absent(jvm_memory_used_bytes{area="heap"}), "missing_metric", "jvm_memory_used_bytes", "", "")
+            or label_replace(absent(hikaricp_connections_max), "missing_metric", "hikaricp_connections_max", "", "")
+          )
+          and on() (max(time() - process_start_time_seconds{job="noviis-backend"}) > 600)
+        for: 2m
+        labels: { severity: warning }
+        annotations:
+          summary: "Required backend metric {{ $labels.missing_metric }} is missing"
+          description: "The backend has been up for more than 10 minutes without exporting this required metric."
       - alert: NoviIsScheduledJobFailure
         expr: increase(noviis_scheduler_execution_seconds_count{outcome="error"}[5m]) > 0
         labels: { severity: warning }

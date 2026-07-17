@@ -49,6 +49,7 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now prometheus grafana-server
 curl -fsS http://127.0.0.1:8081/actuator/prometheus >/dev/null
 curl -fsS http://127.0.0.1:9090/-/ready
+curl -fsS http://127.0.0.1:9090/metrics >/dev/null
 curl -fsS http://127.0.0.1:3000/api/health
 ```
 
@@ -66,6 +67,8 @@ Open Grafana only through an SSH tunnel: `ssh -L 3000:127.0.0.1:3000 ubuntu@<hos
 ## Alert thresholds and metric semantics
 
 `noviis_scheduler_last_success_timestamp_seconds` advances only after a scheduled method completes successfully. A failed run records the existing error timer but does not overwrite its previous success timestamp. The stale rule also treats a missing timestamp as stale after the backend process has been up longer than that job's threshold, avoiding false alarms during normal startup.
+
+Prometheus scrapes its own loopback metrics as the `prometheus` job. Critical rules cover self-scrape loss, rule evaluation failures, failed configuration reloads, and TSDB WAL, compaction, checkpoint, or truncation failures. The backend's heartbeat, semantic backlog, JVM heap, and Hikari capacity metrics are also required after a 10-minute process startup grace; disappearance is distinct from a healthy zero value and raises `NoviIsRequiredBackendMetricMissing`.
 
 | Scheduled cadence | Included schedules | Maximum age / startup grace |
 | --- | --- | --- |

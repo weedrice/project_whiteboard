@@ -4,6 +4,92 @@ rule_files:
 evaluation_interval: 1m
 
 tests:
+  - name: missing Prometheus self target is treated as down
+    interval: 1m
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: NoviIsPrometheusSelfScrapeDown
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+            exp_annotations:
+              summary: "Prometheus has failed to scrape its own metrics for 2 minutes"
+
+  - name: Prometheus internal failures are observable
+    interval: 1m
+    input_series:
+      - series: 'prometheus_rule_evaluation_failures_total'
+        values: '0 0 1 1'
+      - series: 'prometheus_config_last_reload_successful'
+        values: '0+0x4'
+      - series: 'prometheus_tsdb_compactions_failed_total'
+        values: '0 0 1 1'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: NoviIsPrometheusRuleEvaluationFailure
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+            exp_annotations:
+              summary: "Prometheus recorded a rule evaluation failure"
+      - eval_time: 3m
+        alertname: NoviIsPrometheusConfigReloadFailure
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+            exp_annotations:
+              summary: "Prometheus configuration reload is failing"
+      - eval_time: 3m
+        alertname: NoviIsPrometheusTsdbFailure
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+            exp_annotations:
+              summary: "Prometheus TSDB recorded a persistence failure"
+
+  - name: required backend metrics are absent after startup grace
+    interval: 1m
+    input_series:
+      - series: 'process_start_time_seconds{instance="localhost:8081",job="noviis-backend"}'
+        values: '0+0x15'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: NoviIsRequiredBackendMetricMissing
+        exp_alerts: []
+      - eval_time: 13m
+        alertname: NoviIsRequiredBackendMetricMissing
+        exp_alerts:
+          - exp_labels:
+              missing_metric: hikaricp_connections_max
+              severity: warning
+            exp_annotations:
+              summary: "Required backend metric hikaricp_connections_max is missing"
+              description: "The backend has been up for more than 10 minutes without exporting this required metric."
+          - exp_labels:
+              missing_metric: jvm_memory_used_bytes
+              severity: warning
+            exp_annotations:
+              summary: "Required backend metric jvm_memory_used_bytes is missing"
+              description: "The backend has been up for more than 10 minutes without exporting this required metric."
+          - exp_labels:
+              missing_metric: noviis_semantic_jobs_oldest_age_seconds
+              severity: warning
+            exp_annotations:
+              summary: "Required backend metric noviis_semantic_jobs_oldest_age_seconds is missing"
+              description: "The backend has been up for more than 10 minutes without exporting this required metric."
+          - exp_labels:
+              missing_metric: noviis_semantic_jobs_pending
+              severity: warning
+            exp_annotations:
+              summary: "Required backend metric noviis_semantic_jobs_pending is missing"
+              description: "The backend has been up for more than 10 minutes without exporting this required metric."
+          - exp_labels:
+              missing_metric: noviis_sse_heartbeat_gap_seconds
+              severity: warning
+            exp_annotations:
+              summary: "Required backend metric noviis_sse_heartbeat_gap_seconds is missing"
+              description: "The backend has been up for more than 10 minutes without exporting this required metric."
+
   - name: missing backend target is treated as down
     interval: 1m
     alert_rule_test:
