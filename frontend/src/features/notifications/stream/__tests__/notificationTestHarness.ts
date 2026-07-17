@@ -123,6 +123,16 @@ vi.mock('@/stores/auth', () => ({
   useAuthStore: () => notificationMocks.authStore,
 }))
 
+// SSE lifecycle tests exercise reconnect behavior, not cross-tab refresh election.
+// Run the callback immediately with the stream-owned signal so fake timers do not
+// stall on the coordinator election window; coordinator semantics have dedicated tests.
+vi.mock('@/api/authRefreshCoordinator', () => ({
+  coordinateAuthRefresh: vi.fn((
+    refresh: (signal: AbortSignal) => Promise<string>,
+    options?: { signal?: AbortSignal },
+  ) => refresh(options?.signal ?? new AbortController().signal)),
+}))
+
 vi.mock('@/utils/logger', () => ({
   default: notificationMocks.logger,
 }))

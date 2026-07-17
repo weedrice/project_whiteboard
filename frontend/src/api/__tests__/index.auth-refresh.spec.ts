@@ -81,6 +81,7 @@ describe('API Interceptors', () => {
         expect(mocks.mockAxiosPost).toHaveBeenCalledWith('/api/v1/auth/refresh', undefined, {
             withCredentials: true,
             timeout: 10000,
+            signal: expect.any(AbortSignal),
         })
         expect(await getAccessToken()).toBe('new-access')
         expect(localStorage.getItem('refreshToken')).toBeNull()
@@ -282,6 +283,7 @@ describe('API Interceptors', () => {
 
         const p1 = responseRejected(error1)
         const p2 = responseRejected(error2)
+        await vi.waitFor(() => expect(mocks.mockAxiosPost).toHaveBeenCalledTimes(1))
         rejectRefresh(refreshError)
 
         await expect(p1).rejects.toBe(refreshError)
@@ -312,6 +314,7 @@ describe('API Interceptors', () => {
         expect(mocks.mockAxiosPost).toHaveBeenCalledWith('/api/v1/auth/refresh', undefined, {
             withCredentials: true,
             timeout: 10000,
+            signal: expect.any(AbortSignal),
         })
     })
 

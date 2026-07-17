@@ -72,7 +72,7 @@ export async function retryAfterRefresh(api: AxiosInstance, originalRequest: Int
   const refreshOperation = beginAuthRefresh()
 
   try {
-    const refreshedAccessToken = await coordinateAuthRefresh(async () => {
+    const refreshedAccessToken = await coordinateAuthRefresh(async (signal) => {
       if (authStore && (authStore.sessionGeneration !== generation || authStore.accessToken !== previousToken)) {
         throw new AuthSessionChangedError()
       }
@@ -82,11 +82,12 @@ export async function retryAfterRefresh(api: AxiosInstance, originalRequest: Int
         {
           withCredentials: true,
           timeout: api.defaults.timeout ?? API.TIMEOUT,
+          signal,
         },
       )
       if (!data.success) throw new Error('Refresh failed')
       return unwrapApiData(data).accessToken
-    })
+    }, { previousToken })
     lastRefreshFailureAt = 0
     resetSessionExpiredToastDebounce()
 

@@ -13,6 +13,7 @@ import {
 import type { User, LoginCredentials, LoginUser } from '@/types'
 import type { AxiosRequestConfig } from 'axios'
 import { cancelPendingAuthRefresh } from '@/api/authRefreshSession'
+import { cancelAuthRefreshCoordinator, coordinateAuthRefresh } from '@/api/authRefreshCoordinator'
 
 interface AuthSessionEffects {
     syncThemeFromUser: (userData: User | null) => void
@@ -67,6 +68,7 @@ export const useAuthStore = defineStore('auth', () => {
     function advanceSessionGeneration() {
         sessionGeneration.value += 1
         cancelPendingAuthRefresh()
+        cancelAuthRefreshCoordinator()
         authSessionEffects.onSessionBoundary(sessionGeneration.value)
         return sessionGeneration.value
     }
@@ -194,18 +196,21 @@ export const useAuthStore = defineStore('auth', () => {
         const generation = sessionGeneration.value
         const request = (async () => {
             try {
-                const { data } = await authApi.refreshToken({
-                    skipAuthRefresh: true,
-                    skipGlobalErrorHandler: true,
-                })
+                const token = await coordinateAuthRefresh(async (signal) => {
+                    if (generation !== sessionGeneration.value || accessToken.value !== null) {
+                        throw new DOMException('Authentication session changed', 'AbortError')
+                    }
+                    const { data } = await authApi.refreshToken({
+                        skipAuthRefresh: true,
+                        skipGlobalErrorHandler: true,
+                        signal,
+                    })
+                    if (!data.success) throw new Error('Bootstrap refresh failed')
+                    return unwrapApiData(data).accessToken
+                }, { previousToken: null })
                 if (generation !== sessionGeneration.value) {
                     return Boolean(accessToken.value && user.value)
                 }
-                if (!data.success) {
-                    clearSessionValues()
-                    return false
-                }
-                const { accessToken: token } = unwrapApiData(data)
                 if (!applyNewSessionIfCurrent(generation, null, token)) return false
                 return fetchUser({ skipAuthRefresh: true })
             } catch (error: unknown) {

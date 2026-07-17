@@ -73,6 +73,7 @@ const flushMountedWork = async () => {
     await Promise.resolve()
     await Promise.resolve()
     await Promise.resolve()
+    await new Promise((resolve) => setTimeout(resolve, 60))
 }
 
 describe('OAuthCallback', () => {
@@ -110,6 +111,7 @@ describe('OAuthCallback', () => {
         expect(mocks.authApi.refreshToken).toHaveBeenCalledWith({
             skipAuthRefresh: true,
             skipGlobalErrorHandler: true,
+            signal: expect.any(AbortSignal),
         })
         expect(mocks.authStore.applyNewSessionIfCurrent).toHaveBeenCalledWith(0, null, 'refreshed-access')
         expect(mocks.authStore.fetchUser).toHaveBeenCalledWith({ skipAuthRefresh: true })

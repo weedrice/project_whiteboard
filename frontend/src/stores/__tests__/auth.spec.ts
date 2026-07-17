@@ -336,6 +336,7 @@ describe('Auth Store', () => {
             expect(authApi.refreshToken).toHaveBeenCalledWith({
                 skipAuthRefresh: true,
                 skipGlobalErrorHandler: true,
+                signal: expect.any(AbortSignal),
             })
             expect(authApi.getMe).toHaveBeenCalledWith({ skipAuthRefresh: true })
             expect(store.accessToken).toBe('boot-token')

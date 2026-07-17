@@ -123,7 +123,7 @@ export function createNotificationStreamController(
             const authStore = resolveAuthStore()
             const generation = authStore.sessionGeneration
             const previousToken = authStore.accessToken
-            const refreshedAccessToken = await coordinateAuthRefresh(async () => {
+            const refreshedAccessToken = await coordinateAuthRefresh(async (signal) => {
                 if (controller.signal.aborted
                     || authStore.sessionGeneration !== generation
                     || authStore.accessToken !== previousToken) {
@@ -132,9 +132,9 @@ export function createNotificationStreamController(
                 return unwrapAxiosApiData(await refreshToken({
                     skipAuthRefresh: true,
                     skipGlobalErrorHandler: true,
-                    signal: controller.signal,
+                    signal,
                 })).accessToken
-            })
+            }, { previousToken, signal: controller.signal })
             const applied = authStore.applyTokenIfCurrent(generation, previousToken, refreshedAccessToken)
             if (!applied && (authStore.sessionGeneration !== generation || authStore.accessToken !== refreshedAccessToken)) return
             scheduleReconnect(RECONNECT_AFTER_REFRESH_DELAY_MS)

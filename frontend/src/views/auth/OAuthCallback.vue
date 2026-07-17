@@ -10,6 +10,7 @@ import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import logger from '@/utils/logger'
 import { clearLoginRedirect, getStoredLoginRedirect } from '@/utils/authRedirect'
 import { clearSensitiveTokensFromUrl } from '@/utils/oauthCallbackTokens'
+import { coordinateAuthRefresh } from '@/api/authRefreshCoordinator'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -22,11 +23,17 @@ onMounted(async () => {
   const previousToken = authStore.accessToken
 
   try {
-    const { data } = await authApi.refreshToken({
-      skipAuthRefresh: true,
-      skipGlobalErrorHandler: true,
-    })
-    const { accessToken } = unwrapApiData(data)
+    const accessToken = await coordinateAuthRefresh(async (signal) => {
+      if (authStore.sessionGeneration !== generation || authStore.accessToken !== previousToken) {
+        throw new DOMException('Authentication session changed', 'AbortError')
+      }
+      const { data } = await authApi.refreshToken({
+        skipAuthRefresh: true,
+        skipGlobalErrorHandler: true,
+        signal,
+      })
+      return unwrapApiData(data).accessToken
+    }, { previousToken })
     if (!accessToken) {
       throw new Error('OAuth refresh returned an invalid access token')
     }
