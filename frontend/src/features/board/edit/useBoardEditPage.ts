@@ -16,10 +16,12 @@ import {
 import { useBoardEditManagerAssignment } from '@/features/board/edit/useBoardEditManagerAssignment'
 import type { BoardUpdateData } from '@/types'
 import { encodePathSegment } from '@/utils/urlPath'
+import { useAuthStore } from '@/stores/auth'
 
 export function useBoardEditPage() {
   const { t } = useI18n()
   const toastStore = useToastStore()
+  const authStore = useAuthStore()
   const { confirm } = useConfirm()
   const route = useRoute()
   const router = useRouter()
@@ -74,14 +76,28 @@ export function useBoardEditPage() {
   }
 
   async function handleDelete() {
+    const targetBoardUrl = boardUrl.value
+    const sessionGeneration = authStore.sessionGeneration
     const isConfirmed = await confirm(t('board.form.deleteConfirm'))
-    if (!isConfirmed) return
+    if (
+      !isConfirmed
+      || boardUrl.value !== targetBoardUrl
+      || authStore.sessionGeneration !== sessionGeneration
+    ) return
 
     try {
-      await deleteBoard(boardUrl.value)
+      await deleteBoard(targetBoardUrl)
+      if (
+        boardUrl.value !== targetBoardUrl
+        || authStore.sessionGeneration !== sessionGeneration
+      ) return
       toastStore.addToast(t('board.form.successDelete'), 'success')
       router.push('/')
     } catch (err: unknown) {
+      if (
+        boardUrl.value !== targetBoardUrl
+        || authStore.sessionGeneration !== sessionGeneration
+      ) return
       handleError(err, t('board.form.deleteFailed'))
     }
   }

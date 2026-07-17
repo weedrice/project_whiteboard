@@ -76,7 +76,8 @@ export function useEmoticonDetailResource(emoticonId: ComputedRef<number>) {
         queryKey: currentSessionQueryKey(authStore, userQueryKeys.pointsRoot),
       })
     },
-    onError: (error: unknown) => {
+    onError: (error: unknown, _variables, context) => {
+      if (!context || !isSessionGenerationCurrent(authStore, context.sessionGeneration)) return
       const message = extractErrorMessage(error) || t('emoticon.purchase.failed')
       toastStore.addToast(message, 'error')
     },

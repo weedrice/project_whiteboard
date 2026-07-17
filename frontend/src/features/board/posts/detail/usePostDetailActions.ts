@@ -1,4 +1,4 @@
-import { onUnmounted, ref, type ComputedRef, type Ref } from 'vue'
+import { onUnmounted, ref, watch, type ComputedRef, type Ref } from 'vue'
 import type { RouteLocationNormalizedLoaded, Router, RouteLocationRaw } from 'vue-router'
 import { useConfirm } from '@/composables/useConfirm'
 import { usePost } from '@/features/board/posts/queries/usePost'
@@ -9,7 +9,7 @@ import logger from '@/utils/logger'
 interface UsePostDetailActionsOptions {
   post: Ref<Post | null | undefined>
   canReport: ComputedRef<boolean>
-  authStore: { isAuthenticated: boolean }
+  authStore: { isAuthenticated: boolean, sessionGeneration: number }
   route: RouteLocationNormalizedLoaded
   router: Router
   t: (key: string) => string
@@ -48,15 +48,24 @@ export function usePostDetailActions({
   const showReportModal = ref(false)
   let likeAnimationTimer: ReturnType<typeof setTimeout> | null = null
   let bookmarkAnimationTimer: ReturnType<typeof setTimeout> | null = null
+  let reportIntent: { postId: string | number, sessionGeneration: number } | null = null
+
+  const currentPostId = () => route.params.postId as string | number
+  const isIntentCurrent = (postId: string | number, sessionGeneration: number) => (
+    String(currentPostId()) === String(postId)
+    && authStore.sessionGeneration === sessionGeneration
+  )
 
   async function handleDelete() {
-    const isConfirmed = await confirm(t('common.messages.confirmDelete'))
-    if (!isConfirmed) return
-
+    const postId = currentPostId()
     const boardUrl = post.value?.board.boardUrl
-    deleteMutate(route.params.postId as string | number, {
+    const sessionGeneration = authStore.sessionGeneration
+    const isConfirmed = await confirm(t('common.messages.confirmDelete'))
+    if (!isConfirmed || !isIntentCurrent(postId, sessionGeneration)) return
+
+    deleteMutate(postId, {
       onSuccess: () => {
-        if (boardUrl) {
+        if (boardUrl && isIntentCurrent(postId, sessionGeneration)) {
           router.push(buildBoardListRoute(boardUrl))
         }
       },
@@ -118,22 +127,42 @@ export function usePostDetailActions({
 
   function openReportModal() {
     if (!canReport.value) return
+    reportIntent = {
+      postId: currentPostId(),
+      sessionGeneration: authStore.sessionGeneration,
+    }
     showReportModal.value = true
     closeOverflowMenu()
   }
 
   async function submitReport(reason: string) {
+    const intent = reportIntent
+    if (!intent || !isIntentCurrent(intent.postId, intent.sessionGeneration)) {
+      showReportModal.value = false
+      reportIntent = null
+      return false
+    }
+
     return await new Promise<boolean>((resolve) => {
       reportMutate({
-        targetPostId: route.params.postId as string | number,
+        targetPostId: intent.postId,
         reason,
       }, {
         onSuccess: () => {
+          if (!isIntentCurrent(intent.postId, intent.sessionGeneration)) {
+            resolve(false)
+            return
+          }
           toastStore.addToast(t('board.postDetail.reportSuccess'), 'success')
           showReportModal.value = false
+          reportIntent = null
           resolve(true)
         },
         onError: (err) => {
+          if (!isIntentCurrent(intent.postId, intent.sessionGeneration)) {
+            resolve(false)
+            return
+          }
           logger.error('Report failed:', err)
           toastStore.addToast(t('board.postDetail.reportFailed'), 'error')
           resolve(false)
@@ -141,6 +170,11 @@ export function usePostDetailActions({
       })
     })
   }
+
+  watch(() => route.params.postId, () => {
+    showReportModal.value = false
+    reportIntent = null
+  })
 
   onUnmounted(() => {
     if (likeAnimationTimer) {

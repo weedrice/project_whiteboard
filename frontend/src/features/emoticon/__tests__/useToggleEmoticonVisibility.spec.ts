@@ -1,4 +1,5 @@
-import { computed, ref } from 'vue'
+import { computed, defineComponent, ref } from 'vue'
+import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useToggleEmoticonVisibility } from '../useToggleEmoticonVisibility'
 import { emoticonApi } from '@/api/emoticon'
@@ -16,6 +17,7 @@ const mocks = vi.hoisted(() => {
     addToast,
   }
 })
+const authState = vi.hoisted(() => ({ sessionGeneration: 0 }))
 
 vi.mock('@tanstack/vue-query', () => ({
   useMutation: vi.fn((options: Record<string, unknown>) => {
@@ -43,7 +45,7 @@ vi.mock('@/stores/toast', () => ({
 }))
 
 vi.mock('@/stores/auth', () => ({
-  useAuthStore: () => ({ sessionGeneration: 0 }),
+  useAuthStore: () => authState,
 }))
 
 vi.mock('vue-i18n', () => ({
@@ -71,6 +73,7 @@ describe('useToggleEmoticonVisibility', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.mutationOptions.length = 0
+    authState.sessionGeneration = 0
   })
 
   it('toggles visibility and invalidates detail, purchased status, and list queries when requested', async () => {
@@ -81,11 +84,16 @@ describe('useToggleEmoticonVisibility', () => {
     useToggleEmoticonVisibility(emoticonId, { invalidatePurchaseStatus: true })
     const options = mocks.mutationOptions.at(-1)!
 
-    const mutationResult = await (options.mutationFn as () => Promise<unknown>)()
-    expect(mutationResult).toEqual({ targetEmoticonId: 7, updatedEmoticon: toggleResult })
+    const intent = {
+      controller: new AbortController(),
+      sessionGeneration: 0,
+      targetEmoticonId: 7,
+    }
+    const mutationResult = await (options.mutationFn as (_intent: typeof intent) => Promise<unknown>)(intent)
+    expect(mutationResult).toEqual({ ...intent, updatedEmoticon: toggleResult })
     ;(options.onSuccess as (value: unknown) => void)(mutationResult)
 
-    expect(emoticonApi.toggleVisibilityData).toHaveBeenCalledWith(7)
+    expect(emoticonApi.toggleVisibilityData).toHaveBeenCalledWith(7, { signal: intent.controller.signal })
     expect(mocks.addToast).toHaveBeenCalledWith('emoticon.visibility.hiddenSuccess', 'success')
     expect(mocks.invalidateQueries).toHaveBeenNthCalledWith(1, { queryKey: ['emoticon', 7] })
     expect(mocks.invalidateQueries).toHaveBeenNthCalledWith(2, {
@@ -101,6 +109,8 @@ describe('useToggleEmoticonVisibility', () => {
     const options = mocks.mutationOptions.at(-1)!
 
     ;(options.onSuccess as (value: unknown) => void)({
+      controller: new AbortController(),
+      sessionGeneration: 0,
       targetEmoticonId: 9,
       updatedEmoticon: { isActive: true },
     })
@@ -119,12 +129,17 @@ describe('useToggleEmoticonVisibility', () => {
 
     useToggleEmoticonVisibility(emoticonId)
     const options = mocks.mutationOptions.at(-1)!
-    const mutationResult = await (options.mutationFn as () => Promise<unknown>)()
+    const intent = {
+      controller: new AbortController(),
+      sessionGeneration: 0,
+      targetEmoticonId: 7,
+    }
+    const mutationResult = await (options.mutationFn as (_intent: typeof intent) => Promise<unknown>)(intent)
     currentId.value = 8
     ;(options.onSuccess as (value: unknown) => void)(mutationResult)
 
-    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['emoticon', 7] })
-    expect(mocks.invalidateQueries).not.toHaveBeenCalledWith({ queryKey: ['emoticon', 8] })
+    expect(mocks.invalidateQueries).not.toHaveBeenCalled()
+    expect(mocks.addToast).not.toHaveBeenCalled()
   })
 
   it('shows extracted error messages before fallback text', () => {
@@ -135,9 +150,60 @@ describe('useToggleEmoticonVisibility', () => {
     useToggleEmoticonVisibility(emoticonId)
     const options = mocks.mutationOptions.at(-1)!
 
-    ;(options.onError as (error: unknown) => void)(error)
+    ;(options.onError as (error: unknown, intent: unknown) => void)(error, {
+      controller: new AbortController(),
+      sessionGeneration: 0,
+      targetEmoticonId: 11,
+    })
 
     expect(extractErrorMessage).toHaveBeenCalledWith(error)
     expect(mocks.addToast).toHaveBeenCalledWith('server says no', 'error')
+  })
+
+  it('drops success and error callbacks after the session generation changes', () => {
+    const emoticonId = computed(() => 12)
+    useToggleEmoticonVisibility(emoticonId)
+    const options = mocks.mutationOptions.at(-1)!
+    const intent = {
+      controller: new AbortController(),
+      sessionGeneration: 0,
+      targetEmoticonId: 12,
+    }
+    authState.sessionGeneration = 1
+
+    ;(options.onSuccess as (value: unknown) => void)({
+      ...intent,
+      updatedEmoticon: { isActive: true },
+    })
+    ;(options.onError as (error: unknown, intent: unknown) => void)(new Error('late'), intent)
+
+    expect(mocks.invalidateQueries).not.toHaveBeenCalled()
+    expect(mocks.addToast).not.toHaveBeenCalled()
+  })
+
+  it('aborts an in-flight visibility request when its component unmounts', async () => {
+    let resolveRequest!: (value: EmoticonMaster) => void
+    vi.mocked(emoticonApi.toggleVisibilityData).mockReturnValueOnce(new Promise((resolve) => {
+      resolveRequest = resolve
+    }))
+    const wrapper = mount(defineComponent({
+      setup() {
+        useToggleEmoticonVisibility(computed(() => 15))
+        return () => null
+      },
+    }))
+    const options = mocks.mutationOptions.at(-1)!
+    const intent = {
+      controller: new AbortController(),
+      sessionGeneration: 0,
+      targetEmoticonId: 15,
+    }
+    const request = (options.mutationFn as (_intent: typeof intent) => Promise<unknown>)(intent)
+
+    wrapper.unmount()
+
+    expect(intent.controller.signal.aborted).toBe(true)
+    resolveRequest(createToggleResult({ emoticonId: 15 }))
+    await request
   })
 })

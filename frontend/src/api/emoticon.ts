@@ -138,12 +138,16 @@ export const emoticonApi = {
     },
 
     // Toggle sale or visibility state.
-    toggleVisibility(emoticonId: number) {
-        return api.patch<ApiResponse<EmoticonMasterWire>>(`/emoticons/${encodePathSegment(emoticonId)}/visibility`)
+    toggleVisibility(emoticonId: number, config?: AxiosRequestConfig) {
+        return api.patch<ApiResponse<EmoticonMasterWire>>(
+            `/emoticons/${encodePathSegment(emoticonId)}/visibility`,
+            undefined,
+            config,
+        )
             .then(mapEmoticonResponse)
     },
-    async toggleVisibilityData(emoticonId: number) {
-        return unwrapEmoticonResponse(await emoticonApi.toggleVisibility(emoticonId))
+    async toggleVisibilityData(emoticonId: number, config?: AxiosRequestConfig) {
+        return unwrapEmoticonResponse(await emoticonApi.toggleVisibility(emoticonId, config))
     },
 
     // Delete an emoticon pack.

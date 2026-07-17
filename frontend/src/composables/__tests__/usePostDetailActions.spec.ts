@@ -94,7 +94,7 @@ function createActions(overrides: {
       actions = usePostDetailActions({
         post: ref(overrides.post === undefined ? postFactory() : overrides.post),
         canReport: computed(() => overrides.canReport ?? true),
-        authStore: { isAuthenticated: overrides.authenticated ?? true },
+        authStore: { isAuthenticated: overrides.authenticated ?? true, sessionGeneration: 0 },
         route: route as unknown as RouteLocationNormalizedLoaded,
         router: router as Partial<Router> as Router,
         t: (key: string) => key,
@@ -116,6 +116,7 @@ describe('usePostDetailActions', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.confirm.mockResolvedValue(true)
+    route.params.postId = '7'
   })
 
   it('confirms before deleting and navigates to the board after success', async () => {
@@ -140,6 +141,21 @@ describe('usePostDetailActions', () => {
     const { actions } = createActions()
 
     await actions.handleDelete()
+
+    expect(mocks.deleteMutate).not.toHaveBeenCalled()
+  })
+
+  it('does not delete a different post after the route changes during confirmation', async () => {
+    let resolveConfirmation!: (confirmed: boolean) => void
+    mocks.confirm.mockReturnValueOnce(new Promise((resolve) => {
+      resolveConfirmation = resolve
+    }))
+    const { actions } = createActions()
+
+    const deletion = actions.handleDelete()
+    route.params.postId = '8'
+    resolveConfirmation(true)
+    await deletion
 
     expect(mocks.deleteMutate).not.toHaveBeenCalled()
   })
@@ -211,7 +227,7 @@ describe('usePostDetailActions', () => {
 
   it('submits a report and handles success and failure callbacks', async () => {
     const { actions } = createActions()
-    actions.showReportModal.value = true
+    actions.openReportModal()
 
     const successPromise = actions.submitReport('Spam')
 
@@ -229,10 +245,22 @@ describe('usePostDetailActions', () => {
     expect(mocks.addToast).toHaveBeenCalledWith('board.postDetail.reportSuccess', 'success')
     expect(actions.showReportModal.value).toBe(false)
 
+    actions.openReportModal()
     const failurePromise = actions.submitReport('Abuse')
     const failureOptions = mocks.reportMutate.mock.calls[1][1]
     failureOptions.onError(new Error('failed'))
     await expect(failurePromise).resolves.toBe(false)
     expect(mocks.addToast).toHaveBeenCalledWith('board.postDetail.reportFailed', 'error')
+  })
+
+  it('does not submit a report for a route that changed after opening the modal', async () => {
+    const { actions } = createActions()
+    actions.openReportModal()
+    route.params.postId = '9'
+
+    await expect(actions.submitReport('Spam')).resolves.toBe(false)
+
+    expect(mocks.reportMutate).not.toHaveBeenCalled()
+    expect(actions.showReportModal.value).toBe(false)
   })
 })

@@ -81,9 +81,10 @@ export function useEmoticonEditForm({
 
   const handleToggleVisibility = async () => {
     if (!emoticon.value) return
+    const targetEmoticonId = emoticonId.value
     const verb = emoticon.value.isActive ? t('emoticon.visibility.hideConfirm') : t('emoticon.visibility.showConfirm')
     const isConfirmed = await confirm(verb)
-    if (!isConfirmed) return
+    if (!isConfirmed || emoticonId.value !== targetEmoticonId) return
 
     toggleVisibility()
   }

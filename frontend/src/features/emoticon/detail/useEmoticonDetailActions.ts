@@ -25,21 +25,31 @@ export function useEmoticonDetailActions(options: UseEmoticonDetailActionsOption
 
   async function handlePurchase() {
     if (!options.canPurchase.value) return
+    const targetEmoticonId = options.emoticonId.value
     const isConfirmed = await options.confirm(options.t('emoticon.purchase.confirm', {
       price: options.purchasePrice.value,
     }))
-    if (!isConfirmed) return
+    if (
+      !isConfirmed
+      || options.emoticonId.value !== targetEmoticonId
+      || !options.canPurchase.value
+    ) return
 
     options.purchase()
   }
 
   async function handleToggleVisibility() {
     if (!options.emoticonView.value) return
+    const targetEmoticonId = options.emoticonId.value
     const message = options.emoticonView.value.isActive
       ? options.t('emoticon.visibility.hideConfirm')
       : options.t('emoticon.visibility.showConfirm')
     const isConfirmed = await options.confirm(message)
-    if (!isConfirmed) return
+    if (
+      !isConfirmed
+      || options.emoticonId.value !== targetEmoticonId
+      || !options.emoticonView.value
+    ) return
 
     options.toggleVisibility()
   }
