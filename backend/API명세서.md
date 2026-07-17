@@ -212,6 +212,8 @@ Java 필드명과 JSON 직렬화 이름이 다른 기존 응답은 호환성을 
 
 카테고리 순서 변경 요청은 `{ "categoryIds": [1, 2, 3] }` 형태다. 해당 스페이스의 활성 카테고리 ID 전체를 중복 없이 정확히 한 번씩 포함해야 하며, 기본 카테고리가 존재하면 첫 번째 ID여야 한다. 검증 실패 시 어떤 순서도 변경하지 않으며, 성공 시 1부터 다시 매긴 정렬 순서의 카테고리 목록을 반환한다.
 
+슈퍼관리자 스페이스 순서 변경 요청은 `{ "boardIds": [1, 2, 3] }` 형태다. 활성 여부와 관계없이 현재 스페이스 ID 전체를 중복 없이 정확히 한 번씩 포함해야 하며 최대 500개까지 허용한다. 검증 실패 시 어떤 순서도 변경하지 않고, 성공 시 1부터 다시 매긴 `AdminBoardResponse` 목록을 반환한다.
+
 #### 게시글 초안 계약
 
 게시글 초안 API는 로그인한 사용자만 호출할 수 있으며, 조회·수정·삭제 대상은 항상 현재 사용자가 소유한 초안으로 제한한다. `POST /api/v1/drafts`는 신규 저장과 기존 초안 수정을 함께 처리하고 성공 시 `201 Created`를 반환한다.
@@ -384,6 +386,7 @@ Java 필드명과 JSON 직렬화 이름이 다른 기존 응답은 호환성을 
 | `PUT` | `/api/v1/admin/admins/{adminId}/activate` | 관리자 활성화 |
 | `GET` | `/api/v1/admin/boards/{boardId}/manager` | 스페이스 관리자 조회 |
 | `PUT` | `/api/v1/admin/boards/{boardId}/manager` | 스페이스 관리자 변경 |
+| `PUT` | `/api/v1/admin/boards/order` | 전체 스페이스 순서 원자적 변경 |
 | `POST` | `/api/v1/admin/ip-blocks` | IP 차단 |
 | `DELETE` | `/api/v1/admin/ip-blocks/{ipAddress}` | IP 차단 해제 |
 | `GET` | `/api/v1/admin/ip-blocks` | IP 차단 목록 |

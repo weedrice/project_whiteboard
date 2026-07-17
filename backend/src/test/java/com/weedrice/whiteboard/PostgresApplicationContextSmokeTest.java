@@ -89,7 +89,7 @@ class PostgresApplicationContextSmokeTest {
     }
 
     @Test
-    void verificationAttemptLimitIndexCleanupAndRefreshSessionFamilyAreApplied() {
+    void verificationIndexRefreshFamilyAndDomainLockMigrationsAreApplied() {
         Integer failedAttemptColumns = jdbcTemplate.queryForObject("""
                 SELECT COUNT(*)
                 FROM information_schema.columns
@@ -151,6 +151,11 @@ class PostgresApplicationContextSmokeTest {
                   AND indexname = 'idx_refresh_tokens_family_active'
                   AND indexdef LIKE '%(session_family_id, is_revoked)%'
                 """, Integer.class);
+        Integer boardOrderLocks = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*)
+                FROM domain_locks
+                WHERE lock_name = 'BOARD_ORDER'
+                """, Integer.class);
 
         assertEquals(1, failedAttemptColumns);
         assertEquals(1, attemptConstraints);
@@ -158,6 +163,7 @@ class PostgresApplicationContextSmokeTest {
         assertEquals(8, uniqueConstraints);
         assertEquals(1, sessionFamilyColumns);
         assertEquals(1, sessionFamilyIndexes);
+        assertEquals(1, boardOrderLocks);
     }
 
     @Test

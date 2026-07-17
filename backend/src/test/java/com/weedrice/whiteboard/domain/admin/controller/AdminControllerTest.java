@@ -18,6 +18,7 @@ import com.weedrice.whiteboard.domain.admin.service.AdminReadService;
 import com.weedrice.whiteboard.domain.admin.service.IpBlockService;
 import com.weedrice.whiteboard.domain.admin.service.SuperAdminService;
 import com.weedrice.whiteboard.domain.post.service.PostService;
+import com.weedrice.whiteboard.domain.board.service.BoardService;
 import com.weedrice.whiteboard.global.config.CurrentUserIdWebMvcConfig;
 import com.weedrice.whiteboard.global.config.SecurityConfig;
 import com.weedrice.whiteboard.global.config.WebConfig;
@@ -103,6 +104,9 @@ class AdminControllerTest {
     private PostService postService;
 
     @MockitoBean
+    private BoardService boardService;
+
+    @MockitoBean
     private JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @MockitoBean
@@ -152,6 +156,34 @@ class AdminControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data").isArray());
+    }
+
+    @Test
+    void reorderBoards_returnsCanonicalBoardList() throws Exception {
+        when(boardService.reorderBoards(List.of(2L, 1L), 1L)).thenReturn(List.of());
+
+        mockMvc.perform(put("/api/v1/admin/boards/order")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"boardIds\":[2,1]}")
+                        .with(user(customUserDetails))
+                        .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data").isArray());
+
+        verify(boardService).reorderBoards(List.of(2L, 1L), 1L);
+    }
+
+    @Test
+    void reorderBoards_rejectsInvalidIds() throws Exception {
+        mockMvc.perform(put("/api/v1/admin/boards/order")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"boardIds\":[0]}")
+                        .with(user(customUserDetails))
+                        .with(csrf()))
+                .andExpect(status().isBadRequest());
+
+        verify(boardService, never()).reorderBoards(any(), any());
     }
 
     @Test

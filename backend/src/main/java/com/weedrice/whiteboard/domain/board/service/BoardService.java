@@ -38,6 +38,7 @@ public class BoardService {
     private final BoardVisitService boardVisitService;
     private final BoardAnonymousCacheService anonymousCacheService;
     private final AnonymousReadCacheInvalidator cacheInvalidator;
+    private final BoardOrderingService boardOrderingService;
 
     public BoardService(BoardQueryService queryService,
                           BoardProvisioningService provisioningService,
@@ -48,7 +49,8 @@ public class BoardService {
                            BoardAccessPolicy boardAccessPolicy,
                            BoardVisitService boardVisitService,
                            BoardAnonymousCacheService anonymousCacheService,
-                           AnonymousReadCacheInvalidator cacheInvalidator) {
+                           AnonymousReadCacheInvalidator cacheInvalidator,
+                           BoardOrderingService boardOrderingService) {
         this.queryService = queryService;
         this.provisioningService = provisioningService;
         this.boardCommandService = boardCommandService;
@@ -59,6 +61,7 @@ public class BoardService {
         this.boardVisitService = boardVisitService;
         this.anonymousCacheService = anonymousCacheService;
         this.cacheInvalidator = cacheInvalidator;
+        this.boardOrderingService = boardOrderingService;
     }
 
     public List<BoardListResponse> getActiveBoards(Long userId) {
@@ -96,6 +99,13 @@ public class BoardService {
     }
 
     public List<AdminBoardResponse> getAllBoards(Long userId) {
+        return queryService.getAllBoards(userId);
+    }
+
+    @Transactional
+    public List<AdminBoardResponse> reorderBoards(List<Long> boardIds, Long userId) {
+        boardOrderingService.reorder(boardIds);
+        cacheInvalidator.evictBoardRelatedCachesAfterCommit();
         return queryService.getAllBoards(userId);
     }
 

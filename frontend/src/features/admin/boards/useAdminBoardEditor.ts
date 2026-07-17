@@ -16,11 +16,14 @@ interface BoardEditorSnapshot {
   originalBoardUrls: Record<number, string>
   modifiedBoardIds: number[]
   selectedBoardId: number | null
+  orderDirty: boolean
 }
 
 interface UseAdminBoardEditorOptions {
   boardsData: Ref<AdminBoard[] | undefined>
   updateBoard: (payload: UpdateBoardPayload) => Promise<unknown>
+  reorderBoards: (boardIds: number[]) => Promise<AdminBoard[]>
+  refetchBoards: () => Promise<unknown>
 }
 
 export interface AdminBoardEditorForm {
@@ -34,7 +37,7 @@ export interface AdminBoardEditorForm {
   guidePrompt: string
 }
 
-export function useAdminBoardEditor({ boardsData, updateBoard }: UseAdminBoardEditorOptions) {
+export function useAdminBoardEditor({ boardsData, updateBoard, reorderBoards, refetchBoards }: UseAdminBoardEditorOptions) {
   const { t } = useI18n()
   const toastStore = useToastStore()
   const { confirm, confirmWithReason } = useConfirm()
@@ -45,6 +48,7 @@ export function useAdminBoardEditor({ boardsData, updateBoard }: UseAdminBoardEd
   const selectedBoardId = ref<number | null>(null)
   const isSubmitting = ref(false)
   const isSavingSortOrder = ref(false)
+  const orderDirty = ref(false)
 
   const form = reactive<AdminBoardEditorForm>({
     boardName: '',
@@ -79,7 +83,9 @@ export function useAdminBoardEditor({ boardsData, updateBoard }: UseAdminBoardEd
     )
   })
 
-  const hasUnsavedChanges = computed(() => isSelectedFormDirty.value || modifiedBoardIds.value.length > 0)
+  const hasUnsavedChanges = computed(() => (
+    isSelectedFormDirty.value || modifiedBoardIds.value.length > 0 || orderDirty.value
+  ))
 
   function cloneBoards(list: AdminBoard[]) {
     return list.map((board) => ({ ...board }))
@@ -106,6 +112,7 @@ export function useAdminBoardEditor({ boardsData, updateBoard }: UseAdminBoardEd
       originalBoardUrls: { ...originalBoardUrls.value },
       modifiedBoardIds: [...modifiedBoardIds.value],
       selectedBoardId: selectedBoardId.value,
+      orderDirty: orderDirty.value,
     }
   }
 
@@ -114,6 +121,7 @@ export function useAdminBoardEditor({ boardsData, updateBoard }: UseAdminBoardEd
     originalBoardUrls.value = { ...snapshot.originalBoardUrls }
     modifiedBoardIds.value = [...snapshot.modifiedBoardIds]
     selectedBoardId.value = snapshot.selectedBoardId
+    orderDirty.value = snapshot.orderDirty
 
     if (selectedBoard.value) {
       syncFormFromBoard(selectedBoard.value)
@@ -162,7 +170,6 @@ export function useAdminBoardEditor({ boardsData, updateBoard }: UseAdminBoardEd
       const nextSortOrder = index + 1
       if (board.sortOrder !== nextSortOrder) {
         board.sortOrder = nextSortOrder
-        markBoardModified(board.boardId)
         changedBoardIds.push(board.boardId)
       }
     })
@@ -170,6 +177,8 @@ export function useAdminBoardEditor({ boardsData, updateBoard }: UseAdminBoardEd
     if (selectedBoard.value) {
       form.sortOrder = String(selectedBoard.value.sortOrder)
     }
+
+    if (changedBoardIds.length > 0) orderDirty.value = true
 
     return changedBoardIds
   }
@@ -193,7 +202,6 @@ export function useAdminBoardEditor({ boardsData, updateBoard }: UseAdminBoardEd
           description: board.description || '',
           iconUrl: board.iconUrl || '',
           allowNsfw: board.allowNsfw,
-          sortOrder: board.sortOrder,
           isActive: board.isActive,
           agentUseYn: board.agentUseYn ?? false,
           guidePrompt: board.guidePrompt || ''
@@ -214,6 +222,15 @@ export function useAdminBoardEditor({ boardsData, updateBoard }: UseAdminBoardEd
     }
   }
 
+  async function saveBoardOrder() {
+    const canonicalBoards = await reorderBoards(boards.value.map((board) => board.boardId))
+    const copied = sortedBoardCopies(canonicalBoards)
+    boards.value = copied
+    originalBoardUrls.value = Object.fromEntries(copied.map((board) => [board.boardId, board.boardUrl]))
+    orderDirty.value = false
+    if (selectedBoard.value) syncFormFromBoard(selectedBoard.value)
+  }
+
   async function handleDragEnd() {
     if (isSavingSortOrder.value) return
 
@@ -223,7 +240,7 @@ export function useAdminBoardEditor({ boardsData, updateBoard }: UseAdminBoardEd
 
     isSavingSortOrder.value = true
     try {
-      await saveBoardUpdates(changedBoardIds, false)
+      await saveBoardOrder()
     } catch {
       restoreSnapshot(snapshot)
       // Error handled globally
@@ -322,15 +339,18 @@ export function useAdminBoardEditor({ boardsData, updateBoard }: UseAdminBoardEd
     const snapshot = createSnapshot()
     applySelectedBoardForm()
 
-    if (modifiedBoardIds.value.length === 0) {
+    if (modifiedBoardIds.value.length === 0 && !orderDirty.value) {
       return
     }
 
     isSubmitting.value = true
     try {
-      await saveBoardUpdates(modifiedBoardIds.value, true, moderationReason ?? undefined)
+      await saveBoardUpdates(modifiedBoardIds.value, false, moderationReason ?? undefined)
+      if (orderDirty.value) await saveBoardOrder()
+      toastStore.addToast(t('common.messages.saveSuccess'), 'success')
     } catch {
       restoreSnapshot(snapshot)
+      await refetchBoards()
       // Error handled globally
     } finally {
       isSubmitting.value = false

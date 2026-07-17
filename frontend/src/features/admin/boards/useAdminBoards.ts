@@ -21,6 +21,7 @@ import type {
     BoardCreateData,
     BoardUpdateData,
 } from '@/types'
+import { unwrapApiData } from '@/api/response'
 
 export function useAdminBoardManagement(queryClient: QueryClient) {
     const useAdminBoards = () => {
@@ -64,6 +65,19 @@ export function useAdminBoardManagement(queryClient: QueryClient) {
         })
     }
 
+    const useReorderBoards = () => {
+        return useMutation({
+            mutationFn: async (boardIds: number[]) => {
+                const response = await adminApi.reorderBoards(boardIds)
+                return unwrapApiData(response.data)
+            },
+            onSuccess: () => {
+                invalidateAdminBoardListCaches(queryClient)
+                invalidateBoardListCaches(queryClient)
+            },
+        })
+    }
+
     const useBoardManager = (boardId: Ref<number | null>) => {
         const boardManagerQueryKey = computed(() => adminQueryKeys.boardManager(boardId.value))
         const enabled = computed(() => boardId.value !== null)
@@ -98,6 +112,7 @@ export function useAdminBoardManagement(queryClient: QueryClient) {
         useCreateBoard,
         useUpdateBoard,
         useDeleteBoard,
+        useReorderBoards,
         useBoardManager,
         useUpdateBoardManager,
     }

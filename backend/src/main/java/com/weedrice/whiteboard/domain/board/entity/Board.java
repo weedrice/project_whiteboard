@@ -109,6 +109,10 @@ public class Board extends BaseTimeEntity {
         this.boardUrl = boardUrl;
     }
 
+    public void updateSortOrder(int sortOrder) {
+        this.sortOrder = sortOrder;
+    }
+
     public void deactivate() {
         this.isActive = false;
     }

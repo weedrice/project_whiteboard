@@ -12,6 +12,7 @@ type BoardManagementExposed = {
 const mocks = vi.hoisted(() => ({
   createBoard: vi.fn(),
   updateBoard: vi.fn(),
+  reorderBoards: vi.fn(),
   updateBoardManager: vi.fn(),
   addToast: vi.fn(),
 }))
@@ -51,6 +52,9 @@ vi.mock('@/features/admin/useAdmin', () => ({
     }),
     useUpdateBoard: () => ({
       mutateAsync: mocks.updateBoard,
+    }),
+    useReorderBoards: () => ({
+      mutateAsync: mocks.reorderBoards,
     }),
     useBoardManager: () => ({
       data: ref(null),

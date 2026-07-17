@@ -39,6 +39,9 @@ export const adminBoardApi = {
         return api.put<ApiResponse<BoardDetailWire>>(`/boards/${encodePathSegment(boardUrl)}`, data)
             .then((response) => mapApiDataResponse(response, normalizeBoardDetail))
     },
+    reorderBoards(boardIds: number[]) {
+        return api.put<ApiResponse<AdminBoard[]>>('/admin/boards/order', { boardIds })
+    },
     deleteBoard(boardUrl: string) {
         return api.delete<ApiResponse<void>>(`/boards/${encodePathSegment(boardUrl)}`)
     },

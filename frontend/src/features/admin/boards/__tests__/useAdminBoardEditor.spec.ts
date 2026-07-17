@@ -51,6 +51,23 @@ function createBoard(overrides: Partial<AdminBoard>): AdminBoard {
   }
 }
 
+function createEditor(
+  boardsData: ReturnType<typeof ref<AdminBoard[] | undefined>>,
+  updateBoard: ReturnType<typeof vi.fn>,
+  reorderBoards: ReturnType<typeof vi.fn> = vi.fn(async (boardIds: number[]) => boardIds.map((boardId, index) => ({
+    ...(boardsData.value ?? []).find((board) => board.boardId === boardId)!,
+    sortOrder: index + 1,
+  }))),
+) {
+  type EditorOptions = Parameters<typeof useAdminBoardEditor>[0]
+  return useAdminBoardEditor({
+    boardsData,
+    updateBoard: updateBoard as EditorOptions['updateBoard'],
+    reorderBoards: reorderBoards as EditorOptions['reorderBoards'],
+    refetchBoards: vi.fn().mockResolvedValue(undefined),
+  })
+}
+
 describe('useAdminBoardEditor', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -65,7 +82,7 @@ describe('useAdminBoardEditor', () => {
     ])
     const updateBoard = vi.fn().mockResolvedValue(undefined)
 
-    const editor = useAdminBoardEditor({ boardsData, updateBoard })
+    const editor = createEditor(boardsData, updateBoard)
     await nextTick()
 
     expect(editor.boards.value.map((board) => board.boardId)).toEqual([2, 1])
@@ -79,7 +96,7 @@ describe('useAdminBoardEditor', () => {
     ])
     const updateBoard = vi.fn().mockResolvedValue(undefined)
 
-    const editor = useAdminBoardEditor({ boardsData, updateBoard })
+    const editor = createEditor(boardsData, updateBoard)
     await nextTick()
 
     editor.form.boardName = '  New  '
@@ -91,8 +108,7 @@ describe('useAdminBoardEditor', () => {
       boardUrl: 'old_url',
       data: expect.objectContaining({
         boardName: 'New',
-        boardUrl: 'new-url_',
-        sortOrder: 1
+        boardUrl: 'new-url_'
       })
     })
     expect(toastMock.addToast).toHaveBeenCalledWith('common.messages.saveSuccess', 'success')
@@ -106,7 +122,7 @@ describe('useAdminBoardEditor', () => {
     ])
     const updateBoard = vi.fn().mockResolvedValue(undefined)
 
-    const editor = useAdminBoardEditor({ boardsData, updateBoard })
+    const editor = createEditor(boardsData, updateBoard)
     await nextTick()
 
     editor.form.boardName = 'Unsaved'
@@ -119,7 +135,7 @@ describe('useAdminBoardEditor', () => {
   it('does not save when board deactivation is cancelled', async () => {
     const boardsData = ref([createBoard({ boardId: 10, boardUrl: 'old-url' })])
     const updateBoard = vi.fn().mockResolvedValue(undefined)
-    const editor = useAdminBoardEditor({ boardsData, updateBoard })
+    const editor = createEditor(boardsData, updateBoard)
     await nextTick()
     editor.form.isActive = false
     confirmWithReasonMock.mockResolvedValueOnce(null)
@@ -136,7 +152,7 @@ describe('useAdminBoardEditor', () => {
     ])
     const updateBoard = vi.fn().mockResolvedValue(undefined)
 
-    const editor = useAdminBoardEditor({ boardsData, updateBoard })
+    const editor = createEditor(boardsData, updateBoard)
     await nextTick()
 
     editor.form.boardName = ''
@@ -152,7 +168,7 @@ describe('useAdminBoardEditor', () => {
     ])
     const updateBoard = vi.fn().mockRejectedValue(new Error('failed'))
 
-    const editor = useAdminBoardEditor({ boardsData, updateBoard })
+    const editor = createEditor(boardsData, updateBoard)
     await nextTick()
 
     editor.form.boardName = 'New'
@@ -171,15 +187,17 @@ describe('useAdminBoardEditor', () => {
       createBoard({ boardId: 1, boardName: 'First', boardUrl: 'first', sortOrder: 1 }),
       createBoard({ boardId: 2, boardName: 'Second', boardUrl: 'second', sortOrder: 2 })
     ])
-    const updateBoard = vi.fn().mockRejectedValue(new Error('failed'))
+    const updateBoard = vi.fn().mockResolvedValue(undefined)
+    const reorderBoards = vi.fn().mockRejectedValue(new Error('failed'))
 
-    const editor = useAdminBoardEditor({ boardsData, updateBoard })
+    const editor = createEditor(boardsData, updateBoard, reorderBoards)
     await nextTick()
 
     editor.boards.value = [editor.boards.value[1], editor.boards.value[0]]
     await editor.handleDragEnd()
 
-    expect(updateBoard).toHaveBeenCalledTimes(2)
+    expect(updateBoard).not.toHaveBeenCalled()
+    expect(reorderBoards).toHaveBeenCalledWith([2, 1])
     expect(editor.boards.value.map((board) => board.boardId)).toEqual([1, 2])
     expect(editor.boards.value.map((board) => board.sortOrder)).toEqual([1, 2])
     expect(editor.hasUnsavedChanges.value).toBe(false)
@@ -190,23 +208,27 @@ describe('useAdminBoardEditor', () => {
       createBoard({ boardId: 1, boardName: 'First', boardUrl: 'first', sortOrder: 1 }),
       createBoard({ boardId: 2, boardName: 'Second', boardUrl: 'second', sortOrder: 2 })
     ])
-    const saveResult = createDeferred()
-    const updateBoard = vi.fn().mockReturnValue(saveResult.promise)
+    const saveResult = createDeferred<AdminBoard[]>()
+    const updateBoard = vi.fn().mockResolvedValue(undefined)
+    const reorderBoards = vi.fn().mockReturnValue(saveResult.promise)
 
-    const editor = useAdminBoardEditor({ boardsData, updateBoard })
+    const editor = createEditor(boardsData, updateBoard, reorderBoards)
     await nextTick()
 
     editor.boards.value = [editor.boards.value[1], editor.boards.value[0]]
     const firstDragSave = editor.handleDragEnd()
 
     expect(editor.isSavingSortOrder.value).toBe(true)
-    expect(updateBoard).toHaveBeenCalledTimes(2)
+    expect(reorderBoards).toHaveBeenCalledTimes(1)
 
     await editor.handleDragEnd()
 
-    expect(updateBoard).toHaveBeenCalledTimes(2)
+    expect(reorderBoards).toHaveBeenCalledTimes(1)
 
-    saveResult.resolve()
+    saveResult.resolve([
+      createBoard({ boardId: 2, boardName: 'Second', boardUrl: 'second', sortOrder: 1 }),
+      createBoard({ boardId: 1, boardName: 'First', boardUrl: 'first', sortOrder: 2 }),
+    ])
     await firstDragSave
 
     expect(editor.isSavingSortOrder.value).toBe(false)

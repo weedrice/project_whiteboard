@@ -34,6 +34,7 @@ vi.mock('@/api/admin', () => ({
         getBoards: vi.fn(),
         createBoard: vi.fn(),
         updateBoard: vi.fn(),
+        reorderBoards: vi.fn(),
         deleteBoard: vi.fn(),
         getBoardManager: vi.fn(),
         updateBoardManager: vi.fn(),
@@ -626,6 +627,16 @@ describe('useAdmin', () => {
 
             expect(adminApi.deleteBoard).toHaveBeenCalledWith('test-board')
             expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['admin', 'boards'] })
+        })
+
+        it('useReorderBoards calls the atomic order API', async () => {
+            const { useReorderBoards } = useAdmin()
+            const mutation = useReorderBoards()
+            vi.mocked(adminApi.reorderBoards).mockResolvedValue(apiDataResponse([]))
+
+            await mutation.mutate([2, 1])
+
+            expect(adminApi.reorderBoards).toHaveBeenCalledWith([2, 1])
         })
 
         it('useBoardManager queryFn returns manager payload', async () => {

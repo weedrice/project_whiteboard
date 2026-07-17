@@ -177,11 +177,13 @@ describe('adminApi - Other Endpoints', () => {
         adminApi.getBoards()
         adminApi.createBoard(createData)
         adminApi.updateBoard('test', updateData)
+        adminApi.reorderBoards([2, 1])
         adminApi.deleteBoard('test')
 
         expect(apiMock.get).toHaveBeenNthCalledWith(1, '/boards/all')
         expect(apiMock.post).toHaveBeenNthCalledWith(1, '/boards', createData)
         expect(apiMock.put).toHaveBeenNthCalledWith(1, '/boards/test', updateData)
+        expect(apiMock.put).toHaveBeenNthCalledWith(2, '/admin/boards/order', { boardIds: [2, 1] })
         expect(apiMock.delete).toHaveBeenNthCalledWith(1, '/boards/test')
     })
 })

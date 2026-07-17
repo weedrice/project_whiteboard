@@ -41,6 +41,7 @@ import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import com.weedrice.whiteboard.global.config.AnonymousReadCacheInvalidator;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import com.weedrice.whiteboard.global.lock.DomainLockManager;
 import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -132,6 +133,10 @@ class BoardServiceTest {
     private AnonymousReadCacheInvalidator cacheInvalidator;
     @Mock
     private ModerationAuditLogService moderationAuditLogService;
+    @Mock
+    private DomainLockManager domainLockManager;
+    @Mock
+    private BoardOrderingService boardOrderingService;
     private BoardResponseReadService boardResponseReadService;
     private BoardResponseAssembler boardResponseAssembler;
 
@@ -187,7 +192,8 @@ class BoardServiceTest {
                 userRepository,
                 adminEligibleUserService,
                 boardAccessPolicy,
-                moderationAuditLogService);
+                moderationAuditLogService,
+                domainLockManager);
         BoardProvisioningSideEffectService provisioningSideEffectService = new BoardProvisioningSideEffectService(
                 boardIconAttachmentService,
                 boardCreationBillingService,
@@ -220,7 +226,8 @@ class BoardServiceTest {
                 boardAccessPolicy,
                 boardVisitService,
                 new BoardAnonymousCacheService(queryService),
-                cacheInvalidator);
+                cacheInvalidator,
+                boardOrderingService);
         boardApplicationService = new BoardApplicationService(boardService, queryService);
 
         lenient().when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(anyLong(), any()))

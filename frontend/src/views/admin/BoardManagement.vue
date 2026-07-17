@@ -100,6 +100,7 @@ import UserSelectModal from '@/components/common/widgets/UserSelectModal.vue'
 const {
   useAdminBoards,
   useCreateBoard,
+  useReorderBoards,
   useUpdateBoard,
   useBoardManager,
   useUpdateBoardManager
@@ -108,6 +109,7 @@ const {
 const { data: boardsData, isLoading: loading, isError: boardsError, refetch: refetchBoards } = useAdminBoards()
 const { mutateAsync: createBoard } = useCreateBoard()
 const { mutateAsync: updateBoard } = useUpdateBoard()
+const { mutateAsync: reorderBoards } = useReorderBoards()
 const {
   closeModal,
   createForm,
@@ -128,7 +130,12 @@ const {
   toggleBoardStatus,
   selectBoard,
   handleSaveChanges
-} = useAdminBoardEditor({ boardsData, updateBoard })
+} = useAdminBoardEditor({
+  boardsData,
+  updateBoard,
+  reorderBoards,
+  refetchBoards: async () => { await refetchBoards() },
+})
 
 const {
   fileInput,

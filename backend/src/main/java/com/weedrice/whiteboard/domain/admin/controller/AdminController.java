@@ -9,6 +9,9 @@ import com.weedrice.whiteboard.domain.admin.service.IpBlockService;
 import com.weedrice.whiteboard.domain.admin.service.SuperAdminService;
 import com.weedrice.whiteboard.domain.post.dto.PostResponse;
 import com.weedrice.whiteboard.domain.post.service.PostService;
+import com.weedrice.whiteboard.domain.board.dto.AdminBoardOrderRequest;
+import com.weedrice.whiteboard.domain.board.dto.AdminBoardResponse;
+import com.weedrice.whiteboard.domain.board.service.BoardService;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 
 import com.weedrice.whiteboard.global.common.ApiResponse;
@@ -44,6 +47,14 @@ public class AdminController {
     private final SuperAdminService superAdminService;
     private final IpBlockService ipBlockService;
     private final PostService postService;
+    private final BoardService boardService;
+
+    @PutMapping("/boards/order")
+    public ApiResponse<List<AdminBoardResponse>> reorderBoards(
+            @Valid @RequestBody AdminBoardOrderRequest request,
+            @CurrentUserId Long userId) {
+        return ApiResponse.success(boardService.reorderBoards(request.boardIds(), userId));
+    }
 
     /**
      * Super Admin 목록을 조회한다.

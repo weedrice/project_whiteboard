@@ -12,6 +12,7 @@ import com.weedrice.whiteboard.global.common.util.TextInputNormalizer;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.domain.moderation.service.ModerationAuditLogService;
+import com.weedrice.whiteboard.global.lock.DomainLockManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -27,8 +28,10 @@ class BoardCommandService {
     private final AdminEligibleUserService adminEligibleUserService;
     private final BoardAccessPolicy boardAccessPolicy;
     private final ModerationAuditLogService moderationAuditLogService;
+    private final DomainLockManager domainLockManager;
 
     BoardCreateCommandResult createBoard(Long creatorId, BoardCreateRequest request) {
+        domainLockManager.lockBoardOrder();
         User creator = getCurrentUser(creatorId);
         adminEligibleUserService.validateActiveUser(creator);
         String iconUrl = normalizeIconUrl(request.getIconUrl());
@@ -57,6 +60,9 @@ class BoardCommandService {
     }
 
     BoardUpdateCommandResult updateBoard(String boardUrl, BoardUpdateRequest request, Long userId) {
+        if (request.getSortOrder() != null) {
+            domainLockManager.lockBoardOrder();
+        }
         String currentBoardUrl = BoardUrlNormalizer.normalizeLookup(boardUrl);
         Board board = boardRepository.findByBoardUrlForUpdate(currentBoardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
