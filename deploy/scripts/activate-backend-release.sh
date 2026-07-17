@@ -22,6 +22,7 @@ rollback_available=false
 rollback_in_progress=false
 completed=false
 activation_verified=false
+activated_sha=""
 staging_dir=""
 release_real=""
 
@@ -176,28 +177,60 @@ sudo systemctl start "$SERVICE_NAME"
 sudo systemctl is-active --quiet "$SERVICE_NAME"
 wait_for_health "$EXPECTED_COMMIT"
 activation_verified=true
-
-declare -A keep=()
-keep["$release_real"]=1
-keep_count=1
-mapfile -d '' releases < <(find "$release_root_real" -mindepth 1 -maxdepth 1 -type d ! -name '.backend-release.*' -printf '%T@ %p\0' | sort -z -nr)
-for entry in "${releases[@]}"; do
-  path="${entry#* }"
-  path_real="$(realpath "$path")"
-  [ "$path_real" = "$release_real" ] && continue
-  if [ "$keep_count" -lt 5 ]; then
-    keep["$path_real"]=1
-    keep_count=$((keep_count + 1))
-  fi
-done
-for entry in "${releases[@]}"; do
-  path="${entry#* }"
-  path_real="$(realpath "$path")"
-  case "$path_real/" in "$release_root_real"/*/) ;; *) echo "Refusing to remove path outside release root: $path_real" >&2; exit 1 ;; esac
-  if [ -z "${keep[$path_real]+x}" ]; then rm -rf -- "$path_real"; fi
-done
-
-sudo systemctl status "$SERVICE_NAME" --no-pager
-rm -rf -- "$source_real"
+activated_sha="${EXPECTED_COMMIT:-$release_id}"
 completed=true
+echo "ACTIVATED_SHA=$activated_sha"
+
+cleanup_releases() {
+  declare -A keep=()
+  keep["$release_real"]=1
+  local keep_count=1 entry path path_real
+  local failed=false
+  local listing
+  local -a releases=()
+  if ! listing="$(mktemp "$release_root_real/.backend-cleanup-list.XXXXXX")"; then
+    return 1
+  fi
+  if ! chmod 0600 "$listing"; then
+    rm -f -- "$listing"
+    return 1
+  fi
+  if ! find "$release_root_real" -mindepth 1 -maxdepth 1 -type d ! -name '.backend-release.*' -printf '%T@ %p\0' | sort -z -nr > "$listing"; then
+    rm -f -- "$listing"
+    return 1
+  fi
+  if ! mapfile -d '' releases < "$listing"; then
+    rm -f -- "$listing"
+    return 1
+  fi
+  if ! rm -f -- "$listing"; then
+    return 1
+  fi
+  for entry in "${releases[@]}"; do
+    path="${entry#* }"
+    if ! path_real="$(realpath "$path")"; then failed=true; continue; fi
+    [ "$path_real" = "$release_real" ] && continue
+    if [ "$keep_count" -lt 5 ]; then
+      keep["$path_real"]=1
+      keep_count=$((keep_count + 1))
+    fi
+  done
+  for entry in "${releases[@]}"; do
+    path="${entry#* }"
+    if ! path_real="$(realpath "$path")"; then failed=true; continue; fi
+    case "$path_real/" in "$release_root_real"/*/) ;; *) echo "Refusing to remove path outside release root: $path_real" >&2; return 1 ;; esac
+    if [ -z "${keep[$path_real]+x}" ] && ! rm -rf -- "$path_real"; then failed=true; fi
+  done
+  [ "$failed" = false ]
+}
+
+if ! cleanup_releases; then
+  echo "CLEANUP_DEBT=backend_release_retention" >&2
+fi
+if ! sudo systemctl status "$SERVICE_NAME" --no-pager; then
+  echo "CLEANUP_DEBT=backend_status_diagnostic" >&2
+fi
+if ! rm -rf -- "$source_real"; then
+  echo "CLEANUP_DEBT=backend_incoming_release" >&2
+fi
 echo "Backend release activated: $release_real"

@@ -32,7 +32,20 @@ EOF
 cat > "$fake_bin/curl" <<'EOF'
 #!/usr/bin/env bash
 if [ -f "$STATE_DIR/fail_health" ]; then exit 1; fi
+if [ -f "$STATE_DIR/arm_fail_cleanup_listing" ]; then touch "$STATE_DIR/fail_cleanup_listing"; fi
 cat "$WEB_ROOT/.noviis-release"
+EOF
+cat > "$fake_bin/rm" <<'EOF'
+#!/usr/bin/env bash
+for argument in "$@"; do
+  if [ -f "$STATE_DIR/fail_cleanup" ] && [ "$argument" = "$RELEASE_ROOT/cleanup-victim" ]; then exit 1; fi
+done
+exec /usr/bin/rm "$@"
+EOF
+cat > "$fake_bin/find" <<'EOF'
+#!/usr/bin/env bash
+if [ -f "$STATE_DIR/fail_cleanup_listing" ] && [ "${1:-}" = "$RELEASE_ROOT" ]; then exit 1; fi
+exec /usr/bin/find "$@"
 EOF
 chmod +x "$fake_bin"/*
 
@@ -41,11 +54,13 @@ make_release() {
   local commit="$2"
   local release="$incoming_root/$name"
   local source="$fixture/source-$name"
-  mkdir -p "$release" "$source/assets"
+  mkdir -p "$release" "$source/assets" "$source/board/test/post/1"
   printf '<div id="app"><script src="/assets/app.js"></script></div>\n' > "$source/index.html"
   printf 'User-agent: *\n' > "$source/robots.txt"
-  printf '<urlset></urlset>\n' > "$source/sitemap.xml"
+  printf '<urlset><url><loc>https://noviis.kr/board/test/post/1/</loc></url></urlset>\n' > "$source/sitemap.xml"
+  printf '<link rel="canonical"><script type="application/ld+json">{}</script>\n' > "$source/board/test/post/1/index.html"
   printf '%s\n' "$commit" > "$source/.noviis-release"
+  printf '{\n  "commitSha": "%s",\n  "urlCount": 1,\n  "postUrlCount": 1,\n  "prerenderCount": 1\n}\n' "$commit" > "$source/.noviis-seo-release.json"
   printf 'asset\n' > "$source/assets/app.js"
   tar -czf "$release/frontend-release.tar.gz" -C "$source" .
   (cd "$release" && sha256sum frontend-release.tar.gz > SHA256SUMS)
@@ -64,7 +79,8 @@ run_activation() {
 }
 
 old_release="$(make_release old old-commit)"
-run_activation "$old_release" old-commit
+old_output="$(run_activation "$old_release" old-commit)"
+grep -Fqx 'ACTIVATED_SHA=old-commit' <<< "$old_output"
 test "$(readlink -f "$web_root")" = "$release_root/old/site"
 
 new_release="$(make_release new new-commit)"
@@ -88,5 +104,26 @@ safe_release="$(make_release symlink-safe safe-commit)"
 ln -s "$victim" "$safe_release/ACTIVATED"
 run_activation "$safe_release" safe-commit
 grep -qx unchanged "$victim"
+
+for index in 1 2 3 4 5 6; do
+  mkdir -p "$release_root/archive-$index"
+  touch -d "2026-06-$((10 + index))" "$release_root/archive-$index"
+done
+mkdir -p "$release_root/cleanup-victim"
+touch -d '2020-01-01' "$release_root/cleanup-victim"
+touch "$fixture/fail_cleanup"
+cleanup_release="$(make_release cleanup cleanup-commit)"
+cleanup_output="$(run_activation "$cleanup_release" cleanup-commit 2>&1)"
+grep -Fqx 'ACTIVATED_SHA=cleanup-commit' <<< "$cleanup_output"
+grep -Fq 'CLEANUP_DEBT=frontend_release_retention' <<< "$cleanup_output"
+test -d "$release_root/cleanup-victim"
+rm "$fixture/fail_cleanup"
+
+touch "$fixture/arm_fail_cleanup_listing"
+listing_release="$(make_release listing listing-commit)"
+listing_output="$(run_activation "$listing_release" listing-commit 2>&1)"
+grep -Fqx 'ACTIVATED_SHA=listing-commit' <<< "$listing_output"
+grep -Fq 'CLEANUP_DEBT=frontend_release_retention' <<< "$listing_output"
+rm "$fixture/arm_fail_cleanup_listing" "$fixture/fail_cleanup_listing"
 
 echo "Frontend activation fixtures passed"

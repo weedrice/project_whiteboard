@@ -10,6 +10,9 @@ async function main() {
     const entries = await readdir(distDir, { recursive: true })
     const postIndexes = entries.filter((entry) => /board[\\/][^\\/]+[\\/]post[\\/]\d+[\\/]index\.html$/.test(entry))
     if (postIndexes.length === 0) {
+        if (process.env.SEO_STRICT === 'true') {
+            throw new Error('strict production release contains no pre-rendered post HTML')
+        }
         console.warn('[prerender-verify] no pre-rendered post HTML found; skipping')
         return
     }

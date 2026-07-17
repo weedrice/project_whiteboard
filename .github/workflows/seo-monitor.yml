@@ -8,6 +8,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: seo-submit-production
+  cancel-in-progress: false
+
 jobs:
   verify-and-submit:
     runs-on: ubuntu-latest
@@ -49,4 +53,3 @@ jobs:
           GOOGLE_SEARCH_CONSOLE_CLIENT_SECRET: ${{ secrets.GOOGLE_SEARCH_CONSOLE_CLIENT_SECRET }}
           GOOGLE_SEARCH_CONSOLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_SEARCH_CONSOLE_REFRESH_TOKEN }}
           CUSTOM_SITEMAP_SUBMIT_URL: ${{ secrets.CUSTOM_SITEMAP_SUBMIT_URL }}
-        continue-on-error: true

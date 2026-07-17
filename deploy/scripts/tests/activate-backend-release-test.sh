@@ -43,6 +43,7 @@ case "$command_name" in
   start)
     if [ -f "$STATE_DIR/fail_start" ]; then exit 1; fi
     printf 'active\n' > "$STATE_DIR/service"
+    if [ -f "$STATE_DIR/arm_fail_cleanup_listing" ]; then touch "$STATE_DIR/fail_cleanup_listing"; fi
     ;;
   restart)
     if [ -f "$STATE_DIR/fail_restart" ]; then exit 1; fi
@@ -71,6 +72,18 @@ cat > "$fake_bin/mv" <<'EOF'
 last="${!#}"
 if [ -f "$STATE_DIR/fail_activate_move" ] && [ "$last" = "$APP_DIR/app.jar" ]; then exit 1; fi
 exec /usr/bin/mv "$@"
+EOF
+cat > "$fake_bin/rm" <<'EOF'
+#!/usr/bin/env bash
+for argument in "$@"; do
+  if [ -f "$STATE_DIR/fail_cleanup" ] && [ "$argument" = "$RELEASE_ROOT/cleanup-victim" ]; then exit 1; fi
+done
+exec /usr/bin/rm "$@"
+EOF
+cat > "$fake_bin/find" <<'EOF'
+#!/usr/bin/env bash
+if [ -f "$STATE_DIR/fail_cleanup_listing" ] && [ "${1:-}" = "$RELEASE_ROOT" ]; then exit 1; fi
+exec /usr/bin/find "$@"
 EOF
 chmod +x "$fake_bin"/*
 
@@ -102,7 +115,8 @@ printf 'old\n' > "$app_dir/app.jar"
 success_release="$incoming_root/success"
 mkdir -p "$success_release"
 printf 'new\n' > "$success_release/app.jar"
-run_activation "$success_release"
+success_output="$(run_activation "$success_release")"
+grep -Fqx 'ACTIVATED_SHA=success' <<< "$success_output"
 grep -qx new "$app_dir/app.jar"
 
 printf 'old\n' > "$app_dir/app.jar"
@@ -126,7 +140,7 @@ if invoke_activation "$checksum_failure_release"; then
   echo "Expected checksum verification failure" >&2
   exit 1
 fi
-grep -qx new "$app_dir/app.jar"
+grep -qx old "$app_dir/app.jar"
 
 printf 'old\n' > "$app_dir/app.jar"
 stop_failure_release="$incoming_root/stop-failure"
@@ -191,6 +205,27 @@ run_activation "$retention_release"
 release_count="$(find "$release_root" -mindepth 1 -maxdepth 1 -type d | wc -l)"
 test "$release_count" -eq 5
 test -d "$release_root/current"
+
+mkdir -p "$release_root/cleanup-victim"
+touch -d '2020-01-01' "$release_root/cleanup-victim"
+touch "$state_dir/fail_cleanup"
+cleanup_debt_release="$incoming_root/cleanup-debt"
+mkdir -p "$cleanup_debt_release"
+printf 'new\n' > "$cleanup_debt_release/app.jar"
+cleanup_output="$(run_activation "$cleanup_debt_release" 2>&1)"
+grep -Fqx 'ACTIVATED_SHA=cleanup-debt' <<< "$cleanup_output"
+grep -Fq 'CLEANUP_DEBT=backend_release_retention' <<< "$cleanup_output"
+test -d "$release_root/cleanup-victim"
+rm "$state_dir/fail_cleanup"
+
+touch "$state_dir/arm_fail_cleanup_listing"
+listing_debt_release="$incoming_root/listing-debt"
+mkdir -p "$listing_debt_release"
+printf 'new\n' > "$listing_debt_release/app.jar"
+listing_output="$(run_activation "$listing_debt_release" 2>&1)"
+grep -Fqx 'ACTIVATED_SHA=listing-debt' <<< "$listing_output"
+grep -Fq 'CLEANUP_DEBT=backend_release_retention' <<< "$listing_output"
+rm "$state_dir/arm_fail_cleanup_listing" "$state_dir/fail_cleanup_listing"
 
 printf 'old\n' > "$app_dir/app.jar"
 move_failure_release="$incoming_root/move-failure"

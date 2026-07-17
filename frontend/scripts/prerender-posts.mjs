@@ -15,6 +15,7 @@ const requestTimeoutMs = parsePositiveInt(process.env.PRERENDER_REQUEST_TIMEOUT_
 const fetchRetries = parseNonNegativeInt(process.env.PRERENDER_FETCH_RETRIES, 3)
 const fetchRetryDelayMs = parsePositiveInt(process.env.PRERENDER_FETCH_RETRY_DELAY_MS, 1000)
 const retryableStatuses = new Set([408, 425, 429, 500, 502, 503, 504])
+const strict = process.env.SEO_STRICT === 'true'
 
 function normalizeBaseUrl(url) {
     return String(url).replace(/\/+$/, '')
@@ -175,6 +176,7 @@ async function main() {
 
     const postPaths = extractPostPathsFromSitemap(sitemapXml)
     if (postPaths.length === 0) {
+        if (strict) throw new Error('strict production prerender requires at least one post URL')
         console.log('[prerender] no post URLs found in sitemap; skipping')
         return
     }

@@ -9,6 +9,7 @@ const outputPath = resolve(process.cwd(), 'public', 'sitemap.xml')
 const pageSize = parsePositiveInt(process.env.SITEMAP_PAGE_SIZE, 100)
 const maxPagesPerBoard = parsePositiveInt(process.env.SITEMAP_MAX_PAGES_PER_BOARD, 200)
 const requestTimeoutMs = parsePositiveInt(process.env.SITEMAP_REQUEST_TIMEOUT_MS, 15000)
+const strict = process.env.SEO_STRICT === 'true'
 
 function normalizeBaseUrl(url) {
     return String(url).replace(/\/+$/, '')
@@ -171,6 +172,7 @@ function renderSitemap(entries) {
 
 async function main() {
     const entries = new Map()
+    let postCount = 0
 
     upsertEntry(entries, createEntry(`${siteUrl}/`, { changefreq: 'daily', priority: '1.0' }))
     upsertEntry(entries, createEntry(`${siteUrl}/boards`, { changefreq: 'daily', priority: '0.9' }))
@@ -192,21 +194,28 @@ async function main() {
 
             try {
                 const postEntries = await fetchBoardPosts(boardUrl)
+                postCount += postEntries.length
                 for (const postEntry of postEntries) {
                     upsertEntry(entries, postEntry)
                 }
             } catch (error) {
+                if (strict) throw error
                 console.warn(`[sitemap] failed to fetch posts for board "${boardUrl}": ${String(error)}`)
             }
         }
     } catch (error) {
+        if (strict) throw error
         console.warn(`[sitemap] failed to fetch boards: ${String(error)}`)
         console.warn('[sitemap] falling back to base URLs only')
     }
 
+    if (strict && postCount === 0) {
+        throw new Error('strict production sitemap contains no post URLs')
+    }
+
     await mkdir(dirname(outputPath), { recursive: true })
     await writeFile(outputPath, renderSitemap(entries), 'utf8')
-    console.log(`[sitemap] wrote ${entries.size} URLs to ${outputPath}`)
+    console.log(`[sitemap] wrote ${entries.size} URLs (${postCount} posts) to ${outputPath}`)
 }
 
 main().catch((error) => {

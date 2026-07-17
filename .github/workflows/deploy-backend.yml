@@ -2,8 +2,15 @@ name: Deploy Backend
 
 on:
   workflow_call:
+    outputs:
+      activated_sha:
+        description: Commit SHA verified on the backend management endpoint
+        value: ${{ jobs.deploy.outputs.activated_sha }}
     inputs:
       expected_sha:
+        required: true
+        type: string
+      release_artifact_name:
         required: true
         type: string
       backup_snapshot_id:
@@ -39,6 +46,8 @@ permissions:
 
 jobs:
   deploy:
+    outputs:
+      activated_sha: ${{ steps.activation-result.outputs.activated_sha }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: production
@@ -53,7 +62,7 @@ jobs:
       - name: Download verified backend artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: backend-release-${{ inputs.expected_sha }}
+          name: ${{ inputs.release_artifact_name }}
           path: release-artifact
 
       - name: Verify backend artifact checksum and metadata
@@ -127,18 +136,32 @@ jobs:
           test "$(git rev-parse origin/main)" = "$EXPECTED_SHA"
 
       - name: Activate backend release
+        id: activate
         uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         with:
           host: ${{ secrets.EC2_HOST }}
           username: noviis-deploy
           key: ${{ secrets.EC2_SSH_KEY }}
           fingerprint: ${{ secrets.EC2_HOST_FINGERPRINT }}
+          capture_stdout: true
           script: |
             set -eu
             RELEASE_DIR="/opt/app/backend/incoming/${{ inputs.expected_sha }}-${{ github.run_id }}-${{ github.run_attempt }}"
             sudo /usr/local/sbin/activate-noviis-backend "$RELEASE_DIR" "${{ inputs.expected_sha }}"
 
+      - name: Record verified backend activation
+        id: activation-result
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+          ACTIVATION_STDOUT: ${{ steps.activate.outputs.stdout }}
+        run: |
+          set -euo pipefail
+          activated_sha="$(printf '%s\n' "$ACTIVATION_STDOUT" | sed -n 's/^ACTIVATED_SHA=//p' | tail -n 1)"
+          test "$activated_sha" = "$EXPECTED_SHA"
+          echo "activated_sha=$activated_sha" >> "$GITHUB_OUTPUT"
+
       - name: Clean backend incoming release
+        id: cleanup
         if: always()
         uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         with:
@@ -152,3 +175,10 @@ jobs:
             if [ -e "$RELEASE_DIR" ]; then
               case "$(realpath "$RELEASE_DIR")/" in /opt/app/backend/incoming/*/) rm -rf -- "$RELEASE_DIR" ;; *) exit 1 ;; esac
             fi
+        continue-on-error: true
+
+      - name: Report backend cleanup debt
+        if: always() && steps.cleanup.outcome == 'failure'
+        run: |
+          echo "::warning title=Backend cleanup debt::The verified backend release remains active; incoming cleanup requires operator follow-up."
+          echo "Backend incoming cleanup failed after activation of ${{ inputs.expected_sha }}." >> "$GITHUB_STEP_SUMMARY"

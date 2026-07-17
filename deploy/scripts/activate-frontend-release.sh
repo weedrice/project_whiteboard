@@ -106,9 +106,13 @@ test -f "$site_dir/index.html"
 test -f "$site_dir/robots.txt"
 test -f "$site_dir/sitemap.xml"
 test -f "$site_dir/.noviis-release"
+test -f "$site_dir/.noviis-seo-release.json"
 grep -q assets "$site_dir/index.html"
 release_commit="$(tr -d '\r\n' < "$site_dir/.noviis-release")"
 if [ -n "$EXPECTED_COMMIT" ] && [ "$release_commit" != "$EXPECTED_COMMIT" ]; then echo "Frontend release commit mismatch" >&2; exit 1; fi
+grep -Fq -- "\"commitSha\": \"$release_commit\"" "$site_dir/.noviis-seo-release.json"
+grep -Eq -- '"postUrlCount": [1-9][0-9]*' "$site_dir/.noviis-seo-release.json"
+grep -Eq -- '"prerenderCount": [1-9][0-9]*' "$site_dir/.noviis-seo-release.json"
 
 if grep -Eq '<loc>[^<]+/board/[^<]+/post/[0-9]+/?</loc>' "$site_dir/sitemap.xml"; then
   mapfile -d '' post_indexes < <(find "$site_dir/board" -path '*/post/*/index.html' -type f -print0 2>/dev/null || true)
@@ -141,22 +145,51 @@ if [ "$internal_commit" != "$release_commit" ]; then echo "Frontend internal hea
 public_commit="$(curl -fsS --max-time 10 "$HEALTH_URL" | tr -d '\r\n')"
 if [ "$public_commit" != "$release_commit" ]; then echo "Frontend health endpoint returned a different release commit" >&2; exit 1; fi
 verified=true
+echo "ACTIVATED_SHA=$release_commit"
 
-declare -A keep=()
-keep["$release_real"]=1
-keep_count=1
-if [ -n "$previous_target" ]; then previous_release="$(dirname "$previous_target")"; keep["$previous_release"]=1; keep_count=$((keep_count + 1)); fi
-mapfile -d '' releases < <(find "$release_root_real" -mindepth 1 -maxdepth 1 -type d ! -name '.frontend-release.*' -printf '%T@ %p\0' | sort -z -nr)
-for entry in "${releases[@]}"; do
-  path_real="$(realpath "${entry#* }")"
-  [ -n "${keep[$path_real]+x}" ] && continue
-  if [ "$keep_count" -lt "$KEEP_RELEASES" ]; then keep["$path_real"]=1; keep_count=$((keep_count + 1)); fi
-done
-for entry in "${releases[@]}"; do
-  path_real="$(realpath "${entry#* }")"
-  case "$path_real/" in "$release_root_real"/*/) ;; *) echo "Refusing to remove path outside release root: $path_real" >&2; exit 1 ;; esac
-  if [ -z "${keep[$path_real]+x}" ]; then rm -rf -- "$path_real"; fi
-done
+cleanup_releases() {
+  declare -A keep=()
+  keep["$release_real"]=1
+  local keep_count=1 previous_release entry path_real
+  local failed=false
+  local listing
+  local -a releases=()
+  if [ -n "$previous_target" ]; then previous_release="$(dirname "$previous_target")"; keep["$previous_release"]=1; keep_count=$((keep_count + 1)); fi
+  if ! listing="$(mktemp "$release_root_real/.frontend-cleanup-list.XXXXXX")"; then
+    return 1
+  fi
+  if ! chmod 0600 "$listing"; then
+    rm -f -- "$listing"
+    return 1
+  fi
+  if ! find "$release_root_real" -mindepth 1 -maxdepth 1 -type d ! -name '.frontend-release.*' -printf '%T@ %p\0' | sort -z -nr > "$listing"; then
+    rm -f -- "$listing"
+    return 1
+  fi
+  if ! mapfile -d '' releases < "$listing"; then
+    rm -f -- "$listing"
+    return 1
+  fi
+  if ! rm -f -- "$listing"; then
+    return 1
+  fi
+  for entry in "${releases[@]}"; do
+    if ! path_real="$(realpath "${entry#* }")"; then failed=true; continue; fi
+    [ -n "${keep[$path_real]+x}" ] && continue
+    if [ "$keep_count" -lt "$KEEP_RELEASES" ]; then keep["$path_real"]=1; keep_count=$((keep_count + 1)); fi
+  done
+  for entry in "${releases[@]}"; do
+    if ! path_real="$(realpath "${entry#* }")"; then failed=true; continue; fi
+    case "$path_real/" in "$release_root_real"/*/) ;; *) echo "Refusing to remove path outside release root: $path_real" >&2; return 1 ;; esac
+    if [ -z "${keep[$path_real]+x}" ] && ! rm -rf -- "$path_real"; then failed=true; fi
+  done
+  [ "$failed" = false ]
+}
 
-rm -rf -- "$source_real"
+if ! cleanup_releases; then
+  echo "CLEANUP_DEBT=frontend_release_retention" >&2
+fi
+if ! rm -rf -- "$source_real"; then
+  echo "CLEANUP_DEBT=frontend_incoming_release" >&2
+fi
 echo "Frontend release activated: $release_real"
