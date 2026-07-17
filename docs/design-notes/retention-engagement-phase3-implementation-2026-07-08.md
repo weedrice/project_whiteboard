@@ -7,10 +7,10 @@ Date: 2026-07-08
 | Item | Status | Notes |
 | --- | --- | --- |
 | N1 resume reading | Applied | `PostResponse.lastViewedAt` is read from the existing view history before the detail read updates history. Comment divider is limited to oldest-first order; other sorts keep only new-comment highlight. |
-| N2 web push foundation | Partially applied | `push_subscriptions` and user setting fields were added in `V30`. Subscription CRUD and a custom push service worker exist. Actual VAPID send/410 cleanup is deferred until the web-push dependency is approved. |
-| N3 onboarding foundation | Partially applied | Board recommendation API and onboarding completion API exist. Frontend API clients are ready; the signup redirect/banner UI remains follow-up work. |
-| N4 keyword notifications | Partially applied | `NotificationType.KEYWORD`, DB constraints, user settings, API, frontend presentation, and title exact/partial matching notification publishing were added. Private/secret posts are excluded; keyword management UI and block-relationship filtering remain follow-up. |
-| N5 poll attachment | Backend/API applied | `V32` adds polls, options, and votes. Posts can be created with one attached poll, and vote/delete-vote APIs are available. Editor/vote UI remains follow-up work. |
+| N2 web push | Applied | Subscription CRUD, user settings, VAPID delivery, expired-subscription cleanup, service worker handling, onboarding/settings UI, and failure-state UX are implemented. |
+| N3 onboarding | Applied | Route enforcement, board recommendations and subscriptions, optional push enablement, completion, retry handling, and session-scoped cache synchronization are implemented. |
+| N4 keyword notifications | Applied | Notification publishing, private/secret exclusion, block filtering, settings UI, and create/delete APIs are implemented. |
+| N5 poll attachment | Applied | Post creation/editor, detail voting UI, multiple-choice storage, and vote/delete-vote APIs are implemented. |
 | N6 semantic search labeling | Applied | Similarity percentage is hidden; semantic results are labeled as recommendation copy and promoted when keyword results are empty. |
 | N7 point visibility | Applied | Post/comment create responses include `earnedPoints`, the frontend shows a polite success toast, invalidates user point balance, and point history now separates earn/spend rows with balance-after visibility. |
 
@@ -37,7 +37,7 @@ Date: 2026-07-08
 - `GET /api/v1/users/me/keyword-subscriptions`
 - `POST /api/v1/users/me/keyword-subscriptions`
 - `DELETE /api/v1/users/me/keyword-subscriptions/{subscriptionId}`
-- Frontend API clients exist, but there is not yet a reachable keyword management screen.
+- Keyword subscriptions are managed from the reachable user settings screen.
 
 ### Polls
 
@@ -66,4 +66,4 @@ Date: 2026-07-08
 - Frontend lint passed after each implementation phase.
 - Targeted Vitest coverage was run for post/comment point rewards, post detail/comment divider behavior, and search labeling.
 - Targeted backend tests were run for post/comment controllers, post services, user settings/controllers, board recommendations, keyword compile path, and poll controller wiring.
-- Full type-check remains intentionally deferred because the project already has known lowlight, Tiptap, and PWA virtual module resolution issues.
+- Full frontend type-check is part of the final verification and CI gate.

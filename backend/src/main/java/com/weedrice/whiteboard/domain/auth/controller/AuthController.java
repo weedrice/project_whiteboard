@@ -209,7 +209,10 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
-    @Operation(summary = "재가입 이메일 확인", description = "해당 이메일이 탈퇴(DELETED) 계정인지 확인하고, 재가입 가능 시 마스킹된 loginId를 반환합니다.")
+    @Operation(
+            summary = "재가입 이메일 사전 확인 (호환용)",
+            description = "계정 존재 여부를 노출하지 않도록 항상 canReregister=false, maskedLoginId=null을 반환합니다. "
+                    + "실제 재가입 정보는 이메일 인증 성공 응답에서만 제공합니다.")
     @GetMapping("/reregister/check-email")
     public ResponseEntity<ApiResponse<ReregisterCheckResponse>> checkEmailForReregister(
             @RequestParam @jakarta.validation.constraints.Email String email) {

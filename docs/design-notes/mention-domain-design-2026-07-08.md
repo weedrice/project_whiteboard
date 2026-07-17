@@ -55,7 +55,7 @@ the package as a service boundary before changing storage.
   - Respect block relationships.
   - Cap recipients per source to 10.
   - Deduplicate repeated mentions in one source.
-  - Decide edit behavior: notify only newly added mentions.
+  - Preserve the current edit behavior: update display metadata without sending mention notifications.
 
 ## Incremental Steps
 
@@ -70,19 +70,18 @@ the package as a service boundary before changing storage.
 
 ## Edit Policy
 
-Recommended policy:
+Current policy:
 
 - Create: notify all valid mentioned users.
-- Edit: notify only users newly added by the edit.
+- Edit: update persisted display metadata without sending or resending notifications.
 - Remove: remove display metadata when explicit mention metadata is removed.
 - Metadata absent: preserve existing records.
 - Empty metadata list: remove all records.
 
-This matches the fixed comment-edit behavior and avoids accidental mention loss.
+Changing edit behavior to notify newly added recipients is a separate product-policy change. It requires recipient-diff persistence and notification idempotency tests and must not be inferred from this domain refactor.
 
 ## Frontend Boundary
 
 The frontend already has `features/mentions` for autocomplete UI. Future mention
 rendering and parsing helpers should also live there, with domain-specific
 wrappers in comments/posts only when needed.
-
