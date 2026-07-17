@@ -109,6 +109,12 @@ export function useWriteBoardSheet() {
     const last = focusable[focusable.length - 1]
     const active = document.activeElement as HTMLElement | null
 
+    if (active === sheetRef.value) {
+      event.preventDefault()
+      ;(event.shiftKey ? last : first).focus()
+      return
+    }
+
     if (event.shiftKey && active === first) {
       event.preventDefault()
       last.focus()

@@ -406,4 +406,31 @@ describe('EmoticonPicker', () => {
 
         expect(document.activeElement).toBe(trigger)
     })
+
+    it('loops Tab and Shift+Tab within the opened picker', async () => {
+        mocks.purchasedEmoticons.value = [createEmoticon(1, 'Cat')]
+        const host = document.createElement('div')
+        document.body.appendChild(host)
+        const wrapper = mountPicker(true, host)
+        await nextTick()
+        await nextTick()
+
+        const focusable = Array.from(wrapper.get('[role="dialog"]').element.querySelectorAll<HTMLElement>(
+            'button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ))
+        const first = focusable[0]
+        const last = focusable.at(-1)!
+
+        last.focus()
+        const tab = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true })
+        document.dispatchEvent(tab)
+        expect(tab.defaultPrevented).toBe(true)
+        expect(document.activeElement).toBe(first)
+
+        first.focus()
+        const shiftTab = new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true, cancelable: true })
+        document.dispatchEvent(shiftTab)
+        expect(shiftTab.defaultPrevented).toBe(true)
+        expect(document.activeElement).toBe(last)
+    })
 })

@@ -332,6 +332,49 @@ describe('DefaultLayout', () => {
         expect(wrapper.find('#notification-dropdown-panel').exists()).toBe(true)
     })
 
+    it('moves focus into the opened notification dialog and restores it on Escape', async () => {
+        authMocks.authStore.isAuthenticated = true
+        authMocks.authStore.user = { displayName: 'Tester' }
+        const NotificationDropdownStub = defineComponent({
+            setup: () => () => h('div', { role: 'dialog' }, [h('button', 'First notification action')]),
+        })
+        const host = document.createElement('div')
+        document.body.appendChild(host)
+        const wrapper = mount(DefaultLayout, {
+            attachTo: host,
+            global: {
+                stubs: {
+                    'router-link': true,
+                    'router-view': true,
+                    NotificationDropdown: NotificationDropdownStub,
+                    UserDropdown: true,
+                    BoardDropdown: true,
+                    Footer: true,
+                    GlobalSearchBar: true,
+                    KeyboardShortcutsModal: true,
+                    RecentBoardsBar: true,
+                    MobileBottomNav: MobileBottomNavStub,
+                },
+                mocks: { $t: (key: string) => key },
+            },
+        })
+
+        const trigger = wrapper.get('button[aria-controls="notification-dropdown-panel"]')
+        ;(trigger.element as HTMLButtonElement).focus()
+        await trigger.trigger('click')
+        await nextTick()
+
+        expect(document.activeElement?.textContent).toContain('First notification action')
+
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+        await nextTick()
+
+        expect(wrapper.find('#notification-dropdown-panel').exists()).toBe(false)
+        expect(document.activeElement).toBe(trigger.element)
+        wrapper.unmount()
+        host.remove()
+    })
+
     it('includes the unread count in notification controls and the live status', () => {
         authMocks.authStore.isAuthenticated = true
         authMocks.authStore.user = { displayName: 'Tester' }

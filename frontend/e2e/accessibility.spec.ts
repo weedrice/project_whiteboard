@@ -33,3 +33,38 @@ test('settings and post editor have no serious or critical axe violations', asyn
   await expect(page.locator('#title')).toBeVisible()
   await expectNoSeriousAccessibilityViolations(page)
 })
+
+test('opened notification dialog is axe-clean and restores its trigger on Escape', async ({ page }) => {
+  await installMockApi(page)
+  await login(page)
+  const trigger = page.locator('button[aria-controls="notification-dropdown-panel"]')
+  await trigger.click()
+
+  await expect(page.locator('#notification-dropdown-panel [role="dialog"]')).toBeVisible()
+  await expectNoSeriousAccessibilityViolations(page)
+  await page.keyboard.press('Escape')
+
+  await expect(page.locator('#notification-dropdown-panel')).toBeHidden()
+  await expect(trigger).toBeFocused()
+})
+
+test('opened mobile write sheet is axe-clean, traps focus, and restores its trigger', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await installMockApi(page)
+  await login(page)
+  await page.goto('/')
+  const trigger = page.locator('button[aria-controls="mobile-write-sheet"]')
+  await trigger.click()
+
+  const dialog = page.locator('#mobile-write-sheet')
+  await expect(dialog).toBeVisible()
+  await expect(dialog).toBeFocused()
+  await expectNoSeriousAccessibilityViolations(page)
+
+  await page.keyboard.press('Shift+Tab')
+  await expect(dialog.locator('button').last()).toBeFocused()
+  await page.keyboard.press('Escape')
+
+  await expect(dialog).toBeHidden()
+  await expect(trigger).toBeFocused()
+})

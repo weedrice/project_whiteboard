@@ -52,11 +52,13 @@ vi.mock('@/features/board/useBoard', () => ({
         useBoards: () => ({
             data: ref([{ boardId: 1, boardUrl: 'free', boardName: 'Free', subscriberCount: 10, postCount: 12 }]),
             isError: ref(false),
+            refetch: vi.fn(),
         }),
         useSubscribedBoards: () => ({
             data: ref([{ boardId: 1, boardUrl: 'free', boardName: 'Free', subscriberCount: 10, postCount: 12 }]),
             isLoading: ref(false),
             isError: ref(false),
+            refetch: vi.fn(),
         }),
     }),
 }))
@@ -117,5 +119,45 @@ describe('useWriteBoardSheet', () => {
         sheet.closeWriteSheet()
         await nextTick()
         expect(document.body.style.overflow).toBe('auto')
+    })
+
+    it('traps Tab inside the opened sheet, closes on Escape, and restores trigger focus', async () => {
+        const trigger = document.createElement('button')
+        const sheetElement = document.createElement('div')
+        sheetElement.tabIndex = -1
+        const first = document.createElement('button')
+        const last = document.createElement('button')
+        sheetElement.append(first, last)
+        document.body.append(trigger, sheetElement)
+        trigger.focus()
+
+        const sheet = useWriteBoardSheet()
+        sheet.fabButtonRef.value = trigger
+        sheet.sheetRef.value = sheetElement
+        await sheet.openWriteSheet()
+        await nextTick()
+
+        expect(sheet.showWriteSheet.value).toBe(true)
+        expect(document.activeElement).toBe(sheetElement)
+
+        const initialShiftTab = new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, cancelable: true })
+        sheet.handleSheetKeydown(initialShiftTab)
+        expect(initialShiftTab.defaultPrevented).toBe(true)
+        expect(document.activeElement).toBe(last)
+
+        last.focus()
+        const tab = new KeyboardEvent('keydown', { key: 'Tab', cancelable: true })
+        sheet.handleSheetKeydown(tab)
+        expect(tab.defaultPrevented).toBe(true)
+        expect(document.activeElement).toBe(first)
+
+        const escape = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true })
+        sheet.handleSheetKeydown(escape)
+        await nextTick()
+        expect(sheet.showWriteSheet.value).toBe(false)
+        expect(document.activeElement).toBe(trigger)
+
+        trigger.remove()
+        sheetElement.remove()
     })
 })

@@ -42,4 +42,40 @@ describe('ImageLightbox', () => {
     lightbox.unmount()
     modal.unmount()
   })
+
+  it('traps focus while open, closes on Escape, and restores the opener', async () => {
+    const opener = document.createElement('button')
+    const host = document.createElement('div')
+    document.body.append(opener, host)
+    opener.focus()
+    const lightbox = mount(ImageLightbox, {
+      attachTo: host,
+      props: { isOpen: true, images: ['/one.png', '/two.png'], title: 'Preview' },
+      global: { mocks: { $t: (key: string) => key }, stubs: { Teleport: true } },
+    })
+    await nextTick()
+    await nextTick()
+
+    const dialog = lightbox.get('[role="dialog"]')
+    const buttons = dialog.findAll('button')
+    expect(dialog.attributes('aria-modal')).toBe('true')
+    expect(document.activeElement).toBe(buttons[0].element)
+
+    ;(buttons.at(-1)!.element as HTMLButtonElement).focus()
+    const tab = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true })
+    document.dispatchEvent(tab)
+    expect(tab.defaultPrevented).toBe(true)
+    expect(document.activeElement).toBe(buttons[0].element)
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+    await nextTick()
+    expect(lightbox.emitted('close')).toHaveLength(1)
+
+    await lightbox.setProps({ isOpen: false })
+    await nextTick()
+    expect(document.activeElement).toBe(opener)
+    lightbox.unmount()
+    opener.remove()
+    host.remove()
+  })
 })
