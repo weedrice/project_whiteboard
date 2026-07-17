@@ -4,6 +4,8 @@ import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.moderation.service.ModerationAuditLogService;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
+import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchEventPublisher;
+import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchIndexAction;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -26,6 +28,7 @@ public class PostManagerModerationService {
     private final UserRepository userRepository;
     private final BoardAccessPolicy boardAccessPolicy;
     private final ModerationAuditLogService moderationAuditLogService;
+    private final SemanticSearchEventPublisher semanticSearchEventPublisher;
     private final Clock clock;
 
     public void pinPost(Long managerUserId, Long postId) {
@@ -47,6 +50,7 @@ public class PostManagerModerationService {
         Post post = managedPost.post();
         String normalizedReason = normalizeReason(reason);
         post.blind(normalizedReason, now());
+        semanticSearchEventPublisher.publish("POST", post.getPostId(), SemanticSearchIndexAction.DELETE);
         recordPostAction(managedPost.manager(), post, ModerationAuditLogService.ACTION_POST_BLIND, normalizedReason);
     }
 
@@ -54,6 +58,8 @@ public class PostManagerModerationService {
         ManagedPost managedPost = loadManagedPost(managerUserId, postId);
         Post post = managedPost.post();
         post.unblind();
+        semanticSearchEventPublisher.publish("POST", post.getPostId(), SemanticSearchIndexAction.UPSERT);
+        semanticSearchEventPublisher.publishPostCommentsReindex(post.getPostId());
         recordPostAction(managedPost.manager(), post, ModerationAuditLogService.ACTION_POST_UNBLIND, null);
     }
 

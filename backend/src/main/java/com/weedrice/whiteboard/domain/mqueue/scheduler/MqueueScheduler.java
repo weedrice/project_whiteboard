@@ -5,6 +5,7 @@ import com.weedrice.whiteboard.domain.mqueue.entity.MessageQueue;
 import com.weedrice.whiteboard.domain.mqueue.repository.MessageQueueRepository;
 import com.weedrice.whiteboard.domain.mqueue.repository.MessageQueueRepository.EmailDispatchProjection;
 import com.weedrice.whiteboard.domain.mqueue.service.MqueueService;
+import com.weedrice.whiteboard.domain.mqueue.service.MqueueCleanupService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.task.TaskRejectedException;
@@ -28,6 +29,7 @@ import java.util.stream.Collectors;
 public class MqueueScheduler {
     private final MessageQueueRepository messageQueueRepository;
     private final MqueueService mqueueService;
+    private final MqueueCleanupService mqueueCleanupService;
     private final Clock clock;
 
     @Scheduled(cron = "0 * * * * ?")
@@ -79,6 +81,10 @@ public class MqueueScheduler {
                 }
                 dispatchEmail(dispatch, claimedAt);
             }
+        }
+        int cleaned = mqueueCleanupService.deleteExpiredTerminalBatch();
+        if (cleaned > 0) {
+            log.info("Deleted {} expired terminal message queue row(s)", cleaned);
         }
         log.info("Message queue scheduler finished: attempted {}", pendingQueueIds.size());
     }

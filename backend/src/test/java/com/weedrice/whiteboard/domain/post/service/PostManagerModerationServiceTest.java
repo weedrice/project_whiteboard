@@ -5,6 +5,8 @@ import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.moderation.service.ModerationAuditLogService;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
+import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchEventPublisher;
+import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchIndexAction;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -35,6 +37,7 @@ class PostManagerModerationServiceTest {
     @Mock UserRepository users;
     @Mock BoardAccessPolicy accessPolicy;
     @Mock ModerationAuditLogService audits;
+    @Mock SemanticSearchEventPublisher semanticSearchEvents;
     PostManagerModerationService service;
     User manager;
     Post post;
@@ -42,7 +45,7 @@ class PostManagerModerationServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new PostManagerModerationService(posts, users, accessPolicy, audits,
+        service = new PostManagerModerationService(posts, users, accessPolicy, audits, semanticSearchEvents,
                 Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC));
         manager = mock(User.class);
         post = mock(Post.class);
@@ -70,6 +73,10 @@ class PostManagerModerationServiceTest {
     void blindNormalizesReasonAndUnblindAudits() {
         service.blindPost(1L, 2L, "  ");
         service.unblindPost(1L, 2L);
+
+        verify(semanticSearchEvents).publish("POST", 2L, SemanticSearchIndexAction.DELETE);
+        verify(semanticSearchEvents).publish("POST", 2L, SemanticSearchIndexAction.UPSERT);
+        verify(semanticSearchEvents).publishPostCommentsReindex(2L);
 
         verify(post).blind("MANAGER", LocalDateTime.of(2026, 1, 1, 0, 0));
         verify(post).unblind();

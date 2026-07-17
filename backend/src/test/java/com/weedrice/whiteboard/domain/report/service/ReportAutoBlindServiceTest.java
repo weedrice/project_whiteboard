@@ -8,6 +8,8 @@ import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.report.entity.Report;
 import com.weedrice.whiteboard.domain.report.repository.ReportRepository;
+import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchEventPublisher;
+import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchIndexAction;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -34,11 +36,12 @@ class ReportAutoBlindServiceTest {
     @Mock CommentRepository comments;
     @Mock ModerationAuditLogService audits;
     @Mock GlobalConfigService configs;
+    @Mock SemanticSearchEventPublisher semanticSearchEvents;
     ReportAutoBlindService service;
 
     @BeforeEach
     void setUp() {
-        service = new ReportAutoBlindService(reports, posts, comments, audits, configs,
+        service = new ReportAutoBlindService(reports, posts, comments, audits, configs, semanticSearchEvents,
                 Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC));
     }
 
@@ -85,6 +88,7 @@ class ReportAutoBlindServiceTest {
         service.applyIfThresholdReached("POST", 3L);
 
         verify(post).blind("AUTO_REPORT", LocalDateTime.of(2026, 1, 1, 0, 0));
+        verify(semanticSearchEvents).publish("POST", 3L, SemanticSearchIndexAction.DELETE);
         verify(audits).recordSystemAction(ModerationAuditLogService.ACTION_POST_AUTO_BLIND,
                 ModerationAuditLogService.TARGET_TYPE_POST, 3L, board, "AUTO_REPORT");
     }
@@ -104,6 +108,7 @@ class ReportAutoBlindServiceTest {
 
         service.applyIfThresholdReached("COMMENT", 4L);
         verify(comment).blind("AUTO_REPORT", LocalDateTime.of(2026, 1, 1, 0, 0));
+        verify(semanticSearchEvents).publish("COMMENT", 4L, SemanticSearchIndexAction.DELETE);
 
         Post blinded = mock(Post.class);
         when(posts.findByIdWithRelationsForBlindUpdate(5L)).thenReturn(Optional.of(blinded));

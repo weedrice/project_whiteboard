@@ -53,10 +53,12 @@ class SemanticSearchSqlBuilderTest {
             assertKeywordCountSelection(countSql, contentType);
             assertThat(searchSql)
                     .contains("LIKE :keywordPattern ESCAPE '!'")
+                    .contains("p.is_blinded = 'N'")
                     .contains("ORDER BY created_at DESC, content_type ASC, content_id DESC")
                     .contains("LIMIT :limit OFFSET :offset");
             assertThat(countSql)
                     .contains("SELECT COUNT(*) FROM")
+                    .contains("p.is_blinded = 'N'")
                     .contains("LIKE :keywordPattern ESCAPE '!'")
                     .doesNotContain("ORDER BY")
                     .doesNotContain("LIMIT :limit")

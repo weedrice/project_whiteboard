@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.mqueue.MessageQueuePolicy;
 import com.weedrice.whiteboard.domain.mqueue.repository.MessageQueueRepository;
 import com.weedrice.whiteboard.domain.mqueue.repository.MessageQueueRepository.EmailDispatchProjection;
 import com.weedrice.whiteboard.domain.mqueue.service.MqueueService;
+import com.weedrice.whiteboard.domain.mqueue.service.MqueueCleanupService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -40,6 +41,8 @@ class MqueueSchedulerTest {
     private MessageQueueRepository messageQueueRepository;
     @Mock
     private MqueueService mqueueService;
+    @Mock
+    private MqueueCleanupService mqueueCleanupService;
     @Mock
     private Clock clock;
 

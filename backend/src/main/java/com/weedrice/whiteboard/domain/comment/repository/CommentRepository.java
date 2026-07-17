@@ -448,7 +448,9 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                         JOIN p.board b
                         WHERE c.user = :user
                           AND c.isDeleted = false
+                          AND c.isBlinded = false
                           AND p.isDeleted = false
+                          AND p.isBlinded = false
                           AND p.isSecret = false
                           AND b.isActive = true
                           AND b.isPublic = true
@@ -463,7 +465,9 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                         JOIN p.board b
                         WHERE c.user = :user
                           AND c.isDeleted = false
+                          AND c.isBlinded = false
                           AND p.isDeleted = false
+                          AND p.isBlinded = false
                           AND p.isSecret = false
                           AND b.isActive = true
                           AND b.isPublic = true

@@ -369,6 +369,38 @@ class MessageQueueRepositoryTest {
         assertThat(dispatches.get(0).getContent()).isEqualTo("email-content");
     }
 
+    @Test
+    @DisplayName("terminal queue cleanup deletes only old sent and failed rows within the batch limit")
+    void deleteTerminalBatch_deletesOnlyExpiredTerminalRows() {
+        User user = persistUser();
+        LocalDateTime cutoff = LocalDateTime.of(2026, 7, 1, 0, 0);
+        MessageQueue oldestSent = persistMessageQueue(user, "old-sent", cutoff.minusDays(40));
+        MessageQueue oldFailed = persistMessageQueue(user, "old-failed", cutoff.minusDays(30));
+        MessageQueue oldUnconfirmed = persistMessageQueue(user, "old-unconfirmed", cutoff.minusDays(50));
+        MessageQueue recentSent = persistMessageQueue(user, "recent-sent", cutoff.minusDays(20));
+        ReflectionTestUtils.setField(oldestSent, "status", MessageQueue.STATUS_SENT);
+        ReflectionTestUtils.setField(oldFailed, "status", MessageQueue.STATUS_FAILED);
+        ReflectionTestUtils.setField(oldUnconfirmed, "status", MessageQueue.STATUS_DELIVERED_UNCONFIRMED);
+        ReflectionTestUtils.setField(recentSent, "status", MessageQueue.STATUS_SENT);
+        entityManager.flush();
+
+        updateModifiedAt(oldestSent, cutoff.minusDays(2));
+        updateModifiedAt(oldFailed, cutoff.minusDays(1));
+        updateModifiedAt(oldUnconfirmed, cutoff.minusDays(3));
+        updateModifiedAt(recentSent, cutoff.plusDays(1));
+        entityManager.clear();
+
+        int deleted = messageQueueRepository.deleteTerminalBatch(cutoff, 1);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(deleted).isEqualTo(1);
+        assertThat(messageQueueRepository.findById(oldestSent.getQueueId())).isEmpty();
+        assertThat(messageQueueRepository.findById(oldFailed.getQueueId())).isPresent();
+        assertThat(messageQueueRepository.findById(oldUnconfirmed.getQueueId())).isPresent();
+        assertThat(messageQueueRepository.findById(recentSent.getQueueId())).isPresent();
+    }
+
     private MessageQueue persistMessageQueue() {
         User user = persistUser();
         MessageQueue message = MessageQueue.builder()
@@ -405,5 +437,13 @@ class MessageQueueRepositoryTest {
                 .build();
         entityManager.persistAndFlush(message);
         return message;
+    }
+
+    private void updateModifiedAt(MessageQueue message, LocalDateTime modifiedAt) {
+        entityManager.getEntityManager()
+                .createNativeQuery("UPDATE message_queue SET modified_at = :modifiedAt WHERE queue_id = :queueId")
+                .setParameter("modifiedAt", modifiedAt)
+                .setParameter("queueId", message.getQueueId())
+                .executeUpdate();
     }
 }

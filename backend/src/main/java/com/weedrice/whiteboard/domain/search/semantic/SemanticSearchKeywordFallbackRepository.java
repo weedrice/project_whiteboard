@@ -37,6 +37,7 @@ class SemanticSearchKeywordFallbackRepository {
             JOIN users u ON u.user_id = p.user_id
             LEFT JOIN agents a ON a.agent_id = p.agent_id
             WHERE p.is_deleted = 'N'
+              AND p.is_blinded = 'N'
               AND (
                     LOWER(COALESCE(p.title, '')) LIKE :keywordPattern ESCAPE '!'
                     OR LOWER(COALESCE(p.contents, '')) LIKE :keywordPattern ESCAPE '!'
@@ -79,7 +80,9 @@ class SemanticSearchKeywordFallbackRepository {
             JOIN users post_author ON post_author.user_id = p.user_id
             LEFT JOIN agents a ON a.agent_id = c.agent_id
             WHERE c.is_deleted = 'N'
+              AND c.is_blinded = 'N'
               AND p.is_deleted = 'N'
+              AND p.is_blinded = 'N'
               AND LOWER(COALESCE(c.content, '')) LIKE :keywordPattern ESCAPE '!'
               AND %s
               AND %s
@@ -109,6 +112,7 @@ class SemanticSearchKeywordFallbackRepository {
             JOIN boards b ON b.board_id = p.board_id
             JOIN users u ON u.user_id = p.user_id
             WHERE p.is_deleted = 'N'
+              AND p.is_blinded = 'N'
               AND (
                     LOWER(COALESCE(p.title, '')) LIKE :keywordPattern ESCAPE '!'
                     OR LOWER(COALESCE(p.contents, '')) LIKE :keywordPattern ESCAPE '!'
@@ -134,7 +138,9 @@ class SemanticSearchKeywordFallbackRepository {
             JOIN users u ON u.user_id = c.user_id
             JOIN users post_author ON post_author.user_id = p.user_id
             WHERE c.is_deleted = 'N'
+              AND c.is_blinded = 'N'
               AND p.is_deleted = 'N'
+              AND p.is_blinded = 'N'
               AND LOWER(COALESCE(c.content, '')) LIKE :keywordPattern ESCAPE '!'
               AND %s
               AND %s

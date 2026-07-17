@@ -375,6 +375,71 @@ class MessageRepositoryTest {
         assertThat(result).isEmpty();
     }
 
+    @Test
+    @DisplayName("conversation page selects the latest visible message per partner before pagination")
+    void findConversationLatestPage_paginatesLatestMessagePerPartner() {
+        User other = User.builder()
+                .loginId("other-partner")
+                .email("other-partner@test.com")
+                .password("password")
+                .displayName("Other Partner")
+                .build();
+        entityManager.persist(other);
+        Message latestWithReceiver = persistMessage(receiver, sender, "latest receiver conversation");
+        Message latestWithOther = persistMessage(sender, other, "latest other conversation");
+        LocalDateTime base = LocalDateTime.of(2026, 7, 17, 10, 0);
+        entityManager.flush();
+        updateCreatedAt(message, base);
+        updateCreatedAt(latestWithReceiver, base.plusMinutes(2));
+        updateCreatedAt(latestWithOther, base.plusMinutes(1));
+        entityManager.clear();
+
+        Page<Message> firstPage = messageRepository.findConversationLatestPage(
+                sender.getUserId(), List.of(), PageRequest.of(0, 1));
+        Page<Message> secondPage = messageRepository.findConversationLatestPage(
+                sender.getUserId(), List.of(), PageRequest.of(1, 1));
+
+        assertThat(firstPage.getTotalElements()).isEqualTo(2);
+        assertThat(firstPage.getContent()).extracting(Message::getContent)
+                .containsExactly("latest receiver conversation");
+        assertThat(secondPage.getContent()).extracting(Message::getContent)
+                .containsExactly("latest other conversation");
+    }
+
+    @Test
+    @DisplayName("conversation page excludes blocked partners before selecting latest messages")
+    void findConversationLatestPage_excludesBlockedPartners() {
+        User other = User.builder()
+                .loginId("blocked-partner")
+                .email("blocked-partner@test.com")
+                .password("password")
+                .displayName("Blocked Partner")
+                .build();
+        entityManager.persist(other);
+        persistMessage(sender, other, "blocked conversation");
+        entityManager.flush();
+        entityManager.clear();
+
+        Page<Message> conversations = messageRepository.findConversationLatestPage(
+                sender.getUserId(), List.of(other.getUserId()), PageRequest.of(0, 10));
+
+        assertThat(conversations.getTotalElements()).isEqualTo(1);
+        assertThat(conversations.getContent()).extracting(Message::getContent)
+                .containsExactly("Test message");
+    }
+
+    @Test
+    @DisplayName("conversation page returns empty content for an offset beyond the result count")
+    void findConversationLatestPage_largeOffsetReturnsEmptyPage() {
+        PageRequest hugePage = PageRequest.of(Integer.MAX_VALUE, 100);
+
+        Page<Message> conversations = messageRepository.findConversationLatestPage(
+                sender.getUserId(), List.of(), hugePage);
+
+        assertThat(conversations.getContent()).isEmpty();
+        assertThat(conversations.getTotalElements()).isEqualTo(1);
+    }
+
     private Message persistMessage(User messageSender, User messageReceiver, String content) {
         Message newMessage = Message.builder()
                 .sender(messageSender)

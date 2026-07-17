@@ -19,6 +19,7 @@ public enum ErrorCode {
     VALIDATION_ERROR(HttpStatus.BAD_REQUEST, "C008", "error.common.validationError"),
     DUPLICATE_RESOURCE(HttpStatus.CONFLICT, "C009", "error.common.duplicateResource"),
     RATE_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "C010", "error.common.rateLimitExceeded"),
+    REQUEST_TOO_LARGE(HttpStatus.CONTENT_TOO_LARGE, "C011", "error.common.requestTooLarge"),
 
     // User
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "U001", "error.user.notFound"),

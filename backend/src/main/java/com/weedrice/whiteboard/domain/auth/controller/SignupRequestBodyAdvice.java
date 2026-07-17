@@ -21,6 +21,8 @@ import java.lang.reflect.Type;
 @RequiredArgsConstructor
 public class SignupRequestBodyAdvice extends RequestBodyAdviceAdapter {
 
+    static final int MAX_SIGNUP_BODY_BYTES = 64 * 1024;
+
     private final ObjectMapper objectMapper;
 
     @Override
@@ -37,7 +39,14 @@ public class SignupRequestBodyAdvice extends RequestBodyAdviceAdapter {
             MethodParameter parameter,
             Type targetType,
             Class<? extends HttpMessageConverter<?>> converterType) throws IOException {
-        byte[] body = inputMessage.getBody().readAllBytes();
+        long contentLength = inputMessage.getHeaders().getContentLength();
+        if (contentLength > MAX_SIGNUP_BODY_BYTES) {
+            throw new BusinessException(ErrorCode.REQUEST_TOO_LARGE);
+        }
+        byte[] body = inputMessage.getBody().readNBytes(MAX_SIGNUP_BODY_BYTES + 1);
+        if (body.length > MAX_SIGNUP_BODY_BYTES) {
+            throw new BusinessException(ErrorCode.REQUEST_TOO_LARGE);
+        }
         JsonNode root = objectMapper.readTree(body);
         if (root != null && (root.has("provider") || root.has("providerId"))) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR);

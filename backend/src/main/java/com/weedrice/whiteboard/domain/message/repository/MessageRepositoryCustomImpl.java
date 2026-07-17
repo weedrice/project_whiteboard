@@ -12,6 +12,10 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Repository;
 
 import jakarta.persistence.LockModeType;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.Query;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -24,6 +28,21 @@ import static com.weedrice.whiteboard.domain.user.entity.QUser.user;
 public class MessageRepositoryCustomImpl implements MessageRepositoryCustom {
 
     private final JPAQueryFactory queryFactory;
+    private final EntityManager entityManager;
+
+    private static final String CONVERSATION_VISIBLE_PREDICATE = """
+            (
+                (m.sender_id = :userId AND m.receiver_id = :userId
+                    AND m.is_deleted_by_sender = 'N' AND m.is_deleted_by_receiver = 'N')
+                OR
+                (m.sender_id <> m.receiver_id AND (
+                    (m.sender_id = :userId AND m.is_deleted_by_sender = 'N')
+                    OR (m.receiver_id = :userId AND m.is_deleted_by_receiver = 'N')
+                ))
+            )
+            AND (CASE WHEN m.sender_id = :userId THEN m.receiver_id ELSE m.sender_id END)
+                NOT IN (:blockedUserIds)
+            """;
 
     @Override
     public Page<Message> findReceivedMessagesExcludingBlocked(Long userId, Boolean isDeleted,
@@ -86,17 +105,92 @@ public class MessageRepositoryCustomImpl implements MessageRepositoryCustom {
     }
 
     @Override
-    public List<Message> findConversationLatestCandidates(Long userId, List<Long> blockedUserIds) {
-        return queryFactory
+    public Page<Message> findConversationLatestPage(Long userId, List<Long> blockedUserIds, Pageable pageable) {
+        List<Long> safeBlockedUserIds = blockedUserIds == null || blockedUserIds.isEmpty()
+                ? List.of(-1L)
+                : blockedUserIds;
+        long total = countConversations(userId, safeBlockedUserIds);
+        long offset = pageable.getOffset();
+        if (offset >= total || offset > Integer.MAX_VALUE) {
+            return new PageImpl<>(List.of(), pageable, total);
+        }
+        String idsSql = """
+                WITH ranked_conversations AS (
+                    SELECT m.message_id,
+                           m.created_at,
+                           ROW_NUMBER() OVER (
+                               PARTITION BY CASE
+                                   WHEN m.sender_id = :userId THEN m.receiver_id
+                                   ELSE m.sender_id
+                               END
+                               ORDER BY m.created_at DESC, m.message_id DESC
+                           ) AS row_number
+                    FROM messages m
+                    WHERE %s
+                )
+                SELECT message_id
+                FROM ranked_conversations
+                WHERE row_number = 1
+                ORDER BY created_at DESC, message_id DESC
+                """.formatted(CONVERSATION_VISIBLE_PREDICATE);
+        Query idsQuery = entityManager.createNativeQuery(idsSql);
+        bindConversationParameters(idsQuery, userId, safeBlockedUserIds);
+        idsQuery.setFirstResult(Math.toIntExact(offset));
+        idsQuery.setMaxResults(pageable.getPageSize());
+        @SuppressWarnings("unchecked")
+        List<Number> rawIds = idsQuery.getResultList();
+        List<Long> messageIds = rawIds.stream().map(Number::longValue).toList();
+
+        List<Message> orderedMessages = loadMessagesInOrder(
+                messageIds,
+                userId,
+                safeBlockedUserIds);
+        return new PageImpl<>(orderedMessages, pageable, total);
+    }
+
+    private List<Message> loadMessagesInOrder(
+            List<Long> messageIds,
+            Long userId,
+            List<Long> blockedUserIds) {
+        if (messageIds.isEmpty()) {
+            return List.of();
+        }
+        Map<Long, Message> messagesById = queryFactory
                 .selectFrom(message)
                 .join(message.sender, user).fetchJoin()
                 .join(message.receiver).fetchJoin()
                 .where(
+                        message.messageId.in(messageIds),
                         senderOrReceiverCanAccess(userId),
                         notBlockedConversationPartnerCondition(userId, blockedUserIds)
                 )
-                .orderBy(message.createdAt.desc(), message.messageId.desc())
-                .fetch();
+                .fetch()
+                .stream()
+                .collect(java.util.stream.Collectors.toMap(
+                        Message::getMessageId,
+                        value -> value,
+                        (left, right) -> left,
+                        LinkedHashMap::new));
+        return messageIds.stream().map(messagesById::get).filter(java.util.Objects::nonNull).toList();
+    }
+
+    private long countConversations(Long userId, List<Long> blockedUserIds) {
+        String countSql = """
+                SELECT COUNT(DISTINCT CASE
+                    WHEN m.sender_id = :userId THEN m.receiver_id
+                    ELSE m.sender_id
+                END)
+                FROM messages m
+                WHERE %s
+                """.formatted(CONVERSATION_VISIBLE_PREDICATE);
+        Query countQuery = entityManager.createNativeQuery(countSql);
+        bindConversationParameters(countQuery, userId, blockedUserIds);
+        return ((Number) countQuery.getSingleResult()).longValue();
+    }
+
+    private void bindConversationParameters(Query query, Long userId, List<Long> blockedUserIds) {
+        query.setParameter("userId", userId);
+        query.setParameter("blockedUserIds", blockedUserIds);
     }
 
     @Override

@@ -153,6 +153,23 @@ public interface MessageQueueRepository extends JpaRepository<MessageQueue, Long
                                           @Param("expectedProcessingStartedAt") LocalDateTime expectedProcessingStartedAt,
                                           @Param("uncertainAt") LocalDateTime uncertainAt);
 
+    @Modifying
+    @Query(value = """
+            DELETE FROM message_queue
+            WHERE queue_id IN (
+                SELECT queue_id
+                FROM message_queue
+                WHERE status IN ('SENT', 'FAILED')
+                  AND requested_at < :cutoff
+                  AND modified_at < :cutoff
+                ORDER BY requested_at ASC, queue_id ASC
+                LIMIT :batchSize
+            )
+            """, nativeQuery = true)
+    int deleteTerminalBatch(
+            @Param("cutoff") LocalDateTime cutoff,
+            @Param("batchSize") int batchSize);
+
     interface EmailDispatchProjection {
         Long getQueueId();
 

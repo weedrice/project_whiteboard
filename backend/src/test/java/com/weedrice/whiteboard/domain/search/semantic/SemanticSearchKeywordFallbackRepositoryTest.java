@@ -57,6 +57,8 @@ class SemanticSearchKeywordFallbackRepositoryTest {
         String sql = sqlCaptor.getValue();
         assertThat(sql)
                 .contains("UNION ALL")
+                .contains("p.is_blinded = 'N'")
+                .contains("c.is_blinded = 'N'")
                 .contains("b.is_active = 'Y' AND b.is_public = 'Y'")
                 .contains("u.status = 'ACTIVE'")
                 .contains("post_author.status = 'ACTIVE'")
@@ -93,6 +95,8 @@ class SemanticSearchKeywordFallbackRepositoryTest {
                 .contains("b.board_url = :boardUrl")
                 .contains("b.is_active = 'Y' AND b.is_public = 'Y'")
                 .contains("p.is_secret = 'N'")
+                .contains("p.is_blinded = 'N'")
+                .contains("c.is_blinded = 'N'")
                 .contains("LOWER(COALESCE(p.title, '')) LIKE :keywordPattern ESCAPE '!'")
                 .contains("LOWER(COALESCE(c.content, '')) LIKE :keywordPattern ESCAPE '!'")
                 .contains("post_author.status = 'ACTIVE'")

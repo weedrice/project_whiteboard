@@ -339,11 +339,25 @@ class CommentRepositoryTest {
         entityManager.persist(commentFor(deletedPost, "Deleted Post Comment"));
         entityManager.persist(commentFor(privateBoardPost, "Private Board Comment"));
         entityManager.persist(commentFor(inactiveBoardPost, "Inactive Board Comment"));
+        Post blindedPost = Post.builder()
+                .title("Blinded Post")
+                .contents("Blinded Contents")
+                .user(user)
+                .board(board)
+                .build();
+        blindedPost.blind("REPORT", LocalDateTime.now());
+        entityManager.persist(blindedPost);
+        entityManager.persist(commentFor(blindedPost, "Blinded Post Comment"));
+        Comment blindedComment = commentFor(post, "Blinded Comment");
+        blindedComment.blind("REPORT", LocalDateTime.now());
+        entityManager.persist(blindedComment);
         entityManager.flush();
 
         long count = commentRepository.countPublicProfileCommentsByUser(user);
+        Page<Comment> comments = commentRepository.findPublicProfileCommentsByUser(user, PageRequest.of(0, 20));
 
         assertThat(count).isEqualTo(1L);
+        assertThat(comments.getContent()).extracting(Comment::getContent).containsExactly("Test Comment");
     }
 
     @Test

@@ -8,6 +8,8 @@ import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.report.entity.Report;
 import com.weedrice.whiteboard.domain.report.entity.ReportTargetType;
 import com.weedrice.whiteboard.domain.report.repository.ReportRepository;
+import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchEventPublisher;
+import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchIndexAction;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -33,6 +35,7 @@ class ReportAutoBlindService {
     private final CommentRepository commentRepository;
     private final ModerationAuditLogService moderationAuditLogService;
     private final GlobalConfigService globalConfigService;
+    private final SemanticSearchEventPublisher semanticSearchEventPublisher;
     private final Clock clock;
 
     @Transactional(propagation = Propagation.MANDATORY)
@@ -83,6 +86,7 @@ class ReportAutoBlindService {
             return;
         }
         post.blind(AUTO_REPORT_REASON, LocalDateTime.now(clock));
+        semanticSearchEventPublisher.publish("POST", post.getPostId(), SemanticSearchIndexAction.DELETE);
         moderationAuditLogService.recordSystemAction(
                 ModerationAuditLogService.ACTION_POST_AUTO_BLIND,
                 ModerationAuditLogService.TARGET_TYPE_POST,
@@ -101,6 +105,7 @@ class ReportAutoBlindService {
             return;
         }
         comment.blind(AUTO_REPORT_REASON, LocalDateTime.now(clock));
+        semanticSearchEventPublisher.publish("COMMENT", comment.getCommentId(), SemanticSearchIndexAction.DELETE);
         moderationAuditLogService.recordSystemAction(
                 ModerationAuditLogService.ACTION_COMMENT_AUTO_BLIND,
                 ModerationAuditLogService.TARGET_TYPE_COMMENT,
