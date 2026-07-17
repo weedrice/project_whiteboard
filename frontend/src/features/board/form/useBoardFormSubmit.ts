@@ -13,7 +13,7 @@ interface UseBoardFormSubmitOptions {
   selectedFile: Ref<File | null>
   isEdit: () => boolean
   canCreate: ComputedRef<boolean>
-  boardCreateCost: ComputedRef<number>
+  boardCreateCost: ComputedRef<number | null>
   emitSubmit: (data: BoardFormData) => void
 }
 
@@ -38,6 +38,10 @@ export function useBoardFormSubmit(options: UseBoardFormSubmitOptions) {
     }
 
     if (!options.isEdit() && !options.canCreate.value) {
+      if (options.boardCreateCost.value === null) {
+        toastStore.addToast(t('board.form.createCostUnavailable'), 'error')
+        return
+      }
       toastStore.addToast(t('board.form.insufficientPoints', { cost: options.boardCreateCost.value }), 'error')
       return
     }

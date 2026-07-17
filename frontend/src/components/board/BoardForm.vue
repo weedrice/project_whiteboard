@@ -42,7 +42,10 @@ const isEditMode = computed(() => props.isEdit)
 const {
   userPoints,
   boardCreateCost,
-  canCreate
+  isBoardCreateCostLoading,
+  boardCreateCostError,
+  canCreate,
+  loadBoardCreateCost,
 } = useBoardCreationPolicy({ isEdit: isEditMode })
 
 const {
@@ -155,8 +158,15 @@ const isSubmitting = computed(() => props.isSubmitting || localIsSubmitting.valu
 
     <div class="flex justify-end space-x-3 items-center">
       <div v-if="!isEdit" class="flex items-center mr-2 text-sm"
-        :class="canCreate ? 'nv-text-muted' : 'nv-form-error font-bold'">
-        <span>{{ $t('board.form.cost') }}: {{ boardCreateCost }} P</span>
+        :class="canCreate ? 'nv-text-muted' : 'nv-form-error font-bold'" aria-live="polite">
+        <span v-if="isBoardCreateCostLoading">{{ $t('board.form.createCostLoading') }}</span>
+        <template v-else-if="boardCreateCostError">
+          <span role="alert">{{ $t('board.form.createCostUnavailable') }}</span>
+          <BaseButton type="button" variant="ghost" size="sm" class="ml-2" @click="loadBoardCreateCost">
+            {{ $t('common.error.retry') }}
+          </BaseButton>
+        </template>
+        <span v-else>{{ $t('board.form.cost') }}: {{ boardCreateCost }} P</span>
         <span class="mx-2 nv-text-subtle">|</span>
         <span>{{ $t('board.form.currentPoints') }}: {{ userPoints }} P</span>
       </div>

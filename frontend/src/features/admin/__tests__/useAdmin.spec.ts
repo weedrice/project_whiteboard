@@ -5,9 +5,14 @@ import { adminApi } from '@/api/admin'
 import { apiDataResponse, apiSuccessResponse } from '@/test/apiResponseFixtures'
 
 const mockAuthStore = vi.hoisted(() => ({ sessionGeneration: 0 }))
+const mockInvalidateConfig = vi.hoisted(() => vi.fn())
 
 vi.mock('@/stores/auth', () => ({
     useAuthStore: () => mockAuthStore,
+}))
+
+vi.mock('@/stores/config', () => ({
+    useConfigStore: () => ({ invalidateConfig: mockInvalidateConfig }),
 }))
 
 // Mock dependencies

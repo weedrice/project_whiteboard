@@ -8,6 +8,7 @@ interface ConfigState {
     configs: Record<string, string>;
     loading: boolean;
     error: Error | null;
+    publicConfigsLoaded: boolean;
 }
 
 interface ConfigKeyValue {
@@ -33,6 +34,7 @@ async function withConfigLoading<T>(
     fallback: T
 ): Promise<T> {
     state.loading = true
+    state.error = null
     try {
         return await action()
     } catch (error: unknown) {
@@ -48,7 +50,8 @@ export const useConfigStore = defineStore('config', {
     state: (): ConfigState => ({
         configs: {},
         loading: false,
-        error: null
+        error: null,
+        publicConfigsLoaded: false
     }),
 
     actions: {
@@ -78,13 +81,21 @@ export const useConfigStore = defineStore('config', {
         },
 
         async fetchPublicConfigs() {
-            await withConfigLoading(this, 'Failed to fetch public configs:', async () => {
+            const loaded = await withConfigLoading(this, 'Failed to fetch public configs:', async () => {
                 const { data } = await configApi.getPublicConfigs()
                 const configs = unwrapApiData(data)
                 if (data.success && Array.isArray(configs)) {
                     this.configs = { ...this.configs, ...configEntriesToRecord(configs as ConfigEntry[]) }
+                    return true
                 }
-            }, undefined)
+                return false
+            }, false)
+            this.publicConfigsLoaded = loaded
+            return loaded
+        },
+
+        invalidateConfig(key: string) {
+            delete this.configs[key]
         }
     },
 

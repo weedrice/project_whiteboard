@@ -117,6 +117,8 @@ export const boardBaseMessages = {
     cost: '생성 비용',
     currentPoints: '보유 포인트',
     insufficientPoints: '포인트가 부족합니다. (필요: {cost}P)',
+    createCostLoading: '생성 비용을 확인하고 있습니다.',
+    createCostUnavailable: '생성 비용을 불러오지 못했습니다. 다시 시도해 주세요.',
   },
   category: {
     placeholder: {

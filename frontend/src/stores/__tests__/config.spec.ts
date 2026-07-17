@@ -59,6 +59,20 @@ describe('Config Store', () => {
 
         expect(store.configs['site.name']).toBe('Noviis')
         expect(store.configs['board.create.enabled']).toBe('true')
+        expect(store.publicConfigsLoaded).toBe(true)
+    })
+
+    it('invalidates one cached config so the canonical value can be reloaded', async () => {
+        const store = useConfigStore()
+        store.configs['POINT_BOARD_CREATE_COST'] = '500'
+        store.invalidateConfig('POINT_BOARD_CREATE_COST')
+        vi.mocked(configApi.getConfig).mockResolvedValue(apiSuccessDataResponse<typeof configApi.getConfig>({
+            key: 'POINT_BOARD_CREATE_COST',
+            value: '750',
+        }))
+
+        await expect(store.fetchConfig('POINT_BOARD_CREATE_COST')).resolves.toBe('750')
+        expect(store.configs['POINT_BOARD_CREATE_COST']).toBe('750')
     })
 
     it('merges admin config DTO list into existing keyed store state', async () => {

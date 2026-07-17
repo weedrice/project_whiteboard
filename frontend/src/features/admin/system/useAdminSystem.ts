@@ -29,9 +29,11 @@ import {
     isSessionGenerationCurrent,
 } from '@/queryAuthScope'
 import { useAuthStore } from '@/stores/auth'
+import { useConfigStore } from '@/stores/config'
 
 export function useAdminSystem(queryClient: QueryClient) {
     const authStore = useAuthStore()
+    const configStore = useConfigStore()
     const captureMutationSession = () => ({ sessionGeneration: authStore.sessionGeneration })
     const isCurrentMutation = (context?: { sessionGeneration: number }) => (
         context !== undefined && isSessionGenerationCurrent(authStore, context.sessionGeneration)
@@ -50,6 +52,7 @@ export function useAdminSystem(queryClient: QueryClient) {
             onSuccess: (_data, _variables, context) => {
                 if (!isCurrentMutation(context)) return
                 invalidateAdminConfigCaches(queryClient, context.sessionGeneration)
+                configStore.invalidateConfig(_variables.key)
             }
         })
     }
@@ -61,6 +64,7 @@ export function useAdminSystem(queryClient: QueryClient) {
             onSuccess: (_data, _variables, context) => {
                 if (!isCurrentMutation(context)) return
                 invalidateAdminConfigCaches(queryClient, context.sessionGeneration)
+                configStore.invalidateConfig(_variables.key)
             }
         })
     }
@@ -72,6 +76,7 @@ export function useAdminSystem(queryClient: QueryClient) {
             onSuccess: (_data, _variables, context) => {
                 if (!isCurrentMutation(context)) return
                 invalidateAdminConfigCaches(queryClient, context.sessionGeneration)
+                configStore.invalidateConfig(_variables)
             }
         })
     }

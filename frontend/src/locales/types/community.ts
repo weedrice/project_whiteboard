@@ -187,6 +187,8 @@ export interface BoardMessages {
     cost: string
     currentPoints: string
     insufficientPoints: string
+    createCostLoading: string
+    createCostUnavailable: string
   }
   category: {
     placeholder: {

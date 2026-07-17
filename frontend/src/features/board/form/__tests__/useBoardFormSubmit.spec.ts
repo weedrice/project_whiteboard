@@ -119,4 +119,21 @@ describe('useBoardFormSubmit', () => {
       guidePrompt: 'private guide',
     }))
   })
+
+  it('blocks creation when the canonical creation cost is unavailable', async () => {
+    const emitSubmit = vi.fn()
+    const submitter = useBoardFormSubmit({
+      form: ref(createForm()),
+      selectedFile: ref(null),
+      isEdit: () => false,
+      canCreate: computed(() => false),
+      boardCreateCost: computed(() => null),
+      emitSubmit,
+    })
+
+    await submitter.handleSubmit()
+
+    expect(emitSubmit).not.toHaveBeenCalled()
+    expect(mocks.addToast).toHaveBeenCalledWith('board.form.createCostUnavailable', 'error')
+  })
 })

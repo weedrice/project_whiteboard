@@ -1,4 +1,4 @@
-import { computed, type ComputedRef } from 'vue'
+import { computed, onMounted, ref, type ComputedRef } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useConfigStore } from '@/stores/config'
 
@@ -10,16 +10,47 @@ export function useBoardCreationPolicy({ isEdit }: UseBoardCreationPolicyOptions
   const authStore = useAuthStore()
   const configStore = useConfigStore()
 
+  const configKey = 'POINT_BOARD_CREATE_COST'
+  const costLoading = ref(!isEdit.value)
+  const costLoadFailed = ref(false)
   const userPoints = computed(() => authStore.user?.points || 0)
   const boardCreateCost = computed(() => {
-    const cost = configStore.getConfig('POINT_BOARD_CREATE_COST')
-    return cost ? Number.parseInt(cost, 10) : 500
+    const rawCost = configStore.getConfig(configKey)
+    if (!rawCost || !/^\d+$/.test(rawCost)) return null
+    const parsedCost = Number.parseInt(rawCost, 10)
+    return Number.isSafeInteger(parsedCost) && parsedCost > 0 ? parsedCost : null
   })
-  const canCreate = computed(() => isEdit.value || userPoints.value >= boardCreateCost.value)
+  const isBoardCreateCostLoading = computed(() => !isEdit.value && costLoading.value)
+  const boardCreateCostError = computed(() => !isEdit.value && costLoadFailed.value)
+  const canCreate = computed(() => isEdit.value || (
+    boardCreateCost.value !== null && userPoints.value >= boardCreateCost.value
+  ))
+
+  async function loadBoardCreateCost() {
+    if (isEdit.value) return
+    if (boardCreateCost.value !== null) {
+      costLoading.value = false
+      costLoadFailed.value = false
+      return
+    }
+    costLoading.value = true
+    costLoadFailed.value = false
+    configStore.invalidateConfig(configKey)
+    await configStore.fetchConfig(configKey)
+    costLoading.value = false
+    costLoadFailed.value = boardCreateCost.value === null
+  }
+
+  onMounted(() => {
+    void loadBoardCreateCost()
+  })
 
   return {
     userPoints,
     boardCreateCost,
-    canCreate
+    isBoardCreateCostLoading,
+    boardCreateCostError,
+    canCreate,
+    loadBoardCreateCost,
   }
 }

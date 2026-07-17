@@ -121,6 +121,8 @@ export const boardEnBaseMessages = {
     cost: 'Creation cost',
     currentPoints: 'Current points',
     insufficientPoints: 'Not enough points. (Required: {cost}P)',
+    createCostLoading: 'Checking the creation cost.',
+    createCostUnavailable: 'Could not load the creation cost. Please try again.',
   },
   category: {
     placeholder: {
