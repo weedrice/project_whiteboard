@@ -18,15 +18,21 @@ install -o root -g root -m 0440 "$fixture/noviis-deploy" "$installed_fixture"
 visudo -cf "$installed_fixture"
 
 allowed=(
-  "/usr/local/sbin/activate-noviis-backend /opt/app/backend/incoming/release-1 0123456789abcdef"
+  "/usr/local/sbin/activate-noviis-backend /opt/app/backend/incoming/release-1 0123456789abcdef0123456789abcdef01234567 100 1 20"
   "/usr/local/sbin/verify-noviis-backend 0123456789abcdef"
-  "/usr/local/sbin/activate-noviis-frontend /var/www/incoming/frontend/release-1 activate 0123456789abcdef"
+  "/usr/local/sbin/verify-noviis-backend --contract 2026-07-public-v1"
+  "/usr/local/sbin/activate-noviis-frontend /var/www/incoming/frontend/release-1 activate 0123456789abcdef0123456789abcdef01234567 100 1 20"
+  "/usr/local/sbin/verify-noviis-frontend 0123456789abcdef0123456789abcdef01234567 100 20 1"
   "/usr/local/sbin/activate-noviis-frontend /var/www/releases/frontend/release-1 rollback 0123456789abcdef"
+  "/usr/local/sbin/record-noviis-cleanup-debt backend clear incoming_release"
+  "/usr/local/sbin/record-noviis-cleanup-debt frontend set incoming_release"
 )
 denied=(
   "/bin/sh"
   "/usr/local/sbin/activate-noviis-backend /tmp/release 0123456789abcdef"
   "/usr/local/sbin/verify-noviis-backend not-a-sha"
+  "/usr/local/sbin/activate-noviis-backend /opt/app/backend/incoming/release-1 0123456789abcdef0123456789abcdef01234567 100 1"
+  "/usr/local/sbin/record-noviis-cleanup-debt backend set release_retention"
   "/usr/local/sbin/activate-noviis-frontend /var/www/incoming/frontend/release-1 rollback 0123456789abcdef"
   "/usr/local/sbin/activate-noviis-frontend /var/www/releases/frontend/release-1 activate 0123456789abcdef"
 )

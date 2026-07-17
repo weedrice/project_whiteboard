@@ -35,8 +35,8 @@ case "$release_type" in
     ;;
   frontend)
     payload_name=frontend-release.tar.gz
-    expected_files=(PROVENANCE_BUNDLE.jsonl RELEASE_ENVELOPE SHA256SUMS frontend-release.tar.gz sbom.spdx.json)
-    envelope_files=(frontend-release.tar.gz sbom.spdx.json SHA256SUMS)
+    expected_files=(PROVENANCE_BUNDLE.jsonl RELEASE_ENVELOPE RELEASE_METADATA SHA256SUMS frontend-release.tar.gz sbom.spdx.json)
+    envelope_files=(frontend-release.tar.gz RELEASE_METADATA sbom.spdx.json SHA256SUMS)
     ;;
   *) fail "unsupported release type: $release_type" ;;
 esac
@@ -67,11 +67,20 @@ check_max_size SHA256SUMS 16384
 check_max_size RELEASE_ENVELOPE 32768
 check_max_size sbom.spdx.json 67108864
 check_max_size PROVENANCE_BUNDLE.jsonl 16777216
+check_max_size RELEASE_METADATA 16384
+grep -Fqx -- "commit_sha=$expected_commit" "$release_real/RELEASE_METADATA" \
+  || fail "release metadata commit does not match"
+run_id="$(sed -n 's/^run_id=//p' "$release_real/RELEASE_METADATA")"
+run_number="$(sed -n 's/^run_number=//p' "$release_real/RELEASE_METADATA")"
+run_attempt="$(sed -n 's/^run_attempt=//p' "$release_real/RELEASE_METADATA")"
+api_contract_revision="$(sed -n 's/^api_contract_revision=//p' "$release_real/RELEASE_METADATA")"
+[[ "$run_id" =~ ^[1-9][0-9]*$ ]] || fail "release metadata run id is invalid"
+[[ "$run_number" =~ ^[1-9][0-9]*$ ]] || fail "release metadata run number is invalid"
+[[ "$run_attempt" =~ ^[1-9][0-9]*$ ]] || fail "release metadata run attempt is invalid"
+[[ "$api_contract_revision" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$ ]] \
+  || fail "release metadata API contract revision is invalid"
 if [ "$release_type" = backend ]; then
-  check_max_size RELEASE_METADATA 16384
   check_max_size app.jar 536870912
-  grep -Fqx -- "commit_sha=$expected_commit" "$release_real/RELEASE_METADATA" \
-    || fail "release metadata commit does not match"
 else
   check_max_size frontend-release.tar.gz 268435456
 fi

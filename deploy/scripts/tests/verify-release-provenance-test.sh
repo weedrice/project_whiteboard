@@ -21,7 +21,8 @@ chmod +x "$fake_bin/gh"
 
 expected_sha=0123456789abcdef0123456789abcdef01234567
 printf 'jar\n' > "$release/app.jar"
-printf 'commit_sha=%s\n' "$expected_sha" > "$release/RELEASE_METADATA"
+printf 'commit_sha=%s\nrun_id=100\nrun_number=20\nrun_attempt=1\napi_contract_revision=test-v1\n' \
+  "$expected_sha" > "$release/RELEASE_METADATA"
 printf '{}\n' > "$release/sbom.spdx.json"
 printf '{}\n' > "$release/PROVENANCE_BUNDLE.jsonl"
 (cd "$release" && {

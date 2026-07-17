@@ -307,6 +307,23 @@ jobs:
           POSTGRES_SMOKE_DATASOURCE_USERNAME: noviis_ci
           POSTGRES_SMOKE_DATASOURCE_PASSWORD: noviis_ci
 
+      - name: Verify previous backend against the expanded schema
+        env:
+          BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || (github.event_name == 'push' && github.event.before || 'HEAD^') }}
+          POSTGRES_SMOKE_TEST: "true"
+          POSTGRES_SMOKE_DATASOURCE_URL: jdbc:postgresql://localhost:5432/noviis_ci
+          POSTGRES_SMOKE_DATASOURCE_USERNAME: noviis_ci
+          POSTGRES_SMOKE_DATASOURCE_PASSWORD: noviis_ci
+          SPRING_FLYWAY_ENABLED: "false"
+        run: |
+          set -euo pipefail
+          previous="$RUNNER_TEMP/previous-backend"
+          git worktree add --detach "$previous" "$BASE_REF"
+          trap 'git worktree remove --force "$previous"' EXIT
+          chmod +x "$previous/backend/gradlew"
+          "$previous/backend/gradlew" -p "$previous/backend" test \
+            --tests '*PostgresApplicationContextSmokeTest.contextLoadsWithPostgresMigrations' --rerun-tasks
+
   ops-config-test:
     needs: changes
     if: needs.changes.outputs.ops == 'true'
@@ -381,6 +398,7 @@ jobs:
         run: |
           bash deploy/scripts/tests/activate-backend-release-test.sh
           bash deploy/scripts/tests/activate-frontend-release-test.sh
+          bash deploy/scripts/tests/verify-active-frontend-release-test.sh
           bash deploy/scripts/tests/verify-release-provenance-test.sh
           bash deploy/scripts/tests/verify-workflow-security-test.sh
           bash backend/scripts/tests/check-migration-compatibility-test.sh
@@ -403,6 +421,7 @@ jobs:
           grep -Fqx 'OOMPolicy=stop' deploy/systemd/app.service
           grep -Fqx 'StartLimitIntervalSec=300' deploy/systemd/app.service
           grep -Fqx 'StartLimitBurst=5' deploy/systemd/app.service
+          grep -Fqx 'ExecStartPre=+/usr/local/sbin/verify-noviis-backend-start-state' deploy/systemd/app.service
           tmp="$(mktemp -d)"
           trap 'rm -rf "$tmp"' EXIT
           for service in prometheus grafana-server; do
@@ -413,7 +432,7 @@ jobs:
           done
           mkdir -p "$tmp/prometheus-node-exporter.service.d"
           printf '[Unit]\nDescription=CI fixture\n[Service]\nExecStart=/bin/true\n' > "$tmp/prometheus-node-exporter.service"
-          grep -Fqx 'ExecStart=/usr/bin/prometheus-node-exporter --web.listen-address=127.0.0.1:9100' \
+          grep -Fqx 'ExecStart=/usr/bin/prometheus-node-exporter --web.listen-address=127.0.0.1:9100 --collector.textfile.directory=/var/lib/prometheus/node-exporter' \
             deploy/monitoring/systemd/prometheus-node-exporter.service.d/override.conf
           sed 's#/usr/bin/prometheus-node-exporter#/bin/true#' \
             deploy/monitoring/systemd/prometheus-node-exporter.service.d/override.conf \
@@ -521,7 +540,7 @@ jobs:
           fi
           echo "contract_migration=$CONTRACT_MIGRATION" >> "$GITHUB_OUTPUT"
 
-  release-backend:
+  candidate-backend:
     needs: [changes, ci-gate]
     if: >-
       needs.ci-gate.result == 'success' &&
@@ -531,9 +550,6 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: read
-      id-token: write
-      attestations: write
-      artifact-metadata: write
     steps:
       - name: Checkout
         uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
@@ -554,7 +570,10 @@ jobs:
           ./gradlew bootJar --no-daemon
           install -d -m 0755 release
           install -m 0644 build/libs/app.jar release/app.jar
-          printf 'commit_sha=%s\nrun_id=%s\nrun_attempt=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" > release/RELEASE_METADATA
+          api_contract_revision="$(tr -d '\r\n' < ../docs/ops/api-contract-revision.txt)"
+          [[ "$api_contract_revision" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$ ]]
+          printf 'commit_sha=%s\nrun_id=%s\nrun_number=%s\nrun_attempt=%s\napi_contract_revision=%s\n' \
+            "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_NUMBER" "$GITHUB_RUN_ATTEMPT" "$api_contract_revision" > release/RELEASE_METADATA
           printf 'backup_snapshot_id=%s\n' "$BACKUP_SNAPSHOT_ID" >> release/RELEASE_METADATA
       - name: Generate backend SBOM
         uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
@@ -570,6 +589,39 @@ jobs:
           printf 'release_type=backend\ncommit_sha=%s\n' "$GITHUB_SHA" > RELEASE_ENVELOPE
           sha256sum app.jar RELEASE_METADATA sbom.spdx.json SHA256SUMS >> RELEASE_ENVELOPE
         working-directory: backend/release
+      - name: Upload untrusted backend candidate
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: backend-candidate-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
+          path: backend/release
+          if-no-files-found: error
+          retention-days: 1
+
+  release-backend:
+    needs: [candidate-backend, ci-gate]
+    if: needs.candidate-backend.result == 'success' && needs.ci-gate.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    steps:
+      - name: Download backend candidate
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: backend-candidate-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
+          path: backend/release
+      - name: Verify candidate digest and immutable metadata
+        working-directory: backend/release
+        run: |
+          set -euo pipefail
+          sha256sum --strict --check SHA256SUMS
+          grep -Fqx -- "commit_sha=$GITHUB_SHA" RELEASE_METADATA
+          grep -Fqx -- "run_id=$GITHUB_RUN_ID" RELEASE_METADATA
+          grep -Fqx -- "run_number=$GITHUB_RUN_NUMBER" RELEASE_METADATA
+          grep -Fqx -- "run_attempt=$GITHUB_RUN_ATTEMPT" RELEASE_METADATA
       - name: Attest backend release
         uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
         with:
@@ -602,7 +654,7 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-  release-frontend:
+  candidate-frontend:
     needs: [changes, ci-gate]
     if: >-
       needs.ci-gate.result == 'success' &&
@@ -612,9 +664,6 @@ jobs:
     timeout-minutes: 25
     permissions:
       contents: read
-      id-token: write
-      attestations: write
-      artifact-metadata: write
     steps:
       - name: Checkout
         uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
@@ -638,9 +687,14 @@ jobs:
           set -euo pipefail
           npm ci
           npm run build:seo
+          api_contract_revision="$(tr -d '\r\n' < ../docs/ops/api-contract-revision.txt)"
+          [[ "$api_contract_revision" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$ ]]
           printf '%s\n' "$GITHUB_SHA" > dist/.noviis-release
+          printf '%s\n' "$api_contract_revision" > dist/.noviis-api-contract
           npm run seo:verify:dist
           tar -C dist -czf frontend-release.tar.gz .
+          printf 'commit_sha=%s\nrun_id=%s\nrun_number=%s\nrun_attempt=%s\napi_contract_revision=%s\n' \
+            "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_NUMBER" "$GITHUB_RUN_ATTEMPT" "$api_contract_revision" > RELEASE_METADATA
       - name: Generate frontend SBOM
         uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
         with:
@@ -651,10 +705,48 @@ jobs:
       - name: Finalize frontend checksum manifest
         run: |
           set -euo pipefail
-          sha256sum frontend-release.tar.gz sbom.spdx.json > SHA256SUMS
+          sha256sum frontend-release.tar.gz RELEASE_METADATA sbom.spdx.json > SHA256SUMS
           printf 'release_type=frontend\ncommit_sha=%s\n' "$GITHUB_SHA" > RELEASE_ENVELOPE
-          sha256sum frontend-release.tar.gz sbom.spdx.json SHA256SUMS >> RELEASE_ENVELOPE
+          sha256sum frontend-release.tar.gz RELEASE_METADATA sbom.spdx.json SHA256SUMS >> RELEASE_ENVELOPE
         working-directory: frontend
+      - name: Upload untrusted frontend candidate
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: frontend-candidate-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
+          path: |
+            frontend/frontend-release.tar.gz
+            frontend/RELEASE_METADATA
+            frontend/SHA256SUMS
+            frontend/sbom.spdx.json
+            frontend/RELEASE_ENVELOPE
+          if-no-files-found: error
+          retention-days: 1
+
+  release-frontend:
+    needs: [candidate-frontend, ci-gate]
+    if: needs.candidate-frontend.result == 'success' && needs.ci-gate.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    steps:
+      - name: Download frontend candidate
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: frontend-candidate-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
+          path: frontend
+      - name: Verify candidate digest and immutable metadata
+        working-directory: frontend
+        run: |
+          set -euo pipefail
+          sha256sum --strict --check SHA256SUMS
+          grep -Fqx -- "commit_sha=$GITHUB_SHA" RELEASE_METADATA
+          grep -Fqx -- "run_id=$GITHUB_RUN_ID" RELEASE_METADATA
+          grep -Fqx -- "run_number=$GITHUB_RUN_NUMBER" RELEASE_METADATA
+          grep -Fqx -- "run_attempt=$GITHUB_RUN_ATTEMPT" RELEASE_METADATA
       - name: Attest frontend release
         uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
         with:
@@ -685,6 +777,7 @@ jobs:
           name: frontend-release-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
           path: |
             frontend/frontend-release.tar.gz
+            frontend/RELEASE_METADATA
             frontend/SHA256SUMS
             frontend/sbom.spdx.json
             frontend/RELEASE_ENVELOPE

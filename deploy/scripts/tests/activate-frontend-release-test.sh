@@ -18,6 +18,7 @@ incoming_root="$fixture/incoming"
 web_root="$fixture/app"
 fake_bin="$fixture/bin"
 mkdir -p "$release_root" "$incoming_root" "$fake_bin"
+printf '0\n' > "$fixture/run-number"
 
 if ! ln -s "$release_root" "$fixture/symlink-probe" 2>/dev/null || [ ! -L "$fixture/symlink-probe" ]; then
   echo "Frontend activation fixtures skipped because native symbolic links are unavailable"
@@ -60,6 +61,9 @@ make_release() {
   local commit="$2"
   local release="$incoming_root/$name"
   local source="$fixture/source-$name"
+  local run_number
+  run_number="$(( $(cat "$fixture/run-number") + 1 ))"
+  printf '%s\n' "$run_number" > "$fixture/run-number"
   mkdir -p "$release" "$source/assets" "$source/board/test/post/1"
   printf '<div id="app"><script src="/assets/app.js"></script></div>\n' > "$source/index.html"
   printf 'User-agent: *\n' > "$source/robots.txt"
@@ -69,7 +73,10 @@ make_release() {
   printf '{\n  "commitSha": "%s",\n  "urlCount": 1,\n  "postUrlCount": 1,\n  "prerenderCount": 1\n}\n' "$commit" > "$source/.noviis-seo-release.json"
   printf 'asset\n' > "$source/assets/app.js"
   tar -czf "$release/frontend-release.tar.gz" -C "$source" .
-  (cd "$release" && sha256sum frontend-release.tar.gz > SHA256SUMS)
+  printf 'commit_sha=%s\nrun_id=%s\nrun_number=%s\nrun_attempt=1\napi_contract_revision=test-v1\n' \
+    "$commit" "$((1000 + run_number))" "$run_number" > "$release/RELEASE_METADATA"
+  printf 'release_type=frontend\ncommit_sha=%s\n' "$commit" > "$release/RELEASE_ENVELOPE"
+  (cd "$release" && sha256sum frontend-release.tar.gz RELEASE_METADATA > SHA256SUMS)
   printf '%s\n' "$release"
 }
 
@@ -81,6 +88,9 @@ run_activation() {
   STATE_DIR="$fixture" \
   PROVENANCE_VERIFIER="$provenance_verifier" \
   DEPLOY_LOCK_FILE="$fixture/noviis-deploy.lock" \
+  ACTIVE_STATE_FILE="$fixture/frontend.active.state" \
+  ACTIVE_STATE_OWNER="$(stat -c %U:%G "$fixture")" \
+  CLEANUP_DEBT_WRITER=/bin/true \
   PATH="$fake_bin:$PATH" \
   bash "$script" "$1" "${3:-activate}" "$2"
 }
@@ -106,6 +116,16 @@ lock_release="$(make_release lock "$new_commit")"
 old_release="$(make_release old "$old_commit")"
 old_output="$(run_activation "$old_release" "$old_commit")"
 grep -Fqx "ACTIVATED_SHA=$old_commit" <<< "$old_output"
+test "$(readlink -f "$web_root")" = "$release_root/old/site"
+
+replay_release="$(make_release replay-generation "$new_commit")"
+sed -i 's/^run_id=.*/run_id=999999/' "$replay_release/RELEASE_METADATA"
+sed -i 's/^run_number=.*/run_number=1/' "$replay_release/RELEASE_METADATA"
+(cd "$replay_release" && sha256sum frontend-release.tar.gz RELEASE_METADATA > SHA256SUMS)
+if run_activation "$replay_release" "$new_commit"; then
+  echo "Expected a larger run id with an older workflow run number to be rejected" >&2
+  exit 1
+fi
 test "$(readlink -f "$web_root")" = "$release_root/old/site"
 
 file_limit_release="$(make_release file-limit "$new_commit")"

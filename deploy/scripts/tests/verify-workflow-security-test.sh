@@ -26,6 +26,20 @@ for untrusted_job in backend-postgres-migration ops-config-test; do
   fi
 done
 
+for candidate_job in candidate-backend candidate-frontend; do
+  section="$(job_section "$candidate_job" "$ci")"
+  grep -Fq 'contents: read' <<< "$section"
+  if grep -Eq 'id-token: write|attestations: write' <<< "$section"; then
+    echo "$candidate_job must not receive signing credentials" >&2
+    exit 1
+  fi
+done
+for release_job in release-backend release-frontend; do
+  section="$(job_section "$release_job" "$ci")"
+  grep -Fq 'id-token: write' <<< "$section"
+  grep -Fq 'attestations: write' <<< "$section"
+done
+
 trusted="$(job_section trusted-contract-evidence "$ci")"
 grep -Fq "github.ref == 'refs/heads/main'" <<< "$trusted"
 grep -Fq 'actions: read' <<< "$trusted"
@@ -43,6 +57,12 @@ grep -Fq 'Reconcile backend activation from independent readback' <<< "$backend_
 grep -Fq 'verify-noviis-backend' <<< "$backend_deploy"
 frontend_deploy="$(job_section deploy "$deploy_frontend")"
 grep -Fq 'Reconcile frontend activation from independent readback' <<< "$frontend_deploy"
+grep -Fq 'verify-noviis-frontend' <<< "$frontend_deploy"
+grep -Fq 'ACTIVATION_STDOUT' <<< "$frontend_deploy"
+if grep -Fq 'ACTIVATOR_STDOUT" | sed -n '\''s/^ACTIVATED_RUN_' <<< "$frontend_deploy"; then
+  echo "Frontend run identity must come from independent reconciliation, not activator transport output" >&2
+  exit 1
+fi
 grep -Fq "steps.activation-result.outputs.current_run_activated == 'true'" <<< "$frontend_deploy"
 
 preflight="$(job_section seo-preflight "$seo")"

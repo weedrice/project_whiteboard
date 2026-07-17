@@ -67,7 +67,13 @@ jobs:
           path: release-artifact
 
       - name: Verify frontend artifact checksum
-        run: (cd release-artifact && sha256sum --strict --check SHA256SUMS)
+        run: |
+          set -euo pipefail
+          (cd release-artifact && sha256sum --strict --check SHA256SUMS)
+          grep -Fqx -- "commit_sha=${{ inputs.expected_sha }}" release-artifact/RELEASE_METADATA
+          grep -Fqx -- "run_id=$GITHUB_RUN_ID" release-artifact/RELEASE_METADATA
+          grep -Fqx -- "run_number=$GITHUB_RUN_NUMBER" release-artifact/RELEASE_METADATA
+          grep -Fqx -- "run_attempt=$GITHUB_RUN_ATTEMPT" release-artifact/RELEASE_METADATA
 
       - name: Verify frontend GitHub artifact attestation
         env:
@@ -83,19 +89,25 @@ jobs:
           cache: "npm"
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Install frontend verification dependencies
-        run: npm ci
-        working-directory: frontend
+      - name: Read signed frontend API contract revision
+        id: api-contract
+        run: |
+          set -euo pipefail
+          revision="$(sed -n 's/^api_contract_revision=//p' release-artifact/RELEASE_METADATA)"
+          [[ "$revision" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$ ]]
+          echo "revision=$revision" >> "$GITHUB_OUTPUT"
 
-      - name: Verify checkout integrity after dependency installation
-        run: git diff --exit-code
-
-      - name: Verify confirmed backend activation
-        if: inputs.backend_activated_sha != ''
-        env:
-          EXPECTED_SHA: ${{ inputs.expected_sha }}
-          BACKEND_ACTIVATED_SHA: ${{ inputs.backend_activated_sha }}
-        run: test "$BACKEND_ACTIVATED_SHA" = "$EXPECTED_SHA"
+      - name: Verify active backend API contract
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: noviis-deploy
+          key: ${{ secrets.EC2_SSH_KEY }}
+          fingerprint: ${{ secrets.EC2_HOST_FINGERPRINT }}
+          script: |
+            set -eu
+            test "$(sha256sum /usr/local/sbin/verify-noviis-backend | awk '{print $1}')" = "${{ hashFiles('deploy/scripts/verify-active-backend-release.sh') }}"
+            sudo /usr/local/sbin/verify-noviis-backend --contract "${{ steps.api-contract.outputs.revision }}"
 
       - name: Prepare frontend release directory
         uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
@@ -107,7 +119,10 @@ jobs:
           script: |
             set -eu
             test "$(sha256sum /usr/local/sbin/activate-noviis-frontend | awk '{print $1}')" = "${{ hashFiles('deploy/scripts/activate-frontend-release.sh') }}"
+            test "$(sha256sum /usr/local/sbin/verify-noviis-backend | awk '{print $1}')" = "${{ hashFiles('deploy/scripts/verify-active-backend-release.sh') }}"
+            test "$(sha256sum /usr/local/sbin/verify-noviis-frontend | awk '{print $1}')" = "${{ hashFiles('deploy/scripts/verify-active-frontend-release.sh') }}"
             test "$(sha256sum /usr/local/sbin/verify-noviis-release | awk '{print $1}')" = "${{ hashFiles('deploy/scripts/verify-release-provenance.sh') }}"
+            test "$(sha256sum /usr/local/sbin/record-noviis-cleanup-debt | awk '{print $1}')" = "${{ hashFiles('deploy/scripts/record-cleanup-debt.sh') }}"
             RELEASE_DIR="/var/www/incoming/frontend/${{ inputs.expected_sha }}-${{ github.run_id }}-${{ github.run_attempt }}"
             install -d -m 0755 /var/www/incoming/frontend
             test ! -e "$RELEASE_DIR"
@@ -120,7 +135,7 @@ jobs:
           username: noviis-deploy
           key: ${{ secrets.EC2_SSH_KEY }}
           fingerprint: ${{ secrets.EC2_HOST_FINGERPRINT }}
-          source: "release-artifact/frontend-release.tar.gz,release-artifact/SHA256SUMS,release-artifact/sbom.spdx.json,release-artifact/RELEASE_ENVELOPE,release-artifact/PROVENANCE_BUNDLE.jsonl"
+          source: "release-artifact/frontend-release.tar.gz,release-artifact/RELEASE_METADATA,release-artifact/SHA256SUMS,release-artifact/sbom.spdx.json,release-artifact/RELEASE_ENVELOPE,release-artifact/PROVENANCE_BUNDLE.jsonl"
           target: "/var/www/incoming/frontend/${{ inputs.expected_sha }}-${{ github.run_id }}-${{ github.run_attempt }}"
           strip_components: 1
 
@@ -145,7 +160,8 @@ jobs:
           script: |
             set -eu
             RELEASE_DIR="/var/www/incoming/frontend/${{ inputs.expected_sha }}-${{ github.run_id }}-${{ github.run_attempt }}"
-            sudo /usr/local/sbin/activate-noviis-frontend "$RELEASE_DIR" activate "${{ inputs.expected_sha }}"
+            sudo /usr/local/sbin/activate-noviis-frontend "$RELEASE_DIR" activate "${{ inputs.expected_sha }}" \
+              "${{ github.run_id }}" "${{ github.run_attempt }}" "${{ github.run_number }}"
 
       - name: Reconcile frontend activation from independent readback
         id: reconcile
@@ -162,7 +178,8 @@ jobs:
             expected="${{ inputs.expected_sha }}"
             test "$(curl -fsS --max-time 10 --resolve noviis.kr:443:127.0.0.1 https://noviis.kr/.noviis-release | tr -d '\r\n')" = "$expected"
             test "$(curl -fsS --max-time 10 https://noviis.kr/.noviis-release | tr -d '\r\n')" = "$expected"
-            echo "ACTIVATED_SHA=$expected"
+            sudo /usr/local/sbin/verify-noviis-frontend "$expected" \
+              "${{ github.run_id }}" "${{ github.run_number }}" "${{ github.run_attempt }}"
             release_dir="/var/www/releases/frontend/${{ inputs.expected_sha }}-${{ github.run_id }}-${{ github.run_attempt }}"
             current_run_activated=false
             if [ -f "$release_dir/ACTIVATED" ] && [ ! -L "$release_dir/ACTIVATED" ] \
@@ -185,7 +202,9 @@ jobs:
           test "$RECONCILIATION_OUTCOME" = success
           activated_sha="$(printf '%s\n' "$ACTIVATION_STDOUT" | sed -n 's/^ACTIVATED_SHA=//p' | tail -n 1)"
           test "$activated_sha" = "$EXPECTED_SHA"
-          if [ -n "$BACKEND_ACTIVATED_SHA" ]; then test "$BACKEND_ACTIVATED_SHA" = "$activated_sha"; fi
+          test "$(printf '%s\n' "$ACTIVATION_STDOUT" | sed -n 's/^ACTIVATED_RUN_ID=//p' | tail -n 1)" = "$GITHUB_RUN_ID"
+          test "$(printf '%s\n' "$ACTIVATION_STDOUT" | sed -n 's/^ACTIVATED_RUN_NUMBER=//p' | tail -n 1)" = "$GITHUB_RUN_NUMBER"
+          test "$(printf '%s\n' "$ACTIVATION_STDOUT" | sed -n 's/^ACTIVATED_RUN_ATTEMPT=//p' | tail -n 1)" = "$GITHUB_RUN_ATTEMPT"
           if [ "${{ steps.activate.outcome }}" != success ]; then
             echo "::warning title=Activation transport reconciled::The activation channel failed, but independent internal and public reads prove the expected frontend release is active."
           fi
@@ -200,8 +219,7 @@ jobs:
           echo "current_run_activated=$current_run_activated" >> "$GITHUB_OUTPUT"
 
       - name: Verify SEO after deploy
-        run: npm run seo:verify
-        working-directory: frontend
+        run: node frontend/scripts/verify-seo.mjs
         env:
           SEO_SITE_URL: https://noviis.kr
           SEO_SITEMAP_URL: https://noviis.kr/sitemap.xml
@@ -239,7 +257,18 @@ jobs:
             if [ -e "$RELEASE_DIR" ]; then
               case "$(realpath "$RELEASE_DIR")/" in /var/www/incoming/frontend/*/) rm -rf -- "$RELEASE_DIR" ;; *) exit 1 ;; esac
             fi
+            sudo /usr/local/sbin/record-noviis-cleanup-debt frontend clear incoming_release
         continue-on-error: true
+
+      - name: Persist frontend cleanup debt
+        if: always() && steps.cleanup.outcome == 'failure'
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: noviis-deploy
+          key: ${{ secrets.EC2_SSH_KEY }}
+          fingerprint: ${{ secrets.EC2_HOST_FINGERPRINT }}
+          script: sudo /usr/local/sbin/record-noviis-cleanup-debt frontend set incoming_release
 
       - name: Report frontend cleanup debt
         if: always() && steps.cleanup.outcome == 'failure'
@@ -267,14 +296,9 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Install frontend dependencies
-        run: npm ci
-        working-directory: frontend
-
       - name: Submit sitemap to search engines
         id: seo-submit
-        run: npm run seo:submit
-        working-directory: frontend
+        run: node frontend/scripts/submit-search-engines.mjs
         env:
           SEO_SITE_URL: https://noviis.kr
           SEO_SITEMAP_URL: https://noviis.kr/sitemap.xml
@@ -285,6 +309,7 @@ jobs:
           GOOGLE_SEARCH_CONSOLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_SEARCH_CONSOLE_REFRESH_TOKEN }}
           CUSTOM_SITEMAP_SUBMIT_URL: ${{ secrets.CUSTOM_SITEMAP_SUBMIT_URL }}
           CUSTOM_SITEMAP_SUBMIT_ALLOWED_ORIGINS: ${{ secrets.CUSTOM_SITEMAP_SUBMIT_ALLOWED_ORIGINS }}
+          SEO_SUBMIT_REQUIRED: "true"
         continue-on-error: true
 
       - name: Report sitemap submission result

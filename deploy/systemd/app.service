@@ -14,6 +14,7 @@ EnvironmentFile=/etc/noviis/app.env
 Environment=SPRING_PROFILES_ACTIVE=prod
 ExecStartPre=/bin/sh -ec 'test -f /etc/noviis/app.env; test -s /etc/noviis/app.env'
 ExecStartPre=/bin/sh -ec 'test ! -L /etc/noviis/app.env; test "$$(stat -c %U:%G /etc/noviis/app.env)" = root:root; test "$$(stat -c %a /etc/noviis/app.env)" = 600'
+ExecStartPre=+/usr/local/sbin/verify-noviis-backend-start-state
 ExecStart=/usr/bin/java -jar /opt/app/backend/app.jar --spring.profiles.active=prod
 Restart=on-failure
 RestartSec=5

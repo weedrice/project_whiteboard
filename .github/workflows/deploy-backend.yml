@@ -106,6 +106,9 @@ jobs:
           set -euo pipefail
           (cd release-artifact && sha256sum --strict --check SHA256SUMS)
           grep -Fqx -- "commit_sha=$EXPECTED_SHA" release-artifact/RELEASE_METADATA
+          grep -Fqx -- "run_id=$GITHUB_RUN_ID" release-artifact/RELEASE_METADATA
+          grep -Fqx -- "run_number=$GITHUB_RUN_NUMBER" release-artifact/RELEASE_METADATA
+          grep -Fqx -- "run_attempt=$GITHUB_RUN_ATTEMPT" release-artifact/RELEASE_METADATA
           if [ -n "$BACKUP_SNAPSHOT_ID" ]; then
             grep -Fqx -- "backup_snapshot_id=$BACKUP_SNAPSHOT_ID" release-artifact/RELEASE_METADATA
           fi
@@ -128,7 +131,9 @@ jobs:
             set -eu
             test "$(sha256sum /usr/local/sbin/activate-noviis-backend | awk '{print $1}')" = "${{ hashFiles('deploy/scripts/activate-backend-release.sh') }}"
             test "$(sha256sum /usr/local/sbin/verify-noviis-backend | awk '{print $1}')" = "${{ hashFiles('deploy/scripts/verify-active-backend-release.sh') }}"
+            test "$(sha256sum /usr/local/sbin/verify-noviis-backend-start-state | awk '{print $1}')" = "${{ hashFiles('deploy/scripts/verify-backend-start-state.sh') }}"
             test "$(sha256sum /usr/local/sbin/verify-noviis-release | awk '{print $1}')" = "${{ hashFiles('deploy/scripts/verify-release-provenance.sh') }}"
+            test "$(sha256sum /usr/local/sbin/record-noviis-cleanup-debt | awk '{print $1}')" = "${{ hashFiles('deploy/scripts/record-cleanup-debt.sh') }}"
             test "$(sha256sum /etc/systemd/system/app.service | awk '{print $1}')" = "${{ hashFiles('deploy/systemd/app.service') }}"
             RELEASE_DIR="/opt/app/backend/incoming/${{ inputs.expected_sha }}-${{ github.run_id }}-${{ github.run_attempt }}"
             test ! -e "$RELEASE_DIR"
@@ -166,7 +171,8 @@ jobs:
           script: |
             set -eu
             RELEASE_DIR="/opt/app/backend/incoming/${{ inputs.expected_sha }}-${{ github.run_id }}-${{ github.run_attempt }}"
-            sudo /usr/local/sbin/activate-noviis-backend "$RELEASE_DIR" "${{ inputs.expected_sha }}"
+            sudo /usr/local/sbin/activate-noviis-backend "$RELEASE_DIR" "${{ inputs.expected_sha }}" \
+              "${{ github.run_id }}" "${{ github.run_attempt }}" "${{ github.run_number }}"
 
       - name: Reconcile backend activation from independent readback
         id: reconcile
@@ -195,6 +201,9 @@ jobs:
           test "$RECONCILIATION_OUTCOME" = success
           activated_sha="$(printf '%s\n' "$ACTIVATION_STDOUT" | sed -n 's/^ACTIVATED_SHA=//p' | tail -n 1)"
           test "$activated_sha" = "$EXPECTED_SHA"
+          test "$(printf '%s\n' "$ACTIVATION_STDOUT" | sed -n 's/^ACTIVATED_RUN_ID=//p' | tail -n 1)" = "$GITHUB_RUN_ID"
+          test "$(printf '%s\n' "$ACTIVATION_STDOUT" | sed -n 's/^ACTIVATED_RUN_NUMBER=//p' | tail -n 1)" = "$GITHUB_RUN_NUMBER"
+          test "$(printf '%s\n' "$ACTIVATION_STDOUT" | sed -n 's/^ACTIVATED_RUN_ATTEMPT=//p' | tail -n 1)" = "$GITHUB_RUN_ATTEMPT"
           if [ "${{ steps.activate.outcome }}" != success ]; then
             echo "::warning title=Activation transport reconciled::The activation channel failed, but independent host state and health prove the expected backend release is active."
           fi
@@ -220,7 +229,18 @@ jobs:
             if [ -e "$RELEASE_DIR" ]; then
               case "$(realpath "$RELEASE_DIR")/" in /opt/app/backend/incoming/*/) rm -rf -- "$RELEASE_DIR" ;; *) exit 1 ;; esac
             fi
+            sudo /usr/local/sbin/record-noviis-cleanup-debt backend clear incoming_release
         continue-on-error: true
+
+      - name: Persist backend cleanup debt
+        if: always() && steps.cleanup.outcome == 'failure'
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: noviis-deploy
+          key: ${{ secrets.EC2_SSH_KEY }}
+          fingerprint: ${{ secrets.EC2_HOST_FINGERPRINT }}
+          script: sudo /usr/local/sbin/record-noviis-cleanup-debt backend set incoming_release
 
       - name: Report backend cleanup debt
         if: always() && steps.cleanup.outcome == 'failure'

@@ -143,7 +143,10 @@ invoke_activation() {
   DEPLOY_LOCK_FILE="$fixture/noviis-deploy.lock" \
   HEALTH_ATTEMPTS=2 \
   HEALTH_DELAY_SECONDS=0 \
-  bash "$script" "$1" "${2:-}"
+  STABILITY_SUCCESS_COUNT=2 \
+  STABILITY_DELAY_SECONDS=0 \
+  CLEANUP_DEBT_WRITER=/bin/true \
+  bash "$script" "$1" "${2:-}" "${3:-}" "${4:-}" "${5:-}"
 }
 
 lock_failure_release="$incoming_root/lock-failure"
@@ -185,6 +188,39 @@ printf 'commit_sha=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n' > "$state_seed_re
   sha256sum app.jar > SHA256SUMS
 )
 invoke_activation "$state_seed_release" bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb >/dev/null
+
+generation_release="$incoming_root/generation-20"
+mkdir -p "$generation_release"
+printf 'new\n' > "$generation_release/app.jar"
+cat > "$generation_release/RELEASE_METADATA" <<'EOF'
+commit_sha=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+run_id=5000
+run_number=20
+run_attempt=1
+api_contract_revision=test-v1
+EOF
+printf 'envelope\n' > "$generation_release/RELEASE_ENVELOPE"
+(cd "$generation_release" && sha256sum app.jar RELEASE_METADATA RELEASE_ENVELOPE > SHA256SUMS)
+invoke_activation "$generation_release" bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb 5000 1 20 >/dev/null
+
+replay_release="$incoming_root/replay-larger-run-id"
+mkdir -p "$replay_release"
+printf 'new\n' > "$replay_release/app.jar"
+cat > "$replay_release/RELEASE_METADATA" <<'EOF'
+commit_sha=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+run_id=9000
+run_number=19
+run_attempt=1
+api_contract_revision=test-v1
+EOF
+printf 'envelope\n' > "$replay_release/RELEASE_ENVELOPE"
+(cd "$replay_release" && sha256sum app.jar RELEASE_METADATA RELEASE_ENVELOPE > SHA256SUMS)
+if invoke_activation "$replay_release" bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb 9000 1 19; then
+  echo "Expected a larger run id with an older workflow run number to be rejected" >&2
+  exit 1
+fi
+grep -qx new "$app_dir/app.jar"
+
 touch "$state_dir/fail_current_info"
 unhealthy_recovery_release="$incoming_root/unhealthy-recovery"
 mkdir -p "$unhealthy_recovery_release"

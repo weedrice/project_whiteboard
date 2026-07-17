@@ -16,6 +16,14 @@ DEPLOY_LOCK_FILE="${DEPLOY_LOCK_FILE:-/run/lock/noviis-deploy.lock}"
 SOURCE_DIR="${1:?incoming release directory is required}"
 MODE="${2:-activate}"
 EXPECTED_COMMIT="${3:-${EXPECTED_COMMIT:-}}"
+EXPECTED_RUN_ID="${4:-${EXPECTED_RUN_ID:-}}"
+EXPECTED_RUN_ATTEMPT="${5:-${EXPECTED_RUN_ATTEMPT:-}}"
+EXPECTED_RUN_NUMBER="${6:-${EXPECTED_RUN_NUMBER:-}}"
+ACTIVE_STATE_FILE="${ACTIVE_STATE_FILE:-/var/lib/noviis/deployment-state/frontend.active.state}"
+ACTIVE_STATE_OWNER="${ACTIVE_STATE_OWNER:-root:root}"
+ACTIVE_STATE_MODE="${ACTIVE_STATE_MODE:-600}"
+ROLLBACK_AUTH_FILE="${ROLLBACK_AUTH_FILE:-/var/lib/noviis/deployment-state/frontend-rollback.allow}"
+CLEANUP_DEBT_WRITER="${CLEANUP_DEBT_WRITER:-/usr/local/sbin/record-noviis-cleanup-debt}"
 
 for numeric_limit in ARCHIVE_MAX_FILES ARCHIVE_MAX_SINGLE_FILE_BYTES ARCHIVE_MAX_TOTAL_BYTES ARCHIVE_FREE_SPACE_HEADROOM_BYTES; do
   numeric_value="${!numeric_limit}"
@@ -53,6 +61,44 @@ write_state() {
   if command -v sync >/dev/null 2>&1; then sync -f "$destination_directory" 2>/dev/null || true; fi
 }
 
+write_active_state() {
+  local commit_sha="$1" run_id="$2" run_number="$3" run_attempt="$4" envelope_sha256="$5" api_contract_revision="$6" phase="$7"
+  local state_dir state_tmp
+  [[ "$commit_sha" =~ ^[0-9a-f]{40}$ ]] || return 1
+  [[ "$run_id" =~ ^[0-9]+$ ]] || return 1
+  [[ "$run_number" =~ ^[0-9]+$ ]] || return 1
+  [[ "$run_attempt" =~ ^[0-9]+$ ]] || return 1
+  [[ "$envelope_sha256" =~ ^[0-9a-f]{64}$ ]] || return 1
+  [[ "$api_contract_revision" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$ ]] || return 1
+  [[ "$phase" = pending || "$phase" = stable ]] || return 1
+  state_dir="$(dirname "$ACTIVE_STATE_FILE")"
+  install -d -m 0700 "$state_dir"
+  state_tmp="$(mktemp "$state_dir/.frontend-active.XXXXXX")"
+  printf 'commit_sha=%s\nrun_id=%s\nrun_number=%s\nrun_attempt=%s\nrelease_envelope_sha256=%s\napi_contract_revision=%s\nphase=%s\n' \
+    "$commit_sha" "$run_id" "$run_number" "$run_attempt" "$envelope_sha256" "$api_contract_revision" "$phase" > "$state_tmp"
+  chmod 0600 "$state_tmp"
+  mv -Tf "$state_tmp" "$ACTIVE_STATE_FILE"
+}
+
+authorize_release_generation() {
+  local target_run_number="$1" target_attempt="$2" current_run_number="$3" current_attempt="$4"
+  if [ "$target_run_number" -gt "$current_run_number" ] \
+    || { [ "$target_run_number" -eq "$current_run_number" ] && [ "$target_attempt" -gt "$current_attempt" ]; }; then
+    return 0
+  fi
+  if [ ! -f "$ROLLBACK_AUTH_FILE" ] || [ -L "$ROLLBACK_AUTH_FILE" ] \
+    || [ "$(stat -c %U:%G "$ROLLBACK_AUTH_FILE")" != "$ACTIVE_STATE_OWNER" ] \
+    || [ "$(stat -c %a "$ROLLBACK_AUTH_FILE")" != 600 ] \
+    || ! grep -Fqx -- "target_run_number=$target_run_number" "$ROLLBACK_AUTH_FILE" \
+    || ! grep -Fqx -- "target_run_attempt=$target_attempt" "$ROLLBACK_AUTH_FILE" \
+    || ! grep -Eq '^reason=.{8,256}$' "$ROLLBACK_AUTH_FILE"; then
+    echo "Release generation is not newer and no valid root break-glass authorization exists" >&2
+    return 1
+  fi
+  rm -f -- "$ROLLBACK_AUTH_FILE"
+  echo "Root break-glass authorization consumed for frontend release generation $target_run_number/$target_attempt" >&2
+}
+
 verify_frontend_commit() {
   local expected_commit="$1"
   local internal_commit public_commit
@@ -84,6 +130,18 @@ restore_previous() {
     sudo mv -Tf "$WEB_ROOT.rollback" "$WEB_ROOT"
     verify_frontend_commit "$previous_commit" \
       || { echo "Restored frontend target did not serve the recorded commit" >&2; return 2; }
+    previous_release="$(dirname "$previous_target")"
+    if [ -f "$previous_release/RELEASE_METADATA" ]; then
+      previous_run_id="$(sed -n 's/^run_id=//p' "$previous_release/RELEASE_METADATA")"
+      previous_run_number="$(sed -n 's/^run_number=//p' "$previous_release/RELEASE_METADATA")"
+      previous_run_attempt="$(sed -n 's/^run_attempt=//p' "$previous_release/RELEASE_METADATA")"
+      previous_contract="$(sed -n 's/^api_contract_revision=//p' "$previous_release/RELEASE_METADATA")"
+      previous_envelope_digest="$(sha256sum "$previous_release/RELEASE_ENVELOPE" | awk '{print $1}')"
+      write_active_state "$previous_commit" "$previous_run_id" "$previous_run_number" "$previous_run_attempt" \
+        "$previous_envelope_digest" "$previous_contract" stable
+    else
+      rm -f -- "$ACTIVE_STATE_FILE"
+    fi
   else
     sudo test -L "$WEB_ROOT" && sudo rm -f -- "$WEB_ROOT"
   fi
@@ -139,7 +197,33 @@ test "$file_count" -gt 0
 "$PROVENANCE_VERIFIER" "$staging_dir" "$EXPECTED_COMMIT" frontend
 test -f "$staging_dir/frontend-release.tar.gz"
 test -f "$staging_dir/SHA256SUMS"
+test -f "$staging_dir/RELEASE_METADATA"
 (cd "$staging_dir" && sha256sum --strict --check SHA256SUMS)
+release_run_id="$(sed -n 's/^run_id=//p' "$staging_dir/RELEASE_METADATA")"
+release_run_number="$(sed -n 's/^run_number=//p' "$staging_dir/RELEASE_METADATA")"
+release_run_attempt="$(sed -n 's/^run_attempt=//p' "$staging_dir/RELEASE_METADATA")"
+api_contract_revision="$(sed -n 's/^api_contract_revision=//p' "$staging_dir/RELEASE_METADATA")"
+[[ "$release_run_id" =~ ^[1-9][0-9]*$ ]] || { echo "Frontend release run id is invalid" >&2; exit 1; }
+[[ "$release_run_number" =~ ^[1-9][0-9]*$ ]] || { echo "Frontend release run number is invalid" >&2; exit 1; }
+[[ "$release_run_attempt" =~ ^[1-9][0-9]*$ ]] || { echo "Frontend release run attempt is invalid" >&2; exit 1; }
+[[ "$api_contract_revision" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$ ]] \
+  || { echo "Frontend API contract revision is invalid" >&2; exit 1; }
+if [ -n "$EXPECTED_RUN_ID" ]; then test "$release_run_id" = "$EXPECTED_RUN_ID"; fi
+if [ -n "$EXPECTED_RUN_NUMBER" ]; then test "$release_run_number" = "$EXPECTED_RUN_NUMBER"; fi
+if [ -n "$EXPECTED_RUN_ATTEMPT" ]; then test "$release_run_attempt" = "$EXPECTED_RUN_ATTEMPT"; fi
+if [ -f "$ACTIVE_STATE_FILE" ]; then
+  test ! -L "$ACTIVE_STATE_FILE"
+  test "$(stat -c %U:%G "$ACTIVE_STATE_FILE")" = "$ACTIVE_STATE_OWNER"
+  test "$(stat -c %a "$ACTIVE_STATE_FILE")" = "$ACTIVE_STATE_MODE"
+  current_run_id="$(sed -n 's/^run_id=//p' "$ACTIVE_STATE_FILE")"
+  current_run_number="$(sed -n 's/^run_number=//p' "$ACTIVE_STATE_FILE")"
+  current_run_attempt="$(sed -n 's/^run_attempt=//p' "$ACTIVE_STATE_FILE")"
+  [[ "$current_run_id" =~ ^[0-9]+$ ]] || { echo "Current frontend run id is invalid" >&2; exit 1; }
+  [[ "$current_run_number" =~ ^[0-9]+$ ]] || { echo "Current frontend run number is invalid" >&2; exit 1; }
+  [[ "$current_run_attempt" =~ ^[0-9]+$ ]] || { echo "Current frontend run attempt is invalid" >&2; exit 1; }
+  authorize_release_generation "$release_run_number" "$release_run_attempt" "$current_run_number" "$current_run_attempt"
+fi
+release_envelope_digest="$(sha256sum "$staging_dir/RELEASE_ENVELOPE" | awk '{print $1}')"
 
 while IFS= read -r member; do
   case "$member" in /*|../*|*/../*|*/..) echo "Unsafe archive path: $member" >&2; exit 1 ;; esac
@@ -225,10 +309,18 @@ sudo ln -sfn "$site_dir" "$WEB_ROOT.next"
 sudo mv -Tf "$WEB_ROOT.next" "$WEB_ROOT"
 switched=true
 write_state "$release_real/ACTIVATED" "$release_commit"
+write_active_state "$release_commit" "$release_run_id" "$release_run_number" "$release_run_attempt" \
+  "$release_envelope_digest" "$api_contract_revision" pending
 
 if ! verify_frontend_commit "$release_commit"; then echo "Frontend health endpoints returned a different release commit" >&2; exit 1; fi
 verified=true
+write_active_state "$release_commit" "$release_run_id" "$release_run_number" "$release_run_attempt" \
+  "$release_envelope_digest" "$api_contract_revision" stable
 echo "ACTIVATED_SHA=$release_commit"
+echo "ACTIVATED_RUN_ID=$release_run_id"
+echo "ACTIVATED_RUN_NUMBER=$release_run_number"
+echo "ACTIVATED_RUN_ATTEMPT=$release_run_attempt"
+echo "ACTIVATED_API_CONTRACT=$api_contract_revision"
 
 cleanup_releases() {
   declare -A keep=()
@@ -272,9 +364,19 @@ cleanup_releases() {
 if ! cleanup_releases; then
   echo "CLEANUP_DEBT=frontend_release_retention"
   echo "CLEANUP_DEBT=frontend_release_retention" >&2
+  "$CLEANUP_DEBT_WRITER" frontend set release_retention \
+    || echo "CLEANUP_DEBT=frontend_cleanup_metric" >&2
+else
+  "$CLEANUP_DEBT_WRITER" frontend clear release_retention \
+    || echo "CLEANUP_DEBT=frontend_cleanup_metric" >&2
 fi
 if ! rm -rf -- "$source_real"; then
   echo "CLEANUP_DEBT=frontend_incoming_release"
   echo "CLEANUP_DEBT=frontend_incoming_release" >&2
+  "$CLEANUP_DEBT_WRITER" frontend set incoming_release \
+    || echo "CLEANUP_DEBT=frontend_cleanup_metric" >&2
+else
+  "$CLEANUP_DEBT_WRITER" frontend clear incoming_release \
+    || echo "CLEANUP_DEBT=frontend_cleanup_metric" >&2
 fi
 echo "Frontend release activated: $release_real"

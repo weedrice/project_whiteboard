@@ -20,6 +20,13 @@ PROVENANCE_VERIFIER="${PROVENANCE_VERIFIER:-/usr/local/sbin/verify-noviis-releas
 DEPLOY_LOCK_FILE="${DEPLOY_LOCK_FILE:-/run/lock/noviis-deploy.lock}"
 SOURCE_DIR="${1:?incoming release directory is required}"
 EXPECTED_COMMIT="${2:-${EXPECTED_COMMIT:-}}"
+EXPECTED_RUN_ID="${3:-${EXPECTED_RUN_ID:-}}"
+EXPECTED_RUN_ATTEMPT="${4:-${EXPECTED_RUN_ATTEMPT:-}}"
+EXPECTED_RUN_NUMBER="${5:-${EXPECTED_RUN_NUMBER:-}}"
+STABILITY_SUCCESS_COUNT="${STABILITY_SUCCESS_COUNT:-3}"
+STABILITY_DELAY_SECONDS="${STABILITY_DELAY_SECONDS:-5}"
+ROLLBACK_AUTH_FILE="${ROLLBACK_AUTH_FILE:-/var/lib/noviis/deployment-state/backend-rollback.allow}"
+CLEANUP_DEBT_WRITER="${CLEANUP_DEBT_WRITER:-/usr/local/sbin/record-noviis-cleanup-debt}"
 
 command -v flock >/dev/null 2>&1 || { echo "flock is required for activation locking" >&2; exit 69; }
 exec 9>"$DEPLOY_LOCK_FILE"
@@ -40,6 +47,11 @@ release_real=""
 failure_phase="preflight"
 previous_commit=""
 previous_digest=""
+previous_run_id="0"
+previous_run_attempt="0"
+previous_run_number="0"
+previous_envelope_digest=""
+previous_api_contract_revision="legacy"
 ROLLBACK_STATE_FILE="$APP_DIR/app.jar.rollback.state"
 ACTIVE_STATE_FILE="${ACTIVE_STATE_FILE:-$APP_DIR/app.jar.active.state}"
 ACTIVE_STATE_FILE_OWNER="${ACTIVE_STATE_FILE_OWNER:-root:root}"
@@ -48,17 +60,58 @@ ACTIVE_STATE_FILE_MODE="${ACTIVE_STATE_FILE_MODE:-600}"
 write_active_state() {
   local commit_sha="$1"
   local jar_sha256="$2"
+  local run_id="${3:-0}"
+  local run_attempt="${4:-0}"
+  local run_number="${5:-0}"
+  local envelope_sha256="${6:-$jar_sha256}"
+  local api_contract_revision="${7:-legacy}"
+  local phase="${8:-stable}"
   local state_tmp
   [[ "$commit_sha" =~ ^[0-9a-f]{40}$ ]] || return 1
   [[ "$jar_sha256" =~ ^[0-9a-f]{64}$ ]] || return 1
+  [[ "$run_id" =~ ^[0-9]+$ ]] || return 1
+  [[ "$run_attempt" =~ ^[1-9][0-9]*$|^0$ ]] || return 1
+  [[ "$run_number" =~ ^[0-9]+$ ]] || return 1
+  [[ "$envelope_sha256" =~ ^[0-9a-f]{64}$ ]] || return 1
+  [[ "$api_contract_revision" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$ ]] || return 1
+  [[ "$phase" = pending || "$phase" = stable ]] || return 1
   state_tmp="$(mktemp "$release_root_real/.backend-active-state.XXXXXX")" || return 1
-  if ! printf 'commit_sha=%s\njar_sha256=%s\n' "$commit_sha" "$jar_sha256" > "$state_tmp" \
+  if ! printf 'commit_sha=%s\njar_sha256=%s\nrun_id=%s\nrun_number=%s\nrun_attempt=%s\nrelease_envelope_sha256=%s\napi_contract_revision=%s\nphase=%s\n' \
+      "$commit_sha" "$jar_sha256" "$run_id" "$run_number" "$run_attempt" "$envelope_sha256" "$api_contract_revision" "$phase" > "$state_tmp" \
     || ! chmod 0600 "$state_tmp" \
     || ! sudo install -o root -g root -m 0600 "$state_tmp" "$ACTIVE_STATE_FILE"; then
     rm -f -- "$state_tmp"
     return 1
   fi
   rm -f -- "$state_tmp"
+}
+
+read_state_value() {
+  local file="$1"
+  local key="$2"
+  sudo sed -n "s/^${key}=//p" "$file"
+}
+
+authorize_release_generation() {
+  local target_run_number="$1"
+  local target_attempt="$2"
+  local current_run_number="$3"
+  local current_attempt="$4"
+  if [ "$target_run_number" -gt "$current_run_number" ] \
+    || { [ "$target_run_number" -eq "$current_run_number" ] && [ "$target_attempt" -gt "$current_attempt" ]; }; then
+    return 0
+  fi
+  if ! sudo test -f "$ROLLBACK_AUTH_FILE" || sudo test -L "$ROLLBACK_AUTH_FILE" \
+    || [ "$(sudo stat -c %U:%G "$ROLLBACK_AUTH_FILE")" != root:root ] \
+    || [ "$(sudo stat -c %a "$ROLLBACK_AUTH_FILE")" != 600 ] \
+    || ! sudo grep -Fqx -- "target_run_number=$target_run_number" "$ROLLBACK_AUTH_FILE" \
+    || ! sudo grep -Fqx -- "target_run_attempt=$target_attempt" "$ROLLBACK_AUTH_FILE" \
+    || ! sudo grep -Eq '^reason=.{8,256}$' "$ROLLBACK_AUTH_FILE"; then
+    echo "Release generation is not newer and no valid root break-glass authorization exists" >&2
+    return 1
+  fi
+  sudo rm -f -- "$ROLLBACK_AUTH_FILE"
+  echo "Root break-glass authorization consumed for backend release generation $target_run_number/$target_attempt" >&2
 }
 
 prune_diagnostics() {
@@ -134,11 +187,25 @@ wait_for_health() {
   return 1
 }
 
+wait_for_stability() {
+  local expected_commit="$1"
+  local success
+  for success in $(seq 1 "$STABILITY_SUCCESS_COUNT"); do
+    wait_for_health "$expected_commit" || return 1
+    if [ "$success" -lt "$STABILITY_SUCCESS_COUNT" ]; then sleep "$STABILITY_DELAY_SECONDS"; fi
+  done
+}
+
 rollback() {
   local original_status="$1"
   local actual_digest=""
   local state_commit=""
   local state_digest=""
+  local state_run_id="0"
+  local state_run_attempt="0"
+  local state_run_number="0"
+  local state_envelope_digest=""
+  local state_api_contract_revision="legacy"
   if [ "$completed" = true ] || [ "$rollback_in_progress" = true ]; then
     return "$original_status"
   fi
@@ -158,8 +225,13 @@ rollback() {
           echo "Rollback state is missing or unsafe" >&2
           restore_status=1
         else
-          state_commit="$(sudo sed -n 's/^commit_sha=//p' "$ROLLBACK_STATE_FILE")"
-          state_digest="$(sudo sed -n 's/^jar_sha256=//p' "$ROLLBACK_STATE_FILE")"
+            state_commit="$(sudo sed -n 's/^commit_sha=//p' "$ROLLBACK_STATE_FILE")"
+            state_digest="$(sudo sed -n 's/^jar_sha256=//p' "$ROLLBACK_STATE_FILE")"
+            state_run_id="$(sudo sed -n 's/^run_id=//p' "$ROLLBACK_STATE_FILE")"
+            state_run_attempt="$(sudo sed -n 's/^run_attempt=//p' "$ROLLBACK_STATE_FILE")"
+            state_run_number="$(sudo sed -n 's/^run_number=//p' "$ROLLBACK_STATE_FILE")"
+            state_envelope_digest="$(sudo sed -n 's/^release_envelope_sha256=//p' "$ROLLBACK_STATE_FILE")"
+            state_api_contract_revision="$(sudo sed -n 's/^api_contract_revision=//p' "$ROLLBACK_STATE_FILE")"
           actual_digest="$(sudo sha256sum "$APP_DIR/app.jar.rollback" | awk '{print $1}')"
           if [[ ! "$state_commit" =~ ^[0-9a-f]{40}$ ]] || [[ ! "$state_digest" =~ ^[0-9a-f]{64}$ ]] \
             || [ "$actual_digest" != "$state_digest" ]; then
@@ -167,6 +239,12 @@ rollback() {
             restore_status=1
           else
             previous_commit="$state_commit"
+            [[ "$state_run_id" =~ ^[0-9]+$ ]] && previous_run_id="$state_run_id"
+            [[ "$state_run_attempt" =~ ^[0-9]+$ ]] && previous_run_attempt="$state_run_attempt"
+            [[ "$state_run_number" =~ ^[0-9]+$ ]] && previous_run_number="$state_run_number"
+            [[ "$state_envelope_digest" =~ ^[0-9a-f]{64}$ ]] && previous_envelope_digest="$state_envelope_digest"
+            [[ "$state_api_contract_revision" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$ ]] \
+              && previous_api_contract_revision="$state_api_contract_revision"
             sudo install -m 0644 "$APP_DIR/app.jar.rollback" "$APP_DIR/app.jar"
             restore_status=$?
           fi
@@ -177,18 +255,25 @@ rollback() {
         return "$original_status"
       fi
     fi
+    [[ "$previous_envelope_digest" =~ ^[0-9a-f]{64}$ ]] || previous_envelope_digest="$state_digest"
+    if [ "$restore_status" -eq 0 ]; then
+      write_active_state "$previous_commit" "$state_digest" "$previous_run_id" "$previous_run_attempt" "$previous_run_number" \
+        "${previous_envelope_digest:-$state_digest}" "$previous_api_contract_revision" pending
+      restore_status=$?
+    fi
     if [ "$restore_status" -eq 0 ]; then
       sudo systemctl daemon-reload
       sudo systemctl restart "$SERVICE_NAME"
       restore_status=$?
     fi
     if [ "$restore_status" -eq 0 ]; then
-      wait_for_health "$previous_commit"
+      wait_for_stability "$previous_commit"
       restore_status=$?
     fi
     if [ "$restore_status" -eq 0 ]; then
       actual_digest="$(sudo sha256sum "$APP_DIR/app.jar" | awk '{print $1}')"
-      write_active_state "$previous_commit" "$actual_digest"
+      write_active_state "$previous_commit" "$actual_digest" "$previous_run_id" "$previous_run_attempt" "$previous_run_number" \
+        "$previous_envelope_digest" "$previous_api_contract_revision" stable
       restore_status=$?
     fi
     if [ "$restore_status" -ne 0 ]; then
@@ -245,6 +330,23 @@ test "$file_count" -gt 0
 
 "$PROVENANCE_VERIFIER" "$staging_dir" "$EXPECTED_COMMIT" backend
 
+release_run_id="${EXPECTED_RUN_ID:-0}"
+release_run_attempt="${EXPECTED_RUN_ATTEMPT:-0}"
+release_run_number="${EXPECTED_RUN_NUMBER:-0}"
+api_contract_revision="legacy"
+release_envelope_digest=""
+if [ -n "$EXPECTED_RUN_ID" ] || [ -n "$EXPECTED_RUN_ATTEMPT" ] || [ -n "$EXPECTED_RUN_NUMBER" ]; then
+  [[ "$EXPECTED_RUN_ID" =~ ^[1-9][0-9]*$ ]] || { echo "Expected run id is invalid" >&2; exit 64; }
+  [[ "$EXPECTED_RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]] || { echo "Expected run attempt is invalid" >&2; exit 64; }
+  [[ "$EXPECTED_RUN_NUMBER" =~ ^[1-9][0-9]*$ ]] || { echo "Expected run number is invalid" >&2; exit 64; }
+  grep -Fqx -- "run_id=$EXPECTED_RUN_ID" "$staging_dir/RELEASE_METADATA"
+  grep -Fqx -- "run_attempt=$EXPECTED_RUN_ATTEMPT" "$staging_dir/RELEASE_METADATA"
+  grep -Fqx -- "run_number=$EXPECTED_RUN_NUMBER" "$staging_dir/RELEASE_METADATA"
+  api_contract_revision="$(sed -n 's/^api_contract_revision=//p' "$staging_dir/RELEASE_METADATA")"
+  [[ "$api_contract_revision" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$ ]] \
+    || { echo "Release API contract revision is invalid" >&2; exit 1; }
+fi
+
 mapfile -d '' jars < <(find "$staging_dir" -maxdepth 1 -type f -name '*.jar' -print0)
 if [ "${#jars[@]}" -ne 1 ]; then
   echo "Expected exactly one release JAR, found ${#jars[@]}" >&2
@@ -252,6 +354,11 @@ if [ "${#jars[@]}" -ne 1 ]; then
 fi
 test -f "$staging_dir/SHA256SUMS"
 (cd "$staging_dir" && sha256sum --strict --check SHA256SUMS)
+if [ -f "$staging_dir/RELEASE_ENVELOPE" ]; then
+  release_envelope_digest="$(sha256sum "$staging_dir/RELEASE_ENVELOPE" | awk '{print $1}')"
+else
+  release_envelope_digest="$(sha256sum "$staging_dir/app.jar" | awk '{print $1}')"
+fi
 if [ -n "$EXPECTED_COMMIT" ]; then
   test -f "$staging_dir/RELEASE_METADATA"
   grep -Fqx -- "commit_sha=$EXPECTED_COMMIT" "$staging_dir/RELEASE_METADATA"
@@ -288,9 +395,26 @@ if [ -f "$APP_DIR/app.jar" ]; then
       exit 1
     fi
   fi
+  if sudo test -f "$ACTIVE_STATE_FILE" && ! sudo test -L "$ACTIVE_STATE_FILE"; then
+    previous_run_id="$(read_state_value "$ACTIVE_STATE_FILE" run_id)"
+    previous_run_attempt="$(read_state_value "$ACTIVE_STATE_FILE" run_attempt)"
+    previous_run_number="$(read_state_value "$ACTIVE_STATE_FILE" run_number)"
+    previous_envelope_digest="$(read_state_value "$ACTIVE_STATE_FILE" release_envelope_sha256)"
+    previous_api_contract_revision="$(read_state_value "$ACTIVE_STATE_FILE" api_contract_revision)"
+    [[ "$previous_run_id" =~ ^[0-9]+$ ]] || previous_run_id=0
+    [[ "$previous_run_attempt" =~ ^[0-9]+$ ]] || previous_run_attempt=0
+    [[ "$previous_run_number" =~ ^[0-9]+$ ]] || previous_run_number=0
+    [[ "$previous_envelope_digest" =~ ^[0-9a-f]{64}$ ]] || previous_envelope_digest="$previous_digest"
+    [[ "$previous_api_contract_revision" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$ ]] || previous_api_contract_revision=legacy
+  fi
+  if [ -n "$EXPECTED_RUN_ID" ]; then
+    authorize_release_generation "$release_run_number" "$release_run_attempt" "$previous_run_number" "$previous_run_attempt"
+  fi
   sudo install -m 0644 "$APP_DIR/app.jar" "$APP_DIR/app.jar.rollback"
   rollback_state_tmp="$(mktemp "$release_root_real/.backend-rollback-state.XXXXXX")"
-  printf 'commit_sha=%s\njar_sha256=%s\n' "$previous_commit" "$previous_digest" > "$rollback_state_tmp"
+  printf 'commit_sha=%s\njar_sha256=%s\nrun_id=%s\nrun_number=%s\nrun_attempt=%s\nrelease_envelope_sha256=%s\napi_contract_revision=%s\n' \
+    "$previous_commit" "$previous_digest" "$previous_run_id" "$previous_run_number" "$previous_run_attempt" \
+    "$previous_envelope_digest" "$previous_api_contract_revision" > "$rollback_state_tmp"
   chmod 0600 "$rollback_state_tmp"
   sudo install -m 0600 "$rollback_state_tmp" "$ROLLBACK_STATE_FILE"
   rm -f -- "$rollback_state_tmp"
@@ -307,15 +431,20 @@ if sudo systemctl is-active --quiet "$SERVICE_NAME"; then
 fi
 sudo mv "$APP_DIR/app.jar.next" "$APP_DIR/app.jar"
 activated=true
+active_digest="$(sudo sha256sum "$APP_DIR/app.jar" | awk '{print $1}')"
+if [[ "$EXPECTED_COMMIT" =~ ^[0-9a-f]{40}$ ]]; then
+  write_active_state "$EXPECTED_COMMIT" "$active_digest" "$release_run_id" "$release_run_attempt" "$release_run_number" \
+    "$release_envelope_digest" "$api_contract_revision" pending
+fi
 failure_phase="start-service"
 sudo systemctl daemon-reload
 sudo systemctl start "$SERVICE_NAME"
 sudo systemctl is-active --quiet "$SERVICE_NAME"
 failure_phase="verify-health"
-wait_for_health "$EXPECTED_COMMIT"
-active_digest="$(sudo sha256sum "$APP_DIR/app.jar" | awk '{print $1}')"
+wait_for_stability "$EXPECTED_COMMIT"
 if [[ "$EXPECTED_COMMIT" =~ ^[0-9a-f]{40}$ ]]; then
-  write_active_state "$EXPECTED_COMMIT" "$active_digest"
+  write_active_state "$EXPECTED_COMMIT" "$active_digest" "$release_run_id" "$release_run_attempt" "$release_run_number" \
+    "$release_envelope_digest" "$api_contract_revision" stable
 fi
 activation_verified=true
 activated_sha="${EXPECTED_COMMIT:-$release_id}"
@@ -368,14 +497,29 @@ cleanup_releases() {
 if ! cleanup_releases; then
   echo "CLEANUP_DEBT=backend_release_retention"
   echo "CLEANUP_DEBT=backend_release_retention" >&2
+  "$CLEANUP_DEBT_WRITER" backend set release_retention \
+    || echo "CLEANUP_DEBT=backend_cleanup_metric" >&2
+else
+  "$CLEANUP_DEBT_WRITER" backend clear release_retention \
+    || echo "CLEANUP_DEBT=backend_cleanup_metric" >&2
 fi
 if ! sudo systemctl show "$SERVICE_NAME" \
   --property=ActiveState,SubState,Result,ExecMainCode,ExecMainStatus,NRestarts; then
   echo "CLEANUP_DEBT=backend_status_diagnostic"
   echo "CLEANUP_DEBT=backend_status_diagnostic" >&2
+  "$CLEANUP_DEBT_WRITER" backend set status_diagnostic \
+    || echo "CLEANUP_DEBT=backend_cleanup_metric" >&2
+else
+  "$CLEANUP_DEBT_WRITER" backend clear status_diagnostic \
+    || echo "CLEANUP_DEBT=backend_cleanup_metric" >&2
 fi
 if ! rm -rf -- "$source_real"; then
   echo "CLEANUP_DEBT=backend_incoming_release"
   echo "CLEANUP_DEBT=backend_incoming_release" >&2
+  "$CLEANUP_DEBT_WRITER" backend set incoming_release \
+    || echo "CLEANUP_DEBT=backend_cleanup_metric" >&2
+else
+  "$CLEANUP_DEBT_WRITER" backend clear incoming_release \
+    || echo "CLEANUP_DEBT=backend_cleanup_metric" >&2
 fi
 echo "Backend release activated: $release_real"
