@@ -88,6 +88,7 @@ if [ -f "$STATE_DIR/fail_new_health" ] && grep -q '^new$' "$APP_DIR/app.jar"; th
   exit 1
 fi
 if [[ " $* " == *" /info "* ]] || [[ "${!#}" == */info ]]; then
+  if [ -f "$STATE_DIR/fail_current_info" ]; then rm -f "$STATE_DIR/fail_current_info"; exit 1; fi
   if grep -q '^old$' "$APP_DIR/app.jar"; then
     if [ -f "$STATE_DIR/wrong_rollback_sha" ]; then
       printf '{"build":{"commit":"%s"}}\n' "$NEW_SHA"
@@ -131,6 +132,8 @@ invoke_activation() {
   ENV_FILE="$env_file" \
   ENV_FILE_OWNER="$(stat -c %U:%G "$env_file")" \
   ENV_FILE_MODE="$(stat -c %a "$env_file")" \
+  ACTIVE_STATE_FILE_OWNER="$(stat -c %U:%G "$env_file")" \
+  ACTIVE_STATE_FILE_MODE=600 \
   STATE_DIR="$state_dir" \
   SUDO_LOG="$state_dir/sudo.log" \
   OLD_SHA="$old_sha" \
@@ -172,6 +175,28 @@ printf 'new\n' > "$success_release/app.jar"
 success_output="$(run_activation "$success_release")"
 grep -Fqx 'ACTIVATED_SHA=success' <<< "$success_output"
 grep -qx new "$app_dir/app.jar"
+
+state_seed_release="$incoming_root/state-seed"
+mkdir -p "$state_seed_release"
+printf 'new\n' > "$state_seed_release/app.jar"
+printf 'commit_sha=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n' > "$state_seed_release/RELEASE_METADATA"
+(
+  cd "$state_seed_release"
+  sha256sum app.jar > SHA256SUMS
+)
+invoke_activation "$state_seed_release" bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb >/dev/null
+touch "$state_dir/fail_current_info"
+unhealthy_recovery_release="$incoming_root/unhealthy-recovery"
+mkdir -p "$unhealthy_recovery_release"
+printf 'new\n' > "$unhealthy_recovery_release/app.jar"
+printf 'commit_sha=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\n' > "$unhealthy_recovery_release/RELEASE_METADATA"
+(
+  cd "$unhealthy_recovery_release"
+  sha256sum app.jar > SHA256SUMS
+)
+invoke_activation "$unhealthy_recovery_release" bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb >/dev/null
+grep -qx new "$app_dir/app.jar"
+rm -f "$state_dir/fail_current_info"
 
 printf 'old\n' > "$app_dir/app.jar"
 provenance_failure_release="$incoming_root/provenance-failure"

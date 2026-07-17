@@ -18,3 +18,7 @@ scrape_configs:
   - job_name: noviis-host
     file_sd_configs:
       - files: ["/etc/prometheus/targets/noviis-host.json"]
+
+  - job_name: noviis-host-contract
+    file_sd_configs:
+      - files: ["/etc/prometheus/targets/noviis-host-contract.json"]

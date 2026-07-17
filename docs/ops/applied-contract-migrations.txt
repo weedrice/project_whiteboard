@@ -1,2 +1,2 @@
-# One migration filename per line, followed by the production deployment run URL and deployed commit SHA.
+# One migration filename per line, followed by the production deployment run URL, deployed commit SHA, and tracked evidence file.
 # Add an entry only after the contract migration has been applied and verified in production.

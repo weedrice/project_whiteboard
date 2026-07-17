@@ -41,6 +41,25 @@ failure_phase="preflight"
 previous_commit=""
 previous_digest=""
 ROLLBACK_STATE_FILE="$APP_DIR/app.jar.rollback.state"
+ACTIVE_STATE_FILE="${ACTIVE_STATE_FILE:-$APP_DIR/app.jar.active.state}"
+ACTIVE_STATE_FILE_OWNER="${ACTIVE_STATE_FILE_OWNER:-root:root}"
+ACTIVE_STATE_FILE_MODE="${ACTIVE_STATE_FILE_MODE:-600}"
+
+write_active_state() {
+  local commit_sha="$1"
+  local jar_sha256="$2"
+  local state_tmp
+  [[ "$commit_sha" =~ ^[0-9a-f]{40}$ ]] || return 1
+  [[ "$jar_sha256" =~ ^[0-9a-f]{64}$ ]] || return 1
+  state_tmp="$(mktemp "$release_root_real/.backend-active-state.XXXXXX")" || return 1
+  if ! printf 'commit_sha=%s\njar_sha256=%s\n' "$commit_sha" "$jar_sha256" > "$state_tmp" \
+    || ! chmod 0600 "$state_tmp" \
+    || ! sudo install -o root -g root -m 0600 "$state_tmp" "$ACTIVE_STATE_FILE"; then
+    rm -f -- "$state_tmp"
+    return 1
+  fi
+  rm -f -- "$state_tmp"
+}
 
 prune_diagnostics() {
   local listing entry path path_real keep_count=0
@@ -167,6 +186,11 @@ rollback() {
       wait_for_health "$previous_commit"
       restore_status=$?
     fi
+    if [ "$restore_status" -eq 0 ]; then
+      actual_digest="$(sudo sha256sum "$APP_DIR/app.jar" | awk '{print $1}')"
+      write_active_state "$previous_commit" "$actual_digest"
+      restore_status=$?
+    fi
     if [ "$restore_status" -ne 0 ]; then
       echo "Backend rollback failed" >&2
       diagnose
@@ -246,12 +270,24 @@ sudo test -w "$APP_DIR"
 
 if [ -f "$APP_DIR/app.jar" ]; then
   previous_commit="$(curl -fsS --max-time 3 "${HEALTH_URL%/health}/info" \
-    | sed -n 's/.*"commit":"\([0-9a-f]\{40\}\)".*/\1/p')"
-  if [[ ! "$previous_commit" =~ ^[0-9a-f]{40}$ ]]; then
-    echo "Current backend commit cannot be proven before activation" >&2
-    exit 1
-  fi
+    | sed -n 's/.*"commit":"\([0-9a-f]\{40\}\)".*/\1/p' || true)"
   previous_digest="$(sudo sha256sum "$APP_DIR/app.jar" | awk '{print $1}')"
+  if [[ ! "$previous_commit" =~ ^[0-9a-f]{40}$ ]]; then
+    if ! sudo test -f "$ACTIVE_STATE_FILE" || sudo test -L "$ACTIVE_STATE_FILE" \
+      || [ "$(sudo stat -c %U:%G "$ACTIVE_STATE_FILE")" != "$ACTIVE_STATE_FILE_OWNER" ] \
+      || [ "$(sudo stat -c %a "$ACTIVE_STATE_FILE")" != "$ACTIVE_STATE_FILE_MODE" ]; then
+      echo "Current backend commit cannot be proven from health or a secured active state" >&2
+      exit 1
+    fi
+    previous_commit="$(sudo sed -n 's/^commit_sha=//p' "$ACTIVE_STATE_FILE")"
+    recorded_active_digest="$(sudo sed -n 's/^jar_sha256=//p' "$ACTIVE_STATE_FILE")"
+    if [[ ! "$previous_commit" =~ ^[0-9a-f]{40}$ ]] \
+      || [[ ! "$recorded_active_digest" =~ ^[0-9a-f]{64}$ ]] \
+      || [ "$previous_digest" != "$recorded_active_digest" ]; then
+      echo "Current backend JAR does not match the secured active state" >&2
+      exit 1
+    fi
+  fi
   sudo install -m 0644 "$APP_DIR/app.jar" "$APP_DIR/app.jar.rollback"
   rollback_state_tmp="$(mktemp "$release_root_real/.backend-rollback-state.XXXXXX")"
   printf 'commit_sha=%s\njar_sha256=%s\n' "$previous_commit" "$previous_digest" > "$rollback_state_tmp"
@@ -277,6 +313,10 @@ sudo systemctl start "$SERVICE_NAME"
 sudo systemctl is-active --quiet "$SERVICE_NAME"
 failure_phase="verify-health"
 wait_for_health "$EXPECTED_COMMIT"
+active_digest="$(sudo sha256sum "$APP_DIR/app.jar" | awk '{print $1}')"
+if [[ "$EXPECTED_COMMIT" =~ ^[0-9a-f]{40}$ ]]; then
+  write_active_state "$EXPECTED_COMMIT" "$active_digest"
+fi
 activation_verified=true
 activated_sha="${EXPECTED_COMMIT:-$release_id}"
 completed=true
@@ -326,13 +366,16 @@ cleanup_releases() {
 }
 
 if ! cleanup_releases; then
+  echo "CLEANUP_DEBT=backend_release_retention"
   echo "CLEANUP_DEBT=backend_release_retention" >&2
 fi
 if ! sudo systemctl show "$SERVICE_NAME" \
   --property=ActiveState,SubState,Result,ExecMainCode,ExecMainStatus,NRestarts; then
+  echo "CLEANUP_DEBT=backend_status_diagnostic"
   echo "CLEANUP_DEBT=backend_status_diagnostic" >&2
 fi
 if ! rm -rf -- "$source_real"; then
+  echo "CLEANUP_DEBT=backend_incoming_release"
   echo "CLEANUP_DEBT=backend_incoming_release" >&2
 fi
 echo "Backend release activated: $release_real"

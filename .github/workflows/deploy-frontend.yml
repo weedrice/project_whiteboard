@@ -34,6 +34,8 @@ on:
         required: false
       CUSTOM_SITEMAP_SUBMIT_URL:
         required: false
+      CUSTOM_SITEMAP_SUBMIT_ALLOWED_ORIGINS:
+        required: false
 
 concurrency:
   group: deploy-production
@@ -132,6 +134,7 @@ jobs:
 
       - name: Activate frontend release
         id: activate
+        continue-on-error: true
         uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -144,18 +147,57 @@ jobs:
             RELEASE_DIR="/var/www/incoming/frontend/${{ inputs.expected_sha }}-${{ github.run_id }}-${{ github.run_attempt }}"
             sudo /usr/local/sbin/activate-noviis-frontend "$RELEASE_DIR" activate "${{ inputs.expected_sha }}"
 
+      - name: Reconcile frontend activation from independent readback
+        id: reconcile
+        if: always()
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: noviis-deploy
+          key: ${{ secrets.EC2_SSH_KEY }}
+          fingerprint: ${{ secrets.EC2_HOST_FINGERPRINT }}
+          capture_stdout: true
+          script: |
+            set -eu
+            expected="${{ inputs.expected_sha }}"
+            test "$(curl -fsS --max-time 10 --resolve noviis.kr:443:127.0.0.1 https://noviis.kr/.noviis-release | tr -d '\r\n')" = "$expected"
+            test "$(curl -fsS --max-time 10 https://noviis.kr/.noviis-release | tr -d '\r\n')" = "$expected"
+            echo "ACTIVATED_SHA=$expected"
+            release_dir="/var/www/releases/frontend/${{ inputs.expected_sha }}-${{ github.run_id }}-${{ github.run_attempt }}"
+            current_run_activated=false
+            if [ -f "$release_dir/ACTIVATED" ] && [ ! -L "$release_dir/ACTIVATED" ] \
+              && [ "$(tr -d '\r\n' < "$release_dir/ACTIVATED")" = "$expected" ]; then
+              current_run_activated=true
+            fi
+            echo "CURRENT_RUN_ACTIVATED=$current_run_activated"
+
       - name: Record verified frontend activation
         id: activation-result
+        if: always()
         env:
           EXPECTED_SHA: ${{ inputs.expected_sha }}
           BACKEND_ACTIVATED_SHA: ${{ inputs.backend_activated_sha }}
-          ACTIVATION_STDOUT: ${{ steps.activate.outputs.stdout }}
+          ACTIVATION_STDOUT: ${{ steps.reconcile.outputs.stdout }}
+          ACTIVATOR_STDOUT: ${{ steps.activate.outputs.stdout }}
+          RECONCILIATION_OUTCOME: ${{ steps.reconcile.outcome }}
         run: |
           set -euo pipefail
+          test "$RECONCILIATION_OUTCOME" = success
           activated_sha="$(printf '%s\n' "$ACTIVATION_STDOUT" | sed -n 's/^ACTIVATED_SHA=//p' | tail -n 1)"
           test "$activated_sha" = "$EXPECTED_SHA"
           if [ -n "$BACKEND_ACTIVATED_SHA" ]; then test "$BACKEND_ACTIVATED_SHA" = "$activated_sha"; fi
+          if [ "${{ steps.activate.outcome }}" != success ]; then
+            echo "::warning title=Activation transport reconciled::The activation channel failed, but independent internal and public reads prove the expected frontend release is active."
+          fi
+          while IFS= read -r cleanup_debt; do
+            [ -n "$cleanup_debt" ] || continue
+            echo "::warning title=Frontend cleanup debt::$cleanup_debt"
+            echo "$cleanup_debt" >> "$GITHUB_STEP_SUMMARY"
+          done < <(printf '%s\n' "$ACTIVATOR_STDOUT" | grep '^CLEANUP_DEBT=' || true)
           echo "activated_sha=$activated_sha" >> "$GITHUB_OUTPUT"
+          current_run_activated="$(printf '%s\n' "$ACTIVATION_STDOUT" | sed -n 's/^CURRENT_RUN_ACTIVATED=//p' | tail -n 1)"
+          case "$current_run_activated" in true|false) ;; *) exit 1 ;; esac
+          echo "current_run_activated=$current_run_activated" >> "$GITHUB_OUTPUT"
 
       - name: Verify SEO after deploy
         run: npm run seo:verify
@@ -170,7 +212,7 @@ jobs:
           SEO_EXPECTED_RELEASE_SHA: ${{ inputs.expected_sha }}
 
       - name: Roll back frontend after verification failure
-        if: failure() && steps.activate.outcome == 'success'
+        if: failure() && steps.activation-result.outcome == 'success' && steps.activation-result.outputs.current_run_activated == 'true'
         uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -242,6 +284,7 @@ jobs:
           GOOGLE_SEARCH_CONSOLE_CLIENT_SECRET: ${{ secrets.GOOGLE_SEARCH_CONSOLE_CLIENT_SECRET }}
           GOOGLE_SEARCH_CONSOLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_SEARCH_CONSOLE_REFRESH_TOKEN }}
           CUSTOM_SITEMAP_SUBMIT_URL: ${{ secrets.CUSTOM_SITEMAP_SUBMIT_URL }}
+          CUSTOM_SITEMAP_SUBMIT_ALLOWED_ORIGINS: ${{ secrets.CUSTOM_SITEMAP_SUBMIT_ALLOWED_ORIGINS }}
         continue-on-error: true
 
       - name: Report sitemap submission result

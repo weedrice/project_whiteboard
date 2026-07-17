@@ -12,6 +12,9 @@ groups:
         labels: { cadence: frequent, scheduled_job: MqueueScheduler.processMessageQueue, threshold: 10m }
       - record: noviis_scheduler_expected_max_age_seconds
         expr: vector(600)
+        labels: { cadence: frequent, scheduled_job: NotificationDeliveryJobScheduler.processPendingJobs, threshold: 10m }
+      - record: noviis_scheduler_expected_max_age_seconds
+        expr: vector(600)
         labels: { cadence: frequent, scheduled_job: NotificationSseEmitterRegistry.sendHeartbeat, threshold: 10m }
       - record: noviis_scheduler_expected_max_age_seconds
         expr: vector(600)
@@ -28,6 +31,9 @@ groups:
       - record: noviis_scheduler_expected_max_age_seconds
         expr: vector(8100)
         labels: { cadence: hourly, scheduled_job: OAuthSignupTicketCleanupScheduler.deleteExpiredTickets, threshold: 2h15m }
+      - record: noviis_scheduler_expected_max_age_seconds
+        expr: vector(8100)
+        labels: { cadence: hourly, scheduled_job: FileVariantCleanupScheduler.cleanupStaleVariants, threshold: 2h15m }
       - record: noviis_scheduler_expected_max_age_seconds
         expr: vector(8100)
         labels: { cadence: hourly, scheduled_job: PopularPostScheduler.aggregatePopularPosts, threshold: 2h15m }
@@ -89,6 +95,8 @@ groups:
             or label_replace(absent(noviis_async_queue_depth), "missing_metric", "noviis_async_queue_depth", "", "")
             or label_replace(absent(noviis_async_queue_remaining), "missing_metric", "noviis_async_queue_remaining", "", "")
             or label_replace(absent(noviis_async_rejected_total), "missing_metric", "noviis_async_rejected_total", "", "")
+            or label_replace(absent(noviis_notification_delivery_jobs_pending), "missing_metric", "noviis_notification_delivery_jobs_pending", "", "")
+            or label_replace(absent(noviis_notification_delivery_jobs_dead_letter), "missing_metric", "noviis_notification_delivery_jobs_dead_letter", "", "")
           )
           and on() (max(time() - process_start_time_seconds{job="noviis-backend"}) > 600)
         for: 2m
@@ -209,6 +217,16 @@ groups:
         expr: increase(noviis_webpush_subscription_cleanup_total{outcome="failure"}[15m]) > 0
         labels: { severity: warning }
         annotations: { summary: "Expired Web Push subscription cleanup failed" }
+      - alert: NoviIsNotificationDeliveryBacklog
+        expr: noviis_notification_delivery_jobs_pending > 100
+        for: 10m
+        labels: { severity: warning }
+        annotations: { summary: "Durable notification delivery has more than 100 pending jobs" }
+      - alert: NoviIsNotificationDeliveryDeadLetter
+        expr: noviis_notification_delivery_jobs_dead_letter > 0
+        for: 2m
+        labels: { severity: critical }
+        annotations: { summary: "A durable notification delivery exhausted all retries" }
       - alert: NoviIsProcessRestarted
         expr: changes(process_start_time_seconds{job="noviis-backend"}[15m]) > 0
         labels: { severity: info }
@@ -218,6 +236,20 @@ groups:
         for: 5m
         labels: { severity: critical }
         annotations: { summary: "The enabled NoviIs host exporter is unavailable" }
+      - alert: NoviIsHostTargetMissing
+        expr: >-
+          up{job="noviis-host-contract",monitoring="expected"} == 1
+          unless on() up{job="noviis-host",monitoring="enabled"}
+        for: 5m
+        labels: { severity: critical }
+        annotations: { summary: "Host monitoring is expected but the exporter target is missing" }
+      - alert: NoviIsHostFilesystemMetricMissing
+        expr: >-
+          up{job="noviis-host",monitoring="enabled"} == 1
+          unless on(instance) node_filesystem_avail_bytes{job="noviis-host",mountpoint="/",fstype!~"tmpfs|overlay|squashfs"}
+        for: 5m
+        labels: { severity: critical }
+        annotations: { summary: "The host exporter is up but root filesystem metrics are missing" }
       - alert: NoviIsHostDiskFreeLow
         expr: >-
           node_filesystem_avail_bytes{job="noviis-host",mountpoint="/",fstype!~"tmpfs|overlay|squashfs"}

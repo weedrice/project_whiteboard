@@ -19,12 +19,14 @@ visudo -cf "$installed_fixture"
 
 allowed=(
   "/usr/local/sbin/activate-noviis-backend /opt/app/backend/incoming/release-1 0123456789abcdef"
+  "/usr/local/sbin/verify-noviis-backend 0123456789abcdef"
   "/usr/local/sbin/activate-noviis-frontend /var/www/incoming/frontend/release-1 activate 0123456789abcdef"
   "/usr/local/sbin/activate-noviis-frontend /var/www/releases/frontend/release-1 rollback 0123456789abcdef"
 )
 denied=(
   "/bin/sh"
   "/usr/local/sbin/activate-noviis-backend /tmp/release 0123456789abcdef"
+  "/usr/local/sbin/verify-noviis-backend not-a-sha"
   "/usr/local/sbin/activate-noviis-frontend /var/www/incoming/frontend/release-1 rollback 0123456789abcdef"
   "/usr/local/sbin/activate-noviis-frontend /var/www/releases/frontend/release-1 activate 0123456789abcdef"
 )

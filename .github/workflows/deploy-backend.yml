@@ -42,15 +42,48 @@ concurrency:
 permissions:
   contents: read
   attestations: read
-  id-token: write
 
 jobs:
+  contract-evidence:
+    if: inputs.contract_migration
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout expected commit
+        uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+        with:
+          ref: ${{ inputs.expected_sha }}
+          persist-credentials: false
+
+      - name: Configure read-only AWS credentials for contract evidence
+        uses: aws-actions/configure-aws-credentials@56d6a583f00f6bad6d19d91d53a7bc3b8143d0e9 # v5.1.1
+        with:
+          role-to-assume: ${{ secrets.AWS_CONTRACT_EVIDENCE_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          role-session-name: noviis-contract-evidence-${{ github.run_id }}
+
+      - name: Verify contract migration snapshot evidence
+        env:
+          SNAPSHOT_ID: ${{ inputs.backup_snapshot_id }}
+          PRODUCTION_DB_IDENTIFIER: ${{ secrets.RDS_PRODUCTION_DB_IDENTIFIER }}
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+        run: bash backend/scripts/verify-contract-deployment-evidence.sh "$SNAPSHOT_ID" "$PRODUCTION_DB_IDENTIFIER" "$EXPECTED_SHA"
+
   deploy:
+    needs: contract-evidence
+    if: ${{ always() && (inputs.contract_migration == false || needs.contract-evidence.result == 'success') }}
     outputs:
       activated_sha: ${{ steps.activation-result.outputs.activated_sha }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: production
+    permissions:
+      contents: read
+      attestations: read
 
     steps:
       - name: Checkout expected commit
@@ -84,22 +117,6 @@ jobs:
           gh attestation verify release-artifact/RELEASE_ENVELOPE --repo "$GITHUB_REPOSITORY" --signer-workflow "github.com/$GITHUB_REPOSITORY/.github/workflows/ci.yml" --source-ref refs/heads/main --source-digest "${{ inputs.expected_sha }}" --predicate-type https://slsa.dev/provenance/v1 --deny-self-hosted-runners
           gh attestation verify release-artifact/app.jar --repo "$GITHUB_REPOSITORY" --signer-workflow "github.com/$GITHUB_REPOSITORY/.github/workflows/ci.yml" --source-ref refs/heads/main --source-digest "${{ inputs.expected_sha }}" --predicate-type https://spdx.dev/Document/v2.3 --deny-self-hosted-runners
 
-      - name: Configure read-only AWS credentials for contract evidence
-        if: inputs.contract_migration
-        uses: aws-actions/configure-aws-credentials@56d6a583f00f6bad6d19d91d53a7bc3b8143d0e9 # v5.1.1
-        with:
-          role-to-assume: ${{ secrets.AWS_CONTRACT_EVIDENCE_ROLE_ARN }}
-          aws-region: ${{ secrets.AWS_REGION }}
-          role-session-name: noviis-contract-evidence-${{ github.run_id }}
-
-      - name: Verify contract migration snapshot evidence
-        if: inputs.contract_migration
-        env:
-          SNAPSHOT_ID: ${{ inputs.backup_snapshot_id }}
-          PRODUCTION_DB_IDENTIFIER: ${{ secrets.RDS_PRODUCTION_DB_IDENTIFIER }}
-          EXPECTED_SHA: ${{ inputs.expected_sha }}
-        run: bash backend/scripts/verify-contract-deployment-evidence.sh "$SNAPSHOT_ID" "$PRODUCTION_DB_IDENTIFIER" "$EXPECTED_SHA"
-
       - name: Prepare backend release directory
         uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         with:
@@ -110,6 +127,7 @@ jobs:
           script: |
             set -eu
             test "$(sha256sum /usr/local/sbin/activate-noviis-backend | awk '{print $1}')" = "${{ hashFiles('deploy/scripts/activate-backend-release.sh') }}"
+            test "$(sha256sum /usr/local/sbin/verify-noviis-backend | awk '{print $1}')" = "${{ hashFiles('deploy/scripts/verify-active-backend-release.sh') }}"
             test "$(sha256sum /usr/local/sbin/verify-noviis-release | awk '{print $1}')" = "${{ hashFiles('deploy/scripts/verify-release-provenance.sh') }}"
             test "$(sha256sum /etc/systemd/system/app.service | awk '{print $1}')" = "${{ hashFiles('deploy/systemd/app.service') }}"
             RELEASE_DIR="/opt/app/backend/incoming/${{ inputs.expected_sha }}-${{ github.run_id }}-${{ github.run_attempt }}"
@@ -137,6 +155,7 @@ jobs:
 
       - name: Activate backend release
         id: activate
+        continue-on-error: true
         uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -149,15 +168,41 @@ jobs:
             RELEASE_DIR="/opt/app/backend/incoming/${{ inputs.expected_sha }}-${{ github.run_id }}-${{ github.run_attempt }}"
             sudo /usr/local/sbin/activate-noviis-backend "$RELEASE_DIR" "${{ inputs.expected_sha }}"
 
+      - name: Reconcile backend activation from independent readback
+        id: reconcile
+        if: always()
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: noviis-deploy
+          key: ${{ secrets.EC2_SSH_KEY }}
+          fingerprint: ${{ secrets.EC2_HOST_FINGERPRINT }}
+          capture_stdout: true
+          script: |
+            set -eu
+            sudo /usr/local/sbin/verify-noviis-backend "${{ inputs.expected_sha }}"
+
       - name: Record verified backend activation
         id: activation-result
+        if: always()
         env:
           EXPECTED_SHA: ${{ inputs.expected_sha }}
-          ACTIVATION_STDOUT: ${{ steps.activate.outputs.stdout }}
+          ACTIVATION_STDOUT: ${{ steps.reconcile.outputs.stdout }}
+          ACTIVATOR_STDOUT: ${{ steps.activate.outputs.stdout }}
+          RECONCILIATION_OUTCOME: ${{ steps.reconcile.outcome }}
         run: |
           set -euo pipefail
+          test "$RECONCILIATION_OUTCOME" = success
           activated_sha="$(printf '%s\n' "$ACTIVATION_STDOUT" | sed -n 's/^ACTIVATED_SHA=//p' | tail -n 1)"
           test "$activated_sha" = "$EXPECTED_SHA"
+          if [ "${{ steps.activate.outcome }}" != success ]; then
+            echo "::warning title=Activation transport reconciled::The activation channel failed, but independent host state and health prove the expected backend release is active."
+          fi
+          while IFS= read -r cleanup_debt; do
+            [ -n "$cleanup_debt" ] || continue
+            echo "::warning title=Backend cleanup debt::$cleanup_debt"
+            echo "$cleanup_debt" >> "$GITHUB_STEP_SUMMARY"
+          done < <(printf '%s\n' "$ACTIVATOR_STDOUT" | grep '^CLEANUP_DEBT=' || true)
           echo "activated_sha=$activated_sha" >> "$GITHUB_OUTPUT"
 
       - name: Clean backend incoming release

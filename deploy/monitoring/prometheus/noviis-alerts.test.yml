@@ -90,6 +90,18 @@ tests:
               summary: "Required backend metric noviis_async_rejected_total is missing"
               description: "The backend has been up for more than 10 minutes without exporting this required metric."
           - exp_labels:
+              missing_metric: noviis_notification_delivery_jobs_dead_letter
+              severity: warning
+            exp_annotations:
+              summary: "Required backend metric noviis_notification_delivery_jobs_dead_letter is missing"
+              description: "The backend has been up for more than 10 minutes without exporting this required metric."
+          - exp_labels:
+              missing_metric: noviis_notification_delivery_jobs_pending
+              severity: warning
+            exp_annotations:
+              summary: "Required backend metric noviis_notification_delivery_jobs_pending is missing"
+              description: "The backend has been up for more than 10 minutes without exporting this required metric."
+          - exp_labels:
               missing_metric: jvm_memory_used_bytes
               severity: warning
             exp_annotations:
@@ -169,11 +181,15 @@ tests:
         values: '600+0x15'
       - series: 'noviis_scheduler_last_success_timestamp_seconds{scheduled_job="MqueueScheduler.processMessageQueue"}'
         values: '600+0x15'
+      - series: 'noviis_scheduler_last_success_timestamp_seconds{scheduled_job="NotificationDeliveryJobScheduler.processPendingJobs"}'
+        values: '600+0x15'
       - series: 'noviis_scheduler_last_success_timestamp_seconds{scheduled_job="NotificationSseEmitterRegistry.sendHeartbeat"}'
         values: '600+0x15'
       - series: 'noviis_scheduler_last_success_timestamp_seconds{scheduled_job="ScheduledPostPublisherScheduler.publishDuePosts"}'
         values: '600+0x15'
       - series: 'noviis_scheduler_last_success_timestamp_seconds{scheduled_job="SemanticSearchJobScheduler.processPendingSemanticSearchJobs"}'
+        values: '600+0x15'
+      - series: 'noviis_scheduler_last_success_timestamp_seconds{scheduled_job="FileVariantCleanupScheduler.cleanupStaleVariants"}'
         values: '600+0x15'
     alert_rule_test:
       - eval_time: 9m
@@ -373,6 +389,40 @@ tests:
             exp_annotations:
               summary: "The NoviIs host root filesystem has less than 10 percent free inodes"
 
+  - name: host monitoring contract detects a removed exporter target
+    interval: 1m
+    input_series:
+      - series: 'up{job="noviis-host-contract",monitoring="expected",instance="127.0.0.1:9090"}'
+        values: '1+0x8'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: NoviIsHostTargetMissing
+        exp_alerts:
+          - exp_labels:
+              instance: 127.0.0.1:9090
+              job: noviis-host-contract
+              monitoring: expected
+              severity: critical
+            exp_annotations:
+              summary: "Host monitoring is expected but the exporter target is missing"
+
+  - name: host exporter without root filesystem metrics is incomplete
+    interval: 1m
+    input_series:
+      - series: 'up{job="noviis-host",monitoring="enabled",instance="127.0.0.1:9100"}'
+        values: '1+0x8'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: NoviIsHostFilesystemMetricMissing
+        exp_alerts:
+          - exp_labels:
+              instance: 127.0.0.1:9100
+              job: noviis-host
+              monitoring: enabled
+              severity: critical
+            exp_annotations:
+              summary: "The host exporter is up but root filesystem metrics are missing"
+
   - name: declining host disk is predicted before exhaustion
     interval: 1h
     input_series:
@@ -416,6 +466,29 @@ tests:
               severity: warning
             exp_annotations:
               summary: "Expired Web Push subscription cleanup failed"
+
+  - name: durable notification backlog and dead letters are observable
+    interval: 1m
+    input_series:
+      - series: 'noviis_notification_delivery_jobs_pending'
+        values: '101+0x15'
+      - series: 'noviis_notification_delivery_jobs_dead_letter'
+        values: '1+0x15'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: NoviIsNotificationDeliveryBacklog
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: "Durable notification delivery has more than 100 pending jobs"
+      - eval_time: 2m
+        alertname: NoviIsNotificationDeliveryDeadLetter
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+            exp_annotations:
+              summary: "A durable notification delivery exhausted all retries"
 
   - name: process start time change reports a restart
     interval: 1m

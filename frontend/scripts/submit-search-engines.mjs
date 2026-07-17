@@ -1,5 +1,9 @@
 #!/usr/bin/env node
 
+import { lookup } from 'node:dns/promises'
+import { isIP } from 'node:net'
+import { pathToFileURL } from 'node:url'
+
 const siteUrl = normalizeBaseUrl(process.env.SEO_SITE_URL ?? 'https://noviis.kr')
 const sitemapUrl = process.env.SEO_SITEMAP_URL ?? `${siteUrl}/sitemap.xml`
 const googleSiteUrl = normalizeSearchConsoleSiteUrl(process.env.GOOGLE_SEARCH_CONSOLE_SITE_URL ?? siteUrl)
@@ -10,7 +14,7 @@ const googleClientId = process.env.GOOGLE_SEARCH_CONSOLE_CLIENT_ID ?? ''
 const googleClientSecret = process.env.GOOGLE_SEARCH_CONSOLE_CLIENT_SECRET ?? ''
 const googleRefreshToken = process.env.GOOGLE_SEARCH_CONSOLE_REFRESH_TOKEN ?? ''
 
-function normalizeBaseUrl(url) {
+export function normalizeBaseUrl(url) {
     return String(url).replace(/\/+$/, '')
 }
 
@@ -34,96 +38,132 @@ function resolveTargetUrl(rawUrl) {
         .replaceAll('{sitemapRaw}', sitemapUrl)
 }
 
+function isPrivateIpv4(address) {
+    const octets = address.split('.').map(Number)
+    if (octets.length !== 4 || octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)) {
+        return true
+    }
+    const [first, second] = octets
+    return first === 0
+        || first === 10
+        || first === 127
+        || (first === 169 && second === 254)
+        || (first === 172 && second >= 16 && second <= 31)
+        || (first === 192 && second === 168)
+        || (first === 100 && second >= 64 && second <= 127)
+        || first >= 224
+}
+
+export function isPrivateAddress(address) {
+    const normalized = String(address).trim().toLowerCase()
+    const family = isIP(normalized)
+    if (family === 4) return isPrivateIpv4(normalized)
+    if (family !== 6) return true
+    if (normalized === '::' || normalized === '::1') return true
+    if (normalized.startsWith('fc') || normalized.startsWith('fd') || /^fe[89ab]/.test(normalized)) return true
+    const mapped = normalized.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/)
+    return mapped ? isPrivateIpv4(mapped[1]) : false
+}
+
+export function parseAllowedOrigins(rawOrigins) {
+    return new Set(String(rawOrigins ?? '')
+        .split(',')
+        .map((origin) => origin.trim())
+        .filter(Boolean)
+        .map((origin) => new URL(origin).origin))
+}
+
+export async function validateCustomSubmitUrl(rawUrl, rawAllowedOrigins, resolver = lookup) {
+    const target = new URL(resolveTargetUrl(rawUrl))
+    if (target.protocol !== 'https:' || target.username || target.password) {
+        throw new Error('custom submit URL must be credential-free HTTPS')
+    }
+    const allowedOrigins = parseAllowedOrigins(rawAllowedOrigins)
+    if (!allowedOrigins.has(target.origin)) {
+        throw new Error('custom submit URL origin is not allowlisted')
+    }
+    const resolved = isIP(target.hostname)
+        ? [{ address: target.hostname }]
+        : await resolver(target.hostname, { all: true, verbatim: true })
+    if (resolved.length === 0 || resolved.some(({ address }) => isPrivateAddress(address))) {
+        throw new Error('custom submit URL resolves to a private or invalid address')
+    }
+    return target.toString()
+}
+
+export function httpFailure(provider, response) {
+    const statusText = String(response.statusText ?? '').replace(/[\r\n]/g, ' ').slice(0, 80)
+    return new Error(`${provider} failed: HTTP ${response.status}${statusText ? ` ${statusText}` : ''}`)
+}
+
 async function fetchGoogleAccessToken() {
-    if (isFilled(googleAccessTokenFromEnv)) {
-        return googleAccessTokenFromEnv.trim()
-    }
-
-    if (!isFilled(googleClientId) || !isFilled(googleClientSecret) || !isFilled(googleRefreshToken)) {
-        return ''
-    }
-
-    const body = new URLSearchParams({
-        client_id: googleClientId,
-        client_secret: googleClientSecret,
-        refresh_token: googleRefreshToken,
-        grant_type: 'refresh_token'
-    })
+    if (isFilled(googleAccessTokenFromEnv)) return googleAccessTokenFromEnv.trim()
+    if (!isFilled(googleClientId) || !isFilled(googleClientSecret) || !isFilled(googleRefreshToken)) return ''
 
     const response = await fetch('https://oauth2.googleapis.com/token', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded'
-        },
-        body,
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+            client_id: googleClientId,
+            client_secret: googleClientSecret,
+            refresh_token: googleRefreshToken,
+            grant_type: 'refresh_token'
+        }),
+        redirect: 'error',
         signal: AbortSignal.timeout(requestTimeoutMs)
     })
-
-    if (!response.ok) {
-        const errorText = await response.text()
-        throw new Error(`google oauth token fetch failed: HTTP ${response.status}${errorText ? ` - ${errorText.slice(0, 200)}` : ''}`)
-    }
-
+    if (!response.ok) throw httpFailure('google oauth token fetch', response)
     const payload = await response.json()
-    const accessToken = payload?.access_token
-    if (!isFilled(accessToken)) {
-        throw new Error('google oauth token fetch failed: access_token missing in response')
-    }
-    return accessToken
+    if (!isFilled(payload?.access_token)) throw new Error('google oauth token fetch failed: access_token missing')
+    return payload.access_token
 }
 
 async function submitTarget(target) {
-    const method = target.request?.method ?? 'GET'
-    const url = resolveTargetUrl(target.request?.url ?? '')
-    const extraHeaders = target.request?.headers ?? {}
-    const response = await fetch(url, {
-        method,
+    const response = await fetch(target.request.url, {
+        method: target.request.method ?? 'GET',
         headers: {
             'User-Agent': 'noviis-seo-submit/1.0',
             Accept: '*/*',
-            ...extraHeaders
+            ...(target.request.headers ?? {})
         },
+        redirect: target.name === 'custom-submit' ? 'manual' : 'error',
         signal: AbortSignal.timeout(requestTimeoutMs)
     })
-
-    if (!response.ok) {
-        const body = await response.text()
-        throw new Error(`HTTP ${response.status} ${response.statusText}${body ? ` - ${body.slice(0, 200)}` : ''}`)
-    }
+    if (!response.ok) throw httpFailure(target.name, response)
 }
 
-async function main() {
+export async function main() {
     const googleAccessToken = await fetchGoogleAccessToken()
-    const submitTargets = [
-        {
+    const submitTargets = []
+    if (isFilled(googleAccessToken)) {
+        submitTargets.push({
             name: 'google-search-console-api',
-            enabled: isFilled(googleAccessToken),
             request: {
                 method: 'PUT',
                 url: `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(googleSiteUrl)}/sitemaps/${encodeURIComponent(sitemapUrl)}`,
-                headers: {
-                    Authorization: `Bearer ${googleAccessToken}`
-                }
+                headers: { Authorization: `Bearer ${googleAccessToken}` }
             }
-        },
-        {
+        })
+    }
+    if (isFilled(process.env.CUSTOM_SITEMAP_SUBMIT_URL)) {
+        submitTargets.push({
             name: 'custom-submit',
-            enabled: Boolean(process.env.CUSTOM_SITEMAP_SUBMIT_URL),
             request: {
                 method: process.env.CUSTOM_SITEMAP_METHOD ?? 'GET',
-                url: process.env.CUSTOM_SITEMAP_SUBMIT_URL ?? ''
+                url: await validateCustomSubmitUrl(
+                    process.env.CUSTOM_SITEMAP_SUBMIT_URL,
+                    process.env.CUSTOM_SITEMAP_SUBMIT_ALLOWED_ORIGINS
+                )
             }
-        }
-    ]
-
-    const activeTargets = submitTargets.filter((target) => target.enabled && target.request?.url)
-    if (activeTargets.length === 0) {
+        })
+    }
+    if (submitTargets.length === 0) {
         console.log('[seo-submit] no submit target configured; skipping')
         return
     }
 
     let failed = 0
-    for (const target of activeTargets) {
+    for (const target of submitTargets) {
         try {
             await submitTarget(target)
             console.log(`[seo-submit] submitted: ${target.name}`)
@@ -132,13 +172,12 @@ async function main() {
             console.error(`[seo-submit] failed: ${target.name} (${String(error)})`)
         }
     }
-
-    if (failed > 0) {
-        process.exitCode = 1
-    }
+    if (failed > 0) process.exitCode = 1
 }
 
-main().catch((error) => {
-    console.error(`[seo-submit] fatal: ${String(error)}`)
-    process.exitCode = 1
-})
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+    main().catch((error) => {
+        console.error(`[seo-submit] fatal: ${String(error)}`)
+        process.exitCode = 1
+    })
+}

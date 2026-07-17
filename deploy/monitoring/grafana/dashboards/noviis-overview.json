@@ -24,7 +24,8 @@
     {"type":"timeseries","title":"Scheduler saturation and queue growth","id":19,"gridPos":{"h":8,"w":12,"x":12,"y":48},"targets":[{"expr":"max by (pool) (noviis_scheduler_pool_active) / clamp_min(max by (pool) (noviis_scheduler_pool_size), 1)","legendFormat":"{{pool}} utilization","refId":"A"},{"expr":"deriv(noviis_scheduler_pool_queued[10m])","legendFormat":"{{pool}} queue growth / second","refId":"B"}]},
     {"type":"timeseries","title":"Async executor capacity","id":20,"gridPos":{"h":8,"w":12,"x":0,"y":56},"targets":[{"expr":"noviis_async_active","legendFormat":"{{executor}} active","refId":"A"},{"expr":"noviis_async_queue_depth","legendFormat":"{{executor}} queued","refId":"B"},{"expr":"noviis_async_queue_remaining","legendFormat":"{{executor}} remaining","refId":"C"}]},
     {"type":"timeseries","title":"Async rejection outcomes","id":21,"gridPos":{"h":8,"w":12,"x":12,"y":56},"targets":[{"expr":"sum by (executor, outcome) (increase(noviis_async_rejected_total[5m]))","legendFormat":"{{executor}} {{outcome}}","refId":"A"}]},
-    {"type":"timeseries","title":"Host disk and inode headroom","id":22,"gridPos":{"h":8,"w":24,"x":0,"y":64},"fieldConfig":{"defaults":{"unit":"percentunit","min":0,"max":1}},"targets":[{"expr":"node_filesystem_avail_bytes{job=\"noviis-host\",mountpoint=\"/\"} / clamp_min(node_filesystem_size_bytes{job=\"noviis-host\",mountpoint=\"/\"}, 1)","legendFormat":"disk free","refId":"A"},{"expr":"node_filesystem_files_free{job=\"noviis-host\",mountpoint=\"/\"} / clamp_min(node_filesystem_files{job=\"noviis-host\",mountpoint=\"/\"}, 1)","legendFormat":"inodes free","refId":"B"}]}
+    {"type":"timeseries","title":"Host disk and inode headroom","id":22,"gridPos":{"h":8,"w":24,"x":0,"y":64},"fieldConfig":{"defaults":{"unit":"percentunit","min":0,"max":1}},"targets":[{"expr":"node_filesystem_avail_bytes{job=\"noviis-host\",mountpoint=\"/\"} / clamp_min(node_filesystem_size_bytes{job=\"noviis-host\",mountpoint=\"/\"}, 1)","legendFormat":"disk free","refId":"A"},{"expr":"node_filesystem_files_free{job=\"noviis-host\",mountpoint=\"/\"} / clamp_min(node_filesystem_files{job=\"noviis-host\",mountpoint=\"/\"}, 1)","legendFormat":"inodes free","refId":"B"}]},
+    {"type":"timeseries","title":"Durable notification delivery","id":23,"gridPos":{"h":8,"w":24,"x":0,"y":72},"targets":[{"expr":"noviis_notification_delivery_jobs_pending","legendFormat":"pending","refId":"A"},{"expr":"noviis_notification_delivery_jobs_dead_letter","legendFormat":"dead letter","refId":"B"},{"expr":"sum by (outcome) (increase(noviis_notification_delivery_jobs_total[15m]))","legendFormat":"{{outcome}} / 15m","refId":"C"}]}
   ],
   "refresh": "30s",
   "schemaVersion": 39,
@@ -34,5 +35,5 @@
   "timezone": "browser",
   "title": "NoviIs Operations",
   "uid": "noviis-operations",
-  "version": 4
+  "version": 5
 }

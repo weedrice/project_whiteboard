@@ -36,13 +36,22 @@ WHERE row_id IN (SELECT row_id FROM stale_rows WHERE expires_at < now() LIMIT 50
 
 Unqualified deletes and tautologies such as `WHERE TRUE` or `WHERE 1 = 1` are always treated as contract operations.
 
-`DROP INDEX` is permitted because it does not change the schema consumed by an application binary. It still requires query-plan and PostgreSQL smoke verification. Before applying any contract migration, take and verify a backup according to `docs/ops/postgres-backup-restore.md`.
+`DROP INDEX` is not blanket-approved. A non-contract removal must drop exactly one statically named index per statement, identify a distinct replacement, and point to a tracked design note:
+
+```sql
+-- noviis:migration-phase expand
+-- noviis:design-doc docs/design-notes/example-redundant-index.md
+-- noviis:redundant-index idx_old_lookup replacement=uq_new_lookup
+DROP INDEX IF EXISTS idx_old_lookup;
+```
+
+The design note must record the PostgreSQL catalog evidence that the replacement unique index has the same key columns or a compatible leading prefix, plus before/after query plans and smoke results. Dynamic or multi-index drops are contract operations. Before applying any contract migration, take and verify a backup according to `docs/ops/postgres-backup-restore.md`.
 
 Contract migrations are never eligible for an automatic main deployment. Run the integrated CI manually from `main`, explicitly approve the contract phase, and provide a recent manual RDS snapshot. The production deployment job assumes a read-only AWS role and fails closed unless the snapshot is `available`, belongs to the configured production DB, predates the deployment, and is no more than 24 hours old.
 
 Configure `AWS_CONTRACT_EVIDENCE_ROLE_ARN`, `AWS_REGION`, and `RDS_PRODUCTION_DB_IDENTIFIER` as production-environment secrets. The OIDC role needs only `rds:DescribeDBSnapshots` and must be restricted to the repository's reviewed production environment workflow subject; do not use long-lived AWS access keys for this gate.
 
-Only after production succeeds may the migration be appended to `docs/ops/applied-contract-migrations.txt` as `<migration filename> <deployment run URL> <deployed commit SHA>`. CI verifies the referenced run through the GitHub API: it must be a successful manual `main` run of `.github/workflows/ci.yml`, its head SHA must match the recorded SHA, and the run must contain exactly one successful backend reusable deployment job. A successful `production` deployment status must link back to that exact job ID and run URL; a frontend-only or different run's deployment for the same SHA is not evidence. The compatibility check rejects an allowlist entry introduced in the same change as its migration, so an un-applied contract remains a deployment blocker across later commits.
+Only after production succeeds may the migration be appended to `docs/ops/applied-contract-migrations.txt` as `<migration filename> <deployment run URL> <deployed commit SHA> <evidence file>`. The evidence file is a tracked `docs/ops/contract-evidence/*.evidence` manifest with exact `migration`, `repository`, `run_url`, and `deployed_sha` fields. When a new allowlist record is introduced, protected `main` CI verifies the referenced run through the GitHub API: it must be a successful manual `main` run of `.github/workflows/ci.yml`, its head SHA must match the recorded SHA, and the run must contain exactly one successful backend reusable deployment job. A successful `production` deployment status must link back to that exact job ID and run URL; a frontend-only or different run's deployment for the same SHA is not evidence. Later checks use the immutable reviewed manifest instead of depending forever on remote run retention. The compatibility check rejects an allowlist entry introduced in the same change as its migration, so an un-applied contract remains a deployment blocker across later commits.
 
 ## Multi-instance scale gate
 

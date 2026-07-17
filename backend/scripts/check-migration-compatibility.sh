@@ -45,6 +45,74 @@ validate_contract_metadata() {
   fi
 }
 
+validate_redundant_index_drops() {
+  local file="$1"
+  local index_name marker replacement design_doc
+  local found=false
+  while IFS= read -r index_name; do
+    [ -n "$index_name" ] || continue
+    found=true
+    marker="$(grep -E "^-- noviis:redundant-index ${index_name} replacement=[a-zA-Z0-9_.]+$" "$file" | head -n 1 || true)"
+    if [ -z "$marker" ]; then
+      echo "DROP INDEX requires an exact redundant-index replacement marker: $file ($index_name)" >&2
+      return 1
+    fi
+    replacement="${marker##* replacement=}"
+    [ "$replacement" != "$index_name" ] || {
+      echo "DROP INDEX replacement must differ from the removed index: $file ($index_name)" >&2
+      return 1
+    }
+  done < <(strip_sql_comments "$file" | awk '
+    BEGIN { RS=";" }
+    {
+      statement=tolower($0)
+      gsub(/[[:space:]]+/, " ", statement)
+      sub(/^ /, "", statement)
+      sub(/ $/, "", statement)
+      if (statement !~ /^drop index /) next
+      sub(/^drop index /, "", statement)
+      sub(/^concurrently /, "", statement)
+      sub(/^if exists /, "", statement)
+      if (statement !~ /^[a-z0-9_.]+$/) { print "__UNPARSEABLE__"; next }
+      print statement
+    }
+  ')
+  if grep -Fq '__UNPARSEABLE__' < <(strip_sql_comments "$file" | awk 'BEGIN { RS=";" } { s=tolower($0); gsub(/[[:space:]]+/, " ", s); sub(/^ /, "", s); if (s ~ /^drop index /) { sub(/^drop index /, "", s); sub(/^concurrently /, "", s); sub(/^if exists /, "", s); if (s !~ /^[a-z0-9_.]+$/) print "__UNPARSEABLE__" } }'); then
+    echo "DROP INDEX statement must remove exactly one statically named index: $file" >&2
+    return 1
+  fi
+  if [ "$found" = true ]; then
+    design_doc="$(sed -n 's/^-- noviis:design-doc //p' "$file" | head -n 1)"
+    case "$design_doc" in docs/design-notes/*.md) ;; *) echo "DROP INDEX requires a tracked design document: $file" >&2; return 1 ;; esac
+    git ls-files --error-unmatch "$design_doc" >/dev/null 2>&1 || {
+      echo "DROP INDEX design document is not tracked: $design_doc" >&2
+      return 1
+    }
+  fi
+}
+
+validate_contract_evidence_manifest() {
+  local migration_name="$1" deployment_run="$2" deployment_sha="$3" evidence_file="$4"
+  case "$evidence_file" in docs/ops/contract-evidence/*.evidence) ;;
+    *) echo "Contract evidence must be tracked under docs/ops/contract-evidence: $migration_name" >&2; exit 1 ;;
+  esac
+  git ls-files --error-unmatch "$evidence_file" >/dev/null 2>&1 || {
+    echo "Contract evidence file is not tracked: $evidence_file" >&2
+    exit 1
+  }
+  grep -Fqx -- "migration=$migration_name" "$evidence_file" \
+    && grep -Fqx -- "repository=$repository" "$evidence_file" \
+    && grep -Fqx -- "run_url=$deployment_run" "$evidence_file" \
+    && grep -Fqx -- "deployed_sha=$deployment_sha" "$evidence_file" || {
+      echo "Contract evidence manifest does not match its allowlist entry: $migration_name" >&2
+      exit 1
+    }
+  [ "$(grep -Ec '^(migration|repository|run_url|deployed_sha)=' "$evidence_file")" -eq 4 ] || {
+    echo "Contract evidence manifest has missing or duplicate fields: $migration_name" >&2
+    exit 1
+  }
+}
+
 verify_contract_deployment_run() {
   local run_id="$1"
   local deployment_sha="$2"
@@ -293,7 +361,12 @@ for change in "${changes[@]}"; do
     fi
   fi
   risky=false
-  if grep -Eiq '(^|[[:space:];])(DROP[[:space:]]+(TABLE|COLUMN)|TRUNCATE([[:space:]]+TABLE)?|ALTER[[:space:]]+TABLE[^;]*(RENAME|DROP[[:space:]]+(CONSTRAINT|DEFAULT)|ALTER[[:space:]]+COLUMN[^;]*(TYPE|DROP[[:space:]]+DEFAULT)))' "$file"; then
+  if grep -Eiq '(^|[[:space:];])(DROP[[:space:]]+(TABLE|COLUMN|VIEW|TYPE|DOMAIN|SCHEMA|SEQUENCE|FUNCTION|PROCEDURE|TRIGGER|POLICY|EXTENSION)|TRUNCATE([[:space:]]+TABLE)?|ALTER[[:space:]]+TABLE[^;]*(RENAME|DROP[[:space:]]+(COLUMN|CONSTRAINT|DEFAULT)|ALTER[[:space:]]+COLUMN[^;]*(TYPE|DROP[[:space:]]+DEFAULT))|ALTER[[:space:]]+TYPE[^;]*RENAME[[:space:]]+VALUE)' "$file"; then
+    risky=true
+  fi
+  if grep -Eiq '(^|[[:space:];])DROP[[:space:]]+INDEX' "$file" \
+    && ! grep -Fqx -- "$contract_marker" "$file" \
+    && ! validate_redundant_index_drops "$file"; then
     risky=true
   fi
   if grep -Eiq 'SET[[:space:]]+NOT[[:space:]]+NULL' "$file" && ! has_bound_not_null_backfills "$file"; then
@@ -319,7 +392,8 @@ if [ ! -f "$contract_allowlist" ]; then
   exit 1
 fi
 
-while read -r migration_name deployment_run deployment_sha extra; do
+base_allowlist="$(git show "$base_ref:$contract_allowlist" 2>/dev/null || true)"
+while read -r migration_name deployment_run deployment_sha evidence_file extra; do
   [ -n "$migration_name" ] || continue
   [[ "$migration_name" = \#* ]] && continue
   case "$migration_name" in V*.sql) ;; *) echo "Invalid contract migration filename in allowlist: $migration_name" >&2; exit 1 ;; esac
@@ -328,11 +402,12 @@ while read -r migration_name deployment_run deployment_sha extra; do
     echo "Contract allowlist entry requires the deployed 40-character commit SHA: $migration_name" >&2
     exit 1
   fi
+  validate_contract_evidence_manifest "$migration_name" "$deployment_run" "$deployment_sha" "${evidence_file:-}"
   if [ -n "${extra:-}" ]; then
     echo "Unexpected extra fields in contract allowlist entry: $migration_name" >&2
     exit 1
   fi
-  if [ "$verify_contract_runs" = true ]; then
+  if [ "$verify_contract_runs" = true ] && ! grep -Fqx -- "$migration_name $deployment_run $deployment_sha $evidence_file" <<< "$base_allowlist"; then
     run_id="${deployment_run##*/}"
     verify_contract_deployment_run "$run_id" "$deployment_sha"
   fi

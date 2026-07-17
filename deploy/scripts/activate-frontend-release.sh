@@ -7,11 +7,20 @@ WEB_ROOT="${WEB_ROOT:-/var/www/app}"
 HEALTH_URL="${HEALTH_URL:-https://noviis.kr/.noviis-release}"
 INTERNAL_HEALTH_HOST="${INTERNAL_HEALTH_HOST:-noviis.kr}"
 KEEP_RELEASES="${KEEP_RELEASES:-5}"
+ARCHIVE_MAX_FILES="${ARCHIVE_MAX_FILES:-10000}"
+ARCHIVE_MAX_SINGLE_FILE_BYTES="${ARCHIVE_MAX_SINGLE_FILE_BYTES:-67108864}"
+ARCHIVE_MAX_TOTAL_BYTES="${ARCHIVE_MAX_TOTAL_BYTES:-1073741824}"
+ARCHIVE_FREE_SPACE_HEADROOM_BYTES="${ARCHIVE_FREE_SPACE_HEADROOM_BYTES:-67108864}"
 PROVENANCE_VERIFIER="${PROVENANCE_VERIFIER:-/usr/local/sbin/verify-noviis-release}"
 DEPLOY_LOCK_FILE="${DEPLOY_LOCK_FILE:-/run/lock/noviis-deploy.lock}"
 SOURCE_DIR="${1:?incoming release directory is required}"
 MODE="${2:-activate}"
 EXPECTED_COMMIT="${3:-${EXPECTED_COMMIT:-}}"
+
+for numeric_limit in ARCHIVE_MAX_FILES ARCHIVE_MAX_SINGLE_FILE_BYTES ARCHIVE_MAX_TOTAL_BYTES ARCHIVE_FREE_SPACE_HEADROOM_BYTES; do
+  numeric_value="${!numeric_limit}"
+  [[ "$numeric_value" =~ ^[1-9][0-9]*$ ]] || { echo "$numeric_limit must be a positive integer" >&2; exit 64; }
+done
 
 command -v flock >/dev/null 2>&1 || { echo "flock is required for activation locking" >&2; exit 69; }
 exec 9>"$DEPLOY_LOCK_FILE"
@@ -135,10 +144,40 @@ test -f "$staging_dir/SHA256SUMS"
 while IFS= read -r member; do
   case "$member" in /*|../*|*/../*|*/..) echo "Unsafe archive path: $member" >&2; exit 1 ;; esac
 done < <(tar -tzf "$staging_dir/frontend-release.tar.gz")
-if tar -tvzf "$staging_dir/frontend-release.tar.gz" | awk '$1 !~ /^[-d]/ { bad=1 } END { exit bad ? 0 : 1 }'; then
+archive_listing="$staging_dir/archive-listing.txt"
+tar -tvzf "$staging_dir/frontend-release.tar.gz" > "$archive_listing"
+if awk '$1 !~ /^[-d]/ { bad=1 } END { exit bad ? 0 : 1 }' "$archive_listing"; then
   echo "Frontend archive contains links or unsupported entry types" >&2
   exit 1
 fi
+archive_stats="$(awk '
+  $1 ~ /^-/ {
+    files += 1
+    total += $3
+    if ($3 > max_file) max_file = $3
+  }
+  END { printf "%d %d %d\n", files, total, max_file }
+' "$archive_listing")"
+read -r archive_file_count archive_total_bytes archive_max_file_bytes <<< "$archive_stats"
+if [ "$archive_file_count" -gt "$ARCHIVE_MAX_FILES" ]; then
+  echo "Frontend archive contains too many files: $archive_file_count" >&2
+  exit 1
+fi
+if [ "$archive_max_file_bytes" -gt "$ARCHIVE_MAX_SINGLE_FILE_BYTES" ]; then
+  echo "Frontend archive contains a file larger than the extraction limit" >&2
+  exit 1
+fi
+if [ "$archive_total_bytes" -gt "$ARCHIVE_MAX_TOTAL_BYTES" ]; then
+  echo "Frontend archive expands beyond the total extraction limit" >&2
+  exit 1
+fi
+available_bytes="$(df -PB1 "$release_root_real" | awk 'NR == 2 { print $4 }')"
+required_bytes=$((archive_total_bytes + ARCHIVE_FREE_SPACE_HEADROOM_BYTES))
+if [[ ! "$available_bytes" =~ ^[0-9]+$ ]] || [ "$available_bytes" -lt "$required_bytes" ]; then
+  echo "Frontend release root does not have sufficient extraction headroom" >&2
+  exit 1
+fi
+rm -f -- "$archive_listing"
 
 site_dir="$staging_dir/site"
 mkdir -m 0755 "$site_dir"
@@ -231,9 +270,11 @@ cleanup_releases() {
 }
 
 if ! cleanup_releases; then
+  echo "CLEANUP_DEBT=frontend_release_retention"
   echo "CLEANUP_DEBT=frontend_release_retention" >&2
 fi
 if ! rm -rf -- "$source_real"; then
+  echo "CLEANUP_DEBT=frontend_incoming_release"
   echo "CLEANUP_DEBT=frontend_incoming_release" >&2
 fi
 echo "Frontend release activated: $release_real"

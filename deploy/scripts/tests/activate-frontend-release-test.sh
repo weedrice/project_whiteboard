@@ -108,6 +108,20 @@ old_output="$(run_activation "$old_release" "$old_commit")"
 grep -Fqx "ACTIVATED_SHA=$old_commit" <<< "$old_output"
 test "$(readlink -f "$web_root")" = "$release_root/old/site"
 
+file_limit_release="$(make_release file-limit "$new_commit")"
+if ARCHIVE_MAX_FILES=1 run_activation "$file_limit_release" "$new_commit"; then
+  echo "Expected frontend archive file-count limit to reject extraction" >&2
+  exit 1
+fi
+test "$(readlink -f "$web_root")" = "$release_root/old/site"
+
+size_limit_release="$(make_release size-limit "$new_commit")"
+if ARCHIVE_MAX_SINGLE_FILE_BYTES=1 run_activation "$size_limit_release" "$new_commit"; then
+  echo "Expected frontend archive single-file size limit to reject extraction" >&2
+  exit 1
+fi
+test "$(readlink -f "$web_root")" = "$release_root/old/site"
+
 new_release="$(make_release new "$new_commit")"
 printf '%s\n' "$new_commit" > "$fixture/fail_health"
 if run_activation "$new_release" "$new_commit"; then

@@ -11,6 +11,7 @@ sudo install -d -o root -g root -m 0755 /opt/app/backend /opt/app/backend/releas
 sudo install -d -o root -g root -m 0700 /var/lib/noviis/deployment-diagnostics
 sudo install -d -o noviis-deploy -g noviis-deploy -m 0750 /opt/app/backend/incoming /var/www/incoming /var/www/incoming/frontend
 sudo install -o root -g root -m 0755 deploy/scripts/activate-backend-release.sh /usr/local/sbin/activate-noviis-backend
+sudo install -o root -g root -m 0755 deploy/scripts/verify-active-backend-release.sh /usr/local/sbin/verify-noviis-backend
 sudo install -o root -g root -m 0755 deploy/scripts/activate-frontend-release.sh /usr/local/sbin/activate-noviis-frontend
 sudo install -o root -g root -m 0755 deploy/scripts/verify-release-provenance.sh /usr/local/sbin/verify-noviis-release
 sudo install -o root -g root -m 0644 deploy/systemd/app.service /etc/systemd/system/app.service
@@ -23,6 +24,8 @@ sudo gh attestation trusted-root | sudo tee /etc/noviis/github-attestation-trust
 sudo chown root:root /etc/noviis/github-attestation-trusted-root.jsonl
 sudo chmod 0644 /etc/noviis/github-attestation-trusted-root.jsonl
 ```
+
+The first deployment after installing the active-state verifier must run while the existing backend management health and build-info endpoints are readable. Activation then records `/opt/app/backend/app.jar.active.state` as a root-owned mode `0600` commit/digest pair. Later activations may use that record when the current process is unhealthy, but only when the on-disk JAR digest still matches. Do not hand-edit or recreate this state from an unverified checksum.
 
 Populate `/etc/noviis/app.env` through the host secret-management procedure. Keep it a regular, non-symlink file owned by `root:root` with mode `0600`. The unit pins `SPRING_PROFILES_ACTIVE=prod`, and both the unit and activation script fail closed on an invalid environment file.
 

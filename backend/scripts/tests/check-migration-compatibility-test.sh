@@ -9,7 +9,7 @@ trap 'rm -rf "$fixture"' EXIT
 git -C "$fixture" init -q
 git -C "$fixture" config user.email ci@example.invalid
 git -C "$fixture" config user.name CI
-mkdir -p "$fixture/backend/src/main/resources/db/migration" "$fixture/docs/ops" "$fixture/docs/design-notes"
+mkdir -p "$fixture/backend/src/main/resources/db/migration" "$fixture/docs/ops/contract-evidence" "$fixture/docs/design-notes"
 printf 'CREATE TABLE sample (id bigint);\n' > "$fixture/backend/src/main/resources/db/migration/V1__base.sql"
 printf '# applied contracts\n' > "$fixture/docs/ops/applied-contract-migrations.txt"
 printf '# Contract design\n' > "$fixture/docs/design-notes/remove-sample.md"
@@ -39,6 +39,29 @@ ALTER TABLE sample ALTER COLUMN name SET NOT NULL;
 SQL
 git -C "$fixture" add .
 git -C "$fixture" commit -qm safe-backfill
+(cd "$fixture" && bash "$script" "$base" HEAD)
+
+git -C "$fixture" reset -q --hard "$base"
+cat > "$fixture/backend/src/main/resources/db/migration/V2__unproven_drop_index.sql" <<'SQL'
+-- noviis:migration-phase expand
+DROP INDEX IF EXISTS sample_idx;
+SQL
+git -C "$fixture" add .
+git -C "$fixture" commit -qm unproven-drop-index
+if (cd "$fixture" && bash "$script" "$base" HEAD); then
+  echo "Expected DROP INDEX without replacement evidence to fail" >&2
+  exit 1
+fi
+
+git -C "$fixture" reset -q --hard "$base"
+cat > "$fixture/backend/src/main/resources/db/migration/V2__proven_drop_index.sql" <<'SQL'
+-- noviis:migration-phase expand
+-- noviis:design-doc docs/design-notes/remove-sample.md
+-- noviis:redundant-index sample_idx replacement=sample_pkey
+DROP INDEX IF EXISTS sample_idx;
+SQL
+git -C "$fixture" add .
+git -C "$fixture" commit -qm proven-drop-index
 (cd "$fixture" && bash "$script" "$base" HEAD)
 
 git -C "$fixture" reset -q --hard "$base"
@@ -182,7 +205,15 @@ output_file="$fixture/output"
 (cd "$fixture" && GITHUB_OUTPUT="$output_file" bash "$script" "$base" HEAD)
 grep -qx 'contract_migration=true' "$output_file"
 
-printf 'V2__contract.sql https://github.com/weedrice/project_whiteboard/actions/runs/1 0123456789abcdef0123456789abcdef01234567\n' >> "$fixture/docs/ops/applied-contract-migrations.txt"
+contract_commit="$(git -C "$fixture" rev-parse HEAD)"
+evidence_file='docs/ops/contract-evidence/V2__contract.evidence'
+cat > "$fixture/$evidence_file" <<'EOF'
+migration=V2__contract.sql
+repository=weedrice/project_whiteboard
+run_url=https://github.com/weedrice/project_whiteboard/actions/runs/1
+deployed_sha=0123456789abcdef0123456789abcdef01234567
+EOF
+printf 'V2__contract.sql https://github.com/weedrice/project_whiteboard/actions/runs/1 0123456789abcdef0123456789abcdef01234567 %s\n' "$evidence_file" >> "$fixture/docs/ops/applied-contract-migrations.txt"
 git -C "$fixture" add .
 git -C "$fixture" commit -qm premature-allowlist
 if (cd "$fixture" && bash "$script" "$base" HEAD); then
@@ -220,24 +251,24 @@ esac
 EOF
 chmod +x "$fake_bin/gh"
 
-(cd "$fixture" && PATH="$fake_bin:$PATH" VERIFY_CONTRACT_RUNS=true bash "$script" HEAD HEAD)
+(cd "$fixture" && PATH="$fake_bin:$PATH" VERIFY_CONTRACT_RUNS=true bash "$script" "$contract_commit" HEAD)
 if (cd "$fixture" && GH_RUN_SHA=ffffffffffffffffffffffffffffffffffffffff \
-  PATH="$fake_bin:$PATH" VERIFY_CONTRACT_RUNS=true bash "$script" HEAD HEAD); then
+  PATH="$fake_bin:$PATH" VERIFY_CONTRACT_RUNS=true bash "$script" "$contract_commit" HEAD); then
   echo "Expected a deployment run for another commit to fail" >&2
   exit 1
 fi
 if (cd "$fixture" && GH_BOUND_BACKEND_STATUS=false \
-  PATH="$fake_bin:$PATH" VERIFY_CONTRACT_RUNS=true bash "$script" HEAD HEAD); then
+  PATH="$fake_bin:$PATH" VERIFY_CONTRACT_RUNS=true bash "$script" "$contract_commit" HEAD); then
   echo "Expected a production deployment not bound to the backend job to fail" >&2
   exit 1
 fi
 if (cd "$fixture" && GH_BACKEND_JOB_MODE=frontend-only \
-  PATH="$fake_bin:$PATH" VERIFY_CONTRACT_RUNS=true bash "$script" HEAD HEAD); then
+  PATH="$fake_bin:$PATH" VERIFY_CONTRACT_RUNS=true bash "$script" "$contract_commit" HEAD); then
   echo "Expected a frontend-only production deployment to fail" >&2
   exit 1
 fi
 if (cd "$fixture" && GH_BACKEND_JOB_MODE=wrong-run \
-  PATH="$fake_bin:$PATH" VERIFY_CONTRACT_RUNS=true bash "$script" HEAD HEAD); then
+  PATH="$fake_bin:$PATH" VERIFY_CONTRACT_RUNS=true bash "$script" "$contract_commit" HEAD); then
   echo "Expected a backend job URL for another run to fail" >&2
   exit 1
 fi

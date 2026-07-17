@@ -4,6 +4,8 @@ set -euo pipefail
 project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 ci="$project_root/.github/workflows/ci.yml"
 seo="$project_root/.github/workflows/seo-monitor.yml"
+deploy_backend="$project_root/.github/workflows/deploy-backend.yml"
+deploy_frontend="$project_root/.github/workflows/deploy-frontend.yml"
 
 job_section() {
   local name="$1"
@@ -29,6 +31,19 @@ grep -Fq "github.ref == 'refs/heads/main'" <<< "$trusted"
 grep -Fq 'actions: read' <<< "$trusted"
 grep -Fq 'deployments: read' <<< "$trusted"
 grep -Fq 'VERIFY_CONTRACT_RUNS: "true"' <<< "$trusted"
+
+contract_deploy_evidence="$(job_section contract-evidence "$deploy_backend")"
+grep -Fq 'id-token: write' <<< "$contract_deploy_evidence"
+backend_deploy="$(job_section deploy "$deploy_backend")"
+if grep -Fq 'id-token: write' <<< "$backend_deploy"; then
+  echo "Backend activation job must not receive OIDC token permission" >&2
+  exit 1
+fi
+grep -Fq 'Reconcile backend activation from independent readback' <<< "$backend_deploy"
+grep -Fq 'verify-noviis-backend' <<< "$backend_deploy"
+frontend_deploy="$(job_section deploy "$deploy_frontend")"
+grep -Fq 'Reconcile frontend activation from independent readback' <<< "$frontend_deploy"
+grep -Fq "steps.activation-result.outputs.current_run_activated == 'true'" <<< "$frontend_deploy"
 
 preflight="$(job_section seo-preflight "$seo")"
 grep -Fq 'EVENT_NAME: ${{ github.event_name }}' <<< "$preflight"
