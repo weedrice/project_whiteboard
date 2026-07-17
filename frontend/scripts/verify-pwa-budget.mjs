@@ -5,6 +5,16 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 const DEFAULT_MAX_BYTES = 2_500_000
 const DEFAULT_MAX_ENTRIES = 60
 const DEFAULT_MAX_JS_CHUNK_BYTES = 450_000
+const REQUIRED_LOGICAL_PRECACHE_ENTRIES = [
+  ['app JavaScript', /^js\/index-[^.]+\.js$/],
+  ['home feed JavaScript', /^js\/HomeFeed-[^.]+\.js$/],
+  ['empty state JavaScript', /^js\/EmptyState-[^.]+\.js$/],
+  ['pull-to-refresh JavaScript', /^js\/PullToRefresh-[^.]+\.js$/],
+  ['app stylesheet', /^assets\/index-[^.]+\.css$/],
+  ['home feed stylesheet', /^assets\/HomeFeed-[^.]+\.css$/],
+  ['empty state stylesheet', /^assets\/EmptyState-[^.]+\.css$/],
+  ['pull-to-refresh stylesheet', /^assets\/PullToRefresh-[^.]+\.css$/],
+]
 
 export function extractPrecacheUrls(serviceWorkerSource) {
   return [...serviceWorkerSource.matchAll(/"url":"([^"]+)"/g)]
@@ -90,6 +100,18 @@ export function verifyPrecacheBudget({ totalBytes, entryCount, maxBytes, maxEntr
   }
 }
 
+export function verifyRequiredLogicalPrecacheEntries(
+  precacheUrls,
+  requirements = REQUIRED_LOGICAL_PRECACHE_ENTRIES,
+) {
+  for (const [name, pattern] of requirements) {
+    const matches = precacheUrls.filter((url) => pattern.test(url))
+    if (matches.length !== 1) {
+      throw new Error(`PWA precache must contain exactly one ${name}; found ${matches.length}.`)
+    }
+  }
+}
+
 export function measureJavaScriptChunks(distDirectory) {
   const jsDirectory = path.join(distDirectory, 'js')
   if (!existsSync(jsDirectory)) return []
@@ -133,6 +155,7 @@ export function runPrecacheBudgetCheck({
 
   const serviceWorkerSource = readFileSync(serviceWorkerPath, 'utf8')
   const measurement = measurePrecache({ distDirectory, serviceWorkerSource })
+  verifyRequiredLogicalPrecacheEntries(measurement.urls)
   verifyPrecacheStaticImportClosure({ distDirectory, precacheUrls: measurement.urls })
   verifyPrecacheBudget({
     totalBytes: measurement.totalBytes,

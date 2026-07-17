@@ -6,6 +6,7 @@ import {
   measurePrecache,
   verifyJavaScriptChunkBudget,
   verifyPrecacheBudget,
+  verifyRequiredLogicalPrecacheEntries,
 } from '../verify-pwa-budget.mjs'
 
 describe('PWA precache budget verification', () => {
@@ -46,6 +47,19 @@ describe('PWA precache budget verification', () => {
     expect(() => verifyJavaScriptChunkBudget([
       { file: 'js/app.js', bytes: 450_000 },
     ], 450_000)).not.toThrow()
+  })
+
+  it('requires each logical app-shell entry exactly once', () => {
+    const requirements = [['home feed', /^js\/HomeFeed-[^.]+\.js$/]]
+
+    expect(() => verifyRequiredLogicalPrecacheEntries([], requirements)).toThrow(/found 0/)
+    expect(() => verifyRequiredLogicalPrecacheEntries([
+      'js/HomeFeed-a.js',
+      'js/HomeFeed-b.js',
+    ], requirements)).toThrow(/found 2/)
+    expect(() => verifyRequiredLogicalPrecacheEntries([
+      'js/HomeFeed-a.js',
+    ], requirements)).not.toThrow()
   })
 
   it('extracts static imports without treating dynamic imports as precache dependencies', () => {
