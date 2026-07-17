@@ -8,6 +8,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import com.weedrice.whiteboard.global.exception.BusinessException;
 
 import java.io.IOException;
 import java.util.Map;
@@ -15,8 +16,54 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class NotificationSseEmitterRegistryTest {
+
+    @Test
+    void commentTopicRequiresActiveEmitter() {
+        NotificationSseEmitterRegistry registry = new NotificationSseEmitterRegistry(10_000L, 5);
+
+        assertThatThrownBy(() -> registry.subscribeCommentTopic(1L, 10L, "subscriber"))
+                .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    void removingLastEmitterClearsCommentTopics() {
+        NotificationSseEmitterRegistry registry = new NotificationSseEmitterRegistry(10_000L, 5);
+        registry.subscribe(1L);
+        registry.subscribeCommentTopic(1L, 10L, "subscriber");
+        String connectionId = emitters(registry).get(1L).keySet().iterator().next();
+
+        ReflectionTestUtils.invokeMethod(registry, "removeEmitter", 1L, connectionId);
+
+        Map<?, ?> commentSubscribers = (Map<?, ?>) ReflectionTestUtils.getField(registry, "commentSubscribers");
+        assertThat(commentSubscribers).isEmpty();
+    }
+
+    @Test
+    void rejectsCommentTopicBeyondPerUserLimit() {
+        NotificationSseEmitterRegistry registry = new NotificationSseEmitterRegistry(10_000L, 5);
+        registry.subscribe(1L);
+        for (long postId = 1L; postId <= 100L; postId++) {
+            registry.subscribeCommentTopic(1L, postId, "subscriber");
+        }
+
+        assertThatThrownBy(() -> registry.subscribeCommentTopic(1L, 101L, "subscriber"))
+                .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    void rejectsSubscriberBeyondPerTopicLimit() {
+        NotificationSseEmitterRegistry registry = new NotificationSseEmitterRegistry(10_000L, 5);
+        registry.subscribe(1L);
+        for (int subscriber = 1; subscriber <= 10; subscriber++) {
+            registry.subscribeCommentTopic(1L, 10L, "subscriber-" + subscriber);
+        }
+
+        assertThatThrownBy(() -> registry.subscribeCommentTopic(1L, 10L, "subscriber-11"))
+                .isInstanceOf(BusinessException.class);
+    }
 
     @Test
     @DisplayName("subscribe uses configured timeout and stores connection")

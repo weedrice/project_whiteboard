@@ -4,6 +4,8 @@ import com.weedrice.whiteboard.domain.notification.dto.CommentStreamEvent;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationResponse;
 import com.weedrice.whiteboard.domain.notification.service.CommentStreamPublisher;
 import com.weedrice.whiteboard.domain.notification.service.NotificationStreamPublisher;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.extern.slf4j.Slf4j;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Gauge;
@@ -32,6 +34,8 @@ public class NotificationSseEmitterRegistry implements NotificationStreamPublish
 
     private static final long DEFAULT_TIMEOUT_MILLIS = Duration.ofMinutes(30).toMillis();
     private static final int DEFAULT_MAX_CONNECTIONS_PER_USER = 5;
+    private static final int MAX_COMMENT_TOPICS_PER_USER = 100;
+    private static final int MAX_COMMENT_SUBSCRIBERS_PER_TOPIC = 10;
 
     private final Map<Long, Map<String, EmitterConnection>> emitters = new ConcurrentHashMap<>();
     private final ConcurrentMap<Long, ConcurrentMap<Long, ConcurrentMap<String, Boolean>>> commentSubscribers =
@@ -40,6 +44,7 @@ public class NotificationSseEmitterRegistry implements NotificationStreamPublish
     private final AtomicLong connectionSequence = new AtomicLong();
     private final AtomicLong lastHeartbeatMillis = new AtomicLong();
     private final Counter heartbeatFailures;
+    private final Counter commentTopicCleanups;
     private final long timeoutMillis;
     private final int maxConnectionsPerUser;
 
@@ -53,6 +58,7 @@ public class NotificationSseEmitterRegistry implements NotificationStreamPublish
                 ? maxConnectionsPerUser
                 : DEFAULT_MAX_CONNECTIONS_PER_USER;
         this.heartbeatFailures = meterRegistry.counter("noviis.sse.heartbeat.failures");
+        this.commentTopicCleanups = meterRegistry.counter("noviis.sse.comment.topics.cleaned");
         Gauge.builder("noviis.sse.connections.active", this, NotificationSseEmitterRegistry::activeConnections)
                 .register(meterRegistry);
         Gauge.builder("noviis.sse.heartbeat.gap", this, NotificationSseEmitterRegistry::heartbeatGapSeconds)
@@ -146,10 +152,34 @@ public class NotificationSseEmitterRegistry implements NotificationStreamPublish
     }
 
     public void subscribeCommentTopic(Long userId, Long postId, String subscriberId) {
-        commentSubscribers
-                .computeIfAbsent(postId, ignored -> new ConcurrentHashMap<>())
-                .computeIfAbsent(userId, ignored -> new ConcurrentHashMap<>())
-                .put(subscriberId, Boolean.TRUE);
+        Object lock = userLocks.get(userId);
+        if (lock == null) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        synchronized (lock) {
+            Map<String, EmitterConnection> userEmitters = emitters.get(userId);
+            if (userLocks.get(userId) != lock || userEmitters == null || userEmitters.isEmpty()) {
+                throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+            }
+
+            ConcurrentMap<Long, ConcurrentMap<String, Boolean>> postSubscribers =
+                    commentSubscribers.computeIfAbsent(postId, ignored -> new ConcurrentHashMap<>());
+            ConcurrentMap<String, Boolean> userSubscribers =
+                    postSubscribers.computeIfAbsent(userId, ignored -> new ConcurrentHashMap<>());
+            boolean existingSubscriber = userSubscribers.containsKey(subscriberId);
+            if (!existingSubscriber && userSubscribers.size() >= MAX_COMMENT_SUBSCRIBERS_PER_TOPIC) {
+                removeEmptyCommentTopic(postId, postSubscribers);
+                throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+            }
+            if (!existingSubscriber
+                    && userSubscribers.isEmpty()
+                    && countCommentTopicsForUser(userId) >= MAX_COMMENT_TOPICS_PER_USER) {
+                postSubscribers.remove(userId, userSubscribers);
+                removeEmptyCommentTopic(postId, postSubscribers);
+                throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+            }
+            userSubscribers.put(subscriberId, Boolean.TRUE);
+        }
     }
 
     public void unsubscribeCommentTopic(Long userId, Long postId, String subscriberId) {
@@ -255,6 +285,7 @@ public class NotificationSseEmitterRegistry implements NotificationStreamPublish
             userEmitters.remove(connectionId);
             if (userEmitters.isEmpty()) {
                 emitters.remove(userId, userEmitters);
+                removeCommentSubscriptions(userId);
                 userLocks.remove(userId, lock);
             }
         }
@@ -312,6 +343,30 @@ public class NotificationSseEmitterRegistry implements NotificationStreamPublish
     private double heartbeatGapSeconds() {
         long lastHeartbeat = lastHeartbeatMillis.get();
         return lastHeartbeat == 0L ? 0.0 : Math.max(0L, System.currentTimeMillis() - lastHeartbeat) / 1_000.0;
+    }
+
+    private long countCommentTopicsForUser(Long userId) {
+        return commentSubscribers.values().stream()
+                .filter(postSubscribers -> {
+                    ConcurrentMap<String, Boolean> subscribers = postSubscribers.get(userId);
+                    return subscribers != null && !subscribers.isEmpty();
+                })
+                .count();
+    }
+
+    private void removeCommentSubscriptions(Long userId) {
+        int removedTopics = 0;
+        for (Map.Entry<Long, ConcurrentMap<Long, ConcurrentMap<String, Boolean>>> entry
+                : new ArrayList<>(commentSubscribers.entrySet())) {
+            ConcurrentMap<Long, ConcurrentMap<String, Boolean>> postSubscribers = entry.getValue();
+            if (postSubscribers.remove(userId) != null) {
+                removedTopics++;
+            }
+            removeEmptyCommentTopic(entry.getKey(), postSubscribers);
+        }
+        if (removedTopics > 0) {
+            commentTopicCleanups.increment(removedTopics);
+        }
     }
 
     private record EmitterConnection(SseEmitter emitter, long createdOrder) {

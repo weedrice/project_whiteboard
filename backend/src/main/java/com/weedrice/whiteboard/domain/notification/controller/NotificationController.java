@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.notification.controller;
 import com.weedrice.whiteboard.domain.notification.dto.CommentTopicSubscriptionRequest;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationResponse;
 import com.weedrice.whiteboard.domain.notification.service.NotificationService;
+import com.weedrice.whiteboard.domain.notification.service.CommentTopicAccessService;
 import com.weedrice.whiteboard.domain.notification.web.NotificationSseEmitterRegistry;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.ApiResponses;
@@ -20,6 +21,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 public class NotificationController {
 
     private final NotificationService notificationService;
+    private final CommentTopicAccessService commentTopicAccessService;
     private final NotificationSseEmitterRegistry notificationSseEmitterRegistry;
 
     @GetMapping
@@ -64,6 +66,7 @@ public class NotificationController {
             @Valid @RequestBody CommentTopicSubscriptionRequest request,
             @CurrentUserId Long userId) {
         notificationService.validateStreamSubscription(userId);
+        commentTopicAccessService.validateReadable(userId, postId);
         notificationSseEmitterRegistry.subscribeCommentTopic(userId, postId, request.getSubscriberId());
         return ApiResponses.ok();
     }
