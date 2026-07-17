@@ -3,7 +3,6 @@ package com.weedrice.whiteboard.domain.search.semantic;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
@@ -27,23 +26,23 @@ public class SemanticSearchJobService {
     private final SemanticSearchIndexService indexService;
     private final Clock clock;
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional
     public void enqueue(String contentType, Long contentId, SemanticSearchIndexAction action) {
         jobRepository.enqueue(contentType, contentId, action);
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional
     public void enqueueAll(String contentType, Collection<Long> contentIds, SemanticSearchIndexAction action) {
         jobRepository.enqueueAll(contentType, contentIds, action);
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional
     public int enqueuePostComments(Long postId) {
         return enqueueInChunks("COMMENT",
                 (lastSeenId, limit) -> jobRepository.findActiveCommentIdsByPostIdAfter(postId, lastSeenId, limit));
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional
     public int enqueueBoardContent(Long boardId) {
         int postCount = enqueueInChunks("POST",
                 (lastSeenId, limit) -> jobRepository.findActivePostIdsByBoardIdAfter(boardId, lastSeenId, limit));

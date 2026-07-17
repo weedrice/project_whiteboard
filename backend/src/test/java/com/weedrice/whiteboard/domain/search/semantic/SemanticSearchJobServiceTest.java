@@ -58,11 +58,11 @@ class SemanticSearchJobServiceTest {
     }
 
     @Test
-    void enqueueMethodsUseRequiresNewTransactions() throws NoSuchMethodException {
-        assertRequiresNew("enqueue", String.class, Long.class, SemanticSearchIndexAction.class);
-        assertRequiresNew("enqueueAll", String.class, Collection.class, SemanticSearchIndexAction.class);
-        assertRequiresNew("enqueuePostComments", Long.class);
-        assertRequiresNew("enqueueBoardContent", Long.class);
+    void enqueueMethodsJoinThePublishingTransaction() throws NoSuchMethodException {
+        assertRequired("enqueue", String.class, Long.class, SemanticSearchIndexAction.class);
+        assertRequired("enqueueAll", String.class, Collection.class, SemanticSearchIndexAction.class);
+        assertRequired("enqueuePostComments", Long.class);
+        assertRequired("enqueueBoardContent", Long.class);
     }
 
     @Test
@@ -183,10 +183,10 @@ class SemanticSearchJobServiceTest {
                 contains("payload changed"));
     }
 
-    private void assertRequiresNew(String methodName, Class<?>... parameterTypes) throws NoSuchMethodException {
+    private void assertRequired(String methodName, Class<?>... parameterTypes) throws NoSuchMethodException {
         Method method = SemanticSearchJobService.class.getMethod(methodName, parameterTypes);
         Transactional transactional = method.getAnnotation(Transactional.class);
         assertThat(transactional).isNotNull();
-        assertThat(transactional.propagation()).isEqualTo(Propagation.REQUIRES_NEW);
+        assertThat(transactional.propagation()).isEqualTo(Propagation.REQUIRED);
     }
 }

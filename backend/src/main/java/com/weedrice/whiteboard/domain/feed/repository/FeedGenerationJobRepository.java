@@ -12,7 +12,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
-public interface FeedGenerationJobRepository extends JpaRepository<FeedGenerationJob, Long> {
+public interface FeedGenerationJobRepository extends JpaRepository<FeedGenerationJob, Long>,
+        FeedGenerationJobRepositoryCustom {
 
     interface JobIdProjection {
         Long getJobId();

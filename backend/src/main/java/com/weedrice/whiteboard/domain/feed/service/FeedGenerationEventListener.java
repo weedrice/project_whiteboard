@@ -5,7 +5,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
@@ -19,22 +18,9 @@ public class FeedGenerationEventListener {
     private final FeedGenerationJobService feedGenerationJobService;
 
     @Order(Ordered.HIGHEST_PRECEDENCE)
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @TransactionalEventListener(phase = TransactionPhase.BEFORE_COMMIT)
     public void enqueuePostPublished(PostPublishedEvent event) {
-        try {
-            feedGenerationJobService.enqueuePostPublishedJob(event.postId(), event.boardId());
-        } catch (DataIntegrityViolationException ex) {
-            if (feedGenerationJobService.existsPostPublishedJob(event.postId())) {
-                log.warn("Skipped duplicate feed generation job enqueue. postId={}, boardId={}",
-                        event.postId(), event.boardId(), ex);
-                return;
-            }
-            log.error("Failed to enqueue feed generation job after post publish. postId={}, boardId={}",
-                    event.postId(), event.boardId(), ex);
-        } catch (Exception ex) {
-            log.error("Failed to enqueue feed generation job after post publish. postId={}, boardId={}",
-                    event.postId(), event.boardId(), ex);
-        }
+        feedGenerationJobService.enqueuePostPublishedJob(event.postId(), event.boardId());
     }
 
     @Async("durableTaskExecutor")

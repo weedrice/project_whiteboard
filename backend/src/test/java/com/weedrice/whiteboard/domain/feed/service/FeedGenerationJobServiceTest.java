@@ -12,8 +12,12 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Pageable;
+import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.lang.reflect.Method;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -22,6 +26,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -69,25 +74,39 @@ class FeedGenerationJobServiceTest {
 
     @Test
     void enqueuePostPublishedJob_savesPendingJobWhenAbsent() {
-        when(feedGenerationJobRepository.existsByPostId(100L)).thenReturn(false);
+        when(feedGenerationJobRepository.insertIgnore(100L, 10L)).thenReturn(1);
 
         feedGenerationJobService.enqueuePostPublishedJob(100L, 10L);
 
-        ArgumentCaptor<FeedGenerationJob> jobCaptor = ArgumentCaptor.forClass(FeedGenerationJob.class);
-        verify(feedGenerationJobRepository).saveAndFlush(jobCaptor.capture());
-        assertThat(jobCaptor.getValue().getPostId()).isEqualTo(100L);
-        assertThat(jobCaptor.getValue().getBoardId()).isEqualTo(10L);
-        assertThat(jobCaptor.getValue().getStatus()).isEqualTo(FeedGenerationJob.STATUS_PENDING);
-        assertThat(jobCaptor.getValue().getRetryCount()).isZero();
+        verify(feedGenerationJobRepository).insertIgnore(100L, 10L);
     }
 
     @Test
     void enqueuePostPublishedJob_skipsExistingPostJob() {
-        when(feedGenerationJobRepository.existsByPostId(100L)).thenReturn(true);
+        when(feedGenerationJobRepository.insertIgnore(100L, 10L)).thenReturn(0);
 
         feedGenerationJobService.enqueuePostPublishedJob(100L, 10L);
 
-        verify(feedGenerationJobRepository, never()).saveAndFlush(any());
+        verify(feedGenerationJobRepository).insertIgnore(100L, 10L);
+    }
+
+    @Test
+    void enqueuePostPublishedJobPropagatesRealStorageFailure() {
+        DataAccessResourceFailureException failure = new DataAccessResourceFailureException("storage unavailable");
+        when(feedGenerationJobRepository.insertIgnore(100L, 10L)).thenThrow(failure);
+
+        assertThatThrownBy(() -> feedGenerationJobService.enqueuePostPublishedJob(100L, 10L))
+                .isSameAs(failure);
+    }
+
+    @Test
+    void enqueuePostPublishedJobJoinsThePublishingTransaction() throws Exception {
+        Method method = FeedGenerationJobService.class
+                .getMethod("enqueuePostPublishedJob", Long.class, Long.class);
+        Transactional transactional = method.getAnnotation(Transactional.class);
+
+        assertThat(transactional).isNotNull();
+        assertThat(transactional.propagation()).isEqualTo(Propagation.REQUIRED);
     }
 
     @Test

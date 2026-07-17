@@ -28,6 +28,19 @@ class FeedGenerationJobRepositoryTest {
     private FeedGenerationJobRepository feedGenerationJobRepository;
 
     @Test
+    void insertIgnoreIsIdempotentForTheSamePost() {
+        assertThat(feedGenerationJobRepository.insertIgnore(100L, 10L)).isEqualTo(1);
+        assertThat(feedGenerationJobRepository.insertIgnore(100L, 10L)).isZero();
+
+        assertThat(feedGenerationJobRepository.count()).isEqualTo(1);
+        FeedGenerationJob stored = feedGenerationJobRepository.findAll().getFirst();
+        assertThat(stored.getPostId()).isEqualTo(100L);
+        assertThat(stored.getBoardId()).isEqualTo(10L);
+        assertThat(stored.getStatus()).isEqualTo(FeedGenerationJob.STATUS_PENDING);
+        assertThat(stored.getRetryCount()).isZero();
+    }
+
+    @Test
     void claimForProcessing_setsProcessingLeaseForPendingJob() {
         FeedGenerationJob job = persistJob(100L, 10L);
         LocalDateTime claimedAt = LocalDateTime.of(2026, 5, 11, 16, 30);

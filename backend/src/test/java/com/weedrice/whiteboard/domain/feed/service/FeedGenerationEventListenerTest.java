@@ -8,7 +8,13 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 
+import java.lang.reflect.Method;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -24,7 +30,7 @@ class FeedGenerationEventListenerTest {
     private FeedGenerationJobService feedGenerationJobService;
 
     @Test
-    @DisplayName("Post publish event enqueues feed generation job after commit")
+    @DisplayName("Post publish event enqueues feed generation job before commit")
     void enqueuePostPublished_savesFeedGenerationJob() {
         PostPublishedEvent event = new PostPublishedEvent(100L, 10L);
 
@@ -34,18 +40,26 @@ class FeedGenerationEventListenerTest {
     }
 
     @Test
-    @DisplayName("Duplicate enqueue is swallowed")
-    void enqueuePostPublished_swallowsDuplicateEnqueue() {
+    @DisplayName("Feed job enqueue failure aborts the publishing transaction")
+    void enqueuePostPublished_propagatesEnqueueFailure() {
         PostPublishedEvent event = new PostPublishedEvent(100L, 10L);
         doThrow(new DataIntegrityViolationException("duplicate feed generation job"))
                 .when(feedGenerationJobService)
                 .enqueuePostPublishedJob(100L, 10L);
-        when(feedGenerationJobService.existsPostPublishedJob(100L)).thenReturn(true);
 
-        feedGenerationEventListener.enqueuePostPublished(event);
+        assertThatThrownBy(() -> feedGenerationEventListener.enqueuePostPublished(event))
+                .isInstanceOf(DataIntegrityViolationException.class);
 
         verify(feedGenerationJobService).enqueuePostPublishedJob(100L, 10L);
-        verify(feedGenerationJobService).existsPostPublishedJob(100L);
+    }
+
+    @Test
+    void enqueueListenerRunsBeforeCommit() throws Exception {
+        Method method = FeedGenerationEventListener.class
+                .getMethod("enqueuePostPublished", PostPublishedEvent.class);
+
+        assertThat(method.getAnnotation(TransactionalEventListener.class).phase())
+                .isEqualTo(TransactionPhase.BEFORE_COMMIT);
     }
 
     @Test
