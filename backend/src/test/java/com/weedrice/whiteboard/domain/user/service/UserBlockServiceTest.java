@@ -4,7 +4,6 @@ import com.weedrice.whiteboard.domain.user.dto.BlockedUserResponse;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.entity.UserBlock;
 import com.weedrice.whiteboard.domain.user.repository.UserBlockRepository;
-import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.notification.service.NotificationAccessInvalidationService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -42,9 +41,6 @@ class UserBlockServiceTest {
     private UserBlockService userBlockService;
 
     @Mock
-    private UserRepository userRepository;
-
-    @Mock
     private UserBlockRepository userBlockRepository;
 
     @Mock
@@ -64,8 +60,8 @@ class UserBlockServiceTest {
         User blocked = User.builder().build();
         ReflectionTestUtils.setField(blocked, "userId", 2L);
 
-        when(userWritableResolver.resolve(1L)).thenReturn(blocker);
-        when(userRepository.findByUserIdAndStatusAndDeletedAtIsNull(2L, User.STATUS_ACTIVE)).thenReturn(Optional.of(blocked));
+        givenLockedPair(blocker, blocked);
+        when(userWritableResolver.validateWritable(blocker)).thenReturn(blocker);
         when(userBlockRepository.saveAndFlush(any(UserBlock.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         userBlockService.blockUser(1L, 2L);
@@ -86,14 +82,17 @@ class UserBlockServiceTest {
     @Test
     @DisplayName("쓰기 불가 사용자는 사용자를 차단할 수 없다")
     void blockUser_notWritableUser() {
-        when(userWritableResolver.resolve(1L)).thenThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE));
+        User blocker = User.builder().build();
+        User blocked = User.builder().build();
+        givenLockedPair(blocker, blocked);
+        when(userWritableResolver.validateWritable(blocker))
+                .thenThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE));
 
         assertThatThrownBy(() -> userBlockService.blockUser(1L, 2L))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.USER_NOT_ACTIVE);
 
-        verify(userRepository, never()).findByUserIdAndStatusAndDeletedAtIsNull(2L, User.STATUS_ACTIVE);
         verify(userBlockRepository, never()).saveAndFlush(any(UserBlock.class));
     }
 
@@ -105,8 +104,8 @@ class UserBlockServiceTest {
         User blocked = User.builder().build();
         ReflectionTestUtils.setField(blocked, "userId", 2L);
 
-        when(userWritableResolver.resolve(1L)).thenReturn(blocker);
-        when(userRepository.findByUserIdAndStatusAndDeletedAtIsNull(2L, User.STATUS_ACTIVE)).thenReturn(Optional.of(blocked));
+        givenLockedPair(blocker, blocked);
+        when(userWritableResolver.validateWritable(blocker)).thenReturn(blocker);
         when(userBlockRepository.saveAndFlush(any(UserBlock.class)))
                 .thenThrow(new DataIntegrityViolationException("duplicate"));
 
@@ -123,8 +122,8 @@ class UserBlockServiceTest {
         User blocked = User.builder().build();
         UserBlock userBlock = UserBlock.builder().user(blocker).target(blocked).build();
 
-        when(userWritableResolver.resolve(1L)).thenReturn(blocker);
-        when(userRepository.findById(2L)).thenReturn(Optional.of(blocked));
+        givenLockedPair(blocker, blocked);
+        when(userWritableResolver.validateWritable(blocker)).thenReturn(blocker);
         when(userBlockRepository.findByUserAndTarget(blocker, blocked)).thenReturn(Optional.of(userBlock));
 
         userBlockService.unblockUser(1L, 2L);
@@ -135,14 +134,17 @@ class UserBlockServiceTest {
     @Test
     @DisplayName("쓰기 불가 사용자는 차단을 해제할 수 없다")
     void unblockUser_notWritableUser() {
-        when(userWritableResolver.resolve(1L)).thenThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE));
+        User blocker = User.builder().build();
+        User blocked = User.builder().build();
+        givenLockedPair(blocker, blocked);
+        when(userWritableResolver.validateWritable(blocker))
+                .thenThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE));
 
         assertThatThrownBy(() -> userBlockService.unblockUser(1L, 2L))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.USER_NOT_ACTIVE);
 
-        verify(userRepository, never()).findById(2L);
         verify(userBlockRepository, never()).delete(any(UserBlock.class));
     }
 
@@ -250,7 +252,8 @@ class UserBlockServiceTest {
     @Test
     @DisplayName("사용자 차단 실패 - 차단자 없음")
     void blockUser_blockerNotFound() {
-        when(userWritableResolver.resolve(1L)).thenThrow(new BusinessException(ErrorCode.USER_NOT_FOUND));
+        when(userWritableResolver.lockUserPairForUpdate(1L, 2L))
+                .thenThrow(new BusinessException(ErrorCode.USER_NOT_FOUND));
 
         assertThatThrownBy(() -> userBlockService.blockUser(1L, 2L))
                 .isInstanceOf(BusinessException.class)
@@ -261,9 +264,8 @@ class UserBlockServiceTest {
     @Test
     @DisplayName("사용자 차단 실패 - 대상자 없음")
     void blockUser_blockedNotFound() {
-        // Blocker exists, Blocked does not
-        when(userWritableResolver.resolve(1L)).thenReturn(User.builder().build());
-        when(userRepository.findByUserIdAndStatusAndDeletedAtIsNull(2L, User.STATUS_ACTIVE)).thenReturn(Optional.empty());
+        when(userWritableResolver.lockUserPairForUpdate(1L, 2L))
+                .thenThrow(new BusinessException(ErrorCode.USER_NOT_FOUND));
 
         assertThatThrownBy(() -> userBlockService.blockUser(1L, 2L))
                 .isInstanceOf(BusinessException.class)
@@ -274,23 +276,25 @@ class UserBlockServiceTest {
     @Test
     @DisplayName("new block resolves only active target user")
     void blockUser_resolvesOnlyActiveTarget() {
-        when(userWritableResolver.resolve(1L)).thenReturn(User.builder().build());
-        when(userRepository.findByUserIdAndStatusAndDeletedAtIsNull(2L, User.STATUS_ACTIVE)).thenReturn(Optional.empty());
+        User blocker = User.builder().build();
+        User blocked = User.builder().build();
+        blocked.suspend();
+        givenLockedPair(blocker, blocked);
+        when(userWritableResolver.validateWritable(blocker)).thenReturn(blocker);
 
         assertThatThrownBy(() -> userBlockService.blockUser(1L, 2L))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.USER_NOT_FOUND);
 
-        verify(userRepository).findByUserIdAndStatusAndDeletedAtIsNull(2L, User.STATUS_ACTIVE);
-        verify(userRepository, never()).findById(2L);
         verify(userBlockRepository, never()).saveAndFlush(any(UserBlock.class));
     }
 
     @Test
     @DisplayName("차단 해제 실패 - 사용자 없음")
     void unblockUser_userNotFound() {
-        when(userWritableResolver.resolve(1L)).thenThrow(new BusinessException(ErrorCode.USER_NOT_FOUND));
+        when(userWritableResolver.lockUserPairForUpdate(1L, 2L))
+                .thenThrow(new BusinessException(ErrorCode.USER_NOT_FOUND));
 
         assertThatThrownBy(() -> userBlockService.unblockUser(1L, 2L))
                 .isInstanceOf(BusinessException.class)
@@ -343,5 +347,10 @@ class UserBlockServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.USER_NOT_FOUND);
+    }
+
+    private void givenLockedPair(User blocker, User blocked) {
+        when(userWritableResolver.lockUserPairForUpdate(1L, 2L))
+                .thenReturn(new UserWritableResolver.LockedUserPair(blocker, blocked));
     }
 }

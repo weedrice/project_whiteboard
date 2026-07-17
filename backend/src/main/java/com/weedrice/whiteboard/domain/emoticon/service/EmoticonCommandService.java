@@ -216,7 +216,7 @@ class EmoticonCommandService {
     }
 
     EmoticonMasterDto toggleVisibility(Long userId, Long emoticonId) {
-        EmoticonMaster master = emoticonMasterRepository.findByIdWithImages(emoticonId)
+        EmoticonMaster master = emoticonMasterRepository.findByIdForUpdate(emoticonId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.EMOTICON_NOT_FOUND));
 
         validateWritableOwner(master, userId);

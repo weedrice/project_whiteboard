@@ -9,8 +9,8 @@ import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.User;
-import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
+import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -43,7 +43,7 @@ public class MessageService {
     private static final Set<String> ALLOWED_MESSAGE_SORTS = Set.of("createdAt");
 
     private final MessageRepository messageRepository;
-    private final UserRepository userRepository;
+    private final UserWritableResolver userWritableResolver;
     private final UserBlockService userBlockService;
     private final SanctionService sanctionService;
     private final ApplicationEventPublisher eventPublisher;
@@ -57,12 +57,12 @@ public class MessageService {
         if (sanitizedContent.length() > MessageConstraints.MAX_CONTENT_LENGTH) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
-        User sender = userRepository.findById(senderId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        UserWritableResolver.LockedUserPair lockedUsers =
+                userWritableResolver.lockUserPairForUpdate(senderId, receiverId);
+        User sender = lockedUsers.firstUser();
+        User receiver = lockedUsers.secondUser();
         sanctionService.validateNotBanned(sender);
         sanctionService.validateNotMuted(sender);
-        User receiver = userRepository.findById(receiverId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
         if (userBlockService.isEitherDirectionBlocked(senderId, receiverId)) {
             throw new BusinessException(ErrorCode.BLOCKED_BY_USER);

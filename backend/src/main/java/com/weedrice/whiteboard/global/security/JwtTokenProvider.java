@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.global.security;
 
+import com.weedrice.whiteboard.domain.auth.repository.RefreshTokenRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import io.jsonwebtoken.*;
@@ -28,26 +29,33 @@ public class JwtTokenProvider {
     private static final String AUTHORITIES_KEY = "auth";
     private static final String USER_ID_KEY = "userId";
     private static final String SECURITY_VERSION_KEY = "securityVersion";
+    private static final String SESSION_FAMILY_ID_KEY = "sessionFamilyId";
     private final SecretKey key;
     private final long accessTokenValidityInMilliseconds;
     private final long refreshTokenValidityInMilliseconds;
     private final CustomUserDetailsService customUserDetailsService;
+    private final RefreshTokenRepository refreshTokenRepository;
     private final Clock clock;
 
     public JwtTokenProvider(@Value("${jwt.secret}") String secret,
                             @Value("${jwt.expiration}") long accessTokenValidityInMilliseconds,
                             @Value("${jwt.refresh-token.expiration}") long refreshTokenValidityInMilliseconds,
                             CustomUserDetailsService customUserDetailsService,
+                            RefreshTokenRepository refreshTokenRepository,
                             Clock clock) {
         byte[] keyBytes = Decoders.BASE64.decode(secret);
         this.key = Keys.hmacShaKeyFor(keyBytes);
         this.accessTokenValidityInMilliseconds = accessTokenValidityInMilliseconds;
         this.refreshTokenValidityInMilliseconds = refreshTokenValidityInMilliseconds;
         this.customUserDetailsService = customUserDetailsService;
+        this.refreshTokenRepository = refreshTokenRepository;
         this.clock = clock;
     }
 
-    public String createAccessToken(Authentication authentication) {
+    public String createAccessToken(Authentication authentication, UUID sessionFamilyId) {
+        if (sessionFamilyId == null) {
+            throw new IllegalArgumentException("sessionFamilyId is required for access tokens");
+        }
         CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
         String authorities = authentication.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
@@ -59,6 +67,7 @@ public class JwtTokenProvider {
                 .subject(authentication.getName())
                 .claim(USER_ID_KEY, userDetails.getUserId())
                 .claim(SECURITY_VERSION_KEY, userDetails.getSecurityVersion())
+                .claim(SESSION_FAMILY_ID_KEY, sessionFamilyId.toString())
                 .claim(AUTHORITIES_KEY, authorities)
                 .expiration(validity)
                 .signWith(key, Jwts.SIG.HS256)
@@ -78,10 +87,22 @@ public class JwtTokenProvider {
                 .compact();
     }
 
-    public Authentication getAuthentication(String accessToken) {
-        Claims claims = parseClaims(accessToken);
+    public Authentication authenticate(String accessToken) {
+        Claims claims = createParser().parseSignedClaims(accessToken).getPayload();
 
         if (claims.get(AUTHORITIES_KEY) == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
+
+        UUID sessionFamilyId = tokenSessionFamilyId(claims);
+        Long userId = claims.get(USER_ID_KEY, Number.class) == null
+                ? null
+                : claims.get(USER_ID_KEY, Number.class).longValue();
+        if (userId == null || !refreshTokenRepository
+                .existsBySessionFamilyIdAndUser_UserIdAndIsRevokedFalseAndExpiresAtGreaterThanEqual(
+                        sessionFamilyId,
+                        userId,
+                        java.time.LocalDateTime.now(clock))) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED);
         }
 
@@ -97,6 +118,18 @@ public class JwtTokenProvider {
         }
 
         return new UsernamePasswordAuthenticationToken(userDetails, "", userDetails.getAuthorities());
+    }
+
+    private UUID tokenSessionFamilyId(Claims claims) {
+        String value = claims.get(SESSION_FAMILY_ID_KEY, String.class);
+        if (value == null || value.isBlank()) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
+        try {
+            return UUID.fromString(value);
+        } catch (IllegalArgumentException exception) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
     }
 
     private long tokenSecurityVersion(Claims claims) {
@@ -118,14 +151,6 @@ public class JwtTokenProvider {
             log.debug("Invalid JWT token");
         }
         return false;
-    }
-
-    private Claims parseClaims(String accessToken) {
-        try {
-            return createParser().parseSignedClaims(accessToken).getPayload();
-        } catch (ExpiredJwtException e) {
-            return e.getClaims();
-        }
     }
 
     private JwtParser createParser() {

@@ -2,7 +2,6 @@ package com.weedrice.whiteboard.domain.board.service;
 
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardSubscription;
-import com.weedrice.whiteboard.domain.board.entity.BoardSubscriptionId;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
 import com.weedrice.whiteboard.domain.board.util.BoardUrlNormalizer;
@@ -65,13 +64,13 @@ class BoardSubscriptionService {
     }
 
     void unsubscribeBoard(Long userId, String boardUrl) {
-        User user = userWritableResolver.resolve(userId);
+        User user = userWritableResolver.resolveForUpdate(userId);
         String normalizedBoardUrl = BoardUrlNormalizer.normalizeLookup(boardUrl);
         Board board = boardRepository.findByBoardUrl(normalizedBoardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
 
         BoardSubscription subscription = boardSubscriptionRepository
-                .findById(new BoardSubscriptionId(userId, board.getBoardId()))
+                .findByIdForUpdate(userId, board.getBoardId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_SUBSCRIBED));
         boardSubscriptionRepository.delete(subscription);
     }

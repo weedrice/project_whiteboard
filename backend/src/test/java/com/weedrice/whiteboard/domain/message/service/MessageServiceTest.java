@@ -9,8 +9,8 @@ import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.User;
-import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
+import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
@@ -53,7 +53,7 @@ class MessageServiceTest {
     @Mock
     private MessageRepository messageRepository;
     @Mock
-    private UserRepository userRepository;
+    private UserWritableResolver userWritableResolver;
     @Mock
     private UserBlockService userBlockService;
     @Mock
@@ -86,8 +86,7 @@ class MessageServiceTest {
     @Test
     @DisplayName("쪽지 발송 성공")
     void sendMessage_success() {
-        when(userRepository.findById(1L)).thenReturn(Optional.of(sender));
-        when(userRepository.findById(2L)).thenReturn(Optional.of(receiver));
+        givenLockedSenderAndReceiver();
         when(userBlockService.isEitherDirectionBlocked(1L, 2L)).thenReturn(false);
         when(messageRepository.save(any(Message.class))).thenAnswer(invocation -> {
             Message savedMessage = invocation.getArgument(0);
@@ -122,8 +121,7 @@ class MessageServiceTest {
     @Test
     @DisplayName("message content is sanitized before save")
     void sendMessage_sanitizesContentBeforeSave() {
-        when(userRepository.findById(1L)).thenReturn(Optional.of(sender));
-        when(userRepository.findById(2L)).thenReturn(Optional.of(receiver));
+        givenLockedSenderAndReceiver();
         when(userBlockService.isEitherDirectionBlocked(1L, 2L)).thenReturn(false);
         when(messageRepository.save(any(Message.class))).thenAnswer(invocation -> {
             Message savedMessage = invocation.getArgument(0);
@@ -160,7 +158,7 @@ class MessageServiceTest {
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
 
-        verify(userRepository, never()).findById(any());
+        verify(userWritableResolver, never()).lockUserPairForUpdate(any(), any());
         verify(messageRepository, never()).save(any());
     }
 
@@ -168,8 +166,7 @@ class MessageServiceTest {
     @DisplayName("message content exactly max length after sanitizing can be saved")
     void sendMessage_contentAtMaxAfterSanitizing_success() {
         String content = "<p>" + "a".repeat(MessageConstraints.MAX_CONTENT_LENGTH) + "</p>";
-        when(userRepository.findById(1L)).thenReturn(Optional.of(sender));
-        when(userRepository.findById(2L)).thenReturn(Optional.of(receiver));
+        givenLockedSenderAndReceiver();
         when(userBlockService.isEitherDirectionBlocked(1L, 2L)).thenReturn(false);
         when(messageRepository.save(any(Message.class))).thenAnswer(invocation -> {
             Message savedMessage = invocation.getArgument(0);
@@ -188,8 +185,7 @@ class MessageServiceTest {
     @Test
     @DisplayName("차단된 상대에게는 쪽지를 보낼 수 없다")
     void sendMessage_blocked() {
-        when(userRepository.findById(1L)).thenReturn(Optional.of(sender));
-        when(userRepository.findById(2L)).thenReturn(Optional.of(receiver));
+        givenLockedSenderAndReceiver();
         when(userBlockService.isEitherDirectionBlocked(1L, 2L)).thenReturn(true);
 
         assertThatThrownBy(() -> messageService.sendMessage(1L, 2L, "Hello!"))
@@ -201,8 +197,7 @@ class MessageServiceTest {
     @DisplayName("비활성 수신자에게 쪽지를 보낼 수 없다")
     void sendMessage_inactiveReceiver_forbidden() {
         receiver.suspend();
-        when(userRepository.findById(1L)).thenReturn(Optional.of(sender));
-        when(userRepository.findById(2L)).thenReturn(Optional.of(receiver));
+        givenLockedSenderAndReceiver();
         when(userBlockService.isEitherDirectionBlocked(1L, 2L)).thenReturn(false);
 
         assertThatThrownBy(() -> messageService.sendMessage(1L, 2L, "Hello!"))
@@ -217,7 +212,7 @@ class MessageServiceTest {
     @Test
     @DisplayName("MUTE 사용자는 쪽지를 보낼 수 없다")
     void sendMessage_mutedUser_forbidden() {
-        when(userRepository.findById(1L)).thenReturn(Optional.of(sender));
+        givenLockedSenderAndReceiver();
         doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotMuted(sender);
 
         assertThatThrownBy(() -> messageService.sendMessage(1L, 2L, "Hello!"))
@@ -226,6 +221,11 @@ class MessageServiceTest {
                 .isEqualTo(ErrorCode.USER_NOT_ACTIVE);
 
         verify(messageRepository, never()).save(any());
+    }
+
+    private void givenLockedSenderAndReceiver() {
+        when(userWritableResolver.lockUserPairForUpdate(1L, 2L))
+                .thenReturn(new UserWritableResolver.LockedUserPair(sender, receiver));
     }
 
     @Test

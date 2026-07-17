@@ -69,6 +69,11 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long
             Boolean isRevoked,
             LocalDateTime now);
 
+    boolean existsBySessionFamilyIdAndUser_UserIdAndIsRevokedFalseAndExpiresAtGreaterThanEqual(
+            UUID sessionFamilyId,
+            Long userId,
+            LocalDateTime now);
+
     interface RefreshTokenRenewalCandidate {
         Long getTokenId();
 

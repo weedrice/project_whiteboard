@@ -4,9 +4,9 @@
 
 ## 1. 주요 기능 및 로직
 - 회원가입: 이메일/로그인ID 중복 검증 및 이메일 인증 여부 체크, 비밀번호 암호화 후 저장, 기본 `UserSettings`·`UserPoint` 생성.
-- 로그인: Spring Security 인증, Access/Refresh Token 발급, Refresh Token SHA-256 해시 저장(ip/디바이스/만료), 로그인 이력 기록 및 `last_login_at` 갱신.
-- 로그아웃: 전달받은 Refresh Token 해시를 찾아 폐기 상태로 변경.
-- 토큰 재발급: 저장된 Refresh Token 유효성 검증 후 폐기, 동일 기기 정보로 새 토큰 발급.
+- 로그인: Spring Security 인증, Access/Refresh Token 발급, Refresh Token SHA-256 해시 저장(ip/디바이스/만료), 로그인 이력 기록 및 `last_login_at` 갱신. Access Token에는 저장된 `sessionFamilyId`가 반드시 포함됩니다.
+- 로그아웃: 전달받은 Refresh Token의 session family 전체를 멱등 폐기합니다. 이후 같은 family의 Access Token도 다음 요청부터 즉시 거부됩니다.
+- 토큰 재발급: 저장된 Refresh Token 유효성 검증 후 폐기하고 같은 session family를 계승해 새 토큰을 발급합니다. family claim이 없거나 활성 Refresh Token family와 연결되지 않은 legacy Access Token은 `401`로 거부합니다.
 - 이메일 인증: 인증 코드 발송(@Async 비동기)·검증. 검증 성공 시 해당 이메일의 유저가 존재하면 `isEmailVerified`를 true로 업데이트. 비밀번호 재설정 후 인증 상태 초기화.
 - 계정 찾기/재설정: 인증된 이메일로 로그인 ID 찾기, fragment에 토큰을 담은 재설정 링크/코드 발송 및 토큰 유효성 검증 뒤 비밀번호 변경. 토큰 승격과 사용은 User → VerificationCode → PasswordResetToken 잠금 순서를 지킵니다.
 - 인증 retention: 만료 비밀번호 재설정 토큰을 bounded batch로 먼저 정리한 뒤 만료 인증 코드를 정리하며, 인증 코드 삭제 시 연결 토큰의 참조는 null로 전환됩니다.
@@ -34,7 +34,7 @@
 | 테이블명 | 엔티티 | 설명 |
 | :------- | :----- | :--- |
 | `users` | `User` | 회원 기본 정보/상태 |
-| `refresh_tokens` | `RefreshToken` | 해시된 Refresh Token, 기기/IP, 만료 |
+| `refresh_tokens` | `RefreshToken` | 해시된 Refresh Token, session family, 기기/IP, 만료·폐기 상태 |
 | `login_histories` | `LoginHistory` | 로그인 성공 이력 |
 | `verification_codes` | `VerificationCode` | 이메일 인증 코드 및 만료/검증 여부 |
 | `password_reset_tokens` | `PasswordResetToken` | 비밀번호 재설정용 해시 토큰 |

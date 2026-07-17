@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 
@@ -59,9 +60,42 @@ public class UserWritableResolver {
         return userRepository.findAllByIdForUpdate(new LinkedHashSet<>(userIds));
     }
 
+    public LockedUserPair lockUserPairForUpdate(Long firstUserId, Long secondUserId) {
+        List<Long> orderedUserIds = List.of(firstUserId, secondUserId).stream()
+                .distinct()
+                .sorted(Comparator.naturalOrder())
+                .toList();
+        List<User> lockedUsers = userRepository.findAllByIdForUpdate(orderedUserIds);
+        if (lockedUsers.size() != orderedUserIds.size()) {
+            throw new BusinessException(ErrorCode.USER_NOT_FOUND);
+        }
+
+        User firstUser = findLockedUser(lockedUsers, firstUserId);
+        User secondUser = firstUserId.equals(secondUserId)
+                ? firstUser
+                : findLockedUser(lockedUsers, secondUserId);
+        return new LockedUserPair(firstUser, secondUser);
+    }
+
+    public User validateWritable(User user) {
+        validateActiveAccount(user);
+        sanctionService.validateNotBanned(user);
+        return user;
+    }
+
+    private User findLockedUser(List<User> lockedUsers, Long userId) {
+        return lockedUsers.stream()
+                .filter(user -> userId.equals(user.getUserId()))
+                .findFirst()
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+    }
+
     private void validateActiveAccount(User user) {
         if (!user.isActiveAccount()) {
             throw new BusinessException(ErrorCode.USER_NOT_ACTIVE);
         }
+    }
+
+    public record LockedUserPair(User firstUser, User secondUser) {
     }
 }

@@ -1,5 +1,7 @@
 package com.weedrice.whiteboard.global.security;
 
+import com.weedrice.whiteboard.domain.auth.repository.RefreshTokenRepository;
+
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
@@ -18,6 +20,7 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Collections;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -26,6 +29,8 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class JwtTokenProviderTest {
+
+    private static final UUID SESSION_FAMILY_ID = UUID.fromString("11111111-1111-1111-1111-111111111111");
 
     private static final LocalDateTime FIXED_NOW = LocalDateTime.of(2026, 7, 7, 12, 0);
     private static final Clock FIXED_CLOCK = Clock.fixed(
@@ -36,6 +41,9 @@ class JwtTokenProviderTest {
 
     @Mock
     private CustomUserDetailsService customUserDetailsService;
+
+    @Mock
+    private RefreshTokenRepository refreshTokenRepository;
 
     private final String secret = "c2VjcmV0LWtleS1mb3ItdGVzdGluZy1wdXJwb3Nlcy1vbmx5LWRvLW5vdC11c2UtaW4tcHJvZHVjdGlvbg==";
     private final long accessTokenValidity = 3600000;
@@ -48,7 +56,15 @@ class JwtTokenProviderTest {
                 accessTokenValidity,
                 refreshTokenValidity,
                 customUserDetailsService,
+                refreshTokenRepository,
                 FIXED_CLOCK);
+        org.mockito.Mockito.lenient().when(
+                refreshTokenRepository
+                        .existsBySessionFamilyIdAndUser_UserIdAndIsRevokedFalseAndExpiresAtGreaterThanEqual(
+                                org.mockito.ArgumentMatchers.any(UUID.class),
+                                org.mockito.ArgumentMatchers.eq(1L),
+                                org.mockito.ArgumentMatchers.any()))
+                .thenReturn(true);
     }
 
     @Test
@@ -60,7 +76,7 @@ class JwtTokenProviderTest {
         Authentication authentication = new UsernamePasswordAuthenticationToken(userDetails, "", userDetails.getAuthorities());
 
         // when
-        String token = jwtTokenProvider.createAccessToken(authentication);
+        String token = jwtTokenProvider.createAccessToken(authentication, SESSION_FAMILY_ID);
 
         // then
         assertThat(token).isNotNull();
@@ -74,12 +90,12 @@ class JwtTokenProviderTest {
         CustomUserDetails userDetails = new CustomUserDetails(1L, "test@test.com", "pass",
                 Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER")));
         Authentication authentication = new UsernamePasswordAuthenticationToken(userDetails, "", userDetails.getAuthorities());
-        String token = jwtTokenProvider.createAccessToken(authentication);
+        String token = jwtTokenProvider.createAccessToken(authentication, SESSION_FAMILY_ID);
 
         when(customUserDetailsService.loadUserByUsername("test@test.com")).thenReturn(userDetails);
 
         // when
-        Authentication authResult = jwtTokenProvider.getAuthentication(token);
+        Authentication authResult = jwtTokenProvider.authenticate(token);
 
         // then
         assertThat(authResult.getName()).isEqualTo("test@test.com");
@@ -92,17 +108,17 @@ class JwtTokenProviderTest {
                 Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER")));
         Authentication authentication = new UsernamePasswordAuthenticationToken(
                 issuedUser, "", issuedUser.getAuthorities());
-        String token = jwtTokenProvider.createAccessToken(authentication);
+        String token = jwtTokenProvider.createAccessToken(authentication, SESSION_FAMILY_ID);
         CustomUserDetails currentUser = new CustomUserDetails(1L, "test@test.com", "pass", 3L,
                 Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER")));
         when(customUserDetailsService.loadUserByUsername("test@test.com")).thenReturn(currentUser);
 
-        assertThatThrownBy(() -> jwtTokenProvider.getAuthentication(token))
+        assertThatThrownBy(() -> jwtTokenProvider.authenticate(token))
                 .isInstanceOf(RuntimeException.class);
     }
 
     @Test
-    void getAuthentication_acceptsLegacyTokenOnlyWhileSecurityVersionIsZero() {
+    void getAuthentication_rejectsLegacyTokenWithoutSessionFamily() {
         String legacyToken = Jwts.builder()
                 .subject("test@test.com")
                 .claim("userId", 1L)
@@ -110,11 +126,42 @@ class JwtTokenProviderTest {
                 .expiration(java.util.Date.from(FIXED_CLOCK.instant().plusMillis(accessTokenValidity)))
                 .signWith(Keys.hmacShaKeyFor(Decoders.BASE64.decode(secret)), Jwts.SIG.HS256)
                 .compact();
-        CustomUserDetails currentUser = new CustomUserDetails(1L, "test@test.com", "pass", 0L,
-                Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER")));
-        when(customUserDetailsService.loadUserByUsername("test@test.com")).thenReturn(currentUser);
+        assertThatThrownBy(() -> jwtTokenProvider.authenticate(legacyToken))
+                .isInstanceOf(RuntimeException.class);
+    }
 
-        assertThat(jwtTokenProvider.getAuthentication(legacyToken).getName()).isEqualTo("test@test.com");
+    @Test
+    void authenticate_rejectsRevokedSessionFamily() {
+        CustomUserDetails userDetails = new CustomUserDetails(1L, "test@test.com", "pass",
+                Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER")));
+        Authentication authentication = new UsernamePasswordAuthenticationToken(
+                userDetails, "", userDetails.getAuthorities());
+        String token = jwtTokenProvider.createAccessToken(authentication, SESSION_FAMILY_ID);
+        when(refreshTokenRepository
+                .existsBySessionFamilyIdAndUser_UserIdAndIsRevokedFalseAndExpiresAtGreaterThanEqual(
+                        org.mockito.ArgumentMatchers.eq(SESSION_FAMILY_ID),
+                        org.mockito.ArgumentMatchers.eq(1L),
+                        org.mockito.ArgumentMatchers.any()))
+                .thenReturn(false);
+
+        assertThatThrownBy(() -> jwtTokenProvider.authenticate(token))
+                .isInstanceOf(RuntimeException.class);
+    }
+
+    @Test
+    void authenticate_rejectsExpiredAccessTokenWithoutLoadingSession() {
+        String expiredToken = Jwts.builder()
+                .subject("test@test.com")
+                .claim("userId", 1L)
+                .claim("securityVersion", 0L)
+                .claim("sessionFamilyId", SESSION_FAMILY_ID.toString())
+                .claim("auth", "ROLE_USER")
+                .expiration(java.util.Date.from(FIXED_CLOCK.instant().minusMillis(1)))
+                .signWith(Keys.hmacShaKeyFor(Decoders.BASE64.decode(secret)), Jwts.SIG.HS256)
+                .compact();
+
+        assertThatThrownBy(() -> jwtTokenProvider.authenticate(expiredToken))
+                .isInstanceOf(io.jsonwebtoken.ExpiredJwtException.class);
     }
 
     @Test
@@ -133,11 +180,11 @@ class JwtTokenProviderTest {
                 disabledUser,
                 "",
                 disabledUser.getAuthorities());
-        String token = jwtTokenProvider.createAccessToken(authentication);
+        String token = jwtTokenProvider.createAccessToken(authentication, SESSION_FAMILY_ID);
 
         when(customUserDetailsService.loadUserByUsername("test@test.com")).thenReturn(disabledUser);
 
-        assertThatThrownBy(() -> jwtTokenProvider.getAuthentication(token))
+        assertThatThrownBy(() -> jwtTokenProvider.authenticate(token))
                 .isInstanceOf(RuntimeException.class);
     }
 
@@ -157,11 +204,11 @@ class JwtTokenProviderTest {
                 lockedUser,
                 "",
                 lockedUser.getAuthorities());
-        String token = jwtTokenProvider.createAccessToken(authentication);
+        String token = jwtTokenProvider.createAccessToken(authentication, SESSION_FAMILY_ID);
 
         when(customUserDetailsService.loadUserByUsername("test@test.com")).thenReturn(lockedUser);
 
-        assertThatThrownBy(() -> jwtTokenProvider.getAuthentication(token))
+        assertThatThrownBy(() -> jwtTokenProvider.authenticate(token))
                 .isInstanceOf(RuntimeException.class);
     }
 
@@ -181,11 +228,11 @@ class JwtTokenProviderTest {
                 expiredAccountUser,
                 "",
                 expiredAccountUser.getAuthorities());
-        String token = jwtTokenProvider.createAccessToken(authentication);
+        String token = jwtTokenProvider.createAccessToken(authentication, SESSION_FAMILY_ID);
 
         when(customUserDetailsService.loadUserByUsername("test@test.com")).thenReturn(expiredAccountUser);
 
-        assertThatThrownBy(() -> jwtTokenProvider.getAuthentication(token))
+        assertThatThrownBy(() -> jwtTokenProvider.authenticate(token))
                 .isInstanceOf(RuntimeException.class);
     }
 
@@ -205,11 +252,11 @@ class JwtTokenProviderTest {
                 expiredCredentialsUser,
                 "",
                 expiredCredentialsUser.getAuthorities());
-        String token = jwtTokenProvider.createAccessToken(authentication);
+        String token = jwtTokenProvider.createAccessToken(authentication, SESSION_FAMILY_ID);
 
         when(customUserDetailsService.loadUserByUsername("test@test.com")).thenReturn(expiredCredentialsUser);
 
-        assertThatThrownBy(() -> jwtTokenProvider.getAuthentication(token))
+        assertThatThrownBy(() -> jwtTokenProvider.authenticate(token))
                 .isInstanceOf(RuntimeException.class);
     }
 

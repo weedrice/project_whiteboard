@@ -165,7 +165,7 @@ public class SessionTokenService {
             UUID sessionFamilyId) {
         LoginClientMetadata resolvedMetadata = metadata != null ? metadata : LoginClientMetadata.empty();
         Authentication currentAuthentication = createRefreshAuthentication(user);
-        String accessToken = jwtTokenProvider.createAccessToken(currentAuthentication);
+        String accessToken = jwtTokenProvider.createAccessToken(currentAuthentication, sessionFamilyId);
         String refreshToken = jwtTokenProvider.createRefreshToken(currentAuthentication);
 
         persistRefreshToken(

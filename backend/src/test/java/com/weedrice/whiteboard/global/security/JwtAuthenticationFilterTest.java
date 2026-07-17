@@ -58,8 +58,7 @@ class JwtAuthenticationFilterTest {
         // given
         String token = "valid_token";
         when(request.getHeader(JwtAuthenticationFilter.AUTHORIZATION_HEADER)).thenReturn(JwtAuthenticationFilter.BEARER_PREFIX + token);
-        when(jwtTokenProvider.validateToken(token)).thenReturn(true);
-        when(jwtTokenProvider.getAuthentication(token)).thenReturn(authentication);
+        when(jwtTokenProvider.authenticate(token)).thenReturn(authentication);
 
         // when
         jwtAuthenticationFilter.doFilterInternal(request, response, filterChain);
@@ -80,7 +79,7 @@ class JwtAuthenticationFilterTest {
 
         // then
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
-        verify(jwtTokenProvider, never()).validateToken(anyString());
+        verify(jwtTokenProvider, never()).authenticate(anyString());
         verify(filterChain).doFilter(request, response);
     }
 
@@ -93,7 +92,7 @@ class JwtAuthenticationFilterTest {
 
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
         verify(request, never()).getParameter("token");
-        verify(jwtTokenProvider, never()).validateToken(anyString());
+        verify(jwtTokenProvider, never()).authenticate(anyString());
         verify(filterChain).doFilter(request, response);
     }
 
@@ -103,14 +102,14 @@ class JwtAuthenticationFilterTest {
         // given
         String token = "invalid_token";
         when(request.getHeader(JwtAuthenticationFilter.AUTHORIZATION_HEADER)).thenReturn(JwtAuthenticationFilter.BEARER_PREFIX + token);
-        when(jwtTokenProvider.validateToken(token)).thenReturn(false);
+        when(jwtTokenProvider.authenticate(token)).thenThrow(new IllegalArgumentException("invalid"));
 
         // when
         jwtAuthenticationFilter.doFilterInternal(request, response, filterChain);
 
         // then
         assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
-        verify(jwtTokenProvider, never()).getAuthentication(anyString());
+        verify(jwtTokenProvider).authenticate(token);
         verify(filterChain).doFilter(request, response);
     }
 }

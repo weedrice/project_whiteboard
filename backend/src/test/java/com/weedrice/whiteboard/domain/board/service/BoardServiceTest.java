@@ -1934,15 +1934,19 @@ class BoardServiceTest {
                 .role("MEMBER")
                 .sortOrder(1)
                 .build();
-        when(userRepository.findById(userId)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(userId)).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrl(boardUrl)).thenReturn(Optional.of(board));
-        when(boardSubscriptionRepository.findById(any(BoardSubscriptionId.class))).thenReturn(Optional.of(subscription));
+        when(boardSubscriptionRepository.findByIdForUpdate(userId, board.getBoardId()))
+                .thenReturn(Optional.of(subscription));
 
         // when
         boardService.unsubscribeBoard(userId, boardUrl);
 
         // then
         verify(boardSubscriptionRepository).delete(any());
+        InOrder lockOrder = inOrder(userRepository, boardSubscriptionRepository);
+        lockOrder.verify(userRepository).findByIdForUpdate(userId);
+        lockOrder.verify(boardSubscriptionRepository).findByIdForUpdate(userId, board.getBoardId());
     }
 
     @Test
@@ -1963,9 +1967,9 @@ class BoardServiceTest {
                 .sortOrder(1)
                 .build();
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(boardRepository.findByBoardUrl("hidden-board")).thenReturn(Optional.of(hiddenBoard));
-        when(boardSubscriptionRepository.findById(new BoardSubscriptionId(1L, 2L)))
+        when(boardSubscriptionRepository.findByIdForUpdate(1L, 2L))
                 .thenReturn(Optional.of(subscription));
 
         boardService.unsubscribeBoard(1L, "hidden-board");

@@ -405,7 +405,7 @@ class AuthServiceTest {
         userSettings.updateSettings("dark", null, null, null);
         when(userSettingsRepository.findById(1L)).thenReturn(Optional.of(userSettings));
         when(sanctionPolicyService.isUserBanned(user)).thenReturn(false);
-        when(jwtTokenProvider.createAccessToken(any(Authentication.class))).thenReturn("accessToken");
+        when(jwtTokenProvider.createAccessToken(any(Authentication.class), any(java.util.UUID.class))).thenReturn("accessToken");
         when(jwtTokenProvider.createRefreshToken(any(Authentication.class))).thenReturn("refreshToken");
         when(jwtTokenProvider.getAccessTokenValidityInMilliseconds()).thenReturn(1800L);
         when(jwtTokenProvider.getRefreshTokenValidityInMilliseconds()).thenReturn(1209600000L);
@@ -435,7 +435,7 @@ class AuthServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(userPointRepository.findById(1L)).thenReturn(Optional.empty());
         when(sanctionPolicyService.isUserBanned(user)).thenReturn(false);
-        when(jwtTokenProvider.createAccessToken(any(Authentication.class))).thenReturn("accessToken");
+        when(jwtTokenProvider.createAccessToken(any(Authentication.class), any(java.util.UUID.class))).thenReturn("accessToken");
         when(jwtTokenProvider.createRefreshToken(any(Authentication.class))).thenReturn("refreshToken");
         when(jwtTokenProvider.getAccessTokenValidityInMilliseconds()).thenReturn(1800L);
         when(jwtTokenProvider.getRefreshTokenValidityInMilliseconds()).thenReturn(1209600000L);
@@ -470,7 +470,7 @@ class AuthServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(userPointRepository.findById(1L)).thenReturn(Optional.empty());
         when(sanctionPolicyService.isUserBanned(user)).thenReturn(false);
-        when(jwtTokenProvider.createAccessToken(any(Authentication.class))).thenReturn("accessToken");
+        when(jwtTokenProvider.createAccessToken(any(Authentication.class), any(java.util.UUID.class))).thenReturn("accessToken");
         when(jwtTokenProvider.createRefreshToken(any(Authentication.class))).thenReturn("refreshToken");
         when(jwtTokenProvider.getAccessTokenValidityInMilliseconds()).thenReturn(1800L);
         when(jwtTokenProvider.getRefreshTokenValidityInMilliseconds()).thenReturn(1209600000L);
@@ -500,7 +500,7 @@ class AuthServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(userPointRepository.findById(1L)).thenReturn(Optional.empty());
         when(sanctionPolicyService.isUserBanned(user)).thenReturn(false);
-        when(jwtTokenProvider.createAccessToken(any(Authentication.class))).thenReturn("accessToken");
+        when(jwtTokenProvider.createAccessToken(any(Authentication.class), any(java.util.UUID.class))).thenReturn("accessToken");
         when(jwtTokenProvider.createRefreshToken(any(Authentication.class))).thenReturn("refreshToken");
         when(jwtTokenProvider.getAccessTokenValidityInMilliseconds()).thenReturn(1800L);
         when(jwtTokenProvider.getRefreshTokenValidityInMilliseconds()).thenReturn(7_200_000L);
@@ -537,7 +537,7 @@ class AuthServiceTest {
                 () -> authService.login(request, noMetadata()));
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.LOGIN_FAILED);
-        verify(jwtTokenProvider, never()).createAccessToken(any());
+        verify(jwtTokenProvider, never()).createAccessToken(any(), any(java.util.UUID.class));
         verify(loginHistoryAuditService).recordFailure(eq("testuser"), nullable(String.class),
                 nullable(String.class), eq(LoginAccountEligibilityService.FAILURE_REASON_USER_BANNED));
     }
@@ -556,7 +556,7 @@ class AuthServiceTest {
 
         verify(loginHistoryAuditService).recordFailure(eq("testuser"), nullable(String.class),
                 nullable(String.class), eq("AUTHENTICATION_FAILED"));
-        verify(jwtTokenProvider, never()).createAccessToken(any());
+        verify(jwtTokenProvider, never()).createAccessToken(any(), any(java.util.UUID.class));
     }
 
     @Test
@@ -573,7 +573,7 @@ class AuthServiceTest {
 
         verify(loginHistoryAuditService).recordFailure(eq("testuser"), nullable(String.class),
                 nullable(String.class), eq(LoginAccountEligibilityService.FAILURE_REASON_USER_NOT_ACTIVE));
-        verify(jwtTokenProvider, never()).createAccessToken(any());
+        verify(jwtTokenProvider, never()).createAccessToken(any(), any(java.util.UUID.class));
     }
 
     @Test
@@ -590,7 +590,7 @@ class AuthServiceTest {
 
         verify(loginHistoryAuditService).recordFailure(eq("testuser"), nullable(String.class),
                 nullable(String.class), eq(LoginAccountEligibilityService.FAILURE_REASON_USER_BANNED));
-        verify(jwtTokenProvider, never()).createAccessToken(any());
+        verify(jwtTokenProvider, never()).createAccessToken(any(), any(java.util.UUID.class));
     }
 
     @Test
@@ -614,7 +614,7 @@ class AuthServiceTest {
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.USER_NOT_FOUND);
         verify(loginHistoryAuditService).recordFailure(eq("testuser"), nullable(String.class),
                 nullable(String.class), eq(LoginAccountEligibilityService.FAILURE_REASON_USER_NOT_FOUND));
-        verify(jwtTokenProvider, never()).createAccessToken(any());
+        verify(jwtTokenProvider, never()).createAccessToken(any(), any(java.util.UUID.class));
     }
 
     @Test
@@ -640,7 +640,7 @@ class AuthServiceTest {
         verify(loginHistoryAuditService).recordFailure(eq("testuser"), nullable(String.class),
                 nullable(String.class), eq(LoginAccountEligibilityService.FAILURE_REASON_USER_NOT_ACTIVE));
         verify(sanctionPolicyService, never()).isUserBanned(any());
-        verify(jwtTokenProvider, never()).createAccessToken(any());
+        verify(jwtTokenProvider, never()).createAccessToken(any(), any(java.util.UUID.class));
     }
 
     @Test
@@ -660,7 +660,7 @@ class AuthServiceTest {
 
         verify(loginHistoryAuditService).recordFailure(eq("testuser"), nullable(String.class),
                 nullable(String.class), eq("AUTHENTICATION_FAILED"));
-        verify(jwtTokenProvider, never()).createAccessToken(any());
+        verify(jwtTokenProvider, never()).createAccessToken(any(), any(java.util.UUID.class));
     }
 
     @Test
@@ -682,7 +682,7 @@ class AuthServiceTest {
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(refreshTokenRepository.findByTokenHash(oldRefreshTokenHash)).thenReturn(Optional.of(storedRefreshToken));
         when(sanctionPolicyService.isUserBanned(user)).thenReturn(false);
-        when(jwtTokenProvider.createAccessToken(any(Authentication.class))).thenReturn("new-access-token");
+        when(jwtTokenProvider.createAccessToken(any(Authentication.class), any(java.util.UUID.class))).thenReturn("new-access-token");
         when(jwtTokenProvider.createRefreshToken(any(Authentication.class))).thenReturn("new-refresh-token");
         when(jwtTokenProvider.getAccessTokenValidityInMilliseconds()).thenReturn(1800L);
         when(jwtTokenProvider.getRefreshTokenValidityInMilliseconds()).thenReturn(1209600000L);
@@ -733,7 +733,7 @@ class AuthServiceTest {
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.USER_NOT_ACTIVE);
         assertThat(refreshToken.getIsRevoked()).isTrue();
         verify(refreshTokenRepository).save(refreshToken);
-        verify(jwtTokenProvider, never()).createAccessToken(any());
+        verify(jwtTokenProvider, never()).createAccessToken(any(), any(java.util.UUID.class));
     }
 
     @Test
@@ -761,7 +761,7 @@ class AuthServiceTest {
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.USER_NOT_ACTIVE);
         assertThat(refreshToken.getIsRevoked()).isTrue();
         verify(refreshTokenRepository).save(refreshToken);
-        verify(jwtTokenProvider, never()).createAccessToken(any());
+        verify(jwtTokenProvider, never()).createAccessToken(any(), any(java.util.UUID.class));
     }
 
     @Test
@@ -789,7 +789,7 @@ class AuthServiceTest {
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.USER_NOT_ACTIVE);
         assertThat(refreshToken.getIsRevoked()).isTrue();
         verify(refreshTokenRepository).save(refreshToken);
-        verify(jwtTokenProvider, never()).createAccessToken(any());
+        verify(jwtTokenProvider, never()).createAccessToken(any(), any(java.util.UUID.class));
     }
 
     @Test
@@ -815,7 +815,7 @@ class AuthServiceTest {
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_REFRESH_TOKEN);
         verify(refreshTokenRepository, never()).save(any());
-        verify(jwtTokenProvider, never()).createAccessToken(any());
+        verify(jwtTokenProvider, never()).createAccessToken(any(), any(java.util.UUID.class));
     }
 
     @Test

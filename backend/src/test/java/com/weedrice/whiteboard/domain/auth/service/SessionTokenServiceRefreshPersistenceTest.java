@@ -69,7 +69,7 @@ class SessionTokenServiceRefreshPersistenceTest {
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.USER_NOT_ACTIVE);
         RefreshToken reloadedToken = loadRefreshToken(oldRefreshTokenHash);
         assertThat(reloadedToken.getIsRevoked()).isTrue();
-        verify(jwtTokenProvider, never()).createAccessToken(any());
+        verify(jwtTokenProvider, never()).createAccessToken(any(), any(UUID.class));
     }
 
     @Test
@@ -85,7 +85,7 @@ class SessionTokenServiceRefreshPersistenceTest {
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.USER_NOT_ACTIVE);
         RefreshToken reloadedToken = loadRefreshToken(oldRefreshTokenHash);
         assertThat(reloadedToken.getIsRevoked()).isTrue();
-        verify(jwtTokenProvider, never()).createAccessToken(any());
+        verify(jwtTokenProvider, never()).createAccessToken(any(), any(UUID.class));
     }
 
     @Test
@@ -130,7 +130,7 @@ class SessionTokenServiceRefreshPersistenceTest {
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_REFRESH_TOKEN);
         assertThat(loadRefreshToken(successorHash).getIsRevoked()).isTrue();
-        verify(jwtTokenProvider, never()).createAccessToken(any());
+        verify(jwtTokenProvider, never()).createAccessToken(any(), any(UUID.class));
     }
 
     private void persistSuspendedUserRefreshToken(String tokenHash) {

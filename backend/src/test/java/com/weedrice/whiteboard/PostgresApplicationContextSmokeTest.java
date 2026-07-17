@@ -8,6 +8,7 @@ import com.weedrice.whiteboard.domain.auth.service.SessionTokenService;
 import com.weedrice.whiteboard.domain.auth.entity.VerificationPurpose;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import com.weedrice.whiteboard.domain.post.repository.PopularPostAggregationLockRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardVisitRepository;
 import com.weedrice.whiteboard.domain.notification.service.KeywordSubscriptionService;
@@ -20,6 +21,7 @@ import com.weedrice.whiteboard.domain.notification.constant.NotificationSourceTy
 import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
+import com.weedrice.whiteboard.global.security.JwtTokenProvider;
 import com.weedrice.whiteboard.global.security.SecurityAuthorities;
 import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.MigrationVersion;
@@ -74,7 +76,13 @@ class PostgresApplicationContextSmokeTest {
     private SessionTokenService sessionTokenService;
 
     @Autowired
+    private JwtTokenProvider jwtTokenProvider;
+
+    @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private UserWritableResolver userWritableResolver;
 
     @Autowired
     private BoardVisitRepository boardVisitRepository;
@@ -352,6 +360,77 @@ class PostgresApplicationContextSmokeTest {
                 WHERE session_family_id = ?
                   AND is_revoked = 'N'
                 """, Integer.class, retainedFamily));
+    }
+
+    @Test
+    void revokedSessionFamilyImmediatelyInvalidatesIssuedAccessToken() {
+        String unique = UUID.randomUUID().toString();
+        User user = userRepository.saveAndFlush(User.builder()
+                .loginId("access-family-" + unique)
+                .email("access-family-" + unique + "@example.com")
+                .password("encoded")
+                .displayName("Access Family User")
+                .build());
+        var authorities = SecurityAuthorities.user(false);
+        var authentication = new UsernamePasswordAuthenticationToken(
+                new CustomUserDetails(
+                        user.getUserId(), user.getLoginId(), "", true, true, true, true, authorities),
+                "",
+                authorities);
+        var tokens = sessionTokenService.issueTokens(
+                authentication,
+                user,
+                new LoginClientMetadata("127.0.0.1", "family-browser"));
+
+        assertEquals(user.getUserId(),
+                ((CustomUserDetails) jwtTokenProvider.authenticate(tokens.getAccessToken()).getPrincipal())
+                        .getUserId());
+
+        sessionTokenService.logout(tokens.getRefreshToken());
+
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> jwtTokenProvider.authenticate(tokens.getAccessToken()));
+        assertEquals(com.weedrice.whiteboard.global.exception.ErrorCode.UNAUTHORIZED, exception.getErrorCode());
+    }
+
+    @Test
+    void opposingUserPairLockRequestsCompleteWithoutDeadlock() throws Exception {
+        String unique = UUID.randomUUID().toString();
+        User first = userRepository.saveAndFlush(User.builder()
+                .loginId("pair-first-" + unique)
+                .email("pair-first-" + unique + "@example.com")
+                .password("encoded")
+                .displayName("Pair First")
+                .build());
+        User second = userRepository.saveAndFlush(User.builder()
+                .loginId("pair-second-" + unique)
+                .email("pair-second-" + unique + "@example.com")
+                .password("encoded")
+                .displayName("Pair Second")
+                .build());
+        TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
+        CountDownLatch start = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            Future<?> forward = executor.submit(() -> {
+                start.await(5, TimeUnit.SECONDS);
+                transactionTemplate.executeWithoutResult(ignored ->
+                        userWritableResolver.lockUserPairForUpdate(first.getUserId(), second.getUserId()));
+                return null;
+            });
+            Future<?> reverse = executor.submit(() -> {
+                start.await(5, TimeUnit.SECONDS);
+                transactionTemplate.executeWithoutResult(ignored ->
+                        userWritableResolver.lockUserPairForUpdate(second.getUserId(), first.getUserId()));
+                return null;
+            });
+            start.countDown();
+            forward.get(10, TimeUnit.SECONDS);
+            reverse.get(10, TimeUnit.SECONDS);
+        } finally {
+            executor.shutdownNow();
+        }
     }
 
     @Test

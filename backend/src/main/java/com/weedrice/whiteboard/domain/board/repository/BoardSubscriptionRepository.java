@@ -4,15 +4,18 @@ import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardSubscription;
 import com.weedrice.whiteboard.domain.board.entity.BoardSubscriptionId;
 import com.weedrice.whiteboard.domain.user.entity.User;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 public interface BoardSubscriptionRepository extends JpaRepository<BoardSubscription, BoardSubscriptionId> {
     interface BoardSubscriberCountProjection {
@@ -185,6 +188,17 @@ public interface BoardSubscriptionRepository extends JpaRepository<BoardSubscrip
     long countByUser(User user);
 
     boolean existsByUserAndBoard(User user, Board board);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT bs
+            FROM BoardSubscription bs
+            WHERE bs.user.userId = :userId
+              AND bs.board.boardId = :boardId
+            """)
+    Optional<BoardSubscription> findByIdForUpdate(
+            @Param("userId") Long userId,
+            @Param("boardId") Long boardId);
 
     void deleteByBoard(Board board);
 

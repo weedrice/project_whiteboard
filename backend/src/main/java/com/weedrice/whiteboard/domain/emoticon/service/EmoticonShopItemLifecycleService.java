@@ -40,7 +40,7 @@ class EmoticonShopItemLifecycleService {
     }
 
     void setActive(Long emoticonId, boolean active) {
-        ShopItem item = resolveSingleItem(emoticonId);
+        ShopItem item = resolveSingleItemForUpdate(emoticonId);
         if (active) {
             item.activate();
         } else {
@@ -67,6 +67,16 @@ class EmoticonShopItemLifecycleService {
             throw new BusinessException(ErrorCode.ITEM_NOT_AVAILABLE);
         }
         return items.get(0);
+    }
+
+    private ShopItem resolveSingleItemForUpdate(Long emoticonId) {
+        List<ShopItem> items = shopItemRepository.findByItemTypeAndTargetIdForUpdate(
+                EmoticonShopItemTypes.EMOTICON,
+                emoticonId);
+        if (items.size() != 1) {
+            throw new BusinessException(ErrorCode.ITEM_NOT_AVAILABLE);
+        }
+        return items.getFirst();
     }
 
     private List<ShopItem> findItems(Long emoticonId) {

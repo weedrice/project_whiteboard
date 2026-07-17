@@ -28,9 +28,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String jwt = resolveToken(request);
 
-        if (StringUtils.hasText(jwt) && jwtTokenProvider.validateToken(jwt)) {
+        if (StringUtils.hasText(jwt)) {
             try {
-                Authentication authentication = jwtTokenProvider.getAuthentication(jwt);
+                Authentication authentication = jwtTokenProvider.authenticate(jwt);
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             } catch (Exception e) {
                 // 토큰은 유효하지만(서명 등) 사용자 정보가 없는 경우(DB 삭제 등)

@@ -104,6 +104,8 @@ class EmoticonServiceTest {
         lenient().when(imageLimitPolicy.getCurrentLimit()).thenReturn(20);
         lenient().when(shopItemRepository.findByItemTypeAndTargetId("EMOTICON", 1L))
                 .thenReturn(List.of(emoticonShopItem));
+        lenient().when(shopItemRepository.findByItemTypeAndTargetIdForUpdate("EMOTICON", 1L))
+                .thenReturn(List.of(emoticonShopItem));
         lenient().when(globalConfigService.getConfigFresh(GlobalConfigService.NOBICON_PRICE_CONFIG_KEY))
                 .thenReturn("100");
 
@@ -1102,7 +1104,7 @@ class EmoticonServiceTest {
         @Test
         @DisplayName("이모티콘 공개 전환 - 제재 소유자는 USER_NOT_ACTIVE")
         void toggleVisibility_bannedOwner() {
-            when(emoticonMasterRepository.findByIdWithImages(1L)).thenReturn(Optional.of(emoticonMaster));
+            when(emoticonMasterRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(emoticonMaster));
             when(userWritableResolver.resolve(1L))
                     .thenThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE));
 
@@ -1117,7 +1119,7 @@ class EmoticonServiceTest {
         @Test
         @DisplayName("이모티콘 공개 전환 - 소유자가 아니면 FORBIDDEN")
         void toggleVisibility_forbidden() {
-            when(emoticonMasterRepository.findByIdWithImages(1L)).thenReturn(Optional.of(emoticonMaster));
+            when(emoticonMasterRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(emoticonMaster));
 
             assertThatThrownBy(() -> emoticonService.toggleVisibility(2L, 1L))
                     .isInstanceOf(BusinessException.class)
@@ -1131,12 +1133,15 @@ class EmoticonServiceTest {
         @DisplayName("이모티콘 공개 상태를 상품 활성 상태와 동기화한다")
         void toggleVisibility_synchronizesShopItem() {
             givenWritableUser();
-            when(emoticonMasterRepository.findByIdWithImages(1L)).thenReturn(Optional.of(emoticonMaster));
+            when(emoticonMasterRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(emoticonMaster));
 
             emoticonService.toggleVisibility(1L, 1L);
 
             assertThat(emoticonMaster.getIsActive()).isEqualTo("N");
             assertThat(emoticonShopItem.getIsActive()).isFalse();
+            InOrder lockOrder = inOrder(emoticonMasterRepository, shopItemRepository);
+            lockOrder.verify(emoticonMasterRepository).findByIdForUpdate(1L);
+            lockOrder.verify(shopItemRepository).findByItemTypeAndTargetIdForUpdate("EMOTICON", 1L);
         }
 
         @Test

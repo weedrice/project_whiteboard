@@ -95,4 +95,32 @@ class UserWritableResolverTest {
         assertThat(users).containsExactly(inactiveUser);
         verify(sanctionService, never()).validateNotBanned(inactiveUser);
     }
+
+    @Test
+    void lockUserPairForUpdateSortsIdsAndRestoresRequestedRoles() {
+        User lowerIdUser = mock(User.class);
+        User higherIdUser = mock(User.class);
+        when(lowerIdUser.getUserId()).thenReturn(1L);
+        when(higherIdUser.getUserId()).thenReturn(2L);
+        when(userRepository.findAllByIdForUpdate(List.of(1L, 2L)))
+                .thenReturn(List.of(lowerIdUser, higherIdUser));
+        UserWritableResolver resolver = new UserWritableResolver(userRepository, sanctionService);
+
+        UserWritableResolver.LockedUserPair pair = resolver.lockUserPairForUpdate(2L, 1L);
+
+        assertThat(pair.firstUser()).isSameAs(higherIdUser);
+        assertThat(pair.secondUser()).isSameAs(lowerIdUser);
+        verify(userRepository).findAllByIdForUpdate(List.of(1L, 2L));
+    }
+
+    @Test
+    void lockUserPairForUpdateRejectsMissingUser() {
+        User existingUser = mock(User.class);
+        when(userRepository.findAllByIdForUpdate(List.of(1L, 2L))).thenReturn(List.of(existingUser));
+        UserWritableResolver resolver = new UserWritableResolver(userRepository, sanctionService);
+
+        assertThatThrownBy(() -> resolver.lockUserPairForUpdate(1L, 2L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_FOUND);
+    }
 }

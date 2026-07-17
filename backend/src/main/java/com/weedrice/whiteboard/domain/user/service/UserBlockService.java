@@ -4,7 +4,6 @@ import com.weedrice.whiteboard.domain.user.dto.BlockedUserResponse;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.entity.UserBlock;
 import com.weedrice.whiteboard.domain.user.repository.UserBlockRepository;
-import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.notification.service.NotificationAccessInvalidationService;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -27,7 +26,6 @@ public class UserBlockService {
 
     private static final int DEFAULT_BLOCK_PAGE_SIZE = 20;
 
-    private final UserRepository userRepository;
     private final UserBlockRepository userBlockRepository;
     private final UserReadableResolver userReadableResolver;
     private final UserWritableResolver userWritableResolver;
@@ -39,10 +37,13 @@ public class UserBlockService {
             throw new BusinessException(ErrorCode.CANNOT_BLOCK_SELF);
         }
 
-        User user = userWritableResolver.resolve(userId);
-
-        User target = userRepository.findByUserIdAndStatusAndDeletedAtIsNull(targetUserId, User.STATUS_ACTIVE)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        UserWritableResolver.LockedUserPair lockedUsers =
+                userWritableResolver.lockUserPairForUpdate(userId, targetUserId);
+        User user = userWritableResolver.validateWritable(lockedUsers.firstUser());
+        User target = lockedUsers.secondUser();
+        if (!target.isActiveAccount()) {
+            throw new BusinessException(ErrorCode.USER_NOT_FOUND);
+        }
 
         UserBlock userBlock = UserBlock.builder()
                 .user(user)
@@ -59,10 +60,10 @@ public class UserBlockService {
 
     @Transactional
     public void unblockUser(Long userId, Long targetUserId) {
-        User user = userWritableResolver.resolve(userId);
-
-        User target = userRepository.findById(targetUserId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        UserWritableResolver.LockedUserPair lockedUsers =
+                userWritableResolver.lockUserPairForUpdate(userId, targetUserId);
+        User user = userWritableResolver.validateWritable(lockedUsers.firstUser());
+        User target = lockedUsers.secondUser();
 
         UserBlock userBlock = userBlockRepository.findByUserAndTarget(user, target)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));

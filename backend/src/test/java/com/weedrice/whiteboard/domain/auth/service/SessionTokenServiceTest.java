@@ -126,7 +126,7 @@ class SessionTokenServiceTest {
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_REFRESH_TOKEN);
         verify(refreshTokenRepository).revokeTokenFamily(familyId);
-        verify(jwtTokenProvider, never()).createAccessToken(any());
+        verify(jwtTokenProvider, never()).createAccessToken(any(), any(UUID.class));
         verify(jwtTokenProvider, never()).createRefreshToken(any());
     }
 
@@ -138,7 +138,7 @@ class SessionTokenServiceTest {
         Authentication staleAuthentication = new UsernamePasswordAuthenticationToken(
                 staleDetails, "", java.util.List.of());
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
-        when(jwtTokenProvider.createAccessToken(any(Authentication.class))).thenReturn("access-token");
+        when(jwtTokenProvider.createAccessToken(any(Authentication.class), any(UUID.class))).thenReturn("access-token");
         when(jwtTokenProvider.createRefreshToken(any(Authentication.class))).thenReturn("refresh-token");
         when(jwtTokenProvider.getAccessTokenValidityInMilliseconds()).thenReturn(60_000L);
         when(jwtTokenProvider.getRefreshTokenValidityInMilliseconds()).thenReturn(120_000L);
@@ -146,7 +146,7 @@ class SessionTokenServiceTest {
         service.issueTokens(staleAuthentication, user, LoginClientMetadata.empty());
 
         ArgumentCaptor<Authentication> captor = ArgumentCaptor.forClass(Authentication.class);
-        verify(jwtTokenProvider).createAccessToken(captor.capture());
+        verify(jwtTokenProvider).createAccessToken(captor.capture(), any(UUID.class));
         assertThat(((CustomUserDetails) captor.getValue().getPrincipal()).getSecurityVersion()).isEqualTo(4L);
     }
 
