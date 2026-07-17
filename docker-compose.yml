@@ -7,6 +7,11 @@ services:
     image: noviis-backend:local
     container_name: noviis-backend
     restart: unless-stopped
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     environment:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
       JWT_SECRET_DEV: ${JWT_SECRET_DEV:?Set JWT_SECRET_DEV to a Base64-encoded HS256 key}
@@ -31,6 +36,8 @@ services:
     volumes:
       - ./uploads:/app/uploads
       - ./logs/backend:/app/logs
+    tmpfs:
+      - /tmp
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8081/actuator/health | grep -q '\"status\":\"UP\"'"]
       interval: 15s
@@ -48,13 +55,22 @@ services:
     image: noviis-frontend:local
     container_name: noviis-frontend
     restart: unless-stopped
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     depends_on:
       backend:
         condition: service_healthy
     ports:
-      - "${FRONTEND_PORT:-5173}:80"
+      - "${FRONTEND_PORT:-5173}:8080"
+    tmpfs:
+      - /var/cache/nginx
+      - /var/run
+      - /tmp
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost/ | grep -q '<div id=\"app\"'"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/ | grep -q '<div id=\"app\"'"]
       interval: 15s
       timeout: 5s
       retries: 5

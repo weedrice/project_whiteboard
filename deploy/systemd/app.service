@@ -5,11 +5,14 @@ After=network-online.target
 
 [Service]
 Type=simple
-User=ubuntu
-Group=ubuntu
+User=noviis-app
+Group=noviis-app
 WorkingDirectory=/opt/app/backend
 EnvironmentFile=/etc/noviis/app.env
-ExecStart=/usr/bin/java -jar /opt/app/backend/app.jar
+Environment=SPRING_PROFILES_ACTIVE=prod
+ExecStartPre=/bin/sh -ec 'test -f /etc/noviis/app.env; test -s /etc/noviis/app.env'
+ExecStartPre=/bin/sh -ec 'test ! -L /etc/noviis/app.env; test "$$(stat -c %U:%G /etc/noviis/app.env)" = root:root; test "$$(stat -c %a /etc/noviis/app.env)" = 600'
+ExecStart=/usr/bin/java -jar /opt/app/backend/app.jar --spring.profiles.active=prod
 Restart=on-failure
 RestartSec=5
 SuccessExitStatus=143
@@ -20,6 +23,18 @@ SyslogIdentifier=noviis-app
 UMask=0027
 NoNewPrivileges=true
 PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+ReadWritePaths=/opt/app/logs /opt/app/uploads
 
 [Install]
 WantedBy=multi-user.target
