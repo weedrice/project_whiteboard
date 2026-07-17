@@ -29,7 +29,7 @@ final class FileDownloadResponseAssembler {
 
     static ResponseEntity<Resource> toResponse(FileDownloadResponse download, String ifNoneMatch) {
         if (isNotModified(download, ifNoneMatch)) {
-            return applyEmoticonCacheHeaders(ResponseEntity.status(HttpStatus.NOT_MODIFIED), download)
+            return applyCacheHeaders(ResponseEntity.status(HttpStatus.NOT_MODIFIED), download)
                     .build();
         }
 
@@ -44,15 +44,17 @@ final class FileDownloadResponseAssembler {
                 .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition.toString())
                 .header("X-Content-Type-Options", "nosniff");
 
-        return applyEmoticonCacheHeaders(responseBuilder, download)
+        return applyCacheHeaders(responseBuilder, download)
                 .body(new InputStreamResource(download.inputStream()));
     }
 
-    private static ResponseEntity.BodyBuilder applyEmoticonCacheHeaders(
+    private static ResponseEntity.BodyBuilder applyCacheHeaders(
             ResponseEntity.BodyBuilder builder,
             FileDownloadResponse download) {
         if (!download.freshnessCacheable() || download.entityTag() == null) {
-            return builder;
+            return builder
+                    .cacheControl(org.springframework.http.CacheControl.noStore().cachePrivate())
+                    .varyBy(HttpHeaders.AUTHORIZATION, HttpHeaders.COOKIE);
         }
         return builder
                 .cacheControl(org.springframework.http.CacheControl.maxAge(EMOTICON_FRESHNESS).cachePrivate())

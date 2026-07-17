@@ -91,7 +91,8 @@ class FileDownloadResponseAssemblerTest {
                 "*");
 
         assertThat(response.getStatusCode().value()).isEqualTo(200);
-        assertThat(response.getHeaders().getCacheControl()).isNullOrEmpty();
+        assertThat(response.getHeaders().getCacheControl()).contains("no-store").contains("private");
+        assertThat(response.getHeaders().getVary()).containsExactly("Authorization", "Cookie");
         assertThat(response.getHeaders().getETag()).isNull();
     }
 
