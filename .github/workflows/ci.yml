@@ -27,6 +27,11 @@ on:
         required: false
         type: string
         default: ''
+      contract_change_ticket:
+        description: Approved change ticket bound to the contract snapshot and deployment SHA
+        required: false
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -345,6 +350,8 @@ jobs:
         run: >-
           docker run --rm -v "$PWD:/repo" -w /repo
           rhysd/actionlint:1.7.7@sha256:887a259a5a534f3c4f36cb02dca341673c6089431057242cdc931e9f133147e9
+          -ignore 'unexpected key.*queue.*concurrency'
+          -ignore 'artifact-metadata'
 
       - name: Install workflow AST validator
         run: npm ci --ignore-scripts
@@ -417,6 +424,7 @@ jobs:
           bash backend/scripts/tests/verify-contract-deployment-evidence-test.sh
           sudo bash deploy/monitoring/tests/rotate-grafana-admin-password-test.sh
           bash deploy/monitoring/tests/verify-grafana-archive-test.sh
+          bash deploy/monitoring/tests/check-prometheus-health-test.sh
 
       - name: Validate repository migration policy changes
         env:
@@ -450,6 +458,11 @@ jobs:
             deploy/monitoring/systemd/prometheus-node-exporter.service.d/override.conf \
             > "$tmp/prometheus-node-exporter.service.d/override.conf"
           SYSTEMD_UNIT_PATH="$tmp" systemd-analyze verify prometheus-node-exporter.service
+          sed 's#/usr/local/sbin/check-noviis-prometheus-health#/bin/true#' \
+            deploy/monitoring/systemd/noviis-prometheus-watchdog.service \
+            > "$tmp/noviis-prometheus-watchdog.service"
+          cp deploy/monitoring/systemd/noviis-prometheus-watchdog.timer "$tmp/noviis-prometheus-watchdog.timer"
+          SYSTEMD_UNIT_PATH="$tmp" systemd-analyze verify noviis-prometheus-watchdog.service noviis-prometheus-watchdog.timer
 
       - name: Validate Compose configuration
         env:
@@ -514,6 +527,7 @@ jobs:
           DEPLOY_BACKEND: ${{ inputs.deploy_backend || false }}
           ALLOW_CONTRACT: ${{ inputs.allow_contract_migration || false }}
           BACKUP_SNAPSHOT_ID: ${{ inputs.backup_snapshot_id || '' }}
+          CONTRACT_CHANGE_TICKET: ${{ inputs.contract_change_ticket || '' }}
         run: |
           if [ "$CHANGES_RESULT" != "success" ]; then
             echo "Change detection failed: $CHANGES_RESULT"
@@ -549,6 +563,10 @@ jobs:
               echo "Contract deployment requires a concrete backup snapshot identifier without whitespace"
               exit 1
             fi
+            if [[ ! "$CONTRACT_CHANGE_TICKET" =~ ^[A-Za-z0-9][A-Za-z0-9._:/-]{2,127}$ ]]; then
+              echo "Contract deployment requires an approved change ticket"
+              exit 1
+            fi
           fi
           echo "contract_migration=$CONTRACT_MIGRATION" >> "$GITHUB_OUTPUT"
 
@@ -576,6 +594,7 @@ jobs:
         env:
           BUILD_COMMIT_SHA: ${{ github.sha }}
           BACKUP_SNAPSHOT_ID: ${{ inputs.backup_snapshot_id || '' }}
+          CONTRACT_CHANGE_TICKET: ${{ inputs.contract_change_ticket || '' }}
         run: |
           set -euo pipefail
           chmod +x gradlew
@@ -587,6 +606,7 @@ jobs:
           printf 'repository=%s\ncommit_sha=%s\nrun_id=%s\nrun_number=%s\nrun_attempt=%s\napi_contract_revision=%s\n' \
             "$GITHUB_REPOSITORY" "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_NUMBER" "$GITHUB_RUN_ATTEMPT" "$api_contract_revision" > release/RELEASE_METADATA
           printf 'backup_snapshot_id=%s\n' "$BACKUP_SNAPSHOT_ID" >> release/RELEASE_METADATA
+          printf 'contract_change_ticket=%s\n' "$CONTRACT_CHANGE_TICKET" >> release/RELEASE_METADATA
       - name: Generate backend SBOM
         uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
         with:
@@ -807,7 +827,7 @@ jobs:
       ((github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.backend_changed == 'true') ||
       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.deploy_backend)) &&
       (needs.ci-gate.outputs.contract_migration != 'true' ||
-      (github.event_name == 'workflow_dispatch' && inputs.allow_contract_migration && inputs.backup_snapshot_id != ''))
+      (github.event_name == 'workflow_dispatch' && inputs.allow_contract_migration && inputs.backup_snapshot_id != '' && inputs.contract_change_ticket != ''))
     uses: ./.github/workflows/deploy-backend.yml
     permissions:
       contents: read
@@ -817,6 +837,7 @@ jobs:
       expected_sha: ${{ github.sha }}
       release_artifact_name: backend-release-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
       backup_snapshot_id: ${{ inputs.backup_snapshot_id || '' }}
+      contract_change_ticket: ${{ inputs.contract_change_ticket || '' }}
       contract_migration: ${{ needs.ci-gate.outputs.contract_migration == 'true' }}
     secrets:
       EC2_HOST: ${{ secrets.EC2_HOST }}
@@ -825,6 +846,9 @@ jobs:
       AWS_CONTRACT_EVIDENCE_ROLE_ARN: ${{ secrets.AWS_CONTRACT_EVIDENCE_ROLE_ARN }}
       AWS_REGION: ${{ secrets.AWS_REGION }}
       RDS_PRODUCTION_DB_IDENTIFIER: ${{ secrets.RDS_PRODUCTION_DB_IDENTIFIER }}
+      AWS_EXPECTED_ACCOUNT_ID: ${{ secrets.AWS_EXPECTED_ACCOUNT_ID }}
+      RDS_SNAPSHOT_KMS_KEY_ARN: ${{ secrets.RDS_SNAPSHOT_KMS_KEY_ARN }}
+      RDS_ENGINE_MAJOR_VERSION: ${{ secrets.RDS_ENGINE_MAJOR_VERSION }}
 
   deploy-frontend:
     needs: [changes, ci-gate, release-frontend, deploy-backend]

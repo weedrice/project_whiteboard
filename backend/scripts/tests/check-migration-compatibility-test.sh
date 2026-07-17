@@ -256,6 +256,52 @@ if (cd "$fixture" && bash "$script" "$base" HEAD); then
 fi
 
 git -C "$fixture" reset -q --hard "$base"
+cat > "$fixture/backend/src/main/resources/db/migration/V2__safe_text.sql" <<'SQL'
+-- noviis:migration-phase expand
+-- REVOKE ALL ON sample FROM public;
+INSERT INTO sample (id) VALUES (1);
+SELECT 'ALTER TABLE sample DISABLE TRIGGER ALL';
+SQL
+git -C "$fixture" add .
+git -C "$fixture" commit -qm safe-text
+(cd "$fixture" && bash "$script" "$base" HEAD)
+
+for dangerous_statement in \
+  'REVOKE SELECT ON sample FROM public;' \
+  'ALTER TABLE sample OWNER TO other_owner;' \
+  'DROP OWNED BY legacy_role;' \
+  'ALTER TABLE sample DISABLE TRIGGER ALL;' \
+  'ALTER TABLE sample SET UNLOGGED;' \
+  'ALTER TABLE sample DETACH PARTITION sample_old;'; do
+  git -C "$fixture" reset -q --hard "$base"
+  {
+    printf '%s\n' '-- noviis:migration-phase expand'
+    printf '%s\n' "$dangerous_statement"
+  } > "$fixture/backend/src/main/resources/db/migration/V2__new_risky_operation.sql"
+  git -C "$fixture" add .
+  git -C "$fixture" commit -qm risky-operation
+  if (cd "$fixture" && bash "$script" "$base" HEAD); then
+    echo "Expected a newly classified risky statement to require a contract marker: $dangerous_statement" >&2
+    exit 1
+  fi
+done
+
+git -C "$fixture" reset -q --hard "$base"
+cat > "$fixture/backend/src/main/resources/db/migration/V2__hidden_contract_marker.sql" <<'SQL'
+-- noviis:migration-phase expand
+/*
+-- noviis:migration-phase contract
+*/
+DROP TABLE sample;
+SQL
+git -C "$fixture" add .
+git -C "$fixture" commit -qm hidden-contract-marker
+if (cd "$fixture" && bash "$script" "$base" HEAD); then
+  echo "Expected a contract marker hidden inside a block comment to be ignored" >&2
+  exit 1
+fi
+
+git -C "$fixture" reset -q --hard "$base"
 printf '%s\n' 'SELECT 1;' > "$fixture/backend/src/main/resources/db/migration/R__repeatable.sql"
 git -C "$fixture" add .
 git -C "$fixture" commit -qm repeatable

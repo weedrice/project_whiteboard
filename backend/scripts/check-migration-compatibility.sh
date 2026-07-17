@@ -5,7 +5,7 @@ base_ref="${1:-HEAD^}"
 head_ref="${2:-HEAD}"
 migration_dir="backend/src/main/resources/db/migration"
 contract_allowlist="docs/ops/applied-contract-migrations.txt"
-contract_marker='-- noviis:migration-phase contract'
+contract_marker_text='noviis:migration-phase contract'
 contract_migration=false
 repository="${CONTRACT_EVIDENCE_REPOSITORY:-weedrice/project_whiteboard}"
 verify_contract_runs="${VERIFY_CONTRACT_RUNS:-false}"
@@ -345,6 +345,75 @@ strip_sql_comments() {
   ' "$file"
 }
 
+extract_sql_line_comments() {
+  awk '
+    BEGIN { in_block=0; in_string=0; quote=sprintf("%c", 39) }
+    {
+      for (character_index=1; character_index<=length($0); character_index++) {
+        character=substr($0, character_index, 1)
+        next_character=substr($0, character_index + 1, 1)
+        if (in_block) {
+          if (character == "*" && next_character == "/") { in_block=0; character_index++ }
+          continue
+        }
+        if (in_string) {
+          if (character == quote) {
+            if (next_character == quote) character_index++
+            else in_string=0
+          }
+          continue
+        }
+        if (character == quote) in_string=1
+        else if (character == "/" && next_character == "*") { in_block=1; character_index++ }
+        else if (character == "-" && next_character == "-") {
+          comment=substr($0, character_index + 2)
+          sub(/^[[:space:]]+/, "", comment)
+          sub(/[[:space:]]+$/, "", comment)
+          print comment
+          break
+        }
+      }
+    }
+    END { if (in_block || in_string) exit 2 }
+  ' "$1"
+}
+
+has_exact_line_comment() {
+  extract_sql_line_comments "$1" | grep -Fqx -- "$2"
+}
+
+strip_sql_comments_and_strings() {
+  strip_sql_comments "$1" | awk '
+    BEGIN { in_string=0; quote=sprintf("%c", 39) }
+    {
+      output=""
+      for (character_index=1; character_index<=length($0); character_index++) {
+        character=substr($0, character_index, 1)
+        next_character=substr($0, character_index + 1, 1)
+        if (in_string) {
+          if (character == quote) {
+            if (next_character == quote) {
+              character_index++
+            } else {
+              in_string=0
+              output=output " "
+            }
+          }
+          continue
+        }
+        if (character == quote) {
+          in_string=1
+          output=output " "
+        } else {
+          output=output character
+        }
+      }
+      print output
+    }
+    END { if (in_string) exit 2 }
+  '
+}
+
 has_bound_not_null_backfills() {
   local file="$1"
   if grep -Eq '\$[A-Za-z0-9_]*\$' "$file"; then
@@ -454,39 +523,43 @@ for change in "${changes[@]}"; do
       ;;
   esac
   if [ "$status" = A ]; then
-    phase_count="$(grep -Ec '^-- noviis:migration-phase (expand|backfill|contract)$' "$file" || true)"
+    phase_count="$(extract_sql_line_comments "$file" | grep -Ec '^noviis:migration-phase (expand|backfill|contract)$' || true)"
     if [ "$phase_count" -ne 1 ]; then
       echo "New migration requires exactly one expand, backfill, or contract phase marker: $file" >&2
       exit 1
     fi
     validate_online_indexes "$file"
   fi
+  sql_for_risk="$(strip_sql_comments_and_strings "$file")" || {
+    echo "Migration SQL cannot be safely classified: $file" >&2
+    exit 1
+  }
   risky=false
-  if grep -Eiq '(^|[[:space:];])(DO[[:space:]]+\$|CALL[[:space:]]+|CREATE[[:space:]]+(OR[[:space:]]+REPLACE[[:space:]]+)?(FUNCTION|PROCEDURE)[[:space:]]+|EXECUTE[[:space:]]+)' "$file" \
+  if grep -Eiq '(^|[[:space:];])(DO[[:space:]]+\$|CALL[[:space:]]+|CREATE[[:space:]]+(OR[[:space:]]+REPLACE[[:space:]]+)?(FUNCTION|PROCEDURE)[[:space:]]+|EXECUTE[[:space:]]+)' <<< "$sql_for_risk" \
     || grep -Eq '\$[A-Za-z0-9_]*\$' "$file"; then
     risky=true
   fi
-  if grep -Eiq '(^|[[:space:];])(DROP[[:space:]]+(TABLE|COLUMN|VIEW|TYPE|DOMAIN|SCHEMA|SEQUENCE|FUNCTION|PROCEDURE|TRIGGER|POLICY|EXTENSION)|TRUNCATE([[:space:]]+TABLE)?|ALTER[[:space:]]+TABLE[^;]*(RENAME|DROP[[:space:]]+(COLUMN|CONSTRAINT|DEFAULT)|ALTER[[:space:]]+COLUMN[^;]*(TYPE|DROP[[:space:]]+DEFAULT))|ALTER[[:space:]]+TYPE[^;]*RENAME[[:space:]]+VALUE)' "$file"; then
+  if grep -Eiq '(^|[[:space:];])(DROP[[:space:]]+(TABLE|COLUMN|VIEW|TYPE|DOMAIN|SCHEMA|SEQUENCE|FUNCTION|PROCEDURE|TRIGGER|POLICY|EXTENSION|OWNED)|TRUNCATE([[:space:]]+TABLE)?|REVOKE([[:space:]]+|$)|ALTER[[:space:]]+(TABLE|VIEW|MATERIALIZED[[:space:]]+VIEW|SEQUENCE|FUNCTION|PROCEDURE|SCHEMA|DATABASE)[^;]*OWNER[[:space:]]+TO|ALTER[[:space:]]+TABLE[^;]*(RENAME|DROP[[:space:]]+(COLUMN|CONSTRAINT|DEFAULT)|ALTER[[:space:]]+COLUMN[^;]*(TYPE|DROP[[:space:]]+DEFAULT)|DISABLE[[:space:]]+TRIGGER|SET[[:space:]]+UNLOGGED|DETACH[[:space:]]+PARTITION)|ALTER[[:space:]]+TYPE[^;]*RENAME[[:space:]]+VALUE)' <<< "$sql_for_risk"; then
     risky=true
   fi
-  if grep -Eiq '(^|[[:space:];])DROP[[:space:]]+INDEX' "$file" \
-    && ! grep -Fqx -- "$contract_marker" "$file" \
+  if grep -Eiq '(^|[[:space:];])DROP[[:space:]]+INDEX' <<< "$sql_for_risk" \
+    && ! has_exact_line_comment "$file" "$contract_marker_text" \
     && ! validate_redundant_index_drops "$file"; then
     risky=true
   fi
-  if grep -Eiq 'SET[[:space:]]+NOT[[:space:]]+NULL' "$file" && ! has_bound_not_null_backfills "$file"; then
+  if grep -Eiq 'SET[[:space:]]+NOT[[:space:]]+NULL' <<< "$sql_for_risk" && ! has_bound_not_null_backfills "$file"; then
     risky=true
   fi
-  if grep -Eiq 'DELETE[[:space:]]+FROM' "$file" && ! has_only_bounded_deletes "$file"; then
+  if grep -Eiq 'DELETE[[:space:]]+FROM' <<< "$sql_for_risk" && ! has_only_bounded_deletes "$file"; then
     risky=true
   fi
 
-  if [ "$risky" = true ] && ! grep -Fqx -- "$contract_marker" "$file"; then
+  if [ "$risky" = true ] && ! has_exact_line_comment "$file" "$contract_marker_text"; then
       echo "Risky migration requires an explicit contract phase marker: $file" >&2
       exit 1
   fi
 
-  if grep -Fqx -- "$contract_marker" "$file"; then
+  if has_exact_line_comment "$file" "$contract_marker_text"; then
     validate_contract_metadata "$file"
     contract_migration=true
   fi
@@ -525,12 +598,17 @@ while IFS= read -r contract_file; do
   if ! awk 'NF && $1 !~ /^#/ { print $1 }' "$contract_allowlist" | grep -Fqx -- "$migration_name"; then
     contract_migration=true
   fi
-done < <(grep -Fl -- "$contract_marker" "$migration_dir"/V*.sql 2>/dev/null || true)
+done < <(
+  for candidate in "$migration_dir"/V*.sql; do
+    [ -f "$candidate" ] || continue
+    has_exact_line_comment "$candidate" "$contract_marker_text" && printf '%s\n' "$candidate"
+  done
+)
 
 for change in "${changes[@]}"; do
   status="${change%%$'\t'*}"
   file="${change#*$'\t'}"
-  if [ "$status" = A ] && grep -Fqx -- "$contract_marker" "$file"; then
+  if [ "$status" = A ] && has_exact_line_comment "$file" "$contract_marker_text"; then
     migration_name="${file#"$migration_dir/"}"
     if awk 'NF && $1 !~ /^#/ { print $1 }' "$contract_allowlist" | grep -Fqx -- "$migration_name"; then
       echo "A contract migration cannot be marked applied in the same change that introduces it: $file" >&2

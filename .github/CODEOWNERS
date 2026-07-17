@@ -3,7 +3,13 @@
 /backend/scripts/ @weedrice
 /.github/CODEOWNERS @weedrice
 /.github/workflows/ @weedrice
+/.github/dependabot.yml @weedrice
+/backend/gradle/wrapper/ @weedrice
+/backend/gradle/verification-metadata.xml @weedrice
+/backend/gradle.lockfile @weedrice
+/frontend/package-lock.json @weedrice
 /deploy/scripts/ @weedrice
+/deploy/release-freshness-paths.txt @weedrice
 /deploy/monitoring/ @weedrice
 /deploy/sudoers/ @weedrice
 /deploy/systemd/ @weedrice
@@ -11,4 +17,5 @@
 /docs/ops/applied-contract-migrations.txt @weedrice
 /docs/ops/contract-evidence/ @weedrice
 /docs/ops/database-migration-policy.md @weedrice
+/docs/ops/api-contract-revision.txt @weedrice
 /docs/ops/postgres-backup-restore.md @weedrice

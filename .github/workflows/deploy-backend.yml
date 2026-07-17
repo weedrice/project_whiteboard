@@ -17,6 +17,10 @@ on:
         required: false
         type: string
         default: ''
+      contract_change_ticket:
+        required: false
+        type: string
+        default: ''
       contract_migration:
         required: false
         type: boolean
@@ -33,6 +37,12 @@ on:
       AWS_REGION:
         required: false
       RDS_PRODUCTION_DB_IDENTIFIER:
+        required: false
+      AWS_EXPECTED_ACCOUNT_ID:
+        required: false
+      RDS_SNAPSHOT_KMS_KEY_ARN:
+        required: false
+      RDS_ENGINE_MAJOR_VERSION:
         required: false
 
 concurrency:
@@ -60,7 +70,7 @@ jobs:
           ref: ${{ inputs.expected_sha }}
           persist-credentials: false
 
-      - name: Configure read-only AWS credentials for contract evidence
+      - name: Configure narrowly scoped AWS credentials for contract evidence
         uses: aws-actions/configure-aws-credentials@56d6a583f00f6bad6d19d91d53a7bc3b8143d0e9 # v5.1.1
         with:
           role-to-assume: ${{ secrets.AWS_CONTRACT_EVIDENCE_ROLE_ARN }}
@@ -72,7 +82,11 @@ jobs:
           SNAPSHOT_ID: ${{ inputs.backup_snapshot_id }}
           PRODUCTION_DB_IDENTIFIER: ${{ secrets.RDS_PRODUCTION_DB_IDENTIFIER }}
           EXPECTED_SHA: ${{ inputs.expected_sha }}
-        run: bash backend/scripts/verify-contract-deployment-evidence.sh "$SNAPSHOT_ID" "$PRODUCTION_DB_IDENTIFIER" "$EXPECTED_SHA"
+          CHANGE_TICKET: ${{ inputs.contract_change_ticket }}
+          AWS_EXPECTED_ACCOUNT_ID: ${{ secrets.AWS_EXPECTED_ACCOUNT_ID }}
+          RDS_SNAPSHOT_KMS_KEY_ARN: ${{ secrets.RDS_SNAPSHOT_KMS_KEY_ARN }}
+          RDS_ENGINE_MAJOR_VERSION: ${{ secrets.RDS_ENGINE_MAJOR_VERSION }}
+        run: bash backend/scripts/verify-contract-deployment-evidence.sh "$SNAPSHOT_ID" "$PRODUCTION_DB_IDENTIFIER" "$EXPECTED_SHA" "$CHANGE_TICKET"
 
   deploy:
     needs: contract-evidence
@@ -92,6 +106,7 @@ jobs:
         with:
           ref: ${{ inputs.expected_sha }}
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Download verified backend artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -103,6 +118,7 @@ jobs:
         env:
           EXPECTED_SHA: ${{ inputs.expected_sha }}
           BACKUP_SNAPSHOT_ID: ${{ inputs.backup_snapshot_id }}
+          CONTRACT_CHANGE_TICKET: ${{ inputs.contract_change_ticket }}
         run: |
           set -euo pipefail
           (cd release-artifact && sha256sum --strict --check SHA256SUMS)
@@ -113,6 +129,9 @@ jobs:
           grep -Fqx -- "run_attempt=$GITHUB_RUN_ATTEMPT" release-artifact/RELEASE_METADATA
           if [ -n "$BACKUP_SNAPSHOT_ID" ]; then
             grep -Fqx -- "backup_snapshot_id=$BACKUP_SNAPSHOT_ID" release-artifact/RELEASE_METADATA
+          fi
+          if [ -n "$CONTRACT_CHANGE_TICKET" ]; then
+            grep -Fqx -- "contract_change_ticket=$CONTRACT_CHANGE_TICKET" release-artifact/RELEASE_METADATA
           fi
 
       - name: Verify backend GitHub artifact attestation
@@ -249,3 +268,30 @@ jobs:
         run: |
           echo "::warning title=Backend cleanup debt::The verified backend release remains active; incoming cleanup requires operator follow-up."
           echo "Backend incoming cleanup failed after activation of ${{ inputs.expected_sha }}." >> "$GITHUB_STEP_SUMMARY"
+
+  consume-contract-evidence:
+    needs: [contract-evidence, deploy]
+    if: ${{ inputs.contract_migration && needs.contract-evidence.result == 'success' && needs.deploy.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Configure narrowly scoped AWS credentials
+        uses: aws-actions/configure-aws-credentials@56d6a583f00f6bad6d19d91d53a7bc3b8143d0e9 # v5.1.1
+        with:
+          role-to-assume: ${{ secrets.AWS_CONTRACT_EVIDENCE_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          role-session-name: noviis-contract-consume-${{ github.run_id }}
+      - name: Mark contract snapshot consumed by this deployment
+        env:
+          SNAPSHOT_ID: ${{ inputs.backup_snapshot_id }}
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+        run: |
+          set -euo pipefail
+          snapshot_arn="$(aws rds describe-db-snapshots --db-snapshot-identifier "$SNAPSHOT_ID" --snapshot-type manual --query 'DBSnapshots[0].DBSnapshotArn' --output text)"
+          [[ "$snapshot_arn" == arn:aws*:rds:*:*:snapshot:* ]]
+          aws rds add-tags-to-resource --resource-name "$snapshot_arn" \
+            --tags "Key=noviis:contract-consumed,Value=$EXPECTED_SHA"

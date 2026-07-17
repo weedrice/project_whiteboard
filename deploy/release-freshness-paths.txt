@@ -1,0 +1,22 @@
+# Canonical path boundary used to decide whether an older verified release is still deployable.
+# Format: common|backend|frontend followed by a repository-relative shell glob.
+common .github/CODEOWNERS
+common .github/workflows/ci.yml
+common deploy/release-freshness-paths.txt
+common deploy/scripts/download-attestation-with-retry.sh
+common deploy/scripts/record-cleanup-debt.sh
+common deploy/scripts/verify-deployment-freshness.sh
+common deploy/scripts/verify-active-backend-release.sh
+common deploy/scripts/verify-release-provenance.sh
+common deploy/sudoers/noviis-deploy
+common docs/ops/api-contract-revision.txt
+backend .github/workflows/deploy-backend.yml
+backend backend/**
+backend deploy/scripts/activate-backend-release.sh
+backend deploy/scripts/verify-backend-start-state.sh
+backend deploy/systemd/**
+frontend .github/workflows/deploy-frontend.yml
+frontend .github/workflows/seo-monitor.yml
+frontend frontend/**
+frontend deploy/scripts/activate-frontend-release.sh
+frontend deploy/scripts/verify-active-frontend-release.sh

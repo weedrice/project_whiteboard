@@ -44,6 +44,12 @@ Grafana 관리 비밀번호는 `/etc/noviis/monitoring.env`와 root-only 회전 
 
 workflow 기본 권한은 `contents: read`이며 attestation, OIDC, artifact metadata 권한은 필요한 release/deploy job에만 부여한다. PR에서 repository script를 실행하는 PostgreSQL·ops job에는 `actions: read`나 `deployments: read`를 부여하지 않는다. 적용 완료 contract evidence의 GitHub API 검증은 보호된 `main`의 push 또는 수동 실행에서만 별도 job으로 수행한다. third-party Action은 검토한 release의 full commit SHA로 고정한다. workflow, activation script, sudoers, migration 정책 변경은 CODEOWNERS review 대상이다.
 
+배포 freshness 경계의 source of truth는 `deploy/release-freshness-paths.txt`다. workflow가 참조하는 activation·verification·provenance 파일이 이 manifest에서 빠지면 ops CI가 실패한다. Contract 배포는 snapshot ID뿐 아니라 SHA에 결합된 change ticket을 요구하며, production checkout은 Git credential을 보존하지 않는다.
+
+Contract evidence OIDC role은 production snapshot describe·tag 조회와 검증 완료 snapshot에 `noviis:contract-consumed` 태그를 추가하는 권한만 가진다. 일반 backend activation job에는 AWS OIDC 권한을 전달하지 않는다.
+
+Pinned actionlint 1.7.7은 GitHub의 2026 `concurrency.queue`와 `artifact-metadata` permission schema를 아직 알지 못하므로 CI는 그 두 exact parser diagnostics만 무시한다. 별도 YAML AST 계약이 `queue: max`, 최소 permission, main-only deploy, secret allowlist를 검증한다. actionlint가 두 필드를 지원하는 버전으로 갱신되면 ignore도 같은 변경에서 제거한다.
+
 주요 timeout은 change detection·gate·SEO preflight 5분, contract evidence 10분, backend test 45분, frontend test 60분, PostgreSQL·ops 30분, release 20–25분, deploy 30분, SEO 검증 15분·제출 10분이다. YAML에서 값을 바꾸면 이 문서도 같은 변경에서 갱신한다.
 
 ## Production environment와 Secrets
@@ -61,6 +67,9 @@ contract evidence에 필요한 secret:
 - `AWS_CONTRACT_EVIDENCE_ROLE_ARN`
 - `AWS_REGION`
 - `RDS_PRODUCTION_DB_IDENTIFIER`
+- `AWS_EXPECTED_ACCOUNT_ID`
+- `RDS_SNAPSHOT_KMS_KEY_ARN`
+- `RDS_ENGINE_MAJOR_VERSION`
 
 SEO 제출은 아래 Google credential 묶음 또는 custom provider 묶음 중 최소 하나가 필요하다. Google refresh credential 세 값은 모두 설정하거나 모두 비워야 한다.
 

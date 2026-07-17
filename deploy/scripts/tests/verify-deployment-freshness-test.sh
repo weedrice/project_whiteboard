@@ -10,6 +10,7 @@ git -C "$fixture" init -q
 git -C "$fixture" config user.email test@example.com
 git -C "$fixture" config user.name test
 mkdir -p "$fixture/docs" "$fixture/frontend/src" "$fixture/backend/src" "$fixture/deploy/scripts"
+cp "$project_root/deploy/release-freshness-paths.txt" "$fixture/deploy/release-freshness-paths.txt"
 printf 'base\n' > "$fixture/README.md"
 git -C "$fixture" add .
 git -C "$fixture" commit -qm base
@@ -55,6 +56,11 @@ done
 
 if (cd "$fixture" && "$verifier" "$common" "$base" backend); then
   echo "A non-ancestor latest commit must fail closed" >&2
+  exit 1
+fi
+
+if (cd "$fixture" && NOVIIS_FRESHNESS_MANIFEST=missing.txt "$verifier" "$base" "$docs" backend); then
+  echo "A missing canonical manifest must fail closed" >&2
   exit 1
 fi
 

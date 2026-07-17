@@ -12,6 +12,10 @@ function load(relativePath) {
   return document.toJS()
 }
 
+function loadText(relativePath) {
+  return fs.readFileSync(path.join(root, relativePath), 'utf8')
+}
+
 function assert(condition, message) {
   if (!condition) throw new Error(message)
 }
@@ -32,10 +36,74 @@ function containsSecretInheritance(value) {
     : false
 }
 
+function freshnessEntries() {
+  return loadText('deploy/release-freshness-paths.txt')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith('#'))
+    .map((line) => {
+      const fields = line.split(/\s+/)
+      assert(fields.length === 2, `invalid freshness manifest entry: ${line}`)
+      assert(['common', 'backend', 'frontend'].includes(fields[0]), `invalid freshness scope: ${fields[0]}`)
+      return { scope: fields[0], pattern: fields[1] }
+    })
+}
+
+function globMatches(pattern, value) {
+  const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&')
+    .replaceAll('**', '\u0000')
+    .replaceAll('*', '[^/]*')
+    .replaceAll('\u0000', '.*')
+  return new RegExp(`^${escaped}$`).test(value)
+}
+
+function isFreshnessBound(entries, component, file) {
+  return entries.some(({ scope, pattern }) => (scope === 'common' || scope === component) && globMatches(pattern, file))
+}
+
+function referencedReleaseFiles(workflow) {
+  const text = JSON.stringify(workflow)
+  return [...text.matchAll(/(?:hashFiles\('|(?:bash|sudo)\s+)(deploy\/(?:scripts|systemd|sudoers)\/[^'"\s})]+)/g)]
+    .map((match) => match[1])
+    .filter((value) => !value.includes('/tests/'))
+}
+
+function assertCheckoutDoesNotPersistCredentials(workflow, workflowName) {
+  for (const [jobName, job] of Object.entries(workflow.jobs ?? {})) {
+    if (job.environment !== 'production') continue
+    for (const step of job.steps ?? []) {
+      if (typeof step.uses === 'string' && step.uses.startsWith('actions/checkout@')) {
+        assert(step.with?.['persist-credentials'] === false, `${workflowName}/${jobName} checkout persists credentials`)
+      }
+    }
+  }
+}
+
+function assertExactKeys(actual, expected, message) {
+  const keys = Object.keys(actual ?? {}).sort()
+  assert(JSON.stringify(keys) === JSON.stringify([...expected].sort()), `${message}: ${keys.join(', ')}`)
+}
+
 const ci = load('.github/workflows/ci.yml')
 const backend = load('.github/workflows/deploy-backend.yml')
 const frontend = load('.github/workflows/deploy-frontend.yml')
 const seo = load('.github/workflows/seo-monitor.yml')
+const freshness = freshnessEntries()
+
+for (const required of [
+  'deploy/release-freshness-paths.txt',
+  'deploy/scripts/verify-deployment-freshness.sh',
+  'deploy/scripts/verify-release-provenance.sh',
+  'deploy/sudoers/noviis-deploy',
+  '.github/workflows/ci.yml',
+]) {
+  assert(isFreshnessBound(freshness, 'backend', required) && isFreshnessBound(freshness, 'frontend', required), `${required} is missing from the common freshness boundary`)
+}
+for (const [component, workflow] of [['backend', backend], ['frontend', frontend]]) {
+  for (const file of referencedReleaseFiles(workflow)) {
+    assert(isFreshnessBound(freshness, component, file), `${component} workflow references an unbounded release file: ${file}`)
+  }
+}
 
 for (const [name, workflow, group] of [
   ['backend deploy', backend, 'deploy-production'],
@@ -80,6 +148,26 @@ assert(stepRuns(frontend.jobs.deploy, 'verify-deployment-freshness.sh') && stepR
 assert(ci.jobs['deploy-backend'].with.release_artifact_name.includes('${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}'), 'backend artifact identity is not attempt-specific')
 assert(ci.jobs['deploy-frontend'].with.release_artifact_name.includes('${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}'), 'frontend artifact identity is not attempt-specific')
 assert(!containsSecretInheritance(ci) && !containsSecretInheritance(backend) && !containsSecretInheritance(frontend), 'reusable workflows may not inherit every secret')
+
+assertCheckoutDoesNotPersistCredentials(backend, 'backend deploy')
+assertCheckoutDoesNotPersistCredentials(frontend, 'frontend deploy')
+assertCheckoutDoesNotPersistCredentials(seo, 'SEO monitor')
+assertExactKeys(backend.on?.workflow_call?.secrets, [
+  'EC2_HOST', 'EC2_SSH_KEY', 'EC2_HOST_FINGERPRINT', 'AWS_CONTRACT_EVIDENCE_ROLE_ARN',
+  'AWS_REGION', 'RDS_PRODUCTION_DB_IDENTIFIER', 'AWS_EXPECTED_ACCOUNT_ID',
+  'RDS_SNAPSHOT_KMS_KEY_ARN', 'RDS_ENGINE_MAJOR_VERSION',
+], 'backend reusable workflow secret allowlist changed')
+assertExactKeys(frontend.on?.workflow_call?.secrets, [
+  'EC2_HOST', 'EC2_SSH_KEY', 'EC2_HOST_FINGERPRINT', 'GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN',
+  'GOOGLE_SEARCH_CONSOLE_CLIENT_ID', 'GOOGLE_SEARCH_CONSOLE_CLIENT_SECRET',
+  'GOOGLE_SEARCH_CONSOLE_REFRESH_TOKEN', 'CUSTOM_SITEMAP_SUBMIT_URL', 'CUSTOM_SITEMAP_SUBMIT_ALLOWED_ORIGINS',
+], 'frontend reusable workflow secret allowlist changed')
+
+for (const [name, releaseJob] of [['backend', ci.jobs['deploy-backend']], ['frontend', ci.jobs['deploy-frontend']]]) {
+  assert((releaseJob.needs ?? []).includes('ci-gate'), `${name} deployment bypasses ci-gate`)
+  assert((releaseJob.needs ?? []).some((need) => need === `release-${name}`), `${name} deployment bypasses verified release artifacts`)
+  assert(String(releaseJob.if).includes("github.ref == 'refs/heads/main'"), `${name} production deployment is not main-only`)
+}
 
 const preflight = seo.jobs['seo-preflight']
 assert(stepRuns(preflight, 'refs/heads/main'), 'manual SEO runs must be restricted to main')
