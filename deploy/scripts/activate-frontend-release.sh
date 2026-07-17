@@ -23,6 +23,7 @@ ACTIVE_STATE_FILE="${ACTIVE_STATE_FILE:-/var/lib/noviis/deployment-state/fronten
 ACTIVE_STATE_OWNER="${ACTIVE_STATE_OWNER:-root:root}"
 ACTIVE_STATE_MODE="${ACTIVE_STATE_MODE:-600}"
 ROLLBACK_AUTH_FILE="${ROLLBACK_AUTH_FILE:-/var/lib/noviis/deployment-state/frontend-rollback.allow}"
+GENERATION_HIGH_WATER_FILE="${GENERATION_HIGH_WATER_FILE:-/var/lib/noviis/deployment-state/frontend-generation.state}"
 CLEANUP_DEBT_WRITER="${CLEANUP_DEBT_WRITER:-/usr/local/sbin/record-noviis-cleanup-debt}"
 
 for numeric_limit in ARCHIVE_MAX_FILES ARCHIVE_MAX_SINGLE_FILE_BYTES ARCHIVE_MAX_TOTAL_BYTES ARCHIVE_FREE_SPACE_HEADROOM_BYTES; do
@@ -80,23 +81,65 @@ write_active_state() {
   mv -Tf "$state_tmp" "$ACTIVE_STATE_FILE"
 }
 
+write_generation_high_water() {
+  local repository="$1" commit_sha="$2" run_id="$3" run_number="$4" run_attempt="$5" envelope_sha256="$6"
+  local state_dir state_tmp
+  [[ "$repository" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ && "$commit_sha" =~ ^[0-9a-f]{40}$ \
+    && "$run_id" =~ ^[0-9]+$ && "$run_number" =~ ^[0-9]+$ && "$run_attempt" =~ ^[0-9]+$ \
+    && "$envelope_sha256" =~ ^[0-9a-f]{64}$ ]] || return 1
+  state_dir="$(dirname "$GENERATION_HIGH_WATER_FILE")"
+  install -d -m 0700 "$state_dir"
+  state_tmp="$(mktemp "$state_dir/.frontend-generation.XXXXXX")"
+  printf 'repository=%s\ncommit_sha=%s\nrun_id=%s\nrun_number=%s\nrun_attempt=%s\nrelease_envelope_sha256=%s\n' \
+    "$repository" "$commit_sha" "$run_id" "$run_number" "$run_attempt" "$envelope_sha256" > "$state_tmp"
+  chmod 0600 "$state_tmp"
+  mv -Tf "$state_tmp" "$GENERATION_HIGH_WATER_FILE"
+}
+
 authorize_release_generation() {
-  local target_run_number="$1" target_attempt="$2" current_run_number="$3" current_attempt="$4"
+  local target_repository="$1" target_commit="$2" target_run_id="$3" target_run_number="$4" target_attempt="$5" target_envelope="$6"
+  local current_run_number=0 current_attempt=0 authorization_id issued_at expires_at reason now line_count
+  if [ -f "$GENERATION_HIGH_WATER_FILE" ]; then
+    test ! -L "$GENERATION_HIGH_WATER_FILE"
+    test "$(stat -c %U:%G "$GENERATION_HIGH_WATER_FILE")" = "$ACTIVE_STATE_OWNER"
+    test "$(stat -c %a "$GENERATION_HIGH_WATER_FILE")" = 600
+    current_run_number="$(sed -n 's/^run_number=//p' "$GENERATION_HIGH_WATER_FILE")"
+    current_attempt="$(sed -n 's/^run_attempt=//p' "$GENERATION_HIGH_WATER_FILE")"
+    [[ "$current_run_number" =~ ^[0-9]+$ && "$current_attempt" =~ ^[0-9]+$ ]] || return 1
+  fi
   if [ "$target_run_number" -gt "$current_run_number" ] \
     || { [ "$target_run_number" -eq "$current_run_number" ] && [ "$target_attempt" -gt "$current_attempt" ]; }; then
+    write_generation_high_water "$target_repository" "$target_commit" "$target_run_id" "$target_run_number" "$target_attempt" "$target_envelope"
     return 0
   fi
   if [ ! -f "$ROLLBACK_AUTH_FILE" ] || [ -L "$ROLLBACK_AUTH_FILE" ] \
     || [ "$(stat -c %U:%G "$ROLLBACK_AUTH_FILE")" != "$ACTIVE_STATE_OWNER" ] \
-    || [ "$(stat -c %a "$ROLLBACK_AUTH_FILE")" != 600 ] \
+    || [ "$(stat -c %a "$ROLLBACK_AUTH_FILE")" != 600 ]; then
+    echo "Release generation is not newer and no valid root break-glass authorization exists" >&2
+    return 1
+  fi
+  line_count="$(wc -l < "$ROLLBACK_AUTH_FILE")"
+  authorization_id="$(sed -n 's/^authorization_id=//p' "$ROLLBACK_AUTH_FILE" 2>/dev/null || true)"
+  issued_at="$(sed -n 's/^issued_at=//p' "$ROLLBACK_AUTH_FILE" 2>/dev/null || true)"
+  expires_at="$(sed -n 's/^expires_at=//p' "$ROLLBACK_AUTH_FILE" 2>/dev/null || true)"
+  reason="$(sed -n 's/^reason=//p' "$ROLLBACK_AUTH_FILE" 2>/dev/null || true)"
+  now="$(date +%s)"
+  if [ "$line_count" != 10 ] \
+    || ! grep -Fqx -- "repository=$target_repository" "$ROLLBACK_AUTH_FILE" \
+    || ! grep -Fqx -- "target_commit=$target_commit" "$ROLLBACK_AUTH_FILE" \
+    || ! grep -Fqx -- "target_run_id=$target_run_id" "$ROLLBACK_AUTH_FILE" \
     || ! grep -Fqx -- "target_run_number=$target_run_number" "$ROLLBACK_AUTH_FILE" \
     || ! grep -Fqx -- "target_run_attempt=$target_attempt" "$ROLLBACK_AUTH_FILE" \
-    || ! grep -Eq '^reason=.{8,256}$' "$ROLLBACK_AUTH_FILE"; then
+    || ! grep -Fqx -- "release_envelope_sha256=$target_envelope" "$ROLLBACK_AUTH_FILE" \
+    || [[ ! "$authorization_id" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{7,127}$ ]] \
+    || [[ ! "$issued_at" =~ ^[0-9]+$ || ! "$expires_at" =~ ^[0-9]+$ ]] \
+    || [ "$issued_at" -gt "$now" ] || [ "$expires_at" -le "$now" ] || [ $((expires_at - issued_at)) -gt 3600 ] \
+    || [ "${#reason}" -lt 8 ] || [ "${#reason}" -gt 256 ]; then
     echo "Release generation is not newer and no valid root break-glass authorization exists" >&2
     return 1
   fi
   rm -f -- "$ROLLBACK_AUTH_FILE"
-  echo "Root break-glass authorization consumed for frontend release generation $target_run_number/$target_attempt" >&2
+  echo "Root break-glass authorization $authorization_id consumed for frontend release generation $target_run_number/$target_attempt" >&2
 }
 
 verify_frontend_commit() {
@@ -203,14 +246,19 @@ release_run_id="$(sed -n 's/^run_id=//p' "$staging_dir/RELEASE_METADATA")"
 release_run_number="$(sed -n 's/^run_number=//p' "$staging_dir/RELEASE_METADATA")"
 release_run_attempt="$(sed -n 's/^run_attempt=//p' "$staging_dir/RELEASE_METADATA")"
 api_contract_revision="$(sed -n 's/^api_contract_revision=//p' "$staging_dir/RELEASE_METADATA")"
+release_repository="$(sed -n 's/^repository=//p' "$staging_dir/RELEASE_METADATA")"
+[ -n "$release_repository" ] || release_repository="legacy/local"
 [[ "$release_run_id" =~ ^[1-9][0-9]*$ ]] || { echo "Frontend release run id is invalid" >&2; exit 1; }
 [[ "$release_run_number" =~ ^[1-9][0-9]*$ ]] || { echo "Frontend release run number is invalid" >&2; exit 1; }
 [[ "$release_run_attempt" =~ ^[1-9][0-9]*$ ]] || { echo "Frontend release run attempt is invalid" >&2; exit 1; }
 [[ "$api_contract_revision" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$ ]] \
   || { echo "Frontend API contract revision is invalid" >&2; exit 1; }
+[[ "$release_repository" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] \
+  || { echo "Frontend release repository is invalid" >&2; exit 1; }
 if [ -n "$EXPECTED_RUN_ID" ]; then test "$release_run_id" = "$EXPECTED_RUN_ID"; fi
 if [ -n "$EXPECTED_RUN_NUMBER" ]; then test "$release_run_number" = "$EXPECTED_RUN_NUMBER"; fi
 if [ -n "$EXPECTED_RUN_ATTEMPT" ]; then test "$release_run_attempt" = "$EXPECTED_RUN_ATTEMPT"; fi
+release_envelope_digest="$(sha256sum "$staging_dir/RELEASE_ENVELOPE" | awk '{print $1}')"
 if [ -f "$ACTIVE_STATE_FILE" ]; then
   test ! -L "$ACTIVE_STATE_FILE"
   test "$(stat -c %U:%G "$ACTIVE_STATE_FILE")" = "$ACTIVE_STATE_OWNER"
@@ -218,13 +266,18 @@ if [ -f "$ACTIVE_STATE_FILE" ]; then
   current_run_id="$(sed -n 's/^run_id=//p' "$ACTIVE_STATE_FILE")"
   current_run_number="$(sed -n 's/^run_number=//p' "$ACTIVE_STATE_FILE")"
   current_run_attempt="$(sed -n 's/^run_attempt=//p' "$ACTIVE_STATE_FILE")"
+  current_commit="$(sed -n 's/^commit_sha=//p' "$ACTIVE_STATE_FILE")"
+  current_envelope="$(sed -n 's/^release_envelope_sha256=//p' "$ACTIVE_STATE_FILE")"
   [[ "$current_run_id" =~ ^[0-9]+$ ]] || { echo "Current frontend run id is invalid" >&2; exit 1; }
   [[ "$current_run_number" =~ ^[0-9]+$ ]] || { echo "Current frontend run number is invalid" >&2; exit 1; }
   [[ "$current_run_attempt" =~ ^[0-9]+$ ]] || { echo "Current frontend run attempt is invalid" >&2; exit 1; }
-  authorize_release_generation "$release_run_number" "$release_run_attempt" "$current_run_number" "$current_run_attempt"
+  [[ "$current_commit" =~ ^[0-9a-f]{40}$ && "$current_envelope" =~ ^[0-9a-f]{64}$ ]] \
+    || { echo "Current frontend release identity is invalid" >&2; exit 1; }
+  if [ ! -f "$GENERATION_HIGH_WATER_FILE" ] && [ "$current_run_number" -gt 0 ]; then
+    write_generation_high_water "legacy/local" "$current_commit" "$current_run_id" "$current_run_number" \
+      "$current_run_attempt" "$current_envelope"
+  fi
 fi
-release_envelope_digest="$(sha256sum "$staging_dir/RELEASE_ENVELOPE" | awk '{print $1}')"
-
 while IFS= read -r member; do
   case "$member" in /*|../*|*/../*|*/..) echo "Unsafe archive path: $member" >&2; exit 1 ;; esac
 done < <(tar -tzf "$staging_dir/frontend-release.tar.gz")
@@ -304,6 +357,9 @@ if [ -n "$previous_target" ]; then
   [[ "$previous_commit" =~ ^[0-9a-f]{40}$ ]] || { echo "Existing frontend commit is invalid" >&2; exit 1; }
   write_state "$release_real/PREVIOUS_COMMIT" "$previous_commit"
 fi
+
+authorize_release_generation "$release_repository" "$release_commit" "$release_run_id" "$release_run_number" \
+  "$release_run_attempt" "$release_envelope_digest"
 
 sudo ln -sfn "$site_dir" "$WEB_ROOT.next"
 sudo mv -Tf "$WEB_ROOT.next" "$WEB_ROOT"

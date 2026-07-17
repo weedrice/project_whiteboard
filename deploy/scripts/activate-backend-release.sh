@@ -25,7 +25,11 @@ EXPECTED_RUN_ATTEMPT="${4:-${EXPECTED_RUN_ATTEMPT:-}}"
 EXPECTED_RUN_NUMBER="${5:-${EXPECTED_RUN_NUMBER:-}}"
 STABILITY_SUCCESS_COUNT="${STABILITY_SUCCESS_COUNT:-3}"
 STABILITY_DELAY_SECONDS="${STABILITY_DELAY_SECONDS:-5}"
+PENDING_LEASE_SECONDS="${PENDING_LEASE_SECONDS:-600}"
 ROLLBACK_AUTH_FILE="${ROLLBACK_AUTH_FILE:-/var/lib/noviis/deployment-state/backend-rollback.allow}"
+GENERATION_HIGH_WATER_FILE="${GENERATION_HIGH_WATER_FILE:-/var/lib/noviis/deployment-state/backend-generation.state}"
+GENERATION_STATE_OWNER="${GENERATION_STATE_OWNER:-root:root}"
+BACKEND_ACTIVATION_LEASE_FILE="${BACKEND_ACTIVATION_LEASE_FILE:-/run/lock/noviis-backend-activation.lease}"
 CLEANUP_DEBT_WRITER="${CLEANUP_DEBT_WRITER:-/usr/local/sbin/record-noviis-cleanup-debt}"
 
 command -v flock >/dev/null 2>&1 || { echo "flock is required for activation locking" >&2; exit 69; }
@@ -66,6 +70,9 @@ write_active_state() {
   local envelope_sha256="${6:-$jar_sha256}"
   local api_contract_revision="${7:-legacy}"
   local phase="${8:-stable}"
+  local activation_nonce="${9:-none}"
+  local activation_issued_at="${10:-0}"
+  local activation_expires_at="${11:-0}"
   local state_tmp
   [[ "$commit_sha" =~ ^[0-9a-f]{40}$ ]] || return 1
   [[ "$jar_sha256" =~ ^[0-9a-f]{64}$ ]] || return 1
@@ -75,9 +82,19 @@ write_active_state() {
   [[ "$envelope_sha256" =~ ^[0-9a-f]{64}$ ]] || return 1
   [[ "$api_contract_revision" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$ ]] || return 1
   [[ "$phase" = pending || "$phase" = stable ]] || return 1
+  if [ "$phase" = pending ]; then
+    [[ "$activation_nonce" =~ ^[0-9a-f]{32}$ ]] || return 1
+    [[ "$activation_issued_at" =~ ^[0-9]+$ && "$activation_expires_at" =~ ^[0-9]+$ ]] || return 1
+    [ "$activation_expires_at" -gt "$activation_issued_at" ] || return 1
+  else
+    activation_nonce=none
+    activation_issued_at=0
+    activation_expires_at=0
+  fi
   state_tmp="$(mktemp "$release_root_real/.backend-active-state.XXXXXX")" || return 1
-  if ! printf 'commit_sha=%s\njar_sha256=%s\nrun_id=%s\nrun_number=%s\nrun_attempt=%s\nrelease_envelope_sha256=%s\napi_contract_revision=%s\nphase=%s\n' \
-      "$commit_sha" "$jar_sha256" "$run_id" "$run_number" "$run_attempt" "$envelope_sha256" "$api_contract_revision" "$phase" > "$state_tmp" \
+  if ! printf 'commit_sha=%s\njar_sha256=%s\nrun_id=%s\nrun_number=%s\nrun_attempt=%s\nrelease_envelope_sha256=%s\napi_contract_revision=%s\nphase=%s\nactivation_nonce=%s\nactivation_issued_at=%s\nactivation_expires_at=%s\n' \
+      "$commit_sha" "$jar_sha256" "$run_id" "$run_number" "$run_attempt" "$envelope_sha256" "$api_contract_revision" "$phase" \
+      "$activation_nonce" "$activation_issued_at" "$activation_expires_at" > "$state_tmp" \
     || ! chmod 0600 "$state_tmp" \
     || ! sudo install -o root -g root -m 0600 "$state_tmp" "$ACTIVE_STATE_FILE"; then
     rm -f -- "$state_tmp"
@@ -86,32 +103,95 @@ write_active_state() {
   rm -f -- "$state_tmp"
 }
 
+write_pending_active_state() {
+  local now expires nonce lease_dir lease_tmp
+  now="$(date +%s)"
+  expires=$((now + PENDING_LEASE_SECONDS))
+  nonce="$(tr -d '-' < /proc/sys/kernel/random/uuid | cut -c1-32)"
+  exec 8>&- 2>/dev/null || true
+  lease_dir="$(dirname "$BACKEND_ACTIVATION_LEASE_FILE")"
+  sudo install -d -o root -g root -m 0755 "$lease_dir"
+  lease_tmp="$(mktemp "$release_root_real/.backend-lease.XXXXXX")"
+  printf '%s\n' "$nonce" > "$lease_tmp"
+  chmod 0600 "$lease_tmp"
+  sudo install -o root -g root -m 0600 "$lease_tmp" "$BACKEND_ACTIVATION_LEASE_FILE"
+  rm -f -- "$lease_tmp"
+  exec 8<>"$BACKEND_ACTIVATION_LEASE_FILE"
+  flock -n 8 || return 1
+  write_active_state "$1" "$2" "$3" "$4" "$5" "$6" "$7" pending "$nonce" "$now" "$expires"
+}
+
+release_pending_lease() {
+  exec 8>&- 2>/dev/null || true
+  sudo rm -f -- "$BACKEND_ACTIVATION_LEASE_FILE" 2>/dev/null || true
+}
+
 read_state_value() {
   local file="$1"
   local key="$2"
   sudo sed -n "s/^${key}=//p" "$file"
 }
 
+write_generation_high_water() {
+  local repository="$1" commit_sha="$2" run_id="$3" run_number="$4" run_attempt="$5" envelope_sha256="$6"
+  local directory temporary
+  [[ "$repository" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ && "$commit_sha" =~ ^[0-9a-f]{40}$ \
+    && "$run_id" =~ ^[0-9]+$ && "$run_number" =~ ^[0-9]+$ && "$run_attempt" =~ ^[0-9]+$ \
+    && "$envelope_sha256" =~ ^[0-9a-f]{64}$ ]] || return 1
+  directory="$(dirname "$GENERATION_HIGH_WATER_FILE")"
+  sudo install -d -o root -g root -m 0700 "$directory"
+  temporary="$(mktemp "$release_root_real/.backend-generation.XXXXXX")"
+  printf 'repository=%s\ncommit_sha=%s\nrun_id=%s\nrun_number=%s\nrun_attempt=%s\nrelease_envelope_sha256=%s\n' \
+    "$repository" "$commit_sha" "$run_id" "$run_number" "$run_attempt" "$envelope_sha256" > "$temporary"
+  chmod 0600 "$temporary"
+  sudo install -o root -g root -m 0600 "$temporary" "$GENERATION_HIGH_WATER_FILE"
+  rm -f -- "$temporary"
+}
+
 authorize_release_generation() {
-  local target_run_number="$1"
-  local target_attempt="$2"
-  local current_run_number="$3"
-  local current_attempt="$4"
+  local target_repository="$1" target_commit="$2" target_run_id="$3" target_run_number="$4" target_attempt="$5" target_envelope="$6"
+  local current_run_number=0 current_attempt=0 authorization_id issued_at expires_at reason now line_count
+  if sudo test -f "$GENERATION_HIGH_WATER_FILE"; then
+    sudo test ! -L "$GENERATION_HIGH_WATER_FILE"
+    [ "$(sudo stat -c %U:%G "$GENERATION_HIGH_WATER_FILE")" = "$GENERATION_STATE_OWNER" ]
+    [ "$(sudo stat -c %a "$GENERATION_HIGH_WATER_FILE")" = 600 ]
+    current_run_number="$(read_state_value "$GENERATION_HIGH_WATER_FILE" run_number)"
+    current_attempt="$(read_state_value "$GENERATION_HIGH_WATER_FILE" run_attempt)"
+    [[ "$current_run_number" =~ ^[0-9]+$ && "$current_attempt" =~ ^[0-9]+$ ]] || return 1
+  fi
   if [ "$target_run_number" -gt "$current_run_number" ] \
     || { [ "$target_run_number" -eq "$current_run_number" ] && [ "$target_attempt" -gt "$current_attempt" ]; }; then
+    write_generation_high_water "$target_repository" "$target_commit" "$target_run_id" "$target_run_number" "$target_attempt" "$target_envelope"
     return 0
   fi
   if ! sudo test -f "$ROLLBACK_AUTH_FILE" || sudo test -L "$ROLLBACK_AUTH_FILE" \
-    || [ "$(sudo stat -c %U:%G "$ROLLBACK_AUTH_FILE")" != root:root ] \
-    || [ "$(sudo stat -c %a "$ROLLBACK_AUTH_FILE")" != 600 ] \
+    || [ "$(sudo stat -c %U:%G "$ROLLBACK_AUTH_FILE")" != "$GENERATION_STATE_OWNER" ] \
+    || [ "$(sudo stat -c %a "$ROLLBACK_AUTH_FILE")" != 600 ]; then
+    echo "Release generation is not newer and no valid root break-glass authorization exists" >&2
+    return 1
+  fi
+  line_count="$(sudo wc -l "$ROLLBACK_AUTH_FILE" | awk '{print $1}')"
+  authorization_id="$(read_state_value "$ROLLBACK_AUTH_FILE" authorization_id 2>/dev/null || true)"
+  issued_at="$(read_state_value "$ROLLBACK_AUTH_FILE" issued_at 2>/dev/null || true)"
+  expires_at="$(read_state_value "$ROLLBACK_AUTH_FILE" expires_at 2>/dev/null || true)"
+  reason="$(read_state_value "$ROLLBACK_AUTH_FILE" reason 2>/dev/null || true)"
+  now="$(date +%s)"
+  if [ "$line_count" != 10 ] \
+    || ! sudo grep -Fqx -- "repository=$target_repository" "$ROLLBACK_AUTH_FILE" \
+    || ! sudo grep -Fqx -- "target_commit=$target_commit" "$ROLLBACK_AUTH_FILE" \
+    || ! sudo grep -Fqx -- "target_run_id=$target_run_id" "$ROLLBACK_AUTH_FILE" \
     || ! sudo grep -Fqx -- "target_run_number=$target_run_number" "$ROLLBACK_AUTH_FILE" \
     || ! sudo grep -Fqx -- "target_run_attempt=$target_attempt" "$ROLLBACK_AUTH_FILE" \
-    || ! sudo grep -Eq '^reason=.{8,256}$' "$ROLLBACK_AUTH_FILE"; then
+    || ! sudo grep -Fqx -- "release_envelope_sha256=$target_envelope" "$ROLLBACK_AUTH_FILE" \
+    || [[ ! "$authorization_id" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{7,127}$ ]] \
+    || [[ ! "$issued_at" =~ ^[0-9]+$ || ! "$expires_at" =~ ^[0-9]+$ ]] \
+    || [ "$issued_at" -gt "$now" ] || [ "$expires_at" -le "$now" ] || [ $((expires_at - issued_at)) -gt 3600 ] \
+    || [ "${#reason}" -lt 8 ] || [ "${#reason}" -gt 256 ]; then
     echo "Release generation is not newer and no valid root break-glass authorization exists" >&2
     return 1
   fi
   sudo rm -f -- "$ROLLBACK_AUTH_FILE"
-  echo "Root break-glass authorization consumed for backend release generation $target_run_number/$target_attempt" >&2
+  echo "Root break-glass authorization $authorization_id consumed for backend release generation $target_run_number/$target_attempt" >&2
 }
 
 prune_diagnostics() {
@@ -189,9 +269,18 @@ wait_for_health() {
 
 wait_for_stability() {
   local expected_commit="$1"
-  local success
+  local success initial_pid initial_restarts initial_started current_pid current_restarts current_started
+  initial_pid="$(sudo systemctl show "$SERVICE_NAME" --property=MainPID --value)"
+  initial_restarts="$(sudo systemctl show "$SERVICE_NAME" --property=NRestarts --value)"
+  initial_started="$(sudo systemctl show "$SERVICE_NAME" --property=ExecMainStartTimestampMonotonic --value)"
+  [[ "$initial_pid" =~ ^[1-9][0-9]*$ && "$initial_restarts" =~ ^[0-9]+$ && "$initial_started" =~ ^[1-9][0-9]*$ ]] || return 1
   for success in $(seq 1 "$STABILITY_SUCCESS_COUNT"); do
     wait_for_health "$expected_commit" || return 1
+    current_pid="$(sudo systemctl show "$SERVICE_NAME" --property=MainPID --value)"
+    current_restarts="$(sudo systemctl show "$SERVICE_NAME" --property=NRestarts --value)"
+    current_started="$(sudo systemctl show "$SERVICE_NAME" --property=ExecMainStartTimestampMonotonic --value)"
+    [ "$current_pid" = "$initial_pid" ] && [ "$current_restarts" = "$initial_restarts" ] \
+      && [ "$current_started" = "$initial_started" ] || return 1
     if [ "$success" -lt "$STABILITY_SUCCESS_COUNT" ]; then sleep "$STABILITY_DELAY_SECONDS"; fi
   done
 }
@@ -257,8 +346,8 @@ rollback() {
     fi
     [[ "$previous_envelope_digest" =~ ^[0-9a-f]{64}$ ]] || previous_envelope_digest="$state_digest"
     if [ "$restore_status" -eq 0 ]; then
-      write_active_state "$previous_commit" "$state_digest" "$previous_run_id" "$previous_run_attempt" "$previous_run_number" \
-        "${previous_envelope_digest:-$state_digest}" "$previous_api_contract_revision" pending
+      write_pending_active_state "$previous_commit" "$state_digest" "$previous_run_id" "$previous_run_attempt" "$previous_run_number" \
+        "${previous_envelope_digest:-$state_digest}" "$previous_api_contract_revision"
       restore_status=$?
     fi
     if [ "$restore_status" -eq 0 ]; then
@@ -296,6 +385,7 @@ on_exit() {
   if [ "$status" -ne 0 ]; then
     rollback "$status" || status=$?
   fi
+  release_pending_lease
   exit "$status"
 }
 
@@ -334,6 +424,7 @@ release_run_id="${EXPECTED_RUN_ID:-0}"
 release_run_attempt="${EXPECTED_RUN_ATTEMPT:-0}"
 release_run_number="${EXPECTED_RUN_NUMBER:-0}"
 api_contract_revision="legacy"
+release_repository="legacy/local"
 release_envelope_digest=""
 if [ -n "$EXPECTED_RUN_ID" ] || [ -n "$EXPECTED_RUN_ATTEMPT" ] || [ -n "$EXPECTED_RUN_NUMBER" ]; then
   [[ "$EXPECTED_RUN_ID" =~ ^[1-9][0-9]*$ ]] || { echo "Expected run id is invalid" >&2; exit 64; }
@@ -343,6 +434,9 @@ if [ -n "$EXPECTED_RUN_ID" ] || [ -n "$EXPECTED_RUN_ATTEMPT" ] || [ -n "$EXPECTE
   grep -Fqx -- "run_attempt=$EXPECTED_RUN_ATTEMPT" "$staging_dir/RELEASE_METADATA"
   grep -Fqx -- "run_number=$EXPECTED_RUN_NUMBER" "$staging_dir/RELEASE_METADATA"
   api_contract_revision="$(sed -n 's/^api_contract_revision=//p' "$staging_dir/RELEASE_METADATA")"
+  release_repository="$(sed -n 's/^repository=//p' "$staging_dir/RELEASE_METADATA")"
+  [ -n "$release_repository" ] || release_repository="legacy/local"
+  [[ "$release_repository" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || { echo "Release repository is invalid" >&2; exit 1; }
   [[ "$api_contract_revision" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$ ]] \
     || { echo "Release API contract revision is invalid" >&2; exit 1; }
 fi
@@ -408,7 +502,10 @@ if [ -f "$APP_DIR/app.jar" ]; then
     [[ "$previous_api_contract_revision" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$ ]] || previous_api_contract_revision=legacy
   fi
   if [ -n "$EXPECTED_RUN_ID" ]; then
-    authorize_release_generation "$release_run_number" "$release_run_attempt" "$previous_run_number" "$previous_run_attempt"
+    if ! sudo test -f "$GENERATION_HIGH_WATER_FILE" && [ "$previous_run_number" -gt 0 ]; then
+      write_generation_high_water "legacy/local" "$previous_commit" "$previous_run_id" "$previous_run_number" \
+        "$previous_run_attempt" "$previous_envelope_digest"
+    fi
   fi
   sudo install -m 0644 "$APP_DIR/app.jar" "$APP_DIR/app.jar.rollback"
   rollback_state_tmp="$(mktemp "$release_root_real/.backend-rollback-state.XXXXXX")"
@@ -419,6 +516,11 @@ if [ -f "$APP_DIR/app.jar" ]; then
   sudo install -m 0600 "$rollback_state_tmp" "$ROLLBACK_STATE_FILE"
   rm -f -- "$rollback_state_tmp"
   rollback_available=true
+fi
+
+if [ -n "$EXPECTED_RUN_ID" ]; then
+  authorize_release_generation "$release_repository" "$EXPECTED_COMMIT" "$release_run_id" "$release_run_number" \
+    "$release_run_attempt" "$release_envelope_digest"
 fi
 
 sudo install -m 0644 "${jars[0]}" "$APP_DIR/app.jar.next"
@@ -433,8 +535,8 @@ sudo mv "$APP_DIR/app.jar.next" "$APP_DIR/app.jar"
 activated=true
 active_digest="$(sudo sha256sum "$APP_DIR/app.jar" | awk '{print $1}')"
 if [[ "$EXPECTED_COMMIT" =~ ^[0-9a-f]{40}$ ]]; then
-  write_active_state "$EXPECTED_COMMIT" "$active_digest" "$release_run_id" "$release_run_attempt" "$release_run_number" \
-    "$release_envelope_digest" "$api_contract_revision" pending
+  write_pending_active_state "$EXPECTED_COMMIT" "$active_digest" "$release_run_id" "$release_run_attempt" "$release_run_number" \
+    "$release_envelope_digest" "$api_contract_revision"
 fi
 failure_phase="start-service"
 sudo systemctl daemon-reload
@@ -446,6 +548,7 @@ if [[ "$EXPECTED_COMMIT" =~ ^[0-9a-f]{40}$ ]]; then
   write_active_state "$EXPECTED_COMMIT" "$active_digest" "$release_run_id" "$release_run_attempt" "$release_run_number" \
     "$release_envelope_digest" "$api_contract_revision" stable
 fi
+release_pending_lease
 activation_verified=true
 activated_sha="${EXPECTED_COMMIT:-$release_id}"
 completed=true

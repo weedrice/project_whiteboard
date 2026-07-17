@@ -70,6 +70,8 @@ check_max_size PROVENANCE_BUNDLE.jsonl 16777216
 check_max_size RELEASE_METADATA 16384
 grep -Fqx -- "commit_sha=$expected_commit" "$release_real/RELEASE_METADATA" \
   || fail "release metadata commit does not match"
+grep -Fqx -- "repository=$REPOSITORY" "$release_real/RELEASE_METADATA" \
+  || fail "release metadata repository does not match"
 run_id="$(sed -n 's/^run_id=//p' "$release_real/RELEASE_METADATA")"
 run_number="$(sed -n 's/^run_number=//p' "$release_real/RELEASE_METADATA")"
 run_attempt="$(sed -n 's/^run_attempt=//p' "$release_real/RELEASE_METADATA")"

@@ -4,6 +4,8 @@ import {
     isPrivateAddress,
     parseAllowedOrigins,
     resolveCustomSubmitTarget,
+    submitPinnedHttps,
+    validateSubmissionConfiguration,
     validateGoogleCredentialConfiguration,
     validateCustomSubmitUrl
 } from '../submit-search-engines.mjs'
@@ -68,6 +70,15 @@ describe('search engine submit endpoint validation', () => {
         })).toBe(true)
     })
 
+    it('fails required preflight without a provider and validates an allowlisted custom provider', () => {
+        expect(() => validateSubmissionConfiguration({ SEO_SUBMIT_REQUIRED: 'true' })).toThrow('at least one')
+        expect(validateSubmissionConfiguration({
+            SEO_SUBMIT_REQUIRED: 'true',
+            CUSTOM_SITEMAP_SUBMIT_URL: 'https://submit.example/ping',
+            CUSTOM_SITEMAP_SUBMIT_ALLOWED_ORIGINS: 'https://submit.example'
+        })).toEqual({ googleConfigured: false, customConfigured: true })
+    })
+
     it.each([
         ['http://submit.example/ping', 'https://submit.example'],
         ['https://user:secret@submit.example/ping', 'https://submit.example'],
@@ -83,5 +94,58 @@ describe('search engine submit endpoint validation', () => {
             'https://submit.example',
             async () => [{ address: '93.184.216.34' }, { address: '127.0.0.1' }]
         )).rejects.toThrow('private or invalid')
+    })
+})
+
+describe('pinned HTTPS transport', () => {
+    const target = {
+        name: 'custom-submit',
+        pinned: { address: '93.184.216.34', family: 4 },
+        request: { method: 'POST', url: 'https://submit.example/ping' }
+    }
+
+    it('preserves the TLS hostname and supports scalar and all DNS lookup contracts', async () => {
+        let requestOptions
+        const requestFactory = (_url, options, onResponse) => {
+            requestOptions = options
+            queueMicrotask(() => onResponse({ statusCode: 204, statusMessage: '', resume() {} }))
+            return {
+                setTimeout() {},
+                on() {},
+                end() {}
+            }
+        }
+
+        await submitPinnedHttps(target, requestFactory, 10)
+        expect(requestOptions.servername).toBe('submit.example')
+        expect(requestOptions.headers.Host).toBe('submit.example')
+        await expect(new Promise((resolve, reject) => requestOptions.lookup('submit.example', {}, (error, address, family) => {
+            if (error) reject(error)
+            else resolve({ address, family })
+        }))).resolves.toEqual({ address: '93.184.216.34', family: 4 })
+        await expect(new Promise((resolve, reject) => requestOptions.lookup('submit.example', { all: true }, (error, addresses) => {
+            if (error) reject(error)
+            else resolve(addresses)
+        }))).resolves.toEqual([{ address: '93.184.216.34', family: 4 }])
+    })
+
+    it('destroys a timed-out request and rejects redirects', async () => {
+        let timeoutHandler
+        let errorHandler
+        const timeoutFactory = () => ({
+            setTimeout(_timeout, handler) { timeoutHandler = handler },
+            on(event, handler) { if (event === 'error') errorHandler = handler },
+            end() {},
+            destroy(error) { errorHandler(error) }
+        })
+        const timeoutPromise = submitPinnedHttps(target, timeoutFactory, 1)
+        timeoutHandler()
+        await expect(timeoutPromise).rejects.toThrow('timeout')
+
+        const redirectFactory = (_url, _options, onResponse) => {
+            queueMicrotask(() => onResponse({ statusCode: 302, statusMessage: 'Found', resume() {} }))
+            return { setTimeout() {}, on() {}, end() {} }
+        }
+        await expect(submitPinnedHttps(target, redirectFactory, 10)).rejects.toThrow('HTTP 302 Found')
     })
 })

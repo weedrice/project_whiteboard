@@ -20,6 +20,9 @@ printf 'test=true\n' > "$env_file"
 chmod 0600 "$env_file"
 touch "$log_dir/whiteboard-active.log" "$log_dir/whiteboard-error.log"
 printf 'active\n' > "$state_dir/service"
+printf '100\n' > "$state_dir/main-pid"
+printf '0\n' > "$state_dir/restarts"
+printf '1000\n' > "$state_dir/start-monotonic"
 
 cat > "$provenance_verifier" <<'EOF'
 #!/usr/bin/env bash
@@ -74,6 +77,14 @@ case "$command_name" in
   is-active|status)
     grep -qx active "$STATE_DIR/service"
     ;;
+  show)
+    case " $* " in
+      *" --property=MainPID --value "*) cat "$STATE_DIR/main-pid" ;;
+      *" --property=NRestarts --value "*) cat "$STATE_DIR/restarts" ;;
+      *" --property=ExecMainStartTimestampMonotonic --value "*) cat "$STATE_DIR/start-monotonic" ;;
+      *) printf 'ActiveState=active\nNRestarts=%s\n' "$(cat "$STATE_DIR/restarts")" ;;
+    esac
+    ;;
 esac
 EOF
 
@@ -84,6 +95,12 @@ EOF
 
 cat > "$fake_bin/curl" <<'EOF'
 #!/usr/bin/env bash
+if [ -f "$STATE_DIR/arm_unexpected_restart" ] && [ ! -f "$STATE_DIR/restart_injected" ]; then
+  touch "$STATE_DIR/restart_injected"
+  printf '%s\n' "$(( $(cat "$STATE_DIR/restarts") + 1 ))" > "$STATE_DIR/restarts"
+  printf '%s\n' "$(( $(cat "$STATE_DIR/main-pid") + 1 ))" > "$STATE_DIR/main-pid"
+  printf '%s\n' "$(( $(cat "$STATE_DIR/start-monotonic") + 1 ))" > "$STATE_DIR/start-monotonic"
+fi
 if [ -f "$STATE_DIR/fail_new_health" ] && grep -q '^new$' "$APP_DIR/app.jar"; then
   exit 1
 fi
@@ -141,6 +158,10 @@ invoke_activation() {
   PATH="$fake_bin:$PATH" \
   PROVENANCE_VERIFIER="$provenance_verifier" \
   DEPLOY_LOCK_FILE="$fixture/noviis-deploy.lock" \
+  GENERATION_HIGH_WATER_FILE="$fixture/backend-generation.state" \
+  GENERATION_STATE_OWNER="$(stat -c %U:%G "$fixture")" \
+  ROLLBACK_AUTH_FILE="$fixture/backend-rollback.allow" \
+  BACKEND_ACTIVATION_LEASE_FILE="$fixture/backend-activation.lease" \
   HEALTH_ATTEMPTS=2 \
   HEALTH_DELAY_SECONDS=0 \
   STABILITY_SUCCESS_COUNT=2 \
@@ -179,6 +200,18 @@ success_output="$(run_activation "$success_release")"
 grep -Fqx 'ACTIVATED_SHA=success' <<< "$success_output"
 grep -qx new "$app_dir/app.jar"
 
+printf 'old\n' > "$app_dir/app.jar"
+restart_release="$incoming_root/unexpected-restart"
+mkdir -p "$restart_release"
+printf 'new\n' > "$restart_release/app.jar"
+touch "$state_dir/arm_unexpected_restart"
+if run_activation "$restart_release"; then
+  echo "Expected a restart during the stability soak to fail activation" >&2
+  exit 1
+fi
+grep -qx old "$app_dir/app.jar"
+rm "$state_dir/arm_unexpected_restart" "$state_dir/restart_injected"
+
 state_seed_release="$incoming_root/state-seed"
 mkdir -p "$state_seed_release"
 printf 'new\n' > "$state_seed_release/app.jar"
@@ -202,6 +235,30 @@ EOF
 printf 'envelope\n' > "$generation_release/RELEASE_ENVELOPE"
 (cd "$generation_release" && sha256sum app.jar RELEASE_METADATA RELEASE_ENVELOPE > SHA256SUMS)
 invoke_activation "$generation_release" bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb 5000 1 20 >/dev/null
+grep -Fqx 'phase=stable' "$app_dir/app.jar.active.state"
+grep -Fqx 'activation_nonce=none' "$app_dir/app.jar.active.state"
+grep -Fqx 'activation_issued_at=0' "$app_dir/app.jar.active.state"
+grep -Fqx 'activation_expires_at=0' "$app_dir/app.jar.active.state"
+
+rm "$app_dir/app.jar"
+lost_jar_replay="$incoming_root/lost-jar-replay-18"
+mkdir -p "$lost_jar_replay"
+printf 'new\n' > "$lost_jar_replay/app.jar"
+cat > "$lost_jar_replay/RELEASE_METADATA" <<'EOF'
+commit_sha=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+run_id=4800
+run_number=18
+run_attempt=1
+api_contract_revision=test-v1
+EOF
+printf 'lost jar envelope\n' > "$lost_jar_replay/RELEASE_ENVELOPE"
+(cd "$lost_jar_replay" && sha256sum app.jar RELEASE_METADATA RELEASE_ENVELOPE > SHA256SUMS)
+if invoke_activation "$lost_jar_replay" bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb 4800 1 18; then
+  echo "Expected high-water enforcement when the active JAR is missing" >&2
+  exit 1
+fi
+test ! -e "$app_dir/app.jar"
+printf 'new\n' > "$app_dir/app.jar"
 
 replay_release="$incoming_root/replay-larger-run-id"
 mkdir -p "$replay_release"
@@ -220,6 +277,54 @@ if invoke_activation "$replay_release" bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb 
   exit 1
 fi
 grep -qx new "$app_dir/app.jar"
+
+rollback_release="$incoming_root/authorized-rollback-10"
+mkdir -p "$rollback_release"
+printf 'new\n' > "$rollback_release/app.jar"
+cat > "$rollback_release/RELEASE_METADATA" <<'EOF'
+commit_sha=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+run_id=4000
+run_number=10
+run_attempt=1
+api_contract_revision=test-v1
+EOF
+printf 'rollback envelope\n' > "$rollback_release/RELEASE_ENVELOPE"
+(cd "$rollback_release" && sha256sum app.jar RELEASE_METADATA RELEASE_ENVELOPE > SHA256SUMS)
+rollback_envelope_digest="$(sha256sum "$rollback_release/RELEASE_ENVELOPE" | awk '{print $1}')"
+now="$(date +%s)"
+cat > "$fixture/backend-rollback.allow" <<EOF
+repository=legacy/local
+target_commit=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+target_run_id=4000
+target_run_number=10
+target_run_attempt=1
+release_envelope_sha256=$rollback_envelope_digest
+authorization_id=rollback-test-001
+issued_at=$now
+expires_at=$((now + 300))
+reason=verified incident rollback
+EOF
+chmod 0600 "$fixture/backend-rollback.allow"
+invoke_activation "$rollback_release" bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb 4000 1 10 >/dev/null
+test ! -e "$fixture/backend-rollback.allow"
+grep -Fqx 'run_number=20' "$fixture/backend-generation.state"
+
+middle_release="$incoming_root/replay-middle-15"
+mkdir -p "$middle_release"
+printf 'new\n' > "$middle_release/app.jar"
+cat > "$middle_release/RELEASE_METADATA" <<'EOF'
+commit_sha=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+run_id=4500
+run_number=15
+run_attempt=1
+api_contract_revision=test-v1
+EOF
+printf 'middle envelope\n' > "$middle_release/RELEASE_ENVELOPE"
+(cd "$middle_release" && sha256sum app.jar RELEASE_METADATA RELEASE_ENVELOPE > SHA256SUMS)
+if invoke_activation "$middle_release" bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb 4500 1 15; then
+  echo "Expected a generation between the rollback target and high-water to be rejected" >&2
+  exit 1
+fi
 
 touch "$state_dir/fail_current_info"
 unhealthy_recovery_release="$incoming_root/unhealthy-recovery"

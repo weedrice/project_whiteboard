@@ -397,6 +397,7 @@ jobs:
       - name: Run deployment script fixtures
         run: |
           bash deploy/scripts/tests/activate-backend-release-test.sh
+          bash deploy/scripts/tests/verify-backend-start-state-test.sh
           bash deploy/scripts/tests/activate-frontend-release-test.sh
           bash deploy/scripts/tests/verify-active-frontend-release-test.sh
           bash deploy/scripts/tests/verify-release-provenance-test.sh
@@ -572,8 +573,8 @@ jobs:
           install -m 0644 build/libs/app.jar release/app.jar
           api_contract_revision="$(tr -d '\r\n' < ../docs/ops/api-contract-revision.txt)"
           [[ "$api_contract_revision" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$ ]]
-          printf 'commit_sha=%s\nrun_id=%s\nrun_number=%s\nrun_attempt=%s\napi_contract_revision=%s\n' \
-            "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_NUMBER" "$GITHUB_RUN_ATTEMPT" "$api_contract_revision" > release/RELEASE_METADATA
+          printf 'repository=%s\ncommit_sha=%s\nrun_id=%s\nrun_number=%s\nrun_attempt=%s\napi_contract_revision=%s\n' \
+            "$GITHUB_REPOSITORY" "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_NUMBER" "$GITHUB_RUN_ATTEMPT" "$api_contract_revision" > release/RELEASE_METADATA
           printf 'backup_snapshot_id=%s\n' "$BACKUP_SNAPSHOT_ID" >> release/RELEASE_METADATA
       - name: Generate backend SBOM
         uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
@@ -618,6 +619,7 @@ jobs:
         run: |
           set -euo pipefail
           sha256sum --strict --check SHA256SUMS
+          grep -Fqx -- "repository=$GITHUB_REPOSITORY" RELEASE_METADATA
           grep -Fqx -- "commit_sha=$GITHUB_SHA" RELEASE_METADATA
           grep -Fqx -- "run_id=$GITHUB_RUN_ID" RELEASE_METADATA
           grep -Fqx -- "run_number=$GITHUB_RUN_NUMBER" RELEASE_METADATA
@@ -693,8 +695,8 @@ jobs:
           printf '%s\n' "$api_contract_revision" > dist/.noviis-api-contract
           npm run seo:verify:dist
           tar -C dist -czf frontend-release.tar.gz .
-          printf 'commit_sha=%s\nrun_id=%s\nrun_number=%s\nrun_attempt=%s\napi_contract_revision=%s\n' \
-            "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_NUMBER" "$GITHUB_RUN_ATTEMPT" "$api_contract_revision" > RELEASE_METADATA
+          printf 'repository=%s\ncommit_sha=%s\nrun_id=%s\nrun_number=%s\nrun_attempt=%s\napi_contract_revision=%s\n' \
+            "$GITHUB_REPOSITORY" "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_NUMBER" "$GITHUB_RUN_ATTEMPT" "$api_contract_revision" > RELEASE_METADATA
       - name: Generate frontend SBOM
         uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
         with:
@@ -743,6 +745,7 @@ jobs:
         run: |
           set -euo pipefail
           sha256sum --strict --check SHA256SUMS
+          grep -Fqx -- "repository=$GITHUB_REPOSITORY" RELEASE_METADATA
           grep -Fqx -- "commit_sha=$GITHUB_SHA" RELEASE_METADATA
           grep -Fqx -- "run_id=$GITHUB_RUN_ID" RELEASE_METADATA
           grep -Fqx -- "run_number=$GITHUB_RUN_NUMBER" RELEASE_METADATA

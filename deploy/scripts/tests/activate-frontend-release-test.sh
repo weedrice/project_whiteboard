@@ -90,6 +90,8 @@ run_activation() {
   DEPLOY_LOCK_FILE="$fixture/noviis-deploy.lock" \
   ACTIVE_STATE_FILE="$fixture/frontend.active.state" \
   ACTIVE_STATE_OWNER="$(stat -c %U:%G "$fixture")" \
+  GENERATION_HIGH_WATER_FILE="$fixture/frontend-generation.state" \
+  ROLLBACK_AUTH_FILE="$fixture/frontend-rollback.allow" \
   CLEANUP_DEBT_WRITER=/bin/true \
   PATH="$fake_bin:$PATH" \
   bash "$script" "$1" "${3:-activate}" "$2"
@@ -172,6 +174,15 @@ fi
 test "$(readlink -f "$web_root")" = "$release_root/old/site"
 rm "$fixture/fail_health"
 run_activation "$release_root/retry" "$retry_commit" rollback
+test "$(readlink -f "$web_root")" = "$release_root/old/site"
+
+middle_release="$(make_release middle-after-rollback "$new_commit")"
+sed -i 's/^run_number=.*/run_number=5/' "$middle_release/RELEASE_METADATA"
+(cd "$middle_release" && sha256sum frontend-release.tar.gz RELEASE_METADATA > SHA256SUMS)
+if run_activation "$middle_release" "$new_commit"; then
+  echo "Expected a generation below the retained frontend high-water to be rejected after rollback" >&2
+  exit 1
+fi
 test "$(readlink -f "$web_root")" = "$release_root/old/site"
 
 victim="$fixture/victim"

@@ -71,6 +71,7 @@ jobs:
           set -euo pipefail
           (cd release-artifact && sha256sum --strict --check SHA256SUMS)
           grep -Fqx -- "commit_sha=${{ inputs.expected_sha }}" release-artifact/RELEASE_METADATA
+          grep -Fqx -- "repository=$GITHUB_REPOSITORY" release-artifact/RELEASE_METADATA
           grep -Fqx -- "run_id=$GITHUB_RUN_ID" release-artifact/RELEASE_METADATA
           grep -Fqx -- "run_number=$GITHUB_RUN_NUMBER" release-artifact/RELEASE_METADATA
           grep -Fqx -- "run_attempt=$GITHUB_RUN_ATTEMPT" release-artifact/RELEASE_METADATA
@@ -96,6 +97,18 @@ jobs:
           revision="$(sed -n 's/^api_contract_revision=//p' release-artifact/RELEASE_METADATA)"
           [[ "$revision" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$ ]]
           echo "revision=$revision" >> "$GITHUB_OUTPUT"
+
+      - name: Validate production SEO provider configuration
+        run: node frontend/scripts/submit-search-engines.mjs
+        env:
+          GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN: ${{ secrets.GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN }}
+          GOOGLE_SEARCH_CONSOLE_CLIENT_ID: ${{ secrets.GOOGLE_SEARCH_CONSOLE_CLIENT_ID }}
+          GOOGLE_SEARCH_CONSOLE_CLIENT_SECRET: ${{ secrets.GOOGLE_SEARCH_CONSOLE_CLIENT_SECRET }}
+          GOOGLE_SEARCH_CONSOLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_SEARCH_CONSOLE_REFRESH_TOKEN }}
+          CUSTOM_SITEMAP_SUBMIT_URL: ${{ secrets.CUSTOM_SITEMAP_SUBMIT_URL }}
+          CUSTOM_SITEMAP_SUBMIT_ALLOWED_ORIGINS: ${{ secrets.CUSTOM_SITEMAP_SUBMIT_ALLOWED_ORIGINS }}
+          SEO_SUBMIT_REQUIRED: "true"
+          SEO_VALIDATE_ONLY: "true"
 
       - name: Verify active backend API contract
         uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
@@ -310,11 +323,15 @@ jobs:
           CUSTOM_SITEMAP_SUBMIT_URL: ${{ secrets.CUSTOM_SITEMAP_SUBMIT_URL }}
           CUSTOM_SITEMAP_SUBMIT_ALLOWED_ORIGINS: ${{ secrets.CUSTOM_SITEMAP_SUBMIT_ALLOWED_ORIGINS }}
           SEO_SUBMIT_REQUIRED: "true"
-        continue-on-error: true
 
-      - name: Report sitemap submission result
-        if: always() && steps.seo-submit.outcome == 'failure'
-        run: |
-          echo "::warning title=SEO submission failed::The frontend is active, but the scheduled SEO monitor must retry sitemap submission."
-          echo "### SEO submission debt" >> "$GITHUB_STEP_SUMMARY"
-          echo "Sitemap submission failed after activation of ${{ inputs.expected_sha }}." >> "$GITHUB_STEP_SUMMARY"
+      - name: Persist SEO submission debt state
+        if: always()
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: noviis-deploy
+          key: ${{ secrets.EC2_SSH_KEY }}
+          fingerprint: ${{ secrets.EC2_HOST_FINGERPRINT }}
+          script: >-
+            sudo /usr/local/sbin/record-noviis-cleanup-debt frontend
+            ${{ steps.seo-submit.outcome == 'success' && 'clear' || 'set' }} seo_submission

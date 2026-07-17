@@ -116,6 +116,29 @@ export function validateGoogleCredentialConfiguration({ accessToken, clientId, c
     return isFilled(accessToken) || configuredRefreshCredentials === refreshCredentials.length
 }
 
+export function validateSubmissionConfiguration(env = process.env) {
+    const googleConfigured = validateGoogleCredentialConfiguration({
+        accessToken: env.GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN ?? '',
+        clientId: env.GOOGLE_SEARCH_CONSOLE_CLIENT_ID ?? '',
+        clientSecret: env.GOOGLE_SEARCH_CONSOLE_CLIENT_SECRET ?? '',
+        refreshToken: env.GOOGLE_SEARCH_CONSOLE_REFRESH_TOKEN ?? ''
+    })
+    const customConfigured = isFilled(env.CUSTOM_SITEMAP_SUBMIT_URL)
+    if (customConfigured) {
+        const target = new URL(resolveTargetUrl(env.CUSTOM_SITEMAP_SUBMIT_URL))
+        if (target.protocol !== 'https:' || target.username || target.password) {
+            throw new Error('custom submit URL must be credential-free HTTPS')
+        }
+        if (!parseAllowedOrigins(env.CUSTOM_SITEMAP_SUBMIT_ALLOWED_ORIGINS).has(target.origin)) {
+            throw new Error('custom submit URL origin is not allowlisted')
+        }
+    }
+    if (env.SEO_SUBMIT_REQUIRED === 'true' && !googleConfigured && !customConfigured) {
+        throw new Error('production sitemap submission requires at least one configured provider')
+    }
+    return { googleConfigured, customConfigured }
+}
+
 export function httpFailure(provider, response) {
     const statusText = String(response.statusText ?? '').replace(/[\r\n]/g, ' ').slice(0, 80)
     return new Error(`${provider} failed: HTTP ${response.status}${statusText ? ` ${statusText}` : ''}`)
@@ -161,10 +184,10 @@ async function submitTarget(target) {
     if (!response.ok) throw httpFailure(target.name, response)
 }
 
-function submitPinnedHttps(target) {
+export function submitPinnedHttps(target, requestFactory = httpsRequest, timeoutMs = requestTimeoutMs) {
     const targetUrl = new URL(target.request.url)
     return new Promise((resolve, reject) => {
-        const request = httpsRequest(targetUrl, {
+        const request = requestFactory(targetUrl, {
             method: target.request.method ?? 'GET',
             headers: {
                 Host: targetUrl.host,
@@ -173,7 +196,13 @@ function submitPinnedHttps(target) {
                 ...(target.request.headers ?? {})
             },
             servername: isIP(targetUrl.hostname) ? undefined : targetUrl.hostname,
-            lookup: (_hostname, _options, callback) => callback(null, target.pinned.address, target.pinned.family)
+            lookup: (_hostname, options, callback) => {
+                if (options?.all) {
+                    callback(null, [{ address: target.pinned.address, family: target.pinned.family }])
+                    return
+                }
+                callback(null, target.pinned.address, target.pinned.family)
+            }
         }, (response) => {
             response.resume()
             if ((response.statusCode ?? 500) < 200 || (response.statusCode ?? 500) >= 300) {
@@ -185,19 +214,18 @@ function submitPinnedHttps(target) {
             }
             resolve()
         })
-        request.setTimeout(requestTimeoutMs, () => request.destroy(new Error(`${target.name} failed: timeout`)))
+        request.setTimeout(timeoutMs, () => request.destroy(new Error(`${target.name} failed: timeout`)))
         request.on('error', reject)
         request.end()
     })
 }
 
 export async function main() {
-    const googleConfigured = validateGoogleCredentialConfiguration({
-        accessToken: googleAccessTokenFromEnv,
-        clientId: googleClientId,
-        clientSecret: googleClientSecret,
-        refreshToken: googleRefreshToken
-    })
+    const { googleConfigured } = validateSubmissionConfiguration()
+    if (process.env.SEO_VALIDATE_ONLY === 'true') {
+        console.log('[seo-submit] provider configuration validated')
+        return
+    }
     const googleAccessToken = await fetchGoogleAccessToken()
     const submitTargets = []
     if (isFilled(googleAccessToken)) {
