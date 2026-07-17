@@ -22,6 +22,20 @@ Every new migration must contain exactly one phase marker: `-- noviis:migration-
 -- noviis:design-doc docs/design-notes/example-contract.md
 ```
 
+`SET NOT NULL` is accepted outside a contract migration only when an earlier statement in the same migration updates the same table and column and limits the backfill to rows where that column is null. An unrelated `UPDATE` is not evidence of a completed backfill.
+Complex dollar-quoted procedural SQL is not accepted as automated evidence for either backfill or bounded deletion; classify that migration as contract and provide a design note.
+
+Non-contract `DELETE` statements require an exact table marker and a bounded ID subquery with an explicit positive `LIMIT`:
+
+```sql
+-- noviis:migration-phase backfill
+-- noviis:bounded-delete stale_rows
+DELETE FROM stale_rows
+WHERE row_id IN (SELECT row_id FROM stale_rows WHERE expires_at < now() LIMIT 500);
+```
+
+Unqualified deletes and tautologies such as `WHERE TRUE` or `WHERE 1 = 1` are always treated as contract operations.
+
 `DROP INDEX` is permitted because it does not change the schema consumed by an application binary. It still requires query-plan and PostgreSQL smoke verification. Before applying any contract migration, take and verify a backup according to `docs/ops/postgres-backup-restore.md`.
 
 Contract migrations are never eligible for an automatic main deployment. Run the integrated CI manually from `main`, explicitly approve the contract phase, and provide a recent manual RDS snapshot. The production deployment job assumes a read-only AWS role and fails closed unless the snapshot is `available`, belongs to the configured production DB, predates the deployment, and is no more than 24 hours old.

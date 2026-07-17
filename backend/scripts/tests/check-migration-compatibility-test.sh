@@ -42,6 +42,78 @@ git -C "$fixture" commit -qm safe-backfill
 (cd "$fixture" && bash "$script" "$base" HEAD)
 
 git -C "$fixture" reset -q --hard "$base"
+cat > "$fixture/backend/src/main/resources/db/migration/V2__unrelated_backfill.sql" <<'SQL'
+-- noviis:migration-phase expand
+ALTER TABLE sample ADD COLUMN name varchar(20);
+UPDATE other_table SET name = 'legacy' WHERE name IS NULL;
+ALTER TABLE sample ALTER COLUMN name SET NOT NULL;
+SQL
+git -C "$fixture" add .
+git -C "$fixture" commit -qm unrelated-backfill
+if (cd "$fixture" && bash "$script" "$base" HEAD); then
+  echo "Expected a SET NOT NULL with an unrelated backfill to fail" >&2
+  exit 1
+fi
+
+git -C "$fixture" reset -q --hard "$base"
+cat > "$fixture/backend/src/main/resources/db/migration/V2__commented_backfill.sql" <<'SQL'
+-- noviis:migration-phase expand
+ALTER TABLE sample ADD COLUMN name varchar(20);
+-- UPDATE sample SET name = 'legacy' WHERE name IS NULL;
+ALTER TABLE sample ALTER COLUMN name SET NOT NULL;
+SQL
+git -C "$fixture" add .
+git -C "$fixture" commit -qm commented-backfill
+if (cd "$fixture" && bash "$script" "$base" HEAD); then
+  echo "Expected a commented-out backfill not to satisfy SET NOT NULL" >&2
+  exit 1
+fi
+
+git -C "$fixture" reset -q --hard "$base"
+cat > "$fixture/backend/src/main/resources/db/migration/V2__block_commented_backfill.sql" <<'SQL'
+-- noviis:migration-phase expand
+ALTER TABLE sample ADD COLUMN name varchar(20);
+/* UPDATE sample SET name = 'legacy' WHERE name IS NULL; */
+ALTER TABLE sample ALTER COLUMN name SET NOT NULL;
+SQL
+git -C "$fixture" add .
+git -C "$fixture" commit -qm block-commented-backfill
+if (cd "$fixture" && bash "$script" "$base" HEAD); then
+  echo "Expected a block-commented backfill not to satisfy SET NOT NULL" >&2
+  exit 1
+fi
+
+git -C "$fixture" reset -q --hard "$base"
+cat > "$fixture/backend/src/main/resources/db/migration/V2__dollar_quoted_backfill.sql" <<'SQL'
+-- noviis:migration-phase expand
+ALTER TABLE sample ADD COLUMN name varchar(20);
+DO $$ BEGIN
+  RAISE NOTICE 'UPDATE sample SET name = legacy WHERE name IS NULL;';
+END $$;
+ALTER TABLE sample ALTER COLUMN name SET NOT NULL;
+SQL
+git -C "$fixture" add .
+git -C "$fixture" commit -qm dollar-quoted-backfill
+if (cd "$fixture" && bash "$script" "$base" HEAD); then
+  echo "Expected a dollar-quoted pseudo-backfill not to satisfy SET NOT NULL" >&2
+  exit 1
+fi
+
+git -C "$fixture" reset -q --hard "$base"
+cat > "$fixture/backend/src/main/resources/db/migration/V2__partial_backfill.sql" <<'SQL'
+-- noviis:migration-phase expand
+ALTER TABLE sample ADD COLUMN name varchar(20);
+UPDATE sample SET name = 'legacy' WHERE name IS NULL AND id < 0;
+ALTER TABLE sample ALTER COLUMN name SET NOT NULL;
+SQL
+git -C "$fixture" add .
+git -C "$fixture" commit -qm partial-backfill
+if (cd "$fixture" && bash "$script" "$base" HEAD); then
+  echo "Expected a partial backfill not to satisfy SET NOT NULL" >&2
+  exit 1
+fi
+
+git -C "$fixture" reset -q --hard "$base"
 printf '%s\n' 'CREATE INDEX sample_idx ON sample (id);' > "$fixture/backend/src/main/resources/db/migration/V2__missing_phase.sql"
 git -C "$fixture" add .
 git -C "$fixture" commit -qm missing-phase
@@ -61,6 +133,42 @@ if (cd "$fixture" && bash "$script" "$base" HEAD); then
   echo "Expected an unbounded DELETE without a contract marker to fail" >&2
   exit 1
 fi
+
+git -C "$fixture" reset -q --hard "$base"
+cat > "$fixture/backend/src/main/resources/db/migration/V2__tautology_delete.sql" <<'SQL'
+-- noviis:migration-phase backfill
+-- noviis:bounded-delete sample
+DELETE FROM sample WHERE TRUE;
+SQL
+git -C "$fixture" add .
+git -C "$fixture" commit -qm tautology-delete
+if (cd "$fixture" && bash "$script" "$base" HEAD); then
+  echo "Expected a tautology DELETE to fail even with a bounded marker" >&2
+  exit 1
+fi
+
+git -C "$fixture" reset -q --hard "$base"
+cat > "$fixture/backend/src/main/resources/db/migration/V2__lowercase_unbounded_delete.sql" <<'SQL'
+-- noviis:migration-phase backfill
+-- noviis:bounded-delete sample
+delete from sample where id > 0;
+SQL
+git -C "$fixture" add .
+git -C "$fixture" commit -qm lowercase-unbounded-delete
+if (cd "$fixture" && bash "$script" "$base" HEAD); then
+  echo "Expected a lowercase DELETE without a bounded LIMIT subquery to fail" >&2
+  exit 1
+fi
+
+git -C "$fixture" reset -q --hard "$base"
+cat > "$fixture/backend/src/main/resources/db/migration/V2__bounded_delete.sql" <<'SQL'
+-- noviis:migration-phase backfill
+-- noviis:bounded-delete sample
+DELETE FROM sample WHERE id IN (SELECT id FROM sample WHERE id < 0 LIMIT 100);
+SQL
+git -C "$fixture" add .
+git -C "$fixture" commit -qm bounded-delete
+(cd "$fixture" && bash "$script" "$base" HEAD)
 
 git -C "$fixture" reset -q --hard "$base"
 cat > "$fixture/backend/src/main/resources/db/migration/V2__contract.sql" <<'SQL'
