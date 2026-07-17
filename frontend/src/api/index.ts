@@ -18,6 +18,8 @@ declare module 'axios' {
     redirectOnError?: boolean
     skipGlobalErrorHandler?: boolean
     skipAuthRefresh?: boolean
+    _authSessionGeneration?: number
+    _authAccessToken?: string | null
   }
 }
 
@@ -38,5 +40,7 @@ export {
   getCurrentPathname,
   isLoginPathname,
 }
+
+export { resetAuthRefreshFailureCooldownForTest } from '@/api/apiRefreshRetry'
 
 export default api

@@ -66,6 +66,8 @@ describe('API Interceptors', () => {
         const result = requestFulfilled(config)
 
         expect(result.headers.Authorization).toBe('Bearer token-1')
+        expect(result._authSessionGeneration).toBe(0)
+        expect(result._authAccessToken).toBe('token-1')
     })
 
     it('does not attach token on auth endpoint except email verification', async () => {

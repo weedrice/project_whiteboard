@@ -152,16 +152,22 @@ describe('SubscribedBoards', () => {
       page: 0,
       size: 100,
       includeUnavailable: true,
+    }, {
+      signal: expect.any(AbortSignal),
     })
     expect(mocks.getMySubscriptions).toHaveBeenNthCalledWith(2, {
       page: 1,
       size: 100,
       includeUnavailable: true,
+    }, {
+      signal: expect.any(AbortSignal),
     })
     expect(mocks.getMySubscriptions).toHaveBeenNthCalledWith(3, {
       page: 2,
       size: 100,
       includeUnavailable: true,
+    }, {
+      signal: expect.any(AbortSignal),
     })
     expect(wrapper.text()).toContain('General')
     expect(wrapper.text()).toContain('News')
@@ -182,7 +188,9 @@ describe('SubscribedBoards', () => {
     await unsubscribeButton?.trigger('click')
     await flushPromises()
 
-    expect(mocks.unsubscribeBoard).toHaveBeenCalledWith('free')
+    expect(mocks.unsubscribeBoard).toHaveBeenCalledWith('free', {
+      signal: expect.any(AbortSignal),
+    })
     expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards'] })
     expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards', 'subscriptions'] })
   })
@@ -197,7 +205,9 @@ describe('SubscribedBoards', () => {
     wrapper.getComponent({ name: 'Draggable' }).vm.$emit('end')
     await flushPromises()
 
-    expect(mocks.updateSubscriptionOrder).toHaveBeenCalledWith(['free'])
+    expect(mocks.updateSubscriptionOrder).toHaveBeenCalledWith(['free'], {
+      signal: expect.any(AbortSignal),
+    })
     expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards'] })
     expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards', 'subscriptions'] })
   })
@@ -217,7 +227,9 @@ describe('SubscribedBoards', () => {
     await moveDownButton?.trigger('click')
     await flushPromises()
 
-    expect(mocks.updateSubscriptionOrder).toHaveBeenCalledWith(['news', 'general'])
+    expect(mocks.updateSubscriptionOrder).toHaveBeenCalledWith(['news', 'general'], {
+      signal: expect.any(AbortSignal),
+    })
   })
 
   it('renders accessible subscriptions as real board links', async () => {

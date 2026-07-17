@@ -5,7 +5,7 @@ import { applyApiLocaleHeader } from '@/api/apiLocaleHeader'
 
 export { getCurrentPathname, isLoginPathname } from '@/api/apiAuthHeader'
 export { applyAuthHeader }
-export { retryAfterRefresh } from '@/api/apiRefreshRetry'
+export { retryAfterRefresh, resetAuthRefreshFailureCooldownForTest } from '@/api/apiRefreshRetry'
 export { handleGlobalApiError, handleResponseError } from '@/api/apiResponseErrorHandler'
 
 export function installApiInterceptors(api: AxiosInstance) {

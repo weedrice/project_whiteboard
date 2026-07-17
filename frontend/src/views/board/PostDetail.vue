@@ -32,6 +32,14 @@ import { onCommentStreamEvent } from '@/features/comments/commentStreamEvents'
 import { commentQueryKeys } from '@/features/comments/queries/commentQueryKeys'
 import { sessionQueryKey } from '@/queryAuthScope'
 import { isRestrictedResourceError } from '@/utils/errorHandler'
+import {
+  getNotificationStreamConnection,
+  subscribeNotificationStreamConnection,
+  type NotificationStreamConnection,
+} from '@/features/notifications/stream/notificationStreamConnectionEvents'
+import { recycleNotificationStreamConnection } from '@/features/notifications/stream/notificationStreamController'
+import { isAxiosError } from 'axios'
+import { isCancellationError } from '@/utils/cancellationError'
 
 const route = useRoute()
 const router = useRouter()
@@ -58,8 +66,10 @@ const {
 } = usePost()
 
 const postId = computed(() => route.params.postId as string)
-const commentSubscriberId = `post-detail-${Date.now()}-${Math.random().toString(36).slice(2)}`
-let activeCommentTopicPostId: string | null = null
+type ActiveCommentTopic = NotificationStreamConnection & { postId: string }
+let activeCommentTopic: ActiveCommentTopic | null = null
+let commentTopicOperation = 0
+const commentTopicAbortControllers = new Set<AbortController>()
 let commentRefreshTimer: ReturnType<typeof setTimeout> | null = null
 const pendingCommentCount = ref(0)
 const {
@@ -227,30 +237,73 @@ const {
 
 const { assignContentRef } = usePostContentViewRef(contentRef)
 
-async function subscribeCommentTopic(nextPostId: string) {
-  if (!authStore.isAuthenticated || activeCommentTopicPostId === nextPostId) return
-
-  if (activeCommentTopicPostId) {
-    await unsubscribeCommentTopic(activeCommentTopicPostId)
-  }
-
-  try {
-    await notificationApi.subscribeCommentTopic(nextPostId, commentSubscriberId)
-    activeCommentTopicPostId = nextPostId
-  } catch {
-    activeCommentTopicPostId = null
-  }
+function isCurrentCommentConnection(connection: NotificationStreamConnection) {
+  const current = getNotificationStreamConnection()
+  return authStore.isAuthenticated
+    && authStore.sessionGeneration === connection.sessionGeneration
+    && current?.sessionGeneration === connection.sessionGeneration
+    && current.connectionId === connection.connectionId
 }
 
-async function unsubscribeCommentTopic(targetPostId: string) {
+function isUncertainTopicRegistrationError(error: unknown) {
+  return isCancellationError(error) || !isAxiosError(error) || !error.response
+}
+
+async function syncCommentTopic(connection = getNotificationStreamConnection()) {
+  const operation = ++commentTopicOperation
+  if (!connection) {
+    commentTopicAbortControllers.forEach((pendingController) => pendingController.abort())
+    commentTopicAbortControllers.clear()
+  }
+  const controller = new AbortController()
+  commentTopicAbortControllers.add(controller)
+  const desiredPostId = postId.value
+
+  const previous = activeCommentTopic
+  activeCommentTopic = null
+  if (previous && previous.sessionGeneration === authStore.sessionGeneration) {
+    try {
+      await notificationApi.unsubscribeCommentTopic(previous.postId, previous.connectionId, {
+        signal: controller.signal,
+        skipGlobalErrorHandler: true,
+      })
+    } catch {
+      if (isCurrentCommentConnection(previous)) recycleNotificationStreamConnection()
+    }
+  }
+
+  if (operation !== commentTopicOperation
+    || controller.signal.aborted
+    || !connection
+    || !isCurrentCommentConnection(connection)) {
+    commentTopicAbortControllers.delete(controller)
+    return
+  }
+
   try {
-    await notificationApi.unsubscribeCommentTopic(targetPostId, commentSubscriberId)
-  } catch {
+    await notificationApi.subscribeCommentTopic(desiredPostId, connection.connectionId, {
+      signal: controller.signal,
+      skipGlobalErrorHandler: true,
+    })
+    if (operation !== commentTopicOperation
+      || controller.signal.aborted
+      || postId.value !== desiredPostId
+      || !isCurrentCommentConnection(connection)) {
+      if (isCurrentCommentConnection(connection)) {
+        void notificationApi.unsubscribeCommentTopic(desiredPostId, connection.connectionId, {
+          skipGlobalErrorHandler: true,
+        }).catch(() => undefined)
+      }
+      return
+    }
+    activeCommentTopic = { ...connection, postId: desiredPostId }
+  } catch (error) {
+    if (isCurrentCommentConnection(connection) && isUncertainTopicRegistrationError(error)) {
+      recycleNotificationStreamConnection()
+    }
     // SSE comments are an enhancement; the regular comment queries keep working.
   } finally {
-    if (activeCommentTopicPostId === targetPostId) {
-      activeCommentTopicPostId = null
-    }
+    commentTopicAbortControllers.delete(controller)
   }
 }
 
@@ -305,24 +358,36 @@ const { setLastReadCommentId } = usePostViewHistory({
   initialLastReadCommentId,
 })
 
-watch([postId, isAuthenticated], ([nextPostId, authenticated]) => {
+const stopCommentConnectionListener = subscribeNotificationStreamConnection((connection) => {
+  void syncCommentTopic(connection)
+})
+
+watch([postId, isAuthenticated], ([_nextPostId, authenticated]) => {
   pendingCommentCount.value = 0
   clearCommentRefreshTimer()
   if (!authenticated) {
-    if (activeCommentTopicPostId) {
-      void unsubscribeCommentTopic(activeCommentTopicPostId)
-    }
+    void syncCommentTopic(null)
     return
   }
 
-  void subscribeCommentTopic(nextPostId)
+  void syncCommentTopic()
 }, { immediate: true })
 
 onBeforeUnmount(() => {
   clearCommentRefreshTimer()
   stopCommentStreamListener()
-  if (activeCommentTopicPostId) {
-    void unsubscribeCommentTopic(activeCommentTopicPostId)
+  stopCommentConnectionListener()
+  commentTopicOperation += 1
+  commentTopicAbortControllers.forEach((controller) => controller.abort())
+  commentTopicAbortControllers.clear()
+  const active = activeCommentTopic
+  activeCommentTopic = null
+  if (active && isCurrentCommentConnection(active)) {
+    void notificationApi.unsubscribeCommentTopic(active.postId, active.connectionId, {
+      skipGlobalErrorHandler: true,
+    }).catch(() => {
+      if (isCurrentCommentConnection(active)) recycleNotificationStreamConnection()
+    })
   }
 })
 </script>

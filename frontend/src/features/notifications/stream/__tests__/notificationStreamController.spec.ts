@@ -5,6 +5,7 @@ import {
     resetNotificationStreamStateForTest,
 } from '@/features/notifications/stream/notificationStreamController'
 import type { Notification } from '@/types'
+import { subscribeNotificationStreamConnection } from '@/features/notifications/stream/notificationStreamConnectionEvents'
 
 vi.mock('@/utils/logger', () => ({
     default: {
@@ -108,5 +109,84 @@ describe('notificationStreamController dependencies', () => {
         expect(normalizeNotification).toHaveBeenCalledWith({ notification_id: 12 })
         expect(firstPage.content).toEqual([{ ...notification, isRead: false }])
         expect(unreadCount).toBe(1)
+    })
+
+    it('publishes the server connection id for session-bound comment topic subscriptions', async () => {
+        const connections: Array<{ connectionId: string, sessionGeneration: number } | null> = []
+        const stop = subscribeNotificationStreamConnection((connection) => connections.push(connection))
+        const openStream = vi.fn(() => Promise.resolve({
+            ok: true,
+            body: createSseStream('event: connect\ndata: 123e4567-e89b-12d3-a456-426614174000\n\n'),
+        } as Response))
+        const authStore = {
+            accessToken: 'test-token',
+            sessionGeneration: 7,
+            applyTokenIfCurrent: vi.fn(),
+        }
+        const queryClient = {
+            setQueriesData: vi.fn(),
+            setQueryData: vi.fn(),
+        } as unknown as QueryClient
+
+        createNotificationStreamController(queryClient, {
+            openStream,
+            resolveAuthStore: (() => authStore) as never,
+        }).connectToSse()
+        await flushAsync()
+
+        expect(connections).toContainEqual({
+            connectionId: '123e4567-e89b-12d3-a456-426614174000',
+            sessionGeneration: 7,
+        })
+        stop()
+    })
+
+    it('ignores a stale connect event that arrives from an aborted stream', async () => {
+        const encoder = new TextEncoder()
+        let oldStreamController!: ReadableStreamDefaultController<Uint8Array>
+        const oldStream = new ReadableStream<Uint8Array>({
+            start(controller) {
+                oldStreamController = controller
+            },
+        })
+        const newStream = new ReadableStream<Uint8Array>({
+            start(controller) {
+                controller.enqueue(encoder.encode('event: connect\ndata: connection-new\n\n'))
+            },
+        })
+        const openStream = vi.fn()
+            .mockResolvedValueOnce({ ok: true, body: oldStream } as Response)
+            .mockResolvedValueOnce({ ok: true, body: newStream } as Response)
+        const authStore = {
+            accessToken: 'test-token',
+            sessionGeneration: 7,
+            applyTokenIfCurrent: vi.fn(),
+        }
+        const queryClient = {
+            setQueriesData: vi.fn(),
+            setQueryData: vi.fn(),
+        } as unknown as QueryClient
+        const connections: Array<{ connectionId: string, sessionGeneration: number } | null> = []
+        const stop = subscribeNotificationStreamConnection((connection) => connections.push(connection))
+        const controller = createNotificationStreamController(queryClient, {
+            openStream,
+            resolveAuthStore: (() => authStore) as never,
+        })
+
+        controller.connectToSse()
+        await flushAsync()
+        controller.closeSse()
+        controller.connectToSse()
+        await flushAsync()
+
+        oldStreamController.enqueue(encoder.encode('event: connect\ndata: connection-old\n\n'))
+        oldStreamController.close()
+        await flushAsync()
+
+        expect(connections).toContainEqual({ connectionId: 'connection-new', sessionGeneration: 7 })
+        expect(connections).not.toContainEqual({ connectionId: 'connection-old', sessionGeneration: 7 })
+
+        controller.closeSse()
+        stop()
     })
 })

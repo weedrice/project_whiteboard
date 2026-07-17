@@ -24,4 +24,12 @@ describe('resolveInternalPushNotificationUrl', () => {
   ])('falls back for an unsafe target: %s', (candidate) => {
     expect(resolveInternalPushNotificationUrl(candidate, origin)).toBe(fallback)
   })
+
+  it('uses an internal asset fallback for an external notification image', () => {
+    expect(resolveInternalPushNotificationUrl(
+      'https://tracker.example/icon.png',
+      origin,
+      '/pwa-192x192.png',
+    )).toBe('https://noviis.kr/pwa-192x192.png')
+  })
 })

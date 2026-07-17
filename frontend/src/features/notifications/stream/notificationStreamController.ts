@@ -22,6 +22,7 @@ import {
 import { NotificationStreamRuntime } from '@/features/notifications/stream/notificationReconnectRuntime'
 import { emitBadgeAwardEvent } from '@/features/notifications/events/badgeAwardEvents'
 import { coordinateAuthRefresh } from '@/api/authRefreshCoordinator'
+import { setNotificationStreamConnection } from '@/features/notifications/stream/notificationStreamConnectionEvents'
 
 function isAbortError(error: unknown): boolean {
     return isCancellationError(error, {
@@ -51,10 +52,25 @@ const notificationStreamRuntime = new NotificationStreamRuntime()
 
 export function resetNotificationStreamStateForTest() {
     notificationStreamRuntime.reset()
+    setNotificationStreamConnection(null)
 }
 
 export function resetNotificationStreamSessionState() {
     notificationStreamRuntime.resetSessionState()
+    setNotificationStreamConnection(null)
+}
+
+export function recycleNotificationStreamConnection() {
+    const { state } = notificationStreamRuntime
+    if (state.closedManually || !state.streamAbortController) {
+        setNotificationStreamConnection(null)
+        return
+    }
+    notificationStreamRuntime.clearReconnectTimer()
+    notificationStreamRuntime.abortStream()
+    setNotificationStreamConnection(null)
+    state.isConnecting = false
+    scheduleReconnect(0)
 }
 
 function scheduleReconnect(delayMs: number) {
@@ -71,8 +87,22 @@ export function createNotificationStreamController(
     const resolveAuthStore = dependencies.resolveAuthStore ?? useAuthStore
     notificationStreamRuntime.setOnlineProvider(dependencies.isBrowserOnline)
 
-    const handleSseEvent = (eventType: string, payload: string, sessionGeneration: number) => {
+    const handleSseEvent = (
+        eventType: string,
+        payload: string,
+        sessionGeneration: number,
+        controller: AbortController,
+    ) => {
+        if (controller.signal.aborted
+            || notificationStreamRuntime.state.streamAbortController !== controller) return
         if (!payload) return
+        if (eventType === 'connect') {
+            if (resolveAuthStore().sessionGeneration !== sessionGeneration) return
+            const connectionId = payload.trim()
+            if (!connectionId || connectionId.length > 128) return
+            setNotificationStreamConnection({ connectionId, sessionGeneration })
+            return
+        }
         if (eventType === 'comment') {
             handleCommentSseEvent(payload, sessionGeneration)
             return
@@ -156,6 +186,7 @@ export function createNotificationStreamController(
         sessionGeneration: number,
         controller: AbortController,
     ) => {
+        setNotificationStreamConnection(null)
         try {
             const response = await openStream(token, controller.signal)
 
@@ -171,7 +202,7 @@ export function createNotificationStreamController(
             await consumeSseStream(
                 response.body,
                 controller.signal,
-                (eventType, payload) => handleSseEvent(eventType, payload, sessionGeneration),
+                (eventType, payload) => handleSseEvent(eventType, payload, sessionGeneration, controller),
             )
 
             if (!controller.signal.aborted && !notificationStreamRuntime.state.closedManually) {
@@ -185,6 +216,9 @@ export function createNotificationStreamController(
             logger.warn('SSE connection dropped:', error)
             await reconnectWithRefresh(controller)
         } finally {
+            if (notificationStreamRuntime.state.streamAbortController === controller) {
+                setNotificationStreamConnection(null)
+            }
             if (notificationStreamRuntime.state.streamAbortController === controller) {
                 notificationStreamRuntime.state.streamAbortController = null
             }
@@ -220,6 +254,7 @@ export function createNotificationStreamController(
     const closeSse = () => {
         const { state } = notificationStreamRuntime
         state.closedManually = true
+        setNotificationStreamConnection(null)
 
         notificationStreamRuntime.clearReconnectTimer()
         notificationStreamRuntime.abortStream()

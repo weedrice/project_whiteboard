@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onBeforeUnmount, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
@@ -16,11 +16,20 @@ const router = useRouter()
 const authStore = useAuthStore()
 const toastStore = useToastStore()
 const { t } = useI18n()
+const callbackController = new AbortController()
+
+function isAbortError(error: unknown) {
+  return error instanceof DOMException && error.name === 'AbortError'
+}
+
+onBeforeUnmount(() => callbackController.abort())
 
 onMounted(async () => {
   clearSensitiveTokensFromUrl()
   const generation = authStore.sessionGeneration
   const previousToken = authStore.accessToken
+  let ownedGeneration: number | null = null
+  let ownedToken: string | null = null
 
   try {
     const accessToken = await coordinateAuthRefresh(async (signal) => {
@@ -33,7 +42,7 @@ onMounted(async () => {
         signal,
       })
       return unwrapApiData(data).accessToken
-    }, { previousToken })
+    }, { previousToken, signal: callbackController.signal })
     if (!accessToken) {
       throw new Error('OAuth refresh returned an invalid access token')
     }
@@ -41,19 +50,34 @@ onMounted(async () => {
     if (!authStore.applyNewSessionIfCurrent(generation, previousToken, accessToken)) {
       return
     }
+    ownedGeneration = authStore.sessionGeneration
+    ownedToken = accessToken
 
     const didFetchUser = await authStore.fetchUser({ skipAuthRefresh: true })
     if (!didFetchUser) {
       throw new Error('OAuth user hydration failed')
     }
+    if (callbackController.signal.aborted
+      || authStore.sessionGeneration !== ownedGeneration
+      || authStore.accessToken !== ownedToken) return
 
     toastStore.addToast(t('auth.loginSuccess'), 'success')
     const redirect = getStoredLoginRedirect()
     clearLoginRedirect()
     router.push(redirect ?? '/')
   } catch (error) {
+    if (isAbortError(error) || callbackController.signal.aborted) return
+    const ownsCurrentSession = ownedGeneration === null
+      ? authStore.sessionGeneration === generation && authStore.accessToken === previousToken
+      : authStore.sessionGeneration === ownedGeneration && authStore.accessToken === ownedToken
+    if (!ownsCurrentSession) return
     logger.error('OAuth login failed:', error)
-    await authStore.logout()
+    const logoutPromise = authStore.logout()
+    const loggedOutGeneration = authStore.sessionGeneration
+    await logoutPromise
+    if (callbackController.signal.aborted
+      || authStore.sessionGeneration !== loggedOutGeneration
+      || authStore.accessToken !== null) return
     toastStore.addToast(t('auth.loginFailed'), 'error')
     router.push('/login')
   }

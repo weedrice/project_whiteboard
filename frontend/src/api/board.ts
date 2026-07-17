@@ -161,6 +161,9 @@ export const boardApi = {
             : api.delete<ApiResponse<void>>(`/boards/${encodePathSegment(boardUrl)}/subscribe`),
 
     // Update subscription order
-    updateSubscriptionOrder: (boardUrls: string[]) => api.put<ApiResponse<void>>('/boards/subscriptions/order', { boardUrls }),
+    updateSubscriptionOrder: (boardUrls: string[], config?: AxiosRequestConfig) =>
+        config
+            ? api.put<ApiResponse<void>>('/boards/subscriptions/order', { boardUrls }, config)
+            : api.put<ApiResponse<void>>('/boards/subscriptions/order', { boardUrls }),
 }
 

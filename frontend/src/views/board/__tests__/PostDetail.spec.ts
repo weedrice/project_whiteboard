@@ -2,6 +2,10 @@ import { defineComponent, ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount, RouterLinkStub } from '@vue/test-utils'
 import PostDetail from '../PostDetail.vue'
+import {
+  resetNotificationStreamConnectionForTest,
+  setNotificationStreamConnection,
+} from '@/features/notifications/stream/notificationStreamConnectionEvents'
 
 const {
   route,
@@ -20,6 +24,9 @@ const {
   unblindPostMutateAsync,
   toastAdd,
   invalidateQueries,
+  subscribeCommentTopic,
+  unsubscribeCommentTopic,
+  recycleNotificationStreamConnection,
 } = vi.hoisted(() => ({
   route: {
     params: { postId: '15' },
@@ -92,6 +99,20 @@ const {
   unblindPostMutateAsync: vi.fn(async () => undefined),
   toastAdd: vi.fn(),
   invalidateQueries: vi.fn(),
+  subscribeCommentTopic: vi.fn(),
+  unsubscribeCommentTopic: vi.fn(),
+  recycleNotificationStreamConnection: vi.fn(),
+}))
+
+vi.mock('@/features/notifications/stream/notificationStreamController', () => ({
+  recycleNotificationStreamConnection,
+}))
+
+vi.mock('@/api/notification', () => ({
+  notificationApi: {
+    subscribeCommentTopic,
+    unsubscribeCommentTopic,
+  },
 }))
 
 vi.mock('@tanstack/vue-query', async (importOriginal) => {
@@ -227,6 +248,11 @@ const PostTagsStub = defineComponent({
 
 describe('PostDetail', () => {
   beforeEach(() => {
+    resetNotificationStreamConnectionForTest()
+    subscribeCommentTopic.mockReset().mockResolvedValue(undefined)
+    unsubscribeCommentTopic.mockReset().mockResolvedValue(undefined)
+    recycleNotificationStreamConnection.mockReset()
+    route.params.postId = '15'
     route.hash = ''
     router.push.mockReset()
     router.replace.mockReset()
@@ -699,5 +725,97 @@ describe('PostDetail', () => {
     expect(router.push).toHaveBeenCalledWith({
       path: '/tag/vue'
     })
+  })
+
+  it('binds comment topics to the latest SSE connection when connect responses overlap', async () => {
+    let resolveFirstSubscribe!: () => void
+    subscribeCommentTopic
+      .mockReturnValueOnce(new Promise<void>((resolve) => { resolveFirstSubscribe = resolve }))
+      .mockResolvedValueOnce(undefined)
+    const wrapper = mount(PostDetail, {
+      global: {
+        mocks: { $t: (key: string) => key },
+        stubs: {
+          RouterLink: RouterLinkStub,
+          CommentList: true,
+          PostTags: true,
+          UserMenu: true,
+          BaseModal: true,
+          ReportModal: true,
+        },
+      },
+    })
+
+    setNotificationStreamConnection({ connectionId: 'connection-old', sessionGeneration: 0 })
+    await vi.waitFor(() => expect(subscribeCommentTopic).toHaveBeenCalledWith(
+      '15',
+      'connection-old',
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    ))
+    setNotificationStreamConnection({ connectionId: 'connection-new', sessionGeneration: 0 })
+    await vi.waitFor(() => expect(subscribeCommentTopic).toHaveBeenCalledWith(
+      '15',
+      'connection-new',
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    ))
+
+    resolveFirstSubscribe()
+    await Promise.resolve()
+    wrapper.unmount()
+    await Promise.resolve()
+
+    expect(unsubscribeCommentTopic).toHaveBeenCalledWith(
+      '15',
+      'connection-new',
+      expect.objectContaining({ skipGlobalErrorHandler: true }),
+    )
+    expect(unsubscribeCommentTopic).not.toHaveBeenCalledWith(
+      '15',
+      'connection-old',
+      expect.anything(),
+    )
+  })
+
+  it('recycles the stream when an uncertain topic registration may have reached the server', async () => {
+    subscribeCommentTopic.mockRejectedValueOnce(new Error('connection lost after request dispatch'))
+    const wrapper = mount(PostDetail, {
+      global: {
+        mocks: { $t: (key: string) => key },
+        stubs: {
+          RouterLink: RouterLinkStub,
+          CommentList: true,
+          PostTags: true,
+          UserMenu: true,
+          BaseModal: true,
+          ReportModal: true,
+        },
+      },
+    })
+
+    setNotificationStreamConnection({ connectionId: 'connection-current', sessionGeneration: 0 })
+    await vi.waitFor(() => expect(recycleNotificationStreamConnection).toHaveBeenCalledTimes(1))
+    wrapper.unmount()
+  })
+
+  it('recycles the stream when active topic cleanup fails during unmount', async () => {
+    unsubscribeCommentTopic.mockRejectedValueOnce(new Error('cleanup failed'))
+    const wrapper = mount(PostDetail, {
+      global: {
+        mocks: { $t: (key: string) => key },
+        stubs: {
+          RouterLink: RouterLinkStub,
+          CommentList: true,
+          PostTags: true,
+          UserMenu: true,
+          BaseModal: true,
+          ReportModal: true,
+        },
+      },
+    })
+
+    setNotificationStreamConnection({ connectionId: 'connection-current', sessionGeneration: 0 })
+    await vi.waitFor(() => expect(subscribeCommentTopic).toHaveBeenCalled())
+    wrapper.unmount()
+    await vi.waitFor(() => expect(recycleNotificationStreamConnection).toHaveBeenCalledTimes(1))
   })
 })

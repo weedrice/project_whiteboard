@@ -91,10 +91,11 @@ export const loadApiModule = async (
     resolverOptions: ApiResolverOptions = {},
 ) => {
     const module = await import('../index')
+    module.resetAuthRefreshFailureCooldownForTest()
     const { clearStoredAuthTokens, persistAccessToken } = await import('@/utils/authTokenStorage')
     const authStore: TestAuthStore = {
         user: authStoreOverrides?.user ?? { id: 1 },
-        accessToken: authStoreOverrides?.accessToken ?? '',
+        accessToken: authStoreOverrides?.accessToken ?? null,
         sessionGeneration: 0,
         fetchUser: mocks.mockFetchUser,
         setTokens: vi.fn((token: string) => {
@@ -163,6 +164,8 @@ export const createApiRequestConfig = (
 
     return {
         ...rest,
+        _authSessionGeneration: rest._authSessionGeneration ?? 0,
+        _authAccessToken: rest._authAccessToken ?? null,
         headers: {
             ...(headers as MutableHeaders | undefined),
         },

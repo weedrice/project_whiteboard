@@ -1,6 +1,7 @@
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import OAuthCallback from '../OAuthCallback.vue'
+import { closeAuthRefreshCoordinatorForTest } from '@/api/authRefreshCoordinator'
 
 const mocks = vi.hoisted(() => {
     const router = {
@@ -69,6 +70,18 @@ vi.mock('@/api/auth', () => ({
     authApi: mocks.authApi,
 }))
 
+vi.mock('@/api/authRefreshCoordinator', () => ({
+    coordinateAuthRefresh: (
+        refresh: (signal: AbortSignal) => Promise<string>,
+        options: { signal?: AbortSignal } = {},
+    ) => {
+        const controller = new AbortController()
+        options.signal?.addEventListener('abort', () => controller.abort(), { once: true })
+        return refresh(controller.signal)
+    },
+    closeAuthRefreshCoordinatorForTest: vi.fn(),
+}))
+
 const flushMountedWork = async () => {
     await Promise.resolve()
     await Promise.resolve()
@@ -78,6 +91,7 @@ const flushMountedWork = async () => {
 
 describe('OAuthCallback', () => {
     beforeEach(() => {
+        closeAuthRefreshCoordinatorForTest()
         vi.clearAllMocks()
         sessionStorage.clear()
         mocks.route.query = {}
@@ -90,9 +104,13 @@ describe('OAuthCallback', () => {
             },
         })
         mocks.authStore.fetchUser.mockResolvedValue(true)
-        mocks.authStore.logout.mockResolvedValue(undefined)
         mocks.authStore.accessToken = null
         mocks.authStore.sessionGeneration = 0
+        mocks.authStore.logout.mockImplementation(() => {
+            mocks.authStore.sessionGeneration += 1
+            mocks.authStore.accessToken = null
+            return Promise.resolve()
+        })
         window.history.replaceState({}, '', '/auth/oauth/callback')
     })
 
@@ -169,6 +187,82 @@ describe('OAuthCallback', () => {
         expect(mocks.authStore.logout).toHaveBeenCalled()
         expect(mocks.toastStore.addToast).toHaveBeenCalledWith('auth.loginFailed', 'error')
         expect(mocks.router.push).toHaveBeenCalledWith('/login')
+    })
+
+    it('does not log out a newer session when an obsolete callback fails', async () => {
+        let rejectRefresh!: (error: Error) => void
+        mocks.authApi.refreshToken.mockReturnValueOnce(new Promise((_resolve, reject) => {
+            rejectRefresh = reject
+        }))
+
+        mount(OAuthCallback)
+        await Promise.resolve()
+        mocks.authStore.sessionGeneration = 1
+        mocks.authStore.accessToken = 'account-b-access'
+        rejectRefresh(new Error('obsolete oauth callback failed'))
+        await flushMountedWork()
+
+        expect(mocks.authStore.logout).not.toHaveBeenCalled()
+        expect(mocks.toastStore.addToast).not.toHaveBeenCalledWith('auth.loginFailed', 'error')
+        expect(mocks.router.push).not.toHaveBeenCalledWith('/login')
+        expect(mocks.authStore.accessToken).toBe('account-b-access')
+    })
+
+    it('does not redirect when another account becomes current during user hydration', async () => {
+        let resolveHydration!: (value: boolean) => void
+        mocks.authStore.fetchUser.mockReturnValueOnce(new Promise((resolve) => {
+            resolveHydration = resolve
+        }))
+
+        mount(OAuthCallback)
+        await vi.waitFor(() => expect(mocks.authStore.fetchUser).toHaveBeenCalledTimes(1))
+        mocks.authStore.sessionGeneration += 1
+        mocks.authStore.accessToken = 'account-b-access'
+        resolveHydration(true)
+        await flushMountedWork()
+
+        expect(mocks.toastStore.addToast).not.toHaveBeenCalledWith('auth.loginSuccess', 'success')
+        expect(mocks.router.push).not.toHaveBeenCalled()
+        expect(mocks.authStore.logout).not.toHaveBeenCalled()
+    })
+
+    it('does not redirect a newer session after an obsolete logout request finishes', async () => {
+        let resolveLogout!: () => void
+        mocks.authApi.refreshToken.mockRejectedValueOnce(new Error('failed'))
+        mocks.authStore.logout.mockImplementationOnce(() => {
+            mocks.authStore.sessionGeneration += 1
+            mocks.authStore.accessToken = null
+            return new Promise<void>((resolve) => {
+                resolveLogout = resolve
+            })
+        })
+
+        mount(OAuthCallback)
+        await vi.waitFor(() => expect(mocks.authStore.logout).toHaveBeenCalledTimes(1))
+        mocks.authStore.sessionGeneration += 1
+        mocks.authStore.accessToken = 'account-b-access'
+        resolveLogout()
+        await flushMountedWork()
+
+        expect(mocks.toastStore.addToast).not.toHaveBeenCalledWith('auth.loginFailed', 'error')
+        expect(mocks.router.push).not.toHaveBeenCalledWith('/login')
+        expect(mocks.authStore.accessToken).toBe('account-b-access')
+    })
+
+    it('aborts the callback without logging out when the view is unmounted', async () => {
+        mocks.authApi.refreshToken.mockImplementationOnce(({ signal }: { signal: AbortSignal }) => (
+            new Promise((_resolve, reject) => {
+                signal.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')), { once: true })
+            })
+        ))
+
+        const wrapper = mount(OAuthCallback)
+        await Promise.resolve()
+        wrapper.unmount()
+        await flushMountedWork()
+
+        expect(mocks.authStore.logout).not.toHaveBeenCalled()
+        expect(mocks.router.push).not.toHaveBeenCalledWith('/login')
     })
 
     it('redirects to login when user hydration returns false', async () => {

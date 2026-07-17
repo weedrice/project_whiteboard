@@ -11,6 +11,8 @@ import { useConfirm } from '@/composables/useConfirm'
 import { useErrorHandler } from '@/composables/useErrorHandler'
 import type { SubscriptionBoardListItem } from '@/types'
 import { useAuthStore } from '@/stores/auth'
+import { subscribeAuthSessionBoundary } from '@/queryAuthScope'
+import { isCancellationError } from '@/utils/cancellationError'
 
 const subscriptionsPageSize = 100
 
@@ -34,8 +36,12 @@ export function useSubscribedBoardsManager() {
   const unavailableBoards = ref<SubscriptionBoardListItem[]>([])
   const loading = ref(false)
   const isReordering = ref(false)
+  const loadError = ref(false)
   const isMobile = useMobileViewport()
   let subscriptionsRequestId = 0
+  let subscriptionsAbortController: AbortController | null = null
+  const mutationAbortControllers = new Set<AbortController>()
+  let disposed = false
 
   const hasSubscriptions = computed(() =>
     accessibleBoards.value.length > 0 || unavailableBoards.value.length > 0
@@ -57,35 +63,27 @@ export function useSubscribedBoardsManager() {
     unavailableBoards.value = cloneBoards(unavailableSnapshot)
   }
 
-  async function fetchAllSubscriptions() {
+  async function fetchAllSubscriptions(signal: AbortSignal) {
     const fetchPage = async (page: number) => {
       const { data } = await userApi.getMySubscriptions({
         page,
         size: subscriptionsPageSize,
         includeUnavailable: true
-      })
+      }, { signal })
 
       if (!data.success) {
-        return null
+        throw new Error('Subscription response was unsuccessful')
       }
 
       return unwrapApiPageData(data)
     }
 
     const firstPage = await fetchPage(0)
-    if (firstPage === null) {
-      return null
-    }
-
     const remainingPages = Array.from(
       { length: Math.max(firstPage.totalPages - 1, 0) },
       (_, index) => index + 1
     )
     const remainingResults = await Promise.all(remainingPages.map(fetchPage))
-    if (remainingResults.some((page) => page === null)) {
-      return null
-    }
-
     return [
       ...firstPage.content,
       ...remainingResults.flatMap(page => page?.content ?? [])
@@ -94,42 +92,55 @@ export function useSubscribedBoardsManager() {
 
   async function fetchSubscriptions() {
     const requestId = ++subscriptionsRequestId
+    const generation = authStore.sessionGeneration
+    subscriptionsAbortController?.abort()
+    const controller = new AbortController()
+    subscriptionsAbortController = controller
     loading.value = true
+    loadError.value = false
     try {
-      const boards = await fetchAllSubscriptions()
-      if (requestId !== subscriptionsRequestId) {
+      const boards = await fetchAllSubscriptions(controller.signal)
+      if (requestId !== subscriptionsRequestId || generation !== authStore.sessionGeneration) {
         return
       }
 
-      if (boards !== null) {
-        accessibleBoards.value = boards.filter(canReorderSubscription)
-        unavailableBoards.value = boards.filter(board => !canReorderSubscription(board))
-      }
+      accessibleBoards.value = boards.filter(canReorderSubscription)
+      unavailableBoards.value = boards.filter(board => !canReorderSubscription(board))
     } catch (error) {
-      if (requestId !== subscriptionsRequestId) {
+      if (requestId !== subscriptionsRequestId
+        || generation !== authStore.sessionGeneration
+        || isCancellationError(error)) {
         return
       }
 
+      loadError.value = true
       handleSilentError(error, 'Failed to load subscriptions')
     } finally {
       if (requestId === subscriptionsRequestId) {
         loading.value = false
       }
+      if (subscriptionsAbortController === controller) subscriptionsAbortController = null
     }
   }
 
   async function handleUnsubscribe(board: SubscriptionBoardListItem) {
+    const generation = authStore.sessionGeneration
     const isConfirmed = await confirm(t('user.subscriptions.unsubscribeConfirm'))
-    if (!isConfirmed) return
+    if (!isConfirmed || generation !== authStore.sessionGeneration) return
+    const controller = new AbortController()
+    mutationAbortControllers.add(controller)
     try {
-      const { data } = await boardApi.unsubscribeBoard(board.boardUrl)
-      if (data.success) {
+      const { data } = await boardApi.unsubscribeBoard(board.boardUrl, { signal: controller.signal })
+      if (data.success && generation === authStore.sessionGeneration && !controller.signal.aborted) {
         toastStore.addToast(t('user.subscriptions.unsubscribeSuccess'), 'success')
         invalidateSubscriptionCaches()
         await fetchSubscriptions()
       }
     } catch (error) {
+      if (controller.signal.aborted || generation !== authStore.sessionGeneration) return
       handleError(error, t('user.subscriptions.unsubscribeFailed'))
+    } finally {
+      mutationAbortControllers.delete(controller)
     }
   }
 
@@ -140,18 +151,24 @@ export function useSubscribedBoardsManager() {
     if (isReordering.value) return false
 
     const boardUrls = accessibleBoards.value.map(board => board.boardUrl)
+    const generation = authStore.sessionGeneration
+    const controller = new AbortController()
+    mutationAbortControllers.add(controller)
     isReordering.value = true
     try {
-      await boardApi.updateSubscriptionOrder(boardUrls)
+      await boardApi.updateSubscriptionOrder(boardUrls, { signal: controller.signal })
+      if (controller.signal.aborted || generation !== authStore.sessionGeneration) return false
       invalidateSubscriptionCaches()
       return true
     } catch (error) {
+      if (controller.signal.aborted || generation !== authStore.sessionGeneration) return false
       handleSilentError(error, 'Failed to update subscription order')
       restoreSubscriptionSnapshot(accessibleSnapshot, unavailableSnapshot)
       await fetchSubscriptions()
       return false
     } finally {
-      isReordering.value = false
+      mutationAbortControllers.delete(controller)
+      if (generation === authStore.sessionGeneration) isReordering.value = false
     }
   }
 
@@ -184,14 +201,38 @@ export function useSubscribedBoardsManager() {
     fetchSubscriptions()
   })
 
-  onUnmounted(() => {
+  const stopSessionBoundary = subscribeAuthSessionBoundary((generation) => {
     subscriptionsRequestId += 1
+    subscriptionsAbortController?.abort()
+    subscriptionsAbortController = null
+    mutationAbortControllers.forEach((controller) => controller.abort())
+    mutationAbortControllers.clear()
+    accessibleBoards.value = []
+    unavailableBoards.value = []
+    loading.value = false
+    isReordering.value = false
+    loadError.value = false
+    queueMicrotask(() => {
+      if (disposed
+        || authStore.sessionGeneration !== generation
+        || !authStore.isAuthenticated) return
+      void fetchSubscriptions()
+    })
+  })
+
+  onUnmounted(() => {
+    disposed = true
+    stopSessionBoundary()
+    subscriptionsRequestId += 1
+    subscriptionsAbortController?.abort()
+    mutationAbortControllers.forEach((controller) => controller.abort())
   })
 
   return {
     accessibleBoards,
     unavailableBoards,
     loading,
+    loadError,
     isReordering,
     isMobile,
     hasSubscriptions,

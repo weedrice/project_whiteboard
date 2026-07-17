@@ -6,6 +6,7 @@ import { axiosApiPageSuccess } from '@/test/apiResponseFixtures'
 import { apiEmptySuccess, axiosApiResponse } from '@/test/factories'
 import { createDeferred } from '@/test/async'
 import type { SubscriptionBoardListItem } from '@/types'
+import { notifyAuthSessionBoundary } from '@/queryAuthScope'
 
 const mocks = vi.hoisted(() => ({
   getMySubscriptions: vi.fn(),
@@ -18,6 +19,7 @@ const mocks = vi.hoisted(() => ({
   invalidateQueries: vi.fn(),
   mediaQueryAddEventListener: vi.fn(),
   mediaQueryRemoveEventListener: vi.fn(),
+  authStore: { sessionGeneration: 0, isAuthenticated: true },
 }))
 
 vi.mock('@/api/user', () => ({
@@ -38,7 +40,7 @@ vi.mock('@/stores/toast', () => ({
 }))
 
 vi.mock('@/stores/auth', () => ({
-  useAuthStore: () => ({ sessionGeneration: 0 }),
+  useAuthStore: () => mocks.authStore,
 }))
 
 vi.mock('@/composables/useConfirm', () => ({
@@ -113,6 +115,8 @@ describe('useSubscribedBoardsManager', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    mocks.authStore.sessionGeneration = 0
+    mocks.authStore.isAuthenticated = true
     window.matchMedia = vi.fn(() => ({
       matches: false,
       addEventListener: mocks.mediaQueryAddEventListener,
@@ -156,7 +160,7 @@ describe('useSubscribedBoardsManager', () => {
     await manager.handleUnsubscribe(subscription())
     await flushPromises()
 
-    expect(mocks.unsubscribeBoard).toHaveBeenCalledWith('free')
+    expect(mocks.unsubscribeBoard).toHaveBeenCalledWith('free', { signal: expect.any(AbortSignal) })
     expect(mocks.addToast).toHaveBeenCalledWith('user.subscriptions.unsubscribeSuccess', 'success')
     expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards'] })
     expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards', 'subscriptions'] })
@@ -183,7 +187,7 @@ describe('useSubscribedBoardsManager', () => {
 
     await manager.handleDragEnd()
 
-    expect(mocks.updateSubscriptionOrder).toHaveBeenCalledWith(['tech', 'free'])
+    expect(mocks.updateSubscriptionOrder).toHaveBeenCalledWith(['tech', 'free'], { signal: expect.any(AbortSignal) })
     expect(mocks.handleSilentError).toHaveBeenCalledWith(expect.any(Error), 'Failed to update subscription order')
     expect(mocks.getMySubscriptions).toHaveBeenCalledTimes(2)
     expect(manager.accessibleBoards.value.map(board => board.boardUrl)).toEqual(['free', 'tech'])
@@ -230,6 +234,58 @@ describe('useSubscribedBoardsManager', () => {
 
     expect(mocks.mediaQueryAddEventListener).toHaveBeenCalledWith('change', expect.any(Function))
     expect(mocks.mediaQueryRemoveEventListener).toHaveBeenCalledWith('change', expect.any(Function))
+  })
+
+  it('aborts and clears private subscription state at a session boundary', async () => {
+    const delayed = createDeferred<ReturnType<typeof pageResponse>>()
+    mocks.getMySubscriptions.mockReturnValueOnce(delayed.promise)
+    const { manager } = mountManager()
+    await Promise.resolve()
+    const requestConfig = mocks.getMySubscriptions.mock.calls[0]?.[1] as { signal: AbortSignal }
+
+    mocks.authStore.sessionGeneration = 1
+    mocks.authStore.isAuthenticated = false
+    notifyAuthSessionBoundary(1)
+
+    expect(requestConfig.signal.aborted).toBe(true)
+    expect(manager.accessibleBoards.value).toEqual([])
+    expect(manager.unavailableBoards.value).toEqual([])
+    expect(manager.loading.value).toBe(false)
+
+    delayed.resolve(pageResponse(0, 1, [subscription()]))
+    await flushPromises()
+    expect(manager.accessibleBoards.value).toEqual([])
+  })
+
+  it('loads subscriptions for the authenticated account after a session boundary', async () => {
+    mocks.getMySubscriptions
+      .mockResolvedValueOnce(pageResponse(0, 1, [subscription({ boardUrl: 'account-a' })]))
+      .mockResolvedValueOnce(pageResponse(0, 1, [subscription({ boardId: 2, boardUrl: 'account-b' })]))
+    const { manager } = mountManager()
+    await flushPromises()
+    expect(manager.accessibleBoards.value.map((board) => board.boardUrl)).toEqual(['account-a'])
+
+    mocks.authStore.sessionGeneration = 1
+    mocks.authStore.isAuthenticated = true
+    notifyAuthSessionBoundary(1)
+    await flushPromises()
+
+    expect(mocks.getMySubscriptions).toHaveBeenCalledTimes(2)
+    expect(manager.accessibleBoards.value.map((board) => board.boardUrl)).toEqual(['account-b'])
+  })
+
+  it('exposes a retryable load error instead of presenting a failed load as empty', async () => {
+    mocks.getMySubscriptions.mockRejectedValueOnce(new Error('load failed'))
+    const { manager } = mountManager()
+    await flushPromises()
+
+    expect(manager.loadError.value).toBe(true)
+    expect(manager.hasSubscriptions.value).toBe(false)
+
+    mocks.getMySubscriptions.mockResolvedValueOnce(pageResponse(0, 1, [subscription()]))
+    await manager.fetchSubscriptions()
+    expect(manager.loadError.value).toBe(false)
+    expect(manager.accessibleBoards.value).toHaveLength(1)
   })
 
   it('falls back to window width when matchMedia is unavailable', () => {

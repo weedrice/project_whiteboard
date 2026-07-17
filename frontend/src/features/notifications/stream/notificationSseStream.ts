@@ -13,6 +13,11 @@ export const consumeSseStream = async (
     let dataLines: string[] = []
 
     const flushEvent = () => {
+        if (signal.aborted) {
+            currentEvent = 'message'
+            dataLines = []
+            return
+        }
         const payload = dataLines.join('\n').trim()
         if (payload) {
             handleEvent(currentEvent, payload)
@@ -24,6 +29,7 @@ export const consumeSseStream = async (
     try {
         while (!signal.aborted) {
             const { done, value } = await reader.read()
+            if (signal.aborted) break
             if (done) break
 
             buffer += decoder.decode(value, { stream: true })
@@ -48,7 +54,7 @@ export const consumeSseStream = async (
             }
         }
 
-        if (buffer.trim() || dataLines.length > 0) {
+        if (!signal.aborted && (buffer.trim() || dataLines.length > 0)) {
             if (buffer.startsWith('data:')) {
                 dataLines.push(buffer.slice(5).trimStart())
             }

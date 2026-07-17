@@ -19,6 +19,14 @@
                 </div>
             </div>
 
+            <ErrorState
+                v-else-if="loadError"
+                :message="$t('common.messages.loadFailed')"
+                show-retry
+                auto-focus
+                @retry="fetchSubscriptions"
+            />
+
             <EmptyState
                 v-else-if="!hasSubscriptions"
                 title-tag="h2"
@@ -130,6 +138,7 @@ import { ChevronDown, ChevronUp, GripVertical, Users } from 'lucide-vue-next'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
+import ErrorState from '@/components/common/ui/ErrorState.vue'
 import { useSubscribedBoardsManager } from '@/features/user/subscriptions/useSubscribedBoardsManager'
 import { encodePathSegment } from '@/utils/urlPath'
 
@@ -137,9 +146,11 @@ const {
     accessibleBoards,
     unavailableBoards,
     loading,
+    loadError,
     isReordering,
     isMobile,
     hasSubscriptions,
+    fetchSubscriptions,
     handleDragEnd,
     moveSubscription,
     handleUnsubscribe,

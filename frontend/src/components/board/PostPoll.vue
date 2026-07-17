@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import { usePost } from '@/features/board/posts/queries/usePost'
@@ -16,13 +16,17 @@ const { useVotePoll, useDeletePollVote } = usePost()
 const voteMutation = useVotePoll()
 const deleteVoteMutation = useDeletePollVote()
 const selectedOptionIds = ref<number[]>([])
+const now = ref(Date.now())
+let closeTimer: ReturnType<typeof setTimeout> | null = null
+const MAX_CLOSE_TIMER_DELAY_MS = 60_000
 
 const totalVotes = computed(() => props.poll.options.reduce((sum, option) => sum + option.voteCount, 0))
 const selectedCount = computed(() => props.poll.options.filter((option) => option.selected).length)
 const hasVoted = computed(() => selectedCount.value > 0)
 const isClosed = computed(() => {
   if (!props.poll.closesAt) return false
-  return new Date(props.poll.closesAt).getTime() <= Date.now()
+  const closesAt = new Date(props.poll.closesAt).getTime()
+  return !Number.isFinite(closesAt) || closesAt <= now.value
 })
 const canSubmit = computed(() =>
   props.isAuthenticated
@@ -40,6 +44,31 @@ watch(
   },
   { immediate: true },
 )
+
+function scheduleCloseTimer() {
+  if (closeTimer) clearTimeout(closeTimer)
+  closeTimer = null
+  now.value = Date.now()
+  if (!props.poll.closesAt) return
+  const remaining = new Date(props.poll.closesAt).getTime() - now.value
+  if (!Number.isFinite(remaining) || remaining <= 0) return
+  closeTimer = setTimeout(() => {
+    now.value = Date.now()
+    closeTimer = null
+    if (!isClosed.value) scheduleCloseTimer()
+  }, Math.min(remaining, MAX_CLOSE_TIMER_DELAY_MS))
+}
+
+function handleVisibilityChange() {
+  scheduleCloseTimer()
+}
+
+watch(() => props.poll.closesAt, scheduleCloseTimer, { immediate: true })
+onMounted(() => document.addEventListener('visibilitychange', handleVisibilityChange))
+onBeforeUnmount(() => {
+  if (closeTimer) clearTimeout(closeTimer)
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
+})
 
 function optionPercent(voteCount: number) {
   if (totalVotes.value === 0) return 0

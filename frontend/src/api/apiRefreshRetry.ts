@@ -24,6 +24,9 @@ import { isLoginPathname } from '@/api/apiAuthHeader'
 import { API } from '@/utils/constants'
 import type { ApiResponse } from '@/types/common'
 import { coordinateAuthRefresh } from '@/api/authRefreshCoordinator'
+import { isStampedAuthContextCurrent } from '@/api/apiAuthHeader'
+import { getCurrentSessionGeneration } from '@/queryAuthScope'
+import { getStoredAccessToken } from '@/utils/authTokenStorage'
 
 const { t } = i18n.global
 
@@ -34,12 +37,33 @@ type RefreshTokenResponse = {
 const REFRESH_FAILURE_COOLDOWN_MS = 10_000
 let lastRefreshFailureAt = 0
 
+export function resetAuthRefreshFailureCooldownForTest() {
+  lastRefreshFailureAt = 0
+}
+
 function isRefreshInCooldown(): boolean {
   return lastRefreshFailureAt > 0 && Date.now() - lastRefreshFailureAt < REFRESH_FAILURE_COOLDOWN_MS
 }
 
 function markRefreshFailure() {
   lastRefreshFailureAt = Date.now()
+}
+
+function createSuppressedSessionChangedError() {
+  const error = new AuthSessionChangedError() as SuppressibleApiError
+  error.suppressGlobalErrorToast = true
+  error.isAuthRefreshFailure = true
+  return error
+}
+
+function isRefreshSessionCurrent(
+  authStore: Awaited<ReturnType<typeof resolveAuthStore>>,
+  generation: number,
+  accessToken: string | null,
+) {
+  return authStore
+    ? authStore.sessionGeneration === generation && authStore.accessToken === accessToken
+    : getCurrentSessionGeneration() === generation && getStoredAccessToken() === accessToken
 }
 
 export async function retryAfterRefresh(api: AxiosInstance, originalRequest: InternalAxiosRequestConfig) {
@@ -51,8 +75,11 @@ export async function retryAfterRefresh(api: AxiosInstance, originalRequest: Int
   }
 
   const authStore = await resolveAuthStore()
-  const generation = authStore?.sessionGeneration ?? -1
-  const previousToken = authStore?.accessToken ?? null
+  const generation = authStore?.sessionGeneration ?? getCurrentSessionGeneration()
+  const previousToken = authStore?.accessToken ?? getStoredAccessToken()
+  if (!isStampedAuthContextCurrent(originalRequest, generation, previousToken)) {
+    return Promise.reject(createSuppressedSessionChangedError())
+  }
 
   if (isRefreshInProgress()) {
     originalRequest._retry = true
@@ -60,6 +87,9 @@ export async function retryAfterRefresh(api: AxiosInstance, originalRequest: Int
       enqueueFailedRequest({ generation, resolve, reject })
     })
       .then((token) => {
+        if (!token || !isRefreshSessionCurrent(authStore, generation, token)) {
+          throw createSuppressedSessionChangedError()
+        }
         if (originalRequest.headers && token) {
           originalRequest.headers.Authorization = `Bearer ${token}`
         }
@@ -110,6 +140,10 @@ export async function retryAfterRefresh(api: AxiosInstance, originalRequest: Int
       }
     }
 
+    if (!isRefreshSessionCurrent(authStore, generation, newAccessToken)) {
+      throw new AuthSessionChangedError()
+    }
+
     processRefreshQueue(null, newAccessToken, generation)
 
     if (originalRequest.headers) {
@@ -117,7 +151,8 @@ export async function retryAfterRefresh(api: AxiosInstance, originalRequest: Int
     }
     return api(originalRequest)
   } catch (refreshError) {
-    const sessionChanged = authStore !== null && authStore.sessionGeneration !== generation
+    const sessionChanged = refreshError instanceof AuthSessionChangedError
+      || (authStore !== null && authStore.sessionGeneration !== generation)
     if (!sessionChanged) markRefreshFailure()
     const suppressibleRefreshError = refreshError as SuppressibleApiError
     suppressibleRefreshError.suppressGlobalErrorToast = true

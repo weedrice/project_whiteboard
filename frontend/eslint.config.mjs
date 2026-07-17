@@ -106,6 +106,12 @@ export default [
         },
         rules: {
             'no-console': 'off',
+            'no-restricted-imports': ['error', {
+                paths: [{
+                    name: 'loglevel',
+                    message: 'Import the shared @/utils/logger wrapper so Axios errors are sanitized before logging.',
+                }],
+            }],
             'no-useless-escape': 'off',
             'no-undef': 'off',
             'no-unused-vars': 'off',
@@ -139,6 +145,12 @@ export default [
         },
         rules: {
             'no-console': 'off',
+            'no-restricted-imports': ['error', {
+                paths: [{
+                    name: 'loglevel',
+                    message: 'Import the shared @/utils/logger wrapper so Axios errors are sanitized before logging.',
+                }],
+            }],
             'no-useless-escape': 'off',
             'no-undef': 'off',
             'no-unused-vars': 'off',
@@ -153,6 +165,12 @@ export default [
             'vue/no-unused-vars': 'error',
             'vue/valid-v-memo': 'off',
             'local-i18n/no-bare-korean-in-template': 'error',
+        },
+    },
+    {
+        files: ['src/utils/logger.ts'],
+        rules: {
+            'no-restricted-imports': 'off',
         },
     },
     {

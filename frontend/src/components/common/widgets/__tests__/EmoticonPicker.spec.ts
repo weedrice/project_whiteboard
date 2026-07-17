@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
-import { nextTick } from 'vue'
+import { nextTick, unref } from 'vue'
 import type { EmoticonMaster } from '@/types/emoticon'
 
 const mocks = vi.hoisted(() => {
@@ -126,7 +126,7 @@ describe('EmoticonPicker', () => {
         mountPicker(false)
         const options = mocks.queryOptions[0]
 
-        expect(options.queryKey).toEqual(['session', 0, 'emoticons', 'accessible', 'picker'])
+        expect(unref(options.queryKey)).toEqual(['session', 0, 'emoticons', 'accessible', 'picker'])
         expect((options.enabled as () => boolean)()).toBe(false)
 
         const result = await (options.queryFn as () => Promise<unknown>)()

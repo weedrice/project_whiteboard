@@ -8,6 +8,7 @@ import {
     loadApiModule,
     resetApiIndexTestState,
 } from './apiIndexTestHarness'
+import { closeAuthRefreshCoordinatorForTest } from '@/api/authRefreshCoordinator'
 
 const mocks = getApiIndexMocks()
 
@@ -23,6 +24,7 @@ async function getAccessToken() {
 
 describe('API Interceptors', () => {
     beforeEach(() => {
+        closeAuthRefreshCoordinatorForTest()
         resetApiIndexTestState()
     })
 
@@ -73,7 +75,7 @@ describe('API Interceptors', () => {
         })
         mocks.mockApiRequest.mockResolvedValue({ data: { ok: true } })
 
-        const originalRequest = createApiRequestConfig()
+        const originalRequest = createApiRequestConfig({ _authAccessToken: 'old-access' })
         const error = createApiError({ config: originalRequest, response: { status: 401 } })
 
         const result = await responseRejected(error)
@@ -99,7 +101,7 @@ describe('API Interceptors', () => {
             resolveRefresh = resolve
         }))
 
-        const request = createApiRequestConfig()
+        const request = createApiRequestConfig({ _authAccessToken: 'old-access' })
         const refreshResult = responseRejected(createApiError({ config: request, response: { status: 401 } }))
         await vi.waitFor(() => expect(mocks.mockAxiosPost).toHaveBeenCalledTimes(1))
         authStore.sessionGeneration += 1
@@ -114,6 +116,33 @@ describe('API Interceptors', () => {
         expect(mocks.mockApiRequest).not.toHaveBeenCalled()
     })
 
+    it('does not replay original or queued requests when the account changes during user hydration', async () => {
+        const { responseRejected, authStore } = await loadApiModule({ user: { id: 10 }, accessToken: 'old-access' })
+        let resolveHydration!: (value: boolean) => void
+        mocks.mockFetchUser.mockReturnValueOnce(new Promise((resolve) => {
+            resolveHydration = resolve
+        }))
+        mocks.mockAxiosPost.mockResolvedValueOnce({
+            data: { success: true, data: { accessToken: 'refreshed-a' } },
+        })
+
+        const firstRequest = createApiRequestConfig({ _authAccessToken: 'old-access' })
+        const queuedRequest = createApiRequestConfig({ _authAccessToken: 'old-access' })
+        const firstResult = responseRejected(createApiError({ config: firstRequest, response: { status: 401 } }))
+        const queuedResult = responseRejected(createApiError({ config: queuedRequest, response: { status: 401 } }))
+
+        await vi.waitFor(() => expect(mocks.mockFetchUser).toHaveBeenCalledTimes(1))
+        authStore.sessionGeneration += 1
+        authStore.accessToken = 'account-b'
+        authStore.user = { id: 20 }
+        resolveHydration(true)
+
+        await expect(firstResult).rejects.toMatchObject({ name: 'AuthSessionChangedError' })
+        await expect(queuedResult).rejects.toMatchObject({ name: 'AuthSessionChangedError' })
+        expect(mocks.mockApiRequest).not.toHaveBeenCalled()
+        expect(authStore.accessToken).toBe('account-b')
+    })
+
     it('rejects refresh when user hydration fails after refresh succeeds', async () => {
         const { responseRejected } = await loadApiModule({ user: { id: 10 }, accessToken: 'old-access' })
         mocks.mockFetchUser.mockResolvedValueOnce(false)
@@ -126,7 +155,7 @@ describe('API Interceptors', () => {
             },
         })
 
-        const originalRequest = createApiRequestConfig()
+        const originalRequest = createApiRequestConfig({ _authAccessToken: 'old-access' })
         const error = createApiError({ config: originalRequest, response: { status: 401 } })
 
         await expect(responseRejected(error)).rejects.toMatchObject({
@@ -159,6 +188,28 @@ describe('API Interceptors', () => {
         expect(await getAccessToken()).toBe('new-access-without-auth-resolver')
         expect(request.headers.Authorization).toBe('Bearer new-access-without-auth-resolver')
         expect(result).toEqual({ data: { ok: true } })
+    })
+
+    it('does not refresh or replay a delayed request after the authenticated session changes', async () => {
+        const { responseRejected, authStore } = await loadApiModule({ user: { id: 20 }, accessToken: 'account-b' })
+        const delayedAccountARequest = createApiRequestConfig({
+            method: 'post',
+            data: { privateAction: 'from-account-a' },
+            _authSessionGeneration: 0,
+            _authAccessToken: 'account-a',
+        })
+        authStore.sessionGeneration = 1
+
+        await expect(responseRejected(createApiError({
+            config: delayedAccountARequest,
+            response: { status: 401 },
+        }))).rejects.toMatchObject({
+            name: 'AuthSessionChangedError',
+            suppressGlobalErrorToast: true,
+        })
+
+        expect(mocks.mockAxiosPost).not.toHaveBeenCalled()
+        expect(mocks.mockApiRequest).not.toHaveBeenCalled()
     })
 
     it('refreshes and retries when auth store resolver throws', async () => {
@@ -298,14 +349,14 @@ describe('API Interceptors', () => {
     })
 
     it('attempts refresh without local refresh token state', async () => {
-        const { responseRejected } = await loadApiModule()
+        const { responseRejected } = await loadApiModule({ accessToken: 'stale-access' })
         await setAccessToken('stale-access')
         mocks.mockAxiosPost.mockRejectedValueOnce({
             response: { status: 401 },
         })
 
         const error = createApiError({
-            config: { headers: {} },
+            config: createApiRequestConfig({ _authAccessToken: 'stale-access' }),
             response: { status: 401 },
         })
 
@@ -354,7 +405,7 @@ describe('API Interceptors', () => {
         })
 
         const error = createApiError({
-            config: { headers: {} },
+            config: createApiRequestConfig(),
             response: { status: 401 },
         })
 
@@ -363,14 +414,14 @@ describe('API Interceptors', () => {
     })
 
     it('does not clear tokens for refresh failures with non-auth server errors', async () => {
-        const { responseRejected } = await loadApiModule()
+        const { responseRejected } = await loadApiModule({ accessToken: 'keep-access' })
         await setAccessToken('keep-access')
         mocks.mockAxiosPost.mockRejectedValueOnce({
             response: { status: 500 },
         })
 
         const error = createApiError({
-            config: { headers: {} },
+            config: createApiRequestConfig({ _authAccessToken: 'keep-access' }),
             response: { status: 401 },
         })
 
@@ -380,7 +431,7 @@ describe('API Interceptors', () => {
     })
 
     it('skips redirect when refresh failure happens on login page', async () => {
-        const { responseRejected } = await loadApiModule()
+        const { responseRejected } = await loadApiModule({ accessToken: 'stale-access' })
         await setAccessToken('stale-access')
         history.pushState({}, '', '/login')
         mocks.mockAxiosPost.mockRejectedValueOnce({
@@ -388,7 +439,7 @@ describe('API Interceptors', () => {
         })
 
         const error = createApiError({
-            config: { headers: {} },
+            config: createApiRequestConfig({ _authAccessToken: 'stale-access' }),
             response: { status: 401 },
         })
 
@@ -397,7 +448,7 @@ describe('API Interceptors', () => {
     })
 
     it('does not redirect when current route does not require auth', async () => {
-        const { responseRejected } = await loadApiModule()
+        const { responseRejected } = await loadApiModule({ accessToken: 'stale-access' })
         mocks.mockCurrentRoute.value.meta.requiresAuth = false
         await setAccessToken('stale-access')
         history.pushState({}, '', '/public')
@@ -406,7 +457,7 @@ describe('API Interceptors', () => {
         })
 
         const error = createApiError({
-            config: { headers: {} },
+            config: createApiRequestConfig({ _authAccessToken: 'stale-access' }),
             response: { status: 401 },
         })
 
@@ -425,7 +476,7 @@ describe('API Interceptors', () => {
         })
 
         const error = createApiError({
-            config: { headers: {} },
+            config: createApiRequestConfig({ _authAccessToken: 'stale-access' }),
             response: { status: 401 },
         })
 
@@ -455,7 +506,7 @@ describe('API Interceptors', () => {
         })
 
         const error = createApiError({
-            config: { headers: {} },
+            config: createApiRequestConfig({ _authAccessToken: 'stale-access' }),
             response: { status: 401 },
         })
 
@@ -464,11 +515,11 @@ describe('API Interceptors', () => {
         expect(rejected.suppressGlobalErrorToast).toBe(true)
         expect(rejected.isAuthRefreshFailure).toBe(true)
 
-        expect(await getAccessToken()).toBeNull()
-        expect(localStorage.getItem('refreshToken')).toBeNull()
         expect(authStore.clearSessionState).toHaveBeenCalledTimes(1)
         expect(authStore.user).toBeNull()
         expect(authStore.accessToken).toBeNull()
+        expect(await getAccessToken()).toBeNull()
+        expect(localStorage.getItem('refreshToken')).toBeNull()
         expect(mocks.mockAddToast).toHaveBeenCalledTimes(1)
         expect(mocks.mockAddToast).toHaveBeenCalledWith(
             'common.messages.sessionExpired',

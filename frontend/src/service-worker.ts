@@ -6,6 +6,10 @@ import { CacheFirst, NetworkOnly } from 'workbox-strategies'
 import { ExpirationPlugin } from 'workbox-expiration'
 import { cleanupOutdatedCaches, createHandlerBoundToURL, precacheAndRoute } from 'workbox-precaching'
 import { resolveInternalPushNotificationUrl } from '@/utils/pushNotificationUrl'
+import {
+  normalizePushNotificationPayload,
+  type PushNotificationPayload,
+} from '@/utils/pushNotificationPayload'
 
 declare const self: ServiceWorkerGlobalScope & {
   __WB_MANIFEST: Array<{ url: string, revision: string | null }>
@@ -51,22 +55,13 @@ const navigationRoute = new NavigationRoute(async (options) => {
 })
 registerRoute(navigationRoute)
 
-type PushPayload = {
-  title?: string
-  body?: string
-  icon?: string
-  badge?: string
-  url?: string
-  tag?: string
-}
-
 self.addEventListener('push', (event) => {
   const payload = readPushPayload(event)
   const title = payload.title || 'NoviIs'
   const options: NotificationOptions = {
     body: payload.body,
-    icon: payload.icon || '/pwa-192x192.png',
-    badge: payload.badge || '/pwa-192x192.png',
+    icon: resolveInternalPushNotificationUrl(payload.icon, self.location.origin, '/pwa-192x192.png'),
+    badge: resolveInternalPushNotificationUrl(payload.badge, self.location.origin, '/pwa-192x192.png'),
     tag: payload.tag,
     data: {
       url: payload.url || '/',
@@ -91,13 +86,13 @@ self.addEventListener('notificationclick', (event) => {
   })())
 })
 
-function readPushPayload(event: PushEvent): PushPayload {
+function readPushPayload(event: PushEvent): PushNotificationPayload {
   if (!event.data) {
     return {}
   }
 
   try {
-    return event.data.json() as PushPayload
+    return normalizePushNotificationPayload(event.data.json())
   } catch {
     return {
       body: event.data.text(),
