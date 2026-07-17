@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { RouteLocationNormalizedLoaded, Router } from 'vue-router'
 import { authApi } from '@/api/auth'
 import { apiSuccessDataResponse, apiSuccessResponse } from '@/test/apiResponseFixtures'
+import { createDeferred } from '@/test/async'
 import { useSignupRegistration } from '../useSignupRegistration'
 
 const mocks = vi.hoisted(() => {
@@ -76,7 +77,8 @@ type SignupRegistration = ReturnType<typeof useSignupRegistration>
 function mountSignupRegistration(routeQuery: Record<string, unknown> = {}) {
   let composable = undefined as unknown as SignupRegistration
   const route = {
-    query: routeQuery
+    query: routeQuery,
+    fullPath: '/signup',
   }
 
   const wrapper = mount(defineComponent({
@@ -117,13 +119,7 @@ describe('useSignupRegistration', () => {
       timeLeft: 0,
       resendCooldown: 0
     })
-    vi.mocked(authApi.getOAuthSignupTicket).mockResolvedValue(
-      apiSuccessDataResponse<typeof authApi.getOAuthSignupTicket>({
-        email: 'oauth@example.com',
-        name: 'OAuth User',
-        provider: 'google',
-      })
-    )
+    vi.mocked(authApi.getOAuthSignupTicket).mockRejectedValue({ response: { status: 400 } })
     vi.mocked(authApi.signup).mockResolvedValue(apiSuccessResponse<typeof authApi.signup>())
   })
 
@@ -154,10 +150,15 @@ describe('useSignupRegistration', () => {
     wrapper.unmount()
   })
 
-  it('submits the signup payload without passwordConfirm and preserves OAuth registration ticket', async () => {
-    const { composable, wrapper } = mountSignupRegistration({
-      oauthRegistrationTicket: 'oauth-ticket-1'
-    })
+  it('submits without exposing the OAuth registration ticket in the request body', async () => {
+    vi.mocked(authApi.getOAuthSignupTicket).mockResolvedValue(
+      apiSuccessDataResponse<typeof authApi.getOAuthSignupTicket>({
+        email: 'oauth@example.com',
+        name: 'OAuth User',
+        provider: 'google',
+      })
+    )
+    const { composable, wrapper } = mountSignupRegistration()
     await flushMountedAsync()
     Object.assign(composable.form.value, {
       loginId: 'login_1',
@@ -177,8 +178,7 @@ describe('useSignupRegistration', () => {
       email: 'oauth@example.com',
       displayName: 'OAuth User',
       verificationTicket: 'ticket-1',
-      oauthRegistrationTicket: 'oauth-ticket-1'
-    })
+    }, { signal: expect.any(AbortSignal) })
     expect(mocks.toastStore.addToast).toHaveBeenCalledWith('auth.signupSuccess', 'success')
     expect(mocks.router.push).toHaveBeenCalledWith('/login')
     wrapper.unmount()
@@ -206,9 +206,10 @@ describe('useSignupRegistration', () => {
     expect(composable.form.value.email).toBe('user@example.com')
     expect(composable.form.value.displayName).toBe('Display')
     expect(authApi.checkEmailForReregister).not.toHaveBeenCalled()
-    expect(authApi.signup).toHaveBeenCalledWith(expect.objectContaining({
-      oauthRegistrationTicket: null
-    }))
+    expect(authApi.signup).toHaveBeenCalledWith(
+      expect.not.objectContaining({ oauthRegistrationTicket: expect.anything() }),
+      { signal: expect.any(AbortSignal) },
+    )
     wrapper.unmount()
   })
 
@@ -227,5 +228,31 @@ describe('useSignupRegistration', () => {
     expect(authApi.signup).not.toHaveBeenCalled()
     expect(mocks.toastStore.addToast).toHaveBeenCalledWith('auth.verificationRequired', 'error')
     wrapper.unmount()
+  })
+
+  it('aborts an in-flight signup and ignores its late success after unmount', async () => {
+    const pending = createDeferred<Awaited<ReturnType<typeof authApi.signup>>>()
+    vi.mocked(authApi.signup).mockReturnValue(pending.promise)
+    const { composable, wrapper } = mountSignupRegistration()
+    await flushMountedAsync()
+    Object.assign(composable.form.value, {
+      loginId: 'login_1',
+      password: 'Password1!',
+      passwordConfirm: 'Password1!',
+      email: 'user@example.com',
+      displayName: 'Display',
+    })
+    composable.verification.isVerified = true
+    composable.verification.verificationTicket = 'ticket-1'
+
+    const request = composable.handleSignup()
+    const config = vi.mocked(authApi.signup).mock.calls[0]?.[1]
+    wrapper.unmount()
+    expect(config?.signal?.aborted).toBe(true)
+    pending.resolve(apiSuccessResponse<typeof authApi.signup>())
+    await request
+
+    expect(mocks.router.push).not.toHaveBeenCalled()
+    expect(mocks.toastStore.addToast).not.toHaveBeenCalledWith('auth.signupSuccess', 'success')
   })
 })

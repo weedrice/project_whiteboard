@@ -1,3 +1,4 @@
+import { getCurrentScope, onScopeDispose } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { authApi } from '@/api/auth'
@@ -20,6 +21,8 @@ export function usePasswordResetByVerificationFlow(options: UsePasswordResetByVe
     const router = useRouter()
     const toastStore = useToastStore()
     const { validatePasswordPair } = useAuthPasswordValidation()
+    let requestRevision = 0
+    let requestController: AbortController | null = null
 
     const completeVerification = (verificationTicket: string) => {
         options.onVerified?.(verificationTicket)
@@ -39,18 +42,28 @@ export function usePasswordResetByVerificationFlow(options: UsePasswordResetByVe
         }
 
         const email = options.getEmail().trim()
+        requestController?.abort()
+        const controller = new AbortController()
+        requestController = controller
+        const revision = ++requestRevision
+        const routeIdentity = router.currentRoute?.value.fullPath ?? window.location.href
+        const isCurrent = () => requestRevision === revision
+            && requestController === controller
+            && !controller.signal.aborted
+            && (router.currentRoute?.value.fullPath ?? window.location.href) === routeIdentity
         options.onLoadingChange?.(true)
         try {
             const { data } = await authApi.resetPassword({
                 email,
                 verificationTicket: options.getVerificationTicket(),
                 newPassword: options.getNewPassword()
-            })
-            if (data.success) {
+            }, { signal: controller.signal })
+            if (isCurrent() && data.success) {
                 toastStore.addToast(t('auth.passwordResetSuccess'), 'success')
                 router.push('/login')
             }
         } catch (error: unknown) {
+            if (!isCurrent()) return
             if (handleDeletedAccountRedirect(error, {
                 email,
                 t,
@@ -63,8 +76,17 @@ export function usePasswordResetByVerificationFlow(options: UsePasswordResetByVe
                 toastStore.addToast(message, 'error')
             }
         } finally {
-            options.onLoadingChange?.(false)
+            if (isCurrent()) options.onLoadingChange?.(false)
         }
+    }
+
+    if (getCurrentScope()) {
+        onScopeDispose(() => {
+            requestRevision += 1
+            requestController?.abort()
+            requestController = null
+            options.onLoadingChange?.(false)
+        })
     }
 
     return {

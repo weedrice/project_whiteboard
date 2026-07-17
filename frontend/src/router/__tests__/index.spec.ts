@@ -679,7 +679,7 @@ describe('Router Navigation Guards', () => {
         await router.push('/')
         await router.push('/login')
 
-        expect(sessionStorage.getItem('loginRedirect')).toBe('/')
+        expect(JSON.parse(sessionStorage.getItem('loginRedirect') ?? '{}')).toMatchObject({ path: '/' })
     })
 
     it('does not store loginRedirect for oauth callback', async () => {

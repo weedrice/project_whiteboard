@@ -103,12 +103,11 @@ describe('authApi', () => {
     })
 
     it('calls OAuth signup ticket endpoint with skip flags', () => {
-        authApi.getOAuthSignupTicket('oauth-ticket-1')
+        authApi.getOAuthSignupTicket()
 
         expect(apiMock.get).toHaveBeenCalledWith(
             '/auth/oauth/signup-ticket',
             {
-                params: { ticket: 'oauth-ticket-1' },
                 skipAuthRefresh: true,
                 skipGlobalErrorHandler: true,
             },

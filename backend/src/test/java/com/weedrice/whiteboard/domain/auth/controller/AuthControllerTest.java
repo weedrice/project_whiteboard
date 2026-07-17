@@ -20,6 +20,7 @@ import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.security.CurrentUserIdArgumentResolver;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import com.weedrice.whiteboard.global.security.RefreshTokenCookieWriter;
+import com.weedrice.whiteboard.global.security.OAuthSignupTicketCookieWriter;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
@@ -71,6 +72,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @TestPropertySource(properties = "jwt.refresh-token.expiration=1209600000")
 @Import({
         RefreshTokenCookieWriter.class,
+        OAuthSignupTicketCookieWriter.class,
         CurrentUserIdWebMvcConfig.class,
         CurrentUserIdArgumentResolver.class
 })
@@ -147,6 +149,7 @@ class AuthControllerTest {
         when(authService.signup(any())).thenReturn(response);
 
         mockMvc.perform(post("/api/v1/auth/signup")
+                        .cookie(new Cookie(OAuthSignupTicketCookieWriter.COOKIE_NAME, "oauth-ticket-1"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"email":"test@example.com","loginId":"testuser","password":"Password123!",
@@ -154,7 +157,11 @@ class AuthControllerTest {
                                 """))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.userId").value(1L));
+                .andExpect(jsonPath("$.data.userId").value(1L))
+                .andExpect(cookie().maxAge(OAuthSignupTicketCookieWriter.COOKIE_NAME, 0));
+
+        verify(authService).signup(org.mockito.ArgumentMatchers.argThat(
+                signup -> "oauth-ticket-1".equals(signup.getOauthRegistrationTicket())));
     }
 
     @Test
@@ -169,6 +176,28 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.error.code").value("C008"));
 
         verify(authService, never()).signup(any());
+    }
+
+    @Test
+    void signup_ignoresOAuthTicketFromJsonBody() throws Exception {
+        when(authService.signup(any())).thenReturn(SignupResponse.builder()
+                .userId(1L)
+                .loginId("testuser")
+                .email("test@example.com")
+                .displayName("Test User")
+                .build());
+
+        mockMvc.perform(post("/api/v1/auth/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"test@example.com","loginId":"testuser","password":"Password123!",
+                                 "verificationTicket":"ticket-1","displayName":"Test User",
+                                 "oauthRegistrationTicket":"query-or-body-ticket"}
+                                """))
+                .andExpect(status().isCreated());
+
+        verify(authService).signup(org.mockito.ArgumentMatchers.argThat(
+                signup -> signup.getOauthRegistrationTicket() == null));
     }
 
     @Test
@@ -195,12 +224,21 @@ class AuthControllerTest {
                         .build());
 
         mockMvc.perform(get("/api/v1/auth/oauth/signup-ticket")
-                        .param("ticket", "ticket-1"))
+                        .cookie(new Cookie(OAuthSignupTicketCookieWriter.COOKIE_NAME, "ticket-1")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.email").value("test@example.com"))
                 .andExpect(jsonPath("$.data.name").value("Test User"))
                 .andExpect(jsonPath("$.data.provider").value("google"));
+    }
+
+    @Test
+    void getOAuthSignupTicket_doesNotAcceptTicketInQueryString() throws Exception {
+        mockMvc.perform(get("/api/v1/auth/oauth/signup-ticket")
+                        .param("ticket", "ticket-1"))
+                .andExpect(status().isBadRequest());
+
+        verify(oAuthSignupTicketService, never()).getResponse(any());
     }
 
     @Test

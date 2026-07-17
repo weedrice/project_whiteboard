@@ -96,7 +96,11 @@ describe('usePasswordResetByTokenFlow', () => {
     expect(isLoading.value).toBe(true)
     await request
 
-    expect(authApi.resetPasswordWithToken).toHaveBeenCalledWith('reset-token', 'Password1!')
+    expect(authApi.resetPasswordWithToken).toHaveBeenCalledWith(
+      'reset-token',
+      'Password1!',
+      { signal: expect.any(AbortSignal) },
+    )
     expect(toastMock.addToast).toHaveBeenCalledWith('auth.passwordResetSuccess', 'success')
     expect(routerPush).toHaveBeenCalledWith('/login')
     expect(isLoading.value).toBe(false)

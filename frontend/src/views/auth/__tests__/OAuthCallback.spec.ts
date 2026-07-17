@@ -2,6 +2,7 @@ import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import OAuthCallback from '../OAuthCallback.vue'
 import { closeAuthRefreshCoordinatorForTest } from '@/api/authRefreshCoordinator'
+import { saveLoginRedirect } from '@/utils/authRedirect'
 
 const mocks = vi.hoisted(() => {
     const router = {
@@ -116,7 +117,7 @@ describe('OAuthCallback', () => {
 
     it('exchanges the refresh cookie, stores token, fetches user and redirects to safe saved path', async () => {
         const replaceStateSpy = vi.spyOn(window.history, 'replaceState')
-        sessionStorage.setItem('loginRedirect', '/boards')
+        saveLoginRedirect('/boards')
         window.history.replaceState(
             {},
             '',

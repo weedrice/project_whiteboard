@@ -12,6 +12,7 @@ import {
 } from '@/utils/authTokenStorage'
 import type { User, LoginCredentials, LoginUser } from '@/types'
 import type { AxiosRequestConfig } from 'axios'
+import { clearLoginRedirect } from '@/utils/authRedirect'
 import { cancelPendingAuthRefresh } from '@/api/authRefreshSession'
 import {
     cancelAuthRefreshCoordinator,
@@ -61,11 +62,15 @@ export const useAuthStore = defineStore('auth', () => {
     const accessToken = ref<string | null>(null)
     const isAuthenticated = computed(() => !!accessToken.value)
     let bootstrapAttempted = false
+    let bootstrapTerminalFailure = false
+    let bootstrapRetryAt = 0
     let bootstrapInFlight: Promise<boolean> | null = null
     const sessionGeneration = ref(0)
 
     function resetBootstrapState() {
         bootstrapAttempted = false
+        bootstrapTerminalFailure = false
+        bootstrapRetryAt = 0
         bootstrapInFlight = null
     }
 
@@ -130,6 +135,7 @@ export const useAuthStore = defineStore('auth', () => {
 
     async function logout() {
         clearSessionState()
+        clearLoginRedirect()
         try {
             await authApi.logout()
         } catch (error: unknown) {
@@ -193,7 +199,7 @@ export const useAuthStore = defineStore('auth', () => {
         if (bootstrapInFlight) {
             return bootstrapInFlight
         }
-        if (bootstrapAttempted) {
+        if (bootstrapTerminalFailure || (bootstrapAttempted && Date.now() < bootstrapRetryAt)) {
             return false
         }
 
@@ -222,6 +228,13 @@ export const useAuthStore = defineStore('auth', () => {
                 logger.error('Bootstrap session failed:', error)
                 if (generation === sessionGeneration.value) {
                     clearSessionValues()
+                    const status = error && typeof error === 'object'
+                        ? (error as { response?: { status?: number } }).response?.status
+                        : undefined
+                    bootstrapTerminalFailure = status === 401 || status === 403
+                    bootstrapRetryAt = bootstrapTerminalFailure
+                        ? Number.POSITIVE_INFINITY
+                        : Date.now() + 3000
                 }
                 return false
             }

@@ -9,6 +9,7 @@ import com.weedrice.whiteboard.domain.auth.service.SessionTokenService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
+import com.weedrice.whiteboard.global.security.OAuthSignupTicketCookieWriter;
 import com.weedrice.whiteboard.global.security.RefreshTokenCookieWriter;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -34,6 +35,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
     private final RefreshTokenCookieWriter refreshTokenCookieWriter;
     private final LoginClientMetadataResolver loginClientMetadataResolver;
     private final OAuthSignupTicketService oAuthSignupTicketService;
+    private final OAuthSignupTicketCookieWriter oAuthSignupTicketCookieWriter;
 
     @Value("${app.frontend-url}")
     private String frontendUrl;
@@ -50,8 +52,8 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
                     unregisteredUser.getProvider(),
                     unregisteredUser.getProviderId());
 
+            oAuthSignupTicketCookieWriter.write(response, ticket, request);
             String targetUrl = UriComponentsBuilder.fromUriString(frontendUrl + "/signup")
-                    .queryParam("oauthRegistrationTicket", ticket)
                     .build().toUriString();
 
             getRedirectStrategy().sendRedirect(request, response, targetUrl);

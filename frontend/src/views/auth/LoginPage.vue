@@ -9,7 +9,7 @@ import AuthFormShell from '@/components/auth/AuthFormShell.vue'
 import OAuthLoginButtons from '@/components/auth/OAuthLoginButtons.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
-import { clearLoginRedirect, resolveLoginRedirect, saveLoginRedirect } from '@/utils/authRedirect'
+import { resolveLoginRedirect, saveLoginRedirect } from '@/utils/authRedirect'
 
 const { t } = useI18n()
 const toastStore = useToastStore()
@@ -55,7 +55,6 @@ async function handleLogin() {
       return
     }
     const redirect = resolveLoginRedirect(route.query.redirect)
-    clearLoginRedirect()
     router.push(redirect)
   } catch (err: unknown) {
     const msg = err && typeof err === 'object' && 'response' in err

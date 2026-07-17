@@ -26,8 +26,11 @@ export const authApi = {
     login: (credentials: LoginCredentials) =>
         api.post<ApiResponse<LoginResponse>>('/auth/login', credentials, { skipGlobalErrorHandler: true }),
 
-    signup: (data: SignupData) =>
-        api.post<ApiResponse<SignupResponse>>('/auth/signup', data, { skipGlobalErrorHandler: true }),
+    signup: (data: SignupData, config?: AxiosRequestConfig) =>
+        api.post<ApiResponse<SignupResponse>>('/auth/signup', data, {
+            ...config,
+            skipGlobalErrorHandler: true,
+        }),
 
     logout: () => api.post<ApiResponse<void>>(
         '/auth/logout',
@@ -64,9 +67,9 @@ export const authApi = {
             skipAuthRefresh: true,
         } as AxiosRequestConfig),
 
-    getOAuthSignupTicket: (ticket: string) =>
+    getOAuthSignupTicket: (config?: AxiosRequestConfig) =>
         api.get<ApiResponse<OAuthSignupTicket>>('/auth/oauth/signup-ticket', {
-            params: { ticket },
+            ...config,
             skipAuthRefresh: true,
             skipGlobalErrorHandler: true,
         } as AxiosRequestConfig),
@@ -88,8 +91,9 @@ export const authApi = {
             { skipAuthRefresh: true },
         ),
 
-    resetPassword: (data: PasswordResetData) =>
+    resetPassword: (data: PasswordResetData, config?: AxiosRequestConfig) =>
         api.post<ApiResponse<void>>('/auth/password/reset-by-code', data, {
+            ...config,
             skipAuthRefresh: true,
             skipGlobalErrorHandler: true,
         }),
@@ -104,8 +108,9 @@ export const authApi = {
             },
         ),
 
-    resetPasswordWithToken: (token: string, newPassword: string) =>
+    resetPasswordWithToken: (token: string, newPassword: string, config?: AxiosRequestConfig) =>
         api.post<ApiResponse<void>>('/auth/password/reset', { token, newPassword }, {
+            ...config,
             skipAuthRefresh: true,
             skipGlobalErrorHandler: true,
         }),

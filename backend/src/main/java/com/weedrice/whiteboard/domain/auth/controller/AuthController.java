@@ -28,6 +28,7 @@ import com.weedrice.whiteboard.global.common.annotation.ApiCommonResponses;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.security.CurrentUserId;
+import com.weedrice.whiteboard.global.security.OAuthSignupTicketCookieWriter;
 import com.weedrice.whiteboard.global.security.RefreshTokenCookieWriter;
 import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.Operation;
@@ -56,6 +57,7 @@ public class AuthController {
     private final RefreshTokenCookieWriter refreshTokenCookieWriter;
     private final LoginClientMetadataResolver loginClientMetadataResolver;
     private final OAuthSignupTicketService oAuthSignupTicketService;
+    private final OAuthSignupTicketCookieWriter oAuthSignupTicketCookieWriter;
 
     @Operation(
             summary = "회원가입",
@@ -84,14 +86,22 @@ public class AuthController {
     )
     @ApiCommonResponses
     @PostMapping("/signup")
-    public ResponseEntity<ApiResponse<SignupResponse>> signup(@Valid @RequestBody SignupRequest request) {
-        SignupResponse response = authService.signup(request);
+    public ResponseEntity<ApiResponse<SignupResponse>> signup(
+            @Valid @RequestBody SignupRequest request,
+            @CookieValue(name = OAuthSignupTicketCookieWriter.COOKIE_NAME, required = false) String oauthSignupTicket,
+            HttpServletRequest servletRequest,
+            HttpServletResponse servletResponse) {
+        SignupResponse response = authService.signup(request.withOAuthRegistrationTicket(oauthSignupTicket));
+        oAuthSignupTicketCookieWriter.clear(servletResponse, servletRequest);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(response));
     }
 
     @GetMapping("/oauth/signup-ticket")
     public ResponseEntity<ApiResponse<OAuthSignupTicketResponse>> getOAuthSignupTicket(
-            @RequestParam String ticket) {
+            @CookieValue(name = OAuthSignupTicketCookieWriter.COOKIE_NAME, required = false) String ticket) {
+        if (!StringUtils.hasText(ticket)) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
         return ResponseEntity.ok(ApiResponse.success(oAuthSignupTicketService.getResponse(ticket)));
     }
 

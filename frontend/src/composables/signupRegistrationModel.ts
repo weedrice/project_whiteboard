@@ -14,7 +14,6 @@ export type SignupTouchedState = Record<keyof SignupForm, boolean>
 
 export type SignupPayload = Omit<SignupForm, 'passwordConfirm'> & {
   verificationTicket: string
-  oauthRegistrationTicket: string | null
 }
 
 export function createSignupForm(): SignupForm {
@@ -89,7 +88,6 @@ export function hydrateSignupFormFromOAuthTicket(
 export function buildSignupPayload(
   form: SignupForm,
   verificationTicket: string,
-  query: LocationQuery,
 ): SignupPayload {
   const { passwordConfirm, ...formData } = form
   void passwordConfirm
@@ -99,7 +97,6 @@ export function buildSignupPayload(
     email: form.email.trim(),
     displayName: form.displayName.trim(),
     verificationTicket,
-    oauthRegistrationTicket: getSingleQueryValue(query.oauthRegistrationTicket)
   }
 }
 

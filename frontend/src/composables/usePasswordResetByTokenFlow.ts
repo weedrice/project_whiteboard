@@ -1,4 +1,4 @@
-import { ref, type Ref } from 'vue'
+import { getCurrentScope, onScopeDispose, ref, type Ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { authApi } from '@/api/auth'
@@ -18,6 +18,8 @@ export function usePasswordResetByTokenFlow(options: UsePasswordResetByTokenFlow
   const toastStore = useToastStore()
   const { validatePasswordPair } = useAuthPasswordValidation()
   const isLoading = ref(false)
+  let requestRevision = 0
+  let requestController: AbortController | null = null
 
   const resetPassword = async () => {
     if (!options.token.value) {
@@ -38,19 +40,42 @@ export function usePasswordResetByTokenFlow(options: UsePasswordResetByTokenFlow
       return
     }
 
+    requestController?.abort()
+    const controller = new AbortController()
+    requestController = controller
+    const revision = ++requestRevision
+    const routeIdentity = router.currentRoute?.value.fullPath ?? window.location.href
+    const isCurrent = () => requestRevision === revision
+      && requestController === controller
+      && !controller.signal.aborted
+      && (router.currentRoute?.value.fullPath ?? window.location.href) === routeIdentity
     isLoading.value = true
     try {
-      const { data } = await authApi.resetPasswordWithToken(options.token.value, options.newPassword.value)
-      if (data.success) {
+      const { data } = await authApi.resetPasswordWithToken(
+        options.token.value,
+        options.newPassword.value,
+        { signal: controller.signal },
+      )
+      if (isCurrent() && data.success) {
         toastStore.addToast(t('auth.passwordResetSuccess'), 'success')
         router.push('/login')
       }
     } catch (error: unknown) {
+      if (!isCurrent()) return
       const message = extractErrorMessage(error) || t('auth.verificationFailed')
       toastStore.addToast(message, 'error')
     } finally {
-      isLoading.value = false
+      if (isCurrent()) isLoading.value = false
     }
+  }
+
+  if (getCurrentScope()) {
+    onScopeDispose(() => {
+      requestRevision += 1
+      requestController?.abort()
+      requestController = null
+      isLoading.value = false
+    })
   }
 
   return {

@@ -11,6 +11,7 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.common.util.ClientIpResolver;
 import com.weedrice.whiteboard.global.security.RefreshTokenCookieWriter;
+import com.weedrice.whiteboard.global.security.OAuthSignupTicketCookieWriter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -60,7 +61,8 @@ class OAuth2SuccessHandlerTest {
                 new LoginAccountEligibilityService(sanctionPolicyService),
                 new RefreshTokenCookieWriter(1209600000L),
                 new LoginClientMetadataResolver(clientIpResolver),
-                oAuthSignupTicketService);
+                oAuthSignupTicketService,
+                new OAuthSignupTicketCookieWriter(java.time.Duration.ofMinutes(10), null));
         ReflectionTestUtils.setField(handler, "frontendUrl", "http://localhost:5173");
 
         user = User.builder()
@@ -73,7 +75,7 @@ class OAuth2SuccessHandlerTest {
     }
 
     @Test
-    @DisplayName("unregistered oauth user is redirected with opaque signup ticket only")
+    @DisplayName("unregistered oauth user stores the opaque signup ticket in an HttpOnly cookie")
     void onAuthenticationSuccess_unregisteredUser_redirectsWithSignupTicket() throws Exception {
         UnregisteredOAuth2User principal = new UnregisteredOAuth2User(
                 Map.of("id", "provider-user-id"),
@@ -99,9 +101,13 @@ class OAuth2SuccessHandlerTest {
 
         handler.onAuthenticationSuccess(request, response, authentication);
 
-        assertThat(response.getRedirectedUrl())
-                .isEqualTo("http://localhost:5173/signup?oauthRegistrationTicket=ticket-1");
+        assertThat(response.getRedirectedUrl()).isEqualTo("http://localhost:5173/signup");
         assertThat(response.getRedirectedUrl()).doesNotContain("oauth@example.com", "providerId");
+        assertThat(response.getHeaders("Set-Cookie"))
+                .anyMatch(header -> header.contains("oauthSignupTicket=ticket-1")
+                        && header.contains("Path=/api/v1/auth")
+                        && header.contains("HttpOnly")
+                        && header.contains("SameSite=Lax"));
         verify(sessionTokenService, never()).issueTokens(any(), any(), any());
     }
 

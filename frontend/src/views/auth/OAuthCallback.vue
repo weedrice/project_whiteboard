@@ -8,7 +8,7 @@ import { authApi } from '@/api/auth'
 import { unwrapApiData } from '@/api/response'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import logger from '@/utils/logger'
-import { clearLoginRedirect, getStoredLoginRedirect } from '@/utils/authRedirect'
+import { consumeLoginRedirect } from '@/utils/authRedirect'
 import { clearSensitiveTokensFromUrl } from '@/utils/oauthCallbackTokens'
 import { coordinateAuthRefresh } from '@/api/authRefreshCoordinator'
 
@@ -65,8 +65,7 @@ onMounted(async () => {
       || authStore.accessToken !== ownedToken) return
 
     toastStore.addToast(t('auth.loginSuccess'), 'success')
-    const redirect = getStoredLoginRedirect()
-    clearLoginRedirect()
+    const redirect = consumeLoginRedirect()
     router.push(redirect ?? '/')
   } catch (error) {
     if (isAbortError(error) || callbackController.signal.aborted) return

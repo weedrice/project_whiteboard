@@ -27,7 +27,7 @@ describe('signupRegistrationModel', () => {
     expect(form.displayName).toBe('Display')
   })
 
-  it('builds a signup payload without passwordConfirm and with OAuth registration ticket', () => {
+  it('builds a signup payload without passwordConfirm or browser-visible OAuth credential', () => {
     const form = {
       loginId: 'login_1',
       password: 'Password1!',
@@ -36,15 +36,12 @@ describe('signupRegistrationModel', () => {
       displayName: ' Display ',
     }
 
-    expect(buildSignupPayload(form, 'ticket-1', {
-      oauthRegistrationTicket: ['oauth-ticket-1', 'oauth-ticket-2'],
-    })).toEqual({
+    expect(buildSignupPayload(form, 'ticket-1')).toEqual({
       loginId: 'login_1',
       password: 'Password1!',
       email: 'user@example.com',
       displayName: 'Display',
       verificationTicket: 'ticket-1',
-      oauthRegistrationTicket: 'oauth-ticket-1',
     })
   })
 

@@ -1,4 +1,4 @@
-import { onMounted, reactive, ref, watch } from 'vue'
+import { onMounted, onScopeDispose, reactive, ref, watch } from 'vue'
 import type { RouteLocationNormalizedLoaded, Router } from 'vue-router'
 import type { ComposerTranslation } from 'vue-i18n'
 import { authApi } from '@/api/auth'
@@ -44,6 +44,19 @@ export function useSignupRegistration({ route, router, t }: SignupRegistrationOp
   const error = ref('')
   const isLoading = ref(false)
   const isReregister = ref(false)
+  let requestRevision = 0
+  let requestController: AbortController | null = null
+
+  const beginRequest = () => {
+    requestController?.abort()
+    requestController = new AbortController()
+    requestRevision += 1
+    return { revision: requestRevision, controller: requestController }
+  }
+
+  const isCurrentRequest = (revision: number, controller: AbortController) => (
+    revision === requestRevision && requestController === controller && !controller.signal.aborted
+  )
 
   const {
     emailVerification: verification,
@@ -192,41 +205,58 @@ export function useSignupRegistration({ route, router, t }: SignupRegistrationOp
       return
     }
 
+    const { revision, controller } = beginRequest()
     isLoading.value = true
 
     try {
       const { data } = await authApi.signup(buildSignupPayload(
         form.value,
         verification.verificationTicket,
-        route.query,
-      ))
-      if (data.success) {
+      ), { signal: controller.signal })
+      if (isCurrentRequest(revision, controller) && data.success) {
         toastStore.addToast(t('auth.signupSuccess'), 'success')
         router.push('/login')
       }
     } catch (err: unknown) {
+      if (!isCurrentRequest(revision, controller)) return
       const message = extractErrorMessage(err) || t('auth.signupFailed')
       toastStore.addToast(message, 'error')
     } finally {
-      isLoading.value = false
+      if (isCurrentRequest(revision, controller)) isLoading.value = false
     }
   }
 
   async function initializeFromRouteQuery() {
-    const oauthRegistrationTicket = Array.isArray(route.query.oauthRegistrationTicket)
-      ? route.query.oauthRegistrationTicket[0]
-      : route.query.oauthRegistrationTicket
-    if (oauthRegistrationTicket) {
-      try {
-        const { data } = await authApi.getOAuthSignupTicket(oauthRegistrationTicket)
+    const { revision, controller } = beginRequest()
+    try {
+      const { data } = await authApi.getOAuthSignupTicket({ signal: controller.signal })
+      if (isCurrentRequest(revision, controller)) {
         hydrateSignupFormFromOAuthTicket(form.value, unwrapApiData(data))
-      } catch {
-        toastStore.addToast(t('auth.signupFailed'), 'error')
       }
-    } else {
-      hydrateSignupFormFromQuery(form.value, route.query)
+    } catch {
+      if (isCurrentRequest(revision, controller)) {
+        // A missing OAuth ticket is the normal direct-signup path.
+        hydrateSignupFormFromQuery(form.value, route.query)
+      }
     }
   }
+
+  onScopeDispose(() => {
+    requestRevision += 1
+    requestController?.abort()
+    requestController = null
+    if (isLoading.value) {
+      isLoading.value = false
+    }
+  })
+
+  watch(() => route.fullPath, () => {
+    requestRevision += 1
+    requestController?.abort()
+    requestController = null
+    isLoading.value = false
+    hydrateSignupFormFromQuery(form.value, route.query)
+  })
 
   watch(() => form.value.loginId, () => {
     touched.loginId = true

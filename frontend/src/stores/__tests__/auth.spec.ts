@@ -46,15 +46,22 @@ vi.mock('@/utils/storage', () => ({
         getString: vi.fn((key: string) => localStorage.getItem(key)),
         setString: vi.fn((key: string, value: string) => localStorage.setItem(key, value)),
         remove: vi.fn((key: string) => localStorage.removeItem(key))
-    }
+    },
+    SessionStorage: {
+        getString: vi.fn((key: string) => sessionStorage.getItem(key)),
+        setString: vi.fn((key: string, value: string) => sessionStorage.setItem(key, value)),
+        remove: vi.fn((key: string) => sessionStorage.removeItem(key)),
+    },
 }))
 
 describe('Auth Store', () => {
     let store: ReturnType<typeof useAuthStore>
 
     beforeEach(() => {
+        vi.useRealTimers()
         setActivePinia(createPinia())
         localStorage.clear()
+        sessionStorage.clear()
         clearStoredAuthTokens()
         vi.clearAllMocks()
         configureAuthSessionEffects({
@@ -158,6 +165,7 @@ describe('Auth Store', () => {
         })
 
         it('handles successful logout', async () => {
+            sessionStorage.setItem('loginRedirect', 'stale')
             vi.mocked(authApi.logout).mockResolvedValue(authLogoutResponse())
 
             await store.logout()
@@ -167,6 +175,7 @@ describe('Auth Store', () => {
             expect(store.user).toBeNull()
             expect(getStoredAccessToken()).toBeNull()
             expect(localStorage.getItem('refreshToken')).toBeNull()
+            expect(sessionStorage.getItem('loginRedirect')).toBeNull()
         })
 
         it('cleans up state even if api call fails', async () => {
@@ -323,6 +332,31 @@ describe('Auth Store', () => {
             store.clearSessionState()
             await expect(store.bootstrapSession()).resolves.toBe(false)
             expect(authApi.refreshToken).toHaveBeenCalledTimes(2)
+        })
+
+        it('retries a transient bootstrap failure after the cooldown', async () => {
+            const now = vi.spyOn(Date, 'now').mockReturnValue(1000)
+            vi.mocked(authApi.refreshToken)
+                .mockRejectedValueOnce({ response: { status: 503 } })
+                .mockRejectedValueOnce({ response: { status: 503 } })
+
+            await expect(store.bootstrapSession()).resolves.toBe(false)
+            await expect(store.bootstrapSession()).resolves.toBe(false)
+            expect(authApi.refreshToken).toHaveBeenCalledTimes(1)
+
+            now.mockReturnValue(4001)
+            await expect(store.bootstrapSession()).resolves.toBe(false)
+            expect(authApi.refreshToken).toHaveBeenCalledTimes(2)
+            now.mockRestore()
+        })
+
+        it('does not retry a terminal bootstrap authentication failure', async () => {
+            vi.mocked(authApi.refreshToken).mockRejectedValue({ response: { status: 401 } })
+
+            await expect(store.bootstrapSession()).resolves.toBe(false)
+            await expect(store.bootstrapSession()).resolves.toBe(false)
+
+            expect(authApi.refreshToken).toHaveBeenCalledTimes(1)
         })
 
         it('restores a session from refresh cookie and fetches the user', async () => {

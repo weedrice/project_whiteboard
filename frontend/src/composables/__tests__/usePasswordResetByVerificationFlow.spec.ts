@@ -86,7 +86,7 @@ describe('usePasswordResetByVerificationFlow', () => {
             email: 'user@example.com',
             verificationTicket: 'ticket-1',
             newPassword: 'Password1!'
-        })
+        }, { signal: expect.any(AbortSignal) })
         expect(toastMock.addToast).toHaveBeenCalledWith('auth.passwordResetSuccess', 'success')
         expect(routerPush).toHaveBeenCalledWith('/login')
         expect(onLoadingChange).toHaveBeenNthCalledWith(1, true)

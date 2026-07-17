@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   buildDeletedAccountSignupPath,
   clearLoginRedirect,
+  consumeLoginRedirect,
   DELETED_ACCOUNT_MESSAGE_KEY,
   getStoredLoginRedirect,
   handleDeletedAccountRedirect,
@@ -20,15 +21,27 @@ describe('authRedirect', () => {
   it('accepts only same-origin absolute-path redirects', () => {
     expect(isSafeRedirect('/board/free')).toBe(true)
     expect(isSafeRedirect('//evil.example')).toBe(false)
+    expect(isSafeRedirect('/%252fevil.example')).toBe(false)
+    expect(isSafeRedirect('/%255cevil.example')).toBe(false)
     expect(isSafeRedirect('https://evil.example')).toBe(false)
     expect(isSafeRedirect(null)).toBe(false)
   })
 
-  it('stores and consumes the existing loginRedirect raw string key', () => {
-    saveLoginRedirect('/board/free')
+  it('stores a TTL-bound nonce and consumes the redirect once', () => {
+    const nonce = saveLoginRedirect('/board/free', 1000)
 
-    expect(sessionStorage.getItem(LOGIN_REDIRECT_KEY)).toBe('/board/free')
-    expect(getStoredLoginRedirect()).toBe('/board/free')
+    expect(nonce).toBeTruthy()
+    expect(JSON.parse(sessionStorage.getItem(LOGIN_REDIRECT_KEY) ?? '{}')).toMatchObject({
+      path: '/board/free',
+      expiresAt: 601000,
+      nonce,
+    })
+    expect(getStoredLoginRedirect(1001)).toBe('/board/free')
+    expect(consumeLoginRedirect(1001)).toBe('/board/free')
+    expect(consumeLoginRedirect(1001)).toBeNull()
+
+    saveLoginRedirect('/expired', 1000)
+    expect(getStoredLoginRedirect(601001)).toBeNull()
 
     clearLoginRedirect()
 
@@ -40,6 +53,7 @@ describe('authRedirect', () => {
 
     expect(resolveLoginRedirect('/query')).toBe('/query')
     expect(resolveLoginRedirect('//evil.example')).toBe('/stored')
+    expect(resolveLoginRedirect('//evil.example')).toBe('/')
   })
 
   it('exits a protected route only when an authenticated session is lost', () => {
