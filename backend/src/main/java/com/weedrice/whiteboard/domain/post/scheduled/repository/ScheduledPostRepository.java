@@ -1,10 +1,12 @@
 package com.weedrice.whiteboard.domain.post.scheduled.repository;
 
 import com.weedrice.whiteboard.domain.post.scheduled.entity.ScheduledPost;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -28,6 +30,13 @@ public interface ScheduledPostRepository extends JpaRepository<ScheduledPost, Lo
 
     @EntityGraph(attributePaths = {"user", "board"})
     Optional<ScheduledPost> findByScheduledPostIdAndUser_UserId(Long scheduledPostId, Long userId);
+
+    @EntityGraph(attributePaths = {"user", "board"})
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT s FROM ScheduledPost s WHERE s.scheduledPostId = :scheduledPostId AND s.user.userId = :userId")
+    Optional<ScheduledPost> findOwnedForUpdate(
+            @Param("scheduledPostId") Long scheduledPostId,
+            @Param("userId") Long userId);
 
     @EntityGraph(attributePaths = {"user", "board"})
     Page<ScheduledPost> findByUser_UserIdOrderByScheduledAtDescScheduledPostIdDesc(Long userId, Pageable pageable);
@@ -97,6 +106,18 @@ public interface ScheduledPostRepository extends JpaRepository<ScheduledPost, Lo
             @Param("scheduledPostId") Long scheduledPostId,
             @Param("expectedProcessingStartedAt") LocalDateTime expectedProcessingStartedAt,
             @Param("failureReason") String failureReason);
+
+    @Modifying
+    @Transactional
+    @Query("""
+            UPDATE ScheduledPost s
+            SET s.status = 'SCHEDULED',
+                s.processingStartedAt = null,
+                s.failureReason = null
+            WHERE s.status = 'PUBLISHING'
+              AND (s.processingStartedAt IS NULL OR s.processingStartedAt < :staleBefore)
+            """)
+    int recoverStalePublishing(@Param("staleBefore") LocalDateTime staleBefore);
 
     @Modifying
     @Transactional

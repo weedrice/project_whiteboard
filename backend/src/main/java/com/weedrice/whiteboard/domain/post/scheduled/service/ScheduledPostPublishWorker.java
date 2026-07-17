@@ -38,25 +38,22 @@ public class ScheduledPostPublishWorker {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void publishClaimed(Long scheduledPostId, LocalDateTime claimedAt) {
         ScheduledPost scheduledPost = loadClaimed(scheduledPostId, claimedAt);
-        if (scheduledPost == null) {
-            return;
-        }
         PostCreateResponse created = postCommandService.createPostWithResponse(
                 scheduledPost.getUser().getUserId(),
                 scheduledPost.getBoard().getBoardUrl(),
                 payloadMapper.toPostCreateRequest(scheduledPost));
-        scheduledPostRepository.markPublished(scheduledPostId, claimedAt, created.getPostId(), now());
+        int updated = scheduledPostRepository.markPublished(
+                scheduledPostId, claimedAt, created.getPostId(), now());
+        requireSingleLeaseUpdate(updated, scheduledPostId, "publish");
         publishSystemNotification(scheduledPost, "notification.scheduled.published");
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void markFailed(Long scheduledPostId, LocalDateTime claimedAt, RuntimeException exception) {
         ScheduledPost scheduledPost = loadClaimed(scheduledPostId, claimedAt);
-        if (scheduledPost == null) {
-            return;
-        }
         String reason = normalizeFailureReason(exception);
-        scheduledPostRepository.markFailed(scheduledPostId, claimedAt, reason);
+        int updated = scheduledPostRepository.markFailed(scheduledPostId, claimedAt, reason);
+        requireSingleLeaseUpdate(updated, scheduledPostId, "fail");
         log.warn("Scheduled post publish failed. scheduledPostId={}, reason={}", scheduledPostId, reason);
         publishSystemNotification(scheduledPost, "notification.scheduled.failed");
     }
@@ -65,7 +62,8 @@ public class ScheduledPostPublishWorker {
         return scheduledPostRepository.findByScheduledPostIdAndStatusAndProcessingStartedAt(
                 scheduledPostId,
                 ScheduledPost.STATUS_PUBLISHING,
-                claimedAt).orElse(null);
+                claimedAt).orElseThrow(() -> new IllegalStateException(
+                        "Scheduled post lease changed before transition: " + scheduledPostId));
     }
 
     private LocalDateTime now() {
@@ -81,6 +79,13 @@ public class ScheduledPostPublishWorker {
         return normalized.length() <= MAX_FAILURE_REASON_LENGTH
                 ? normalized
                 : normalized.substring(0, MAX_FAILURE_REASON_LENGTH);
+    }
+
+    private void requireSingleLeaseUpdate(int updated, Long scheduledPostId, String transition) {
+        if (updated != 1) {
+            throw new IllegalStateException(
+                    "Scheduled post lease changed before " + transition + ": " + scheduledPostId);
+        }
     }
 
     private void publishSystemNotification(ScheduledPost scheduledPost, String messageKey) {

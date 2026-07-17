@@ -41,6 +41,7 @@ public class ScheduledPostService {
     private static final int PUBLISH_BATCH_SIZE = 20;
     private static final int MIN_SCHEDULE_MINUTES = 5;
     private static final int MAX_SCHEDULE_DAYS = 30;
+    private static final int PUBLISHING_LEASE_MINUTES = 10;
     private static final Sort DEFAULT_SORT = Sort.by(
             Sort.Order.desc("scheduledAt"),
             Sort.Order.desc("scheduledPostId"));
@@ -106,7 +107,7 @@ public class ScheduledPostService {
     public ScheduledPostResponse update(Long userId, Long scheduledPostId, ScheduledPostRequest request) {
         User user = userWritableResolver.resolve(userId);
         sanctionService.validateNotMuted(user);
-        ScheduledPost scheduledPost = loadOwned(userId, scheduledPostId);
+        ScheduledPost scheduledPost = loadOwnedForUpdate(userId, scheduledPostId);
         if (!scheduledPost.isEditable()) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
@@ -148,6 +149,11 @@ public class ScheduledPostService {
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public int publishDuePosts() {
         LocalDateTime now = now();
+        int recovered = scheduledPostRepository.recoverStalePublishing(
+                now.minusMinutes(PUBLISHING_LEASE_MINUTES));
+        if (recovered > 0) {
+            log.warn("Recovered {} stale scheduled post publication(s)", recovered);
+        }
         List<Long> dueIds = scheduledPostRepository
                 .findDueScheduledPostIds(now, org.springframework.data.domain.PageRequest.of(0, PUBLISH_BATCH_SIZE))
                 .stream()
@@ -163,7 +169,12 @@ public class ScheduledPostService {
                 publishWorker.publishClaimed(scheduledPostId, claimedAt);
                 publishedCount++;
             } catch (RuntimeException exception) {
-                publishWorker.markFailed(scheduledPostId, claimedAt, exception);
+                try {
+                    publishWorker.markFailed(scheduledPostId, claimedAt, exception);
+                } catch (RuntimeException markFailedException) {
+                    log.error("Failed to mark scheduled post publication as failed. scheduledPostId={}",
+                            scheduledPostId, markFailedException);
+                }
             }
         }
         return publishedCount;
@@ -171,6 +182,11 @@ public class ScheduledPostService {
 
     private ScheduledPost loadOwned(Long userId, Long scheduledPostId) {
         return scheduledPostRepository.findByScheduledPostIdAndUser_UserId(scheduledPostId, userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+    }
+
+    private ScheduledPost loadOwnedForUpdate(Long userId, Long scheduledPostId) {
+        return scheduledPostRepository.findOwnedForUpdate(scheduledPostId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
     }
 

@@ -11,12 +11,14 @@ import com.weedrice.whiteboard.domain.post.service.PostAuthorCommandPolicy;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
+import jakarta.persistence.LockModeType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -113,7 +115,7 @@ class ScheduledPostServiceTest {
                 .scheduledAt(LocalDateTime.of(2026, 7, 13, 1, 0)).build();
         ScheduledPostRequest request = requestWithDraft(77L);
         when(userWritableResolver.resolve(1L)).thenReturn(user);
-        when(scheduledPostRepository.findByScheduledPostIdAndUser_UserId(9L, 1L))
+        when(scheduledPostRepository.findOwnedForUpdate(9L, 1L))
                 .thenReturn(Optional.of(scheduledPost));
         when(draftPostRepository.findByDraftIdAndUserForUpdate(77L, user)).thenReturn(Optional.of(draft));
 
@@ -122,6 +124,20 @@ class ScheduledPostServiceTest {
         assertThat(response.getDraftId()).isEqualTo(77L);
         assertThat(scheduledPost.getDraftId()).isEqualTo(77L);
         verify(scheduledPostRepository).existsByDraftIdAndScheduledPostIdNot(77L, 9L);
+        verify(scheduledPostRepository).findOwnedForUpdate(9L, 1L);
+    }
+
+    @Test
+    void publishDuePostsRecoversExpiredPublishingLeaseBeforeSelectingDuePosts() {
+        when(scheduledPostRepository.recoverStalePublishing(LocalDateTime.of(2026, 7, 12, 23, 50)))
+                .thenReturn(1);
+        when(scheduledPostRepository.findDueScheduledPostIds(any(LocalDateTime.class), any(Pageable.class)))
+                .thenReturn(List.of());
+
+        assertThat(service.publishDuePosts()).isZero();
+
+        verify(scheduledPostRepository)
+                .recoverStalePublishing(LocalDateTime.of(2026, 7, 12, 23, 50));
     }
 
     @Test
@@ -148,6 +164,15 @@ class ScheduledPostServiceTest {
 
         assertThat(transactional).isNotNull();
         assertThat(transactional.propagation()).isEqualTo(Propagation.NOT_SUPPORTED);
+    }
+
+    @Test
+    void updateLookupUsesPessimisticWriteLock() throws Exception {
+        Method method = ScheduledPostRepository.class
+                .getMethod("findOwnedForUpdate", Long.class, Long.class);
+
+        assertThat(method.getAnnotation(Lock.class).value())
+                .isEqualTo(LockModeType.PESSIMISTIC_WRITE);
     }
 
     private ScheduledPostRequest requestWithDraft(Long draftId) {
