@@ -45,7 +45,9 @@ export function useCommentReplies(comment: ComputedRef<Comment>) {
       return
     }
 
-    if (replyParams.value.page === 0) {
+    const responsePage = pageData.page
+    if (responsePage !== replyParams.value.page) return
+    if (responsePage === 0) {
       loadedReplies.value = pageData.content
     } else {
       const existingIds = new Set(loadedReplies.value.map((reply) => reply.commentId))
@@ -62,6 +64,14 @@ export function useCommentReplies(comment: ComputedRef<Comment>) {
       isRepliesOpen.value = false
     }
   }, { immediate: true })
+
+  watch(commentId, () => {
+    optimisticHasReplies.value = false
+    replyParams.value = { ...replyParams.value, page: 0 }
+    loadedReplies.value = []
+    replyHasNext.value = false
+    isRepliesOpen.value = !comment.value.isDeleted && Boolean(comment.value.hasReplies)
+  })
 
   watch(() => comment.value.hasReplies, (hasReplies) => {
     if (!hasReplies && !optimisticHasReplies.value) {
