@@ -110,6 +110,12 @@ class SecurityConfigAuthorizationTest {
 
         mockMvc.perform(get("/api/v1/users/me/settings"))
                 .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(get("/api/v1/users/me/posts"))
+                .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(get("/api/v1/users/me/comments"))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -150,6 +156,12 @@ class SecurityConfigAuthorizationTest {
         mockMvc.perform(get("/api/v1/users/1"))
                 .andExpect(status().isOk());
 
+        mockMvc.perform(get("/api/v1/users/1/posts"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/users/1/comments"))
+                .andExpect(status().isOk());
+
         mockMvc.perform(get("/api/v1/common-codes/POST_STATUS/details"))
                 .andExpect(status().isOk());
 
@@ -157,6 +169,25 @@ class SecurityConfigAuthorizationTest {
                 .andExpect(status().isOk());
 
         mockMvc.perform(get("/api/v1/emoticons/1/purchased"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("public profile content remains accessible to authenticated users and administrators")
+    void publicProfileContent_allowsAuthenticatedRoles() throws Exception {
+        CustomUserDetails adminDetails = new CustomUserDetails(
+                2L,
+                "admin",
+                "password",
+                List.of(new SimpleGrantedAuthority("ROLE_ADMIN")));
+
+        mockMvc.perform(get("/api/v1/users/1/posts").with(user(userDetails)))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/users/1/comments").with(user(userDetails)))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/users/1/posts").with(user(adminDetails)))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/users/1/comments").with(user(adminDetails)))
                 .andExpect(status().isOk());
     }
 
@@ -241,6 +272,16 @@ class SecurityConfigAuthorizationTest {
         @GetMapping("/users/{userId}")
         String userProfile(@PathVariable Long userId) {
             return "user-" + userId;
+        }
+
+        @GetMapping("/users/{userId}/posts")
+        String userPosts(@PathVariable Long userId) {
+            return "user-posts-" + userId;
+        }
+
+        @GetMapping("/users/{userId}/comments")
+        String userComments(@PathVariable Long userId) {
+            return "user-comments-" + userId;
         }
 
         @GetMapping("/search")
