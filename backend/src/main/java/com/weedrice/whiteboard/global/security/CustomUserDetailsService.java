@@ -28,6 +28,7 @@ public class CustomUserDetailsService implements UserDetailsService {
                 user.getUserId(),
                 user.getLoginId(),
                 user.getPassword(),
+                user.getSecurityVersion() == null ? 0L : user.getSecurityVersion(),
                 eligibility.enabled(),
                 true,
                 true,

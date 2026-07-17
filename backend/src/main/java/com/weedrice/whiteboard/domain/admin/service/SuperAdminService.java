@@ -36,7 +36,7 @@ public class SuperAdminService {
 
     public SuperAdminUpdateResponse createSuperAdmin(String loginId) {
         String normalizedLoginId = normalizeLoginId(loginId);
-        User user = userRepository.findByLoginId(normalizedLoginId)
+        User user = userRepository.findByLoginIdForUpdate(normalizedLoginId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
         if (Boolean.TRUE.equals(user.getIsSuperAdmin())) {
@@ -47,6 +47,7 @@ public class SuperAdminService {
         }
 
         user.grantSuperAdminRole();
+        user.advanceSecurityVersion();
         return SuperAdminUpdateResponse.from(userRepository.save(user));
     }
 
@@ -63,7 +64,7 @@ public class SuperAdminService {
             throw new BusinessException(ErrorCode.UNAUTHORIZED);
         }
         String normalizedLoginId = normalizeLoginId(loginId);
-        User user = userRepository.findByLoginId(normalizedLoginId)
+        User user = userRepository.findByLoginIdForUpdate(normalizedLoginId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
         if (!Boolean.TRUE.equals(user.getIsSuperAdmin())) {
@@ -72,6 +73,7 @@ public class SuperAdminService {
         privilegeRevocationGuard.validateSuperAdminCanBeRevokedBy(user, actorUserId);
 
         user.revokeSuperAdminRole();
+        user.advanceSecurityVersion();
         return SuperAdminUpdateResponse.from(userRepository.save(user));
     }
 

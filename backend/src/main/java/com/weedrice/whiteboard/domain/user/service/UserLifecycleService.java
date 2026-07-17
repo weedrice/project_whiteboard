@@ -74,6 +74,7 @@ public class UserLifecycleService {
         validateLifecycleMutationTarget(user);
         cleanupOperationalAccessForLockedUser(user, null);
         user.delete(LocalDateTime.now(clock));
+        user.advanceSecurityVersion();
     }
 
     private void suspendUser(User user, Long actorUserId) {
@@ -84,6 +85,7 @@ public class UserLifecycleService {
         validateLifecycleMutationTarget(user);
         cleanupOperationalAccessForLockedUser(user, actorUserId);
         user.suspend();
+        user.advanceSecurityVersion();
     }
 
     private void validateLifecycleMutationTarget(User user) {

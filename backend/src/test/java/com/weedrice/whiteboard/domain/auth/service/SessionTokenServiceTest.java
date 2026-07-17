@@ -7,14 +7,18 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import com.weedrice.whiteboard.global.security.JwtTokenProvider;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InOrder;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Clock;
@@ -124,6 +128,26 @@ class SessionTokenServiceTest {
         verify(refreshTokenRepository).revokeTokenFamily(familyId);
         verify(jwtTokenProvider, never()).createAccessToken(any());
         verify(jwtTokenProvider, never()).createRefreshToken(any());
+    }
+
+    @Test
+    void issueTokensUsesSecurityVersionFromLockedUserInsteadOfStalePrincipal() {
+        ReflectionTestUtils.setField(user, "securityVersion", 4L);
+        CustomUserDetails staleDetails = new CustomUserDetails(
+                1L, user.getLoginId(), "", 3L, java.util.List.of());
+        Authentication staleAuthentication = new UsernamePasswordAuthenticationToken(
+                staleDetails, "", java.util.List.of());
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(jwtTokenProvider.createAccessToken(any(Authentication.class))).thenReturn("access-token");
+        when(jwtTokenProvider.createRefreshToken(any(Authentication.class))).thenReturn("refresh-token");
+        when(jwtTokenProvider.getAccessTokenValidityInMilliseconds()).thenReturn(60_000L);
+        when(jwtTokenProvider.getRefreshTokenValidityInMilliseconds()).thenReturn(120_000L);
+
+        service.issueTokens(staleAuthentication, user, LoginClientMetadata.empty());
+
+        ArgumentCaptor<Authentication> captor = ArgumentCaptor.forClass(Authentication.class);
+        verify(jwtTokenProvider).createAccessToken(captor.capture());
+        assertThat(((CustomUserDetails) captor.getValue().getPrincipal()).getSecurityVersion()).isEqualTo(4L);
     }
 
 }

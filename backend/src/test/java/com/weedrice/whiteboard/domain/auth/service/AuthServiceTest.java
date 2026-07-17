@@ -380,8 +380,8 @@ class AuthServiceTest {
         userSettings.updateSettings("dark", null, null, null);
         when(userSettingsRepository.findById(1L)).thenReturn(Optional.of(userSettings));
         when(sanctionPolicyService.isUserBanned(user)).thenReturn(false);
-        when(jwtTokenProvider.createAccessToken(authentication)).thenReturn("accessToken");
-        when(jwtTokenProvider.createRefreshToken(authentication)).thenReturn("refreshToken");
+        when(jwtTokenProvider.createAccessToken(any(Authentication.class))).thenReturn("accessToken");
+        when(jwtTokenProvider.createRefreshToken(any(Authentication.class))).thenReturn("refreshToken");
         when(jwtTokenProvider.getAccessTokenValidityInMilliseconds()).thenReturn(1800L);
         when(jwtTokenProvider.getRefreshTokenValidityInMilliseconds()).thenReturn(1209600000L);
 
@@ -410,8 +410,8 @@ class AuthServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(userPointRepository.findById(1L)).thenReturn(Optional.empty());
         when(sanctionPolicyService.isUserBanned(user)).thenReturn(false);
-        when(jwtTokenProvider.createAccessToken(authentication)).thenReturn("accessToken");
-        when(jwtTokenProvider.createRefreshToken(authentication)).thenReturn("refreshToken");
+        when(jwtTokenProvider.createAccessToken(any(Authentication.class))).thenReturn("accessToken");
+        when(jwtTokenProvider.createRefreshToken(any(Authentication.class))).thenReturn("refreshToken");
         when(jwtTokenProvider.getAccessTokenValidityInMilliseconds()).thenReturn(1800L);
         when(jwtTokenProvider.getRefreshTokenValidityInMilliseconds()).thenReturn(1209600000L);
         doThrow(new RuntimeException("audit unavailable"))
@@ -445,8 +445,8 @@ class AuthServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(userPointRepository.findById(1L)).thenReturn(Optional.empty());
         when(sanctionPolicyService.isUserBanned(user)).thenReturn(false);
-        when(jwtTokenProvider.createAccessToken(authentication)).thenReturn("accessToken");
-        when(jwtTokenProvider.createRefreshToken(authentication)).thenReturn("refreshToken");
+        when(jwtTokenProvider.createAccessToken(any(Authentication.class))).thenReturn("accessToken");
+        when(jwtTokenProvider.createRefreshToken(any(Authentication.class))).thenReturn("refreshToken");
         when(jwtTokenProvider.getAccessTokenValidityInMilliseconds()).thenReturn(1800L);
         when(jwtTokenProvider.getRefreshTokenValidityInMilliseconds()).thenReturn(1209600000L);
 
@@ -475,8 +475,8 @@ class AuthServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(userPointRepository.findById(1L)).thenReturn(Optional.empty());
         when(sanctionPolicyService.isUserBanned(user)).thenReturn(false);
-        when(jwtTokenProvider.createAccessToken(authentication)).thenReturn("accessToken");
-        when(jwtTokenProvider.createRefreshToken(authentication)).thenReturn("refreshToken");
+        when(jwtTokenProvider.createAccessToken(any(Authentication.class))).thenReturn("accessToken");
+        when(jwtTokenProvider.createRefreshToken(any(Authentication.class))).thenReturn("refreshToken");
         when(jwtTokenProvider.getAccessTokenValidityInMilliseconds()).thenReturn(1800L);
         when(jwtTokenProvider.getRefreshTokenValidityInMilliseconds()).thenReturn(7_200_000L);
         LocalDateTime beforeLogin = FIXED_NOW;

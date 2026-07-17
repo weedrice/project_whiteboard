@@ -200,6 +200,7 @@ public class PasswordResetService {
     private void applyPasswordResetAfterValidation(User user, String newPassword) {
         String newPasswordHash = passwordHistoryPolicy.encode(newPassword);
         user.updatePassword(newPasswordHash);
+        user.advanceSecurityVersion();
         userRepository.save(user);
 
         passwordHistoryPolicy.record(user, newPasswordHash);

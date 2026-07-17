@@ -115,6 +115,8 @@ public class SignupService {
     }
 
     private SignupResponse reregister(User existingUser, SignupRequest request, String normalizedEmail) {
+        existingUser = userRepository.findByIdForUpdate(existingUser.getUserId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         OAuthSignupTicketService.OAuthSignupTicket oauthTicket = resolveOAuthTicket(request);
         validateOAuthTicketEmail(oauthTicket, normalizedEmail);
 
@@ -133,6 +135,7 @@ public class SignupService {
         userPrivilegeCleanupService.removeOperationalPrivileges(existingUser);
         existingUser.activate();
         existingUser.updatePassword(passwordHash);
+        existingUser.advanceSecurityVersion();
         existingUser.updateDisplayName(request.getDisplayName());
         existingUser.updateEmail(normalizedEmail);
         existingUser.verifyEmail();

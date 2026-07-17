@@ -87,6 +87,37 @@ class JwtTokenProviderTest {
     }
 
     @Test
+    void getAuthentication_rejectsTokenIssuedBeforeSecurityVersionChanged() {
+        CustomUserDetails issuedUser = new CustomUserDetails(1L, "test@test.com", "pass", 2L,
+                Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER")));
+        Authentication authentication = new UsernamePasswordAuthenticationToken(
+                issuedUser, "", issuedUser.getAuthorities());
+        String token = jwtTokenProvider.createAccessToken(authentication);
+        CustomUserDetails currentUser = new CustomUserDetails(1L, "test@test.com", "pass", 3L,
+                Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER")));
+        when(customUserDetailsService.loadUserByUsername("test@test.com")).thenReturn(currentUser);
+
+        assertThatThrownBy(() -> jwtTokenProvider.getAuthentication(token))
+                .isInstanceOf(RuntimeException.class);
+    }
+
+    @Test
+    void getAuthentication_acceptsLegacyTokenOnlyWhileSecurityVersionIsZero() {
+        String legacyToken = Jwts.builder()
+                .subject("test@test.com")
+                .claim("userId", 1L)
+                .claim("auth", "ROLE_USER")
+                .expiration(java.util.Date.from(FIXED_CLOCK.instant().plusMillis(accessTokenValidity)))
+                .signWith(Keys.hmacShaKeyFor(Decoders.BASE64.decode(secret)), Jwts.SIG.HS256)
+                .compact();
+        CustomUserDetails currentUser = new CustomUserDetails(1L, "test@test.com", "pass", 0L,
+                Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER")));
+        when(customUserDetailsService.loadUserByUsername("test@test.com")).thenReturn(currentUser);
+
+        assertThat(jwtTokenProvider.getAuthentication(legacyToken).getName()).isEqualTo("test@test.com");
+    }
+
+    @Test
     @DisplayName("삭제된 계정은 인증 객체를 만들지 않는다")
     void getAuthentication_deletedUser_throws() {
         CustomUserDetails disabledUser = new CustomUserDetails(

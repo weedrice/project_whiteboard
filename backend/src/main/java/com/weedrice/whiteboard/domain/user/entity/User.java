@@ -9,6 +9,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -29,6 +30,13 @@ public class User extends BaseTimeEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "user_id")
     private Long userId;
+
+    @Version
+    @Column(name = "entity_version", nullable = false)
+    private Long entityVersion;
+
+    @Column(name = "security_version", nullable = false)
+    private Long securityVersion;
 
     @Column(name = "login_id", nullable = false, unique = true, length = 30)
     private String loginId;
@@ -80,6 +88,7 @@ public class User extends BaseTimeEntity {
         this.isEmailVerified = false;
         this.isSuperAdmin = false;
         this.profileImageChangeFreeUsed = false;
+        this.securityVersion = 0L;
     }
 
     public void updateLastLogin(LocalDateTime lastLoginAt) {
@@ -112,6 +121,10 @@ public class User extends BaseTimeEntity {
 
     public void updatePassword(String newPassword) {
         this.password = newPassword;
+    }
+
+    public void advanceSecurityVersion() {
+        this.securityVersion = this.securityVersion == null ? 1L : this.securityVersion + 1L;
     }
 
     public void delete(LocalDateTime deletedAt) {

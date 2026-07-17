@@ -94,6 +94,7 @@ class SignupServiceTest {
         ReflectionTestUtils.setField(deletedUser, "deletedAt", LocalDateTime.now().minusDays(1));
 
         when(accountUniquenessPolicy.findReregisterableSignupUser(request.getEmail())).thenReturn(Optional.of(deletedUser));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(deletedUser));
         when(passwordHistoryPolicy.encode(request.getPassword())).thenReturn("encoded-new-password");
         when(userRepository.save(deletedUser)).thenReturn(deletedUser);
 
@@ -142,10 +143,12 @@ class SignupServiceTest {
                 .email("test@example.com")
                 .displayName("Deleted User")
                 .build();
+        ReflectionTestUtils.setField(deletedUser, "userId", 1L);
         ReflectionTestUtils.setField(deletedUser, "status", "DELETED");
         ReflectionTestUtils.setField(deletedUser, "deletedAt", LocalDateTime.now().minusDays(1));
 
         when(accountUniquenessPolicy.findReregisterableSignupUser(request.getEmail())).thenReturn(Optional.of(deletedUser));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(deletedUser));
         doThrow(new BusinessException(ErrorCode.VALIDATION_ERROR))
                 .when(verificationCodeService)
                 .consumeVerificationTicket(
@@ -183,10 +186,12 @@ class SignupServiceTest {
                 .email("test@example.com")
                 .displayName("Deleted User")
                 .build();
+        ReflectionTestUtils.setField(deletedUser, "userId", 1L);
         ReflectionTestUtils.setField(deletedUser, "status", "DELETED");
         ReflectionTestUtils.setField(deletedUser, "deletedAt", LocalDateTime.now().minusDays(1));
 
         when(accountUniquenessPolicy.findReregisterableSignupUser(request.getEmail())).thenReturn(Optional.of(deletedUser));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(deletedUser));
         doThrow(new BusinessException(ErrorCode.PASSWORD_RECENTLY_USED))
                 .when(passwordHistoryPolicy).validateNotRecentlyUsed(deletedUser, request.getPassword());
 
@@ -220,10 +225,12 @@ class SignupServiceTest {
                 .email("test@example.com")
                 .displayName("Deleted User")
                 .build();
+        ReflectionTestUtils.setField(deletedUser, "userId", 1L);
         ReflectionTestUtils.setField(deletedUser, "status", "DELETED");
         ReflectionTestUtils.setField(deletedUser, "deletedAt", LocalDateTime.now().minusDays(1));
 
         when(accountUniquenessPolicy.findReregisterableSignupUser(request.getEmail())).thenReturn(Optional.of(deletedUser));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(deletedUser));
 
         assertThatThrownBy(() -> signupService.signup(request))
                 .isInstanceOf(BusinessException.class)

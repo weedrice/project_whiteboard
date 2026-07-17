@@ -52,6 +52,9 @@ public interface UserRepository extends JpaRepository<User, Long>, UserRepositor
     }
 
     Optional<User> findByLoginId(String loginId);
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT u FROM User u WHERE u.loginId = :loginId")
+    Optional<User> findByLoginIdForUpdate(@Param("loginId") String loginId);
     @Query("""
             SELECT u.userId AS targetId,
                    u.userId AS targetUserId,

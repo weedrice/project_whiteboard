@@ -41,6 +41,7 @@ public class UserSecurityService {
         passwordHistoryPolicy.validateNotRecentlyUsed(user, newPassword);
         String newPasswordHash = passwordHistoryPolicy.encode(newPassword);
         user.updatePassword(newPasswordHash);
+        user.advanceSecurityVersion();
         passwordHistoryPolicy.record(user, newPasswordHash);
 
         refreshTokenLifecycleService.revokeActiveRefreshTokens(user);
@@ -48,7 +49,7 @@ public class UserSecurityService {
 
     @Transactional
     public void verifyAndChangeEmail(Long userId, String email, String verificationTicket) {
-        User user = userWritableResolver.resolve(userId);
+        User user = userWritableResolver.resolveForUpdate(userId);
         String normalizedEmail = AuthEmailNormalizer.normalize(email);
         String normalizedCurrentEmail = AuthEmailNormalizer.normalize(user.getEmail());
 

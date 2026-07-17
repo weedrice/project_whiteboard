@@ -40,7 +40,7 @@ class SuperAdminServiceTest {
     @DisplayName("createSuperAdmin grants role to active user")
     void createSuperAdmin_success() {
         User user = activeUser("target");
-        when(userRepository.findByLoginId("target")).thenReturn(Optional.of(user));
+        when(userRepository.findByLoginIdForUpdate("target")).thenReturn(Optional.of(user));
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         SuperAdminUpdateResponse response = superAdminService.createSuperAdmin(" target ");
@@ -57,7 +57,7 @@ class SuperAdminServiceTest {
                 .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode())
                         .isEqualTo(ErrorCode.INVALID_INPUT_VALUE));
 
-        verify(userRepository, never()).findByLoginId(any());
+        verify(userRepository, never()).findByLoginIdForUpdate(any());
     }
 
     @Test
@@ -65,7 +65,7 @@ class SuperAdminServiceTest {
     void createSuperAdmin_rejectsSuspendedUser() {
         User user = activeUser("target");
         user.suspend();
-        when(userRepository.findByLoginId("target")).thenReturn(Optional.of(user));
+        when(userRepository.findByLoginIdForUpdate("target")).thenReturn(Optional.of(user));
 
         assertThatThrownBy(() -> superAdminService.createSuperAdmin("target"))
                 .isInstanceOf(BusinessException.class)
@@ -77,7 +77,7 @@ class SuperAdminServiceTest {
     void createSuperAdmin_rejectsDeletedUser() {
         User user = activeUser("target");
         user.delete(java.time.LocalDateTime.of(2026, 7, 7, 12, 0));
-        when(userRepository.findByLoginId("target")).thenReturn(Optional.of(user));
+        when(userRepository.findByLoginIdForUpdate("target")).thenReturn(Optional.of(user));
 
         assertThatThrownBy(() -> superAdminService.createSuperAdmin("target"))
                 .isInstanceOf(BusinessException.class)
@@ -89,7 +89,7 @@ class SuperAdminServiceTest {
     void deactivateSuperAdmin_success() {
         User target = activeSuperAdmin("target");
         setUserId(target, 1L);
-        when(userRepository.findByLoginId("target")).thenReturn(Optional.of(target));
+        when(userRepository.findByLoginIdForUpdate("target")).thenReturn(Optional.of(target));
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         SuperAdminUpdateResponse response = superAdminService.deactivateSuperAdmin(" target ", 2L);
@@ -106,7 +106,7 @@ class SuperAdminServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode()).isEqualTo(ErrorCode.UNAUTHORIZED));
 
-        verify(userRepository, never()).findByLoginId(any());
+        verify(userRepository, never()).findByLoginIdForUpdate(any());
         verify(privilegeRevocationGuard, never()).validateSuperAdminCanBeRevokedBy(any(), any());
     }
 
@@ -115,7 +115,7 @@ class SuperAdminServiceTest {
     void deactivateSuperAdmin_lastUsableAdmin_forbidden() {
         User target = activeSuperAdmin("target");
         setUserId(target, 1L);
-        when(userRepository.findByLoginId("target")).thenReturn(Optional.of(target));
+        when(userRepository.findByLoginIdForUpdate("target")).thenReturn(Optional.of(target));
         doThrow(new BusinessException(ErrorCode.FORBIDDEN))
                 .when(privilegeRevocationGuard)
                 .validateSuperAdminCanBeRevokedBy(target, 2L);
@@ -131,7 +131,7 @@ class SuperAdminServiceTest {
         User suspendedTarget = activeSuperAdmin("target");
         setUserId(suspendedTarget, 1L);
         suspendedTarget.suspend();
-        when(userRepository.findByLoginId("target")).thenReturn(Optional.of(suspendedTarget));
+        when(userRepository.findByLoginIdForUpdate("target")).thenReturn(Optional.of(suspendedTarget));
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         SuperAdminUpdateResponse response = superAdminService.deactivateSuperAdmin("target", 2L);
@@ -145,7 +145,7 @@ class SuperAdminServiceTest {
     void deactivateSuperAdmin_self_forbidden() {
         User target = activeSuperAdmin("target");
         setUserId(target, 1L);
-        when(userRepository.findByLoginId("target")).thenReturn(Optional.of(target));
+        when(userRepository.findByLoginIdForUpdate("target")).thenReturn(Optional.of(target));
         doThrow(new BusinessException(ErrorCode.FORBIDDEN))
                 .when(privilegeRevocationGuard)
                 .validateSuperAdminCanBeRevokedBy(target, 1L);

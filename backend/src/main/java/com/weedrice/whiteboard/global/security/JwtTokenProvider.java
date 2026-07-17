@@ -27,6 +27,7 @@ public class JwtTokenProvider {
 
     private static final String AUTHORITIES_KEY = "auth";
     private static final String USER_ID_KEY = "userId";
+    private static final String SECURITY_VERSION_KEY = "securityVersion";
     private final SecretKey key;
     private final long accessTokenValidityInMilliseconds;
     private final long refreshTokenValidityInMilliseconds;
@@ -57,6 +58,7 @@ public class JwtTokenProvider {
         return Jwts.builder()
                 .subject(authentication.getName())
                 .claim(USER_ID_KEY, userDetails.getUserId())
+                .claim(SECURITY_VERSION_KEY, userDetails.getSecurityVersion())
                 .claim(AUTHORITIES_KEY, authorities)
                 .expiration(validity)
                 .signWith(key, Jwts.SIG.HS256)
@@ -89,8 +91,17 @@ public class JwtTokenProvider {
                 || !userDetails.isAccountNonExpired() || !userDetails.isCredentialsNonExpired()) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED);
         }
+        if (!(userDetails instanceof CustomUserDetails customUserDetails)
+                || tokenSecurityVersion(claims) != customUserDetails.getSecurityVersion()) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
 
         return new UsernamePasswordAuthenticationToken(userDetails, "", userDetails.getAuthorities());
+    }
+
+    private long tokenSecurityVersion(Claims claims) {
+        Number version = claims.get(SECURITY_VERSION_KEY, Number.class);
+        return version == null ? 0L : version.longValue();
     }
 
     public boolean validateToken(String token) {

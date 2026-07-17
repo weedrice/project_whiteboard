@@ -79,6 +79,7 @@ class UserSecurityServiceTest {
         userSecurityService.updatePassword(1L, "old", "new");
 
         assertThat(user.getPassword()).isEqualTo("encodedNew");
+        assertThat(user.getSecurityVersion()).isEqualTo(1L);
         verify(passwordHistoryRepository).save(any(PasswordHistory.class));
         verify(refreshTokenLifecycleService).revokeActiveRefreshTokens(user);
     }
@@ -107,7 +108,7 @@ class UserSecurityServiceTest {
         User user = User.builder().email("current@example.com").build();
         ReflectionTestUtils.setField(user, "userId", 1L);
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(userRepository.saveAndFlush(user)).thenReturn(user);
 
         userSecurityService.verifyAndChangeEmail(1L, "next@example.com", "123456");
@@ -132,7 +133,7 @@ class UserSecurityServiceTest {
         User user = User.builder().email("current@example.com").build();
         ReflectionTestUtils.setField(user, "userId", 1L);
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(userRepository.saveAndFlush(user)).thenReturn(user);
 
         userSecurityService.verifyAndChangeEmail(1L, " Next@Example.COM ", "123456");
@@ -155,7 +156,7 @@ class UserSecurityServiceTest {
         User user = User.builder().email("current@example.com").build();
         ReflectionTestUtils.setField(user, "userId", 1L);
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(userRepository.saveAndFlush(user)).thenThrow(new DataIntegrityViolationException("duplicate email"));
         when(accountUniquenessPolicy.resolveChangeEmailConflict(anyString(), any(), any(DataIntegrityViolationException.class)))
                 .thenReturn(new BusinessException(ErrorCode.DUPLICATE_EMAIL));

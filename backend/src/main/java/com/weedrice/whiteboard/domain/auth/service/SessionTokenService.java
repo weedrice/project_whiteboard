@@ -122,7 +122,8 @@ public class SessionTokenService {
     private Authentication createRefreshAuthentication(User user) {
         List<GrantedAuthority> authorityList = SecurityAuthorities.user(user.getIsSuperAdmin());
         return new UsernamePasswordAuthenticationToken(
-                new CustomUserDetails(user.getUserId(), user.getLoginId(), "", true, true, true, true, authorityList),
+                new CustomUserDetails(user.getUserId(), user.getLoginId(), "", securityVersion(user),
+                        true, true, true, true, authorityList),
                 "",
                 authorityList);
     }
@@ -152,14 +153,20 @@ public class SessionTokenService {
 
     @Transactional
     public TokenResponse issueTokens(Authentication authentication, User user, LoginClientMetadata metadata) {
-        return issueTokens(authentication, user, metadata, UUID.randomUUID());
+        User lockedUser = userRepository.findByIdForUpdate(user.getUserId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        if (!loginAccountEligibilityService.evaluate(lockedUser).isLoginAllowed()) {
+            throw new BusinessException(ErrorCode.USER_NOT_ACTIVE);
+        }
+        return issueTokens(authentication, lockedUser, metadata, UUID.randomUUID());
     }
 
     private TokenResponse issueTokens(Authentication authentication, User user, LoginClientMetadata metadata,
             UUID sessionFamilyId) {
         LoginClientMetadata resolvedMetadata = metadata != null ? metadata : LoginClientMetadata.empty();
-        String accessToken = jwtTokenProvider.createAccessToken(authentication);
-        String refreshToken = jwtTokenProvider.createRefreshToken(authentication);
+        Authentication currentAuthentication = createRefreshAuthentication(user);
+        String accessToken = jwtTokenProvider.createAccessToken(currentAuthentication);
+        String refreshToken = jwtTokenProvider.createRefreshToken(currentAuthentication);
 
         persistRefreshToken(
                 user,
@@ -173,6 +180,10 @@ public class SessionTokenService {
                 .refreshToken(refreshToken)
                 .expiresIn(jwtTokenProvider.getAccessTokenValidityInMilliseconds())
                 .build();
+    }
+
+    private long securityVersion(User user) {
+        return user.getSecurityVersion() == null ? 0L : user.getSecurityVersion();
     }
 
     private record RefreshTokenRenewalContext(RefreshToken refreshToken, User user) {

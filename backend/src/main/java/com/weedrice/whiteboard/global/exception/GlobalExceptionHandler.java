@@ -19,6 +19,7 @@ import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
@@ -356,6 +357,17 @@ public class GlobalExceptionHandler {
     private String resolveClientIp(HttpServletRequest request) {
         ClientIpResolver clientIpResolver = clientIpResolverProvider.getIfAvailable();
         return clientIpResolver != null ? clientIpResolver.resolve(request) : request.getRemoteAddr();
+    }
+
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<ApiResponse<Void>> handleOptimisticLockingFailure(
+            ObjectOptimisticLockingFailureException e,
+            HttpServletRequest request) {
+        String message = messageSource.getMessage(ErrorCode.DUPLICATE_RESOURCE.getMessage(), null,
+                LocaleContextHolder.getLocale());
+        log.warn("[{}] Concurrent entity update: {}", request.getRequestURI(), e.getPersistentClassName());
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiResponse.error(ErrorCode.DUPLICATE_RESOURCE.getCode(), message));
     }
 
     /**
