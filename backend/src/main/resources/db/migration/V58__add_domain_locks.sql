@@ -6,3 +6,4 @@ CREATE TABLE domain_locks (
 INSERT INTO domain_locks (lock_name)
 VALUES ('BOARD_ORDER')
 ON CONFLICT (lock_name) DO NOTHING;
+-- noviis:migration-phase expand

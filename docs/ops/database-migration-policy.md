@@ -15,7 +15,7 @@ Versioned `V*.sql` files are immutable after merge. Fix an applied migration wit
 
 ## CI contract marker
 
-`backend/scripts/check-migration-compatibility.sh` rejects modified or deleted versioned migrations and detects common destructive statements in new migrations. A deliberately scheduled contract migration must include both lines and point to a reviewed, tracked design document:
+Every new migration must contain exactly one phase marker: `-- noviis:migration-phase expand`, `backfill`, or `contract`. `backend/scripts/check-migration-compatibility.sh` rejects modified or deleted versioned migrations and detects common destructive statements in new migrations. A deliberately scheduled contract migration must include both lines and point to a reviewed, tracked document under `docs/design-notes/`:
 
 ```sql
 -- noviis:migration-phase contract
@@ -23,6 +23,8 @@ Versioned `V*.sql` files are immutable after merge. Fix an applied migration wit
 ```
 
 `DROP INDEX` is permitted because it does not change the schema consumed by an application binary. It still requires query-plan and PostgreSQL smoke verification. Before applying any contract migration, take and verify a backup according to `docs/ops/postgres-backup-restore.md`.
+
+Contract migrations are never eligible for an automatic main deployment. Run the integrated CI manually from `main`, explicitly approve the contract phase and confirm the pre-change snapshot, then verify the production deployment. Only after that deployment succeeds may its filename and deployment run URL be appended to `docs/ops/applied-contract-migrations.txt`. The compatibility check rejects an allowlist entry introduced in the same change as its migration, so an un-applied contract remains a deployment blocker across later commits.
 
 ## Multi-instance scale gate
 

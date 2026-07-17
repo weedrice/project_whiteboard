@@ -11,3 +11,4 @@ ALTER TABLE refresh_tokens
 
 CREATE INDEX idx_refresh_tokens_family_active
     ON refresh_tokens (session_family_id, is_revoked);
+-- noviis:migration-phase expand
