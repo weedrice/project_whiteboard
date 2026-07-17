@@ -9,18 +9,33 @@ defineProps<{
   listboxId: string
   selectedIndex: number
   searchQuery: string
+  isError?: boolean
+  isFetching?: boolean
 }>()
 
 const emit = defineEmits<{
   (e: 'select', boardUrl: string): void
   (e: 'highlight', index: number): void
   (e: 'search'): void
+  (e: 'retry'): void
 }>()
 
 const { t } = useI18n()
 </script>
 
 <template>
+  <div v-if="isError" class="px-4 py-3" role="alert" aria-live="assertive">
+    <p class="text-sm nv-text-muted">{{ t('common.messages.loadFailed') }}</p>
+    <button
+      type="button"
+      class="nv-focus-ring mt-2 min-h-11 rounded-md px-2 text-sm font-medium nv-accent-text hover:brightness-95"
+      :aria-busy="isFetching ? 'true' : undefined"
+      :disabled="isFetching"
+      @click="emit('retry')"
+    >
+      {{ t('common.error.retry') }}
+    </button>
+  </div>
   <div v-if="boards.length > 0">
     <div class="nv-global-search-section nv-global-search-section-text px-3 py-2 text-xs font-semibold">
       {{ t('search.boards') }}

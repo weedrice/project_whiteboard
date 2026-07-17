@@ -1,20 +1,18 @@
 import type { Ref } from 'vue'
 import { useEventListener } from '@/composables/useEventListener'
 
-/**
- * Keeps keyboard focus inside a container while it is active.
- * The caller controls activation with a ref or callback so the same utility can
- * be reused by dialogs, popovers, and menus.
- */
+/** Keeps keyboard and programmatic focus inside a container while active. */
 export function useFocusTrap(
   containerRef: Ref<HTMLElement | null>,
   isActive: Ref<boolean> | (() => boolean) = () => true,
 ) {
   let previouslyFocusedElement: HTMLElement | null = null
+  let addedContainerTabIndex = false
+  let restoringFocus = false
+  const active = () => typeof isActive === 'function' ? isActive() : isActive.value
 
   const getFocusableElements = (): HTMLElement[] => {
     if (!containerRef.value) return []
-
     const selector = [
       'button:not([disabled])',
       '[href]',
@@ -23,7 +21,6 @@ export function useFocusTrap(
       'textarea:not([disabled])',
       '[tabindex]:not([tabindex="-1"])',
     ].join(', ')
-
     return Array.from(containerRef.value.querySelectorAll<HTMLElement>(selector))
       .filter((element) => {
         const style = window.getComputedStyle(element)
@@ -31,48 +28,67 @@ export function useFocusTrap(
       })
   }
 
+  const focusInside = (rememberReturnFocus: boolean) => {
+    const container = containerRef.value
+    if (!container) return
+    const focusable = getFocusableElements()
+    if (focusable.length === 0 && !container.hasAttribute('tabindex')) {
+      container.setAttribute('tabindex', '-1')
+      addedContainerTabIndex = true
+    }
+    const focusTarget = focusable[0] ?? container
+    if (rememberReturnFocus && previouslyFocusedElement === null) {
+      previouslyFocusedElement = document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null
+    }
+    focusTarget.focus()
+  }
+
+  const trapFocus = () => focusInside(true)
+
   const handleKeyDown = (event: KeyboardEvent) => {
-    const isActiveValue = typeof isActive === 'function' ? isActive() : isActive.value
-    if (!isActiveValue || event.key !== 'Tab') return
-
-    const focusableElements = getFocusableElements()
-    if (focusableElements.length === 0) return
-
-    const firstElement = focusableElements[0]
-    const lastElement = focusableElements[focusableElements.length - 1]
-
-    if (event.shiftKey) {
-      if (document.activeElement === firstElement) {
-        event.preventDefault()
-        lastElement.focus()
-      }
+    if (!active() || event.key !== 'Tab' || !containerRef.value) return
+    const focusable = getFocusableElements()
+    if (focusable.length === 0) {
+      event.preventDefault()
+      containerRef.value.focus()
       return
     }
-
-    if (document.activeElement === lastElement) {
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    const focusIsOutside = !containerRef.value.contains(document.activeElement)
+    if (event.shiftKey && (focusIsOutside || document.activeElement === first)) {
       event.preventDefault()
-      firstElement.focus()
+      last.focus()
+    } else if (!event.shiftKey && (focusIsOutside || document.activeElement === last)) {
+      event.preventDefault()
+      first.focus()
     }
   }
 
-  const trapFocus = () => {
-    const focusableElements = getFocusableElements()
-    if (focusableElements.length === 0) return
-
-    previouslyFocusedElement = document.activeElement as HTMLElement
-    focusableElements[0].focus()
+  const handleFocusIn = (event: FocusEvent) => {
+    if (restoringFocus || !active() || !containerRef.value || containerRef.value.contains(event.target as Node)) return
+    focusInside(false)
   }
 
   const restoreFocus = () => {
-    previouslyFocusedElement?.focus()
+    const returnTarget = previouslyFocusedElement
     previouslyFocusedElement = null
+    if (addedContainerTabIndex && containerRef.value) {
+      containerRef.value.removeAttribute('tabindex')
+      addedContainerTabIndex = false
+    }
+    restoringFocus = true
+    try {
+      returnTarget?.focus()
+    } finally {
+      restoringFocus = false
+    }
   }
 
   useEventListener(() => document, 'keydown', handleKeyDown)
+  useEventListener(() => document, 'focusin', handleFocusIn)
 
-  return {
-    trapFocus,
-    restoreFocus,
-    getFocusableElements,
-  }
+  return { trapFocus, restoreFocus, getFocusableElements }
 }

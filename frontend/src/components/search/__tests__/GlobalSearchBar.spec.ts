@@ -23,6 +23,9 @@ const boards: BoardListItem[] = [
 const routerPush = vi.fn()
 const invalidateQueries = vi.fn()
 const mobileViewport = ref(false)
+const boardIsError = ref(false)
+const boardIsFetching = ref(false)
+const refetchBoards = vi.fn()
 
 vi.mock('vue-router', () => ({
     useRoute: () => ({
@@ -56,6 +59,9 @@ vi.mock('@/features/board/useBoard', () => ({
     useBoard: () => ({
         useBoards: () => ({
             data: ref(boards),
+            isError: boardIsError,
+            isFetching: boardIsFetching,
+            refetch: refetchBoards,
         }),
     }),
 }))
@@ -88,6 +94,9 @@ describe('GlobalSearchBar', () => {
         routerPush.mockClear()
         invalidateQueries.mockClear()
         mobileViewport.value = false
+        boardIsError.value = false
+        boardIsFetching.value = false
+        refetchBoards.mockClear()
     })
 
     afterEach(() => {
@@ -207,5 +216,18 @@ describe('GlobalSearchBar', () => {
             name: 'search',
             query: { q: 'Vue' },
         })
+    })
+
+    it('shows a retryable board autocomplete error instead of an empty result', async () => {
+        boardIsError.value = true
+        const wrapper = mountSearchBar()
+        const input = wrapper.get('input')
+        await input.setValue('Vue')
+        await input.trigger('focus')
+
+        const alert = wrapper.get('[role="alert"]')
+        expect(alert.text()).toContain('common.messages.loadFailed')
+        await alert.get('button').trigger('click')
+        expect(refetchBoards).toHaveBeenCalledOnce()
     })
 })

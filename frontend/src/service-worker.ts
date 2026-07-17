@@ -5,7 +5,7 @@ import { NavigationRoute, registerRoute } from 'workbox-routing'
 import { CacheFirst, NetworkOnly } from 'workbox-strategies'
 import { ExpirationPlugin } from 'workbox-expiration'
 import { cleanupOutdatedCaches, createHandlerBoundToURL, precacheAndRoute } from 'workbox-precaching'
-import { resolveInternalPushNotificationUrl } from '@/utils/pushNotificationUrl'
+import { resolvePushImageUrl, resolvePushNavigationUrl } from '@/utils/pushNotificationUrl'
 import {
   normalizePushNotificationPayload,
   type PushNotificationPayload,
@@ -59,8 +59,8 @@ self.addEventListener('push', (event) => {
   const title = payload.title || 'NoviIs'
   const options: NotificationOptions = {
     body: payload.body,
-    icon: resolveInternalPushNotificationUrl(payload.icon, self.location.origin, '/pwa-192x192.png'),
-    badge: resolveInternalPushNotificationUrl(payload.badge, self.location.origin, '/pwa-192x192.png'),
+    icon: resolvePushImageUrl(payload.icon, self.location.origin),
+    badge: resolvePushImageUrl(payload.badge, self.location.origin),
     tag: payload.tag,
     data: {
       url: payload.url || '/',
@@ -72,7 +72,7 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
-  const targetUrl = resolveInternalPushNotificationUrl(event.notification.data?.url, self.location.origin)
+  const targetUrl = resolvePushNavigationUrl(event.notification.data?.url, self.location.origin)
 
   event.waitUntil((async () => {
     const windowClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })

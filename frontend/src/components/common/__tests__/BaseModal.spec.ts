@@ -261,4 +261,35 @@ describe('BaseModal', () => {
         host.remove()
         trigger.remove()
     })
+
+    it('returns escaped programmatic focus to the top modal and inerts page background', async () => {
+        const pageContent = document.createElement('main')
+        const outsideButton = document.createElement('button')
+        pageContent.appendChild(outsideButton)
+        document.body.appendChild(pageContent)
+        const host = document.createElement('div')
+        document.body.appendChild(host)
+        const wrapper = track(mount(BaseModal, {
+            attachTo: host,
+            props: { isOpen: true, title: 'Focus boundary' },
+            slots: { default: '<button type="button" data-testid="inside">Inside</button>' },
+            global: {
+                mocks: { $t: (key: string) => key },
+                stubs: { BaseButton: BaseButtonStub },
+            },
+        }))
+        await nextTick()
+        await nextTick()
+
+        expect(pageContent.hasAttribute('inert')).toBe(true)
+        outsideButton.focus()
+        expect(document.activeElement).not.toBe(outsideButton)
+        expect(document.querySelector('[role="dialog"]')?.contains(document.activeElement)).toBe(true)
+
+        wrapper.unmount()
+        mountedWrappers.splice(0)
+        expect(pageContent.hasAttribute('inert')).toBe(false)
+        host.remove()
+        pageContent.remove()
+    })
 })

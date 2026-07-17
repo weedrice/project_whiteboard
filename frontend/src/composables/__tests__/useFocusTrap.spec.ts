@@ -85,4 +85,41 @@ describe('useFocusTrap', () => {
 
         expect(document.activeElement).toBe(trigger)
     })
+
+    it('recovers programmatic focus escape without replacing the return target', () => {
+        const { composable, trigger, wrapper } = createHarness()
+        const outside = document.createElement('button')
+        document.body.appendChild(outside)
+        composable.trapFocus()
+
+        outside.focus()
+        outside.dispatchEvent(new FocusEvent('focusin', { bubbles: true }))
+
+        expect(document.activeElement).toBe(wrapper.get('#first').element)
+        composable.restoreFocus()
+        expect(document.activeElement).toBe(trigger)
+    })
+
+    it('temporarily makes an empty container focusable', () => {
+        let composable!: ReturnType<typeof useFocusTrap>
+        const Harness = defineComponent({
+            setup() {
+                const containerRef = ref<HTMLElement | null>(null)
+                composable = useFocusTrap(containerRef)
+                return () => h('div', { id: 'empty', ref: containerRef })
+            },
+        })
+        const trigger = document.createElement('button')
+        document.body.appendChild(trigger)
+        trigger.focus()
+        const wrapper = mount(Harness, { attachTo: document.body })
+
+        composable.trapFocus()
+
+        expect(wrapper.get('#empty').attributes('tabindex')).toBe('-1')
+        expect(document.activeElement).toBe(wrapper.get('#empty').element)
+        composable.restoreFocus()
+        expect(wrapper.get('#empty').attributes('tabindex')).toBeUndefined()
+        expect(document.activeElement).toBe(trigger)
+    })
 })

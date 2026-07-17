@@ -12,7 +12,7 @@ const searchToggleRef = ref<HTMLButtonElement | null>(null)
 const searchInputId = 'global-search-input'
 const searchListboxId = 'global-search-board-results'
 const searchQuery = ref('')
-const { filteredBoards } = useBoardAutocomplete(searchQuery)
+const { filteredBoards, isError, isFetching, retry } = useBoardAutocomplete(searchQuery)
 
 const {
   activeDescendantId,
@@ -101,9 +101,12 @@ const {
           :listbox-id="searchListboxId"
           :search-query="searchQuery"
           :selected-index="selectedIndex"
+          :is-error="isError"
+          :is-fetching="isFetching"
           @highlight="setSelectedIndex"
           @search="handleSearch"
           @select="selectBoard"
+          @retry="() => retry()"
         />
       </div>
     </Teleport>
@@ -117,9 +120,12 @@ const {
         :listbox-id="searchListboxId"
         :search-query="searchQuery"
         :selected-index="selectedIndex"
+        :is-error="isError"
+        :is-fetching="isFetching"
         @highlight="setSelectedIndex"
         @search="handleSearch"
         @select="selectBoard"
+        @retry="() => retry()"
       />
     </div>
   </div>

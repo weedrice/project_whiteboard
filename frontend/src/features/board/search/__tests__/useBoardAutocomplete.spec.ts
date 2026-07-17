@@ -5,6 +5,9 @@ import type { BoardListItem } from '@/types'
 
 const mocks = vi.hoisted(() => ({
   boardsData: undefined as Ref<BoardListItem[]> | undefined,
+  isError: undefined as Ref<boolean> | undefined,
+  isFetching: undefined as Ref<boolean> | undefined,
+  refetch: vi.fn(),
 }))
 
 vi.mock('@/composables/useDebounce', () => ({
@@ -14,10 +17,17 @@ vi.mock('@/composables/useDebounce', () => ({
 vi.mock('@/features/board/useBoard', async () => {
   const { ref } = await vi.importActual<typeof import('vue')>('vue')
   mocks.boardsData = ref([])
+  mocks.isError = ref(false)
+  mocks.isFetching = ref(false)
 
   return {
     useBoard: () => ({
-      useBoards: () => ({ data: mocks.boardsData }),
+      useBoards: () => ({
+        data: mocks.boardsData,
+        isError: mocks.isError,
+        isFetching: mocks.isFetching,
+        refetch: mocks.refetch,
+      }),
     }),
   }
 })
@@ -58,5 +68,16 @@ describe('useBoardAutocomplete', () => {
     const autocomplete = useBoardAutocomplete(query)
 
     expect(autocomplete.filteredBoards.value).toEqual([])
+  })
+
+  it('exposes the query error and retry state instead of disguising a failure as empty data', async () => {
+    mocks.isError!.value = true
+    mocks.isFetching!.value = true
+    const autocomplete = useBoardAutocomplete(ref('free'))
+
+    expect(autocomplete.isError.value).toBe(true)
+    expect(autocomplete.isFetching.value).toBe(true)
+    await autocomplete.retry()
+    expect(mocks.refetch).toHaveBeenCalledOnce()
   })
 })

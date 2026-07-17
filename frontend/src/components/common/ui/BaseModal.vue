@@ -1,10 +1,10 @@
 <template>
   <Teleport to="body">
-    <div v-if="isOpen" class="modal-overlay" :style="{ zIndex: String(zIndex) }" @click.self="handleBackdropClick"
+    <div v-if="isOpen" ref="overlayRef" class="modal-overlay" :style="{ zIndex: String(zIndex) }" @click.self="handleBackdropClick"
       @focusin="rememberFocus" @focusout="rememberFocus" role="dialog"
       :aria-modal="isTopModal ? 'true' : undefined" :aria-hidden="isTopModal ? undefined : 'true'"
       :inert="isTopModal ? undefined : true" :aria-labelledby="titleId" :aria-describedby="description ? descriptionId : undefined">
-      <div :class="['modal-container', sizeClass, { 'modal-container-mobile-full': mobileFull && !mobileFitContent, 'modal-container-mobile-fit': mobileFitContent }]" ref="modalRef">
+      <div :class="['modal-container', sizeClass, { 'modal-container-mobile-full': mobileFull && !mobileFitContent, 'modal-container-mobile-fit': mobileFitContent }]" ref="modalRef" tabindex="-1">
         <!-- Modal content -->
         <div class="modal-content">
           <!-- Modal header -->
@@ -48,6 +48,23 @@ import { shallowReactive } from 'vue'
 
 const modalStack = shallowReactive<symbol[]>([])
 const modalFocusTargets = new Map<symbol, HTMLElement>()
+const modalOverlayTargets = new Map<symbol, HTMLElement>()
+const managedBackgroundInert = new Set<HTMLElement>()
+
+function syncBackgroundInert() {
+  managedBackgroundInert.forEach((element) => element.removeAttribute('inert'))
+  managedBackgroundInert.clear()
+  const topId = modalStack[modalStack.length - 1]
+  const topOverlay = topId ? modalOverlayTargets.get(topId) : null
+  if (!topOverlay) return
+  Array.from(document.body.children).forEach((element) => {
+    if (!(element instanceof HTMLElement) || element === topOverlay || element.contains(topOverlay)) return
+    if (!element.hasAttribute('inert')) {
+      element.setAttribute('inert', '')
+      managedBackgroundInert.add(element)
+    }
+  })
+}
 
 function registerOpenModal(modalId: symbol) {
   if (!modalStack.includes(modalId)) {
@@ -61,6 +78,8 @@ function unregisterOpenModal(modalId: symbol) {
     modalStack.splice(index, 1)
   }
   modalFocusTargets.delete(modalId)
+  modalOverlayTargets.delete(modalId)
+  syncBackgroundInert()
 }
 
 function isTopOpenModal(modalId: symbol) {
@@ -136,6 +155,7 @@ const footerAlignClass = computed(() => {
 })
 
 const modalRef = ref<HTMLElement | null>(null)
+const overlayRef = ref<HTMLElement | null>(null)
 const modalId = useId()
 const modalStackId = Symbol(`base-modal-${modalId}`)
 const titleId = `${modalId}-title`
@@ -180,6 +200,8 @@ const restoreReturnFocus = () => {
 const focusTopModal = () => {
   void nextTick(() => {
     if (!isTopModal.value) return
+    if (overlayRef.value) modalOverlayTargets.set(modalStackId, overlayRef.value)
+    syncBackgroundInert()
     const rememberedFocus = modalFocusTargets.get(modalStackId)
     if (rememberedFocus?.isConnected) {
       rememberedFocus.focus()

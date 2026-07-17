@@ -6,7 +6,8 @@ import type { BoardListItem } from '@/types'
 
 export function useBoardAutocomplete(searchQuery: Ref<string>) {
   const { useBoards } = useBoard()
-  const { data: boardsData } = useBoards()
+  const boardsQuery = useBoards()
+  const { data: boardsData } = boardsQuery
   const debouncedSearchQuery = useDebounce(searchQuery, DEBOUNCE_DELAY.SEARCH)
 
   const boards = computed(() => boardsData.value || [])
@@ -20,6 +21,9 @@ export function useBoardAutocomplete(searchQuery: Ref<string>) {
 
   return {
     boards,
-    filteredBoards
+    filteredBoards,
+    isError: boardsQuery.isError,
+    isFetching: boardsQuery.isFetching,
+    retry: boardsQuery.refetch,
   }
 }
