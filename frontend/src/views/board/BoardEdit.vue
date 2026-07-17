@@ -1,17 +1,19 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import CategoryManager from '@/components/board/CategoryManager.vue'
 import BoardForm from '@/components/board/BoardForm.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
+import ErrorState from '@/components/common/ui/ErrorState.vue'
 import PageHeader from '@/components/common/ui/PageHeader.vue'
 import UserSelectModal from '@/components/common/widgets/UserSelectModal.vue'
 import AdminAuditLogTable from '@/components/admin/AdminAuditLogTable.vue'
 import { boardApi } from '@/api/board'
-import { unwrapAxiosApiPageData } from '@/api/response'
 import { useBoardEditPage } from '@/features/board/edit/useBoardEditPage'
 import type { ModerationAuditLog } from '@/types'
+import { useApiPageQuery } from '@/composables/useApiQuery'
+import { AUTH_SCOPED_QUERY_META } from '@/queryAuthScope'
 
 const {
   boardUrl,
@@ -33,25 +35,21 @@ const {
 
 const { t } = useI18n()
 const managerAuditParams = computed(() => ({ page: 0, size: 5, sort: 'createdAt,desc' }))
-const managerAuditLogs = ref<ModerationAuditLog[]>([])
-let managerAuditLoadId = 0
-
-watch([boardUrl, canManageBoard], async ([nextBoardUrl, manageable]) => {
-  const loadId = ++managerAuditLoadId
-  managerAuditLogs.value = []
-  if (!manageable || !nextBoardUrl || typeof boardApi.getManagerAudits !== 'function') return
-
-  try {
-    const page = unwrapAxiosApiPageData(await boardApi.getManagerAudits(nextBoardUrl, managerAuditParams.value))
-    if (loadId === managerAuditLoadId) {
-      managerAuditLogs.value = page.content
-    }
-  } catch {
-    if (loadId === managerAuditLoadId) {
-      managerAuditLogs.value = []
-    }
-  }
-}, { immediate: true })
+const managerAuditsEnabled = computed(() => Boolean(canManageBoard.value && boardUrl.value))
+const {
+  data: managerAuditPage,
+  isLoading: isManagerAuditsLoading,
+  isError: isManagerAuditsError,
+  refetch: refetchManagerAudits,
+} = useApiPageQuery<ModerationAuditLog>({
+  queryKey: computed(() => ['board', 'manager-audits', boardUrl.value, { ...managerAuditParams.value }]),
+  request: ({ signal }) => boardApi.getManagerAudits(boardUrl.value, managerAuditParams.value, { signal }),
+  enabled: managerAuditsEnabled,
+  keepPreviousData: false,
+  retry: false,
+  meta: AUTH_SCOPED_QUERY_META,
+})
+const managerAuditLogs = computed(() => managerAuditPage.value?.content ?? [])
 </script>
 
 <template>
@@ -107,7 +105,18 @@ watch([boardUrl, canManageBoard], async ([nextBoardUrl, manageable]) => {
           <div class="border-b nv-border px-4 py-3">
             <h2 class="text-sm font-semibold nv-title">{{ t('admin.dashboard.auditLogs') }}</h2>
           </div>
+          <div v-if="isManagerAuditsLoading" class="py-6 text-center" role="status" aria-live="polite" aria-busy="true">
+            <BaseSpinner size="md" />
+          </div>
+          <ErrorState
+            v-else-if="isManagerAuditsError"
+            :message="t('common.messages.loadFailed')"
+            :show-retry="true"
+            title-tag="h3"
+            @retry="refetchManagerAudits"
+          />
           <AdminAuditLogTable
+            v-else
             :audits="managerAuditLogs"
             :caption="t('admin.dashboard.auditLogs')"
             :empty-text="t('admin.dashboard.auditEmpty')"

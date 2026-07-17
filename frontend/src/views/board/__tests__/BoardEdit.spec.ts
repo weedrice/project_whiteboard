@@ -6,6 +6,7 @@ import BoardEdit from '../BoardEdit.vue'
 import { boardApi } from '@/api/board'
 import type { ApiResponse, BoardDetail } from '@/types'
 import { getExposedVm } from '@/test/vue-test-helpers'
+import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
 
 type BoardEditExposed = {
   confirmManagerSelection(users: Array<{ loginId: string; displayName?: string }>): Promise<void>
@@ -15,6 +16,7 @@ type BoardDetailResponse = AxiosResponse<ApiResponse<BoardDetail>>
 
 const boardApiMock = vi.hoisted(() => ({
   getBoard: vi.fn<(boardUrl: string) => Promise<BoardDetailResponse>>(),
+  getManagerAudits: vi.fn(),
 }))
 
 const authStoreMock = vi.hoisted(() => ({
@@ -162,6 +164,10 @@ describe('BoardEdit', () => {
     deleteBoard.mockReset()
     transferBoardManager.mockReset()
     vi.mocked(boardApi.getBoard).mockReset()
+    boardApiMock.getManagerAudits.mockReset()
+    boardApiMock.getManagerAudits.mockResolvedValue({
+      data: { success: true, data: { content: [], page: 0, size: 5, totalElements: 0, totalPages: 0, last: true } },
+    })
   })
 
   afterEach(() => {
@@ -205,8 +211,10 @@ describe('BoardEdit', () => {
   }
 
   async function mountBoardEdit() {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     const wrapper = mount(BoardEdit, {
       global: {
+        plugins: [[VueQueryPlugin, { queryClient }]],
         mocks: {
           $t: (key: string) => key,
         },
@@ -269,6 +277,27 @@ describe('BoardEdit', () => {
     })
   })
 
+  it('shows a retryable error instead of an empty audit table when manager audits fail', async () => {
+    vi.mocked(boardApi.getBoard).mockResolvedValueOnce(mockBoard('free', 'Free Board'))
+    boardApiMock.getManagerAudits
+      .mockRejectedValueOnce(new Error('audit failed'))
+      .mockResolvedValueOnce({
+        data: { success: true, data: { content: [], page: 0, size: 5, totalElements: 0, totalPages: 0, last: true } },
+      })
+
+    const wrapper = await mountBoardEdit()
+    expect(wrapper.text()).toContain('common.messages.loadFailed')
+    expect(boardApiMock.getManagerAudits.mock.calls[0][2]).toEqual({
+      signal: expect.any(AbortSignal),
+    })
+
+    const retry = wrapper.findAll('button').find((button) => button.text().includes('common.error.retry'))
+    expect(retry).toBeTruthy()
+    await retry!.trigger('click')
+    await flushPromises()
+    expect(boardApiMock.getManagerAudits).toHaveBeenCalledTimes(2)
+  })
+
   it('redirects before rendering the form when the current user is not a board manager', async () => {
     vi.mocked(boardApi.getBoard).mockResolvedValueOnce({
       ...mockBoard('free', 'Free Board'),
@@ -297,6 +326,7 @@ describe('BoardEdit', () => {
 
     const wrapper = mount(BoardEdit, {
       global: {
+        plugins: [[VueQueryPlugin, { queryClient: new QueryClient({ defaultOptions: { queries: { retry: false } } }) }]],
         mocks: {
           $t: (key: string) => key,
         },
