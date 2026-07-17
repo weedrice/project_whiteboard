@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch, type ComponentPublicInstance } from 'vue'
+import { computed, onMounted, onScopeDispose, ref, watch, type ComponentPublicInstance } from 'vue'
 import { usePostComposerDraft } from '@/features/board/posts/form/usePostComposerDraft'
 import { usePostComposerEffects, type ComposerEditor } from '@/features/board/posts/form/usePostComposerEffects'
 import { usePostComposerSubmit, type PostFormSubmitResult } from '@/features/board/posts/form/usePostComposerSubmit'
@@ -25,6 +25,10 @@ import { usePostComposerState } from '@/features/board/posts/form/usePostCompose
 import type { PostSeries } from '@/types'
 import { useFieldValidation } from '@/composables/useFieldValidation'
 import { usePwaReloadBlocker } from '@/pwaReloadGuard'
+import { AUTH_SCOPED_QUERY_META, sessionQueryKey } from '@/queryAuthScope'
+import { userQueryKeys } from '@/features/user/userQueryKeys'
+import { queryClient } from '@/queryClient'
+import ErrorState from '@/components/common/ui/ErrorState.vue'
 
 const props = defineProps<{
   mode: 'create' | 'edit'
@@ -53,21 +57,47 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const authStore = useAuthStore()
 const toastStore = useToastStore()
-const localSeriesOptions = ref<PostSeries[]>([])
+const localSeriesOptions = ref<PostSeries[] | null>(null)
+const serverSeriesOptions = ref<PostSeries[]>([])
+const isPostSeriesError = ref(false)
 const newSeriesTitle = ref('')
 const isCreatingSeries = ref(false)
 const scheduledAt = ref('')
-const seriesOptions = computed(() => localSeriesOptions.value)
-
-onMounted(loadPostSeries)
+const seriesOptions = computed(() => localSeriesOptions.value ?? serverSeriesOptions.value)
+let createSeriesAbortController: AbortController | null = null
 
 async function loadPostSeries() {
+  const generation = authStore.sessionGeneration
+  isPostSeriesError.value = false
   try {
-    localSeriesOptions.value = unwrapAxiosApiData(await userApi.getPostSeries())
+    const series = await queryClient.fetchQuery({
+      queryKey: sessionQueryKey(generation, userQueryKeys.postSeries),
+      meta: AUTH_SCOPED_QUERY_META,
+      queryFn: async ({ signal }) => unwrapAxiosApiData(await userApi.getPostSeries({ signal })),
+    })
+    if (generation !== authStore.sessionGeneration) return
+    serverSeriesOptions.value = series
   } catch {
-    localSeriesOptions.value = []
+    if (generation !== authStore.sessionGeneration) return
+    isPostSeriesError.value = true
   }
 }
+
+onMounted(() => {
+  if (authStore.isAuthenticated) void loadPostSeries()
+})
+
+watch(() => authStore.sessionGeneration, () => {
+  createSeriesAbortController?.abort()
+  createSeriesAbortController = null
+  localSeriesOptions.value = null
+  serverSeriesOptions.value = []
+  isPostSeriesError.value = false
+  newSeriesTitle.value = ''
+  isCreatingSeries.value = false
+})
+
+onScopeDispose(() => createSeriesAbortController?.abort())
 
 const boardUrl = computed(() => props.boardUrl ?? '')
 const postId = computed(() => props.postId ?? '')
@@ -185,19 +215,32 @@ async function handleCreateSeries() {
   if (!title || isCreatingSeries.value) return
 
   isCreatingSeries.value = true
+  const generation = authStore.sessionGeneration
+  const controller = new AbortController()
+  createSeriesAbortController?.abort()
+  createSeriesAbortController = controller
   try {
-    const createdSeries = unwrapAxiosApiData(await userApi.createPostSeries({ title }))
+    const createdSeries = unwrapAxiosApiData(await userApi.createPostSeries({ title }, {
+      signal: controller.signal,
+    }))
+    if (controller.signal.aborted || authStore.sessionGeneration !== generation) return
     localSeriesOptions.value = [
-      ...localSeriesOptions.value.filter((series) => series.seriesId !== createdSeries.seriesId),
+      ...seriesOptions.value.filter((series) => series.seriesId !== createdSeries.seriesId),
       createdSeries,
     ]
+    queryClient.setQueryData(
+      sessionQueryKey(generation, userQueryKeys.postSeries),
+      localSeriesOptions.value,
+    )
     form.value.seriesId = createdSeries.seriesId
     newSeriesTitle.value = ''
     toastStore.addToast(t('board.writePost.createSeriesSuccess'), 'success')
   } catch {
+    if (controller.signal.aborted || authStore.sessionGeneration !== generation) return
     toastStore.addToast(t('board.writePost.createSeriesFailed'), 'error')
   } finally {
-    isCreatingSeries.value = false
+    if (createSeriesAbortController === controller) createSeriesAbortController = null
+    if (authStore.sessionGeneration === generation) isCreatingSeries.value = false
   }
 }
 
@@ -390,8 +433,17 @@ defineExpose({
         <BaseSpinner size="lg" />
       </div>
 
+      <ErrorState
+        v-else-if="isPostSeriesError"
+        class="!max-w-none !py-4"
+        title-tag="h2"
+        :message="t('common.messages.loadFailed')"
+        show-retry
+        @retry="loadPostSeries"
+      />
+
       <form
-        v-else
+        v-if="!isLoading"
         class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_18.5rem]"
         @submit.prevent="handleSubmit"
       >

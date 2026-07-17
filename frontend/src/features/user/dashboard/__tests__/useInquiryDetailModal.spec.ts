@@ -12,6 +12,11 @@ const { toastMock, confirmMock } = vi.hoisted(() => ({
   },
   confirmMock: vi.fn()
 }))
+const authStore = vi.hoisted(() => ({ sessionGeneration: 0 }))
+
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => authStore,
+}))
 
 vi.mock('vue-i18n', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-i18n')>()
@@ -51,6 +56,7 @@ describe('useInquiryDetailModal', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     confirmMock.mockResolvedValue(true)
+    authStore.sessionGeneration = 0
   })
 
   it('loads inquiry detail without incrementing view count', async () => {
@@ -152,7 +158,7 @@ describe('useInquiryDetailModal', () => {
     expect(modal.selectedInquiryPost.value).toBeNull()
   })
 
-  it('keeps the existing close and delete refresh sequence', async () => {
+  it('refreshes the list once after deleting an inquiry', async () => {
     vi.mocked(postApi.deletePost).mockResolvedValue(apiSuccessResponse<typeof postApi.deletePost>())
     const refreshPosts = vi.fn()
     const modal = useInquiryDetailModal(refreshPosts)
@@ -161,9 +167,46 @@ describe('useInquiryDetailModal', () => {
     await modal.deleteInquiryPost()
 
     expect(confirmMock).toHaveBeenCalledWith('common.messages.confirmDelete')
-    expect(postApi.deletePost).toHaveBeenCalledWith(12)
-    expect(refreshPosts).toHaveBeenCalledTimes(2)
+    expect(postApi.deletePost).toHaveBeenCalledWith(12, { signal: expect.any(AbortSignal) })
+    expect(refreshPosts).toHaveBeenCalledTimes(1)
     expect(toastMock.addToast).toHaveBeenCalledWith('common.messages.deleteSuccess', 'success')
+  })
+
+  it('discards a delete result after the account session changes', async () => {
+    const request = createDeferred<Awaited<ReturnType<typeof postApi.deletePost>>>()
+    vi.mocked(postApi.deletePost).mockReturnValue(request.promise)
+    const refreshPosts = vi.fn()
+    const modal = useInquiryDetailModal(refreshPosts)
+    modal.selectedInquiryPost.value = { postId: 12 } as Post
+
+    const deletion = modal.deleteInquiryPost()
+    await Promise.resolve()
+    authStore.sessionGeneration += 1
+    request.resolve(apiSuccessResponse<typeof postApi.deletePost>())
+    await deletion
+
+    expect(refreshPosts).not.toHaveBeenCalled()
+    expect(toastMock.addToast).not.toHaveBeenCalled()
+    expect(modal.selectedInquiryPost.value?.postId).toBe(12)
+  })
+
+  it('does not delete after confirm resolves across an account or selection change', async () => {
+    const confirmation = createDeferred<boolean>()
+    confirmMock.mockReturnValue(confirmation.promise)
+    const refreshPosts = vi.fn()
+    const modal = useInquiryDetailModal(refreshPosts)
+    modal.selectedInquiryPost.value = { postId: 12 } as Post
+
+    const deletion = modal.deleteInquiryPost()
+    await Promise.resolve()
+    authStore.sessionGeneration += 1
+    modal.selectedInquiryPost.value = { postId: 99 } as Post
+    confirmation.resolve(true)
+    await deletion
+
+    expect(postApi.deletePost).not.toHaveBeenCalled()
+    expect(refreshPosts).not.toHaveBeenCalled()
+    expect(toastMock.addToast).not.toHaveBeenCalled()
   })
 
   it('does not delete an inquiry when confirm is cancelled', async () => {

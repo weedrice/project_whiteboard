@@ -112,7 +112,10 @@ export function useAdminSystem(queryClient: QueryClient) {
 
     const useModerationAudits = (params: Ref<ModerationAuditSearchParams>) => {
         return useAdminPageQuery<ModerationAuditLog>(
-            computed(() => adminQueryKeys.moderationAudits(params.value)),
+            computed(() => currentSessionQueryKey(
+                authStore,
+                adminQueryKeys.moderationAudits(params.value),
+            )),
             (config) => callAdminApiWithOptionalConfig(
                 config,
                 (requestConfig) => adminApi.getModerationAudits(params.value, requestConfig),

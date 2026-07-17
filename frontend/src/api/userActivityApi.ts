@@ -86,8 +86,8 @@ export const userActivityApi = {
     getPostSeries(config?: AxiosRequestConfig) {
         return api.get<ApiResponse<PostSeries[]>>('/users/me/post-series', config)
     },
-    createPostSeries(payload: PostSeriesPayload) {
-        return api.post<ApiResponse<PostSeries>>('/users/me/post-series', payload)
+    createPostSeries(payload: PostSeriesPayload, config?: AxiosRequestConfig) {
+        return api.post<ApiResponse<PostSeries>>('/users/me/post-series', payload, config)
     },
     updatePostSeries(seriesId: string | number, payload: PostSeriesPayload) {
         return api.patch<ApiResponse<PostSeries>>(`/users/me/post-series/${encodePathSegment(seriesId)}`, payload)

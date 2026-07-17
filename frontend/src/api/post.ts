@@ -217,7 +217,12 @@ export const postApi = {
     updatePost: (postId: string | number, data: PostUpdateData) => api.put<ApiResponse<number>>(`/posts/${encodePathSegment(postId)}`, data),
 
     // Delete post
-    deletePost: (postId: string | number) => api.delete<ApiResponse<void>>(`/posts/${encodePathSegment(postId)}`),
+    deletePost: (postId: string | number, config?: AxiosRequestConfig) => {
+        const path = `/posts/${encodePathSegment(postId)}`
+        return config
+            ? api.delete<ApiResponse<void>>(path, config)
+            : api.delete<ApiResponse<void>>(path)
+    },
 
     // Increment post view count
     incrementView: (postId: string | number) => api.post<ApiResponse<void>>(`/posts/${encodePathSegment(postId)}/view`),
