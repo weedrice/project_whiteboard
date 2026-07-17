@@ -7,6 +7,7 @@ import com.weedrice.whiteboard.domain.post.dto.PostCreateResponse;
 import com.weedrice.whiteboard.domain.post.scheduled.entity.ScheduledPost;
 import com.weedrice.whiteboard.domain.post.scheduled.repository.ScheduledPostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostCommandService;
+import com.weedrice.whiteboard.global.exception.BusinessException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -22,7 +23,8 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 public class ScheduledPostPublishWorker {
 
-    private static final int MAX_FAILURE_REASON_LENGTH = 255;
+    static final String FAILURE_CODE_BUSINESS = "PUBLISH_BUSINESS_REJECTED";
+    static final String FAILURE_CODE_INTERNAL = "PUBLISH_INTERNAL_ERROR";
 
     private final ScheduledPostRepository scheduledPostRepository;
     private final PostCommandService postCommandService;
@@ -56,7 +58,8 @@ public class ScheduledPostPublishWorker {
         String reason = normalizeFailureReason(exception);
         int updated = scheduledPostRepository.markFailed(scheduledPostId, claimedAt, reason);
         requireSingleLeaseUpdate(updated, scheduledPostId, "fail");
-        log.warn("Scheduled post publish failed. scheduledPostId={}, reason={}", scheduledPostId, reason);
+        log.warn("Scheduled post publish failed. scheduledPostId={}, failureCode={}, exceptionType={}",
+                scheduledPostId, reason, exception.getClass().getSimpleName());
         publishSystemNotification(scheduledPost, "notification.scheduled.failed");
     }
 
@@ -73,14 +76,9 @@ public class ScheduledPostPublishWorker {
     }
 
     private String normalizeFailureReason(RuntimeException exception) {
-        String message = exception.getMessage();
-        if (message == null || message.isBlank()) {
-            message = exception.getClass().getSimpleName();
-        }
-        String normalized = message.strip();
-        return normalized.length() <= MAX_FAILURE_REASON_LENGTH
-                ? normalized
-                : normalized.substring(0, MAX_FAILURE_REASON_LENGTH);
+        return exception instanceof BusinessException
+                ? FAILURE_CODE_BUSINESS
+                : FAILURE_CODE_INTERNAL;
     }
 
     private void requireSingleLeaseUpdate(int updated, Long scheduledPostId, String transition) {
