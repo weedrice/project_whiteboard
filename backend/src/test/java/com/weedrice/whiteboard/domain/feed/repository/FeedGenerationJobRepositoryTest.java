@@ -128,6 +128,7 @@ class FeedGenerationJobRepositoryTest {
         int recovered = feedGenerationJobRepository.recoverStaleProcessingJobs(
                 LocalDateTime.of(2026, 5, 11, 16, 35),
                 FeedGenerationJobPolicy.MAX_RETRY_COUNT,
+                LocalDateTime.of(2026, 5, 11, 16, 36),
                 "Processing lease expired");
         entityManager.flush();
         entityManager.clear();
@@ -156,6 +157,7 @@ class FeedGenerationJobRepositoryTest {
                 job.getJobId(),
                 claimedAt,
                 FeedGenerationJobPolicy.MAX_RETRY_COUNT,
+                claimedAt.plusMinutes(8),
                 "failure");
 
         entityManager.flush();
@@ -167,6 +169,7 @@ class FeedGenerationJobRepositoryTest {
         assertThat(failed.getRetryCount()).isEqualTo(4);
         assertThat(failed.getProcessingStartedAt()).isNull();
         assertThat(failed.getLastErrorMessage()).isEqualTo("failure");
+        assertThat(failed.getNextAttemptAt()).isEqualTo(claimedAt.plusMinutes(8));
     }
 
     @Test
@@ -178,6 +181,7 @@ class FeedGenerationJobRepositoryTest {
                 job.getJobId(),
                 claimedAt,
                 FeedGenerationJobPolicy.MAX_RETRY_COUNT,
+                claimedAt.plusMinutes(16),
                 "failure");
 
         entityManager.flush();
@@ -198,6 +202,7 @@ class FeedGenerationJobRepositoryTest {
         int updated = feedGenerationJobRepository.recoverStaleProcessingJobs(
                 LocalDateTime.of(2026, 5, 11, 16, 25),
                 FeedGenerationJobPolicy.MAX_RETRY_COUNT,
+                LocalDateTime.of(2026, 5, 11, 16, 26),
                 "Processing lease expired");
 
         entityManager.flush();
@@ -209,6 +214,7 @@ class FeedGenerationJobRepositoryTest {
         assertThat(recovered.getRetryCount()).isEqualTo(1);
         assertThat(recovered.getProcessingStartedAt()).isNull();
         assertThat(recovered.getLastErrorMessage()).isEqualTo("Processing lease expired");
+        assertThat(recovered.getNextAttemptAt()).isEqualTo(LocalDateTime.of(2026, 5, 11, 16, 26));
     }
 
     @Test
@@ -223,6 +229,7 @@ class FeedGenerationJobRepositoryTest {
         int updated = feedGenerationJobRepository.recoverStaleProcessingJobs(
                 LocalDateTime.of(2026, 5, 11, 16, 25),
                 FeedGenerationJobPolicy.MAX_RETRY_COUNT,
+                LocalDateTime.of(2026, 5, 11, 16, 26),
                 "Processing lease expired");
 
         entityManager.flush();
@@ -252,10 +259,53 @@ class FeedGenerationJobRepositoryTest {
                 feedGenerationJobRepository.findJobIdsByStatusAndRetryCountLessThan(
                 FeedGenerationJob.STATUS_PENDING,
                 FeedGenerationJobPolicy.MAX_RETRY_COUNT,
+                LocalDateTime.of(2026, 5, 11, 17, 0),
                 PageRequest.of(0, 10, Sort.by(Sort.Order.asc("createdAt"), Sort.Order.asc("jobId"))));
 
         assertThat(jobs).extracting(FeedGenerationJobRepository.JobIdProjection::getJobId)
                 .containsExactly(first.getJobId(), second.getJobId(), third.getJobId());
+    }
+
+    @Test
+    void findPendingJobsReturnsOnlyDueAttempts() {
+        LocalDateTime now = LocalDateTime.of(2026, 5, 11, 17, 0);
+        FeedGenerationJob due = persistJob(100L, 10L);
+        FeedGenerationJob future = persistJob(200L, 10L);
+        ReflectionTestUtils.setField(due, "nextAttemptAt", now);
+        ReflectionTestUtils.setField(future, "nextAttemptAt", now.plusMinutes(1));
+        entityManager.flush();
+        entityManager.clear();
+
+        List<FeedGenerationJobRepository.JobIdProjection> jobs =
+                feedGenerationJobRepository.findJobIdsByStatusAndRetryCountLessThan(
+                        FeedGenerationJob.STATUS_PENDING,
+                        FeedGenerationJobPolicy.MAX_RETRY_COUNT,
+                        now,
+                        PageRequest.of(0, 10));
+
+        assertThat(jobs).extracting(FeedGenerationJobRepository.JobIdProjection::getJobId)
+                .containsExactly(due.getJobId());
+    }
+
+    @Test
+    void redriveFailedResetsRetryStateAndMakesJobDue() {
+        LocalDateTime now = LocalDateTime.of(2026, 5, 11, 17, 0);
+        FeedGenerationJob job = persistJob(100L, 10L);
+        ReflectionTestUtils.setField(job, "status", FeedGenerationJob.STATUS_FAILED);
+        ReflectionTestUtils.setField(job, "retryCount", FeedGenerationJobPolicy.MAX_RETRY_COUNT);
+        ReflectionTestUtils.setField(job, "lastErrorMessage", "failure");
+        entityManager.flush();
+
+        int updated = feedGenerationJobRepository.redriveFailed(job.getJobId(), now);
+        entityManager.flush();
+        entityManager.clear();
+
+        FeedGenerationJob redriven = entityManager.find(FeedGenerationJob.class, job.getJobId());
+        assertThat(updated).isEqualTo(1);
+        assertThat(redriven.getStatus()).isEqualTo(FeedGenerationJob.STATUS_PENDING);
+        assertThat(redriven.getRetryCount()).isZero();
+        assertThat(redriven.getNextAttemptAt()).isEqualTo(now);
+        assertThat(redriven.getLastErrorMessage()).isNull();
     }
 
     private FeedGenerationJob persistJob(Long postId, Long boardId) {

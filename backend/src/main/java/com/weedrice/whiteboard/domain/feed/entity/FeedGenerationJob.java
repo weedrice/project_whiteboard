@@ -53,6 +53,9 @@ public class FeedGenerationJob extends BaseTimeEntity {
     @Column(name = "processing_started_at")
     private LocalDateTime processingStartedAt;
 
+    @Column(name = "next_attempt_at")
+    private LocalDateTime nextAttemptAt;
+
     @Column(name = "completed_at")
     private LocalDateTime completedAt;
 
@@ -60,10 +63,11 @@ public class FeedGenerationJob extends BaseTimeEntity {
     private String lastErrorMessage;
 
     @Builder
-    public FeedGenerationJob(Long postId, Long boardId) {
+    public FeedGenerationJob(Long postId, Long boardId, LocalDateTime nextAttemptAt) {
         this.postId = postId;
         this.boardId = boardId;
         this.status = STATUS_PENDING;
         this.retryCount = 0;
+        this.nextAttemptAt = nextAttemptAt;
     }
 }

@@ -26,11 +26,22 @@ public interface FeedGenerationJobRepository extends JpaRepository<FeedGeneratio
             FROM FeedGenerationJob j
             WHERE j.status = :status
               AND j.retryCount < :retryCount
+              AND (j.nextAttemptAt IS NULL OR j.nextAttemptAt <= :now)
             """)
     List<JobIdProjection> findJobIdsByStatusAndRetryCountLessThan(
             @Param("status") String status,
             @Param("retryCount") int retryCount,
+            @Param("now") LocalDateTime now,
             Pageable pageable);
+
+    long countByStatus(String status);
+
+    @Query("""
+            SELECT MIN(j.createdAt)
+            FROM FeedGenerationJob j
+            WHERE j.status = 'PENDING'
+            """)
+    Optional<LocalDateTime> findOldestPendingAt();
 
     Optional<FeedGenerationJob> findByJobIdAndStatusAndProcessingStartedAt(
             Long jobId,
@@ -51,6 +62,7 @@ public interface FeedGenerationJobRepository extends JpaRepository<FeedGeneratio
             where j.jobId = :jobId
               and j.status = 'PENDING'
               and j.retryCount < :maxRetryCount
+              and (j.nextAttemptAt is null or j.nextAttemptAt <= :claimedAt)
             """)
     int claimForProcessing(
             @Param("jobId") Long jobId,
@@ -66,6 +78,7 @@ public interface FeedGenerationJobRepository extends JpaRepository<FeedGeneratio
             where j.postId = :postId
               and j.status = 'PENDING'
               and j.retryCount < :maxRetryCount
+              and (j.nextAttemptAt is null or j.nextAttemptAt <= :claimedAt)
             """)
     int claimForProcessingByPostId(
             @Param("postId") Long postId,
@@ -99,7 +112,8 @@ public interface FeedGenerationJobRepository extends JpaRepository<FeedGeneratio
                     else 'PENDING'
                 end,
                 j.processingStartedAt = null,
-                j.lastErrorMessage = :lastErrorMessage
+                j.lastErrorMessage = :lastErrorMessage,
+                j.nextAttemptAt = :nextAttemptAt
             where j.jobId = :jobId
               and j.status = 'PROCESSING'
               and j.processingStartedAt = :expectedProcessingStartedAt
@@ -108,6 +122,7 @@ public interface FeedGenerationJobRepository extends JpaRepository<FeedGeneratio
             @Param("jobId") Long jobId,
             @Param("expectedProcessingStartedAt") LocalDateTime expectedProcessingStartedAt,
             @Param("maxRetryCount") int maxRetryCount,
+            @Param("nextAttemptAt") LocalDateTime nextAttemptAt,
             @Param("lastErrorMessage") String lastErrorMessage);
 
     @Modifying
@@ -120,7 +135,8 @@ public interface FeedGenerationJobRepository extends JpaRepository<FeedGeneratio
                     else 'PENDING'
                 end,
                 j.processingStartedAt = null,
-                j.lastErrorMessage = :lastErrorMessage
+                j.lastErrorMessage = :lastErrorMessage,
+                j.nextAttemptAt = :nextAttemptAt
             where j.status = 'PROCESSING'
               and j.retryCount < :maxRetryCount
               and (j.processingStartedAt is null or j.processingStartedAt < :staleBefore)
@@ -128,5 +144,21 @@ public interface FeedGenerationJobRepository extends JpaRepository<FeedGeneratio
     int recoverStaleProcessingJobs(
             @Param("staleBefore") LocalDateTime staleBefore,
             @Param("maxRetryCount") int maxRetryCount,
+            @Param("nextAttemptAt") LocalDateTime nextAttemptAt,
             @Param("lastErrorMessage") String lastErrorMessage);
+
+    @Modifying
+    @Transactional
+    @Query("""
+            update FeedGenerationJob j
+            set j.status = 'PENDING',
+                j.retryCount = 0,
+                j.processingStartedAt = null,
+                j.completedAt = null,
+                j.lastErrorMessage = null,
+                j.nextAttemptAt = :now
+            where j.jobId = :jobId
+              and j.status = 'FAILED'
+            """)
+    int redriveFailed(@Param("jobId") Long jobId, @Param("now") LocalDateTime now);
 }

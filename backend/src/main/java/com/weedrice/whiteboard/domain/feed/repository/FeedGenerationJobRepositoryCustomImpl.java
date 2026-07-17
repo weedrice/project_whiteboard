@@ -28,9 +28,9 @@ public class FeedGenerationJobRepositoryCustomImpl implements FeedGenerationJobR
         }
         return jdbcTemplate.update("""
                 INSERT INTO feed_generation_jobs (
-                    post_id, board_id, status, retry_count, created_at, modified_at
+                    post_id, board_id, status, retry_count, next_attempt_at, created_at, modified_at
                 )
-                VALUES (?, ?, 'PENDING', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                VALUES (?, ?, 'PENDING', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                 ON CONFLICT (post_id) DO NOTHING
                 """, postId, boardId);
     }
@@ -39,9 +39,9 @@ public class FeedGenerationJobRepositoryCustomImpl implements FeedGenerationJobR
         try {
             return jdbcTemplate.update("""
                     INSERT INTO feed_generation_jobs (
-                        post_id, board_id, status, retry_count, created_at, modified_at
+                        post_id, board_id, status, retry_count, next_attempt_at, created_at, modified_at
                     )
-                    VALUES (?, ?, 'PENDING', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    VALUES (?, ?, 'PENDING', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
                     """, postId, boardId);
         } catch (DuplicateKeyException ignored) {
             return 0;

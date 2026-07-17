@@ -14,10 +14,13 @@
 | :----- | :--------------------------- | :---------------- |
 | `GET` | `/api/v1/users/me/feeds` | 내 피드 목록 조회 |
 | `GET` | `/api/v1/home/landing` | 홈 랜딩 데이터 조회 |
+| `POST` | `/api/v1/admin/feed-generation/jobs/{jobId}/redrive` | 영구 실패한 피드 생성 작업 단건 재시도(SUPER_ADMIN) |
 
 ## 3. 관련 DB 테이블
 
 | 테이블명 | 엔티티 | 설명 |
 | :------- | :----- | :--- |
 | `user_feeds` | `UserFeed` | 사용자별 추천 피드 데이터 |
-| `feed_generation_jobs` | `FeedGenerationJob` | 피드 생성 작업 큐 |
+| `feed_generation_jobs` | `FeedGenerationJob` | 피드 생성 작업 큐. 실패 시 제한된 지수 backoff를 적용하고 5회 실패하면 `FAILED`로 격리합니다. |
+
+피드 작업은 pending/processing/failed/oldest pending gauge와 success/retry/dead-letter/recovered/redrive 결과 counter를 제공합니다.

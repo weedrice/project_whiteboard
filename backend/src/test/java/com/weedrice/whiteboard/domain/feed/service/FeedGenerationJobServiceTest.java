@@ -5,6 +5,8 @@ import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.feed.FeedGenerationJobPolicy;
 import com.weedrice.whiteboard.domain.feed.entity.FeedGenerationJob;
 import com.weedrice.whiteboard.domain.feed.repository.FeedGenerationJobRepository;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -47,6 +49,8 @@ class FeedGenerationJobServiceTest {
     private BoardRepository boardRepository;
     @Mock
     private FeedGenerationService feedGenerationService;
+    @Mock
+    private FeedGenerationJobMetrics metrics;
 
     private FeedGenerationJobService feedGenerationJobService;
     private LocalDateTime now;
@@ -59,7 +63,8 @@ class FeedGenerationJobServiceTest {
                 feedGenerationJobRepository,
                 boardRepository,
                 feedGenerationService,
-                clock);
+                clock,
+                metrics);
     }
 
     @Test
@@ -146,6 +151,7 @@ class FeedGenerationJobServiceTest {
                 anyLong(),
                 any(),
                 anyInt(),
+                any(),
                 anyString());
     }
 
@@ -166,6 +172,7 @@ class FeedGenerationJobServiceTest {
                 eq(1L),
                 eq(now),
                 eq(FeedGenerationJobPolicy.MAX_RETRY_COUNT),
+                eq(now.plusMinutes(1)),
                 anyString())).thenReturn(1);
 
         feedGenerationJobService.processPostPublishedJob(100L);
@@ -174,6 +181,7 @@ class FeedGenerationJobServiceTest {
                 eq(1L),
                 eq(now),
                 eq(FeedGenerationJobPolicy.MAX_RETRY_COUNT),
+                eq(now.plusMinutes(1)),
                 contains("IllegalStateException: boom"));
     }
 
@@ -184,10 +192,12 @@ class FeedGenerationJobServiceTest {
         when(feedGenerationJobRepository.recoverStaleProcessingJobs(
                 now.minusMinutes(FeedGenerationJobPolicy.PROCESSING_LEASE_MINUTES),
                 FeedGenerationJobPolicy.MAX_RETRY_COUNT,
+                now.plusMinutes(1),
                 "Processing lease expired")).thenReturn(1);
         when(feedGenerationJobRepository.findJobIdsByStatusAndRetryCountLessThan(
                 eq(FeedGenerationJob.STATUS_PENDING),
                 eq(FeedGenerationJobPolicy.MAX_RETRY_COUNT),
+                eq(now),
                 any(Pageable.class))).thenReturn(List.of(jobIdProjection(1L)));
         when(feedGenerationJobRepository.claimForProcessing(
                 1L, FeedGenerationJobPolicy.MAX_RETRY_COUNT, now)).thenReturn(1);
@@ -203,6 +213,7 @@ class FeedGenerationJobServiceTest {
         verify(feedGenerationJobRepository).findJobIdsByStatusAndRetryCountLessThan(
                 eq(FeedGenerationJob.STATUS_PENDING),
                 eq(FeedGenerationJobPolicy.MAX_RETRY_COUNT),
+                eq(now),
                 pageableCaptor.capture());
         Pageable pageable = pageableCaptor.getValue();
         assertThat(pageable.getPageSize()).isEqualTo(FeedGenerationJobPolicy.BATCH_SIZE);
@@ -218,10 +229,12 @@ class FeedGenerationJobServiceTest {
         when(feedGenerationJobRepository.recoverStaleProcessingJobs(
                 now.minusMinutes(FeedGenerationJobPolicy.PROCESSING_LEASE_MINUTES),
                 FeedGenerationJobPolicy.MAX_RETRY_COUNT,
+                now.plusMinutes(1),
                 "Processing lease expired")).thenReturn(0);
         when(feedGenerationJobRepository.findJobIdsByStatusAndRetryCountLessThan(
                 eq(FeedGenerationJob.STATUS_PENDING),
                 eq(FeedGenerationJobPolicy.MAX_RETRY_COUNT),
+                eq(now),
                 any(Pageable.class))).thenReturn(List.of(jobIdProjection(1L)));
         when(feedGenerationJobRepository.claimForProcessing(
                 1L, FeedGenerationJobPolicy.MAX_RETRY_COUNT, now)).thenReturn(0);
@@ -232,6 +245,29 @@ class FeedGenerationJobServiceTest {
         verify(feedGenerationService, never()).generatePostFeeds(
                 any(Board.class),
                 anyLong());
+    }
+
+    @Test
+    void redriveResetsOnlyFailedJobAndRefreshesMetrics() {
+        when(feedGenerationJobRepository.redriveFailed(7L, now)).thenReturn(1);
+
+        feedGenerationJobService.redrive(7L);
+
+        verify(feedGenerationJobRepository).redriveFailed(7L, now);
+        verify(metrics).recordRedrive();
+        verify(metrics).update(0L, 0L, 0L, 0L);
+    }
+
+    @Test
+    void redriveRejectsMissingOrNonFailedJob() {
+        when(feedGenerationJobRepository.redriveFailed(7L, now)).thenReturn(0);
+
+        assertThatThrownBy(() -> feedGenerationJobService.redrive(7L))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.VALIDATION_ERROR);
+
+        verify(metrics, never()).recordRedrive();
     }
 
     private FeedGenerationJob processingJob(Long jobId, Long postId, Long boardId, LocalDateTime claimedAt) {

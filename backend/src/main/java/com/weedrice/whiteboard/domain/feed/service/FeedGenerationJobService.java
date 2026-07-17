@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -30,6 +31,7 @@ public class FeedGenerationJobService {
     private final BoardRepository boardRepository;
     private final FeedGenerationService feedGenerationService;
     private final Clock clock;
+    private final FeedGenerationJobMetrics metrics;
 
     @Transactional(readOnly = true)
     public boolean existsPostPublishedJob(Long postId) {
@@ -63,8 +65,10 @@ public class FeedGenerationJobService {
         int recovered = feedGenerationJobRepository.recoverStaleProcessingJobs(
                 current.minusMinutes(FeedGenerationJobPolicy.PROCESSING_LEASE_MINUTES),
                 FeedGenerationJobPolicy.MAX_RETRY_COUNT,
+                current.plus(FeedGenerationJobPolicy.retryBackoff(0)),
                 STALE_PROCESSING_ERROR);
         if (recovered > 0) {
+            metrics.recordRecovered(recovered);
             log.warn("Recovered {} stale feed generation job(s)", recovered);
         }
 
@@ -76,6 +80,7 @@ public class FeedGenerationJobService {
                 feedGenerationJobRepository.findJobIdsByStatusAndRetryCountLessThan(
                         FeedGenerationJob.STATUS_PENDING,
                         FeedGenerationJobPolicy.MAX_RETRY_COUNT,
+                        current,
                         pendingPageRequest);
 
         int processedCount = 0;
@@ -90,6 +95,7 @@ public class FeedGenerationJobService {
                 processClaimedJob(pendingJobId.getJobId(), claimedAt);
             }
         }
+        refreshMetrics();
         return processedCount;
     }
 
@@ -111,15 +117,28 @@ public class FeedGenerationJobService {
                 log.warn("Skipped completing feed generation job because processing lease changed: jobId={}",
                         job.getJobId());
             }
+            if (completed == 1) {
+                metrics.recordSuccess();
+            }
         } catch (Exception ex) {
+            LocalDateTime failedAt = now();
+            int nextRetryCount = job.getRetryCount() + 1;
             int failed = feedGenerationJobRepository.markFailedIfCurrent(
                     job.getJobId(),
                     claimedAt,
                     FeedGenerationJobPolicy.MAX_RETRY_COUNT,
+                    failedAt.plus(FeedGenerationJobPolicy.retryBackoff(job.getRetryCount())),
                     summarizeError(ex));
             if (failed != 1) {
                 log.warn("Skipped feed generation failure update because processing lease changed: jobId={}",
                         job.getJobId());
+            }
+            if (failed == 1) {
+                if (nextRetryCount >= FeedGenerationJobPolicy.MAX_RETRY_COUNT) {
+                    metrics.recordDeadLetter();
+                } else {
+                    metrics.recordRetry();
+                }
             }
             log.error("Feed generation job failed: jobId={}, postId={}, boardId={}",
                     job.getJobId(),
@@ -127,6 +146,25 @@ public class FeedGenerationJobService {
                     job.getBoardId(),
                     ex);
         }
+    }
+
+    @Transactional
+    public void redrive(Long jobId) {
+        if (jobId == null || jobId <= 0 || feedGenerationJobRepository.redriveFailed(jobId, now()) != 1) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+        }
+        metrics.recordRedrive();
+        refreshMetrics();
+    }
+
+    private void refreshMetrics() {
+        LocalDateTime observedAt = now();
+        LocalDateTime oldestPendingAt = feedGenerationJobRepository.findOldestPendingAt().orElse(null);
+        metrics.update(
+                feedGenerationJobRepository.countByStatus(FeedGenerationJob.STATUS_PENDING),
+                feedGenerationJobRepository.countByStatus(FeedGenerationJob.STATUS_PROCESSING),
+                feedGenerationJobRepository.countByStatus(FeedGenerationJob.STATUS_FAILED),
+                oldestPendingAt == null ? 0 : Duration.between(oldestPendingAt, observedAt).getSeconds());
     }
 
     private LocalDateTime now() {
