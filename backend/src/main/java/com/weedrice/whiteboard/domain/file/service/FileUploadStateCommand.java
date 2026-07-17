@@ -26,6 +26,9 @@ class FileUploadStateCommand {
             String originalFilename,
             Long fileSize,
             String mimeType,
+            Integer imageWidth,
+            Integer imageHeight,
+            Integer expectedVariantCount,
             User uploader) {
         return transactionTemplate.execute(status -> {
             File file = File.builder()
@@ -33,12 +36,20 @@ class FileUploadStateCommand {
                     .originalName(originalFilename)
                     .fileSize(fileSize)
                     .mimeType(mimeType)
+                    .imageWidth(imageWidth)
+                    .imageHeight(imageHeight)
+                    .expectedVariantCount(expectedVariantCount)
                     .uploader(uploader)
                     .storageStatus(FileStorageStatus.PENDING_UPLOAD)
                     .build();
 
             return fileRepository.save(file);
         });
+    }
+
+    void markVariantReconciled(Long fileId, int width, int height, int expectedCount, int version) {
+        transactionTemplate.executeWithoutResult(status -> fileRepository.findByIdForUpdate(fileId)
+                .ifPresent(file -> file.markVariantReconciled(width, height, expectedCount, version)));
     }
 
     File completePendingUpload(Long fileId) {

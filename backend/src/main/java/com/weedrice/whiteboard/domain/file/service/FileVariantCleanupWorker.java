@@ -17,6 +17,7 @@ import java.util.concurrent.atomic.AtomicLong;
 @Service
 @RequiredArgsConstructor
 public class FileVariantCleanupWorker {
+    static final int RECONCILIATION_VERSION = 1;
 
     private static final int BATCH_SIZE = 100;
     private static final int PENDING_UPLOAD_GRACE_HOURS = 2;
@@ -24,6 +25,7 @@ public class FileVariantCleanupWorker {
 
     private final FileVariantRepository fileVariantRepository;
     private final FileVariantStateCommand stateCommand;
+    private final FileUploadStateCommand uploadStateCommand;
     private final FileStorageService fileStorageService;
     private final Clock clock;
     private final FileRepository fileRepository;
@@ -69,7 +71,7 @@ public class FileVariantCleanupWorker {
 
     public int reconcileMissingVariants() {
         var files = fileRepository.findActiveImagesMissingVariantsAfter(
-                reconciliationCursor.get(), PageRequest.of(0, BATCH_SIZE));
+                reconciliationCursor.get(), RECONCILIATION_VERSION, PageRequest.of(0, BATCH_SIZE));
         if (files.isEmpty()) {
             reconciliationCursor.set(0);
             return 0;
@@ -77,7 +79,15 @@ public class FileVariantCleanupWorker {
         int attempted = 0;
         for (var file : files) {
             try {
-                attempted += variantGenerator.generateMissingVariants(file);
+                FileImageVariantGenerator.ReconciliationResult result =
+                        variantGenerator.generateMissingVariants(file);
+                attempted += result.generated();
+                uploadStateCommand.markVariantReconciled(
+                        file.getFileId(),
+                        result.width(),
+                        result.height(),
+                        result.expectedVariantCount(),
+                        RECONCILIATION_VERSION);
             } catch (RuntimeException exception) {
                 log.warn("Failed to reconcile image variants. fileId={}, exceptionType={}",
                         file.getFileId(), exception.getClass().getSimpleName());

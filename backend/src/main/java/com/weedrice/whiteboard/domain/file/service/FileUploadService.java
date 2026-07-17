@@ -45,10 +45,26 @@ class FileUploadService {
                 validatedUpload.originalFilename(),
                 validatedUpload.fileSize(),
                 validatedUpload.detectedMimeType(),
+                validatedUpload.width() > 0 ? validatedUpload.width() : null,
+                validatedUpload.height() > 0 ? validatedUpload.height() : null,
+                validatedUpload.width() > 0 && validatedUpload.height() > 0
+                        ? FileImageVariantGenerator.expectedVariantCount(
+                        validatedUpload.width(), validatedUpload.height())
+                        : null,
                 uploader);
         try {
             fileStorageService.storeFileAs(multipartFile, validatedUpload.detectedMimeType(), storedFileName);
-            imageVariantGenerator.generateVariants(pendingUploadFile, multipartFile, validatedUpload);
+            boolean reconciled = imageVariantGenerator.generateVariants(
+                    pendingUploadFile, multipartFile, validatedUpload);
+            if (reconciled) {
+                stateCommand.markVariantReconciled(
+                        pendingUploadFile.getFileId(),
+                        validatedUpload.width(),
+                        validatedUpload.height(),
+                        FileImageVariantGenerator.expectedVariantCount(
+                                validatedUpload.width(), validatedUpload.height()),
+                        FileVariantCleanupWorker.RECONCILIATION_VERSION);
+            }
             return stateCommand.completePendingUpload(pendingUploadFile.getFileId());
         } catch (Exception e) {
             try {

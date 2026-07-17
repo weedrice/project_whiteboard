@@ -20,10 +20,20 @@ public interface FileRepository extends JpaRepository<File, Long> {
             WHERE f.fileId > :afterId
               AND f.storageStatus = com.weedrice.whiteboard.domain.file.entity.FileStorageStatus.ACTIVE
               AND f.mimeType IN ('image/jpeg', 'image/png', 'image/webp')
-              AND (SELECT COUNT(v) FROM FileVariant v WHERE v.file = f) < 2
+              AND (
+                  f.variantReconciliationVersion IS NULL
+                  OR f.variantReconciliationVersion < :reconciliationVersion
+                  OR (SELECT COUNT(v) FROM FileVariant v
+                      WHERE v.file = f
+                        AND v.storageStatus = com.weedrice.whiteboard.domain.file.entity.FileStorageStatus.ACTIVE)
+                     < COALESCE(f.expectedVariantCount, 2)
+              )
             ORDER BY f.fileId
             """)
-    List<File> findActiveImagesMissingVariantsAfter(@Param("afterId") Long afterId, Pageable pageable);
+    List<File> findActiveImagesMissingVariantsAfter(
+            @Param("afterId") Long afterId,
+            @Param("reconciliationVersion") Integer reconciliationVersion,
+            Pageable pageable);
 
     interface FileCleanupCandidateProjection {
         Long getFileId();

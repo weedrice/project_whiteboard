@@ -41,6 +41,13 @@ class FileImageVariantGeneratorTest {
     private FileVariantStateCommand stateCommand;
 
     @Test
+    void expectedVariantCountMatchesSmallMediumAndLargeContracts() {
+        assertThat(FileImageVariantGenerator.expectedVariantCount(100, 80)).isZero();
+        assertThat(FileImageVariantGenerator.expectedVariantCount(800, 600)).isEqualTo(1);
+        assertThat(FileImageVariantGenerator.expectedVariantCount(2000, 1500)).isEqualTo(2);
+    }
+
+    @Test
     void generateVariants_resizesJpegIntoThumbnailAndMedium() throws Exception {
         File file = imageFile(10L);
         MockMultipartFile multipartFile = jpegFile("large.jpg", 1600, 800);

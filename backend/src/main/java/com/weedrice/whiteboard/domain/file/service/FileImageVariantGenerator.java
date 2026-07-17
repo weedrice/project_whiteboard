@@ -44,24 +44,43 @@ class FileImageVariantGenerator {
     private final FileVariantStateCommand stateCommand;
     private final FileUploadValidationPolicy validationPolicy;
 
-    public void generateVariants(File originalFile, MultipartFile multipartFile, ValidatedUpload upload) {
+    public boolean generateVariants(File originalFile, MultipartFile multipartFile, ValidatedUpload upload) {
         if (!isResizableMimeType(upload.detectedMimeType()) || originalFile.getFileId() == null) {
-            return;
+            return false;
         }
         try {
             generateVariantsOrThrow(originalFile, multipartFile, upload);
+            return true;
         } catch (IOException | RuntimeException e) {
             log.warn("Failed to generate image variants. fileId={}", originalFile.getFileId(), e);
+            return false;
         }
     }
 
-    public int generateMissingVariants(File originalFile) {
+    public ReconciliationResult generateMissingVariants(File originalFile) {
         MultipartFile storedFile = new StoredMultipartFile(originalFile, fileStorageService);
         try {
-            return generateVariantsOrThrow(originalFile, storedFile, validationPolicy.validate(storedFile));
+            ValidatedUpload upload = validationPolicy.validate(storedFile);
+            int generated = generateVariantsOrThrow(originalFile, storedFile, upload);
+            return new ReconciliationResult(
+                    generated,
+                    upload.width(),
+                    upload.height(),
+                    expectedVariantCount(upload.width(), upload.height()));
         } catch (IOException exception) {
             throw new IllegalStateException("Failed to regenerate image variants", exception);
         }
+    }
+
+    static int expectedVariantCount(int width, int height) {
+        int longerSide = Math.max(width, height);
+        int expected = 0;
+        for (FileVariantType type : FileVariantType.values()) {
+            if (longerSide > type.getMaxDimension()) {
+                expected++;
+            }
+        }
+        return expected;
     }
 
     private int generateVariantsOrThrow(
@@ -196,6 +215,9 @@ class FileImageVariantGenerator {
     }
 
     private record ImageSize(int width, int height, boolean shouldResize) {
+    }
+
+    record ReconciliationResult(int generated, int width, int height, int expectedVariantCount) {
     }
 
     private record StoredMultipartFile(File file, FileStorageService storageService) implements MultipartFile {

@@ -70,10 +70,23 @@ public class File extends BaseTimeEntity {
     @Column(name = "delete_last_error", length = 1000)
     private String deleteLastError;
 
+    @Column(name = "image_width")
+    private Integer imageWidth;
+
+    @Column(name = "image_height")
+    private Integer imageHeight;
+
+    @Column(name = "expected_variant_count")
+    private Integer expectedVariantCount;
+
+    @Column(name = "variant_reconciliation_version")
+    private Integer variantReconciliationVersion;
+
     @Builder
     public File(String filePath, String originalName, Long fileSize, String mimeType, User uploader, Long relatedId,
             String relatedType, FileStorageStatus storageStatus, LocalDateTime deleteRequestedAt, Integer deleteRetryCount,
-            String deleteLastError) {
+            String deleteLastError, Integer imageWidth, Integer imageHeight, Integer expectedVariantCount,
+            Integer variantReconciliationVersion) {
         this.filePath = filePath;
         this.originalName = originalName;
         this.fileSize = fileSize;
@@ -85,6 +98,10 @@ public class File extends BaseTimeEntity {
         this.deleteRequestedAt = deleteRequestedAt;
         this.deleteRetryCount = deleteRetryCount != null ? deleteRetryCount : 0;
         this.deleteLastError = deleteLastError;
+        this.imageWidth = imageWidth;
+        this.imageHeight = imageHeight;
+        this.expectedVariantCount = expectedVariantCount;
+        this.variantReconciliationVersion = variantReconciliationVersion;
     }
 
     public void updateRelatedInfo(Long relatedId, String relatedType) {
@@ -140,6 +157,13 @@ public class File extends BaseTimeEntity {
         this.deleteRequestedAt = deleteRequestedAt;
         this.deleteRetryCount = this.deleteRetryCount == null ? 1 : this.deleteRetryCount + 1;
         this.deleteLastError = truncate(deleteLastError);
+    }
+
+    public void markVariantReconciled(int width, int height, int expectedCount, int version) {
+        this.imageWidth = width;
+        this.imageHeight = height;
+        this.expectedVariantCount = expectedCount;
+        this.variantReconciliationVersion = version;
     }
 
     private String truncate(String value) {
