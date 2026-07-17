@@ -34,6 +34,8 @@ Before switching a backend JAR, the activator records the previous JAR digest an
 
 The passwordless sudo surface permits only the fixed backend/frontend incoming and rollback path forms. The workflow compares the installed verifier, activation script, and systemd unit hashes with the expected commit and fails closed on drift. Reinstall reviewed entrypoints as root whenever those tracked files change. Refresh the trusted-root file only through a reviewed host maintenance step and validate a known release afterward. The `noviis-app` runtime account has no sudo access and cannot write either incoming or active release roots.
 
+Both activation entrypoints acquire the same non-blocking `/run/lock/noviis-deploy.lock` before reading or changing release state. A concurrent workflow, direct sudo invocation, backend activation, frontend activation, or rollback exits with status 75 without changing the active JAR or symlink. Do not configure separate lock paths on the production host; the override exists only for isolated fixtures.
+
 After installing the unit, verify it before enabling:
 
 ```bash

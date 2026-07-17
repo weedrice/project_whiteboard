@@ -4,10 +4,10 @@
 
 | 항목 | 내용 |
 | --- | --- |
-| 기준일 | 2026-07-13 |
+| 기준일 | 2026-07-17 |
 | 기준 소스 | `backend/src/main/resources/db/migration` |
-| 마이그레이션 범위 | `V1__baseline_schema.sql` - `V47__draft_content_and_scheduled_draft.sql` |
-| 현재 테이블 수 | 62개 |
+| 마이그레이션 범위 | `V1__baseline_schema.sql` - `V61__scheduled_post_files.sql` |
+| 현재 테이블 수 | 65개 |
 | DB | PostgreSQL |
 
 이 문서는 Flyway migration 기준의 현재 스키마 요약이다. 컬럼 단위 상세는 각 migration과 JPA entity를 최종 기준으로 본다.
@@ -26,7 +26,7 @@
 
 | 테이블 | 설명 |
 | --- | --- |
-| `users` | 사용자 기본 정보, 상태, super admin 여부, 이메일 인증 상태 |
+| `users` | 사용자 기본 정보, 상태, super admin 여부, 이메일 인증 상태, 동시 갱신 및 보안 세대 버전 |
 | `user_settings` | 테마, 언어, 시간대, NSFW 숨김 |
 | `user_notification_settings` | 알림 타입별 수신 설정 |
 | `user_blocks` | 사용자 차단 관계 |
@@ -52,6 +52,8 @@
 | `post_tags` | 게시글-태그 연결 |
 | `post_versions` | 게시글 버전 이력 |
 | `draft_posts` | 게시글 초안. 사용자·스페이스·카테고리·원본 게시글, 본문/상태/태그/파일 ID, 투표·시리즈와 수정 시각을 보존 |
+| `scheduled_posts` | 예약 게시글 payload, 발행 시각, lease 및 결과 상태 |
+| `scheduled_post_files` | 예약 게시글이 발행 전까지 보호하는 첨부파일과 표시 순서. 한 파일은 하나의 예약만 참조 가능 |
 | `popular_posts` | 인기글 캐시 |
 | `view_histories` | 사용자별 게시글 열람 이력 |
 
@@ -63,6 +65,7 @@
 - 초안 레코드를 삭제하기 전에 `DRAFT_POST`로 연결된 활성 파일을 삭제 대기 상태로 전환한다. 게시글 발행에서는 선택 파일을 `POST_CONTENT`로 승격한 뒤 초안을 정리한다.
 - `draft_posts.poll_json`은 불완전한 작성 중 투표 payload도 보존하고, `series_id`는 시리즈 삭제 시 `NULL`로 전환한다.
 - `scheduled_posts.draft_id`는 nullable unique index로 한 초안당 하나의 예약만 허용하고 source 초안을 실제 예약 발행 시점까지 보존한다. `SCHEDULED`, `PUBLISHING`, `FAILED` 참조 초안은 정리 대상에서 제외하며, 취소 시 참조를 해제하고 발행 시 파일 승격 후 FK를 `NULL`로 전환해 초안을 정리한다.
+- 예약 생성·수정은 첨부파일 행을 잠근 뒤 `scheduled_post_files` 참조를 교체한다. 참조 중인 임시파일은 24시간 정리에서 제외하며, 발행 성공 시 `POST_CONTENT`로 승격한 뒤 참조를 제거한다. 발행 실패는 재시도를 위해 참조를 유지하고 취소 시에는 즉시 해제한다.
 
 ### 댓글
 
