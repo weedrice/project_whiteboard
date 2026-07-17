@@ -20,8 +20,7 @@ public class SearchRecordEventListener {
         try {
             searchService.recordSearch(event.userId(), event.keyword(), event.searchDate());
         } catch (RuntimeException e) {
-            log.warn("Failed to record search asynchronously. userId={}, keyword={}",
-                    event.userId(), event.keyword(), e);
+            log.warn("Failed to record search asynchronously. failureType={}", e.getClass().getSimpleName());
         }
     }
 }

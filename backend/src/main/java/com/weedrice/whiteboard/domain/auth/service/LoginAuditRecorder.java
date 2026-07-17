@@ -2,16 +2,26 @@ package com.weedrice.whiteboard.domain.auth.service;
 
 import com.weedrice.whiteboard.domain.auth.dto.LoginRequest;
 import com.weedrice.whiteboard.domain.user.entity.User;
-import lombok.RequiredArgsConstructor;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Counter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
 public class LoginAuditRecorder {
 
     private final LoginHistoryAuditService loginHistoryAuditService;
+    private final Counter loginSuccessAuditFailures;
+    private final Counter loginFailureAuditFailures;
+
+    public LoginAuditRecorder(LoginHistoryAuditService loginHistoryAuditService, MeterRegistry meterRegistry) {
+        this.loginHistoryAuditService = loginHistoryAuditService;
+        this.loginSuccessAuditFailures = meterRegistry.counter(
+                "noviis.login.audit.failures", "audit_type", "login_success");
+        this.loginFailureAuditFailures = meterRegistry.counter(
+                "noviis.login.audit.failures", "audit_type", "login_failure");
+    }
 
     public void recordSuccess(LoginRequest request, User user, LoginClientMetadata metadata) {
         try {
@@ -21,7 +31,9 @@ public class LoginAuditRecorder {
                     metadata.ipAddress(),
                     metadata.userAgent());
         } catch (RuntimeException exception) {
-            log.warn("Failed to record login success history", exception);
+            loginSuccessAuditFailures.increment();
+            log.warn("Failed to record login success history. failureType={}",
+                    exception.getClass().getSimpleName());
         }
     }
 
@@ -33,7 +45,9 @@ public class LoginAuditRecorder {
                     metadata.userAgent(),
                     failureReason);
         } catch (RuntimeException exception) {
-            log.warn("Failed to record login failure history", exception);
+            loginFailureAuditFailures.increment();
+            log.warn("Failed to record login failure history. failureType={}",
+                    exception.getClass().getSimpleName());
         }
     }
 }

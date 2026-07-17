@@ -61,7 +61,7 @@ public class SearchService {
             try {
                 recentSearchCommandService.recordRecentSearch(userId, canonicalKeyword);
             } catch (RuntimeException e) {
-                log.warn("Failed to record recent search. userId={}, keyword={}", userId, canonicalKeyword, e);
+                log.warn("Failed to record recent search. failureType={}", e.getClass().getSimpleName());
             }
         }
     }

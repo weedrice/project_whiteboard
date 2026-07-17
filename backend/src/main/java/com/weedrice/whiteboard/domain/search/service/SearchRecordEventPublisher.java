@@ -26,7 +26,7 @@ public class SearchRecordEventPublisher {
                     canonicalKeyword,
                     DateTimeUtils.nowKST().toLocalDate()));
         } catch (RuntimeException e) {
-            log.warn("Failed to publish search record event. userId={}, keyword={}", userId, canonicalKeyword, e);
+            log.warn("Failed to publish search record event. failureType={}", e.getClass().getSimpleName());
         }
     }
 }

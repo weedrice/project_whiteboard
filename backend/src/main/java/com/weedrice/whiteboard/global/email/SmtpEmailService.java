@@ -34,9 +34,9 @@ public class SmtpEmailService implements EmailService {
             helper.setText(body, true);
 
             mailSender.send(message);
-            log.info("Email sent to: {}", to);
+            log.info("Email sent successfully");
         } catch (MessagingException | MailException e) {
-            log.error("Failed to send email to: {}", to, e);
+            log.error("Failed to send email. failureType={}", e.getClass().getSimpleName());
             throw new BusinessException(ErrorCode.EMAIL_SEND_FAILED);
         }
     }
