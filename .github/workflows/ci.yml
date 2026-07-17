@@ -352,11 +352,13 @@ jobs:
       - name: Validate Grafana version manifest and dashboard JSON
         run: |
           source deploy/monitoring/tool-versions.env
-          archive="$RUNNER_TEMP/grafana-${GRAFANA_VERSION}.linux-amd64.tar.gz"
+          archive="$RUNNER_TEMP/grafana-${GRAFANA_VERSION}.${GRAFANA_ARCH}.tar.gz"
           extract_root="$RUNNER_TEMP/grafana-validation"
           curl --fail --location --retry 3 --proto '=https' \
             --output "$archive" \
-            "https://dl.grafana.com/oss/release/grafana-${GRAFANA_VERSION}.linux-amd64.tar.gz"
+            "https://dl.grafana.com/oss/release/grafana-${GRAFANA_VERSION}.${GRAFANA_ARCH}.tar.gz"
+          bash deploy/monitoring/verify-grafana-archive.sh \
+            "$archive" "$GRAFANA_ARCHIVE_SHA256" "$GRAFANA_ARCH"
           mkdir -p "$extract_root"
           tar -xzf "$archive" -C "$extract_root"
           grafana_binary="$(find "$extract_root" -type f -path '*/bin/grafana' -print -quit)"
@@ -384,6 +386,7 @@ jobs:
           bash backend/scripts/tests/check-migration-compatibility-test.sh
           bash backend/scripts/tests/verify-contract-deployment-evidence-test.sh
           sudo bash deploy/monitoring/tests/rotate-grafana-admin-password-test.sh
+          bash deploy/monitoring/tests/verify-grafana-archive-test.sh
 
       - name: Validate repository migration policy changes
         env:

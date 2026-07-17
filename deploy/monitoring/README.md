@@ -11,7 +11,7 @@ awk '/MemAvailable/ { print int($2 / 1024) " MiB" }' /proc/meminfo
 df -BM --output=avail / | tail -1
 ```
 
-Install Prometheus and Grafana from their supported Ubuntu package repositories as native systemd services. The approved host versions are stored in `tool-versions.env`. Install exactly those native package versions and verify `prometheus --version` and `grafana --version` before copying configuration. CI sources the same manifest for Prometheus rule validation and downloads the matching native Grafana binary to verify its reported version before checking dashboard JSON. Update the manifest, host rollout procedure, and rollback note in one reviewed change.
+Install Prometheus and Grafana from their supported Ubuntu package repositories as native systemd services. The approved host versions are stored in `tool-versions.env`. Install exactly those native package versions and verify `prometheus --version` and `grafana --version` before copying configuration. CI sources the same manifest for Prometheus rule validation and downloads the pinned Grafana architecture, verifies the official SHA-256 before extraction or execution, then checks its reported version and dashboard JSON. Update the version, architecture, checksum, host rollout procedure, and rollback note in one reviewed change.
 
 ```text
 prometheus/prometheus.yml                         -> /etc/prometheus/prometheus.yml
@@ -32,7 +32,7 @@ GF_SECURITY_ADMIN_PASSWORD=<strong unique password>
 
 Create the file before Grafana's first start, keep it owned by `root:root` with mode `0600`, and use a password of at least 16 characters. The systemd unit fails closed when the file, ownership, permissions, or password length is invalid. Never print the value in workflow output or copy it into the repository.
 
-Changing this environment variable does not rotate the administrator password in an already initialized Grafana database. Install the reviewed helper as `root:root` mode `0755`, then invoke it interactively. It calls the loopback User API with root-only `0700`/`0600` temporary files; neither password is placed in shell history or a process argument. An API error leaves the service running with the existing password and returns a failure.
+Changing this environment variable alone does not rotate the administrator password in an already initialized Grafana database. Install the reviewed helper as `root:root` mode `0755`, then invoke it interactively. It requires a regular, non-symlink, root-owned mode `0600` environment file whose current password matches the entered current password. It prepares a replacement in the same directory, calls the loopback User API with root-only `0700`/`0600` temporary files, then atomically updates the environment source of truth. Neither password is placed in shell history or a process argument. An API error leaves the file unchanged. If the atomic file replacement fails, the helper attempts to revert the API password; if that also fails it preserves the new state in a unique root-only `.rotation-recovery.*` file and exits with status 2 for immediate operator recovery.
 
 ```bash
 sudo install -o root -g root -m 0755 deploy/monitoring/rotate-grafana-admin-password.sh /usr/local/sbin/rotate-noviis-grafana-password
@@ -65,7 +65,7 @@ Open Grafana only through an SSH tunnel: `ssh -L 3000:127.0.0.1:3000 ubuntu@<hos
 
 ## Alert thresholds and metric semantics
 
-`noviis_scheduler_last_success_timestamp_seconds` advances only after a scheduled method completes successfully. A failed run records the existing error timer but does not overwrite its previous success timestamp. The stale rule also treats a missing timestamp as stale after the backend process has been up longer than that job's threshold, avoiding false alarms during normal startup.
+`noviis_scheduler_last_success_timestamp_seconds` advances only after a scheduled method completes successfully. A failed run records the existing error timer but does not overwrite its previous success timestamp. The stale and heartbeat startup grace calculations use only `process_start_time_seconds{job="noviis-backend"}`; Prometheus uptime or restart cannot bypass backend startup grace or produce a backend restart event. A missing timestamp becomes stale only after the backend process has been up longer than that job's threshold.
 
 Prometheus scrapes its own loopback metrics as the `prometheus` job. Critical rules cover self-scrape loss, rule evaluation failures, failed configuration reloads, and TSDB WAL, compaction, checkpoint, or truncation failures. The backend's heartbeat, semantic backlog, JVM heap, and Hikari capacity metrics are also required after a 10-minute process startup grace; disappearance is distinct from a healthy zero value and raises `NoviIsRequiredBackendMetricMissing`.
 

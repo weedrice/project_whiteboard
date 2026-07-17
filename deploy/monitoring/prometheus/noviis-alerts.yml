@@ -109,7 +109,7 @@ groups:
               unless on(scheduled_job) noviis_scheduler_last_success_timestamp_seconds
             )
             < on() group_left
-              (time() - process_start_time_seconds)
+              (time() - process_start_time_seconds{job="noviis-backend"})
           )
         labels: { severity: warning }
         annotations:
@@ -121,7 +121,7 @@ groups:
           or
           (
             noviis_sse_heartbeat_gap_seconds == 0
-            and on() (max(time() - process_start_time_seconds) > 40)
+            and on() (max(time() - process_start_time_seconds{job="noviis-backend"}) > 40)
           )
         for: 1m
         labels: { severity: critical }
@@ -184,7 +184,7 @@ groups:
         labels: { severity: warning }
         annotations: { summary: "Expired Web Push subscription cleanup failed" }
       - alert: NoviIsProcessRestarted
-        expr: changes(process_start_time_seconds[15m]) > 0
+        expr: changes(process_start_time_seconds{job="noviis-backend"}[15m]) > 0
         labels: { severity: info }
         annotations: { summary: "The NoviIs backend process restarted within the last 15 minutes" }
       - alert: NoviIsAgentPurgeBacklog

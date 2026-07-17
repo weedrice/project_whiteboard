@@ -117,6 +117,23 @@ tests:
             exp_annotations:
               summary: "SSE heartbeat has not run within 40 seconds"
 
+  - name: Prometheus uptime does not bypass backend startup grace
+    interval: 1m
+    input_series:
+      - series: 'process_start_time_seconds{instance="localhost:9090",job="prometheus"}'
+        values: '0+0x15'
+      - series: 'process_start_time_seconds{instance="localhost:8081",job="noviis-backend"}'
+        values: '650+0x15'
+      - series: 'noviis_sse_heartbeat_gap_seconds'
+        values: '0+0x15'
+    alert_rule_test:
+      - eval_time: 11m
+        alertname: NoviIsScheduledJobStale
+        exp_alerts: []
+      - eval_time: 11m
+        alertname: NoviIsHeartbeatDelayed
+        exp_alerts: []
+
   - name: scheduled job absence waits for the configured startup grace
     interval: 1m
     input_series:
@@ -274,3 +291,15 @@ tests:
               severity: info
             exp_annotations:
               summary: "The NoviIs backend process restarted within the last 15 minutes"
+
+  - name: Prometheus restart is not reported as a backend restart
+    interval: 1m
+    input_series:
+      - series: 'process_start_time_seconds{instance="localhost:9090",job="prometheus"}'
+        values: '0+0x4 300+0x15'
+      - series: 'process_start_time_seconds{instance="localhost:8081",job="noviis-backend"}'
+        values: '0+0x20'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: NoviIsProcessRestarted
+        exp_alerts: []
