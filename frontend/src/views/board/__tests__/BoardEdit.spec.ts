@@ -17,6 +17,10 @@ const boardApiMock = vi.hoisted(() => ({
   getBoard: vi.fn<(boardUrl: string) => Promise<BoardDetailResponse>>(),
 }))
 
+const authStoreMock = vi.hoisted(() => ({
+  sessionGeneration: 0,
+}))
+
 const routeState = reactive({
   params: {
     boardUrl: 'free',
@@ -55,6 +59,10 @@ vi.mock('@/api/board', () => ({
 
 vi.mock('@/stores/toast', () => ({
   useToastStore: () => ({ addToast: vi.fn() }),
+}))
+
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => authStoreMock,
 }))
 
 vi.mock('@/composables/useConfirm', () => ({
@@ -147,6 +155,7 @@ describe('BoardEdit', () => {
 
   beforeEach(() => {
     routeState.params.boardUrl = 'free'
+    authStoreMock.sessionGeneration = 0
     routerPush.mockReset()
     routerBack.mockReset()
     updateBoard.mockReset()

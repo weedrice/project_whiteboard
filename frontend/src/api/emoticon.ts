@@ -139,12 +139,11 @@ export const emoticonApi = {
 
     // Toggle sale or visibility state.
     toggleVisibility(emoticonId: number, config?: AxiosRequestConfig) {
-        return api.patch<ApiResponse<EmoticonMasterWire>>(
-            `/emoticons/${encodePathSegment(emoticonId)}/visibility`,
-            undefined,
-            config,
-        )
-            .then(mapEmoticonResponse)
+        const url = `/emoticons/${encodePathSegment(emoticonId)}/visibility`
+        const request = config
+            ? api.patch<ApiResponse<EmoticonMasterWire>>(url, undefined, config)
+            : api.patch<ApiResponse<EmoticonMasterWire>>(url)
+        return request.then(mapEmoticonResponse)
     },
     async toggleVisibilityData(emoticonId: number, config?: AxiosRequestConfig) {
         return unwrapEmoticonResponse(await emoticonApi.toggleVisibility(emoticonId, config))
