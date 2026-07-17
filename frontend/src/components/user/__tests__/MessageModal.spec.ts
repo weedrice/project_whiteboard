@@ -99,7 +99,10 @@ describe('MessageModal', () => {
         await sendButton.trigger('click')
 
         expect(mocks.sendMessage).toHaveBeenCalledTimes(1)
-        expect(mocks.sendMessage).toHaveBeenCalledWith(3, '안녕하세요', { skipGlobalErrorHandler: true })
+        expect(mocks.sendMessage).toHaveBeenCalledWith(3, '안녕하세요', {
+            skipGlobalErrorHandler: true,
+            signal: expect.any(AbortSignal),
+        })
 
         resolveSend({ data: { success: true } })
         await flushAll()
