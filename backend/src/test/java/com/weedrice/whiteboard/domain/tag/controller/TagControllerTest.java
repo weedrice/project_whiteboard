@@ -28,6 +28,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
@@ -111,6 +112,7 @@ class TagControllerTest {
     void setUp() throws Exception {
         customUserDetails = new CustomUserDetails(1L, "test@example.com", "password",
                 Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER")));
+        when(tagService.findByName(anyString())).thenReturn(Optional.empty());
         
         when(ipBlockInterceptor.preHandle(any(), any(), any())).thenReturn(true);
         when(refererCheckInterceptor.preHandle(any(), any(), any())).thenReturn(true);
@@ -123,6 +125,37 @@ class TagControllerTest {
             chain.doFilter(request, response);
             return null;
         }).when(jwtAuthenticationFilter).doFilter(any(), any(), any());
+    }
+
+    @Test
+    void numericTagNameTakesPrecedenceOverIdFallback() throws Exception {
+        com.weedrice.whiteboard.domain.tag.entity.Tag tag =
+                com.weedrice.whiteboard.domain.tag.entity.Tag.builder().tagName("123").build();
+        org.springframework.test.util.ReflectionTestUtils.setField(tag, "tagId", 99L);
+        when(tagService.findByName("123")).thenReturn(Optional.of(tag));
+        when(postService.getPostsByTag(eq(99L), isNull(), any()))
+                .thenReturn(Page.empty());
+
+        mockMvc.perform(get("/api/v1/tags/123/posts").with(anonymous()))
+                .andExpect(status().isOk());
+
+        verify(postService).getPostsByTag(eq(99L), isNull(), any());
+    }
+
+    @Test
+    void overflowingNumericTagKeyReturnsNotFound() throws Exception {
+        mockMvc.perform(get("/api/v1/tags/999999999999999999999999999999/posts").with(anonymous()))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void oversizedNumericTagKeySkipsNameLookupAndReturnsNotFound() throws Exception {
+        String tagKey = "9".repeat(101);
+
+        mockMvc.perform(get("/api/v1/tags/{tagKey}/posts", tagKey).with(anonymous()))
+                .andExpect(status().isNotFound());
+
+        verify(tagService, org.mockito.Mockito.never()).findByName(tagKey);
     }
 
     @Test

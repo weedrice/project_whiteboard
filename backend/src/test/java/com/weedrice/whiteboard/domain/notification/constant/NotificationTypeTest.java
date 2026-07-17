@@ -35,4 +35,9 @@ class NotificationTypeTest {
         assertThat(NotificationType.isSupported("unknown")).isFalse();
         assertThat(NotificationType.isSupported(null)).isFalse();
     }
+
+    @Test
+    void supportedTypeCountStaysAlignedWithEnumValues() {
+        assertThat(NotificationType.SUPPORTED_TYPE_COUNT).isEqualTo(NotificationType.values().length);
+    }
 }

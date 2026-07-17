@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.tag.controller;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.tag.entity.Tag;
+import com.weedrice.whiteboard.domain.tag.constant.TagConstraints;
 import com.weedrice.whiteboard.domain.tag.dto.TagResponse;
 import com.weedrice.whiteboard.domain.tag.dto.TagSuggestionRequest;
 import com.weedrice.whiteboard.domain.tag.dto.TagSuggestionResponse;
@@ -12,6 +13,8 @@ import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.ApiResponses;
 import com.weedrice.whiteboard.global.common.dto.PageResponse;
 import com.weedrice.whiteboard.global.security.CurrentUserId;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Pageable;
@@ -49,10 +52,19 @@ public class TagController {
             @PathVariable String tagKey,
             @PageableDefault(size = 20) Pageable pageable,
             @CurrentUserId(required = false) Long userId) {
-        if (tagKey.chars().allMatch(Character::isDigit)) {
-            return ApiResponses.page(postService.getPostsByTag(Long.parseLong(tagKey), userId, pageable));
+        Tag tag = tagKey.length() <= TagConstraints.MAX_TAG_NAME_LENGTH
+                ? tagService.findByName(tagKey).orElse(null)
+                : null;
+        if (tag != null) {
+            return ApiResponses.page(postService.getPostsByTag(tag.getTagId(), userId, pageable));
         }
-        Tag tag = tagService.getByName(tagKey);
-        return ApiResponses.page(postService.getPostsByTag(tag.getTagId(), userId, pageable));
+        if (!tagKey.isEmpty() && tagKey.chars().allMatch(Character::isDigit)) {
+            try {
+                return ApiResponses.page(postService.getPostsByTag(Long.parseLong(tagKey), userId, pageable));
+            } catch (NumberFormatException exception) {
+                throw new BusinessException(ErrorCode.NOT_FOUND);
+            }
+        }
+        throw new BusinessException(ErrorCode.NOT_FOUND);
     }
 }

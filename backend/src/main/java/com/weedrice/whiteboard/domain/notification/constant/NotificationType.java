@@ -16,6 +16,8 @@ public enum NotificationType {
     KEYWORD,
     BADGE;
 
+    public static final int SUPPORTED_TYPE_COUNT = 9;
+
     public static NotificationType normalize(String value) {
         if (value == null) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);

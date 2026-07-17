@@ -16,5 +16,6 @@ public class TagSuggestionRequest {
     @Size(max = 100)
     private String boardUrl;
 
-    private List<String> existingTags;
+    @Size(max = 10)
+    private List<@Size(max = 100) String> existingTags;
 }

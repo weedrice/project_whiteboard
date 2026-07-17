@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -24,8 +25,12 @@ public class TagService {
     }
 
     public Tag getByName(String tagName) {
-        String normalizedTagName = TextInputNormalizer.normalizeRequired(tagName, TagConstraints.MAX_TAG_NAME_LENGTH);
-        return tagRepository.findByTagName(normalizedTagName)
+        return findByName(tagName)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+    }
+
+    public Optional<Tag> findByName(String tagName) {
+        String normalizedTagName = TextInputNormalizer.normalizeRequired(tagName, TagConstraints.MAX_TAG_NAME_LENGTH);
+        return tagRepository.findByTagName(normalizedTagName);
     }
 }
