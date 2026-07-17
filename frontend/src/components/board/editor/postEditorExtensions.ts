@@ -14,11 +14,11 @@ import { TableKit } from '@tiptap/extension-table'
 import HorizontalRule from '@tiptap/extension-horizontal-rule'
 import { FontSize, LineHeight } from '@tiptap/extension-text-style'
 import { Video } from '@/extensions/tiptap-video'
-import { userAccountApi } from '@/api/userAccountApi'
-import { unwrapAxiosApiData } from '@/api/response'
 import MentionSuggestionList from '@/features/mentions/MentionSuggestionList.vue'
+import { createMentionCandidateLookup } from '@/features/mentions/useMentionAutocomplete'
 import { lowlight } from '@/utils/codeHighlighting'
 import type { MentionCandidate } from '@/types'
+import { subscribeAuthSessionBoundary } from '@/queryAuthScope'
 
 const EditorImage = Image.extend({
   addAttributes() {
@@ -42,21 +42,43 @@ const EditorImage = Image.extend({
   },
 })
 
-function createMentionListRenderer() {
+let mentionListIdSequence = 0
+
+function createMentionListRenderer(cancelLookup: () => void) {
   let renderer: VueRenderer | null = null
   let element: HTMLElement | null = null
   let selectedIndex = 0
   let items: MentionCandidate[] = []
   let command: ((item: MentionCandidate) => void) | null = null
+  let editorElement: HTMLElement | null = null
+  let stopSessionBoundary: (() => void) | null = null
+  const listId = `post-editor-mention-listbox-${++mentionListIdSequence}`
+
+  function syncEditorAria() {
+    if (!editorElement) return
+    editorElement.setAttribute('role', 'combobox')
+    editorElement.setAttribute('aria-autocomplete', 'list')
+    editorElement.setAttribute('aria-haspopup', 'listbox')
+    editorElement.setAttribute('aria-expanded', String(items.length > 0))
+    editorElement.setAttribute('aria-controls', listId)
+    const candidate = items[selectedIndex]
+    if (candidate) {
+      editorElement.setAttribute('aria-activedescendant', `${listId}-option-${candidate.userId}`)
+    } else {
+      editorElement.removeAttribute('aria-activedescendant')
+    }
+  }
 
   function updateRenderer() {
     renderer?.updateProps({
       items,
       selectedIndex,
+      id: listId,
       onSelect: (item: MentionCandidate) => {
         command?.(item)
       },
     })
+    syncEditorAria()
   }
 
   function position(clientRect?: (() => DOMRect | null) | null) {
@@ -67,16 +89,34 @@ function createMentionListRenderer() {
     element.style.top = `${rect.bottom + window.scrollY + 6}px`
   }
 
+  function cleanup() {
+    cancelLookup()
+    stopSessionBoundary?.()
+    stopSessionBoundary = null
+    editorElement?.setAttribute('aria-expanded', 'false')
+    editorElement?.removeAttribute('aria-activedescendant')
+    editorElement?.removeAttribute('aria-controls')
+    renderer?.destroy()
+    element?.remove()
+    element = null
+    renderer = null
+    command = null
+    items = []
+    editorElement = null
+  }
+
   return {
     onStart: (props: any) => {
       selectedIndex = 0
       items = props.items
       command = props.command
+      editorElement = props.editor.view.dom as HTMLElement
       renderer = new VueRenderer(MentionSuggestionList, {
         editor: props.editor,
         props: {
           items,
           selectedIndex,
+          id: listId,
           onSelect: (item: MentionCandidate) => {
             command?.(item)
           },
@@ -88,6 +128,8 @@ function createMentionListRenderer() {
       element.style.right = 'auto'
       element.style.bottom = 'auto'
       document.body.appendChild(element)
+      stopSessionBoundary = subscribeAuthSessionBoundary(cleanup)
+      syncEditorAria()
       position(props.clientRect)
     },
     onUpdate: (props: any) => {
@@ -113,19 +155,20 @@ function createMentionListRenderer() {
         command?.(items[selectedIndex])
         return true
       }
+      if (event.key === 'Escape') {
+        cleanup()
+        return true
+      }
       return false
     },
     onExit: () => {
-      renderer?.destroy()
-      element = null
-      renderer = null
-      command = null
-      items = []
+      cleanup()
     },
   }
 }
 
 export function createPostEditorExtensions() {
+  const mentionLookup = createMentionCandidateLookup()
   return [
     StarterKit.configure({
       codeBlock: false,
@@ -161,8 +204,7 @@ export function createPostEditorExtensions() {
         char: '@',
         items: async ({ query }) => {
           if (!query.trim()) return []
-          const response = await userAccountApi.getMentionCandidates(query)
-          return unwrapAxiosApiData(response)
+          return mentionLookup.search(query)
         },
         command: ({ editor, range, props }) => {
           const item = props as unknown as MentionCandidate
@@ -177,7 +219,7 @@ export function createPostEditorExtensions() {
             { type: 'text', text: ' ' },
           ]).run()
         },
-        render: createMentionListRenderer,
+        render: () => createMentionListRenderer(mentionLookup.cancel),
       },
     }),
     Underline,

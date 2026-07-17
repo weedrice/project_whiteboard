@@ -210,9 +210,20 @@ describe('CommentForm', () => {
     await flushPromises()
     await wrapper.vm.$nextTick()
 
-    expect(apiMocks.getMentionCandidates).toHaveBeenCalledWith('al')
+    expect(apiMocks.getMentionCandidates).toHaveBeenCalledWith('al', expect.objectContaining({
+      signal: expect.any(AbortSignal),
+    }))
 
-    await wrapper.get('.mention-suggestion-item').trigger('mousedown')
+    expect(textarea.attributes()).toMatchObject({
+      role: 'combobox',
+      'aria-autocomplete': 'list',
+      'aria-haspopup': 'listbox',
+      'aria-expanded': 'true',
+      'aria-controls': 'comment-new-10-mention-listbox',
+      'aria-activedescendant': 'comment-new-10-mention-listbox-option-7',
+    })
+
+    await wrapper.get('.mention-suggestion-item').trigger('click')
     await flushPromises()
     await wrapper.get('form').trigger('submit')
 

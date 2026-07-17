@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import type { MentionCandidate } from '@/types'
 
-defineProps<{
+withDefaults(defineProps<{
   items: MentionCandidate[]
   selectedIndex: number
-}>()
+  id?: string
+}>(), {
+  id: 'mention-suggestion-list',
+})
 
 const emit = defineEmits<{
   (event: 'select', candidate: MentionCandidate): void
@@ -12,16 +15,18 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <div class="mention-suggestion-menu" role="listbox">
+  <div :id="id" class="mention-suggestion-menu" role="listbox">
     <button
       v-for="(candidate, index) in items"
       :key="candidate.userId"
+      :id="`${id}-option-${candidate.userId}`"
       type="button"
       class="mention-suggestion-item"
       :data-active="index === selectedIndex"
       role="option"
       :aria-selected="index === selectedIndex"
-      @mousedown.prevent="emit('select', candidate)"
+      @pointerdown.prevent
+      @click="emit('select', candidate)"
     >
       <img
         v-if="candidate.profileImageUrl"

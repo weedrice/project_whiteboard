@@ -78,6 +78,7 @@ const textareaId = computed(() => {
 
   return `comment-new-${idSegment(props.postId)}`
 })
+const mentionMenuId = computed(() => `${textareaId.value}-mention-listbox`)
 const emoticonButtonLabel = computed(() => t('board.writePost.toolbar.emoticon'))
 const mentionedUserIds = computed(() => selectedMentionUsers.value
   .filter((user) => content.value.includes(`@${user.displayName}`))
@@ -135,6 +136,12 @@ const mentionAutocomplete = useMentionAutocomplete({
 const mentionCandidates = mentionAutocomplete.items
 const mentionMenuOpen = mentionAutocomplete.isOpen
 const selectedMentionIndex = mentionAutocomplete.selectedIndex
+const activeMentionOptionId = computed(() => {
+  const candidate = mentionCandidates.value[selectedMentionIndex.value]
+  return mentionMenuOpen.value && candidate
+    ? `${mentionMenuId.value}-option-${candidate.userId}`
+    : undefined
+})
 const updateMentionCandidates = mentionAutocomplete.refresh
 const closeMentionMenu = mentionAutocomplete.close
 const selectMention = mentionAutocomplete.select
@@ -233,6 +240,12 @@ async function handleSubmit() {
         :label="parentId ? $t('comment.writeReply') : $t('comment.writeComment')"
         :placeholder="parentId ? $t('comment.writeReply') : $t('comment.writeComment')" required hideLabel
         :error="commentValidation.visibleError('content')"
+        role="combobox"
+        aria-autocomplete="list"
+        aria-haspopup="listbox"
+        :aria-expanded="mentionMenuOpen"
+        :aria-controls="mentionMenuId"
+        :aria-activedescendant="activeMentionOptionId"
         @blur="commentValidation.touchField('content', commentValues)"
         @keyup="updateMentionCandidates"
         @click="updateMentionCandidates"
@@ -243,6 +256,7 @@ async function handleSubmit() {
         class="comment-mention-suggestion-popover"
       >
         <MentionSuggestionList
+          :id="mentionMenuId"
           :items="mentionCandidates"
           :selected-index="selectedMentionIndex"
           @select="selectMention"
