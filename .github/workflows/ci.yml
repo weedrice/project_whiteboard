@@ -518,17 +518,21 @@ jobs:
       - name: Generate backend SBOM
         uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
         with:
-          path: backend/release
+          path: backend/release/app.jar
           format: spdx-json
           output-file: backend/release/sbom.spdx.json
           upload-artifact: false
       - name: Finalize backend checksum manifest
-        run: sha256sum app.jar RELEASE_METADATA sbom.spdx.json > SHA256SUMS
+        run: |
+          set -euo pipefail
+          sha256sum app.jar RELEASE_METADATA sbom.spdx.json > SHA256SUMS
+          printf 'release_type=backend\ncommit_sha=%s\n' "$GITHUB_SHA" > RELEASE_ENVELOPE
+          sha256sum app.jar RELEASE_METADATA sbom.spdx.json SHA256SUMS >> RELEASE_ENVELOPE
         working-directory: backend/release
       - name: Attest backend release
         uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
         with:
-          subject-path: backend/release/app.jar
+          subject-path: backend/release/RELEASE_ENVELOPE
       - name: Attest backend SBOM
         uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
         with:
@@ -540,10 +544,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          gh attestation download app.jar --repo "$GITHUB_REPOSITORY"
-          mapfile -t bundles < <(find . -maxdepth 1 -type f -name 'sha256*.jsonl' -print)
-          test "${#bundles[@]}" -eq 1
-          mv -- "${bundles[0]}" PROVENANCE_BUNDLE.jsonl
+          mkdir envelope-attestation payload-attestation
+          (cd envelope-attestation && gh attestation download ../RELEASE_ENVELOPE --repo "$GITHUB_REPOSITORY")
+          (cd payload-attestation && gh attestation download ../app.jar --repo "$GITHUB_REPOSITORY")
+          mapfile -t envelope_bundles < <(find envelope-attestation -maxdepth 1 -type f -name 'sha256*.jsonl' -print)
+          mapfile -t payload_bundles < <(find payload-attestation -maxdepth 1 -type f -name 'sha256*.jsonl' -print)
+          test "${#envelope_bundles[@]}" -eq 1
+          test "${#payload_bundles[@]}" -eq 1
+          cat -- "${envelope_bundles[0]}" "${payload_bundles[0]}" > PROVENANCE_BUNDLE.jsonl
+          rm -rf -- envelope-attestation payload-attestation
       - name: Upload backend release
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
@@ -594,17 +603,21 @@ jobs:
       - name: Generate frontend SBOM
         uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
         with:
-          path: frontend
+          path: frontend/dist
           format: spdx-json
           output-file: frontend/sbom.spdx.json
           upload-artifact: false
       - name: Finalize frontend checksum manifest
-        run: sha256sum frontend-release.tar.gz sbom.spdx.json > SHA256SUMS
+        run: |
+          set -euo pipefail
+          sha256sum frontend-release.tar.gz sbom.spdx.json > SHA256SUMS
+          printf 'release_type=frontend\ncommit_sha=%s\n' "$GITHUB_SHA" > RELEASE_ENVELOPE
+          sha256sum frontend-release.tar.gz sbom.spdx.json SHA256SUMS >> RELEASE_ENVELOPE
         working-directory: frontend
       - name: Attest frontend release
         uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
         with:
-          subject-path: frontend/frontend-release.tar.gz
+          subject-path: frontend/RELEASE_ENVELOPE
       - name: Attest frontend SBOM
         uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
         with:
@@ -616,10 +629,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          gh attestation download frontend-release.tar.gz --repo "$GITHUB_REPOSITORY"
-          mapfile -t bundles < <(find . -maxdepth 1 -type f -name 'sha256*.jsonl' -print)
-          test "${#bundles[@]}" -eq 1
-          mv -- "${bundles[0]}" PROVENANCE_BUNDLE.jsonl
+          mkdir envelope-attestation payload-attestation
+          (cd envelope-attestation && gh attestation download ../RELEASE_ENVELOPE --repo "$GITHUB_REPOSITORY")
+          (cd payload-attestation && gh attestation download ../frontend-release.tar.gz --repo "$GITHUB_REPOSITORY")
+          mapfile -t envelope_bundles < <(find envelope-attestation -maxdepth 1 -type f -name 'sha256*.jsonl' -print)
+          mapfile -t payload_bundles < <(find payload-attestation -maxdepth 1 -type f -name 'sha256*.jsonl' -print)
+          test "${#envelope_bundles[@]}" -eq 1
+          test "${#payload_bundles[@]}" -eq 1
+          cat -- "${envelope_bundles[0]}" "${payload_bundles[0]}" > PROVENANCE_BUNDLE.jsonl
+          rm -rf -- envelope-attestation payload-attestation
       - name: Upload frontend release
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
@@ -628,6 +646,7 @@ jobs:
             frontend/frontend-release.tar.gz
             frontend/SHA256SUMS
             frontend/sbom.spdx.json
+            frontend/RELEASE_ENVELOPE
             frontend/PROVENANCE_BUNDLE.jsonl
           if-no-files-found: error
           retention-days: 14

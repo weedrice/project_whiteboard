@@ -31,7 +31,8 @@ exec "$@"
 EOF
 cat > "$fake_bin/curl" <<'EOF'
 #!/usr/bin/env bash
-if [ -f "$STATE_DIR/fail_health" ]; then exit 1; fi
+if [ -f "$STATE_DIR/fail_health" ] \
+  && [ "$(tr -d '\r\n' < "$WEB_ROOT/.noviis-release")" = "$(cat "$STATE_DIR/fail_health")" ]; then exit 1; fi
 if [ -f "$STATE_DIR/arm_fail_cleanup_listing" ]; then touch "$STATE_DIR/fail_cleanup_listing"; fi
 cat "$WEB_ROOT/.noviis-release"
 EOF
@@ -46,6 +47,11 @@ cat > "$fake_bin/find" <<'EOF'
 #!/usr/bin/env bash
 if [ -f "$STATE_DIR/fail_cleanup_listing" ] && [ "${1:-}" = "$RELEASE_ROOT" ]; then exit 1; fi
 exec /usr/bin/find "$@"
+EOF
+cat > "$fake_bin/mktemp" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$STATE_DIR/mktemp.log"
+exec /usr/bin/mktemp "$@"
 EOF
 chmod +x "$fake_bin"/*
 
@@ -78,31 +84,55 @@ run_activation() {
   bash "$script" "$1" "${3:-activate}" "$2"
 }
 
-old_release="$(make_release old old-commit)"
-old_output="$(run_activation "$old_release" old-commit)"
-grep -Fqx 'ACTIVATED_SHA=old-commit' <<< "$old_output"
+old_commit=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+new_commit=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+retry_commit=cccccccccccccccccccccccccccccccccccccccc
+safe_commit=dddddddddddddddddddddddddddddddddddddddd
+cleanup_commit=eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+listing_commit=ffffffffffffffffffffffffffffffffffffffff
+
+old_release="$(make_release old "$old_commit")"
+old_output="$(run_activation "$old_release" "$old_commit")"
+grep -Fqx "ACTIVATED_SHA=$old_commit" <<< "$old_output"
 test "$(readlink -f "$web_root")" = "$release_root/old/site"
 
-new_release="$(make_release new new-commit)"
-touch "$fixture/fail_health"
-if run_activation "$new_release" new-commit; then
+new_release="$(make_release new "$new_commit")"
+printf '%s\n' "$new_commit" > "$fixture/fail_health"
+if run_activation "$new_release" "$new_commit"; then
   echo "Expected frontend health failure" >&2
   exit 1
 fi
 test "$(readlink -f "$web_root")" = "$release_root/old/site"
 rm "$fixture/fail_health"
 
-retry_release="$(make_release retry retry-commit)"
-run_activation "$retry_release" retry-commit
+retry_release="$(make_release retry "$retry_commit")"
+run_activation "$retry_release" "$retry_commit"
 test "$(readlink -f "$web_root")" = "$release_root/retry/site"
-run_activation "$release_root/retry" retry-commit rollback
+grep -Fq "$release_root/retry/.state." "$fixture/mktemp.log"
+if find "$release_root/retry" -maxdepth 1 -name '.state.*' | grep -q .; then
+  echo "Expected frontend state temporary files to be cleaned" >&2
+  exit 1
+fi
+if run_activation "$release_root/retry" "$old_commit" rollback; then
+  echo "Expected rollback with a mismatched activation commit to fail" >&2
+  exit 1
+fi
+test "$(readlink -f "$web_root")" = "$release_root/retry/site"
+printf '%s\n' "$old_commit" > "$fixture/fail_health"
+if run_activation "$release_root/retry" "$retry_commit" rollback; then
+  echo "Expected rollback health verification failure" >&2
+  exit 1
+fi
+test "$(readlink -f "$web_root")" = "$release_root/old/site"
+rm "$fixture/fail_health"
+run_activation "$release_root/retry" "$retry_commit" rollback
 test "$(readlink -f "$web_root")" = "$release_root/old/site"
 
 victim="$fixture/victim"
 printf 'unchanged\n' > "$victim"
-safe_release="$(make_release symlink-safe safe-commit)"
+safe_release="$(make_release symlink-safe "$safe_commit")"
 ln -s "$victim" "$safe_release/ACTIVATED"
-run_activation "$safe_release" safe-commit
+run_activation "$safe_release" "$safe_commit"
 grep -qx unchanged "$victim"
 
 for index in 1 2 3 4 5 6; do
@@ -112,17 +142,17 @@ done
 mkdir -p "$release_root/cleanup-victim"
 touch -d '2020-01-01' "$release_root/cleanup-victim"
 touch "$fixture/fail_cleanup"
-cleanup_release="$(make_release cleanup cleanup-commit)"
-cleanup_output="$(run_activation "$cleanup_release" cleanup-commit 2>&1)"
-grep -Fqx 'ACTIVATED_SHA=cleanup-commit' <<< "$cleanup_output"
+cleanup_release="$(make_release cleanup "$cleanup_commit")"
+cleanup_output="$(run_activation "$cleanup_release" "$cleanup_commit" 2>&1)"
+grep -Fqx "ACTIVATED_SHA=$cleanup_commit" <<< "$cleanup_output"
 grep -Fq 'CLEANUP_DEBT=frontend_release_retention' <<< "$cleanup_output"
 test -d "$release_root/cleanup-victim"
 rm "$fixture/fail_cleanup"
 
 touch "$fixture/arm_fail_cleanup_listing"
-listing_release="$(make_release listing listing-commit)"
-listing_output="$(run_activation "$listing_release" listing-commit 2>&1)"
-grep -Fqx 'ACTIVATED_SHA=listing-commit' <<< "$listing_output"
+listing_release="$(make_release listing "$listing_commit")"
+listing_output="$(run_activation "$listing_release" "$listing_commit" 2>&1)"
+grep -Fqx "ACTIVATED_SHA=$listing_commit" <<< "$listing_output"
 grep -Fq 'CLEANUP_DEBT=frontend_release_retention' <<< "$listing_output"
 rm "$fixture/arm_fail_cleanup_listing" "$fixture/fail_cleanup_listing"
 

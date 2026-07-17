@@ -81,7 +81,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh attestation verify release-artifact/app.jar --repo "$GITHUB_REPOSITORY" --signer-workflow "github.com/$GITHUB_REPOSITORY/.github/workflows/ci.yml" --source-ref refs/heads/main --source-digest "${{ inputs.expected_sha }}" --deny-self-hosted-runners
+          gh attestation verify release-artifact/RELEASE_ENVELOPE --repo "$GITHUB_REPOSITORY" --signer-workflow "github.com/$GITHUB_REPOSITORY/.github/workflows/ci.yml" --source-ref refs/heads/main --source-digest "${{ inputs.expected_sha }}" --predicate-type https://slsa.dev/provenance/v1 --deny-self-hosted-runners
           gh attestation verify release-artifact/app.jar --repo "$GITHUB_REPOSITORY" --signer-workflow "github.com/$GITHUB_REPOSITORY/.github/workflows/ci.yml" --source-ref refs/heads/main --source-digest "${{ inputs.expected_sha }}" --predicate-type https://spdx.dev/Document/v2.3 --deny-self-hosted-runners
 
       - name: Configure read-only AWS credentials for contract evidence
@@ -123,7 +123,7 @@ jobs:
           username: noviis-deploy
           key: ${{ secrets.EC2_SSH_KEY }}
           fingerprint: ${{ secrets.EC2_HOST_FINGERPRINT }}
-          source: "release-artifact/app.jar,release-artifact/SHA256SUMS,release-artifact/RELEASE_METADATA,release-artifact/sbom.spdx.json,release-artifact/PROVENANCE_BUNDLE.jsonl"
+          source: "release-artifact/app.jar,release-artifact/SHA256SUMS,release-artifact/RELEASE_METADATA,release-artifact/sbom.spdx.json,release-artifact/RELEASE_ENVELOPE,release-artifact/PROVENANCE_BUNDLE.jsonl"
           target: "/opt/app/backend/incoming/${{ inputs.expected_sha }}-${{ github.run_id }}-${{ github.run_attempt }}"
           strip_components: 1
 

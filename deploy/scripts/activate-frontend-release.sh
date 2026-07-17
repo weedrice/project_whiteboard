@@ -21,22 +21,52 @@ write_state() {
   local destination="$1"
   local value="$2"
   local temporary
-  temporary="$(mktemp)"
-  printf '%s\n' "$value" > "$temporary"
-  chmod 0644 "$temporary"
-  mv -Tf "$temporary" "$destination"
+  local destination_directory
+  destination_directory="$(dirname "$destination")"
+  temporary="$(mktemp "$destination_directory/.state.XXXXXX")"
+  if ! printf '%s\n' "$value" > "$temporary" || ! chmod 0644 "$temporary"; then
+    rm -f -- "$temporary"
+    return 1
+  fi
+  if command -v sync >/dev/null 2>&1; then sync -f "$temporary" 2>/dev/null || true; fi
+  if ! mv -Tf "$temporary" "$destination"; then
+    rm -f -- "$temporary"
+    return 1
+  fi
+  if command -v sync >/dev/null 2>&1; then sync -f "$destination_directory" 2>/dev/null || true; fi
+}
+
+verify_frontend_commit() {
+  local expected_commit="$1"
+  local internal_commit public_commit
+  internal_commit="$(curl -fsS --max-time 10 --resolve "$INTERNAL_HEALTH_HOST:443:127.0.0.1" "$HEALTH_URL" | tr -d '\r\n')" || return 1
+  [ "$internal_commit" = "$expected_commit" ] || return 1
+  public_commit="$(curl -fsS --max-time 10 "$HEALTH_URL" | tr -d '\r\n')" || return 1
+  [ "$public_commit" = "$expected_commit" ]
 }
 
 restore_previous() {
   local previous_target=""
+  local previous_commit=""
   local previous_file="$release_real/PREVIOUS_TARGET"
+  local previous_commit_file="$release_real/PREVIOUS_COMMIT"
   local activated_file="$release_real/ACTIVATED"
   if [ -f "$previous_file" ] && [ ! -L "$previous_file" ]; then previous_target="$(cat "$previous_file")"; fi
   if [ -n "$previous_target" ]; then
+    if [ ! -f "$previous_commit_file" ] || [ -L "$previous_commit_file" ]; then
+      echo "Previous frontend release commit record is missing or unsafe" >&2
+      return 2
+    fi
+    previous_commit="$(tr -d '\r\n' < "$previous_commit_file")"
+    [[ "$previous_commit" =~ ^[0-9a-f]{40}$ ]] || { echo "Previous frontend commit is invalid" >&2; return 2; }
     previous_target="$(realpath "$previous_target")"
     case "$previous_target/" in "$release_root_real"/*/site/) ;; *) echo "Refusing to restore target outside release root: $previous_target" >&2; return 2 ;; esac
+    [ "$(tr -d '\r\n' < "$previous_target/.noviis-release")" = "$previous_commit" ] \
+      || { echo "Previous frontend target does not match its recorded commit" >&2; return 2; }
     sudo ln -sfn "$previous_target" "$WEB_ROOT.rollback"
     sudo mv -Tf "$WEB_ROOT.rollback" "$WEB_ROOT"
+    verify_frontend_commit "$previous_commit" \
+      || { echo "Restored frontend target did not serve the recorded commit" >&2; return 2; }
   else
     sudo test -L "$WEB_ROOT" && sudo rm -f -- "$WEB_ROOT"
   fi
@@ -64,6 +94,9 @@ if [ "$MODE" = rollback ]; then
   case "$release_real/" in "$release_root_real"/*/) ;; *) echo "Rollback release is outside release root: $release_real" >&2; exit 1 ;; esac
   test -f "$release_real/ACTIVATED"
   test ! -L "$release_real/ACTIVATED"
+  [[ "$EXPECTED_COMMIT" =~ ^[0-9a-f]{40}$ ]] || { echo "Rollback expected commit is invalid" >&2; exit 1; }
+  [ "$(tr -d '\r\n' < "$release_real/ACTIVATED")" = "$EXPECTED_COMMIT" ] \
+    || { echo "Rollback release does not match the expected commit" >&2; exit 1; }
   restore_previous
   echo "Frontend release rolled back: $release_real"
   exit 0
@@ -109,6 +142,7 @@ test -f "$site_dir/.noviis-release"
 test -f "$site_dir/.noviis-seo-release.json"
 grep -q assets "$site_dir/index.html"
 release_commit="$(tr -d '\r\n' < "$site_dir/.noviis-release")"
+[[ "$release_commit" =~ ^[0-9a-f]{40}$ ]] || { echo "Frontend release commit is invalid" >&2; exit 1; }
 if [ -n "$EXPECTED_COMMIT" ] && [ "$release_commit" != "$EXPECTED_COMMIT" ]; then echo "Frontend release commit mismatch" >&2; exit 1; fi
 grep -Fq -- "\"commitSha\": \"$release_commit\"" "$site_dir/.noviis-seo-release.json"
 grep -Eq -- '"postUrlCount": [1-9][0-9]*' "$site_dir/.noviis-seo-release.json"
@@ -134,16 +168,18 @@ else
   previous_target=""
 fi
 write_state "$release_real/PREVIOUS_TARGET" "$previous_target"
+if [ -n "$previous_target" ]; then
+  previous_commit="$(tr -d '\r\n' < "$previous_target/.noviis-release")"
+  [[ "$previous_commit" =~ ^[0-9a-f]{40}$ ]] || { echo "Existing frontend commit is invalid" >&2; exit 1; }
+  write_state "$release_real/PREVIOUS_COMMIT" "$previous_commit"
+fi
 
 sudo ln -sfn "$site_dir" "$WEB_ROOT.next"
 sudo mv -Tf "$WEB_ROOT.next" "$WEB_ROOT"
 switched=true
 write_state "$release_real/ACTIVATED" "$release_commit"
 
-internal_commit="$(curl -fsS --max-time 10 --resolve "$INTERNAL_HEALTH_HOST:443:127.0.0.1" "$HEALTH_URL" | tr -d '\r\n')"
-if [ "$internal_commit" != "$release_commit" ]; then echo "Frontend internal health endpoint returned a different release commit" >&2; exit 1; fi
-public_commit="$(curl -fsS --max-time 10 "$HEALTH_URL" | tr -d '\r\n')"
-if [ "$public_commit" != "$release_commit" ]; then echo "Frontend health endpoint returned a different release commit" >&2; exit 1; fi
+if ! verify_frontend_commit "$release_commit"; then echo "Frontend health endpoints returned a different release commit" >&2; exit 1; fi
 verified=true
 echo "ACTIVATED_SHA=$release_commit"
 

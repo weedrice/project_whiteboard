@@ -10,6 +10,9 @@ HEALTH_ATTEMPTS="${HEALTH_ATTEMPTS:-30}"
 HEALTH_DELAY_SECONDS="${HEALTH_DELAY_SECONDS:-2}"
 LOG_DIR="${LOG_DIR:-/opt/app/logs}"
 DIAGNOSTIC_ROOT="${DIAGNOSTIC_ROOT:-/var/lib/noviis/deployment-diagnostics}"
+DIAGNOSTIC_MAX_FILES="${DIAGNOSTIC_MAX_FILES:-20}"
+DIAGNOSTIC_MAX_FILE_BYTES="${DIAGNOSTIC_MAX_FILE_BYTES:-1048576}"
+DIAGNOSTIC_RETENTION_DAYS="${DIAGNOSTIC_RETENTION_DAYS:-14}"
 ENV_FILE="${ENV_FILE:-/etc/noviis/app.env}"
 ENV_FILE_OWNER="${ENV_FILE_OWNER:-root:root}"
 ENV_FILE_MODE="${ENV_FILE_MODE:-600}"
@@ -27,10 +30,33 @@ activated_sha=""
 staging_dir=""
 release_real=""
 failure_phase="preflight"
+previous_commit=""
+previous_digest=""
+ROLLBACK_STATE_FILE="$APP_DIR/app.jar.rollback.state"
+
+prune_diagnostics() {
+  local listing entry path path_real keep_count=0
+  local diagnostic_root_real
+  diagnostic_root_real="$(realpath "$DIAGNOSTIC_ROOT")" || return 0
+  sudo find "$diagnostic_root_real" -mindepth 1 -maxdepth 1 -type f -name 'backend-*.log' \
+    -mtime "+$DIAGNOSTIC_RETENTION_DAYS" -delete 2>/dev/null || true
+  listing="$(mktemp)" || return 0
+  sudo find "$diagnostic_root_real" -mindepth 1 -maxdepth 1 -type f -name 'backend-*.log' \
+    -printf '%T@ %p\0' 2>/dev/null | sort -z -nr > "$listing" || true
+  while IFS= read -r -d '' entry; do
+    path="${entry#* }"
+    path_real="$(realpath "$path")" || continue
+    case "$path_real/" in "$diagnostic_root_real"/*/) ;; *) continue ;; esac
+    keep_count=$((keep_count + 1))
+    if [ "$keep_count" -gt "$DIAGNOSTIC_MAX_FILES" ]; then sudo rm -f -- "$path_real" || true; fi
+  done < "$listing"
+  rm -f -- "$listing"
+}
 
 diagnose() {
   local diagnostic_file
   local diagnostic_name
+  local diagnostic_trimmed
   diagnostic_name="backend-${release_id:-unknown}-$(date -u +%Y%m%dT%H%M%SZ)-$$.log"
   if ! sudo install -d -o root -g root -m 0700 "$DIAGNOSTIC_ROOT" 2>/dev/null; then
     echo "Backend activation diagnostic directory could not be secured (phase=$failure_phase)" >&2
@@ -55,6 +81,15 @@ diagnose() {
     echo "Backend activation diagnostic could not be secured (phase=$failure_phase)" >&2
     return 0
   fi
+  if [ "$(sudo stat -c %s "$diagnostic_file")" -gt "$DIAGNOSTIC_MAX_FILE_BYTES" ]; then
+    diagnostic_trimmed="$DIAGNOSTIC_ROOT/.backend-diagnostic-trimmed.$$"
+    if sudo tail -c "$DIAGNOSTIC_MAX_FILE_BYTES" "$diagnostic_file" | sudo tee "$diagnostic_trimmed" >/dev/null; then
+      sudo chown root:root "$diagnostic_trimmed" && sudo chmod 0600 "$diagnostic_trimmed" \
+        && sudo mv -Tf "$diagnostic_trimmed" "$diagnostic_file" || true
+    fi
+    sudo rm -f -- "$diagnostic_trimmed" 2>/dev/null || true
+  fi
+  prune_diagnostics
   echo "Backend activation diagnostic stored locally: $diagnostic_name (phase=$failure_phase)" >&2
 }
 
@@ -74,6 +109,9 @@ wait_for_health() {
 
 rollback() {
   local original_status="$1"
+  local actual_digest=""
+  local state_commit=""
+  local state_digest=""
   if [ "$completed" = true ] || [ "$rollback_in_progress" = true ]; then
     return "$original_status"
   fi
@@ -81,7 +119,7 @@ rollback() {
   rollback_in_progress=true
   set +e
   echo "Backend activation failed; starting rollback" >&2
-  diagnose
+  if [ "$service_stopped" = true ] || [ "$activated" = true ]; then diagnose; fi
 
   if [ "$activation_verified" = true ]; then
     echo "Activation was already verified; leaving the healthy release active after a maintenance failure" >&2
@@ -89,8 +127,23 @@ rollback() {
     local restore_status=0
     if [ "$activated" = true ]; then
       if [ "$rollback_available" = true ]; then
-        sudo install -m 0644 "$APP_DIR/app.jar.rollback" "$APP_DIR/app.jar"
-        restore_status=$?
+        if ! sudo test -f "$ROLLBACK_STATE_FILE" || sudo test -L "$ROLLBACK_STATE_FILE"; then
+          echo "Rollback state is missing or unsafe" >&2
+          restore_status=1
+        else
+          state_commit="$(sudo sed -n 's/^commit_sha=//p' "$ROLLBACK_STATE_FILE")"
+          state_digest="$(sudo sed -n 's/^jar_sha256=//p' "$ROLLBACK_STATE_FILE")"
+          actual_digest="$(sudo sha256sum "$APP_DIR/app.jar.rollback" | awk '{print $1}')"
+          if [[ ! "$state_commit" =~ ^[0-9a-f]{40}$ ]] || [[ ! "$state_digest" =~ ^[0-9a-f]{64}$ ]] \
+            || [ "$actual_digest" != "$state_digest" ]; then
+            echo "Rollback JAR does not match the recorded commit and digest" >&2
+            restore_status=1
+          else
+            previous_commit="$state_commit"
+            sudo install -m 0644 "$APP_DIR/app.jar.rollback" "$APP_DIR/app.jar"
+            restore_status=$?
+          fi
+        fi
       else
         echo "No previous JAR is available for rollback" >&2
         sudo systemctl stop "$SERVICE_NAME" || true
@@ -103,7 +156,7 @@ rollback() {
       restore_status=$?
     fi
     if [ "$restore_status" -eq 0 ]; then
-      wait_for_health ""
+      wait_for_health "$previous_commit"
       restore_status=$?
     fi
     if [ "$restore_status" -ne 0 ]; then
@@ -184,7 +237,19 @@ sudo test "$(sudo stat -c %a "$ENV_FILE")" = "$ENV_FILE_MODE"
 sudo test -w "$APP_DIR"
 
 if [ -f "$APP_DIR/app.jar" ]; then
+  previous_commit="$(curl -fsS --max-time 3 "${HEALTH_URL%/health}/info" \
+    | sed -n 's/.*"commit":"\([0-9a-f]\{40\}\)".*/\1/p')"
+  if [[ ! "$previous_commit" =~ ^[0-9a-f]{40}$ ]]; then
+    echo "Current backend commit cannot be proven before activation" >&2
+    exit 1
+  fi
+  previous_digest="$(sudo sha256sum "$APP_DIR/app.jar" | awk '{print $1}')"
   sudo install -m 0644 "$APP_DIR/app.jar" "$APP_DIR/app.jar.rollback"
+  rollback_state_tmp="$(mktemp "$release_root_real/.backend-rollback-state.XXXXXX")"
+  printf 'commit_sha=%s\njar_sha256=%s\n' "$previous_commit" "$previous_digest" > "$rollback_state_tmp"
+  chmod 0600 "$rollback_state_tmp"
+  sudo install -m 0600 "$rollback_state_tmp" "$ROLLBACK_STATE_FILE"
+  rm -f -- "$rollback_state_tmp"
   rollback_available=true
 fi
 

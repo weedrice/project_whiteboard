@@ -29,12 +29,14 @@ release_real="$(realpath "$release_dir")"
 
 case "$release_type" in
   backend)
-    artifact_name=app.jar
-    expected_files=(PROVENANCE_BUNDLE.jsonl RELEASE_METADATA SHA256SUMS app.jar sbom.spdx.json)
+    payload_name=app.jar
+    expected_files=(PROVENANCE_BUNDLE.jsonl RELEASE_ENVELOPE RELEASE_METADATA SHA256SUMS app.jar sbom.spdx.json)
+    envelope_files=(app.jar RELEASE_METADATA sbom.spdx.json SHA256SUMS)
     ;;
   frontend)
-    artifact_name=frontend-release.tar.gz
-    expected_files=(PROVENANCE_BUNDLE.jsonl SHA256SUMS frontend-release.tar.gz sbom.spdx.json)
+    payload_name=frontend-release.tar.gz
+    expected_files=(PROVENANCE_BUNDLE.jsonl RELEASE_ENVELOPE SHA256SUMS frontend-release.tar.gz sbom.spdx.json)
+    envelope_files=(frontend-release.tar.gz sbom.spdx.json SHA256SUMS)
     ;;
   *) fail "unsupported release type: $release_type" ;;
 esac
@@ -62,6 +64,7 @@ check_max_size() {
 }
 
 check_max_size SHA256SUMS 16384
+check_max_size RELEASE_ENVELOPE 32768
 check_max_size sbom.spdx.json 67108864
 check_max_size PROVENANCE_BUNDLE.jsonl 16777216
 if [ "$release_type" = backend ]; then
@@ -75,6 +78,16 @@ fi
 
 (cd "$release_real" && sha256sum --strict --check SHA256SUMS >/dev/null) \
   || fail "checksum manifest verification failed"
+
+grep -Fqx -- "release_type=$release_type" "$release_real/RELEASE_ENVELOPE" \
+  || fail "release envelope type does not match"
+grep -Fqx -- "commit_sha=$expected_commit" "$release_real/RELEASE_ENVELOPE" \
+  || fail "release envelope commit does not match"
+if ! (cd "$release_real" && cmp -s \
+  <(tail -n +3 RELEASE_ENVELOPE) \
+  <(sha256sum "${envelope_files[@]}")); then
+  fail "release envelope is not bound to the exact payload, metadata, SBOM, and checksum manifest"
+fi
 
 [ -f "$TRUSTED_ROOT_FILE" ] || fail "trusted root is missing"
 [ -s "$TRUSTED_ROOT_FILE" ] || fail "trusted root is empty"
@@ -93,8 +106,9 @@ if [ "$ALLOW_NON_ROOT_TEST" != true ]; then
 fi
 
 verify_attestation() {
-  local predicate_type="$1"
-  "$gh_path" attestation verify "$release_real/$artifact_name" \
+  local subject_name="$1"
+  local predicate_type="$2"
+  "$gh_path" attestation verify "$release_real/$subject_name" \
     --bundle "$release_real/PROVENANCE_BUNDLE.jsonl" \
     --custom-trusted-root "$TRUSTED_ROOT_FILE" \
     --repo "$REPOSITORY" \
@@ -105,9 +119,9 @@ verify_attestation() {
     --deny-self-hosted-runners >/dev/null
 }
 
-verify_attestation https://slsa.dev/provenance/v1 \
+verify_attestation RELEASE_ENVELOPE https://slsa.dev/provenance/v1 \
   || fail "build provenance attestation is invalid"
-verify_attestation https://spdx.dev/Document/v2.3 \
+verify_attestation "$payload_name" https://spdx.dev/Document/v2.3 \
   || fail "SBOM attestation is invalid"
 
 echo "Release provenance verified: $release_type $expected_commit"

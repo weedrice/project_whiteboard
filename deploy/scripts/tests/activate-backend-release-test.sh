@@ -69,6 +69,7 @@ case "$command_name" in
   restart)
     if [ -f "$STATE_DIR/fail_restart" ]; then exit 1; fi
     printf 'active\n' > "$STATE_DIR/service"
+    if [ -f "$STATE_DIR/arm_wrong_rollback_sha" ]; then touch "$STATE_DIR/wrong_rollback_sha"; fi
     ;;
   is-active|status)
     grep -qx active "$STATE_DIR/service"
@@ -85,6 +86,17 @@ cat > "$fake_bin/curl" <<'EOF'
 #!/usr/bin/env bash
 if [ -f "$STATE_DIR/fail_new_health" ] && grep -q '^new$' "$APP_DIR/app.jar"; then
   exit 1
+fi
+if [[ " $* " == *" /info "* ]] || [[ "${!#}" == */info ]]; then
+  if grep -q '^old$' "$APP_DIR/app.jar"; then
+    if [ -f "$STATE_DIR/wrong_rollback_sha" ]; then
+      printf '{"build":{"commit":"%s"}}\n' "$NEW_SHA"
+    else
+      printf '{"build":{"commit":"%s"}}\n' "$OLD_SHA"
+    fi
+  else
+    printf '{"build":{"commit":"%s"}}\n' "$NEW_SHA"
+  fi
 fi
 exit 0
 EOF
@@ -109,6 +121,8 @@ EOF
 chmod +x "$fake_bin"/*
 
 invoke_activation() {
+  local old_sha=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+  local new_sha=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
   APP_DIR="$app_dir" \
   INCOMING_ROOT="$incoming_root" \
   RELEASE_ROOT="$release_root" \
@@ -119,6 +133,8 @@ invoke_activation() {
   ENV_FILE_MODE="$(stat -c %a "$env_file")" \
   STATE_DIR="$state_dir" \
   SUDO_LOG="$state_dir/sudo.log" \
+  OLD_SHA="$old_sha" \
+  NEW_SHA="$new_sha" \
   PATH="$fake_bin:$PATH" \
   PROVENANCE_VERIFIER="$provenance_verifier" \
   HEALTH_ATTEMPTS=2 \
@@ -221,6 +237,10 @@ grep -Fq "chown root:root ${diagnostic_files[0]}" "$state_dir/sudo.log"
 grep -qx old "$app_dir/app.jar"
 rm "$state_dir/fail_new_health"
 
+for index in $(seq 1 25); do
+  printf 'old diagnostic %s\n' "$index" > "$diagnostic_root/backend-old-$index.log"
+done
+
 printf 'old\n' > "$app_dir/app.jar"
 rollback_failure_release="$incoming_root/rollback-failure"
 mkdir -p "$rollback_failure_release"
@@ -235,6 +255,25 @@ if [ "$status" -ne 2 ]; then
   exit 1
 fi
 rm "$state_dir/fail_new_health" "$state_dir/fail_restart"
+test "$(find "$diagnostic_root" -maxdepth 1 -type f -name 'backend-*.log' | wc -l)" -le 20
+while IFS= read -r diagnostic_file; do
+  test "$(stat -c %s "$diagnostic_file")" -le 1048576
+done < <(find "$diagnostic_root" -maxdepth 1 -type f -name 'backend-*.log')
+
+printf 'old\n' > "$app_dir/app.jar"
+wrong_sha_release="$incoming_root/wrong-rollback-sha"
+mkdir -p "$wrong_sha_release"
+printf 'new\n' > "$wrong_sha_release/app.jar"
+touch "$state_dir/fail_new_health" "$state_dir/arm_wrong_rollback_sha"
+set +e
+run_activation "$wrong_sha_release"
+status=$?
+set -e
+if [ "$status" -ne 2 ]; then
+  echo "Expected a healthy rollback with the wrong SHA to fail, got $status" >&2
+  exit 1
+fi
+rm "$state_dir/fail_new_health" "$state_dir/arm_wrong_rollback_sha" "$state_dir/wrong_rollback_sha"
 
 for index in 1 2 3 4 5 6; do
   old_release="$release_root/old-$index"
