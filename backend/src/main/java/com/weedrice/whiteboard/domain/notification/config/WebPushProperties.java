@@ -3,6 +3,8 @@ package com.weedrice.whiteboard.domain.notification.config;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
+
 @Component
 @ConfigurationProperties(prefix = "web-push")
 public class WebPushProperties {
@@ -10,6 +12,8 @@ public class WebPushProperties {
     private String publicKey;
     private String privateKey;
     private String subject;
+    private Duration connectTimeout = Duration.ofSeconds(5);
+    private Duration responseTimeout = Duration.ofSeconds(10);
 
     public String getPublicKey() {
         return publicKey;
@@ -33,6 +37,22 @@ public class WebPushProperties {
 
     public void setSubject(String subject) {
         this.subject = subject;
+    }
+
+    public Duration getConnectTimeout() {
+        return connectTimeout;
+    }
+
+    public void setConnectTimeout(Duration connectTimeout) {
+        this.connectTimeout = connectTimeout;
+    }
+
+    public Duration getResponseTimeout() {
+        return responseTimeout;
+    }
+
+    public void setResponseTimeout(Duration responseTimeout) {
+        this.responseTimeout = responseTimeout;
     }
 
     public boolean isEnabled() {

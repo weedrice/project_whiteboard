@@ -377,7 +377,7 @@ class NotificationServiceTest {
         try {
             commandService.handleNotificationEvent(event);
 
-            verify(pushNotificationDispatcher, never()).dispatch(notification);
+            verify(pushNotificationDispatcher, never()).dispatch(any(PushDispatchCommand.class));
 
             TransactionSynchronizationManager.getSynchronizations()
                     .forEach(synchronization -> synchronization.afterCommit());
@@ -385,7 +385,10 @@ class NotificationServiceTest {
             TransactionSynchronizationManager.clearSynchronization();
         }
 
-        verify(pushNotificationDispatcher).dispatch(notification);
+        ArgumentCaptor<PushDispatchCommand> pushCommandCaptor = ArgumentCaptor.forClass(PushDispatchCommand.class);
+        verify(pushNotificationDispatcher).dispatch(pushCommandCaptor.capture());
+        assertThat(pushCommandCaptor.getValue().userId()).isEqualTo(1L);
+        assertThat(pushCommandCaptor.getValue().notificationId()).isEqualTo(1L);
     }
 
     @Test

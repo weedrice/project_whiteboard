@@ -85,17 +85,18 @@ class NotificationCommandService {
     }
 
     private void dispatchPushAfterCommit(Notification notification) {
-        if (notification == null) {
+        PushDispatchCommand command = PushDispatchCommand.from(notification);
+        if (command == null) {
             return;
         }
         if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            pushNotificationDispatcher.dispatch(notification);
+            pushNotificationDispatcher.dispatch(command);
             return;
         }
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
-                pushNotificationDispatcher.dispatch(notification);
+                pushNotificationDispatcher.dispatch(command);
             }
         });
     }
