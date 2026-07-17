@@ -52,19 +52,22 @@ if [ "$action" = reconcile ]; then
   fi
   now_epoch="$(date +%s)"
   while IFS= read -r -d '' orphan; do
-    orphan_real="$(realpath "$orphan")"
-    case "$orphan_real/" in "$incoming_root_real"/*/) ;; *) echo "orphan escaped incoming root" >&2; exit 1 ;; esac
+    orphan_real="$(realpath -m -- "$orphan")"
+    case "$orphan_real" in "$incoming_root_real"/*) ;; *) echo "orphan escaped incoming root" >&2; exit 1 ;; esac
     orphan_count=$((orphan_count + 1))
     modified_epoch="$(stat -c %Y "$orphan_real")"
     age=$((now_epoch - modified_epoch))
     [ "$age" -ge 0 ] || age=0
     [ "$age" -le "$oldest_age_seconds" ] || oldest_age_seconds="$age"
-  done < <(find "$incoming_root_real" -mindepth 1 -maxdepth 1 -type d -print0)
+  done < <(find "$incoming_root_real" -mindepth 1 -maxdepth 1 -print0)
   [ "$orphan_count" -eq 0 ] || value=1
 fi
 printf '# HELP noviis_deployment_cleanup_debt Deployment follow-up debt requiring operator action.\n' > "$temporary"
 printf '# TYPE noviis_deployment_cleanup_debt gauge\n' >> "$temporary"
 printf 'noviis_deployment_cleanup_debt{component="%s",debt="%s"} %s\n' "$component" "$debt" "$value" >> "$temporary"
+printf '# HELP noviis_deployment_cleanup_writer_success_timestamp_seconds Last successful cleanup debt metric write.\n' >> "$temporary"
+printf '# TYPE noviis_deployment_cleanup_writer_success_timestamp_seconds gauge\n' >> "$temporary"
+printf 'noviis_deployment_cleanup_writer_success_timestamp_seconds{component="%s",debt="%s"} %s\n' "$component" "$debt" "$(date +%s)" >> "$temporary"
 if [ "$action" = reconcile ]; then
   printf '# HELP noviis_deployment_incoming_orphans Incoming release directories awaiting cleanup.\n' >> "$temporary"
   printf '# TYPE noviis_deployment_incoming_orphans gauge\n' >> "$temporary"

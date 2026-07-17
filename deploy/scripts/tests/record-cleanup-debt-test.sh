@@ -8,6 +8,11 @@ trap 'rm -rf "$fixture"' EXIT
 incoming="$fixture/incoming"
 textfiles="$fixture/textfiles"
 mkdir -p "$incoming/old-release" "$incoming/new-release"
+printf 'partial upload\n' > "$incoming/partial-release.tar.gz"
+expected_orphans=3
+if ln -s missing-release "$incoming/broken-release-link" 2>/dev/null; then
+  expected_orphans=4
+fi
 touch -d '2 hours ago' "$incoming/old-release"
 
 run_reconcile() {
@@ -25,7 +30,8 @@ else
 fi
 metrics="$textfiles/noviis_deployment_cleanup_backend_incoming_release.prom"
 grep -Fq 'noviis_deployment_cleanup_debt{component="backend",debt="incoming_release"} 1' "$metrics"
-grep -Fq 'noviis_deployment_incoming_orphans{component="backend"} 2' "$metrics"
+grep -Fq "noviis_deployment_incoming_orphans{component=\"backend\"} $expected_orphans" "$metrics"
+grep -Eq 'noviis_deployment_cleanup_writer_success_timestamp_seconds\{component="backend",debt="incoming_release"\} [1-9][0-9]*' "$metrics"
 awk '/noviis_deployment_incoming_orphan_oldest_age_seconds/ && $1 !~ /^#/ { if ($2 < 7000) exit 1; found=1 } END { exit found ? 0 : 1 }' "$metrics"
 
 rm -rf "$incoming/new-release"
@@ -35,9 +41,10 @@ if run_reconcile; then
 else
   [ "$?" -eq 2 ]
 fi
-grep -Fq 'noviis_deployment_incoming_orphans{component="backend"} 1' "$metrics"
+grep -Fq "noviis_deployment_incoming_orphans{component=\"backend\"} $((expected_orphans - 1))" "$metrics"
 
 rm -rf "$incoming/old-release"
+rm -f "$incoming/partial-release.tar.gz" "$incoming/broken-release-link"
 run_reconcile
 grep -Fq 'noviis_deployment_cleanup_debt{component="backend",debt="incoming_release"} 0' "$metrics"
 grep -Fq 'noviis_deployment_incoming_orphans{component="backend"} 0' "$metrics"

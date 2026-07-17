@@ -129,6 +129,9 @@ noviis_semantic_reindex_jobs_processing
 noviis_semantic_jobs_oldest_age_seconds
 noviis_semantic_jobs_pending
 noviis_sse_heartbeat_gap_seconds
+noviis_webpush_job_backlog
+noviis_webpush_job_oldest_age_seconds
+noviis_webpush_job_outcome_total
 ```
 <!-- required-backend-metrics:end -->
 
@@ -160,4 +163,14 @@ sudo systemctl reload prometheus
 
 Alert rules are evaluated by Prometheus, but no Alertmanager route or external notification receiver is installed. A rule entering the firing state therefore does not send Slack or email notifications.
 
+Prometheus cannot reliably report its own total outage. Install `check-prometheus-health.sh` as `/usr/local/sbin/check-noviis-prometheus-health`, store the SHA-256 of the approved `/api/v1/status/config` YAML in `/etc/prometheus/active-config.sha256`, and enable `noviis-prometheus-watchdog.timer`. The root-owned oneshot checks the native service state, loopback readiness, active configuration checksum, and latest rule evaluation every minute. A failed check is recorded by systemd/journal; because no external receiver is configured, operators must still monitor the failed unit through an independent host or cloud control-plane signal.
+
+Generate the checksum only after a successful config reload, using `curl -fsS http://127.0.0.1:9090/api/v1/status/config | jq -jr '.data.yaml' | sha256sum`, then install only the 64-character digest as `root:root` mode `0644`. Install the watchdog script as `root:root` mode `0755`, copy the tracked service and timer units, run `systemd-analyze verify`, and enable the timer. Do not derive the expected digest from the tracked source file because Prometheus returns its parsed active configuration.
+
+Cleanup reconciliation counts every immediate incoming entry, including partial files and broken symlinks, and writes `noviis_deployment_cleanup_writer_success_timestamp_seconds`. Missing writer series alert independently so deletion of a textfile cannot look healthy; an active debt whose writer timestamp is older than 30 minutes raises an additional stale alert. This freshness rule also covers `seo_submission` debt.
+
+When first enabling these rules, initialize every expected textfile explicitly: clear backend `release_retention` and `status_diagnostic`, clear frontend `release_retention` and `seo_submission`, then run `reconcile incoming_release` for both components. A reconciliation exit status of 2 is an observed cleanup debt, not an initialization failure; inspect and remove only verified unreferenced entries before reconciling again.
+
 Before running more than one backend JVM, replace the local Caffeine rate-limit store with a shared implementation and define cross-node invalidation for the `GlobalConfig` cache. Local buckets do not coordinate across instances and process-local configuration caches may diverge. Multi-instance rollout is blocked until both mechanisms have tests and rollback procedures.
+
+Durable Web Push jobs expose pending and failed backlogs, oldest pending age, and retry/dead-letter outcomes. Pending work above 100 or older than five minutes warns after ten minutes; any failed row or new dead-letter outcome is critical. Delivery failure ratios use `timeout`, `retryable_failure`, and `permanent_failure`; `expired` is an expected terminal cleanup outcome rather than a delivery failure.

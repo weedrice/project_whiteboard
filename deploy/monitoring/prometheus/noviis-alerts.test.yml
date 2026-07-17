@@ -177,6 +177,24 @@ tests:
             exp_annotations:
               summary: "Required backend metric noviis_sse_heartbeat_gap_seconds is missing"
               description: "The backend has been up for more than 10 minutes without exporting this required metric."
+          - exp_labels:
+              missing_metric: noviis_webpush_job_backlog
+              severity: warning
+            exp_annotations:
+              summary: "Required backend metric noviis_webpush_job_backlog is missing"
+              description: "The backend has been up for more than 10 minutes without exporting this required metric."
+          - exp_labels:
+              missing_metric: noviis_webpush_job_oldest_age_seconds
+              severity: warning
+            exp_annotations:
+              summary: "Required backend metric noviis_webpush_job_oldest_age_seconds is missing"
+              description: "The backend has been up for more than 10 minutes without exporting this required metric."
+          - exp_labels:
+              missing_metric: noviis_webpush_job_outcome_total
+              severity: warning
+            exp_annotations:
+              summary: "Required backend metric noviis_webpush_job_outcome_total is missing"
+              description: "The backend has been up for more than 10 minutes without exporting this required metric."
 
   - name: missing backend target is treated as down
     interval: 1m
@@ -237,6 +255,8 @@ tests:
       - series: 'noviis_scheduler_last_success_timestamp_seconds{scheduled_job="NotificationDeliveryJobScheduler.processPendingJobs"}'
         values: '600+0x15'
       - series: 'noviis_scheduler_last_success_timestamp_seconds{scheduled_job="NotificationSseEmitterRegistry.sendHeartbeat"}'
+        values: '600+0x15'
+      - series: 'noviis_scheduler_last_success_timestamp_seconds{scheduled_job="PushDeliveryJobScheduler.processPendingJobs"}'
         values: '600+0x15'
       - series: 'noviis_scheduler_last_success_timestamp_seconds{scheduled_job="ScheduledPostPublisherScheduler.publishDuePosts"}'
         values: '600+0x15'
@@ -498,7 +518,7 @@ tests:
     input_series:
       - series: 'noviis_webpush_delivery_total{outcome="success"}'
         values: '0+18x20'
-      - series: 'noviis_webpush_delivery_total{outcome="failure"}'
+      - series: 'noviis_webpush_delivery_total{outcome="retryable_failure"}'
         values: '0+2x20'
       - series: 'noviis_webpush_delivery_total{outcome="timeout"}'
         values: '0+1x20'
@@ -520,6 +540,36 @@ tests:
               severity: warning
             exp_annotations:
               summary: "Expired Web Push subscription cleanup failed"
+
+  - name: durable Web Push backlog and dead letters are actionable
+    interval: 1m
+    input_series:
+      - series: 'noviis_webpush_job_backlog{status="pending"}'
+        values: '101+0x20'
+      - series: 'noviis_webpush_job_backlog{status="failed"}'
+        values: '1+0x20'
+      - series: 'noviis_webpush_job_oldest_age_seconds'
+        values: '360+0x20'
+      - series: 'noviis_webpush_job_outcome_total{outcome="dead_letter"}'
+        values: '0 1+0x19'
+    alert_rule_test:
+      - eval_time: 11m
+        alertname: NoviIsWebPushJobBacklog
+        exp_alerts:
+          - exp_labels: { status: pending, severity: warning }
+            exp_annotations: { summary: "Durable Web Push delivery is not keeping pace" }
+          - exp_labels: { severity: warning }
+            exp_annotations: { summary: "Durable Web Push delivery is not keeping pace" }
+      - eval_time: 1m
+        alertname: NoviIsWebPushJobFailed
+        exp_alerts:
+          - exp_labels: { status: failed, severity: critical }
+            exp_annotations: { summary: "A durable Web Push job exhausted all retries" }
+      - eval_time: 2m
+        alertname: NoviIsWebPushJobDeadLetter
+        exp_alerts:
+          - exp_labels: { outcome: dead_letter, severity: critical }
+            exp_annotations: { summary: "A Web Push job entered the dead letter state" }
 
   - name: durable notification backlog and dead letters are observable
     interval: 1m
@@ -731,6 +781,33 @@ tests:
               severity: critical
             exp_annotations:
               summary: "The oldest incoming release for frontend is over one hour old"
+
+  - name: deployment cleanup metric writers are required and freshness checked
+    interval: 1m
+    input_series:
+      - series: 'noviis_deployment_cleanup_writer_success_timestamp_seconds{component="backend",debt="incoming_release"}'
+        values: '0+0x50'
+      - series: 'noviis_deployment_cleanup_debt{component="backend",debt="incoming_release"}'
+        values: '1+0x50'
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: NoviIsDeploymentCleanupMetricMissing
+        exp_alerts:
+          - exp_labels: { component: backend, debt: release_retention, severity: warning }
+            exp_annotations: { summary: "Deployment cleanup metrics are missing for backend: release_retention" }
+          - exp_labels: { component: backend, debt: status_diagnostic, severity: warning }
+            exp_annotations: { summary: "Deployment cleanup metrics are missing for backend: status_diagnostic" }
+          - exp_labels: { component: frontend, debt: release_retention, severity: warning }
+            exp_annotations: { summary: "Deployment cleanup metrics are missing for frontend: release_retention" }
+          - exp_labels: { component: frontend, debt: incoming_release, severity: warning }
+            exp_annotations: { summary: "Deployment cleanup metrics are missing for frontend: incoming_release" }
+          - exp_labels: { component: frontend, debt: seo_submission, severity: warning }
+            exp_annotations: { summary: "Deployment cleanup metrics are missing for frontend: seo_submission" }
+      - eval_time: 47m
+        alertname: NoviIsDeploymentCleanupMetricStale
+        exp_alerts:
+          - exp_labels: { component: backend, debt: incoming_release, severity: warning }
+            exp_annotations: { summary: "Deployment cleanup metrics are stale for backend: incoming_release" }
 
   - name: Prometheus restart is not reported as a backend restart
     interval: 1m

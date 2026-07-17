@@ -7,6 +7,7 @@ FileVariantCleanupScheduler.cleanupStaleVariants|hourly|8100
 MqueueScheduler.processMessageQueue|frequent|600
 NotificationDeliveryJobScheduler.processPendingJobs|frequent|600
 NotificationSseEmitterRegistry.sendHeartbeat|frequent|600
+PushDeliveryJobScheduler.processPendingJobs|frequent|600
 OAuthSignupTicketCleanupScheduler.deleteExpiredTickets|hourly|8100
 PopularPostScheduler.aggregatePopularPosts|hourly|8100
 PostDraftCleanupScheduler.cleanupExpiredDrafts|daily|108000

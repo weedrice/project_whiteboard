@@ -1,6 +1,24 @@
 groups:
   - name: noviis
     rules:
+      - record: noviis_deployment_cleanup_expected
+        expr: vector(1)
+        labels: { component: backend, debt: release_retention }
+      - record: noviis_deployment_cleanup_expected
+        expr: vector(1)
+        labels: { component: backend, debt: incoming_release }
+      - record: noviis_deployment_cleanup_expected
+        expr: vector(1)
+        labels: { component: backend, debt: status_diagnostic }
+      - record: noviis_deployment_cleanup_expected
+        expr: vector(1)
+        labels: { component: frontend, debt: release_retention }
+      - record: noviis_deployment_cleanup_expected
+        expr: vector(1)
+        labels: { component: frontend, debt: incoming_release }
+      - record: noviis_deployment_cleanup_expected
+        expr: vector(1)
+        labels: { component: frontend, debt: seo_submission }
       - record: noviis_scheduler_expected_max_age_seconds
         expr: vector(600)
         labels: { cadence: frequent, scheduled_job: FeedGenerationJobScheduler.processPendingFeedGenerationJobs, threshold: 10m }
@@ -16,6 +34,9 @@ groups:
       - record: noviis_scheduler_expected_max_age_seconds
         expr: vector(600)
         labels: { cadence: frequent, scheduled_job: NotificationSseEmitterRegistry.sendHeartbeat, threshold: 10m }
+      - record: noviis_scheduler_expected_max_age_seconds
+        expr: vector(600)
+        labels: { cadence: frequent, scheduled_job: PushDeliveryJobScheduler.processPendingJobs, threshold: 10m }
       - record: noviis_scheduler_expected_max_age_seconds
         expr: vector(600)
         labels: { cadence: frequent, scheduled_job: ScheduledPostPublisherScheduler.publishDuePosts, threshold: 10m }
@@ -116,6 +137,9 @@ groups:
             or label_replace(absent(noviis_semantic_reindex_jobs_oldest_active_age_seconds), "missing_metric", "noviis_semantic_reindex_jobs_oldest_active_age_seconds", "", "")
             or label_replace(absent(noviis_semantic_reindex_jobs_failed), "missing_metric", "noviis_semantic_reindex_jobs_failed", "", "")
             or label_replace(absent(noviis_semantic_reindex_jobs_processed_total), "missing_metric", "noviis_semantic_reindex_jobs_processed_total", "", "")
+            or label_replace(absent(noviis_webpush_job_backlog), "missing_metric", "noviis_webpush_job_backlog", "", "")
+            or label_replace(absent(noviis_webpush_job_oldest_age_seconds), "missing_metric", "noviis_webpush_job_oldest_age_seconds", "", "")
+            or label_replace(absent(noviis_webpush_job_outcome_total), "missing_metric", "noviis_webpush_job_outcome_total", "", "")
           )
           and on() (max(time() - process_start_time_seconds{job="noviis-backend"}) > 600)
         for: 2m
@@ -226,7 +250,7 @@ groups:
         annotations: { summary: "Async executor {{ $labels.executor }} has no queue capacity remaining" }
       - alert: NoviIsWebPushDeliveryFailureHigh
         expr: >-
-          sum(increase(noviis_webpush_delivery_total{outcome=~"failure|timeout"}[15m]))
+          sum(increase(noviis_webpush_delivery_total{outcome=~"timeout|retryable_failure|permanent_failure"}[15m]))
           / clamp_min(sum(increase(noviis_webpush_delivery_total[15m])), 1) > 0.10
           and sum(increase(noviis_webpush_delivery_total[15m])) >= 20
         for: 10m
@@ -236,6 +260,19 @@ groups:
         expr: increase(noviis_webpush_subscription_cleanup_total{outcome="failure"}[15m]) > 0
         labels: { severity: warning }
         annotations: { summary: "Expired Web Push subscription cleanup failed" }
+      - alert: NoviIsWebPushJobBacklog
+        expr: noviis_webpush_job_backlog{status="pending"} > 100 or noviis_webpush_job_oldest_age_seconds > 300
+        for: 10m
+        labels: { severity: warning }
+        annotations: { summary: "Durable Web Push delivery is not keeping pace" }
+      - alert: NoviIsWebPushJobFailed
+        expr: noviis_webpush_job_backlog{status="failed"} > 0
+        labels: { severity: critical }
+        annotations: { summary: "A durable Web Push job exhausted all retries" }
+      - alert: NoviIsWebPushJobDeadLetter
+        expr: increase(noviis_webpush_job_outcome_total{outcome="dead_letter"}[15m]) > 0
+        labels: { severity: critical }
+        annotations: { summary: "A Web Push job entered the dead letter state" }
       - alert: NoviIsNotificationDeliveryBacklog
         expr: noviis_notification_delivery_jobs_pending > 100
         for: 10m
@@ -367,6 +404,20 @@ groups:
         labels: { severity: warning }
         annotations:
           summary: "Deployment cleanup debt remains for {{ $labels.component }}: {{ $labels.debt }}"
+      - alert: NoviIsDeploymentCleanupMetricMissing
+        expr: noviis_deployment_cleanup_expected unless on(component, debt) noviis_deployment_cleanup_writer_success_timestamp_seconds
+        for: 15m
+        labels: { severity: warning }
+        annotations:
+          summary: "Deployment cleanup metrics are missing for {{ $labels.component }}: {{ $labels.debt }}"
+      - alert: NoviIsDeploymentCleanupMetricStale
+        expr: >-
+          noviis_deployment_cleanup_debt == 1
+          and on(component, debt) time() - noviis_deployment_cleanup_writer_success_timestamp_seconds > 1800
+        for: 15m
+        labels: { severity: warning }
+        annotations:
+          summary: "Deployment cleanup metrics are stale for {{ $labels.component }}: {{ $labels.debt }}"
       - alert: NoviIsDeploymentIncomingOrphans
         expr: noviis_deployment_incoming_orphans > 0
         for: 15m
