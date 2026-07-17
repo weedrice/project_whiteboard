@@ -20,7 +20,7 @@ public class EnvironmentValidator implements ApplicationListener<ApplicationRead
 
     private static final String PROD_PROFILE = "prod";
 
-    private static final List<String> REQUIRED_PROD_VARIABLES = List.of(
+    static final List<String> REQUIRED_PROD_VARIABLES = List.of(
             // Database
             "DB_HOST",
             "DB_NAME",

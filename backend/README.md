@@ -76,7 +76,7 @@ com.weedrice.whiteboard
 1. **필수 환경 변수**
    - 데이터베이스: `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`
    - JWT: `JWT_SECRET`
-   - OAuth: `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` (필수), Google/Discord (선택적)
+   - OAuth: GitHub·Google·Discord의 client ID와 client secret 모두 필수
    - AWS: `AWS_ACCESS_KEY`, `AWS_SECRET_KEY`, `AWS_SES_*`, `S3_BUCKET` 등
    - Frontend: `FRONTEND_URL`
 

@@ -7,8 +7,16 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.mock.env.MockEnvironment;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
@@ -18,26 +26,7 @@ import static org.mockito.Mockito.mock;
 
 class EnvironmentValidatorTest {
 
-    private static final List<String> REQUIRED_PROD_VARIABLES = List.of(
-            "DB_HOST",
-            "DB_NAME",
-            "DB_USER",
-            "DB_PASSWORD",
-            "JWT_SECRET",
-            "GITHUB_CLIENT_ID",
-            "GITHUB_CLIENT_SECRET",
-            "GOOGLE_CLIENT_ID",
-            "GOOGLE_CLIENT_SECRET",
-            "DISCORD_CLIENT_ID",
-            "DISCORD_CLIENT_SECRET",
-            "MAIL_USERNAME",
-            "MAIL_APP_PASSWORD",
-            "AWS_ACCESS_KEY",
-            "AWS_SECRET_KEY",
-            "AWS_S3_REGION",
-            "S3_BUCKET",
-            "FRONTEND_URL",
-            "AGENT_INTERNAL_SECRET");
+    private static final List<String> REQUIRED_PROD_VARIABLES = EnvironmentValidator.REQUIRED_PROD_VARIABLES;
 
     @Test
     @DisplayName("skips validation outside the prod profile")
@@ -98,6 +87,22 @@ class EnvironmentValidatorTest {
                 .isEqualTo(1);
         assertThat(countOccurrences(thrown.getMessage(), "DISCORD_CLIENT_SECRET"))
                 .isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("production environment documentation matches the validator contract")
+    void productionDocumentation_matchesValidatorContract() throws IOException {
+        Path document = Path.of("ENVIRONMENT_VARIABLES.md");
+        String markdown = Files.readString(document, StandardCharsets.UTF_8);
+        String requiredSection = markdown.substring(
+                markdown.indexOf("## Required In Production"),
+                markdown.indexOf("## Optional Or Deployment-Specific"));
+        Matcher matcher = Pattern.compile("\\| `([A-Z0-9_]+)` ").matcher(requiredSection);
+        Set<String> documented = matcher.results()
+                .map(result -> result.group(1))
+                .collect(Collectors.toSet());
+
+        assertThat(documented).containsExactlyInAnyOrderElementsOf(REQUIRED_PROD_VARIABLES);
     }
 
     private MockEnvironment prodEnvironmentExcept(String... missingVariables) {

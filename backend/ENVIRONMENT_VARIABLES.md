@@ -76,4 +76,6 @@ YAML files.
 
 When the `prod` profile is active, `EnvironmentValidator` checks the required variables
 above during application startup. Missing or blank required variables fail startup before
-the application begins serving traffic.
+the application begins serving traffic. GitHub, Google, and Discord are all configured
+production providers, so neither provider credentials nor individual providers are optional.
+`EnvironmentValidatorTest` keeps this required table synchronized with the validator.
