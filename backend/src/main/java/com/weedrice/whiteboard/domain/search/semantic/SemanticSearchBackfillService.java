@@ -42,6 +42,7 @@ public class SemanticSearchBackfillService {
                        ON e.content_type = 'POST'
                       AND e.content_id = p.post_id
                 WHERE p.is_deleted = 'N'
+                  AND p.is_blinded = 'N'
                   AND p.is_secret = 'N'
                   AND b.is_active = 'Y'
                   AND b.is_public = 'Y'
@@ -55,7 +56,15 @@ public class SemanticSearchBackfillService {
                           AND j.content_id = p.post_id
                           AND j.status IN ('PENDING', 'PROCESSING')
                   )
-                ORDER BY p.created_at ASC, p.post_id ASC
+                ORDER BY CASE WHEN EXISTS (
+                            SELECT 1
+                            FROM semantic_search_jobs failed_job
+                            WHERE failed_job.content_type = 'POST'
+                              AND failed_job.content_id = p.post_id
+                              AND failed_job.status = 'FAILED'
+                         ) THEN 1 ELSE 0 END ASC,
+                         p.created_at ASC,
+                         p.post_id ASC
                 LIMIT ?
                 """, Long.class, limit);
         jobRepository.enqueueAll("POST", postIds, SemanticSearchIndexAction.UPSERT);
@@ -74,7 +83,9 @@ public class SemanticSearchBackfillService {
                        ON e.content_type = 'COMMENT'
                       AND e.content_id = c.comment_id
                 WHERE c.is_deleted = 'N'
+                  AND c.is_blinded = 'N'
                   AND p.is_deleted = 'N'
+                  AND p.is_blinded = 'N'
                   AND p.is_secret = 'N'
                   AND b.is_active = 'Y'
                   AND b.is_public = 'Y'
@@ -90,7 +101,15 @@ public class SemanticSearchBackfillService {
                           AND j.content_id = c.comment_id
                           AND j.status IN ('PENDING', 'PROCESSING')
                   )
-                ORDER BY c.created_at ASC, c.comment_id ASC
+                ORDER BY CASE WHEN EXISTS (
+                            SELECT 1
+                            FROM semantic_search_jobs failed_job
+                            WHERE failed_job.content_type = 'COMMENT'
+                              AND failed_job.content_id = c.comment_id
+                              AND failed_job.status = 'FAILED'
+                         ) THEN 1 ELSE 0 END ASC,
+                         c.created_at ASC,
+                         c.comment_id ASC
                 LIMIT ?
                 """, Long.class, limit);
         jobRepository.enqueueAll("COMMENT", commentIds, SemanticSearchIndexAction.UPSERT);

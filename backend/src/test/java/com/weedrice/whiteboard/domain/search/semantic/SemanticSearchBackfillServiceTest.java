@@ -58,6 +58,58 @@ class SemanticSearchBackfillServiceTest {
     }
 
     @Test
+    void enqueueBackfill_excludesBlindedRowsBeforeApplyingLimit() {
+        when(jdbcTemplate.queryForList(anyString(), eq(Long.class), eq(100)))
+                .thenReturn(List.of(101L))
+                .thenReturn(List.of(201L));
+
+        backfillService.enqueueBackfill("ALL", 100);
+
+        ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+        verify(jdbcTemplate, times(2)).queryForList(sqlCaptor.capture(), eq(Long.class), eq(100));
+        String postSql = sqlCaptor.getAllValues().get(0);
+        String commentSql = sqlCaptor.getAllValues().get(1);
+
+        assertThat(postSql)
+                .contains("p.is_blinded = 'N'")
+                .satisfies(sql -> assertThat(sql.indexOf("p.is_blinded = 'N'"))
+                        .isLessThan(sql.indexOf("LIMIT ?")));
+        assertThat(commentSql)
+                .contains("c.is_blinded = 'N'")
+                .contains("p.is_blinded = 'N'")
+                .satisfies(sql -> assertThat(sql.indexOf("c.is_blinded = 'N'"))
+                        .isLessThan(sql.indexOf("LIMIT ?")))
+                .satisfies(sql -> assertThat(sql.indexOf("p.is_blinded = 'N'"))
+                        .isLessThan(sql.indexOf("LIMIT ?")));
+        verify(jobRepository).enqueueAll("POST", List.of(101L), SemanticSearchIndexAction.UPSERT);
+        verify(jobRepository).enqueueAll("COMMENT", List.of(201L), SemanticSearchIndexAction.UPSERT);
+    }
+
+    @Test
+    void enqueueBackfill_deprioritizesFailedJobsBeforeLimitWithoutExcludingRetry() {
+        when(jdbcTemplate.queryForList(anyString(), eq(Long.class), eq(50)))
+                .thenReturn(List.of(301L))
+                .thenReturn(List.of(401L));
+
+        backfillService.enqueueBackfill("ALL", 50);
+
+        ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+        verify(jdbcTemplate, times(2)).queryForList(sqlCaptor.capture(), eq(Long.class), eq(50));
+        assertThat(sqlCaptor.getAllValues()).allSatisfy(sql -> {
+            assertThat(sql)
+                    .contains("j.status IN ('PENDING', 'PROCESSING')")
+                    .contains("failed_job.status = 'FAILED'")
+                    .contains("THEN 1 ELSE 0 END ASC");
+            assertThat(sql.indexOf("failed_job.status = 'FAILED'"))
+                    .isLessThan(sql.indexOf("created_at ASC"));
+            assertThat(sql.indexOf("created_at ASC"))
+                    .isLessThan(sql.indexOf("LIMIT ?"));
+        });
+        verify(jobRepository).enqueueAll("POST", List.of(301L), SemanticSearchIndexAction.UPSERT);
+        verify(jobRepository).enqueueAll("COMMENT", List.of(401L), SemanticSearchIndexAction.UPSERT);
+    }
+
+    @Test
     void enqueueBackfill_rejectsInvalidLimit() {
         assertThatThrownBy(() -> backfillService.enqueueBackfill("POST", 0))
                 .isInstanceOf(BusinessException.class);
