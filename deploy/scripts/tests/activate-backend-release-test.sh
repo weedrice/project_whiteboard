@@ -137,10 +137,25 @@ invoke_activation() {
   NEW_SHA="$new_sha" \
   PATH="$fake_bin:$PATH" \
   PROVENANCE_VERIFIER="$provenance_verifier" \
+  DEPLOY_LOCK_FILE="$fixture/noviis-deploy.lock" \
   HEALTH_ATTEMPTS=2 \
   HEALTH_DELAY_SECONDS=0 \
   bash "$script" "$1" "${2:-}"
 }
+
+lock_failure_release="$incoming_root/lock-failure"
+mkdir -p "$lock_failure_release"
+printf 'new\n' > "$lock_failure_release/app.jar"
+printf 'old\n' > "$app_dir/app.jar"
+(
+  exec 8>"$fixture/noviis-deploy.lock"
+  flock 8
+  if invoke_activation "$lock_failure_release"; then
+    echo "Expected concurrent backend activation to be rejected" >&2
+    exit 1
+  fi
+  grep -qx old "$app_dir/app.jar"
+)
 
 run_activation() {
   (

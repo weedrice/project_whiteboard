@@ -8,9 +8,17 @@ HEALTH_URL="${HEALTH_URL:-https://noviis.kr/.noviis-release}"
 INTERNAL_HEALTH_HOST="${INTERNAL_HEALTH_HOST:-noviis.kr}"
 KEEP_RELEASES="${KEEP_RELEASES:-5}"
 PROVENANCE_VERIFIER="${PROVENANCE_VERIFIER:-/usr/local/sbin/verify-noviis-release}"
+DEPLOY_LOCK_FILE="${DEPLOY_LOCK_FILE:-/run/lock/noviis-deploy.lock}"
 SOURCE_DIR="${1:?incoming release directory is required}"
 MODE="${2:-activate}"
 EXPECTED_COMMIT="${3:-${EXPECTED_COMMIT:-}}"
+
+command -v flock >/dev/null 2>&1 || { echo "flock is required for activation locking" >&2; exit 69; }
+exec 9>"$DEPLOY_LOCK_FILE"
+if ! flock -n 9; then
+  echo "Another NoviIs activation is already running" >&2
+  exit 75
+fi
 
 switched=false
 verified=false

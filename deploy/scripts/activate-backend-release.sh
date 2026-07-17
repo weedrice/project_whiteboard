@@ -17,8 +17,16 @@ ENV_FILE="${ENV_FILE:-/etc/noviis/app.env}"
 ENV_FILE_OWNER="${ENV_FILE_OWNER:-root:root}"
 ENV_FILE_MODE="${ENV_FILE_MODE:-600}"
 PROVENANCE_VERIFIER="${PROVENANCE_VERIFIER:-/usr/local/sbin/verify-noviis-release}"
+DEPLOY_LOCK_FILE="${DEPLOY_LOCK_FILE:-/run/lock/noviis-deploy.lock}"
 SOURCE_DIR="${1:?incoming release directory is required}"
 EXPECTED_COMMIT="${2:-${EXPECTED_COMMIT:-}}"
+
+command -v flock >/dev/null 2>&1 || { echo "flock is required for activation locking" >&2; exit 69; }
+exec 9>"$DEPLOY_LOCK_FILE"
+if ! flock -n 9; then
+  echo "Another NoviIs activation is already running" >&2
+  exit 75
+fi
 
 activated=false
 service_stopped=false

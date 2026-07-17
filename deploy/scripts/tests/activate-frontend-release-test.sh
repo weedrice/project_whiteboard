@@ -80,6 +80,7 @@ run_activation() {
   HEALTH_URL=http://fixture/.noviis-release \
   STATE_DIR="$fixture" \
   PROVENANCE_VERIFIER="$provenance_verifier" \
+  DEPLOY_LOCK_FILE="$fixture/noviis-deploy.lock" \
   PATH="$fake_bin:$PATH" \
   bash "$script" "$1" "${3:-activate}" "$2"
 }
@@ -90,6 +91,17 @@ retry_commit=cccccccccccccccccccccccccccccccccccccccc
 safe_commit=dddddddddddddddddddddddddddddddddddddddd
 cleanup_commit=eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 listing_commit=ffffffffffffffffffffffffffffffffffffffff
+
+lock_release="$(make_release lock "$new_commit")"
+(
+  exec 8>"$fixture/noviis-deploy.lock"
+  flock 8
+  if run_activation "$lock_release" "$new_commit"; then
+    echo "Expected concurrent frontend activation to be rejected" >&2
+    exit 1
+  fi
+  test ! -e "$web_root"
+)
 
 old_release="$(make_release old "$old_commit")"
 old_output="$(run_activation "$old_release" "$old_commit")"
