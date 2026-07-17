@@ -4,7 +4,6 @@ import com.weedrice.whiteboard.domain.file.dto.FileSimpleResponse;
 import com.weedrice.whiteboard.domain.file.dto.FileUploadResponse;
 import com.weedrice.whiteboard.domain.file.entity.File;
 import com.weedrice.whiteboard.domain.file.service.FileUploadValidationPolicy.ValidatedUpload;
-import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import com.weedrice.whiteboard.global.common.util.FileStorageService;
 import lombok.RequiredArgsConstructor;
@@ -38,7 +37,7 @@ class FileUploadService {
 
     private File processUpload(Long uploaderId, MultipartFile multipartFile) {
         ValidatedUpload validatedUpload = validationPolicy.validate(multipartFile);
-        User uploader = userWritableResolver.resolve(uploaderId);
+        userWritableResolver.resolve(uploaderId);
         String storedFileName = fileStorageService.generateStoredFileName(validatedUpload.originalFilename());
         File pendingUploadFile = stateCommand.createPendingUploadRecord(
                 storedFileName,
@@ -51,7 +50,7 @@ class FileUploadService {
                         ? FileImageVariantGenerator.expectedVariantCount(
                         validatedUpload.width(), validatedUpload.height())
                         : null,
-                uploader);
+                uploaderId);
         try {
             fileStorageService.storeFileAs(multipartFile, validatedUpload.detectedMimeType(), storedFileName);
             boolean reconciled = imageVariantGenerator.generateVariants(

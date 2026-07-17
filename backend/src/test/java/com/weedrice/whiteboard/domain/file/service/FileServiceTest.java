@@ -86,6 +86,8 @@ class FileServiceTest {
         clock = Clock.fixed(Instant.parse("2026-05-07T00:00:00Z"), ZoneOffset.UTC);
         FileUploadStateCommand fileUploadStateCommand = new FileUploadStateCommand(
                 fileRepository,
+                userRepository,
+                userWritableResolver,
                 transactionTemplate,
                 clock);
         FileUploadService fileUploadService = new FileUploadService(
@@ -106,6 +108,12 @@ class FileServiceTest {
                 fileRepository,
                 fileTemporaryCleanupWorker,
                 clock);
+        FileRepository.TemporaryUploadUsageProjection emptyUsage =
+                mock(FileRepository.TemporaryUploadUsageProjection.class);
+        org.mockito.Mockito.lenient().when(userRepository.findByIdForUpdate(any()))
+                .thenReturn(Optional.of(User.builder().build()));
+        org.mockito.Mockito.lenient().when(fileRepository.findTemporaryUploadUsage(any()))
+                .thenReturn(emptyUsage);
     }
 
     @Test

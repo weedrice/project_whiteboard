@@ -4,6 +4,8 @@ import com.weedrice.whiteboard.domain.file.entity.File;
 import com.weedrice.whiteboard.domain.file.entity.FileStorageStatus;
 import com.weedrice.whiteboard.domain.file.repository.FileRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -17,7 +19,12 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 class FileUploadStateCommand {
 
+    static final int MAX_TEMPORARY_FILE_COUNT = 100;
+    static final long MAX_TEMPORARY_FILE_BYTES = 500L * 1024L * 1024L;
+
     private final FileRepository fileRepository;
+    private final UserRepository userRepository;
+    private final UserWritableResolver userWritableResolver;
     private final TransactionTemplate transactionTemplate;
     private final Clock clock;
 
@@ -29,8 +36,19 @@ class FileUploadStateCommand {
             Integer imageWidth,
             Integer imageHeight,
             Integer expectedVariantCount,
-            User uploader) {
+            Long uploaderId) {
         return transactionTemplate.execute(status -> {
+            User uploader = userRepository.findByIdForUpdate(uploaderId)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+            userWritableResolver.validateWritable(uploader);
+            FileRepository.TemporaryUploadUsageProjection usage =
+                    fileRepository.findTemporaryUploadUsage(uploaderId);
+            long currentCount = usage == null ? 0 : usage.getFileCount();
+            long currentBytes = usage == null ? 0 : usage.getTotalBytes();
+            if (currentCount >= MAX_TEMPORARY_FILE_COUNT
+                    || fileSize > MAX_TEMPORARY_FILE_BYTES - currentBytes) {
+                throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+            }
             File file = File.builder()
                     .filePath(storedFileName)
                     .originalName(originalFilename)

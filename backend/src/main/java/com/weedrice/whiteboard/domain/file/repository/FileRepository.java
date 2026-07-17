@@ -47,6 +47,25 @@ public interface FileRepository extends JpaRepository<File, Long> {
         Long getFileId();
     }
 
+    interface TemporaryUploadUsageProjection {
+        long getFileCount();
+
+        long getTotalBytes();
+    }
+
+    @Query("""
+            SELECT COUNT(f) AS fileCount, COALESCE(SUM(f.fileSize), 0) AS totalBytes
+            FROM File f
+            WHERE f.uploader.userId = :uploaderId
+              AND f.relatedId IS NULL
+              AND f.relatedType IS NULL
+              AND f.storageStatus IN (
+                  com.weedrice.whiteboard.domain.file.entity.FileStorageStatus.PENDING_UPLOAD,
+                  com.weedrice.whiteboard.domain.file.entity.FileStorageStatus.ACTIVE)
+              AND NOT EXISTS (SELECT spf FROM ScheduledPostFile spf WHERE spf.id.fileId = f.fileId)
+            """)
+    TemporaryUploadUsageProjection findTemporaryUploadUsage(@Param("uploaderId") Long uploaderId);
+
     @Query("""
             SELECT f
             FROM File f

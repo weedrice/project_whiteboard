@@ -37,6 +37,7 @@ import com.weedrice.whiteboard.global.exception.ErrorCode;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -302,7 +303,7 @@ public class PostInteractionService {
 
     @Transactional
     public ScrapFolderResponse createScrapFolder(@NonNull Long userId, ScrapFolderRequest request) {
-        User user = userWritableResolver.resolve(userId);
+        User user = userWritableResolver.resolveForUpdate(userId);
         String name = normalizeScrapFolderName(request != null ? request.getName() : null);
         if (scrapFolderRepository.existsByUser_UserIdAndName(userId, name)) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
@@ -312,13 +313,17 @@ public class PostInteractionService {
                 .name(name)
                 .sortOrder(request != null ? request.getSortOrder() : null)
                 .build();
-        return ScrapFolderResponse.from(scrapFolderRepository.save(folder));
+        try {
+            return ScrapFolderResponse.from(scrapFolderRepository.saveAndFlush(folder));
+        } catch (DataIntegrityViolationException ex) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
     }
 
     @Transactional
     public ScrapFolderResponse updateScrapFolder(@NonNull Long userId, @NonNull Long folderId,
             ScrapFolderRequest request) {
-        ScrapFolder folder = getOwnedScrapFolder(userId, folderId);
+        ScrapFolder folder = getOwnedScrapFolderForUpdate(userId, folderId);
         String name = request == null ? null : TextInputNormalizer.normalizeOptional(request.getName(), 60);
         if (name != null && name.isBlank()) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
@@ -328,12 +333,17 @@ public class PostInteractionService {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
         folder.update(name, request != null ? request.getSortOrder() : null);
-        return ScrapFolderResponse.from(folder);
+        try {
+            scrapFolderRepository.flush();
+            return ScrapFolderResponse.from(folder);
+        } catch (DataIntegrityViolationException ex) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
     }
 
     @Transactional
     public void deleteScrapFolder(@NonNull Long userId, @NonNull Long folderId) {
-        ScrapFolder folder = getOwnedScrapFolder(userId, folderId);
+        ScrapFolder folder = getOwnedScrapFolderForUpdate(userId, folderId);
         scrapFolderRepository.delete(folder);
     }
 
@@ -420,6 +430,11 @@ public class PostInteractionService {
 
     private ScrapFolder getOwnedScrapFolder(Long userId, Long folderId) {
         return scrapFolderRepository.findByFolderIdAndUser_UserId(folderId, userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+    }
+
+    private ScrapFolder getOwnedScrapFolderForUpdate(Long userId, Long folderId) {
+        return scrapFolderRepository.findOwnedByIdForUpdate(folderId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
     }
 
