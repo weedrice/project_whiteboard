@@ -60,7 +60,7 @@ class NotificationServiceTest {
     @Mock
     private UserNotificationSettingsRepository userNotificationSettingsRepository;
     @Mock
-    private PushNotificationDispatcher pushNotificationDispatcher;
+    private PushDeliveryJobEnqueuer pushDeliveryJobEnqueuer;
     @Mock
     private UserSettingsRepository userSettingsRepository;
     @Mock
@@ -157,7 +157,7 @@ class NotificationServiceTest {
                 notificationRepository,
                 preferenceService,
                 userRepository,
-                pushNotificationDispatcher,
+                pushDeliveryJobEnqueuer,
                 userSettingsRepository,
                 messageSource);
         NotificationEvent event = NotificationEvent.localized(user, actor, NotificationType.COMMENT,
@@ -359,8 +359,8 @@ class NotificationServiceTest {
     }
 
     @Test
-    @DisplayName("Web push dispatch is deferred until notification transaction commit")
-    void handleNotificationEvent_defersPushDispatchUntilAfterCommit() {
+    @DisplayName("Web push delivery job is persisted with the notification event")
+    void handleNotificationEvent_enqueuesDurablePushDeliveryJob() {
         NotificationEvent event = new NotificationEvent(user, actor, NotificationType.LIKE, NotificationSourceType.POST, 1L, "Test Notification");
         when(notificationRepository.save(any(Notification.class))).thenReturn(notification);
 
@@ -369,26 +369,13 @@ class NotificationServiceTest {
                 notificationRepository,
                 preferenceService,
                 userRepository,
-                pushNotificationDispatcher,
+                pushDeliveryJobEnqueuer,
                 userSettingsRepository,
                 messageSource);
 
-        TransactionSynchronizationManager.initSynchronization();
-        try {
-            commandService.handleNotificationEvent(event);
+        commandService.handleNotificationEvent(event);
 
-            verify(pushNotificationDispatcher, never()).dispatch(any(PushDispatchCommand.class));
-
-            TransactionSynchronizationManager.getSynchronizations()
-                    .forEach(synchronization -> synchronization.afterCommit());
-        } finally {
-            TransactionSynchronizationManager.clearSynchronization();
-        }
-
-        ArgumentCaptor<PushDispatchCommand> pushCommandCaptor = ArgumentCaptor.forClass(PushDispatchCommand.class);
-        verify(pushNotificationDispatcher).dispatch(pushCommandCaptor.capture());
-        assertThat(pushCommandCaptor.getValue().userId()).isEqualTo(1L);
-        assertThat(pushCommandCaptor.getValue().notificationId()).isEqualTo(1L);
+        verify(pushDeliveryJobEnqueuer).enqueue(event, notification);
     }
 
     @Test
@@ -594,7 +581,7 @@ class NotificationServiceTest {
                 notificationRepository,
                 preferenceService,
                 userRepository,
-                pushNotificationDispatcher,
+                pushDeliveryJobEnqueuer,
                 userSettingsRepository,
                 messageSource);
         NotificationDeliveryPublisher deliveryPublisher = new NotificationDeliveryPublisher(

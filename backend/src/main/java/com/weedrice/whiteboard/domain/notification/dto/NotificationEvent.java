@@ -95,4 +95,28 @@ public class NotificationEvent {
                                 .map(param -> param == null ? "" : param)
                                 .toList());
     }
+
+    public static NotificationEvent restored(
+            UUID eventId,
+            User userToNotify,
+            User actor,
+            Agent actorAgent,
+            NotificationType notificationType,
+            NotificationSourceType sourceType,
+            Long sourceId,
+            String content,
+            String messageKey,
+            List<String> messageParams) {
+        return new NotificationEvent(
+                eventId,
+                userToNotify,
+                actor,
+                actorAgent,
+                notificationType,
+                sourceType,
+                sourceId,
+                content,
+                messageKey,
+                messageParams == null ? List.of() : List.copyOf(messageParams));
+    }
 }

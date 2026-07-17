@@ -99,24 +99,29 @@ class NotificationDeliveryJobTransaction {
                 ? null
                 : entityManager.getReference(Agent.class, job.getActorAgentId());
         if (job.getMessageKey() != null && !job.getMessageKey().isBlank()) {
-            return NotificationEvent.localized(
+            return NotificationEvent.restored(
+                    job.getEventId(),
                     receiver,
                     actor,
                     actorAgent,
                     job.getNotificationType(),
                     job.getSourceType(),
                     job.getSourceId(),
+                    null,
                     job.getMessageKey(),
-                    NotificationMessageParamsCodec.decode(job.getMessageParams()).toArray(String[]::new));
+                    NotificationMessageParamsCodec.decode(job.getMessageParams()));
         }
-        return new NotificationEvent(
+        return NotificationEvent.restored(
+                job.getEventId(),
                 receiver,
                 actor,
                 actorAgent,
                 job.getNotificationType(),
                 job.getSourceType(),
                 job.getSourceId(),
-                job.getContent());
+                job.getContent(),
+                null,
+                java.util.List.of());
     }
 
     private static final class NotificationDeliveryLeaseLostException extends RuntimeException {

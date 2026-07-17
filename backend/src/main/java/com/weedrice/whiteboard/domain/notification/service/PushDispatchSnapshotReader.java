@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -23,6 +24,21 @@ class PushDispatchSnapshotReader {
         return pushSubscriptionRepository.findDispatchableByUserId(userId).stream()
                 .map(PushSubscriptionSnapshot::from)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public boolean isCurrentAndEnabled(PushSubscriptionSnapshot expected) {
+        if (expected == null || !isPushEnabled(expected.userId())) {
+            return false;
+        }
+        return pushSubscriptionRepository.findById(expected.subscriptionId())
+                .map(PushSubscriptionSnapshot::from)
+                .filter(current -> Objects.equals(current.userId(), expected.userId()))
+                .filter(current -> Objects.equals(current.endpoint(), expected.endpoint()))
+                .filter(current -> Objects.equals(current.p256dh(), expected.p256dh()))
+                .filter(current -> Objects.equals(current.auth(), expected.auth()))
+                .filter(current -> Objects.equals(current.modifiedAt(), expected.modifiedAt()))
+                .isPresent();
     }
 
     private boolean isPushEnabled(Long userId) {

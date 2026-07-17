@@ -58,7 +58,7 @@ class NotificationSettingsFlowTest {
     private SanctionService sanctionService;
 
     @Mock
-    private PushNotificationDispatcher pushNotificationDispatcher;
+    private PushDeliveryJobEnqueuer pushDeliveryJobEnqueuer;
 
     private UserSettingsService userSettingsService;
     private NotificationService notificationService;
@@ -81,7 +81,7 @@ class NotificationSettingsFlowTest {
                 notificationRepository,
                 preferenceService,
                 userRepository,
-                pushNotificationDispatcher,
+                pushDeliveryJobEnqueuer,
                 userSettingsRepository,
                 new StaticMessageSource());
         NotificationDeliveryPublisher deliveryPublisher = new NotificationDeliveryPublisher(

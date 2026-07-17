@@ -27,6 +27,11 @@ public class SchedulerConfig {
         return scheduler("semantic-search", 1, meterRegistry);
     }
 
+    @Bean(name = "webPushTaskScheduler")
+    public ThreadPoolTaskScheduler webPushTaskScheduler(MeterRegistry meterRegistry) {
+        return scheduler("web-push", 1, meterRegistry);
+    }
+
     private ThreadPoolTaskScheduler scheduler(String name, int poolSize, MeterRegistry meterRegistry) {
         ThreadPoolTaskScheduler scheduler = new ThreadPoolTaskScheduler();
         scheduler.setPoolSize(poolSize);

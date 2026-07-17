@@ -81,6 +81,7 @@
 | 테이블 | 설명 |
 | --- | --- |
 | `notifications` | 알림, source, actor user/agent |
+| `push_delivery_jobs` | 알림 이벤트·구독별 Web Push 재시도 및 dead-letter 작업 |
 | `messages` | 쪽지 |
 | `message_queue` | 비동기 발송 메시지 큐 |
 | `user_feeds` | 사용자별 맞춤 피드 |
@@ -216,6 +217,8 @@
 | `V70` | 비밀번호 재설정 토큰-인증 코드 FK를 `ON DELETE SET NULL`로 교체(contract) |
 | `V71` | semantic 대량 재색인 retry, lease token, dead-letter 상태 추가(contract) |
 | `V72` | 원본 이미지 크기·기대 variant 수·reconciliation version metadata 추가 |
+| `V73` | 피드 생성 작업 retry schedule과 due 인덱스 추가 |
+| `V74` | 이벤트·구독별 durable Web Push delivery job 추가 |
 
 ## 운영 주의
 

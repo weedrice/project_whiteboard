@@ -19,9 +19,11 @@ class SchedulerConfigTest {
         ThreadPoolTaskScheduler common = config.taskScheduler(4, registry);
         ThreadPoolTaskScheduler semantic = config.semanticSearchTaskScheduler(registry);
         ThreadPoolTaskScheduler heartbeat = config.heartbeatTaskScheduler(registry);
+        ThreadPoolTaskScheduler webPush = config.webPushTaskScheduler(registry);
         common.initialize();
         semantic.initialize();
         heartbeat.initialize();
+        webPush.initialize();
         CountDownLatch semanticStarted = new CountDownLatch(1);
         CountDownLatch releaseSemantic = new CountDownLatch(1);
         CountDownLatch heartbeatRan = new CountDownLatch(1);
@@ -43,11 +45,13 @@ class SchedulerConfigTest {
             assertThat(common.getScheduledThreadPoolExecutor().getCorePoolSize()).isEqualTo(4);
             assertThat(semantic.getScheduledThreadPoolExecutor().getCorePoolSize()).isEqualTo(1);
             assertThat(heartbeat.getScheduledThreadPoolExecutor().getCorePoolSize()).isEqualTo(1);
+            assertThat(webPush.getScheduledThreadPoolExecutor().getCorePoolSize()).isEqualTo(1);
         } finally {
             releaseSemantic.countDown();
             common.shutdown();
             semantic.shutdown();
             heartbeat.shutdown();
+            webPush.shutdown();
         }
     }
 }

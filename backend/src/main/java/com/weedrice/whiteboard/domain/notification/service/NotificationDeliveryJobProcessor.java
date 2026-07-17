@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -140,6 +141,6 @@ public class NotificationDeliveryJobProcessor {
     }
 
     private LocalDateTime now() {
-        return LocalDateTime.now(clock);
+        return LocalDateTime.now(clock).truncatedTo(ChronoUnit.MICROS);
     }
 }
