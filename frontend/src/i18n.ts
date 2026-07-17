@@ -39,10 +39,14 @@ export async function ensureLocaleMessages(locale: SupportedLocale): Promise<voi
     }
 }
 
-export async function setAppLocale(locale: SupportedLocale): Promise<boolean> {
+export async function setAppLocale(
+    locale: SupportedLocale,
+    canCommit: () => boolean = () => true,
+): Promise<boolean> {
     const currentLocale = i18n.global.locale.value
     try {
         await ensureLocaleMessages(locale)
+        if (!canCommit()) return true
         i18n.global.locale.value = locale
         document.documentElement.lang = locale
         return true

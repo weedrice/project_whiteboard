@@ -24,12 +24,23 @@ export function useAppUserSettingsSync(
 ) {
     let settingsLoadGeneration = 0
 
-    const applySettings = async (settings: Partial<UserSettings>) => {
+    const applySettings = async (
+        settings: Partial<UserSettings>,
+        expectedSessionGeneration = authStore.sessionGeneration,
+        expectedLoadGeneration = settingsLoadGeneration,
+    ) => {
         if (settings.theme) {
             themeStore.setTheme(settings.theme)
         }
         if (settings.language) {
-            const applied = await setAppLocale(settings.language.toLowerCase() as UserSettings['language'])
+            const applied = await setAppLocale(
+                settings.language.toLowerCase() as UserSettings['language'],
+                () => (
+                    authStore.isAuthenticated
+                    && authStore.sessionGeneration === expectedSessionGeneration
+                    && settingsLoadGeneration === expectedLoadGeneration
+                ),
+            )
             if (!applied) {
                 logger.warn('Failed to load locale messages during settings sync')
             }
@@ -56,7 +67,7 @@ export function useAppUserSettingsSync(
                 && authStore.isAuthenticated
                 && settings
             ) {
-                await applySettings(settings)
+                await applySettings(settings, sessionGeneration, loadGeneration)
             }
         } catch (error) {
             logger.warn('Failed to load user settings:', error)

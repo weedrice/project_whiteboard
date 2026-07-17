@@ -35,4 +35,13 @@ describe('i18n locale behavior', () => {
     expect(i18n.global.t('user.settings.language')).toBe('언어')
     expect(i18n.global.t('admin.menu.users')).toBe('사용자 관리')
   })
+
+  it('loads locale messages without committing after the session guard becomes stale', async () => {
+    locale.value = 'ko'
+
+    await expect(setAppLocale('en', () => false)).resolves.toBe(true)
+
+    expect(locale.value).toBe('ko')
+    expect(document.documentElement.lang).not.toBe('en')
+  })
 })

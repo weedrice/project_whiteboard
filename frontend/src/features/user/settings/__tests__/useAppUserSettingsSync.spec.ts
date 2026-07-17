@@ -89,7 +89,7 @@ describe('useAppUserSettingsSync', () => {
     await sync.loadSettings()
 
     expect(setTheme).toHaveBeenCalledWith('DARK')
-    expect(localeMocks.setAppLocale).toHaveBeenCalledWith('en')
+    expect(localeMocks.setAppLocale).toHaveBeenCalledWith('en', expect.any(Function))
   })
 
   it('ignores account A settings after logout and account B login', async () => {
@@ -137,7 +137,7 @@ describe('useAppUserSettingsSync', () => {
 
     expect(setTheme).not.toHaveBeenCalledWith('DARK')
     expect(localeMocks.setAppLocale).toHaveBeenCalledTimes(1)
-    expect(localeMocks.setAppLocale).toHaveBeenCalledWith('ko')
+    expect(localeMocks.setAppLocale).toHaveBeenCalledWith('ko', expect.any(Function))
   })
 
   it('loads the next account settings when generation changes without an auth boolean transition', async () => {
@@ -179,9 +179,33 @@ describe('useAppUserSettingsSync', () => {
 
     await sync.loadSettings()
 
-    expect(localeMocks.setAppLocale).toHaveBeenCalledWith('en')
+    expect(localeMocks.setAppLocale).toHaveBeenCalledWith('en', expect.any(Function))
     expect(localeMocks.loggerWarn).toHaveBeenCalledWith(
       'Failed to load locale messages during settings sync',
     )
+  })
+
+  it('passes a commit guard that rejects a locale after the session changes', async () => {
+    const authStore = reactive({ isAuthenticated: true, sessionGeneration: 3 })
+    const localeLoad = createDeferred<void>()
+    let commitAllowed: boolean | undefined
+    localeMocks.setAppLocale.mockImplementationOnce(async (_locale, canCommit: () => boolean) => {
+      await localeLoad.promise
+      commitAllowed = canCommit()
+      return true
+    })
+    const queryClient = {
+      fetchQuery: vi.fn().mockResolvedValue({ theme: 'LIGHT', language: 'en' }),
+      removeQueries: vi.fn(),
+    }
+    const sync = useAppUserSettingsSync(authStore, { setTheme: vi.fn() }, queryClient as never)
+
+    const pending = sync.loadSettings()
+    await vi.waitFor(() => expect(localeMocks.setAppLocale).toHaveBeenCalled())
+    authStore.sessionGeneration = 4
+    localeLoad.resolve()
+    await pending
+
+    expect(commitAllowed).toBe(false)
   })
 })
