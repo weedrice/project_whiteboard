@@ -311,7 +311,8 @@ class PostServiceTest {
                 boardAccessPolicy,
                 postAuthorCommandPolicy,
                 semanticSearchEventPublisher,
-                mock(PostSeriesService.class));
+                mock(PostSeriesService.class),
+                mock(com.weedrice.whiteboard.domain.notification.service.NotificationAccessInvalidationService.class));
         PostFacadeReadService postFacadeReadService = new PostFacadeReadService(
                 postRepository,
                 postVersionRepository,

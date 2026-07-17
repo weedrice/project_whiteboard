@@ -5,6 +5,7 @@ import com.weedrice.whiteboard.domain.notification.dto.NotificationResponse;
 import com.weedrice.whiteboard.domain.notification.config.NotificationStreamProperties;
 import com.weedrice.whiteboard.domain.notification.service.CommentStreamPublisher;
 import com.weedrice.whiteboard.domain.notification.service.NotificationStreamPublisher;
+import com.weedrice.whiteboard.domain.notification.service.NotificationStreamControl;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.extern.slf4j.Slf4j;
@@ -28,7 +29,8 @@ import java.util.concurrent.atomic.AtomicLong;
 
 @Slf4j
 @Component
-public class NotificationSseEmitterRegistry implements NotificationStreamPublisher, CommentStreamPublisher {
+public class NotificationSseEmitterRegistry
+        implements NotificationStreamPublisher, CommentStreamPublisher, NotificationStreamControl {
 
     private static final long DEFAULT_TIMEOUT_MILLIS = Duration.ofMinutes(30).toMillis();
     private static final int DEFAULT_MAX_CONNECTIONS_PER_USER = 5;
@@ -347,6 +349,67 @@ public class NotificationSseEmitterRegistry implements NotificationStreamPublish
     private double heartbeatGapSeconds() {
         long lastHeartbeat = lastHeartbeatMillis.get();
         return lastHeartbeat == 0L ? 0.0 : Math.max(0L, System.currentTimeMillis() - lastHeartbeat) / 1_000.0;
+    }
+
+    @Override
+    public void disconnectUser(Long userId) {
+        if (userId == null) {
+            return;
+        }
+        List<SseEmitter> disconnectedEmitters;
+        while (true) {
+            Object lock = lockFor(userId);
+            synchronized (lock) {
+                if (userLocks.get(userId) != lock) {
+                    continue;
+                }
+                Map<String, EmitterConnection> removed = emitters.remove(userId);
+                disconnectedEmitters = removed == null
+                        ? List.of()
+                        : removed.values().stream().map(EmitterConnection::emitter).toList();
+                invalidateCommentTopicsForUser(userId);
+                userLocks.remove(userId, lock);
+                break;
+            }
+        }
+        disconnectedEmitters.forEach(emitter -> {
+            try {
+                emitter.complete();
+            } catch (RuntimeException ex) {
+                log.debug("Failed to complete revoked SSE emitter: userId={}", userId, ex);
+            }
+        });
+    }
+
+    @Override
+    public void invalidateCommentTopic(Long postId) {
+        if (postId == null) {
+            return;
+        }
+        ConcurrentMap<Long, ConcurrentMap<String, Boolean>> removed = commentSubscribers.remove(postId);
+        if (removed != null && !removed.isEmpty()) {
+            commentTopicCleanups.increment();
+        }
+    }
+
+    @Override
+    public void invalidateCommentTopicsForUser(Long userId) {
+        if (userId == null) {
+            return;
+        }
+        int removedTopics = 0;
+        for (Map.Entry<Long, ConcurrentMap<Long, ConcurrentMap<String, Boolean>>> entry
+                : new ArrayList<>(commentSubscribers.entrySet())) {
+            ConcurrentMap<Long, ConcurrentMap<String, Boolean>> postSubscribers = entry.getValue();
+            ConcurrentMap<String, Boolean> removed = postSubscribers.remove(userId);
+            if (removed != null && !removed.isEmpty()) {
+                removedTopics++;
+            }
+            removeEmptyCommentTopic(entry.getKey(), postSubscribers);
+        }
+        if (removedTopics > 0) {
+            commentTopicCleanups.increment(removedTopics);
+        }
     }
 
     private long countCommentTopicsForUser(Long userId) {

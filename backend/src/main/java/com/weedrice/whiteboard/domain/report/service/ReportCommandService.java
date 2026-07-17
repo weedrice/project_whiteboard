@@ -36,8 +36,8 @@ class ReportCommandService {
         String normalizedRemark = ReportRemarkNormalizer.normalize(remark);
         String normalizedContents = normalizeContents(contents);
 
-        reportTargetValidator.validate(normalizedTargetType, targetId, reporter);
         reportAutoBlindService.lockTarget(normalizedTargetType, targetId);
+        reportTargetValidator.validate(normalizedTargetType, targetId, reporter);
 
         ReportDuplicatePolicy.validateNoPendingDuplicate(reportRepository, reporter, normalizedTargetType, targetId);
 

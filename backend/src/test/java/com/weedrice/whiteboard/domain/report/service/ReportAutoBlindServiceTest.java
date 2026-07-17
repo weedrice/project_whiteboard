@@ -4,12 +4,15 @@ import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.moderation.service.ModerationAuditLogService;
+import com.weedrice.whiteboard.domain.notification.service.NotificationAccessInvalidationService;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.report.entity.Report;
 import com.weedrice.whiteboard.domain.report.repository.ReportRepository;
 import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchEventPublisher;
 import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchIndexAction;
+import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -34,14 +37,17 @@ class ReportAutoBlindServiceTest {
     @Mock ReportRepository reports;
     @Mock PostRepository posts;
     @Mock CommentRepository comments;
+    @Mock UserRepository users;
     @Mock ModerationAuditLogService audits;
     @Mock GlobalConfigService configs;
     @Mock SemanticSearchEventPublisher semanticSearchEvents;
+    @Mock NotificationAccessInvalidationService notificationAccessInvalidationService;
     ReportAutoBlindService service;
 
     @BeforeEach
     void setUp() {
-        service = new ReportAutoBlindService(reports, posts, comments, audits, configs, semanticSearchEvents,
+        service = new ReportAutoBlindService(reports, posts, comments, users, audits, configs, semanticSearchEvents,
+                notificationAccessInvalidationService,
                 Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC));
     }
 
@@ -66,12 +72,22 @@ class ReportAutoBlindServiceTest {
         when(comments.findByIdWithRelationsForBlindUpdate(9L)).thenReturn(Optional.of(comment));
         service.lockTarget("POST", 8L);
         service.lockTarget("COMMENT", 9L);
-        service.lockTarget("USER", 10L);
 
         verify(posts).findByIdWithRelationsForBlindUpdate(8L);
         verify(comments).findByIdWithRelationsForBlindUpdate(9L);
         verify(posts, never()).findByIdWithRelationsForBlindUpdate(10L);
         verify(comments, never()).findByIdWithRelationsForBlindUpdate(10L);
+    }
+
+    @Test
+    void locksAndValidatesActiveUserTarget() {
+        User user = mock(User.class);
+        when(users.findByIdForUpdate(10L)).thenReturn(Optional.of(user));
+        when(user.getStatus()).thenReturn(User.STATUS_ACTIVE);
+
+        service.lockTarget("USER", 10L);
+
+        verify(users).findByIdForUpdate(10L);
     }
 
     @Test
@@ -88,6 +104,7 @@ class ReportAutoBlindServiceTest {
         service.applyIfThresholdReached("POST", 3L);
 
         verify(post).blind("AUTO_REPORT", LocalDateTime.of(2026, 1, 1, 0, 0));
+        verify(notificationAccessInvalidationService).invalidateCommentTopicAfterCommit(3L);
         verify(semanticSearchEvents).publish("POST", 3L, SemanticSearchIndexAction.DELETE);
         verify(audits).recordSystemAction(ModerationAuditLogService.ACTION_POST_AUTO_BLIND,
                 ModerationAuditLogService.TARGET_TYPE_POST, 3L, board, "AUTO_REPORT");

@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.post.service;
 
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.moderation.service.ModerationAuditLogService;
+import com.weedrice.whiteboard.domain.notification.service.NotificationAccessInvalidationService;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchEventPublisher;
@@ -29,6 +30,7 @@ public class PostManagerModerationService {
     private final BoardAccessPolicy boardAccessPolicy;
     private final ModerationAuditLogService moderationAuditLogService;
     private final SemanticSearchEventPublisher semanticSearchEventPublisher;
+    private final NotificationAccessInvalidationService notificationAccessInvalidationService;
     private final Clock clock;
 
     public void pinPost(Long managerUserId, Long postId) {
@@ -50,6 +52,7 @@ public class PostManagerModerationService {
         Post post = managedPost.post();
         String normalizedReason = normalizeReason(reason);
         post.blind(normalizedReason, now());
+        notificationAccessInvalidationService.invalidateCommentTopicAfterCommit(post.getPostId());
         semanticSearchEventPublisher.publish("POST", post.getPostId(), SemanticSearchIndexAction.DELETE);
         recordPostAction(managedPost.manager(), post, ModerationAuditLogService.ACTION_POST_BLIND, normalizedReason);
     }

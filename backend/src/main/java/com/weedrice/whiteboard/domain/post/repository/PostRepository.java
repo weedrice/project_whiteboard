@@ -201,6 +201,11 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
         @Lock(LockModeType.PESSIMISTIC_WRITE)
         @Query("SELECT p FROM Post p WHERE p.postId = :postId")
         Optional<Post> findByIdWithRelationsForUpdate(@Param("postId") Long postId);
+
+        @EntityGraph(attributePaths = {"user", "agent", "board", "category"})
+        @Lock(LockModeType.PESSIMISTIC_WRITE)
+        @Query("SELECT p FROM Comment c JOIN c.post p WHERE c.commentId = :commentId")
+        Optional<Post> findByCommentIdWithRelationsForUpdate(@Param("commentId") Long commentId);
     
         long countByUserAndIsDeleted(User user, Boolean isDeleted);
 
@@ -360,7 +365,14 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
         Integer findViewCountByPostId(@Param("postId") Long postId);
 
         @Modifying(flushAutomatically = true)
-        @Query("UPDATE Post p SET p.commentCount = p.commentCount + 1 WHERE p.postId = :postId AND p.isDeleted = false")
+        @Query("""
+                UPDATE Post p
+                SET p.commentCount = p.commentCount + 1
+                WHERE p.postId = :postId
+                  AND p.isDeleted = false
+                  AND p.isBlinded = false
+                  AND p.board.isActive = true
+                """)
         int incrementCommentCount(Long postId);
 
         @Modifying(flushAutomatically = true)

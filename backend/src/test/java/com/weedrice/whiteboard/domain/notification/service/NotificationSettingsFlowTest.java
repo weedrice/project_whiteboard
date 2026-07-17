@@ -84,8 +84,7 @@ class NotificationSettingsFlowTest {
                 pushNotificationDispatcher,
                 userSettingsRepository,
                 new StaticMessageSource());
-        NotificationEventHandler eventHandler = new NotificationEventHandler(
-                commandService,
+        NotificationDeliveryPublisher deliveryPublisher = new NotificationDeliveryPublisher(
                 streamPublisher,
                 notifications -> Map.of());
         NotificationQueryService queryService = new NotificationQueryService(
@@ -93,7 +92,12 @@ class NotificationSettingsFlowTest {
                 notifications -> Map.of());
         NotificationReadCommandService readCommandService =
                 new NotificationReadCommandService(commandService);
-        notificationService = new NotificationService(eventHandler, queryService, readCommandService, userRepository);
+        notificationService = new NotificationService(
+                queryService,
+                readCommandService,
+                userRepository,
+                commandService,
+                deliveryPublisher);
 
         receiver = User.builder().build();
         ReflectionTestUtils.setField(receiver, "userId", 1L);

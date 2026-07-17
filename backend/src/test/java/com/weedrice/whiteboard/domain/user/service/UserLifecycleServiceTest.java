@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.user.service;
 
 import com.weedrice.whiteboard.domain.agent.service.AgentLifecycleService;
 import com.weedrice.whiteboard.domain.auth.service.RefreshTokenLifecycleService;
+import com.weedrice.whiteboard.domain.notification.service.NotificationAccessInvalidationService;
 import com.weedrice.whiteboard.domain.sanction.repository.SanctionRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
@@ -46,6 +47,7 @@ class UserLifecycleServiceTest {
     @Mock private RefreshTokenLifecycleService refreshTokenLifecycleService;
     @Mock private AgentLifecycleService agentLifecycleService;
     @Mock private UserPrivilegeCleanupService userPrivilegeCleanupService;
+    @Mock private NotificationAccessInvalidationService notificationAccessInvalidationService;
     @Mock private Clock clock;
 
     @BeforeEach
@@ -66,6 +68,7 @@ class UserLifecycleServiceTest {
         verify(userRepository).findByIdForUpdate(1L);
         verify(userPrivilegeCleanupService).removeOperationalPrivileges(user);
         verify(refreshTokenLifecycleService).revokeActiveRefreshTokensForLockedUser(user);
+        verify(notificationAccessInvalidationService).revokeForLockedUser(user.getUserId());
         verify(agentLifecycleService).suspendAllForUser(user);
     }
 
@@ -80,6 +83,7 @@ class UserLifecycleServiceTest {
         assertThat(user.getStatus()).isEqualTo("SUSPENDED");
         verify(userPrivilegeCleanupService).removeOperationalPrivileges(user, 9L);
         verify(refreshTokenLifecycleService).revokeActiveRefreshTokensForLockedUser(user);
+        verify(notificationAccessInvalidationService).revokeForLockedUser(user.getUserId());
         verify(agentLifecycleService).suspendAllForUser(user);
     }
 
@@ -98,6 +102,7 @@ class UserLifecycleServiceTest {
         inOrder.verify(userPrivilegeCleanupService).removeOperationalPrivileges(user);
         inOrder.verify(refreshTokenLifecycleService).revokeActiveRefreshTokensForLockedUser(user);
         inOrder.verify(agentLifecycleService).suspendAllForUser(user);
+        verify(notificationAccessInvalidationService).revokeForLockedUser(user.getUserId());
     }
 
     @Test
@@ -114,6 +119,7 @@ class UserLifecycleServiceTest {
         inOrder.verify(userPrivilegeCleanupService).removeOperationalPrivileges(user);
         inOrder.verify(refreshTokenLifecycleService).revokeActiveRefreshTokensForLockedUser(user);
         inOrder.verify(agentLifecycleService).suspendAllForUser(user);
+        verify(notificationAccessInvalidationService).revokeForLockedUser(user.getUserId());
     }
 
     @Test

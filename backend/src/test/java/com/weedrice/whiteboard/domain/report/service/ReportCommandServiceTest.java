@@ -66,8 +66,8 @@ class ReportCommandServiceTest {
 
         assertThat(reportId).isEqualTo(10L);
         InOrder inOrder = inOrder(reportTargetValidator, reportAutoBlindService, reportRepository);
-        inOrder.verify(reportTargetValidator).validate("POST", 2L, reporter);
         inOrder.verify(reportAutoBlindService).lockTarget("POST", 2L);
+        inOrder.verify(reportTargetValidator).validate("POST", 2L, reporter);
         inOrder.verify(reportRepository).existsByReporterAndTargetTypeAndTargetIdAndStatus(
                 reporter, "POST", 2L, Report.STATUS_PENDING);
         inOrder.verify(reportRepository).saveAndFlush(any(Report.class));

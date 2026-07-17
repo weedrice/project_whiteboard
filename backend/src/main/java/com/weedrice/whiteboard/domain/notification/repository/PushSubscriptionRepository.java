@@ -16,11 +16,25 @@ public interface PushSubscriptionRepository
 
     List<PushSubscription> findByUser_UserId(Long userId);
 
+    @Query("""
+            SELECT ps
+            FROM PushSubscription ps
+            JOIN FETCH ps.user u
+            WHERE u.userId = :userId
+              AND u.status = 'ACTIVE'
+              AND u.deletedAt IS NULL
+            """)
+    List<PushSubscription> findDispatchableByUserId(@Param("userId") Long userId);
+
     void deleteByUser_UserIdAndEndpoint(Long userId, String endpoint);
 
     boolean existsByUser_UserIdAndEndpoint(Long userId, String endpoint);
 
     boolean existsByUser_UserId(Long userId);
+
+    @Modifying
+    @Query("DELETE FROM PushSubscription ps WHERE ps.user.userId = :userId")
+    int deleteAllByUserId(@Param("userId") Long userId);
 
     @Modifying
     @Query(value = """

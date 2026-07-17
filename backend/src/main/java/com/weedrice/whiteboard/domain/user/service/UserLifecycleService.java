@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.user.service;
 
 import com.weedrice.whiteboard.domain.agent.service.AgentLifecycleService;
 import com.weedrice.whiteboard.domain.auth.service.RefreshTokenLifecycleService;
+import com.weedrice.whiteboard.domain.notification.service.NotificationAccessInvalidationService;
 import com.weedrice.whiteboard.domain.sanction.repository.SanctionRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
@@ -25,6 +26,7 @@ public class UserLifecycleService {
     private final RefreshTokenLifecycleService refreshTokenLifecycleService;
     private final AgentLifecycleService agentLifecycleService;
     private final UserPrivilegeCleanupService userPrivilegeCleanupService;
+    private final NotificationAccessInvalidationService notificationAccessInvalidationService;
     private final Clock clock;
 
     @Transactional
@@ -104,6 +106,7 @@ public class UserLifecycleService {
             userPrivilegeCleanupService.removeOperationalPrivileges(user, actorUserId);
         }
         refreshTokenLifecycleService.revokeActiveRefreshTokensForLockedUser(user);
+        notificationAccessInvalidationService.revokeForLockedUser(user.getUserId());
         agentLifecycleService.suspendAllForUser(user);
     }
 }

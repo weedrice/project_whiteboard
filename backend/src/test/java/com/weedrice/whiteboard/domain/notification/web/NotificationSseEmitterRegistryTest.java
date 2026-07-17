@@ -46,6 +46,33 @@ class NotificationSseEmitterRegistryTest {
     }
 
     @Test
+    void disconnectUserClosesConnectionsAndClearsAllCommentTopics() {
+        NotificationSseEmitterRegistry registry = registry(10_000L, 5);
+        registry.subscribe(1L);
+        String connectionId = emitters(registry).get(1L).keySet().iterator().next();
+        registry.subscribeCommentTopic(1L, 10L, connectionId);
+
+        registry.disconnectUser(1L);
+
+        assertThat(emitters(registry)).doesNotContainKey(1L);
+        assertThat(userLocks(registry)).doesNotContainKey(1L);
+        assertThat(commentSubscribers(registry)).isEmpty();
+    }
+
+    @Test
+    void invalidatingPostTopicKeepsOtherTopics() {
+        NotificationSseEmitterRegistry registry = registry(10_000L, 5);
+        registry.subscribe(1L);
+        String connectionId = emitters(registry).get(1L).keySet().iterator().next();
+        registry.subscribeCommentTopic(1L, 10L, connectionId);
+        registry.subscribeCommentTopic(1L, 11L, connectionId);
+
+        registry.invalidateCommentTopic(10L);
+
+        assertThat(commentSubscribers(registry)).doesNotContainKey(10L).containsKey(11L);
+    }
+
+    @Test
     void rejectsCommentTopicBeyondPerUserLimit() {
         NotificationSseEmitterRegistry registry = registry(10_000L, 5);
         registry.subscribe(1L);
@@ -296,6 +323,13 @@ class NotificationSseEmitterRegistryTest {
         Map<Long, Object> userLocks = (Map<Long, Object>) ReflectionTestUtils.getField(registry, "userLocks");
         assertThat(userLocks).isNotNull();
         return userLocks;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<Long, ?> commentSubscribers(NotificationSseEmitterRegistry registry) {
+        Map<Long, ?> subscribers = (Map<Long, ?>) ReflectionTestUtils.getField(registry, "commentSubscribers");
+        assertThat(subscribers).isNotNull();
+        return subscribers;
     }
 
     private NotificationSseEmitterRegistry registry(long timeoutMillis, int maxConnectionsPerUser) {

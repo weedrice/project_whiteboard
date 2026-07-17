@@ -5,6 +5,7 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.entity.UserBlock;
 import com.weedrice.whiteboard.domain.user.repository.UserBlockRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.notification.service.NotificationAccessInvalidationService;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -30,6 +31,7 @@ public class UserBlockService {
     private final UserBlockRepository userBlockRepository;
     private final UserReadableResolver userReadableResolver;
     private final UserWritableResolver userWritableResolver;
+    private final NotificationAccessInvalidationService notificationAccessInvalidationService;
 
     @Transactional
     public void blockUser(Long userId, Long targetUserId) {
@@ -49,6 +51,7 @@ public class UserBlockService {
 
         try {
             userBlockRepository.saveAndFlush(userBlock);
+            notificationAccessInvalidationService.invalidateCommentTopicsForUsersAfterCommit(userId, targetUserId);
         } catch (DataIntegrityViolationException ex) {
             throw new BusinessException(ErrorCode.ALREADY_BLOCKED);
         }

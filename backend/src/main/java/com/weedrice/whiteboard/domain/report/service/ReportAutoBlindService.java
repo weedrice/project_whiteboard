@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.report.service;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.moderation.service.ModerationAuditLogService;
+import com.weedrice.whiteboard.domain.notification.service.NotificationAccessInvalidationService;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.report.entity.Report;
@@ -13,6 +14,8 @@ import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchIndexAction;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -33,9 +36,11 @@ class ReportAutoBlindService {
     private final ReportRepository reportRepository;
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
+    private final UserRepository userRepository;
     private final ModerationAuditLogService moderationAuditLogService;
     private final GlobalConfigService globalConfigService;
     private final SemanticSearchEventPublisher semanticSearchEventPublisher;
+    private final NotificationAccessInvalidationService notificationAccessInvalidationService;
     private final Clock clock;
 
     @Transactional(propagation = Propagation.MANDATORY)
@@ -52,6 +57,12 @@ class ReportAutoBlindService {
                     .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
             if (Boolean.TRUE.equals(comment.getIsDeleted())) {
                 throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
+            }
+        } else if (normalizedTargetType == ReportTargetType.USER) {
+            User user = userRepository.findByIdForUpdate(targetId)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+            if (!User.STATUS_ACTIVE.equals(user.getStatus()) || user.getDeletedAt() != null) {
+                throw new BusinessException(ErrorCode.USER_NOT_FOUND);
             }
         }
     }
@@ -86,6 +97,7 @@ class ReportAutoBlindService {
             return;
         }
         post.blind(AUTO_REPORT_REASON, LocalDateTime.now(clock));
+        notificationAccessInvalidationService.invalidateCommentTopicAfterCommit(post.getPostId());
         semanticSearchEventPublisher.publish("POST", post.getPostId(), SemanticSearchIndexAction.DELETE);
         moderationAuditLogService.recordSystemAction(
                 ModerationAuditLogService.ACTION_POST_AUTO_BLIND,

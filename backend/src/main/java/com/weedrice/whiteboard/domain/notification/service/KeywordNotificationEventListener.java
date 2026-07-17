@@ -32,7 +32,7 @@ public class KeywordNotificationEventListener {
 
     private final PostRepository postRepository;
     private final UserKeywordSubscriptionRepository keywordSubscriptionRepository;
-    private final NotificationCommandService notificationCommandService;
+    private final NotificationDeliveryJobService notificationDeliveryJobService;
     private final UserBlockService userBlockService;
 
     @Order(Ordered.LOWEST_PRECEDENCE)
@@ -79,7 +79,7 @@ public class KeywordNotificationEventListener {
                     post.getPostId(),
                     "notification.keyword.matched",
                     post.getTitle());
-            if (notificationCommandService.handleNotificationEvent(notificationEvent) != null) {
+            if (notificationDeliveryJobService.enqueue(notificationEvent) != null) {
                 subscription.markNotified(now);
             }
         }

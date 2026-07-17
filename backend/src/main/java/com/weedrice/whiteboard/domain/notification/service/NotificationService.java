@@ -12,23 +12,31 @@ import org.springframework.stereotype.Service;
 @Service
 public class NotificationService {
 
-    private final NotificationEventHandler eventHandler;
     private final NotificationQueryService queryService;
     private final NotificationReadCommandService readCommandService;
     private final UserRepository userRepository;
+    private final NotificationCommandService commandService;
+    private final NotificationDeliveryPublisher deliveryPublisher;
 
-    public NotificationService(NotificationEventHandler eventHandler,
-                               NotificationQueryService queryService,
+    public NotificationService(NotificationQueryService queryService,
                                NotificationReadCommandService readCommandService,
-                               UserRepository userRepository) {
-        this.eventHandler = eventHandler;
+                               UserRepository userRepository,
+                               NotificationCommandService commandService,
+                               NotificationDeliveryPublisher deliveryPublisher) {
         this.queryService = queryService;
         this.readCommandService = readCommandService;
         this.userRepository = userRepository;
+        this.commandService = commandService;
+        this.deliveryPublisher = deliveryPublisher;
     }
 
+    @org.springframework.transaction.annotation.Transactional
     public void handleNotificationEvent(NotificationEvent event) {
-        eventHandler.handleNotificationEvent(event);
+        com.weedrice.whiteboard.domain.notification.entity.Notification notification =
+                commandService.handleNotificationEvent(event);
+        if (notification != null) {
+            deliveryPublisher.publishAfterCommit(event.getUserToNotify().getUserId(), notification);
+        }
     }
 
     public void validateStreamSubscription(Long userId) {

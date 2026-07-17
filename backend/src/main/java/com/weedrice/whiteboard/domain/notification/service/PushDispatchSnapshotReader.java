@@ -20,7 +20,7 @@ class PushDispatchSnapshotReader {
         if (userId == null || !isPushEnabled(userId)) {
             return List.of();
         }
-        return pushSubscriptionRepository.findByUser_UserId(userId).stream()
+        return pushSubscriptionRepository.findDispatchableByUserId(userId).stream()
                 .map(PushSubscriptionSnapshot::from)
                 .toList();
     }

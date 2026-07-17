@@ -1,0 +1,109 @@
+package com.weedrice.whiteboard.domain.notification.service;
+
+import com.weedrice.whiteboard.domain.agent.entity.Agent;
+import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
+import com.weedrice.whiteboard.domain.notification.dto.NotificationMessageParamsCodec;
+import com.weedrice.whiteboard.domain.notification.entity.Notification;
+import com.weedrice.whiteboard.domain.notification.entity.NotificationDeliveryJob;
+import com.weedrice.whiteboard.domain.notification.repository.NotificationDeliveryJobRepository;
+import com.weedrice.whiteboard.domain.user.entity.User;
+import jakarta.persistence.EntityManager;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+
+@Service
+@RequiredArgsConstructor
+class NotificationDeliveryJobTransaction {
+
+    static final int MAX_RETRY_COUNT = 5;
+
+    private final NotificationDeliveryJobRepository jobRepository;
+    private final NotificationCommandService notificationCommandService;
+    private final NotificationDeliveryPublisher deliveryPublisher;
+    private final EntityManager entityManager;
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public LocalDateTime claim(Long jobId, LocalDateTime claimedAt) {
+        return jobRepository.findByIdForUpdate(jobId)
+                .filter(job -> job.isDue(claimedAt))
+                .map(job -> {
+                    job.claim(claimedAt);
+                    return claimedAt;
+                })
+                .orElse(null);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void deliver(Long jobId, LocalDateTime claimedAt) {
+        NotificationDeliveryJob job = jobRepository.findByIdForUpdate(jobId)
+                .filter(candidate -> candidate.hasLease(claimedAt))
+                .orElseThrow(() -> new NotificationDeliveryLeaseLostException(jobId));
+        Notification notification = notificationCommandService.handleNotificationEvent(toEvent(job));
+        job.complete();
+        if (notification != null) {
+            deliveryPublisher.publishAfterCommit(job.getReceiverUserId(), notification);
+        }
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public boolean fail(Long jobId, LocalDateTime claimedAt, String error, LocalDateTime nextAttemptAt) {
+        return jobRepository.findByIdForUpdate(jobId)
+                .filter(job -> job.hasLease(claimedAt))
+                .map(job -> job.fail(error, nextAttemptAt, MAX_RETRY_COUNT))
+                .orElse(false);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public boolean recoverStale(Long jobId, LocalDateTime staleBefore, LocalDateTime nextAttemptAt) {
+        return jobRepository.findByIdForUpdate(jobId)
+                .filter(job -> job.getStatus() == NotificationDeliveryJob.Status.PROCESSING)
+                .filter(job -> job.getProcessingStartedAt() == null
+                        || job.getProcessingStartedAt().isBefore(staleBefore))
+                .map(job -> job.fail("Processing lease expired", nextAttemptAt, MAX_RETRY_COUNT))
+                .orElse(false);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public int deleteCompletedBefore(LocalDateTime cutoff) {
+        return jobRepository.deleteCompletedBefore(cutoff);
+    }
+
+    private NotificationEvent toEvent(NotificationDeliveryJob job) {
+        User receiver = entityManager.getReference(User.class, job.getReceiverUserId());
+        User actor = job.getActorUserId() == null
+                ? null
+                : entityManager.getReference(User.class, job.getActorUserId());
+        Agent actorAgent = job.getActorAgentId() == null
+                ? null
+                : entityManager.getReference(Agent.class, job.getActorAgentId());
+        if (job.getMessageKey() != null && !job.getMessageKey().isBlank()) {
+            return NotificationEvent.localized(
+                    receiver,
+                    actor,
+                    actorAgent,
+                    job.getNotificationType(),
+                    job.getSourceType(),
+                    job.getSourceId(),
+                    job.getMessageKey(),
+                    NotificationMessageParamsCodec.decode(job.getMessageParams()).toArray(String[]::new));
+        }
+        return new NotificationEvent(
+                receiver,
+                actor,
+                actorAgent,
+                job.getNotificationType(),
+                job.getSourceType(),
+                job.getSourceId(),
+                job.getContent());
+    }
+
+    private static final class NotificationDeliveryLeaseLostException extends RuntimeException {
+        private NotificationDeliveryLeaseLostException(Long jobId) {
+            super("Notification delivery lease changed: " + jobId);
+        }
+    }
+}

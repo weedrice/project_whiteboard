@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.post.service;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.moderation.service.ModerationAuditLogService;
+import com.weedrice.whiteboard.domain.notification.service.NotificationAccessInvalidationService;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchEventPublisher;
@@ -38,6 +39,7 @@ class PostManagerModerationServiceTest {
     @Mock BoardAccessPolicy accessPolicy;
     @Mock ModerationAuditLogService audits;
     @Mock SemanticSearchEventPublisher semanticSearchEvents;
+    @Mock NotificationAccessInvalidationService notificationAccessInvalidationService;
     PostManagerModerationService service;
     User manager;
     Post post;
@@ -46,6 +48,7 @@ class PostManagerModerationServiceTest {
     @BeforeEach
     void setUp() {
         service = new PostManagerModerationService(posts, users, accessPolicy, audits, semanticSearchEvents,
+                notificationAccessInvalidationService,
                 Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC));
         manager = mock(User.class);
         post = mock(Post.class);
@@ -79,6 +82,7 @@ class PostManagerModerationServiceTest {
         verify(semanticSearchEvents).publishPostCommentsReindex(2L);
 
         verify(post).blind("MANAGER", LocalDateTime.of(2026, 1, 1, 0, 0));
+        verify(notificationAccessInvalidationService).invalidateCommentTopicAfterCommit(2L);
         verify(post).unblind();
         verify(audits).recordUserAction(manager, ModerationAuditLogService.ACTION_POST_BLIND,
                 ModerationAuditLogService.TARGET_TYPE_POST, 2L, board, "MANAGER");

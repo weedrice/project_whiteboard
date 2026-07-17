@@ -51,7 +51,7 @@ class KeywordNotificationEventListenerTest {
     void handlePostPublished_skipsBlockedKeywordSubscriber() {
         PostRepository postRepository = mock(PostRepository.class);
         UserKeywordSubscriptionRepository keywordSubscriptionRepository = mock(UserKeywordSubscriptionRepository.class);
-        NotificationCommandService notificationCommandService = mock(NotificationCommandService.class);
+        NotificationDeliveryJobService notificationCommandService = mock(NotificationDeliveryJobService.class);
         UserBlockService userBlockService = mock(UserBlockService.class);
         KeywordNotificationEventListener listener = new KeywordNotificationEventListener(
                 postRepository,
@@ -73,14 +73,14 @@ class KeywordNotificationEventListenerTest {
         listener.handlePostPublished(new PostPublishedEvent(100L, 10L));
 
         verify(userBlockService).getBlockedUserIdsEitherDirectionForExistingUser(1L);
-        verify(notificationCommandService, never()).handleNotificationEvent(any());
+        verify(notificationCommandService, never()).enqueue(any());
     }
 
     @Test
     void handlePostPublished_loadsBlockedUsersOnceForMultipleSubscribers() {
         PostRepository postRepository = mock(PostRepository.class);
         UserKeywordSubscriptionRepository keywordSubscriptionRepository = mock(UserKeywordSubscriptionRepository.class);
-        NotificationCommandService notificationCommandService = mock(NotificationCommandService.class);
+        NotificationDeliveryJobService notificationCommandService = mock(NotificationDeliveryJobService.class);
         UserBlockService userBlockService = mock(UserBlockService.class);
         KeywordNotificationEventListener listener = new KeywordNotificationEventListener(
                 postRepository,
@@ -101,14 +101,14 @@ class KeywordNotificationEventListenerTest {
         listener.handlePostPublished(new PostPublishedEvent(100L, 10L));
 
         verify(userBlockService, times(1)).getBlockedUserIdsEitherDirectionForExistingUser(1L);
-        verify(notificationCommandService, times(2)).handleNotificationEvent(any());
+        verify(notificationCommandService, times(2)).enqueue(any());
     }
 
     @Test
     void handlePostPublished_skipsBlockedUserLookupWhenNoKeywordMatches() {
         PostRepository postRepository = mock(PostRepository.class);
         UserKeywordSubscriptionRepository keywordSubscriptionRepository = mock(UserKeywordSubscriptionRepository.class);
-        NotificationCommandService notificationCommandService = mock(NotificationCommandService.class);
+        NotificationDeliveryJobService notificationCommandService = mock(NotificationDeliveryJobService.class);
         UserBlockService userBlockService = mock(UserBlockService.class);
         KeywordNotificationEventListener listener = new KeywordNotificationEventListener(
                 postRepository,

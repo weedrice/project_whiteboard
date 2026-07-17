@@ -1,0 +1,128 @@
+package com.weedrice.whiteboard.domain.notification.service;
+
+import com.weedrice.whiteboard.domain.notification.entity.NotificationDeliveryJob;
+import com.weedrice.whiteboard.domain.notification.repository.NotificationDeliveryJobRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+@Transactional(propagation = Propagation.NOT_SUPPORTED)
+public class NotificationDeliveryJobProcessor {
+
+    private static final int BATCH_SIZE = 100;
+    private static final int LEASE_MINUTES = 5;
+    private static final int MAX_BACKOFF_MINUTES = 60;
+    private static final int COMPLETED_RETENTION_DAYS = 7;
+
+    private final NotificationDeliveryJobRepository jobRepository;
+    private final NotificationDeliveryJobTransaction jobTransaction;
+    private final NotificationDeliveryJobMetrics metrics;
+    private final Clock clock;
+    private final AtomicLong lastCleanupEpochHour = new AtomicLong(Long.MIN_VALUE);
+
+    public int processDueJobs() {
+        recoverStaleJobs();
+        cleanupCompletedJobsOncePerHour();
+        LocalDateTime now = now();
+        List<Long> jobIds = jobRepository.findDueJobIds(now, PageRequest.of(0, BATCH_SIZE));
+        int processed = 0;
+        for (Long jobId : jobIds) {
+            if (processJob(jobId)) {
+                processed++;
+            }
+        }
+        recordBacklog();
+        return processed;
+    }
+
+    public boolean processJob(Long jobId) {
+        LocalDateTime claimedAt = now();
+        LocalDateTime lease = jobTransaction.claim(jobId, claimedAt);
+        if (lease == null) {
+            return false;
+        }
+        try {
+            jobTransaction.deliver(jobId, lease);
+            metrics.recordOutcome("success");
+            return true;
+        } catch (RuntimeException exception) {
+            int retryNumber = currentRetryCount(jobId) + 1;
+            LocalDateTime nextAttempt = now().plusMinutes(backoffMinutes(retryNumber));
+            boolean deadLettered = jobTransaction.fail(
+                    jobId,
+                    lease,
+                    exception.getClass().getSimpleName(),
+                    nextAttempt);
+            metrics.recordOutcome(deadLettered ? "dead_letter" : "retry");
+            log.warn("Notification delivery job failed. jobId={}, deadLettered={}, exceptionType={}",
+                    jobId, deadLettered, exception.getClass().getSimpleName());
+            return false;
+        }
+    }
+
+    private void recoverStaleJobs() {
+        LocalDateTime now = now();
+        LocalDateTime staleBefore = now.minusMinutes(LEASE_MINUTES);
+        List<Long> staleIds = jobRepository.findStaleProcessingJobIds(
+                staleBefore,
+                PageRequest.of(0, BATCH_SIZE));
+        for (Long staleId : staleIds) {
+            int retryNumber = currentRetryCount(staleId) + 1;
+            boolean deadLettered = jobTransaction.recoverStale(
+                    staleId,
+                    staleBefore,
+                    now.plusMinutes(backoffMinutes(retryNumber)));
+            metrics.recordOutcome(deadLettered ? "dead_letter" : "lease_recovered");
+        }
+    }
+
+    private void cleanupCompletedJobsOncePerHour() {
+        long currentHour = clock.instant().getEpochSecond() / 3_600;
+        long previousHour = lastCleanupEpochHour.get();
+        if (previousHour == currentHour || !lastCleanupEpochHour.compareAndSet(previousHour, currentHour)) {
+            return;
+        }
+        try {
+            int deleted = jobTransaction.deleteCompletedBefore(now().minusDays(COMPLETED_RETENTION_DAYS));
+            if (deleted > 0) {
+                log.info("Deleted {} completed notification delivery job(s)", deleted);
+            }
+        } catch (RuntimeException exception) {
+            metrics.recordOutcome("cleanup_failure");
+            log.warn("Failed to clean completed notification delivery jobs. exceptionType={}",
+                    exception.getClass().getSimpleName());
+        }
+    }
+
+    private int currentRetryCount(Long jobId) {
+        return jobRepository.findById(jobId)
+                .map(NotificationDeliveryJob::getRetryCount)
+                .orElse(0);
+    }
+
+    private long backoffMinutes(int retryNumber) {
+        long backoff = 1L << Math.min(Math.max(retryNumber - 1, 0), 6);
+        return Math.min(backoff, MAX_BACKOFF_MINUTES);
+    }
+
+    private void recordBacklog() {
+        metrics.updateBacklog(
+                jobRepository.countByStatus(NotificationDeliveryJob.Status.PENDING),
+                jobRepository.countByStatus(NotificationDeliveryJob.Status.FAILED));
+    }
+
+    private LocalDateTime now() {
+        return LocalDateTime.now(clock);
+    }
+}

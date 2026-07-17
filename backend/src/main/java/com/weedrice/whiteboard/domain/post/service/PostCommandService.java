@@ -7,6 +7,7 @@ import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.board.util.BoardUrlNormalizer;
 import com.weedrice.whiteboard.domain.file.service.FileService;
+import com.weedrice.whiteboard.domain.notification.service.NotificationAccessInvalidationService;
 import com.weedrice.whiteboard.domain.point.service.ContentRewardPolicy;
 import com.weedrice.whiteboard.domain.point.service.ContentRewardService;
 import com.weedrice.whiteboard.domain.post.dto.PostCreateResponse;
@@ -52,6 +53,7 @@ public class PostCommandService {
     private final PostAuthorCommandPolicy postAuthorCommandPolicy;
     private final SemanticSearchEventPublisher semanticSearchEventPublisher;
     private final PostSeriesService postSeriesService;
+    private final NotificationAccessInvalidationService notificationAccessInvalidationService;
 
     @Transactional
     public Long createPost(@NonNull Long userId, String boardUrl, PostCreateRequest request) {
@@ -152,6 +154,7 @@ public class PostCommandService {
 
         String originalTitle = post.getTitle();
         String originalContents = post.getContents();
+        boolean originalSecret = Boolean.TRUE.equals(post.getIsSecret());
         String sanitizedContents = sanitizePostContents(request.getContents());
 
         boolean isSecret = !boardAccessPolicy.isInquiryBoard(post.getBoard()) && request.isSecret();
@@ -170,6 +173,9 @@ public class PostCommandService {
         semanticSearchEventPublisher.publish("POST", post.getPostId(), SemanticSearchIndexAction.UPSERT);
         if (!Objects.equals(originalTitle, post.getTitle())) {
             semanticSearchEventPublisher.publishPostCommentsReindex(post.getPostId());
+        }
+        if (!originalSecret && Boolean.TRUE.equals(post.getIsSecret())) {
+            notificationAccessInvalidationService.invalidateCommentTopicAfterCommit(post.getPostId());
         }
 
         return post.getPostId();
@@ -197,6 +203,7 @@ public class PostCommandService {
         postAuthorCommandPolicy.validateDeletable(post, modifier);
 
         deletePostWithSideEffects(post, modifier);
+        notificationAccessInvalidationService.invalidateCommentTopicAfterCommit(post.getPostId());
     }
 
     @Transactional

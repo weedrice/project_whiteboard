@@ -5,6 +5,7 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.entity.UserBlock;
 import com.weedrice.whiteboard.domain.user.repository.UserBlockRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.notification.service.NotificationAccessInvalidationService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.junit.jupiter.api.DisplayName;
@@ -52,6 +53,9 @@ class UserBlockServiceTest {
     @Mock
     private UserWritableResolver userWritableResolver;
 
+    @Mock
+    private NotificationAccessInvalidationService notificationAccessInvalidationService;
+
     @Test
     @DisplayName("사용자 차단 성공")
     void blockUser_success() {
@@ -67,6 +71,7 @@ class UserBlockServiceTest {
         userBlockService.blockUser(1L, 2L);
 
         verify(userBlockRepository).saveAndFlush(any(UserBlock.class));
+        verify(notificationAccessInvalidationService).invalidateCommentTopicsForUsersAfterCommit(1L, 2L);
     }
 
     @Test

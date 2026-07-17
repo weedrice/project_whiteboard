@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.comment.service;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.agent.service.AgentOwnershipService;
 import com.weedrice.whiteboard.domain.badge.service.BadgeEvaluationService;
+import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.comment.constant.CommentConstraints;
 import com.weedrice.whiteboard.domain.comment.dto.CommentCreateResponse;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
@@ -50,6 +51,7 @@ public class CommentCommandService {
 
     private final CommentRepository commentRepository;
     private final PostRepository postRepository;
+    private final BoardRepository boardRepository;
     private final CommentLikeRepository commentLikeRepository;
     private final CommentVersionRepository commentVersionRepository;
     private final CommentClosureRepository commentClosureRepository;
@@ -86,7 +88,7 @@ public class CommentCommandService {
         User user = userWritableResolver.resolve(userId);
         sanctionService.validateNotMuted(user);
         Agent agent = resolveAgent(userId, agentId, context);
-        Post post = resolvePost(postId, context);
+        Post post = resolvePostForCreate(postId, context);
         if (context == null || !context.postReadablePrevalidated()) {
             validatePostReadable(post, user);
         }
@@ -161,16 +163,28 @@ public class CommentCommandService {
         return agentOwnershipService.resolveOwnedActiveAgent(userId, agentId);
     }
 
-    private Post resolvePost(Long postId, CommentCreateContext context) {
+    private Post lockPostAndBoard(Long postId) {
+        Post post = postRepository.findByIdWithRelationsForUpdate(postId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+        if (post.getBoard() == null) {
+            throw new BusinessException(ErrorCode.POST_NOT_FOUND);
+        }
+        Long boardId = post.getBoard().getBoardId();
+        if (boardId != null) {
+            boardRepository.findByIdForUpdate(boardId)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+        }
+        return post;
+    }
+
+    private Post resolvePostForCreate(Long postId, CommentCreateContext context) {
         if (context != null && context.post() != null) {
-            Post contextPost = context.post();
-            if (!Objects.equals(contextPost.getPostId(), postId)) {
+            if (!Objects.equals(context.post().getPostId(), postId)) {
                 throw new BusinessException(ErrorCode.POST_NOT_FOUND);
             }
-            return contextPost;
+            return context.post();
         }
-        return postRepository.findByIdWithRelations(postId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+        return lockPostAndBoard(postId);
     }
 
     private Comment resolveParentComment(Long parentId, Post post, CommentCreateContext context) {
@@ -204,10 +218,11 @@ public class CommentCommandService {
         String content = command.content();
         Collection<Long> mentionedUserIds = command.mentionedUserIds();
 
-        Comment comment = loadCommentForUpdate(commentId);
+        LockedCommentTarget target = loadCommentTargetForUpdate(commentId);
+        Comment comment = target.comment();
         User user = userWritableResolver.resolve(userId);
         sanctionService.validateNotMuted(user);
-        validateReadableActiveComment(comment, user);
+        validateReadableActiveComment(target.post(), comment, user);
         validateCommentOwner(comment, userId);
 
         String originalContent = comment.getContent();
@@ -224,9 +239,10 @@ public class CommentCommandService {
 
     @Transactional
     public void deleteComment(Long userId, Long commentId) {
-        Comment comment = loadCommentForUpdate(commentId);
+        LockedCommentTarget target = loadCommentTargetForUpdate(commentId);
+        Comment comment = target.comment();
         User user = userWritableResolver.resolve(userId);
-        validateReadableActiveComment(comment, user);
+        validateReadableActiveComment(target.post(), comment, user);
         validateCommentOwner(comment, userId);
 
         String originalContent = comment.getContent();
@@ -266,17 +282,19 @@ public class CommentCommandService {
     public void likeComment(Long userId, Long commentId) {
         User user = userWritableResolver.resolve(userId);
         sanctionService.validateNotMuted(user);
-        Comment comment = loadReadableActiveCommentForReaction(commentId, user);
+        LockedCommentTarget target = loadCommentTargetForUpdate(commentId);
+        validateReadableActiveComment(target.post(), target.comment(), user);
 
-        commentLikeCommand.like(user, comment, CommentLikeCommand.DuplicatePolicy.THROW_ALREADY_LIKED);
-        commentNotificationService.publishLikeNotification(user, comment, commentId);
+        commentLikeCommand.like(user, target.comment(), CommentLikeCommand.DuplicatePolicy.THROW_ALREADY_LIKED);
+        commentNotificationService.publishLikeNotification(user, target.comment(), commentId);
     }
 
     @Transactional
     public void unlikeComment(Long userId, Long commentId) {
         User user = userWritableResolver.resolve(userId);
         sanctionService.validateNotMuted(user);
-        loadReadableActiveCommentForReaction(commentId, user);
+        LockedCommentTarget target = loadCommentTargetForUpdate(commentId);
+        validateReadableActiveComment(target.post(), target.comment(), user);
 
         int deletedCount = commentLikeRepository.deleteByUserIdAndCommentId(userId, commentId);
         if (deletedCount == 0) {
@@ -292,20 +310,27 @@ public class CommentCommandService {
         }
     }
 
-    private Comment loadCommentForUpdate(Long commentId) {
-        return commentRepository.findByIdWithRelationsForUpdate(commentId)
+    private LockedCommentTarget loadCommentTargetForUpdate(Long commentId) {
+        Post post = postRepository.findByCommentIdWithRelationsForUpdate(commentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
+        if (post.getBoard() == null) {
+            throw new BusinessException(ErrorCode.POST_NOT_FOUND);
+        }
+        Long boardId = post.getBoard().getBoardId();
+        if (boardId != null) {
+            boardRepository.findByIdForUpdate(boardId)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+        }
+        Comment comment = commentRepository.findByIdWithRelationsForUpdate(commentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
+        if (comment.getPost() == null || !Objects.equals(comment.getPost().getPostId(), post.getPostId())) {
+            throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
+        }
+        return new LockedCommentTarget(post, comment);
     }
 
-    private Comment loadReadableActiveCommentForReaction(Long commentId, User user) {
-        Comment comment = commentRepository.findById(commentId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
-        validateReadableActiveComment(comment, user);
-        return comment;
-    }
-
-    private void validateReadableActiveComment(Comment comment, User user) {
-        validatePostReadable(comment.getPost(), user);
+    private void validateReadableActiveComment(Post lockedPost, Comment comment, User user) {
+        validatePostReadable(lockedPost, user);
         if (comment.getIsDeleted()) {
             throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
         }
@@ -370,5 +395,8 @@ public class CommentCommandService {
 
     private void validatePostReadable(Post post, User viewer) {
         commentPostAccessService.validateReadable(post, commentPostAccessService.resolveReadContext(viewer));
+    }
+
+    private record LockedCommentTarget(Post post, Comment comment) {
     }
 }

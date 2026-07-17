@@ -7,6 +7,7 @@ import com.weedrice.whiteboard.domain.board.constant.BoardPolicyConstants;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
 import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
+import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.board.service.BoardCategoryWritePolicy;
 import com.weedrice.whiteboard.domain.comment.dto.CommentResponse;
@@ -57,6 +58,8 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -71,6 +74,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -87,6 +91,8 @@ class CommentServiceTest {
     private CommentRepository commentRepository;
     @Mock
     private PostRepository postRepository;
+    @Mock
+    private BoardRepository boardRepository;
     @Mock
     private UserRepository userRepository;
     @Mock
@@ -128,6 +134,25 @@ class CommentServiceTest {
 
     @BeforeEach
     void setUp() {
+        Map<Long, Comment> lockedCommentTargets = new HashMap<>();
+        lenient().when(postRepository.findByIdWithRelationsForUpdate(anyLong()))
+                .thenAnswer(invocation -> postRepository.findByIdWithRelations(invocation.getArgument(0)));
+        lenient().when(postRepository.findByCommentIdWithRelationsForUpdate(anyLong()))
+                .thenAnswer(invocation -> {
+                    Long commentId = invocation.getArgument(0);
+                    Optional<Comment> comment = commentRepository.findById(commentId);
+                    if (comment.isEmpty()) {
+                        comment = commentRepository.findByIdWithRelationsForUpdate(commentId);
+                    }
+                    comment.ifPresent(value -> lockedCommentTargets.put(commentId, value));
+                    return comment.map(Comment::getPost);
+                });
+        lenient().when(commentRepository.findByIdWithRelationsForUpdate(anyLong()))
+                .thenAnswer(invocation -> {
+                    Long commentId = invocation.getArgument(0);
+                    Comment cached = lockedCommentTargets.remove(commentId);
+                    return cached == null ? commentRepository.findById(commentId) : Optional.of(cached);
+                });
         boardAccessPolicy = new BoardAccessPolicy(adminRepository);
         postAccessPolicy = new PostAccessPolicy(boardAccessPolicy);
         CommentPostAccessService commentPostAccessService = new CommentPostAccessService(userBlockService, postAccessPolicy);
@@ -158,6 +183,7 @@ class CommentServiceTest {
         CommentCommandService commentCommandService = new CommentCommandService(
                 commentRepository,
                 postRepository,
+                boardRepository,
                 commentLikeRepository,
                 commentVersionRepository,
                 commentClosureRepository,
@@ -384,6 +410,7 @@ class CommentServiceTest {
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(post));
+        when(boardRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(board));
 
         assertThatThrownBy(() -> commentService.createComment(1L, 100L, null, "content"))
                 .isInstanceOf(BusinessException.class)
@@ -413,6 +440,7 @@ class CommentServiceTest {
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(post));
+        when(boardRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(board));
 
         assertThatThrownBy(() -> commentService.createComment(1L, 100L, null, "content"))
                 .isInstanceOf(BusinessException.class)
@@ -441,6 +469,7 @@ class CommentServiceTest {
 
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(post));
+        when(boardRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(board));
 
         assertThatThrownBy(() -> commentService.createComment(1L, 100L, 5L, "content"))
                 .isInstanceOf(BusinessException.class)

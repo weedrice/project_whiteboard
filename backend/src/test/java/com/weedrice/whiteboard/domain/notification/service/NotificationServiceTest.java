@@ -597,8 +597,7 @@ class NotificationServiceTest {
                 pushNotificationDispatcher,
                 userSettingsRepository,
                 messageSource);
-        NotificationEventHandler eventHandler = new NotificationEventHandler(
-                commandService,
+        NotificationDeliveryPublisher deliveryPublisher = new NotificationDeliveryPublisher(
                 streamPublisher,
                 notifications -> Collections.emptyMap());
         NotificationQueryService queryService = new NotificationQueryService(
@@ -606,7 +605,12 @@ class NotificationServiceTest {
                 notifications -> Collections.emptyMap());
         NotificationReadCommandService readCommandService =
                 new NotificationReadCommandService(commandService);
-        return new NotificationService(eventHandler, queryService, readCommandService, userRepository);
+        return new NotificationService(
+                queryService,
+                readCommandService,
+                userRepository,
+                commandService,
+                deliveryPublisher);
     }
 
     private static class ThrowingNotificationStreamPublisher implements NotificationStreamPublisher {
