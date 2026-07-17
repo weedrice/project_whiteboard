@@ -10,6 +10,7 @@ import {
   normalizePushNotificationPayload,
   type PushNotificationPayload,
 } from '@/utils/pushNotificationPayload'
+import { focusOrOpenPushNotificationTarget } from '@/utils/pushNotificationClient'
 
 declare const self: ServiceWorkerGlobalScope & {
   __WB_MANIFEST: Array<{ url: string, revision: string | null }>
@@ -77,12 +78,11 @@ self.addEventListener('notificationclick', (event) => {
 
   event.waitUntil((async () => {
     const windowClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
-    const matchingClient = windowClients.find((client) => client.url === targetUrl)
-    if (matchingClient) {
-      await matchingClient.focus()
-      return
-    }
-    await self.clients.openWindow(targetUrl)
+    await focusOrOpenPushNotificationTarget(
+      windowClients,
+      targetUrl,
+      (url) => self.clients.openWindow(url),
+    )
   })())
 })
 
