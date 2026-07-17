@@ -106,7 +106,12 @@ const preferredDraftId = computed(() => {
   const numericDraftId = Number(props.initialDraftId)
   return Number.isFinite(numericDraftId) && numericDraftId > 0 ? numericDraftId : null
 })
-const formIdentity = computed(() => `${props.mode}:${boardUrl.value || 'unknown'}:${postId.value || 'new'}`)
+const routeFormIdentity = computed(() => `${props.mode}:${boardUrl.value || 'unknown'}:${postId.value || 'new'}`)
+const formIdentity = computed(() => [
+  authStore.sessionGeneration,
+  authStore.user?.userId ?? 'hydrating',
+  routeFormIdentity.value,
+].join(':'))
 
 const {
   board,
@@ -286,6 +291,7 @@ const {
 } = usePostComposerDraft({
   isAuthenticated: computed(() => Boolean(authStore.isAuthenticated)),
   userId: computed(() => authStore.user?.userId),
+  sessionGeneration: computed(() => authStore.sessionGeneration),
   identity: formIdentity,
   mode: () => props.mode,
   boardUrl,

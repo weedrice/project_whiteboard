@@ -356,6 +356,8 @@ const { setLastReadCommentId } = usePostViewHistory({
   postId,
   enabled: viewHistoryEnabled,
   initialLastReadCommentId,
+  sessionGeneration: computed(() => authStore.sessionGeneration),
+  userId: currentUserId,
 })
 
 const stopCommentConnectionListener = subscribeNotificationStreamConnection((connection) => {

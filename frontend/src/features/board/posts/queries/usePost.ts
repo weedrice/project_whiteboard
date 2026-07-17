@@ -277,11 +277,11 @@ export function usePost() {
         })
     }
 
-    const useSaveDraft = () => {
+    const useSaveDraft = (resolveRequestConfig?: () => AxiosRequestConfig | undefined) => {
         return useMutation({
             onMutate: captureMutationSession,
             mutationFn: async (data: PostDraftData) => {
-                return await postApi.saveDraft(data)
+                return await postApi.saveDraft(data, resolveRequestConfig?.())
             },
             onSuccess: (_data, _variables, context) => {
                 if (!isCurrentMutation(context)) return
@@ -290,11 +290,11 @@ export function usePost() {
         })
     }
 
-    const useDeleteDraft = () => {
+    const useDeleteDraft = (resolveRequestConfig?: () => AxiosRequestConfig | undefined) => {
         return useMutation({
             onMutate: captureMutationSession,
             mutationFn: async (draftId: string | number) => {
-                return await postApi.deleteDraft(draftId)
+                return await postApi.deleteDraft(draftId, resolveRequestConfig?.())
             },
             onSuccess: (_data, _variables, context) => {
                 if (!isCurrentMutation(context)) return

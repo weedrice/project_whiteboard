@@ -1,5 +1,6 @@
 import { onBeforeUnmount, onMounted, watch, type Ref } from 'vue'
 import { postApi, type ViewHistoryPayload } from '@/api/post'
+import { subscribeAuthSessionBoundary } from '@/queryAuthScope'
 
 const FLUSH_INTERVAL_MS = 30_000
 
@@ -10,12 +11,17 @@ interface TrackingState {
   lastSentCommentId: number | null
   activeStartedAt: number | null
   inFlight: boolean
+  controller: AbortController | null
+  sessionGeneration: number
+  userId: string | number
 }
 
 interface PostViewHistoryOptions {
   postId: Ref<string | number>
   enabled: Ref<boolean>
   initialLastReadCommentId: Ref<number | null | undefined>
+  sessionGeneration: Ref<number>
+  userId: Ref<string | number | null | undefined>
 }
 
 export function usePostViewHistory(options: PostViewHistoryOptions) {
@@ -24,11 +30,18 @@ export function usePostViewHistory(options: PostViewHistoryOptions) {
   let flushTimer: ReturnType<typeof setInterval> | null = null
   let windowFocused = document.hasFocus()
 
-  const stateKey = (postId: string | number) => String(postId)
+  const stateKey = (
+    postId: string | number,
+    sessionGeneration = options.sessionGeneration.value,
+    userId = options.userId.value,
+  ) => `${sessionGeneration}:${String(userId ?? 'anonymous')}:${String(postId)}`
   const now = () => performance.now()
 
   function resolveState(postId: string | number, initialLastReadCommentId?: number | null) {
-    const key = stateKey(postId)
+    const sessionGeneration = options.sessionGeneration.value
+    const userId = options.userId.value
+    if (userId == null) return null
+    const key = stateKey(postId, sessionGeneration, userId)
     const existing = states.get(key)
     if (existing) {
       if (existing.lastReadCommentId == null && initialLastReadCommentId != null) {
@@ -45,6 +58,9 @@ export function usePostViewHistory(options: PostViewHistoryOptions) {
       lastSentCommentId: initialLastReadCommentId ?? null,
       activeStartedAt: null,
       inFlight: false,
+      controller: null,
+      sessionGeneration,
+      userId,
     }
     states.set(key, state)
     return state
@@ -82,6 +98,10 @@ export function usePostViewHistory(options: PostViewHistoryOptions) {
 
   async function flushState(state: TrackingState) {
     if (state.inFlight) return
+    if (
+      state.sessionGeneration !== options.sessionGeneration.value
+      || String(state.userId) !== String(options.userId.value ?? '')
+    ) return
 
     if (state === currentState()) {
       accrue(state)
@@ -95,18 +115,36 @@ export function usePostViewHistory(options: PostViewHistoryOptions) {
 
     state.pendingDurationMs -= durationMs
     state.inFlight = true
+    const controller = new AbortController()
+    state.controller = controller
     const payload: ViewHistoryPayload = {
       durationMs,
       ...(sentCommentId != null ? { lastReadCommentId: sentCommentId } : {}),
     }
 
     try {
-      await postApi.updateViewHistory(state.postId, payload, { skipGlobalErrorHandler: true })
+      await postApi.updateViewHistory(state.postId, payload, {
+        signal: controller.signal,
+        skipAuthRefresh: true,
+        skipGlobalErrorHandler: true,
+      })
+      if (
+        controller.signal.aborted
+        || state.sessionGeneration !== options.sessionGeneration.value
+        || String(state.userId) !== String(options.userId.value ?? '')
+      ) return
       state.lastSentCommentId = sentCommentId
     } catch {
-      state.pendingDurationMs += durationMs
+      if (
+        !controller.signal.aborted
+        && state.sessionGeneration === options.sessionGeneration.value
+        && String(state.userId) === String(options.userId.value ?? '')
+      ) {
+        state.pendingDurationMs += durationMs
+      }
     } finally {
       state.inFlight = false
+      if (state.controller === controller) state.controller = null
     }
   }
 
@@ -143,14 +181,21 @@ export function usePostViewHistory(options: PostViewHistoryOptions) {
   }
 
   watch(
-    [options.postId, options.enabled, options.initialLastReadCommentId],
-    ([postId, enabled, initialLastReadCommentId], [previousPostId]) => {
-      if (currentKey && String(previousPostId) !== String(postId)) {
+    [
+      options.postId,
+      options.enabled,
+      options.initialLastReadCommentId,
+      options.sessionGeneration,
+      options.userId,
+    ],
+    ([postId, enabled, initialLastReadCommentId, sessionGeneration, userId]) => {
+      const nextKey = userId == null ? null : stateKey(postId, sessionGeneration, userId)
+      if (currentKey && currentKey !== nextKey) {
         stopAccruing()
         flushAll()
       }
 
-      if (!enabled || !postId) {
+      if (!enabled || !postId || userId == null) {
         stopAccruing()
         flushAll()
         currentKey = null
@@ -158,6 +203,10 @@ export function usePostViewHistory(options: PostViewHistoryOptions) {
       }
 
       const state = resolveState(postId, initialLastReadCommentId)
+      if (!state) {
+        currentKey = null
+        return
+      }
       currentKey = stateKey(state.postId)
       startAccruing()
     },
@@ -174,6 +223,12 @@ export function usePostViewHistory(options: PostViewHistoryOptions) {
     startAccruing()
   })
 
+  const stopSessionBoundary = subscribeAuthSessionBoundary(() => {
+    currentKey = null
+    states.forEach((state) => state.controller?.abort())
+    states.clear()
+  })
+
   onBeforeUnmount(() => {
     stopAccruing()
     flushAll()
@@ -184,6 +239,7 @@ export function usePostViewHistory(options: PostViewHistoryOptions) {
       clearInterval(flushTimer)
       flushTimer = null
     }
+    stopSessionBoundary()
   })
 
   return {

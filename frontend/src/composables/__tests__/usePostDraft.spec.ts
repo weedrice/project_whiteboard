@@ -18,15 +18,19 @@ const mocks = vi.hoisted(() => {
         deleteDraftMutateAsync,
         getDraft,
         getMyDrafts,
+        saveDraftConfig: undefined as (() => { signal?: AbortSignal } | undefined) | undefined,
     }
 })
 
 vi.mock('@/features/board/posts/queries/usePost', () => ({
     usePost: () => ({
-        useSaveDraft: () => ({
+        useSaveDraft: (resolveConfig: () => { signal?: AbortSignal } | undefined) => {
+            mocks.saveDraftConfig = resolveConfig
+            return {
             isPending: ref(false),
             mutateAsync: mocks.saveDraftMutateAsync,
-        }),
+            }
+        },
         useDeleteDraft: () => ({
             isPending: ref(false),
             mutateAsync: mocks.deleteDraftMutateAsync,
@@ -87,6 +91,7 @@ describe('usePostDraft', () => {
         vi.setSystemTime(new Date('2026-07-07T12:00:00.000Z'))
         Storage.clear()
         vi.clearAllMocks()
+        mocks.saveDraftConfig = undefined
         mocks.saveDraftMutateAsync.mockResolvedValue({
             data: {
                 data: {
@@ -148,6 +153,24 @@ describe('usePostDraft', () => {
             fileIds: [7],
             updatedAt: '2025-01-01T00:00:00.000Z',
         }))
+    })
+
+    it('aborts an in-flight draft request when the draft session resets', async () => {
+        let resolveSave!: (value: unknown) => void
+        mocks.saveDraftMutateAsync.mockImplementationOnce(() => new Promise((resolve) => {
+            resolveSave = resolve
+        }))
+        const { composable } = mountComposable()
+
+        const pendingSave = composable.saveNow()
+        await Promise.resolve()
+        const signal = mocks.saveDraftConfig?.()?.signal
+        expect(signal).toBeInstanceOf(AbortSignal)
+
+        composable.resetSession()
+        expect(signal?.aborted).toBe(true)
+        resolveSave({ data: { data: { draftId: 91 } } })
+        await expect(pendingSave).resolves.toBeNull()
     })
 
     it('uses the current time when a saved draft response omits version timestamps', async () => {

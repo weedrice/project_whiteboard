@@ -267,8 +267,10 @@ export const postApi = {
 
     // Draft APIs
     getDraft: (draftId: string | number) => api.get<ApiResponse<DraftPost>>(`/drafts/${encodePathSegment(draftId)}`),
-    saveDraft: (data: PostDraftData) => api.post<ApiResponse<DraftPost>>('/drafts', data),
-    deleteDraft: (draftId: string | number) => api.delete<ApiResponse<void>>(`/drafts/${encodePathSegment(draftId)}`),
+    saveDraft: (data: PostDraftData, config?: AxiosRequestConfig) =>
+        api.post<ApiResponse<DraftPost>>('/drafts', data, config),
+    deleteDraft: (draftId: string | number, config?: AxiosRequestConfig) =>
+        api.delete<ApiResponse<void>>(`/drafts/${encodePathSegment(draftId)}`, config),
 
     // Report post
     reportPost: (data: ReportData) => api.post<ApiResponse<number>>('/reports/posts', data),

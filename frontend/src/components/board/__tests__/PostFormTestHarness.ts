@@ -385,6 +385,7 @@ const mockPostFormAuthStore = (
     vi.mocked(useAuthStore).mockReturnValue({
         isAuthenticated: overrides.isAuthenticated ?? false,
         user: overrides.user === null ? null : createTestUser(overrides.user),
+        sessionGeneration: 1,
     } as ReturnType<typeof useAuthStore>)
 }
 

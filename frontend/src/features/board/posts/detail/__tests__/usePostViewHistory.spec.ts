@@ -5,6 +5,17 @@ import { postApi } from '@/api/post'
 import { usePostViewHistory } from '@/features/board/posts/detail/usePostViewHistory'
 import { apiSuccessResponse } from '@/test/apiResponseFixtures'
 
+const sessionBoundary = vi.hoisted(() => ({ listener: null as (() => void) | null }))
+
+vi.mock('@/queryAuthScope', () => ({
+  subscribeAuthSessionBoundary: (listener: () => void) => {
+    sessionBoundary.listener = listener
+    return () => {
+      if (sessionBoundary.listener === listener) sessionBoundary.listener = null
+    }
+  },
+}))
+
 vi.mock('@/api/post', () => ({
   postApi: {
     updateViewHistory: vi.fn(),
@@ -20,8 +31,16 @@ const TestHost = defineComponent({
     const postId = ref(15)
     const enabledRef = ref(props.enabled)
     const initialLastReadCommentId = ref<number | null>(props.initialCommentId || null)
-    const history = usePostViewHistory({ postId, enabled: enabledRef, initialLastReadCommentId })
-    return { ...history, enabledRef, postId }
+    const sessionGeneration = ref(1)
+    const userId = ref<number | null>(7)
+    const history = usePostViewHistory({
+      postId,
+      enabled: enabledRef,
+      initialLastReadCommentId,
+      sessionGeneration,
+      userId,
+    })
+    return { ...history, enabledRef, postId, sessionGeneration, userId }
   },
   template: '<div />',
 })
@@ -54,7 +73,11 @@ describe('usePostViewHistory', () => {
     expect(postApi.updateViewHistory).toHaveBeenCalledWith(
       15,
       { durationMs: 30_000, lastReadCommentId: 4 },
-      { skipGlobalErrorHandler: true },
+      expect.objectContaining({
+        signal: expect.any(AbortSignal),
+        skipAuthRefresh: true,
+        skipGlobalErrorHandler: true,
+      }),
     )
   })
 
@@ -69,7 +92,11 @@ describe('usePostViewHistory', () => {
     expect(postApi.updateViewHistory).toHaveBeenCalledWith(
       15,
       { durationMs: 5_250, lastReadCommentId: 9 },
-      { skipGlobalErrorHandler: true },
+      expect.objectContaining({
+        signal: expect.any(AbortSignal),
+        skipAuthRefresh: true,
+        skipGlobalErrorHandler: true,
+      }),
     )
   })
 
@@ -102,7 +129,43 @@ describe('usePostViewHistory', () => {
     expect(postApi.updateViewHistory).toHaveBeenLastCalledWith(
       15,
       { durationMs: 31_000, lastReadCommentId: 4 },
-      { skipGlobalErrorHandler: true },
+      expect.objectContaining({
+        signal: expect.any(AbortSignal),
+        skipAuthRefresh: true,
+        skipGlobalErrorHandler: true,
+      }),
+    )
+  })
+
+  it('aborts and discards pending history at an authentication boundary', async () => {
+    let rejectRequest!: (error: unknown) => void
+    vi.mocked(postApi.updateViewHistory).mockImplementationOnce((_postId, _payload, config) => (
+      new Promise((_, reject) => {
+        rejectRequest = reject
+        config?.signal?.addEventListener?.('abort', () => reject(new DOMException('Aborted', 'AbortError')))
+      })
+    ))
+    const wrapper = mount(TestHost)
+    now = 1_000
+    window.dispatchEvent(new Event('blur'))
+    await nextTick()
+
+    sessionBoundary.listener?.()
+    wrapper.vm.sessionGeneration = 2
+    wrapper.vm.userId = 8
+    rejectRequest(new Error('late failure'))
+    await flushPromises()
+
+    window.dispatchEvent(new Event('focus'))
+    now = 31_000
+    vi.advanceTimersByTime(30_000)
+    await flushPromises()
+
+    expect(postApi.updateViewHistory).toHaveBeenCalledTimes(2)
+    expect(postApi.updateViewHistory).toHaveBeenLastCalledWith(
+      15,
+      { durationMs: 30_000, lastReadCommentId: 4 },
+      expect.objectContaining({ skipAuthRefresh: true }),
     )
   })
 })

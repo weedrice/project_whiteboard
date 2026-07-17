@@ -39,12 +39,16 @@ interface UsePostDraftOptions {
 const AUTOSAVE_DELAY_MS = 1500
 
 export function usePostDraft(options: UsePostDraftOptions) {
+    let requestController: AbortController | null = null
     const { useSaveDraft, useDeleteDraft } = usePost()
     if (typeof useSaveDraft !== 'function' || typeof useDeleteDraft !== 'function') {
         throw new Error('Draft mutations are not available.')
     }
-    const saveDraftMutation = useSaveDraft()
-    const deleteDraftMutation = useDeleteDraft()
+    const resolveRequestConfig = () => requestController
+        ? { signal: requestController.signal, skipGlobalErrorHandler: true }
+        : undefined
+    const saveDraftMutation = useSaveDraft(resolveRequestConfig)
+    const deleteDraftMutation = useDeleteDraft(resolveRequestConfig)
 
     const draftId = ref<number | null>(null)
     const updatedAt = ref<string | null>(null)
@@ -75,6 +79,8 @@ export function usePostDraft(options: UsePostDraftOptions) {
 
     const invalidatePendingSaves = () => {
         sessionGeneration++
+        requestController?.abort()
+        requestController = null
         savePromise = null
         saveQueued = false
         localRevision = 0
@@ -91,11 +97,31 @@ export function usePostDraft(options: UsePostDraftOptions) {
         storeLocalSnapshot(snapshot)
     }
 
-    const savePayload = (payload: PostDraftData) => saveDraftMutation.mutateAsync({
-        ...payload,
-        draftId: draftId.value ?? undefined,
-        updatedAt: updatedAt.value ?? undefined,
-    })
+    const savePayload = async (payload: PostDraftData) => {
+        requestController?.abort()
+        const controller = new AbortController()
+        requestController = controller
+        try {
+            return await saveDraftMutation.mutateAsync({
+                ...payload,
+                draftId: draftId.value ?? undefined,
+                updatedAt: updatedAt.value ?? undefined,
+            })
+        } finally {
+            if (requestController === controller) requestController = null
+        }
+    }
+
+    const deleteDraft = async (targetDraftId: number) => {
+        requestController?.abort()
+        const controller = new AbortController()
+        requestController = controller
+        try {
+            return await deleteDraftMutation.mutateAsync(targetDraftId)
+        } finally {
+            if (requestController === controller) requestController = null
+        }
+    }
 
     const persistNow = async () => {
         if (!options.enabled.value) return null
@@ -109,7 +135,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         if (!shouldPersistToServer) {
             if (existingDraftId != null) {
                 try {
-                    await deleteDraftMutation.mutateAsync(existingDraftId)
+                    await deleteDraft(existingDraftId)
                 } catch (error: unknown) {
                     logger.error('Failed to delete empty draft:', error)
                     throw error
@@ -281,7 +307,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
             return
         }
         try {
-            await deleteDraftMutation.mutateAsync(currentDraftId)
+            await deleteDraft(currentDraftId)
             clearRecovery()
         } catch (error: unknown) {
             if (isAxiosError(error) && error.response?.status === 404) {
@@ -295,6 +321,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
 
     onUnmounted(() => {
         clearAutosaveTimer()
+        invalidatePendingSaves()
     })
 
     return {

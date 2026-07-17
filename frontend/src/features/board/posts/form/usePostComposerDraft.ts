@@ -9,6 +9,7 @@ type ComposerToastType = 'info' | 'success' | 'warning' | 'error'
 type UsePostComposerDraftOptions = {
   isAuthenticated: Ref<boolean>
   userId: Ref<string | number | undefined>
+  sessionGeneration: Ref<number>
   identity: Ref<string>
   mode: () => 'create' | 'edit'
   boardUrl: Ref<string>
@@ -25,11 +26,21 @@ type UsePostComposerDraftOptions = {
 }
 
 export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
-  const draftEnabled = computed(() => options.isAuthenticated.value && !!options.boardUrl.value)
+  const draftEnabled = computed(() => (
+    options.isAuthenticated.value
+    && options.userId.value != null
+    && !!options.boardUrl.value
+  ))
   const draftStorageKey = computed(() =>
     `noviis:draft:${options.userId.value ?? 'guest'}:${options.mode()}:${options.boardUrl.value || 'unknown'}:${options.postId.value || 'new'}`,
   )
   const hasRestoredDraft = ref(false)
+  const initializedBaselineIdentity = ref<string | null>(null)
+  const draftIdentity = computed(() => [
+    options.sessionGeneration.value,
+    options.userId.value ?? 'hydrating',
+    options.identity.value,
+  ].join(':'))
 
   const {
     saveNow: saveDraftNow,
@@ -79,19 +90,28 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
   })
 
   watch(
-    options.identity,
+    draftIdentity,
     (_current, previous) => {
       if (previous === undefined) return
       hasRestoredDraft.value = false
+      initializedBaselineIdentity.value = null
       resetSession()
     },
   )
 
   watch(
-    () => [options.isLoading.value, options.identity.value] as const,
-    async ([loading]) => {
-      if (loading || hasRestoredDraft.value) return
-      const restoringIdentity = options.identity.value
+    () => [options.isLoading.value, draftIdentity.value, draftEnabled.value] as const,
+    async ([loading, identity, enabled]) => {
+      if (loading) return
+      if (!enabled) {
+        if (initializedBaselineIdentity.value !== identity) {
+          options.markCurrentSnapshotSaved()
+          initializedBaselineIdentity.value = identity
+        }
+        return
+      }
+      if (hasRestoredDraft.value) return
+      const restoringIdentity = identity
       hasRestoredDraft.value = true
 
       if (options.mode() === 'create' && !options.selectedCategoryId.value && options.firstCategoryId.value != null) {
@@ -99,7 +119,7 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
       }
 
       await restoreDraft()
-      if (restoringIdentity !== options.identity.value) return
+      if (restoringIdentity !== draftIdentity.value) return
       const restoredDraftSource = restoreSource.value
       if (restoredDraftSource !== 'idle') {
         options.addToast(
@@ -110,6 +130,7 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
         )
       }
       options.markCurrentSnapshotSaved()
+      initializedBaselineIdentity.value = restoringIdentity
     },
     { immediate: true },
   )
