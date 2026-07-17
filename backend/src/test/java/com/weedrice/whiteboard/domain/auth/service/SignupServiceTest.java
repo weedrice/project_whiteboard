@@ -241,7 +241,7 @@ class SignupServiceTest {
 
     @Test
     @DisplayName("회원가입 시 provider 정보가 있으면 소셜 계정 링크 서비스를 호출한다")
-    void signup_linksSocialAccountWhenProviderExists() {
+    void signup_rejectsRawOAuthProviderIdentity() {
         SignupRequest request = SignupRequest.builder()
                 .loginId("testuser")
                 .password("password123")
@@ -251,29 +251,12 @@ class SignupServiceTest {
                 .provider("google")
                 .providerId("google-user-1")
                 .build();
-        User savedUser = User.builder()
-                .loginId("testuser")
-                .password("encoded-password")
-                .email("test@example.com")
-                .displayName("Test User")
-                .build();
-        ReflectionTestUtils.setField(savedUser, "userId", 10L);
-
-        when(accountUniquenessPolicy.findReregisterableSignupUser(request.getEmail())).thenReturn(Optional.empty());
-        when(passwordHistoryPolicy.encode(request.getPassword())).thenReturn("encoded-password");
-        when(userRepository.saveAndFlush(org.mockito.ArgumentMatchers.any(User.class))).thenReturn(savedUser);
-        when(userSettingsRepository.save(org.mockito.ArgumentMatchers.any())).thenAnswer(invocation -> invocation.getArgument(0));
-        when(globalConfigService.getConfig("POINT_SIGNUP_BONUS")).thenReturn("500");
-
-        SignupResponse response = signupService.signup(request);
-
-        assertThat(response.getUserId()).isEqualTo(10L);
-        var inOrder = inOrder(verificationCodeService, socialAccountLinkService);
-        inOrder.verify(verificationCodeService).consumeVerificationTicket(
-                request.getEmail(),
-                VerificationPurpose.SIGNUP,
-                request.getVerificationTicket());
-        inOrder.verify(socialAccountLinkService).linkSocialAccount(eq(savedUser), eq("google"), eq("google-user-1"));
+        assertThatThrownBy(() -> signupService.signup(request))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.VALIDATION_ERROR);
+        verify(oAuthSignupTicketService, never()).consume(anyString());
+        verify(verificationCodeService, never()).consumeVerificationTicket(anyString(), any(), anyString());
     }
 
     @Test
@@ -319,7 +302,7 @@ class SignupServiceTest {
 
     @Test
     @DisplayName("회원가입 시 provider만 있으면 소셜 계정 링크 서비스가 검증한다")
-    void signup_delegatesSocialAccountLinkWhenOnlyProviderExists() {
+    void signup_rejectsRawProviderOnly() {
         SignupRequest request = SignupRequest.builder()
                 .loginId("testuser")
                 .password("password123")
@@ -328,16 +311,15 @@ class SignupServiceTest {
                 .verificationTicket("ticket-1")
                 .provider("google")
                 .build();
-        User savedUser = stubSuccessfulSignup(request);
-
-        signupService.signup(request);
-
-        verify(socialAccountLinkService).linkSocialAccount(eq(savedUser), eq("google"), isNull());
+        assertThatThrownBy(() -> signupService.signup(request))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.VALIDATION_ERROR);
     }
 
     @Test
     @DisplayName("회원가입 시 providerId만 있으면 소셜 계정 링크 서비스가 검증한다")
-    void signup_delegatesSocialAccountLinkWhenOnlyProviderIdExists() {
+    void signup_rejectsRawProviderIdOnly() {
         SignupRequest request = SignupRequest.builder()
                 .loginId("testuser")
                 .password("password123")
@@ -346,11 +328,10 @@ class SignupServiceTest {
                 .verificationTicket("ticket-1")
                 .providerId("google-user-1")
                 .build();
-        User savedUser = stubSuccessfulSignup(request);
-
-        signupService.signup(request);
-
-        verify(socialAccountLinkService).linkSocialAccount(eq(savedUser), isNull(), eq("google-user-1"));
+        assertThatThrownBy(() -> signupService.signup(request))
+                .isInstanceOf(BusinessException.class)
+                .extracting(exception -> ((BusinessException) exception).getErrorCode())
+                .isEqualTo(ErrorCode.VALIDATION_ERROR);
     }
 
     @Test

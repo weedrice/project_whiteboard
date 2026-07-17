@@ -103,6 +103,46 @@ class OAuthSignupTicketServiceTest {
     }
 
     @Test
+    void consume_rejectsMalformedTicketWithoutRepositoryLookup() {
+        assertThatThrownBy(() -> service.consume("forged-ticket"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(ticketRepository, never()).findByTicketHashForUpdate(org.mockito.ArgumentMatchers.anyString());
+    }
+
+    @Test
+    void consume_rejectsExpiredTicket() {
+        String ticket = UUID.randomUUID().toString();
+        String hash = tokenHashService.hashSha256(ticket);
+        OAuthSignupTicketEntity expired = new OAuthSignupTicketEntity(
+                hash, "test@example.com", null, "google", "provider-1", LocalDateTime.now(CLOCK));
+        when(ticketRepository.findByTicketHashForUpdate(hash)).thenReturn(Optional.of(expired));
+
+        assertThatThrownBy(() -> service.consume(ticket))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+        verify(ticketRepository, never()).delete(expired);
+    }
+
+    @Test
+    void consume_rejectsReplayedTicketAfterFirstConsumption() {
+        String ticket = UUID.randomUUID().toString();
+        String hash = tokenHashService.hashSha256(ticket);
+        OAuthSignupTicketEntity entity = activeEntity(hash);
+        when(ticketRepository.findByTicketHashForUpdate(hash))
+                .thenReturn(Optional.of(entity))
+                .thenReturn(Optional.empty());
+
+        service.consume(ticket);
+
+        assertThatThrownBy(() -> service.consume(ticket))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+        verify(ticketRepository).delete(entity);
+    }
+
+    @Test
     void deleteExpiredTickets_usesCurrentClockTime() {
         LocalDateTime now = LocalDateTime.now(CLOCK);
         when(ticketRepository.deleteExpiredAtOrBefore(now)).thenReturn(3);

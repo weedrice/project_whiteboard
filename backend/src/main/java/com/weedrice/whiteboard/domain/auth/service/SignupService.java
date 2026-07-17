@@ -50,6 +50,7 @@ public class SignupService {
 
     @Transactional
     public SignupResponse signup(SignupRequest request) {
+        validateLegacyOAuthIdentityAbsent(request);
         OAuthSignupTicketService.OAuthSignupTicket oauthTicket = resolveOAuthTicket(request);
         String normalizedEmail = AuthEmailNormalizer.normalize(request.getEmail());
         validateOAuthTicketEmail(oauthTicket, normalizedEmail);
@@ -96,7 +97,7 @@ public class SignupService {
                     "USER");
         }
 
-        saveSocialAccountIfPresent(savedUser, request, oauthTicket);
+        saveSocialAccountIfPresent(savedUser, oauthTicket);
 
         return SignupResponse.builder()
                 .userId(savedUser.getUserId())
@@ -108,6 +109,7 @@ public class SignupService {
 
     @Transactional
     public SignupResponse reregister(User existingUser, SignupRequest request) {
+        validateLegacyOAuthIdentityAbsent(request);
         String normalizedEmail = AuthEmailNormalizer.normalize(request.getEmail());
         return reregister(existingUser, request, normalizedEmail);
     }
@@ -137,7 +139,7 @@ public class SignupService {
         userRepository.save(existingUser);
         passwordHistoryPolicy.record(existingUser, passwordHash);
 
-        saveSocialAccountIfPresent(existingUser, request, oauthTicket);
+        saveSocialAccountIfPresent(existingUser, oauthTicket);
 
         return SignupResponse.builder()
                 .userId(existingUser.getUserId())
@@ -201,15 +203,21 @@ public class SignupService {
         }
     }
 
-    private void saveSocialAccountIfPresent(User user, SignupRequest request,
+    private void saveSocialAccountIfPresent(
+            User user,
             OAuthSignupTicketService.OAuthSignupTicket oauthTicket) {
-        String provider = oauthTicket != null ? oauthTicket.provider() : request.getProvider();
-        String providerId = oauthTicket != null ? oauthTicket.providerId() : request.getProviderId();
-        if (!StringUtils.hasText(provider) && !StringUtils.hasText(providerId)) {
+        if (oauthTicket == null) {
             return;
         }
+        socialAccountLinkService.linkSocialAccount(user, oauthTicket.provider(), oauthTicket.providerId());
+    }
 
-        socialAccountLinkService.linkSocialAccount(user, provider, providerId);
+    private void validateLegacyOAuthIdentityAbsent(SignupRequest request) {
+        if (!request.isLegacyOAuthIdentityAbsent()
+                || request.getProvider() != null
+                || request.getProviderId() != null) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+        }
     }
 
 }

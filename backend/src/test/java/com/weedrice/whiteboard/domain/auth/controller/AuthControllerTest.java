@@ -148,10 +148,41 @@ class AuthControllerTest {
 
         mockMvc.perform(post("/api/v1/auth/signup")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(request)))
+                        .content("""
+                                {"email":"test@example.com","loginId":"testuser","password":"Password123!",
+                                 "verificationTicket":"ticket-1","displayName":"Test User"}
+                                """))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.userId").value(1L));
+    }
+
+    @Test
+    void signup_rejectsPresentLegacyProviderEvenWhenBlank() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"test@example.com","loginId":"testuser","password":"Password123!",
+                                 "verificationTicket":"ticket-1","displayName":"Test User","provider":""}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("C008"));
+
+        verify(authService, never()).signup(any());
+    }
+
+    @Test
+    void signup_rejectsPresentLegacyProviderIdEvenWhenNull() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"test@example.com","loginId":"testuser","password":"Password123!",
+                                 "verificationTicket":"ticket-1","displayName":"Test User","providerId":null}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("C008"));
+
+        verify(authService, never()).signup(any());
     }
 
     @Test

@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.auth.dto;
 import com.weedrice.whiteboard.global.validation.NoHtml;
 import com.weedrice.whiteboard.global.validation.PasswordStrength;
 import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -46,4 +47,9 @@ public class SignupRequest {
     private String provider;
     private String providerId;
     private String oauthRegistrationTicket;
+
+    @AssertTrue(message = "{validation.oauth.rawIdentity.unsupported}")
+    public boolean isLegacyOAuthIdentityAbsent() {
+        return provider == null && providerId == null;
+    }
 }

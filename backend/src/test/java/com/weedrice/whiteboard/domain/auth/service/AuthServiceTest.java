@@ -163,7 +163,7 @@ class AuthServiceTest {
                 userRepository,
                 loginAccountEligibilityService,
                 new LoginAuthenticator(authenticationManagerBuilder),
-                new LoginAuditRecorder(loginHistoryAuditService),
+                new LoginAuditRecorder(loginHistoryAuditService, new io.micrometer.core.instrument.simple.SimpleMeterRegistry()),
                 new LoginUserInfoAssembler(currentUserSummaryAssembler),
                 loginAccountRateLimiter,
                 FIXED_CLOCK);
