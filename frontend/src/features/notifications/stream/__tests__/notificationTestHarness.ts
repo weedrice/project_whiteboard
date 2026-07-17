@@ -79,10 +79,13 @@ const notificationMocks = vi.hoisted(() => {
     mutationOptions.push(options)
     return {
       mutateAsync: async (variables: unknown) => {
+        const context = options.onMutate
+          ? await (options.onMutate as (v: unknown) => unknown)(variables)
+          : undefined
         const result = await (options.mutationFn as (v: unknown) => Promise<unknown>)(variables)
         if (options.onSuccess) {
           const onSuccess = options.onSuccess as (data: unknown, vars: unknown, context: unknown) => void
-          onSuccess(result, variables, undefined)
+          onSuccess(result, variables, context)
         }
         return result
       },

@@ -2,6 +2,7 @@ import type { QueryClient } from '@tanstack/vue-query'
 import type { Post } from '@/types'
 import { homeQueryKeys } from '@/composables/homeQueryKeys'
 import { postQueryKeys } from '@/features/board/posts/queries/postQueryKeys'
+import { sessionQueryKey } from '@/queryAuthScope'
 
 type PostId = string | number
 
@@ -17,16 +18,19 @@ interface PageQueryData {
 
 export function updatePostInAllCaches(
   queryClient: QueryClient,
+  sessionGeneration: number,
   postId: PostId,
   updater: (post: Partial<Post>) => Partial<Post>
 ) {
-  queryClient.setQueriesData<Post>({ queryKey: postQueryKeys.detailPrefix(postId) }, (old) => {
+  queryClient.setQueriesData<Post>({
+    queryKey: sessionQueryKey(sessionGeneration, postQueryKeys.detailPrefix(postId)),
+  }, (old) => {
     if (!old) return old
     return updater(old) as Post
   })
 
   queryClient.setQueriesData<InfiniteQueryData>(
-    { queryKey: postQueryKeys.lists },
+    { queryKey: sessionQueryKey(sessionGeneration, postQueryKeys.lists) },
     (old) => {
       if (!old?.pages) return old
       return {
@@ -43,7 +47,9 @@ export function updatePostInAllCaches(
     }
   )
 
-  queryClient.getQueriesData({ queryKey: postQueryKeys.boardPostsRoot }).forEach(([key]) => {
+  queryClient.getQueriesData({
+    queryKey: sessionQueryKey(sessionGeneration, postQueryKeys.boardPostsRoot),
+  }).forEach(([key]) => {
     queryClient.setQueryData(key, (old: InfiniteQueryData | PageQueryData | undefined) => {
       if (!old) return old
 
@@ -76,11 +82,21 @@ export function updatePostInAllCaches(
   })
 }
 
-export function savePostCacheSnapshots(queryClient: QueryClient, postId: PostId) {
+export function savePostCacheSnapshots(
+  queryClient: QueryClient,
+  sessionGeneration: number,
+  postId: PostId,
+) {
   return {
-    postDetailQueries: queryClient.getQueriesData({ queryKey: postQueryKeys.detailPrefix(postId) }),
-    postsQueries: queryClient.getQueriesData({ queryKey: postQueryKeys.lists }),
-    boardQueries: queryClient.getQueriesData({ queryKey: postQueryKeys.boardPostsRoot }),
+    postDetailQueries: queryClient.getQueriesData({
+      queryKey: sessionQueryKey(sessionGeneration, postQueryKeys.detailPrefix(postId)),
+    }),
+    postsQueries: queryClient.getQueriesData({
+      queryKey: sessionQueryKey(sessionGeneration, postQueryKeys.lists),
+    }),
+    boardQueries: queryClient.getQueriesData({
+      queryKey: sessionQueryKey(sessionGeneration, postQueryKeys.boardPostsRoot),
+    }),
   }
 }
 
@@ -99,15 +115,27 @@ export function restorePostCacheSnapshots(
   })
 }
 
-export function invalidatePostCaches(queryClient: QueryClient, postId: PostId) {
-  queryClient.invalidateQueries({ queryKey: postQueryKeys.detailPrefix(postId) })
-  queryClient.invalidateQueries({ queryKey: postQueryKeys.lists })
-  queryClient.invalidateQueries({ queryKey: homeQueryKeys.landingRoot })
-  queryClient.invalidateQueries({ queryKey: postQueryKeys.boardPostsRoot })
+export function invalidatePostCaches(
+  queryClient: QueryClient,
+  sessionGeneration: number,
+  postId: PostId,
+) {
+  queryClient.invalidateQueries({
+    queryKey: sessionQueryKey(sessionGeneration, postQueryKeys.detailPrefix(postId)),
+  })
+  queryClient.invalidateQueries({ queryKey: sessionQueryKey(sessionGeneration, postQueryKeys.lists) })
+  queryClient.invalidateQueries({ queryKey: sessionQueryKey(sessionGeneration, homeQueryKeys.landingRoot) })
+  queryClient.invalidateQueries({
+    queryKey: sessionQueryKey(sessionGeneration, postQueryKeys.boardPostsRoot),
+  })
   queryClient.invalidateQueries({
     predicate: (query) => {
       const key = query.queryKey
-      return Array.isArray(key) && key[0] === 'board' && key[1] === 'posts'
+      return Array.isArray(key)
+        && key[0] === 'session'
+        && key[1] === sessionGeneration
+        && key[2] === 'board'
+        && key[3] === 'posts'
     },
   })
 }

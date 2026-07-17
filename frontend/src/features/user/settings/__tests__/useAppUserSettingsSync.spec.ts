@@ -39,7 +39,7 @@ describe('useAppUserSettingsSync', () => {
   })
 
   it('does not apply settings that resolve after logout', async () => {
-    const authStore = reactive({ isAuthenticated: true })
+    const authStore = reactive({ isAuthenticated: true, sessionGeneration: 0 })
     const setTheme = vi.fn()
     const settingsResult = createDeferred<UserSettings | null>()
     const queryClient = {
@@ -68,7 +68,7 @@ describe('useAppUserSettingsSync', () => {
   })
 
   it('applies settings while still authenticated', async () => {
-    const authStore = reactive({ isAuthenticated: true })
+    const authStore = reactive({ isAuthenticated: true, sessionGeneration: 0 })
     const setTheme = vi.fn()
     const queryClient = {
       fetchQuery: vi.fn().mockResolvedValue({
@@ -93,7 +93,7 @@ describe('useAppUserSettingsSync', () => {
   })
 
   it('ignores account A settings after logout and account B login', async () => {
-    const authStore = reactive({ isAuthenticated: true })
+    const authStore = reactive({ isAuthenticated: true, sessionGeneration: 0 })
     const setTheme = vi.fn()
     const accountASettings = createDeferred<UserSettings | null>()
     const accountBSettings = createDeferred<UserSettings | null>()
@@ -140,6 +140,31 @@ describe('useAppUserSettingsSync', () => {
     expect(localeMocks.setAppLocale).toHaveBeenCalledWith('ko')
   })
 
+  it('loads the next account settings when generation changes without an auth boolean transition', async () => {
+    const authStore = reactive({ isAuthenticated: true, sessionGeneration: 0 })
+    const setTheme = vi.fn()
+    const queryClient = {
+      fetchQuery: vi.fn().mockResolvedValue({
+        theme: 'LIGHT',
+        language: 'ko',
+        timezone: 'Asia/Seoul',
+        hideNsfw: false,
+        pushEnabled: false,
+      }),
+      removeQueries: vi.fn(),
+    }
+    useAppUserSettingsSync(authStore, { setTheme }, queryClient as never)
+
+    authStore.sessionGeneration = 1
+    await nextTick()
+    await vi.waitFor(() => expect(queryClient.fetchQuery).toHaveBeenCalledTimes(1))
+
+    expect(queryClient.fetchQuery).toHaveBeenCalledWith(expect.objectContaining({
+      queryKey: ['session', 1, 'user', 'settings'],
+    }))
+    expect(setTheme).toHaveBeenCalledWith('LIGHT')
+  })
+
   it('keeps the current locale and logs a warning when lazy loading fails', async () => {
     localeMocks.setAppLocale.mockResolvedValue(false)
     const queryClient = {
@@ -147,7 +172,7 @@ describe('useAppUserSettingsSync', () => {
       removeQueries: vi.fn(),
     }
     const sync = useAppUserSettingsSync(
-      reactive({ isAuthenticated: true }),
+      reactive({ isAuthenticated: true, sessionGeneration: 0 }),
       { setTheme: vi.fn() },
       queryClient as never,
     )

@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   getQueryData: vi.fn(),
   authStore: {
     user: null as null | Record<string, unknown>,
+    sessionGeneration: 0,
   },
 }))
 
@@ -61,6 +62,7 @@ describe('useMyPageDashboardResource', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.authStore.user = null
+    mocks.authStore.sessionGeneration = 0
     mocks.getQueryData.mockReturnValue(undefined)
     mocks.fetchQuery.mockImplementation(async (options: { queryFn: () => Promise<unknown> }) => options.queryFn())
     vi.mocked(userApi.getMyProfile).mockResolvedValue(
@@ -101,15 +103,15 @@ describe('useMyPageDashboardResource', () => {
     }, signalConfig)
     expect(userApi.getMyComments).toHaveBeenCalledWith({ page: 0, size: 10 }, signalConfig)
     expect(mocks.fetchQuery).toHaveBeenCalledWith(expect.objectContaining({
-      queryKey: ['user', 'me'],
+      queryKey: ['session', 0, 'user', 'me'],
       staleTime: QUERY_STALE_TIME.MEDIUM,
     }))
     expect(mocks.fetchQuery).toHaveBeenCalledWith(expect.objectContaining({
-      queryKey: ['user', 'agents'],
+      queryKey: ['session', 0, 'user', 'agents'],
       staleTime: QUERY_STALE_TIME.MEDIUM,
     }))
     expect(mocks.fetchQuery).toHaveBeenCalledWith(expect.objectContaining({
-      queryKey: ['user', 'me', 'posts', {
+      queryKey: ['session', 0, 'user', 'me', 'posts', {
         page: 0,
         size: 10,
         sort: 'createdAt,desc',
@@ -117,7 +119,7 @@ describe('useMyPageDashboardResource', () => {
       staleTime: QUERY_STALE_TIME.SHORT,
     }))
     expect(mocks.fetchQuery).toHaveBeenCalledWith(expect.objectContaining({
-      queryKey: ['user', 'me', 'comments', {
+      queryKey: ['session', 0, 'user', 'me', 'comments', {
         page: 0,
         size: 10,
       }],
@@ -154,7 +156,7 @@ describe('useMyPageDashboardResource', () => {
     await resource.fetchMyProfile()
 
     expect(resource.profile.value?.email).toBe('restored@example.com')
-    expect(mocks.setQueryData).toHaveBeenCalledWith(['user', 'me'], mocks.authStore.user)
+    expect(mocks.setQueryData).toHaveBeenCalledWith(['session', 0, 'user', 'me'], mocks.authStore.user)
     expect(mocks.fetchQuery).not.toHaveBeenCalled()
     expect(userApi.getMyProfile).not.toHaveBeenCalled()
   })
@@ -184,7 +186,7 @@ describe('useMyPageDashboardResource', () => {
 
     expect(resource.profile.value?.email).toBe('cached@example.com')
     expect(resource.profile.value?.isEmailVerified).toBe(true)
-    expect(mocks.setQueryData).toHaveBeenCalledWith(['user', 'me'], resource.profile.value)
+    expect(mocks.setQueryData).toHaveBeenCalledWith(['session', 0, 'user', 'me'], resource.profile.value)
     expect(mocks.fetchQuery).not.toHaveBeenCalled()
   })
 
@@ -213,7 +215,7 @@ describe('useMyPageDashboardResource', () => {
 
     expect(resource.profile.value?.email).toBe('cached@example.com')
     expect(resource.profile.value?.isEmailVerified).toBe(true)
-    expect(mocks.setQueryData).toHaveBeenCalledWith(['user', 'me'], resource.profile.value)
+    expect(mocks.setQueryData).toHaveBeenCalledWith(['session', 0, 'user', 'me'], resource.profile.value)
   })
 
   it('replaces a stale profile cache when the authenticated user changed', async () => {
@@ -240,7 +242,7 @@ describe('useMyPageDashboardResource', () => {
 
     expect(resource.profile.value?.email).toBe('restored@example.com')
     expect(resource.profile.value?.isEmailVerified).toBe(false)
-    expect(mocks.setQueryData).toHaveBeenCalledWith(['user', 'me'], mocks.authStore.user)
+    expect(mocks.setQueryData).toHaveBeenCalledWith(['session', 0, 'user', 'me'], mocks.authStore.user)
     expect(mocks.fetchQuery).not.toHaveBeenCalled()
   })
 
@@ -258,7 +260,7 @@ describe('useMyPageDashboardResource', () => {
       sort: 'likeCount,desc',
     }, signalConfig)
     expect(mocks.fetchQuery).toHaveBeenCalledWith(expect.objectContaining({
-      queryKey: ['user', 'me', 'posts', {
+      queryKey: ['session', 0, 'user', 'me', 'posts', {
         page: 2,
         size: 10,
         sort: 'likeCount,desc',
@@ -269,7 +271,7 @@ describe('useMyPageDashboardResource', () => {
   it('keeps successful dashboard sections visible when a resource request fails', async () => {
     const loggerSpy = vi.spyOn(logger, 'error').mockImplementation(() => undefined)
     mocks.fetchQuery.mockImplementation(async (options: { queryKey: unknown[]; queryFn: () => Promise<unknown> }) => {
-      if (options.queryKey[0] === 'user' && options.queryKey[2] === 'posts') {
+      if (options.queryKey[2] === 'user' && options.queryKey[4] === 'posts') {
         throw new Error('network')
       }
       return options.queryFn()
@@ -361,5 +363,38 @@ describe('useMyPageDashboardResource', () => {
 
     expect(resource.myComments.value).toEqual([{ commentId: 2, content: 'Second', createdAt: '2026-05-20T10:00:00' }])
     expect(resource.isMyCommentsLoading.value).toBe(false)
+  })
+
+  it('does not apply posts or comments after the authentication generation changes', async () => {
+    const postsRequest = createDeferred<GetMyPostsResponse>()
+    const commentsRequest = createDeferred<GetMyCommentsResponse>()
+    vi.mocked(userApi.getMyPosts).mockReturnValueOnce(postsRequest.promise)
+    vi.mocked(userApi.getMyComments).mockReturnValueOnce(commentsRequest.promise)
+    const resource = useMyPageDashboardResource(t)
+
+    const postsFetch = resource.fetchMyPosts()
+    const commentsFetch = resource.fetchMyComments()
+    mocks.authStore.sessionGeneration += 1
+
+    postsRequest.resolve(apiSuccessDataResponse<typeof userApi.getMyPosts>({
+      content: [{ postId: 1, title: 'Previous account post' }],
+      totalElements: 1,
+      totalPages: 1,
+    }))
+    commentsRequest.resolve(apiSuccessDataResponse<typeof userApi.getMyComments>({
+      content: [{
+        commentId: 1,
+        content: 'Previous account comment',
+        createdAt: '2026-05-20T09:00:00',
+      }],
+      totalElements: 1,
+      totalPages: 1,
+    }))
+    await Promise.all([postsFetch, commentsFetch])
+
+    expect(resource.myPosts.value).toEqual([])
+    expect(resource.myComments.value).toEqual([])
+    expect(resource.myPostsTotalCount.value).toBe(0)
+    expect(resource.myCommentsTotalCount.value).toBe(0)
   })
 })

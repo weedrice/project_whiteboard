@@ -5,7 +5,12 @@ import { useApiPageQuery } from '@/composables/useApiQuery'
 import { shopQueryKeys } from '@/features/shop/shopQueryKeys'
 import { userQueryKeys } from '@/composables/userQueryKeys'
 import { withQuerySignal } from '@/utils/querySignal'
-import { AUTH_SCOPED_QUERY_META } from '@/queryAuthScope'
+import {
+  AUTH_SCOPED_QUERY_META,
+  isSessionGenerationCurrent,
+  sessionQueryKey,
+} from '@/queryAuthScope'
+import { useAuthStore } from '@/stores/auth'
 
 export { shopQueryKeys } from '@/features/shop/shopQueryKeys'
 
@@ -26,16 +31,30 @@ export function useMyPurchases(params: Ref<ShopPageParams>) {
 
 export function usePurchaseShopItem() {
   const queryClient = useQueryClient()
+  const authStore = useAuthStore()
 
   return useMutation({
+    onMutate: () => ({ sessionGeneration: authStore.sessionGeneration }),
     mutationFn: (itemId: number) => shopApi.purchaseItem(itemId, { skipGlobalErrorHandler: true }),
-    onSuccess: async () => {
+    onSuccess: async (_data, _variables, context) => {
+      if (!context || !isSessionGenerationCurrent(authStore, context.sessionGeneration)) return
+      const authKey = (queryKey: readonly unknown[]) => sessionQueryKey(context.sessionGeneration, queryKey)
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: shopQueryKeys.itemsRoot }),
-        queryClient.invalidateQueries({ queryKey: shopQueryKeys.purchasesRoot }),
-        queryClient.invalidateQueries({ queryKey: userQueryKeys.pointsRoot }),
+        queryClient.invalidateQueries({
+          queryKey: authKey(shopQueryKeys.purchasesRoot),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: authKey(userQueryKeys.pointsRoot),
+        }),
         queryClient.invalidateQueries({ queryKey: ['emoticon'] }),
         queryClient.invalidateQueries({ queryKey: ['emoticons'] }),
+        queryClient.invalidateQueries({
+          queryKey: authKey(['emoticon']),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: authKey(['emoticons', 'accessible', 'picker']),
+        }),
       ])
     },
   })

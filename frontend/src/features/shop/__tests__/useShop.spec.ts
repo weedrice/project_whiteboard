@@ -4,6 +4,11 @@ import { computed, ref } from 'vue'
 const invalidateQueries = vi.hoisted(() => vi.fn(async () => undefined))
 const mutationOptions = vi.hoisted(() => [] as Array<Record<string, unknown>>)
 const pageQueryOptions = vi.hoisted(() => [] as Array<Record<string, unknown>>)
+const authState = vi.hoisted(() => ({ sessionGeneration: 0 }))
+
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => authState,
+}))
 
 vi.mock('@tanstack/vue-query', () => ({
   useQueryClient: () => ({ invalidateQueries }),
@@ -36,6 +41,7 @@ describe('shop resources', () => {
     vi.clearAllMocks()
     mutationOptions.length = 0
     pageQueryOptions.length = 0
+    authState.sessionGeneration = 0
   })
 
   it('keys item and purchase pages by valid pagination values', () => {
@@ -68,11 +74,33 @@ describe('shop resources', () => {
     await (options?.mutationFn as (itemId: number) => Promise<unknown>)(9)
     expect(shopApi.purchaseItem).toHaveBeenCalledWith(9, { skipGlobalErrorHandler: true })
 
-    await (options?.onSuccess as () => Promise<void>)()
+    const context = (options?.onMutate as () => { sessionGeneration: number })()
+    await (options?.onSuccess as (_data: unknown, _variables: unknown, context: unknown) => Promise<void>)(
+      undefined,
+      9,
+      context,
+    )
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: shopQueryKeys.itemsRoot })
-    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: shopQueryKeys.purchasesRoot })
-    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['user', 'points'] })
+    expect(invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['session', 0, ...shopQueryKeys.purchasesRoot],
+    })
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'user', 'points'] })
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['emoticon'] })
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['emoticons'] })
+  })
+
+  it('skips cache invalidation when the session changes before purchase completes', async () => {
+    usePurchaseShopItem()
+    const options = mutationOptions[0]
+    const context = (options?.onMutate as () => { sessionGeneration: number })()
+    authState.sessionGeneration = 1
+
+    await (options?.onSuccess as (_data: unknown, _variables: unknown, context: unknown) => Promise<void>)(
+      undefined,
+      9,
+      context,
+    )
+
+    expect(invalidateQueries).not.toHaveBeenCalled()
   })
 })

@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   draftRefetch: vi.fn(),
   scheduledRefetch: vi.fn(),
   listCall: 0,
+  authStore: { user: { userId: 7 }, sessionGeneration: 0 },
 }))
 
 vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }))
@@ -31,7 +32,7 @@ vi.mock('@/features/board/posts/queries/usePost', () => ({
 vi.mock('@/features/board/posts/draft/postDraftTombstone', () => ({
   markDraftDeletedLocally: mocks.markDeleted,
 }))
-vi.mock('@/stores/auth', () => ({ useAuthStore: () => ({ user: { userId: 7 } }) }))
+vi.mock('@/stores/auth', () => ({ useAuthStore: () => mocks.authStore }))
 vi.mock('@/stores/toast', () => ({ useToastStore: () => ({ addToast: mocks.addToast }) }))
 vi.mock('@/composables/usePaginatedListState', () => ({
   usePaginatedListState: () => {
@@ -83,6 +84,7 @@ describe('DraftList', () => {
     mocks.confirm.mockResolvedValue(true)
     mocks.deleteDraft.mockResolvedValue(undefined)
     mocks.cancelScheduledPost.mockResolvedValue(undefined)
+    mocks.authStore.sessionGeneration = 0
   })
 
   it('renders draft routes and performs delete and scheduled cancellation', async () => {

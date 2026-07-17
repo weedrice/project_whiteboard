@@ -55,6 +55,7 @@ vi.mock('vue-i18n', async (importOriginal) => {
 vi.mock('@/stores/auth', () => ({
   useAuthStore: () => ({
     isAuthenticated: false,
+    sessionGeneration: 0,
   }),
 }))
 
@@ -221,7 +222,9 @@ describe('SearchPage', () => {
     await wrapper.get('form[role="search"]').trigger('submit.prevent')
 
     expect(routeState.routerPush).not.toHaveBeenCalled()
-    expect(routeState.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['search', 'integrated'] })
+    expect(routeState.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['session', 0, 'search', 'integrated'],
+    })
   })
 
   it('falls back to keyword and tag query names used by search entry components', () => {

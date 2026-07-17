@@ -13,9 +13,12 @@ import {
   subscribeBrowserPush,
 } from '@/features/notifications/pushSubscriptions'
 import { QUERY_STALE_TIME } from '@/utils/constants'
+import { useAuthStore } from '@/stores/auth'
+import { currentSessionQueryKey, isSessionGenerationCurrent } from '@/queryAuthScope'
 
 export function usePushNotifications() {
   const queryClient = useQueryClient()
+  const authStore = useAuthStore()
   const permission = ref<NotificationPermission | 'unsupported'>(getNotificationPermission())
   const publicKeyQuery = useQuery({
     queryKey: ['push', 'public-key'],
@@ -28,6 +31,7 @@ export function usePushNotifications() {
   const supported = computed(() => isPushSupported())
 
   const enableMutation = useMutation({
+    onMutate: () => ({ sessionGeneration: authStore.sessionGeneration }),
     mutationFn: async () => {
       if (!enabled.value || !publicKeyQuery.data.value?.publicKey) {
         throw new Error('Web push is not configured.')
@@ -40,12 +44,16 @@ export function usePushNotifications() {
       const subscription = await subscribeBrowserPush(publicKeyQuery.data.value.publicKey)
       await saveBrowserPushSubscription(subscription)
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: userSettingsQueryKey })
+    onSuccess: (_data, _variables, context) => {
+      if (!context || !isSessionGenerationCurrent(authStore, context.sessionGeneration)) return
+      queryClient.invalidateQueries({
+        queryKey: currentSessionQueryKey(authStore, userSettingsQueryKey),
+      })
     },
   })
 
   const disableMutation = useMutation({
+    onMutate: () => ({ sessionGeneration: authStore.sessionGeneration }),
     mutationFn: async () => {
       const subscription = await getBrowserPushSubscription()
       if (!subscription) {
@@ -54,8 +62,11 @@ export function usePushNotifications() {
       await deleteBrowserPushSubscription(subscription)
       await subscription.unsubscribe()
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: userSettingsQueryKey })
+    onSuccess: (_data, _variables, context) => {
+      if (!context || !isSessionGenerationCurrent(authStore, context.sessionGeneration)) return
+      queryClient.invalidateQueries({
+        queryKey: currentSessionQueryKey(authStore, userSettingsQueryKey),
+      })
     },
   })
 

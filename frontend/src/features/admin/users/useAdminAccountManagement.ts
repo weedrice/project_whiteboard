@@ -28,8 +28,20 @@ import type {
     SuperAdminInfo,
     User,
 } from '@/types'
+import { useAuthStore } from '@/stores/auth'
+import { captureSessionGeneration, isSessionGenerationCurrent } from '@/queryAuthScope'
 
 export function useAdminAccountManagement(queryClient: QueryClient) {
+    const authStore = useAuthStore()
+    const captureMutationSession = () => ({
+        sessionGeneration: captureSessionGeneration(authStore),
+    })
+    const isCurrentMutation = (
+        context?: { sessionGeneration: number },
+    ): context is { sessionGeneration: number } =>
+        context !== undefined
+        && isSessionGenerationCurrent(authStore, context.sessionGeneration)
+
     const useAdmins = (params: Ref<{ page?: number, size?: number }>) => {
         return useAdminPageQuery<BoardAdminInfo>(
             computed(() => adminQueryKeys.admins(params.value)),
@@ -44,7 +56,11 @@ export function useAdminAccountManagement(queryClient: QueryClient) {
     const useCreateAdmin = () => {
         return useMutation({
             mutationFn: (data: AdminCreateData) => adminApi.createAdmin(data),
-            onSuccess: () => invalidateAdminAccountCaches(queryClient)
+            onMutate: captureMutationSession,
+            onSuccess: (_data, _variables, context) => {
+                if (!isCurrentMutation(context)) return
+                invalidateAdminAccountCaches(queryClient, context.sessionGeneration)
+            },
         })
     }
 
@@ -54,7 +70,11 @@ export function useAdminAccountManagement(queryClient: QueryClient) {
                 if (action === 'activate') return adminApi.activateAdmin(adminId)
                 return adminApi.deactivateAdmin(adminId)
             },
-            onSuccess: () => invalidateAdminAccountCaches(queryClient)
+            onMutate: captureMutationSession,
+            onSuccess: (_data, _variables, context) => {
+                if (!isCurrentMutation(context)) return
+                invalidateAdminAccountCaches(queryClient, context.sessionGeneration)
+            },
         })
     }
 
@@ -71,7 +91,11 @@ export function useAdminAccountManagement(queryClient: QueryClient) {
                 if (action === 'activate') return adminApi.activeSuperAdmin({ loginId, reason })
                 return adminApi.deactivateSuperAdmin({ loginId, reason })
             },
-            onSuccess: () => invalidateAdminSuperAdminCaches(queryClient)
+            onMutate: captureMutationSession,
+            onSuccess: (_data, _variables, context) => {
+                if (!isCurrentMutation(context)) return
+                invalidateAdminSuperAdminCaches(queryClient, context.sessionGeneration)
+            },
         })
     }
 
@@ -92,9 +116,11 @@ export function useAdminAccountManagement(queryClient: QueryClient) {
     const useUpdateUserStatus = () => {
         return useMutation({
             mutationFn: ({ userId, status, reason }: { userId: string | number, status: string, reason: string }) => adminApi.updateUserStatus(userId, status, reason),
-            onSuccess: () => {
-                invalidateAdminUserCaches(queryClient)
-            }
+            onMutate: captureMutationSession,
+            onSuccess: (_data, _variables, context) => {
+                if (!isCurrentMutation(context)) return
+                invalidateAdminUserCaches(queryClient, context.sessionGeneration)
+            },
         })
     }
 
@@ -164,9 +190,11 @@ export function useAdminAccountManagement(queryClient: QueryClient) {
     const useSanctionUser = () => {
         return useMutation({
             mutationFn: (data: SanctionData) => adminApi.sanctionUser(data),
-            onSuccess: () => {
-                invalidateAdminUserCaches(queryClient)
-            }
+            onMutate: captureMutationSession,
+            onSuccess: (_data, _variables, context) => {
+                if (!isCurrentMutation(context)) return
+                invalidateAdminUserCaches(queryClient, context.sessionGeneration)
+            },
         })
     }
 

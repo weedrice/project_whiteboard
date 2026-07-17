@@ -100,4 +100,23 @@ describe('useDashboardPagination', () => {
       scope.stop()
     }
   })
+
+  it('does not apply a response when the caller result version changes', async () => {
+    const deferred = createDeferred<ApiResponse<PageResponse<string>>>()
+    let resultVersion = 1
+    const pagination = useDashboardPagination(
+      () => deferred.promise,
+      { page: 0 },
+      (key) => key,
+      { getResultVersion: () => resultVersion },
+    )
+
+    const request = pagination.fetch()
+    resultVersion += 1
+    deferred.resolve(successPage(['previous session']))
+    await request
+
+    expect(pagination.items.value).toEqual([])
+    expect(pagination.totalCount.value).toBe(0)
+  })
 })

@@ -9,6 +9,7 @@ import {
   useNullableApiPageQuery,
   useNullableApiQuery,
 } from '@/composables/useApiQuery'
+import { AUTH_SCOPED_QUERY_META } from '@/queryAuthScope'
 
 type AdminQueryKey = QueryKey | Ref<QueryKey> | ComputedRef<QueryKey>
 type AdminEnabled = Ref<boolean> | ComputedRef<boolean>
@@ -63,6 +64,7 @@ export function useAdminPageQuery<T, TData = PageResponse<T>>(
     queryKey,
     request: (context: QueryFunctionContext) => fetcher(toConfigFromQueryContext(context)),
     enabled: options.enabled,
+    meta: AUTH_SCOPED_QUERY_META,
   }
   return options.selectData
     ? useApiPageQuery<T, TData>({
@@ -81,6 +83,7 @@ export function useAdminNullablePageQuery<T>(
     queryKey,
     request: (context) => fetcher(toAdminApiRequestConfig(context?.signal)),
     enabled,
+    meta: AUTH_SCOPED_QUERY_META,
   })
 }
 
@@ -103,6 +106,7 @@ export function useAdminDataQuery<T, TData = T>(
     queryKey,
     request: (context: QueryFunctionContext) => fetcher(toConfigFromQueryContext(context)),
     enabled: options.enabled,
+    meta: AUTH_SCOPED_QUERY_META,
   }
   return options.selectData
     ? useApiQuery<T, TData>({
@@ -133,6 +137,7 @@ export function useAdminNullableDataQuery<T, TData = T>(
     queryKey,
     request: (context: QueryFunctionContext) => fetcher(toConfigFromQueryContext(context)),
     enabled,
+    meta: AUTH_SCOPED_QUERY_META,
   }
   return options.selectData
     ? useNullableApiQuery<T, TData>({

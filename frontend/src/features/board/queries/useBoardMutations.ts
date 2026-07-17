@@ -8,9 +8,17 @@ import {
   invalidateBoardSubscriptionCaches,
 } from '@/features/board/queries/boardCacheInvalidation'
 import type { BoardCreateData, BoardUpdateData } from '@/types'
+import { useAuthStore } from '@/stores/auth'
+import { currentSessionQueryKey, isSessionGenerationCurrent } from '@/queryAuthScope'
 
 export function useBoardMutations() {
   const queryClient = useQueryClient()
+  const authStore = useAuthStore()
+  const authKey = (queryKey: readonly unknown[]) => currentSessionQueryKey(authStore, queryKey)
+  const captureMutationSession = () => ({ sessionGeneration: authStore.sessionGeneration })
+  const isCurrentMutation = (context?: { sessionGeneration: number }) => (
+    context !== undefined && isSessionGenerationCurrent(authStore, context.sessionGeneration)
+  )
 
   const useSubscribeBoard = (options: { requestConfig?: AxiosRequestConfig } & Record<string, unknown> = {}) => {
     const { requestConfig, ...mutationOptions } = options
@@ -30,8 +38,10 @@ export function useBoardMutations() {
           await boardApi.subscribeBoard(boardUrl)
         }
       },
-      onSuccess: (_, { boardUrl }) => {
-        invalidateBoardSubscriptionCaches(queryClient, boardUrl)
+      onMutate: () => ({ sessionGeneration: authStore.sessionGeneration }),
+      onSuccess: (_, { boardUrl }, context) => {
+        if (!context || !isSessionGenerationCurrent(authStore, context.sessionGeneration)) return
+        invalidateBoardSubscriptionCaches(queryClient, boardUrl, context.sessionGeneration)
       },
       ...mutationOptions,
     })
@@ -39,50 +49,58 @@ export function useBoardMutations() {
 
   const useCreateBoard = () => {
     return useMutation({
+      onMutate: captureMutationSession,
       mutationFn: async (data: BoardCreateData) => {
         return unwrapAxiosApiData(await boardApi.createBoard(data))
       },
-      onSuccess: () => {
-        invalidateBoardListCaches(queryClient)
+      onSuccess: (_data, _variables, context) => {
+        if (!isCurrentMutation(context)) return
+        invalidateBoardListCaches(queryClient, authStore.sessionGeneration)
       },
     })
   }
 
   const useUpdateBoard = () => {
     return useMutation({
+      onMutate: captureMutationSession,
       mutationFn: async ({ boardUrl, data }: { boardUrl: string, data: BoardUpdateData }) => {
         return unwrapAxiosApiData(await boardApi.updateBoard(boardUrl, data))
       },
-      onSuccess: (updatedBoard, { boardUrl, data }) => {
-        queryClient.invalidateQueries({ queryKey: boardQueryKeys.detail(boardUrl) })
+      onSuccess: (updatedBoard, { boardUrl, data }, context) => {
+        if (!isCurrentMutation(context)) return
+        queryClient.invalidateQueries({ queryKey: authKey(boardQueryKeys.detail(boardUrl)) })
         const updatedBoardUrl = updatedBoard?.boardUrl ?? data.boardUrl
         if (updatedBoardUrl && updatedBoardUrl !== boardUrl) {
-          queryClient.invalidateQueries({ queryKey: boardQueryKeys.detail(updatedBoardUrl) })
+          queryClient.invalidateQueries({ queryKey: authKey(boardQueryKeys.detail(updatedBoardUrl)) })
         }
-        invalidateBoardListCaches(queryClient)
+        invalidateBoardListCaches(queryClient, authStore.sessionGeneration)
       },
     })
   }
 
   const useTransferBoardManager = () => {
     return useMutation({
+      onMutate: captureMutationSession,
       mutationFn: async ({ boardUrl, loginId }: { boardUrl: string, loginId: string }) => {
         return unwrapAxiosApiData(await boardApi.updateBoardManager(boardUrl, { loginId }))
       },
-      onSuccess: (_, { boardUrl }) => {
-        queryClient.invalidateQueries({ queryKey: boardQueryKeys.detail(boardUrl) })
-        invalidateBoardListCaches(queryClient)
+      onSuccess: (_, { boardUrl }, context) => {
+        if (!isCurrentMutation(context)) return
+        queryClient.invalidateQueries({ queryKey: authKey(boardQueryKeys.detail(boardUrl)) })
+        invalidateBoardListCaches(queryClient, authStore.sessionGeneration)
       },
     })
   }
 
   const useDeleteBoard = () => {
     return useMutation({
+      onMutate: captureMutationSession,
       mutationFn: async (boardUrl: string) => {
         return unwrapAxiosApiData(await boardApi.deleteBoard(boardUrl))
       },
-      onSuccess: () => {
-        invalidateBoardListCaches(queryClient)
+      onSuccess: (_data, _variables, context) => {
+        if (!isCurrentMutation(context)) return
+        invalidateBoardListCaches(queryClient, authStore.sessionGeneration)
       },
     })
   }

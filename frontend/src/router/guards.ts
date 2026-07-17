@@ -2,7 +2,7 @@ import type { RouteLocationNormalized } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { userApi } from '@/api/user'
 import { unwrapAxiosApiData } from '@/api/response'
-import { userSettingsQueryKey } from '@/composables/useUser'
+import { userSettingsSessionQueryKey } from '@/composables/useUser'
 import { queryClient } from '@/queryClient'
 import {
     ensureHydratedAuth,
@@ -13,6 +13,7 @@ import {
 import { getStringRouteParam, isReservedBoardUrl, shouldRedirectToOnboarding } from '@/router/routeGuardModel'
 import { saveLoginRedirect } from '@/utils/authRedirect'
 import { QUERY_STALE_TIME } from '@/utils/constants'
+import { isSessionGenerationCurrent } from '@/queryAuthScope'
 
 declare module 'vue-router' {
     interface RouteMeta {
@@ -62,16 +63,21 @@ export function createAppNavigationGuard() {
         }
 
         if (authStore.isAuthenticated) {
+            const sessionGeneration = authStore.sessionGeneration
             try {
                 const settings = await queryClient.fetchQuery({
-                    queryKey: userSettingsQueryKey,
+                    queryKey: userSettingsSessionQueryKey(sessionGeneration),
+                    meta: { authScoped: true },
                     queryFn: async () => unwrapAxiosApiData(await userApi.getUserSettings()),
                     staleTime: QUERY_STALE_TIME.MEDIUM,
                 })
+                if (!isSessionGenerationCurrent(authStore, sessionGeneration)) return false
+
                 if (shouldRedirectToOnboarding(to.name, to.meta.skipOnboarding, settings?.onboardingCompletedAt)) {
                     return { name: 'onboarding', query: { redirect: to.fullPath } }
                 }
             } catch {
+                if (!isSessionGenerationCurrent(authStore, sessionGeneration)) return false
                 // Settings failures should not block route entry.
             }
         }

@@ -5,17 +5,17 @@ describe('invalidateBoardSubscriptionCaches', () => {
   it('invalidates detail, board lists, subscriptions, and home landing caches', () => {
     const invalidateQueries = vi.fn()
 
-    invalidateBoardSubscriptionCaches({ invalidateQueries } as never, 'general')
+    invalidateBoardSubscriptionCaches({ invalidateQueries } as never, 'general', 3)
 
     expect(invalidateQueries).toHaveBeenNthCalledWith(1, {
-      queryKey: ['board', 'detail', 'general'],
+      queryKey: ['session', 3, 'board', 'detail', 'general'],
     })
-    expect(invalidateQueries).toHaveBeenNthCalledWith(2, { queryKey: ['boards'] })
+    expect(invalidateQueries).toHaveBeenNthCalledWith(2, { queryKey: ['session', 3, 'boards'] })
     expect(invalidateQueries).toHaveBeenNthCalledWith(3, {
-      queryKey: ['boards', 'subscriptions'],
+      queryKey: ['session', 3, 'boards', 'subscriptions'],
     })
     expect(invalidateQueries).toHaveBeenNthCalledWith(4, {
-      queryKey: ['home', 'landing'],
+      queryKey: ['session', 3, 'home', 'landing'],
     })
   })
 })

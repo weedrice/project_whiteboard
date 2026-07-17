@@ -20,9 +20,14 @@ vi.mock('@tanstack/vue-query', () => ({
     invalidateQueries: mocks.invalidateQueries,
   }),
   useMutation: (options: Record<string, unknown>) => ({
-    mutate: async () => {
-      const result = await (options.mutationFn as () => Promise<unknown>)()
-      await (options.onSuccess as ((result: unknown) => void) | undefined)?.(result)
+    mutate: async (variables: unknown) => {
+      const context = await (options.onMutate as ((variables: unknown) => unknown) | undefined)?.(variables)
+      const result = await (options.mutationFn as (variables: unknown) => Promise<unknown>)(variables)
+      await (options.onSuccess as ((result: unknown, variables: unknown, context: unknown) => void) | undefined)?.(
+        result,
+        variables,
+        context,
+      )
       return result
     },
     isPending: ref(false),
@@ -53,6 +58,7 @@ vi.mock('@/stores/auth', () => ({
   useAuthStore: () => ({
     isAuthenticated: mocks.isAuthenticated,
     user: mocks.user,
+    sessionGeneration: 0,
   }),
 }))
 
@@ -119,10 +125,10 @@ describe('useEmoticonDetailResource', () => {
     expect(mocks.purchaseEmoticon).toHaveBeenCalledWith(12)
     expect(mocks.addToast).toHaveBeenCalledWith('emoticon.purchase.success', 'success')
     expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['emoticon', 12] })
-    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['emoticon', 12, 'purchased'] })
-    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['emoticons', 'accessible', 'picker'] })
+    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'emoticon', 12, 'purchased'] })
+    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'emoticons', 'accessible', 'picker'] })
     expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['emoticons'] })
-    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['user', 'points'] })
+    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'user', 'points'] })
     expect(mocks.invalidateQueries).toHaveBeenCalledTimes(5)
   })
 
@@ -140,7 +146,7 @@ describe('useEmoticonDetailResource', () => {
     await pendingPurchase
 
     expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['emoticon', 12] })
-    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['emoticon', 12, 'purchased'] })
+    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'emoticon', 12, 'purchased'] })
     expect(mocks.invalidateQueries).not.toHaveBeenCalledWith({ queryKey: ['emoticon', 13] })
   })
 })

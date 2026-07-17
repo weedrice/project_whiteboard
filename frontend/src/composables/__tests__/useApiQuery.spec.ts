@@ -8,18 +8,21 @@ import {
   useNullableApiPageQuery,
   useNullableApiQuery,
 } from '../useApiQuery'
+import { configureAuthQueryScope } from '@/queryAuthScope'
 
 const vueQueryMock = vi.hoisted(() => ({
   useQuery: vi.fn((options: Record<string, unknown>) => ({
     options,
   })),
 }))
+const authState = vi.hoisted(() => ({ sessionGeneration: 3 }))
 
 vi.mock('@tanstack/vue-query', () => ({
   useQuery: vueQueryMock.useQuery,
 }))
 
 type CapturedQueryOptions = {
+  queryKey?: unknown
   queryFn: (context: QueryFunctionContext) => Promise<unknown>
   placeholderData?: unknown
   enabled?: unknown
@@ -54,6 +57,8 @@ const queryContext = { queryKey: ['test'] } as unknown as QueryFunctionContext
 describe('useApiQuery', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    authState.sessionGeneration = 3
+    configureAuthQueryScope(() => authState.sessionGeneration)
   })
 
   it('selects unwrapped data and passes through query options', async () => {
@@ -172,6 +177,20 @@ describe('useApiQuery', () => {
     })
 
     expect(latestQueryOptions().placeholderData).toBeUndefined()
+  })
+
+  it('prefixes auth-scoped keys and never carries previous session page data', () => {
+    useApiPageQuery({
+      queryKey: ['user', 'scraps'],
+      request: async () => axiosApiResponse({ content: [] }),
+      meta: { authScoped: true },
+    })
+
+    const options = latestQueryOptions()
+    const queryKey = options.queryKey as { value: readonly unknown[] }
+    expect(queryKey.value).toEqual(['session', 3, 'user', 'scraps'])
+    expect(options.placeholderData).toBeUndefined()
+
   })
 
   it('returns null from nullable page queries before normalizing data', async () => {

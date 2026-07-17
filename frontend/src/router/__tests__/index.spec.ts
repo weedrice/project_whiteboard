@@ -13,10 +13,21 @@ import i18n, { setAppLocale } from '@/i18n'
 import { useToastStore } from '@/stores/toast'
 import { apiDataResponse } from '@/test/apiResponseFixtures'
 import { QUERY_STALE_TIME } from '@/utils/constants'
+import { sessionQueryKey } from '@/queryAuthScope'
 
 const queryClientMock = vi.hoisted(() => ({
     fetchQuery: vi.fn(({ queryFn }: { queryFn: () => Promise<unknown> }) => queryFn())
 }))
+
+function deferred<T>() {
+    let resolve!: (value: T) => void
+    let reject!: (reason?: unknown) => void
+    const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+        resolve = resolvePromise
+        reject = rejectPromise
+    })
+    return { promise, reject, resolve }
+}
 
 // Mock Auth Store
 vi.mock('@/stores/auth', () => ({
@@ -211,6 +222,7 @@ type MockAuthStore = {
     user: MockAuthUser | null
     accessToken: string | null
     isAuthenticated: boolean
+    sessionGeneration: number
     bootstrapSession: ReturnType<typeof vi.fn<() => Promise<boolean>>>
     fetchUser: ReturnType<typeof vi.fn<() => Promise<boolean | void>>>
     logout: ReturnType<typeof vi.fn<() => void>>
@@ -230,6 +242,7 @@ describe('Router Navigation Guards', () => {
             user: null,
             accessToken: null,
             isAuthenticated: false,
+            sessionGeneration: 0,
             bootstrapSession: vi.fn().mockResolvedValue(false),
             fetchUser: vi.fn(),
             logout: vi.fn().mockImplementation(() => {
@@ -265,7 +278,7 @@ describe('Router Navigation Guards', () => {
         mockAuthStore.user = { role: 'USER' }
         await router.push('/mypage')
         expect(queryClientMock.fetchQuery).toHaveBeenCalledWith(expect.objectContaining({
-            queryKey: ['user', 'settings'],
+            queryKey: sessionQueryKey(0, ['user', 'settings']),
             staleTime: QUERY_STALE_TIME.MEDIUM,
         }))
         expect(router.currentRoute.value.name).toBe('mypage')
@@ -419,7 +432,7 @@ describe('Router Navigation Guards', () => {
         await router.push('/board/open/post/10/edit')
 
         expect(queryClientMock.fetchQuery).toHaveBeenCalledWith(expect.objectContaining({
-            queryKey: postDetailQueryKey('10', false),
+            queryKey: sessionQueryKey(0, postDetailQueryKey('10', false)),
         }))
         expect(postApi.getPost).toHaveBeenCalledWith('10', { params: { incrementView: false } })
         expect(router.currentRoute.value.name).toBe('post-edit')
@@ -587,6 +600,77 @@ describe('Router Navigation Guards', () => {
         expect(mockAuthStore.fetchUser).toHaveBeenCalled()
         expect(mockAuthStore.logout).toHaveBeenCalled()
         expect(router.currentRoute.value.name).toBe('home')
+    })
+
+    it('cancels onboarding redirect when settings resolve after the session changes', async () => {
+        await router.push('/terms')
+        mockAuthStore.isAuthenticated = true
+        mockAuthStore.user = { userId: 1, role: 'USER' }
+        const settingsRequest = deferred<Awaited<ReturnType<typeof userApi.getUserSettings>>>()
+        vi.mocked(userApi.getUserSettings).mockImplementationOnce(() => settingsRequest.promise)
+
+        const navigation = router.push('/mypage')
+        await vi.waitFor(() => expect(userApi.getUserSettings).toHaveBeenCalled())
+        mockAuthStore.sessionGeneration += 1
+        settingsRequest.resolve(apiDataResponse<typeof userApi.getUserSettings>({
+            theme: 'LIGHT',
+            language: 'ko',
+            timezone: 'Asia/Seoul',
+            hideNsfw: false,
+            pushEnabled: false,
+            onboardingCompletedAt: null,
+        }))
+        await navigation
+
+        expect(router.currentRoute.value.name).toBe('terms-of-service')
+    })
+
+    it('cancels board permission decisions when the session changes during the fetch', async () => {
+        await router.push('/terms')
+        mockAuthStore.isAuthenticated = true
+        mockAuthStore.user = { userId: 1, role: 'USER' }
+        const boardRequest = deferred<Awaited<ReturnType<typeof boardApi.getBoard>>>()
+        vi.mocked(boardApi.getBoard).mockImplementationOnce(() => boardRequest.promise)
+
+        const navigation = router.push('/board/restricted/edit')
+        await vi.waitFor(() => expect(boardApi.getBoard).toHaveBeenCalledWith('restricted'))
+        mockAuthStore.sessionGeneration += 1
+        boardRequest.resolve(boardPermissionResponse({ isAdmin: false, categories: [] }))
+        await navigation
+
+        expect(router.currentRoute.value.name).toBe('terms-of-service')
+    })
+
+    it('cancels emoticon ownership decisions when the session changes during the fetch', async () => {
+        await router.push('/terms')
+        mockAuthStore.isAuthenticated = true
+        mockAuthStore.user = { userId: 1, role: 'USER' }
+        const emoticonRequest = deferred<Awaited<ReturnType<typeof emoticonApi.getEmoticonData>>>()
+        vi.mocked(emoticonApi.getEmoticonData).mockImplementationOnce(() => emoticonRequest.promise)
+
+        const navigation = router.push('/emoticons/8/edit')
+        await vi.waitFor(() => expect(emoticonApi.getEmoticonData).toHaveBeenCalledWith(8))
+        mockAuthStore.sessionGeneration += 1
+        emoticonRequest.resolve(emoticonDetailResponse(2, { emoticonId: 8 }))
+        await navigation
+
+        expect(router.currentRoute.value.name).toBe('terms-of-service')
+    })
+
+    it('cancels post author decisions when the session changes during the fetch', async () => {
+        await router.push('/terms')
+        mockAuthStore.isAuthenticated = true
+        mockAuthStore.user = { userId: 1, role: 'USER' }
+        const postRequest = deferred<Awaited<ReturnType<typeof postApi.getPost>>>()
+        vi.mocked(postApi.getPost).mockImplementationOnce(() => postRequest.promise)
+
+        const navigation = router.push('/board/open/post/10/edit')
+        await vi.waitFor(() => expect(postApi.getPost).toHaveBeenCalledWith('10', { params: { incrementView: false } }))
+        mockAuthStore.sessionGeneration += 1
+        postRequest.resolve(postDetailResponse(2))
+        await navigation
+
+        expect(router.currentRoute.value.name).toBe('terms-of-service')
     })
 
     it('stores loginRedirect when entering guest-only route from non-guest page', async () => {

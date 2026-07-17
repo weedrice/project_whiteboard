@@ -11,6 +11,7 @@ import type { MyComment, PostSummary, User } from '@/types'
 import { QUERY_STALE_TIME } from '@/utils/constants'
 import { getListLoadErrorMessage } from '@/utils/listLoadError'
 import { encodePathSegment } from '@/utils/urlPath'
+import { currentSessionQueryKey } from '@/queryAuthScope'
 
 type Translate = (key: string) => string
 
@@ -27,13 +28,15 @@ export function useMyPageDashboardResource(t: Translate) {
   const { handleSilentError } = useErrorHandler()
   const queryClient = useQueryClient()
   const authStore = useAuthStore()
+  const authKey = (queryKey: readonly unknown[]) => currentSessionQueryKey(authStore, queryKey)
 
   const profile = ref<User | null>(null)
   const myAgents = ref<UserAgent[]>([])
 
   const myPostsPagination = useDashboardPagination<PostSummary>(
     (params, { signal }) => queryClient.fetchQuery({
-      queryKey: userQueryKeys.myPosts(params),
+      queryKey: authKey(userQueryKeys.myPosts(params)),
+      meta: { authScoped: true },
       queryFn: async () => {
         const { data } = await userApi.getMyPosts(params, { signal })
         return data
@@ -42,10 +45,12 @@ export function useMyPageDashboardResource(t: Translate) {
     }),
     { page: 0, size: 10, sort: 'createdAt,desc' },
     t,
+    { getResultVersion: () => authStore.sessionGeneration },
   )
   const myCommentsPagination = useDashboardPagination<MyComment>(
     (params, { signal }) => queryClient.fetchQuery({
-      queryKey: userQueryKeys.myComments(params),
+      queryKey: authKey(userQueryKeys.myComments(params)),
+      meta: { authScoped: true },
       queryFn: async () => {
         const { data } = await userApi.getMyComments(params, { signal })
         return data
@@ -54,6 +59,7 @@ export function useMyPageDashboardResource(t: Translate) {
     }),
     { page: 0, size: 10 },
     t,
+    { getResultVersion: () => authStore.sessionGeneration },
   )
 
   const myPosts = myPostsPagination.items
@@ -110,7 +116,7 @@ export function useMyPageDashboardResource(t: Translate) {
 
   async function fetchMyProfile() {
     if (authStore.user) {
-      const cachedProfile = queryClient.getQueryData<User>(userQueryKeys.me)
+      const cachedProfile = queryClient.getQueryData<User>(authKey(userQueryKeys.me))
       const profileSnapshot = cachedProfile?.userId === authStore.user.userId
         ? {
             ...cachedProfile,
@@ -119,13 +125,16 @@ export function useMyPageDashboardResource(t: Translate) {
         : authStore.user
 
       profile.value = profileSnapshot
-      queryClient.setQueryData(userQueryKeys.me, profileSnapshot)
+      queryClient.setQueryData(authKey(userQueryKeys.me), profileSnapshot)
       return
     }
 
-    const data = await profileTask.run(({ signal }) => queryClient.fetchQuery(createMyProfileQueryOptions({ signal })))
+    const generation = authStore.sessionGeneration
+    const data = await profileTask.run(({ signal }) => queryClient.fetchQuery(
+      createMyProfileQueryOptions(generation, { signal }),
+    ))
 
-    if (data === undefined) return
+    if (data === undefined || generation !== authStore.sessionGeneration) return
     if (data) {
       profile.value = data
     } else {
@@ -134,9 +143,12 @@ export function useMyPageDashboardResource(t: Translate) {
   }
 
   async function fetchMyAgents() {
-    const data = await agentsTask.run(({ signal }) => queryClient.fetchQuery(createMyAgentsQueryOptions({ signal })))
+    const generation = authStore.sessionGeneration
+    const data = await agentsTask.run(({ signal }) => queryClient.fetchQuery(
+      createMyAgentsQueryOptions(generation, { signal }),
+    ))
 
-    if (data === undefined) return
+    if (data === undefined || generation !== authStore.sessionGeneration) return
     if (data?.agents) {
       myAgents.value = data.agents
     } else {

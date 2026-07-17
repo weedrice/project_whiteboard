@@ -53,9 +53,9 @@ describe('useSearch', () => {
 
         const options = mocks.queryOptions.at(-1)!
         const queryKey = options.queryKey as ReturnType<typeof computed>
-        expect(queryKey.value).toEqual(['search', 'posts', { q: 'vue', page: 0, size: 20 }])
+        expect(queryKey.value).toEqual(['session', 0, 'search', 'posts', { q: 'vue', page: 0, size: 20 }])
         expect((options.enabled as ReturnType<typeof computed>).value).toBe(true)
-        expect((options.placeholderData as (prev: unknown) => unknown)('prev')).toBe('prev')
+        expect(options.placeholderData).toBeUndefined()
 
         const result = await (options.queryFn as () => Promise<unknown>)()
         expect(searchApi.searchPosts).toHaveBeenCalledWith({ q: 'vue', page: 0, size: 20 })
@@ -71,7 +71,13 @@ describe('useSearch', () => {
         })
 
         params.value = { q: 'vite', page: 1, size: 10 }
-        expect(queryKey.value).toEqual(['search', 'posts', { q: 'vite', page: 1, size: 10 }])
+        expect(queryKey.value).toEqual([
+          'session',
+          0,
+          'search',
+          'posts',
+          { q: 'vite', page: 1, size: 10 },
+        ])
 
         const keywordParams = ref<SearchParams>({ keyword: 'vite' })
         useSearchPosts(keywordParams)
@@ -127,12 +133,14 @@ describe('useSearch', () => {
 
         const options = mocks.queryOptions.at(-1)!
         expect((options.queryKey as ReturnType<typeof computed>).value).toEqual([
+            'session',
+            0,
             'search',
             'integrated',
             { q: 'pinia', size: 5 },
         ])
         expect((options.enabled as ReturnType<typeof computed>).value).toBe(true)
-        expect((options.placeholderData as (prev: unknown) => unknown)('keep')).toBe('keep')
+        expect(options.placeholderData).toBeUndefined()
 
         const result = await (options.queryFn as () => Promise<unknown>)()
         expect(searchApi.search).toHaveBeenCalledWith({ q: 'pinia', size: 5 })

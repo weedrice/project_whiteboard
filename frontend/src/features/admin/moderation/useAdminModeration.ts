@@ -13,8 +13,20 @@ import type {
     ReportSearchParams,
 } from '@/api/admin'
 import type { IpBlock, Report } from '@/types'
+import { useAuthStore } from '@/stores/auth'
+import { captureSessionGeneration, isSessionGenerationCurrent } from '@/queryAuthScope'
 
 export function useAdminModeration(queryClient: QueryClient) {
+    const authStore = useAuthStore()
+    const captureMutationSession = () => ({
+        sessionGeneration: captureSessionGeneration(authStore),
+    })
+    const isCurrentMutation = (
+        context?: { sessionGeneration: number },
+    ): context is { sessionGeneration: number } =>
+        context !== undefined
+        && isSessionGenerationCurrent(authStore, context.sessionGeneration)
+
     const useReports = (params: Ref<ReportSearchParams>) => {
         return useAdminPageQuery<Report>(
             computed(() => adminQueryKeys.reports(params.value)),
@@ -29,7 +41,11 @@ export function useAdminModeration(queryClient: QueryClient) {
     const useResolveReport = () => {
         return useMutation({
             mutationFn: ({ reportId, data }: { reportId: string | number, data: ReportResolveData }) => adminApi.resolveReport(reportId, data),
-            onSettled: () => invalidateAdminReportCaches(queryClient)
+            onMutate: captureMutationSession,
+            onSettled: (_data, _error, _variables, context) => {
+                if (!isCurrentMutation(context)) return
+                invalidateAdminReportCaches(queryClient, context.sessionGeneration)
+            },
         })
     }
 
@@ -47,14 +63,22 @@ export function useAdminModeration(queryClient: QueryClient) {
     const useBlockIp = () => {
         return useMutation({
             mutationFn: (data: IpBlockData) => adminApi.blockIp(data),
-            onSuccess: () => invalidateAdminIpBlockCaches(queryClient)
+            onMutate: captureMutationSession,
+            onSuccess: (_data, _variables, context) => {
+                if (!isCurrentMutation(context)) return
+                invalidateAdminIpBlockCaches(queryClient, context.sessionGeneration)
+            },
         })
     }
 
     const useUnblockIp = () => {
         return useMutation({
             mutationFn: (ipAddress: string) => adminApi.unblockIp(ipAddress),
-            onSuccess: () => invalidateAdminIpBlockCaches(queryClient)
+            onMutate: captureMutationSession,
+            onSuccess: (_data, _variables, context) => {
+                if (!isCurrentMutation(context)) return
+                invalidateAdminIpBlockCaches(queryClient, context.sessionGeneration)
+            },
         })
     }
 

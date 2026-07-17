@@ -3,6 +3,8 @@ import { QueryClient } from '@tanstack/vue-query'
 import {
   AUTH_SCOPED_QUERY_META,
   clearAuthScopedQueries,
+  currentSessionQueryKey,
+  isSessionGenerationCurrent,
   sessionQueryKey,
 } from '@/queryAuthScope'
 
@@ -11,6 +13,21 @@ describe('query auth scope', () => {
     expect(sessionQueryKey(4, ['user', 'settings'])).toEqual([
       'session', 4, 'user', 'settings',
     ])
+    expect(sessionQueryKey(5, ['session', 4, 'user', 'settings'])).toEqual([
+      'session', 5, 'user', 'settings',
+    ])
+  })
+
+  it('uses the current generation and rejects stale callback generations', () => {
+    const source = { sessionGeneration: 7 }
+
+    expect(currentSessionQueryKey(source, ['notifications'])).toEqual([
+      'session', 7, 'notifications',
+    ])
+    expect(isSessionGenerationCurrent(source, 7)).toBe(true)
+
+    source.sessionGeneration = 8
+    expect(isSessionGenerationCurrent(source, 7)).toBe(false)
   })
 
   it('removes private session data while preserving public caches', () => {

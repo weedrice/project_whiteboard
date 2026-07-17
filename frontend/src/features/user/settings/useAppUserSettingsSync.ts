@@ -2,7 +2,7 @@ import { watch } from 'vue'
 import type { QueryClient } from '@tanstack/vue-query'
 import { userApi } from '@/api/user'
 import { unwrapApiData } from '@/api/response'
-import { userSettingsQueryKey } from '@/composables/useUser'
+import { userSettingsSessionQueryKey } from '@/composables/useUser'
 import type { UserSettings } from '@/types/user'
 import logger from '@/utils/logger'
 import { Storage } from '@/utils/storage'
@@ -10,6 +10,7 @@ import { setAppLocale } from '@/i18n'
 
 type AppAuthStore = {
     isAuthenticated: boolean
+    sessionGeneration: number
 }
 
 type AppThemeStore = {
@@ -37,11 +38,13 @@ export function useAppUserSettingsSync(
 
     const loadSettings = async () => {
         const loadGeneration = ++settingsLoadGeneration
+        const sessionGeneration = authStore.sessionGeneration
         if (!authStore.isAuthenticated) return
 
         try {
             const settings = await queryClient.fetchQuery({
-                queryKey: userSettingsQueryKey,
+                queryKey: userSettingsSessionQueryKey(sessionGeneration),
+                meta: { authScoped: true },
                 queryFn: async () => {
                     const { data } = await userApi.getUserSettings()
                     return data.success ? unwrapApiData(data) : null
@@ -49,6 +52,7 @@ export function useAppUserSettingsSync(
             })
             if (
                 loadGeneration === settingsLoadGeneration
+                && sessionGeneration === authStore.sessionGeneration
                 && authStore.isAuthenticated
                 && settings
             ) {
@@ -59,18 +63,23 @@ export function useAppUserSettingsSync(
         }
     }
 
-    watch(() => authStore.isAuthenticated, (newVal) => {
-        if (newVal) {
-            loadSettings()
-        } else {
-            settingsLoadGeneration += 1
-            queryClient.removeQueries({ queryKey: userSettingsQueryKey })
-            const storedTheme = Storage.getString('theme')
-            if (storedTheme) {
-                themeStore.setTheme(storedTheme === 'dark' ? 'DARK' : 'LIGHT')
+    watch(
+        () => [authStore.isAuthenticated, authStore.sessionGeneration] as const,
+        ([isAuthenticated], previous) => {
+            if (isAuthenticated) {
+                loadSettings()
+            } else {
+                settingsLoadGeneration += 1
+                queryClient.removeQueries({
+                    queryKey: userSettingsSessionQueryKey(previous?.[1] ?? authStore.sessionGeneration),
+                })
+                const storedTheme = Storage.getString('theme')
+                if (storedTheme) {
+                    themeStore.setTheme(storedTheme === 'dark' ? 'DARK' : 'LIGHT')
+                }
             }
-        }
-    })
+        },
+    )
 
     return {
         applySettings,

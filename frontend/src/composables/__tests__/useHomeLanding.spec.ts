@@ -123,9 +123,7 @@ describe('useHomeLanding', () => {
         expect(landing.spotlightBoards.value[0]?.boardUrl).toBe('free')
         expect(landing.stats.value.boardCount).toBe(1)
         expect(landing.selectedPeriod.value).toBe('24h')
-        expect(vi.mocked(useQuery).mock.calls[0]?.[0]).toEqual(expect.objectContaining({
-            placeholderData: expect.any(Function),
-        }))
+        expect(vi.mocked(useQuery).mock.calls[0]?.[0]).not.toHaveProperty('placeholderData')
     })
 
     it('uses the API empty landing fallback before query data is available', () => {

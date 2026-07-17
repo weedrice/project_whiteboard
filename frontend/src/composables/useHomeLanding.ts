@@ -8,26 +8,28 @@ import { toFeedPost, toFeedPosts } from '@/utils/postViewModel'
 import type { HomeLandingPeriod } from '@/types'
 import { homeQueryKeys } from '@/composables/homeQueryKeys'
 import { optionalQuerySignal } from '@/utils/querySignal'
+import { AUTH_SCOPED_QUERY_META, currentSessionQueryKey } from '@/queryAuthScope'
 
 export function useHomeLanding() {
     const authStore = useAuthStore()
     const selectedPeriod = ref<HomeLandingPeriod>('24h')
     const isReadyToFetch = computed(() => !authStore.isAuthenticated || authStore.user != null)
-    const authCacheKey = computed(() => authStore.isAuthenticated ? (authStore.user?.userId ?? 'member') : 'guest')
 
     const landingQuery = useQuery({
-        queryKey: computed(() => homeQueryKeys.landing(selectedPeriod.value, authCacheKey.value)),
+        queryKey: computed(() => currentSessionQueryKey(
+            authStore,
+            homeQueryKeys.landing(selectedPeriod.value, 'viewer'),
+        )),
         enabled: isReadyToFetch,
-        queryFn: async ({ queryKey, signal }) => {
-            const [, , period] = queryKey as ReturnType<typeof homeQueryKeys.landing>
+        queryFn: async ({ signal }) => {
             const requestConfig = optionalQuerySignal(undefined, { signal })
             const response = requestConfig
-                ? await postApi.getHomeLanding(period, requestConfig)
-                : await postApi.getHomeLanding(period)
+                ? await postApi.getHomeLanding(selectedPeriod.value, requestConfig)
+                : await postApi.getHomeLanding(selectedPeriod.value)
             return unwrapAxiosApiData(response)
         },
-        placeholderData: previousData => previousData,
         staleTime: QUERY_STALE_TIME.SHORT,
+        meta: AUTH_SCOPED_QUERY_META,
     })
 
     const landing = computed(() => landingQuery.data.value ?? emptyHomeLanding())

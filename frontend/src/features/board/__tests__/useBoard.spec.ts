@@ -7,6 +7,10 @@ import { searchApi } from '@/api/search'
 import { QUERY_STALE_TIME } from '@/utils/constants'
 import { apiDataResponse, apiSuccessResponse } from '@/test/apiResponseFixtures'
 
+vi.mock('@/stores/auth', () => ({
+    useAuthStore: () => ({ sessionGeneration: 0 }),
+}))
+
 const mocks = vi.hoisted(() => {
     const invalidateQueries = vi.fn()
     const queryOptions: Array<Record<string, unknown>> = []
@@ -49,13 +53,19 @@ vi.mock('@tanstack/vue-query', () => ({
             fetchNextPage: vi.fn(),
         }
     }),
-    useMutation: vi.fn(({ mutationFn, onSuccess }) => ({
+    useMutation: vi.fn(({ mutationFn, onMutate, onSuccess, onError, onSettled }) => ({
         mutateAsync: async (variables: unknown) => {
-            const result = await mutationFn(variables)
-            if (onSuccess) {
-                onSuccess(result, variables, undefined)
+            const context = await onMutate?.(variables)
+            try {
+                const result = await mutationFn(variables)
+                await onSuccess?.(result, variables, context)
+                await onSettled?.(result, null, variables, context)
+                return result
+            } catch (error) {
+                await onError?.(error, variables, context)
+                await onSettled?.(undefined, error, variables, context)
+                throw error
             }
-            return result
         },
     })),
 }))
@@ -106,9 +116,11 @@ describe('useBoard', () => {
         const options = mocks.queryOptions.at(-1)!
         const result = await (options.queryFn as () => Promise<unknown>)()
 
-        expect(options.queryKey).toEqual(['boards'])
+        expect((options.queryKey as ReturnType<typeof computed>).value).toEqual([
+            'session', 0, 'boards',
+        ])
         expect(options.staleTime).toBe(QUERY_STALE_TIME.MEDIUM)
-        expect(options.meta).toEqual({ errorMessage: false })
+        expect(options.meta).toEqual({ authScoped: true, errorMessage: false })
         expect(result).toEqual([{ boardId: 1 }])
         expect(boardApi.getBoards).toHaveBeenCalledWith({ skipGlobalErrorHandler: true })
         expect(query).toHaveProperty('data')
@@ -133,7 +145,9 @@ describe('useBoard', () => {
 
         useSubscribedBoards()
         let options = mocks.queryOptions.at(-1)!
-        expect(options.queryKey).toEqual(['boards', 'subscriptions', 10])
+        expect((options.queryKey as ReturnType<typeof computed>).value).toEqual([
+            'session', 0, 'boards', 'subscriptions', 10,
+        ])
         expect((options.enabled as ReturnType<typeof computed>).value).toBe(false)
 
         useSubscribedBoards(5, true)
@@ -158,14 +172,14 @@ describe('useBoard', () => {
         useBoardDetail(boardUrl)
         const options = mocks.queryOptions.at(-1)!
         const queryKey = options.queryKey as ReturnType<typeof computed>
-        expect(queryKey.value).toEqual(['board', 'detail', 'free'])
+        expect(queryKey.value).toEqual(['session', 0, 'board', 'detail', 'free'])
         expect((options.enabled as ReturnType<typeof computed>).value).toBe(true)
         const result = await (options.queryFn as () => Promise<unknown>)()
         expect(result).toEqual({ boardId: 2, boardUrl: 'free' })
         expect(boardApi.getBoard).toHaveBeenCalledWith('free')
 
         boardUrl.value = 'notice'
-        expect(queryKey.value).toEqual(['board', 'detail', 'notice'])
+        expect(queryKey.value).toEqual(['session', 0, 'board', 'detail', 'notice'])
     })
 
     it('fetches board notices with enabled guards', async () => {
@@ -178,7 +192,9 @@ describe('useBoard', () => {
 
         useBoardNotices(boardUrl, enabled)
         const options = mocks.queryOptions.at(-1)!
-        expect((options.queryKey as ReturnType<typeof computed>).value).toEqual(['board', 'notices', 'free'])
+        expect((options.queryKey as ReturnType<typeof computed>).value).toEqual([
+            'session', 0, 'board', 'notices', 'free',
+        ])
         expect((options.enabled as ReturnType<typeof computed>).value).toBe(true)
         const result = await (options.queryFn as () => Promise<unknown>)()
         expect(result).toEqual([{ postId: 11, title: 'Notice' }])
@@ -200,13 +216,14 @@ describe('useBoard', () => {
         const result = await (options.queryFn as () => Promise<unknown>)()
 
         expect((options.enabled as ReturnType<typeof computed>).value).toBe(true)
-        expect(options.placeholderData).toBeTypeOf('function')
-        expect((options.placeholderData as (prev: unknown) => unknown)('prev')).toBe('prev')
+        expect(options.placeholderData).toBeUndefined()
         expect(boardApi.getPosts).toHaveBeenCalledWith('free', { page: 0, size: 20, sort: 'latest' })
         expect(result).toEqual({ content: [{ postId: 1 }] })
 
         const queryKey = options.queryKey as ReturnType<typeof computed>
         expect(queryKey.value).toEqual([
+            'session',
+            0,
             'board',
             'posts',
             'free',
@@ -217,6 +234,8 @@ describe('useBoard', () => {
         params.value = { page: 1, size: 10, sort: 'oldest' }
         isSearching.value = true
         expect(queryKey.value).toEqual([
+            'session',
+            0,
             'board',
             'posts',
             'notice',
@@ -337,6 +356,8 @@ describe('useBoard', () => {
             pageParam: 2,
         })
         expect((options.queryKey as ReturnType<typeof computed>).value).toEqual([
+            'session',
+            0,
             'board',
             'posts',
             'infinite',
@@ -397,9 +418,9 @@ describe('useBoard', () => {
         await mutation.mutateAsync({ boardUrl: 'free', isSubscribed: true })
         expect(boardApi.unsubscribeBoard).toHaveBeenCalledWith('free')
 
-        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['board', 'detail', 'free'] })
-        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['boards'] })
-        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['boards', 'subscriptions'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'board', 'detail', 'free'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards', 'subscriptions'] })
     })
 
     it('forwards subscribe requestConfig when provided', async () => {
@@ -429,8 +450,8 @@ describe('useBoard', () => {
 
         expect(boardApi.createBoard).toHaveBeenCalledWith({ boardName: 'New board', boardUrl: 'new' })
         expect(result).toEqual({ boardId: 3, boardUrl: 'new' })
-        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['boards'] })
-        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['boards', 'subscriptions'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards', 'subscriptions'] })
     })
 
     it('updates board and invalidates detail plus lists', async () => {
@@ -444,9 +465,9 @@ describe('useBoard', () => {
 
         expect(boardApi.updateBoard).toHaveBeenCalledWith('free', { boardName: 'updated' })
         expect(result).toEqual({ boardId: 4, boardUrl: 'free', boardName: 'updated' })
-        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['board', 'detail', 'free'] })
-        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['boards'] })
-        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['boards', 'subscriptions'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'board', 'detail', 'free'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards', 'subscriptions'] })
     })
 
     it('invalidates old and new board detail caches when board URL changes', async () => {
@@ -458,10 +479,10 @@ describe('useBoard', () => {
         const mutation = useUpdateBoard()
         await mutation.mutateAsync({ boardUrl: 'free', data: { boardName: 'updated', boardUrl: 'new-free' } })
 
-        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['board', 'detail', 'free'] })
-        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['board', 'detail', 'new-free'] })
-        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['boards'] })
-        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['boards', 'subscriptions'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'board', 'detail', 'free'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'board', 'detail', 'new-free'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards', 'subscriptions'] })
     })
 
     it('transfers board manager and invalidates detail plus lists', async () => {
@@ -475,9 +496,9 @@ describe('useBoard', () => {
 
         expect(boardApi.updateBoardManager).toHaveBeenCalledWith('free', { loginId: 'manager' })
         expect(result).toEqual({ boardId: 4, boardUrl: 'free', adminDisplayName: 'manager' })
-        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['board', 'detail', 'free'] })
-        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['boards'] })
-        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['boards', 'subscriptions'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'board', 'detail', 'free'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards', 'subscriptions'] })
     })
 
     it('fetches board manager candidates with enabled guard', async () => {
@@ -495,6 +516,8 @@ describe('useBoard', () => {
         useBoardManagerCandidates(boardUrl, params, enabled)
         let options = mocks.queryOptions.at(-1)!
         expect((options.queryKey as ReturnType<typeof computed>).value).toEqual([
+            'session',
+            0,
             'board',
             'manager-candidates',
             'free',
@@ -535,7 +558,7 @@ describe('useBoard', () => {
 
         expect(boardApi.deleteBoard).toHaveBeenCalledWith('free')
         expect(result).toBeNull()
-        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['boards'] })
-        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['boards', 'subscriptions'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards', 'subscriptions'] })
     })
 })

@@ -8,6 +8,7 @@ import {
   getNotificationPageNumber,
   isNotificationPage,
 } from '@/features/notifications/stream/notificationStreamStateModel'
+import { sessionQueryKey } from '@/queryAuthScope'
 
 export interface RecentNotificationIdCache {
   has: (id: number) => boolean
@@ -25,6 +26,7 @@ export function applyIncomingNotificationToCache(
   queryClient: QueryClient,
   incoming: Notification,
   recentNotificationIds: RecentNotificationIdCache,
+  sessionGeneration: number,
 ) {
   const normalized: Notification = {
     ...incoming,
@@ -37,7 +39,10 @@ export function applyIncomingNotificationToCache(
 
   let alreadyExistsInFirstPage = false
 
-  queryClient.setQueriesData({ queryKey: notificationsQueryKey }, (oldData: unknown) => {
+  const notificationsSessionKey = sessionQueryKey(sessionGeneration, notificationsQueryKey)
+  const unreadSessionKey = sessionQueryKey(sessionGeneration, notificationUnreadCountQueryKey)
+
+  queryClient.setQueriesData({ queryKey: notificationsSessionKey }, (oldData: unknown) => {
     if (!isNotificationPage(oldData)) return oldData
     if (getNotificationPageNumber(oldData) !== 0) return oldData
 
@@ -75,5 +80,5 @@ export function applyIncomingNotificationToCache(
     recentNotificationIds.remember(notificationId)
   }
 
-  queryClient.setQueryData(notificationUnreadCountQueryKey, (old: number | undefined) => (old || 0) + 1)
+  queryClient.setQueryData(unreadSessionKey, (old: number | undefined) => (old || 0) + 1)
 }

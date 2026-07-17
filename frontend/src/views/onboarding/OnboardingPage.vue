@@ -13,10 +13,22 @@ import { useUser } from '@/composables/useUser'
 import { invalidateBoardSubscriptionCaches } from '@/features/board/queries/boardCacheInvalidation'
 import { usePushNotifications } from '@/features/notifications/usePushNotifications'
 import type { BoardListItem } from '@/types'
+import { useAuthStore } from '@/stores/auth'
+import {
+  AUTH_SCOPED_QUERY_META,
+  currentSessionQueryKey,
+  isSessionGenerationCurrent,
+  sessionQueryKey,
+} from '@/queryAuthScope'
 
 const router = useRouter()
 const route = useRoute()
 const queryClient = useQueryClient()
+const authStore = useAuthStore()
+const onboardingQueryKey = computed(() => currentSessionQueryKey(
+  authStore,
+  ['onboarding', 'board-recommendations'],
+))
 const { t } = useI18n()
 const { useCompleteOnboarding } = useUser()
 const pushNotifications = usePushNotifications()
@@ -29,8 +41,9 @@ const {
   isError: isBoardsError,
   refetch: refetchBoards,
 } = useQuery({
-  queryKey: ['onboarding', 'board-recommendations'],
+  queryKey: onboardingQueryKey,
   queryFn: async () => unwrapAxiosApiData(await boardApi.getBoardRecommendations([])),
+  meta: AUTH_SCOPED_QUERY_META,
 })
 
 const { mutateAsync: completeOnboarding, isPending: isCompleting } = useCompleteOnboarding()
@@ -39,10 +52,17 @@ const subscribeMutation = useMutation({
     await boardApi.subscribeBoard(board.boardUrl)
     return board
   },
-  onSuccess: (board) => {
-    queryClient.setQueryData<BoardListItem[]>(['onboarding', 'board-recommendations'], (current) =>
+  onMutate: () => ({ sessionGeneration: authStore.sessionGeneration }),
+  onSuccess: (board, _variables, context) => {
+    if (!context || !isSessionGenerationCurrent(authStore, context.sessionGeneration)) return
+
+    const capturedOnboardingQueryKey = sessionQueryKey(
+      context.sessionGeneration,
+      ['onboarding', 'board-recommendations'],
+    )
+    queryClient.setQueryData<BoardListItem[]>(capturedOnboardingQueryKey, (current) =>
       current?.map((item) => item.boardUrl === board.boardUrl ? { ...item, isSubscribed: true } : item))
-    invalidateBoardSubscriptionCaches(queryClient, board.boardUrl)
+    invalidateBoardSubscriptionCaches(queryClient, board.boardUrl, context.sessionGeneration)
   },
 })
 

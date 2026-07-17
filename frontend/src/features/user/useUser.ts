@@ -18,6 +18,11 @@ import { postApi, type ScheduledPost } from '@/api/post'
 import { badgeApi } from '@/api/badge'
 import { normalizePageResponse, type PageResponseRaw } from '@/utils/pageResponse'
 import { AUTH_SCOPED_QUERY_META } from '@/queryAuthScope'
+import {
+    currentSessionQueryKey,
+    isSessionGenerationCurrent,
+} from '@/queryAuthScope'
+import { useAuthStore } from '@/stores/auth'
 
 interface PasswordUpdateData {
     currentPassword: string
@@ -29,6 +34,8 @@ type PaginationParams = UserQueryPaginationParams
 export { userQueryKeys } from '@/features/user/userQueryKeys'
 
 export const userSettingsQueryKey = userQueryKeys.settings
+export const userSettingsSessionQueryKey = (generation: number) =>
+    ['session', generation, ...userQueryKeys.settings] as const
 
 const resolveResponseData = async <T>(request: Promise<{ data: T }>): Promise<T> => {
     const { data } = await request
@@ -46,8 +53,8 @@ const toDraftPageResponse = (data: DraftPostListResponse): PageResponse<DraftPos
     empty: data.content.length === 0,
 })
 
-export const createMyProfileQueryOptions = (config?: AxiosRequestConfig) => ({
-    queryKey: userQueryKeys.me,
+export const createMyProfileQueryOptions = (generation: number, config?: AxiosRequestConfig) => ({
+    queryKey: ['session', generation, ...userQueryKeys.me] as const,
     queryFn: async (context: QueryFunctionContext) => {
         return unwrapAxiosApiData(await userApi.getMyProfile(withQuerySignal(config, context)))
     },
@@ -55,8 +62,8 @@ export const createMyProfileQueryOptions = (config?: AxiosRequestConfig) => ({
     meta: AUTH_SCOPED_QUERY_META,
 })
 
-export const createMyAgentsQueryOptions = (config?: AxiosRequestConfig) => ({
-    queryKey: userQueryKeys.agents,
+export const createMyAgentsQueryOptions = (generation: number, config?: AxiosRequestConfig) => ({
+    queryKey: ['session', generation, ...userQueryKeys.agents] as const,
     queryFn: async (context: QueryFunctionContext) => {
         return unwrapAxiosApiData(await userApi.getMyAgents(withQuerySignal(config, context)))
     },
@@ -66,11 +73,20 @@ export const createMyAgentsQueryOptions = (config?: AxiosRequestConfig) => ({
 
 export function useUser() {
     const queryClient = useQueryClient()
+    const authStore = useAuthStore()
+    const authKey = (queryKey: readonly unknown[]) => currentSessionQueryKey(authStore, queryKey)
+    const captureMutationSession = () => ({ sessionGeneration: authStore.sessionGeneration })
+    const isCurrentMutation = (context?: { sessionGeneration: number }) => (
+        context !== undefined && isSessionGenerationCurrent(authStore, context.sessionGeneration)
+    )
 
     // --- Queries ---
 
     const useMyProfile = () => {
-        return useQuery(createMyProfileQueryOptions())
+        return useQuery({
+            ...createMyProfileQueryOptions(authStore.sessionGeneration),
+            queryKey: computed(() => authKey(userQueryKeys.me)),
+        })
     }
 
     const useUserProfile = (userId: Ref<string | number>) => {
@@ -135,7 +151,10 @@ export function useUser() {
     }
 
     const useMyAgents = () => {
-        return useQuery(createMyAgentsQueryOptions())
+        return useQuery({
+            ...createMyAgentsQueryOptions(authStore.sessionGeneration),
+            queryKey: computed(() => authKey(userQueryKeys.agents)),
+        })
     }
 
     const useMySessions = () => {
@@ -220,11 +239,13 @@ export function useUser() {
 
     const useUpdateMyProfile = () => {
         return useMutation({
+            onMutate: captureMutationSession,
             mutationFn: async (data: UserUpdatePayload) => {
                 return resolveResponseData(userApi.updateMyProfile(data))
             },
-            onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: userQueryKeys.me })
+            onSuccess: (_data, _variables, context) => {
+                if (!isCurrentMutation(context)) return
+                queryClient.invalidateQueries({ queryKey: authKey(userQueryKeys.me) })
             }
         })
     }
@@ -239,32 +260,38 @@ export function useUser() {
 
     const useRevokeMySession = () => {
         return useMutation({
+            onMutate: captureMutationSession,
             mutationFn: async (sessionId: string | number) => {
                 return resolveResponseData(userApi.revokeMySession(sessionId))
             },
-            onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: userQueryKeys.sessions })
+            onSuccess: (_data, _variables, context) => {
+                if (!isCurrentMutation(context)) return
+                queryClient.invalidateQueries({ queryKey: authKey(userQueryKeys.sessions) })
             }
         })
     }
 
     const useRevokeOtherSessions = () => {
         return useMutation({
+            onMutate: captureMutationSession,
             mutationFn: async () => {
                 return resolveResponseData(userApi.revokeOtherSessions())
             },
-            onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: userQueryKeys.sessions })
+            onSuccess: (_data, _variables, context) => {
+                if (!isCurrentMutation(context)) return
+                queryClient.invalidateQueries({ queryKey: authKey(userQueryKeys.sessions) })
             }
         })
     }
 
     const useDeleteAccount = () => {
         return useMutation({
+            onMutate: captureMutationSession,
             mutationFn: async (password: string) => {
                 return resolveResponseData(userApi.deleteAccount(password))
             },
-            onSuccess: () => {
+            onSuccess: (_data, _variables, context) => {
+                if (!isCurrentMutation(context)) return
                 // Handle logout or redirect in component
                 queryClient.clear()
             }
@@ -273,132 +300,156 @@ export function useUser() {
 
     const useUpdateUserSettings = () => {
         return useMutation({
+            onMutate: captureMutationSession,
             mutationFn: async (data: UserSettingsUpdatePayload) => {
                 return resolveResponseData(userApi.updateUserSettings(data))
             },
-            onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: userSettingsQueryKey })
+            onSuccess: (_data, _variables, context) => {
+                if (!isCurrentMutation(context)) return
+                queryClient.invalidateQueries({ queryKey: authKey(userSettingsQueryKey) })
             }
         })
     }
 
     const useUpdateNotificationSettings = () => {
         return useMutation({
+            onMutate: captureMutationSession,
             mutationFn: async (data: NotificationSettingsBulkPayload) => {
                 return resolveResponseData(userApi.updateNotificationSettingsBulk(data))
             },
-            onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: userQueryKeys.notificationSettings })
+            onSuccess: (_data, _variables, context) => {
+                if (!isCurrentMutation(context)) return
+                queryClient.invalidateQueries({ queryKey: authKey(userQueryKeys.notificationSettings) })
             }
         })
     }
 
     const useCompleteOnboarding = () => {
         return useMutation({
+            onMutate: captureMutationSession,
             mutationFn: async () => {
                 return resolveResponseData(userApi.completeOnboarding())
             },
-            onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: userSettingsQueryKey })
+            onSuccess: (_data, _variables, context) => {
+                if (!isCurrentMutation(context)) return
+                queryClient.invalidateQueries({ queryKey: authKey(userSettingsQueryKey) })
             }
         })
     }
 
     const useCreateKeywordSubscription = () => {
         return useMutation({
+            onMutate: captureMutationSession,
             mutationFn: async (data: KeywordSubscriptionPayload) => {
                 return resolveResponseData(userApi.createKeywordSubscription(data))
             },
-            onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: userQueryKeys.keywordSubscriptions })
+            onSuccess: (_data, _variables, context) => {
+                if (!isCurrentMutation(context)) return
+                queryClient.invalidateQueries({ queryKey: authKey(userQueryKeys.keywordSubscriptions) })
             }
         })
     }
 
     const useDeleteKeywordSubscription = () => {
         return useMutation({
+            onMutate: captureMutationSession,
             mutationFn: async (data: KeywordSubscriptionPayload) => {
                 return resolveResponseData(userApi.deleteKeywordSubscription(data))
             },
-            onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: userQueryKeys.keywordSubscriptions })
+            onSuccess: (_data, _variables, context) => {
+                if (!isCurrentMutation(context)) return
+                queryClient.invalidateQueries({ queryKey: authKey(userQueryKeys.keywordSubscriptions) })
             }
         })
     }
 
     const useClaimAgent = () => {
         return useMutation({
+            onMutate: captureMutationSession,
             mutationFn: async (agentToken: string) => {
                 return resolveResponseData(userApi.claimAgent(agentToken))
             },
-            onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: userQueryKeys.agents })
+            onSuccess: (_data, _variables, context) => {
+                if (!isCurrentMutation(context)) return
+                queryClient.invalidateQueries({ queryKey: authKey(userQueryKeys.agents) })
             }
         })
     }
 
     const useSuspendMyAgent = () => {
         return useMutation({
+            onMutate: captureMutationSession,
             mutationFn: async (agentId: string | number) => {
                 return resolveResponseData(userApi.suspendMyAgent(agentId))
             },
-            onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: userQueryKeys.agents })
+            onSuccess: (_data, _variables, context) => {
+                if (!isCurrentMutation(context)) return
+                queryClient.invalidateQueries({ queryKey: authKey(userQueryKeys.agents) })
             }
         })
     }
 
     const useActivateMyAgent = () => {
         return useMutation({
+            onMutate: captureMutationSession,
             mutationFn: async (agentId: string | number) => {
                 return resolveResponseData(userApi.activateMyAgent(agentId))
             },
-            onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: userQueryKeys.agents })
+            onSuccess: (_data, _variables, context) => {
+                if (!isCurrentMutation(context)) return
+                queryClient.invalidateQueries({ queryKey: authKey(userQueryKeys.agents) })
             }
         })
     }
 
     const useDeleteMyAgent = () => {
         return useMutation({
+            onMutate: captureMutationSession,
             mutationFn: async (agentId: string | number) => {
                 return resolveResponseData(userApi.deleteMyAgent(agentId))
             },
-            onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: userQueryKeys.agents })
+            onSuccess: (_data, _variables, context) => {
+                if (!isCurrentMutation(context)) return
+                queryClient.invalidateQueries({ queryKey: authKey(userQueryKeys.agents) })
             }
         })
     }
 
     const useBlockUser = () => {
         return useMutation({
+            onMutate: captureMutationSession,
             mutationFn: async (userId: string | number) => {
                 return resolveResponseData(userApi.blockUser(userId))
             },
-            onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: userQueryKeys.blocksRoot })
+            onSuccess: (_data, _variables, context) => {
+                if (!isCurrentMutation(context)) return
+                queryClient.invalidateQueries({ queryKey: authKey(userQueryKeys.blocksRoot) })
             }
         })
     }
 
     const useUnblockUser = () => {
         return useMutation({
+            onMutate: captureMutationSession,
             mutationFn: async (userId: string | number) => {
                 return resolveResponseData(userApi.unblockUser(userId))
             },
-            onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: userQueryKeys.blocksRoot })
+            onSuccess: (_data, _variables, context) => {
+                if (!isCurrentMutation(context)) return
+                queryClient.invalidateQueries({ queryKey: authKey(userQueryKeys.blocksRoot) })
             }
         })
     }
 
     const useUpdateRepresentativeBadge = () => {
         return useMutation({
+            onMutate: captureMutationSession,
             mutationFn: async (badgeCode: string | null) => {
                 return unwrapAxiosApiData(await badgeApi.updateRepresentativeBadge(badgeCode))
             },
-            onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: userQueryKeys.me })
+            onSuccess: (_data, _variables, context) => {
+                if (!isCurrentMutation(context)) return
+                queryClient.invalidateQueries({ queryKey: authKey(userQueryKeys.me) })
                 queryClient.invalidateQueries({ queryKey: userQueryKeys.badgesRoot })
             }
         })
@@ -425,6 +476,7 @@ export function useUser() {
                 (config) => userApi.getPublicUserPosts(userId.value, params.value, config),
             ),
             enabled: computed(() => !!userId.value),
+            meta: AUTH_SCOPED_QUERY_META,
         })
     }
 
@@ -437,6 +489,7 @@ export function useUser() {
                 (config) => userApi.getPublicUserComments(userId.value, params.value, config),
             ),
             enabled: computed(() => !!userId.value),
+            meta: AUTH_SCOPED_QUERY_META,
         })
     }
 

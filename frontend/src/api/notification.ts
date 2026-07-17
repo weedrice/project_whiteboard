@@ -18,6 +18,7 @@ export interface CommentStreamEvent {
     commentId: number
     actorUserId: number
     occurredAt: string
+    sessionGeneration?: number
 }
 
 // API response source shape, including snake_case fields.

@@ -14,11 +14,23 @@ import { homeQueryKeys } from '@/composables/homeQueryKeys'
 import { userQueryKeys } from '@/composables/userQueryKeys'
 import { postDetailQueryKey, postQueryKeys } from '@/features/board/posts/queries/postQueryKeys'
 import { withQuerySignal } from '@/utils/querySignal'
+import { useAuthStore } from '@/stores/auth'
+import {
+    AUTH_SCOPED_QUERY_META,
+    currentSessionQueryKey,
+    isSessionGenerationCurrent,
+} from '@/queryAuthScope'
 
 export { postDetailQueryKey, postQueryKeys } from '@/features/board/posts/queries/postQueryKeys'
 
 export function usePost() {
     const queryClient = useQueryClient()
+    const authStore = useAuthStore()
+    const authKey = (queryKey: readonly unknown[]) => currentSessionQueryKey(authStore, queryKey)
+    const captureMutationSession = () => ({ sessionGeneration: authStore.sessionGeneration })
+    const isCurrentMutation = (context?: { sessionGeneration: number }) => (
+        context !== undefined && isSessionGenerationCurrent(authStore, context.sessionGeneration)
+    )
 
     const usePostDetail = (
         postId: Ref<string | number>,
@@ -28,7 +40,7 @@ export function usePost() {
         const incrementView = requestConfig?.params?.incrementView !== false
 
         return useQuery({
-            queryKey: computed(() => postDetailQueryKey(postId.value, incrementView)),
+            queryKey: computed(() => authKey(postDetailQueryKey(postId.value, incrementView))),
             queryFn: async (context?: { signal?: AbortSignal }) => {
                 const post = unwrapAxiosApiData(await postApi.getPost(postId.value, {
                     ...withQuerySignal(requestConfig, context),
@@ -40,6 +52,7 @@ export function usePost() {
                 return post
             },
             enabled: computed(() => !!postId.value),
+            meta: AUTH_SCOPED_QUERY_META,
             ...queryOptions,
         })
     }
@@ -50,18 +63,19 @@ export function usePost() {
     ) => {
         const { requestConfig, size = 5, enabled, ...queryOptions } = options
         return useQuery({
-            queryKey: computed(() => postQueryKeys.related(postId.value, size)),
+            queryKey: computed(() => authKey(postQueryKeys.related(postId.value, size))),
             queryFn: async (context?: { signal?: AbortSignal }) => unwrapAxiosApiData(
                 await postApi.getRelatedPosts(postId.value, size, withQuerySignal(requestConfig, context))
             ),
             enabled: computed(() => !!postId.value && (enabled?.value ?? true)),
+            meta: AUTH_SCOPED_QUERY_META,
             ...queryOptions,
         })
     }
 
     const usePostVersions = (postId: Ref<string | number>, enabled: Ref<boolean>) => {
         return useQuery({
-            queryKey: computed(() => postQueryKeys.versions(postId.value)),
+            queryKey: computed(() => authKey(postQueryKeys.versions(postId.value))),
             queryFn: async (context?: { signal?: AbortSignal }) => unwrapAxiosApiData(
                 await postApi.getPostVersions(postId.value, withQuerySignal(
                     { skipGlobalErrorHandler: true },
@@ -70,51 +84,60 @@ export function usePost() {
             ),
             enabled: computed(() => Boolean(postId.value) && enabled.value),
             retry: false,
+            meta: AUTH_SCOPED_QUERY_META,
         })
     }
 
     const useCreatePost = () => {
         return useMutation({
+            onMutate: captureMutationSession,
             mutationFn: async ({ boardUrl, data }: { boardUrl: string, data: PostCreateData }) => {
                 return await postApi.createPost(boardUrl, data)
             },
-            onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: postQueryKeys.boardPostsRoot })
-                queryClient.invalidateQueries({ queryKey: homeQueryKeys.landingRoot })
-                queryClient.invalidateQueries({ queryKey: userQueryKeys.pointsRoot })
+            onSuccess: (_data, _variables, context) => {
+                if (!isCurrentMutation(context)) return
+                queryClient.invalidateQueries({ queryKey: authKey(postQueryKeys.boardPostsRoot) })
+                queryClient.invalidateQueries({ queryKey: authKey(homeQueryKeys.landingRoot) })
+                queryClient.invalidateQueries({ queryKey: authKey(userQueryKeys.pointsRoot) })
             },
         })
     }
 
     const useCreateScheduledPost = () => {
         return useMutation({
+            onMutate: captureMutationSession,
             mutationFn: async ({ boardUrl, data }: { boardUrl: string, data: ScheduledPostData }) => {
                 return await postApi.createScheduledPost(boardUrl, data)
             },
-            onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: userQueryKeys.scheduledPostsRoot })
+            onSuccess: (_data, _variables, context) => {
+                if (!isCurrentMutation(context)) return
+                queryClient.invalidateQueries({ queryKey: authKey(userQueryKeys.scheduledPostsRoot) })
             },
         })
     }
 
     const useUpdatePost = () => {
         return useMutation({
+            onMutate: captureMutationSession,
             mutationFn: async ({ postId, data }: { postId: string | number, data: PostUpdateData }) => {
                 return await postApi.updatePost(postId, data)
             },
-            onSuccess: (_, { postId }) => {
-                invalidatePostCaches(queryClient, postId)
+            onSuccess: (_, { postId }, context) => {
+                if (!isCurrentMutation(context)) return
+                invalidatePostCaches(queryClient, authStore.sessionGeneration, postId)
             },
         })
     }
 
     const useDeletePost = () => {
         return useMutation({
+            onMutate: captureMutationSession,
             mutationFn: async (postId: string | number) => {
                 return await postApi.deletePost(postId)
             },
-            onSuccess: (_, postId) => {
-                invalidatePostCaches(queryClient, postId)
+            onSuccess: (_, postId, context) => {
+                if (!isCurrentMutation(context)) return
+                invalidatePostCaches(queryClient, authStore.sessionGeneration, postId)
             },
         })
     }
@@ -126,21 +149,23 @@ export function usePost() {
         return useMutation({
             mutationFn,
             onMutate: async (postId) => {
-                await queryClient.cancelQueries({ queryKey: postQueryKeys.detailPrefix(postId) })
-                await queryClient.cancelQueries({ queryKey: postQueryKeys.lists })
-                const snapshots = savePostCacheSnapshots(queryClient, postId)
+                const sessionGeneration = authStore.sessionGeneration
+                await queryClient.cancelQueries({ queryKey: currentSessionQueryKey(authStore, postQueryKeys.detailPrefix(postId)) })
+                await queryClient.cancelQueries({ queryKey: currentSessionQueryKey(authStore, postQueryKeys.lists) })
+                const snapshots = savePostCacheSnapshots(queryClient, sessionGeneration, postId)
 
-                updatePostInAllCaches(queryClient, postId, updater)
+                updatePostInAllCaches(queryClient, sessionGeneration, postId, updater)
 
-                return { snapshots }
+                return { snapshots, sessionGeneration }
             },
             onError: (_err, _postId, context) => {
-                if (context?.snapshots) {
+                if (context?.snapshots && isSessionGenerationCurrent(authStore, context.sessionGeneration)) {
                     restorePostCacheSnapshots(queryClient, context.snapshots)
                 }
             },
-            onSettled: (_, __, postId) => {
-                invalidatePostCaches(queryClient, postId)
+            onSettled: (_, __, postId, context) => {
+                if (!context || !isSessionGenerationCurrent(authStore, context.sessionGeneration)) return
+                invalidatePostCaches(queryClient, context.sessionGeneration, postId)
             },
         })
     }
@@ -198,36 +223,42 @@ export function usePost() {
     const createManagerPostMutation = (
         mutationFn: (postId: string | number) => Promise<unknown>
     ) => useMutation({
+        onMutate: captureMutationSession,
         mutationFn,
-        onSuccess: (_, postId) => {
-            invalidatePostCaches(queryClient, postId)
+        onSuccess: (_, postId, context) => {
+            if (!isCurrentMutation(context)) return
+            invalidatePostCaches(queryClient, authStore.sessionGeneration, postId)
         },
     })
 
     const usePinPostByManager = () => createManagerPostMutation((postId) => postApi.pinPostByManager(postId))
     const useUnpinPostByManager = () => createManagerPostMutation((postId) => postApi.unpinPostByManager(postId))
     const useBlindPostByManager = () => useMutation({
+        onMutate: captureMutationSession,
         mutationFn: async ({ postId, reason }: { postId: string | number, reason?: string }) => {
             return await postApi.blindPostByManager(postId, reason)
         },
-        onSuccess: (_, { postId }) => {
-            invalidatePostCaches(queryClient, postId)
+        onSuccess: (_, { postId }, context) => {
+            if (!isCurrentMutation(context)) return
+            invalidatePostCaches(queryClient, authStore.sessionGeneration, postId)
         },
     })
     const useUnblindPostByManager = () => createManagerPostMutation((postId) => postApi.unblindPostByManager(postId))
 
     const updatePollInDetailCache = (postId: string | number, poll: Post['poll']) => {
-        queryClient.setQueriesData<Post>({ queryKey: postQueryKeys.detailPrefix(postId) }, (old) => (
+        queryClient.setQueriesData<Post>({ queryKey: authKey(postQueryKeys.detailPrefix(postId)) }, (old) => (
             old ? { ...old, poll } : old
         ))
     }
 
     const useVotePoll = () => {
         return useMutation({
+            onMutate: captureMutationSession,
             mutationFn: async ({ postId, data }: { postId: string | number, data: PollVotePayload }) => {
                 return unwrapAxiosApiData(await postApi.votePoll(postId, data))
             },
-            onSuccess: (poll, { postId }) => {
+            onSuccess: (poll, { postId }, context) => {
+                if (!isCurrentMutation(context)) return
                 updatePollInDetailCache(postId, poll)
             },
         })
@@ -235,10 +266,12 @@ export function usePost() {
 
     const useDeletePollVote = () => {
         return useMutation({
+            onMutate: captureMutationSession,
             mutationFn: async (postId: string | number) => {
                 return unwrapAxiosApiData(await postApi.deletePollVote(postId))
             },
-            onSuccess: (poll, postId) => {
+            onSuccess: (poll, postId, context) => {
+                if (!isCurrentMutation(context)) return
                 updatePollInDetailCache(postId, poll)
             },
         })
@@ -246,33 +279,39 @@ export function usePost() {
 
     const useSaveDraft = () => {
         return useMutation({
+            onMutate: captureMutationSession,
             mutationFn: async (data: PostDraftData) => {
                 return await postApi.saveDraft(data)
             },
-            onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: userQueryKeys.draftsRoot })
+            onSuccess: (_data, _variables, context) => {
+                if (!isCurrentMutation(context)) return
+                queryClient.invalidateQueries({ queryKey: authKey(userQueryKeys.draftsRoot) })
             },
         })
     }
 
     const useDeleteDraft = () => {
         return useMutation({
+            onMutate: captureMutationSession,
             mutationFn: async (draftId: string | number) => {
                 return await postApi.deleteDraft(draftId)
             },
-            onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: userQueryKeys.draftsRoot })
+            onSuccess: (_data, _variables, context) => {
+                if (!isCurrentMutation(context)) return
+                queryClient.invalidateQueries({ queryKey: authKey(userQueryKeys.draftsRoot) })
             },
         })
     }
 
     const useCancelScheduledPost = () => {
         return useMutation({
+            onMutate: captureMutationSession,
             mutationFn: async (scheduledPostId: string | number) => {
                 return await postApi.cancelScheduledPost(scheduledPostId)
             },
-            onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: userQueryKeys.scheduledPostsRoot })
+            onSuccess: (_data, _variables, context) => {
+                if (!isCurrentMutation(context)) return
+                queryClient.invalidateQueries({ queryKey: authKey(userQueryKeys.scheduledPostsRoot) })
             },
         })
     }

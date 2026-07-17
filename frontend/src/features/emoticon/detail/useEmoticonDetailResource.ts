@@ -15,6 +15,11 @@ import { extractErrorMessage } from '@/utils/errorHandler'
 import { callWithOptionalQuerySignal } from '@/utils/querySignal'
 import type { ApiResponse } from '@/types'
 import type { EmoticonMaster, EmoticonPurchaseStatus } from '@/types/emoticon'
+import {
+  AUTH_SCOPED_QUERY_META,
+  currentSessionQueryKey,
+  isSessionGenerationCurrent,
+} from '@/queryAuthScope'
 
 export function useEmoticonDetailResource(emoticonId: ComputedRef<number>) {
   const { t } = useI18n()
@@ -45,29 +50,38 @@ export function useEmoticonDetailResource(emoticonId: ComputedRef<number>) {
       (config) => emoticonApi.checkPurchaseStatus(emoticonId.value, config),
     ) as Promise<AxiosResponse<ApiResponse<EmoticonPurchaseStatus>>>,
     enabled: computed(() => !!emoticonId.value),
+    meta: AUTH_SCOPED_QUERY_META,
   })
 
   const emoticonView = useEmoticonDetailViewModel(emoticon)
 
-  const { mutate: purchase, isPending: isPurchasing } = useMutation({
-    mutationFn: async () => {
-      const targetEmoticonId = emoticonId.value
+  const { mutate: purchaseEmoticon, isPending: isPurchasing } = useMutation({
+    onMutate: () => ({ sessionGeneration: authStore.sessionGeneration }),
+    mutationFn: async (targetEmoticonId: number) => {
       await emoticonApi.purchaseEmoticon(targetEmoticonId)
       return { targetEmoticonId }
     },
-    onSuccess: ({ targetEmoticonId }) => {
+    onSuccess: ({ targetEmoticonId }, _variables, context) => {
+      if (!context || !isSessionGenerationCurrent(authStore, context.sessionGeneration)) return
       toastStore.addToast(t('emoticon.purchase.success'), 'success')
       queryClient.invalidateQueries({ queryKey: emoticonQueryKeys.detail(targetEmoticonId) })
-      queryClient.invalidateQueries({ queryKey: emoticonQueryKeys.purchaseStatus(targetEmoticonId) })
-      queryClient.invalidateQueries({ queryKey: emoticonQueryKeys.accessiblePicker })
+      queryClient.invalidateQueries({
+        queryKey: currentSessionQueryKey(authStore, emoticonQueryKeys.purchaseStatus(targetEmoticonId)),
+      })
+      queryClient.invalidateQueries({
+        queryKey: currentSessionQueryKey(authStore, emoticonQueryKeys.accessiblePicker),
+      })
       queryClient.invalidateQueries({ queryKey: emoticonQueryKeys.listRoot })
-      queryClient.invalidateQueries({ queryKey: userQueryKeys.pointsRoot })
+      queryClient.invalidateQueries({
+        queryKey: currentSessionQueryKey(authStore, userQueryKeys.pointsRoot),
+      })
     },
     onError: (error: unknown) => {
       const message = extractErrorMessage(error) || t('emoticon.purchase.failed')
       toastStore.addToast(message, 'error')
     },
   })
+  const purchase = () => purchaseEmoticon(emoticonId.value)
 
   const { isOwner } = useEmoticonPermissions({
     isAuthenticated: () => authStore.isAuthenticated,

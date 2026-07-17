@@ -5,6 +5,8 @@ import { emoticonApi } from '@/api/emoticon'
 import { useToastStore } from '@/stores/toast'
 import { extractErrorMessage } from '@/utils/errorHandler'
 import { emoticonQueryKeys } from '@/features/emoticon/emoticonQueryKeys'
+import { useAuthStore } from '@/stores/auth'
+import { currentSessionQueryKey } from '@/queryAuthScope'
 
 interface UseToggleEmoticonVisibilityOptions {
   invalidatePurchaseStatus?: boolean
@@ -17,6 +19,7 @@ export function useToggleEmoticonVisibility(
   const { t } = useI18n()
   const toastStore = useToastStore()
   const queryClient = useQueryClient()
+  const authStore = useAuthStore()
 
   return useMutation({
     mutationFn: async () => {
@@ -32,7 +35,9 @@ export function useToggleEmoticonVisibility(
       )
       queryClient.invalidateQueries({ queryKey: emoticonQueryKeys.detail(targetEmoticonId) })
       if (options.invalidatePurchaseStatus) {
-        queryClient.invalidateQueries({ queryKey: emoticonQueryKeys.purchaseStatus(targetEmoticonId) })
+        queryClient.invalidateQueries({
+          queryKey: currentSessionQueryKey(authStore, emoticonQueryKeys.purchaseStatus(targetEmoticonId)),
+        })
       }
       queryClient.invalidateQueries({ queryKey: emoticonQueryKeys.listRoot })
     },

@@ -23,6 +23,10 @@ vi.mock('@tanstack/vue-query', () => ({
   }),
 }))
 
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => ({ sessionGeneration: 0 }),
+}))
+
 const createBoard = (overrides: Partial<BoardListItem> = {}): BoardListItem => ({
   boardId: 1,
   boardName: 'Vue',
@@ -107,6 +111,6 @@ describe('useSearchNavigation', () => {
     navigation.handleSearch()
 
     expect(routerPush).not.toHaveBeenCalled()
-    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['search', 'integrated'] })
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'search', 'integrated'] })
   })
 })

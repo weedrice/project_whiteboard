@@ -69,7 +69,11 @@ export function useWriteBoardSheet() {
   }
 
   const verifyBoardWriteAccess = async (boardUrl: string) => {
-    const board = await fetchBoardForWriteAccess(queryClient, boardUrl)
+    const board = await fetchBoardForWriteAccess(
+      queryClient,
+      boardUrl,
+      authStore.sessionGeneration,
+    )
     return canUserWriteBoardPost(board, authStore.isAuthenticated, authStore.user?.role)
   }
 

@@ -2,6 +2,10 @@ import { ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAttendance } from '@/features/user/attendance/useAttendance'
 
+const authState = vi.hoisted(() => ({ sessionGeneration: 0 }))
+
+vi.mock('@/stores/auth', () => ({ useAuthStore: () => authState }))
+
 const mocks = vi.hoisted(() => ({
   useQuery: vi.fn((options) => options),
   useMutation: vi.fn((options) => options),
@@ -23,7 +27,10 @@ vi.mock('@/api/attendance', () => ({
 }))
 
 describe('useAttendance', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => {
+    vi.clearAllMocks()
+    authState.sessionGeneration = 0
+  })
 
   it('loads a selected month with the query abort signal', async () => {
     mocks.getMyAttendance.mockResolvedValue({ data: { data: { checkedIn: true } } })
@@ -34,7 +41,7 @@ describe('useAttendance', () => {
     }
     const controller = new AbortController()
 
-    expect(query.queryKey.value).toEqual(['attendance', 'me', '2026-07'])
+    expect(query.queryKey.value).toEqual(['session', 0, 'attendance', 'me', '2026-07'])
     await expect(query.queryFn({ signal: controller.signal })).resolves.toEqual({ checkedIn: true })
     expect(mocks.getMyAttendance).toHaveBeenCalledWith('2026-07', { signal: controller.signal })
   })
@@ -44,13 +51,32 @@ describe('useAttendance', () => {
     const { useCheckIn } = useAttendance()
     const mutation = useCheckIn() as unknown as {
       mutationFn: () => Promise<unknown>,
-      onSuccess: () => void,
+      onMutate: () => { sessionGeneration: number },
+      onSuccess: (_data: unknown, _variables: unknown, context: unknown) => void,
     }
 
     await expect(mutation.mutationFn()).resolves.toEqual({ consecutiveDays: 3 })
-    mutation.onSuccess()
+    mutation.onSuccess(undefined, undefined, mutation.onMutate())
 
-    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['attendance', 'me'] })
-    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['user', 'points'] })
+    expect(mocks.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['session', 0, 'attendance', 'me'],
+    })
+    expect(mocks.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['session', 0, 'user', 'points'],
+    })
+  })
+
+  it('does not invalidate the next account after a delayed check-in', () => {
+    const { useCheckIn } = useAttendance()
+    const mutation = useCheckIn() as unknown as {
+      onMutate: () => { sessionGeneration: number },
+      onSuccess: (_data: unknown, _variables: unknown, context: unknown) => void,
+    }
+    const context = mutation.onMutate()
+    authState.sessionGeneration = 1
+
+    mutation.onSuccess(undefined, undefined, context)
+
+    expect(mocks.invalidateQueries).not.toHaveBeenCalled()
   })
 })

@@ -11,6 +11,8 @@ import type { BoardDetail, BoardListItem, BoardManagerCandidate, PostSummary, Su
 import { QUERY_STALE_TIME } from '@/utils/constants'
 import { optionalQuerySignal } from '@/utils/querySignal'
 import { AUTH_SCOPED_QUERY_META } from '@/queryAuthScope'
+import { currentSessionQueryKey } from '@/queryAuthScope'
+import { useAuthStore } from '@/stores/auth'
 
 export interface BoardPostParams {
   page?: number
@@ -61,13 +63,18 @@ export async function fetchBoardPosts(
   return unwrapAxiosApiData(response)
 }
 
-export const createBoardDetailQueryOptions = (boardUrl: string, requestConfig?: AxiosRequestConfig) => ({
-  queryKey: boardDetailQueryKey(boardUrl),
+export const createBoardDetailQueryOptions = (
+  boardUrl: string,
+  sessionGeneration: number,
+  requestConfig?: AxiosRequestConfig,
+) => ({
+  queryKey: ['session', sessionGeneration, ...boardDetailQueryKey(boardUrl)] as const,
   queryFn: (context?: { signal?: AbortSignal }) => fetchBoardDetail(
     boardUrl,
     optionalQuerySignal(requestConfig, context),
   ),
   staleTime: QUERY_STALE_TIME.SHORT,
+  meta: AUTH_SCOPED_QUERY_META,
 })
 
 const isVisibleSubscriptionBoard = (
@@ -82,6 +89,8 @@ const callWithOptionalConfig = <T>(
 ) => (config ? requestWithConfig(config) : requestWithoutConfig())
 
 export function useBoardQueries() {
+  const authStore = useAuthStore()
+  const authKey = (queryKey: readonly unknown[]) => currentSessionQueryKey(authStore, queryKey)
   const useBoards = () => {
     return useApiQuery<BoardListItem[]>({
       queryKey: boardQueryKeys.all,
@@ -91,7 +100,7 @@ export function useBoardQueries() {
         () => boardApi.getBoards(),
       ),
       staleTime: QUERY_STALE_TIME.MEDIUM,
-      meta: { errorMessage: false },
+      meta: { ...AUTH_SCOPED_QUERY_META, errorMessage: false },
     })
   }
 
@@ -120,12 +129,13 @@ export function useBoardQueries() {
   ) => {
     const { requestConfig, ...queryOptions } = options
     return useQuery({
-      queryKey: computed(() => boardDetailQueryKey(boardUrl.value)),
+      queryKey: computed(() => authKey(boardDetailQueryKey(boardUrl.value))),
       queryFn: (context?: { signal?: AbortSignal }) => fetchBoardDetail(
         boardUrl.value,
         optionalQuerySignal(requestConfig, context),
       ),
       staleTime: QUERY_STALE_TIME.SHORT,
+      meta: AUTH_SCOPED_QUERY_META,
       enabled: computed(() => !!boardUrl.value),
       ...queryOptions,
     })
@@ -140,7 +150,9 @@ export function useBoardQueries() {
   ) => {
     const { requestConfig, ...queryOptions } = options
     return useQuery({
-      queryKey: computed(() => boardQueryKeys.posts(boardUrl.value, params.value, isSearching?.value)),
+      queryKey: computed(() => authKey(
+        boardQueryKeys.posts(boardUrl.value, params.value, isSearching?.value),
+      )),
       queryFn: (context?: { signal?: AbortSignal }) => fetchBoardPosts(
         boardUrl.value,
         params.value,
@@ -148,7 +160,7 @@ export function useBoardQueries() {
         optionalQuerySignal(requestConfig, context),
       ),
       enabled: computed(() => !!boardUrl.value && (enabled?.value ?? true)),
-      placeholderData: (previousData) => previousData,
+      meta: AUTH_SCOPED_QUERY_META,
       ...queryOptions,
     })
   }
@@ -167,11 +179,11 @@ export function useBoardQueries() {
     })
 
     return useInfiniteQuery({
-      queryKey: computed(() => boardQueryKeys.infinitePosts(
-        boardUrl.value,
-        infiniteParams.value,
-        isSearching?.value,
-      )),
+      queryKey: computed(() => authKey(boardQueryKeys.infinitePosts(
+          boardUrl.value,
+          infiniteParams.value,
+          isSearching?.value,
+      ))),
       initialPageParam: params.value.page ?? 0,
       queryFn: ({ pageParam, signal }) => fetchBoardPosts(
         boardUrl.value,
@@ -184,6 +196,7 @@ export function useBoardQueries() {
       ),
       getNextPageParam: (lastPage) => lastPage.last ? undefined : lastPage.number + 1,
       enabled: computed(() => !!boardUrl.value && (enabled?.value ?? true)),
+      meta: AUTH_SCOPED_QUERY_META,
       ...queryOptions,
     })
   }
@@ -203,6 +216,7 @@ export function useBoardQueries() {
       ),
       enabled: computed(() => !!boardUrl.value && (enabled?.value ?? true)),
       staleTime: QUERY_STALE_TIME.SHORT,
+      meta: AUTH_SCOPED_QUERY_META,
       ...queryOptions,
     })
   }
@@ -233,6 +247,7 @@ export function useBoardQueries() {
         () => boardApi.getBoardManagerCandidates(boardUrl.value, params.value),
       ),
       enabled: computed(() => !!boardUrl.value && (enabled?.value ?? true)),
+      meta: AUTH_SCOPED_QUERY_META,
     })
   }
 

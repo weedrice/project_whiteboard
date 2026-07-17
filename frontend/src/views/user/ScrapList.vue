@@ -16,10 +16,13 @@ import { Bookmark, Check, Pencil, X } from 'lucide-vue-next'
 import { isInquiryPostItem, resolveBoardRoute, resolvePostDetailRoute } from '@/utils/postNavigation'
 import { useI18n } from 'vue-i18n'
 import type { PostSummary } from '@/types'
+import { useAuthStore } from '@/stores/auth'
+import { AUTH_SCOPED_QUERY_META, currentSessionQueryKey } from '@/queryAuthScope'
 
 const { t } = useI18n()
 const { confirm } = useConfirm()
 const queryClient = useQueryClient()
+const authStore = useAuthStore()
 const { useMyScraps } = useUser()
 const selectedFolderId = ref<number | null>(null)
 const searchInput = ref('')
@@ -57,6 +60,7 @@ const {
   refetch: refetchFolders,
 } = useApiQuery({
   queryKey: userQueryKeys.scrapFolders,
+  meta: AUTH_SCOPED_QUERY_META,
   request: ({ signal }) => userApi.getScrapFolders({ signal }),
   staleTime: 60_000,
 })
@@ -145,7 +149,9 @@ async function deleteFolder(folderId: number) {
       selectedFolderId.value = null
     }
     await refetchFolders()
-    await queryClient.invalidateQueries({ queryKey: ['user', 'scraps'] })
+    await queryClient.invalidateQueries({
+      queryKey: currentSessionQueryKey(authStore, ['user', 'scraps']),
+    })
   } catch {
     folderActionError.value = t('user.scrapList.folderActionFailed')
   } finally {

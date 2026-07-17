@@ -4,10 +4,11 @@ import {
   type QueryKey,
 } from '@tanstack/vue-query'
 import type { AxiosResponse } from 'axios'
-import type { ComputedRef, Ref } from 'vue'
+import { computed, toValue, type ComputedRef, type Ref } from 'vue'
 import type { ApiResponse, PageResponse } from '@/types'
 import { unwrapAxiosApiData, unwrapAxiosApiPageData } from '@/api/response'
 import type { PageResponseRaw } from '@/utils/pageResponse'
+import { getCurrentSessionGeneration, sessionQueryKey } from '@/queryAuthScope'
 
 type QueryEnabled = boolean | Ref<boolean> | ComputedRef<boolean>
 type ApiQueryKey = QueryKey | Ref<QueryKey> | ComputedRef<QueryKey>
@@ -78,6 +79,12 @@ function resolveSelectedData<TResponse, TData>(
   return selectData ? selectData(data) : data
 }
 
+function resolveQueryKey(queryKey: ApiQueryKey, meta?: Record<string, unknown>): ApiQueryKey {
+  if (meta?.authScoped !== true) return queryKey
+
+  return computed(() => sessionQueryKey(getCurrentSessionGeneration(), toValue(queryKey)))
+}
+
 export function useApiQuery<TResponse>(
   options: ApiQueryOptions<TResponse> & { selectData?: undefined }
 ): ReturnType<typeof useQuery<TResponse, Error, TResponse>>
@@ -94,9 +101,10 @@ export function useApiQuery<TResponse, TData = TResponse>({
   keepPreviousData = false,
   ...queryOptions
 }: ApiQueryOptions<TResponse, TData>) {
+  const resolvedQueryKey = resolveQueryKey(queryKey, queryOptions.meta)
   return useQuery<TResponse | TData, Error, TResponse | TData>({
     ...queryOptions,
-    queryKey,
+    queryKey: resolvedQueryKey,
     queryFn: async (context) => {
       const data = unwrapAxiosApiData(await request(context))
       return resolveSelectedData(data, selectData)
@@ -104,7 +112,9 @@ export function useApiQuery<TResponse, TData = TResponse>({
     enabled,
     staleTime,
     refetchInterval,
-    placeholderData: previousDataPlaceholder(keepPreviousData),
+    placeholderData: previousDataPlaceholder(
+      keepPreviousData && queryOptions.meta?.authScoped !== true,
+    ),
   })
 }
 
@@ -123,9 +133,10 @@ export function useNullableApiQuery<TResponse, TData = TResponse>({
   refetchInterval,
   ...queryOptions
 }: ApiNullableQueryOptions<TResponse, TData>) {
+  const resolvedQueryKey = resolveQueryKey(queryKey, queryOptions.meta)
   return useQuery<TResponse | TData | null, Error, TResponse | TData | null>({
     ...queryOptions,
-    queryKey,
+    queryKey: resolvedQueryKey,
     queryFn: async (context) => {
       const response = await request(context)
       if (response === null) {
@@ -156,16 +167,19 @@ export function useApiPageQuery<TItem, TData = PageResponse<TItem>>({
   keepPreviousData = true,
   ...queryOptions
 }: ApiPageQueryOptions<TItem, TData>) {
+  const resolvedQueryKey = resolveQueryKey(queryKey, queryOptions.meta)
   return useQuery<PageResponse<TItem> | TData, Error, PageResponse<TItem> | TData>({
     ...queryOptions,
-    queryKey,
+    queryKey: resolvedQueryKey,
     queryFn: async (context) => {
       const page = unwrapAxiosApiPageData(await request(context))
       return resolveSelectedData(page, selectData)
     },
     enabled,
     staleTime,
-    placeholderData: previousDataPlaceholder(keepPreviousData),
+    placeholderData: previousDataPlaceholder(
+      keepPreviousData && queryOptions.meta?.authScoped !== true,
+    ),
   })
 }
 
@@ -184,9 +198,10 @@ export function useNullableApiPageQuery<TItem, TData = PageResponse<TItem>>({
   keepPreviousData = true,
   ...queryOptions
 }: ApiNullablePageQueryOptions<TItem, TData>) {
+  const resolvedQueryKey = resolveQueryKey(queryKey, queryOptions.meta)
   return useQuery<PageResponse<TItem> | TData | null, Error, PageResponse<TItem> | TData | null>({
     ...queryOptions,
-    queryKey,
+    queryKey: resolvedQueryKey,
     queryFn: async (context) => {
       const response = await request(context)
       if (response === null) {
@@ -198,6 +213,8 @@ export function useNullableApiPageQuery<TItem, TData = PageResponse<TItem>>({
     },
     enabled,
     staleTime,
-    placeholderData: previousDataPlaceholder(keepPreviousData),
+    placeholderData: previousDataPlaceholder(
+      keepPreviousData && queryOptions.meta?.authScoped !== true,
+    ),
   })
 }

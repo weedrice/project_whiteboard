@@ -71,10 +71,10 @@ export function createNotificationStreamController(
     const resolveAuthStore = dependencies.resolveAuthStore ?? useAuthStore
     notificationStreamRuntime.setOnlineProvider(dependencies.isBrowserOnline)
 
-    const handleSseEvent = (eventType: string, payload: string) => {
+    const handleSseEvent = (eventType: string, payload: string, sessionGeneration: number) => {
         if (!payload) return
         if (eventType === 'comment') {
-            handleCommentSseEvent(payload)
+            handleCommentSseEvent(payload, sessionGeneration)
             return
         }
         if (eventType !== 'notification' && eventType !== 'message') return
@@ -82,12 +82,14 @@ export function createNotificationStreamController(
         try {
             const rawNotification = JSON.parse(payload) as NotificationRaw
             if (getRawNotificationId(rawNotification) == null) return
+            if (resolveAuthStore().sessionGeneration !== sessionGeneration) return
             const notification = normalizeIncomingNotification(rawNotification)
             const isDuplicate = notificationStreamRuntime.state.recentNotificationIds.has(notification.notificationId)
             applyIncomingNotificationToCache(
                 queryClient,
                 notification,
                 notificationStreamRuntime.state.recentNotificationIds,
+                sessionGeneration,
             )
             if (!isDuplicate) emitBadgeAwardEvent(notification)
         } catch (error: unknown) {
@@ -95,13 +97,17 @@ export function createNotificationStreamController(
         }
     }
 
-    const handleCommentSseEvent = (payload: string) => {
+    const handleCommentSseEvent = (payload: string, sessionGeneration: number) => {
         try {
             const event = JSON.parse(payload) as Partial<CommentStreamEvent>
+            if (resolveAuthStore().sessionGeneration !== sessionGeneration) return
             if (typeof event.postId !== 'number' || typeof event.commentId !== 'number') return
             if (event.action !== 'CREATED' && event.action !== 'DELETED') return
             if (typeof event.actorUserId !== 'number' || typeof event.occurredAt !== 'string') return
-            emitCommentStreamEvent(event as CommentStreamEvent)
+            emitCommentStreamEvent({
+                ...event,
+                sessionGeneration,
+            } as CommentStreamEvent)
         } catch (error: unknown) {
             logger.error('Failed to parse SSE comment event:', error)
         }
@@ -145,7 +151,11 @@ export function createNotificationStreamController(
         scheduleReconnect(RECONNECT_AFTER_FAILURE_DELAY_MS)
     }
 
-    const startStream = async (token: string, controller: AbortController) => {
+    const startStream = async (
+        token: string,
+        sessionGeneration: number,
+        controller: AbortController,
+    ) => {
         try {
             const response = await openStream(token, controller.signal)
 
@@ -158,7 +168,11 @@ export function createNotificationStreamController(
 
             notificationStreamRuntime.state.isConnecting = false
             notificationStreamRuntime.state.reconnectAttempt = 0
-            await consumeSseStream(response.body, controller.signal, handleSseEvent)
+            await consumeSseStream(
+                response.body,
+                controller.signal,
+                (eventType, payload) => handleSseEvent(eventType, payload, sessionGeneration),
+            )
 
             if (!controller.signal.aborted && !notificationStreamRuntime.state.closedManually) {
                 throw new Error('SSE stream closed unexpectedly')
@@ -198,7 +212,7 @@ export function createNotificationStreamController(
         const controller = new AbortController()
         state.streamAbortController = controller
 
-        void startStream(token, controller)
+        void startStream(token, authStore.sessionGeneration, controller)
     }
 
     notificationStreamRuntime.setReconnectCallback(connectToSse)

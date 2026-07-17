@@ -4,7 +4,11 @@ import { postDetailQueryKey, usePost } from '../usePost'
 import { postApi } from '@/api/post'
 import { apiDataResponse, apiSuccessResponse } from '@/test/apiResponseFixtures'
 
-type QueryKey = unknown[]
+vi.mock('@/stores/auth', () => ({
+    useAuthStore: () => ({ sessionGeneration: 0 }),
+}))
+
+type QueryKey = readonly unknown[]
 type StoreEntry = { key: QueryKey; data: unknown }
 
 const mocks = vi.hoisted(() => {
@@ -121,6 +125,7 @@ const seedQueryData = (key: QueryKey, data: unknown) => {
 }
 
 const getQueryDataValue = (key: QueryKey) => mocks.queryStore.get(mocks.keyToString(key))?.data
+const sessionKey = (key: QueryKey): QueryKey => ['session', 0, ...key]
 
 type TestPostCacheItem = {
     postId: number
@@ -176,7 +181,7 @@ describe('usePost', () => {
 
         const query = mocks.queryOptions.at(-1)!
         const queryKey = query.queryKey as ReturnType<typeof computed>
-        expect(queryKey.value).toEqual(postDetailQueryKey(1))
+        expect(queryKey.value).toEqual(sessionKey(postDetailQueryKey(1)))
         expect((query.enabled as ReturnType<typeof computed>).value).toBe(true)
 
         const result = await (query.queryFn as () => Promise<unknown>)()
@@ -184,7 +189,7 @@ describe('usePost', () => {
         expect(postApi.getPost).toHaveBeenCalledWith(1, { params: { incrementView: true } })
 
         postId.value = 2
-        expect(queryKey.value).toEqual(postDetailQueryKey(2))
+        expect(queryKey.value).toEqual(sessionKey(postDetailQueryKey(2)))
     })
 
     it('registers post detail query without incrementing views when requested', async () => {
@@ -197,7 +202,7 @@ describe('usePost', () => {
         usePostDetail(postId, { requestConfig: { params: { incrementView: false } } })
 
         const query = mocks.queryOptions.at(-1)!
-        expect((query.queryKey as ReturnType<typeof computed>).value).toEqual(postDetailQueryKey(1, false))
+        expect((query.queryKey as ReturnType<typeof computed>).value).toEqual(sessionKey(postDetailQueryKey(1, false)))
 
         await (query.queryFn as () => Promise<unknown>)()
         expect(postApi.getPost).toHaveBeenCalledWith(1, { params: { incrementView: false } })
@@ -267,9 +272,9 @@ describe('usePost', () => {
         await mutation.mutate({ boardUrl: 'free', data: { title: 'new', contents: 'body' } })
 
         expect(postApi.createPost).toHaveBeenCalledWith('free', { title: 'new', contents: 'body' })
-        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['board', 'posts'] })
-        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['home', 'landing'] })
-        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['user', 'points'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: sessionKey(['board', 'posts']) })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: sessionKey(['home', 'landing']) })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: sessionKey(['user', 'points']) })
     })
 
     it('invalidates related post caches after update', async () => {
@@ -282,9 +287,9 @@ describe('usePost', () => {
         await mutation.mutate({ postId: 1, data: { title: 'updated' } })
 
         expect(postApi.updatePost).toHaveBeenCalledWith(1, { title: 'updated' })
-        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['post', 1] })
-        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['posts'] })
-        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['home', 'landing'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: sessionKey(['post', 1]) })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: sessionKey(['posts']) })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: sessionKey(['home', 'landing']) })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({
             predicate: expect.any(Function),
         })
@@ -298,46 +303,46 @@ describe('usePost', () => {
         await mutation.mutate(1)
 
         expect(postApi.deletePost).toHaveBeenCalledWith(1)
-        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['board', 'posts'] })
-        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['home', 'landing'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: sessionKey(['board', 'posts']) })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: sessionKey(['home', 'landing']) })
     })
 
     it('applies optimistic like updates across all caches and invalidates on settle', async () => {
         vi.mocked(postApi.likePost).mockResolvedValueOnce(apiSuccessResponse<typeof postApi.likePost>())
 
-        seedQueryData(['post', 1], { postId: 1, likeCount: 2, liked: false })
-        seedQueryData(['posts'], {
+        seedQueryData(sessionKey(['post', 1]), { postId: 1, likeCount: 2, liked: false })
+        seedQueryData(sessionKey(['posts']), {
             pages: [
                 { content: [{ postId: 1, likeCount: 2, liked: false }, { postId: 2, likeCount: 7, liked: false }] },
                 { content: 'not-an-array' },
             ],
             pageParams: [],
         })
-        seedQueryData(['board', 'posts', 'free'], {
+        seedQueryData(sessionKey(['board', 'posts', 'free']), {
             pages: [{ content: [{ postId: 1, likeCount: 2, liked: false }, { postId: 99, likeCount: 10, liked: false }] }],
             pageParams: [],
         })
-        seedQueryData(['board', 'posts', 'hot'], {
+        seedQueryData(sessionKey(['board', 'posts', 'hot']), {
             content: [{ postId: 1, likeCount: 2, liked: false }],
         })
-        seedQueryData(['board', 'detail', 'free'], { anything: true })
+        seedQueryData(sessionKey(['board', 'detail', 'free']), { anything: true })
 
         const { useLikePost } = usePost()
         const mutation = useLikePost()
         await mutation.mutate(1)
 
-        expect(mocks.cancelQueries).toHaveBeenCalledWith({ queryKey: ['post', 1] })
-        expect(mocks.cancelQueries).toHaveBeenCalledWith({ queryKey: ['posts'] })
-        expect(getQueryDataValue(['post', 1])).toMatchObject({ liked: true, likeCount: 3 })
-        expect(getInfinitePostItem(['posts'], 0)).toMatchObject({ liked: true, likeCount: 3 })
-        expect(getInfinitePostItem(['posts'], 1)).toMatchObject({ postId: 2, likeCount: 7, liked: false })
-        expect(getInfinitePostContent(['posts'], 1)).toBe('not-an-array')
-        expect(getInfinitePostItem(['board', 'posts', 'free'], 0)).toMatchObject({ liked: true, likeCount: 3 })
-        expect(getInfinitePostItem(['board', 'posts', 'free'], 1)).toMatchObject({ postId: 99, likeCount: 10, liked: false })
-        expect(getPostPageItem(['board', 'posts', 'hot'], 0)).toMatchObject({ liked: true, likeCount: 3 })
+        expect(mocks.cancelQueries).toHaveBeenCalledWith({ queryKey: sessionKey(['post', 1]) })
+        expect(mocks.cancelQueries).toHaveBeenCalledWith({ queryKey: sessionKey(['posts']) })
+        expect(getQueryDataValue(sessionKey(['post', 1]))).toMatchObject({ liked: true, likeCount: 3 })
+        expect(getInfinitePostItem(sessionKey(['posts']), 0)).toMatchObject({ liked: true, likeCount: 3 })
+        expect(getInfinitePostItem(sessionKey(['posts']), 1)).toMatchObject({ postId: 2, likeCount: 7, liked: false })
+        expect(getInfinitePostContent(sessionKey(['posts']), 1)).toBe('not-an-array')
+        expect(getInfinitePostItem(sessionKey(['board', 'posts', 'free']), 0)).toMatchObject({ liked: true, likeCount: 3 })
+        expect(getInfinitePostItem(sessionKey(['board', 'posts', 'free']), 1)).toMatchObject({ postId: 99, likeCount: 10, liked: false })
+        expect(getPostPageItem(sessionKey(['board', 'posts', 'hot']), 0)).toMatchObject({ liked: true, likeCount: 3 })
         expect(postApi.likePost).toHaveBeenCalledWith(1)
-        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['post', 1] })
-        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['posts'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: sessionKey(['post', 1]) })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: sessionKey(['posts']) })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({
             predicate: expect.any(Function),
         })
@@ -346,49 +351,49 @@ describe('usePost', () => {
     it('handles missing/unsupported cache shapes during optimistic like update', async () => {
         vi.mocked(postApi.likePost).mockResolvedValueOnce(apiSuccessResponse<typeof postApi.likePost>())
 
-        seedQueryData(['posts'], {
+        seedQueryData(sessionKey(['posts']), {
             pages: [{ content: [{ postId: 2, likeCount: 10 }, { postId: 1, liked: false }] }],
             pageParams: [],
         })
-        seedQueryData(['posts', 'recent'], { content: [{ postId: 1 }] })
-        seedQueryData(['board', 'posts', 'mix'], {
+        seedQueryData(sessionKey(['posts', 'recent']), { content: [{ postId: 1 }] })
+        seedQueryData(sessionKey(['board', 'posts', 'mix']), {
             pages: [{ content: 'not-an-array' }],
             pageParams: [],
         })
-        seedQueryData(['board', 'posts', 'page'], {
+        seedQueryData(sessionKey(['board', 'posts', 'page']), {
             content: [{ postId: 2, liked: false }, { postId: 1, liked: false }],
         })
-        seedQueryData(['board', 'posts', 'empty'], undefined)
-        seedQueryData(['board', 'posts', 'odd'], { anything: true })
+        seedQueryData(sessionKey(['board', 'posts', 'empty']), undefined)
+        seedQueryData(sessionKey(['board', 'posts', 'odd']), { anything: true })
 
         const { useLikePost } = usePost()
         await useLikePost().mutate(1)
 
-        expect(getInfinitePostItem(['posts'], 0)).toMatchObject({
+        expect(getInfinitePostItem(sessionKey(['posts']), 0)).toMatchObject({
             postId: 2,
             likeCount: 10,
         })
-        expect(getInfinitePostItem(['posts'], 1)).toMatchObject({
+        expect(getInfinitePostItem(sessionKey(['posts']), 1)).toMatchObject({
             postId: 1,
             liked: true,
             likeCount: 1,
         })
-        expect(getQueryDataValue(['posts', 'recent'])).toEqual({ content: [{ postId: 1 }] })
-        expect(getPostPageItem(['board', 'posts', 'page'], 0)).toMatchObject({ postId: 2, liked: false })
-        expect(getPostPageItem(['board', 'posts', 'page'], 1)).toMatchObject({ postId: 1, liked: true })
-        expect(getQueryDataValue(['board', 'posts', 'mix'])).toEqual({
+        expect(getQueryDataValue(sessionKey(['posts', 'recent']))).toEqual({ content: [{ postId: 1 }] })
+        expect(getPostPageItem(sessionKey(['board', 'posts', 'page']), 0)).toMatchObject({ postId: 2, liked: false })
+        expect(getPostPageItem(sessionKey(['board', 'posts', 'page']), 1)).toMatchObject({ postId: 1, liked: true })
+        expect(getQueryDataValue(sessionKey(['board', 'posts', 'mix']))).toEqual({
             pages: [{ content: 'not-an-array' }],
             pageParams: [],
         })
-        expect(getQueryDataValue(['board', 'posts', 'empty'])).toBeUndefined()
-        expect(getQueryDataValue(['board', 'posts', 'odd'])).toEqual({ anything: true })
+        expect(getQueryDataValue(sessionKey(['board', 'posts', 'empty']))).toBeUndefined()
+        expect(getQueryDataValue(sessionKey(['board', 'posts', 'odd']))).toEqual({ anything: true })
 
         const predicate = mocks.invalidateQueries.mock.calls.find((call) => call[0]?.predicate)?.[0]?.predicate as
             | ((query: { queryKey: unknown }) => boolean)
             | undefined
         expect(predicate).toBeTypeOf('function')
-        expect(predicate?.({ queryKey: ['board', 'posts', 'free'] })).toBe(true)
-        expect(predicate?.({ queryKey: ['board', 'detail', 'free'] })).toBe(false)
+        expect(predicate?.({ queryKey: sessionKey(['board', 'posts', 'free']) })).toBe(true)
+        expect(predicate?.({ queryKey: sessionKey(['board', 'detail', 'free']) })).toBe(false)
         expect(predicate?.({ queryKey: 'not-array' })).toBe(false)
     })
 
@@ -396,12 +401,12 @@ describe('usePost', () => {
         vi.mocked(postApi.likePost).mockRejectedValueOnce(new Error('like failed'))
 
         const snapshot = { postId: 1, likeCount: 4, liked: false }
-        seedQueryData(['post', 1], snapshot)
-        seedQueryData(['posts'], {
+        seedQueryData(sessionKey(['post', 1]), snapshot)
+        seedQueryData(sessionKey(['posts']), {
             pages: [{ content: [{ postId: 1, likeCount: 4, liked: false }] }],
             pageParams: [],
         })
-        seedQueryData(['board', 'posts', 'free'], {
+        seedQueryData(sessionKey(['board', 'posts', 'free']), {
             content: [{ postId: 1, likeCount: 4, liked: false }],
         })
 
@@ -410,12 +415,12 @@ describe('usePost', () => {
 
         await expect(mutation.mutate(1)).rejects.toThrow('like failed')
 
-        expect(getQueryDataValue(['post', 1])).toEqual(snapshot)
-        expect(getInfinitePostItem(['posts'], 0)).toMatchObject({
+        expect(getQueryDataValue(sessionKey(['post', 1]))).toEqual(snapshot)
+        expect(getInfinitePostItem(sessionKey(['posts']), 0)).toMatchObject({
             likeCount: 4,
             liked: false,
         })
-        expect(getPostPageItem(['board', 'posts', 'free'], 0)).toMatchObject({
+        expect(getPostPageItem(sessionKey(['board', 'posts', 'free']), 0)).toMatchObject({
             likeCount: 4,
             liked: false,
         })
@@ -423,19 +428,19 @@ describe('usePost', () => {
 
     it('unlikes without dropping below zero', async () => {
         vi.mocked(postApi.unlikePost).mockResolvedValueOnce(apiSuccessResponse<typeof postApi.unlikePost>())
-        seedQueryData(['post', 1], { postId: 1, likeCount: 0, liked: true })
+        seedQueryData(sessionKey(['post', 1]), { postId: 1, likeCount: 0, liked: true })
 
         const { useUnlikePost } = usePost()
         const mutation = useUnlikePost()
         await mutation.mutate(1)
 
-        expect(getQueryDataValue(['post', 1])).toMatchObject({ likeCount: 0, liked: false })
+        expect(getQueryDataValue(sessionKey(['post', 1]))).toMatchObject({ likeCount: 0, liked: false })
     })
 
     it('rolls back optimistic unlike update when API call fails', async () => {
         vi.mocked(postApi.unlikePost).mockRejectedValueOnce(new Error('unlike failed'))
-        seedQueryData(['post', 1], { postId: 1, likeCount: 3, liked: true })
-        seedQueryData(['posts'], {
+        seedQueryData(sessionKey(['post', 1]), { postId: 1, likeCount: 3, liked: true })
+        seedQueryData(sessionKey(['posts']), {
             pages: [{ content: [{ postId: 1, likeCount: 3, liked: true }] }],
             pageParams: [],
         })
@@ -443,8 +448,8 @@ describe('usePost', () => {
         const { useUnlikePost } = usePost()
         await expect(useUnlikePost().mutate(1)).rejects.toThrow('unlike failed')
 
-        expect(getQueryDataValue(['post', 1])).toMatchObject({ postId: 1, likeCount: 3, liked: true })
-        expect(getInfinitePostItem(['posts'], 0)).toMatchObject({
+        expect(getQueryDataValue(sessionKey(['post', 1]))).toMatchObject({ postId: 1, likeCount: 3, liked: true })
+        expect(getInfinitePostItem(sessionKey(['posts']), 0)).toMatchObject({
             postId: 1,
             likeCount: 3,
             liked: true,
@@ -452,29 +457,29 @@ describe('usePost', () => {
     })
 
     it('applies optimistic scrap/unscrap updates and supports rollback', async () => {
-        seedQueryData(['post', 1], { postId: 1, scrapped: false })
-        seedQueryData(['posts'], {
+        seedQueryData(sessionKey(['post', 1]), { postId: 1, scrapped: false })
+        seedQueryData(sessionKey(['posts']), {
             pages: [{ content: [{ postId: 1, scrapped: false }] }],
             pageParams: [],
         })
-        seedQueryData(['board', 'posts', 'free'], {
+        seedQueryData(sessionKey(['board', 'posts', 'free']), {
             content: [{ postId: 1, scrapped: false }],
         })
 
         vi.mocked(postApi.scrapPost).mockResolvedValueOnce(apiSuccessResponse<typeof postApi.scrapPost>())
         const { useScrapPost } = usePost()
         await useScrapPost().mutate(1)
-        expect(getQueryDataValue(['post', 1])).toMatchObject({ scrapped: true })
+        expect(getQueryDataValue(sessionKey(['post', 1]))).toMatchObject({ scrapped: true })
 
         vi.mocked(postApi.unscrapPost).mockRejectedValueOnce(new Error('unscrap failed'))
         const { useUnscrapPost } = usePost()
         await expect(useUnscrapPost().mutate(1)).rejects.toThrow('unscrap failed')
-        expect(getQueryDataValue(['post', 1])).toMatchObject({ scrapped: true })
+        expect(getQueryDataValue(sessionKey(['post', 1]))).toMatchObject({ scrapped: true })
     })
 
     it('rolls back optimistic scrap update when API call fails', async () => {
-        seedQueryData(['post', 1], { postId: 1, scrapped: false })
-        seedQueryData(['posts'], {
+        seedQueryData(sessionKey(['post', 1]), { postId: 1, scrapped: false })
+        seedQueryData(sessionKey(['posts']), {
             pages: [{ content: [{ postId: 1, scrapped: false }] }],
             pageParams: [],
         })
@@ -483,8 +488,8 @@ describe('usePost', () => {
         const { useScrapPost } = usePost()
         await expect(useScrapPost().mutate(1)).rejects.toThrow('scrap failed')
 
-        expect(getQueryDataValue(['post', 1])).toMatchObject({ postId: 1, scrapped: false })
-        expect(getInfinitePostItem(['posts'], 0)).toMatchObject({
+        expect(getQueryDataValue(sessionKey(['post', 1]))).toMatchObject({ postId: 1, scrapped: false })
+        expect(getInfinitePostItem(sessionKey(['posts']), 0)).toMatchObject({
             postId: 1,
             scrapped: false,
         })
@@ -508,23 +513,23 @@ describe('usePost', () => {
 
     it('rolls back post list caches even when post detail snapshot is undefined', async () => {
         vi.mocked(postApi.likePost).mockRejectedValueOnce(new Error('like failed without detail'))
-        seedQueryData(['posts'], {
+        seedQueryData(sessionKey(['posts']), {
             pages: [{ content: [{ postId: 1, likeCount: 2, liked: false }] }],
             pageParams: [],
         })
-        seedQueryData(['board', 'posts', 'free'], {
+        seedQueryData(sessionKey(['board', 'posts', 'free']), {
             content: [{ postId: 1, likeCount: 2, liked: false }],
         })
 
         const { useLikePost } = usePost()
         await expect(useLikePost().mutate(1)).rejects.toThrow('like failed without detail')
 
-        expect(getInfinitePostItem(['posts'], 0)).toMatchObject({
+        expect(getInfinitePostItem(sessionKey(['posts']), 0)).toMatchObject({
             postId: 1,
             likeCount: 2,
             liked: false,
         })
-        expect(getPostPageItem(['board', 'posts', 'free'], 0)).toMatchObject({
+        expect(getPostPageItem(sessionKey(['board', 'posts', 'free']), 0)).toMatchObject({
             postId: 1,
             likeCount: 2,
             liked: false,

@@ -22,6 +22,10 @@ vi.mock('@tanstack/vue-query', () => ({
   }),
 }))
 
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => ({ sessionGeneration: 0 }),
+}))
+
 describe('useSearchRouteQuery', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -77,7 +81,7 @@ describe('useSearchRouteQuery', () => {
     routeQuery.handleSearchSubmit()
 
     expect(routerPush).not.toHaveBeenCalled()
-    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['search', 'integrated'] })
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'search', 'integrated'] })
   })
 
   it('builds route queries for removing individual filters', () => {

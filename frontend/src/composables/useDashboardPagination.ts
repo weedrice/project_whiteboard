@@ -17,6 +17,10 @@ interface DashboardPaginationFetchContext {
   signal: AbortSignal
 }
 
+interface DashboardPaginationOptions {
+  getResultVersion?: () => unknown
+}
+
 export function useDashboardPagination<T>(
   fetchFn: (
     params: DashboardPaginationParams,
@@ -24,6 +28,7 @@ export function useDashboardPagination<T>(
   ) => Promise<ApiResponse<PageResponse<T>>>,
   initialParams: DashboardPaginationParams,
   t: Translate,
+  options: DashboardPaginationOptions = {},
 ) {
   const page = ref(initialParams.page ?? 0)
   const size = ref(initialParams.size ?? 20)
@@ -39,6 +44,7 @@ export function useDashboardPagination<T>(
   const { loading, error } = fetchTask
 
   const fetch = async (additionalParams: Record<string, unknown> = {}) => {
+    const resultVersion = options.getResultVersion?.()
     const result = await fetchTask.run(({ signal }) => {
       const params: DashboardPaginationParams = {
         page: page.value,
@@ -50,6 +56,7 @@ export function useDashboardPagination<T>(
       return fetchFn(params, { signal })
     })
 
+    if (options.getResultVersion && options.getResultVersion() !== resultVersion) return
     if (!result) return
 
     if (result.success) {

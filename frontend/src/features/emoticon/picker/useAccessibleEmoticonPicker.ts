@@ -2,6 +2,8 @@ import { useQuery } from '@tanstack/vue-query'
 import { emoticonApi } from '@/api/emoticon'
 import { emoticonQueryKeys } from '@/features/emoticon/emoticonQueryKeys'
 import type { EmoticonMaster } from '@/types/emoticon'
+import { useAuthStore } from '@/stores/auth'
+import { AUTH_SCOPED_QUERY_META, currentSessionQueryKey } from '@/queryAuthScope'
 
 export function mergeUniqueEmoticons(...groups: EmoticonMaster[][]) {
   const seen = new Set<number>()
@@ -15,8 +17,9 @@ export function mergeUniqueEmoticons(...groups: EmoticonMaster[][]) {
 }
 
 export function useAccessibleEmoticonPicker(isEnabled: () => boolean) {
+  const authStore = useAuthStore()
   return useQuery({
-    queryKey: emoticonQueryKeys.accessiblePicker,
+    queryKey: currentSessionQueryKey(authStore, emoticonQueryKeys.accessiblePicker),
     queryFn: async (context?: { signal?: AbortSignal }) => {
       const requestConfig = context?.signal ? { signal: context.signal } : undefined
       const [purchasedPage, myPage] = await Promise.all([
@@ -30,5 +33,6 @@ export function useAccessibleEmoticonPicker(isEnabled: () => boolean) {
       return mergeUniqueEmoticons(purchasedPage.content, myPage.content)
     },
     enabled: isEnabled,
+    meta: AUTH_SCOPED_QUERY_META,
   })
 }

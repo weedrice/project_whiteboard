@@ -10,6 +10,7 @@ import { useToastStore } from '@/stores/toast'
 import { useConfirm } from '@/composables/useConfirm'
 import { useErrorHandler } from '@/composables/useErrorHandler'
 import type { SubscriptionBoardListItem } from '@/types'
+import { useAuthStore } from '@/stores/auth'
 
 const subscriptionsPageSize = 100
 
@@ -25,6 +26,7 @@ export function useSubscribedBoardsManager() {
   const { t } = useI18n()
   const toastStore = useToastStore()
   const queryClient = useQueryClient()
+  const authStore = useAuthStore()
   const { confirm } = useConfirm()
   const { handleSilentError, handleError } = useErrorHandler()
 
@@ -40,7 +42,7 @@ export function useSubscribedBoardsManager() {
   )
 
   function invalidateSubscriptionCaches() {
-    invalidateBoardListCaches(queryClient)
+    invalidateBoardListCaches(queryClient, authStore.sessionGeneration)
   }
 
   function cloneBoards(boards: SubscriptionBoardListItem[]) {

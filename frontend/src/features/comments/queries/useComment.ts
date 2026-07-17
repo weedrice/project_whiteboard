@@ -8,6 +8,12 @@ import { userQueryKeys } from '@/composables/userQueryKeys'
 import { useApiPageQuery, useApiQuery } from '@/composables/useApiQuery'
 import { callWithOptionalQuerySignal } from '@/utils/querySignal'
 import type { Comment, CommentListResponse } from '@/types'
+import { useAuthStore } from '@/stores/auth'
+import {
+    AUTH_SCOPED_QUERY_META,
+    currentSessionQueryKey,
+    isSessionGenerationCurrent,
+} from '@/queryAuthScope'
 
 type CommentMutationWithPostId<TVariables extends object = object> = TVariables & {
     postId: string | number
@@ -75,13 +81,19 @@ export function updateCommentLikeCache(
 
 export function useComment() {
     const queryClient = useQueryClient()
+    const authStore = useAuthStore()
+    const authKey = (queryKey: readonly unknown[]) => currentSessionQueryKey(authStore, queryKey)
+    const captureMutationSession = () => ({ sessionGeneration: authStore.sessionGeneration })
+    const isCurrentMutation = (context?: { sessionGeneration: number }) => (
+        context !== undefined && isSessionGenerationCurrent(authStore, context.sessionGeneration)
+    )
 
     const invalidatePostCommentQueries = (postId: string | number) => {
-        queryClient.invalidateQueries({ queryKey: commentQueryKeys.postRoot(postId) })
+        queryClient.invalidateQueries({ queryKey: authKey(commentQueryKeys.postRoot(postId)) })
     }
 
     const invalidatePostDetailQueries = (postId: string | number) => {
-        queryClient.invalidateQueries({ queryKey: postQueryKeys.detailPrefix(postId) })
+        queryClient.invalidateQueries({ queryKey: authKey(postQueryKeys.detailPrefix(postId)) })
     }
 
     const invalidateCommentMutationTargets = (postId?: string | number, includePostDetail = false) => {
@@ -93,9 +105,9 @@ export function useComment() {
             return
         }
 
-        queryClient.invalidateQueries({ queryKey: commentQueryKeys.all })
+        queryClient.invalidateQueries({ queryKey: authKey(commentQueryKeys.all) })
         if (includePostDetail) {
-            queryClient.invalidateQueries({ queryKey: postQueryKeys.detailsRoot })
+            queryClient.invalidateQueries({ queryKey: authKey(postQueryKeys.detailsRoot) })
         }
     }
 
@@ -108,16 +120,17 @@ export function useComment() {
                 (config) => commentApi.getComments(postId.value, params.value, config),
             ),
             enabled: computed(() => !!postId.value),
+            meta: AUTH_SCOPED_QUERY_META,
         })
     }
 
     const useInfiniteComments = (postId: Ref<string | number>, params: Ref<CommentParams>) => {
         return useInfiniteQuery({
-            queryKey: computed(() => [
+            queryKey: computed(() => authKey([
                 ...commentQueryKeys.postRoot(postId.value),
                 'infinite',
                 { size: params.value.size, sort: params.value.sort },
-            ] as const),
+            ] as const)),
             initialPageParam: 0,
             queryFn: async ({ pageParam, signal }) => unwrapAxiosApiPageData(await commentApi.getComments(
                 postId.value,
@@ -126,6 +139,7 @@ export function useComment() {
             )),
             getNextPageParam: (lastPage) => lastPage.last ? undefined : lastPage.number + 1,
             enabled: computed(() => !!postId.value),
+            meta: AUTH_SCOPED_QUERY_META,
         })
     }
 
@@ -138,6 +152,7 @@ export function useComment() {
                 (config) => commentApi.getBestComments(postId.value, config),
             ),
             enabled: computed(() => !!postId.value),
+            meta: AUTH_SCOPED_QUERY_META,
         })
     }
 
@@ -155,27 +170,32 @@ export function useComment() {
             ),
             enabled: computed(() => Boolean(parentId.value) && (enabled ? enabled.value : true)),
             keepPreviousData: true,
+            meta: AUTH_SCOPED_QUERY_META,
         })
     }
 
     const useCreateComment = () => {
         return useMutation({
+            onMutate: captureMutationSession,
             mutationFn: async ({ postId, data }: { postId: string | number, data: CommentPayload }) => {
                 return await commentApi.createComment(postId, data)
             },
-            onSuccess: (_result, variables) => {
+            onSuccess: (_result, variables, context) => {
+                if (!isCurrentMutation(context)) return
                 invalidateCommentMutationTargets(variables.postId, true)
-                queryClient.invalidateQueries({ queryKey: userQueryKeys.pointsRoot })
+                queryClient.invalidateQueries({ queryKey: authKey(userQueryKeys.pointsRoot) })
             },
         })
     }
 
     const useUpdateComment = () => {
         return useMutation({
+            onMutate: captureMutationSession,
             mutationFn: async ({ commentId, data }: UpdateCommentVariables) => {
                 return await commentApi.updateComment(commentId, data)
             },
-            onSuccess: (_result, variables) => {
+            onSuccess: (_result, variables, context) => {
+                if (!isCurrentMutation(context)) return
                 invalidateCommentMutationTargets(variables.postId)
             },
         })
@@ -183,11 +203,13 @@ export function useComment() {
 
     const useDeleteComment = () => {
         return useMutation({
+            onMutate: captureMutationSession,
             mutationFn: async (variables: DeleteCommentVariables) => {
                 const commentId = typeof variables === 'object' ? variables.commentId : variables
                 return await commentApi.deleteComment(commentId)
             },
-            onSuccess: (_result, variables) => {
+            onSuccess: (_result, variables, context) => {
+                if (!isCurrentMutation(context)) return
                 const postId = typeof variables === 'object' ? variables.postId : undefined
                 invalidateCommentMutationTargets(postId, true)
             },
@@ -201,25 +223,32 @@ export function useComment() {
                     ? await commentApi.likeComment(commentId)
                     : await commentApi.unlikeComment(commentId)
             },
-            onMutate: async (variables): Promise<{ snapshots: CommentCacheSnapshot[] }> => {
-                await queryClient.cancelQueries({ queryKey: commentQueryKeys.all })
-                const snapshots = queryClient.getQueriesData({ queryKey: commentQueryKeys.all }) as CommentCacheSnapshot[]
+            onMutate: async (variables): Promise<{
+                snapshots: CommentCacheSnapshot[]
+                sessionGeneration: number
+            }> => {
+                const sessionGeneration = authStore.sessionGeneration
+                const commentsKey = authKey(commentQueryKeys.all)
+                await queryClient.cancelQueries({ queryKey: commentsKey })
+                const snapshots = queryClient.getQueriesData({ queryKey: commentsKey }) as CommentCacheSnapshot[]
 
                 queryClient.setQueriesData(
-                    { queryKey: commentQueryKeys.all },
+                    { queryKey: commentsKey },
                     (current) => updateCommentLikeCache(current, variables.commentId, variables.liked),
                 )
 
-                return { snapshots }
+                return { snapshots, sessionGeneration }
             },
             onError: (_error, _variables, context) => {
+                if (!context || !isSessionGenerationCurrent(authStore, context.sessionGeneration)) return
                 context?.snapshots.forEach(([queryKey, value]) => {
                     queryClient.setQueryData(queryKey, value)
                 })
             },
-            onSettled: (_data, _error, variables) => {
+            onSettled: (_data, _error, variables, context) => {
+                if (!context || !isSessionGenerationCurrent(authStore, context.sessionGeneration)) return
                 invalidatePostCommentQueries(variables.postId)
-                queryClient.invalidateQueries({ queryKey: commentQueryKeys.all })
+                queryClient.invalidateQueries({ queryKey: authKey(commentQueryKeys.all) })
             },
         })
     }

@@ -17,10 +17,15 @@ import logger from '@/utils/logger'
 import i18n from '@/i18n'
 import type { Post } from '@/types'
 import { getRouteFetchErrorStatus, getStringRouteParam } from '@/router/routeGuardModel'
+import {
+    AUTH_SCOPED_QUERY_META,
+    isSessionGenerationCurrent,
+    sessionQueryKey,
+} from '@/queryAuthScope'
 
-async function fetchPostForAuthorGuard(postId: string): Promise<Post> {
+async function fetchPostForAuthorGuard(postId: string, sessionGeneration: number): Promise<Post> {
     return queryClient.fetchQuery({
-        queryKey: postDetailQueryKey(postId, false),
+        queryKey: sessionQueryKey(sessionGeneration, postDetailQueryKey(postId, false)),
         queryFn: async () => {
             const post = unwrapAxiosApiData(await postApi.getPost(postId, {
                 params: {
@@ -30,10 +35,11 @@ async function fetchPostForAuthorGuard(postId: string): Promise<Post> {
             return post
         },
         retry: false,
+        meta: AUTH_SCOPED_QUERY_META,
     })
 }
 
-type ResourceGuardResult = true | RouteLocationRaw
+type ResourceGuardResult = true | false | RouteLocationRaw
 
 export async function ensureHydratedAuth(to: RouteLocationNormalized): Promise<ResourceGuardResult> {
     const authStore = useAuthStore()
@@ -75,6 +81,7 @@ export async function guardEmoticonOwner(to: RouteLocationNormalized): Promise<R
     }
 
     const authStore = useAuthStore()
+    const sessionGeneration = authStore.sessionGeneration
     const emoticonIdParam = typeof to.params.emoticonId === 'string' ? Number(to.params.emoticonId) : NaN
     if (!Number.isFinite(emoticonIdParam)) {
         return { name: 'error', query: { status: '404' } }
@@ -87,11 +94,14 @@ export async function guardEmoticonOwner(to: RouteLocationNormalized): Promise<R
             retry: false,
             staleTime: QUERY_STALE_TIME.SHORT,
         })
+        if (!isSessionGenerationCurrent(authStore, sessionGeneration)) return false
+
         if (emoticon.creatorId !== authStore.user?.userId) {
             useToastStore().addToast(i18n.global.t('emoticon.edit.noPermission'), 'error')
             return { name: 'emoticon-detail', params: { emoticonId: to.params.emoticonId } }
         }
     } catch (error) {
+        if (!isSessionGenerationCurrent(authStore, sessionGeneration)) return false
         logger.error('Failed to verify emoticon edit access:', error)
         return { name: 'error', query: { status: getRouteFetchErrorStatus(error) } }
     }
@@ -105,13 +115,20 @@ export async function guardBoardAccess(to: RouteLocationNormalized): Promise<Res
     }
 
     const authStore = useAuthStore()
+    const sessionGeneration = authStore.sessionGeneration
     const boardUrl = getStringRouteParam(to.params.boardUrl)
     if (!boardUrl) {
         return { name: 'error', query: { status: '404' } }
     }
 
     try {
-        const board = await fetchBoardForWriteAccess(queryClient, boardUrl)
+        const board = await fetchBoardForWriteAccess(
+            queryClient,
+            boardUrl,
+            sessionGeneration,
+        )
+        if (!isSessionGenerationCurrent(authStore, sessionGeneration)) return false
+
         if (to.meta.requiresBoardAdmin && !board.isAdmin) {
             useToastStore().addToast(i18n.global.t('common.messages.boardManageForbidden'), 'error')
             return { name: 'board-detail', params: { boardUrl } }
@@ -121,6 +138,7 @@ export async function guardBoardAccess(to: RouteLocationNormalized): Promise<Res
             return { name: 'board-detail', params: { boardUrl } }
         }
     } catch (error) {
+        if (!isSessionGenerationCurrent(authStore, sessionGeneration)) return false
         logger.error('Failed to verify board access:', error)
         return { name: 'error', query: { status: getRouteFetchErrorStatus(error) } }
     }
@@ -134,6 +152,7 @@ export async function guardPostAuthor(to: RouteLocationNormalized): Promise<Reso
     }
 
     const authStore = useAuthStore()
+    const sessionGeneration = authStore.sessionGeneration
     const boardUrl = getStringRouteParam(to.params.boardUrl)
     const postId = getStringRouteParam(to.params.postId)
     const currentUserId = authStore.user?.userId
@@ -145,12 +164,15 @@ export async function guardPostAuthor(to: RouteLocationNormalized): Promise<Reso
     }
 
     try {
-        const post = await fetchPostForAuthorGuard(postId)
+        const post = await fetchPostForAuthorGuard(postId, sessionGeneration)
+        if (!isSessionGenerationCurrent(authStore, sessionGeneration)) return false
+
         if (post.author.userId !== currentUserId) {
             useToastStore().addToast(i18n.global.t('common.messages.postEditForbidden'), 'error')
             return { name: 'post-detail', params: { boardUrl, postId } }
         }
     } catch (error) {
+        if (!isSessionGenerationCurrent(authStore, sessionGeneration)) return false
         logger.error('Failed to verify post author:', error)
         return { name: 'error', query: { status: getRouteFetchErrorStatus(error) } }
     }

@@ -11,12 +11,18 @@ import {
     notificationsQueryKey,
     notificationUnreadCountQueryKey,
 } from '@/features/notifications/queries/notificationQueryKeys'
-import { AUTH_SCOPED_QUERY_META } from '@/queryAuthScope'
+import {
+    AUTH_SCOPED_QUERY_META,
+    currentSessionQueryKey,
+    isSessionGenerationCurrent,
+} from '@/queryAuthScope'
 import { useApiPageQuery, useApiQuery } from '@/composables/useApiQuery'
 import { callWithOptionalQuerySignal } from '@/utils/querySignal'
 
 export function useNotification() {
     const queryClient = useQueryClient()
+    const authStore = useAuthStore()
+    const authKey = (queryKey: readonly unknown[]) => currentSessionQueryKey(authStore, queryKey)
 
     const useNotifications = (params: Ref<NotificationParams>) => {
         return useApiPageQuery<Notification>({
@@ -31,7 +37,6 @@ export function useNotification() {
     }
 
     const useUnreadCount = () => {
-        const authStore = useAuthStore()
         return useApiQuery<number>({
             queryKey: notificationUnreadCountQueryKey,
             meta: AUTH_SCOPED_QUERY_META,
@@ -48,26 +53,30 @@ export function useNotification() {
 
     const useMarkAsRead = () => {
         return useMutation({
+            onMutate: () => ({ sessionGeneration: authStore.sessionGeneration }),
             mutationFn: async (notificationId: number) => {
                 const { data } = await notificationApi.markAsRead(notificationId)
                 return data
             },
-            onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: notificationsQueryKey })
-                queryClient.invalidateQueries({ queryKey: notificationUnreadCountQueryKey })
+            onSuccess: (_data, _variables, context) => {
+                if (!context || !isSessionGenerationCurrent(authStore, context.sessionGeneration)) return
+                queryClient.invalidateQueries({ queryKey: authKey(notificationsQueryKey) })
+                queryClient.invalidateQueries({ queryKey: authKey(notificationUnreadCountQueryKey) })
             }
         })
     }
 
     const useMarkAllAsRead = () => {
         return useMutation({
+            onMutate: () => ({ sessionGeneration: authStore.sessionGeneration }),
             mutationFn: async () => {
                 const { data } = await notificationApi.markAllAsRead()
                 return data
             },
-            onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: notificationsQueryKey })
-                queryClient.setQueryData(notificationUnreadCountQueryKey, 0)
+            onSuccess: (_data, _variables, context) => {
+                if (!context || !isSessionGenerationCurrent(authStore, context.sessionGeneration)) return
+                queryClient.invalidateQueries({ queryKey: authKey(notificationsQueryKey) })
+                queryClient.setQueryData(authKey(notificationUnreadCountQueryKey), 0)
             }
         })
     }

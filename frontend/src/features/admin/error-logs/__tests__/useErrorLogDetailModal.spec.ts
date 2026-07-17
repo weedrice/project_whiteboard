@@ -3,11 +3,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
 import { useErrorLogDetailModal } from '../useErrorLogDetailModal'
 import type { ErrorLogDetail } from '@/types'
+import { createDeferred } from '@/test/async'
 
 const mocks = vi.hoisted(() => ({
     addToast: vi.fn(),
     fetchErrorLogDetail: vi.fn(),
     resolveErrorLog: vi.fn(),
+    authStore: { sessionGeneration: 0 },
 }))
 
 vi.mock('vue-i18n', () => ({
@@ -20,6 +22,10 @@ vi.mock('@/stores/toast', () => ({
     useToastStore: () => ({
         addToast: mocks.addToast,
     }),
+}))
+
+vi.mock('@/stores/auth', () => ({
+    useAuthStore: () => mocks.authStore,
 }))
 
 vi.mock('@/features/admin/useAdmin', () => ({
@@ -45,6 +51,7 @@ function mountErrorLogDetailModal() {
 describe('useErrorLogDetailModal', () => {
     beforeEach(() => {
         vi.clearAllMocks()
+        mocks.authStore.sessionGeneration = 0
     })
 
     afterEach(() => {
@@ -109,5 +116,19 @@ describe('useErrorLogDetailModal', () => {
         await modal.handleResolve()
 
         expect(mocks.resolveErrorLog).not.toHaveBeenCalled()
+    })
+
+    it('ignores a detail response after the authentication generation changes', async () => {
+        const deferred = createDeferred<ErrorLogDetail>()
+        mocks.fetchErrorLogDetail.mockReturnValueOnce(deferred.promise)
+        const modal = mountErrorLogDetailModal()
+
+        const opening = modal.openDetailModal({ errorLogId: 7 } as ErrorLogDetail)
+        mocks.authStore.sessionGeneration += 1
+        deferred.resolve({ errorLogId: 7, stackTrace: 'old session' } as ErrorLogDetail)
+        await opening
+
+        expect(modal.selectedLog.value).toBeNull()
+        expect(modal.isDetailModalOpen.value).toBe(false)
     })
 })

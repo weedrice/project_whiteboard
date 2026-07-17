@@ -19,7 +19,7 @@ import { validateEnv } from '@/utils/env'
 import { installClientErrorReporting } from '@/utils/clientErrorReporter'
 import { registerPwaAutoUpdate } from '@/pwa'
 import { applyStandaloneDisplayModeClass } from '@/pwaDisplayMode'
-import { clearAuthScopedQueries } from '@/queryAuthScope'
+import { clearAuthScopedQueries, configureAuthQueryScope } from '@/queryAuthScope'
 import { resetNotificationStreamSessionState } from '@/features/notifications/stream/notificationStreamController'
 
 validateEnv()
@@ -57,6 +57,8 @@ configureAuthSessionEffects({
         clearAuthScopedQueries(queryClient)
     },
 })
+
+configureAuthQueryScope(() => useAuthStore(pinia).sessionGeneration)
 
 app.use(VueQueryPlugin, { queryClient })
 app.use(router)

@@ -13,6 +13,7 @@ import { QUERY_STALE_TIME } from '@/utils/constants'
 import { searchQueryKeys } from '@/composables/searchQueryKeys'
 import { useApiPageQuery, useApiQuery } from '@/composables/useApiQuery'
 import { callWithOptionalQuerySignal } from '@/utils/querySignal'
+import { AUTH_SCOPED_QUERY_META } from '@/queryAuthScope'
 
 const hasSearchText = (value?: string) => !!value?.trim()
 
@@ -57,6 +58,7 @@ export function useSearch() {
                 (config) => searchApi.searchPosts(params.value, config),
             ),
             enabled: computed(() => hasSearchText(params.value.q) || hasSearchText(params.value.keyword)),
+            meta: AUTH_SCOPED_QUERY_META,
         })
     }
 
@@ -83,6 +85,7 @@ export function useSearch() {
             selectData: toSearchPageViewModel,
             enabled: computed(() => hasSearchText(params.value.q)),
             keepPreviousData: true,
+            meta: AUTH_SCOPED_QUERY_META,
         })
     }
 
@@ -108,6 +111,7 @@ export function useSearch() {
             ),
             enabled,
             staleTime: QUERY_STALE_TIME.SHORT,
+            meta: AUTH_SCOPED_QUERY_META,
         })
     }
 

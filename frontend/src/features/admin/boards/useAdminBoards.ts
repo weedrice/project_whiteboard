@@ -22,8 +22,24 @@ import type {
     BoardUpdateData,
 } from '@/types'
 import { unwrapApiData } from '@/api/response'
+import { useAuthStore } from '@/stores/auth'
+import {
+    captureSessionGeneration,
+    isSessionGenerationCurrent,
+    sessionQueryKey,
+} from '@/queryAuthScope'
 
 export function useAdminBoardManagement(queryClient: QueryClient) {
+    const authStore = useAuthStore()
+    const captureMutationSession = () => ({
+        sessionGeneration: captureSessionGeneration(authStore),
+    })
+    const isCurrentMutation = (
+        context?: { sessionGeneration: number },
+    ): context is { sessionGeneration: number } =>
+        context !== undefined
+        && isSessionGenerationCurrent(authStore, context.sessionGeneration)
+
     const useAdminBoards = () => {
         return useAdminDataQuery<AdminBoard[]>(
             adminQueryKeys.boards,
@@ -34,34 +50,44 @@ export function useAdminBoardManagement(queryClient: QueryClient) {
     const useCreateBoard = () => {
         return useMutation({
             mutationFn: (data: BoardCreateData) => adminApi.createBoard(data),
-            onSuccess: () => {
-                invalidateAdminBoardListCaches(queryClient)
-                invalidateBoardListCaches(queryClient)
-            }
+            onMutate: captureMutationSession,
+            onSuccess: (_data, _variables, context) => {
+                if (!isCurrentMutation(context)) return
+                invalidateAdminBoardListCaches(queryClient, context.sessionGeneration)
+                invalidateBoardListCaches(queryClient, context.sessionGeneration)
+            },
         })
     }
 
     const useUpdateBoard = () => {
         return useMutation({
             mutationFn: ({ boardUrl, data }: { boardUrl: string, data: BoardUpdateData }) => adminApi.updateBoard(boardUrl, data),
-            onSuccess: (_, { boardUrl, data }) => {
-                invalidateAdminBoardListCaches(queryClient)
-                queryClient.invalidateQueries({ queryKey: boardQueryKeys.detail(boardUrl) })
+            onMutate: captureMutationSession,
+            onSuccess: (_, { boardUrl, data }, context) => {
+                if (!isCurrentMutation(context)) return
+                invalidateAdminBoardListCaches(queryClient, context.sessionGeneration)
+                queryClient.invalidateQueries({
+                    queryKey: sessionQueryKey(context.sessionGeneration, boardQueryKeys.detail(boardUrl)),
+                })
                 if (data.boardUrl && data.boardUrl !== boardUrl) {
-                    queryClient.invalidateQueries({ queryKey: boardQueryKeys.detail(data.boardUrl) })
+                    queryClient.invalidateQueries({
+                        queryKey: sessionQueryKey(context.sessionGeneration, boardQueryKeys.detail(data.boardUrl)),
+                    })
                 }
-                invalidateBoardListCaches(queryClient)
-            }
+                invalidateBoardListCaches(queryClient, context.sessionGeneration)
+            },
         })
     }
 
     const useDeleteBoard = () => {
         return useMutation({
             mutationFn: (boardUrl: string) => adminApi.deleteBoard(boardUrl),
-            onSuccess: () => {
-                invalidateAdminBoardListCaches(queryClient)
-                invalidateBoardListCaches(queryClient)
-            }
+            onMutate: captureMutationSession,
+            onSuccess: (_data, _variables, context) => {
+                if (!isCurrentMutation(context)) return
+                invalidateAdminBoardListCaches(queryClient, context.sessionGeneration)
+                invalidateBoardListCaches(queryClient, context.sessionGeneration)
+            },
         })
     }
 
@@ -71,9 +97,11 @@ export function useAdminBoardManagement(queryClient: QueryClient) {
                 const response = await adminApi.reorderBoards(boardIds)
                 return unwrapApiData(response.data)
             },
-            onSuccess: () => {
-                invalidateAdminBoardListCaches(queryClient)
-                invalidateBoardListCaches(queryClient)
+            onMutate: captureMutationSession,
+            onSuccess: (_data, _variables, context) => {
+                if (!isCurrentMutation(context)) return
+                invalidateAdminBoardListCaches(queryClient, context.sessionGeneration)
+                invalidateBoardListCaches(queryClient, context.sessionGeneration)
             },
         })
     }
@@ -99,11 +127,15 @@ export function useAdminBoardManagement(queryClient: QueryClient) {
         return useMutation({
             mutationFn: ({ boardId, data }: { boardId: number, data: BoardManagerUpdateData }) =>
                 adminApi.updateBoardManager(boardId, data),
-            onSuccess: (_, { boardId }) => {
-                invalidateAdminBoardManagerCache(queryClient, boardId)
-                invalidateAdminBoardCaches(queryClient)
-                queryClient.invalidateQueries({ queryKey: boardQueryKeys.all })
-            }
+            onMutate: captureMutationSession,
+            onSuccess: (_, { boardId }, context) => {
+                if (!isCurrentMutation(context)) return
+                invalidateAdminBoardManagerCache(queryClient, context.sessionGeneration, boardId)
+                invalidateAdminBoardCaches(queryClient, context.sessionGeneration)
+                queryClient.invalidateQueries({
+                    queryKey: sessionQueryKey(context.sessionGeneration, boardQueryKeys.all),
+                })
+            },
         })
     }
 

@@ -4,6 +4,10 @@ import { commentApi } from '@/api/comment'
 import { apiDataResponse, apiSuccessResponse } from '@/test/apiResponseFixtures'
 import { updateCommentLikeCache, useComment } from '../useComment'
 
+vi.mock('@/stores/auth', () => ({
+    useAuthStore: () => ({ sessionGeneration: 0 }),
+}))
+
 vi.mock('@/api/comment', () => ({
     commentApi: {
         getComments: vi.fn(),
@@ -95,9 +99,9 @@ describe('useComment', () => {
         const result = await (options.queryFn as () => Promise<unknown>)()
 
         const queryKey = options.queryKey as ReturnType<typeof computed>
-        expect(queryKey.value).toEqual(['comments', 'post', 1, { page: 0, size: 10 }])
+        expect(queryKey.value).toEqual(['session', 0, 'comments', 'post', 1, { page: 0, size: 10 }])
         expect((options.enabled as { value: boolean }).value).toBe(true)
-        expect((options.placeholderData as (prev: unknown) => unknown)('keep')).toBe('keep')
+        expect(options.placeholderData).toBeUndefined()
         expect(commentApi.getComments).toHaveBeenCalledWith(1, { page: 0, size: 10 })
         expect(result).toEqual({
             content: [{ commentId: 1, content: 'hello' }],
@@ -112,7 +116,7 @@ describe('useComment', () => {
 
         postId.value = 2
         params.value = { page: 1, size: 20 }
-        expect(queryKey.value).toEqual(['comments', 'post', 2, { page: 1, size: 20 }])
+        expect(queryKey.value).toEqual(['session', 0, 'comments', 'post', 2, { page: 1, size: 20 }])
     })
 
     it('normalizes backend pages before calculating the next infinite comment page', async () => {
@@ -160,6 +164,8 @@ describe('useComment', () => {
         const result = await (options.queryFn as () => Promise<unknown>)()
 
         expect((options.queryKey as ReturnType<typeof computed>).value).toEqual([
+            'session',
+            0,
             'comments',
             'replies',
             10,
@@ -194,9 +200,9 @@ describe('useComment', () => {
         })
 
         expect(commentApi.createComment).toHaveBeenCalledWith(123, { content: 'New comment' })
-        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['comments', 'post', 123] })
-        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['post', 123] })
-        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['user', 'points'] })
+        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'comments', 'post', 123] })
+        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'post', 123] })
+        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'user', 'points'] })
         expect(mockInvalidateQueries).not.toHaveBeenCalledWith({ queryKey: ['comments'] })
         expect(mockInvalidateQueries).not.toHaveBeenCalledWith({ queryKey: ['post'] })
     })
@@ -214,7 +220,7 @@ describe('useComment', () => {
         })
 
         expect(commentApi.updateComment).toHaveBeenCalledWith(5, { content: 'Updated' })
-        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['comments', 'post', 123] })
+        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'comments', 'post', 123] })
         expect(mockInvalidateQueries).not.toHaveBeenCalledWith({ queryKey: ['comments'] })
     })
 
@@ -227,8 +233,8 @@ describe('useComment', () => {
         await mutation.mutateAsync({ commentId: 10, postId: 123 })
 
         expect(commentApi.deleteComment).toHaveBeenCalledWith(10)
-        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['comments', 'post', 123] })
-        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['post', 123] })
+        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'comments', 'post', 123] })
+        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'post', 123] })
         expect(mockInvalidateQueries).not.toHaveBeenCalledWith({ queryKey: ['comments'] })
         expect(mockInvalidateQueries).not.toHaveBeenCalledWith({ queryKey: ['post'] })
     })
@@ -270,10 +276,10 @@ describe('useComment', () => {
 
         expect(commentApi.likeComment).toHaveBeenCalledWith(7)
         expect(commentApi.unlikeComment).toHaveBeenCalledWith(7)
-        expect(mockCancelQueries).toHaveBeenCalledWith({ queryKey: ['comments'] })
+        expect(mockCancelQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'comments'] })
         expect(mockSetQueriesData).toHaveBeenCalled()
-        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['comments', 'post', 123] })
-        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['comments'] })
+        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'comments', 'post', 123] })
+        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'comments'] })
     })
 
     it('restores comment query snapshots when a like request fails', async () => {
@@ -287,6 +293,6 @@ describe('useComment', () => {
         await expect(mutation.mutateAsync({ commentId: 7, postId: 123, liked: true })).rejects.toThrow('like failed')
 
         expect(mockSetQueryData).toHaveBeenCalledWith(['comments', 'post', 123], snapshot)
-        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['comments'] })
+        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'comments'] })
     })
 })

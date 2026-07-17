@@ -6,6 +6,7 @@ import { boardApi } from '@/api/board'
 import { apiDataResponse, apiSuccessResponse } from '@/test/apiResponseFixtures'
 import { BaseButtonStub, flushAll, identityT } from '@/test/vue-test-helpers'
 import type { BoardListItem } from '@/types'
+import { sessionQueryKey } from '@/queryAuthScope'
 
 const replace = vi.hoisted(() => vi.fn())
 const route = vi.hoisted(() => ({ query: { redirect: '/mypage' } }))
@@ -13,6 +14,11 @@ const completeOnboarding = vi.hoisted(() => vi.fn())
 const subscribeBoard = vi.hoisted(() => vi.fn())
 const getBoardRecommendations = vi.hoisted(() => vi.fn())
 const enablePush = vi.hoisted(() => vi.fn())
+const authStore = vi.hoisted(() => ({ sessionGeneration: 0 }))
+
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => authStore,
+}))
 
 vi.mock('vue-router', () => ({
   useRouter: () => ({ replace }),
@@ -88,6 +94,7 @@ const mountPage = () => {
 describe('OnboardingPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    authStore.sessionGeneration = 0
     getBoardRecommendations.mockResolvedValue(apiDataResponse<typeof boardApi.getBoardRecommendations>([
       board(),
       board({ boardId: 2, boardName: 'Dev', boardUrl: 'dev', isSubscribed: true }),
@@ -106,11 +113,11 @@ describe('OnboardingPage', () => {
     await flushAll()
 
     expect(subscribeBoard).toHaveBeenCalledWith('general')
-    expect(queryClient.getQueryData<BoardListItem[]>(['onboarding', 'board-recommendations'])?.[0]?.isSubscribed).toBe(true)
-    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['board', 'detail', 'general'] })
-    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['boards'] })
-    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['boards', 'subscriptions'] })
-    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['home', 'landing'] })
+    expect(queryClient.getQueryData<BoardListItem[]>(sessionQueryKey(0, ['onboarding', 'board-recommendations']))?.[0]?.isSubscribed).toBe(true)
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: sessionQueryKey(0, ['board', 'detail', 'general']) })
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: sessionQueryKey(0, ['boards']) })
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: sessionQueryKey(0, ['boards', 'subscriptions']) })
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: sessionQueryKey(0, ['home', 'landing']) })
   })
 
   it('keeps the recommendation state unchanged when subscription fails', async () => {
@@ -121,7 +128,26 @@ describe('OnboardingPage', () => {
     await wrapper.findAll('button')[0].trigger('click')
     await flushAll()
 
-    expect(queryClient.getQueryData<BoardListItem[]>(['onboarding', 'board-recommendations'])?.[0]?.isSubscribed).toBe(false)
+    expect(queryClient.getQueryData<BoardListItem[]>(sessionQueryKey(0, ['onboarding', 'board-recommendations']))?.[0]?.isSubscribed).toBe(false)
+    expect(invalidateQueries).not.toHaveBeenCalled()
+  })
+
+  it('ignores a subscription response from a previous session generation', async () => {
+    let resolveSubscription!: (value: Awaited<ReturnType<typeof boardApi.subscribeBoard>>) => void
+    subscribeBoard.mockImplementationOnce(() => new Promise((resolve) => {
+      resolveSubscription = resolve
+    }))
+    const { invalidateQueries, queryClient, wrapper } = mountPage()
+    await flushAll()
+
+    await wrapper.findAll('button')[0].trigger('click')
+    await vi.waitFor(() => expect(subscribeBoard).toHaveBeenCalledWith('general'))
+    authStore.sessionGeneration += 1
+    resolveSubscription(apiSuccessResponse<typeof boardApi.subscribeBoard>())
+    await flushAll()
+
+    expect(queryClient.getQueryData<BoardListItem[]>(sessionQueryKey(0, ['onboarding', 'board-recommendations']))?.[0]?.isSubscribed).toBe(false)
+    expect(queryClient.getQueryData(sessionQueryKey(1, ['onboarding', 'board-recommendations']))).toBeUndefined()
     expect(invalidateQueries).not.toHaveBeenCalled()
   })
 

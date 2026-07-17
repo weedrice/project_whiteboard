@@ -5,6 +5,7 @@ import { useAuthStore } from '@/stores/auth'
 import { commentQueryKeys } from '@/features/comments/queries/commentQueryKeys'
 import { useUserBlockAction } from '@/features/user/menu/useUserBlockAction'
 import { userQueryKeys } from '@/composables/userQueryKeys'
+import { isSessionGenerationCurrent, sessionQueryKey } from '@/queryAuthScope'
 
 interface UseUserMenuActionsOptions {
     userId: Ref<number>
@@ -57,6 +58,7 @@ export function useUserMenuActions({
     const handleBlockUser = async () => {
         closeDropdown()
         if (isSelf.value) return
+        const sessionGeneration = authStore.sessionGeneration
 
         await runUserBlockAction({
             confirmMessage: t('user.block.confirm', { name: displayName.value }),
@@ -66,8 +68,13 @@ export function useUserMenuActions({
             action: () => userApi.blockUser(userId.value),
             isSuccess: ({ data }) => data.success,
             onSuccess: () => {
-                queryClient.invalidateQueries({ queryKey: commentQueryKeys.all })
-                queryClient.invalidateQueries({ queryKey: userQueryKeys.blocksRoot })
+                if (!isSessionGenerationCurrent(authStore, sessionGeneration)) return
+                queryClient.invalidateQueries({
+                    queryKey: sessionQueryKey(sessionGeneration, commentQueryKeys.all),
+                })
+                queryClient.invalidateQueries({
+                    queryKey: sessionQueryKey(sessionGeneration, userQueryKeys.blocksRoot),
+                })
             },
         })
     }

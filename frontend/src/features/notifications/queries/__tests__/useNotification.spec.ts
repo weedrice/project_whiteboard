@@ -28,13 +28,14 @@ describe('useNotification queries and mutations', () => {
     const result = await (options.queryFn as () => Promise<unknown>)()
 
     const queryKey = options.queryKey as ReturnType<typeof computed>
-    expect(queryKey.value).toEqual(['notifications', { page: 0, size: 20 }])
+    expect(queryKey.value).toEqual(['session', 0, 'notifications', { page: 0, size: 20 }])
     expect(mocks.notificationApi.getNotifications).toHaveBeenCalledWith(params.value)
     expect(result).toEqual(pageResponse)
-    expect((options.placeholderData as (prev: unknown) => unknown)('keep-me')).toBe('keep-me')
+    expect(options.placeholderData).toBeUndefined()
 
     params.value = { page: 1, size: 10 }
-    expect(queryKey.value).toEqual(['notifications', { page: 1, size: 10 }])
+    expect(queryKey.value).toEqual(['session', 0, 'notifications', { page: 1, size: 10 }])
+
   })
 
   it('fetches unread count with auth-aware enabled flag', async () => {
@@ -63,8 +64,8 @@ describe('useNotification queries and mutations', () => {
     await mutation.mutateAsync(10)
 
     expect(mocks.notificationApi.markAsRead).toHaveBeenCalledWith(10)
-    expect(mocks.queryClient.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['notifications'] })
-    expect(mocks.queryClient.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['notifications', 'unread-count'] })
+    expect(mocks.queryClient.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'notifications'] })
+    expect(mocks.queryClient.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'notifications', 'unread-count'] })
   })
 
   it('marks all as read and sets unread-count cache to zero', async () => {
@@ -75,7 +76,23 @@ describe('useNotification queries and mutations', () => {
     await mutation.mutateAsync(undefined)
 
     expect(mocks.notificationApi.markAllAsRead).toHaveBeenCalled()
-    expect(mocks.queryClient.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['notifications'] })
-    expect(mocks.queryClient.setQueryData).toHaveBeenCalledWith(['notifications', 'unread-count'], 0)
+    expect(mocks.queryClient.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'notifications'] })
+    expect(mocks.queryClient.setQueryData).toHaveBeenCalledWith(['session', 0, 'notifications', 'unread-count'], 0)
+  })
+
+  it('ignores a mutation callback from an older session generation', async () => {
+    const { useMarkAsRead } = useNotification()
+    useMarkAsRead()
+    const options = mocks.mutationOptions[0]
+    const context = await (options.onMutate as () => Promise<unknown> | unknown)()
+
+    mocks.authStore.sessionGeneration = 1
+    ;(options.onSuccess as (data: unknown, variables: unknown, context: unknown) => void)(
+      undefined,
+      10,
+      context,
+    )
+
+    expect(mocks.queryClient.invalidateQueries).not.toHaveBeenCalled()
   })
 })

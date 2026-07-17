@@ -4,6 +4,7 @@ import { useUser } from '@/features/user/useUser'
 import { userApi } from '@/api/user'
 import { QUERY_STALE_TIME } from '@/utils/constants'
 import { apiDataResponse, apiSuccessResponse } from '@/test/apiResponseFixtures'
+import { createPinia, setActivePinia } from 'pinia'
 
 const mocks = vi.hoisted(() => {
     const invalidateQueries = vi.fn()
@@ -44,11 +45,12 @@ vi.mock('@tanstack/vue-query', () => ({
             },
         }
     }),
-    useMutation: vi.fn(({ mutationFn, onSuccess }) => ({
+    useMutation: vi.fn(({ mutationFn, onMutate, onSuccess }) => ({
         mutateAsync: async (variables: unknown) => {
+            const context = onMutate ? await onMutate(variables) : undefined
             const result = await mutationFn(variables)
             if (onSuccess) {
-                onSuccess(result, variables, undefined)
+                onSuccess(result, variables, context)
             }
             return result
         },
@@ -83,6 +85,7 @@ vi.mock('@/api/user', () => ({
 
 describe('useUser', () => {
     beforeEach(() => {
+        setActivePinia(createPinia())
         vi.clearAllMocks()
         mocks.queryOptions.length = 0
     })
@@ -95,7 +98,9 @@ describe('useUser', () => {
         const { useMyProfile } = useUser()
         useMyProfile()
         const options = mocks.queryOptions.at(-1)!
-        expect(options.queryKey).toEqual(['user', 'me'])
+        expect((options.queryKey as ReturnType<typeof computed>).value).toEqual([
+            'session', 0, 'user', 'me',
+        ])
         expect(options.staleTime).toBe(QUERY_STALE_TIME.MEDIUM)
 
         const controller = new AbortController()
@@ -161,14 +166,18 @@ describe('useUser', () => {
 
         useUserSettings()
         let options = mocks.queryOptions.at(-1)!
-        expect(options.queryKey).toEqual(['user', 'settings'])
+        expect((options.queryKey as ReturnType<typeof computed>).value).toEqual([
+            'session', 0, 'user', 'settings',
+        ])
         expect(options.staleTime).toBe(QUERY_STALE_TIME.MEDIUM)
         let result = await (options.queryFn as () => Promise<unknown>)()
         expect(result).toEqual({ theme: 'LIGHT' })
 
         useBlockList()
         options = mocks.queryOptions.at(-1)!
-        expect((options.queryKey as { value: unknown[] }).value).toEqual(['user', 'blocks', {}])
+        expect((options.queryKey as { value: unknown[] }).value).toEqual([
+            'session', 0, 'user', 'blocks', {},
+        ])
         result = await (options.queryFn as () => Promise<unknown>)()
         expect(result).toEqual({
             content: [{ userId: 100, displayName: 'blocked', secondaryText: 'blocked-login' }],
@@ -183,13 +192,17 @@ describe('useUser', () => {
 
         useNotificationSettings()
         options = mocks.queryOptions.at(-1)!
-        expect(options.queryKey).toEqual(['user', 'notification-settings'])
+        expect((options.queryKey as ReturnType<typeof computed>).value).toEqual([
+            'session', 0, 'user', 'notification-settings',
+        ])
         result = await (options.queryFn as () => Promise<unknown>)()
         expect(result).toEqual([{ notificationType: 'COMMENT', isEnabled: true }])
 
         useMyAgents()
         options = mocks.queryOptions.at(-1)!
-        expect(options.queryKey).toEqual(['user', 'agents'])
+        expect((options.queryKey as ReturnType<typeof computed>).value).toEqual([
+            'session', 0, 'user', 'agents',
+        ])
         expect(options.staleTime).toBe(QUERY_STALE_TIME.MEDIUM)
         const controller = new AbortController()
         result = await (options.queryFn as (context: { signal: AbortSignal }) => Promise<unknown>)({
@@ -208,7 +221,9 @@ describe('useUser', () => {
 
         useRecentlyViewedPosts()
         let options = mocks.queryOptions.at(-1)!
-        expect((options.queryKey as ReturnType<typeof computed>).value).toEqual(['user', 'history', 'views', undefined])
+        expect((options.queryKey as ReturnType<typeof computed>).value).toEqual([
+            'session', 0, 'user', 'history', 'views', undefined,
+        ])
         let result = await (options.queryFn as (context: { signal: AbortSignal }) => Promise<unknown>)({
             signal: new AbortController().signal,
         })
@@ -219,7 +234,9 @@ describe('useUser', () => {
         useRecentlyViewedPosts(params)
         options = mocks.queryOptions.at(-1)!
         const queryKey = options.queryKey as ReturnType<typeof computed>
-        expect(queryKey.value).toEqual(['user', 'history', 'views', { page: 1, size: 20 }])
+        expect(queryKey.value).toEqual([
+            'session', 0, 'user', 'history', 'views', { page: 1, size: 20 },
+        ])
         result = await (options.queryFn as (context: { signal: AbortSignal }) => Promise<unknown>)({
             signal: new AbortController().signal,
         })
@@ -227,7 +244,9 @@ describe('useUser', () => {
         expect(result).toEqual({ content: [{ postId: 2 }] })
 
         params.value = { page: 2, size: 10 }
-        expect(queryKey.value).toEqual(['user', 'history', 'views', { page: 2, size: 10 }])
+        expect(queryKey.value).toEqual([
+            'session', 0, 'user', 'history', 'views', { page: 2, size: 10 },
+        ])
     })
 
     it('fetches my points with user-scoped query key and enabled guard', async () => {
@@ -241,7 +260,9 @@ describe('useUser', () => {
         useMyPoint(enabled, userIdentity)
         const options = mocks.queryOptions.at(-1)!
 
-        expect((options.queryKey as ReturnType<typeof computed>).value).toEqual(['user', 'points', 'me', 7])
+        expect((options.queryKey as ReturnType<typeof computed>).value).toEqual([
+            'session', 0, 'user', 'points', 'me', 7,
+        ])
         expect((options.enabled as ReturnType<typeof computed>).value).toBe(false)
         expect(options.staleTime).toBe(QUERY_STALE_TIME.SHORT)
 
@@ -266,7 +287,9 @@ describe('useUser', () => {
 
         useMyScraps(params)
         let options = mocks.queryOptions.at(-1)!
-        expect((options.queryKey as ReturnType<typeof computed>).value).toEqual(['user', 'scraps', { page: 1, size: 15 }])
+        expect((options.queryKey as ReturnType<typeof computed>).value).toEqual([
+            'session', 0, 'user', 'scraps', { page: 1, size: 15 },
+        ])
         let result = await (options.queryFn as (context: { signal: AbortSignal }) => Promise<unknown>)({
             signal: new AbortController().signal,
         })
@@ -282,7 +305,9 @@ describe('useUser', () => {
 
         useMyPointHistories(params)
         options = mocks.queryOptions.at(-1)!
-        expect((options.queryKey as ReturnType<typeof computed>).value).toEqual(['user', 'points', 'history', { page: 1, size: 15 }])
+        expect((options.queryKey as ReturnType<typeof computed>).value).toEqual([
+            'session', 0, 'user', 'points', 'history', { page: 1, size: 15 },
+        ])
         result = await (options.queryFn as (context: { signal: AbortSignal }) => Promise<unknown>)({
             signal: new AbortController().signal,
         })
@@ -298,7 +323,7 @@ describe('useUser', () => {
         await mutation.mutateAsync({ displayName: 'new-name' })
 
         expect(userApi.updateMyProfile).toHaveBeenCalledWith({ displayName: 'new-name' })
-        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['user', 'me'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'user', 'me'] })
     })
 
     it('updates password without cache invalidation side effects', async () => {
@@ -327,7 +352,7 @@ describe('useUser', () => {
         await useUpdateUserSettings().mutateAsync({ theme: 'DARK' })
 
         expect(userApi.updateUserSettings).toHaveBeenCalledWith({ theme: 'DARK' })
-        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['user', 'settings'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'user', 'settings'] })
     })
 
     it('updates notification settings and invalidates notification settings query', async () => {
@@ -343,7 +368,7 @@ describe('useUser', () => {
         expect(userApi.updateNotificationSettingsBulk).toHaveBeenCalledWith({
             settings: [{ notificationType: 'COMMENT', isEnabled: true }],
         })
-        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['user', 'notification-settings'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'user', 'notification-settings'] })
     })
 
     it('claims, suspends, activates and deletes agents and invalidates agent list', async () => {
@@ -366,7 +391,7 @@ describe('useUser', () => {
         await useDeleteMyAgent().mutateAsync(7)
         expect(userApi.deleteMyAgent).toHaveBeenCalledWith(7)
 
-        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['user', 'agents'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'user', 'agents'] })
     })
 
     it('blocks and unblocks user and invalidates block list', async () => {
@@ -381,6 +406,6 @@ describe('useUser', () => {
         await useUnblockUser().mutateAsync(123)
         expect(userApi.unblockUser).toHaveBeenCalledWith(123)
 
-        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['user', 'blocks'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'user', 'blocks'] })
     })
 })

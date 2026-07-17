@@ -30,6 +30,7 @@ import { useToastStore } from '@/stores/toast'
 import { notificationApi } from '@/api/notification'
 import { onCommentStreamEvent } from '@/features/comments/commentStreamEvents'
 import { commentQueryKeys } from '@/features/comments/queries/commentQueryKeys'
+import { sessionQueryKey } from '@/queryAuthScope'
 import { isRestrictedResourceError } from '@/utils/errorHandler'
 
 const route = useRoute()
@@ -259,24 +260,28 @@ function clearCommentRefreshTimer() {
   commentRefreshTimer = null
 }
 
-function refreshComments() {
+function refreshComments(sessionGeneration = authStore.sessionGeneration) {
   clearCommentRefreshTimer()
+  if (sessionGeneration !== authStore.sessionGeneration) return
   pendingCommentCount.value = 0
-  void queryClient?.invalidateQueries({ queryKey: commentQueryKeys.postRoot(commentQueryPostId.value) })
+  void queryClient?.invalidateQueries({
+    queryKey: sessionQueryKey(sessionGeneration, commentQueryKeys.postRoot(commentQueryPostId.value)),
+  })
 }
 
-function scheduleCommentRefresh() {
+function scheduleCommentRefresh(sessionGeneration: number) {
   clearCommentRefreshTimer()
   commentRefreshTimer = setTimeout(() => {
-    refreshComments()
+    refreshComments(sessionGeneration)
   }, 2000)
 }
 
 const stopCommentStreamListener = onCommentStreamEvent((event) => {
+  if (event.sessionGeneration !== authStore.sessionGeneration) return
   if (String(event.postId) !== String(postId.value)) return
 
   if (event.action === 'DELETED') {
-    scheduleCommentRefresh()
+    scheduleCommentRefresh(event.sessionGeneration)
     return
   }
 

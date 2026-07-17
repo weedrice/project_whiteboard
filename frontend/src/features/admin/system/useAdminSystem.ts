@@ -23,8 +23,19 @@ import type {
     ModerationAuditLog,
     ModerationAuditSearchParams,
 } from '@/types'
+import {
+    AUTH_SCOPED_QUERY_META,
+    currentSessionQueryKey,
+    isSessionGenerationCurrent,
+} from '@/queryAuthScope'
+import { useAuthStore } from '@/stores/auth'
 
 export function useAdminSystem(queryClient: QueryClient) {
+    const authStore = useAuthStore()
+    const captureMutationSession = () => ({ sessionGeneration: authStore.sessionGeneration })
+    const isCurrentMutation = (context?: { sessionGeneration: number }) => (
+        context !== undefined && isSessionGenerationCurrent(authStore, context.sessionGeneration)
+    )
     const useConfigs = () => {
         return useAdminDataQuery(
             adminQueryKeys.configs,
@@ -34,22 +45,34 @@ export function useAdminSystem(queryClient: QueryClient) {
 
     const useUpdateConfig = () => {
         return useMutation({
+            onMutate: captureMutationSession,
             mutationFn: ({ key, value, description }: { key: string, value: string, description?: string }) => adminApi.updateConfig(key, value, description),
-            onSuccess: () => invalidateAdminConfigCaches(queryClient)
+            onSuccess: (_data, _variables, context) => {
+                if (!isCurrentMutation(context)) return
+                invalidateAdminConfigCaches(queryClient, context.sessionGeneration)
+            }
         })
     }
 
     const useCreateConfig = () => {
         return useMutation({
+            onMutate: captureMutationSession,
             mutationFn: (data: ConfigCreateData) => adminApi.createConfig(data),
-            onSuccess: () => invalidateAdminConfigCaches(queryClient)
+            onSuccess: (_data, _variables, context) => {
+                if (!isCurrentMutation(context)) return
+                invalidateAdminConfigCaches(queryClient, context.sessionGeneration)
+            }
         })
     }
 
     const useDeleteConfig = () => {
         return useMutation({
+            onMutate: captureMutationSession,
             mutationFn: (key: string) => adminApi.deleteConfig(key),
-            onSuccess: () => invalidateAdminConfigCaches(queryClient)
+            onSuccess: (_data, _variables, context) => {
+                if (!isCurrentMutation(context)) return
+                invalidateAdminConfigCaches(queryClient, context.sessionGeneration)
+            }
         })
     }
 
@@ -116,7 +139,11 @@ export function useAdminSystem(queryClient: QueryClient) {
 
         return {
             mutateAsync: (selectedErrorLogId: number) => queryClient.fetchQuery({
-                queryKey: adminQueryKeys.errorLogDetailById(selectedErrorLogId),
+                queryKey: currentSessionQueryKey(
+                    authStore,
+                    adminQueryKeys.errorLogDetailById(selectedErrorLogId),
+                ),
+                meta: AUTH_SCOPED_QUERY_META,
                 queryFn: async ({ signal }) => {
                     const response = callAdminApiWithOptionalConfig(
                         signal ? { signal } : undefined,
@@ -131,9 +158,15 @@ export function useAdminSystem(queryClient: QueryClient) {
 
     const useResolveErrorLog = () => {
         return useMutation({
+            onMutate: captureMutationSession,
             mutationFn: ({ errorLogId, data }: { errorLogId: number, data?: { memo?: string } }) => adminApi.resolveErrorLog(errorLogId, data),
-            onSuccess: (_data, variables) => {
-                invalidateAdminErrorLogCaches(queryClient, variables.errorLogId)
+            onSuccess: (_data, variables, context) => {
+                if (!isCurrentMutation(context)) return
+                invalidateAdminErrorLogCaches(
+                    queryClient,
+                    context.sessionGeneration,
+                    variables.errorLogId,
+                )
             }
         })
     }

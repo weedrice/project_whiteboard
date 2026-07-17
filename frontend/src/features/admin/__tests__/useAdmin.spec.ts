@@ -4,6 +4,12 @@ import { useAdmin } from '../useAdmin'
 import { adminApi } from '@/api/admin'
 import { apiDataResponse, apiSuccessResponse } from '@/test/apiResponseFixtures'
 
+const mockAuthStore = vi.hoisted(() => ({ sessionGeneration: 0 }))
+
+vi.mock('@/stores/auth', () => ({
+    useAuthStore: () => mockAuthStore,
+}))
+
 // Mock dependencies
 vi.mock('@/api/admin', () => ({
     adminApi: {
@@ -47,6 +53,9 @@ vi.mock('@/api/admin', () => ({
 
 // Mock vue-query
 const mockInvalidateQueries = vi.fn()
+const mockFetchQuery = vi.fn(async (options: { queryFn: (context?: { signal?: AbortSignal }) => Promise<unknown> }) => (
+    options.queryFn({})
+))
 const mockQueryOptions: Array<Record<string, unknown>> = []
 vi.mock('@tanstack/vue-query', () => ({
     keepPreviousData: (previousData: unknown) => previousData,
@@ -62,26 +71,28 @@ vi.mock('@tanstack/vue-query', () => ({
     useMutation: vi.fn((options) => {
         return {
             mutate: async (variables: unknown) => {
+                const context = await options.onMutate?.(variables)
                 try {
                     const result = await options.mutationFn(variables)
-                    options.onSuccess?.(result, variables)
-                    options.onSettled?.(result, null, variables)
+                    options.onSuccess?.(result, variables, context)
+                    options.onSettled?.(result, null, variables, context)
                     return result
                 } catch (error) {
-                    options.onError?.(error, variables)
-                    options.onSettled?.(undefined, error, variables)
+                    options.onError?.(error, variables, context)
+                    options.onSettled?.(undefined, error, variables, context)
                     throw error
                 }
             },
             mutateAsync: async (variables: unknown) => {
+                const context = await options.onMutate?.(variables)
                 try {
                     const result = await options.mutationFn(variables)
-                    options.onSuccess?.(result, variables)
-                    options.onSettled?.(result, null, variables)
+                    options.onSuccess?.(result, variables, context)
+                    options.onSettled?.(result, null, variables, context)
                     return result
                 } catch (error) {
-                    options.onError?.(error, variables)
-                    options.onSettled?.(undefined, error, variables)
+                    options.onError?.(error, variables, context)
+                    options.onSettled?.(undefined, error, variables, context)
                     throw error
                 }
             },
@@ -90,7 +101,8 @@ vi.mock('@tanstack/vue-query', () => ({
         }
     }),
     useQueryClient: vi.fn(() => ({
-        invalidateQueries: mockInvalidateQueries
+        invalidateQueries: mockInvalidateQueries,
+        fetchQuery: mockFetchQuery,
     }))
 }))
 
@@ -98,6 +110,7 @@ describe('useAdmin', () => {
     beforeEach(() => {
         vi.clearAllMocks()
         mockQueryOptions.length = 0
+        mockAuthStore.sessionGeneration = 0
     })
 
     describe('Admin Management', () => {
@@ -117,11 +130,11 @@ describe('useAdmin', () => {
             const queryKey = mockQueryOptions.at(-1)?.queryKey as { value: readonly unknown[] }
             const initialKey = queryKey.value
 
-            expect(initialKey).toEqual(['admin', 'admins', { page: 0, size: 20 }])
+            expect(initialKey).toEqual(['session', 0, 'admin', 'admins', { page: 0, size: 20 }])
             expect(initialKey.some(isRef)).toBe(false)
             params.value = { page: 1, size: 50 }
-            expect(queryKey.value).toEqual(['admin', 'admins', { page: 1, size: 50 }])
-            expect(initialKey).toEqual(['admin', 'admins', { page: 0, size: 20 }])
+            expect(queryKey.value).toEqual(['session', 0, 'admin', 'admins', { page: 1, size: 50 }])
+            expect(initialKey).toEqual(['session', 0, 'admin', 'admins', { page: 0, size: 20 }])
         })
 
         it('useAdmins queryFn forwards params and preserves placeholder data', async () => {
@@ -157,7 +170,7 @@ describe('useAdmin', () => {
                 empty: false
             })
             expect(adminApi.getAdmins).toHaveBeenCalledWith(params.value)
-            expect(query.placeholderData('prev-admins')).toBe('prev-admins')
+            expect(query.placeholderData).toBeUndefined()
         })
 
         it('useCreateAdmin calls adminApi.createAdmin', async () => {
@@ -169,7 +182,7 @@ describe('useAdmin', () => {
             await mutation.mutateAsync({ loginId: 'newadmin', boardId: 1, role: 'BOARD_ADMIN' })
 
             expect(adminApi.createAdmin).toHaveBeenCalledWith({ loginId: 'newadmin', boardId: 1, role: 'BOARD_ADMIN' })
-            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['admin', 'admins'] })
+            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'admins'] })
         })
 
         it('useCreateAdmin accepts moderator role', async () => {
@@ -183,6 +196,32 @@ describe('useAdmin', () => {
             expect(adminApi.createAdmin).toHaveBeenCalledWith({ loginId: 'modadmin', boardId: 1, role: 'MODERATOR' })
         })
 
+        it('ignores a completed mutation after the session generation changes', async () => {
+            const { useCreateAdmin } = useAdmin()
+            const mutation = useCreateAdmin()
+            let releaseRequest!: () => void
+            const requestGate = new Promise<void>((resolve) => {
+                releaseRequest = resolve
+            })
+
+            vi.mocked(adminApi.createAdmin).mockImplementationOnce(async () => {
+                await requestGate
+                return apiSuccessResponse<typeof adminApi.createAdmin>()
+            })
+
+            const request = mutation.mutateAsync({
+                loginId: 'old-session',
+                boardId: 1,
+                role: 'BOARD_ADMIN',
+            })
+            await Promise.resolve()
+            mockAuthStore.sessionGeneration = 1
+            releaseRequest()
+            await request
+
+            expect(mockInvalidateQueries).not.toHaveBeenCalled()
+        })
+
         it('useUpdateAdminStatus calls activate API', async () => {
             const { useUpdateAdminStatus } = useAdmin()
             const mutation = useUpdateAdminStatus()
@@ -192,7 +231,7 @@ describe('useAdmin', () => {
             await mutation.mutateAsync({ adminId: 1, action: 'activate' })
 
             expect(adminApi.activateAdmin).toHaveBeenCalledWith(1)
-            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['admin', 'admins'] })
+            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'admins'] })
         })
 
         it('useUpdateAdminStatus calls deactivate API', async () => {
@@ -236,7 +275,7 @@ describe('useAdmin', () => {
             await mutation.mutateAsync({ loginId: 'superadmin', action: 'activate', reason: 'grant' })
 
             expect(adminApi.activeSuperAdmin).toHaveBeenCalledWith({ loginId: 'superadmin', reason: 'grant' })
-            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['admin', 'super'] })
+            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'super'] })
         })
 
         it('useUpdateSuperAdminStatus calls deactivate API', async () => {
@@ -284,7 +323,7 @@ describe('useAdmin', () => {
 
             await expect(query.queryFn()).resolves.toEqual(response)
             expect(adminApi.getUsers).toHaveBeenCalledWith(params.value)
-            expect(query.placeholderData('prev-users')).toBe('prev-users')
+            expect(query.placeholderData).toBeUndefined()
         })
 
         it('useUpdateUserStatus calls adminApi', async () => {
@@ -296,8 +335,8 @@ describe('useAdmin', () => {
             await mutation.mutateAsync({ userId: 1, status: 'ACTIVE', reason: 'reviewed' })
 
             expect(adminApi.updateUserStatus).toHaveBeenCalledWith(1, 'ACTIVE', 'reviewed')
-            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['admin', 'users'] })
-            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['admin', 'users', 'detail'] })
+            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'users'] })
+            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'users', 'detail'] })
         })
 
         it('useSanctionUser calls adminApi.sanctionUser', async () => {
@@ -309,8 +348,8 @@ describe('useAdmin', () => {
             await mutation.mutateAsync({ targetUserId: 1, type: 'BAN', remark: 'Violation' })
 
             expect(adminApi.sanctionUser).toHaveBeenCalledWith({ targetUserId: 1, type: 'BAN', remark: 'Violation' })
-            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['admin', 'users'] })
-            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['admin', 'users', 'detail'] })
+            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'users'] })
+            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'users', 'detail'] })
         })
 
         it('admin user detail queries forward user-specific params', async () => {
@@ -340,7 +379,7 @@ describe('useAdmin', () => {
                 last: false
             })
             expect(adminApi.getUserPosts).toHaveBeenCalledWith(5, params.value)
-            expect(postsQuery.placeholderData('prev-posts')).toBe('prev-posts')
+            expect(postsQuery.placeholderData).toBeUndefined()
 
             useAdminUserComments(userId, params)
             const commentsQuery = mockQueryOptions.at(-1) as {
@@ -354,7 +393,7 @@ describe('useAdmin', () => {
                 last: true
             })
             expect(adminApi.getUserComments).toHaveBeenCalledWith(5, params.value)
-            expect(commentsQuery.placeholderData('prev-comments')).toBe('prev-comments')
+            expect(commentsQuery.placeholderData).toBeUndefined()
 
             useAdminUserSubscriptions(userId, params)
             const subscriptionsQuery = mockQueryOptions.at(-1) as {
@@ -368,7 +407,7 @@ describe('useAdmin', () => {
                 last: true
             })
             expect(adminApi.getUserSubscriptions).toHaveBeenCalledWith(5, params.value)
-            expect(subscriptionsQuery.placeholderData('prev-subscriptions')).toBe('prev-subscriptions')
+            expect(subscriptionsQuery.placeholderData).toBeUndefined()
         })
     })
 
@@ -405,7 +444,7 @@ describe('useAdmin', () => {
 
             await expect(query.queryFn()).resolves.toEqual(response)
             expect(adminApi.getReports).toHaveBeenCalledWith(params.value)
-            expect(query.placeholderData('prev-reports')).toBe('prev-reports')
+            expect(query.placeholderData).toBeUndefined()
         })
 
         it('useResolveReport calls adminApi.resolveReport', async () => {
@@ -417,7 +456,7 @@ describe('useAdmin', () => {
             await mutation.mutateAsync({ reportId: 1, data: { status: 'RESOLVED' } })
 
             expect(adminApi.resolveReport).toHaveBeenCalledWith(1, { status: 'RESOLVED' })
-            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['admin', 'reports'] })
+            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'reports'] })
         })
 
         it('useResolveReport invalidates reports even when resolve fails', async () => {
@@ -430,7 +469,7 @@ describe('useAdmin', () => {
             await expect(mutation.mutateAsync({ reportId: 1, data: { status: 'RESOLVED' } })).rejects.toThrow(error)
 
             expect(adminApi.resolveReport).toHaveBeenCalledWith(1, { status: 'RESOLVED' })
-            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['admin', 'reports'] })
+            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'reports'] })
         })
     })
 
@@ -473,7 +512,7 @@ describe('useAdmin', () => {
                 empty: false
             })
             expect(adminApi.getIpBlocks).toHaveBeenCalledWith(params.value)
-            expect(query.placeholderData('prev-ip-blocks')).toBe('prev-ip-blocks')
+            expect(query.placeholderData).toBeUndefined()
         })
 
         it('useBlockIp calls adminApi.blockIp', async () => {
@@ -485,7 +524,7 @@ describe('useAdmin', () => {
             await mutation.mutateAsync({ ipAddress: '192.168.1.1', reason: 'Spam' })
 
             expect(adminApi.blockIp).toHaveBeenCalledWith({ ipAddress: '192.168.1.1', reason: 'Spam' })
-            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['admin', 'ip-blocks'] })
+            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'ip-blocks'] })
         })
 
         it('useUnblockIp calls adminApi.unblockIp', async () => {
@@ -497,7 +536,7 @@ describe('useAdmin', () => {
             await mutation.mutateAsync('192.168.1.1')
 
             expect(adminApi.unblockIp).toHaveBeenCalledWith('192.168.1.1')
-            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['admin', 'ip-blocks'] })
+            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'ip-blocks'] })
         })
     })
 
@@ -528,7 +567,7 @@ describe('useAdmin', () => {
             await mutation.mutateAsync({ key: 'test_key', value: 'test_value' })
 
             expect(adminApi.createConfig).toHaveBeenCalledWith({ key: 'test_key', value: 'test_value' })
-            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['admin', 'configs'] })
+            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'configs'] })
         })
 
         it('useUpdateConfig calls adminApi.updateConfig', async () => {
@@ -540,7 +579,7 @@ describe('useAdmin', () => {
             await mutation.mutateAsync({ key: 'test_key', value: 'new_value', description: 'Updated' })
 
             expect(adminApi.updateConfig).toHaveBeenCalledWith('test_key', 'new_value', 'Updated')
-            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['admin', 'configs'] })
+            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'configs'] })
         })
 
         it('useDeleteConfig calls adminApi.deleteConfig', async () => {
@@ -552,7 +591,7 @@ describe('useAdmin', () => {
             await mutation.mutateAsync('test_key')
 
             expect(adminApi.deleteConfig).toHaveBeenCalledWith('test_key')
-            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['admin', 'configs'] })
+            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'configs'] })
         })
     })
 
@@ -602,7 +641,7 @@ describe('useAdmin', () => {
             await mutation.mutateAsync({ boardName: 'New Board', boardUrl: 'new-board' })
 
             expect(adminApi.createBoard).toHaveBeenCalledWith({ boardName: 'New Board', boardUrl: 'new-board' })
-            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['admin', 'boards'] })
+            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'boards'] })
         })
 
         it('useUpdateBoard calls adminApi.updateBoard', async () => {
@@ -614,7 +653,7 @@ describe('useAdmin', () => {
             await mutation.mutateAsync({ boardUrl: 'test-board', data: { boardName: 'Updated Name' } })
 
             expect(adminApi.updateBoard).toHaveBeenCalledWith('test-board', { boardName: 'Updated Name' })
-            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['admin', 'boards'] })
+            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'boards'] })
         })
 
         it('useDeleteBoard calls adminApi.deleteBoard', async () => {
@@ -626,7 +665,7 @@ describe('useAdmin', () => {
             await mutation.mutateAsync('test-board')
 
             expect(adminApi.deleteBoard).toHaveBeenCalledWith('test-board')
-            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['admin', 'boards'] })
+            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'boards'] })
         })
 
         it('useReorderBoards calls the atomic order API', async () => {
@@ -651,7 +690,7 @@ describe('useAdmin', () => {
             }
             await expect(query.queryFn()).resolves.toEqual({ adminId: 99 })
             const resolvedQueryKey = Array.isArray(query.queryKey) ? query.queryKey : query.queryKey.value
-            expect(resolvedQueryKey).toEqual(['admin', 'board-manager', 3])
+            expect(resolvedQueryKey).toEqual(['session', 0, 'admin', 'board-manager', 3])
             expect(adminApi.getBoardManager).toHaveBeenCalledWith(3)
         })
 
@@ -664,7 +703,7 @@ describe('useAdmin', () => {
             await mutation.mutateAsync({ boardId: 5, data: { loginId: 'manager' } })
 
             expect(adminApi.updateBoardManager).toHaveBeenCalledWith(5, { loginId: 'manager' })
-            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['admin', 'board-manager', 5] })
+            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'board-manager', 5] })
         })
     })
 
@@ -701,7 +740,7 @@ describe('useAdmin', () => {
 
             await expect(query.queryFn()).resolves.toEqual(response)
             expect(adminApi.getErrorLogs).toHaveBeenCalledWith(params.value)
-            expect(query.placeholderData('prev-error-logs')).toBe('prev-error-logs')
+            expect(query.placeholderData).toBeUndefined()
         })
 
         it('useErrorLogs queryFn forwards AbortSignal to API config', async () => {
@@ -744,7 +783,7 @@ describe('useAdmin', () => {
             }
 
             await expect(query.queryFn({ signal })).resolves.toEqual(detailResponse)
-            expect(query.queryKey.value).toEqual(['admin', 'error-logs', 'detail', 1])
+            expect(query.queryKey.value).toEqual(['session', 0, 'admin', 'error-logs', 'detail', 1])
             expect(query.enabled.value).toBe(true)
             expect(adminApi.getErrorLog).toHaveBeenCalledWith(1, { signal })
         })
@@ -764,6 +803,22 @@ describe('useAdmin', () => {
             expect(adminApi.getErrorLog).not.toHaveBeenCalled()
         })
 
+        it('scopes imperative error log detail fetches to the current session', async () => {
+            const { useErrorLog } = useAdmin()
+            const detailResponse = { errorLogId: 3, stackTrace: 'stack trace' }
+            vi.mocked(adminApi.getErrorLog).mockResolvedValueOnce(
+                apiDataResponse<typeof adminApi.getErrorLog>(detailResponse),
+            )
+
+            const { mutateAsync } = useErrorLog()
+            await expect(mutateAsync(3)).resolves.toEqual(detailResponse)
+
+            expect(mockFetchQuery).toHaveBeenCalledWith(expect.objectContaining({
+                queryKey: ['session', 0, 'admin', 'error-logs', 'detail', 3],
+                meta: { authScoped: true },
+            }))
+        })
+
         it('useResolveErrorLog calls adminApi.resolveErrorLog with memo', async () => {
             const { useResolveErrorLog } = useAdmin()
             const mutation = useResolveErrorLog()
@@ -773,9 +828,9 @@ describe('useAdmin', () => {
             await mutation.mutateAsync({ errorLogId: 1, data: { memo: '확인 완료' } })
 
             expect(adminApi.resolveErrorLog).toHaveBeenCalledWith(1, { memo: '확인 완료' })
-            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['admin', 'error-logs'] })
-            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['admin', 'error-log-stats'] })
-            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['admin', 'error-logs', 'detail', 1] })
+            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'error-logs'] })
+            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'error-log-stats'] })
+            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'error-logs', 'detail', 1] })
         })
 
         it('useResolveErrorLog calls adminApi.resolveErrorLog without memo', async () => {
@@ -787,9 +842,9 @@ describe('useAdmin', () => {
             await mutation.mutateAsync({ errorLogId: 2, data: undefined })
 
             expect(adminApi.resolveErrorLog).toHaveBeenCalledWith(2, undefined)
-            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['admin', 'error-logs'] })
-            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['admin', 'error-log-stats'] })
-            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['admin', 'error-logs', 'detail', 2] })
+            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'error-logs'] })
+            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'error-log-stats'] })
+            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'error-logs', 'detail', 2] })
         })
 
         it('useErrorLogStats returns query hooks', () => {

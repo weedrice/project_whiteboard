@@ -6,6 +6,7 @@ import { apiSuccessResponse } from '@/test/apiResponseFixtures'
 
 const authState = vi.hoisted(() => ({
     user: { userId: 1 } as { userId: number } | null,
+    sessionGeneration: 0,
 }))
 const addToast = vi.hoisted(() => vi.fn())
 const confirm = vi.hoisted(() => vi.fn())
@@ -48,6 +49,7 @@ describe('useUserMenuActions', () => {
     beforeEach(() => {
         vi.clearAllMocks()
         authState.user = { userId: 1 }
+        authState.sessionGeneration = 0
         confirm.mockResolvedValue(true)
     })
 
@@ -107,8 +109,8 @@ describe('useUserMenuActions', () => {
         expect(confirm).toHaveBeenCalledWith('user.block.confirm:Other')
         expect(userApi.blockUser).toHaveBeenCalledWith(2)
         expect(addToast).toHaveBeenCalledWith('user.block.success:Other', 'success')
-        expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['comments'] })
-        expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['user', 'blocks'] })
+        expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'comments'] })
+        expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'user', 'blocks'] })
         expect(invalidateQueries).toHaveBeenCalledTimes(2)
     })
 

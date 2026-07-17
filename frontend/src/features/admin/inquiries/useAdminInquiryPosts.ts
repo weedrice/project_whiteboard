@@ -11,6 +11,8 @@ import { usePageResponseState, usePaginatedQueryState } from '@/composables/useP
 import { formatDateTimeOrDash } from '@/utils/date'
 import { stripHtmlToText, truncateWithEllipsis } from '@/utils/textExcerpt'
 import type { AdminInquirySummary, PageResponse, Post } from '@/types'
+import { useAuthStore } from '@/stores/auth'
+import { currentSessionQueryKey } from '@/queryAuthScope'
 
 type AdminInquiryStatusVariant = 'success' | 'warning'
 
@@ -80,6 +82,7 @@ export function toAdminInquiryPage(page: PageResponse<AdminInquirySummary>): Pag
 
 export function useAdminInquiryPosts() {
   const queryClient = useQueryClient()
+  const authStore = useAuthStore()
   const {
     page,
     size,
@@ -148,7 +151,9 @@ export function useAdminInquiryPosts() {
   }
 
   function closeDetail() {
-    queryClient.invalidateQueries({ queryKey: adminInquiryQueryKeys.list })
+    queryClient.invalidateQueries({
+      queryKey: currentSessionQueryKey(authStore, adminInquiryQueryKeys.list),
+    })
     selectedPostId.value = null
   }
 

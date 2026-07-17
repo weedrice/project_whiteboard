@@ -14,6 +14,7 @@ import { usePost } from '@/features/board/posts/queries/usePost'
 import { markDraftDeletedLocally } from '@/features/board/posts/draft/postDraftTombstone'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
+import { isSessionGenerationCurrent, sessionQueryKey } from '@/queryAuthScope'
 import { formatDateTimeOrDash } from '@/utils/date'
 import { encodePathSegment } from '@/utils/urlPath'
 import type { DraftPostSummary } from '@/types'
@@ -82,14 +83,17 @@ function getDraftRoute(draft: DraftPostSummary) {
 
 async function handleDeleteDraft(draft: DraftPostSummary) {
   if (!(await confirm(t('user.draftList.deleteConfirm')))) return
+  const sessionGeneration = authStore.sessionGeneration
+  const userId = authStore.user?.userId
 
   try {
     await deleteDraft(draft.draftId)
-    if (authStore.user?.userId != null) {
-      markDraftDeletedLocally(authStore.user.userId, draft.draftId)
+    if (!isSessionGenerationCurrent(authStore, sessionGeneration)) return
+    if (userId != null) {
+      markDraftDeletedLocally(userId, draft.draftId)
     }
     toastStore.addToast(t('user.draftList.deleted'), 'success')
-    queryClient.invalidateQueries({ queryKey: userQueryKeys.draftsRoot })
+    queryClient.invalidateQueries({ queryKey: sessionQueryKey(sessionGeneration, userQueryKeys.draftsRoot) })
     refetch()
   } catch {
     toastStore.addToast(t('user.draftList.deleteFailed'), 'error')
@@ -121,11 +125,15 @@ function getScheduledStatus(post: ScheduledPost) {
 
 async function handleCancelScheduledPost(post: ScheduledPost) {
   if (!(await confirm(t('user.draftList.cancelScheduledConfirm')))) return
+  const sessionGeneration = authStore.sessionGeneration
 
   try {
     await cancelScheduledPost(post.scheduledPostId)
+    if (!isSessionGenerationCurrent(authStore, sessionGeneration)) return
     toastStore.addToast(t('user.draftList.cancelScheduledSuccess'), 'success')
-    queryClient.invalidateQueries({ queryKey: userQueryKeys.scheduledPostsRoot })
+    queryClient.invalidateQueries({
+      queryKey: sessionQueryKey(sessionGeneration, userQueryKeys.scheduledPostsRoot),
+    })
     refetchScheduledPosts()
   } catch {
     toastStore.addToast(t('user.draftList.cancelScheduledFailed'), 'error')

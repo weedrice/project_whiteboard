@@ -330,6 +330,7 @@ import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseSelect from '@/components/common/ui/BaseSelect.vue'
 import { Search, Layout } from 'lucide-vue-next'
 import { isInquiryPostItem, resolveBoardRoute, resolvePostDetailRoute } from '@/utils/postNavigation'
+import { currentSessionQueryKey } from '@/queryAuthScope'
 
 const authStore = useAuthStore()
 const router = useRouter()
@@ -486,12 +487,16 @@ function searchKeyword(keyword: string) {
 
 async function deleteRecentKeyword(logId: number) {
   await searchApi.deleteRecentSearch(logId)
-  await queryClient.invalidateQueries({ queryKey: searchQueryKeys.recent })
+  await queryClient.invalidateQueries({
+    queryKey: currentSessionQueryKey(authStore, searchQueryKeys.recent),
+  })
 }
 
 async function clearRecentKeywords() {
   await searchApi.deleteAllRecentSearches()
-  await queryClient.invalidateQueries({ queryKey: searchQueryKeys.recent })
+  await queryClient.invalidateQueries({
+    queryKey: currentSessionQueryKey(authStore, searchQueryKeys.recent),
+  })
 }
 
 async function retrySearch() {

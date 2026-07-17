@@ -11,6 +11,7 @@ interface VerifyBoardWriteAccessOptions {
   boardUrl: string
   isAuthenticated: boolean
   userRole?: string | null
+  sessionGeneration: number
 }
 
 export async function verifyBoardWriteAccess({
@@ -18,15 +19,20 @@ export async function verifyBoardWriteAccess({
   boardUrl,
   isAuthenticated,
   userRole,
+  sessionGeneration,
 }: VerifyBoardWriteAccessOptions): Promise<boolean> {
-  const board = await fetchBoardForWriteAccess(queryClient, boardUrl)
+  const board = await fetchBoardForWriteAccess(queryClient, boardUrl, sessionGeneration)
 
   return canUserWriteBoardPost(board, isAuthenticated, userRole)
 }
 
-export function fetchBoardForWriteAccess(queryClient: QueryClient, boardUrl: string): Promise<BoardDetail> {
+export function fetchBoardForWriteAccess(
+  queryClient: QueryClient,
+  boardUrl: string,
+  sessionGeneration: number,
+): Promise<BoardDetail> {
   return queryClient.fetchQuery<BoardDetail>({
-    ...createBoardDetailQueryOptions(boardUrl),
+    ...createBoardDetailQueryOptions(boardUrl, sessionGeneration),
     retry: false,
   })
 }

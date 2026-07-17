@@ -2,6 +2,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { computed, ref } from 'vue'
 import type { PersonalFeedPage, PostSummary } from '@/types'
 
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => ({ sessionGeneration: 0 }),
+}))
+
 const mocks = vi.hoisted(() => ({
   options: null as Record<string, unknown> | null,
   data: { value: undefined as { pages: PersonalFeedPage[] } | undefined },
@@ -78,7 +82,7 @@ describe('usePersonalFeed', () => {
       signal,
     })
 
-    expect(queryKey.value).toEqual(['feed', 'personal', 42])
+    expect(queryKey.value).toEqual(['session', 0, 'feed', 'personal', 42])
     expect(enabled.value).toBe(true)
     expect(feedApiMock.getMyFeeds).toHaveBeenCalledWith(2, 20, { signal })
     expect(result.number).toBe(2)

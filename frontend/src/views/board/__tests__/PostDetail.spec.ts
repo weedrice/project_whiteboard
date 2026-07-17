@@ -37,6 +37,7 @@ const {
   authState: {
     isAuthenticated: true,
     isAdmin: false,
+    sessionGeneration: 0,
     user: {
       userId: 7
     }

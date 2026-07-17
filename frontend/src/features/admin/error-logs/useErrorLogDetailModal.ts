@@ -3,10 +3,12 @@ import { useI18n } from 'vue-i18n'
 import { useAdmin } from '@/features/admin/useAdmin'
 import { useToastStore } from '@/stores/toast'
 import type { ErrorLogDetail, ErrorLogListItem } from '@/types'
+import { useAuthStore } from '@/stores/auth'
 
 export function useErrorLogDetailModal() {
     const { t } = useI18n()
     const toastStore = useToastStore()
+    const authStore = useAuthStore()
     const { useErrorLog, useResolveErrorLog } = useAdmin()
     const { mutateAsync: fetchErrorLogDetail } = useErrorLog()
     const { mutateAsync: resolveErrorLog } = useResolveErrorLog()
@@ -18,8 +20,11 @@ export function useErrorLogDetailModal() {
     const resolveMemo = ref('')
 
     async function openDetailModal(log: ErrorLogListItem) {
+        const sessionGeneration = authStore.sessionGeneration
         try {
-            selectedLog.value = await fetchErrorLogDetail(log.errorLogId)
+            const detail = await fetchErrorLogDetail(log.errorLogId)
+            if (sessionGeneration !== authStore.sessionGeneration) return
+            selectedLog.value = detail
             isDetailModalOpen.value = true
         } catch {
             toastStore.addToast(t('common.messages.error'), 'error')
