@@ -15,6 +15,9 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.Optional;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -46,11 +49,7 @@ class NotificationDeliveryJobServiceTest {
                 10L,
                 "notification.comment.created",
                 "writer");
-        when(jobRepository.save(any(NotificationDeliveryJob.class))).thenAnswer(invocation -> {
-            NotificationDeliveryJob job = invocation.getArgument(0);
-            ReflectionTestUtils.setField(job, "jobId", 7L);
-            return job;
-        });
+        stubInsert(event, 7L, 1);
 
         NotificationDeliveryJob saved = service.enqueue(event);
 
@@ -77,7 +76,7 @@ class NotificationDeliveryJobServiceTest {
                 "content");
 
         assertThat(service.enqueue(event)).isNull();
-        verify(jobRepository, never()).save(any());
+        verify(jobRepository, never()).insertIfAbsent(any(), any());
         verify(kickoff, never()).process(any());
     }
 
@@ -97,15 +96,13 @@ class NotificationDeliveryJobServiceTest {
                 event,
                 java.time.LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC));
         ReflectionTestUtils.setField(saved, "jobId", 9L);
-        when(jobRepository.findByEventId(event.getEventId()))
-                .thenReturn(java.util.Optional.empty())
-                .thenReturn(java.util.Optional.of(saved));
-        when(jobRepository.save(any(NotificationDeliveryJob.class))).thenReturn(saved);
+        when(jobRepository.insertIfAbsent(any(), any())).thenReturn(1, 0);
+        when(jobRepository.findByEventId(event.getEventId())).thenReturn(Optional.of(saved));
 
         assertThat(service.enqueue(event)).isSameAs(saved);
         assertThat(service.enqueue(event)).isSameAs(saved);
 
-        verify(jobRepository, times(1)).save(any(NotificationDeliveryJob.class));
+        verify(jobRepository, times(2)).insertIfAbsent(any(NotificationDeliveryJob.class), any());
         verify(kickoff, times(1)).process(9L);
     }
 
@@ -116,7 +113,7 @@ class NotificationDeliveryJobServiceTest {
                 jobRepository, kickoff, clock, new NotificationPayloadValidator());
         NotificationEvent event = new NotificationEvent(
                 user(1L), null, NotificationType.SYSTEM, NotificationSourceType.SYSTEM, null, "content");
-        when(jobRepository.save(any(NotificationDeliveryJob.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        stubInsert(event, 11L, 1);
 
         NotificationDeliveryJob job = service.enqueue(event);
 
@@ -138,6 +135,31 @@ class NotificationDeliveryJobServiceTest {
         assertThat(job.getStatus()).isEqualTo(NotificationDeliveryJob.Status.PENDING);
         assertThat(job.getRedriveCount()).isEqualTo(1);
         assertThat(job.getFailureCode()).isNull();
+    }
+
+    @Test
+    void enqueue_executorRejectionDoesNotEscapeCommittedBoundary() {
+        Clock clock = Clock.fixed(Instant.parse("2026-07-17T00:00:00Z"), ZoneOffset.UTC);
+        NotificationDeliveryJobService service = new NotificationDeliveryJobService(
+                jobRepository, kickoff, clock, new NotificationPayloadValidator());
+        NotificationEvent event = new NotificationEvent(
+                user(1L), user(2L), NotificationType.LIKE, NotificationSourceType.POST, 10L, "like");
+        stubInsert(event, 15L, 1);
+        org.mockito.Mockito.doThrow(new RejectedExecutionException("full"))
+                .when(kickoff).process(15L);
+
+        assertThat(service.enqueue(event).getJobId()).isEqualTo(15L);
+    }
+
+    private void stubInsert(NotificationEvent event, Long jobId, int insertedRows) {
+        AtomicReference<NotificationDeliveryJob> inserted = new AtomicReference<>();
+        when(jobRepository.insertIfAbsent(any(NotificationDeliveryJob.class), any())).thenAnswer(invocation -> {
+            NotificationDeliveryJob job = invocation.getArgument(0);
+            ReflectionTestUtils.setField(job, "jobId", jobId);
+            inserted.set(job);
+            return insertedRows;
+        });
+        when(jobRepository.findByEventId(event.getEventId())).thenAnswer(invocation -> Optional.ofNullable(inserted.get()));
     }
 
     private User user(Long id) {

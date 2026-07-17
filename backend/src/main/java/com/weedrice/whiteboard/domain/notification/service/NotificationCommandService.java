@@ -10,6 +10,7 @@ import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.MessageSource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionSynchronization;
@@ -19,7 +20,9 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.concurrent.RejectedExecutionException;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 class NotificationCommandService {
@@ -90,15 +93,23 @@ class NotificationCommandService {
             return;
         }
         if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-            pushNotificationDispatcher.dispatch(command);
+            submitPush(command);
             return;
         }
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
-                pushNotificationDispatcher.dispatch(command);
+                submitPush(command);
             }
         });
+    }
+
+    private void submitPush(PushDispatchCommand command) {
+        try {
+            pushNotificationDispatcher.dispatch(command);
+        } catch (RejectedExecutionException exception) {
+            log.warn("Push notification dispatch rejected. userId={}", command.userId());
+        }
     }
 
     private boolean isGroupable(NotificationEvent event) {

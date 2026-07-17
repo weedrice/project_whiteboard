@@ -13,6 +13,11 @@ import com.weedrice.whiteboard.domain.board.repository.BoardVisitRepository;
 import com.weedrice.whiteboard.domain.notification.service.KeywordSubscriptionService;
 import com.weedrice.whiteboard.domain.notification.dto.PushSubscriptionRequest;
 import com.weedrice.whiteboard.domain.notification.service.PushSubscriptionService;
+import com.weedrice.whiteboard.domain.notification.repository.NotificationDeliveryJobRepository;
+import com.weedrice.whiteboard.domain.notification.entity.NotificationDeliveryJob;
+import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
+import com.weedrice.whiteboard.domain.notification.constant.NotificationSourceType;
+import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import com.weedrice.whiteboard.global.security.SecurityAuthorities;
@@ -79,6 +84,9 @@ class PostgresApplicationContextSmokeTest {
 
     @Autowired
     private PushSubscriptionService pushSubscriptionService;
+
+    @Autowired
+    private NotificationDeliveryJobRepository notificationDeliveryJobRepository;
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -789,6 +797,92 @@ class PostgresApplicationContextSmokeTest {
         } finally {
             executor.shutdownNow();
         }
+    }
+
+    @Test
+    void passwordResetUserVerificationTokenLockOrderSerializesConcurrentWorkers() throws Exception {
+        String suffix = UUID.randomUUID().toString().substring(0, 8);
+        User user = userRepository.saveAndFlush(User.builder()
+                .loginId("password-lock-" + suffix)
+                .email("password-lock-" + suffix + "@example.com")
+                .password("password")
+                .displayName("Password Lock")
+                .build());
+        LocalDateTime now = LocalDateTime.now();
+        Long verificationId = jdbcTemplate.queryForObject("""
+                INSERT INTO verification_codes (
+                    created_at, modified_at, code, delivery_status, email, expiry_date,
+                    is_ticket_consumed, is_verified, purpose
+                ) VALUES (?, ?, ?, 'SENT', ?, ?, 'N', 'Y', 'PASSWORD_RESET')
+                RETURNING verification_id
+                """, Long.class, now, now, "hash", user.getEmail(), now.plusHours(1));
+        Long tokenId = jdbcTemplate.queryForObject("""
+                INSERT INTO password_reset_tokens (
+                    created_at, modified_at, delivery_status, expiry_date, is_used,
+                    token, user_id, verification_id
+                ) VALUES (?, ?, 'SENT', ?, 'N', ?, ?, ?)
+                RETURNING token_id
+                """, Long.class, now, now, now.plusHours(1), tokenHashService.hashSha256(suffix),
+                user.getUserId(), verificationId);
+        CountDownLatch start = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            List<Future<Boolean>> workers = List.of(
+                    executor.submit(() -> lockPasswordResetState(start, user.getUserId(), verificationId, tokenId)),
+                    executor.submit(() -> lockPasswordResetState(start, user.getUserId(), verificationId, tokenId)));
+            start.countDown();
+            assertTrue(workers.get(0).get(10, TimeUnit.SECONDS));
+            assertTrue(workers.get(1).get(10, TimeUnit.SECONDS));
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    @Test
+    void notificationDeliveryInsertIsIdempotentUnderPostgresConcurrency() throws Exception {
+        String suffix = UUID.randomUUID().toString().substring(0, 8);
+        User receiver = userRepository.saveAndFlush(User.builder()
+                .loginId("delivery-idempotent-" + suffix)
+                .email("delivery-idempotent-" + suffix + "@example.com")
+                .password("password")
+                .displayName("Delivery Idempotent")
+                .build());
+        NotificationEvent event = new NotificationEvent(
+                receiver, null, NotificationType.SYSTEM, NotificationSourceType.SYSTEM, 1L, "delivery");
+        CountDownLatch start = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(8);
+        try {
+            List<Future<Integer>> inserts = java.util.stream.IntStream.range(0, 20)
+                    .mapToObj(ignored -> executor.submit(() -> {
+                        start.await(5, TimeUnit.SECONDS);
+                        LocalDateTime now = LocalDateTime.now();
+                        return notificationDeliveryJobRepository.insertIfAbsent(
+                                NotificationDeliveryJob.from(event, now), now);
+                    }))
+                    .toList();
+            start.countDown();
+            int inserted = 0;
+            for (Future<Integer> insert : inserts) {
+                inserted += insert.get(10, TimeUnit.SECONDS);
+            }
+            assertEquals(1, inserted);
+            assertTrue(notificationDeliveryJobRepository.findByEventId(event.getEventId()).isPresent());
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    private boolean lockPasswordResetState(
+            CountDownLatch start, Long userId, Long verificationId, Long tokenId) throws InterruptedException {
+        start.await(5, TimeUnit.SECONDS);
+        return Boolean.TRUE.equals(new TransactionTemplate(transactionManager).execute(status -> {
+            jdbcTemplate.queryForObject("SELECT user_id FROM users WHERE user_id = ? FOR UPDATE", Long.class, userId);
+            jdbcTemplate.queryForObject("SELECT verification_id FROM verification_codes WHERE verification_id = ? FOR UPDATE",
+                    Long.class, verificationId);
+            jdbcTemplate.queryForObject("SELECT token_id FROM password_reset_tokens WHERE token_id = ? FOR UPDATE",
+                    Long.class, tokenId);
+            return true;
+        }));
     }
 
     private boolean consumeAfter(CountDownLatch start, String ticket) throws InterruptedException {

@@ -14,7 +14,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-public interface NotificationDeliveryJobRepository extends JpaRepository<NotificationDeliveryJob, Long> {
+public interface NotificationDeliveryJobRepository extends JpaRepository<NotificationDeliveryJob, Long>,
+        NotificationDeliveryJobRepositoryCustom {
 
     Optional<NotificationDeliveryJob> findByEventId(UUID eventId);
 
