@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.notification.web;
 
 import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationResponse;
+import com.weedrice.whiteboard.domain.notification.dto.CommentStreamEvent;
 import com.weedrice.whiteboard.domain.notification.entity.Notification;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import org.junit.jupiter.api.DisplayName;
@@ -9,9 +10,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.domain.notification.config.NotificationStreamProperties;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.ArrayDeque;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -22,7 +26,7 @@ class NotificationSseEmitterRegistryTest {
 
     @Test
     void commentTopicRequiresActiveEmitter() {
-        NotificationSseEmitterRegistry registry = new NotificationSseEmitterRegistry(10_000L, 5);
+        NotificationSseEmitterRegistry registry = registry(10_000L, 5);
 
         assertThatThrownBy(() -> registry.subscribeCommentTopic(1L, 10L, "subscriber"))
                 .isInstanceOf(BusinessException.class);
@@ -30,10 +34,10 @@ class NotificationSseEmitterRegistryTest {
 
     @Test
     void removingLastEmitterClearsCommentTopics() {
-        NotificationSseEmitterRegistry registry = new NotificationSseEmitterRegistry(10_000L, 5);
+        NotificationSseEmitterRegistry registry = registry(10_000L, 5);
         registry.subscribe(1L);
-        registry.subscribeCommentTopic(1L, 10L, "subscriber");
         String connectionId = emitters(registry).get(1L).keySet().iterator().next();
+        registry.subscribeCommentTopic(1L, 10L, connectionId);
 
         ReflectionTestUtils.invokeMethod(registry, "removeEmitter", 1L, connectionId);
 
@@ -43,32 +47,50 @@ class NotificationSseEmitterRegistryTest {
 
     @Test
     void rejectsCommentTopicBeyondPerUserLimit() {
-        NotificationSseEmitterRegistry registry = new NotificationSseEmitterRegistry(10_000L, 5);
+        NotificationSseEmitterRegistry registry = registry(10_000L, 5);
         registry.subscribe(1L);
+        String connectionId = emitters(registry).get(1L).keySet().iterator().next();
         for (long postId = 1L; postId <= 100L; postId++) {
-            registry.subscribeCommentTopic(1L, postId, "subscriber");
+            registry.subscribeCommentTopic(1L, postId, connectionId);
         }
 
-        assertThatThrownBy(() -> registry.subscribeCommentTopic(1L, 101L, "subscriber"))
+        assertThatThrownBy(() -> registry.subscribeCommentTopic(1L, 101L, connectionId))
                 .isInstanceOf(BusinessException.class);
     }
 
     @Test
     void rejectsSubscriberBeyondPerTopicLimit() {
-        NotificationSseEmitterRegistry registry = new NotificationSseEmitterRegistry(10_000L, 5);
+        NotificationSseEmitterRegistry registry = registry(10_000L, 5);
         registry.subscribe(1L);
-        for (int subscriber = 1; subscriber <= 10; subscriber++) {
-            registry.subscribeCommentTopic(1L, 10L, "subscriber-" + subscriber);
-        }
 
-        assertThatThrownBy(() -> registry.subscribeCommentTopic(1L, 10L, "subscriber-11"))
+        assertThatThrownBy(() -> registry.subscribeCommentTopic(1L, 10L, "not-a-connection"))
                 .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    void commentEventIsDeliveredOnlyToBoundConnection() {
+        CountingSseEmitter first = new CountingSseEmitter();
+        CountingSseEmitter second = new CountingSseEmitter();
+        NotificationSseEmitterRegistry registry = new SequenceEmitterNotificationSseEmitterRegistry(first, second);
+        registry.subscribe(1L);
+        registry.subscribe(1L);
+        String firstConnectionId = connectionIdForEmitter(registry, 1L, first);
+        registry.subscribeCommentTopic(1L, 10L, firstConnectionId);
+
+        registry.publishCommentEvent(CommentStreamEvent.builder()
+                .action("CREATED")
+                .postId(10L)
+                .commentId(20L)
+                .build());
+
+        assertThat(first.sendCount()).isEqualTo(2);
+        assertThat(second.sendCount()).isEqualTo(1);
     }
 
     @Test
     @DisplayName("subscribe uses configured timeout and stores connection")
     void subscribe_usesConfiguredTimeout() {
-        NotificationSseEmitterRegistry registry = new NotificationSseEmitterRegistry(10_000L, 5);
+        NotificationSseEmitterRegistry registry = registry(10_000L, 5);
 
         SseEmitter emitter = registry.subscribe(1L);
 
@@ -79,7 +101,7 @@ class NotificationSseEmitterRegistryTest {
     @Test
     @DisplayName("subscribe evicts oldest connection when per-user limit is exceeded")
     void subscribe_evictsOldestConnectionWhenLimitExceeded() {
-        NotificationSseEmitterRegistry registry = new NotificationSseEmitterRegistry(10_000L, 2);
+        NotificationSseEmitterRegistry registry = registry(10_000L, 2);
 
         SseEmitter first = registry.subscribe(1L);
         SseEmitter second = registry.subscribe(1L);
@@ -94,7 +116,7 @@ class NotificationSseEmitterRegistryTest {
     @Test
     @DisplayName("heartbeat and notification delivery keep healthy connections")
     void heartbeatAndDelivery_keepHealthyConnections() {
-        NotificationSseEmitterRegistry registry = new NotificationSseEmitterRegistry(10_000L, 5);
+        NotificationSseEmitterRegistry registry = registry(10_000L, 5);
         registry.subscribe(1L);
 
         registry.sendHeartbeat();
@@ -148,7 +170,7 @@ class NotificationSseEmitterRegistryTest {
     @Test
     @DisplayName("removeEmitter removes user lock after the last connection")
     void removeEmitter_removesUserLockAfterLastConnection() {
-        NotificationSseEmitterRegistry registry = new NotificationSseEmitterRegistry(10_000L, 5);
+        NotificationSseEmitterRegistry registry = registry(10_000L, 5);
 
         registry.subscribe(1L);
         String connectionId = userEmitters(registry, 1L).keySet().iterator().next().toString();
@@ -162,7 +184,7 @@ class NotificationSseEmitterRegistryTest {
     @Test
     @DisplayName("subscribe retries when the acquired user lock was removed")
     void subscribe_retriesWhenAcquiredUserLockWasRemoved() throws InterruptedException {
-        NotificationSseEmitterRegistry registry = new NotificationSseEmitterRegistry(10_000L, 5);
+        NotificationSseEmitterRegistry registry = registry(10_000L, 5);
         Object staleLock = new Object();
         userLocks(registry).put(1L, staleLock);
         AtomicReference<Throwable> failure = new AtomicReference<>();
@@ -192,7 +214,7 @@ class NotificationSseEmitterRegistryTest {
     @Test
     @DisplayName("heartbeat cleanup does not recreate a missing user lock")
     void heartbeatCleanup_doesNotRecreateMissingUserLock() {
-        NotificationSseEmitterRegistry registry = new NotificationSseEmitterRegistry(10_000L, 5);
+        NotificationSseEmitterRegistry registry = registry(10_000L, 5);
         emitters(registry).put(1L, new ConcurrentHashMap<>());
 
         registry.sendHeartbeat();
@@ -204,7 +226,7 @@ class NotificationSseEmitterRegistryTest {
     @Test
     @DisplayName("missing lock cleanup with null expected emitters keeps current emitters")
     void missingLockCleanupWithNullExpectedEmitters_keepsCurrentEmitters() {
-        NotificationSseEmitterRegistry registry = new NotificationSseEmitterRegistry(10_000L, 5);
+        NotificationSseEmitterRegistry registry = registry(10_000L, 5);
         Map<String, Object> currentEmitters = new ConcurrentHashMap<>();
         currentEmitters.put("active", new Object());
         emitters(registry).put(1L, currentEmitters);
@@ -245,6 +267,17 @@ class NotificationSseEmitterRegistryTest {
                 .toArray();
     }
 
+    private String connectionIdForEmitter(
+            NotificationSseEmitterRegistry registry,
+            Long userId,
+            SseEmitter expectedEmitter) {
+        return userEmitters(registry, userId).entrySet().stream()
+                .filter(entry -> ReflectionTestUtils.getField(entry.getValue(), "emitter") == expectedEmitter)
+                .map(entry -> entry.getKey().toString())
+                .findFirst()
+                .orElseThrow();
+    }
+
     @SuppressWarnings("unchecked")
     private Map<?, ?> userEmitters(NotificationSseEmitterRegistry registry, Long userId) {
         return (Map<?, ?>) emitters(registry).get(userId);
@@ -265,6 +298,19 @@ class NotificationSseEmitterRegistryTest {
         return userLocks;
     }
 
+    private NotificationSseEmitterRegistry registry(long timeoutMillis, int maxConnectionsPerUser) {
+        return new NotificationSseEmitterRegistry(
+                properties(timeoutMillis, maxConnectionsPerUser),
+                new SimpleMeterRegistry());
+    }
+
+    private static NotificationStreamProperties properties(long timeoutMillis, int maxConnectionsPerUser) {
+        NotificationStreamProperties properties = new NotificationStreamProperties();
+        properties.setTimeoutMillis(timeoutMillis);
+        properties.setMaxConnectionsPerUser(maxConnectionsPerUser);
+        return properties;
+    }
+
     private void waitUntilBlocked(Thread thread) throws InterruptedException {
         for (int i = 0; i < 100; i++) {
             if (thread.getState() == Thread.State.BLOCKED) {
@@ -280,13 +326,46 @@ class NotificationSseEmitterRegistryTest {
         private final SseEmitter emitter;
 
         private FixedEmitterNotificationSseEmitterRegistry(SseEmitter emitter) {
-            super(10_000L, 5);
+            super(properties(10_000L, 5), new SimpleMeterRegistry());
             this.emitter = emitter;
         }
 
         @Override
         SseEmitter createEmitter() {
             return emitter;
+        }
+    }
+
+    private static class SequenceEmitterNotificationSseEmitterRegistry extends NotificationSseEmitterRegistry {
+
+        private final ArrayDeque<SseEmitter> emitterQueue;
+
+        private SequenceEmitterNotificationSseEmitterRegistry(SseEmitter... emitters) {
+            super(properties(10_000L, 5), new SimpleMeterRegistry());
+            this.emitterQueue = new ArrayDeque<>(java.util.List.of(emitters));
+        }
+
+        @Override
+        SseEmitter createEmitter() {
+            return emitterQueue.removeFirst();
+        }
+    }
+
+    private static class CountingSseEmitter extends SseEmitter {
+
+        private int sends;
+
+        private CountingSseEmitter() {
+            super(10_000L);
+        }
+
+        @Override
+        public void send(SseEventBuilder builder) {
+            sends++;
+        }
+
+        private int sendCount() {
+            return sends;
         }
     }
 

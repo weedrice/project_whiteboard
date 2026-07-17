@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.notification.web;
 
 import com.weedrice.whiteboard.domain.notification.dto.CommentStreamEvent;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationResponse;
+import com.weedrice.whiteboard.domain.notification.config.NotificationStreamProperties;
 import com.weedrice.whiteboard.domain.notification.service.CommentStreamPublisher;
 import com.weedrice.whiteboard.domain.notification.service.NotificationStreamPublisher;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -10,9 +11,6 @@ import lombok.extern.slf4j.Slf4j;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.Metrics;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
@@ -43,20 +41,14 @@ public class NotificationSseEmitterRegistry implements NotificationStreamPublish
     private final Map<Long, Object> userLocks = new ConcurrentHashMap<>();
     private final AtomicLong connectionSequence = new AtomicLong();
     private final AtomicLong lastHeartbeatMillis = new AtomicLong();
+    private final NotificationStreamProperties properties;
     private final Counter heartbeatFailures;
     private final Counter commentTopicCleanups;
-    private final long timeoutMillis;
-    private final int maxConnectionsPerUser;
 
-    @Autowired
-    NotificationSseEmitterRegistry(
-            @Value("${notification.stream.timeout-millis:1800000}") long timeoutMillis,
-            @Value("${notification.stream.max-connections-per-user:5}") int maxConnectionsPerUser,
+    public NotificationSseEmitterRegistry(
+            NotificationStreamProperties properties,
             MeterRegistry meterRegistry) {
-        this.timeoutMillis = timeoutMillis > 0 ? timeoutMillis : DEFAULT_TIMEOUT_MILLIS;
-        this.maxConnectionsPerUser = maxConnectionsPerUser > 0
-                ? maxConnectionsPerUser
-                : DEFAULT_MAX_CONNECTIONS_PER_USER;
+        this.properties = properties;
         this.heartbeatFailures = meterRegistry.counter("noviis.sse.heartbeat.failures");
         this.commentTopicCleanups = meterRegistry.counter("noviis.sse.comment.topics.cleaned");
         Gauge.builder("noviis.sse.connections.active", this, NotificationSseEmitterRegistry::activeConnections)
@@ -64,10 +56,6 @@ public class NotificationSseEmitterRegistry implements NotificationStreamPublish
         Gauge.builder("noviis.sse.heartbeat.gap", this, NotificationSseEmitterRegistry::heartbeatGapSeconds)
                 .baseUnit("seconds")
                 .register(meterRegistry);
-    }
-
-    NotificationSseEmitterRegistry(long timeoutMillis, int maxConnectionsPerUser) {
-        this(timeoutMillis, maxConnectionsPerUser, Metrics.globalRegistry);
     }
 
     public SseEmitter subscribe(Long userId) {
@@ -86,7 +74,7 @@ public class NotificationSseEmitterRegistry implements NotificationStreamPublish
                         userId,
                         ignored -> new ConcurrentHashMap<>());
                 userEmitters.put(connectionId, connection);
-                evictedEmitters = enforceConnectionLimit(userEmitters, connectionId);
+                evictedEmitters = enforceConnectionLimit(userId, userEmitters, connectionId);
                 break;
             }
         }
@@ -100,7 +88,8 @@ public class NotificationSseEmitterRegistry implements NotificationStreamPublish
         try {
             emitter.send(SseEmitter.event()
                     .name("connect")
-                    .data("connected!"));
+                    .id(connectionId)
+                    .data(connectionId));
         } catch (IOException | RuntimeException e) {
             completeWithError(userId, connectionId, emitter, e);
         }
@@ -161,6 +150,9 @@ public class NotificationSseEmitterRegistry implements NotificationStreamPublish
             if (userLocks.get(userId) != lock || userEmitters == null || userEmitters.isEmpty()) {
                 throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
             }
+            if (!userEmitters.containsKey(subscriberId)) {
+                throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+            }
 
             ConcurrentMap<Long, ConcurrentMap<String, Boolean>> postSubscribers =
                     commentSubscribers.computeIfAbsent(postId, ignored -> new ConcurrentHashMap<>());
@@ -209,21 +201,31 @@ public class NotificationSseEmitterRegistry implements NotificationStreamPublish
         }
 
         for (Long userId : new ArrayList<>(postSubscribers.keySet())) {
-            publishCommentEventToUser(userId, event);
+            publishCommentEventToUser(userId, postSubscribers.get(userId), event);
         }
     }
 
     SseEmitter createEmitter() {
-        return new SseEmitter(timeoutMillis);
+        return new SseEmitter(resolveTimeoutMillis());
     }
 
-    private void publishCommentEventToUser(Long userId, CommentStreamEvent event) {
+    private void publishCommentEventToUser(
+            Long userId,
+            ConcurrentMap<String, Boolean> subscribedConnectionIds,
+            CommentStreamEvent event) {
         Map<String, EmitterConnection> userEmitters = emitters.get(userId);
         if (userEmitters == null || userEmitters.isEmpty()) {
             return;
         }
 
+        if (subscribedConnectionIds == null || subscribedConnectionIds.isEmpty()) {
+            return;
+        }
+
         for (Map.Entry<String, EmitterConnection> entry : new ArrayList<>(userEmitters.entrySet())) {
+            if (!subscribedConnectionIds.containsKey(entry.getKey())) {
+                continue;
+            }
             try {
                 entry.getValue().emitter().send(SseEmitter.event()
                         .name("comment")
@@ -243,11 +245,12 @@ public class NotificationSseEmitterRegistry implements NotificationStreamPublish
     }
 
     private List<SseEmitter> enforceConnectionLimit(
+            Long userId,
             Map<String, EmitterConnection> userEmitters,
             String newConnectionId) {
         List<SseEmitter> evictedEmitters = new ArrayList<>();
 
-        while (userEmitters.size() > maxConnectionsPerUser) {
+        while (userEmitters.size() > resolveMaxConnectionsPerUser()) {
             String oldestConnectionId = userEmitters.entrySet().stream()
                     .filter(entry -> !entry.getKey().equals(newConnectionId))
                     .min(Comparator.comparingLong(entry -> entry.getValue().createdOrder()))
@@ -260,6 +263,7 @@ public class NotificationSseEmitterRegistry implements NotificationStreamPublish
 
             EmitterConnection removed = userEmitters.remove(oldestConnectionId);
             if (removed != null) {
+                removeCommentSubscriptions(userId, oldestConnectionId);
                 evictedEmitters.add(removed.emitter());
             }
         }
@@ -283,9 +287,9 @@ public class NotificationSseEmitterRegistry implements NotificationStreamPublish
             }
 
             userEmitters.remove(connectionId);
+            removeCommentSubscriptions(userId, connectionId);
             if (userEmitters.isEmpty()) {
                 emitters.remove(userId, userEmitters);
-                removeCommentSubscriptions(userId);
                 userLocks.remove(userId, lock);
             }
         }
@@ -354,12 +358,16 @@ public class NotificationSseEmitterRegistry implements NotificationStreamPublish
                 .count();
     }
 
-    private void removeCommentSubscriptions(Long userId) {
+    private void removeCommentSubscriptions(Long userId, String connectionId) {
         int removedTopics = 0;
         for (Map.Entry<Long, ConcurrentMap<Long, ConcurrentMap<String, Boolean>>> entry
                 : new ArrayList<>(commentSubscribers.entrySet())) {
             ConcurrentMap<Long, ConcurrentMap<String, Boolean>> postSubscribers = entry.getValue();
-            if (postSubscribers.remove(userId) != null) {
+            ConcurrentMap<String, Boolean> userSubscribers = postSubscribers.get(userId);
+            if (userSubscribers != null && userSubscribers.remove(connectionId) != null) {
+                if (userSubscribers.isEmpty()) {
+                    postSubscribers.remove(userId, userSubscribers);
+                }
                 removedTopics++;
             }
             removeEmptyCommentTopic(entry.getKey(), postSubscribers);
@@ -367,6 +375,16 @@ public class NotificationSseEmitterRegistry implements NotificationStreamPublish
         if (removedTopics > 0) {
             commentTopicCleanups.increment(removedTopics);
         }
+    }
+
+    private long resolveTimeoutMillis() {
+        return properties.getTimeoutMillis() > 0 ? properties.getTimeoutMillis() : DEFAULT_TIMEOUT_MILLIS;
+    }
+
+    private int resolveMaxConnectionsPerUser() {
+        return properties.getMaxConnectionsPerUser() > 0
+                ? properties.getMaxConnectionsPerUser()
+                : DEFAULT_MAX_CONNECTIONS_PER_USER;
     }
 
     private record EmitterConnection(SseEmitter emitter, long createdOrder) {
