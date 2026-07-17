@@ -8,7 +8,8 @@ RUN sed -i 's/\r$//' gradlew && chmod +x gradlew
 
 COPY src ./src
 ARG SKIP_TESTS=true
-RUN if [ "$SKIP_TESTS" = "true" ]; then \
+ARG BUILD_COMMIT_SHA=docker
+RUN export BUILD_COMMIT_SHA && if [ "$SKIP_TESTS" = "true" ]; then \
         sh ./gradlew bootJar -x test --no-daemon; \
     else \
         sh ./gradlew test bootJar --no-daemon; \

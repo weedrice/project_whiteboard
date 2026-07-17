@@ -1,0 +1,2 @@
+Cmnd_Alias NOVIIS_ACTIVATE = /usr/local/sbin/activate-noviis-backend *, /usr/local/sbin/activate-noviis-frontend *
+noviis-deploy ALL=(root) NOPASSWD: NOVIIS_ACTIVATE

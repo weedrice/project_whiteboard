@@ -9,6 +9,14 @@ bootJar {
     archiveFileName = "app.jar"
 }
 
+springBoot {
+	buildInfo {
+		properties {
+			additional = ['commit': providers.environmentVariable('BUILD_COMMIT_SHA').getOrElse('unknown')]
+		}
+	}
+}
+
 group = 'com.weedrice'
 version = '0.0.1-SNAPSHOT'
 
@@ -20,6 +28,10 @@ java {
 
 repositories {
 	mavenCentral()
+}
+
+dependencyLocking {
+	lockAllConfigurations()
 }
 
 dependencies {

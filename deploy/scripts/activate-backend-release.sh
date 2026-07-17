@@ -9,12 +9,16 @@ HEALTH_ATTEMPTS="${HEALTH_ATTEMPTS:-30}"
 HEALTH_DELAY_SECONDS="${HEALTH_DELAY_SECONDS:-2}"
 LOG_DIR="${LOG_DIR:-/opt/app/logs}"
 ENV_FILE="${ENV_FILE:-/etc/noviis/app.env}"
+ENV_FILE_OWNER="${ENV_FILE_OWNER:-root:root}"
+ENV_FILE_MODE="${ENV_FILE_MODE:-600}"
 RELEASE_DIR="${1:?release directory is required}"
+EXPECTED_COMMIT="${2:-${EXPECTED_COMMIT:-}}"
 
 activated=false
 rollback_available=false
 rollback_in_progress=false
 completed=false
+activation_verified=false
 
 diagnose() {
   sudo systemctl status "$SERVICE_NAME" --no-pager || true
@@ -27,7 +31,9 @@ wait_for_health() {
   local attempt
   for attempt in $(seq 1 "$HEALTH_ATTEMPTS"); do
     if curl -fsS --max-time 3 "$HEALTH_URL" >/dev/null; then
-      return 0
+      if [ -z "$EXPECTED_COMMIT" ] || curl -fsS --max-time 3 "${HEALTH_URL%/health}/info" | grep -Fq -- "\"commit\":\"$EXPECTED_COMMIT\""; then
+        return 0
+      fi
     fi
     sleep "$HEALTH_DELAY_SECONDS"
   done
@@ -45,7 +51,9 @@ rollback() {
   echo "Backend activation failed; starting rollback" >&2
   diagnose
 
-  if [ "$activated" = true ] && [ "$rollback_available" = true ]; then
+  if [ "$activation_verified" = true ]; then
+    echo "Activation was already verified; leaving the healthy release active after a post-activation maintenance failure" >&2
+  elif [ "$activated" = true ] && [ "$rollback_available" = true ]; then
     sudo install -m 0644 "$APP_DIR/app.jar.rollback" "$APP_DIR/app.jar"
     local restore_status=$?
     if [ "$restore_status" -eq 0 ]; then
@@ -68,10 +76,20 @@ rollback() {
     sudo systemctl stop "$SERVICE_NAME" || true
   fi
 
-  exit "$original_status"
+  return "$original_status"
 }
 
-trap 'rollback $?' ERR
+on_exit() {
+  local status="$?"
+  trap - EXIT INT TERM HUP
+  if [ "$status" -ne 0 ]; then
+    rollback "$status" || status=$?
+  fi
+  exit "$status"
+}
+
+trap on_exit EXIT
+trap 'exit 130' INT TERM HUP
 
 release_root_real="$(realpath "$RELEASE_ROOT")"
 release_real="$(realpath "$RELEASE_DIR")"
@@ -86,9 +104,19 @@ if [ "${#jars[@]}" -ne 1 ]; then
   exit 1
 fi
 
-test -d "$LOG_DIR"
-test -w "$LOG_DIR"
-sudo test -r "$ENV_FILE"
+test -f "$release_real/SHA256SUMS"
+(cd "$release_real" && sha256sum --strict --check SHA256SUMS)
+if [ -n "${EXPECTED_COMMIT:-}" ]; then
+  test -f "$release_real/RELEASE_METADATA"
+  grep -Fqx -- "commit_sha=$EXPECTED_COMMIT" "$release_real/RELEASE_METADATA"
+fi
+
+sudo test -d "$LOG_DIR"
+sudo test -f "$ENV_FILE"
+sudo test -s "$ENV_FILE"
+sudo test ! -L "$ENV_FILE"
+sudo test "$(sudo stat -c %U:%G "$ENV_FILE")" = "$ENV_FILE_OWNER"
+sudo test "$(sudo stat -c %a "$ENV_FILE")" = "$ENV_FILE_MODE"
 sudo test -w "$APP_DIR"
 
 if [ -f "$APP_DIR/app.jar" ]; then
@@ -108,6 +136,7 @@ sudo systemctl daemon-reload
 sudo systemctl start "$SERVICE_NAME"
 sudo systemctl is-active --quiet "$SERVICE_NAME"
 wait_for_health
+activation_verified=true
 
 declare -A keep=()
 keep["$release_real"]=1

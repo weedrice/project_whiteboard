@@ -17,6 +17,16 @@ on:
         required: false
         type: boolean
         default: false
+      allow_contract_migration:
+        description: Allow a reviewed contract migration during a manual main deployment
+        required: false
+        type: boolean
+        default: false
+      backup_snapshot_id:
+        description: Identifier of the verified pre-contract production snapshot
+        required: false
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -31,7 +41,7 @@ jobs:
     outputs:
       backend: ${{ steps.scope.outputs.backend }}
       frontend: ${{ steps.scope.outputs.frontend }}
-      ops: ${{ steps.filter.outputs.ops }}
+      ops: ${{ steps.scope.outputs.ops }}
       backend_changed: ${{ steps.filter.outputs.backend }}
       frontend_changed: ${{ steps.filter.outputs.frontend }}
     steps:
@@ -64,27 +74,34 @@ jobs:
               - 'backend/gradle/wrapper/**'
               - '.github/workflows/**'
               - '.github/dependabot.yml'
+              - 'docs/design-notes/**'
+              - 'docs/ops/applied-contract-migrations.txt'
+              - 'docs/ops/database-migration-policy.md'
 
       - name: Resolve validation scope
         id: scope
         env:
           BACKEND_CHANGED: ${{ steps.filter.outputs.backend }}
           FRONTEND_CHANGED: ${{ steps.filter.outputs.frontend }}
+          OPS_CHANGED: ${{ steps.filter.outputs.ops }}
           MANUAL_BACKEND: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_backend || false }}
           MANUAL_FRONTEND: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_frontend || false }}
         run: |
           backend="$BACKEND_CHANGED"
           frontend="$FRONTEND_CHANGED"
+          ops="$OPS_CHANGED"
           if [ "$MANUAL_BACKEND" = "true" ]; then backend=true; fi
           if [ "$MANUAL_FRONTEND" = "true" ]; then frontend=true; fi
+          if [ "$MANUAL_BACKEND" = "true" ] || [ "$MANUAL_FRONTEND" = "true" ]; then ops=true; fi
           echo "backend=$backend" >> "$GITHUB_OUTPUT"
           echo "frontend=$frontend" >> "$GITHUB_OUTPUT"
+          echo "ops=$ops" >> "$GITHUB_OUTPUT"
 
   backend-test:
     needs: changes
     if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - name: Checkout
         uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
@@ -120,11 +137,17 @@ jobs:
           path: backend/build/reports/jacoco/html
           retention-days: 30
 
+      - name: Build backend container image
+        run: |
+          docker build --build-arg SKIP_TESTS=true --build-arg BUILD_COMMIT_SHA="$GITHUB_SHA" -t noviis-backend:ci backend
+          test "$(docker image inspect --format '{{.Config.User}}' noviis-backend:ci)" = app
+        working-directory: .
+
   frontend-test:
     needs: changes
     if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 60
     steps:
       - name: Checkout
         uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
@@ -192,11 +215,31 @@ jobs:
           if-no-files-found: ignore
           retention-days: 30
 
+      - name: Build frontend container image
+        run: |
+          set -euo pipefail
+          docker build -t noviis-frontend:ci frontend
+          test "$(docker image inspect --format '{{.Config.User}}' noviis-frontend:ci)" = nginx
+          network="noviis-frontend-ci-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          backend_container="noviis-frontend-backend-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          cleanup() {
+            docker rm -f "$backend_container" >/dev/null 2>&1 || true
+            docker network rm "$network" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+          docker network create "$network" >/dev/null
+          docker run -d --name "$backend_container" --network "$network" --network-alias backend \
+            nginx:1.27.4-alpine@sha256:4ff102c5d78d254a6f0da062b3cf39eaf07f01eec0927fd21e219d0af8bc0591 >/dev/null
+          docker run --rm --network "$network" --entrypoint nginx noviis-frontend:ci -t
+        working-directory: .
+
   backend-postgres-migration:
     needs: changes
     if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    outputs:
+      contract_migration: ${{ steps.migration_guard.outputs.contract_migration }}
     services:
       postgres:
         image: pgvector/pgvector:pg16@sha256:1d533553fefe4f12e5d80c7b80622ba0c382abb5758856f52983d8789179f0fb
@@ -218,8 +261,9 @@ jobs:
           fetch-depth: 0
 
       - name: Check migration compatibility
+        id: migration_guard
         env:
-          BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || github.event.before }}
+          BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || (github.event_name == 'push' && github.event.before || 'HEAD^') }}
         run: bash backend/scripts/check-migration-compatibility.sh "$BASE_REF" HEAD
 
       - name: Install PostgreSQL client
@@ -264,10 +308,12 @@ jobs:
     needs: changes
     if: needs.changes.outputs.ops == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+        with:
+          fetch-depth: 0
 
       - name: Validate GitHub Actions workflows
         run: >-
@@ -284,6 +330,10 @@ jobs:
             -v "$PWD/deploy/monitoring/prometheus:/etc/prometheus:ro" \
             prom/prometheus:v3.5.0@sha256:63805ebb8d2b3920190daf1cb14a60871b16fd38bed42b857a3182bc621f4996 \
             check rules /etc/prometheus/noviis-alerts.yml
+          docker run --rm --entrypoint /bin/promtool -w /etc/prometheus \
+            -v "$PWD/deploy/monitoring/prometheus:/etc/prometheus:ro" \
+            prom/prometheus:v3.5.0@sha256:63805ebb8d2b3920190daf1cb14a60871b16fd38bed42b857a3182bc621f4996 \
+            test rules noviis-alerts.test.yml
 
       - name: Validate Grafana dashboard JSON
         run: jq -e . deploy/monitoring/grafana/dashboards/noviis-overview.json >/dev/null
@@ -296,7 +346,18 @@ jobs:
           find backend/scripts -type f -name '*.sh' -print0 | xargs -0 -r shellcheck
 
       - name: Run deployment script fixtures
-        run: bash deploy/scripts/tests/activate-backend-release-test.sh
+        run: |
+          bash deploy/scripts/tests/activate-backend-release-test.sh
+          bash deploy/scripts/tests/activate-frontend-release-test.sh
+          bash backend/scripts/tests/check-migration-compatibility-test.sh
+
+      - name: Validate repository migration policy changes
+        env:
+          BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || (github.event_name == 'push' && github.event.before || 'HEAD^') }}
+        run: bash backend/scripts/check-migration-compatibility.sh "$BASE_REF" HEAD
+
+      - name: Validate production Nginx configuration
+        run: bash deploy/scripts/test-nginx-config.sh
 
       - name: Validate systemd units and drop-ins
         run: |
@@ -326,41 +387,199 @@ jobs:
       - ops-config-test
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    outputs:
+      contract_migration: ${{ steps.verify.outputs.contract_migration }}
     steps:
       - name: Verify required jobs
+        id: verify
         env:
           CHANGES_RESULT: ${{ needs.changes.result }}
           BACKEND_RESULT: ${{ needs.backend-test.result }}
           FRONTEND_RESULT: ${{ needs.frontend-test.result }}
           POSTGRES_RESULT: ${{ needs.backend-postgres-migration.result }}
           OPS_RESULT: ${{ needs.ops-config-test.result }}
+          NEED_BACKEND: ${{ needs.changes.outputs.backend }}
+          NEED_FRONTEND: ${{ needs.changes.outputs.frontend }}
+          NEED_OPS: ${{ needs.changes.outputs.ops }}
+          CONTRACT_MIGRATION: ${{ needs.backend-postgres-migration.outputs.contract_migration }}
         run: |
           if [ "$CHANGES_RESULT" != "success" ]; then
             echo "Change detection failed: $CHANGES_RESULT"
             exit 1
           fi
 
-          for result in "$BACKEND_RESULT" "$FRONTEND_RESULT" "$POSTGRES_RESULT" "$OPS_RESULT"; do
-            if [ "$result" != "success" ] && [ "$result" != "skipped" ]; then
-              echo "Required CI job failed or was cancelled: $result"
+          verify_job() {
+            local required="$1"
+            local result="$2"
+            local name="$3"
+            if [ "$required" = "true" ] && [ "$result" != "success" ]; then
+              echo "$name was required but finished as $result"
               exit 1
             fi
-          done
+            if [ "$required" != "true" ] && [ "$result" != "skipped" ]; then
+              echo "$name was not selected but finished as $result"
+              exit 1
+            fi
+          }
+          verify_job "$NEED_BACKEND" "$BACKEND_RESULT" backend-test
+          verify_job "$NEED_BACKEND" "$POSTGRES_RESULT" backend-postgres-migration
+          verify_job "$NEED_FRONTEND" "$FRONTEND_RESULT" frontend-test
+          verify_job "$NEED_OPS" "$OPS_RESULT" ops-config-test
+          if [ "$CONTRACT_MIGRATION" != "true" ]; then CONTRACT_MIGRATION=false; fi
+          echo "contract_migration=$CONTRACT_MIGRATION" >> "$GITHUB_OUTPUT"
 
-  deploy-backend:
+  release-backend:
     needs: [changes, ci-gate]
     if: >-
       needs.ci-gate.result == 'success' &&
       ((github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.backend_changed == 'true') ||
-      (github.event_name == 'workflow_dispatch' && inputs.deploy_backend))
-    uses: ./.github/workflows/deploy-backend.yml
-    secrets: inherit
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.deploy_backend))
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+      - name: Setup JDK 21
+        uses: actions/setup-java@dded0888837ed1f317902acf8a20df0ad188d165 # v5.0.0
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+      - name: Build backend release once after the CI gate
+        working-directory: backend
+        env:
+          BUILD_COMMIT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew bootJar --no-daemon
+          install -d -m 0755 release
+          install -m 0644 build/libs/app.jar release/app.jar
+          printf 'commit_sha=%s\nrun_id=%s\nrun_attempt=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" > release/RELEASE_METADATA
+      - name: Generate backend SBOM
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
+        with:
+          path: backend/release
+          format: spdx-json
+          output-file: backend/release/sbom.spdx.json
+          upload-artifact: false
+      - name: Finalize backend checksum manifest
+        run: sha256sum app.jar RELEASE_METADATA sbom.spdx.json > SHA256SUMS
+        working-directory: backend/release
+      - name: Attest backend release
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
+        with:
+          subject-path: backend/release/app.jar
+      - name: Upload backend release
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: backend-release-${{ github.sha }}
+          path: backend/release
+          if-no-files-found: error
+          retention-days: 14
 
-  deploy-frontend:
+  release-frontend:
     needs: [changes, ci-gate]
     if: >-
       needs.ci-gate.result == 'success' &&
       ((github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.frontend_changed == 'true') ||
-      (github.event_name == 'workflow_dispatch' && inputs.deploy_frontend))
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.deploy_frontend))
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Build frontend release once after the CI gate
+        working-directory: frontend
+        env:
+          VITE_COMMIT_HASH: ${{ github.sha }}
+          SITEMAP_SITE_URL: https://noviis.kr
+          SITEMAP_API_BASE_URL: https://noviis.kr/api/v1
+          PRERENDER_FETCH_RETRIES: 5
+          PRERENDER_FETCH_RETRY_DELAY_MS: 2000
+        run: |
+          set -euo pipefail
+          npm ci
+          npm run build:seo
+          printf '%s\n' "$GITHUB_SHA" > dist/.noviis-release
+          npm run seo:verify:dist
+          tar -C dist -czf frontend-release.tar.gz .
+      - name: Generate frontend SBOM
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
+        with:
+          path: frontend/dist
+          format: spdx-json
+          output-file: frontend/sbom.spdx.json
+          upload-artifact: false
+      - name: Finalize frontend checksum manifest
+        run: sha256sum frontend-release.tar.gz sbom.spdx.json > SHA256SUMS
+        working-directory: frontend
+      - name: Attest frontend release
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
+        with:
+          subject-path: frontend/frontend-release.tar.gz
+      - name: Upload frontend release
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: frontend-release-${{ github.sha }}
+          path: |
+            frontend/frontend-release.tar.gz
+            frontend/SHA256SUMS
+            frontend/sbom.spdx.json
+          if-no-files-found: error
+          retention-days: 14
+
+  deploy-backend:
+    needs: [changes, ci-gate, release-backend]
+    if: >-
+      needs.ci-gate.result == 'success' &&
+      needs.release-backend.result == 'success' &&
+      ((github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.backend_changed == 'true') ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.deploy_backend)) &&
+      (needs.ci-gate.outputs.contract_migration != 'true' ||
+      (github.event_name == 'workflow_dispatch' && inputs.allow_contract_migration && inputs.backup_snapshot_id != ''))
+    uses: ./.github/workflows/deploy-backend.yml
+    with:
+      expected_sha: ${{ github.sha }}
+    secrets:
+      EC2_HOST: ${{ secrets.EC2_HOST }}
+      EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+      EC2_HOST_FINGERPRINT: ${{ secrets.EC2_HOST_FINGERPRINT }}
+
+  deploy-frontend:
+    needs: [changes, ci-gate, release-frontend, deploy-backend]
+    if: >-
+      always() &&
+      needs.ci-gate.result == 'success' &&
+      needs.release-frontend.result == 'success' &&
+      (needs.deploy-backend.result == 'success' ||
+      (needs.deploy-backend.result == 'skipped' && needs.changes.outputs.backend_changed != 'true' &&
+      !(github.event_name == 'workflow_dispatch' && inputs.deploy_backend))) &&
+      ((github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.frontend_changed == 'true') ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.deploy_frontend))
     uses: ./.github/workflows/deploy-frontend.yml
-    secrets: inherit
+    with:
+      expected_sha: ${{ github.sha }}
+    secrets:
+      EC2_HOST: ${{ secrets.EC2_HOST }}
+      EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+      EC2_HOST_FINGERPRINT: ${{ secrets.EC2_HOST_FINGERPRINT }}
+      GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN: ${{ secrets.GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN }}
+      GOOGLE_SEARCH_CONSOLE_CLIENT_ID: ${{ secrets.GOOGLE_SEARCH_CONSOLE_CLIENT_ID }}
+      GOOGLE_SEARCH_CONSOLE_CLIENT_SECRET: ${{ secrets.GOOGLE_SEARCH_CONSOLE_CLIENT_SECRET }}
+      GOOGLE_SEARCH_CONSOLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_SEARCH_CONSOLE_REFRESH_TOKEN }}
+      CUSTOM_SITEMAP_SUBMIT_URL: ${{ secrets.CUSTOM_SITEMAP_SUBMIT_URL }}

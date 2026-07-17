@@ -14,6 +14,7 @@ fake_bin="$fixture/bin"
 state_dir="$fixture/state"
 mkdir -p "$release_root" "$log_dir" "$fake_bin" "$state_dir"
 printf 'test=true\n' > "$env_file"
+chmod 0600 "$env_file"
 touch "$log_dir/whiteboard-active.log" "$log_dir/whiteboard-error.log"
 printf 'active\n' > "$state_dir/service"
 
@@ -58,11 +59,13 @@ exit 0
 EOF
 chmod +x "$fake_bin"/*
 
-run_activation() {
+invoke_activation() {
   APP_DIR="$app_dir" \
   RELEASE_ROOT="$release_root" \
   LOG_DIR="$log_dir" \
   ENV_FILE="$env_file" \
+  ENV_FILE_OWNER="$(stat -c %U:%G "$env_file")" \
+  ENV_FILE_MODE="$(stat -c %a "$env_file")" \
   STATE_DIR="$state_dir" \
   PATH="$fake_bin:$PATH" \
   HEALTH_ATTEMPTS=2 \
@@ -70,11 +73,29 @@ run_activation() {
   bash "$script" "$1"
 }
 
+run_activation() {
+  (
+    cd "$1"
+    sha256sum app.jar > SHA256SUMS
+  )
+  invoke_activation "$1"
+}
+
 printf 'old\n' > "$app_dir/app.jar"
 success_release="$release_root/success"
 mkdir -p "$success_release"
 printf 'new\n' > "$success_release/app.jar"
 run_activation "$success_release"
+grep -qx new "$app_dir/app.jar"
+
+checksum_failure_release="$release_root/checksum-failure"
+mkdir -p "$checksum_failure_release"
+printf 'new\n' > "$checksum_failure_release/app.jar"
+printf '%064d  app.jar\n' 0 > "$checksum_failure_release/SHA256SUMS"
+if invoke_activation "$checksum_failure_release"; then
+  echo "Expected checksum verification failure" >&2
+  exit 1
+fi
 grep -qx new "$app_dir/app.jar"
 
 printf 'old\n' > "$app_dir/app.jar"

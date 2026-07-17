@@ -1,0 +1,6 @@
+# Production schema and delivery boundaries require an explicit owner review.
+/backend/src/main/resources/db/migration/ @weedrice
+/backend/scripts/check-migration-compatibility.sh @weedrice
+/.github/workflows/ @weedrice
+/deploy/scripts/activate-*-release.sh @weedrice
+/deploy/systemd/ @weedrice
