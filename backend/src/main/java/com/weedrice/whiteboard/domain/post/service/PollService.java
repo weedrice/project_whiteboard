@@ -34,6 +34,8 @@ public class PollService {
     private final PollRepository pollRepository;
     private final PollVoteRepository pollVoteRepository;
     private final UserWritableResolver userWritableResolver;
+    private final PostReadContextResolver postReadContextResolver;
+    private final PostAccessPolicy postAccessPolicy;
 
     @Transactional
     public void createPoll(Post post, PollRequest request) {
@@ -70,6 +72,7 @@ public class PollService {
         User user = userWritableResolver.resolve(userId);
         Poll poll = pollRepository.findByPostIdForUpdate(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+        validateReadable(poll, user);
         validateOpen(poll);
         List<Long> selectedOptionIds = normalizeOptionIds(optionIds);
         if (!Boolean.TRUE.equals(poll.getMultipleChoiceEnabled()) && selectedOptionIds.size() > 1) {
@@ -94,9 +97,10 @@ public class PollService {
 
     @Transactional
     public PollResponse deleteVote(Long userId, Long postId) {
-        userWritableResolver.resolve(userId);
+        User user = userWritableResolver.resolve(userId);
         Poll poll = pollRepository.findByPostIdForUpdate(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+        validateReadable(poll, user);
         pollVoteRepository.deleteByPoll_PollIdAndUser_UserId(poll.getPollId(), userId);
         return toResponse(poll, userId);
     }
@@ -121,15 +125,35 @@ public class PollService {
     }
 
     private List<Long> normalizeOptionIds(Collection<Long> optionIds) {
-        if (optionIds == null || optionIds.isEmpty()) {
+        if (optionIds == null || optionIds.isEmpty() || optionIds.size() > 10
+                || optionIds.stream().anyMatch(optionId -> optionId == null || optionId <= 0)) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
-        return optionIds.stream().distinct().toList();
+        List<Long> normalized = optionIds.stream().distinct().toList();
+        if (normalized.size() != optionIds.size()) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        return normalized;
     }
 
     private void validateOpen(Poll poll) {
         if (poll.getClosesAt() != null && poll.getClosesAt().isBefore(LocalDateTime.now())) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
+    }
+
+    private void validateReadable(Poll poll, User viewer) {
+        Post post = poll.getPost();
+        if (Boolean.TRUE.equals(post.getIsBlinded())) {
+            throw new BusinessException(ErrorCode.POST_NOT_FOUND);
+        }
+        PostReadContext context = postReadContextResolver.withAdminBoardIdsForPosts(
+                postReadContextResolver.resolveForResolvedUser(viewer),
+                List.of(post));
+        postAccessPolicy.validateReadable(
+                post,
+                context.viewer(),
+                context.isAuthorBlocked(post),
+                context.activeAdminBoardIds());
     }
 }

@@ -22,9 +22,13 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -37,11 +41,16 @@ class PollServiceTest {
     @Mock PollRepository polls;
     @Mock PollVoteRepository votes;
     @Mock UserWritableResolver users;
+    @Mock PostReadContextResolver postReadContextResolver;
+    @Mock PostAccessPolicy postAccessPolicy;
     PollService service;
 
     @BeforeEach
     void setUp() {
-        service = new PollService(polls, votes, users);
+        service = new PollService(polls, votes, users, postReadContextResolver, postAccessPolicy);
+        PostReadContext context = PostReadContext.anonymous();
+        when(postReadContextResolver.resolveForResolvedUser(any())).thenReturn(context);
+        when(postReadContextResolver.withAdminBoardIdsForPosts(eq(context), anyList())).thenReturn(context);
     }
 
     @Test
@@ -77,7 +86,7 @@ class PollServiceTest {
     }
 
     @Test
-    void voteReplacesPriorVotesAndDeduplicatesSelection() {
+    void voteReplacesPriorVotes() {
         User user = mock(User.class);
         Poll poll = poll(true, null);
         when(users.resolve(7L)).thenReturn(user);
@@ -85,11 +94,53 @@ class PollServiceTest {
         when(votes.countByOption(20L)).thenReturn(List.of());
         when(votes.findSelectedOptionIds(20L, 7L)).thenReturn(List.of(101L, 102L));
 
-        var response = service.vote(7L, 2L, List.of(101L, 101L, 102L));
+        var response = service.vote(7L, 2L, List.of(101L, 102L));
 
         assertEquals(2, response.getOptions().stream().filter(option -> option.isSelected()).count());
         verify(votes).deleteByPoll_PollIdAndUser_UserId(20L, 7L);
         verify(votes, org.mockito.Mockito.times(2)).save(any());
+    }
+
+    @Test
+    void voteRejectsDuplicateSelections() {
+        when(users.resolve(7L)).thenReturn(mock(User.class));
+        Poll poll = poll(true, null);
+        when(polls.findByPostIdForUpdate(2L)).thenReturn(Optional.of(poll));
+
+        assertThrows(BusinessException.class, () -> service.vote(7L, 2L, List.of(101L, 101L)));
+
+        verify(votes, never()).deleteByPoll_PollIdAndUser_UserId(any(), any());
+    }
+
+    @Test
+    void voteRejectsUnreadablePostBeforeMutation() {
+        User user = mock(User.class);
+        Poll poll = poll(true, null);
+        when(users.resolve(7L)).thenReturn(user);
+        when(polls.findByPostIdForUpdate(2L)).thenReturn(Optional.of(poll));
+        doThrow(new BusinessException(com.weedrice.whiteboard.global.exception.ErrorCode.POST_NOT_FOUND))
+                .when(postAccessPolicy).validateReadable(any(), any(), eq(false), any());
+
+        assertThrows(BusinessException.class, () -> service.vote(7L, 2L, List.of(101L)));
+
+        verify(votes, never()).deleteByPoll_PollIdAndUser_UserId(any(), any());
+    }
+
+    @Test
+    void voteRejectsBlindedPostBeforePolicyAndMutation() {
+        User user = mock(User.class);
+        Poll poll = poll(true, null);
+        when(poll.getPost().getIsBlinded()).thenReturn(true);
+        when(users.resolve(7L)).thenReturn(user);
+        when(polls.findByPostIdForUpdate(2L)).thenReturn(Optional.of(poll));
+
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> service.vote(7L, 2L, List.of(101L)));
+
+        assertSame(com.weedrice.whiteboard.global.exception.ErrorCode.POST_NOT_FOUND, exception.getErrorCode());
+        verify(postAccessPolicy, never()).validateReadable(any(), any(), any(Boolean.class), any());
+        verify(votes, never()).deleteByPoll_PollIdAndUser_UserId(any(), any());
     }
 
     @Test
@@ -141,6 +192,7 @@ class PollServiceTest {
         when(poll.getMultipleChoiceEnabled()).thenReturn(multiple);
         when(poll.getClosesAt()).thenReturn(closesAt);
         when(poll.getOptions()).thenReturn(List.of(first, second));
+        when(poll.getPost()).thenReturn(mock(Post.class));
         return poll;
     }
 }
