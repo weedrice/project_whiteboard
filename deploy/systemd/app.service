@@ -2,6 +2,8 @@
 Description=Noviis Spring Boot application
 Wants=network-online.target
 After=network-online.target
+StartLimitIntervalSec=300
+StartLimitBurst=5
 
 [Service]
 Type=simple
@@ -15,6 +17,7 @@ ExecStartPre=/bin/sh -ec 'test ! -L /etc/noviis/app.env; test "$$(stat -c %U:%G 
 ExecStart=/usr/bin/java -jar /opt/app/backend/app.jar --spring.profiles.active=prod
 Restart=on-failure
 RestartSec=5
+OOMPolicy=stop
 SuccessExitStatus=143
 TimeoutStopSec=35
 StandardOutput=journal

@@ -209,6 +209,56 @@ tests:
             exp_annotations:
               summary: "HikariCP active connections exceeded 85 percent of the configured maximum for 10 minutes"
 
+  - name: scheduler backlog requires saturation and queue growth
+    interval: 1m
+    input_series:
+      - series: 'noviis_scheduler_pool_active{pool="common"}'
+        values: '4+0x20'
+      - series: 'noviis_scheduler_pool_size{pool="common"}'
+        values: '4+0x20'
+      - series: 'noviis_scheduler_pool_queued{pool="common"}'
+        values: '1+1x20'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: NoviIsSchedulerPoolBacklogGrowing
+        exp_alerts: []
+      - eval_time: 11m
+        alertname: NoviIsSchedulerPoolBacklogGrowing
+        exp_alerts:
+          - exp_labels:
+              pool: common
+              severity: warning
+            exp_annotations:
+              summary: "Scheduler pool common is saturated while its queue is growing"
+              description: "The queue includes future scheduled executions, so this alert requires both full worker utilization and sustained queue growth."
+
+  - name: Web Push delivery and cleanup failures are observable
+    interval: 1m
+    input_series:
+      - series: 'noviis_webpush_delivery_total{outcome="success"}'
+        values: '0+18x20'
+      - series: 'noviis_webpush_delivery_total{outcome="failure"}'
+        values: '0+2x20'
+      - series: 'noviis_webpush_delivery_total{outcome="timeout"}'
+        values: '0+1x20'
+      - series: 'noviis_webpush_subscription_cleanup_total{outcome="failure"}'
+        values: '0 0 1+0x18'
+    alert_rule_test:
+      - eval_time: 11m
+        alertname: NoviIsWebPushDeliveryFailureHigh
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: "Web Push failures exceeded 10 percent with at least 20 delivery attempts"
+      - eval_time: 2m
+        alertname: NoviIsWebPushCleanupFailure
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: "Expired Web Push subscription cleanup failed"
+
   - name: process start time change reports a restart
     interval: 1m
     input_series:

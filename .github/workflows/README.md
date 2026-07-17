@@ -1,129 +1,68 @@
-# GitHub Actions 워크플로우
+# GitHub Actions 운영 계약
 
-## 기준
+## 통합 CI와 배포
 
-| 항목 | 내용 |
-| --- | --- |
-| 갱신일 | 2026-07-17 |
-| 위치 | `.github/workflows` |
+`ci.yml`은 `main`·`develop` push와 pull request를 검증한다. 수동 배포 입력의 기본값은 모두 `false`이며 production 배포는 `main`에서만 허용한다. 변경 감지 뒤 선택된 backend, frontend, ops job이 모두 성공해야 `ci-gate`를 통과한다. 선택된 필수 job이 `skipped`여도 gate는 실패한다.
 
-## 현재 워크플로우
+검증 job은 다음 책임을 가진다.
 
-### CI
+- Backend: Java 21, Gradle test, JaCoCo coverage verification
+- PostgreSQL: Flyway 호환성 검사, 전체 migration 적용, 실제 PostgreSQL application-context smoke
+- Frontend: Node 22, lint, i18n·UI 규약, type-check, coverage, build, Playwright E2E·접근성
+- Ops: actionlint, Prometheus rule fixture, Grafana JSON, shell, sudoers, systemd, migration·activation fixture
+- CI gate: 선택 여부와 실제 job 결과를 대조하고 우회된 `skipped` 또는 실패를 차단
 
-파일: `ci.yml`
+자동·수동 배포는 검증이 끝난 동일 실행에서 release artifact를 한 번 생성한다. artifact 이름은 영역, `run_id`, `run_attempt`, commit SHA를 모두 포함하며 reusable deployment workflow는 그 정확한 이름만 내려받는다. 재실행이 이전 attempt의 artifact를 재사용하면 안 된다.
 
-트리거:
+backend와 frontend가 함께 변경되면 backend를 먼저 활성화한다. 관리 health와 build-info에서 SHA가 확인된 경우에만 reusable backend workflow가 `activated_sha`를 출력한다. frontend workflow는 전달받은 backend SHA가 자신의 대상 SHA와 같은지 확인한 뒤 결과를 확정한다.
 
-- `main`, `develop` 브랜치 push
-- `main`, `develop` 대상 pull request
-- 수동 실행. 배포 입력은 기본 `false`이며 `main`에서 명시적으로 선택한 영역만 전체 검증 뒤 배포
-- contract migration 수동 배포는 별도 승인 입력과 비어 있지 않은 사전 snapshot 식별자를 모두 요구
+contract migration은 자동 배포하지 않는다. `main`의 수동 실행, `allow_contract_migration=true`, 비어 있지 않은 검증된 snapshot ID, tracked design note, production environment 승인과 GitHub run evidence가 모두 필요하다. `backend/scripts/check-migration-compatibility.sh`와 evidence verifier가 base commit 또는 승인 증거를 확인하지 못하면 fail-closed 처리한다. 적용 완료 migration은 `docs/ops/applied-contract-migrations.txt`와 운영 변경 기록을 함께 갱신한다.
 
-작업:
+## 활성화와 정리
 
-- 변경 경로를 감지해 backend, frontend, 운영 구성 job을 필요한 경우에만 실행
-- Backend: Java 21 설정, Gradle test, JaCoCo report, coverage verification
-- PostgreSQL: migration SQL 적용과 Spring/Flyway application context smoke test
-- Frontend: Node 22 설정, `npm ci`, lint, i18n·UI 규약 검사, type-check, coverage, build, Playwright E2E·접근성 검사
-- Ops: actionlint, Prometheus, Grafana JSON, shell, systemd, Compose 구성 검사
-- CI Gate: 선택된 test/smoke/ops job은 반드시 성공해야 하고 선택되지 않은 job만 `skipped`인지 확인
-- Deploy: main push의 관련 변경 또는 main 수동 입력에 대해 CI Gate 성공 뒤 reusable workflow 호출
-- Release artifact: CI가 만든 JAR 또는 frontend tarball, SBOM, commit metadata와 SHA-256 manifest를 배포 workflow가 그대로 승격하고 GitHub artifact attestation을 발급
-- Frontend coverage artifact 업로드 단계는 `npm run coverage` 결과인 `frontend/coverage`를 업로드한다.
+활성화 스크립트는 provenance, checksum, commit metadata, 서비스 health를 검증한 뒤 `ACTIVATED_SHA=<sha>`를 출력한다. 이 시점 이후 release 보존 정리, 상태 진단, incoming 삭제 실패는 건강한 release를 rollback하지 않는다. 대신 `CLEANUP_DEBT=...` 경고와 workflow cleanup 결과로 후속 조치한다.
 
-특징:
+backend/frontend artifact는 SHA-256 manifest, SBOM, GitHub attestation bundle을 포함한다. 배포 직전 최신 `origin/main` SHA를 다시 확인하며 SSH와 SCP는 독립적으로 확인한 host fingerprint를 필수로 사용한다. production deploy concurrency는 취소 없이 직렬화한다.
 
-- backend coverage verification은 실패 시 CI를 실패시킨다.
-- backend 의존성은 Gradle lock state와 strict SHA-256 verification metadata로 재현성과 무결성을 검사한다.
-- backend test/coverage artifact와 frontend coverage·Playwright artifact를 업로드한다.
-- backend/frontend 변경은 실제 Dockerfile build까지 수행하며 production Nginx 구성도 `nginx -t`로 확인한다.
-- 모든 third-party Action은 검증한 release의 40자리 commit SHA로 고정하고 release tag를 주석으로 남긴다.
-- workflow 기본 권한은 `contents: read`이고, 변경 감지 job에만 `pull-requests: read`를 추가한다.
-- job timeout은 변경 감지·gate 5분, backend·PostgreSQL 30분, frontend 40분이다.
+backend activator는 이전 JAR을 보존하고 서비스 stop, atomic JAR 교체, 8081 management health와 build-info 검증을 수행한다. 검증 전 실패는 이전 JAR과 health를 복구한다. frontend activator는 이전 symlink를 기록하고 atomic switch 뒤 내부·공개 release endpoint 및 SEO metadata를 검증하며 실패 시 이전 symlink를 복구한다. release 정리는 mtime 기준 최신 5개를 보존하고 realpath가 release root 밖이면 삭제하지 않는다.
 
-### Deploy Backend
+## SEO
 
-파일: `deploy-backend.yml`
+production frontend release는 `SEO_STRICT=true`로 sitemap과 prerender를 생성한다. API 조회 실패, 게시글 URL 0건, URL과 prerender 개수 불일치는 release 생성을 실패시킨다. `.noviis-seo-release.json`에 commit SHA, 전체 URL 수, 게시글 URL 수, prerender 수를 기록하고 activator가 다시 검증한다.
 
-호출 조건:
+배포 후 sitemap 제출과 `seo-monitor.yml`의 정기 제출은 `seo-submit-production` concurrency group으로 직렬화한다. 정기 제출의 인증 오류, 429, 5xx, timeout은 job 실패다. 배포 후 제출 실패는 이미 검증된 frontend를 rollback하지 않고 warning과 job summary에 남기며 정기 monitor가 재시도한다.
 
-- `ci.yml`의 전체 gate를 통과한 main backend 변경
-- `ci.yml` 수동 실행에서 backend 배포를 명시적으로 선택하고 전체 gate를 통과한 경우
+## Ops 검증
 
-작업:
+`ops-config-test`는 workflow 문법, Prometheus config/rules/fixtures, Grafana JSON, shell, systemd, migration policy, activation fixture를 검증한다. Prometheus 검증 버전은 `deploy/monitoring/tool-versions.env`에서 읽으며 운영 host도 같은 manifest의 native 버전을 사용한다.
 
-1. CI가 검증하고 checksum을 기록한 동일 commit JAR 다운로드
-2. checksum·commit metadata를 검증한 뒤 EC2 release 디렉터리로 JAR과 활성화 script 업로드
-3. 서비스 재시작과 8081 health 검증
-4. 활성화 이후 실패 시 이전 JAR 복구와 이전 health 재검증
-5. 성공 후 mtime 기준 현재 release를 포함한 최신 5개 보존
+non-Agent `@Scheduled` 메서드는 `scheduled-jobs.txt`와 freshness rule이 일치해야 한다. sudoers는 `visudo -cf`와 허용·거부 command matrix를 모두 통과해야 한다. systemd 메모리 상한은 운영 측정 기록과 staging 검증이 없으면 추가하지 않는다.
 
-특징:
+Grafana 관리 비밀번호는 `/etc/noviis/monitoring.env`와 root-only 회전 helper로만 관리한다. helper는 loopback User API를 사용하고 비밀번호를 argv나 shell history에 넣지 않는다. Prometheus rule은 로컬에서 평가되지만 외부 Alertmanager receiver는 아직 없으므로 firing 자체가 Slack 또는 이메일 전달을 의미하지 않는다.
 
-- test, coverage, PostgreSQL smoke 실패는 앞선 CI Gate에서 배포를 차단한다.
-- 배포 SSH 접속은 GitHub Secrets를 사용한다.
-- 활성화 직전 origin/main SHA가 검증 artifact의 SHA와 다르면 stale deployment를 차단한다.
-- SSH/SCP는 등록된 EC2 host key fingerprint를 검증한다.
-- workflow 권한은 `contents: read`, job timeout은 30분이다.
+## 권한과 유지보수
 
-### Deploy Frontend
+workflow 기본 권한은 `contents: read`이며 attestation, OIDC, artifact metadata 권한은 필요한 release/deploy job에만 부여한다. third-party Action은 검토한 release의 full commit SHA로 고정한다. workflow, activation script, sudoers, migration 정책 변경은 CODEOWNERS review 대상이다.
 
-파일: `deploy-frontend.yml`
+주요 timeout은 change detection·gate 5분, backend test 45분, frontend test 60분, PostgreSQL·ops 30분, release 20–25분, deploy 30분, SEO monitor 15분이다. YAML에서 값을 바꾸면 이 문서도 같은 변경에서 갱신한다.
 
-호출 조건:
+## Production environment와 Secrets
 
-- `ci.yml`의 전체 gate를 통과한 main frontend 변경
-- `ci.yml` 수동 실행에서 frontend 배포를 명시적으로 선택하고 전체 gate를 통과한 경우
+GitHub `production` environment는 `main` branch restriction, required reviewer, self-review 금지를 별도로 설정한다. repository 파일만으로 environment 보호 규칙이 생성되는 것은 아니다. 실제 production 배포와 의도적인 rollback 시험은 운영 권한 단계에서 수행한다.
 
-작업:
-
-1. CI가 `npm run build:seo`로 생성하고 checksum을 기록한 tarball 다운로드
-2. checksum과 내장 commit marker 검증
-3. 배포 후 SEO 검증을 위한 Node 22와 `npm ci` 실행
-   - `sitemap:generate`
-   - `vite build`
-   - `prerender:posts`
-4. EC2 release 디렉터리에 검증된 tarball 업로드
-5. 별도 활성화 script가 `/var/www/app` symlink를 새 release로 원자적으로 전환
-6. commit marker와 pre-render metadata 검증, 실패 시 이전 symlink 복구
-7. `npm run seo:verify` 실행
-8. `npm run seo:submit` 실행
-
-특징:
-
-- `seo:verify`는 배포 후 검증 단계이며 실패하면 워크플로우가 실패한다.
-- 배포 후 `seo:verify`가 실패해도 이전 frontend release로 되돌린다.
-- `seo:submit`은 `continue-on-error: true`로 설정되어 검색 엔진 제출 실패가 배포 결과를 막지 않는다.
-- sitemap 생성에는 `SITEMAP_SITE_URL`, `SITEMAP_API_BASE_URL` 환경 변수를 사용한다.
-- workflow 권한은 `contents: read`, job timeout은 30분이다.
-
-### SEO Monitor
-
-파일: `seo-monitor.yml`
-
-트리거:
-
-- schedule
-- 수동 실행 `workflow_dispatch`
-
-작업:
-
-- sitemap/SEO 상태 확인
-- Google Search Console 또는 custom submit URL 관련 환경 변수는 Secrets에서 주입
-- workflow 권한은 `contents: read`, job timeout은 15분
-
-## 필요한 Secrets
-
-배포:
+배포 연결에 필요한 secret:
 
 - `EC2_HOST`
 - `EC2_SSH_KEY`
 - `EC2_HOST_FINGERPRINT`
 
-`EC2_HOST_FINGERPRINT` must be the independently verified SHA-256 host-key fingerprint expected by Appleboy SSH/SCP actions. Do not derive trust from the same unauthenticated deployment connection.
+contract evidence에 필요한 secret:
 
-SEO/Search Console:
+- `AWS_CONTRACT_EVIDENCE_ROLE_ARN`
+- `AWS_REGION`
+- `RDS_PRODUCTION_DB_IDENTIFIER`
+
+SEO 제출에 필요한 선택적 secret:
 
 - `GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN`
 - `GOOGLE_SEARCH_CONSOLE_CLIENT_ID`
@@ -131,15 +70,4 @@ SEO/Search Console:
 - `GOOGLE_SEARCH_CONSOLE_REFRESH_TOKEN`
 - `CUSTOM_SITEMAP_SUBMIT_URL`
 
-Secrets 값은 워크플로우 로그, 문서, 예제 파일에 직접 기록하지 않는다.
-
-## 유지보수 원칙
-
-- workflow 파일을 수정하면 이 README도 함께 갱신한다.
-- action major version 변경은 CI에서 먼저 확인한 뒤 배포 workflow에 반영한다.
-- Action은 tag만 사용하지 않고 공식 release tag가 가리키는 full commit SHA를 사용한다.
-- 자동 배포는 독립 push trigger를 갖지 않으며 반드시 통합 CI Gate 뒤에서 호출한다.
-- production 배포는 main SHA만 허용하고 활성화 직전에 최신 main인지 다시 확인한다.
-- backend와 frontend가 함께 바뀌면 backend 배포를 먼저 완료한다.
-- GitHub의 `production` environment는 main deployment branch restriction, required reviewer, self-review 금지를 별도로 활성화한다.
-- Flyway 변경은 `docs/ops/database-migration-policy.md`와 migration compatibility 검사를 통과해야 한다.
+`EC2_HOST_FINGERPRINT`는 배포 연결과 독립적인 채널에서 확인한 SHA-256 host-key fingerprint여야 한다. secret 값은 workflow 로그, fixture, 문서, release metadata에 기록하지 않는다. reusable workflow에는 필요한 secret만 명시적으로 매핑하며 `secrets: inherit`를 사용하지 않는다.

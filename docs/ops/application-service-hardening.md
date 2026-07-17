@@ -40,3 +40,11 @@ curl -fsS http://127.0.0.1:8081/actuator/health
 ```
 
 The sandbox permits writes only to `/opt/app/logs` and `/opt/app/uploads`. Any new local persistent path must be reviewed and added explicitly instead of weakening `ProtectSystem`.
+
+## Resource and restart policy gate
+
+The unit limits crash loops to five starts per five minutes and explicitly uses `OOMPolicy=stop`; `Restart=on-failure` then handles a failed main process through the same bounded restart path. Do not add `MemoryHigh` or `MemoryMax` from workstation estimates. Before enabling a memory limit, collect at least seven representative production days including peak traffic, scheduled maintenance, and one normal deployment. Record `systemctl show app.service -p MemoryCurrent -p MemoryPeak`, JVM heap/non-heap metrics, direct-buffer usage, and host `MemAvailable` in the operations ticket.
+
+Choose `MemoryHigh` above the measured p99 total process usage and `MemoryMax` above the measured peak with explicit native-memory and deployment headroom. Validate the proposed values in a temporary drop-in, force a heap-pressure test in staging, confirm the management health endpoint remains responsive, and record the rollback command. A missing measurement record blocks the limit change; the tracked unit intentionally contains no guessed memory cap.
+
+After any restart-policy or resource change, run `systemd-analyze verify`, inspect `systemd-analyze security app.service`, and confirm that repeated startup failures reach `start-limit-hit` without affecting the active release rollback procedure.

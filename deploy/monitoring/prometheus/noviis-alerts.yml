@@ -161,6 +161,28 @@ groups:
         for: 10m
         labels: { severity: warning }
         annotations: { summary: "HikariCP active connections exceeded 85 percent of the configured maximum for 10 minutes" }
+      - alert: NoviIsSchedulerPoolBacklogGrowing
+        expr: >-
+          max by (pool) (noviis_scheduler_pool_active)
+          >= max by (pool) (noviis_scheduler_pool_size)
+          and on(pool) deriv(noviis_scheduler_pool_queued[10m]) > 0
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: "Scheduler pool {{ $labels.pool }} is saturated while its queue is growing"
+          description: "The queue includes future scheduled executions, so this alert requires both full worker utilization and sustained queue growth."
+      - alert: NoviIsWebPushDeliveryFailureHigh
+        expr: >-
+          sum(increase(noviis_webpush_delivery_total{outcome=~"failure|timeout"}[15m]))
+          / clamp_min(sum(increase(noviis_webpush_delivery_total[15m])), 1) > 0.10
+          and sum(increase(noviis_webpush_delivery_total[15m])) >= 20
+        for: 10m
+        labels: { severity: warning }
+        annotations: { summary: "Web Push failures exceeded 10 percent with at least 20 delivery attempts" }
+      - alert: NoviIsWebPushCleanupFailure
+        expr: increase(noviis_webpush_subscription_cleanup_total{outcome="failure"}[15m]) > 0
+        labels: { severity: warning }
+        annotations: { summary: "Expired Web Push subscription cleanup failed" }
       - alert: NoviIsProcessRestarted
         expr: changes(process_start_time_seconds[15m]) > 0
         labels: { severity: info }

@@ -332,21 +332,37 @@ jobs:
 
       - name: Validate Prometheus configuration and rules
         run: |
+          source deploy/monitoring/tool-versions.env
           docker run --rm --entrypoint /bin/promtool \
             -v "$PWD/deploy/monitoring/prometheus:/etc/prometheus:ro" \
-            prom/prometheus:v3.5.0@sha256:63805ebb8d2b3920190daf1cb14a60871b16fd38bed42b857a3182bc621f4996 \
+            "$PROMETHEUS_VALIDATION_IMAGE" \
             check config /etc/prometheus/prometheus.yml
           docker run --rm --entrypoint /bin/promtool \
             -v "$PWD/deploy/monitoring/prometheus:/etc/prometheus:ro" \
-            prom/prometheus:v3.5.0@sha256:63805ebb8d2b3920190daf1cb14a60871b16fd38bed42b857a3182bc621f4996 \
+            "$PROMETHEUS_VALIDATION_IMAGE" \
             check rules /etc/prometheus/noviis-alerts.yml
           docker run --rm --entrypoint /bin/promtool -w /etc/prometheus \
             -v "$PWD/deploy/monitoring/prometheus:/etc/prometheus:ro" \
-            prom/prometheus:v3.5.0@sha256:63805ebb8d2b3920190daf1cb14a60871b16fd38bed42b857a3182bc621f4996 \
+            "$PROMETHEUS_VALIDATION_IMAGE" \
             test rules noviis-alerts.test.yml
 
-      - name: Validate Grafana dashboard JSON
-        run: jq -e . deploy/monitoring/grafana/dashboards/noviis-overview.json >/dev/null
+      - name: Verify scheduled job freshness manifest
+        run: python3 deploy/monitoring/verify-scheduled-jobs.py
+
+      - name: Validate Grafana version manifest and dashboard JSON
+        run: |
+          source deploy/monitoring/tool-versions.env
+          archive="$RUNNER_TEMP/grafana-${GRAFANA_VERSION}.linux-amd64.tar.gz"
+          extract_root="$RUNNER_TEMP/grafana-validation"
+          curl --fail --location --retry 3 --proto '=https' \
+            --output "$archive" \
+            "https://dl.grafana.com/oss/release/grafana-${GRAFANA_VERSION}.linux-amd64.tar.gz"
+          mkdir -p "$extract_root"
+          tar -xzf "$archive" -C "$extract_root"
+          grafana_binary="$(find "$extract_root" -type f -path '*/bin/grafana' -print -quit)"
+          test -n "$grafana_binary"
+          "$grafana_binary" --version | grep -F "Version ${GRAFANA_VERSION}"
+          jq -e . deploy/monitoring/grafana/dashboards/noviis-overview.json >/dev/null
 
       - name: Validate shell scripts
         run: |
@@ -355,6 +371,11 @@ jobs:
           find deploy -type f -name '*.sh' -print0 | xargs -0 -r shellcheck
           find backend/scripts -type f -name '*.sh' -print0 | xargs -0 -r shellcheck
 
+      - name: Validate sudoers policy and command matrix
+        run: |
+          sudo visudo -cf deploy/sudoers/noviis-deploy
+          sudo bash deploy/sudoers/tests/noviis-deploy-test.sh
+
       - name: Run deployment script fixtures
         run: |
           bash deploy/scripts/tests/activate-backend-release-test.sh
@@ -362,6 +383,7 @@ jobs:
           bash deploy/scripts/tests/verify-release-provenance-test.sh
           bash backend/scripts/tests/check-migration-compatibility-test.sh
           bash backend/scripts/tests/verify-contract-deployment-evidence-test.sh
+          sudo bash deploy/monitoring/tests/rotate-grafana-admin-password-test.sh
 
       - name: Validate repository migration policy changes
         env:
@@ -376,6 +398,9 @@ jobs:
       - name: Validate systemd units and drop-ins
         run: |
           systemd-analyze verify deploy/systemd/app.service
+          grep -Fqx 'OOMPolicy=stop' deploy/systemd/app.service
+          grep -Fqx 'StartLimitIntervalSec=300' deploy/systemd/app.service
+          grep -Fqx 'StartLimitBurst=5' deploy/systemd/app.service
           tmp="$(mktemp -d)"
           trap 'rm -rf "$tmp"' EXIT
           for service in prometheus grafana-server; do
@@ -519,7 +544,7 @@ jobs:
       - name: Upload backend release
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
-          name: backend-release-${{ github.sha }}
+          name: backend-release-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
           path: backend/release
           if-no-files-found: error
           retention-days: 14
@@ -550,6 +575,8 @@ jobs:
         working-directory: frontend
         env:
           VITE_COMMIT_HASH: ${{ github.sha }}
+          SEO_STRICT: "true"
+          SEO_RELEASE_SHA: ${{ github.sha }}
           SITEMAP_SITE_URL: https://noviis.kr
           SITEMAP_API_BASE_URL: https://noviis.kr/api/v1
           PRERENDER_FETCH_RETRIES: 5
@@ -593,7 +620,7 @@ jobs:
       - name: Upload frontend release
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
-          name: frontend-release-${{ github.sha }}
+          name: frontend-release-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
           path: |
             frontend/frontend-release.tar.gz
             frontend/SHA256SUMS
@@ -618,6 +645,7 @@ jobs:
       id-token: write
     with:
       expected_sha: ${{ github.sha }}
+      release_artifact_name: backend-release-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
       backup_snapshot_id: ${{ inputs.backup_snapshot_id || '' }}
       contract_migration: ${{ needs.ci-gate.outputs.contract_migration == 'true' }}
     secrets:
@@ -645,6 +673,8 @@ jobs:
       attestations: read
     with:
       expected_sha: ${{ github.sha }}
+      release_artifact_name: frontend-release-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
+      backend_activated_sha: ${{ needs.deploy-backend.outputs.activated_sha || '' }}
     secrets:
       EC2_HOST: ${{ secrets.EC2_HOST }}
       EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}

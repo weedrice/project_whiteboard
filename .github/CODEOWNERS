@@ -5,6 +5,7 @@
 /.github/workflows/ @weedrice
 /deploy/scripts/activate-*-release.sh @weedrice
 /deploy/scripts/verify-release-provenance.sh @weedrice
+/deploy/monitoring/ @weedrice
 /deploy/sudoers/ @weedrice
 /deploy/systemd/ @weedrice
 /docs/design-notes/ @weedrice

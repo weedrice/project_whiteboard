@@ -19,7 +19,9 @@
     {"type":"timeseries","title":"HTTP 5xx ratio","id":14,"gridPos":{"h":8,"w":6,"x":12,"y":32},"fieldConfig":{"defaults":{"unit":"percentunit","min":0}},"targets":[{"expr":"sum(rate(http_server_requests_seconds_count{status=~\"5..\"}[5m])) / clamp_min(sum(rate(http_server_requests_seconds_count[5m])), 0.001)","legendFormat":"5xx ratio","refId":"A"}]},
     {"type":"timeseries","title":"HTTP p95 latency","id":15,"gridPos":{"h":8,"w":6,"x":18,"y":32},"fieldConfig":{"defaults":{"unit":"s","min":0}},"targets":[{"expr":"histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket[5m])))","legendFormat":"p95","refId":"A"}]},
     {"type":"timeseries","title":"HikariCP saturation","id":16,"gridPos":{"h":8,"w":12,"x":0,"y":40},"fieldConfig":{"defaults":{"unit":"percentunit","min":0,"max":1}},"targets":[{"expr":"sum(hikaricp_connections_active) / clamp_min(sum(hikaricp_connections_max), 1)","legendFormat":"active / max","refId":"A"}]},
-    {"type":"timeseries","title":"Backend process restarts","id":17,"gridPos":{"h":8,"w":12,"x":12,"y":40},"targets":[{"expr":"changes(process_start_time_seconds[15m])","legendFormat":"restarts / 15m {{instance}}","refId":"A"}]}
+    {"type":"timeseries","title":"Backend process restarts","id":17,"gridPos":{"h":8,"w":12,"x":12,"y":40},"targets":[{"expr":"changes(process_start_time_seconds[15m])","legendFormat":"restarts / 15m {{instance}}","refId":"A"}]},
+    {"type":"timeseries","title":"Web Push delivery outcomes","id":18,"gridPos":{"h":8,"w":12,"x":0,"y":48},"targets":[{"expr":"sum by (outcome) (increase(noviis_webpush_delivery_total[15m]))","legendFormat":"{{outcome}} / 15m","refId":"A"},{"expr":"sum by (outcome) (increase(noviis_webpush_subscription_cleanup_total[15m]))","legendFormat":"cleanup {{outcome}} / 15m","refId":"B"}]},
+    {"type":"timeseries","title":"Scheduler saturation and queue growth","id":19,"gridPos":{"h":8,"w":12,"x":12,"y":48},"targets":[{"expr":"max by (pool) (noviis_scheduler_pool_active) / clamp_min(max by (pool) (noviis_scheduler_pool_size), 1)","legendFormat":"{{pool}} utilization","refId":"A"},{"expr":"deriv(noviis_scheduler_pool_queued[10m])","legendFormat":"{{pool}} queue growth / second","refId":"B"}]}
   ],
   "refresh": "30s",
   "schemaVersion": 39,
@@ -29,5 +31,5 @@
   "timezone": "browser",
   "title": "NoviIs Operations",
   "uid": "noviis-operations",
-  "version": 2
+  "version": 3
 }

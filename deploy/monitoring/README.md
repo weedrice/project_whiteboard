@@ -11,7 +11,7 @@ awk '/MemAvailable/ { print int($2 / 1024) " MiB" }' /proc/meminfo
 df -BM --output=avail / | tail -1
 ```
 
-Install Prometheus and Grafana from their supported Ubuntu package repositories as native systemd services. Copy the files as follows, preserving root ownership for `/etc` and `grafana:grafana` ownership for the dashboard directory.
+Install Prometheus and Grafana from their supported Ubuntu package repositories as native systemd services. The approved host versions are stored in `tool-versions.env`. Install exactly those native package versions and verify `prometheus --version` and `grafana --version` before copying configuration. CI sources the same manifest for Prometheus rule validation and downloads the matching native Grafana binary to verify its reported version before checking dashboard JSON. Update the manifest, host rollout procedure, and rollback note in one reviewed change.
 
 ```text
 prometheus/prometheus.yml                         -> /etc/prometheus/prometheus.yml
@@ -21,6 +21,7 @@ grafana/provisioning/dashboards/noviis.yml        -> /etc/grafana/provisioning/d
 grafana/dashboards/noviis-overview.json           -> /var/lib/grafana/dashboards/noviis-overview.json
 systemd/prometheus.service.d/override.conf         -> /etc/systemd/system/prometheus.service.d/override.conf
 systemd/grafana-server.service.d/override.conf     -> /etc/systemd/system/grafana-server.service.d/override.conf
+rotate-grafana-admin-password.sh                   -> /usr/local/sbin/rotate-noviis-grafana-password
 ```
 
 Store the Grafana administrator password only on the server in `/etc/noviis/monitoring.env`:
@@ -31,13 +32,11 @@ GF_SECURITY_ADMIN_PASSWORD=<strong unique password>
 
 Create the file before Grafana's first start, keep it owned by `root:root` with mode `0600`, and use a password of at least 16 characters. The systemd unit fails closed when the file, ownership, permissions, or password length is invalid. Never print the value in workflow output or copy it into the repository.
 
-Changing this environment variable does not rotate the administrator password in an already initialized Grafana database. Rotate an existing password explicitly on the host with Grafana CLI, then restart the service:
+Changing this environment variable does not rotate the administrator password in an already initialized Grafana database. Install the reviewed helper as `root:root` mode `0755`, then invoke it interactively. It calls the loopback User API with root-only `0700`/`0600` temporary files; neither password is placed in shell history or a process argument. An API error leaves the service running with the existing password and returns a failure.
 
 ```bash
-read -rsp 'New Grafana administrator password: ' GRAFANA_NEW_PASSWORD && echo
-sudo grafana cli admin reset-admin-password "$GRAFANA_NEW_PASSWORD"
-unset GRAFANA_NEW_PASSWORD
-sudo systemctl restart grafana-server
+sudo install -o root -g root -m 0755 deploy/monitoring/rotate-grafana-admin-password.sh /usr/local/sbin/rotate-noviis-grafana-password
+sudo /usr/local/sbin/rotate-noviis-grafana-password
 ```
 
 Validate and start:
@@ -77,8 +76,11 @@ Prometheus scrapes its own loopback metrics as the `prometheus` job. Critical ru
 | Daily | daily cleanup jobs | 30 hours |
 
 Keep `noviis_scheduler_expected_max_age_seconds` entries synchronized when adding, renaming, or rescheduling an `@Scheduled` method. The dashboard compares each last-success age with this configured limit.
+The canonical non-Agent list is `scheduled-jobs.txt`; `verify-scheduled-jobs.py` fails CI when source annotations, that manifest, and freshness rules drift. `NoviIsSchedulerPoolBacklogGrowing` fires only when every worker is busy and the scheduled queue continues growing, because a steady queue can contain legitimate future executions.
 
 HTTP latency histograms are enabled in the production profile for `http.server.requests`; without that setting the p95 query has no bucket series. HTTP alerts require at least 20 requests in five minutes, then require either a 5xx ratio above 5 percent or p95 latency above 1 second for 10 minutes. HikariCP saturation fires after active connections exceed 85 percent of the configured maximum for 10 minutes. A change in `process_start_time_seconds` produces an informational restart alert over a 15-minute window; expected deployments should therefore be correlated with deployment history.
+
+Web Push delivery counters distinguish success, failure, timeout, and expired subscriptions. The failure alert requires at least 20 attempts in 15 minutes and a failure-plus-timeout ratio above 10 percent for 10 minutes. Expired-subscription cleanup failures alert independently. The dashboard displays both delivery and cleanup outcomes.
 
 Host disk and filesystem time-series metrics are not collected by this stack because node_exporter is not installed. Continue the preflight disk check above and add an exporter plus explicit capacity rules before relying on Prometheus for disk exhaustion detection.
 
