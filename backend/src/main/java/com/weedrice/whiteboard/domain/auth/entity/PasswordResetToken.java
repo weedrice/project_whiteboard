@@ -32,6 +32,10 @@ public class PasswordResetToken extends BaseTimeEntity {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "verification_id", unique = true)
+    private VerificationCode verificationCode;
+
     @Column(name = "expiry_date", nullable = false)
     private LocalDateTime expiryDate;
 
@@ -43,9 +47,10 @@ public class PasswordResetToken extends BaseTimeEntity {
     private String deliveryStatus;
 
     @Builder
-    public PasswordResetToken(String token, User user, LocalDateTime expiryDate) {
+    public PasswordResetToken(String token, User user, VerificationCode verificationCode, LocalDateTime expiryDate) {
         this.token = token;
         this.user = user;
+        this.verificationCode = verificationCode;
         this.expiryDate = expiryDate;
         this.isUsed = false;
         this.deliveryStatus = DELIVERY_STATUS_PENDING;

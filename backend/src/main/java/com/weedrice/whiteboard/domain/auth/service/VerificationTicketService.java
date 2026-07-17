@@ -58,6 +58,12 @@ public class VerificationTicketService {
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
+    public VerificationCode lockAndValidateVerificationTicket(
+            String email, VerificationPurpose purpose, String verificationTicket) {
+        return getValidVerificationTicket(email, purpose, verificationTicket);
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
     public void consumeValidatedVerificationTicket(String email, VerificationPurpose purpose, String verificationTicket) {
         VerificationCode verificationCode = getConsumableVerificationTicket(email, purpose, verificationTicket);
         verificationCode.consumeVerificationTicket();

@@ -13,6 +13,9 @@ import java.time.LocalDateTime;
 import java.util.Optional;
 
 public interface VerificationCodeRepository extends JpaRepository<VerificationCode, Long> {
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT vc FROM VerificationCode vc WHERE vc.verificationId = :verificationId")
+    Optional<VerificationCode> findByIdForUpdate(@Param("verificationId") Long verificationId);
     @Query(value = """
             SELECT *
             FROM verification_codes

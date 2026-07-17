@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.auth.service;
 
 import com.weedrice.whiteboard.domain.auth.dto.VerifyCodeResponse;
 import com.weedrice.whiteboard.domain.auth.entity.VerificationPurpose;
+import com.weedrice.whiteboard.domain.auth.entity.VerificationCode;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -47,6 +48,15 @@ public class VerificationCodeService {
         String normalizedEmail = AuthEmailNormalizer.normalize(email);
         requirePurpose(purpose);
         verificationTicketService.validateVerificationTicket(normalizedEmail, purpose, verificationTicket);
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public VerificationCode lockAndValidateVerificationTicket(
+            String email, VerificationPurpose purpose, String verificationTicket) {
+        String normalizedEmail = AuthEmailNormalizer.normalize(email);
+        requirePurpose(purpose);
+        return verificationTicketService.lockAndValidateVerificationTicket(
+                normalizedEmail, purpose, verificationTicket);
     }
 
     @Transactional(propagation = Propagation.MANDATORY)

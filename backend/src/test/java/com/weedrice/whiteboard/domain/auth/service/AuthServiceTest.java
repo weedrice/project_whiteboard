@@ -7,9 +7,11 @@ import com.weedrice.whiteboard.domain.auth.dto.SignupResponse;
 import com.weedrice.whiteboard.domain.auth.entity.PasswordResetToken;
 import com.weedrice.whiteboard.domain.auth.entity.RefreshToken;
 import com.weedrice.whiteboard.domain.auth.entity.VerificationPurpose;
+import com.weedrice.whiteboard.domain.auth.entity.VerificationCode;
 import com.weedrice.whiteboard.domain.auth.repository.PasswordResetTokenRepository;
 import com.weedrice.whiteboard.domain.auth.repository.OAuthSignupTicketRepository;
 import com.weedrice.whiteboard.domain.auth.repository.RefreshTokenRepository;
+import com.weedrice.whiteboard.domain.auth.repository.VerificationCodeRepository;
 import com.weedrice.whiteboard.domain.point.repository.UserPointRepository;
 import com.weedrice.whiteboard.domain.point.service.PointService;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionPolicyService;
@@ -100,6 +102,7 @@ class AuthServiceTest {
     @Mock private SocialAccountLinkService socialAccountLinkService;
     @Mock private PasswordHistoryRepository passwordHistoryRepository;
     @Mock private VerificationCodeService verificationCodeService;
+    @Mock private VerificationCodeRepository verificationCodeRepository;
     @Mock private PasswordResetTokenRepository passwordResetTokenRepository;
     @Mock private EmailService emailService;
     @Mock private GlobalConfigService globalConfigService;
@@ -133,6 +136,7 @@ class AuthServiceTest {
                         transactionTemplate,
                         tokenHashService,
                         verificationCodeService,
+                        verificationCodeRepository,
                         FIXED_CLOCK);
         PasswordHistoryPolicy passwordHistoryPolicy =
                 new PasswordHistoryPolicy(passwordHistoryRepository, passwordEncoder);
@@ -177,6 +181,19 @@ class AuthServiceTest {
         ReflectionTestUtils.setField(user, "userId", 1L);
         ReflectionTestUtils.setField(passwordResetService, "passwordResetFrontendUrl",
                 "http://localhost:5173/reset-password?token=");
+        VerificationCode passwordResetVerification = VerificationCode.builder()
+                .email("test@example.com")
+                .purpose(VerificationPurpose.PASSWORD_RESET)
+                .code("hash")
+                .expiryDate(FIXED_NOW.plusHours(1))
+                .build();
+        ReflectionTestUtils.setField(passwordResetVerification, "verificationId", 99L);
+        passwordResetVerification.issueVerificationTicket("ticket-1", FIXED_NOW.plusMinutes(10));
+        when(verificationCodeService.lockAndValidateVerificationTicket(
+                anyString(), eq(VerificationPurpose.PASSWORD_RESET), anyString()))
+                .thenReturn(passwordResetVerification);
+        when(verificationCodeRepository.findByIdForUpdate(99L))
+                .thenReturn(Optional.of(passwordResetVerification));
 
         doAnswer(invocation -> {
             Consumer<Object> consumer = invocation.getArgument(0);
@@ -863,11 +880,10 @@ class AuthServiceTest {
     void sendPasswordResetLinkByEmail_success() {
         String email = "test@example.com";
         String verificationTicket = "ticket-1";
-        when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
 
         authService.sendPasswordResetLinkByEmail(email, verificationTicket);
 
-        verify(verificationCodeService).validateVerificationTicket(
+        verify(verificationCodeService).lockAndValidateVerificationTicket(
                 email,
                 VerificationPurpose.PASSWORD_RESET,
                 verificationTicket);
@@ -875,7 +891,7 @@ class AuthServiceTest {
                 email,
                 VerificationPurpose.PASSWORD_RESET,
                 verificationTicket);
-        verify(userRepository).findByEmail(email);
+        verify(userRepository).findByEmailForUpdate(email);
         verify(emailService).sendEmail(anyString(), anyString(), anyString());
     }
 
@@ -884,13 +900,13 @@ class AuthServiceTest {
     void sendPasswordResetLinkByEmail_userNotFound() {
         String email = "unknown@example.com";
         String verificationTicket = "ticket-1";
-        when(userRepository.findByEmail(email)).thenReturn(Optional.empty());
+        when(userRepository.findByEmailForUpdate(email)).thenReturn(Optional.empty());
 
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> authService.sendPasswordResetLinkByEmail(email, verificationTicket));
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.USER_NOT_FOUND_BY_EMAIL);
-        verify(verificationCodeService).validateVerificationTicket(
+        verify(verificationCodeService).lockAndValidateVerificationTicket(
                 email,
                 VerificationPurpose.PASSWORD_RESET,
                 verificationTicket);
@@ -901,15 +917,15 @@ class AuthServiceTest {
     @DisplayName("비밀번호 재설정 링크는 이메일을 정규화해 티켓과 사용자 조회에 사용한다")
     void sendPasswordResetLinkByEmail_normalizesEmail() {
         String verificationTicket = "ticket-1";
-        when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));
+        when(userRepository.findByEmailForUpdate("test@example.com")).thenReturn(Optional.of(user));
 
         authService.sendPasswordResetLinkByEmail(" Test@Example.COM ", verificationTicket);
 
-        verify(verificationCodeService).validateVerificationTicket(
+        verify(verificationCodeService).lockAndValidateVerificationTicket(
                 "test@example.com",
                 VerificationPurpose.PASSWORD_RESET,
                 verificationTicket);
-        verify(userRepository).findByEmail("test@example.com");
+        verify(userRepository).findByEmailForUpdate("test@example.com");
         verify(verificationCodeService).consumeValidatedVerificationTicket(
                 "test@example.com",
                 VerificationPurpose.PASSWORD_RESET,
@@ -923,13 +939,12 @@ class AuthServiceTest {
         String email = "test@example.com";
         String verificationTicket = "ticket-1";
         ReflectionTestUtils.setField(user, "status", "DELETED");
-        when(userRepository.findByEmail(email)).thenReturn(Optional.of(user));
 
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> authService.sendPasswordResetLinkByEmail(email, verificationTicket));
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.USER_DELETED);
-        verify(verificationCodeService).validateVerificationTicket(
+        verify(verificationCodeService).lockAndValidateVerificationTicket(
                 email,
                 VerificationPurpose.PASSWORD_RESET,
                 verificationTicket);
@@ -943,13 +958,13 @@ class AuthServiceTest {
         String verificationTicket = "ticket-1";
         doThrow(new BusinessException(ErrorCode.EMAIL_NOT_VERIFIED))
                 .when(verificationCodeService)
-                .validateVerificationTicket(email, VerificationPurpose.PASSWORD_RESET, verificationTicket);
+                .lockAndValidateVerificationTicket(email, VerificationPurpose.PASSWORD_RESET, verificationTicket);
 
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> authService.sendPasswordResetLinkByEmail(email, verificationTicket));
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.EMAIL_NOT_VERIFIED);
-        verify(userRepository, never()).findByEmail(anyString());
+        verify(userRepository, never()).findByEmailForUpdate(anyString());
         verify(verificationCodeService, never()).consumeValidatedVerificationTicket(anyString(), any(), anyString());
         verify(emailService, never()).sendEmail(anyString(), anyString(), anyString());
     }

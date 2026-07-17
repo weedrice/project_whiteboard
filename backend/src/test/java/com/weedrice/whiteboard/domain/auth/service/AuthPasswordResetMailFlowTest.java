@@ -2,7 +2,9 @@ package com.weedrice.whiteboard.domain.auth.service;
 
 import com.weedrice.whiteboard.domain.auth.entity.PasswordResetToken;
 import com.weedrice.whiteboard.domain.auth.entity.VerificationPurpose;
+import com.weedrice.whiteboard.domain.auth.entity.VerificationCode;
 import com.weedrice.whiteboard.domain.auth.repository.PasswordResetTokenRepository;
+import com.weedrice.whiteboard.domain.auth.repository.VerificationCodeRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.PasswordHistoryRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
@@ -39,6 +41,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentCaptor.forClass;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
@@ -60,6 +63,7 @@ class AuthPasswordResetMailFlowTest {
     @Mock private UserRepository userRepository;
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private VerificationCodeService verificationCodeService;
+    @Mock private VerificationCodeRepository verificationCodeRepository;
     @Mock private PasswordResetTokenRepository passwordResetTokenRepository;
     @Mock private PasswordHistoryRepository passwordHistoryRepository;
     @Mock private EmailService emailService;
@@ -84,6 +88,7 @@ class AuthPasswordResetMailFlowTest {
                         transactionTemplate,
                         tokenHashService,
                         verificationCodeService,
+                        verificationCodeRepository,
                         FIXED_CLOCK);
         PasswordHistoryPolicy passwordHistoryPolicy =
                 new PasswordHistoryPolicy(passwordHistoryRepository, passwordEncoder);
@@ -102,6 +107,17 @@ class AuthPasswordResetMailFlowTest {
         ReflectionTestUtils.setField(user, "userId", 1L);
         ReflectionTestUtils.setField(passwordResetService, "passwordResetFrontendUrl",
                 "http://localhost:5173/reset-password?token=");
+        VerificationCode verificationCode = VerificationCode.builder()
+                .email("test@example.com")
+                .purpose(VerificationPurpose.PASSWORD_RESET)
+                .code("hash")
+                .expiryDate(FIXED_NOW.plusHours(1))
+                .build();
+        ReflectionTestUtils.setField(verificationCode, "verificationId", 99L);
+        verificationCode.issueVerificationTicket("ticket", FIXED_NOW.plusMinutes(10));
+        when(verificationCodeService.lockAndValidateVerificationTicket(
+                anyString(), eq(VerificationPurpose.PASSWORD_RESET), anyString())).thenReturn(verificationCode);
+        when(verificationCodeRepository.findByIdForUpdate(99L)).thenReturn(Optional.of(verificationCode));
 
         doAnswer(invocation -> {
             Consumer<Object> consumer = invocation.getArgument(0);
@@ -189,7 +205,7 @@ class AuthPasswordResetMailFlowTest {
                 .hasSize(1);
         assertThat(previousToken.getIsUsed()).isTrue();
         var inOrder = inOrder(verificationCodeService, emailService);
-        inOrder.verify(verificationCodeService).validateVerificationTicket(
+        inOrder.verify(verificationCodeService).lockAndValidateVerificationTicket(
                 "test@example.com",
                 VerificationPurpose.PASSWORD_RESET,
                 "ticket-1");
@@ -199,10 +215,11 @@ class AuthPasswordResetMailFlowTest {
                 VerificationPurpose.PASSWORD_RESET,
                 "ticket-1");
 
-        var lockOrder = inOrder(passwordResetTokenRepository, userRepository);
+        var lockOrder = inOrder(verificationCodeRepository, userRepository, passwordResetTokenRepository);
+        lockOrder.verify(verificationCodeRepository).findByIdForUpdate(99L);
+        lockOrder.verify(userRepository).findByIdForUpdate(user.getUserId());
         lockOrder.verify(passwordResetTokenRepository).findByIdForUpdate(any());
         lockOrder.verify(passwordResetTokenRepository).invalidatePreviousSentUnusedTokens(any(User.class), any());
-        lockOrder.verify(userRepository).findByIdForUpdate(user.getUserId());
     }
 
     @Test
@@ -358,8 +375,8 @@ class AuthPasswordResetMailFlowTest {
     }
 
     @Test
-    @DisplayName("sendPasswordResetLinkByEmail preserves delivered token when promotion retry also fails")
-    void sendPasswordResetLinkByEmail_promoteRetryFailure_marksDeliveredTokenSent() {
+    @DisplayName("sendPasswordResetLinkByEmail fails closed without self suppression when promotion retry fails")
+    void sendPasswordResetLinkByEmail_promoteRetryFailure_marksDeliveredTokenFailed() {
         when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));
 
         PasswordResetToken previousToken = PasswordResetToken.builder()
@@ -383,32 +400,20 @@ class AuthPasswordResetMailFlowTest {
             return null;
         }).when(transactionTemplate).executeWithoutResult(any());
 
-        passwordResetService.sendPasswordResetLinkByEmail("test@example.com", "ticket-4");
+        assertThatThrownBy(() -> passwordResetService.sendPasswordResetLinkByEmail(
+                "test@example.com", "ticket-4"))
+                .isInstanceOf(IllegalStateException.class)
+                .satisfies(exception -> assertThat(exception.getSuppressed()).isEmpty());
 
         assertThat(previousToken.getIsUsed()).isFalse();
         assertThat(passwordResetTokens.values())
-                .filteredOn(token -> PasswordResetToken.DELIVERY_STATUS_SENT.equals(token.getDeliveryStatus()))
-                .filteredOn(token -> !token.getIsUsed())
-                .hasSize(2);
-
-        var bodyCaptor = forClass(String.class);
-        verify(emailService).sendEmail(anyString(), anyString(), bodyCaptor.capture());
-        String deliveredRawToken = extractResetToken(bodyCaptor.getValue());
-        when(passwordHistoryRepository.findTop4ByUserOrderByCreatedAtDescHistoryIdDesc(user)).thenReturn(List.of());
-        when(passwordEncoder.matches("newPassword123!", "encodedPassword")).thenReturn(false);
-        when(passwordEncoder.encode("newPassword123!")).thenReturn("encodedNewPassword");
-
-        passwordResetService.resetPasswordWithToken(deliveredRawToken, "newPassword123!");
-
-        assertThat(previousToken.getIsUsed()).isFalse();
-        assertThat(passwordResetTokens.values())
-                .filteredOn(PasswordResetToken::getIsUsed)
+                .filteredOn(token -> PasswordResetToken.DELIVERY_STATUS_FAILED.equals(token.getDeliveryStatus()))
                 .hasSize(1);
     }
 
     @Test
-    @DisplayName("sendPasswordResetLinkByEmail preserves delivered token when ticket is consumed during promotion")
-    void sendPasswordResetLinkByEmail_ticketConsumedDuringPromotion_marksDeliveredTokenSent() {
+    @DisplayName("sendPasswordResetLinkByEmail fails closed when ticket is consumed during promotion")
+    void sendPasswordResetLinkByEmail_ticketConsumedDuringPromotion_marksDeliveredTokenFailed() {
         when(userRepository.findByEmail("test@example.com")).thenReturn(Optional.of(user));
         doThrow(new BusinessException(ErrorCode.EMAIL_NOT_VERIFIED))
                 .when(verificationCodeService)
@@ -417,15 +422,17 @@ class AuthPasswordResetMailFlowTest {
                         VerificationPurpose.PASSWORD_RESET,
                         "ticket-consumed");
 
-        passwordResetService.sendPasswordResetLinkByEmail("test@example.com", "ticket-consumed");
+        assertThatThrownBy(() -> passwordResetService.sendPasswordResetLinkByEmail(
+                "test@example.com", "ticket-consumed"))
+                .isInstanceOf(BusinessException.class);
 
         verify(emailService).sendEmail(anyString(), anyString(), anyString());
-        verify(verificationCodeService, times(3)).consumeValidatedVerificationTicket(
+        verify(verificationCodeService, times(2)).consumeValidatedVerificationTicket(
                 "test@example.com",
                 VerificationPurpose.PASSWORD_RESET,
                 "ticket-consumed");
         assertThat(passwordResetTokens.values())
-                .filteredOn(token -> PasswordResetToken.DELIVERY_STATUS_SENT.equals(token.getDeliveryStatus()))
+                .filteredOn(token -> PasswordResetToken.DELIVERY_STATUS_FAILED.equals(token.getDeliveryStatus()))
                 .hasSize(1);
     }
 

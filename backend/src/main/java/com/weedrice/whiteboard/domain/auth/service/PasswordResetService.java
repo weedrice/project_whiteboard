@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.auth.service;
 
 import com.weedrice.whiteboard.domain.auth.entity.PasswordResetToken;
 import com.weedrice.whiteboard.domain.auth.entity.VerificationPurpose;
+import com.weedrice.whiteboard.domain.auth.entity.VerificationCode;
 import com.weedrice.whiteboard.domain.auth.repository.PasswordResetTokenRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
@@ -56,6 +57,7 @@ public class PasswordResetService {
                 false);
         passwordResetTokenOrchestrationService.sendPreparedPasswordResetEmail(
                 command.user(),
+                command.verificationId(),
                 command.verificationEmail(),
                 command.verificationTicket(),
                 command.recipientEmail(),
@@ -75,6 +77,7 @@ public class PasswordResetService {
                 true);
         passwordResetTokenOrchestrationService.sendPreparedPasswordResetEmail(
                 command.user(),
+                command.verificationId(),
                 command.verificationEmail(),
                 command.verificationTicket(),
                 command.recipientEmail(),
@@ -91,19 +94,20 @@ public class PasswordResetService {
             boolean includeLoginId) {
         String normalizedEmail = AuthEmailNormalizer.normalize(email);
         return Objects.requireNonNull(transactionTemplate.execute(status -> {
-            verificationCodeService.validateVerificationTicket(
+            VerificationCode verificationCode = verificationCodeService.lockAndValidateVerificationTicket(
                     normalizedEmail,
                     VerificationPurpose.PASSWORD_RESET,
                     verificationTicket);
-            User user = getUsablePasswordResetUser(normalizedEmail, notFoundErrorCode);
+            User user = getUsablePasswordResetUserForUpdate(normalizedEmail, notFoundErrorCode);
             Long tokenId = passwordResetTokenOrchestrationService
-                    .createPendingPasswordResetTokenForCurrentTransaction(user, rawToken);
+                    .createPendingPasswordResetTokenForCurrentTransaction(user, verificationCode, rawToken);
             Locale locale = resolveUserLocale(user.getUserId());
             String subject = resolveMessage("mail.password-reset.subject", null,
                     "[NoviIs] Password reset link", locale);
             String body = buildPasswordResetBody(user, rawToken, includeLoginId, locale);
             return new PasswordResetMailCommand(
                     user,
+                    verificationCode.getVerificationId(),
                     normalizedEmail,
                     verificationTicket,
                     user.getEmail(),
@@ -228,6 +232,7 @@ public class PasswordResetService {
 
     private record PasswordResetMailCommand(
             User user,
+            Long verificationId,
             String verificationEmail,
             String verificationTicket,
             String recipientEmail,
