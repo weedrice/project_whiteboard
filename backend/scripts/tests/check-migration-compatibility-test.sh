@@ -194,6 +194,40 @@ git -C "$fixture" commit -qm bounded-delete
 (cd "$fixture" && bash "$script" "$base" HEAD)
 
 git -C "$fixture" reset -q --hard "$base"
+cat > "$fixture/backend/src/main/resources/db/migration/V2__dynamic_expand.sql" <<'SQL'
+-- noviis:migration-phase expand
+DO $$ BEGIN
+  EXECUTE 'CREATE TABLE hidden_change (id bigint)';
+END $$;
+SQL
+git -C "$fixture" add .
+git -C "$fixture" commit -qm dynamic-expand
+if (cd "$fixture" && bash "$script" "$base" HEAD); then
+  echo "Expected dynamic SQL without a contract marker to fail" >&2
+  exit 1
+fi
+
+git -C "$fixture" reset -q --hard "$base"
+printf '%s\n' 'SELECT 1;' > "$fixture/backend/src/main/resources/db/migration/R__repeatable.sql"
+git -C "$fixture" add .
+git -C "$fixture" commit -qm repeatable
+if (cd "$fixture" && bash "$script" "$base" HEAD); then
+  echo "Expected a repeatable migration to be rejected" >&2
+  exit 1
+fi
+
+git -C "$fixture" reset -q --hard "$base"
+mkdir -p "$fixture/backend/src/main/java/com/example/db/migration"
+printf '%s\n' 'package com.example.db.migration; class V2Migration {}' \
+  > "$fixture/backend/src/main/java/com/example/db/migration/V2Migration.java"
+git -C "$fixture" add .
+git -C "$fixture" commit -qm java-migration
+if (cd "$fixture" && bash "$script" "$base" HEAD); then
+  echo "Expected a Java migration to be rejected" >&2
+  exit 1
+fi
+
+git -C "$fixture" reset -q --hard "$base"
 cat > "$fixture/backend/src/main/resources/db/migration/V2__contract.sql" <<'SQL'
 -- noviis:migration-phase contract
 -- noviis:design-doc docs/design-notes/remove-sample.md

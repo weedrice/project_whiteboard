@@ -2,6 +2,8 @@
 
 NoviIs deploys a new JAR after Spring Boot/Flyway has applied pending migrations. A release must leave the database usable by both the new application and the previous JAR throughout the rollback window.
 
+Repeatable (`R__`), undo (`U__`), and Java Flyway migrations are prohibited. Versioned SQL is the only supported format. `DO`, `CALL`, function/procedure definitions, `EXECUTE`, and dollar-quoted SQL are classified as contract-phase by default because static analysis cannot prove their effects. CI applies the new schema and runs the previous backend revision with Flyway disabled; a failure means the change is not expand-compatible.
+
 ## Required sequence
 
 1. **Expand**: add nullable columns, additive tables, indexes, and defaults compatible with the previous application.

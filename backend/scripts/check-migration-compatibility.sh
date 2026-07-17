@@ -15,6 +15,19 @@ if [[ "$base_ref" =~ ^0+$ ]] || ! git cat-file -e "$base_ref^{commit}" 2>/dev/nu
   exit 1
 fi
 
+forbidden_migration="$(git ls-tree -r --name-only "$head_ref" -- "$migration_dir" \
+  | grep -E '/(R|U)__[^/]*\.sql$' | head -n 1 || true)"
+if [ -n "$forbidden_migration" ]; then
+  echo "Repeatable and undo Flyway migrations are not permitted: $forbidden_migration" >&2
+  exit 1
+fi
+java_migration="$(git ls-tree -r --name-only "$head_ref" -- backend/src/main/java \
+  | grep -E '/db/migration/[^/]+\.java$' | head -n 1 || true)"
+if [ -n "$java_migration" ]; then
+  echo "Java Flyway migrations are not permitted: $java_migration" >&2
+  exit 1
+fi
+
 mapfile -t changes < <(git diff --name-status --find-renames "$base_ref" "$head_ref" -- "$migration_dir/V*.sql")
 for change in "${changes[@]}"; do
   status="${change%%$'\t'*}"
@@ -361,6 +374,10 @@ for change in "${changes[@]}"; do
     fi
   fi
   risky=false
+  if grep -Eiq '(^|[[:space:];])(DO[[:space:]]+\$|CALL[[:space:]]+|CREATE[[:space:]]+(OR[[:space:]]+REPLACE[[:space:]]+)?(FUNCTION|PROCEDURE)[[:space:]]+|EXECUTE[[:space:]]+)' "$file" \
+    || grep -Eq '\$[A-Za-z0-9_]*\$' "$file"; then
+    risky=true
+  fi
   if grep -Eiq '(^|[[:space:];])(DROP[[:space:]]+(TABLE|COLUMN|VIEW|TYPE|DOMAIN|SCHEMA|SEQUENCE|FUNCTION|PROCEDURE|TRIGGER|POLICY|EXTENSION)|TRUNCATE([[:space:]]+TABLE)?|ALTER[[:space:]]+TABLE[^;]*(RENAME|DROP[[:space:]]+(COLUMN|CONSTRAINT|DEFAULT)|ALTER[[:space:]]+COLUMN[^;]*(TYPE|DROP[[:space:]]+DEFAULT))|ALTER[[:space:]]+TYPE[^;]*RENAME[[:space:]]+VALUE)' "$file"; then
     risky=true
   fi

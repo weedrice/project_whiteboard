@@ -207,6 +207,11 @@
 | `V61` - `V62` | 예약 게시글 첨부파일 보호 테이블과 legacy 참조 감사·backfill |
 | `V63` | durable 알림 전달 job, lease, 재시도·dead-letter 상태 추가 |
 | `V64` | 이미지 variant 저장소 상태와 stale cleanup 인덱스 추가 |
+| `V65` | 비밀번호 재설정 토큰과 인증 티켓의 일대일 연결 추가 |
+| `V66` | 알림 delivery 실패/redrive 추적과 keyword fan-out cursor job 추가 |
+| `V67` | 읽지 않은 그룹 알림 중복 정리 및 부분 unique index 적용(contract) |
+| `V68` | 이미지 variant cleanup 재시도/backoff 상태 추가 |
+| `V69` | semantic 대량 재색인 cursor job 추가 |
 
 ## 운영 주의
 
