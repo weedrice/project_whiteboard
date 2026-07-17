@@ -89,6 +89,7 @@ Java 필드명과 JSON 직렬화 이름이 다른 기존 응답은 호환성을 
 | Method | URI | 설명 |
 | --- | --- | --- |
 | `POST` | `/api/v1/auth/signup` | 회원가입 |
+| `GET` | `/api/v1/auth/oauth/signup-ticket` | HttpOnly OAuth 가입 쿠키의 표시용 가입 정보 조회 |
 | `POST` | `/api/v1/auth/login` | 로그인 및 토큰 발급 |
 | `POST` | `/api/v1/auth/logout` | Refresh Token 폐기 |
 | `POST` | `/api/v1/auth/refresh` | Access/Refresh Token 재발급 |
@@ -105,6 +106,9 @@ Java 필드명과 JSON 직렬화 이름이 다른 기존 응답은 호환성을 
 발급된 활성 ticket은 이후 오입력과 관계없이 올바른 코드로 재조회할 수 있다. 재가입 사전 확인 API는
 계정 존재 여부를 노출하지 않도록 호환 응답 `{canReregister:false, maskedLoginId:null}`만 반환하며,
 재가입 여부와 기존 로그인 ID는 이메일 인증 성공 응답에서만 제공한다.
+미가입 OAuth 사용자의 가입 ticket은 URL이나 JSON 요청 필드로 전달하지 않는다. OAuth 성공 처리기가
+`HttpOnly`, `SameSite=Lax`, 10분 수명의 쿠키를 설정하며, 가입 정보 조회와 최종 가입은 이 쿠키만
+사용한다. 가입 성공 시 쿠키를 즉시 만료한다.
 
 ### Users
 
@@ -113,7 +117,7 @@ Java 필드명과 JSON 직렬화 이름이 다른 기존 응답은 호환성을 
 | `GET` | `/api/v1/users/{userId}` | 사용자 프로필 조회 |
 | `GET` | `/api/v1/users/{userId}/posts` | 공개 프로필 게시글 활동 |
 | `GET` | `/api/v1/users/{userId}/comments` | 공개 프로필 댓글 활동 |
-| `GET` | `/api/v1/users/mention-candidates` | 멘션 후보 검색 |
+| `GET` | `/api/v1/users/mention-candidates` | 인증 사용자 멘션 후보 검색(2자 이상 prefix, 양방향 차단 제외, 전용 rate limit) |
 | `GET` | `/api/v1/users/me` | 내 정보 조회 |
 | `PUT` | `/api/v1/users/me` | 내 프로필 수정 |
 | `GET` | `/api/v1/users/me/sessions` | 활성 로그인 세션 조회 |
@@ -309,8 +313,8 @@ Java 필드명과 JSON 직렬화 이름이 다른 기존 응답은 호환성을 
 
 | Method | URI | 설명 |
 | --- | --- | --- |
-| `POST` | `/api/v1/files` | 파일 업로드 |
-| `POST` | `/api/v1/files/upload` | 파일 업로드 및 프록시 URL 반환 |
+| `POST` | `/api/v1/files` | 파일 업로드(사용자별 미연결 파일 100개·500 MiB 상한) |
+| `POST` | `/api/v1/files/upload` | 파일 업로드 및 프록시 URL 반환(사용자별 미연결 파일 quota 적용) |
 | `POST` | `/api/v1/files/uploads/discard` | 현재 사용자의 미연결 선업로드 파일 폐기 예약 |
 | `GET` | `/api/v1/files/{fileId}` | 파일 다운로드 |
 | `GET` | `/api/v1/files/{fileId}/variants/{variantType}` | 이미지 variant 다운로드 |
