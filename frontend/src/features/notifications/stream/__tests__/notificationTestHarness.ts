@@ -57,6 +57,7 @@ const notificationMocks = vi.hoisted(() => {
     error: vi.fn(),
     warn: vi.fn(),
   }
+  const handleTerminalAuthFailure = vi.fn(async () => true)
   const queryClient = {
     invalidateQueries: vi.fn(),
     setQueryData: vi.fn(),
@@ -101,6 +102,7 @@ const notificationMocks = vi.hoisted(() => {
     authApi,
     authStore,
     logger,
+    handleTerminalAuthFailure,
     queryClient,
     queryOptions,
     mutationOptions,
@@ -131,6 +133,10 @@ vi.mock('@/api/authRefreshCoordinator', () => ({
     refresh: (signal: AbortSignal) => Promise<string>,
     options?: { signal?: AbortSignal },
   ) => refresh(options?.signal ?? new AbortController().signal)),
+}))
+
+vi.mock('@/api/authTerminalFailure', () => ({
+  handleTerminalAuthFailure: notificationMocks.handleTerminalAuthFailure,
 }))
 
 vi.mock('@/utils/logger', () => ({

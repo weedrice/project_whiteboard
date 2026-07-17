@@ -1,34 +1,25 @@
 import axios, { type AxiosError, type AxiosInstance, type InternalAxiosRequestConfig } from 'axios'
-import i18n from '@/i18n'
-import router from '@/router'
 import { unwrapApiData } from '@/api/response'
 import {
   applyRefreshedAccessToken,
   AuthSessionChangedError,
   beginAuthRefresh,
-  clearExpiredAuthSession,
   enqueueFailedRequest,
   isRefreshInProgress,
-  notifySessionExpired,
   processRefreshQueue,
   resetSessionExpiredToastDebounce,
   finishAuthRefresh,
 } from '@/api/authRefreshSession'
 import type { SuppressibleApiError } from '@/api/errorHandling'
-import {
-  resolveAuthStore,
-  resolveToastStore,
-} from '@/api/apiStoreResolvers'
+import { resolveAuthStore } from '@/api/apiStoreResolvers'
 import { API_PATHS } from '@/api/apiPaths'
-import { isLoginPathname } from '@/api/apiAuthHeader'
 import { API } from '@/utils/constants'
 import type { ApiResponse } from '@/types/common'
 import { coordinateAuthRefresh } from '@/api/authRefreshCoordinator'
 import { isStampedAuthContextCurrent } from '@/api/apiAuthHeader'
 import { getCurrentSessionGeneration } from '@/queryAuthScope'
 import { getStoredAccessToken } from '@/utils/authTokenStorage'
-
-const { t } = i18n.global
+import { handleTerminalAuthFailure } from '@/api/authTerminalFailure'
 
 type RefreshTokenResponse = {
   accessToken: string
@@ -169,19 +160,11 @@ export async function retryAfterRefresh(api: AxiosInstance, originalRequest: Int
 
     const axiosRefreshError = refreshError as AxiosError
     const refreshStatus = axiosRefreshError.response?.status
-    const isLoginPage = isLoginPathname()
-
-    if (!sessionChanged && (refreshStatus === 401 || refreshStatus === 403 || !axiosRefreshError.response) && !suppressibleRefreshError.isUserHydrationFailure) {
-      clearExpiredAuthSession(authStore)
-
-      if (!isLoginPage && router.currentRoute.value.meta.requiresAuth) {
-        const toastStore = await resolveToastStore()
-        notifySessionExpired(toastStore, t('common.messages.sessionExpired'))
-        void router.push({
-          path: API_PATHS.LOGIN,
-          query: { redirect: router.currentRoute.value.fullPath },
-        })
-      }
+    if (!sessionChanged && !suppressibleRefreshError.isUserHydrationFailure) {
+      await handleTerminalAuthFailure(refreshStatus ?? null, authStore, {
+        generation,
+        accessToken: previousToken,
+      })
     }
     return Promise.reject(suppressibleRefreshError)
   } finally {

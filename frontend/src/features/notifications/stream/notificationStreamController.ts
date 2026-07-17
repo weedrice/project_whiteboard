@@ -22,6 +22,7 @@ import {
 import { NotificationStreamRuntime } from '@/features/notifications/stream/notificationReconnectRuntime'
 import { emitBadgeAwardEvent } from '@/features/notifications/events/badgeAwardEvents'
 import { coordinateAuthRefresh } from '@/api/authRefreshCoordinator'
+import { handleTerminalAuthFailure } from '@/api/authTerminalFailure'
 import { setNotificationStreamConnection } from '@/features/notifications/stream/notificationStreamConnectionEvents'
 
 function isAbortError(error: unknown): boolean {
@@ -149,10 +150,10 @@ export function createNotificationStreamController(
             return
         }
 
+        const authStore = resolveAuthStore()
+        const generation = authStore.sessionGeneration
+        const previousToken = authStore.accessToken
         try {
-            const authStore = resolveAuthStore()
-            const generation = authStore.sessionGeneration
-            const previousToken = authStore.accessToken
             const refreshedAccessToken = await coordinateAuthRefresh(async (signal) => {
                 if (controller.signal.aborted
                     || authStore.sessionGeneration !== generation
@@ -176,7 +177,13 @@ export function createNotificationStreamController(
             logger.warn('SSE reconnect: refresh failed', error)
             const status = getErrorStatus(error)
             if (shouldStopNotificationReconnectAfterRefresh(status)) {
+                await handleTerminalAuthFailure(status, authStore, {
+                    generation,
+                    accessToken: previousToken,
+                })
                 notificationStreamRuntime.state.closedManually = true
+                notificationStreamRuntime.resetSessionState()
+                setNotificationStreamConnection(null)
                 return
             }
         }
@@ -194,7 +201,11 @@ export function createNotificationStreamController(
             const response = await openStream(token, controller.signal)
 
             if (!response.ok) {
-                throw new Error(`SSE stream request failed: ${response.status}`)
+                const error = new Error(`SSE stream request failed: ${response.status}`) as Error & {
+                    response: { status: number }
+                }
+                error.response = { status: response.status }
+                throw error
             }
             if (!response.body) {
                 throw new Error('SSE stream response is empty')

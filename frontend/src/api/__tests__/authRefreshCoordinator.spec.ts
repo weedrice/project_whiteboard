@@ -57,6 +57,20 @@ describe('auth refresh coordinator', () => {
     expect(request).toHaveBeenCalledWith('noviis-auth-refresh', expect.any(Function))
   })
 
+  it('does not reuse a recent result for a newer access-token refresh generation', async () => {
+    const request = vi.fn(async (_name: string, callback: () => Promise<string>) => callback())
+    vi.stubGlobal('navigator', { ...navigator, locks: { request } })
+    vi.stubGlobal('BroadcastChannel', undefined)
+    const refresh = vi.fn()
+      .mockResolvedValueOnce('token-2')
+      .mockResolvedValueOnce('token-3')
+
+    await expect(coordinateAuthRefresh(refresh, { previousToken: 'token-1' })).resolves.toBe('token-2')
+    await expect(coordinateAuthRefresh(refresh, { previousToken: 'token-2' })).resolves.toBe('token-3')
+
+    expect(refresh).toHaveBeenCalledTimes(2)
+  })
+
   it('reuses a matching refresh result announced by another tab', async () => {
     const channels: FakeBroadcastChannel[] = []
     class FakeBroadcastChannel {
@@ -67,7 +81,7 @@ describe('auth refresh coordinator', () => {
       addEventListener(_type: string, listener: (event: MessageEvent) => void) {
         this.listeners.push(listener)
       }
-      postMessage(message: Record<string, unknown> & { type: string, requestId?: string, previousToken?: string | null }) {
+      postMessage(message: Record<string, unknown> & { type: string, requestId?: string, previousToken?: string | null, sessionId?: string }) {
         channels.filter((candidate) => candidate !== this && candidate.name === this.name)
           .forEach((candidate) => candidate.listeners.forEach((listener) => listener({ data: message } as MessageEvent)))
       }
@@ -80,6 +94,7 @@ describe('auth refresh coordinator', () => {
       peer.postMessage({
         type: 'refresh-request',
         requestId: 'peer-request',
+        sessionId: event.data.sessionId,
         previousToken: event.data.previousToken,
         sourceId: '000-peer-tab',
         at: Date.now(),
@@ -87,6 +102,7 @@ describe('auth refresh coordinator', () => {
       setTimeout(() => peer.postMessage({
           type: 'refresh-result',
           requestId: event.data.requestId,
+          sessionId: event.data.sessionId,
           previousToken: event.data.previousToken,
           accessToken: 'peer-access',
           at: Date.now(),
@@ -102,8 +118,10 @@ describe('auth refresh coordinator', () => {
 
   it('uses a storage lease without writing an access token when BroadcastChannel is unavailable', async () => {
     vi.stubGlobal('BroadcastChannel', undefined)
+    localStorage.setItem('noviisAuthRefreshSession', 'shared-session')
     localStorage.setItem('noviisAuthRefreshLease', JSON.stringify({
       ownerId: 'other-tab',
+      sessionId: 'shared-session',
       expiresAt: Date.now() + 5000,
     }))
     const setItem = vi.spyOn(Storage.prototype, 'setItem')
@@ -116,6 +134,7 @@ describe('auth refresh coordinator', () => {
       newValue: JSON.stringify({
         type: 'refresh-result',
         sourceId: 'other-tab',
+        sessionId: 'other-session',
         previousToken: 'different-access',
         at: Date.now(),
       }),
@@ -127,6 +146,7 @@ describe('auth refresh coordinator', () => {
       newValue: JSON.stringify({
         type: 'refresh-result',
         sourceId: 'other-tab',
+        sessionId: 'shared-session',
         previousToken: 'old-access',
         at: Date.now(),
       }),
@@ -142,8 +162,10 @@ describe('auth refresh coordinator', () => {
 
   it('does not refresh after another tab logs out while waiting on a storage lease', async () => {
     vi.stubGlobal('BroadcastChannel', undefined)
+    localStorage.setItem('noviisAuthRefreshSession', 'shared-session')
     localStorage.setItem('noviisAuthRefreshLease', JSON.stringify({
       ownerId: 'other-tab',
+      sessionId: 'shared-session',
       expiresAt: Date.now() + 5000,
     }))
     const refresh = vi.fn(async () => 'must-not-run')
@@ -161,6 +183,64 @@ describe('auth refresh coordinator', () => {
 
     await expect(result).rejects.toMatchObject({ name: 'AbortError' })
     expect(refresh).not.toHaveBeenCalled()
+  })
+
+  it('re-enters election so three different tab tokens refresh serially without Web Locks or storage', async () => {
+    const channels: BlockedStorageBroadcastChannel[] = []
+    class BlockedStorageBroadcastChannel {
+      listeners: Array<(event: MessageEvent) => void> = []
+      constructor(readonly name: string) {
+        channels.push(this)
+      }
+      addEventListener(_type: string, listener: (event: MessageEvent) => void) {
+        this.listeners.push(listener)
+      }
+      postMessage(message: Record<string, unknown>) {
+        channels.filter((candidate) => candidate !== this && candidate.name === this.name)
+          .forEach((candidate) => candidate.listeners.forEach((listener) => listener({ data: message } as MessageEvent)))
+      }
+      close() {}
+    }
+    vi.stubGlobal('BroadcastChannel', BlockedStorageBroadcastChannel)
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('blocked') })
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('blocked') })
+    const peer = new BlockedStorageBroadcastChannel('noviis-auth-session')
+    let peerCompletions = 0
+    peer.addEventListener('message', (event) => {
+      if (event.data.type !== 'refresh-request') return
+      expect(event.data.sessionId).toBe('shared-origin-cookie-session')
+      if (peerCompletions >= 2) return
+      const wave = peerCompletions + 1
+      peer.postMessage({
+        type: 'refresh-request',
+        requestId: `peer-request-${wave}`,
+        sessionId: 'shared-origin-cookie-session',
+        previousToken: `peer-token-${wave}`,
+        sourceId: `000-peer-tab-${wave}`,
+        at: Date.now(),
+      })
+      setTimeout(() => {
+        peerCompletions += 1
+        peer.postMessage({
+          type: 'refresh-result',
+          requestId: event.data.requestId,
+          sessionId: 'shared-origin-cookie-session',
+          previousToken: `peer-token-${wave}`,
+          accessToken: `peer-access-${wave}`,
+          sourceId: `000-peer-tab-${wave}`,
+          at: Date.now(),
+        })
+      }, 10)
+    })
+    const refresh = vi.fn(async () => {
+      expect(peerCompletions).toBe(2)
+      return 'local-access'
+    })
+
+    await expect(coordinateAuthRefresh(refresh, { previousToken: 'tab-specific-access' }))
+      .resolves.toBe('local-access')
+    expect(peerCompletions).toBe(2)
+    expect(refresh).toHaveBeenCalledTimes(1)
   })
 
   it('aborts the underlying refresh when the session changes', async () => {

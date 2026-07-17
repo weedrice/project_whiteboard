@@ -13,7 +13,11 @@ import {
 import type { User, LoginCredentials, LoginUser } from '@/types'
 import type { AxiosRequestConfig } from 'axios'
 import { cancelPendingAuthRefresh } from '@/api/authRefreshSession'
-import { cancelAuthRefreshCoordinator, coordinateAuthRefresh } from '@/api/authRefreshCoordinator'
+import {
+    cancelAuthRefreshCoordinator,
+    coordinateAuthRefresh,
+    rotateSharedAuthSessionId,
+} from '@/api/authRefreshCoordinator'
 
 interface AuthSessionEffects {
     syncThemeFromUser: (userData: User | null) => void
@@ -67,6 +71,7 @@ export const useAuthStore = defineStore('auth', () => {
 
     function advanceSessionGeneration() {
         sessionGeneration.value += 1
+        rotateSharedAuthSessionId()
         cancelPendingAuthRefresh()
         cancelAuthRefreshCoordinator()
         authSessionEffects.onSessionBoundary(sessionGeneration.value)

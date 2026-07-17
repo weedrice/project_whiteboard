@@ -398,6 +398,11 @@ describe('useNotification SSE connection lifecycle', () => {
 
       expect(mocks.authApi.refreshToken).toHaveBeenCalledTimes(1)
       expect(fetchMock).toHaveBeenCalledTimes(1)
+      expect(mocks.handleTerminalAuthFailure).toHaveBeenCalledWith(
+        401,
+        mocks.authStore,
+        { generation: 0, accessToken: 'test-token' },
+      )
     } finally {
       vi.useRealTimers()
     }

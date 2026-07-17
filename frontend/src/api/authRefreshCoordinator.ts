@@ -2,6 +2,8 @@ const AUTH_REFRESH_LOCK = 'noviis-auth-refresh'
 const AUTH_REFRESH_CHANNEL = 'noviis-auth-session'
 const AUTH_REFRESH_STORAGE_EVENT_KEY = 'noviisAuthRefreshEvent'
 const AUTH_REFRESH_STORAGE_LEASE_KEY = 'noviisAuthRefreshLease'
+const AUTH_REFRESH_SESSION_KEY = 'noviisAuthRefreshSession'
+const STORAGE_UNAVAILABLE_SESSION_ID = 'shared-origin-cookie-session'
 const ELECTION_WINDOW_MS = 40
 const PEER_RESULT_TIMEOUT_MS = 15_000
 const STORAGE_LEASE_MS = 20_000
@@ -15,6 +17,7 @@ type RefreshMessage = {
   sourceId: string
   requestId?: string
   previousToken?: string | null
+  sessionId?: string
   accessToken?: string
   message?: string
   at: number
@@ -25,9 +28,11 @@ type RefreshFlight = {
   controller: AbortController
   epoch: number
   previousToken: string | null
+  sessionId: string
 }
 
 type PendingResult = {
+  sessionId: string
   previousToken: string | null
   resolve: (token: string) => void
   reject: (error: Error) => void
@@ -35,7 +40,7 @@ type PendingResult = {
 }
 
 type StorageWaiter = {
-  previousToken: string | null
+  sessionId: string
   resolve: (message: RefreshMessage) => void
   reject: (error: Error) => void
   timer: ReturnType<typeof setTimeout>
@@ -55,6 +60,7 @@ type CoordinatorState = {
 
 export interface CoordinateAuthRefreshOptions {
   previousToken?: string | null
+  sessionId?: string
   signal?: AbortSignal
 }
 
@@ -77,8 +83,51 @@ function createId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`
 }
 
+function readSharedAuthSessionId(): string | null {
+  if (typeof localStorage === 'undefined') return null
+  try {
+    const value = localStorage.getItem(AUTH_REFRESH_SESSION_KEY)
+    return value && value.length <= 128 ? value : null
+  } catch {
+    return null
+  }
+}
+
+function getOrCreateSharedAuthSessionId(): string {
+  if (typeof localStorage === 'undefined') return STORAGE_UNAVAILABLE_SESSION_ID
+  const existing = readSharedAuthSessionId()
+  if (existing) return existing
+  const created = createId()
+  try {
+    localStorage.setItem(AUTH_REFRESH_SESSION_KEY, created)
+    return readSharedAuthSessionId() ?? created
+  } catch {
+    // The HttpOnly refresh cookie is still origin-wide, so tabs must coordinate
+    // in one scope even when persistent storage is unavailable.
+    return STORAGE_UNAVAILABLE_SESSION_ID
+  }
+}
+
+/** Rotates the non-secret, cross-tab coordination identity at an auth boundary. */
+export function rotateSharedAuthSessionId(): string {
+  const next = createId()
+  try {
+    localStorage.setItem(AUTH_REFRESH_SESSION_KEY, next)
+  } catch {
+    // Storage can be unavailable; the current tab still cancels its local flight.
+  }
+  return next
+}
+
 function createRefreshAbortError() {
   return new DOMException('Authentication refresh was cancelled', 'AbortError')
+}
+
+class PeerRefreshCompletedError extends Error {
+  constructor() {
+    super('A peer completed a different access-token refresh generation')
+    this.name = 'PeerRefreshCompletedError'
+  }
 }
 
 function waitForRefreshFlight(promise: Promise<string>, signal?: AbortSignal) {
@@ -125,9 +174,13 @@ function isRefreshMessage(value: unknown): value is RefreshMessage {
 function notifyPendingResults(message: RefreshMessage) {
   if (message.type !== 'refresh-result' && message.type !== 'refresh-error') return
   for (const pending of state.pendingResults) {
-    if (pending.previousToken !== (message.previousToken ?? null)) continue
+    if (pending.sessionId !== message.sessionId) continue
     clearTimeout(pending.timer)
     state.pendingResults.delete(pending)
+    if (pending.previousToken !== (message.previousToken ?? null)) {
+      pending.reject(new PeerRefreshCompletedError())
+      continue
+    }
     if (message.type === 'refresh-result' && message.accessToken) pending.resolve(message.accessToken)
     else pending.reject(new Error(message.message || 'Authentication refresh failed'))
   }
@@ -139,6 +192,7 @@ function handleMessage(value: unknown) {
     state.candidates.set(value.requestId, value)
     const latest = state.latestResult
     if (latest?.type === 'refresh-result'
+      && latest.sessionId === value.sessionId
       && latest.previousToken === value.previousToken
       && Date.now() - latest.at < 5000) {
       postChannel({ ...latest, requestId: value.requestId })
@@ -150,6 +204,11 @@ function handleMessage(value: unknown) {
     return
   }
   if (value.type === 'refresh-result') state.latestResult = value
+  if (value.sessionId) {
+    for (const [requestId, candidate] of state.candidates) {
+      if (candidate.sessionId === value.sessionId) state.candidates.delete(requestId)
+    }
+  }
   notifyPendingResults(value)
 }
 
@@ -209,7 +268,7 @@ function handleStorageEvent(event: StorageEvent) {
     for (const waiter of state.storageWaiters) {
       if (message.type !== 'refresh-cancelled'
         && (message.type !== 'refresh-result' && message.type !== 'refresh-error'
-          || (message.previousToken ?? null) !== waiter.previousToken)) continue
+          || message.sessionId !== waiter.sessionId)) continue
       clearTimeout(waiter.timer)
       state.storageWaiters.delete(waiter)
       waiter.resolve(message)
@@ -219,11 +278,11 @@ function handleStorageEvent(event: StorageEvent) {
   }
 }
 
-function waitForStorageCompletion(previousToken: string | null, signal: AbortSignal) {
+function waitForStorageCompletion(sessionId: string, signal: AbortSignal) {
   installStorageListener()
   return new Promise<RefreshMessage>((resolve, reject) => {
     const waiter: StorageWaiter = {
-      previousToken,
+      sessionId,
       resolve,
       reject,
       timer: setTimeout(() => {
@@ -240,30 +299,34 @@ function waitForStorageCompletion(previousToken: string | null, signal: AbortSig
   })
 }
 
-function readLease(): { ownerId: string, expiresAt: number } | null {
+function readLease(): { ownerId: string, sessionId: string, expiresAt: number } | null {
   try {
     const value = localStorage.getItem(AUTH_REFRESH_STORAGE_LEASE_KEY)
     if (!value) return null
-    const lease = JSON.parse(value) as { ownerId?: unknown, expiresAt?: unknown }
-    return typeof lease.ownerId === 'string' && typeof lease.expiresAt === 'number'
-      ? { ownerId: lease.ownerId, expiresAt: lease.expiresAt }
+    const lease = JSON.parse(value) as { ownerId?: unknown, sessionId?: unknown, expiresAt?: unknown }
+    return typeof lease.ownerId === 'string' && typeof lease.sessionId === 'string'
+      && typeof lease.expiresAt === 'number'
+      ? { ownerId: lease.ownerId, sessionId: lease.sessionId, expiresAt: lease.expiresAt }
       : null
   } catch {
     return null
   }
 }
 
-async function acquireStorageLease(signal: AbortSignal) {
+async function acquireStorageLease(sessionId: string, signal: AbortSignal) {
   if (typeof localStorage === 'undefined') return true
   const existing = readLease()
-  if (existing && existing.expiresAt > Date.now() && existing.ownerId !== state.sourceId) return false
+  if (existing && existing.sessionId === sessionId
+    && existing.expiresAt > Date.now() && existing.ownerId !== state.sourceId) return false
   try {
     localStorage.setItem(AUTH_REFRESH_STORAGE_LEASE_KEY, JSON.stringify({
       ownerId: state.sourceId,
+      sessionId,
       expiresAt: Date.now() + STORAGE_LEASE_MS,
     }))
     await delay(ELECTION_WINDOW_MS, signal)
-    return readLease()?.ownerId === state.sourceId
+    const lease = readLease()
+    return lease?.ownerId === state.sourceId && lease.sessionId === sessionId
   } catch {
     return true
   }
@@ -279,6 +342,7 @@ function releaseStorageLease(message: RefreshMessage) {
 }
 
 function waitForPeerResult(
+  sessionId: string,
   previousToken: string | null,
   signal: AbortSignal,
   timeoutMs = PEER_RESULT_TIMEOUT_MS,
@@ -286,12 +350,14 @@ function waitForPeerResult(
 ) {
   const latest = state.latestResult
   if (latest?.type === 'refresh-result'
+    && latest.sessionId === sessionId
     && latest.previousToken === previousToken
     && latest.accessToken
     && Date.now() - latest.at < 5000) return Promise.resolve(latest.accessToken)
 
   return new Promise<string>((resolve, reject) => {
     const pending: PendingResult = {
+      sessionId,
       previousToken,
       resolve,
       reject,
@@ -311,6 +377,7 @@ function waitForPeerResult(
         type: 'refresh-request',
         sourceId: state.sourceId,
         requestId: createId(),
+        sessionId,
         previousToken,
         at: Date.now(),
       })
@@ -330,13 +397,14 @@ export async function runWithAuthRefreshLock<T>(refresh: () => Promise<T>): Prom
 }
 
 async function coordinateWithBroadcast(
+  sessionId: string,
   previousToken: string | null,
   refresh: (signal: AbortSignal) => Promise<string>,
   signal: AbortSignal,
-) {
+): Promise<string> {
   const requestId = createId()
   const ownRequest: RefreshMessage = {
-    type: 'refresh-request', sourceId: state.sourceId, requestId, previousToken, at: Date.now(),
+    type: 'refresh-request', sourceId: state.sourceId, requestId, sessionId, previousToken, at: Date.now(),
   }
   state.candidates.set(requestId, ownRequest)
   postChannel(ownRequest)
@@ -344,26 +412,39 @@ async function coordinateWithBroadcast(
 
   const latest = state.latestResult
   if (latest?.type === 'refresh-result'
-    && latest.previousToken === previousToken
+    && latest.sessionId === sessionId
     && latest.accessToken
-    && latest.at >= ownRequest.at) return latest.accessToken
+    && latest.at >= ownRequest.at) {
+    return latest.previousToken === previousToken
+      ? latest.accessToken
+      : coordinateWithBroadcast(sessionId, previousToken, refresh, signal)
+  }
 
   const candidates = [...state.candidates.values()]
-    .filter((candidate) => candidate.previousToken === previousToken && Date.now() - candidate.at < 1000)
+    .filter((candidate) => candidate.sessionId === sessionId && Date.now() - candidate.at < 1000)
     .sort((a, b) => `${a.sourceId}:${a.requestId}`.localeCompare(`${b.sourceId}:${b.requestId}`))
   const isLeader = candidates[0]?.sourceId === state.sourceId && candidates[0]?.requestId === requestId
   state.candidates.delete(requestId)
-  return isLeader ? refresh(signal) : waitForPeerResult(previousToken, signal)
+  if (isLeader) return refresh(signal)
+  try {
+    return await waitForPeerResult(sessionId, previousToken, signal)
+  } catch (error) {
+    if (error instanceof PeerRefreshCompletedError) {
+      return coordinateWithBroadcast(sessionId, previousToken, refresh, signal)
+    }
+    throw error
+  }
 }
 
 async function coordinateWithStorage(
+  sessionId: string,
   previousToken: string | null,
   refresh: (signal: AbortSignal) => Promise<string>,
   signal: AbortSignal,
 ) {
-  const isOwner = await acquireStorageLease(signal)
+  const isOwner = await acquireStorageLease(sessionId, signal)
   if (isOwner) return refresh(signal)
-  const completed = await waitForStorageCompletion(previousToken, signal)
+  const completed = await waitForStorageCompletion(sessionId, signal)
   if (completed.type === 'refresh-cancelled') {
     throw new DOMException('Authentication session changed in another tab', 'AbortError')
   }
@@ -374,7 +455,7 @@ async function coordinateWithStorage(
   } catch {
     // Storage may be blocked after the completion event.
   }
-  return coordinateWithStorage(previousToken, refresh, signal)
+  return coordinateWithStorage(sessionId, previousToken, refresh, signal)
 }
 
 export function coordinateAuthRefresh(
@@ -388,6 +469,7 @@ export function coordinateAuthRefresh(
   }
 
   const previousToken = options.previousToken ?? null
+  const sessionId = options.sessionId ?? getOrCreateSharedAuthSessionId()
   const epoch = state.epoch
   const controller = new AbortController()
   const execute = (signal: AbortSignal) => refresh(signal)
@@ -399,27 +481,29 @@ export function coordinateAuthRefresh(
         ? await locks.request(AUTH_REFRESH_LOCK, async () => {
           const latest = state.latestResult
           if (latest?.type === 'refresh-result'
+            && latest.sessionId === sessionId
             && latest.previousToken === previousToken
             && latest.accessToken
             && Date.now() - latest.at < 5000) return latest.accessToken
           if (getChannel()) {
             try {
-              return await waitForPeerResult(previousToken, controller.signal, 75, true)
+              return await waitForPeerResult(sessionId, previousToken, controller.signal, 75, true)
             } catch (error) {
               if (controller.signal.aborted) throw error
+              if (error instanceof PeerRefreshCompletedError) return execute(controller.signal)
             }
           }
           return execute(controller.signal)
         })
         : getChannel()
-          ? await coordinateWithBroadcast(previousToken, execute, controller.signal)
-          : await coordinateWithStorage(previousToken, execute, controller.signal)
+          ? await coordinateWithBroadcast(sessionId, previousToken, execute, controller.signal)
+          : await coordinateWithStorage(sessionId, previousToken, execute, controller.signal)
 
       if (epoch !== state.epoch || controller.signal.aborted) {
         throw new DOMException('Authentication refresh was cancelled', 'AbortError')
       }
       const result: RefreshMessage = {
-        type: 'refresh-result', sourceId: state.sourceId, previousToken, accessToken: token, at: Date.now(),
+        type: 'refresh-result', sourceId: state.sourceId, sessionId, previousToken, accessToken: token, at: Date.now(),
       }
       state.latestResult = result
       postChannel(result)
@@ -430,6 +514,7 @@ export function coordinateAuthRefresh(
       const message: RefreshMessage = {
         type: 'refresh-error',
         sourceId: state.sourceId,
+        sessionId,
         previousToken,
         message: error instanceof Error ? error.message : 'Authentication refresh failed',
         at: Date.now(),
@@ -439,7 +524,7 @@ export function coordinateAuthRefresh(
       throw error
     }
   })()
-  const flight: RefreshFlight = { promise, controller, epoch, previousToken }
+  const flight: RefreshFlight = { promise, controller, epoch, previousToken, sessionId }
   state.inFlight = flight
   void promise.finally(() => {
     if (state.inFlight === flight) state.inFlight = null

@@ -461,6 +461,21 @@ describe('API Interceptors', () => {
         expect(localStorage.getItem('refreshToken')).toBeNull()
     })
 
+    it('preserves the session when refresh fails without an HTTP response', async () => {
+        const { responseRejected, authStore } = await loadApiModule({ accessToken: 'keep-access' })
+        await setAccessToken('keep-access')
+        mocks.mockAxiosPost.mockRejectedValueOnce(new Error('offline'))
+
+        await expect(responseRejected(createApiError({
+            config: createApiRequestConfig({ _authAccessToken: 'keep-access' }),
+            response: { status: 401 },
+        }))).rejects.toBeDefined()
+
+        expect(authStore.clearSessionState).not.toHaveBeenCalled()
+        expect(await getAccessToken()).toBe('keep-access')
+        expect(mocks.mockRouterReplace).not.toHaveBeenCalled()
+    })
+
     it('skips redirect when refresh failure happens on login page', async () => {
         const { responseRejected } = await loadApiModule({ accessToken: 'stale-access' })
         await setAccessToken('stale-access')
@@ -564,7 +579,7 @@ describe('API Interceptors', () => {
             3000,
             'top-center',
         )
-        expect(mocks.mockRouterPush).toHaveBeenCalledWith({
+        expect(mocks.mockRouterReplace).toHaveBeenCalledWith({
             path: '/login',
             query: { redirect: '/boards' },
         })

@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => {
     const mockResponseUse = vi.fn()
     const mockApiRequest = vi.fn()
     const mockRouterPush = vi.fn()
+    const mockRouterReplace = vi.fn()
     const mockCurrentRoute = {
         value: {
             meta: { requiresAuth: true },
@@ -35,6 +36,7 @@ const mocks = vi.hoisted(() => {
         mockResponseUse,
         mockApiRequest,
         mockRouterPush,
+        mockRouterReplace,
         mockCurrentRoute,
         mockAxiosInstance,
         mockAxiosCreate,
@@ -68,6 +70,7 @@ vi.mock('@/i18n', () => ({
 vi.mock('@/router', () => ({
     default: {
         push: mocks.mockRouterPush,
+        replace: mocks.mockRouterReplace,
         currentRoute: mocks.mockCurrentRoute,
     },
 }))
