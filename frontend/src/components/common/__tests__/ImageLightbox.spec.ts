@@ -26,7 +26,7 @@ describe('ImageLightbox', () => {
       global: { mocks: { $t: (key: string) => key }, stubs: { BaseButton: BaseButtonStub, Teleport: true } },
     })
     const lightbox = mount(ImageLightbox, {
-      props: { isOpen: true, images: ['/image.png'], title: 'Preview' },
+      props: { isOpen: true, images: [{ src: '/image.png', alt: 'Original alt' }], title: 'Preview' },
       global: { mocks: { $t: (key: string) => key }, stubs: { Teleport: true } },
     })
     await nextTick()
@@ -50,7 +50,14 @@ describe('ImageLightbox', () => {
     opener.focus()
     const lightbox = mount(ImageLightbox, {
       attachTo: host,
-      props: { isOpen: true, images: ['/one.png', '/two.png'], title: 'Preview' },
+      props: {
+        isOpen: true,
+        images: [
+          { src: '/one.png', alt: 'First image' },
+          { src: '/two.png', alt: 'Second image' },
+        ],
+        title: 'Preview',
+      },
       global: { mocks: { $t: (key: string) => key }, stubs: { Teleport: true } },
     })
     await nextTick()
@@ -59,6 +66,7 @@ describe('ImageLightbox', () => {
     const dialog = lightbox.get('[role="dialog"]')
     const buttons = dialog.findAll('button')
     expect(dialog.attributes('aria-modal')).toBe('true')
+    expect(dialog.get('img').attributes('alt')).toBe('First image')
     expect(document.activeElement).toBe(buttons[0].element)
 
     ;(buttons.at(-1)!.element as HTMLButtonElement).focus()

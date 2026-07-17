@@ -121,4 +121,23 @@ describe('PostDetailArticleContent', () => {
     expect(wrapper.find('.nv-post-spoiler').exists()).toBe(false)
     expect(wrapper.find('[data-testid="tag"]').exists()).toBe(false)
   })
+
+  it('opens post images with their original alt text from the keyboard', async () => {
+    const wrapper = mountContent({
+      isBlurred: false,
+      postContents: '<img src="/post.png" alt="Diagram description">',
+    })
+    await wrapper.vm.$nextTick()
+    await wrapper.vm.$nextTick()
+
+    const image = wrapper.get<HTMLImageElement>('[data-testid="content"] img')
+    expect(image.attributes('tabindex')).toBe('0')
+    expect(image.attributes('role')).toBe('button')
+
+    await image.trigger('keydown', { key: ' ' })
+    await wrapper.vm.$nextTick()
+
+    const lightboxImage = document.body.querySelector<HTMLImageElement>('.lightbox-image')
+    expect(lightboxImage?.getAttribute('alt')).toBe('Diagram description')
+  })
 })

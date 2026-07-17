@@ -9,7 +9,7 @@ import { useBodyScrollLock } from '@/composables/useBodyScrollLock'
 
 const props = withDefaults(defineProps<{
   isOpen: boolean
-  images: string[]
+  images: Array<{ src: string, alt: string }>
   initialIndex?: number
   title?: string
 }>(), {
@@ -29,7 +29,7 @@ const { trapFocus, restoreFocus } = useFocusTrap(dialogRef, () => props.isOpen)
 useBodyScrollLock(toRef(props, 'isOpen'))
 
 const hasMultipleImages = computed(() => props.images.length > 1)
-const currentImage = computed(() => props.images[currentIndex.value] ?? '')
+const currentImage = computed(() => props.images[currentIndex.value] ?? null)
 const counterLabel = computed(() => `${currentIndex.value + 1} / ${props.images.length}`)
 function clampIndex(index: number) {
   if (props.images.length === 0) return 0
@@ -132,8 +132,8 @@ onUnmounted(() => {
 
         <img
           v-if="currentImage"
-          :src="currentImage"
-          :alt="title"
+          :src="currentImage.src"
+          :alt="currentImage.alt || title"
           class="lightbox-image max-w-full touch-none select-none rounded-md object-contain shadow-2xl transition-transform duration-150"
           :style="imageTransform"
           draggable="false"

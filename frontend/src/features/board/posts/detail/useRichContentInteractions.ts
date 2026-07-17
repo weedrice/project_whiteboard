@@ -13,6 +13,11 @@ interface UseRichContentInteractionsOptions {
   getCodeCopyLabels: () => CodeCopyLabels
 }
 
+export interface RichContentLightboxImage {
+  src: string
+  alt: string
+}
+
 function resolveBoolean(value: MaybeRefOrGetter<boolean>): boolean {
   if (typeof value === 'function') {
     return Boolean((value as () => boolean)())
@@ -27,9 +32,21 @@ export function useRichContentInteractions(options: UseRichContentInteractionsOp
   const lightboxImages = computed(() => {
     if (!articleRef.value || resolveBoolean(options.isDisabled)) return []
     return Array.from(articleRef.value.querySelectorAll<HTMLImageElement>('.nv-rich-content img'))
-      .map((image) => image.currentSrc || image.src)
-      .filter(Boolean)
+      .map((image) => ({
+        src: image.currentSrc || image.src,
+        alt: image.alt.trim(),
+      }))
+      .filter((image) => Boolean(image.src))
   })
+
+  function prepareImagesForInteraction() {
+    if (!articleRef.value || resolveBoolean(options.isDisabled)) return
+    articleRef.value.querySelectorAll<HTMLImageElement>('.nv-rich-content img').forEach((image) => {
+      if (!image.hasAttribute('tabindex')) image.tabIndex = 0
+      if (!image.hasAttribute('role')) image.setAttribute('role', 'button')
+      image.setAttribute('aria-haspopup', 'dialog')
+    })
+  }
 
   function navigateToMention(target: EventTarget | null): boolean {
     const mention = (target as HTMLElement | null)?.closest?.('[data-mention-user-id]')
@@ -75,9 +92,10 @@ export function useRichContentInteractions(options: UseRichContentInteractionsOp
     if (!(image instanceof HTMLImageElement)) return false
 
     const source = image.currentSrc || image.src
-    const index = lightboxImages.value.indexOf(source)
+    const index = lightboxImages.value.findIndex((candidate) => candidate.src === source)
     if (index < 0) return false
 
+    image.focus({ preventScroll: true })
     lightboxIndex.value = index
     lightboxOpen.value = true
     return true
@@ -91,8 +109,12 @@ export function useRichContentInteractions(options: UseRichContentInteractionsOp
   }
 
   function handleContentKeydown(event: KeyboardEvent) {
-    if (resolveBoolean(options.isDisabled) || event.key !== 'Enter') return
-    if (navigateToMention(event.target)) {
+    if (resolveBoolean(options.isDisabled)) return
+    if (event.key === 'Enter' && navigateToMention(event.target)) {
+      event.preventDefault()
+      return
+    }
+    if ((event.key === 'Enter' || event.key === ' ') && openImageLightbox(event.target)) {
       event.preventDefault()
     }
   }
@@ -102,8 +124,8 @@ export function useRichContentInteractions(options: UseRichContentInteractionsOp
     lightboxOpen,
     lightboxIndex,
     lightboxImages,
+    prepareImagesForInteraction,
     handleContentClick,
     handleContentKeydown,
   }
 }
-

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, nextTick, onMounted, onUpdated } from 'vue'
 import type { VNodeRef } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -46,6 +46,7 @@ const {
   lightboxOpen,
   lightboxIndex,
   lightboxImages,
+  prepareImagesForInteraction,
   handleContentClick,
   handleContentKeydown,
 } = useRichContentInteractions({
@@ -57,6 +58,13 @@ const {
     failed: t('board.writePost.codeBlock.copyFailed'),
   }),
 })
+
+function prepareRichContent() {
+  void nextTick(prepareImagesForInteraction)
+}
+
+onMounted(prepareRichContent)
+onUpdated(prepareRichContent)
 </script>
 
 <template>
