@@ -29,8 +29,5 @@ final class MeteredRejectedExecutionHandler implements RejectedExecutionHandler 
         if (outcome == RejectionOutcome.EXCEPTION) {
             throw new RejectedExecutionException("Async task rejected by " + executor);
         }
-        if (outcome == RejectionOutcome.CALLER_RUNS && !executor.isShutdown()) {
-            runnable.run();
-        }
     }
 }

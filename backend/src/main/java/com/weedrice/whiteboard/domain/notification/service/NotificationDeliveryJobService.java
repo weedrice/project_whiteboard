@@ -19,10 +19,12 @@ class NotificationDeliveryJobService {
     private final NotificationDeliveryJobRepository jobRepository;
     private final NotificationDeliveryJobKickoff kickoff;
     private final Clock clock;
+    private final NotificationPayloadValidator payloadValidator;
 
     @Transactional
     public NotificationDeliveryJob enqueue(NotificationEvent event) {
-        if (!hasRequiredPayload(event)) {
+        if (event == null || event.getUserToNotify() == null || event.getUserToNotify().getUserId() == null
+                || event.getNotificationType() == null || event.getSourceType() == null) {
             return null;
         }
         NotificationDeliveryJob existing = jobRepository.findByEventId(event.getEventId()).orElse(null);
@@ -31,6 +33,11 @@ class NotificationDeliveryJobService {
         }
         NotificationDeliveryJob saved = jobRepository.save(
                 NotificationDeliveryJob.from(event, LocalDateTime.now(clock)));
+        String invalidReason = payloadValidator.validate(event);
+        if (invalidReason != null) {
+            saved.rejectInvalidPayload(invalidReason, LocalDateTime.now(clock));
+            return saved;
+        }
         scheduleAfterCommit(saved.getJobId());
         return saved;
     }
@@ -48,11 +55,4 @@ class NotificationDeliveryJobService {
         });
     }
 
-    private boolean hasRequiredPayload(NotificationEvent event) {
-        return event != null
-                && event.getUserToNotify() != null
-                && event.getUserToNotify().getUserId() != null
-                && event.getNotificationType() != null
-                && event.getSourceType() != null;
-    }
 }

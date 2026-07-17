@@ -97,6 +97,18 @@ public class NotificationDeliveryJob extends BaseTimeEntity {
     @Column(name = "last_error", length = 500)
     private String lastError;
 
+    @Column(name = "failure_code", length = 50)
+    private String failureCode;
+
+    @Column(name = "first_failed_at")
+    private LocalDateTime firstFailedAt;
+
+    @Column(name = "last_failed_at")
+    private LocalDateTime lastFailedAt;
+
+    @Column(name = "redrive_count", nullable = false)
+    private Integer redriveCount;
+
     public static NotificationDeliveryJob from(NotificationEvent event, LocalDateTime now) {
         NotificationDeliveryJob job = new NotificationDeliveryJob();
         job.eventId = event.getEventId();
@@ -111,6 +123,7 @@ public class NotificationDeliveryJob extends BaseTimeEntity {
         job.messageParams = NotificationMessageParamsCodec.encode(event.getMessageParams());
         job.status = Status.PENDING;
         job.retryCount = 0;
+        job.redriveCount = 0;
         job.nextAttemptAt = now;
         return job;
     }
@@ -135,10 +148,14 @@ public class NotificationDeliveryJob extends BaseTimeEntity {
         lastError = null;
     }
 
-    public boolean fail(String error, LocalDateTime nextAttempt, int maxRetryCount) {
+    public boolean fail(String error, LocalDateTime failedAt, LocalDateTime nextAttempt, int maxRetryCount) {
         retryCount = retryCount + 1;
         processingStartedAt = null;
         lastError = truncate(error, 500);
+        lastFailedAt = failedAt;
+        if (firstFailedAt == null) {
+            firstFailedAt = failedAt;
+        }
         if (retryCount >= maxRetryCount) {
             status = Status.FAILED;
             return true;
@@ -146,6 +163,29 @@ public class NotificationDeliveryJob extends BaseTimeEntity {
         status = Status.PENDING;
         nextAttemptAt = nextAttempt;
         return false;
+    }
+
+    public void rejectInvalidPayload(String reason, LocalDateTime failedAt) {
+        status = Status.FAILED;
+        processingStartedAt = null;
+        failureCode = "INVALID_PAYLOAD";
+        lastError = truncate(reason, 500);
+        firstFailedAt = firstFailedAt == null ? failedAt : firstFailedAt;
+        lastFailedAt = failedAt;
+    }
+
+    public boolean redrive(LocalDateTime now) {
+        if (status != Status.FAILED) {
+            return false;
+        }
+        status = Status.PENDING;
+        retryCount = 0;
+        redriveCount = redriveCount == null ? 1 : redriveCount + 1;
+        nextAttemptAt = now;
+        processingStartedAt = null;
+        failureCode = null;
+        lastError = null;
+        return true;
     }
 
     private static String truncate(String value, int maxLength) {

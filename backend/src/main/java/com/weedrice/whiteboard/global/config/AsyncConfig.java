@@ -32,7 +32,7 @@ public class AsyncConfig implements AsyncConfigurer {
 
     @Bean(name = "notificationTaskExecutor")
     public ThreadPoolTaskExecutor notificationTaskExecutor() {
-        return createExecutor("notification", properties.getNotification(), RejectionOutcome.CALLER_RUNS);
+        return createExecutor("notification", properties.getNotification(), RejectionOutcome.EXCEPTION);
     }
 
     @Bean(name = "observabilityTaskExecutor")

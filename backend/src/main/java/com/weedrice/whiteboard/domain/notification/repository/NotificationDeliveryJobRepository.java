@@ -49,4 +49,18 @@ public interface NotificationDeliveryJobRepository extends JpaRepository<Notific
               AND job.modifiedAt < :cutoff
             """)
     int deleteCompletedBefore(@Param("cutoff") LocalDateTime cutoff);
+
+    @Modifying
+    @Query("""
+            DELETE FROM NotificationDeliveryJob job
+            WHERE job.status = com.weedrice.whiteboard.domain.notification.entity.NotificationDeliveryJob.Status.FAILED
+              AND job.lastFailedAt < :cutoff
+            """)
+    int deleteFailedBefore(@Param("cutoff") LocalDateTime cutoff);
+
+    @Query("SELECT MIN(job.nextAttemptAt) FROM NotificationDeliveryJob job WHERE job.status = com.weedrice.whiteboard.domain.notification.entity.NotificationDeliveryJob.Status.PENDING")
+    Optional<LocalDateTime> findOldestPendingAttemptAt();
+
+    @Query("SELECT MIN(job.processingStartedAt) FROM NotificationDeliveryJob job WHERE job.status = com.weedrice.whiteboard.domain.notification.entity.NotificationDeliveryJob.Status.PROCESSING")
+    Optional<LocalDateTime> findOldestProcessingStartedAt();
 }

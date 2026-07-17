@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Pageable;
 
 public interface UserKeywordSubscriptionRepository extends JpaRepository<UserKeywordSubscription, Long>,
         UserKeywordSubscriptionRepositoryCustom {
@@ -26,4 +27,14 @@ public interface UserKeywordSubscriptionRepository extends JpaRepository<UserKey
             WHERE LOWER(:title) LIKE CONCAT('%', LOWER(subscription.keyword), '%')
             """)
     List<UserKeywordSubscription> findMatchingTitle(@Param("title") String title);
+
+    @EntityGraph(attributePaths = "user")
+    @Query("""
+            SELECT subscription FROM UserKeywordSubscription subscription
+            WHERE subscription.subscriptionId > :afterId
+              AND LOWER(:title) LIKE CONCAT('%', LOWER(subscription.keyword), '%')
+            ORDER BY subscription.subscriptionId
+            """)
+    List<UserKeywordSubscription> findMatchingTitleAfter(
+            @Param("title") String title, @Param("afterId") Long afterId, Pageable pageable);
 }

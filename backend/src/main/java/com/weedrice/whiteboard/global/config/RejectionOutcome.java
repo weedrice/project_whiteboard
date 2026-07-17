@@ -2,7 +2,6 @@ package com.weedrice.whiteboard.global.config;
 
 enum RejectionOutcome {
     EXCEPTION("exception"),
-    CALLER_RUNS("caller-runs"),
     DROPPED("dropped");
 
     private final String metricTag;

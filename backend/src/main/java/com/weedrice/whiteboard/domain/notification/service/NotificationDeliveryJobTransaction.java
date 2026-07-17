@@ -25,6 +25,7 @@ class NotificationDeliveryJobTransaction {
     private final NotificationCommandService notificationCommandService;
     private final NotificationDeliveryPublisher deliveryPublisher;
     private final EntityManager entityManager;
+    private final NotificationPayloadValidator payloadValidator;
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public LocalDateTime claim(Long jobId, LocalDateTime claimedAt) {
@@ -42,6 +43,11 @@ class NotificationDeliveryJobTransaction {
         NotificationDeliveryJob job = jobRepository.findByIdForUpdate(jobId)
                 .filter(candidate -> candidate.hasLease(claimedAt))
                 .orElseThrow(() -> new NotificationDeliveryLeaseLostException(jobId));
+        String invalidReason = payloadValidator.validate(job);
+        if (invalidReason != null) {
+            job.rejectInvalidPayload(invalidReason, LocalDateTime.now());
+            return;
+        }
         Notification notification = notificationCommandService.handleNotificationEvent(toEvent(job));
         job.complete();
         if (notification != null) {
@@ -53,7 +59,7 @@ class NotificationDeliveryJobTransaction {
     public boolean fail(Long jobId, LocalDateTime claimedAt, String error, LocalDateTime nextAttemptAt) {
         return jobRepository.findByIdForUpdate(jobId)
                 .filter(job -> job.hasLease(claimedAt))
-                .map(job -> job.fail(error, nextAttemptAt, MAX_RETRY_COUNT))
+                .map(job -> job.fail(error, LocalDateTime.now(), nextAttemptAt, MAX_RETRY_COUNT))
                 .orElse(false);
     }
 
@@ -63,13 +69,25 @@ class NotificationDeliveryJobTransaction {
                 .filter(job -> job.getStatus() == NotificationDeliveryJob.Status.PROCESSING)
                 .filter(job -> job.getProcessingStartedAt() == null
                         || job.getProcessingStartedAt().isBefore(staleBefore))
-                .map(job -> job.fail("Processing lease expired", nextAttemptAt, MAX_RETRY_COUNT))
+                .map(job -> job.fail("Processing lease expired", LocalDateTime.now(), nextAttemptAt, MAX_RETRY_COUNT))
                 .orElse(false);
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public int deleteCompletedBefore(LocalDateTime cutoff) {
         return jobRepository.deleteCompletedBefore(cutoff);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public int deleteFailedBefore(LocalDateTime cutoff) {
+        return jobRepository.deleteFailedBefore(cutoff);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public boolean redriveFailed(Long jobId, LocalDateTime now) {
+        return jobRepository.findByIdForUpdate(jobId)
+                .map(job -> job.redrive(now))
+                .orElse(false);
     }
 
     private NotificationEvent toEvent(NotificationDeliveryJob job) {

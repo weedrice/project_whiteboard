@@ -154,9 +154,15 @@ class NotificationCommandService {
     }
 
     private User resolveActiveReceiver(NotificationEvent event) {
-        return userRepository.findByUserIdAndStatusAndDeletedAtIsNull(
-                        event.getUserToNotify().getUserId(),
-                        User.STATUS_ACTIVE)
+        Long receiverId = event.getUserToNotify().getUserId();
+        User locked = userRepository.findByIdForUpdate(receiverId).orElse(null);
+        if (locked == null) {
+            return userRepository.findByUserIdAndStatusAndDeletedAtIsNull(receiverId, User.STATUS_ACTIVE)
+                    .orElse(null);
+        }
+        return java.util.Optional.of(locked)
+                .filter(user -> User.STATUS_ACTIVE.equals(user.getStatus()))
+                .filter(user -> user.getDeletedAt() == null)
                 .orElse(null);
     }
 

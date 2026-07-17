@@ -34,7 +34,8 @@ class NotificationDeliveryJobServiceTest {
     @Test
     void enqueue_persistsScalarSnapshotAndSchedulesProcessing() {
         Clock clock = Clock.fixed(Instant.parse("2026-07-17T00:00:00Z"), ZoneOffset.UTC);
-        NotificationDeliveryJobService service = new NotificationDeliveryJobService(jobRepository, kickoff, clock);
+        NotificationDeliveryJobService service = new NotificationDeliveryJobService(
+                jobRepository, kickoff, clock, new NotificationPayloadValidator());
         User receiver = user(1L);
         User actor = user(2L);
         NotificationEvent event = NotificationEvent.localized(
@@ -65,7 +66,8 @@ class NotificationDeliveryJobServiceTest {
         NotificationDeliveryJobService service = new NotificationDeliveryJobService(
                 jobRepository,
                 kickoff,
-                Clock.systemUTC());
+                Clock.systemUTC(),
+                new NotificationPayloadValidator());
         NotificationEvent event = new NotificationEvent(
                 User.builder().build(),
                 null,
@@ -82,7 +84,8 @@ class NotificationDeliveryJobServiceTest {
     @Test
     void enqueue_sameEventObjectReusesItsDurableJob() {
         Clock clock = Clock.fixed(Instant.parse("2026-07-17T00:00:00Z"), ZoneOffset.UTC);
-        NotificationDeliveryJobService service = new NotificationDeliveryJobService(jobRepository, kickoff, clock);
+        NotificationDeliveryJobService service = new NotificationDeliveryJobService(
+                jobRepository, kickoff, clock, new NotificationPayloadValidator());
         NotificationEvent event = new NotificationEvent(
                 user(1L),
                 user(2L),
@@ -95,7 +98,8 @@ class NotificationDeliveryJobServiceTest {
                 java.time.LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC));
         ReflectionTestUtils.setField(saved, "jobId", 9L);
         when(jobRepository.findByEventId(event.getEventId()))
-                .thenReturn(java.util.Optional.empty(), java.util.Optional.of(saved));
+                .thenReturn(java.util.Optional.empty())
+                .thenReturn(java.util.Optional.of(saved));
         when(jobRepository.save(any(NotificationDeliveryJob.class))).thenReturn(saved);
 
         assertThat(service.enqueue(event)).isSameAs(saved);
@@ -103,6 +107,37 @@ class NotificationDeliveryJobServiceTest {
 
         verify(jobRepository, times(1)).save(any(NotificationDeliveryJob.class));
         verify(kickoff, times(1)).process(9L);
+    }
+
+    @Test
+    void enqueue_invalidDeliverablePayload_isPersistedAsDeadLetterWithoutKickoff() {
+        Clock clock = Clock.fixed(Instant.parse("2026-07-17T00:00:00Z"), ZoneOffset.UTC);
+        NotificationDeliveryJobService service = new NotificationDeliveryJobService(
+                jobRepository, kickoff, clock, new NotificationPayloadValidator());
+        NotificationEvent event = new NotificationEvent(
+                user(1L), null, NotificationType.SYSTEM, NotificationSourceType.SYSTEM, null, "content");
+        when(jobRepository.save(any(NotificationDeliveryJob.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        NotificationDeliveryJob job = service.enqueue(event);
+
+        assertThat(job.getStatus()).isEqualTo(NotificationDeliveryJob.Status.FAILED);
+        assertThat(job.getFailureCode()).isEqualTo("INVALID_PAYLOAD");
+        verify(kickoff, never()).process(any());
+    }
+
+    @Test
+    void failedJob_redriveResetsRetryStateAndCountsAttempts() {
+        Clock clock = Clock.fixed(Instant.parse("2026-07-17T00:00:00Z"), ZoneOffset.UTC);
+        NotificationEvent event = new NotificationEvent(
+                user(1L), null, NotificationType.SYSTEM, NotificationSourceType.SYSTEM, 1L, "content");
+        NotificationDeliveryJob job = NotificationDeliveryJob.from(
+                event, java.time.LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC));
+        job.rejectInvalidPayload("bad", java.time.LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC));
+
+        assertThat(job.redrive(java.time.LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC))).isTrue();
+        assertThat(job.getStatus()).isEqualTo(NotificationDeliveryJob.Status.PENDING);
+        assertThat(job.getRedriveCount()).isEqualTo(1);
+        assertThat(job.getFailureCode()).isNull();
     }
 
     private User user(Long id) {

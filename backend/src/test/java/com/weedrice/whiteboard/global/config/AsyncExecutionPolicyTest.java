@@ -78,18 +78,14 @@ class AsyncExecutionPolicyTest {
     }
 
     @Test
-    void notificationExecutorRunsRejectedTaskOnCaller() throws InterruptedException {
+    void notificationExecutorRejectsWithoutRunningOnCaller() throws InterruptedException {
         AsyncTaskProperties properties = new AsyncTaskProperties();
         properties.setNotification(new AsyncTaskProperties.Pool(1, 1, 0));
         executor = new AsyncConfig(properties, meterRegistry).notificationTaskExecutor();
         CountDownLatch release = occupySingleThread(executor);
-        AtomicReference<String> taskThread = new AtomicReference<>();
-        String callerThread = Thread.currentThread().getName();
-
-        executor.execute(() -> taskThread.set(Thread.currentThread().getName()));
-
-        assertThat(taskThread).hasValue(callerThread);
-        assertThat(rejectionCount("notification", "caller-runs")).isEqualTo(1.0);
+        assertThatThrownBy(() -> executor.execute(() -> { }))
+                .isInstanceOf(TaskRejectedException.class);
+        assertThat(rejectionCount("notification", "exception")).isEqualTo(1.0);
         release.countDown();
     }
 

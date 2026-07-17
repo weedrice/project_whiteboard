@@ -24,6 +24,7 @@ public class NotificationDeliveryJobProcessor {
     private static final int LEASE_MINUTES = 5;
     private static final int MAX_BACKOFF_MINUTES = 60;
     private static final int COMPLETED_RETENTION_DAYS = 7;
+    private static final int FAILED_RETENTION_DAYS = 30;
 
     private final NotificationDeliveryJobRepository jobRepository;
     private final NotificationDeliveryJobTransaction jobTransaction;
@@ -95,6 +96,8 @@ public class NotificationDeliveryJobProcessor {
         }
         try {
             int deleted = jobTransaction.deleteCompletedBefore(now().minusDays(COMPLETED_RETENTION_DAYS));
+            int failedDeleted = jobTransaction.deleteFailedBefore(now().minusDays(FAILED_RETENTION_DAYS));
+            deleted += failedDeleted;
             if (deleted > 0) {
                 log.info("Deleted {} completed notification delivery job(s)", deleted);
             }
@@ -120,6 +123,20 @@ public class NotificationDeliveryJobProcessor {
         metrics.updateBacklog(
                 jobRepository.countByStatus(NotificationDeliveryJob.Status.PENDING),
                 jobRepository.countByStatus(NotificationDeliveryJob.Status.FAILED));
+        LocalDateTime now = now();
+        metrics.updateAges(
+                jobRepository.findOldestPendingAttemptAt()
+                        .map(value -> java.time.Duration.between(value, now).getSeconds()).orElse(0L),
+                jobRepository.findOldestProcessingStartedAt()
+                        .map(value -> java.time.Duration.between(value, now).getSeconds()).orElse(0L));
+    }
+
+    public boolean redriveFailedJob(Long jobId) {
+        boolean redriven = jobTransaction.redriveFailed(jobId, now());
+        if (redriven) {
+            metrics.recordOutcome("redrive");
+        }
+        return redriven;
     }
 
     private LocalDateTime now() {
