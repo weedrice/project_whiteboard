@@ -54,6 +54,27 @@ class BoardVisitRepositoryTest {
         assertThat(result.get(0).getLatestPostAt()).isEqualTo(now.minusDays(5));
     }
 
+    @Test
+    void upsert_insertsOnceAndUpdatesVisitTimestamp() {
+        User user = persistUser("upsert-reader");
+        User creator = persistUser("upsert-creator");
+        Board board = persistBoard("upsert-board", creator);
+        entityManager.flush();
+        entityManager.clear();
+        LocalDateTime firstVisit = LocalDateTime.of(2026, 7, 10, 10, 0);
+        LocalDateTime secondVisit = firstVisit.plusMinutes(5);
+
+        assertThat(boardVisitRepository.upsert(user.getUserId(), board.getBoardUrl(), firstVisit)).isEqualTo(1);
+        assertThat(boardVisitRepository.upsert(user.getUserId(), board.getBoardUrl(), secondVisit)).isEqualTo(1);
+        entityManager.clear();
+
+        assertThat(boardVisitRepository.count()).isEqualTo(1);
+        BoardVisit visit = boardVisitRepository.findById(
+                new com.weedrice.whiteboard.domain.board.entity.BoardVisitId(
+                        user.getUserId(), board.getBoardId())).orElseThrow();
+        assertThat(visit.getLastVisitedAt()).isEqualTo(secondVisit);
+    }
+
     private User persistUser(String loginId) {
         User user = User.builder()
                 .loginId(loginId)

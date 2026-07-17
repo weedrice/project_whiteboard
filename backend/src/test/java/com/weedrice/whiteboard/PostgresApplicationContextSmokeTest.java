@@ -9,6 +9,8 @@ import com.weedrice.whiteboard.domain.auth.entity.VerificationPurpose;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.post.repository.PopularPostAggregationLockRepository;
+import com.weedrice.whiteboard.domain.board.repository.BoardVisitRepository;
+import com.weedrice.whiteboard.domain.notification.service.KeywordSubscriptionService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import com.weedrice.whiteboard.global.security.SecurityAuthorities;
@@ -66,6 +68,12 @@ class PostgresApplicationContextSmokeTest {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private BoardVisitRepository boardVisitRepository;
+
+    @Autowired
+    private KeywordSubscriptionService keywordSubscriptionService;
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -325,6 +333,126 @@ class PostgresApplicationContextSmokeTest {
                 WHERE session_family_id = ?
                   AND is_revoked = 'N'
                 """, Integer.class, retainedFamily));
+    }
+
+    @Test
+    void concurrentFirstBoardVisitsUpsertOneRow() throws Exception {
+        String unique = UUID.randomUUID().toString();
+        User user = userRepository.saveAndFlush(User.builder()
+                .loginId("visit-race-" + unique)
+                .email("visit-race-" + unique + "@example.com")
+                .password("encoded")
+                .displayName("Visit Race User")
+                .build());
+        Long boardId = jdbcTemplate.queryForObject("""
+                INSERT INTO boards
+                    (created_at, modified_at, board_name, board_url, description, creator_id,
+                     sort_order, is_active, allow_nsfw, is_public, agent_use_yn)
+                VALUES (NOW(), NOW(), ?, ?, '', ?, 1, 'Y', 'N', 'Y', 'N')
+                RETURNING board_id
+                """, Long.class, "Visit " + unique, "visit-" + unique, user.getUserId());
+
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        CountDownLatch start = new CountDownLatch(1);
+        try {
+            Future<Integer> first = executor.submit(() -> {
+                start.await(5, TimeUnit.SECONDS);
+                return boardVisitRepository.upsert(user.getUserId(), "visit-" + unique, LocalDateTime.now());
+            });
+            Future<Integer> second = executor.submit(() -> {
+                start.await(5, TimeUnit.SECONDS);
+                return boardVisitRepository.upsert(user.getUserId(), "visit-" + unique, LocalDateTime.now());
+            });
+            start.countDown();
+            assertEquals(1, first.get(10, TimeUnit.SECONDS));
+            assertEquals(1, second.get(10, TimeUnit.SECONDS));
+        } finally {
+            executor.shutdownNow();
+        }
+
+        assertEquals(1, jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM board_visits WHERE user_id = ? AND board_id = ?",
+                Integer.class, user.getUserId(), boardId));
+    }
+
+    @Test
+    void concurrentKeywordSubscriptionsKeepTenItemLimit() throws Exception {
+        String unique = UUID.randomUUID().toString();
+        User user = userRepository.saveAndFlush(User.builder()
+                .loginId("keyword-race-" + unique)
+                .email("keyword-race-" + unique + "@example.com")
+                .password("encoded")
+                .displayName("Keyword Race User")
+                .build());
+        for (int index = 0; index < 9; index++) {
+            jdbcTemplate.update("""
+                    INSERT INTO user_keyword_subscriptions
+                        (created_at, modified_at, user_id, keyword)
+                    VALUES (NOW(), NOW(), ?, ?)
+                    """, user.getUserId(), "existing-" + index);
+        }
+
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        CountDownLatch start = new CountDownLatch(1);
+        try {
+            List<Future<Boolean>> results = List.of("candidate-a", "candidate-b").stream()
+                    .map(keyword -> executor.submit(() -> {
+                        start.await(5, TimeUnit.SECONDS);
+                        try {
+                            keywordSubscriptionService.subscribe(user.getUserId(), keyword);
+                            return true;
+                        } catch (BusinessException expectedLimit) {
+                            return false;
+                        }
+                    }))
+                    .toList();
+            start.countDown();
+            int successes = 0;
+            for (Future<Boolean> result : results) {
+                if (result.get(10, TimeUnit.SECONDS)) {
+                    successes++;
+                }
+            }
+            assertEquals(1, successes);
+        } finally {
+            executor.shutdownNow();
+        }
+
+        assertEquals(10, jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM user_keyword_subscriptions WHERE user_id = ?",
+                Integer.class, user.getUserId()));
+    }
+
+    @Test
+    void concurrentDuplicateKeywordSubscriptionsAreIdempotent() throws Exception {
+        String unique = UUID.randomUUID().toString();
+        User user = userRepository.saveAndFlush(User.builder()
+                .loginId("keyword-duplicate-" + unique)
+                .email("keyword-duplicate-" + unique + "@example.com")
+                .password("encoded")
+                .displayName("Keyword Duplicate User")
+                .build());
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        CountDownLatch start = new CountDownLatch(1);
+        try {
+            List<Future<Void>> results = java.util.stream.IntStream.range(0, 2)
+                    .mapToObj(ignored -> executor.submit(() -> {
+                        start.await(5, TimeUnit.SECONDS);
+                        keywordSubscriptionService.subscribe(user.getUserId(), "same-keyword");
+                        return (Void) null;
+                    }))
+                    .toList();
+            start.countDown();
+            for (Future<Void> result : results) {
+                result.get(10, TimeUnit.SECONDS);
+            }
+        } finally {
+            executor.shutdownNow();
+        }
+
+        assertEquals(1, jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM user_keyword_subscriptions WHERE user_id = ? AND keyword = ?",
+                Integer.class, user.getUserId(), "same-keyword"));
     }
 
     @Test

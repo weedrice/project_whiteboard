@@ -34,7 +34,7 @@ public class KeywordSubscriptionService {
     @Transactional
     public KeywordSubscriptionResponse subscribe(Long userId, String keyword) {
         String normalizedKeyword = normalizeKeyword(keyword);
-        User user = userWritableResolver.resolve(userId);
+        User user = userWritableResolver.resolveForUpdate(userId);
         return keywordSubscriptionRepository.findByUser_UserIdAndKeyword(userId, normalizedKeyword)
                 .map(KeywordSubscriptionResponse::from)
                 .orElseGet(() -> createSubscription(user, normalizedKeyword));
@@ -52,11 +52,10 @@ public class KeywordSubscriptionService {
         if (keywordSubscriptionRepository.countByUser_UserId(user.getUserId()) >= MAX_KEYWORDS_PER_USER) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
-        UserKeywordSubscription subscription = UserKeywordSubscription.builder()
-                .user(user)
-                .keyword(keyword)
-                .build();
-        return KeywordSubscriptionResponse.from(keywordSubscriptionRepository.save(subscription));
+        keywordSubscriptionRepository.insertIgnore(user.getUserId(), keyword);
+        return keywordSubscriptionRepository.findByUser_UserIdAndKeyword(user.getUserId(), keyword)
+                .map(KeywordSubscriptionResponse::from)
+                .orElseThrow(() -> new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR));
     }
 
     private String normalizeKeyword(String keyword) {

@@ -9,7 +9,8 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 import java.util.Optional;
 
-public interface UserKeywordSubscriptionRepository extends JpaRepository<UserKeywordSubscription, Long> {
+public interface UserKeywordSubscriptionRepository extends JpaRepository<UserKeywordSubscription, Long>,
+        UserKeywordSubscriptionRepositoryCustom {
     long countByUser_UserId(Long userId);
 
     boolean existsByUser_UserIdAndKeyword(Long userId, String keyword);

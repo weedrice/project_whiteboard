@@ -1,16 +1,14 @@
 package com.weedrice.whiteboard.domain.board.service;
 
 import com.weedrice.whiteboard.domain.board.dto.BoardActivitySummary;
-import com.weedrice.whiteboard.domain.board.entity.Board;
-import com.weedrice.whiteboard.domain.board.entity.BoardVisit;
-import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardVisitRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
-import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.common.util.DateTimeUtils;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -21,28 +19,27 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
+@Slf4j
 class BoardVisitService {
     private static final long ACTIVITY_LOOKBACK_DAYS = 30L;
 
     private final BoardVisitRepository boardVisitRepository;
-    private final UserRepository userRepository;
-    private final BoardRepository boardRepository;
+    private final BoardVisitWriter boardVisitWriter;
+    private final MeterRegistry meterRegistry;
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void touchVisit(Long userId, String boardUrl) {
         if (userId == null || boardUrl == null || boardUrl.isBlank()) {
             return;
         }
-        User user = userRepository.findById(userId).orElse(null);
-        Board board = boardRepository.findByBoardUrl(boardUrl).orElse(null);
-        if (user == null || board == null) {
-            return;
+        try {
+            boardVisitWriter.upsert(userId, boardUrl, DateTimeUtils.nowKST());
+        } catch (RuntimeException exception) {
+            Counter.builder("noviis.board.visit.failures")
+                    .description("Board visit persistence failures")
+                    .register(meterRegistry)
+                    .increment();
+            log.warn("Failed to persist board visit: userId={}, boardUrl={}", userId, boardUrl, exception);
         }
-        LocalDateTime now = DateTimeUtils.nowKST();
-        BoardVisit visit = boardVisitRepository.findByUserAndBoard(user, board)
-                .orElseGet(() -> new BoardVisit(user, board, now));
-        visit.touch(now);
-        boardVisitRepository.save(visit);
     }
 
     public Map<Long, BoardActivitySummary> getActivitySummaries(Collection<Long> boardIds, User user) {

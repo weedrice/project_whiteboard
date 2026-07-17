@@ -50,10 +50,12 @@ class KeywordSubscriptionServiceTest {
     void createsAndRemovesNormalizedKeyword() {
         User user = mock(User.class);
         when(user.getUserId()).thenReturn(2L);
-        when(userResolver.resolve(2L)).thenReturn(user);
-        when(repository.findByUser_UserIdAndKeyword(2L, "java")).thenReturn(Optional.empty());
+        when(userResolver.resolveForUpdate(2L)).thenReturn(user);
+        when(repository.findByUser_UserIdAndKeyword(2L, "java"))
+                .thenReturn(Optional.empty())
+                .thenReturn(Optional.of(subscription("java")));
         when(repository.countByUser_UserId(2L)).thenReturn(9L);
-        when(repository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(repository.insertIgnore(2L, "java")).thenReturn(1);
 
         assertEquals("java", service.subscribe(2L, " Java ").getKeyword());
 
@@ -71,7 +73,7 @@ class KeywordSubscriptionServiceTest {
 
         User user = mock(User.class);
         when(user.getUserId()).thenReturn(3L);
-        when(userResolver.resolve(3L)).thenReturn(user);
+        when(userResolver.resolveForUpdate(3L)).thenReturn(user);
         when(repository.findByUser_UserIdAndKeyword(3L, "full")).thenReturn(Optional.empty());
         when(repository.countByUser_UserId(3L)).thenReturn(10L);
         assertThrows(BusinessException.class, () -> service.subscribe(3L, "full"));

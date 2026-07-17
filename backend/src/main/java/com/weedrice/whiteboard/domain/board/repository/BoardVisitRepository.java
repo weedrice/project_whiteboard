@@ -11,16 +11,13 @@ import org.springframework.data.repository.query.Param;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
 
-public interface BoardVisitRepository extends JpaRepository<BoardVisit, BoardVisitId> {
+public interface BoardVisitRepository extends JpaRepository<BoardVisit, BoardVisitId>, BoardVisitRepositoryCustom {
     interface BoardActivityProjection {
         Long getBoardId();
         LocalDateTime getLatestPostAt();
         Long getNewPostCount();
     }
-
-    Optional<BoardVisit> findByUserAndBoard(User user, Board board);
 
     @Query("""
             SELECT p.board.boardId AS boardId,
