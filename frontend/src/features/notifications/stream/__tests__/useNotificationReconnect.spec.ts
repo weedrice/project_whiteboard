@@ -101,6 +101,28 @@ describe('useNotification SSE connection lifecycle', () => {
     closeSse()
   })
 
+  it('backs off without refreshing credentials after an SSE protocol limit violation', async () => {
+    const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout')
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      body: createSseStream('x'.repeat(64 * 1024 + 1)),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { connectToSse, closeSse } = useNotification()
+    connectToSse()
+    await flushAsync(4)
+
+    expect(mocks.authApi.refreshToken).not.toHaveBeenCalled()
+    expect(setTimeoutSpy.mock.calls.some((call) => call[1] === 5000)).toBe(true)
+    expect(mocks.logger.warn).toHaveBeenCalledWith(
+      'SSE connection dropped:',
+      expect.objectContaining({ name: 'SseProtocolLimitError' }),
+    )
+    closeSse()
+  })
+
   it('handles keep-alive comments and blank event names as default message events', async () => {
     let firstPage: Record<string, unknown> = {
       content: [],

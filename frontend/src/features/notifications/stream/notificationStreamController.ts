@@ -11,7 +11,7 @@ import logger from '@/utils/logger'
 import { useAuthStore } from '@/stores/auth'
 import { isCancellationError } from '@/utils/cancellationError'
 import { emitCommentStreamEvent } from '@/features/comments/commentStreamEvents'
-import { consumeSseStream } from '@/features/notifications/stream/notificationSseStream'
+import { consumeSseStream, SseProtocolLimitError } from '@/features/notifications/stream/notificationSseStream'
 import {
     shouldStopNotificationReconnectAfterRefresh,
 } from '@/features/notifications/stream/notificationStreamStateModel'
@@ -228,6 +228,10 @@ export function createNotificationStreamController(
             }
 
             logger.warn('SSE connection dropped:', error)
+            if (error instanceof SseProtocolLimitError) {
+                scheduleReconnect(RECONNECT_AFTER_FAILURE_DELAY_MS)
+                return
+            }
             await reconnectWithRefresh(controller)
         } finally {
             if (notificationStreamRuntime.state.streamAbortController === controller) {
