@@ -22,7 +22,7 @@ contract migration은 자동 배포하지 않는다. `main`의 수동 실행, `a
 
 활성화 스크립트는 provenance, checksum, commit metadata, 서비스 health를 검증한 뒤 `ACTIVATED_SHA=<sha>`를 출력한다. 이 시점 이후 release 보존 정리, 상태 진단, incoming 삭제 실패는 건강한 release를 rollback하지 않는다. 대신 `CLEANUP_DEBT=...` 경고와 workflow cleanup 결과로 후속 조치한다. 실패 진단의 애플리케이션 로그·journal 원문은 Actions 출력으로 보내지 않고 host의 root-only 진단 파일에만 저장한다.
 
-backend/frontend artifact는 SHA-256 manifest, SBOM, GitHub attestation bundle을 포함한다. 배포 직전 최신 `origin/main` SHA를 다시 확인하며 SSH와 SCP는 독립적으로 확인한 host fingerprint를 필수로 사용한다. production deploy concurrency는 취소 없이 직렬화한다.
+backend/frontend artifact는 payload·metadata·SBOM·SHA-256 manifest의 digest를 담은 `RELEASE_ENVELOPE`, envelope provenance attestation, 실제 payload를 대상으로 한 SBOM attestation을 포함한다. 서버는 envelope attestation을 먼저 검증하고 내부 digest와 payload SBOM attestation을 각각 확인하므로 deploy 계정이 checksum과 SBOM을 함께 바꿔도 활성화할 수 없다. frontend SBOM은 source tree가 아니라 실제 배포 `dist`를 대상으로 생성한다. 배포 직전 최신 `origin/main` SHA를 다시 확인하며 SSH와 SCP는 독립적으로 확인한 host fingerprint를 필수로 사용한다. production deploy concurrency는 취소 없이 직렬화한다.
 
 backend activator는 이전 JAR을 보존하고 서비스 stop, atomic JAR 교체, 8081 management health와 build-info 검증을 수행한다. 검증 전 실패는 이전 JAR과 health를 복구한다. frontend activator는 이전 symlink를 기록하고 atomic switch 뒤 내부·공개 release endpoint 및 SEO metadata를 검증하며 실패 시 이전 symlink를 복구한다. release 정리는 mtime 기준 최신 5개를 보존하고 realpath가 release root 밖이면 삭제하지 않는다.
 
@@ -30,7 +30,7 @@ backend activator는 이전 JAR을 보존하고 서비스 stop, atomic JAR 교�
 
 production frontend release는 `SEO_STRICT=true`로 sitemap과 prerender를 생성한다. API 조회 실패, 게시글 URL 0건, URL과 prerender 개수 불일치는 release 생성을 실패시킨다. `.noviis-seo-release.json`에 commit SHA, 전체 URL 수, 게시글 URL 수, prerender 수와 sitemap SHA-256을 기록한다. 배포 후 검증과 정기 monitor도 게시글 URL 0건을 거부하고 public sitemap의 개수·digest·release SHA를 이 manifest와 대조한다.
 
-배포 후 sitemap 제출과 `seo-monitor.yml`의 정기 제출은 `seo-submit-production` concurrency group으로 직렬화한다. 정기 제출의 인증 오류, 429, 5xx, timeout은 job 실패다. 배포 후 제출 실패는 이미 검증된 frontend를 rollback하지 않고 warning과 job summary에 남기며 정기 monitor가 재시도한다.
+배포 후 sitemap 제출과 `seo-monitor.yml`의 정기 제출은 `seo-submit-production` concurrency group으로 직렬화한다. 수동 SEO monitor는 `main`에서만 실행되고 production environment 승인 뒤 secret을 받으며 checkout SHA도 해당 main 실행 SHA로 고정한다. 정기 제출의 인증 오류, 429, 5xx, timeout은 job 실패다. 배포 후 제출 실패는 이미 검증된 frontend를 rollback하지 않고 warning과 job summary에 남기며 정기 monitor가 재시도한다.
 
 ## Ops 검증
 
