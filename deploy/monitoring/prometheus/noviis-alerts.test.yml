@@ -52,6 +52,26 @@ tests:
     input_series:
       - series: 'process_start_time_seconds{instance="localhost:8081",job="noviis-backend"}'
         values: '0+0x15'
+      - series: 'noviis_notification_keyword_fanout_jobs_pending'
+        values: '0+0x15'
+      - series: 'noviis_notification_keyword_fanout_jobs_dead_letter'
+        values: '0+0x15'
+      - series: 'noviis_notification_keyword_fanout_jobs_oldest_due_age_seconds'
+        values: '0+0x15'
+      - series: 'noviis_notification_keyword_fanout_jobs_total{outcome="retry"}'
+        values: '0+0x15'
+      - series: 'noviis_file_variant_cleanup_dead_letter'
+        values: '0+0x15'
+      - series: 'noviis_file_variant_cleanup_oldest_due_age_seconds'
+        values: '0+0x15'
+      - series: 'noviis_file_variant_cleanup_total{outcome="retry"}'
+        values: '0+0x15'
+      - series: 'noviis_semantic_reindex_jobs_pending'
+        values: '0+0x15'
+      - series: 'noviis_semantic_reindex_jobs_processing'
+        values: '0+0x15'
+      - series: 'noviis_semantic_reindex_jobs_oldest_active_age_seconds'
+        values: '0+0x15'
     alert_rule_test:
       - eval_time: 10m
         alertname: NoviIsRequiredBackendMetricMissing
@@ -294,7 +314,7 @@ tests:
     input_series:
       - series: 'noviis_async_rejected_total{executor="durable",outcome="exception"}'
         values: '0 1+0x6'
-      - series: 'noviis_async_rejected_total{executor="notification",outcome="caller-runs"}'
+      - series: 'noviis_async_rejected_total{executor="notification",outcome="exception"}'
         values: '0 1+0x6'
       - series: 'noviis_async_rejected_total{executor="observability",outcome="dropped"}'
         values: '0 1+0x6'
@@ -309,14 +329,14 @@ tests:
             exp_annotations:
               summary: "A durable asynchronous task was rejected"
       - eval_time: 2m
-        alertname: NoviIsAsyncNotificationCallerRuns
+        alertname: NoviIsAsyncNotificationRejected
         exp_alerts:
           - exp_labels:
               executor: notification
-              outcome: caller-runs
+              outcome: exception
               severity: warning
             exp_annotations:
-              summary: "Notification async saturation moved work onto a caller thread"
+              summary: "A notification asynchronous task was rejected"
       - eval_time: 2m
         alertname: NoviIsAsyncObservabilityDropped
         exp_alerts:
@@ -474,6 +494,10 @@ tests:
         values: '101+0x15'
       - series: 'noviis_notification_delivery_jobs_dead_letter'
         values: '1+0x15'
+      - series: 'noviis_notification_delivery_jobs_oldest_due_age_seconds'
+        values: '360+0x15'
+      - series: 'noviis_notification_delivery_jobs_oldest_lease_age_seconds'
+        values: '180+0x15'
     alert_rule_test:
       - eval_time: 10m
         alertname: NoviIsNotificationDeliveryBacklog
@@ -489,6 +513,78 @@ tests:
               severity: critical
             exp_annotations:
               summary: "A durable notification delivery exhausted all retries"
+      - eval_time: 5m
+        alertname: NoviIsNotificationDeliveryOldestDueStale
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: "The oldest due notification delivery has waited more than five minutes"
+      - eval_time: 2m
+        alertname: NoviIsNotificationDeliveryLeaseStale
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+            exp_annotations:
+              summary: "A notification delivery lease has remained active for more than two minutes"
+
+  - name: small durable maintenance queues alert by age and dead letter
+    interval: 1m
+    input_series:
+      - series: 'noviis_notification_keyword_fanout_jobs_oldest_due_age_seconds'
+        values: '360+0x20'
+      - series: 'noviis_notification_keyword_fanout_jobs_dead_letter'
+        values: '1+0x20'
+      - series: 'noviis_notification_keyword_fanout_jobs_total{outcome="retry"}'
+        values: '0+2x20'
+      - series: 'noviis_file_variant_cleanup_oldest_due_age_seconds'
+        values: '1000+0x20'
+      - series: 'noviis_file_variant_cleanup_dead_letter'
+        values: '1+0x20'
+      - series: 'noviis_file_variant_cleanup_total{outcome="retry"}'
+        values: '0+2x20'
+      - series: 'noviis_semantic_reindex_jobs_oldest_active_age_seconds'
+        values: '1000+0x20'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: NoviIsKeywordFanoutStale
+        exp_alerts:
+          - exp_labels: { severity: warning }
+            exp_annotations: { summary: "The oldest keyword notification fan-out has waited more than five minutes" }
+      - eval_time: 2m
+        alertname: NoviIsKeywordFanoutDeadLetter
+        exp_alerts:
+          - exp_labels: { severity: critical }
+            exp_annotations: { summary: "A keyword notification fan-out exhausted all retries" }
+      - eval_time: 15m
+        alertname: NoviIsKeywordFanoutRetrySurge
+        exp_alerts:
+          - exp_labels:
+              outcome: retry
+              severity: warning
+            exp_annotations: { summary: "Keyword notification fan-out retries exceeded 20 in 15 minutes" }
+      - eval_time: 5m
+        alertname: NoviIsFileVariantCleanupStale
+        exp_alerts:
+          - exp_labels: { severity: warning }
+            exp_annotations: { summary: "An image variant cleanup has remained due for more than 15 minutes" }
+      - eval_time: 2m
+        alertname: NoviIsFileVariantCleanupDeadLetter
+        exp_alerts:
+          - exp_labels: { severity: critical }
+            exp_annotations: { summary: "An image variant cleanup exhausted all retries" }
+      - eval_time: 15m
+        alertname: NoviIsFileVariantCleanupRetrySurge
+        exp_alerts:
+          - exp_labels:
+              outcome: retry
+              severity: warning
+            exp_annotations: { summary: "Image variant cleanup retries exceeded 20 in 15 minutes" }
+      - eval_time: 5m
+        alertname: NoviIsSemanticReindexStale
+        exp_alerts:
+          - exp_labels: { severity: warning }
+            exp_annotations: { summary: "A semantic reindex cursor job has remained active for more than 15 minutes" }
 
   - name: process start time change reports a restart
     interval: 1m
@@ -505,6 +601,22 @@ tests:
               severity: info
             exp_annotations:
               summary: "The NoviIs backend process restarted within the last 15 minutes"
+
+  - name: deployment cleanup debt persists beyond the operator grace period
+    interval: 1m
+    input_series:
+      - series: 'noviis_deployment_cleanup_debt{component="backend",debt="release_retention"}'
+        values: '1+0x20'
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: NoviIsDeploymentCleanupDebt
+        exp_alerts:
+          - exp_labels:
+              component: backend
+              debt: release_retention
+              severity: warning
+            exp_annotations:
+              summary: "Deployment cleanup debt remains for backend: release_retention"
 
   - name: Prometheus restart is not reported as a backend restart
     interval: 1m

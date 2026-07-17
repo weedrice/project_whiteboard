@@ -68,6 +68,8 @@ Open Grafana only through an SSH tunnel: `ssh -L 3000:127.0.0.1:3000 ubuntu@<hos
 
 ## Alert thresholds and metric semantics
 
+Deployment cleanup is exported through the node-exporter textfile collector as `noviis_deployment_cleanup_debt`. Install `record-cleanup-debt.sh` as `/usr/local/sbin/record-noviis-cleanup-debt` and use the checked-in exporter override. Successful cleanup writes zero; failed retention, incoming-release, or status cleanup writes one and alerts after 15 minutes.
+
 `noviis_scheduler_last_success_timestamp_seconds` advances only after a scheduled method completes successfully. A failed run records the existing error timer but does not overwrite its previous success timestamp. The stale and heartbeat startup grace calculations use only `process_start_time_seconds{job="noviis-backend"}`; Prometheus uptime or restart cannot bypass backend startup grace or produce a backend restart event. A missing timestamp becomes stale only after the backend process has been up longer than that job's threshold.
 
 Prometheus scrapes its own loopback metrics as the `prometheus` job. Critical rules cover self-scrape loss, rule evaluation failures, failed configuration reloads, and TSDB WAL, compaction, checkpoint, or truncation failures. The backend's heartbeat, semantic backlog, JVM heap, and Hikari capacity metrics are also required after a 10-minute process startup grace; disappearance is distinct from a healthy zero value and raises `NoviIsRequiredBackendMetricMissing`.
@@ -87,7 +89,7 @@ Web Push delivery counters distinguish success, failure, timeout, and expired su
 
 Durable notification delivery exposes pending and dead-letter gauges plus retry outcomes. A sustained pending backlog above 100 is a warning; any dead-lettered notification is critical because automatic retries are exhausted. The dashboard keeps backlog state and 15-minute outcomes together for incident triage.
 
-Async executor metrics expose active workers, queue depth, remaining queue capacity, and rejection outcomes. Durable rejection is critical because durable work was not accepted. Notification caller-runs is a latency warning because the request or scheduler thread inherited the work. Observability drops are warning-level data loss. Sustained zero remaining capacity while work is active raises a separate saturation alert. `required-backend-metrics.txt` is the canonical startup metric contract and `verify-required-backend-metrics.py` prevents its `absent()` checks from drifting.
+Async executor metrics expose active workers, queue depth, remaining queue capacity, and rejection outcomes. Durable rejection is critical because durable work was not accepted. Notification rejection is a warning: durable notification jobs remain available to the scheduler, while best-effort push dispatch may be skipped without moving external I/O onto the caller thread. Observability drops are warning-level data loss. Sustained zero remaining capacity while work is active raises a separate saturation alert. `required-backend-metrics.txt` is the canonical startup metric contract and `verify-required-backend-metrics.py` prevents its `absent()` checks from drifting.
 
 The documented startup metric contract is generated and reviewed as this exact set:
 
@@ -101,6 +103,16 @@ noviis_async_queue_remaining
 noviis_async_rejected_total
 noviis_notification_delivery_jobs_dead_letter
 noviis_notification_delivery_jobs_pending
+noviis_notification_keyword_fanout_jobs_dead_letter
+noviis_notification_keyword_fanout_jobs_oldest_due_age_seconds
+noviis_notification_keyword_fanout_jobs_pending
+noviis_notification_keyword_fanout_jobs_total
+noviis_file_variant_cleanup_dead_letter
+noviis_file_variant_cleanup_oldest_due_age_seconds
+noviis_file_variant_cleanup_total
+noviis_semantic_reindex_jobs_oldest_active_age_seconds
+noviis_semantic_reindex_jobs_pending
+noviis_semantic_reindex_jobs_processing
 noviis_semantic_jobs_oldest_age_seconds
 noviis_semantic_jobs_pending
 noviis_sse_heartbeat_gap_seconds

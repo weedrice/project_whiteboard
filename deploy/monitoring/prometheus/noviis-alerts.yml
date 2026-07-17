@@ -97,6 +97,16 @@ groups:
             or label_replace(absent(noviis_async_rejected_total), "missing_metric", "noviis_async_rejected_total", "", "")
             or label_replace(absent(noviis_notification_delivery_jobs_pending), "missing_metric", "noviis_notification_delivery_jobs_pending", "", "")
             or label_replace(absent(noviis_notification_delivery_jobs_dead_letter), "missing_metric", "noviis_notification_delivery_jobs_dead_letter", "", "")
+            or label_replace(absent(noviis_notification_keyword_fanout_jobs_pending), "missing_metric", "noviis_notification_keyword_fanout_jobs_pending", "", "")
+            or label_replace(absent(noviis_notification_keyword_fanout_jobs_dead_letter), "missing_metric", "noviis_notification_keyword_fanout_jobs_dead_letter", "", "")
+            or label_replace(absent(noviis_notification_keyword_fanout_jobs_oldest_due_age_seconds), "missing_metric", "noviis_notification_keyword_fanout_jobs_oldest_due_age_seconds", "", "")
+            or label_replace(absent(noviis_notification_keyword_fanout_jobs_total), "missing_metric", "noviis_notification_keyword_fanout_jobs_total", "", "")
+            or label_replace(absent(noviis_file_variant_cleanup_dead_letter), "missing_metric", "noviis_file_variant_cleanup_dead_letter", "", "")
+            or label_replace(absent(noviis_file_variant_cleanup_oldest_due_age_seconds), "missing_metric", "noviis_file_variant_cleanup_oldest_due_age_seconds", "", "")
+            or label_replace(absent(noviis_file_variant_cleanup_total), "missing_metric", "noviis_file_variant_cleanup_total", "", "")
+            or label_replace(absent(noviis_semantic_reindex_jobs_pending), "missing_metric", "noviis_semantic_reindex_jobs_pending", "", "")
+            or label_replace(absent(noviis_semantic_reindex_jobs_processing), "missing_metric", "noviis_semantic_reindex_jobs_processing", "", "")
+            or label_replace(absent(noviis_semantic_reindex_jobs_oldest_active_age_seconds), "missing_metric", "noviis_semantic_reindex_jobs_oldest_active_age_seconds", "", "")
           )
           and on() (max(time() - process_start_time_seconds{job="noviis-backend"}) > 600)
         for: 2m
@@ -190,10 +200,10 @@ groups:
         expr: increase(noviis_async_rejected_total{executor="durable",outcome="exception"}[5m]) > 0
         labels: { severity: critical }
         annotations: { summary: "A durable asynchronous task was rejected" }
-      - alert: NoviIsAsyncNotificationCallerRuns
-        expr: increase(noviis_async_rejected_total{executor="notification",outcome="caller-runs"}[5m]) > 0
+      - alert: NoviIsAsyncNotificationRejected
+        expr: increase(noviis_async_rejected_total{executor="notification",outcome="exception"}[5m]) > 0
         labels: { severity: warning }
-        annotations: { summary: "Notification async saturation moved work onto a caller thread" }
+        annotations: { summary: "A notification asynchronous task was rejected" }
       - alert: NoviIsAsyncObservabilityDropped
         expr: increase(noviis_async_rejected_total{executor="observability",outcome="dropped"}[5m]) > 0
         labels: { severity: warning }
@@ -227,6 +237,49 @@ groups:
         for: 2m
         labels: { severity: critical }
         annotations: { summary: "A durable notification delivery exhausted all retries" }
+      - alert: NoviIsNotificationDeliveryOldestDueStale
+        expr: noviis_notification_delivery_jobs_oldest_due_age_seconds > 300
+        for: 5m
+        labels: { severity: warning }
+        annotations: { summary: "The oldest due notification delivery has waited more than five minutes" }
+      - alert: NoviIsNotificationDeliveryLeaseStale
+        expr: noviis_notification_delivery_jobs_oldest_lease_age_seconds > 120
+        for: 2m
+        labels: { severity: critical }
+        annotations: { summary: "A notification delivery lease has remained active for more than two minutes" }
+      - alert: NoviIsKeywordFanoutStale
+        expr: noviis_notification_keyword_fanout_jobs_oldest_due_age_seconds > 300
+        for: 5m
+        labels: { severity: warning }
+        annotations: { summary: "The oldest keyword notification fan-out has waited more than five minutes" }
+      - alert: NoviIsKeywordFanoutDeadLetter
+        expr: noviis_notification_keyword_fanout_jobs_dead_letter > 0
+        for: 2m
+        labels: { severity: critical }
+        annotations: { summary: "A keyword notification fan-out exhausted all retries" }
+      - alert: NoviIsKeywordFanoutRetrySurge
+        expr: increase(noviis_notification_keyword_fanout_jobs_total{outcome="retry"}[15m]) > 20
+        labels: { severity: warning }
+        annotations: { summary: "Keyword notification fan-out retries exceeded 20 in 15 minutes" }
+      - alert: NoviIsFileVariantCleanupStale
+        expr: noviis_file_variant_cleanup_oldest_due_age_seconds > 900
+        for: 5m
+        labels: { severity: warning }
+        annotations: { summary: "An image variant cleanup has remained due for more than 15 minutes" }
+      - alert: NoviIsFileVariantCleanupDeadLetter
+        expr: noviis_file_variant_cleanup_dead_letter > 0
+        for: 2m
+        labels: { severity: critical }
+        annotations: { summary: "An image variant cleanup exhausted all retries" }
+      - alert: NoviIsFileVariantCleanupRetrySurge
+        expr: increase(noviis_file_variant_cleanup_total{outcome="retry"}[15m]) > 20
+        labels: { severity: warning }
+        annotations: { summary: "Image variant cleanup retries exceeded 20 in 15 minutes" }
+      - alert: NoviIsSemanticReindexStale
+        expr: noviis_semantic_reindex_jobs_oldest_active_age_seconds > 900
+        for: 5m
+        labels: { severity: warning }
+        annotations: { summary: "A semantic reindex cursor job has remained active for more than 15 minutes" }
       - alert: NoviIsProcessRestarted
         expr: changes(process_start_time_seconds{job="noviis-backend"}[15m]) > 0
         labels: { severity: info }
@@ -271,6 +324,12 @@ groups:
         for: 30m
         labels: { severity: warning }
         annotations: { summary: "The NoviIs host root filesystem is predicted to fill within 24 hours" }
+      - alert: NoviIsDeploymentCleanupDebt
+        expr: noviis_deployment_cleanup_debt == 1
+        for: 15m
+        labels: { severity: warning }
+        annotations:
+          summary: "Deployment cleanup debt remains for {{ $labels.component }}: {{ $labels.debt }}"
       - alert: NoviIsAgentPurgeBacklog
         expr: noviis_agent_pending_claim_purge_eligible > 5000
         for: 1h
