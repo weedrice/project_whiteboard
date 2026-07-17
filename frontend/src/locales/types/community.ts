@@ -325,6 +325,7 @@ export interface BoardMessages {
     tags: string
     suggestTags: string
     suggestingTags: string
+    tagSuggestionFailed: string
     viewHtmlSource: string
     htmlSourceTitle: string
     htmlSourcePlaceholder: string

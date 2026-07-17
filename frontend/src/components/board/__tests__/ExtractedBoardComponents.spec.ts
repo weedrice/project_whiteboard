@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from 'vitest'
-import { mount, RouterLinkStub } from '@vue/test-utils'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { flushPromises, mount, RouterLinkStub } from '@vue/test-utils'
 import BoardNoticeList from '@/components/board/BoardNoticeList.vue'
 import BoardDetailHeader from '@/components/board/BoardDetailHeader.vue'
 import BoardPostFilters from '@/components/board/BoardPostFilters.vue'
@@ -9,6 +9,10 @@ import PostFormMetadataPanel from '@/components/board/PostFormMetadataPanel.vue'
 import PostListMobileItem from '@/components/board/PostListMobileItem.vue'
 import type { BoardDetail, Category, PostSummary } from '@/types/board'
 import type { PostDetailViewModel } from '@/features/board/posts/detail/usePostDetailViewModel'
+
+const tagApiMocks = vi.hoisted(() => ({ suggestTags: vi.fn() }))
+
+vi.mock('@/api/tag', () => ({ tagApi: tagApiMocks }))
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({
@@ -68,6 +72,9 @@ const boardDetail = (overrides: Partial<BoardDetail> = {}): BoardDetail => ({
 })
 
 describe('extracted board components', () => {
+  beforeEach(() => {
+    tagApiMocks.suggestTags.mockReset()
+  })
   it('renders board detail header fallback icon, subscribe state and management links', async () => {
     const wrapper = mount(BoardDetailHeader, {
       props: {
@@ -294,6 +301,54 @@ describe('extracted board components', () => {
     expect(wrapper.emitted('update:categoryId')?.[0]).toEqual(['2'])
     expect(wrapper.emitted('update:isNotice')?.[0]).toEqual([true])
     expect(wrapper.emitted('update:tags')?.[0]).toEqual([['vue']])
+  })
+
+  it('drops stale tag suggestions after the editor input changes', async () => {
+    let resolveSuggestion!: (value: unknown) => void
+    tagApiMocks.suggestTags.mockReturnValueOnce(new Promise((resolve) => {
+      resolveSuggestion = resolve
+    }))
+    const wrapper = mount(PostFormMetadataPanel, {
+      props: {
+        layout: 'desktop', categories: [], title: 'Old title', content: '<p>Old</p>',
+        categoryId: '', seriesOptions: [], seriesId: '', newSeriesTitle: '',
+        isCreatingSeries: false, tags: [], isNotice: false, isNsfw: false,
+        isSpoiler: false, isSecret: false,
+      },
+      global: { stubs: { PostTags: true } },
+    })
+
+    await wrapper.get('button').trigger('click')
+    const signal = tagApiMocks.suggestTags.mock.calls[0][1].signal as AbortSignal
+    await wrapper.setProps({ title: 'New title' })
+    resolveSuggestion({ data: { data: { suggestions: ['stale-tag'] } } })
+    await flushPromises()
+
+    expect(signal.aborted).toBe(true)
+    expect(wrapper.text()).not.toContain('#stale-tag')
+  })
+
+  it('shows a retry boundary when tag suggestions fail', async () => {
+    tagApiMocks.suggestTags
+      .mockRejectedValueOnce(new Error('network'))
+      .mockResolvedValueOnce({ data: { data: { suggestions: ['retry-tag'] } } })
+    const wrapper = mount(PostFormMetadataPanel, {
+      props: {
+        layout: 'desktop', categories: [], title: 'Title', content: '<p>Body</p>',
+        categoryId: '', seriesOptions: [], seriesId: '', newSeriesTitle: '',
+        isCreatingSeries: false, tags: [], isNotice: false, isNsfw: false,
+        isSpoiler: false, isSecret: false,
+      },
+      global: { stubs: { PostTags: true } },
+    })
+
+    await wrapper.get('button').trigger('click')
+    await flushPromises()
+    expect(wrapper.get('[role="alert"]').text()).toContain('board.writePost.tagSuggestionFailed')
+
+    await wrapper.get('[role="alert"] button').trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toContain('#retry-tag')
   })
 
   it('renders mobile post items with route target and navigation event', async () => {

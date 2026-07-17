@@ -53,6 +53,7 @@ export const boardEnWritePostMessages: BoardMessages['writePost'] = {
     tags: 'Tags',
     suggestTags: 'Suggest tags',
     suggestingTags: 'Suggesting...',
+    tagSuggestionFailed: 'Failed to suggest tags. Please try again.',
     viewHtmlSource: 'HTML',
     htmlSourceTitle: 'Post HTML',
     htmlSourcePlaceholder: 'Enter HTML directly.',

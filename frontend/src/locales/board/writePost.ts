@@ -52,6 +52,7 @@ export const boardWritePostMessages: BoardMessages['writePost'] = {
     tags: '태그',
     suggestTags: '태그 제안',
     suggestingTags: '제안 중...',
+    tagSuggestionFailed: '태그를 제안하지 못했습니다. 다시 시도해 주세요.',
     viewHtmlSource: 'HTML',
     htmlSourceTitle: '본문 HTML',
     htmlSourcePlaceholder: 'HTML을 직접 입력해 주세요.',

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseCheckbox from '@/components/common/ui/BaseCheckbox.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
@@ -68,7 +68,11 @@ const tagsInputId = computed(() => isMobile.value ? 'post-tags-input-mobile' : '
 const checkboxSuffix = computed(() => isMobile.value ? '-m' : '')
 const isSuggestingTags = ref(false)
 const suggestedTags = ref<string[]>([])
+const tagSuggestionFailed = ref(false)
 const visibleSuggestedTags = computed(() => suggestedTags.value.filter((tag) => !hasTag(tag)))
+let inputRevision = 0
+let suggestionSequence = 0
+let suggestionController: AbortController | null = null
 
 type BooleanUpdateEvent = 'update:isNotice' | 'update:isNsfw' | 'update:isSpoiler' | 'update:isSecret'
 
@@ -95,19 +99,62 @@ const hasTag = (tag: string) => props.tags.some((existing) => existing.trim().to
 
 async function suggestTags() {
   if (isSuggestingTags.value) return
+  const revision = inputRevision
+  const sequence = ++suggestionSequence
+  const controller = new AbortController()
+  const request = {
+    title: props.title,
+    contents: props.content,
+    boardUrl: props.boardUrl,
+    existingTags: [...props.tags],
+  }
+  suggestionController?.abort()
+  suggestionController = controller
   isSuggestingTags.value = true
+  tagSuggestionFailed.value = false
   try {
-    const response = unwrapAxiosApiData(await tagApi.suggestTags({
-      title: props.title,
-      contents: props.content,
-      boardUrl: props.boardUrl,
-      existingTags: props.tags,
-    }))
+    const response = unwrapAxiosApiData(await tagApi.suggestTags(request, { signal: controller.signal }))
+    if (
+      controller.signal.aborted
+      || sequence !== suggestionSequence
+      || revision !== inputRevision
+    ) return
     suggestedTags.value = response.suggestions ?? []
+  } catch {
+    if (
+      controller.signal.aborted
+      || sequence !== suggestionSequence
+      || revision !== inputRevision
+    ) return
+    tagSuggestionFailed.value = true
   } finally {
-    isSuggestingTags.value = false
+    if (sequence === suggestionSequence) {
+      isSuggestingTags.value = false
+      if (suggestionController === controller) suggestionController = null
+    }
   }
 }
+
+watch([
+  () => props.title,
+  () => props.content,
+  () => props.boardUrl,
+  () => props.tags,
+], () => {
+  inputRevision += 1
+  suggestionSequence += 1
+  suggestionController?.abort()
+  suggestionController = null
+  isSuggestingTags.value = false
+  tagSuggestionFailed.value = false
+  suggestedTags.value = []
+}, { deep: true, flush: 'sync' })
+
+onUnmounted(() => {
+  suggestionSequence += 1
+  suggestionController?.abort()
+  suggestionController = null
+})
 
 function addSuggestedTag(tag: string) {
   if (hasTag(tag)) return
@@ -256,6 +303,12 @@ function addSuggestedTag(tag: string) {
         >
           #{{ tag }}
         </button>
+      </div>
+      <div v-else-if="tagSuggestionFailed" class="mt-2 text-sm nv-form-error" role="alert">
+        <p>{{ t('board.writePost.tagSuggestionFailed') }}</p>
+        <BaseButton type="button" size="sm" variant="secondary" class="mt-2" @click="suggestTags">
+          {{ t('common.error.retry') }}
+        </BaseButton>
       </div>
     </div>
 
