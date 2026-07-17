@@ -30,6 +30,19 @@ public class MqueueCleanupService {
         return deleted;
     }
 
+    @Transactional
+    public int deleteExpiredDeliveredUnconfirmedBatch() {
+        LocalDateTime cutoff = LocalDateTime.now(clock)
+                .minusDays(properties.getDeliveredUnconfirmedRetentionDays());
+        int deleted = messageQueueRepository.deleteDeliveredUnconfirmedBatch(
+                cutoff,
+                properties.getCleanupBatchSize());
+        if (deleted > 0) {
+            meterRegistry.counter("noviis.message.queue.delivered.unconfirmed.cleaned").increment(deleted);
+        }
+        return deleted;
+    }
+
     private Counter cleanupCounter() {
         return meterRegistry.counter("noviis.message.queue.terminal.cleaned");
     }

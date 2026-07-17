@@ -103,5 +103,54 @@ public interface VerificationCodeRepository extends JpaRepository<VerificationCo
             @Param("excludeVerificationId") Long excludeVerificationId,
             @Param("now") LocalDateTime now);
 
-    void deleteByExpiryDateBefore(LocalDateTime now);
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query(value = """
+            UPDATE verification_codes
+            SET delivery_status = 'FAILED',
+                modified_at = :recoveredAt
+            WHERE verification_id IN (
+                SELECT verification_id
+                FROM verification_codes
+                WHERE delivery_status = 'PENDING'
+                  AND expiry_date < :recoveredAt
+                  AND created_at < :staleBefore
+                  AND modified_at < :staleBefore
+                ORDER BY created_at ASC, verification_id ASC
+                LIMIT :batchSize
+            )
+            """, nativeQuery = true)
+    int recoverStalePendingDeliveries(
+            @Param("staleBefore") LocalDateTime staleBefore,
+            @Param("recoveredAt") LocalDateTime recoveredAt,
+            @Param("batchSize") int batchSize);
+
+    @Query(value = """
+            SELECT COUNT(*)
+            FROM verification_codes
+            WHERE delivery_status = 'PENDING'
+              AND expiry_date < :now
+              AND created_at < :staleBefore
+              AND modified_at < :staleBefore
+            """, nativeQuery = true)
+    long countStalePendingDeliveries(
+            @Param("staleBefore") LocalDateTime staleBefore,
+            @Param("now") LocalDateTime now);
+
+    @Modifying
+    @Query(value = """
+            DELETE FROM verification_codes
+            WHERE verification_id IN (
+                SELECT verification_id
+                FROM verification_codes
+                WHERE (delivery_status IN ('SENT', 'FAILED') OR delivery_status IS NULL)
+                  AND expiry_date < :cutoff
+                  AND (ticket_expiry_date IS NULL OR ticket_expiry_date < :cutoff)
+                  AND modified_at < :cutoff
+                ORDER BY expiry_date ASC, verification_id ASC
+                LIMIT :batchSize
+            )
+            """, nativeQuery = true)
+    int deleteExpiredTerminalBatch(
+            @Param("cutoff") LocalDateTime cutoff,
+            @Param("batchSize") int batchSize);
 }

@@ -46,6 +46,9 @@ groups:
       - record: noviis_scheduler_expected_max_age_seconds
         expr: vector(108000)
         labels: { cadence: daily, scheduled_job: UserFeedCleanupScheduler.cleanupHardStalePostFeeds, threshold: 30h }
+      - record: noviis_scheduler_expected_max_age_seconds
+        expr: vector(108000)
+        labels: { cadence: daily, scheduled_job: VerificationCodeCleanupScheduler.cleanupExpiredVerificationCodes, threshold: 30h }
 
       - alert: NoviIsBackendDown
         expr: up{job="noviis-backend"} == 0 or absent(up{job="noviis-backend"})

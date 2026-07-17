@@ -86,6 +86,11 @@ public class MqueueScheduler {
         if (cleaned > 0) {
             log.info("Deleted {} expired terminal message queue row(s)", cleaned);
         }
+        int unconfirmedCleaned = mqueueCleanupService.deleteExpiredDeliveredUnconfirmedBatch();
+        if (unconfirmedCleaned > 0) {
+            log.info("Deleted {} delivered-unconfirmed message queue row(s) after investigation grace",
+                    unconfirmedCleaned);
+        }
         log.info("Message queue scheduler finished: attempted {}", pendingQueueIds.size());
     }
 

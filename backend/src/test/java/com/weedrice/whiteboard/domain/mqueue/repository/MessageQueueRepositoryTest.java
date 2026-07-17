@@ -401,6 +401,37 @@ class MessageQueueRepositoryTest {
         assertThat(messageQueueRepository.findById(recentSent.getQueueId())).isPresent();
     }
 
+    @Test
+    @DisplayName("delivered-unconfirmed cleanup deletes only rows past the investigation grace")
+    void deleteDeliveredUnconfirmedBatch_deletesOnlyExpiredUnconfirmedRows() {
+        User user = persistUser();
+        LocalDateTime cutoff = LocalDateTime.of(2026, 7, 10, 0, 0);
+        MessageQueue oldest = persistMessageQueue(user, "contains-private-email-content", cutoff.minusDays(10));
+        MessageQueue second = persistMessageQueue(user, "second-private-content", cutoff.minusDays(9));
+        MessageQueue recent = persistMessageQueue(user, "recent-private-content", cutoff.minusDays(8));
+        MessageQueue sent = persistMessageQueue(user, "sent-content", cutoff.minusDays(20));
+        markDeliveredUnconfirmed(oldest, cutoff.minusDays(3));
+        markDeliveredUnconfirmed(second, cutoff.minusDays(2));
+        markDeliveredUnconfirmed(recent, cutoff.plusHours(1));
+        ReflectionTestUtils.setField(sent, "status", MessageQueue.STATUS_SENT);
+        entityManager.flush();
+        updateModifiedAt(oldest, cutoff.minusDays(3));
+        updateModifiedAt(second, cutoff.minusDays(2));
+        updateModifiedAt(recent, cutoff.minusDays(1));
+        updateModifiedAt(sent, cutoff.minusDays(3));
+        entityManager.clear();
+
+        int deleted = messageQueueRepository.deleteDeliveredUnconfirmedBatch(cutoff, 1);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(deleted).isEqualTo(1);
+        assertThat(messageQueueRepository.findById(oldest.getQueueId())).isEmpty();
+        assertThat(messageQueueRepository.findById(second.getQueueId())).isPresent();
+        assertThat(messageQueueRepository.findById(recent.getQueueId())).isPresent();
+        assertThat(messageQueueRepository.findById(sent.getQueueId())).isPresent();
+    }
+
     private MessageQueue persistMessageQueue() {
         User user = persistUser();
         MessageQueue message = MessageQueue.builder()
@@ -445,5 +476,12 @@ class MessageQueueRepositoryTest {
                 .setParameter("modifiedAt", modifiedAt)
                 .setParameter("queueId", message.getQueueId())
                 .executeUpdate();
+    }
+
+    private void markDeliveredUnconfirmed(MessageQueue message, LocalDateTime uncertainAt) {
+        ReflectionTestUtils.setField(message, "status", MessageQueue.STATUS_DELIVERED_UNCONFIRMED);
+        ReflectionTestUtils.setField(message, "deliveryUncertainAt", uncertainAt);
+        ReflectionTestUtils.setField(message, "sendAttemptId", "attempt-" + message.getQueueId());
+        ReflectionTestUtils.setField(message, "sendAttemptStartedAt", uncertainAt);
     }
 }

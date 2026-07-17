@@ -75,6 +75,21 @@ class MqueueSchedulerTest {
     }
 
     @Test
+    @DisplayName("scheduler applies terminal and delivered-unconfirmed retention policies")
+    void processMessageQueue_cleansTerminalAndUnconfirmedRows() {
+        when(messageQueueRepository.findPendingQueueIdsByStatusAndRetryCountLessThanAndDeliveryMethod(
+                eq("PENDING"), eq(MessageQueuePolicy.MAX_RETRY_COUNT), eq("EMAIL"), any(Pageable.class)))
+                .thenReturn(List.of());
+        when(mqueueCleanupService.deleteExpiredTerminalBatch()).thenReturn(3);
+        when(mqueueCleanupService.deleteExpiredDeliveredUnconfirmedBatch()).thenReturn(2);
+
+        mqueueScheduler.processMessageQueue();
+
+        verify(mqueueCleanupService).deleteExpiredTerminalBatch();
+        verify(mqueueCleanupService).deleteExpiredDeliveredUnconfirmedBatch();
+    }
+
+    @Test
     @DisplayName("scheduler reads pending messages in stable FIFO order")
     void processMessageQueue_usesStableFifoPageRequest() {
         when(messageQueueRepository.recoverStaleProcessingMessages(

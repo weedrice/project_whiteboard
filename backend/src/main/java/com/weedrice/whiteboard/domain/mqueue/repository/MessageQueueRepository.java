@@ -170,6 +170,24 @@ public interface MessageQueueRepository extends JpaRepository<MessageQueue, Long
             @Param("cutoff") LocalDateTime cutoff,
             @Param("batchSize") int batchSize);
 
+    @Modifying
+    @Query(value = """
+            DELETE FROM message_queue
+            WHERE queue_id IN (
+                SELECT queue_id
+                FROM message_queue
+                WHERE status = 'DELIVERED_UNCONFIRMED'
+                  AND COALESCE(delivery_uncertain_at, send_attempt_started_at, modified_at) < :cutoff
+                  AND modified_at < :cutoff
+                ORDER BY COALESCE(delivery_uncertain_at, send_attempt_started_at, modified_at) ASC,
+                         queue_id ASC
+                LIMIT :batchSize
+            )
+            """, nativeQuery = true)
+    int deleteDeliveredUnconfirmedBatch(
+            @Param("cutoff") LocalDateTime cutoff,
+            @Param("batchSize") int batchSize);
+
     interface EmailDispatchProjection {
         Long getQueueId();
 

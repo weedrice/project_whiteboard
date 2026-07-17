@@ -1,4 +1,4 @@
-package com.weedrice.whiteboard.domain.mqueue;
+package com.weedrice.whiteboard.domain.auth;
 
 import jakarta.validation.constraints.Positive;
 import lombok.Getter;
@@ -11,14 +11,20 @@ import org.springframework.validation.annotation.Validated;
 @Setter
 @Validated
 @Component
-@ConfigurationProperties(prefix = "app.message-queue")
-public class MqueueRetentionProperties {
+@ConfigurationProperties(prefix = "app.verification-code")
+public class VerificationCodeRetentionProperties {
 
     @Positive
-    private int terminalRetentionDays = 30;
+    private int terminalRetentionDays = 7;
 
     @Positive
-    private int deliveredUnconfirmedRetentionDays = 7;
+    private int pendingRecoveryGraceMinutes = 30;
+
+    @Positive
+    private int pendingRecoveryBatchSize = 500;
+
+    @Positive
+    private int pendingRecoveryMaxBatches = 10;
 
     @Positive
     private int cleanupBatchSize = 500;

@@ -45,7 +45,14 @@ app:
     cleanup-batch-size: ${APP_ERROR_LOG_CLEANUP_BATCH_SIZE:500}
   message-queue:
     terminal-retention-days: ${APP_MESSAGE_QUEUE_TERMINAL_RETENTION_DAYS:30}
+    delivered-unconfirmed-retention-days: ${APP_MESSAGE_QUEUE_DELIVERED_UNCONFIRMED_RETENTION_DAYS:7}
     cleanup-batch-size: ${APP_MESSAGE_QUEUE_CLEANUP_BATCH_SIZE:500}
+  verification-code:
+    terminal-retention-days: ${APP_VERIFICATION_CODE_TERMINAL_RETENTION_DAYS:7}
+    pending-recovery-grace-minutes: ${APP_VERIFICATION_CODE_PENDING_RECOVERY_GRACE_MINUTES:30}
+    pending-recovery-batch-size: ${APP_VERIFICATION_CODE_PENDING_RECOVERY_BATCH_SIZE:500}
+    pending-recovery-max-batches: ${APP_VERIFICATION_CODE_PENDING_RECOVERY_MAX_BATCHES:10}
+    cleanup-batch-size: ${APP_VERIFICATION_CODE_CLEANUP_BATCH_SIZE:500}
   agent:
     pending-claim-hard-delete-days: ${APP_AGENT_PENDING_CLAIM_HARD_DELETE_DAYS:7}
     pending-claim-purge-batch-size: ${APP_AGENT_PENDING_CLAIM_PURGE_BATCH_SIZE:500}

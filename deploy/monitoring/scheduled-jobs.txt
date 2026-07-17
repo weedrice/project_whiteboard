@@ -13,3 +13,4 @@ SemanticSearchJobMetrics.refresh|frequent|600
 SemanticSearchJobScheduler.processPendingSemanticSearchJobs|frequent|600
 TagCleanupScheduler.cleanupOrphanTags|daily|108000
 UserFeedCleanupScheduler.cleanupHardStalePostFeeds|daily|108000
+VerificationCodeCleanupScheduler.cleanupExpiredVerificationCodes|daily|108000

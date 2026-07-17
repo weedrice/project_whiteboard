@@ -209,6 +209,80 @@ class VerificationCodeRepositoryTest {
         assertThat(method.getAnnotation(Lock.class)).isNull();
     }
 
+    @Test
+    void deleteExpiredTerminalBatch_preservesPendingRecentAndActiveTicketRows() {
+        LocalDateTime cutoff = LocalDateTime.of(2026, 7, 1, 0, 0);
+        VerificationCode oldestSent = persistCode("oldest@example.com", VerificationPurpose.SIGNUP, "111111");
+        VerificationCode oldFailed = persistPendingCode("failed@example.com", VerificationPurpose.SIGNUP, "222222");
+        oldFailed.markFailed();
+        VerificationCode oldPending = persistPendingCode("pending@example.com", VerificationPurpose.SIGNUP, "333333");
+        VerificationCode activeTicket = persistCode("ticket@example.com", VerificationPurpose.SIGNUP, "444444");
+        activeTicket.issueVerificationTicket("active-ticket", cutoff.plusDays(1));
+        VerificationCode recentSent = persistCode("recent@example.com", VerificationPurpose.SIGNUP, "555555");
+        entityManager.flush();
+
+        updateRetentionTimes(oldestSent, cutoff.minusDays(3), cutoff.minusDays(3));
+        updateRetentionTimes(oldFailed, cutoff.minusDays(2), cutoff.minusDays(2));
+        updateRetentionTimes(oldPending, cutoff.minusDays(4), cutoff.minusDays(4));
+        updateRetentionTimes(activeTicket, cutoff.minusDays(5), cutoff.minusDays(5));
+        updateRetentionTimes(recentSent, cutoff.plusHours(1), cutoff.minusDays(1));
+        entityManager.clear();
+
+        int deleted = verificationCodeRepository.deleteExpiredTerminalBatch(cutoff, 1);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(deleted).isEqualTo(1);
+        assertThat(verificationCodeRepository.findById(oldestSent.getVerificationId())).isEmpty();
+        assertThat(verificationCodeRepository.findById(oldFailed.getVerificationId())).isPresent();
+        assertThat(verificationCodeRepository.findById(oldPending.getVerificationId())).isPresent();
+        assertThat(verificationCodeRepository.findById(activeTicket.getVerificationId())).isPresent();
+        assertThat(verificationCodeRepository.findById(recentSent.getVerificationId())).isPresent();
+    }
+
+    @Test
+    void recoverStalePendingDeliveries_recoversOnlyExpiredRowsPastGrace() {
+        LocalDateTime now = LocalDateTime.of(2026, 7, 17, 3, 0);
+        LocalDateTime staleBefore = now.minusMinutes(30);
+        VerificationCode stalePending = persistPendingCode(
+                "stale-pending@example.com", VerificationPurpose.SIGNUP, "111111");
+        VerificationCode secondStalePending = persistPendingCode(
+                "second-stale-pending@example.com", VerificationPurpose.SIGNUP, "555555");
+        VerificationCode recentPending = persistPendingCode(
+                "recent-pending@example.com", VerificationPurpose.SIGNUP, "222222");
+        VerificationCode unexpiredPending = persistPendingCode(
+                "unexpired-pending@example.com", VerificationPurpose.SIGNUP, "333333");
+        VerificationCode activeTicket = persistCode(
+                "active-ticket@example.com", VerificationPurpose.SIGNUP, "444444");
+        activeTicket.issueVerificationTicket("active-ticket", now.plusMinutes(10));
+        entityManager.flush();
+        updateLifecycleTimes(stalePending, now.minusHours(1), now.minusHours(1), now.minusHours(1));
+        updateLifecycleTimes(
+                secondStalePending,
+                now.minusHours(1),
+                now.minusMinutes(50),
+                now.minusMinutes(50));
+        updateLifecycleTimes(recentPending, now.minusHours(1), now.minusMinutes(10), now.minusMinutes(10));
+        updateLifecycleTimes(unexpiredPending, now.plusMinutes(5), now.minusHours(1), now.minusHours(1));
+        updateLifecycleTimes(activeTicket, now.minusHours(1), now.minusHours(1), now.minusHours(1));
+        entityManager.clear();
+
+        int recovered = verificationCodeRepository.recoverStalePendingDeliveries(staleBefore, now, 1);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(recovered).isEqualTo(1);
+        assertThat(find(stalePending).getDeliveryStatus()).isEqualTo(VerificationCode.DELIVERY_STATUS_FAILED);
+        assertThat(find(stalePending).getModifiedAt()).isEqualTo(now);
+        assertThat(find(secondStalePending).getDeliveryStatus())
+                .isEqualTo(VerificationCode.DELIVERY_STATUS_PENDING);
+        assertThat(verificationCodeRepository.countStalePendingDeliveries(staleBefore, now)).isEqualTo(1);
+        assertThat(find(recentPending).getDeliveryStatus()).isEqualTo(VerificationCode.DELIVERY_STATUS_PENDING);
+        assertThat(find(unexpiredPending).getDeliveryStatus()).isEqualTo(VerificationCode.DELIVERY_STATUS_PENDING);
+        assertThat(find(activeTicket).getDeliveryStatus()).isEqualTo(VerificationCode.DELIVERY_STATUS_SENT);
+        assertThat(find(activeTicket).getVerificationTicket()).isEqualTo("active-ticket");
+    }
+
     private VerificationCode persistCode(String email, VerificationPurpose purpose, String code) {
         VerificationCode verificationCode = VerificationCode.builder()
                 .email(email)
@@ -255,6 +329,43 @@ class VerificationCodeRepositoryTest {
         entityManager.getEntityManager()
                 .createNativeQuery("UPDATE verification_codes SET delivery_status = :deliveryStatus WHERE verification_id = :verificationId")
                 .setParameter("deliveryStatus", deliveryStatus)
+                .setParameter("verificationId", verificationCode.getVerificationId())
+                .executeUpdate();
+    }
+
+    private void updateRetentionTimes(
+            VerificationCode verificationCode,
+            LocalDateTime expiryDate,
+            LocalDateTime modifiedAt) {
+        entityManager.getEntityManager()
+                .createNativeQuery("""
+                        UPDATE verification_codes
+                        SET expiry_date = :expiryDate,
+                            modified_at = :modifiedAt
+                        WHERE verification_id = :verificationId
+                        """)
+                .setParameter("expiryDate", expiryDate)
+                .setParameter("modifiedAt", modifiedAt)
+                .setParameter("verificationId", verificationCode.getVerificationId())
+                .executeUpdate();
+    }
+
+    private void updateLifecycleTimes(
+            VerificationCode verificationCode,
+            LocalDateTime expiryDate,
+            LocalDateTime createdAt,
+            LocalDateTime modifiedAt) {
+        entityManager.getEntityManager()
+                .createNativeQuery("""
+                        UPDATE verification_codes
+                        SET expiry_date = :expiryDate,
+                            created_at = :createdAt,
+                            modified_at = :modifiedAt
+                        WHERE verification_id = :verificationId
+                        """)
+                .setParameter("expiryDate", expiryDate)
+                .setParameter("createdAt", createdAt)
+                .setParameter("modifiedAt", modifiedAt)
                 .setParameter("verificationId", verificationCode.getVerificationId())
                 .executeUpdate();
     }
