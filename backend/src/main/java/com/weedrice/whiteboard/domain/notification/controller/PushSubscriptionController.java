@@ -38,4 +38,10 @@ public class PushSubscriptionController {
         pushSubscriptionService.unsubscribe(userId, request);
         return ApiResponses.ok();
     }
+
+    @DeleteMapping("/all")
+    public ApiResponse<Void> unsubscribeAll(@CurrentUserId Long userId) {
+        pushSubscriptionService.unsubscribeAll(userId);
+        return ApiResponses.ok();
+    }
 }

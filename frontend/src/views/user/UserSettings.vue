@@ -88,7 +88,7 @@ const keywordMessage = ref('')
 const keywordIsError = ref(false)
 const pushMessage = ref('')
 const pushIsError = ref(false)
-const pushNotifications = usePushNotifications()
+const pushNotifications = usePushNotifications(() => Boolean(settingsData.value?.pushEnabled))
 
 const loading = computed(() => isSettingsLoading.value || isNotifLoading.value || isSessionsLoading.value)
 const criticalLoadError = computed(() => isSettingsError.value || isNotifError.value || isSessionsError.value)
@@ -115,12 +115,14 @@ const keywordValidationValues = computed(() => ({ keyword: keywordInput.value })
 const keywordNotificationEnabled = computed(() => notificationSettings.KEYWORD !== false)
 const keywordPending = computed(() => isKeywordLoading.value || isCreatingKeyword.value || isDeletingKeyword.value)
 const pushPending = computed(() => pushNotifications.isEnabling.value || pushNotifications.isDisabling.value)
-const browserPushEnabled = computed(() => Boolean(settingsData.value?.pushEnabled))
 const pushStatusKey = computed(() => {
   if (!pushNotifications.supported.value) return 'user.settings.pushUnsupported'
   if (!pushNotifications.enabled.value) return 'user.settings.pushUnavailable'
   if (pushNotifications.permission.value === 'denied') return 'user.settings.pushDenied'
-  return browserPushEnabled.value ? 'user.settings.pushEnabled' : 'user.settings.pushDisabled'
+  if (pushNotifications.syncState.value === 'enabled') return 'user.settings.pushEnabled'
+  if (pushNotifications.syncState.value === 'server-only') return 'user.settings.pushServerOnly'
+  if (pushNotifications.syncState.value === 'browser-only') return 'user.settings.pushBrowserOnly'
+  return 'user.settings.pushDisabled'
 })
 const canAddKeyword = computed(() => {
   const keyword = normalizedKeyword.value
@@ -477,16 +479,18 @@ const handleRevokeOtherSessions = async () => {
               <BaseButton
                 type="button"
                 :loading="pushNotifications.isEnabling.value"
-                :disabled="pushPending || browserPushEnabled || !pushNotifications.supported.value || !pushNotifications.enabled.value"
+                :disabled="pushPending || pushNotifications.syncState.value === 'enabled' || !pushNotifications.supported.value || !pushNotifications.enabled.value"
                 @click="enableBrowserPush"
               >
-                {{ $t('user.settings.pushEnable') }}
+                {{ pushNotifications.syncState.value === 'disabled'
+                  ? $t('user.settings.pushEnable')
+                  : $t('user.settings.pushRepair') }}
               </BaseButton>
               <BaseButton
                 type="button"
                 variant="secondary"
                 :loading="pushNotifications.isDisabling.value"
-                :disabled="pushPending || !browserPushEnabled"
+                :disabled="pushPending || pushNotifications.syncState.value === 'disabled'"
                 @click="disableBrowserPush"
               >
                 {{ $t('user.settings.pushDisable') }}

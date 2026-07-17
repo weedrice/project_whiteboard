@@ -123,6 +123,9 @@ export const userAccountApi = {
     deletePushSubscription(data: PushSubscriptionPayload, config?: AxiosRequestConfig) {
         return api.delete<ApiResponse<void>>('/users/me/push-subscriptions', { ...config, data })
     },
+    deleteAllPushSubscriptions(config?: AxiosRequestConfig) {
+        return api.delete<ApiResponse<void>>('/users/me/push-subscriptions/all', config)
+    },
     getPushPublicKey(config?: AxiosRequestConfig) {
         return config
             ? api.get<ApiResponse<PushPublicKeyResponse>>('/push/public-key', config)

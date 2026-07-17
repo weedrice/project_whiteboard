@@ -68,6 +68,9 @@ const pushNotificationMock = vi.hoisted(() => ({
   enabled: { value: true },
   supported: { value: true },
   permission: { value: 'default' as NotificationPermission | 'unsupported' },
+  syncState: { value: 'disabled' as 'disabled' | 'enabled' | 'server-only' | 'browser-only' },
+  hasBrowserSubscription: { value: false },
+  isBrowserSubscriptionLoading: { value: false },
   isLoading: { value: false },
   isError: { value: false },
   error: { value: null as Error | null },
@@ -76,6 +79,7 @@ const pushNotificationMock = vi.hoisted(() => ({
   enablePush: vi.fn(),
   disablePush: vi.fn(),
   refetch: vi.fn(),
+  refreshBrowserSubscription: vi.fn(),
 }))
 
 vi.mock('vue-i18n', () => ({
@@ -317,6 +321,7 @@ describe('UserSettings', () => {
     pushNotificationMock.enabled.value = true
     pushNotificationMock.supported.value = true
     pushNotificationMock.permission.value = 'default'
+    pushNotificationMock.syncState = ref<'disabled' | 'enabled' | 'server-only' | 'browser-only'>('disabled')
     pushNotificationMock.isLoading.value = false
     pushNotificationMock.isError.value = false
     pushNotificationMock.error.value = null
@@ -605,12 +610,13 @@ describe('UserSettings', () => {
       ...settingsData.value,
       pushEnabled: true,
     }
+    pushNotificationMock.syncState.value = 'enabled'
     await nextTick()
 
-    await wrapper
+    const disablePushButton = wrapper
       .findAll('button')
       .find((button) => button.text() === 'user.settings.pushDisable')!
-      .trigger('click')
+    await disablePushButton.trigger('click')
     await flushAll()
 
     expect(pushNotificationMock.disablePush).toHaveBeenCalled()

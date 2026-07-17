@@ -4,7 +4,6 @@ import { userApi } from '@/api/user'
 import { unwrapAxiosApiData } from '@/api/response'
 import { userSettingsQueryKey } from '@/composables/useUser'
 import {
-  deleteBrowserPushSubscription,
   getBrowserPushSubscription,
   getNotificationPermission,
   isPushSupported,
@@ -20,24 +19,18 @@ import {
   isAuthSessionIntentCurrent,
   throwIfAuthSessionIntentChanged,
 } from '@/utils/authSessionIntent'
-import { isCancellationError } from '@/utils/cancellationError'
 
-export function usePushNotifications() {
+export type PushSubscriptionSyncState = 'disabled' | 'enabled' | 'server-only' | 'browser-only'
+
+export function usePushNotifications(resolveServerEnabled: () => boolean = () => false) {
   const queryClient = useQueryClient()
   const authStore = useAuthStore()
   const permission = ref<NotificationPermission | 'unsupported'>(getNotificationPermission())
+  const browserSubscription = ref<PushSubscription | null>(null)
+  const isBrowserSubscriptionLoading = ref(false)
+  const browserSubscriptionError = ref<unknown>(null)
   const operationControllers = new Set<AbortController>()
-  const stopSessionBoundaryListener = subscribeAuthSessionBoundary(() => {
-    operationControllers.forEach((controller) => controller.abort())
-    operationControllers.clear()
-  })
-  if (getCurrentScope()) {
-    onScopeDispose(() => {
-      stopSessionBoundaryListener()
-      operationControllers.forEach((controller) => controller.abort())
-      operationControllers.clear()
-    })
-  }
+  let subscriptionRevision = 0
 
   const startSessionOperation = () => {
     const controller = new AbortController()
@@ -53,13 +46,63 @@ export function usePushNotifications() {
 
   const enabled = computed(() => Boolean(publicKeyQuery.data.value?.enabled && publicKeyQuery.data.value.publicKey))
   const supported = computed(() => isPushSupported())
+  const syncState = computed<PushSubscriptionSyncState>(() => {
+    const serverEnabled = resolveServerEnabled()
+    const browserEnabled = Boolean(browserSubscription.value)
+    if (serverEnabled && browserEnabled) return 'enabled'
+    if (serverEnabled) return 'server-only'
+    if (browserEnabled) return 'browser-only'
+    return 'disabled'
+  })
+
+  const refreshBrowserSubscription = async () => {
+    const generation = authStore.sessionGeneration
+    const revision = ++subscriptionRevision
+    isBrowserSubscriptionLoading.value = true
+    browserSubscriptionError.value = null
+    try {
+      const subscription = await getBrowserPushSubscription()
+      if (authStore.sessionGeneration === generation && subscriptionRevision === revision) {
+        browserSubscription.value = subscription
+      }
+    } catch (error) {
+      if (authStore.sessionGeneration === generation && subscriptionRevision === revision) {
+        browserSubscriptionError.value = error
+      }
+    } finally {
+      if (authStore.sessionGeneration === generation && subscriptionRevision === revision) {
+        isBrowserSubscriptionLoading.value = false
+      }
+    }
+  }
+  const stopSessionBoundaryListener = subscribeAuthSessionBoundary(() => {
+    subscriptionRevision += 1
+    operationControllers.forEach((controller) => controller.abort())
+    operationControllers.clear()
+    browserSubscription.value = null
+    browserSubscriptionError.value = null
+    isBrowserSubscriptionLoading.value = false
+    void refreshBrowserSubscription()
+  })
+  if (getCurrentScope()) {
+    onScopeDispose(() => {
+      stopSessionBoundaryListener()
+      subscriptionRevision += 1
+      operationControllers.forEach((controller) => controller.abort())
+      operationControllers.clear()
+    })
+  }
+  void refreshBrowserSubscription()
 
   const enableMutation = useMutation({
     onMutate: () => ({ sessionGeneration: authStore.sessionGeneration }),
     mutationFn: async () => {
+      const revision = ++subscriptionRevision
+      isBrowserSubscriptionLoading.value = false
       const intent = captureAuthSessionIntent(authStore)
       const controller = startSessionOperation()
       let subscription: PushSubscription | null = null
+      let createdSubscription = false
       try {
         if (!enabled.value || !publicKeyQuery.data.value?.publicKey) {
           throw new Error('Web push is not configured.')
@@ -70,16 +113,24 @@ export function usePushNotifications() {
         if (nextPermission !== 'granted') {
           throw new Error('Push permission was not granted.')
         }
-        subscription = await subscribeBrowserPush(publicKeyQuery.data.value.publicKey)
+        subscription = await getBrowserPushSubscription()
+        throwIfAuthSessionIntentChanged(authStore, intent, controller.signal)
+        if (!subscription) {
+          subscription = await subscribeBrowserPush(publicKeyQuery.data.value.publicKey)
+          createdSubscription = true
+        }
         throwIfAuthSessionIntentChanged(authStore, intent, controller.signal)
         await saveBrowserPushSubscription(subscription, { signal: controller.signal })
         throwIfAuthSessionIntentChanged(authStore, intent, controller.signal)
+        if (subscriptionRevision === revision) browserSubscription.value = subscription
       } catch (error) {
-        if (subscription && (
-          isCancellationError(error)
-          || !isAuthSessionIntentCurrent(authStore, intent)
-        )) {
-          await subscription.unsubscribe().catch(() => false)
+        if (subscription && createdSubscription) {
+          const unsubscribed = await subscription.unsubscribe().catch(() => false)
+          if (isAuthSessionIntentCurrent(authStore, intent) && subscriptionRevision === revision) {
+            browserSubscription.value = unsubscribed
+              ? null
+              : await getBrowserPushSubscription().catch(() => subscription)
+          }
         }
         throw error
       } finally {
@@ -97,17 +148,20 @@ export function usePushNotifications() {
   const disableMutation = useMutation({
     onMutate: () => ({ sessionGeneration: authStore.sessionGeneration }),
     mutationFn: async () => {
+      const revision = ++subscriptionRevision
+      isBrowserSubscriptionLoading.value = false
       const intent = captureAuthSessionIntent(authStore)
       const controller = startSessionOperation()
       try {
         const subscription = await getBrowserPushSubscription()
         throwIfAuthSessionIntentChanged(authStore, intent, controller.signal)
-        if (!subscription) {
-          return
-        }
-        await deleteBrowserPushSubscription(subscription, { signal: controller.signal })
+        await userApi.deleteAllPushSubscriptions({ signal: controller.signal })
         throwIfAuthSessionIntentChanged(authStore, intent, controller.signal)
-        await subscription.unsubscribe()
+        if (subscription) await subscription.unsubscribe()
+        throwIfAuthSessionIntentChanged(authStore, intent, controller.signal)
+        const remainingSubscription = await getBrowserPushSubscription()
+        throwIfAuthSessionIntentChanged(authStore, intent, controller.signal)
+        if (subscriptionRevision === revision) browserSubscription.value = remainingSubscription
       } finally {
         operationControllers.delete(controller)
       }
@@ -123,12 +177,16 @@ export function usePushNotifications() {
   return {
     enabled,
     supported,
+    syncState,
+    hasBrowserSubscription: computed(() => Boolean(browserSubscription.value)),
+    isBrowserSubscriptionLoading,
+    refreshBrowserSubscription,
     permission,
     publicKey: publicKeyQuery.data,
-    isLoading: publicKeyQuery.isLoading,
-    isError: publicKeyQuery.isError,
-    error: publicKeyQuery.error,
-    refetch: publicKeyQuery.refetch,
+    isLoading: computed(() => publicKeyQuery.isLoading.value || isBrowserSubscriptionLoading.value),
+    isError: computed(() => publicKeyQuery.isError.value || Boolean(browserSubscriptionError.value)),
+    error: computed(() => browserSubscriptionError.value ?? publicKeyQuery.error.value),
+    refetch: () => Promise.all([publicKeyQuery.refetch(), refreshBrowserSubscription()]),
     isEnabling: enableMutation.isPending,
     isDisabling: disableMutation.isPending,
     enablePush: enableMutation.mutateAsync,

@@ -770,7 +770,10 @@ export interface UserMessages {
     pushDenied: string
     pushEnabled: string
     pushDisabled: string
+    pushServerOnly: string
+    pushBrowserOnly: string
     pushEnable: string
+    pushRepair: string
     pushDisable: string
     pushEnableSuccess: string
     pushEnableFailed: string

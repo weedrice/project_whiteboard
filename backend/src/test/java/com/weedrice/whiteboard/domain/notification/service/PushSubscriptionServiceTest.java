@@ -113,6 +113,21 @@ class PushSubscriptionServiceTest {
         verify(settingsService, never()).setPushEnabledForLockedUser(user, false);
     }
 
+    @Test
+    void unsubscribeAllDeletesSubscriptionsAndDisablesPushUnderUserLock() {
+        User user = mock(User.class);
+        when(userResolver.resolveForUpdate(9L)).thenReturn(user);
+        when(repository.deleteAllByUserId(9L)).thenReturn(3);
+
+        assertEquals(3, service.unsubscribeAll(9L));
+
+        var order = org.mockito.Mockito.inOrder(userResolver, repository, settingsService);
+        order.verify(userResolver).resolveForUpdate(9L);
+        order.verify(repository).deleteAllByUserId(9L);
+        order.verify(repository).flush();
+        order.verify(settingsService).setPushEnabledForLockedUser(user, false);
+    }
+
     private static PushSubscriptionRequest request(String endpoint) {
         PushSubscriptionRequest.Keys keys = new PushSubscriptionRequest.Keys();
         keys.setP256dh("key");

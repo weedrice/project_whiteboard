@@ -1,6 +1,8 @@
 import { userApi, type PushSubscriptionPayload } from '@/api/user'
 import type { AxiosRequestConfig } from 'axios'
 
+const SERVICE_WORKER_READY_TIMEOUT_MS = 5000
+
 export function isPushSupported() {
   return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
 }
@@ -20,7 +22,7 @@ export async function getBrowserPushSubscription() {
   if (!isPushSupported()) {
     return null
   }
-  const registration = await navigator.serviceWorker.ready
+  const registration = await getPushServiceWorkerRegistration()
   return registration.pushManager.getSubscription()
 }
 
@@ -28,7 +30,7 @@ export async function subscribeBrowserPush(publicKey: string) {
   if (!isPushSupported()) {
     throw new Error('Push notifications are not supported.')
   }
-  const registration = await navigator.serviceWorker.ready
+  const registration = await getPushServiceWorkerRegistration()
   return registration.pushManager.subscribe({
     userVisibleOnly: true,
     applicationServerKey: urlBase64ToUint8Array(publicKey),
@@ -37,6 +39,26 @@ export async function subscribeBrowserPush(publicKey: string) {
 
 export async function saveBrowserPushSubscription(subscription: PushSubscription, config?: AxiosRequestConfig) {
   return userApi.createPushSubscription(toPushSubscriptionPayload(subscription), config)
+}
+
+async function getPushServiceWorkerRegistration(): Promise<ServiceWorkerRegistration> {
+  const existing = await navigator.serviceWorker.getRegistration?.()
+  if (existing?.active) return existing
+
+  let timeoutId: ReturnType<typeof setTimeout> | undefined
+  try {
+    return await Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise<never>((_resolve, reject) => {
+        timeoutId = setTimeout(
+          () => reject(new Error('Push service worker registration is unavailable.')),
+          SERVICE_WORKER_READY_TIMEOUT_MS,
+        )
+      }),
+    ])
+  } finally {
+    if (timeoutId !== undefined) clearTimeout(timeoutId)
+  }
 }
 
 export async function deleteBrowserPushSubscription(subscription: PushSubscription, config?: AxiosRequestConfig) {

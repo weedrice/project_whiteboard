@@ -71,6 +71,15 @@ public class PushSubscriptionService {
                 pushSubscriptionRepository.existsByUser_UserId(userId));
     }
 
+    @Transactional
+    public int unsubscribeAll(Long userId) {
+        User user = userWritableResolver.resolveForUpdate(userId);
+        int deleted = pushSubscriptionRepository.deleteAllByUserId(userId);
+        pushSubscriptionRepository.flush();
+        userSettingsService.setPushEnabledForLockedUser(user, false);
+        return deleted;
+    }
+
     private User findLockedUser(List<User> lockedUsers, Long userId) {
         return lockedUsers.stream()
                 .filter(user -> userId.equals(user.getUserId()))
