@@ -7,11 +7,11 @@ sudo addgroup --system noviis-app
 sudo adduser --system --ingroup noviis-app --no-create-home --shell /usr/sbin/nologin noviis-app
 sudo adduser --disabled-password --gecos '' noviis-deploy
 sudo install -d -o noviis-app -g noviis-app -m 0750 /opt/app/logs /opt/app/uploads
-sudo install -d -o root -g root -m 0755 /opt/app/backend
-sudo install -d -o noviis-deploy -g noviis-deploy -m 0750 /opt/app/backend/releases
-sudo install -d -o noviis-deploy -g noviis-deploy -m 0750 /var/www/releases/frontend
+sudo install -d -o root -g root -m 0755 /opt/app/backend /opt/app/backend/releases /var/www/releases/frontend
+sudo install -d -o noviis-deploy -g noviis-deploy -m 0750 /opt/app/backend/incoming /var/www/incoming /var/www/incoming/frontend
 sudo install -o root -g root -m 0755 deploy/scripts/activate-backend-release.sh /usr/local/sbin/activate-noviis-backend
 sudo install -o root -g root -m 0755 deploy/scripts/activate-frontend-release.sh /usr/local/sbin/activate-noviis-frontend
+sudo install -o root -g root -m 0644 deploy/systemd/app.service /etc/systemd/system/app.service
 sudo install -o root -g root -m 0440 deploy/sudoers/noviis-deploy /etc/sudoers.d/noviis-deploy
 sudo visudo -cf /etc/sudoers.d/noviis-deploy
 sudo touch /etc/noviis/app.env
@@ -21,7 +21,7 @@ sudo chmod 0600 /etc/noviis/app.env
 
 Populate `/etc/noviis/app.env` through the host secret-management procedure. Keep it a regular, non-symlink file owned by `root:root` with mode `0600`. The unit pins `SPRING_PROFILES_ACTIVE=prod`, and both the unit and activation script fail closed on an invalid environment file.
 
-The workflow connects only as `noviis-deploy`. Its passwordless sudo surface is limited to the two root-owned activation entrypoints installed above; uploaded release content is never executable through sudo. Reinstall the reviewed entrypoints as root whenever those tracked scripts change. The `noviis-app` runtime account has no sudo access and cannot write release roots.
+The workflow connects only as `noviis-deploy`. Uploads land below the deploy-owned `incoming` directories. The root-owned activation entrypoints copy and verify those files inside root-owned release directories before extracting or changing service state, so deploy-controlled state files and symlinks are never followed with root privileges. Its passwordless sudo surface is limited to those two entrypoints; uploaded release content is never executable through sudo. The workflow compares the installed activation script and systemd unit hashes with the expected commit and fails closed on drift. Reinstall the reviewed entrypoints and unit as root whenever those tracked files change. The `noviis-app` runtime account has no sudo access and cannot write either incoming or active release roots.
 
 After installing the unit, verify it before enabling:
 

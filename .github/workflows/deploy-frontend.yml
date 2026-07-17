@@ -30,6 +30,7 @@ concurrency:
 
 permissions:
   contents: read
+  attestations: read
 
 jobs:
   deploy:
@@ -52,6 +53,13 @@ jobs:
 
       - name: Verify frontend artifact checksum
         run: (cd release-artifact && sha256sum --strict --check SHA256SUMS)
+
+      - name: Verify frontend GitHub artifact attestation
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh attestation verify release-artifact/frontend-release.tar.gz --repo "$GITHUB_REPOSITORY"
+          gh attestation verify release-artifact/frontend-release.tar.gz --repo "$GITHUB_REPOSITORY" --predicate-type https://spdx.dev/Document/v2.3
 
       - name: Setup Node for post-deploy verification
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -76,8 +84,9 @@ jobs:
           fingerprint: ${{ secrets.EC2_HOST_FINGERPRINT }}
           script: |
             set -eu
-            RELEASE_DIR="/var/www/releases/frontend/${{ inputs.expected_sha }}-${{ github.run_id }}-${{ github.run_attempt }}"
-            install -d -m 0755 /var/www/releases/frontend
+            test "$(sha256sum /usr/local/sbin/activate-noviis-frontend | awk '{print $1}')" = "${{ hashFiles('deploy/scripts/activate-frontend-release.sh') }}"
+            RELEASE_DIR="/var/www/incoming/frontend/${{ inputs.expected_sha }}-${{ github.run_id }}-${{ github.run_attempt }}"
+            install -d -m 0755 /var/www/incoming/frontend
             test ! -e "$RELEASE_DIR"
             install -d -m 0755 "$RELEASE_DIR"
 
@@ -89,7 +98,7 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           fingerprint: ${{ secrets.EC2_HOST_FINGERPRINT }}
           source: "release-artifact/frontend-release.tar.gz,release-artifact/SHA256SUMS,release-artifact/sbom.spdx.json"
-          target: "/var/www/releases/frontend/${{ inputs.expected_sha }}-${{ github.run_id }}-${{ github.run_attempt }}"
+          target: "/var/www/incoming/frontend/${{ inputs.expected_sha }}-${{ github.run_id }}-${{ github.run_attempt }}"
           strip_components: 1
 
       - name: Reject a stale deployment immediately before activation
@@ -110,7 +119,7 @@ jobs:
           fingerprint: ${{ secrets.EC2_HOST_FINGERPRINT }}
           script: |
             set -eu
-            RELEASE_DIR="/var/www/releases/frontend/${{ inputs.expected_sha }}-${{ github.run_id }}-${{ github.run_attempt }}"
+            RELEASE_DIR="/var/www/incoming/frontend/${{ inputs.expected_sha }}-${{ github.run_id }}-${{ github.run_attempt }}"
             sudo /usr/local/sbin/activate-noviis-frontend "$RELEASE_DIR" activate "${{ inputs.expected_sha }}"
 
       - name: Verify SEO after deploy
@@ -148,3 +157,18 @@ jobs:
           GOOGLE_SEARCH_CONSOLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_SEARCH_CONSOLE_REFRESH_TOKEN }}
           CUSTOM_SITEMAP_SUBMIT_URL: ${{ secrets.CUSTOM_SITEMAP_SUBMIT_URL }}
         continue-on-error: true
+
+      - name: Clean frontend incoming release
+        if: always()
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: noviis-deploy
+          key: ${{ secrets.EC2_SSH_KEY }}
+          fingerprint: ${{ secrets.EC2_HOST_FINGERPRINT }}
+          script: |
+            set -eu
+            RELEASE_DIR="/var/www/incoming/frontend/${{ inputs.expected_sha }}-${{ github.run_id }}-${{ github.run_attempt }}"
+            if [ -e "$RELEASE_DIR" ]; then
+              case "$(realpath "$RELEASE_DIR")/" in /var/www/incoming/frontend/*/) rm -rf -- "$RELEASE_DIR" ;; *) exit 1 ;; esac
+            fi

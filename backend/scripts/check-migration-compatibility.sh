@@ -84,7 +84,7 @@ while read -r migration_name deployment_run extra; do
   [ -n "$migration_name" ] || continue
   [[ "$migration_name" = \#* ]] && continue
   case "$migration_name" in V*.sql) ;; *) echo "Invalid contract migration filename in allowlist: $migration_name" >&2; exit 1 ;; esac
-  case "$deployment_run" in https://github.com/*/actions/runs/[0-9]*) ;; *) echo "Contract allowlist entry requires a GitHub deployment run URL: $migration_name" >&2; exit 1 ;; esac
+  case "$deployment_run" in https://github.com/weedrice/project_whiteboard/actions/runs/[0-9]*) ;; *) echo "Contract allowlist entry requires this repository's GitHub deployment run URL: $migration_name" >&2; exit 1 ;; esac
   if [ -n "${extra:-}" ]; then
     echo "Unexpected extra fields in contract allowlist entry: $migration_name" >&2
     exit 1

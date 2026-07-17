@@ -8,11 +8,12 @@ trap 'rm -rf "$fixture"' EXIT
 
 app_dir="$fixture/app"
 release_root="$app_dir/releases"
+incoming_root="$app_dir/incoming"
 log_dir="$fixture/logs"
 env_file="$fixture/app.env"
 fake_bin="$fixture/bin"
 state_dir="$fixture/state"
-mkdir -p "$release_root" "$log_dir" "$fake_bin" "$state_dir"
+mkdir -p "$release_root" "$incoming_root" "$log_dir" "$fake_bin" "$state_dir"
 printf 'test=true\n' > "$env_file"
 chmod 0600 "$env_file"
 touch "$log_dir/whiteboard-active.log" "$log_dir/whiteboard-error.log"
@@ -57,10 +58,17 @@ if [ -f "$STATE_DIR/fail_new_health" ] && grep -q '^new$' "$APP_DIR/app.jar"; th
 fi
 exit 0
 EOF
+cat > "$fake_bin/mv" <<'EOF'
+#!/usr/bin/env bash
+last="${!#}"
+if [ -f "$STATE_DIR/fail_activate_move" ] && [ "$last" = "$APP_DIR/app.jar" ]; then exit 1; fi
+exec /usr/bin/mv "$@"
+EOF
 chmod +x "$fake_bin"/*
 
 invoke_activation() {
   APP_DIR="$app_dir" \
+  INCOMING_ROOT="$incoming_root" \
   RELEASE_ROOT="$release_root" \
   LOG_DIR="$log_dir" \
   ENV_FILE="$env_file" \
@@ -70,7 +78,7 @@ invoke_activation() {
   PATH="$fake_bin:$PATH" \
   HEALTH_ATTEMPTS=2 \
   HEALTH_DELAY_SECONDS=0 \
-  bash "$script" "$1"
+  bash "$script" "$1" "${2:-}"
 }
 
 run_activation() {
@@ -82,13 +90,13 @@ run_activation() {
 }
 
 printf 'old\n' > "$app_dir/app.jar"
-success_release="$release_root/success"
+success_release="$incoming_root/success"
 mkdir -p "$success_release"
 printf 'new\n' > "$success_release/app.jar"
 run_activation "$success_release"
 grep -qx new "$app_dir/app.jar"
 
-checksum_failure_release="$release_root/checksum-failure"
+checksum_failure_release="$incoming_root/checksum-failure"
 mkdir -p "$checksum_failure_release"
 printf 'new\n' > "$checksum_failure_release/app.jar"
 printf '%064d  app.jar\n' 0 > "$checksum_failure_release/SHA256SUMS"
@@ -99,7 +107,7 @@ fi
 grep -qx new "$app_dir/app.jar"
 
 printf 'old\n' > "$app_dir/app.jar"
-stop_failure_release="$release_root/stop-failure"
+stop_failure_release="$incoming_root/stop-failure"
 mkdir -p "$stop_failure_release"
 printf 'new\n' > "$stop_failure_release/app.jar"
 touch "$state_dir/fail_stop"
@@ -111,7 +119,7 @@ grep -qx old "$app_dir/app.jar"
 rm "$state_dir/fail_stop"
 
 printf 'old\n' > "$app_dir/app.jar"
-start_failure_release="$release_root/start-failure"
+start_failure_release="$incoming_root/start-failure"
 mkdir -p "$start_failure_release"
 printf 'new\n' > "$start_failure_release/app.jar"
 touch "$state_dir/fail_start"
@@ -123,7 +131,7 @@ grep -qx old "$app_dir/app.jar"
 rm "$state_dir/fail_start"
 
 printf 'old\n' > "$app_dir/app.jar"
-failed_release="$release_root/failed-health"
+failed_release="$incoming_root/failed-health"
 mkdir -p "$failed_release"
 printf 'new\n' > "$failed_release/app.jar"
 touch "$state_dir/fail_new_health"
@@ -135,7 +143,7 @@ grep -qx old "$app_dir/app.jar"
 rm "$state_dir/fail_new_health"
 
 printf 'old\n' > "$app_dir/app.jar"
-rollback_failure_release="$release_root/rollback-failure"
+rollback_failure_release="$incoming_root/rollback-failure"
 mkdir -p "$rollback_failure_release"
 printf 'new\n' > "$rollback_failure_release/app.jar"
 touch "$state_dir/fail_new_health" "$state_dir/fail_restart"
@@ -154,13 +162,26 @@ for index in 1 2 3 4 5 6; do
   mkdir -p "$old_release"
   touch -d "2026-07-$((10 + index))" "$old_release"
 done
-retention_release="$release_root/current"
+retention_release="$incoming_root/current"
 mkdir -p "$retention_release"
 printf 'new\n' > "$retention_release/app.jar"
 run_activation "$retention_release"
 release_count="$(find "$release_root" -mindepth 1 -maxdepth 1 -type d | wc -l)"
 test "$release_count" -eq 5
-test -d "$retention_release"
+test -d "$release_root/current"
+
+printf 'old\n' > "$app_dir/app.jar"
+move_failure_release="$incoming_root/move-failure"
+mkdir -p "$move_failure_release"
+printf 'new\n' > "$move_failure_release/app.jar"
+touch "$state_dir/fail_activate_move"
+if run_activation "$move_failure_release"; then
+  echo "Expected activation move failure" >&2
+  exit 1
+fi
+grep -qx old "$app_dir/app.jar"
+grep -qx active "$state_dir/service"
+rm "$state_dir/fail_activate_move"
 
 outside_release="$fixture/outside"
 mkdir -p "$outside_release"

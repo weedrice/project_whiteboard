@@ -74,7 +74,7 @@ output_file="$fixture/output"
 (cd "$fixture" && GITHUB_OUTPUT="$output_file" bash "$script" "$base" HEAD)
 grep -qx 'contract_migration=true' "$output_file"
 
-printf 'V2__contract.sql https://github.com/example/noviis/actions/runs/1\n' >> "$fixture/docs/ops/applied-contract-migrations.txt"
+printf 'V2__contract.sql https://github.com/weedrice/project_whiteboard/actions/runs/1\n' >> "$fixture/docs/ops/applied-contract-migrations.txt"
 git -C "$fixture" add .
 git -C "$fixture" commit -qm premature-allowlist
 if (cd "$fixture" && bash "$script" "$base" HEAD); then

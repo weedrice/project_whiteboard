@@ -4,6 +4,33 @@ rule_files:
 evaluation_interval: 1m
 
 tests:
+  - name: missing backend target is treated as down
+    interval: 1m
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: NoviIsBackendDown
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+            exp_annotations:
+              summary: "NoviIs backend metrics scrape has failed for 2 minutes"
+
+  - name: heartbeat never-run state becomes delayed after startup grace
+    interval: 1m
+    input_series:
+      - series: 'process_start_time_seconds{instance="localhost:8081",job="noviis-backend"}'
+        values: '0+0x3'
+      - series: 'noviis_sse_heartbeat_gap_seconds'
+        values: '0+0x3'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: NoviIsHeartbeatDelayed
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+            exp_annotations:
+              summary: "SSE heartbeat has not run within 40 seconds"
+
   - name: scheduled job absence waits for the configured startup grace
     interval: 1m
     input_series:

@@ -402,6 +402,10 @@ jobs:
           NEED_FRONTEND: ${{ needs.changes.outputs.frontend }}
           NEED_OPS: ${{ needs.changes.outputs.ops }}
           CONTRACT_MIGRATION: ${{ needs.backend-postgres-migration.outputs.contract_migration }}
+          EVENT_NAME: ${{ github.event_name }}
+          DEPLOY_BACKEND: ${{ inputs.deploy_backend || false }}
+          ALLOW_CONTRACT: ${{ inputs.allow_contract_migration || false }}
+          BACKUP_SNAPSHOT_ID: ${{ inputs.backup_snapshot_id || '' }}
         run: |
           if [ "$CHANGES_RESULT" != "success" ]; then
             echo "Change detection failed: $CHANGES_RESULT"
@@ -426,6 +430,12 @@ jobs:
           verify_job "$NEED_FRONTEND" "$FRONTEND_RESULT" frontend-test
           verify_job "$NEED_OPS" "$OPS_RESULT" ops-config-test
           if [ "$CONTRACT_MIGRATION" != "true" ]; then CONTRACT_MIGRATION=false; fi
+          if [ "$CONTRACT_MIGRATION" = "true" ] && [ "$EVENT_NAME" = workflow_dispatch ] && [ "$DEPLOY_BACKEND" = true ] && [ "$ALLOW_CONTRACT" = true ]; then
+            if [[ ! "$BACKUP_SNAPSHOT_ID" =~ ^[A-Za-z0-9][A-Za-z0-9._:/-]{2,255}$ ]]; then
+              echo "Contract deployment requires a concrete backup snapshot identifier without whitespace"
+              exit 1
+            fi
+          fi
           echo "contract_migration=$CONTRACT_MIGRATION" >> "$GITHUB_OUTPUT"
 
   release-backend:
@@ -440,6 +450,7 @@ jobs:
       contents: read
       id-token: write
       attestations: write
+      artifact-metadata: write
     steps:
       - name: Checkout
         uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
@@ -453,6 +464,7 @@ jobs:
         working-directory: backend
         env:
           BUILD_COMMIT_SHA: ${{ github.sha }}
+          BACKUP_SNAPSHOT_ID: ${{ inputs.backup_snapshot_id || '' }}
         run: |
           set -euo pipefail
           chmod +x gradlew
@@ -460,6 +472,7 @@ jobs:
           install -d -m 0755 release
           install -m 0644 build/libs/app.jar release/app.jar
           printf 'commit_sha=%s\nrun_id=%s\nrun_attempt=%s\n' "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" > release/RELEASE_METADATA
+          printf 'backup_snapshot_id=%s\n' "$BACKUP_SNAPSHOT_ID" >> release/RELEASE_METADATA
       - name: Generate backend SBOM
         uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
         with:
@@ -474,6 +487,11 @@ jobs:
         uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
         with:
           subject-path: backend/release/app.jar
+      - name: Attest backend SBOM
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
+        with:
+          subject-path: backend/release/app.jar
+          sbom-path: backend/release/sbom.spdx.json
       - name: Upload backend release
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
@@ -494,6 +512,7 @@ jobs:
       contents: read
       id-token: write
       attestations: write
+      artifact-metadata: write
     steps:
       - name: Checkout
         uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
@@ -521,7 +540,7 @@ jobs:
       - name: Generate frontend SBOM
         uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
         with:
-          path: frontend/dist
+          path: frontend
           format: spdx-json
           output-file: frontend/sbom.spdx.json
           upload-artifact: false
@@ -532,6 +551,11 @@ jobs:
         uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
         with:
           subject-path: frontend/frontend-release.tar.gz
+      - name: Attest frontend SBOM
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4.1.0
+        with:
+          subject-path: frontend/frontend-release.tar.gz
+          sbom-path: frontend/sbom.spdx.json
       - name: Upload frontend release
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
@@ -555,6 +579,7 @@ jobs:
     uses: ./.github/workflows/deploy-backend.yml
     with:
       expected_sha: ${{ github.sha }}
+      backup_snapshot_id: ${{ inputs.backup_snapshot_id || '' }}
     secrets:
       EC2_HOST: ${{ secrets.EC2_HOST }}
       EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}

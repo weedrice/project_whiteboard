@@ -48,7 +48,7 @@ groups:
         labels: { cadence: daily, scheduled_job: UserFeedCleanupScheduler.cleanupHardStalePostFeeds, threshold: 30h }
 
       - alert: NoviIsBackendDown
-        expr: up{job="noviis-backend"} == 0
+        expr: up{job="noviis-backend"} == 0 or absent(up{job="noviis-backend"})
         for: 2m
         labels: { severity: critical }
         annotations: { summary: "NoviIs backend metrics scrape has failed for 2 minutes" }
@@ -79,7 +79,13 @@ groups:
           summary: "Scheduled job {{ $labels.scheduled_job }} has no recent success"
           description: "No successful completion was observed within the configured {{ $labels.threshold }} threshold for this {{ $labels.cadence }} job."
       - alert: NoviIsHeartbeatDelayed
-        expr: noviis_sse_heartbeat_gap_seconds > 40
+        expr: >-
+          noviis_sse_heartbeat_gap_seconds > 40
+          or
+          (
+            noviis_sse_heartbeat_gap_seconds == 0
+            and on() (max(time() - process_start_time_seconds) > 40)
+          )
         for: 1m
         labels: { severity: critical }
         annotations: { summary: "SSE heartbeat has not run within 40 seconds" }

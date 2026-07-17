@@ -6,6 +6,10 @@ on:
       expected_sha:
         required: true
         type: string
+      backup_snapshot_id:
+        required: false
+        type: string
+        default: ''
     secrets:
       EC2_HOST:
         required: true
@@ -20,6 +24,7 @@ concurrency:
 
 permissions:
   contents: read
+  attestations: read
 
 jobs:
   deploy:
@@ -43,10 +48,21 @@ jobs:
       - name: Verify backend artifact checksum and metadata
         env:
           EXPECTED_SHA: ${{ inputs.expected_sha }}
+          BACKUP_SNAPSHOT_ID: ${{ inputs.backup_snapshot_id }}
         run: |
           set -euo pipefail
           (cd release-artifact && sha256sum --strict --check SHA256SUMS)
           grep -Fqx -- "commit_sha=$EXPECTED_SHA" release-artifact/RELEASE_METADATA
+          if [ -n "$BACKUP_SNAPSHOT_ID" ]; then
+            grep -Fqx -- "backup_snapshot_id=$BACKUP_SNAPSHOT_ID" release-artifact/RELEASE_METADATA
+          fi
+
+      - name: Verify backend GitHub artifact attestation
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh attestation verify release-artifact/app.jar --repo "$GITHUB_REPOSITORY"
+          gh attestation verify release-artifact/app.jar --repo "$GITHUB_REPOSITORY" --predicate-type https://spdx.dev/Document/v2.3
 
       - name: Prepare backend release directory
         uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
@@ -57,7 +73,9 @@ jobs:
           fingerprint: ${{ secrets.EC2_HOST_FINGERPRINT }}
           script: |
             set -eu
-            RELEASE_DIR="/opt/app/backend/releases/${{ inputs.expected_sha }}-${{ github.run_id }}-${{ github.run_attempt }}"
+            test "$(sha256sum /usr/local/sbin/activate-noviis-backend | awk '{print $1}')" = "${{ hashFiles('deploy/scripts/activate-backend-release.sh') }}"
+            test "$(sha256sum /etc/systemd/system/app.service | awk '{print $1}')" = "${{ hashFiles('deploy/systemd/app.service') }}"
+            RELEASE_DIR="/opt/app/backend/incoming/${{ inputs.expected_sha }}-${{ github.run_id }}-${{ github.run_attempt }}"
             test ! -e "$RELEASE_DIR"
             install -d -m 0755 "$RELEASE_DIR"
 
@@ -69,7 +87,7 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           fingerprint: ${{ secrets.EC2_HOST_FINGERPRINT }}
           source: "release-artifact/app.jar,release-artifact/SHA256SUMS,release-artifact/RELEASE_METADATA,release-artifact/sbom.spdx.json"
-          target: "/opt/app/backend/releases/${{ inputs.expected_sha }}-${{ github.run_id }}-${{ github.run_attempt }}"
+          target: "/opt/app/backend/incoming/${{ inputs.expected_sha }}-${{ github.run_id }}-${{ github.run_attempt }}"
           strip_components: 1
 
       - name: Reject a stale deployment immediately before activation
@@ -89,5 +107,20 @@ jobs:
           fingerprint: ${{ secrets.EC2_HOST_FINGERPRINT }}
           script: |
             set -eu
-            RELEASE_DIR="/opt/app/backend/releases/${{ inputs.expected_sha }}-${{ github.run_id }}-${{ github.run_attempt }}"
+            RELEASE_DIR="/opt/app/backend/incoming/${{ inputs.expected_sha }}-${{ github.run_id }}-${{ github.run_attempt }}"
             sudo /usr/local/sbin/activate-noviis-backend "$RELEASE_DIR" "${{ inputs.expected_sha }}"
+
+      - name: Clean backend incoming release
+        if: always()
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: noviis-deploy
+          key: ${{ secrets.EC2_SSH_KEY }}
+          fingerprint: ${{ secrets.EC2_HOST_FINGERPRINT }}
+          script: |
+            set -eu
+            RELEASE_DIR="/opt/app/backend/incoming/${{ inputs.expected_sha }}-${{ github.run_id }}-${{ github.run_attempt }}"
+            if [ -e "$RELEASE_DIR" ]; then
+              case "$(realpath "$RELEASE_DIR")/" in /opt/app/backend/incoming/*/) rm -rf -- "$RELEASE_DIR" ;; *) exit 1 ;; esac
+            fi
