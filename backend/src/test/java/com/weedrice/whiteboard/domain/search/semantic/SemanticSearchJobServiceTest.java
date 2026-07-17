@@ -26,6 +26,7 @@ class SemanticSearchJobServiceTest {
     private SemanticSearchJobCommandService jobCommandService;
     private SemanticSearchIndexService indexService;
     private SemanticSearchJobService jobService;
+    private SemanticSearchReindexService reindexService;
 
     @BeforeEach
     void setUp() {
@@ -38,6 +39,7 @@ class SemanticSearchJobServiceTest {
         jobRepository = mock(SemanticSearchJobRepository.class);
         jobCommandService = mock(SemanticSearchJobCommandService.class);
         indexService = mock(SemanticSearchIndexService.class);
+        reindexService = mock(SemanticSearchReindexService.class);
         Clock clock = Clock.fixed(Instant.parse("2026-05-19T06:00:00Z"), ZoneId.of("Asia/Seoul"));
         jobService = new SemanticSearchJobService(
                 properties,
@@ -45,7 +47,8 @@ class SemanticSearchJobServiceTest {
                 jobRepository,
                 jobCommandService,
                 indexService,
-                clock);
+                clock,
+                reindexService);
     }
 
     @Test
@@ -98,8 +101,8 @@ class SemanticSearchJobServiceTest {
 
         int count = jobService.enqueuePostComments(10L);
 
-        assertThat(count).isEqualTo(2);
-        verify(jobRepository).enqueueAll("COMMENT", List.of(101L, 102L), SemanticSearchIndexAction.UPSERT);
+        assertThat(count).isEqualTo(1);
+        verify(reindexService).enqueuePostComments(10L);
     }
 
     @Test
@@ -109,9 +112,8 @@ class SemanticSearchJobServiceTest {
 
         int count = jobService.enqueueBoardContent(20L);
 
-        assertThat(count).isEqualTo(3);
-        verify(jobRepository).enqueueAll("POST", List.of(201L), SemanticSearchIndexAction.UPSERT);
-        verify(jobRepository).enqueueAll("COMMENT", List.of(301L, 302L), SemanticSearchIndexAction.UPSERT);
+        assertThat(count).isEqualTo(1);
+        verify(reindexService).enqueueBoard(20L);
     }
 
     @Test
@@ -125,10 +127,9 @@ class SemanticSearchJobServiceTest {
 
         int count = jobService.enqueueBoardContent(20L);
 
-        assertThat(count).isEqualTo(502);
-        verify(jobRepository).enqueueAll("POST", firstChunk, SemanticSearchIndexAction.UPSERT);
-        verify(jobRepository).enqueueAll("POST", List.of(501L, 502L), SemanticSearchIndexAction.UPSERT);
-        verify(jobRepository, never()).enqueueAll(eq("COMMENT"), anyList(), any());
+        assertThat(count).isEqualTo(1);
+        verify(reindexService).enqueueBoard(20L);
+        verify(jobRepository, never()).enqueueAll(anyString(), anyList(), any());
     }
 
     @Test
