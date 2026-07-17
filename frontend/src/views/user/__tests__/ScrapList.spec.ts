@@ -18,6 +18,10 @@ vi.mock('vue-i18n', () => ({
   useI18n: () => ({ t: (key: string) => key }),
 }))
 
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => ({ sessionGeneration: 0 }),
+}))
+
 vi.mock('@/composables/useUser', () => ({
   useUser: () => ({
     useMyScraps: () => ({

@@ -37,6 +37,10 @@ vi.mock('@tanstack/vue-query', () => ({
   }),
 }))
 
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => ({ sessionGeneration: 0 }),
+}))
+
 const inquirySummary = (overrides: Partial<AdminInquirySummary> = {}): AdminInquirySummary => ({
   postId: 7,
   title: 'Need help',

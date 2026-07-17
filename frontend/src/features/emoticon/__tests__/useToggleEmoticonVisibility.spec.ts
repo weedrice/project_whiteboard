@@ -42,6 +42,10 @@ vi.mock('@/stores/toast', () => ({
   }),
 }))
 
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => ({ sessionGeneration: 0 }),
+}))
+
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({
     t: (key: string) => key,
@@ -84,7 +88,9 @@ describe('useToggleEmoticonVisibility', () => {
     expect(emoticonApi.toggleVisibilityData).toHaveBeenCalledWith(7)
     expect(mocks.addToast).toHaveBeenCalledWith('emoticon.visibility.hiddenSuccess', 'success')
     expect(mocks.invalidateQueries).toHaveBeenNthCalledWith(1, { queryKey: ['emoticon', 7] })
-    expect(mocks.invalidateQueries).toHaveBeenNthCalledWith(2, { queryKey: ['emoticon', 7, 'purchased'] })
+    expect(mocks.invalidateQueries).toHaveBeenNthCalledWith(2, {
+      queryKey: ['session', 0, 'emoticon', 7, 'purchased'],
+    })
     expect(mocks.invalidateQueries).toHaveBeenNthCalledWith(3, { queryKey: ['emoticons'] })
   })
 

@@ -40,6 +40,10 @@ vi.mock('@tanstack/vue-query', () => ({
     }),
 }))
 
+vi.mock('@/stores/auth', () => ({
+    useAuthStore: () => ({ sessionGeneration: 0 }),
+}))
+
 vi.mock('vue-i18n', () => ({
     useI18n: () => ({
         t: (key: string, params?: Record<string, string>) => (

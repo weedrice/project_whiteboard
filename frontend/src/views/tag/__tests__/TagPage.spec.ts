@@ -29,6 +29,10 @@ vi.mock('@unhead/vue', () => ({
 
 vi.mock('@/api/tag', () => ({ tagApi }))
 
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => ({ sessionGeneration: 0 }),
+}))
+
 vi.mock('vue-i18n', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-i18n')>()
   return {

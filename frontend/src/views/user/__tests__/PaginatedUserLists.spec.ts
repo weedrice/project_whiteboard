@@ -22,6 +22,9 @@ const reportApi = vi.hoisted(() => ({
 
 vi.mock('@/api/user', () => ({ userApi }))
 vi.mock('@/api/report', () => ({ reportApi }))
+vi.mock('@/stores/auth', () => ({
+    useAuthStore: () => ({ sessionGeneration: 0 }),
+}))
 vi.mock('@/composables/useConfirm', () => ({
     useConfirm: () => ({
         confirm: confirmMock,

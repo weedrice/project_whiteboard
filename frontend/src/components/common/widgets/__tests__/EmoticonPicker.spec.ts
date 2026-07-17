@@ -42,6 +42,10 @@ vi.mock('@tanstack/vue-query', () => ({
     }),
 }))
 
+vi.mock('@/stores/auth', () => ({
+    useAuthStore: () => ({ sessionGeneration: 0 }),
+}))
+
 vi.mock('@/api/emoticon', () => ({
     emoticonApi: {
         getPurchasedEmoticonsData: mocks.getPurchasedEmoticons,
@@ -122,7 +126,7 @@ describe('EmoticonPicker', () => {
         mountPicker(false)
         const options = mocks.queryOptions[0]
 
-        expect(options.queryKey).toEqual(['emoticons', 'accessible', 'picker'])
+        expect(options.queryKey).toEqual(['session', 0, 'emoticons', 'accessible', 'picker'])
         expect((options.enabled as () => boolean)()).toBe(false)
 
         const result = await (options.queryFn as () => Promise<unknown>)()

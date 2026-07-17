@@ -33,6 +33,10 @@ vi.mock('@/stores/toast', () => ({
   useToastStore: () => ({ addToast: mocks.addToast }),
 }))
 
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => ({ sessionGeneration: 0 }),
+}))
+
 vi.mock('@/composables/useConfirm', () => ({
   useConfirm: () => ({ confirm: mocks.confirm }),
 }))
@@ -179,8 +183,8 @@ describe('SubscribedBoards', () => {
     await flushPromises()
 
     expect(mocks.unsubscribeBoard).toHaveBeenCalledWith('free')
-    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['boards'] })
-    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['boards', 'subscriptions'] })
+    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards'] })
+    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards', 'subscriptions'] })
   })
 
   it('invalidates board subscription caches after reorder', async () => {
@@ -194,8 +198,8 @@ describe('SubscribedBoards', () => {
     await flushPromises()
 
     expect(mocks.updateSubscriptionOrder).toHaveBeenCalledWith(['free'])
-    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['boards'] })
-    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['boards', 'subscriptions'] })
+    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards'] })
+    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards', 'subscriptions'] })
   })
 
   it('supports moving subscriptions with accessible order buttons', async () => {

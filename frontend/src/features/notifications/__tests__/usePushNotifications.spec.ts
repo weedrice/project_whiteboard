@@ -34,6 +34,10 @@ vi.mock('@/api/user', () => ({
   },
 }))
 
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => ({ sessionGeneration: 0 }),
+}))
+
 vi.mock('@/features/notifications/pushSubscriptions', () => ({
   deleteBrowserPushSubscription: vi.fn(),
   getBrowserPushSubscription: vi.fn(),

@@ -26,7 +26,7 @@ vi.mock('@tanstack/vue-query', () => ({
     const key = Array.isArray(queryKey)
       ? queryKey
       : (queryKey as { value?: unknown[] })?.value
-    if (Array.isArray(key) && key[2] === 'purchased') {
+    if (Array.isArray(key) && key.at(-1) === 'purchased') {
       return {
         data: ref(purchaseStatusState.hasStatus ? {
           purchased: purchaseStatusState.purchased,
@@ -82,6 +82,7 @@ vi.mock('@/stores/auth', () => ({
   useAuthStore: () => ({
     isAuthenticated: true,
     user: { userId: 1 },
+    sessionGeneration: 0,
   }),
 }))
 
@@ -168,13 +169,15 @@ describe('EmoticonDetail', () => {
     const purchaseMutation = mutationOptions[0]
     expect(purchaseMutation).toBeDefined()
 
-    ;(purchaseMutation.onSuccess as (result: { targetEmoticonId: number }) => void)({
-      targetEmoticonId: 9,
-    })
+    ;(purchaseMutation.onSuccess as (
+      result: { targetEmoticonId: number },
+      variables: number,
+      context: { sessionGeneration: number },
+    ) => void)({ targetEmoticonId: 9 }, 9, { sessionGeneration: 0 })
 
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['emoticon', 9] })
-    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['emoticon', 9, 'purchased'] })
-    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['user', 'points'] })
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'emoticon', 9, 'purchased'] })
+    expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'user', 'points'] })
   })
 
   it('disables purchase while purchase status is loading', () => {

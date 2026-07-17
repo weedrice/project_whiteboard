@@ -4,6 +4,10 @@ import { ref, nextTick, defineComponent, h } from 'vue'
 import { createPrevNextPaginationStub } from '@/test/vue-test-helpers'
 import ErrorLogManagement from '../ErrorLogManagement.vue'
 
+vi.mock('@/stores/auth', () => ({
+    useAuthStore: () => ({ sessionGeneration: 0 }),
+}))
+
 // Mock 데이터
 const mockErrorLogs = [
     {

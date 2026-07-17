@@ -26,6 +26,10 @@ vi.mock('@/api/report', () => ({
   },
 }))
 
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => ({ sessionGeneration: 0 }),
+}))
+
 describe('useReport', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -44,11 +48,11 @@ describe('useReport', () => {
     const options = mocks.queryOptions.at(-1)!
     const queryKey = options.queryKey as { value: readonly unknown[] }
     const initialKey = queryKey.value
-    expect(initialKey).toEqual(['reports', 'me', { page: 2, size: 15 }])
+    expect(initialKey).toEqual(['session', 0, 'reports', 'me', { page: 2, size: 15 }])
     expect(initialKey.some(isRef)).toBe(false)
     params.value = { page: 3, size: 30 }
-    expect(queryKey.value).toEqual(['reports', 'me', { page: 3, size: 30 }])
-    expect(initialKey).toEqual(['reports', 'me', { page: 2, size: 15 }])
+    expect(queryKey.value).toEqual(['session', 0, 'reports', 'me', { page: 3, size: 30 }])
+    expect(initialKey).toEqual(['session', 0, 'reports', 'me', { page: 2, size: 15 }])
     params.value = { page: 2, size: 15 }
 
     const signal = new AbortController().signal

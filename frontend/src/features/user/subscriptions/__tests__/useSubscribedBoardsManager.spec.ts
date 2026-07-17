@@ -37,6 +37,10 @@ vi.mock('@/stores/toast', () => ({
   useToastStore: () => ({ addToast: mocks.addToast }),
 }))
 
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => ({ sessionGeneration: 0 }),
+}))
+
 vi.mock('@/composables/useConfirm', () => ({
   useConfirm: () => ({ confirm: mocks.confirm }),
 }))
@@ -154,8 +158,8 @@ describe('useSubscribedBoardsManager', () => {
 
     expect(mocks.unsubscribeBoard).toHaveBeenCalledWith('free')
     expect(mocks.addToast).toHaveBeenCalledWith('user.subscriptions.unsubscribeSuccess', 'success')
-    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['boards'] })
-    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['boards', 'subscriptions'] })
+    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards'] })
+    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards', 'subscriptions'] })
     expect(mocks.getMySubscriptions).toHaveBeenCalledTimes(2)
   })
 
