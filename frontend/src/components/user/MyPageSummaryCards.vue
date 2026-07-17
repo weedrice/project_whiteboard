@@ -2,7 +2,7 @@
 import { ref } from 'vue'
 import { Bell, CalendarCheck, FileText, Settings } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
-import { useAttendance } from '@/composables/useAttendance'
+import { useAttendance } from '@/features/user/attendance/useAttendance'
 import { useNotification } from '@/features/notifications/queries/useNotification'
 
 defineProps<{

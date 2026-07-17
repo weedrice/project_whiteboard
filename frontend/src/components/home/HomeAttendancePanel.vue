@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import { CalendarCheck, Flame } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
-import { useAttendance } from '@/composables/useAttendance'
+import { useAttendance } from '@/features/user/attendance/useAttendance'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 

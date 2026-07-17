@@ -17,7 +17,7 @@ vi.mock('vue-i18n', () => ({
   useI18n: () => ({ locale: ref('en'), t: (key: string) => key }),
 }))
 
-vi.mock('@/composables/useAttendance', () => ({
+vi.mock('@/features/user/attendance/useAttendance', () => ({
   useAttendance: () => ({
     useMyAttendance: () => ({ data: attendance, isLoading: ref(false), isError, refetch }),
   }),

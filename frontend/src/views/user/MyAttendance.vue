@@ -5,7 +5,7 @@ import { useI18n } from 'vue-i18n'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import ErrorState from '@/components/common/ui/ErrorState.vue'
-import { useAttendance } from '@/composables/useAttendance'
+import { useAttendance } from '@/features/user/attendance/useAttendance'
 
 const { locale, t } = useI18n()
 const enabled = ref(true)

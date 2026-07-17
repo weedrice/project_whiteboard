@@ -198,7 +198,7 @@ vi.mock('@/stores/theme', () => ({
     useThemeStore: () => mocks.themeStore,
 }))
 
-vi.mock('@/composables/useEditorImageUpload', () => ({
+vi.mock('@/features/board/posts/editor/useEditorImageUpload', () => ({
     useEditorImageUpload: () => ({
         isUploadingImage: mocks.isUploadingImage,
         validateImageFile: mocks.validateImageFile,

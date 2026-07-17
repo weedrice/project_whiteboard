@@ -1,6 +1,6 @@
 import { ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { useAttendance } from '../useAttendance'
+import { useAttendance } from '@/features/user/attendance/useAttendance'
 
 const mocks = vi.hoisted(() => ({
   useQuery: vi.fn((options) => options),

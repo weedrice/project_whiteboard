@@ -5,7 +5,7 @@ import PostEditorFloatingPanels from '@/components/board/editor/PostEditorFloati
 import PostEditorToolbar from '@/components/board/editor/PostEditorToolbar.vue'
 import { codeBlockLanguages, colorLabelKeys, colorPresets, fontSizes, lineHeights, slashActions } from '@/components/board/editor/postEditorOptions'
 import '@/components/board/editor/editor.css'
-import { useEditorImageUpload } from '@/composables/useEditorImageUpload'
+import { useEditorImageUpload } from '@/features/board/posts/editor/useEditorImageUpload'
 import { focusPostEditorAtPointer, usePostEditorInstance } from '@/features/board/posts/editor/usePostEditorInstance'
 import { usePostEditorImageAltCommands } from '@/features/board/posts/editor/usePostEditorImageAltCommands'
 import { usePostEditorColorPanel } from '@/features/board/posts/editor/usePostEditorColorPanel'

@@ -1,7 +1,7 @@
 import { defineComponent, h, nextTick } from 'vue'
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { useEditorImageUpload } from '../useEditorImageUpload'
+import { useEditorImageUpload } from '@/features/board/posts/editor/useEditorImageUpload'
 
 const uploadFileMock = vi.hoisted(() => vi.fn())
 
