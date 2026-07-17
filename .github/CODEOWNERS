@@ -1,6 +1,12 @@
 # Production schema and delivery boundaries require an explicit owner review.
 /backend/src/main/resources/db/migration/ @weedrice
 /backend/scripts/check-migration-compatibility.sh @weedrice
+/.github/CODEOWNERS @weedrice
 /.github/workflows/ @weedrice
 /deploy/scripts/activate-*-release.sh @weedrice
+/deploy/scripts/verify-release-provenance.sh @weedrice
+/deploy/sudoers/ @weedrice
 /deploy/systemd/ @weedrice
+/docs/design-notes/ @weedrice
+/docs/ops/applied-contract-migrations.txt @weedrice
+/docs/ops/database-migration-policy.md @weedrice

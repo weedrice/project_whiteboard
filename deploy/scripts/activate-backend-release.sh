@@ -12,6 +12,7 @@ LOG_DIR="${LOG_DIR:-/opt/app/logs}"
 ENV_FILE="${ENV_FILE:-/etc/noviis/app.env}"
 ENV_FILE_OWNER="${ENV_FILE_OWNER:-root:root}"
 ENV_FILE_MODE="${ENV_FILE_MODE:-600}"
+PROVENANCE_VERIFIER="${PROVENANCE_VERIFIER:-/usr/local/sbin/verify-noviis-release}"
 SOURCE_DIR="${1:?incoming release directory is required}"
 EXPECTED_COMMIT="${2:-${EXPECTED_COMMIT:-}}"
 
@@ -130,6 +131,8 @@ while IFS= read -r -d '' source_file; do
   file_count=$((file_count + 1))
 done < <(find "$source_real" -mindepth 1 -maxdepth 1 -type f -print0)
 test "$file_count" -gt 0
+
+"$PROVENANCE_VERIFIER" "$staging_dir" "$EXPECTED_COMMIT" backend
 
 mapfile -d '' jars < <(find "$staging_dir" -maxdepth 1 -type f -name '*.jar' -print0)
 if [ "${#jars[@]}" -ne 1 ]; then

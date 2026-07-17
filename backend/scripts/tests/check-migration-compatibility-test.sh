@@ -74,11 +74,39 @@ output_file="$fixture/output"
 (cd "$fixture" && GITHUB_OUTPUT="$output_file" bash "$script" "$base" HEAD)
 grep -qx 'contract_migration=true' "$output_file"
 
-printf 'V2__contract.sql https://github.com/weedrice/project_whiteboard/actions/runs/1\n' >> "$fixture/docs/ops/applied-contract-migrations.txt"
+printf 'V2__contract.sql https://github.com/weedrice/project_whiteboard/actions/runs/1 0123456789abcdef0123456789abcdef01234567\n' >> "$fixture/docs/ops/applied-contract-migrations.txt"
 git -C "$fixture" add .
 git -C "$fixture" commit -qm premature-allowlist
 if (cd "$fixture" && bash "$script" "$base" HEAD); then
   echo "Expected same-change contract acknowledgement to fail" >&2
+  exit 1
+fi
+
+fake_bin="$fixture/fake-bin"
+mkdir -p "$fake_bin"
+cat > "$fake_bin/gh" <<'EOF'
+#!/usr/bin/env bash
+case "${2:-}" in
+  repos/weedrice/project_whiteboard/actions/runs/1)
+    printf 'success\tmain\tworkflow_dispatch\t.github/workflows/ci.yml\t%s\n' \
+      "${GH_RUN_SHA:-0123456789abcdef0123456789abcdef01234567}"
+    ;;
+  repos/weedrice/project_whiteboard/deployments\?*) printf '99\n' ;;
+  repos/weedrice/project_whiteboard/deployments/99/statuses\?*) printf '%s\n' "${GH_DEPLOYMENT_STATE:-success}" ;;
+  *) exit 1 ;;
+esac
+EOF
+chmod +x "$fake_bin/gh"
+
+(cd "$fixture" && PATH="$fake_bin:$PATH" VERIFY_CONTRACT_RUNS=true bash "$script" HEAD HEAD)
+if (cd "$fixture" && GH_RUN_SHA=ffffffffffffffffffffffffffffffffffffffff \
+  PATH="$fake_bin:$PATH" VERIFY_CONTRACT_RUNS=true bash "$script" HEAD HEAD); then
+  echo "Expected a deployment run for another commit to fail" >&2
+  exit 1
+fi
+if (cd "$fixture" && GH_DEPLOYMENT_STATE=failure \
+  PATH="$fake_bin:$PATH" VERIFY_CONTRACT_RUNS=true bash "$script" HEAD HEAD); then
+  echo "Expected a failed production deployment record to fail" >&2
   exit 1
 fi
 

@@ -6,6 +6,13 @@ script="$project_root/deploy/scripts/activate-frontend-release.sh"
 fixture="$(mktemp -d)"
 trap 'rm -rf "$fixture"' EXIT
 
+provenance_verifier="$fixture/verify-release"
+cat > "$provenance_verifier" <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
+chmod +x "$provenance_verifier"
+
 release_root="$fixture/releases"
 incoming_root="$fixture/incoming"
 web_root="$fixture/app"
@@ -51,6 +58,7 @@ run_activation() {
   WEB_ROOT="$web_root" \
   HEALTH_URL=http://fixture/.noviis-release \
   STATE_DIR="$fixture" \
+  PROVENANCE_VERIFIER="$provenance_verifier" \
   PATH="$fake_bin:$PATH" \
   bash "$script" "$1" "${3:-activate}" "$2"
 }

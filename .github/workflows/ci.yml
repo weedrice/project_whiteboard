@@ -238,6 +238,10 @@ jobs:
     if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read
+      deployments: read
     outputs:
       contract_migration: ${{ steps.migration_guard.outputs.contract_migration }}
     services:
@@ -264,6 +268,8 @@ jobs:
         id: migration_guard
         env:
           BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || (github.event_name == 'push' && github.event.before || 'HEAD^') }}
+          GH_TOKEN: ${{ github.token }}
+          VERIFY_CONTRACT_RUNS: "true"
         run: bash backend/scripts/check-migration-compatibility.sh "$BASE_REF" HEAD
 
       - name: Install PostgreSQL client
@@ -309,6 +315,10 @@ jobs:
     if: needs.changes.outputs.ops == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read
+      deployments: read
     steps:
       - name: Checkout
         uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
@@ -349,11 +359,15 @@ jobs:
         run: |
           bash deploy/scripts/tests/activate-backend-release-test.sh
           bash deploy/scripts/tests/activate-frontend-release-test.sh
+          bash deploy/scripts/tests/verify-release-provenance-test.sh
           bash backend/scripts/tests/check-migration-compatibility-test.sh
+          bash backend/scripts/tests/verify-contract-deployment-evidence-test.sh
 
       - name: Validate repository migration policy changes
         env:
           BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || (github.event_name == 'push' && github.event.before || 'HEAD^') }}
+          GH_TOKEN: ${{ github.token }}
+          VERIFY_CONTRACT_RUNS: "true"
         run: bash backend/scripts/check-migration-compatibility.sh "$BASE_REF" HEAD
 
       - name: Validate production Nginx configuration
@@ -492,6 +506,16 @@ jobs:
         with:
           subject-path: backend/release/app.jar
           sbom-path: backend/release/sbom.spdx.json
+      - name: Download backend attestation bundle for server verification
+        working-directory: backend/release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh attestation download app.jar --repo "$GITHUB_REPOSITORY"
+          mapfile -t bundles < <(find . -maxdepth 1 -type f -name 'sha256*.jsonl' -print)
+          test "${#bundles[@]}" -eq 1
+          mv -- "${bundles[0]}" PROVENANCE_BUNDLE.jsonl
       - name: Upload backend release
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
@@ -556,6 +580,16 @@ jobs:
         with:
           subject-path: frontend/frontend-release.tar.gz
           sbom-path: frontend/sbom.spdx.json
+      - name: Download frontend attestation bundle for server verification
+        working-directory: frontend
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh attestation download frontend-release.tar.gz --repo "$GITHUB_REPOSITORY"
+          mapfile -t bundles < <(find . -maxdepth 1 -type f -name 'sha256*.jsonl' -print)
+          test "${#bundles[@]}" -eq 1
+          mv -- "${bundles[0]}" PROVENANCE_BUNDLE.jsonl
       - name: Upload frontend release
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
@@ -564,6 +598,7 @@ jobs:
             frontend/frontend-release.tar.gz
             frontend/SHA256SUMS
             frontend/sbom.spdx.json
+            frontend/PROVENANCE_BUNDLE.jsonl
           if-no-files-found: error
           retention-days: 14
 
@@ -577,13 +612,21 @@ jobs:
       (needs.ci-gate.outputs.contract_migration != 'true' ||
       (github.event_name == 'workflow_dispatch' && inputs.allow_contract_migration && inputs.backup_snapshot_id != ''))
     uses: ./.github/workflows/deploy-backend.yml
+    permissions:
+      contents: read
+      attestations: read
+      id-token: write
     with:
       expected_sha: ${{ github.sha }}
       backup_snapshot_id: ${{ inputs.backup_snapshot_id || '' }}
+      contract_migration: ${{ needs.ci-gate.outputs.contract_migration == 'true' }}
     secrets:
       EC2_HOST: ${{ secrets.EC2_HOST }}
       EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
       EC2_HOST_FINGERPRINT: ${{ secrets.EC2_HOST_FINGERPRINT }}
+      AWS_CONTRACT_EVIDENCE_ROLE_ARN: ${{ secrets.AWS_CONTRACT_EVIDENCE_ROLE_ARN }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      RDS_PRODUCTION_DB_IDENTIFIER: ${{ secrets.RDS_PRODUCTION_DB_IDENTIFIER }}
 
   deploy-frontend:
     needs: [changes, ci-gate, release-frontend, deploy-backend]
@@ -597,6 +640,9 @@ jobs:
       ((github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.frontend_changed == 'true') ||
       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.deploy_frontend))
     uses: ./.github/workflows/deploy-frontend.yml
+    permissions:
+      contents: read
+      attestations: read
     with:
       expected_sha: ${{ github.sha }}
     secrets:

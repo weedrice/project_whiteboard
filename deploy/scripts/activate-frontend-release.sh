@@ -7,6 +7,7 @@ WEB_ROOT="${WEB_ROOT:-/var/www/app}"
 HEALTH_URL="${HEALTH_URL:-https://noviis.kr/.noviis-release}"
 INTERNAL_HEALTH_HOST="${INTERNAL_HEALTH_HOST:-noviis.kr}"
 KEEP_RELEASES="${KEEP_RELEASES:-5}"
+PROVENANCE_VERIFIER="${PROVENANCE_VERIFIER:-/usr/local/sbin/verify-noviis-release}"
 SOURCE_DIR="${1:?incoming release directory is required}"
 MODE="${2:-activate}"
 EXPECTED_COMMIT="${3:-${EXPECTED_COMMIT:-}}"
@@ -85,6 +86,7 @@ while IFS= read -r -d '' source_file; do
   file_count=$((file_count + 1))
 done < <(find "$source_real" -mindepth 1 -maxdepth 1 -type f -print0)
 test "$file_count" -gt 0
+"$PROVENANCE_VERIFIER" "$staging_dir" "$EXPECTED_COMMIT" frontend
 test -f "$staging_dir/frontend-release.tar.gz"
 test -f "$staging_dir/SHA256SUMS"
 (cd "$staging_dir" && sha256sum --strict --check SHA256SUMS)

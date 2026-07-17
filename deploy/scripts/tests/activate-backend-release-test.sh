@@ -13,11 +13,19 @@ log_dir="$fixture/logs"
 env_file="$fixture/app.env"
 fake_bin="$fixture/bin"
 state_dir="$fixture/state"
+provenance_verifier="$fixture/verify-release"
 mkdir -p "$release_root" "$incoming_root" "$log_dir" "$fake_bin" "$state_dir"
 printf 'test=true\n' > "$env_file"
 chmod 0600 "$env_file"
 touch "$log_dir/whiteboard-active.log" "$log_dir/whiteboard-error.log"
 printf 'active\n' > "$state_dir/service"
+
+cat > "$provenance_verifier" <<'EOF'
+#!/usr/bin/env bash
+if [ -f "$STATE_DIR/fail_provenance" ]; then exit 1; fi
+exit 0
+EOF
+chmod +x "$provenance_verifier"
 
 cat > "$fake_bin/sudo" <<'EOF'
 #!/usr/bin/env bash
@@ -76,6 +84,7 @@ invoke_activation() {
   ENV_FILE_MODE="$(stat -c %a "$env_file")" \
   STATE_DIR="$state_dir" \
   PATH="$fake_bin:$PATH" \
+  PROVENANCE_VERIFIER="$provenance_verifier" \
   HEALTH_ATTEMPTS=2 \
   HEALTH_DELAY_SECONDS=0 \
   bash "$script" "$1" "${2:-}"
@@ -95,6 +104,19 @@ mkdir -p "$success_release"
 printf 'new\n' > "$success_release/app.jar"
 run_activation "$success_release"
 grep -qx new "$app_dir/app.jar"
+
+printf 'old\n' > "$app_dir/app.jar"
+provenance_failure_release="$incoming_root/provenance-failure"
+mkdir -p "$provenance_failure_release"
+printf 'new\n' > "$provenance_failure_release/app.jar"
+touch "$state_dir/fail_provenance"
+if run_activation "$provenance_failure_release"; then
+  echo "Expected provenance verification failure" >&2
+  exit 1
+fi
+grep -qx old "$app_dir/app.jar"
+grep -qx active "$state_dir/service"
+rm "$state_dir/fail_provenance"
 
 checksum_failure_release="$incoming_root/checksum-failure"
 mkdir -p "$checksum_failure_release"

@@ -24,7 +24,11 @@ Every new migration must contain exactly one phase marker: `-- noviis:migration-
 
 `DROP INDEX` is permitted because it does not change the schema consumed by an application binary. It still requires query-plan and PostgreSQL smoke verification. Before applying any contract migration, take and verify a backup according to `docs/ops/postgres-backup-restore.md`.
 
-Contract migrations are never eligible for an automatic main deployment. Run the integrated CI manually from `main`, explicitly approve the contract phase and confirm the pre-change snapshot, then verify the production deployment. Only after that deployment succeeds may its filename and deployment run URL be appended to `docs/ops/applied-contract-migrations.txt`. The compatibility check rejects an allowlist entry introduced in the same change as its migration, so an un-applied contract remains a deployment blocker across later commits.
+Contract migrations are never eligible for an automatic main deployment. Run the integrated CI manually from `main`, explicitly approve the contract phase, and provide a recent manual RDS snapshot. The production deployment job assumes a read-only AWS role and fails closed unless the snapshot is `available`, belongs to the configured production DB, predates the deployment, and is no more than 24 hours old.
+
+Configure `AWS_CONTRACT_EVIDENCE_ROLE_ARN`, `AWS_REGION`, and `RDS_PRODUCTION_DB_IDENTIFIER` as production-environment secrets. The OIDC role needs only `rds:DescribeDBSnapshots` and must be restricted to the repository's reviewed production environment workflow subject; do not use long-lived AWS access keys for this gate.
+
+Only after production succeeds may the migration be appended to `docs/ops/applied-contract-migrations.txt` as `<migration filename> <deployment run URL> <deployed commit SHA>`. CI verifies the referenced run through the GitHub API: it must be a successful manual `main` run of `.github/workflows/ci.yml`, its head SHA must match the recorded SHA, and that SHA must have a successful `production` environment deployment. The compatibility check rejects an allowlist entry introduced in the same change as its migration, so an un-applied contract remains a deployment blocker across later commits.
 
 ## Multi-instance scale gate
 

@@ -10,6 +10,10 @@ on:
         required: false
         type: string
         default: ''
+      contract_migration:
+        required: false
+        type: boolean
+        default: false
     secrets:
       EC2_HOST:
         required: true
@@ -17,6 +21,12 @@ on:
         required: true
       EC2_HOST_FINGERPRINT:
         required: true
+      AWS_CONTRACT_EVIDENCE_ROLE_ARN:
+        required: false
+      AWS_REGION:
+        required: false
+      RDS_PRODUCTION_DB_IDENTIFIER:
+        required: false
 
 concurrency:
   group: deploy-production
@@ -25,6 +35,7 @@ concurrency:
 permissions:
   contents: read
   attestations: read
+  id-token: write
 
 jobs:
   deploy:
@@ -61,8 +72,24 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh attestation verify release-artifact/app.jar --repo "$GITHUB_REPOSITORY"
-          gh attestation verify release-artifact/app.jar --repo "$GITHUB_REPOSITORY" --predicate-type https://spdx.dev/Document/v2.3
+          gh attestation verify release-artifact/app.jar --repo "$GITHUB_REPOSITORY" --signer-workflow "github.com/$GITHUB_REPOSITORY/.github/workflows/ci.yml" --source-ref refs/heads/main --source-digest "${{ inputs.expected_sha }}" --deny-self-hosted-runners
+          gh attestation verify release-artifact/app.jar --repo "$GITHUB_REPOSITORY" --signer-workflow "github.com/$GITHUB_REPOSITORY/.github/workflows/ci.yml" --source-ref refs/heads/main --source-digest "${{ inputs.expected_sha }}" --predicate-type https://spdx.dev/Document/v2.3 --deny-self-hosted-runners
+
+      - name: Configure read-only AWS credentials for contract evidence
+        if: inputs.contract_migration
+        uses: aws-actions/configure-aws-credentials@56d6a583f00f6bad6d19d91d53a7bc3b8143d0e9 # v5.1.1
+        with:
+          role-to-assume: ${{ secrets.AWS_CONTRACT_EVIDENCE_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          role-session-name: noviis-contract-evidence-${{ github.run_id }}
+
+      - name: Verify contract migration snapshot evidence
+        if: inputs.contract_migration
+        env:
+          SNAPSHOT_ID: ${{ inputs.backup_snapshot_id }}
+          PRODUCTION_DB_IDENTIFIER: ${{ secrets.RDS_PRODUCTION_DB_IDENTIFIER }}
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+        run: bash backend/scripts/verify-contract-deployment-evidence.sh "$SNAPSHOT_ID" "$PRODUCTION_DB_IDENTIFIER" "$EXPECTED_SHA"
 
       - name: Prepare backend release directory
         uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
@@ -74,6 +101,7 @@ jobs:
           script: |
             set -eu
             test "$(sha256sum /usr/local/sbin/activate-noviis-backend | awk '{print $1}')" = "${{ hashFiles('deploy/scripts/activate-backend-release.sh') }}"
+            test "$(sha256sum /usr/local/sbin/verify-noviis-release | awk '{print $1}')" = "${{ hashFiles('deploy/scripts/verify-release-provenance.sh') }}"
             test "$(sha256sum /etc/systemd/system/app.service | awk '{print $1}')" = "${{ hashFiles('deploy/systemd/app.service') }}"
             RELEASE_DIR="/opt/app/backend/incoming/${{ inputs.expected_sha }}-${{ github.run_id }}-${{ github.run_attempt }}"
             test ! -e "$RELEASE_DIR"
@@ -86,7 +114,7 @@ jobs:
           username: noviis-deploy
           key: ${{ secrets.EC2_SSH_KEY }}
           fingerprint: ${{ secrets.EC2_HOST_FINGERPRINT }}
-          source: "release-artifact/app.jar,release-artifact/SHA256SUMS,release-artifact/RELEASE_METADATA,release-artifact/sbom.spdx.json"
+          source: "release-artifact/app.jar,release-artifact/SHA256SUMS,release-artifact/RELEASE_METADATA,release-artifact/sbom.spdx.json,release-artifact/PROVENANCE_BUNDLE.jsonl"
           target: "/opt/app/backend/incoming/${{ inputs.expected_sha }}-${{ github.run_id }}-${{ github.run_attempt }}"
           strip_components: 1
 
