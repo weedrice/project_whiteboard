@@ -165,6 +165,9 @@ jobs:
           SEO_SITEMAP_URL: https://noviis.kr/sitemap.xml
           SEO_VERIFY_MAX_URLS: 10
           SEO_VERIFY_TIMEOUT_MS: 15000
+          SEO_REQUIRE_POST_URLS: "true"
+          SEO_REQUIRE_RELEASE_MANIFEST: "true"
+          SEO_EXPECTED_RELEASE_SHA: ${{ inputs.expected_sha }}
 
       - name: Roll back frontend after verification failure
         if: failure() && steps.activate.outcome == 'success'

@@ -16,11 +16,11 @@
 
 backend와 frontend가 함께 변경되면 backend를 먼저 활성화한다. 관리 health와 build-info에서 SHA가 확인된 경우에만 reusable backend workflow가 `activated_sha`를 출력한다. frontend workflow는 전달받은 backend SHA가 자신의 대상 SHA와 같은지 확인한 뒤 결과를 확정한다.
 
-contract migration은 자동 배포하지 않는다. `main`의 수동 실행, `allow_contract_migration=true`, 비어 있지 않은 검증된 snapshot ID, tracked design note, production environment 승인과 GitHub run evidence가 모두 필요하다. `backend/scripts/check-migration-compatibility.sh`와 evidence verifier가 base commit 또는 승인 증거를 확인하지 못하면 fail-closed 처리한다. 적용 완료 migration은 `docs/ops/applied-contract-migrations.txt`와 운영 변경 기록을 함께 갱신한다.
+contract migration은 자동 배포하지 않는다. `main`의 수동 실행, `allow_contract_migration=true`, 비어 있지 않은 검증된 snapshot ID, tracked design note, production environment 승인과 GitHub run evidence가 모두 필요하다. Run evidence는 같은 SHA의 임의 deployment가 아니라 해당 run의 성공한 `deploy-backend` reusable job ID와 그 job URL을 기록한 `production` deployment status가 정확히 결합돼야 한다. `backend/scripts/check-migration-compatibility.sh`와 evidence verifier가 base commit 또는 승인 증거를 확인하지 못하면 fail-closed 처리한다. 적용 완료 migration은 `docs/ops/applied-contract-migrations.txt`와 운영 변경 기록을 함께 갱신한다.
 
 ## 활성화와 정리
 
-활성화 스크립트는 provenance, checksum, commit metadata, 서비스 health를 검증한 뒤 `ACTIVATED_SHA=<sha>`를 출력한다. 이 시점 이후 release 보존 정리, 상태 진단, incoming 삭제 실패는 건강한 release를 rollback하지 않는다. 대신 `CLEANUP_DEBT=...` 경고와 workflow cleanup 결과로 후속 조치한다.
+활성화 스크립트는 provenance, checksum, commit metadata, 서비스 health를 검증한 뒤 `ACTIVATED_SHA=<sha>`를 출력한다. 이 시점 이후 release 보존 정리, 상태 진단, incoming 삭제 실패는 건강한 release를 rollback하지 않는다. 대신 `CLEANUP_DEBT=...` 경고와 workflow cleanup 결과로 후속 조치한다. 실패 진단의 애플리케이션 로그·journal 원문은 Actions 출력으로 보내지 않고 host의 root-only 진단 파일에만 저장한다.
 
 backend/frontend artifact는 SHA-256 manifest, SBOM, GitHub attestation bundle을 포함한다. 배포 직전 최신 `origin/main` SHA를 다시 확인하며 SSH와 SCP는 독립적으로 확인한 host fingerprint를 필수로 사용한다. production deploy concurrency는 취소 없이 직렬화한다.
 
@@ -28,7 +28,7 @@ backend activator는 이전 JAR을 보존하고 서비스 stop, atomic JAR 교�
 
 ## SEO
 
-production frontend release는 `SEO_STRICT=true`로 sitemap과 prerender를 생성한다. API 조회 실패, 게시글 URL 0건, URL과 prerender 개수 불일치는 release 생성을 실패시킨다. `.noviis-seo-release.json`에 commit SHA, 전체 URL 수, 게시글 URL 수, prerender 수를 기록하고 activator가 다시 검증한다.
+production frontend release는 `SEO_STRICT=true`로 sitemap과 prerender를 생성한다. API 조회 실패, 게시글 URL 0건, URL과 prerender 개수 불일치는 release 생성을 실패시킨다. `.noviis-seo-release.json`에 commit SHA, 전체 URL 수, 게시글 URL 수, prerender 수와 sitemap SHA-256을 기록한다. 배포 후 검증과 정기 monitor도 게시글 URL 0건을 거부하고 public sitemap의 개수·digest·release SHA를 이 manifest와 대조한다.
 
 배포 후 sitemap 제출과 `seo-monitor.yml`의 정기 제출은 `seo-submit-production` concurrency group으로 직렬화한다. 정기 제출의 인증 오류, 429, 5xx, timeout은 job 실패다. 배포 후 제출 실패는 이미 검증된 frontend를 rollback하지 않고 warning과 job summary에 남기며 정기 monitor가 재시도한다.
 

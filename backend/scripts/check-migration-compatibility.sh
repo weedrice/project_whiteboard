@@ -54,8 +54,14 @@ verify_contract_deployment_run() {
   local event
   local workflow_path
   local head_sha
+  local backend_job
+  local backend_job_id
+  local backend_job_name
+  local backend_job_conclusion
+  local backend_job_url
+  local deployment_ids
   local deployment_id
-  local deployment_state
+  local matching_status
 
   command -v gh >/dev/null 2>&1 || {
     echo "GitHub CLI is required to verify contract deployment evidence" >&2
@@ -73,22 +79,63 @@ verify_contract_deployment_run() {
     exit 1
   fi
 
-  deployment_id="$(gh api "repos/$repository/deployments?sha=$deployment_sha&environment=production&per_page=100" \
-    --jq 'map(select(.environment == "production")) | first | .id // empty')" || {
-      echo "Production environment deployment cannot be read for run: $run_id" >&2
+  backend_job="$(gh api --paginate "repos/$repository/actions/runs/$run_id/jobs?per_page=100" \
+    --jq '.jobs[] | select((.name == "deploy-backend / deploy" or .name == "deploy-backend / Deploy Backend / deploy") and .conclusion == "success") | [.id, .name, .conclusion, .html_url] | @tsv')" || {
+      echo "Backend deployment job cannot be read for run: $run_id" >&2
       exit 1
     }
-  [ -n "$deployment_id" ] || {
+  if [ "$(printf '%s\n' "$backend_job" | sed '/^$/d' | wc -l)" -ne 1 ]; then
+    echo "Contract deployment must contain exactly one successful backend deployment job: $run_id" >&2
+    exit 1
+  fi
+  IFS=$'\t' read -r backend_job_id backend_job_name backend_job_conclusion backend_job_url <<< "$backend_job"
+  [[ "$backend_job_id" =~ ^[0-9]+$ ]] || {
+    echo "Backend deployment job id is invalid for run: $run_id" >&2
+    exit 1
+  }
+  [ "$backend_job_conclusion" = success ] || {
+    echo "Backend deployment job is not successful for run: $run_id" >&2
+    exit 1
+  }
+  case "$backend_job_name" in
+    "deploy-backend / deploy"|"deploy-backend / Deploy Backend / deploy") ;;
+    *)
+      echo "Production deployment evidence belongs to a different job: $backend_job_name" >&2
+      exit 1
+      ;;
+  esac
+  case "$backend_job_url" in
+    "https://github.com/$repository/actions/runs/$run_id/job/$backend_job_id"|\
+    "https://github.com/$repository/runs/$run_id/jobs/$backend_job_id") ;;
+    *)
+      echo "Backend deployment job URL does not belong to the recorded run: $run_id" >&2
+      exit 1
+      ;;
+  esac
+
+  deployment_ids="$(gh api "repos/$repository/deployments?sha=$deployment_sha&environment=production&per_page=100" \
+    --jq '.[] | select(.environment == "production") | .id')" || {
+      echo "Production environment deployments cannot be read for run: $run_id" >&2
+      exit 1
+    }
+  [ -n "$deployment_ids" ] || {
     echo "Contract deployment has no production environment record: $run_id" >&2
     exit 1
   }
-  deployment_state="$(gh api "repos/$repository/deployments/$deployment_id/statuses?per_page=1" \
-    --jq '.[0].state // empty')" || {
-      echo "Production deployment status cannot be read for run: $run_id" >&2
-      exit 1
-    }
-  [ "$deployment_state" = success ] || {
-    echo "Contract production deployment is not successful: $run_id" >&2
+
+  matching_status=false
+  while read -r deployment_id; do
+    [ -n "$deployment_id" ] || continue
+    [[ "$deployment_id" =~ ^[0-9]+$ ]] || continue
+    if gh api "repos/$repository/deployments/$deployment_id/statuses?per_page=100" \
+      --jq ".[] | select(.state == \"success\" and .log_url == \"$backend_job_url\") | .id" \
+      | grep -Eq '^[0-9]+$'; then
+      matching_status=true
+      break
+    fi
+  done <<< "$deployment_ids"
+  [ "$matching_status" = true ] || {
+    echo "No successful production deployment status is bound to backend job $backend_job_name in run $run_id" >&2
     exit 1
   }
 }

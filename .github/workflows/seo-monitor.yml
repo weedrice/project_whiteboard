@@ -40,6 +40,8 @@ jobs:
           SEO_SITEMAP_URL: https://noviis.kr/sitemap.xml
           SEO_VERIFY_MAX_URLS: 10
           SEO_VERIFY_TIMEOUT_MS: 15000
+          SEO_REQUIRE_POST_URLS: "true"
+          SEO_REQUIRE_RELEASE_MANIFEST: "true"
 
       - name: Submit sitemap to search engines
         run: npm run seo:submit

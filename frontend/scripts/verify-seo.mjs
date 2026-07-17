@@ -1,9 +1,17 @@
 #!/usr/bin/env node
 
+import { createHash } from 'node:crypto'
+import { fileURLToPath } from 'node:url'
+import { resolve } from 'node:path'
+
 const siteUrl = normalizeBaseUrl(process.env.SEO_SITE_URL ?? 'https://noviis.kr')
 const sitemapUrl = process.env.SEO_SITEMAP_URL ?? `${siteUrl}/sitemap.xml`
 const requestTimeoutMs = parsePositiveInt(process.env.SEO_VERIFY_TIMEOUT_MS, 15000)
 const maxUrlChecks = parsePositiveInt(process.env.SEO_VERIFY_MAX_URLS, 10)
+const requirePostUrls = process.env.SEO_REQUIRE_POST_URLS === 'true'
+const requireReleaseManifest = process.env.SEO_REQUIRE_RELEASE_MANIFEST === 'true'
+const releaseManifestUrl = process.env.SEO_RELEASE_MANIFEST_URL ?? `${siteUrl}/.noviis-seo-release.json`
+const expectedReleaseSha = String(process.env.SEO_EXPECTED_RELEASE_SHA ?? '').trim()
 const userAgents = [
     { name: 'googlebot', value: process.env.SEO_GOOGLEBOT_UA ?? 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)' }
 ]
@@ -61,6 +69,58 @@ function assertContains(text, pattern, message, failures) {
     }
 }
 
+export function sitemapSha256(xmlText) {
+    return createHash('sha256').update(xmlText, 'utf8').digest('hex')
+}
+
+export function assertPostUrlsPresent(postUrls, required) {
+    if (required && postUrls.length === 0) {
+        throw new Error('production sitemap contains no post URLs')
+    }
+}
+
+function requireNonNegativeInteger(value, field) {
+    if (!Number.isSafeInteger(value) || value < 0) {
+        throw new Error(`release manifest ${field} must be a non-negative integer`)
+    }
+    return value
+}
+
+export function validateReleaseManifest({ sitemapText, allUrls, postUrls, manifestText, expectedSha = '' }) {
+    let manifest
+    try {
+        manifest = JSON.parse(manifestText)
+    } catch {
+        throw new Error('release manifest is not valid JSON')
+    }
+    if (!manifest || typeof manifest !== 'object' || Array.isArray(manifest)) {
+        throw new Error('release manifest must be a JSON object')
+    }
+    if (!/^[0-9a-f]{40}$/.test(manifest.commitSha ?? '')) {
+        throw new Error('release manifest commitSha is invalid')
+    }
+    if (expectedSha && manifest.commitSha !== expectedSha) {
+        throw new Error(`release manifest commit mismatch: expected ${expectedSha}, received ${manifest.commitSha}`)
+    }
+    const urlCount = requireNonNegativeInteger(manifest.urlCount, 'urlCount')
+    const postUrlCount = requireNonNegativeInteger(manifest.postUrlCount, 'postUrlCount')
+    const prerenderCount = requireNonNegativeInteger(manifest.prerenderCount, 'prerenderCount')
+    if (urlCount !== allUrls.length) {
+        throw new Error(`release manifest URL count mismatch: expected ${urlCount}, received ${allUrls.length}`)
+    }
+    if (postUrlCount !== postUrls.length) {
+        throw new Error(`release manifest post URL count mismatch: expected ${postUrlCount}, received ${postUrls.length}`)
+    }
+    if (prerenderCount !== postUrlCount) {
+        throw new Error(`release manifest prerender count mismatch: posts=${postUrlCount}, prerenders=${prerenderCount}`)
+    }
+    const actualDigest = sitemapSha256(sitemapText)
+    if (!/^[0-9a-f]{64}$/.test(manifest.sitemapSha256 ?? '') || manifest.sitemapSha256 !== actualDigest) {
+        throw new Error('release manifest sitemap digest mismatch')
+    }
+    return manifest
+}
+
 function escapeRegExp(value) {
     return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
@@ -90,14 +150,33 @@ async function main() {
     }
 
     const allUrls = parseSitemapUrls(sitemapRes.text)
-    const postUrls = findPostUrls(allUrls).slice(0, maxUrlChecks)
+    const allPostUrls = findPostUrls(allUrls)
+    const postUrls = allPostUrls.slice(0, maxUrlChecks)
     const targetUrls = postUrls.length > 0
         ? postUrls
         : [`${siteUrl}/`, `${siteUrl}/boards`]
     const shouldCheckArticleSignals = postUrls.length > 0
 
     if (postUrls.length === 0) {
+        assertPostUrlsPresent(allPostUrls, requirePostUrls)
         console.warn('[seo-verify] no post URLs found in sitemap; running fallback checks on base URLs')
+    }
+
+    if (expectedReleaseSha && !/^[0-9a-f]{40}$/.test(expectedReleaseSha)) {
+        throw new Error('SEO_EXPECTED_RELEASE_SHA must be a full lowercase commit SHA')
+    }
+    if (requireReleaseManifest) {
+        const manifestRes = await fetchText(releaseManifestUrl)
+        if (!manifestRes.ok) {
+            throw new Error(`release manifest fetch failed: HTTP ${manifestRes.status}`)
+        }
+        validateReleaseManifest({
+            sitemapText: sitemapRes.text,
+            allUrls,
+            postUrls: allPostUrls,
+            manifestText: manifestRes.text,
+            expectedSha: expectedReleaseSha
+        })
     }
 
     for (const url of targetUrls) {
@@ -149,7 +228,9 @@ async function main() {
     console.log(`[seo-verify] OK (${targetUrls.length} URLs checked with ${userAgents.length} user agents)`)
 }
 
-main().catch((error) => {
-    console.error(`[seo-verify] failed: ${String(error)}`)
-    process.exitCode = 1
-})
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+    main().catch((error) => {
+        console.error(`[seo-verify] failed: ${String(error)}`)
+        process.exitCode = 1
+    })
+}

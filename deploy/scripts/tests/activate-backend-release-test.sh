@@ -10,11 +10,12 @@ app_dir="$fixture/app"
 release_root="$app_dir/releases"
 incoming_root="$app_dir/incoming"
 log_dir="$fixture/logs"
+diagnostic_root="$fixture/diagnostics"
 env_file="$fixture/app.env"
 fake_bin="$fixture/bin"
 state_dir="$fixture/state"
 provenance_verifier="$fixture/verify-release"
-mkdir -p "$release_root" "$incoming_root" "$log_dir" "$fake_bin" "$state_dir"
+mkdir -p "$release_root" "$incoming_root" "$log_dir" "$diagnostic_root" "$fake_bin" "$state_dir"
 printf 'test=true\n' > "$env_file"
 chmod 0600 "$env_file"
 touch "$log_dir/whiteboard-active.log" "$log_dir/whiteboard-error.log"
@@ -29,6 +30,26 @@ chmod +x "$provenance_verifier"
 
 cat > "$fake_bin/sudo" <<'EOF'
 #!/usr/bin/env bash
+printf '%s\n' "$*" >> "$SUDO_LOG"
+if [ "${1:-}" = install ]; then
+  shifted=()
+  shift
+  for argument in "$@"; do
+    if [ "$argument" = -d ]; then
+      last="${!#}"
+      mkdir -p "$last"
+      exit 0
+    fi
+  done
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      -o|-g) shift 2 ;;
+      *) shifted+=("$1"); shift ;;
+    esac
+  done
+  exec install "${shifted[@]}"
+fi
+if [ "${1:-}" = chown ] && [ "${2:-}" = root:root ]; then exit 0; fi
 exec "$@"
 EOF
 
@@ -92,10 +113,12 @@ invoke_activation() {
   INCOMING_ROOT="$incoming_root" \
   RELEASE_ROOT="$release_root" \
   LOG_DIR="$log_dir" \
+  DIAGNOSTIC_ROOT="$diagnostic_root" \
   ENV_FILE="$env_file" \
   ENV_FILE_OWNER="$(stat -c %U:%G "$env_file")" \
   ENV_FILE_MODE="$(stat -c %a "$env_file")" \
   STATE_DIR="$state_dir" \
+  SUDO_LOG="$state_dir/sudo.log" \
   PATH="$fake_bin:$PATH" \
   PROVENANCE_VERIFIER="$provenance_verifier" \
   HEALTH_ATTEMPTS=2 \
@@ -171,10 +194,30 @@ failed_release="$incoming_root/failed-health"
 mkdir -p "$failed_release"
 printf 'new\n' > "$failed_release/app.jar"
 touch "$state_dir/fail_new_health"
-if run_activation "$failed_release"; then
+printf 'CANARY-SECRET-MUST-STAY-ON-HOST\n' > "$log_dir/whiteboard-error.log"
+set +e
+failed_output="$(run_activation "$failed_release" 2>&1)"
+failed_status=$?
+set -e
+if [ "$failed_status" -eq 0 ]; then
   echo "Expected failed health check" >&2
   exit 1
 fi
+if grep -Fq 'CANARY-SECRET-MUST-STAY-ON-HOST' <<< "$failed_output"; then
+  echo "Application log content escaped into activation output" >&2
+  exit 1
+fi
+grep -Fq 'Backend activation diagnostic stored locally:' <<< "$failed_output"
+mapfile -t diagnostic_files < <(find "$diagnostic_root" -maxdepth 1 -type f -name 'backend-failed-health-*.log')
+test "${#diagnostic_files[@]}" -eq 1
+case "$(uname -s)" in
+  MINGW*|MSYS*) ;;
+  *) test "$(stat -c %a "${diagnostic_files[0]}")" = 600 ;;
+esac
+grep -Fq 'CANARY-SECRET-MUST-STAY-ON-HOST' "${diagnostic_files[0]}"
+grep -Fq "install -d -o root -g root -m 0700 $diagnostic_root" "$state_dir/sudo.log"
+grep -Fq "tee ${diagnostic_files[0]}" "$state_dir/sudo.log"
+grep -Fq "chown root:root ${diagnostic_files[0]}" "$state_dir/sudo.log"
 grep -qx old "$app_dir/app.jar"
 rm "$state_dir/fail_new_health"
 

@@ -9,6 +9,7 @@ HEALTH_URL="${HEALTH_URL:-http://127.0.0.1:8081/actuator/health}"
 HEALTH_ATTEMPTS="${HEALTH_ATTEMPTS:-30}"
 HEALTH_DELAY_SECONDS="${HEALTH_DELAY_SECONDS:-2}"
 LOG_DIR="${LOG_DIR:-/opt/app/logs}"
+DIAGNOSTIC_ROOT="${DIAGNOSTIC_ROOT:-/var/lib/noviis/deployment-diagnostics}"
 ENV_FILE="${ENV_FILE:-/etc/noviis/app.env}"
 ENV_FILE_OWNER="${ENV_FILE_OWNER:-root:root}"
 ENV_FILE_MODE="${ENV_FILE_MODE:-600}"
@@ -25,12 +26,36 @@ activation_verified=false
 activated_sha=""
 staging_dir=""
 release_real=""
+failure_phase="preflight"
 
 diagnose() {
-  sudo systemctl status "$SERVICE_NAME" --no-pager || true
-  sudo journalctl -u "$SERVICE_NAME" -n 80 --no-pager || true
-  sudo tail -n 120 "$LOG_DIR/whiteboard-active.log" || true
-  sudo tail -n 120 "$LOG_DIR/whiteboard-error.log" || true
+  local diagnostic_file
+  local diagnostic_name
+  diagnostic_name="backend-${release_id:-unknown}-$(date -u +%Y%m%dT%H%M%SZ)-$$.log"
+  if ! sudo install -d -o root -g root -m 0700 "$DIAGNOSTIC_ROOT" 2>/dev/null; then
+    echo "Backend activation diagnostic directory could not be secured (phase=$failure_phase)" >&2
+    return 0
+  fi
+  diagnostic_file="$DIAGNOSTIC_ROOT/$diagnostic_name"
+  if ! {
+    printf 'timestamp=%s\nrelease_id=%s\nphase=%s\n' \
+      "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${release_id:-unknown}" "$failure_phase"
+    sudo systemctl show "$SERVICE_NAME" \
+      --property=ActiveState,SubState,Result,ExecMainCode,ExecMainStatus,NRestarts || true
+    sudo journalctl -u "$SERVICE_NAME" -n 80 --no-pager || true
+    sudo tail -n 120 "$LOG_DIR/whiteboard-active.log" || true
+    sudo tail -n 120 "$LOG_DIR/whiteboard-error.log" || true
+  } 2>&1 | sudo tee "$diagnostic_file" >/dev/null; then
+    sudo rm -f -- "$diagnostic_file" 2>/dev/null || true
+    echo "Backend activation diagnostic could not be stored (phase=$failure_phase)" >&2
+    return 0
+  fi
+  if ! sudo chown root:root "$diagnostic_file" || ! sudo chmod 0600 "$diagnostic_file"; then
+    sudo rm -f -- "$diagnostic_file" 2>/dev/null || true
+    echo "Backend activation diagnostic could not be secured (phase=$failure_phase)" >&2
+    return 0
+  fi
+  echo "Backend activation diagnostic stored locally: $diagnostic_name (phase=$failure_phase)" >&2
 }
 
 wait_for_health() {
@@ -164,6 +189,7 @@ if [ -f "$APP_DIR/app.jar" ]; then
 fi
 
 sudo install -m 0644 "${jars[0]}" "$APP_DIR/app.jar.next"
+failure_phase="stop-service"
 sudo systemctl stop "$SERVICE_NAME"
 service_stopped=true
 if sudo systemctl is-active --quiet "$SERVICE_NAME"; then
@@ -172,9 +198,11 @@ if sudo systemctl is-active --quiet "$SERVICE_NAME"; then
 fi
 sudo mv "$APP_DIR/app.jar.next" "$APP_DIR/app.jar"
 activated=true
+failure_phase="start-service"
 sudo systemctl daemon-reload
 sudo systemctl start "$SERVICE_NAME"
 sudo systemctl is-active --quiet "$SERVICE_NAME"
+failure_phase="verify-health"
 wait_for_health "$EXPECTED_COMMIT"
 activation_verified=true
 activated_sha="${EXPECTED_COMMIT:-$release_id}"
@@ -227,7 +255,8 @@ cleanup_releases() {
 if ! cleanup_releases; then
   echo "CLEANUP_DEBT=backend_release_retention" >&2
 fi
-if ! sudo systemctl status "$SERVICE_NAME" --no-pager; then
+if ! sudo systemctl show "$SERVICE_NAME" \
+  --property=ActiveState,SubState,Result,ExecMainCode,ExecMainStatus,NRestarts; then
   echo "CLEANUP_DEBT=backend_status_diagnostic" >&2
 fi
 if ! rm -rf -- "$source_real"; then

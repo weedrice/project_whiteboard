@@ -8,6 +8,7 @@ sudo adduser --system --ingroup noviis-app --no-create-home --shell /usr/sbin/no
 sudo adduser --disabled-password --gecos '' noviis-deploy
 sudo install -d -o noviis-app -g noviis-app -m 0750 /opt/app/logs /opt/app/uploads
 sudo install -d -o root -g root -m 0755 /opt/app/backend /opt/app/backend/releases /var/www/releases/frontend
+sudo install -d -o root -g root -m 0700 /var/lib/noviis/deployment-diagnostics
 sudo install -d -o noviis-deploy -g noviis-deploy -m 0750 /opt/app/backend/incoming /var/www/incoming /var/www/incoming/frontend
 sudo install -o root -g root -m 0755 deploy/scripts/activate-backend-release.sh /usr/local/sbin/activate-noviis-backend
 sudo install -o root -g root -m 0755 deploy/scripts/activate-frontend-release.sh /usr/local/sbin/activate-noviis-frontend
@@ -26,6 +27,8 @@ sudo chmod 0644 /etc/noviis/github-attestation-trusted-root.jsonl
 Populate `/etc/noviis/app.env` through the host secret-management procedure. Keep it a regular, non-symlink file owned by `root:root` with mode `0600`. The unit pins `SPRING_PROFILES_ACTIVE=prod`, and both the unit and activation script fail closed on an invalid environment file.
 
 The workflow connects only as `noviis-deploy`. Uploads land below the deploy-owned `incoming` directories. Each root-owned activation entrypoint first copies regular files into a new root-owned staging directory, then invokes the root-owned provenance verifier before extracting, promoting, or changing service state. The verifier accepts only the release-type allowlist, enforces file-size and checksum limits, and verifies the bundled GitHub attestations against the root-owned trusted roots, repository, signer workflow, `main` ref, and expected commit SHA. The deploy account therefore cannot authorize a release by replacing its own checksum or metadata.
+
+Backend activation failures write detailed unit, journal, and application-log diagnostics below `/var/lib/noviis/deployment-diagnostics`. Keep that directory root-owned mode `0700`; each bundle is mode `0600`. The GitHub Actions stream receives only the bundle filename and failure phase, never the bundle contents. Review and remove bundles on the host according to the incident retention policy; do not upload an unredacted bundle to an issue or CI artifact.
 
 The passwordless sudo surface permits only the fixed backend/frontend incoming and rollback path forms. The workflow compares the installed verifier, activation script, and systemd unit hashes with the expected commit and fails closed on drift. Reinstall reviewed entrypoints as root whenever those tracked files change. Refresh the trusted-root file only through a reviewed host maintenance step and validate a known release afterward. The `noviis-app` runtime account has no sudo access and cannot write either incoming or active release roots.
 

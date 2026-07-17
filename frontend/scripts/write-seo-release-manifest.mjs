@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { readFile, readdir, writeFile } from 'node:fs/promises'
+import { createHash } from 'node:crypto'
 import { resolve } from 'node:path'
 
 const distDir = resolve(process.cwd(), 'dist')
@@ -22,12 +23,13 @@ async function main() {
     const urlCount = [...sitemapXml.matchAll(/<loc>[^<]+<\/loc>/g)].length
     const postUrlCount = [...sitemapXml.matchAll(/<loc>[^<]+\/board\/[^<]+\/post\/\d+\/?<\/loc>/g)].length
     const prerenderCount = entries.filter((entry) => /board[\\/][^\\/]+[\\/]post[\\/]\d+[\\/]index\.html$/.test(entry)).length
+    const sitemapSha256 = createHash('sha256').update(sitemapXml, 'utf8').digest('hex')
 
     if (strict && (postUrlCount === 0 || prerenderCount !== postUrlCount)) {
         throw new Error(`strict SEO release is incomplete: postUrls=${postUrlCount}, prerenders=${prerenderCount}`)
     }
 
-    await writeFile(outputPath, `${JSON.stringify({ commitSha, urlCount, postUrlCount, prerenderCount }, null, 2)}\n`, 'utf8')
+    await writeFile(outputPath, `${JSON.stringify({ commitSha, urlCount, postUrlCount, prerenderCount, sitemapSha256 }, null, 2)}\n`, 'utf8')
     console.log(`[seo-manifest] wrote ${outputPath} (${postUrlCount} posts, ${prerenderCount} prerenders)`)
 }
 

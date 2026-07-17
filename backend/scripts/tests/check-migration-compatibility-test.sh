@@ -86,13 +86,27 @@ fake_bin="$fixture/fake-bin"
 mkdir -p "$fake_bin"
 cat > "$fake_bin/gh" <<'EOF'
 #!/usr/bin/env bash
-case "${2:-}" in
+endpoint=""
+for argument in "$@"; do
+  case "$argument" in repos/weedrice/project_whiteboard/*) endpoint="$argument"; break ;; esac
+done
+case "$endpoint" in
   repos/weedrice/project_whiteboard/actions/runs/1)
     printf 'success\tmain\tworkflow_dispatch\t.github/workflows/ci.yml\t%s\n' \
       "${GH_RUN_SHA:-0123456789abcdef0123456789abcdef01234567}"
     ;;
+  repos/weedrice/project_whiteboard/actions/runs/1/jobs\?*)
+    case "${GH_BACKEND_JOB_MODE:-success}" in
+      success) printf '42\tdeploy-backend / Deploy Backend / deploy\tsuccess\thttps://github.com/weedrice/project_whiteboard/actions/runs/1/job/42\n' ;;
+      wrong-run) printf '42\tdeploy-backend / Deploy Backend / deploy\tsuccess\thttps://github.com/weedrice/project_whiteboard/actions/runs/999/job/42\n' ;;
+      frontend-only) printf '84\tdeploy-frontend / Deploy Frontend / deploy\tsuccess\thttps://github.com/weedrice/project_whiteboard/actions/runs/1/job/84\n' ;;
+      missing) ;;
+    esac
+    ;;
   repos/weedrice/project_whiteboard/deployments\?*) printf '99\n' ;;
-  repos/weedrice/project_whiteboard/deployments/99/statuses\?*) printf '%s\n' "${GH_DEPLOYMENT_STATE:-success}" ;;
+  repos/weedrice/project_whiteboard/deployments/99/statuses\?*)
+    if [ "${GH_BOUND_BACKEND_STATUS:-true}" = true ]; then printf '123\n'; fi
+    ;;
   *) exit 1 ;;
 esac
 EOF
@@ -104,9 +118,19 @@ if (cd "$fixture" && GH_RUN_SHA=ffffffffffffffffffffffffffffffffffffffff \
   echo "Expected a deployment run for another commit to fail" >&2
   exit 1
 fi
-if (cd "$fixture" && GH_DEPLOYMENT_STATE=failure \
+if (cd "$fixture" && GH_BOUND_BACKEND_STATUS=false \
   PATH="$fake_bin:$PATH" VERIFY_CONTRACT_RUNS=true bash "$script" HEAD HEAD); then
-  echo "Expected a failed production deployment record to fail" >&2
+  echo "Expected a production deployment not bound to the backend job to fail" >&2
+  exit 1
+fi
+if (cd "$fixture" && GH_BACKEND_JOB_MODE=frontend-only \
+  PATH="$fake_bin:$PATH" VERIFY_CONTRACT_RUNS=true bash "$script" HEAD HEAD); then
+  echo "Expected a frontend-only production deployment to fail" >&2
+  exit 1
+fi
+if (cd "$fixture" && GH_BACKEND_JOB_MODE=wrong-run \
+  PATH="$fake_bin:$PATH" VERIFY_CONTRACT_RUNS=true bash "$script" HEAD HEAD); then
+  echo "Expected a backend job URL for another run to fail" >&2
   exit 1
 fi
 
