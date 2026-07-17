@@ -3,6 +3,8 @@ import {
     httpFailure,
     isPrivateAddress,
     parseAllowedOrigins,
+    resolveCustomSubmitTarget,
+    validateGoogleCredentialConfiguration,
     validateCustomSubmitUrl
 } from '../submit-search-engines.mjs'
 
@@ -16,7 +18,7 @@ describe('search engine submit endpoint validation', () => {
         expect(error.message).toBe('custom-submit failed: HTTP 503 Unavailable')
         expect(error.message).not.toContain('response-payload')
     })
-    it.each(['127.0.0.1', '10.1.2.3', '169.254.1.1', '192.168.1.2', '::1', 'fd00::1', 'fe80::1'])(
+    it.each(['127.0.0.1', '10.1.2.3', '169.254.1.1', '192.168.1.2', '203.0.113.10', '::1', 'fd00::1', 'fe80::1', '2001:db8::1'])(
         'rejects private address %s',
         (address) => expect(isPrivateAddress(address)).toBe(true)
     )
@@ -32,9 +34,38 @@ describe('search engine submit endpoint validation', () => {
         const validated = await validateCustomSubmitUrl(
             'https://submit.example/ping?sitemap={sitemapRaw}',
             'https://submit.example',
-            async () => [{ address: '203.0.113.10', family: 4 }]
+            async () => [{ address: '93.184.216.34', family: 4 }]
         )
         expect(validated).toContain('https://submit.example/ping')
+    })
+
+    it('pins a validated custom endpoint to the public DNS answer', async () => {
+        const target = await resolveCustomSubmitTarget(
+            'https://submit.example/ping',
+            'https://submit.example',
+            async () => [{ address: '93.184.216.34', family: 4 }]
+        )
+        expect(target).toEqual({
+            url: 'https://submit.example/ping',
+            address: '93.184.216.34',
+            family: 4
+        })
+    })
+
+    it('rejects partial Google refresh credentials', () => {
+        expect(() => validateGoogleCredentialConfiguration({
+            accessToken: '',
+            clientId: 'client',
+            clientSecret: '',
+            refreshToken: 'refresh'
+        })).toThrow('all-or-none')
+    })
+
+    it('accepts either an access token or a complete refresh credential set', () => {
+        expect(validateGoogleCredentialConfiguration({ accessToken: 'token' })).toBe(true)
+        expect(validateGoogleCredentialConfiguration({
+            clientId: 'client', clientSecret: 'secret', refreshToken: 'refresh'
+        })).toBe(true)
     })
 
     it.each([
@@ -42,7 +73,7 @@ describe('search engine submit endpoint validation', () => {
         ['https://user:secret@submit.example/ping', 'https://submit.example'],
         ['https://evil.example/ping', 'https://submit.example']
     ])('rejects unsafe or non-allowlisted endpoint %s', async (endpoint, allowlist) => {
-        await expect(validateCustomSubmitUrl(endpoint, allowlist, async () => [{ address: '203.0.113.10' }]))
+        await expect(validateCustomSubmitUrl(endpoint, allowlist, async () => [{ address: '93.184.216.34' }]))
             .rejects.toThrow()
     })
 
@@ -50,7 +81,7 @@ describe('search engine submit endpoint validation', () => {
         await expect(validateCustomSubmitUrl(
             'https://submit.example/ping',
             'https://submit.example',
-            async () => [{ address: '203.0.113.10' }, { address: '127.0.0.1' }]
+            async () => [{ address: '93.184.216.34' }, { address: '127.0.0.1' }]
         )).rejects.toThrow('private or invalid')
     })
 })

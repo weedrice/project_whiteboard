@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { lookup } from 'node:dns/promises'
+import { request as httpsRequest } from 'node:https'
 import { isIP } from 'node:net'
 import { pathToFileURL } from 'node:url'
 
@@ -50,6 +51,10 @@ function isPrivateIpv4(address) {
         || (first === 169 && second === 254)
         || (first === 172 && second >= 16 && second <= 31)
         || (first === 192 && second === 168)
+        || (first === 192 && second === 0)
+        || (first === 192 && second === 2)
+        || (first === 198 && (second === 18 || second === 19 || second === 51))
+        || (first === 203 && second === 0)
         || (first === 100 && second >= 64 && second <= 127)
         || first >= 224
 }
@@ -61,6 +66,7 @@ export function isPrivateAddress(address) {
     if (family !== 6) return true
     if (normalized === '::' || normalized === '::1') return true
     if (normalized.startsWith('fc') || normalized.startsWith('fd') || /^fe[89ab]/.test(normalized)) return true
+    if (normalized.startsWith('ff') || normalized.startsWith('2001:db8')) return true
     const mapped = normalized.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/)
     return mapped ? isPrivateIpv4(mapped[1]) : false
 }
@@ -74,6 +80,11 @@ export function parseAllowedOrigins(rawOrigins) {
 }
 
 export async function validateCustomSubmitUrl(rawUrl, rawAllowedOrigins, resolver = lookup) {
+    const resolvedTarget = await resolveCustomSubmitTarget(rawUrl, rawAllowedOrigins, resolver)
+    return resolvedTarget.url
+}
+
+export async function resolveCustomSubmitTarget(rawUrl, rawAllowedOrigins, resolver = lookup) {
     const target = new URL(resolveTargetUrl(rawUrl))
     if (target.protocol !== 'https:' || target.username || target.password) {
         throw new Error('custom submit URL must be credential-free HTTPS')
@@ -88,7 +99,21 @@ export async function validateCustomSubmitUrl(rawUrl, rawAllowedOrigins, resolve
     if (resolved.length === 0 || resolved.some(({ address }) => isPrivateAddress(address))) {
         throw new Error('custom submit URL resolves to a private or invalid address')
     }
-    return target.toString()
+    const selected = resolved[0]
+    return {
+        url: target.toString(),
+        address: selected.address,
+        family: selected.family ?? isIP(selected.address)
+    }
+}
+
+export function validateGoogleCredentialConfiguration({ accessToken, clientId, clientSecret, refreshToken }) {
+    const refreshCredentials = [clientId, clientSecret, refreshToken]
+    const configuredRefreshCredentials = refreshCredentials.filter(isFilled).length
+    if (configuredRefreshCredentials !== 0 && configuredRefreshCredentials !== refreshCredentials.length) {
+        throw new Error('Google Search Console refresh credentials must be configured all-or-none')
+    }
+    return isFilled(accessToken) || configuredRefreshCredentials === refreshCredentials.length
 }
 
 export function httpFailure(provider, response) {
@@ -119,6 +144,10 @@ async function fetchGoogleAccessToken() {
 }
 
 async function submitTarget(target) {
+    if (target.pinned) {
+        await submitPinnedHttps(target)
+        return
+    }
     const response = await fetch(target.request.url, {
         method: target.request.method ?? 'GET',
         headers: {
@@ -132,7 +161,43 @@ async function submitTarget(target) {
     if (!response.ok) throw httpFailure(target.name, response)
 }
 
+function submitPinnedHttps(target) {
+    const targetUrl = new URL(target.request.url)
+    return new Promise((resolve, reject) => {
+        const request = httpsRequest(targetUrl, {
+            method: target.request.method ?? 'GET',
+            headers: {
+                Host: targetUrl.host,
+                'User-Agent': 'noviis-seo-submit/1.0',
+                Accept: '*/*',
+                ...(target.request.headers ?? {})
+            },
+            servername: isIP(targetUrl.hostname) ? undefined : targetUrl.hostname,
+            lookup: (_hostname, _options, callback) => callback(null, target.pinned.address, target.pinned.family)
+        }, (response) => {
+            response.resume()
+            if ((response.statusCode ?? 500) < 200 || (response.statusCode ?? 500) >= 300) {
+                reject(httpFailure(target.name, {
+                    status: response.statusCode ?? 500,
+                    statusText: response.statusMessage ?? ''
+                }))
+                return
+            }
+            resolve()
+        })
+        request.setTimeout(requestTimeoutMs, () => request.destroy(new Error(`${target.name} failed: timeout`)))
+        request.on('error', reject)
+        request.end()
+    })
+}
+
 export async function main() {
+    const googleConfigured = validateGoogleCredentialConfiguration({
+        accessToken: googleAccessTokenFromEnv,
+        clientId: googleClientId,
+        clientSecret: googleClientSecret,
+        refreshToken: googleRefreshToken
+    })
     const googleAccessToken = await fetchGoogleAccessToken()
     const submitTargets = []
     if (isFilled(googleAccessToken)) {
@@ -146,20 +211,28 @@ export async function main() {
         })
     }
     if (isFilled(process.env.CUSTOM_SITEMAP_SUBMIT_URL)) {
+        const customTarget = await resolveCustomSubmitTarget(
+            process.env.CUSTOM_SITEMAP_SUBMIT_URL,
+            process.env.CUSTOM_SITEMAP_SUBMIT_ALLOWED_ORIGINS
+        )
         submitTargets.push({
             name: 'custom-submit',
+            pinned: customTarget,
             request: {
                 method: process.env.CUSTOM_SITEMAP_METHOD ?? 'GET',
-                url: await validateCustomSubmitUrl(
-                    process.env.CUSTOM_SITEMAP_SUBMIT_URL,
-                    process.env.CUSTOM_SITEMAP_SUBMIT_ALLOWED_ORIGINS
-                )
+                url: customTarget.url
             }
         })
     }
     if (submitTargets.length === 0) {
+        if (process.env.SEO_SUBMIT_REQUIRED === 'true') {
+            throw new Error('production sitemap submission requires at least one configured provider')
+        }
         console.log('[seo-submit] no submit target configured; skipping')
         return
+    }
+    if (googleConfigured && !isFilled(googleAccessToken)) {
+        throw new Error('Google Search Console credentials did not produce an access token')
     }
 
     let failed = 0
