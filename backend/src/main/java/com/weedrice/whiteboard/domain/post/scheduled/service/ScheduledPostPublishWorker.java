@@ -29,6 +29,7 @@ public class ScheduledPostPublishWorker {
     private final ScheduledPostPayloadMapper payloadMapper;
     private final ApplicationEventPublisher eventPublisher;
     private final Clock clock;
+    private final ScheduledPostFileService scheduledPostFileService;
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public boolean claim(Long scheduledPostId, LocalDateTime now, LocalDateTime claimedAt) {
@@ -42,6 +43,7 @@ public class ScheduledPostPublishWorker {
                 scheduledPost.getUser().getUserId(),
                 scheduledPost.getBoard().getBoardUrl(),
                 payloadMapper.toPostCreateRequest(scheduledPost));
+        scheduledPostFileService.removeReferences(scheduledPostId);
         int updated = scheduledPostRepository.markPublished(
                 scheduledPostId, claimedAt, created.getPostId(), now());
         requireSingleLeaseUpdate(updated, scheduledPostId, "publish");

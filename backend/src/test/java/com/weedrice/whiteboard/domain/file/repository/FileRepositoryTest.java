@@ -3,6 +3,8 @@ package com.weedrice.whiteboard.domain.file.repository;
 import com.weedrice.whiteboard.domain.file.entity.File;
 import com.weedrice.whiteboard.domain.file.entity.FileStorageStatus;
 import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.post.scheduled.entity.ScheduledPostFile;
+import com.weedrice.whiteboard.domain.post.scheduled.repository.ScheduledPostFileRepository;
 import com.weedrice.whiteboard.global.config.QuerydslConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -30,6 +32,9 @@ class FileRepositoryTest {
 
     @Autowired
     private FileRepository fileRepository;
+
+    @Autowired
+    private ScheduledPostFileRepository scheduledPostFileRepository;
 
     private User uploader;
     private File file;
@@ -223,6 +228,27 @@ class FileRepositoryTest {
 
         assertThat(fileIds).contains(orphanFile.getFileId());
         assertThat(fileIds).doesNotContain(file.getFileId());
+    }
+
+    @Test
+    void findTemporaryFileIdsForCleanup_excludesFilesReservedForScheduledPosts() {
+        File reservedFile = File.builder()
+                .originalName("reserved.jpg")
+                .filePath("path/to/reserved.jpg")
+                .fileSize(512L)
+                .mimeType("image/jpeg")
+                .uploader(uploader)
+                .build();
+        entityManager.persist(reservedFile);
+        entityManager.flush();
+        scheduledPostFileRepository.saveAndFlush(new ScheduledPostFile(77L, reservedFile.getFileId(), 1));
+        entityManager.clear();
+
+        List<Long> fileIds = fileRepository.findTemporaryFileIdsForCleanup(
+                LocalDateTime.now().plusDays(1),
+                PageRequest.of(0, 10));
+
+        assertThat(fileIds).doesNotContain(reservedFile.getFileId());
     }
 
     @Test

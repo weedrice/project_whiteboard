@@ -37,6 +37,7 @@ class ScheduledPostPublishWorkerTest {
     @Mock PostCommandService postCommandService;
     @Mock ScheduledPostPayloadMapper payloadMapper;
     @Mock ApplicationEventPublisher eventPublisher;
+    @Mock ScheduledPostFileService scheduledPostFileService;
 
     @Test
     void scheduledPayloadCarriesSourceDraftIdToPublication() {
@@ -128,7 +129,8 @@ class ScheduledPostPublishWorkerTest {
 
     private ScheduledPostPublishWorker worker() {
         Clock clock = Clock.fixed(Instant.parse("2026-07-14T12:01:00Z"), ZoneOffset.UTC);
-        return new ScheduledPostPublishWorker(repository, postCommandService, payloadMapper, eventPublisher, clock);
+        return new ScheduledPostPublishWorker(
+                repository, postCommandService, payloadMapper, eventPublisher, clock, scheduledPostFileService);
     }
 
     private ScheduledPost scheduledPost() {

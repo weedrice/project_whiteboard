@@ -54,6 +54,7 @@ public class ScheduledPostService {
     private final PostAuthorCommandPolicy postAuthorCommandPolicy;
     private final ScheduledPostPayloadMapper payloadMapper;
     private final ScheduledPostPublishWorker publishWorker;
+    private final ScheduledPostFileService scheduledPostFileService;
     private final Clock clock;
 
     @Transactional
@@ -86,7 +87,10 @@ public class ScheduledPostService {
                 .scheduledAt(request.getScheduledAt())
                 .build();
         try {
-            return ScheduledPostResponse.from(scheduledPostRepository.saveAndFlush(scheduledPost));
+            ScheduledPost saved = scheduledPostRepository.saveAndFlush(scheduledPost);
+            scheduledPostFileService.replaceReferences(
+                    saved.getScheduledPostId(), userId, request.getDraftId(), request.getFileIds());
+            return ScheduledPostResponse.from(saved);
         } catch (DataIntegrityViolationException exception) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
@@ -129,6 +133,8 @@ public class ScheduledPostService {
                 request.getSeriesId(),
                 request.getDraftId(),
                 request.getScheduledAt());
+        scheduledPostFileService.replaceReferences(
+                scheduledPostId, userId, request.getDraftId(), request.getFileIds());
         try {
             scheduledPostRepository.flush();
             return ScheduledPostResponse.from(scheduledPost);
@@ -144,6 +150,7 @@ public class ScheduledPostService {
         if (updated == 0) {
             throw new BusinessException(ErrorCode.NOT_FOUND);
         }
+        scheduledPostFileService.removeReferences(scheduledPostId);
     }
 
     @Transactional(propagation = Propagation.NOT_SUPPORTED)

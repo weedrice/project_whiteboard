@@ -32,6 +32,7 @@ public interface FileRepository extends JpaRepository<File, Long> {
             FROM File f
             WHERE f.relatedId IS NULL
               AND f.createdAt < :dateTime
+              AND NOT EXISTS (SELECT spf FROM ScheduledPostFile spf WHERE spf.id.fileId = f.fileId)
               AND (f.storageStatus = :storageStatus
                    OR (:storageStatus = com.weedrice.whiteboard.domain.file.entity.FileStorageStatus.ACTIVE
                        AND f.storageStatus IS NULL))
@@ -49,6 +50,7 @@ public interface FileRepository extends JpaRepository<File, Long> {
             WHERE f.relatedId IS NULL
               AND f.relatedType IS NULL
               AND f.createdAt < :dateTime
+              AND NOT EXISTS (SELECT spf FROM ScheduledPostFile spf WHERE spf.id.fileId = f.fileId)
               AND (f.storageStatus = :storageStatus
                    OR (:storageStatus = com.weedrice.whiteboard.domain.file.entity.FileStorageStatus.ACTIVE
                        AND f.storageStatus IS NULL))
@@ -69,6 +71,7 @@ public interface FileRepository extends JpaRepository<File, Long> {
             WHERE f.relatedId IS NULL
               AND f.relatedType IS NULL
               AND f.createdAt < :dateTime
+              AND NOT EXISTS (SELECT spf FROM ScheduledPostFile spf WHERE spf.id.fileId = f.fileId)
               AND (f.storageStatus = :storageStatus
                    OR (:storageStatus = com.weedrice.whiteboard.domain.file.entity.FileStorageStatus.ACTIVE
                        AND f.storageStatus IS NULL))
@@ -92,6 +95,7 @@ public interface FileRepository extends JpaRepository<File, Long> {
             WHERE f.relatedId IS NULL
               AND f.relatedType IS NULL
               AND f.createdAt < :dateTime
+              AND NOT EXISTS (SELECT spf FROM ScheduledPostFile spf WHERE spf.id.fileId = f.fileId)
               AND (f.storageStatus = :storageStatus
                    OR (:storageStatus = com.weedrice.whiteboard.domain.file.entity.FileStorageStatus.ACTIVE
                        AND f.storageStatus IS NULL))
@@ -353,6 +357,7 @@ public interface FileRepository extends JpaRepository<File, Long> {
             WHERE f.fileId = :fileId
               AND f.relatedId IS NULL
               AND f.relatedType IS NULL
+              AND NOT EXISTS (SELECT spf FROM ScheduledPostFile spf WHERE spf.id.fileId = f.fileId)
               AND (f.storageStatus = com.weedrice.whiteboard.domain.file.entity.FileStorageStatus.ACTIVE
                    OR f.storageStatus IS NULL)
             """)
@@ -368,6 +373,7 @@ public interface FileRepository extends JpaRepository<File, Long> {
             WHERE f.fileId IN :fileIds
               AND f.relatedId IS NULL
               AND f.relatedType IS NULL
+              AND NOT EXISTS (SELECT spf FROM ScheduledPostFile spf WHERE spf.id.fileId = f.fileId)
               AND (f.storageStatus = com.weedrice.whiteboard.domain.file.entity.FileStorageStatus.ACTIVE
                    OR f.storageStatus IS NULL)
             """)
@@ -384,6 +390,7 @@ public interface FileRepository extends JpaRepository<File, Long> {
               AND f.uploader.userId = :uploaderId
               AND f.relatedId IS NULL
               AND f.relatedType IS NULL
+              AND NOT EXISTS (SELECT spf FROM ScheduledPostFile spf WHERE spf.id.fileId = f.fileId)
               AND (f.storageStatus = com.weedrice.whiteboard.domain.file.entity.FileStorageStatus.ACTIVE
                    OR f.storageStatus IS NULL)
             """)
@@ -400,6 +407,7 @@ public interface FileRepository extends JpaRepository<File, Long> {
             WHERE f.relatedId IS NULL
               AND f.relatedType IS NULL
               AND f.createdAt < :cutoffCreatedAt
+              AND NOT EXISTS (SELECT spf FROM ScheduledPostFile spf WHERE spf.id.fileId = f.fileId)
               AND f.storageStatus = com.weedrice.whiteboard.domain.file.entity.FileStorageStatus.PENDING_UPLOAD
             """)
     int requestDeletionForStalePendingUploads(@Param("cutoffCreatedAt") LocalDateTime cutoffCreatedAt,

@@ -51,6 +51,7 @@ class ScheduledPostServiceTest {
     @Mock PostAuthorCommandPolicy postAuthorCommandPolicy;
     @Mock ScheduledPostPayloadMapper payloadMapper;
     @Mock ScheduledPostPublishWorker publishWorker;
+    @Mock ScheduledPostFileService scheduledPostFileService;
 
     private ScheduledPostService service;
     private User user;
@@ -69,6 +70,7 @@ class ScheduledPostServiceTest {
                 postAuthorCommandPolicy,
                 payloadMapper,
                 publishWorker,
+                scheduledPostFileService,
                 clock);
         user = User.builder().email("scheduled@example.com").displayName("scheduled-user").build();
         ReflectionTestUtils.setField(user, "userId", 1L);
@@ -81,17 +83,23 @@ class ScheduledPostServiceTest {
     @Test
     void createValidatesAndStoresOwnedDraftOnSameBoard() {
         ScheduledPostRequest request = requestWithDraft(77L);
+        ReflectionTestUtils.setField(request, "fileIds", List.of(10L, 11L));
         when(userWritableResolver.resolve(1L)).thenReturn(user);
         when(boardRepository.findByBoardUrl("scheduled-board")).thenReturn(Optional.of(board));
         when(draftPostRepository.findByDraftIdAndUserForUpdate(77L, user)).thenReturn(Optional.of(draft));
         when(scheduledPostRepository.saveAndFlush(any(ScheduledPost.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+                .thenAnswer(invocation -> {
+                    ScheduledPost saved = invocation.getArgument(0);
+                    ReflectionTestUtils.setField(saved, "scheduledPostId", 9L);
+                    return saved;
+                });
 
         var response = service.create(1L, "scheduled-board", request);
 
         assertThat(response.getDraftId()).isEqualTo(77L);
         verify(draftPostRepository).findByDraftIdAndUserForUpdate(77L, user);
         verify(scheduledPostRepository).existsByDraftId(77L);
+        verify(scheduledPostFileService).replaceReferences(9L, 1L, 77L, List.of(10L, 11L));
     }
 
     @Test
@@ -114,6 +122,7 @@ class ScheduledPostServiceTest {
                 .user(user).board(board).title("old").contents("old")
                 .scheduledAt(LocalDateTime.of(2026, 7, 13, 1, 0)).build();
         ScheduledPostRequest request = requestWithDraft(77L);
+        ReflectionTestUtils.setField(request, "fileIds", List.of(10L));
         when(userWritableResolver.resolve(1L)).thenReturn(user);
         when(scheduledPostRepository.findOwnedForUpdate(9L, 1L))
                 .thenReturn(Optional.of(scheduledPost));
@@ -125,6 +134,17 @@ class ScheduledPostServiceTest {
         assertThat(scheduledPost.getDraftId()).isEqualTo(77L);
         verify(scheduledPostRepository).existsByDraftIdAndScheduledPostIdNot(77L, 9L);
         verify(scheduledPostRepository).findOwnedForUpdate(9L, 1L);
+        verify(scheduledPostFileService).replaceReferences(9L, 1L, 77L, List.of(10L));
+    }
+
+    @Test
+    void cancelRemovesScheduledFileReferencesAfterStateTransition() {
+        when(userWritableResolver.resolve(1L)).thenReturn(user);
+        when(scheduledPostRepository.cancelOwned(eq(9L), eq(1L), any(LocalDateTime.class))).thenReturn(1);
+
+        service.cancel(1L, 9L);
+
+        verify(scheduledPostFileService).removeReferences(9L);
     }
 
     @Test
