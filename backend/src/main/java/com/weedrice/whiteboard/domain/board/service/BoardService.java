@@ -16,6 +16,7 @@ import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.config.AnonymousReadCacheInvalidator;
+import com.weedrice.whiteboard.domain.notification.service.NotificationAccessInvalidationService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -39,6 +40,7 @@ public class BoardService {
     private final BoardAnonymousCacheService anonymousCacheService;
     private final AnonymousReadCacheInvalidator cacheInvalidator;
     private final BoardOrderingService boardOrderingService;
+    private final NotificationAccessInvalidationService notificationAccessInvalidationService;
 
     public BoardService(BoardQueryService queryService,
                           BoardProvisioningService provisioningService,
@@ -50,7 +52,8 @@ public class BoardService {
                            BoardVisitService boardVisitService,
                            BoardAnonymousCacheService anonymousCacheService,
                            AnonymousReadCacheInvalidator cacheInvalidator,
-                           BoardOrderingService boardOrderingService) {
+                           BoardOrderingService boardOrderingService,
+                           NotificationAccessInvalidationService notificationAccessInvalidationService) {
         this.queryService = queryService;
         this.provisioningService = provisioningService;
         this.boardCommandService = boardCommandService;
@@ -62,6 +65,7 @@ public class BoardService {
         this.anonymousCacheService = anonymousCacheService;
         this.cacheInvalidator = cacheInvalidator;
         this.boardOrderingService = boardOrderingService;
+        this.notificationAccessInvalidationService = notificationAccessInvalidationService;
     }
 
     public List<BoardListResponse> getActiveBoards(Long userId) {
@@ -176,6 +180,11 @@ public class BoardService {
         String normalizedBoardUrl = validatePublicBoardPath(boardUrl);
         BoardUpdateCommandResult result = boardCommandService.updateBoard(normalizedBoardUrl, request, userId);
         provisioningSideEffectService.applyUpdateSideEffects(result);
+        if ((Boolean.TRUE.equals(result.previousIsActive()) && Boolean.FALSE.equals(result.board().getIsActive()))
+                || (Boolean.TRUE.equals(result.previousIsPublic()) && Boolean.FALSE.equals(result.board().getIsPublic()))) {
+            notificationAccessInvalidationService.invalidateCommentTopicsForBoardAfterCommit(
+                    result.board().getBoardId());
+        }
         cacheInvalidator.evictBoardRelatedCachesAfterCommit();
         return new BoardCommandResult(result.board().getBoardUrl());
     }
@@ -183,7 +192,8 @@ public class BoardService {
     @Transactional
     public BoardCommandResult transferBoardManager(String boardUrl, String loginId, Long userId) {
         String normalizedBoardUrl = validatePublicBoardPath(boardUrl);
-        provisioningService.transferBoardManager(normalizedBoardUrl, loginId, userId);
+        Board board = provisioningService.transferBoardManager(normalizedBoardUrl, loginId, userId);
+        notificationAccessInvalidationService.invalidateCommentTopicsForBoardAfterCommit(board.getBoardId());
         cacheInvalidator.evictBoardRelatedCachesAfterCommit();
         return new BoardCommandResult(normalizedBoardUrl);
     }
@@ -191,7 +201,8 @@ public class BoardService {
     @Transactional
     public void deleteBoard(String boardUrl, Long userId) {
         String normalizedBoardUrl = validatePublicBoardPath(boardUrl);
-        provisioningService.deleteBoard(normalizedBoardUrl, userId);
+        Board board = provisioningService.deleteBoard(normalizedBoardUrl, userId);
+        notificationAccessInvalidationService.invalidateCommentTopicsForBoardAfterCommit(board.getBoardId());
         cacheInvalidator.evictBoardRelatedCachesAfterCommit();
     }
 

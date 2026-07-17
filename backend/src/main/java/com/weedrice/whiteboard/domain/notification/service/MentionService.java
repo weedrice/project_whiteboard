@@ -27,6 +27,7 @@ import java.util.Set;
 public class MentionService {
 
     private static final int MENTION_CANDIDATE_LIMIT = 10;
+    private static final int MENTION_CANDIDATE_MIN_PREFIX_LENGTH = 2;
     private static final int MENTION_NOTIFICATION_LIMIT = 10;
 
     private final UserRepository userRepository;
@@ -35,13 +36,11 @@ public class MentionService {
 
     public List<MentionCandidateResponse> findCandidates(Long viewerUserId, String keyword) {
         String normalizedKeyword = keyword == null ? "" : keyword.strip();
-        if (normalizedKeyword.isBlank()) {
+        if (viewerUserId == null || normalizedKeyword.length() < MENTION_CANDIDATE_MIN_PREFIX_LENGTH) {
             return List.of();
         }
 
-        List<Long> excludedUserIds = viewerUserId == null
-                ? List.of()
-                : userBlockRepository.findBlockedUserIdsEitherDirectionByUserId(viewerUserId);
+        List<Long> excludedUserIds = userBlockRepository.findBlockedUserIdsEitherDirectionByUserId(viewerUserId);
         return userRepository.findMentionCandidates(
                         normalizedKeyword,
                         excludedUserIds.isEmpty(),

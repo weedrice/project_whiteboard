@@ -16,6 +16,7 @@ class NotificationStreamInvalidationListener {
         switch (event.type()) {
             case DISCONNECT_USER -> streamControl.disconnectUser(event.targetId());
             case INVALIDATE_POST -> streamControl.invalidateCommentTopic(event.targetId());
+            case INVALIDATE_BOARD -> streamControl.invalidateCommentTopicsForBoard(event.targetId());
             case INVALIDATE_USER_TOPICS -> streamControl.invalidateCommentTopicsForUser(event.targetId());
         }
     }

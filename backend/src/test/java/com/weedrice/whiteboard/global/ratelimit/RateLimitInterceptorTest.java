@@ -146,6 +146,29 @@ class RateLimitInterceptorTest {
     }
 
     @Test
+    @DisplayName("멘션 후보 조회는 인증 사용자별 전용 버킷을 사용한다")
+    void preHandle_mentionCandidatesUsesDedicatedUserBucket() throws Exception {
+        RateLimitInterceptor interceptor = newInterceptor(new RateLimitProperties());
+        MockHttpServletRequest request =
+                new MockHttpServletRequest("GET", "/api/v1/users/mention-candidates");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        CustomUserDetails userDetails = org.mockito.Mockito.mock(CustomUserDetails.class);
+        Authentication authentication = new UsernamePasswordAuthenticationToken(userDetails, null, List.of());
+
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+        when(userDetails.getUserId()).thenReturn(7L);
+        when(clientIpResolver.resolve(request)).thenReturn("203.0.113.21");
+        when(rateLimitConfig.createMentionCandidateBucket()).thenReturn(oneRequestBucket());
+        when(rateLimitConfig.getMentionCandidateLimit()).thenReturn(60);
+
+        assertThat(interceptor.preHandle(request, response, new Object())).isTrue();
+
+        assertThat(response.getHeader(RateLimitHeaderWriter.HEADER_LIMIT)).isEqualTo("60");
+        verify(rateLimitConfig).createMentionCandidateBucket();
+        verify(rateLimitConfig, never()).createUserBucket();
+    }
+
+    @Test
     @DisplayName("에이전트 등록 5회 한도는 같은 IP의 auth 버킷과 독립적이다")
     void preHandle_agentRegisterBucketIsIndependentFromAuthBucket() throws Exception {
         RateLimitProperties properties = new RateLimitProperties();

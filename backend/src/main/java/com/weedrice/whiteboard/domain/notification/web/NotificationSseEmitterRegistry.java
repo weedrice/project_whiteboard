@@ -40,6 +40,8 @@ public class NotificationSseEmitterRegistry
     private final Map<Long, Map<String, EmitterConnection>> emitters = new ConcurrentHashMap<>();
     private final ConcurrentMap<Long, ConcurrentMap<Long, ConcurrentMap<String, Boolean>>> commentSubscribers =
             new ConcurrentHashMap<>();
+    private final ConcurrentMap<Long, Long> commentTopicBoardIds = new ConcurrentHashMap<>();
+    private final Object commentTopicLock = new Object();
     private final Map<Long, Object> userLocks = new ConcurrentHashMap<>();
     private final AtomicLong connectionSequence = new AtomicLong();
     private final AtomicLong lastHeartbeatMillis = new AtomicLong();
@@ -142,7 +144,7 @@ public class NotificationSseEmitterRegistry
         }
     }
 
-    public void subscribeCommentTopic(Long userId, Long postId, String subscriberId) {
+    public void subscribeCommentTopic(Long userId, Long boardId, Long postId, String subscriberId) {
         Object lock = userLocks.get(userId);
         if (lock == null) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
@@ -153,6 +155,17 @@ public class NotificationSseEmitterRegistry
                 throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
             }
             if (!userEmitters.containsKey(subscriberId)) {
+                throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+            }
+
+            registerCommentSubscription(userId, boardId, postId, subscriberId);
+        }
+    }
+
+    private void registerCommentSubscription(Long userId, Long boardId, Long postId, String subscriberId) {
+        synchronized (commentTopicLock) {
+            Long registeredBoardId = commentTopicBoardIds.putIfAbsent(postId, boardId);
+            if (registeredBoardId != null && !registeredBoardId.equals(boardId)) {
                 throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
             }
 
@@ -177,6 +190,12 @@ public class NotificationSseEmitterRegistry
     }
 
     public void unsubscribeCommentTopic(Long userId, Long postId, String subscriberId) {
+        synchronized (commentTopicLock) {
+            unsubscribeCommentTopicLocked(userId, postId, subscriberId);
+        }
+    }
+
+    private void unsubscribeCommentTopicLocked(Long userId, Long postId, String subscriberId) {
         ConcurrentMap<Long, ConcurrentMap<String, Boolean>> postSubscribers = commentSubscribers.get(postId);
         if (postSubscribers == null) {
             return;
@@ -242,7 +261,9 @@ public class NotificationSseEmitterRegistry
             Long postId,
             ConcurrentMap<Long, ConcurrentMap<String, Boolean>> expectedPostSubscribers) {
         if (expectedPostSubscribers.isEmpty()) {
-            commentSubscribers.remove(postId, expectedPostSubscribers);
+            if (commentSubscribers.remove(postId, expectedPostSubscribers)) {
+                commentTopicBoardIds.remove(postId);
+            }
         }
     }
 
@@ -386,9 +407,63 @@ public class NotificationSseEmitterRegistry
         if (postId == null) {
             return;
         }
-        ConcurrentMap<Long, ConcurrentMap<String, Boolean>> removed = commentSubscribers.remove(postId);
+        ConcurrentMap<Long, ConcurrentMap<String, Boolean>> removed;
+        synchronized (commentTopicLock) {
+            removed = commentSubscribers.remove(postId);
+            commentTopicBoardIds.remove(postId);
+        }
         if (removed != null && !removed.isEmpty()) {
             commentTopicCleanups.increment();
+        }
+    }
+
+
+    @Override
+    public void invalidateCommentTopicsForBoard(Long boardId) {
+        if (boardId == null) {
+            return;
+        }
+        int removedTopics = 0;
+        Map<Long, java.util.Set<String>> affectedConnections = new java.util.HashMap<>();
+        synchronized (commentTopicLock) {
+            for (Map.Entry<Long, Long> entry : new ArrayList<>(commentTopicBoardIds.entrySet())) {
+                if (!boardId.equals(entry.getValue())) {
+                    continue;
+                }
+                Long postId = entry.getKey();
+                ConcurrentMap<Long, ConcurrentMap<String, Boolean>> removed = commentSubscribers.remove(postId);
+                commentTopicBoardIds.remove(postId, boardId);
+                if (removed != null && !removed.isEmpty()) {
+                    removed.forEach((userId, connectionIds) -> affectedConnections
+                            .computeIfAbsent(userId, ignored -> new java.util.HashSet<>())
+                            .addAll(connectionIds.keySet()));
+                    removedTopics++;
+                }
+            }
+        }
+        if (removedTopics > 0) {
+            commentTopicCleanups.increment(removedTopics);
+        }
+        affectedConnections.forEach((userId, connectionIds) ->
+                publishCommentTopicInvalidation(userId, connectionIds, boardId));
+    }
+
+    private void publishCommentTopicInvalidation(Long userId, java.util.Set<String> connectionIds, Long boardId) {
+        Map<String, EmitterConnection> userEmitters = emitters.get(userId);
+        if (userEmitters == null || userEmitters.isEmpty()) {
+            return;
+        }
+        for (Map.Entry<String, EmitterConnection> entry : new ArrayList<>(userEmitters.entrySet())) {
+            if (!connectionIds.contains(entry.getKey())) {
+                continue;
+            }
+            try {
+                entry.getValue().emitter().send(SseEmitter.event()
+                        .name("comment-topic-invalidated")
+                        .data(Map.of("boardId", boardId)));
+            } catch (IOException | RuntimeException exception) {
+                completeWithError(userId, entry.getKey(), entry.getValue().emitter(), exception);
+            }
         }
     }
 
@@ -398,14 +473,16 @@ public class NotificationSseEmitterRegistry
             return;
         }
         int removedTopics = 0;
-        for (Map.Entry<Long, ConcurrentMap<Long, ConcurrentMap<String, Boolean>>> entry
-                : new ArrayList<>(commentSubscribers.entrySet())) {
-            ConcurrentMap<Long, ConcurrentMap<String, Boolean>> postSubscribers = entry.getValue();
-            ConcurrentMap<String, Boolean> removed = postSubscribers.remove(userId);
-            if (removed != null && !removed.isEmpty()) {
-                removedTopics++;
+        synchronized (commentTopicLock) {
+            for (Map.Entry<Long, ConcurrentMap<Long, ConcurrentMap<String, Boolean>>> entry
+                    : new ArrayList<>(commentSubscribers.entrySet())) {
+                ConcurrentMap<Long, ConcurrentMap<String, Boolean>> postSubscribers = entry.getValue();
+                ConcurrentMap<String, Boolean> removed = postSubscribers.remove(userId);
+                if (removed != null && !removed.isEmpty()) {
+                    removedTopics++;
+                }
+                removeEmptyCommentTopic(entry.getKey(), postSubscribers);
             }
-            removeEmptyCommentTopic(entry.getKey(), postSubscribers);
         }
         if (removedTopics > 0) {
             commentTopicCleanups.increment(removedTopics);
@@ -423,17 +500,19 @@ public class NotificationSseEmitterRegistry
 
     private void removeCommentSubscriptions(Long userId, String connectionId) {
         int removedTopics = 0;
-        for (Map.Entry<Long, ConcurrentMap<Long, ConcurrentMap<String, Boolean>>> entry
-                : new ArrayList<>(commentSubscribers.entrySet())) {
-            ConcurrentMap<Long, ConcurrentMap<String, Boolean>> postSubscribers = entry.getValue();
-            ConcurrentMap<String, Boolean> userSubscribers = postSubscribers.get(userId);
-            if (userSubscribers != null && userSubscribers.remove(connectionId) != null) {
-                if (userSubscribers.isEmpty()) {
-                    postSubscribers.remove(userId, userSubscribers);
+        synchronized (commentTopicLock) {
+            for (Map.Entry<Long, ConcurrentMap<Long, ConcurrentMap<String, Boolean>>> entry
+                    : new ArrayList<>(commentSubscribers.entrySet())) {
+                ConcurrentMap<Long, ConcurrentMap<String, Boolean>> postSubscribers = entry.getValue();
+                ConcurrentMap<String, Boolean> userSubscribers = postSubscribers.get(userId);
+                if (userSubscribers != null && userSubscribers.remove(connectionId) != null) {
+                    if (userSubscribers.isEmpty()) {
+                        postSubscribers.remove(userId, userSubscribers);
+                    }
+                    removedTopics++;
                 }
-                removedTopics++;
+                removeEmptyCommentTopic(entry.getKey(), postSubscribers);
             }
-            removeEmptyCommentTopic(entry.getKey(), postSubscribers);
         }
         if (removedTopics > 0) {
             commentTopicCleanups.increment(removedTopics);

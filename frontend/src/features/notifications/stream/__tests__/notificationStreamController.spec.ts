@@ -180,13 +180,63 @@ describe('notificationStreamController dependencies', () => {
         await flushAsync()
 
         oldStreamController.enqueue(encoder.encode('event: connect\ndata: connection-old\n\n'))
+        oldStreamController.enqueue(encoder.encode(
+            'event: comment-topic-invalidated\ndata: {"boardId":100}\n\n',
+        ))
         oldStreamController.close()
         await flushAsync()
 
         expect(connections).toContainEqual({ connectionId: 'connection-new', sessionGeneration: 7 })
         expect(connections).not.toContainEqual({ connectionId: 'connection-old', sessionGeneration: 7 })
+        expect(openStream).toHaveBeenCalledTimes(2)
 
         controller.closeSse()
         stop()
+    })
+
+    it('reconnects the current session after a comment topic invalidation', async () => {
+        const encoder = new TextEncoder()
+        let firstController!: ReadableStreamDefaultController<Uint8Array>
+        const firstStream = new ReadableStream<Uint8Array>({
+            start(controller) {
+                firstController = controller
+                controller.enqueue(encoder.encode('event: connect\ndata: connection-old\n\n'))
+            },
+        })
+        const secondStream = new ReadableStream<Uint8Array>({
+            start(controller) {
+                controller.enqueue(encoder.encode('event: connect\ndata: connection-new\n\n'))
+            },
+        })
+        const openStream = vi.fn()
+            .mockResolvedValueOnce({ ok: true, body: firstStream } as Response)
+            .mockResolvedValueOnce({ ok: true, body: secondStream } as Response)
+        const authStore = {
+            accessToken: 'test-token',
+            sessionGeneration: 7,
+            applyTokenIfCurrent: vi.fn(),
+        }
+        const queryClient = {
+            setQueriesData: vi.fn(),
+            setQueryData: vi.fn(),
+        } as unknown as QueryClient
+        const controller = createNotificationStreamController(queryClient, {
+            openStream,
+            resolveAuthStore: (() => authStore) as never,
+        })
+
+        controller.connectToSse()
+        await flushAsync()
+        firstController.enqueue(encoder.encode(
+            'event: comment-topic-invalidated\ndata: {"boardId":100}\n\n',
+        ))
+        await flushAsync()
+        await vi.runOnlyPendingTimersAsync()
+        await flushAsync()
+
+        expect(openStream).toHaveBeenCalledTimes(2)
+        expect(openStream).toHaveBeenLastCalledWith('test-token', expect.any(AbortSignal))
+
+        controller.closeSse()
     })
 })

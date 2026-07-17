@@ -176,6 +176,9 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
         @EntityGraph(attributePaths = {"user", "agent", "board", "board.creator", "category"})
         List<Post> findByPostIdInAndIsDeletedFalse(Collection<Long> postIds);
 
+        @Query("SELECT p.board.boardId FROM Post p WHERE p.postId = :postId")
+        Optional<Long> findBoardIdByPostId(@Param("postId") Long postId);
+
         @Lock(LockModeType.PESSIMISTIC_WRITE)
         @Query("SELECT p FROM Post p WHERE p.postId = :postId")
         Optional<Post> findByIdForUpdate(@Param("postId") Long postId);

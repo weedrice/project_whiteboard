@@ -36,10 +36,22 @@ class NotificationAccessInvalidationServiceTest {
 
         listener.handle(NotificationStreamInvalidationEvent.disconnectUser(1L));
         listener.handle(NotificationStreamInvalidationEvent.invalidatePost(2L));
+        listener.handle(NotificationStreamInvalidationEvent.invalidateBoard(4L));
         listener.handle(NotificationStreamInvalidationEvent.invalidateUserTopics(3L));
 
         verify(streamControl).disconnectUser(1L);
         verify(streamControl).invalidateCommentTopic(2L);
+        verify(streamControl).invalidateCommentTopicsForBoard(4L);
         verify(streamControl).invalidateCommentTopicsForUser(3L);
+    }
+
+    @Test
+    void boardInvalidationPublishesTransactionalEvent() {
+        NotificationAccessInvalidationService service =
+                new NotificationAccessInvalidationService(subscriptions, eventPublisher);
+
+        service.invalidateCommentTopicsForBoardAfterCommit(4L);
+
+        verify(eventPublisher).publishEvent(NotificationStreamInvalidationEvent.invalidateBoard(4L));
     }
 }

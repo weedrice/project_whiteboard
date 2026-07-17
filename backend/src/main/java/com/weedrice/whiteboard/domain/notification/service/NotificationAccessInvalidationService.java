@@ -26,6 +26,11 @@ public class NotificationAccessInvalidationService {
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
+    public void invalidateCommentTopicsForBoardAfterCommit(Long boardId) {
+        eventPublisher.publishEvent(NotificationStreamInvalidationEvent.invalidateBoard(boardId));
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
     public void invalidateCommentTopicsForUsersAfterCommit(Long... userIds) {
         if (userIds == null) {
             return;

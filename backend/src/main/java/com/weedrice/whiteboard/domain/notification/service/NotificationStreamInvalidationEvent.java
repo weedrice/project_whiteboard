@@ -5,6 +5,7 @@ record NotificationStreamInvalidationEvent(Type type, Long targetId) {
     enum Type {
         DISCONNECT_USER,
         INVALIDATE_POST,
+        INVALIDATE_BOARD,
         INVALIDATE_USER_TOPICS
     }
 
@@ -14,6 +15,10 @@ record NotificationStreamInvalidationEvent(Type type, Long targetId) {
 
     static NotificationStreamInvalidationEvent invalidatePost(Long postId) {
         return new NotificationStreamInvalidationEvent(Type.INVALIDATE_POST, postId);
+    }
+
+    static NotificationStreamInvalidationEvent invalidateBoard(Long boardId) {
+        return new NotificationStreamInvalidationEvent(Type.INVALIDATE_BOARD, boardId);
     }
 
     static NotificationStreamInvalidationEvent invalidateUserTopics(Long userId) {

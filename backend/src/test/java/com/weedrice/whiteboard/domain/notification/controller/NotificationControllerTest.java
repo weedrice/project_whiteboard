@@ -190,14 +190,13 @@ class NotificationControllerTest {
                         .with(user(customUserDetails)))
                 .andExpect(status().isOk());
 
-        verify(commentTopicAccessService).validateReadable(1L, 10L);
-        verify(notificationSseEmitterRegistry).subscribeCommentTopic(1L, 10L, "comments-panel");
+        verify(commentTopicAccessService).subscribeReadable(1L, 10L, "comments-panel");
     }
 
     @Test
     void commentTopicSubscriptionRejectsUnreadablePostBeforeRegistration() throws Exception {
         org.mockito.Mockito.doThrow(new BusinessException(ErrorCode.POST_NOT_FOUND))
-                .when(commentTopicAccessService).validateReadable(1L, 10L);
+                .when(commentTopicAccessService).subscribeReadable(1L, 10L, "comments-panel");
 
         mockMvc.perform(post("/api/v1/notifications/comment-topics/{postId}/subscriptions", 10L)
                         .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
@@ -205,7 +204,7 @@ class NotificationControllerTest {
                         .with(user(customUserDetails)))
                 .andExpect(status().isNotFound());
 
-        verify(notificationSseEmitterRegistry, never()).subscribeCommentTopic(anyLong(), anyLong(), any());
+        verify(notificationSseEmitterRegistry, never()).subscribeCommentTopic(anyLong(), anyLong(), anyLong(), any());
     }
 
     @Test

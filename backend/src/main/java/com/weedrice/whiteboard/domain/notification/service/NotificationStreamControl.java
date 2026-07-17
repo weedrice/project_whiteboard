@@ -6,5 +6,7 @@ public interface NotificationStreamControl {
 
     void invalidateCommentTopic(Long postId);
 
+    void invalidateCommentTopicsForBoard(Long boardId);
+
     void invalidateCommentTopicsForUser(Long userId);
 }

@@ -116,6 +116,14 @@ class SecurityConfigAuthorizationTest {
 
         mockMvc.perform(get("/api/v1/users/me/comments"))
                 .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(get("/api/v1/users/mention-candidates").param("keyword", "ca"))
+                .andExpect(status().isUnauthorized());
+
+        mockMvc.perform(get("/api/v1/users/mention-candidates")
+                        .param("keyword", "ca")
+                        .with(user(userDetails)))
+                .andExpect(status().isOk());
     }
 
     @Test
@@ -272,6 +280,11 @@ class SecurityConfigAuthorizationTest {
         @GetMapping("/users/{userId}")
         String userProfile(@PathVariable Long userId) {
             return "user-" + userId;
+        }
+
+        @GetMapping("/users/mention-candidates")
+        String mentionCandidates() {
+            return "mention-candidates";
         }
 
         @GetMapping("/users/{userId}/posts")

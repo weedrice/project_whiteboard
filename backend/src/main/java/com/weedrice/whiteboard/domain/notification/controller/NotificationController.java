@@ -66,8 +66,7 @@ public class NotificationController {
             @Valid @RequestBody CommentTopicSubscriptionRequest request,
             @CurrentUserId Long userId) {
         notificationService.validateStreamSubscription(userId);
-        commentTopicAccessService.validateReadable(userId, postId);
-        notificationSseEmitterRegistry.subscribeCommentTopic(userId, postId, request.getSubscriberId());
+        commentTopicAccessService.subscribeReadable(userId, postId, request.getSubscriberId());
         return ApiResponses.ok();
     }
 

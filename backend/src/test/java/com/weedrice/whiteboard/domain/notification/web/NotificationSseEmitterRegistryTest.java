@@ -28,7 +28,7 @@ class NotificationSseEmitterRegistryTest {
     void commentTopicRequiresActiveEmitter() {
         NotificationSseEmitterRegistry registry = registry(10_000L, 5);
 
-        assertThatThrownBy(() -> registry.subscribeCommentTopic(1L, 10L, "subscriber"))
+        assertThatThrownBy(() -> registry.subscribeCommentTopic(1L, 100L, 10L, "subscriber"))
                 .isInstanceOf(BusinessException.class);
     }
 
@@ -37,7 +37,7 @@ class NotificationSseEmitterRegistryTest {
         NotificationSseEmitterRegistry registry = registry(10_000L, 5);
         registry.subscribe(1L);
         String connectionId = emitters(registry).get(1L).keySet().iterator().next();
-        registry.subscribeCommentTopic(1L, 10L, connectionId);
+        registry.subscribeCommentTopic(1L, 100L, 10L, connectionId);
 
         ReflectionTestUtils.invokeMethod(registry, "removeEmitter", 1L, connectionId);
 
@@ -50,7 +50,7 @@ class NotificationSseEmitterRegistryTest {
         NotificationSseEmitterRegistry registry = registry(10_000L, 5);
         registry.subscribe(1L);
         String connectionId = emitters(registry).get(1L).keySet().iterator().next();
-        registry.subscribeCommentTopic(1L, 10L, connectionId);
+        registry.subscribeCommentTopic(1L, 100L, 10L, connectionId);
 
         registry.disconnectUser(1L);
 
@@ -64,12 +64,51 @@ class NotificationSseEmitterRegistryTest {
         NotificationSseEmitterRegistry registry = registry(10_000L, 5);
         registry.subscribe(1L);
         String connectionId = emitters(registry).get(1L).keySet().iterator().next();
-        registry.subscribeCommentTopic(1L, 10L, connectionId);
-        registry.subscribeCommentTopic(1L, 11L, connectionId);
+        registry.subscribeCommentTopic(1L, 100L, 10L, connectionId);
+        registry.subscribeCommentTopic(1L, 100L, 11L, connectionId);
 
         registry.invalidateCommentTopic(10L);
 
         assertThat(commentSubscribers(registry)).doesNotContainKey(10L).containsKey(11L);
+    }
+
+    @Test
+    void invalidatingBoardTopicsKeepsTopicsFromOtherBoards() {
+        NotificationSseEmitterRegistry registry = registry(10_000L, 5);
+        registry.subscribe(1L);
+        String connectionId = emitters(registry).get(1L).keySet().iterator().next();
+        registry.subscribeCommentTopic(1L, 100L, 10L, connectionId);
+        registry.subscribeCommentTopic(1L, 100L, 11L, connectionId);
+        registry.subscribeCommentTopic(1L, 200L, 20L, connectionId);
+
+        registry.invalidateCommentTopicsForBoard(100L);
+
+        assertThat(commentSubscribers(registry))
+                .doesNotContainKeys(10L, 11L)
+                .containsKey(20L);
+    }
+
+    @Test
+    void invalidatingBoardTopicsNotifiesOnlyAffectedConnections() {
+        CountingSseEmitter affected = new CountingSseEmitter();
+        CountingSseEmitter unaffected = new CountingSseEmitter();
+        NotificationSseEmitterRegistry registry =
+                new SequenceEmitterNotificationSseEmitterRegistry(affected, unaffected);
+        registry.subscribe(1L);
+        registry.subscribe(1L);
+        String affectedConnectionId = connectionIdForEmitter(registry, 1L, affected);
+        String unaffectedConnectionId = connectionIdForEmitter(registry, 1L, unaffected);
+        registry.subscribeCommentTopic(1L, 100L, 10L, affectedConnectionId);
+        registry.subscribeCommentTopic(1L, 200L, 20L, unaffectedConnectionId);
+
+        registry.invalidateCommentTopicsForBoard(100L);
+
+        assertThat(affected.sendCount()).isEqualTo(2);
+        assertThat(affected.lastEventData())
+                .anySatisfy(data -> assertThat(data.toString()).contains("comment-topic-invalidated"))
+                .contains(Map.of("boardId", 100L));
+        assertThat(unaffected.sendCount()).isEqualTo(1);
+        assertThat(commentSubscribers(registry)).doesNotContainKey(10L).containsKey(20L);
     }
 
     @Test
@@ -78,10 +117,10 @@ class NotificationSseEmitterRegistryTest {
         registry.subscribe(1L);
         String connectionId = emitters(registry).get(1L).keySet().iterator().next();
         for (long postId = 1L; postId <= 100L; postId++) {
-            registry.subscribeCommentTopic(1L, postId, connectionId);
+            registry.subscribeCommentTopic(1L, 100L, postId, connectionId);
         }
 
-        assertThatThrownBy(() -> registry.subscribeCommentTopic(1L, 101L, connectionId))
+        assertThatThrownBy(() -> registry.subscribeCommentTopic(1L, 100L, 101L, connectionId))
                 .isInstanceOf(BusinessException.class);
     }
 
@@ -90,7 +129,7 @@ class NotificationSseEmitterRegistryTest {
         NotificationSseEmitterRegistry registry = registry(10_000L, 5);
         registry.subscribe(1L);
 
-        assertThatThrownBy(() -> registry.subscribeCommentTopic(1L, 10L, "not-a-connection"))
+        assertThatThrownBy(() -> registry.subscribeCommentTopic(1L, 100L, 10L, "not-a-connection"))
                 .isInstanceOf(BusinessException.class);
     }
 
@@ -102,7 +141,7 @@ class NotificationSseEmitterRegistryTest {
         registry.subscribe(1L);
         registry.subscribe(1L);
         String firstConnectionId = connectionIdForEmitter(registry, 1L, first);
-        registry.subscribeCommentTopic(1L, 10L, firstConnectionId);
+        registry.subscribeCommentTopic(1L, 100L, 10L, firstConnectionId);
 
         registry.publishCommentEvent(CommentStreamEvent.builder()
                 .action("CREATED")
@@ -388,6 +427,7 @@ class NotificationSseEmitterRegistryTest {
     private static class CountingSseEmitter extends SseEmitter {
 
         private int sends;
+        private java.util.List<Object> lastEventData = java.util.List.of();
 
         private CountingSseEmitter() {
             super(10_000L);
@@ -396,10 +436,19 @@ class NotificationSseEmitterRegistryTest {
         @Override
         public void send(SseEventBuilder builder) {
             sends++;
+            java.util.List<Object> data = new java.util.ArrayList<>();
+            for (Object item : builder.build()) {
+                data.add(ReflectionTestUtils.getField(item, "data"));
+            }
+            lastEventData = java.util.List.copyOf(data);
         }
 
         private int sendCount() {
             return sends;
+        }
+
+        private java.util.List<Object> lastEventData() {
+            return lastEventData;
         }
     }
 

@@ -59,6 +59,14 @@ public class RateLimitConfig {
         return createBucket(properties.getAuthAccountLimit());
     }
 
+    public Bucket createMentionCandidateBucket() {
+        return createBucket(properties.getMentionCandidateLimit());
+    }
+
+    public int getMentionCandidateLimit() {
+        return properties.getMentionCandidateLimit();
+    }
+
     public int getAuthLimit() {
         return properties.getAuthLimit();
     }

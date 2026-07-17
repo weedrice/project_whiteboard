@@ -18,6 +18,7 @@ import org.springframework.validation.annotation.Validated;
  *   auth-account-limit: 5
  *   api-limit: 200
  *   user-limit: 500
+ *   mention-candidate-limit: 60
  *   bucket-cache-max-size: 20000
  *   bucket-cache-ttl-minutes: 120
  * </pre>
@@ -41,6 +42,8 @@ public class RateLimitProperties {
     private int apiLimit = 200;
     @Positive
     private int userLimit = 500;
+    @Positive
+    private int mentionCandidateLimit = 60;
     @Positive
     private long bucketCacheMaxSize = 20_000;
     @Positive

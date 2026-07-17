@@ -68,7 +68,7 @@ class BoardProvisioningService {
         ensureInquiryBoardManager(board, currentUser);
     }
 
-    void transferBoardManager(String boardUrl, String loginId, Long userId) {
+    Board transferBoardManager(String boardUrl, String loginId, Long userId) {
         String normalizedBoardUrl = BoardUrlNormalizer.normalizeLookup(boardUrl);
         Board board = boardRepository.findByBoardUrlForUpdate(normalizedBoardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
@@ -81,9 +81,10 @@ class BoardProvisioningService {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
         boardManagerAssignmentService.assignBoardManager(board, nextManager);
+        return board;
     }
 
-    void deleteBoard(String boardUrl, Long userId) {
+    Board deleteBoard(String boardUrl, Long userId) {
         String normalizedBoardUrl = BoardUrlNormalizer.normalizeLookup(boardUrl);
         Board board = boardRepository.findByBoardUrlForUpdate(normalizedBoardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
@@ -92,6 +93,7 @@ class BoardProvisioningService {
         boardAccessPolicy.validateBoardAdmin(board, currentUser);
 
         board.deactivate();
+        return board;
     }
 
     private User getCurrentUserOrNull(Long userId) {

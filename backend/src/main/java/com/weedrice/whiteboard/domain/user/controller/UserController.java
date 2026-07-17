@@ -67,7 +67,7 @@ public class UserController {
         @GetMapping("/mention-candidates")
         public ApiResponse<List<MentionCandidateResponse>> getMentionCandidates(
                         @RequestParam(defaultValue = "") String keyword,
-                        @CurrentUserId(required = false) Long viewerUserId) {
+                        @CurrentUserId Long viewerUserId) {
                 return ApiResponse.success(mentionService.findCandidates(viewerUserId, keyword));
         }
 

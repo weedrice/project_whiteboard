@@ -42,6 +42,7 @@ import com.weedrice.whiteboard.global.config.AnonymousReadCacheInvalidator;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.lock.DomainLockManager;
+import com.weedrice.whiteboard.domain.notification.service.NotificationAccessInvalidationService;
 import org.hibernate.exception.ConstraintViolationException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -137,6 +138,8 @@ class BoardServiceTest {
     private DomainLockManager domainLockManager;
     @Mock
     private BoardOrderingService boardOrderingService;
+    @Mock
+    private NotificationAccessInvalidationService notificationAccessInvalidationService;
     private BoardResponseReadService boardResponseReadService;
     private BoardResponseAssembler boardResponseAssembler;
 
@@ -227,7 +230,8 @@ class BoardServiceTest {
                 boardVisitService,
                 new BoardAnonymousCacheService(queryService),
                 cacheInvalidator,
-                boardOrderingService);
+                boardOrderingService,
+                notificationAccessInvalidationService);
         boardApplicationService = new BoardApplicationService(boardService, queryService);
 
         lenient().when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(anyLong(), any()))
@@ -658,6 +662,7 @@ class BoardServiceTest {
         verify(boardRepository).findByBoardUrlForUpdate("test-board");
         verify(boardRepository, never()).findByBoardUrl("test-board");
         verify(boardManagerAssignmentService).assignBoardManager(board, nextManager);
+        verify(notificationAccessInvalidationService).invalidateCommentTopicsForBoardAfterCommit(1L);
     }
 
     @Test
@@ -1029,6 +1034,7 @@ class BoardServiceTest {
         verify(boardRepository, never()).findByBoardUrl("test-board");
         verify(boardAiInfoRepository, never()).save(any(BoardAiInfo.class));
         verify(semanticSearchEventPublisher).publishBoardContentReindex(1L);
+        verify(notificationAccessInvalidationService).invalidateCommentTopicsForBoardAfterCommit(1L);
     }
 
     @Test
@@ -1049,6 +1055,7 @@ class BoardServiceTest {
 
         assertThat(board.getIsActive()).isFalse();
         verify(semanticSearchEventPublisher).publishBoardContentReindex(1L);
+        verify(notificationAccessInvalidationService).invalidateCommentTopicsForBoardAfterCommit(1L);
     }
 
     @Test
@@ -1191,6 +1198,7 @@ class BoardServiceTest {
         assertThat(board.getIsActive()).isFalse();
         verify(boardRepository).findByBoardUrlForUpdate("test-board");
         verify(boardRepository, never()).findByBoardUrl("test-board");
+        verify(notificationAccessInvalidationService).invalidateCommentTopicsForBoardAfterCommit(1L);
     }
 
     @Test

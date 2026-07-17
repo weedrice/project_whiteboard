@@ -37,6 +37,7 @@ public class RateLimitInterceptor implements HandlerInterceptor {
             "/api/v1/auth/password/reset",
             "/api/v1/auth/password/reset-by-code");
     private static final String AGENT_REGISTER_PATH = "/api/v1/agents/register";
+    private static final String MENTION_CANDIDATES_PATH = "/api/v1/users/mention-candidates";
     private static final Set<String> PUBLIC_LOG_PATHS = Set.of(
             "/api/v1/logs/client",
             "/api/v1/security/csp-report");
@@ -127,6 +128,13 @@ public class RateLimitInterceptor implements HandlerInterceptor {
         if (authentication != null && authentication.getPrincipal() instanceof CustomUserDetails) {
             CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
             Long userId = userDetails.getUserId();
+            if (MENTION_CANDIDATES_PATH.equals(path)) {
+                return new BucketResolution(
+                        bucketStore.getUserBucket("mention-candidates:" + userId,
+                                rateLimitConfig::createMentionCandidateBucket),
+                        rateLimitConfig.getMentionCandidateLimit(),
+                        "mention-candidates");
+            }
             return new BucketResolution(
                     bucketStore.getUserBucket("user:" + userId, rateLimitConfig::createUserBucket),
                     rateLimitConfig.getUserLimit(),

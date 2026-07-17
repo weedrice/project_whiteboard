@@ -43,6 +43,8 @@ class MentionServiceTest {
     @Test
     void blankCandidateQueryIsEmptyAndBlockedIdsAreExcluded() {
         assertEquals(List.of(), service.findCandidates(1L, " "));
+        assertEquals(List.of(), service.findCandidates(1L, "a"));
+        assertEquals(List.of(), service.findCandidates(null, "candidate"));
         User candidate = user(2L, "Candidate", User.STATUS_ACTIVE);
         when(blocks.findBlockedUserIdsEitherDirectionByUserId(1L)).thenReturn(List.of(9L));
         when(users.findMentionCandidates(eq("can"), eq(false), eq(List.of(9L)), any(Pageable.class)))

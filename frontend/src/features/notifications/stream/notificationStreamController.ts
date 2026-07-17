@@ -108,6 +108,12 @@ export function createNotificationStreamController(
             handleCommentSseEvent(payload, sessionGeneration)
             return
         }
+        if (eventType === 'comment-topic-invalidated') {
+            if (resolveAuthStore().sessionGeneration === sessionGeneration) {
+                recycleNotificationStreamConnection()
+            }
+            return
+        }
         if (eventType !== 'notification' && eventType !== 'message') return
 
         try {
