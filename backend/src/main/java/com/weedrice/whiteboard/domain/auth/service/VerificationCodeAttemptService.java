@@ -37,11 +37,9 @@ class VerificationCodeAttemptService {
         boolean codeMatches = matchesVerificationCode(verificationCode.getCode(), rawCode);
         if (Boolean.TRUE.equals(verificationCode.getIsVerified())) {
             if (verificationCode.hasActiveVerificationTicketAt(now)) {
-                if (!codeMatches) {
-                    verificationCode.recordFailedAttempt();
-                    return AttemptResult.invalid();
-                }
-                return AttemptResult.verified(verificationCode.getVerificationTicket());
+                return codeMatches
+                        ? AttemptResult.verified(verificationCode.getVerificationTicket())
+                        : AttemptResult.invalid();
             }
             return codeMatches ? AttemptResult.used() : AttemptResult.invalid();
         }

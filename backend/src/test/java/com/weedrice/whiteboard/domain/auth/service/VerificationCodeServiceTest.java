@@ -569,6 +569,34 @@ class VerificationCodeServiceTest {
                     assertThat(businessException.getMessageKey())
                             .isEqualTo("validation.verification.code.invalid");
                 });
+
+        assertThat(sentCode.getFailedAttempts()).isZero();
+        assertThat(sentCode.getVerificationTicket()).isEqualTo("ticket-1");
+    }
+
+    @Test
+    @DisplayName("인증 성공 뒤 오답 재검증은 기존 실패 횟수와 ticket을 변경하지 않는다")
+    void verifyCode_wrongRetryAfterTicketIssuanceDoesNotConsumeAttempts() {
+        VerificationCode sentCode = createSentCode(1L, "test@example.com", VerificationPurpose.FIND_ID, "123456");
+        verificationCodes.put(1L, sentCode);
+
+        for (int attempt = 0; attempt < 4; attempt++) {
+            assertThatThrownBy(() -> verificationCodeService.verifyCode(
+                    "test@example.com", "000000", VerificationPurpose.FIND_ID))
+                    .isInstanceOf(BusinessException.class);
+        }
+
+        VerifyCodeResponse verified = verificationCodeService.verifyCode(
+                "test@example.com", "123456", VerificationPurpose.FIND_ID);
+        String ticket = verified.getVerificationTicket();
+
+        assertThatThrownBy(() -> verificationCodeService.verifyCode(
+                "test@example.com", "000000", VerificationPurpose.FIND_ID))
+                .isInstanceOf(BusinessException.class);
+
+        assertThat(sentCode.getFailedAttempts()).isEqualTo(4);
+        assertThat(sentCode.getVerificationTicket()).isEqualTo(ticket);
+        assertThat(sentCode.hasActiveVerificationTicketAt(FIXED_NOW)).isTrue();
     }
 
     @Test
@@ -633,7 +661,7 @@ class VerificationCodeServiceTest {
     }
 
     @Test
-    @DisplayName("활성 ticket은 오입력 횟수가 소진되어도 올바른 코드로 재조회할 수 있다")
+    @DisplayName("활성 ticket은 잘못된 재조회가 반복되어도 올바른 코드로 재조회할 수 있다")
     void verifyCode_activeTicketRemainsUsableAfterInvalidAttempts() {
         VerificationCode sentCode = createSentCode(1L, "test@example.com", VerificationPurpose.FIND_ID, "123456");
         sentCode.issueVerificationTicket("ticket-1", FIXED_NOW.plusMinutes(5));
