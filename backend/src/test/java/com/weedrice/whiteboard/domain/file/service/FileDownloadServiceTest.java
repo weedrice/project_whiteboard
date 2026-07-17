@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.file.service;
 
 import com.weedrice.whiteboard.domain.file.dto.FileDownloadResponse;
 import com.weedrice.whiteboard.domain.file.entity.File;
+import com.weedrice.whiteboard.domain.file.entity.FileStorageStatus;
 import com.weedrice.whiteboard.domain.file.entity.FileVariant;
 import com.weedrice.whiteboard.domain.file.entity.FileVariantType;
 import com.weedrice.whiteboard.domain.file.repository.FileVariantRepository;
@@ -79,7 +80,8 @@ class FileDownloadServiceTest {
                 .build();
         ByteArrayInputStream inputStream = new ByteArrayInputStream("variant".getBytes());
         when(fileAccessService.getFileAccessForDownload(2L, 10L)).thenReturn(access(file));
-        when(fileVariantRepository.findByFileFileIdAndVariantType(2L, FileVariantType.THUMBNAIL))
+        when(fileVariantRepository.findByFileFileIdAndVariantTypeAndStorageStatus(
+                2L, FileVariantType.THUMBNAIL, FileStorageStatus.ACTIVE))
                 .thenReturn(Optional.of(variant));
         when(fileStorageService.loadFile("variants/2/thumbnail.png")).thenReturn(inputStream);
 
@@ -95,7 +97,8 @@ class FileDownloadServiceTest {
         File file = file("image.png", "image/png", "path/to/image.png");
         ByteArrayInputStream inputStream = new ByteArrayInputStream("original".getBytes());
         when(fileAccessService.getFileAccessForDownload(2L, null)).thenReturn(access(file));
-        when(fileVariantRepository.findByFileFileIdAndVariantType(2L, FileVariantType.MEDIUM))
+        when(fileVariantRepository.findByFileFileIdAndVariantTypeAndStorageStatus(
+                2L, FileVariantType.MEDIUM, FileStorageStatus.ACTIVE))
                 .thenReturn(Optional.empty());
         when(fileStorageService.loadFile("path/to/image.png")).thenReturn(inputStream);
 
@@ -139,7 +142,8 @@ class FileDownloadServiceTest {
                 .build();
         when(fileAccessService.getFileAccessForDownload(9L, null))
                 .thenReturn(new FileAccessResult(file, FileAccessResult.CacheScope.PUBLIC_EMOTICON));
-        when(fileVariantRepository.findByFileFileIdAndVariantType(9L, FileVariantType.THUMBNAIL))
+        when(fileVariantRepository.findByFileFileIdAndVariantTypeAndStorageStatus(
+                9L, FileVariantType.THUMBNAIL, FileStorageStatus.ACTIVE))
                 .thenReturn(Optional.of(variant));
 
         FileDownloadResponse original = fileDownloadService.downloadFile(9L, null);

@@ -38,6 +38,7 @@ class FileImageVariantGenerator {
 
     private final FileStorageService fileStorageService;
     private final FileVariantRepository fileVariantRepository;
+    private final FileVariantStateCommand stateCommand;
 
     public void generateVariants(File originalFile, MultipartFile multipartFile, ValidatedUpload upload) {
         if (!isResizableMimeType(upload.detectedMimeType()) || originalFile.getFileId() == null) {
@@ -77,17 +78,17 @@ class FileImageVariantGenerator {
                 : resize(decodedImage, targetSize);
         byte[] contents = encodeWebp(resizedImage);
         String filePath = buildVariantFilePath(originalFile.getFileId(), variantType);
-        fileStorageService.storeBytesAs(contents, WEBP_MIME_TYPE, filePath);
+        FileVariant pendingVariant = stateCommand.createPending(
+                originalFile,
+                variantType,
+                filePath,
+                contents.length,
+                WEBP_MIME_TYPE,
+                targetSize.width(),
+                targetSize.height());
         try {
-            fileVariantRepository.save(FileVariant.builder()
-                    .file(originalFile)
-                    .variantType(variantType)
-                    .filePath(filePath)
-                    .fileSize((long) contents.length)
-                    .mimeType(WEBP_MIME_TYPE)
-                    .width(targetSize.width())
-                    .height(targetSize.height())
-                    .build());
+            fileStorageService.storeBytesAs(contents, WEBP_MIME_TYPE, filePath);
+            stateCommand.activate(pendingVariant.getFileVariantId());
         } catch (RuntimeException e) {
             fileStorageService.deleteFile(filePath);
             throw e;

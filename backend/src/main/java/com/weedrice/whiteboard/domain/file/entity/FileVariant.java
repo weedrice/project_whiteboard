@@ -24,7 +24,9 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(name = "file_variants",
         indexes = {
-                @Index(name = "idx_file_variants_file", columnList = "file_id")
+                @Index(name = "idx_file_variants_file", columnList = "file_id"),
+                @Index(name = "idx_file_variants_storage_status_created",
+                        columnList = "storage_status, created_at, file_variant_id")
         },
         uniqueConstraints = {
                 @UniqueConstraint(name = "uk_file_variants_file_type", columnNames = {"file_id", "variant_type"})
@@ -59,6 +61,10 @@ public class FileVariant extends BaseTimeEntity {
     @Column(name = "height", nullable = false)
     private Integer height;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "storage_status", length = 30, nullable = false)
+    private FileStorageStatus storageStatus;
+
     @Builder
     public FileVariant(
             File file,
@@ -67,7 +73,8 @@ public class FileVariant extends BaseTimeEntity {
             Long fileSize,
             String mimeType,
             Integer width,
-            Integer height) {
+            Integer height,
+            FileStorageStatus storageStatus) {
         this.file = file;
         this.variantType = variantType;
         this.filePath = filePath;
@@ -75,5 +82,14 @@ public class FileVariant extends BaseTimeEntity {
         this.mimeType = mimeType;
         this.width = width;
         this.height = height;
+        this.storageStatus = storageStatus == null ? FileStorageStatus.ACTIVE : storageStatus;
+    }
+
+    public void activate() {
+        this.storageStatus = FileStorageStatus.ACTIVE;
+    }
+
+    public void requestDeletion() {
+        this.storageStatus = FileStorageStatus.PENDING_DELETE;
     }
 }

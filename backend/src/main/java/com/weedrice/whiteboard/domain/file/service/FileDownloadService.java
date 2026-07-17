@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.file.dto.FileDownloadResponse;
 import com.weedrice.whiteboard.domain.file.entity.File;
 import com.weedrice.whiteboard.domain.file.entity.FileVariant;
 import com.weedrice.whiteboard.domain.file.entity.FileVariantType;
+import com.weedrice.whiteboard.domain.file.entity.FileStorageStatus;
 import com.weedrice.whiteboard.domain.file.repository.FileVariantRepository;
 import com.weedrice.whiteboard.global.common.util.FileStorageService;
 import lombok.RequiredArgsConstructor;
@@ -30,7 +31,8 @@ public class FileDownloadService {
     public FileDownloadResponse downloadVariantFile(Long fileId, FileVariantType variantType, Long viewerUserId) {
         FileAccessResult access = fileAccessService.getFileAccessForDownload(fileId, viewerUserId);
         File file = access.file();
-        return fileVariantRepository.findByFileFileIdAndVariantType(fileId, variantType)
+        return fileVariantRepository.findByFileFileIdAndVariantTypeAndStorageStatus(
+                        fileId, variantType, FileStorageStatus.ACTIVE)
                 .map(variant -> toVariantDownload(fileId, file, variant, access.cacheScope()))
                 .orElseGet(() -> toDownload(
                         fileId,

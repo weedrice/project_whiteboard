@@ -37,13 +37,18 @@ class FileImageVariantGeneratorTest {
     private FileStorageService fileStorageService;
     @Mock
     private FileVariantRepository fileVariantRepository;
+    @Mock
+    private FileVariantStateCommand stateCommand;
 
     @Test
     void generateVariants_resizesJpegIntoThumbnailAndMedium() throws Exception {
         File file = imageFile(10L);
         MockMultipartFile multipartFile = jpegFile("large.jpg", 1600, 800);
-        when(fileVariantRepository.save(any(FileVariant.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        FileImageVariantGenerator generator = new FileImageVariantGenerator(fileStorageService, fileVariantRepository);
+        when(stateCommand.createPending(any(), any(), any(), org.mockito.ArgumentMatchers.anyLong(), any(),
+                org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyInt()))
+                .thenReturn(pendingVariant(1L), pendingVariant(2L));
+        FileImageVariantGenerator generator = new FileImageVariantGenerator(
+                fileStorageService, fileVariantRepository, stateCommand);
 
         generator.generateVariants(file, multipartFile, validated("image/jpeg", 1600, 800));
 
@@ -51,16 +56,14 @@ class FileImageVariantGeneratorTest {
         verify(fileStorageService).storeBytesAs(contentsCaptor.capture(), eq("image/webp"), eq("variants/10/thumbnail.webp"));
         verify(fileStorageService).storeBytesAs(any(byte[].class), eq("image/webp"), eq("variants/10/medium.webp"));
 
-        ArgumentCaptor<FileVariant> variantCaptor = ArgumentCaptor.forClass(FileVariant.class);
-        verify(fileVariantRepository, org.mockito.Mockito.times(2)).save(variantCaptor.capture());
-        List<FileVariant> variants = variantCaptor.getAllValues();
-        assertThat(variants)
-                .extracting(FileVariant::getVariantType)
-                .containsExactly(FileVariantType.THUMBNAIL, FileVariantType.MEDIUM);
-        assertThat(variants.get(0).getWidth()).isEqualTo(320);
-        assertThat(variants.get(0).getHeight()).isEqualTo(160);
-        assertThat(variants.get(1).getWidth()).isEqualTo(1280);
-        assertThat(variants.get(1).getHeight()).isEqualTo(640);
+        verify(stateCommand).createPending(
+                file, FileVariantType.THUMBNAIL, "variants/10/thumbnail.webp",
+                contentsCaptor.getValue().length, "image/webp", 320, 160);
+        verify(stateCommand).createPending(
+                eq(file), eq(FileVariantType.MEDIUM), eq("variants/10/medium.webp"),
+                org.mockito.ArgumentMatchers.anyLong(), eq("image/webp"), eq(1280), eq(640));
+        verify(stateCommand).activate(1L);
+        verify(stateCommand).activate(2L);
         assertThat(contentsCaptor.getValue()).isNotEmpty();
     }
 
@@ -68,13 +71,30 @@ class FileImageVariantGeneratorTest {
     void generateVariants_skipsUnsupportedOrAlreadySmallImages() throws Exception {
         File file = imageFile(11L);
         MockMultipartFile multipartFile = jpegFile("small.jpg", 100, 80);
-        FileImageVariantGenerator generator = new FileImageVariantGenerator(fileStorageService, fileVariantRepository);
+        FileImageVariantGenerator generator = new FileImageVariantGenerator(
+                fileStorageService, fileVariantRepository, stateCommand);
 
         generator.generateVariants(file, multipartFile, validated("image/jpeg", 100, 80));
         generator.generateVariants(file, multipartFile, validated("image/gif", 100, 80));
 
         verify(fileStorageService, never()).storeBytesAs(any(), any(), any());
-        verify(fileVariantRepository, never()).save(any());
+        verify(stateCommand, never()).createPending(any(), any(), any(), org.mockito.ArgumentMatchers.anyLong(), any(),
+                org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyInt());
+    }
+
+    private FileVariant pendingVariant(Long id) {
+        FileVariant variant = FileVariant.builder()
+                .file(imageFile(99L))
+                .variantType(FileVariantType.THUMBNAIL)
+                .filePath("pending.webp")
+                .fileSize(1L)
+                .mimeType("image/webp")
+                .width(1)
+                .height(1)
+                .storageStatus(com.weedrice.whiteboard.domain.file.entity.FileStorageStatus.PENDING_UPLOAD)
+                .build();
+        ReflectionTestUtils.setField(variant, "fileVariantId", id);
+        return variant;
     }
 
     private File imageFile(Long fileId) {
