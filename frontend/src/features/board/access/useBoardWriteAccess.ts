@@ -1,5 +1,5 @@
 import type { QueryClient } from '@tanstack/vue-query'
-import { createBoardDetailQueryOptions } from '@/features/board/useBoard'
+import { fetchBoardDetail } from '@/features/board/useBoard'
 import { canWriteBoardPost } from '@/utils/board'
 import type { BoardDetail } from '@/types'
 
@@ -27,14 +27,13 @@ export async function verifyBoardWriteAccess({
 }
 
 export function fetchBoardForWriteAccess(
-  queryClient: QueryClient,
+  _queryClient: QueryClient,
   boardUrl: string,
-  sessionGeneration: number,
+  _sessionGeneration: number,
+  signal?: AbortSignal,
 ): Promise<BoardDetail> {
-  return queryClient.fetchQuery<BoardDetail>({
-    ...createBoardDetailQueryOptions(boardUrl, sessionGeneration),
-    retry: false,
-  })
+  if (signal?.aborted) return Promise.reject(new DOMException('Request aborted', 'AbortError'))
+  return fetchBoardDetail(boardUrl, signal ? { signal } : undefined)
 }
 
 export function canUserWriteBoardPost(

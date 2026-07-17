@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/vue-query'
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, getCurrentScope, nextTick, onScopeDispose, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useBoard } from '@/features/board/useBoard'
@@ -14,6 +14,7 @@ import {
 } from '@/features/board/access/useBoardWriteAccess'
 import i18n from '@/i18n'
 import { encodePathSegment } from '@/utils/urlPath'
+import { subscribeAuthSessionBoundary } from '@/queryAuthScope'
 
 export function useWriteBoardSheet() {
   const route = useRoute()
@@ -28,6 +29,9 @@ export function useWriteBoardSheet() {
   const fabButtonRef = ref<HTMLButtonElement | null>(null)
   const sheetRef = ref<HTMLElement | null>(null)
   const lastFocusedElement = ref<HTMLElement | null>(null)
+  const isVerifyingWriteAccess = ref(false)
+  let verificationRevision = 0
+  let verificationController: AbortController | null = null
   const shouldFetchSubscriptions = computed(() => authStore.isAuthenticated && showWriteSheet.value)
   useBodyScrollLock(showWriteSheet)
 
@@ -48,9 +52,20 @@ export function useWriteBoardSheet() {
     return publicBoards.value
   })
 
+  const cancelVerification = () => {
+    verificationRevision += 1
+    verificationController?.abort()
+    verificationController = null
+    isVerifyingWriteAccess.value = false
+  }
+
   const closeWriteSheet = () => {
+    cancelVerification()
     showWriteSheet.value = false
   }
+
+  const stopSessionBoundary = subscribeAuthSessionBoundary(() => closeWriteSheet())
+  if (getCurrentScope()) onScopeDispose(stopSessionBoundary)
 
   const retryBoardOptions = () => {
     void Promise.all([
@@ -68,34 +83,54 @@ export function useWriteBoardSheet() {
     showWriteSheet.value = true
   }
 
-  const verifyBoardWriteAccess = async (boardUrl: string) => {
+  const verifyBoardWriteAccess = async (boardUrl: string, generation: number, signal: AbortSignal) => {
     const board = await fetchBoardForWriteAccess(
       queryClient,
       boardUrl,
-      authStore.sessionGeneration,
+      generation,
+      signal,
     )
     return canUserWriteBoardPost(board, authStore.isAuthenticated, authStore.user?.role)
   }
 
   const goToBoardWrite = async (boardUrl: string) => {
+    if (!showWriteSheet.value) return
+    cancelVerification()
+    const controller = new AbortController()
+    verificationController = controller
+    const revision = verificationRevision
+    const generation = authStore.sessionGeneration
+    isVerifyingWriteAccess.value = true
+    const isCurrent = () => verificationController === controller
+      && verificationRevision === revision
+      && !controller.signal.aborted
+      && showWriteSheet.value
+      && authStore.sessionGeneration === generation
     try {
-      const canWrite = await verifyBoardWriteAccess(boardUrl)
+      const canWrite = await verifyBoardWriteAccess(boardUrl, generation, controller.signal)
+      if (!isCurrent()) return
       if (!canWrite) {
         toastStore.addToast(i18n.global.t(BOARD_WRITE_FORBIDDEN_MESSAGE_KEY), 'error')
         return
       }
 
-      showWriteSheet.value = false
+      closeWriteSheet()
       await router.push(`/board/${encodePathSegment(boardUrl)}/write`)
     } catch {
+      if (!isCurrent()) return
       toastStore.addToast(i18n.global.t(BOARD_WRITE_VERIFY_FAILED_MESSAGE_KEY), 'error')
+    } finally {
+      if (verificationController === controller) {
+        verificationController = null
+        isVerifyingWriteAccess.value = false
+      }
     }
   }
 
   const handleSheetKeydown = (event: KeyboardEvent) => {
     if (event.key === 'Escape') {
       event.preventDefault()
-      showWriteSheet.value = false
+      closeWriteSheet()
       return
     }
 
@@ -134,7 +169,7 @@ export function useWriteBoardSheet() {
   watch(
     () => route.fullPath,
     () => {
-      showWriteSheet.value = false
+      closeWriteSheet()
     }
   )
 
@@ -157,6 +192,7 @@ export function useWriteBoardSheet() {
     isSubscribedBoardsLoading,
     isBoardsError,
     isSubscribedBoardsError,
+    isVerifyingWriteAccess,
     openWriteSheet,
     closeWriteSheet,
     goToBoardWrite,

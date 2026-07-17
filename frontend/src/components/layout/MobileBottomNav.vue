@@ -30,6 +30,7 @@ const {
   isSubscribedBoardsLoading,
   isBoardsError,
   isSubscribedBoardsError,
+  isVerifyingWriteAccess,
   openWriteSheet,
   closeWriteSheet,
   goToBoardWrite,
@@ -126,6 +127,7 @@ const handleProtectedNavigation = (event: MouseEvent, path: string) => {
           aria-modal="true"
           aria-labelledby="mobile-write-sheet-title"
           tabindex="-1"
+          :aria-busy="isVerifyingWriteAccess"
           @click.stop
           @keydown="handleSheetKeydown"
         >
@@ -161,6 +163,7 @@ const handleProtectedNavigation = (event: MouseEvent, path: string) => {
               :key="board.boardUrl"
               type="button"
               class="nv-mobile-sheet-item"
+              :disabled="isVerifyingWriteAccess"
               @click="goToBoardWrite(board.boardUrl)"
             >
               <span class="min-w-0 truncate">{{ board.boardName }}</span>
