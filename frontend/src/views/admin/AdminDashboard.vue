@@ -8,6 +8,8 @@ import AdminMetricCard from '@/components/admin/AdminMetricCard.vue'
 import AdminAuditLogTable from '@/components/admin/AdminAuditLogTable.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseSelect from '@/components/common/ui/BaseSelect.vue'
+import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
+import ErrorState from '@/components/common/ui/ErrorState.vue'
 import type { DashboardStats, ModerationAuditSearchParams } from '@/types/admin'
 
 const { t } = useI18n()
@@ -31,8 +33,18 @@ const auditActorOptions = computed(() => [
   { value: 'SYSTEM', label: 'SYSTEM' },
 ])
 
-const { data: statsData } = useDashboardStats()
-const { data: deepStatsData } = useDeepDashboardStats(selectedDays)
+const {
+  data: statsData,
+  isLoading: isStatsLoading,
+  isError: isStatsError,
+  refetch: refetchStats,
+} = useDashboardStats()
+const {
+  data: deepStatsData,
+  isLoading: isDeepStatsLoading,
+  isError: isDeepStatsError,
+  refetch: refetchDeepStats,
+} = useDeepDashboardStats(selectedDays)
 const auditParams = computed<ModerationAuditSearchParams>(() => ({
   page: 0,
   size: 10,
@@ -44,9 +56,12 @@ const auditParams = computed<ModerationAuditSearchParams>(() => ({
   startDate: auditStartDate.value || undefined,
   endDate: auditEndDate.value || undefined,
 }))
-const { data: auditData } = admin.useModerationAudits
-  ? admin.useModerationAudits(auditParams)
-  : { data: computed(() => ({ content: [] })) }
+const {
+  data: auditData,
+  isLoading: isAuditLoading,
+  isError: isAuditError,
+  refetch: refetchAudits,
+} = admin.useModerationAudits(auditParams)
 
 const stats = computed(() => {
   const data = (statsData.value || {}) as Partial<DashboardStats>
@@ -93,7 +108,18 @@ const auditLogs = computed(() => auditData.value?.content ?? [])
   <div>
     <h1 class="text-2xl font-semibold nv-title">{{ t('admin.dashboard.title') }}</h1>
 
-    <div class="mt-4 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+    <div v-if="isStatsLoading" class="mt-4 py-8" role="status" aria-busy="true">
+      <BaseSpinner />
+    </div>
+    <ErrorState
+      v-else-if="isStatsError"
+      class="mt-4"
+      title-tag="h2"
+      :message="t('common.messages.loadFailed')"
+      show-retry
+      @retry="refetchStats()"
+    />
+    <div v-else class="mt-4 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
       <AdminMetricCard
         v-for="item in stats"
         :key="item.name"
@@ -135,7 +161,18 @@ const auditLogs = computed(() => auditData.value?.content ?? [])
         </div>
       </div>
 
-      <div class="mt-4 grid grid-cols-1 gap-5 xl:grid-cols-3">
+      <div v-if="isDeepStatsLoading" class="mt-4 py-8" role="status" aria-busy="true">
+        <BaseSpinner />
+      </div>
+      <ErrorState
+        v-else-if="isDeepStatsError"
+        class="mt-4"
+        title-tag="h3"
+        :message="t('common.messages.loadFailed')"
+        show-retry
+        @retry="refetchDeepStats()"
+      />
+      <div v-else class="mt-4 grid grid-cols-1 gap-5 xl:grid-cols-3">
         <AdminPanel class="xl:col-span-2" padding="md">
           <h3 class="text-base font-medium nv-title">{{ t('admin.dashboard.dailyActivity') }}</h3>
           <svg viewBox="0 0 320 150" class="mt-4 h-48 w-full" role="img" :aria-label="t('admin.dashboard.dailyActivity')">
@@ -177,7 +214,7 @@ const auditLogs = computed(() => auditData.value?.content ?? [])
         </AdminPanel>
       </div>
 
-      <AdminPanel class="mt-5" padding="none" overflow="hidden">
+      <AdminPanel v-if="!isDeepStatsLoading && !isDeepStatsError" class="mt-5" padding="none" overflow="hidden">
         <div class="border-b nv-border px-4 py-3">
           <h3 class="text-base font-medium nv-title">{{ t('admin.dashboard.topSpaces') }}</h3>
         </div>
@@ -216,7 +253,19 @@ const auditLogs = computed(() => auditData.value?.content ?? [])
             <BaseInput v-model="auditEndDate" type="date" :label="t('admin.dashboard.auditEndDate')" hide-label />
           </div>
         </div>
+        <div v-if="isAuditLoading" class="px-4 py-8" role="status" aria-busy="true">
+          <BaseSpinner />
+        </div>
+        <ErrorState
+          v-else-if="isAuditError"
+          class="m-4"
+          title-tag="h4"
+          :message="t('common.messages.loadFailed')"
+          show-retry
+          @retry="refetchAudits()"
+        />
         <AdminAuditLogTable
+          v-else
           :audits="auditLogs"
           :caption="t('admin.dashboard.auditLogs')"
           :empty-text="t('admin.dashboard.auditEmpty')"

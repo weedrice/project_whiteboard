@@ -3,6 +3,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import AdminDashboard from '../AdminDashboard.vue'
 
 const mocks = vi.hoisted(() => ({
+  statsLoading: { __v_isRef: true, value: false },
+  statsError: { __v_isRef: true, value: false },
+  deepLoading: { __v_isRef: true, value: false },
+  deepError: { __v_isRef: true, value: false },
+  auditLoading: { __v_isRef: true, value: false },
+  auditError: { __v_isRef: true, value: false },
+  refetchStats: vi.fn(),
+  refetchDeep: vi.fn(),
+  refetchAudit: vi.fn(),
   stats: {
     __v_isRef: true,
     value: {
@@ -27,15 +36,28 @@ const mocks = vi.hoisted(() => ({
       },
     },
   },
+  audits: { __v_isRef: true, value: { content: [] } },
 }))
 
 vi.mock('@/features/admin/useAdmin', () => ({
   useAdmin: () => ({
     useDashboardStats: () => ({
       data: mocks.stats,
+      isLoading: mocks.statsLoading,
+      isError: mocks.statsError,
+      refetch: mocks.refetchStats,
     }),
     useDeepDashboardStats: () => ({
       data: mocks.deepStats,
+      isLoading: mocks.deepLoading,
+      isError: mocks.deepError,
+      refetch: mocks.refetchDeep,
+    }),
+    useModerationAudits: () => ({
+      data: mocks.audits,
+      isLoading: mocks.auditLoading,
+      isError: mocks.auditError,
+      refetch: mocks.refetchAudit,
     }),
   }),
 }))
@@ -54,6 +76,13 @@ describe('AdminDashboard', () => {
       pendingReports: 2,
       activeUsers: 4,
     }
+    mocks.statsLoading.value = false
+    mocks.statsError.value = false
+    mocks.deepLoading.value = false
+    mocks.deepError.value = false
+    mocks.auditLoading.value = false
+    mocks.auditError.value = false
+    vi.clearAllMocks()
   })
 
   it('renders dashboard metrics with detail links and empty activity state', () => {
@@ -78,5 +107,17 @@ describe('AdminDashboard', () => {
       '/admin/users',
     ])
     expect(wrapper.text()).toContain('admin.dashboard.noActivity')
+  })
+
+  it('shows a retryable error instead of zero metrics when stats fail', async () => {
+    mocks.statsError.value = true
+    const wrapper = mount(AdminDashboard, {
+      global: { stubs: { RouterLink: RouterLinkStub } },
+    })
+
+    expect(wrapper.findAll('.admin-metric-card')).toHaveLength(0)
+    const error = wrapper.get('[role="alert"]')
+    await error.get('button').trigger('click')
+    expect(mocks.refetchStats).toHaveBeenCalledOnce()
   })
 })
