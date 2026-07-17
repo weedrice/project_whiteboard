@@ -10,7 +10,7 @@
 - 파일 다운로드: 저장소에서 파일을 스트리밍하고 Content-Type, 다운로드 파일명 헤더를 설정한다.
 - 엔티티 연결: 게시글/사용자 등 연결 대상은 `related_id`, `related_type`으로 관리한다.
 - 임시 파일 정리: 일정 시간 동안 연결 대상이 없는 pending 파일을 저장소와 DB에서 정리한다.
-- 이미지 variant: 저장 전에 `PENDING_UPLOAD` intent를 만들고 저장 성공 후 `ACTIVE`로 전환한다. 오래된 pending intent는 hourly cleanup이 저장소 객체와 DB 행을 함께 정리한다.
+- 이미지 variant: 저장 전에 `PENDING_UPLOAD` intent를 만들고 저장 성공 후 `ACTIVE`로 전환한다. 원본 width/height, 기대 variant 수와 reconciliation version을 기록해 정상적인 0/1/2개 variant 구성을 재처리하지 않는다. 오래된 pending intent는 hourly cleanup이 저장소 객체와 DB 행을 함께 정리한다.
 - Legacy 다운로드: `/files/{fileId}` 경로는 기존 공개 파일 URL 호환을 위해 유지한다.
 
 ## 2. API Endpoints

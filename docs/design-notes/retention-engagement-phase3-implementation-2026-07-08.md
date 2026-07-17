@@ -7,7 +7,7 @@ Date: 2026-07-08
 | Item | Status | Notes |
 | --- | --- | --- |
 | N1 resume reading | Applied | `PostResponse.lastViewedAt` is read from the existing view history before the detail read updates history. Comment divider is limited to oldest-first order; other sorts keep only new-comment highlight. |
-| N2 web push | Applied | Subscription CRUD, user settings, VAPID delivery, expired-subscription cleanup, service worker handling, onboarding/settings UI, and failure-state UX are implemented. |
+| N2 web push | Applied | Subscription CRUD, user settings, VAPID delivery, expired-subscription cleanup, service worker handling, onboarding/settings UI, failure-state UX, and browser/server subscription reconciliation are implemented. |
 | N3 onboarding | Applied | Route enforcement, board recommendations and subscriptions, optional push enablement, completion, retry handling, and session-scoped cache synchronization are implemented. |
 | N4 keyword notifications | Applied | Notification publishing, private/secret exclusion, block filtering, settings UI, and create/delete APIs are implemented. |
 | N5 poll attachment | Applied | Post creation/editor, detail voting UI, multiple-choice storage, and vote/delete-vote APIs are implemented. |
@@ -28,6 +28,7 @@ Date: 2026-07-08
 
 - `POST /api/v1/users/me/push-subscriptions`
 - `DELETE /api/v1/users/me/push-subscriptions`
+- `DELETE /api/v1/users/me/push-subscriptions/all` clears stale server subscriptions when the current browser no longer has its endpoint.
 - Push payload: `endpoint`, `keys.p256dh`, `keys.auth`, `userAgent`
 - `GET /api/v1/boards/recommendations?topics=...`
 - `PUT /api/v1/users/me/onboarding-complete`

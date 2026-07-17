@@ -272,6 +272,7 @@ Java 필드명과 JSON 직렬화 이름이 다른 기존 응답은 호환성을 
 | `DELETE` | `/api/v1/search/recent/{logId}` | 최근 검색어 단건 삭제 |
 | `DELETE` | `/api/v1/search/recent` | 최근 검색어 전체 삭제 |
 | `POST` | `/api/v1/admin/search/semantic/backfill` | semantic embedding backfill enqueue |
+| `POST` | `/api/v1/admin/search/semantic/reindex/jobs/{jobId}/redrive` | 실패한 semantic 재색인 cursor job 재실행(SUPER_ADMIN) |
 
 ### Notifications, Messages, Feed
 
@@ -289,6 +290,7 @@ Java 필드명과 JSON 직렬화 이름이 다른 기존 응답은 호환성을 
 | `DELETE` | `/api/v1/users/me/keyword-subscriptions` | 요청 body 기준 키워드 알림 구독 해지 |
 | `POST` | `/api/v1/users/me/push-subscriptions` | Web Push 구독 등록 |
 | `DELETE` | `/api/v1/users/me/push-subscriptions` | Web Push 구독 해지 |
+| `DELETE` | `/api/v1/users/me/push-subscriptions/all` | 현재 사용자의 Web Push 구독 전체 해지 및 push 설정 비활성화 |
 | `GET` | `/api/v1/push/public-key` | Web Push VAPID 공개키 조회 |
 | `POST` | `/api/v1/messages` | 쪽지 발송 |
 | `GET` | `/api/v1/messages/received` | 받은 쪽지 |

@@ -8,6 +8,7 @@
 - 게시글 검색: 검색 타입/스페이스 필터로 게시글만 검색하고 썸네일 여부(hasImage)를 포함합니다.
 - semantic 검색: pgvector embedding 검색을 수행하고, 비활성/장애 시 keyword fallback을 반환합니다. semantic 색인과 scoped 검색은 활성 공개 스페이스의 비밀글이 아닌 post/comment만 대상으로 합니다.
 - backfill: 슈퍼관리자 API로 기존 post/comment embedding job을 enqueue합니다.
+- 대량 재색인: cursor job은 페이지별 lease와 지수 backoff를 사용하며 5회 실패하면 `FAILED`로 격리합니다. 슈퍼관리자는 원인을 해소한 뒤 실패 job을 수동 redrive할 수 있습니다.
 - 최근 검색 관리: 최근 검색어 목록 조회, 단건 삭제, 전체 삭제 제공.
 - 인기 키워드: 일간/주간/월간 기간별 상위 키워드 목록 제공.
 
@@ -23,6 +24,7 @@
 | `DELETE` | `/api/v1/search/recent/{logId}` | 최근 검색어 단건 삭제 |
 | `DELETE` | `/api/v1/search/recent` | 최근 검색어 전체 삭제 |
 | `POST` | `/api/v1/admin/search/semantic/backfill` | semantic embedding backfill enqueue |
+| `POST` | `/api/v1/admin/search/semantic/reindex/jobs/{jobId}/redrive` | 실패한 대량 재색인 job 수동 재시도 |
 
 ## 3. 관련 DB 테이블
 
@@ -32,3 +34,6 @@
 | `search_personalization` | `SearchPersonalization` | 사용자별 최근 검색어 로그 |
 | `semantic_search_embeddings` | `SemanticSearchEmbedding` | post/comment embedding 검색 문서 |
 | `semantic_search_jobs` | `SemanticSearchJob` | embedding upsert/delete 작업 큐 |
+| `semantic_search_reindex_jobs` | JDBC cursor job | 범위별 대량 재색인 cursor, lease, retry/dead-letter 상태 |
+
+대량 재색인 job의 오류 요약은 최대 500자로 제한한다. `FAILED` job은 자동 처리 대상에서 제외되며, 원인을 해소한 뒤 슈퍼관리자 API로 redrive하면 현재 cursor를 유지한 채 retry 상태만 초기화한다.

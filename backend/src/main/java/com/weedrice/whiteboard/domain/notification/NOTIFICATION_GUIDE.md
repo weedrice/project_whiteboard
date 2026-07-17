@@ -7,6 +7,8 @@
 - SSE 구독: 사용자별 `SseEmitter`를 등록해 실시간 알림을 전송하며, 연결 상태 이벤트(`connect`)를 즉시 송신합니다.
 - 조회/읽음 처리: 알림 목록 페이지 조회, 단건 읽음 처리, 전체 읽음 처리 기능 제공.
 - 미읽음 집계: 사용자별 읽지 않은 알림 건수를 반환합니다.
+- Web Push: 사용자별 브라우저 구독을 등록·해지하며, 전체 해지는 사용자 잠금 아래 모든 구독 삭제와 push 설정 비활성화를 원자적으로 처리합니다.
+- 비동기 포화: 커밋 후 즉시 kickoff/push 제출이 거부돼도 이미 성공한 업무 트랜잭션에는 예외를 전파하지 않습니다. durable delivery job은 scheduler가 다시 선택합니다.
 
 ## 2. API Endpoints
 
@@ -17,6 +19,9 @@
 | `PUT` | `/api/v1/notifications/read-all` | 알림 전체 읽음 처리 |
 | `GET` | `/api/v1/notifications/unread-count` | 미읽음 알림 수 조회 |
 | `GET` | `/api/v1/notifications/stream` | SSE 알림 스트림 구독 |
+| `POST` | `/api/v1/users/me/push-subscriptions` | Web Push 구독 등록 |
+| `DELETE` | `/api/v1/users/me/push-subscriptions` | endpoint 기준 Web Push 구독 해지 |
+| `DELETE` | `/api/v1/users/me/push-subscriptions/all` | Web Push 구독 전체 해지 |
 
 ## 3. 관련 DB 테이블
 

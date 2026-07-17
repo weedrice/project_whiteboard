@@ -30,7 +30,7 @@ backend activator는 이전 JAR을 보존하고 서비스 stop, atomic JAR 교�
 
 production frontend release는 `SEO_STRICT=true`로 sitemap과 prerender를 생성한다. API 조회 실패, 게시글 URL 0건, URL과 prerender 개수 불일치는 release 생성을 실패시킨다. `.noviis-seo-release.json`에 commit SHA, 전체 URL 수, 게시글 URL 수, prerender 수와 sitemap SHA-256을 기록한다. 배포 후 검증과 정기 monitor도 게시글 URL 0건을 거부하고 public sitemap의 개수·digest·release SHA를 이 manifest와 대조한다.
 
-배포 후 sitemap 제출과 `seo-monitor.yml`의 정기 제출은 `seo-submit-production` concurrency group으로 직렬화한다. production 제출은 Google 또는 custom provider가 최소 하나 없으면 실패한다. Google refresh credential 세 값은 all-or-none이며, custom endpoint는 별도 HTTPS origin allowlist와 globally routable DNS 검증을 통과한 IP로 연결을 고정하되 원 hostname의 TLS SNI·Host를 유지한다. redirect와 DNS rebinding은 허용하지 않는다. 외부 응답 body는 오류 로그에 포함하지 않는다. 정기 제출의 인증 오류, 429, 5xx, timeout은 job 실패다.
+배포 전에는 provider 존재 여부, Google credential 묶음, custom HTTPS origin allowlist를 먼저 검증한다. 배포 후 sitemap 제출과 `seo-monitor.yml`의 정기 제출은 `seo-submit-production` concurrency group으로 직렬화한다. production 제출은 Google 또는 custom provider가 최소 하나 없거나 제출이 실패하면 warning으로 완화하지 않고 workflow를 실패시키며 `frontend/seo_submission` debt를 기록한다. 성공한 재실행은 debt를 해제한다. 이 실패는 이미 검증된 frontend 활성화를 되돌리지는 않으므로 운영자는 실패한 제출 job을 재실행한다. Google refresh credential 세 값은 all-or-none이며, custom endpoint는 별도 HTTPS origin allowlist와 globally routable DNS 검증을 통과한 IP로 연결을 고정하되 원 hostname의 TLS SNI·Host를 유지한다. Node의 단일·다중 주소 lookup 계약 모두 같은 검증 IP만 반환하며 redirect와 DNS rebinding은 허용하지 않는다. 외부 응답 body는 오류 로그에 포함하지 않는다. 정기 제출의 인증 오류, 429, 5xx, timeout은 job 실패다.
 
 ## Ops 검증
 

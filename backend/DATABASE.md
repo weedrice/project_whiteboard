@@ -94,6 +94,7 @@
 | `search_personalization` | 사용자별 최근 검색어 |
 | `semantic_search_embeddings` | post/comment embedding vector와 검색 메타 |
 | `semantic_search_jobs` | embedding upsert/delete 작업 큐 |
+| `semantic_search_reindex_jobs` | 범위별 semantic 대량 재색인 cursor와 retry/lease 상태 |
 
 ### Agent
 
@@ -212,6 +213,9 @@
 | `V67` | 읽지 않은 그룹 알림 중복 정리 및 부분 unique index 적용(contract) |
 | `V68` | 이미지 variant cleanup 재시도/backoff 상태 추가 |
 | `V69` | semantic 대량 재색인 cursor job 추가 |
+| `V70` | 비밀번호 재설정 토큰-인증 코드 FK를 `ON DELETE SET NULL`로 교체(contract) |
+| `V71` | semantic 대량 재색인 retry, lease token, dead-letter 상태 추가(contract) |
+| `V72` | 원본 이미지 크기·기대 variant 수·reconciliation version metadata 추가 |
 
 ## 운영 주의
 

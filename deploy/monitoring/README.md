@@ -68,7 +68,7 @@ Open Grafana only through an SSH tunnel: `ssh -L 3000:127.0.0.1:3000 ubuntu@<hos
 
 ## Alert thresholds and metric semantics
 
-Deployment cleanup is exported through the node-exporter textfile collector as `noviis_deployment_cleanup_debt`. Install `record-cleanup-debt.sh` as `/usr/local/sbin/record-noviis-cleanup-debt` and use the checked-in exporter override. Successful cleanup writes zero; failed retention, incoming-release, or status cleanup writes one and alerts after 15 minutes.
+Deployment follow-up debt is exported through the node-exporter textfile collector as `noviis_deployment_cleanup_debt`. Install `record-cleanup-debt.sh` as `/usr/local/sbin/record-noviis-cleanup-debt` and use the checked-in exporter override. Successful cleanup or SEO submission writes zero; failed retention, incoming-release, status diagnostics, or post-activation SEO submission writes one and alerts after 15 minutes.
 
 `noviis_scheduler_last_success_timestamp_seconds` advances only after a scheduled method completes successfully. A failed run records the existing error timer but does not overwrite its previous success timestamp. The stale and heartbeat startup grace calculations use only `process_start_time_seconds{job="noviis-backend"}`; Prometheus uptime or restart cannot bypass backend startup grace or produce a backend restart event. A missing timestamp becomes stale only after the backend process has been up longer than that job's threshold.
 
