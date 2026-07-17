@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -84,6 +85,51 @@ class SessionTokenServiceRefreshPersistenceTest {
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.USER_NOT_ACTIVE);
         RefreshToken reloadedToken = loadRefreshToken(oldRefreshTokenHash);
         assertThat(reloadedToken.getIsRevoked()).isTrue();
+        verify(jwtTokenProvider, never()).createAccessToken(any());
+    }
+
+    @Test
+    void refresh_rotatedTokenReplayRevokesActiveSuccessorBeforeReturningInvalidToken() {
+        String replayedRawToken = "replayed-refresh-token";
+        String replayedHash = tokenHashService.hashSha256(replayedRawToken);
+        String successorHash = tokenHashService.hashSha256("successor-refresh-token");
+        UUID familyId = UUID.randomUUID();
+        transactionTemplate.executeWithoutResult(ignored -> {
+            User user = User.builder()
+                    .loginId("refresh-replay-user")
+                    .email("refresh-replay@test.com")
+                    .password("password")
+                    .displayName("Refresh Replay User")
+                    .build();
+            entityManager.persist(user);
+            RefreshToken replayed = RefreshToken.builder()
+                    .user(user)
+                    .tokenHash(replayedHash)
+                    .sessionFamilyId(familyId)
+                    .ipAddress("127.0.0.1")
+                    .deviceInfo("browser")
+                    .expiresAt(LocalDateTime.now().plusDays(7))
+                    .build();
+            replayed.revoke();
+            entityManager.persist(replayed);
+            entityManager.persist(RefreshToken.builder()
+                    .user(user)
+                    .tokenHash(successorHash)
+                    .sessionFamilyId(familyId)
+                    .ipAddress("127.0.0.1")
+                    .deviceInfo("browser")
+                    .expiresAt(LocalDateTime.now().plusDays(7))
+                    .build());
+            entityManager.flush();
+            entityManager.clear();
+        });
+        when(jwtTokenProvider.validateToken(replayedRawToken)).thenReturn(true);
+
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> sessionTokenService.refresh(replayedRawToken));
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_REFRESH_TOKEN);
+        assertThat(loadRefreshToken(successorHash).getIsRevoked()).isTrue();
         verify(jwtTokenProvider, never()).createAccessToken(any());
     }
 

@@ -6,6 +6,7 @@ import com.weedrice.whiteboard.domain.auth.repository.LoginHistoryRepository;
 import com.weedrice.whiteboard.domain.auth.repository.RefreshTokenRepository;
 import com.weedrice.whiteboard.domain.auth.service.TokenHashService;
 import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.security.RefreshTokenCookieWriter;
 import jakarta.servlet.http.Cookie;
@@ -26,6 +27,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -43,17 +45,19 @@ class UserSessionServiceTest {
     @Mock RefreshTokenRepository tokens;
     @Mock LoginHistoryRepository histories;
     @Mock UserReadableResolver users;
+    @Mock UserRepository userRepository;
     @Mock TokenHashService hashes;
     UserSessionService service;
     User user;
 
     @BeforeEach
     void setUp() {
-        service = new UserSessionService(tokens, histories, users, hashes,
+        service = new UserSessionService(tokens, histories, users, userRepository, hashes,
                 Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC));
         user = mock(User.class);
         when(user.getUserId()).thenReturn(1L);
         when(users.resolveActive(1L)).thenReturn(user);
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
     }
 
     @Test
@@ -62,6 +66,10 @@ class UserSessionServiceTest {
         RefreshToken current = token(11L, user, "current-hash", NOW, NOW.plusDays(1), false);
         HttpServletRequest request = requestWithCookie("raw-current");
         when(hashes.hashSha256("raw-current")).thenReturn("current-hash");
+        RefreshTokenRepository.RefreshTokenRenewalCandidate currentCandidate =
+                candidate(11L, 1L, family("current-hash"));
+        when(tokens.findRenewalCandidateByTokenHash("current-hash"))
+                .thenReturn(Optional.of(currentCandidate));
         when(tokens.findByUserAndIsRevokedAndExpiresAtGreaterThanEqual(user, false, NOW))
                 .thenReturn(List.of(oldToken, current));
 
@@ -76,9 +84,13 @@ class UserSessionServiceTest {
         RefreshToken current = token(12L, user, "hash", NOW, NOW.plusDays(1), false);
         when(tokens.findByTokenIdForUpdate(12L)).thenReturn(Optional.of(current));
         when(hashes.hashSha256("raw")).thenReturn("hash");
+        RefreshTokenRepository.RefreshTokenRenewalCandidate currentCandidate =
+                candidate(12L, 1L, family("hash"));
+        when(tokens.findRenewalCandidateByTokenHash("hash"))
+                .thenReturn(Optional.of(currentCandidate));
 
         assertTrue(service.revokeSession(1L, 12L, requestWithCookie("raw")).currentSessionRevoked());
-        verify(current).revoke();
+        verify(tokens).revokeTokenFamily(family("hash"));
     }
 
     @Test
@@ -103,8 +115,12 @@ class UserSessionServiceTest {
         verify(tokens).revokeActiveTokensByUserId(1L, NOW);
 
         when(hashes.hashSha256("keep")).thenReturn("keep-hash");
+        RefreshTokenRepository.RefreshTokenRenewalCandidate currentCandidate =
+                candidate(15L, 1L, family("keep-hash"));
+        when(tokens.findRenewalCandidateByTokenHash("keep-hash"))
+                .thenReturn(Optional.of(currentCandidate));
         service.revokeOtherSessions(1L, requestWithCookie("keep"));
-        verify(tokens).revokeActiveTokensByUserIdExceptTokenHash(1L, "keep-hash", NOW);
+        verify(tokens).revokeActiveTokensByUserIdExceptFamily(1L, family("keep-hash"), NOW);
     }
 
     @Test
@@ -125,11 +141,26 @@ class UserSessionServiceTest {
         when(token.getTokenId()).thenReturn(id);
         when(token.getUser()).thenReturn(owner);
         when(token.getTokenHash()).thenReturn(hash);
+        when(token.getSessionFamilyId()).thenReturn(family(hash));
         when(token.getCreatedAt()).thenReturn(createdAt);
         when(token.getExpiresAt()).thenReturn(expiresAt);
         when(token.getIpAddress()).thenReturn("127.0.0.1");
         when(token.isValidAt(NOW)).thenReturn(!revoked && !expiresAt.isBefore(NOW));
         return token;
+    }
+
+    private static UUID family(String value) {
+        return UUID.nameUUIDFromBytes(value.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    }
+
+    private static RefreshTokenRepository.RefreshTokenRenewalCandidate candidate(
+            Long tokenId, Long userId, UUID sessionFamilyId) {
+        RefreshTokenRepository.RefreshTokenRenewalCandidate candidate =
+                mock(RefreshTokenRepository.RefreshTokenRenewalCandidate.class);
+        when(candidate.getTokenId()).thenReturn(tokenId);
+        when(candidate.getUserId()).thenReturn(userId);
+        when(candidate.getSessionFamilyId()).thenReturn(sessionFamilyId);
+        return candidate;
     }
 
     private static HttpServletRequest requestWithCookie(String value) {

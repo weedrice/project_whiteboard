@@ -10,11 +10,13 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Table(name = "refresh_tokens",
         indexes = {
                 @Index(name = "idx_refresh_tokens_user", columnList = "user_id, is_revoked"),
+                @Index(name = "idx_refresh_tokens_family_active", columnList = "session_family_id, is_revoked"),
                 @Index(name = "idx_refresh_tokens_expires", columnList = "expires_at")
         })
 @Getter
@@ -33,6 +35,9 @@ public class RefreshToken extends BaseTimeEntity {
     @Column(name = "token_hash", nullable = false, unique = true)
     private String tokenHash;
 
+    @Column(name = "session_family_id", nullable = false)
+    private UUID sessionFamilyId;
+
     @Column(name = "device_info")
     private String deviceInfo;
 
@@ -48,9 +53,10 @@ public class RefreshToken extends BaseTimeEntity {
 
     @Builder
     public RefreshToken(User user, String tokenHash, String deviceInfo, String ipAddress,
-                        LocalDateTime expiresAt) {
+                        LocalDateTime expiresAt, UUID sessionFamilyId) {
         this.user = user;
         this.tokenHash = tokenHash;
+        this.sessionFamilyId = sessionFamilyId != null ? sessionFamilyId : UUID.randomUUID();
         this.deviceInfo = deviceInfo;
         this.ipAddress = ipAddress;
         this.expiresAt = expiresAt;

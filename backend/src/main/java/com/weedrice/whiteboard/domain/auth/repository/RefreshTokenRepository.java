@@ -11,10 +11,13 @@ import org.springframework.data.repository.query.Param;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long> {
     @Query("""
-            SELECT rt.tokenId AS tokenId, rt.user.userId AS userId
+            SELECT rt.tokenId AS tokenId,
+                   rt.user.userId AS userId,
+                   rt.sessionFamilyId AS sessionFamilyId
             FROM RefreshToken rt
             WHERE rt.tokenHash = :tokenHash
             """)
@@ -42,14 +45,23 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long
     @Query("""
             UPDATE RefreshToken rt
             SET rt.isRevoked = true
+            WHERE rt.sessionFamilyId = :sessionFamilyId
+              AND rt.isRevoked = false
+            """)
+    int revokeTokenFamily(@Param("sessionFamilyId") UUID sessionFamilyId);
+
+    @Modifying(flushAutomatically = true)
+    @Query("""
+            UPDATE RefreshToken rt
+            SET rt.isRevoked = true
             WHERE rt.user.userId = :userId
               AND rt.isRevoked = false
               AND rt.expiresAt >= :now
-              AND rt.tokenHash <> :currentTokenHash
+              AND rt.sessionFamilyId <> :currentSessionFamilyId
             """)
-    int revokeActiveTokensByUserIdExceptTokenHash(
+    int revokeActiveTokensByUserIdExceptFamily(
             @Param("userId") Long userId,
-            @Param("currentTokenHash") String currentTokenHash,
+            @Param("currentSessionFamilyId") UUID currentSessionFamilyId,
             @Param("now") LocalDateTime now);
 
     List<RefreshToken> findByUserAndIsRevokedAndExpiresAtGreaterThanEqual(
@@ -61,5 +73,7 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long
         Long getTokenId();
 
         Long getUserId();
+
+        UUID getSessionFamilyId();
     }
 }

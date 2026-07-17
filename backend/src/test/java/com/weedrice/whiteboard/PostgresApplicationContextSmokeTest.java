@@ -3,9 +3,15 @@ package com.weedrice.whiteboard;
 import com.weedrice.whiteboard.domain.auth.service.OAuthSignupTicketService;
 import com.weedrice.whiteboard.domain.auth.service.TokenHashService;
 import com.weedrice.whiteboard.domain.auth.service.VerificationCodeService;
+import com.weedrice.whiteboard.domain.auth.service.LoginClientMetadata;
+import com.weedrice.whiteboard.domain.auth.service.SessionTokenService;
 import com.weedrice.whiteboard.domain.auth.entity.VerificationPurpose;
+import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.post.repository.PopularPostAggregationLockRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.security.CustomUserDetails;
+import com.weedrice.whiteboard.global.security.SecurityAuthorities;
 import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.MigrationVersion;
 import org.junit.jupiter.api.Test;
@@ -18,6 +24,7 @@ import org.springframework.jdbc.datasource.SingleConnectionDataSource;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
@@ -55,6 +62,12 @@ class PostgresApplicationContextSmokeTest {
     private VerificationCodeService verificationCodeService;
 
     @Autowired
+    private SessionTokenService sessionTokenService;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
     private JdbcTemplate jdbcTemplate;
 
     @Autowired
@@ -68,7 +81,7 @@ class PostgresApplicationContextSmokeTest {
     }
 
     @Test
-    void verificationAttemptLimitAndRedundantIndexCleanupAreApplied() {
+    void verificationAttemptLimitIndexCleanupAndRefreshSessionFamilyAreApplied() {
         Integer failedAttemptColumns = jdbcTemplate.queryForObject("""
                 SELECT COUNT(*)
                 FROM information_schema.columns
@@ -114,11 +127,89 @@ class PostgresApplicationContextSmokeTest {
                     'uk_user_attendance_user_date'
                   )
                 """, Integer.class);
+        Integer sessionFamilyColumns = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*)
+                FROM information_schema.columns
+                WHERE table_schema = current_schema()
+                  AND table_name = 'refresh_tokens'
+                  AND column_name = 'session_family_id'
+                  AND data_type = 'uuid'
+                  AND is_nullable = 'NO'
+                """, Integer.class);
+        Integer sessionFamilyIndexes = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*)
+                FROM pg_indexes
+                WHERE schemaname = current_schema()
+                  AND indexname = 'idx_refresh_tokens_family_active'
+                  AND indexdef LIKE '%(session_family_id, is_revoked)%'
+                """, Integer.class);
 
         assertEquals(1, failedAttemptColumns);
         assertEquals(1, attemptConstraints);
         assertEquals(0, redundantIndexes);
         assertEquals(8, uniqueConstraints);
+        assertEquals(1, sessionFamilyColumns);
+        assertEquals(1, sessionFamilyIndexes);
+    }
+
+    @Test
+    void refreshTokenSessionFamilyMigrationBackfillsExistingRows() throws Exception {
+        String schema = "refresh_family_migration_" + UUID.randomUUID().toString().replace("-", "");
+        jdbcTemplate.execute("CREATE SCHEMA " + schema);
+
+        try (Connection connection = dataSource.getConnection()) {
+            String originalSchema = connection.getSchema();
+            try {
+                Flyway.configure()
+                        .dataSource(dataSource)
+                        .schemas(schema)
+                        .defaultSchema(schema)
+                        .locations("classpath:db/migration")
+                        .target(MigrationVersion.fromVersion("56"))
+                        .load()
+                        .migrate();
+
+                connection.setSchema(schema);
+                JdbcTemplate isolated = new JdbcTemplate(new SingleConnectionDataSource(connection, true));
+                isolated.update("""
+                        INSERT INTO users
+                            (user_id, created_at, modified_at, display_name, email, is_email_verified,
+                             is_super_admin, login_id, password, status)
+                        VALUES
+                            (5701, NOW(), NOW(), 'Refresh Family User', 'refresh-family@example.com', 'Y',
+                             'N', 'refresh-family-user', 'encoded', 'ACTIVE')
+                        """);
+                isolated.update("""
+                        INSERT INTO refresh_tokens
+                            (created_at, modified_at, expires_at, ip_address, is_revoked, token_hash, user_id)
+                        VALUES
+                            (NOW(), NOW(), NOW() + INTERVAL '7 days', '127.0.0.1', 'N', 'legacy-token-hash', 5701)
+                        """);
+
+                Flyway.configure()
+                        .dataSource(dataSource)
+                        .schemas(schema)
+                        .defaultSchema(schema)
+                        .locations("classpath:db/migration")
+                        .load()
+                        .migrate();
+
+                assertTrue(isolated.queryForObject(
+                        "SELECT session_family_id IS NOT NULL FROM refresh_tokens WHERE token_hash = ?",
+                        Boolean.class,
+                        "legacy-token-hash"));
+                assertEquals(1, isolated.queryForObject("""
+                        SELECT COUNT(*)
+                        FROM pg_indexes
+                        WHERE schemaname = ?
+                          AND indexname = 'idx_refresh_tokens_family_active'
+                        """, Integer.class, schema));
+            } finally {
+                connection.setSchema(originalSchema);
+            }
+        } finally {
+            jdbcTemplate.execute("DROP SCHEMA " + schema + " CASCADE");
+        }
     }
 
     @Test
@@ -162,6 +253,78 @@ class PostgresApplicationContextSmokeTest {
                 email));
         assertThrows(BusinessException.class, () ->
                 verificationCodeService.verifyCode(email, rawCode, VerificationPurpose.SIGNUP));
+    }
+
+    @Test
+    void concurrentRefreshAndLogoutLeaveSessionFamilyRevokedAndOtherFamilyActive() throws Exception {
+        String unique = UUID.randomUUID().toString();
+        User user = userRepository.saveAndFlush(User.builder()
+                .loginId("refresh-race-" + unique)
+                .email("refresh-race-" + unique + "@example.com")
+                .password("encoded")
+                .displayName("Refresh Race User")
+                .build());
+        var authorities = SecurityAuthorities.user(false);
+        var authentication = new UsernamePasswordAuthenticationToken(
+                new CustomUserDetails(
+                        user.getUserId(), user.getLoginId(), "", true, true, true, true, authorities),
+                "",
+                authorities);
+        String racedToken = sessionTokenService.issueTokens(
+                authentication,
+                user,
+                new LoginClientMetadata("127.0.0.1", "race-browser")).getRefreshToken();
+        String retainedToken = sessionTokenService.issueTokens(
+                authentication,
+                user,
+                new LoginClientMetadata("127.0.0.2", "retained-browser")).getRefreshToken();
+        UUID racedFamily = jdbcTemplate.queryForObject(
+                "SELECT session_family_id FROM refresh_tokens WHERE token_hash = ?",
+                UUID.class,
+                tokenHashService.hashSha256(racedToken));
+        UUID retainedFamily = jdbcTemplate.queryForObject(
+                "SELECT session_family_id FROM refresh_tokens WHERE token_hash = ?",
+                UUID.class,
+                tokenHashService.hashSha256(retainedToken));
+        assertNotEquals(racedFamily, retainedFamily);
+
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        CountDownLatch start = new CountDownLatch(1);
+        try {
+            Future<?> refresh = executor.submit(() -> {
+                start.await(5, TimeUnit.SECONDS);
+                try {
+                    sessionTokenService.refresh(racedToken);
+                } catch (BusinessException expectedRaceOutcome) {
+                    assertTrue(expectedRaceOutcome.getErrorCode()
+                            == com.weedrice.whiteboard.global.exception.ErrorCode.INVALID_REFRESH_TOKEN);
+                }
+                return null;
+            });
+            Future<?> logout = executor.submit(() -> {
+                start.await(5, TimeUnit.SECONDS);
+                sessionTokenService.logout(racedToken);
+                return null;
+            });
+            start.countDown();
+            refresh.get(15, TimeUnit.SECONDS);
+            logout.get(15, TimeUnit.SECONDS);
+        } finally {
+            executor.shutdownNow();
+        }
+
+        assertEquals(0, jdbcTemplate.queryForObject("""
+                SELECT COUNT(*)
+                FROM refresh_tokens
+                WHERE session_family_id = ?
+                  AND is_revoked = 'N'
+                """, Integer.class, racedFamily));
+        assertEquals(1, jdbcTemplate.queryForObject("""
+                SELECT COUNT(*)
+                FROM refresh_tokens
+                WHERE session_family_id = ?
+                  AND is_revoked = 'N'
+                """, Integer.class, retainedFamily));
     }
 
     @Test

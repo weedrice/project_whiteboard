@@ -15,6 +15,7 @@ import org.springframework.data.jpa.repository.Lock;
 import java.lang.reflect.Method;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -68,6 +69,7 @@ class RefreshTokenRepositoryTest {
         assertThat(candidate).isPresent();
         assertThat(candidate.get().getTokenId()).isEqualTo(refreshToken.getTokenId());
         assertThat(candidate.get().getUserId()).isEqualTo(user.getUserId());
+        assertThat(candidate.get().getSessionFamilyId()).isEqualTo(refreshToken.getSessionFamilyId());
     }
 
     @Test
@@ -104,10 +106,55 @@ class RefreshTokenRepositoryTest {
                 .isEmpty();
     }
 
+    @Test
+    void revokeTokenFamily_revokesEveryGenerationWithoutTouchingOtherFamilies() {
+        LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
+        UUID revokedFamily = UUID.randomUUID();
+        UUID retainedFamily = UUID.randomUUID();
+        persistRefreshToken("family-old", now.plusHours(1), false, revokedFamily);
+        persistRefreshToken("family-current", now.plusHours(2), false, revokedFamily);
+        persistRefreshToken("other-family", now.plusHours(1), false, retainedFamily);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(refreshTokenRepository.revokeTokenFamily(revokedFamily)).isEqualTo(2);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(refreshTokenRepository.findByUserAndIsRevokedAndExpiresAtGreaterThanEqual(user, false, now))
+                .extracting(RefreshToken::getTokenHash)
+                .containsExactly("other-family");
+    }
+
+    @Test
+    void revokeActiveTokensByUserIdExceptFamily_preservesCurrentFamily() {
+        LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
+        UUID currentFamily = UUID.randomUUID();
+        persistRefreshToken("current-family", now.plusHours(1), false, currentFamily);
+        persistRefreshToken("other-family", now.plusHours(1), false, UUID.randomUUID());
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(refreshTokenRepository.revokeActiveTokensByUserIdExceptFamily(
+                user.getUserId(), currentFamily, now)).isEqualTo(1);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(refreshTokenRepository.findByUserAndIsRevokedAndExpiresAtGreaterThanEqual(user, false, now))
+                .extracting(RefreshToken::getTokenHash)
+                .containsExactly("current-family");
+    }
+
     private RefreshToken persistRefreshToken(String tokenHash, LocalDateTime expiresAt, boolean revoked) {
+        return persistRefreshToken(tokenHash, expiresAt, revoked, UUID.randomUUID());
+    }
+
+    private RefreshToken persistRefreshToken(
+            String tokenHash, LocalDateTime expiresAt, boolean revoked, UUID sessionFamilyId) {
         RefreshToken refreshToken = RefreshToken.builder()
                 .user(user)
                 .tokenHash(tokenHash)
+                .sessionFamilyId(sessionFamilyId)
                 .ipAddress("127.0.0.1")
                 .expiresAt(expiresAt)
                 .build();

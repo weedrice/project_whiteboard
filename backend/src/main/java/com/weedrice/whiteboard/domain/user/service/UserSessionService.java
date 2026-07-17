@@ -9,6 +9,7 @@ import com.weedrice.whiteboard.domain.user.dto.LoginHistoryResponse;
 import com.weedrice.whiteboard.domain.user.dto.UserSessionResponse;
 import com.weedrice.whiteboard.domain.user.dto.UserSessionRevokeResult;
 import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.security.RefreshTokenCookieWriter;
@@ -24,8 +25,10 @@ import org.springframework.util.StringUtils;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -35,24 +38,32 @@ public class UserSessionService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final LoginHistoryRepository loginHistoryRepository;
     private final UserReadableResolver userReadableResolver;
+    private final UserRepository userRepository;
     private final TokenHashService tokenHashService;
     private final Clock clock;
 
     public List<UserSessionResponse> getActiveSessions(Long userId, HttpServletRequest request) {
         User user = userReadableResolver.resolveActive(userId);
-        String currentTokenHash = currentRefreshTokenHash(request);
+        UUID currentSessionFamilyId = currentSessionFamilyId(request);
         LocalDateTime now = now();
-        return refreshTokenRepository.findByUserAndIsRevokedAndExpiresAtGreaterThanEqual(user, false, now).stream()
+        LinkedHashMap<UUID, RefreshToken> latestByFamily = new LinkedHashMap<>();
+        refreshTokenRepository.findByUserAndIsRevokedAndExpiresAtGreaterThanEqual(user, false, now).stream()
                 .sorted(Comparator.comparing(RefreshToken::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder()))
                         .reversed())
-                .map(token -> UserSessionResponse.from(token, Objects.equals(token.getTokenHash(), currentTokenHash)))
+                .forEach(token -> latestByFamily.putIfAbsent(token.getSessionFamilyId(), token));
+        return latestByFamily.values().stream()
+                .map(token -> UserSessionResponse.from(
+                        token,
+                        Objects.equals(token.getSessionFamilyId(), currentSessionFamilyId)))
                 .toList();
     }
 
     @Transactional
     public UserSessionRevokeResult revokeSession(Long userId, Long sessionId, HttpServletRequest request) {
         userReadableResolver.resolveActive(userId);
-        String currentTokenHash = currentRefreshTokenHash(request);
+        userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        UUID currentSessionFamilyId = currentSessionFamilyId(request);
         RefreshToken refreshToken = refreshTokenRepository.findByTokenIdForUpdate(sessionId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
         if (refreshToken.getUser() == null || !Objects.equals(refreshToken.getUser().getUserId(), userId)) {
@@ -61,23 +72,26 @@ public class UserSessionService {
         if (!refreshToken.isValidAt(now())) {
             throw new BusinessException(ErrorCode.NOT_FOUND);
         }
-        refreshToken.revoke();
+        refreshTokenRepository.revokeTokenFamily(refreshToken.getSessionFamilyId());
 
         // Revoked refresh tokens stop future refreshes. Existing access tokens remain valid until their normal TTL.
-        return new UserSessionRevokeResult(Objects.equals(refreshToken.getTokenHash(), currentTokenHash));
+        return new UserSessionRevokeResult(
+                Objects.equals(refreshToken.getSessionFamilyId(), currentSessionFamilyId));
     }
 
     @Transactional
     public void revokeOtherSessions(Long userId, HttpServletRequest request) {
         userReadableResolver.resolveActive(userId);
-        String currentTokenHash = currentRefreshTokenHash(request);
-        if (!StringUtils.hasText(currentTokenHash)) {
+        userRepository.findByIdForUpdate(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        UUID currentSessionFamilyId = currentSessionFamilyId(request);
+        if (currentSessionFamilyId == null) {
             refreshTokenRepository.revokeActiveTokensByUserId(userId, now());
             return;
         }
 
         // Revoked refresh tokens stop future refreshes. Existing access tokens remain valid until their normal TTL.
-        refreshTokenRepository.revokeActiveTokensByUserIdExceptTokenHash(userId, currentTokenHash, now());
+        refreshTokenRepository.revokeActiveTokensByUserIdExceptFamily(userId, currentSessionFamilyId, now());
     }
 
     public Page<LoginHistoryResponse> getLoginHistory(Long userId, Pageable pageable) {
@@ -89,6 +103,16 @@ public class UserSessionService {
     private String currentRefreshTokenHash(HttpServletRequest request) {
         String token = currentRefreshToken(request);
         return StringUtils.hasText(token) ? tokenHashService.hashSha256(token) : null;
+    }
+
+    private UUID currentSessionFamilyId(HttpServletRequest request) {
+        String currentTokenHash = currentRefreshTokenHash(request);
+        if (!StringUtils.hasText(currentTokenHash)) {
+            return null;
+        }
+        return refreshTokenRepository.findRenewalCandidateByTokenHash(currentTokenHash)
+                .map(RefreshTokenRepository.RefreshTokenRenewalCandidate::getSessionFamilyId)
+                .orElse(null);
     }
 
     private String currentRefreshToken(HttpServletRequest request) {

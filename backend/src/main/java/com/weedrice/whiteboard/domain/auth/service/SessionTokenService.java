@@ -24,6 +24,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -45,11 +46,16 @@ public class SessionTokenService {
         }
 
         String refreshTokenHash = tokenHashService.hashSha256(token);
-        refreshTokenRepository.findByTokenHash(refreshTokenHash)
-                .ifPresent(refreshToken -> {
-                    refreshToken.revoke();
-                    refreshTokenRepository.save(refreshToken);
-                });
+        RefreshTokenRepository.RefreshTokenRenewalCandidate candidate = refreshTokenRepository
+                .findRenewalCandidateByTokenHash(refreshTokenHash)
+                .orElse(null);
+        if (candidate == null) {
+            return;
+        }
+        if (userRepository.findByIdForUpdate(candidate.getUserId()).isEmpty()) {
+            return;
+        }
+        refreshTokenRepository.revokeTokenFamily(candidate.getSessionFamilyId());
     }
 
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
@@ -71,14 +77,19 @@ public class SessionTokenService {
         RefreshToken refreshToken = renewalContext.refreshToken();
         User user = renewalContext.user();
 
-        if (!refreshToken.isValidAt(now())) {
-            throw new BusinessException(ErrorCode.EXPIRED_REFRESH_TOKEN);
+        if (Boolean.TRUE.equals(refreshToken.getIsRevoked())) {
+            refreshTokenRepository.revokeTokenFamily(refreshToken.getSessionFamilyId());
+            return RefreshTokenRefreshOutcome.failure(ErrorCode.INVALID_REFRESH_TOKEN);
+        }
+        if (refreshToken.isExpiredAt(now())) {
+            return RefreshTokenRefreshOutcome.failure(ErrorCode.EXPIRED_REFRESH_TOKEN);
         }
 
         refreshToken.revoke();
         refreshTokenRepository.save(refreshToken);
 
         if (!loginAccountEligibilityService.evaluate(user).isLoginAllowed()) {
+            refreshTokenRepository.revokeTokenFamily(refreshToken.getSessionFamilyId());
             return RefreshTokenRefreshOutcome.failure(ErrorCode.USER_NOT_ACTIVE);
         }
 
@@ -89,7 +100,8 @@ public class SessionTokenService {
                 issueTokens(
                         authentication,
                         user,
-                        new LoginClientMetadata(refreshToken.getIpAddress(), refreshToken.getDeviceInfo())));
+                        new LoginClientMetadata(refreshToken.getIpAddress(), refreshToken.getDeviceInfo()),
+                        refreshToken.getSessionFamilyId()));
     }
 
     private RefreshTokenRenewalContext loadRefreshTokenRenewalContext(String refreshTokenHash) {
@@ -119,12 +131,14 @@ public class SessionTokenService {
         return Duration.ofMillis(jwtTokenProvider.getRefreshTokenValidityInMilliseconds());
     }
 
-    private void persistRefreshToken(User user, String refreshToken, String ipAddress, String userAgent) {
+    private void persistRefreshToken(User user, String refreshToken, String ipAddress, String userAgent,
+            UUID sessionFamilyId) {
         String refreshTokenHash = tokenHashService.hashSha256(refreshToken);
 
         RefreshToken issuedRefreshToken = RefreshToken.builder()
                 .user(user)
                 .tokenHash(refreshTokenHash)
+                .sessionFamilyId(sessionFamilyId)
                 .ipAddress(LoginClientMetadataNormalizer.normalizeIpAddress(ipAddress))
                 .deviceInfo(LoginClientMetadataNormalizer.normalizeDeviceInfo(userAgent))
                 .expiresAt(now().plus(getRefreshTokenValidityDuration()))
@@ -138,11 +152,21 @@ public class SessionTokenService {
 
     @Transactional
     public TokenResponse issueTokens(Authentication authentication, User user, LoginClientMetadata metadata) {
+        return issueTokens(authentication, user, metadata, UUID.randomUUID());
+    }
+
+    private TokenResponse issueTokens(Authentication authentication, User user, LoginClientMetadata metadata,
+            UUID sessionFamilyId) {
         LoginClientMetadata resolvedMetadata = metadata != null ? metadata : LoginClientMetadata.empty();
         String accessToken = jwtTokenProvider.createAccessToken(authentication);
         String refreshToken = jwtTokenProvider.createRefreshToken(authentication);
 
-        persistRefreshToken(user, refreshToken, resolvedMetadata.ipAddress(), resolvedMetadata.userAgent());
+        persistRefreshToken(
+                user,
+                refreshToken,
+                resolvedMetadata.ipAddress(),
+                resolvedMetadata.userAgent(),
+                sessionFamilyId);
 
         return TokenResponse.builder()
                 .accessToken(accessToken)

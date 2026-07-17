@@ -677,6 +677,7 @@ class AuthServiceTest {
                 rotatedToken != storedRefreshToken
                         && rotatedToken.getUser().equals(user)
                         && expectedRefreshTokenHash.equals(rotatedToken.getTokenHash())
+                        && storedRefreshToken.getSessionFamilyId().equals(rotatedToken.getSessionFamilyId())
                         && "127.0.0.1".equals(rotatedToken.getIpAddress())
                         && "browser".equals(rotatedToken.getDeviceInfo())
                         && !rotatedToken.getIsRevoked()));
@@ -1140,6 +1141,11 @@ class AuthServiceTest {
             @Override
             public Long getUserId() {
                 return userId;
+            }
+
+            @Override
+            public java.util.UUID getSessionFamilyId() {
+                return new java.util.UUID(0L, tokenId);
             }
         };
     }
