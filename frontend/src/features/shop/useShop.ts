@@ -35,7 +35,11 @@ export function usePurchaseShopItem() {
 
   return useMutation({
     onMutate: () => ({ sessionGeneration: authStore.sessionGeneration }),
-    mutationFn: (itemId: number) => shopApi.purchaseItem(itemId, { skipGlobalErrorHandler: true }),
+    mutationFn: (request: number | { itemId: number, signal?: AbortSignal }) => {
+      const itemId = typeof request === 'number' ? request : request.itemId
+      const signal = typeof request === 'number' ? undefined : request.signal
+      return shopApi.purchaseItem(itemId, { skipGlobalErrorHandler: true, signal })
+    },
     onSuccess: async (_data, _variables, context) => {
       if (!context || !isSessionGenerationCurrent(authStore, context.sessionGeneration)) return
       const authKey = (queryKey: readonly unknown[]) => sessionQueryKey(context.sessionGeneration, queryKey)

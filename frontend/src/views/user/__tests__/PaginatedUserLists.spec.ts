@@ -177,14 +177,17 @@ describe('paginated user lists', () => {
         await deleteButton.trigger('click')
         await flushPromises()
 
-        expect(userApi.getMyScraps).toHaveBeenCalledWith({ folderId: 7, page: 0, size: 1 })
+        expect(userApi.getMyScraps).toHaveBeenCalledWith(
+            { folderId: 7, page: 0, size: 1 },
+            { signal: expect.any(AbortSignal) },
+        )
         expect(confirmMock).toHaveBeenCalledWith(
             'user.scrapList.deleteConfirmMessage',
             'user.scrapList.deleteConfirmTitle',
             'common.delete',
             'common.cancel',
         )
-        expect(userApi.deleteScrapFolder).toHaveBeenCalledWith(7)
+        expect(userApi.deleteScrapFolder).toHaveBeenCalledWith(7, { signal: expect.any(AbortSignal) })
     })
 
     it('updates a scrap folder name inline', async () => {
@@ -217,7 +220,11 @@ describe('paginated user lists', () => {
         await wrapper.find('[aria-label="user.scrapList.saveFolder"]').trigger('click')
         await flushPromises()
 
-        expect(userApi.updateScrapFolder).toHaveBeenCalledWith(7, { name: 'New' })
+        expect(userApi.updateScrapFolder).toHaveBeenCalledWith(
+            7,
+            { name: 'New' },
+            { signal: expect.any(AbortSignal) },
+        )
     })
 
     it('distinguishes earned and spent point history rows', async () => {

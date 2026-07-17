@@ -14,12 +14,18 @@ const mocks = vi.hoisted(() => ({
   confirm: vi.fn(),
 }))
 
+const authState = vi.hoisted(() => ({
+  sessionGeneration: 1,
+  accessToken: 'token-a' as string | null,
+  user: { userId: 1 } as { userId: number } | null,
+}))
+
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({ t: (key: string) => key }),
 }))
 
 vi.mock('@/stores/auth', () => ({
-  useAuthStore: () => ({ sessionGeneration: 0 }),
+  useAuthStore: () => authState,
 }))
 
 vi.mock('@/composables/useUser', () => ({
@@ -127,6 +133,9 @@ describe('ScrapList', () => {
     mocks.folderFetching.value = false
     mocks.refetchFolders.mockResolvedValue(undefined)
     mocks.confirm.mockResolvedValue(true)
+    authState.sessionGeneration = 1
+    authState.accessToken = 'token-a'
+    authState.user = { userId: 1 }
   })
 
   it('shows folder query failures separately and retries the folder query', async () => {
@@ -154,5 +163,25 @@ describe('ScrapList', () => {
     expect(wrapper.get('[role="alert"]').text()).toContain('user.scrapList.folderActionFailed')
     expect(userApi.deleteScrapFolder).not.toHaveBeenCalled()
     expect(deleteButton.attributes('disabled')).toBeUndefined()
+  })
+
+  it('does not delete a same-numbered folder after the account changes during confirmation', async () => {
+    mocks.folderData.value = [{ folderId: 7, name: 'Saved' }]
+    vi.mocked(userApi.getMyScraps).mockResolvedValueOnce({ data: { data: { totalElements: 1 } } } as never)
+    let resolveConfirm!: (value: boolean) => void
+    mocks.confirm.mockImplementationOnce(() => new Promise((resolve) => { resolveConfirm = resolve }))
+    const wrapper = mountScrapList()
+    const deleteButton = wrapper.findAll('button')
+      .find((button) => button.attributes('aria-label') === 'user.scrapList.deleteFolder')!
+
+    await deleteButton.trigger('click')
+    await flushPromises()
+    authState.sessionGeneration = 2
+    authState.accessToken = 'token-b'
+    authState.user = { userId: 2 }
+    resolveConfirm(true)
+    await flushPromises()
+
+    expect(userApi.deleteScrapFolder).not.toHaveBeenCalled()
   })
 })

@@ -18,6 +18,7 @@ import { useI18n } from 'vue-i18n'
 import type { PostSummary } from '@/types'
 import { useAuthStore } from '@/stores/auth'
 import { AUTH_SCOPED_QUERY_META, currentSessionQueryKey } from '@/queryAuthScope'
+import { captureAuthSessionIntent, isAuthSessionIntentCurrent } from '@/utils/authSessionIntent'
 
 const { t } = useI18n()
 const { confirm } = useConfirm()
@@ -34,6 +35,36 @@ const editingFolderId = ref<number | null>(null)
 const editingFolderName = ref('')
 const updatingFolderId = ref<number | null>(null)
 const folderActionError = ref('')
+let folderOperationRevision = 0
+const folderOperationControllers = new Set<AbortController>()
+
+function beginFolderOperation() {
+  const controller = new AbortController()
+  folderOperationControllers.add(controller)
+  return { controller, intent: captureAuthSessionIntent(authStore), revision: folderOperationRevision }
+}
+
+function isFolderOperationCurrent(operation: ReturnType<typeof beginFolderOperation>) {
+  return operation.revision === folderOperationRevision
+    && !operation.controller.signal.aborted
+    && isAuthSessionIntentCurrent(authStore, operation.intent)
+}
+
+function finishFolderOperation(operation: ReturnType<typeof beginFolderOperation>) {
+  folderOperationControllers.delete(operation.controller)
+}
+
+watch(() => authStore.sessionGeneration, () => {
+  folderOperationRevision += 1
+  folderOperationControllers.forEach((controller) => controller.abort())
+  folderOperationControllers.clear()
+  creatingFolder.value = false
+  deletingFolderId.value = null
+  updatingFolderId.value = null
+  newFolderName.value = ''
+  cancelEditFolder()
+  folderActionError.value = ''
+})
 
 const {
   page,
@@ -89,13 +120,21 @@ function clearSearch() {
 async function createFolder() {
   const name = newFolderName.value.trim()
   if (!name || creatingFolder.value) return
+  const operation = beginFolderOperation()
+  folderActionError.value = ''
   creatingFolder.value = true
   try {
-    await userApi.createScrapFolder({ name })
+    await userApi.createScrapFolder({ name }, { signal: operation.controller.signal })
+    if (!isFolderOperationCurrent(operation)) return
     newFolderName.value = ''
     await refetchFolders()
+  } catch {
+    if (isFolderOperationCurrent(operation)) {
+      folderActionError.value = t('user.scrapList.folderActionFailed')
+    }
   } finally {
-    creatingFolder.value = false
+    finishFolderOperation(operation)
+    if (isFolderOperationCurrent(operation)) creatingFolder.value = false
   }
 }
 
@@ -112,18 +151,26 @@ function cancelEditFolder() {
 async function updateFolder(folderId: number) {
   const name = editingFolderName.value.trim()
   if (!name || updatingFolderId.value !== null) return
+  const operation = beginFolderOperation()
+  folderActionError.value = ''
   updatingFolderId.value = folderId
   try {
-    await userApi.updateScrapFolder(folderId, { name })
+    await userApi.updateScrapFolder(folderId, { name }, { signal: operation.controller.signal })
+    if (!isFolderOperationCurrent(operation)) return
     cancelEditFolder()
     await refetchFolders()
+  } catch {
+    if (isFolderOperationCurrent(operation)) {
+      folderActionError.value = t('user.scrapList.folderActionFailed')
+    }
   } finally {
-    updatingFolderId.value = null
+    finishFolderOperation(operation)
+    if (isFolderOperationCurrent(operation)) updatingFolderId.value = null
   }
 }
 
-async function getFolderScrapCount(folderId: number) {
-  const { data } = await userApi.getMyScraps({ folderId, page: 0, size: 1 })
+async function getFolderScrapCount(folderId: number, signal: AbortSignal) {
+  const { data } = await userApi.getMyScraps({ folderId, page: 0, size: 1 }, { signal })
   return data.data.totalElements
 }
 
@@ -134,28 +181,35 @@ async function deleteFolder(folderId: number) {
 
   deletingFolderId.value = folderId
   folderActionError.value = ''
+  const operation = beginFolderOperation()
   try {
-    const scrapCount = await getFolderScrapCount(folderId)
+    const scrapCount = await getFolderScrapCount(folderId, operation.controller.signal)
+    if (!isFolderOperationCurrent(operation)) return
     const confirmed = await confirm(
       t('user.scrapList.deleteConfirmMessage', { name: folder.name, count: scrapCount }),
       t('user.scrapList.deleteConfirmTitle'),
       t('common.delete'),
       t('common.cancel')
     )
-    if (!confirmed) return
+    if (!confirmed || !isFolderOperationCurrent(operation)) return
 
-    await userApi.deleteScrapFolder(folderId)
+    await userApi.deleteScrapFolder(folderId, { signal: operation.controller.signal })
+    if (!isFolderOperationCurrent(operation)) return
     if (selectedFolderId.value === folderId) {
       selectedFolderId.value = null
     }
     await refetchFolders()
+    if (!isFolderOperationCurrent(operation)) return
     await queryClient.invalidateQueries({
       queryKey: currentSessionQueryKey(authStore, ['user', 'scraps']),
     })
   } catch {
-    folderActionError.value = t('user.scrapList.folderActionFailed')
+    if (isFolderOperationCurrent(operation)) {
+      folderActionError.value = t('user.scrapList.folderActionFailed')
+    }
   } finally {
-    deletingFolderId.value = null
+    finishFolderOperation(operation)
+    if (isFolderOperationCurrent(operation)) deletingFolderId.value = null
   }
 }
 </script>

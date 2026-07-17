@@ -72,7 +72,7 @@ describe('shop resources', () => {
     const options = mutationOptions[0]
 
     await (options?.mutationFn as (itemId: number) => Promise<unknown>)(9)
-    expect(shopApi.purchaseItem).toHaveBeenCalledWith(9, { skipGlobalErrorHandler: true })
+    expect(shopApi.purchaseItem).toHaveBeenCalledWith(9, { skipGlobalErrorHandler: true, signal: undefined })
 
     const context = (options?.onMutate as () => { sessionGeneration: number })()
     await (options?.onSuccess as (_data: unknown, _variables: unknown, context: unknown) => Promise<void>)(

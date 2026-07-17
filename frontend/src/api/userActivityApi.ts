@@ -74,14 +74,14 @@ export const userActivityApi = {
     getScrapFolders(config?: AxiosRequestConfig) {
         return api.get<ApiResponse<ScrapFolder[]>>('/users/me/scrap-folders', config)
     },
-    createScrapFolder(payload: ScrapFolderPayload) {
-        return api.post<ApiResponse<ScrapFolder>>('/users/me/scrap-folders', payload)
+    createScrapFolder(payload: ScrapFolderPayload, config?: AxiosRequestConfig) {
+        return api.post<ApiResponse<ScrapFolder>>('/users/me/scrap-folders', payload, config)
     },
-    updateScrapFolder(folderId: string | number, payload: Partial<ScrapFolderPayload>) {
-        return api.patch<ApiResponse<ScrapFolder>>(`/users/me/scrap-folders/${encodePathSegment(folderId)}`, payload)
+    updateScrapFolder(folderId: string | number, payload: Partial<ScrapFolderPayload>, config?: AxiosRequestConfig) {
+        return api.patch<ApiResponse<ScrapFolder>>(`/users/me/scrap-folders/${encodePathSegment(folderId)}`, payload, config)
     },
-    deleteScrapFolder(folderId: string | number) {
-        return api.delete<ApiResponse<void>>(`/users/me/scrap-folders/${encodePathSegment(folderId)}`)
+    deleteScrapFolder(folderId: string | number, config?: AxiosRequestConfig) {
+        return api.delete<ApiResponse<void>>(`/users/me/scrap-folders/${encodePathSegment(folderId)}`, config)
     },
     getPostSeries(config?: AxiosRequestConfig) {
         return api.get<ApiResponse<PostSeries[]>>('/users/me/post-series', config)

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { Coins, ShoppingBag } from 'lucide-vue-next'
@@ -19,6 +19,7 @@ import { useToastStore } from '@/stores/toast'
 import { extractErrorMessage } from '@/utils/errorHandler'
 import { formatInteger } from '@/utils/numberFormat'
 import type { ShopItem } from '@/api/shop'
+import { captureAuthSessionIntent, isAuthSessionIntentCurrent } from '@/utils/authSessionIntent'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -45,6 +46,15 @@ const currentPoints = computed(() => pointData.value?.currentPoint ?? authStore.
 
 const purchaseMutation = usePurchaseShopItem()
 const purchasingItemId = ref<number | null>(null)
+let purchaseRevision = 0
+let purchaseController: AbortController | null = null
+
+watch(() => authStore.sessionGeneration, () => {
+  purchaseRevision += 1
+  purchaseController?.abort()
+  purchaseController = null
+  purchasingItemId.value = null
+})
 
 const purchase = async (item: ShopItem) => {
   if (purchasingItemId.value !== null) return
@@ -62,20 +72,29 @@ const purchase = async (item: ShopItem) => {
     return
   }
 
+  const intent = captureAuthSessionIntent(authStore)
   const accepted = await confirm(t('shop.purchaseConfirm', {
     name: item.itemName,
     price: formatInteger(item.price),
   }))
-  if (!accepted) return
+  if (!accepted || !isAuthSessionIntentCurrent(authStore, intent)) return
 
+  const revision = purchaseRevision
+  const controller = new AbortController()
+  purchaseController = controller
   purchasingItemId.value = item.itemId
   try {
-    await purchaseMutation.mutateAsync(item.itemId)
+    await purchaseMutation.mutateAsync({ itemId: item.itemId, signal: controller.signal })
+    if (revision !== purchaseRevision || !isAuthSessionIntentCurrent(authStore, intent)) return
     toastStore.addToast(t('shop.purchaseSuccess'), 'success')
   } catch (error) {
+    if (revision !== purchaseRevision || !isAuthSessionIntentCurrent(authStore, intent)) return
     toastStore.addToast(extractErrorMessage(error) || t('shop.purchaseFailed'), 'error')
   } finally {
-    purchasingItemId.value = null
+    if (purchaseController === controller && revision === purchaseRevision) {
+      purchaseController = null
+      purchasingItemId.value = null
+    }
   }
 }
 </script>

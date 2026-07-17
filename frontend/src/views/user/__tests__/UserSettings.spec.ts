@@ -7,7 +7,7 @@ import type {
   NotificationSettingsBulkPayload,
   NotificationSettingsPayload
 } from '@/api/user'
-import type { LoginHistory, PageResponse, UserSettings as UserSettingsData } from '@/types'
+import type { LoginHistory, PageResponse, UserSession, UserSettings as UserSettingsData } from '@/types'
 import UserSettings from '../UserSettings.vue'
 import { BaseButtonStub, flushAll, identityT } from '@/test/vue-test-helpers'
 
@@ -52,6 +52,9 @@ type QueryMock<T> = { data: T; isLoading: { value: boolean }; isError: { value: 
 const useUserMock = vi.hoisted(() => vi.fn<() => UserComposableMock>())
 const useThemeStoreMock = vi.hoisted(() => vi.fn<() => ThemeStoreMock>())
 const authStoreMock = vi.hoisted(() => ({
+  sessionGeneration: 1,
+  accessToken: 'token-a' as string | null,
+  user: { userId: 1 } as { userId: number } | null,
   clearSessionState: vi.fn(),
 }))
 const toastStoreMock = vi.hoisted(() => ({
@@ -189,7 +192,7 @@ const notificationData = ref<NotificationSettingsPayload[]>([
   { notificationType: 'COMMENT' as const, isEnabled: true },
 ])
 const keywordData = ref<KeywordSubscriptionResponse[]>([])
-const sessionsData = ref([])
+const sessionsData = ref<UserSession[]>([])
 const emptyLoginHistoryPage = (): PageResponse<LoginHistory> => ({
   content: [],
   totalElements: 0,
@@ -305,6 +308,9 @@ describe('UserSettings', () => {
     revokeSession.mockResolvedValue(undefined)
     revokeOtherSessions.mockResolvedValue(undefined)
     authStoreMock.clearSessionState.mockReset()
+    authStoreMock.sessionGeneration = 1
+    authStoreMock.accessToken = 'token-a'
+    authStoreMock.user = { userId: 1 }
     toastStoreMock.addToast.mockReset()
     confirmMock.mockResolvedValue(true)
     pushNotificationMock.enabled.value = true
@@ -645,5 +651,27 @@ describe('UserSettings', () => {
     expect(refetchSettings).toHaveBeenCalledOnce()
     expect(refetchNotifications).toHaveBeenCalledOnce()
     expect(refetchSessions).toHaveBeenCalledOnce()
+  })
+
+  it('does not revoke the new account sessions after a delayed confirmation', async () => {
+    sessionsData.value = [
+      { sessionId: 1, deviceSummary: 'current', ipAddress: '127.0.0.1', lastUsedAt: '', expiresAt: '', current: true },
+      { sessionId: 2, deviceSummary: 'other', ipAddress: '127.0.0.2', lastUsedAt: '', expiresAt: '', current: false },
+    ]
+    let resolveConfirm!: (value: boolean) => void
+    confirmMock.mockImplementationOnce(() => new Promise((resolve) => { resolveConfirm = resolve }))
+    const wrapper = mountUserSettings()
+    const button = wrapper.findAll('button')
+      .find((candidate) => candidate.text() === 'user.settings.sessions.logoutOthers')!
+
+    const click = button.trigger('click')
+    authStoreMock.sessionGeneration = 2
+    authStoreMock.accessToken = 'token-b'
+    authStoreMock.user = { userId: 2 }
+    resolveConfirm(true)
+    await click
+    await flushAll()
+
+    expect(revokeOtherSessions).not.toHaveBeenCalled()
   })
 })

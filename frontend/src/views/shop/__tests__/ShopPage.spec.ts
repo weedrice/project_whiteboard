@@ -8,6 +8,8 @@ const confirmPurchase = vi.hoisted(() => vi.fn(async () => true))
 const mutateAsync = vi.hoisted(() => vi.fn(async () => undefined))
 const authState = vi.hoisted(() => ({
   isAuthenticated: true,
+  sessionGeneration: 1,
+  accessToken: 'token-a',
   user: { userId: 1, loginId: 'novi', points: 500 },
 }))
 const pointState = vi.hoisted(() => ({ currentPoint: 500 }))
@@ -96,6 +98,9 @@ describe('ShopPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     authState.isAuthenticated = true
+    authState.sessionGeneration = 1
+    authState.accessToken = 'token-a'
+    authState.user.userId = 1
     authState.user.points = 500
     pointState.currentPoint = 500
     mutateAsync.mockResolvedValue(undefined)
@@ -118,8 +123,26 @@ describe('ShopPage', () => {
     await nextTick()
 
     expect(confirmPurchase).toHaveBeenCalledWith('Novi pack:100')
-    expect(mutateAsync).toHaveBeenCalledWith(7)
+    expect(mutateAsync).toHaveBeenCalledWith({ itemId: 7, signal: expect.any(AbortSignal) })
     expect(addToast).toHaveBeenCalledWith('shop.purchaseSuccess', 'success')
+  })
+
+  it('does not execute a confirmed purchase after the account changes', async () => {
+    let resolveConfirm!: (value: boolean) => void
+    confirmPurchase.mockImplementationOnce(() => new Promise<boolean>((resolve) => {
+      resolveConfirm = resolve
+    }))
+    const wrapper = mountPage()
+
+    const click = wrapper.get('button').trigger('click')
+    authState.sessionGeneration = 2
+    authState.accessToken = 'token-b'
+    authState.user.userId = 2
+    resolveConfirm(true)
+    await click
+    await nextTick()
+
+    expect(mutateAsync).not.toHaveBeenCalled()
   })
 
   it('shows a backend business error from a rejected purchase', async () => {

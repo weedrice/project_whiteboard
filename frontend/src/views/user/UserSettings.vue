@@ -25,6 +25,9 @@ import { formatDateTimeOrDash } from '@/utils/date'
 import { Monitor, Settings, X } from 'lucide-vue-next'
 import { useFieldValidation } from '@/composables/useFieldValidation'
 import { setAppLocale } from '@/i18n'
+import { captureAuthSessionIntent, isAuthSessionIntentCurrent } from '@/utils/authSessionIntent'
+import { usePwaReloadBlocker } from '@/pwaReloadGuard'
+import { isCancellationError } from '@/utils/cancellationError'
 
 const { t, locale } = useI18n()
 const route = useRoute()
@@ -139,6 +142,7 @@ const retryCriticalSettings = () => {
 const {
   canSave: canSaveGeneral,
   form: userSettingsForm,
+  isDirty: isGeneralSettingsDirty,
   isError: generalIsError,
   message: generalMessage,
   save: saveGeneralSettings
@@ -154,6 +158,7 @@ const {
 
 const {
   canSave: canSaveNotifications,
+  isDirty: isNotificationSettingsDirty,
   isError: notificationIsError,
   message: notificationMessage,
   save: saveNotificationSettings,
@@ -164,6 +169,12 @@ const {
   updateNotificationSettings,
   t
 })
+
+usePwaReloadBlocker(computed(() => (
+  isGeneralSettingsDirty.value
+  || isNotificationSettingsDirty.value
+  || keywordInput.value.trim().length > 0
+)))
 
 const setKeywordMessage = (messageKey: string, isError = false) => {
   keywordMessage.value = t(messageKey)
@@ -213,7 +224,8 @@ const enableBrowserPush = async () => {
   try {
     await pushNotifications.enablePush()
     setPushMessage('user.settings.pushEnableSuccess')
-  } catch {
+  } catch (error) {
+    if (isCancellationError(error)) return
     setPushMessage('user.settings.pushEnableFailed', true)
   }
 }
@@ -222,19 +234,22 @@ const disableBrowserPush = async () => {
   try {
     await pushNotifications.disablePush()
     setPushMessage('user.settings.pushDisableSuccess')
-  } catch {
+  } catch (error) {
+    if (isCancellationError(error)) return
     setPushMessage('user.settings.pushDisableFailed', true)
   }
 }
 
 const handleRevokeSession = async (session: { sessionId: number, current: boolean }) => {
+  const intent = captureAuthSessionIntent(authStore)
   const ok = await confirm(
     session.current ? t('user.settings.sessions.confirmCurrent') : t('user.settings.sessions.confirmOne'),
     t('user.settings.sessions.confirmTitle'),
   )
-  if (!ok) return
+  if (!ok || !isAuthSessionIntentCurrent(authStore, intent)) return
 
   await revokeSession(session.sessionId)
+  if (!isAuthSessionIntentCurrent(authStore, intent)) return
   toastStore.addToast(t('user.settings.sessions.revoked'), 'success')
   if (session.current) {
     authStore.clearSessionState()
@@ -242,13 +257,15 @@ const handleRevokeSession = async (session: { sessionId: number, current: boolea
 }
 
 const handleRevokeOtherSessions = async () => {
+  const intent = captureAuthSessionIntent(authStore)
   const ok = await confirm(
     t('user.settings.sessions.confirmOthers'),
     t('user.settings.sessions.confirmTitle'),
   )
-  if (!ok) return
+  if (!ok || !isAuthSessionIntentCurrent(authStore, intent)) return
 
   await revokeOtherSessions()
+  if (!isAuthSessionIntentCurrent(authStore, intent)) return
   toastStore.addToast(t('user.settings.sessions.revokedOthers'), 'success')
 }
 </script>
