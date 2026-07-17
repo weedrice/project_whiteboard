@@ -98,7 +98,8 @@ export function useSearch() {
                 searchApi.getPopularKeywords,
                 searchApi.getPopularKeywords,
             ),
-            staleTime: QUERY_STALE_TIME.MEDIUM // 5 minutes
+            staleTime: QUERY_STALE_TIME.MEDIUM, // 5 minutes
+            meta: { errorMessage: false },
         })
     }
 
@@ -112,7 +113,7 @@ export function useSearch() {
             ),
             enabled,
             staleTime: QUERY_STALE_TIME.SHORT,
-            meta: AUTH_SCOPED_QUERY_META,
+            meta: { ...AUTH_SCOPED_QUERY_META, errorMessage: false },
         })
     }
 

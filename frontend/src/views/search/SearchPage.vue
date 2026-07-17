@@ -223,9 +223,21 @@
         </div>
       </div>
       <aside class="w-full min-w-0 space-y-4 md:w-72 md:shrink-0 lg:w-80">
-        <section class="min-w-0 overflow-hidden rounded-lg border nv-border nv-surface p-4">
+        <section
+          class="min-w-0 overflow-hidden rounded-lg border nv-border nv-surface p-4"
+          :aria-busy="isPopularKeywordsLoading"
+        >
           <h2 class="text-sm font-semibold nv-title">{{ $t('search.popularKeywords') }}</h2>
-          <div class="mt-3 flex flex-wrap gap-2">
+          <BaseSpinner v-if="isPopularKeywordsLoading" class="mt-3" size="sm" />
+          <ErrorState
+            v-else-if="isPopularKeywordsError"
+            class="mt-3"
+            title-tag="h3"
+            :message="$t('common.messages.loadFailed')"
+            show-retry
+            @retry="refetchPopularKeywords"
+          />
+          <div v-else class="mt-3 flex flex-wrap gap-2">
             <button
               v-for="keyword in popularKeywords"
               :key="keyword.keyword"
@@ -242,9 +254,21 @@
           </div>
         </section>
 
-        <section class="min-w-0 overflow-hidden rounded-lg border nv-border nv-surface p-4">
+        <section
+          class="min-w-0 overflow-hidden rounded-lg border nv-border nv-surface p-4"
+          :aria-busy="isPopularTagsLoading"
+        >
           <h2 class="text-sm font-semibold nv-title">{{ $t('common.tags') }}</h2>
-          <div class="mt-3 flex flex-wrap gap-2">
+          <BaseSpinner v-if="isPopularTagsLoading" class="mt-3" size="sm" />
+          <ErrorState
+            v-else-if="isPopularTagsError"
+            class="mt-3"
+            title-tag="h3"
+            :message="$t('common.messages.loadFailed')"
+            show-retry
+            @retry="refetchPopularTags"
+          />
+          <div v-else class="mt-3 flex flex-wrap gap-2">
             <RouterLink
               v-for="tag in popularTags"
               :key="tag.tagId"
@@ -259,7 +283,10 @@
           </div>
         </section>
 
-        <section class="min-w-0 overflow-hidden rounded-lg border nv-border nv-surface p-4">
+        <section
+          class="min-w-0 overflow-hidden rounded-lg border nv-border nv-surface p-4"
+          :aria-busy="isRecentKeywordsLoading"
+        >
           <div class="flex items-center justify-between gap-2">
             <h2 class="text-sm font-semibold nv-title">{{ $t('search.recentKeywords') }}</h2>
             <button
@@ -271,7 +298,16 @@
               {{ $t('search.clearRecent') }}
             </button>
           </div>
-          <div class="mt-3 space-y-2">
+          <BaseSpinner v-if="isRecentKeywordsLoading" class="mt-3" size="sm" />
+          <ErrorState
+            v-else-if="isRecentKeywordsError"
+            class="mt-3"
+            title-tag="h3"
+            :message="$t('common.messages.loadFailed')"
+            show-retry
+            @retry="refetchRecentKeywords"
+          />
+          <div v-else class="mt-3 space-y-2">
             <div
               v-for="keyword in recentKeywords"
               :key="keyword.logId"
@@ -371,13 +407,29 @@ const {
   error: semanticSearchError,
   refetch: refetchSemanticSearch,
 } = useSemanticSearch(semanticParams)
-const { data: popularKeywordData } = usePopularKeywords()
-const { data: popularTagData } = useApiQuery({
+const {
+  data: popularKeywordData,
+  isLoading: isPopularKeywordsLoading,
+  isError: isPopularKeywordsError,
+  refetch: refetchPopularKeywords,
+} = usePopularKeywords()
+const {
+  data: popularTagData,
+  isLoading: isPopularTagsLoading,
+  isError: isPopularTagsError,
+  refetch: refetchPopularTags,
+} = useApiQuery({
   queryKey: ['tags', 'popular'],
   request: () => tagApi.getPopularTags(),
   staleTime: 300_000,
+  meta: { errorMessage: false },
 })
-const { data: recentKeywordData } = useRecentSearches(computed(() => authStore.isAuthenticated))
+const {
+  data: recentKeywordData,
+  isLoading: isRecentKeywordsLoading,
+  isError: isRecentKeywordsError,
+  refetch: refetchRecentKeywords,
+} = useRecentSearches(computed(() => authStore.isAuthenticated))
 const posts = computed(() => searchData.value?.postResults || [])
 const boards = computed(() => searchData.value?.boardResults || [])
 const semanticResults = computed(() => semanticData.value?.content || [])

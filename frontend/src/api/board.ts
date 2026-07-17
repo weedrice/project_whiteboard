@@ -86,8 +86,11 @@ export const boardApi = {
         api.get<ApiResponse<BoardDetailWire>>(`/boards/${encodePathSegment(boardUrl)}`, config).then(mapBoardDetailResponse),
 
     // Create a new board
-    createBoard: (data: BoardCreateData) =>
-        api.post<ApiResponse<BoardDetailWire>>('/boards', data).then(mapBoardDetailResponse),
+    createBoard: (data: BoardCreateData, config?: AxiosRequestConfig) =>
+        (config
+            ? api.post<ApiResponse<BoardDetailWire>>('/boards', data, config)
+            : api.post<ApiResponse<BoardDetailWire>>('/boards', data)
+        ).then(mapBoardDetailResponse),
 
     // Ensure inquiry board exists (create if absent)
     ensureInquiryBoard: (boardUrl?: string, config?: AxiosRequestConfig) =>
@@ -111,8 +114,11 @@ export const boardApi = {
             : api.get<ApiResponse<Category[]>>(`/boards/${encodePathSegment(boardUrl)}/categories`),
 
     // Update board
-    updateBoard: (boardUrl: string, data: BoardUpdateData) =>
-        api.put<ApiResponse<BoardDetailWire>>(`/boards/${encodePathSegment(boardUrl)}`, data).then(mapBoardDetailResponse),
+    updateBoard: (boardUrl: string, data: BoardUpdateData, config?: AxiosRequestConfig) =>
+        (config
+            ? api.put<ApiResponse<BoardDetailWire>>(`/boards/${encodePathSegment(boardUrl)}`, data, config)
+            : api.put<ApiResponse<BoardDetailWire>>(`/boards/${encodePathSegment(boardUrl)}`, data)
+        ).then(mapBoardDetailResponse),
 
     // Transfer board manager
     updateBoardManager: (boardUrl: string, data: BoardManagerTransferData) =>

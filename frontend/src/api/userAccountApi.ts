@@ -114,8 +114,8 @@ export const userAccountApi = {
     updateUserSettings(data: UserSettingsUpdatePayload, config?: AxiosRequestConfig) {
         return api.put<ApiResponse<UserSettings>>('/users/me/settings', data, config)
     },
-    completeOnboarding() {
-        return api.put<ApiResponse<UserSettings>>('/users/me/onboarding-complete')
+    completeOnboarding(config?: AxiosRequestConfig) {
+        return api.put<ApiResponse<UserSettings>>('/users/me/onboarding-complete', undefined, config)
     },
     createPushSubscription(data: PushSubscriptionPayload, config?: AxiosRequestConfig) {
         return api.post<ApiResponse<PushSubscriptionResponse>>('/users/me/push-subscriptions', data, config)

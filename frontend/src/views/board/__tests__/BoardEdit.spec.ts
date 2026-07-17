@@ -274,6 +274,7 @@ describe('BoardEdit', () => {
     expect(updateBoard).toHaveBeenCalledWith({
       boardUrl: 'qna',
       data: expect.objectContaining({ boardUrl: 'qna' }),
+      signal: expect.any(AbortSignal),
     })
   })
 

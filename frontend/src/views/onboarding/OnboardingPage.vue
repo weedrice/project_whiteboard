@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onScopeDispose, ref, watch } from 'vue'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -21,6 +21,7 @@ import {
   sessionQueryKey,
 } from '@/queryAuthScope'
 import { isCancellationError } from '@/utils/cancellationError'
+import { captureAuthSessionIntent, isAuthSessionIntentCurrent } from '@/utils/authSessionIntent'
 
 const router = useRouter()
 const route = useRoute()
@@ -35,6 +36,7 @@ const { useCompleteOnboarding } = useUser()
 const pushNotifications = usePushNotifications()
 const pushMessage = ref('')
 const pushIsError = ref(false)
+let completionController: AbortController | null = null
 
 const {
   data: boards,
@@ -72,9 +74,29 @@ const redirectTarget = computed(() => typeof route.query.redirect === 'string' ?
 const canEnablePush = computed(() => pushNotifications.supported.value && pushNotifications.enabled.value)
 
 async function finishOnboarding() {
-  await completeOnboarding()
-  await router.replace(redirectTarget.value)
+  const intent = captureAuthSessionIntent(authStore)
+  const routeIntent = route.fullPath
+  completionController?.abort()
+  const controller = new AbortController()
+  completionController = controller
+  try {
+    await completeOnboarding(controller.signal)
+    if (
+      controller.signal.aborted
+      || !isAuthSessionIntentCurrent(authStore, intent)
+      || route.fullPath !== routeIntent
+    ) return
+    await router.replace(redirectTarget.value)
+  } catch (error) {
+    if (controller.signal.aborted || isCancellationError(error)) return
+    throw error
+  } finally {
+    if (completionController === controller) completionController = null
+  }
 }
+
+watch(() => authStore.sessionGeneration, () => completionController?.abort())
+onScopeDispose(() => completionController?.abort())
 
 function subscribe(board: BoardListItem) {
   subscribeMutation.mutate(board)

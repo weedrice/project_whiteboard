@@ -162,6 +162,26 @@ describe('OnboardingPage', () => {
     expect(replace).toHaveBeenCalledWith('/mypage')
   })
 
+  it('does not navigate when onboarding completion belongs to an older session', async () => {
+    let resolveCompletion!: () => void
+    let requestSignal: AbortSignal | undefined
+    completeOnboarding.mockImplementationOnce((signal?: AbortSignal) => {
+      requestSignal = signal
+      return new Promise<void>((resolve) => { resolveCompletion = resolve })
+    })
+    const { wrapper } = mountPage()
+    await flushAll()
+
+    await wrapper.findAll('button')[4].trigger('click')
+    await vi.waitFor(() => expect(completeOnboarding).toHaveBeenCalledOnce())
+    authStore.sessionGeneration += 1
+    resolveCompletion()
+    await flushAll()
+
+    expect(requestSignal).toBeInstanceOf(AbortSignal)
+    expect(replace).not.toHaveBeenCalled()
+  })
+
   it('can enable push without completing onboarding', async () => {
     const { wrapper } = mountPage()
     await flushAll()

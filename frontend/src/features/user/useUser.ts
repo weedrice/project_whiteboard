@@ -328,8 +328,11 @@ export function useUser() {
     const useCompleteOnboarding = () => {
         return useMutation({
             onMutate: captureMutationSession,
-            mutationFn: async () => {
-                return resolveResponseData(userApi.completeOnboarding())
+            mutationFn: async (signal?: AbortSignal) => {
+                return resolveResponseData(userApi.completeOnboarding(signal ? {
+                    signal,
+                    skipGlobalErrorHandler: true,
+                } : undefined))
             },
             onSuccess: (_data, _variables, context) => {
                 if (!isCurrentMutation(context)) return

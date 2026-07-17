@@ -17,8 +17,17 @@ const searchState = vi.hoisted(() => ({
   },
   isLoading: false,
   error: null as Error | null,
+  popularKeywordsLoading: false,
+  popularKeywordsError: false,
+  popularTagsLoading: false,
+  popularTagsError: false,
+  recentKeywordsLoading: false,
+  recentKeywordsError: false,
   refetchIntegrated: vi.fn(),
   refetchSemantic: vi.fn(),
+  refetchPopularKeywords: vi.fn(),
+  refetchPopularTags: vi.fn(),
+  refetchRecentKeywords: vi.fn(),
 }))
 
 vi.mock('vue-router', () => ({
@@ -91,9 +100,15 @@ vi.mock('@/composables/useSearch', () => ({
     }),
     usePopularKeywords: () => ({
       data: ref([]),
+      isLoading: ref(searchState.popularKeywordsLoading),
+      isError: ref(searchState.popularKeywordsError),
+      refetch: searchState.refetchPopularKeywords,
     }),
     useRecentSearches: () => ({
       data: ref({ content: [] }),
+      isLoading: ref(searchState.recentKeywordsLoading),
+      isError: ref(searchState.recentKeywordsError),
+      refetch: searchState.refetchRecentKeywords,
     }),
   }),
 }))
@@ -101,6 +116,9 @@ vi.mock('@/composables/useSearch', () => ({
 vi.mock('@/composables/useApiQuery', () => ({
   useApiQuery: () => ({
     data: ref({ tags: [] }),
+    isLoading: ref(searchState.popularTagsLoading),
+    isError: ref(searchState.popularTagsError),
+    refetch: searchState.refetchPopularTags,
   }),
 }))
 
@@ -147,8 +165,17 @@ describe('SearchPage', () => {
     }
     searchState.isLoading = false
     searchState.error = null
+    searchState.popularKeywordsLoading = false
+    searchState.popularKeywordsError = false
+    searchState.popularTagsLoading = false
+    searchState.popularTagsError = false
+    searchState.recentKeywordsLoading = false
+    searchState.recentKeywordsError = false
     searchState.refetchIntegrated.mockClear()
     searchState.refetchSemantic.mockClear()
+    searchState.refetchPopularKeywords.mockClear()
+    searchState.refetchPopularTags.mockClear()
+    searchState.refetchRecentKeywords.mockClear()
     routeState.routerPush.mockClear()
     routeState.invalidateQueries.mockClear()
   })
@@ -340,5 +367,29 @@ describe('SearchPage', () => {
     const filterToggle = wrapper.findAll('button').find((button) => button.text() === 'search.filterToggle')
     await filterToggle?.trigger('click')
     expect(wrapper.find('#search-author-filter').exists()).toBe(false)
+  })
+
+  it('keeps sidebar loading, failure, and empty states distinct and retryable', async () => {
+    searchState.popularKeywordsLoading = true
+    searchState.popularTagsError = true
+    searchState.recentKeywordsError = true
+    const wrapper = mountPage()
+    const sections = wrapper.findAll('aside section')
+      .filter((section) => section.attributes('aria-busy') !== undefined)
+
+    expect(sections).toHaveLength(3)
+    expect(sections[0].attributes('aria-busy')).toBe('true')
+    expect(sections[0].findComponent({ name: 'BaseSpinner' }).exists()).toBe(true)
+    expect(sections[0].text()).not.toContain('search.noResults')
+
+    const tagAlert = sections[1].get('[role="alert"]')
+    expect(tagAlert.text()).toContain('common.messages.loadFailed')
+    expect(sections[1].text()).not.toContain('search.noResults')
+    await tagAlert.get('button').trigger('click')
+    expect(searchState.refetchPopularTags).toHaveBeenCalledOnce()
+
+    const recentAlert = sections[2].get('[role="alert"]')
+    await recentAlert.get('button').trigger('click')
+    expect(searchState.refetchRecentKeywords).toHaveBeenCalledOnce()
   })
 })

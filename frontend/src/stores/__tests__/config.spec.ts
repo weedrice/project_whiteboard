@@ -105,4 +105,102 @@ describe('Config Store', () => {
         expect(store.loading).toBe(false)
         expect(logger.error).toHaveBeenCalledWith('Failed to fetch config site.name:', error)
     })
+
+    it('shares one in-flight request for the same config key', async () => {
+        let resolveRequest!: (value: ReturnType<typeof apiSuccessDataResponse<typeof configApi.getConfig>>) => void
+        vi.mocked(configApi.getConfig).mockImplementationOnce(() => new Promise((resolve) => {
+            resolveRequest = resolve
+        }))
+        const store = useConfigStore()
+
+        const first = store.fetchConfig('site.name')
+        const second = store.fetchConfig('site.name')
+
+        expect(configApi.getConfig).toHaveBeenCalledOnce()
+        resolveRequest(apiSuccessDataResponse<typeof configApi.getConfig>({ key: 'site.name', value: 'Noviis' }))
+        await expect(Promise.all([first, second])).resolves.toEqual(['Noviis', 'Noviis'])
+    })
+
+    it('tracks loading and errors independently for different keys', async () => {
+        let resolveName!: (value: ReturnType<typeof apiSuccessDataResponse<typeof configApi.getConfig>>) => void
+        const costError = new Error('cost failed')
+        vi.mocked(configApi.getConfig).mockImplementation((key) => {
+            if (key === 'site.name') {
+                return new Promise((resolve) => { resolveName = resolve })
+            }
+            return Promise.reject(costError)
+        })
+        const store = useConfigStore()
+
+        const nameRequest = store.fetchConfig('site.name')
+        await store.fetchConfig('POINT_BOARD_CREATE_COST')
+
+        expect(store.loadingKeys['site.name']).toBe(true)
+        expect(store.loadingKeys.POINT_BOARD_CREATE_COST).toBe(false)
+        expect(store.errorsByKey.POINT_BOARD_CREATE_COST).toBe(costError)
+        resolveName(apiSuccessDataResponse<typeof configApi.getConfig>({ key: 'site.name', value: 'Noviis' }))
+        await nameRequest
+        expect(store.loading).toBe(false)
+    })
+
+    it('discards an invalidated late public snapshot', async () => {
+        let resolveOld!: (value: ReturnType<typeof apiSuccessDataResponse<typeof configApi.getPublicConfigs>>) => void
+        vi.mocked(configApi.getPublicConfigs)
+            .mockImplementationOnce(() => new Promise((resolve) => { resolveOld = resolve }))
+            .mockResolvedValueOnce(apiSuccessDataResponse<typeof configApi.getPublicConfigs>([
+                { key: 'site.name', value: 'Current' },
+            ]))
+        const store = useConfigStore()
+
+        const oldRequest = store.fetchPublicConfigs()
+        store.invalidatePublicConfigs()
+        await store.fetchPublicConfigs()
+        resolveOld(apiSuccessDataResponse<typeof configApi.getPublicConfigs>([
+            { key: 'site.name', value: 'Stale' },
+        ]))
+        await oldRequest
+
+        expect(store.configs['site.name']).toBe('Current')
+        expect(store.publicConfigsLoaded).toBe(true)
+    })
+
+    it('prevents an older single-key response from overwriting a newer public snapshot', async () => {
+        let resolveSingle!: (value: ReturnType<typeof apiSuccessDataResponse<typeof configApi.getConfig>>) => void
+        vi.mocked(configApi.getConfig).mockImplementationOnce(() => new Promise((resolve) => {
+            resolveSingle = resolve
+        }))
+        vi.mocked(configApi.getPublicConfigs).mockResolvedValueOnce(
+            apiSuccessDataResponse<typeof configApi.getPublicConfigs>([
+                { key: 'site.name', value: 'Current' },
+            ]),
+        )
+        const store = useConfigStore()
+
+        const olderSingleRequest = store.fetchConfig('site.name')
+        await store.fetchPublicConfigs()
+        resolveSingle(apiSuccessDataResponse<typeof configApi.getConfig>({
+            key: 'site.name',
+            value: 'Stale',
+        }))
+
+        await expect(olderSingleRequest).resolves.toBe('Current')
+        expect(store.configs['site.name']).toBe('Current')
+    })
+
+    it('does not let an older aggregate response recreate an invalidated key', async () => {
+        let resolvePublic!: (value: ReturnType<typeof apiSuccessDataResponse<typeof configApi.getPublicConfigs>>) => void
+        vi.mocked(configApi.getPublicConfigs).mockImplementationOnce(() => new Promise((resolve) => {
+            resolvePublic = resolve
+        }))
+        const store = useConfigStore()
+
+        const oldRequest = store.fetchPublicConfigs()
+        store.invalidateConfig('site.name')
+        resolvePublic(apiSuccessDataResponse<typeof configApi.getPublicConfigs>([
+            { key: 'site.name', value: 'Stale' },
+        ]))
+        await oldRequest
+
+        expect(store.configs['site.name']).toBeUndefined()
+    })
 })

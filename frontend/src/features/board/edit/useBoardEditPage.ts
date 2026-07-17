@@ -1,4 +1,4 @@
-import { computed, ref, watch } from 'vue'
+import { computed, onScopeDispose, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useToastStore } from '@/stores/toast'
@@ -17,6 +17,8 @@ import { useBoardEditManagerAssignment } from '@/features/board/edit/useBoardEdi
 import type { BoardUpdateData } from '@/types'
 import { encodePathSegment } from '@/utils/urlPath'
 import { useAuthStore } from '@/stores/auth'
+import { captureAuthSessionIntent, isAuthSessionIntentCurrent } from '@/utils/authSessionIntent'
+import { isCancellationError } from '@/utils/cancellationError'
 
 export function useBoardEditPage() {
   const { t } = useI18n()
@@ -38,6 +40,7 @@ export function useBoardEditPage() {
 
   const error = ref('')
   const canManageBoard = ref(true)
+  let updateController: AbortController | null = null
   const {
     closeManagerModal,
     confirmManagerSelection,
@@ -61,16 +64,40 @@ export function useBoardEditPage() {
 
   async function handleUpdate(formData: BoardEditFormData) {
     error.value = ''
+    const targetBoardUrl = boardUrl.value
+    const routeIntent = route.fullPath
+    const intent = captureAuthSessionIntent(authStore)
 
     await submit(async () => {
+      updateController?.abort()
+      const controller = new AbortController()
+      updateController = controller
       try {
-        const board = await updateBoard({ boardUrl: boardUrl.value, data: formData as BoardUpdateData })
+        const board = await updateBoard({
+          boardUrl: targetBoardUrl,
+          data: formData as BoardUpdateData,
+          signal: controller.signal,
+        })
+        if (
+          controller.signal.aborted
+          || !isAuthSessionIntentCurrent(authStore, intent)
+          || boardUrl.value !== targetBoardUrl
+          || route.fullPath !== routeIntent
+        ) return
         toastStore.addToast(t('board.form.successUpdate'), 'success')
-        router.push(`/board/${encodePathSegment(board.boardUrl)}`)
+        await router.push(`/board/${encodePathSegment(board.boardUrl)}`)
       } catch (err: unknown) {
+        if (
+          controller.signal.aborted
+          || !isAuthSessionIntentCurrent(authStore, intent)
+          || boardUrl.value !== targetBoardUrl
+          || isCancellationError(err)
+        ) return
         error.value = t('board.form.updateFailed')
         handleError(err, t('board.form.updateFailed'))
         throw err
+      } finally {
+        if (updateController === controller) updateController = null
       }
     })
   }
@@ -103,8 +130,12 @@ export function useBoardEditPage() {
   }
 
   watch(boardUrl, () => {
+    updateController?.abort()
     resetBoardState()
   }, { immediate: true })
+
+  watch(() => authStore.sessionGeneration, () => updateController?.abort())
+  onScopeDispose(() => updateController?.abort())
 
   watch(boardData, (board) => {
     const currentBoardUrl = boardUrl.value

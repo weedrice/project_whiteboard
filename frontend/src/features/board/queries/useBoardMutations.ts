@@ -50,8 +50,11 @@ export function useBoardMutations() {
   const useCreateBoard = () => {
     return useMutation({
       onMutate: captureMutationSession,
-      mutationFn: async (data: BoardCreateData) => {
-        return unwrapAxiosApiData(await boardApi.createBoard(data))
+      mutationFn: async (request: BoardCreateData & { signal?: AbortSignal }) => {
+        const { signal, ...data } = request
+        return unwrapAxiosApiData(await (signal
+          ? boardApi.createBoard(data, { signal, skipGlobalErrorHandler: true })
+          : boardApi.createBoard(data)))
       },
       onSuccess: (_data, _variables, context) => {
         if (!isCurrentMutation(context)) return
@@ -63,8 +66,14 @@ export function useBoardMutations() {
   const useUpdateBoard = () => {
     return useMutation({
       onMutate: captureMutationSession,
-      mutationFn: async ({ boardUrl, data }: { boardUrl: string, data: BoardUpdateData }) => {
-        return unwrapAxiosApiData(await boardApi.updateBoard(boardUrl, data))
+      mutationFn: async ({ boardUrl, data, signal }: {
+        boardUrl: string
+        data: BoardUpdateData
+        signal?: AbortSignal
+      }) => {
+        return unwrapAxiosApiData(await (signal
+          ? boardApi.updateBoard(boardUrl, data, { signal, skipGlobalErrorHandler: true })
+          : boardApi.updateBoard(boardUrl, data)))
       },
       onSuccess: (updatedBoard, { boardUrl, data }, context) => {
         if (!isCurrentMutation(context)) return
