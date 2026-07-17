@@ -1,8 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createPinia, setActivePinia } from 'pinia'
+import { nextTick } from 'vue'
+import { useAuthStore } from '@/stores/auth'
 import { normalizeRecentBoards, useRecentBoards } from '../useRecentBoards'
 
 describe('useRecentBoards', () => {
     beforeEach(() => {
+        setActivePinia(createPinia())
         vi.useRealTimers()
         localStorage.clear()
         useRecentBoards().clearRecentBoards()
@@ -36,7 +40,7 @@ describe('useRecentBoards', () => {
     })
 
     it('cleans corrupted localStorage entries on refresh', () => {
-        localStorage.setItem('recentBoards', JSON.stringify([
+        localStorage.setItem('recentBoards:guest', JSON.stringify([
             { boardUrl: 'free', boardName: 'Free', visitedAt: '2026-05-23T00:00:00.000Z' },
             { boardUrl: 'bad', boardName: '', visitedAt: '2026-05-23T00:00:00.000Z' },
         ]))
@@ -47,7 +51,7 @@ describe('useRecentBoards', () => {
         expect(recentBoards.value).toEqual([
             { boardUrl: 'free', boardName: 'Free', visitedAt: '2026-05-23T00:00:00.000Z' },
         ])
-        expect(JSON.parse(localStorage.getItem('recentBoards') ?? '[]')).toEqual(recentBoards.value)
+        expect(JSON.parse(localStorage.getItem('recentBoards:guest') ?? '[]')).toEqual(recentBoards.value)
     })
 
     it('trims and deduplicates added boards before saving', () => {
@@ -66,5 +70,40 @@ describe('useRecentBoards', () => {
                 visitedAt: '2026-05-24T00:00:00.000Z',
             },
         ])
+    })
+
+    it('removes the legacy singleton key instead of exposing it in a new session', () => {
+        localStorage.setItem('recentBoards', JSON.stringify([
+            { boardUrl: 'private', boardName: 'Private', visitedAt: '2026-05-23T00:00:00.000Z' },
+        ]))
+
+        const recent = useRecentBoards()
+
+        expect(localStorage.getItem('recentBoards')).toBeNull()
+        expect(recent.recentBoards.value).toEqual([])
+        recent.stopSessionWatch()
+    })
+
+    it('isolates guest and authenticated-user history at a session boundary', async () => {
+        localStorage.setItem('recentBoards:guest', JSON.stringify([
+            { boardUrl: 'guest', boardName: 'Guest', visitedAt: '2026-05-23T00:00:00.000Z' },
+        ]))
+        localStorage.setItem('recentBoards:user:7', JSON.stringify([
+            { boardUrl: 'private', boardName: 'Private', visitedAt: '2026-05-24T00:00:00.000Z' },
+        ]))
+        const authStore = useAuthStore()
+        const recent = useRecentBoards()
+
+        recent.refresh()
+        expect(recent.recentBoards.value.map(board => board.boardUrl)).toEqual(['guest'])
+
+        authStore.setTokens('token')
+        await nextTick()
+        expect(recent.recentBoards.value).toEqual([])
+        authStore.user = { userId: 7 } as never
+        await nextTick()
+
+        expect(recent.recentBoards.value.map(board => board.boardUrl)).toEqual(['private'])
+        recent.stopSessionWatch()
     })
 })

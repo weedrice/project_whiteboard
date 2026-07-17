@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import { useApiQuery } from '@/composables/useApiQuery'
 import { boardApi } from '@/api/board'
 import { useRecentBoards } from '@/features/board/recent/useRecentBoards'
@@ -11,12 +11,26 @@ const { recentBoards, removeRecentBoard, clearRecentBoards } = useRecentBoards()
 
 const hasBoards = computed(() => recentBoards.value.length > 0)
 const recentBoardUrls = computed(() => recentBoards.value.map(board => board.boardUrl))
-const { data: recentUpdates } = useApiQuery({
+const { data: recentUpdates, isSuccess: recentUpdatesLoaded } = useApiQuery({
     queryKey: computed(() => ['boards', 'recent-updates', recentBoardUrls.value]),
-    request: () => boardApi.getRecentBoardUpdates(recentBoardUrls.value),
+    request: ({ signal }) => boardApi.getRecentBoardUpdates(recentBoardUrls.value, { signal }),
     enabled: hasBoards,
     staleTime: 60_000,
+    meta: { authScoped: true },
 })
+const accessibleBoardUrls = computed(() => new Set((recentUpdates.value ?? []).map(update => update.boardUrl)))
+const verifiedRecentBoards = computed(() => recentUpdatesLoaded.value
+    ? recentBoards.value.filter(board => accessibleBoardUrls.value.has(board.boardUrl))
+    : [])
+const hasVerifiedBoards = computed(() => verifiedRecentBoards.value.length > 0)
+
+watch(recentUpdates, (updates) => {
+    if (!updates) return
+    const accessible = new Set(updates.map(update => update.boardUrl))
+    recentBoards.value
+        .filter(board => !accessible.has(board.boardUrl))
+        .forEach(board => removeRecentBoard(board.boardUrl))
+}, { immediate: true })
 const latestPostAtByBoardUrl = computed(() => new Map(
     (recentUpdates.value ?? []).map(update => [update.boardUrl, update.latestPostAt])
 ))
@@ -28,12 +42,12 @@ function hasNewPosts(boardUrl: string, visitedAt: string) {
 </script>
 
 <template>
-    <div v-if="hasBoards" class="recent-boards-bar">
+    <div v-if="hasVerifiedBoards" class="recent-boards-bar">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="recent-boards-inner">
                 <span class="recent-boards-label">{{ $t('layout.recentBoards.title') }}</span>
                 <div class="recent-boards-list">
-                    <div v-for="board in recentBoards" :key="board.boardUrl" class="recent-board-chip">
+                    <div v-for="board in verifiedRecentBoards" :key="board.boardUrl" class="recent-board-chip">
                         <router-link :to="`/board/${encodePathSegment(board.boardUrl)}`" class="recent-board-link">
                         <img v-if="board.iconUrl" :src="getOptimizedBoardIconUrl(board.iconUrl, 24)" loading="lazy" decoding="async"
                             class="recent-board-icon" alt="" @error="handleImageError($event)" />
@@ -51,7 +65,7 @@ function hasNewPosts(boardUrl: string, visitedAt: string) {
                         </button>
                     </div>
                 </div>
-                <button v-if="recentBoards.length > 1" type="button" class="recent-boards-clear" @click="clearRecentBoards">
+                <button v-if="verifiedRecentBoards.length > 1" type="button" class="recent-boards-clear" @click="clearRecentBoards">
                     {{ $t('layout.recentBoards.clear') }}
                 </button>
             </div>

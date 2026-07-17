@@ -1,10 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { mount, RouterLinkStub } from '@vue/test-utils'
+import { flushPromises, mount, RouterLinkStub } from '@vue/test-utils'
+import { ref } from 'vue'
+import { createPinia } from 'pinia'
 import RecentBoardsBar from '../RecentBoardsBar.vue'
 
+const recentUpdates = ref([{ boardUrl: 'free', latestPostAt: null }, { boardUrl: 'notice', latestPostAt: null }])
 vi.mock('@/composables/useApiQuery', () => ({
   useApiQuery: () => ({
-    data: { value: [] },
+    data: recentUpdates,
+    isSuccess: ref(true),
   }),
 }))
 
@@ -19,7 +23,7 @@ describe('RecentBoardsBar', () => {
   })
 
   it('labels the recent board remove button with the board name', () => {
-    localStorage.setItem('recentBoards', JSON.stringify([
+    localStorage.setItem('recentBoards:guest', JSON.stringify([
       {
         boardUrl: 'free',
         boardName: 'Free',
@@ -34,6 +38,7 @@ describe('RecentBoardsBar', () => {
 
     const wrapper = mount(RecentBoardsBar, {
       global: {
+        plugins: [createPinia()],
         stubs: {
           RouterLink: RouterLinkStub
         },
@@ -53,5 +58,26 @@ describe('RecentBoardsBar', () => {
     expect(wrapper.getComponent(RouterLinkStub).find('.recent-board-remove').exists()).toBe(false)
     expect(wrapper.getComponent(RouterLinkStub).classes()).toContain('recent-board-link')
     expect(wrapper.get('.recent-boards-clear').attributes('type')).toBe('button')
+  })
+
+  it('hides and removes boards the server does not return as accessible', async () => {
+    recentUpdates.value = [{ boardUrl: 'free', latestPostAt: null }]
+    localStorage.setItem('recentBoards:guest', JSON.stringify([
+      { boardUrl: 'free', boardName: 'Free', visitedAt: '2026-05-23T00:00:00.000Z' },
+      { boardUrl: 'private', boardName: 'Private', visitedAt: '2026-05-23T01:00:00.000Z' },
+    ]))
+
+    const wrapper = mount(RecentBoardsBar, {
+      global: {
+        plugins: [createPinia()],
+        stubs: { RouterLink: RouterLinkStub },
+        mocks: { $t: (key: string) => key },
+      },
+    })
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Free')
+    expect(wrapper.text()).not.toContain('Private')
+    expect(localStorage.getItem('recentBoards:guest')).not.toContain('private')
   })
 })

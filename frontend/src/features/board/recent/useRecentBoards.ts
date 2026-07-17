@@ -1,7 +1,8 @@
-import { ref } from 'vue'
+import { getCurrentScope, onScopeDispose, ref, watch } from 'vue'
 import { Storage } from '@/utils/storage'
+import { useAuthStore } from '@/stores/auth'
 
-const STORAGE_KEY = 'recentBoards'
+const STORAGE_KEY_PREFIX = 'recentBoards'
 const MAX_RECENT_BOARDS = 10
 
 export interface RecentBoard {
@@ -12,6 +13,7 @@ export interface RecentBoard {
 }
 
 const recentBoards = ref<RecentBoard[]>([])
+let activeStorageKey: string | null = null
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === 'object' && value !== null
@@ -64,11 +66,19 @@ export function normalizeRecentBoards(value: unknown): RecentBoard[] {
 }
 
 function saveToStorage() {
-    Storage.set(STORAGE_KEY, recentBoards.value)
+    if (activeStorageKey) {
+        Storage.set(activeStorageKey, recentBoards.value)
+    }
 }
 
-function loadFromStorage() {
-    const stored = Storage.get<unknown>(STORAGE_KEY, [])
+function loadFromStorage(storageKey: string | null) {
+    activeStorageKey = storageKey
+    if (!storageKey) {
+        recentBoards.value = []
+        return
+    }
+
+    const stored = Storage.get<unknown>(storageKey, [])
     const normalized = normalizeRecentBoards(stored)
     recentBoards.value = normalized
 
@@ -78,8 +88,23 @@ function loadFromStorage() {
 }
 
 export function useRecentBoards() {
-    if (recentBoards.value.length === 0) {
-        loadFromStorage()
+    const authStore = useAuthStore()
+    const resolveStorageKey = () => {
+        if (!authStore.isAuthenticated) return `${STORAGE_KEY_PREFIX}:guest`
+        if (authStore.user?.userId != null) return `${STORAGE_KEY_PREFIX}:user:${authStore.user.userId}`
+        return null
+    }
+
+    // The former singleton key can contain another account's private board metadata.
+    Storage.remove(STORAGE_KEY_PREFIX)
+    loadFromStorage(resolveStorageKey())
+    const stopSessionWatch = watch(
+        () => [authStore.sessionGeneration, authStore.isAuthenticated, authStore.user?.userId] as const,
+        () => loadFromStorage(resolveStorageKey()),
+        { flush: 'sync' },
+    )
+    if (getCurrentScope()) {
+        onScopeDispose(stopSessionWatch)
     }
 
     function addRecentBoard(board: { boardUrl: string; boardName: string; iconUrl?: string }) {
@@ -103,11 +128,13 @@ export function useRecentBoards() {
 
     function clearRecentBoards() {
         recentBoards.value = []
-        Storage.remove(STORAGE_KEY)
+        if (activeStorageKey) {
+            Storage.remove(activeStorageKey)
+        }
     }
 
     function refresh() {
-        loadFromStorage()
+        loadFromStorage(resolveStorageKey())
     }
 
     return {
@@ -116,5 +143,6 @@ export function useRecentBoards() {
         removeRecentBoard,
         clearRecentBoards,
         refresh,
+        stopSessionWatch,
     }
 }
