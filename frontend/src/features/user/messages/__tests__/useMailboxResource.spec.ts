@@ -1,4 +1,6 @@
 import { defineComponent, nextTick } from 'vue'
+import { createPinia, setActivePinia } from 'pinia'
+import { useAuthStore } from '@/stores/auth'
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { BLOCKED_BY_USER_CODE, messageApi } from '@/api/message'
@@ -14,6 +16,8 @@ const mocks = vi.hoisted(() => ({
     confirm: vi.fn(),
     sendReply: vi.fn(),
     resetReplyContent: vi.fn(),
+    resetMailboxState: vi.fn(),
+    messageSubmitOnSuccess: undefined as (() => void) | undefined,
     listState: {
         viewType: { value: 'received' as 'conversations' | 'received' | 'sent' },
         messages: { value: [] as MailboxMessageViewModel[] },
@@ -56,16 +60,20 @@ vi.mock('@/features/user/messages/useMailboxListState', () => ({
         handleSizeChange: vi.fn(),
         changeViewType: vi.fn(),
         markListMessageRead: mocks.markListMessageRead,
+        resetMailboxState: mocks.resetMailboxState,
     }),
 }))
 
 vi.mock('@/features/user/messages/useMessageSubmit', () => ({
-    useMessageSubmit: () => ({
+    useMessageSubmit: (options: { onSuccess?: () => void }) => {
+      mocks.messageSubmitOnSuccess = options.onSuccess
+      return {
         content: { value: '' },
         isSending: { value: false },
         send: mocks.sendReply,
         reset: mocks.resetReplyContent,
-    }),
+      }
+    },
 }))
 
 vi.mock('@/stores/toast', () => ({
@@ -116,9 +124,11 @@ function mountMailboxResource() {
 describe('useMailboxResource', () => {
     beforeEach(() => {
         vi.clearAllMocks()
+        setActivePinia(createPinia())
         mocks.confirm.mockResolvedValue(true)
         mocks.listState.viewType.value = 'received'
         mocks.listState.selectedMessages.value = [1]
+        mocks.messageSubmitOnSuccess = undefined
         vi.mocked(messageApi.markAsRead).mockResolvedValue(apiSuccessResponse<typeof messageApi.markAsRead>())
         vi.mocked(messageApi.deleteMessages).mockResolvedValue(apiSuccessResponse<typeof messageApi.deleteMessages>())
         vi.mocked(messageApi.getConversation).mockResolvedValue(apiSuccessDataResponse<typeof messageApi.getConversation>({
@@ -207,8 +217,59 @@ describe('useMailboxResource', () => {
         await resource.deleteSelectedMessages()
 
         expect(mocks.confirm).toHaveBeenCalledWith('common.messages.confirmDelete')
-        expect(messageApi.deleteMessages).toHaveBeenCalledWith([1])
+        expect(messageApi.deleteMessages).toHaveBeenCalledWith([1], expect.objectContaining({
+            signal: expect.any(AbortSignal),
+            skipGlobalErrorHandler: true,
+        }))
         expect(mocks.toastAdd).toHaveBeenCalledWith('common.messages.deleteSuccess', 'success')
         expect(mocks.fetchMessages).toHaveBeenCalledTimes(2)
+    })
+
+    it('aborts and clears manual mailbox state when the session generation changes', async () => {
+        const pending = createDeferred<Awaited<ReturnType<typeof messageApi.getMessage>>>()
+        vi.mocked(messageApi.getMessage).mockReturnValueOnce(pending.promise)
+        const { resource } = mountMailboxResource()
+        const open = resource.openMessage(message(5))
+        const signal = vi.mocked(messageApi.getMessage).mock.calls[0][1]?.signal
+
+        useAuthStore().setTokens('new-session-token')
+        await nextTick()
+
+        expect(signal?.aborted).toBe(true)
+        expect(resource.selectedMessage.value).toBeNull()
+        expect(resource.selectedConversationMessages.value).toEqual([])
+        expect(mocks.resetMailboxState).toHaveBeenCalled()
+        expect(mocks.resetReplyContent).toHaveBeenCalled()
+
+        pending.resolve(apiSuccessDataResponse<typeof messageApi.getMessage>(detailDto(5)))
+        await open
+        expect(resource.selectedMessage.value).toBeNull()
+    })
+
+    it('aborts and discards a reply refresh from the previous session', async () => {
+        const pending = createDeferred<Awaited<ReturnType<typeof messageApi.getConversation>>>()
+        vi.mocked(messageApi.getConversation).mockReturnValueOnce(pending.promise)
+        const { resource } = mountMailboxResource()
+        resource.startReply(message(6))
+
+        mocks.messageSubmitOnSuccess?.()
+        const signal = vi.mocked(messageApi.getConversation).mock.calls[0][2]?.signal
+        useAuthStore().setTokens('next-session-token')
+        await nextTick()
+
+        expect(signal?.aborted).toBe(true)
+        pending.resolve(apiSuccessDataResponse<typeof messageApi.getConversation>({
+            content: [detailDto(6)],
+            page: 0,
+            size: 50,
+            totalElements: 1,
+            totalPages: 1,
+            hasNext: false,
+            hasPrevious: false,
+        }))
+        await flushPromises()
+
+        expect(resource.selectedConversationMessages.value).toEqual([])
+        expect(resource.replyTarget.value).toBeNull()
     })
 })

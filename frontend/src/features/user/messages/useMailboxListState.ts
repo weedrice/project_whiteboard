@@ -83,8 +83,15 @@ export function useMailboxListState() {
         }
     }
 
-    onUnmounted(() => {
+    function resetMailboxState() {
         messageListTask.reset()
+        messages.value = []
+        selectedMessages.value = []
+        totalPages.value = 0
+    }
+
+    onUnmounted(() => {
+        resetMailboxState()
     })
 
     return {
@@ -101,5 +108,6 @@ export function useMailboxListState() {
         handleSizeChange,
         changeViewType,
         markListMessageRead,
+        resetMailboxState,
     }
 }

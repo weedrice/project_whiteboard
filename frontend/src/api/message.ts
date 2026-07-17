@@ -28,7 +28,8 @@ export const messageApi = {
     markAsRead: (messageId: string | number, config?: AxiosRequestConfig) =>
         api.post<ApiResponse<void>>(`/messages/${encodePathSegment(messageId)}/read`, null, config),
     deleteMessage: (messageId: string | number) => api.delete<ApiResponse<void>>(`/messages/${encodePathSegment(messageId)}`),
-    deleteMessages: (messageIds: (string | number)[]) => api.delete<ApiResponse<void>>('/messages', { data: messageIds }),
+    deleteMessages: (messageIds: (string | number)[], config?: AxiosRequestConfig) =>
+        api.delete<ApiResponse<void>>('/messages', { ...config, data: messageIds }),
 }
 
 export { BLOCKED_BY_USER_CODE }

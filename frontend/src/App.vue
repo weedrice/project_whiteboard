@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, defineAsyncComponent, onMounted, onUnmounted } from 'vue'
-import { RouterView, useRoute } from 'vue-router'
+import { computed, defineAsyncComponent, onMounted, onUnmounted, watch } from 'vue'
+import { RouterView, useRoute, useRouter } from 'vue-router'
 import { useQueryClient } from '@tanstack/vue-query'
 import { registerAuthStorageSync, useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
@@ -15,6 +15,7 @@ import { useAppSearchShortcut } from '@/composables/useAppSearchShortcut'
 import { useAppSeo } from '@/composables/useAppSeo'
 import { useAppUserSettingsSync } from '@/features/user/settings/useAppUserSettingsSync'
 import { useRouteFocusManagement } from '@/composables/useRouteFocusManagement'
+import { shouldExitProtectedRouteAfterSessionLoss } from '@/utils/authRedirect'
 
 // Import layouts
 import DefaultLayout from '@/components/layout/DefaultLayout.vue'
@@ -22,6 +23,7 @@ import DefaultLayout from '@/components/layout/DefaultLayout.vue'
 const AdminLayout = defineAsyncComponent(() => import('@/views/admin/AdminLayout.vue'))
 
 const route = useRoute()
+const router = useRouter()
 const authStore = useAuthStore()
 const { t } = useI18n()
 const queryClient = useQueryClient()
@@ -38,6 +40,15 @@ useAppSeo(route, t)
 useAppSearchShortcut(route, t)
 const { loadSettings } = useAppUserSettingsSync(authStore, themeStore, queryClient)
 const { routeAnnouncement } = useRouteFocusManagement(route)
+
+watch(
+    () => authStore.isAuthenticated,
+    (isAuthenticated, wasAuthenticated) => {
+        if (shouldExitProtectedRouteAfterSessionLoss(isAuthenticated, wasAuthenticated, route.meta.requiresAuth)) {
+            void router.replace({ name: 'login', query: { redirect: route.fullPath } })
+        }
+    },
+)
 
 onMounted(() => {
     stopAuthStorageSync = registerAuthStorageSync(authStore)

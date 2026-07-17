@@ -31,6 +31,7 @@ const PRIVATE_USER_SEGMENTS = new Set([
 export const AUTH_SCOPED_QUERY_META = { authScoped: true } as const
 
 let resolveSessionGeneration = () => 0
+const sessionBoundaryListeners = new Set<(generation: number) => void>()
 
 export function configureAuthQueryScope(resolver: () => number) {
   resolveSessionGeneration = resolver
@@ -38,6 +39,15 @@ export function configureAuthQueryScope(resolver: () => number) {
 
 export function getCurrentSessionGeneration() {
   return resolveSessionGeneration()
+}
+
+export function notifyAuthSessionBoundary(generation: number) {
+  sessionBoundaryListeners.forEach((listener) => listener(generation))
+}
+
+export function subscribeAuthSessionBoundary(listener: (generation: number) => void) {
+  sessionBoundaryListeners.add(listener)
+  return () => sessionBoundaryListeners.delete(listener)
 }
 
 export interface SessionGenerationSource {

@@ -7,6 +7,7 @@ import { useConfirm } from '@/composables/useConfirm'
 import { useMailboxListState } from '@/features/user/messages/useMailboxListState'
 import { useMessageSubmit } from '@/features/user/messages/useMessageSubmit'
 import { useToastStore } from '@/stores/toast'
+import { useAuthStore } from '@/stores/auth'
 import type { MailboxMessageViewModel } from '@/types'
 import { extractErrorResponse } from '@/utils/errorHandler'
 import { markMailboxMessageRead, toMailboxMessageViewModel } from '@/features/user/messages/messageViewModel'
@@ -17,6 +18,7 @@ const NOT_FOUND_CODE = 'C006'
 export function useMailboxResource() {
     const { t } = useI18n()
     const toastStore = useToastStore()
+    const authStore = useAuthStore()
     const { confirm } = useConfirm()
 
     const {
@@ -33,6 +35,7 @@ export function useMailboxResource() {
         handleSizeChange,
         changeViewType,
         markListMessageRead,
+        resetMailboxState,
     } = useMailboxListState()
     const selectedMessage = ref<MailboxMessageViewModel | null>(null)
     const selectedConversationMessages = ref<MailboxMessageViewModel[]>([])
@@ -55,6 +58,9 @@ export function useMailboxResource() {
     const messageFromBlockedUser = ref(false)
     let messageDetailRequestId = 0
     let messageDetailAbortController: AbortController | null = null
+    let conversationRefreshRequestId = 0
+    let conversationRefreshAbortController: AbortController | null = null
+    let deleteRequestAbortController: AbortController | null = null
     const markAsReadAbortControllers = new Set<AbortController>()
 
     function abortMessageDetailRequest() {
@@ -65,6 +71,17 @@ export function useMailboxResource() {
     function abortMarkAsReadRequests() {
         markAsReadAbortControllers.forEach((controller) => controller.abort())
         markAsReadAbortControllers.clear()
+    }
+
+    function abortConversationRefresh() {
+        conversationRefreshRequestId++
+        conversationRefreshAbortController?.abort()
+        conversationRefreshAbortController = null
+    }
+
+    function abortDeleteRequest() {
+        deleteRequestAbortController?.abort()
+        deleteRequestAbortController = null
     }
 
     function isStaleMessageDetail(requestId: number, messageId: number) {
@@ -185,15 +202,30 @@ export function useMailboxResource() {
         const partnerId = replyTarget.value?.partnerUserId ?? selectedMessage.value?.partnerUserId
         if (partnerId == null) return
 
+        abortConversationRefresh()
+        const requestId = conversationRefreshRequestId
+        const generation = authStore.sessionGeneration
         const controller = new AbortController()
+        conversationRefreshAbortController = controller
         try {
             const conversation = await loadConversationMessages(partnerId, controller)
+            if (
+                controller.signal.aborted
+                || requestId !== conversationRefreshRequestId
+                || generation !== authStore.sessionGeneration
+            ) return
             selectedConversationMessages.value = conversation
             await fetchMessages()
         } catch (error) {
+            if (controller.signal.aborted || generation !== authStore.sessionGeneration) return
             logger.error('Failed to refresh message conversation:', error)
         } finally {
-            replyTarget.value = selectedMessage.value
+            if (conversationRefreshAbortController === controller) {
+                conversationRefreshAbortController = null
+            }
+            if (requestId === conversationRefreshRequestId && generation === authStore.sessionGeneration) {
+                replyTarget.value = selectedMessage.value
+            }
         }
     }
 
@@ -225,17 +257,30 @@ export function useMailboxResource() {
     }
 
     async function deleteSelectedMessages() {
+        const generation = authStore.sessionGeneration
         const isConfirmed = await confirm(t('common.messages.confirmDelete'))
-        if (!isConfirmed) return
+        if (!isConfirmed || generation !== authStore.sessionGeneration) return
+        abortDeleteRequest()
+        const controller = new AbortController()
+        deleteRequestAbortController = controller
         try {
-            const { data } = await messageApi.deleteMessages(selectedMessages.value)
+            const { data } = await messageApi.deleteMessages([...selectedMessages.value], {
+                skipGlobalErrorHandler: true,
+                signal: controller.signal,
+            })
+            if (controller.signal.aborted || generation !== authStore.sessionGeneration) return
             if (data.success) {
                 toastStore.addToast(t('common.messages.deleteSuccess'), 'success')
                 await fetchMessages()
             }
         } catch (error) {
+            if (controller.signal.aborted || generation !== authStore.sessionGeneration) return
             logger.error('Failed to delete messages:', error)
             toastStore.addToast(t('common.messages.deleteFailed'), 'error')
+        } finally {
+            if (deleteRequestAbortController === controller) {
+                deleteRequestAbortController = null
+            }
         }
     }
 
@@ -267,6 +312,23 @@ export function useMailboxResource() {
         }
     })
 
+    watch(
+        () => authStore.sessionGeneration,
+        () => {
+            messageDetailRequestId++
+            abortMessageDetailRequest()
+            abortMarkAsReadRequests()
+            abortConversationRefresh()
+            abortDeleteRequest()
+            resetMailboxState()
+            selectedMessage.value = null
+            selectedConversationMessages.value = []
+            selectedMessages.value = []
+            replyTarget.value = null
+            resetReplyContent()
+        },
+    )
+
     onMounted(() => {
         fetchMessages()
     })
@@ -275,6 +337,8 @@ export function useMailboxResource() {
         messageDetailRequestId++
         abortMessageDetailRequest()
         abortMarkAsReadRequests()
+        abortConversationRefresh()
+        abortDeleteRequest()
     })
 
     return {

@@ -28,6 +28,14 @@ export function resolveLoginRedirect(queryRedirect: unknown, fallback = '/'): st
   return getStoredLoginRedirect() ?? fallback
 }
 
+export function shouldExitProtectedRouteAfterSessionLoss(
+  isAuthenticated: boolean,
+  wasAuthenticated: boolean | undefined,
+  requiresAuth: boolean | undefined,
+): boolean {
+  return wasAuthenticated === true && !isAuthenticated && requiresAuth === true
+}
+
 interface DeletedAccountRedirectOptions {
   email: string
   t: (key: string) => string

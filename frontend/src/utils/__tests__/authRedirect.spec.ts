@@ -8,7 +8,8 @@ import {
   isSafeRedirect,
   LOGIN_REDIRECT_KEY,
   resolveLoginRedirect,
-  saveLoginRedirect
+  saveLoginRedirect,
+  shouldExitProtectedRouteAfterSessionLoss,
 } from '../authRedirect'
 
 describe('authRedirect', () => {
@@ -39,6 +40,13 @@ describe('authRedirect', () => {
 
     expect(resolveLoginRedirect('/query')).toBe('/query')
     expect(resolveLoginRedirect('//evil.example')).toBe('/stored')
+  })
+
+  it('exits a protected route only when an authenticated session is lost', () => {
+    expect(shouldExitProtectedRouteAfterSessionLoss(false, true, true)).toBe(true)
+    expect(shouldExitProtectedRouteAfterSessionLoss(false, undefined, true)).toBe(false)
+    expect(shouldExitProtectedRouteAfterSessionLoss(false, true, false)).toBe(false)
+    expect(shouldExitProtectedRouteAfterSessionLoss(true, true, true)).toBe(false)
   })
 
   it('builds the deleted-account signup redirect with a trimmed encoded email', () => {

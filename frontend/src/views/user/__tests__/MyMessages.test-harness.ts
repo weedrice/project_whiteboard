@@ -34,6 +34,12 @@ vi.mock('@/stores/toast', () => ({
     }),
 }))
 
+vi.mock('@/stores/auth', () => ({
+    useAuthStore: () => ({
+        sessionGeneration: 0,
+    }),
+}))
+
 vi.mock('@/composables/useConfirm', () => ({
     useConfirm: () => ({
         confirm: vi.fn().mockResolvedValue(true),
