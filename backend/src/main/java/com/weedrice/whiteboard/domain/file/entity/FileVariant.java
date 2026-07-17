@@ -19,6 +19,8 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
+
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
@@ -65,6 +67,15 @@ public class FileVariant extends BaseTimeEntity {
     @Column(name = "storage_status", length = 30, nullable = false)
     private FileStorageStatus storageStatus;
 
+    @Column(name = "cleanup_retry_count", nullable = false)
+    private Integer cleanupRetryCount;
+
+    @Column(name = "cleanup_next_attempt_at")
+    private LocalDateTime cleanupNextAttemptAt;
+
+    @Column(name = "cleanup_last_error", length = 100)
+    private String cleanupLastError;
+
     @Builder
     public FileVariant(
             File file,
@@ -83,6 +94,7 @@ public class FileVariant extends BaseTimeEntity {
         this.width = width;
         this.height = height;
         this.storageStatus = storageStatus == null ? FileStorageStatus.ACTIVE : storageStatus;
+        this.cleanupRetryCount = 0;
     }
 
     public void activate() {
@@ -91,5 +103,11 @@ public class FileVariant extends BaseTimeEntity {
 
     public void requestDeletion() {
         this.storageStatus = FileStorageStatus.PENDING_DELETE;
+    }
+
+    public void recordCleanupFailure(String error, LocalDateTime nextAttemptAt) {
+        cleanupRetryCount = cleanupRetryCount == null ? 1 : cleanupRetryCount + 1;
+        cleanupNextAttemptAt = nextAttemptAt;
+        cleanupLastError = error == null ? null : error.substring(0, Math.min(100, error.length()));
     }
 }

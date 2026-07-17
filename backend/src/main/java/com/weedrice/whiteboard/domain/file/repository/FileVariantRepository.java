@@ -30,12 +30,35 @@ public interface FileVariantRepository extends JpaRepository<FileVariant, Long> 
     @Query("""
             SELECT v.fileVariantId
             FROM FileVariant v
-            WHERE (v.storageStatus = com.weedrice.whiteboard.domain.file.entity.FileStorageStatus.PENDING_UPLOAD
+            WHERE ((v.storageStatus = com.weedrice.whiteboard.domain.file.entity.FileStorageStatus.PENDING_UPLOAD
                    AND v.createdAt < :cutoff)
-               OR v.storageStatus = com.weedrice.whiteboard.domain.file.entity.FileStorageStatus.PENDING_DELETE
-            ORDER BY v.createdAt ASC, v.fileVariantId ASC
+               OR v.storageStatus = com.weedrice.whiteboard.domain.file.entity.FileStorageStatus.PENDING_DELETE)
+              AND (v.cleanupNextAttemptAt IS NULL OR v.cleanupNextAttemptAt <= :now)
+              AND COALESCE(v.cleanupRetryCount, 0) < :maxRetryCount
+            ORDER BY COALESCE(v.cleanupNextAttemptAt, v.createdAt) ASC, v.fileVariantId ASC
             """)
-    List<Long> findCleanupCandidateIds(@Param("cutoff") LocalDateTime cutoff, Pageable pageable);
+    List<Long> findCleanupCandidateIds(
+            @Param("cutoff") LocalDateTime cutoff,
+            @Param("now") LocalDateTime now,
+            @Param("maxRetryCount") int maxRetryCount,
+            Pageable pageable);
+
+    @Query("""
+            SELECT COUNT(v) FROM FileVariant v
+            WHERE v.storageStatus = com.weedrice.whiteboard.domain.file.entity.FileStorageStatus.PENDING_DELETE
+              AND COALESCE(v.cleanupRetryCount, 0) >= :maxRetryCount
+            """)
+    long countCleanupDeadLetters(@Param("maxRetryCount") int maxRetryCount);
+
+    @Query("""
+            SELECT MIN(COALESCE(v.cleanupNextAttemptAt, v.createdAt)) FROM FileVariant v
+            WHERE ((v.storageStatus = com.weedrice.whiteboard.domain.file.entity.FileStorageStatus.PENDING_UPLOAD
+                    AND v.createdAt < :cutoff)
+                OR v.storageStatus = com.weedrice.whiteboard.domain.file.entity.FileStorageStatus.PENDING_DELETE)
+              AND COALESCE(v.cleanupRetryCount, 0) < :maxRetryCount
+            """)
+    Optional<LocalDateTime> findOldestCleanupDueAt(
+            @Param("cutoff") LocalDateTime cutoff, @Param("maxRetryCount") int maxRetryCount);
 
     List<FileVariant> findByFileFileId(Long fileId);
 

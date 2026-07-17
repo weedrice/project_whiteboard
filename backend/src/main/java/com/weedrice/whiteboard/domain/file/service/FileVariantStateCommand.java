@@ -50,14 +50,21 @@ class FileVariantStateCommand {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public FileVariantCleanupSnapshot claimCleanup(Long fileVariantId, LocalDateTime cutoff) {
+    public FileVariantCleanupSnapshot claimCleanup(
+            Long fileVariantId, LocalDateTime cutoff, LocalDateTime now, int maxRetryCount) {
         return fileVariantRepository.findByIdForUpdate(fileVariantId)
                 .filter(variant -> variant.getStorageStatus() == FileStorageStatus.PENDING_DELETE
                         || (variant.getStorageStatus() == FileStorageStatus.PENDING_UPLOAD
                         && variant.getCreatedAt().isBefore(cutoff)))
+                .filter(variant -> variant.getCleanupRetryCount() == null
+                        || variant.getCleanupRetryCount() < maxRetryCount)
+                .filter(variant -> variant.getCleanupNextAttemptAt() == null
+                        || !variant.getCleanupNextAttemptAt().isAfter(now))
                 .map(variant -> {
                     variant.requestDeletion();
-                    return new FileVariantCleanupSnapshot(variant.getFileVariantId(), variant.getFilePath());
+                    return new FileVariantCleanupSnapshot(
+                            variant.getFileVariantId(), variant.getFilePath(),
+                            variant.getCleanupRetryCount() == null ? 0 : variant.getCleanupRetryCount());
                 })
                 .orElse(null);
     }
@@ -69,6 +76,13 @@ class FileVariantStateCommand {
                 .ifPresent(fileVariantRepository::delete);
     }
 
-    record FileVariantCleanupSnapshot(Long fileVariantId, String filePath) {
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void recordCleanupFailure(Long fileVariantId, String error, LocalDateTime nextAttemptAt) {
+        fileVariantRepository.findByIdForUpdate(fileVariantId)
+                .filter(variant -> variant.getStorageStatus() == FileStorageStatus.PENDING_DELETE)
+                .ifPresent(variant -> variant.recordCleanupFailure(error, nextAttemptAt));
+    }
+
+    record FileVariantCleanupSnapshot(Long fileVariantId, String filePath, int retryCount) {
     }
 }

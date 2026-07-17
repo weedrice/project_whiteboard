@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import com.weedrice.whiteboard.domain.file.service.FileUploadValidationPolicy.ValidatedUpload;
 
@@ -25,6 +26,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Locale;
 import java.util.Iterator;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 @Slf4j
 @Component
@@ -39,56 +42,68 @@ class FileImageVariantGenerator {
     private final FileStorageService fileStorageService;
     private final FileVariantRepository fileVariantRepository;
     private final FileVariantStateCommand stateCommand;
+    private final FileUploadValidationPolicy validationPolicy;
 
     public void generateVariants(File originalFile, MultipartFile multipartFile, ValidatedUpload upload) {
         if (!isResizableMimeType(upload.detectedMimeType()) || originalFile.getFileId() == null) {
             return;
         }
-
         try {
-            for (FileVariantType variantType : FileVariantType.values()) {
-                generateVariant(originalFile, multipartFile, upload, variantType);
-            }
+            generateVariantsOrThrow(originalFile, multipartFile, upload);
         } catch (IOException | RuntimeException e) {
             log.warn("Failed to generate image variants. fileId={}", originalFile.getFileId(), e);
         }
     }
 
-    private void generateVariant(
+    public int generateMissingVariants(File originalFile) {
+        MultipartFile storedFile = new StoredMultipartFile(originalFile, fileStorageService);
+        try {
+            return generateVariantsOrThrow(originalFile, storedFile, validationPolicy.validate(storedFile));
+        } catch (IOException exception) {
+            throw new IllegalStateException("Failed to regenerate image variants", exception);
+        }
+    }
+
+    private int generateVariantsOrThrow(
+            File originalFile, MultipartFile multipartFile, ValidatedUpload upload) throws IOException {
+        int generated = 0;
+        for (FileVariantType variantType : FileVariantType.values()) {
+            if (generateVariant(originalFile, multipartFile, upload, variantType)) {
+                generated++;
+            }
+        }
+        return generated;
+    }
+
+    private boolean generateVariant(
             File originalFile,
             MultipartFile multipartFile,
             ValidatedUpload upload,
             FileVariantType variantType) throws IOException {
         if (fileVariantRepository.findByFileFileIdAndVariantType(originalFile.getFileId(), variantType).isPresent()) {
-            return;
+            return false;
         }
-
-        ImageSize targetSize = resolveTargetSize(
-                upload.width(),
-                upload.height(),
-                variantType.getMaxDimension());
+        ImageSize targetSize = resolveTargetSize(upload.width(), upload.height(), variantType.getMaxDimension());
         if (!targetSize.shouldResize()) {
-            return;
+            return false;
         }
-
         BufferedImage decodedImage = readSubsampled(multipartFile, upload, variantType.getMaxDimension());
         BufferedImage resizedImage = decodedImage.getWidth() == targetSize.width()
-                && decodedImage.getHeight() == targetSize.height()
-                ? decodedImage
-                : resize(decodedImage, targetSize);
+                && decodedImage.getHeight() == targetSize.height() ? decodedImage : resize(decodedImage, targetSize);
         byte[] contents = encodeWebp(resizedImage);
         String filePath = buildVariantFilePath(originalFile.getFileId(), variantType);
-        FileVariant pendingVariant = stateCommand.createPending(
-                originalFile,
-                variantType,
-                filePath,
-                contents.length,
-                WEBP_MIME_TYPE,
-                targetSize.width(),
-                targetSize.height());
+        FileVariant pendingVariant;
+        try {
+            pendingVariant = stateCommand.createPending(
+                    originalFile, variantType, filePath, contents.length, WEBP_MIME_TYPE,
+                    targetSize.width(), targetSize.height());
+        } catch (DataIntegrityViolationException duplicate) {
+            return false;
+        }
         try {
             fileStorageService.storeBytesAs(contents, WEBP_MIME_TYPE, filePath);
             stateCommand.activate(pendingVariant.getFileVariantId());
+            return true;
         } catch (RuntimeException e) {
             fileStorageService.deleteFile(filePath);
             throw e;
@@ -181,5 +196,23 @@ class FileImageVariantGenerator {
     }
 
     private record ImageSize(int width, int height, boolean shouldResize) {
+    }
+
+    private record StoredMultipartFile(File file, FileStorageService storageService) implements MultipartFile {
+        @Override public String getName() { return "file"; }
+        @Override public String getOriginalFilename() { return file.getOriginalName(); }
+        @Override public String getContentType() { return file.getMimeType(); }
+        @Override public boolean isEmpty() { return file.getFileSize() == null || file.getFileSize() == 0; }
+        @Override public long getSize() { return file.getFileSize() == null ? 0 : file.getFileSize(); }
+        @Override public byte[] getBytes() throws IOException {
+            try (InputStream input = getInputStream()) { return input.readAllBytes(); }
+        }
+        @Override public InputStream getInputStream() { return storageService.loadFile(file.getFilePath()); }
+        @Override public void transferTo(java.io.File destination) throws IOException {
+            try (InputStream input = getInputStream()) { Files.copy(input, destination.toPath()); }
+        }
+        @Override public void transferTo(Path destination) throws IOException {
+            try (InputStream input = getInputStream()) { Files.copy(input, destination); }
+        }
     }
 }

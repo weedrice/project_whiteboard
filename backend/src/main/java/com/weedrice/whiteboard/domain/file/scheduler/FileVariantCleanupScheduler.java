@@ -16,8 +16,12 @@ public class FileVariantCleanupScheduler {
     @Scheduled(cron = "0 20 * * * ?")
     public void cleanupStaleVariants() {
         int deleted = cleanupWorker.cleanupStaleVariants();
+        int reconciled = cleanupWorker.reconcileMissingVariants();
         if (deleted > 0) {
             log.info("Cleaned {} stale image variant(s)", deleted);
+        }
+        if (reconciled > 0) {
+            log.info("Reconciled {} image file variant set(s)", reconciled);
         }
     }
 }

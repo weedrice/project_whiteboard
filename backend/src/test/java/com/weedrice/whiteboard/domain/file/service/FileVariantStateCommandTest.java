@@ -45,10 +45,23 @@ class FileVariantStateCommandTest {
 
         FileVariantStateCommand.FileVariantCleanupSnapshot snapshot = command.claimCleanup(
                 3L,
-                createdAt.plusHours(2));
+                createdAt.plusHours(2),
+                createdAt.plusHours(3),
+                10);
 
         assertThat(snapshot.filePath()).isEqualTo("variants/1/thumbnail.webp");
         assertThat(variant.getStorageStatus()).isEqualTo(FileStorageStatus.PENDING_DELETE);
+    }
+
+    @Test
+    void claimCleanup_rechecksBackoffAfterLockAndRejectsStaleCandidate() {
+        FileVariant variant = variant(FileStorageStatus.PENDING_DELETE);
+        LocalDateTime now = LocalDateTime.of(2026, 7, 17, 3, 0);
+        variant.recordCleanupFailure("failure", now.plusMinutes(10));
+        when(repository.findByIdForUpdate(3L)).thenReturn(Optional.of(variant));
+        FileVariantStateCommand command = new FileVariantStateCommand(repository);
+
+        assertThat(command.claimCleanup(3L, now.minusHours(2), now, 10)).isNull();
     }
 
     @Test

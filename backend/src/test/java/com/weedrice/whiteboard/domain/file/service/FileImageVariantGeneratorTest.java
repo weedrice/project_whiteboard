@@ -48,7 +48,7 @@ class FileImageVariantGeneratorTest {
                 org.mockito.ArgumentMatchers.anyInt(), org.mockito.ArgumentMatchers.anyInt()))
                 .thenReturn(pendingVariant(1L), pendingVariant(2L));
         FileImageVariantGenerator generator = new FileImageVariantGenerator(
-                fileStorageService, fileVariantRepository, stateCommand);
+                fileStorageService, fileVariantRepository, stateCommand, new FileUploadValidationPolicy());
 
         generator.generateVariants(file, multipartFile, validated("image/jpeg", 1600, 800));
 
@@ -72,7 +72,7 @@ class FileImageVariantGeneratorTest {
         File file = imageFile(11L);
         MockMultipartFile multipartFile = jpegFile("small.jpg", 100, 80);
         FileImageVariantGenerator generator = new FileImageVariantGenerator(
-                fileStorageService, fileVariantRepository, stateCommand);
+                fileStorageService, fileVariantRepository, stateCommand, new FileUploadValidationPolicy());
 
         generator.generateVariants(file, multipartFile, validated("image/jpeg", 100, 80));
         generator.generateVariants(file, multipartFile, validated("image/gif", 100, 80));

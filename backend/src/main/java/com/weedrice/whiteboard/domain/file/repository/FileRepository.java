@@ -15,6 +15,16 @@ import java.util.List;
 import java.util.Optional;
 
 public interface FileRepository extends JpaRepository<File, Long> {
+    @Query("""
+            SELECT f FROM File f
+            WHERE f.fileId > :afterId
+              AND f.storageStatus = com.weedrice.whiteboard.domain.file.entity.FileStorageStatus.ACTIVE
+              AND f.mimeType IN ('image/jpeg', 'image/png', 'image/webp')
+              AND (SELECT COUNT(v) FROM FileVariant v WHERE v.file = f) < 2
+            ORDER BY f.fileId
+            """)
+    List<File> findActiveImagesMissingVariantsAfter(@Param("afterId") Long afterId, Pageable pageable);
+
     interface FileCleanupCandidateProjection {
         Long getFileId();
 
