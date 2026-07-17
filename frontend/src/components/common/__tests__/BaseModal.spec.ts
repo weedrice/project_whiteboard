@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { defineComponent, h, nextTick } from 'vue'
+import { defineComponent, h, nextTick, ref } from 'vue'
 import { mount, type VueWrapper } from '@vue/test-utils'
 import BaseModal from '../ui/BaseModal.vue'
 
@@ -189,5 +189,76 @@ describe('BaseModal', () => {
 
         expect(first.emitted('close')).toBeUndefined()
         expect(second.emitted('close')).toHaveLength(1)
+    })
+
+    it('exposes and traps focus only in the topmost nested modal', async () => {
+        const trigger = document.createElement('button')
+        trigger.textContent = 'Open first modal'
+        document.body.appendChild(trigger)
+        trigger.focus()
+        const host = document.createElement('div')
+        document.body.appendChild(host)
+        const firstOpen = ref(true)
+        const secondOpen = ref(false)
+        const NestedModalHarness = defineComponent({
+            components: { BaseModal },
+            setup() {
+                return { firstOpen, secondOpen }
+            },
+            template: `
+                <div>
+                    <BaseModal :is-open="firstOpen" title="First modal">
+                        <button type="button">First action</button>
+                        <button type="button">Second parent action</button>
+                    </BaseModal>
+                    <BaseModal :is-open="secondOpen" title="Second modal">
+                        <button type="button">Second action</button>
+                    </BaseModal>
+                </div>
+            `,
+        })
+        const wrapper = track(mount(NestedModalHarness, {
+            attachTo: host,
+            global: {
+                mocks: { $t: (key: string) => key },
+                stubs: { BaseButton: BaseButtonStub },
+            },
+        }))
+
+        await nextTick()
+        await nextTick()
+        const getDialogs = () => Array.from(document.body.querySelectorAll<HTMLElement>('[role="dialog"]'))
+        expect(document.activeElement).toBe(getDialogs()[0].querySelector('.modal-header button'))
+
+        const secondParentAction = getDialogs()[0].querySelectorAll<HTMLButtonElement>('.modal-body button')[1]
+        secondParentAction.focus()
+        expect(document.activeElement).toBe(secondParentAction)
+
+        secondOpen.value = true
+        await nextTick()
+        await nextTick()
+        const [firstDialog, secondDialog] = getDialogs()
+        expect(firstDialog.getAttribute('aria-modal')).toBeNull()
+        expect(firstDialog.getAttribute('aria-hidden')).toBe('true')
+        expect(firstDialog.hasAttribute('inert')).toBe(true)
+        expect(secondDialog.getAttribute('aria-modal')).toBe('true')
+        expect(secondDialog.getAttribute('aria-hidden')).toBeNull()
+        expect(document.activeElement).toBe(secondDialog.querySelector('.modal-header button'))
+
+        secondOpen.value = false
+        await nextTick()
+        await nextTick()
+        expect(document.activeElement).toBe(secondParentAction)
+        expect(getDialogs()[0].getAttribute('aria-modal')).toBe('true')
+
+        firstOpen.value = false
+        await nextTick()
+        await nextTick()
+        expect(document.activeElement).toBe(trigger)
+
+        wrapper.unmount()
+        mountedWrappers.splice(0)
+        host.remove()
+        trigger.remove()
     })
 })

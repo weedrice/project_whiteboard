@@ -1,7 +1,9 @@
 <template>
   <Teleport to="body">
-    <div v-if="isOpen" class="modal-overlay" :style="{ zIndex: String(zIndex) }" @click.self="handleBackdropClick" role="dialog" aria-modal="true"
-      :aria-labelledby="titleId" :aria-describedby="description ? descriptionId : undefined">
+    <div v-if="isOpen" class="modal-overlay" :style="{ zIndex: String(zIndex) }" @click.self="handleBackdropClick"
+      @focusin="rememberFocus" @focusout="rememberFocus" role="dialog"
+      :aria-modal="isTopModal ? 'true' : undefined" :aria-hidden="isTopModal ? undefined : 'true'"
+      :inert="isTopModal ? undefined : true" :aria-labelledby="titleId" :aria-describedby="description ? descriptionId : undefined">
       <div :class="['modal-container', sizeClass, { 'modal-container-mobile-full': mobileFull && !mobileFitContent, 'modal-container-mobile-fit': mobileFitContent }]" ref="modalRef">
         <!-- Modal content -->
         <div class="modal-content">
@@ -42,7 +44,10 @@
 </template>
 
 <script lang="ts">
-const modalStack: symbol[] = []
+import { shallowReactive } from 'vue'
+
+const modalStack = shallowReactive<symbol[]>([])
+const modalFocusTargets = new Map<symbol, HTMLElement>()
 
 function registerOpenModal(modalId: symbol) {
   if (!modalStack.includes(modalId)) {
@@ -55,6 +60,7 @@ function unregisterOpenModal(modalId: symbol) {
   if (index !== -1) {
     modalStack.splice(index, 1)
   }
+  modalFocusTargets.delete(modalId)
 }
 
 function isTopOpenModal(modalId: symbol) {
@@ -134,7 +140,9 @@ const modalId = useId()
 const modalStackId = Symbol(`base-modal-${modalId}`)
 const titleId = `${modalId}-title`
 const descriptionId = `${modalId}-description`
-const { trapFocus, restoreFocus } = useFocusTrap(modalRef, () => props.isOpen)
+const isTopModal = computed(() => props.isOpen && isTopOpenModal(modalStackId))
+const { trapFocus } = useFocusTrap(modalRef, () => isTopModal.value)
+let returnFocusElement: HTMLElement | null = null
 useBodyScrollLock(toRef(props, 'isOpen'))
 
 const close = () => {
@@ -142,7 +150,7 @@ const close = () => {
 }
 
 const handleBackdropClick = () => {
-  if (props.closeOnBackdrop) {
+  if (props.closeOnBackdrop && isTopModal.value) {
     close()
   }
 }
@@ -153,25 +161,86 @@ const handleKeyDown = (event: KeyboardEvent) => {
   }
 }
 
+const rememberFocus = (event: FocusEvent) => {
+  if (
+    event.target instanceof HTMLElement
+    && modalRef.value?.contains(event.target)
+  ) {
+    modalFocusTargets.set(modalStackId, event.target)
+  }
+}
+
+const restoreReturnFocus = () => {
+  const target = returnFocusElement
+  returnFocusElement = null
+  if (!target) return
+  void nextTick(() => target.focus())
+}
+
+const focusTopModal = () => {
+  void nextTick(() => {
+    if (!isTopModal.value) return
+    const rememberedFocus = modalFocusTargets.get(modalStackId)
+    if (rememberedFocus?.isConnected) {
+      rememberedFocus.focus()
+      return
+    }
+    trapFocus()
+    if (document.activeElement instanceof HTMLElement) {
+      modalFocusTargets.set(modalStackId, document.activeElement)
+    }
+  })
+}
+
 // Focus management
 watch(() => props.isOpen, (isOpen) => {
   if (isOpen) {
+    const parentModalId = modalStack[modalStack.length - 1]
+    const activeElement = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null
+    const activeParentFocus = parentModalId && activeElement?.closest('[role="dialog"]')
+      ? activeElement
+      : null
+    if (parentModalId && activeParentFocus) {
+      modalFocusTargets.set(parentModalId, activeParentFocus)
+    }
+    returnFocusElement = (
+      activeParentFocus
+      ?? (parentModalId ? modalFocusTargets.get(parentModalId) : null)
+      ?? activeElement
+    )
     registerOpenModal(modalStackId)
-    nextTick(() => {
-      if (!props.isOpen) return
-      trapFocus()
-    })
+    focusTopModal()
   } else {
+    const wasTopModal = isTopOpenModal(modalStackId)
     unregisterOpenModal(modalStackId)
-    restoreFocus()
+    if (wasTopModal && modalStack.length === 0) restoreReturnFocus()
+    else returnFocusElement = null
   }
-}, { immediate: true })
+}, { immediate: true, flush: 'sync' })
+
+watch(isTopModal, (isTop, wasTop) => {
+  if (
+    !isTop
+    && wasTop
+    && document.activeElement instanceof HTMLElement
+    && modalRef.value?.contains(document.activeElement)
+  ) {
+    modalFocusTargets.set(modalStackId, document.activeElement)
+  }
+  if (isTop && !wasTop) focusTopModal()
+}, { flush: 'sync' })
 
 useEventListener(() => document, 'keydown', handleKeyDown)
+useEventListener(() => document, 'focusin', rememberFocus)
+useEventListener(() => document, 'focusout', rememberFocus)
 
 onUnmounted(() => {
   // Ensure body scroll is restored
+  const wasTopModal = isTopOpenModal(modalStackId)
   unregisterOpenModal(modalStackId)
-  restoreFocus()
+  if (wasTopModal && modalStack.length === 0) restoreReturnFocus()
+  else returnFocusElement = null
 })
 </script>
