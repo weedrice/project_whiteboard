@@ -363,11 +363,11 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ApiResponse<Void>> handleOptimisticLockingFailure(
             ObjectOptimisticLockingFailureException e,
             HttpServletRequest request) {
-        String message = messageSource.getMessage(ErrorCode.DUPLICATE_RESOURCE.getMessage(), null,
+        String message = messageSource.getMessage(ErrorCode.CONCURRENT_MODIFICATION.getMessage(), null,
                 LocaleContextHolder.getLocale());
         log.warn("[{}] Concurrent entity update: {}", request.getRequestURI(), e.getPersistentClassName());
         return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(ApiResponse.error(ErrorCode.DUPLICATE_RESOURCE.getCode(), message));
+                .body(ApiResponse.error(ErrorCode.CONCURRENT_MODIFICATION.getCode(), message));
     }
 
     /**

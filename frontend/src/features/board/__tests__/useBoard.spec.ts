@@ -298,7 +298,7 @@ describe('useBoard', () => {
         const options = mocks.queryOptions.at(-1)!
         await (options.queryFn as () => Promise<unknown>)()
 
-        expect(options.meta).toEqual({ errorMessage: false })
+        expect(options.meta).toEqual({ errorMessage: false, authScoped: true })
         expect(boardApi.getPosts).toHaveBeenCalledWith(
             'free',
             { page: 0, size: 20, sort: 'createdAt,desc' },

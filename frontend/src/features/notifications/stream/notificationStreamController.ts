@@ -165,6 +165,9 @@ export function createNotificationStreamController(
                     signal,
                 })).accessToken
             }, { previousToken, signal: controller.signal })
+            if (controller.signal.aborted
+                || authStore.sessionGeneration !== generation
+                || authStore.accessToken !== previousToken) return
             const applied = authStore.applyTokenIfCurrent(generation, previousToken, refreshedAccessToken)
             if (!applied && (authStore.sessionGeneration !== generation || authStore.accessToken !== refreshedAccessToken)) return
             scheduleReconnect(RECONNECT_AFTER_REFRESH_DELAY_MS)

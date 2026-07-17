@@ -133,6 +133,69 @@ describe('useUserSettingsForm', () => {
     expect(form.form.theme).toBe('DARK')
     expect(form.canSave.value).toBe(false)
   })
+
+  it('does not apply a delayed locale save after the session generation changes', async () => {
+    let generation = 3
+    let releaseLocale: (() => void) | undefined
+    const setLocale = vi.fn((_locale: UserSettings['language'], canCommit?: () => boolean) => (
+      new Promise<boolean>((resolve) => {
+        releaseLocale = () => resolve(canCommit?.() ?? true)
+      })
+    ))
+    const updateSettings = vi.fn()
+    const form = useUserSettingsForm({
+      settingsData: ref<UserSettings>({
+        theme: 'LIGHT', language: 'ko', timezone: 'Asia/Seoul', hideNsfw: true, pushEnabled: false,
+      }),
+      isSaving: ref(false),
+      themeIsDark: () => false,
+      updateSettings,
+      setTheme: vi.fn(),
+      setLocale,
+      getSessionGeneration: () => generation,
+      t,
+    })
+    await nextTick()
+    form.form.language = 'en'
+    await nextTick()
+
+    const save = form.save()
+    await vi.waitFor(() => expect(setLocale).toHaveBeenCalledTimes(1))
+    generation += 1
+    releaseLocale?.()
+    await save
+
+    expect(updateSettings).not.toHaveBeenCalled()
+    expect(form.message.value).toBe('')
+  })
+
+  it('reloads settings and asks for retry on a concurrent modification conflict', async () => {
+    const reloadSettings = vi.fn().mockResolvedValue(undefined)
+    const updateSettings = vi.fn().mockRejectedValue({
+      isAxiosError: true,
+      response: { status: 409, data: { error: { code: 'C012' } } },
+    })
+    const form = useUserSettingsForm({
+      settingsData: ref<UserSettings>({
+        theme: 'LIGHT', language: 'ko', timezone: 'Asia/Seoul', hideNsfw: true, pushEnabled: false,
+      }),
+      isSaving: ref(false),
+      themeIsDark: () => false,
+      updateSettings,
+      setTheme: vi.fn(),
+      reloadSettings,
+      t,
+    })
+    await nextTick()
+    form.form.theme = 'DARK'
+    await nextTick()
+
+    await form.save()
+
+    expect(reloadSettings).toHaveBeenCalledTimes(1)
+    expect(form.message.value).toBe('common.messages.concurrentModification')
+    expect(form.isError.value).toBe(true)
+  })
 })
 
 describe('useNotificationSettingsForm', () => {

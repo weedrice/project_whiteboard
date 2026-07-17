@@ -20,6 +20,7 @@ public enum ErrorCode {
     DUPLICATE_RESOURCE(HttpStatus.CONFLICT, "C009", "error.common.duplicateResource"),
     RATE_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "C010", "error.common.rateLimitExceeded"),
     REQUEST_TOO_LARGE(HttpStatus.CONTENT_TOO_LARGE, "C011", "error.common.requestTooLarge"),
+    CONCURRENT_MODIFICATION(HttpStatus.CONFLICT, "C012", "error.common.concurrentModification"),
 
     // User
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "U001", "error.user.notFound"),

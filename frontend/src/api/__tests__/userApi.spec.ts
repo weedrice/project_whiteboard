@@ -72,7 +72,7 @@ describe('userApi', () => {
             { email: 'test@example.com', verificationTicket: 'ticket-1' },
         )
         expect(apiMock.get).toHaveBeenNthCalledWith(3, '/users/me/settings')
-        expect(apiMock.put).toHaveBeenNthCalledWith(3, '/users/me/settings', settingsData)
+        expect(apiMock.put).toHaveBeenNthCalledWith(3, '/users/me/settings', settingsData, undefined)
         expect(apiMock.get).toHaveBeenNthCalledWith(4, '/users/me/notification-settings')
         expect(apiMock.put).toHaveBeenNthCalledWith(4, '/users/me/notification-settings/bulk', notificationBulkData)
         expect(apiMock.post).toHaveBeenNthCalledWith(2, '/users/me/agents/claim', { agentToken: 'noviis_agt_xxx' })

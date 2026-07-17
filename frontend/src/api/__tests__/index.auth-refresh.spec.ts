@@ -395,6 +395,37 @@ describe('API Interceptors', () => {
         expect(mocks.mockAxiosPost).not.toHaveBeenCalled()
     })
 
+    it('does not carry a refresh failure cooldown into a new session generation', async () => {
+        const { authStore, responseRejected } = await loadApiModule({ accessToken: 'account-a' })
+        await setAccessToken('account-a')
+        mocks.mockAxiosPost.mockRejectedValueOnce({ response: { status: 500 } })
+        await expect(responseRejected(createApiError({
+            config: createApiRequestConfig({
+                _authSessionGeneration: 0,
+                _authAccessToken: 'account-a',
+            }),
+            response: { status: 401 },
+        }))).rejects.toBeDefined()
+
+        authStore.sessionGeneration = 1
+        authStore.accessToken = 'account-b'
+        await setAccessToken('account-b')
+        mocks.mockAxiosPost.mockClear()
+        mocks.mockAxiosPost.mockResolvedValueOnce({
+            data: { success: true, data: { accessToken: 'account-b-refreshed' } },
+        })
+        mocks.mockApiRequest.mockResolvedValueOnce({ data: 'retried' })
+
+        await expect(responseRejected(createApiError({
+            config: createApiRequestConfig({
+                _authSessionGeneration: 1,
+                _authAccessToken: 'account-b',
+            }),
+            response: { status: 401 },
+        }))).resolves.toEqual({ data: 'retried' })
+        expect(mocks.mockAxiosPost).toHaveBeenCalledTimes(1)
+    })
+
     it('rejects refresh when refresh endpoint reports failure', async () => {
         const { responseRejected } = await loadApiModule()
         mocks.mockAxiosPost.mockResolvedValueOnce({

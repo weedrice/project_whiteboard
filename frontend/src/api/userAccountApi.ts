@@ -111,8 +111,8 @@ export const userAccountApi = {
             ? api.get<ApiResponse<UserSettings>>('/users/me/settings', config)
             : api.get<ApiResponse<UserSettings>>('/users/me/settings')
     },
-    updateUserSettings(data: UserSettingsUpdatePayload) {
-        return api.put<ApiResponse<UserSettings>>('/users/me/settings', data)
+    updateUserSettings(data: UserSettingsUpdatePayload, config?: AxiosRequestConfig) {
+        return api.put<ApiResponse<UserSettings>>('/users/me/settings', data, config)
     },
     completeOnboarding() {
         return api.put<ApiResponse<UserSettings>>('/users/me/onboarding-complete')

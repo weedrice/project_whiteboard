@@ -46,6 +46,9 @@ onMounted(async () => {
     if (!accessToken) {
       throw new Error('OAuth refresh returned an invalid access token')
     }
+    if (callbackController.signal.aborted
+      || authStore.sessionGeneration !== generation
+      || authStore.accessToken !== previousToken) return
 
     if (!authStore.applyNewSessionIfCurrent(generation, previousToken, accessToken)) {
       return

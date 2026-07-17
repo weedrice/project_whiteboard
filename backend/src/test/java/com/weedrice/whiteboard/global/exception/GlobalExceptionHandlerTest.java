@@ -23,6 +23,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.http.MockHttpInputMessage;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
@@ -73,6 +74,23 @@ class GlobalExceptionHandlerTest {
         lenient().when(clientIpResolverProvider.getIfAvailable()).thenReturn(clientIpResolver);
         lenient().when(errorLogServiceProvider.getIfAvailable()).thenReturn(errorLogService);
         lenient().when(clientIpResolver.resolve(any(HttpServletRequest.class))).thenReturn("127.0.0.1");
+    }
+
+    @Test
+    void handleOptimisticLockingFailure_returnsDedicatedConflictCode() {
+        when(messageSource.getMessage(
+                ErrorCode.CONCURRENT_MODIFICATION.getMessage(),
+                null,
+                Locale.getDefault())).thenReturn("concurrent update");
+
+        ResponseEntity<ApiResponse<Void>> response = globalExceptionHandler.handleOptimisticLockingFailure(
+                new ObjectOptimisticLockingFailureException(String.class, 1L),
+                request);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getError().getCode())
+                .isEqualTo(ErrorCode.CONCURRENT_MODIFICATION.getCode());
     }
 
     @Test

@@ -1,4 +1,5 @@
 import { useRouter, type RouteLocationRaw } from 'vue-router'
+import { getCurrentScope, onScopeDispose } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { postApi } from '@/api/post'
 import { commentApi } from '@/api/comment'
@@ -9,6 +10,9 @@ import { useToastStore } from '@/stores/toast'
 import logger from '@/utils/logger'
 import { encodePathSegment } from '@/utils/urlPath'
 import type { Notification } from '@/types'
+import { useAuthStore } from '@/stores/auth'
+import { subscribeAuthSessionBoundary } from '@/queryAuthScope'
+import { isCancellationError } from '@/utils/cancellationError'
 
 interface NotificationNavigationOptions {
     showCommentFailureToast?: boolean
@@ -58,29 +62,58 @@ export function useNotificationNavigation(options: NotificationNavigationOptions
     const router = useRouter()
     const { t } = useI18n()
     const toastStore = useToastStore()
+    const authStore = useAuthStore()
     const { useMarkAsRead } = useNotification()
     const { mutate: markAsRead } = useMarkAsRead()
+    let navigationRevision = 0
+    let navigationController: AbortController | null = null
+
+    const cancelPendingNavigation = () => {
+        navigationRevision += 1
+        navigationController?.abort()
+        navigationController = null
+    }
+    if (getCurrentScope()) {
+        const stopSessionBoundary = subscribeAuthSessionBoundary(cancelPendingNavigation)
+        onScopeDispose(() => {
+            cancelPendingNavigation()
+            stopSessionBoundary()
+        })
+    }
 
     async function navigateFromNotification(notification: Notification) {
+        cancelPendingNavigation()
+        const controller = new AbortController()
+        navigationController = controller
+        const revision = navigationRevision
+        const generation = authStore.sessionGeneration
+        const isCurrent = () => navigationRevision === revision
+            && navigationController === controller
+            && !controller.signal.aborted
+            && authStore.sessionGeneration === generation
         if (!notification.isRead) {
             markAsRead(notification.notificationId)
         }
 
         if (isInternalTargetUrl(notification.targetUrl)) {
-            router.push(notification.targetUrl)
+            if (isCurrent()) router.push(notification.targetUrl)
             return
         }
 
         if (notification.sourceType === 'POST') {
             try {
-                const { data } = await postApi.getPost(notification.sourceId)
-                if (data.success) {
+                const { data } = await postApi.getPost(notification.sourceId, {
+                    signal: controller.signal,
+                    skipGlobalErrorHandler: true,
+                })
+                if (isCurrent() && data.success) {
                     const route = mapPostNotificationRoute(unwrapApiData(data), notification.sourceId)
                     if (route) {
                         router.push(route)
                     }
                 }
             } catch (err: unknown) {
+                if (!isCurrent() || isCancellationError(err)) return
                 logger.error('Failed to navigate to post:', err)
             }
             return
@@ -88,14 +121,18 @@ export function useNotificationNavigation(options: NotificationNavigationOptions
 
         if (notification.sourceType === 'COMMENT') {
             try {
-                const { data } = await commentApi.getComment(notification.sourceId)
-                if (data.success) {
+                const { data } = await commentApi.getComment(notification.sourceId, {
+                    signal: controller.signal,
+                    skipGlobalErrorHandler: true,
+                })
+                if (isCurrent() && data.success) {
                     const route = mapCommentNotificationRoute(unwrapApiData(data), notification.sourceId)
                     if (route) {
                         router.push(route)
                     }
                 }
             } catch (err: unknown) {
+                if (!isCurrent() || isCancellationError(err)) return
                 if (options.showCommentFailureToast) {
                     toastStore.addToast(t('common.messages.notFound'), 'warning')
                 }
@@ -107,9 +144,10 @@ export function useNotificationNavigation(options: NotificationNavigationOptions
         if (notification.sourceType === 'MESSAGE') {
             try {
                 const { data } = await messageApi.getMessage(notification.sourceId, {
+                    signal: controller.signal,
                     skipGlobalErrorHandler: true,
                 })
-                if (data.success) {
+                if (isCurrent() && data.success) {
                     const message = unwrapApiData(data)
                     if (message?.partner?.userId) {
                         router.push({
@@ -119,12 +157,14 @@ export function useNotificationNavigation(options: NotificationNavigationOptions
                     }
                 }
             } catch (err: unknown) {
+                if (!isCurrent() || isCancellationError(err)) return
                 logger.error('Failed to navigate to message:', err)
             }
         }
     }
 
     return {
+        cancelPendingNavigation,
         navigateFromNotification,
     }
 }

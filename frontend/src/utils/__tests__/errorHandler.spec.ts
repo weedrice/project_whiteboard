@@ -7,6 +7,7 @@ import {
     extractErrorResponse,
     extractValidationErrors,
     getFieldError,
+    isConcurrentModificationError,
     isRestrictedResourceError,
     isValidationErrors,
     normalizeApiErrorMessage,
@@ -14,6 +15,17 @@ import {
 } from '@/utils/errorHandler'
 
 describe('errorHandler', () => {
+    it('recognizes only the backend concurrent-modification conflict contract', () => {
+        expect(isConcurrentModificationError({
+            isAxiosError: true,
+            response: { status: 409, data: { error: { code: 'C012' } } },
+        })).toBe(true)
+        expect(isConcurrentModificationError({
+            isAxiosError: true,
+            response: { status: 409, data: { error: { code: 'C009' } } },
+        })).toBe(false)
+    })
+
     it('normalizes generic axios status-code messages', () => {
         expect(normalizeApiErrorMessage('Request failed with status code 500')).toBe(i18n.global.t('common.messages.serverError'))
         expect(normalizeApiErrorMessage(undefined)).toBe(i18n.global.t('common.messages.serverError'))

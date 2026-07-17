@@ -137,6 +137,12 @@ export function extractErrorCode(error: unknown): string | null {
     return apiError?.code ?? null
 }
 
+export function isConcurrentModificationError(error: unknown): boolean {
+    return axios.isAxiosError(error)
+        && error.response?.status === 409
+        && extractErrorCode(error) === 'C012'
+}
+
 /**
  * Axios 에러에서 ErrorResponse를 추출합니다.
  * @param error Axios 에러 객체

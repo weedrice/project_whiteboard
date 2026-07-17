@@ -77,6 +77,7 @@ throw new BusinessException(ErrorCode.USER_NOT_FOUND);
 - **MessageSource**: Spring `MessageSource`를 사용하여 메시지를 중앙에서 관리합니다.
 - **리소스 파일**: `src/main/resources/messages.properties` (기본/한국어) 및 `messages_en.properties` (영어)에 메시지를 정의합니다.
 - **ErrorCode 사용**: `ErrorCode` Enum은 메시지 텍스트 대신 '메시지 키'를 가집니다 (예: `error.user.notFound`). 예외 핸들러가 이를 해석하여 클라이언트에게 현지화된 메시지를 반환합니다.
+- JPA optimistic lock 충돌은 중복 리소스 오류와 구분해 HTTP 409의 `CONCURRENT_MODIFICATION`(`C012`)으로 응답합니다. 클라이언트는 최신 데이터를 다시 조회한 뒤 사용자가 재시도할 수 있게 안내해야 합니다.
 - **성공 메시지**: 컨트롤러에서 성공 메시지 반환 시 `MessageSource`를 주입받아 키를 통해 메시지를 조회해야 합니다.
 - **Validation**: DTO의 Validation 어노테이션에는 `{key}` 형식을 사용하여 메시지 키를 지정합니다.
 

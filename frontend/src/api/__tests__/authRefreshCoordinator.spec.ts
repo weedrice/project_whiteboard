@@ -25,6 +25,30 @@ describe('auth refresh coordinator', () => {
     expect(refresh).toHaveBeenCalledTimes(1)
   })
 
+  it('rejects an already-aborted waiter without starting a refresh', async () => {
+    const controller = new AbortController()
+    controller.abort()
+    const refresh = vi.fn(async () => 'must-not-run')
+
+    await expect(coordinateAuthRefresh(refresh, { signal: controller.signal }))
+      .rejects.toMatchObject({ name: 'AbortError' })
+    expect(refresh).not.toHaveBeenCalled()
+  })
+
+  it('cancels one waiter without aborting the shared refresh flight', async () => {
+    const pending = createDeferred<string>()
+    const refresh = vi.fn(() => pending.promise)
+    const owner = coordinateAuthRefresh(refresh)
+    const waiterController = new AbortController()
+    const waiter = coordinateAuthRefresh(refresh, { signal: waiterController.signal })
+
+    waiterController.abort()
+    await expect(waiter).rejects.toMatchObject({ name: 'AbortError' })
+    pending.resolve('next-access')
+    await expect(owner).resolves.toBe('next-access')
+    expect(refresh).toHaveBeenCalledTimes(1)
+  })
+
   it('uses the browser auth lock when Web Locks are available', async () => {
     const request = vi.fn(async (_name: string, callback: () => Promise<string>) => callback())
     vi.stubGlobal('navigator', { ...navigator, locks: { request } })

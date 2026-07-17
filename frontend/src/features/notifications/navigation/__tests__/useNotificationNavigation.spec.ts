@@ -9,12 +9,14 @@ import { commentApi } from '@/api/comment'
 import { messageApi } from '@/api/message'
 import { apiSuccessDataResponse } from '@/test/apiResponseFixtures'
 import type { Notification } from '@/types'
+import { createDeferred } from '@/test/async'
 
 const mocks = vi.hoisted(() => ({
     routerPush: vi.fn(),
     markAsRead: vi.fn(),
     addToast: vi.fn(),
     loggerError: vi.fn(),
+    auth: { sessionGeneration: 1 },
 }))
 
 vi.mock('vue-router', () => ({
@@ -61,6 +63,10 @@ vi.mock('@/stores/toast', () => ({
     }),
 }))
 
+vi.mock('@/stores/auth', () => ({
+    useAuthStore: () => mocks.auth,
+}))
+
 vi.mock('@/utils/logger', () => ({
     default: {
         error: mocks.loggerError,
@@ -87,6 +93,7 @@ const makeNotification = (overrides: Partial<Notification>): Notification => ({
 describe('useNotificationNavigation', () => {
     beforeEach(() => {
         vi.clearAllMocks()
+        mocks.auth.sessionGeneration = 1
     })
 
     it('marks unread post notifications as read and navigates to the post route', async () => {
@@ -135,7 +142,10 @@ describe('useNotificationNavigation', () => {
             targetUrl: '//evil.example/path',
         }))
 
-        expect(postApi.getPost).toHaveBeenCalledWith(99)
+        expect(postApi.getPost).toHaveBeenCalledWith(99, {
+            signal: expect.any(AbortSignal),
+            skipGlobalErrorHandler: true,
+        })
         expect(mocks.routerPush).toHaveBeenCalledWith('/board/free/post/99')
     })
 
@@ -189,6 +199,25 @@ describe('useNotificationNavigation', () => {
         expect(postApi.getPost).not.toHaveBeenCalled()
         expect(commentApi.getComment).not.toHaveBeenCalled()
         expect(mocks.routerPush).not.toHaveBeenCalled()
+    })
+
+    it('ignores an older source lookup after a newer navigation starts', async () => {
+        const olderResponse = createDeferred<Awaited<ReturnType<typeof postApi.getPost>>>()
+        vi.mocked(postApi.getPost).mockReturnValueOnce(olderResponse.promise)
+        const { navigateFromNotification } = useNotificationNavigation()
+
+        const olderNavigation = navigateFromNotification(makeNotification({ sourceType: 'POST', sourceId: 99 }))
+        await navigateFromNotification(makeNotification({
+            sourceType: 'SYSTEM',
+            targetUrl: '/notifications',
+        }))
+        olderResponse.resolve(apiSuccessDataResponse<typeof postApi.getPost>({
+            board: { boardUrl: 'free' },
+        }))
+        await olderNavigation
+
+        expect(mocks.routerPush).toHaveBeenCalledTimes(1)
+        expect(mocks.routerPush).toHaveBeenCalledWith('/notifications')
     })
 
     it('maps backend post/comment navigation payloads to routes', () => {

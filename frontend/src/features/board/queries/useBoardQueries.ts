@@ -32,6 +32,12 @@ export interface BoardManagerCandidateParams {
   q?: string
 }
 
+type BoardQueryOptions = {
+  requestConfig?: AxiosRequestConfig
+  enabled?: Ref<boolean> | boolean
+  meta?: Record<string, unknown>
+}
+
 export const boardDetailQueryKey = (boardUrl: string) => boardQueryKeys.detail(boardUrl)
 
 export async function fetchBoardDetail(boardUrl: string, requestConfig?: AxiosRequestConfig) {
@@ -125,9 +131,9 @@ export function useBoardQueries() {
 
   const useBoardDetail = (
     boardUrl: Ref<string>,
-    options: { requestConfig?: AxiosRequestConfig } & Record<string, unknown> = {}
+    options: BoardQueryOptions = {}
   ) => {
-    const { requestConfig, ...queryOptions } = options
+    const { requestConfig, meta, ...queryOptions } = options
     return useQuery({
       queryKey: computed(() => authKey(boardDetailQueryKey(boardUrl.value))),
       queryFn: (context?: { signal?: AbortSignal }) => fetchBoardDetail(
@@ -135,9 +141,9 @@ export function useBoardQueries() {
         optionalQuerySignal(requestConfig, context),
       ),
       staleTime: QUERY_STALE_TIME.SHORT,
-      meta: AUTH_SCOPED_QUERY_META,
       enabled: computed(() => !!boardUrl.value),
       ...queryOptions,
+      meta: { ...meta, ...AUTH_SCOPED_QUERY_META },
     })
   }
 
@@ -146,9 +152,9 @@ export function useBoardQueries() {
     params: Ref<BoardPostParams>,
     isSearching?: Ref<boolean>,
     enabled?: Ref<boolean>,
-    options: { requestConfig?: AxiosRequestConfig } & Record<string, unknown> = {}
+    options: BoardQueryOptions = {}
   ) => {
-    const { requestConfig, ...queryOptions } = options
+    const { requestConfig, meta, ...queryOptions } = options
     return useQuery({
       queryKey: computed(() => authKey(
         boardQueryKeys.posts(boardUrl.value, params.value, isSearching?.value),
@@ -160,8 +166,8 @@ export function useBoardQueries() {
         optionalQuerySignal(requestConfig, context),
       ),
       enabled: computed(() => !!boardUrl.value && (enabled?.value ?? true)),
-      meta: AUTH_SCOPED_QUERY_META,
       ...queryOptions,
+      meta: { ...meta, ...AUTH_SCOPED_QUERY_META },
     })
   }
 
@@ -170,9 +176,9 @@ export function useBoardQueries() {
     params: Ref<BoardPostParams>,
     isSearching?: Ref<boolean>,
     enabled?: Ref<boolean>,
-    options: { requestConfig?: AxiosRequestConfig } & Record<string, unknown> = {}
+    options: BoardQueryOptions = {}
   ) => {
-    const { requestConfig, ...queryOptions } = options
+    const { requestConfig, meta, ...queryOptions } = options
     const infiniteParams = computed<InfiniteBoardPostParams>(() => {
       const { page: _page, ...restParams } = params.value
       return restParams
@@ -196,17 +202,17 @@ export function useBoardQueries() {
       ),
       getNextPageParam: (lastPage) => lastPage.last ? undefined : lastPage.number + 1,
       enabled: computed(() => !!boardUrl.value && (enabled?.value ?? true)),
-      meta: AUTH_SCOPED_QUERY_META,
       ...queryOptions,
+      meta: { ...meta, ...AUTH_SCOPED_QUERY_META },
     })
   }
 
   const useBoardNotices = (
     boardUrl: Ref<string>,
     enabled?: Ref<boolean>,
-    options: { requestConfig?: AxiosRequestConfig } & Record<string, unknown> = {}
+    options: BoardQueryOptions = {}
   ) => {
-    const { requestConfig, ...queryOptions } = options
+    const { requestConfig, meta, ...queryOptions } = options
     return useApiQuery<PostSummary[]>({
       queryKey: computed(() => boardQueryKeys.notices(boardUrl.value)),
       request: (context) => callWithOptionalConfig(
@@ -216,22 +222,23 @@ export function useBoardQueries() {
       ),
       enabled: computed(() => !!boardUrl.value && (enabled?.value ?? true)),
       staleTime: QUERY_STALE_TIME.SHORT,
-      meta: AUTH_SCOPED_QUERY_META,
       ...queryOptions,
+      meta: { ...meta, ...AUTH_SCOPED_QUERY_META },
     })
   }
 
-  const useBoardCategories = (boardUrl: Ref<string>, options = {}) => {
+  const useBoardCategories = (boardUrl: Ref<string>, options: BoardQueryOptions = {}) => {
+    const { requestConfig, meta, ...queryOptions } = options
     return useApiQuery({
       queryKey: computed(() => boardQueryKeys.categories(boardUrl.value)),
       request: (context) => callWithOptionalConfig(
-        optionalQuerySignal(undefined, context),
+        optionalQuerySignal(requestConfig, context),
         (config) => boardApi.getCategories(boardUrl.value, config),
         () => boardApi.getCategories(boardUrl.value),
       ),
       enabled: computed(() => !!boardUrl.value),
-      meta: AUTH_SCOPED_QUERY_META,
-      ...options,
+      ...queryOptions,
+      meta: { ...meta, ...AUTH_SCOPED_QUERY_META },
     })
   }
 

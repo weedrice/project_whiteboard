@@ -2,21 +2,26 @@ import { ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useProfileUpdateSubmit } from '../useProfileUpdateSubmit'
 import { axiosApiSuccess } from '@/test/factories'
+import { createDeferred } from '@/test/async'
 
 const mocks = vi.hoisted(() => ({
   uploadFile: vi.fn(),
+  discardUploads: vi.fn(),
   loggerError: vi.fn(),
+  loggerWarn: vi.fn(),
 }))
 
 vi.mock('@/api/file', () => ({
   fileApi: {
     uploadFile: mocks.uploadFile,
+    discardUploads: mocks.discardUploads,
   },
 }))
 
 vi.mock('@/utils/logger', () => ({
   default: {
     error: mocks.loggerError,
+    warn: mocks.loggerWarn,
   },
 }))
 
@@ -35,6 +40,7 @@ function createSubmitter(options: {
   const updateProfile = vi.fn().mockResolvedValue(options.updateResponse)
   const t = vi.fn((key: string) => key)
   const selectedFile = ref<File | null>(options.selectedFile ?? null)
+  const authSession = { sessionGeneration: 1, user: { userId: 7 } }
   const submitter = useProfileUpdateSubmit({
     selectedFile,
     getDisplayName: () => options.displayName ?? '  Display Name  ',
@@ -46,6 +52,7 @@ function createSubmitter(options: {
     getProfileImageChangeCost: () => options.profileImageChangeCost ?? 0,
     isProfileImageChangeFree: () => options.profileImageChangeFree ?? true,
     getCurrentPoints: () => options.currentPoints ?? 0,
+    authSession,
     onRefreshed,
     onClose,
   })
@@ -59,12 +66,14 @@ function createSubmitter(options: {
     submitter,
     t,
     updateProfile,
+    authSession,
   }
 }
 
 describe('useProfileUpdateSubmit', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mocks.discardUploads.mockResolvedValue(axiosApiSuccess({ discardedCount: 1 }))
   })
 
   it('submits a trimmed display name without a profile image', async () => {
@@ -89,7 +98,7 @@ describe('useProfileUpdateSubmit', () => {
 
     await submitter.updateProfile()
 
-    expect(mocks.uploadFile).toHaveBeenCalledWith(file)
+    expect(mocks.uploadFile).toHaveBeenCalledWith(file, { signal: expect.any(AbortSignal) })
     expect(updateProfile).toHaveBeenCalledWith({
       displayName: 'Display Name',
       profileImageId: 123,
@@ -137,5 +146,38 @@ describe('useProfileUpdateSubmit', () => {
     await submitter.updateProfile()
 
     expect(t).toHaveBeenCalledWith('user.profile.profileImageCostSpent', { points: 1000 })
+  })
+
+  it('discards an uploaded image when the session changes before profile update', async () => {
+    const file = new File(['profile'], 'profile.png', { type: 'image/png' })
+    const uploadResponse = axiosApiSuccess({ fileId: 456 })
+    const upload = createDeferred<typeof uploadResponse>()
+    mocks.uploadFile.mockReturnValueOnce(upload.promise)
+    const { authSession, submitter, updateProfile } = createSubmitter({ selectedFile: file })
+
+    const submission = submitter.updateProfile()
+    await vi.waitFor(() => expect(mocks.uploadFile).toHaveBeenCalledTimes(1))
+    authSession.sessionGeneration += 1
+    upload.resolve(uploadResponse)
+    await submission
+
+    expect(updateProfile).not.toHaveBeenCalled()
+    expect(mocks.discardUploads).toHaveBeenCalledWith([456], {
+      skipAuthRefresh: true,
+      skipGlobalErrorHandler: true,
+    })
+  })
+
+  it('reloads the profile and asks for retry on a concurrent modification conflict', async () => {
+    const { addToast, refreshUser, submitter, updateProfile } = createSubmitter()
+    updateProfile.mockRejectedValueOnce({
+      isAxiosError: true,
+      response: { status: 409, data: { error: { code: 'C012' } } },
+    })
+
+    await submitter.updateProfile()
+
+    expect(refreshUser).toHaveBeenCalledTimes(1)
+    expect(addToast).toHaveBeenCalledWith('common.messages.concurrentModification', 'warning')
   })
 })

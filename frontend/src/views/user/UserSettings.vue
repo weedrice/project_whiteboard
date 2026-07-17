@@ -153,6 +153,8 @@ const {
   updateSettings,
   setTheme: themeStore.setTheme,
   setLocale: setAppLocale,
+  getSessionGeneration: () => authStore.sessionGeneration,
+  reloadSettings: async () => { await refetchSettings() },
   t
 })
 

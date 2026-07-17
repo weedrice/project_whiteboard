@@ -77,6 +77,30 @@ function createId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`
 }
 
+function createRefreshAbortError() {
+  return new DOMException('Authentication refresh was cancelled', 'AbortError')
+}
+
+function waitForRefreshFlight(promise: Promise<string>, signal?: AbortSignal) {
+  if (!signal) return promise
+  if (signal.aborted) return Promise.reject(createRefreshAbortError())
+
+  return new Promise<string>((resolve, reject) => {
+    const handleAbort = () => reject(createRefreshAbortError())
+    signal.addEventListener('abort', handleAbort, { once: true })
+    promise.then(
+      (token) => {
+        signal.removeEventListener('abort', handleAbort)
+        resolve(token)
+      },
+      (error: unknown) => {
+        signal.removeEventListener('abort', handleAbort)
+        reject(error)
+      },
+    )
+  })
+}
+
 function delay(ms: number, signal?: AbortSignal) {
   return new Promise<void>((resolve, reject) => {
     if (signal?.aborted) {
@@ -357,13 +381,15 @@ export function coordinateAuthRefresh(
   refresh: ((signal: AbortSignal) => Promise<string>) | (() => Promise<string>),
   options: CoordinateAuthRefreshOptions = {},
 ): Promise<string> {
+  if (options.signal?.aborted) return Promise.reject(createRefreshAbortError())
   const current = state.inFlight
-  if (current && current.epoch === state.epoch) return current.promise
+  if (current && current.epoch === state.epoch) {
+    return waitForRefreshFlight(current.promise, options.signal)
+  }
 
   const previousToken = options.previousToken ?? null
   const epoch = state.epoch
   const controller = new AbortController()
-  options.signal?.addEventListener('abort', () => controller.abort(), { once: true })
   const execute = (signal: AbortSignal) => refresh(signal)
 
   const promise = (async () => {
@@ -418,7 +444,7 @@ export function coordinateAuthRefresh(
   void promise.finally(() => {
     if (state.inFlight === flight) state.inFlight = null
   }).catch(() => undefined)
-  return promise
+  return waitForRefreshFlight(promise, options.signal)
 }
 
 export function cancelAuthRefreshCoordinator() {

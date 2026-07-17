@@ -41,7 +41,6 @@
             type="button"
             role="menuitem"
             :tabindex="index === selectedIndex ? 0 : -1"
-            :aria-selected="index === selectedIndex"
             :class="[
               'block w-full px-4 py-2 text-left text-sm nv-text-muted',
               index === selectedIndex
@@ -72,8 +71,6 @@ import { ref, computed, getCurrentInstance, nextTick, toRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useEventListener } from '@/composables/useEventListener'
-import { useKeyboardNavigation } from '@/composables/useKeyboardNavigation'
-import { useFocusTrap } from '@/composables/useFocusTrap'
 import { useUserMenuActions } from '@/features/user/menu/useUserMenuActions'
 import { useUserMenuPosition } from '@/features/user/menu/useUserMenuPosition'
 import MessageModal from '@/components/user/MessageModal.vue'
@@ -112,6 +109,7 @@ const buttonLabel = computed(() => (
 
 const buttonRef = ref<HTMLButtonElement | null>(null)
 const dropdownRef = ref<HTMLElement | null>(null)
+const selectedIndex = ref(-1)
 
 const { dropdownStyle, updateDropdownPosition } = useUserMenuPosition(buttonRef, dropdownRef, isDropdownOpen)
 const {
@@ -129,24 +127,48 @@ const {
   t
 })
 
-const { selectedIndex, handleKeyDown: handleMenuKeyDown, setSelectedIndex, reset: resetMenuSelection } = useKeyboardNavigation(
-  menuItems,
-  {
-    onSelect: (index) => {
-      if (menuItems.value[index]) {
-        menuItems.value[index].action()
-      }
-    },
-    onEscape: () => {
-      closeDropdown()
-      buttonRef.value?.focus()
-    },
-    loop: true,
-    initialIndex: -1
-  }
-)
+const getMenuItemElements = () => {
+  const renderedItems = Array.from(
+    dropdownRef.value?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]') ?? [],
+  )
+  if (renderedItems.length > 0) return renderedItems
+  return Array.from(
+    document.getElementById(menuDropdownId)?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]') ?? [],
+  )
+}
 
-const { trapFocus, restoreFocus } = useFocusTrap(dropdownRef, isDropdownOpen)
+const setSelectedIndex = (index: number) => {
+  selectedIndex.value = index
+}
+
+const focusMenuItem = (index: number) => {
+  const items = getMenuItemElements()
+  if (items.length === 0) return
+  const normalizedIndex = (index + items.length) % items.length
+  selectedIndex.value = normalizedIndex
+  items[normalizedIndex]?.focus()
+}
+
+const handleMenuKeyDown = (event: KeyboardEvent) => {
+  if (event.key === 'Tab') {
+    closeDropdown(false)
+    return
+  }
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    closeDropdown()
+    return
+  }
+  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    event.preventDefault()
+    focusMenuItem(selectedIndex.value + (event.key === 'ArrowDown' ? 1 : -1))
+    return
+  }
+  if (event.key === 'Home' || event.key === 'End') {
+    event.preventDefault()
+    focusMenuItem(event.key === 'Home' ? 0 : menuItems.value.length - 1)
+  }
+}
 
 const handleButtonKeyDown = (event: KeyboardEvent) => {
   if (event.key === 'Enter' || event.key === ' ') {
@@ -173,17 +195,17 @@ const toggleDropdown = () => {
 
 async function openDropdown() {
   isDropdownOpen.value = true
-  resetMenuSelection()
+  selectedIndex.value = 0
   await nextTick()
   if (!isDropdownOpen.value) return
   updateDropdownPosition()
-  trapFocus()
+  focusMenuItem(0)
 }
 
-function closeDropdown() {
+function closeDropdown(restoreButtonFocus = true) {
   isDropdownOpen.value = false
-  restoreFocus()
-  resetMenuSelection()
+  selectedIndex.value = -1
+  if (restoreButtonFocus) void nextTick(() => buttonRef.value?.focus())
 }
 
 const handleClickOutside = (event: Event) => {

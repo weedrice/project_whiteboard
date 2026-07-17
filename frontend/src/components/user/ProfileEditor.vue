@@ -149,6 +149,7 @@ const {
   getProfileImageChangeCost: () => profileImageChangeCost.value,
   isProfileImageChangeFree: () => profileImageChangeFreeAvailable.value,
   getCurrentPoints: () => authStore.user?.points ?? 0,
+  authSession: authStore,
   onRefreshed: () => emit('refreshed'),
   onClose: () => emit('close')
 })

@@ -1,10 +1,22 @@
-import { reactive, ref, type Ref } from 'vue'
+import { getCurrentScope, onScopeDispose, reactive, ref, type Ref } from 'vue'
 import type { AxiosError } from 'axios'
 import { fileApi } from '@/api/file'
 import { unwrapAxiosApiData } from '@/api/response'
 import type { UserUpdatePayload } from '@/api/user'
-import { extractErrorMessage, extractValidationErrors, getFieldError } from '@/utils/errorHandler'
+import {
+  extractErrorMessage,
+  extractValidationErrors,
+  getFieldError,
+  isConcurrentModificationError,
+} from '@/utils/errorHandler'
 import logger from '@/utils/logger'
+import {
+  captureAuthSessionIntent,
+  throwIfAuthSessionIntentChanged,
+  type AuthSessionIntentSource,
+} from '@/utils/authSessionIntent'
+import { subscribeAuthSessionBoundary } from '@/queryAuthScope'
+import { isCancellationError } from '@/utils/cancellationError'
 
 interface UseProfileUpdateSubmitOptions {
   selectedFile: Ref<File | null>
@@ -12,7 +24,7 @@ interface UseProfileUpdateSubmitOptions {
   getDisplayName: () => string
   updateProfile: (payload: UserUpdatePayload) => Promise<unknown>
   refreshUser: () => Promise<unknown>
-  addToast: (message: string, type: 'success' | 'error') => void
+  addToast: (message: string, type: 'success' | 'error' | 'warning') => void
   t: (key: string, params?: Record<string, unknown>) => string
   confirm?: (message: string) => Promise<boolean>
   getProfileImageChangeCost?: () => number
@@ -20,34 +32,64 @@ interface UseProfileUpdateSubmitOptions {
   getCurrentPoints?: () => number
   onRefreshed: () => void
   onClose: () => void
+  authSession: AuthSessionIntentSource
 }
 
 export function useProfileUpdateSubmit(options: UseProfileUpdateSubmitOptions) {
   const loading = ref(false)
   const errors = reactive<Record<string, string>>({})
+  let operationRevision = 0
+  let activeController: AbortController | null = null
+
+  if (getCurrentScope()) {
+    const stopSessionBoundary = subscribeAuthSessionBoundary(() => activeController?.abort())
+    onScopeDispose(() => {
+      activeController?.abort()
+      stopSessionBoundary()
+    })
+  }
 
   const updateProfile = async () => {
+    activeController?.abort()
+    const controller = new AbortController()
+    activeController = controller
+    const operation = ++operationRevision
+    const intent = captureAuthSessionIntent(options.authSession)
+    const assertCurrent = () => throwIfAuthSessionIntentChanged(
+      options.authSession,
+      intent,
+      controller.signal,
+    )
     loading.value = true
     errors.displayName = ''
     errors.profileImage = ''
 
+    let profileImageId: number | null = null
+    let profileUpdated = false
     try {
-      let profileImageId: number | null = null
+      assertCurrent()
 
       if (options.selectedFile.value) {
         if (!await confirmPaidProfileImageChangeIfNeeded()) {
           return
         }
+        assertCurrent()
 
-        const uploadRes = await fileApi.uploadFile(options.selectedFile.value)
+        const uploadRes = await fileApi.uploadFile(
+          options.selectedFile.value,
+          { signal: controller.signal },
+        )
         const uploadedFile = unwrapAxiosApiData(uploadRes)
+        if (uploadRes.data.success && uploadedFile?.fileId) {
+          profileImageId = uploadedFile.fileId
+        }
+        assertCurrent()
 
         if (!uploadRes.data.success || !uploadedFile?.fileId) {
           options.addToast(options.t('common.messages.uploadFailed'), 'error')
           return
         }
 
-        profileImageId = uploadedFile.fileId
       }
 
       const payload: UserUpdatePayload = {
@@ -59,7 +101,10 @@ export function useProfileUpdateSubmit(options: UseProfileUpdateSubmitOptions) {
       }
 
       const response = await options.updateProfile(payload)
+      profileUpdated = true
+      assertCurrent()
       await options.refreshUser()
+      assertCurrent()
       const spentPoints = extractSpentPoints(response)
       if (spentPoints && spentPoints > 0) {
         options.addToast(options.t('user.profile.profileImageCostSpent', { points: spentPoints }), 'success')
@@ -69,6 +114,23 @@ export function useProfileUpdateSubmit(options: UseProfileUpdateSubmitOptions) {
       options.onRefreshed()
       options.onClose()
     } catch (error) {
+      if (profileImageId && !profileUpdated) {
+        await discardUploadedProfileImage(profileImageId)
+      }
+      if (controller.signal.aborted || isCancellationError(error)) return
+      if (isConcurrentModificationError(error)) {
+        try {
+          await options.refreshUser()
+          assertCurrent()
+        } catch (refreshError: unknown) {
+          if (controller.signal.aborted || isCancellationError(refreshError)) return
+          logger.error('Failed to refresh profile after concurrent modification:', refreshError)
+          options.addToast(extractErrorMessage(refreshError), 'error')
+          return
+        }
+        options.addToast(options.t('common.messages.concurrentModification'), 'warning')
+        return
+      }
       const axiosError = error as AxiosError
       logger.error('Failed to update profile:', error)
 
@@ -92,7 +154,19 @@ export function useProfileUpdateSubmit(options: UseProfileUpdateSubmitOptions) {
         options.addToast(errorMessage, 'error')
       }
     } finally {
-      loading.value = false
+      if (activeController === controller) activeController = null
+      if (operationRevision === operation) loading.value = false
+    }
+  }
+
+  const discardUploadedProfileImage = async (fileId: number) => {
+    try {
+      await fileApi.discardUploads([fileId], {
+        skipAuthRefresh: true,
+        skipGlobalErrorHandler: true,
+      })
+    } catch (error: unknown) {
+      logger.warn('Failed to discard stale profile upload:', error)
     }
   }
 

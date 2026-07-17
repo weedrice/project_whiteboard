@@ -54,7 +54,10 @@ describe('useThemePreference', () => {
         await toggleTheme()
 
         expect(themeStore.isDark).toBe(true)
-        expect(userApi.updateUserSettings).toHaveBeenCalledWith({ theme: 'DARK' })
+        expect(userApi.updateUserSettings).toHaveBeenCalledWith(
+            { theme: 'DARK' },
+            { signal: expect.any(AbortSignal) },
+        )
     })
 
     it('toggles local theme without server persistence for guests', async () => {
@@ -99,15 +102,41 @@ describe('useThemePreference', () => {
         await vi.waitFor(() => {
             expect(userApi.updateUserSettings).toHaveBeenCalledTimes(1)
         })
-        expect(userApi.updateUserSettings).toHaveBeenNthCalledWith(1, { theme: 'DARK' })
+        expect(userApi.updateUserSettings).toHaveBeenNthCalledWith(
+            1,
+            { theme: 'DARK' },
+            { signal: expect.any(AbortSignal) },
+        )
 
         firstPersist.resolve(apiSuccessResponse<typeof userApi.updateUserSettings>())
         await vi.waitFor(() => {
             expect(userApi.updateUserSettings).toHaveBeenCalledTimes(2)
         })
-        expect(userApi.updateUserSettings).toHaveBeenNthCalledWith(2, { theme: 'LIGHT' })
+        expect(userApi.updateUserSettings).toHaveBeenNthCalledWith(
+            2,
+            { theme: 'LIGHT' },
+            { signal: expect.any(AbortSignal) },
+        )
 
         secondPersist.resolve(apiSuccessResponse<typeof userApi.updateUserSettings>())
         await expect(Promise.all([firstToggle, secondToggle])).resolves.toEqual([undefined, undefined])
+    })
+
+    it('discards queued persistence when the authenticated session changes', async () => {
+        const authStore = useAuthStore()
+        authStore.accessToken = 'account-a-token'
+        const firstPersist = createDeferred<Awaited<ReturnType<typeof userApi.updateUserSettings>>>()
+        vi.mocked(userApi.updateUserSettings).mockReturnValueOnce(firstPersist.promise)
+
+        const { toggleTheme } = useThemePreference()
+        const firstToggle = toggleTheme()
+        const secondToggle = toggleTheme()
+        await vi.waitFor(() => expect(userApi.updateUserSettings).toHaveBeenCalledTimes(1))
+
+        authStore.clearSessionState()
+        firstPersist.resolve(apiSuccessResponse<typeof userApi.updateUserSettings>())
+        await Promise.all([firstToggle, secondToggle])
+
+        expect(userApi.updateUserSettings).toHaveBeenCalledTimes(1)
     })
 })

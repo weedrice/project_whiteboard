@@ -1,5 +1,5 @@
-import { ref } from 'vue'
 import { mount } from '@vue/test-utils'
+import { nextTick } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import UserMenu from '../UserMenu.vue'
 
@@ -49,22 +49,6 @@ vi.mock('@/stores/toast', () => ({
 vi.mock('@/composables/useConfirm', () => ({
   useConfirm: () => ({
     confirm: vi.fn()
-  })
-}))
-
-vi.mock('@/composables/useKeyboardNavigation', () => ({
-  useKeyboardNavigation: () => ({
-    selectedIndex: ref(-1),
-    handleKeyDown: vi.fn(),
-    setSelectedIndex: vi.fn(),
-    reset: vi.fn()
-  })
-}))
-
-vi.mock('@/composables/useFocusTrap', () => ({
-  useFocusTrap: () => ({
-    trapFocus: vi.fn(),
-    restoreFocus: vi.fn()
   })
 }))
 
@@ -156,5 +140,36 @@ describe('UserMenu', () => {
     })
 
     expect(wrapper.get('button').attributes('disabled')).toBeUndefined()
+  })
+
+  it('uses roving focus for menu arrows, Home, End, Escape, and Tab', async () => {
+    const wrapper = mount(UserMenu, {
+      attachTo: document.body,
+      props: { userId: 2, displayName: 'Author' },
+      global: {
+        stubs: { MessageModal: true, ReportModal: true, Teleport: true }
+      }
+    })
+    const trigger = wrapper.get('.nv-user-menu-button')
+    await trigger.trigger('click')
+    await nextTick()
+    const menu = wrapper.get('[role="menu"]')
+    const items = wrapper.findAll('[role="menuitem"]')
+
+    expect(items[0].attributes('tabindex')).toBe('0')
+    await menu.trigger('keydown', { key: 'ArrowDown' })
+    expect(wrapper.findAll('[role="menuitem"]')[1].attributes('tabindex')).toBe('0')
+    await menu.trigger('keydown', { key: 'End' })
+    expect(wrapper.findAll('[role="menuitem"]').at(-1)?.attributes('tabindex')).toBe('0')
+    await menu.trigger('keydown', { key: 'Home' })
+    expect(wrapper.findAll('[role="menuitem"]')[0].attributes('tabindex')).toBe('0')
+    await menu.trigger('keydown', { key: 'Escape' })
+    expect(wrapper.find('[role="menu"]').exists()).toBe(false)
+    await vi.waitFor(() => expect(document.activeElement).toBe(trigger.element))
+
+    await trigger.trigger('click')
+    await wrapper.get('[role="menu"]').trigger('keydown', { key: 'Tab' })
+    expect(wrapper.find('[role="menu"]').exists()).toBe(false)
+    wrapper.unmount()
   })
 })

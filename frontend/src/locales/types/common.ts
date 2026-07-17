@@ -156,6 +156,7 @@ export interface CommonMessages {
     postEditForbidden: string
     notFound: string
     serverError: string
+    concurrentModification: string
     unknown: string
     network: string
     networkRetry: string

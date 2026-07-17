@@ -83,6 +83,7 @@ vi.mock('vue-i18n', () => ({
 }))
 
 vi.mock('@/i18n', () => ({
+  default: { global: { t: (key: string) => key } },
   setAppLocale: setAppLocaleMock,
 }))
 

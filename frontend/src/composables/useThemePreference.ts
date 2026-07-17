@@ -2,19 +2,34 @@ import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
 import { userApi } from '@/api/user'
 import logger from '@/utils/logger'
+import { subscribeAuthSessionBoundary } from '@/queryAuthScope'
+import { isCancellationError } from '@/utils/cancellationError'
 
 type UserThemePreference = 'DARK' | 'LIGHT'
 
 let themePersistQueue: Promise<void> = Promise.resolve()
 
-function enqueueThemePersist(theme: UserThemePreference): Promise<void> {
+type ThemePersistContext = {
+    generation: number
+    accessToken: string | null
+    userId: number | null
+    isCurrent: () => boolean
+}
+
+function enqueueThemePersist(theme: UserThemePreference, context: ThemePersistContext): Promise<void> {
+    const controller = new AbortController()
+    const stopSessionBoundary = subscribeAuthSessionBoundary(() => controller.abort())
     themePersistQueue = themePersistQueue
         .catch(() => undefined)
         .then(async () => {
             try {
-                await userApi.updateUserSettings({ theme })
+                if (controller.signal.aborted || !context.isCurrent()) return
+                await userApi.updateUserSettings({ theme }, { signal: controller.signal })
             } catch (error: unknown) {
+                if (controller.signal.aborted || !context.isCurrent() || isCancellationError(error)) return
                 logger.error('Failed to save theme setting:', error)
+            } finally {
+                stopSessionBoundary()
             }
         })
 
@@ -28,7 +43,18 @@ export function useThemePreference() {
     async function persistTheme(theme: UserThemePreference) {
         if (!authStore.isAuthenticated) return
 
-        await enqueueThemePersist(theme)
+        const generation = authStore.sessionGeneration
+        const accessToken = authStore.accessToken
+        const userId = authStore.user?.userId ?? null
+        await enqueueThemePersist(theme, {
+            generation,
+            accessToken,
+            userId,
+            isCurrent: () => authStore.isAuthenticated
+                && authStore.sessionGeneration === generation
+                && authStore.accessToken === accessToken
+                && (authStore.user?.userId ?? null) === userId,
+        })
     }
 
     async function persistCurrentTheme() {

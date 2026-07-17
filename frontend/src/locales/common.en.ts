@@ -81,6 +81,7 @@ export const commonEn: CommonMessages = {
     postEditForbidden: 'You do not have permission to edit this post.',
     notFound: 'The requested resource was not found.',
     serverError: 'A server error occurred. Please try again later.',
+    concurrentModification: 'Another change was saved first. The latest data was loaded; please try again.',
     unknown: 'An unknown error occurred.',
     network: 'Unable to reach the server. Check your internet connection.',
     networkRetry: 'A network error occurred. Check your connection and try again.',

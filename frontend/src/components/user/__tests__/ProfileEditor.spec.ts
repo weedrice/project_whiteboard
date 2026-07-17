@@ -113,6 +113,7 @@ vi.mock('@/utils/errorHandler', () => ({
   extractErrorMessage: vi.fn(() => ''),
   extractValidationErrors: vi.fn(() => null),
   getFieldError: vi.fn(() => ''),
+  isConcurrentModificationError: vi.fn(() => false),
 }))
 
 vi.mock('@/utils/logger', () => ({

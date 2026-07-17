@@ -35,18 +35,26 @@ type RefreshTokenResponse = {
 }
 
 const REFRESH_FAILURE_COOLDOWN_MS = 10_000
-let lastRefreshFailureAt = 0
+type RefreshFailureContext = {
+  generation: number
+  accessToken: string | null
+  failedAt: number
+}
+
+let lastRefreshFailure: RefreshFailureContext | null = null
 
 export function resetAuthRefreshFailureCooldownForTest() {
-  lastRefreshFailureAt = 0
+  lastRefreshFailure = null
 }
 
-function isRefreshInCooldown(): boolean {
-  return lastRefreshFailureAt > 0 && Date.now() - lastRefreshFailureAt < REFRESH_FAILURE_COOLDOWN_MS
+function isRefreshInCooldown(generation: number, accessToken: string | null): boolean {
+  return lastRefreshFailure?.generation === generation
+    && lastRefreshFailure.accessToken === accessToken
+    && Date.now() - lastRefreshFailure.failedAt < REFRESH_FAILURE_COOLDOWN_MS
 }
 
-function markRefreshFailure() {
-  lastRefreshFailureAt = Date.now()
+function markRefreshFailure(generation: number, accessToken: string | null) {
+  lastRefreshFailure = { generation, accessToken, failedAt: Date.now() }
 }
 
 function createSuppressedSessionChangedError() {
@@ -67,16 +75,15 @@ function isRefreshSessionCurrent(
 }
 
 export async function retryAfterRefresh(api: AxiosInstance, originalRequest: InternalAxiosRequestConfig) {
-  if (isRefreshInCooldown()) {
+  const authStore = await resolveAuthStore()
+  const generation = authStore?.sessionGeneration ?? getCurrentSessionGeneration()
+  const previousToken = authStore?.accessToken ?? getStoredAccessToken()
+  if (isRefreshInCooldown(generation, previousToken)) {
     const cooldownError = new Error('Refresh temporarily unavailable') as SuppressibleApiError
     cooldownError.suppressGlobalErrorToast = true
     cooldownError.isAuthRefreshFailure = true
     return Promise.reject(cooldownError)
   }
-
-  const authStore = await resolveAuthStore()
-  const generation = authStore?.sessionGeneration ?? getCurrentSessionGeneration()
-  const previousToken = authStore?.accessToken ?? getStoredAccessToken()
   if (!isStampedAuthContextCurrent(originalRequest, generation, previousToken)) {
     return Promise.reject(createSuppressedSessionChangedError())
   }
@@ -118,7 +125,7 @@ export async function retryAfterRefresh(api: AxiosInstance, originalRequest: Int
       if (!data.success) throw new Error('Refresh failed')
       return unwrapApiData(data).accessToken
     }, { previousToken })
-    lastRefreshFailureAt = 0
+    lastRefreshFailure = null
     resetSessionExpiredToastDebounce()
 
     const newAccessToken = applyRefreshedAccessToken(
@@ -153,7 +160,7 @@ export async function retryAfterRefresh(api: AxiosInstance, originalRequest: Int
   } catch (refreshError) {
     const sessionChanged = refreshError instanceof AuthSessionChangedError
       || (authStore !== null && authStore.sessionGeneration !== generation)
-    if (!sessionChanged) markRefreshFailure()
+    if (!sessionChanged) markRefreshFailure(generation, previousToken)
     const suppressibleRefreshError = refreshError as SuppressibleApiError
     suppressibleRefreshError.suppressGlobalErrorToast = true
     suppressibleRefreshError.isAuthRefreshFailure = true
