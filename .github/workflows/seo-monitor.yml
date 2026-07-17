@@ -13,13 +13,17 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  verify-and-submit:
+  verify-endpoints:
+    if: github.event_name == 'schedule' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
     steps:
       - name: Checkout
         uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
 
       - name: Setup Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -43,6 +47,60 @@ jobs:
           SEO_REQUIRE_POST_URLS: "true"
           SEO_REQUIRE_RELEASE_MANIFEST: "true"
 
+  submit-scheduled:
+    needs: verify-endpoints
+    if: github.event_name == 'schedule' && needs.verify-endpoints.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout trusted main schedule SHA
+        uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: frontend
+      - name: Submit sitemap to search engines
+        run: npm run seo:submit
+        working-directory: frontend
+        env:
+          SEO_SITE_URL: https://noviis.kr
+          SEO_SITEMAP_URL: https://noviis.kr/sitemap.xml
+          GOOGLE_SEARCH_CONSOLE_SITE_URL: https://noviis.kr
+          GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN: ${{ secrets.GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN }}
+          GOOGLE_SEARCH_CONSOLE_CLIENT_ID: ${{ secrets.GOOGLE_SEARCH_CONSOLE_CLIENT_ID }}
+          GOOGLE_SEARCH_CONSOLE_CLIENT_SECRET: ${{ secrets.GOOGLE_SEARCH_CONSOLE_CLIENT_SECRET }}
+          GOOGLE_SEARCH_CONSOLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_SEARCH_CONSOLE_REFRESH_TOKEN }}
+          CUSTOM_SITEMAP_SUBMIT_URL: ${{ secrets.CUSTOM_SITEMAP_SUBMIT_URL }}
+
+  submit-manual:
+    needs: verify-endpoints
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && needs.verify-endpoints.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    steps:
+      - name: Checkout approved main SHA
+        uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: frontend
       - name: Submit sitemap to search engines
         run: npm run seo:submit
         working-directory: frontend
