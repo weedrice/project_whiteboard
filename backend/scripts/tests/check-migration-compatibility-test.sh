@@ -146,6 +146,54 @@ if (cd "$fixture" && bash "$script" "$base" HEAD); then
 fi
 
 git -C "$fixture" reset -q --hard "$base"
+cat > "$fixture/backend/src/main/resources/db/migration/V2__blocking_index.sql" <<'SQL'
+-- noviis:migration-phase expand
+CREATE INDEX sample_idx ON sample (id);
+SQL
+git -C "$fixture" add .
+git -C "$fixture" commit -qm blocking-index
+if (cd "$fixture" && bash "$script" "$base" HEAD); then
+  echo "Expected an index on an existing table without CONCURRENTLY to fail" >&2
+  exit 1
+fi
+
+git -C "$fixture" reset -q --hard "$base"
+cat > "$fixture/backend/src/main/resources/db/migration/V2__online_index_without_sidecar.sql" <<'SQL'
+-- noviis:migration-phase expand
+-- noviis:online-index sample_idx
+SET lock_timeout = '5s';
+CREATE INDEX CONCURRENTLY IF NOT EXISTS sample_idx ON sample (id);
+SQL
+git -C "$fixture" add .
+git -C "$fixture" commit -qm online-index-without-sidecar
+if (cd "$fixture" && bash "$script" "$base" HEAD); then
+  echo "Expected an online index without a Flyway sidecar to fail" >&2
+  exit 1
+fi
+
+git -C "$fixture" reset -q --hard "$base"
+cat > "$fixture/backend/src/main/resources/db/migration/V2__online_index.sql" <<'SQL'
+-- noviis:migration-phase expand
+-- noviis:online-index sample_idx
+SET lock_timeout = '5s';
+CREATE INDEX CONCURRENTLY sample_idx ON sample (id);
+SQL
+printf '%s\n' 'executeInTransaction=false' > "$fixture/backend/src/main/resources/db/migration/V2__online_index.sql.conf"
+git -C "$fixture" add .
+git -C "$fixture" commit -qm online-index
+(cd "$fixture" && bash "$script" "$base" HEAD)
+
+git -C "$fixture" reset -q --hard "$base"
+cat > "$fixture/backend/src/main/resources/db/migration/V2__new_table_index.sql" <<'SQL'
+-- noviis:migration-phase expand
+CREATE TABLE sample_child (id bigint PRIMARY KEY);
+CREATE INDEX idx_sample_child_id ON sample_child (id);
+SQL
+git -C "$fixture" add .
+git -C "$fixture" commit -qm new-table-index
+(cd "$fixture" && bash "$script" "$base" HEAD)
+
+git -C "$fixture" reset -q --hard "$base"
 cat > "$fixture/backend/src/main/resources/db/migration/V2__unbounded_delete.sql" <<'SQL'
 -- noviis:migration-phase backfill
 DELETE FROM sample;

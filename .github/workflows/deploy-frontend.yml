@@ -40,6 +40,7 @@ on:
 concurrency:
   group: deploy-production
   cancel-in-progress: false
+  queue: max
 
 permissions:
   contents: read
@@ -158,7 +159,7 @@ jobs:
         run: |
           set -euo pipefail
           git fetch --no-tags origin main
-          test "$(git rev-parse origin/main)" = "$EXPECTED_SHA"
+          bash deploy/scripts/verify-deployment-freshness.sh "$EXPECTED_SHA" "$(git rev-parse origin/main)" frontend
 
       - name: Activate frontend release
         id: activate
@@ -270,7 +271,7 @@ jobs:
             if [ -e "$RELEASE_DIR" ]; then
               case "$(realpath "$RELEASE_DIR")/" in /var/www/incoming/frontend/*/) rm -rf -- "$RELEASE_DIR" ;; *) exit 1 ;; esac
             fi
-            sudo /usr/local/sbin/record-noviis-cleanup-debt frontend clear incoming_release
+            sudo /usr/local/sbin/record-noviis-cleanup-debt frontend reconcile incoming_release
         continue-on-error: true
 
       - name: Persist frontend cleanup debt
@@ -281,7 +282,7 @@ jobs:
           username: noviis-deploy
           key: ${{ secrets.EC2_SSH_KEY }}
           fingerprint: ${{ secrets.EC2_HOST_FINGERPRINT }}
-          script: sudo /usr/local/sbin/record-noviis-cleanup-debt frontend set incoming_release
+          script: sudo /usr/local/sbin/record-noviis-cleanup-debt frontend reconcile incoming_release || [ "$?" -eq 2 ]
 
       - name: Report frontend cleanup debt
         if: always() && steps.cleanup.outcome == 'failure'
@@ -296,6 +297,7 @@ jobs:
     concurrency:
       group: seo-submit-production
       cancel-in-progress: false
+      queue: max
     steps:
       - name: Checkout expected commit
         uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3

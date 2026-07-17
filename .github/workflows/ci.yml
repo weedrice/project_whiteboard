@@ -277,7 +277,11 @@ jobs:
           set -euo pipefail
           for migration in $(find backend/src/main/resources/db/migration -name 'V*.sql' | sort -V); do
             echo "Applying ${migration}"
-            psql "$DATABASE_URL" -v ON_ERROR_STOP=1 --single-transaction -f "$migration"
+            if [ -f "${migration}.conf" ] && grep -Fqx 'executeInTransaction=false' "${migration}.conf"; then
+              psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$migration"
+            else
+              psql "$DATABASE_URL" -v ON_ERROR_STOP=1 --single-transaction -f "$migration"
+            fi
           done
         env:
           DATABASE_URL: postgresql://noviis_ci:noviis_ci@localhost:5432/noviis_ci
@@ -342,6 +346,10 @@ jobs:
           docker run --rm -v "$PWD:/repo" -w /repo
           rhysd/actionlint:1.7.7@sha256:887a259a5a534f3c4f36cb02dca341673c6089431057242cdc931e9f133147e9
 
+      - name: Install workflow AST validator
+        run: npm ci --ignore-scripts
+        working-directory: frontend
+
       - name: Validate Prometheus configuration and rules
         run: |
           source deploy/monitoring/tool-versions.env
@@ -401,6 +409,9 @@ jobs:
           bash deploy/scripts/tests/activate-frontend-release-test.sh
           bash deploy/scripts/tests/verify-active-frontend-release-test.sh
           bash deploy/scripts/tests/verify-release-provenance-test.sh
+          bash deploy/scripts/tests/verify-deployment-freshness-test.sh
+          bash deploy/scripts/tests/download-attestation-with-retry-test.sh
+          bash deploy/scripts/tests/record-cleanup-debt-test.sh
           bash deploy/scripts/tests/verify-workflow-security-test.sh
           bash backend/scripts/tests/check-migration-compatibility-test.sh
           bash backend/scripts/tests/verify-contract-deployment-evidence-test.sh
@@ -640,8 +651,8 @@ jobs:
         run: |
           set -euo pipefail
           mkdir envelope-attestation payload-attestation
-          (cd envelope-attestation && gh attestation download ../RELEASE_ENVELOPE --repo "$GITHUB_REPOSITORY")
-          (cd payload-attestation && gh attestation download ../app.jar --repo "$GITHUB_REPOSITORY")
+          bash ../../deploy/scripts/download-attestation-with-retry.sh RELEASE_ENVELOPE "$GITHUB_REPOSITORY" envelope-attestation
+          bash ../../deploy/scripts/download-attestation-with-retry.sh app.jar "$GITHUB_REPOSITORY" payload-attestation
           mapfile -t envelope_bundles < <(find envelope-attestation -maxdepth 1 -type f -name 'sha256*.jsonl' -print)
           mapfile -t payload_bundles < <(find payload-attestation -maxdepth 1 -type f -name 'sha256*.jsonl' -print)
           test "${#envelope_bundles[@]}" -eq 1
@@ -766,8 +777,8 @@ jobs:
         run: |
           set -euo pipefail
           mkdir envelope-attestation payload-attestation
-          (cd envelope-attestation && gh attestation download ../RELEASE_ENVELOPE --repo "$GITHUB_REPOSITORY")
-          (cd payload-attestation && gh attestation download ../frontend-release.tar.gz --repo "$GITHUB_REPOSITORY")
+          bash ../deploy/scripts/download-attestation-with-retry.sh RELEASE_ENVELOPE "$GITHUB_REPOSITORY" envelope-attestation
+          bash ../deploy/scripts/download-attestation-with-retry.sh frontend-release.tar.gz "$GITHUB_REPOSITORY" payload-attestation
           mapfile -t envelope_bundles < <(find envelope-attestation -maxdepth 1 -type f -name 'sha256*.jsonl' -print)
           mapfile -t payload_bundles < <(find payload-attestation -maxdepth 1 -type f -name 'sha256*.jsonl' -print)
           test "${#envelope_bundles[@]}" -eq 1

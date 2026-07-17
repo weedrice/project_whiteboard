@@ -28,7 +28,7 @@ if [ -n "$java_migration" ]; then
   exit 1
 fi
 
-mapfile -t changes < <(git diff --name-status --find-renames "$base_ref" "$head_ref" -- "$migration_dir/V*.sql")
+mapfile -t changes < <(git diff --name-status --find-renames "$base_ref" "$head_ref" -- "$migration_dir/V*.sql" "$migration_dir/V*.sql.conf")
 for change in "${changes[@]}"; do
   status="${change%%$'\t'*}"
   case "$status" in
@@ -39,6 +39,83 @@ for change in "${changes[@]}"; do
       ;;
   esac
 done
+
+validate_online_indexes() {
+  local file="$1"
+  local sidecar="${file}.conf"
+  local index_name table_name concurrent marker
+  local online_index=false
+  local created_tables
+
+  created_tables="$(strip_sql_comments "$file" | awk '
+    BEGIN { RS=";" }
+    {
+      statement=tolower($0)
+      gsub(/[[:space:]]+/, " ", statement)
+      sub(/^ /, "", statement)
+      if (statement ~ /^create table /) {
+        sub(/^create table /, "", statement)
+        sub(/^if not exists /, "", statement)
+        split(statement, parts, " ")
+        print parts[1]
+      }
+    }
+  ')"
+
+  while IFS='|' read -r index_name table_name concurrent; do
+    [ -n "$index_name" ] || continue
+    if grep -Fqx -- "$table_name" <<< "$created_tables"; then
+      continue
+    fi
+    online_index=true
+    [ "$concurrent" = true ] || {
+      echo "An index on an existing table must use CREATE INDEX CONCURRENTLY: $file ($index_name)" >&2
+      return 1
+    }
+    marker="-- noviis:online-index $index_name"
+    grep -Fqx -- "$marker" "$file" || {
+      echo "Online index requires an exact marker: $file ($index_name)" >&2
+      return 1
+    }
+  done < <(strip_sql_comments "$file" | awk '
+    BEGIN { RS=";" }
+    {
+      statement=tolower($0)
+      gsub(/[[:space:]]+/, " ", statement)
+      sub(/^ /, "", statement)
+      if (statement !~ /^create (unique )?index /) next
+      concurrent=(statement ~ /^create (unique )?index concurrently / ? "true" : "false")
+      work=statement
+      sub(/^create /, "", work)
+      sub(/^unique /, "", work)
+      sub(/^index /, "", work)
+      sub(/^concurrently /, "", work)
+      sub(/^if not exists /, "", work)
+      split(work, index_parts, " ")
+      index_name=index_parts[1]
+      on_position=index(work, " on ")
+      if (on_position == 0) { print "__unparseable__||false"; next }
+      target=substr(work, on_position + 4)
+      split(target, table_parts, " ")
+      table_name=table_parts[1]
+      print index_name "|" table_name "|" concurrent
+    }
+  ')
+
+  if [ "$online_index" = true ]; then
+    grep -Eq "^[[:space:]]*SET[[:space:]]+lock_timeout[[:space:]]*=[[:space:]]*'([1-9]|10)s'[[:space:]]*;[[:space:]]*$" "$file" || {
+      echo "Online index migration requires a lock_timeout between 1s and 10s: $file" >&2
+      return 1
+    }
+    [ -f "$sidecar" ] && [ "$(tr -d '\r' < "$sidecar")" = 'executeInTransaction=false' ] || {
+      echo "Online index migration requires an exact Flyway non-transactional sidecar: $sidecar" >&2
+      return 1
+    }
+  elif [ -f "$sidecar" ]; then
+    echo "Flyway transaction sidecar is only allowed for a migration with an online index: $sidecar" >&2
+    return 1
+  fi
+}
 
 validate_contract_metadata() {
   local file="$1"
@@ -366,12 +443,23 @@ has_only_bounded_deletes() {
 for change in "${changes[@]}"; do
   file="${change#*$'\t'}"
   status="${change%%$'\t'*}"
+  case "$file" in
+    *.sql.conf)
+      sql_file="${file%.conf}"
+      if [ "$status" != A ] || ! git diff --name-status "$base_ref" "$head_ref" -- "$sql_file" | grep -q '^A[[:space:]]'; then
+        echo "A Flyway sidecar may only be added with its new versioned migration: $file" >&2
+        exit 1
+      fi
+      continue
+      ;;
+  esac
   if [ "$status" = A ]; then
     phase_count="$(grep -Ec '^-- noviis:migration-phase (expand|backfill|contract)$' "$file" || true)"
     if [ "$phase_count" -ne 1 ]; then
       echo "New migration requires exactly one expand, backfill, or contract phase marker: $file" >&2
       exit 1
     fi
+    validate_online_indexes "$file"
   fi
   risky=false
   if grep -Eiq '(^|[[:space:];])(DO[[:space:]]+\$|CALL[[:space:]]+|CREATE[[:space:]]+(OR[[:space:]]+REPLACE[[:space:]]+)?(FUNCTION|PROCEDURE)[[:space:]]+|EXECUTE[[:space:]]+)' "$file" \

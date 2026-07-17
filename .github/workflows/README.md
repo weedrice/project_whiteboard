@@ -22,9 +22,9 @@ contract migration은 자동 배포하지 않는다. `main`의 수동 실행, `a
 
 활성화 스크립트는 provenance, checksum, commit metadata, 서비스 health를 검증한 뒤 `ACTIVATED_SHA=<sha>`를 출력한다. 이 시점 이후 release 보존 정리, 상태 진단, incoming 삭제 실패는 건강한 release를 rollback하지 않는다. 대신 `CLEANUP_DEBT=...` 경고와 workflow cleanup 결과로 후속 조치한다. 실패 진단의 애플리케이션 로그·journal 원문은 Actions 출력으로 보내지 않고 host의 root-only 진단 파일에만 저장한다.
 
-backend/frontend artifact는 payload·metadata·SBOM·SHA-256 manifest의 digest를 담은 `RELEASE_ENVELOPE`, envelope provenance attestation, 실제 payload를 대상으로 한 SBOM attestation을 포함한다. 서버는 envelope attestation을 먼저 검증하고 내부 digest와 payload SBOM attestation을 각각 확인하므로 deploy 계정이 checksum과 SBOM을 함께 바꿔도 활성화할 수 없다. frontend SBOM은 source tree가 아니라 실제 배포 `dist`를 대상으로 생성한다. 배포 직전 최신 `origin/main` SHA를 다시 확인하며 SSH와 SCP는 독립적으로 확인한 host fingerprint를 필수로 사용한다. production deploy concurrency는 취소 없이 직렬화한다.
+backend/frontend artifact는 payload·metadata·SBOM·SHA-256 manifest의 digest를 담은 `RELEASE_ENVELOPE`, envelope provenance attestation, 실제 payload를 대상으로 한 SBOM attestation을 포함한다. 서버는 envelope attestation을 먼저 검증하고 내부 digest와 payload SBOM attestation을 각각 확인하므로 deploy 계정이 checksum과 SBOM을 함께 바꿔도 활성화할 수 없다. frontend SBOM은 source tree가 아니라 실제 배포 `dist`를 대상으로 생성한다. attestation bundle 다운로드는 bounded exponential backoff로 재시도하며 소진되면 release 생성을 실패시킨다. 배포 직전 최신 `origin/main`을 fetch하고 대상 이후의 변경 경로를 영역별로 비교한다. backend와 frontend에 무관한 문서 변경은 이미 검증된 배포를 막지 않지만 해당 영역 또는 공통 운영 경로가 바뀐 stale artifact는 차단한다. SSH와 SCP는 독립적으로 확인한 host fingerprint를 필수로 사용한다. production deploy concurrency는 활성 실행을 취소하지 않고 최신 대기 실행 하나를 보존해 직렬화한다.
 
-backend activator는 이전 JAR을 보존하고 서비스 stop, atomic JAR 교체, 8081 management health와 build-info 검증을 수행한다. root-only active-state는 `pending`으로 시작해 연속 health 검증 후에만 `stable`이 되며 systemd도 시작 전 JAR digest와 상태를 독립 검증한다. 이전 `run_number/run_attempt`의 재생은 root-only 일회성 break-glass 사유가 없으면 거부한다. frontend activator도 root state를 기록하며 별도 verifier가 symlink, release metadata, envelope digest와 실행 세대를 독립 readback한다. frontend-only 배포는 서명된 API contract revision이 현재 stable backend와 일치해야 한다. release 정리는 mtime 기준 최신 5개를 보존하고 realpath가 release root 밖이면 삭제하지 않는다.
+backend activator는 이전 JAR을 보존하고 서비스 stop, atomic JAR 교체, 8081 management health와 build-info 검증을 수행한다. root-only active-state는 `pending`으로 시작해 연속 health 검증 후에만 `stable`이 되며 systemd도 시작 전 JAR digest와 상태를 독립 검증한다. 이전 `run_number/run_attempt`의 재생은 root-only 일회성 break-glass 사유가 없으면 거부한다. frontend activator도 root state를 기록하며 별도 verifier가 symlink, release metadata, envelope digest와 실행 세대를 독립 readback한다. frontend-only 배포는 서명된 API contract revision이 현재 stable backend와 일치해야 한다. release 정리는 mtime 기준 최신 5개를 보존하고 realpath가 release root 밖이면 삭제하지 않는다. incoming 정리는 단순 성공 플래그가 아니라 root-owned helper가 실제 디렉터리를 다시 열거해 orphan 수와 가장 오래된 age를 기록하며, 잔재가 있으면 cleanup debt를 유지한다.
 
 ## SEO
 
@@ -34,7 +34,7 @@ production frontend release는 `SEO_STRICT=true`로 sitemap과 prerender를 생�
 
 ## Ops 검증
 
-`ops-config-test`는 workflow 문법, Prometheus config/rules/fixtures, metric manifest, Grafana JSON, shell, systemd, migration policy, activation fixture를 검증한다. Prometheus·Grafana의 승인 버전과 host exporter의 최소 호환 버전은 `deploy/monitoring/tool-versions.env`에 기록한다. 운영 host는 Prometheus·Grafana의 동일 native 버전과 최소 버전 이상의 배포판 host exporter를 사용한다.
+`ops-config-test`는 actionlint에 더해 YAML AST 기반 권한·concurrency·artifact identity 계약, Prometheus config/rules/fixtures, metric manifest, Grafana JSON, shell, systemd, migration policy, activation fixture를 검증한다. 기존 테이블의 신규 인덱스는 bounded `lock_timeout`, `CREATE INDEX CONCURRENTLY`, Flyway 비트랜잭션 sidecar를 모두 갖춰야 한다. Prometheus·Grafana의 승인 버전과 host exporter의 최소 호환 버전은 `deploy/monitoring/tool-versions.env`에 기록한다. 운영 host는 Prometheus·Grafana의 동일 native 버전과 최소 버전 이상의 배포판 host exporter를 사용한다.
 
 non-Agent `@Scheduled` 메서드는 `scheduled-jobs.txt`와 freshness rule이 일치해야 한다. sudoers는 `visudo -cf`와 허용·거부 command matrix를 모두 통과해야 한다. systemd 메모리 상한은 운영 측정 기록과 staging 검증이 없으면 추가하지 않는다.
 

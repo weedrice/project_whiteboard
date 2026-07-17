@@ -44,6 +44,8 @@ The passwordless sudo surface permits only the fixed backend/frontend incoming a
 
 Both activation entrypoints acquire the same non-blocking `/run/lock/noviis-deploy.lock` before reading or changing release state. A concurrent workflow, direct sudo invocation, backend activation, frontend activation, or rollback exits with status 75 without changing the active JAR or symlink. Do not configure separate lock paths on the production host; the override exists only for isolated fixtures.
 
+The workflow invokes the cleanup helper in `reconcile incoming_release` mode after each removal attempt. The root-owned helper derives debt from the current filesystem instead of trusting a caller-provided set/clear flag, exports the orphan count and oldest age, and returns status 2 while orphaned incoming releases remain. Treat that status as cleanup debt after activation, not as evidence that the already verified release should be rolled back. The deployment account must not receive sudo permission for direct `set` or `clear` operations on incoming-release debt.
+
 After installing the unit, verify it before enabling:
 
 ```bash

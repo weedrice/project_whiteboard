@@ -15,6 +15,10 @@ Do not drop or rename an in-use table or column, narrow a type, add `SET NOT NUL
 
 Versioned `V*.sql` files are immutable after merge. Fix an applied migration with a new version instead of editing or deleting the original file.
 
+An index on an existing table must be built online. Add `-- noviis:online-index <index_name>`, set `lock_timeout` to 1–10 seconds, use `CREATE INDEX CONCURRENTLY`, and add an adjacent `<migration>.sql.conf` containing only `executeInTransaction=false`. CI applies that migration without `--single-transaction`. A normal `CREATE INDEX` remains allowed when the indexed table is created in the same migration. Sidecars are immutable with their SQL migration and are rejected when they are not required by an online index.
+
+Do not add `IF NOT EXISTS` to the concurrent index statement. PostgreSQL can leave a same-named `INVALID` index after a failed concurrent build, and `IF NOT EXISTS` would silently accept it on retry. Before repairing and rerunning a failed online-index migration, inspect `pg_index.indisvalid`. If the named index is invalid, remove only that index with `DROP INDEX CONCURRENTLY`, confirm no valid index was removed, run Flyway repair, and rerun the migration. A valid same-named index or an unverified catalog state blocks automated retry and requires operator review.
+
 ## CI contract marker
 
 Every new migration must contain exactly one phase marker: `-- noviis:migration-phase expand`, `backfill`, or `contract`. `backend/scripts/check-migration-compatibility.sh` rejects modified or deleted versioned migrations and detects common destructive statements in new migrations. A deliberately scheduled contract migration must include both lines and point to a reviewed, tracked document under `docs/design-notes/`:
