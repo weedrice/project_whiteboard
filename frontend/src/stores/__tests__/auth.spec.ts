@@ -33,6 +33,7 @@ vi.mock('@/api/auth', () => ({
 
 const mockSyncThemeFromUser = vi.fn()
 const mockHandleSanctionedSession = vi.fn()
+const mockSessionBoundary = vi.fn()
 
 vi.mock('@/utils/logger', () => ({
     default: {
@@ -59,6 +60,7 @@ describe('Auth Store', () => {
         configureAuthSessionEffects({
             syncThemeFromUser: mockSyncThemeFromUser,
             handleSanctionedSession: mockHandleSanctionedSession,
+            onSessionBoundary: mockSessionBoundary,
         })
         store = useAuthStore()
     })
@@ -174,6 +176,20 @@ describe('Auth Store', () => {
 
             expect(store.accessToken).toBeNull()
             expect(store.user).toBeNull()
+        })
+
+        it('clears local state before the server logout request finishes', async () => {
+            const pendingLogout = createDeferred<Awaited<ReturnType<typeof authApi.logout>>>()
+            vi.mocked(authApi.logout).mockReturnValue(pendingLogout.promise)
+
+            const logout = store.logout()
+
+            expect(store.accessToken).toBeNull()
+            expect(store.user).toBeNull()
+            expect(mockSessionBoundary).toHaveBeenCalledWith(store.sessionGeneration)
+
+            pendingLogout.resolve(authLogoutResponse())
+            await logout
         })
     })
 

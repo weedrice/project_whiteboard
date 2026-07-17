@@ -4,13 +4,15 @@ import router from '@/router'
 import { unwrapApiData } from '@/api/response'
 import {
   applyRefreshedAccessToken,
+  AuthSessionChangedError,
+  beginAuthRefresh,
   clearExpiredAuthSession,
   enqueueFailedRequest,
   isRefreshInProgress,
   notifySessionExpired,
   processRefreshQueue,
   resetSessionExpiredToastDebounce,
-  setRefreshInProgress,
+  finishAuthRefresh,
 } from '@/api/authRefreshSession'
 import type { SuppressibleApiError } from '@/api/errorHandling'
 import {
@@ -21,6 +23,7 @@ import { API_PATHS } from '@/api/apiPaths'
 import { isLoginPathname } from '@/api/apiAuthHeader'
 import { API } from '@/utils/constants'
 import type { ApiResponse } from '@/types/common'
+import { coordinateAuthRefresh } from '@/api/authRefreshCoordinator'
 
 const { t } = i18n.global
 
@@ -47,10 +50,14 @@ export async function retryAfterRefresh(api: AxiosInstance, originalRequest: Int
     return Promise.reject(cooldownError)
   }
 
+  const authStore = await resolveAuthStore()
+  const generation = authStore?.sessionGeneration ?? -1
+  const previousToken = authStore?.accessToken ?? null
+
   if (isRefreshInProgress()) {
     originalRequest._retry = true
     return new Promise<string | null>((resolve, reject) => {
-      enqueueFailedRequest({ resolve, reject })
+      enqueueFailedRequest({ generation, resolve, reject })
     })
       .then((token) => {
         if (originalRequest.headers && token) {
@@ -62,30 +69,35 @@ export async function retryAfterRefresh(api: AxiosInstance, originalRequest: Int
   }
 
   originalRequest._retry = true
-  setRefreshInProgress(true)
+  const refreshOperation = beginAuthRefresh()
 
   try {
-    const { data } = await axios.post<ApiResponse<RefreshTokenResponse>>(
-      `${api.defaults.baseURL}${API_PATHS.REFRESH}`,
-      undefined,
-      {
-        withCredentials: true,
-        timeout: api.defaults.timeout ?? API.TIMEOUT,
-      },
-    )
-
-    if (!data.success) {
-      throw new Error('Refresh failed')
-    }
-
-    const refreshedAccessToken = unwrapApiData(data).accessToken
+    const refreshedAccessToken = await coordinateAuthRefresh(async () => {
+      if (authStore && (authStore.sessionGeneration !== generation || authStore.accessToken !== previousToken)) {
+        throw new AuthSessionChangedError()
+      }
+      const { data } = await axios.post<ApiResponse<RefreshTokenResponse>>(
+        `${api.defaults.baseURL}${API_PATHS.REFRESH}`,
+        undefined,
+        {
+          withCredentials: true,
+          timeout: api.defaults.timeout ?? API.TIMEOUT,
+        },
+      )
+      if (!data.success) throw new Error('Refresh failed')
+      return unwrapApiData(data).accessToken
+    })
     lastRefreshFailureAt = 0
     resetSessionExpiredToastDebounce()
 
-    const authStore = await resolveAuthStore()
-    const newAccessToken = applyRefreshedAccessToken(authStore, refreshedAccessToken)
+    const newAccessToken = applyRefreshedAccessToken(
+      authStore,
+      refreshedAccessToken,
+      generation,
+      previousToken,
+    )
     if (!newAccessToken) {
-      throw new Error('Refresh returned an invalid access token')
+      throw new AuthSessionChangedError()
     }
 
     if (authStore) {
@@ -97,26 +109,26 @@ export async function retryAfterRefresh(api: AxiosInstance, originalRequest: Int
       }
     }
 
-    processRefreshQueue(null, newAccessToken)
+    processRefreshQueue(null, newAccessToken, generation)
 
     if (originalRequest.headers) {
       originalRequest.headers.Authorization = `Bearer ${newAccessToken}`
     }
     return api(originalRequest)
   } catch (refreshError) {
-    markRefreshFailure()
+    const sessionChanged = authStore !== null && authStore.sessionGeneration !== generation
+    if (!sessionChanged) markRefreshFailure()
     const suppressibleRefreshError = refreshError as SuppressibleApiError
     suppressibleRefreshError.suppressGlobalErrorToast = true
     suppressibleRefreshError.isAuthRefreshFailure = true
 
-    processRefreshQueue(suppressibleRefreshError, null)
+    processRefreshQueue(suppressibleRefreshError, null, generation)
 
     const axiosRefreshError = refreshError as AxiosError
     const refreshStatus = axiosRefreshError.response?.status
     const isLoginPage = isLoginPathname()
 
-    if ((refreshStatus === 401 || refreshStatus === 403 || !axiosRefreshError.response) && !suppressibleRefreshError.isUserHydrationFailure) {
-      const authStore = await resolveAuthStore()
+    if (!sessionChanged && (refreshStatus === 401 || refreshStatus === 403 || !axiosRefreshError.response) && !suppressibleRefreshError.isUserHydrationFailure) {
       clearExpiredAuthSession(authStore)
 
       if (!isLoginPage && router.currentRoute.value.meta.requiresAuth) {
@@ -130,6 +142,6 @@ export async function retryAfterRefresh(api: AxiosInstance, originalRequest: Int
     }
     return Promise.reject(suppressibleRefreshError)
   } finally {
-    setRefreshInProgress(false)
+    finishAuthRefresh(refreshOperation)
   }
 }

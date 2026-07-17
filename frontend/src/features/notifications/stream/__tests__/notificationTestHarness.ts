@@ -45,7 +45,13 @@ const notificationMocks = vi.hoisted(() => {
   const authStore = {
     isAuthenticated: true,
     accessToken: 'test-token',
+    sessionGeneration: 0,
     setTokens: vi.fn(),
+    applyTokenIfCurrent: vi.fn((generation: number, previousToken: string | null, token: string) => {
+      if (authStore.sessionGeneration !== generation || authStore.accessToken !== previousToken) return false
+      authStore.accessToken = token
+      return true
+    }),
   }
   const logger = {
     error: vi.fn(),
@@ -151,6 +157,7 @@ export function setupNotificationTest() {
   notificationMocks.normalizeNotification.mockClear()
   notificationMocks.authStore.isAuthenticated = true
   notificationMocks.authStore.accessToken = 'test-token'
+  notificationMocks.authStore.sessionGeneration = 0
   notificationMocks.notificationApi.openStream.mockImplementation((token: string, signal: AbortSignal) => {
     return fetch('/api/v1/notifications/stream', {
       method: 'GET',

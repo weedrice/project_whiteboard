@@ -18,6 +18,8 @@ const { t } = useI18n()
 
 onMounted(async () => {
   clearSensitiveTokensFromUrl()
+  const generation = authStore.sessionGeneration
+  const previousToken = authStore.accessToken
 
   try {
     const { data } = await authApi.refreshToken({
@@ -29,7 +31,9 @@ onMounted(async () => {
       throw new Error('OAuth refresh returned an invalid access token')
     }
 
-    authStore.setTokens(accessToken)
+    if (!authStore.applyNewSessionIfCurrent(generation, previousToken, accessToken)) {
+      return
+    }
 
     const didFetchUser = await authStore.fetchUser({ skipAuthRefresh: true })
     if (!didFetchUser) {

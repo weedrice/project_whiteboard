@@ -95,10 +95,17 @@ export const loadApiModule = async (
     const authStore: TestAuthStore = {
         user: authStoreOverrides?.user ?? { id: 1 },
         accessToken: authStoreOverrides?.accessToken ?? '',
+        sessionGeneration: 0,
         fetchUser: mocks.mockFetchUser,
         setTokens: vi.fn((token: string) => {
             authStore.accessToken = token
             persistAccessToken(token)
+        }),
+        applyTokenIfCurrent: vi.fn((generation: number, previousToken: string | null, token: string) => {
+            if (authStore.sessionGeneration !== generation || authStore.accessToken !== previousToken) return false
+            authStore.accessToken = token
+            persistAccessToken(token)
+            return true
         }),
         clearSessionState: vi.fn(() => {
             authStore.user = null

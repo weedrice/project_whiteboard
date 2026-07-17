@@ -21,6 +21,7 @@ import {
 } from '@/features/notifications/queries/notificationCacheUpdater'
 import { NotificationStreamRuntime } from '@/features/notifications/stream/notificationReconnectRuntime'
 import { emitBadgeAwardEvent } from '@/features/notifications/events/badgeAwardEvents'
+import { coordinateAuthRefresh } from '@/api/authRefreshCoordinator'
 
 function isAbortError(error: unknown): boolean {
     return isCancellationError(error, {
@@ -50,6 +51,10 @@ const notificationStreamRuntime = new NotificationStreamRuntime()
 
 export function resetNotificationStreamStateForTest() {
     notificationStreamRuntime.reset()
+}
+
+export function resetNotificationStreamSessionState() {
+    notificationStreamRuntime.resetSessionState()
 }
 
 function scheduleReconnect(delayMs: number) {
@@ -102,19 +107,30 @@ export function createNotificationStreamController(
         }
     }
 
-    const reconnectWithRefresh = async () => {
+    const reconnectWithRefresh = async (controller: AbortController) => {
         if (!notificationStreamRuntime.isBrowserOnline()) {
             scheduleReconnect(RECONNECT_AFTER_FAILURE_DELAY_MS)
             return
         }
 
         try {
-            const authTokens = unwrapAxiosApiData(await refreshToken({
-                skipAuthRefresh: true,
-                skipGlobalErrorHandler: true,
-            }))
             const authStore = resolveAuthStore()
-            authStore.setTokens(authTokens.accessToken)
+            const generation = authStore.sessionGeneration
+            const previousToken = authStore.accessToken
+            const refreshedAccessToken = await coordinateAuthRefresh(async () => {
+                if (controller.signal.aborted
+                    || authStore.sessionGeneration !== generation
+                    || authStore.accessToken !== previousToken) {
+                    throw new DOMException('Authentication session changed', 'AbortError')
+                }
+                return unwrapAxiosApiData(await refreshToken({
+                    skipAuthRefresh: true,
+                    skipGlobalErrorHandler: true,
+                    signal: controller.signal,
+                })).accessToken
+            })
+            const applied = authStore.applyTokenIfCurrent(generation, previousToken, refreshedAccessToken)
+            if (!applied && (authStore.sessionGeneration !== generation || authStore.accessToken !== refreshedAccessToken)) return
             scheduleReconnect(RECONNECT_AFTER_REFRESH_DELAY_MS)
             return
         } catch (error: unknown) {
@@ -153,7 +169,7 @@ export function createNotificationStreamController(
             }
 
             logger.warn('SSE connection dropped:', error)
-            await reconnectWithRefresh()
+            await reconnectWithRefresh(controller)
         } finally {
             if (notificationStreamRuntime.state.streamAbortController === controller) {
                 notificationStreamRuntime.state.streamAbortController = null
@@ -197,6 +213,7 @@ export function createNotificationStreamController(
         state.isConnecting = false
         state.reconnectAttempt = 0
         state.reconnectWhenOnline = false
+        state.recentNotificationIds.clear()
         notificationStreamRuntime.detachOnlineReconnectListener()
     }
 

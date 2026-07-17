@@ -14,10 +14,10 @@ export function persistAccessToken(token: string): void {
     removeLegacyAuthTokens()
 }
 
-export function clearStoredAuthTokens(): void {
+export function clearStoredAuthTokens(broadcast = true): void {
     inMemoryAccessToken = null
     removeLegacyAuthTokens()
-    broadcastAuthSessionCleared()
+    if (broadcast) broadcastAuthSessionCleared()
 }
 
 function removeLegacyAuthTokens(): void {

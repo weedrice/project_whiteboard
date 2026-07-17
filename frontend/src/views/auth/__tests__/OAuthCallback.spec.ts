@@ -10,7 +10,15 @@ const mocks = vi.hoisted(() => {
         query: {} as Record<string, unknown>,
     }
     const authStore = {
+        accessToken: null as string | null,
+        sessionGeneration: 0,
         setTokens: vi.fn(),
+        applyNewSessionIfCurrent: vi.fn((generation: number, previousToken: string | null, token: string) => {
+            if (authStore.sessionGeneration !== generation || authStore.accessToken !== previousToken) return false
+            authStore.sessionGeneration += 1
+            authStore.accessToken = token
+            return true
+        }),
         fetchUser: vi.fn(),
         logout: vi.fn(),
     }
@@ -82,6 +90,8 @@ describe('OAuthCallback', () => {
         })
         mocks.authStore.fetchUser.mockResolvedValue(true)
         mocks.authStore.logout.mockResolvedValue(undefined)
+        mocks.authStore.accessToken = null
+        mocks.authStore.sessionGeneration = 0
         window.history.replaceState({}, '', '/auth/oauth/callback')
     })
 
@@ -101,7 +111,7 @@ describe('OAuthCallback', () => {
             skipAuthRefresh: true,
             skipGlobalErrorHandler: true,
         })
-        expect(mocks.authStore.setTokens).toHaveBeenCalledWith('refreshed-access')
+        expect(mocks.authStore.applyNewSessionIfCurrent).toHaveBeenCalledWith(0, null, 'refreshed-access')
         expect(mocks.authStore.fetchUser).toHaveBeenCalledWith({ skipAuthRefresh: true })
         expect(mocks.toastStore.addToast).toHaveBeenCalledWith('auth.loginSuccess', 'success')
         expect(mocks.router.push).toHaveBeenCalledWith('/boards')
@@ -131,7 +141,7 @@ describe('OAuthCallback', () => {
         mount(OAuthCallback)
         await flushMountedWork()
 
-        expect(mocks.authStore.setTokens).toHaveBeenCalledWith('refreshed-access')
+        expect(mocks.authStore.applyNewSessionIfCurrent).toHaveBeenCalledWith(0, null, 'refreshed-access')
         expect(window.location.hash).toBe('#state=abc')
         expect(replaceStateSpy).toHaveBeenCalled()
     })
@@ -144,7 +154,7 @@ describe('OAuthCallback', () => {
         mount(OAuthCallback)
         await flushMountedWork()
 
-        expect(mocks.authStore.setTokens).toHaveBeenCalledWith('refreshed-access')
+        expect(mocks.authStore.applyNewSessionIfCurrent).toHaveBeenCalledWith(0, null, 'refreshed-access')
     })
 
     it('redirects to login when refresh cookie exchange fails', async () => {
@@ -165,7 +175,7 @@ describe('OAuthCallback', () => {
         mount(OAuthCallback)
         await flushMountedWork()
 
-        expect(mocks.authStore.setTokens).toHaveBeenCalledWith('refreshed-access')
+        expect(mocks.authStore.applyNewSessionIfCurrent).toHaveBeenCalledWith(0, null, 'refreshed-access')
         expect(mocks.authStore.logout).toHaveBeenCalled()
         expect(mocks.toastStore.addToast).toHaveBeenCalledWith('auth.loginFailed', 'error')
         expect(mocks.router.push).toHaveBeenCalledWith('/login')
@@ -187,7 +197,7 @@ describe('OAuthCallback', () => {
         mount(OAuthCallback)
         await flushMountedWork()
 
-        expect(mocks.authStore.setTokens).not.toHaveBeenCalled()
+        expect(mocks.authStore.applyNewSessionIfCurrent).not.toHaveBeenCalled()
         expect(mocks.toastStore.addToast).toHaveBeenCalledWith('auth.loginFailed', 'error')
         expect(mocks.router.push).toHaveBeenCalledWith('/login')
         expect(replaceStateSpy.mock.calls.length).toBe(replaceStateCallCountBeforeMount)

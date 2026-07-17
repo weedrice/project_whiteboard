@@ -31,8 +31,11 @@ describe('API Interceptors', () => {
         })
         module.configureApiStoreResolvers({
             resolveAuthStore: () => ({
+                accessToken: null,
+                sessionGeneration: 0,
                 fetchUser: async () => false,
                 setTokens: () => undefined,
+                applyTokenIfCurrent: () => false,
                 clearSessionState: () => undefined,
             }),
         })

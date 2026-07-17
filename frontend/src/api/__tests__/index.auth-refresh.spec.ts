@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
     createApiError,
@@ -84,11 +84,33 @@ describe('API Interceptors', () => {
         })
         expect(await getAccessToken()).toBe('new-access')
         expect(localStorage.getItem('refreshToken')).toBeNull()
-        expect(authStore.setTokens).toHaveBeenCalledWith('new-access')
+        expect(authStore.applyTokenIfCurrent).toHaveBeenCalledWith(0, 'old-access', 'new-access')
         expect(mocks.mockFetchUser).toHaveBeenCalledWith({ skipAuthRefresh: true })
         expect(originalRequest.headers.Authorization).toBe('Bearer new-access')
         expect(mocks.mockApiRequest).toHaveBeenCalledWith(originalRequest)
         expect(result).toEqual({ data: { ok: true } })
+    })
+
+    it('does not restore a session when refresh completes after logout', async () => {
+        const { responseRejected, authStore } = await loadApiModule({ user: { id: 10 }, accessToken: 'old-access' })
+        let resolveRefresh!: (value: unknown) => void
+        mocks.mockAxiosPost.mockReturnValueOnce(new Promise((resolve) => {
+            resolveRefresh = resolve
+        }))
+
+        const request = createApiRequestConfig()
+        const refreshResult = responseRejected(createApiError({ config: request, response: { status: 401 } }))
+        await vi.waitFor(() => expect(mocks.mockAxiosPost).toHaveBeenCalledTimes(1))
+        authStore.sessionGeneration += 1
+        authStore.accessToken = null
+
+        resolveRefresh({
+            data: { success: true, data: { accessToken: 'late-access' } },
+        })
+
+        await expect(refreshResult).rejects.toMatchObject({ name: 'AuthSessionChangedError' })
+        expect(authStore.accessToken).toBeNull()
+        expect(mocks.mockApiRequest).not.toHaveBeenCalled()
     })
 
     it('rejects refresh when user hydration fails after refresh succeeds', async () => {

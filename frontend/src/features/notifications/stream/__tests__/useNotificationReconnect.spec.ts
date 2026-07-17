@@ -62,14 +62,15 @@ describe('useNotification SSE connection lifecycle', () => {
 
     const { connectToSse, closeSse } = useNotification()
     connectToSse()
-    await flushAsync(2)
-    closeSse()
+    await flushAsync(6)
 
     expect(mocks.authApi.refreshToken).toHaveBeenCalledWith({
       skipAuthRefresh: true,
       skipGlobalErrorHandler: true,
+      signal: expect.any(AbortSignal),
     })
     expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 1000)
+    closeSse()
     expect(clearTimeoutSpy).toHaveBeenCalled()
   })
 
@@ -94,6 +95,7 @@ describe('useNotification SSE connection lifecycle', () => {
     expect(mocks.authApi.refreshToken).toHaveBeenCalledWith({
       skipAuthRefresh: true,
       skipGlobalErrorHandler: true,
+      signal: expect.any(AbortSignal),
     })
     expect(setTimeoutSpy.mock.calls.some((call) => call[1] === 5000)).toBe(true)
     closeSse()

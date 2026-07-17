@@ -12,15 +12,18 @@ import {
 } from '@/utils/authTokenStorage'
 import type { User, LoginCredentials, LoginUser } from '@/types'
 import type { AxiosRequestConfig } from 'axios'
+import { cancelPendingAuthRefresh } from '@/api/authRefreshSession'
 
 interface AuthSessionEffects {
     syncThemeFromUser: (userData: User | null) => void
     handleSanctionedSession: () => void
+    onSessionBoundary: (generation: number) => void
 }
 
 const noopSessionEffects: AuthSessionEffects = {
     syncThemeFromUser: () => undefined,
     handleSanctionedSession: () => undefined,
+    onSessionBoundary: () => undefined,
 }
 
 let authSessionEffects: AuthSessionEffects = noopSessionEffects
@@ -54,12 +57,18 @@ export const useAuthStore = defineStore('auth', () => {
     const isAuthenticated = computed(() => !!accessToken.value)
     let bootstrapAttempted = false
     let bootstrapInFlight: Promise<boolean> | null = null
-    let sessionRevision = 0
+    const sessionGeneration = ref(0)
 
     function resetBootstrapState() {
         bootstrapAttempted = false
         bootstrapInFlight = null
-        sessionRevision += 1
+    }
+
+    function advanceSessionGeneration() {
+        sessionGeneration.value += 1
+        cancelPendingAuthRefresh()
+        authSessionEffects.onSessionBoundary(sessionGeneration.value)
+        return sessionGeneration.value
     }
 
     function syncThemeFromUser(userData: User | null) {
@@ -67,6 +76,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
 
     function applyAuthenticatedSession(token: string, userData: User) {
+        advanceSessionGeneration()
         resetBootstrapState()
         accessToken.value = token
         user.value = userData
@@ -74,15 +84,16 @@ export const useAuthStore = defineStore('auth', () => {
         syncThemeFromUser(userData)
     }
 
-    function clearSessionValues() {
+    function clearSessionValues(broadcast = true) {
         accessToken.value = null
         user.value = null
-        clearStoredAuthTokens()
+        clearStoredAuthTokens(broadcast)
     }
 
-    function clearSessionState() {
+    function clearSessionState(broadcast = true) {
+        advanceSessionGeneration()
         resetBootstrapState()
-        clearSessionValues()
+        clearSessionValues(broadcast)
     }
 
     async function handleSanctionedSession() {
@@ -91,11 +102,13 @@ export const useAuthStore = defineStore('auth', () => {
     }
 
     async function login(credentials: LoginCredentials): Promise<boolean> {
+        const generation = sessionGeneration.value
         try {
             const { data } = await authApi.login(credentials)
             if (data.success) {
                 const { accessToken: token, user: userData } = unwrapApiData(data)
 
+                if (generation !== sessionGeneration.value) return false
                 applyAuthenticatedSession(token, createLoginUserFallback(userData))
 
                 const hydrated = await fetchUser({ skipAuthRefresh: true })
@@ -109,12 +122,11 @@ export const useAuthStore = defineStore('auth', () => {
     }
 
     async function logout() {
+        clearSessionState()
         try {
             await authApi.logout()
         } catch (error: unknown) {
             logger.error('Logout failed:', error)
-        } finally {
-            clearSessionState()
         }
     }
 
@@ -153,9 +165,7 @@ export const useAuthStore = defineStore('auth', () => {
 
     async function syncFromStoredAccessToken(token: string | null): Promise<boolean> {
         if (!token) {
-            resetBootstrapState()
-            accessToken.value = null
-            user.value = null
+            clearSessionState(false)
             return false
         }
 
@@ -163,6 +173,7 @@ export const useAuthStore = defineStore('auth', () => {
             return true
         }
 
+        advanceSessionGeneration()
         resetBootstrapState()
         accessToken.value = token
         return fetchUser({ skipAuthRefresh: true })
@@ -180,14 +191,14 @@ export const useAuthStore = defineStore('auth', () => {
         }
 
         bootstrapAttempted = true
-        const revision = sessionRevision
+        const generation = sessionGeneration.value
         const request = (async () => {
             try {
                 const { data } = await authApi.refreshToken({
                     skipAuthRefresh: true,
                     skipGlobalErrorHandler: true,
                 })
-                if (revision !== sessionRevision) {
+                if (generation !== sessionGeneration.value) {
                     return Boolean(accessToken.value && user.value)
                 }
                 if (!data.success) {
@@ -195,12 +206,11 @@ export const useAuthStore = defineStore('auth', () => {
                     return false
                 }
                 const { accessToken: token } = unwrapApiData(data)
-                accessToken.value = token
-                persistAccessToken(token)
+                if (!applyNewSessionIfCurrent(generation, null, token)) return false
                 return fetchUser({ skipAuthRefresh: true })
             } catch (error: unknown) {
                 logger.error('Bootstrap session failed:', error)
-                if (revision === sessionRevision) {
+                if (generation === sessionGeneration.value) {
                     clearSessionValues()
                 }
                 return false
@@ -218,14 +228,37 @@ export const useAuthStore = defineStore('auth', () => {
     }
 
     function setTokens(token: string) {
+        advanceSessionGeneration()
         resetBootstrapState()
         accessToken.value = token
         persistAccessToken(token)
     }
 
+    function applyTokenIfCurrent(generation: number, previousToken: string | null, token: string) {
+        if (sessionGeneration.value !== generation || accessToken.value !== previousToken || !token) {
+            return false
+        }
+        resetBootstrapState()
+        accessToken.value = token
+        persistAccessToken(token)
+        return true
+    }
+
+    function applyNewSessionIfCurrent(generation: number, previousToken: string | null, token: string) {
+        if (sessionGeneration.value !== generation || accessToken.value !== previousToken || !token) {
+            return false
+        }
+        advanceSessionGeneration()
+        resetBootstrapState()
+        accessToken.value = token
+        persistAccessToken(token)
+        return true
+    }
+
     return {
         user,
         accessToken,
+        sessionGeneration,
         isAuthenticated,
         isAdmin: computed(() => user.value?.role === 'ADMIN' || user.value?.role === 'SUPER_ADMIN'),
         login,
@@ -235,6 +268,8 @@ export const useAuthStore = defineStore('auth', () => {
         bootstrapSession,
         syncFromStoredAccessToken,
         setTokens,
+        applyTokenIfCurrent,
+        applyNewSessionIfCurrent,
         clearSessionState
     }
 })

@@ -24,6 +24,12 @@ export class NotificationStreamRuntime {
   private isBrowserOnlineProvider = defaultIsBrowserOnline
 
   reset() {
+    this.resetSessionState()
+    this.reconnectCallback = null
+    this.isBrowserOnlineProvider = defaultIsBrowserOnline
+  }
+
+  resetSessionState() {
     this.state.closedManually = true
     this.clearReconnectTimer()
     this.abortStream()
@@ -31,9 +37,7 @@ export class NotificationStreamRuntime {
     this.state.reconnectAttempt = 0
     this.state.reconnectWhenOnline = false
     this.detachOnlineReconnectListener()
-    this.reconnectCallback = null
     this.state.recentNotificationIds.clear()
-    this.isBrowserOnlineProvider = defaultIsBrowserOnline
   }
 
   setOnlineProvider(provider?: () => boolean) {
