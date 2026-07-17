@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { User, Smile, ChevronLeft } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
@@ -7,6 +8,7 @@ import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import AuthPasswordPairFields from '@/components/auth/AuthPasswordPairFields.vue'
 import { useSignupRegistration } from '@/composables/useSignupRegistration'
+import { usePwaReloadBlocker } from '@/pwaReloadGuard'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -27,6 +29,12 @@ const {
   router,
   t
 })
+
+usePwaReloadBlocker(computed(() => (
+  Object.values(form.value).some((value) => value.trim().length > 0)
+  || verification.isCodeSent
+  || verification.isVerified
+)))
 </script>
 
 <template>

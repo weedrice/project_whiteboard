@@ -44,6 +44,11 @@ export function useConfigEditor(configsData: Ref<GlobalConfig[] | undefined>) {
     }, { immediate: true })
 
     const configs = computed(() => (configsData.value ?? []).map((config) => drafts.value[config.key] ?? toDraft(config)))
+    const hasUnsavedChanges = computed(() => Object.keys(drafts.value).some((key) => {
+        const draft = drafts.value[key]
+        const baseline = baselines.value[key]
+        return !!draft && !!baseline && !isSameDraft(draft, baseline)
+    }))
 
     function updateDraft(key: string, patch: Partial<Pick<ConfigDraft, 'value' | 'description'>>) {
         const current = drafts.value[key]
@@ -64,6 +69,7 @@ export function useConfigEditor(configsData: Ref<GlobalConfig[] | undefined>) {
 
     return {
         configs,
+        hasUnsavedChanges,
         updateDraft,
         getDraft,
     }

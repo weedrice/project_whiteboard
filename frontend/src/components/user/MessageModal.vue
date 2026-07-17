@@ -15,11 +15,13 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
 import { useMessageSubmit } from '@/features/user/messages/useMessageSubmit'
+import { usePwaReloadBlocker } from '@/pwaReloadGuard'
 
 const props = defineProps<{
     isOpen: boolean
@@ -40,4 +42,6 @@ const {
         emit('close')
     }
 })
+
+usePwaReloadBlocker(computed(() => props.isOpen && messageContent.value.trim().length > 0))
 </script>

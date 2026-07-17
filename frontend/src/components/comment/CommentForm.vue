@@ -19,6 +19,7 @@ import type { EmoticonImage } from '@/types/emoticon'
 import type { CommentMention, MentionCandidate } from '@/types'
 import { Smile } from 'lucide-vue-next'
 import { useFieldValidation } from '@/composables/useFieldValidation'
+import { usePwaReloadBlocker } from '@/pwaReloadGuard'
 
 const toastStore = useToastStore()
 const authStore = useAuthStore()
@@ -51,6 +52,7 @@ const content = ref(props.initialContent)
 const isSubmitting = computed(() => isCreating.value || isUpdating.value)
 const trimmedContent = computed(() => content.value.trim())
 const canSubmit = computed(() => !!trimmedContent.value && !isSubmitting.value)
+usePwaReloadBlocker(computed(() => content.value !== props.initialContent))
 const commentValues = computed(() => ({ content: content.value }))
 const commentValidation = useFieldValidation<'content'>({
   validators: {

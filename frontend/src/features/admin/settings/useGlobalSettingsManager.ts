@@ -1,4 +1,4 @@
-import { reactive, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAdmin } from '@/features/admin/useAdmin'
 import { useConfigEditor } from '@/features/admin/settings/useConfigEditor'
@@ -32,7 +32,11 @@ export function useGlobalSettingsManager() {
   const { mutateAsync: updateConfig } = useUpdateConfig()
   const { mutateAsync: createConfig } = useCreateConfig()
   const { mutateAsync: deleteConfig } = useDeleteConfig()
-  const { configs, updateDraft, getDraft } = useConfigEditor(configsData)
+  const { configs, hasUnsavedChanges: hasUnsavedConfigChanges, updateDraft, getDraft } = useConfigEditor(configsData)
+  const hasUnsavedChanges = computed(() => hasUnsavedConfigChanges.value || (
+    isModalOpen.value
+    && Object.values(newConfig).some((value) => value.trim().length > 0)
+  ))
 
   function openCreateModal() {
     isModalOpen.value = true
@@ -107,6 +111,7 @@ export function useGlobalSettingsManager() {
     handleCreateConfig,
     handleDelete,
     handleSave,
+    hasUnsavedChanges,
     isLoading,
     isModalOpen,
     newConfig,

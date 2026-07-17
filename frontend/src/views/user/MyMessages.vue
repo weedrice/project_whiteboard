@@ -177,6 +177,7 @@ import { formatDate } from '@/utils/date'
 import { computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
+import { usePwaReloadBlocker } from '@/pwaReloadGuard'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -210,6 +211,7 @@ const {
     cancelInlineReply,
     sendReply,
 } = useMailboxResource()
+usePwaReloadBlocker(computed(() => replyContent.value.trim().length > 0))
 
 type ConversationMessage = MailboxMessageViewModel & { isCurrent: boolean }
 

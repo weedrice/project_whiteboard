@@ -97,6 +97,7 @@ import BaseModal from '@/components/common/ui/BaseModal.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import ErrorState from '@/components/common/ui/ErrorState.vue'
 import UserSelectModal from '@/components/common/widgets/UserSelectModal.vue'
+import { usePwaReloadBlocker } from '@/pwaReloadGuard'
 const {
   useAdminBoards,
   useCreateBoard,
@@ -136,6 +137,7 @@ const {
   reorderBoards,
   refetchBoards: async () => { await refetchBoards() },
 })
+usePwaReloadBlocker(hasUnsavedChanges)
 
 const {
   fileInput,

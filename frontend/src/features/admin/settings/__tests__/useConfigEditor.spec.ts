@@ -14,6 +14,8 @@ describe('useConfigEditor', () => {
     ])
     const editor = useConfigEditor(configsData)
 
+    expect(editor.hasUnsavedChanges.value).toBe(false)
+
     expect(editor.configs.value).toEqual([
       { key: 'site.name', value: 'Noviis', description: 'Service name' },
     ])
@@ -39,6 +41,7 @@ describe('useConfigEditor', () => {
       value: 'Updated',
       description: 'Service name',
     })
+    expect(editor.hasUnsavedChanges.value).toBe(true)
   })
 
   it('preserves unsaved drafts when server data refreshes', async () => {

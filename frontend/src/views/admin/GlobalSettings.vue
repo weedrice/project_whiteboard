@@ -10,6 +10,7 @@ import AdminModalActions from '@/components/admin/AdminModalActions.vue'
 import AdminPaginatedTable from '@/components/admin/AdminPaginatedTable.vue'
 import AdminTableActions from '@/components/admin/AdminTableActions.vue'
 import { useGlobalSettingsManager } from '@/features/admin/settings/useGlobalSettingsManager'
+import { usePwaReloadBlocker } from '@/pwaReloadGuard'
 
 
 const { t } = useI18n()
@@ -19,12 +20,15 @@ const {
   handleCreateConfig,
   handleDelete,
   handleSave,
+  hasUnsavedChanges,
   isLoading,
   isModalOpen,
   newConfig,
   openCreateModal,
   updateDraft,
 } = useGlobalSettingsManager()
+
+usePwaReloadBlocker(hasUnsavedChanges)
 
 const columns = [
   { key: 'key', label: t('common.key'), width: '20%' },
