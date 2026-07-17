@@ -12,10 +12,14 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 public interface PasswordResetTokenRepository extends JpaRepository<PasswordResetToken, Long> {
     boolean existsByVerificationCodeVerificationId(Long verificationId);
+
+    Optional<PasswordResetToken> findByToken(String token);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
             SELECT token
@@ -61,4 +65,20 @@ public interface PasswordResetTokenRepository extends JpaRepository<PasswordRese
     int invalidatePreviousSentUnusedTokens(
             @Param("user") User user,
             @Param("excludeTokenId") Long excludeTokenId);
+
+    @Modifying
+    @Query(value = """
+            DELETE FROM password_reset_tokens
+            WHERE token_id IN (
+                SELECT token_id
+                FROM password_reset_tokens
+                WHERE expiry_date < :cutoff
+                  AND modified_at < :cutoff
+                ORDER BY expiry_date, token_id
+                LIMIT :batchSize
+            )
+            """, nativeQuery = true)
+    int deleteExpiredBatch(
+            @Param("cutoff") LocalDateTime cutoff,
+            @Param("batchSize") int batchSize);
 }

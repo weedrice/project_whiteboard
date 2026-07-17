@@ -28,4 +28,10 @@ public class VerificationCodeRetentionProperties {
 
     @Positive
     private int cleanupBatchSize = 500;
+
+    @Positive
+    private int passwordResetTokenRetentionDays = 30;
+
+    @Positive
+    private int passwordResetTokenCleanupBatchSize = 500;
 }

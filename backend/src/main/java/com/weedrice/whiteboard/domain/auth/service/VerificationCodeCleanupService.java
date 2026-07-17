@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.auth.service;
 
 import com.weedrice.whiteboard.domain.auth.VerificationCodeRetentionProperties;
 import com.weedrice.whiteboard.domain.auth.repository.VerificationCodeRepository;
+import com.weedrice.whiteboard.domain.auth.repository.PasswordResetTokenRepository;
 import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +18,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public class VerificationCodeCleanupService {
 
     private final VerificationCodeRepository verificationCodeRepository;
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final VerificationCodeRetentionProperties properties;
     private final Clock clock;
     private final MeterRegistry meterRegistry;
@@ -50,6 +52,19 @@ public class VerificationCodeCleanupService {
                 properties.getCleanupBatchSize());
         if (deleted > 0) {
             meterRegistry.counter("noviis.verification.code.terminal.cleaned").increment(deleted);
+        }
+        return deleted;
+    }
+
+    @Transactional
+    public int deleteExpiredPasswordResetTokenBatch() {
+        LocalDateTime cutoff = LocalDateTime.now(clock)
+                .minusDays(properties.getPasswordResetTokenRetentionDays());
+        int deleted = passwordResetTokenRepository.deleteExpiredBatch(
+                cutoff,
+                properties.getPasswordResetTokenCleanupBatchSize());
+        if (deleted > 0) {
+            meterRegistry.counter("noviis.password.reset.token.cleaned").increment(deleted);
         }
         return deleted;
     }

@@ -52,6 +52,8 @@ app:
     pending-recovery-grace-minutes: ${APP_VERIFICATION_CODE_PENDING_RECOVERY_GRACE_MINUTES:30}
     pending-recovery-batch-size: ${APP_VERIFICATION_CODE_PENDING_RECOVERY_BATCH_SIZE:500}
     pending-recovery-max-batches: ${APP_VERIFICATION_CODE_PENDING_RECOVERY_MAX_BATCHES:10}
+    password-reset-token-retention-days: ${APP_PASSWORD_RESET_TOKEN_RETENTION_DAYS:30}
+    password-reset-token-cleanup-batch-size: ${APP_PASSWORD_RESET_TOKEN_CLEANUP_BATCH_SIZE:500}
     cleanup-batch-size: ${APP_VERIFICATION_CODE_CLEANUP_BATCH_SIZE:500}
   agent:
     pending-claim-hard-delete-days: ${APP_AGENT_PENDING_CLAIM_HARD_DELETE_DAYS:7}

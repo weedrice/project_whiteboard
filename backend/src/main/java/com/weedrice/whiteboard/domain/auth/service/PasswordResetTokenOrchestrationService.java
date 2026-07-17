@@ -134,12 +134,18 @@ public class PasswordResetTokenOrchestrationService {
             String verificationEmail,
             String verificationTicket) {
         transactionTemplate.executeWithoutResult(status -> {
-            verificationCodeRepository.findByIdForUpdate(verificationId)
-                    .orElseThrow(() -> new BusinessException(ErrorCode.EMAIL_NOT_VERIFIED));
             User lockedUser = userRepository.findByIdForUpdate(user.getUserId())
                     .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+            VerificationCode lockedVerificationCode = verificationCodeRepository.findByIdForUpdate(verificationId)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.EMAIL_NOT_VERIFIED));
             PasswordResetToken passwordResetToken = passwordResetTokenRepository.findByIdForUpdate(tokenId)
                     .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_PASSWORD_RESET_TOKEN));
+            if (!passwordResetToken.getUser().getUserId().equals(lockedUser.getUserId())
+                    || passwordResetToken.getVerificationCode() == null
+                    || !lockedVerificationCode.getVerificationId()
+                    .equals(passwordResetToken.getVerificationCode().getVerificationId())) {
+                throw new BusinessException(ErrorCode.INVALID_PASSWORD_RESET_TOKEN);
+            }
             invalidatePreviousSentTokens(lockedUser, tokenId);
             consumePasswordResetVerificationTicket(verificationEmail, verificationTicket);
             passwordResetToken.markSent();

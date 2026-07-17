@@ -38,4 +38,4 @@ cloud:
     s3:
       bucket: smoke-test-bucket
     password-reset:
-      frontend-url: http://localhost:5173/reset-password?token=
+      frontend-url: http://localhost:5173/reset-password#token=

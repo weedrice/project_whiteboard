@@ -19,7 +19,9 @@ class VerificationCodeCleanupSchedulerTest {
         properties.setCleanupBatchSize(2);
         properties.setPendingRecoveryBatchSize(2);
         properties.setPendingRecoveryMaxBatches(5);
+        properties.setPasswordResetTokenCleanupBatchSize(2);
         when(cleanupService.recoverStalePendingDeliveries()).thenReturn(2, 2, 1);
+        when(cleanupService.deleteExpiredPasswordResetTokenBatch()).thenReturn(2, 1);
         when(cleanupService.deleteExpiredTerminalBatch()).thenReturn(2, 2, 1);
         VerificationCodeCleanupScheduler scheduler = new VerificationCodeCleanupScheduler(cleanupService, properties);
 
@@ -27,6 +29,7 @@ class VerificationCodeCleanupSchedulerTest {
 
         var ordered = inOrder(cleanupService);
         ordered.verify(cleanupService, times(3)).recoverStalePendingDeliveries();
+        ordered.verify(cleanupService, times(2)).deleteExpiredPasswordResetTokenBatch();
         ordered.verify(cleanupService, times(3)).deleteExpiredTerminalBatch();
     }
 

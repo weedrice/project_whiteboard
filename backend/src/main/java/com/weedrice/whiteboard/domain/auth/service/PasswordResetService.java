@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.auth.entity.PasswordResetToken;
 import com.weedrice.whiteboard.domain.auth.entity.VerificationPurpose;
 import com.weedrice.whiteboard.domain.auth.entity.VerificationCode;
 import com.weedrice.whiteboard.domain.auth.repository.PasswordResetTokenRepository;
+import com.weedrice.whiteboard.domain.auth.repository.VerificationCodeRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
@@ -33,6 +34,7 @@ public class PasswordResetService {
     private final UserRepository userRepository;
     private final VerificationCodeService verificationCodeService;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
+    private final VerificationCodeRepository verificationCodeRepository;
     private final PasswordHistoryPolicy passwordHistoryPolicy;
     private final RefreshTokenLifecycleService refreshTokenLifecycleService;
     private final TokenHashService tokenHashService;
@@ -94,11 +96,11 @@ public class PasswordResetService {
             boolean includeLoginId) {
         String normalizedEmail = AuthEmailNormalizer.normalize(email);
         return Objects.requireNonNull(transactionTemplate.execute(status -> {
+            User user = getUsablePasswordResetUserForUpdate(normalizedEmail, notFoundErrorCode);
             VerificationCode verificationCode = verificationCodeService.lockAndValidateVerificationTicket(
                     normalizedEmail,
                     VerificationPurpose.PASSWORD_RESET,
                     verificationTicket);
-            User user = getUsablePasswordResetUserForUpdate(normalizedEmail, notFoundErrorCode);
             Long tokenId = passwordResetTokenOrchestrationService
                     .createPendingPasswordResetTokenForCurrentTransaction(user, verificationCode, rawToken);
             Locale locale = resolveUserLocale(user.getUserId());
@@ -149,10 +151,30 @@ public class PasswordResetService {
     @Transactional
     public void resetPasswordWithToken(String rawToken, String newPassword) {
         String hashedToken = tokenHashService.hashSha256(rawToken);
+        PasswordResetToken candidate = passwordResetTokenRepository.findByToken(hashedToken)
+                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_PASSWORD_RESET_TOKEN));
+        Long candidateUserId = candidate.getUser().getUserId();
+        Long candidateVerificationId = candidate.getVerificationCode() == null
+                ? null
+                : candidate.getVerificationCode().getVerificationId();
+
+        User user = userRepository.findByIdForUpdate(candidateUserId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        if (candidateVerificationId != null) {
+            verificationCodeRepository.findByIdForUpdate(candidateVerificationId)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_PASSWORD_RESET_TOKEN));
+        }
         PasswordResetToken passwordResetToken = passwordResetTokenRepository.findByTokenForUpdate(hashedToken)
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_PASSWORD_RESET_TOKEN));
-        User user = userRepository.findByIdForUpdate(passwordResetToken.getUser().getUserId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        if (!candidate.getTokenId().equals(passwordResetToken.getTokenId())
+                || !hashedToken.equals(passwordResetToken.getToken())
+                || !candidateUserId.equals(passwordResetToken.getUser().getUserId())
+                || !java.util.Objects.equals(candidateVerificationId,
+                passwordResetToken.getVerificationCode() == null
+                        ? null
+                        : passwordResetToken.getVerificationCode().getVerificationId())) {
+            throw new BusinessException(ErrorCode.INVALID_PASSWORD_RESET_TOKEN);
+        }
         validateUsablePasswordResetUser(user);
 
         if (!passwordResetToken.isSent()) {

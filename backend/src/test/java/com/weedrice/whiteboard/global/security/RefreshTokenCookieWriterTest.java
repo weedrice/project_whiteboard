@@ -20,7 +20,7 @@ class RefreshTokenCookieWriterTest {
 
         assertThat(response.getHeaders("Set-Cookie"))
                 .anyMatch(header -> header.contains("refreshToken=refresh-token")
-                        && header.contains("Path=/api/v1")
+                        && header.contains("Path=/api/v1/auth")
                         && header.contains("Max-Age=1209600")
                         && header.contains("Secure")
                         && header.contains("HttpOnly")
@@ -42,7 +42,7 @@ class RefreshTokenCookieWriterTest {
 
         assertThat(response.getHeaders("Set-Cookie"))
                 .anyMatch(header -> header.contains("refreshToken=")
-                        && header.contains("Path=/api/v1")
+                        && header.contains("Path=/api/v1/auth")
                         && header.contains("Max-Age=0")
                         && header.contains("Secure"));
         assertThat(response.getHeaders("Set-Cookie"))
@@ -72,6 +72,18 @@ class RefreshTokenCookieWriterTest {
         MockHttpServletResponse response = new MockHttpServletResponse();
 
         writer.writeRefreshTokenCookie(response, "refresh-token", request);
+
+        assertThat(response.getHeaders("Set-Cookie"))
+                .allMatch(header -> header.contains("Secure"));
+    }
+
+    @Test
+    void writeRefreshTokenCookie_forcesSecureFlagInProductionOnInsecureRequest() {
+        RefreshTokenCookieWriter productionWriter = new RefreshTokenCookieWriter(1209600000L, true);
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        productionWriter.writeRefreshTokenCookie(response, "refresh-token", request);
 
         assertThat(response.getHeaders("Set-Cookie"))
                 .allMatch(header -> header.contains("Secure"));

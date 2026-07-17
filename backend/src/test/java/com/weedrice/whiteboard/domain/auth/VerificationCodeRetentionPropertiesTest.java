@@ -33,5 +33,11 @@ class VerificationCodeRetentionPropertiesTest {
         assertThat(propertySources)
                 .extracting(source -> source.getProperty("app.verification-code.pending-recovery-max-batches"))
                 .contains("${APP_VERIFICATION_CODE_PENDING_RECOVERY_MAX_BATCHES:10}");
+        assertThat(propertySources)
+                .extracting(source -> source.getProperty("app.verification-code.password-reset-token-retention-days"))
+                .contains("${APP_PASSWORD_RESET_TOKEN_RETENTION_DAYS:30}");
+        assertThat(propertySources)
+                .extracting(source -> source.getProperty("app.verification-code.password-reset-token-cleanup-batch-size"))
+                .contains("${APP_PASSWORD_RESET_TOKEN_CLEANUP_BATCH_SIZE:500}");
     }
 }

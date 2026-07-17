@@ -3,7 +3,10 @@ package com.weedrice.whiteboard.global.security;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.Getter;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.stereotype.Component;
@@ -15,15 +18,29 @@ import java.time.Duration;
 public class RefreshTokenCookieWriter {
 
     public static final String REFRESH_TOKEN_COOKIE_NAME = "refreshToken";
-    private static final String REFRESH_TOKEN_COOKIE_PATH = "/api/v1";
-    private static final String LEGACY_AUTH_REFRESH_TOKEN_COOKIE_PATH = "/api/v1/auth";
+    private static final String REFRESH_TOKEN_COOKIE_PATH = "/api/v1/auth";
+    private static final String LEGACY_API_REFRESH_TOKEN_COOKIE_PATH = "/api/v1";
     private static final String LEGACY_REFRESH_TOKEN_COOKIE_PATH = "/api/v1/auth/refresh";
 
     @Getter
     private final long refreshTokenValidityInMilliseconds;
+    private final boolean productionProfile;
 
-    public RefreshTokenCookieWriter(@Value("${jwt.refresh-token.expiration}") long refreshTokenValidityInMilliseconds) {
+    @Autowired
+    public RefreshTokenCookieWriter(
+            @Value("${jwt.refresh-token.expiration}") long refreshTokenValidityInMilliseconds,
+            Environment environment) {
+        this(refreshTokenValidityInMilliseconds,
+                environment != null && environment.acceptsProfiles(Profiles.of("prod")));
+    }
+
+    public RefreshTokenCookieWriter(long refreshTokenValidityInMilliseconds) {
+        this(refreshTokenValidityInMilliseconds, false);
+    }
+
+    RefreshTokenCookieWriter(long refreshTokenValidityInMilliseconds, boolean productionProfile) {
         this.refreshTokenValidityInMilliseconds = refreshTokenValidityInMilliseconds;
+        this.productionProfile = productionProfile;
     }
 
     public void writeRefreshTokenCookie(
@@ -59,7 +76,7 @@ public class RefreshTokenCookieWriter {
     }
 
     private void clearLegacyRefreshTokenCookies(HttpServletResponse response, boolean secure) {
-        clearRefreshTokenCookieAtPath(response, secure, LEGACY_AUTH_REFRESH_TOKEN_COOKIE_PATH);
+        clearRefreshTokenCookieAtPath(response, secure, LEGACY_API_REFRESH_TOKEN_COOKIE_PATH);
         clearRefreshTokenCookieAtPath(response, secure, LEGACY_REFRESH_TOKEN_COOKIE_PATH);
     }
 
@@ -75,6 +92,9 @@ public class RefreshTokenCookieWriter {
     }
 
     private boolean isSecureRequest(HttpServletRequest request) {
+        if (productionProfile) {
+            return true;
+        }
         if (request == null) {
             return true;
         }

@@ -59,6 +59,7 @@ class AuthPasswordResetMailFlowTest {
     private static final Clock FIXED_CLOCK = Clock.fixed(
             FIXED_NOW.toInstant(ZoneOffset.UTC),
             ZoneOffset.UTC);
+    private static final String HASHED_IGNORED = new TokenHashService().hashSha256("ignored");
 
     @Mock private UserRepository userRepository;
     @Mock private PasswordEncoder passwordEncoder;
@@ -93,7 +94,7 @@ class AuthPasswordResetMailFlowTest {
         PasswordHistoryPolicy passwordHistoryPolicy =
                 new PasswordHistoryPolicy(passwordHistoryRepository, passwordEncoder);
         passwordResetService = new PasswordResetService(
-                userRepository, verificationCodeService, passwordResetTokenRepository,
+                userRepository, verificationCodeService, passwordResetTokenRepository, verificationCodeRepository,
                 passwordHistoryPolicy, refreshTokenLifecycleService, tokenHashService,
                 passwordResetTokenOrchestrationService, transactionTemplate, new AuthAccountEligibilityPolicy(), FIXED_CLOCK,
                 new StaticMessageSource(), userSettingsRepository);
@@ -106,7 +107,7 @@ class AuthPasswordResetMailFlowTest {
                 .build();
         ReflectionTestUtils.setField(user, "userId", 1L);
         ReflectionTestUtils.setField(passwordResetService, "passwordResetFrontendUrl",
-                "http://localhost:5173/reset-password?token=");
+                "http://localhost:5173/reset-password#token=");
         VerificationCode verificationCode = VerificationCode.builder()
                 .email("test@example.com")
                 .purpose(VerificationPurpose.PASSWORD_RESET)
@@ -180,6 +181,14 @@ class AuthPasswordResetMailFlowTest {
                 passwordResetTokens.values().stream()
                         .filter(passwordResetToken -> invocation.getArgument(0).equals(passwordResetToken.getToken()))
                         .findFirst());
+        when(passwordResetTokenRepository.findByToken(anyString())).thenAnswer(invocation -> {
+            Optional<PasswordResetToken> stored = passwordResetTokens.values().stream()
+                        .filter(passwordResetToken -> invocation.getArgument(0).equals(passwordResetToken.getToken()))
+                        .findFirst();
+            return stored.isPresent()
+                    ? stored
+                    : passwordResetTokenRepository.findByTokenForUpdate(invocation.getArgument(0));
+        });
     }
 
     @Test
@@ -204,7 +213,8 @@ class AuthPasswordResetMailFlowTest {
                 .filteredOn(token -> !token.getIsUsed())
                 .hasSize(1);
         assertThat(previousToken.getIsUsed()).isTrue();
-        var inOrder = inOrder(verificationCodeService, emailService);
+        var inOrder = inOrder(userRepository, verificationCodeService, emailService);
+        inOrder.verify(userRepository).findByEmailForUpdate("test@example.com");
         inOrder.verify(verificationCodeService).lockAndValidateVerificationTicket(
                 "test@example.com",
                 VerificationPurpose.PASSWORD_RESET,
@@ -216,8 +226,8 @@ class AuthPasswordResetMailFlowTest {
                 "ticket-1");
 
         var lockOrder = inOrder(verificationCodeRepository, userRepository, passwordResetTokenRepository);
-        lockOrder.verify(verificationCodeRepository).findByIdForUpdate(99L);
         lockOrder.verify(userRepository).findByIdForUpdate(user.getUserId());
+        lockOrder.verify(verificationCodeRepository).findByIdForUpdate(99L);
         lockOrder.verify(passwordResetTokenRepository).findByIdForUpdate(any());
         lockOrder.verify(passwordResetTokenRepository).invalidatePreviousSentUnusedTokens(any(User.class), any());
     }
@@ -440,7 +450,7 @@ class AuthPasswordResetMailFlowTest {
     @DisplayName("resetPasswordWithToken rejects pending tokens")
     void resetPasswordWithToken_rejectsPendingToken() {
         PasswordResetToken pendingToken = PasswordResetToken.builder()
-                .token("hashed")
+                .token(HASHED_IGNORED)
                 .user(user)
                 .expiryDate(FIXED_NOW.plusMinutes(10))
                 .build();
@@ -459,7 +469,7 @@ class AuthPasswordResetMailFlowTest {
     void resetPasswordWithToken_suspendedUser_rejectsBeforeUsingToken() {
         ReflectionTestUtils.setField(user, "status", User.STATUS_SUSPENDED);
         PasswordResetToken latestSentToken = PasswordResetToken.builder()
-                .token("latest-hashed")
+                .token(HASHED_IGNORED)
                 .user(user)
                 .expiryDate(FIXED_NOW.plusMinutes(10))
                 .build();
@@ -476,7 +486,7 @@ class AuthPasswordResetMailFlowTest {
                 .isEqualTo(ErrorCode.USER_NOT_ACTIVE);
 
         assertThat(latestSentToken.getIsUsed()).isFalse();
-        verify(passwordResetTokenRepository).findByTokenForUpdate(anyString());
+        verify(passwordResetTokenRepository, times(2)).findByTokenForUpdate(anyString());
         verify(passwordResetTokenRepository, never()).save(latestSentToken);
         verify(passwordHistoryRepository, never()).save(any());
         verify(refreshTokenLifecycleService, never()).revokeActiveRefreshTokens(user);
@@ -487,7 +497,7 @@ class AuthPasswordResetMailFlowTest {
     void resetPasswordWithToken_deletedUser_rejectsBeforeUsingToken() {
         user.delete(java.time.LocalDateTime.of(2026, 7, 7, 12, 0));
         PasswordResetToken latestSentToken = PasswordResetToken.builder()
-                .token("latest-hashed")
+                .token(HASHED_IGNORED)
                 .user(user)
                 .expiryDate(FIXED_NOW.plusMinutes(10))
                 .build();
@@ -504,7 +514,7 @@ class AuthPasswordResetMailFlowTest {
                 .isEqualTo(ErrorCode.USER_DELETED);
 
         assertThat(latestSentToken.getIsUsed()).isFalse();
-        verify(passwordResetTokenRepository).findByTokenForUpdate(anyString());
+        verify(passwordResetTokenRepository, times(2)).findByTokenForUpdate(anyString());
         verify(passwordResetTokenRepository, never()).save(latestSentToken);
         verify(passwordHistoryRepository, never()).save(any());
         verify(refreshTokenLifecycleService, never()).revokeActiveRefreshTokens(user);
@@ -514,7 +524,7 @@ class AuthPasswordResetMailFlowTest {
     @DisplayName("resetPasswordWithToken rejects failed tokens")
     void resetPasswordWithToken_rejectsFailedToken() {
         PasswordResetToken failedToken = PasswordResetToken.builder()
-                .token("hashed")
+                .token(HASHED_IGNORED)
                 .user(user)
                 .expiryDate(FIXED_NOW.plusMinutes(10))
                 .build();
@@ -533,7 +543,7 @@ class AuthPasswordResetMailFlowTest {
     @DisplayName("resetPasswordWithToken rejects older sent tokens")
     void resetPasswordWithToken_rejectsOlderSentToken() {
         PasswordResetToken olderSentToken = PasswordResetToken.builder()
-                .token("older-hashed")
+                .token(HASHED_IGNORED)
                 .user(user)
                 .expiryDate(FIXED_NOW.plusMinutes(10))
                 .build();
@@ -542,7 +552,7 @@ class AuthPasswordResetMailFlowTest {
         olderSentToken.markSent();
 
         PasswordResetToken latestSentToken = PasswordResetToken.builder()
-                .token("latest-hashed")
+                .token(HASHED_IGNORED)
                 .user(user)
                 .expiryDate(FIXED_NOW.plusMinutes(10))
                 .build();
@@ -563,7 +573,7 @@ class AuthPasswordResetMailFlowTest {
     @DisplayName("resetPasswordWithToken stores used token before password reset side effects")
     void resetPasswordWithToken_marksTokenUsedAndSaves() {
         PasswordResetToken latestSentToken = PasswordResetToken.builder()
-                .token("latest-hashed")
+                .token(HASHED_IGNORED)
                 .user(user)
                 .expiryDate(FIXED_NOW.plusMinutes(10))
                 .build();
@@ -586,8 +596,8 @@ class AuthPasswordResetMailFlowTest {
                 userRepository,
                 passwordHistoryRepository,
                 refreshTokenLifecycleService);
-        inOrder.verify(passwordResetTokenRepository).findByTokenForUpdate(anyString());
         inOrder.verify(userRepository).findByIdForUpdate(user.getUserId());
+        inOrder.verify(passwordResetTokenRepository).findByTokenForUpdate(anyString());
         inOrder.verify(passwordResetTokenRepository).findLatestSentByUser(user);
         inOrder.verify(passwordResetTokenRepository).save(latestSentToken);
         inOrder.verify(passwordHistoryRepository).save(any());
@@ -598,7 +608,7 @@ class AuthPasswordResetMailFlowTest {
     @DisplayName("resetPasswordWithToken rejects latest used token as used")
     void resetPasswordWithToken_rejectsLatestUsedToken() {
         PasswordResetToken latestUsedToken = PasswordResetToken.builder()
-                .token("latest-hashed")
+                .token(HASHED_IGNORED)
                 .user(user)
                 .expiryDate(FIXED_NOW.plusMinutes(10))
                 .build();

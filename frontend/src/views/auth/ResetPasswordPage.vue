@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import AuthPasswordPairFields from '@/components/auth/AuthPasswordPairFields.vue'
@@ -12,7 +12,24 @@ const { t } = useI18n()
 const router = useRouter()
 const route = useRoute()
 
-const token = computed(() => getSingleQueryValue(route.query.token) ?? '')
+function consumeResetToken() {
+  const currentUrl = new URL(window.location.href)
+  const fragmentParams = new URLSearchParams(currentUrl.hash.replace(/^#/, ''))
+  const fragmentToken = fragmentParams.get('token') ?? ''
+  const queryToken = getSingleQueryValue(route.query.token) ?? currentUrl.searchParams.get('token') ?? ''
+  const resetToken = fragmentToken || queryToken
+
+  if (fragmentParams.has('token') || queryToken) {
+    fragmentParams.delete('token')
+    currentUrl.searchParams.delete('token')
+    currentUrl.hash = fragmentParams.size > 0 ? `#${fragmentParams.toString()}` : ''
+    window.history.replaceState(window.history.state, '', `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`)
+  }
+
+  return resetToken
+}
+
+const token = ref(consumeResetToken())
 
 const newPassword = ref('')
 const confirmPassword = ref('')

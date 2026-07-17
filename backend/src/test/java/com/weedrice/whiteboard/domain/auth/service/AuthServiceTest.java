@@ -142,7 +142,7 @@ class AuthServiceTest {
                 new PasswordHistoryPolicy(passwordHistoryRepository, passwordEncoder);
         AuthAccountEligibilityPolicy authAccountEligibilityPolicy = new AuthAccountEligibilityPolicy();
         PasswordResetService passwordResetService = new PasswordResetService(
-                userRepository, verificationCodeService, passwordResetTokenRepository,
+                userRepository, verificationCodeService, passwordResetTokenRepository, verificationCodeRepository,
                 passwordHistoryPolicy, refreshTokenLifecycleService, tokenHashService,
                 passwordResetTokenOrchestrationService, transactionTemplate, authAccountEligibilityPolicy, FIXED_CLOCK,
                 new StaticMessageSource(), userSettingsRepository);
@@ -180,7 +180,7 @@ class AuthServiceTest {
                 .build();
         ReflectionTestUtils.setField(user, "userId", 1L);
         ReflectionTestUtils.setField(passwordResetService, "passwordResetFrontendUrl",
-                "http://localhost:5173/reset-password?token=");
+                "http://localhost:5173/reset-password#token=");
         VerificationCode passwordResetVerification = VerificationCode.builder()
                 .email("test@example.com")
                 .purpose(VerificationPurpose.PASSWORD_RESET)
@@ -256,6 +256,14 @@ class AuthServiceTest {
                 passwordResetTokens.values().stream()
                         .filter(passwordResetToken -> invocation.getArgument(0).equals(passwordResetToken.getToken()))
                         .findFirst());
+        when(passwordResetTokenRepository.findByToken(anyString())).thenAnswer(invocation -> {
+            Optional<PasswordResetToken> stored = passwordResetTokens.values().stream()
+                        .filter(passwordResetToken -> invocation.getArgument(0).equals(passwordResetToken.getToken()))
+                        .findFirst();
+            return stored.isPresent()
+                    ? stored
+                    : passwordResetTokenRepository.findByTokenForUpdate(invocation.getArgument(0));
+        });
     }
 
     @Test
@@ -906,10 +914,8 @@ class AuthServiceTest {
                 () -> authService.sendPasswordResetLinkByEmail(email, verificationTicket));
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.USER_NOT_FOUND_BY_EMAIL);
-        verify(verificationCodeService).lockAndValidateVerificationTicket(
-                email,
-                VerificationPurpose.PASSWORD_RESET,
-                verificationTicket);
+        verify(verificationCodeService, never()).lockAndValidateVerificationTicket(
+                anyString(), any(), anyString());
         verify(verificationCodeService, never()).consumeValidatedVerificationTicket(anyString(), any(), anyString());
     }
 
@@ -944,10 +950,8 @@ class AuthServiceTest {
                 () -> authService.sendPasswordResetLinkByEmail(email, verificationTicket));
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.USER_DELETED);
-        verify(verificationCodeService).lockAndValidateVerificationTicket(
-                email,
-                VerificationPurpose.PASSWORD_RESET,
-                verificationTicket);
+        verify(verificationCodeService, never()).lockAndValidateVerificationTicket(
+                anyString(), any(), anyString());
         verify(verificationCodeService, never()).consumeValidatedVerificationTicket(anyString(), any(), anyString());
     }
 
@@ -964,7 +968,7 @@ class AuthServiceTest {
                 () -> authService.sendPasswordResetLinkByEmail(email, verificationTicket));
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.EMAIL_NOT_VERIFIED);
-        verify(userRepository, never()).findByEmailForUpdate(anyString());
+        verify(userRepository).findByEmailForUpdate(email);
         verify(verificationCodeService, never()).consumeValidatedVerificationTicket(anyString(), any(), anyString());
         verify(emailService, never()).sendEmail(anyString(), anyString(), anyString());
     }

@@ -56,6 +56,7 @@ describe('ResetPasswordPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.route.query = {}
+    window.history.replaceState({}, '', '/reset-password')
   })
 
   function mountPage() {
@@ -94,5 +95,32 @@ describe('ResetPasswordPage', () => {
       name: 'confirm-password',
       autocomplete: 'new-password',
     })
+  })
+
+  it('prefers a fragment token and removes sensitive token values from the URL immediately', () => {
+    mocks.route.query = { token: 'legacy-query-token', redirect: 'settings' }
+    window.history.replaceState({}, '', '/reset-password?token=legacy-query-token&source=email#token=fragment-token')
+    const replaceState = vi.spyOn(window.history, 'replaceState')
+
+    const wrapper = mountPage()
+
+    expect(wrapper.find('#new-password').exists()).toBe(true)
+    expect(replaceState).toHaveBeenCalledWith(
+      expect.anything(),
+      '',
+      '/reset-password?source=email',
+    )
+    expect(window.location.href).not.toContain('fragment-token')
+    expect(window.location.href).not.toContain('legacy-query-token')
+  })
+
+  it('temporarily accepts a legacy query token and normalizes it out of the URL', () => {
+    mocks.route.query = { token: 'legacy-query-token' }
+    window.history.replaceState({}, '', '/reset-password?token=legacy-query-token&source=email')
+
+    const wrapper = mountPage()
+
+    expect(wrapper.find('#new-password').exists()).toBe(true)
+    expect(window.location.pathname + window.location.search).toBe('/reset-password?source=email')
   })
 })

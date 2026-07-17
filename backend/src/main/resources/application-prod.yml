@@ -130,7 +130,7 @@ cloud:
     s3:
       bucket: ${S3_BUCKET}
     password-reset:
-      frontend-url: https://noviis.kr/reset-password?token=
+      frontend-url: https://noviis.kr/reset-password#token=
 
 rate-limit:
   auth-account-limit: ${RATE_LIMIT_AUTH_ACCOUNT_LIMIT:5}
