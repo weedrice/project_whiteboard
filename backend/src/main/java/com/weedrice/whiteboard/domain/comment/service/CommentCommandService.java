@@ -15,7 +15,7 @@ import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentVersionRepository;
 import com.weedrice.whiteboard.domain.notification.constant.NotificationSourceType;
 import com.weedrice.whiteboard.domain.notification.dto.CommentStreamEvent;
-import com.weedrice.whiteboard.domain.notification.service.CommentStreamPublisher;
+import com.weedrice.whiteboard.domain.notification.service.CommentStreamEventDispatcher;
 import com.weedrice.whiteboard.domain.notification.service.MentionService;
 import com.weedrice.whiteboard.domain.point.service.ContentRewardPolicy;
 import com.weedrice.whiteboard.domain.point.service.ContentRewardService;
@@ -63,7 +63,7 @@ public class CommentCommandService {
     private final ContentRewardService contentRewardService;
     private final CommentNotificationService commentNotificationService;
     private final MentionService mentionService;
-    private final CommentStreamPublisher commentStreamPublisher;
+    private final CommentStreamEventDispatcher commentStreamEventDispatcher;
     private final SemanticSearchEventPublisher semanticSearchEventPublisher;
     private final CommentLikeCommand commentLikeCommand;
     private final BadgeEvaluationService badgeEvaluationService;
@@ -241,7 +241,7 @@ public class CommentCommandService {
     }
 
     private void publishCommentStreamEvent(String action, Long postId, Long commentId, Long actorUserId) {
-        commentStreamPublisher.publishCommentEvent(CommentStreamEvent.builder()
+        commentStreamEventDispatcher.publishAfterCommit(CommentStreamEvent.builder()
                 .action(action)
                 .postId(postId)
                 .commentId(commentId)
