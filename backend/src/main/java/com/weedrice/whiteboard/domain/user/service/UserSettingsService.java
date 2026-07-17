@@ -74,6 +74,13 @@ public class UserSettingsService {
         }
 
         @Transactional
+        public UserSettingsResponse setPushEnabledForLockedUser(User user, boolean pushEnabled) {
+                UserSettings settings = getOrCreateSettingsEntity(user);
+                settings.setPushEnabled(pushEnabled);
+                return toResponse(userSettingsRepository.save(settings));
+        }
+
+        @Transactional
         public UserSettingsResponse completeOnboarding(Long userId) {
                 User user = validateUserCanWrite(userId);
                 UserSettings settings = getOrCreateSettingsEntity(user);

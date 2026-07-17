@@ -12,6 +12,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -37,44 +38,79 @@ class PushSubscriptionServiceTest {
     void subscribeCreatesNewEndpointAndEnablesPush() {
         User user = mock(User.class);
         PushSubscriptionRequest request = request("https://push.example/new");
-        when(userResolver.resolve(7L)).thenReturn(user);
+        when(user.getUserId()).thenReturn(7L);
         when(repository.findByEndpoint(request.getEndpoint())).thenReturn(Optional.empty());
-        when(repository.save(org.mockito.ArgumentMatchers.any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(userResolver.resolveForUpdateWithRelatedUsers(7L, List.of())).thenReturn(List.of(user));
+        when(repository.saveAndFlush(org.mockito.ArgumentMatchers.any())).thenAnswer(invocation -> invocation.getArgument(0));
 
         assertEquals(request.getEndpoint(), service.subscribe(7L, request).getEndpoint());
 
-        verify(repository).save(org.mockito.ArgumentMatchers.argThat(subscription ->
+        verify(repository).lockEndpoint(request.getEndpoint());
+        verify(repository).saveAndFlush(org.mockito.ArgumentMatchers.argThat(subscription ->
                 request.getEndpoint().equals(subscription.getEndpoint()) && subscription.getUser() == user));
-        verify(settingsService).setPushEnabled(7L, true);
+        verify(settingsService).setPushEnabledForLockedUser(user, true);
     }
 
     @Test
-    void subscribeMovesExistingEndpointToCurrentUser() {
-        User user = mock(User.class);
+    void subscribeMovesExistingEndpointAndDisablesPreviousUserWithoutAnotherSubscription() {
+        User currentUser = mock(User.class);
+        User previousUser = mock(User.class);
         PushSubscription existing = mock(PushSubscription.class);
         PushSubscriptionRequest request = request("https://push.example/existing");
-        when(userResolver.resolve(8L)).thenReturn(user);
+        when(currentUser.getUserId()).thenReturn(8L);
+        when(previousUser.getUserId()).thenReturn(7L);
+        when(existing.getUser()).thenReturn(previousUser);
         when(repository.findByEndpoint(request.getEndpoint())).thenReturn(Optional.of(existing));
-        when(repository.save(existing)).thenReturn(existing);
+        when(userResolver.resolveForUpdateWithRelatedUsers(8L, List.of(7L)))
+                .thenReturn(List.of(previousUser, currentUser));
+        when(repository.saveAndFlush(existing)).thenReturn(existing);
         when(existing.getEndpoint()).thenReturn(request.getEndpoint());
+        when(repository.existsByUser_UserId(7L)).thenReturn(false);
 
         service.subscribe(8L, request);
 
-        verify(existing).update(user, "key", "auth", "browser");
-        verify(settingsService).setPushEnabled(8L, true);
+        verify(repository).lockEndpoint(request.getEndpoint());
+        verify(existing).update(currentUser, "key", "auth", "browser");
+        verify(settingsService).setPushEnabledForLockedUser(currentUser, true);
+        verify(settingsService).setPushEnabledForLockedUser(previousUser, false);
+    }
+
+    @Test
+    void subscribeKeepsPreviousUserEnabledWhenAnotherSubscriptionRemains() {
+        User currentUser = mock(User.class);
+        User previousUser = mock(User.class);
+        PushSubscription existing = mock(PushSubscription.class);
+        PushSubscriptionRequest request = request("https://push.example/transferred");
+        when(currentUser.getUserId()).thenReturn(12L);
+        when(previousUser.getUserId()).thenReturn(11L);
+        when(existing.getUser()).thenReturn(previousUser);
+        when(existing.getEndpoint()).thenReturn(request.getEndpoint());
+        when(repository.findByEndpoint(request.getEndpoint())).thenReturn(Optional.of(existing));
+        when(userResolver.resolveForUpdateWithRelatedUsers(12L, List.of(11L)))
+                .thenReturn(List.of(previousUser, currentUser));
+        when(repository.saveAndFlush(existing)).thenReturn(existing);
+        when(repository.existsByUser_UserId(11L)).thenReturn(true);
+
+        service.subscribe(12L, request);
+
+        verify(settingsService).setPushEnabledForLockedUser(previousUser, true);
     }
 
     @Test
     void unsubscribeReflectsWhetherAnotherSubscriptionRemains() {
+        User user = mock(User.class);
         PushSubscriptionRequest request = request("https://push.example/remove");
+        when(userResolver.resolveForUpdate(9L)).thenReturn(user);
         when(repository.existsByUser_UserId(9L)).thenReturn(true);
 
         service.unsubscribe(9L, request);
 
-        verify(userResolver).resolve(9L);
+        verify(repository).lockEndpoint(request.getEndpoint());
+        verify(userResolver).resolveForUpdate(9L);
         verify(repository).deleteByUser_UserIdAndEndpoint(9L, request.getEndpoint());
-        verify(settingsService).setPushEnabled(9L, true);
-        verify(settingsService, never()).setPushEnabled(9L, false);
+        verify(repository).flush();
+        verify(settingsService).setPushEnabledForLockedUser(user, true);
+        verify(settingsService, never()).setPushEnabledForLockedUser(user, false);
     }
 
     private static PushSubscriptionRequest request(String endpoint) {

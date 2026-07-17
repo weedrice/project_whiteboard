@@ -38,21 +38,21 @@ public class PushNotificationDispatcher {
         }
 
         String payload = toJson(PushPayload.from(command));
-        List<Long> expiredSubscriptionIds = new ArrayList<>();
+        List<PushSubscriptionSnapshot> expiredSubscriptions = new ArrayList<>();
         for (PushSubscriptionSnapshot subscription : subscriptions) {
-            sendBestEffort(subscription, payload, expiredSubscriptionIds);
+            sendBestEffort(subscription, payload, expiredSubscriptions);
         }
-        cleanupExpiredSubscriptions(expiredSubscriptionIds);
+        cleanupExpiredSubscriptions(expiredSubscriptions);
     }
 
     private void sendBestEffort(
             PushSubscriptionSnapshot subscription,
             String payload,
-            List<Long> expiredSubscriptionIds) {
+            List<PushSubscriptionSnapshot> expiredSubscriptions) {
         try {
             int statusCode = webPushSender.send(subscription, payload);
             if (statusCode == 404 || statusCode == 410) {
-                expiredSubscriptionIds.add(subscription.subscriptionId());
+                expiredSubscriptions.add(subscription);
                 recordDelivery("expired");
             } else if (statusCode >= 200 && statusCode < 300) {
                 recordDelivery("success");
@@ -75,18 +75,18 @@ public class PushNotificationDispatcher {
         }
     }
 
-    private void cleanupExpiredSubscriptions(List<Long> expiredSubscriptionIds) {
-        if (expiredSubscriptionIds.isEmpty()) {
+    private void cleanupExpiredSubscriptions(List<PushSubscriptionSnapshot> expiredSubscriptions) {
+        if (expiredSubscriptions.isEmpty()) {
             return;
         }
         try {
-            int deleted = cleanupService.deleteExpiredSubscriptions(expiredSubscriptionIds);
+            int deleted = cleanupService.deleteExpiredSubscriptions(expiredSubscriptions);
             meterRegistry.counter("noviis.webpush.subscription.cleanup", "outcome", "deleted")
                     .increment(deleted);
         } catch (RuntimeException exception) {
             meterRegistry.counter("noviis.webpush.subscription.cleanup", "outcome", "failure").increment();
             log.warn("Failed to delete expired web push subscriptions. count={}, exceptionType={}",
-                    expiredSubscriptionIds.size(), exception.getClass().getSimpleName());
+                    expiredSubscriptions.size(), exception.getClass().getSimpleName());
         }
     }
 

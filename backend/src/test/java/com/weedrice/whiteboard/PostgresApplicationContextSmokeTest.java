@@ -11,6 +11,8 @@ import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.post.repository.PopularPostAggregationLockRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardVisitRepository;
 import com.weedrice.whiteboard.domain.notification.service.KeywordSubscriptionService;
+import com.weedrice.whiteboard.domain.notification.dto.PushSubscriptionRequest;
+import com.weedrice.whiteboard.domain.notification.service.PushSubscriptionService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import com.weedrice.whiteboard.global.security.SecurityAuthorities;
@@ -74,6 +76,9 @@ class PostgresApplicationContextSmokeTest {
 
     @Autowired
     private KeywordSubscriptionService keywordSubscriptionService;
+
+    @Autowired
+    private PushSubscriptionService pushSubscriptionService;
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -459,6 +464,75 @@ class PostgresApplicationContextSmokeTest {
         assertEquals(1, jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM user_keyword_subscriptions WHERE user_id = ? AND keyword = ?",
                 Integer.class, user.getUserId(), "same-keyword"));
+    }
+
+    @Test
+    void concurrentSameEndpointSubscriptionsKeepOneOwnerAndConsistentSettings() throws Exception {
+        String unique = UUID.randomUUID().toString();
+        User firstUser = userRepository.saveAndFlush(User.builder()
+                .loginId("push-race-a-" + unique)
+                .email("push-race-a-" + unique + "@example.com")
+                .password("encoded")
+                .displayName("Push Race A")
+                .build());
+        User secondUser = userRepository.saveAndFlush(User.builder()
+                .loginId("push-race-b-" + unique)
+                .email("push-race-b-" + unique + "@example.com")
+                .password("encoded")
+                .displayName("Push Race B")
+                .build());
+        String endpoint = "https://push.example.test/" + unique;
+
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        CountDownLatch start = new CountDownLatch(1);
+        try {
+            List<Future<Void>> subscriptions = List.of(firstUser, secondUser).stream()
+                    .map(user -> executor.submit(() -> {
+                        start.await(5, TimeUnit.SECONDS);
+                        pushSubscriptionService.subscribe(
+                                user.getUserId(),
+                                pushSubscriptionRequest(endpoint, "key-" + user.getUserId()));
+                        return (Void) null;
+                    }))
+                    .toList();
+            start.countDown();
+            for (Future<Void> subscription : subscriptions) {
+                subscription.get(10, TimeUnit.SECONDS);
+            }
+        } finally {
+            executor.shutdownNow();
+        }
+
+        assertEquals(1, jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM push_subscriptions WHERE endpoint = ?",
+                Integer.class,
+                endpoint));
+        Long ownerId = jdbcTemplate.queryForObject(
+                "SELECT user_id FROM push_subscriptions WHERE endpoint = ?",
+                Long.class,
+                endpoint);
+        Long otherId = ownerId.equals(firstUser.getUserId())
+                ? secondUser.getUserId()
+                : firstUser.getUserId();
+        assertEquals("Y", jdbcTemplate.queryForObject(
+                "SELECT push_enabled FROM user_settings WHERE user_id = ?",
+                String.class,
+                ownerId));
+        assertEquals("N", jdbcTemplate.queryForObject(
+                "SELECT push_enabled FROM user_settings WHERE user_id = ?",
+                String.class,
+                otherId));
+    }
+
+    private PushSubscriptionRequest pushSubscriptionRequest(String endpoint, String keySuffix) {
+        PushSubscriptionRequest.Keys keys = new PushSubscriptionRequest.Keys();
+        keys.setP256dh("p256dh-" + keySuffix);
+        keys.setAuth("auth-" + keySuffix);
+        PushSubscriptionRequest request = new PushSubscriptionRequest();
+        request.setEndpoint(endpoint);
+        request.setKeys(keys);
+        request.setUserAgent("postgres-smoke");
+        return request;
     }
 
     @Test

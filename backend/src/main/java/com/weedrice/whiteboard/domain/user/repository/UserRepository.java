@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -192,6 +193,10 @@ public interface UserRepository extends JpaRepository<User, Long>, UserRepositor
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT u FROM User u WHERE u.userId = :userId")
     Optional<User> findByIdForUpdate(@Param("userId") Long userId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT u FROM User u WHERE u.userId IN :userIds ORDER BY u.userId ASC")
+    List<User> findAllByIdForUpdate(@Param("userIds") Collection<Long> userIds);
 
     Object findByIsSuperAdmin(boolean isSuperAdmin);
 }

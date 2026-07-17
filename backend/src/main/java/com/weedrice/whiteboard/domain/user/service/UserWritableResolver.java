@@ -8,6 +8,10 @@ import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.util.Collection;
+import java.util.LinkedHashSet;
+import java.util.List;
+
 @Component
 @RequiredArgsConstructor
 public class UserWritableResolver {
@@ -29,6 +33,30 @@ public class UserWritableResolver {
         validateActiveAccount(user);
         sanctionService.validateNotBanned(user);
         return user;
+    }
+
+    public List<User> resolveForUpdateWithRelatedUsers(Long userId, Collection<Long> relatedUserIds) {
+        LinkedHashSet<Long> userIds = new LinkedHashSet<>();
+        userIds.add(userId);
+        if (relatedUserIds != null) {
+            userIds.addAll(relatedUserIds);
+        }
+
+        List<User> lockedUsers = userRepository.findAllByIdForUpdate(userIds);
+        User currentUser = lockedUsers.stream()
+                .filter(user -> userId.equals(user.getUserId()))
+                .findFirst()
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        validateActiveAccount(currentUser);
+        sanctionService.validateNotBanned(currentUser);
+        return lockedUsers;
+    }
+
+    public List<User> lockExistingUsersForUpdate(Collection<Long> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return List.of();
+        }
+        return userRepository.findAllByIdForUpdate(new LinkedHashSet<>(userIds));
     }
 
     private void validateActiveAccount(User user) {

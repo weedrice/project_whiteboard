@@ -6,11 +6,12 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import java.util.Collection;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
-public interface PushSubscriptionRepository extends JpaRepository<PushSubscription, Long> {
+public interface PushSubscriptionRepository
+        extends JpaRepository<PushSubscription, Long>, PushSubscriptionRepositoryCustom {
     Optional<PushSubscription> findByEndpoint(String endpoint);
 
     List<PushSubscription> findByUser_UserId(Long userId);
@@ -22,6 +23,20 @@ public interface PushSubscriptionRepository extends JpaRepository<PushSubscripti
     boolean existsByUser_UserId(Long userId);
 
     @Modifying
-    @Query("DELETE FROM PushSubscription subscription WHERE subscription.subscriptionId IN :subscriptionIds")
-    int deleteBySubscriptionIdIn(@Param("subscriptionIds") Collection<Long> subscriptionIds);
+    @Query(value = """
+            DELETE FROM push_subscriptions
+            WHERE subscription_id = :subscriptionId
+              AND user_id = :userId
+              AND endpoint = :endpoint
+              AND p256dh = :p256dh
+              AND auth = :auth
+              AND modified_at = :modifiedAt
+            """, nativeQuery = true)
+    int deleteIfSnapshotMatches(
+            @Param("subscriptionId") Long subscriptionId,
+            @Param("userId") Long userId,
+            @Param("endpoint") String endpoint,
+            @Param("p256dh") String p256dh,
+            @Param("auth") String auth,
+            @Param("modifiedAt") LocalDateTime modifiedAt);
 }

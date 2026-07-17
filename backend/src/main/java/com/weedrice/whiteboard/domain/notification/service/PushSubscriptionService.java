@@ -11,6 +11,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -22,29 +24,57 @@ public class PushSubscriptionService {
 
     @Transactional
     public PushSubscriptionResponse subscribe(Long userId, PushSubscriptionRequest request) {
-        User user = userWritableResolver.resolve(userId);
-        PushSubscription subscription = pushSubscriptionRepository.findByEndpoint(request.getEndpoint())
-                .orElseGet(() -> PushSubscription.builder()
+        String endpoint = request.getEndpoint();
+        pushSubscriptionRepository.lockEndpoint(endpoint);
+
+        PushSubscription existingSubscription = pushSubscriptionRepository.findByEndpoint(endpoint).orElse(null);
+        Long previousUserId = existingSubscription == null ? null : existingSubscription.getUser().getUserId();
+        List<User> lockedUsers = userWritableResolver.resolveForUpdateWithRelatedUsers(
+                userId,
+                previousUserId == null || previousUserId.equals(userId) ? List.of() : List.of(previousUserId));
+        User user = findLockedUser(lockedUsers, userId);
+
+        PushSubscription subscription = existingSubscription == null
+                ? PushSubscription.builder()
                         .user(user)
-                        .endpoint(request.getEndpoint())
+                        .endpoint(endpoint)
                         .p256dh(request.getKeys().getP256dh())
                         .auth(request.getKeys().getAuth())
                         .userAgent(request.getUserAgent())
-                        .build());
+                        .build()
+                : existingSubscription;
         subscription.update(
                 user,
                 request.getKeys().getP256dh(),
                 request.getKeys().getAuth(),
                 request.getUserAgent());
-        PushSubscription saved = pushSubscriptionRepository.save(subscription);
-        userSettingsService.setPushEnabled(userId, true);
+        PushSubscription saved = pushSubscriptionRepository.saveAndFlush(subscription);
+        userSettingsService.setPushEnabledForLockedUser(user, true);
+
+        if (previousUserId != null && !previousUserId.equals(userId)) {
+            User previousUser = findLockedUser(lockedUsers, previousUserId);
+            userSettingsService.setPushEnabledForLockedUser(
+                    previousUser,
+                    pushSubscriptionRepository.existsByUser_UserId(previousUserId));
+        }
         return PushSubscriptionResponse.from(saved);
     }
 
     @Transactional
     public void unsubscribe(Long userId, PushSubscriptionRequest request) {
-        userWritableResolver.resolve(userId);
+        pushSubscriptionRepository.lockEndpoint(request.getEndpoint());
+        User user = userWritableResolver.resolveForUpdate(userId);
         pushSubscriptionRepository.deleteByUser_UserIdAndEndpoint(userId, request.getEndpoint());
-        userSettingsService.setPushEnabled(userId, pushSubscriptionRepository.existsByUser_UserId(userId));
+        pushSubscriptionRepository.flush();
+        userSettingsService.setPushEnabledForLockedUser(
+                user,
+                pushSubscriptionRepository.existsByUser_UserId(userId));
+    }
+
+    private User findLockedUser(List<User> lockedUsers, Long userId) {
+        return lockedUsers.stream()
+                .filter(user -> userId.equals(user.getUserId()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("Locked user not found"));
     }
 }

@@ -10,6 +10,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import tools.jackson.databind.ObjectMapper;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.concurrent.TimeoutException;
 
@@ -22,6 +23,8 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class PushNotificationDispatcherTest {
+
+    private static final LocalDateTime SNAPSHOT_AT = LocalDateTime.of(2026, 7, 17, 12, 0);
 
     @Mock
     private PushDispatchSnapshotReader snapshotReader;
@@ -53,16 +56,16 @@ class PushNotificationDispatcherTest {
     @Test
     @DisplayName("push 전송은 snapshot을 사용하고 만료 구독을 전송 후 일괄 삭제한다")
     void dispatchSendsOutsideReaderAndDeletesExpiredSubscriptions() throws Exception {
-        PushSubscriptionSnapshot active = new PushSubscriptionSnapshot(11L, "https://push/active", "key", "auth");
-        PushSubscriptionSnapshot expired = new PushSubscriptionSnapshot(12L, "https://push/expired", "key", "auth");
+        PushSubscriptionSnapshot active = snapshot(11L, "https://push/active");
+        PushSubscriptionSnapshot expired = snapshot(12L, "https://push/expired");
         when(snapshotReader.loadEnabledSubscriptions(1L)).thenReturn(List.of(active, expired));
         when(webPushSender.send(eq(active), anyString())).thenReturn(201);
         when(webPushSender.send(eq(expired), anyString())).thenReturn(410);
-        when(cleanupService.deleteExpiredSubscriptions(List.of(12L))).thenReturn(1);
+        when(cleanupService.deleteExpiredSubscriptions(List.of(expired))).thenReturn(1);
 
         dispatcher.dispatch(new PushDispatchCommand(1L, 99L, "content", "like"));
 
-        verify(cleanupService).deleteExpiredSubscriptions(List.of(12L));
+        verify(cleanupService).deleteExpiredSubscriptions(List.of(expired));
         assertThat(meterRegistry.counter("noviis.webpush.delivery", "outcome", "success").count()).isEqualTo(1);
         assertThat(meterRegistry.counter("noviis.webpush.delivery", "outcome", "expired").count()).isEqualTo(1);
         assertThat(meterRegistry.counter("noviis.webpush.subscription.cleanup", "outcome", "deleted").count())
@@ -72,8 +75,8 @@ class PushNotificationDispatcherTest {
     @Test
     @DisplayName("전송 timeout은 다음 구독 처리를 막지 않는다")
     void dispatchRecordsTimeoutAndContinues() throws Exception {
-        PushSubscriptionSnapshot timedOut = new PushSubscriptionSnapshot(21L, "https://push/slow", "key", "auth");
-        PushSubscriptionSnapshot active = new PushSubscriptionSnapshot(22L, "https://push/active", "key", "auth");
+        PushSubscriptionSnapshot timedOut = snapshot(21L, "https://push/slow");
+        PushSubscriptionSnapshot active = snapshot(22L, "https://push/active");
         when(snapshotReader.loadEnabledSubscriptions(1L)).thenReturn(List.of(timedOut, active));
         when(webPushSender.send(eq(timedOut), anyString()))
                 .thenThrow(new WebPushDeliveryTimeoutException(new TimeoutException()));
@@ -95,5 +98,9 @@ class PushNotificationDispatcherTest {
         dispatcher.dispatch(new PushDispatchCommand(1L, 100L, "content", "comment"));
 
         verifyNoInteractions(snapshotReader, cleanupService, webPushSender);
+    }
+
+    private PushSubscriptionSnapshot snapshot(Long subscriptionId, String endpoint) {
+        return new PushSubscriptionSnapshot(subscriptionId, 1L, endpoint, "key", "auth", SNAPSHOT_AT);
     }
 }
