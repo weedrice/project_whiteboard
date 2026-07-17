@@ -5,6 +5,7 @@ import { NavigationRoute, registerRoute } from 'workbox-routing'
 import { CacheFirst, NetworkOnly } from 'workbox-strategies'
 import { ExpirationPlugin } from 'workbox-expiration'
 import { cleanupOutdatedCaches, createHandlerBoundToURL, precacheAndRoute } from 'workbox-precaching'
+import { resolveInternalPushNotificationUrl } from '@/utils/pushNotificationUrl'
 
 declare const self: ServiceWorkerGlobalScope & {
   __WB_MANIFEST: Array<{ url: string, revision: string | null }>
@@ -77,7 +78,7 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
-  const targetUrl = new URL(String(event.notification.data?.url || '/'), self.location.origin).href
+  const targetUrl = resolveInternalPushNotificationUrl(event.notification.data?.url, self.location.origin)
 
   event.waitUntil((async () => {
     const windowClients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
