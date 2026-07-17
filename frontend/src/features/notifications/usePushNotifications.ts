@@ -19,7 +19,7 @@ export function usePushNotifications() {
   const permission = ref<NotificationPermission | 'unsupported'>(getNotificationPermission())
   const publicKeyQuery = useQuery({
     queryKey: ['push', 'public-key'],
-    queryFn: async () => unwrapAxiosApiData(await userApi.getPushPublicKey()),
+    queryFn: async ({ signal }) => unwrapAxiosApiData(await userApi.getPushPublicKey({ signal })),
     staleTime: QUERY_STALE_TIME.LONG,
     enabled: isPushSupported(),
   })
@@ -65,6 +65,9 @@ export function usePushNotifications() {
     permission,
     publicKey: publicKeyQuery.data,
     isLoading: publicKeyQuery.isLoading,
+    isError: publicKeyQuery.isError,
+    error: publicKeyQuery.error,
+    refetch: publicKeyQuery.refetch,
     isEnabling: enableMutation.isPending,
     isDisabling: disableMutation.isPending,
     enablePush: enableMutation.mutateAsync,

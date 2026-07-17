@@ -1,5 +1,11 @@
 <template>
-  <section class="mx-auto w-full max-w-lg text-center py-12" :role="role" :aria-live="live">
+  <section
+    ref="container"
+    class="mx-auto w-full max-w-lg text-center py-12"
+    :role="role"
+    :aria-live="live"
+    :tabindex="autoFocus ? -1 : undefined"
+  >
     <p v-if="code" class="nv-kicker mb-3">{{ code }}</p>
     <div v-if="showIcon" class="mx-auto h-12 w-12 text-[var(--nv-danger-text)] mb-4">
       <component :is="icon" class="h-full w-full" aria-hidden="true" />
@@ -37,8 +43,9 @@
 import { AlertCircle } from 'lucide-vue-next'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import type { Component } from 'vue'
+import { nextTick, onMounted, ref } from 'vue'
 
-withDefaults(defineProps<{
+const props = withDefaults(defineProps<{
   title?: string
   message?: string
   icon?: Component
@@ -50,6 +57,7 @@ withDefaults(defineProps<{
   titleTag?: 'h1' | 'h2' | 'h3' | 'h4'
   live?: 'polite' | 'assertive'
   role?: 'alert' | 'status'
+  autoFocus?: boolean
 }>(), {
   icon: () => AlertCircle,
   showRetry: false,
@@ -58,6 +66,14 @@ withDefaults(defineProps<{
   titleTag: 'h3',
   live: 'assertive',
   role: 'alert',
+  autoFocus: false,
+})
+
+const container = ref<HTMLElement | null>(null)
+
+onMounted(() => {
+  if (!props.autoFocus) return
+  void nextTick(() => container.value?.focus())
 })
 
 defineEmits<{

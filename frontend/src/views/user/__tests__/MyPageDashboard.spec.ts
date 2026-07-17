@@ -25,6 +25,14 @@ const mocks = vi.hoisted(() => ({
   },
   myPostsError: { __v_isRef: true, value: '' },
   myCommentsError: { __v_isRef: true, value: '' },
+  profileError: { __v_isRef: true, value: '' },
+  agentsError: { __v_isRef: true, value: '' },
+  dashboardError: { __v_isRef: true, value: '' },
+  fetchMyProfile: vi.fn(),
+  fetchMyAgents: vi.fn(),
+  fetchMyPosts: vi.fn(),
+  fetchMyComments: vi.fn(),
+  loadDashboard: vi.fn(),
   isInquiryDetailOpen: { __v_isRef: true, value: false },
   selectedInquiryPost: { __v_isRef: true, value: null as null | { postId: number; title: string; contents: string; createdAt: string } },
 }))
@@ -56,17 +64,24 @@ vi.mock('@/features/user/dashboard/useMyPageDashboardResource', () => ({
     myCommentsCurrentPage: ref(0),
     myCommentsSize: ref(15),
     isLoading: ref(false),
-    error: ref(''),
+    isProfileLoading: ref(false),
+    isAgentsLoading: ref(false),
+    isMyPostsLoading: ref(false),
+    isMyCommentsLoading: ref(false),
+    error: mocks.dashboardError,
+    profileError: mocks.profileError,
+    agentsError: mocks.agentsError,
     myPostsError: mocks.myPostsError,
     myCommentsError: mocks.myCommentsError,
-    fetchMyProfile: vi.fn(),
-    fetchMyAgents: vi.fn(),
-    fetchMyPosts: vi.fn(),
+    fetchMyProfile: mocks.fetchMyProfile,
+    fetchMyAgents: mocks.fetchMyAgents,
+    fetchMyPosts: mocks.fetchMyPosts,
+    fetchMyComments: mocks.fetchMyComments,
     handleMyPostsPageChange: vi.fn(),
     handleMyPostsSortChange: vi.fn(),
     handleMyCommentsPageChange: vi.fn(),
     getAgentStatusLabel: vi.fn((status: string) => status),
-    loadDashboard: vi.fn(),
+    loadDashboard: mocks.loadDashboard,
   }),
 }))
 
@@ -171,6 +186,14 @@ describe('MyPageDashboard', () => {
   beforeEach(() => {
     mocks.myPostsError.value = ''
     mocks.myCommentsError.value = ''
+    mocks.profileError.value = ''
+    mocks.agentsError.value = ''
+    mocks.dashboardError.value = ''
+    mocks.fetchMyProfile.mockReset()
+    mocks.fetchMyAgents.mockReset()
+    mocks.fetchMyPosts.mockReset()
+    mocks.fetchMyComments.mockReset()
+    mocks.loadDashboard.mockReset()
     mocks.isVerifyModalOpen.value = true
     mocks.isInquiryDetailOpen.value = false
     mocks.selectedInquiryPost.value = null
@@ -222,6 +245,36 @@ describe('MyPageDashboard', () => {
 
     expect(wrapper.text()).toContain('comments failed')
     expect(wrapper.findAll('[data-testid="empty-state"]')).toHaveLength(1)
+  })
+
+  it('retries the complete dashboard when the initial load fails', async () => {
+    mocks.dashboardError.value = 'dashboard failed'
+    const wrapper = mountDashboard()
+    mocks.loadDashboard.mockClear()
+
+    expect(wrapper.get('[role="alert"]').text()).toContain('dashboard failed')
+    await wrapper.get('[role="alert"] button').trigger('click')
+
+    expect(mocks.loadDashboard).toHaveBeenCalledOnce()
+  })
+
+  it('offers independent retries for partial profile, agent, post, and comment failures', async () => {
+    mocks.profileError.value = 'profile failed'
+    mocks.agentsError.value = 'agents failed'
+    mocks.myPostsError.value = 'posts failed'
+    mocks.myCommentsError.value = 'comments failed'
+    const wrapper = mountDashboard()
+
+    const retryButtons = wrapper.findAll('button')
+      .filter((button) => button.text() === 'common.error.retry')
+    expect(retryButtons).toHaveLength(4)
+
+    for (const button of retryButtons) await button.trigger('click')
+
+    expect(mocks.fetchMyProfile).toHaveBeenCalledOnce()
+    expect(mocks.fetchMyAgents).toHaveBeenCalledOnce()
+    expect(mocks.fetchMyPosts).toHaveBeenCalledOnce()
+    expect(mocks.fetchMyComments).toHaveBeenCalledOnce()
   })
 
   it('renders inquiry detail widget html through the shared post content view', () => {

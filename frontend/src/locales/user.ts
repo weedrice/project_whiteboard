@@ -90,6 +90,7 @@ export const user: UserMessages = {
     renameFolder: '폴더 이름',
     saveFolder: '{name} 폴더 이름 저장',
     cancelEditFolder: '폴더 이름 변경 취소',
+    folderActionFailed: '스크랩 폴더 작업을 완료하지 못했습니다. 다시 시도해 주세요.',
   },
   draftList: {
     empty: '임시저장 글이 없습니다.',
@@ -242,6 +243,7 @@ export const user: UserMessages = {
     browserPushDesc: '이 브라우저에서 새 알림을 푸시로 받습니다.',
     pushUnsupported: '이 브라우저는 푸시 알림을 지원하지 않습니다.',
     pushUnavailable: '푸시 알림 서버 설정이 아직 준비되지 않았습니다.',
+    pushLoadFailed: '푸시 알림 설정을 불러오지 못했습니다.',
     pushDenied: '브라우저 알림 권한이 차단되어 있습니다.',
     pushEnabled: '이 브라우저에서 푸시 알림을 받고 있습니다.',
     pushDisabled: '이 브라우저의 푸시 알림이 꺼져 있습니다.',

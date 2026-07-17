@@ -433,11 +433,28 @@ const handleRevokeOtherSessions = async () => {
             <div class="flex flex-col gap-1">
               <h3 class="text-base font-semibold nv-title">{{ $t('user.settings.browserPush') }}</h3>
               <p class="text-sm nv-text-subtle">{{ $t('user.settings.browserPushDesc') }}</p>
-              <p class="text-sm nv-text-subtle" role="status" aria-live="polite">
+              <p
+                v-if="!pushNotifications.isLoading.value && !pushNotifications.isError.value"
+                class="text-sm nv-text-subtle"
+                role="status"
+                aria-live="polite"
+              >
                 {{ $t(pushStatusKey) }}
               </p>
             </div>
-            <div class="mt-4 flex flex-wrap gap-2">
+            <div v-if="pushNotifications.isLoading.value" class="mt-4" role="status" aria-live="polite" aria-busy="true">
+              <BaseSpinner />
+            </div>
+            <ErrorState
+              v-else-if="pushNotifications.isError.value"
+              title-tag="h4"
+              :message="$t('user.settings.pushLoadFailed')"
+              :show-icon="false"
+              auto-focus
+              show-retry
+              @retry="pushNotifications.refetch()"
+            />
+            <div v-else class="mt-4 flex flex-wrap gap-2">
               <BaseButton
                 type="button"
                 :loading="pushNotifications.isEnabling.value"

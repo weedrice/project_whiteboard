@@ -23,6 +23,10 @@ const mocks = vi.hoisted(() => ({
   ] as SelectableUser[],
   adminLoading: false,
   boardLoading: false,
+  adminError: false,
+  boardError: false,
+  refetchAdmin: vi.fn(),
+  refetchBoard: vi.fn(),
 }))
 
 vi.mock('@/features/admin/useAdmin', () => ({
@@ -34,6 +38,8 @@ vi.mock('@/features/admin/useAdmin', () => ({
           content: mocks.adminUsers,
         }),
         isLoading: ref(mocks.adminLoading),
+        isError: ref(mocks.adminError),
+        refetch: mocks.refetchAdmin,
       }
     },
   }),
@@ -52,6 +58,8 @@ vi.mock('@/features/board/useBoard', () => ({
           content: mocks.boardUsers,
         }),
         isLoading: ref(mocks.boardLoading),
+        isError: ref(mocks.boardError),
+        refetch: mocks.refetchBoard,
       }
     },
   }),
@@ -115,6 +123,23 @@ const mountModal = (props: {
   },
 })
 
+const mountAccessibleModal = (attachTo: HTMLElement) => mount(UserSelectModal, {
+  props: { isOpen: true },
+  attachTo,
+  global: {
+    mocks: { $t: (key: string) => key },
+    stubs: {
+      Teleport: true,
+      BaseInput: {
+        props: ['modelValue', 'id', 'name', 'label'],
+        emits: ['update:modelValue'],
+        template: '<label :for="id">{{ label }}<input :id="id" :value="modelValue" /></label>',
+      },
+      BaseSpinner: { template: '<div data-testid="spinner" />' },
+    },
+  },
+})
+
 function getActionButton(wrapper: ReturnType<typeof mount>, label: string) {
   const button = wrapper.findAll('button').find((candidate) => candidate.text() === label)
 
@@ -138,6 +163,10 @@ describe('UserSelectModal', () => {
     ]
     mocks.adminLoading = false
     mocks.boardLoading = false
+    mocks.adminError = false
+    mocks.boardError = false
+    mocks.refetchAdmin.mockReset()
+    mocks.refetchBoard.mockReset()
   })
 
   afterEach(() => {
@@ -304,6 +333,28 @@ describe('UserSelectModal', () => {
     expect(emptyWrapper.text()).toContain('common.noData')
   })
 
+  it('shows the selected source error and retries only that source', async () => {
+    mocks.adminError = true
+    const adminWrapper = mountModal({ isOpen: true })
+
+    expect(adminWrapper.get('[role="alert"]').text()).toContain('common.messages.loadFailed')
+    expect(adminWrapper.find('table').exists()).toBe(false)
+    await getActionButton(adminWrapper, 'common.error.retry').trigger('click')
+    expect(mocks.refetchAdmin).toHaveBeenCalledOnce()
+    expect(mocks.refetchBoard).not.toHaveBeenCalled()
+
+    mocks.adminError = true
+    mocks.boardError = false
+    const boardWrapper = mountModal({
+      isOpen: true,
+      source: 'board-manager-candidates',
+      boardUrl: 'free',
+    })
+
+    expect(boardWrapper.find('[role="alert"]').exists()).toBe(false)
+    expect(boardWrapper.text()).toContain('board-user')
+  })
+
   it('keeps the compact BaseTable chrome inside the modal', () => {
     const wrapper = mountModal({ isOpen: true, selectionMode: 'multiple' })
 
@@ -311,5 +362,40 @@ describe('UserSelectModal', () => {
     expect(wrapper.get('.overflow-x-auto').classes()).toEqual(expect.arrayContaining(['max-h-[420px]', 'overflow-y-auto']))
     expect(wrapper.get('th').classes()).toEqual(expect.arrayContaining(['px-2', 'py-2']))
     expect(wrapper.get('td').classes()).toEqual(expect.arrayContaining(['px-2', 'py-1.5']))
+  })
+
+  it('traps focus in the real modal, closes on Escape, and restores the opener', async () => {
+    const opener = document.createElement('button')
+    const host = document.createElement('div')
+    document.body.append(opener, host)
+    opener.focus()
+    const wrapper = mountAccessibleModal(host)
+    await flushPromises()
+
+    const dialog = wrapper.get('[role="dialog"]')
+    const focusable = Array.from(dialog.element.querySelectorAll<HTMLElement>(
+      'button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    ))
+    const first = focusable[0]
+    const last = focusable.at(-1)!
+    expect(dialog.attributes('aria-modal')).toBe('true')
+    expect(document.activeElement).toBe(first)
+
+    last.focus()
+    const tab = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true })
+    document.dispatchEvent(tab)
+    expect(tab.defaultPrevented).toBe(true)
+    expect(document.activeElement).toBe(first)
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+    await flushPromises()
+    expect(wrapper.emitted('close')).toHaveLength(1)
+
+    await wrapper.setProps({ isOpen: false })
+    await flushPromises()
+    expect(document.activeElement).toBe(opener)
+    wrapper.unmount()
+    opener.remove()
+    host.remove()
   })
 })

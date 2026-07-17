@@ -30,7 +30,18 @@
           </p>
         </div>
 
+        <ErrorState
+          v-if="isError"
+          title-tag="h3"
+          :message="$t('common.messages.loadFailed')"
+          :show-icon="false"
+          auto-focus
+          show-retry
+          @retry="retryUsers"
+        />
+
         <BaseTable
+          v-else
           :columns="userColumns"
           :items="filteredUsers"
           :loading="isLoading"
@@ -92,6 +103,7 @@ import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import BaseTable from '@/components/common/ui/BaseTable.vue'
+import ErrorState from '@/components/common/ui/ErrorState.vue'
 import {
   useUserSelectSource,
   type SelectableUser,
@@ -131,8 +143,10 @@ const hasAppliedInitialSelection = ref(false)
 
 const {
   filteredUsers,
+  isError,
   isLoading,
   isMultiMode,
+  refetch,
   userColumns,
 } = useUserSelectSource({
   isOpen: computed(() => props.isOpen),
@@ -142,6 +156,10 @@ const {
   excludeUserIds: computed(() => props.excludeUserIds),
   searchQuery: debouncedSearchQuery,
 })
+
+function retryUsers() {
+  void refetch()
+}
 
 const selectedUsers = computed<SelectableUser[]>(() => Object.values(selectedMap.value))
 

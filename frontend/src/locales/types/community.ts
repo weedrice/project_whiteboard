@@ -644,6 +644,7 @@ export interface UserMessages {
     renameFolder: string
     saveFolder: string
     cancelEditFolder: string
+    folderActionFailed: string
   }
   draftList: {
     empty: string
@@ -762,6 +763,7 @@ export interface UserMessages {
     browserPushDesc: string
     pushUnsupported: string
     pushUnavailable: string
+    pushLoadFailed: string
     pushDenied: string
     pushEnabled: string
     pushDisabled: string

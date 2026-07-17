@@ -66,10 +66,13 @@ const pushNotificationMock = vi.hoisted(() => ({
   supported: { value: true },
   permission: { value: 'default' as NotificationPermission | 'unsupported' },
   isLoading: { value: false },
+  isError: { value: false },
+  error: { value: null as Error | null },
   isEnabling: { value: false },
   isDisabling: { value: false },
   enablePush: vi.fn(),
   disablePush: vi.fn(),
+  refetch: vi.fn(),
 }))
 
 vi.mock('vue-i18n', () => ({
@@ -308,10 +311,13 @@ describe('UserSettings', () => {
     pushNotificationMock.supported.value = true
     pushNotificationMock.permission.value = 'default'
     pushNotificationMock.isLoading.value = false
+    pushNotificationMock.isError.value = false
+    pushNotificationMock.error.value = null
     pushNotificationMock.isEnabling.value = false
     pushNotificationMock.isDisabling.value = false
     pushNotificationMock.enablePush.mockResolvedValue(undefined)
     pushNotificationMock.disablePush.mockResolvedValue(undefined)
+    pushNotificationMock.refetch.mockResolvedValue(undefined)
 
     useThemeStoreMock.mockReturnValue({
       get isDark() {
@@ -602,6 +608,30 @@ describe('UserSettings', () => {
 
     expect(pushNotificationMock.disablePush).toHaveBeenCalled()
     expect(wrapper.text()).toContain('user.settings.pushDisableSuccess')
+  })
+
+  it('distinguishes unsupported, unconfigured, and failed push configuration states', async () => {
+    pushNotificationMock.supported.value = false
+    let wrapper = mountUserSettings()
+    expect(wrapper.text()).toContain('user.settings.pushUnsupported')
+    wrapper.unmount()
+
+    pushNotificationMock.supported.value = true
+    pushNotificationMock.enabled.value = false
+    wrapper = mountUserSettings()
+    expect(wrapper.text()).toContain('user.settings.pushUnavailable')
+    wrapper.unmount()
+
+    pushNotificationMock.isError.value = true
+    pushNotificationMock.error.value = new Error('key failed')
+    wrapper = mountUserSettings()
+    const pushError = wrapper.findAll('[role="alert"]')
+      .find((candidate) => candidate.text().includes('user.settings.pushLoadFailed'))!
+    expect(pushError.exists()).toBe(true)
+    expect(wrapper.text()).not.toContain('user.settings.pushUnavailable')
+
+    await pushError.get('button').trigger('click')
+    expect(pushNotificationMock.refetch).toHaveBeenCalledOnce()
   })
 
   it('retries all critical settings queries from the error state', async () => {

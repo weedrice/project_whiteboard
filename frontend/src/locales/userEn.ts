@@ -90,6 +90,7 @@ export const userEn: UserMessages = {
     renameFolder: 'Folder name',
     saveFolder: 'Save {name} folder name',
     cancelEditFolder: 'Cancel renaming folder',
+    folderActionFailed: 'Could not complete the saved post folder action. Please try again.',
   },
   draftList: {
     empty: 'No drafts.',
@@ -242,6 +243,7 @@ export const userEn: UserMessages = {
     browserPushDesc: 'Receive new notifications in this browser.',
     pushUnsupported: 'This browser does not support push notifications.',
     pushUnavailable: 'The push notification server is not configured yet.',
+    pushLoadFailed: 'Failed to load the push notification configuration.',
     pushDenied: 'Browser notification permission is blocked.',
     pushEnabled: 'Push notifications are enabled in this browser.',
     pushDisabled: 'Push notifications are disabled in this browser.',

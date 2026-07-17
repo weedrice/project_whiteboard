@@ -11,6 +11,7 @@ import PostList from '@/components/board/PostList.vue'
 import PaginatedListCard from '@/components/common/ui/PaginatedListCard.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
+import ErrorState from '@/components/common/ui/ErrorState.vue'
 import { Bookmark, Check, Pencil, X } from 'lucide-vue-next'
 import { isInquiryPostItem, resolveBoardRoute, resolvePostDetailRoute } from '@/utils/postNavigation'
 import { useI18n } from 'vue-i18n'
@@ -29,6 +30,7 @@ const deletingFolderId = ref<number | null>(null)
 const editingFolderId = ref<number | null>(null)
 const editingFolderName = ref('')
 const updatingFolderId = ref<number | null>(null)
+const folderActionError = ref('')
 
 const {
   page,
@@ -48,9 +50,14 @@ const scrapParams = computed(() => ({
 const scrapQuery = useMyScraps(scrapParams)
 const scrapPage = computed(() => scrapQuery.data.value ?? null)
 const pageState = usePageResponseState<PostSummary>(scrapPage, page)
-const { data: folderData, refetch: refetchFolders } = useApiQuery({
+const {
+  data: folderData,
+  isError: isFolderError,
+  isFetching: isFolderFetching,
+  refetch: refetchFolders,
+} = useApiQuery({
   queryKey: userQueryKeys.scrapFolders,
-  request: () => userApi.getScrapFolders(),
+  request: ({ signal }) => userApi.getScrapFolders({ signal }),
   staleTime: 60_000,
 })
 
@@ -121,23 +128,26 @@ async function deleteFolder(folderId: number) {
   const folder = folders.value.find((item) => item.folderId === folderId)
   if (!folder) return
 
-  const scrapCount = await getFolderScrapCount(folderId)
-  const confirmed = await confirm(
-    t('user.scrapList.deleteConfirmMessage', { name: folder.name, count: scrapCount }),
-    t('user.scrapList.deleteConfirmTitle'),
-    t('common.delete'),
-    t('common.cancel')
-  )
-  if (!confirmed) return
-
   deletingFolderId.value = folderId
+  folderActionError.value = ''
   try {
+    const scrapCount = await getFolderScrapCount(folderId)
+    const confirmed = await confirm(
+      t('user.scrapList.deleteConfirmMessage', { name: folder.name, count: scrapCount }),
+      t('user.scrapList.deleteConfirmTitle'),
+      t('common.delete'),
+      t('common.cancel')
+    )
+    if (!confirmed) return
+
     await userApi.deleteScrapFolder(folderId)
     if (selectedFolderId.value === folderId) {
       selectedFolderId.value = null
     }
     await refetchFolders()
     await queryClient.invalidateQueries({ queryKey: ['user', 'scraps'] })
+  } catch {
+    folderActionError.value = t('user.scrapList.folderActionFailed')
   } finally {
     deletingFolderId.value = null
   }
@@ -180,7 +190,16 @@ async function deleteFolder(folderId: number) {
 
     <template #subheader>
       <div class="space-y-3">
-        <div class="flex flex-wrap gap-2">
+        <ErrorState
+          v-if="isFolderError"
+          title-tag="h2"
+          :message="$t('common.messages.loadFailed')"
+          :show-icon="false"
+          auto-focus
+          show-retry
+          @retry="refetchFolders()"
+        />
+        <div v-else class="flex flex-wrap gap-2" :aria-busy="isFolderFetching">
           <button
             type="button"
             class="min-h-11 rounded-full border px-3 py-1.5 text-sm sm:min-h-0"
@@ -253,6 +272,9 @@ async function deleteFolder(folderId: number) {
             </template>
           </span>
         </div>
+        <p v-if="folderActionError" class="nv-form-error text-sm" role="alert" aria-live="assertive">
+          {{ folderActionError }}
+        </p>
         <form class="flex flex-col gap-2 sm:flex-row" @submit.prevent="applySearch">
           <BaseInput
             id="scrap-search"

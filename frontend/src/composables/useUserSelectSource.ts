@@ -48,8 +48,18 @@ export function useUserSelectSource({
     isOpen.value && isBoardCandidateSource.value && !!boardUrl.value
   ))
 
-  const { data: adminUsersData, isLoading: isAdminUsersLoading } = useUsers(params, isUsersQueryEnabled)
-  const { data: boardCandidatesData, isLoading: isBoardCandidatesLoading } = useBoardManagerCandidates(
+  const {
+    data: adminUsersData,
+    isLoading: isAdminUsersLoading,
+    isError: isAdminUsersError,
+    refetch: refetchAdminUsers,
+  } = useUsers(params, isUsersQueryEnabled)
+  const {
+    data: boardCandidatesData,
+    isLoading: isBoardCandidatesLoading,
+    isError: isBoardCandidatesError,
+    refetch: refetchBoardCandidates,
+  } = useBoardManagerCandidates(
     boardUrl,
     params,
     isBoardCandidatesQueryEnabled
@@ -59,6 +69,8 @@ export function useUserSelectSource({
   const showEmailColumn = computed(() => !isBoardCandidateSource.value)
   const usersData = computed(() => (isBoardCandidateSource.value ? boardCandidatesData.value : adminUsersData.value))
   const isLoading = computed(() => (isBoardCandidateSource.value ? isBoardCandidatesLoading.value : isAdminUsersLoading.value))
+  const isError = computed(() => (isBoardCandidateSource.value ? isBoardCandidatesError.value : isAdminUsersError.value))
+  const refetch = () => (isBoardCandidateSource.value ? refetchBoardCandidates() : refetchAdminUsers())
   const userColumns = computed<TableColumn[]>(() => {
     const columns: TableColumn[] = []
 
@@ -87,7 +99,9 @@ export function useUserSelectSource({
     filteredUsers,
     isBoardCandidateSource,
     isLoading,
+    isError,
     isMultiMode,
+    refetch,
     userColumns,
   }
 }
