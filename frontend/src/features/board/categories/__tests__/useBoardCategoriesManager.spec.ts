@@ -5,12 +5,14 @@ import { boardApi } from '@/api/board'
 import { apiEmptySuccess, apiSuccess, axiosApiResponse } from '@/test/factories'
 import { createDeferred } from '@/test/async'
 import type { Category } from '@/types'
+import { notifyAuthSessionBoundary } from '@/queryAuthScope'
 
 const mocks = vi.hoisted(() => ({
     addToast: vi.fn(),
     confirm: vi.fn(),
     invalidateQueries: vi.fn(),
     loggerError: vi.fn(),
+    authStore: { sessionGeneration: 7 },
 }))
 
 vi.mock('vue-i18n', () => ({
@@ -42,7 +44,7 @@ vi.mock('@/stores/toast', () => ({
 }))
 
 vi.mock('@/stores/auth', () => ({
-    useAuthStore: () => ({ sessionGeneration: 7 }),
+    useAuthStore: () => mocks.authStore,
 }))
 
 vi.mock('@/composables/useConfirm', () => ({
@@ -74,6 +76,7 @@ function createManager() {
 describe('useBoardCategoriesManager', () => {
     beforeEach(() => {
         vi.clearAllMocks()
+        mocks.authStore.sessionGeneration = 7
         mocks.confirm.mockResolvedValue(true)
     })
 
@@ -124,7 +127,7 @@ describe('useBoardCategoriesManager', () => {
             name: 'Notice',
             minWriteRole: 'BOARD_ADMIN',
             sortOrder: 2,
-        })
+        }, { signal: expect.any(AbortSignal) })
         expect(manager.categories.value).toHaveLength(2)
         expect(manager.newCategoryName.value).toBe('')
         expect(manager.newCategoryRole.value).toBe('USER')
@@ -155,7 +158,9 @@ describe('useBoardCategoriesManager', () => {
 
         await manager.handleDelete(2)
 
-        expect(boardApi.deleteCategory).toHaveBeenCalledWith('free-board', 2)
+        expect(boardApi.deleteCategory).toHaveBeenCalledWith('free-board', 2, {
+            signal: expect.any(AbortSignal),
+        })
         expect(manager.categories.value.map(category => category.categoryId)).toEqual([1])
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({
             queryKey: ['session', 7, 'board', 'categories', 'free-board'],
@@ -188,7 +193,7 @@ describe('useBoardCategoriesManager', () => {
             sortOrder: 2,
             minWriteRole: 'BOARD_ADMIN',
             isDefault: undefined,
-        })
+        }, { signal: expect.any(AbortSignal) })
         expect(manager.categories.value[0].name).toBe('New')
         expect(manager.editingId.value).toBeNull()
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({
@@ -211,6 +216,58 @@ describe('useBoardCategoriesManager', () => {
         expect(boardApi.updateCategory).not.toHaveBeenCalled()
     })
 
+    it('aborts and ignores an add response after the board changes', async () => {
+        const boardUrl = ref('board-a')
+        const manager = useBoardCategoriesManager(boardUrl)
+        const response = axiosApiResponse(apiSuccess(makeCategory({ categoryId: 9, name: 'Stale' })))
+        const pending = createDeferred<typeof response>()
+        vi.mocked(boardApi.createCategory).mockReturnValueOnce(pending.promise)
+        manager.newCategoryName.value = 'Stale'
+
+        const request = manager.handleAdd()
+        const signal = vi.mocked(boardApi.createCategory).mock.calls[0][2]?.signal
+        boardUrl.value = 'board-b'
+        manager.resetState()
+
+        expect(signal?.aborted).toBe(true)
+        pending.resolve(response)
+        await request
+        expect(manager.categories.value).toEqual([])
+        expect(mocks.invalidateQueries).not.toHaveBeenCalled()
+    })
+
+    it('does not delete after confirmation when the board or session changed', async () => {
+        const boardUrl = ref('board-a')
+        const manager = useBoardCategoriesManager(boardUrl)
+        const confirmation = createDeferred<boolean>()
+        mocks.confirm.mockReturnValueOnce(confirmation.promise)
+
+        const request = manager.handleDelete(2)
+        boardUrl.value = 'board-b'
+        mocks.authStore.sessionGeneration = 8
+        confirmation.resolve(true)
+        await request
+
+        expect(boardApi.deleteCategory).not.toHaveBeenCalled()
+        expect(manager.isMutating.value).toBe(false)
+    })
+
+    it('ignores duplicate mutation submissions while one is pending', async () => {
+        const manager = createManager()
+        const response = axiosApiResponse(apiSuccess(makeCategory({ categoryId: 9, name: 'One' })))
+        const pending = createDeferred<typeof response>()
+        vi.mocked(boardApi.createCategory).mockReturnValueOnce(pending.promise)
+        manager.newCategoryName.value = 'One'
+
+        const first = manager.handleAdd()
+        await manager.handleAdd()
+        expect(boardApi.createCategory).toHaveBeenCalledTimes(1)
+
+        pending.resolve(response)
+        await first
+        expect(manager.isMutating.value).toBe(false)
+    })
+
     it('reorders all active categories with one request and applies the server order', async () => {
         const manager = createManager()
         manager.categories.value = initialCategories()
@@ -224,7 +281,7 @@ describe('useBoardCategoriesManager', () => {
         expect(boardApi.reorderCategories).toHaveBeenCalledTimes(1)
         expect(boardApi.reorderCategories).toHaveBeenCalledWith('free-board', {
             categoryIds: [1, 3, 2],
-        })
+        }, { signal: expect.any(AbortSignal) })
         expect(manager.categories.value.map(category => category.categoryId)).toEqual([1, 3, 2])
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({
             queryKey: ['session', 7, 'board', 'categories', 'free-board'],
@@ -305,6 +362,25 @@ describe('useBoardCategoriesManager', () => {
         second.resolve(reorderedResponse())
         await secondDrop
         expect(manager.isReordering.value).toBe(false)
+    })
+
+    it('aborts and ignores a reorder response after the session changes', async () => {
+        const manager = createManager()
+        const pending = createDeferred<ReturnType<typeof reorderedResponse>>()
+        vi.mocked(boardApi.reorderCategories).mockReturnValueOnce(pending.promise)
+        manager.categories.value = initialCategories()
+        manager.onDragStart({ dataTransfer: null } as unknown as DragEvent, 1)
+
+        const request = manager.onDrop(0)
+        const signal = vi.mocked(boardApi.reorderCategories).mock.calls[0][2]?.signal
+        mocks.authStore.sessionGeneration = 8
+        notifyAuthSessionBoundary(8)
+
+        expect(signal?.aborted).toBe(true)
+        pending.resolve(reorderedResponse())
+        await expect(request).resolves.toBe(false)
+        expect(manager.categories.value).toEqual([])
+        expect(mocks.invalidateQueries).not.toHaveBeenCalled()
     })
 
     it('aborts the previous request and keeps only the latest board response', async () => {

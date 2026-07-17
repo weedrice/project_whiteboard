@@ -129,16 +129,23 @@ export const boardApi = {
     deleteBoard: (boardUrl: string) => api.delete<ApiResponse<void>>(`/boards/${encodePathSegment(boardUrl)}`),
 
     // Create category
-    createCategory: (boardUrl: string, data: CategoryWriteData) => api.post<ApiResponse<Category>>(`/boards/${encodePathSegment(boardUrl)}/categories`, data),
+    createCategory: (boardUrl: string, data: CategoryWriteData, config?: AxiosRequestConfig) => config
+        ? api.post<ApiResponse<Category>>(`/boards/${encodePathSegment(boardUrl)}/categories`, data, config)
+        : api.post<ApiResponse<Category>>(`/boards/${encodePathSegment(boardUrl)}/categories`, data),
 
-    reorderCategories: (boardUrl: string, data: CategoryOrderData) =>
-        api.put<ApiResponse<Category[]>>(`/boards/${encodePathSegment(boardUrl)}/categories/order`, data),
+    reorderCategories: (boardUrl: string, data: CategoryOrderData, config?: AxiosRequestConfig) => config
+        ? api.put<ApiResponse<Category[]>>(`/boards/${encodePathSegment(boardUrl)}/categories/order`, data, config)
+        : api.put<ApiResponse<Category[]>>(`/boards/${encodePathSegment(boardUrl)}/categories/order`, data),
 
     // Update category
-    updateCategory: (_boardUrl: string, categoryId: string | number, data: CategoryWriteData) => api.put<ApiResponse<Category>>(`/boards/categories/${encodePathSegment(categoryId)}`, data),
+    updateCategory: (_boardUrl: string, categoryId: string | number, data: CategoryWriteData, config?: AxiosRequestConfig) => config
+        ? api.put<ApiResponse<Category>>(`/boards/categories/${encodePathSegment(categoryId)}`, data, config)
+        : api.put<ApiResponse<Category>>(`/boards/categories/${encodePathSegment(categoryId)}`, data),
 
     // Delete category
-    deleteCategory: (_boardUrl: string, categoryId: string | number) => api.delete<ApiResponse<void>>(`/boards/categories/${encodePathSegment(categoryId)}`),
+    deleteCategory: (_boardUrl: string, categoryId: string | number, config?: AxiosRequestConfig) => config
+        ? api.delete<ApiResponse<void>>(`/boards/categories/${encodePathSegment(categoryId)}`, config)
+        : api.delete<ApiResponse<void>>(`/boards/categories/${encodePathSegment(categoryId)}`),
 
     // Get board notices
     getNotices: (boardUrl: string, config?: AxiosRequestConfig) =>

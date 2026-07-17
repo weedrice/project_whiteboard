@@ -1,4 +1,4 @@
-import { computed, ref, type Ref } from 'vue'
+import { computed, getCurrentScope, onScopeDispose, ref, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useQueryClient } from '@tanstack/vue-query'
 import { boardApi } from '@/api/board'
@@ -11,7 +11,7 @@ import logger from '@/utils/logger'
 import { resolveDefaultCategory } from '@/utils/board'
 import type { Category } from '@/types'
 import { useAuthStore } from '@/stores/auth'
-import { currentSessionQueryKey } from '@/queryAuthScope'
+import { sessionQueryKey, subscribeAuthSessionBoundary } from '@/queryAuthScope'
 
 export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
     const { t } = useI18n()
@@ -34,15 +34,71 @@ export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
     const editingRole = ref('USER')
     const dragIndex = ref<number | null>(null)
     const isReordering = ref(false)
+    const isMutating = ref(false)
     let reorderGeneration = 0
+    let reorderController: AbortController | null = null
+    let mutationRevision = 0
+    let mutationController: AbortController | null = null
+
+    interface CategoryMutationIntent {
+        boardUrl: string
+        sessionGeneration: number
+        revision: number
+        controller: AbortController
+    }
+
+    const cancelMutation = () => {
+        mutationRevision += 1
+        mutationController?.abort()
+        mutationController = null
+        isMutating.value = false
+    }
+
+    const cancelReorder = () => {
+        reorderGeneration += 1
+        reorderController?.abort()
+        reorderController = null
+        isReordering.value = false
+        dragIndex.value = null
+    }
+
+    const beginMutation = (): CategoryMutationIntent | null => {
+        if (isMutating.value) return null
+        const controller = new AbortController()
+        const intent = {
+            boardUrl: boardUrl.value,
+            sessionGeneration: authStore.sessionGeneration,
+            revision: ++mutationRevision,
+            controller,
+        }
+        mutationController = controller
+        isMutating.value = true
+        return intent
+    }
+
+    const isMutationCurrent = (intent: CategoryMutationIntent) =>
+        mutationController === intent.controller
+        && mutationRevision === intent.revision
+        && !intent.controller.signal.aborted
+        && boardUrl.value === intent.boardUrl
+        && authStore.sessionGeneration === intent.sessionGeneration
+
+    const finishMutation = (intent: CategoryMutationIntent) => {
+        if (mutationController !== intent.controller) return
+        mutationController = null
+        isMutating.value = false
+    }
+
+    const stopSessionBoundary = subscribeAuthSessionBoundary(resetState)
+    if (getCurrentScope()) onScopeDispose(stopSessionBoundary)
 
     const defaultCategory = computed(() => resolveDefaultCategory(categories.value))
     const draggableCategories = computed(() =>
         categories.value.filter(category => category.categoryId !== defaultCategory.value?.categoryId)
     )
-    const invalidateCategories = (targetBoardUrl = boardUrl.value) => {
+    const invalidateCategories = (targetBoardUrl = boardUrl.value, generation = authStore.sessionGeneration) => {
         queryClient.invalidateQueries({
-            queryKey: currentSessionQueryKey(authStore, boardQueryKeys.categories(targetBoardUrl)),
+            queryKey: sessionQueryKey(generation, boardQueryKeys.categories(targetBoardUrl)),
         })
     }
 
@@ -60,7 +116,8 @@ export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
 
     function resetState() {
         categoryLoadTask.reset()
-        reorderGeneration += 1
+        cancelMutation()
+        cancelReorder()
         categories.value = []
         newCategoryName.value = ''
         newCategoryRole.value = 'USER'
@@ -75,37 +132,50 @@ export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
         const name = newCategoryName.value.trim()
         if (!name) return
 
+        const intent = beginMutation()
+        if (!intent) return
         try {
-            const { data } = await boardApi.createCategory(boardUrl.value, {
+            const { data } = await boardApi.createCategory(intent.boardUrl, {
                 name,
                 minWriteRole: newCategoryRole.value,
                 sortOrder: categories.value.length + 1,
-            })
-            if (data.success) {
+            }, { signal: intent.controller.signal })
+            if (data.success && isMutationCurrent(intent)) {
                 categories.value.push(unwrapApiData(data))
                 newCategoryName.value = ''
                 newCategoryRole.value = 'USER'
-                invalidateCategories()
+                invalidateCategories(intent.boardUrl, intent.sessionGeneration)
             }
         } catch (err: unknown) {
+            if (!isMutationCurrent(intent)) return
             logger.error('Failed to create category:', err)
             toastStore.addToast(t('board.category.createFailed'), 'error')
+        } finally {
+            finishMutation(intent)
         }
     }
 
     async function handleDelete(categoryId: number) {
+        const intent = beginMutation()
+        if (!intent) return
         const isConfirmed = await confirm(t('board.category.deleteConfirm'))
-        if (!isConfirmed) return
+        if (!isConfirmed || !isMutationCurrent(intent)) {
+            finishMutation(intent)
+            return
+        }
 
         try {
-            const { data } = await boardApi.deleteCategory(boardUrl.value, categoryId)
-            if (data.success) {
+            const { data } = await boardApi.deleteCategory(intent.boardUrl, categoryId, { signal: intent.controller.signal })
+            if (data.success && isMutationCurrent(intent)) {
                 categories.value = categories.value.filter(category => category.categoryId !== categoryId)
-                invalidateCategories()
+                invalidateCategories(intent.boardUrl, intent.sessionGeneration)
             }
         } catch (err: unknown) {
+            if (!isMutationCurrent(intent)) return
             logger.error('Failed to delete category:', err)
             toastStore.addToast(t('board.category.deleteFailed'), 'error')
+        } finally {
+            finishMutation(intent)
         }
     }
 
@@ -125,24 +195,29 @@ export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
         const name = editingName.value.trim()
         if (!name) return
 
+        const intent = beginMutation()
+        if (!intent) return
         try {
-            const { data } = await boardApi.updateCategory(boardUrl.value, category.categoryId, {
+            const { data } = await boardApi.updateCategory(intent.boardUrl, category.categoryId, {
                 name,
                 sortOrder: category.sortOrder,
                 minWriteRole: editingRole.value,
                 isDefault: category.isDefault,
-            })
-            if (data.success) {
+            }, { signal: intent.controller.signal })
+            if (data.success && isMutationCurrent(intent)) {
                 const index = categories.value.findIndex(item => item.categoryId === category.categoryId)
                 if (index !== -1) {
                     categories.value[index] = unwrapApiData(data)
                 }
                 cancelEdit()
-                invalidateCategories()
+                invalidateCategories(intent.boardUrl, intent.sessionGeneration)
             }
         } catch (err: unknown) {
+            if (!isMutationCurrent(intent)) return
             logger.error('Failed to update category:', err)
             toastStore.addToast(t('board.category.updateFailed'), 'error')
+        } finally {
+            finishMutation(intent)
         }
     }
 
@@ -187,25 +262,36 @@ export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
         dragIndex.value = null
         isReordering.value = true
         const requestedBoardUrl = boardUrl.value
+        const requestedSessionGeneration = authStore.sessionGeneration
         const currentReorderGeneration = ++reorderGeneration
+        const controller = new AbortController()
+        reorderController?.abort()
+        reorderController = controller
+        const isCurrentReorder = () =>
+            reorderController === controller
+            && currentReorderGeneration === reorderGeneration
+            && !controller.signal.aborted
+            && boardUrl.value === requestedBoardUrl
+            && authStore.sessionGeneration === requestedSessionGeneration
 
         try {
             const { data } = await boardApi.reorderCategories(requestedBoardUrl, {
                 categoryIds: categories.value.map(category => category.categoryId),
-            })
-            if (boardUrl.value !== requestedBoardUrl) return false
+            }, { signal: controller.signal })
+            if (!isCurrentReorder()) return false
             if (!data.success) throw new Error('Category reorder failed')
             categories.value = unwrapApiData(data).sort((left, right) => left.sortOrder - right.sortOrder)
-            invalidateCategories(requestedBoardUrl)
+            invalidateCategories(requestedBoardUrl, requestedSessionGeneration)
             return true
         } catch (err: unknown) {
-            if (boardUrl.value !== requestedBoardUrl) return false
+            if (!isCurrentReorder()) return false
             logger.error('Failed to reorder categories:', err)
             toastStore.addToast(t('board.category.orderFailed'), 'error')
             categories.value = previousCategories
             return false
         } finally {
-            if (currentReorderGeneration === reorderGeneration) {
+            if (reorderController === controller && currentReorderGeneration === reorderGeneration) {
+                reorderController = null
                 isReordering.value = false
             }
         }
@@ -230,6 +316,7 @@ export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
         editingRole,
         dragIndex,
         isReordering,
+        isMutating,
         defaultCategory,
         draggableCategories,
         fetchCategories,

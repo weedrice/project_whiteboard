@@ -34,6 +34,7 @@ const {
   editingRole,
   error,
   isReordering,
+  isMutating,
   defaultCategory,
   draggableCategories,
   fetchCategories,
@@ -63,7 +64,7 @@ watch(() => props.boardUrl, () => {
 </script>
 
 <template>
-  <div class="space-y-4">
+  <div class="space-y-4" :aria-busy="isLoading || isReordering || isMutating">
     <component :is="headingTag" class="text-lg font-medium leading-6 nv-title">{{ $t('common.category') }}</component>
     <p class="sr-only" role="status" aria-live="polite">{{ reorderAnnouncement }}</p>
 
@@ -80,7 +81,7 @@ watch(() => props.boardUrl, () => {
         variant="primary"
         class="px-3"
         :aria-label="$t('board.category.add')"
-        :disabled="isReordering"
+        :disabled="isReordering || isMutating"
       >
         <Plus class="h-4 w-4" aria-hidden="true" />
       </BaseButton>
@@ -118,7 +119,7 @@ watch(() => props.boardUrl, () => {
             </BaseSelect>
             <BaseButton @click="saveEdit(defaultCategory)" variant="ghost" size="sm"
               :aria-label="$t('board.category.save')"
-              :disabled="isReordering"
+              :disabled="isReordering || isMutating"
               class="p-1 text-[var(--nv-success-text)]">
               <Check class="h-4 w-4" aria-hidden="true" />
             </BaseButton>
@@ -140,7 +141,7 @@ watch(() => props.boardUrl, () => {
           </div>
           <BaseButton @click="startEdit(defaultCategory)" variant="ghost" size="sm"
             :aria-label="$t('board.category.edit')"
-            :disabled="isReordering"
+            :disabled="isReordering || isMutating"
             class="p-1 nv-accent-text">
             <Edit2 class="h-4 w-4" aria-hidden="true" />
           </BaseButton>
@@ -172,7 +173,7 @@ watch(() => props.boardUrl, () => {
               </BaseSelect>
               <BaseButton @click="saveEdit(category)" variant="ghost" size="sm"
                 :aria-label="$t('board.category.save')"
-                :disabled="isReordering"
+                :disabled="isReordering || isMutating"
                 class="p-1 text-[var(--nv-success-text)]">
                 <Check class="h-4 w-4" aria-hidden="true" />
               </BaseButton>
@@ -193,25 +194,25 @@ watch(() => props.boardUrl, () => {
             <div class="flex items-center gap-2">
               <BaseButton @click="handleKeyboardMove(index, -1, category.name)" variant="ghost" size="sm"
                 :aria-label="$t('common.moveUp', { name: category.name })"
-                :disabled="isReordering || index === 0"
+                :disabled="isReordering || isMutating || index === 0"
                 class="p-1 nv-text-subtle">
                 <ChevronUp class="h-4 w-4" aria-hidden="true" />
               </BaseButton>
               <BaseButton @click="handleKeyboardMove(index, 1, category.name)" variant="ghost" size="sm"
                 :aria-label="$t('common.moveDown', { name: category.name })"
-                :disabled="isReordering || index === draggableCategories.length - 1"
+                :disabled="isReordering || isMutating || index === draggableCategories.length - 1"
                 class="p-1 nv-text-subtle">
                 <ChevronDown class="h-4 w-4" aria-hidden="true" />
               </BaseButton>
               <BaseButton @click="startEdit(category)" variant="ghost" size="sm"
                 :aria-label="$t('board.category.edit')"
-                :disabled="isReordering"
+                :disabled="isReordering || isMutating"
                 class="p-1 nv-accent-text">
                 <Edit2 class="h-4 w-4" aria-hidden="true" />
               </BaseButton>
               <BaseButton @click="handleDelete(category.categoryId)" variant="ghost" size="sm"
                 :aria-label="$t('board.category.delete')"
-                :disabled="isReordering"
+                :disabled="isReordering || isMutating"
                 class="p-1 nv-danger-text">
                 <Trash2 class="h-4 w-4" aria-hidden="true" />
               </BaseButton>
