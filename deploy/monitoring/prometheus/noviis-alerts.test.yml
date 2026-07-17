@@ -11,6 +11,7 @@ tests:
         alertname: NoviIsPrometheusSelfScrapeDown
         exp_alerts:
           - exp_labels:
+              job: prometheus
               severity: critical
             exp_annotations:
               summary: "Prometheus has failed to scrape its own metrics for 2 minutes"
@@ -52,6 +53,16 @@ tests:
     input_series:
       - series: 'process_start_time_seconds{instance="localhost:8081",job="noviis-backend"}'
         values: '0+0x15'
+      - series: 'noviis_feed_generation_jobs_pending'
+        values: '0+0x15'
+      - series: 'noviis_feed_generation_jobs_failed'
+        values: '0+0x15'
+      - series: 'noviis_feed_generation_jobs_oldest_pending_age_seconds'
+        values: '0+0x15'
+      - series: 'noviis_feed_generation_jobs_processed_total{result="success"}'
+        values: '0+0x15'
+      - series: 'noviis_notification_delivery_jobs_oldest_due_age_seconds'
+        values: '0+0x15'
       - series: 'noviis_notification_keyword_fanout_jobs_pending'
         values: '0+0x15'
       - series: 'noviis_notification_keyword_fanout_jobs_dead_letter'
@@ -71,6 +82,8 @@ tests:
       - series: 'noviis_semantic_reindex_jobs_processing'
         values: '0+0x15'
       - series: 'noviis_semantic_reindex_jobs_oldest_active_age_seconds'
+        values: '0+0x15'
+      - series: 'noviis_semantic_reindex_jobs_processed_total{result="success"}'
         values: '0+0x15'
     alert_rule_test:
       - eval_time: 10m
@@ -110,6 +123,12 @@ tests:
               summary: "Required backend metric noviis_async_rejected_total is missing"
               description: "The backend has been up for more than 10 minutes without exporting this required metric."
           - exp_labels:
+              missing_metric: noviis_feed_generation_jobs_processing
+              severity: warning
+            exp_annotations:
+              summary: "Required backend metric noviis_feed_generation_jobs_processing is missing"
+              description: "The backend has been up for more than 10 minutes without exporting this required metric."
+          - exp_labels:
               missing_metric: noviis_notification_delivery_jobs_dead_letter
               severity: warning
             exp_annotations:
@@ -122,6 +141,13 @@ tests:
               summary: "Required backend metric noviis_notification_delivery_jobs_pending is missing"
               description: "The backend has been up for more than 10 minutes without exporting this required metric."
           - exp_labels:
+              missing_metric: noviis_notification_delivery_jobs_oldest_lease_age_seconds
+              severity: warning
+            exp_annotations:
+              summary: "Required backend metric noviis_notification_delivery_jobs_oldest_lease_age_seconds is missing"
+              description: "The backend has been up for more than 10 minutes without exporting this required metric."
+          - exp_labels:
+              area: heap
               missing_metric: jvm_memory_used_bytes
               severity: warning
             exp_annotations:
@@ -140,6 +166,12 @@ tests:
               summary: "Required backend metric noviis_semantic_jobs_pending is missing"
               description: "The backend has been up for more than 10 minutes without exporting this required metric."
           - exp_labels:
+              missing_metric: noviis_semantic_reindex_jobs_failed
+              severity: warning
+            exp_annotations:
+              summary: "Required backend metric noviis_semantic_reindex_jobs_failed is missing"
+              description: "The backend has been up for more than 10 minutes without exporting this required metric."
+          - exp_labels:
               missing_metric: noviis_sse_heartbeat_gap_seconds
               severity: warning
             exp_annotations:
@@ -153,6 +185,7 @@ tests:
         alertname: NoviIsBackendDown
         exp_alerts:
           - exp_labels:
+              job: noviis-backend
               severity: critical
             exp_annotations:
               summary: "NoviIs backend metrics scrape has failed for 2 minutes"
@@ -444,12 +477,12 @@ tests:
               summary: "The host exporter is up but root filesystem metrics are missing"
 
   - name: declining host disk is predicted before exhaustion
-    interval: 1h
+    interval: 30m
     input_series:
       - series: 'node_filesystem_avail_bytes{job="noviis-host",mountpoint="/",fstype="ext4"}'
-        values: '700-100x8'
+        values: '700-50x16'
     alert_rule_test:
-      - eval_time: 7h
+      - eval_time: 8h
         alertname: NoviIsHostDiskWillFillWithin24Hours
         exp_alerts:
           - exp_labels:
@@ -483,6 +516,7 @@ tests:
         alertname: NoviIsWebPushCleanupFailure
         exp_alerts:
           - exp_labels:
+              outcome: failure
               severity: warning
             exp_annotations:
               summary: "Expired Web Push subscription cleanup failed"
@@ -528,6 +562,43 @@ tests:
             exp_annotations:
               summary: "A notification delivery lease has remained active for more than two minutes"
 
+  - name: feed generation backlog and exhausted retries are observable
+    interval: 1m
+    input_series:
+      - series: 'noviis_feed_generation_jobs_pending'
+        values: '101+0x20'
+      - series: 'noviis_feed_generation_jobs_oldest_pending_age_seconds'
+        values: '360+0x20'
+      - series: 'noviis_feed_generation_jobs_failed'
+        values: '1+0x20'
+      - series: 'noviis_feed_generation_jobs_processed_total{result="dead_letter"}'
+        values: '0 1+0x19'
+      - series: 'noviis_feed_generation_jobs_processed_total{result="redrive"}'
+        values: '0 1+0x19'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: NoviIsFeedGenerationBacklog
+        exp_alerts:
+          - exp_labels: { severity: warning }
+            exp_annotations: { summary: "Feed generation has more than 100 pending jobs" }
+      - eval_time: 5m
+        alertname: NoviIsFeedGenerationOldestPendingStale
+        exp_alerts:
+          - exp_labels: { severity: warning }
+            exp_annotations: { summary: "The oldest feed generation job has waited more than five minutes" }
+      - eval_time: 2m
+        alertname: NoviIsFeedGenerationFailed
+        exp_alerts:
+          - exp_labels: { severity: critical }
+            exp_annotations: { summary: "A feed generation job exhausted all retries" }
+      - eval_time: 2m
+        alertname: NoviIsFeedGenerationDeadLetter
+        exp_alerts:
+          - exp_labels:
+              result: dead_letter
+              severity: critical
+            exp_annotations: { summary: "Feed generation moved a job to the dead letter state" }
+
   - name: small durable maintenance queues alert by age and dead letter
     interval: 1m
     input_series:
@@ -545,6 +616,12 @@ tests:
         values: '0+2x20'
       - series: 'noviis_semantic_reindex_jobs_oldest_active_age_seconds'
         values: '1000+0x20'
+      - series: 'noviis_semantic_reindex_jobs_failed'
+        values: '1+0x20'
+      - series: 'noviis_semantic_reindex_jobs_processed_total{result="dead_letter"}'
+        values: '0 1+0x19'
+      - series: 'noviis_semantic_reindex_jobs_processed_total{result="redrive"}'
+        values: '0 1+0x19'
     alert_rule_test:
       - eval_time: 5m
         alertname: NoviIsKeywordFanoutStale
@@ -585,6 +662,18 @@ tests:
         exp_alerts:
           - exp_labels: { severity: warning }
             exp_annotations: { summary: "A semantic reindex cursor job has remained active for more than 15 minutes" }
+      - eval_time: 2m
+        alertname: NoviIsSemanticReindexFailed
+        exp_alerts:
+          - exp_labels: { severity: critical }
+            exp_annotations: { summary: "A semantic reindex job exhausted all retries" }
+      - eval_time: 2m
+        alertname: NoviIsSemanticReindexDeadLetter
+        exp_alerts:
+          - exp_labels:
+              result: dead_letter
+              severity: critical
+            exp_annotations: { summary: "Semantic reindexing moved a job to the dead letter state" }
 
   - name: process start time change reports a restart
     interval: 1m
@@ -617,6 +706,31 @@ tests:
               severity: warning
             exp_annotations:
               summary: "Deployment cleanup debt remains for backend: release_retention"
+
+  - name: incoming release cleanup reconciliation exposes orphan count and age
+    interval: 1m
+    input_series:
+      - series: 'noviis_deployment_incoming_orphans{component="frontend"}'
+        values: '2+0x20'
+      - series: 'noviis_deployment_incoming_orphan_oldest_age_seconds{component="frontend"}'
+        values: '7200+0x20'
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: NoviIsDeploymentIncomingOrphans
+        exp_alerts:
+          - exp_labels:
+              component: frontend
+              severity: warning
+            exp_annotations:
+              summary: "Incoming release directories remain for frontend"
+      - eval_time: 15m
+        alertname: NoviIsDeploymentIncomingOrphanOld
+        exp_alerts:
+          - exp_labels:
+              component: frontend
+              severity: critical
+            exp_annotations:
+              summary: "The oldest incoming release for frontend is over one hour old"
 
   - name: Prometheus restart is not reported as a backend restart
     interval: 1m

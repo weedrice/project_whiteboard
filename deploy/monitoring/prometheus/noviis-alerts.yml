@@ -95,8 +95,15 @@ groups:
             or label_replace(absent(noviis_async_queue_depth), "missing_metric", "noviis_async_queue_depth", "", "")
             or label_replace(absent(noviis_async_queue_remaining), "missing_metric", "noviis_async_queue_remaining", "", "")
             or label_replace(absent(noviis_async_rejected_total), "missing_metric", "noviis_async_rejected_total", "", "")
+            or label_replace(absent(noviis_feed_generation_jobs_pending), "missing_metric", "noviis_feed_generation_jobs_pending", "", "")
+            or label_replace(absent(noviis_feed_generation_jobs_processing), "missing_metric", "noviis_feed_generation_jobs_processing", "", "")
+            or label_replace(absent(noviis_feed_generation_jobs_failed), "missing_metric", "noviis_feed_generation_jobs_failed", "", "")
+            or label_replace(absent(noviis_feed_generation_jobs_oldest_pending_age_seconds), "missing_metric", "noviis_feed_generation_jobs_oldest_pending_age_seconds", "", "")
+            or label_replace(absent(noviis_feed_generation_jobs_processed_total), "missing_metric", "noviis_feed_generation_jobs_processed_total", "", "")
             or label_replace(absent(noviis_notification_delivery_jobs_pending), "missing_metric", "noviis_notification_delivery_jobs_pending", "", "")
             or label_replace(absent(noviis_notification_delivery_jobs_dead_letter), "missing_metric", "noviis_notification_delivery_jobs_dead_letter", "", "")
+            or label_replace(absent(noviis_notification_delivery_jobs_oldest_due_age_seconds), "missing_metric", "noviis_notification_delivery_jobs_oldest_due_age_seconds", "", "")
+            or label_replace(absent(noviis_notification_delivery_jobs_oldest_lease_age_seconds), "missing_metric", "noviis_notification_delivery_jobs_oldest_lease_age_seconds", "", "")
             or label_replace(absent(noviis_notification_keyword_fanout_jobs_pending), "missing_metric", "noviis_notification_keyword_fanout_jobs_pending", "", "")
             or label_replace(absent(noviis_notification_keyword_fanout_jobs_dead_letter), "missing_metric", "noviis_notification_keyword_fanout_jobs_dead_letter", "", "")
             or label_replace(absent(noviis_notification_keyword_fanout_jobs_oldest_due_age_seconds), "missing_metric", "noviis_notification_keyword_fanout_jobs_oldest_due_age_seconds", "", "")
@@ -107,6 +114,8 @@ groups:
             or label_replace(absent(noviis_semantic_reindex_jobs_pending), "missing_metric", "noviis_semantic_reindex_jobs_pending", "", "")
             or label_replace(absent(noviis_semantic_reindex_jobs_processing), "missing_metric", "noviis_semantic_reindex_jobs_processing", "", "")
             or label_replace(absent(noviis_semantic_reindex_jobs_oldest_active_age_seconds), "missing_metric", "noviis_semantic_reindex_jobs_oldest_active_age_seconds", "", "")
+            or label_replace(absent(noviis_semantic_reindex_jobs_failed), "missing_metric", "noviis_semantic_reindex_jobs_failed", "", "")
+            or label_replace(absent(noviis_semantic_reindex_jobs_processed_total), "missing_metric", "noviis_semantic_reindex_jobs_processed_total", "", "")
           )
           and on() (max(time() - process_start_time_seconds{job="noviis-backend"}) > 600)
         for: 2m
@@ -133,7 +142,7 @@ groups:
               noviis_scheduler_expected_max_age_seconds
               unless on(scheduled_job) noviis_scheduler_last_success_timestamp_seconds
             )
-            < on() group_left
+            < on() group_left()
               (time() - process_start_time_seconds{job="noviis-backend"})
           )
         labels: { severity: warning }
@@ -247,6 +256,25 @@ groups:
         for: 2m
         labels: { severity: critical }
         annotations: { summary: "A notification delivery lease has remained active for more than two minutes" }
+      - alert: NoviIsFeedGenerationBacklog
+        expr: noviis_feed_generation_jobs_pending > 100
+        for: 10m
+        labels: { severity: warning }
+        annotations: { summary: "Feed generation has more than 100 pending jobs" }
+      - alert: NoviIsFeedGenerationOldestPendingStale
+        expr: noviis_feed_generation_jobs_oldest_pending_age_seconds > 300
+        for: 5m
+        labels: { severity: warning }
+        annotations: { summary: "The oldest feed generation job has waited more than five minutes" }
+      - alert: NoviIsFeedGenerationFailed
+        expr: noviis_feed_generation_jobs_failed > 0
+        for: 2m
+        labels: { severity: critical }
+        annotations: { summary: "A feed generation job exhausted all retries" }
+      - alert: NoviIsFeedGenerationDeadLetter
+        expr: increase(noviis_feed_generation_jobs_processed_total{result="dead_letter"}[15m]) > 0
+        labels: { severity: critical }
+        annotations: { summary: "Feed generation moved a job to the dead letter state" }
       - alert: NoviIsKeywordFanoutStale
         expr: noviis_notification_keyword_fanout_jobs_oldest_due_age_seconds > 300
         for: 5m
@@ -280,6 +308,15 @@ groups:
         for: 5m
         labels: { severity: warning }
         annotations: { summary: "A semantic reindex cursor job has remained active for more than 15 minutes" }
+      - alert: NoviIsSemanticReindexFailed
+        expr: noviis_semantic_reindex_jobs_failed > 0
+        for: 2m
+        labels: { severity: critical }
+        annotations: { summary: "A semantic reindex job exhausted all retries" }
+      - alert: NoviIsSemanticReindexDeadLetter
+        expr: increase(noviis_semantic_reindex_jobs_processed_total{result="dead_letter"}[15m]) > 0
+        labels: { severity: critical }
+        annotations: { summary: "Semantic reindexing moved a job to the dead letter state" }
       - alert: NoviIsProcessRestarted
         expr: changes(process_start_time_seconds{job="noviis-backend"}[15m]) > 0
         labels: { severity: info }
@@ -330,6 +367,18 @@ groups:
         labels: { severity: warning }
         annotations:
           summary: "Deployment cleanup debt remains for {{ $labels.component }}: {{ $labels.debt }}"
+      - alert: NoviIsDeploymentIncomingOrphans
+        expr: noviis_deployment_incoming_orphans > 0
+        for: 15m
+        labels: { severity: warning }
+        annotations:
+          summary: "Incoming release directories remain for {{ $labels.component }}"
+      - alert: NoviIsDeploymentIncomingOrphanOld
+        expr: noviis_deployment_incoming_orphan_oldest_age_seconds > 3600
+        for: 15m
+        labels: { severity: critical }
+        annotations:
+          summary: "The oldest incoming release for {{ $labels.component }} is over one hour old"
       - alert: NoviIsAgentPurgeBacklog
         expr: noviis_agent_pending_claim_purge_eligible > 5000
         for: 1h
