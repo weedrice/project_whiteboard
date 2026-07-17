@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.global.config;
 
+import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -12,6 +13,7 @@ import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import java.util.concurrent.Executor;
+import java.util.concurrent.ThreadPoolExecutor;
 
 @Slf4j
 @Configuration
@@ -65,6 +67,19 @@ public class AsyncConfig implements AsyncConfigurer {
         executor.setWaitForTasksToCompleteOnShutdown(true);
         executor.setAwaitTerminationSeconds(properties.getAwaitTerminationSeconds());
         executor.initialize();
+        registerExecutorGauges(executorName, executor.getThreadPoolExecutor());
         return executor;
+    }
+
+    private void registerExecutorGauges(String executorName, ThreadPoolExecutor executor) {
+        Gauge.builder("noviis.async.active", executor, ThreadPoolExecutor::getActiveCount)
+                .tag("executor", executorName)
+                .register(meterRegistry);
+        Gauge.builder("noviis.async.queue.depth", executor, value -> value.getQueue().size())
+                .tag("executor", executorName)
+                .register(meterRegistry);
+        Gauge.builder("noviis.async.queue.remaining", executor, value -> value.getQueue().remainingCapacity())
+                .tag("executor", executorName)
+                .register(meterRegistry);
     }
 }

@@ -66,6 +66,30 @@ tests:
               summary: "Required backend metric hikaricp_connections_max is missing"
               description: "The backend has been up for more than 10 minutes without exporting this required metric."
           - exp_labels:
+              missing_metric: noviis_async_active
+              severity: warning
+            exp_annotations:
+              summary: "Required backend metric noviis_async_active is missing"
+              description: "The backend has been up for more than 10 minutes without exporting this required metric."
+          - exp_labels:
+              missing_metric: noviis_async_queue_depth
+              severity: warning
+            exp_annotations:
+              summary: "Required backend metric noviis_async_queue_depth is missing"
+              description: "The backend has been up for more than 10 minutes without exporting this required metric."
+          - exp_labels:
+              missing_metric: noviis_async_queue_remaining
+              severity: warning
+            exp_annotations:
+              summary: "Required backend metric noviis_async_queue_remaining is missing"
+              description: "The backend has been up for more than 10 minutes without exporting this required metric."
+          - exp_labels:
+              missing_metric: noviis_async_rejected_total
+              severity: warning
+            exp_annotations:
+              summary: "Required backend metric noviis_async_rejected_total is missing"
+              description: "The backend has been up for more than 10 minutes without exporting this required metric."
+          - exp_labels:
               missing_metric: jvm_memory_used_bytes
               severity: warning
             exp_annotations:
@@ -248,6 +272,123 @@ tests:
             exp_annotations:
               summary: "Scheduler pool common is saturated while its queue is growing"
               description: "The queue includes future scheduled executions, so this alert requires both full worker utilization and sustained queue growth."
+
+  - name: asynchronous rejection outcomes keep distinct severities
+    interval: 1m
+    input_series:
+      - series: 'noviis_async_rejected_total{executor="durable",outcome="exception"}'
+        values: '0 1+0x6'
+      - series: 'noviis_async_rejected_total{executor="notification",outcome="caller-runs"}'
+        values: '0 1+0x6'
+      - series: 'noviis_async_rejected_total{executor="observability",outcome="dropped"}'
+        values: '0 1+0x6'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: NoviIsAsyncDurableRejected
+        exp_alerts:
+          - exp_labels:
+              executor: durable
+              outcome: exception
+              severity: critical
+            exp_annotations:
+              summary: "A durable asynchronous task was rejected"
+      - eval_time: 2m
+        alertname: NoviIsAsyncNotificationCallerRuns
+        exp_alerts:
+          - exp_labels:
+              executor: notification
+              outcome: caller-runs
+              severity: warning
+            exp_annotations:
+              summary: "Notification async saturation moved work onto a caller thread"
+      - eval_time: 2m
+        alertname: NoviIsAsyncObservabilityDropped
+        exp_alerts:
+          - exp_labels:
+              executor: observability
+              outcome: dropped
+              severity: warning
+            exp_annotations:
+              summary: "An observability asynchronous task was dropped"
+
+  - name: asynchronous executor saturation requires sustained active work
+    interval: 1m
+    input_series:
+      - series: 'noviis_async_active{executor="notification"}'
+        values: '4+0x8'
+      - series: 'noviis_async_queue_remaining{executor="notification"}'
+        values: '0+0x8'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: NoviIsAsyncExecutorSaturated
+        exp_alerts:
+          - exp_labels:
+              executor: notification
+              severity: warning
+            exp_annotations:
+              summary: "Async executor notification has no queue capacity remaining"
+
+  - name: enabled host exporter and filesystem headroom are monitored
+    interval: 1m
+    input_series:
+      - series: 'up{job="noviis-host",monitoring="enabled",instance="127.0.0.1:9100"}'
+        values: '0+0x20'
+      - series: 'node_filesystem_avail_bytes{job="noviis-host",mountpoint="/",fstype="ext4"}'
+        values: '100+0x20'
+      - series: 'node_filesystem_size_bytes{job="noviis-host",mountpoint="/",fstype="ext4"}'
+        values: '1000+0x20'
+      - series: 'node_filesystem_files_free{job="noviis-host",mountpoint="/",fstype="ext4"}'
+        values: '50+0x20'
+      - series: 'node_filesystem_files{job="noviis-host",mountpoint="/",fstype="ext4"}'
+        values: '1000+0x20'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: NoviIsHostExporterDown
+        exp_alerts:
+          - exp_labels:
+              instance: 127.0.0.1:9100
+              job: noviis-host
+              monitoring: enabled
+              severity: critical
+            exp_annotations:
+              summary: "The enabled NoviIs host exporter is unavailable"
+      - eval_time: 15m
+        alertname: NoviIsHostDiskFreeLow
+        exp_alerts:
+          - exp_labels:
+              fstype: ext4
+              job: noviis-host
+              mountpoint: /
+              severity: warning
+            exp_annotations:
+              summary: "The NoviIs host root filesystem has less than 15 percent free space"
+      - eval_time: 15m
+        alertname: NoviIsHostInodesFreeLow
+        exp_alerts:
+          - exp_labels:
+              fstype: ext4
+              job: noviis-host
+              mountpoint: /
+              severity: warning
+            exp_annotations:
+              summary: "The NoviIs host root filesystem has less than 10 percent free inodes"
+
+  - name: declining host disk is predicted before exhaustion
+    interval: 1h
+    input_series:
+      - series: 'node_filesystem_avail_bytes{job="noviis-host",mountpoint="/",fstype="ext4"}'
+        values: '700-100x8'
+    alert_rule_test:
+      - eval_time: 7h
+        alertname: NoviIsHostDiskWillFillWithin24Hours
+        exp_alerts:
+          - exp_labels:
+              fstype: ext4
+              job: noviis-host
+              mountpoint: /
+              severity: warning
+            exp_annotations:
+              summary: "The NoviIs host root filesystem is predicted to fill within 24 hours"
 
   - name: Web Push delivery and cleanup failures are observable
     interval: 1m

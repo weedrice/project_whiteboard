@@ -35,6 +35,9 @@ class AsyncExecutionPolicyTest {
         assertThat(executor.getCorePoolSize()).isEqualTo(4);
         assertThat(executor.getMaxPoolSize()).isEqualTo(8);
         assertThat(executor.getThreadPoolExecutor().getQueue().remainingCapacity()).isEqualTo(200);
+        assertThat(gauge("noviis.async.active", "durable")).isZero();
+        assertThat(gauge("noviis.async.queue.depth", "durable")).isZero();
+        assertThat(gauge("noviis.async.queue.remaining", "durable")).isEqualTo(200.0);
 
         executor.shutdown();
         executor = config.observabilityTaskExecutor();
@@ -126,5 +129,12 @@ class AsyncExecutionPolicyTest {
                 .tag("outcome", outcome)
                 .counter()
                 .count();
+    }
+
+    private double gauge(String name, String executorName) {
+        return meterRegistry.get(name)
+                .tag("executor", executorName)
+                .gauge()
+                .value();
     }
 }

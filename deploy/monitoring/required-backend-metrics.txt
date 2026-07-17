@@ -1,0 +1,10 @@
+# Metrics that must exist after the backend startup grace.
+hikaricp_connections_max
+jvm_memory_used_bytes
+noviis_async_active
+noviis_async_queue_depth
+noviis_async_queue_remaining
+noviis_async_rejected_total
+noviis_semantic_jobs_oldest_age_seconds
+noviis_semantic_jobs_pending
+noviis_sse_heartbeat_gap_seconds

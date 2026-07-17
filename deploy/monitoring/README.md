@@ -21,6 +21,7 @@ grafana/provisioning/dashboards/noviis.yml        -> /etc/grafana/provisioning/d
 grafana/dashboards/noviis-overview.json           -> /var/lib/grafana/dashboards/noviis-overview.json
 systemd/prometheus.service.d/override.conf         -> /etc/systemd/system/prometheus.service.d/override.conf
 systemd/grafana-server.service.d/override.conf     -> /etc/systemd/system/grafana-server.service.d/override.conf
+systemd/prometheus-node-exporter.service.d/override.conf -> /etc/systemd/system/prometheus-node-exporter.service.d/override.conf
 rotate-grafana-admin-password.sh                   -> /usr/local/sbin/rotate-noviis-grafana-password
 ```
 
@@ -82,7 +83,31 @@ HTTP latency histograms are enabled in the production profile for `http.server.r
 
 Web Push delivery counters distinguish success, failure, timeout, and expired subscriptions. The failure alert requires at least 20 attempts in 15 minutes and a failure-plus-timeout ratio above 10 percent for 10 minutes. Expired-subscription cleanup failures alert independently. The dashboard displays both delivery and cleanup outcomes.
 
-Host disk and filesystem time-series metrics are not collected by this stack because node_exporter is not installed. Continue the preflight disk check above and add an exporter plus explicit capacity rules before relying on Prometheus for disk exhaustion detection.
+Async executor metrics expose active workers, queue depth, remaining queue capacity, and rejection outcomes. Durable rejection is critical because durable work was not accepted. Notification caller-runs is a latency warning because the request or scheduler thread inherited the work. Observability drops are warning-level data loss. Sustained zero remaining capacity while work is active raises a separate saturation alert. `required-backend-metrics.txt` is the canonical startup metric contract and `verify-required-backend-metrics.py` prevents its `absent()` checks from drifting.
+
+## Host filesystem exporter enable gate
+
+Install the distribution's signed native `prometheus-node-exporter` package and confirm its reported upstream version is at least `NODE_EXPORTER_MIN_VERSION` in `tool-versions.env`. Distribution package revisions may differ; record the installed package version in the host change ticket and fail the rollout when the upstream version is below the manifest minimum. Install the reviewed systemd override, but do not yet create the Prometheus target file:
+
+```bash
+source tool-versions.env
+sudo apt-get install prometheus-node-exporter
+prometheus-node-exporter --version
+test "$(printf '%s\n' "$NODE_EXPORTER_MIN_VERSION" "$(prometheus-node-exporter --version 2>&1 | sed -n 's/.*version \([^ ]*\).*/\1/p' | head -n1)" | sort -V | head -n1)" = "$NODE_EXPORTER_MIN_VERSION"
+sudo install -d -o root -g root -m 0755 /etc/systemd/system/prometheus-node-exporter.service.d /etc/prometheus/targets
+sudo install -o root -g root -m 0644 systemd/prometheus-node-exporter.service.d/override.conf /etc/systemd/system/prometheus-node-exporter.service.d/override.conf
+sudo systemctl daemon-reload
+sudo systemctl enable --now prometheus-node-exporter
+curl -fsS http://127.0.0.1:9100/metrics >/dev/null
+```
+
+Only after the local metrics request succeeds, copy `prometheus/noviis-host-target.json.example` to `/etc/prometheus/targets/noviis-host.json` atomically and reload Prometheus. The target carries `monitoring=enabled`; before this file exists, host alerts have no target series and therefore do not fire during staged installation. Once enabled, exporter loss, root-filesystem free-byte and free-inode ratios, and 24-hour exhaustion prediction are monitored. Removing the target file disables this contract and requires an approved monitoring maintenance record.
+
+```bash
+sudo install -o root -g root -m 0644 prometheus/noviis-host-target.json.example /etc/prometheus/targets/.noviis-host.json.new
+sudo mv -T /etc/prometheus/targets/.noviis-host.json.new /etc/prometheus/targets/noviis-host.json
+sudo systemctl reload prometheus
+```
 
 Alert rules are evaluated by Prometheus, but no Alertmanager route or external notification receiver is installed. A rule entering the firing state therefore does not send Slack or email notifications.
 

@@ -14,3 +14,7 @@ scrape_configs:
     metrics_path: /actuator/prometheus
     static_configs:
       - targets: ["127.0.0.1:8081"]
+
+  - job_name: noviis-host
+    file_sd_configs:
+      - files: ["/etc/prometheus/targets/noviis-host.json"]

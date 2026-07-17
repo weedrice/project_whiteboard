@@ -85,6 +85,10 @@ groups:
             or label_replace(absent(noviis_semantic_jobs_oldest_age_seconds), "missing_metric", "noviis_semantic_jobs_oldest_age_seconds", "", "")
             or label_replace(absent(jvm_memory_used_bytes{area="heap"}), "missing_metric", "jvm_memory_used_bytes", "", "")
             or label_replace(absent(hikaricp_connections_max), "missing_metric", "hikaricp_connections_max", "", "")
+            or label_replace(absent(noviis_async_active), "missing_metric", "noviis_async_active", "", "")
+            or label_replace(absent(noviis_async_queue_depth), "missing_metric", "noviis_async_queue_depth", "", "")
+            or label_replace(absent(noviis_async_queue_remaining), "missing_metric", "noviis_async_queue_remaining", "", "")
+            or label_replace(absent(noviis_async_rejected_total), "missing_metric", "noviis_async_rejected_total", "", "")
           )
           and on() (max(time() - process_start_time_seconds{job="noviis-backend"}) > 600)
         for: 2m
@@ -174,6 +178,25 @@ groups:
         annotations:
           summary: "Scheduler pool {{ $labels.pool }} is saturated while its queue is growing"
           description: "The queue includes future scheduled executions, so this alert requires both full worker utilization and sustained queue growth."
+      - alert: NoviIsAsyncDurableRejected
+        expr: increase(noviis_async_rejected_total{executor="durable",outcome="exception"}[5m]) > 0
+        labels: { severity: critical }
+        annotations: { summary: "A durable asynchronous task was rejected" }
+      - alert: NoviIsAsyncNotificationCallerRuns
+        expr: increase(noviis_async_rejected_total{executor="notification",outcome="caller-runs"}[5m]) > 0
+        labels: { severity: warning }
+        annotations: { summary: "Notification async saturation moved work onto a caller thread" }
+      - alert: NoviIsAsyncObservabilityDropped
+        expr: increase(noviis_async_rejected_total{executor="observability",outcome="dropped"}[5m]) > 0
+        labels: { severity: warning }
+        annotations: { summary: "An observability asynchronous task was dropped" }
+      - alert: NoviIsAsyncExecutorSaturated
+        expr: >-
+          noviis_async_queue_remaining{executor=~"durable|notification|observability"} == 0
+          and on(executor) noviis_async_active > 0
+        for: 5m
+        labels: { severity: warning }
+        annotations: { summary: "Async executor {{ $labels.executor }} has no queue capacity remaining" }
       - alert: NoviIsWebPushDeliveryFailureHigh
         expr: >-
           sum(increase(noviis_webpush_delivery_total{outcome=~"failure|timeout"}[15m]))
@@ -190,6 +213,32 @@ groups:
         expr: changes(process_start_time_seconds{job="noviis-backend"}[15m]) > 0
         labels: { severity: info }
         annotations: { summary: "The NoviIs backend process restarted within the last 15 minutes" }
+      - alert: NoviIsHostExporterDown
+        expr: up{job="noviis-host",monitoring="enabled"} == 0
+        for: 5m
+        labels: { severity: critical }
+        annotations: { summary: "The enabled NoviIs host exporter is unavailable" }
+      - alert: NoviIsHostDiskFreeLow
+        expr: >-
+          node_filesystem_avail_bytes{job="noviis-host",mountpoint="/",fstype!~"tmpfs|overlay|squashfs"}
+          / clamp_min(node_filesystem_size_bytes{job="noviis-host",mountpoint="/",fstype!~"tmpfs|overlay|squashfs"}, 1) < 0.15
+        for: 15m
+        labels: { severity: warning }
+        annotations: { summary: "The NoviIs host root filesystem has less than 15 percent free space" }
+      - alert: NoviIsHostInodesFreeLow
+        expr: >-
+          node_filesystem_files_free{job="noviis-host",mountpoint="/",fstype!~"tmpfs|overlay|squashfs"}
+          / clamp_min(node_filesystem_files{job="noviis-host",mountpoint="/",fstype!~"tmpfs|overlay|squashfs"}, 1) < 0.10
+        for: 15m
+        labels: { severity: warning }
+        annotations: { summary: "The NoviIs host root filesystem has less than 10 percent free inodes" }
+      - alert: NoviIsHostDiskWillFillWithin24Hours
+        expr: >-
+          predict_linear(node_filesystem_avail_bytes{job="noviis-host",mountpoint="/",fstype!~"tmpfs|overlay|squashfs"}[6h], 86400) < 0
+          and deriv(node_filesystem_avail_bytes{job="noviis-host",mountpoint="/",fstype!~"tmpfs|overlay|squashfs"}[1h]) < 0
+        for: 30m
+        labels: { severity: warning }
+        annotations: { summary: "The NoviIs host root filesystem is predicted to fill within 24 hours" }
       - alert: NoviIsAgentPurgeBacklog
         expr: noviis_agent_pending_claim_purge_eligible > 5000
         for: 1h
