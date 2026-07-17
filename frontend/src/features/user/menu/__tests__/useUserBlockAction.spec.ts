@@ -61,6 +61,22 @@ describe('useUserBlockAction', () => {
     expect(action).not.toHaveBeenCalled()
   })
 
+  it('skips action when its session intent became stale during confirmation', async () => {
+    const action = vi.fn()
+    const { runUserBlockAction } = useUserBlockAction()
+
+    const result = await runUserBlockAction({
+      action,
+      confirmMessage: 'confirm',
+      failureMessage: 'failed',
+      isIntentCurrent: () => false,
+      logMessage: 'log:',
+    })
+
+    expect(result).toBe(false)
+    expect(action).not.toHaveBeenCalled()
+  })
+
   it('logs and shows failure toast when the action throws', async () => {
     const error = new Error('fail')
     const { runUserBlockAction } = useUserBlockAction()
@@ -75,5 +91,26 @@ describe('useUserBlockAction', () => {
     expect(result).toBe(false)
     expect(mocks.loggerError).toHaveBeenCalledWith('log:', error)
     expect(mocks.addToast).toHaveBeenCalledWith('failed', 'error')
+  })
+
+  it('suppresses a stale failure after the session changes during the request', async () => {
+    let isCurrent = true
+    const { runUserBlockAction } = useUserBlockAction()
+    const action = vi.fn().mockImplementation(async () => {
+      isCurrent = false
+      throw new Error('stale failure')
+    })
+
+    const result = await runUserBlockAction({
+      action,
+      confirmMessage: 'confirm',
+      failureMessage: 'failed',
+      isIntentCurrent: () => isCurrent,
+      logMessage: 'log:',
+    })
+
+    expect(result).toBe(false)
+    expect(mocks.loggerError).not.toHaveBeenCalled()
+    expect(mocks.addToast).not.toHaveBeenCalled()
   })
 })

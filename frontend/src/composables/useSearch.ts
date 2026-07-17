@@ -71,6 +71,7 @@ export function useSearch() {
                 (config) => searchApi.semanticSearch(params.value, config),
             ),
             enabled: computed(() => hasSearchText(params.value.q)),
+            meta: AUTH_SCOPED_QUERY_META,
         })
     }
 

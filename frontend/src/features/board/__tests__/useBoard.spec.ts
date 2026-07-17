@@ -390,6 +390,9 @@ describe('useBoard', () => {
         const boardUrl = ref('free')
         useBoardCategories(boardUrl)
         const options = mocks.queryOptions.at(-1)!
+        expect((options.queryKey as ReturnType<typeof computed>).value).toEqual([
+            'session', 0, 'board', 'categories', 'free',
+        ])
         const result = await (options.queryFn as () => Promise<unknown>)()
 
         expect(boardApi.getCategories).toHaveBeenCalledWith('free')

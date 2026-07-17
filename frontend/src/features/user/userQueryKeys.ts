@@ -1,5 +1,7 @@
 /** Shared query-key factory for the user feature and its compatibility consumers. */
 
+const normalizePublicUserId = (userId: string | number) => String(userId)
+
 export interface UserQueryPaginationParams {
     page?: number
     size?: number
@@ -9,7 +11,7 @@ export interface UserQueryPaginationParams {
 
 export const userQueryKeys = {
     me: ['user', 'me'] as const,
-    profile: (userId: string | number) => ['user', userId] as const,
+    profile: (userId: string | number) => ['user', normalizePublicUserId(userId)] as const,
     settings: ['user', 'settings'] as const,
     blocksRoot: ['user', 'blocks'] as const,
     blocks: (params: Readonly<UserQueryPaginationParams> = {}) => ['user', 'blocks', { ...params }] as const,
@@ -30,9 +32,11 @@ export const userQueryKeys = {
     myPosts: (params: Readonly<UserQueryPaginationParams>) => ['user', 'me', 'posts', { ...params }] as const,
     myComments: (params: Readonly<UserQueryPaginationParams>) => ['user', 'me', 'comments', { ...params }] as const,
     publicPosts: (userId: string | number, params: Readonly<UserQueryPaginationParams> = {}) =>
-        ['user', userId, 'posts', { ...params }] as const,
+        ['user', normalizePublicUserId(userId), 'posts', { ...params }] as const,
+    publicPostsRoot: (userId: string | number) => ['user', normalizePublicUserId(userId), 'posts'] as const,
     publicComments: (userId: string | number, params: Readonly<UserQueryPaginationParams> = {}) =>
-        ['user', userId, 'comments', { ...params }] as const,
+        ['user', normalizePublicUserId(userId), 'comments', { ...params }] as const,
+    publicCommentsRoot: (userId: string | number) => ['user', normalizePublicUserId(userId), 'comments'] as const,
     drafts: (params: Readonly<UserQueryPaginationParams> = {}) => ['user', 'drafts', { ...params }] as const,
     scheduledPosts: (params: Readonly<UserQueryPaginationParams> = {}) => ['user', 'scheduled-posts', { ...params }] as const,
     badges: (userId: string | number) => ['user', 'badges', userId] as const,

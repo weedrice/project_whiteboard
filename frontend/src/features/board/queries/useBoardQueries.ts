@@ -230,6 +230,7 @@ export function useBoardQueries() {
         () => boardApi.getCategories(boardUrl.value),
       ),
       enabled: computed(() => !!boardUrl.value),
+      meta: AUTH_SCOPED_QUERY_META,
       ...options,
     })
   }

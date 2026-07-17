@@ -111,7 +111,10 @@ describe('useUserMenuActions', () => {
         expect(addToast).toHaveBeenCalledWith('user.block.success:Other', 'success')
         expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'comments'] })
         expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'user', 'blocks'] })
-        expect(invalidateQueries).toHaveBeenCalledTimes(2)
+        expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'user', '2'] })
+        expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'user', '2', 'posts'] })
+        expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'user', '2', 'comments'] })
+        expect(invalidateQueries).toHaveBeenCalledTimes(5)
     })
 
     it('logs and toasts block failures', async () => {

@@ -92,6 +92,7 @@ export function useUser() {
     const useUserProfile = (userId: Ref<string | number>) => {
         return useApiQuery({
             queryKey: computed(() => userQueryKeys.profile(userId.value)),
+            meta: AUTH_SCOPED_QUERY_META,
             request: (context) => callWithOptionalQuerySignal(
                 context,
                 () => userApi.getUserProfile(userId.value),
@@ -424,6 +425,9 @@ export function useUser() {
             onSuccess: (_data, _variables, context) => {
                 if (!isCurrentMutation(context)) return
                 queryClient.invalidateQueries({ queryKey: authKey(userQueryKeys.blocksRoot) })
+                queryClient.invalidateQueries({ queryKey: authKey(userQueryKeys.profile(_variables)) })
+                queryClient.invalidateQueries({ queryKey: authKey(userQueryKeys.publicPostsRoot(_variables)) })
+                queryClient.invalidateQueries({ queryKey: authKey(userQueryKeys.publicCommentsRoot(_variables)) })
             }
         })
     }
@@ -437,6 +441,9 @@ export function useUser() {
             onSuccess: (_data, _variables, context) => {
                 if (!isCurrentMutation(context)) return
                 queryClient.invalidateQueries({ queryKey: authKey(userQueryKeys.blocksRoot) })
+                queryClient.invalidateQueries({ queryKey: authKey(userQueryKeys.profile(_variables)) })
+                queryClient.invalidateQueries({ queryKey: authKey(userQueryKeys.publicPostsRoot(_variables)) })
+                queryClient.invalidateQueries({ queryKey: authKey(userQueryKeys.publicCommentsRoot(_variables)) })
             }
         })
     }

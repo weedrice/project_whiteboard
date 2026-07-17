@@ -67,6 +67,7 @@ export function useUserMenuActions({
             successMessage: t('user.block.success', { name: displayName.value }),
             action: () => userApi.blockUser(userId.value),
             isSuccess: ({ data }) => data.success,
+            isIntentCurrent: () => isSessionGenerationCurrent(authStore, sessionGeneration),
             onSuccess: () => {
                 if (!isSessionGenerationCurrent(authStore, sessionGeneration)) return
                 queryClient.invalidateQueries({
@@ -74,6 +75,15 @@ export function useUserMenuActions({
                 })
                 queryClient.invalidateQueries({
                     queryKey: sessionQueryKey(sessionGeneration, userQueryKeys.blocksRoot),
+                })
+                queryClient.invalidateQueries({
+                    queryKey: sessionQueryKey(sessionGeneration, userQueryKeys.profile(userId.value)),
+                })
+                queryClient.invalidateQueries({
+                    queryKey: sessionQueryKey(sessionGeneration, userQueryKeys.publicPostsRoot(userId.value)),
+                })
+                queryClient.invalidateQueries({
+                    queryKey: sessionQueryKey(sessionGeneration, userQueryKeys.publicCommentsRoot(userId.value)),
                 })
             },
         })

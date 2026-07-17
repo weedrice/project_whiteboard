@@ -32,6 +32,7 @@ vi.mock('@/api/search', () => ({
     searchApi: {
         search: vi.fn(),
         searchPosts: vi.fn(),
+        semanticSearch: vi.fn(),
         getPopularKeywords: vi.fn(),
     },
 }))
@@ -166,6 +167,24 @@ describe('useSearch', () => {
         useIntegratedSearch(blankParams)
         const blankOptions = mocks.queryOptions.at(-1)!
         expect((blankOptions.enabled as ReturnType<typeof computed>).value).toBe(false)
+    })
+
+    it('isolates semantic search results by session generation', async () => {
+        vi.mocked(searchApi.semanticSearch).mockResolvedValueOnce(
+            apiDataResponse<typeof searchApi.semanticSearch>({ content: [{ contentId: 7 }] })
+        )
+
+        const { useSemanticSearch } = useSearch()
+        const params = ref<SearchParams>({ q: 'private result', page: 0 })
+        useSemanticSearch(params)
+
+        const options = mocks.queryOptions.at(-1)!
+        expect((options.queryKey as ReturnType<typeof computed>).value).toEqual([
+            'session', 0, 'search', 'semantic', { q: 'private result', page: 0 },
+        ])
+        expect(options.placeholderData).toBeUndefined()
+        await (options.queryFn as () => Promise<unknown>)()
+        expect(searchApi.semanticSearch).toHaveBeenCalledWith({ q: 'private result', page: 0 })
     })
 
     it('fetches popular keywords with medium staleTime', async () => {

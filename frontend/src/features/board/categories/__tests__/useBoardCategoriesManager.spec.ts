@@ -41,6 +41,10 @@ vi.mock('@/stores/toast', () => ({
     }),
 }))
 
+vi.mock('@/stores/auth', () => ({
+    useAuthStore: () => ({ sessionGeneration: 7 }),
+}))
+
 vi.mock('@/composables/useConfirm', () => ({
     useConfirm: () => ({
         confirm: mocks.confirm,
@@ -125,7 +129,7 @@ describe('useBoardCategoriesManager', () => {
         expect(manager.newCategoryName.value).toBe('')
         expect(manager.newCategoryRole.value).toBe('USER')
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({
-            queryKey: ['board', 'categories', 'free-board'],
+            queryKey: ['session', 7, 'board', 'categories', 'free-board'],
         })
     })
 
@@ -154,7 +158,7 @@ describe('useBoardCategoriesManager', () => {
         expect(boardApi.deleteCategory).toHaveBeenCalledWith('free-board', 2)
         expect(manager.categories.value.map(category => category.categoryId)).toEqual([1])
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({
-            queryKey: ['board', 'categories', 'free-board'],
+            queryKey: ['session', 7, 'board', 'categories', 'free-board'],
         })
     })
 
@@ -188,7 +192,7 @@ describe('useBoardCategoriesManager', () => {
         expect(manager.categories.value[0].name).toBe('New')
         expect(manager.editingId.value).toBeNull()
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({
-            queryKey: ['board', 'categories', 'free-board'],
+            queryKey: ['session', 7, 'board', 'categories', 'free-board'],
         })
     })
 
@@ -223,7 +227,7 @@ describe('useBoardCategoriesManager', () => {
         })
         expect(manager.categories.value.map(category => category.categoryId)).toEqual([1, 3, 2])
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({
-            queryKey: ['board', 'categories', 'free-board'],
+            queryKey: ['session', 7, 'board', 'categories', 'free-board'],
         })
     })
 

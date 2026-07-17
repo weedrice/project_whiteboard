@@ -1,6 +1,7 @@
 import { useConfirm } from '@/composables/useConfirm'
 import { useToastStore } from '@/stores/toast'
 import logger from '@/utils/logger'
+import { getCurrentSessionGeneration } from '@/queryAuthScope'
 
 interface UserBlockActionOptions<TResult> {
   confirmMessage: string
@@ -9,6 +10,7 @@ interface UserBlockActionOptions<TResult> {
   action: () => Promise<TResult>
   successMessage?: string
   isSuccess?: (result: TResult) => boolean
+  isIntentCurrent?: () => boolean
   onSuccess?: (result: TResult) => void | Promise<void>
 }
 
@@ -21,16 +23,22 @@ export function useUserBlockAction() {
     confirmMessage,
     failureMessage,
     isSuccess = () => true,
+    isIntentCurrent = () => true,
     logMessage,
     onSuccess,
     successMessage,
   }: UserBlockActionOptions<TResult>) {
+    const sessionGeneration = getCurrentSessionGeneration()
+    const isCurrent = () => (
+      sessionGeneration === getCurrentSessionGeneration()
+      && isIntentCurrent()
+    )
     const isConfirmed = await confirm(confirmMessage)
-    if (!isConfirmed) return false
+    if (!isConfirmed || !isCurrent()) return false
 
     try {
       const result = await action()
-      if (!isSuccess(result)) return false
+      if (!isCurrent() || !isSuccess(result)) return false
 
       if (successMessage) {
         toastStore.addToast(successMessage, 'success')
@@ -38,6 +46,7 @@ export function useUserBlockAction() {
       await onSuccess?.(result)
       return true
     } catch (error: unknown) {
+      if (!isCurrent()) return false
       logger.error(logMessage, error)
       toastStore.addToast(failureMessage, 'error')
       return false

@@ -121,7 +121,7 @@ describe('useUser', () => {
         useUserProfile(userId)
         let options = mocks.queryOptions.at(-1)!
         const queryKey = options.queryKey as ReturnType<typeof computed>
-        expect(queryKey.value).toEqual(['user', 9])
+        expect(queryKey.value).toEqual(['session', 0, 'user', '9'])
         expect((options.enabled as ReturnType<typeof computed>).value).toBe(true)
 
         const result = await (options.queryFn as () => Promise<unknown>)()
@@ -129,7 +129,7 @@ describe('useUser', () => {
         expect(userApi.getUserProfile).toHaveBeenCalledWith(9)
 
         userId.value = 10
-        expect(queryKey.value).toEqual(['user', 10])
+        expect(queryKey.value).toEqual(['session', 0, 'user', '10'])
 
         useUserProfile(ref(''))
         options = mocks.queryOptions.at(-1)!
@@ -407,5 +407,8 @@ describe('useUser', () => {
         expect(userApi.unblockUser).toHaveBeenCalledWith(123)
 
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'user', 'blocks'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'user', '123'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'user', '123', 'posts'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'user', '123', 'comments'] })
     })
 })

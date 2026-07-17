@@ -10,12 +10,15 @@ import { useToastStore } from '@/stores/toast'
 import logger from '@/utils/logger'
 import { resolveDefaultCategory } from '@/utils/board'
 import type { Category } from '@/types'
+import { useAuthStore } from '@/stores/auth'
+import { currentSessionQueryKey } from '@/queryAuthScope'
 
 export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
     const { t } = useI18n()
     const toastStore = useToastStore()
     const { confirm } = useConfirm()
     const queryClient = useQueryClient()
+    const authStore = useAuthStore()
 
     const categories = ref<Category[]>([])
     const categoryLoadTask = useLatestAsyncTask<string>({
@@ -38,7 +41,9 @@ export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
         categories.value.filter(category => category.categoryId !== defaultCategory.value?.categoryId)
     )
     const invalidateCategories = (targetBoardUrl = boardUrl.value) => {
-        queryClient.invalidateQueries({ queryKey: boardQueryKeys.categories(targetBoardUrl) })
+        queryClient.invalidateQueries({
+            queryKey: currentSessionQueryKey(authStore, boardQueryKeys.categories(targetBoardUrl)),
+        })
     }
 
     async function fetchCategories() {
