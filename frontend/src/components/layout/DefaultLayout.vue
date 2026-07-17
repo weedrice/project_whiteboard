@@ -154,7 +154,7 @@ const goToNotificationsPage = async () => {
             <GlobalSearchBar />
           </div>
 
-          <div v-if="authStore.isAuthenticated" class="relative hidden sm:block">
+          <div v-if="authStore.isAuthenticated" class="relative hidden sm:block" data-shell-dropdown-root>
             <button
               ref="notificationTriggerRef"
               type="button"

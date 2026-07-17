@@ -38,8 +38,16 @@ export function useShellDropdowns(keyboardStore: ShellKeyboardStore) {
     activeDropdown.value = name
   }
 
-  const handleClickOutside = () => {
+  const handleClickOutside = (event: Event) => {
     if (activeDropdown.value || isNotificationOpen.value) {
+      const path = typeof event.composedPath === 'function' ? event.composedPath() : []
+      const isInsideDropdown = path.some((node) => (
+        node instanceof HTMLElement && node.hasAttribute('data-shell-dropdown-root')
+      )) || (
+        event.target instanceof Element
+        && event.target.closest('[data-shell-dropdown-root]') !== null
+      )
+      if (isInsideDropdown) return
       closeAllDropdowns()
     }
   }

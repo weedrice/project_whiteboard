@@ -127,7 +127,7 @@ watch(() => props.isOpen, (isOpen) => {
 </script>
 
 <template>
-  <div class="relative">
+  <div class="relative" data-shell-dropdown-root>
     <button :id="triggerId" type="button" @click.stop="toggleDropdown"
       :aria-label="$t('layout.userMenu.ariaLabel')"
       aria-haspopup="menu"

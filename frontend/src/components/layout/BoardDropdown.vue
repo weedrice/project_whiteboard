@@ -126,7 +126,7 @@ watch([() => props.isOpen, displayItems], ([isOpen, boards]) => {
 </script>
 
 <template>
-  <div class="relative">
+  <div class="relative" data-shell-dropdown-root>
     <BaseButton @click.stop="toggleDropdown" variant="ghost"
       :id="triggerId"
       :aria-expanded="isOpen"
