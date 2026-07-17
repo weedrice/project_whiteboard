@@ -14,7 +14,12 @@
     {"type":"timeseries","title":"Rate limit rejections","id":9,"gridPos":{"h":8,"w":8,"x":8,"y":16},"targets":[{"expr":"sum by (tier) (increase(noviis_ratelimit_rejected_total[5m]))","legendFormat":"{{tier}}","refId":"A"}]},
     {"type":"timeseries","title":"Rate limit cache","id":10,"gridPos":{"h":8,"w":8,"x":16,"y":16},"targets":[{"expr":"noviis_ratelimit_cache_size","legendFormat":"{{scope}} size","refId":"A"},{"expr":"increase(noviis_ratelimit_cache_evictions_total[15m])","legendFormat":"{{scope}} evictions","refId":"B"}]},
     {"type":"timeseries","title":"Pending agent purge","id":11,"gridPos":{"h":8,"w":12,"x":0,"y":24},"targets":[{"expr":"noviis_agent_pending_claim_purge_eligible","legendFormat":"eligible","refId":"A"},{"expr":"increase(noviis_agent_pending_claim_purged_total[1h])","legendFormat":"purged/hour","refId":"B"}]},
-    {"type":"timeseries","title":"Failures","id":12,"gridPos":{"h":8,"w":12,"x":12,"y":24},"targets":[{"expr":"increase(noviis_scheduler_execution_seconds_count{outcome=\"error\"}[5m])","legendFormat":"scheduler {{scheduled_job}}","refId":"A"},{"expr":"increase(noviis_agent_pending_claim_purge_failures_total[5m])","legendFormat":"agent purge","refId":"B"}]}
+    {"type":"timeseries","title":"Failures","id":12,"gridPos":{"h":8,"w":12,"x":12,"y":24},"targets":[{"expr":"increase(noviis_scheduler_execution_seconds_count{outcome=\"error\"}[5m])","legendFormat":"scheduler {{scheduled_job}}","refId":"A"},{"expr":"increase(noviis_agent_pending_claim_purge_failures_total[5m])","legendFormat":"agent purge","refId":"B"}]},
+    {"type":"timeseries","title":"Scheduled job freshness","id":13,"gridPos":{"h":8,"w":12,"x":0,"y":32},"fieldConfig":{"defaults":{"unit":"s"}},"targets":[{"expr":"time() - noviis_scheduler_last_success_timestamp_seconds","legendFormat":"{{scheduled_job}} age","refId":"A"},{"expr":"noviis_scheduler_expected_max_age_seconds","legendFormat":"{{scheduled_job}} limit","refId":"B"}]},
+    {"type":"timeseries","title":"HTTP 5xx ratio","id":14,"gridPos":{"h":8,"w":6,"x":12,"y":32},"fieldConfig":{"defaults":{"unit":"percentunit","min":0}},"targets":[{"expr":"sum(rate(http_server_requests_seconds_count{status=~\"5..\"}[5m])) / clamp_min(sum(rate(http_server_requests_seconds_count[5m])), 0.001)","legendFormat":"5xx ratio","refId":"A"}]},
+    {"type":"timeseries","title":"HTTP p95 latency","id":15,"gridPos":{"h":8,"w":6,"x":18,"y":32},"fieldConfig":{"defaults":{"unit":"s","min":0}},"targets":[{"expr":"histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket[5m])))","legendFormat":"p95","refId":"A"}]},
+    {"type":"timeseries","title":"HikariCP saturation","id":16,"gridPos":{"h":8,"w":12,"x":0,"y":40},"fieldConfig":{"defaults":{"unit":"percentunit","min":0,"max":1}},"targets":[{"expr":"sum(hikaricp_connections_active) / clamp_min(sum(hikaricp_connections_max), 1)","legendFormat":"active / max","refId":"A"}]},
+    {"type":"timeseries","title":"Backend process restarts","id":17,"gridPos":{"h":8,"w":12,"x":12,"y":40},"targets":[{"expr":"changes(process_start_time_seconds[15m])","legendFormat":"restarts / 15m {{instance}}","refId":"A"}]}
   ],
   "refresh": "30s",
   "schemaVersion": 39,
@@ -24,5 +29,5 @@
   "timezone": "browser",
   "title": "NoviIs Operations",
   "uid": "noviis-operations",
-  "version": 1
+  "version": 2
 }

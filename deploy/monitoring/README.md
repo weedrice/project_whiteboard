@@ -52,7 +52,32 @@ curl -fsS http://127.0.0.1:9090/-/ready
 curl -fsS http://127.0.0.1:3000/api/health
 ```
 
+Before copying rules to a host, run the repository rule fixtures as well:
+
+```bash
+cd deploy/monitoring/prometheus
+promtool test rules noviis-alerts.test.yml
+```
+
+The fixture is CI-only and does not need to be installed under `/etc/prometheus`.
+
 Open Grafana only through an SSH tunnel: `ssh -L 3000:127.0.0.1:3000 ubuntu@<host>` and browse to `http://127.0.0.1:3000`.
+
+## Alert thresholds and metric semantics
+
+`noviis_scheduler_last_success_timestamp_seconds` advances only after a scheduled method completes successfully. A failed run records the existing error timer but does not overwrite its previous success timestamp. The stale rule also treats a missing timestamp as stale after the backend process has been up longer than that job's threshold, avoiding false alarms during normal startup.
+
+| Scheduled cadence | Included schedules | Maximum age / startup grace |
+| --- | --- | --- |
+| Frequent | 25-second, 30-second, and 1-minute jobs | 10 minutes |
+| Hourly | hourly cleanup and aggregation jobs | 2 hours 15 minutes |
+| Daily | daily cleanup jobs | 30 hours |
+
+Keep `noviis_scheduler_expected_max_age_seconds` entries synchronized when adding, renaming, or rescheduling an `@Scheduled` method. The dashboard compares each last-success age with this configured limit.
+
+HTTP latency histograms are enabled in the production profile for `http.server.requests`; without that setting the p95 query has no bucket series. HTTP alerts require at least 20 requests in five minutes, then require either a 5xx ratio above 5 percent or p95 latency above 1 second for 10 minutes. HikariCP saturation fires after active connections exceed 85 percent of the configured maximum for 10 minutes. A change in `process_start_time_seconds` produces an informational restart alert over a 15-minute window; expected deployments should therefore be correlated with deployment history.
+
+Host disk and filesystem time-series metrics are not collected by this stack because node_exporter is not installed. Continue the preflight disk check above and add an exporter plus explicit capacity rules before relying on Prometheus for disk exhaustion detection.
 
 Alert rules are evaluated by Prometheus, but no Alertmanager route or external notification receiver is installed. A rule entering the firing state therefore does not send Slack or email notifications.
 

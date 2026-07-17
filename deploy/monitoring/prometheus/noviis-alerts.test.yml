@@ -1,0 +1,113 @@
+rule_files:
+  - noviis-alerts.yml
+
+evaluation_interval: 1m
+
+tests:
+  - name: scheduled job absence waits for the configured startup grace
+    interval: 1m
+    input_series:
+      - series: 'process_start_time_seconds{instance="localhost:8081",job="noviis-backend"}'
+        values: '0+0x15'
+      - series: 'noviis_scheduler_last_success_timestamp_seconds{scheduled_job="FeedGenerationJobScheduler.processPendingFeedGenerationJobs"}'
+        values: '600+0x15'
+      - series: 'noviis_scheduler_last_success_timestamp_seconds{scheduled_job="FileDeletionScheduler.processPendingDeletions"}'
+        values: '600+0x15'
+      - series: 'noviis_scheduler_last_success_timestamp_seconds{scheduled_job="MqueueScheduler.processMessageQueue"}'
+        values: '600+0x15'
+      - series: 'noviis_scheduler_last_success_timestamp_seconds{scheduled_job="NotificationSseEmitterRegistry.sendHeartbeat"}'
+        values: '600+0x15'
+      - series: 'noviis_scheduler_last_success_timestamp_seconds{scheduled_job="ScheduledPostPublisherScheduler.publishDuePosts"}'
+        values: '600+0x15'
+      - series: 'noviis_scheduler_last_success_timestamp_seconds{scheduled_job="SemanticSearchJobScheduler.processPendingSemanticSearchJobs"}'
+        values: '600+0x15'
+    alert_rule_test:
+      - eval_time: 9m
+        alertname: NoviIsScheduledJobStale
+        exp_alerts: []
+      - eval_time: 11m
+        alertname: NoviIsScheduledJobStale
+        exp_alerts:
+          - exp_labels:
+              cadence: frequent
+              scheduled_job: SemanticSearchJobMetrics.refresh
+              severity: warning
+              threshold: 10m
+            exp_annotations:
+              summary: "Scheduled job SemanticSearchJobMetrics.refresh has no recent success"
+              description: "No successful completion was observed within the configured 10m threshold for this frequent job."
+
+  - name: sustained HTTP 5xx ratio fires only after the hold duration
+    interval: 1m
+    input_series:
+      - series: 'http_server_requests_seconds_count{status="200"}'
+        values: '0+54x15'
+      - series: 'http_server_requests_seconds_count{status="500"}'
+        values: '0+6x15'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: NoviIsHttp5xxRateHigh
+        exp_alerts: []
+      - eval_time: 11m
+        alertname: NoviIsHttp5xxRateHigh
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: "HTTP 5xx responses exceeded 5 percent for 10 minutes with at least 20 requests per 5 minutes"
+
+  - name: sustained HTTP p95 latency uses histogram buckets
+    interval: 1m
+    input_series:
+      - series: 'http_server_requests_seconds_count{status="200"}'
+        values: '0+100x15'
+      - series: 'http_server_requests_seconds_bucket{le="0.1"}'
+        values: '0+20x15'
+      - series: 'http_server_requests_seconds_bucket{le="0.5"}'
+        values: '0+50x15'
+      - series: 'http_server_requests_seconds_bucket{le="1.0"}'
+        values: '0+80x15'
+      - series: 'http_server_requests_seconds_bucket{le="2.0"}'
+        values: '0+100x15'
+      - series: 'http_server_requests_seconds_bucket{le="+Inf"}'
+        values: '0+100x15'
+    alert_rule_test:
+      - eval_time: 11m
+        alertname: NoviIsHttpP95LatencyHigh
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: "HTTP server p95 latency exceeded 1 second for 10 minutes with at least 20 requests per 5 minutes"
+
+  - name: sustained HikariCP saturation fires after ten minutes
+    interval: 1m
+    input_series:
+      - series: 'hikaricp_connections_active{pool="HikariPool-1"}'
+        values: '9+0x15'
+      - series: 'hikaricp_connections_max{pool="HikariPool-1"}'
+        values: '10+0x15'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: NoviIsHikariPoolSaturated
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: "HikariCP active connections exceeded 85 percent of the configured maximum for 10 minutes"
+
+  - name: process start time change reports a restart
+    interval: 1m
+    input_series:
+      - series: 'process_start_time_seconds{instance="localhost:8081",job="noviis-backend"}'
+        values: '0+0x4 300+0x15'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: NoviIsProcessRestarted
+        exp_alerts:
+          - exp_labels:
+              instance: localhost:8081
+              job: noviis-backend
+              severity: info
+            exp_annotations:
+              summary: "The NoviIs backend process restarted within the last 15 minutes"

@@ -98,6 +98,10 @@ management:
   endpoint:
     health:
       show-details: never
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
 
 # 프로덕션 환경에서는 Swagger UI를 비활성화한다.
 # API 문서는 내부 네트워크에서만 접근 가능하도록 별도 설정을 권장한다.

@@ -1,6 +1,52 @@
 groups:
   - name: noviis
     rules:
+      - record: noviis_scheduler_expected_max_age_seconds
+        expr: vector(600)
+        labels: { cadence: frequent, scheduled_job: FeedGenerationJobScheduler.processPendingFeedGenerationJobs, threshold: 10m }
+      - record: noviis_scheduler_expected_max_age_seconds
+        expr: vector(600)
+        labels: { cadence: frequent, scheduled_job: FileDeletionScheduler.processPendingDeletions, threshold: 10m }
+      - record: noviis_scheduler_expected_max_age_seconds
+        expr: vector(600)
+        labels: { cadence: frequent, scheduled_job: MqueueScheduler.processMessageQueue, threshold: 10m }
+      - record: noviis_scheduler_expected_max_age_seconds
+        expr: vector(600)
+        labels: { cadence: frequent, scheduled_job: NotificationSseEmitterRegistry.sendHeartbeat, threshold: 10m }
+      - record: noviis_scheduler_expected_max_age_seconds
+        expr: vector(600)
+        labels: { cadence: frequent, scheduled_job: ScheduledPostPublisherScheduler.publishDuePosts, threshold: 10m }
+      - record: noviis_scheduler_expected_max_age_seconds
+        expr: vector(600)
+        labels: { cadence: frequent, scheduled_job: SemanticSearchJobMetrics.refresh, threshold: 10m }
+      - record: noviis_scheduler_expected_max_age_seconds
+        expr: vector(600)
+        labels: { cadence: frequent, scheduled_job: SemanticSearchJobScheduler.processPendingSemanticSearchJobs, threshold: 10m }
+      - record: noviis_scheduler_expected_max_age_seconds
+        expr: vector(8100)
+        labels: { cadence: hourly, scheduled_job: AgentPendingClaimCleanupScheduler.cleanupExpiredPendingClaims, threshold: 2h15m }
+      - record: noviis_scheduler_expected_max_age_seconds
+        expr: vector(8100)
+        labels: { cadence: hourly, scheduled_job: OAuthSignupTicketCleanupScheduler.deleteExpiredTickets, threshold: 2h15m }
+      - record: noviis_scheduler_expected_max_age_seconds
+        expr: vector(8100)
+        labels: { cadence: hourly, scheduled_job: PopularPostScheduler.aggregatePopularPosts, threshold: 2h15m }
+      - record: noviis_scheduler_expected_max_age_seconds
+        expr: vector(108000)
+        labels: { cadence: daily, scheduled_job: ErrorLogCleanupScheduler.cleanupExpiredLogs, threshold: 30h }
+      - record: noviis_scheduler_expected_max_age_seconds
+        expr: vector(108000)
+        labels: { cadence: daily, scheduled_job: FileCleanupScheduler.cleanupTemporaryFiles, threshold: 30h }
+      - record: noviis_scheduler_expected_max_age_seconds
+        expr: vector(108000)
+        labels: { cadence: daily, scheduled_job: PostDraftCleanupScheduler.cleanupExpiredDrafts, threshold: 30h }
+      - record: noviis_scheduler_expected_max_age_seconds
+        expr: vector(108000)
+        labels: { cadence: daily, scheduled_job: TagCleanupScheduler.cleanupOrphanTags, threshold: 30h }
+      - record: noviis_scheduler_expected_max_age_seconds
+        expr: vector(108000)
+        labels: { cadence: daily, scheduled_job: UserFeedCleanupScheduler.cleanupHardStalePostFeeds, threshold: 30h }
+
       - alert: NoviIsBackendDown
         expr: up{job="noviis-backend"} == 0
         for: 2m
@@ -12,6 +58,26 @@ groups:
         annotations:
           summary: "Scheduled job {{ $labels.scheduled_job }} failed"
           description: "The scheduled job {{ $labels.scheduled_job }} recorded an error outcome."
+      - alert: NoviIsScheduledJobStale
+        expr: >-
+          (
+            time() - noviis_scheduler_last_success_timestamp_seconds
+            > on(scheduled_job) group_left(cadence, threshold)
+              noviis_scheduler_expected_max_age_seconds
+          )
+          or
+          (
+            (
+              noviis_scheduler_expected_max_age_seconds
+              unless on(scheduled_job) noviis_scheduler_last_success_timestamp_seconds
+            )
+            < on() group_left
+              (time() - process_start_time_seconds)
+          )
+        labels: { severity: warning }
+        annotations:
+          summary: "Scheduled job {{ $labels.scheduled_job }} has no recent success"
+          description: "No successful completion was observed within the configured {{ $labels.threshold }} threshold for this {{ $labels.cadence }} job."
       - alert: NoviIsHeartbeatDelayed
         expr: noviis_sse_heartbeat_gap_seconds > 40
         for: 1m
@@ -27,6 +93,35 @@ groups:
         for: 10m
         labels: { severity: warning }
         annotations: { summary: "JVM heap usage has exceeded 85 percent" }
+      - alert: NoviIsHttp5xxRateHigh
+        expr: >-
+          sum(increase(http_server_requests_seconds_count{status=~"5.."}[5m]))
+          / clamp_min(sum(increase(http_server_requests_seconds_count[5m])), 1) > 0.05
+          and sum(increase(http_server_requests_seconds_count[5m])) >= 20
+        for: 10m
+        labels: { severity: warning }
+        annotations: { summary: "HTTP 5xx responses exceeded 5 percent for 10 minutes with at least 20 requests per 5 minutes" }
+      - alert: NoviIsHttpP95LatencyHigh
+        expr: >-
+          histogram_quantile(
+            0.95,
+            sum by (le) (rate(http_server_requests_seconds_bucket[5m]))
+          ) > 1
+          and sum(increase(http_server_requests_seconds_count[5m])) >= 20
+        for: 10m
+        labels: { severity: warning }
+        annotations: { summary: "HTTP server p95 latency exceeded 1 second for 10 minutes with at least 20 requests per 5 minutes" }
+      - alert: NoviIsHikariPoolSaturated
+        expr: >-
+          sum(hikaricp_connections_active)
+          / clamp_min(sum(hikaricp_connections_max), 1) > 0.85
+        for: 10m
+        labels: { severity: warning }
+        annotations: { summary: "HikariCP active connections exceeded 85 percent of the configured maximum for 10 minutes" }
+      - alert: NoviIsProcessRestarted
+        expr: changes(process_start_time_seconds[15m]) > 0
+        labels: { severity: info }
+        annotations: { summary: "The NoviIs backend process restarted within the last 15 minutes" }
       - alert: NoviIsAgentPurgeBacklog
         expr: noviis_agent_pending_claim_purge_eligible > 5000
         for: 1h
