@@ -20,6 +20,7 @@ import {
   isSessionGenerationCurrent,
   sessionQueryKey,
 } from '@/queryAuthScope'
+import { isCancellationError } from '@/utils/cancellationError'
 
 const router = useRouter()
 const route = useRoute()
@@ -84,7 +85,8 @@ async function enablePush() {
     await pushNotifications.enablePush()
     pushMessage.value = t('onboarding.pushEnabled')
     pushIsError.value = false
-  } catch {
+  } catch (error) {
+    if (isCancellationError(error)) return
     pushMessage.value = t('onboarding.pushFailed')
     pushIsError.value = true
   }

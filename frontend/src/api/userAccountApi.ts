@@ -117,11 +117,11 @@ export const userAccountApi = {
     completeOnboarding() {
         return api.put<ApiResponse<UserSettings>>('/users/me/onboarding-complete')
     },
-    createPushSubscription(data: PushSubscriptionPayload) {
-        return api.post<ApiResponse<PushSubscriptionResponse>>('/users/me/push-subscriptions', data)
+    createPushSubscription(data: PushSubscriptionPayload, config?: AxiosRequestConfig) {
+        return api.post<ApiResponse<PushSubscriptionResponse>>('/users/me/push-subscriptions', data, config)
     },
-    deletePushSubscription(data: PushSubscriptionPayload) {
-        return api.delete<ApiResponse<void>>('/users/me/push-subscriptions', { data })
+    deletePushSubscription(data: PushSubscriptionPayload, config?: AxiosRequestConfig) {
+        return api.delete<ApiResponse<void>>('/users/me/push-subscriptions', { ...config, data })
     },
     getPushPublicKey(config?: AxiosRequestConfig) {
         return config

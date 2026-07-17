@@ -1,4 +1,5 @@
 import { userApi, type PushSubscriptionPayload } from '@/api/user'
+import type { AxiosRequestConfig } from 'axios'
 
 export function isPushSupported() {
   return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
@@ -34,12 +35,12 @@ export async function subscribeBrowserPush(publicKey: string) {
   })
 }
 
-export async function saveBrowserPushSubscription(subscription: PushSubscription) {
-  return userApi.createPushSubscription(toPushSubscriptionPayload(subscription))
+export async function saveBrowserPushSubscription(subscription: PushSubscription, config?: AxiosRequestConfig) {
+  return userApi.createPushSubscription(toPushSubscriptionPayload(subscription), config)
 }
 
-export async function deleteBrowserPushSubscription(subscription: PushSubscription) {
-  return userApi.deletePushSubscription(toPushSubscriptionPayload(subscription))
+export async function deleteBrowserPushSubscription(subscription: PushSubscription, config?: AxiosRequestConfig) {
+  return userApi.deletePushSubscription(toPushSubscriptionPayload(subscription), config)
 }
 
 export function toPushSubscriptionPayload(subscription: PushSubscription): PushSubscriptionPayload {

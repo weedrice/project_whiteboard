@@ -1,4 +1,4 @@
-import { computed, ref } from 'vue'
+import { computed, getCurrentScope, onScopeDispose, ref } from 'vue'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { userApi } from '@/api/user'
 import { unwrapAxiosApiData } from '@/api/response'
@@ -14,12 +14,36 @@ import {
 } from '@/features/notifications/pushSubscriptions'
 import { QUERY_STALE_TIME } from '@/utils/constants'
 import { useAuthStore } from '@/stores/auth'
-import { currentSessionQueryKey, isSessionGenerationCurrent } from '@/queryAuthScope'
+import { currentSessionQueryKey, isSessionGenerationCurrent, subscribeAuthSessionBoundary } from '@/queryAuthScope'
+import {
+  captureAuthSessionIntent,
+  isAuthSessionIntentCurrent,
+  throwIfAuthSessionIntentChanged,
+} from '@/utils/authSessionIntent'
+import { isCancellationError } from '@/utils/cancellationError'
 
 export function usePushNotifications() {
   const queryClient = useQueryClient()
   const authStore = useAuthStore()
   const permission = ref<NotificationPermission | 'unsupported'>(getNotificationPermission())
+  const operationControllers = new Set<AbortController>()
+  const stopSessionBoundaryListener = subscribeAuthSessionBoundary(() => {
+    operationControllers.forEach((controller) => controller.abort())
+    operationControllers.clear()
+  })
+  if (getCurrentScope()) {
+    onScopeDispose(() => {
+      stopSessionBoundaryListener()
+      operationControllers.forEach((controller) => controller.abort())
+      operationControllers.clear()
+    })
+  }
+
+  const startSessionOperation = () => {
+    const controller = new AbortController()
+    operationControllers.add(controller)
+    return controller
+  }
   const publicKeyQuery = useQuery({
     queryKey: ['push', 'public-key'],
     queryFn: async ({ signal }) => unwrapAxiosApiData(await userApi.getPushPublicKey({ signal })),
@@ -33,16 +57,34 @@ export function usePushNotifications() {
   const enableMutation = useMutation({
     onMutate: () => ({ sessionGeneration: authStore.sessionGeneration }),
     mutationFn: async () => {
-      if (!enabled.value || !publicKeyQuery.data.value?.publicKey) {
-        throw new Error('Web push is not configured.')
+      const intent = captureAuthSessionIntent(authStore)
+      const controller = startSessionOperation()
+      let subscription: PushSubscription | null = null
+      try {
+        if (!enabled.value || !publicKeyQuery.data.value?.publicKey) {
+          throw new Error('Web push is not configured.')
+        }
+        const nextPermission = await requestPushPermission()
+        throwIfAuthSessionIntentChanged(authStore, intent, controller.signal)
+        permission.value = nextPermission
+        if (nextPermission !== 'granted') {
+          throw new Error('Push permission was not granted.')
+        }
+        subscription = await subscribeBrowserPush(publicKeyQuery.data.value.publicKey)
+        throwIfAuthSessionIntentChanged(authStore, intent, controller.signal)
+        await saveBrowserPushSubscription(subscription, { signal: controller.signal })
+        throwIfAuthSessionIntentChanged(authStore, intent, controller.signal)
+      } catch (error) {
+        if (subscription && (
+          isCancellationError(error)
+          || !isAuthSessionIntentCurrent(authStore, intent)
+        )) {
+          await subscription.unsubscribe().catch(() => false)
+        }
+        throw error
+      } finally {
+        operationControllers.delete(controller)
       }
-      const nextPermission = await requestPushPermission()
-      permission.value = nextPermission
-      if (nextPermission !== 'granted') {
-        throw new Error('Push permission was not granted.')
-      }
-      const subscription = await subscribeBrowserPush(publicKeyQuery.data.value.publicKey)
-      await saveBrowserPushSubscription(subscription)
     },
     onSuccess: (_data, _variables, context) => {
       if (!context || !isSessionGenerationCurrent(authStore, context.sessionGeneration)) return
@@ -55,12 +97,20 @@ export function usePushNotifications() {
   const disableMutation = useMutation({
     onMutate: () => ({ sessionGeneration: authStore.sessionGeneration }),
     mutationFn: async () => {
-      const subscription = await getBrowserPushSubscription()
-      if (!subscription) {
-        return
+      const intent = captureAuthSessionIntent(authStore)
+      const controller = startSessionOperation()
+      try {
+        const subscription = await getBrowserPushSubscription()
+        throwIfAuthSessionIntentChanged(authStore, intent, controller.signal)
+        if (!subscription) {
+          return
+        }
+        await deleteBrowserPushSubscription(subscription, { signal: controller.signal })
+        throwIfAuthSessionIntentChanged(authStore, intent, controller.signal)
+        await subscription.unsubscribe()
+      } finally {
+        operationControllers.delete(controller)
       }
-      await deleteBrowserPushSubscription(subscription)
-      await subscription.unsubscribe()
     },
     onSuccess: (_data, _variables, context) => {
       if (!context || !isSessionGenerationCurrent(authStore, context.sessionGeneration)) return
