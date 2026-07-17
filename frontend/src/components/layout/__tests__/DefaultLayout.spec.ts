@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount, RouterLinkStub } from '@vue/test-utils'
 import { defineComponent, h, nextTick, ref } from 'vue'
 
-const routeState = ref({ name: 'home' as string | null })
+const routeState = ref({ name: 'home' as string | null, fullPath: '/' })
 const routerPush = vi.fn()
 const toggleThemePreference = vi.hoisted(() => vi.fn())
 const authMocks = vi.hoisted(() => {
@@ -159,7 +159,7 @@ describe('DefaultLayout', () => {
         authMocks.authStore.user = null
         keyboardStore.isShortcutsModalOpen = false
         notificationMocks.unreadCount.value = 0
-        routeState.value = { name: 'home' }
+        routeState.value = { name: 'home', fullPath: '/' }
         Object.defineProperty(window, 'matchMedia', {
             writable: true,
             value: vi.fn().mockImplementation(() => ({
@@ -373,6 +373,44 @@ describe('DefaultLayout', () => {
         expect(document.activeElement).toBe(trigger.element)
         wrapper.unmount()
         host.remove()
+    })
+
+    it('closes shell dropdowns on navigation without restoring focus to the old trigger', async () => {
+        authMocks.authStore.isAuthenticated = true
+        authMocks.authStore.user = { displayName: 'Tester' }
+        const NotificationDropdownStub = defineComponent({
+            setup: () => () => h('div', [h('button', 'Notification action')]),
+        })
+        const wrapper = mount(DefaultLayout, {
+            attachTo: document.body,
+            global: {
+                stubs: {
+                    'router-link': true,
+                    'router-view': true,
+                    NotificationDropdown: NotificationDropdownStub,
+                    UserDropdown: true,
+                    BoardDropdown: true,
+                    Footer: true,
+                    GlobalSearchBar: true,
+                    KeyboardShortcutsModal: true,
+                    RecentBoardsBar: true,
+                    MobileBottomNav: MobileBottomNavStub,
+                },
+                mocks: { $t: (key: string) => key },
+            },
+        })
+        const trigger = wrapper.get('button[aria-controls="notification-dropdown-panel"]')
+        await trigger.trigger('click')
+        await nextTick()
+        expect(document.activeElement?.textContent).toContain('Notification action')
+
+        routeState.value.name = 'boards'
+        routeState.value.fullPath = '/boards'
+        await nextTick()
+
+        expect(wrapper.find('#notification-dropdown-panel').exists()).toBe(false)
+        expect(document.activeElement).not.toBe(trigger.element)
+        wrapper.unmount()
     })
 
     it('includes the unread count in notification controls and the live status', () => {

@@ -8,9 +8,18 @@ const networkState = vi.hoisted(() => ({
     wasOffline: { __v_isRef: true as const, value: false },
     resetWasOffline: vi.fn(),
 }))
+const pwaState = vi.hoisted(() => ({
+    status: { __v_isRef: true as const, value: 'idle' },
+    retry: vi.fn(),
+}))
 
 vi.mock('@/composables/useNetworkStatus', () => ({
     useNetworkStatus: () => networkState,
+}))
+
+vi.mock('@/pwa', () => ({
+    pwaUpdateStatus: pwaState.status,
+    retryPwaUpdate: pwaState.retry,
 }))
 
 vi.mock('vue-i18n', () => ({
@@ -18,6 +27,8 @@ vi.mock('vue-i18n', () => ({
         t: (key: string) => ({
             'common.network.offline': '오프라인 상태입니다.',
             'common.network.online': '인터넷 연결이 복구되었습니다.',
+            'common.pwa.updateFailed': '업데이트 실패',
+            'common.pwa.retryUpdate': '다시 시도',
         })[key] ?? key,
     }),
 }))
@@ -29,6 +40,7 @@ describe('NetworkStatus', () => {
         networkState.isOnline.value = true
         networkState.isOffline.value = false
         networkState.wasOffline.value = false
+        pwaState.status.value = 'idle'
     })
 
     it('announces offline state changes with status semantics', () => {
@@ -61,5 +73,14 @@ describe('NetworkStatus', () => {
         vi.advanceTimersByTime(3000)
 
         expect(networkState.resetWasOffline).toHaveBeenCalled()
+    })
+
+    it('offers an accessible retry when a PWA update fails', async () => {
+        pwaState.status.value = 'failed'
+        const wrapper = mount(NetworkStatus)
+
+        expect(wrapper.get('.update-failed').attributes('role')).toBe('alert')
+        await wrapper.get('button').trigger('click')
+        expect(pwaState.retry).toHaveBeenCalledTimes(1)
     })
 })

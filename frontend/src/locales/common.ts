@@ -112,6 +112,8 @@ export const common: CommonMessages = {
   pwa: {
     updateReady: '새 버전이 준비되었습니다. 새로고침하면 적용됩니다.',
     updateDeferred: '새 버전이 준비되었습니다. 작성 중인 내용을 안전하게 처리한 뒤 자동으로 적용합니다.',
+    updateFailed: '앱 업데이트를 적용하지 못했습니다.',
+    retryUpdate: '업데이트 다시 시도',
     offlineReady: '오프라인에서도 열 수 있는 기본 화면이 준비되었습니다.',
     pullToRefresh: {
       pull: '당겨서 새로고침',

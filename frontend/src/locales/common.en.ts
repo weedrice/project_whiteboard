@@ -176,6 +176,8 @@ export const commonEn: CommonMessages = {
   pwa: {
     updateReady: 'A new version is ready. Refresh to apply it.',
     updateDeferred: 'A new version is ready and will be applied automatically after your current edits are safe.',
+    updateFailed: 'The app update could not be applied.',
+    retryUpdate: 'Retry update',
     offlineReady: 'Core pages are ready for offline use.',
     pullToRefresh: {
       pull: 'Pull to refresh',

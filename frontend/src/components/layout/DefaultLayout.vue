@@ -74,6 +74,15 @@ const showRecentBoardsBar = computed(() => !isAuthRoute.value && !isAdminRoute.v
 const showMobileBottomNav = computed(() => !isAuthRoute.value && !isAdminRoute.value)
 const notificationTriggerRef = ref<HTMLButtonElement | null>(null)
 const notificationPanelRef = ref<HTMLElement | null>(null)
+let suppressDropdownFocusRestore = false
+
+watch(() => route.fullPath, () => {
+  suppressDropdownFocusRestore = true
+  closeAllDropdowns()
+  void nextTick(() => {
+    suppressDropdownFocusRestore = false
+  })
+})
 
 watch(isNotificationOpen, (isOpen) => {
   if (isOpen) {
@@ -85,7 +94,7 @@ watch(isNotificationOpen, (isOpen) => {
     return
   }
 
-  if (notificationPanelRef.value?.contains(document.activeElement)) {
+  if (!suppressDropdownFocusRestore && notificationPanelRef.value?.contains(document.activeElement)) {
     notificationTriggerRef.value?.focus()
   }
 })

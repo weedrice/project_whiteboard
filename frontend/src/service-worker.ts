@@ -41,15 +41,13 @@ registerRoute(
 )
 
 const appShellHandler = createHandlerBoundToURL('/index.html')
-const offlineHandler = createHandlerBoundToURL('/offline.html')
 const navigationRoute = new NavigationRoute(async (options) => {
   try {
     return await fetch(options.request)
   } catch {
-    const pathname = new URL(options.request.url).pathname
-    return pathname === '/' || pathname === '/index.html'
-      ? appShellHandler(options)
-      : offlineHandler(options)
+    // Every non-denied same-origin SPA navigation uses the precached shell.
+    // API and OAuth requests remain NetworkOnly through the denylist below.
+    return appShellHandler(options)
   }
 }, {
   denylist: [/^\/api\//, /^\/oauth2\//, /^\/login\/oauth2\//, /^\/robots\.txt$/, /^\/sitemap.*\.xml$/],

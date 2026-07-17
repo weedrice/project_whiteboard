@@ -1,7 +1,12 @@
 import { effectScope, ref } from 'vue'
 import type { Pinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { PWA_UPDATE_CHECK_INTERVAL_MS, registerPwaAutoUpdate } from '@/pwa'
+import {
+  PWA_UPDATE_CHECK_INTERVAL_MS,
+  pwaUpdateStatus,
+  registerPwaAutoUpdate,
+  retryPwaUpdate,
+} from '@/pwa'
 import { usePwaReloadBlocker } from '@/pwaReloadGuard'
 
 const mocks = vi.hoisted(() => ({
@@ -90,6 +95,43 @@ describe('registerPwaAutoUpdate', () => {
     await Promise.resolve()
     expect(registration.update).toHaveBeenCalledTimes(2)
 
+    stop()
+  })
+
+  it('exposes a failed update check and retries it explicitly', async () => {
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible')
+    vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(true)
+    const registration = {
+      update: vi.fn()
+        .mockRejectedValueOnce(new Error('network'))
+        .mockResolvedValueOnce(undefined),
+    } as unknown as ServiceWorkerRegistration
+    const stop = registerPwaAutoUpdate({} as Pinia, t)
+    getRegisterOptions().onRegisteredSW?.('/service-worker.js', registration)
+
+    await vi.advanceTimersByTimeAsync(PWA_UPDATE_CHECK_INTERVAL_MS)
+    expect(pwaUpdateStatus.value).toBe('failed')
+    expect(mocks.addToast).toHaveBeenCalledWith('common.pwa.updateFailed', 'error', 8000)
+
+    await retryPwaUpdate()
+    expect(registration.update).toHaveBeenCalledTimes(2)
+    expect(mocks.updateServiceWorker).toHaveBeenCalledWith(true)
+    expect(pwaUpdateStatus.value).toBe('applying')
+    stop()
+  })
+
+  it('keeps failed activation retryable', async () => {
+    mocks.updateServiceWorker
+      .mockRejectedValueOnce(new Error('activation failed'))
+      .mockResolvedValueOnce(undefined)
+    const stop = registerPwaAutoUpdate({} as Pinia, t)
+
+    getRegisterOptions().onNeedRefresh?.()
+    await Promise.resolve()
+    expect(pwaUpdateStatus.value).toBe('failed')
+
+    await retryPwaUpdate()
+    expect(mocks.updateServiceWorker).toHaveBeenCalledTimes(2)
     stop()
   })
 

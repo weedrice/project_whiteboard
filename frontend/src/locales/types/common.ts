@@ -187,6 +187,8 @@ export interface CommonMessages {
   pwa: {
     updateReady: string
     updateDeferred: string
+    updateFailed: string
+    retryUpdate: string
     offlineReady: string
     pullToRefresh: {
       pull: string

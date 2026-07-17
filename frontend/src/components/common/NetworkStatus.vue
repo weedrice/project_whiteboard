@@ -12,6 +12,14 @@
                 <span class="network-status-message">{{ t('common.network.online') }}</span>
             </div>
         </div>
+        <div v-else-if="pwaUpdateStatus === 'failed'" class="network-status update-failed" role="alert">
+            <div class="network-status-content">
+                <span class="network-status-message">{{ t('common.pwa.updateFailed') }}</span>
+                <button type="button" class="network-status-retry nv-focus-ring" @click="retryPwaUpdate">
+                    {{ t('common.pwa.retryUpdate') }}
+                </button>
+            </div>
+        </div>
     </Transition>
 </template>
 
@@ -19,6 +27,7 @@
 import { useNetworkStatus } from '@/composables/useNetworkStatus'
 import { useI18n } from 'vue-i18n'
 import { watch, onUnmounted } from 'vue'
+import { pwaUpdateStatus, retryPwaUpdate } from '@/pwa'
 
 const { isOnline, isOffline, wasOffline, resetWasOffline } = useNetworkStatus()
 const { t } = useI18n()
@@ -71,6 +80,19 @@ onUnmounted(() => {
 .network-status.online {
     background-color: var(--nv-success);
     color: white;
+}
+
+.network-status.update-failed {
+    background-color: var(--nv-warning);
+    color: var(--nv-on-warning, #111827);
+}
+
+.network-status-retry {
+    border: 1px solid currentColor;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    font: inherit;
+    padding: 0.25rem 0.75rem;
 }
 
 .network-status-content {
