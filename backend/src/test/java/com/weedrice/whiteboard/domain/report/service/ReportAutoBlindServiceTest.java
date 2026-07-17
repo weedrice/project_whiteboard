@@ -45,10 +45,30 @@ class ReportAutoBlindServiceTest {
     @Test
     void ignoresUserAndCountsBelowThreshold() {
         service.applyIfThresholdReached("USER", 1L);
+        Post post = mock(Post.class);
+        when(posts.findByIdWithRelationsForBlindUpdate(2L)).thenReturn(Optional.of(post));
+        when(post.getIsDeleted()).thenReturn(false);
+        when(post.getIsBlinded()).thenReturn(false);
         when(reports.countByTargetTypeAndTargetIdAndStatus("POST", 2L, Report.STATUS_PENDING)).thenReturn(4L);
         when(configs.getConfig("REPORT_AUTO_BLIND_THRESHOLD")).thenReturn(null);
         service.applyIfThresholdReached("POST", 2L);
-        verify(posts, never()).findByIdWithRelationsForBlindUpdate(2L);
+        verify(post, never()).blind(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void locksTargetBeforeReportCreationFlowContinues() {
+        Post post = mock(Post.class);
+        Comment comment = mock(Comment.class);
+        when(posts.findByIdWithRelationsForBlindUpdate(8L)).thenReturn(Optional.of(post));
+        when(comments.findByIdWithRelationsForBlindUpdate(9L)).thenReturn(Optional.of(comment));
+        service.lockTarget("POST", 8L);
+        service.lockTarget("COMMENT", 9L);
+        service.lockTarget("USER", 10L);
+
+        verify(posts).findByIdWithRelationsForBlindUpdate(8L);
+        verify(comments).findByIdWithRelationsForBlindUpdate(9L);
+        verify(posts, never()).findByIdWithRelationsForBlindUpdate(10L);
+        verify(comments, never()).findByIdWithRelationsForBlindUpdate(10L);
     }
 
     @Test
@@ -85,7 +105,6 @@ class ReportAutoBlindServiceTest {
         service.applyIfThresholdReached("COMMENT", 4L);
         verify(comment).blind("AUTO_REPORT", LocalDateTime.of(2026, 1, 1, 0, 0));
 
-        when(reports.countByTargetTypeAndTargetIdAndStatus("POST", 5L, Report.STATUS_PENDING)).thenReturn(5L);
         Post blinded = mock(Post.class);
         when(posts.findByIdWithRelationsForBlindUpdate(5L)).thenReturn(Optional.of(blinded));
         when(blinded.getIsBlinded()).thenReturn(true);

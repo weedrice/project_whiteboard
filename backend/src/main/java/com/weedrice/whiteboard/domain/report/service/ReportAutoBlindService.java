@@ -9,6 +9,8 @@ import com.weedrice.whiteboard.domain.report.entity.Report;
 import com.weedrice.whiteboard.domain.report.entity.ReportTargetType;
 import com.weedrice.whiteboard.domain.report.repository.ReportRepository;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -34,23 +36,35 @@ class ReportAutoBlindService {
     private final Clock clock;
 
     @Transactional(propagation = Propagation.MANDATORY)
+    void lockTarget(String targetType, Long targetId) {
+        ReportTargetType normalizedTargetType = ReportTargetType.from(targetType);
+        if (normalizedTargetType == ReportTargetType.POST) {
+            Post post = postRepository.findByIdWithRelationsForBlindUpdate(targetId)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+            if (Boolean.TRUE.equals(post.getIsDeleted())) {
+                throw new BusinessException(ErrorCode.POST_NOT_FOUND);
+            }
+        } else if (normalizedTargetType == ReportTargetType.COMMENT) {
+            Comment comment = commentRepository.findByIdWithRelationsForBlindUpdate(targetId)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.COMMENT_NOT_FOUND));
+            if (Boolean.TRUE.equals(comment.getIsDeleted())) {
+                throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
+            }
+        }
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
     void applyIfThresholdReached(String targetType, Long targetId) {
         ReportTargetType normalizedTargetType = ReportTargetType.from(targetType);
         if (normalizedTargetType == ReportTargetType.USER) {
             return;
         }
-        long pendingReportCount = reportRepository.countByTargetTypeAndTargetIdAndStatus(
-                normalizedTargetType.name(),
-                targetId,
-                Report.STATUS_PENDING);
-        if (pendingReportCount < resolveThreshold()) {
-            return;
-        }
+        int threshold = resolveThreshold();
         if (normalizedTargetType == ReportTargetType.POST) {
-            blindPost(targetId);
+            blindPost(targetId, threshold);
             return;
         }
-        blindComment(targetId);
+        blindComment(targetId, threshold);
     }
 
     private int resolveThreshold() {
@@ -60,9 +74,12 @@ class ReportAutoBlindService {
                 1);
     }
 
-    private void blindPost(Long postId) {
+    private void blindPost(Long postId, int threshold) {
         Post post = postRepository.findByIdWithRelationsForBlindUpdate(postId).orElse(null);
         if (post == null || Boolean.TRUE.equals(post.getIsDeleted()) || Boolean.TRUE.equals(post.getIsBlinded())) {
+            return;
+        }
+        if (pendingReportCount(ReportTargetType.POST, postId) < threshold) {
             return;
         }
         post.blind(AUTO_REPORT_REASON, LocalDateTime.now(clock));
@@ -74,10 +91,13 @@ class ReportAutoBlindService {
                 AUTO_REPORT_REASON);
     }
 
-    private void blindComment(Long commentId) {
+    private void blindComment(Long commentId, int threshold) {
         Comment comment = commentRepository.findByIdWithRelationsForBlindUpdate(commentId).orElse(null);
         if (comment == null || Boolean.TRUE.equals(comment.getIsDeleted())
                 || Boolean.TRUE.equals(comment.getIsBlinded())) {
+            return;
+        }
+        if (pendingReportCount(ReportTargetType.COMMENT, commentId) < threshold) {
             return;
         }
         comment.blind(AUTO_REPORT_REASON, LocalDateTime.now(clock));
@@ -87,5 +107,10 @@ class ReportAutoBlindService {
                 comment.getCommentId(),
                 comment.getPost().getBoard(),
                 AUTO_REPORT_REASON);
+    }
+
+    private long pendingReportCount(ReportTargetType targetType, Long targetId) {
+        return reportRepository.countByTargetTypeAndTargetIdAndStatus(
+                targetType.name(), targetId, Report.STATUS_PENDING);
     }
 }

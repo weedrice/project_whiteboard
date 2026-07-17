@@ -65,8 +65,12 @@ class ReportCommandServiceTest {
         Long reportId = reportCommandService.createReport(1L, "POST", 2L, "SPAM", null, "contents");
 
         assertThat(reportId).isEqualTo(10L);
-        verify(reportTargetValidator).validate("POST", 2L, reporter);
-        verify(reportRepository).saveAndFlush(any(Report.class));
+        InOrder inOrder = inOrder(reportTargetValidator, reportAutoBlindService, reportRepository);
+        inOrder.verify(reportTargetValidator).validate("POST", 2L, reporter);
+        inOrder.verify(reportAutoBlindService).lockTarget("POST", 2L);
+        inOrder.verify(reportRepository).existsByReporterAndTargetTypeAndTargetIdAndStatus(
+                reporter, "POST", 2L, Report.STATUS_PENDING);
+        inOrder.verify(reportRepository).saveAndFlush(any(Report.class));
     }
 
     @Test
