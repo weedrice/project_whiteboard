@@ -22,11 +22,15 @@ import { subscribeBadgeAwardEvents } from '@/features/notifications/events/badge
 import { useAuthStore } from '@/stores/auth'
 import type { Badge } from '@/types'
 import logger from '@/utils/logger'
+import { subscribeAuthSessionBoundary } from '@/queryAuthScope'
+import { isCancellationError } from '@/utils/cancellationError'
 
 const router = useRouter()
 const authStore = useAuthStore()
 const awardedBadge = ref<Badge | null>(null)
 const shownBadgeCodes = new Set<string>()
+let badgeLoadRevision = 0
+let badgeLoadController: AbortController | null = null
 const badgeIcons = {
   'edit-3': Edit3,
   files: Files,
@@ -45,9 +49,27 @@ const close = () => {
   awardedBadge.value = null
 }
 
+const resetSessionState = () => {
+  badgeLoadRevision += 1
+  badgeLoadController?.abort()
+  badgeLoadController = null
+  awardedBadge.value = null
+  shownBadgeCodes.clear()
+}
+
 const showLatestBadge = async () => {
+  badgeLoadController?.abort()
+  const controller = new AbortController()
+  badgeLoadController = controller
+  const revision = ++badgeLoadRevision
+  const generation = authStore.sessionGeneration
+  const isCurrent = () => badgeLoadController === controller
+    && badgeLoadRevision === revision
+    && !controller.signal.aborted
+    && authStore.sessionGeneration === generation
   try {
-    const badges = unwrapAxiosApiData(await badgeApi.getMyBadges())
+    const badges = unwrapAxiosApiData(await badgeApi.getMyBadges({ signal: controller.signal }))
+    if (!isCurrent()) return
     const latest = badges
       .filter((badge) => badge.acquired && badge.acquiredAt && !shownBadgeCodes.has(badge.badgeCode))
       .sort((left, right) => String(right.acquiredAt).localeCompare(String(left.acquiredAt)))[0]
@@ -55,7 +77,10 @@ const showLatestBadge = async () => {
     shownBadgeCodes.add(latest.badgeCode)
     awardedBadge.value = latest
   } catch (error) {
+    if (!isCurrent() || isCancellationError(error)) return
     logger.warn('Failed to load newly awarded badge', error)
+  } finally {
+    if (badgeLoadController === controller) badgeLoadController = null
   }
 }
 
@@ -66,12 +91,18 @@ const goToBadges = async () => {
 }
 
 let unsubscribe: (() => void) | undefined
+let unsubscribeSessionBoundary: (() => void) | undefined
 onMounted(() => {
+  unsubscribeSessionBoundary = subscribeAuthSessionBoundary(resetSessionState)
   unsubscribe = subscribeBadgeAwardEvents(() => {
     void showLatestBadge()
   })
 })
-onUnmounted(() => unsubscribe?.())
+onUnmounted(() => {
+  unsubscribe?.()
+  unsubscribeSessionBoundary?.()
+  resetSessionState()
+})
 </script>
 
 <template>

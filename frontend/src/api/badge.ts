@@ -7,8 +7,8 @@ export const badgeApi = {
     getUserBadges: (userId: string | number, config?: AxiosRequestConfig) =>
         api.get<ApiResponse<Badge[]>>(`/users/${encodePathSegment(userId)}/badges`, config),
 
-    getMyBadges: () =>
-        api.get<ApiResponse<Badge[]>>('/users/me/badges'),
+    getMyBadges: (config?: AxiosRequestConfig) =>
+        api.get<ApiResponse<Badge[]>>('/users/me/badges', config),
 
     updateRepresentativeBadge: (badgeCode: string | null) =>
         api.put<ApiResponse<Badge | null>>('/users/me/badges/representative', { badgeCode }),
