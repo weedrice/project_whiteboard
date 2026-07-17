@@ -10,6 +10,7 @@ import { useApiPageQuery, useApiQuery } from '@/composables/useApiQuery'
 import type { BoardDetail, BoardListItem, BoardManagerCandidate, PostSummary, SubscriptionBoardListItem } from '@/types'
 import { QUERY_STALE_TIME } from '@/utils/constants'
 import { optionalQuerySignal } from '@/utils/querySignal'
+import { AUTH_SCOPED_QUERY_META } from '@/queryAuthScope'
 
 export interface BoardPostParams {
   page?: number
@@ -109,6 +110,7 @@ export function useBoardQueries() {
       staleTime: QUERY_STALE_TIME.MEDIUM,
       enabled: enabledValue,
       keepPreviousData: false,
+      meta: AUTH_SCOPED_QUERY_META,
     })
   }
 

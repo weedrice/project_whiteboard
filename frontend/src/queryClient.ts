@@ -47,7 +47,6 @@ export const queryClient = new QueryClient({
         queries: {
             staleTime: 30_000,
             gcTime: QUERY_STALE_TIME.SHORT,
-            placeholderData: (previousData: unknown) => previousData,
             retry: (failureCount, error: unknown) => {
                 const axiosError = error as AxiosError
                 if (!axiosError.response) {

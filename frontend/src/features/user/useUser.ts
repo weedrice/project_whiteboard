@@ -17,6 +17,7 @@ import { userQueryKeys, type UserQueryPaginationParams } from '@/features/user/u
 import { postApi, type ScheduledPost } from '@/api/post'
 import { badgeApi } from '@/api/badge'
 import { normalizePageResponse, type PageResponseRaw } from '@/utils/pageResponse'
+import { AUTH_SCOPED_QUERY_META } from '@/queryAuthScope'
 
 interface PasswordUpdateData {
     currentPassword: string
@@ -51,6 +52,7 @@ export const createMyProfileQueryOptions = (config?: AxiosRequestConfig) => ({
         return unwrapAxiosApiData(await userApi.getMyProfile(withQuerySignal(config, context)))
     },
     staleTime: QUERY_STALE_TIME.MEDIUM,
+    meta: AUTH_SCOPED_QUERY_META,
 })
 
 export const createMyAgentsQueryOptions = (config?: AxiosRequestConfig) => ({
@@ -59,6 +61,7 @@ export const createMyAgentsQueryOptions = (config?: AxiosRequestConfig) => ({
         return unwrapAxiosApiData(await userApi.getMyAgents(withQuerySignal(config, context)))
     },
     staleTime: QUERY_STALE_TIME.MEDIUM,
+    meta: AUTH_SCOPED_QUERY_META,
 })
 
 export function useUser() {
@@ -91,12 +94,14 @@ export function useUser() {
                 userApi.getUserSettings,
             ),
             staleTime: QUERY_STALE_TIME.MEDIUM,
+            meta: AUTH_SCOPED_QUERY_META,
         })
     }
 
     const useBlockList = (params?: Ref<PaginationParams>) => {
         return useApiQuery({
             queryKey: computed(() => userQueryKeys.blocks(params?.value)),
+            meta: AUTH_SCOPED_QUERY_META,
             request: (context) => callWithOptionalQuerySignal(
                 context,
                 () => userApi.getBlockList(params?.value),
@@ -108,6 +113,7 @@ export function useUser() {
     const useNotificationSettings = () => {
         return useApiQuery({
             queryKey: userQueryKeys.notificationSettings,
+            meta: AUTH_SCOPED_QUERY_META,
             request: (context) => callWithOptionalQuerySignal(
                 context,
                 userApi.getNotificationSettings,
@@ -119,6 +125,7 @@ export function useUser() {
     const useKeywordSubscriptions = () => {
         return useApiQuery<KeywordSubscriptionResponse[]>({
             queryKey: userQueryKeys.keywordSubscriptions,
+            meta: AUTH_SCOPED_QUERY_META,
             request: (context) => callWithOptionalQuerySignal(
                 context,
                 userApi.getKeywordSubscriptions,
@@ -140,6 +147,7 @@ export function useUser() {
                 userApi.getMySessions,
             ),
             staleTime: QUERY_STALE_TIME.SHORT,
+            meta: AUTH_SCOPED_QUERY_META,
         })
     }
 
@@ -148,6 +156,7 @@ export function useUser() {
             queryKey: computed(() => userQueryKeys.loginHistory(params?.value)),
             request: (context) => userApi.getMyLoginHistory(params?.value ?? {}, withQuerySignal(undefined, context)),
             staleTime: QUERY_STALE_TIME.SHORT,
+            meta: AUTH_SCOPED_QUERY_META,
         })
     }
 
@@ -157,12 +166,14 @@ export function useUser() {
             request: () => userApi.getMyPoint(),
             enabled: computed(() => enabled?.value ?? true),
             staleTime: QUERY_STALE_TIME.SHORT,
+            meta: AUTH_SCOPED_QUERY_META,
         })
     }
 
     const useMyScraps = (params?: Ref<PaginationParams>) => {
         return useApiPageQuery({
             queryKey: computed(() => userQueryKeys.scraps(params?.value)),
+            meta: AUTH_SCOPED_QUERY_META,
             request: (context) => userApi.getMyScraps(params?.value ?? {}, withQuerySignal(undefined, context)),
         })
     }
@@ -172,6 +183,7 @@ export function useUser() {
             queryKey: computed(() => userQueryKeys.drafts(params?.value)),
             request: (context) => userApi.getMyDrafts(params?.value ?? {}, withQuerySignal(undefined, context)),
             selectData: toDraftPageResponse,
+            meta: AUTH_SCOPED_QUERY_META,
         })
     }
 
@@ -180,6 +192,7 @@ export function useUser() {
             queryKey: computed(() => userQueryKeys.scheduledPosts(params?.value)),
             request: (context) => postApi.getMyScheduledPosts(params?.value ?? {}, withQuerySignal(undefined, context)),
             selectData: (response) => normalizePageResponse(response),
+            meta: AUTH_SCOPED_QUERY_META,
         })
     }
 
@@ -198,6 +211,7 @@ export function useUser() {
     const useMyPointHistories = (params?: Ref<PaginationParams>) => {
         return useApiQuery({
             queryKey: computed(() => userQueryKeys.pointHistories(params?.value)),
+            meta: AUTH_SCOPED_QUERY_META,
             request: (context) => userApi.getMyPointHistories(params?.value ?? {}, withQuerySignal(undefined, context)),
         })
     }
@@ -393,6 +407,7 @@ export function useUser() {
     const useRecentlyViewedPosts = (params?: Ref<PaginationParams>) => {
         return useApiQuery({
             queryKey: computed(() => userQueryKeys.recentlyViewedPosts(params?.value)),
+            meta: AUTH_SCOPED_QUERY_META,
             request: (context) => callWithOptionalQuerySignal(
                 context,
                 () => userApi.getRecentlyViewedPosts(params?.value || {}),

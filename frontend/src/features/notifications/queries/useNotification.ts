@@ -11,6 +11,7 @@ import {
     notificationsQueryKey,
     notificationUnreadCountQueryKey,
 } from '@/features/notifications/queries/notificationQueryKeys'
+import { AUTH_SCOPED_QUERY_META } from '@/queryAuthScope'
 import { useApiPageQuery, useApiQuery } from '@/composables/useApiQuery'
 import { callWithOptionalQuerySignal } from '@/utils/querySignal'
 
@@ -20,6 +21,7 @@ export function useNotification() {
     const useNotifications = (params: Ref<NotificationParams>) => {
         return useApiPageQuery<Notification>({
             queryKey: computed(() => notificationListQueryKey(params.value)),
+            meta: AUTH_SCOPED_QUERY_META,
             request: (context) => callWithOptionalQuerySignal(
                 context,
                 () => notificationApi.getNotifications(params.value),
@@ -32,6 +34,7 @@ export function useNotification() {
         const authStore = useAuthStore()
         return useApiQuery<number>({
             queryKey: notificationUnreadCountQueryKey,
+            meta: AUTH_SCOPED_QUERY_META,
             request: (context) => callWithOptionalQuerySignal(
                 context,
                 notificationApi.getUnreadCount,

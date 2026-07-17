@@ -26,8 +26,7 @@ describe('queryClient defaults', () => {
   it('keeps cache defaults and retry boundaries stable', () => {
     const queries = queryClient.getDefaultOptions().queries!
     expect(queries.staleTime).toBe(30_000)
-    const placeholderData = queries.placeholderData as (previous: unknown) => unknown
-    expect(placeholderData('previous')).toBe('previous')
+    expect(queries.placeholderData).toBeUndefined()
     expect(queries.refetchOnWindowFocus).toBe(false)
     expect(queries.refetchOnReconnect).toBe(true)
     const retryDelay = queries.retryDelay as (attempt: number, error: Error) => number

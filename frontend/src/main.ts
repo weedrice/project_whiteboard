@@ -19,6 +19,8 @@ import { validateEnv } from '@/utils/env'
 import { installClientErrorReporting } from '@/utils/clientErrorReporter'
 import { registerPwaAutoUpdate } from '@/pwa'
 import { applyStandaloneDisplayModeClass } from '@/pwaDisplayMode'
+import { clearAuthScopedQueries } from '@/queryAuthScope'
+import { resetNotificationStreamSessionState } from '@/features/notifications/stream/notificationStreamController'
 
 validateEnv()
 applyStandaloneDisplayModeClass()
@@ -49,6 +51,10 @@ configureAuthSessionEffects({
     },
     handleSanctionedSession: () => {
         useToastStore(pinia).addToast(i18n.global.t('user.sanctioned'), 'error')
+    },
+    onSessionBoundary: () => {
+        resetNotificationStreamSessionState()
+        clearAuthScopedQueries(queryClient)
     },
 })
 
