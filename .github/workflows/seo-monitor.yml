@@ -13,8 +13,23 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  seo-preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require main for manual production SEO runs
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          GIT_REF: ${{ github.ref }}
+        run: |
+          if [ "$EVENT_NAME" = workflow_dispatch ] && [ "$GIT_REF" != refs/heads/main ]; then
+            echo "Manual production SEO verification and submission are allowed only from main" >&2
+            exit 1
+          fi
+
   verify-endpoints:
-    if: github.event_name == 'schedule' || github.ref == 'refs/heads/main'
+    needs: seo-preflight
+    if: needs.seo-preflight.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 15
 

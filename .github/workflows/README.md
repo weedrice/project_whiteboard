@@ -30,11 +30,11 @@ backend activator는 이전 JAR을 보존하고 서비스 stop, atomic JAR 교�
 
 production frontend release는 `SEO_STRICT=true`로 sitemap과 prerender를 생성한다. API 조회 실패, 게시글 URL 0건, URL과 prerender 개수 불일치는 release 생성을 실패시킨다. `.noviis-seo-release.json`에 commit SHA, 전체 URL 수, 게시글 URL 수, prerender 수와 sitemap SHA-256을 기록한다. 배포 후 검증과 정기 monitor도 게시글 URL 0건을 거부하고 public sitemap의 개수·digest·release SHA를 이 manifest와 대조한다.
 
-배포 후 sitemap 제출과 `seo-monitor.yml`의 정기 제출은 `seo-submit-production` concurrency group으로 직렬화한다. 수동 SEO monitor는 `main`에서만 실행되고 production environment 승인 뒤 secret을 받으며 checkout SHA도 해당 main 실행 SHA로 고정한다. 정기 제출의 인증 오류, 429, 5xx, timeout은 job 실패다. 배포 후 제출 실패는 이미 검증된 frontend를 rollback하지 않고 warning과 job summary에 남기며 정기 monitor가 재시도한다.
+배포 후 sitemap 제출과 `seo-monitor.yml`의 정기 제출은 `seo-submit-production` concurrency group으로 직렬화한다. 수동 SEO monitor는 preflight에서 `main` ref를 확인하며 다른 ref의 실행은 job skip이 아니라 workflow 실패로 기록된다. production environment 승인 뒤 secret을 받으며 checkout SHA도 해당 main 실행 SHA로 고정한다. 정기 제출의 인증 오류, 429, 5xx, timeout은 job 실패다. 배포 후 제출 실패는 이미 검증된 frontend를 rollback하지 않고 warning과 job summary에 남기며 정기 monitor가 재시도한다.
 
 ## Ops 검증
 
-`ops-config-test`는 workflow 문법, Prometheus config/rules/fixtures, Grafana JSON, shell, systemd, migration policy, activation fixture를 검증한다. Prometheus 검증 버전은 `deploy/monitoring/tool-versions.env`에서 읽으며 운영 host도 같은 manifest의 native 버전을 사용한다.
+`ops-config-test`는 workflow 문법, Prometheus config/rules/fixtures, metric manifest, Grafana JSON, shell, systemd, migration policy, activation fixture를 검증한다. Prometheus·Grafana의 승인 버전과 host exporter의 최소 호환 버전은 `deploy/monitoring/tool-versions.env`에 기록한다. 운영 host는 Prometheus·Grafana의 동일 native 버전과 최소 버전 이상의 배포판 host exporter를 사용한다.
 
 non-Agent `@Scheduled` 메서드는 `scheduled-jobs.txt`와 freshness rule이 일치해야 한다. sudoers는 `visudo -cf`와 허용·거부 command matrix를 모두 통과해야 한다. systemd 메모리 상한은 운영 측정 기록과 staging 검증이 없으면 추가하지 않는다.
 
@@ -42,9 +42,9 @@ Grafana 관리 비밀번호는 `/etc/noviis/monitoring.env`와 root-only 회전 
 
 ## 권한과 유지보수
 
-workflow 기본 권한은 `contents: read`이며 attestation, OIDC, artifact metadata 권한은 필요한 release/deploy job에만 부여한다. third-party Action은 검토한 release의 full commit SHA로 고정한다. workflow, activation script, sudoers, migration 정책 변경은 CODEOWNERS review 대상이다.
+workflow 기본 권한은 `contents: read`이며 attestation, OIDC, artifact metadata 권한은 필요한 release/deploy job에만 부여한다. PR에서 repository script를 실행하는 PostgreSQL·ops job에는 `actions: read`나 `deployments: read`를 부여하지 않는다. 적용 완료 contract evidence의 GitHub API 검증은 보호된 `main`의 push 또는 수동 실행에서만 별도 job으로 수행한다. third-party Action은 검토한 release의 full commit SHA로 고정한다. workflow, activation script, sudoers, migration 정책 변경은 CODEOWNERS review 대상이다.
 
-주요 timeout은 change detection·gate 5분, backend test 45분, frontend test 60분, PostgreSQL·ops 30분, release 20–25분, deploy 30분, SEO monitor 15분이다. YAML에서 값을 바꾸면 이 문서도 같은 변경에서 갱신한다.
+주요 timeout은 change detection·gate·SEO preflight 5분, contract evidence 10분, backend test 45분, frontend test 60분, PostgreSQL·ops 30분, release 20–25분, deploy 30분, SEO 검증 15분·제출 10분이다. YAML에서 값을 바꾸면 이 문서도 같은 변경에서 갱신한다.
 
 ## Production environment와 Secrets
 

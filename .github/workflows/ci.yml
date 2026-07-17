@@ -240,8 +240,6 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
-      actions: read
-      deployments: read
     outputs:
       contract_migration: ${{ steps.migration_guard.outputs.contract_migration }}
     services:
@@ -268,8 +266,7 @@ jobs:
         id: migration_guard
         env:
           BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || (github.event_name == 'push' && github.event.before || 'HEAD^') }}
-          GH_TOKEN: ${{ github.token }}
-          VERIFY_CONTRACT_RUNS: "true"
+          VERIFY_CONTRACT_RUNS: "false"
         run: bash backend/scripts/check-migration-compatibility.sh "$BASE_REF" HEAD
 
       - name: Install PostgreSQL client
@@ -317,8 +314,6 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
-      actions: read
-      deployments: read
     steps:
       - name: Checkout
         uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
@@ -347,11 +342,14 @@ jobs:
             test rules noviis-alerts.test.yml
 
       - name: Verify scheduled job freshness manifest
-        run: python3 deploy/monitoring/verify-scheduled-jobs.py
+        run: |
+          python3 deploy/monitoring/verify-scheduled-jobs.py
+          python3 deploy/monitoring/verify-required-backend-metrics.py
 
       - name: Validate Grafana version manifest and dashboard JSON
         run: |
           source deploy/monitoring/tool-versions.env
+          [[ "$NODE_EXPORTER_MIN_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
           archive="$RUNNER_TEMP/grafana-${GRAFANA_VERSION}.${GRAFANA_ARCH}.tar.gz"
           extract_root="$RUNNER_TEMP/grafana-validation"
           curl --fail --location --retry 3 --proto '=https' \
@@ -383,6 +381,7 @@ jobs:
           bash deploy/scripts/tests/activate-backend-release-test.sh
           bash deploy/scripts/tests/activate-frontend-release-test.sh
           bash deploy/scripts/tests/verify-release-provenance-test.sh
+          bash deploy/scripts/tests/verify-workflow-security-test.sh
           bash backend/scripts/tests/check-migration-compatibility-test.sh
           bash backend/scripts/tests/verify-contract-deployment-evidence-test.sh
           sudo bash deploy/monitoring/tests/rotate-grafana-admin-password-test.sh
@@ -391,8 +390,7 @@ jobs:
       - name: Validate repository migration policy changes
         env:
           BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || (github.event_name == 'push' && github.event.before || 'HEAD^') }}
-          GH_TOKEN: ${{ github.token }}
-          VERIFY_CONTRACT_RUNS: "true"
+          VERIFY_CONTRACT_RUNS: "false"
         run: bash backend/scripts/check-migration-compatibility.sh "$BASE_REF" HEAD
 
       - name: Validate production Nginx configuration
@@ -412,11 +410,44 @@ jobs:
             cp "deploy/monitoring/systemd/${service}.service.d/override.conf" "$tmp/${service}.service.d/override.conf"
             SYSTEMD_UNIT_PATH="$tmp" systemd-analyze verify "${service}.service"
           done
+          mkdir -p "$tmp/prometheus-node-exporter.service.d"
+          printf '[Unit]\nDescription=CI fixture\n[Service]\nExecStart=/bin/true\n' > "$tmp/prometheus-node-exporter.service"
+          grep -Fqx 'ExecStart=/usr/bin/prometheus-node-exporter --web.listen-address=127.0.0.1:9100' \
+            deploy/monitoring/systemd/prometheus-node-exporter.service.d/override.conf
+          sed 's#/usr/bin/prometheus-node-exporter#/bin/true#' \
+            deploy/monitoring/systemd/prometheus-node-exporter.service.d/override.conf \
+            > "$tmp/prometheus-node-exporter.service.d/override.conf"
+          SYSTEMD_UNIT_PATH="$tmp" systemd-analyze verify prometheus-node-exporter.service
 
       - name: Validate Compose configuration
         env:
           JWT_SECRET_DEV: Y2ktb25seS1kdW1teS1qd3Qtc2VjcmV0LWtleS0zMi1ieXRlcw==
         run: docker compose config --quiet
+
+  trusted-contract-evidence:
+    needs: changes
+    if: >-
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      github.ref == 'refs/heads/main' &&
+      (needs.changes.outputs.backend == 'true' || needs.changes.outputs.ops == 'true')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+      deployments: read
+    steps:
+      - name: Checkout trusted main revision
+        uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify applied contract deployment evidence
+        env:
+          BASE_REF: ${{ github.event_name == 'push' && github.event.before || 'HEAD^' }}
+          GH_TOKEN: ${{ github.token }}
+          VERIFY_CONTRACT_RUNS: "true"
+        run: bash backend/scripts/check-migration-compatibility.sh "$BASE_REF" HEAD
 
   ci-gate:
     name: CI Gate
@@ -427,6 +458,7 @@ jobs:
       - frontend-test
       - backend-postgres-migration
       - ops-config-test
+      - trusted-contract-evidence
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -440,11 +472,13 @@ jobs:
           FRONTEND_RESULT: ${{ needs.frontend-test.result }}
           POSTGRES_RESULT: ${{ needs.backend-postgres-migration.result }}
           OPS_RESULT: ${{ needs.ops-config-test.result }}
+          TRUSTED_EVIDENCE_RESULT: ${{ needs.trusted-contract-evidence.result }}
           NEED_BACKEND: ${{ needs.changes.outputs.backend }}
           NEED_FRONTEND: ${{ needs.changes.outputs.frontend }}
           NEED_OPS: ${{ needs.changes.outputs.ops }}
           CONTRACT_MIGRATION: ${{ needs.backend-postgres-migration.outputs.contract_migration }}
           EVENT_NAME: ${{ github.event_name }}
+          GIT_REF: ${{ github.ref }}
           DEPLOY_BACKEND: ${{ inputs.deploy_backend || false }}
           ALLOW_CONTRACT: ${{ inputs.allow_contract_migration || false }}
           BACKUP_SNAPSHOT_ID: ${{ inputs.backup_snapshot_id || '' }}
@@ -471,6 +505,12 @@ jobs:
           verify_job "$NEED_BACKEND" "$POSTGRES_RESULT" backend-postgres-migration
           verify_job "$NEED_FRONTEND" "$FRONTEND_RESULT" frontend-test
           verify_job "$NEED_OPS" "$OPS_RESULT" ops-config-test
+          need_trusted_evidence=false
+          if [ "$GIT_REF" = refs/heads/main ] && [ "$EVENT_NAME" != pull_request ] \
+            && { [ "$NEED_BACKEND" = true ] || [ "$NEED_OPS" = true ]; }; then
+            need_trusted_evidence=true
+          fi
+          verify_job "$need_trusted_evidence" "$TRUSTED_EVIDENCE_RESULT" trusted-contract-evidence
           if [ "$CONTRACT_MIGRATION" != "true" ]; then CONTRACT_MIGRATION=false; fi
           if [ "$CONTRACT_MIGRATION" = "true" ] && [ "$EVENT_NAME" = workflow_dispatch ] && [ "$DEPLOY_BACKEND" = true ] && [ "$ALLOW_CONTRACT" = true ]; then
             if [[ ! "$BACKUP_SNAPSHOT_ID" =~ ^[A-Za-z0-9][A-Za-z0-9._:/-]{2,255}$ ]]; then
