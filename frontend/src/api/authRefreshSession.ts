@@ -10,7 +10,8 @@ export interface ToastStore {
 export interface AuthStoreLike {
   accessToken: string | null
   sessionGeneration: number
-  fetchUser: (config?: AxiosRequestConfig) => Promise<boolean>
+  user?: { userId?: number, id?: number } | null
+  fetchUser: (config?: AxiosRequestConfig, expectedUserId?: number | null) => Promise<boolean>
   setTokens: (token: string) => void
   applyTokenIfCurrent: (generation: number, previousToken: string | null, token: string) => boolean
   clearSessionState: () => void

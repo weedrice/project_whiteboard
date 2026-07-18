@@ -19,6 +19,11 @@ import {
     coordinateAuthRefresh,
     rotateSharedAuthSessionId,
 } from '@/api/authRefreshCoordinator'
+import {
+    publishAuthBoundary,
+    registerAuthBoundaryListener,
+    type AuthBoundaryKind,
+} from '@/api/authBoundaryChannel'
 
 interface AuthSessionEffects {
     syncThemeFromUser: (userData: User | null) => void
@@ -88,12 +93,16 @@ export const useAuthStore = defineStore('auth', () => {
     }
 
     function applyAuthenticatedSession(token: string, userData: User) {
+        const boundary: AuthBoundaryKind = user.value && user.value.userId !== userData.userId
+            ? 'account-switch'
+            : 'login'
         advanceSessionGeneration()
         resetBootstrapState()
         accessToken.value = token
         user.value = userData
         persistAccessToken(token)
         syncThemeFromUser(userData)
+        publishAuthBoundary(boundary)
     }
 
     function clearSessionValues(broadcast = true) {
@@ -105,7 +114,8 @@ export const useAuthStore = defineStore('auth', () => {
     function clearSessionState(broadcast = true) {
         advanceSessionGeneration()
         resetBootstrapState()
-        clearSessionValues(broadcast)
+        clearSessionValues(false)
+        if (broadcast) publishAuthBoundary('logout')
     }
 
     async function handleSanctionedSession() {
@@ -143,7 +153,7 @@ export const useAuthStore = defineStore('auth', () => {
         }
     }
 
-    async function fetchUser(config?: AxiosRequestConfig): Promise<boolean> {
+    async function fetchUser(config?: AxiosRequestConfig, expectedUserId?: number | null): Promise<boolean> {
         const token = accessToken.value ?? getStoredAccessToken()
         if (!token) {
             clearSessionState()
@@ -158,7 +168,12 @@ export const useAuthStore = defineStore('auth', () => {
                 return Boolean(accessToken.value && user.value)
             }
             if (data.success) {
-                user.value = unwrapApiData(data)
+                const nextUser = unwrapApiData(data)
+                if (expectedUserId != null && nextUser.userId !== expectedUserId) {
+                    clearSessionState()
+                    return false
+                }
+                user.value = nextUser
 
                 if (user.value?.status === 'SANCTIONED') {
                     await handleSanctionedSession()
@@ -222,7 +237,7 @@ export const useAuthStore = defineStore('auth', () => {
                 if (generation !== sessionGeneration.value) {
                     return Boolean(accessToken.value && user.value)
                 }
-                if (!applyNewSessionIfCurrent(generation, null, token)) return false
+                if (!applyNewSessionIfCurrent(generation, null, token, false)) return false
                 return fetchUser({ skipAuthRefresh: true })
             } catch (error: unknown) {
                 logger.error('Bootstrap session failed:', error)
@@ -255,6 +270,7 @@ export const useAuthStore = defineStore('auth', () => {
         resetBootstrapState()
         accessToken.value = token
         persistAccessToken(token)
+        publishAuthBoundary(user.value ? 'account-switch' : 'login')
     }
 
     function applyTokenIfCurrent(generation: number, previousToken: string | null, token: string) {
@@ -267,7 +283,12 @@ export const useAuthStore = defineStore('auth', () => {
         return true
     }
 
-    function applyNewSessionIfCurrent(generation: number, previousToken: string | null, token: string) {
+    function applyNewSessionIfCurrent(
+        generation: number,
+        previousToken: string | null,
+        token: string,
+        broadcastBoundary = true,
+    ) {
         if (sessionGeneration.value !== generation || accessToken.value !== previousToken || !token) {
             return false
         }
@@ -275,6 +296,7 @@ export const useAuthStore = defineStore('auth', () => {
         resetBootstrapState()
         accessToken.value = token
         persistAccessToken(token)
+        if (broadcastBoundary) publishAuthBoundary(user.value ? 'account-switch' : 'login')
         return true
     }
 
@@ -302,14 +324,22 @@ export function registerAuthStorageSync(authStore = useAuthStore()) {
         return () => undefined
     }
 
+    const applyExternalBoundary = () => {
+        void authStore.syncFromStoredAccessToken(null)
+    }
+
+    const stopBoundaryListener = registerAuthBoundaryListener(applyExternalBoundary)
     const handleStorage = (event: StorageEvent) => {
         if (event.key !== AUTH_SESSION_EVENT_KEY && event.key !== ACCESS_TOKEN_KEY && event.key !== null) {
             return
         }
 
-        void authStore.syncFromStoredAccessToken(null)
+        applyExternalBoundary()
     }
 
     window.addEventListener('storage', handleStorage)
-    return () => window.removeEventListener('storage', handleStorage)
+    return () => {
+        stopBoundaryListener()
+        window.removeEventListener('storage', handleStorage)
+    }
 }

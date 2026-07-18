@@ -456,6 +456,32 @@ describe('Auth Store', () => {
             expect(authApi.logout).not.toHaveBeenCalled()
         })
 
+        it('applies a typed cross-tab login boundary through the normal session cleanup path', () => {
+            store.accessToken = 'account-a-token'
+            store.user = authUser({ userId: 1 })
+            const previousGeneration = store.sessionGeneration
+            const stop = registerAuthStorageSync(store)
+
+            window.dispatchEvent(new StorageEvent('storage', {
+                key: 'noviisAuthBoundaryEvent',
+                newValue: JSON.stringify({
+                    type: 'auth-boundary',
+                    boundary: 'account-switch',
+                    eventId: 'peer-boundary',
+                    sourceId: 'peer-tab',
+                    at: Date.now(),
+                }),
+                storageArea: localStorage,
+            }))
+
+            stop()
+            expect(store.accessToken).toBeNull()
+            expect(store.user).toBeNull()
+            expect(store.sessionGeneration).toBe(previousGeneration + 1)
+            expect(mockSessionBoundary).toHaveBeenCalledWith(store.sessionGeneration)
+            expect(authApi.logout).not.toHaveBeenCalled()
+        })
+
         it('broadcasts a typed clear event for cross-tab logout', () => {
             localStorage.removeItem(AUTH_SESSION_EVENT_KEY)
 
@@ -481,6 +507,17 @@ describe('Auth Store', () => {
             expect(localStorage.getItem('refreshToken')).toBeNull()
             expect(authApi.logout).not.toHaveBeenCalled()
         })
+    })
+
+    it('clears the session when refresh hydration resolves to a different user identity', async () => {
+        store.accessToken = 'rotated-token'
+        store.user = authUser({ userId: 1 })
+        vi.mocked(authApi.getMe).mockResolvedValue(authUserResponse(authUser({ userId: 2 })))
+
+        await expect(store.fetchUser({ skipAuthRefresh: true }, 1)).resolves.toBe(false)
+
+        expect(store.accessToken).toBeNull()
+        expect(store.user).toBeNull()
     })
 
     describe('getters', () => {

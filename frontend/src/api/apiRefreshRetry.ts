@@ -69,6 +69,7 @@ export async function retryAfterRefresh(api: AxiosInstance, originalRequest: Int
   const authStore = await resolveAuthStore()
   const generation = authStore?.sessionGeneration ?? getCurrentSessionGeneration()
   const previousToken = authStore?.accessToken ?? getStoredAccessToken()
+  const expectedUserId = authStore?.user?.userId ?? authStore?.user?.id ?? null
   if (isRefreshInCooldown(generation, previousToken)) {
     const cooldownError = new Error('Refresh temporarily unavailable') as SuppressibleApiError
     cooldownError.suppressGlobalErrorToast = true
@@ -130,7 +131,7 @@ export async function retryAfterRefresh(api: AxiosInstance, originalRequest: Int
     }
 
     if (authStore) {
-      const didFetchUser = await authStore.fetchUser({ skipAuthRefresh: true })
+      const didFetchUser = await authStore.fetchUser({ skipAuthRefresh: true }, expectedUserId)
       if (!didFetchUser) {
         const hydrationError = new Error('User hydration failed after token refresh') as SuppressibleApiError
         hydrationError.isUserHydrationFailure = true

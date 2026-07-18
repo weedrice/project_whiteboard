@@ -159,6 +159,7 @@ export function createNotificationStreamController(
         const authStore = resolveAuthStore()
         const generation = authStore.sessionGeneration
         const previousToken = authStore.accessToken
+        const expectedUserId = authStore.user?.userId ?? null
         try {
             const refreshedAccessToken = await coordinateAuthRefresh(async (signal) => {
                 if (controller.signal.aborted
@@ -177,6 +178,18 @@ export function createNotificationStreamController(
                 || authStore.accessToken !== previousToken) return
             const applied = authStore.applyTokenIfCurrent(generation, previousToken, refreshedAccessToken)
             if (!applied && (authStore.sessionGeneration !== generation || authStore.accessToken !== refreshedAccessToken)) return
+            if (expectedUserId != null) {
+                const didHydrateSameIdentity = await authStore.fetchUser(
+                    { skipAuthRefresh: true, signal: controller.signal },
+                    expectedUserId,
+                )
+                if (!didHydrateSameIdentity
+                    || controller.signal.aborted
+                    || authStore.sessionGeneration !== generation) {
+                    scheduleReconnect(RECONNECT_AFTER_FAILURE_DELAY_MS)
+                    return
+                }
+            }
             scheduleReconnect(RECONNECT_AFTER_REFRESH_DELAY_MS)
             return
         } catch (error: unknown) {

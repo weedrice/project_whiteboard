@@ -6,7 +6,9 @@ const AUTH_REFRESH_SESSION_KEY = 'noviisAuthRefreshSession'
 const STORAGE_UNAVAILABLE_SESSION_ID = 'shared-origin-cookie-session'
 const ELECTION_WINDOW_MS = 40
 const PEER_RESULT_TIMEOUT_MS = 15_000
-const STORAGE_LEASE_MS = 20_000
+const STORAGE_LEASE_MS = 30_000
+const STORAGE_LEASE_HEARTBEAT_MS = 5_000
+const STORAGE_TAKEOVER_JITTER_MS = 120
 
 type LockManagerLike = {
   request: <T>(name: string, callback: () => Promise<T>) => Promise<T>
@@ -46,6 +48,13 @@ type StorageWaiter = {
   timer: ReturnType<typeof setTimeout>
 }
 
+type StorageLease = {
+  ownerId: string
+  sessionId: string
+  fence: number
+  expiresAt: number
+}
+
 type CoordinatorState = {
   sourceId: string
   epoch: number
@@ -56,6 +65,7 @@ type CoordinatorState = {
   pendingResults: Set<PendingResult>
   storageWaiters: Set<StorageWaiter>
   storageListenerInstalled: boolean
+  activeStorageLease: StorageLease | null
 }
 
 export interface CoordinateAuthRefreshOptions {
@@ -76,6 +86,7 @@ const state = globalState[GLOBAL_STATE_KEY] ??= {
   pendingResults: new Set(),
   storageWaiters: new Set(),
   storageListenerInstalled: false,
+  activeStorageLease: null,
 }
 
 function createId() {
@@ -127,6 +138,13 @@ class PeerRefreshCompletedError extends Error {
   constructor() {
     super('A peer completed a different access-token refresh generation')
     this.name = 'PeerRefreshCompletedError'
+  }
+}
+
+class StorageLeaseLostError extends Error {
+  constructor() {
+    super('Authentication refresh storage lease was lost')
+    this.name = 'StorageLeaseLostError'
   }
 }
 
@@ -278,7 +296,7 @@ function handleStorageEvent(event: StorageEvent) {
   }
 }
 
-function waitForStorageCompletion(sessionId: string, signal: AbortSignal) {
+function waitForStorageCompletion(sessionId: string, signal: AbortSignal, timeoutMs = STORAGE_LEASE_MS) {
   installStorageListener()
   return new Promise<RefreshMessage>((resolve, reject) => {
     const waiter: StorageWaiter = {
@@ -288,7 +306,7 @@ function waitForStorageCompletion(sessionId: string, signal: AbortSignal) {
       timer: setTimeout(() => {
         state.storageWaiters.delete(waiter)
         reject(new Error('Timed out waiting for authentication refresh lease'))
-      }, STORAGE_LEASE_MS),
+      }, timeoutMs),
     }
     state.storageWaiters.add(waiter)
     signal.addEventListener('abort', () => {
@@ -299,46 +317,70 @@ function waitForStorageCompletion(sessionId: string, signal: AbortSignal) {
   })
 }
 
-function readLease(): { ownerId: string, sessionId: string, expiresAt: number } | null {
+function readLease(): StorageLease | null {
   try {
     const value = localStorage.getItem(AUTH_REFRESH_STORAGE_LEASE_KEY)
     if (!value) return null
-    const lease = JSON.parse(value) as { ownerId?: unknown, sessionId?: unknown, expiresAt?: unknown }
+    const lease = JSON.parse(value) as {
+      ownerId?: unknown
+      sessionId?: unknown
+      fence?: unknown
+      expiresAt?: unknown
+    }
     return typeof lease.ownerId === 'string' && typeof lease.sessionId === 'string'
       && typeof lease.expiresAt === 'number'
-      ? { ownerId: lease.ownerId, sessionId: lease.sessionId, expiresAt: lease.expiresAt }
+      && (lease.fence === undefined || typeof lease.fence === 'number')
+      ? { ownerId: lease.ownerId, sessionId: lease.sessionId, fence: lease.fence ?? 0, expiresAt: lease.expiresAt }
       : null
   } catch {
     return null
   }
 }
 
-async function acquireStorageLease(sessionId: string, signal: AbortSignal) {
-  if (typeof localStorage === 'undefined') return true
+function sameStorageLease(left: StorageLease | null, right: StorageLease | null): boolean {
+  return Boolean(left && right
+    && left.ownerId === right.ownerId
+    && left.sessionId === right.sessionId
+    && left.fence === right.fence)
+}
+
+async function acquireStorageLease(sessionId: string, signal: AbortSignal): Promise<StorageLease | null> {
+  if (typeof localStorage === 'undefined') {
+    return { ownerId: state.sourceId, sessionId, fence: 0, expiresAt: Number.POSITIVE_INFINITY }
+  }
   const existing = readLease()
   if (existing && existing.sessionId === sessionId
-    && existing.expiresAt > Date.now() && existing.ownerId !== state.sourceId) return false
+    && existing.expiresAt > Date.now() && existing.ownerId !== state.sourceId) return null
   try {
-    localStorage.setItem(AUTH_REFRESH_STORAGE_LEASE_KEY, JSON.stringify({
+    const candidate: StorageLease = {
       ownerId: state.sourceId,
       sessionId,
+      fence: Math.max(existing?.fence ?? 0, Date.now()) + 1,
       expiresAt: Date.now() + STORAGE_LEASE_MS,
-    }))
-    await delay(ELECTION_WINDOW_MS, signal)
+    }
+    localStorage.setItem(AUTH_REFRESH_STORAGE_LEASE_KEY, JSON.stringify(candidate))
+    await delay(ELECTION_WINDOW_MS + Math.floor(Math.random() * STORAGE_TAKEOVER_JITTER_MS), signal)
     const lease = readLease()
-    return lease?.ownerId === state.sourceId && lease.sessionId === sessionId
+    return sameStorageLease(lease, candidate) ? candidate : null
   } catch {
-    return true
+    return { ownerId: state.sourceId, sessionId, fence: 0, expiresAt: Number.POSITIVE_INFINITY }
   }
 }
 
 function releaseStorageLease(message: RefreshMessage) {
+  const activeLease = state.activeStorageLease
+  let didOwnLease = activeLease?.fence === 0
   try {
-    if (readLease()?.ownerId === state.sourceId) localStorage.removeItem(AUTH_REFRESH_STORAGE_LEASE_KEY)
+    if (sameStorageLease(readLease(), activeLease)) {
+      didOwnLease = true
+      localStorage.removeItem(AUTH_REFRESH_STORAGE_LEASE_KEY)
+    }
   } catch {
     // Ignore blocked storage.
+    didOwnLease = true
   }
-  postStorageSignal(message)
+  state.activeStorageLease = null
+  if (didOwnLease || !activeLease) postStorageSignal(message)
 }
 
 function waitForPeerResult(
@@ -442,9 +484,48 @@ async function coordinateWithStorage(
   refresh: (signal: AbortSignal) => Promise<string>,
   signal: AbortSignal,
 ) {
-  const isOwner = await acquireStorageLease(sessionId, signal)
-  if (isOwner) return refresh(signal)
-  const completed = await waitForStorageCompletion(sessionId, signal)
+  const lease = await acquireStorageLease(sessionId, signal)
+  if (lease) {
+    state.activeStorageLease = lease
+    const leaseController = new AbortController()
+    const abortForSessionBoundary = () => leaseController.abort(createRefreshAbortError())
+    signal.addEventListener('abort', abortForSessionBoundary, { once: true })
+    const heartbeat = lease.fence === 0 ? null : setInterval(() => {
+      try {
+        const current = readLease()
+        if (!sameStorageLease(current, lease)) {
+          leaseController.abort(new StorageLeaseLostError())
+          return
+        }
+        const renewed = { ...lease, expiresAt: Date.now() + STORAGE_LEASE_MS }
+        localStorage.setItem(AUTH_REFRESH_STORAGE_LEASE_KEY, JSON.stringify(renewed))
+        lease.expiresAt = renewed.expiresAt
+      } catch {
+        // A later ownership check fails closed if the lease can no longer be verified.
+      }
+    }, STORAGE_LEASE_HEARTBEAT_MS)
+    try {
+      const token = await refresh(leaseController.signal)
+      if (leaseController.signal.aborted || (lease.fence !== 0 && !sameStorageLease(readLease(), lease))) {
+        throw new StorageLeaseLostError()
+      }
+      return token
+    } finally {
+      if (heartbeat) clearInterval(heartbeat)
+      signal.removeEventListener('abort', abortForSessionBoundary)
+    }
+  }
+  const currentLease = readLease()
+  const waitMs = currentLease && currentLease.sessionId === sessionId
+    ? Math.max(ELECTION_WINDOW_MS, currentLease.expiresAt - Date.now() + STORAGE_TAKEOVER_JITTER_MS)
+    : ELECTION_WINDOW_MS + STORAGE_TAKEOVER_JITTER_MS
+  let completed: RefreshMessage
+  try {
+    completed = await waitForStorageCompletion(sessionId, signal, waitMs)
+  } catch (error) {
+    if (signal.aborted) throw error
+    return coordinateWithStorage(sessionId, previousToken, refresh, signal)
+  }
   if (completed.type === 'refresh-cancelled') {
     throw new DOMException('Authentication session changed in another tab', 'AbortError')
   }
@@ -502,6 +583,11 @@ export function coordinateAuthRefresh(
       if (epoch !== state.epoch || controller.signal.aborted) {
         throw new DOMException('Authentication refresh was cancelled', 'AbortError')
       }
+      if (state.activeStorageLease?.fence
+        && !sameStorageLease(readLease(), state.activeStorageLease)) {
+        state.activeStorageLease = null
+        throw new StorageLeaseLostError()
+      }
       const result: RefreshMessage = {
         type: 'refresh-result', sourceId: state.sourceId, sessionId, previousToken, accessToken: token, at: Date.now(),
       }
@@ -519,8 +605,12 @@ export function coordinateAuthRefresh(
         message: error instanceof Error ? error.message : 'Authentication refresh failed',
         at: Date.now(),
       }
-      postChannel(message)
-      releaseStorageLease(message)
+      if (!(error instanceof StorageLeaseLostError)) {
+        postChannel(message)
+        releaseStorageLease(message)
+      } else {
+        state.activeStorageLease = null
+      }
       throw error
     }
   })()
@@ -552,4 +642,5 @@ export function closeAuthRefreshCoordinatorForTest() {
   } catch {
     // Ignore unavailable storage in non-browser tests.
   }
+  state.activeStorageLease = null
 }

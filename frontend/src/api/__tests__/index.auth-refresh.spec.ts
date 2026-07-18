@@ -88,7 +88,7 @@ describe('API Interceptors', () => {
         expect(await getAccessToken()).toBe('new-access')
         expect(localStorage.getItem('refreshToken')).toBeNull()
         expect(authStore.applyTokenIfCurrent).toHaveBeenCalledWith(0, 'old-access', 'new-access')
-        expect(mocks.mockFetchUser).toHaveBeenCalledWith({ skipAuthRefresh: true })
+        expect(mocks.mockFetchUser).toHaveBeenCalledWith({ skipAuthRefresh: true }, 10)
         expect(originalRequest.headers.Authorization).toBe('Bearer new-access')
         expect(mocks.mockApiRequest).toHaveBeenCalledWith(originalRequest)
         expect(result).toEqual({ data: { ok: true } })
@@ -163,7 +163,7 @@ describe('API Interceptors', () => {
             isAuthRefreshFailure: true,
             isUserHydrationFailure: true,
         })
-        expect(mocks.mockFetchUser).toHaveBeenCalledWith({ skipAuthRefresh: true })
+        expect(mocks.mockFetchUser).toHaveBeenCalledWith({ skipAuthRefresh: true }, 10)
         expect(await getAccessToken()).toBe('new-access')
         expect(mocks.mockApiRequest).not.toHaveBeenCalledWith(originalRequest)
     })

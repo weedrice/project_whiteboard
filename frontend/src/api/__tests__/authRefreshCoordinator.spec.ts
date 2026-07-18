@@ -10,6 +10,7 @@ import { createDeferred } from '@/test/async'
 describe('auth refresh coordinator', () => {
   afterEach(() => {
     closeAuthRefreshCoordinatorForTest()
+    vi.useRealTimers()
     vi.unstubAllGlobals()
   })
 
@@ -183,6 +184,58 @@ describe('auth refresh coordinator', () => {
 
     await expect(result).rejects.toMatchObject({ name: 'AbortError' })
     expect(refresh).not.toHaveBeenCalled()
+  })
+
+  it('renews a storage lease while a slow refresh is still active', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(1_000)
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    vi.stubGlobal('BroadcastChannel', undefined)
+    localStorage.setItem('noviisAuthRefreshSession', 'shared-session')
+    const pending = createDeferred<string>()
+    const result = coordinateAuthRefresh(() => pending.promise, { previousToken: 'old-access' })
+
+    await vi.advanceTimersByTimeAsync(40)
+    const firstLease = JSON.parse(localStorage.getItem('noviisAuthRefreshLease') ?? '{}') as { expiresAt: number, fence: number }
+    expect(firstLease.fence).toBeGreaterThan(0)
+
+    await vi.advanceTimersByTimeAsync(5_000)
+    const renewedLease = JSON.parse(localStorage.getItem('noviisAuthRefreshLease') ?? '{}') as { expiresAt: number, fence: number }
+    expect(renewedLease.fence).toBe(firstLease.fence)
+    expect(renewedLease.expiresAt).toBeGreaterThan(firstLease.expiresAt)
+
+    pending.resolve('next-access')
+    await expect(result).resolves.toBe('next-access')
+  })
+
+  it('discards a stale owner result after a higher-fenced tab takes over', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(10_000)
+    vi.spyOn(Math, 'random').mockReturnValue(0)
+    vi.stubGlobal('BroadcastChannel', undefined)
+    localStorage.setItem('noviisAuthRefreshSession', 'shared-session')
+    const setItem = vi.spyOn(Storage.prototype, 'setItem')
+    const result = coordinateAuthRefresh((signal) => new Promise<string>((_resolve, reject) => {
+      signal.addEventListener('abort', () => reject(signal.reason), { once: true })
+    }), { previousToken: 'old-access' })
+
+    await vi.advanceTimersByTimeAsync(40)
+    const owned = JSON.parse(localStorage.getItem('noviisAuthRefreshLease') ?? '{}') as { fence: number }
+    setItem.mockClear()
+    localStorage.setItem('noviisAuthRefreshLease', JSON.stringify({
+      ownerId: 'new-owner',
+      sessionId: 'shared-session',
+      fence: owned.fence + 1,
+      expiresAt: Date.now() + 30_000,
+    }))
+    await vi.advanceTimersByTimeAsync(5_000)
+
+    await expect(result).rejects.toMatchObject({ name: 'StorageLeaseLostError' })
+    const emittedResults = setItem.mock.calls
+      .filter(([key]) => key === 'noviisAuthRefreshEvent')
+      .map(([, value]) => value)
+      .filter((value) => value.includes('refresh-result'))
+    expect(emittedResults).toHaveLength(0)
   })
 
   it('re-enters election so three different tab tokens refresh serially without Web Locks or storage', async () => {
