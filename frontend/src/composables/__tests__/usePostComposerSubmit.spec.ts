@@ -34,6 +34,9 @@ function createSubmit(overrides: {
   saveDraftNow?: () => Promise<{ draftId?: number | null } | null>
   createSuccessToastMessage?: () => string | undefined
 } = {}) {
+  const identity = ref('session-1:create:free:new')
+  const boardUrl = ref('free')
+  const postId = ref('77')
   const createPost = vi.fn()
   const createScheduledPost = vi.fn()
   const updatePost = vi.fn()
@@ -44,9 +47,10 @@ function createSubmit(overrides: {
   const releaseUploadedFileOwnership = vi.fn()
   const onSubmitted = vi.fn()
   const submit = usePostComposerSubmit({
+    identity,
     mode: () => overrides.mode ?? 'create',
-    boardUrl: ref('free'),
-    postId: ref('77'),
+    boardUrl,
+    postId,
     board: ref({ isAdmin: true }),
     form: ref({
       title: overrides.title ?? 'Post title',
@@ -74,6 +78,9 @@ function createSubmit(overrides: {
 
   return {
     ...submit,
+    identity,
+    boardUrl,
+    postId,
     addToast,
     cleanupPublishedDraft,
     clearScheduledDraftRecovery,
@@ -104,6 +111,63 @@ describe('usePostComposerSubmit', () => {
     expect(submit.isSubmissionLocked.value).toBe(true)
     submit.createPost.mock.calls[0][1].onSuccess({ data: { data: { postId: 1 } } })
     expect(submit.isSubmissionLocked.value).toBe(false)
+  })
+
+  it('stops before mutation when the form identity changes during the pre-submit draft save', async () => {
+    const draft = createDeferred<{ draftId: number }>()
+    const submit = createSubmit({
+      draftEnabled: true,
+      saveDraftNow: vi.fn(() => draft.promise),
+    })
+
+    const pendingSubmit = submit.handleSubmit()
+    submit.identity.value = 'session-1:create:qna:new'
+    submit.boardUrl.value = 'qna'
+    draft.resolve({ draftId: 91 })
+    await pendingSubmit
+
+    expect(submit.isSubmissionLocked.value).toBe(false)
+    expect(submit.createPost).not.toHaveBeenCalled()
+    expect(submit.createScheduledPost).not.toHaveBeenCalled()
+    expect(submit.updatePost).not.toHaveBeenCalled()
+    expect(submit.addToast).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['create', { mode: 'create' as const }, 'createPost'],
+    ['scheduled create', { mode: 'create' as const, scheduledAt: '2026-07-14T12:00' }, 'createScheduledPost'],
+    ['update', { mode: 'edit' as const }, 'updatePost'],
+  ])('ignores a delayed %s response after switching to another form', async (_label, overrides, mutationName) => {
+    const submit = createSubmit(overrides)
+    await submit.handleSubmit()
+
+    const mutation = submit[mutationName as 'createPost' | 'createScheduledPost' | 'updatePost']
+    const staleOptions = mutation.mock.calls[0][1] as {
+      onSuccess: (response?: unknown) => void
+    }
+    submit.identity.value = 'session-1:edit:qna:99'
+    submit.boardUrl.value = 'qna'
+    submit.postId.value = '99'
+
+    expect(submit.isSubmissionLocked.value).toBe(false)
+    await submit.handleSubmit()
+    expect(mutation).toHaveBeenCalledTimes(2)
+    expect(submit.isSubmissionLocked.value).toBe(true)
+    if (mutationName === 'createPost') {
+      staleOptions.onSuccess({ data: { data: { postId: 123, earnedPoints: 50 } } })
+    } else if (mutationName === 'createScheduledPost') {
+      staleOptions.onSuccess({ data: { data: { scheduledPostId: 44, scheduledAt: '2026-07-14T12:00' } } })
+    } else {
+      staleOptions.onSuccess()
+    }
+
+    expect(submit.isSubmissionLocked.value).toBe(true)
+    expect(submit.releaseUploadedFileOwnership).not.toHaveBeenCalled()
+    expect(submit.markCurrentSnapshotSaved).not.toHaveBeenCalled()
+    expect(submit.cleanupPublishedDraft).not.toHaveBeenCalled()
+    expect(submit.clearScheduledDraftRecovery).not.toHaveBeenCalled()
+    expect(submit.addToast).not.toHaveBeenCalled()
+    expect(submit.onSubmitted).not.toHaveBeenCalled()
   })
 
   it('releases the single-flight lock when mutation dispatch throws synchronously', async () => {

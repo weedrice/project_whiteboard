@@ -1,4 +1,4 @@
-import { ref, type Ref } from 'vue'
+import { getCurrentScope, onScopeDispose, ref, watch, type Ref } from 'vue'
 import { unwrapApiData } from '@/api/response'
 import logger from '@/utils/logger'
 import type { ApiResponse } from '@/types'
@@ -59,6 +59,7 @@ type CreateScheduledPostMutate = (
 ) => void
 
 type UsePostComposerSubmitOptions = {
+  identity: Ref<string>
   mode: () => PostComposerMode
   boardUrl: Ref<string>
   postId: Ref<string | number>
@@ -87,22 +88,73 @@ type UsePostComposerSubmitOptions = {
 
 export function usePostComposerSubmit(options: UsePostComposerSubmitOptions) {
   const isSubmissionLocked = ref(false)
+  let submissionRevision = 0
 
-  function notifyCreateSubmitted(newPostId: string | number, payload: PostComposerPayload) {
-    options.onSubmitted()?.({
+  const stopIdentityWatch = watch(
+    options.identity,
+    () => {
+      submissionRevision += 1
+      isSubmissionLocked.value = false
+    },
+    { flush: 'sync' },
+  )
+
+  if (getCurrentScope()) {
+    onScopeDispose(() => {
+      stopIdentityWatch()
+      submissionRevision += 1
+      isSubmissionLocked.value = false
+    })
+  }
+
+  function notifyCreateSubmitted(
+    newPostId: string | number,
+    payload: PostComposerPayload,
+    context: SubmissionContext,
+  ) {
+    context.onSubmitted?.({
       mode: 'create',
-      boardUrl: options.boardUrl.value,
+      boardUrl: context.boardUrl,
       newPostId,
       isSecret: payload.isSecret,
-      isBoardAdmin: options.board.value?.isAdmin ?? false,
+      isBoardAdmin: context.isBoardAdmin,
     })
+  }
+
+  type SubmissionContext = {
+    revision: number
+    identity: string
+    mode: PostComposerMode
+    boardUrl: string
+    postId: string | number
+    draftId?: number
+    scheduledAt: string
+    isBoardAdmin: boolean
+    onSubmitted?: (result: PostFormSubmitResult) => void
+    createSuccessToastMessage?: string
   }
 
   async function handleSubmit() {
     if (isSubmissionLocked.value) return
+    const context: SubmissionContext = {
+      revision: ++submissionRevision,
+      identity: options.identity.value,
+      mode: options.mode(),
+      boardUrl: options.boardUrl.value,
+      postId: options.postId.value,
+      draftId: options.draftId.value ?? undefined,
+      scheduledAt: options.scheduledAt.value?.trim(),
+      isBoardAdmin: options.board.value?.isAdmin ?? false,
+      onSubmitted: options.onSubmitted(),
+      createSuccessToastMessage: options.createSuccessToastMessage(),
+    }
     isSubmissionLocked.value = true
+    const isCurrentSubmission = () => (
+      context.revision === submissionRevision
+      && context.identity === options.identity.value
+    )
     const unlock = () => {
-      isSubmissionLocked.value = false
+      if (isCurrentSubmission()) isSubmissionLocked.value = false
     }
 
     try {
@@ -114,6 +166,7 @@ export function usePostComposerSubmit(options: UsePostComposerSubmitOptions) {
     if (options.validateBeforeSubmit) {
       const validationResult = options.validateBeforeSubmit()
       const isValid = validationResult instanceof Promise ? await validationResult : validationResult
+      if (!isCurrentSubmission()) return
       if (!isValid) {
         unlock()
         return
@@ -124,20 +177,22 @@ export function usePostComposerSubmit(options: UsePostComposerSubmitOptions) {
       unlock()
       return
     }
-    if (options.mode() === 'create' && !options.hideCategory() && !options.form.value.categoryId) {
+    if (context.mode === 'create' && !options.hideCategory() && !options.form.value.categoryId) {
       options.addToast(options.t('board.writePost.validation'), 'error')
       unlock()
       return
     }
 
-    let currentDraftId = options.draftId.value ?? undefined
+    let currentDraftId = context.draftId
     if (options.draftEnabled.value) {
       try {
         const savedDraft = await options.saveDraftNow()
+        if (!isCurrentSubmission()) return
         if (savedDraft?.draftId != null) {
           currentDraftId = savedDraft.draftId
         }
       } catch (error) {
+        if (!isCurrentSubmission()) return
         logger.error('Failed to save draft before submit:', error)
         options.addToast(options.t('common.error.unknown'), 'error')
         unlock()
@@ -149,44 +204,47 @@ export function usePostComposerSubmit(options: UsePostComposerSubmitOptions) {
       ...(currentDraftId !== undefined && { draftId: currentDraftId }),
     }
 
-    if (options.mode() === 'create') {
+    if (context.mode === 'create') {
       const { seriesId, ...payloadWithoutSeries } = payload
       const createPayload: CreatePostComposerPayload = seriesId == null
         ? payloadWithoutSeries
         : { ...payloadWithoutSeries, seriesId }
-      const scheduledAt = options.scheduledAt.value?.trim()
+      const scheduledAt = context.scheduledAt
       if (scheduledAt) {
-        options.createScheduledPost({ boardUrl: options.boardUrl.value, data: { ...createPayload, scheduledAt } }, {
+        options.createScheduledPost({ boardUrl: context.boardUrl, data: { ...createPayload, scheduledAt } }, {
           onSuccess: (response) => {
+            if (!isCurrentSubmission()) return
             unlock()
             options.releaseUploadedFileOwnership(payload.fileIds)
             options.markCurrentSnapshotSaved()
             options.clearScheduledDraftRecovery()
             const scheduledPost = unwrapApiData(response.data)
             options.addToast(options.t('board.writePost.scheduleSuccess'), 'success')
-            options.onSubmitted()?.({
+            context.onSubmitted?.({
               mode: 'create',
-              boardUrl: options.boardUrl.value,
+              boardUrl: context.boardUrl,
               scheduledPostId: scheduledPost.scheduledPostId,
               scheduledAt: scheduledPost.scheduledAt,
               isSecret: payload.isSecret,
-              isBoardAdmin: options.board.value?.isAdmin ?? false,
+              isBoardAdmin: context.isBoardAdmin,
             })
           },
           onError: (error) => {
+            if (!isCurrentSubmission()) return
             unlock()
             logger.error('Failed to schedule post:', error)
           },
         })
         return
       }
-      options.createPost({ boardUrl: options.boardUrl.value, data: createPayload }, {
+      options.createPost({ boardUrl: context.boardUrl, data: createPayload }, {
         onSuccess: (response) => {
+          if (!isCurrentSubmission()) return
           unlock()
           options.releaseUploadedFileOwnership(payload.fileIds)
           options.markCurrentSnapshotSaved()
           options.cleanupPublishedDraft()
-          const successToastMessage = options.createSuccessToastMessage()
+          const successToastMessage = context.createSuccessToastMessage
           if (successToastMessage) {
             options.addToast(successToastMessage, 'success')
           }
@@ -194,9 +252,10 @@ export function usePostComposerSubmit(options: UsePostComposerSubmitOptions) {
           if (createdPost.earnedPoints && createdPost.earnedPoints > 0) {
             options.addToast(options.t('common.pointEarned', { points: createdPost.earnedPoints }), 'success')
           }
-          notifyCreateSubmitted(createdPost.postId, payload)
+          notifyCreateSubmitted(createdPost.postId, payload, context)
         },
         onError: (error) => {
+          if (!isCurrentSubmission()) return
           unlock()
           logger.error('Failed to create post:', error)
         },
@@ -204,26 +263,29 @@ export function usePostComposerSubmit(options: UsePostComposerSubmitOptions) {
       return
     }
 
-    options.updatePost({ postId: options.postId.value, data: payload }, {
+    options.updatePost({ postId: context.postId, data: payload }, {
       onSuccess: () => {
+        if (!isCurrentSubmission()) return
         unlock()
         options.releaseUploadedFileOwnership(payload.fileIds)
         options.markCurrentSnapshotSaved()
         options.cleanupPublishedDraft()
-        options.onSubmitted()?.({
+        context.onSubmitted?.({
           mode: 'edit',
-          boardUrl: options.boardUrl.value,
-          postId: options.postId.value,
+          boardUrl: context.boardUrl,
+          postId: context.postId,
           isSecret: payload.isSecret,
-          isBoardAdmin: options.board.value?.isAdmin ?? false,
+          isBoardAdmin: context.isBoardAdmin,
         })
       },
       onError: (error) => {
+        if (!isCurrentSubmission()) return
         unlock()
         logger.error('Failed to update post:', error)
       },
     })
     } catch (error) {
+      if (!isCurrentSubmission()) return
       unlock()
       logger.error('Failed to submit post:', error)
       options.addToast(options.t('common.error.unknown'), 'error')

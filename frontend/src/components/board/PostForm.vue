@@ -361,6 +361,7 @@ usePwaReloadBlocker(
 )
 
 const { handleSubmit, isSubmissionLocked } = usePostComposerSubmit({
+  identity: formIdentity,
   mode: () => props.mode,
   boardUrl,
   postId,
