@@ -163,6 +163,7 @@ describe('MyMessages', () => {
         expect(wrapper.find('[data-message-direction="received"]').exists()).toBe(true)
         expect(wrapper.find('[data-message-direction="sent"]').exists()).toBe(true)
         expect(wrapper.find('base-textarea-stub').attributes('label')).toBe('user.message.replyTitle')
+        expect(wrapper.find('base-textarea-stub').attributes('maxlength')).toBe('5000')
         const modal = wrapper.findComponent(baseModalStub)
         expect(modal.props('size')).toBe('2xl')
         expect(modal.props('title')).toBe('user.message.detailTitle')

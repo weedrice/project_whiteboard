@@ -311,6 +311,8 @@ export const user: UserMessages = {
     receiver: '받는 사람',
     content: '내용',
     inputContent: '내용을 입력해주세요.',
+    contentTooLong: '쪽지는 최대 {max}자까지 입력할 수 있습니다.',
+    contentLength: '{current} / {max}자',
     sendSuccess: '쪽지가 전송되었습니다.',
     sendFailed: '쪽지 전송에 실패했습니다.',
     blockedByUser: '해당 사용자에 의해 차단되었습니다.',

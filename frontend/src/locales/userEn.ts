@@ -311,6 +311,8 @@ export const userEn: UserMessages = {
     receiver: 'Recipient',
     content: 'Message',
     inputContent: 'Enter a message.',
+    contentTooLong: 'Messages can contain up to {max} characters.',
+    contentLength: '{current} / {max} characters',
     sendSuccess: 'The message has been sent.',
     sendFailed: 'Failed to send the message.',
     blockedByUser: 'This user has blocked you.',

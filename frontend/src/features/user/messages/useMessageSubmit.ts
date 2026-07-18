@@ -5,7 +5,11 @@ import { messageApi, BLOCKED_BY_USER_CODE } from '@/api/message'
 import { useModalSubmit } from '@/composables/useModalSubmit'
 import { useToastStore } from '@/stores/toast'
 import { extractErrorResponse } from '@/utils/errorHandler'
-import { hasMessageContent } from '@/utils/messageValidation'
+import {
+    isMessageContentTooLong,
+    isValidMessageContent,
+    MESSAGE_CONTENT_MAX_LENGTH,
+} from '@/utils/messageValidation'
 import logger from '@/utils/logger'
 import {
     getCurrentSessionGeneration,
@@ -41,8 +45,13 @@ export function useMessageSubmit({
         reset,
     } = useModalSubmit({
         initialValue: '',
-        isValid: hasMessageContent,
-        onInvalid: () => toastStore.addToast(t('user.message.inputContent'), 'warning'),
+        isValid: isValidMessageContent,
+        onInvalid: (messageContent) => toastStore.addToast(
+            isMessageContentTooLong(messageContent)
+                ? t('user.message.contentTooLong', { max: MESSAGE_CONTENT_MAX_LENGTH })
+                : t('user.message.inputContent'),
+            'warning',
+        ),
         onSubmit: async (messageContent) => {
             const receiverId = getReceiverId()
             if (receiverId == null) return false

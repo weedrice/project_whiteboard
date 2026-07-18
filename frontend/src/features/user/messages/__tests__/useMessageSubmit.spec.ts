@@ -3,6 +3,7 @@ import { useMessageSubmit } from '../useMessageSubmit'
 import { BLOCKED_BY_USER_CODE, messageApi } from '@/api/message'
 import { createDeferred } from '@/test/async'
 import { notifyAuthSessionBoundary } from '@/queryAuthScope'
+import { MESSAGE_CONTENT_MAX_LENGTH } from '@/utils/messageValidation'
 
 const mocks = vi.hoisted(() => ({
   addToast: vi.fn(),
@@ -76,6 +77,22 @@ describe('useMessageSubmit', () => {
 
     expect(messageApi.sendMessage).not.toHaveBeenCalled()
     expect(mocks.addToast).toHaveBeenCalledWith('user.message.inputContent', 'warning')
+  })
+
+  it('rejects content over the backend limit before sending', async () => {
+    const submit = useMessageSubmit({
+      getReceiverId: () => 7,
+      logMessage: 'Failed to send message:',
+    })
+    submit.content.value = 'a'.repeat(MESSAGE_CONTENT_MAX_LENGTH + 1)
+
+    await expect(submit.send()).resolves.toBe(false)
+
+    expect(messageApi.sendMessage).not.toHaveBeenCalled()
+    expect(mocks.addToast).toHaveBeenCalledWith(
+      'user.message.contentTooLong',
+      'warning',
+    )
   })
 
   it('shows the blocked-by-user toast for blocked receiver errors', async () => {

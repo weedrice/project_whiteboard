@@ -158,9 +158,17 @@
                         <BaseTextarea
                             v-model="replyContent"
                             :label="$t('user.message.replyTitle')"
+                            :maxlength="MESSAGE_CONTENT_MAX_LENGTH"
+                            :error="replyContentError"
                             rows="3"
                             class="min-h-[96px]"
                         />
+                        <p class="mt-1 text-right text-xs nv-text-muted">
+                            {{ $t('user.message.contentLength', {
+                                current: replyContent.length,
+                                max: MESSAGE_CONTENT_MAX_LENGTH,
+                            }) }}
+                        </p>
                         <div class="mt-2 flex justify-end gap-2">
                             <BaseButton
                                 type="submit"
@@ -209,6 +217,7 @@ import { computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { usePwaReloadBlocker } from '@/pwaReloadGuard'
+import { isMessageContentTooLong, MESSAGE_CONTENT_MAX_LENGTH } from '@/utils/messageValidation'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -248,6 +257,10 @@ const {
     cancelInlineReply,
     sendReply,
 } = useMailboxResource()
+
+const replyContentError = computed(() => isMessageContentTooLong(replyContent.value)
+    ? t('user.message.contentTooLong', { max: MESSAGE_CONTENT_MAX_LENGTH })
+    : '')
 usePwaReloadBlocker(computed(() => replyContent.value.trim().length > 0))
 
 type ConversationMessage = MailboxMessageViewModel & { isCurrent: boolean }

@@ -839,6 +839,8 @@ export interface UserMessages {
     receiver: string
     content: string
     inputContent: string
+    contentTooLong: string
+    contentLength: string
     sendSuccess: string
     sendFailed: string
     blockedByUser: string

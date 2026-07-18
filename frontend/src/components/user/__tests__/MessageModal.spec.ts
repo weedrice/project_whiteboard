@@ -42,11 +42,15 @@ vi.mock('vue-i18n', () => ({
 const BaseTextareaStub = defineComponent({
     props: {
         modelValue: String,
+        maxlength: [String, Number],
+        error: String,
     },
     emits: ['update:modelValue'],
     setup(props, { emit }) {
         return () => h('textarea', {
             value: props.modelValue,
+            maxlength: props.maxlength,
+            'data-error': props.error,
             onInput: (event: Event) => emit('update:modelValue', (event.target as HTMLTextAreaElement).value),
         })
     },
@@ -83,6 +87,13 @@ describe('MessageModal', () => {
 
         expect(mocks.addToast).toHaveBeenCalledWith('user.message.inputContent', 'warning')
         expect(mocks.sendMessage).not.toHaveBeenCalled()
+    })
+
+    it('applies the 5,000 character input limit', () => {
+        const wrapper = mountModal()
+
+        expect(wrapper.get('textarea').attributes('maxlength')).toBe('5000')
+        expect(wrapper.text()).toContain('user.message.contentLength')
     })
 
     it('ignores repeated sends while a send request is pending', async () => {
