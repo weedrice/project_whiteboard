@@ -7,15 +7,16 @@ import UserMenu from '@/components/common/widgets/UserMenu.vue'
 import type { PostDetailViewModel } from '@/features/board/posts/detail/usePostDetailViewModel'
 import { formatDate } from '@/utils/date'
 
-defineProps<{
+withDefaults(defineProps<{
   postView: PostDetailViewModel
   editRoute: RouteLocationRaw
   isAgentAuthor: boolean
   canEdit: boolean
   canDelete: boolean
   canManage: boolean
+  isManagerActionPending?: boolean
   canViewHistory: boolean
-}>()
+}>(), { isManagerActionPending: false })
 
 const emit = defineEmits<{
   (event: 'back-to-list'): void
@@ -67,6 +68,7 @@ const seriesMeta = (postView: PostDetailViewModel) => {
               type="button"
               class="nv-post-header-action"
               :aria-label="t('board.postDetail.pin')"
+              :disabled="isManagerActionPending"
               @click="emit('pin')"
             >
               <Pin class="h-4 w-4" />
@@ -77,6 +79,7 @@ const seriesMeta = (postView: PostDetailViewModel) => {
               type="button"
               class="nv-post-header-action"
               :aria-label="t('board.postDetail.unpin')"
+              :disabled="isManagerActionPending"
               @click="emit('unpin')"
             >
               <PinOff class="h-4 w-4" />
@@ -87,6 +90,7 @@ const seriesMeta = (postView: PostDetailViewModel) => {
               type="button"
               class="nv-post-header-action is-danger"
               :aria-label="t('board.postDetail.blind')"
+              :disabled="isManagerActionPending"
               @click="emit('blind')"
             >
               <EyeOff class="h-4 w-4" />
@@ -97,6 +101,7 @@ const seriesMeta = (postView: PostDetailViewModel) => {
               type="button"
               class="nv-post-header-action"
               :aria-label="t('board.postDetail.unblind')"
+              :disabled="isManagerActionPending"
               @click="emit('unblind')"
             >
               <Eye class="h-4 w-4" />

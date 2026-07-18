@@ -90,6 +90,7 @@ const isAllPostsActive = computed(() => (
 
 const { handleSubscribe } = useBoardSubscriptionAction({
   board,
+  sessionGeneration: computed(() => authStore.sessionGeneration),
   isSubscribePending,
   subscribeMutate,
 })

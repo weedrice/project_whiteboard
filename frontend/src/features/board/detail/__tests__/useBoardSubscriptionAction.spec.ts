@@ -48,6 +48,7 @@ describe('useBoardSubscriptionAction', () => {
     const subscribeMutate = vi.fn()
     const { handleSubscribe } = useBoardSubscriptionAction({
       board: ref(boardDetail({ isSubscribed: false })),
+      sessionGeneration: ref(0),
       isSubscribePending: ref(false),
       subscribeMutate,
     })
@@ -65,6 +66,7 @@ describe('useBoardSubscriptionAction', () => {
     const subscribeMutate = vi.fn()
     const { handleSubscribe } = useBoardSubscriptionAction({
       board: ref(boardDetail({ isSubscribed: true })),
+      sessionGeneration: ref(0),
       isSubscribePending: ref(false),
       subscribeMutate,
     })
@@ -83,6 +85,7 @@ describe('useBoardSubscriptionAction', () => {
     mocks.confirm.mockResolvedValueOnce(false)
     const { handleSubscribe } = useBoardSubscriptionAction({
       board: ref(boardDetail({ isSubscribed: true })),
+      sessionGeneration: ref(0),
       isSubscribePending: ref(false),
       subscribeMutate,
     })
@@ -98,6 +101,7 @@ describe('useBoardSubscriptionAction', () => {
     const isSubscribePending = ref(false)
     const { handleSubscribe } = useBoardSubscriptionAction({
       board,
+      sessionGeneration: ref(0),
       isSubscribePending,
       subscribeMutate,
     })
@@ -109,6 +113,46 @@ describe('useBoardSubscriptionAction', () => {
     await handleSubscribe()
 
     expect(mocks.confirm).not.toHaveBeenCalled()
+    expect(subscribeMutate).not.toHaveBeenCalled()
+  })
+
+  it('drops an unsubscribe intent when the board changes during confirmation', async () => {
+    let resolveConfirm!: (value: boolean) => void
+    mocks.confirm.mockReturnValueOnce(new Promise<boolean>((resolve) => { resolveConfirm = resolve }))
+    const subscribeMutate = vi.fn()
+    const board = ref(boardDetail({ isSubscribed: true }))
+    const { handleSubscribe } = useBoardSubscriptionAction({
+      board,
+      sessionGeneration: ref(0),
+      isSubscribePending: ref(false),
+      subscribeMutate,
+    })
+
+    const pending = handleSubscribe()
+    board.value = boardDetail({ boardUrl: 'other', isSubscribed: true })
+    resolveConfirm(true)
+    await pending
+
+    expect(subscribeMutate).not.toHaveBeenCalled()
+  })
+
+  it('drops an unsubscribe intent when the session changes during confirmation', async () => {
+    let resolveConfirm!: (value: boolean) => void
+    mocks.confirm.mockReturnValueOnce(new Promise<boolean>((resolve) => { resolveConfirm = resolve }))
+    const subscribeMutate = vi.fn()
+    const sessionGeneration = ref(0)
+    const { handleSubscribe } = useBoardSubscriptionAction({
+      board: ref(boardDetail({ isSubscribed: true })),
+      sessionGeneration,
+      isSubscribePending: ref(false),
+      subscribeMutate,
+    })
+
+    const pending = handleSubscribe()
+    sessionGeneration.value = 1
+    resolveConfirm(true)
+    await pending
+
     expect(subscribeMutate).not.toHaveBeenCalled()
   })
 })

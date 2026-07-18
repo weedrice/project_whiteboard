@@ -16,18 +16,21 @@ vi.mock('@/utils/errorHandler', () => ({
 }))
 
 function setup(deleteAccount = vi.fn().mockResolvedValue(undefined)) {
+  let sessionGeneration = 0
   const options = {
     deleteAccount,
     logout: vi.fn().mockResolvedValue(undefined),
     pushHome: vi.fn().mockResolvedValue(undefined),
+    getSessionGeneration: () => sessionGeneration,
     t: (key: string) => `t:${key}`,
   }
-  return { result: useAccountDeletion(options), options }
+  return { result: useAccountDeletion(options), options, setSessionGeneration: (value: number) => { sessionGeneration = value } }
 }
 
 describe('useAccountDeletion', () => {
   it('requires a password before calling the API', async () => {
     const { result, options } = setup()
+    result.showDeleteModal.value = true
     await result.handleDeleteAccount()
     expect(result.deleteError.value).toBe('t:auth.passwordRequired')
     expect(options.deleteAccount).not.toHaveBeenCalled()
@@ -49,6 +52,7 @@ describe('useAccountDeletion', () => {
     mocks.getFieldError.mockReturnValue('wrong password')
     const { result } = setup(vi.fn().mockRejectedValue(new Error('bad')))
     result.deletePassword.value = 'bad'
+    result.showDeleteModal.value = true
     await result.handleDeleteAccount()
     expect(result.deleteError.value).toBe('wrong password')
     expect(mocks.loggerError).toHaveBeenCalled()
@@ -59,7 +63,41 @@ describe('useAccountDeletion', () => {
     mocks.extractErrorMessage.mockReturnValue('')
     const { result } = setup(vi.fn().mockRejectedValue(new Error('bad')))
     result.deletePassword.value = 'bad'
+    result.showDeleteModal.value = true
     await result.handleDeleteAccount()
     expect(result.deleteError.value).toBe('t:common.messages.error')
+  })
+
+  it('ignores a deletion result after the modal is closed and clears sensitive state', async () => {
+    let resolveDelete!: () => void
+    const request = new Promise<void>((resolve) => { resolveDelete = resolve })
+    const { result, options } = setup(vi.fn(() => request))
+    result.showDeleteModal.value = true
+    result.deletePassword.value = 'secret'
+    const pending = result.handleDeleteAccount()
+
+    result.showDeleteModal.value = false
+    resolveDelete()
+    await pending
+
+    expect(result.deletePassword.value).toBe('')
+    expect(result.deleteError.value).toBe('')
+    expect(options.logout).not.toHaveBeenCalled()
+    expect(options.pushHome).not.toHaveBeenCalled()
+  })
+
+  it('does not log out a replacement session', async () => {
+    let resolveDelete!: () => void
+    const request = new Promise<void>((resolve) => { resolveDelete = resolve })
+    const { result, options, setSessionGeneration } = setup(vi.fn(() => request))
+    result.showDeleteModal.value = true
+    result.deletePassword.value = 'secret'
+    const pending = result.handleDeleteAccount()
+
+    setSessionGeneration(1)
+    resolveDelete()
+    await pending
+
+    expect(options.logout).not.toHaveBeenCalled()
   })
 })

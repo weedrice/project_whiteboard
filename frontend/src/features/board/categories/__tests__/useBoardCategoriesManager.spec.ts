@@ -383,6 +383,23 @@ describe('useBoardCategoriesManager', () => {
         expect(mocks.invalidateQueries).not.toHaveBeenCalled()
     })
 
+    it('does not start a reorder while a category mutation is pending', async () => {
+        const manager = createManager()
+        const response = axiosApiResponse(apiSuccess(makeCategory({ categoryId: 9, name: 'Pending' })))
+        const pending = createDeferred<typeof response>()
+        vi.mocked(boardApi.createCategory).mockReturnValueOnce(pending.promise)
+        manager.categories.value = initialCategories()
+        manager.newCategoryName.value = 'Pending'
+
+        const mutation = manager.handleAdd()
+        manager.onDragStart({ dataTransfer: null } as unknown as DragEvent, 1)
+        await expect(manager.onDrop(0)).resolves.toBe(false)
+        expect(boardApi.reorderCategories).not.toHaveBeenCalled()
+
+        pending.resolve(response)
+        await mutation
+    })
+
     it('aborts the previous request and keeps only the latest board response', async () => {
         const boardUrl = ref('board-a')
         const manager = useBoardCategoriesManager(boardUrl)

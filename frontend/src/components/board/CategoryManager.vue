@@ -154,9 +154,9 @@ watch(() => props.boardUrl, () => {
           class="px-4 py-3 flex items-center justify-between group nv-surface" @dragover.prevent
           @dragenter.prevent @drop="onDrop(index)">
           <div class="flex items-center">
-            <div :draggable="!isReordering" @dragstart="onDragStart($event, index)"
+            <div :draggable="!isReordering && !isMutating" @dragstart="onDragStart($event, index)"
               class="mr-3 nv-text-subtle p-1 rounded"
-              :class="isReordering
+              :class="isReordering || isMutating
                 ? 'cursor-not-allowed opacity-50'
                 : 'cursor-move nv-hover-surface'">
               <GripVertical class="h-4 w-4" aria-hidden="true" />

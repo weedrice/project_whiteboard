@@ -40,7 +40,7 @@
       v-model:show-delete-modal="showDeleteModal"
       v-model:delete-password="deletePassword"
       :delete-error="deleteError"
-      :is-deleting="isDeletingAccount"
+      :is-deleting="isDeletingAccount || isDeleteIntentPending"
       :loading="loading"
       @save="updateProfile"
       @delete="handleDeleteAccount"
@@ -186,11 +186,13 @@ const {
   showDeleteModal,
   deletePassword,
   deleteError,
+  isDeleting: isDeleteIntentPending,
   handleDeleteAccount
 } = useAccountDeletion({
   deleteAccount,
   logout: authStore.logout,
   pushHome: () => router.push('/'),
+  getSessionGeneration: () => authStore.sessionGeneration,
   t
 })
 </script>

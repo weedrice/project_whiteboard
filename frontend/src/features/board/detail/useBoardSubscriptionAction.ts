@@ -10,12 +10,14 @@ interface BoardSubscriptionPayload {
 
 interface UseBoardSubscriptionActionOptions {
   board: Ref<BoardDetail | null | undefined>
+  sessionGeneration: Readonly<Ref<number>>
   isSubscribePending: Ref<boolean>
   subscribeMutate: (payload: BoardSubscriptionPayload) => void
 }
 
 export function useBoardSubscriptionAction({
   board,
+  sessionGeneration,
   isSubscribePending,
   subscribeMutate,
 }: UseBoardSubscriptionActionOptions) {
@@ -25,15 +27,27 @@ export function useBoardSubscriptionAction({
   async function handleSubscribe() {
     const currentBoard = board.value
     if (!currentBoard || isSubscribePending.value) return
+    const boardUrl = currentBoard.boardUrl
+    const subscribed = currentBoard.isSubscribed ?? false
+    const generation = sessionGeneration.value
 
-    if (currentBoard.isSubscribed) {
+    const isCurrentIntent = () => (
+      board.value?.boardUrl === boardUrl
+      && (board.value?.isSubscribed ?? false) === subscribed
+      && sessionGeneration.value === generation
+      && !isSubscribePending.value
+    )
+
+    if (subscribed) {
       const isConfirmed = await confirm(t('user.subscriptions.unsubscribeConfirm'))
-      if (!isConfirmed) return
+      if (!isConfirmed || !isCurrentIntent()) return
     }
 
+    if (!isCurrentIntent()) return
+
     subscribeMutate({
-      boardUrl: currentBoard.boardUrl,
-      isSubscribed: currentBoard.isSubscribed ?? false,
+      boardUrl,
+      isSubscribed: subscribed,
     })
   }
 

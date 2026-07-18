@@ -40,6 +40,7 @@ import {
 import { recycleNotificationStreamConnection } from '@/features/notifications/stream/notificationStreamController'
 import { isAxiosError } from 'axios'
 import { isCancellationError } from '@/utils/cancellationError'
+import logger from '@/utils/logger'
 
 const route = useRoute()
 const router = useRouter()
@@ -119,27 +120,55 @@ const pinPostMutation = usePinPostByManager()
 const unpinPostMutation = useUnpinPostByManager()
 const blindPostMutation = useBlindPostByManager()
 const unblindPostMutation = useUnblindPostByManager()
+const isManagerActionPending = ref(false)
+let managerActionRevision = 0
 
-async function runManagerAction(action: () => Promise<unknown>) {
-  await action()
-  toastStore.addToast(t('board.postDetail.managerActionSuccess'), 'success')
+async function runManagerAction(action: (postId: string) => Promise<unknown>) {
+  if (isManagerActionPending.value || !post.value) return
+  const targetPostId = postId.value
+  const targetBoardUrl = post.value.board.boardUrl
+  const sessionGeneration = authStore.sessionGeneration
+  const revision = ++managerActionRevision
+  const isCurrentIntent = () => (
+    managerActionRevision === revision
+    &&
+    postId.value === targetPostId
+    && post.value?.board.boardUrl === targetBoardUrl
+    && authStore.sessionGeneration === sessionGeneration
+  )
+  isManagerActionPending.value = true
+  try {
+    await action(targetPostId)
+    if (isCurrentIntent()) {
+      toastStore.addToast(t('board.postDetail.managerActionSuccess'), 'success')
+    }
+  } catch (actionError) {
+    if (isCurrentIntent()) logger.error('Failed to apply manager post action:', actionError)
+  } finally {
+    if (isCurrentIntent()) isManagerActionPending.value = false
+  }
 }
 
-function handleManagerPin() {
-  void runManagerAction(() => pinPostMutation.mutateAsync(postId.value))
+async function handleManagerPin() {
+  await runManagerAction((targetPostId) => pinPostMutation.mutateAsync(targetPostId))
 }
 
-function handleManagerUnpin() {
-  void runManagerAction(() => unpinPostMutation.mutateAsync(postId.value))
+async function handleManagerUnpin() {
+  await runManagerAction((targetPostId) => unpinPostMutation.mutateAsync(targetPostId))
 }
 
-function handleManagerBlind() {
-  void runManagerAction(() => blindPostMutation.mutateAsync({ postId: postId.value }))
+async function handleManagerBlind() {
+  await runManagerAction((targetPostId) => blindPostMutation.mutateAsync({ postId: targetPostId }))
 }
 
-function handleManagerUnblind() {
-  void runManagerAction(() => unblindPostMutation.mutateAsync(postId.value))
+async function handleManagerUnblind() {
+  await runManagerAction((targetPostId) => unblindPostMutation.mutateAsync(targetPostId))
 }
+
+watch([postId, () => authStore.sessionGeneration], () => {
+  managerActionRevision += 1
+  isManagerActionPending.value = false
+}, { flush: 'sync' })
 
 const {
   isBlurred,
@@ -410,6 +439,7 @@ onBeforeUnmount(() => {
           :can-edit="canEdit"
           :can-delete="canDelete"
           :can-manage="canManage"
+          :is-manager-action-pending="isManagerActionPending"
           :can-view-history="canViewHistory"
           @back-to-list="router.push(buildBoardListRoute(postView.boardUrl))"
           @delete="handleDelete"

@@ -63,7 +63,7 @@ export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
     }
 
     const beginMutation = (): CategoryMutationIntent | null => {
-        if (isMutating.value) return null
+        if (isMutating.value || isReordering.value) return null
         const controller = new AbortController()
         const intent = {
             boardUrl: boardUrl.value,
@@ -222,7 +222,7 @@ export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
     }
 
     function onDragStart(event: DragEvent, index: number) {
-        if (isReordering.value) return
+        if (isReordering.value || isMutating.value) return
 
         dragIndex.value = index
         if (event.dataTransfer) {
@@ -231,7 +231,7 @@ export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
     }
 
     async function onDrop(index: number): Promise<boolean> {
-        if (isReordering.value) {
+        if (isReordering.value || isMutating.value) {
             dragIndex.value = null
             return false
         }
@@ -298,6 +298,7 @@ export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
     }
 
     async function moveCategory(index: number, offset: -1 | 1): Promise<boolean> {
+        if (isMutating.value || isReordering.value) return false
         const targetIndex = index + offset
         if (targetIndex < 0 || targetIndex >= draggableCategories.value.length) return false
 
