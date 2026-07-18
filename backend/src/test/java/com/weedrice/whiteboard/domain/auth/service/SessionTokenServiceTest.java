@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.auth.service;
 
 import com.weedrice.whiteboard.domain.auth.entity.RefreshToken;
 import com.weedrice.whiteboard.domain.auth.repository.RefreshTokenRepository;
+import com.weedrice.whiteboard.domain.notification.service.NotificationAccessInvalidationService;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionPolicyService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
@@ -49,6 +50,7 @@ class SessionTokenServiceTest {
     @Mock private RefreshTokenRepository refreshTokenRepository;
     @Mock private SanctionPolicyService sanctionPolicyService;
     @Mock private TransactionTemplate transactionTemplate;
+    @Mock private NotificationAccessInvalidationService notificationAccessInvalidationService;
 
     private final TokenHashService tokenHashService = new TokenHashService();
     private SessionTokenService service;
@@ -63,6 +65,7 @@ class SessionTokenServiceTest {
                 new LoginAccountEligibilityService(sanctionPolicyService),
                 tokenHashService,
                 transactionTemplate,
+                notificationAccessInvalidationService,
                 CLOCK);
         user = User.builder()
                 .loginId("session-user")
@@ -92,6 +95,7 @@ class SessionTokenServiceTest {
         order.verify(refreshTokenRepository).findRenewalCandidateByTokenHash(tokenHash);
         order.verify(userRepository).findByIdForUpdate(1L);
         order.verify(refreshTokenRepository).revokeTokenFamily(familyId);
+        verify(notificationAccessInvalidationService).disconnectSessionFamilyAfterCommit(1L, familyId);
     }
 
     @Test
@@ -126,6 +130,7 @@ class SessionTokenServiceTest {
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_REFRESH_TOKEN);
         verify(refreshTokenRepository).revokeTokenFamily(familyId);
+        verify(notificationAccessInvalidationService).disconnectSessionFamilyAfterCommit(1L, familyId);
         verify(jwtTokenProvider, never()).createAccessToken(any(), any(UUID.class));
         verify(jwtTokenProvider, never()).createRefreshToken(any());
     }

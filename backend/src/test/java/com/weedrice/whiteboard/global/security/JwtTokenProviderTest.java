@@ -100,6 +100,9 @@ class JwtTokenProviderTest {
         // then
         assertThat(authResult.getName()).isEqualTo("test@test.com");
         assertThat(authResult.getAuthorities()).hasSize(1);
+        assertThat(authResult).isInstanceOf(SessionAuthenticationToken.class);
+        assertThat(((SessionAuthenticationToken) authResult).getSessionFamilyId()).isEqualTo(SESSION_FAMILY_ID);
+        assertThat(authResult.getCredentials()).isNull();
     }
 
     @Test

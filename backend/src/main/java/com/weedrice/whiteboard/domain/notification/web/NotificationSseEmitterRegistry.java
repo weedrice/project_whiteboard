@@ -62,10 +62,16 @@ public class NotificationSseEmitterRegistry
                 .register(meterRegistry);
     }
 
-    public SseEmitter subscribe(Long userId) {
+    public SseEmitter subscribe(Long userId, UUID sessionFamilyId) {
+        if (sessionFamilyId == null) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
         SseEmitter emitter = createEmitter();
         String connectionId = UUID.randomUUID().toString();
-        EmitterConnection connection = new EmitterConnection(emitter, connectionSequence.incrementAndGet());
+        EmitterConnection connection = new EmitterConnection(
+                emitter,
+                connectionSequence.incrementAndGet(),
+                sessionFamilyId);
         List<SseEmitter> evictedEmitters;
 
         while (true) {
@@ -99,6 +105,10 @@ public class NotificationSseEmitterRegistry
         }
 
         return emitter;
+    }
+
+    SseEmitter subscribe(Long userId) {
+        return subscribe(userId, new UUID(0L, 0L));
     }
 
     @Scheduled(fixedRate = 25_000, scheduler = "heartbeatTaskScheduler")
@@ -403,6 +413,64 @@ public class NotificationSseEmitterRegistry
     }
 
     @Override
+    public void disconnectSessionFamily(Long userId, UUID sessionFamilyId) {
+        if (userId == null || sessionFamilyId == null) {
+            return;
+        }
+        disconnectConnections(userId, connection -> sessionFamilyId.equals(connection.sessionFamilyId()));
+    }
+
+    @Override
+    public void disconnectOtherSessionFamilies(Long userId, UUID retainedSessionFamilyId) {
+        if (userId == null) {
+            return;
+        }
+        disconnectConnections(
+                userId,
+                connection -> !java.util.Objects.equals(retainedSessionFamilyId, connection.sessionFamilyId()));
+    }
+
+    private void disconnectConnections(
+            Long userId,
+            java.util.function.Predicate<EmitterConnection> shouldDisconnect) {
+        List<SseEmitter> disconnectedEmitters = new ArrayList<>();
+        Object lock = userLocks.get(userId);
+        if (lock == null) {
+            return;
+        }
+        synchronized (lock) {
+            if (userLocks.get(userId) != lock) {
+                return;
+            }
+            Map<String, EmitterConnection> userEmitters = emitters.get(userId);
+            if (userEmitters == null) {
+                userLocks.remove(userId, lock);
+                return;
+            }
+            for (Map.Entry<String, EmitterConnection> entry : new ArrayList<>(userEmitters.entrySet())) {
+                if (!shouldDisconnect.test(entry.getValue())) {
+                    continue;
+                }
+                if (userEmitters.remove(entry.getKey(), entry.getValue())) {
+                    removeCommentSubscriptions(userId, entry.getKey());
+                    disconnectedEmitters.add(entry.getValue().emitter());
+                }
+            }
+            if (userEmitters.isEmpty()) {
+                emitters.remove(userId, userEmitters);
+                userLocks.remove(userId, lock);
+            }
+        }
+        disconnectedEmitters.forEach(emitter -> {
+            try {
+                emitter.complete();
+            } catch (RuntimeException exception) {
+                log.debug("Failed to complete revoked session SSE emitter: userId={}", userId, exception);
+            }
+        });
+    }
+
+    @Override
     public void invalidateCommentTopic(Long postId) {
         if (postId == null) {
             return;
@@ -529,6 +597,6 @@ public class NotificationSseEmitterRegistry
                 : DEFAULT_MAX_CONNECTIONS_PER_USER;
     }
 
-    private record EmitterConnection(SseEmitter emitter, long createdOrder) {
+    private record EmitterConnection(SseEmitter emitter, long createdOrder, UUID sessionFamilyId) {
     }
 }

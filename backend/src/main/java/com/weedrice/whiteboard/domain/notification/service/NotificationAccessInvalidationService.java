@@ -7,6 +7,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.UUID;
+
 @Service
 @RequiredArgsConstructor
 public class NotificationAccessInvalidationService {
@@ -18,6 +20,23 @@ public class NotificationAccessInvalidationService {
     public void revokeForLockedUser(Long userId) {
         pushSubscriptionRepository.deleteAllByUserId(userId);
         eventPublisher.publishEvent(NotificationStreamInvalidationEvent.disconnectUser(userId));
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void disconnectSessionFamilyAfterCommit(Long userId, UUID sessionFamilyId) {
+        if (userId != null && sessionFamilyId != null) {
+            eventPublisher.publishEvent(
+                    NotificationStreamInvalidationEvent.disconnectSessionFamily(userId, sessionFamilyId));
+        }
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void disconnectOtherSessionFamiliesAfterCommit(Long userId, UUID retainedSessionFamilyId) {
+        if (userId != null) {
+            eventPublisher.publishEvent(NotificationStreamInvalidationEvent.disconnectOtherSessionFamilies(
+                    userId,
+                    retainedSessionFamilyId));
+        }
     }
 
     @Transactional(propagation = Propagation.MANDATORY)

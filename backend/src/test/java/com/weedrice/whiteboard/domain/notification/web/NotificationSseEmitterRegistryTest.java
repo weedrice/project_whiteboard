@@ -18,11 +18,15 @@ import java.util.Map;
 import java.util.ArrayDeque;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class NotificationSseEmitterRegistryTest {
+
+    private static final UUID FAMILY_A = UUID.fromString("00000000-0000-0000-0000-00000000000a");
+    private static final UUID FAMILY_B = UUID.fromString("00000000-0000-0000-0000-00000000000b");
 
     @Test
     void commentTopicRequiresActiveEmitter() {
@@ -57,6 +61,38 @@ class NotificationSseEmitterRegistryTest {
         assertThat(emitters(registry)).doesNotContainKey(1L);
         assertThat(userLocks(registry)).doesNotContainKey(1L);
         assertThat(commentSubscribers(registry)).isEmpty();
+    }
+
+    @Test
+    void disconnectSessionFamilyKeepsOtherFamilyConnections() {
+        CountingSseEmitter first = new CountingSseEmitter();
+        CountingSseEmitter second = new CountingSseEmitter();
+        NotificationSseEmitterRegistry registry =
+                new SequenceEmitterNotificationSseEmitterRegistry(first, second);
+        registry.subscribe(1L, FAMILY_A);
+        registry.subscribe(1L, FAMILY_B);
+        String firstConnectionId = connectionIdForEmitter(registry, 1L, first);
+        registry.subscribeCommentTopic(1L, 100L, 10L, firstConnectionId);
+
+        registry.disconnectSessionFamily(1L, FAMILY_A);
+
+        assertThat(activeEmitters(registry, 1L)).containsExactly(second);
+        assertThat(commentSubscribers(registry)).isEmpty();
+        assertThat(userLocks(registry)).containsKey(1L);
+    }
+
+    @Test
+    void disconnectOtherSessionFamiliesKeepsRetainedFamily() {
+        CountingSseEmitter first = new CountingSseEmitter();
+        CountingSseEmitter second = new CountingSseEmitter();
+        NotificationSseEmitterRegistry registry =
+                new SequenceEmitterNotificationSseEmitterRegistry(first, second);
+        registry.subscribe(1L, FAMILY_A);
+        registry.subscribe(1L, FAMILY_B);
+
+        registry.disconnectOtherSessionFamilies(1L, FAMILY_A);
+
+        assertThat(activeEmitters(registry, 1L)).containsExactly(first);
     }
 
     @Test

@@ -5,6 +5,7 @@ import com.weedrice.whiteboard.domain.auth.entity.RefreshToken;
 import com.weedrice.whiteboard.domain.auth.repository.LoginHistoryRepository;
 import com.weedrice.whiteboard.domain.auth.repository.RefreshTokenRepository;
 import com.weedrice.whiteboard.domain.auth.service.TokenHashService;
+import com.weedrice.whiteboard.domain.notification.service.NotificationAccessInvalidationService;
 import com.weedrice.whiteboard.domain.user.dto.LoginHistoryResponse;
 import com.weedrice.whiteboard.domain.user.dto.UserSessionResponse;
 import com.weedrice.whiteboard.domain.user.dto.UserSessionRevokeResult;
@@ -40,6 +41,7 @@ public class UserSessionService {
     private final UserReadableResolver userReadableResolver;
     private final UserRepository userRepository;
     private final TokenHashService tokenHashService;
+    private final NotificationAccessInvalidationService notificationAccessInvalidationService;
     private final Clock clock;
 
     public List<UserSessionResponse> getActiveSessions(Long userId, HttpServletRequest request) {
@@ -73,6 +75,9 @@ public class UserSessionService {
             throw new BusinessException(ErrorCode.NOT_FOUND);
         }
         refreshTokenRepository.revokeTokenFamily(refreshToken.getSessionFamilyId());
+        notificationAccessInvalidationService.disconnectSessionFamilyAfterCommit(
+                userId,
+                refreshToken.getSessionFamilyId());
 
         // Revoked refresh tokens stop future refreshes. Existing access tokens remain valid until their normal TTL.
         return new UserSessionRevokeResult(
@@ -87,11 +92,15 @@ public class UserSessionService {
         UUID currentSessionFamilyId = currentSessionFamilyId(request);
         if (currentSessionFamilyId == null) {
             refreshTokenRepository.revokeActiveTokensByUserId(userId, now());
+            notificationAccessInvalidationService.disconnectOtherSessionFamiliesAfterCommit(userId, null);
             return;
         }
 
         // Revoked refresh tokens stop future refreshes. Existing access tokens remain valid until their normal TTL.
         refreshTokenRepository.revokeActiveTokensByUserIdExceptFamily(userId, currentSessionFamilyId, now());
+        notificationAccessInvalidationService.disconnectOtherSessionFamiliesAfterCommit(
+                userId,
+                currentSessionFamilyId);
     }
 
     public Page<LoginHistoryResponse> getLoginHistory(Long userId, Pageable pageable) {

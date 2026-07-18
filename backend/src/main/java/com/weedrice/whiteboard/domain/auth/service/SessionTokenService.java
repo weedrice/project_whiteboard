@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.auth.service;
 import com.weedrice.whiteboard.domain.auth.dto.TokenResponse;
 import com.weedrice.whiteboard.domain.auth.entity.RefreshToken;
 import com.weedrice.whiteboard.domain.auth.repository.RefreshTokenRepository;
+import com.weedrice.whiteboard.domain.notification.service.NotificationAccessInvalidationService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -37,6 +38,7 @@ public class SessionTokenService {
     private final LoginAccountEligibilityService loginAccountEligibilityService;
     private final TokenHashService tokenHashService;
     private final TransactionTemplate transactionTemplate;
+    private final NotificationAccessInvalidationService notificationAccessInvalidationService;
     private final Clock clock;
 
     @Transactional
@@ -56,6 +58,9 @@ public class SessionTokenService {
             return;
         }
         refreshTokenRepository.revokeTokenFamily(candidate.getSessionFamilyId());
+        notificationAccessInvalidationService.disconnectSessionFamilyAfterCommit(
+                candidate.getUserId(),
+                candidate.getSessionFamilyId());
     }
 
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
@@ -79,6 +84,9 @@ public class SessionTokenService {
 
         if (Boolean.TRUE.equals(refreshToken.getIsRevoked())) {
             refreshTokenRepository.revokeTokenFamily(refreshToken.getSessionFamilyId());
+            notificationAccessInvalidationService.disconnectSessionFamilyAfterCommit(
+                    user.getUserId(),
+                    refreshToken.getSessionFamilyId());
             return RefreshTokenRefreshOutcome.failure(ErrorCode.INVALID_REFRESH_TOKEN);
         }
         if (refreshToken.isExpiredAt(now())) {
@@ -90,6 +98,9 @@ public class SessionTokenService {
 
         if (!loginAccountEligibilityService.evaluate(user).isLoginAllowed()) {
             refreshTokenRepository.revokeTokenFamily(refreshToken.getSessionFamilyId());
+            notificationAccessInvalidationService.disconnectSessionFamilyAfterCommit(
+                    user.getUserId(),
+                    refreshToken.getSessionFamilyId());
             return RefreshTokenRefreshOutcome.failure(ErrorCode.USER_NOT_ACTIVE);
         }
 

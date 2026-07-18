@@ -127,6 +127,7 @@ class AuthServiceTest {
         SessionTokenService sessionTokenService = new SessionTokenService(
                 userRepository, jwtTokenProvider, refreshTokenRepository, loginAccountEligibilityService, tokenHashService,
                 transactionTemplate,
+                mock(com.weedrice.whiteboard.domain.notification.service.NotificationAccessInvalidationService.class),
                 FIXED_CLOCK);
         PasswordResetTokenOrchestrationService passwordResetTokenOrchestrationService =
                 new PasswordResetTokenOrchestrationService(

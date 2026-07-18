@@ -8,11 +8,15 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 
+import java.util.UUID;
+
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class NotificationAccessInvalidationServiceTest {
+
+    private static final UUID FAMILY_ID = UUID.fromString("00000000-0000-0000-0000-000000000021");
 
     @Mock PushSubscriptionRepository subscriptions;
     @Mock ApplicationEventPublisher eventPublisher;
@@ -35,14 +39,29 @@ class NotificationAccessInvalidationServiceTest {
         NotificationStreamInvalidationListener listener = new NotificationStreamInvalidationListener(streamControl);
 
         listener.handle(NotificationStreamInvalidationEvent.disconnectUser(1L));
+        listener.handle(NotificationStreamInvalidationEvent.disconnectSessionFamily(1L, FAMILY_ID));
+        listener.handle(NotificationStreamInvalidationEvent.disconnectOtherSessionFamilies(1L, FAMILY_ID));
         listener.handle(NotificationStreamInvalidationEvent.invalidatePost(2L));
         listener.handle(NotificationStreamInvalidationEvent.invalidateBoard(4L));
         listener.handle(NotificationStreamInvalidationEvent.invalidateUserTopics(3L));
 
         verify(streamControl).disconnectUser(1L);
+        verify(streamControl).disconnectSessionFamily(1L, FAMILY_ID);
+        verify(streamControl).disconnectOtherSessionFamilies(1L, FAMILY_ID);
         verify(streamControl).invalidateCommentTopic(2L);
         verify(streamControl).invalidateCommentTopicsForBoard(4L);
         verify(streamControl).invalidateCommentTopicsForUser(3L);
+    }
+
+    @Test
+    void familyDisconnectPublishesTransactionalEvent() {
+        NotificationAccessInvalidationService service =
+                new NotificationAccessInvalidationService(subscriptions, eventPublisher);
+
+        service.disconnectSessionFamilyAfterCommit(7L, FAMILY_ID);
+
+        verify(eventPublisher).publishEvent(
+                NotificationStreamInvalidationEvent.disconnectSessionFamily(7L, FAMILY_ID));
     }
 
     @Test

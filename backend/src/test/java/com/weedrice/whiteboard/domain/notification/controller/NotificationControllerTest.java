@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.notification.controller;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationResponse;
 import com.weedrice.whiteboard.domain.notification.service.NotificationService;
 import com.weedrice.whiteboard.domain.notification.service.CommentTopicAccessService;
+import com.weedrice.whiteboard.domain.notification.service.NotificationStreamSubscriptionService;
 import com.weedrice.whiteboard.domain.notification.web.NotificationSseEmitterRegistry;
 import com.weedrice.whiteboard.global.config.CurrentUserIdWebMvcConfig;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -10,6 +11,7 @@ import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.exception.GlobalExceptionHandler;
 import com.weedrice.whiteboard.global.security.CurrentUserIdArgumentResolver;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
+import com.weedrice.whiteboard.global.security.SessionAuthenticationToken;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -28,6 +30,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.Collections;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -38,6 +41,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -57,6 +61,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         CurrentUserIdArgumentResolver.class
 })
 class NotificationControllerTest {
+
+    private static final UUID SESSION_FAMILY_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
 
     @org.springframework.boot.test.context.TestConfiguration
     @org.springframework.security.config.annotation.web.configuration.EnableWebSecurity
@@ -81,6 +87,9 @@ class NotificationControllerTest {
 
     @MockitoBean
     private NotificationSseEmitterRegistry notificationSseEmitterRegistry;
+
+    @MockitoBean
+    private NotificationStreamSubscriptionService notificationStreamSubscriptionService;
 
     @MockitoBean
     private com.weedrice.whiteboard.global.security.JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -159,27 +168,42 @@ class NotificationControllerTest {
     @Test
     @DisplayName("SSE 구독 성공")
     void subscribe_success() throws Exception {
-        when(notificationSseEmitterRegistry.subscribe(anyLong())).thenReturn(new SseEmitter());
+        when(notificationStreamSubscriptionService.subscribe(1L, SESSION_FAMILY_ID)).thenReturn(new SseEmitter());
 
         mockMvc.perform(get("/api/v1/notifications/stream")
-                        .with(user(customUserDetails)))
+                        .with(authentication(sessionAuthentication())))
                 .andExpect(status().isOk());
 
-        verify(notificationService).validateStreamSubscription(1L);
-        verify(notificationSseEmitterRegistry).subscribe(1L);
+        verify(notificationStreamSubscriptionService).subscribe(1L, SESSION_FAMILY_ID);
     }
 
     @Test
     @DisplayName("SSE subscription rejects missing user")
     void subscribe_missingUser_returnsNotFound() throws Exception {
         org.mockito.Mockito.doThrow(new BusinessException(ErrorCode.USER_NOT_FOUND))
-                .when(notificationService).validateStreamSubscription(1L);
+                .when(notificationStreamSubscriptionService).subscribe(1L, SESSION_FAMILY_ID);
 
         mockMvc.perform(get("/api/v1/notifications/stream")
-                        .with(user(customUserDetails)))
+                        .with(authentication(sessionAuthentication())))
                 .andExpect(status().isNotFound());
 
-        verify(notificationSseEmitterRegistry, never()).subscribe(anyLong());
+        verify(notificationSseEmitterRegistry, never()).subscribe(anyLong(), any());
+    }
+
+    @Test
+    void subscribeRejectsAuthenticationWithoutSessionFamily() throws Exception {
+        mockMvc.perform(get("/api/v1/notifications/stream")
+                        .with(user(customUserDetails)))
+                .andExpect(status().isUnauthorized());
+
+        verify(notificationStreamSubscriptionService, never()).subscribe(anyLong(), any());
+    }
+
+    private SessionAuthenticationToken sessionAuthentication() {
+        return new SessionAuthenticationToken(
+                customUserDetails,
+                customUserDetails.getAuthorities(),
+                SESSION_FAMILY_ID);
     }
 
     @Test

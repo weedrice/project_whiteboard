@@ -4,14 +4,19 @@ import com.weedrice.whiteboard.domain.notification.dto.CommentTopicSubscriptionR
 import com.weedrice.whiteboard.domain.notification.dto.NotificationResponse;
 import com.weedrice.whiteboard.domain.notification.service.NotificationService;
 import com.weedrice.whiteboard.domain.notification.service.CommentTopicAccessService;
+import com.weedrice.whiteboard.domain.notification.service.NotificationStreamSubscriptionService;
 import com.weedrice.whiteboard.domain.notification.web.NotificationSseEmitterRegistry;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.ApiResponses;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.security.CurrentUserId;
+import com.weedrice.whiteboard.global.security.SessionAuthenticationToken;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -23,6 +28,7 @@ public class NotificationController {
     private final NotificationService notificationService;
     private final CommentTopicAccessService commentTopicAccessService;
     private final NotificationSseEmitterRegistry notificationSseEmitterRegistry;
+    private final NotificationStreamSubscriptionService notificationStreamSubscriptionService;
 
     @GetMapping
     public ApiResponse<NotificationResponse> getNotifications(
@@ -55,9 +61,13 @@ public class NotificationController {
     }
 
     @GetMapping(value = "/stream", produces = org.springframework.http.MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter subscribe(@CurrentUserId Long userId) {
-        notificationService.validateStreamSubscription(userId);
-        return notificationSseEmitterRegistry.subscribe(userId);
+    public SseEmitter subscribe(@CurrentUserId Long userId, Authentication authentication) {
+        if (!(authentication instanceof SessionAuthenticationToken sessionAuthentication)) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
+        return notificationStreamSubscriptionService.subscribe(
+                userId,
+                sessionAuthentication.getSessionFamilyId());
     }
 
     @PostMapping("/comment-topics/{postId}/subscriptions")

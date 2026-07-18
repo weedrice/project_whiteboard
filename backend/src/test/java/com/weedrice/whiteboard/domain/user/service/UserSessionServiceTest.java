@@ -5,6 +5,7 @@ import com.weedrice.whiteboard.domain.auth.entity.RefreshToken;
 import com.weedrice.whiteboard.domain.auth.repository.LoginHistoryRepository;
 import com.weedrice.whiteboard.domain.auth.repository.RefreshTokenRepository;
 import com.weedrice.whiteboard.domain.auth.service.TokenHashService;
+import com.weedrice.whiteboard.domain.notification.service.NotificationAccessInvalidationService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -47,12 +48,14 @@ class UserSessionServiceTest {
     @Mock UserReadableResolver users;
     @Mock UserRepository userRepository;
     @Mock TokenHashService hashes;
+    @Mock NotificationAccessInvalidationService notificationAccessInvalidationService;
     UserSessionService service;
     User user;
 
     @BeforeEach
     void setUp() {
         service = new UserSessionService(tokens, histories, users, userRepository, hashes,
+                notificationAccessInvalidationService,
                 Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC));
         user = mock(User.class);
         when(user.getUserId()).thenReturn(1L);
@@ -91,6 +94,8 @@ class UserSessionServiceTest {
 
         assertTrue(service.revokeSession(1L, 12L, requestWithCookie("raw")).currentSessionRevoked());
         verify(tokens).revokeTokenFamily(family("hash"));
+        verify(notificationAccessInvalidationService)
+                .disconnectSessionFamilyAfterCommit(1L, family("hash"));
     }
 
     @Test
@@ -113,6 +118,8 @@ class UserSessionServiceTest {
     void revokeOtherSessionsChoosesCookieAwareQuery() {
         service.revokeOtherSessions(1L, null);
         verify(tokens).revokeActiveTokensByUserId(1L, NOW);
+        verify(notificationAccessInvalidationService)
+                .disconnectOtherSessionFamiliesAfterCommit(1L, null);
 
         when(hashes.hashSha256("keep")).thenReturn("keep-hash");
         RefreshTokenRepository.RefreshTokenRenewalCandidate currentCandidate =
@@ -121,6 +128,8 @@ class UserSessionServiceTest {
                 .thenReturn(Optional.of(currentCandidate));
         service.revokeOtherSessions(1L, requestWithCookie("keep"));
         verify(tokens).revokeActiveTokensByUserIdExceptFamily(1L, family("keep-hash"), NOW);
+        verify(notificationAccessInvalidationService)
+                .disconnectOtherSessionFamiliesAfterCommit(1L, family("keep-hash"));
     }
 
     @Test
