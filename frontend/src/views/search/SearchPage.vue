@@ -293,7 +293,7 @@
               v-if="recentKeywords.length > 0"
               type="button"
               class="nv-touch-target rounded-md px-1 text-xs font-medium nv-accent-text hover:underline"
-              @click="clearRecentKeywords"
+              @click="handleClearRecentKeywords"
             >
               {{ $t('search.clearRecent') }}
             </button>
@@ -325,7 +325,7 @@
                 type="button"
                 class="nv-touch-target-square -my-2 -mr-3 shrink-0 rounded-md text-xs nv-text-subtle nv-hover-danger"
                 :aria-label="$t('search.deleteRecent', { keyword: keyword.keyword })"
-                @click="deleteRecentKeyword(keyword.logId)"
+                @click="handleDeleteRecentKeyword(keyword.logId)"
               >
                 ×
               </button>
@@ -570,6 +570,14 @@ async function deleteRecentKeyword(logId: number) {
 
 async function clearRecentKeywords() {
   await runRecentKeywordMutation((signal) => searchApi.deleteAllRecentSearches({ signal }))
+}
+
+function handleDeleteRecentKeyword(logId: number) {
+  void deleteRecentKeyword(logId).catch(() => undefined)
+}
+
+function handleClearRecentKeywords() {
+  void clearRecentKeywords().catch(() => undefined)
 }
 
 const unsubscribeSessionBoundary = subscribeAuthSessionBoundary(() => {

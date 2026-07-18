@@ -442,6 +442,18 @@ describe('SearchPage', () => {
     })
   })
 
+  it('consumes a recent-search deletion rejection at the click boundary', async () => {
+    searchState.recentKeywords = [{ logId: 8, keyword: 'failed account' }]
+    searchApiMocks.deleteRecentSearch.mockRejectedValueOnce(new Error('offline'))
+    const wrapper = mountPage()
+
+    await wrapper.get('button[aria-label="search.deleteRecent"]').trigger('click')
+    await flushPromises()
+
+    expect(searchApiMocks.deleteRecentSearch).toHaveBeenCalledOnce()
+    expect(routeState.invalidateQueries).not.toHaveBeenCalled()
+  })
+
   it('does not cancel an earlier destructive request in the same session', async () => {
     searchState.recentKeywords = [
       { logId: 9, keyword: 'first' },
