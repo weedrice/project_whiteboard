@@ -79,7 +79,10 @@ class FileAccessService {
                 postAccessPolicy.validateReadable(post, viewer, authorBlocked);
                 yield FileAccessResult.CacheScope.OTHER;
             }
-            case FileRelatedType.USER_PROFILE -> FileAccessResult.CacheScope.OTHER;
+            case FileRelatedType.USER_PROFILE -> {
+                validateCurrentUserProfile(file);
+                yield FileAccessResult.CacheScope.OTHER;
+            }
             case FileRelatedType.BOARD_ICON -> {
                 validateBoardIconReadable(file, viewerUserId);
                 yield FileAccessResult.CacheScope.OTHER;
@@ -120,6 +123,16 @@ class FileAccessService {
         }
         validateEmoticonMastersReadable(masters, viewerUserId);
         return resolveEmoticonCacheScope(masters);
+    }
+
+    private void validateCurrentUserProfile(File file) {
+        User profileOwner = userRepository.findByUserIdAndStatusAndDeletedAtIsNull(
+                        file.getRelatedId(), User.STATUS_ACTIVE)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+        Long currentProfileFileId = FileService.extractFileIdFromUrl(profileOwner.getProfileImageUrl());
+        if (!Objects.equals(file.getFileId(), currentProfileFileId)) {
+            throw new BusinessException(ErrorCode.NOT_FOUND);
+        }
     }
 
     private Optional<FileAccessResult.CacheScope> validateReferencedEmoticonIfPresent(

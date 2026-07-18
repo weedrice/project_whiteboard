@@ -247,6 +247,7 @@ public class UserProfileService {
             throw new BusinessException(ErrorCode.INVALID_PASSWORD);
         }
 
+        removeProfileImage(user);
         userLifecycleService.deletePrelockedAccount(user);
     }
 

@@ -312,6 +312,7 @@ class UserProfileServiceTest {
     void deleteAccount_success() {
         User user = User.builder().password("encodedPass").build();
         ReflectionTestUtils.setField(user, "userId", 1L);
+        user.updateProfileImage("/api/v1/files/100");
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("pass", "encodedPass")).thenReturn(true);
 
@@ -319,6 +320,9 @@ class UserProfileServiceTest {
 
         verify(userRepository).findByIdForUpdate(1L);
         verify(userRepository, never()).findById(1L);
+        assertThat(user.getProfileImageUrl()).isNull();
+        verify(fileService).deleteFileWithStorageIfAssociated(
+                100L, 1L, FileService.RELATED_TYPE_USER_PROFILE);
         verify(userLifecycleService).deletePrelockedAccount(user);
     }
 

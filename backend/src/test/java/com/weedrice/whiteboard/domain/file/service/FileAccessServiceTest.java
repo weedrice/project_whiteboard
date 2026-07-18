@@ -132,22 +132,36 @@ class FileAccessServiceTest {
     }
 
     @Test
-    @DisplayName("공개 파일 타입은 추가 접근 정책 검증을 생략한다")
-    void getFileForDownload_publicTypes_skipAccessPolicy() {
-        List<String> relatedTypes = List.of(FileRelatedType.USER_PROFILE);
+    @DisplayName("활성 사용자의 현재 프로필 이미지는 공개한다")
+    void getFileForDownload_currentActiveUserProfile_allowsAnonymous() {
+        User owner = User.builder().build();
+        ReflectionTestUtils.setField(owner, "userId", 100L);
+        owner.updateProfileImage("/api/v1/files/10");
+        File file = file(FileRelatedType.USER_PROFILE, 100L);
+        ReflectionTestUtils.setField(file, "fileId", 10L);
+        when(fileRepository.findByFileIdAndStorageStatus(10L, FileStorageStatus.ACTIVE))
+                .thenReturn(Optional.of(file));
+        when(userRepository.findByUserIdAndStatusAndDeletedAtIsNull(100L, User.STATUS_ACTIVE))
+                .thenReturn(Optional.of(owner));
 
-        for (int i = 0; i < relatedTypes.size(); i++) {
-            Long fileId = 10L + i;
-            File file = file(relatedTypes.get(i), 100L + i);
-            when(fileRepository.findByFileIdAndStorageStatus(fileId, FileStorageStatus.ACTIVE))
-                    .thenReturn(Optional.of(file));
+        File result = fileAccessService.getFileForDownload(10L, null);
 
-            File result = fileAccessService.getFileForDownload(fileId, null);
+        assertThat(result).isSameAs(file);
+    }
 
-            assertThat(result).isSameAs(file);
-        }
-        verifyNoInteractions(boardRepository, boardAccessPolicy, postRepository, userRepository,
-                postAccessPolicy, userBlockService);
+    @Test
+    @DisplayName("탈퇴했거나 현재 프로필이 아닌 이미지는 숨긴다")
+    void getFileForDownload_staleUserProfile_notFound() {
+        File file = file(FileRelatedType.USER_PROFILE, 100L);
+        ReflectionTestUtils.setField(file, "fileId", 10L);
+        when(fileRepository.findByFileIdAndStorageStatus(10L, FileStorageStatus.ACTIVE))
+                .thenReturn(Optional.of(file));
+        when(userRepository.findByUserIdAndStatusAndDeletedAtIsNull(100L, User.STATUS_ACTIVE))
+                .thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> fileAccessService.getFileForDownload(10L, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.NOT_FOUND);
     }
 
     @Test
