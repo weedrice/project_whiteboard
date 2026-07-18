@@ -55,6 +55,41 @@ describe('createMentionCandidateLookup', () => {
     await expect(secondSearch).resolves.toEqual([])
   })
 
+  it('exposes a real lookup failure and retries the last query', async () => {
+    const load = vi.fn()
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce([{ userId: 1, displayName: 'Alice', profileImageUrl: null }])
+    const lookup = createMentionCandidateLookup(load, () => 1)
+
+    await expect(lookup.search('alice')).rejects.toThrow('offline')
+    expect(lookup.error.value).toBeInstanceOf(Error)
+
+    await expect(lookup.retry()).resolves.toEqual([
+      { userId: 1, displayName: 'Alice', profileImageUrl: null },
+    ])
+    expect(load).toHaveBeenLastCalledWith('alice', expect.any(AbortSignal))
+    expect(lookup.error.value).toBeNull()
+  })
+
+  it('keeps mention lookup failures visible until retry succeeds', async () => {
+    const search = vi.fn()
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce([{ userId: 1, displayName: 'Alice', profileImageUrl: null }])
+    const autocomplete = useMentionAutocomplete({
+      resolveRange: () => ({ query: 'alice', start: 0, end: 6 }),
+      onSelect: vi.fn(),
+      search,
+    })
+
+    await autocomplete.refresh()
+    expect(autocomplete.error.value).toBeInstanceOf(Error)
+    expect(autocomplete.items.value).toEqual([])
+
+    await autocomplete.retry()
+    expect(autocomplete.error.value).toBeNull()
+    expect(autocomplete.isOpen.value).toBe(true)
+  })
+
   it('aborts pending lookup and closes visible candidates at the session boundary', async () => {
     const deferred = createDeferred<Array<{ userId: number, displayName: string, profileImageUrl: null }>>()
     let requestSignal: AbortSignal | undefined

@@ -31,6 +31,9 @@ export function createMentionCandidateLookup(
 ) {
   let requestSequence = 0
   let controller: AbortController | null = null
+  const isLoading = ref(false)
+  const lookupError = ref<unknown | null>(null)
+  let lastQuery = ''
 
   const cancel = () => {
     requestSequence += 1
@@ -40,6 +43,9 @@ export function createMentionCandidateLookup(
 
   const search = async (query: string) => {
     cancel()
+    lastQuery = query
+    isLoading.value = true
+    lookupError.value = null
     const sequence = requestSequence
     const generation = resolveGeneration()
     const requestController = new AbortController()
@@ -58,22 +64,26 @@ export function createMentionCandidateLookup(
         return []
       }
       return candidates
-    } catch (error) {
+    } catch (caughtError) {
       if (
         requestController.signal.aborted
-        || (error instanceof DOMException && error.name === 'AbortError')
-        || (typeof error === 'object' && error !== null && 'name' in error && error.name === 'CanceledError')
+        || (caughtError instanceof DOMException && caughtError.name === 'AbortError')
+        || (typeof caughtError === 'object' && caughtError !== null && 'name' in caughtError && caughtError.name === 'CanceledError')
       ) {
         return []
       }
-      throw error
+      lookupError.value = caughtError
+      throw caughtError
     } finally {
+      if (sequence === requestSequence) isLoading.value = false
       stopSessionBoundary()
       if (controller === requestController) controller = null
     }
   }
 
-  return { search, cancel }
+  const retry = () => lastQuery ? search(lastQuery) : Promise.resolve([])
+
+  return { search, cancel, retry, isLoading, error: lookupError }
 }
 
 function resolveDisabled(disabled: MaybeRefOrGetter<boolean> | undefined): boolean {
@@ -88,6 +98,8 @@ export function useMentionAutocomplete(options: UseMentionAutocompleteOptions) {
   const isOpen = ref(false)
   const selectedIndex = ref(0)
   const activeRange = ref<MentionQueryRange | null>(null)
+  const isLoading = ref(false)
+  const loadError = ref<unknown | null>(null)
   let lookupSeq = 0
   const lookup = createMentionCandidateLookup(options.search ?? defaultMentionCandidateLoader)
 
@@ -98,6 +110,8 @@ export function useMentionAutocomplete(options: UseMentionAutocompleteOptions) {
     items.value = []
     selectedIndex.value = 0
     activeRange.value = null
+    isLoading.value = false
+    loadError.value = null
   }
   const stopSessionBoundary = subscribeAuthSessionBoundary(close)
 
@@ -115,18 +129,25 @@ export function useMentionAutocomplete(options: UseMentionAutocompleteOptions) {
 
     const seq = ++lookupSeq
     activeRange.value = range
+    isLoading.value = true
+    loadError.value = null
     try {
       const candidates = await lookup.search(range.query)
       if (seq !== lookupSeq) return
       items.value = candidates
       isOpen.value = candidates.length > 0
       selectedIndex.value = 0
-    } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') return
-      logger.error('Failed to load mention candidates:', error)
+    } catch (caughtError) {
+      if (caughtError instanceof DOMException && caughtError.name === 'AbortError') return
+      logger.error('Failed to load mention candidates:', caughtError)
       if (seq === lookupSeq) {
-        close()
+        items.value = []
+        isOpen.value = false
+        selectedIndex.value = 0
+        loadError.value = caughtError
       }
+    } finally {
+      if (seq === lookupSeq) isLoading.value = false
     }
   }
 
@@ -182,7 +203,10 @@ export function useMentionAutocomplete(options: UseMentionAutocompleteOptions) {
     items,
     isOpen,
     selectedIndex,
+    isLoading,
+    error: loadError,
     refresh,
+    retry: refresh,
     close,
     select,
     handleKeydown,

@@ -138,6 +138,8 @@ const mentionAutocomplete = useMentionAutocomplete({
 const mentionCandidates = mentionAutocomplete.items
 const mentionMenuOpen = mentionAutocomplete.isOpen
 const selectedMentionIndex = mentionAutocomplete.selectedIndex
+const mentionLoading = mentionAutocomplete.isLoading
+const mentionError = mentionAutocomplete.error
 const activeMentionOptionId = computed(() => {
   const candidate = mentionCandidates.value[selectedMentionIndex.value]
   return mentionMenuOpen.value && candidate
@@ -245,7 +247,7 @@ async function handleSubmit() {
         role="combobox"
         aria-autocomplete="list"
         aria-haspopup="listbox"
-        :aria-expanded="mentionMenuOpen"
+        :aria-expanded="mentionMenuOpen || mentionLoading || !!mentionError"
         :aria-controls="mentionMenuId"
         :aria-activedescendant="activeMentionOptionId"
         @blur="commentValidation.touchField('content', commentValues)"
@@ -254,14 +256,17 @@ async function handleSubmit() {
         @keydown="handleMentionKeydown" />
 
       <div
-        v-if="mentionMenuOpen"
+        v-if="mentionMenuOpen || mentionLoading || mentionError"
         class="comment-mention-suggestion-popover"
       >
         <MentionSuggestionList
           :id="mentionMenuId"
           :items="mentionCandidates"
           :selected-index="selectedMentionIndex"
+          :loading="mentionLoading"
+          :error="!!mentionError"
           @select="selectMention"
+          @retry="updateMentionCandidates"
         />
       </div>
       

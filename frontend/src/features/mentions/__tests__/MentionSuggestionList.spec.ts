@@ -24,4 +24,21 @@ describe('MentionSuggestionList', () => {
     await option.trigger('click')
     expect(wrapper.emitted('select')).toEqual([[candidate]])
   })
+
+  it('announces lookup failure and exposes a retry action', async () => {
+    const wrapper = mount(MentionSuggestionList, {
+      props: {
+        items: [],
+        selectedIndex: 0,
+        error: true,
+      },
+      global: {
+        mocks: { $t: (key: string) => key },
+      },
+    })
+
+    expect(wrapper.get('[role="alert"]').attributes('aria-live')).toBe('assertive')
+    await wrapper.get('.mention-suggestion-retry').trigger('click')
+    expect(wrapper.emitted('retry')).toHaveLength(1)
+  })
 })

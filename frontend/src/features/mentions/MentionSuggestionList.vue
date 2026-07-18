@@ -5,19 +5,36 @@ withDefaults(defineProps<{
   items: MentionCandidate[]
   selectedIndex: number
   id?: string
+  loading?: boolean
+  error?: boolean
 }>(), {
   id: 'mention-suggestion-list',
 })
 
 const emit = defineEmits<{
   (event: 'select', candidate: MentionCandidate): void
+  (event: 'retry'): void
 }>()
 </script>
 
 <template>
-  <div :id="id" class="mention-suggestion-menu" role="listbox">
+  <div
+    :id="id"
+    class="mention-suggestion-menu"
+    :role="error || loading ? undefined : 'listbox'"
+    :aria-busy="loading"
+  >
+    <p v-if="loading" class="mention-suggestion-status" role="status" aria-live="polite">
+      {{ $t('common.loading') }}
+    </p>
+    <div v-else-if="error" class="mention-suggestion-status" role="alert" aria-live="assertive">
+      <span>{{ $t('common.messages.loadFailed') }}</span>
+      <button type="button" class="mention-suggestion-retry" @click="emit('retry')">
+        {{ $t('common.error.retry') }}
+      </button>
+    </div>
     <button
-      v-for="(candidate, index) in items"
+      v-for="(candidate, index) in error || loading ? [] : items"
       :key="candidate.userId"
       :id="`${id}-option-${candidate.userId}`"
       type="button"
@@ -68,6 +85,22 @@ const emit = defineEmits<{
   text-align: left;
   font-size: 0.875rem;
   transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.mention-suggestion-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem;
+  color: var(--nv-ink-soft);
+  font-size: 0.8125rem;
+}
+
+.mention-suggestion-retry {
+  color: var(--nv-accent);
+  font-weight: 600;
+  cursor: pointer;
 }
 
 .mention-suggestion-item:hover,

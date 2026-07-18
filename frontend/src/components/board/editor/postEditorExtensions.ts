@@ -44,7 +44,7 @@ const EditorImage = Image.extend({
 
 let mentionListIdSequence = 0
 
-function createMentionListRenderer(cancelLookup: () => void) {
+function createMentionListRenderer(lookup: ReturnType<typeof createMentionCandidateLookup>) {
   let renderer: VueRenderer | null = null
   let element: HTMLElement | null = null
   let selectedIndex = 0
@@ -59,7 +59,9 @@ function createMentionListRenderer(cancelLookup: () => void) {
     editorElement.setAttribute('role', 'combobox')
     editorElement.setAttribute('aria-autocomplete', 'list')
     editorElement.setAttribute('aria-haspopup', 'listbox')
-    editorElement.setAttribute('aria-expanded', String(items.length > 0))
+    editorElement.setAttribute('aria-expanded', String(
+      items.length > 0 || lookup.isLoading.value || !!lookup.error.value,
+    ))
     editorElement.setAttribute('aria-controls', listId)
     const candidate = items[selectedIndex]
     if (candidate) {
@@ -77,6 +79,15 @@ function createMentionListRenderer(cancelLookup: () => void) {
       onSelect: (item: MentionCandidate) => {
         command?.(item)
       },
+      loading: lookup.isLoading.value,
+      error: !!lookup.error.value,
+      onRetry: () => {
+        const promise = lookup.retry()
+        updateRenderer()
+        void promise.then((candidates) => {
+          items = candidates
+        }).catch(() => undefined).finally(updateRenderer)
+      },
     })
     syncEditorAria()
   }
@@ -90,7 +101,7 @@ function createMentionListRenderer(cancelLookup: () => void) {
   }
 
   function cleanup() {
-    cancelLookup()
+    lookup.cancel()
     stopSessionBoundary?.()
     stopSessionBoundary = null
     editorElement?.setAttribute('aria-expanded', 'false')
@@ -119,6 +130,15 @@ function createMentionListRenderer(cancelLookup: () => void) {
           id: listId,
           onSelect: (item: MentionCandidate) => {
             command?.(item)
+          },
+          loading: lookup.isLoading.value,
+          error: !!lookup.error.value,
+          onRetry: () => {
+            const promise = lookup.retry()
+            updateRenderer()
+            void promise.then((candidates) => {
+              items = candidates
+            }).catch(() => undefined).finally(updateRenderer)
           },
         },
       })
@@ -204,7 +224,11 @@ export function createPostEditorExtensions() {
         char: '@',
         items: async ({ query }) => {
           if (!query.trim()) return []
-          return mentionLookup.search(query)
+          try {
+            return await mentionLookup.search(query)
+          } catch {
+            return []
+          }
         },
         command: ({ editor, range, props }) => {
           const item = props as unknown as MentionCandidate
@@ -219,7 +243,7 @@ export function createPostEditorExtensions() {
             { type: 'text', text: ' ' },
           ]).run()
         },
-        render: () => createMentionListRenderer(mentionLookup.cancel),
+        render: () => createMentionListRenderer(mentionLookup),
       },
     }),
     Underline,
