@@ -64,6 +64,21 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long
             @Param("currentSessionFamilyId") UUID currentSessionFamilyId,
             @Param("now") LocalDateTime now);
 
+    @Modifying
+    @Query(value = """
+            DELETE FROM refresh_tokens
+            WHERE token_id IN (
+                SELECT token_id
+                FROM refresh_tokens
+                WHERE expires_at < :cutoff
+                ORDER BY expires_at, token_id
+                LIMIT :batchSize
+            )
+            """, nativeQuery = true)
+    int deleteExpiredBatch(
+            @Param("cutoff") LocalDateTime cutoff,
+            @Param("batchSize") int batchSize);
+
     List<RefreshToken> findByUserAndIsRevokedAndExpiresAtGreaterThanEqual(
             com.weedrice.whiteboard.domain.user.entity.User user,
             Boolean isRevoked,

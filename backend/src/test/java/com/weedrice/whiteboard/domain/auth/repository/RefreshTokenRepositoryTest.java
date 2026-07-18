@@ -145,6 +145,28 @@ class RefreshTokenRepositoryTest {
                 .containsExactly("current-family");
     }
 
+    @Test
+    void deleteExpiredBatch_isBoundedAndPreservesRecentOrUnexpiredTokens() {
+        LocalDateTime cutoff = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS).minusDays(7);
+        persistRefreshToken("old-expired-1", cutoff.minusDays(2), false);
+        persistRefreshToken("old-expired-2", cutoff.minusDays(1), true);
+        persistRefreshToken("old-expired-3", cutoff.minusMinutes(1), true);
+        persistRefreshToken("recent-expired", cutoff.plusMinutes(1), true);
+        persistRefreshToken("active-revoked", LocalDateTime.now().plusDays(1), true);
+        persistRefreshToken("active", LocalDateTime.now().plusDays(1), false);
+        entityManager.flush();
+        entityManager.clear();
+
+        int deleted = refreshTokenRepository.deleteExpiredBatch(cutoff, 2);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(deleted).isEqualTo(2);
+        assertThat(refreshTokenRepository.findAll())
+                .extracting(RefreshToken::getTokenHash)
+                .containsExactlyInAnyOrder("old-expired-3", "recent-expired", "active-revoked", "active");
+    }
+
     private RefreshToken persistRefreshToken(String tokenHash, LocalDateTime expiresAt, boolean revoked) {
         return persistRefreshToken(tokenHash, expiresAt, revoked, UUID.randomUUID());
     }
