@@ -55,21 +55,54 @@ public class NotificationDeliveryJobProcessor {
             return false;
         }
         try {
-            jobTransaction.deliver(jobId, lease);
-            metrics.recordOutcome("success");
-            return true;
+            DeliveryJobTransitionResult result = jobTransaction.deliver(jobId, lease);
+            return recordDeliveryResult(jobId, result);
         } catch (RuntimeException exception) {
             int retryNumber = currentRetryCount(jobId) + 1;
             LocalDateTime nextAttempt = now().plusMinutes(backoffMinutes(retryNumber));
-            boolean deadLettered = jobTransaction.fail(
+            DeliveryJobTransitionResult result = jobTransaction.fail(
                     jobId,
                     lease,
                     exception.getClass().getSimpleName(),
                     nextAttempt);
-            metrics.recordOutcome(deadLettered ? "dead_letter" : "retry");
-            log.warn("Notification delivery job failed. jobId={}, deadLettered={}, exceptionType={}",
-                    jobId, deadLettered, exception.getClass().getSimpleName());
+            recordFailureResult(result);
+            log.warn("Notification delivery job failed. jobId={}, transitionResult={}, exceptionType={}",
+                    jobId, result, exception.getClass().getSimpleName());
             return false;
+        }
+    }
+
+    private boolean recordDeliveryResult(Long jobId, DeliveryJobTransitionResult result) {
+        return switch (result) {
+            case APPLIED_SUCCESS -> {
+                metrics.recordOutcome("success");
+                yield true;
+            }
+            case REJECTED_INVALID -> {
+                metrics.recordOutcome("invalid_payload");
+                log.warn("Notification delivery job rejected an invalid payload. jobId={}", jobId);
+                yield false;
+            }
+            case LEASE_LOST -> {
+                metrics.recordOutcome("lease_lost");
+                log.warn("Notification delivery job lease was lost before delivery. jobId={}", jobId);
+                yield false;
+            }
+            default -> {
+                metrics.recordOutcome("transition_invalid");
+                log.error("Notification delivery returned an unexpected transition. jobId={}, transitionResult={}",
+                        jobId, result);
+                yield false;
+            }
+        };
+    }
+
+    private void recordFailureResult(DeliveryJobTransitionResult result) {
+        switch (result) {
+            case APPLIED_RETRY -> metrics.recordOutcome("retry");
+            case APPLIED_DEAD_LETTER -> metrics.recordOutcome("dead_letter");
+            case LEASE_LOST -> metrics.recordOutcome("lease_lost");
+            default -> metrics.recordOutcome("transition_invalid");
         }
     }
 
@@ -81,11 +114,16 @@ public class NotificationDeliveryJobProcessor {
                 PageRequest.of(0, BATCH_SIZE));
         for (Long staleId : staleIds) {
             int retryNumber = currentRetryCount(staleId) + 1;
-            boolean deadLettered = jobTransaction.recoverStale(
+            DeliveryJobTransitionResult result = jobTransaction.recoverStale(
                     staleId,
                     staleBefore,
                     now.plusMinutes(backoffMinutes(retryNumber)));
-            metrics.recordOutcome(deadLettered ? "dead_letter" : "lease_recovered");
+            switch (result) {
+                case APPLIED_RETRY -> metrics.recordOutcome("lease_recovered");
+                case APPLIED_DEAD_LETTER -> metrics.recordOutcome("dead_letter");
+                case LEASE_LOST -> metrics.recordOutcome("lease_lost");
+                default -> metrics.recordOutcome("transition_invalid");
+            }
         }
     }
 

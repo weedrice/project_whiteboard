@@ -38,12 +38,12 @@ class PushDeliveryJobTransaction {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public boolean complete(PushDeliveryLease lease) {
-        return withLease(lease, PushDeliveryJob::complete);
+    public DeliveryJobTransitionResult complete(PushDeliveryLease lease) {
+        return withLease(lease, PushDeliveryJob::complete, DeliveryJobTransitionResult.APPLIED_SUCCESS);
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public boolean expire(PushDeliveryLease lease, String reason, boolean deleteSubscription) {
+    public DeliveryJobTransitionResult expire(PushDeliveryLease lease, String reason, boolean deleteSubscription) {
         return withLease(lease, job -> {
             job.expire(reason);
             if (deleteSubscription) {
@@ -56,31 +56,45 @@ class PushDeliveryJobTransaction {
                         snapshot.auth(),
                         snapshot.modifiedAt());
             }
-        });
+        }, DeliveryJobTransitionResult.APPLIED_SUCCESS);
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public boolean retry(PushDeliveryLease lease, String error, LocalDateTime failedAt, LocalDateTime nextAttempt) {
+    public DeliveryJobTransitionResult retry(
+            PushDeliveryLease lease,
+            String error,
+            LocalDateTime failedAt,
+            LocalDateTime nextAttempt) {
         return jobRepository.findByIdForUpdate(lease.jobId())
                 .filter(job -> job.hasLease(lease.claimedAt()))
-                .map(job -> job.retry(error, failedAt, nextAttempt, MAX_RETRY_COUNT))
-                .orElse(false);
+                .map(job -> job.retry(error, failedAt, nextAttempt, MAX_RETRY_COUNT)
+                        ? DeliveryJobTransitionResult.APPLIED_DEAD_LETTER
+                        : DeliveryJobTransitionResult.APPLIED_RETRY)
+                .orElse(DeliveryJobTransitionResult.LEASE_LOST);
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public boolean failPermanently(PushDeliveryLease lease, String error, LocalDateTime failedAt) {
-        return withLease(lease, job -> job.failPermanently(error, failedAt));
+    public DeliveryJobTransitionResult failPermanently(
+            PushDeliveryLease lease,
+            String error,
+            LocalDateTime failedAt) {
+        return withLease(
+                lease,
+                job -> job.failPermanently(error, failedAt),
+                DeliveryJobTransitionResult.APPLIED_DEAD_LETTER);
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public boolean recoverStale(Long jobId, LocalDateTime staleBefore, LocalDateTime failedAt,
+    public DeliveryJobTransitionResult recoverStale(Long jobId, LocalDateTime staleBefore, LocalDateTime failedAt,
             LocalDateTime nextAttempt) {
         return jobRepository.findByIdForUpdate(jobId)
                 .filter(job -> job.getStatus() == PushDeliveryJob.Status.PROCESSING)
                 .filter(job -> job.getProcessingStartedAt() == null
                         || job.getProcessingStartedAt().isBefore(staleBefore))
-                .map(job -> job.retry("Processing lease expired", failedAt, nextAttempt, MAX_RETRY_COUNT))
-                .orElse(false);
+                .map(job -> job.retry("Processing lease expired", failedAt, nextAttempt, MAX_RETRY_COUNT)
+                        ? DeliveryJobTransitionResult.APPLIED_DEAD_LETTER
+                        : DeliveryJobTransitionResult.APPLIED_RETRY)
+                .orElse(DeliveryJobTransitionResult.LEASE_LOST);
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -93,13 +107,16 @@ class PushDeliveryJobTransaction {
         return jobRepository.deleteFailedBefore(cutoff);
     }
 
-    private boolean withLease(PushDeliveryLease lease, java.util.function.Consumer<PushDeliveryJob> action) {
+    private DeliveryJobTransitionResult withLease(
+            PushDeliveryLease lease,
+            java.util.function.Consumer<PushDeliveryJob> action,
+            DeliveryJobTransitionResult appliedResult) {
         return jobRepository.findByIdForUpdate(lease.jobId())
                 .filter(job -> job.hasLease(lease.claimedAt()))
                 .map(job -> {
                     action.accept(job);
-                    return true;
+                    return appliedResult;
                 })
-                .orElse(false);
+                .orElse(DeliveryJobTransitionResult.LEASE_LOST);
     }
 }

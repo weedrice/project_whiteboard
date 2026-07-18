@@ -39,38 +39,53 @@ class NotificationDeliveryJobTransaction {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void deliver(Long jobId, LocalDateTime claimedAt) {
+    public DeliveryJobTransitionResult deliver(Long jobId, LocalDateTime claimedAt) {
         NotificationDeliveryJob job = jobRepository.findByIdForUpdate(jobId)
                 .filter(candidate -> candidate.hasLease(claimedAt))
-                .orElseThrow(() -> new NotificationDeliveryLeaseLostException(jobId));
+                .orElse(null);
+        if (job == null) {
+            return DeliveryJobTransitionResult.LEASE_LOST;
+        }
         String invalidReason = payloadValidator.validate(job);
         if (invalidReason != null) {
             job.rejectInvalidPayload(invalidReason, LocalDateTime.now());
-            return;
+            return DeliveryJobTransitionResult.REJECTED_INVALID;
         }
         Notification notification = notificationCommandService.handleNotificationEvent(toEvent(job));
         job.complete();
         if (notification != null) {
             deliveryPublisher.publishAfterCommit(job.getReceiverUserId(), notification);
         }
+        return DeliveryJobTransitionResult.APPLIED_SUCCESS;
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public boolean fail(Long jobId, LocalDateTime claimedAt, String error, LocalDateTime nextAttemptAt) {
+    public DeliveryJobTransitionResult fail(
+            Long jobId,
+            LocalDateTime claimedAt,
+            String error,
+            LocalDateTime nextAttemptAt) {
         return jobRepository.findByIdForUpdate(jobId)
                 .filter(job -> job.hasLease(claimedAt))
-                .map(job -> job.fail(error, LocalDateTime.now(), nextAttemptAt, MAX_RETRY_COUNT))
-                .orElse(false);
+                .map(job -> job.fail(error, LocalDateTime.now(), nextAttemptAt, MAX_RETRY_COUNT)
+                        ? DeliveryJobTransitionResult.APPLIED_DEAD_LETTER
+                        : DeliveryJobTransitionResult.APPLIED_RETRY)
+                .orElse(DeliveryJobTransitionResult.LEASE_LOST);
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public boolean recoverStale(Long jobId, LocalDateTime staleBefore, LocalDateTime nextAttemptAt) {
+    public DeliveryJobTransitionResult recoverStale(
+            Long jobId,
+            LocalDateTime staleBefore,
+            LocalDateTime nextAttemptAt) {
         return jobRepository.findByIdForUpdate(jobId)
                 .filter(job -> job.getStatus() == NotificationDeliveryJob.Status.PROCESSING)
                 .filter(job -> job.getProcessingStartedAt() == null
                         || job.getProcessingStartedAt().isBefore(staleBefore))
-                .map(job -> job.fail("Processing lease expired", LocalDateTime.now(), nextAttemptAt, MAX_RETRY_COUNT))
-                .orElse(false);
+                .map(job -> job.fail("Processing lease expired", LocalDateTime.now(), nextAttemptAt, MAX_RETRY_COUNT)
+                        ? DeliveryJobTransitionResult.APPLIED_DEAD_LETTER
+                        : DeliveryJobTransitionResult.APPLIED_RETRY)
+                .orElse(DeliveryJobTransitionResult.LEASE_LOST);
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -122,11 +137,5 @@ class NotificationDeliveryJobTransaction {
                 job.getContent(),
                 null,
                 java.util.List.of());
-    }
-
-    private static final class NotificationDeliveryLeaseLostException extends RuntimeException {
-        private NotificationDeliveryLeaseLostException(Long jobId) {
-            super("Notification delivery lease changed: " + jobId);
-        }
     }
 }

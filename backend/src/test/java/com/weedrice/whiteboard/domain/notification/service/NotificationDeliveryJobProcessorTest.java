@@ -16,6 +16,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -40,7 +41,7 @@ class NotificationDeliveryJobProcessorTest {
         org.mockito.Mockito.doThrow(new IllegalStateException("database unavailable"))
                 .when(jobTransaction).deliver(5L, claimedAt);
         when(jobTransaction.fail(eq(5L), eq(claimedAt), eq("IllegalStateException"), any()))
-                .thenReturn(false);
+                .thenReturn(DeliveryJobTransitionResult.APPLIED_RETRY);
         NotificationDeliveryJobProcessor processor = new NotificationDeliveryJobProcessor(
                 jobRepository,
                 jobTransaction,
@@ -55,5 +56,43 @@ class NotificationDeliveryJobProcessorTest {
                 "IllegalStateException",
                 claimedAt.plusMinutes(1));
         verify(metrics).recordOutcome("retry");
+    }
+
+    @Test
+    void processJob_doesNotReportInvalidPayloadAsSuccess() {
+        Clock clock = Clock.fixed(Instant.parse("2026-07-17T00:00:00Z"), ZoneOffset.UTC);
+        LocalDateTime claimedAt = LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC);
+        when(jobTransaction.claim(5L, claimedAt)).thenReturn(claimedAt);
+        when(jobTransaction.deliver(5L, claimedAt))
+                .thenReturn(DeliveryJobTransitionResult.REJECTED_INVALID);
+        NotificationDeliveryJobProcessor processor = new NotificationDeliveryJobProcessor(
+                jobRepository,
+                jobTransaction,
+                metrics,
+                clock);
+
+        assertThat(processor.processJob(5L)).isFalse();
+
+        verify(metrics).recordOutcome("invalid_payload");
+        verify(metrics, never()).recordOutcome("success");
+    }
+
+    @Test
+    void processJob_reportsLeaseLossWithoutSuccess() {
+        Clock clock = Clock.fixed(Instant.parse("2026-07-17T00:00:00Z"), ZoneOffset.UTC);
+        LocalDateTime claimedAt = LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC);
+        when(jobTransaction.claim(5L, claimedAt)).thenReturn(claimedAt);
+        when(jobTransaction.deliver(5L, claimedAt))
+                .thenReturn(DeliveryJobTransitionResult.LEASE_LOST);
+        NotificationDeliveryJobProcessor processor = new NotificationDeliveryJobProcessor(
+                jobRepository,
+                jobTransaction,
+                metrics,
+                clock);
+
+        assertThat(processor.processJob(5L)).isFalse();
+
+        verify(metrics).recordOutcome("lease_lost");
+        verify(metrics, never()).recordOutcome("success");
     }
 }

@@ -16,6 +16,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -52,6 +53,7 @@ class PushDeliveryJobProcessorTest {
     void successCompletesClaimedJob() {
         when(snapshotReader.isCurrentAndEnabled(subscription)).thenReturn(true);
         when(dispatcher.send(subscription, "payload")).thenReturn(PushDeliveryOutcome.SUCCESS);
+        when(jobTransaction.complete(lease)).thenReturn(DeliveryJobTransitionResult.APPLIED_SUCCESS);
 
         assertThat(processor.processJob(JOB_ID)).isTrue();
 
@@ -67,7 +69,7 @@ class PushDeliveryJobProcessorTest {
         when(snapshotReader.isCurrentAndEnabled(subscription)).thenReturn(true);
         when(dispatcher.send(subscription, "payload")).thenReturn(PushDeliveryOutcome.RETRYABLE_FAILURE);
         when(jobTransaction.retry(lease, "Retryable push response", now, now.plusMinutes(1)))
-                .thenReturn(false);
+                .thenReturn(DeliveryJobTransitionResult.APPLIED_RETRY);
 
         assertThat(processor.processJob(JOB_ID)).isFalse();
 
@@ -76,13 +78,55 @@ class PushDeliveryJobProcessorTest {
     }
 
     @Test
+    void permanentFailureRecordsAppliedDeadLetter() {
+        when(snapshotReader.isCurrentAndEnabled(subscription)).thenReturn(true);
+        when(dispatcher.send(subscription, "payload")).thenReturn(PushDeliveryOutcome.PERMANENT_FAILURE);
+        when(jobTransaction.failPermanently(lease, "Non-retryable push response", now))
+                .thenReturn(DeliveryJobTransitionResult.APPLIED_DEAD_LETTER);
+
+        assertThat(processor.processJob(JOB_ID)).isFalse();
+
+        verify(metrics).recordOutcome("dead_letter");
+    }
+
+    @Test
     void changedSubscriptionExpiresWithoutSending() {
         when(snapshotReader.isCurrentAndEnabled(subscription)).thenReturn(false);
+        when(jobTransaction.expire(lease, "Subscription changed or push disabled", false))
+                .thenReturn(DeliveryJobTransitionResult.APPLIED_SUCCESS);
 
         assertThat(processor.processJob(JOB_ID)).isTrue();
 
         verify(jobTransaction).expire(lease, "Subscription changed or push disabled", false);
         verify(metrics).recordOutcome("stale_subscription");
         org.mockito.Mockito.verifyNoInteractions(dispatcher);
+    }
+
+    @Test
+    void successDoesNotReportSuccessWhenLeaseWasLost() {
+        when(snapshotReader.isCurrentAndEnabled(subscription)).thenReturn(true);
+        when(dispatcher.send(subscription, "payload")).thenReturn(PushDeliveryOutcome.SUCCESS);
+        when(jobTransaction.complete(lease)).thenReturn(DeliveryJobTransitionResult.LEASE_LOST);
+
+        assertThat(processor.processJob(JOB_ID)).isFalse();
+
+        verify(metrics).recordOutcome("lease_lost");
+        verify(metrics, never()).recordOutcome("success");
+    }
+
+    @Test
+    void retryDoesNotReportRetryWhenLeaseWasLost() {
+        PushDeliveryJob job = org.mockito.Mockito.mock(PushDeliveryJob.class);
+        when(job.getRetryCount()).thenReturn(0);
+        when(jobRepository.findById(JOB_ID)).thenReturn(Optional.of(job));
+        when(snapshotReader.isCurrentAndEnabled(subscription)).thenReturn(true);
+        when(dispatcher.send(subscription, "payload")).thenReturn(PushDeliveryOutcome.RETRYABLE_FAILURE);
+        when(jobTransaction.retry(lease, "Retryable push response", now, now.plusMinutes(1)))
+                .thenReturn(DeliveryJobTransitionResult.LEASE_LOST);
+
+        assertThat(processor.processJob(JOB_ID)).isFalse();
+
+        verify(metrics).recordOutcome("lease_lost");
+        verify(metrics, never()).recordOutcome("retry");
     }
 }

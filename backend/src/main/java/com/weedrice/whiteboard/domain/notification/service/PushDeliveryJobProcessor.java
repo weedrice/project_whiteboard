@@ -58,26 +58,36 @@ public class PushDeliveryJobProcessor {
         }
         try {
             if (!snapshotReader.isCurrentAndEnabled(lease.subscription())) {
-                jobTransaction.expire(lease, "Subscription changed or push disabled", false);
-                metrics.recordOutcome("stale_subscription");
-                return true;
+                DeliveryJobTransitionResult result = jobTransaction.expire(
+                        lease,
+                        "Subscription changed or push disabled",
+                        false);
+                return recordTerminalResult(jobId, result, "stale_subscription", true);
             }
             PushDeliveryOutcome outcome = dispatcher.send(lease.subscription(), lease.payload());
             switch (outcome) {
                 case SUCCESS -> {
-                    jobTransaction.complete(lease);
-                    metrics.recordOutcome("success");
-                    return true;
+                    DeliveryJobTransitionResult result = jobTransaction.complete(lease);
+                    return recordTerminalResult(jobId, result, "success", true);
                 }
                 case EXPIRED -> {
-                    jobTransaction.expire(lease, "Push provider expired subscription", true);
-                    metrics.recordOutcome("expired");
-                    return true;
+                    DeliveryJobTransitionResult result = jobTransaction.expire(
+                            lease,
+                            "Push provider expired subscription",
+                            true);
+                    return recordTerminalResult(jobId, result, "expired", true);
                 }
                 case PERMANENT_FAILURE -> {
-                    jobTransaction.failPermanently(lease, "Non-retryable push response", now());
-                    metrics.recordOutcome("dead_letter");
-                    return false;
+                    DeliveryJobTransitionResult result = jobTransaction.failPermanently(
+                            lease,
+                            "Non-retryable push response",
+                            now());
+                    return recordTerminalResult(
+                            jobId,
+                            result,
+                            DeliveryJobTransitionResult.APPLIED_DEAD_LETTER,
+                            "dead_letter",
+                            false);
                 }
                 case RETRYABLE_FAILURE -> {
                     retry(lease, "Retryable push response");
@@ -93,14 +103,54 @@ public class PushDeliveryJobProcessor {
         }
     }
 
+    private boolean recordTerminalResult(
+            Long jobId,
+            DeliveryJobTransitionResult result,
+            String appliedOutcome,
+            boolean successful) {
+        return recordTerminalResult(
+                jobId,
+                result,
+                DeliveryJobTransitionResult.APPLIED_SUCCESS,
+                appliedOutcome,
+                successful);
+    }
+
+    private boolean recordTerminalResult(
+            Long jobId,
+            DeliveryJobTransitionResult result,
+            DeliveryJobTransitionResult expectedResult,
+            String appliedOutcome,
+            boolean successful) {
+        if (result == expectedResult) {
+            metrics.recordOutcome(appliedOutcome);
+            return successful;
+        }
+        if (result == DeliveryJobTransitionResult.LEASE_LOST) {
+            metrics.recordOutcome("lease_lost");
+            log.warn("Web push delivery job lease was lost before transition. jobId={}, intendedOutcome={}",
+                    jobId, appliedOutcome);
+            return false;
+        }
+        metrics.recordOutcome("transition_invalid");
+        log.error("Web push delivery returned an unexpected transition. jobId={}, intendedOutcome={}, transitionResult={}",
+                jobId, appliedOutcome, result);
+        return false;
+    }
+
     private void retry(PushDeliveryLease lease, String error) {
         int retryNumber = currentRetryCount(lease.jobId()) + 1;
-        boolean deadLettered = jobTransaction.retry(
+        DeliveryJobTransitionResult result = jobTransaction.retry(
                 lease,
                 error,
                 now(),
                 now().plusMinutes(backoffMinutes(retryNumber)));
-        metrics.recordOutcome(deadLettered ? "dead_letter" : "retry");
+        switch (result) {
+            case APPLIED_RETRY -> metrics.recordOutcome("retry");
+            case APPLIED_DEAD_LETTER -> metrics.recordOutcome("dead_letter");
+            case LEASE_LOST -> metrics.recordOutcome("lease_lost");
+            default -> metrics.recordOutcome("transition_invalid");
+        }
     }
 
     private void recoverStaleJobs() {
@@ -108,12 +158,17 @@ public class PushDeliveryJobProcessor {
         LocalDateTime staleBefore = now.minusMinutes(LEASE_MINUTES);
         for (Long jobId : jobRepository.findStaleProcessingJobIds(staleBefore, PageRequest.of(0, BATCH_SIZE))) {
             int retryNumber = currentRetryCount(jobId) + 1;
-            boolean deadLettered = jobTransaction.recoverStale(
+            DeliveryJobTransitionResult result = jobTransaction.recoverStale(
                     jobId,
                     staleBefore,
                     now,
                     now.plusMinutes(backoffMinutes(retryNumber)));
-            metrics.recordOutcome(deadLettered ? "dead_letter" : "lease_recovered");
+            switch (result) {
+                case APPLIED_RETRY -> metrics.recordOutcome("lease_recovered");
+                case APPLIED_DEAD_LETTER -> metrics.recordOutcome("dead_letter");
+                case LEASE_LOST -> metrics.recordOutcome("lease_lost");
+                default -> metrics.recordOutcome("transition_invalid");
+            }
         }
     }
 
