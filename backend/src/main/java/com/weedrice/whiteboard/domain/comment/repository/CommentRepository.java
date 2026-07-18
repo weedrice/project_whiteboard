@@ -323,7 +323,9 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                         JOIN FETCH p.board b
                         WHERE c.user = :user
                           AND c.isDeleted = false
+                          AND c.isBlinded = false
                           AND p.isDeleted = false
+                          AND p.isBlinded = false
                           AND (:blockedUserIdsEmpty = true OR p.user.userId NOT IN (:blockedUserIds))
             """ + PostVisibilityJpql.VIEWER_READABLE_POST + """
                         ORDER BY c.createdAt DESC, c.commentId DESC
@@ -334,7 +336,9 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                         JOIN p.board b
                         WHERE c.user = :user
                           AND c.isDeleted = false
+                          AND c.isBlinded = false
                           AND p.isDeleted = false
+                          AND p.isBlinded = false
                           AND (:blockedUserIdsEmpty = true OR p.user.userId NOT IN (:blockedUserIds))
             """ + PostVisibilityJpql.VIEWER_READABLE_POST + """
                         """)

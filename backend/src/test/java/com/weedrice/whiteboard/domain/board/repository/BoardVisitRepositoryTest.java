@@ -37,8 +37,11 @@ class BoardVisitRepositoryTest {
 
         Post excludedOldPost = persistPost(board, writer, "old");
         Post recentPost = persistPost(board, writer, "recent");
+        Post blindedRecentPost = persistPost(board, writer, "blinded-recent");
+        blindedRecentPost.blind("reported", now.minusDays(1));
         setCreatedAt(excludedOldPost, now.minusDays(35));
         setCreatedAt(recentPost, now.minusDays(5));
+        setCreatedAt(blindedRecentPost, now.minusDays(1));
         entityManager.flush();
         entityManager.clear();
 

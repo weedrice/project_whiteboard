@@ -365,7 +365,8 @@ public class PostInteractionService {
             return Page.empty(safePageable);
         }
 
-        Map<Long, Post> postsById = postRepository.findByPostIdInAndIsDeletedFalse(visiblePostIdsPage.getContent())
+        Map<Long, Post> postsById = postRepository
+                .findByPostIdInAndIsDeletedFalseAndIsBlindedFalse(visiblePostIdsPage.getContent())
                 .stream()
                 .collect(Collectors.toMap(Post::getPostId, post -> post));
         List<Post> orderedPosts = visiblePostIdsPage.getContent().stream()

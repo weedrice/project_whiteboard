@@ -65,6 +65,7 @@ public interface ViewHistoryRepository extends JpaRepository<ViewHistory, Long> 
             JOIN boards b ON b.board_id = p.board_id
             WHERE vh.user_id = :userId
               AND p.is_deleted = 'N'
+              AND p.is_blinded = 'N'
               AND (:blockedUserIdsEmpty = true OR p.user_id NOT IN (:blockedUserIds))
               AND (
                     b.is_active = 'Y'
@@ -110,6 +111,7 @@ public interface ViewHistoryRepository extends JpaRepository<ViewHistory, Long> 
             JOIN boards b ON b.board_id = p.board_id
             WHERE vh.user_id = :userId
               AND p.is_deleted = 'N'
+              AND p.is_blinded = 'N'
               AND (:blockedUserIdsEmpty = true OR p.user_id NOT IN (:blockedUserIds))
               AND (
                     b.is_active = 'Y'

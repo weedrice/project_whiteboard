@@ -101,6 +101,32 @@ class ViewHistoryRepositoryTest {
         assertThat(result.getContent()).containsExactly(newerPost.getPostId(), olderPost.getPostId());
     }
 
+    @Test
+    @DisplayName("최근 본 글 ID와 집계는 블라인드 게시글을 제외한다")
+    void findVisiblePostIdsByUserIdOrderByModifiedAtDesc_excludesBlindedPostsFromContentAndCount() {
+        User managedViewer = entityManager.find(User.class, viewer.getUserId());
+        User managedAuthor = entityManager.find(User.class, author.getUserId());
+        Board managedBoard = entityManager.find(Board.class, board.getBoardId());
+        Post visiblePost = persistPost(managedBoard, managedAuthor, "visible-post");
+        Post blindedPost = persistPost(managedBoard, managedAuthor, "blinded-post");
+        blindedPost.blind("reported", LocalDateTime.now());
+        entityManager.persist(ViewHistory.builder().user(managedViewer).post(visiblePost).build());
+        entityManager.persist(ViewHistory.builder().user(managedViewer).post(blindedPost).build());
+        entityManager.flush();
+        entityManager.clear();
+
+        Page<Long> result = viewHistoryRepository.findVisiblePostIdsByUserIdOrderByModifiedAtDesc(
+                viewer.getUserId(),
+                false,
+                true,
+                NO_BLOCKED_USER_IDS,
+                BoardPolicyConstants.INQUIRY_BOARD_URL,
+                PageRequest.of(0, 10));
+
+        assertThat(result.getContent()).containsExactly(visiblePost.getPostId());
+        assertThat(result.getTotalElements()).isEqualTo(1L);
+    }
+
     private Post persistPost(Board board, User author, String title) {
         Post post = Post.builder()
                 .board(board)

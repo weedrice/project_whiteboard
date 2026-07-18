@@ -684,6 +684,11 @@ class CommentRepositoryTest {
         Post secretPost = persistPost("Secret Post", publicBoard, true, false, author);
         Post ownSecretPost = persistPost("Own Secret Post", publicBoard, true, false, user);
         Post ownInquiryPost = persistPost("Own Inquiry Post", inquiryBoard, false, false, user);
+        Post blindedPost = persistPost("Blinded Post", publicBoard, false, false, author);
+        blindedPost.blind("reported", LocalDateTime.now());
+        Post postWithBlindedComment = persistPost("Post With Blinded Comment", publicBoard, false, false, author);
+        Comment blindedComment = commentFor(postWithBlindedComment, "Blinded Comment", user);
+        blindedComment.blind("reported", LocalDateTime.now());
         entityManager.persist(commentFor(visiblePost, "Visible Comment", user));
         entityManager.persist(commentFor(deletedPost, "Deleted Post Comment", user));
         entityManager.persist(commentFor(privatePost, "Private Post Comment", user));
@@ -691,6 +696,8 @@ class CommentRepositoryTest {
         entityManager.persist(commentFor(secretPost, "Secret Post Comment", user));
         entityManager.persist(commentFor(ownSecretPost, "Own Secret Comment", user));
         entityManager.persist(commentFor(ownInquiryPost, "Own Inquiry Comment", user));
+        entityManager.persist(commentFor(blindedPost, "Blinded Post Comment", user));
+        entityManager.persist(blindedComment);
         entityManager.flush();
         entityManager.clear();
 

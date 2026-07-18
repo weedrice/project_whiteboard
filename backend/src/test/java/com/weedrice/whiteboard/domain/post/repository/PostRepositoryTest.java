@@ -609,6 +609,21 @@ class PostRepositoryTest {
     }
 
     @Test
+    @DisplayName("최근 본 글 hydrate 조회는 블라인드 게시글을 제외한다")
+    void findByPostIdInAndIsDeletedFalseAndIsBlindedFalse_excludesBlindedPosts() {
+        Post visiblePost = persistPost("Visible history post");
+        Post blindedPost = persistPost("Blinded history post");
+        blindedPost.blind("reported", LocalDateTime.now());
+        entityManager.flush();
+        entityManager.clear();
+
+        List<Post> posts = postRepository.findByPostIdInAndIsDeletedFalseAndIsBlindedFalse(
+                List.of(visiblePost.getPostId(), blindedPost.getPostId()));
+
+        assertThat(posts).extracting(Post::getPostId).containsExactly(visiblePost.getPostId());
+    }
+
+    @Test
     @DisplayName("조회수 원자 증가")
     void incrementViewCount_success() {
         Long postId = post.getPostId();

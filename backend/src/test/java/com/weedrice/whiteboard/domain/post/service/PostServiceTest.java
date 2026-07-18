@@ -2663,13 +2663,14 @@ class PostServiceTest {
                 eq(BoardPolicyConstants.INQUIRY_BOARD_URL),
                 any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(1L), Pageable.unpaged(), 1));
-        when(postRepository.findByPostIdInAndIsDeletedFalse(List.of(1L))).thenReturn(List.of(post));
+        when(postRepository.findByPostIdInAndIsDeletedFalseAndIsBlindedFalse(List.of(1L))).thenReturn(List.of(post));
 
         Page<PostSummary> result = postService.getRecentlyViewedPosts(1L, Pageable.unpaged());
 
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getContent().get(0).getPostId()).isEqualTo(1L);
         assertThat(result.getTotalElements()).isEqualTo(1);
+        verify(postRepository).findByPostIdInAndIsDeletedFalseAndIsBlindedFalse(List.of(1L));
         verify(viewHistoryRepository).findVisiblePostIdsByUserIdOrderByModifiedAtDesc(
                 eq(1L),
                 eq(false),
@@ -2692,7 +2693,7 @@ class PostServiceTest {
                 eq(BoardPolicyConstants.INQUIRY_BOARD_URL),
                 any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(1L), Pageable.unpaged(), 1));
-        when(postRepository.findByPostIdInAndIsDeletedFalse(List.of(1L))).thenReturn(List.of(post));
+        when(postRepository.findByPostIdInAndIsDeletedFalseAndIsBlindedFalse(List.of(1L))).thenReturn(List.of(post));
 
         Page<PostSummary> result = postService.getRecentlyViewedPosts(1L, Pageable.unpaged());
 

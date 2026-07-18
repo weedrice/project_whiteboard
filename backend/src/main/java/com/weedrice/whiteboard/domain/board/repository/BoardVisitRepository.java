@@ -32,6 +32,7 @@ public interface BoardVisitRepository extends JpaRepository<BoardVisit, BoardVis
              AND bv.user.userId = :userId
             WHERE p.board.boardId IN :boardIds
               AND p.isDeleted = false
+              AND p.isBlinded = false
               AND p.createdAt > :recentCutoff
               AND (
                     p.isSecret = false
