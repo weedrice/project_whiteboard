@@ -1140,8 +1140,8 @@ class EmoticonServiceTest {
             assertThat(emoticonMaster.getIsActive()).isEqualTo("N");
             assertThat(emoticonShopItem.getIsActive()).isFalse();
             InOrder lockOrder = inOrder(emoticonMasterRepository, shopItemRepository);
-            lockOrder.verify(emoticonMasterRepository).findByIdForUpdate(1L);
             lockOrder.verify(shopItemRepository).findByItemTypeAndTargetIdForUpdate("EMOTICON", 1L);
+            lockOrder.verify(emoticonMasterRepository).findByIdForUpdate(1L);
         }
 
         @Test
@@ -1171,6 +1171,9 @@ class EmoticonServiceTest {
 
             emoticonService.deleteEmoticon(1L, 1L);
 
+            InOrder lockOrder = inOrder(shopItemRepository, emoticonMasterRepository);
+            lockOrder.verify(shopItemRepository).findByItemTypeAndTargetIdForUpdate("EMOTICON", 1L);
+            lockOrder.verify(emoticonMasterRepository).findByIdForUpdate(1L);
             verify(emoticonMasterRepository).findByIdForUpdate(1L);
             InOrder inOrder = inOrder(emoticonMasterRepository, fileService);
             inOrder.verify(emoticonMasterRepository).delete(emoticonMaster);

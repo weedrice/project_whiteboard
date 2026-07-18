@@ -11,6 +11,7 @@ import com.weedrice.whiteboard.domain.file.entity.FileStorageStatus;
 import com.weedrice.whiteboard.domain.file.repository.FileRepository;
 import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.file.support.FileUrlResolver;
+import com.weedrice.whiteboard.domain.shop.entity.ShopItem;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
@@ -94,6 +95,12 @@ class EmoticonUpdateTransactionRollbackTest {
     @BeforeEach
     void setUpFileStateChanges() {
         reset(shopItemLifecycleService);
+        when(shopItemLifecycleService.lockForUpdate(anyLong())).thenReturn(ShopItem.builder()
+                .itemName("Rollback test item")
+                .price(100)
+                .itemType("EMOTICON")
+                .targetId(1L)
+                .build());
         when(imageLimitPolicy.getCurrentLimit()).thenReturn(20);
         when(userWritableResolver.resolve(anyLong())).thenReturn(null);
 
@@ -181,7 +188,7 @@ class EmoticonUpdateTransactionRollbackTest {
     void updateEmoticon_shopItemFailure_rollsBackMaster() {
         SeedData seed = testDataService.seed();
         doThrow(new DataIntegrityViolationException("shop item update failed"))
-                .when(shopItemLifecycleService).updatePresentation(any(EmoticonMaster.class));
+                .when(shopItemLifecycleService).updatePresentation(any(ShopItem.class), any(EmoticonMaster.class));
 
         assertThatThrownBy(() -> updater.update(
                 seed.userId(),

@@ -8,6 +8,7 @@ import com.weedrice.whiteboard.domain.emoticon.entity.EmoticonMaster;
 import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonImageRepository;
 import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonMasterRepository;
 import com.weedrice.whiteboard.domain.file.service.FileService;
+import com.weedrice.whiteboard.domain.shop.entity.ShopItem;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -122,8 +123,10 @@ class EmoticonCommandService {
     }
 
     EmoticonMasterDto updateEmoticon(Long userId, Long emoticonId, EmoticonUpdateRequest request) {
+        ShopItem shopItem = shopItemLifecycleService.lockForUpdate(emoticonId);
         EmoticonMaster master = emoticonMasterRepository.findByIdForUpdate(emoticonId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.EMOTICON_NOT_FOUND));
+        requireShopItem(shopItem);
 
         validateWritableOwner(master, userId);
 
@@ -199,7 +202,7 @@ class EmoticonCommandService {
                 normalizeUpdateName(request.getName(), master.getName()),
                 thumbnailUrl,
                 request.getTags() != null ? request.getTags() : master.getTags());
-        shopItemLifecycleService.updatePresentation(master);
+        shopItemLifecycleService.updatePresentation(shopItem, master);
 
         return EmoticonMasterDto.from(master);
     }
@@ -216,30 +219,34 @@ class EmoticonCommandService {
     }
 
     EmoticonMasterDto toggleVisibility(Long userId, Long emoticonId) {
+        ShopItem shopItem = shopItemLifecycleService.lockForUpdate(emoticonId);
         EmoticonMaster master = emoticonMasterRepository.findByIdForUpdate(emoticonId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.EMOTICON_NOT_FOUND));
+        requireShopItem(shopItem);
 
         validateWritableOwner(master, userId);
 
         if ("Y".equals(master.getIsActive())) {
             master.deactivate();
-            shopItemLifecycleService.setActive(emoticonId, false);
+            shopItemLifecycleService.setActive(shopItem, false);
         } else {
             master.activate();
-            shopItemLifecycleService.setActive(emoticonId, true);
+            shopItemLifecycleService.setActive(shopItem, true);
         }
 
         return EmoticonMasterDto.from(master);
     }
 
     void deleteEmoticon(Long userId, Long emoticonId) {
+        ShopItem shopItem = shopItemLifecycleService.lockForUpdate(emoticonId);
         EmoticonMaster master = emoticonMasterRepository.findByIdForUpdate(emoticonId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.EMOTICON_NOT_FOUND));
+        requireShopItem(shopItem);
 
         validateWritableOwner(master, userId);
 
         deletePolicy.validateDeletable(emoticonId);
-        shopItemLifecycleService.retire(emoticonId);
+        shopItemLifecycleService.retire(shopItem);
 
         Long masterId = master.getEmoticonId();
         String thumbnailUrl = master.getThumbnailUrl();
@@ -306,6 +313,12 @@ class EmoticonCommandService {
     private void validateOwner(EmoticonMaster master, Long userId) {
         if (!master.isOwner(userId)) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+    }
+
+    private void requireShopItem(ShopItem shopItem) {
+        if (shopItem == null) {
+            throw new BusinessException(ErrorCode.ITEM_NOT_AVAILABLE);
         }
     }
 

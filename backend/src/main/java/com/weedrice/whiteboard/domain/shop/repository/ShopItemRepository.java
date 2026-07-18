@@ -11,8 +11,13 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 public interface ShopItemRepository extends JpaRepository<ShopItem, Long> {
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT si FROM ShopItem si WHERE si.itemId = :itemId")
+    Optional<ShopItem> findByIdForUpdate(@Param("itemId") Long itemId);
+
     Page<ShopItem> findByIsActiveAndItemType(Boolean isActive, String itemType, Pageable pageable);
     Page<ShopItem> findByIsActiveAndItemTypeIn(Boolean isActive, Collection<String> itemTypes, Pageable pageable);
     Page<ShopItem> findByIsActive(Boolean isActive, Pageable pageable);

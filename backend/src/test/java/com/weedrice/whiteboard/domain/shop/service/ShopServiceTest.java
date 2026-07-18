@@ -238,7 +238,7 @@ class ShopServiceTest {
         @DisplayName("Purchases a supported item and grants the entitlement")
         void purchaseItem_success() {
             when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
-            when(shopItemRepository.findById(2L)).thenReturn(Optional.of(emoticonItem));
+            when(shopItemRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(emoticonItem));
             when(shopEntitlementCapabilityRegistry.supports(emoticonItem)).thenReturn(true);
             when(shopEntitlementCapabilityRegistry.preparePurchase(user, emoticonItem)).thenReturn(preparedPurchase);
 
@@ -253,6 +253,9 @@ class ShopServiceTest {
             Long purchaseId = shopService.purchaseItem(1L, 2L);
 
             assertThat(purchaseId).isEqualTo(1L);
+            InOrder lockOrder = inOrder(shopItemRepository, userRepository);
+            lockOrder.verify(shopItemRepository).findByIdForUpdate(2L);
+            lockOrder.verify(userRepository).findByIdForUpdate(1L);
             InOrder inOrder = inOrder(
                     sanctionService,
                     shopEntitlementCapabilityRegistry,
@@ -275,7 +278,7 @@ class ShopServiceTest {
         @DisplayName("Purchases an active item by type and target without itemId lookup")
         void purchaseActiveItemByTarget_success() {
             when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
-            when(shopItemRepository.findTop2ByIsActiveAndItemTypeAndTargetId(true, "EMOTICON", 10L))
+            when(shopItemRepository.findByItemTypeAndTargetIdForUpdate("EMOTICON", 10L))
                     .thenReturn(List.of(emoticonItem));
             when(shopEntitlementCapabilityRegistry.supports(emoticonItem)).thenReturn(true);
             when(shopEntitlementCapabilityRegistry.supportsValidatedPurchasePreparation(emoticonItem)).thenReturn(true);
@@ -292,8 +295,8 @@ class ShopServiceTest {
             Long purchaseId = shopService.purchaseActiveItemByTarget(1L, " emoticon ", 10L);
 
             assertThat(purchaseId).isEqualTo(1L);
-            verify(shopItemRepository, never()).findById(anyLong());
-            verify(shopItemRepository).findTop2ByIsActiveAndItemTypeAndTargetId(true, "EMOTICON", 10L);
+            verify(shopItemRepository, never()).findByIdForUpdate(anyLong());
+            verify(shopItemRepository).findByItemTypeAndTargetIdForUpdate("EMOTICON", 10L);
             verify(shopEntitlementCapabilityRegistry, never()).validateConfiguration(any());
             verify(shopEntitlementCapabilityRegistry, never()).preparePurchase(anyLong(), any());
             verify(shopEntitlementCapabilityRegistry, never()).preparePurchase(any(User.class), any(ShopItem.class));
@@ -309,7 +312,7 @@ class ShopServiceTest {
                     .itemType("EMOTICON")
                     .targetId(10L)
                     .build();
-            when(shopItemRepository.findTop2ByIsActiveAndItemTypeAndTargetId(true, "EMOTICON", 10L))
+            when(shopItemRepository.findByItemTypeAndTargetIdForUpdate("EMOTICON", 10L))
                     .thenReturn(List.of(emoticonItem, duplicate));
 
             assertThatThrownBy(() -> shopService.purchaseActiveItemByTarget(1L, "EMOTICON", 10L))
@@ -333,7 +336,7 @@ class ShopServiceTest {
         @Test
         @DisplayName("Rejects active target purchases when no active item exists before locking the user")
         void purchaseActiveItemByTarget_missingItem_throwsItemNotAvailableBeforeUserLock() {
-            when(shopItemRepository.findTop2ByIsActiveAndItemTypeAndTargetId(true, "EMOTICON", 10L))
+            when(shopItemRepository.findByItemTypeAndTargetIdForUpdate("EMOTICON", 10L))
                     .thenReturn(List.of());
 
             assertThatThrownBy(() -> shopService.purchaseActiveItemByTarget(1L, "EMOTICON", 10L))
@@ -355,7 +358,7 @@ class ShopServiceTest {
         @Test
         @DisplayName("Blocks banned users after resolving a unique active target item")
         void purchaseActiveItemByTarget_bannedUser_throwsUserNotActive() {
-            when(shopItemRepository.findTop2ByIsActiveAndItemTypeAndTargetId(true, "EMOTICON", 10L))
+            when(shopItemRepository.findByItemTypeAndTargetIdForUpdate("EMOTICON", 10L))
                     .thenReturn(List.of(emoticonItem));
             when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
             doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE))
@@ -392,7 +395,7 @@ class ShopServiceTest {
             ReflectionTestUtils.setField(freeEmoticonItem, "itemId", 4L);
             ReflectionTestUtils.setField(freeEmoticonItem, "isActive", true);
             when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
-            when(shopItemRepository.findById(4L)).thenReturn(Optional.of(freeEmoticonItem));
+            when(shopItemRepository.findByIdForUpdate(4L)).thenReturn(Optional.of(freeEmoticonItem));
             when(shopEntitlementCapabilityRegistry.supports(freeEmoticonItem)).thenReturn(true);
             when(shopEntitlementCapabilityRegistry.preparePurchase(user, freeEmoticonItem)).thenReturn(preparedPurchase);
 
@@ -432,7 +435,7 @@ class ShopServiceTest {
             ReflectionTestUtils.setField(negativePriceItem, "itemId", 5L);
             ReflectionTestUtils.setField(negativePriceItem, "isActive", true);
             when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
-            when(shopItemRepository.findById(5L)).thenReturn(Optional.of(negativePriceItem));
+            when(shopItemRepository.findByIdForUpdate(5L)).thenReturn(Optional.of(negativePriceItem));
             when(shopEntitlementCapabilityRegistry.supports(negativePriceItem)).thenReturn(true);
 
             assertThatThrownBy(() -> shopService.purchaseItem(1L, 5L))
@@ -460,7 +463,7 @@ class ShopServiceTest {
             ReflectionTestUtils.setField(negativePriceItem, "itemId", 5L);
             ReflectionTestUtils.setField(negativePriceItem, "isActive", true);
             when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
-            when(shopItemRepository.findById(5L)).thenReturn(Optional.of(negativePriceItem));
+            when(shopItemRepository.findByIdForUpdate(5L)).thenReturn(Optional.of(negativePriceItem));
             when(shopEntitlementCapabilityRegistry.supports(negativePriceItem)).thenReturn(true);
             when(shopEntitlementCapabilityRegistry.supportsValidatedPurchasePreparation(negativePriceItem))
                     .thenReturn(true);
@@ -497,7 +500,7 @@ class ShopServiceTest {
             ReflectionTestUtils.setField(invalidConfigurationItem, "itemId", 5L);
             ReflectionTestUtils.setField(invalidConfigurationItem, "isActive", true);
             when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
-            when(shopItemRepository.findById(5L)).thenReturn(Optional.of(invalidConfigurationItem));
+            when(shopItemRepository.findByIdForUpdate(5L)).thenReturn(Optional.of(invalidConfigurationItem));
             when(shopEntitlementCapabilityRegistry.supports(invalidConfigurationItem)).thenReturn(true);
             when(shopEntitlementCapabilityRegistry.supportsValidatedPurchasePreparation(invalidConfigurationItem))
                     .thenReturn(true);
@@ -522,7 +525,7 @@ class ShopServiceTest {
         void purchaseItem_inactiveItem() {
             ReflectionTestUtils.setField(emoticonItem, "isActive", false);
             when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
-            when(shopItemRepository.findById(2L)).thenReturn(Optional.of(emoticonItem));
+            when(shopItemRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(emoticonItem));
 
             assertThatThrownBy(() -> shopService.purchaseItem(1L, 2L))
                     .isInstanceOf(BusinessException.class)
@@ -537,7 +540,7 @@ class ShopServiceTest {
         @DisplayName("Blocks unsupported items")
         void purchaseItem_unsupportedItem() {
             when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
-            when(shopItemRepository.findById(2L)).thenReturn(Optional.of(emoticonItem));
+            when(shopItemRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(emoticonItem));
             when(shopEntitlementCapabilityRegistry.supports(emoticonItem)).thenReturn(false);
 
             assertThatThrownBy(() -> shopService.purchaseItem(1L, 2L))
@@ -553,7 +556,7 @@ class ShopServiceTest {
         @DisplayName("Blocks misconfigured items")
         void purchaseItem_invalidConfiguration() {
             when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
-            when(shopItemRepository.findById(2L)).thenReturn(Optional.of(emoticonItem));
+            when(shopItemRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(emoticonItem));
             when(shopEntitlementCapabilityRegistry.supports(emoticonItem)).thenReturn(true);
             doThrow(new IllegalStateException("missing-target"))
                     .when(shopEntitlementCapabilityRegistry)
@@ -574,7 +577,7 @@ class ShopServiceTest {
         @DisplayName("Blocks preflight failures before spending points")
         void purchaseItem_preflightFailure_doesNotSpendPoints() {
             when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
-            when(shopItemRepository.findById(2L)).thenReturn(Optional.of(emoticonItem));
+            when(shopItemRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(emoticonItem));
             when(shopEntitlementCapabilityRegistry.supports(emoticonItem)).thenReturn(true);
             doThrow(new BusinessException(ErrorCode.EMOTICON_ALREADY_PURCHASED))
                     .when(shopEntitlementCapabilityRegistry)
@@ -594,7 +597,7 @@ class ShopServiceTest {
         @DisplayName("Propagates grant failure without saving purchase history")
         void purchaseItem_grantFailure() {
             when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
-            when(shopItemRepository.findById(2L)).thenReturn(Optional.of(emoticonItem));
+            when(shopItemRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(emoticonItem));
             when(shopEntitlementCapabilityRegistry.supports(emoticonItem)).thenReturn(true);
             when(shopEntitlementCapabilityRegistry.preparePurchase(user, emoticonItem)).thenReturn(preparedPurchase);
             doThrow(new BusinessException(ErrorCode.EMOTICON_ALREADY_PURCHASED))
@@ -618,7 +621,7 @@ class ShopServiceTest {
         @Test
         @DisplayName("Fails for a missing item")
         void purchaseItem_notFound() {
-            when(shopItemRepository.findById(999L)).thenReturn(Optional.empty());
+            when(shopItemRepository.findByIdForUpdate(999L)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> shopService.purchaseItem(1L, 999L))
                     .isInstanceOf(BusinessException.class)
@@ -632,7 +635,7 @@ class ShopServiceTest {
         @Test
         @DisplayName("Fails for a missing user")
         void purchaseItem_userNotFound() {
-            when(shopItemRepository.findById(2L)).thenReturn(Optional.of(emoticonItem));
+            when(shopItemRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(emoticonItem));
             when(userRepository.findByIdForUpdate(999L)).thenReturn(Optional.empty());
 
             assertThatThrownBy(() -> shopService.purchaseItem(999L, 2L))
@@ -644,7 +647,7 @@ class ShopServiceTest {
         @Test
         @DisplayName("Blocks banned users")
         void purchaseItem_bannedUser() {
-            when(shopItemRepository.findById(2L)).thenReturn(Optional.of(emoticonItem));
+            when(shopItemRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(emoticonItem));
             when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
             doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE))
                     .when(sanctionService)
@@ -655,7 +658,7 @@ class ShopServiceTest {
                     .extracting("errorCode")
                     .isEqualTo(ErrorCode.USER_NOT_ACTIVE);
 
-            verify(shopItemRepository).findById(2L);
+            verify(shopItemRepository).findByIdForUpdate(2L);
             verifyNoInteractions(pointService);
         }
     }

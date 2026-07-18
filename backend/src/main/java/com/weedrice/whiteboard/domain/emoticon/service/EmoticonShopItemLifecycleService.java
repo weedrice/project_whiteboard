@@ -34,13 +34,11 @@ class EmoticonShopItemLifecycleService {
                 .build());
     }
 
-    void updatePresentation(EmoticonMaster master) {
-        resolveSingleItem(master.getEmoticonId())
-                .updatePresentation(master.getName(), master.getThumbnailUrl());
+    void updatePresentation(ShopItem item, EmoticonMaster master) {
+        item.updatePresentation(master.getName(), master.getThumbnailUrl());
     }
 
-    void setActive(Long emoticonId, boolean active) {
-        ShopItem item = resolveSingleItemForUpdate(emoticonId);
+    void setActive(ShopItem item, boolean active) {
         if (active) {
             item.activate();
         } else {
@@ -48,8 +46,8 @@ class EmoticonShopItemLifecycleService {
         }
     }
 
-    void retire(Long emoticonId) {
-        resolveSingleItem(emoticonId).retire();
+    void retire(ShopItem item) {
+        item.retire();
     }
 
     PurchaseOffer getPurchaseOffer(Long emoticonId) {
@@ -61,18 +59,13 @@ class EmoticonShopItemLifecycleService {
         return new PurchaseOffer(Boolean.TRUE.equals(item.getIsActive()), item.getPrice());
     }
 
-    private ShopItem resolveSingleItem(Long emoticonId) {
-        List<ShopItem> items = findItems(emoticonId);
-        if (items.size() != 1) {
-            throw new BusinessException(ErrorCode.ITEM_NOT_AVAILABLE);
-        }
-        return items.get(0);
-    }
-
-    private ShopItem resolveSingleItemForUpdate(Long emoticonId) {
+    ShopItem lockForUpdate(Long emoticonId) {
         List<ShopItem> items = shopItemRepository.findByItemTypeAndTargetIdForUpdate(
                 EmoticonShopItemTypes.EMOTICON,
                 emoticonId);
+        if (items.isEmpty()) {
+            return null;
+        }
         if (items.size() != 1) {
             throw new BusinessException(ErrorCode.ITEM_NOT_AVAILABLE);
         }
