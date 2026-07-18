@@ -17,9 +17,20 @@ public interface OAuthSignupTicketRepository extends JpaRepository<OAuthSignupTi
     @Query("SELECT ticket FROM OAuthSignupTicketEntity ticket WHERE ticket.ticketHash = :ticketHash")
     Optional<OAuthSignupTicketEntity> findByTicketHashForUpdate(@Param("ticketHash") String ticketHash);
 
-    @Modifying
-    @Query("DELETE FROM OAuthSignupTicketEntity ticket WHERE ticket.expiresAt <= :now")
-    int deleteExpiredAtOrBefore(@Param("now") LocalDateTime now);
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query(value = """
+            DELETE FROM oauth_signup_tickets
+            WHERE ticket_hash IN (
+                SELECT ticket_hash
+                FROM oauth_signup_tickets
+                WHERE expires_at <= :now
+                ORDER BY expires_at ASC, ticket_hash ASC
+                LIMIT :batchSize
+            )
+            """, nativeQuery = true)
+    int deleteExpiredBatch(
+            @Param("now") LocalDateTime now,
+            @Param("batchSize") int batchSize);
 
     @Modifying
     @Query("DELETE FROM OAuthSignupTicketEntity ticket WHERE ticket.ticketHash = :ticketHash")

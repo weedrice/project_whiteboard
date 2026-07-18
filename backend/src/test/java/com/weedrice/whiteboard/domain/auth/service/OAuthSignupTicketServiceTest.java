@@ -166,9 +166,10 @@ class OAuthSignupTicketServiceTest {
     @Test
     void deleteExpiredTickets_usesCurrentClockTime() {
         LocalDateTime now = LocalDateTime.now(CLOCK);
-        when(ticketRepository.deleteExpiredAtOrBefore(now)).thenReturn(3);
+        when(ticketRepository.deleteExpiredBatch(now, OAuthSignupTicketService.CLEANUP_BATCH_SIZE)).thenReturn(3);
 
         assertThat(service.deleteExpiredTickets()).isEqualTo(3);
+        verify(ticketRepository).deleteExpiredBatch(now, OAuthSignupTicketService.CLEANUP_BATCH_SIZE);
     }
 
     private OAuthSignupTicketEntity activeEntity(String hash) {

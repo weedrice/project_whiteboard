@@ -21,6 +21,7 @@ import java.util.UUID;
 public class OAuthSignupTicketService {
 
     private static final int TICKET_LENGTH = 36;
+    public static final int CLEANUP_BATCH_SIZE = 500;
     private final OAuthSignupTicketRepository ticketRepository;
     private final TokenHashService tokenHashService;
     private final Clock clock;
@@ -72,7 +73,7 @@ public class OAuthSignupTicketService {
 
     @Transactional
     public int deleteExpiredTickets() {
-        return ticketRepository.deleteExpiredAtOrBefore(now());
+        return ticketRepository.deleteExpiredBatch(now(), CLEANUP_BATCH_SIZE);
     }
 
     private OAuthSignupTicket getActive(String ticket, boolean forUpdate) {

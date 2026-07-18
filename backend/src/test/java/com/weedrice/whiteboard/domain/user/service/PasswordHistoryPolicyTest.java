@@ -11,6 +11,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 
@@ -61,5 +62,19 @@ class PasswordHistoryPolicyTest {
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.PASSWORD_RECENTLY_USED);
         verify(passwordHistoryRepository, never()).findTop4ByUserOrderByCreatedAtDescHistoryIdDesc(user);
+    }
+
+    @Test
+    @DisplayName("새 비밀번호 이력을 저장한 뒤 최신 네 건만 남긴다")
+    void record_prunesHistoryAfterFlush() {
+        PasswordHistoryPolicy policy = new PasswordHistoryPolicy(passwordHistoryRepository, passwordEncoder);
+        User user = User.builder().password("encodedCurrent").build();
+        ReflectionTestUtils.setField(user, "userId", 7L);
+
+        policy.record(user, "encodedNext");
+
+        verify(passwordHistoryRepository).save(org.mockito.ArgumentMatchers.any(PasswordHistory.class));
+        verify(passwordHistoryRepository).flush();
+        verify(passwordHistoryRepository).deleteOlderThanLatestFour(7L);
     }
 }

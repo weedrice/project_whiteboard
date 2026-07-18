@@ -61,6 +61,29 @@ class LoginHistoryRepositoryTest {
                 .isEqualTo(second.getHistoryId());
     }
 
+    @Test
+    @DisplayName("로그인 이력 정리는 오래된 행부터 배치 크기만큼만 삭제한다")
+    void deleteCreatedBeforeBatch_deletesOldestRowsWithinBatchLimit() {
+        LoginHistory oldest = persistSuccessHistory("oldest-login");
+        LoginHistory older = persistFailureHistory("older-login");
+        LoginHistory recent = persistSuccessHistory("recent-login");
+        entityManager.flush();
+        LocalDateTime cutoff = LocalDateTime.now().minusDays(30);
+        updateCreatedAt(oldest, cutoff.minusDays(2));
+        updateCreatedAt(older, cutoff.minusDays(1));
+        updateCreatedAt(recent, cutoff.plusDays(1));
+        entityManager.clear();
+
+        int deleted = loginHistoryRepository.deleteCreatedBeforeBatch(cutoff, 1);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(deleted).isEqualTo(1);
+        assertThat(loginHistoryRepository.findById(oldest.getHistoryId())).isEmpty();
+        assertThat(loginHistoryRepository.findById(older.getHistoryId())).isPresent();
+        assertThat(loginHistoryRepository.findById(recent.getHistoryId())).isPresent();
+    }
+
     private LoginHistory persistSuccessHistory(String loginId) {
         LoginHistory history = LoginHistory.success(user, loginId, "127.0.0.1", "test-agent");
         entityManager.persist(history);

@@ -49,5 +49,7 @@ public class PasswordHistoryPolicy {
                 .user(user)
                 .passwordHash(passwordHash)
                 .build());
+        passwordHistoryRepository.flush();
+        passwordHistoryRepository.deleteOlderThanLatestFour(user.getUserId());
     }
 }

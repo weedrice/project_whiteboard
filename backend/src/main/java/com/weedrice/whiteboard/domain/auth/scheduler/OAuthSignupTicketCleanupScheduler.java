@@ -11,13 +11,21 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class OAuthSignupTicketCleanupScheduler {
 
+    private static final int MAX_BATCHES_PER_RUN = 20;
     private final OAuthSignupTicketService ticketService;
 
     @Scheduled(cron = "0 10 * * * ?")
     public void deleteExpiredTickets() {
-        int deleted = ticketService.deleteExpiredTickets();
-        if (deleted > 0) {
-            log.info("Deleted {} expired OAuth signup ticket(s)", deleted);
+        int totalDeleted = 0;
+        for (int batch = 0; batch < MAX_BATCHES_PER_RUN; batch++) {
+            int deleted = ticketService.deleteExpiredTickets();
+            totalDeleted += deleted;
+            if (deleted < OAuthSignupTicketService.CLEANUP_BATCH_SIZE) {
+                break;
+            }
+        }
+        if (totalDeleted > 0) {
+            log.info("Deleted {} expired OAuth signup ticket(s)", totalDeleted);
         }
     }
 }
