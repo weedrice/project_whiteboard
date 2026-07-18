@@ -131,21 +131,56 @@ export function useAdminBoardEditor({ boardsData, updateBoard, reorderBoards, re
   watch(boardsData, (newData) => {
     const list = (newData || []) as AdminBoard[]
     const copied = sortedBoardCopies(list)
+    const previousBoards = new Map(boards.value.map((board) => [board.boardId, board]))
+    const previousOrder = boards.value.map((board) => board.boardId)
+    const selectedId = selectedBoardId.value
+    const preserveSelectedForm = isSelectedFormDirty.value
+    const formSnapshot = { ...form }
 
-    boards.value = copied
-    originalBoardUrls.value = Object.fromEntries(copied.map((board) => [board.boardId, board.boardUrl]))
+    const merged = copied.map((board) => {
+      const previousBoard = previousBoards.get(board.boardId)
+      if (previousBoard && modifiedBoardIds.value.includes(board.boardId)) {
+        return { ...previousBoard }
+      }
 
-    if (copied.length === 0) {
+      return board
+    })
+
+    const nextBoards = orderDirty.value
+      ? [...merged].sort((a, b) => {
+          const aIndex = previousOrder.indexOf(a.boardId)
+          const bIndex = previousOrder.indexOf(b.boardId)
+          if (aIndex < 0) return bIndex < 0 ? a.sortOrder - b.sortOrder : 1
+          if (bIndex < 0) return -1
+          return aIndex - bIndex
+        }).map((board, index) => ({ ...board, sortOrder: index + 1 }))
+      : merged
+
+    boards.value = nextBoards
+    originalBoardUrls.value = Object.fromEntries(nextBoards.map((board) => [
+      board.boardId,
+      modifiedBoardIds.value.includes(board.boardId)
+        ? (originalBoardUrls.value[board.boardId] || board.boardUrl)
+        : board.boardUrl,
+    ]))
+
+    if (nextBoards.length === 0) {
       selectedBoardId.value = null
       return
     }
 
-    if (!selectedBoardId.value || !copied.some((board) => board.boardId === selectedBoardId.value)) {
-      selectedBoardId.value = copied[0].boardId
+    if (!selectedBoardId.value || !nextBoards.some((board) => board.boardId === selectedBoardId.value)) {
+      selectedBoardId.value = nextBoards[0].boardId
+      syncFormFromBoard(nextBoards[0])
+    } else if (preserveSelectedForm && selectedId === selectedBoardId.value) {
+      Object.assign(form, formSnapshot)
+    } else if (selectedBoard.value) {
+      syncFormFromBoard(selectedBoard.value)
     }
   }, { immediate: true })
 
-  watch(selectedBoard, (board) => {
+  watch(selectedBoardId, () => {
+    const board = selectedBoard.value
     if (!board) return
     syncFormFromBoard(board)
   }, { immediate: true })

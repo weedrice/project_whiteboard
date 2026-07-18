@@ -132,6 +132,59 @@ describe('useAdminBoardEditor', () => {
     expect(editor.selectedBoardId.value).toBe(1)
   })
 
+  it('preserves the selected draft when refreshed board data arrives', async () => {
+    const boardsData = ref([
+      createBoard({ boardId: 1, boardName: 'Original', boardUrl: 'original', sortOrder: 1 }),
+      createBoard({ boardId: 2, boardName: 'Second', boardUrl: 'second', sortOrder: 2 }),
+    ])
+    const editor = createEditor(boardsData, vi.fn().mockResolvedValue(undefined))
+    await nextTick()
+    editor.form.boardName = 'Unsaved draft'
+
+    boardsData.value = [
+      createBoard({ boardId: 1, boardName: 'Refreshed', boardUrl: 'original', sortOrder: 1 }),
+      createBoard({ boardId: 2, boardName: 'Second refreshed', boardUrl: 'second', sortOrder: 2 }),
+    ]
+    await nextTick()
+
+    expect(editor.form.boardName).toBe('Unsaved draft')
+    expect(editor.selectedBoard.value?.boardName).toBe('Refreshed')
+    expect(editor.hasUnsavedChanges.value).toBe(true)
+  })
+
+  it('preserves a locally reordered list when refreshed board data arrives', async () => {
+    const boardsData = ref([
+      createBoard({ boardId: 1, boardName: 'First', boardUrl: 'first', sortOrder: 1 }),
+      createBoard({ boardId: 2, boardName: 'Second', boardUrl: 'second', sortOrder: 2 }),
+    ])
+    const reorderResult = createDeferred<AdminBoard[]>()
+    const editor = createEditor(
+      boardsData,
+      vi.fn().mockResolvedValue(undefined),
+      vi.fn().mockReturnValue(reorderResult.promise),
+    )
+    await nextTick()
+    editor.boards.value = [editor.boards.value[1], editor.boards.value[0]]
+    const pendingSave = editor.handleDragEnd()
+
+    boardsData.value = [
+      createBoard({ boardId: 1, boardName: 'First refreshed', boardUrl: 'first', sortOrder: 1 }),
+      createBoard({ boardId: 2, boardName: 'Second refreshed', boardUrl: 'second', sortOrder: 2 }),
+      createBoard({ boardId: 3, boardName: 'New', boardUrl: 'new', sortOrder: 3 }),
+    ]
+    await nextTick()
+
+    expect(editor.boards.value.map((board) => board.boardId)).toEqual([2, 1, 3])
+    expect(editor.boards.value.map((board) => board.sortOrder)).toEqual([1, 2, 3])
+
+    reorderResult.resolve([
+      createBoard({ boardId: 2, boardName: 'Second refreshed', boardUrl: 'second', sortOrder: 1 }),
+      createBoard({ boardId: 1, boardName: 'First refreshed', boardUrl: 'first', sortOrder: 2 }),
+      createBoard({ boardId: 3, boardName: 'New', boardUrl: 'new', sortOrder: 3 }),
+    ])
+    await pendingSave
+  })
+
   it('does not save when board deactivation is cancelled', async () => {
     const boardsData = ref([createBoard({ boardId: 10, boardUrl: 'old-url' })])
     const updateBoard = vi.fn().mockResolvedValue(undefined)
