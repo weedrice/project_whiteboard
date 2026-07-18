@@ -17,7 +17,20 @@ public class IntegratedSearchResponse {
     private IntegratedSearchResultGroup<CommentResponse> commentResults;
     private IntegratedSearchResultGroup<UserSummary> userResults;
     private List<BoardSummary> boardResults;
+    private IntegratedSearchResultGroup<BoardSummary> boardResultPage;
     private String keyword;
+
+    public static IntegratedSearchResponse from(Page<PostSummary> postPage, Page<CommentResponse> commentPage,
+            Page<UserSummary> userPage, Page<BoardSummary> boardPage, String keyword) {
+        return IntegratedSearchResponse.builder()
+                .postResults(IntegratedSearchResultGroup.from(postPage))
+                .commentResults(IntegratedSearchResultGroup.from(commentPage))
+                .userResults(IntegratedSearchResultGroup.from(userPage))
+                .boardResults(boardPage.getContent())
+                .boardResultPage(IntegratedSearchResultGroup.from(boardPage))
+                .keyword(keyword)
+                .build();
+    }
 
     public static IntegratedSearchResponse from(Page<PostSummary> postPage, Page<CommentResponse> commentPage,
             Page<UserSummary> userPage, List<BoardSummary> boardList, String keyword) {
@@ -26,6 +39,14 @@ public class IntegratedSearchResponse {
                 .commentResults(IntegratedSearchResultGroup.from(commentPage))
                 .userResults(IntegratedSearchResultGroup.from(userPage))
                 .boardResults(boardList)
+                .boardResultPage(IntegratedSearchResultGroup.<BoardSummary>builder()
+                        .items(boardList)
+                        .totalElements(boardList.size())
+                        .totalPages(boardList.isEmpty() ? 0 : 1)
+                        .page(0)
+                        .size(boardList.size())
+                        .hasMore(false)
+                        .build())
                 .keyword(keyword)
                 .build();
     }

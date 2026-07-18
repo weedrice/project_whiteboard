@@ -30,5 +30,6 @@ export interface IntegratedSearchResponse {
     commentResults: IntegratedSearchResultGroup<CommentResponse>
     userResults: IntegratedSearchResultGroup<UserSummary>
     boardResults: BoardSearchItem[]
+    boardResultPage?: IntegratedSearchResultGroup<BoardSearchItem>
     keyword: string
 }

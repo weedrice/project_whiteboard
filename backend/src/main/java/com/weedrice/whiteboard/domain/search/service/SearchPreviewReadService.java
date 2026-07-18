@@ -28,7 +28,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -50,9 +49,16 @@ public class SearchPreviewReadService {
     private final SearchUserLookupPolicy searchUserLookupPolicy;
 
     public IntegratedSearchResponse integratedSearch(String keyword, Long currentUserId) {
+        return integratedSearch(keyword, 0, SEARCH_PREVIEW_LIMIT, currentUserId);
+    }
+
+    public IntegratedSearchResponse integratedSearch(String keyword, int page, int size, Long currentUserId) {
         String canonicalKeyword = SearchRequestNormalizer.canonicalizeKeyword(keyword);
-        Pageable previewPageable = PageRequest.of(0, SEARCH_PREVIEW_LIMIT);
-        Pageable commentPreviewPageable = PageRequest.of(0, SEARCH_PREVIEW_LIMIT, COMMENT_PREVIEW_SORT);
+        Pageable normalizedPageable = SearchRequestNormalizer.normalizePostSearchPageable(page, size, Sort.unsorted());
+        Pageable previewPageable = PageRequest.of(
+                normalizedPageable.getPageNumber(), normalizedPageable.getPageSize());
+        Pageable commentPreviewPageable = PageRequest.of(
+                previewPageable.getPageNumber(), previewPageable.getPageSize(), COMMENT_PREVIEW_SORT);
 
         List<Long> blockedUserIds = null;
         if (currentUserId != null) {
@@ -70,22 +76,29 @@ public class SearchPreviewReadService {
         Page<UserSummary> users = userRepository.searchUsersVisibleTo(canonicalKeyword, blockedUserIds, previewPageable)
                 .map(UserSummary::from);
 
-        List<BoardSummary> boards = boardRepository
+        Page<BoardSummary> boards = boardRepository
                 .findByBoardNameContainingIgnoreCaseAndIsActiveTrueAndIsPublicTrueOrderBySortOrderAscBoardIdAsc(
                         canonicalKeyword,
                         previewPageable)
-                .stream()
-                .map(BoardSummary::from)
-                .collect(Collectors.toList());
+                .map(BoardSummary::from);
 
         return integratedSearchAssembler.assemble(posts, comments, users, boards, canonicalKeyword);
     }
 
     public IntegratedSearchResponse integratedSearch(String keyword, String searchType, String boardUrl, String author,
             String from, String to, String period, Sort sort, Long currentUserId) {
+        return integratedSearch(keyword, searchType, boardUrl, author, from, to, period,
+                0, SEARCH_PREVIEW_LIMIT, sort, currentUserId);
+    }
+
+    public IntegratedSearchResponse integratedSearch(String keyword, String searchType, String boardUrl, String author,
+            String from, String to, String period, int page, int size, Sort sort, Long currentUserId) {
         String canonicalKeyword = SearchRequestNormalizer.canonicalizeKeyword(keyword);
-        Pageable previewPageable = SearchRequestNormalizer.normalizePostSearchPageable(0, SEARCH_PREVIEW_LIMIT, sort);
-        Pageable commentPreviewPageable = PageRequest.of(0, SEARCH_PREVIEW_LIMIT, COMMENT_PREVIEW_SORT);
+        Pageable postPreviewPageable = SearchRequestNormalizer.normalizePostSearchPageable(page, size, sort);
+        Pageable previewPageable = PageRequest.of(
+                postPreviewPageable.getPageNumber(), postPreviewPageable.getPageSize());
+        Pageable commentPreviewPageable = PageRequest.of(
+                previewPageable.getPageNumber(), previewPageable.getPageSize(), COMMENT_PREVIEW_SORT);
 
         BoardSearchContext boardContext = resolveBoardSearchContext(boardUrl, currentUserId);
 
@@ -97,41 +110,60 @@ public class SearchPreviewReadService {
         }
 
         DateRange dateRange = resolveDateRange(period, from, to);
+        String canonicalAuthor = SearchRequestNormalizer.canonicalizeOptionalAuthor(author);
+        boolean hasPostOnlyFilters = hasPostOnlyFilters(searchType, canonicalAuthor, period, from, to);
         Page<Post> postPage = postRepository.searchPosts(
                 canonicalKeyword,
                 searchType,
                 boardContext.boardUrl(),
-                SearchRequestNormalizer.canonicalizeOptionalAuthor(author),
+                canonicalAuthor,
                 dateRange.from(),
                 dateRange.to(),
                 blockedUserIds,
                 boardContext.includeSecret(),
                 currentUserId,
-                previewPageable);
+                postPreviewPageable);
         Page<PostSummary> posts = postSummaryAssembler.assembleSearchPage(postPage);
 
-        Page<CommentResponse> comments = commentRepository
-                .searchCommentsByKeyword(
-                        canonicalKeyword,
-                        boardContext.boardUrl(),
-                        blockedUserIds,
-                        boardContext.includeSecret(),
-                        currentUserId,
-                        commentPreviewPageable)
-                .map(CommentResponse::from);
+        Page<CommentResponse> comments = hasPostOnlyFilters
+                ? Page.empty(commentPreviewPageable)
+                : commentRepository
+                        .searchCommentsByKeyword(
+                                canonicalKeyword,
+                                boardContext.boardUrl(),
+                                blockedUserIds,
+                                boardContext.includeSecret(),
+                                currentUserId,
+                                commentPreviewPageable)
+                        .map(CommentResponse::from);
 
-        Page<UserSummary> users = userRepository.searchUsersVisibleTo(canonicalKeyword, blockedUserIds, previewPageable)
-                .map(UserSummary::from);
+        boolean boardScoped = boardContext.boardUrl() != null;
+        Page<UserSummary> users = hasPostOnlyFilters || boardScoped
+                ? Page.empty(previewPageable)
+                : userRepository.searchUsersVisibleTo(canonicalKeyword, blockedUserIds, previewPageable)
+                        .map(UserSummary::from);
 
-        List<BoardSummary> boards = boardRepository
-                .findByBoardNameContainingIgnoreCaseAndIsActiveTrueAndIsPublicTrueOrderBySortOrderAscBoardIdAsc(
-                        canonicalKeyword,
-                        previewPageable)
-                .stream()
-                .map(BoardSummary::from)
-                .collect(Collectors.toList());
+        Page<BoardSummary> boards = hasPostOnlyFilters || boardScoped
+                ? Page.empty(previewPageable)
+                : boardRepository
+                        .findByBoardNameContainingIgnoreCaseAndIsActiveTrueAndIsPublicTrueOrderBySortOrderAscBoardIdAsc(
+                                canonicalKeyword,
+                                previewPageable)
+                        .map(BoardSummary::from);
 
         return integratedSearchAssembler.assemble(posts, comments, users, boards, canonicalKeyword);
+    }
+
+    private boolean hasPostOnlyFilters(String searchType, String canonicalAuthor, String period,
+            String from, String to) {
+        boolean nonDefaultSearchType = searchType != null
+                && !searchType.isBlank()
+                && !"TITLE_CONTENT".equalsIgnoreCase(searchType.trim());
+        return nonDefaultSearchType
+                || canonicalAuthor != null
+                || (period != null && !period.isBlank())
+                || (from != null && !from.isBlank())
+                || (to != null && !to.isBlank());
     }
 
     private BoardSearchContext resolveBoardSearchContext(String boardUrl, Long currentUserId) {

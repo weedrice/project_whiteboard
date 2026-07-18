@@ -144,6 +144,25 @@ describe('useSearchRouteQuery', () => {
     })
   })
 
+  it('normalizes the result page and preserves filters in pagination links', () => {
+    routeState.query = { q: 'vue', page: '2', searchType: 'TITLE', period: 'WEEK' }
+    const routeQuery = useSearchRouteQuery()
+
+    expect(routeQuery.pageQuery.value).toBe(2)
+    expect(routeQuery.params.value.page).toBe(2)
+    expect(routeQuery.buildPageQuery(3)).toEqual({
+      q: 'vue',
+      page: '3',
+      searchType: 'TITLE',
+      period: 'WEEK',
+    })
+    expect(routeQuery.buildPageQuery(0)).toEqual({
+      q: 'vue',
+      searchType: 'TITLE',
+      period: 'WEEK',
+    })
+  })
+
   it.each(['TITLE_CONTENT', 'TITLE', 'CONTENT', 'AUTHOR'] as const)(
     'round-trips the %s post search scope',
     (searchType) => {

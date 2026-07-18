@@ -9,6 +9,14 @@ const routeState = vi.hoisted(() => ({
   invalidateQueries: vi.fn(),
 }))
 
+interface ResultPageState {
+  totalElements: number
+  totalPages: number
+  page: number
+  size: number
+  hasMore: boolean
+}
+
 const searchState = vi.hoisted(() => ({
   lastParams: null as ReturnType<typeof computed<Record<string, unknown>>> | null,
   lastSemanticParams: null as ReturnType<typeof computed<Record<string, unknown>>> | null,
@@ -18,6 +26,15 @@ const searchState = vi.hoisted(() => ({
     commentResults: [] as Array<Record<string, unknown>>,
     userResults: [] as Array<Record<string, unknown>>,
     boardResults: [] as Array<Record<string, unknown>>,
+  } as {
+    postResults: Array<Record<string, unknown>>
+    commentResults: Array<Record<string, unknown>>
+    userResults: Array<Record<string, unknown>>
+    boardResults: Array<Record<string, unknown>>
+    postPage?: ResultPageState
+    commentPage?: ResultPageState
+    userPage?: ResultPageState
+    boardPage?: ResultPageState
   },
   isLoading: false,
   error: null as Error | null,
@@ -308,13 +325,17 @@ describe('SearchPage', () => {
     expect(searchState.lastParams?.value.q).toBe('first')
   })
 
-  it('announces the total number of completed search results', () => {
+  it('announces total matches instead of only the current page item count', () => {
     routeState.query = { q: 'vue' }
     searchState.searchData = {
       postResults: [{ postId: 1, title: 'Post' }],
       commentResults: [],
       userResults: [],
       boardResults: [{ boardId: 1, boardName: 'Board' }],
+      postPage: { totalElements: 12, totalPages: 3, page: 0, size: 5, hasMore: true },
+      commentPage: { totalElements: 0, totalPages: 0, page: 0, size: 5, hasMore: false },
+      userPage: { totalElements: 0, totalPages: 0, page: 0, size: 5, hasMore: false },
+      boardPage: { totalElements: 3, totalPages: 1, page: 0, size: 5, hasMore: false },
     }
 
     const wrapper = mountPage()
@@ -324,7 +345,8 @@ describe('SearchPage', () => {
       'aria-live': 'polite',
       'aria-atomic': 'true',
     })
-    expect(status.text()).toBe('search.resultSummary:2')
+    expect(status.text()).toBe('search.resultSummary:15')
+    expect(wrapper.get('nav').attributes('aria-label')).toBe('common.pagination')
   })
 
   it('renders comment and user results and includes them in empty and total decisions', () => {

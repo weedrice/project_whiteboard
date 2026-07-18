@@ -245,6 +245,13 @@
             </div>
           </section>
 
+          <Pagination
+            v-if="totalKeywordPages > 1"
+            :current-page="pageQuery"
+            :total-pages="totalKeywordPages"
+            :link-builder="buildSearchPageLink"
+          />
+
           <section
             v-if="!keywordResultsEmpty && semanticResults.length > 0"
             class="min-w-0 space-y-3"
@@ -409,6 +416,7 @@ import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseSelect from '@/components/common/ui/BaseSelect.vue'
 import UserAvatar from '@/components/common/ui/UserAvatar.vue'
+import Pagination from '@/components/common/ui/Pagination.vue'
 import { Search, Layout, MessageSquare, User } from 'lucide-vue-next'
 import { isInquiryPostItem, resolveBoardRoute, resolvePostDetailRoute } from '@/utils/postNavigation'
 import {
@@ -435,11 +443,13 @@ const {
   periodQuery,
   fromQuery,
   toQuery,
+  pageQuery,
   hasSearchQuery,
   params,
   handleSearchSubmit,
   buildFilterQuery,
   buildQueryWithoutFilter,
+  buildPageQuery,
 } = useSearchRouteQuery()
 const isFilterOpen = ref(false)
 
@@ -499,11 +509,16 @@ const boards = computed(() => searchData.value?.boardResults || [])
 const isSemanticLoading = computed(() => semanticEnabled.value && semanticQueryLoading.value)
 const semanticResults = computed(() => semanticEnabled.value ? (semanticData.value?.content || []) : [])
 const totalResultCount = computed(() => (
-  posts.value.length
-  + comments.value.length
-  + users.value.length
-  + boards.value.length
-  + semanticResults.value.length
+  (searchData.value?.postPage?.totalElements ?? posts.value.length)
+  + (searchData.value?.commentPage?.totalElements ?? comments.value.length)
+  + (searchData.value?.userPage?.totalElements ?? users.value.length)
+  + (searchData.value?.boardPage?.totalElements ?? boards.value.length)
+))
+const totalKeywordPages = computed(() => Math.max(
+  searchData.value?.postPage?.totalPages ?? 0,
+  searchData.value?.commentPage?.totalPages ?? 0,
+  searchData.value?.userPage?.totalPages ?? 0,
+  searchData.value?.boardPage?.totalPages ?? 0,
 ))
 const keywordResultsEmpty = computed(() => (
   posts.value.length === 0
@@ -511,7 +526,7 @@ const keywordResultsEmpty = computed(() => (
   && users.value.length === 0
   && boards.value.length === 0
 ))
-const hasAnyResults = computed(() => !keywordResultsEmpty.value || semanticResults.value.length > 0)
+const hasAnyResults = computed(() => totalResultCount.value > 0 || semanticResults.value.length > 0)
 const popularKeywords = computed(() => popularKeywordData.value || [])
 const popularTags = computed(() => popularTagData.value?.tags || [])
 const recentKeywords = computed(() => recentKeywordData.value?.content || [])
@@ -635,6 +650,13 @@ async function runRecentKeywordMutation(request: (signal: AbortSignal) => Promis
     throw error
   } finally {
     recentMutationControllers.delete(controller)
+  }
+}
+
+function buildSearchPageLink(page: number) {
+  return {
+    name: 'search',
+    query: buildPageQuery(page),
   }
 }
 

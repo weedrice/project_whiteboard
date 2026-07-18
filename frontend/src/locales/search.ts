@@ -39,7 +39,7 @@ export const search: SearchMessages = {
   authorFilterChip: '작성자: {value}',
   periodFilterChip: '기간: {value}',
   dateRangeFilterChip: '기간: {from} ~ {to}',
-  keywordFilterNotice: '검색 범위, 기간, 작성자 필터는 게시글 키워드 결과에만 적용됩니다.',
+  keywordFilterNotice: '검색 범위, 기간, 작성자 필터를 사용하면 조건이 적용되는 게시글 결과만 표시됩니다.',
   deleteRecent: '최근 검색어 {keyword} 삭제',
   clearRecent: '모두 삭제',
   searchByKeyword: '{keyword} 검색',

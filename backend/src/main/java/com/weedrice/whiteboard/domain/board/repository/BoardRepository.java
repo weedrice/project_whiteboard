@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.board.repository;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -68,7 +69,7 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
 
     List<Board> findByBoardNameContainingIgnoreCaseAndIsActiveTrue(String keyword);
 
-    List<Board> findByBoardNameContainingIgnoreCaseAndIsActiveTrueAndIsPublicTrueOrderBySortOrderAscBoardIdAsc(String keyword,
+    Page<Board> findByBoardNameContainingIgnoreCaseAndIsActiveTrueAndIsPublicTrueOrderBySortOrderAscBoardIdAsc(String keyword,
             Pageable pageable);
 
     boolean existsByBoardName(String boardName);

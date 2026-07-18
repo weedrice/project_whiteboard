@@ -8,6 +8,11 @@ export type SearchFilterKey = 'searchType' | 'author' | 'period' | 'dateRange'
 
 const POST_SEARCH_TYPES = new Set<PostSearchType>(['TITLE_CONTENT', 'TITLE', 'CONTENT', 'AUTHOR'])
 
+const normalizePage = (value: unknown) => {
+  const parsed = Number.parseInt(firstQueryValue(value), 10)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0
+}
+
 export const normalizePostSearchType = (value: unknown): PostSearchType => {
   const normalized = firstQueryValue(value).trim().toUpperCase() as PostSearchType
   return POST_SEARCH_TYPES.has(normalized) ? normalized : 'TITLE_CONTENT'
@@ -39,6 +44,7 @@ export function useSearchRouteQuery() {
   const fromQuery = computed(() => firstQueryValue(route.query.from).trim())
   const toQuery = computed(() => firstQueryValue(route.query.to).trim())
   const boardUrlQuery = computed(() => firstQueryValue(route.query.boardUrl).trim())
+  const pageQuery = computed(() => normalizePage(route.query.page))
   const { submitSearch } = useSearchSubmitNavigation({
     getCurrentSearchQuery: () => searchQuery.value,
   })
@@ -46,7 +52,7 @@ export function useSearchRouteQuery() {
   const params = computed<SearchParams>(() => {
     const nextParams: SearchParams = {
       q: searchQuery.value,
-      page: 0,
+      page: pageQuery.value,
       size: 20,
       searchType: searchTypeQuery.value,
     }
@@ -144,6 +150,13 @@ export function useSearchRouteQuery() {
     return query
   }
 
+  function buildPageQuery(page: number) {
+    const query = buildPreservedFilterQuery()
+    query.q = searchQuery.value
+    if (page > 0) query.page = String(page)
+    return query
+  }
+
   return {
     searchInput,
     searchTypeInput,
@@ -158,10 +171,12 @@ export function useSearchRouteQuery() {
     fromQuery,
     toQuery,
     boardUrlQuery,
+    pageQuery,
     hasSearchQuery,
     params,
     handleSearchSubmit,
     buildFilterQuery,
     buildQueryWithoutFilter,
+    buildPageQuery,
   }
 }

@@ -172,6 +172,13 @@ describe('useSearch', () => {
                 size: 5,
                 hasMore: false,
             },
+            boardPage: {
+                totalElements: 0,
+                totalPages: 0,
+                page: 0,
+                size: 0,
+                hasMore: false,
+            },
         })
 
         const disabledParams = ref<SearchParams>({ keyword: 'only-keyword' })

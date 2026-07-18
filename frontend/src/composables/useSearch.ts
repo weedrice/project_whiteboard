@@ -19,7 +19,7 @@ import { AUTH_SCOPED_QUERY_META } from '@/queryAuthScope'
 
 const hasSearchText = (value?: string) => !!value?.trim()
 
-interface SearchPageResultPage {
+export interface SearchPageResultPage {
     totalElements: number
     totalPages: number
     page: number
@@ -36,6 +36,7 @@ export interface SearchPageViewModel {
     postPage: SearchPageResultPage
     commentPage: SearchPageResultPage
     userPage: SearchPageResultPage
+    boardPage: SearchPageResultPage
 }
 
 const toSearchPageResultPage = <T>(resultGroup: IntegratedSearchResultGroup<T>): SearchPageResultPage => ({
@@ -55,6 +56,15 @@ export const toSearchPageViewModel = (response: IntegratedSearchResponse): Searc
     postPage: toSearchPageResultPage(response.postResults),
     commentPage: toSearchPageResultPage(response.commentResults),
     userPage: toSearchPageResultPage(response.userResults),
+    boardPage: response.boardResultPage
+        ? toSearchPageResultPage(response.boardResultPage)
+        : {
+            totalElements: response.boardResults.length,
+            totalPages: response.boardResults.length > 0 ? 1 : 0,
+            page: 0,
+            size: response.boardResults.length,
+            hasMore: false,
+        },
 })
 
 export function useSearch() {

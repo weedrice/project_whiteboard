@@ -26,18 +26,19 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -193,7 +194,7 @@ class SearchPreviewReadServiceTest {
                 .thenReturn(Page.empty(previewPageable));
         when(boardRepository.findByBoardNameContainingIgnoreCaseAndIsActiveTrueAndIsPublicTrueOrderBySortOrderAscBoardIdAsc(
                 eq(keyword), any(Pageable.class)))
-                .thenReturn(Collections.emptyList());
+                .thenReturn(Page.empty(previewPageable));
 
         var result = searchPreviewReadService.integratedSearch(keyword, currentUserId);
 
@@ -226,7 +227,7 @@ class SearchPreviewReadServiceTest {
                 .thenReturn(Page.empty(previewPageable));
         when(boardRepository.findByBoardNameContainingIgnoreCaseAndIsActiveTrueAndIsPublicTrueOrderBySortOrderAscBoardIdAsc(
                 eq(keyword), any(Pageable.class)))
-                .thenReturn(boards);
+                .thenReturn(new PageImpl<>(boards, previewPageable, boards.size()));
 
         var result = searchPreviewReadService.integratedSearch(keyword, null);
 
@@ -252,12 +253,6 @@ class SearchPreviewReadServiceTest {
         when(commentRepository.searchCommentsByKeyword(
                 eq(keyword), eq("free"), eq(List.of()), eq(false), eq(1L), any(Pageable.class)))
                 .thenReturn(Page.empty(PageRequest.of(0, 5)));
-        when(userRepository.searchUsersVisibleTo(eq(keyword), eq(List.of()), any(Pageable.class)))
-                .thenReturn(Page.empty(PageRequest.of(0, 5)));
-        when(boardRepository.findByBoardNameContainingIgnoreCaseAndIsActiveTrueAndIsPublicTrueOrderBySortOrderAscBoardIdAsc(
-                eq(keyword), any(Pageable.class)))
-                .thenReturn(List.of());
-
         searchPreviewReadService.integratedSearch(
                 keyword, null, " free ", null, null, null, null, Sort.unsorted(), 1L);
 
@@ -266,6 +261,56 @@ class SearchPreviewReadServiceTest {
                 eq(List.of()), eq(false), eq(1L), any(Pageable.class));
         verify(commentRepository).searchCommentsByKeyword(
                 eq(keyword), eq("free"), eq(List.of()), eq(false), eq(1L), any(Pageable.class));
+    }
+
+    @Test
+    @DisplayName("통합 검색은 요청 페이지를 모든 결과 그룹에 동일하게 적용한다")
+    void integratedSearch_appliesRequestedPageToEveryResultGroup() {
+        String keyword = "test";
+        Pageable requested = PageRequest.of(2, 10);
+        Pageable commentRequested = PageRequest.of(2, 10, Sort.by(
+                Sort.Order.desc("createdAt"),
+                Sort.Order.desc("commentId")));
+        when(postRepository.searchPostsByKeyword(eq(keyword), isNull(), isNull(), eq(requested)))
+                .thenReturn(new PageImpl<>(List.of(), requested, 42));
+        when(commentRepository.searchCommentsByKeyword(eq(keyword), isNull(), isNull(), eq(commentRequested)))
+                .thenReturn(new PageImpl<>(List.of(), commentRequested, 31));
+        when(userRepository.searchUsersVisibleTo(eq(keyword), isNull(), eq(requested)))
+                .thenReturn(new PageImpl<>(List.of(), requested, 23));
+        when(boardRepository.findByBoardNameContainingIgnoreCaseAndIsActiveTrueAndIsPublicTrueOrderBySortOrderAscBoardIdAsc(
+                eq(keyword), eq(requested)))
+                .thenReturn(new PageImpl<>(List.of(), requested, 21));
+
+        var result = searchPreviewReadService.integratedSearch(keyword, 2, 10, null);
+
+        assertThat(result.getPostResults().getPage()).isEqualTo(2);
+        assertThat(result.getPostResults().getTotalElements()).isEqualTo(42);
+        assertThat(result.getCommentResults().getTotalElements()).isEqualTo(31);
+        assertThat(result.getUserResults().getTotalElements()).isEqualTo(23);
+        assertThat(result.getBoardResultPage().getTotalElements()).isEqualTo(21);
+    }
+
+    @Test
+    @DisplayName("게시글 전용 필터가 있으면 조건을 적용할 수 없는 결과 그룹은 제외한다")
+    void integratedSearch_withPostOnlyFilter_suppressesIncompatibleGroups() {
+        String keyword = "test";
+        when(postRepository.searchPosts(
+                eq(keyword), eq("TITLE"), isNull(), isNull(), isNull(), isNull(),
+                isNull(), eq(false), isNull(), any(Pageable.class)))
+                .thenReturn(Page.empty(PageRequest.of(0, 5)));
+
+        var result = searchPreviewReadService.integratedSearch(
+                keyword, "TITLE", null, null, null, null, null, Sort.unsorted(), null);
+
+        assertThat(result.getCommentResults().getTotalElements()).isZero();
+        assertThat(result.getUserResults().getTotalElements()).isZero();
+        assertThat(result.getBoardResultPage().getTotalElements()).isZero();
+        verify(commentRepository, never()).searchCommentsByKeyword(
+                anyString(), any(), any(), anyBoolean(), any(), any(Pageable.class));
+        verify(userRepository, never()).searchUsersVisibleTo(anyString(), any(), any(Pageable.class));
+        verify(boardRepository, never())
+                .findByBoardNameContainingIgnoreCaseAndIsActiveTrueAndIsPublicTrueOrderBySortOrderAscBoardIdAsc(
+                        anyString(), any(Pageable.class));
     }
 
     @Test
@@ -291,7 +336,7 @@ class SearchPreviewReadServiceTest {
                 .thenReturn(Page.empty(previewPageable));
         when(boardRepository.findByBoardNameContainingIgnoreCaseAndIsActiveTrueAndIsPublicTrueOrderBySortOrderAscBoardIdAsc(
                 eq(keyword), any(Pageable.class)))
-                .thenReturn(Collections.emptyList());
+                .thenReturn(Page.empty(previewPageable));
     }
 
     private Board board(Long boardId, String boardName, String boardUrl) {

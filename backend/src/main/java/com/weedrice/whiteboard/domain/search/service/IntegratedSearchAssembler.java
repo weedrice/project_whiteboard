@@ -8,13 +8,11 @@ import com.weedrice.whiteboard.domain.user.dto.UserSummary;
 import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Component;
 
-import java.util.List;
-
 @Component
 public class IntegratedSearchAssembler {
 
     public IntegratedSearchResponse assemble(Page<PostSummary> posts, Page<CommentResponse> comments,
-            Page<UserSummary> users, List<BoardSummary> boards, String keyword) {
+            Page<UserSummary> users, Page<BoardSummary> boards, String keyword) {
         return IntegratedSearchResponse.from(posts, comments, users, boards, keyword);
     }
 }

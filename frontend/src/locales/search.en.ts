@@ -38,7 +38,7 @@ export const searchEn: SearchMessages = {
   authorFilterChip: 'Author: {value}',
   periodFilterChip: 'Date range: {value}',
   dateRangeFilterChip: 'Date range: {from} to {to}',
-  keywordFilterNotice: 'Search scope, date, and author filters only apply to post keyword results.',
+  keywordFilterNotice: 'When scope, date, or author filters are active, only matching post results are shown.',
   deleteRecent: 'Delete recent search {keyword}',
   clearRecent: 'Clear all',
   searchByKeyword: 'Search for {keyword}',
