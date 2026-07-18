@@ -6,6 +6,17 @@ const mocks = vi.hoisted(() => ({
   addToast: vi.fn(),
 }))
 
+function deferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise
+    reject = rejectPromise
+  })
+
+  return { promise, reject, resolve }
+}
+
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({
     t: (key: string) => key,
@@ -98,5 +109,57 @@ describe('useAdminBoardCreateModal', () => {
     expect(modal.isModalOpen.value).toBe(true)
     expect(modal.isCreatingBoard.value).toBe(false)
     expect(mocks.addToast).not.toHaveBeenCalledWith('admin.boards.messages.created', 'success')
+  })
+
+  it('ignores a completed request from a previously closed modal instance', async () => {
+    const firstRequest = deferred<void>()
+    const createBoard = vi.fn().mockReturnValue(firstRequest.promise)
+    const modal = useAdminBoardCreateModal(createBoard)
+    modal.openCreateModal()
+    Object.assign(modal.createForm, {
+      boardName: 'Old board',
+      boardUrl: 'old-board',
+    })
+
+    const pendingSubmit = modal.handleCreateBoard()
+    modal.closeModal()
+    modal.openCreateModal()
+    Object.assign(modal.createForm, {
+      boardName: 'New board',
+      boardUrl: 'new-board',
+    })
+    firstRequest.resolve()
+    await pendingSubmit
+
+    expect(modal.isModalOpen.value).toBe(true)
+    expect(modal.isCreatingBoard.value).toBe(false)
+    expect(modal.createForm.boardName).toBe('New board')
+    expect(mocks.addToast).not.toHaveBeenCalledWith('admin.boards.messages.created', 'success')
+  })
+
+  it('does not let an old request clear the creating state of a new request', async () => {
+    const firstRequest = deferred<void>()
+    const secondRequest = deferred<void>()
+    const createBoard = vi.fn()
+      .mockReturnValueOnce(firstRequest.promise)
+      .mockReturnValueOnce(secondRequest.promise)
+    const modal = useAdminBoardCreateModal(createBoard)
+    modal.openCreateModal()
+    Object.assign(modal.createForm, { boardName: 'Old board', boardUrl: 'old-board' })
+    const firstSubmit = modal.handleCreateBoard()
+
+    modal.closeModal()
+    modal.openCreateModal()
+    Object.assign(modal.createForm, { boardName: 'New board', boardUrl: 'new-board' })
+    const secondSubmit = modal.handleCreateBoard()
+    firstRequest.resolve()
+    await firstSubmit
+
+    expect(modal.isModalOpen.value).toBe(true)
+    expect(modal.isCreatingBoard.value).toBe(true)
+
+    secondRequest.reject(new Error('failed'))
+    await secondSubmit
+    expect(modal.isCreatingBoard.value).toBe(false)
   })
 })

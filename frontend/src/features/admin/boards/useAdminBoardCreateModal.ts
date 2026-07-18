@@ -22,17 +22,26 @@ export function useAdminBoardCreateModal(createBoard: CreateBoard) {
   const isModalOpen = ref(false)
   const isCreatingBoard = ref(false)
   const createForm = reactive<BoardCreateData>(createEmptyForm())
+  let modalGeneration = 0
+  let requestSequence = 0
+  let activeRequest = 0
 
   function resetCreateForm() {
     Object.assign(createForm, createEmptyForm())
   }
 
   function openCreateModal() {
+    modalGeneration += 1
+    activeRequest = 0
+    isCreatingBoard.value = false
     resetCreateForm()
     isModalOpen.value = true
   }
 
   function closeModal() {
+    modalGeneration += 1
+    activeRequest = 0
+    isCreatingBoard.value = false
     isModalOpen.value = false
   }
 
@@ -44,21 +53,34 @@ export function useAdminBoardCreateModal(createBoard: CreateBoard) {
   })
 
   async function handleCreateBoard() {
+    if (isCreatingBoard.value) {
+      return
+    }
+
     const requiredFieldValidation = validateRequiredBoardFields(createForm)
     if (!requiredFieldValidation.valid) {
       toastStore.addToast(t(requiredFieldValidation.messageKey), requiredFieldValidation.toastType)
       return
     }
 
+    const submittedGeneration = modalGeneration
+    const requestId = ++requestSequence
+    activeRequest = requestId
     isCreatingBoard.value = true
     try {
       await createBoard(normalizeBoardWritePayload(createForm))
+      if (submittedGeneration !== modalGeneration || activeRequest !== requestId) {
+        return
+      }
       toastStore.addToast(t('admin.boards.messages.created'), 'success')
       closeModal()
     } catch {
       // Error handled globally
     } finally {
-      isCreatingBoard.value = false
+      if (submittedGeneration === modalGeneration && activeRequest === requestId) {
+        activeRequest = 0
+        isCreatingBoard.value = false
+      }
     }
   }
 
