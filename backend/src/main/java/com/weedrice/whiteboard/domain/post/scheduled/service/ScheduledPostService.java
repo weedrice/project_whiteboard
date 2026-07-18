@@ -41,6 +41,7 @@ public class ScheduledPostService {
     private static final int PUBLISH_BATCH_SIZE = 20;
     private static final int MIN_SCHEDULE_MINUTES = 5;
     private static final int MAX_SCHEDULE_DAYS = 30;
+    private static final int MIN_POLL_LIFETIME_AFTER_SCHEDULE_MINUTES = 1;
     private static final int PUBLISHING_LEASE_MINUTES = 10;
     private static final Sort DEFAULT_SORT = Sort.by(
             Sort.Order.desc("scheduledAt"),
@@ -52,6 +53,7 @@ public class ScheduledPostService {
     private final UserWritableResolver userWritableResolver;
     private final SanctionService sanctionService;
     private final PostAuthorCommandPolicy postAuthorCommandPolicy;
+    private final ScheduledPostRequestPolicy scheduledPostRequestPolicy;
     private final ScheduledPostPayloadMapper payloadMapper;
     private final ScheduledPostPublishWorker publishWorker;
     private final ScheduledPostFileService scheduledPostFileService;
@@ -66,6 +68,7 @@ public class ScheduledPostService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
         postAuthorCommandPolicy.validateBoardWritable(board, user);
         validateRequest(request);
+        scheduledPostRequestPolicy.validate(user, board, request);
         validateDraftReference(request.getDraftId(), user, board);
         validateDraftAvailability(request.getDraftId(), null);
 
@@ -117,6 +120,7 @@ public class ScheduledPostService {
         }
         postAuthorCommandPolicy.validateBoardWritable(scheduledPost.getBoard(), user);
         validateRequest(request);
+        scheduledPostRequestPolicy.validate(user, scheduledPost.getBoard(), request);
         validateDraftReference(request.getDraftId(), user, scheduledPost.getBoard());
         validateDraftAvailability(request.getDraftId(), scheduledPostId);
         scheduledPost.update(
@@ -206,6 +210,16 @@ public class ScheduledPostService {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
         validateScheduledAt(request.getScheduledAt());
+        validatePollClosesAfterSchedule(request);
+    }
+
+    private void validatePollClosesAfterSchedule(ScheduledPostRequest request) {
+        if (request.getPoll() != null
+                && request.getPoll().getClosesAt() != null
+                && !request.getPoll().getClosesAt().isAfter(
+                        request.getScheduledAt().plusMinutes(MIN_POLL_LIFETIME_AFTER_SCHEDULE_MINUTES))) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
     }
 
     private void validateScheduledAt(LocalDateTime scheduledAt) {

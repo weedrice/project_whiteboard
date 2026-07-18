@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.post.scheduled.service;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.post.entity.DraftPost;
+import com.weedrice.whiteboard.domain.post.dto.PollRequest;
 import com.weedrice.whiteboard.domain.post.repository.DraftPostRepository;
 import com.weedrice.whiteboard.domain.post.scheduled.dto.ScheduledPostRequest;
 import com.weedrice.whiteboard.domain.post.scheduled.entity.ScheduledPost;
@@ -49,6 +50,7 @@ class ScheduledPostServiceTest {
     @Mock UserWritableResolver userWritableResolver;
     @Mock SanctionService sanctionService;
     @Mock PostAuthorCommandPolicy postAuthorCommandPolicy;
+    @Mock ScheduledPostRequestPolicy scheduledPostRequestPolicy;
     @Mock ScheduledPostPayloadMapper payloadMapper;
     @Mock ScheduledPostPublishWorker publishWorker;
     @Mock ScheduledPostFileService scheduledPostFileService;
@@ -68,6 +70,7 @@ class ScheduledPostServiceTest {
                 userWritableResolver,
                 sanctionService,
                 postAuthorCommandPolicy,
+                scheduledPostRequestPolicy,
                 payloadMapper,
                 publishWorker,
                 scheduledPostFileService,
@@ -117,6 +120,54 @@ class ScheduledPostServiceTest {
     }
 
     @Test
+    void createRejectsPollThatClosesAtOrBeforeScheduledPublication() {
+        ScheduledPostRequest request = requestWithDraft(null);
+        setPollClosesAt(request, request.getScheduledAt());
+        when(userWritableResolver.resolve(1L)).thenReturn(user);
+        when(boardRepository.findByBoardUrl("scheduled-board")).thenReturn(Optional.of(board));
+
+        assertThatThrownBy(() -> service.create(1L, "scheduled-board", request))
+                .isInstanceOf(com.weedrice.whiteboard.global.exception.BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(com.weedrice.whiteboard.global.exception.ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(scheduledPostRepository, never()).saveAndFlush(any(ScheduledPost.class));
+    }
+
+    @Test
+    void createRejectsPollThatCanExpireBeforeTheNextPublisherTick() {
+        ScheduledPostRequest request = requestWithDraft(null);
+        setPollClosesAt(request, request.getScheduledAt().plusSeconds(30));
+        when(userWritableResolver.resolve(1L)).thenReturn(user);
+        when(boardRepository.findByBoardUrl("scheduled-board")).thenReturn(Optional.of(board));
+
+        assertThatThrownBy(() -> service.create(1L, "scheduled-board", request))
+                .isInstanceOf(com.weedrice.whiteboard.global.exception.BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(com.weedrice.whiteboard.global.exception.ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(scheduledPostRepository, never()).saveAndFlush(any(ScheduledPost.class));
+    }
+
+    @Test
+    void createRejectsPublicationPolicyViolationBeforePersisting() {
+        ScheduledPostRequest request = requestWithDraft(null);
+        when(userWritableResolver.resolve(1L)).thenReturn(user);
+        when(boardRepository.findByBoardUrl("scheduled-board")).thenReturn(Optional.of(board));
+        doThrow(new com.weedrice.whiteboard.global.exception.BusinessException(
+                com.weedrice.whiteboard.global.exception.ErrorCode.FORBIDDEN))
+                .when(scheduledPostRequestPolicy).validate(user, board, request);
+
+        assertThatThrownBy(() -> service.create(1L, "scheduled-board", request))
+                .isInstanceOf(com.weedrice.whiteboard.global.exception.BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(com.weedrice.whiteboard.global.exception.ErrorCode.FORBIDDEN);
+
+        verify(scheduledPostRepository, never()).saveAndFlush(any(ScheduledPost.class));
+        verify(scheduledPostFileService, never()).replaceReferences(any(), any(), any(), any());
+    }
+
+    @Test
     void updateValidatesAndStoresOwnedDraftOnSameBoard() {
         ScheduledPost scheduledPost = ScheduledPost.builder()
                 .user(user).board(board).title("old").contents("old")
@@ -135,6 +186,52 @@ class ScheduledPostServiceTest {
         verify(scheduledPostRepository).existsByDraftIdAndScheduledPostIdNot(77L, 9L);
         verify(scheduledPostRepository).findOwnedForUpdate(9L, 1L);
         verify(scheduledPostFileService).replaceReferences(9L, 1L, 77L, List.of(10L));
+    }
+
+    @Test
+    void updateRejectsPollThatClosesBeforeScheduledPublicationWithoutMutation() {
+        ScheduledPost scheduledPost = ScheduledPost.builder()
+                .user(user).board(board).title("old").contents("old")
+                .scheduledAt(LocalDateTime.of(2026, 7, 13, 1, 0)).build();
+        ScheduledPostRequest request = requestWithDraft(null);
+        setPollClosesAt(request, request.getScheduledAt().minusSeconds(1));
+        when(userWritableResolver.resolve(1L)).thenReturn(user);
+        when(scheduledPostRepository.findOwnedForUpdate(9L, 1L)).thenReturn(Optional.of(scheduledPost));
+
+        assertThatThrownBy(() -> service.update(1L, 9L, request))
+                .isInstanceOf(com.weedrice.whiteboard.global.exception.BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(com.weedrice.whiteboard.global.exception.ErrorCode.INVALID_INPUT_VALUE);
+
+        assertThat(scheduledPost.getTitle()).isEqualTo("old");
+        assertThat(scheduledPost.getScheduledAt()).isEqualTo(LocalDateTime.of(2026, 7, 13, 1, 0));
+        verify(scheduledPostRepository, never()).flush();
+        verify(scheduledPostFileService, never()).replaceReferences(any(), any(), any(), any());
+    }
+
+    @Test
+    void updateRejectsPublicationPolicyViolationWithoutMutatingState() {
+        LocalDateTime originalScheduledAt = LocalDateTime.of(2026, 7, 13, 1, 0);
+        ScheduledPost scheduledPost = ScheduledPost.builder()
+                .user(user).board(board).title("old").contents("old")
+                .scheduledAt(originalScheduledAt).build();
+        ScheduledPostRequest request = requestWithDraft(null);
+        when(userWritableResolver.resolve(1L)).thenReturn(user);
+        when(scheduledPostRepository.findOwnedForUpdate(9L, 1L)).thenReturn(Optional.of(scheduledPost));
+        doThrow(new com.weedrice.whiteboard.global.exception.BusinessException(
+                com.weedrice.whiteboard.global.exception.ErrorCode.FORBIDDEN))
+                .when(scheduledPostRequestPolicy).validate(user, board, request);
+
+        assertThatThrownBy(() -> service.update(1L, 9L, request))
+                .isInstanceOf(com.weedrice.whiteboard.global.exception.BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(com.weedrice.whiteboard.global.exception.ErrorCode.FORBIDDEN);
+
+        assertThat(scheduledPost.getTitle()).isEqualTo("old");
+        assertThat(scheduledPost.getContents()).isEqualTo("old");
+        assertThat(scheduledPost.getScheduledAt()).isEqualTo(originalScheduledAt);
+        verify(scheduledPostRepository, never()).flush();
+        verify(scheduledPostFileService, never()).replaceReferences(any(), any(), any(), any());
     }
 
     @Test
@@ -202,5 +299,13 @@ class ScheduledPostServiceTest {
         ReflectionTestUtils.setField(request, "draftId", draftId);
         ReflectionTestUtils.setField(request, "scheduledAt", LocalDateTime.of(2026, 7, 13, 0, 10));
         return request;
+    }
+
+    private void setPollClosesAt(ScheduledPostRequest request, LocalDateTime closesAt) {
+        PollRequest poll = new PollRequest();
+        poll.setQuestion("Question");
+        poll.setOptions(List.of("A", "B"));
+        poll.setClosesAt(closesAt);
+        ReflectionTestUtils.setField(request, "poll", poll);
     }
 }
