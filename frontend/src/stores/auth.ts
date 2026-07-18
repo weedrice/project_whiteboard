@@ -133,14 +133,14 @@ export const useAuthStore = defineStore('auth', () => {
         await logout()
     }
 
-    async function login(credentials: LoginCredentials): Promise<boolean> {
+    async function login(credentials: LoginCredentials, config?: AxiosRequestConfig): Promise<boolean> {
         const generation = sessionGeneration.value
         try {
-            const { data } = await authApi.login(credentials)
+            const { data } = await authApi.login(credentials, config)
             if (data.success) {
                 const { accessToken: token, user: userData } = unwrapApiData(data)
 
-                if (generation !== sessionGeneration.value) return false
+                if (config?.signal?.aborted || generation !== sessionGeneration.value) return false
                 applyAuthenticatedSession(token, createLoginUserFallback(userData))
 
                 const hydrated = await fetchUser({ skipAuthRefresh: true })

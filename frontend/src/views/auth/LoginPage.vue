@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, onMounted } from 'vue'
+import { ref, watch, onMounted, onScopeDispose } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { Lock, User } from 'lucide-vue-next'
@@ -25,6 +25,17 @@ onMounted(() => {
 const loginId = ref('')
 const password = ref('')
 const isLoading = ref(false)
+let loginRequestRevision = 0
+let activeLoginController: AbortController | null = null
+
+function invalidateActiveLogin() {
+  loginRequestRevision += 1
+  activeLoginController?.abort()
+  activeLoginController = null
+  isLoading.value = false
+}
+
+onScopeDispose(invalidateActiveLogin)
 
 watch(loginId, (newValue) => {
   const filtered = newValue.replace(/[^a-zA-Z0-9_]/g, '')
@@ -34,6 +45,8 @@ watch(loginId, (newValue) => {
 })
 
 async function handleLogin() {
+  invalidateActiveLogin()
+
   if (!loginId.value) {
     toastStore.addToast(t('auth.placeholders.loginId'), 'error')
     return
@@ -43,13 +56,22 @@ async function handleLogin() {
     return
   }
 
+  const requestRevision = loginRequestRevision
+  const controller = new AbortController()
+  activeLoginController = controller
   isLoading.value = true
+  const isCurrentRequest = () => (
+    requestRevision === loginRequestRevision
+    && activeLoginController === controller
+    && !controller.signal.aborted
+  )
 
   try {
     const didLogin = await authStore.login({
       loginId: loginId.value,
       password: password.value,
-    })
+    }, { signal: controller.signal })
+    if (!isCurrentRequest()) return
     if (!didLogin) {
       toastStore.addToast(t('auth.loginFailed'), 'error', 3000, 'top-center')
       return
@@ -57,12 +79,16 @@ async function handleLogin() {
     const redirect = resolveLoginRedirect(route.query.redirect)
     router.push(redirect)
   } catch (err: unknown) {
+    if (!isCurrentRequest()) return
     const msg = err && typeof err === 'object' && 'response' in err
       ? (err as { response?: { data?: { error?: { message?: string } } } }).response?.data?.error?.message
       : undefined
     toastStore.addToast(msg || t('auth.loginFailed'), 'error', 3000, 'top-center')
   } finally {
-    isLoading.value = false
+    if (isCurrentRequest()) {
+      activeLoginController = null
+      isLoading.value = false
+    }
   }
 }
 </script>

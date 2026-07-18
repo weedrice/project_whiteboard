@@ -145,6 +145,29 @@ describe('Auth Store', () => {
             expect(store.user).toBeNull()
             expect(getStoredAccessToken()).toBeNull()
         })
+
+        it('does not apply a successful response after its login request is aborted', async () => {
+            const pendingLogin = createDeferred<Awaited<ReturnType<typeof authApi.login>>>()
+            const controller = new AbortController()
+            vi.mocked(authApi.login).mockReturnValueOnce(pendingLogin.promise)
+
+            const login = store.login(
+                { loginId: 'stale', password: 'password' },
+                { signal: controller.signal },
+            )
+            controller.abort()
+            pendingLogin.resolve(authLoginResponse(authUser({ loginId: 'stale' }), 'stale-token'))
+
+            await expect(login).resolves.toBe(false)
+            expect(authApi.login).toHaveBeenCalledWith(
+                { loginId: 'stale', password: 'password' },
+                { signal: controller.signal },
+            )
+            expect(store.accessToken).toBeNull()
+            expect(store.user).toBeNull()
+            expect(getStoredAccessToken()).toBeNull()
+            expect(authApi.getMe).not.toHaveBeenCalled()
+        })
     })
 
     it('ignores a user response that belongs to a replaced access token', async () => {

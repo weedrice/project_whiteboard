@@ -30,14 +30,15 @@ describe('authApi', () => {
             displayName: 'tester',
         }
 
-        authApi.login(credentials)
+        const controller = new AbortController()
+        authApi.login(credentials, { signal: controller.signal })
         authApi.signup(signupData)
 
         expect(apiMock.post).toHaveBeenNthCalledWith(
             1,
             '/auth/login',
             credentials,
-            { skipGlobalErrorHandler: true },
+            { signal: controller.signal, skipGlobalErrorHandler: true },
         )
         expect(apiMock.post).toHaveBeenNthCalledWith(
             2,

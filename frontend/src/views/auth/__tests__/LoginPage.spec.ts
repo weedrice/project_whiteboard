@@ -1,6 +1,7 @@
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import LoginPage from '../LoginPage.vue'
+import { createDeferred } from '@/test/async'
 
 const mocks = vi.hoisted(() => {
   const router = {
@@ -89,7 +90,7 @@ describe('LoginPage', () => {
     expect(mocks.authStore.login).toHaveBeenCalledWith({
       loginId: 'user_1',
       password: 'password',
-    })
+    }, { signal: expect.any(AbortSignal) })
     expect(mocks.router.push).toHaveBeenCalledWith('/')
   })
 
@@ -101,6 +102,50 @@ describe('LoginPage', () => {
 
     expect(mocks.router.push).not.toHaveBeenCalled()
     expect(mocks.toastStore.addToast).toHaveBeenCalledWith('auth.loginFailed', 'error', 3000, 'top-center')
+  })
+
+  it('keeps the latest successful submission stable when an older request settles later', async () => {
+    const first = createDeferred<boolean>()
+    const second = createDeferred<boolean>()
+    mocks.authStore.login
+      .mockReturnValueOnce(first.promise)
+      .mockReturnValueOnce(second.promise)
+    const wrapper = mountLoginPage()
+
+    await submitLogin(wrapper)
+    const firstSignal = mocks.authStore.login.mock.calls[0][1].signal as AbortSignal
+    await wrapper.find('form').trigger('submit.prevent')
+    await Promise.resolve()
+
+    expect(firstSignal.aborted).toBe(true)
+    second.resolve(true)
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(mocks.router.push).toHaveBeenCalledTimes(1)
+    expect(mocks.router.push).toHaveBeenCalledWith('/')
+
+    first.resolve(false)
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(mocks.router.push).toHaveBeenCalledTimes(1)
+    expect(mocks.toastStore.addToast).not.toHaveBeenCalled()
+  })
+
+  it('aborts login and ignores its late result when the page scope is disposed', async () => {
+    const pending = createDeferred<boolean>()
+    mocks.authStore.login.mockReturnValueOnce(pending.promise)
+    const wrapper = mountLoginPage()
+
+    await submitLogin(wrapper)
+    const signal = mocks.authStore.login.mock.calls[0][1].signal as AbortSignal
+    wrapper.unmount()
+
+    expect(signal.aborted).toBe(true)
+    pending.resolve(false)
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(mocks.router.push).not.toHaveBeenCalled()
+    expect(mocks.toastStore.addToast).not.toHaveBeenCalled()
   })
 
   it('exposes credential autocomplete hints and descriptive social login labels', () => {

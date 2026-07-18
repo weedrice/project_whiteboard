@@ -23,8 +23,11 @@ interface PasswordResetData {
 }
 
 export const authApi = {
-    login: (credentials: LoginCredentials) =>
-        api.post<ApiResponse<LoginResponse>>('/auth/login', credentials, { skipGlobalErrorHandler: true }),
+    login: (credentials: LoginCredentials, config?: AxiosRequestConfig) =>
+        api.post<ApiResponse<LoginResponse>>('/auth/login', credentials, {
+            ...config,
+            skipGlobalErrorHandler: true,
+        }),
 
     signup: (data: SignupData, config?: AxiosRequestConfig) =>
         api.post<ApiResponse<SignupResponse>>('/auth/signup', data, {
