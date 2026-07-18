@@ -60,12 +60,16 @@ export function applyIncomingNotificationToCache(
 
     const nextContent = [normalized, ...oldData.content]
     const sizeLimit = oldData.size > 0 ? oldData.size : nextContent.length
+    const totalElements = oldData.totalElements + 1
+    const totalPages = oldData.size > 0 ? Math.ceil(totalElements / oldData.size) : oldData.totalPages
 
     return {
       ...oldData,
       content: nextContent.slice(0, sizeLimit),
-      totalElements: oldData.totalElements + 1,
+      totalElements,
+      totalPages,
       empty: false,
+      last: totalPages <= 1,
     }
   })
 
@@ -79,6 +83,12 @@ export function applyIncomingNotificationToCache(
   if (typeof notificationId === 'number') {
     recentNotificationIds.remember(notificationId)
   }
+
+  void queryClient.invalidateQueries({
+    queryKey: notificationsSessionKey,
+    predicate: (query) => isNotificationPage(query.state.data)
+      && getNotificationPageNumber(query.state.data) > 0,
+  })
 
   queryClient.setQueryData(unreadSessionKey, (old: number | undefined) => (old || 0) + 1)
 }

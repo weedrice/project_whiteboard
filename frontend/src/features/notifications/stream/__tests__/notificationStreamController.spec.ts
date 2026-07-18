@@ -60,6 +60,7 @@ describe('notificationStreamController dependencies', () => {
                 unreadCount = updater(unreadCount)
                 return unreadCount
             }),
+            invalidateQueries: vi.fn(),
         } as unknown as QueryClient
         const notification: Notification = {
             notificationId: 12,
