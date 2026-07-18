@@ -201,6 +201,7 @@ describe('useComment', () => {
 
         expect(commentApi.createComment).toHaveBeenCalledWith(123, { content: 'New comment' })
         expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'comments', 'post', 123] })
+        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'comments', 'replies'] })
         expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'post', 123] })
         expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'posts'] })
         expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'board', 'posts'] })
@@ -226,6 +227,7 @@ describe('useComment', () => {
 
         expect(commentApi.updateComment).toHaveBeenCalledWith(5, { content: 'Updated' })
         expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'comments', 'post', 123] })
+        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'comments', 'replies'] })
         expect(mockInvalidateQueries).not.toHaveBeenCalledWith({ queryKey: ['comments'] })
     })
 
@@ -239,6 +241,7 @@ describe('useComment', () => {
 
         expect(commentApi.deleteComment).toHaveBeenCalledWith(10)
         expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'comments', 'post', 123] })
+        expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'comments', 'replies'] })
         expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'post', 123] })
         expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'posts'] })
         expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'home'] })

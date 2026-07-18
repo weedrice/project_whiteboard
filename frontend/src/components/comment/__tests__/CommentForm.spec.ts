@@ -240,6 +240,34 @@ describe('CommentForm', () => {
     )
   })
 
+  it('clears the comment draft and mention state when the post identity changes', async () => {
+    const wrapper = mountCommentForm({
+      initialContent: 'hello @Alice',
+      initialMentions: [
+        { userId: 7, displayName: 'Alice', profileImageUrl: null },
+      ],
+    })
+
+    await wrapper.get('textarea').setValue('draft for the previous post @Alice')
+    await wrapper.setProps({ postId: 11, initialContent: '', initialMentions: [] })
+
+    expect(wrapper.get('textarea').element).toHaveProperty('value', '')
+
+    await wrapper.get('textarea').setValue('new post text @Alice')
+    await wrapper.get('form').trigger('submit')
+
+    expect(createComment).toHaveBeenCalledWith(
+      {
+        postId: 11,
+        data: {
+          content: 'new post text @Alice',
+          parentId: null,
+        },
+      },
+      expect.any(Object),
+    )
+  })
+
   it('trims content before updating a comment', async () => {
     const wrapper = mountCommentForm({
       commentId: 30,

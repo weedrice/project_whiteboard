@@ -5,6 +5,7 @@ export const commentQueryKeys = {
     postRoot: (postId: string | number) => ['comments', 'post', postId] as const,
     list: (postId: string | number, params: Readonly<CommentParams>) =>
         [...commentQueryKeys.postRoot(postId), { ...params }] as const,
+    repliesRoot: ['comments', 'replies'] as const,
     replies: (parentId: string | number, params: Readonly<CommentParams>) =>
-        ['comments', 'replies', parentId, { ...params }] as const,
+        [...commentQueryKeys.repliesRoot, parentId, { ...params }] as const,
 }

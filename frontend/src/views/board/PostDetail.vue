@@ -445,6 +445,7 @@ onBeforeUnmount(() => {
             <PostRelatedSection :post-id="postView.postId" />
             <section id="comments" ref="commentsRef" class="nv-post-comments">
               <CommentList
+                :key="`${postId}:${postView.postId}`"
                 :postId="postView.postId"
                 :boardUrl="postView.boardUrl"
                 :last-viewed-at="postView.lastViewedAt"

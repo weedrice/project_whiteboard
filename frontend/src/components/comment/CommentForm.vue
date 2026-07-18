@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, ref } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { useComment } from '@/features/comments/queries/useComment'
 import { unwrapAxiosApiData } from '@/api/response'
 import type { CommentCreateResponse } from '@/api/comment'
@@ -150,6 +150,21 @@ const updateMentionCandidates = mentionAutocomplete.refresh
 const closeMentionMenu = mentionAutocomplete.close
 const selectMention = mentionAutocomplete.select
 const handleMentionKeydown = mentionAutocomplete.handleKeydown
+
+watch(
+  () => [props.postId, props.parentId, props.commentId] as const,
+  () => {
+    content.value = props.initialContent
+    selectedMentionUsers.value = props.initialMentions.map((mention) => ({
+      userId: mention.userId,
+      displayName: mention.displayName,
+      profileImageUrl: mention.profileImageUrl ?? null,
+    }))
+    showEmoticonPicker.value = false
+    closeMentionMenu()
+    commentValidation.clearValidation()
+  },
+)
 
 const shouldShowLocalErrorToast = (error: unknown) => {
   return !(error && typeof error === 'object' && (error as { suppressGlobalErrorToast?: boolean }).suppressGlobalErrorToast)

@@ -93,6 +93,10 @@ export function useComment() {
         queryClient.invalidateQueries({ queryKey: authKey(commentQueryKeys.postRoot(postId)) })
     }
 
+    const invalidateReplyQueries = () => {
+        queryClient.invalidateQueries({ queryKey: authKey(commentQueryKeys.repliesRoot) })
+    }
+
     const invalidatePostDetailQueries = (postId: string | number) => {
         queryClient.invalidateQueries({ queryKey: authKey(postQueryKeys.detailPrefix(postId)) })
     }
@@ -197,6 +201,7 @@ export function useComment() {
             onSuccess: (_result, variables, context) => {
                 if (!isCurrentMutation(context)) return
                 invalidateCommentMutationTargets(variables.postId, true)
+                invalidateReplyQueries()
                 invalidateCommentCountConsumers()
                 queryClient.invalidateQueries({ queryKey: authKey(userQueryKeys.pointsRoot) })
             },
@@ -212,6 +217,7 @@ export function useComment() {
             onSuccess: (_result, variables, context) => {
                 if (!isCurrentMutation(context)) return
                 invalidateCommentMutationTargets(variables.postId)
+                invalidateReplyQueries()
             },
         })
     }
@@ -227,6 +233,7 @@ export function useComment() {
                 if (!isCurrentMutation(context)) return
                 const postId = typeof variables === 'object' ? variables.postId : undefined
                 invalidateCommentMutationTargets(postId, true)
+                invalidateReplyQueries()
                 invalidateCommentCountConsumers()
             },
         })
