@@ -16,6 +16,7 @@ import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.config.AnonymousReadCacheInvalidator;
+import com.weedrice.whiteboard.global.common.util.TextInputNormalizer;
 import com.weedrice.whiteboard.domain.notification.service.NotificationAccessInvalidationService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -28,6 +29,9 @@ import java.util.Locale;
 @Service
 @Transactional(readOnly = true)
 public class BoardService {
+
+    private static final int MAX_RECOMMENDATION_INPUT_COUNT = 20;
+    private static final int MAX_TOPIC_LENGTH = 100;
 
     private final BoardQueryService queryService;
     private final BoardProvisioningService provisioningService;
@@ -87,11 +91,7 @@ public class BoardService {
     }
 
     public List<BoardListResponse> getRecommendations(List<String> topics, Long userId) {
-        List<String> normalizedTopics = topics == null ? List.of() : topics.stream()
-                .map(topic -> topic == null ? "" : topic.strip().toLowerCase(Locale.ROOT))
-                .filter(topic -> !topic.isBlank())
-                .distinct()
-                .toList();
+        List<String> normalizedTopics = normalizeTopics(topics);
         if (normalizedTopics.isEmpty()) {
             return getTopBoardsByUserId(userId, 12);
         }
@@ -99,6 +99,18 @@ public class BoardService {
         return getActiveBoards(userId).stream()
                 .filter(board -> matchesTopic(board, normalizedTopics))
                 .limit(12)
+                .toList();
+    }
+
+    private List<String> normalizeTopics(List<String> topics) {
+        if (topics == null) {
+            return List.of();
+        }
+        validateCollectionSize(topics);
+        return topics.stream()
+                .map(topic -> TextInputNormalizer.normalizeRequired(topic, MAX_TOPIC_LENGTH)
+                        .toLowerCase(Locale.ROOT))
+                .distinct()
                 .toList();
     }
 
@@ -123,7 +135,17 @@ public class BoardService {
     }
 
     public List<BoardRecentUpdateResponse> getRecentBoardUpdates(List<String> boardUrls, Long userId) {
-        return queryService.getRecentBoardUpdates(boardUrls, userId);
+        if (boardUrls == null) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        validateCollectionSize(boardUrls);
+        return queryService.getRecentBoardUpdates(BoardUrlNormalizer.normalizeOrderList(boardUrls), userId);
+    }
+
+    private void validateCollectionSize(List<?> values) {
+        if (values.size() > MAX_RECOMMENDATION_INPUT_COUNT) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
     }
 
     public List<CategoryResponse> getActiveCategories(String boardUrl, Long userId) {

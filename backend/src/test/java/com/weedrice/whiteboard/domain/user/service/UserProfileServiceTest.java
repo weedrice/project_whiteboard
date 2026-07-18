@@ -274,19 +274,21 @@ class UserProfileServiceTest {
     void deleteAccount_success() {
         User user = User.builder().password("encodedPass").build();
         ReflectionTestUtils.setField(user, "userId", 1L);
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("pass", "encodedPass")).thenReturn(true);
 
         userProfileService.deleteAccount(1L, "pass");
 
-        verify(userLifecycleService).deleteAccount(1L);
+        verify(userRepository).findByIdForUpdate(1L);
+        verify(userRepository, never()).findById(1L);
+        verify(userLifecycleService).deletePrelockedAccount(user);
     }
 
     @Test
     @DisplayName("잘못된 비밀번호면 회원 탈퇴를 거부한다")
     void deleteAccount_wrongPassword() {
         User user = User.builder().password("encodedPass").build();
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("wrong", "encodedPass")).thenReturn(false);
 
         assertThatThrownBy(() -> userProfileService.deleteAccount(1L, "wrong"))
@@ -294,7 +296,19 @@ class UserProfileServiceTest {
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.INVALID_PASSWORD);
 
-        verify(userLifecycleService, never()).deleteAccount(any());
+        verify(userLifecycleService, never()).deletePrelockedAccount(any());
+    }
+
+    @Test
+    void deleteAccount_rejectsOversizedPasswordBeforeLockAndEncoding() {
+        assertThatThrownBy(() -> userProfileService.deleteAccount(1L, "a".repeat(21)))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(userRepository, never()).findByIdForUpdate(any());
+        verify(passwordEncoder, never()).matches(anyString(), anyString());
+        verify(userLifecycleService, never()).deletePrelockedAccount(any());
     }
 
     @Test

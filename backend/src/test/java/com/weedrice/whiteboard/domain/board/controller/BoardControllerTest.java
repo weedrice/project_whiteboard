@@ -161,6 +161,44 @@ class BoardControllerTest {
     }
 
     @Test
+    void getRecommendations_rejectsMoreThanTwentyTopics() throws Exception {
+        String[] topics = IntStream.range(0, 21)
+                .mapToObj(index -> "topic-" + index)
+                .toArray(String[]::new);
+
+        mockMvc.perform(get("/api/v1/boards/recommendations")
+                        .queryParam("topics", topics)
+                        .with(user(customUserDetails)))
+                .andExpect(status().isBadRequest());
+
+        verify(boardService, never()).getRecommendations(any(), any());
+    }
+
+    @Test
+    void getRecommendations_rejectsOversizedTopic() throws Exception {
+        mockMvc.perform(get("/api/v1/boards/recommendations")
+                        .queryParam("topics", "a".repeat(101))
+                        .with(user(customUserDetails)))
+                .andExpect(status().isBadRequest());
+
+        verify(boardService, never()).getRecommendations(any(), any());
+    }
+
+    @Test
+    void getRecentBoardUpdates_rejectsMoreThanTwentyBoardUrls() throws Exception {
+        String[] boardUrls = IntStream.range(0, 21)
+                .mapToObj(index -> "board_" + index)
+                .toArray(String[]::new);
+
+        mockMvc.perform(get("/api/v1/boards/recent-updates")
+                        .queryParam("boardUrls", boardUrls)
+                        .with(user(customUserDetails)))
+                .andExpect(status().isBadRequest());
+
+        verify(boardService, never()).getRecentBoardUpdates(any(), any());
+    }
+
+    @Test
     @DisplayName("공지사항 목록 조회 성공")
     void getNotices_returnsSuccess() throws Exception {
         String boardUrl = "free";

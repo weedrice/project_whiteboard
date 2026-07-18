@@ -1220,6 +1220,34 @@ class BoardServiceTest {
     }
 
     @Test
+    void getRecommendations_rejectsOversizedInputBeforeReadingBoards() {
+        List<String> topics = java.util.stream.IntStream.range(0, 21)
+                .mapToObj(index -> "topic-" + index)
+                .toList();
+
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> boardService.getRecommendations(topics, null));
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+        verify(boardRepository, never()).findReadableActiveBoardsOrderBySortOrderAscBoardIdAsc(any(), anyBoolean(), any());
+    }
+
+    @Test
+    void getRecentBoardUpdates_rejectsOversizedInputBeforeRepositoryLookup() {
+        List<String> boardUrls = java.util.stream.IntStream.range(0, 21)
+                .mapToObj(index -> "board_" + index)
+                .toList();
+
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> boardService.getRecentBoardUpdates(boardUrls, null));
+
+        assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+        verify(boardRepository, never()).findByBoardUrlIn(any());
+    }
+
+    @Test
     @DisplayName("카테고리 전체 순서 변경은 보드를 잠그고 캐시를 커밋 후 무효화한다")
     void reorderCategories_locksBoardAndEvictsCachesAfterCommit() {
         BoardCategory defaultCategory = categoryWithId(10L, "General", 1, true);

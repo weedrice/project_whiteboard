@@ -85,6 +85,17 @@ class UserSecurityServiceTest {
     }
 
     @Test
+    void updatePassword_rejectsOversizedCurrentPasswordBeforeLockAndEncoding() {
+        assertThatThrownBy(() -> userSecurityService.updatePassword(1L, "a".repeat(21), "new-password"))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(userRepository, never()).findByIdForUpdate(any());
+        verify(passwordEncoder, never()).matches(anyString(), anyString());
+    }
+
+    @Test
     @DisplayName("updatePassword rejects recently used passwords")
     void updatePassword_recentlyUsed() {
         User user = User.builder().password("encodedOld").build();

@@ -30,6 +30,8 @@ import java.time.LocalDateTime;
 @Transactional(readOnly = true)
 public class UserProfileService {
 
+    private static final int MAX_PASSWORD_LENGTH = 20;
+
     private static final int DISPLAY_NAME_MIN_LENGTH = 2;
     private static final int DISPLAY_NAME_MAX_LENGTH = 50;
     private static final String PROFILE_IMAGE_CHANGE_COST_CONFIG_KEY = "POINT_PROFILE_IMAGE_CHANGE_COST";
@@ -234,13 +236,20 @@ public class UserProfileService {
 
     @Transactional
     public void deleteAccount(Long userId, String password) {
-        User user = userWritableResolver.resolve(userId);
+        validateCurrentPasswordInput(password);
+        User user = userWritableResolver.resolveForUpdate(userId);
 
         if (!passwordEncoder.matches(password, user.getPassword())) {
             throw new BusinessException(ErrorCode.INVALID_PASSWORD);
         }
 
-        userLifecycleService.deleteAccount(user.getUserId());
+        userLifecycleService.deletePrelockedAccount(user);
+    }
+
+    private void validateCurrentPasswordInput(String password) {
+        if (password == null || password.isBlank() || password.length() > MAX_PASSWORD_LENGTH) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
     }
 
     private record ProfileImageChargeResult(Integer spentPoints, Integer remainingPoints) {

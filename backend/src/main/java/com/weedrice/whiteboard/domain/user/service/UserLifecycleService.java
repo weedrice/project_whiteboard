@@ -73,6 +73,11 @@ public class UserLifecycleService {
     public void deleteAccount(Long userId) {
         User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        deletePrelockedAccount(user);
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void deletePrelockedAccount(User user) {
         validateLifecycleMutationTarget(user);
         cleanupOperationalAccessForLockedUser(user, null);
         user.delete(LocalDateTime.now(clock));

@@ -10,6 +10,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class UpdatePasswordRequest {
     @NotBlank
+    @Size(max = 20)
     private String currentPassword;
 
     @NotBlank

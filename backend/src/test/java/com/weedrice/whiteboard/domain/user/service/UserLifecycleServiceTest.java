@@ -158,6 +158,20 @@ class UserLifecycleServiceTest {
     }
 
     @Test
+    void deletePrelockedAccount_reusesLockedUserWithoutRepositoryLookup() {
+        User user = User.builder().build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+
+        userLifecycleService.deletePrelockedAccount(user);
+
+        assertThat(user.getStatus()).isEqualTo("DELETED");
+        assertThat(user.getDeletedAt()).isEqualTo(FIXED_NOW);
+        verifyNoInteractions(userRepository);
+        verify(userPrivilegeCleanupService).removeOperationalPrivileges(user);
+        verify(refreshTokenLifecycleService).revokeActiveRefreshTokensForLockedUser(user);
+    }
+
+    @Test
     @DisplayName("deleteAccount does not revoke sessions or agents when operational privilege guard rejects")
     void deleteAccount_guardRejectedDoesNotMutate() {
         User user = User.builder().build();

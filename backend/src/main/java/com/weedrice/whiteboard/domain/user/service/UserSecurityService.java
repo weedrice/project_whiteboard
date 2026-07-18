@@ -21,6 +21,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class UserSecurityService {
 
+    private static final int MAX_PASSWORD_LENGTH = 20;
+
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final PasswordHistoryPolicy passwordHistoryPolicy;
@@ -32,6 +34,7 @@ public class UserSecurityService {
 
     @Transactional
     public void updatePassword(Long userId, String currentPassword, String newPassword) {
+        validateCurrentPasswordInput(currentPassword);
         User user = userWritableResolver.resolveForUpdate(userId);
 
         if (!passwordEncoder.matches(currentPassword, user.getPassword())) {
@@ -45,6 +48,13 @@ public class UserSecurityService {
         passwordHistoryPolicy.record(user, newPasswordHash);
 
         refreshTokenLifecycleService.revokeActiveRefreshTokens(user);
+    }
+
+    private void validateCurrentPasswordInput(String currentPassword) {
+        if (currentPassword == null || currentPassword.isBlank()
+                || currentPassword.length() > MAX_PASSWORD_LENGTH) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
     }
 
     @Transactional

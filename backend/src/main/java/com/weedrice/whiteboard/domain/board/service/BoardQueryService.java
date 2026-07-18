@@ -45,6 +45,7 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 class BoardQueryService {
     private static final int TOP_BOARD_LIMIT = 15;
+    private static final int MAX_RECENT_BOARD_COUNT = 20;
     private static final int MANAGER_CANDIDATE_KEYWORD_MAX_LENGTH = 100;
     private static final char LIKE_ESCAPE = '!';
 
@@ -221,12 +222,15 @@ class BoardQueryService {
     }
 
     List<BoardRecentUpdateResponse> getRecentBoardUpdates(List<String> boardUrls, Long userId) {
+        if (boardUrls != null && boardUrls.size() > MAX_RECENT_BOARD_COUNT) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
         List<String> normalizedUrls = boardUrls == null ? List.of() : boardUrls.stream()
                 .filter(url -> url != null && !url.isBlank())
                 .map(BoardUrlNormalizer::normalizeLookup)
                 .filter(url -> !url.isBlank())
                 .distinct()
-                .limit(20)
+                .limit(MAX_RECENT_BOARD_COUNT)
                 .toList();
         if (normalizedUrls.isEmpty()) {
             return List.of();

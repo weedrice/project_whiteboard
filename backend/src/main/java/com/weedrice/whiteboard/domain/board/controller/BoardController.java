@@ -21,9 +21,13 @@ import com.weedrice.whiteboard.global.common.dto.PageResponse;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.security.CurrentUserId;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -31,6 +35,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/v1/boards")
 @RequiredArgsConstructor
+@Validated
 public class BoardController {
 
     private final BoardService boardService;
@@ -54,14 +59,17 @@ public class BoardController {
 
     @GetMapping("/recommendations")
     public ApiResponse<List<BoardListResponse>> getRecommendations(
-            @RequestParam(required = false) List<String> topics,
+            @RequestParam(required = false) @Size(max = 20)
+            List<@NotBlank @Size(max = 100) String> topics,
             @CurrentUserId(required = false) Long userId) {
         return ApiResponse.success(boardService.getRecommendations(topics, userId));
     }
 
     @GetMapping("/recent-updates")
     public ApiResponse<List<BoardRecentUpdateResponse>> getRecentBoardUpdates(
-            @RequestParam List<String> boardUrls,
+            @RequestParam @Size(max = 20)
+            List<@NotBlank @Size(max = 100)
+                    @Pattern(regexp = "^[a-z0-9_-]+$") String> boardUrls,
             @CurrentUserId(required = false) Long userId) {
         return ApiResponse.success(boardService.getRecentBoardUpdates(boardUrls, userId));
     }
