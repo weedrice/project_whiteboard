@@ -11,6 +11,7 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.entity.UserNotificationSettings;
 import com.weedrice.whiteboard.domain.user.entity.UserNotificationSettingsId;
 import com.weedrice.whiteboard.domain.user.repository.UserNotificationSettingsRepository;
+import com.weedrice.whiteboard.domain.user.repository.UserBlockRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
 import com.weedrice.whiteboard.domain.user.service.UserSettingsService;
@@ -52,6 +53,9 @@ class NotificationSettingsFlowTest {
     private UserNotificationSettingsRepository userNotificationSettingsRepository;
 
     @Mock
+    private UserBlockRepository userBlockRepository;
+
+    @Mock
     private UserSettingsRepository userSettingsRepository;
 
     @Mock
@@ -89,7 +93,8 @@ class NotificationSettingsFlowTest {
                 notifications -> Map.of());
         NotificationQueryService queryService = new NotificationQueryService(
                 notificationRepository,
-                notifications -> Map.of());
+                notifications -> Map.of(),
+                userBlockRepository);
         NotificationReadCommandService readCommandService =
                 new NotificationReadCommandService(commandService);
         notificationService = new NotificationService(

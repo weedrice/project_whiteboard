@@ -10,6 +10,7 @@ import com.weedrice.whiteboard.domain.notification.repository.NotificationReposi
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.entity.UserNotificationSettings;
 import com.weedrice.whiteboard.domain.user.repository.UserNotificationSettingsRepository;
+import com.weedrice.whiteboard.domain.user.repository.UserBlockRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -59,6 +60,8 @@ class NotificationServiceTest {
     private UserRepository userRepository;
     @Mock
     private UserNotificationSettingsRepository userNotificationSettingsRepository;
+    @Mock
+    private UserBlockRepository userBlockRepository;
     @Mock
     private PushDeliveryJobEnqueuer pushDeliveryJobEnqueuer;
     @Mock
@@ -589,7 +592,8 @@ class NotificationServiceTest {
                 notifications -> Collections.emptyMap());
         NotificationQueryService queryService = new NotificationQueryService(
                 notificationRepository,
-                notifications -> Collections.emptyMap());
+                notifications -> Collections.emptyMap(),
+                userBlockRepository);
         NotificationReadCommandService readCommandService =
                 new NotificationReadCommandService(commandService);
         return new NotificationService(

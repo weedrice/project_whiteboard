@@ -18,15 +18,30 @@ const LOCALIZED_MESSAGE_KEYS = new Set([
     'notification.keyword.matched',
 ])
 
+const ACTOR_NAME_MESSAGE_KEYS = new Set([
+    'notification.comment.created',
+    'notification.reply.created',
+    'notification.comment.liked',
+    'notification.post.liked',
+    'notification.message.received',
+    'notification.mention.created',
+])
+
 export function getNotificationMessage(
-    notification: Pick<Notification, 'message' | 'messageKey' | 'messageParams'>,
+    notification: Pick<Notification, 'message' | 'messageKey' | 'messageParams' | 'actorLabelKey'>,
     t: Translate,
 ): string {
     if (!notification.messageKey || !LOCALIZED_MESSAGE_KEYS.has(notification.messageKey)) {
         return notification.message
     }
 
-    const translated = t(notification.messageKey, notification.messageParams ?? [])
+    const messageParams = [...(notification.messageParams ?? [])]
+    if (notification.actorLabelKey
+        && ACTOR_NAME_MESSAGE_KEYS.has(notification.messageKey)
+        && messageParams.length > 0) {
+        messageParams[0] = t(notification.actorLabelKey)
+    }
+    const translated = t(notification.messageKey, messageParams)
     return translated && translated !== notification.messageKey ? translated : notification.message
 }
 
