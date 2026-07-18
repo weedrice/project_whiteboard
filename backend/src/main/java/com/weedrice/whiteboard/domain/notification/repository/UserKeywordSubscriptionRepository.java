@@ -24,7 +24,7 @@ public interface UserKeywordSubscriptionRepository extends JpaRepository<UserKey
     @Query("""
             SELECT subscription
             FROM UserKeywordSubscription subscription
-            WHERE LOWER(:title) LIKE CONCAT('%', LOWER(subscription.keyword), '%')
+            WHERE LOCATE(LOWER(subscription.keyword), LOWER(:title)) > 0
             """)
     List<UserKeywordSubscription> findMatchingTitle(@Param("title") String title);
 
@@ -32,7 +32,7 @@ public interface UserKeywordSubscriptionRepository extends JpaRepository<UserKey
     @Query("""
             SELECT subscription FROM UserKeywordSubscription subscription
             WHERE subscription.subscriptionId > :afterId
-              AND LOWER(:title) LIKE CONCAT('%', LOWER(subscription.keyword), '%')
+              AND LOCATE(LOWER(subscription.keyword), LOWER(:title)) > 0
             ORDER BY subscription.subscriptionId
             """)
     List<UserKeywordSubscription> findMatchingTitleAfter(
