@@ -24,8 +24,10 @@ export interface AttendanceMonthResponse {
 }
 
 export const attendanceApi = {
-    checkIn() {
-        return api.post<ApiResponse<AttendanceCheckInResponse>>('/attendance/check-in')
+    checkIn(config?: AxiosRequestConfig) {
+        return config
+            ? api.post<ApiResponse<AttendanceCheckInResponse>>('/attendance/check-in', undefined, config)
+            : api.post<ApiResponse<AttendanceCheckInResponse>>('/attendance/check-in')
     },
     getMyAttendance(month?: string, config?: AxiosRequestConfig) {
         return api.get<ApiResponse<AttendanceMonthResponse>>('/attendance/me', {

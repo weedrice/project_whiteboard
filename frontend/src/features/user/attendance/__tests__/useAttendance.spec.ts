@@ -2,7 +2,7 @@ import { ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAttendance } from '@/features/user/attendance/useAttendance'
 
-const authState = vi.hoisted(() => ({ sessionGeneration: 0 }))
+const authState = vi.hoisted(() => ({ sessionGeneration: 0, user: { userId: 7 } }))
 
 vi.mock('@/stores/auth', () => ({ useAuthStore: () => authState }))
 
@@ -58,6 +58,11 @@ describe('useAttendance', () => {
     await expect(mutation.mutationFn()).resolves.toEqual({ consecutiveDays: 3 })
     mutation.onSuccess(undefined, undefined, mutation.onMutate())
 
+    expect(mocks.checkIn).toHaveBeenCalledWith({
+      signal: expect.any(AbortSignal),
+      skipGlobalErrorHandler: true,
+    })
+
     expect(mocks.invalidateQueries).toHaveBeenCalledWith({
       queryKey: ['session', 0, 'attendance', 'me'],
     })
@@ -78,5 +83,23 @@ describe('useAttendance', () => {
     mutation.onSuccess(undefined, undefined, context)
 
     expect(mocks.invalidateQueries).not.toHaveBeenCalled()
+  })
+
+  it('rejects a delayed result after the authentication intent changes', async () => {
+    let resolveCheckIn!: (value: unknown) => void
+    mocks.checkIn.mockImplementationOnce(() => new Promise((resolve) => {
+      resolveCheckIn = resolve
+    }))
+    const { useCheckIn } = useAttendance()
+    const mutation = useCheckIn() as unknown as {
+      mutationFn: () => Promise<unknown>,
+    }
+
+    const request = mutation.mutationFn()
+    authState.sessionGeneration = 1
+    authState.user = { userId: 8 }
+    resolveCheckIn({ data: { data: { earnedPoints: 10 } } })
+
+    await expect(request).rejects.toMatchObject({ name: 'AbortError' })
   })
 })

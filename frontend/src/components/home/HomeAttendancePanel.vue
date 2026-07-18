@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { CalendarCheck, Flame } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { useAttendance } from '@/features/user/attendance/useAttendance'
@@ -17,17 +17,30 @@ const { mutateAsync: checkIn, isPending } = useCheckIn()
 
 const checkedInToday = computed(() => attendance.value?.checkedInToday === true)
 const streakCount = computed(() => attendance.value?.currentStreakCount ?? 0)
+const sessionUserReady = computed(() => authStore.user?.userId != null)
 const milestoneStreak = ref<number | null>(null)
 
+watch(() => authStore.sessionGeneration, () => {
+  milestoneStreak.value = null
+})
+
 async function handleCheckIn() {
-  const result = await checkIn()
-  if (!result.alreadyCheckedIn && (result.streakCount === 7 || result.streakCount === 30)) {
-    milestoneStreak.value = result.streakCount
-  }
-  if (result.earnedPoints > 0) {
-    toastStore.addToast(t('home.attendance.earned', { points: result.earnedPoints }), 'success')
-  } else {
-    toastStore.addToast(t('home.attendance.alreadyCheckedIn'), 'info')
+  if (!sessionUserReady.value) return
+  const sessionGeneration = authStore.sessionGeneration
+  try {
+    const result = await checkIn()
+    if (sessionGeneration !== authStore.sessionGeneration) return
+
+    if (!result.alreadyCheckedIn && (result.streakCount === 7 || result.streakCount === 30)) {
+      milestoneStreak.value = result.streakCount
+    }
+    if (result.earnedPoints > 0) {
+      toastStore.addToast(t('home.attendance.earned', { points: result.earnedPoints }), 'success')
+    } else {
+      toastStore.addToast(t('home.attendance.alreadyCheckedIn'), 'info')
+    }
+  } catch {
+    // MutationCache owns the single user-facing error toast; consume the click promise here.
   }
 }
 </script>
@@ -56,7 +69,7 @@ async function handleCheckIn() {
     <button
       type="button"
       class="nv-attendance-button"
-      :disabled="checkedInToday || isLoading || isPending"
+      :disabled="checkedInToday || isLoading || isPending || !sessionUserReady"
       @click="handleCheckIn"
     >
       {{ checkedInToday ? $t('home.attendance.done') : $t('home.attendance.checkIn') }}

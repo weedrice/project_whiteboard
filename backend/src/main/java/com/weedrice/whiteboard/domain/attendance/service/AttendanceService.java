@@ -67,6 +67,7 @@ public class AttendanceService {
         int currentStreakCount = attendanceRepository.findTopByUser_UserIdAndAttendanceDateBeforeOrderByAttendanceDateDesc(
                         userId,
                         today.plusDays(1))
+                .filter(attendance -> !attendance.getAttendanceDate().isBefore(today.minusDays(1)))
                 .map(UserAttendance::getStreakCount)
                 .orElse(0);
 

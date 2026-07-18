@@ -1,4 +1,4 @@
-import { computed, type Ref } from 'vue'
+import { computed, getCurrentScope, onScopeDispose, type Ref } from 'vue'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { attendanceApi } from '@/api/attendance'
 import { unwrapAxiosApiData } from '@/api/response'
@@ -11,7 +11,12 @@ import {
     currentSessionQueryKey,
     isSessionGenerationCurrent,
     sessionQueryKey,
+    subscribeAuthSessionBoundary,
 } from '@/queryAuthScope'
+import {
+    captureAuthSessionIntent,
+    throwIfAuthSessionIntentChanged,
+} from '@/utils/authSessionIntent'
 
 export function useAttendance() {
     const queryClient = useQueryClient()
@@ -26,19 +31,50 @@ export function useAttendance() {
         meta: AUTH_SCOPED_QUERY_META,
     })
 
-    const useCheckIn = () => useMutation({
-        onMutate: () => ({ sessionGeneration: authStore.sessionGeneration }),
-        mutationFn: async () => unwrapAxiosApiData(await attendanceApi.checkIn()),
-        onSuccess: (_data, _variables, context) => {
-            if (!context || !isSessionGenerationCurrent(authStore, context.sessionGeneration)) return
-            queryClient.invalidateQueries({
-                queryKey: sessionQueryKey(context.sessionGeneration, attendanceQueryKeys.meRoot),
+    const useCheckIn = () => {
+        let activeController: AbortController | null = null
+        const cancelActiveCheckIn = () => {
+            activeController?.abort()
+            activeController = null
+        }
+
+        if (getCurrentScope()) {
+            const stopSessionBoundary = subscribeAuthSessionBoundary(cancelActiveCheckIn)
+            onScopeDispose(() => {
+                cancelActiveCheckIn()
+                stopSessionBoundary()
             })
-            queryClient.invalidateQueries({
-                queryKey: sessionQueryKey(context.sessionGeneration, userQueryKeys.pointsRoot),
-            })
-        },
-    })
+        }
+
+        return useMutation({
+            onMutate: () => ({ sessionGeneration: authStore.sessionGeneration }),
+            mutationFn: async () => {
+                cancelActiveCheckIn()
+                const controller = new AbortController()
+                const intent = captureAuthSessionIntent(authStore)
+                activeController = controller
+                try {
+                    const result = unwrapAxiosApiData(await attendanceApi.checkIn({
+                        signal: controller.signal,
+                        skipGlobalErrorHandler: true,
+                    }))
+                    throwIfAuthSessionIntentChanged(authStore, intent, controller.signal)
+                    return result
+                } finally {
+                    if (activeController === controller) activeController = null
+                }
+            },
+            onSuccess: (_data, _variables, context) => {
+                if (!context || !isSessionGenerationCurrent(authStore, context.sessionGeneration)) return
+                queryClient.invalidateQueries({
+                    queryKey: sessionQueryKey(context.sessionGeneration, attendanceQueryKeys.meRoot),
+                })
+                queryClient.invalidateQueries({
+                    queryKey: sessionQueryKey(context.sessionGeneration, userQueryKeys.pointsRoot),
+                })
+            },
+        })
+    }
 
     return {
         useMyAttendance,

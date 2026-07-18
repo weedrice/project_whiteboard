@@ -111,4 +111,19 @@ class AttendanceServiceTest {
         assertEquals(4, response.getCurrentStreakCount());
         assertEquals(1, response.getDays().size());
     }
+
+    @Test
+    void staleAttendanceDoesNotCountAsCurrentStreak() {
+        User user = mock(User.class);
+        UserAttendance staleAttendance = new UserAttendance(user, TODAY.minusDays(2), 12);
+        when(attendances.findByUser_UserIdAndAttendanceDateBetweenOrderByAttendanceDateAsc(
+                5L, LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 31))).thenReturn(List.of(staleAttendance));
+        when(attendances.findTopByUser_UserIdAndAttendanceDateBeforeOrderByAttendanceDateDesc(
+                5L, TODAY.plusDays(1))).thenReturn(Optional.of(staleAttendance));
+
+        var response = service.getMyAttendance(5L, YearMonth.of(2026, 1));
+
+        assertFalse(response.isCheckedInToday());
+        assertEquals(0, response.getCurrentStreakCount());
+    }
 }
