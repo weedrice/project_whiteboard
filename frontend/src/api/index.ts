@@ -12,12 +12,14 @@ declare module 'axios' {
   export interface AxiosRequestConfig {
     skipGlobalErrorHandler?: boolean
     skipAuthRefresh?: boolean
+    preserveAuthHeader?: boolean
   }
   export interface InternalAxiosRequestConfig {
     _retry?: boolean
     redirectOnError?: boolean
     skipGlobalErrorHandler?: boolean
     skipAuthRefresh?: boolean
+    preserveAuthHeader?: boolean
     _authSessionGeneration?: number
     _authAccessToken?: string | null
   }

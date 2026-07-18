@@ -70,6 +70,21 @@ describe('API Interceptors', () => {
         expect(result._authAccessToken).toBe('token-1')
     })
 
+    it('preserves an explicitly captured authorization header when requested', async () => {
+        const { requestFulfilled } = await loadApiModule()
+        const { persistAccessToken } = await import('@/utils/authTokenStorage')
+        persistAccessToken('new-session-token')
+        const config = createApiRequestConfig({
+            url: '/users/me/push-subscriptions',
+            preserveAuthHeader: true,
+            headers: { Authorization: 'Bearer previous-session-token' },
+        })
+
+        const result = requestFulfilled(config)
+
+        expect(result.headers.Authorization).toBe('Bearer previous-session-token')
+    })
+
     it('does not attach token on auth endpoint except email verification', async () => {
         const { requestFulfilled } = await loadApiModule()
         const { persistAccessToken } = await import('@/utils/authTokenStorage')

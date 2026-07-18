@@ -65,6 +65,37 @@ export async function deleteBrowserPushSubscription(subscription: PushSubscripti
   return userApi.deletePushSubscription(toPushSubscriptionPayload(subscription), config)
 }
 
+/**
+ * Detaches the browser endpoint at an authentication boundary.
+ *
+ * The browser subscription is removed before the best-effort server request so
+ * an offline logout cannot leave the previous account receiving notifications
+ * in this browser. The previous access token is passed explicitly because the
+ * reactive auth state may already belong to the next session by the time the
+ * server request runs.
+ */
+export async function detachBrowserPushSubscriptionForSession(accessToken: string | null) {
+  const subscription = await getBrowserPushSubscription().catch(() => null)
+  if (!subscription) return
+
+  const payload = (() => {
+    try {
+      return toPushSubscriptionPayload(subscription)
+    } catch {
+      return null
+    }
+  })()
+  await subscription.unsubscribe().catch(() => false)
+
+  if (!accessToken || !payload) return
+  await userApi.deletePushSubscription(payload, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    preserveAuthHeader: true,
+    skipAuthRefresh: true,
+    skipGlobalErrorHandler: true,
+  }).catch(() => undefined)
+}
+
 export function toPushSubscriptionPayload(subscription: PushSubscription): PushSubscriptionPayload {
   const json = subscription.toJSON()
   return {

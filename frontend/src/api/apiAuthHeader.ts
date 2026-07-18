@@ -17,7 +17,7 @@ export function applyAuthHeader(config: InternalAxiosRequestConfig): InternalAxi
   const isAuthEndpoint = pathname.startsWith('/auth/')
   const isEmailVerificationApi = pathname === '/auth/email/send-verification' || pathname === '/auth/email/verify'
 
-  if (token && (!isAuthEndpoint || isEmailVerificationApi)) {
+  if (token && (!isAuthEndpoint || isEmailVerificationApi) && !config.preserveAuthHeader) {
     config.headers.Authorization = `Bearer ${token}`
   }
   return config
