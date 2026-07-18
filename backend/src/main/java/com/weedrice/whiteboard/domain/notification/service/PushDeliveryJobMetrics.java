@@ -5,9 +5,20 @@ import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.List;
 
 @Component
 class PushDeliveryJobMetrics {
+
+    private static final List<String> OUTCOMES = List.of(
+            "success",
+            "invalid_payload",
+            "retry",
+            "dead_letter",
+            "lease_recovered",
+            "lease_lost",
+            "transition_invalid",
+            "cleanup_failure");
 
     private final MeterRegistry meterRegistry;
     private final AtomicLong pending = new AtomicLong();
@@ -24,6 +35,8 @@ class PushDeliveryJobMetrics {
                 .register(meterRegistry);
         Gauge.builder("noviis.webpush.job.oldest.age.seconds", oldestPendingAgeSeconds, AtomicLong::get)
                 .register(meterRegistry);
+        OUTCOMES.forEach(outcome -> meterRegistry.counter(
+                "noviis.webpush.job.outcome", "outcome", outcome));
     }
 
     void recordOutcome(String outcome) {
