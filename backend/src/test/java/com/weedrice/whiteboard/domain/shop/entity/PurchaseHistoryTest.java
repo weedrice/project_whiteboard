@@ -91,6 +91,64 @@ class PurchaseHistoryTest {
             // then
             assertThat(purchaseHistory.getPurchasedPrice()).isEqualTo(originalPrice);
         }
+
+        @Test
+        @DisplayName("구매 당시 표시 정보는 이후 상품 수정과 독립적이다")
+        void purchasedPresentation_isSnapshot() {
+            PurchaseHistory purchaseHistory = PurchaseHistory.builder()
+                    .user(user)
+                    .item(emoticonItem)
+                    .purchasedPrice(emoticonItem.getPrice())
+                    .build();
+
+            emoticonItem.updatePresentation("변경된 이름", "https://example.com/changed.png");
+
+            assertThat(purchaseHistory.getPurchasedItemName()).isEqualTo("프리미엄 이모티콘");
+            assertThat(purchaseHistory.getPurchasedItemType()).isEqualTo("EMOTICON");
+            assertThat(purchaseHistory.getPurchasedImageUrl())
+                    .isEqualTo("https://example.com/emoticon.png");
+        }
+
+        @Test
+        @DisplayName("구매 당시 이미지가 없으면 null도 유효한 스냅샷으로 유지한다")
+        void purchasedPresentation_preservesNullImageSnapshot() {
+            ShopItem itemWithoutImage = ShopItem.builder()
+                    .itemName("이미지 없는 상품")
+                    .price(100)
+                    .itemType("EMOTICON")
+                    .imageUrl(null)
+                    .build();
+            PurchaseHistory purchaseHistory = PurchaseHistory.builder()
+                    .user(user)
+                    .item(itemWithoutImage)
+                    .purchasedPrice(itemWithoutImage.getPrice())
+                    .build();
+
+            itemWithoutImage.updatePresentation("변경된 이름", "https://example.com/new-image.png");
+
+            assertThat(purchaseHistory.getPurchasedItemName()).isEqualTo("이미지 없는 상품");
+            assertThat(purchaseHistory.getPurchasedImageUrl()).isNull();
+        }
+
+        @Test
+        @DisplayName("스냅샷이 없는 기존 행은 현재 상품 표시 정보로 폴백한다")
+        void legacyPurchaseWithoutSnapshot_fallsBackToCurrentItemPresentation() {
+            PurchaseHistory purchaseHistory = PurchaseHistory.builder()
+                    .user(user)
+                    .item(emoticonItem)
+                    .purchasedPrice(emoticonItem.getPrice())
+                    .build();
+            ReflectionTestUtils.setField(purchaseHistory, "itemNameSnapshot", null);
+            ReflectionTestUtils.setField(purchaseHistory, "itemTypeSnapshot", null);
+            ReflectionTestUtils.setField(purchaseHistory, "imageUrlSnapshot", null);
+
+            emoticonItem.updatePresentation("현재 상품 이름", "https://example.com/current.png");
+
+            assertThat(purchaseHistory.getPurchasedItemName()).isEqualTo("현재 상품 이름");
+            assertThat(purchaseHistory.getPurchasedItemType()).isEqualTo("EMOTICON");
+            assertThat(purchaseHistory.getPurchasedImageUrl())
+                    .isEqualTo("https://example.com/current.png");
+        }
     }
 
     @Nested

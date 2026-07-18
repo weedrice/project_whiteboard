@@ -12,13 +12,13 @@ vi.mock('@/composables/usePaginatedListState', () => ({
     items: ref([
       {
         purchaseId: 1,
-        item: { itemId: 11, itemName: 'Without image', imageUrl: null },
+        item: { itemId: 11, itemType: 'EMOTICON', itemName: 'Without image', imageUrl: null },
         price: 100,
         purchasedAt: '2026-07-14T10:00:00',
       },
       {
         purchaseId: 2,
-        item: { itemId: 12, itemName: 'With image', imageUrl: '/pack.png' },
+        item: { itemId: 12, itemType: 'EMOTICON', itemName: 'With image', imageUrl: '/pack.png' },
         price: 250,
         purchasedAt: '2026-07-13T10:00:00',
       },

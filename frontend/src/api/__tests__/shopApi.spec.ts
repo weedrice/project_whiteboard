@@ -90,7 +90,7 @@ describe('shopApi', () => {
         data: {
           content: [{
             purchaseId: 8,
-            item: { itemId: 1, itemName: 'Novi pack', imageUrl: null },
+            item: { itemId: 1, itemType: 'EMOTICON', itemName: 'Novi pack', imageUrl: null },
             price: 100,
             purchasedAt: '2026-07-14T12:00:00',
           }],

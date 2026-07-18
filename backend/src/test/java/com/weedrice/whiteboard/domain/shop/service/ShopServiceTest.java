@@ -668,6 +668,7 @@ class ShopServiceTest {
                 .item(emoticonItem)
                 .purchasedPrice(emoticonItem.getPrice())
                 .build();
+        emoticonItem.updatePresentation("Renamed emoticon", "https://example.com/changed.png");
         ReflectionTestUtils.setField(purchaseHistory, "purchaseId", 10L);
         Pageable pageable = PageRequest.of(0, 20);
         Pageable expectedPageable = PageRequest.of(0, 20, Sort.by(
@@ -681,6 +682,8 @@ class ShopServiceTest {
         assertThat(response.getContent()).hasSize(1);
         assertThat(response.getContent().get(0).getItem().getImageUrl())
                 .isEqualTo("https://example.com/emoticon.png");
+        assertThat(response.getContent().get(0).getItem().getItemName()).isEqualTo("Premium emoticon");
+        assertThat(response.getContent().get(0).getItem().getItemType()).isEqualTo("EMOTICON");
     }
 
     @Test

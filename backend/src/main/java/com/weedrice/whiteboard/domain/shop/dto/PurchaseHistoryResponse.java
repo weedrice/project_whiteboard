@@ -34,6 +34,7 @@ public class PurchaseHistoryResponse {
     public static class ItemInfo {
         private Long itemId;
         private String itemName;
+        private String itemType;
         private String imageUrl;
     }
 
@@ -43,8 +44,9 @@ public class PurchaseHistoryResponse {
                         .purchaseId(history.getPurchaseId())
                         .item(ItemInfo.builder()
                                 .itemId(history.getItem().getItemId())
-                                .itemName(history.getItem().getItemName())
-                                .imageUrl(history.getItem().getImageUrl())
+                                .itemName(history.getPurchasedItemName())
+                                .itemType(history.getPurchasedItemType())
+                                .imageUrl(history.getPurchasedImageUrl())
                                 .build())
                         .price(history.getPurchasedPrice())
                         .purchasedAt(history.getCreatedAt())

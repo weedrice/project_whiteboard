@@ -13,6 +13,7 @@ export interface ShopItem {
 }
 
 export interface PurchaseHistoryItem {
+  itemType: string
   itemId: number
   itemName: string
   imageUrl: string | null
