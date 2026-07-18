@@ -34,6 +34,7 @@ import {
   POST_POLL_MIN_OPTIONS,
   POST_POLL_OPTION_MAX_LENGTH,
   POST_POLL_QUESTION_MAX_LENGTH,
+  type PostFormPollValidationError,
   validatePostFormPoll,
 } from '@/utils/postForm'
 
@@ -154,6 +155,25 @@ const submitLabel = computed(() =>
     ? (props.mode === 'create' ? t('board.writePost.submitting') : t('board.writePost.updating'))
     : (props.mode === 'create' ? t('common.submit') : t('board.writePost.update')),
 )
+
+function pollValidationMessage(error: PostFormPollValidationError) {
+  const params = {
+    questionMax: POST_POLL_QUESTION_MAX_LENGTH,
+    optionMax: POST_POLL_OPTION_MAX_LENGTH,
+    min: POST_POLL_MIN_OPTIONS,
+    max: POST_POLL_MAX_OPTIONS,
+  }
+
+  switch (error) {
+    case 'questionRequired': return t('board.writePost.poll.validation.questionRequired', params)
+    case 'questionTooLong': return t('board.writePost.poll.validation.questionTooLong', params)
+    case 'optionRequired': return t('board.writePost.poll.validation.optionRequired', params)
+    case 'optionCount': return t('board.writePost.poll.validation.optionCount', params)
+    case 'optionTooLong': return t('board.writePost.poll.validation.optionTooLong', params)
+    case 'closesAtFuture': return t('board.writePost.poll.validation.closesAtFuture', params)
+    case 'closesAtAfterSchedule': return t('board.writePost.poll.validation.closesAtAfterSchedule', params)
+  }
+}
 
 const {
   form,
@@ -358,12 +378,7 @@ const { handleSubmit, isSubmissionLocked } = usePostComposerSubmit({
     if (props.mode === 'create') {
       const pollError = validatePostFormPoll(form.value.poll, Date.now(), scheduledAt.value)
       if (pollError) {
-        toastStore.addToast(t(`board.writePost.poll.validation.${pollError}`, {
-          questionMax: POST_POLL_QUESTION_MAX_LENGTH,
-          optionMax: POST_POLL_OPTION_MAX_LENGTH,
-          min: POST_POLL_MIN_OPTIONS,
-          max: POST_POLL_MAX_OPTIONS,
-        }), 'error')
+        toastStore.addToast(pollValidationMessage(pollError), 'error')
         return false
       }
     }
