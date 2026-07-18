@@ -2,10 +2,9 @@ import { computed, ref, type Ref } from 'vue'
 import { useQueryClient } from '@tanstack/vue-query'
 import { userApi } from '@/api/user'
 import { useAuthStore } from '@/stores/auth'
-import { commentQueryKeys } from '@/features/comments/queries/commentQueryKeys'
 import { useUserBlockAction } from '@/features/user/menu/useUserBlockAction'
-import { userQueryKeys } from '@/features/user/userQueryKeys'
-import { isSessionGenerationCurrent, sessionQueryKey } from '@/queryAuthScope'
+import { invalidateBlockVisibilityCaches } from '@/features/user/blockVisibilityCache'
+import { isSessionGenerationCurrent } from '@/queryAuthScope'
 
 interface UseUserMenuActionsOptions {
     userId: Ref<number>
@@ -70,21 +69,7 @@ export function useUserMenuActions({
             isIntentCurrent: () => isSessionGenerationCurrent(authStore, sessionGeneration),
             onSuccess: () => {
                 if (!isSessionGenerationCurrent(authStore, sessionGeneration)) return
-                queryClient.invalidateQueries({
-                    queryKey: sessionQueryKey(sessionGeneration, commentQueryKeys.all),
-                })
-                queryClient.invalidateQueries({
-                    queryKey: sessionQueryKey(sessionGeneration, userQueryKeys.blocksRoot),
-                })
-                queryClient.invalidateQueries({
-                    queryKey: sessionQueryKey(sessionGeneration, userQueryKeys.profile(userId.value)),
-                })
-                queryClient.invalidateQueries({
-                    queryKey: sessionQueryKey(sessionGeneration, userQueryKeys.publicPostsRoot(userId.value)),
-                })
-                queryClient.invalidateQueries({
-                    queryKey: sessionQueryKey(sessionGeneration, userQueryKeys.publicCommentsRoot(userId.value)),
-                })
+                void invalidateBlockVisibilityCaches(queryClient, sessionGeneration, userId.value)
             },
         })
     }

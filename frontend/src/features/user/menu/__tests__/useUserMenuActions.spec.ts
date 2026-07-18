@@ -114,7 +114,15 @@ describe('useUserMenuActions', () => {
         expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'user', '2'] })
         expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'user', '2', 'posts'] })
         expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'user', '2', 'comments'] })
-        expect(invalidateQueries).toHaveBeenCalledTimes(5)
+        expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'post'] })
+        expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'posts'] })
+        expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'board', 'posts'] })
+        expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'home'] })
+        expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'search'] })
+        expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'feed'] })
+        expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'messages'] })
+        expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'messages', 'unread-count'] })
+        expect(invalidateQueries).toHaveBeenCalledTimes(13)
     })
 
     it('logs and toasts block failures', async () => {

@@ -23,6 +23,7 @@ import {
     isSessionGenerationCurrent,
 } from '@/queryAuthScope'
 import { useAuthStore } from '@/stores/auth'
+import { invalidateBlockVisibilityCaches } from '@/features/user/blockVisibilityCache'
 
 interface PasswordUpdateData {
     currentPassword: string
@@ -427,10 +428,7 @@ export function useUser() {
             },
             onSuccess: (_data, _variables, context) => {
                 if (!isCurrentMutation(context)) return
-                queryClient.invalidateQueries({ queryKey: authKey(userQueryKeys.blocksRoot) })
-                queryClient.invalidateQueries({ queryKey: authKey(userQueryKeys.profile(_variables)) })
-                queryClient.invalidateQueries({ queryKey: authKey(userQueryKeys.publicPostsRoot(_variables)) })
-                queryClient.invalidateQueries({ queryKey: authKey(userQueryKeys.publicCommentsRoot(_variables)) })
+                void invalidateBlockVisibilityCaches(queryClient, context.sessionGeneration, _variables)
             }
         })
     }
@@ -443,10 +441,7 @@ export function useUser() {
             },
             onSuccess: (_data, _variables, context) => {
                 if (!isCurrentMutation(context)) return
-                queryClient.invalidateQueries({ queryKey: authKey(userQueryKeys.blocksRoot) })
-                queryClient.invalidateQueries({ queryKey: authKey(userQueryKeys.profile(_variables)) })
-                queryClient.invalidateQueries({ queryKey: authKey(userQueryKeys.publicPostsRoot(_variables)) })
-                queryClient.invalidateQueries({ queryKey: authKey(userQueryKeys.publicCommentsRoot(_variables)) })
+                void invalidateBlockVisibilityCaches(queryClient, context.sessionGeneration, _variables)
             }
         })
     }
