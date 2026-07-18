@@ -1,22 +1,28 @@
-import { defineComponent, h, nextTick } from 'vue'
+import { defineComponent, h, nextTick, ref, type Ref } from 'vue'
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useEditorImageUpload } from '@/features/board/posts/editor/useEditorImageUpload'
 
 const uploadFileMock = vi.hoisted(() => vi.fn())
+const discardUploadsMock = vi.hoisted(() => vi.fn())
 
 vi.mock('@/api/file', () => ({
     fileApi: {
         uploadFile: uploadFileMock,
+        discardUploads: discardUploadsMock,
     },
     resolveFileUploadUrl: (uploadedFile: { url?: string; fileUrl?: string }) => uploadedFile.url ?? uploadedFile.fileUrl ?? null,
 }))
 
-const createHarness = (maxImageSizeBytes = 1024) => {
+vi.mock('@/utils/logger', () => ({
+    default: { warn: vi.fn() },
+}))
+
+const createHarness = (maxImageSizeBytes = 1024, ownerIdentity?: Ref<string | undefined>) => {
     let composable: ReturnType<typeof useEditorImageUpload> | null = null
     const Harness = defineComponent({
         setup() {
-            composable = useEditorImageUpload(maxImageSizeBytes)
+            composable = useEditorImageUpload(maxImageSizeBytes, ownerIdentity)
             return () => h('div')
         },
     })
@@ -34,6 +40,7 @@ const createHarness = (maxImageSizeBytes = 1024) => {
 describe('useEditorImageUpload', () => {
     beforeEach(() => {
         vi.clearAllMocks()
+        discardUploadsMock.mockResolvedValue({ data: { data: { discardedCount: 1 } } })
     })
 
     it('validates image mime type and size', () => {
@@ -169,6 +176,31 @@ describe('useEditorImageUpload', () => {
         await nextTick()
         await expect(secondUpload).rejects.toEqual({ code: 'ERR_CANCELED' })
         expect(secondSignal.aborted).toBe(true)
+    })
+
+    it('discards a late successful upload after composer identity changes', async () => {
+        const ownerIdentity = ref<string | undefined>('session-1:create:free:new')
+        const { composable } = createHarness(1024, ownerIdentity)
+        const image = new File([new ArrayBuffer(10)], 'late.png', { type: 'image/png' })
+        let resolveUpload!: (value: unknown) => void
+        uploadFileMock.mockImplementationOnce(() => new Promise((resolve) => {
+            resolveUpload = resolve
+        }))
+
+        const uploadPromise = composable.uploadImage(image)
+        const signal = uploadFileMock.mock.calls[0][1].signal as AbortSignal
+        ownerIdentity.value = 'session-2:create:free:new'
+
+        expect(signal.aborted).toBe(true)
+        resolveUpload({
+            data: {
+                success: true,
+                data: { url: '/api/v1/files/88', fileId: 88 },
+            },
+        })
+
+        await expect(uploadPromise).resolves.toBeNull()
+        expect(discardUploadsMock).toHaveBeenCalledWith([88], { skipGlobalErrorHandler: true })
     })
 
     it('recognizes abort/cancel errors', () => {

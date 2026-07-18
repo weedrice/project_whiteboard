@@ -34,6 +34,7 @@ interface UsePostDraftOptions {
     buildPayload: () => PostDraftData
     applyDraft: (draft: DraftRecoverySnapshot) => void
     onSaved?: () => void
+    onServerSaved?: (payload: PostDraftData) => void
 }
 
 const AUTOSAVE_DELAY_MS = 1500
@@ -157,6 +158,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
 
         storeLocalSnapshot(createDraftRecoverySnapshot(payload, draftId.value, updatedAt.value))
         const savedDraft = unwrapAxiosApiData(await savePayload(payload))
+        options.onServerSaved?.(payload)
         if (generation !== sessionGeneration) return null
         draftId.value = savedDraft.draftId
         updatedAt.value = getDraftUpdatedAt(savedDraft) ?? new Date().toISOString()

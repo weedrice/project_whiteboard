@@ -60,7 +60,7 @@ function mountComposable(payloadRef: Ref<PostDraftData> = ref({
     contents: 'Draft body',
     fileIds: [7],
     originalPostId: undefined as number | undefined,
-}), storageKeyRef = ref('noviis:test:draft'), enabledRef = ref(true), ownerIdRef = ref<number | null>(null)) {
+}), storageKeyRef = ref('noviis:test:draft'), enabledRef = ref(true), ownerIdRef = ref<number | null>(null), onServerSaved?: (payload: PostDraftData) => void) {
     const appliedDrafts: DraftRecoverySnapshot[] = []
     let composable: ReturnType<typeof usePostDraft> | null = null
 
@@ -72,6 +72,7 @@ function mountComposable(payloadRef: Ref<PostDraftData> = ref({
                 ownerId: ownerIdRef,
                 buildPayload: () => payloadRef.value,
                 applyDraft: (draft) => appliedDrafts.push(draft),
+                onServerSaved,
             })
             return () => h('div')
         },
@@ -153,6 +154,28 @@ describe('usePostDraft', () => {
             fileIds: [7],
             updatedAt: '2025-01-01T00:00:00.000Z',
         }))
+    })
+
+    it('reports the exact payload whose files were transferred to a server draft', async () => {
+        const onServerSaved = vi.fn()
+        const payload = ref<PostDraftData>({
+            boardUrl: 'free',
+            title: 'Draft with upload',
+            contents: '<img src="/api/v1/files/7">',
+            fileIds: [7],
+        })
+        const { composable } = mountComposable(
+            payload,
+            ref('noviis:test:server-owned-upload'),
+            ref(true),
+            ref(1),
+            onServerSaved,
+        )
+
+        await composable.saveNow()
+
+        expect(onServerSaved).toHaveBeenCalledOnce()
+        expect(onServerSaved).toHaveBeenCalledWith(payload.value)
     })
 
     it('aborts an in-flight draft request when the draft session resets', async () => {

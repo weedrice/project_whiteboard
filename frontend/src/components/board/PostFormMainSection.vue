@@ -25,6 +25,7 @@ defineProps<{
   metadataPanelHandlers: PostFormMetadataPanelHandlers
   editorViewMode: string
   editorViewOptions: SegmentedControlOption[]
+  uploadOwnerIdentity: string
   showVideoPopover: boolean
   showEmoticonPicker: boolean
   videoUrl: string
@@ -80,6 +81,7 @@ const emit = defineEmits<{
         :model-value="content"
         :editor-view-mode="editorViewMode"
         :editor-view-options="editorViewOptions"
+        :upload-owner-identity="uploadOwnerIdentity"
         :show-video-popover="showVideoPopover"
         :show-emoticon-picker="showEmoticonPicker"
         :video-url="videoUrl"

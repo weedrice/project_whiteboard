@@ -29,6 +29,7 @@ import logger from '@/utils/logger'
 
 const props = defineProps<{
   modelValue: string
+  uploadOwnerIdentity?: string
 }>()
 
 const emit = defineEmits<{
@@ -43,8 +44,12 @@ const { t } = useI18n()
 const toastStore = useToastStore()
 const themeStore = useThemeStore()
 const modelValue = toRef(props, 'modelValue')
+const uploadOwnerIdentity = toRef(props, 'uploadOwnerIdentity')
 
-const { isUploadingImage, validateImageFile, uploadImage, abortImageUpload, isAbortUploadError } = useEditorImageUpload()
+const { isUploadingImage, validateImageFile, uploadImage, abortImageUpload, isAbortUploadError } = useEditorImageUpload(
+  undefined,
+  uploadOwnerIdentity,
+)
 const {
   showColorPanel,
   showLinkPopover,

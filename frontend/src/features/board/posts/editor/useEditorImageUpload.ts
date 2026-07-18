@@ -1,9 +1,10 @@
-import { ref, onBeforeUnmount } from 'vue'
+import { ref, onBeforeUnmount, watch, type Ref } from 'vue'
 import { fileApi, resolveFileUploadUrl } from '@/api/file'
 import { unwrapApiData } from '@/api/response'
 import { validateImageFile as validateGenericImageFile } from '@/utils/imageFile'
 import { POST_EDITOR_IMAGE_UPLOAD_POLICY } from '@/utils/imageUploadPolicy'
 import { isCancellationError } from '@/utils/cancellationError'
+import logger from '@/utils/logger'
 
 function isAbortUploadError(error: unknown): boolean {
     return isCancellationError(error, {
@@ -12,7 +13,10 @@ function isAbortUploadError(error: unknown): boolean {
     })
 }
 
-export function useEditorImageUpload(maxImageSizeBytes = POST_EDITOR_IMAGE_UPLOAD_POLICY.maxSizeBytes) {
+export function useEditorImageUpload(
+    maxImageSizeBytes = POST_EDITOR_IMAGE_UPLOAD_POLICY.maxSizeBytes,
+    ownerIdentity?: Readonly<Ref<string | undefined>>,
+) {
     const isUploadingImage = ref(false)
     let uploadAbortController: AbortController | null = null
 
@@ -28,21 +32,33 @@ export function useEditorImageUpload(maxImageSizeBytes = POST_EDITOR_IMAGE_UPLOA
         if (isUploadingImage.value) return null
 
         isUploadingImage.value = true
-        uploadAbortController = new AbortController()
+        const controller = new AbortController()
+        const startingIdentity = ownerIdentity?.value
+        uploadAbortController = controller
 
         try {
-            const { data } = await fileApi.uploadFile(file, { signal: uploadAbortController.signal })
+            const { data } = await fileApi.uploadFile(file, { signal: controller.signal })
             if (!data.success) return null
             const uploadedFile = unwrapApiData(data)
             const imageUrl = resolveFileUploadUrl(uploadedFile)
-            if (!imageUrl) return null
+            const isStale = controller.signal.aborted || ownerIdentity?.value !== startingIdentity
+            if (isStale || !imageUrl) {
+                if (typeof uploadedFile.fileId === 'number') {
+                    try {
+                        await fileApi.discardUploads([uploadedFile.fileId], { skipGlobalErrorHandler: true })
+                    } catch (error) {
+                        logger.warn('Failed to discard stale post editor upload:', error)
+                    }
+                }
+                return null
+            }
 
             return {
                 url: imageUrl,
                 fileId: uploadedFile.fileId
             }
         } finally {
-            uploadAbortController = null
+            if (uploadAbortController === controller) uploadAbortController = null
             isUploadingImage.value = false
         }
     }
@@ -54,7 +70,12 @@ export function useEditorImageUpload(maxImageSizeBytes = POST_EDITOR_IMAGE_UPLOA
         }
     }
 
+    const stopOwnerIdentityWatch = ownerIdentity
+        ? watch(ownerIdentity, abortImageUpload, { flush: 'sync' })
+        : null
+
     onBeforeUnmount(() => {
+        stopOwnerIdentityWatch?.()
         abortImageUpload()
     })
 

@@ -22,6 +22,7 @@ import PostFormSidePanel from '@/components/board/PostFormSidePanel.vue'
 import PostPreviewModal from '@/components/board/PostPreviewModal.vue'
 import { requiresSandboxedPostHtml } from '@/utils/postHtmlSandbox'
 import { usePostComposerState } from '@/features/board/posts/form/usePostComposerState'
+import { usePostComposerUploadOwnership } from '@/features/board/posts/form/usePostComposerUploadOwnership'
 import type { PostSeries } from '@/types'
 import { useFieldValidation } from '@/composables/useFieldValidation'
 import { usePwaReloadBlocker } from '@/pwaReloadGuard'
@@ -195,6 +196,19 @@ const {
   canShowNsfw,
 })
 
+const {
+  recordUploadedFile,
+  releaseUploadedFiles: releaseUploadedFileOwnership,
+} = usePostComposerUploadOwnership({
+  identity: formIdentity,
+  content: computed(() => form.value.content),
+})
+
+function handleEditorFileUploaded(fileId: number) {
+  trackUploadedFile(fileId)
+  recordUploadedFile(fileId)
+}
+
 type PostRequiredField = 'title'
 const postValidation = useFieldValidation<PostRequiredField>({
   validators: {
@@ -335,6 +349,7 @@ const {
   buildPayload,
   applyDraft: applyDraftSnapshot,
   markCurrentSnapshotSaved,
+  releaseUploadedFileOwnership,
   t,
   addToast: toastStore.addToast,
 })
@@ -360,6 +375,7 @@ const { handleSubmit, isSubmissionLocked } = usePostComposerSubmit({
   markCurrentSnapshotSaved,
   cleanupPublishedDraft,
   clearScheduledDraftRecovery,
+  releaseUploadedFileOwnership,
   createPost,
   createScheduledPost,
   updatePost,
@@ -504,6 +520,7 @@ defineExpose({
           :metadata-panel-handlers="metadataPanelHandlers"
           :editor-view-mode="editorViewMode"
           :editor-view-options="editorViewOptions"
+          :upload-owner-identity="formIdentity"
           :show-video-popover="showVideoPopover"
           :show-emoticon-picker="showEmoticonPicker"
           :video-url="videoUrl"
@@ -523,7 +540,7 @@ defineExpose({
           @close-video="closeVideoPopover"
           @insert-video="insertVideoFromPopover"
           @select-emoticon="handleEmoticonSelect"
-          @file-uploaded="trackUploadedFile"
+          @file-uploaded="handleEditorFileUploaded"
           @open-poll="openPollEditor"
         />
 

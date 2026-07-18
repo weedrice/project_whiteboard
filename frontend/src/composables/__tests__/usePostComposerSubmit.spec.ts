@@ -41,6 +41,7 @@ function createSubmit(overrides: {
   const markCurrentSnapshotSaved = vi.fn()
   const cleanupPublishedDraft = vi.fn()
   const clearScheduledDraftRecovery = vi.fn()
+  const releaseUploadedFileOwnership = vi.fn()
   const onSubmitted = vi.fn()
   const submit = usePostComposerSubmit({
     mode: () => overrides.mode ?? 'create',
@@ -60,6 +61,7 @@ function createSubmit(overrides: {
     markCurrentSnapshotSaved,
     cleanupPublishedDraft,
     clearScheduledDraftRecovery,
+    releaseUploadedFileOwnership,
     createPost,
     createScheduledPost,
     updatePost,
@@ -75,6 +77,7 @@ function createSubmit(overrides: {
     addToast,
     cleanupPublishedDraft,
     clearScheduledDraftRecovery,
+    releaseUploadedFileOwnership,
     createPost,
     createScheduledPost,
     markCurrentSnapshotSaved,
@@ -169,6 +172,7 @@ describe('usePostComposerSubmit', () => {
       isBoardAdmin: true,
     })
     expect(calls).toEqual(['mark', 'cleanup', 'submitted'])
+    expect(submit.releaseUploadedFileOwnership).toHaveBeenCalledWith([10])
   })
 
   it('aborts submit when saving a draft before submit fails', async () => {
@@ -208,6 +212,7 @@ describe('usePostComposerSubmit', () => {
 
     expect(submit.clearScheduledDraftRecovery).toHaveBeenCalledOnce()
     expect(submit.cleanupPublishedDraft).not.toHaveBeenCalled()
+    expect(submit.releaseUploadedFileOwnership).toHaveBeenCalledWith([10])
   })
 
   it.each([
@@ -255,6 +260,7 @@ describe('usePostComposerSubmit', () => {
 
     expect(submit.markCurrentSnapshotSaved).toHaveBeenCalled()
     expect(submit.cleanupPublishedDraft).toHaveBeenCalled()
+    expect(submit.releaseUploadedFileOwnership).toHaveBeenCalledWith([10])
     expect(submit.onSubmitted).toHaveBeenCalledWith({
       mode: 'edit',
       boardUrl: 'free',

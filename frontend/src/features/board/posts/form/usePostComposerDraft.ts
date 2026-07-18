@@ -21,6 +21,7 @@ type UsePostComposerDraftOptions = {
   buildPayload: (fileIdScope?: PostFormFileIdScope) => ReturnType<typeof import('@/utils/postForm').buildPostFormPayload>
   applyDraft: (draft: PostComposerSnapshot) => void
   markCurrentSnapshotSaved: () => void
+  releaseUploadedFileOwnership: (fileIds: number[]) => void
   t: (key: string, values?: Record<string, unknown>) => string
   addToast: (message: string, type: ComposerToastType) => void
 }
@@ -69,6 +70,7 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     }),
     applyDraft: options.applyDraft,
     onSaved: options.markCurrentSnapshotSaved,
+    onServerSaved: (payload) => options.releaseUploadedFileOwnership(payload.fileIds ?? []),
   })
 
   const draftStatusLabel = computed(() => {

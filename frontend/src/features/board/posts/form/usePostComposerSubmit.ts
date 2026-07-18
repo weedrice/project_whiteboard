@@ -73,6 +73,7 @@ type UsePostComposerSubmitOptions = {
   markCurrentSnapshotSaved: () => void
   cleanupPublishedDraft: () => void
   clearScheduledDraftRecovery: () => void
+  releaseUploadedFileOwnership: (fileIds: number[]) => void
   createPost: CreatePostMutate
   createScheduledPost: CreateScheduledPostMutate
   updatePost: UpdatePostMutate
@@ -158,6 +159,7 @@ export function usePostComposerSubmit(options: UsePostComposerSubmitOptions) {
         options.createScheduledPost({ boardUrl: options.boardUrl.value, data: { ...createPayload, scheduledAt } }, {
           onSuccess: (response) => {
             unlock()
+            options.releaseUploadedFileOwnership(payload.fileIds)
             options.markCurrentSnapshotSaved()
             options.clearScheduledDraftRecovery()
             const scheduledPost = unwrapApiData(response.data)
@@ -181,6 +183,7 @@ export function usePostComposerSubmit(options: UsePostComposerSubmitOptions) {
       options.createPost({ boardUrl: options.boardUrl.value, data: createPayload }, {
         onSuccess: (response) => {
           unlock()
+          options.releaseUploadedFileOwnership(payload.fileIds)
           options.markCurrentSnapshotSaved()
           options.cleanupPublishedDraft()
           const successToastMessage = options.createSuccessToastMessage()
@@ -204,6 +207,7 @@ export function usePostComposerSubmit(options: UsePostComposerSubmitOptions) {
     options.updatePost({ postId: options.postId.value, data: payload }, {
       onSuccess: () => {
         unlock()
+        options.releaseUploadedFileOwnership(payload.fileIds)
         options.markCurrentSnapshotSaved()
         options.cleanupPublishedDraft()
         options.onSubmitted()?.({
