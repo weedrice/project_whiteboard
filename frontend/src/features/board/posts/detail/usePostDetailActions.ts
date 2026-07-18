@@ -45,6 +45,8 @@ export function usePostDetailActions({
   const { mutate: reportMutate } = useReportPost()
   const isLikeAnimating = ref(false)
   const isBookmarkAnimating = ref(false)
+  const isLikeMutationPending = ref(false)
+  const isBookmarkMutationPending = ref(false)
   const showReportModal = ref(false)
   let likeAnimationTimer: ReturnType<typeof setTimeout> | null = null
   let bookmarkAnimationTimer: ReturnType<typeof setTimeout> | null = null
@@ -94,34 +96,48 @@ export function usePostDetailActions({
   }
 
   async function handleLike() {
-    if (!authStore.isAuthenticated || !post.value) return
+    if (!authStore.isAuthenticated || !post.value || isLikeMutationPending.value) return
+
+    isLikeMutationPending.value = true
+    const onSettled = () => {
+      isLikeMutationPending.value = false
+    }
 
     if (post.value.liked) {
       unlikeMutate(route.params.postId as string | number, {
-        onError: (err) => logger.error(t('board.postDetail.likeFailed'), err)
+        onError: (err) => logger.error(t('board.postDetail.likeFailed'), err),
+        onSettled,
       })
       return
     }
 
     triggerLikeAnimation()
     likeMutate(route.params.postId as string | number, {
-      onError: (err) => logger.error(t('board.postDetail.likeFailed'), err)
+      onError: (err) => logger.error(t('board.postDetail.likeFailed'), err),
+      onSettled,
     })
   }
 
   async function handleBookmark() {
-    if (!authStore.isAuthenticated || !post.value) return
+    if (!authStore.isAuthenticated || !post.value || isBookmarkMutationPending.value) return
+
+    isBookmarkMutationPending.value = true
+    const onSettled = () => {
+      isBookmarkMutationPending.value = false
+    }
 
     if (post.value.scrapped) {
       unscrapMutate(route.params.postId as string | number, {
-        onError: (err) => logger.error(t('board.postDetail.scrapFailed'), err)
+        onError: (err) => logger.error(t('board.postDetail.scrapFailed'), err),
+        onSettled,
       })
       return
     }
 
     triggerBookmarkAnimation()
     scrapMutate(route.params.postId as string | number, {
-      onError: (err) => logger.error(t('board.postDetail.scrapFailed'), err)
+      onError: (err) => logger.error(t('board.postDetail.scrapFailed'), err),
+      onSettled,
     })
   }
 
@@ -190,6 +206,8 @@ export function usePostDetailActions({
   return {
     isLikeAnimating,
     isBookmarkAnimating,
+    isLikeMutationPending,
+    isBookmarkMutationPending,
     showReportModal,
     handleDelete,
     handleLike,

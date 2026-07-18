@@ -96,6 +96,33 @@ describe('PostPoll', () => {
     expect(deleteMutateAsync).toHaveBeenCalledWith(99)
   })
 
+  it('does not start vote cancellation while a vote update is in flight', async () => {
+    let resolveVote!: () => void
+    voteMutateAsync.mockReturnValueOnce(new Promise<void>((resolve) => {
+      resolveVote = resolve
+    }))
+    const wrapper = mountPoll({
+      poll: poll({
+        options: [
+          { optionId: 10, optionText: 'First', sortOrder: 0, voteCount: 2, selected: true },
+          { optionId: 11, optionText: 'Second', sortOrder: 1, voteCount: 1, selected: false },
+        ],
+      }),
+    })
+
+    await wrapper.findAll('input[type="radio"]')[1].setValue(true)
+    const buttons = wrapper.findAll('button')
+    const voteClick = buttons.at(-1)?.trigger('click')
+    await wrapper.vm.$nextTick()
+    await buttons[0].trigger('click')
+
+    expect(voteMutateAsync).toHaveBeenCalledOnce()
+    expect(deleteMutateAsync).not.toHaveBeenCalled()
+
+    resolveVote()
+    await voteClick
+  })
+
   it('reactively closes the poll when its deadline passes while the view stays open', async () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-01-01T00:00:00Z'))

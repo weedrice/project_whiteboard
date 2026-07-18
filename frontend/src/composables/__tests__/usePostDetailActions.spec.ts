@@ -179,6 +179,21 @@ describe('usePostDetailActions', () => {
     }))
   })
 
+  it('serializes repeated like toggles until the active mutation settles', async () => {
+    const { actions } = createActions({ post: postFactory({ liked: false }) })
+
+    await actions.handleLike()
+    await actions.handleLike()
+
+    expect(mocks.likeMutate).toHaveBeenCalledOnce()
+    expect(mocks.unlikeMutate).not.toHaveBeenCalled()
+
+    mocks.likeMutate.mock.calls[0][1].onSettled()
+    await actions.handleLike()
+
+    expect(mocks.likeMutate).toHaveBeenCalledTimes(2)
+  })
+
   it('scraps or unscraps depending on current post state', async () => {
     const { actions } = createActions({ post: postFactory({ scrapped: false }) })
 
@@ -196,6 +211,21 @@ describe('usePostDetailActions', () => {
     expect(mocks.unscrapMutate).toHaveBeenCalledWith('7', expect.objectContaining({
       onError: expect.any(Function),
     }))
+  })
+
+  it('serializes repeated bookmark toggles until the active mutation settles', async () => {
+    const { actions } = createActions({ post: postFactory({ scrapped: false }) })
+
+    await actions.handleBookmark()
+    await actions.handleBookmark()
+
+    expect(mocks.scrapMutate).toHaveBeenCalledOnce()
+    expect(mocks.unscrapMutate).not.toHaveBeenCalled()
+
+    mocks.scrapMutate.mock.calls[0][1].onSettled()
+    await actions.handleBookmark()
+
+    expect(mocks.scrapMutate).toHaveBeenCalledTimes(2)
   })
 
   it('does not like or bookmark when unauthenticated or post is missing', async () => {

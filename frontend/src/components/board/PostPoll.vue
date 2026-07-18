@@ -16,6 +16,7 @@ const { useVotePoll, useDeletePollVote } = usePost()
 const voteMutation = useVotePoll()
 const deleteVoteMutation = useDeletePollVote()
 const selectedOptionIds = ref<number[]>([])
+const localMutationPending = ref(false)
 const now = ref(Date.now())
 let closeTimer: ReturnType<typeof setTimeout> | null = null
 const MAX_CLOSE_TIMER_DELAY_MS = 60_000
@@ -32,7 +33,9 @@ const canSubmit = computed(() =>
   props.isAuthenticated
   && !isClosed.value
   && selectedOptionIds.value.length > 0
+  && !localMutationPending.value
   && !voteMutation.isPending.value
+  && !deleteVoteMutation.isPending.value
 )
 
 watch(
@@ -87,15 +90,28 @@ function toggleOption(optionId: number, checked: boolean) {
 
 async function submitVote() {
   if (!canSubmit.value) return
-  await voteMutation.mutateAsync({
-    postId: props.postId,
-    data: { optionIds: selectedOptionIds.value },
-  })
+  localMutationPending.value = true
+  try {
+    await voteMutation.mutateAsync({
+      postId: props.postId,
+      data: { optionIds: selectedOptionIds.value },
+    })
+  } finally {
+    localMutationPending.value = false
+  }
 }
 
 async function cancelVote() {
-  if (!hasVoted.value || deleteVoteMutation.isPending.value) return
-  await deleteVoteMutation.mutateAsync(props.postId)
+  if (!hasVoted.value
+    || localMutationPending.value
+    || voteMutation.isPending.value
+    || deleteVoteMutation.isPending.value) return
+  localMutationPending.value = true
+  try {
+    await deleteVoteMutation.mutateAsync(props.postId)
+  } finally {
+    localMutationPending.value = false
+  }
 }
 </script>
 
@@ -131,7 +147,7 @@ async function cancelVote() {
             :type="poll.multipleChoiceEnabled ? 'checkbox' : 'radio'"
             name="post-poll-option"
             :checked="selectedOptionIds.includes(option.optionId)"
-            :disabled="!isAuthenticated || isClosed"
+            :disabled="!isAuthenticated || isClosed || localMutationPending"
             class="h-4 w-4"
             @change="toggleOption(option.optionId, ($event.target as HTMLInputElement).checked)"
           >
@@ -162,6 +178,7 @@ async function cancelVote() {
         type="button"
         variant="secondary"
         size="sm"
+        :disabled="localMutationPending || voteMutation.isPending.value"
         :loading="deleteVoteMutation.isPending.value"
         @click="cancelVote"
       >
@@ -170,7 +187,7 @@ async function cancelVote() {
       <BaseButton
         type="button"
         size="sm"
-        :disabled="!canSubmit"
+        :disabled="!canSubmit || deleteVoteMutation.isPending.value"
         :loading="voteMutation.isPending.value"
         @click="submitVote"
       >
