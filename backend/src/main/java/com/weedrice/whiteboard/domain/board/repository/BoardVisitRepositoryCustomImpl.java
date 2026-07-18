@@ -35,7 +35,7 @@ public class BoardVisitRepositoryCustomImpl implements BoardVisitRepositoryCusto
                 WHERE board_url = ?
                   AND EXISTS (SELECT 1 FROM users WHERE user_id = ?)
                 ON CONFLICT (user_id, board_id) DO UPDATE
-                SET last_visited_at = EXCLUDED.last_visited_at,
+                SET last_visited_at = GREATEST(board_visits.last_visited_at, EXCLUDED.last_visited_at),
                     modified_at = CURRENT_TIMESTAMP
                 """, userId, visitedAt, boardUrl, userId);
     }
@@ -43,10 +43,14 @@ public class BoardVisitRepositoryCustomImpl implements BoardVisitRepositoryCusto
     private int upsertForH2(Long userId, String boardUrl, LocalDateTime visitedAt) {
         int updated = jdbcTemplate.update("""
                 UPDATE board_visits
-                SET last_visited_at = ?, modified_at = CURRENT_TIMESTAMP
+                SET last_visited_at = CASE
+                        WHEN last_visited_at < ? THEN ?
+                        ELSE last_visited_at
+                    END,
+                    modified_at = CURRENT_TIMESTAMP
                 WHERE user_id = ?
                   AND board_id = (SELECT board_id FROM boards WHERE board_url = ?)
-                """, visitedAt, userId, boardUrl);
+                """, visitedAt, visitedAt, userId, boardUrl);
         if (updated > 0) {
             return updated;
         }
@@ -61,10 +65,14 @@ public class BoardVisitRepositoryCustomImpl implements BoardVisitRepositoryCusto
         } catch (DuplicateKeyException ignored) {
             return jdbcTemplate.update("""
                     UPDATE board_visits
-                    SET last_visited_at = ?, modified_at = CURRENT_TIMESTAMP
+                    SET last_visited_at = CASE
+                            WHEN last_visited_at < ? THEN ?
+                            ELSE last_visited_at
+                        END,
+                        modified_at = CURRENT_TIMESTAMP
                     WHERE user_id = ?
                       AND board_id = (SELECT board_id FROM boards WHERE board_url = ?)
-                    """, visitedAt, userId, boardUrl);
+                    """, visitedAt, visitedAt, userId, boardUrl);
         }
     }
 }

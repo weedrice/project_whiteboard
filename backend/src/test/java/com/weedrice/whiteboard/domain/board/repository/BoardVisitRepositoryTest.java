@@ -75,6 +75,26 @@ class BoardVisitRepositoryTest {
         assertThat(visit.getLastVisitedAt()).isEqualTo(secondVisit);
     }
 
+    @Test
+    void upsert_doesNotMoveVisitTimestampBackwards() {
+        User user = persistUser("monotonic-reader");
+        User creator = persistUser("monotonic-creator");
+        Board board = persistBoard("monotonic-board", creator);
+        entityManager.flush();
+        entityManager.clear();
+        LocalDateTime latestVisit = LocalDateTime.of(2026, 7, 10, 10, 5);
+        LocalDateTime staleVisit = latestVisit.minusMinutes(5);
+
+        assertThat(boardVisitRepository.upsert(user.getUserId(), board.getBoardUrl(), latestVisit)).isEqualTo(1);
+        assertThat(boardVisitRepository.upsert(user.getUserId(), board.getBoardUrl(), staleVisit)).isEqualTo(1);
+        entityManager.clear();
+
+        BoardVisit visit = boardVisitRepository.findById(
+                new com.weedrice.whiteboard.domain.board.entity.BoardVisitId(
+                        user.getUserId(), board.getBoardId())).orElseThrow();
+        assertThat(visit.getLastVisitedAt()).isEqualTo(latestVisit);
+    }
+
     private User persistUser(String loginId) {
         User user = User.builder()
                 .loginId(loginId)
