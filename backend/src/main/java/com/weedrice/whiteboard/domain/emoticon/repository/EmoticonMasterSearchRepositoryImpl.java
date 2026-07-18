@@ -86,9 +86,9 @@ public class EmoticonMasterSearchRepositoryImpl implements EmoticonMasterSearchR
 
     private String buildOrderBy(EmoticonSearchCondition.SortType sortType) {
         return switch (sortType) {
-            case POPULAR -> " ORDER BY em.purchase_count DESC, em.created_at DESC";
-            case OLDEST -> " ORDER BY em.created_at ASC";
-            case LATEST -> " ORDER BY em.created_at DESC";
+            case POPULAR -> " ORDER BY em.purchase_count DESC, em.created_at DESC, em.emoticon_id DESC";
+            case OLDEST -> " ORDER BY em.created_at ASC, em.emoticon_id ASC";
+            case LATEST -> " ORDER BY em.created_at DESC, em.emoticon_id DESC";
         };
     }
 

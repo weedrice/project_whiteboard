@@ -153,7 +153,7 @@ class EmoticonMasterRepositoryTest {
         assertThat(countSql.getValue()).contains(":keyword = ANY(em.tags)");
         assertThat(contentSql.getValue())
                 .contains(":keyword = ANY(em.tags)")
-                .contains("ORDER BY em.purchase_count DESC, em.created_at DESC");
+                .contains("ORDER BY em.purchase_count DESC, em.created_at DESC, em.emoticon_id DESC");
     }
 
     @Test
