@@ -17,6 +17,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -61,17 +63,20 @@ class ModerationAuditLogServiceTest {
     @Test
     void adminSearchNormalizesFiltersAndDateBounds() {
         PageRequest pageable = PageRequest.of(0, 20);
-        when(audits.search(any(), org.mockito.ArgumentMatchers.eq(pageable))).thenReturn(Page.empty(pageable));
+        when(audits.search(any(), any(Pageable.class))).thenReturn(Page.empty(pageable));
 
         service.getAdminAudits(" PIN ", " USER ", 3L, " board ", 4L,
                 LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 2), pageable);
 
         ArgumentCaptor<ModerationAuditLogSearchCondition> captor =
                 ArgumentCaptor.forClass(ModerationAuditLogSearchCondition.class);
-        verify(audits).search(captor.capture(), org.mockito.ArgumentMatchers.eq(pageable));
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(audits).search(captor.capture(), pageableCaptor.capture());
         assertEquals("PIN", captor.getValue().action());
         assertEquals("board", captor.getValue().boardUrl());
         assertEquals(LocalDateTime.of(2026, 1, 3, 0, 0), captor.getValue().createdTo());
+        assertEquals(Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("auditId")),
+                pageableCaptor.getValue().getSort());
     }
 
     @Test
@@ -82,7 +87,7 @@ class ModerationAuditLogServiceTest {
         when(users.resolve(1L)).thenReturn(manager);
         when(boards.findByBoardUrl("general")).thenReturn(Optional.of(board));
         PageRequest pageable = PageRequest.of(0, 10);
-        when(audits.search(any(), org.mockito.ArgumentMatchers.eq(pageable))).thenReturn(Page.empty(pageable));
+        when(audits.search(any(), any(Pageable.class))).thenReturn(Page.empty(pageable));
 
         service.getBoardManagerAudits(1L, "general", null, null, null, null, null, pageable);
         verify(accessPolicy).validateBoardAdmin(board, manager);
@@ -97,5 +102,20 @@ class ModerationAuditLogServiceTest {
         assertThrows(BusinessException.class, () -> service.getAdminAudits(
                 null, null, null, null, null,
                 LocalDate.of(2026, 1, 2), LocalDate.of(2026, 1, 1), PageRequest.of(0, 10)));
+    }
+
+    @Test
+    void adminSearch_filtersUnsupportedSortAndAppendsStableAuditIdTieBreaker() {
+        PageRequest requested = PageRequest.of(0, 20, Sort.by(
+                Sort.Order.asc("action"),
+                Sort.Order.desc("board.boardId")));
+        when(audits.search(any(), any(Pageable.class))).thenReturn(Page.empty(requested));
+
+        service.getAdminAudits(null, null, null, null, null, null, null, requested);
+
+        ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
+        verify(audits).search(any(), captor.capture());
+        assertEquals(Sort.by(Sort.Order.asc("action"), Sort.Order.desc("createdAt"),
+                Sort.Order.desc("auditId")), captor.getValue().getSort());
     }
 }

@@ -9,22 +9,31 @@ import com.weedrice.whiteboard.domain.moderation.entity.ModerationAuditLog;
 import com.weedrice.whiteboard.domain.moderation.repository.ModerationAuditLogRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.service.UserReadableResolver;
+import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class ModerationAuditLogService {
+
+    private static final Sort DEFAULT_AUDIT_SORT = Sort.by(
+            Sort.Order.desc("createdAt"),
+            Sort.Order.desc("auditId"));
+    private static final Set<String> ALLOWED_AUDIT_SORT_PROPERTIES = Set.of(
+            "auditId", "createdAt", "actorType", "adminId", "action", "targetType", "targetId");
 
     public static final String ACTION_POST_PIN = "POST_PIN";
     public static final String ACTION_POST_UNPIN = "POST_UNPIN";
@@ -105,7 +114,7 @@ public class ModerationAuditLogService {
                 .createdTo(toExclusiveEnd(endDate))
                 .build();
         validateDateRange(condition.createdFrom(), condition.createdTo());
-        return moderationAuditLogRepository.search(condition, pageable)
+        return moderationAuditLogRepository.search(condition, normalizePageable(pageable))
                 .map(ModerationAuditLogResponse::from);
     }
 
@@ -131,7 +140,7 @@ public class ModerationAuditLogService {
                 .createdTo(toExclusiveEnd(endDate))
                 .build();
         validateDateRange(condition.createdFrom(), condition.createdTo());
-        return moderationAuditLogRepository.search(condition, pageable)
+        return moderationAuditLogRepository.search(condition, normalizePageable(pageable))
                 .map(ModerationAuditLogResponse::from);
     }
 
@@ -155,5 +164,9 @@ public class ModerationAuditLogService {
         if (from != null && to != null && !from.isBefore(to)) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
+    }
+
+    private Pageable normalizePageable(Pageable pageable) {
+        return PageRequestUtils.of(pageable, 20, DEFAULT_AUDIT_SORT, ALLOWED_AUDIT_SORT_PROPERTIES);
     }
 }
