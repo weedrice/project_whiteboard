@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.notification.service;
 
+import com.weedrice.whiteboard.domain.notification.repository.PushDeliveryJobRepository;
 import com.weedrice.whiteboard.domain.notification.repository.PushSubscriptionRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.service.UserSettingsService;
@@ -21,6 +22,7 @@ import java.util.stream.Collectors;
 class PushSubscriptionCleanupService {
 
     private final PushSubscriptionRepository pushSubscriptionRepository;
+    private final PushDeliveryJobRepository pushDeliveryJobRepository;
     private final UserWritableResolver userWritableResolver;
     private final UserSettingsService userSettingsService;
 
@@ -56,6 +58,8 @@ class PushSubscriptionCleanupService {
                     subscription.auth(),
                     subscription.modifiedAt());
             if (deletedSnapshot == 1) {
+                pushDeliveryJobRepository.redactForSubscriptionSnapshot(
+                        subscription.subscriptionId(), subscription.modifiedAt());
                 deleted++;
                 deletedUserIds.add(subscription.userId());
             }

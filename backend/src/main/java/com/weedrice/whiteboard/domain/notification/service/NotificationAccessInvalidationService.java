@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.notification.service;
 
+import com.weedrice.whiteboard.domain.notification.repository.PushDeliveryJobRepository;
 import com.weedrice.whiteboard.domain.notification.repository.PushSubscriptionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -14,10 +15,12 @@ import java.util.UUID;
 public class NotificationAccessInvalidationService {
 
     private final PushSubscriptionRepository pushSubscriptionRepository;
+    private final PushDeliveryJobRepository pushDeliveryJobRepository;
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional(propagation = Propagation.MANDATORY)
     public void revokeForLockedUser(Long userId) {
+        pushDeliveryJobRepository.redactForReceiver(userId);
         pushSubscriptionRepository.deleteAllByUserId(userId);
         eventPublisher.publishEvent(NotificationStreamInvalidationEvent.disconnectUser(userId));
     }

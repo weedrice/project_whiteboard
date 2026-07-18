@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.notification.dto.PushSubscriptionRequest;
 import com.weedrice.whiteboard.domain.notification.dto.PushSubscriptionResponse;
 import com.weedrice.whiteboard.domain.notification.config.WebPushProperties;
 import com.weedrice.whiteboard.domain.notification.entity.PushSubscription;
+import com.weedrice.whiteboard.domain.notification.repository.PushDeliveryJobRepository;
 import com.weedrice.whiteboard.domain.notification.repository.PushSubscriptionRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.service.UserSettingsService;
@@ -22,6 +23,7 @@ import java.util.List;
 public class PushSubscriptionService {
 
     private final PushSubscriptionRepository pushSubscriptionRepository;
+    private final PushDeliveryJobRepository pushDeliveryJobRepository;
     private final UserWritableResolver userWritableResolver;
     private final UserSettingsService userSettingsService;
     private final WebPushSubscriptionValidator subscriptionValidator;
@@ -42,6 +44,10 @@ public class PushSubscriptionService {
 
         PushSubscription existingSubscription = pushSubscriptionRepository.findByEndpoint(endpoint).orElse(null);
         Long previousUserId = existingSubscription == null ? null : existingSubscription.getUser().getUserId();
+        Long previousSubscriptionId = existingSubscription == null ? null : existingSubscription.getSubscriptionId();
+        java.time.LocalDateTime previousModifiedAt = existingSubscription == null
+                ? null
+                : existingSubscription.getModifiedAt();
         List<User> lockedUsers = userWritableResolver.resolveForUpdateWithRelatedUsers(
                 userId,
                 previousUserId == null || previousUserId.equals(userId) ? List.of() : List.of(previousUserId));
@@ -69,6 +75,7 @@ public class PushSubscriptionService {
                 request.getKeys().getAuth(),
                 request.getUserAgent());
         PushSubscription saved = pushSubscriptionRepository.saveAndFlush(subscription);
+        redactSupersededSnapshot(previousSubscriptionId, previousModifiedAt);
         userSettingsService.setPushEnabledForLockedUser(user, true);
 
         if (previousUserId != null && !previousUserId.equals(userId)) {
@@ -84,8 +91,15 @@ public class PushSubscriptionService {
     public void unsubscribe(Long userId, PushSubscriptionRequest request) {
         pushSubscriptionRepository.lockEndpoint(request.getEndpoint());
         User user = userWritableResolver.resolveForUpdate(userId);
+        PushSubscription current = pushSubscriptionRepository.findByEndpoint(request.getEndpoint())
+                .filter(subscription -> userId.equals(subscription.getUser().getUserId()))
+                .orElse(null);
         pushSubscriptionRepository.deleteByUser_UserIdAndEndpoint(userId, request.getEndpoint());
         pushSubscriptionRepository.flush();
+        if (current != null) {
+            pushDeliveryJobRepository.redactForSubscriptionSnapshot(
+                    current.getSubscriptionId(), current.getModifiedAt());
+        }
         userSettingsService.setPushEnabledForLockedUser(
                 user,
                 pushSubscriptionRepository.existsByUser_UserId(userId));
@@ -94,6 +108,7 @@ public class PushSubscriptionService {
     @Transactional
     public int unsubscribeAll(Long userId) {
         User user = userWritableResolver.resolveForUpdate(userId);
+        pushDeliveryJobRepository.redactForReceiver(userId);
         int deleted = pushSubscriptionRepository.deleteAllByUserId(userId);
         pushSubscriptionRepository.flush();
         userSettingsService.setPushEnabledForLockedUser(user, false);
@@ -113,5 +128,11 @@ public class PushSubscriptionService {
             throw new IllegalStateException("web-push.max-subscriptions-per-user must be positive");
         }
         return configuredLimit;
+    }
+
+    private void redactSupersededSnapshot(Long subscriptionId, java.time.LocalDateTime modifiedAt) {
+        if (subscriptionId != null && modifiedAt != null) {
+            pushDeliveryJobRepository.redactForSubscriptionSnapshot(subscriptionId, modifiedAt);
+        }
     }
 }

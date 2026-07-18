@@ -26,7 +26,8 @@ import java.util.UUID;
                 columnNames = {"event_id", "subscription_id"}),
         indexes = {
                 @Index(name = "idx_push_delivery_jobs_due", columnList = "status, next_attempt_at, job_id"),
-                @Index(name = "idx_push_delivery_jobs_processing", columnList = "status, processing_started_at")
+                @Index(name = "idx_push_delivery_jobs_processing", columnList = "status, processing_started_at"),
+                @Index(name = "idx_push_delivery_jobs_receiver_status", columnList = "receiver_user_id, status")
         })
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class PushDeliveryJob extends BaseTimeEntity {
@@ -53,19 +54,19 @@ public class PushDeliveryJob extends BaseTimeEntity {
     @Column(name = "receiver_user_id", nullable = false, updatable = false)
     private Long receiverUserId;
 
-    @Column(name = "endpoint", length = 500, nullable = false, updatable = false)
+    @Column(name = "endpoint", length = 500)
     private String endpoint;
 
-    @Column(name = "p256dh", length = 255, nullable = false, updatable = false)
+    @Column(name = "p256dh", length = 255)
     private String p256dh;
 
-    @Column(name = "auth", length = 255, nullable = false, updatable = false)
+    @Column(name = "auth", length = 255)
     private String auth;
 
     @Column(name = "subscription_modified_at", nullable = false, updatable = false)
     private LocalDateTime subscriptionModifiedAt;
 
-    @Column(name = "payload", columnDefinition = "TEXT", nullable = false, updatable = false)
+    @Column(name = "payload", columnDefinition = "TEXT")
     private String payload;
 
     @Enumerated(EnumType.STRING)
@@ -133,12 +134,14 @@ public class PushDeliveryJob extends BaseTimeEntity {
         status = Status.COMPLETED;
         processingStartedAt = null;
         lastError = null;
+        redactSensitiveSnapshot();
     }
 
     public void expire(String reason) {
         status = Status.EXPIRED;
         processingStartedAt = null;
         lastError = truncate(reason);
+        redactSensitiveSnapshot();
     }
 
     public boolean retry(String error, LocalDateTime failedAt, LocalDateTime nextAttempt, int maxRetryCount) {
@@ -147,6 +150,7 @@ public class PushDeliveryJob extends BaseTimeEntity {
         processingStartedAt = null;
         if (retryCount >= maxRetryCount) {
             status = Status.FAILED;
+            redactSensitiveSnapshot();
             return true;
         }
         status = Status.PENDING;
@@ -158,6 +162,14 @@ public class PushDeliveryJob extends BaseTimeEntity {
         recordFailure(error, failedAt);
         status = Status.FAILED;
         processingStartedAt = null;
+        redactSensitiveSnapshot();
+    }
+
+    private void redactSensitiveSnapshot() {
+        endpoint = null;
+        p256dh = null;
+        auth = null;
+        payload = null;
     }
 
     private void recordFailure(String error, LocalDateTime failedAt) {

@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.notification.service;
 
+import com.weedrice.whiteboard.domain.notification.repository.PushDeliveryJobRepository;
 import com.weedrice.whiteboard.domain.notification.repository.PushSubscriptionRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.service.UserSettingsService;
@@ -21,10 +22,11 @@ class PushSubscriptionCleanupServiceTest {
     @Test
     void deletesOnlySubscriptionsThatStillMatchDeliverySnapshots() {
         PushSubscriptionRepository repository = mock(PushSubscriptionRepository.class);
+        PushDeliveryJobRepository jobs = mock(PushDeliveryJobRepository.class);
         UserWritableResolver userWritableResolver = mock(UserWritableResolver.class);
         UserSettingsService userSettingsService = mock(UserSettingsService.class);
         PushSubscriptionCleanupService service = new PushSubscriptionCleanupService(
-                repository, userWritableResolver, userSettingsService);
+                repository, jobs, userWritableResolver, userSettingsService);
         LocalDateTime modifiedAt = LocalDateTime.of(2026, 7, 17, 12, 0);
         PushSubscriptionSnapshot stale = new PushSubscriptionSnapshot(
                 1L, 10L, "https://push/stale", "old-key", "old-auth", modifiedAt);
@@ -49,16 +51,18 @@ class PushSubscriptionCleanupServiceTest {
                 1L, 10L, "https://push/stale", "old-key", "old-auth", modifiedAt);
         verify(repository).deleteIfSnapshotMatches(
                 2L, 10L, "https://push/expired", "key", "auth", modifiedAt);
+        verify(jobs).redactForSubscriptionSnapshot(2L, modifiedAt);
         verify(userSettingsService).setPushEnabledForLockedUser(user, false);
     }
 
     @Test
     void skipsSettingsUpdateWhenEveryDeliverySnapshotBecameStale() {
         PushSubscriptionRepository repository = mock(PushSubscriptionRepository.class);
+        PushDeliveryJobRepository jobs = mock(PushDeliveryJobRepository.class);
         UserWritableResolver userWritableResolver = mock(UserWritableResolver.class);
         UserSettingsService userSettingsService = mock(UserSettingsService.class);
         PushSubscriptionCleanupService service = new PushSubscriptionCleanupService(
-                repository, userWritableResolver, userSettingsService);
+                repository, jobs, userWritableResolver, userSettingsService);
         LocalDateTime modifiedAt = LocalDateTime.of(2026, 7, 17, 12, 0);
         PushSubscriptionSnapshot stale = new PushSubscriptionSnapshot(
                 1L, 10L, "https://push/refreshed", "old-key", "old-auth", modifiedAt);

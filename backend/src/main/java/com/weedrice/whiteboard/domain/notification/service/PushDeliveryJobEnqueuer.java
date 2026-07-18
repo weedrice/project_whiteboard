@@ -36,7 +36,7 @@ class PushDeliveryJobEnqueuer {
         }
         String payload = payloadFactory.create(command);
         LocalDateTime now = LocalDateTime.now(clock);
-        List<PushDeliveryJob> jobs = subscriptions.stream()
+        return (int) subscriptions.stream()
                 .map(subscription -> PushDeliveryJob.pending(
                         event.getEventId(),
                         subscription.subscriptionId(),
@@ -47,8 +47,7 @@ class PushDeliveryJobEnqueuer {
                         subscription.modifiedAt(),
                         payload,
                         now))
-                .toList();
-        jobRepository.saveAll(jobs);
-        return jobs.size();
+                .filter(jobRepository::insertIfAbsent)
+                .count();
     }
 }

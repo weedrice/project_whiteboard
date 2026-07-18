@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.notification.service;
 
+import com.weedrice.whiteboard.domain.notification.repository.PushDeliveryJobRepository;
 import com.weedrice.whiteboard.domain.notification.repository.PushSubscriptionRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -19,17 +20,19 @@ class NotificationAccessInvalidationServiceTest {
     private static final UUID FAMILY_ID = UUID.fromString("00000000-0000-0000-0000-000000000021");
 
     @Mock PushSubscriptionRepository subscriptions;
+    @Mock PushDeliveryJobRepository jobs;
     @Mock ApplicationEventPublisher eventPublisher;
     @Mock NotificationStreamControl streamControl;
 
     @Test
     void revokeDeletesPushSubscriptionsBeforePublishingDisconnect() {
         NotificationAccessInvalidationService service =
-                new NotificationAccessInvalidationService(subscriptions, eventPublisher);
+                new NotificationAccessInvalidationService(subscriptions, jobs, eventPublisher);
 
         service.revokeForLockedUser(7L);
 
-        InOrder inOrder = inOrder(subscriptions, eventPublisher);
+        InOrder inOrder = inOrder(jobs, subscriptions, eventPublisher);
+        inOrder.verify(jobs).redactForReceiver(7L);
         inOrder.verify(subscriptions).deleteAllByUserId(7L);
         inOrder.verify(eventPublisher).publishEvent(NotificationStreamInvalidationEvent.disconnectUser(7L));
     }
@@ -56,7 +59,7 @@ class NotificationAccessInvalidationServiceTest {
     @Test
     void familyDisconnectPublishesTransactionalEvent() {
         NotificationAccessInvalidationService service =
-                new NotificationAccessInvalidationService(subscriptions, eventPublisher);
+                new NotificationAccessInvalidationService(subscriptions, jobs, eventPublisher);
 
         service.disconnectSessionFamilyAfterCommit(7L, FAMILY_ID);
 
@@ -67,7 +70,7 @@ class NotificationAccessInvalidationServiceTest {
     @Test
     void boardInvalidationPublishesTransactionalEvent() {
         NotificationAccessInvalidationService service =
-                new NotificationAccessInvalidationService(subscriptions, eventPublisher);
+                new NotificationAccessInvalidationService(subscriptions, jobs, eventPublisher);
 
         service.invalidateCommentTopicsForBoardAfterCommit(4L);
 

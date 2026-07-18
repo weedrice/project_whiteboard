@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.notification.service;
 import com.weedrice.whiteboard.domain.notification.dto.PushSubscriptionRequest;
 import com.weedrice.whiteboard.domain.notification.config.WebPushProperties;
 import com.weedrice.whiteboard.domain.notification.entity.PushSubscription;
+import com.weedrice.whiteboard.domain.notification.repository.PushDeliveryJobRepository;
 import com.weedrice.whiteboard.domain.notification.repository.PushSubscriptionRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.service.UserSettingsService;
@@ -31,6 +32,7 @@ import static org.mockito.Mockito.when;
 class PushSubscriptionServiceTest {
 
     @Mock PushSubscriptionRepository repository;
+    @Mock PushDeliveryJobRepository jobs;
     @Mock UserWritableResolver userResolver;
     @Mock UserSettingsService settingsService;
     @Mock WebPushHostResolver hostResolver;
@@ -43,6 +45,7 @@ class PushSubscriptionServiceTest {
         properties.setAllowedHosts(List.of("push.example"));
         service = new PushSubscriptionService(
                 repository,
+                jobs,
                 userResolver,
                 settingsService,
                 new WebPushSubscriptionValidator(properties, hostResolver),
@@ -190,6 +193,7 @@ class PushSubscriptionServiceTest {
 
         var order = org.mockito.Mockito.inOrder(userResolver, repository, settingsService);
         order.verify(userResolver).resolveForUpdate(9L);
+        verify(jobs).redactForReceiver(9L);
         order.verify(repository).deleteAllByUserId(9L);
         order.verify(repository).flush();
         order.verify(settingsService).setPushEnabledForLockedUser(user, false);

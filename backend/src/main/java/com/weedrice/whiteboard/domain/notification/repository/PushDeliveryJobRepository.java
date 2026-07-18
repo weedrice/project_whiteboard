@@ -13,7 +13,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
-public interface PushDeliveryJobRepository extends JpaRepository<PushDeliveryJob, Long> {
+public interface PushDeliveryJobRepository
+        extends JpaRepository<PushDeliveryJob, Long>, PushDeliveryJobRepositoryCustom {
 
     @Query("""
             SELECT job.jobId FROM PushDeliveryJob job
@@ -39,6 +40,47 @@ public interface PushDeliveryJobRepository extends JpaRepository<PushDeliveryJob
 
     @Query("SELECT MIN(job.nextAttemptAt) FROM PushDeliveryJob job WHERE job.status = com.weedrice.whiteboard.domain.notification.entity.PushDeliveryJob.Status.PENDING")
     Optional<LocalDateTime> findOldestPendingAttemptAt();
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            UPDATE PushDeliveryJob job
+            SET job.status = CASE
+                    WHEN job.status IN (
+                        com.weedrice.whiteboard.domain.notification.entity.PushDeliveryJob.Status.PENDING,
+                        com.weedrice.whiteboard.domain.notification.entity.PushDeliveryJob.Status.PROCESSING)
+                    THEN com.weedrice.whiteboard.domain.notification.entity.PushDeliveryJob.Status.EXPIRED
+                    ELSE job.status
+                END,
+                job.processingStartedAt = NULL,
+                job.endpoint = NULL,
+                job.p256dh = NULL,
+                job.auth = NULL,
+                job.payload = NULL
+            WHERE job.receiverUserId = :userId
+            """)
+    int redactForReceiver(@Param("userId") Long userId);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            UPDATE PushDeliveryJob job
+            SET job.status = CASE
+                    WHEN job.status IN (
+                        com.weedrice.whiteboard.domain.notification.entity.PushDeliveryJob.Status.PENDING,
+                        com.weedrice.whiteboard.domain.notification.entity.PushDeliveryJob.Status.PROCESSING)
+                    THEN com.weedrice.whiteboard.domain.notification.entity.PushDeliveryJob.Status.EXPIRED
+                    ELSE job.status
+                END,
+                job.processingStartedAt = NULL,
+                job.endpoint = NULL,
+                job.p256dh = NULL,
+                job.auth = NULL,
+                job.payload = NULL
+            WHERE job.subscriptionId = :subscriptionId
+              AND job.subscriptionModifiedAt = :modifiedAt
+            """)
+    int redactForSubscriptionSnapshot(
+            @Param("subscriptionId") Long subscriptionId,
+            @Param("modifiedAt") LocalDateTime modifiedAt);
 
     @Modifying
     @Query("""
