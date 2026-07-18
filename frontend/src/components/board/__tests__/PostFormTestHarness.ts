@@ -10,6 +10,12 @@ import { useToastStore } from '@/stores/toast'
 import type { User } from '@/types'
 import logger from '@/utils/logger'
 
+const userApiMocks = vi.hoisted(() => ({
+    createPostSeries: vi.fn(),
+    getPostSeries: vi.fn(),
+}))
+const mockCreatePostSeries = userApiMocks.createPostSeries
+
 vi.mock('vue-i18n', () => ({
     useI18n: () => ({ t: (key: string) => key }),
 }))
@@ -28,6 +34,10 @@ vi.mock('@/stores/auth', () => ({
 
 vi.mock('@/stores/toast', () => ({
     useToastStore: vi.fn(),
+}))
+
+vi.mock('@/api/user', () => ({
+    userApi: userApiMocks,
 }))
 
 vi.mock('@/api', () => ({ default: { post: vi.fn() } }))
@@ -500,6 +510,8 @@ export const resetPostFormTestState = () => {
     editorSetVideo.mockReset()
     editorSetEmoticon.mockReset()
     editorFileIds.value = []
+    userApiMocks.createPostSeries.mockReset()
+    userApiMocks.getPostSeries.mockReset()
 
     routeState.params.boardUrl = 'free'
     routeState.params.postId = '1'
@@ -577,6 +589,7 @@ export {
     mockAddToast,
     mockCreateScheduledMutate,
     mockCreateMutate,
+    mockCreatePostSeries,
     mockSaveDraftMutateAsync,
     mockUpdateMutate,
     mockUsePostDetail,

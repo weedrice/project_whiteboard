@@ -75,6 +75,13 @@ const scheduledAt = ref('')
 const seriesOptions = computed(() => localSeriesOptions.value ?? serverSeriesOptions.value)
 let createSeriesAbortController: AbortController | null = null
 
+function cancelCreateSeriesRequest() {
+  const controller = createSeriesAbortController
+  createSeriesAbortController = null
+  controller?.abort()
+  isCreatingSeries.value = false
+}
+
 async function loadPostSeries() {
   const generation = authStore.sessionGeneration
   isPostSeriesError.value = false
@@ -97,16 +104,14 @@ onMounted(() => {
 })
 
 watch(() => authStore.sessionGeneration, () => {
-  createSeriesAbortController?.abort()
-  createSeriesAbortController = null
+  cancelCreateSeriesRequest()
   localSeriesOptions.value = null
   serverSeriesOptions.value = []
   isPostSeriesError.value = false
   newSeriesTitle.value = ''
-  isCreatingSeries.value = false
 })
 
-onScopeDispose(() => createSeriesAbortController?.abort())
+onScopeDispose(cancelCreateSeriesRequest)
 
 const boardUrl = computed(() => props.boardUrl ?? '')
 const postId = computed(() => props.postId ?? '')
@@ -262,6 +267,7 @@ async function handleCreateSeries() {
 
   isCreatingSeries.value = true
   const generation = authStore.sessionGeneration
+  const identity = formIdentity.value
   const controller = new AbortController()
   createSeriesAbortController?.abort()
   createSeriesAbortController = controller
@@ -269,7 +275,12 @@ async function handleCreateSeries() {
     const createdSeries = unwrapAxiosApiData(await userApi.createPostSeries({ title }, {
       signal: controller.signal,
     }))
-    if (controller.signal.aborted || authStore.sessionGeneration !== generation) return
+    if (
+      controller.signal.aborted
+      || createSeriesAbortController !== controller
+      || authStore.sessionGeneration !== generation
+      || formIdentity.value !== identity
+    ) return
     localSeriesOptions.value = [
       ...seriesOptions.value.filter((series) => series.seriesId !== createdSeries.seriesId),
       createdSeries,
@@ -282,11 +293,22 @@ async function handleCreateSeries() {
     newSeriesTitle.value = ''
     toastStore.addToast(t('board.writePost.createSeriesSuccess'), 'success')
   } catch {
-    if (controller.signal.aborted || authStore.sessionGeneration !== generation) return
+    if (
+      controller.signal.aborted
+      || createSeriesAbortController !== controller
+      || authStore.sessionGeneration !== generation
+      || formIdentity.value !== identity
+    ) return
     toastStore.addToast(t('board.writePost.createSeriesFailed'), 'error')
   } finally {
-    if (createSeriesAbortController === controller) createSeriesAbortController = null
-    if (authStore.sessionGeneration === generation) isCreatingSeries.value = false
+    if (
+      createSeriesAbortController === controller
+      && authStore.sessionGeneration === generation
+      && formIdentity.value === identity
+    ) {
+      createSeriesAbortController = null
+      isCreatingSeries.value = false
+    }
   }
 }
 
@@ -300,12 +322,14 @@ function onBeforeUnload(event: BeforeUnloadEvent) {
 function resetFormIdentityState() {
   resetEditHydrationState()
   resetFormState()
+  newSeriesTitle.value = ''
 }
 
 watch(
   formIdentity,
   (_current, previous) => {
     if (previous === undefined) return
+    cancelCreateSeriesRequest()
     resetFormIdentityState()
   },
 )
