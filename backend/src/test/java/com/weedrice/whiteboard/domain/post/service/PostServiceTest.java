@@ -853,6 +853,17 @@ class PostServiceTest {
     }
 
     @Test
+    @DisplayName("게시글 조회 실패 - 블라인드 게시글")
+    void getPostById_blindedPost() {
+        post.blind("reported", LocalDateTime.now());
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+
+        assertThatThrownBy(() -> postService.getPostById(1L, null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
+    }
+
+    @Test
     @DisplayName("게시글 조회 실패 - 비활성 노드, 권한 없음")
     void getPostById_inactiveBoard_forbidden() {
         ReflectionTestUtils.setField(board, "isActive", false);

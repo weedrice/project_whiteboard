@@ -21,6 +21,7 @@ final class UserFeedVisibilityQuerySpec {
                         OR (
                               p.postId IS NOT NULL
                               AND p.isDeleted = false
+                              AND p.isBlinded = false
                 """);
         appendBlockedAuthorCondition(query, visibilityCondition);
         appendReadablePostCondition(query, visibilityCondition);

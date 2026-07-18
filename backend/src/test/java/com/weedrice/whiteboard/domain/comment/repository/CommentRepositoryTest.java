@@ -589,6 +589,58 @@ class CommentRepositoryTest {
     }
 
     @Test
+    @DisplayName("댓글 검색은 블라인드 댓글과 블라인드 게시글의 댓글을 집계에서도 제외한다")
+    void searchCommentsByKeyword_excludesBlindedCommentAndBlindedPostComments() {
+        Post visiblePost = persistPost("Visible Search Post", board, false, false, user);
+        Post blindedPost = persistPost("Blinded Search Post", board, false, false, user);
+        blindedPost.blind("AUTO_REPORT", LocalDateTime.now());
+        Comment visibleComment = commentFor(visiblePost, "needle visible", user);
+        Comment blindedComment = commentFor(visiblePost, "needle blinded comment", user);
+        blindedComment.blind("AUTO_REPORT", LocalDateTime.now());
+        entityManager.persist(visibleComment);
+        entityManager.persist(blindedComment);
+        entityManager.persist(commentFor(blindedPost, "needle blinded post", user));
+        entityManager.flush();
+        entityManager.clear();
+
+        Page<Comment> result = commentRepository.searchCommentsByKeyword(
+                "needle",
+                NO_BLOCKED_USER_IDS,
+                user.getUserId(),
+                PageRequest.of(0, 10));
+
+        assertThat(result.getTotalElements()).isEqualTo(1L);
+        assertThat(result.getContent())
+                .extracting(Comment::getContent)
+                .containsExactly("needle visible");
+    }
+
+    @Test
+    @DisplayName("댓글 검색은 지정한 boardUrl 범위만 조회하고 집계를 맞춘다")
+    void searchCommentsByKeyword_withBoardUrl_scopesContentAndCount() {
+        Board otherBoard = persistBoard("Other Search Board", "other-search-board", true, user);
+        Post targetBoardPost = persistPost("Target Board Post", board, false, false, user);
+        Post otherBoardPost = persistPost("Other Board Post", otherBoard, false, false, user);
+        entityManager.persist(commentFor(targetBoardPost, "needle target", user));
+        entityManager.persist(commentFor(otherBoardPost, "needle other", user));
+        entityManager.flush();
+        entityManager.clear();
+
+        Page<Comment> result = commentRepository.searchCommentsByKeyword(
+                "needle",
+                board.getBoardUrl(),
+                NO_BLOCKED_USER_IDS,
+                false,
+                user.getUserId(),
+                PageRequest.of(0, 10));
+
+        assertThat(result.getTotalElements()).isEqualTo(1L);
+        assertThat(result.getContent())
+                .extracting(Comment::getContent)
+                .containsExactly("needle target");
+    }
+
+    @Test
     @DisplayName("searchCommentsByKeyword orders same createdAt comments by commentId descending")
     void searchCommentsByKeyword_ordersSameCreatedAtByCommentIdDescending() {
         Post visiblePost = persistPost("Visible Search Post", board, false, false, user);

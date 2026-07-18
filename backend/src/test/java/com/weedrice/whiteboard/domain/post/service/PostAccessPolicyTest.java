@@ -101,6 +101,18 @@ class PostAccessPolicyTest {
         assertThat(postAccessPolicy.isReadable(post, viewer, false, Set.of())).isFalse();
     }
 
+    @Test
+    void isReadable_rejectsBlindedPostForAuthorAndBoardAdmin() {
+        Post post = post(board(10L, "public-board", true, true), viewer, false);
+        post.blind("reported", java.time.LocalDateTime.now());
+
+        assertThat(postAccessPolicy.isReadable(post, viewer, false, Set.of(10L))).isFalse();
+        assertThatThrownBy(() -> postAccessPolicy.validateReadable(post, viewer, false, Set.of(10L)))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.POST_NOT_FOUND);
+    }
+
     private User user(Long userId, String loginId) {
         User user = User.builder()
                 .loginId(loginId)

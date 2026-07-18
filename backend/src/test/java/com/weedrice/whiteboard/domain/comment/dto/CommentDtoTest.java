@@ -91,6 +91,28 @@ class CommentDtoTest {
     }
 
     @Test
+    @DisplayName("CommentResponse.from() - 블라인드 댓글은 내용과 작성자를 노출하지 않는다")
+    void commentResponseFrom_blinded_masksContentAndAuthor() {
+        User user = User.builder().displayName("Hidden User").build();
+        Board board = Board.builder().boardUrl("free").build();
+        Post post = Post.builder().board(board).title("Post Title").build();
+        ReflectionTestUtils.setField(post, "postId", 1L);
+        Comment comment = Comment.builder()
+                .content("Hidden Content")
+                .user(user)
+                .post(post)
+                .depth(0)
+                .build();
+        comment.blind("AUTO_REPORT", LocalDateTime.now());
+
+        CommentResponse response = CommentResponse.from(comment);
+
+        assertThat(response.isBlinded()).isTrue();
+        assertThat(response.getContent()).isNull();
+        assertThat(response.getAuthor()).isNull();
+    }
+
+    @Test
     @DisplayName("CommentListResponse.from()")
     void commentListResponseFrom() {
         // given

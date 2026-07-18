@@ -41,7 +41,10 @@ public class PostAccessPolicy {
     }
 
     boolean isReadable(Post post, User viewer, boolean authorBlocked, Set<Long> activeAdminBoardIds) {
-        if (post == null || Boolean.TRUE.equals(post.getIsDeleted()) || authorBlocked) {
+        if (post == null
+                || Boolean.TRUE.equals(post.getIsDeleted())
+                || Boolean.TRUE.equals(post.getIsBlinded())
+                || authorBlocked) {
             return false;
         }
 

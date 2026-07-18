@@ -201,6 +201,7 @@ public class CommentCommandService {
         if (parentComment == null
                 || !Objects.equals(parentComment.getCommentId(), parentId)
                 || parentComment.getIsDeleted()
+                || Boolean.TRUE.equals(parentComment.getIsBlinded())
                 || parentComment.getPost() == null
                 || !Objects.equals(parentComment.getPost().getPostId(), post.getPostId())) {
             throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
@@ -242,7 +243,7 @@ public class CommentCommandService {
         LockedCommentTarget target = loadCommentTargetForUpdate(commentId);
         Comment comment = target.comment();
         User user = userWritableResolver.resolve(userId);
-        validateReadableActiveComment(target.post(), comment, user);
+        validateReadableExistingComment(target.post(), comment, user);
         validateCommentOwner(comment, userId);
 
         String originalContent = comment.getContent();
@@ -294,7 +295,7 @@ public class CommentCommandService {
         User user = userWritableResolver.resolve(userId);
         sanctionService.validateNotMuted(user);
         LockedCommentTarget target = loadCommentTargetForUpdate(commentId);
-        validateReadableActiveComment(target.post(), target.comment(), user);
+        validateReadableExistingComment(target.post(), target.comment(), user);
 
         int deletedCount = commentLikeRepository.deleteByUserIdAndCommentId(userId, commentId);
         if (deletedCount == 0) {
@@ -330,8 +331,15 @@ public class CommentCommandService {
     }
 
     private void validateReadableActiveComment(Post lockedPost, Comment comment, User user) {
+        validateReadableExistingComment(lockedPost, comment, user);
+        if (Boolean.TRUE.equals(comment.getIsBlinded())) {
+            throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
+        }
+    }
+
+    private void validateReadableExistingComment(Post lockedPost, Comment comment, User user) {
         validatePostReadable(lockedPost, user);
-        if (comment.getIsDeleted()) {
+        if (Boolean.TRUE.equals(comment.getIsDeleted())) {
             throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
         }
     }

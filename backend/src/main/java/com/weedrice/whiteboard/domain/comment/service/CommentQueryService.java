@@ -294,7 +294,7 @@ public class CommentQueryService {
 
     private void attachMentions(List<CommentResponse> responses) {
         List<Long> commentIds = responses.stream()
-                .filter(response -> !response.isDeleted() && !response.isBlockedAuthor())
+                .filter(response -> !response.isDeleted() && !response.isBlockedAuthor() && !response.isBlinded())
                 .map(CommentResponse::getCommentId)
                 .filter(Objects::nonNull)
                 .toList();

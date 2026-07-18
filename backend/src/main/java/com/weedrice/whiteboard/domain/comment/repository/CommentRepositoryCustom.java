@@ -8,6 +8,9 @@ public interface CommentRepositoryCustom {
     Page<Comment> searchCommentsByKeyword(String keyword, java.util.List<Long> blockedUserIds, Long viewerUserId,
             Pageable pageable);
 
+    Page<Comment> searchCommentsByKeyword(String keyword, String boardUrl,
+            java.util.List<Long> blockedUserIds, boolean includeSecret, Long viewerUserId, Pageable pageable);
+
     /**
      * Comment를 ID로 조회하면서 연관된 User, Post, Board를 함께 fetch join합니다.
      * N+1 쿼리 문제를 방지하기 위해 사용합니다.

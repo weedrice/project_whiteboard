@@ -65,8 +65,9 @@ public class CommentResponse {
     }
 
     public static CommentResponse from(Comment comment) {
+        boolean blinded = Boolean.TRUE.equals(comment.getIsBlinded());
         AuthorInfo authorInfo = null;
-        if (comment.getUser() != null && !comment.getIsDeleted()) {
+        if (comment.getUser() != null && !comment.getIsDeleted() && !blinded) {
             authorInfo = AuthorInfo.builder()
                     .userId(comment.getUser().getUserId())
                     .agentId(comment.getAgent() != null ? comment.getAgent().getAgentId() : null)
@@ -80,13 +81,13 @@ public class CommentResponse {
         return CommentResponse.builder()
                 .commentId(comment.getCommentId())
                 .parentId(comment.getParent() != null ? comment.getParent().getCommentId() : null)
-                .content(comment.getIsDeleted() ? DELETED_CONTENT : comment.getContent())
+                .content(comment.getIsDeleted() ? DELETED_CONTENT : blinded ? null : comment.getContent())
                 .author(authorInfo)
                 .depth(comment.getDepth())
                 .likeCount(comment.getLikeCount())
                 .isDeleted(comment.getIsDeleted())
                 .isBlockedAuthor(false)
-                .isBlinded(Boolean.TRUE.equals(comment.getIsBlinded()))
+                .isBlinded(blinded)
                 .blindReason(comment.getBlindReason())
                 .maskedAuthorId(null)
                 .createdAt(comment.getCreatedAt())

@@ -33,6 +33,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -92,9 +93,11 @@ class SearchPreviewReadServiceTest {
                 postRepository,
                 commentRepository,
                 boardRepository,
+                boardAccessPolicy,
                 userBlockService,
                 postSummaryAssembler,
-                new IntegratedSearchAssembler());
+                new IntegratedSearchAssembler(),
+                new SearchUserLookupPolicy(userRepository));
     }
 
     @Test
@@ -232,6 +235,51 @@ class SearchPreviewReadServiceTest {
                 .containsExactly("Board 1", "Board 2", "Board 3", "Board 4", "Board 5");
         verify(boardRepository).findByBoardNameContainingIgnoreCaseAndIsActiveTrueAndIsPublicTrueOrderBySortOrderAscBoardIdAsc(
                 eq(keyword), eq(previewPageable));
+    }
+
+    @Test
+    @DisplayName("필터 통합 검색은 boardUrl을 정규화하고 게시글과 댓글 범위에 전달한다")
+    void integratedSearch_withBoardUrl_validatesAndScopesPostAndCommentSearch() {
+        String keyword = "test";
+        Board board = board(10L, "Free", "free");
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of());
+        when(postRepository.searchPosts(
+                eq(keyword), isNull(), eq("free"), isNull(), isNull(), isNull(),
+                eq(List.of()), eq(false), eq(1L), any(Pageable.class)))
+                .thenReturn(Page.empty(PageRequest.of(0, 5)));
+        when(commentRepository.searchCommentsByKeyword(
+                eq(keyword), eq("free"), eq(List.of()), eq(false), eq(1L), any(Pageable.class)))
+                .thenReturn(Page.empty(PageRequest.of(0, 5)));
+        when(userRepository.searchUsersVisibleTo(eq(keyword), eq(List.of()), any(Pageable.class)))
+                .thenReturn(Page.empty(PageRequest.of(0, 5)));
+        when(boardRepository.findByBoardNameContainingIgnoreCaseAndIsActiveTrueAndIsPublicTrueOrderBySortOrderAscBoardIdAsc(
+                eq(keyword), any(Pageable.class)))
+                .thenReturn(List.of());
+
+        searchPreviewReadService.integratedSearch(
+                keyword, null, " free ", null, null, null, null, Sort.unsorted(), 1L);
+
+        verify(postRepository).searchPosts(
+                eq(keyword), isNull(), eq("free"), isNull(), isNull(), isNull(),
+                eq(List.of()), eq(false), eq(1L), any(Pageable.class));
+        verify(commentRepository).searchCommentsByKeyword(
+                eq(keyword), eq("free"), eq(List.of()), eq(false), eq(1L), any(Pageable.class));
+    }
+
+    @Test
+    @DisplayName("필터 통합 검색은 존재하지 않는 boardUrl을 거부한다")
+    void integratedSearch_withMissingBoard_throwsBoardNotFound() {
+        when(boardRepository.findByBoardUrl("missing")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> searchPreviewReadService.integratedSearch(
+                "test", null, "missing", null, null, null, null, Sort.unsorted(), null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.BOARD_NOT_FOUND);
+
+        verify(postRepository, never()).searchPosts(anyString(), any(), any(), any(), any(), any(), any(),
+                any(), any(), any(Pageable.class));
     }
 
     private void givenEmptyPreview(String keyword, Pageable previewPageable) {

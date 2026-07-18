@@ -94,6 +94,7 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
             FROM Post p
             JOIN p.board b
             WHERE p.isDeleted = false
+              AND p.isBlinded = false
               AND b.isActive = true
             GROUP BY b.boardId, b.sortOrder
             ORDER BY COUNT(p) DESC, b.sortOrder ASC, b.boardId ASC
@@ -105,6 +106,7 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
             FROM Post p
             JOIN p.board b
             WHERE p.isDeleted = false
+              AND p.isBlinded = false
               AND p.isSecret = false
               AND b.isActive = true
               AND b.isPublic = true
@@ -121,6 +123,7 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
             FROM Post p
             JOIN p.board b
             WHERE p.isDeleted = false
+              AND p.isBlinded = false
               AND (
                     p.isSecret = false
                     OR :isSuperAdmin = true

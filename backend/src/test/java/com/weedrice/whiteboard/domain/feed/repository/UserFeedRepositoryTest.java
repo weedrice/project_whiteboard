@@ -51,10 +51,13 @@ class UserFeedRepositoryTest {
         Post visiblePost = persistPost(publicBoard, author, false);
         Post deletedPost = persistPost(publicBoard, author, false);
         deletedPost.deletePost();
+        Post blindedPost = persistPost(publicBoard, viewer, false);
+        blindedPost.blind("AUTO_REPORT", LocalDateTime.now());
         Post blockedAuthorPost = persistPost(publicBoard, author, false);
 
         persistFeed(viewer, "POST", visiblePost.getPostId());
         persistFeed(viewer, "POST", deletedPost.getPostId());
+        persistFeed(viewer, "POST", blindedPost.getPostId());
         persistFeed(viewer, "POST", blockedAuthorPost.getPostId());
         persistFeed(viewer, "POST", 999_999L);
         persistFeed(viewer, "NOTICE", 10L);

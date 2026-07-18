@@ -161,6 +161,7 @@ class BoardRepositoryTest {
         Board inquiryBoard = persistBoard("Inquiry Top", "Inquiry", 3, true, true);
 
         persistPosts(visibleTop, 4);
+        persistBlindedPosts(visibleTop, 5);
         persistPosts(visibleTieFirst, 2);
         persistPosts(visibleTieSecond, 2);
         persistDeletedPosts(deletedOnlyBoard, 3);
@@ -312,6 +313,7 @@ class BoardRepositoryTest {
                 .build());
 
         persistPosts(publicBoard, 2);
+        persistBlindedPosts(publicBoard, 12);
         persistSecretPosts(secretOnlyPublicBoard, 20);
         persistPosts(adminPrivateBoard, 5);
         persistPosts(otherPrivateBoard, 9);
@@ -421,6 +423,23 @@ class BoardRepositoryTest {
                     .isSpoiler(false)
                     .isSecret(true)
                     .build());
+        }
+    }
+
+    private void persistBlindedPosts(Board board, int count) {
+        for (int index = 0; index < count; index++) {
+            Post post = Post.builder()
+                    .title(board.getBoardName() + " Blinded Post " + index)
+                    .contents("contents")
+                    .user(creator)
+                    .board(board)
+                    .isNotice(false)
+                    .isNsfw(false)
+                    .isSpoiler(false)
+                    .isSecret(false)
+                    .build();
+            post.blind("reported", java.time.LocalDateTime.now());
+            entityManager.persist(post);
         }
     }
 }

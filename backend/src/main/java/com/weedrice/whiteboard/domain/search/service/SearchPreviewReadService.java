@@ -1,7 +1,9 @@
 package com.weedrice.whiteboard.domain.search.service;
 
 import com.weedrice.whiteboard.domain.board.dto.BoardSummary;
+import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
+import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.comment.dto.CommentResponse;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
@@ -9,9 +11,12 @@ import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostSummaryAssembler;
 import com.weedrice.whiteboard.domain.search.dto.IntegratedSearchResponse;
+import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.dto.UserSummary;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -38,9 +43,11 @@ public class SearchPreviewReadService {
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
     private final BoardRepository boardRepository;
+    private final BoardAccessPolicy boardAccessPolicy;
     private final UserBlockService userBlockService;
     private final PostSummaryAssembler postSummaryAssembler;
     private final IntegratedSearchAssembler integratedSearchAssembler;
+    private final SearchUserLookupPolicy searchUserLookupPolicy;
 
     public IntegratedSearchResponse integratedSearch(String keyword, Long currentUserId) {
         String canonicalKeyword = SearchRequestNormalizer.canonicalizeKeyword(keyword);
@@ -80,27 +87,37 @@ public class SearchPreviewReadService {
         Pageable previewPageable = SearchRequestNormalizer.normalizePostSearchPageable(0, SEARCH_PREVIEW_LIMIT, sort);
         Pageable commentPreviewPageable = PageRequest.of(0, SEARCH_PREVIEW_LIMIT, COMMENT_PREVIEW_SORT);
 
+        BoardSearchContext boardContext = resolveBoardSearchContext(boardUrl, currentUserId);
+
         List<Long> blockedUserIds = null;
         if (currentUserId != null) {
-            blockedUserIds = userBlockService.getBlockedUserIdsEitherDirection(currentUserId);
+            blockedUserIds = boardContext.viewer() == null
+                    ? userBlockService.getBlockedUserIdsEitherDirection(currentUserId)
+                    : userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(currentUserId);
         }
 
         DateRange dateRange = resolveDateRange(period, from, to);
         Page<Post> postPage = postRepository.searchPosts(
                 canonicalKeyword,
                 searchType,
-                null,
+                boardContext.boardUrl(),
                 SearchRequestNormalizer.canonicalizeOptionalAuthor(author),
                 dateRange.from(),
                 dateRange.to(),
                 blockedUserIds,
-                false,
+                boardContext.includeSecret(),
                 currentUserId,
                 previewPageable);
         Page<PostSummary> posts = postSummaryAssembler.assembleSearchPage(postPage);
 
         Page<CommentResponse> comments = commentRepository
-                .searchCommentsByKeyword(canonicalKeyword, blockedUserIds, currentUserId, commentPreviewPageable)
+                .searchCommentsByKeyword(
+                        canonicalKeyword,
+                        boardContext.boardUrl(),
+                        blockedUserIds,
+                        boardContext.includeSecret(),
+                        currentUserId,
+                        commentPreviewPageable)
                 .map(CommentResponse::from);
 
         Page<UserSummary> users = userRepository.searchUsersVisibleTo(canonicalKeyword, blockedUserIds, previewPageable)
@@ -115,6 +132,23 @@ public class SearchPreviewReadService {
                 .collect(Collectors.toList());
 
         return integratedSearchAssembler.assemble(posts, comments, users, boards, canonicalKeyword);
+    }
+
+    private BoardSearchContext resolveBoardSearchContext(String boardUrl, Long currentUserId) {
+        String canonicalBoardUrl = SearchRequestNormalizer.canonicalizeOptionalBoardUrl(boardUrl);
+        if (canonicalBoardUrl == null) {
+            return BoardSearchContext.global();
+        }
+        Board board = boardRepository.findByBoardUrl(canonicalBoardUrl)
+                .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+        User viewer = searchUserLookupPolicy.resolveOptional(currentUserId);
+        if (!boardAccessPolicy.canReadBoard(board, viewer)) {
+            throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
+        }
+        return new BoardSearchContext(
+                canonicalBoardUrl,
+                boardAccessPolicy.canViewSecretPosts(board, viewer),
+                viewer);
     }
 
     private DateRange resolveDateRange(String period, String from, String to) {
@@ -139,6 +173,15 @@ public class SearchPreviewReadService {
             LocalDateTime start = from == null ? null : from.atStartOfDay();
             LocalDateTime end = to == null ? null : to.plusDays(1).atStartOfDay();
             return new DateRange(start, end);
+        }
+    }
+
+    private record BoardSearchContext(
+            String boardUrl,
+            boolean includeSecret,
+            User viewer) {
+        static BoardSearchContext global() {
+            return new BoardSearchContext(null, false, null);
         }
     }
 }

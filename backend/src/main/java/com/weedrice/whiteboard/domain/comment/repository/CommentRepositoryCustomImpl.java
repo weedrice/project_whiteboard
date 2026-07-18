@@ -24,6 +24,12 @@ public class CommentRepositoryCustomImpl implements CommentRepositoryCustom {
     @Override
     public Page<Comment> searchCommentsByKeyword(String keyword, List<Long> blockedUserIds, Long viewerUserId,
             Pageable pageable) {
+        return searchCommentsByKeyword(keyword, null, blockedUserIds, false, viewerUserId, pageable);
+    }
+
+    @Override
+    public Page<Comment> searchCommentsByKeyword(String keyword, String boardUrl, List<Long> blockedUserIds,
+            boolean includeSecret, Long viewerUserId, Pageable pageable) {
         BooleanExpression keywordExpression = StringUtils.hasText(keyword)
                 ? comment.content.containsIgnoreCase(keyword)
                 : null;
@@ -38,10 +44,13 @@ public class CommentRepositoryCustomImpl implements CommentRepositoryCustom {
                 .where(
                         keywordExpression,
                         comment.isDeleted.eq(false),
+                        comment.isBlinded.eq(false),
                         post.isDeleted.eq(false),
-                        post.board.isActive.eq(true),
-                        post.board.isPublic.eq(true),
-                        postSecretCondition(viewerUserId),
+                        post.isBlinded.eq(false),
+                        boardUrlEq(boardUrl),
+                        activeBoardOnlyForGlobalSearch(boardUrl),
+                        publicBoardOnlyForGlobalSearch(boardUrl),
+                        postSecretCondition(includeSecret, viewerUserId),
                         notBlockedCondition(blockedUserIds)
                 )
                 .offset(pageable.getOffset())
@@ -56,10 +65,13 @@ public class CommentRepositoryCustomImpl implements CommentRepositoryCustom {
                 .where(
                         keywordExpression,
                         comment.isDeleted.eq(false),
+                        comment.isBlinded.eq(false),
                         post.isDeleted.eq(false),
-                        post.board.isActive.eq(true),
-                        post.board.isPublic.eq(true),
-                        postSecretCondition(viewerUserId),
+                        post.isBlinded.eq(false),
+                        boardUrlEq(boardUrl),
+                        activeBoardOnlyForGlobalSearch(boardUrl),
+                        publicBoardOnlyForGlobalSearch(boardUrl),
+                        postSecretCondition(includeSecret, viewerUserId),
                         notBlockedCondition(blockedUserIds)
                 )
                 .fetchOne();
@@ -105,7 +117,22 @@ public class CommentRepositoryCustomImpl implements CommentRepositoryCustom {
                 .and(post.user.userId.notIn(blockedUserIds));
     }
 
-    private BooleanExpression postSecretCondition(Long viewerUserId) {
+    private BooleanExpression boardUrlEq(String boardUrl) {
+        return StringUtils.hasText(boardUrl) ? post.board.boardUrl.eq(boardUrl) : null;
+    }
+
+    private BooleanExpression activeBoardOnlyForGlobalSearch(String boardUrl) {
+        return StringUtils.hasText(boardUrl) ? null : post.board.isActive.eq(true);
+    }
+
+    private BooleanExpression publicBoardOnlyForGlobalSearch(String boardUrl) {
+        return StringUtils.hasText(boardUrl) ? null : post.board.isPublic.eq(true);
+    }
+
+    private BooleanExpression postSecretCondition(boolean includeSecret, Long viewerUserId) {
+        if (includeSecret) {
+            return null;
+        }
         if (viewerUserId != null) {
             return post.isSecret.eq(false).or(post.user.userId.eq(viewerUserId));
         }

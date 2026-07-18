@@ -547,6 +547,31 @@ class CommentServiceTest {
     }
 
     @Test
+    @DisplayName("블라인드 댓글에는 답글을 생성할 수 없다")
+    void createComment_blindedParent_throwsCommentNotFound() {
+        User user = User.builder().build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        Board board = Board.builder().boardUrl("free").isPublic(true).build();
+        ReflectionTestUtils.setField(board, "isActive", true);
+        Post post = Post.builder().board(board).user(user).build();
+        ReflectionTestUtils.setField(post, "postId", 1L);
+        Comment parent = Comment.builder().depth(0).user(user).post(post).build();
+        ReflectionTestUtils.setField(parent, "commentId", 5L);
+        parent.blind("AUTO_REPORT", LocalDateTime.now());
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(commentRepository.findByIdWithRelationsForUpdate(5L)).thenReturn(Optional.of(parent));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of());
+
+        assertThatThrownBy(() -> commentService.createComment(1L, 1L, 5L, "reply"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.COMMENT_NOT_FOUND);
+
+        verify(commentRepository, never()).save(any(Comment.class));
+    }
+
+    @Test
     @DisplayName("reply to agent-authored comment notifies agent owner")
     void createComment_agentParentComment_notifiesAgentOwner() {
         User actor = User.builder().displayName("Actor").build();
@@ -972,6 +997,36 @@ class CommentServiceTest {
         assertThat(response.isBlockedAuthor()).isTrue();
         assertThat(response.getMaskedAuthorId()).isEqualTo(2L);
         verify(userBlockService).getBlockedUserIdsEitherDirectionForExistingUser(1L);
+    }
+
+    @Test
+    @DisplayName("블라인드 댓글은 멘션 사용자 정보를 조회하거나 노출하지 않는다")
+    void getComments_blindedComment_doesNotAttachMentions() {
+        User author = User.builder().displayName("Author").build();
+        ReflectionTestUtils.setField(author, "userId", 2L);
+        Board board = Board.builder().boardUrl("free").creator(author).build();
+        ReflectionTestUtils.setField(board, "isActive", true);
+        ReflectionTestUtils.setField(board, "isPublic", true);
+        Post post = Post.builder().board(board).title("Title").user(author).build();
+        ReflectionTestUtils.setField(post, "postId", 100L);
+        Comment comment = Comment.builder()
+                .user(author)
+                .post(post)
+                .content("hidden @mention")
+                .depth(0)
+                .build();
+        ReflectionTestUtils.setField(comment, "commentId", 10L);
+        comment.blind("AUTO_REPORT", LocalDateTime.now());
+
+        when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(post));
+        when(commentRepository.findParentsWithChildrenOrNotDeleted(anyLong(), anyBoolean(), anyCollection(), any()))
+                .thenReturn(new PageImpl<>(List.of(comment)));
+
+        Page<CommentResponse> result = commentService.getComments(100L, null, PageRequest.of(0, 10));
+
+        assertThat(result.getContent()).singleElement()
+                .satisfies(response -> assertThat(response.getMentions()).isEmpty());
+        verify(commentMentionRepository, never()).findByCommentCommentIdIn(anyCollection());
     }
 
     @Test
@@ -1559,6 +1614,29 @@ class CommentServiceTest {
     }
 
     @Test
+    @DisplayName("블라인드 댓글에는 좋아요를 추가할 수 없다")
+    void likeComment_blindedComment_throwsCommentNotFound() {
+        User user = User.builder().displayName("User").build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        Board board = Board.builder().boardUrl("free").isPublic(true).build();
+        ReflectionTestUtils.setField(board, "isActive", true);
+        Post post = Post.builder().board(board).user(user).build();
+        Comment comment = Comment.builder().user(user).post(post).build();
+        ReflectionTestUtils.setField(comment, "commentId", 10L);
+        comment.blind("AUTO_REPORT", LocalDateTime.now());
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(commentRepository.findById(10L)).thenReturn(Optional.of(comment));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of());
+
+        assertThatThrownBy(() -> commentService.likeComment(1L, 10L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.COMMENT_NOT_FOUND);
+
+        verify(commentLikeRepository, never()).insertIgnore(anyLong(), anyLong());
+    }
+
+    @Test
     @DisplayName("?쒖꽦 BAN ?ъ슜?먮뒗 ?볤? 醫뗭븘?붾? ?????녿떎")
     void likeComment_bannedUser_forbidden() {
         User user = User.builder().displayName("User").build();
@@ -1593,6 +1671,30 @@ class CommentServiceTest {
 
         verify(commentLikeRepository).deleteByUserIdAndCommentId(1L, 10L);
         verify(commentRepository).findById(10L);
+        verify(commentRepository).decrementLikeCount(10L);
+    }
+
+    @Test
+    @DisplayName("블라인드 댓글의 기존 좋아요는 취소할 수 있다")
+    void unlikeComment_blindedComment_allowsCleanup() {
+        User user = User.builder().displayName("User").build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        Board board = Board.builder().boardUrl("free").isPublic(true).build();
+        ReflectionTestUtils.setField(board, "isActive", true);
+        Post post = Post.builder().board(board).user(user).build();
+        Comment comment = Comment.builder().user(user).post(post).build();
+        ReflectionTestUtils.setField(comment, "commentId", 10L);
+        comment.blind("AUTO_REPORT", LocalDateTime.now());
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(commentRepository.findById(10L)).thenReturn(Optional.of(comment));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of());
+        when(commentLikeRepository.deleteByUserIdAndCommentId(1L, 10L)).thenReturn(1);
+        when(commentRepository.decrementLikeCount(10L)).thenReturn(1);
+
+        commentService.unlikeComment(1L, 10L);
+
+        verify(commentLikeRepository).deleteByUserIdAndCommentId(1L, 10L);
         verify(commentRepository).decrementLikeCount(10L);
     }
 
@@ -1891,6 +1993,30 @@ class CommentServiceTest {
     }
 
     @Test
+    @DisplayName("블라인드 댓글은 수정할 수 없다")
+    void updateComment_blindedComment_throwsCommentNotFound() {
+        User user = User.builder().build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        Board board = Board.builder().boardUrl("free").isPublic(true).build();
+        ReflectionTestUtils.setField(board, "isActive", true);
+        Post post = Post.builder().board(board).user(user).build();
+        Comment comment = Comment.builder().user(user).post(post).content("Old").build();
+        ReflectionTestUtils.setField(comment, "commentId", 10L);
+        comment.blind("AUTO_REPORT", LocalDateTime.now());
+
+        when(commentRepository.findByIdWithRelationsForUpdate(10L)).thenReturn(Optional.of(comment));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of());
+
+        assertThatThrownBy(() -> commentService.updateComment(1L, 10L, "New"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.COMMENT_NOT_FOUND);
+
+        assertThat(comment.getContent()).isEqualTo("Old");
+        verify(commentVersionRepository, never()).save(any());
+    }
+
+    @Test
     @DisplayName("?쒖꽦 BAN ?ъ슜?먮뒗 ?볤????섏젙?????녿떎")
     void updateComment_bannedUser_forbidden() {
         User user = User.builder().build();
@@ -1937,6 +2063,30 @@ class CommentServiceTest {
         assertThat(comment.getIsDeleted()).isTrue();
         verify(postRepository).decrementCommentCount(1L);
         verify(pointService).reverseRewardPoint(1L, 10, "댓글 삭제", 10L, "COMMENT");
+    }
+
+    @Test
+    @DisplayName("블라인드 댓글은 작성자가 삭제할 수 있다")
+    void deleteComment_blindedComment_allowsCleanup() {
+        User user = User.builder().build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        Board board = Board.builder().boardUrl("free").isPublic(true).build();
+        ReflectionTestUtils.setField(board, "isActive", true);
+        Post post = Post.builder().board(board).user(user).build();
+        ReflectionTestUtils.setField(post, "postId", 1L);
+        Comment comment = Comment.builder().user(user).post(post).content("Content").build();
+        ReflectionTestUtils.setField(comment, "commentId", 10L);
+        comment.blind("AUTO_REPORT", LocalDateTime.now());
+
+        when(commentRepository.findByIdWithRelationsForUpdate(10L)).thenReturn(Optional.of(comment));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of());
+        when(postRepository.decrementCommentCount(1L)).thenReturn(1);
+
+        commentService.deleteComment(1L, 10L);
+
+        assertThat(comment.getIsDeleted()).isTrue();
+        verify(postRepository).decrementCommentCount(1L);
     }
 
     @Test
