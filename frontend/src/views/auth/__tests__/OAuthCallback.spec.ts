@@ -7,6 +7,7 @@ import { saveLoginRedirect } from '@/utils/authRedirect'
 const mocks = vi.hoisted(() => {
     const router = {
         push: vi.fn(),
+        replace: vi.fn(),
     }
     const route = {
         query: {} as Record<string, unknown>,
@@ -22,6 +23,7 @@ const mocks = vi.hoisted(() => {
             return true
         }),
         fetchUser: vi.fn(),
+        hydrateUser: vi.fn(),
         logout: vi.fn(),
     }
     const toastStore = {
@@ -105,6 +107,7 @@ describe('OAuthCallback', () => {
             },
         })
         mocks.authStore.fetchUser.mockResolvedValue(true)
+        mocks.authStore.hydrateUser.mockResolvedValue('success')
         mocks.authStore.accessToken = null
         mocks.authStore.sessionGeneration = 0
         mocks.authStore.logout.mockImplementation(() => {
@@ -133,7 +136,7 @@ describe('OAuthCallback', () => {
             signal: expect.any(AbortSignal),
         })
         expect(mocks.authStore.applyNewSessionIfCurrent).toHaveBeenCalledWith(0, null, 'refreshed-access')
-        expect(mocks.authStore.fetchUser).toHaveBeenCalledWith({ skipAuthRefresh: true })
+        expect(mocks.authStore.hydrateUser).toHaveBeenCalledWith({ skipAuthRefresh: true })
         expect(mocks.toastStore.addToast).toHaveBeenCalledWith('auth.loginSuccess', 'success')
         expect(mocks.router.push).toHaveBeenCalledWith('/boards')
         expect(sessionStorage.getItem('loginRedirect')).toBeNull()
@@ -210,16 +213,16 @@ describe('OAuthCallback', () => {
     })
 
     it('does not redirect when another account becomes current during user hydration', async () => {
-        let resolveHydration!: (value: boolean) => void
-        mocks.authStore.fetchUser.mockReturnValueOnce(new Promise((resolve) => {
+        let resolveHydration!: (value: 'success') => void
+        mocks.authStore.hydrateUser.mockReturnValueOnce(new Promise((resolve) => {
             resolveHydration = resolve
         }))
 
         mount(OAuthCallback)
-        await vi.waitFor(() => expect(mocks.authStore.fetchUser).toHaveBeenCalledTimes(1))
+        await vi.waitFor(() => expect(mocks.authStore.hydrateUser).toHaveBeenCalledTimes(1))
         mocks.authStore.sessionGeneration += 1
         mocks.authStore.accessToken = 'account-b-access'
-        resolveHydration(true)
+        resolveHydration('success')
         await flushMountedWork()
 
         expect(mocks.toastStore.addToast).not.toHaveBeenCalledWith('auth.loginSuccess', 'success')
@@ -266,8 +269,8 @@ describe('OAuthCallback', () => {
         expect(mocks.router.push).not.toHaveBeenCalledWith('/login')
     })
 
-    it('redirects to login when user hydration returns false', async () => {
-        mocks.authStore.fetchUser.mockResolvedValueOnce(false)
+    it('redirects to login when user hydration is terminal', async () => {
+        mocks.authStore.hydrateUser.mockResolvedValueOnce('terminal-failure')
 
         mount(OAuthCallback)
         await flushMountedWork()
@@ -275,7 +278,21 @@ describe('OAuthCallback', () => {
         expect(mocks.authStore.applyNewSessionIfCurrent).toHaveBeenCalledWith(0, null, 'refreshed-access')
         expect(mocks.authStore.logout).toHaveBeenCalled()
         expect(mocks.toastStore.addToast).toHaveBeenCalledWith('auth.loginFailed', 'error')
-        expect(mocks.router.push).toHaveBeenCalledWith('/login')
+        expect(mocks.router.replace).toHaveBeenCalledWith('/login')
+    })
+
+    it('preserves the OAuth session and opens retry UI when user hydration is transient', async () => {
+        mocks.authStore.hydrateUser.mockResolvedValueOnce('transient-failure')
+
+        mount(OAuthCallback)
+        await flushMountedWork()
+
+        expect(mocks.authStore.logout).not.toHaveBeenCalled()
+        expect(mocks.authStore.accessToken).toBe('refreshed-access')
+        expect(mocks.router.replace).toHaveBeenCalledWith({
+            name: 'error',
+            query: { status: '503', retry: '/' },
+        })
     })
 
     it('redirects to login when refresh returns an invalid access token', async () => {

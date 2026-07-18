@@ -56,9 +56,21 @@ onMounted(async () => {
     ownedGeneration = authStore.sessionGeneration
     ownedToken = accessToken
 
-    const didFetchUser = await authStore.fetchUser({ skipAuthRefresh: true })
-    if (!didFetchUser) {
-      throw new Error('OAuth user hydration failed')
+    const hydration = await authStore.hydrateUser({ skipAuthRefresh: true })
+    if (hydration === 'transient-failure') {
+      if (callbackController.signal.aborted
+        || authStore.sessionGeneration !== ownedGeneration
+        || authStore.accessToken !== ownedToken) return
+      await router.replace({ name: 'error', query: { status: '503', retry: '/' } })
+      return
+    }
+    if (hydration !== 'success') {
+      await authStore.logout()
+      if (!callbackController.signal.aborted) {
+        toastStore.addToast(t('auth.loginFailed'), 'error')
+        await router.replace('/login')
+      }
+      return
     }
     if (callbackController.signal.aborted
       || authStore.sessionGeneration !== ownedGeneration

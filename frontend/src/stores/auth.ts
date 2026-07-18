@@ -27,6 +27,7 @@ import {
 import { detachBrowserPushSubscriptionForSession } from '@/features/notifications/pushSubscriptions'
 
 export type BootstrapSessionState = 'idle' | 'loading' | 'authenticated' | 'transient-error' | 'terminal-error'
+export type UserHydrationResult = 'success' | 'transient-failure' | 'terminal-failure' | 'stale'
 
 interface AuthSessionEffects {
     syncThemeFromUser: (userData: User | null) => void
@@ -246,7 +247,13 @@ export const useAuthStore = defineStore('auth', () => {
                         skipGlobalErrorHandler: true,
                         signal,
                     })
-                    if (!data.success) throw new Error('Bootstrap refresh failed')
+                    if (!data.success) {
+                        const failure = new Error('Bootstrap refresh failed') as Error & {
+                            response: { status: number }
+                        }
+                        failure.response = { status: 401 }
+                        throw failure
+                    }
                     return unwrapApiData(data).accessToken
                 }, { previousToken: null })
                 if (generation !== sessionGeneration.value) {
@@ -280,11 +287,13 @@ export const useAuthStore = defineStore('auth', () => {
             } catch (error: unknown) {
                 logger.error('Bootstrap session failed:', error)
                 if (generation === sessionGeneration.value) {
-                    clearSessionValues()
                     const status = error && typeof error === 'object'
                         ? (error as { response?: { status?: number } }).response?.status
                         : undefined
                     bootstrapTerminalFailure = status === 401 || status === 403
+                    if (bootstrapTerminalFailure) {
+                        clearSessionValues()
+                    }
                     bootstrapRetryAt = bootstrapTerminalFailure
                         ? Number.POSITIVE_INFINITY
                         : Date.now() + 3000
@@ -310,8 +319,6 @@ export const useAuthStore = defineStore('auth', () => {
         bootstrapRetryAt = 0
         return bootstrapSession()
     }
-
-    type UserHydrationResult = 'success' | 'transient-failure' | 'terminal-failure' | 'stale'
 
     async function hydrateUser(
         config?: AxiosRequestConfig,
@@ -405,6 +412,7 @@ export const useAuthStore = defineStore('auth', () => {
         fetchUser,
         bootstrapSession,
         retryBootstrapSession,
+        hydrateUser,
         syncFromStoredAccessToken,
         setTokens,
         applyTokenIfCurrent,

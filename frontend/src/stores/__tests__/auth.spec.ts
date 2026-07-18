@@ -403,7 +403,7 @@ describe('Auth Store', () => {
             expect(authApi.getMe).not.toHaveBeenCalled()
         })
 
-        it('clears state when refresh throws', async () => {
+        it('preserves local session context when refresh throws transiently', async () => {
             store.accessToken = null
             store.user = authUser()
             persistAccessToken('stale')
@@ -414,8 +414,9 @@ describe('Auth Store', () => {
 
             expect(result).toBe(false)
             expect(store.accessToken).toBeNull()
-            expect(store.user).toBeNull()
-            expect(getStoredAccessToken()).toBeNull()
+            expect(store.user).toEqual(expect.objectContaining({ userId: 1 }))
+            expect(getStoredAccessToken()).toBe('stale')
+            expect(store.bootstrapState).toBe('transient-error')
             expect(logger.error).toHaveBeenCalledWith('Bootstrap session failed:', error)
         })
     })
@@ -475,6 +476,19 @@ describe('Auth Store', () => {
             expect(getStoredAccessToken()).toBe('boot-token')
             expect(store.user).toBeNull()
             expect(store.bootstrapState).toBe('transient-error')
+        })
+
+        it('does not broadcast a logout boundary when bootstrap refresh fails transiently', async () => {
+            const storageSpy = vi.spyOn(Storage.prototype, 'setItem')
+            vi.mocked(authApi.refreshToken).mockRejectedValue({ response: { status: 503 } })
+
+            await expect(store.bootstrapSession()).resolves.toBe(false)
+
+            expect(store.bootstrapState).toBe('transient-error')
+            expect(storageSpy).not.toHaveBeenCalledWith(
+                AUTH_SESSION_EVENT_KEY,
+                expect.stringContaining(AUTH_SESSION_CLEARED_EVENT_PREFIX),
+            )
         })
 
         it('retries only profile hydration after refresh has already succeeded', async () => {
