@@ -34,6 +34,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.io.PrintWriter;
@@ -204,6 +205,15 @@ public class GlobalExceptionHandler {
         log.warn("[{}] Constraint violation: {}", request.getRequestURI(), e.getMessage());
 
         return validationErrorResponse("ConstraintViolationException", request);
+    }
+
+    @ExceptionHandler(HandlerMethodValidationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleHandlerMethodValidationException(
+            HandlerMethodValidationException e,
+            HttpServletRequest request) {
+        log.warn("[{}] Handler method validation failed: {}", request.getRequestURI(), e.getReason());
+
+        return validationErrorResponse("HandlerMethodValidationException", request);
     }
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)

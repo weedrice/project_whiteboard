@@ -233,14 +233,11 @@ class MessageControllerTest {
     }
 
     @Test
-    @DisplayName("메시지 일괄 삭제 500개 초과 요청은 INVALID_INPUT_VALUE로 응답한다")
+    @DisplayName("메시지 일괄 삭제 500개 초과 요청은 validation 오류로 응답한다")
     void deleteMessages_overLimit_returnsBadRequest() throws Exception {
         List<Long> messageIds = LongStream.rangeClosed(1, 501)
                 .boxed()
                 .toList();
-        doAnswer(invocation -> {
-            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
-        }).when(messageService).deleteMessages(1L, messageIds);
 
         mockMvc.perform(delete("/api/v1/messages")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -249,9 +246,9 @@ class MessageControllerTest {
                         .with(csrf()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false))
-                .andExpect(jsonPath("$.error.code").value(ErrorCode.INVALID_INPUT_VALUE.getCode()));
+                .andExpect(jsonPath("$.error.code").value(ErrorCode.VALIDATION_ERROR.getCode()));
 
-        verify(messageService).deleteMessages(1L, messageIds);
+        verifyNoInteractions(messageService);
     }
 
     @Test
