@@ -470,6 +470,9 @@ describe('usePost', () => {
         const { useScrapPost } = usePost()
         await useScrapPost().mutate(1)
         expect(getQueryDataValue(sessionKey(['post', 1]))).toMatchObject({ scrapped: true })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({
+            queryKey: sessionKey(['user', 'scraps']),
+        })
 
         vi.mocked(postApi.unscrapPost).mockRejectedValueOnce(new Error('unscrap failed'))
         const { useUnscrapPost } = usePost()

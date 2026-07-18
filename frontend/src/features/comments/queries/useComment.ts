@@ -4,6 +4,7 @@ import { commentApi, type CommentParams, type CommentPayload } from '@/api/comme
 import { unwrapAxiosApiPageData } from '@/api/response'
 import { commentQueryKeys } from '@/features/comments/queries/commentQueryKeys'
 import { postQueryKeys } from '@/features/board/posts/queries/postQueryKeys'
+import { homeQueryKeys } from '@/composables/homeQueryKeys'
 import { userQueryKeys } from '@/features/user/userQueryKeys'
 import { useApiPageQuery, useApiQuery } from '@/composables/useApiQuery'
 import { callWithOptionalQuerySignal } from '@/utils/querySignal'
@@ -111,6 +112,19 @@ export function useComment() {
         }
     }
 
+    const invalidateCommentCountConsumers = () => {
+        queryClient.invalidateQueries({ queryKey: authKey(postQueryKeys.lists) })
+        queryClient.invalidateQueries({ queryKey: authKey(postQueryKeys.boardPostsRoot) })
+        queryClient.invalidateQueries({ queryKey: authKey(homeQueryKeys.all) })
+        queryClient.invalidateQueries({ queryKey: authKey(['search']) })
+        queryClient.invalidateQueries({ queryKey: authKey(userQueryKeys.myCommentsRoot) })
+        const currentUserId = authStore.user?.userId
+        if (currentUserId != null) {
+            queryClient.invalidateQueries({ queryKey: authKey(userQueryKeys.publicCommentsRoot(currentUserId)) })
+            queryClient.invalidateQueries({ queryKey: authKey(userQueryKeys.profile(currentUserId)) })
+        }
+    }
+
     const useComments = (postId: Ref<string | number>, params: Ref<CommentParams>) => {
         return useApiPageQuery<Comment>({
             queryKey: computed(() => commentQueryKeys.list(postId.value, params.value)),
@@ -183,6 +197,7 @@ export function useComment() {
             onSuccess: (_result, variables, context) => {
                 if (!isCurrentMutation(context)) return
                 invalidateCommentMutationTargets(variables.postId, true)
+                invalidateCommentCountConsumers()
                 queryClient.invalidateQueries({ queryKey: authKey(userQueryKeys.pointsRoot) })
             },
         })
@@ -212,6 +227,7 @@ export function useComment() {
                 if (!isCurrentMutation(context)) return
                 const postId = typeof variables === 'object' ? variables.postId : undefined
                 invalidateCommentMutationTargets(postId, true)
+                invalidateCommentCountConsumers()
             },
         })
     }

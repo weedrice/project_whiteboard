@@ -26,11 +26,13 @@ export const userQueryKeys = {
     scheduledPostsRoot: ['user', 'scheduled-posts'] as const,
     badgesRoot: ['user', 'badges'] as const,
     scrapFolders: ['user', 'scrap-folders'] as const,
+    scrapsRoot: ['user', 'scraps'] as const,
     postSeries: ['user', 'post-series'] as const,
     myPoints: (userIdentity?: string | number | null) =>
         ['user', 'points', 'me', userIdentity ?? 'anonymous'] as const,
     myPosts: (params: Readonly<UserQueryPaginationParams>) => ['user', 'me', 'posts', { ...params }] as const,
     myComments: (params: Readonly<UserQueryPaginationParams>) => ['user', 'me', 'comments', { ...params }] as const,
+    myCommentsRoot: ['user', 'me', 'comments'] as const,
     publicPosts: (userId: string | number, params: Readonly<UserQueryPaginationParams> = {}) =>
         ['user', normalizePublicUserId(userId), 'posts', { ...params }] as const,
     publicPostsRoot: (userId: string | number) => ['user', normalizePublicUserId(userId), 'posts'] as const,

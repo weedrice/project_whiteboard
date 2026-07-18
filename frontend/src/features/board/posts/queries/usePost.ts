@@ -144,7 +144,8 @@ export function usePost() {
 
     function createOptimisticPostMutation(
         mutationFn: (postId: string | number) => Promise<unknown>,
-        updater: (post: Partial<Post>) => Partial<Post>
+        updater: (post: Partial<Post>) => Partial<Post>,
+        invalidateOnSettled?: (sessionGeneration: number) => void,
     ) {
         return useMutation({
             mutationFn,
@@ -166,6 +167,7 @@ export function usePost() {
             onSettled: (_, __, postId, context) => {
                 if (!context || !isSessionGenerationCurrent(authStore, context.sessionGeneration)) return
                 invalidatePostCaches(queryClient, context.sessionGeneration, postId)
+                invalidateOnSettled?.(context.sessionGeneration)
             },
         })
     }
@@ -198,7 +200,10 @@ export function usePost() {
             (old) => ({
                 ...old,
                 scrapped: true,
-            })
+            }),
+            (sessionGeneration) => queryClient.invalidateQueries({
+                queryKey: currentSessionQueryKey({ sessionGeneration }, userQueryKeys.scrapsRoot),
+            }),
         )
     }
 
@@ -208,7 +213,10 @@ export function usePost() {
             (old) => ({
                 ...old,
                 scrapped: false,
-            })
+            }),
+            (sessionGeneration) => queryClient.invalidateQueries({
+                queryKey: currentSessionQueryKey({ sessionGeneration }, userQueryKeys.scrapsRoot),
+            }),
         )
     }
 
