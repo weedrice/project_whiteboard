@@ -105,8 +105,10 @@ export const userActivityApi = {
     getMySubscriptions(params: SubscriptionParams, config?: AxiosRequestConfig) {
         return api.get<ApiResponse<PageResponseRaw<SubscriptionBoardListItem>>>('/users/me/subscriptions', { ...config, params })
     },
-    getMyPoint() {
-        return api.get<ApiResponse<UserPoint>>('/points/me')
+    getMyPoint(config?: AxiosRequestConfig) {
+        return config
+            ? api.get<ApiResponse<UserPoint>>('/points/me', config)
+            : api.get<ApiResponse<UserPoint>>('/points/me')
     },
     getMyPointHistories(params: PaginationParams, config?: AxiosRequestConfig) {
         return api.get<ApiResponse<PointHistoryResponse>>('/points/me/history', { ...config, params })

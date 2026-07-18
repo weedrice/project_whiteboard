@@ -36,7 +36,7 @@ vi.mock('@/api/board', () => ({
   },
 }))
 
-vi.mock('@/composables/useUser', () => ({
+vi.mock('@/features/user/useUser', () => ({
   useUser: () => ({
     useCompleteOnboarding: () => ({
       mutateAsync: completeOnboarding,
@@ -94,6 +94,7 @@ const mountPage = () => {
 describe('OnboardingPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    route.query.redirect = '/mypage'
     authStore.sessionGeneration = 0
     getBoardRecommendations.mockResolvedValue(apiDataResponse<typeof boardApi.getBoardRecommendations>([
       board(),
@@ -162,6 +163,17 @@ describe('OnboardingPage', () => {
     expect(replace).toHaveBeenCalledWith('/mypage')
   })
 
+  it('falls back to home when the redirect target is external', async () => {
+    route.query.redirect = 'https://attacker.example'
+    const { wrapper } = mountPage()
+    await flushAll()
+
+    await wrapper.findAll('button')[4].trigger('click')
+    await flushAll()
+
+    expect(replace).toHaveBeenCalledWith('/')
+  })
+
   it('does not navigate when onboarding completion belongs to an older session', async () => {
     let resolveCompletion!: () => void
     let requestSignal: AbortSignal | undefined
@@ -202,5 +214,15 @@ describe('OnboardingPage', () => {
     expect(wrapper.text()).toContain('데이터를 불러오는데 실패했습니다.')
     expect(wrapper.find('[role="alert"]').exists()).toBe(true)
     expect(wrapper.text()).not.toContain('General')
+  })
+
+  it('forwards the query cancellation signal to board recommendations', async () => {
+    mountPage()
+    await flushAll()
+
+    expect(getBoardRecommendations).toHaveBeenCalledWith(
+      [],
+      { signal: expect.any(AbortSignal) },
+    )
   })
 })

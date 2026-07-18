@@ -9,7 +9,7 @@ import { unwrapAxiosApiData } from '@/api/response'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import ErrorState from '@/components/common/ui/ErrorState.vue'
-import { useUser } from '@/composables/useUser'
+import { useUser } from '@/features/user/useUser'
 import { invalidateBoardSubscriptionCaches } from '@/features/board/queries/boardCacheInvalidation'
 import { usePushNotifications } from '@/features/notifications/usePushNotifications'
 import type { BoardListItem } from '@/types'
@@ -22,6 +22,7 @@ import {
 } from '@/queryAuthScope'
 import { isCancellationError } from '@/utils/cancellationError'
 import { captureAuthSessionIntent, isAuthSessionIntentCurrent } from '@/utils/authSessionIntent'
+import { isSafeRedirect } from '@/utils/authRedirect'
 
 const router = useRouter()
 const route = useRoute()
@@ -45,7 +46,7 @@ const {
   refetch: refetchBoards,
 } = useQuery({
   queryKey: onboardingQueryKey,
-  queryFn: async () => unwrapAxiosApiData(await boardApi.getBoardRecommendations([])),
+  queryFn: async ({ signal }) => unwrapAxiosApiData(await boardApi.getBoardRecommendations([], { signal })),
   meta: AUTH_SCOPED_QUERY_META,
 })
 
@@ -70,7 +71,7 @@ const subscribeMutation = useMutation({
 })
 
 const recommendedBoards = computed(() => boards.value ?? [])
-const redirectTarget = computed(() => typeof route.query.redirect === 'string' ? route.query.redirect : '/')
+const redirectTarget = computed(() => isSafeRedirect(route.query.redirect) ? route.query.redirect : '/')
 const canEnablePush = computed(() => pushNotifications.supported.value && pushNotifications.enabled.value)
 
 async function finishOnboarding() {

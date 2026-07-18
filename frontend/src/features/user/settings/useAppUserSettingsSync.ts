@@ -2,7 +2,7 @@ import { watch } from 'vue'
 import type { QueryClient } from '@tanstack/vue-query'
 import { userApi } from '@/api/user'
 import { unwrapApiData } from '@/api/response'
-import { userSettingsSessionQueryKey } from '@/composables/useUser'
+import { userSettingsSessionQueryKey } from '@/features/user/useUser'
 import type { UserSettings } from '@/types/user'
 import logger from '@/utils/logger'
 import { Storage } from '@/utils/storage'
@@ -56,8 +56,8 @@ export function useAppUserSettingsSync(
             const settings = await queryClient.fetchQuery({
                 queryKey: userSettingsSessionQueryKey(sessionGeneration),
                 meta: { authScoped: true },
-                queryFn: async () => {
-                    const { data } = await userApi.getUserSettings()
+                queryFn: async ({ signal }) => {
+                    const { data } = await userApi.getUserSettings({ signal })
                     return data.success ? unwrapApiData(data) : null
                 },
             })
@@ -76,11 +76,14 @@ export function useAppUserSettingsSync(
 
     watch(
         () => [authStore.isAuthenticated, authStore.sessionGeneration] as const,
-        ([isAuthenticated], previous) => {
+        ([isAuthenticated, sessionGeneration], previous) => {
+            settingsLoadGeneration += 1
+            void setAppLocale('ko', () => (
+                authStore.sessionGeneration === sessionGeneration
+            ))
             if (isAuthenticated) {
                 loadSettings()
             } else {
-                settingsLoadGeneration += 1
                 queryClient.removeQueries({
                     queryKey: userSettingsSessionQueryKey(previous?.[1] ?? authStore.sessionGeneration),
                 })

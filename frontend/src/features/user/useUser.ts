@@ -183,7 +183,7 @@ export function useUser() {
     const useMyPoint = (enabled?: Ref<boolean>, userIdentity?: Ref<string | number | null | undefined>) => {
         return useApiQuery<UserPoint>({
             queryKey: computed(() => userQueryKeys.myPoints(userIdentity?.value)),
-            request: () => userApi.getMyPoint(),
+            request: (context) => userApi.getMyPoint(withQuerySignal(undefined, context)),
             enabled: computed(() => enabled?.value ?? true),
             staleTime: QUERY_STALE_TIME.SHORT,
             meta: AUTH_SCOPED_QUERY_META,

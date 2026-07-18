@@ -16,7 +16,9 @@ import { QUERY_STALE_TIME } from '@/utils/constants'
 import { sessionQueryKey } from '@/queryAuthScope'
 
 const queryClientMock = vi.hoisted(() => ({
-    fetchQuery: vi.fn(({ queryFn }: { queryFn: () => Promise<unknown> }) => queryFn())
+    fetchQuery: vi.fn(({ queryFn }: { queryFn: (context: { signal: AbortSignal }) => Promise<unknown> }) => (
+        queryFn({ signal: new AbortController().signal })
+    ))
 }))
 
 function deferred<T>() {

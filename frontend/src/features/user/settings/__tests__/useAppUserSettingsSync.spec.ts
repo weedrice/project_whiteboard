@@ -64,7 +64,8 @@ describe('useAppUserSettingsSync', () => {
     await pending
 
     expect(setTheme).not.toHaveBeenCalledWith('DARK')
-    expect(localeMocks.setAppLocale).not.toHaveBeenCalled()
+    expect(localeMocks.setAppLocale).toHaveBeenCalledWith('ko', expect.any(Function))
+    expect(localeMocks.setAppLocale).not.toHaveBeenCalledWith('en', expect.any(Function))
   })
 
   it('applies settings while still authenticated', async () => {
@@ -136,8 +137,9 @@ describe('useAppUserSettingsSync', () => {
     await pendingAccountA
 
     expect(setTheme).not.toHaveBeenCalledWith('DARK')
-    expect(localeMocks.setAppLocale).toHaveBeenCalledTimes(1)
+    expect(localeMocks.setAppLocale).toHaveBeenCalledTimes(3)
     expect(localeMocks.setAppLocale).toHaveBeenCalledWith('ko', expect.any(Function))
+    expect(localeMocks.setAppLocale).not.toHaveBeenCalledWith('en', expect.any(Function))
   })
 
   it('loads the next account settings when generation changes without an auth boolean transition', async () => {

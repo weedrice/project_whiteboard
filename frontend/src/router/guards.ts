@@ -2,7 +2,7 @@ import type { RouteLocationNormalized } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { userApi } from '@/api/user'
 import { unwrapAxiosApiData } from '@/api/response'
-import { userSettingsSessionQueryKey } from '@/composables/useUser'
+import { userSettingsSessionQueryKey } from '@/features/user/useUser'
 import { queryClient } from '@/queryClient'
 import {
     ensureHydratedAuth,
@@ -68,7 +68,7 @@ export function createAppNavigationGuard() {
                 const settings = await queryClient.fetchQuery({
                     queryKey: userSettingsSessionQueryKey(sessionGeneration),
                     meta: { authScoped: true },
-                    queryFn: async () => unwrapAxiosApiData(await userApi.getUserSettings()),
+                    queryFn: async ({ signal }) => unwrapAxiosApiData(await userApi.getUserSettings({ signal })),
                     staleTime: QUERY_STALE_TIME.MEDIUM,
                 })
                 if (!isSessionGenerationCurrent(authStore, sessionGeneration)) return false
