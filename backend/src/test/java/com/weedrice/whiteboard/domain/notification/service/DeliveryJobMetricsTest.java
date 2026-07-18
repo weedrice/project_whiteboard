@@ -4,6 +4,7 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class DeliveryJobMetricsTest {
 
@@ -25,7 +26,7 @@ class DeliveryJobMetricsTest {
     void pushOutcomesExistBeforeTheFirstJobRuns() {
         var registry = new SimpleMeterRegistry();
 
-        new PushDeliveryJobMetrics(registry);
+        PushDeliveryJobMetrics metrics = new PushDeliveryJobMetrics(registry);
 
         assertThat(registry.get("noviis.webpush.job.outcome")
                 .tag("outcome", "invalid_payload").counter().count()).isZero();
@@ -33,5 +34,11 @@ class DeliveryJobMetricsTest {
                 .tag("outcome", "lease_lost").counter().count()).isZero();
         assertThat(registry.get("noviis.webpush.job.outcome")
                 .tag("outcome", "transition_invalid").counter().count()).isZero();
+        assertThat(registry.get("noviis.webpush.job.outcome")
+                .tag("outcome", "stale_subscription").counter().count()).isZero();
+        assertThat(registry.get("noviis.webpush.job.outcome")
+                .tag("outcome", "expired").counter().count()).isZero();
+        assertThatThrownBy(() -> metrics.recordOutcome("unregistered"))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 }

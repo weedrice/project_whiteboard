@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.notification.service;
 
 import com.weedrice.whiteboard.domain.notification.entity.PushDeliveryJob;
+import com.weedrice.whiteboard.domain.notification.config.PushDeliveryJobProperties;
 import com.weedrice.whiteboard.domain.notification.repository.PushDeliveryJobRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -29,6 +30,7 @@ class PushDeliveryJobProcessorTest {
     @Mock PushDeliveryJobTransaction jobTransaction;
     @Mock PushDispatchSnapshotReader snapshotReader;
     @Mock PushNotificationDispatcher dispatcher;
+    @Mock PushSubscriptionCleanupService subscriptionCleanupService;
     @Mock PushDeliveryJobMetrics metrics;
 
     private Clock clock;
@@ -45,7 +47,8 @@ class PushDeliveryJobProcessorTest {
                 9L, 2L, "https://push.example/endpoint", "key", "auth", now.minusMinutes(1));
         lease = new PushDeliveryLease(JOB_ID, now, subscription, "payload");
         processor = new PushDeliveryJobProcessor(
-                jobRepository, jobTransaction, snapshotReader, dispatcher, metrics, clock);
+                jobRepository, jobTransaction, snapshotReader, dispatcher, subscriptionCleanupService,
+                metrics, new PushDeliveryJobProperties(), clock);
         when(jobTransaction.claim(JOB_ID, now)).thenReturn(lease);
     }
 
@@ -92,14 +95,41 @@ class PushDeliveryJobProcessorTest {
     @Test
     void changedSubscriptionExpiresWithoutSending() {
         when(snapshotReader.isCurrentAndEnabled(subscription)).thenReturn(false);
-        when(jobTransaction.expire(lease, "Subscription changed or push disabled", false))
+        when(jobTransaction.expire(lease, "Subscription changed or push disabled"))
                 .thenReturn(DeliveryJobTransitionResult.APPLIED_SUCCESS);
 
         assertThat(processor.processJob(JOB_ID)).isTrue();
 
-        verify(jobTransaction).expire(lease, "Subscription changed or push disabled", false);
+        verify(jobTransaction).expire(lease, "Subscription changed or push disabled");
         verify(metrics).recordOutcome("stale_subscription");
         org.mockito.Mockito.verifyNoInteractions(dispatcher);
+    }
+
+    @Test
+    void invalidSnapshotIsTerminalizedWithoutDispatch() {
+        PushDeliveryLease invalidLease = new PushDeliveryLease(
+                JOB_ID, now, new PushSubscriptionSnapshot(9L, 2L, null, "key", "auth", now), "payload");
+        when(jobTransaction.claim(JOB_ID, now)).thenReturn(invalidLease);
+        when(jobTransaction.failPermanently(invalidLease, "Invalid push delivery snapshot", now))
+                .thenReturn(DeliveryJobTransitionResult.APPLIED_DEAD_LETTER);
+
+        assertThat(processor.processJob(JOB_ID)).isFalse();
+
+        verify(metrics).recordOutcome("invalid_payload");
+        org.mockito.Mockito.verifyNoInteractions(dispatcher, snapshotReader);
+    }
+
+    @Test
+    void expiredSubscriptionIsDeletedAfterJobTransition() {
+        when(snapshotReader.isCurrentAndEnabled(subscription)).thenReturn(true);
+        when(dispatcher.send(subscription, "payload")).thenReturn(PushDeliveryOutcome.EXPIRED);
+        when(subscriptionCleanupService.expireDeliveryLease(lease, "Push provider expired subscription"))
+                .thenReturn(DeliveryJobTransitionResult.APPLIED_SUCCESS);
+
+        assertThat(processor.processJob(JOB_ID)).isTrue();
+
+        verify(subscriptionCleanupService).expireDeliveryLease(lease, "Push provider expired subscription");
+        verify(metrics).recordOutcome("expired");
     }
 
     @Test

@@ -4,10 +4,10 @@
 
 | 항목 | 내용 |
 | --- | --- |
-| 기준일 | 2026-07-17 |
+| 기준일 | 2026-07-18 |
 | 기준 소스 | `backend/src/main/resources/db/migration` |
-| 마이그레이션 범위 | `V1__baseline_schema.sql` - `V61__scheduled_post_files.sql` |
-| 현재 테이블 수 | 65개 |
+| 마이그레이션 범위 | `V1__baseline_schema.sql` - `V79__index_failed_push_delivery_job_cleanup.sql` |
+| 현재 테이블 수 | 85개 |
 | DB | PostgreSQL |
 
 이 문서는 Flyway migration 기준의 현재 스키마 요약이다. 컬럼 단위 상세는 각 migration과 JPA entity를 최종 기준으로 본다.
@@ -81,7 +81,7 @@
 | 테이블 | 설명 |
 | --- | --- |
 | `notifications` | 알림, source, actor user/agent |
-| `push_delivery_jobs` | 알림 이벤트·구독별 Web Push 재시도 및 dead-letter 작업 |
+| `push_delivery_jobs` | 알림 이벤트·구독별 Web Push 재시도 및 dead-letter 작업. 활성 작업만 전달 snapshot을 보유하고 terminal 전환 시 민감 전달 데이터를 제거한다. |
 | `messages` | 쪽지 |
 | `message_queue` | 비동기 발송 메시지 큐 |
 | `user_feeds` | 사용자별 맞춤 피드 |
@@ -219,6 +219,9 @@
 | `V72` | 원본 이미지 크기·기대 variant 수·reconciliation version metadata 추가 |
 | `V73` | 피드 생성 작업 retry schedule과 due 인덱스 추가 |
 | `V74` | 이벤트·구독별 durable Web Push delivery job 추가 |
+| `V75` | terminal Web Push 작업의 endpoint·key·payload redaction과 수신자 상태 인덱스 추가 |
+| `V76` - `V77` | 활성 Web Push 작업 snapshot 제약을 expand 후 검증 |
+| `V78` - `V79` | bounded Web Push retention cleanup용 partial index를 온라인 생성 |
 
 ## 운영 주의
 

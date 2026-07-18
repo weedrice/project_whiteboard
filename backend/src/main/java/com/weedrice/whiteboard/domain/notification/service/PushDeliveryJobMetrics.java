@@ -13,6 +13,8 @@ class PushDeliveryJobMetrics {
     private static final List<String> OUTCOMES = List.of(
             "success",
             "invalid_payload",
+            "stale_subscription",
+            "expired",
             "retry",
             "dead_letter",
             "lease_recovered",
@@ -40,6 +42,9 @@ class PushDeliveryJobMetrics {
     }
 
     void recordOutcome(String outcome) {
+        if (!OUTCOMES.contains(outcome)) {
+            throw new IllegalArgumentException("Unknown Web Push job outcome: " + outcome);
+        }
         meterRegistry.counter("noviis.webpush.job.outcome", "outcome", outcome).increment();
     }
 

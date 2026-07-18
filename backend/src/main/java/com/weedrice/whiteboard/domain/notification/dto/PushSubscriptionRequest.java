@@ -19,6 +19,13 @@ public class PushSubscriptionRequest {
     @Size(max = 255)
     private String userAgent;
 
+    @Override
+    public String toString() {
+        return "PushSubscriptionRequest{endpointPresent=" + (endpoint != null)
+                + ", keysPresent=" + (keys != null)
+                + ", userAgentPresent=" + (userAgent != null) + '}';
+    }
+
     @Data
     public static class Keys {
         @NotBlank
@@ -28,5 +35,11 @@ public class PushSubscriptionRequest {
         @NotBlank
         @Size(max = 255)
         private String auth;
+
+        @Override
+        public String toString() {
+            return "PushSubscriptionRequest.Keys{p256dhPresent=" + (p256dh != null)
+                    + ", authPresent=" + (auth != null) + '}';
+        }
     }
 }

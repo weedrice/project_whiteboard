@@ -22,6 +22,7 @@ import java.util.Base64;
 import java.util.HexFormat;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -30,6 +31,15 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class PushSubscriptionServiceTest {
+
+    @Test
+    void requestToStringDoesNotExposePushCredentials() {
+        PushSubscriptionRequest request = request("https://push.example/secret-endpoint");
+
+        assertThat(request.toString())
+                .doesNotContain("secret-endpoint", request.getKeys().getP256dh(), request.getKeys().getAuth())
+                .contains("endpointPresent=true", "keysPresent=true");
+    }
 
     @Mock PushSubscriptionRepository repository;
     @Mock PushDeliveryJobRepository jobs;

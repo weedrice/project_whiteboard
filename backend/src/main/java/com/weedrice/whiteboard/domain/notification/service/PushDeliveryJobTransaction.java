@@ -2,9 +2,9 @@ package com.weedrice.whiteboard.domain.notification.service;
 
 import com.weedrice.whiteboard.domain.notification.entity.PushDeliveryJob;
 import com.weedrice.whiteboard.domain.notification.repository.PushDeliveryJobRepository;
-import com.weedrice.whiteboard.domain.notification.repository.PushSubscriptionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,7 +17,6 @@ class PushDeliveryJobTransaction {
     static final int MAX_RETRY_COUNT = 5;
 
     private final PushDeliveryJobRepository jobRepository;
-    private final PushSubscriptionRepository subscriptionRepository;
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public PushDeliveryLease claim(Long jobId, LocalDateTime claimedAt) {
@@ -43,20 +42,8 @@ class PushDeliveryJobTransaction {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public DeliveryJobTransitionResult expire(PushDeliveryLease lease, String reason, boolean deleteSubscription) {
-        return withLease(lease, job -> {
-            job.expire(reason);
-            if (deleteSubscription) {
-                PushSubscriptionSnapshot snapshot = lease.subscription();
-                subscriptionRepository.deleteIfSnapshotMatches(
-                        snapshot.subscriptionId(),
-                        snapshot.userId(),
-                        snapshot.endpoint(),
-                        snapshot.p256dh(),
-                        snapshot.auth(),
-                        snapshot.modifiedAt());
-            }
-        }, DeliveryJobTransitionResult.APPLIED_SUCCESS);
+    public DeliveryJobTransitionResult expire(PushDeliveryLease lease, String reason) {
+        return withLease(lease, job -> job.expire(reason), DeliveryJobTransitionResult.APPLIED_SUCCESS);
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -98,13 +85,17 @@ class PushDeliveryJobTransaction {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public int deleteTerminalBefore(LocalDateTime cutoff) {
-        return jobRepository.deleteTerminalBefore(cutoff);
+    public int deleteTerminalBefore(LocalDateTime cutoff, int batchSize) {
+        var ids = jobRepository.findTerminalIdsBefore(cutoff, PageRequest.of(0, batchSize));
+        jobRepository.deleteAllByIdInBatch(ids);
+        return ids.size();
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public int deleteFailedBefore(LocalDateTime cutoff) {
-        return jobRepository.deleteFailedBefore(cutoff);
+    public int deleteFailedBefore(LocalDateTime cutoff, int batchSize) {
+        var ids = jobRepository.findFailedIdsBefore(cutoff, PageRequest.of(0, batchSize));
+        jobRepository.deleteAllByIdInBatch(ids);
+        return ids.size();
     }
 
     private DeliveryJobTransitionResult withLease(

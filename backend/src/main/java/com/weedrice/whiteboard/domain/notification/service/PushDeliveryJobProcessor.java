@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.notification.service;
 
 import com.weedrice.whiteboard.domain.notification.entity.PushDeliveryJob;
+import com.weedrice.whiteboard.domain.notification.config.PushDeliveryJobProperties;
 import com.weedrice.whiteboard.domain.notification.repository.PushDeliveryJobRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,17 +23,16 @@ import java.util.concurrent.atomic.AtomicLong;
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 public class PushDeliveryJobProcessor {
 
-    private static final int BATCH_SIZE = 20;
     private static final int LEASE_MINUTES = 5;
     private static final int MAX_BACKOFF_MINUTES = 60;
-    private static final int TERMINAL_RETENTION_DAYS = 7;
-    private static final int FAILED_RETENTION_DAYS = 30;
 
     private final PushDeliveryJobRepository jobRepository;
     private final PushDeliveryJobTransaction jobTransaction;
     private final PushDispatchSnapshotReader snapshotReader;
     private final PushNotificationDispatcher dispatcher;
+    private final PushSubscriptionCleanupService subscriptionCleanupService;
     private final PushDeliveryJobMetrics metrics;
+    private final PushDeliveryJobProperties properties;
     private final Clock clock;
     private final AtomicLong lastCleanupEpochHour = new AtomicLong(Long.MIN_VALUE);
 
@@ -40,7 +40,7 @@ public class PushDeliveryJobProcessor {
         recoverStaleJobs();
         cleanupTerminalJobsOncePerHour();
         LocalDateTime now = now();
-        List<Long> jobIds = jobRepository.findDueJobIds(now, PageRequest.of(0, BATCH_SIZE));
+        List<Long> jobIds = jobRepository.findDueJobIds(now, PageRequest.of(0, properties.getProcessingBatchSize()));
         int processed = 0;
         for (Long jobId : jobIds) {
             if (processJob(jobId)) {
@@ -57,11 +57,22 @@ public class PushDeliveryJobProcessor {
             return false;
         }
         try {
+            if (!lease.hasCompleteSnapshot()) {
+                DeliveryJobTransitionResult result = jobTransaction.failPermanently(
+                        lease,
+                        "Invalid push delivery snapshot",
+                        now());
+                return recordTerminalResult(
+                        jobId,
+                        result,
+                        DeliveryJobTransitionResult.APPLIED_DEAD_LETTER,
+                        "invalid_payload",
+                        false);
+            }
             if (!snapshotReader.isCurrentAndEnabled(lease.subscription())) {
                 DeliveryJobTransitionResult result = jobTransaction.expire(
                         lease,
-                        "Subscription changed or push disabled",
-                        false);
+                        "Subscription changed or push disabled");
                 return recordTerminalResult(jobId, result, "stale_subscription", true);
             }
             PushDeliveryOutcome outcome = dispatcher.send(lease.subscription(), lease.payload());
@@ -71,10 +82,9 @@ public class PushDeliveryJobProcessor {
                     return recordTerminalResult(jobId, result, "success", true);
                 }
                 case EXPIRED -> {
-                    DeliveryJobTransitionResult result = jobTransaction.expire(
+                    DeliveryJobTransitionResult result = subscriptionCleanupService.expireDeliveryLease(
                             lease,
-                            "Push provider expired subscription",
-                            true);
+                            "Push provider expired subscription");
                     return recordTerminalResult(jobId, result, "expired", true);
                 }
                 case PERMANENT_FAILURE -> {
@@ -156,7 +166,8 @@ public class PushDeliveryJobProcessor {
     private void recoverStaleJobs() {
         LocalDateTime now = now();
         LocalDateTime staleBefore = now.minusMinutes(LEASE_MINUTES);
-        for (Long jobId : jobRepository.findStaleProcessingJobIds(staleBefore, PageRequest.of(0, BATCH_SIZE))) {
+        for (Long jobId : jobRepository.findStaleProcessingJobIds(
+                staleBefore, PageRequest.of(0, properties.getProcessingBatchSize()))) {
             int retryNumber = currentRetryCount(jobId) + 1;
             DeliveryJobTransitionResult result = jobTransaction.recoverStale(
                     jobId,
@@ -179,12 +190,23 @@ public class PushDeliveryJobProcessor {
             return;
         }
         try {
-            jobTransaction.deleteTerminalBefore(now().minusDays(TERMINAL_RETENTION_DAYS));
-            jobTransaction.deleteFailedBefore(now().minusDays(FAILED_RETENTION_DAYS));
+            deleteInBoundedBatches(true, now().minusDays(properties.getTerminalRetentionDays()));
+            deleteInBoundedBatches(false, now().minusDays(properties.getFailedRetentionDays()));
         } catch (RuntimeException exception) {
             metrics.recordOutcome("cleanup_failure");
             log.warn("Failed to clean terminal push delivery jobs. exceptionType={}",
                     exception.getClass().getSimpleName());
+        }
+    }
+
+    private void deleteInBoundedBatches(boolean terminal, LocalDateTime cutoff) {
+        for (int batch = 0; batch < properties.getCleanupMaxBatches(); batch++) {
+            int deleted = terminal
+                    ? jobTransaction.deleteTerminalBefore(cutoff, properties.getCleanupBatchSize())
+                    : jobTransaction.deleteFailedBefore(cutoff, properties.getCleanupBatchSize());
+            if (deleted < properties.getCleanupBatchSize()) {
+                return;
+            }
         }
     }
 

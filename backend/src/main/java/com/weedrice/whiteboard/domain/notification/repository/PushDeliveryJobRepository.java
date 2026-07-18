@@ -82,21 +82,21 @@ public interface PushDeliveryJobRepository
             @Param("subscriptionId") Long subscriptionId,
             @Param("modifiedAt") LocalDateTime modifiedAt);
 
-    @Modifying
     @Query("""
-            DELETE FROM PushDeliveryJob job
+            SELECT job.jobId FROM PushDeliveryJob job
             WHERE job.status IN (
                 com.weedrice.whiteboard.domain.notification.entity.PushDeliveryJob.Status.COMPLETED,
                 com.weedrice.whiteboard.domain.notification.entity.PushDeliveryJob.Status.EXPIRED)
               AND job.modifiedAt < :cutoff
+            ORDER BY job.modifiedAt ASC, job.jobId ASC
             """)
-    int deleteTerminalBefore(@Param("cutoff") LocalDateTime cutoff);
+    List<Long> findTerminalIdsBefore(@Param("cutoff") LocalDateTime cutoff, Pageable pageable);
 
-    @Modifying
     @Query("""
-            DELETE FROM PushDeliveryJob job
+            SELECT job.jobId FROM PushDeliveryJob job
             WHERE job.status = com.weedrice.whiteboard.domain.notification.entity.PushDeliveryJob.Status.FAILED
               AND job.lastFailedAt < :cutoff
+            ORDER BY job.lastFailedAt ASC, job.jobId ASC
             """)
-    int deleteFailedBefore(@Param("cutoff") LocalDateTime cutoff);
+    List<Long> findFailedIdsBefore(@Param("cutoff") LocalDateTime cutoff, Pageable pageable);
 }
