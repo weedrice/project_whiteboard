@@ -394,6 +394,7 @@ describe('useUser', () => {
             useUpdateNotificationSettings,
             useCreateKeywordSubscription,
             useDeleteKeywordSubscription,
+            useUpdateRepresentativeBadge,
         } = useUser()
 
         useUpdateMyProfile()
@@ -402,9 +403,10 @@ describe('useUser', () => {
         useUpdateNotificationSettings()
         useCreateKeywordSubscription()
         useDeleteKeywordSubscription()
+        useUpdateRepresentativeBadge()
 
         expect(mocks.mutationOptions.map((options) => options.meta)).toEqual(
-            Array.from({ length: 6 }, () => ({ errorMessage: false })),
+            Array.from({ length: 7 }, () => ({ errorMessage: false })),
         )
     })
 

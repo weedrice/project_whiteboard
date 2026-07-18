@@ -1,13 +1,17 @@
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { reactive, ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import UserProfilePage from '../UserProfilePage.vue'
+import { createDeferred } from '@/test/async'
 
 const mocks = vi.hoisted(() => ({
   route: null as { params: { userId: string } } | null,
+  authStore: {
+    user: { userId: 7 },
+    sessionGeneration: 1,
+  },
   updateBadge: vi.fn(),
   addToast: vi.fn(),
-  invalidateQueries: vi.fn(),
   refetchBadges: vi.fn(),
   refetchProfile: vi.fn(),
   refetchPosts: vi.fn(),
@@ -20,11 +24,7 @@ vi.mock('vue-router', async (importOriginal) => ({
 }))
 vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }))
 vi.mock('@unhead/vue', () => ({ useHead: vi.fn() }))
-vi.mock('@tanstack/vue-query', async (importOriginal) => ({
-  ...await importOriginal<typeof import('@tanstack/vue-query')>(),
-  useQueryClient: () => ({ invalidateQueries: mocks.invalidateQueries }),
-}))
-vi.mock('@/stores/auth', () => ({ useAuthStore: () => ({ user: { userId: 7 } }) }))
+vi.mock('@/stores/auth', () => ({ useAuthStore: () => mocks.authStore }))
 vi.mock('@/stores/toast', () => ({ useToastStore: () => ({ addToast: mocks.addToast }) }))
 vi.mock('@/features/user/useUser', () => ({
   useUser: () => ({
@@ -74,6 +74,8 @@ function mountProfile() {
 describe('UserProfilePage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mocks.authStore.user = { userId: 7 }
+    mocks.authStore.sessionGeneration = 1
     mocks.updateBadge.mockResolvedValue(undefined)
   })
 
@@ -86,8 +88,7 @@ describe('UserProfilePage', () => {
     await badgeButton.trigger('click')
     expect(mocks.updateBadge).toHaveBeenCalledWith('FIRST')
     expect(mocks.addToast).toHaveBeenCalledWith('user.publicProfile.representativeUpdated', 'success')
-    expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['user', 'badges'] })
-    expect(mocks.refetchBadges).toHaveBeenCalled()
+    expect(mocks.refetchBadges).not.toHaveBeenCalled()
   })
 
   it('switches between posts and comments and resets when the route changes', async () => {
@@ -109,5 +110,40 @@ describe('UserProfilePage', () => {
     const badgeButton = wrapper.findAll('button').find((button) => button.text().includes('setRepresentative'))!
     await badgeButton.trigger('click')
     expect(mocks.addToast).toHaveBeenCalledWith('user.publicProfile.representativeUpdateFailed', 'error')
+  })
+
+  it('ignores a delayed representative badge success after the profile route changes', async () => {
+    const update = createDeferred<void>()
+    mocks.updateBadge.mockReturnValueOnce(update.promise)
+    const wrapper = mountProfile()
+    const badgeButton = wrapper.findAll('button').find((button) => button.text().includes('setRepresentative'))!
+
+    const click = badgeButton.trigger('click')
+    await vi.waitFor(() => expect(mocks.updateBadge).toHaveBeenCalledWith('FIRST'))
+    mocks.route!.params.userId = '8'
+    await wrapper.vm.$nextTick()
+    update.resolve()
+    await click
+    await flushPromises()
+
+    expect(mocks.addToast).not.toHaveBeenCalled()
+    expect(mocks.refetchBadges).not.toHaveBeenCalled()
+  })
+
+  it('ignores a delayed representative badge failure after the auth session changes', async () => {
+    const update = createDeferred<void>()
+    mocks.updateBadge.mockReturnValueOnce(update.promise)
+    const wrapper = mountProfile()
+    const badgeButton = wrapper.findAll('button').find((button) => button.text().includes('setRepresentative'))!
+
+    const click = badgeButton.trigger('click')
+    await vi.waitFor(() => expect(mocks.updateBadge).toHaveBeenCalledWith('FIRST'))
+    mocks.authStore.sessionGeneration = 2
+    update.reject(new Error('failed'))
+    await click
+    await flushPromises()
+
+    expect(mocks.addToast).not.toHaveBeenCalled()
+    expect(mocks.refetchBadges).not.toHaveBeenCalled()
   })
 })

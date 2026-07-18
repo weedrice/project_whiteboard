@@ -4,7 +4,6 @@ import { useRoute } from 'vue-router'
 import { useHead } from '@unhead/vue'
 import { Award, FileText, MessageSquare, User } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
-import { useQueryClient } from '@tanstack/vue-query'
 import { useUser } from '@/features/user/useUser'
 import BaseSegmentedControl from '@/components/common/ui/BaseSegmentedControl.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
@@ -20,7 +19,6 @@ import { formatDate } from '@/utils/date'
 
 const route = useRoute()
 const { t } = useI18n()
-const queryClient = useQueryClient()
 const authStore = useAuthStore()
 const toastStore = useToastStore()
 const {
@@ -77,12 +75,19 @@ watch(userId, () => {
 })
 
 async function handleRepresentativeBadge(badgeCode: string | null) {
+  const targetUserId = userId.value
+  const sessionGeneration = authStore.sessionGeneration
+  const isCurrentAction = () => (
+    userId.value === targetUserId
+    && authStore.sessionGeneration === sessionGeneration
+  )
+
   try {
     await updateRepresentativeBadge(badgeCode)
+    if (!isCurrentAction()) return
     toastStore.addToast(t('user.publicProfile.representativeUpdated'), 'success')
-    queryClient.invalidateQueries({ queryKey: ['user', 'badges'] })
-    refetchBadges()
   } catch {
+    if (!isCurrentAction()) return
     toastStore.addToast(t('user.publicProfile.representativeUpdateFailed'), 'error')
   }
 }

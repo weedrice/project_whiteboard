@@ -461,6 +461,7 @@ export function useUser() {
 
     const useUpdateRepresentativeBadge = () => {
         return useMutation({
+            meta: LOCAL_MUTATION_ERROR_META,
             onMutate: captureMutationSession,
             mutationFn: async (badgeCode: string | null) => {
                 return unwrapAxiosApiData(await badgeApi.updateRepresentativeBadge(badgeCode))
