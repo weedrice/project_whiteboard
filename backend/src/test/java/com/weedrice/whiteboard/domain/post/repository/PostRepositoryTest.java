@@ -99,6 +99,46 @@ class PostRepositoryTest {
     }
 
     @Test
+    @DisplayName("인기글 후보는 DB에서 기간별 top-N과 결정적 순위를 계산하고 블라인드 글을 제외한다")
+    void findPopularRankingCandidates_returnsDatabaseTopNAndExcludesBlindedPosts() {
+        LocalDateTime dailySince = LocalDateTime.of(2026, 7, 17, 12, 0);
+        LocalDateTime weeklySince = dailySince.minusDays(6);
+        Post dailyLowerId = post;
+        Post dailyHigherId = persistPost("Daily higher id");
+        Post weeklyOnly = persistPost("Weekly only");
+        Post blinded = persistPost("Blinded high score");
+        Post outsideWindow = persistPost("Outside window");
+
+        updateCreatedAt(dailyLowerId, dailySince.plusHours(1));
+        updateCreatedAt(dailyHigherId, dailySince.plusHours(1));
+        updateCreatedAt(weeklyOnly, dailySince.minusDays(2));
+        updateCreatedAt(blinded, dailySince.plusHours(2));
+        updateCreatedAt(outsideWindow, weeklySince);
+        updatePopularityScore(dailyLowerId, 10, 1, 0);
+        updatePopularityScore(dailyHigherId, 10, 1, 0);
+        updatePopularityScore(weeklyOnly, 50, 0, 0);
+        updatePopularityScore(blinded, 10_000, 0, 0);
+        updatePopularityScore(outsideWindow, 20_000, 0, 0);
+        blinded.blind("hidden", dailySince.plusHours(2));
+        entityManager.flush();
+        entityManager.clear();
+
+        List<PostRepository.PopularRankingProjection> candidates =
+                postRepository.findPopularRankingCandidates(dailySince, weeklySince, 2);
+
+        assertThat(candidates)
+                .extracting(
+                        PostRepository.PopularRankingProjection::getRankingType,
+                        PostRepository.PopularRankingProjection::getPostId,
+                        PostRepository.PopularRankingProjection::getRankingPosition)
+                .containsExactly(
+                        org.assertj.core.groups.Tuple.tuple("DAILY", dailyHigherId.getPostId(), 1L),
+                        org.assertj.core.groups.Tuple.tuple("DAILY", dailyLowerId.getPostId(), 2L),
+                        org.assertj.core.groups.Tuple.tuple("WEEKLY", weeklyOnly.getPostId(), 1L),
+                        org.assertj.core.groups.Tuple.tuple("WEEKLY", dailyHigherId.getPostId(), 2L));
+    }
+
+    @Test
     @DisplayName("findReportTargetMetadataByPostIds returns author metadata")
     void findReportTargetMetadataByPostIds_returnsAuthorMetadata() {
         List<PostRepository.ReportTargetMetadataProjection> metadata =
@@ -566,19 +606,6 @@ class PostRepositoryTest {
         assertThat(persistenceUnitUtil.isLoaded(loadedPost, "board")).isTrue();
         assertThat(persistenceUnitUtil.isLoaded(loadedPost.getBoard(), "creator")).isTrue();
         assertThat(persistenceUnitUtil.isLoaded(loadedPost, "category")).isTrue();
-    }
-
-    @Test
-    @DisplayName("특정 날짜 이후 게시글 조회 성공")
-    void findByCreatedAtAfter_success() {
-        // given
-        LocalDateTime yesterday = LocalDateTime.now().minusDays(1);
-
-        // when
-        List<Post> posts = postRepository.findByCreatedAtAfterAndIsDeleted(yesterday, false);
-
-        // then
-        assertThat(posts).isNotEmpty();
     }
 
     @Test
@@ -1468,6 +1495,22 @@ class PostRepositoryTest {
         entityManager.getEntityManager()
                 .createNativeQuery("UPDATE posts SET created_at = :createdAt WHERE post_id = :postId")
                 .setParameter("createdAt", createdAt)
+                .setParameter("postId", targetPost.getPostId())
+                .executeUpdate();
+    }
+
+    private void updatePopularityScore(Post targetPost, int viewCount, int likeCount, int commentCount) {
+        entityManager.getEntityManager()
+                .createNativeQuery("""
+                        UPDATE posts
+                        SET view_count = :viewCount,
+                            like_count = :likeCount,
+                            comment_count = :commentCount
+                        WHERE post_id = :postId
+                        """)
+                .setParameter("viewCount", viewCount)
+                .setParameter("likeCount", likeCount)
+                .setParameter("commentCount", commentCount)
                 .setParameter("postId", targetPost.getPostId())
                 .executeUpdate();
     }

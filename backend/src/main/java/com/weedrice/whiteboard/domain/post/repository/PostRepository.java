@@ -32,6 +32,16 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                 Long getPostCount();
         }
 
+        interface PopularRankingProjection {
+                String getRankingType();
+
+                Long getPostId();
+
+                Double getScore();
+
+                Long getRankingPosition();
+        }
+
         interface PublicLandingPostStatsProjection {
                 Long getTotalPosts();
 
@@ -60,7 +70,48 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                 String getTargetLoginId();
         }
 
-        List<Post> findByCreatedAtAfterAndIsDeleted(LocalDateTime dateTime, Boolean isDeleted);
+        @Query(value = """
+                WITH scored AS (
+                    SELECT p.post_id,
+                           p.created_at,
+                           (p.view_count + p.like_count * 10.0 + p.comment_count * 5.0) AS score
+                    FROM posts p
+                    WHERE p.created_at > :weeklySince
+                      AND p.is_deleted = 'N'
+                      AND p.is_blinded = 'N'
+                ),
+                daily_ranked AS (
+                    SELECT post_id,
+                           score,
+                           ROW_NUMBER() OVER (ORDER BY score DESC, post_id DESC) AS ranking_position
+                    FROM scored
+                    WHERE created_at > :dailySince
+                ),
+                weekly_ranked AS (
+                    SELECT post_id,
+                           score,
+                           ROW_NUMBER() OVER (ORDER BY score DESC, post_id DESC) AS ranking_position
+                    FROM scored
+                )
+                SELECT 'DAILY' AS "rankingType",
+                       post_id AS "postId",
+                       score AS "score",
+                       ranking_position AS "rankingPosition"
+                FROM daily_ranked
+                WHERE ranking_position <= :rankingLimit
+                UNION ALL
+                SELECT 'WEEKLY' AS "rankingType",
+                       post_id AS "postId",
+                       score AS "score",
+                       ranking_position AS "rankingPosition"
+                FROM weekly_ranked
+                WHERE ranking_position <= :rankingLimit
+                ORDER BY "rankingType" ASC, "rankingPosition" ASC
+                """, nativeQuery = true)
+        List<PopularRankingProjection> findPopularRankingCandidates(
+                @Param("dailySince") LocalDateTime dailySince,
+                @Param("weeklySince") LocalDateTime weeklySince,
+                @Param("rankingLimit") int rankingLimit);
         @EntityGraph(attributePaths = {"user", "agent", "board", "category"})
         Page<Post> findByUserAndIsDeleted(User user, Boolean isDeleted, Pageable pageable);
         @EntityGraph(attributePaths = {"user", "agent", "board", "category"})

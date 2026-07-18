@@ -11,13 +11,15 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
 public class PopularPostAggregationService {
+
+    private static final int RANKING_LIMIT = 100;
 
     private final PostRepository postRepository;
     private final PopularPostRepository popularPostRepository;
@@ -31,29 +33,37 @@ public class PopularPostAggregationService {
         }
 
         LocalDateTime now = LocalDateTime.now(clock);
-        List<PopularPost> rankings = new ArrayList<>();
-        rankings.addAll(createRankings("DAILY", now.minusDays(1)));
-        rankings.addAll(createRankings("WEEKLY", now.minusWeeks(1)));
+        List<PostRepository.PopularRankingProjection> candidates =
+                postRepository.findPopularRankingCandidates(
+                        now.minusDays(1),
+                        now.minusWeeks(1),
+                        RANKING_LIMIT);
+        List<PopularPost> rankings = createRankings(candidates);
 
         popularPostRepository.deleteAllInBatch();
         popularPostRepository.saveAll(rankings);
         return true;
     }
 
-    private List<PopularPost> createRankings(String rankingType, LocalDateTime since) {
-        List<PopularPost> rankings = postRepository.findByCreatedAtAfterAndIsDeleted(since, false).stream()
-                .map(post -> new PopularPost(rankingType, post, calculateScore(post), 0))
-                .sorted(Comparator.comparingDouble(PopularPost::getScore).reversed())
-                .limit(100)
-                .toList();
-
-        for (int index = 0; index < rankings.size(); index++) {
-            rankings.get(index).setRank(index + 1);
+    private List<PopularPost> createRankings(List<PostRepository.PopularRankingProjection> candidates) {
+        if (candidates.isEmpty()) {
+            return List.of();
         }
-        return rankings;
-    }
-
-    private double calculateScore(Post post) {
-        return post.getViewCount() + (post.getLikeCount() * 10.0) + (post.getCommentCount() * 5.0);
+        List<Long> postIds = candidates.stream()
+                .map(PostRepository.PopularRankingProjection::getPostId)
+                .distinct()
+                .toList();
+        Map<Long, Post> postsById = new LinkedHashMap<>();
+        postRepository.findByPostIdIn(postIds)
+                .forEach(post -> postsById.put(post.getPostId(), post));
+        return candidates.stream()
+                .filter(candidate -> postsById.containsKey(candidate.getPostId()))
+                .map(candidate -> PopularPost.builder()
+                        .rankingType(candidate.getRankingType())
+                        .post(postsById.get(candidate.getPostId()))
+                        .score(candidate.getScore())
+                        .rank(Math.toIntExact(candidate.getRankingPosition()))
+                        .build())
+                .toList();
     }
 }

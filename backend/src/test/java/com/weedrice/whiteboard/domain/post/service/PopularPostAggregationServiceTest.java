@@ -62,10 +62,14 @@ class PopularPostAggregationServiceTest {
         Post weeklyPost = post(3L, 7, 1, 0);
         LocalDateTime now = LocalDateTime.now(FIXED_CLOCK);
         when(lockRepository.tryAcquireTransactionLock()).thenReturn(true);
-        when(postRepository.findByCreatedAtAfterAndIsDeleted(now.minusDays(1), false))
-                .thenReturn(List.of(lowScorePost, highScorePost));
-        when(postRepository.findByCreatedAtAfterAndIsDeleted(now.minusWeeks(1), false))
-                .thenReturn(List.of(weeklyPost));
+        when(postRepository.findPopularRankingCandidates(now.minusDays(1), now.minusWeeks(1), 100))
+                .thenReturn(List.of(
+                        ranking("DAILY", 1L, 60.0, 1L),
+                        ranking("DAILY", 2L, 10.0, 2L),
+                        ranking("WEEKLY", 1L, 60.0, 1L),
+                        ranking("WEEKLY", 3L, 17.0, 2L)));
+        when(postRepository.findByPostIdIn(List.of(1L, 2L, 3L)))
+                .thenReturn(List.of(highScorePost, lowScorePost, weeklyPost));
 
         assertThat(service.aggregate()).isTrue();
 
@@ -75,18 +79,20 @@ class PopularPostAggregationServiceTest {
         verify(popularPostRepository).saveAll(captor.capture());
         List<PopularPost> saved = captor.getValue();
         assertThat(saved).extracting(PopularPost::getRankingType)
-                .containsExactly("DAILY", "DAILY", "WEEKLY");
+                .containsExactly("DAILY", "DAILY", "WEEKLY", "WEEKLY");
         assertThat(saved).extracting(popularPost -> popularPost.getPost().getPostId())
-                .containsExactly(1L, 2L, 3L);
-        assertThat(saved).extracting(PopularPost::getRank).containsExactly(1, 2, 1);
-        assertThat(saved).extracting(PopularPost::getScore).containsExactly(60.0, 10.0, 17.0);
+                .containsExactly(1L, 2L, 1L, 3L);
+        assertThat(saved).extracting(PopularPost::getRank).containsExactly(1, 2, 1, 2);
+        assertThat(saved).extracting(PopularPost::getScore).containsExactly(60.0, 10.0, 60.0, 17.0);
+        verify(postRepository).findPopularRankingCandidates(now.minusDays(1), now.minusWeeks(1), 100);
+        verify(postRepository).findByPostIdIn(List.of(1L, 2L, 3L));
     }
 
     @Test
     void aggregate_doesNotDeleteExistingRankingsBeforeAllScoresAreCalculated() {
         LocalDateTime now = LocalDateTime.now(FIXED_CLOCK);
         when(lockRepository.tryAcquireTransactionLock()).thenReturn(true);
-        when(postRepository.findByCreatedAtAfterAndIsDeleted(now.minusDays(1), false))
+        when(postRepository.findPopularRankingCandidates(now.minusDays(1), now.minusWeeks(1), 100))
                 .thenThrow(new IllegalStateException("aggregation failed"));
 
         org.assertj.core.api.Assertions.assertThatThrownBy(service::aggregate)
@@ -103,5 +109,30 @@ class PopularPostAggregationServiceTest {
         ReflectionTestUtils.setField(post, "likeCount", likeCount);
         ReflectionTestUtils.setField(post, "commentCount", commentCount);
         return post;
+    }
+
+    private PostRepository.PopularRankingProjection ranking(
+            String rankingType, Long postId, Double score, Long position) {
+        return new PostRepository.PopularRankingProjection() {
+            @Override
+            public String getRankingType() {
+                return rankingType;
+            }
+
+            @Override
+            public Long getPostId() {
+                return postId;
+            }
+
+            @Override
+            public Double getScore() {
+                return score;
+            }
+
+            @Override
+            public Long getRankingPosition() {
+                return position;
+            }
+        };
     }
 }
