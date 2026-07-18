@@ -55,8 +55,8 @@ public interface ScrapRepository extends JpaRepository<Scrap, ScrapId> {
             WHERE s.user = :user
               AND p.isDeleted = false
               AND (:folderId IS NULL OR s.folder.folderId = :folderId)
-              AND (LOWER(p.title) LIKE :keywordPattern
-                   OR LOWER(COALESCE(s.remark, '')) LIKE :keywordPattern)
+              AND (LOWER(p.title) LIKE :keywordPattern ESCAPE '!'
+                   OR LOWER(COALESCE(s.remark, '')) LIKE :keywordPattern ESCAPE '!')
               AND (:blockedUserIdsEmpty = true OR p.user.userId NOT IN (:blockedUserIds))
             """ + PostVisibilityJpql.VIEWER_READABLE_POST + """
             ORDER BY s.createdAt DESC, p.postId DESC
@@ -68,8 +68,8 @@ public interface ScrapRepository extends JpaRepository<Scrap, ScrapId> {
             WHERE s.user = :user
               AND p.isDeleted = false
               AND (:folderId IS NULL OR s.folder.folderId = :folderId)
-              AND (LOWER(p.title) LIKE :keywordPattern
-                   OR LOWER(COALESCE(s.remark, '')) LIKE :keywordPattern)
+              AND (LOWER(p.title) LIKE :keywordPattern ESCAPE '!'
+                   OR LOWER(COALESCE(s.remark, '')) LIKE :keywordPattern ESCAPE '!')
               AND (:blockedUserIdsEmpty = true OR p.user.userId NOT IN (:blockedUserIds))
             """ + PostVisibilityJpql.VIEWER_READABLE_POST + """
             """)

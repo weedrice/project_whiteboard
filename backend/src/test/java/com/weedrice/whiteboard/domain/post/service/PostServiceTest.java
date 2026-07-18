@@ -2001,6 +2001,35 @@ class PostServiceTest {
                 any(Pageable.class));
     }
 
+    @Test
+    @DisplayName("스크랩 검색 LIKE 패턴은 이스케이프 문자와 와일드카드를 이스케이프한다")
+    void getMyScraps_withSpecialKeyword_escapesLikeMetacharacters() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
+        when(scrapRepository.findPageByUserWithPostDetailsByKeyword(
+                eq(user),
+                isNull(),
+                eq("%!%a!_!!%"),
+                eq(false),
+                eq(true),
+                eq(NO_BLOCKED_USER_IDS),
+                eq(BoardPolicyConstants.INQUIRY_BOARD_URL),
+                any(Pageable.class)))
+                .thenAnswer(invocation -> Page.empty(invocation.getArgument(7)));
+
+        postService.getMyScraps(1L, null, "%A_!", PageRequest.of(0, 10));
+
+        verify(scrapRepository).findPageByUserWithPostDetailsByKeyword(
+                eq(user),
+                isNull(),
+                eq("%!%a!_!!%"),
+                eq(false),
+                eq(true),
+                eq(NO_BLOCKED_USER_IDS),
+                eq(BoardPolicyConstants.INQUIRY_BOARD_URL),
+                any(Pageable.class));
+    }
+
     // --- Drafts ---
 
     @Test

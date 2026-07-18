@@ -420,7 +420,11 @@ public class PostInteractionService {
     }
 
     private String toCaseInsensitiveLikePattern(String keyword) {
-        return "%" + keyword.toLowerCase(Locale.ROOT) + "%";
+        String escapedKeyword = keyword.toLowerCase(Locale.ROOT)
+                .replace("!", "!!")
+                .replace("%", "!%")
+                .replace("_", "!_");
+        return "%" + escapedKeyword + "%";
     }
 
     private void validateScrapFolderOwner(Long userId, Long folderId) {

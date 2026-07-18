@@ -141,6 +141,35 @@ class ScrapRepositoryTest {
     }
 
     @Test
+    @DisplayName("스크랩 검색은 퍼센트와 밑줄을 와일드카드가 아닌 문자로 처리한다")
+    void findPageByUserWithPostDetailsByKeyword_treatsWildcardsAsLiterals() {
+        User managedAuthor = entityManager.find(User.class, author.getUserId());
+        User managedScrapper = entityManager.find(User.class, scrapper.getUserId());
+        Board managedBoard = entityManager.find(Board.class, board.getBoardId());
+        Post literalPost = persistPost(managedBoard, managedAuthor, "달성률 100%_완료!", false);
+        Post wildcardOnlyPost = persistPost(managedBoard, managedAuthor, "달성률 100점A완료", false);
+        entityManager.persist(Scrap.builder().user(managedScrapper).post(literalPost).remark(null).build());
+        entityManager.persist(Scrap.builder().user(managedScrapper).post(wildcardOnlyPost).remark(null).build());
+        entityManager.flush();
+        entityManager.clear();
+
+        Page<Scrap> result = scrapRepository.findPageByUserWithPostDetailsByKeyword(
+                scrapper,
+                null,
+                "%100!%!_완료!!%",
+                false,
+                true,
+                NO_BLOCKED_USER_IDS,
+                BoardPolicyConstants.INQUIRY_BOARD_URL,
+                PageRequest.of(0, 10));
+
+        assertThat(result.getTotalElements()).isEqualTo(1);
+        assertThat(result.getContent())
+                .extracting(scrap -> scrap.getPost().getTitle())
+                .containsExactly("달성률 100%_완료!");
+    }
+
+    @Test
     @DisplayName("findPostIdsByUserIdAndPostIdIn returns only scrapped post IDs")
     void findPostIdsByUserIdAndPostIdIn_success() {
         List<Long> postIds = scrapRepository.findPostIdsByUserIdAndPostIdIn(
