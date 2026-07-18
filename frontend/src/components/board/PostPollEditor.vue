@@ -2,7 +2,11 @@
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseCheckbox from '@/components/common/ui/BaseCheckbox.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
-import type { PostFormPoll } from '@/utils/postForm'
+import {
+  POST_POLL_OPTION_MAX_LENGTH,
+  POST_POLL_QUESTION_MAX_LENGTH,
+  type PostFormPoll,
+} from '@/utils/postForm'
 
 const props = defineProps<{
   modelValue: PostFormPoll | null
@@ -70,6 +74,7 @@ function setClosesAt(closesAt: string) {
       :label="$t('board.writePost.poll.question')"
       label-class="uppercase tracking-[0.18em] text-[var(--nv-muted)]"
       :placeholder="$t('board.writePost.poll.questionPlaceholder')"
+      :maxlength="POST_POLL_QUESTION_MAX_LENGTH"
       :disabled="mode === 'edit'"
       @update:model-value="setQuestion(String($event))"
     />
@@ -87,6 +92,7 @@ function setClosesAt(closesAt: string) {
           :label="$t('board.writePost.poll.option', { index: index + 1 })"
           hide-label
           :placeholder="$t('board.writePost.poll.optionPlaceholder')"
+          :maxlength="POST_POLL_OPTION_MAX_LENGTH"
           :disabled="mode === 'edit'"
           @update:model-value="setOption(index, String($event))"
         />

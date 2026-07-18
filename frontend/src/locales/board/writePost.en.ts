@@ -31,6 +31,15 @@ export const boardEnWritePostMessages: BoardMessages['writePost'] = {
       multiple: 'Allow multiple choices',
       anonymous: 'Anonymous voting',
       closesAt: 'Close time',
+      validation: {
+        questionRequired: 'Enter a poll question.',
+        questionTooLong: 'Poll questions must be {questionMax} characters or fewer.',
+        optionRequired: 'Enter every poll option.',
+        optionCount: 'Polls must have between {min} and {max} options.',
+        optionTooLong: 'Each poll option must be {optionMax} characters or fewer.',
+        closesAtFuture: 'The poll close time must be in the future.',
+        closesAtAfterSchedule: 'The poll close time must be more than one minute after publication.',
+      },
     },
     placeholder: {
       title: 'Enter a title.',

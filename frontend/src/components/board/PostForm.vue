@@ -29,6 +29,13 @@ import { AUTH_SCOPED_QUERY_META, sessionQueryKey } from '@/queryAuthScope'
 import { userQueryKeys } from '@/features/user/userQueryKeys'
 import { queryClient } from '@/queryClient'
 import ErrorState from '@/components/common/ui/ErrorState.vue'
+import {
+  POST_POLL_MAX_OPTIONS,
+  POST_POLL_MIN_OPTIONS,
+  POST_POLL_OPTION_MAX_LENGTH,
+  POST_POLL_QUESTION_MAX_LENGTH,
+  validatePostFormPoll,
+} from '@/utils/postForm'
 
 const props = defineProps<{
   mode: 'create' | 'edit'
@@ -343,8 +350,25 @@ const { handleSubmit, isSubmissionLocked } = usePostComposerSubmit({
   addToast: toastStore.addToast,
   validateBeforeSubmit: () => {
     const valid = postValidation.validateAll(postRequiredValues.value)
-    if (!valid) toastStore.addToast(t('board.writePost.validation'), 'error')
-    return valid
+    if (!valid) {
+      toastStore.addToast(t('board.writePost.validation'), 'error')
+      return false
+    }
+
+    if (props.mode === 'create') {
+      const pollError = validatePostFormPoll(form.value.poll, Date.now(), scheduledAt.value)
+      if (pollError) {
+        toastStore.addToast(t(`board.writePost.poll.validation.${pollError}`, {
+          questionMax: POST_POLL_QUESTION_MAX_LENGTH,
+          optionMax: POST_POLL_OPTION_MAX_LENGTH,
+          min: POST_POLL_MIN_OPTIONS,
+          max: POST_POLL_MAX_OPTIONS,
+        }), 'error')
+        return false
+      }
+    }
+
+    return true
   },
 })
 

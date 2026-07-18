@@ -13,6 +13,20 @@ export type PostFormPoll = {
     closesAt: string | null
 }
 
+export const POST_POLL_QUESTION_MAX_LENGTH = 200
+export const POST_POLL_OPTION_MAX_LENGTH = 100
+export const POST_POLL_MIN_OPTIONS = 2
+export const POST_POLL_MAX_OPTIONS = 10
+
+export type PostFormPollValidationError =
+    | 'questionRequired'
+    | 'questionTooLong'
+    | 'optionRequired'
+    | 'optionCount'
+    | 'optionTooLong'
+    | 'closesAtFuture'
+    | 'closesAtAfterSchedule'
+
 export type PostFormPayloadForm = {
     title: string
     content: string
@@ -164,6 +178,37 @@ export function normalizePostFormPoll(poll?: PostFormPoll | null): PollPayload |
         anonymousEnabled: poll.anonymousEnabled,
         closesAt: poll.closesAt || null,
     }
+}
+
+export function validatePostFormPoll(
+    poll?: PostFormPoll | null,
+    now = Date.now(),
+    scheduledAt?: string | null,
+): PostFormPollValidationError | null {
+    if (!poll) return null
+
+    const question = poll.question.trim()
+    if (!question) return 'questionRequired'
+    if (question.length > POST_POLL_QUESTION_MAX_LENGTH) return 'questionTooLong'
+    if (poll.options.length < POST_POLL_MIN_OPTIONS || poll.options.length > POST_POLL_MAX_OPTIONS) {
+        return 'optionCount'
+    }
+
+    const options = poll.options.map((option) => option.trim())
+    if (options.some((option) => !option)) return 'optionRequired'
+    if (options.some((option) => option.length > POST_POLL_OPTION_MAX_LENGTH)) return 'optionTooLong'
+
+    if (poll.closesAt) {
+        const closesAt = new Date(poll.closesAt).getTime()
+        if (!Number.isFinite(closesAt) || closesAt <= now) return 'closesAtFuture'
+
+        const scheduledTime = scheduledAt ? new Date(scheduledAt).getTime() : Number.NaN
+        if (Number.isFinite(scheduledTime) && closesAt <= scheduledTime + 60_000) {
+            return 'closesAtAfterSchedule'
+        }
+    }
+
+    return null
 }
 
 export function toSafePostLinkUrl(url: string): string {

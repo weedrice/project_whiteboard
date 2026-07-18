@@ -6,6 +6,7 @@ import {
     resolvePostFormFileIds,
     toEmbedPostVideoUrl,
     toSafePostLinkUrl,
+    validatePostFormPoll,
 } from '../postForm'
 import { decodeSandboxedPostHtml } from '../postHtmlSandbox'
 
@@ -142,6 +143,37 @@ describe('postForm', () => {
             canShowNsfw: true,
             fileIds: [],
         })).not.toHaveProperty('poll')
+    })
+
+    it('validates complete poll limits and a future close time before publishing', () => {
+        const validPoll = {
+            question: 'Pick one',
+            options: ['Alpha', 'Beta'],
+            multipleChoiceEnabled: false,
+            anonymousEnabled: false,
+            closesAt: '2026-01-02T00:00:00Z',
+        }
+        const now = new Date('2026-01-01T00:00:00Z').getTime()
+
+        expect(validatePostFormPoll(validPoll, now)).toBeNull()
+        expect(validatePostFormPoll({ ...validPoll, question: ' '.repeat(2) }, now)).toBe('questionRequired')
+        expect(validatePostFormPoll({ ...validPoll, question: 'q'.repeat(201) }, now)).toBe('questionTooLong')
+        expect(validatePostFormPoll({ ...validPoll, options: ['Alpha'] }, now)).toBe('optionCount')
+        expect(validatePostFormPoll({ ...validPoll, options: Array.from({ length: 11 }, (_, index) => `Option ${index}`) }, now)).toBe('optionCount')
+        expect(validatePostFormPoll({ ...validPoll, options: ['Alpha', ' '] }, now)).toBe('optionRequired')
+        expect(validatePostFormPoll({ ...validPoll, options: ['Alpha', 'b'.repeat(101)] }, now)).toBe('optionTooLong')
+        expect(validatePostFormPoll({ ...validPoll, closesAt: '2025-12-31T23:59:59Z' }, now)).toBe('closesAtFuture')
+        expect(validatePostFormPoll({ ...validPoll, closesAt: 'not-a-date' }, now)).toBe('closesAtFuture')
+        expect(validatePostFormPoll(
+            { ...validPoll, closesAt: '2026-01-02T00:01:00Z' },
+            now,
+            '2026-01-02T00:00:00Z',
+        )).toBe('closesAtAfterSchedule')
+        expect(validatePostFormPoll(
+            { ...validPoll, closesAt: '2026-01-02T00:01:01Z' },
+            now,
+            '2026-01-02T00:00:00Z',
+        )).toBeNull()
     })
 
     it('encodes script-style html widgets before submit', () => {

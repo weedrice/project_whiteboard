@@ -16,6 +16,7 @@ import {
     isUpdatePendingRef,
     mockAddToast,
     mockCreateMutate,
+    mockCreateScheduledMutate,
     mockUpdateMutate,
     mockUsePostDetail,
     mountPostForm,
@@ -264,6 +265,42 @@ describe('PostForm', () => {
             anonymousEnabled: false,
             closesAt: null,
         })
+    })
+
+    it('blocks publishing an incomplete poll instead of silently dropping it', async () => {
+        const wrapper = mountPostForm('create')
+        await fillPostForm(wrapper, { categoryId: '12' })
+        await wrapper.get('[data-testid="open-poll"]').trigger('click')
+        await wrapper.get('[data-testid="poll-question"]').setValue('Incomplete poll')
+        await wrapper.get('[data-testid="poll-option-0"]').setValue('First')
+
+        await submitPostForm(wrapper)
+
+        expect(mockCreateMutate).not.toHaveBeenCalled()
+        expect(mockAddToast).toHaveBeenCalledWith(
+            'board.writePost.poll.validation.optionRequired',
+            'error',
+        )
+    })
+
+    it('blocks a scheduled poll that closes no later than one minute after publication', async () => {
+        const wrapper = mountPostForm('create')
+        await fillPostForm(wrapper, { categoryId: '12' })
+        await wrapper.get('[data-testid="open-poll"]').trigger('click')
+        await wrapper.get('[data-testid="poll-question"]').setValue('Scheduled poll')
+        await wrapper.get('[data-testid="poll-option-0"]').setValue('First')
+        await wrapper.get('[data-testid="poll-option-1"]').setValue('Second')
+        await wrapper.get('#scheduled-at').setValue('2099-01-02T12:00')
+        await wrapper.get('#poll-closes-at').setValue('2099-01-02T12:01')
+
+        await submitPostForm(wrapper)
+
+        expect(mockCreateMutate).not.toHaveBeenCalled()
+        expect(mockCreateScheduledMutate).not.toHaveBeenCalled()
+        expect(mockAddToast).toHaveBeenCalledWith(
+            'board.writePost.poll.validation.closesAtAfterSchedule',
+            'error',
+        )
     })
 
     it('keeps redirectOnCreate as a compatibility prop without navigating internally', async () => {

@@ -308,6 +308,15 @@ export interface BoardMessages {
       multiple: string
       anonymous: string
       closesAt: string
+      validation: {
+        questionRequired: string
+        questionTooLong: string
+        optionRequired: string
+        optionCount: string
+        optionTooLong: string
+        closesAtFuture: string
+        closesAtAfterSchedule: string
+      }
     }
     placeholder: {
       title: string

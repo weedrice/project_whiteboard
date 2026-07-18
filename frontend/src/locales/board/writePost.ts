@@ -30,6 +30,15 @@ export const boardWritePostMessages: BoardMessages['writePost'] = {
       multiple: '복수 선택 허용',
       anonymous: '익명 투표',
       closesAt: '마감 시간',
+      validation: {
+        questionRequired: '투표 질문을 입력해 주세요.',
+        questionTooLong: '투표 질문은 {questionMax}자 이하로 입력해 주세요.',
+        optionRequired: '모든 투표 선택지를 입력해 주세요.',
+        optionCount: '투표 선택지는 {min}개 이상 {max}개 이하로 입력해 주세요.',
+        optionTooLong: '투표 선택지는 각각 {optionMax}자 이하로 입력해 주세요.',
+        closesAtFuture: '투표 마감 시간은 현재보다 이후여야 합니다.',
+        closesAtAfterSchedule: '투표 마감 시간은 예약 발행 시각보다 1분 이후여야 합니다.',
+      },
     },
     placeholder: {
       title: '제목을 입력해 주세요.',
