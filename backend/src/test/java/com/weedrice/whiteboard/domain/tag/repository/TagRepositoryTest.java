@@ -13,12 +13,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.PageRequest;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 
 @DataJpaTest
 @Import(QuerydslConfig.class)
@@ -155,6 +157,74 @@ class TagRepositoryTest {
     }
 
     @Test
+    @DisplayName("공개 활성 게시판의 일반 게시글만 인기 태그 집계에 포함한다")
+    void findPopularPublicTagCounts_countsOnlyAnonymousVisiblePosts() {
+        User user = User.builder()
+                .loginId("public-tag-user")
+                .email("public-tag@test.com")
+                .password("password")
+                .displayName("Public Tag User")
+                .build();
+        entityManager.persist(user);
+
+        Board publicBoard = createBoard("Public Tag Board", "public-tag-board", user, true);
+        Board privateBoard = createBoard("Private Tag Board", "private-tag-board", user, false);
+        Board inactiveBoard = createBoard("Inactive Tag Board", "inactive-tag-board", user, true);
+        inactiveBoard.deactivate();
+        entityManager.persist(publicBoard);
+        entityManager.persist(privateBoard);
+        entityManager.persist(inactiveBoard);
+
+        Tag secondPublicTag = new Tag("second-public-tag");
+        Tag hiddenOnlyTag = new Tag("hidden-only-tag");
+        entityManager.persist(secondPublicTag);
+        entityManager.persist(hiddenOnlyTag);
+
+        Post publicPostOne = createPost("public-one", publicBoard, user, false);
+        Post publicPostTwo = createPost("public-two", publicBoard, user, false);
+        Post secretPost = createPost("secret", publicBoard, user, true);
+        Post blindedPost = createPost("blinded", publicBoard, user, false);
+        blindedPost.blind("moderation", LocalDateTime.now());
+        Post deletedPost = createPost("deleted", publicBoard, user, false);
+        deletedPost.deletePost();
+        Post privateBoardPost = createPost("private-board", privateBoard, user, false);
+        Post inactiveBoardPost = createPost("inactive-board", inactiveBoard, user, false);
+
+        List<Post> posts = List.of(
+                publicPostOne,
+                publicPostTwo,
+                secretPost,
+                blindedPost,
+                deletedPost,
+                privateBoardPost,
+                inactiveBoardPost);
+        posts.forEach(entityManager::persist);
+
+        entityManager.persist(PostTag.builder().post(publicPostOne).tag(tag).build());
+        entityManager.persist(PostTag.builder().post(publicPostTwo).tag(tag).build());
+        entityManager.persist(PostTag.builder().post(publicPostOne).tag(secondPublicTag).build());
+        posts.stream()
+                .filter(post -> post != publicPostOne && post != publicPostTwo)
+                .forEach(post -> {
+                    entityManager.persist(PostTag.builder().post(post).tag(tag).build());
+                    entityManager.persist(PostTag.builder().post(post).tag(hiddenOnlyTag).build());
+                });
+        entityManager.flush();
+        entityManager.clear();
+
+        List<TagRepository.PublicTagCountProjection> popularTags =
+                tagRepository.findPopularPublicTagCounts(PageRequest.of(0, 10));
+
+        assertThat(popularTags)
+                .extracting(
+                        TagRepository.PublicTagCountProjection::getTagName,
+                        TagRepository.PublicTagCountProjection::getPostCount)
+                .containsExactly(
+                        tuple("test-tag", 2L),
+                        tuple("second-public-tag", 1L));
+    }
+
+    @Test
     @DisplayName("24시간 초과 고아 태그를 삭제한다")
     void deleteOrphanTagsCreatedBefore_deletesOldZeroCountOrphans() {
         Tag orphanTag = new Tag("old-orphan-tag");
@@ -230,5 +300,24 @@ class TagRepositoryTest {
                 .setParameter(3, tag.getTagId())
                 .executeUpdate();
         entityManager.clear();
+    }
+
+    private Board createBoard(String name, String url, User creator, boolean isPublic) {
+        return Board.builder()
+                .boardName(name)
+                .boardUrl(url)
+                .creator(creator)
+                .isPublic(isPublic)
+                .build();
+    }
+
+    private Post createPost(String title, Board board, User user, boolean isSecret) {
+        return Post.builder()
+                .title(title)
+                .contents("contents")
+                .user(user)
+                .board(board)
+                .isSecret(isSecret)
+                .build();
     }
 }

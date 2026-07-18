@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.tag.dto;
 
 import com.weedrice.whiteboard.domain.tag.entity.Tag;
+import com.weedrice.whiteboard.domain.tag.model.PublicTagCount;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -26,6 +27,17 @@ public class TagResponse {
                         .tagId(tag.getTagId())
                         .tagName(tag.getTagName())
                         .postCount(tag.getPostCount())
+                        .build())
+                .collect(Collectors.toList());
+        return TagResponse.builder().tags(tagInfos).build();
+    }
+
+    public static TagResponse fromPublicCounts(List<PublicTagCount> tags) {
+        List<TagInfo> tagInfos = tags.stream()
+                .map(tag -> TagInfo.builder()
+                        .tagId(tag.tagId())
+                        .tagName(tag.tagName())
+                        .postCount(Math.toIntExact(tag.postCount()))
                         .build())
                 .collect(Collectors.toList());
         return TagResponse.builder().tags(tagInfos).build();

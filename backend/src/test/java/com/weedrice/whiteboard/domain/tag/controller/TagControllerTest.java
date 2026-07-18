@@ -4,6 +4,7 @@ import tools.jackson.databind.ObjectMapper;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.service.PostService;
 import com.weedrice.whiteboard.domain.tag.dto.TagResponse;
+import com.weedrice.whiteboard.domain.tag.model.PublicTagCount;
 import com.weedrice.whiteboard.domain.tag.service.TagService;
 import com.weedrice.whiteboard.domain.tag.service.TagSuggestionService;
 import com.weedrice.whiteboard.global.config.CurrentUserIdWebMvcConfig;
@@ -162,11 +163,9 @@ class TagControllerTest {
     @DisplayName("인기 태그 조회 성공")
     void getPopularTags_returnsSuccess() throws Exception {
         // given
-        com.weedrice.whiteboard.domain.tag.entity.Tag tag1 = com.weedrice.whiteboard.domain.tag.entity.Tag.builder()
-                .tagName("tag1").build();
-        com.weedrice.whiteboard.domain.tag.entity.Tag tag2 = com.weedrice.whiteboard.domain.tag.entity.Tag.builder()
-                .tagName("tag2").build();
-        List<com.weedrice.whiteboard.domain.tag.entity.Tag> tags = List.of(tag1, tag2);
+        List<PublicTagCount> tags = List.of(
+                new PublicTagCount(1L, "tag1", 2L),
+                new PublicTagCount(2L, "tag2", 1L));
         when(tagService.getPopularTags()).thenReturn(tags);
 
         // when & then
@@ -174,7 +173,9 @@ class TagControllerTest {
                         .with(anonymous()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.tags").isArray());
+                .andExpect(jsonPath("$.data.tags").isArray())
+                .andExpect(jsonPath("$.data.tags[0].tagName").value("tag1"))
+                .andExpect(jsonPath("$.data.tags[0].postCount").value(2));
     }
 
     @Test

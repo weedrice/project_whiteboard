@@ -6,8 +6,8 @@ import com.weedrice.whiteboard.domain.tag.dto.TagSuggestionRequest;
 import com.weedrice.whiteboard.domain.tag.dto.TagSuggestionResponse;
 import com.weedrice.whiteboard.domain.tag.entity.PostTag;
 import com.weedrice.whiteboard.domain.tag.entity.Tag;
+import com.weedrice.whiteboard.domain.tag.model.PublicTagCount;
 import com.weedrice.whiteboard.domain.tag.repository.PostTagRepository;
-import com.weedrice.whiteboard.domain.tag.repository.TagRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
@@ -34,7 +34,7 @@ public class TagSuggestionService {
 
     private final SemanticSearchService semanticSearchService;
     private final PostTagRepository postTagRepository;
-    private final TagRepository tagRepository;
+    private final TagService tagService;
 
     public TagSuggestionResponse suggest(TagSuggestionRequest request, Long currentUserId) {
         String query = buildQuery(request);
@@ -87,8 +87,8 @@ public class TagSuggestionService {
     }
 
     private void addPopularTags(LinkedHashSet<String> suggestions, Set<String> excluded) {
-        tagRepository.findTop10ByPostCountGreaterThanOrderByPostCountDesc(0).stream()
-                .map(Tag::getTagName)
+        tagService.getPopularTags().stream()
+                .map(PublicTagCount::tagName)
                 .filter(StringUtils::hasText)
                 .filter(tagName -> !excluded.contains(normalizeKey(tagName)))
                 .forEach(suggestions::add);

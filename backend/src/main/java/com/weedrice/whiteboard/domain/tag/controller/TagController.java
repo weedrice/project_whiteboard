@@ -37,7 +37,7 @@ public class TagController {
 
     @GetMapping
     public ApiResponse<TagResponse> getPopularTags() {
-        return ApiResponse.success(TagResponse.from(tagService.getPopularTags()));
+        return ApiResponse.success(TagResponse.fromPublicCounts(tagService.getPopularTags()));
     }
 
     @PostMapping("/suggestions")

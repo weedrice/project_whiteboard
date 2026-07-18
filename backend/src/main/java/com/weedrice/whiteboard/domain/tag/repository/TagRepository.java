@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.tag.repository;
 
 import com.weedrice.whiteboard.domain.tag.entity.Tag;
 import jakarta.persistence.LockModeType;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
@@ -13,6 +14,14 @@ import java.util.List;
 import java.util.Optional;
 
 public interface TagRepository extends JpaRepository<Tag, Long>, TagRepositoryCustom {
+    interface PublicTagCountProjection {
+        Long getTagId();
+
+        String getTagName();
+
+        long getPostCount();
+    }
+
     Optional<Tag> findByTagName(String tagName);
 
     List<Tag> findByTagNameIn(Collection<String> tagNames);
@@ -22,6 +31,24 @@ public interface TagRepository extends JpaRepository<Tag, Long>, TagRepositoryCu
     List<Tag> findByTagNameInForUpdate(@Param("tagNames") Collection<String> tagNames);
 
     List<Tag> findTop10ByPostCountGreaterThanOrderByPostCountDesc(Integer postCount);
+
+    @Query("""
+            SELECT t.tagId AS tagId,
+                   t.tagName AS tagName,
+                   COUNT(pt) AS postCount
+            FROM PostTag pt
+            JOIN pt.tag t
+            JOIN pt.post p
+            JOIN p.board b
+            WHERE p.isDeleted = false
+              AND p.isBlinded = false
+              AND p.isSecret = false
+              AND b.isActive = true
+              AND b.isPublic = true
+            GROUP BY t.tagId, t.tagName
+            ORDER BY COUNT(pt) DESC, t.tagName ASC, t.tagId ASC
+            """)
+    List<PublicTagCountProjection> findPopularPublicTagCounts(Pageable pageable);
 
     @Modifying(flushAutomatically = true)
     @Query("UPDATE Tag t SET t.postCount = t.postCount + 1 WHERE t.tagId = :tagId")
