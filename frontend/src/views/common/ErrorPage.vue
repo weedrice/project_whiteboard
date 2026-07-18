@@ -5,7 +5,7 @@
                 <BaseInput v-model="keyword" :label="t('search.placeholder')" :placeholder="t('search.placeholder')" hide-label class="min-w-0 flex-1" />
                 <BaseButton type="submit" :disabled="!keyword.trim()">{{ t('search.doSearch') }}</BaseButton>
             </form>
-            <BaseButton v-if="numericStatus === 500" type="button" variant="primary" @click="retry">
+            <BaseButton v-if="numericStatus === 500 || numericStatus === 503" type="button" variant="primary" @click="retry">
                 {{ t('common.error.retry') }}
             </BaseButton>
             <BaseButton v-if="numericStatus === 403 && !authStore.isAuthenticated" type="button" variant="primary" @click="goToLogin">
@@ -37,10 +37,14 @@ const homeHref = computed(() => import.meta.env.BASE_URL || '/')
 const status = computed(() => getSingleQueryValue(route.query.status) || t('common.error.unknown'))
 const numericStatus = computed(() => Number(status.value))
 const keyword = ref('')
+const retryTarget = computed(() => {
+    const value = getSingleQueryValue(route.query.retry)
+    return value?.startsWith('/') && !value.startsWith('//') ? value : null
+})
 const message = computed(() => {
     if (numericStatus.value === 403) return t('common.messages.forbidden')
     if (numericStatus.value === 404) return t('common.messages.notFound')
-    if (numericStatus.value === 500) return t('common.messages.serverError')
+    if (numericStatus.value === 500 || numericStatus.value === 503) return t('common.messages.serverError')
     return t('common.error.defaultMessage')
 })
 
@@ -49,7 +53,12 @@ function search() {
     if (q) void router.push({ name: 'search', query: { q } })
 }
 
-function retry() {
+async function retry() {
+    if (retryTarget.value) {
+        const restored = await authStore.retryBootstrapSession()
+        if (restored) void router.replace(retryTarget.value)
+        return
+    }
     window.location.reload()
 }
 
@@ -64,6 +73,7 @@ const title = computed(() => {
         case 403:
             return t('common.error.forbidden')
         case 500:
+        case 503:
             return t('common.error.serverError')
         default:
             return t('common.error.unknown')

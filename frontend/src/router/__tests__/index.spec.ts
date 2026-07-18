@@ -223,7 +223,9 @@ type MockAuthStore = {
     accessToken: string | null
     isAuthenticated: boolean
     sessionGeneration: number
+    bootstrapState: 'idle' | 'loading' | 'authenticated' | 'transient-error' | 'terminal-error'
     bootstrapSession: ReturnType<typeof vi.fn<() => Promise<boolean>>>
+    retryBootstrapSession: ReturnType<typeof vi.fn<() => Promise<boolean>>>
     fetchUser: ReturnType<typeof vi.fn<() => Promise<boolean | void>>>
     logout: ReturnType<typeof vi.fn<() => void>>
     handleSanctionedSession: ReturnType<typeof vi.fn<() => void>>
@@ -243,7 +245,9 @@ describe('Router Navigation Guards', () => {
             accessToken: null,
             isAuthenticated: false,
             sessionGeneration: 0,
+            bootstrapState: 'idle',
             bootstrapSession: vi.fn().mockResolvedValue(false),
+            retryBootstrapSession: vi.fn().mockResolvedValue(false),
             fetchUser: vi.fn(),
             logout: vi.fn().mockImplementation(() => {
                 mockAuthStore.user = null
@@ -600,6 +604,21 @@ describe('Router Navigation Guards', () => {
         expect(mockAuthStore.fetchUser).toHaveBeenCalled()
         expect(mockAuthStore.logout).toHaveBeenCalled()
         expect(router.currentRoute.value.name).toBe('home')
+    })
+
+    it('preserves the requested route when bootstrap profile hydration is retryable', async () => {
+        mockAuthStore.isAuthenticated = true
+        mockAuthStore.accessToken = null
+        mockAuthStore.bootstrapState = 'transient-error'
+        mockAuthStore.bootstrapSession.mockResolvedValueOnce(false)
+
+        await router.push('/mypage')
+
+        expect(router.currentRoute.value.name).toBe('error')
+        expect(router.currentRoute.value.query).toMatchObject({
+            status: '503',
+            retry: '/mypage',
+        })
     })
 
     it('cancels onboarding redirect when settings resolve after the session changes', async () => {

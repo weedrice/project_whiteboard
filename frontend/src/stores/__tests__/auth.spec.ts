@@ -20,6 +20,7 @@ import {
     authUserFailureResponse,
     authUserResponse,
 } from './storeTestFixtures'
+import { detachBrowserPushSubscriptionForSession } from '@/features/notifications/pushSubscriptions'
 
 // Mock dependencies
 vi.mock('@/api/auth', () => ({
@@ -29,6 +30,10 @@ vi.mock('@/api/auth', () => ({
         refreshToken: vi.fn(),
         getMe: vi.fn()
     }
+}))
+
+vi.mock('@/features/notifications/pushSubscriptions', () => ({
+    detachBrowserPushSubscriptionForSession: vi.fn().mockResolvedValue(undefined),
 }))
 
 const mockSyncThemeFromUser = vi.fn()
@@ -196,6 +201,7 @@ describe('Auth Store', () => {
             expect(store.accessToken).toBeNull()
             expect(store.user).toBeNull()
             expect(mockSessionBoundary).toHaveBeenCalledWith(store.sessionGeneration)
+            expect(detachBrowserPushSubscriptionForSession).toHaveBeenCalledWith('token')
 
             pendingLogout.resolve(authLogoutResponse())
             await logout
@@ -372,7 +378,10 @@ describe('Auth Store', () => {
                 skipGlobalErrorHandler: true,
                 signal: expect.any(AbortSignal),
             })
-            expect(authApi.getMe).toHaveBeenCalledWith({ skipAuthRefresh: true })
+            expect(authApi.getMe).toHaveBeenCalledWith({
+                skipAuthRefresh: true,
+                skipGlobalErrorHandler: true,
+            })
             expect(store.accessToken).toBe('boot-token')
             expect(getStoredAccessToken()).toBe('boot-token')
             expect(store.user).toEqual(user)
@@ -454,6 +463,45 @@ describe('Auth Store', () => {
             expect(store.accessToken).toBeNull()
             expect(store.user).toBeNull()
             expect(authApi.logout).not.toHaveBeenCalled()
+        })
+
+        it('keeps the refreshed token and exposes a retryable state when profile hydration is temporarily unavailable', async () => {
+            vi.mocked(authApi.refreshToken).mockResolvedValue(authLoginResponse(authUser(), 'boot-token'))
+            vi.mocked(authApi.getMe).mockRejectedValue({ response: { status: 503 } })
+
+            await expect(store.bootstrapSession()).resolves.toBe(false)
+
+            expect(store.accessToken).toBe('boot-token')
+            expect(getStoredAccessToken()).toBe('boot-token')
+            expect(store.user).toBeNull()
+            expect(store.bootstrapState).toBe('transient-error')
+        })
+
+        it('retries only profile hydration after refresh has already succeeded', async () => {
+            const user = authUser()
+            vi.mocked(authApi.refreshToken).mockResolvedValue(authLoginResponse(user, 'boot-token'))
+            vi.mocked(authApi.getMe)
+                .mockRejectedValueOnce({ response: { status: 503 } })
+                .mockResolvedValueOnce(authUserResponse(user))
+
+            await expect(store.bootstrapSession()).resolves.toBe(false)
+            await expect(store.retryBootstrapSession()).resolves.toBe(true)
+
+            expect(authApi.refreshToken).toHaveBeenCalledTimes(1)
+            expect(authApi.getMe).toHaveBeenCalledTimes(2)
+            expect(store.user).toEqual(user)
+            expect(store.bootstrapState).toBe('authenticated')
+        })
+
+        it('terminates the refreshed session when profile hydration rejects authentication', async () => {
+            vi.mocked(authApi.refreshToken).mockResolvedValue(authLoginResponse(authUser(), 'boot-token'))
+            vi.mocked(authApi.getMe).mockRejectedValue({ response: { status: 401 } })
+
+            await expect(store.bootstrapSession()).resolves.toBe(false)
+
+            expect(store.accessToken).toBeNull()
+            expect(getStoredAccessToken()).toBeNull()
+            expect(store.bootstrapState).toBe('terminal-error')
         })
 
         it('applies a typed cross-tab login boundary through the normal session cleanup path', () => {

@@ -26,12 +26,14 @@ const mocks = vi.hoisted(() => {
         route,
         t: (key: string) => messages[key] ?? key,
         push: vi.fn(),
+        replace: vi.fn(),
+        retryBootstrapSession: vi.fn().mockResolvedValue(false),
     }
 })
 
 vi.mock('vue-router', () => ({
     useRoute: () => mocks.route,
-    useRouter: () => ({ push: mocks.push }),
+    useRouter: () => ({ push: mocks.push, replace: mocks.replace }),
     RouterLink: {
         props: ['to'],
         template: '<a :href="to"><slot /></a>',
@@ -39,7 +41,10 @@ vi.mock('vue-router', () => ({
 }))
 
 vi.mock('@/stores/auth', () => ({
-    useAuthStore: () => ({ isAuthenticated: false }),
+    useAuthStore: () => ({
+        isAuthenticated: false,
+        retryBootstrapSession: mocks.retryBootstrapSession,
+    }),
 }))
 
 vi.mock('vue-i18n', () => ({
@@ -110,5 +115,30 @@ describe('ErrorPage', () => {
 
         expect(homeLink.attributes('href')).toBe('/')
         expect(homeLink.text()).toBe('Go Home')
+    })
+
+    it('retries a transient bootstrap error at the preserved internal route', async () => {
+        mocks.retryBootstrapSession.mockResolvedValueOnce(true)
+        mocks.route.query = { status: '503', retry: '/mypage?tab=profile' }
+        const wrapper = mountPage()
+
+        const retryButton = wrapper.findAll('button')
+            .find((button) => button.text() === 'common.error.retry')
+        await retryButton?.trigger('click')
+
+        expect(mocks.retryBootstrapSession).toHaveBeenCalledOnce()
+        expect(mocks.replace).toHaveBeenCalledWith('/mypage?tab=profile')
+    })
+
+    it('stays on the error page when bootstrap retry still fails', async () => {
+        mocks.retryBootstrapSession.mockResolvedValueOnce(false)
+        mocks.route.query = { status: '503', retry: '/mypage?tab=profile' }
+        const wrapper = mountPage()
+
+        const retryButton = wrapper.findAll('button')
+            .find((button) => button.text() === 'common.error.retry')
+        await retryButton?.trigger('click')
+
+        expect(mocks.replace).not.toHaveBeenCalled()
     })
 })

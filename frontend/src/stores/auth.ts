@@ -24,6 +24,9 @@ import {
     registerAuthBoundaryListener,
     type AuthBoundaryKind,
 } from '@/api/authBoundaryChannel'
+import { detachBrowserPushSubscriptionForSession } from '@/features/notifications/pushSubscriptions'
+
+export type BootstrapSessionState = 'idle' | 'loading' | 'authenticated' | 'transient-error' | 'terminal-error'
 
 interface AuthSessionEffects {
     syncThemeFromUser: (userData: User | null) => void
@@ -71,20 +74,26 @@ export const useAuthStore = defineStore('auth', () => {
     let bootstrapRetryAt = 0
     let bootstrapInFlight: Promise<boolean> | null = null
     const sessionGeneration = ref(0)
+    const bootstrapState = ref<BootstrapSessionState>('idle')
 
     function resetBootstrapState() {
         bootstrapAttempted = false
         bootstrapTerminalFailure = false
         bootstrapRetryAt = 0
         bootstrapInFlight = null
+        bootstrapState.value = 'idle'
     }
 
     function advanceSessionGeneration() {
+        const previousAccessToken = accessToken.value
         sessionGeneration.value += 1
         rotateSharedAuthSessionId()
         cancelPendingAuthRefresh()
         cancelAuthRefreshCoordinator()
         authSessionEffects.onSessionBoundary(sessionGeneration.value)
+        if (previousAccessToken) {
+            void detachBrowserPushSubscriptionForSession(previousAccessToken)
+        }
         return sessionGeneration.value
     }
 
@@ -154,41 +163,9 @@ export const useAuthStore = defineStore('auth', () => {
     }
 
     async function fetchUser(config?: AxiosRequestConfig, expectedUserId?: number | null): Promise<boolean> {
-        const token = accessToken.value ?? getStoredAccessToken()
-        if (!token) {
-            clearSessionState()
-            return false
-        }
-
-        if (!accessToken.value) accessToken.value = token
-
-        try {
-            const { data } = await authApi.getMe(config)
-            if (accessToken.value !== token) {
-                return Boolean(accessToken.value && user.value)
-            }
-            if (data.success) {
-                const nextUser = unwrapApiData(data)
-                if (expectedUserId != null && nextUser.userId !== expectedUserId) {
-                    clearSessionState()
-                    return false
-                }
-                user.value = nextUser
-
-                if (user.value?.status === 'SANCTIONED') {
-                    await handleSanctionedSession()
-                    return false
-                }
-
-                syncThemeFromUser(user.value)
-
-                return true
-            }
-            return false
-        } catch (error: unknown) {
-            logger.error('Fetch user failed:', error)
-            return false
-        }
+        const result = await hydrateUser(config, expectedUserId)
+        if (result === 'stale') return Boolean(accessToken.value && user.value)
+        return result === 'success'
     }
 
     async function syncFromStoredAccessToken(token: string | null): Promise<boolean> {
@@ -218,7 +195,45 @@ export const useAuthStore = defineStore('auth', () => {
             return false
         }
 
+        if (accessToken.value) {
+            bootstrapAttempted = true
+            bootstrapState.value = 'loading'
+            const generation = sessionGeneration.value
+            const request = (async () => {
+                const hydration = await hydrateUser({
+                    skipAuthRefresh: true,
+                    skipGlobalErrorHandler: true,
+                })
+                if (hydration === 'stale' || (
+                    hydration !== 'terminal-failure'
+                    && generation !== sessionGeneration.value
+                )) {
+                    return Boolean(accessToken.value && user.value)
+                }
+                if (hydration === 'success') {
+                    bootstrapState.value = 'authenticated'
+                    return true
+                }
+                if (hydration === 'terminal-failure') {
+                    bootstrapTerminalFailure = true
+                    bootstrapRetryAt = Number.POSITIVE_INFINITY
+                    bootstrapState.value = 'terminal-error'
+                    return false
+                }
+                bootstrapRetryAt = Date.now() + 3000
+                bootstrapState.value = 'transient-error'
+                return false
+            })()
+            bootstrapInFlight = request
+            try {
+                return await request
+            } finally {
+                if (bootstrapInFlight === request) bootstrapInFlight = null
+            }
+        }
+
         bootstrapAttempted = true
+        bootstrapState.value = 'loading'
         const generation = sessionGeneration.value
         const request = (async () => {
             try {
@@ -238,7 +253,30 @@ export const useAuthStore = defineStore('auth', () => {
                     return Boolean(accessToken.value && user.value)
                 }
                 if (!applyNewSessionIfCurrent(generation, null, token, false)) return false
-                return fetchUser({ skipAuthRefresh: true })
+                const hydrationGeneration = sessionGeneration.value
+                const hydration = await hydrateUser({
+                    skipAuthRefresh: true,
+                    skipGlobalErrorHandler: true,
+                })
+                if (hydration === 'stale' || (
+                    hydration !== 'terminal-failure'
+                    && hydrationGeneration !== sessionGeneration.value
+                )) {
+                    return Boolean(accessToken.value && user.value)
+                }
+                if (hydration === 'success') {
+                    bootstrapState.value = 'authenticated'
+                    return true
+                }
+                if (hydration === 'terminal-failure') {
+                    bootstrapTerminalFailure = true
+                    bootstrapRetryAt = Number.POSITIVE_INFINITY
+                    bootstrapState.value = 'terminal-error'
+                    return false
+                }
+                bootstrapRetryAt = Date.now() + 3000
+                bootstrapState.value = 'transient-error'
+                return false
             } catch (error: unknown) {
                 logger.error('Bootstrap session failed:', error)
                 if (generation === sessionGeneration.value) {
@@ -250,6 +288,7 @@ export const useAuthStore = defineStore('auth', () => {
                     bootstrapRetryAt = bootstrapTerminalFailure
                         ? Number.POSITIVE_INFINITY
                         : Date.now() + 3000
+                    bootstrapState.value = bootstrapTerminalFailure ? 'terminal-error' : 'transient-error'
                 }
                 return false
             }
@@ -262,6 +301,59 @@ export const useAuthStore = defineStore('auth', () => {
             if (bootstrapInFlight === request) {
                 bootstrapInFlight = null
             }
+        }
+    }
+
+    async function retryBootstrapSession(): Promise<boolean> {
+        if (bootstrapState.value !== 'transient-error') return false
+        bootstrapAttempted = false
+        bootstrapRetryAt = 0
+        return bootstrapSession()
+    }
+
+    type UserHydrationResult = 'success' | 'transient-failure' | 'terminal-failure' | 'stale'
+
+    async function hydrateUser(
+        config?: AxiosRequestConfig,
+        expectedUserId?: number | null,
+    ): Promise<UserHydrationResult> {
+        const token = accessToken.value ?? getStoredAccessToken()
+        if (!token) {
+            clearSessionState()
+            return 'terminal-failure'
+        }
+
+        if (!accessToken.value) accessToken.value = token
+
+        try {
+            const { data } = await authApi.getMe(config)
+            if (accessToken.value !== token) return 'stale'
+            if (!data.success) return 'transient-failure'
+
+            const nextUser = unwrapApiData(data)
+            if (expectedUserId != null && nextUser.userId !== expectedUserId) {
+                clearSessionState()
+                return 'terminal-failure'
+            }
+            user.value = nextUser
+
+            if (user.value?.status === 'SANCTIONED') {
+                await handleSanctionedSession()
+                return 'terminal-failure'
+            }
+
+            syncThemeFromUser(user.value)
+            return 'success'
+        } catch (error: unknown) {
+            logger.error('Fetch user failed:', error)
+            const status = error && typeof error === 'object'
+                ? (error as { response?: { status?: number } }).response?.status
+                : undefined
+            if (status === 401 || status === 403) {
+                clearSessionState()
+                return 'terminal-failure'
+            }
+            return 'transient-failure'
         }
     }
 
@@ -304,6 +396,7 @@ export const useAuthStore = defineStore('auth', () => {
         user,
         accessToken,
         sessionGeneration,
+        bootstrapState,
         isAuthenticated,
         isAdmin: computed(() => user.value?.role === 'ADMIN' || user.value?.role === 'SUPER_ADMIN'),
         login,
@@ -311,6 +404,7 @@ export const useAuthStore = defineStore('auth', () => {
         handleSanctionedSession,
         fetchUser,
         bootstrapSession,
+        retryBootstrapSession,
         syncFromStoredAccessToken,
         setTokens,
         applyTokenIfCurrent,

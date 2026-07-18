@@ -50,6 +50,12 @@ export async function ensureHydratedAuth(to: RouteLocationNormalized): Promise<R
     if (!authStore.accessToken) {
         const didBootstrap = await authStore.bootstrapSession()
         if (!didBootstrap && to.meta.requiresAuth) {
+            if (authStore.isAuthenticated && authStore.bootstrapState === 'transient-error') {
+                return {
+                    name: 'error',
+                    query: { status: '503', retry: to.fullPath },
+                }
+            }
             return { name: 'login', query: { redirect: to.fullPath } }
         }
         return true
