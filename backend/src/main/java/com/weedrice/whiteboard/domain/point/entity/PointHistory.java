@@ -27,7 +27,7 @@ public class PointHistory extends BaseTimeEntity {
     private User user;
 
     @Column(name = "type", length = 50, nullable = false)
-    private String type; // EARN, SPEND, EXPIRE
+    private String type;
 
     @Column(name = "amount", nullable = false)
     private Integer amount;

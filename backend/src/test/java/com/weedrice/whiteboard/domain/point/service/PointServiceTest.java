@@ -439,6 +439,8 @@ class PointServiceTest {
 
         // then
         assertThat(response).isNotNull();
+        assertThat(response.getContent().get(0).getType())
+                .isEqualTo(com.weedrice.whiteboard.domain.point.entity.PointHistoryType.EARN);
         verify(userReadableResolver).resolveActive(userId);
     }
 
@@ -602,6 +604,23 @@ class PointServiceTest {
         verify(pointHistoryRepository, never())
                 .findByUser_UserIdAndTypeOrderByCreatedAtDescHistoryIdDesc(any(), any(), any());
         verify(pointHistoryRepository, never()).findByUser_UserIdOrderByCreatedAtDescHistoryIdDesc(any(), any());
+    }
+
+    @Test
+    @DisplayName("생성 기능과 무관하게 기존 만료 이력 wire 타입 조회를 지원한다")
+    void getPointHistories_allowsExpireWireType() {
+        Long userId = 1L;
+        org.springframework.data.domain.Pageable pageable = org.springframework.data.domain.PageRequest.of(0, 10);
+        org.springframework.data.domain.Page<PointHistory> historyPage = new org.springframework.data.domain.PageImpl<>(
+                java.util.Collections.emptyList(), pageable, 0);
+        when(pointHistoryRepository.findByUser_UserIdAndTypeOrderByCreatedAtDescHistoryIdDesc(
+                userId, "EXPIRE", pageable)).thenReturn(historyPage);
+
+        PointHistoryResponse response = pointService.getPointHistories(userId, " expire ", pageable);
+
+        assertThat(response).isNotNull();
+        verify(pointHistoryRepository).findByUser_UserIdAndTypeOrderByCreatedAtDescHistoryIdDesc(
+                userId, "EXPIRE", pageable);
     }
 
     @Test

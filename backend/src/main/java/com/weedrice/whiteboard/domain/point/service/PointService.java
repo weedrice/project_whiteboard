@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.point.service;
 import com.weedrice.whiteboard.domain.point.dto.PointHistoryResponse;
 import com.weedrice.whiteboard.domain.point.dto.UserPointResponse;
 import com.weedrice.whiteboard.domain.point.entity.PointHistory;
+import com.weedrice.whiteboard.domain.point.entity.PointHistoryType;
 import com.weedrice.whiteboard.domain.point.entity.UserPoint;
 import com.weedrice.whiteboard.domain.point.repository.PointHistoryRepository;
 import com.weedrice.whiteboard.domain.point.repository.UserPointRepository;
@@ -23,27 +24,16 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Locale;
-import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class PointService {
 
-    private static final String HISTORY_TYPE_EARN = "EARN";
-    private static final String HISTORY_TYPE_PENALTY = "PENALTY";
-    private static final String HISTORY_TYPE_REWARD_REVERSAL = "REWARD_REVERSAL";
-    private static final String HISTORY_TYPE_SPEND = "SPEND";
     private static final int HISTORY_TYPE_MAX_LENGTH = 50;
     private static final int HISTORY_DESCRIPTION_MAX_LENGTH = 255;
     private static final int HISTORY_RELATED_TYPE_MAX_LENGTH = 50;
     private static final int DEFAULT_HISTORY_PAGE_SIZE = 20;
-    private static final Set<String> HISTORY_TYPES = Set.of(
-            HISTORY_TYPE_EARN,
-            HISTORY_TYPE_PENALTY,
-            HISTORY_TYPE_REWARD_REVERSAL,
-            HISTORY_TYPE_SPEND);
-
     private final UserPointRepository userPointRepository;
     private final PointHistoryRepository pointHistoryRepository;
     private final UserRepository userRepository;
@@ -61,13 +51,13 @@ public class PointService {
 
     public PointHistoryResponse getPointHistories(@NonNull Long userId, String type, Pageable pageable) {
         userReadableResolver.resolveActive(userId);
-        String normalizedType = normalizeHistoryType(type);
+        PointHistoryType normalizedType = normalizeHistoryType(type);
         Pageable safePageable = PageRequestUtils.of(pageable, DEFAULT_HISTORY_PAGE_SIZE);
         Page<PointHistory> historyPage;
         if (normalizedType != null) {
             historyPage = pointHistoryRepository.findByUser_UserIdAndTypeOrderByCreatedAtDescHistoryIdDesc(
                     userId,
-                    normalizedType,
+                    normalizedType.name(),
                     safePageable);
         } else {
             historyPage = pointHistoryRepository.findByUser_UserIdOrderByCreatedAtDescHistoryIdDesc(userId,
@@ -79,28 +69,28 @@ public class PointService {
     @Transactional
     public void addPoint(@NonNull Long userId, int amount, String description, Long relatedId, String relatedType) {
         validatePositiveAmount(amount);
-        changePoint(userId, amount, HISTORY_TYPE_EARN, description, relatedId, relatedType, true, false);
+        changePoint(userId, amount, PointHistoryType.EARN, description, relatedId, relatedType, true, false);
     }
 
     @Transactional
     public void addPointIfAbsent(@NonNull Long userId, int amount, String description, Long relatedId,
             String relatedType) {
         validatePositiveAmount(amount);
-        changePoint(userId, amount, HISTORY_TYPE_EARN, description, relatedId, relatedType, true, false, true);
+        changePoint(userId, amount, PointHistoryType.EARN, description, relatedId, relatedType, true, false, true);
     }
 
     @Transactional
     public void forceSubtractPoint(@NonNull Long userId, int amount, String description, Long relatedId,
             String relatedType) {
         validatePositiveAmount(amount);
-        changePoint(userId, -amount, HISTORY_TYPE_PENALTY, description, relatedId, relatedType, true, false);
+        changePoint(userId, -amount, PointHistoryType.PENALTY, description, relatedId, relatedType, true, false);
     }
 
     @Transactional
     public void reverseRewardPoint(@NonNull Long userId, int amount, String description, Long relatedId,
             String relatedType) {
         validatePositiveAmount(amount);
-        changePoint(userId, -amount, HISTORY_TYPE_REWARD_REVERSAL, description, relatedId, relatedType, true,
+        changePoint(userId, -amount, PointHistoryType.REWARD_REVERSAL, description, relatedId, relatedType, true,
                 false);
     }
 
@@ -108,14 +98,14 @@ public class PointService {
     public void spendPoint(@NonNull Long userId, int amount, String description, Long relatedId,
             String relatedType) {
         validatePositiveAmount(amount);
-        changePoint(userId, -amount, HISTORY_TYPE_SPEND, description, relatedId, relatedType, false, true);
+        changePoint(userId, -amount, PointHistoryType.SPEND, description, relatedId, relatedType, false, true);
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
     public void spendPointForPrevalidatedUser(@NonNull User user, int amount, String description, Long relatedId,
             String relatedType) {
         validatePositiveAmount(amount);
-        changePoint(user, -amount, HISTORY_TYPE_SPEND, description, relatedId, relatedType, false, true, false,
+        changePoint(user, -amount, PointHistoryType.SPEND, description, relatedId, relatedType, false, true, false,
                 false);
     }
 
@@ -126,13 +116,15 @@ public class PointService {
                 .orElse(0);
     }
 
-    private void changePoint(@NonNull Long userId, int delta, String historyType, String description, Long relatedId,
+    private void changePoint(@NonNull Long userId, int delta, PointHistoryType historyType, String description,
+            Long relatedId,
             String relatedType, boolean createIfMissing, boolean validateSufficientBalance) {
         changePoint(userId, delta, historyType, description, relatedId, relatedType, createIfMissing,
                 validateSufficientBalance, false);
     }
 
-    private void changePoint(@NonNull Long userId, int delta, String historyType, String description, Long relatedId,
+    private void changePoint(@NonNull Long userId, int delta, PointHistoryType historyType, String description,
+            Long relatedId,
             String relatedType, boolean createIfMissing, boolean validateSufficientBalance,
             boolean skipExistingHistory) {
         User user = userRepository.findByIdForUpdate(userId)
@@ -141,21 +133,22 @@ public class PointService {
                 validateSufficientBalance, skipExistingHistory, true);
     }
 
-    private void changePoint(@NonNull User user, int delta, String historyType, String description, Long relatedId,
+    private void changePoint(@NonNull User user, int delta, PointHistoryType historyType, String description,
+            Long relatedId,
             String relatedType, boolean createIfMissing, boolean validateSufficientBalance,
             boolean skipExistingHistory, boolean validateSpendSanction) {
         Long userId = user.getUserId();
         if (userId == null) {
             throw new BusinessException(ErrorCode.USER_NOT_FOUND);
         }
-        if (validateSpendSanction && HISTORY_TYPE_SPEND.equals(historyType)) {
+        if (validateSpendSanction && historyType == PointHistoryType.SPEND) {
             sanctionService.validateNotBanned(user);
         }
         String normalizedDescription = normalizeHistoryDescription(description);
         String normalizedRelatedType = normalizeRelatedType(relatedType);
         if (skipExistingHistory && pointHistoryRepository.existsByUser_UserIdAndTypeAndRelatedTypeAndRelatedId(
                 userId,
-                historyType,
+                historyType.name(),
                 normalizedRelatedType,
                 relatedId)) {
             return;
@@ -177,7 +170,7 @@ public class PointService {
         userPointRepository.save(userPoint);
         pointHistoryRepository.save(PointHistory.builder()
                 .user(user)
-                .type(historyType)
+                .type(historyType.name())
                 .amount(delta)
                 .balanceAfter(userPoint.getCurrentPoint())
                 .description(normalizedDescription)
@@ -211,7 +204,7 @@ public class PointService {
         }
     }
 
-    private String normalizeHistoryType(String type) {
+    private PointHistoryType normalizeHistoryType(String type) {
         String normalizedType = TextInputNormalizer.normalizeNullable(type);
         if (normalizedType == null || normalizedType.isBlank()) {
             return null;
@@ -220,11 +213,7 @@ public class PointService {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
 
-        normalizedType = normalizedType.toUpperCase(Locale.ROOT);
-        if (!HISTORY_TYPES.contains(normalizedType)) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
-        }
-        return normalizedType;
+        return PointHistoryType.fromWireValue(normalizedType);
     }
 
     private String normalizeHistoryDescription(String description) {

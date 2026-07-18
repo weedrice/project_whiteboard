@@ -1,8 +1,10 @@
 package com.weedrice.whiteboard.domain.point.dto;
 
 import com.weedrice.whiteboard.domain.point.entity.PointHistory;
+import com.weedrice.whiteboard.domain.point.entity.PointHistoryType;
 import lombok.Builder;
 import lombok.Getter;
+import org.jspecify.annotations.Nullable;
 import org.springframework.data.domain.Page;
 
 import java.time.LocalDateTime;
@@ -25,10 +27,10 @@ public class PointHistoryResponse {
     @Builder
     public static class PointHistorySummary {
         private Long historyId;
-        private String type;
+        private PointHistoryType type;
         private int amount;
         private int balanceAfter;
-        private String description;
+        private @Nullable String description;
         private LocalDateTime createdAt;
     }
 
@@ -36,7 +38,7 @@ public class PointHistoryResponse {
         List<PointHistorySummary> content = historyPage.getContent().stream()
                 .map(history -> PointHistorySummary.builder()
                         .historyId(history.getHistoryId())
-                        .type(history.getType())
+                        .type(PointHistoryType.fromWireValue(history.getType()))
                         .amount(history.getAmount())
                         .balanceAfter(history.getBalanceAfter())
                         .description(history.getDescription())
