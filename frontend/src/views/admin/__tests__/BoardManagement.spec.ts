@@ -1,6 +1,7 @@
 import { mount, RouterLinkStub } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, ref } from 'vue'
+import { createPinia } from 'pinia'
 import BoardManagement from '../BoardManagement.vue'
 import { BaseButtonStub, BaseModalStub, flushAll, getButtonByText, getExposedVm, identityT } from '@/test/vue-test-helpers'
 import { createDeferred } from '@/test/async'
@@ -93,6 +94,7 @@ describe('BoardManagement', () => {
   it('passes the manager selection contract to UserSelectModal', () => {
     const wrapper = mount(BoardManagement, {
       global: {
+        plugins: [createPinia()],
         mocks: {
           $t: identityT,
         },
@@ -122,6 +124,7 @@ describe('BoardManagement', () => {
     mocks.createBoard.mockReturnValueOnce(createBoardRequest.promise)
     const wrapper = mount(BoardManagement, {
       global: {
+        plugins: [createPinia()],
         mocks: {
           $t: identityT,
         },

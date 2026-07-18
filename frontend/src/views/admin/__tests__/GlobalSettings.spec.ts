@@ -1,6 +1,7 @@
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
+import { createPinia } from 'pinia'
 
 const mocks = vi.hoisted(() => ({
     configsData: {
@@ -109,6 +110,7 @@ const BaseButtonStub = defineComponent({
 
 const mountGlobalSettings = () => mount(GlobalSettings, {
     global: {
+        plugins: [createPinia()],
         stubs: {
             BaseInput: BaseInputStub,
             BaseButton: BaseButtonStub,
