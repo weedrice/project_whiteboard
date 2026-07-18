@@ -1,9 +1,14 @@
 package com.weedrice.whiteboard.domain.notification.service;
 
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
+import com.weedrice.whiteboard.domain.comment.entity.Comment;
+import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.notification.constant.NotificationSourceType;
 import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
+import com.weedrice.whiteboard.domain.post.entity.Post;
+import com.weedrice.whiteboard.domain.post.repository.PostRepository;
+import com.weedrice.whiteboard.domain.post.service.PostReadAccessService;
 import com.weedrice.whiteboard.domain.user.dto.MentionCandidateResponse;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserBlockRepository;
@@ -33,6 +38,9 @@ public class MentionService {
     private final UserRepository userRepository;
     private final UserBlockRepository userBlockRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final PostRepository postRepository;
+    private final CommentRepository commentRepository;
+    private final PostReadAccessService postReadAccessService;
 
     public List<MentionCandidateResponse> findCandidates(Long viewerUserId, String keyword) {
         String normalizedKeyword = keyword == null ? "" : keyword.strip();
@@ -79,12 +87,18 @@ public class MentionService {
             return;
         }
 
+        Post sourcePost = resolveSourcePost(sourceType, sourceId);
+        if (sourcePost == null) {
+            return;
+        }
+
         String actorName = resolveActorName(actor, actorAgent);
         userRepository.findAllById(uniqueMentionedUserIds).stream()
                 .filter(user -> User.STATUS_ACTIVE.equals(user.getStatus()))
                 .filter(user -> user.getDeletedAt() == null)
                 .filter(user -> !user.getUserId().equals(actor.getUserId()))
                 .filter(user -> !userBlockRepository.existsEitherDirection(actor.getUserId(), user.getUserId()))
+                .filter(user -> postReadAccessService.isReadable(sourcePost, user))
                 .limit(MENTION_NOTIFICATION_LIMIT)
                 .forEach(user -> eventPublisher.publishEvent(NotificationEvent.localized(
                         user,
@@ -95,6 +109,20 @@ public class MentionService {
                         sourceId,
                         "notification.mention.created",
                         actorName)));
+    }
+
+    private Post resolveSourcePost(NotificationSourceType sourceType, Long sourceId) {
+        if (sourceType == NotificationSourceType.POST) {
+            return postRepository.findByIdWithRelations(sourceId)
+                    .orElse(null);
+        }
+        if (sourceType != NotificationSourceType.COMMENT) {
+            return null;
+        }
+        return commentRepository.findNonDeletedByIdWithRelations(sourceId)
+                .filter(comment -> !Boolean.TRUE.equals(comment.getIsBlinded()))
+                .map(Comment::getPost)
+                .orElse(null);
     }
 
     private Set<Long> extractMentionUserIds(String html) {

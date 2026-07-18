@@ -1,7 +1,11 @@
 package com.weedrice.whiteboard.domain.notification.service;
 
+import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.notification.constant.NotificationSourceType;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
+import com.weedrice.whiteboard.domain.post.entity.Post;
+import com.weedrice.whiteboard.domain.post.repository.PostRepository;
+import com.weedrice.whiteboard.domain.post.service.PostReadAccessService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserBlockRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
@@ -33,11 +37,14 @@ class MentionServiceTest {
     @Mock UserRepository users;
     @Mock UserBlockRepository blocks;
     @Mock ApplicationEventPublisher events;
+    @Mock PostRepository posts;
+    @Mock CommentRepository comments;
+    @Mock PostReadAccessService postReadAccessService;
     MentionService service;
 
     @BeforeEach
     void setUp() {
-        service = new MentionService(users, blocks, events);
+        service = new MentionService(users, blocks, events, posts, comments, postReadAccessService);
     }
 
     @Test
@@ -58,8 +65,11 @@ class MentionServiceTest {
         User actor = user(1L, "Actor", User.STATUS_ACTIVE);
         User recipient = user(2L, "Recipient", User.STATUS_ACTIVE);
         User inactive = user(3L, "Inactive", "SUSPENDED");
+        Post sourcePost = post(10L);
+        when(posts.findByIdWithRelations(10L)).thenReturn(java.util.Optional.of(sourcePost));
         when(users.findAllById(any())).thenReturn(List.of(actor, recipient, inactive));
         when(blocks.existsEitherDirection(1L, 2L)).thenReturn(false);
+        when(postReadAccessService.isReadable(sourcePost, recipient)).thenReturn(true);
 
         service.publishMentions(actor, null, NotificationSourceType.POST, 10L,
                 "<span data-mention-user-id='2'></span><i data-mention-user-id='bad'></i>"
@@ -76,9 +86,26 @@ class MentionServiceTest {
         service.publishMentions(actor, null, NotificationSourceType.POST, 1L, Arrays.asList(-1L, null));
 
         User blocked = user(2L, "Blocked", User.STATUS_ACTIVE);
+        Post sourcePost = post(1L);
+        when(posts.findByIdWithRelations(1L)).thenReturn(java.util.Optional.of(sourcePost));
         when(users.findAllById(any())).thenReturn(List.of(blocked));
         when(blocks.existsEitherDirection(1L, 2L)).thenReturn(true);
         service.publishMentions(actor, null, NotificationSourceType.POST, 1L, List.of(2L));
+        verify(events, never()).publishEvent(any());
+    }
+
+    @Test
+    void unreadableSourceDoesNotPublishMention() {
+        User actor = user(1L, "Actor", User.STATUS_ACTIVE);
+        User recipient = user(2L, "Recipient", User.STATUS_ACTIVE);
+        Post secretPost = post(10L);
+        when(posts.findByIdWithRelations(10L)).thenReturn(java.util.Optional.of(secretPost));
+        when(users.findAllById(any())).thenReturn(List.of(recipient));
+        when(blocks.existsEitherDirection(1L, 2L)).thenReturn(false);
+        when(postReadAccessService.isReadable(secretPost, recipient)).thenReturn(false);
+
+        service.publishMentions(actor, null, NotificationSourceType.POST, 10L, List.of(2L));
+
         verify(events, never()).publishEvent(any());
     }
 
@@ -88,5 +115,11 @@ class MentionServiceTest {
         when(user.getDisplayName()).thenReturn(name);
         when(user.getStatus()).thenReturn(status);
         return user;
+    }
+
+    private static Post post(Long id) {
+        Post post = mock(Post.class);
+        when(post.getPostId()).thenReturn(id);
+        return post;
     }
 }

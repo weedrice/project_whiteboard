@@ -6,6 +6,8 @@ import com.weedrice.whiteboard.domain.notification.constant.NotificationSourceTy
 import com.weedrice.whiteboard.domain.notification.entity.Notification;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
+import com.weedrice.whiteboard.domain.post.service.PostReadAccessService;
+import com.weedrice.whiteboard.domain.user.entity.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +27,7 @@ class RepositoryNotificationTargetUrlResolver implements NotificationTargetUrlRe
 
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
+    private final PostReadAccessService postReadAccessService;
 
     @Override
     public Map<Long, String> resolveAll(Collection<Notification> notifications) {
@@ -43,14 +46,25 @@ class RepositoryNotificationTargetUrlResolver implements NotificationTargetUrlRe
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
 
-        Map<Long, Post> postsById = postIds.isEmpty()
-                ? Map.of()
-                : postRepository.findByPostIdInAndIsDeletedFalse(postIds).stream()
-                        .collect(Collectors.toMap(Post::getPostId, Function.identity()));
         Map<Long, Comment> commentsById = commentIds.isEmpty()
                 ? Map.of()
                 : commentRepository.findByCommentIdInAndIsDeletedFalse(commentIds).stream()
+                        .filter(comment -> !Boolean.TRUE.equals(comment.getIsBlinded()))
                         .collect(Collectors.toMap(Comment::getCommentId, Function.identity()));
+        Set<Long> targetPostIds = new java.util.HashSet<>(postIds);
+        commentsById.values().stream()
+                .map(Comment::getPost)
+                .filter(Objects::nonNull)
+                .map(Post::getPostId)
+                .filter(Objects::nonNull)
+                .forEach(targetPostIds::add);
+        Map<Long, Post> postsById = targetPostIds.isEmpty()
+                ? Map.of()
+                : postRepository.findByPostIdInAndIsDeletedFalseAndIsBlindedFalse(targetPostIds).stream()
+                        .collect(Collectors.toMap(Post::getPostId, Function.identity()));
+        Map<Long, Set<Long>> readablePostIdsByUserId = resolveReadablePostIdsByUser(
+                notifications,
+                postsById.values());
         Map<Long, String> targetUrls = new HashMap<>();
 
         for (Notification notification : notifications) {
@@ -58,7 +72,11 @@ class RepositoryNotificationTargetUrlResolver implements NotificationTargetUrlRe
                 continue;
             }
 
-            String targetUrl = resolveTargetUrl(notification, postsById, commentsById);
+            Long receiverUserId = notification.getUser() != null ? notification.getUser().getUserId() : null;
+            Set<Long> readablePostIds = receiverUserId == null
+                    ? Set.of()
+                    : readablePostIdsByUserId.getOrDefault(receiverUserId, Set.of());
+            String targetUrl = resolveTargetUrl(notification, postsById, commentsById, readablePostIds);
             if (targetUrl != null) {
                 targetUrls.put(notification.getNotificationId(), targetUrl);
             }
@@ -67,16 +85,44 @@ class RepositoryNotificationTargetUrlResolver implements NotificationTargetUrlRe
         return targetUrls;
     }
 
+    private Map<Long, Set<Long>> resolveReadablePostIdsByUser(
+            Collection<Notification> notifications,
+            Collection<Post> posts) {
+        if (posts.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, User> receiversById = notifications.stream()
+                .map(Notification::getUser)
+                .filter(Objects::nonNull)
+                .filter(user -> user.getUserId() != null)
+                .collect(Collectors.toMap(User::getUserId, Function.identity(), (left, right) -> left));
+        Map<Long, Set<Long>> readablePostIdsByUserId = new HashMap<>();
+        receiversById.forEach((userId, user) -> readablePostIdsByUserId.put(
+                userId,
+                postReadAccessService.findReadablePostIds(user, posts)));
+        return readablePostIdsByUserId;
+    }
+
     private String resolveTargetUrl(
             Notification notification,
             Map<Long, Post> postsById,
-            Map<Long, Comment> commentsById) {
+            Map<Long, Comment> commentsById,
+            Set<Long> readablePostIds) {
         if (isSourceType(notification, NotificationSourceType.POST)) {
-            return buildPostTargetUrl(postsById.get(notification.getSourceId()));
+            Post post = postsById.get(notification.getSourceId());
+            return post != null && readablePostIds.contains(post.getPostId())
+                    ? buildPostTargetUrl(post)
+                    : null;
         }
 
         if (isSourceType(notification, NotificationSourceType.COMMENT)) {
-            return buildCommentTargetUrl(commentsById.get(notification.getSourceId()));
+            Comment comment = commentsById.get(notification.getSourceId());
+            Post post = comment != null && comment.getPost() != null
+                    ? postsById.get(comment.getPost().getPostId())
+                    : null;
+            return post != null && readablePostIds.contains(post.getPostId())
+                    ? buildCommentTargetUrl(comment, post)
+                    : null;
         }
 
         if (isSourceType(notification, NotificationSourceType.MESSAGE)) {
@@ -102,12 +148,11 @@ class RepositoryNotificationTargetUrlResolver implements NotificationTargetUrlRe
         return "/board/%s/post/%d".formatted(post.getBoard().getBoardUrl(), post.getPostId());
     }
 
-    private String buildCommentTargetUrl(Comment comment) {
-        if (comment == null || comment.getPost() == null || comment.getPost().getBoard() == null) {
+    private String buildCommentTargetUrl(Comment comment, Post post) {
+        if (comment == null || post == null || post.getBoard() == null) {
             return null;
         }
 
-        Post post = comment.getPost();
         if (post.getBoard().getBoardUrl() == null || post.getPostId() == null) {
             return null;
         }
