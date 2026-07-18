@@ -128,8 +128,8 @@ OAuth 가입을 취소하고 일반 가입으로 돌아갈 수 있다.
 | `DELETE` | `/api/v1/users/me/sessions` | 현재 세션을 제외한 다른 세션 폐기 |
 | `GET` | `/api/v1/users/me/login-history` | 로그인 이력 조회 |
 | `POST` | `/api/v1/users/me/email-verification` | 내 이메일 변경/검증 흐름 |
-| `PUT` | `/api/v1/users/me/password` | 비밀번호 변경 |
-| `DELETE` | `/api/v1/users/me` | 계정 탈퇴 |
+| `PUT` | `/api/v1/users/me/password` | 비밀번호 변경 (`currentPassword` 최대 20자) |
+| `DELETE` | `/api/v1/users/me` | 계정 탈퇴 (`password` 최대 20자, 잠금 후 최신 비밀번호 검증) |
 | `GET` | `/api/v1/users/me/settings` | 내 환경설정 조회 |
 | `PUT` | `/api/v1/users/me/settings` | 내 환경설정 수정 |
 | `PUT` | `/api/v1/users/me/onboarding-complete` | 온보딩 완료 처리 |
@@ -160,8 +160,8 @@ OAuth 가입을 취소하고 일반 가입으로 돌아갈 수 있다.
 | `GET` | `/api/v1/boards` | 활성 스페이스 목록 |
 | `GET` | `/api/v1/boards/all` | 전체 스페이스 목록 |
 | `GET` | `/api/v1/boards/top` | 인기 스페이스 |
-| `GET` | `/api/v1/boards/recommendations` | topic 기반 추천 스페이스 |
-| `GET` | `/api/v1/boards/recent-updates` | 구독 스페이스 최근 갱신 정보 |
+| `GET` | `/api/v1/boards/recommendations` | topic 기반 추천 스페이스 (`topics` 최대 20개, 항목당 최대 100자) |
+| `GET` | `/api/v1/boards/recent-updates` | 구독 스페이스 최근 갱신 정보 (`boardUrls` 최대 20개, 항목당 최대 100자) |
 | `GET` | `/api/v1/boards/{boardUrl}` | 스페이스 상세 |
 | `GET` | `/api/v1/boards/{boardUrl}/notices` | 스페이스 공지 목록 |
 | `POST` | `/api/v1/boards` | 스페이스 생성 |

@@ -6,7 +6,7 @@
 | --- | --- |
 | 기준일 | 2026-07-18 |
 | 기준 소스 | `backend/src/main/resources/db/migration` |
-| 마이그레이션 범위 | `V1__baseline_schema.sql` - `V79__index_failed_push_delivery_job_cleanup.sql` |
+| 마이그레이션 범위 | `V1__baseline_schema.sql` - `V81__index_orphan_tag_cleanup.sql` |
 | 현재 테이블 수 | 85개 |
 | DB | PostgreSQL |
 
@@ -222,6 +222,8 @@
 | `V75` | terminal Web Push 작업의 endpoint·key·payload redaction과 수신자 상태 인덱스 추가 |
 | `V76` - `V77` | 활성 Web Push 작업 snapshot 제약을 expand 후 검증 |
 | `V78` - `V79` | bounded Web Push retention cleanup용 partial index를 온라인 생성 |
+| `V80` | 완료·실패 알림 전달 job의 bounded retention cleanup용 partial index 추가 |
+| `V81` | 고아 태그 bounded cleanup용 `post_count = 0` partial index 추가 |
 
 ## 운영 주의
 
