@@ -111,6 +111,23 @@ const backend = load('.github/workflows/deploy-backend.yml')
 const frontend = load('.github/workflows/deploy-frontend.yml')
 const seo = load('.github/workflows/seo-monitor.yml')
 const freshness = freshnessEntries()
+const ciSource = loadText('.github/workflows/ci.yml')
+
+const contractRevisionFilterEntries = ciSource.match(
+  /^\s+- 'docs\/ops\/api-contract-revision\.txt'\s*$/gm,
+) ?? []
+assert(contractRevisionFilterEntries.length === 3,
+  'API contract revision must select backend, frontend, and ops validation scopes')
+
+for (const workflowPath of [
+  '.github/workflows/ci.yml',
+  '.github/workflows/deploy-backend.yml',
+  '.github/workflows/deploy-frontend.yml',
+  '.github/workflows/seo-monitor.yml',
+]) {
+  assert(!loadText(workflowPath).includes('runs-on: ubuntu-latest'),
+    `${workflowPath} must pin an explicit Ubuntu runner image`)
+}
 
 for (const required of [
   'deploy/release-freshness-paths.txt',
@@ -155,6 +172,21 @@ for (const name of ['release-backend', 'release-frontend']) {
   const granted = permissions(ci.jobs[name])
   assert(granted['id-token'] === 'write' && granted.attestations === 'write', `${name} signing permissions changed`)
   assertTrustedRepositoryScriptCheckout(ci.jobs[name], name, 'deploy/scripts/download-attestation-with-retry.sh')
+}
+
+const signingPermissionAllowlist = new Map([
+  ['release-backend', new Set(['id-token', 'attestations', 'artifact-metadata'])],
+  ['release-frontend', new Set(['id-token', 'attestations', 'artifact-metadata'])],
+  ['deploy-backend', new Set(['id-token'])],
+])
+for (const [jobName, job] of Object.entries(ci.jobs ?? {})) {
+  const allowed = signingPermissionAllowlist.get(jobName) ?? new Set()
+  const granted = permissions(job)
+  for (const permission of ['id-token', 'attestations', 'artifact-metadata']) {
+    if (granted[permission] === 'write') {
+      assert(allowed.has(permission), `${jobName} received unapproved ${permission}: write`)
+    }
+  }
 }
 
 const trusted = ci.jobs['trusted-contract-evidence']

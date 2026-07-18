@@ -57,7 +57,7 @@ permissions:
 jobs:
   contract-evidence:
     if: inputs.contract_migration
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     environment: production
     permissions:
@@ -93,7 +93,7 @@ jobs:
     if: ${{ always() && (inputs.contract_migration == false || needs.contract-evidence.result == 'success') }}
     outputs:
       activated_sha: ${{ steps.activation-result.outputs.activated_sha }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     environment: production
     permissions:
@@ -272,7 +272,7 @@ jobs:
   consume-contract-evidence:
     needs: [contract-evidence, deploy]
     if: ${{ inputs.contract_migration && needs.contract-evidence.result == 'success' && needs.deploy.result == 'success' }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     environment: production
     permissions:

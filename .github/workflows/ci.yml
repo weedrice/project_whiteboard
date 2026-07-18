@@ -38,7 +38,7 @@ permissions:
 
 jobs:
   changes:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       contents: read
@@ -60,6 +60,7 @@ jobs:
           filters: |
             backend:
               - 'backend/**'
+              - 'docs/ops/api-contract-revision.txt'
               - 'deploy/nginx/**'
               - 'deploy/scripts/activate-backend-release.sh'
               - 'docker-compose.yml'
@@ -67,11 +68,13 @@ jobs:
               - '.github/workflows/deploy-backend.yml'
             frontend:
               - 'frontend/**'
+              - 'docs/ops/api-contract-revision.txt'
               - 'docker-compose.yml'
               - '.github/workflows/ci.yml'
               - '.github/workflows/deploy-frontend.yml'
             ops:
               - 'deploy/**'
+              - 'docs/ops/api-contract-revision.txt'
               - 'backend/scripts/**'
               - 'docker-compose*.yml'
               - 'backend/Dockerfile'
@@ -105,7 +108,7 @@ jobs:
   backend-test:
     needs: changes
     if: needs.changes.outputs.backend == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
       - name: Checkout
@@ -151,7 +154,7 @@ jobs:
   frontend-test:
     needs: changes
     if: needs.changes.outputs.frontend == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
       - name: Checkout
@@ -241,7 +244,7 @@ jobs:
   backend-postgres-migration:
     needs: changes
     if: needs.changes.outputs.backend == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
       contents: read
@@ -336,7 +339,7 @@ jobs:
   ops-config-test:
     needs: changes
     if: needs.changes.outputs.ops == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
       contents: read
@@ -475,7 +478,7 @@ jobs:
       (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
       github.ref == 'refs/heads/main' &&
       (needs.changes.outputs.backend == 'true' || needs.changes.outputs.ops == 'true')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: read
@@ -504,7 +507,7 @@ jobs:
       - backend-postgres-migration
       - ops-config-test
       - trusted-contract-evidence
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
       contract_migration: ${{ steps.verify.outputs.contract_migration }}
@@ -576,7 +579,7 @@ jobs:
       needs.ci-gate.result == 'success' &&
       ((github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.backend_changed == 'true') ||
       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.deploy_backend))
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
       contents: read
@@ -632,7 +635,7 @@ jobs:
   release-backend:
     needs: [candidate-backend, ci-gate]
     if: needs.candidate-backend.result == 'success' && needs.ci-gate.result == 'success'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: read
@@ -700,7 +703,7 @@ jobs:
       needs.ci-gate.result == 'success' &&
       ((github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.frontend_changed == 'true') ||
       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.deploy_frontend))
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     permissions:
       contents: read
@@ -765,7 +768,7 @@ jobs:
   release-frontend:
     needs: [candidate-frontend, ci-gate]
     if: needs.candidate-frontend.result == 'success' && needs.ci-gate.result == 'success'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: read

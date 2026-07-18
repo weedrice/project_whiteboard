@@ -28,6 +28,27 @@ if node "$validator" "$fixture"; then
 fi
 cp "$project_root/deploy/release-freshness-paths.txt" "$fixture/deploy/release-freshness-paths.txt"
 
+sed -i "/docs\/ops\/api-contract-revision.txt/d" "$fixture/.github/workflows/ci.yml"
+if node "$validator" "$fixture"; then
+  echo "Expected an API contract revision path outside the full change matrix to fail" >&2
+  exit 1
+fi
+cp "$project_root/.github/workflows/ci.yml" "$fixture/.github/workflows/ci.yml"
+
+sed -i '/^  backend-test:$/,/^  frontend-test:$/s/^    steps:$/    permissions:\n      id-token: write\n    steps:/' "$fixture/.github/workflows/ci.yml"
+if node "$validator" "$fixture"; then
+  echo "Expected an unapproved CI OIDC job to fail" >&2
+  exit 1
+fi
+cp "$project_root/.github/workflows/ci.yml" "$fixture/.github/workflows/ci.yml"
+
+sed -i '0,/runs-on: ubuntu-24.04/s//runs-on: ubuntu-latest/' "$fixture/.github/workflows/ci.yml"
+if node "$validator" "$fixture"; then
+  echo "Expected an unpinned Ubuntu runner image to fail" >&2
+  exit 1
+fi
+cp "$project_root/.github/workflows/ci.yml" "$fixture/.github/workflows/ci.yml"
+
 sed -i '/ref: \${{ github.sha }}/d' "$fixture/.github/workflows/ci.yml"
 if node "$validator" "$fixture"; then
   echo "Expected a release repository script checkout without an exact ref to fail" >&2
