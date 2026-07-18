@@ -49,6 +49,7 @@ export function useToggleEmoticonVisibility(
       activeControllers.add(intent.controller)
       const updatedEmoticon = await emoticonApi.toggleVisibilityData(intent.targetEmoticonId, {
         signal: intent.controller.signal,
+        skipGlobalErrorHandler: true,
       })
       return { ...intent, updatedEmoticon }
     },

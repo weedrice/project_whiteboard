@@ -93,7 +93,10 @@ describe('useToggleEmoticonVisibility', () => {
     expect(mutationResult).toEqual({ ...intent, updatedEmoticon: toggleResult })
     ;(options.onSuccess as (value: unknown) => void)(mutationResult)
 
-    expect(emoticonApi.toggleVisibilityData).toHaveBeenCalledWith(7, { signal: intent.controller.signal })
+    expect(emoticonApi.toggleVisibilityData).toHaveBeenCalledWith(7, {
+      signal: intent.controller.signal,
+      skipGlobalErrorHandler: true,
+    })
     expect(mocks.addToast).toHaveBeenCalledWith('emoticon.visibility.hiddenSuccess', 'success')
     expect(mocks.invalidateQueries).toHaveBeenNthCalledWith(1, { queryKey: ['emoticon', 7] })
     expect(mocks.invalidateQueries).toHaveBeenNthCalledWith(2, {

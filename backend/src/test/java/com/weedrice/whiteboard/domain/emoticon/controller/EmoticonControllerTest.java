@@ -436,7 +436,7 @@ class EmoticonControllerTest {
             mockMvc.perform(delete("/api/v1/emoticons/{emoticonId}", 1L)
                             .with(user(customUserDetails))
                             .with(csrf()))
-                    .andExpect(status().isNoContent())
+                    .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true));
 
             verify(emoticonService).deleteEmoticon(eq(1L), eq(1L));
@@ -477,7 +477,7 @@ class EmoticonControllerTest {
             mockMvc.perform(delete("/api/v1/emoticons/images/{imageId}", 10L)
                             .with(user(customUserDetails))
                             .with(csrf()))
-                    .andExpect(status().isNoContent())
+                    .andExpect(status().isOk())
                     .andExpect(jsonPath("$.success").value(true));
 
             verify(emoticonService).deleteImage(eq(1L), eq(10L));

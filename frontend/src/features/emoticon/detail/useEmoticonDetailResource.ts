@@ -58,7 +58,7 @@ export function useEmoticonDetailResource(emoticonId: ComputedRef<number>) {
   const { mutate: purchaseEmoticon, isPending: isPurchasing } = useMutation({
     onMutate: () => ({ sessionGeneration: authStore.sessionGeneration }),
     mutationFn: async (targetEmoticonId: number) => {
-      await emoticonApi.purchaseEmoticon(targetEmoticonId)
+      await emoticonApi.purchaseEmoticon(targetEmoticonId, { skipGlobalErrorHandler: true })
       return { targetEmoticonId }
     },
     onSuccess: ({ targetEmoticonId }, _variables, context) => {

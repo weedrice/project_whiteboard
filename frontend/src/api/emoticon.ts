@@ -178,12 +178,16 @@ export const emoticonApi = {
     },
 
     // Purchase an emoticon pack.
-    purchaseEmoticon(emoticonId: number) {
-        return api.post<ApiResponse<EmoticonMasterWire>>(`/emoticons/${encodePathSegment(emoticonId)}/purchase`)
+    purchaseEmoticon(emoticonId: number, config?: AxiosRequestConfig) {
+        const url = `/emoticons/${encodePathSegment(emoticonId)}/purchase`
+        const request = config
+            ? api.post<ApiResponse<EmoticonMasterWire>>(url, undefined, config)
+            : api.post<ApiResponse<EmoticonMasterWire>>(url)
+        return request
             .then(mapEmoticonResponse)
     },
-    async purchaseEmoticonData(emoticonId: number) {
-        return unwrapEmoticonResponse(await emoticonApi.purchaseEmoticon(emoticonId))
+    async purchaseEmoticonData(emoticonId: number, config?: AxiosRequestConfig) {
+        return unwrapEmoticonResponse(await emoticonApi.purchaseEmoticon(emoticonId, config))
     },
 
     // List purchased emoticon packs.

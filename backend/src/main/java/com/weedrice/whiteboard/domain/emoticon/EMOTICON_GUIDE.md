@@ -31,6 +31,8 @@
 | `GET` | `/api/v1/emoticons/purchased` | 구매한 이모티콘 |
 | `GET` | `/api/v1/emoticons/{emoticonId}/purchased` | 구매 여부 조회 |
 
+삭제 API 두 개는 모두 HTTP `200 OK`와 공통 `ApiResponse<Void>` 성공 envelope를 반환합니다. 응답 본문이 없는 `204 No Content` 계약은 사용하지 않습니다.
+
 ## 3. 관련 DB 테이블
 
 | 테이블명 | 엔티티 | 설명 |

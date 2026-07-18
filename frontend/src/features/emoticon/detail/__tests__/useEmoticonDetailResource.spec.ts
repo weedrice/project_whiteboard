@@ -122,7 +122,7 @@ describe('useEmoticonDetailResource', () => {
     const resource = useEmoticonDetailResource(emoticonId)
     await resource.purchase()
 
-    expect(mocks.purchaseEmoticon).toHaveBeenCalledWith(12)
+    expect(mocks.purchaseEmoticon).toHaveBeenCalledWith(12, { skipGlobalErrorHandler: true })
     expect(mocks.addToast).toHaveBeenCalledWith('emoticon.purchase.success', 'success')
     expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['emoticon', 12] })
     expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'emoticon', 12, 'purchased'] })

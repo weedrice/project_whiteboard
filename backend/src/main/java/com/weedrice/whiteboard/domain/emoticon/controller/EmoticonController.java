@@ -117,7 +117,6 @@ public class EmoticonController {
     }
 
     @DeleteMapping("/{emoticonId}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
     public ApiResponse<Void> deleteEmoticon(
             @CurrentUserId Long userId,
             @PathVariable Long emoticonId) {
@@ -137,7 +136,6 @@ public class EmoticonController {
     }
 
     @DeleteMapping("/images/{imageId}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
     public ApiResponse<Void> deleteImage(
             @CurrentUserId Long userId,
             @PathVariable Long imageId) {
