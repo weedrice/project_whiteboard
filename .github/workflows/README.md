@@ -20,6 +20,8 @@ contract migration은 자동 배포하지 않는다. `main`의 수동 실행, `a
 
 ## 활성화와 정리
 
+Contract migration 여부는 release metadata와 envelope에 서명된다. 새 contract release의 서비스 시작을 시도한 뒤 실패하면 이전 JAR의 schema 호환성을 증명할 수 없으므로 자동 rollback하지 않는다. 서비스는 중지되고 root-only recovery state가 기록되며, 운영자가 DB 복구 또는 contract-compatible artifact를 명시적으로 선택해야 한다.
+
 활성화 스크립트는 provenance, checksum, commit metadata, 서비스 health를 검증한 뒤 `ACTIVATED_SHA=<sha>`를 출력한다. 이 시점 이후 release 보존 정리, 상태 진단, incoming 삭제 실패는 건강한 release를 rollback하지 않는다. 대신 `CLEANUP_DEBT=...` 경고와 workflow cleanup 결과로 후속 조치한다. 실패 진단의 애플리케이션 로그·journal 원문은 Actions 출력으로 보내지 않고 host의 root-only 진단 파일에만 저장한다.
 
 backend/frontend artifact는 payload·metadata·SBOM·SHA-256 manifest의 digest를 담은 `RELEASE_ENVELOPE`, envelope provenance attestation, 실제 payload를 대상으로 한 SBOM attestation을 포함한다. 서버는 envelope attestation을 먼저 검증하고 내부 digest와 payload SBOM attestation을 각각 확인하므로 deploy 계정이 checksum과 SBOM을 함께 바꿔도 활성화할 수 없다. frontend SBOM은 source tree가 아니라 실제 배포 `dist`를 대상으로 생성한다. attestation bundle 다운로드는 bounded exponential backoff로 재시도하며 소진되면 release 생성을 실패시킨다. 배포 직전 최신 `origin/main`을 fetch하고 대상 이후의 변경 경로를 영역별로 비교한다. backend와 frontend에 무관한 문서 변경은 이미 검증된 배포를 막지 않지만 해당 영역 또는 공통 운영 경로가 바뀐 stale artifact는 차단한다. SSH와 SCP는 독립적으로 확인한 host fingerprint를 필수로 사용한다. production deploy concurrency는 활성 실행을 취소하지 않고 최신 대기 실행 하나를 보존해 직렬화한다.
@@ -28,11 +30,15 @@ backend activator는 이전 JAR을 보존하고 서비스 stop, atomic JAR 교�
 
 ## SEO
 
+정기 SEO 제출 자격 증명은 사람 승인형 배포 environment와 분리된 default-branch 전용 `production-seo` environment에만 둔다.
+
 production frontend release는 `SEO_STRICT=true`로 sitemap과 prerender를 생성한다. API 조회 실패, 게시글 URL 0건, URL과 prerender 개수 불일치는 release 생성을 실패시킨다. `.noviis-seo-release.json`에 commit SHA, 전체 URL 수, 게시글 URL 수, prerender 수와 sitemap SHA-256을 기록한다. 배포 후 검증과 정기 monitor도 게시글 URL 0건을 거부하고 public sitemap의 개수·digest·release SHA를 이 manifest와 대조한다.
 
 배포 전에는 provider 존재 여부, Google credential 묶음, custom HTTPS origin allowlist를 먼저 검증한다. 배포 후 sitemap 제출과 `seo-monitor.yml`의 정기 제출은 `seo-submit-production` concurrency group으로 직렬화한다. production 제출은 Google 또는 custom provider가 최소 하나 없거나 제출이 실패하면 warning으로 완화하지 않고 workflow를 실패시키며 `frontend/seo_submission` debt를 기록한다. 성공한 재실행은 debt를 해제한다. 이 실패는 이미 검증된 frontend 활성화를 되돌리지는 않으므로 운영자는 실패한 제출 job을 재실행한다. Google refresh credential 세 값은 all-or-none이며, custom endpoint는 별도 HTTPS origin allowlist와 globally routable DNS 검증을 통과한 IP로 연결을 고정하되 원 hostname의 TLS SNI·Host를 유지한다. Node의 단일·다중 주소 lookup 계약 모두 같은 검증 IP만 반환하며 redirect와 DNS rebinding은 허용하지 않는다. 외부 응답 body는 오류 로그에 포함하지 않는다. 정기 제출의 인증 오류, 429, 5xx, timeout은 job 실패다.
 
 ## Ops 검증
+
+Grafana dashboard는 JSON parse뿐 아니라 panel/refId 중복, backend query scope와 모든 PromQL을 검사한다. systemd unit과 monitoring drop-in은 `hardening-contract.json`의 exact directive 및 writable-path 계약을 통과해야 한다.
 
 `ops-config-test`는 actionlint에 더해 YAML AST 기반 권한·concurrency·artifact identity 계약, Prometheus config/rules/fixtures, metric manifest, Grafana JSON, shell, systemd, migration policy, activation fixture를 검증한다. 기존 테이블의 신규 인덱스는 bounded `lock_timeout`, `CREATE INDEX CONCURRENTLY`, Flyway 비트랜잭션 sidecar를 모두 갖춰야 한다. Prometheus·Grafana의 승인 버전과 host exporter의 최소 호환 버전은 `deploy/monitoring/tool-versions.env`에 기록한다. 운영 host는 Prometheus·Grafana의 동일 native 버전과 최소 버전 이상의 배포판 host exporter를 사용한다.
 
@@ -42,13 +48,17 @@ Grafana 관리 비밀번호는 `/etc/noviis/monitoring.env`와 root-only 회전 
 
 ## 권한과 유지보수
 
+Backend/frontend production deploy는 `queue: single`, `cancel-in-progress: false`로 현재 활성 실행을 취소하지 않으면서 최신 pending 하나만 보존한다. 유실하면 안 되는 SEO 제출만 별도 `queue: max` group을 사용한다.
+
+Contract evidence 조회 job과 소비 job은 서로 다른 OIDC role을 사용한다. Read role은 snapshot describe/tag 조회만, consume role은 검증된 production snapshot ARN의 `noviis:contract-consumed` tag 추가만 허용한다.
+
 workflow 기본 권한은 `contents: read`이며 attestation, OIDC, artifact metadata 권한은 필요한 release/deploy job에만 부여한다. PR에서 repository script를 실행하는 PostgreSQL·ops job에는 `actions: read`나 `deployments: read`를 부여하지 않는다. 적용 완료 contract evidence의 GitHub API 검증은 보호된 `main`의 push 또는 수동 실행에서만 별도 job으로 수행한다. third-party Action은 검토한 release의 full commit SHA로 고정한다. workflow, activation script, sudoers, migration 정책 변경은 CODEOWNERS review 대상이다.
 
 배포 freshness 경계의 source of truth는 `deploy/release-freshness-paths.txt`다. workflow가 참조하는 activation·verification·provenance 파일이 이 manifest에서 빠지면 ops CI가 실패한다. Contract 배포는 snapshot ID뿐 아니라 SHA에 결합된 change ticket을 요구하며, production checkout은 Git credential을 보존하지 않는다.
 
 Contract evidence OIDC role은 production snapshot describe·tag 조회와 검증 완료 snapshot에 `noviis:contract-consumed` 태그를 추가하는 권한만 가진다. 일반 backend activation job에는 AWS OIDC 권한을 전달하지 않는다.
 
-Pinned actionlint 1.7.7은 GitHub의 2026 `concurrency.queue`와 `artifact-metadata` permission schema를 아직 알지 못하므로 CI는 그 두 exact parser diagnostics만 무시한다. 별도 YAML AST 계약이 `queue: max`, 최소 permission, main-only deploy, secret allowlist를 검증한다. actionlint가 두 필드를 지원하는 버전으로 갱신되면 ignore도 같은 변경에서 제거한다.
+Pinned actionlint 1.7.7은 GitHub의 2026 `concurrency.queue`와 `artifact-metadata` permission schema를 아직 알지 못하므로 CI는 그 두 exact parser diagnostics만 무시한다. 별도 YAML AST 계약이 production deploy의 `queue: single`, SEO 제출의 `queue: max`, 최소 permission, main-only deploy, secret allowlist를 검증한다. actionlint가 두 필드를 지원하는 버전으로 갱신되면 ignore도 같은 변경에서 제거한다.
 
 주요 timeout은 change detection·gate·SEO preflight 5분, contract evidence 10분, backend test 45분, frontend test 60분, PostgreSQL·ops 30분, release 20–25분, deploy 30분, SEO 검증 15분·제출 10분이다. YAML에서 값을 바꾸면 이 문서도 같은 변경에서 갱신한다.
 
@@ -64,7 +74,8 @@ GitHub `production` environment는 `main` branch restriction, required reviewer,
 
 contract evidence에 필요한 secret:
 
-- `AWS_CONTRACT_EVIDENCE_ROLE_ARN`
+- `AWS_CONTRACT_EVIDENCE_READ_ROLE_ARN`
+- `AWS_CONTRACT_EVIDENCE_CONSUME_ROLE_ARN`
 - `AWS_REGION`
 - `RDS_PRODUCTION_DB_IDENTIFIER`
 - `AWS_EXPECTED_ACCOUNT_ID`

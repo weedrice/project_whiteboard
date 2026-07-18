@@ -40,7 +40,7 @@ on:
 concurrency:
   group: deploy-production
   cancel-in-progress: false
-  queue: max
+  queue: single
 
 permissions:
   contents: read

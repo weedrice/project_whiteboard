@@ -118,6 +118,13 @@ const contractRevisionFilterEntries = ciSource.match(
 ) ?? []
 assert(contractRevisionFilterEntries.length === 3,
   'API contract revision must select backend, frontend, and ops validation scopes')
+for (const protectedOpsPath of [
+  '.github/CODEOWNERS',
+  'docs/ops/contract-evidence/**',
+  'docs/ops/postgres-backup-restore.md',
+]) {
+  assert(ciSource.includes(`- '${protectedOpsPath}'`), `${protectedOpsPath} must select ops validation`)
+}
 
 for (const workflowPath of [
   '.github/workflows/ci.yml',
@@ -144,14 +151,14 @@ for (const [component, workflow] of [['backend', backend], ['frontend', frontend
   }
 }
 
-for (const [name, workflow, group] of [
-  ['backend deploy', backend, 'deploy-production'],
-  ['frontend deploy', frontend, 'deploy-production'],
-  ['SEO submit', seo, 'seo-submit-production'],
+for (const [name, workflow, group, queue] of [
+  ['backend deploy', backend, 'deploy-production', 'single'],
+  ['frontend deploy', frontend, 'deploy-production', 'single'],
+  ['SEO submit', seo, 'seo-submit-production', 'max'],
 ]) {
   assert(workflow.concurrency?.group === group, `${name} concurrency group changed`)
   assert(workflow.concurrency?.['cancel-in-progress'] === false, `${name} may not cancel an active production operation`)
-  assert(workflow.concurrency?.queue === 'max', `${name} must retain the latest queued operation`)
+  assert(workflow.concurrency?.queue === queue, `${name} concurrency queue policy changed`)
 }
 
 for (const name of ['backend-postgres-migration', 'ops-config-test']) {
@@ -208,7 +215,8 @@ assertCheckoutDoesNotPersistCredentials(backend, 'backend deploy')
 assertCheckoutDoesNotPersistCredentials(frontend, 'frontend deploy')
 assertCheckoutDoesNotPersistCredentials(seo, 'SEO monitor')
 assertExactKeys(backend.on?.workflow_call?.secrets, [
-  'EC2_HOST', 'EC2_SSH_KEY', 'EC2_HOST_FINGERPRINT', 'AWS_CONTRACT_EVIDENCE_ROLE_ARN',
+  'EC2_HOST', 'EC2_SSH_KEY', 'EC2_HOST_FINGERPRINT', 'AWS_CONTRACT_EVIDENCE_READ_ROLE_ARN',
+  'AWS_CONTRACT_EVIDENCE_CONSUME_ROLE_ARN',
   'AWS_REGION', 'RDS_PRODUCTION_DB_IDENTIFIER', 'AWS_EXPECTED_ACCOUNT_ID',
   'RDS_SNAPSHOT_KMS_KEY_ARN', 'RDS_ENGINE_MAJOR_VERSION',
 ], 'backend reusable workflow secret allowlist changed')
@@ -227,5 +235,6 @@ for (const [name, releaseJob] of [['backend', ci.jobs['deploy-backend']], ['fron
 const preflight = seo.jobs['seo-preflight']
 assert(stepRuns(preflight, 'refs/heads/main'), 'manual SEO runs must be restricted to main')
 assert(seo.jobs['verify-endpoints'].needs === 'seo-preflight', 'SEO endpoint verification must depend on preflight')
+assert(seo.jobs['submit-scheduled'].environment === 'production-seo', 'scheduled SEO submission must use the restricted production-seo environment')
 
 console.log('Workflow AST security contracts passed')

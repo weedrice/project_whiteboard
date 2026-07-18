@@ -95,7 +95,8 @@ EOF
 
 cat > "$fake_bin/curl" <<'EOF'
 #!/usr/bin/env bash
-if [ -f "$STATE_DIR/arm_unexpected_restart" ] && [ ! -f "$STATE_DIR/restart_injected" ]; then
+if [ -f "$STATE_DIR/arm_unexpected_restart" ] && [ ! -f "$STATE_DIR/restart_injected" ] \
+    && grep -q '^new$' "$APP_DIR/app.jar"; then
   touch "$STATE_DIR/restart_injected"
   printf '%s\n' "$(( $(cat "$STATE_DIR/restarts") + 1 ))" > "$STATE_DIR/restarts"
   printf '%s\n' "$(( $(cat "$STATE_DIR/main-pid") + 1 ))" > "$STATE_DIR/main-pid"
@@ -121,7 +122,10 @@ EOF
 cat > "$fake_bin/mv" <<'EOF'
 #!/usr/bin/env bash
 last="${!#}"
-if [ -f "$STATE_DIR/fail_activate_move" ] && [ "$last" = "$APP_DIR/app.jar" ]; then exit 1; fi
+if [ -f "$STATE_DIR/fail_activate_move" ] && [ "$last" = "$APP_DIR/app.jar" ]; then
+  rm -f "$STATE_DIR/fail_activate_move"
+  exit 1
+fi
 exec /usr/bin/mv "$@"
 EOF
 cat > "$fake_bin/rm" <<'EOF'
@@ -136,6 +140,31 @@ cat > "$fake_bin/find" <<'EOF'
 if [ -f "$STATE_DIR/fail_cleanup_listing" ] && [ "${1:-}" = "$RELEASE_ROOT" ]; then exit 1; fi
 exec /usr/bin/find "$@"
 EOF
+if ! command -v flock >/dev/null 2>&1; then
+  cat > "$fake_bin/flock" <<EOF
+#!/usr/bin/env bash
+if [ "\${1:-}" != -n ]; then
+  touch "$fixture/flock-held"
+  exit 0
+fi
+[ ! -f "$fixture/flock-held" ]
+EOF
+fi
+if [ "$(stat -c %a "$env_file")" != 600 ]; then
+  cat > "$fake_bin/stat" <<EOF
+#!/usr/bin/env bash
+target="\${!#}"
+if [ "\${1:-}" = -c ] && [ "\${2:-}" = %a ]; then
+  case "\$target" in
+    "$fixture/backend-rollback.allow"|"$fixture/backend-generation.state"|"$app_dir/app.jar.active.state")
+      printf '600\n'
+      exit 0
+      ;;
+  esac
+fi
+exec /usr/bin/stat "\$@"
+EOF
+fi
 chmod +x "$fake_bin"/*
 
 invoke_activation() {
@@ -162,6 +191,7 @@ invoke_activation() {
   GENERATION_STATE_OWNER="$(stat -c %U:%G "$fixture")" \
   ROLLBACK_AUTH_FILE="$fixture/backend-rollback.allow" \
   BACKEND_ACTIVATION_LEASE_FILE="$fixture/backend-activation.lease" \
+  CONTRACT_RECOVERY_STATE_FILE="$fixture/backend-contract-recovery.state" \
   HEALTH_ATTEMPTS=2 \
   HEALTH_DELAY_SECONDS=0 \
   STABILITY_SUCCESS_COUNT=2 \
@@ -176,13 +206,14 @@ printf 'new\n' > "$lock_failure_release/app.jar"
 printf 'old\n' > "$app_dir/app.jar"
 (
   exec 8>"$fixture/noviis-deploy.lock"
-  flock 8
+  PATH="$fake_bin:$PATH" flock 8
   if invoke_activation "$lock_failure_release"; then
     echo "Expected concurrent backend activation to be rejected" >&2
     exit 1
   fi
   grep -qx old "$app_dir/app.jar"
 )
+rm -f "$fixture/flock-held"
 
 run_activation() {
   (
@@ -501,7 +532,7 @@ if run_activation "$move_failure_release"; then
 fi
 grep -qx old "$app_dir/app.jar"
 grep -qx active "$state_dir/service"
-rm "$state_dir/fail_activate_move"
+rm -f "$state_dir/fail_activate_move"
 
 outside_release="$fixture/outside"
 mkdir -p "$outside_release"
@@ -511,5 +542,36 @@ if run_activation "$outside_release"; then
   exit 1
 fi
 test -d "$outside_release"
+
+printf 'old\n' > "$app_dir/app.jar"
+printf 'active\n' > "$state_dir/service"
+contract_release="$incoming_root/contract-health-failure"
+mkdir -p "$contract_release"
+printf 'new\n' > "$contract_release/app.jar"
+cat > "$contract_release/RELEASE_METADATA" <<'EOF'
+repository=weedrice/project_whiteboard
+commit_sha=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+run_id=9900
+run_number=999
+run_attempt=1
+api_contract_revision=test-v1
+contract_migration=true
+EOF
+printf 'contract envelope\n' > "$contract_release/RELEASE_ENVELOPE"
+(cd "$contract_release" && sha256sum app.jar RELEASE_METADATA RELEASE_ENVELOPE > SHA256SUMS)
+touch "$state_dir/fail_new_health"
+restart_count_before="$(grep -c 'systemctl restart' "$state_dir/sudo.log" || true)"
+set +e
+contract_output="$(invoke_activation "$contract_release" bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb 9900 1 999 2>&1)"
+contract_status=$?
+set -e
+test "$contract_status" -ne 0
+grep -Fq 'RECOVERY_REQUIRED=database_contract' <<< "$contract_output"
+grep -qx new "$app_dir/app.jar"
+grep -qx inactive "$state_dir/service"
+test -f "$fixture/backend-contract-recovery.state"
+grep -Fqx 'recovery=database-contract-review-required' "$fixture/backend-contract-recovery.state"
+test "$(grep -c 'systemctl restart' "$state_dir/sudo.log" || true)" = "$restart_count_before"
+rm "$state_dir/fail_new_health"
 
 echo "Backend activation fixtures passed"

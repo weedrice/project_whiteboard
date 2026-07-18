@@ -32,7 +32,9 @@ on:
         required: true
       EC2_HOST_FINGERPRINT:
         required: true
-      AWS_CONTRACT_EVIDENCE_ROLE_ARN:
+      AWS_CONTRACT_EVIDENCE_READ_ROLE_ARN:
+        required: false
+      AWS_CONTRACT_EVIDENCE_CONSUME_ROLE_ARN:
         required: false
       AWS_REGION:
         required: false
@@ -48,7 +50,7 @@ on:
 concurrency:
   group: deploy-production
   cancel-in-progress: false
-  queue: max
+  queue: single
 
 permissions:
   contents: read
@@ -73,7 +75,7 @@ jobs:
       - name: Configure narrowly scoped AWS credentials for contract evidence
         uses: aws-actions/configure-aws-credentials@56d6a583f00f6bad6d19d91d53a7bc3b8143d0e9 # v5.1.1
         with:
-          role-to-assume: ${{ secrets.AWS_CONTRACT_EVIDENCE_ROLE_ARN }}
+          role-to-assume: ${{ secrets.AWS_CONTRACT_EVIDENCE_READ_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION }}
           role-session-name: noviis-contract-evidence-${{ github.run_id }}
 
@@ -119,6 +121,7 @@ jobs:
           EXPECTED_SHA: ${{ inputs.expected_sha }}
           BACKUP_SNAPSHOT_ID: ${{ inputs.backup_snapshot_id }}
           CONTRACT_CHANGE_TICKET: ${{ inputs.contract_change_ticket }}
+          CONTRACT_MIGRATION: ${{ inputs.contract_migration }}
         run: |
           set -euo pipefail
           (cd release-artifact && sha256sum --strict --check SHA256SUMS)
@@ -133,6 +136,7 @@ jobs:
           if [ -n "$CONTRACT_CHANGE_TICKET" ]; then
             grep -Fqx -- "contract_change_ticket=$CONTRACT_CHANGE_TICKET" release-artifact/RELEASE_METADATA
           fi
+          grep -Fqx -- "contract_migration=$CONTRACT_MIGRATION" release-artifact/RELEASE_METADATA
 
       - name: Verify backend GitHub artifact attestation
         env:
@@ -282,7 +286,7 @@ jobs:
       - name: Configure narrowly scoped AWS credentials
         uses: aws-actions/configure-aws-credentials@56d6a583f00f6bad6d19d91d53a7bc3b8143d0e9 # v5.1.1
         with:
-          role-to-assume: ${{ secrets.AWS_CONTRACT_EVIDENCE_ROLE_ARN }}
+          role-to-assume: ${{ secrets.AWS_CONTRACT_EVIDENCE_CONSUME_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION }}
           role-session-name: noviis-contract-consume-${{ github.run_id }}
       - name: Mark contract snapshot consumed by this deployment

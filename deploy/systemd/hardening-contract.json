@@ -1,0 +1,103 @@
+{
+  "units": [
+    {
+      "path": "deploy/systemd/app.service",
+      "section": "Service",
+      "required": {
+        "User": ["noviis-app"],
+        "Group": ["noviis-app"],
+        "NoNewPrivileges": ["true"],
+        "PrivateTmp": ["true"],
+        "PrivateDevices": ["true"],
+        "ProtectSystem": ["strict"],
+        "ProtectHome": ["true"],
+        "ProtectKernelTunables": ["true"],
+        "ProtectKernelModules": ["true"],
+        "ProtectControlGroups": ["true"],
+        "RestrictSUIDSGID": ["true"],
+        "LockPersonality": ["true"],
+        "CapabilityBoundingSet": [""],
+        "AmbientCapabilities": [""],
+        "RestrictAddressFamilies": ["AF_UNIX AF_INET AF_INET6"],
+        "ReadWritePaths": ["/opt/app/logs /opt/app/uploads"]
+      }
+    },
+    {
+      "path": "deploy/monitoring/systemd/prometheus.service.d/override.conf",
+      "section": "Service",
+      "required": {
+        "NoNewPrivileges": ["true"],
+        "PrivateTmp": ["true"],
+        "PrivateDevices": ["true"],
+        "ProtectSystem": ["strict"],
+        "ProtectHome": ["true"],
+        "ProtectKernelTunables": ["true"],
+        "ProtectKernelModules": ["true"],
+        "ProtectControlGroups": ["true"],
+        "RestrictSUIDSGID": ["true"],
+        "LockPersonality": ["true"],
+        "CapabilityBoundingSet": [""],
+        "AmbientCapabilities": [""],
+        "RestrictAddressFamilies": ["AF_UNIX AF_INET AF_INET6"],
+        "ReadWritePaths": ["/var/lib/prometheus/metrics2"]
+      }
+    },
+    {
+      "path": "deploy/monitoring/systemd/grafana-server.service.d/override.conf",
+      "section": "Service",
+      "required": {
+        "NoNewPrivileges": ["true"],
+        "PrivateTmp": ["true"],
+        "PrivateDevices": ["true"],
+        "ProtectSystem": ["strict"],
+        "ProtectHome": ["true"],
+        "ProtectKernelTunables": ["true"],
+        "ProtectKernelModules": ["true"],
+        "ProtectControlGroups": ["true"],
+        "RestrictSUIDSGID": ["true"],
+        "LockPersonality": ["true"],
+        "CapabilityBoundingSet": [""],
+        "AmbientCapabilities": [""],
+        "RestrictAddressFamilies": ["AF_UNIX AF_INET AF_INET6"],
+        "ReadWritePaths": ["/var/lib/grafana /var/log/grafana /run/grafana"]
+      }
+    },
+    {
+      "path": "deploy/monitoring/systemd/prometheus-node-exporter.service.d/override.conf",
+      "section": "Service",
+      "required": {
+        "NoNewPrivileges": ["true"],
+        "PrivateTmp": ["true"],
+        "PrivateDevices": ["true"],
+        "ProtectSystem": ["strict"],
+        "ProtectHome": ["true"],
+        "ProtectKernelTunables": ["true"],
+        "ProtectKernelModules": ["true"],
+        "ProtectControlGroups": ["true"],
+        "CapabilityBoundingSet": [""],
+        "AmbientCapabilities": [""],
+        "RestrictAddressFamilies": ["AF_UNIX AF_INET AF_INET6"]
+      }
+    },
+    {
+      "path": "deploy/monitoring/systemd/noviis-prometheus-watchdog.service",
+      "section": "Service",
+      "required": {
+        "User": ["root"],
+        "Group": ["root"],
+        "NoNewPrivileges": ["yes"],
+        "PrivateTmp": ["yes"],
+        "PrivateDevices": ["yes"],
+        "ProtectSystem": ["strict"],
+        "ProtectHome": ["yes"],
+        "ProtectKernelTunables": ["yes"],
+        "ProtectKernelModules": ["yes"],
+        "ProtectControlGroups": ["yes"],
+        "CapabilityBoundingSet": [""],
+        "RestrictAddressFamilies": ["AF_UNIX AF_INET AF_INET6"],
+        "LockPersonality": ["yes"],
+        "MemoryDenyWriteExecute": ["yes"]
+      }
+    }
+  ]
+}

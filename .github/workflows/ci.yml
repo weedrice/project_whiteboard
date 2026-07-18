@@ -74,7 +74,10 @@ jobs:
               - '.github/workflows/deploy-frontend.yml'
             ops:
               - 'deploy/**'
+              - '.github/CODEOWNERS'
               - 'docs/ops/api-contract-revision.txt'
+              - 'docs/ops/contract-evidence/**'
+              - 'docs/ops/postgres-backup-restore.md'
               - 'backend/scripts/**'
               - 'docker-compose*.yml'
               - 'backend/Dockerfile'
@@ -305,6 +308,40 @@ jobs:
         run: chmod +x gradlew
         working-directory: backend
 
+      - name: Verify Flyway upgrade from the previous revision
+        env:
+          BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || (github.event_name == 'push' && github.event.before || 'HEAD^') }}
+          PGPASSWORD: noviis_ci
+        run: |
+          set -euo pipefail
+          upgrade_database=noviis_ci_upgrade
+          createdb -h localhost -U noviis_ci "$upgrade_database"
+          previous="$RUNNER_TEMP/previous-backend-upgrade"
+          git worktree add --detach "$previous" "$BASE_REF"
+          trap 'git worktree remove --force "$previous"' EXIT
+          chmod +x "$previous/backend/gradlew"
+          POSTGRES_SMOKE_TEST=true \
+          POSTGRES_SMOKE_DATASOURCE_URL="jdbc:postgresql://localhost:5432/$upgrade_database" \
+          POSTGRES_SMOKE_DATASOURCE_USERNAME=noviis_ci \
+          POSTGRES_SMOKE_DATASOURCE_PASSWORD=noviis_ci \
+            "$previous/backend/gradlew" -p "$previous/backend" test \
+              --tests '*PostgresApplicationContextSmokeTest.contextLoadsWithPostgresMigrations' --rerun-tasks
+          POSTGRES_SMOKE_TEST=true \
+          POSTGRES_SMOKE_DATASOURCE_URL="jdbc:postgresql://localhost:5432/$upgrade_database" \
+          POSTGRES_SMOKE_DATASOURCE_USERNAME=noviis_ci \
+          POSTGRES_SMOKE_DATASOURCE_PASSWORD=noviis_ci \
+            ./backend/gradlew -p backend test \
+              --tests '*PostgresApplicationContextSmokeTest.contextLoadsWithPostgresMigrations' --rerun-tasks
+          while IFS= read -r migration; do
+            version="${migration##*/V}"
+            version="${version%%__*}"
+            test "$(psql -h localhost -U noviis_ci -d "$upgrade_database" -Atc \
+              "select count(*) from flyway_schema_history where version = '$version' and success")" = 1
+          done < <(find backend/src/main/resources/db/migration -type f -name 'V*.sql' | sort -V)
+
+      - name: Verify database documentation matches Flyway
+        run: python3 backend/scripts/verify-database-doc.py
+
       - name: Create PostgreSQL app smoke database
         run: createdb -h localhost -U noviis_ci noviis_ci_app
         env:
@@ -363,6 +400,9 @@ jobs:
       - name: Validate Prometheus configuration and rules
         run: |
           source deploy/monitoring/tool-versions.env
+          dashboard_rules="$RUNNER_TEMP/noviis-dashboard-promql.json"
+          python3 deploy/monitoring/verify-grafana-dashboard.py --promql-output "$dashboard_rules"
+          bash deploy/monitoring/tests/verify-grafana-dashboard-test.sh
           docker run --rm --entrypoint /bin/promtool \
             -v "$PWD/deploy/monitoring/prometheus:/etc/prometheus:ro" \
             "$PROMETHEUS_VALIDATION_IMAGE" \
@@ -375,6 +415,10 @@ jobs:
             -v "$PWD/deploy/monitoring/prometheus:/etc/prometheus:ro" \
             "$PROMETHEUS_VALIDATION_IMAGE" \
             test rules noviis-alerts.test.yml
+          docker run --rm --entrypoint /bin/promtool \
+            -v "$dashboard_rules:/tmp/noviis-dashboard-promql.json:ro" \
+            "$PROMETHEUS_VALIDATION_IMAGE" \
+            check rules /tmp/noviis-dashboard-promql.json
 
       - name: Verify scheduled job freshness manifest
         run: |
@@ -440,6 +484,8 @@ jobs:
 
       - name: Validate systemd units and drop-ins
         run: |
+          python3 deploy/systemd/verify-hardening.py
+          bash deploy/systemd/tests/verify-hardening-test.sh
           systemd-analyze verify deploy/systemd/app.service
           grep -Fqx 'OOMPolicy=stop' deploy/systemd/app.service
           grep -Fqx 'StartLimitIntervalSec=300' deploy/systemd/app.service
@@ -598,6 +644,7 @@ jobs:
           BUILD_COMMIT_SHA: ${{ github.sha }}
           BACKUP_SNAPSHOT_ID: ${{ inputs.backup_snapshot_id || '' }}
           CONTRACT_CHANGE_TICKET: ${{ inputs.contract_change_ticket || '' }}
+          CONTRACT_MIGRATION: ${{ needs.ci-gate.outputs.contract_migration }}
         run: |
           set -euo pipefail
           chmod +x gradlew
@@ -606,10 +653,12 @@ jobs:
           install -m 0644 build/libs/app.jar release/app.jar
           api_contract_revision="$(tr -d '\r\n' < ../docs/ops/api-contract-revision.txt)"
           [[ "$api_contract_revision" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$ ]]
+          case "$CONTRACT_MIGRATION" in true|false) ;; *) exit 1 ;; esac
           printf 'repository=%s\ncommit_sha=%s\nrun_id=%s\nrun_number=%s\nrun_attempt=%s\napi_contract_revision=%s\n' \
             "$GITHUB_REPOSITORY" "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_NUMBER" "$GITHUB_RUN_ATTEMPT" "$api_contract_revision" > release/RELEASE_METADATA
           printf 'backup_snapshot_id=%s\n' "$BACKUP_SNAPSHOT_ID" >> release/RELEASE_METADATA
           printf 'contract_change_ticket=%s\n' "$CONTRACT_CHANGE_TICKET" >> release/RELEASE_METADATA
+          printf 'contract_migration=%s\n' "$CONTRACT_MIGRATION" >> release/RELEASE_METADATA
       - name: Generate backend SBOM
         uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
         with:
@@ -860,7 +909,8 @@ jobs:
       EC2_HOST: ${{ secrets.EC2_HOST }}
       EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
       EC2_HOST_FINGERPRINT: ${{ secrets.EC2_HOST_FINGERPRINT }}
-      AWS_CONTRACT_EVIDENCE_ROLE_ARN: ${{ secrets.AWS_CONTRACT_EVIDENCE_ROLE_ARN }}
+      AWS_CONTRACT_EVIDENCE_READ_ROLE_ARN: ${{ secrets.AWS_CONTRACT_EVIDENCE_READ_ROLE_ARN }}
+      AWS_CONTRACT_EVIDENCE_CONSUME_ROLE_ARN: ${{ secrets.AWS_CONTRACT_EVIDENCE_CONSUME_ROLE_ARN }}
       AWS_REGION: ${{ secrets.AWS_REGION }}
       RDS_PRODUCTION_DB_IDENTIFIER: ${{ secrets.RDS_PRODUCTION_DB_IDENTIFIER }}
       AWS_EXPECTED_ACCOUNT_ID: ${{ secrets.AWS_EXPECTED_ACCOUNT_ID }}

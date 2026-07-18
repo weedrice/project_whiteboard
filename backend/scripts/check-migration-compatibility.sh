@@ -16,6 +16,47 @@ if [[ "$base_ref" =~ ^0+$ ]] || ! git cat-file -e "$base_ref^{commit}" 2>/dev/nu
   exit 1
 fi
 
+migration_version() {
+  local filename="${1##*/}"
+  if [[ "$filename" =~ ^V([1-9][0-9]*)__[A-Za-z0-9][A-Za-z0-9_]*\.sql$ ]]; then
+    printf '%s\n' "${BASH_REMATCH[1]}"
+    return 0
+  fi
+  echo "Versioned migration must use V<positive integer>__<description>.sql: $1" >&2
+  return 1
+}
+
+decimal_greater_than() {
+  local left="$1" right="$2"
+  if [ "${#left}" -ne "${#right}" ]; then
+    [ "${#left}" -gt "${#right}" ]
+  else
+    [[ "$left" > "$right" ]]
+  fi
+}
+
+base_max_version=0
+while IFS= read -r base_migration; do
+  [ -n "$base_migration" ] || continue
+  [[ "$base_migration" == "$migration_dir"/V*.sql ]] || continue
+  version="$(migration_version "$base_migration")" || exit 1
+  if decimal_greater_than "$version" "$base_max_version"; then
+    base_max_version="$version"
+  fi
+done < <(git ls-tree -r --name-only "$base_ref" -- "$migration_dir")
+
+declare -A head_versions=()
+while IFS= read -r head_migration; do
+  [ -n "$head_migration" ] || continue
+  [[ "$head_migration" == "$migration_dir"/V*.sql ]] || continue
+  version="$(migration_version "$head_migration")" || exit 1
+  if [ -n "${head_versions[$version]:-}" ]; then
+    echo "Duplicate Flyway migration version V$version: ${head_versions[$version]} and $head_migration" >&2
+    exit 1
+  fi
+  head_versions[$version]="$head_migration"
+done < <(git ls-tree -r --name-only "$head_ref" -- "$migration_dir")
+
 forbidden_migration="$(git ls-tree -r --name-only "$head_ref" -- "$migration_dir" \
   | grep -E '/(R|U)__[^/]*\.sql$' | head -n 1 || true)"
 if [ -n "$forbidden_migration" ]; then
@@ -39,6 +80,14 @@ for change in "${changes[@]}"; do
       exit 1
       ;;
   esac
+  file="${change#*$'\t'}"
+  if [[ "$file" = *.sql ]]; then
+    version="$(migration_version "$file")" || exit 1
+    if ! decimal_greater_than "$version" "$base_max_version"; then
+      echo "New Flyway migration version V$version must be greater than base maximum V$base_max_version: $file" >&2
+      exit 1
+    fi
+  fi
 done
 
 validate_online_indexes() {
@@ -546,6 +595,9 @@ for change in "${changes[@]}"; do
     risky=true
   fi
   if grep -Eiq '(^|[[:space:];])(DROP[[:space:]]+(TABLE|COLUMN|VIEW|TYPE|DOMAIN|SCHEMA|SEQUENCE|FUNCTION|PROCEDURE|TRIGGER|EVENT[[:space:]]+TRIGGER|POLICY|EXTENSION|OWNED)|TRUNCATE([[:space:]]+TABLE)?|(GRANT|REVOKE)([[:space:]]+|$)|ALTER[[:space:]]+DEFAULT[[:space:]]+PRIVILEGES|REASSIGN[[:space:]]+OWNED|CREATE[[:space:]]+(OR[[:space:]]+REPLACE[[:space:]]+)?((CONSTRAINT|EVENT)[[:space:]]+)?TRIGGER|ALTER[[:space:]]+(EVENT[[:space:]]+)?TRIGGER|CREATE[[:space:]]+POLICY|ALTER[[:space:]]+POLICY|CREATE[[:space:]]+TABLE[^;]*PARTITION[[:space:]]+OF|ALTER[[:space:]]+[^;]*OWNER[[:space:]]+TO|ALTER[[:space:]]+TABLE[^;]*(RENAME|DROP[[:space:]]+(COLUMN|CONSTRAINT|DEFAULT)|ALTER[[:space:]]+COLUMN[^;]*(TYPE|DROP[[:space:]]+DEFAULT)|(ENABLE|DISABLE)[[:space:]]+TRIGGER|(ENABLE|DISABLE|FORCE|NO[[:space:]]+FORCE)[[:space:]]+ROW[[:space:]]+LEVEL[[:space:]]+SECURITY|SET[[:space:]]+UNLOGGED|(ATTACH|DETACH)[[:space:]]+PARTITION)|ALTER[[:space:]]+TYPE[^;]*RENAME[[:space:]]+VALUE)' <<< "$sql_for_risk"; then
+    risky=true
+  fi
+  if grep -Eiq '(^|[[:space:];])((CREATE|ALTER|DROP)[[:space:]]+(ROLE|USER|DATABASE|TABLESPACE|SERVER|FOREIGN[[:space:]]+DATA[[:space:]]+WRAPPER|USER[[:space:]]+MAPPING|EXTENSION)([[:space:]]+|$)|ALTER[[:space:]]+SYSTEM([[:space:]]+|$)|SET[[:space:]]+(ROLE|SESSION[[:space:]]+AUTHORIZATION)([[:space:]]+|$)|SECURITY[[:space:]]+LABEL([[:space:]]+|$)|COPY[^;]*[[:space:]]PROGRAM([[:space:]]+|$))' <<< "$sql_for_risk"; then
     risky=true
   fi
   if grep -Eiq '(^|[[:space:];])DROP[[:space:]]+INDEX' <<< "$sql_for_risk" \

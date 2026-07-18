@@ -18,7 +18,11 @@ url="${*: -1}"
 case "$url" in
   */-/ready) printf 'Prometheus is Ready.\n' ;;
   */api/v1/status/config) printf '{"status":"success","data":{"yaml":"global:\\n  scrape_interval: 30s\\n"}}\n' ;;
-  */api/v1/rules) printf '{"status":"success","data":{"groups":[{"lastEvaluation":"%s"}]}}\n' "${RULE_EVALUATION:-2026-07-18T00:00:00Z}" ;;
+  */api/v1/rules)
+    if [ -n "${RULE_RESPONSE:-}" ]; then printf '%s\n' "$RULE_RESPONSE"
+    else printf '{"status":"success","data":{"groups":[{"lastEvaluation":"%s"}]}}\n' "${RULE_EVALUATION:-2026-07-18T00:00:00Z}"
+    fi
+    ;;
   *) exit 1 ;;
 esac
 EOF
@@ -36,7 +40,12 @@ cat > "$fake_bin/jq" <<'EOF'
 input="$(cat)"
 [ -n "$input" ] || exit 1
 case "$*" in
-  *lastEvaluation*) printf '%s\n' "${RULE_EVALUATION:-2026-07-18T00:00:00Z}" ;;
+  *lastEvaluation*)
+    [[ "$*" == *'.status != "success"'* ]]
+    [[ "$*" == *'| min'* ]]
+    [ "${RULE_API_STATUS:-success}" = success ] || exit 1
+    printf '%s\n' "${RULE_EVALUATION_MIN:-${RULE_EVALUATION:-2026-07-18T00:00:00Z}}"
+    ;;
   *) printf 'global:\n  scrape_interval: 30s\n' ;;
 esac
 EOF
@@ -54,6 +63,7 @@ run_watchdog() {
 
 run_watchdog >/dev/null
 if SYSTEMD_ACTIVE=false run_watchdog; then echo "Inactive Prometheus must fail" >&2; exit 1; fi
+if RULE_API_STATUS=error run_watchdog; then echo "A failed rule API response must fail" >&2; exit 1; fi
 if RULE_EPOCH=1 NOW_EPOCH=1000 run_watchdog; then echo "Stale rule evaluation must fail" >&2; exit 1; fi
 printf '%064d\n' 0 > "$fixture/active-config.sha256"
 if run_watchdog; then echo "An unexpected active config checksum must fail" >&2; exit 1; fi

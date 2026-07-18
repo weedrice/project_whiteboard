@@ -68,6 +68,7 @@ jobs:
     if: github.event_name == 'schedule' && needs.verify-endpoints.result == 'success'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    environment: production-seo
     steps:
       - name: Checkout trusted main schedule SHA
         uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3

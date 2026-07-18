@@ -22,6 +22,50 @@ if (cd "$fixture" && bash "$script" missing HEAD); then
   exit 1
 fi
 
+cat > "$fixture/backend/src/main/resources/db/migration/V3__higher_base.sql" <<'SQL'
+-- noviis:migration-phase expand
+CREATE TABLE higher_base (id bigint);
+SQL
+git -C "$fixture" add .
+git -C "$fixture" commit -qm higher-base
+higher_base="$(git -C "$fixture" rev-parse HEAD)"
+cat > "$fixture/backend/src/main/resources/db/migration/V2__out_of_order.sql" <<'SQL'
+-- noviis:migration-phase expand
+CREATE TABLE out_of_order (id bigint);
+SQL
+git -C "$fixture" add .
+git -C "$fixture" commit -qm out-of-order
+if (cd "$fixture" && bash "$script" "$higher_base" HEAD); then
+  echo "Expected a migration below the base maximum version to fail" >&2
+  exit 1
+fi
+
+git -C "$fixture" reset -q --hard "$base"
+cat > "$fixture/backend/src/main/resources/db/migration/V1__duplicate.sql" <<'SQL'
+-- noviis:migration-phase expand
+CREATE TABLE duplicate_version (id bigint);
+SQL
+git -C "$fixture" add .
+git -C "$fixture" commit -qm duplicate-version
+if (cd "$fixture" && bash "$script" "$base" HEAD); then
+  echo "Expected a duplicate Flyway version to fail" >&2
+  exit 1
+fi
+
+git -C "$fixture" reset -q --hard "$base"
+cat > "$fixture/backend/src/main/resources/db/migration/V2__privileged.sql" <<'SQL'
+-- noviis:migration-phase expand
+CREATE EXTENSION hstore;
+SQL
+git -C "$fixture" add .
+git -C "$fixture" commit -qm privileged-ddl
+if (cd "$fixture" && bash "$script" "$base" HEAD); then
+  echo "Expected privileged DDL outside a contract migration to fail" >&2
+  exit 1
+fi
+
+git -C "$fixture" reset -q --hard "$base"
+
 printf 'CREATE TABLE sample (id bigint, changed boolean);\n' > "$fixture/backend/src/main/resources/db/migration/V1__base.sql"
 git -C "$fixture" add .
 git -C "$fixture" commit -qm modified-existing-migration

@@ -29,7 +29,13 @@ active_checksum="$(jq -jer 'if .status == "success" and (.data.yaml | type == "s
 
 rules="$("$curl_command" --fail --silent --show-error --max-time 5 "$prometheus_url/api/v1/rules")" \
   || fail "rule status endpoint failed"
-last_evaluation="$(jq -er '[.data.groups[].lastEvaluation] | if length > 0 then max else error("no evaluated rule groups") end' <<< "$rules")" \
+last_evaluation="$(jq -er '
+  if .status != "success" then error("rule API status is not success")
+  elif (.data.groups | type) != "array" or (.data.groups | length) == 0 then error("no evaluated rule groups")
+  elif any(.data.groups[]; (.lastEvaluation | type) != "string" or .lastEvaluation == "") then error("invalid group evaluation timestamp")
+  else [.data.groups[].lastEvaluation] | min
+  end
+' <<< "$rules")" \
   || fail "no evaluated rule groups were reported"
 last_evaluation_epoch="$(date -u -d "$last_evaluation" +%s 2>/dev/null)" \
   || fail "last rule evaluation timestamp is invalid"

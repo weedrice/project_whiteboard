@@ -31,6 +31,7 @@ GENERATION_HIGH_WATER_FILE="${GENERATION_HIGH_WATER_FILE:-/var/lib/noviis/deploy
 GENERATION_STATE_OWNER="${GENERATION_STATE_OWNER:-root:root}"
 BACKEND_ACTIVATION_LEASE_FILE="${BACKEND_ACTIVATION_LEASE_FILE:-/run/lock/noviis-backend-activation.lease}"
 CLEANUP_DEBT_WRITER="${CLEANUP_DEBT_WRITER:-/usr/local/sbin/record-noviis-cleanup-debt}"
+CONTRACT_RECOVERY_STATE_FILE="${CONTRACT_RECOVERY_STATE_FILE:-/var/lib/noviis/deployment-state/backend-contract-recovery.state}"
 
 command -v flock >/dev/null 2>&1 || { echo "flock is required for activation locking" >&2; exit 69; }
 exec 9>"$DEPLOY_LOCK_FILE"
@@ -45,6 +46,20 @@ rollback_available=false
 rollback_in_progress=false
 completed=false
 activation_verified=false
+contract_migration=false
+contract_start_attempted=false
+
+generate_activation_nonce() {
+  if [ -r /proc/sys/kernel/random/uuid ]; then
+    tr -d '-' < /proc/sys/kernel/random/uuid | cut -c1-32
+    return
+  fi
+  command -v openssl >/dev/null 2>&1 || {
+    echo "A cryptographically secure nonce generator is required" >&2
+    return 1
+  }
+  openssl rand -hex 16
+}
 activated_sha=""
 staging_dir=""
 release_real=""
@@ -107,7 +122,7 @@ write_pending_active_state() {
   local now expires nonce lease_dir lease_tmp
   now="$(date +%s)"
   expires=$((now + PENDING_LEASE_SECONDS))
-  nonce="$(tr -d '-' < /proc/sys/kernel/random/uuid | cut -c1-32)"
+  nonce="$(generate_activation_nonce)" || return 1
   exec 8>&- 2>/dev/null || true
   lease_dir="$(dirname "$BACKEND_ACTIVATION_LEASE_FILE")"
   sudo install -d -o root -g root -m 0755 "$lease_dir"
@@ -119,6 +134,19 @@ write_pending_active_state() {
   exec 8<>"$BACKEND_ACTIVATION_LEASE_FILE"
   flock -n 8 || return 1
   write_active_state "$1" "$2" "$3" "$4" "$5" "$6" "$7" pending "$nonce" "$now" "$expires"
+}
+
+write_contract_recovery_state() {
+  local directory temporary
+  directory="$(dirname "$CONTRACT_RECOVERY_STATE_FILE")"
+  sudo install -d -o root -g root -m 0700 "$directory"
+  temporary="$(mktemp "$release_root_real/.backend-contract-recovery.XXXXXX")"
+  printf 'commit_sha=%s\nrun_id=%s\nrun_number=%s\nrun_attempt=%s\nrelease_envelope_sha256=%s\nfailure_phase=%s\nrecovery=database-contract-review-required\n' \
+    "$EXPECTED_COMMIT" "$release_run_id" "$release_run_number" "$release_run_attempt" \
+    "$release_envelope_digest" "$failure_phase" > "$temporary"
+  chmod 0600 "$temporary"
+  sudo install -o root -g root -m 0600 "$temporary" "$CONTRACT_RECOVERY_STATE_FILE"
+  rm -f -- "$temporary"
 }
 
 release_pending_lease() {
@@ -306,6 +334,15 @@ rollback() {
 
   if [ "$activation_verified" = true ]; then
     echo "Activation was already verified; leaving the healthy release active after a maintenance failure" >&2
+  elif [ "$contract_migration" = true ] && [ "$contract_start_attempted" = true ]; then
+    echo "Contract migration activation failed after the new service start was attempted; refusing to start the previous JAR" >&2
+    sudo systemctl stop "$SERVICE_NAME" || true
+    if ! write_contract_recovery_state; then
+      echo "Contract migration recovery state could not be persisted" >&2
+      diagnose
+      exit 2
+    fi
+    echo "RECOVERY_REQUIRED=database_contract" >&2
   elif [ "$service_stopped" = true ]; then
     local restore_status=0
     if [ "$activated" = true ]; then
@@ -343,6 +380,13 @@ rollback() {
         sudo systemctl stop "$SERVICE_NAME" || true
         return "$original_status"
       fi
+    else
+      state_digest="$previous_digest"
+      state_run_id="$previous_run_id"
+      state_run_attempt="$previous_run_attempt"
+      state_run_number="$previous_run_number"
+      state_envelope_digest="$previous_envelope_digest"
+      state_api_contract_revision="$previous_api_contract_revision"
     fi
     [[ "$previous_envelope_digest" =~ ^[0-9a-f]{64}$ ]] || previous_envelope_digest="$state_digest"
     if [ "$restore_status" -eq 0 ]; then
@@ -435,10 +479,13 @@ if [ -n "$EXPECTED_RUN_ID" ] || [ -n "$EXPECTED_RUN_ATTEMPT" ] || [ -n "$EXPECTE
   grep -Fqx -- "run_number=$EXPECTED_RUN_NUMBER" "$staging_dir/RELEASE_METADATA"
   api_contract_revision="$(sed -n 's/^api_contract_revision=//p' "$staging_dir/RELEASE_METADATA")"
   release_repository="$(sed -n 's/^repository=//p' "$staging_dir/RELEASE_METADATA")"
+  contract_migration="$(sed -n 's/^contract_migration=//p' "$staging_dir/RELEASE_METADATA")"
+  [ -n "$contract_migration" ] || contract_migration=false
   [ -n "$release_repository" ] || release_repository="legacy/local"
   [[ "$release_repository" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || { echo "Release repository is invalid" >&2; exit 1; }
   [[ "$api_contract_revision" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$ ]] \
     || { echo "Release API contract revision is invalid" >&2; exit 1; }
+  case "$contract_migration" in true|false) ;; *) echo "Release contract migration flag is invalid" >&2; exit 1 ;; esac
 fi
 
 mapfile -d '' jars < <(find "$staging_dir" -maxdepth 1 -type f -name '*.jar' -print0)
@@ -468,6 +515,10 @@ sudo test ! -L "$ENV_FILE"
 sudo test "$(sudo stat -c %U:%G "$ENV_FILE")" = "$ENV_FILE_OWNER"
 sudo test "$(sudo stat -c %a "$ENV_FILE")" = "$ENV_FILE_MODE"
 sudo test -w "$APP_DIR"
+if sudo test -e "$CONTRACT_RECOVERY_STATE_FILE"; then
+  echo "A previous contract migration recovery state still requires operator resolution" >&2
+  exit 1
+fi
 
 if [ -f "$APP_DIR/app.jar" ]; then
   previous_commit="$(curl -fsS --max-time 3 "${HEALTH_URL%/health}/info" \
@@ -540,6 +591,7 @@ if [[ "$EXPECTED_COMMIT" =~ ^[0-9a-f]{40}$ ]]; then
 fi
 failure_phase="start-service"
 sudo systemctl daemon-reload
+contract_start_attempted=true
 sudo systemctl start "$SERVICE_NAME"
 sudo systemctl is-active --quiet "$SERVICE_NAME"
 failure_phase="verify-health"
@@ -550,6 +602,7 @@ if [[ "$EXPECTED_COMMIT" =~ ^[0-9a-f]{40}$ ]]; then
 fi
 release_pending_lease
 activation_verified=true
+contract_start_attempted=false
 activated_sha="${EXPECTED_COMMIT:-$release_id}"
 completed=true
 echo "ACTIVATED_SHA=$activated_sha"
