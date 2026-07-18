@@ -93,6 +93,7 @@ tests:
         alertname: NoviIsRequiredBackendMetricMissing
         exp_alerts:
           - exp_labels:
+              job: noviis-backend
               missing_metric: hikaricp_connections_max
               severity: warning
             exp_annotations:
@@ -148,6 +149,7 @@ tests:
               description: "The backend has been up for more than 10 minutes without exporting this required metric."
           - exp_labels:
               area: heap
+              job: noviis-backend
               missing_metric: jvm_memory_used_bytes
               severity: warning
             exp_annotations:
@@ -283,9 +285,9 @@ tests:
   - name: sustained HTTP 5xx ratio fires only after the hold duration
     interval: 1m
     input_series:
-      - series: 'http_server_requests_seconds_count{status="200"}'
+      - series: 'http_server_requests_seconds_count{job="noviis-backend",status="200"}'
         values: '0+54x15'
-      - series: 'http_server_requests_seconds_count{status="500"}'
+      - series: 'http_server_requests_seconds_count{job="noviis-backend",status="500"}'
         values: '0+6x15'
     alert_rule_test:
       - eval_time: 10m
@@ -302,17 +304,17 @@ tests:
   - name: sustained HTTP p95 latency uses histogram buckets
     interval: 1m
     input_series:
-      - series: 'http_server_requests_seconds_count{status="200"}'
+      - series: 'http_server_requests_seconds_count{job="noviis-backend",status="200"}'
         values: '0+100x15'
-      - series: 'http_server_requests_seconds_bucket{le="0.1"}'
+      - series: 'http_server_requests_seconds_bucket{job="noviis-backend",le="0.1"}'
         values: '0+20x15'
-      - series: 'http_server_requests_seconds_bucket{le="0.5"}'
+      - series: 'http_server_requests_seconds_bucket{job="noviis-backend",le="0.5"}'
         values: '0+50x15'
-      - series: 'http_server_requests_seconds_bucket{le="1.0"}'
+      - series: 'http_server_requests_seconds_bucket{job="noviis-backend",le="1.0"}'
         values: '0+80x15'
-      - series: 'http_server_requests_seconds_bucket{le="2.0"}'
+      - series: 'http_server_requests_seconds_bucket{job="noviis-backend",le="2.0"}'
         values: '0+100x15'
-      - series: 'http_server_requests_seconds_bucket{le="+Inf"}'
+      - series: 'http_server_requests_seconds_bucket{job="noviis-backend",le="+Inf"}'
         values: '0+100x15'
     alert_rule_test:
       - eval_time: 11m
@@ -326,9 +328,9 @@ tests:
   - name: sustained HikariCP saturation fires after ten minutes
     interval: 1m
     input_series:
-      - series: 'hikaricp_connections_active{pool="HikariPool-1"}'
+      - series: 'hikaricp_connections_active{job="noviis-backend",pool="HikariPool-1"}'
         values: '9+0x15'
-      - series: 'hikaricp_connections_max{pool="HikariPool-1"}'
+      - series: 'hikaricp_connections_max{job="noviis-backend",pool="HikariPool-1"}'
         values: '10+0x15'
     alert_rule_test:
       - eval_time: 10m
@@ -338,6 +340,30 @@ tests:
               severity: warning
             exp_annotations:
               summary: "HikariCP active connections exceeded 85 percent of the configured maximum for 10 minutes"
+
+  - name: unrelated Java service metrics do not trigger backend alerts
+    interval: 1m
+    input_series:
+      - series: 'http_server_requests_seconds_count{job="unrelated-java",status="500"}'
+        values: '0+100x15'
+      - series: 'hikaricp_connections_active{job="unrelated-java",pool="OtherPool"}'
+        values: '10+0x15'
+      - series: 'hikaricp_connections_max{job="unrelated-java",pool="OtherPool"}'
+        values: '10+0x15'
+      - series: 'jvm_memory_used_bytes{job="unrelated-java",area="heap"}'
+        values: '95+0x15'
+      - series: 'jvm_memory_max_bytes{job="unrelated-java",area="heap"}'
+        values: '100+0x15'
+    alert_rule_test:
+      - eval_time: 11m
+        alertname: NoviIsHttp5xxRateHigh
+        exp_alerts: []
+      - eval_time: 11m
+        alertname: NoviIsHikariPoolSaturated
+        exp_alerts: []
+      - eval_time: 11m
+        alertname: NoviIsJvmHeapHigh
+        exp_alerts: []
 
   - name: scheduler backlog requires saturation and queue growth
     interval: 1m
