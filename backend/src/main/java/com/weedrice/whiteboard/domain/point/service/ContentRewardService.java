@@ -24,13 +24,12 @@ public class ContentRewardService {
         if (createReward <= 0) {
             return 0;
         }
-        pointService.addPointIfAbsent(
+        return pointService.addPointIfAbsent(
                 userId,
                 createReward,
                 policy.getCreateDescription(),
                 relatedId,
                 policy.getRelatedType());
-        return createReward;
     }
 
     @Transactional

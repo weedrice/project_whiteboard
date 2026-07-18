@@ -83,6 +83,26 @@ class AttendanceServiceTest {
     }
 
     @Test
+    void thirtiethConsecutiveCheckInAwardsBaseAndThirtyDayBonus() {
+        User user = mock(User.class);
+        UserAttendance previous = new UserAttendance(user, TODAY.minusDays(1), 29);
+        when(users.resolveForUpdate(6L)).thenReturn(user);
+        when(attendances.findByUser_UserIdAndAttendanceDate(6L, TODAY)).thenReturn(Optional.empty());
+        when(attendances.findTopByUser_UserIdAndAttendanceDateBeforeOrderByAttendanceDateDesc(6L, TODAY))
+                .thenReturn(Optional.of(previous));
+        when(attendances.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(rewards.rewardCreate(6L, null, ContentRewardPolicy.ATTENDANCE)).thenReturn(10);
+        when(rewards.rewardCreate(6L, null, ContentRewardPolicy.ATTENDANCE_STREAK_30)).thenReturn(100);
+
+        var response = service.checkIn(6L);
+
+        assertFalse(response.isAlreadyCheckedIn());
+        assertEquals(30, response.getStreakCount());
+        assertEquals(110, response.getEarnedPoints());
+        verify(badges).evaluateAttendanceStreakBadges(6L, 30);
+    }
+
+    @Test
     void checkInUsesUserWriteLockBeforeInsert() {
         User user = mock(User.class);
         when(users.resolveForUpdate(3L)).thenReturn(user);

@@ -15,6 +15,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -36,6 +37,8 @@ class ContentRewardServiceTest {
                 pointService,
                 pointHistoryRepository,
                 globalConfigService);
+        lenient().when(pointService.addPointIfAbsent(anyLong(), anyInt(), anyString(), anyLong(), anyString()))
+                .thenAnswer(invocation -> invocation.getArgument(1));
     }
 
     @Test
@@ -80,6 +83,33 @@ class ContentRewardServiceTest {
 
         assertThat(earnedPoints).isEqualTo(50);
         verify(pointService).addPointIfAbsent(1L, 50, "게시글 작성", 100L, "POST");
+    }
+
+    @Test
+    @DisplayName("rewardCreate returns zero when the idempotent payment already exists")
+    void rewardCreate_existingReward_returnsZero() {
+        when(globalConfigService.getConfig("POINT_POST_CREATE_REWARD")).thenReturn("50");
+        when(pointService.addPointIfAbsent(1L, 50, "게시글 작성", 100L, "POST")).thenReturn(0);
+
+        int earnedPoints = contentRewardService.rewardCreate(1L, 100L, ContentRewardPolicy.POST);
+
+        assertThat(earnedPoints).isZero();
+    }
+
+    @Test
+    @DisplayName("attendance rewards use independent idempotency keys")
+    void rewardCreate_attendancePolicies_useDistinctRelatedTypes() {
+        when(globalConfigService.getConfig("POINT_ATTENDANCE_CREATE_REWARD")).thenReturn("10");
+        when(globalConfigService.getConfig("POINT_ATTENDANCE_STREAK_7_REWARD")).thenReturn("30");
+        when(globalConfigService.getConfig("POINT_ATTENDANCE_STREAK_30_REWARD")).thenReturn("100");
+
+        assertThat(contentRewardService.rewardCreate(1L, 7L, ContentRewardPolicy.ATTENDANCE)).isEqualTo(10);
+        assertThat(contentRewardService.rewardCreate(1L, 7L, ContentRewardPolicy.ATTENDANCE_STREAK_7)).isEqualTo(30);
+        assertThat(contentRewardService.rewardCreate(1L, 7L, ContentRewardPolicy.ATTENDANCE_STREAK_30)).isEqualTo(100);
+
+        verify(pointService).addPointIfAbsent(1L, 10, "출석 체크", 7L, "ATTENDANCE");
+        verify(pointService).addPointIfAbsent(1L, 30, "7일 연속 출석 보너스", 7L, "ATTENDANCE_STREAK_7");
+        verify(pointService).addPointIfAbsent(1L, 100, "30일 연속 출석 보너스", 7L, "ATTENDANCE_STREAK_30");
     }
 
     @Test

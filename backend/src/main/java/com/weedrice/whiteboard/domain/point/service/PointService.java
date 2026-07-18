@@ -73,10 +73,20 @@ public class PointService {
     }
 
     @Transactional
-    public void addPointIfAbsent(@NonNull Long userId, int amount, String description, Long relatedId,
+    public int addPointIfAbsent(@NonNull Long userId, int amount, String description, Long relatedId,
             String relatedType) {
         validatePositiveAmount(amount);
-        changePoint(userId, amount, PointHistoryType.EARN, description, relatedId, relatedType, true, false, true);
+        boolean added = changePoint(
+                userId,
+                amount,
+                PointHistoryType.EARN,
+                description,
+                relatedId,
+                relatedType,
+                true,
+                false,
+                true);
+        return added ? amount : 0;
     }
 
     @Transactional
@@ -116,24 +126,24 @@ public class PointService {
                 .orElse(0);
     }
 
-    private void changePoint(@NonNull Long userId, int delta, PointHistoryType historyType, String description,
+    private boolean changePoint(@NonNull Long userId, int delta, PointHistoryType historyType, String description,
             Long relatedId,
             String relatedType, boolean createIfMissing, boolean validateSufficientBalance) {
-        changePoint(userId, delta, historyType, description, relatedId, relatedType, createIfMissing,
+        return changePoint(userId, delta, historyType, description, relatedId, relatedType, createIfMissing,
                 validateSufficientBalance, false);
     }
 
-    private void changePoint(@NonNull Long userId, int delta, PointHistoryType historyType, String description,
+    private boolean changePoint(@NonNull Long userId, int delta, PointHistoryType historyType, String description,
             Long relatedId,
             String relatedType, boolean createIfMissing, boolean validateSufficientBalance,
             boolean skipExistingHistory) {
         User user = userRepository.findByIdForUpdate(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
-        changePoint(user, delta, historyType, description, relatedId, relatedType, createIfMissing,
+        return changePoint(user, delta, historyType, description, relatedId, relatedType, createIfMissing,
                 validateSufficientBalance, skipExistingHistory, true);
     }
 
-    private void changePoint(@NonNull User user, int delta, PointHistoryType historyType, String description,
+    private boolean changePoint(@NonNull User user, int delta, PointHistoryType historyType, String description,
             Long relatedId,
             String relatedType, boolean createIfMissing, boolean validateSufficientBalance,
             boolean skipExistingHistory, boolean validateSpendSanction) {
@@ -151,7 +161,7 @@ public class PointService {
                 historyType.name(),
                 normalizedRelatedType,
                 relatedId)) {
-            return;
+            return false;
         }
         UserPoint userPoint = getOrCreateUserPoint(user, createIfMissing);
 
@@ -177,6 +187,7 @@ public class PointService {
                 .relatedId(relatedId)
                 .relatedType(normalizedRelatedType)
                 .build());
+        return true;
     }
 
     private UserPoint getOrCreateUserPoint(User user, boolean createIfMissing) {

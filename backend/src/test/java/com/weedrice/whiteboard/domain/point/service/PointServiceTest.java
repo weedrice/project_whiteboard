@@ -123,8 +123,9 @@ class PointServiceTest {
                 .thenReturn(false);
         when(userPointRepository.findByUserId(userId)).thenReturn(Optional.of(userPoint));
 
-        pointService.addPointIfAbsent(userId, 100, "Post reward", 10L, "POST");
+        int addedAmount = pointService.addPointIfAbsent(userId, 100, "Post reward", 10L, "POST");
 
+        assertThat(addedAmount).isEqualTo(100);
         assertThat(userPoint.getCurrentPoint()).isEqualTo(100);
         org.mockito.InOrder inOrder = inOrder(userRepository, pointHistoryRepository);
         inOrder.verify(userRepository).findByIdForUpdate(userId);
@@ -149,8 +150,9 @@ class PointServiceTest {
                 20L))
                 .thenReturn(true);
 
-        pointService.addPointIfAbsent(userId, 100, "Comment reward", 20L, "COMMENT");
+        int addedAmount = pointService.addPointIfAbsent(userId, 100, "Comment reward", 20L, "COMMENT");
 
+        assertThat(addedAmount).isZero();
         assertThat(userPoint.getCurrentPoint()).isZero();
         verify(userPointRepository, never()).findByUserId(any());
         verify(userPointRepository, never()).save(any());
