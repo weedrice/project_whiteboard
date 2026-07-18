@@ -201,6 +201,50 @@
             />
           </div>
 
+          <section v-if="comments.length > 0" class="min-w-0 space-y-3" data-testid="comment-results">
+            <h2 class="mb-4 flex items-center gap-2 text-lg font-semibold nv-title">
+              <MessageSquare class="h-5 w-5" />
+              {{ $t('common.comment') }}
+            </h2>
+            <RouterLink
+              v-for="comment in comments"
+              :key="comment.commentId"
+              :to="{
+                name: 'post-detail',
+                params: { boardUrl: comment.boardUrl, postId: comment.postId },
+                hash: `#comment-${comment.commentId}`,
+              }"
+              class="block min-w-0 rounded-md border nv-border p-4 nv-surface nv-hover-surface"
+            >
+              <p class="line-clamp-2 text-sm nv-text">{{ comment.content || comment.postTitle }}</p>
+              <p class="mt-2 truncate text-xs nv-text-subtle">
+                {{ comment.author?.displayName || '-' }} · {{ comment.postTitle }}
+              </p>
+            </RouterLink>
+          </section>
+
+          <section v-if="users.length > 0" class="min-w-0 space-y-3" data-testid="user-results">
+            <h2 class="mb-4 flex items-center gap-2 text-lg font-semibold nv-title">
+              <User class="h-5 w-5" />
+              {{ $t('common.user') }}
+            </h2>
+            <div class="grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2">
+              <RouterLink
+                v-for="user in users"
+                :key="user.userId"
+                :to="{ name: 'user-profile', params: { userId: user.userId } }"
+                class="flex min-w-0 items-center gap-3 rounded-md border nv-border p-4 nv-surface nv-hover-surface"
+              >
+                <UserAvatar
+                  :image-url="user.profileImageUrl"
+                  :name="user.displayName"
+                  size-class="h-10 w-10"
+                />
+                <span class="min-w-0 truncate text-sm font-medium nv-title">{{ user.displayName }}</span>
+              </RouterLink>
+            </div>
+          </section>
+
           <section
             v-if="!keywordResultsEmpty && semanticResults.length > 0"
             class="min-w-0 space-y-3"
@@ -336,7 +380,7 @@
           </div>
         </section>
 
-        <p v-if="hasSearchQuery && !isSemanticLoading && semanticResults.length === 0" class="rounded-lg border nv-border nv-surface p-4 text-sm nv-text-subtle">
+        <p v-if="semanticEnabled && !isSemanticLoading && semanticResults.length === 0" class="rounded-lg border nv-border nv-surface p-4 text-sm nv-text-subtle">
           {{ $t('search.semanticEmpty') }}
         </p>
       </aside>
@@ -364,7 +408,8 @@ import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseSelect from '@/components/common/ui/BaseSelect.vue'
-import { Search, Layout } from 'lucide-vue-next'
+import UserAvatar from '@/components/common/ui/UserAvatar.vue'
+import { Search, Layout, MessageSquare, User } from 'lucide-vue-next'
 import { isInquiryPostItem, resolveBoardRoute, resolvePostDetailRoute } from '@/utils/postNavigation'
 import {
   isSessionGenerationCurrent,
@@ -404,13 +449,26 @@ const {
   error: integratedSearchError,
   refetch: refetchIntegratedSearch,
 } = useIntegratedSearch(params)
-const semanticParams = computed(() => ({ q: searchQuery.value, size: 5, contentType: 'ALL' }))
+const hasSemanticUnsupportedFilters = computed(() => Boolean(
+  params.value.searchType !== 'TITLE_CONTENT'
+  || params.value.author
+  || params.value.period
+  || params.value.from
+  || params.value.to,
+))
+const semanticEnabled = computed(() => hasSearchQuery.value && !hasSemanticUnsupportedFilters.value)
+const semanticParams = computed(() => ({
+  q: searchQuery.value,
+  size: 5,
+  contentType: 'ALL',
+  ...(params.value.boardUrl ? { boardUrl: params.value.boardUrl } : {}),
+}))
 const {
   data: semanticData,
-  isLoading: isSemanticLoading,
+  isLoading: semanticQueryLoading,
   error: semanticSearchError,
   refetch: refetchSemanticSearch,
-} = useSemanticSearch(semanticParams)
+} = useSemanticSearch(semanticParams, semanticEnabled)
 const {
   data: popularKeywordData,
   isLoading: isPopularKeywordsLoading,
@@ -435,10 +493,24 @@ const {
   refetch: refetchRecentKeywords,
 } = useRecentSearches(computed(() => authStore.isAuthenticated))
 const posts = computed(() => searchData.value?.postResults || [])
+const comments = computed(() => searchData.value?.commentResults || [])
+const users = computed(() => searchData.value?.userResults || [])
 const boards = computed(() => searchData.value?.boardResults || [])
-const semanticResults = computed(() => semanticData.value?.content || [])
-const totalResultCount = computed(() => posts.value.length + boards.value.length + semanticResults.value.length)
-const keywordResultsEmpty = computed(() => posts.value.length === 0 && boards.value.length === 0)
+const isSemanticLoading = computed(() => semanticEnabled.value && semanticQueryLoading.value)
+const semanticResults = computed(() => semanticEnabled.value ? (semanticData.value?.content || []) : [])
+const totalResultCount = computed(() => (
+  posts.value.length
+  + comments.value.length
+  + users.value.length
+  + boards.value.length
+  + semanticResults.value.length
+))
+const keywordResultsEmpty = computed(() => (
+  posts.value.length === 0
+  && comments.value.length === 0
+  && users.value.length === 0
+  && boards.value.length === 0
+))
 const hasAnyResults = computed(() => !keywordResultsEmpty.value || semanticResults.value.length > 0)
 const popularKeywords = computed(() => popularKeywordData.value || [])
 const popularTags = computed(() => popularTagData.value?.tags || [])
@@ -459,7 +531,9 @@ const periodOptions = computed(() => [
   { value: 'MONTH', label: t('search.periodMonth') },
   { value: 'CUSTOM', label: t('search.periodCustom') },
 ])
-const hasSearchError = computed(() => Boolean(integratedSearchError.value || semanticSearchError.value))
+const hasSearchError = computed(() => Boolean(
+  integratedSearchError.value || (semanticEnabled.value && semanticSearchError.value),
+))
 const activeFilterChips = computed<Array<{ key: SearchFilterKey, label: string }>>(() => {
   const chips: Array<{ key: SearchFilterKey, label: string }> = []
   if (searchTypeQuery.value !== 'TITLE_CONTENT') {
@@ -592,10 +666,11 @@ onScopeDispose(() => {
 })
 
 async function retrySearch() {
-  await Promise.all([
-    refetchIntegratedSearch(),
-    refetchSemanticSearch(),
-  ])
+  if (semanticEnabled.value) {
+    await Promise.all([refetchIntegratedSearch(), refetchSemanticSearch()])
+    return
+  }
+  await refetchIntegratedSearch()
 }
 
 </script>

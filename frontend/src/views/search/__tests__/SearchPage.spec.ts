@@ -11,8 +11,12 @@ const routeState = vi.hoisted(() => ({
 
 const searchState = vi.hoisted(() => ({
   lastParams: null as ReturnType<typeof computed<Record<string, unknown>>> | null,
+  lastSemanticParams: null as ReturnType<typeof computed<Record<string, unknown>>> | null,
+  semanticEnabled: null as ReturnType<typeof computed<boolean>> | null,
   searchData: {
     postResults: [] as Array<Record<string, unknown>>,
+    commentResults: [] as Array<Record<string, unknown>>,
+    userResults: [] as Array<Record<string, unknown>>,
     boardResults: [] as Array<Record<string, unknown>>,
   },
   isLoading: false,
@@ -100,12 +104,19 @@ vi.mock('@/composables/useSearch', () => ({
         refetch: searchState.refetchIntegrated,
       }
     },
-    useSemanticSearch: () => ({
-      data: ref({ content: [] }),
-      isLoading: ref(false),
-      error: ref(searchState.error),
-      refetch: searchState.refetchSemantic,
-    }),
+    useSemanticSearch: (
+      params: ReturnType<typeof computed<Record<string, unknown>>>,
+      enabled: ReturnType<typeof computed<boolean>>,
+    ) => {
+      searchState.lastSemanticParams = params
+      searchState.semanticEnabled = enabled
+      return {
+        data: ref({ content: [] }),
+        isLoading: ref(false),
+        error: ref(searchState.error),
+        refetch: searchState.refetchSemantic,
+      }
+    },
     usePopularKeywords: () => ({
       data: ref([]),
       isLoading: ref(searchState.popularKeywordsLoading),
@@ -168,8 +179,12 @@ describe('SearchPage', () => {
   beforeEach(() => {
     routeState.query = {}
     searchState.lastParams = null
+    searchState.lastSemanticParams = null
+    searchState.semanticEnabled = null
     searchState.searchData = {
       postResults: [],
+      commentResults: [],
+      userResults: [],
       boardResults: [],
     }
     searchState.isLoading = false
@@ -207,6 +222,9 @@ describe('SearchPage', () => {
         Layout: true,
         RouterLink: RouterLinkStub,
         Search: true,
+        MessageSquare: true,
+        User: true,
+        UserAvatar: true,
       },
     },
   })
@@ -294,6 +312,8 @@ describe('SearchPage', () => {
     routeState.query = { q: 'vue' }
     searchState.searchData = {
       postResults: [{ postId: 1, title: 'Post' }],
+      commentResults: [],
+      userResults: [],
       boardResults: [{ boardId: 1, boardName: 'Board' }],
     }
 
@@ -305,6 +325,48 @@ describe('SearchPage', () => {
       'aria-atomic': 'true',
     })
     expect(status.text()).toBe('search.resultSummary:2')
+  })
+
+  it('renders comment and user results and includes them in empty and total decisions', () => {
+    routeState.query = { q: 'community' }
+    searchState.searchData = {
+      postResults: [],
+      boardResults: [],
+      commentResults: [{
+        commentId: 7,
+        content: 'matching comment',
+        postId: 3,
+        boardUrl: 'notice',
+        postTitle: 'Notice title',
+        author: { displayName: 'Commenter' },
+      }],
+      userResults: [{ userId: 9, displayName: 'Matched User' }],
+    }
+
+    const wrapper = mountPage()
+
+    expect(wrapper.get('[data-testid="comment-results"]').text()).toContain('matching comment')
+    expect(wrapper.get('[data-testid="user-results"]').text()).toContain('Matched User')
+    expect(wrapper.find('[data-testid="empty-state"]').exists()).toBe(false)
+    expect(wrapper.get('[role="status"]').text()).toBe('search.resultSummary:2')
+  })
+
+  it('passes boardUrl to semantic search and disables it for unsupported filters', () => {
+    routeState.query = { q: 'vue', boardUrl: 'notice' }
+    mountPage()
+
+    expect(searchState.lastParams?.value).toMatchObject({ boardUrl: 'notice' })
+    expect(searchState.lastSemanticParams?.value).toEqual({
+      q: 'vue',
+      size: 5,
+      contentType: 'ALL',
+      boardUrl: 'notice',
+    })
+    expect(searchState.semanticEnabled?.value).toBe(true)
+
+    routeState.query = { q: 'vue', boardUrl: 'notice', period: 'WEEK' }
+    mountPage()
+    expect(searchState.semanticEnabled?.value).toBe(false)
   })
 
   it('shows a retryable error instead of an empty result when search fails', async () => {

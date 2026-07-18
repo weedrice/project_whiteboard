@@ -109,17 +109,17 @@ describe('useSearch', () => {
                     hasMore: false,
                 },
                 commentResults: {
-                    items: [],
-                    totalElements: 0,
-                    totalPages: 0,
+                    items: [{ commentId: 3, content: 'matching comment' }],
+                    totalElements: 1,
+                    totalPages: 1,
                     page: 0,
                     size: 5,
                     hasMore: false,
                 },
                 userResults: {
-                    items: [],
-                    totalElements: 0,
-                    totalPages: 0,
+                    items: [{ userId: 4, displayName: 'Pinia User' }],
+                    totalElements: 1,
+                    totalPages: 1,
                     page: 0,
                     size: 5,
                     hasMore: false,
@@ -148,8 +148,24 @@ describe('useSearch', () => {
         expect(result).toEqual({
             keyword: 'pinia',
             postResults: [{ postId: 2 }],
+            commentResults: [{ commentId: 3, content: 'matching comment' }],
+            userResults: [{ userId: 4, displayName: 'Pinia User' }],
             boardResults: [],
             postPage: {
+                totalElements: 1,
+                totalPages: 1,
+                page: 0,
+                size: 5,
+                hasMore: false,
+            },
+            commentPage: {
+                totalElements: 1,
+                totalPages: 1,
+                page: 0,
+                size: 5,
+                hasMore: false,
+            },
+            userPage: {
                 totalElements: 1,
                 totalPages: 1,
                 page: 0,
@@ -185,6 +201,19 @@ describe('useSearch', () => {
         expect(options.placeholderData).toBeUndefined()
         await (options.queryFn as () => Promise<unknown>)()
         expect(searchApi.semanticSearch).toHaveBeenCalledWith({ q: 'private result', page: 0 })
+    })
+
+    it('disables semantic search when the caller marks current filters unsupported', () => {
+        const { useSemanticSearch } = useSearch()
+        const params = ref<SearchParams>({ q: 'filtered', boardUrl: 'notice' })
+        const enabled = ref(false)
+
+        useSemanticSearch(params, enabled)
+
+        const options = mocks.queryOptions.at(-1)!
+        expect((options.enabled as ReturnType<typeof computed>).value).toBe(false)
+        enabled.value = true
+        expect((options.enabled as ReturnType<typeof computed>).value).toBe(true)
     })
 
     it('fetches popular keywords with medium staleTime', async () => {

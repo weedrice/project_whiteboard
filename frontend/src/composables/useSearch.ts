@@ -1,12 +1,14 @@
 import { searchApi } from '@/api/search'
 import type {
     BoardSearchItem,
+    CommentResponse,
     IntegratedSearchResponse,
     IntegratedSearchResultGroup,
     PostSummary,
     RecentSearchResponse,
     SearchParams,
-    SemanticSearchResult
+    SemanticSearchResult,
+    UserSummary,
 } from '@/types'
 import { computed, type ComputedRef, type Ref } from 'vue'
 import { QUERY_STALE_TIME } from '@/utils/constants'
@@ -28,8 +30,12 @@ interface SearchPageResultPage {
 export interface SearchPageViewModel {
     keyword: string
     postResults: PostSummary[]
+    commentResults: CommentResponse[]
+    userResults: UserSummary[]
     boardResults: BoardSearchItem[]
     postPage: SearchPageResultPage
+    commentPage: SearchPageResultPage
+    userPage: SearchPageResultPage
 }
 
 const toSearchPageResultPage = <T>(resultGroup: IntegratedSearchResultGroup<T>): SearchPageResultPage => ({
@@ -43,8 +49,12 @@ const toSearchPageResultPage = <T>(resultGroup: IntegratedSearchResultGroup<T>):
 export const toSearchPageViewModel = (response: IntegratedSearchResponse): SearchPageViewModel => ({
     keyword: response.keyword,
     postResults: response.postResults.items,
+    commentResults: response.commentResults.items,
+    userResults: response.userResults.items,
     boardResults: response.boardResults,
-    postPage: toSearchPageResultPage(response.postResults)
+    postPage: toSearchPageResultPage(response.postResults),
+    commentPage: toSearchPageResultPage(response.commentResults),
+    userPage: toSearchPageResultPage(response.userResults),
 })
 
 export function useSearch() {
@@ -62,7 +72,10 @@ export function useSearch() {
         })
     }
 
-    const useSemanticSearch = (params: Ref<SearchParams>) => {
+    const useSemanticSearch = (
+        params: Ref<SearchParams>,
+        enabled?: Ref<boolean> | ComputedRef<boolean>,
+    ) => {
         return useApiPageQuery<SemanticSearchResult>({
             queryKey: computed(() => searchQueryKeys.semantic(params.value)),
             request: (context) => callWithOptionalQuerySignal(
@@ -70,7 +83,7 @@ export function useSearch() {
                 () => searchApi.semanticSearch(params.value),
                 (config) => searchApi.semanticSearch(params.value, config),
             ),
-            enabled: computed(() => hasSearchText(params.value.q)),
+            enabled: computed(() => hasSearchText(params.value.q) && (enabled?.value ?? true)),
             meta: AUTH_SCOPED_QUERY_META,
         })
     }

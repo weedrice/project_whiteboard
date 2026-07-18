@@ -129,6 +129,21 @@ describe('useSearchRouteQuery', () => {
     })
   })
 
+  it('preserves boardUrl as a supported integrated and semantic search scope', () => {
+    routeState.query = { q: 'old', boardUrl: ' notice ' }
+    const routeQuery = useSearchRouteQuery()
+
+    expect(routeQuery.boardUrlQuery.value).toBe('notice')
+    expect(routeQuery.params.value.boardUrl).toBe('notice')
+
+    routeQuery.searchInput.value = 'new'
+    routeQuery.handleSearchSubmit()
+    expect(routerPush).toHaveBeenCalledWith({
+      name: 'search',
+      query: { q: 'new', boardUrl: 'notice' },
+    })
+  })
+
   it.each(['TITLE_CONTENT', 'TITLE', 'CONTENT', 'AUTHOR'] as const)(
     'round-trips the %s post search scope',
     (searchType) => {

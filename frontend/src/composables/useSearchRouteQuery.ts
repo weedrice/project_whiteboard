@@ -38,6 +38,7 @@ export function useSearchRouteQuery() {
   const periodQuery = computed(() => firstQueryValue(route.query.period).trim().toUpperCase())
   const fromQuery = computed(() => firstQueryValue(route.query.from).trim())
   const toQuery = computed(() => firstQueryValue(route.query.to).trim())
+  const boardUrlQuery = computed(() => firstQueryValue(route.query.boardUrl).trim())
   const { submitSearch } = useSearchSubmitNavigation({
     getCurrentSearchQuery: () => searchQuery.value,
   })
@@ -55,6 +56,7 @@ export function useSearchRouteQuery() {
       if (fromQuery.value) nextParams.from = fromQuery.value
       if (toQuery.value) nextParams.to = toQuery.value
     }
+    if (boardUrlQuery.value) nextParams.boardUrl = boardUrlQuery.value
     return nextParams
   })
 
@@ -96,6 +98,7 @@ export function useSearchRouteQuery() {
       if (fromQuery.value) query.from = fromQuery.value
       if (toQuery.value) query.to = toQuery.value
     }
+    if (boardUrlQuery.value) query.boardUrl = boardUrlQuery.value
     return query
   }
 
@@ -111,6 +114,7 @@ export function useSearchRouteQuery() {
       if (fromInput.value.trim()) query.from = fromInput.value.trim()
       if (toInput.value.trim()) query.to = toInput.value.trim()
     }
+    if (boardUrlQuery.value) query.boardUrl = boardUrlQuery.value
     return query
   }
 
@@ -135,6 +139,7 @@ export function useSearchRouteQuery() {
       if (fromQuery.value) query.from = fromQuery.value
       if (toQuery.value) query.to = toQuery.value
     }
+    if (boardUrlQuery.value) query.boardUrl = boardUrlQuery.value
 
     return query
   }
@@ -152,6 +157,7 @@ export function useSearchRouteQuery() {
     periodQuery,
     fromQuery,
     toQuery,
+    boardUrlQuery,
     hasSearchQuery,
     params,
     handleSearchSubmit,

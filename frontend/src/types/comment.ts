@@ -25,6 +25,11 @@ export interface Comment {
     hasReplies: boolean
     createdAt: string
     modifiedAt?: string
+    // Direct post metadata returned by integrated search results.
+    postId?: number
+    boardUrl?: string
+    postTitle?: string
+    depth?: number
     // Post info when fetching user's comments
     post?: {
         postId: number
