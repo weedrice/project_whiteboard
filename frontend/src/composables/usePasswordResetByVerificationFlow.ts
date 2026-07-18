@@ -24,6 +24,13 @@ export function usePasswordResetByVerificationFlow(options: UsePasswordResetByVe
     let requestRevision = 0
     let requestController: AbortController | null = null
 
+    const cancelPendingRequests = () => {
+        requestRevision += 1
+        requestController?.abort()
+        requestController = null
+        options.onLoadingChange?.(false)
+    }
+
     const completeVerification = (verificationTicket: string) => {
         options.onVerified?.(verificationTicket)
         toastStore.addToast(t('auth.codeVerified'), 'success')
@@ -81,16 +88,12 @@ export function usePasswordResetByVerificationFlow(options: UsePasswordResetByVe
     }
 
     if (getCurrentScope()) {
-        onScopeDispose(() => {
-            requestRevision += 1
-            requestController?.abort()
-            requestController = null
-            options.onLoadingChange?.(false)
-        })
+        onScopeDispose(cancelPendingRequests)
     }
 
     return {
         completeVerification,
-        resetPassword
+        resetPassword,
+        cancelPendingRequests,
     }
 }

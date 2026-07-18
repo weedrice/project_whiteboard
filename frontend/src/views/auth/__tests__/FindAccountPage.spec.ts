@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   findId: vi.fn(),
   completeVerification: vi.fn(),
   resetPassword: vi.fn(),
+  cancelPasswordResetRequests: vi.fn(),
   cancelPendingRequests: vi.fn(),
   cancelFindIdRequests: vi.fn(),
   findOptions: null as Record<string, (...args: never[]) => unknown> | null,
@@ -28,6 +29,7 @@ vi.mock('@/composables/usePasswordResetByVerificationFlow', () => ({
     return {
       completeVerification: mocks.completeVerification,
       resetPassword: mocks.resetPassword,
+      cancelPendingRequests: mocks.cancelPasswordResetRequests,
     }
   },
 }))
@@ -98,6 +100,7 @@ describe('FindAccountPage', () => {
     expect(verification.purpose()).toBe('PASSWORD_RESET')
     expect(mocks.cancelPendingRequests).toHaveBeenCalledOnce()
     expect(mocks.cancelFindIdRequests).toHaveBeenCalledOnce()
+    expect(mocks.cancelPasswordResetRequests).toHaveBeenCalledOnce()
     verification.afterSend()
     await verification.afterVerify({ verificationTicket: 'reset-ticket', purpose: 'PASSWORD_RESET' } as never)
     expect(mocks.completeVerification).toHaveBeenCalledWith('reset-ticket')

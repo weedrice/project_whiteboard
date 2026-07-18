@@ -93,6 +93,32 @@ describe('usePasswordResetByVerificationFlow', () => {
         expect(onLoadingChange).toHaveBeenLastCalledWith(false)
     })
 
+    it('cancels an in-flight reset so a discarded flow cannot redirect later', async () => {
+        let resolveRequest!: (value: Awaited<ReturnType<typeof authApi.resetPassword>>) => void
+        vi.mocked(authApi.resetPassword).mockImplementation(() => new Promise((resolve) => {
+            resolveRequest = resolve
+        }))
+        const onLoadingChange = vi.fn()
+        const { resetPassword, cancelPendingRequests } = usePasswordResetByVerificationFlow({
+            getEmail: () => 'user@example.com',
+            getVerificationTicket: () => 'ticket-1',
+            getNewPassword: () => 'Password1!',
+            getConfirmPassword: () => 'Password1!',
+            onLoadingChange,
+        })
+
+        const pendingReset = resetPassword()
+        const signal = vi.mocked(authApi.resetPassword).mock.calls[0][1]?.signal
+        cancelPendingRequests()
+        resolveRequest(apiSuccessResponse<typeof authApi.resetPassword>())
+        await pendingReset
+
+        expect(signal?.aborted).toBe(true)
+        expect(toastMock.addToast).not.toHaveBeenCalledWith('auth.passwordResetSuccess', 'success')
+        expect(routerPush).not.toHaveBeenCalled()
+        expect(onLoadingChange).toHaveBeenLastCalledWith(false)
+    })
+
     it('redirects deleted users to signup with the existing encoded email query', async () => {
         vi.mocked(authApi.resetPassword).mockRejectedValue({
             isAxiosError: true,

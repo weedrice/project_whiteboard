@@ -69,6 +69,7 @@ const { findId, cancelPendingRequests: cancelFindIdRequests } = useFindIdFlow({
 const {
   completeVerification: completePasswordResetVerification,
   resetPassword: handleResetPassword,
+  cancelPendingRequests: cancelPasswordResetRequests,
 } = usePasswordResetByVerificationFlow({
   getEmail: () => form.email,
   getVerificationTicket: () => status.verificationTicket,
@@ -123,6 +124,7 @@ const {
 const switchTab = (tab: string) => {
   cancelEmailVerificationRequests()
   cancelFindIdRequests()
+  cancelPasswordResetRequests()
   activeTab.value = tab
   resetState()
 }
