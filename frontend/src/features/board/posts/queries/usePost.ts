@@ -11,6 +11,7 @@ import {
     updatePostInAllCaches,
 } from '@/features/board/posts/queries/postCacheUpdates'
 import { homeQueryKeys } from '@/composables/homeQueryKeys'
+import { tagQueryKeys } from '@/composables/tagQueryKeys'
 import { userQueryKeys } from '@/features/user/userQueryKeys'
 import { LOCAL_MUTATION_ERROR_META } from '@/mutationErrorOwnership'
 import { postDetailQueryKey, postQueryKeys } from '@/features/board/posts/queries/postQueryKeys'
@@ -20,6 +21,7 @@ import {
     AUTH_SCOPED_QUERY_META,
     currentSessionQueryKey,
     isSessionGenerationCurrent,
+    sessionQueryKey,
 } from '@/queryAuthScope'
 
 export { postDetailQueryKey, postQueryKeys } from '@/features/board/posts/queries/postQueryKeys'
@@ -97,9 +99,13 @@ export function usePost() {
             },
             onSuccess: (_data, _variables, context) => {
                 if (!isCurrentMutation(context)) return
-                queryClient.invalidateQueries({ queryKey: authKey(postQueryKeys.boardPostsRoot) })
-                queryClient.invalidateQueries({ queryKey: authKey(homeQueryKeys.landingRoot) })
-                queryClient.invalidateQueries({ queryKey: authKey(userQueryKeys.pointsRoot) })
+                const sessionKey = (queryKey: readonly unknown[]) => (
+                    sessionQueryKey(context.sessionGeneration, queryKey)
+                )
+                queryClient.invalidateQueries({ queryKey: sessionKey(postQueryKeys.boardPostsRoot) })
+                queryClient.invalidateQueries({ queryKey: sessionKey(homeQueryKeys.landingRoot) })
+                queryClient.invalidateQueries({ queryKey: sessionKey(userQueryKeys.pointsRoot) })
+                queryClient.invalidateQueries({ queryKey: sessionKey(tagQueryKeys.all) })
             },
         })
     }
@@ -125,7 +131,7 @@ export function usePost() {
             },
             onSuccess: (_, { postId }, context) => {
                 if (!isCurrentMutation(context)) return
-                invalidatePostCaches(queryClient, authStore.sessionGeneration, postId)
+                invalidatePostCaches(queryClient, context.sessionGeneration, postId)
             },
         })
     }
@@ -138,7 +144,7 @@ export function usePost() {
             },
             onSuccess: (_, postId, context) => {
                 if (!isCurrentMutation(context)) return
-                invalidatePostCaches(queryClient, authStore.sessionGeneration, postId)
+                invalidatePostCaches(queryClient, context.sessionGeneration, postId)
             },
         })
     }

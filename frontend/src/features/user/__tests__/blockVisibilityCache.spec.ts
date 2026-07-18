@@ -20,11 +20,12 @@ describe('invalidateBlockVisibilityCaches', () => {
       ['session', 7, 'board', 'posts'],
       ['session', 7, 'home'],
       ['session', 7, 'search'],
+      ['session', 7, 'tags'],
       ['session', 7, 'feed'],
       ['session', 7, 'comments'],
       ['session', 7, 'messages'],
       ['session', 7, 'messages', 'unread-count'],
     ]))
-    expect(invalidateQueries).toHaveBeenCalledTimes(13)
+    expect(invalidateQueries).toHaveBeenCalledTimes(14)
   })
 })

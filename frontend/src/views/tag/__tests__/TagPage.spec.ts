@@ -17,6 +17,8 @@ const tagApi = vi.hoisted(() => ({
   getPopularTags: vi.fn(),
 }))
 
+let mountedQueryClient: QueryClient | null = null
+
 vi.mock('vue-router', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-router')>()
   return {
@@ -57,6 +59,7 @@ const mountPage = () => {
       },
     },
   })
+  mountedQueryClient = queryClient
 
   return mount(TagPage, {
     global: {
@@ -113,6 +116,19 @@ describe('TagPage', () => {
         },
       },
     })
+  })
+
+  it('registers tag posts under a single auth-session prefix', async () => {
+    mountPage()
+    await flushPromises()
+
+    const keys = mountedQueryClient?.getQueryCache().getAll().map((query) => query.queryKey) ?? []
+    expect(keys).toContainEqual(['session', 0, 'tags', 'vue', 'posts', {
+      page: 0,
+      size: 20,
+      sort: 'createdAt,desc',
+    }])
+    expect(keys.some((key) => key.slice(0, 4).join(':') === 'session:0:session:0')).toBe(false)
   })
 
   it('loads tag posts with a zero-based API page and renders count and related tags', async () => {

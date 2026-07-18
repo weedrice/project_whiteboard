@@ -12,13 +12,12 @@ import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import { useApiPageQuery, useApiQuery } from '@/composables/useApiQuery'
 import { isInquiryPostItem, resolveBoardRoute, resolvePostDetailRoute } from '@/utils/postNavigation'
 import { encodePathSegment } from '@/utils/urlPath'
-import { useAuthStore } from '@/stores/auth'
-import { AUTH_SCOPED_QUERY_META, currentSessionQueryKey } from '@/queryAuthScope'
+import { AUTH_SCOPED_QUERY_META } from '@/queryAuthScope'
+import { tagQueryKeys } from '@/composables/tagQueryKeys'
 
 const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
-const authStore = useAuthStore()
 const tagName = computed(() => String(route.params.name ?? '').trim())
 const page = computed(() => {
   const rawPage = Number(route.query.page ?? 1)
@@ -32,17 +31,14 @@ const params = computed(() => ({
 }))
 
 const { data, isLoading, isError, refetch } = useApiPageQuery({
-  queryKey: computed(() => currentSessionQueryKey(
-    authStore,
-    ['tags', tagName.value, 'posts', params.value],
-  )),
+  queryKey: computed(() => tagQueryKeys.posts(tagName.value, params.value)),
   request: (context) => tagApi.getPostsByTagName(tagName.value, params.value, { signal: context.signal }),
   enabled: computed(() => tagName.value.length > 0),
   meta: AUTH_SCOPED_QUERY_META,
 })
 
 const { data: popularTagData } = useApiQuery({
-  queryKey: ['tags', 'popular'],
+  queryKey: tagQueryKeys.popular,
   request: () => tagApi.getPopularTags(),
   staleTime: 300_000,
 })

@@ -1,6 +1,7 @@
 import type { QueryClient } from '@tanstack/vue-query'
 import { homeQueryKeys } from '@/composables/homeQueryKeys'
 import { searchQueryKeys } from '@/composables/searchQueryKeys'
+import { tagQueryKeys } from '@/composables/tagQueryKeys'
 import { commentQueryKeys } from '@/features/comments/queries/commentQueryKeys'
 import { feedQueryKeys } from '@/features/feed/feedQueryKeys'
 import { postQueryKeys } from '@/features/board/posts/queries/postQueryKeys'
@@ -27,6 +28,7 @@ export function invalidateBlockVisibilityCaches(
     postQueryKeys.boardPostsRoot,
     homeQueryKeys.all,
     searchQueryKeys.all,
+    tagQueryKeys.all,
     feedQueryKeys.all,
     commentQueryKeys.all,
     messageVisibilityQueryKeys.all,

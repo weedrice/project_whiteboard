@@ -1,6 +1,7 @@
 import type { QueryClient } from '@tanstack/vue-query'
 import type { Post } from '@/types'
 import { homeQueryKeys } from '@/composables/homeQueryKeys'
+import { tagQueryKeys } from '@/composables/tagQueryKeys'
 import { postQueryKeys } from '@/features/board/posts/queries/postQueryKeys'
 import { sessionQueryKey } from '@/queryAuthScope'
 
@@ -124,6 +125,7 @@ export function invalidatePostCaches(
     queryKey: sessionQueryKey(sessionGeneration, postQueryKeys.detailPrefix(postId)),
   })
   queryClient.invalidateQueries({ queryKey: sessionQueryKey(sessionGeneration, postQueryKeys.lists) })
+  queryClient.invalidateQueries({ queryKey: sessionQueryKey(sessionGeneration, tagQueryKeys.all) })
   queryClient.invalidateQueries({ queryKey: sessionQueryKey(sessionGeneration, homeQueryKeys.landingRoot) })
   queryClient.invalidateQueries({
     queryKey: sessionQueryKey(sessionGeneration, postQueryKeys.boardPostsRoot),

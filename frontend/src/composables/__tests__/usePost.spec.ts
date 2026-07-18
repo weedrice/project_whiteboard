@@ -275,6 +275,7 @@ describe('usePost', () => {
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: sessionKey(['board', 'posts']) })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: sessionKey(['home', 'landing']) })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: sessionKey(['user', 'points']) })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: sessionKey(['tags']) })
     })
 
     it('invalidates related post caches after update', async () => {
@@ -290,6 +291,7 @@ describe('usePost', () => {
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: sessionKey(['post', 1]) })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: sessionKey(['posts']) })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: sessionKey(['home', 'landing']) })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: sessionKey(['tags']) })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({
             predicate: expect.any(Function),
         })
@@ -305,6 +307,7 @@ describe('usePost', () => {
         expect(postApi.deletePost).toHaveBeenCalledWith(1)
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: sessionKey(['board', 'posts']) })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: sessionKey(['home', 'landing']) })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: sessionKey(['tags']) })
     })
 
     it('applies optimistic like updates across all caches and invalidates on settle', async () => {
