@@ -433,7 +433,7 @@ class MessageServiceTest {
     @DisplayName("수신자는 별도 read endpoint로 읽음 처리한다")
     void markAsRead_success() {
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(2L)).thenReturn(Collections.emptyList());
-        when(messageRepository.findAccessibleMessage(2L, 1L, Collections.emptyList()))
+        when(messageRepository.findAccessibleMessageForUpdate(2L, 1L, Collections.emptyList()))
                 .thenReturn(Optional.of(message));
 
         messageService.markAsRead(2L, 1L);
@@ -447,7 +447,7 @@ class MessageServiceTest {
     @DisplayName("발신자는 read endpoint를 호출할 수 없다")
     void markAsRead_senderForbidden() {
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(Collections.emptyList());
-        when(messageRepository.findAccessibleMessage(1L, 1L, Collections.emptyList()))
+        when(messageRepository.findAccessibleMessageForUpdate(1L, 1L, Collections.emptyList()))
                 .thenReturn(Optional.of(message));
 
         assertThatThrownBy(() -> messageService.markAsRead(1L, 1L))
@@ -472,7 +472,7 @@ class MessageServiceTest {
     @DisplayName("차단된 대화의 읽음 처리는 찾을 수 없음으로 숨긴다")
     void markAsRead_blockedConversationNotFound() {
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(2L)).thenReturn(List.of(1L));
-        when(messageRepository.findAccessibleMessage(2L, 1L, List.of(1L))).thenReturn(Optional.empty());
+        when(messageRepository.findAccessibleMessageForUpdate(2L, 1L, List.of(1L))).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> messageService.markAsRead(2L, 1L))
                 .isInstanceOf(BusinessException.class)
@@ -486,7 +486,7 @@ class MessageServiceTest {
     @DisplayName("이미 삭제한 메시지는 읽음 처리에서도 찾을 수 없다")
     void markAsRead_deletedByViewerNotFound() {
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(2L)).thenReturn(Collections.emptyList());
-        when(messageRepository.findAccessibleMessage(2L, 1L, Collections.emptyList())).thenReturn(Optional.empty());
+        when(messageRepository.findAccessibleMessageForUpdate(2L, 1L, Collections.emptyList())).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> messageService.markAsRead(2L, 1L))
                 .isInstanceOf(BusinessException.class)
@@ -497,7 +497,7 @@ class MessageServiceTest {
     @DisplayName("참여자가 아닌 사용자의 읽음 처리는 찾을 수 없음으로 처리된다")
     void markAsRead_nonParticipantNotFound() {
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(3L)).thenReturn(Collections.emptyList());
-        when(messageRepository.findAccessibleMessage(3L, 1L, Collections.emptyList())).thenReturn(Optional.empty());
+        when(messageRepository.findAccessibleMessageForUpdate(3L, 1L, Collections.emptyList())).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> messageService.markAsRead(3L, 1L))
                 .isInstanceOf(BusinessException.class)

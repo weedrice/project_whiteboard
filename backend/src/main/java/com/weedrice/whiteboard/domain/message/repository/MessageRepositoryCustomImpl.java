@@ -260,6 +260,22 @@ public class MessageRepositoryCustomImpl implements MessageRepositoryCustom {
     }
 
     @Override
+    public Optional<Message> findAccessibleMessageForUpdate(Long userId, Long messageId, List<Long> blockedUserIds) {
+        Message result = queryFactory
+                .selectFrom(message)
+                .join(message.sender, user).fetchJoin()
+                .join(message.receiver).fetchJoin()
+                .where(
+                        message.messageId.eq(messageId),
+                        senderOrReceiverCanAccess(userId),
+                        notBlockedConversationPartnerCondition(userId, blockedUserIds)
+                )
+                .setLockMode(LockModeType.PESSIMISTIC_WRITE)
+                .fetchOne();
+        return Optional.ofNullable(result);
+    }
+
+    @Override
     public List<Message> findDeletableByMessageIdInForUpdate(Long userId, Collection<Long> messageIds) {
         if (messageIds == null || messageIds.isEmpty()) {
             return List.of();

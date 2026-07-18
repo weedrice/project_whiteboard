@@ -172,7 +172,7 @@ public class MessageService {
 
     @Transactional
     public void markAsRead(Long userId, Long messageId) {
-        Message message = getAccessibleMessage(userId, messageId);
+        Message message = getAccessibleMessageForUpdate(userId, messageId);
         if (!message.getReceiver().getUserId().equals(userId)) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
@@ -295,6 +295,12 @@ public class MessageService {
     private Message getAccessibleMessage(Long userId, Long messageId) {
         List<Long> blockedUserIds = getBlockedConversationUserIdsForExistingUser(userId);
         return messageRepository.findAccessibleMessage(userId, messageId, blockedUserIds)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+    }
+
+    private Message getAccessibleMessageForUpdate(Long userId, Long messageId) {
+        List<Long> blockedUserIds = getBlockedConversationUserIdsForExistingUser(userId);
+        return messageRepository.findAccessibleMessageForUpdate(userId, messageId, blockedUserIds)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
     }
 
