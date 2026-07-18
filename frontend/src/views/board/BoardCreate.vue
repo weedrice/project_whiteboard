@@ -68,7 +68,6 @@ async function handleCreate(formData: BoardData) {
       if (controller.signal.aborted || !isAuthSessionIntentCurrent(authStore, intent) || isCancellationError(err)) return
       error.value = extractErrorMessage(err) || t('board.form.createFailed')
       handleError(err, t('board.form.createFailed'))
-      throw err
     } finally {
       if (createController === controller) createController = null
     }

@@ -681,4 +681,19 @@ describe('UserSettings', () => {
 
     expect(revokeOtherSessions).not.toHaveBeenCalled()
   })
+
+  it('consumes session revocation errors after QueryClient handles them', async () => {
+    sessionsData.value = [
+      { sessionId: 2, deviceSummary: 'other', ipAddress: '127.0.0.2', lastUsedAt: '', expiresAt: '', current: false },
+    ]
+    revokeSession.mockRejectedValueOnce(new Error('network'))
+    const wrapper = mountUserSettings()
+    const button = wrapper.findAll('button')
+      .find((candidate) => candidate.text() === 'common.logout')!
+
+    await expect(button.trigger('click')).resolves.toBeUndefined()
+    await flushAll()
+
+    expect(authStoreMock.clearSessionState).not.toHaveBeenCalled()
+  })
 })

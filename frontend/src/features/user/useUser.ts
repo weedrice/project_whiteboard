@@ -24,6 +24,8 @@ import {
 } from '@/queryAuthScope'
 import { useAuthStore } from '@/stores/auth'
 import { invalidateBlockVisibilityCaches } from '@/features/user/blockVisibilityCache'
+import { invalidateProfileAuthorCaches } from '@/features/user/profile/profileCacheInvalidation'
+import { LOCAL_MUTATION_ERROR_META } from '@/mutationErrorOwnership'
 
 interface PasswordUpdateData {
     currentPassword: string
@@ -241,13 +243,19 @@ export function useUser() {
 
     const useUpdateMyProfile = () => {
         return useMutation({
+            meta: LOCAL_MUTATION_ERROR_META,
             onMutate: captureMutationSession,
             mutationFn: async (data: UserUpdatePayload) => {
-                return resolveResponseData(userApi.updateMyProfile(data))
+                return resolveResponseData(userApi.updateMyProfile(data, { skipGlobalErrorHandler: true }))
             },
             onSuccess: (_data, _variables, context) => {
                 if (!isCurrentMutation(context)) return
-                queryClient.invalidateQueries({ queryKey: authKey(userQueryKeys.me) })
+                const userId = authStore.user?.userId
+                if (userId == null) {
+                    queryClient.invalidateQueries({ queryKey: authKey(userQueryKeys.me) })
+                    return
+                }
+                void invalidateProfileAuthorCaches(queryClient, context.sessionGeneration, userId)
             }
         })
     }
@@ -264,7 +272,7 @@ export function useUser() {
         return useMutation({
             onMutate: captureMutationSession,
             mutationFn: async (sessionId: string | number) => {
-                return resolveResponseData(userApi.revokeMySession(sessionId))
+                return resolveResponseData(userApi.revokeMySession(sessionId, { skipGlobalErrorHandler: true }))
             },
             onSuccess: (_data, _variables, context) => {
                 if (!isCurrentMutation(context)) return
@@ -277,7 +285,7 @@ export function useUser() {
         return useMutation({
             onMutate: captureMutationSession,
             mutationFn: async () => {
-                return resolveResponseData(userApi.revokeOtherSessions())
+                return resolveResponseData(userApi.revokeOtherSessions({ skipGlobalErrorHandler: true }))
             },
             onSuccess: (_data, _variables, context) => {
                 if (!isCurrentMutation(context)) return
@@ -288,9 +296,10 @@ export function useUser() {
 
     const useDeleteAccount = () => {
         return useMutation({
+            meta: LOCAL_MUTATION_ERROR_META,
             onMutate: captureMutationSession,
             mutationFn: async (password: string) => {
-                return resolveResponseData(userApi.deleteAccount(password))
+                return resolveResponseData(userApi.deleteAccount(password, { skipGlobalErrorHandler: true }))
             },
             onSuccess: (_data, _variables, context) => {
                 if (!isCurrentMutation(context)) return
@@ -302,9 +311,10 @@ export function useUser() {
 
     const useUpdateUserSettings = () => {
         return useMutation({
+            meta: LOCAL_MUTATION_ERROR_META,
             onMutate: captureMutationSession,
             mutationFn: async (data: UserSettingsUpdatePayload) => {
-                return resolveResponseData(userApi.updateUserSettings(data))
+                return resolveResponseData(userApi.updateUserSettings(data, { skipGlobalErrorHandler: true }))
             },
             onSuccess: (_data, _variables, context) => {
                 if (!isCurrentMutation(context)) return
@@ -315,9 +325,10 @@ export function useUser() {
 
     const useUpdateNotificationSettings = () => {
         return useMutation({
+            meta: LOCAL_MUTATION_ERROR_META,
             onMutate: captureMutationSession,
             mutationFn: async (data: NotificationSettingsBulkPayload) => {
-                return resolveResponseData(userApi.updateNotificationSettingsBulk(data))
+                return resolveResponseData(userApi.updateNotificationSettingsBulk(data, { skipGlobalErrorHandler: true }))
             },
             onSuccess: (_data, _variables, context) => {
                 if (!isCurrentMutation(context)) return
@@ -344,9 +355,10 @@ export function useUser() {
 
     const useCreateKeywordSubscription = () => {
         return useMutation({
+            meta: LOCAL_MUTATION_ERROR_META,
             onMutate: captureMutationSession,
             mutationFn: async (data: KeywordSubscriptionPayload) => {
-                return resolveResponseData(userApi.createKeywordSubscription(data))
+                return resolveResponseData(userApi.createKeywordSubscription(data, { skipGlobalErrorHandler: true }))
             },
             onSuccess: (_data, _variables, context) => {
                 if (!isCurrentMutation(context)) return
@@ -357,9 +369,10 @@ export function useUser() {
 
     const useDeleteKeywordSubscription = () => {
         return useMutation({
+            meta: LOCAL_MUTATION_ERROR_META,
             onMutate: captureMutationSession,
             mutationFn: async (data: KeywordSubscriptionPayload) => {
-                return resolveResponseData(userApi.deleteKeywordSubscription(data))
+                return resolveResponseData(userApi.deleteKeywordSubscription(data, { skipGlobalErrorHandler: true }))
             },
             onSuccess: (_data, _variables, context) => {
                 if (!isCurrentMutation(context)) return

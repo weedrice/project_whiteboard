@@ -252,11 +252,15 @@ const handleRevokeSession = async (session: { sessionId: number, current: boolea
   )
   if (!ok || !isAuthSessionIntentCurrent(authStore, intent)) return
 
-  await revokeSession(session.sessionId)
-  if (!isAuthSessionIntentCurrent(authStore, intent)) return
-  toastStore.addToast(t('user.settings.sessions.revoked'), 'success')
-  if (session.current) {
-    authStore.clearSessionState()
+  try {
+    await revokeSession(session.sessionId)
+    if (!isAuthSessionIntentCurrent(authStore, intent)) return
+    toastStore.addToast(t('user.settings.sessions.revoked'), 'success')
+    if (session.current) {
+      authStore.clearSessionState()
+    }
+  } catch {
+    // QueryClient owns the error toast; consume the event-handler rejection.
   }
 }
 
@@ -268,9 +272,13 @@ const handleRevokeOtherSessions = async () => {
   )
   if (!ok || !isAuthSessionIntentCurrent(authStore, intent)) return
 
-  await revokeOtherSessions()
-  if (!isAuthSessionIntentCurrent(authStore, intent)) return
-  toastStore.addToast(t('user.settings.sessions.revokedOthers'), 'success')
+  try {
+    await revokeOtherSessions()
+    if (!isAuthSessionIntentCurrent(authStore, intent)) return
+    toastStore.addToast(t('user.settings.sessions.revokedOthers'), 'success')
+  } catch {
+    // QueryClient owns the error toast; consume the event-handler rejection.
+  }
 }
 </script>
 

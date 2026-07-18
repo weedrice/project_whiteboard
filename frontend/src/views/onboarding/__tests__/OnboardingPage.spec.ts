@@ -163,6 +163,17 @@ describe('OnboardingPage', () => {
     expect(replace).toHaveBeenCalledWith('/mypage')
   })
 
+  it('consumes completion errors after QueryClient handles them', async () => {
+    completeOnboarding.mockRejectedValueOnce(new Error('network'))
+    const { wrapper } = mountPage()
+    await flushAll()
+
+    await expect(wrapper.findAll('button')[4].trigger('click')).resolves.toBeUndefined()
+    await flushAll()
+
+    expect(replace).not.toHaveBeenCalled()
+  })
+
   it('falls back to home when the redirect target is external', async () => {
     route.query.redirect = 'https://attacker.example'
     const { wrapper } = mountPage()

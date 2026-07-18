@@ -71,6 +71,8 @@ describe('shop resources', () => {
     usePurchaseShopItem()
     const options = mutationOptions[0]
 
+    expect(options?.meta).toEqual({ errorMessage: false })
+
     await (options?.mutationFn as (itemId: number) => Promise<unknown>)(9)
     expect(shopApi.purchaseItem).toHaveBeenCalledWith(9, { skipGlobalErrorHandler: true, signal: undefined })
 

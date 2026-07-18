@@ -10,10 +10,12 @@ const mocks = vi.hoisted(() => {
     const invalidateQueries = vi.fn()
     const clear = vi.fn()
     const queryOptions: Array<Record<string, unknown>> = []
+    const mutationOptions: Array<Record<string, unknown>> = []
     return {
         invalidateQueries,
         clear,
         queryOptions,
+        mutationOptions,
     }
 })
 
@@ -45,7 +47,12 @@ vi.mock('@tanstack/vue-query', () => ({
             },
         }
     }),
-    useMutation: vi.fn(({ mutationFn, onMutate, onSuccess }) => ({
+    useMutation: vi.fn((options: Record<string, unknown>) => {
+      mocks.mutationOptions.push(options)
+      const mutationFn = options.mutationFn as (variables: unknown) => Promise<unknown>
+      const onMutate = options.onMutate as ((variables: unknown) => unknown) | undefined
+      const onSuccess = options.onSuccess as ((data: unknown, variables: unknown, context: unknown) => unknown) | undefined
+      return {
         mutateAsync: async (variables: unknown) => {
             const context = onMutate ? await onMutate(variables) : undefined
             const result = await mutationFn(variables)
@@ -54,7 +61,8 @@ vi.mock('@tanstack/vue-query', () => ({
             }
             return result
         },
-    })),
+      }
+    }),
 }))
 
 vi.mock('@/api/user', () => ({
@@ -88,6 +96,7 @@ describe('useUser', () => {
         setActivePinia(createPinia())
         vi.clearAllMocks()
         mocks.queryOptions.length = 0
+        mocks.mutationOptions.length = 0
     })
 
     it('fetches my profile with medium staleTime', async () => {
@@ -322,7 +331,10 @@ describe('useUser', () => {
         const mutation = useUpdateMyProfile()
         await mutation.mutateAsync({ displayName: 'new-name' })
 
-        expect(userApi.updateMyProfile).toHaveBeenCalledWith({ displayName: 'new-name' })
+        expect(userApi.updateMyProfile).toHaveBeenCalledWith(
+            { displayName: 'new-name' },
+            { skipGlobalErrorHandler: true },
+        )
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'user', 'me'] })
     })
 
@@ -341,7 +353,7 @@ describe('useUser', () => {
         const { useDeleteAccount } = useUser()
         await useDeleteAccount().mutateAsync('password')
 
-        expect(userApi.deleteAccount).toHaveBeenCalledWith('password')
+        expect(userApi.deleteAccount).toHaveBeenCalledWith('password', { skipGlobalErrorHandler: true })
         expect(mocks.clear).toHaveBeenCalled()
     })
 
@@ -351,7 +363,10 @@ describe('useUser', () => {
         const { useUpdateUserSettings } = useUser()
         await useUpdateUserSettings().mutateAsync({ theme: 'DARK' })
 
-        expect(userApi.updateUserSettings).toHaveBeenCalledWith({ theme: 'DARK' })
+        expect(userApi.updateUserSettings).toHaveBeenCalledWith(
+            { theme: 'DARK' },
+            { skipGlobalErrorHandler: true },
+        )
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'user', 'settings'] })
     })
 
@@ -367,8 +382,30 @@ describe('useUser', () => {
 
         expect(userApi.updateNotificationSettingsBulk).toHaveBeenCalledWith({
             settings: [{ notificationType: 'COMMENT', isEnabled: true }],
-        })
+        }, { skipGlobalErrorHandler: true })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'user', 'notification-settings'] })
+    })
+
+    it('assigns local error ownership to mutations with form-level feedback', () => {
+        const {
+            useUpdateMyProfile,
+            useDeleteAccount,
+            useUpdateUserSettings,
+            useUpdateNotificationSettings,
+            useCreateKeywordSubscription,
+            useDeleteKeywordSubscription,
+        } = useUser()
+
+        useUpdateMyProfile()
+        useDeleteAccount()
+        useUpdateUserSettings()
+        useUpdateNotificationSettings()
+        useCreateKeywordSubscription()
+        useDeleteKeywordSubscription()
+
+        expect(mocks.mutationOptions.map((options) => options.meta)).toEqual(
+            Array.from({ length: 6 }, () => ({ errorMessage: false })),
+        )
     })
 
     it('claims, suspends, activates and deletes agents and invalidates agent list', async () => {

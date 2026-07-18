@@ -13,19 +13,24 @@ vi.mock('@/stores/auth', () => ({
 
 const mocks = vi.hoisted(() => {
     const invalidateQueries = vi.fn()
+    const removeQueries = vi.fn()
     const queryOptions: Array<Record<string, unknown>> = []
     const infiniteQueryOptions: Array<Record<string, unknown>> = []
+    const mutationOptions: Array<Record<string, unknown>> = []
 
     return {
         invalidateQueries,
+        removeQueries,
         queryOptions,
         infiniteQueryOptions,
+        mutationOptions,
     }
 })
 
 vi.mock('@tanstack/vue-query', () => ({
     useQueryClient: () => ({
         invalidateQueries: mocks.invalidateQueries,
+        removeQueries: mocks.removeQueries,
     }),
     useQuery: vi.fn((options: Record<string, unknown>) => {
         mocks.queryOptions.push(options)
@@ -53,7 +58,14 @@ vi.mock('@tanstack/vue-query', () => ({
             fetchNextPage: vi.fn(),
         }
     }),
-    useMutation: vi.fn(({ mutationFn, onMutate, onSuccess, onError, onSettled }) => ({
+    useMutation: vi.fn((options: Record<string, unknown>) => {
+      mocks.mutationOptions.push(options)
+      const mutationFn = options.mutationFn as (variables: unknown) => Promise<unknown>
+      const onMutate = options.onMutate as ((variables: unknown) => unknown) | undefined
+      const onSuccess = options.onSuccess as ((data: unknown, variables: unknown, context: unknown) => unknown) | undefined
+      const onError = options.onError as ((error: unknown, variables: unknown, context: unknown) => unknown) | undefined
+      const onSettled = options.onSettled as ((data: unknown, error: unknown, variables: unknown, context: unknown) => unknown) | undefined
+      return {
         mutateAsync: async (variables: unknown) => {
             const context = await onMutate?.(variables)
             try {
@@ -67,7 +79,8 @@ vi.mock('@tanstack/vue-query', () => ({
                 throw error
             }
         },
-    })),
+      }
+    }),
 }))
 
 vi.mock('@/api/board', () => ({
@@ -104,6 +117,7 @@ describe('useBoard', () => {
         vi.clearAllMocks()
         mocks.queryOptions.length = 0
         mocks.infiniteQueryOptions.length = 0
+        mocks.mutationOptions.length = 0
     })
 
     it('fetches boards with medium staleTime', async () => {
@@ -451,10 +465,34 @@ describe('useBoard', () => {
         const mutation = useCreateBoard()
         const result = await mutation.mutateAsync({ boardName: 'New board', boardUrl: 'new' })
 
-        expect(boardApi.createBoard).toHaveBeenCalledWith({ boardName: 'New board', boardUrl: 'new' })
+        expect(boardApi.createBoard).toHaveBeenCalledWith(
+            { boardName: 'New board', boardUrl: 'new' },
+            { signal: undefined, skipGlobalErrorHandler: true },
+        )
         expect(result).toEqual({ boardId: 3, boardUrl: 'new' })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards'] })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards', 'subscriptions'] })
+    })
+
+    it('assigns local error ownership to board form mutations', () => {
+        const {
+            useCreateBoard,
+            useUpdateBoard,
+            useTransferBoardManager,
+            useDeleteBoard,
+        } = useBoard()
+
+        useCreateBoard()
+        useUpdateBoard()
+        useTransferBoardManager()
+        useDeleteBoard()
+
+        expect(mocks.mutationOptions.map((options) => options.meta)).toEqual([
+            { errorMessage: false },
+            { errorMessage: false },
+            { errorMessage: false },
+            { errorMessage: false },
+        ])
     })
 
     it('updates board and invalidates detail plus lists', async () => {
@@ -466,7 +504,11 @@ describe('useBoard', () => {
         const mutation = useUpdateBoard()
         const result = await mutation.mutateAsync({ boardUrl: 'free', data: { boardName: 'updated' } })
 
-        expect(boardApi.updateBoard).toHaveBeenCalledWith('free', { boardName: 'updated' })
+        expect(boardApi.updateBoard).toHaveBeenCalledWith(
+            'free',
+            { boardName: 'updated' },
+            { signal: undefined, skipGlobalErrorHandler: true },
+        )
         expect(result).toEqual({ boardId: 4, boardUrl: 'free', boardName: 'updated' })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'board', 'detail', 'free'] })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards'] })
@@ -482,8 +524,18 @@ describe('useBoard', () => {
         const mutation = useUpdateBoard()
         await mutation.mutateAsync({ boardUrl: 'free', data: { boardName: 'updated', boardUrl: 'new-free' } })
 
-        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'board', 'detail', 'free'] })
+        expect(mocks.removeQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'board', 'detail', 'free'] })
+        expect(mocks.removeQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'board', 'posts', 'free'] })
+        expect(mocks.removeQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'board', 'posts', 'infinite', 'free'] })
+        expect(mocks.removeQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'board', 'notices', 'free'] })
+        expect(mocks.removeQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'board', 'categories', 'free'] })
+        expect(mocks.removeQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'board', 'manager-candidates', 'free'] })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'board', 'detail', 'new-free'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'board', 'posts', 'new-free'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'board', 'posts', 'infinite', 'new-free'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'board', 'notices', 'new-free'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'board', 'categories', 'new-free'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'board', 'manager-candidates', 'new-free'] })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards'] })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards', 'subscriptions'] })
     })
@@ -497,7 +549,11 @@ describe('useBoard', () => {
         const mutation = useTransferBoardManager()
         const result = await mutation.mutateAsync({ boardUrl: 'free', loginId: 'manager' })
 
-        expect(boardApi.updateBoardManager).toHaveBeenCalledWith('free', { loginId: 'manager' })
+        expect(boardApi.updateBoardManager).toHaveBeenCalledWith(
+            'free',
+            { loginId: 'manager' },
+            { skipGlobalErrorHandler: true },
+        )
         expect(result).toEqual({ boardId: 4, boardUrl: 'free', adminDisplayName: 'manager' })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'board', 'detail', 'free'] })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards'] })
@@ -559,8 +615,14 @@ describe('useBoard', () => {
         const mutation = useDeleteBoard()
         const result = await mutation.mutateAsync('free')
 
-        expect(boardApi.deleteBoard).toHaveBeenCalledWith('free')
+        expect(boardApi.deleteBoard).toHaveBeenCalledWith('free', { skipGlobalErrorHandler: true })
         expect(result).toBeNull()
+        expect(mocks.removeQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'board', 'detail', 'free'] })
+        expect(mocks.removeQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'board', 'posts', 'free'] })
+        expect(mocks.removeQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'board', 'posts', 'infinite', 'free'] })
+        expect(mocks.removeQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'board', 'notices', 'free'] })
+        expect(mocks.removeQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'board', 'categories', 'free'] })
+        expect(mocks.removeQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'board', 'manager-candidates', 'free'] })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards'] })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards', 'subscriptions'] })
     })

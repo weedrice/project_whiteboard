@@ -27,6 +27,7 @@ export const userQueryKeys = {
     badgesRoot: ['user', 'badges'] as const,
     scrapFolders: ['user', 'scrap-folders'] as const,
     scrapsRoot: ['user', 'scraps'] as const,
+    recentlyViewedPostsRoot: ['user', 'history', 'views'] as const,
     postSeries: ['user', 'post-series'] as const,
     myPoints: (userIdentity?: string | number | null) =>
         ['user', 'points', 'me', userIdentity ?? 'anonymous'] as const,

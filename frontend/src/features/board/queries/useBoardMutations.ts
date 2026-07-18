@@ -5,11 +5,14 @@ import { boardApi } from '@/api/board'
 import { boardQueryKeys } from '@/features/board/queries/boardQueryKeys'
 import {
   invalidateBoardListCaches,
+  invalidateBoardResourceCaches,
   invalidateBoardSubscriptionCaches,
+  removeBoardResourceCaches,
 } from '@/features/board/queries/boardCacheInvalidation'
 import type { BoardCreateData, BoardUpdateData } from '@/types'
 import { useAuthStore } from '@/stores/auth'
 import { currentSessionQueryKey, isSessionGenerationCurrent } from '@/queryAuthScope'
+import { LOCAL_MUTATION_ERROR_META } from '@/mutationErrorOwnership'
 
 export function useBoardMutations() {
   const queryClient = useQueryClient()
@@ -49,12 +52,14 @@ export function useBoardMutations() {
 
   const useCreateBoard = () => {
     return useMutation({
+      meta: LOCAL_MUTATION_ERROR_META,
       onMutate: captureMutationSession,
       mutationFn: async (request: BoardCreateData & { signal?: AbortSignal }) => {
         const { signal, ...data } = request
-        return unwrapAxiosApiData(await (signal
-          ? boardApi.createBoard(data, { signal, skipGlobalErrorHandler: true })
-          : boardApi.createBoard(data)))
+        return unwrapAxiosApiData(await boardApi.createBoard(data, {
+          signal,
+          skipGlobalErrorHandler: true,
+        }))
       },
       onSuccess: (_data, _variables, context) => {
         if (!isCurrentMutation(context)) return
@@ -65,22 +70,26 @@ export function useBoardMutations() {
 
   const useUpdateBoard = () => {
     return useMutation({
+      meta: LOCAL_MUTATION_ERROR_META,
       onMutate: captureMutationSession,
       mutationFn: async ({ boardUrl, data, signal }: {
         boardUrl: string
         data: BoardUpdateData
         signal?: AbortSignal
       }) => {
-        return unwrapAxiosApiData(await (signal
-          ? boardApi.updateBoard(boardUrl, data, { signal, skipGlobalErrorHandler: true })
-          : boardApi.updateBoard(boardUrl, data)))
+        return unwrapAxiosApiData(await boardApi.updateBoard(boardUrl, data, {
+          signal,
+          skipGlobalErrorHandler: true,
+        }))
       },
       onSuccess: (updatedBoard, { boardUrl, data }, context) => {
         if (!isCurrentMutation(context)) return
-        queryClient.invalidateQueries({ queryKey: authKey(boardQueryKeys.detail(boardUrl)) })
         const updatedBoardUrl = updatedBoard?.boardUrl ?? data.boardUrl
         if (updatedBoardUrl && updatedBoardUrl !== boardUrl) {
-          queryClient.invalidateQueries({ queryKey: authKey(boardQueryKeys.detail(updatedBoardUrl)) })
+          removeBoardResourceCaches(queryClient, boardUrl, context.sessionGeneration)
+          invalidateBoardResourceCaches(queryClient, updatedBoardUrl, context.sessionGeneration)
+        } else {
+          invalidateBoardResourceCaches(queryClient, boardUrl, context.sessionGeneration)
         }
         invalidateBoardListCaches(queryClient, authStore.sessionGeneration)
       },
@@ -89,9 +98,14 @@ export function useBoardMutations() {
 
   const useTransferBoardManager = () => {
     return useMutation({
+      meta: LOCAL_MUTATION_ERROR_META,
       onMutate: captureMutationSession,
       mutationFn: async ({ boardUrl, loginId }: { boardUrl: string, loginId: string }) => {
-        return unwrapAxiosApiData(await boardApi.updateBoardManager(boardUrl, { loginId }))
+        return unwrapAxiosApiData(await boardApi.updateBoardManager(
+          boardUrl,
+          { loginId },
+          { skipGlobalErrorHandler: true },
+        ))
       },
       onSuccess: (_, { boardUrl }, context) => {
         if (!isCurrentMutation(context)) return
@@ -103,12 +117,16 @@ export function useBoardMutations() {
 
   const useDeleteBoard = () => {
     return useMutation({
+      meta: LOCAL_MUTATION_ERROR_META,
       onMutate: captureMutationSession,
       mutationFn: async (boardUrl: string) => {
-        return unwrapAxiosApiData(await boardApi.deleteBoard(boardUrl))
+        return unwrapAxiosApiData(await boardApi.deleteBoard(boardUrl, {
+          skipGlobalErrorHandler: true,
+        }))
       },
-      onSuccess: (_data, _variables, context) => {
+      onSuccess: (_data, boardUrl, context) => {
         if (!isCurrentMutation(context)) return
+        removeBoardResourceCaches(queryClient, boardUrl, context.sessionGeneration)
         invalidateBoardListCaches(queryClient, authStore.sessionGeneration)
       },
     })

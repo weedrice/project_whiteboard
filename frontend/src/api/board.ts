@@ -144,8 +144,11 @@ export const boardApi = {
         ).then(mapBoardDetailResponse),
 
     // Transfer board manager
-    updateBoardManager: (boardUrl: string, data: BoardManagerTransferData) =>
-        api.put<ApiResponse<BoardDetailWire>>(`/boards/${encodePathSegment(boardUrl)}/manager`, data).then(mapBoardDetailResponse),
+    updateBoardManager: (boardUrl: string, data: BoardManagerTransferData, config?: AxiosRequestConfig) =>
+        (config
+            ? api.put<ApiResponse<BoardDetailWire>>(`/boards/${encodePathSegment(boardUrl)}/manager`, data, config)
+            : api.put<ApiResponse<BoardDetailWire>>(`/boards/${encodePathSegment(boardUrl)}/manager`, data)
+        ).then(mapBoardDetailResponse),
 
     // Get board manager candidates
     getBoardManagerCandidates: (boardUrl: string, params: BoardManagerCandidateParams, config?: AxiosRequestConfig) =>
@@ -155,7 +158,10 @@ export const boardApi = {
         api.get<ApiResponse<PageResponseRaw<ModerationAuditLog>>>(`/boards/${encodePathSegment(boardUrl)}/manager/audits`, { ...config, params }),
 
     // Delete board
-    deleteBoard: (boardUrl: string) => api.delete<ApiResponse<void>>(`/boards/${encodePathSegment(boardUrl)}`),
+    deleteBoard: (boardUrl: string, config?: AxiosRequestConfig) =>
+        config
+            ? api.delete<ApiResponse<void>>(`/boards/${encodePathSegment(boardUrl)}`, config)
+            : api.delete<ApiResponse<void>>(`/boards/${encodePathSegment(boardUrl)}`),
 
     // Create category
     createCategory: (boardUrl: string, data: CategoryWriteData, config?: AxiosRequestConfig) => config

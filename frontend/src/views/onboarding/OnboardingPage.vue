@@ -90,7 +90,6 @@ async function finishOnboarding() {
     await router.replace(redirectTarget.value)
   } catch (error) {
     if (controller.signal.aborted || isCancellationError(error)) return
-    throw error
   } finally {
     if (completionController === controller) completionController = null
   }

@@ -11,6 +11,7 @@ import {
   sessionQueryKey,
 } from '@/queryAuthScope'
 import { useAuthStore } from '@/stores/auth'
+import { LOCAL_MUTATION_ERROR_META } from '@/mutationErrorOwnership'
 
 export { shopQueryKeys } from '@/features/shop/shopQueryKeys'
 
@@ -34,6 +35,7 @@ export function usePurchaseShopItem() {
   const authStore = useAuthStore()
 
   return useMutation({
+    meta: LOCAL_MUTATION_ERROR_META,
     onMutate: () => ({ sessionGeneration: authStore.sessionGeneration }),
     mutationFn: (request: number | { itemId: number, signal?: AbortSignal }) => {
       const itemId = typeof request === 'number' ? request : request.itemId

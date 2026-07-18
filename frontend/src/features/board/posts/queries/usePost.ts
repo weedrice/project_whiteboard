@@ -12,6 +12,7 @@ import {
 } from '@/features/board/posts/queries/postCacheUpdates'
 import { homeQueryKeys } from '@/composables/homeQueryKeys'
 import { userQueryKeys } from '@/features/user/userQueryKeys'
+import { LOCAL_MUTATION_ERROR_META } from '@/mutationErrorOwnership'
 import { postDetailQueryKey, postQueryKeys } from '@/features/board/posts/queries/postQueryKeys'
 import { withQuerySignal } from '@/utils/querySignal'
 import { useAuthStore } from '@/stores/auth'
@@ -300,9 +301,13 @@ export function usePost() {
 
     const useDeleteDraft = (resolveRequestConfig?: () => AxiosRequestConfig | undefined) => {
         return useMutation({
+            meta: LOCAL_MUTATION_ERROR_META,
             onMutate: captureMutationSession,
             mutationFn: async (draftId: string | number) => {
-                return await postApi.deleteDraft(draftId, resolveRequestConfig?.())
+                return await postApi.deleteDraft(draftId, {
+                    ...resolveRequestConfig?.(),
+                    skipGlobalErrorHandler: true,
+                })
             },
             onSuccess: (_data, _variables, context) => {
                 if (!isCurrentMutation(context)) return
@@ -313,9 +318,12 @@ export function usePost() {
 
     const useCancelScheduledPost = () => {
         return useMutation({
+            meta: LOCAL_MUTATION_ERROR_META,
             onMutate: captureMutationSession,
             mutationFn: async (scheduledPostId: string | number) => {
-                return await postApi.cancelScheduledPost(scheduledPostId)
+                return await postApi.cancelScheduledPost(scheduledPostId, {
+                    skipGlobalErrorHandler: true,
+                })
             },
             onSuccess: (_data, _variables, context) => {
                 if (!isCurrentMutation(context)) return

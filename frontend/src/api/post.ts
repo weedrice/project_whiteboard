@@ -187,8 +187,10 @@ export const postApi = {
     updateScheduledPost: (scheduledPostId: string | number, data: ScheduledPostData) =>
         api.put<ApiResponse<ScheduledPost>>(`/scheduled-posts/${encodePathSegment(scheduledPostId)}`, data),
 
-    cancelScheduledPost: (scheduledPostId: string | number) =>
-        api.delete<ApiResponse<void>>(`/scheduled-posts/${encodePathSegment(scheduledPostId)}`),
+    cancelScheduledPost: (scheduledPostId: string | number, config?: AxiosRequestConfig) =>
+        config
+            ? api.delete<ApiResponse<void>>(`/scheduled-posts/${encodePathSegment(scheduledPostId)}`, config)
+            : api.delete<ApiResponse<void>>(`/scheduled-posts/${encodePathSegment(scheduledPostId)}`),
 
     // Get post details
     getPost: (postId: string | number, config?: AxiosRequestConfig) =>

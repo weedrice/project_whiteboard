@@ -95,7 +95,6 @@ export function useBoardEditPage() {
         ) return
         error.value = t('board.form.updateFailed')
         handleError(err, t('board.form.updateFailed'))
-        throw err
       } finally {
         if (updateController === controller) updateController = null
       }
