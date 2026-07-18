@@ -6,4 +6,8 @@ import java.time.LocalDateTime;
 
 public interface NotificationDeliveryJobRepositoryCustom {
     int insertIfAbsent(NotificationDeliveryJob job, LocalDateTime now);
+
+    int deleteCompletedBatch(LocalDateTime cutoff, int batchSize);
+
+    int deleteFailedBatch(LocalDateTime cutoff, int batchSize);
 }

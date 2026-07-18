@@ -5,7 +5,6 @@ import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
-import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -42,22 +41,6 @@ public interface NotificationDeliveryJobRepository extends JpaRepository<Notific
     Optional<NotificationDeliveryJob> findByIdForUpdate(@Param("jobId") Long jobId);
 
     long countByStatus(NotificationDeliveryJob.Status status);
-
-    @Modifying
-    @Query("""
-            DELETE FROM NotificationDeliveryJob job
-            WHERE job.status = com.weedrice.whiteboard.domain.notification.entity.NotificationDeliveryJob.Status.COMPLETED
-              AND job.modifiedAt < :cutoff
-            """)
-    int deleteCompletedBefore(@Param("cutoff") LocalDateTime cutoff);
-
-    @Modifying
-    @Query("""
-            DELETE FROM NotificationDeliveryJob job
-            WHERE job.status = com.weedrice.whiteboard.domain.notification.entity.NotificationDeliveryJob.Status.FAILED
-              AND job.lastFailedAt < :cutoff
-            """)
-    int deleteFailedBefore(@Param("cutoff") LocalDateTime cutoff);
 
     @Query("SELECT MIN(job.nextAttemptAt) FROM NotificationDeliveryJob job WHERE job.status = com.weedrice.whiteboard.domain.notification.entity.NotificationDeliveryJob.Status.PENDING")
     Optional<LocalDateTime> findOldestPendingAttemptAt();

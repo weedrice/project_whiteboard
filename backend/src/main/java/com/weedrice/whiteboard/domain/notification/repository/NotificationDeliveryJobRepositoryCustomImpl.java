@@ -46,4 +46,53 @@ public class NotificationDeliveryJobRepositoryCustomImpl implements Notification
         }
     }
 
+    @Override
+    public int deleteCompletedBatch(LocalDateTime cutoff, int batchSize) {
+        return deleteTerminalBatch("COMPLETED", "modified_at", cutoff, batchSize);
+    }
+
+    @Override
+    public int deleteFailedBatch(LocalDateTime cutoff, int batchSize) {
+        return deleteTerminalBatch("FAILED", "last_failed_at", cutoff, batchSize);
+    }
+
+    private int deleteTerminalBatch(String status, String cutoffColumn, LocalDateTime cutoff, int batchSize) {
+        if (batchSize < 1) {
+            throw new IllegalArgumentException("batchSize must be positive");
+        }
+        if (postgreSql) {
+            return jdbcTemplate.update("""
+                    WITH candidates AS (
+                        SELECT job_id
+                        FROM notification_delivery_jobs
+                        WHERE status = ?
+                          AND %s < ?
+                        ORDER BY %s ASC, job_id ASC
+                        FOR UPDATE SKIP LOCKED
+                        LIMIT ?
+                    )
+                    DELETE FROM notification_delivery_jobs job
+                    USING candidates candidate
+                    WHERE job.job_id = candidate.job_id
+                      AND job.status = ?
+                      AND job.%s < ?
+                    """.formatted(cutoffColumn, cutoffColumn, cutoffColumn),
+                    status, cutoff, batchSize, status, cutoff);
+        }
+        return jdbcTemplate.update("""
+                DELETE FROM notification_delivery_jobs
+                WHERE job_id IN (
+                    SELECT job_id
+                    FROM notification_delivery_jobs
+                    WHERE status = ?
+                      AND %s < ?
+                    ORDER BY %s ASC, job_id ASC
+                    LIMIT ?
+                )
+                  AND status = ?
+                  AND %s < ?
+                """.formatted(cutoffColumn, cutoffColumn, cutoffColumn),
+                status, cutoff, batchSize, status, cutoff);
+    }
+
 }

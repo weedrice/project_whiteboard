@@ -72,13 +72,13 @@ public class NotificationDeliveryJob extends BaseTimeEntity {
     @Column(name = "source_id", updatable = false)
     private Long sourceId;
 
-    @Column(name = "content", columnDefinition = "TEXT", updatable = false)
+    @Column(name = "content", columnDefinition = "TEXT")
     private String content;
 
     @Column(name = "message_key", length = 160, updatable = false)
     private String messageKey;
 
-    @Column(name = "message_params", columnDefinition = "TEXT", updatable = false)
+    @Column(name = "message_params", columnDefinition = "TEXT")
     private String messageParams;
 
     @Enumerated(EnumType.STRING)
@@ -146,6 +146,7 @@ public class NotificationDeliveryJob extends BaseTimeEntity {
         status = Status.COMPLETED;
         processingStartedAt = null;
         lastError = null;
+        scrubPersonalPayload();
     }
 
     public boolean fail(String error, LocalDateTime failedAt, LocalDateTime nextAttempt, int maxRetryCount) {
@@ -172,10 +173,11 @@ public class NotificationDeliveryJob extends BaseTimeEntity {
         lastError = truncate(reason, 500);
         firstFailedAt = firstFailedAt == null ? failedAt : firstFailedAt;
         lastFailedAt = failedAt;
+        scrubPersonalPayload();
     }
 
     public boolean redrive(LocalDateTime now) {
-        if (status != Status.FAILED) {
+        if (status != Status.FAILED || "INVALID_PAYLOAD".equals(failureCode)) {
             return false;
         }
         status = Status.PENDING;
@@ -186,6 +188,11 @@ public class NotificationDeliveryJob extends BaseTimeEntity {
         failureCode = null;
         lastError = null;
         return true;
+    }
+
+    private void scrubPersonalPayload() {
+        content = null;
+        messageParams = null;
     }
 
     private static String truncate(String value, int maxLength) {

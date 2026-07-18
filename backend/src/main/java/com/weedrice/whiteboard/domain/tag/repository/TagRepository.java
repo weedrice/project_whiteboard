@@ -8,7 +8,6 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -48,16 +47,4 @@ public interface TagRepository extends JpaRepository<Tag, Long>, TagRepositoryCu
             """)
     int decrementPostCountIn(@Param("tagIds") Collection<Long> tagIds);
 
-    @Modifying(flushAutomatically = true, clearAutomatically = true)
-    @Query("""
-            DELETE FROM Tag t
-            WHERE t.postCount = 0
-              AND t.createdAt < :cutoff
-              AND NOT EXISTS (
-                  SELECT 1
-                  FROM PostTag pt
-                  WHERE pt.tag = t
-              )
-            """)
-    int deleteOrphanTagsCreatedBefore(@Param("cutoff") LocalDateTime cutoff);
 }

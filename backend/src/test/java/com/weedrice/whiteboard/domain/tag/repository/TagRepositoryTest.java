@@ -163,7 +163,7 @@ class TagRepositoryTest {
         LocalDateTime cutoff = LocalDateTime.of(2026, 5, 11, 3, 0);
         setTagCreatedAt(orphanTag, cutoff.minusHours(1));
 
-        int deleted = tagRepository.deleteOrphanTagsCreatedBefore(cutoff);
+        int deleted = tagRepository.deleteOrphanBatch(cutoff, 100);
         entityManager.flush();
 
         assertThat(deleted).isEqualTo(1);
@@ -212,7 +212,7 @@ class TagRepositoryTest {
         setTagCreatedAt(recentTag, cutoff.plusMinutes(1));
         setTagCreatedAt(boundaryTag, cutoff);
 
-        int deleted = tagRepository.deleteOrphanTagsCreatedBefore(cutoff);
+        int deleted = tagRepository.deleteOrphanBatch(cutoff, 100);
         entityManager.flush();
 
         assertThat(deleted).isZero();

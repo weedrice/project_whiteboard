@@ -89,13 +89,13 @@ class NotificationDeliveryJobTransaction {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public int deleteCompletedBefore(LocalDateTime cutoff) {
-        return jobRepository.deleteCompletedBefore(cutoff);
+    public int deleteCompletedBefore(LocalDateTime cutoff, int batchSize) {
+        return jobRepository.deleteCompletedBatch(cutoff, batchSize);
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public int deleteFailedBefore(LocalDateTime cutoff) {
-        return jobRepository.deleteFailedBefore(cutoff);
+    public int deleteFailedBefore(LocalDateTime cutoff, int batchSize) {
+        return jobRepository.deleteFailedBatch(cutoff, batchSize);
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)

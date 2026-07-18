@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.notification.service;
 
 import com.weedrice.whiteboard.domain.notification.entity.NotificationDeliveryJob;
+import com.weedrice.whiteboard.domain.notification.config.NotificationDeliveryJobProperties;
 import com.weedrice.whiteboard.domain.notification.repository.NotificationDeliveryJobRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,15 +22,13 @@ import java.util.concurrent.atomic.AtomicLong;
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 public class NotificationDeliveryJobProcessor {
 
-    private static final int BATCH_SIZE = 100;
     private static final int LEASE_MINUTES = 5;
     private static final int MAX_BACKOFF_MINUTES = 60;
-    private static final int COMPLETED_RETENTION_DAYS = 7;
-    private static final int FAILED_RETENTION_DAYS = 30;
 
     private final NotificationDeliveryJobRepository jobRepository;
     private final NotificationDeliveryJobTransaction jobTransaction;
     private final NotificationDeliveryJobMetrics metrics;
+    private final NotificationDeliveryJobProperties properties;
     private final Clock clock;
     private final AtomicLong lastCleanupEpochHour = new AtomicLong(Long.MIN_VALUE);
 
@@ -37,7 +36,8 @@ public class NotificationDeliveryJobProcessor {
         recoverStaleJobs();
         cleanupCompletedJobsOncePerHour();
         LocalDateTime now = now();
-        List<Long> jobIds = jobRepository.findDueJobIds(now, PageRequest.of(0, BATCH_SIZE));
+        List<Long> jobIds = jobRepository.findDueJobIds(
+                now, PageRequest.of(0, properties.getProcessingBatchSize()));
         int processed = 0;
         for (Long jobId : jobIds) {
             if (processJob(jobId)) {
@@ -111,7 +111,7 @@ public class NotificationDeliveryJobProcessor {
         LocalDateTime staleBefore = now.minusMinutes(LEASE_MINUTES);
         List<Long> staleIds = jobRepository.findStaleProcessingJobIds(
                 staleBefore,
-                PageRequest.of(0, BATCH_SIZE));
+                PageRequest.of(0, properties.getProcessingBatchSize()));
         for (Long staleId : staleIds) {
             int retryNumber = currentRetryCount(staleId) + 1;
             DeliveryJobTransitionResult result = jobTransaction.recoverStale(
@@ -134,17 +134,33 @@ public class NotificationDeliveryJobProcessor {
             return;
         }
         try {
-            int deleted = jobTransaction.deleteCompletedBefore(now().minusDays(COMPLETED_RETENTION_DAYS));
-            int failedDeleted = jobTransaction.deleteFailedBefore(now().minusDays(FAILED_RETENTION_DAYS));
-            deleted += failedDeleted;
+            int deleted = deleteInBoundedBatches(
+                    true, now().minusDays(properties.getCompletedRetentionDays()));
+            deleted += deleteInBoundedBatches(
+                    false, now().minusDays(properties.getFailedRetentionDays()));
             if (deleted > 0) {
-                log.info("Deleted {} completed notification delivery job(s)", deleted);
+                log.info("Deleted {} terminal notification delivery job(s)", deleted);
             }
         } catch (RuntimeException exception) {
+            lastCleanupEpochHour.compareAndSet(currentHour, previousHour);
             metrics.recordOutcome("cleanup_failure");
-            log.warn("Failed to clean completed notification delivery jobs. exceptionType={}",
+            log.warn("Failed to clean terminal notification delivery jobs. exceptionType={}",
                     exception.getClass().getSimpleName());
         }
+    }
+
+    private int deleteInBoundedBatches(boolean completed, LocalDateTime cutoff) {
+        int totalDeleted = 0;
+        for (int batch = 0; batch < properties.getCleanupMaxBatches(); batch++) {
+            int deleted = completed
+                    ? jobTransaction.deleteCompletedBefore(cutoff, properties.getCleanupBatchSize())
+                    : jobTransaction.deleteFailedBefore(cutoff, properties.getCleanupBatchSize());
+            totalDeleted += deleted;
+            if (deleted < properties.getCleanupBatchSize()) {
+                break;
+            }
+        }
+        return totalDeleted;
     }
 
     private int currentRetryCount(Long jobId) {

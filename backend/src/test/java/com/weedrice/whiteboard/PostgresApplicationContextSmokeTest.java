@@ -11,6 +11,8 @@ import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import com.weedrice.whiteboard.domain.post.repository.PopularPostAggregationLockRepository;
 import com.weedrice.whiteboard.domain.board.repository.BoardVisitRepository;
+import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
+import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.notification.service.KeywordSubscriptionService;
 import com.weedrice.whiteboard.domain.notification.dto.PushSubscriptionRequest;
 import com.weedrice.whiteboard.domain.notification.service.PushSubscriptionService;
@@ -19,6 +21,12 @@ import com.weedrice.whiteboard.domain.notification.entity.NotificationDeliveryJo
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.notification.constant.NotificationSourceType;
 import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
+import com.weedrice.whiteboard.domain.post.entity.Post;
+import com.weedrice.whiteboard.domain.post.repository.PostRepository;
+import com.weedrice.whiteboard.domain.tag.entity.PostTag;
+import com.weedrice.whiteboard.domain.tag.entity.Tag;
+import com.weedrice.whiteboard.domain.tag.repository.PostTagRepository;
+import com.weedrice.whiteboard.domain.tag.repository.TagRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import com.weedrice.whiteboard.global.security.JwtTokenProvider;
@@ -92,6 +100,9 @@ class PostgresApplicationContextSmokeTest {
     private BoardVisitRepository boardVisitRepository;
 
     @Autowired
+    private BoardRepository boardRepository;
+
+    @Autowired
     private KeywordSubscriptionService keywordSubscriptionService;
 
     @Autowired
@@ -99,6 +110,15 @@ class PostgresApplicationContextSmokeTest {
 
     @Autowired
     private NotificationDeliveryJobRepository notificationDeliveryJobRepository;
+
+    @Autowired
+    private PostRepository postRepository;
+
+    @Autowired
+    private TagRepository tagRepository;
+
+    @Autowired
+    private PostTagRepository postTagRepository;
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -956,6 +976,76 @@ class PostgresApplicationContextSmokeTest {
         } finally {
             executor.shutdownNow();
         }
+    }
+
+    @Test
+    void notificationCleanupDeletesOnlyStillFailedRows() {
+        String suffix = UUID.randomUUID().toString().substring(0, 8);
+        User receiver = userRepository.saveAndFlush(User.builder()
+                .loginId("delivery-cleanup-" + suffix)
+                .email("delivery-cleanup-" + suffix + "@example.com")
+                .password("password")
+                .displayName("Delivery Cleanup")
+                .build());
+        LocalDateTime failedAt = LocalDateTime.now().minusDays(60);
+        LocalDateTime redrivenAt = LocalDateTime.now();
+
+        NotificationDeliveryJob failed = terminalDeliveryJob(receiver, failedAt, "failed");
+        NotificationDeliveryJob redriven = terminalDeliveryJob(receiver, failedAt, "redriven");
+        assertTrue(redriven.redrive(redrivenAt));
+        notificationDeliveryJobRepository.saveAllAndFlush(List.of(failed, redriven));
+
+        int deleted = notificationDeliveryJobRepository.deleteFailedBatch(
+                LocalDateTime.now().minusDays(30), 10);
+
+        assertEquals(1, deleted);
+        assertFalse(notificationDeliveryJobRepository.existsById(failed.getJobId()));
+        assertTrue(notificationDeliveryJobRepository.existsById(redriven.getJobId()));
+        assertEquals(NotificationDeliveryJob.Status.PENDING,
+                notificationDeliveryJobRepository.findById(redriven.getJobId()).orElseThrow().getStatus());
+    }
+
+    @Test
+    void orphanTagCleanupPreservesLinkedTagAndDeletesOnlyOrphan() {
+        String suffix = UUID.randomUUID().toString().substring(0, 8);
+        User user = userRepository.saveAndFlush(User.builder()
+                .loginId("tag-cleanup-" + suffix)
+                .email("tag-cleanup-" + suffix + "@example.com")
+                .password("password")
+                .displayName("Tag Cleanup")
+                .build());
+        Board board = boardRepository.saveAndFlush(Board.builder()
+                .boardName("Tag Cleanup " + suffix)
+                .boardUrl("tag-cleanup-" + suffix)
+                .creator(user)
+                .build());
+        Post post = postRepository.saveAndFlush(Post.builder()
+                .title("Tag cleanup post")
+                .contents("contents")
+                .user(user)
+                .board(board)
+                .build());
+        Tag orphan = tagRepository.saveAndFlush(new Tag("orphan-" + suffix));
+        Tag linked = tagRepository.saveAndFlush(new Tag("linked-" + suffix));
+        postTagRepository.saveAndFlush(PostTag.builder().post(post).tag(linked).build());
+        LocalDateTime oldCreatedAt = LocalDateTime.now().minusDays(2);
+        jdbcTemplate.update("UPDATE tags SET created_at = ? WHERE tag_id IN (?, ?)",
+                oldCreatedAt, orphan.getTagId(), linked.getTagId());
+
+        int deleted = tagRepository.deleteOrphanBatch(LocalDateTime.now().minusDays(1), 10);
+
+        assertEquals(1, deleted);
+        assertFalse(tagRepository.existsById(orphan.getTagId()));
+        assertTrue(tagRepository.existsById(linked.getTagId()));
+    }
+
+    private NotificationDeliveryJob terminalDeliveryJob(User receiver, LocalDateTime failedAt, String content) {
+        NotificationEvent event = new NotificationEvent(
+                receiver, null, NotificationType.SYSTEM, NotificationSourceType.SYSTEM, 1L, content);
+        NotificationDeliveryJob job = NotificationDeliveryJob.from(event, failedAt);
+        job.claim(failedAt);
+        assertTrue(job.fail("terminal", failedAt, failedAt, 1));
+        return job;
     }
 
     private boolean lockPasswordResetState(

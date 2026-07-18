@@ -14,6 +14,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.concurrent.RejectedExecutionException;
@@ -123,7 +124,7 @@ class NotificationDeliveryJobServiceTest {
     }
 
     @Test
-    void failedJob_redriveResetsRetryStateAndCountsAttempts() {
+    void invalidPayloadJob_cannotBeRedrivenAfterPayloadScrub() {
         Clock clock = Clock.fixed(Instant.parse("2026-07-17T00:00:00Z"), ZoneOffset.UTC);
         NotificationEvent event = new NotificationEvent(
                 user(1L), null, NotificationType.SYSTEM, NotificationSourceType.SYSTEM, 1L, "content");
@@ -131,10 +132,44 @@ class NotificationDeliveryJobServiceTest {
                 event, java.time.LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC));
         job.rejectInvalidPayload("bad", java.time.LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC));
 
-        assertThat(job.redrive(java.time.LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC))).isTrue();
+        assertThat(job.getContent()).isNull();
+        assertThat(job.redrive(java.time.LocalDateTime.ofInstant(clock.instant(), ZoneOffset.UTC))).isFalse();
+        assertThat(job.getStatus()).isEqualTo(NotificationDeliveryJob.Status.FAILED);
+        assertThat(job.getRedriveCount()).isZero();
+        assertThat(job.getFailureCode()).isEqualTo("INVALID_PAYLOAD");
+    }
+
+    @Test
+    void completedJob_scrubsPersonalPayload() {
+        LocalDateTime now = LocalDateTime.of(2026, 7, 17, 0, 0);
+        NotificationEvent event = NotificationEvent.localized(
+                user(1L), user(2L), NotificationType.COMMENT, NotificationSourceType.POST, 1L,
+                "notification.comment.created", "writer");
+        NotificationDeliveryJob job = NotificationDeliveryJob.from(event, now);
+
+        job.complete();
+
+        assertThat(job.getStatus()).isEqualTo(NotificationDeliveryJob.Status.COMPLETED);
+        assertThat(job.getContent()).isNull();
+        assertThat(job.getMessageParams()).isNull();
+        assertThat(job.getMessageKey()).isEqualTo("notification.comment.created");
+    }
+
+    @Test
+    void retryExhaustedJob_retainsPayloadForRedrive() {
+        LocalDateTime now = LocalDateTime.of(2026, 7, 17, 0, 0);
+        NotificationDeliveryJob job = NotificationDeliveryJob.from(
+                new NotificationEvent(user(1L), null, NotificationType.SYSTEM,
+                        NotificationSourceType.SYSTEM, 1L, "content"), now);
+        for (int retry = 0; retry < NotificationDeliveryJobTransaction.MAX_RETRY_COUNT; retry++) {
+            job.fail("failure", now.plusMinutes(retry), now.plusMinutes(retry + 1),
+                    NotificationDeliveryJobTransaction.MAX_RETRY_COUNT);
+        }
+
+        assertThat(job.getStatus()).isEqualTo(NotificationDeliveryJob.Status.FAILED);
+        assertThat(job.getContent()).isEqualTo("content");
+        assertThat(job.redrive(now.plusHours(1))).isTrue();
         assertThat(job.getStatus()).isEqualTo(NotificationDeliveryJob.Status.PENDING);
-        assertThat(job.getRedriveCount()).isEqualTo(1);
-        assertThat(job.getFailureCode()).isNull();
     }
 
     @Test
