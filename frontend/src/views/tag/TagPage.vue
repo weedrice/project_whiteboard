@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useHead } from '@unhead/vue'
 import { useI18n } from 'vue-i18n'
 import { Tag } from 'lucide-vue-next'
@@ -16,6 +16,7 @@ import { useAuthStore } from '@/stores/auth'
 import { AUTH_SCOPED_QUERY_META, currentSessionQueryKey } from '@/queryAuthScope'
 
 const route = useRoute()
+const router = useRouter()
 const { t } = useI18n()
 const authStore = useAuthStore()
 const tagName = computed(() => String(route.params.name ?? '').trim())
@@ -78,6 +79,19 @@ function buildPageRoute(nextPageIndex: number) {
     query: nextPage > 1 ? { page: String(nextPage) } : {},
   }
 }
+
+watch(data, (result) => {
+  if (!result || (pageIndex.value === 0 && result.totalPages === 0)) return
+
+  if (result.totalPages === 0) {
+    void router.replace(buildPageRoute(0))
+    return
+  }
+
+  if (pageIndex.value >= result.totalPages) {
+    void router.replace(buildPageRoute(result.totalPages - 1))
+  }
+})
 </script>
 
 <template>

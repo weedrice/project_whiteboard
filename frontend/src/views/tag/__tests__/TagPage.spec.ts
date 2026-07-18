@@ -10,6 +10,8 @@ const routeState = vi.hoisted(() => ({
   query: {} as Record<string, unknown>,
 }))
 
+const routerReplace = vi.hoisted(() => vi.fn())
+
 const tagApi = vi.hoisted(() => ({
   getPostsByTagName: vi.fn(),
   getPopularTags: vi.fn(),
@@ -20,6 +22,7 @@ vi.mock('vue-router', async (importOriginal) => {
   return {
     ...actual,
     useRoute: () => routeState,
+    useRouter: () => ({ replace: routerReplace }),
   }
 })
 
@@ -84,6 +87,7 @@ describe('TagPage', () => {
     vi.clearAllMocks()
     routeState.params = { name: 'vue' }
     routeState.query = {}
+    routerReplace.mockReset()
     tagApi.getPostsByTagName.mockResolvedValue({
       data: {
         success: true,
@@ -136,5 +140,54 @@ describe('TagPage', () => {
       title: expect.any(Object),
       meta: expect.any(Array),
     }))
+  })
+
+  it('replaces an out-of-range page with the last page returned by the API', async () => {
+    routeState.query = { page: '999' }
+    tagApi.getPostsByTagName.mockResolvedValueOnce({
+      data: {
+        success: true,
+        data: {
+          content: [],
+          page: 998,
+          size: 20,
+          totalElements: 45,
+          totalPages: 3,
+          hasNext: false,
+          hasPrevious: true,
+        },
+      },
+    })
+
+    mountPage()
+    await flushPromises()
+
+    expect(routerReplace).toHaveBeenCalledWith({
+      path: '/tag/vue',
+      query: { page: '3' },
+    })
+  })
+
+  it('removes an out-of-range page when the tag has no results', async () => {
+    routeState.query = { page: '4' }
+    tagApi.getPostsByTagName.mockResolvedValueOnce({
+      data: {
+        success: true,
+        data: {
+          content: [],
+          page: 3,
+          size: 20,
+          totalElements: 0,
+          totalPages: 0,
+          hasNext: false,
+          hasPrevious: false,
+        },
+      },
+    })
+
+    mountPage()
+    await flushPromises()
+
+    expect(routerReplace).toHaveBeenCalledWith({ path: '/tag/vue', query: {} })
   })
 })
