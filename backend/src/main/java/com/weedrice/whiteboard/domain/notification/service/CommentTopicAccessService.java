@@ -7,6 +7,7 @@ import com.weedrice.whiteboard.domain.post.service.PostAccessPolicy;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
+import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import com.weedrice.whiteboard.domain.notification.web.NotificationSseEmitterRegistry;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -22,17 +23,28 @@ public class CommentTopicAccessService {
     private final PostRepository postRepository;
     private final BoardRepository boardRepository;
     private final UserRepository userRepository;
+    private final UserWritableResolver userWritableResolver;
     private final UserBlockService userBlockService;
     private final PostAccessPolicy postAccessPolicy;
     private final NotificationSseEmitterRegistry emitterRegistry;
 
     @Transactional
     public void subscribeReadable(Long userId, Long postId, String subscriberId) {
-        Long boardId = postRepository.findBoardIdByPostId(postId)
+        Post initialPost = postRepository.findByIdWithRelations(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+        Long boardId = initialPost.getBoard().getBoardId();
+        Long authorId = initialPost.getUser().getUserId();
+        UserWritableResolver.LockedUserPair lockedUsers =
+                userWritableResolver.lockUserPairForUpdate(userId, authorId);
         boardRepository.findByIdForUpdate(boardId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
-        validateReadable(userId, postId);
+        Post lockedPost = postRepository.findByIdWithRelationsForUpdate(postId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+        if (!boardId.equals(lockedPost.getBoard().getBoardId())
+                || !authorId.equals(lockedPost.getUser().getUserId())) {
+            throw new BusinessException(ErrorCode.POST_NOT_FOUND);
+        }
+        validateReadable(lockedUsers.firstUser(), lockedPost);
         emitterRegistry.subscribeCommentTopic(userId, boardId, postId, subscriberId);
     }
 
@@ -41,6 +53,11 @@ public class CommentTopicAccessService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         Post post = postRepository.findByIdWithRelations(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+        validateReadable(viewer, post);
+        return post.getBoard().getBoardId();
+    }
+
+    private void validateReadable(User viewer, Post post) {
         if (Boolean.TRUE.equals(post.getIsBlinded())) {
             throw new BusinessException(ErrorCode.POST_NOT_FOUND);
         }
@@ -48,6 +65,5 @@ public class CommentTopicAccessService {
                 viewer.getUserId(),
                 post.getUser().getUserId());
         postAccessPolicy.validateReadable(post, viewer, authorBlocked);
-        return post.getBoard().getBoardId();
     }
 }

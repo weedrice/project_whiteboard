@@ -9,6 +9,7 @@ import com.weedrice.whiteboard.domain.post.service.PostAccessPolicy;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
+import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.junit.jupiter.api.Test;
@@ -32,6 +33,7 @@ class CommentTopicAccessServiceTest {
     @Mock PostRepository postRepository;
     @Mock BoardRepository boardRepository;
     @Mock UserRepository userRepository;
+    @Mock UserWritableResolver userWritableResolver;
     @Mock UserBlockService userBlockService;
     @Mock PostAccessPolicy postAccessPolicy;
     @Mock NotificationSseEmitterRegistry emitterRegistry;
@@ -56,16 +58,16 @@ class CommentTopicAccessServiceTest {
     }
 
     @Test
-    void subscribesWhileHoldingBoardWriteLock() {
+    void subscribesWhileHoldingUserBoardAndPostWriteLocks() {
         User viewer = mock(User.class);
         User author = mock(User.class);
         Post post = mock(Post.class);
         Board board = mock(Board.class);
-        when(postRepository.findBoardIdByPostId(2L)).thenReturn(Optional.of(3L));
-        when(boardRepository.findByIdForUpdate(3L)).thenReturn(Optional.of(board));
-        when(userRepository.findByUserIdAndStatusAndDeletedAtIsNull(1L, User.STATUS_ACTIVE))
-                .thenReturn(Optional.of(viewer));
         when(postRepository.findByIdWithRelations(2L)).thenReturn(Optional.of(post));
+        when(boardRepository.findByIdForUpdate(3L)).thenReturn(Optional.of(board));
+        when(userWritableResolver.lockUserPairForUpdate(1L, 4L))
+                .thenReturn(new UserWritableResolver.LockedUserPair(viewer, author));
+        when(postRepository.findByIdWithRelationsForUpdate(2L)).thenReturn(Optional.of(post));
         when(post.getBoard()).thenReturn(board);
         when(board.getBoardId()).thenReturn(3L);
         when(post.getUser()).thenReturn(author);
@@ -74,8 +76,11 @@ class CommentTopicAccessServiceTest {
 
         service.subscribeReadable(1L, 2L, "connection-1");
 
-        org.mockito.InOrder order = org.mockito.Mockito.inOrder(boardRepository, emitterRegistry);
+        org.mockito.InOrder order = org.mockito.Mockito.inOrder(
+                userWritableResolver, boardRepository, postRepository, emitterRegistry);
+        order.verify(userWritableResolver).lockUserPairForUpdate(1L, 4L);
         order.verify(boardRepository).findByIdForUpdate(3L);
+        order.verify(postRepository).findByIdWithRelationsForUpdate(2L);
         order.verify(emitterRegistry).subscribeCommentTopic(1L, 3L, 2L, "connection-1");
     }
 }

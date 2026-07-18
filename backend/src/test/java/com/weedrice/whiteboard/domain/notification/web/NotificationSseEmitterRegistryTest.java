@@ -109,6 +109,21 @@ class NotificationSseEmitterRegistryTest {
     }
 
     @Test
+    void invalidatingPostTopicNotifiesAffectedConnection() {
+        CountingSseEmitter emitter = new CountingSseEmitter();
+        NotificationSseEmitterRegistry registry = new SequenceEmitterNotificationSseEmitterRegistry(emitter);
+        registry.subscribe(1L);
+        String connectionId = connectionIdForEmitter(registry, 1L, emitter);
+        registry.subscribeCommentTopic(1L, 100L, 10L, connectionId);
+
+        registry.invalidateCommentTopic(10L);
+
+        assertThat(emitter.lastEventData())
+                .anySatisfy(data -> assertThat(data.toString()).contains("comment-topic-access-revoked"))
+                .contains(Map.of("postId", 10L));
+    }
+
+    @Test
     void invalidatingBoardTopicsKeepsTopicsFromOtherBoards() {
         NotificationSseEmitterRegistry registry = registry(10_000L, 5);
         registry.subscribe(1L);

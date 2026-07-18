@@ -482,6 +482,7 @@ public class NotificationSseEmitterRegistry
         }
         if (removed != null && !removed.isEmpty()) {
             commentTopicCleanups.increment();
+            publishCommentTopicAccessRevoked(removed, Map.of("postId", postId));
         }
     }
 
@@ -541,6 +542,7 @@ public class NotificationSseEmitterRegistry
             return;
         }
         int removedTopics = 0;
+        java.util.Set<String> affectedConnections = new java.util.HashSet<>();
         synchronized (commentTopicLock) {
             for (Map.Entry<Long, ConcurrentMap<Long, ConcurrentMap<String, Boolean>>> entry
                     : new ArrayList<>(commentSubscribers.entrySet())) {
@@ -548,12 +550,42 @@ public class NotificationSseEmitterRegistry
                 ConcurrentMap<String, Boolean> removed = postSubscribers.remove(userId);
                 if (removed != null && !removed.isEmpty()) {
                     removedTopics++;
+                    affectedConnections.addAll(removed.keySet());
                 }
                 removeEmptyCommentTopic(entry.getKey(), postSubscribers);
             }
         }
         if (removedTopics > 0) {
             commentTopicCleanups.increment(removedTopics);
+            publishControlEvent(userId, affectedConnections, "comment-topic-access-revoked", Map.of("reason", "access-revoked"));
+        }
+    }
+
+    private void publishCommentTopicAccessRevoked(
+            ConcurrentMap<Long, ConcurrentMap<String, Boolean>> removed,
+            Map<String, Object> data) {
+        removed.forEach((userId, connectionIds) ->
+                publishControlEvent(userId, connectionIds.keySet(), "comment-topic-access-revoked", data));
+    }
+
+    private void publishControlEvent(
+            Long userId,
+            java.util.Set<String> connectionIds,
+            String eventName,
+            Map<String, Object> data) {
+        Map<String, EmitterConnection> userEmitters = emitters.get(userId);
+        if (userEmitters == null || userEmitters.isEmpty()) {
+            return;
+        }
+        for (Map.Entry<String, EmitterConnection> entry : new ArrayList<>(userEmitters.entrySet())) {
+            if (!connectionIds.contains(entry.getKey())) {
+                continue;
+            }
+            try {
+                entry.getValue().emitter().send(SseEmitter.event().name(eventName).data(data));
+            } catch (IOException | RuntimeException exception) {
+                completeWithError(userId, entry.getKey(), entry.getValue().emitter(), exception);
+            }
         }
     }
 
