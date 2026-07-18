@@ -53,6 +53,7 @@ class SignupServiceTest {
     @Mock private GlobalConfigService globalConfigService;
     @Mock private EntityManager entityManager;
     @Mock private RefreshTokenLifecycleService refreshTokenLifecycleService;
+    @Mock private AccountCredentialInvalidationService accountCredentialInvalidationService;
     @Mock private UserPrivilegeCleanupService userPrivilegeCleanupService;
     @Mock private PasswordHistoryPolicy passwordHistoryPolicy;
     @Mock private AuthAccountEligibilityPolicy authAccountEligibilityPolicy;
@@ -109,6 +110,7 @@ class SignupServiceTest {
                 verificationCodeService,
                 refreshTokenLifecycleService,
                 userPrivilegeCleanupService,
+                accountCredentialInvalidationService,
                 passwordHistoryPolicy,
                 userRepository);
         inOrder.verify(verificationCodeService).consumeVerificationTicket(
@@ -118,6 +120,7 @@ class SignupServiceTest {
         inOrder.verify(passwordHistoryPolicy).validateNotRecentlyUsed(deletedUser, request.getPassword());
         inOrder.verify(refreshTokenLifecycleService).revokeActiveRefreshTokens(deletedUser);
         inOrder.verify(userPrivilegeCleanupService).removeOperationalPrivileges(deletedUser);
+        inOrder.verify(accountCredentialInvalidationService).invalidateForLockedUser(deletedUser);
         inOrder.verify(userRepository).save(deletedUser);
         inOrder.verify(passwordHistoryPolicy).record(deletedUser, "encoded-new-password");
         verify(pointService, never()).addPoint(anyLong(),
@@ -162,7 +165,9 @@ class SignupServiceTest {
 
         assertThat(response.getUserId()).isEqualTo(1L);
         verify(oAuthSignupTicketService).consume("oauth-ticket");
-        verify(socialAccountLinkService).linkSocialAccount(
+        var inOrder = inOrder(accountCredentialInvalidationService, socialAccountLinkService);
+        inOrder.verify(accountCredentialInvalidationService).invalidateForLockedUser(deletedUser);
+        inOrder.verify(socialAccountLinkService).linkSocialAccount(
                 deletedUser, "google", "google-user-1");
     }
 
@@ -202,6 +207,7 @@ class SignupServiceTest {
 
         verify(refreshTokenLifecycleService, never()).revokeActiveRefreshTokens(deletedUser);
         verify(userPrivilegeCleanupService, never()).removeOperationalPrivileges(deletedUser);
+        verify(accountCredentialInvalidationService, never()).invalidateForLockedUser(deletedUser);
         verify(userRepository, never()).save(deletedUser);
         verify(verificationCodeService).consumeVerificationTicket(
                 request.getEmail(),
@@ -241,6 +247,7 @@ class SignupServiceTest {
 
         verify(refreshTokenLifecycleService, never()).revokeActiveRefreshTokens(deletedUser);
         verify(userPrivilegeCleanupService, never()).removeOperationalPrivileges(deletedUser);
+        verify(accountCredentialInvalidationService, never()).invalidateForLockedUser(deletedUser);
         verify(userRepository, never()).save(deletedUser);
         verify(verificationCodeService).consumeVerificationTicket(
                 request.getEmail(),
@@ -282,6 +289,7 @@ class SignupServiceTest {
                 anyString());
         verify(refreshTokenLifecycleService, never()).revokeActiveRefreshTokens(deletedUser);
         verify(userPrivilegeCleanupService, never()).removeOperationalPrivileges(deletedUser);
+        verify(accountCredentialInvalidationService, never()).invalidateForLockedUser(deletedUser);
         verify(userRepository, never()).save(deletedUser);
     }
 

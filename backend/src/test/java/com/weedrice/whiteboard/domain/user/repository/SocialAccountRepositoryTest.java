@@ -72,6 +72,35 @@ class SocialAccountRepositoryTest {
                 .isEqualTo("provider-user-2");
     }
 
+    @Test
+    @DisplayName("사용자의 기존 소셜 계정 링크만 모두 삭제한다")
+    void deleteAllByUser_deletesOnlyTargetUserLinks() {
+        User user = persistUser("social-delete-user");
+        User anotherUser = persistUser("social-preserved-user");
+        SocialAccount google = persistSocialAccount(user, "google", "google-delete-user");
+        SocialAccount github = persistSocialAccount(user, "github", "github-delete-user");
+        SocialAccount preserved = persistSocialAccount(anotherUser, "google", "google-preserved-user");
+        entityManager.flush();
+        entityManager.clear();
+
+        int deletedCount = socialAccountRepository.deleteAllByUser(user);
+
+        assertThat(deletedCount).isEqualTo(2);
+        assertThat(socialAccountRepository.findById(google.getId())).isEmpty();
+        assertThat(socialAccountRepository.findById(github.getId())).isEmpty();
+        assertThat(socialAccountRepository.findById(preserved.getId())).isPresent();
+    }
+
+    private SocialAccount persistSocialAccount(User user, String provider, String providerId) {
+        SocialAccount socialAccount = SocialAccount.builder()
+                .user(user)
+                .provider(provider)
+                .providerId(providerId)
+                .build();
+        entityManager.persist(socialAccount);
+        return socialAccount;
+    }
+
     private User persistUser(String loginId) {
         User user = User.builder()
                 .loginId(loginId)

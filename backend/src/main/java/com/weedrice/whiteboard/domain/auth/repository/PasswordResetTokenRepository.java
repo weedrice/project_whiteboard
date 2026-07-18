@@ -66,6 +66,15 @@ public interface PasswordResetTokenRepository extends JpaRepository<PasswordRese
             @Param("user") User user,
             @Param("excludeTokenId") Long excludeTokenId);
 
+    @Modifying(flushAutomatically = true)
+    @Query("""
+            UPDATE PasswordResetToken token
+            SET token.isUsed = true
+            WHERE token.user = :user
+              AND token.isUsed = false
+            """)
+    int invalidateAllUnusedTokens(@Param("user") User user);
+
     @Modifying
     @Query(value = """
             DELETE FROM password_reset_tokens

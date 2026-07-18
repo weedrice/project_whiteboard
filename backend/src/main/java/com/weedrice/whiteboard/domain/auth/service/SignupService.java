@@ -42,6 +42,7 @@ public class SignupService {
     private final GlobalConfigService globalConfigService;
     private final EntityManager entityManager;
     private final RefreshTokenLifecycleService refreshTokenLifecycleService;
+    private final AccountCredentialInvalidationService accountCredentialInvalidationService;
     private final UserPrivilegeCleanupService userPrivilegeCleanupService;
     private final PasswordHistoryPolicy passwordHistoryPolicy;
     private final AuthAccountEligibilityPolicy authAccountEligibilityPolicy;
@@ -137,6 +138,7 @@ public class SignupService {
         String passwordHash = passwordHistoryPolicy.encode(request.getPassword());
         refreshTokenLifecycleService.revokeActiveRefreshTokens(existingUser);
         userPrivilegeCleanupService.removeOperationalPrivileges(existingUser);
+        accountCredentialInvalidationService.invalidateForLockedUser(existingUser);
         existingUser.activate();
         existingUser.updatePassword(passwordHash);
         existingUser.advanceSecurityVersion();

@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.user.service;
 
 import com.weedrice.whiteboard.domain.agent.service.AgentLifecycleService;
+import com.weedrice.whiteboard.domain.auth.service.AccountCredentialInvalidationService;
 import com.weedrice.whiteboard.domain.auth.service.RefreshTokenLifecycleService;
 import com.weedrice.whiteboard.domain.notification.service.NotificationAccessInvalidationService;
 import com.weedrice.whiteboard.domain.sanction.repository.SanctionRepository;
@@ -45,6 +46,7 @@ class UserLifecycleServiceTest {
     @Mock private UserRepository userRepository;
     @Mock private SanctionRepository sanctionRepository;
     @Mock private RefreshTokenLifecycleService refreshTokenLifecycleService;
+    @Mock private AccountCredentialInvalidationService accountCredentialInvalidationService;
     @Mock private AgentLifecycleService agentLifecycleService;
     @Mock private UserPrivilegeCleanupService userPrivilegeCleanupService;
     @Mock private NotificationAccessInvalidationService notificationAccessInvalidationService;
@@ -151,10 +153,15 @@ class UserLifecycleServiceTest {
         assertThat(user.getStatus()).isEqualTo("DELETED");
         assertThat(user.getDeletedAt()).isEqualTo(FIXED_NOW);
         verify(userRepository).findByIdForUpdate(1L);
-        var inOrder = inOrder(userPrivilegeCleanupService, refreshTokenLifecycleService, agentLifecycleService);
+        var inOrder = inOrder(
+                userPrivilegeCleanupService,
+                refreshTokenLifecycleService,
+                agentLifecycleService,
+                accountCredentialInvalidationService);
         inOrder.verify(userPrivilegeCleanupService).removeOperationalPrivileges(user);
         inOrder.verify(refreshTokenLifecycleService).revokeActiveRefreshTokensForLockedUser(user);
         inOrder.verify(agentLifecycleService).suspendAllForUser(user);
+        inOrder.verify(accountCredentialInvalidationService).invalidateForLockedUser(user);
     }
 
     @Test
@@ -169,6 +176,7 @@ class UserLifecycleServiceTest {
         verifyNoInteractions(userRepository);
         verify(userPrivilegeCleanupService).removeOperationalPrivileges(user);
         verify(refreshTokenLifecycleService).revokeActiveRefreshTokensForLockedUser(user);
+        verify(accountCredentialInvalidationService).invalidateForLockedUser(user);
     }
 
     @Test
@@ -187,6 +195,7 @@ class UserLifecycleServiceTest {
         assertThat(user.getStatus()).isEqualTo("ACTIVE");
         verify(refreshTokenLifecycleService, never()).revokeActiveRefreshTokensForLockedUser(user);
         verify(agentLifecycleService, never()).suspendAllForUser(user);
+        verify(accountCredentialInvalidationService, never()).invalidateForLockedUser(user);
     }
 
     @Test

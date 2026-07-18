@@ -35,6 +35,10 @@ public interface SocialAccountRepository extends JpaRepository<SocialAccount, Lo
             @Param("user") User user,
             @Param("provider") String provider);
 
+    @Modifying(flushAutomatically = true)
+    @Query("DELETE FROM SocialAccount socialAccount WHERE socialAccount.user = :user")
+    int deleteAllByUser(@Param("user") User user);
+
     @Modifying
     @Query(value = """
             INSERT INTO social_accounts (

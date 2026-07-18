@@ -111,6 +111,7 @@ class AuthServiceTest {
     @Mock private SanctionPolicyService sanctionPolicyService;
     @Mock private EntityManager entityManager;
     @Mock private RefreshTokenLifecycleService refreshTokenLifecycleService;
+    @Mock private AccountCredentialInvalidationService accountCredentialInvalidationService;
     @Mock private UserPrivilegeCleanupService userPrivilegeCleanupService;
 
     private AuthService authService;
@@ -151,7 +152,8 @@ class AuthServiceTest {
         SignupService signupService = new SignupService(
                 userRepository, pointService, userSettingsRepository,
                 socialAccountLinkService, verificationCodeService, globalConfigService,
-                entityManager, refreshTokenLifecycleService, userPrivilegeCleanupService, passwordHistoryPolicy,
+                entityManager, refreshTokenLifecycleService, accountCredentialInvalidationService,
+                userPrivilegeCleanupService, passwordHistoryPolicy,
                 authAccountEligibilityPolicy, new AccountUniquenessPolicy(userRepository),
                 new OAuthSignupTicketService(
                         mock(OAuthSignupTicketRepository.class),

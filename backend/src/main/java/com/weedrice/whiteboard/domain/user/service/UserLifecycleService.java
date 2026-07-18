@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.user.service;
 
 import com.weedrice.whiteboard.domain.agent.service.AgentLifecycleService;
+import com.weedrice.whiteboard.domain.auth.service.AccountCredentialInvalidationService;
 import com.weedrice.whiteboard.domain.auth.service.RefreshTokenLifecycleService;
 import com.weedrice.whiteboard.domain.notification.service.NotificationAccessInvalidationService;
 import com.weedrice.whiteboard.domain.sanction.repository.SanctionRepository;
@@ -24,6 +25,7 @@ public class UserLifecycleService {
     private final UserRepository userRepository;
     private final SanctionRepository sanctionRepository;
     private final RefreshTokenLifecycleService refreshTokenLifecycleService;
+    private final AccountCredentialInvalidationService accountCredentialInvalidationService;
     private final AgentLifecycleService agentLifecycleService;
     private final UserPrivilegeCleanupService userPrivilegeCleanupService;
     private final NotificationAccessInvalidationService notificationAccessInvalidationService;
@@ -80,6 +82,7 @@ public class UserLifecycleService {
     public void deletePrelockedAccount(User user) {
         validateLifecycleMutationTarget(user);
         cleanupOperationalAccessForLockedUser(user, null);
+        accountCredentialInvalidationService.invalidateForLockedUser(user);
         user.delete(LocalDateTime.now(clock));
         user.advanceSecurityVersion();
     }
