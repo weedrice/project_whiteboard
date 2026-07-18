@@ -1,4 +1,4 @@
-import { defineComponent, h, ref } from 'vue'
+import { defineComponent, h, nextTick, ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import BaseTable from '../ui/BaseTable.vue'
@@ -304,7 +304,7 @@ describe('BaseTable', () => {
         expect(wrapper.get('[role="region"]').attributes('tabindex')).toBeUndefined()
     })
 
-    it('makes an explicitly labelled horizontal scroll region keyboard focusable', () => {
+    it('makes an explicitly labelled horizontal scroll region keyboard focusable', async () => {
         const wrapper = mount(BaseTable, {
             props: {
                 columns: [{ key: 'title', label: 'Title' }],
@@ -313,10 +313,38 @@ describe('BaseTable', () => {
             },
         })
 
-        expect(wrapper.get('[role="region"]').attributes()).toMatchObject({
+        const region = wrapper.get('[role="region"]')
+        Object.defineProperties(region.element, {
+            scrollWidth: { configurable: true, value: 600 },
+            clientWidth: { configurable: true, value: 300 },
+        })
+        window.dispatchEvent(new Event('resize'))
+        await nextTick()
+
+        expect(region.attributes()).toMatchObject({
             'aria-label': 'Scrollable search results',
             tabindex: '0',
         })
+    })
+
+    it('makes a caption-labelled region focusable when its table overflows', async () => {
+        const wrapper = mount(BaseTable, {
+            props: {
+                columns: [{ key: 'title', label: 'Title' }],
+                items: [{ title: 'Row' }],
+                caption: 'Search results',
+            },
+        })
+        const region = wrapper.get('[role="region"]')
+        Object.defineProperties(region.element, {
+            scrollWidth: { configurable: true, value: 600 },
+            clientWidth: { configurable: true, value: 300 },
+        })
+
+        window.dispatchEvent(new Event('resize'))
+        await nextTick()
+
+        expect(region.attributes('tabindex')).toBe('0')
     })
 
     it('announces an empty result through the shared status contract', () => {

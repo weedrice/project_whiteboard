@@ -1,5 +1,5 @@
 <script setup lang="ts" generic="T extends object">
-import { computed } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseSpinner from './BaseSpinner.vue'
 import {
@@ -69,6 +69,36 @@ const { t } = useI18n()
 
 const effectiveEmptyText = computed(() => props.emptyText ?? t('common.noData'))
 const effectiveScrollLabel = computed(() => props.scrollLabel ?? props.caption)
+const scrollContainerRef = ref<HTMLElement | null>(null)
+const isScrollOverflowing = ref(false)
+let resizeObserver: ResizeObserver | null = null
+
+const updateScrollOverflow = () => {
+    const element = scrollContainerRef.value
+    isScrollOverflowing.value = Boolean(element && (
+        element.scrollWidth > element.clientWidth
+        || element.scrollHeight > element.clientHeight
+    ))
+}
+
+watch(
+    () => [props.items.length, props.columns.length, props.maxHeightClass] as const,
+    () => void nextTick(updateScrollOverflow),
+)
+
+onMounted(() => {
+    void nextTick(updateScrollOverflow)
+    window.addEventListener('resize', updateScrollOverflow)
+    if (typeof ResizeObserver !== 'undefined' && scrollContainerRef.value) {
+        resizeObserver = new ResizeObserver(updateScrollOverflow)
+        resizeObserver.observe(scrollContainerRef.value)
+    }
+})
+
+onUnmounted(() => {
+    window.removeEventListener('resize', updateScrollOverflow)
+    resizeObserver?.disconnect()
+})
 
 const getAriaSort = (column: TableColumn): 'ascending' | 'descending' | 'none' | undefined => {
     return getTableAriaSort(column, props.currentSortKey, props.currentSortDirection)
@@ -161,8 +191,8 @@ const bodyCellClasses = computed(() => [
 
 <template>
     <div :class="rootClasses">
-        <div :class="scrollContainerClasses" :role="effectiveScrollLabel ? 'region' : undefined"
-            :aria-label="effectiveScrollLabel" :tabindex="scrollLabel ? 0 : undefined">
+        <div ref="scrollContainerRef" :class="scrollContainerClasses" :role="effectiveScrollLabel ? 'region' : undefined"
+            :aria-label="effectiveScrollLabel" :tabindex="effectiveScrollLabel && isScrollOverflowing ? 0 : undefined">
             <table class="w-full table-fixed nv-base-table-table" :class="minWidthClass" style="table-layout: fixed;">
                 <caption v-if="caption" class="sr-only">{{ caption }}</caption>
                 <colgroup>
