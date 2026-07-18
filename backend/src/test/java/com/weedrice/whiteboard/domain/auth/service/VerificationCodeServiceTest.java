@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.auth.dto.VerifyCodeResponse;
 import com.weedrice.whiteboard.domain.auth.entity.VerificationCode;
 import com.weedrice.whiteboard.domain.auth.entity.VerificationPurpose;
 import com.weedrice.whiteboard.domain.auth.repository.VerificationCodeRepository;
+import com.weedrice.whiteboard.domain.auth.repository.VerificationSendLockRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.email.EmailService;
@@ -57,6 +58,8 @@ class VerificationCodeServiceTest {
 
     @Mock
     private VerificationCodeRepository verificationCodeRepository;
+    @Mock
+    private VerificationSendLockRepository verificationSendLockRepository;
     @Mock
     private UserRepository userRepository;
     @Mock
@@ -142,6 +145,7 @@ class VerificationCodeServiceTest {
                 });
         VerificationCodeDeliveryService verificationCodeDeliveryService = new VerificationCodeDeliveryService(
                 verificationCodeRepository,
+                verificationSendLockRepository,
                 new AuthMailDeliveryOrchestrationService(emailService),
                 tokenHashService,
                 transactionTemplate,
@@ -174,6 +178,7 @@ class VerificationCodeServiceTest {
 
         assertThat(verificationCodes.values()).hasSize(1);
         VerificationCode verificationCode = verificationCodes.values().iterator().next();
+        verify(verificationSendLockRepository).lock("test@example.com", VerificationPurpose.SIGNUP);
         assertThat(verificationCode.getEmail()).isEqualTo("test@example.com");
         assertThat(verificationCode.getDeliveryStatus()).isEqualTo(VerificationCode.DELIVERY_STATUS_SENT);
         assertThat(verificationCode.getPurpose()).isEqualTo(VerificationPurpose.SIGNUP);

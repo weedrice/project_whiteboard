@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.auth.service;
 import com.weedrice.whiteboard.domain.auth.entity.VerificationCode;
 import com.weedrice.whiteboard.domain.auth.entity.VerificationPurpose;
 import com.weedrice.whiteboard.domain.auth.repository.VerificationCodeRepository;
+import com.weedrice.whiteboard.domain.auth.repository.VerificationSendLockRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -16,8 +17,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.LocalDateTime;
-import java.util.Objects;
-import java.util.concurrent.locks.ReentrantLock;
 
 @Service
 @RequiredArgsConstructor
@@ -30,14 +29,13 @@ public class VerificationCodeDeliveryService {
     private static final int RESEND_COOLDOWN_SECONDS = 60;
     private static final int SEND_ATTEMPT_WINDOW_HOURS = 1;
     private static final int MAX_SEND_ATTEMPTS_PER_WINDOW = 5;
-    private static final int VERIFICATION_SEND_LOCK_STRIPES = 64;
 
     private final VerificationCodeRepository verificationCodeRepository;
+    private final VerificationSendLockRepository verificationSendLockRepository;
     private final AuthMailDeliveryOrchestrationService mailDeliveryOrchestrationService;
     private final TokenHashService tokenHashService;
     private final TransactionTemplate transactionTemplate;
     private final Clock clock;
-    private final ReentrantLock[] verificationSendLocks = createVerificationSendLocks();
     private final MessageSource messageSource;
 
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
@@ -74,22 +72,9 @@ public class VerificationCodeDeliveryService {
             VerificationPurpose purpose,
             String code,
             LocalDateTime expiryDate) {
-        ReentrantLock sendLock = getVerificationSendLock(email, purpose);
-        sendLock.lock();
-        try {
-            return createPendingVerificationCodeWithLock(email, purpose, code, expiryDate);
-        } finally {
-            sendLock.unlock();
-        }
-    }
-
-    private Long createPendingVerificationCodeWithLock(
-            String email,
-            VerificationPurpose purpose,
-            String code,
-            LocalDateTime expiryDate) {
         final Long[] verificationIdHolder = new Long[1];
         transactionTemplate.executeWithoutResult(status -> {
+            verificationSendLockRepository.lock(email, purpose);
             validateVerificationSendRateLimit(email, purpose, now());
             VerificationCode verificationCode = VerificationCode.builder()
                     .email(email)
@@ -100,19 +85,6 @@ public class VerificationCodeDeliveryService {
             verificationIdHolder[0] = verificationCodeRepository.save(verificationCode).getVerificationId();
         });
         return verificationIdHolder[0];
-    }
-
-    private static ReentrantLock[] createVerificationSendLocks() {
-        ReentrantLock[] locks = new ReentrantLock[VERIFICATION_SEND_LOCK_STRIPES];
-        for (int i = 0; i < locks.length; i++) {
-            locks[i] = new ReentrantLock();
-        }
-        return locks;
-    }
-
-    private ReentrantLock getVerificationSendLock(String email, VerificationPurpose purpose) {
-        int lockIndex = Math.floorMod(Objects.hash(email, purpose), verificationSendLocks.length);
-        return verificationSendLocks[lockIndex];
     }
 
     private void validateVerificationSendRateLimit(

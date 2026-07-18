@@ -6,6 +6,7 @@ import com.weedrice.whiteboard.domain.auth.service.VerificationCodeService;
 import com.weedrice.whiteboard.domain.auth.service.LoginClientMetadata;
 import com.weedrice.whiteboard.domain.auth.service.SessionTokenService;
 import com.weedrice.whiteboard.domain.auth.entity.VerificationPurpose;
+import com.weedrice.whiteboard.domain.auth.repository.VerificationSendLockRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
@@ -74,6 +75,9 @@ class PostgresApplicationContextSmokeTest {
 
     @Autowired
     private PopularPostAggregationLockRepository aggregationLockRepository;
+
+    @Autowired
+    private VerificationSendLockRepository verificationSendLockRepository;
 
     @Autowired
     private OAuthSignupTicketService ticketService;
@@ -901,6 +905,38 @@ class PostgresApplicationContextSmokeTest {
             }
             assertEquals(1, successes);
         } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    @Test
+    void verificationSendLockSerializesTheSameEmailAndPurpose() throws Exception {
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        CountDownLatch firstHasLock = new CountDownLatch(1);
+        CountDownLatch releaseFirst = new CountDownLatch(1);
+        CountDownLatch secondHasLock = new CountDownLatch(1);
+        TransactionTemplate transactions = new TransactionTemplate(transactionManager);
+
+        try {
+            Future<?> first = executor.submit(() -> transactions.executeWithoutResult(status -> {
+                verificationSendLockRepository.lock("same@example.com", VerificationPurpose.SIGNUP);
+                firstHasLock.countDown();
+                await(releaseFirst);
+            }));
+
+            assertTrue(firstHasLock.await(5, TimeUnit.SECONDS));
+            Future<?> second = executor.submit(() -> transactions.executeWithoutResult(status -> {
+                verificationSendLockRepository.lock("same@example.com", VerificationPurpose.SIGNUP);
+                secondHasLock.countDown();
+            }));
+
+            assertFalse(secondHasLock.await(200, TimeUnit.MILLISECONDS));
+            releaseFirst.countDown();
+            first.get(5, TimeUnit.SECONDS);
+            second.get(5, TimeUnit.SECONDS);
+            assertTrue(secondHasLock.await(1, TimeUnit.SECONDS));
+        } finally {
+            releaseFirst.countDown();
             executor.shutdownNow();
         }
     }
