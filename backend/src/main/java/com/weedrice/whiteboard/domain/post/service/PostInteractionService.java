@@ -164,7 +164,7 @@ public class PostInteractionService {
 
     @Transactional
     public int likePost(@NonNull Long userId, Long actorAgentId, @NonNull Long postId) {
-        User user = userWritableResolver.resolve(userId);
+        User user = userWritableResolver.resolveForUpdate(userId);
         Agent actorAgent = agentOwnershipService.resolveOwnedActiveAgent(userId, actorAgentId);
         Post post = getReadablePostForResolvedUser(postId, user);
         return likeResolvedPost(user, actorAgent, post);
@@ -172,7 +172,7 @@ public class PostInteractionService {
 
     @Transactional
     int likePost(@NonNull Long userId, Agent actorAgent, @NonNull Post post) {
-        User user = userWritableResolver.resolve(userId);
+        User user = userWritableResolver.resolveForUpdate(userId);
         validateResolvedActorAgent(userId, actorAgent);
         return likeResolvedPost(user, actorAgent, post);
     }
@@ -212,7 +212,7 @@ public class PostInteractionService {
 
     @Transactional
     public int unlikePost(@NonNull Long userId, @NonNull Long postId) {
-        User user = userWritableResolver.resolve(userId);
+        User user = userWritableResolver.resolveForUpdate(userId);
         getReadablePostForResolvedUser(postId, user);
 
         int deletedCount = postLikeRepository.deleteByUserIdAndPostId(userId, postId);
@@ -227,7 +227,7 @@ public class PostInteractionService {
     @Transactional
     public void scrapPost(@NonNull Long userId, @NonNull Long postId, String remark) {
         String normalizedRemark = normalizeScrapRemark(remark);
-        User user = userWritableResolver.resolve(userId);
+        User user = userWritableResolver.resolveForUpdate(userId);
         Post post = getReadablePostForResolvedUser(postId, user);
 
         Scrap scrap = Scrap.builder()
@@ -242,7 +242,7 @@ public class PostInteractionService {
 
     @Transactional
     public void unscrapPost(@NonNull Long userId, @NonNull Long postId) {
-        User user = userWritableResolver.resolve(userId);
+        User user = userWritableResolver.resolveForUpdate(userId);
         getReadablePostForResolvedUser(postId, user);
         long deletedCount = scrapRepository.deleteByUser_UserIdAndPost_PostId(userId, postId);
         if (deletedCount == 0) {

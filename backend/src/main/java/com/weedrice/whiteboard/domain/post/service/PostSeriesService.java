@@ -14,7 +14,10 @@ import com.weedrice.whiteboard.global.common.util.TextInputNormalizer;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.NonNull;
 import org.springframework.stereotype.Service;
@@ -37,7 +40,7 @@ public class PostSeriesService {
 
     @Transactional
     public PostSeriesResponse createSeries(@NonNull Long userId, PostSeriesRequest request) {
-        User owner = userWritableResolver.resolve(userId);
+        User owner = userWritableResolver.resolveForUpdate(userId);
         PostSeries series = PostSeries.builder()
                 .owner(owner)
                 .title(normalizeTitle(request.getTitle()))
@@ -48,7 +51,8 @@ public class PostSeriesService {
 
     @Transactional
     public PostSeriesResponse updateSeries(@NonNull Long userId, @NonNull Long seriesId, PostSeriesRequest request) {
-        PostSeries series = getOwnedSeries(userId, seriesId);
+        userWritableResolver.resolveForUpdate(userId);
+        PostSeries series = getOwnedSeriesForUpdate(userId, seriesId);
         series.update(normalizeTitle(request.getTitle()),
                 TextInputNormalizer.normalizeOptional(request.getDescription(), 500));
         return PostSeriesResponse.from(series);
@@ -56,7 +60,8 @@ public class PostSeriesService {
 
     @Transactional
     public void deleteSeries(@NonNull Long userId, @NonNull Long seriesId) {
-        postSeriesRepository.delete(getOwnedSeries(userId, seriesId));
+        userWritableResolver.resolveForUpdate(userId);
+        postSeriesRepository.delete(getOwnedSeriesForUpdate(userId, seriesId));
     }
 
     @Transactional
@@ -64,24 +69,45 @@ public class PostSeriesService {
         if (seriesId == null) {
             return;
         }
-        attachPostToLockedSeries(ownerUserId, post, seriesId);
+        userWritableResolver.resolveForUpdate(ownerUserId);
+        movePostToSeries(ownerUserId, post, seriesId);
     }
 
     @Transactional
     public void updatePostSeries(@NonNull Long ownerUserId, @NonNull Post post, Long seriesId) {
-        if (seriesId == null) {
-            postSeriesItemRepository.findByPost_PostIdAndSeries_Owner_UserId(post.getPostId(), ownerUserId)
-                    .ifPresent(postSeriesItemRepository::delete);
-            return;
-        }
-        attachPostToLockedSeries(ownerUserId, post, seriesId);
-    }
-
-    private void attachPostToLockedSeries(Long ownerUserId, Post post, Long seriesId) {
-        PostSeries series = getOwnedSeriesForUpdate(ownerUserId, seriesId);
+        userWritableResolver.resolveForUpdate(ownerUserId);
         PostSeriesItem item = postSeriesItemRepository.findByPost_PostIdAndSeries_Owner_UserId(
                         post.getPostId(), ownerUserId)
                 .orElse(null);
+        if (seriesId == null) {
+            if (item != null) {
+                lockOwnedSeries(ownerUserId, List.of(item.getSeries().getSeriesId()));
+                postSeriesItemRepository.delete(item);
+            }
+            return;
+        }
+        movePostToSeries(ownerUserId, post, seriesId, item);
+    }
+
+    private void movePostToSeries(Long ownerUserId, Post post, Long seriesId) {
+        PostSeriesItem item = postSeriesItemRepository.findByPost_PostIdAndSeries_Owner_UserId(
+                        post.getPostId(), ownerUserId)
+                .orElse(null);
+        movePostToSeries(ownerUserId, post, seriesId, item);
+    }
+
+    private void movePostToSeries(Long ownerUserId, Post post, Long seriesId, PostSeriesItem item) {
+        List<Long> seriesIds = item == null
+                ? List.of(seriesId)
+                : java.util.stream.Stream.of(item.getSeries().getSeriesId(), seriesId)
+                        .distinct()
+                        .sorted()
+                        .toList();
+        Map<Long, PostSeries> lockedSeries = lockOwnedSeries(ownerUserId, seriesIds);
+        PostSeries series = lockedSeries.get(seriesId);
+        if (series == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND);
+        }
         if (item != null && Objects.equals(item.getSeries().getSeriesId(), seriesId)) {
             return;
         }
@@ -95,6 +121,17 @@ public class PostSeriesService {
             return;
         }
         item.moveTo(series, nextSortOrder);
+    }
+
+    private Map<Long, PostSeries> lockOwnedSeries(Long ownerUserId, List<Long> seriesIds) {
+        Map<Long, PostSeries> lockedSeries = postSeriesRepository
+                .findAllOwnedByIdsForUpdate(ownerUserId, seriesIds)
+                .stream()
+                .collect(Collectors.toMap(PostSeries::getSeriesId, Function.identity()));
+        if (lockedSeries.size() != seriesIds.size()) {
+            throw new BusinessException(ErrorCode.NOT_FOUND);
+        }
+        return lockedSeries;
     }
 
     PostSeriesNavigation getNavigation(@NonNull Post post, PostReadContext readContext) {
@@ -133,11 +170,6 @@ public class PostSeriesService {
                             .build();
                 })
                 .orElse(null);
-    }
-
-    private PostSeries getOwnedSeries(Long userId, Long seriesId) {
-        return postSeriesRepository.findBySeriesIdAndOwner_UserId(seriesId, userId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
     }
 
     private PostSeries getOwnedSeriesForUpdate(Long userId, Long seriesId) {

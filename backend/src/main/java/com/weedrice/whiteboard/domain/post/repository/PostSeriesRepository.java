@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.post.repository;
 
 import com.weedrice.whiteboard.domain.post.entity.PostSeries;
 import java.util.List;
+import java.util.Collection;
 import java.util.Optional;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -19,4 +20,17 @@ public interface PostSeriesRepository extends JpaRepository<PostSeries, Long> {
     Optional<PostSeries> findBySeriesIdAndOwnerUserIdForUpdate(
             @Param("seriesId") Long seriesId,
             @Param("ownerUserId") Long ownerUserId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT s
+            FROM PostSeries s
+            JOIN FETCH s.owner
+            WHERE s.owner.userId = :ownerUserId
+              AND s.seriesId IN :seriesIds
+            ORDER BY s.seriesId ASC
+            """)
+    List<PostSeries> findAllOwnedByIdsForUpdate(
+            @Param("ownerUserId") Long ownerUserId,
+            @Param("seriesIds") Collection<Long> seriesIds);
 }

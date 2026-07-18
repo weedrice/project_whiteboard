@@ -144,10 +144,10 @@ public class PostCommandService {
         if (request.getPoll() != null) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
+        User modifier = userWritableResolver.resolveForUpdate(userId);
+        sanctionService.validateNotMuted(modifier);
         Post post = postRepository.findByIdWithRelationsForUpdate(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
-        User modifier = userWritableResolver.resolve(userId);
-        sanctionService.validateNotMuted(modifier);
 
         postAuthorCommandPolicy.validateAuthorCommand(post, modifier);
         BoardCategory category = resolveUpdatedCategory(post, request.getCategoryId());
@@ -201,9 +201,9 @@ public class PostCommandService {
 
     @Transactional
     public void deletePost(@NonNull Long userId, @NonNull Long postId) {
+        User modifier = userWritableResolver.resolveForUpdate(userId);
         Post post = postRepository.findByIdWithRelationsForUpdate(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
-        User modifier = userWritableResolver.resolve(userId);
 
         postAuthorCommandPolicy.validateDeletable(post, modifier);
 

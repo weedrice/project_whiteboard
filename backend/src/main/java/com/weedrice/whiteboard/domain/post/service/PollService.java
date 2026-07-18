@@ -71,7 +71,7 @@ public class PollService {
 
     @Transactional
     public PollResponse vote(Long userId, Long postId, Collection<Long> optionIds) {
-        User user = userWritableResolver.resolve(userId);
+        User user = userWritableResolver.resolveForUpdate(userId);
         Poll poll = pollRepository.findByPostIdForUpdate(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
         validateReadable(poll, user);
@@ -99,7 +99,7 @@ public class PollService {
 
     @Transactional
     public PollResponse deleteVote(Long userId, Long postId) {
-        User user = userWritableResolver.resolve(userId);
+        User user = userWritableResolver.resolveForUpdate(userId);
         Poll poll = pollRepository.findByPostIdForUpdate(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
         validateReadable(poll, user);

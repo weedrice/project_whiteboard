@@ -161,6 +161,8 @@ class PostServiceTest {
 
     @BeforeEach
     void setUp() {
+        lenient().when(userRepository.findByIdForUpdate(anyLong()))
+                .thenAnswer(invocation -> userRepository.findById(invocation.getArgument(0)));
         boardAccessPolicy = new BoardAccessPolicy(adminRepository);
         PostInteractionContextResolver postInteractionContextResolver = new PostInteractionContextResolver(
                 userRepository,
@@ -1365,7 +1367,6 @@ class PostServiceTest {
         PostUpdateRequest request = new PostUpdateRequest(null, "Updated Title", "Updated Contents",
                 Collections.emptyList(), false, false, false, null);
 
-        when(postRepository.findByIdWithRelationsForUpdate(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotBanned(user);
 
@@ -1473,7 +1474,6 @@ class PostServiceTest {
     @Test
     @DisplayName("활성 BAN 사용자는 게시글을 삭제할 수 없다")
     void deletePost_bannedUser_forbidden() {
-        when(postRepository.findByIdWithRelationsForUpdate(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotBanned(user);
 

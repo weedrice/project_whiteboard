@@ -136,15 +136,16 @@ class PostSeriesServiceTest {
         User owner = createUser(1L);
         PostSeries series = createSeries(10L, owner, "Series title");
         Post post = createPost(100L, createBoard("free"), owner, "Post");
-        when(postSeriesRepository.findBySeriesIdAndOwnerUserIdForUpdate(10L, 1L))
-                .thenReturn(Optional.of(series));
+        when(postSeriesRepository.findAllOwnedByIdsForUpdate(1L, List.of(10L)))
+                .thenReturn(List.of(series));
         when(postSeriesItemRepository.findByPost_PostIdAndSeries_Owner_UserId(100L, 1L))
                 .thenReturn(Optional.empty());
         when(postSeriesItemRepository.findMaxSortOrder(10L)).thenReturn(4);
 
         service.attachPostToSeries(1L, post, 10L);
 
-        verify(postSeriesRepository).findBySeriesIdAndOwnerUserIdForUpdate(10L, 1L);
+        verify(userWritableResolver).resolveForUpdate(1L);
+        verify(postSeriesRepository).findAllOwnedByIdsForUpdate(1L, List.of(10L));
         verify(postSeriesItemRepository).save(org.mockito.ArgumentMatchers.argThat(item ->
                 item.getSeries() == series && item.getPost() == post && item.getSortOrder() == 5));
     }
@@ -161,8 +162,8 @@ class PostSeriesServiceTest {
         PostSeries series = createSeries(10L, owner, "Series title");
         Post post = createPost(100L, createBoard("free"), owner, "Post");
         PostSeriesItem item = createItem(1L, series, post, 3);
-        when(postSeriesRepository.findBySeriesIdAndOwnerUserIdForUpdate(10L, 1L))
-                .thenReturn(Optional.of(series));
+        when(postSeriesRepository.findAllOwnedByIdsForUpdate(1L, List.of(10L)))
+                .thenReturn(List.of(series));
         when(postSeriesItemRepository.findByPost_PostIdAndSeries_Owner_UserId(100L, 1L))
                 .thenReturn(Optional.of(item));
 
@@ -186,6 +187,8 @@ class PostSeriesServiceTest {
         PostSeriesItem item = createItem(1L, createSeries(10L, owner, "Series"), post, 0);
         when(postSeriesItemRepository.findByPost_PostIdAndSeries_Owner_UserId(100L, 1L))
                 .thenReturn(Optional.of(item));
+        when(postSeriesRepository.findAllOwnedByIdsForUpdate(1L, List.of(10L)))
+                .thenReturn(List.of(item.getSeries()));
 
         service.updatePostSeries(1L, post, null);
 

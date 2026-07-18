@@ -27,7 +27,7 @@ class PostCreateTargetResolver {
     private final SanctionService sanctionService;
 
     public PostCreateTarget resolveTarget(Long userId, Long agentId, Long boardId, PostCreateContext context) {
-        User user = userWritableResolver.resolve(userId);
+        User user = userWritableResolver.resolveForUpdate(userId);
         sanctionService.validateNotMuted(user);
         Agent agent = resolveAgent(userId, agentId, context);
         Board board = resolveBoard(boardId, context);
