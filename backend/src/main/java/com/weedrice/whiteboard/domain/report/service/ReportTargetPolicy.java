@@ -25,6 +25,9 @@ class ReportTargetPolicy {
     }
 
     void validateCommentReportable(Comment comment, User reporter) {
+        if (comment == null || Boolean.TRUE.equals(comment.getIsBlinded())) {
+            throw new BusinessException(ErrorCode.COMMENT_NOT_FOUND);
+        }
         postAccessPolicy.validateReadable(
                 comment.getPost(),
                 reporter,

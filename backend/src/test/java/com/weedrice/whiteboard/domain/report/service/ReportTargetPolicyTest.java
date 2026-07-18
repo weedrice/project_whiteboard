@@ -16,6 +16,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.LocalDateTime;
+
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
@@ -139,6 +141,22 @@ class ReportTargetPolicyTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.POST_NOT_FOUND);
 
+        verify(userBlockService, never()).isEitherDirectionBlocked(1L, 3L);
+    }
+
+    @Test
+    @DisplayName("COMMENT report hides an already blinded comment")
+    void validateCommentReportable_rejectsBlindedComment() {
+        User reporter = user(1L);
+        Comment comment = comment(post(user(2L)), user(3L));
+        comment.blind("moderated", LocalDateTime.now());
+
+        assertThatThrownBy(() -> reportTargetPolicy.validateCommentReportable(comment, reporter))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.COMMENT_NOT_FOUND);
+
+        verify(postAccessPolicy, never()).validateReadable(comment.getPost(), reporter, false);
+        verify(userBlockService, never()).isEitherDirectionBlocked(1L, 2L);
         verify(userBlockService, never()).isEitherDirectionBlocked(1L, 3L);
     }
 
