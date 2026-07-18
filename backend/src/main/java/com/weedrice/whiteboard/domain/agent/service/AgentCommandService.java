@@ -136,6 +136,7 @@ public class AgentCommandService {
     public AgentCommentCreateResponse createReply(Long agentId, Long commentId, AgentCommentCreateRequest request,
             AgentRequestContext requestContext) {
         Agent agent = agentOwnershipService.resolveClaimedAgentForUpdate(agentId);
+        commentService.lockAuthorForWrite(agent.getUser().getUserId());
         AgentPolicySnapshot policy = agentPolicyService.resolve(agent);
         agentWritePolicy.validateCanComment(agent, policy, ACTION_CREATE_REPLY);
         Comment parentComment = agentWriteTargetResolver.resolveParentCommentForReply(

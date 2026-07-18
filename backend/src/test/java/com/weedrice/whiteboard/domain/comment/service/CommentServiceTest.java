@@ -72,7 +72,9 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
@@ -135,9 +137,9 @@ class CommentServiceTest {
     @BeforeEach
     void setUp() {
         Map<Long, Comment> lockedCommentTargets = new HashMap<>();
-        lenient().when(postRepository.findByIdWithRelationsForUpdate(anyLong()))
-                .thenAnswer(invocation -> postRepository.findByIdWithRelations(invocation.getArgument(0)));
-        lenient().when(postRepository.findByCommentIdWithRelationsForUpdate(anyLong()))
+        lenient().when(userRepository.findByIdForUpdate(anyLong()))
+                .thenAnswer(invocation -> userRepository.findById(invocation.getArgument(0)));
+        lenient().when(commentRepository.findByIdWithRelations(anyLong()))
                 .thenAnswer(invocation -> {
                     Long commentId = invocation.getArgument(0);
                     Optional<Comment> comment = commentRepository.findById(commentId);
@@ -145,7 +147,18 @@ class CommentServiceTest {
                         comment = commentRepository.findByIdWithRelationsForUpdate(commentId);
                     }
                     comment.ifPresent(value -> lockedCommentTargets.put(commentId, value));
-                    return comment.map(Comment::getPost);
+                    return comment;
+                });
+        lenient().when(postRepository.findByIdWithRelationsForUpdate(nullable(Long.class)))
+                .thenAnswer(invocation -> {
+                    Long postId = invocation.getArgument(0);
+                    Optional<Post> cachedPost = lockedCommentTargets.values().stream()
+                            .map(Comment::getPost)
+                            .filter(post -> java.util.Objects.equals(post.getPostId(), postId))
+                            .findFirst();
+                    return cachedPost.isPresent()
+                            ? cachedPost
+                            : postRepository.findByIdWithRelations(postId);
                 });
         lenient().when(commentRepository.findByIdWithRelationsForUpdate(anyLong()))
                 .thenAnswer(invocation -> {
@@ -233,6 +246,37 @@ class CommentServiceTest {
         verify(commentClosureRepository).createSelfClosure(10L);
         verify(postRepository).incrementCommentCount(1L);
         verify(pointService).addPointIfAbsent(eq(1L), eq(10), anyString(), eq(10L), eq("COMMENT"));
+    }
+
+    @Test
+    @DisplayName("댓글 생성은 게시판 잠금 후 게시글 잠금을 획득한다")
+    void createComment_locksBoardBeforePost() {
+        User user = User.builder().build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        Board board = Board.builder().boardUrl("free").creator(user).isPublic(true).build();
+        ReflectionTestUtils.setField(board, "boardId", 3L);
+        ReflectionTestUtils.setField(board, "isActive", true);
+        Post post = Post.builder().user(user).board(board).build();
+        ReflectionTestUtils.setField(post, "postId", 2L);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(postRepository.findByIdWithRelations(2L)).thenReturn(Optional.of(post));
+        when(boardRepository.findByIdForUpdate(3L)).thenReturn(Optional.of(board));
+        when(postRepository.findByIdWithRelationsForUpdate(2L)).thenReturn(Optional.of(post));
+        when(postRepository.incrementCommentCount(2L)).thenReturn(1);
+        when(commentRepository.save(any(Comment.class))).thenAnswer(invocation -> {
+            Comment saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "commentId", 10L);
+            return saved;
+        });
+        when(globalConfigService.getConfig(anyString())).thenReturn("10");
+
+        commentService.createComment(1L, 2L, null, "content");
+
+        org.mockito.InOrder order = org.mockito.Mockito.inOrder(userRepository, boardRepository, postRepository);
+        order.verify(userRepository).findByIdForUpdate(1L);
+        order.verify(boardRepository).findByIdForUpdate(3L);
+        order.verify(postRepository).findByIdWithRelationsForUpdate(2L);
     }
 
     @Test
@@ -1886,6 +1930,36 @@ class CommentServiceTest {
     }
 
     @Test
+    @DisplayName("댓글 변경은 게시판, 게시글, 댓글 순서로 잠금을 획득한다")
+    void updateComment_locksBoardPostAndCommentInOrder() {
+        User user = User.builder().displayName("Author").build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        Board board = Board.builder().boardUrl("free").creator(user).isPublic(true).build();
+        ReflectionTestUtils.setField(board, "boardId", 3L);
+        ReflectionTestUtils.setField(board, "isActive", true);
+        Post post = Post.builder().board(board).user(user).build();
+        ReflectionTestUtils.setField(post, "postId", 2L);
+        Comment comment = Comment.builder().user(user).post(post).content("Old").build();
+        ReflectionTestUtils.setField(comment, "commentId", 10L);
+
+        when(commentRepository.findByIdWithRelations(10L)).thenReturn(Optional.of(comment));
+        when(boardRepository.findByIdForUpdate(3L)).thenReturn(Optional.of(board));
+        doReturn(Optional.of(post)).when(postRepository).findByIdWithRelationsForUpdate(2L);
+        doReturn(Optional.of(comment)).when(commentRepository).findByIdWithRelationsForUpdate(10L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of());
+
+        commentService.updateComment(1L, 10L, "New");
+
+        org.mockito.InOrder order = org.mockito.Mockito.inOrder(
+                userRepository, boardRepository, postRepository, commentRepository);
+        order.verify(userRepository).findByIdForUpdate(1L);
+        order.verify(boardRepository).findByIdForUpdate(3L);
+        order.verify(postRepository).findByIdWithRelationsForUpdate(2L);
+        order.verify(commentRepository).findByIdWithRelationsForUpdate(10L);
+    }
+
+    @Test
     @DisplayName("update comment with empty mention ids clears mention metadata")
     void updateComment_withEmptyMentionIds_clearsMentions() {
         User user = User.builder().displayName("Author").build();
@@ -2022,11 +2096,6 @@ class CommentServiceTest {
         User user = User.builder().build();
         ReflectionTestUtils.setField(user, "userId", 1L);
 
-        Board board = Board.builder().boardUrl("free").build();
-        Post post = Post.builder().board(board).user(user).build();
-        Comment comment = Comment.builder().user(user).post(post).content("Old").build();
-
-        when(commentRepository.findByIdWithRelationsForUpdate(10L)).thenReturn(Optional.of(comment));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotBanned(user);
 
@@ -2095,11 +2164,6 @@ class CommentServiceTest {
         User user = User.builder().build();
         ReflectionTestUtils.setField(user, "userId", 1L);
 
-        Board board = Board.builder().boardUrl("free").build();
-        Post post = Post.builder().board(board).user(user).build();
-        Comment comment = Comment.builder().user(user).post(post).content("Content").build();
-
-        when(commentRepository.findByIdWithRelationsForUpdate(10L)).thenReturn(Optional.of(comment));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotBanned(user);
 

@@ -46,6 +46,10 @@ public class CommentService {
         return commentQueryService.getPublicProfileComments(targetUserId, viewerUserId, pageable);
     }
 
+    public void lockAuthorForWrite(Long userId) {
+        commentCommandService.lockAuthorForWrite(userId);
+    }
+
     public Long createComment(Long userId, Long postId, Long parentId, String content) {
         return createComment(userId, postId, parentId, content, null);
     }

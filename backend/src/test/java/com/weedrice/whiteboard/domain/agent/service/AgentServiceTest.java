@@ -2340,12 +2340,15 @@ class AgentServiceTest {
 
         assertThat(response.getCommentId()).isEqualTo(501L);
         verify(agentRepository).findByAgentIdForUpdate(7L);
+        verify(commentService).lockAuthorForWrite(1L);
         verify(commentService).createCommentAsAgent(eq(1L), eq(7L), eq(100L), eq(500L), eq("reply"),
                 argThat(context -> context.agent() == agent
                         && context.post() == writablePost
                         && context.parentComment() == parentComment
                         && !context.postReadablePrevalidated()));
-        InOrder inOrder = inOrder(agentDailyQuotaRepository, commentService, agentAuditService);
+        InOrder inOrder = inOrder(commentService, commentRepository, agentDailyQuotaRepository, agentAuditService);
+        inOrder.verify(commentService).lockAuthorForWrite(1L);
+        inOrder.verify(commentRepository).findByIdWithRelationsForUpdate(500L);
         inOrder.verify(agentDailyQuotaRepository).findForUpdate(eq(7L), any(LocalDate.class), eq("COMMENT"));
         inOrder.verify(commentService).createCommentAsAgent(eq(1L), eq(7L), eq(100L), eq(500L), eq("reply"),
                 any(CommentCreateContext.class));
