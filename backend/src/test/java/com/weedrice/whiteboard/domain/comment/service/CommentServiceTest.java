@@ -12,6 +12,7 @@ import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.board.service.BoardCategoryWritePolicy;
 import com.weedrice.whiteboard.domain.comment.dto.CommentResponse;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
+import com.weedrice.whiteboard.domain.comment.entity.CommentMention;
 import com.weedrice.whiteboard.domain.comment.repository.CommentClosureRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentLikeRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentMentionRepository;
@@ -202,6 +203,7 @@ class CommentServiceTest {
                 commentClosureRepository,
                 commentMentionRepository,
                 userRepository,
+                userBlockRepository,
                 agentOwnershipService,
                 userWritableResolver,
                 sanctionService,
@@ -303,6 +305,45 @@ class CommentServiceTest {
 
         assertThat(result).isEqualTo(10L);
         verify(mentionService).publishMentions(user, null, NotificationSourceType.COMMENT, 10L, List.of(2L, 3L));
+    }
+
+    @Test
+    @DisplayName("댓글 멘션 저장은 비활성 사용자와 양방향 차단 사용자를 제외한다")
+    void createComment_withMentionedUserIds_storesOnlyVisibleActiveTargets() {
+        User author = User.builder().displayName("Author").build();
+        ReflectionTestUtils.setField(author, "userId", 1L);
+        User allowed = User.builder().displayName("Allowed").build();
+        ReflectionTestUtils.setField(allowed, "userId", 2L);
+        User blocked = User.builder().displayName("Blocked").build();
+        ReflectionTestUtils.setField(blocked, "userId", 3L);
+        User inactive = User.builder().displayName("Inactive").build();
+        ReflectionTestUtils.setField(inactive, "userId", 4L);
+        ReflectionTestUtils.setField(inactive, "status", User.STATUS_SUSPENDED);
+        Board board = Board.builder().boardUrl("free").build();
+        Post post = Post.builder().user(author).board(board).build();
+        ReflectionTestUtils.setField(post, "postId", 1L);
+
+        when(userRepository.findById(1L)).thenReturn(Optional.of(author));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(postRepository.incrementCommentCount(1L)).thenReturn(1);
+        when(commentRepository.save(any(Comment.class))).thenAnswer(invocation -> {
+            Comment saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "commentId", 10L);
+            return saved;
+        });
+        when(userRepository.findAllById(anyCollection())).thenReturn(List.of(allowed, blocked, inactive));
+        when(userBlockRepository.findBlockedUserIdsEitherDirectionByUserId(1L)).thenReturn(List.of(3L));
+        when(globalConfigService.getConfig(anyString())).thenReturn("10");
+
+        commentService.createComment(1L, 1L, null, "hello", List.of(2L, 3L, 4L));
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<CommentMention>> mentionsCaptor = ArgumentCaptor.forClass(List.class);
+        verify(commentMentionRepository).saveAll(mentionsCaptor.capture());
+        assertThat(mentionsCaptor.getValue())
+                .extracting(mention -> mention.getUser().getUserId())
+                .containsExactly(2L);
+        verify(userBlockRepository).findBlockedUserIdsEitherDirectionByUserId(1L);
     }
 
     @Test
@@ -1074,6 +1115,44 @@ class CommentServiceTest {
     }
 
     @Test
+    @DisplayName("댓글 조회는 차단되거나 비활성인 멘션 사용자를 노출하지 않는다")
+    void getComments_filtersHiddenMentionUsers() {
+        User author = User.builder().displayName("Author").build();
+        ReflectionTestUtils.setField(author, "userId", 2L);
+        User viewer = User.builder().displayName("Viewer").build();
+        ReflectionTestUtils.setField(viewer, "userId", 1L);
+        User blockedMention = User.builder().displayName("Blocked Mention").build();
+        ReflectionTestUtils.setField(blockedMention, "userId", 3L);
+        User inactiveMention = User.builder().displayName("Inactive Mention").build();
+        ReflectionTestUtils.setField(inactiveMention, "userId", 4L);
+        ReflectionTestUtils.setField(inactiveMention, "status", User.STATUS_SUSPENDED);
+        Board board = Board.builder().boardUrl("free").creator(author).build();
+        ReflectionTestUtils.setField(board, "isActive", true);
+        ReflectionTestUtils.setField(board, "isPublic", true);
+        Post post = Post.builder().board(board).title("Title").user(author).build();
+        ReflectionTestUtils.setField(post, "postId", 100L);
+        Comment comment = Comment.builder().user(author).post(post).content("hello").depth(0).build();
+        ReflectionTestUtils.setField(comment, "commentId", 10L);
+        ReflectionTestUtils.setField(comment, "createdAt", LocalDateTime.now());
+        CommentMention blockedRow = CommentMention.builder().comment(comment).user(blockedMention).build();
+        CommentMention inactiveRow = CommentMention.builder().comment(comment).user(inactiveMention).build();
+
+        when(postRepository.findByIdWithRelations(100L)).thenReturn(Optional.of(post));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(viewer));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of(3L));
+        when(commentRepository.findParentsWithChildrenOrNotDeleted(anyLong(), anyBoolean(), anyCollection(), any()))
+                .thenReturn(new PageImpl<>(List.of(comment)));
+        when(commentMentionRepository.findByCommentCommentIdIn(List.of(10L)))
+                .thenReturn(List.of(blockedRow, inactiveRow));
+
+        Page<CommentResponse> result = commentService.getComments(100L, 1L, PageRequest.of(0, 10));
+
+        assertThat(result.getContent()).singleElement()
+                .satisfies(response -> assertThat(response.getMentions()).isEmpty());
+        verify(commentMentionRepository).findByCommentCommentIdIn(List.of(10L));
+    }
+
+    @Test
     @DisplayName("mask blocked user replies")
     void getReplies_masked() {
         User blockedUser = User.builder().displayName("Blocked").build();
@@ -1466,6 +1545,35 @@ class CommentServiceTest {
         assertThat(result.getAuthor()).isNull();
         assertThat(result.isBlockedAuthor()).isTrue();
         assertThat(result.getMaskedAuthorId()).isEqualTo(2L);
+    }
+
+    @Test
+    @DisplayName("단일 댓글 조회도 차단된 멘션 사용자를 노출하지 않는다")
+    void getComment_filtersBlockedMentionUser() {
+        User viewer = User.builder().displayName("Viewer").build();
+        ReflectionTestUtils.setField(viewer, "userId", 1L);
+        User author = User.builder().displayName("Author").build();
+        ReflectionTestUtils.setField(author, "userId", 2L);
+        User blockedMention = User.builder().displayName("Blocked Mention").build();
+        ReflectionTestUtils.setField(blockedMention, "userId", 3L);
+        Board board = Board.builder().boardUrl("free").creator(author).build();
+        ReflectionTestUtils.setField(board, "isActive", true);
+        ReflectionTestUtils.setField(board, "isPublic", true);
+        Post post = Post.builder().board(board).title("Title").user(author).build();
+        ReflectionTestUtils.setField(post, "postId", 100L);
+        Comment comment = Comment.builder().user(author).post(post).content("Comment").depth(0).build();
+        ReflectionTestUtils.setField(comment, "commentId", 10L);
+        ReflectionTestUtils.setField(comment, "createdAt", LocalDateTime.now());
+        CommentMention mention = CommentMention.builder().comment(comment).user(blockedMention).build();
+
+        when(commentRepository.findNonDeletedByIdWithRelations(10L)).thenReturn(Optional.of(comment));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(viewer));
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of(3L));
+        when(commentMentionRepository.findByCommentCommentIdIn(List.of(10L))).thenReturn(List.of(mention));
+
+        CommentResponse result = commentService.getComment(10L, 1L);
+
+        assertThat(result.getMentions()).isEmpty();
     }
 
     @Test

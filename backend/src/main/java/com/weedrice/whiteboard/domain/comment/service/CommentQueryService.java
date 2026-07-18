@@ -82,7 +82,7 @@ public class CommentQueryService {
                         context.blockedUserIds(),
                         replyCounts)))
                 .toList();
-        attachMentions(responseContent);
+        attachMentions(responseContent, context.blockedUserIds());
 
         return new PageImpl<>(responseContent, pageable, parentComments.getTotalElements());
     }
@@ -109,7 +109,7 @@ public class CommentQueryService {
                         context.blockedUserIds(),
                         replyCounts)))
                 .toList();
-        attachMentions(responseContent);
+        attachMentions(responseContent, context.blockedUserIds());
         return responseContent;
     }
 
@@ -164,7 +164,7 @@ public class CommentQueryService {
                         context.blockedUserIds(),
                         replyCounts)))
                 .toList();
-        attachMentions(maskedReplies);
+        attachMentions(maskedReplies, context.blockedUserIds());
 
         return CommentListResponse.builder()
                 .content(maskedReplies)
@@ -182,7 +182,7 @@ public class CommentQueryService {
         CommentReadContext context = resolveReadContext(currentUserId);
         commentPostAccessService.validateReadable(comment.getPost(), context);
         CommentResponse response = toCommentResponse(commentReadModelAssembler.from(comment, context.blockedUserIds()));
-        attachMentions(List.of(response));
+        attachMentions(List.of(response), context.blockedUserIds());
         return response;
     }
 
@@ -292,7 +292,7 @@ public class CommentQueryService {
                 .build();
     }
 
-    private void attachMentions(List<CommentResponse> responses) {
+    private void attachMentions(List<CommentResponse> responses, Set<Long> blockedUserIds) {
         List<Long> commentIds = responses.stream()
                 .filter(response -> !response.isDeleted() && !response.isBlockedAuthor() && !response.isBlinded())
                 .map(CommentResponse::getCommentId)
@@ -310,6 +310,9 @@ public class CommentQueryService {
         Map<Long, List<CommentResponse.MentionInfo>> mentionsByCommentId = mentionRows.stream()
                 .filter(mention -> mention.getComment() != null && mention.getComment().getCommentId() != null)
                 .filter(mention -> mention.getUser() != null)
+                .filter(mention -> User.STATUS_ACTIVE.equals(mention.getUser().getStatus()))
+                .filter(mention -> mention.getUser().getDeletedAt() == null)
+                .filter(mention -> !blockedUserIds.contains(mention.getUser().getUserId()))
                 .collect(java.util.stream.Collectors.groupingBy(
                         mention -> mention.getComment().getCommentId(),
                         java.util.stream.Collectors.mapping(this::toMentionInfo, java.util.stream.Collectors.toList())));

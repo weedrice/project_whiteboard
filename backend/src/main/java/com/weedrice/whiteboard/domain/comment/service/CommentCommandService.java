@@ -27,6 +27,7 @@ import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchEventPublisher;
 import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchIndexAction;
 import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.domain.user.repository.UserBlockRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -57,6 +58,7 @@ public class CommentCommandService {
     private final CommentClosureRepository commentClosureRepository;
     private final CommentMentionRepository commentMentionRepository;
     private final UserRepository userRepository;
+    private final UserBlockRepository userBlockRepository;
     private final AgentOwnershipService agentOwnershipService;
     private final UserWritableResolver userWritableResolver;
     private final SanctionService sanctionService;
@@ -120,7 +122,7 @@ public class CommentCommandService {
         Comment savedComment = commentRepository.save(comment);
         incrementPostCommentCount(post.getPostId());
         saveCommentVersion(savedComment, user, "CREATE", null);
-        replaceCommentMentions(savedComment, mentionedUserIds);
+        replaceCommentMentions(savedComment, userId, mentionedUserIds);
 
         if (parentId != null) {
             commentClosureRepository.createClosures(savedComment.getCommentId(), parentId);
@@ -243,7 +245,7 @@ public class CommentCommandService {
 
         saveCommentVersion(comment, user, "MODIFY", originalContent);
         if (mentionedUserIds != null) {
-            replaceCommentMentions(comment, mentionedUserIds);
+            replaceCommentMentions(comment, userId, mentionedUserIds);
         }
         semanticSearchEventPublisher.publish("COMMENT", comment.getCommentId(), SemanticSearchIndexAction.UPSERT);
         return comment.getCommentId();
@@ -386,9 +388,9 @@ public class CommentCommandService {
         commentVersionRepository.save(commentVersion);
     }
 
-    private void replaceCommentMentions(Comment comment, Collection<Long> mentionedUserIds) {
+    private void replaceCommentMentions(Comment comment, Long authorUserId, Collection<Long> mentionedUserIds) {
         commentMentionRepository.deleteByCommentCommentId(comment.getCommentId());
-        List<User> mentionedUsers = loadMentionedUsers(mentionedUserIds);
+        List<User> mentionedUsers = loadMentionedUsers(authorUserId, mentionedUserIds);
         if (mentionedUsers.isEmpty()) {
             return;
         }
@@ -401,7 +403,7 @@ public class CommentCommandService {
         commentMentionRepository.saveAll(mentions);
     }
 
-    private List<User> loadMentionedUsers(Collection<Long> mentionedUserIds) {
+    private List<User> loadMentionedUsers(Long authorUserId, Collection<Long> mentionedUserIds) {
         if (mentionedUserIds == null || mentionedUserIds.isEmpty()) {
             return List.of();
         }
@@ -411,9 +413,12 @@ public class CommentCommandService {
         if (uniqueIds.isEmpty()) {
             return List.of();
         }
+        List<Long> blockedIds = userBlockRepository.findBlockedUserIdsEitherDirectionByUserId(authorUserId);
+        Set<Long> blockedUserIds = blockedIds == null ? Set.of() : Set.copyOf(blockedIds);
         return userRepository.findAllById(uniqueIds).stream()
                 .filter(user -> User.STATUS_ACTIVE.equals(user.getStatus()))
                 .filter(user -> user.getDeletedAt() == null)
+                .filter(user -> !blockedUserIds.contains(user.getUserId()))
                 .limit(10)
                 .toList();
     }
