@@ -11,7 +11,12 @@ const { recentBoards, removeRecentBoard, clearRecentBoards } = useRecentBoards()
 
 const hasBoards = computed(() => recentBoards.value.length > 0)
 const recentBoardUrls = computed(() => recentBoards.value.map(board => board.boardUrl))
-const { data: recentUpdates, isSuccess: recentUpdatesLoaded } = useApiQuery({
+const {
+    data: recentUpdates,
+    isSuccess: recentUpdatesLoaded,
+    isError: recentUpdatesError,
+    refetch: retryRecentUpdates,
+} = useApiQuery({
     queryKey: computed(() => ['boards', 'recent-updates', recentBoardUrls.value]),
     request: ({ signal }) => boardApi.getRecentBoardUpdates(recentBoardUrls.value, { signal }),
     enabled: hasBoards,
@@ -42,7 +47,7 @@ function hasNewPosts(boardUrl: string, visitedAt: string) {
 </script>
 
 <template>
-    <div v-if="hasVerifiedBoards" class="recent-boards-bar">
+    <div v-if="hasVerifiedBoards || (recentUpdatesError && hasBoards)" class="recent-boards-bar">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="recent-boards-inner">
                 <span class="recent-boards-label">{{ $t('layout.recentBoards.title') }}</span>
@@ -65,6 +70,17 @@ function hasNewPosts(boardUrl: string, visitedAt: string) {
                         </button>
                     </div>
                 </div>
+                <div
+                    v-if="recentUpdatesError"
+                    class="recent-boards-error"
+                    role="status"
+                    aria-live="polite"
+                >
+                    <span>{{ $t('common.messages.loadFailed') }}</span>
+                    <button type="button" class="recent-boards-retry" @click="retryRecentUpdates()">
+                        {{ $t('common.error.retry') }}
+                    </button>
+                </div>
                 <button v-if="verifiedRecentBoards.length > 1" type="button" class="recent-boards-clear" @click="clearRecentBoards">
                     {{ $t('layout.recentBoards.clear') }}
                 </button>
@@ -72,3 +88,19 @@ function hasNewPosts(boardUrl: string, visitedAt: string) {
         </div>
     </div>
 </template>
+
+<style scoped>
+.recent-boards-error {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--nv-ink-soft);
+    font-size: 0.75rem;
+}
+
+.recent-boards-retry {
+    color: var(--nv-accent);
+    font-weight: 600;
+    cursor: pointer;
+}
+</style>

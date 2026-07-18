@@ -4,11 +4,18 @@ import { ref } from 'vue'
 import { createPinia } from 'pinia'
 import RecentBoardsBar from '../RecentBoardsBar.vue'
 
-const recentUpdates = ref([{ boardUrl: 'free', latestPostAt: null }, { boardUrl: 'notice', latestPostAt: null }])
+const recentUpdates = ref<Array<{ boardUrl: string; latestPostAt: string | null }> | undefined>([
+  { boardUrl: 'free', latestPostAt: null },
+  { boardUrl: 'notice', latestPostAt: null },
+])
+const recentUpdatesError = ref(false)
+const retryRecentUpdates = vi.fn()
 vi.mock('@/composables/useApiQuery', () => ({
   useApiQuery: () => ({
     data: recentUpdates,
     isSuccess: ref(true),
+    isError: recentUpdatesError,
+    refetch: retryRecentUpdates,
   }),
 }))
 
@@ -20,6 +27,8 @@ vi.mock('@/utils/image', () => ({
 describe('RecentBoardsBar', () => {
   afterEach(() => {
     localStorage.clear()
+    recentUpdatesError.value = false
+    retryRecentUpdates.mockReset()
   })
 
   it('labels the recent board remove button with the board name', () => {
@@ -79,5 +88,27 @@ describe('RecentBoardsBar', () => {
     expect(wrapper.text()).toContain('Free')
     expect(wrapper.text()).not.toContain('Private')
     expect(localStorage.getItem('recentBoards:guest')).not.toContain('private')
+  })
+
+  it('preserves stored boards and offers retry when access verification fails', async () => {
+    recentUpdates.value = undefined
+    recentUpdatesError.value = true
+    localStorage.setItem('recentBoards:guest', JSON.stringify([
+      { boardUrl: 'private', boardName: 'Private', visitedAt: '2026-05-23T01:00:00.000Z' },
+    ]))
+
+    const wrapper = mount(RecentBoardsBar, {
+      global: {
+        plugins: [createPinia()],
+        stubs: { RouterLink: RouterLinkStub },
+        mocks: { $t: (key: string) => key },
+      },
+    })
+    await flushPromises()
+
+    expect(localStorage.getItem('recentBoards:guest')).toContain('private')
+    expect(wrapper.text()).not.toContain('Private')
+    await wrapper.get('.recent-boards-retry').trigger('click')
+    expect(retryRecentUpdates).toHaveBeenCalledTimes(1)
   })
 })
