@@ -59,6 +59,7 @@
     <MessageModal :isOpen="isMessageModalOpen" :userId="userId" :displayName="displayName" @close="closeMessageModal" />
     <ReportModal
       :isOpen="isReportModalOpen"
+      :targetIdentity="`user:${userId}`"
       :targetText="displayName"
       :submit="submitUserReport"
       @close="closeReportModal"
@@ -67,7 +68,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, getCurrentInstance, nextTick, toRef } from 'vue'
+import { ref, computed, getCurrentInstance, nextTick, onUnmounted, toRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useEventListener } from '@/composables/useEventListener'
@@ -79,6 +80,8 @@ import { reportApi } from '@/api/report'
 import { useToastStore } from '@/stores/toast'
 import logger from '@/utils/logger'
 import { formatUserDisplayName } from '@/utils/userDisplay'
+import { getCurrentSessionGeneration } from '@/queryAuthScope'
+import { isCancellationError } from '@/utils/cancellationError'
 
 const { t } = useI18n()
 const toastStore = useToastStore()
@@ -224,19 +227,65 @@ const handleClickOutside = (event: Event) => {
   closeDropdown()
 }
 
+let reportAbortController: AbortController | null = null
+let reportRevision = 0
+
+function cancelPendingUserReport() {
+  reportRevision += 1
+  reportAbortController?.abort()
+  reportAbortController = null
+}
+
 async function submitUserReport(reason: string) {
+  const targetUserId = props.userId
+  const targetDisplayName = props.displayName
+  const sessionGeneration = getCurrentSessionGeneration()
+  cancelPendingUserReport()
+  const revision = reportRevision
+  const controller = new AbortController()
+  reportAbortController = controller
+  const isCurrentReport = () => (
+    reportRevision === revision
+    && reportAbortController === controller
+    && !controller.signal.aborted
+    && isReportModalOpen.value
+    && props.userId === targetUserId
+    && props.displayName === targetDisplayName
+    && getCurrentSessionGeneration() === sessionGeneration
+  )
+
   try {
-    const { data } = await reportApi.reportUser(props.userId, reason, '', { skipGlobalErrorHandler: true })
-    if (!data.success) return false
+    const { data } = await reportApi.reportUser(targetUserId, reason, '', {
+      skipGlobalErrorHandler: true,
+      signal: controller.signal,
+    })
+    if (!isCurrentReport() || !data.success) return false
 
     toastStore.addToast(t('report.reportSuccess'), 'success')
     return true
   } catch (error) {
+    if (!isCurrentReport() || isCancellationError(error)) return false
     logger.error('Failed to report user:', error)
     toastStore.addToast(t('report.reportFailed'), 'error')
     return false
+  } finally {
+    if (reportAbortController === controller) {
+      reportAbortController = null
+    }
   }
 }
+
+watch(
+  [() => props.userId, () => props.displayName, isReportModalOpen],
+  ([nextUserId, nextDisplayName, isOpen], [previousUserId, previousDisplayName]) => {
+    if (!isOpen || nextUserId !== previousUserId || nextDisplayName !== previousDisplayName) {
+      cancelPendingUserReport()
+    }
+  },
+  { flush: 'sync' },
+)
+
+onUnmounted(cancelPendingUserReport)
 
 useEventListener(() => document, 'click', handleClickOutside)
 </script>

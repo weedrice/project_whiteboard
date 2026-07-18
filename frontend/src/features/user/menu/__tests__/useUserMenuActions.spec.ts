@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { useUserMenuActions } from '../useUserMenuActions'
 import { userApi } from '@/api/user'
 import { apiSuccessResponse } from '@/test/apiResponseFixtures'
+import { createDeferred } from '@/test/async'
 
 const authState = vi.hoisted(() => ({
     user: { userId: 1 } as { userId: number } | null,
@@ -122,7 +123,54 @@ describe('useUserMenuActions', () => {
         expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'feed'] })
         expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'messages'] })
         expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'messages', 'unread-count'] })
-        expect(invalidateQueries).toHaveBeenCalledTimes(13)
+        expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'tags'] })
+        expect(invalidateQueries).toHaveBeenCalledTimes(14)
+    })
+
+    it('does not block a replacement target after a delayed confirmation', async () => {
+        const confirmResult = createDeferred<boolean>()
+        confirm.mockReturnValueOnce(confirmResult.promise)
+        const targetUserId = ref(2)
+        const targetDisplayName = ref('Original')
+        const actions = useUserMenuActions({
+            userId: targetUserId,
+            displayName: targetDisplayName,
+            closeDropdown: vi.fn(),
+            t,
+        })
+
+        const pending = actions.menuItems.value[2].action()
+        targetUserId.value = 3
+        targetDisplayName.value = 'Replacement'
+        confirmResult.resolve(true)
+        await pending
+
+        expect(confirm).toHaveBeenCalledWith('user.block.confirm:Original')
+        expect(userApi.blockUser).not.toHaveBeenCalled()
+        expect(invalidateQueries).not.toHaveBeenCalled()
+    })
+
+    it('ignores a delayed block response after the target changes', async () => {
+        const blockResult = createDeferred<Awaited<ReturnType<typeof userApi.blockUser>>>()
+        vi.mocked(userApi.blockUser).mockReturnValueOnce(blockResult.promise)
+        const targetUserId = ref(2)
+        const targetDisplayName = ref('Original')
+        const actions = useUserMenuActions({
+            userId: targetUserId,
+            displayName: targetDisplayName,
+            closeDropdown: vi.fn(),
+            t,
+        })
+
+        const pending = actions.menuItems.value[2].action()
+        await vi.waitFor(() => expect(userApi.blockUser).toHaveBeenCalledWith(2))
+        targetUserId.value = 3
+        targetDisplayName.value = 'Replacement'
+        blockResult.resolve(apiSuccessResponse<typeof userApi.blockUser>())
+        await pending
+
+        expect(addToast).not.toHaveBeenCalledWith('user.block.success:Original', 'success')
+        expect(invalidateQueries).not.toHaveBeenCalled()
     })
 
     it('logs and toasts block failures', async () => {

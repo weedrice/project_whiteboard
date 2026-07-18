@@ -1,13 +1,17 @@
-import { mount } from '@vue/test-utils'
-import { nextTick } from 'vue'
+import { flushPromises, mount } from '@vue/test-utils'
+import { defineComponent, h, nextTick } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import UserMenu from '../UserMenu.vue'
+import { reportApi } from '@/api/report'
+import { createDeferred } from '@/test/async'
 
 const authState = {
-  user: { userId: 1 } as { userId: number } | null
+  user: { userId: 1 } as { userId: number } | null,
+  sessionGeneration: 0,
 }
 const invalidateQueriesMock = vi.fn()
 const routerPushMock = vi.hoisted(() => vi.fn())
+const addToastMock = vi.hoisted(() => vi.fn())
 
 vi.mock('vue-i18n', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-i18n')>()
@@ -42,7 +46,7 @@ vi.mock('@tanstack/vue-query', async (importOriginal) => {
 
 vi.mock('@/stores/toast', () => ({
   useToastStore: () => ({
-    addToast: vi.fn()
+    addToast: addToastMock
   })
 }))
 
@@ -74,6 +78,7 @@ describe('UserMenu', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     authState.user = { userId: 1 }
+    authState.sessionGeneration = 0
   })
 
   it('truncates the visible label using maxLabelLength', () => {
@@ -171,5 +176,47 @@ describe('UserMenu', () => {
     await wrapper.get('[role="menu"]').trigger('keydown', { key: 'Tab' })
     expect(wrapper.find('[role="menu"]').exists()).toBe(false)
     wrapper.unmount()
+  })
+
+  it('aborts and ignores a pending user report when the menu target changes', async () => {
+    const reportResult = createDeferred<Awaited<ReturnType<typeof reportApi.reportUser>>>()
+    vi.mocked(reportApi.reportUser).mockReturnValueOnce(reportResult.promise)
+    const ReportModalStub = defineComponent({
+      props: {
+        isOpen: Boolean,
+        submit: Function,
+      },
+      setup(props) {
+        return () => props.isOpen
+          ? h('button', {
+              'data-test': 'submit-report',
+              onClick: () => (props.submit as (reason: string) => Promise<boolean>)('신고 사유'),
+            }, 'submit report')
+          : null
+      },
+    })
+    const wrapper = mount(UserMenu, {
+      props: { userId: 2, displayName: 'Original' },
+      global: {
+        stubs: {
+          MessageModal: true,
+          ReportModal: ReportModalStub,
+          Teleport: true,
+        },
+      },
+    })
+
+    await wrapper.get('.nv-user-menu-button').trigger('click')
+    await nextTick()
+    await wrapper.findAll('[role="menuitem"]')[1].trigger('click')
+    await wrapper.get('[data-test="submit-report"]').trigger('click')
+    const signal = vi.mocked(reportApi.reportUser).mock.calls[0][3]?.signal
+
+    await wrapper.setProps({ userId: 3, displayName: 'Replacement' })
+
+    expect(signal?.aborted).toBe(true)
+    reportResult.resolve({ data: { success: true } } as Awaited<ReturnType<typeof reportApi.reportUser>>)
+    await flushPromises()
+    expect(addToastMock).not.toHaveBeenCalledWith('report.reportSuccess', 'success')
   })
 })

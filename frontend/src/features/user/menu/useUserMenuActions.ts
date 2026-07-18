@@ -1,4 +1,4 @@
-import { computed, ref, type Ref } from 'vue'
+import { computed, ref, watch, type Ref } from 'vue'
 import { useQueryClient } from '@tanstack/vue-query'
 import { userApi } from '@/api/user'
 import { useAuthStore } from '@/stores/auth'
@@ -54,22 +54,34 @@ export function useUserMenuActions({
         isReportModalOpen.value = false
     }
 
+    watch([userId, displayName], () => {
+        closeMessageModal()
+        closeReportModal()
+    }, { flush: 'sync' })
+
     const handleBlockUser = async () => {
         closeDropdown()
         if (isSelf.value) return
+        const targetUserId = userId.value
+        const targetDisplayName = displayName.value
         const sessionGeneration = authStore.sessionGeneration
+        const isTargetIntentCurrent = () => (
+            isSessionGenerationCurrent(authStore, sessionGeneration)
+            && userId.value === targetUserId
+            && displayName.value === targetDisplayName
+        )
 
         await runUserBlockAction({
-            confirmMessage: t('user.block.confirm', { name: displayName.value }),
+            confirmMessage: t('user.block.confirm', { name: targetDisplayName }),
             failureMessage: t('user.block.failed'),
             logMessage: 'Failed to block user:',
-            successMessage: t('user.block.success', { name: displayName.value }),
-            action: () => userApi.blockUser(userId.value),
+            successMessage: t('user.block.success', { name: targetDisplayName }),
+            action: () => userApi.blockUser(targetUserId),
             isSuccess: ({ data }) => data.success,
-            isIntentCurrent: () => isSessionGenerationCurrent(authStore, sessionGeneration),
+            isIntentCurrent: isTargetIntentCurrent,
             onSuccess: () => {
-                if (!isSessionGenerationCurrent(authStore, sessionGeneration)) return
-                void invalidateBlockVisibilityCaches(queryClient, sessionGeneration, userId.value)
+                if (!isTargetIntentCurrent()) return
+                void invalidateBlockVisibilityCaches(queryClient, sessionGeneration, targetUserId)
             },
         })
     }

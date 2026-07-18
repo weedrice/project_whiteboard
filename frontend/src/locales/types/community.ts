@@ -904,6 +904,7 @@ export interface ReportMessages {
   target: string
   reason: string
   inputReason: string
+  reasonTooLong: string
   reportSuccess: string
   reportFailed: string
   types: {

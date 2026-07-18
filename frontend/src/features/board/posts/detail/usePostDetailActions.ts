@@ -50,7 +50,12 @@ export function usePostDetailActions({
   const showReportModal = ref(false)
   let likeAnimationTimer: ReturnType<typeof setTimeout> | null = null
   let bookmarkAnimationTimer: ReturnType<typeof setTimeout> | null = null
-  let reportIntent: { postId: string | number, sessionGeneration: number } | null = null
+  let reportRevision = 0
+  let reportIntent: {
+    postId: string | number
+    sessionGeneration: number
+    revision: number
+  } | null = null
 
   const currentPostId = () => route.params.postId as string | number
   const isIntentCurrent = (postId: string | number, sessionGeneration: number) => (
@@ -146,18 +151,29 @@ export function usePostDetailActions({
     reportIntent = {
       postId: currentPostId(),
       sessionGeneration: authStore.sessionGeneration,
+      revision: ++reportRevision,
     }
     showReportModal.value = true
     closeOverflowMenu()
   }
 
+  function closeReportModal() {
+    reportRevision += 1
+    reportIntent = null
+    showReportModal.value = false
+  }
+
   async function submitReport(reason: string) {
     const intent = reportIntent
     if (!intent || !isIntentCurrent(intent.postId, intent.sessionGeneration)) {
-      showReportModal.value = false
-      reportIntent = null
+      closeReportModal()
       return false
     }
+    const isReportIntentCurrent = () => (
+      reportIntent === intent
+      && intent.revision === reportRevision
+      && isIntentCurrent(intent.postId, intent.sessionGeneration)
+    )
 
     return await new Promise<boolean>((resolve) => {
       reportMutate({
@@ -165,17 +181,16 @@ export function usePostDetailActions({
         reason,
       }, {
         onSuccess: () => {
-          if (!isIntentCurrent(intent.postId, intent.sessionGeneration)) {
+          if (!isReportIntentCurrent()) {
             resolve(false)
             return
           }
           toastStore.addToast(t('board.postDetail.reportSuccess'), 'success')
-          showReportModal.value = false
-          reportIntent = null
+          closeReportModal()
           resolve(true)
         },
         onError: (err) => {
-          if (!isIntentCurrent(intent.postId, intent.sessionGeneration)) {
+          if (!isReportIntentCurrent()) {
             resolve(false)
             return
           }
@@ -188,8 +203,7 @@ export function usePostDetailActions({
   }
 
   watch(() => route.params.postId, () => {
-    showReportModal.value = false
-    reportIntent = null
+    closeReportModal()
   })
 
   onUnmounted(() => {
@@ -213,6 +227,7 @@ export function usePostDetailActions({
     handleLike,
     handleBookmark,
     openReportModal,
+    closeReportModal,
     submitReport,
   }
 }

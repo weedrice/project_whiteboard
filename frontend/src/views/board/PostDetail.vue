@@ -190,6 +190,7 @@ const {
   handleLike,
   handleBookmark,
   openReportModal,
+  closeReportModal,
   submitReport,
 } = usePostDetailActions({
   post,
@@ -470,12 +471,13 @@ onBeforeUnmount(() => {
 
     <ReportModal
       :isOpen="showReportModal"
+      :targetIdentity="`post:${postId}`"
       :title="$t('common.report')"
       :targetText="`${$t('common.post')} | ${postView?.title ?? ''}`"
       :submit="submitReport"
       :submitLabel="$t('common.submit')"
       submitVariant="danger"
-      @close="showReportModal = false"
+      @close="closeReportModal"
     />
 
     <PostVersionHistoryModal

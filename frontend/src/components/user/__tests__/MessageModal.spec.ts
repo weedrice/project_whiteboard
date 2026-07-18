@@ -138,4 +138,44 @@ describe('MessageModal', () => {
         expect(mocks.loggerError).toHaveBeenCalled()
         expect(mocks.addToast).toHaveBeenCalledWith('user.message.blockedByUser', 'error')
     })
+
+    it('cancels and resets a pending send when the receiver changes', async () => {
+        let resolveSend: (value: unknown) => void = () => undefined
+        mocks.sendMessage.mockReturnValueOnce(new Promise((resolve) => {
+            resolveSend = resolve
+        }))
+        const wrapper = mountModal()
+        await wrapper.get('textarea').setValue('이전 대상 메시지')
+        await getButtonByText(wrapper, 'common.send').trigger('click')
+        const signal = mocks.sendMessage.mock.calls[0][2].signal as AbortSignal
+
+        await wrapper.setProps({ userId: 4, displayName: '새 대상' })
+
+        expect(signal.aborted).toBe(true)
+        expect((wrapper.get('textarea').element as HTMLTextAreaElement).value).toBe('')
+        resolveSend({ data: { success: true } })
+        await flushAll()
+        expect(wrapper.emitted('close')).toBeUndefined()
+        expect(mocks.addToast).not.toHaveBeenCalledWith('user.message.sendSuccess', 'success')
+    })
+
+    it('does not let a closed send complete a reopened modal', async () => {
+        let resolveSend: (value: unknown) => void = () => undefined
+        mocks.sendMessage.mockReturnValueOnce(new Promise((resolve) => {
+            resolveSend = resolve
+        }))
+        const wrapper = mountModal()
+        await wrapper.get('textarea').setValue('닫기 전 메시지')
+        await getButtonByText(wrapper, 'common.send').trigger('click')
+
+        await getButtonByText(wrapper, 'common.cancel').trigger('click')
+        await wrapper.setProps({ isOpen: false })
+        await wrapper.setProps({ isOpen: true })
+        await wrapper.get('textarea').setValue('새 메시지')
+        resolveSend({ data: { success: true } })
+        await flushAll()
+
+        expect(wrapper.emitted('close')).toHaveLength(1)
+        expect((wrapper.get('textarea').element as HTMLTextAreaElement).value).toBe('새 메시지')
+    })
 })

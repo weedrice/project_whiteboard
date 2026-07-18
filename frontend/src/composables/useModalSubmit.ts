@@ -17,9 +17,12 @@ export function useModalSubmit<TValue>({
 }: UseModalSubmitOptions<TValue>) {
     const value = ref(initialValue) as Ref<TValue>
     const isSubmitting = ref(false)
+    let submitRevision = 0
 
     function reset() {
+        submitRevision += 1
         value.value = initialValue
+        isSubmitting.value = false
     }
 
     async function submit() {
@@ -30,16 +33,20 @@ export function useModalSubmit<TValue>({
             return false
         }
 
+        const revision = ++submitRevision
         isSubmitting.value = true
         try {
             const shouldComplete = await onSubmit(value.value)
+            if (revision !== submitRevision) return false
             if (shouldComplete === false) return false
 
-            reset()
+            value.value = initialValue
             onSuccess()
             return true
         } finally {
-            isSubmitting.value = false
+            if (revision === submitRevision) {
+                isSubmitting.value = false
+            }
         }
     }
 

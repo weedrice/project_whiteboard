@@ -60,4 +60,29 @@ describe('useModalSubmit', () => {
         expect(onSuccess).not.toHaveBeenCalled()
         expect(submit.isSubmitting.value).toBe(false)
     })
+
+    it('invalidates a pending submission when reset starts a new modal session', async () => {
+        let resolveSubmit: (value: boolean) => void = () => undefined
+        const onSuccess = vi.fn()
+        const submit = useModalSubmit({
+            initialValue: '',
+            isValid: () => true,
+            onInvalid: vi.fn(),
+            onSubmit: vi.fn(() => new Promise<boolean>((resolve) => {
+                resolveSubmit = resolve
+            })),
+            onSuccess,
+        })
+        submit.value.value = 'old draft'
+        const pending = submit.submit()
+
+        submit.reset()
+        submit.value.value = 'new draft'
+        resolveSubmit(true)
+
+        await expect(pending).resolves.toBe(false)
+        expect(submit.value.value).toBe('new draft')
+        expect(submit.isSubmitting.value).toBe(false)
+        expect(onSuccess).not.toHaveBeenCalled()
+    })
 })

@@ -4,6 +4,7 @@ export const reportEn: ReportMessages = {
   target: 'Report target',
   reason: 'Report reason',
   inputReason: 'Please enter a report reason.',
+  reasonTooLong: 'Report reasons must be {max} characters or fewer.',
   reportSuccess: 'Report submitted.',
   reportFailed: 'Failed to submit report.',
   types: {

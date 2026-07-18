@@ -293,4 +293,19 @@ describe('usePostDetailActions', () => {
     expect(mocks.reportMutate).not.toHaveBeenCalled()
     expect(actions.showReportModal.value).toBe(false)
   })
+
+  it('does not let a closed report response close a reopened modal', async () => {
+    const { actions } = createActions()
+    actions.openReportModal()
+    const staleReport = actions.submitReport('Old report')
+    const staleOptions = mocks.reportMutate.mock.calls[0][1]
+
+    actions.closeReportModal()
+    actions.openReportModal()
+    staleOptions.onSuccess()
+
+    await expect(staleReport).resolves.toBe(false)
+    expect(actions.showReportModal.value).toBe(true)
+    expect(mocks.addToast).not.toHaveBeenCalledWith('board.postDetail.reportSuccess', 'success')
+  })
 })

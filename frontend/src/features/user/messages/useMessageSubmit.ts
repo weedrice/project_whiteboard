@@ -57,6 +57,10 @@ export function useMessageSubmit({
             if (receiverId == null) return false
             const trimmedContent = messageContent.trim()
             const generation = getCurrentSessionGeneration()
+            const isReceiverCurrent = () => (
+                String(getReceiverId()) === String(receiverId)
+                && generation === getCurrentSessionGeneration()
+            )
             cancelPendingSend()
             const controller = new AbortController()
             sendAbortController = controller
@@ -66,13 +70,13 @@ export function useMessageSubmit({
                     skipGlobalErrorHandler: true,
                     signal: controller.signal,
                 })
-                if (controller.signal.aborted || generation !== getCurrentSessionGeneration()) return false
+                if (controller.signal.aborted || !isReceiverCurrent()) return false
                 if (!data.success) return false
 
                 toastStore.addToast(t('user.message.sendSuccess'), 'success')
                 return true
             } catch (error) {
-                if (controller.signal.aborted || generation !== getCurrentSessionGeneration()) return false
+                if (controller.signal.aborted || !isReceiverCurrent()) return false
                 logger.error(logMessage, error)
                 const errRes = extractErrorResponse(error as AxiosError)
                 const toastMessage = errRes?.code === BLOCKED_BY_USER_CODE

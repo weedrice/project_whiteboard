@@ -1,5 +1,5 @@
 <template>
-    <BaseModal :isOpen="isOpen" :title="title" @close="emit('close')">
+    <BaseModal :isOpen="isOpen" :title="title" @close="closeModal">
         <div class="p-4">
             <BaseInput :label="$t('report.target')" :modelValue="targetText" :disabled="true" class="mb-4" />
             <BaseTextarea
@@ -9,10 +9,12 @@
                 rows="4"
                 :placeholder="$t('report.inputReason')"
                 :error="validation.visibleError('reason')"
+                :maxlength="REPORT_REASON_MAX_LENGTH"
+                :disabled="isReporting"
                 @blur="validation.touchField('reason', validationValues)"
             />
             <div class="mt-4 flex justify-end">
-                <BaseButton @click="emit('close')" variant="secondary" class="mr-2">
+                <BaseButton @click="closeModal" variant="secondary" class="mr-2">
                     {{ $t('common.cancel') }}
                 </BaseButton>
                 <BaseButton @click="handleValidatedReport" :disabled="isReporting" :variant="submitVariant">
@@ -31,14 +33,20 @@ import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
 import { useModalSubmit } from '@/composables/useModalSubmit'
 import { useI18n } from 'vue-i18n'
 import { useToastStore } from '@/stores/toast'
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import { useFieldValidation } from '@/composables/useFieldValidation'
+import {
+    isReportReasonTooLong,
+    isValidReportReason,
+    REPORT_REASON_MAX_LENGTH,
+} from '@/utils/reportValidation'
 
 const { t } = useI18n()
 const toastStore = useToastStore()
 
 const props = withDefaults(defineProps<{
     isOpen: boolean
+    targetIdentity: string | number
     targetText: string
     title?: string
     submitLabel?: string
@@ -64,10 +72,16 @@ const {
     value: reportReason,
     isSubmitting: isReporting,
     submit: handleReport,
+    reset: resetReport,
 } = useModalSubmit({
     initialValue: '',
-    isValid: (reason) => reason.trim().length > 0,
-    onInvalid: () => toastStore.addToast(t('report.inputReason'), 'warning'),
+    isValid: isValidReportReason,
+    onInvalid: (reason) => toastStore.addToast(
+        isReportReasonTooLong(reason)
+            ? t('report.reasonTooLong', { max: REPORT_REASON_MAX_LENGTH })
+            : t('report.inputReason'),
+        'warning',
+    ),
     onSubmit: async (reason) => props.submit(reason.trim()),
     onSuccess: () => {
         emit('close')
@@ -75,15 +89,42 @@ const {
 })
 
 const validation = useFieldValidation<'reason'>({
-    validators: { reason: (values) => String(values.reason ?? '').trim() ? '' : t('report.inputReason') },
+    validators: {
+        reason: (values) => {
+            const reason = String(values.reason ?? '')
+            if (!reason.trim()) return t('report.inputReason')
+            return isReportReasonTooLong(reason)
+                ? t('report.reasonTooLong', { max: REPORT_REASON_MAX_LENGTH })
+                : ''
+        },
+    },
     fieldIds: { reason: 'reportReason' },
 })
 const validationValues = computed(() => ({ reason: reportReason.value }))
+const resetReportSession = () => {
+    resetReport()
+    validation.clearValidation()
+}
+const closeModal = () => {
+    resetReportSession()
+    emit('close')
+}
 const handleValidatedReport = () => {
     if (!validation.validateAll(validationValues.value)) {
-        toastStore.addToast(t('report.inputReason'), 'warning')
+        toastStore.addToast(
+            isReportReasonTooLong(reportReason.value)
+                ? t('report.reasonTooLong', { max: REPORT_REASON_MAX_LENGTH })
+                : t('report.inputReason'),
+            'warning',
+        )
         return
     }
     void handleReport()
 }
+
+watch(
+    [() => props.isOpen, () => props.targetIdentity, () => props.targetText],
+    resetReportSession,
+    { flush: 'sync' },
+)
 </script>
