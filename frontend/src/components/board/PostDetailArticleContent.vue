@@ -57,6 +57,9 @@ const {
     copied: t('board.writePost.codeBlock.copyDone'),
     failed: t('board.writePost.codeBlock.copyFailed'),
   }),
+  getImageOpenLabel: (alt) => t('board.postDetail.openImage', {
+    alt: alt || t('board.writePost.toolbar.image'),
+  }),
 })
 
 function prepareRichContent() {

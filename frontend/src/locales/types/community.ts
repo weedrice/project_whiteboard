@@ -220,6 +220,7 @@ export interface BoardMessages {
     quickActions: string
     tableOfContents: string
     scrollTop: string
+    openImage: string
     tags: string
     reactions: string
     bookmark: string

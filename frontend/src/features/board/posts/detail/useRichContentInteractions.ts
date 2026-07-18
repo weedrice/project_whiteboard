@@ -11,6 +11,7 @@ interface UseRichContentInteractionsOptions {
   isDisabled: MaybeRefOrGetter<boolean>
   router: Router
   getCodeCopyLabels: () => CodeCopyLabels
+  getImageOpenLabel: (alt: string, index: number) => string
 }
 
 export interface RichContentLightboxImage {
@@ -41,10 +42,11 @@ export function useRichContentInteractions(options: UseRichContentInteractionsOp
 
   function prepareImagesForInteraction() {
     if (!articleRef.value || resolveBoolean(options.isDisabled)) return
-    articleRef.value.querySelectorAll<HTMLImageElement>('.nv-rich-content img').forEach((image) => {
+    articleRef.value.querySelectorAll<HTMLImageElement>('.nv-rich-content img').forEach((image, index) => {
       if (!image.hasAttribute('tabindex')) image.tabIndex = 0
       if (!image.hasAttribute('role')) image.setAttribute('role', 'button')
       image.setAttribute('aria-haspopup', 'dialog')
+      image.setAttribute('aria-label', options.getImageOpenLabel(image.alt.trim(), index))
     })
   }
 

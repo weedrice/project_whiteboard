@@ -151,6 +151,7 @@ export const boardEnBaseMessages = {
     quickActions: 'Quick actions',
     tableOfContents: 'Table of contents',
     scrollTop: 'Scroll to top',
+    openImage: 'Open image: {alt}',
     tags: 'Tags',
     reactions: 'Reactions',
     bookmark: 'Bookmark',

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, shallowRef, useAttrs, watch, type ComponentPublicInstance } from 'vue'
+import { computed, onScopeDispose, ref, shallowRef, useAttrs, watch, type ComponentPublicInstance } from 'vue'
 import { useI18n } from 'vue-i18n'
 import SandboxedHtmlFrame from '@/components/common/SandboxedHtmlFrame.vue'
 import SanitizedHtmlView from '@/components/common/SanitizedHtmlView.vue'
@@ -13,6 +13,7 @@ defineOptions({
 const props = defineProps<{
   content: string | null | undefined
   sandboxTitle?: string
+  codeBlockHighlighterLoader?: () => Promise<CodeBlockHighlighter>
 }>()
 
 const attrs = useAttrs()
@@ -47,11 +48,27 @@ function assignSandboxRef(value: Element | ComponentPublicInstance | null) {
   element.value = sandboxWrapper.value
 }
 
+let codeBlockLoadRevision = 0
+
 watch(hasCodeBlock, async (hasCode) => {
+  const revision = ++codeBlockLoadRevision
   if (!hasCode || codeBlockHighlighter.value) return
-  const module = await import('@/utils/codeHighlighting')
-  codeBlockHighlighter.value = module.highlightCodeBlocksInDocument
+
+  try {
+    const highlighter = props.codeBlockHighlighterLoader
+      ? await props.codeBlockHighlighterLoader()
+      : (await import('@/utils/codeHighlighting')).highlightCodeBlocksInDocument
+    if (revision === codeBlockLoadRevision && hasCodeBlock.value) {
+      codeBlockHighlighter.value = highlighter
+    }
+  } catch {
+    // Plain code markup is already rendered; highlighting is progressive enhancement.
+  }
 }, { immediate: true })
+
+onScopeDispose(() => {
+  codeBlockLoadRevision += 1
+})
 
 defineExpose({
   element,

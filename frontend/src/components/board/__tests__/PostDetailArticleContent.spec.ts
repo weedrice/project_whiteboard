@@ -50,7 +50,10 @@ function mountContent(overrides: Partial<InstanceType<typeof PostDetailArticleCo
     },
     global: {
       mocks: {
-        $t: (key: string, params?: Record<string, unknown>) => params ? `${key}:${params.time}` : key,
+        $t: (key: string, params?: Record<string, unknown>) => {
+          if (params?.alt) return `${key}:${params.alt}`
+          return params ? `${key}:${params.time}` : key
+        },
       },
       stubs: {
         BaseButton: {
@@ -133,6 +136,7 @@ describe('PostDetailArticleContent', () => {
     const image = wrapper.get<HTMLImageElement>('[data-testid="content"] img')
     expect(image.attributes('tabindex')).toBe('0')
     expect(image.attributes('role')).toBe('button')
+    expect(image.attributes('aria-label')).toContain('Diagram description')
 
     await image.trigger('keydown', { key: ' ' })
     await wrapper.vm.$nextTick()

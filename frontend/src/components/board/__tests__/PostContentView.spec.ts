@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import PostContentView from '../PostContentView.vue'
 import { encodeSandboxedPostHtml } from '@/utils/postHtmlSandbox'
@@ -34,5 +34,18 @@ describe('PostContentView', () => {
         expect(frame.attributes('srcdoc')).toContain('<style>.cl{display:grid}</style>')
         expect(frame.attributes('srcdoc')).toContain('onclick="toggle()"')
         expect(frame.attributes('srcdoc')).toContain('function toggle(){}')
+    })
+
+    it('keeps plain code content usable when the lazy highlighter fails to load', async () => {
+        const loadHighlighter = vi.fn().mockRejectedValue(new Error('chunk unavailable'))
+        const wrapper = mount(PostContentView, {
+            props: {
+                content: '<pre><code>const value = 1</code></pre>',
+                codeBlockHighlighterLoader: loadHighlighter,
+            },
+        })
+
+        await vi.waitFor(() => expect(loadHighlighter).toHaveBeenCalledOnce())
+        expect(wrapper.get('pre code').text()).toBe('const value = 1')
     })
 })

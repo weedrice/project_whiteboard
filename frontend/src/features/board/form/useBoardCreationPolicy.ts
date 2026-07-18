@@ -1,4 +1,4 @@
-import { computed, onMounted, ref, type ComputedRef } from 'vue'
+import { computed, onMounted, onScopeDispose, ref, type ComputedRef } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useConfigStore } from '@/stores/config'
 
@@ -25,8 +25,10 @@ export function useBoardCreationPolicy({ isEdit }: UseBoardCreationPolicyOptions
   const canCreate = computed(() => isEdit.value || (
     boardCreateCost.value !== null && userPoints.value >= boardCreateCost.value
   ))
+  let costLoadRevision = 0
 
   async function loadBoardCreateCost() {
+    const revision = ++costLoadRevision
     if (isEdit.value) return
     if (boardCreateCost.value !== null) {
       costLoading.value = false
@@ -37,12 +39,17 @@ export function useBoardCreationPolicy({ isEdit }: UseBoardCreationPolicyOptions
     costLoadFailed.value = false
     configStore.invalidateConfig(configKey)
     await configStore.fetchConfig(configKey)
+    if (revision !== costLoadRevision) return
     costLoading.value = false
     costLoadFailed.value = boardCreateCost.value === null
   }
 
   onMounted(() => {
     void loadBoardCreateCost()
+  })
+
+  onScopeDispose(() => {
+    costLoadRevision += 1
   })
 
   return {

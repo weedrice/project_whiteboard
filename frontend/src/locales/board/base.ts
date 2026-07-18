@@ -146,6 +146,7 @@ export const boardBaseMessages = {
     quickActions: '빠른 작업',
     tableOfContents: '목차',
     scrollTop: '상단으로',
+    openImage: '{alt} 이미지 열기',
     tags: '태그',
     reactions: '반응',
     bookmark: '북마크',
