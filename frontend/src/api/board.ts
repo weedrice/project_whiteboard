@@ -56,6 +56,27 @@ interface BoardManagerCandidateParams {
     q?: string
 }
 
+const serializeRepeatedQueryParams = (params: Record<string, unknown>) => {
+    const searchParams = new URLSearchParams()
+
+    Object.entries(params).forEach(([key, value]) => {
+        if (Array.isArray(value)) {
+            value.forEach((item) => {
+                if (item != null) searchParams.append(key, String(item))
+            })
+            return
+        }
+
+        if (value != null) searchParams.append(key, String(value))
+    })
+
+    return searchParams.toString()
+}
+
+const repeatedArrayParamsSerializer = {
+    serialize: serializeRepeatedQueryParams,
+}
+
 export const boardApi = {
     // Get all boards
     getBoards: (config?: AxiosRequestConfig) =>
@@ -69,7 +90,8 @@ export const boardApi = {
             params: {
                 ...config?.params,
                 topics
-            }
+            },
+            paramsSerializer: repeatedArrayParamsSerializer,
         }),
 
     getRecentBoardUpdates: (boardUrls: string[], config?: AxiosRequestConfig) =>
@@ -79,6 +101,7 @@ export const boardApi = {
                 ...config?.params,
                 boardUrls,
             },
+            paramsSerializer: repeatedArrayParamsSerializer,
         }),
 
     // Get board details

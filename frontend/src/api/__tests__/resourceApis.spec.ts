@@ -101,6 +101,25 @@ describe('boardApi', () => {
             }
         })
     })
+
+    it('serializes board recommendation and recent-update arrays as repeated query keys', () => {
+        boardApi.getBoardRecommendations(['ai agents', '게시판'], {
+            params: { locale: 'ko' },
+        })
+        boardApi.getRecentBoardUpdates(['general', 'tech'])
+
+        const recommendationConfig = apiMock.get.mock.calls[0]?.[1]
+        const recentUpdatesConfig = apiMock.get.mock.calls[1]?.[1]
+        const recommendationQuery = recommendationConfig?.paramsSerializer?.serialize(recommendationConfig.params)
+        const recentUpdatesQuery = recentUpdatesConfig?.paramsSerializer?.serialize(recentUpdatesConfig.params)
+
+        expect(recommendationQuery).toBe(
+            'locale=ko&topics=ai+agents&topics=%EA%B2%8C%EC%8B%9C%ED%8C%90',
+        )
+        expect(recentUpdatesQuery).toBe('boardUrls=general&boardUrls=tech')
+        expect(recommendationQuery).not.toContain('topics%5B%5D')
+        expect(recentUpdatesQuery).not.toContain('boardUrls%5B%5D')
+    })
 })
 
 describe('postApi', () => {
