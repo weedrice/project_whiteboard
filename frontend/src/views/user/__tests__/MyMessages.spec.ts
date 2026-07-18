@@ -174,6 +174,31 @@ describe('MyMessages', () => {
         expect(content.classes()).not.toContain('sm:p-6')
     })
 
+    it('shows a retryable conversation error without hiding the loaded message detail', async () => {
+        const listedMessage = {
+            messageId: 5,
+            content: 'loaded detail',
+            partner: { userId: 2, displayName: 'Other' },
+            isRead: true,
+            createdAt: '2026-04-16T11:00:00',
+        }
+        messageApi.getReceivedMessages.mockResolvedValue({
+            data: { success: true, data: { content: [listedMessage], totalPages: 1 } },
+        })
+        messageApi.getMessage.mockResolvedValue({
+            data: { success: true, data: listedMessage },
+        })
+        messageApi.getConversation.mockRejectedValue(new Error('offline'))
+
+        const wrapper = mountMyMessages()
+        await flushPromises()
+        await messageOpenButtons(wrapper)[0].trigger('click')
+        await flushPromises()
+
+        expect(wrapper.text()).toContain('loaded detail')
+        expect(wrapper.find('[data-testid="error-state"]').text()).toBe('user.message.conversationLoadFailed')
+    })
+
     it('exposes mailbox view and message row controls to assistive technology', async () => {
         messageApi.getReceivedMessages.mockResolvedValue({
             data: {

@@ -330,6 +330,8 @@ export const user: UserMessages = {
     me: '나',
     currentMessage: '현재 쪽지',
     contextEmpty: '현재 페이지에 같은 상대의 다른 쪽지가 없습니다.',
+    detailLoadFailed: '쪽지 상세를 불러오지 못했습니다.',
+    conversationLoadFailed: '대화 내역을 불러오지 못했습니다.',
   },
   block: {
     confirm: '{name}님을 차단하시겠습니까?',

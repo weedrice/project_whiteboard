@@ -67,11 +67,31 @@
         </ul>
     </PaginatedListCard>
 
+    <div v-if="conversationLoading && !selectedMessage" class="py-4 text-center text-sm nv-text-subtle" role="status" aria-live="polite">
+        {{ $t('common.loading') }}
+    </div>
+    <ErrorState
+        v-else-if="conversationError && !selectedMessage"
+        :message="conversationError"
+        show-retry
+        @retry="retryConversation"
+    />
+
     <BaseModal :isOpen="!!selectedMessage" :title="$t('user.message.detailTitle')" @close="selectedMessage = null"
         mobile-full mobile-fit-content size="2xl">
         <div v-if="selectedMessage" data-testid="message-detail-content" class="space-y-4">
             <div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,20rem)]">
-                <section class="min-w-0">
+                <section class="min-w-0" :aria-busy="messageDetailLoading">
+                    <p v-if="messageDetailLoading" class="py-8 text-center text-sm nv-text-subtle" role="status">
+                        {{ $t('common.loading') }}
+                    </p>
+                    <ErrorState
+                        v-else-if="messageDetailError"
+                        :message="messageDetailError"
+                        show-retry
+                        @retry="retryMessageDetail"
+                    />
+                    <template v-else>
                     <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 border-b nv-border pb-3">
                         <div class="min-w-0">
                             <span class="block text-xs nv-text-subtle">{{ selectedPartnerLabel }}</span>
@@ -83,11 +103,21 @@
                     <div class="text-sm nv-text whitespace-pre-wrap min-h-[120px] overflow-y-auto max-h-[50vh] sm:max-h-none pt-4">
                         {{ selectedMessage.body }}
                     </div>
+                    </template>
                 </section>
 
-                <section class="rounded-lg border nv-border nv-surface-muted p-3">
+                <section class="rounded-lg border nv-border nv-surface-muted p-3" :aria-busy="conversationLoading">
                     <h3 class="text-sm font-semibold nv-title">{{ $t('user.message.conversationContext') }}</h3>
-                    <div class="mt-3 max-h-[18rem] space-y-2 overflow-y-auto pr-1">
+                    <p v-if="conversationLoading" class="py-6 text-center text-sm nv-text-subtle" role="status">
+                        {{ $t('common.loading') }}
+                    </p>
+                    <ErrorState
+                        v-else-if="conversationError"
+                        :message="conversationError"
+                        show-retry
+                        @retry="retryConversation"
+                    />
+                    <div v-else class="mt-3 max-h-[18rem] space-y-2 overflow-y-auto pr-1">
                         <article
                             v-for="message in conversationMessages"
                             :key="message.id"
@@ -169,6 +199,7 @@ import BaseCheckbox from '@/components/common/ui/BaseCheckbox.vue'
 import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
 import BaseSegmentedControl from '@/components/common/ui/BaseSegmentedControl.vue'
 import PaginatedListCard from '@/components/common/ui/PaginatedListCard.vue'
+import ErrorState from '@/components/common/ui/ErrorState.vue'
 import { Mail } from 'lucide-vue-next'
 import { useMailboxResource } from '@/features/user/messages/useMailboxResource'
 import type { MailboxViewType } from '@/features/user/messages/useMailboxListState'
@@ -194,6 +225,10 @@ const {
     error,
     selectedMessage,
     selectedConversationMessages,
+    messageDetailLoading,
+    messageDetailError,
+    conversationLoading,
+    conversationError,
     selectedMessages,
     page,
     size,
@@ -206,6 +241,8 @@ const {
     changeViewType,
     openMessage,
     openConversationByPartnerId,
+    retryMessageDetail,
+    retryConversation,
     deleteSelectedMessages,
     startReply,
     cancelInlineReply,

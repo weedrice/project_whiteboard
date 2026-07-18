@@ -225,6 +225,47 @@ describe('useMailboxResource', () => {
         expect(mocks.fetchMessages).toHaveBeenCalledTimes(2)
     })
 
+    it('keeps message detail when only the conversation context fails and supports retry', async () => {
+        vi.mocked(messageApi.getMessage).mockResolvedValueOnce(
+            apiSuccessDataResponse<typeof messageApi.getMessage>(detailDto(7)),
+        )
+        vi.mocked(messageApi.getConversation).mockRejectedValueOnce(new Error('offline'))
+        const { resource } = mountMailboxResource()
+
+        await resource.openMessage(message(7))
+
+        expect(resource.selectedMessage.value?.body).toBe('Detail 7')
+        expect(resource.messageDetailError.value).toBeNull()
+        expect(resource.conversationError.value).toBe('user.message.conversationLoadFailed')
+
+        vi.mocked(messageApi.getConversation).mockResolvedValueOnce(apiSuccessDataResponse<typeof messageApi.getConversation>({
+            content: [detailDto(7)], page: 0, size: 50, totalElements: 1, totalPages: 1,
+            hasNext: false, hasPrevious: false,
+        }))
+        vi.mocked(messageApi.getMessage).mockResolvedValueOnce(
+            apiSuccessDataResponse<typeof messageApi.getMessage>(detailDto(7)),
+        )
+        resource.retryConversation()
+        await flushPromises()
+        expect(resource.conversationError.value).toBeNull()
+        expect(resource.selectedConversationMessages.value).toHaveLength(1)
+    })
+
+    it('keeps conversation context when only detail lookup fails', async () => {
+        vi.mocked(messageApi.getMessage).mockRejectedValueOnce(new Error('offline'))
+        vi.mocked(messageApi.getConversation).mockResolvedValueOnce(apiSuccessDataResponse<typeof messageApi.getConversation>({
+            content: [detailDto(8)], page: 0, size: 50, totalElements: 1, totalPages: 1,
+            hasNext: false, hasPrevious: false,
+        }))
+        const { resource } = mountMailboxResource()
+
+        await resource.openMessage(message(8))
+
+        expect(resource.messageDetailError.value).toBe('user.message.detailLoadFailed')
+        expect(resource.conversationError.value).toBeNull()
+        expect(resource.selectedConversationMessages.value).toHaveLength(1)
+    })
+
     it('aborts and clears manual mailbox state when the session generation changes', async () => {
         const pending = createDeferred<Awaited<ReturnType<typeof messageApi.getMessage>>>()
         vi.mocked(messageApi.getMessage).mockReturnValueOnce(pending.promise)

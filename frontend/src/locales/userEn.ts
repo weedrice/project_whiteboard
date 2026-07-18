@@ -330,6 +330,8 @@ export const userEn: UserMessages = {
     me: 'Me',
     currentMessage: 'Current message',
     contextEmpty: 'There are no other messages with this person on the current page.',
+    detailLoadFailed: 'Failed to load the message details.',
+    conversationLoadFailed: 'Failed to load the conversation.',
   },
   block: {
     confirm: 'Block {name}?',

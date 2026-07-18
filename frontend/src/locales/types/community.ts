@@ -853,6 +853,8 @@ export interface UserMessages {
     me: string
     currentMessage: string
     contextEmpty: string
+    detailLoadFailed: string
+    conversationLoadFailed: string
   }
   block: {
     confirm: string

@@ -39,6 +39,11 @@ export function useMailboxResource() {
     } = useMailboxListState()
     const selectedMessage = ref<MailboxMessageViewModel | null>(null)
     const selectedConversationMessages = ref<MailboxMessageViewModel[]>([])
+    const messageDetailLoading = ref(false)
+    const messageDetailError = ref<string | null>(null)
+    const conversationLoading = ref(false)
+    const conversationError = ref<string | null>(null)
+    const lastConversationPartnerId = ref<number | null>(null)
 
     const isReplyModalOpen = ref(false)
     const replyTarget = ref<MailboxMessageViewModel | null>(null)
@@ -97,6 +102,11 @@ export function useMailboxResource() {
         messageFromBlockedUser.value = false
         selectedMessage.value = msg
         selectedConversationMessages.value = []
+        messageDetailLoading.value = true
+        messageDetailError.value = null
+        conversationLoading.value = true
+        conversationError.value = null
+        lastConversationPartnerId.value = msg.partnerUserId
         return { requestId, messageId, controller }
     }
 
@@ -155,26 +165,47 @@ export function useMailboxResource() {
             toastStore.addToast(t('common.messages.notFound'), 'info')
         } else {
             logger.error('Failed to open message:', error)
+            messageDetailError.value = t('user.message.detailLoadFailed')
         }
     }
 
     async function openMessage(msg: MailboxMessageViewModel) {
         const { requestId, messageId, controller } = startMessageDetailRequest(msg)
+        const detailTask = (async () => {
+            try {
+                const detail = await loadMessageDetail(messageId, controller)
+                if (isStaleMessageDetail(requestId, messageId)) return
+                if (detail) selectedMessage.value = detail
+                messageDetailError.value = null
+                try {
+                    await markMessageAsReadIfNeeded(messageId, msg.isUnread, requestId)
+                } catch (error) {
+                    await handleMessageDetailError(error, requestId, messageId, controller)
+                }
+            } catch (error) {
+                await handleMessageDetailError(error, requestId, messageId, controller)
+            } finally {
+                if (!isStaleMessageDetail(requestId, messageId)) messageDetailLoading.value = false
+            }
+        })()
+        const conversationTask = (async () => {
+            try {
+                const conversation = await loadConversationMessages(msg.partnerUserId, controller)
+                if (isStaleMessageDetail(requestId, messageId)) return
+                selectedConversationMessages.value = conversation
+                conversationError.value = null
+            } catch (error) {
+                if (!isStaleMessageDetail(requestId, messageId) && !controller.signal.aborted) {
+                    logger.error('Failed to load message conversation:', error)
+                    conversationError.value = t('user.message.conversationLoadFailed')
+                }
+            } finally {
+                if (!isStaleMessageDetail(requestId, messageId)) conversationLoading.value = false
+            }
+        })()
+
         try {
-            const [detail, conversation] = await Promise.all([
-                loadMessageDetail(messageId, controller),
-                loadConversationMessages(msg.partnerUserId, controller),
-            ])
-            if (isStaleMessageDetail(requestId, messageId)) {
-                return
-            }
-            if (detail) {
-                selectedMessage.value = detail
-            }
-            selectedConversationMessages.value = conversation
-            await markMessageAsReadIfNeeded(messageId, msg.isUnread, requestId)
-        } catch (error) {
-            await handleMessageDetailError(error, requestId, messageId, controller)
+            await Promise.all([detailTask, conversationTask])
         } finally {
             if (messageDetailAbortController === controller) {
                 messageDetailAbortController = null
@@ -237,6 +268,9 @@ export function useMailboxResource() {
         messageFromBlockedUser.value = false
         selectedMessage.value = null
         selectedConversationMessages.value = []
+        conversationLoading.value = true
+        conversationError.value = null
+        lastConversationPartnerId.value = partnerId
 
         try {
             const conversation = await loadConversationMessages(partnerId, controller)
@@ -248,11 +282,25 @@ export function useMailboxResource() {
         } catch (error) {
             if (!controller.signal.aborted) {
                 logger.error('Failed to open message conversation:', error)
+                conversationError.value = t('user.message.conversationLoadFailed')
             }
         } finally {
+            if (requestId === messageDetailRequestId) conversationLoading.value = false
             if (messageDetailAbortController === controller) {
                 messageDetailAbortController = null
             }
+        }
+    }
+
+    function retryMessageDetail() {
+        if (selectedMessage.value) void openMessage(selectedMessage.value)
+    }
+
+    function retryConversation() {
+        if (selectedMessage.value) {
+            void openMessage(selectedMessage.value)
+        } else if (lastConversationPartnerId.value != null) {
+            void openConversationByPartnerId(lastConversationPartnerId.value)
         }
     }
 
@@ -323,6 +371,11 @@ export function useMailboxResource() {
             resetMailboxState()
             selectedMessage.value = null
             selectedConversationMessages.value = []
+            messageDetailLoading.value = false
+            messageDetailError.value = null
+            conversationLoading.value = false
+            conversationError.value = null
+            lastConversationPartnerId.value = null
             selectedMessages.value = []
             replyTarget.value = null
             resetReplyContent()
@@ -348,6 +401,10 @@ export function useMailboxResource() {
         error,
         selectedMessage,
         selectedConversationMessages,
+        messageDetailLoading,
+        messageDetailError,
+        conversationLoading,
+        conversationError,
         selectedMessages,
         page,
         size,
@@ -362,6 +419,8 @@ export function useMailboxResource() {
         changeViewType,
         openMessage,
         openConversationByPartnerId,
+        retryMessageDetail,
+        retryConversation,
         deleteSelectedMessages,
         startReply,
         closeReplyModal,
