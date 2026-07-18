@@ -8,6 +8,9 @@ import com.weedrice.whiteboard.global.common.ApiResponses;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.security.CurrentUserId;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -98,7 +101,7 @@ public class MessageController {
 
         @DeleteMapping
         public ApiResponse<Void> deleteMessages(
-                        @RequestBody java.util.List<Long> messageIds,
+                        @RequestBody @Size(max = 500) java.util.List<@NotNull @Positive Long> messageIds,
                         @CurrentUserId Long userId) {
                 messageService.deleteMessages(userId, messageIds);
                 return ApiResponses.ok();

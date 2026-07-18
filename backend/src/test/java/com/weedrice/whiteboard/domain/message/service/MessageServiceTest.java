@@ -525,25 +525,19 @@ class MessageServiceTest {
 
     @Test
     @DisplayName("메시지 일괄 삭제는 유효 ID만 한 번에 조회하고 참여자 방향대로 처리한다")
-    void deleteMessages_loadsDistinctNonNullIdsAndDeletesByParticipantSide() {
+    void deleteMessages_rejectsNullIdBeforeRepositoryLookup() {
         Message receivedMessage = Message.builder()
                 .sender(receiver)
                 .receiver(sender)
                 .content("received")
                 .build();
         ReflectionTestUtils.setField(receivedMessage, "messageId", 2L);
-        when(messageRepository.findDeletableByMessageIdInForUpdate(1L, List.of(1L, 2L)))
-                .thenReturn(List.of(message, receivedMessage));
+        assertThatThrownBy(() -> messageService.deleteMessages(1L, Arrays.asList(1L, null, 1L, 2L)))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode())
+                        .isEqualTo(ErrorCode.INVALID_INPUT_VALUE));
 
-        messageService.deleteMessages(1L, Arrays.asList(1L, null, 1L, 2L));
-
-        assertThat(message.getIsDeletedBySender()).isTrue();
-        assertThat(message.getIsDeletedByReceiver()).isFalse();
-        assertThat(receivedMessage.getIsDeletedBySender()).isFalse();
-        assertThat(receivedMessage.getIsDeletedByReceiver()).isTrue();
-        verify(messageRepository).findDeletableByMessageIdInForUpdate(1L, List.of(1L, 2L));
-        verify(messageRepository, never()).findById(any());
-        verify(messageRepository, never()).deleteAll(anyList());
+        verify(messageRepository, never()).findDeletableByMessageIdInForUpdate(any(), anyList());
     }
 
     @Test
@@ -628,24 +622,19 @@ class MessageServiceTest {
     }
 
     @Test
-    @DisplayName("message bulk delete applies max after removing nulls and duplicates")
-    void deleteMessages_appliesMaxAfterDistinctNonNullIds() {
+    @DisplayName("message bulk delete applies max to the raw request before deduplication")
+    void deleteMessages_appliesMaxBeforeDistinctIds() {
         List<Long> requestIds = LongStream.rangeClosed(1, 500)
                 .boxed()
                 .collect(Collectors.toCollection(ArrayList::new));
         requestIds.add(null);
         requestIds.add(500L);
-        List<Long> distinctIds = LongStream.rangeClosed(1, 500)
-                .boxed()
-                .toList();
-        List<Message> messages = distinctIds.stream()
-                .map(this::messageWithId)
-                .toList();
-        when(messageRepository.findDeletableByMessageIdInForUpdate(1L, distinctIds)).thenReturn(messages);
+        assertThatThrownBy(() -> messageService.deleteMessages(1L, requestIds))
+                .isInstanceOf(BusinessException.class)
+                .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode())
+                        .isEqualTo(ErrorCode.INVALID_INPUT_VALUE));
 
-        messageService.deleteMessages(1L, requestIds);
-
-        verify(messageRepository).findDeletableByMessageIdInForUpdate(1L, distinctIds);
+        verify(messageRepository, never()).findDeletableByMessageIdInForUpdate(any(), anyList());
     }
 
     @Test

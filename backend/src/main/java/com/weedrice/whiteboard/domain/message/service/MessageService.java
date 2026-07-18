@@ -27,7 +27,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -180,20 +179,17 @@ public class MessageService {
 
     @Transactional
     public void deleteMessages(Long userId, List<Long> messageIds) {
-        if (messageIds == null) {
+        if (messageIds == null
+                || messageIds.size() > MAX_BULK_DELETE_MESSAGE_COUNT
+                || messageIds.stream().anyMatch(id -> id == null || id <= 0)) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
         List<Long> requestedMessageIds = messageIds.stream()
-                .filter(Objects::nonNull)
                 .distinct()
                 .toList();
         if (requestedMessageIds.isEmpty()) {
             return;
         }
-        if (requestedMessageIds.size() > MAX_BULK_DELETE_MESSAGE_COUNT) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
-        }
-
         Map<Long, Message> messagesById = findDeletableMessagesByIdsInChunks(userId, requestedMessageIds.stream()
                 .sorted()
                 .toList());
