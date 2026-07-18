@@ -56,6 +56,13 @@ if node "$validator" "$fixture"; then
 fi
 cp "$project_root/.github/workflows/seo-monitor.yml" "$fixture/.github/workflows/seo-monitor.yml"
 
+sed -i '/SEO_VERIFY_ROTATION_SEED:/d' "$fixture/.github/workflows/seo-monitor.yml"
+if node "$validator" "$fixture"; then
+  echo "Expected scheduled SEO verification without a rotation seed to fail" >&2
+  exit 1
+fi
+cp "$project_root/.github/workflows/seo-monitor.yml" "$fixture/.github/workflows/seo-monitor.yml"
+
 sed -i '0,/runs-on: ubuntu-24.04/s//runs-on: ubuntu-latest/' "$fixture/.github/workflows/ci.yml"
 if node "$validator" "$fixture"; then
   echo "Expected an unpinned Ubuntu runner image to fail" >&2

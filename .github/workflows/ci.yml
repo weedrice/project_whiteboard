@@ -88,6 +88,7 @@ jobs:
               - 'docs/design-notes/**'
               - 'docs/ops/applied-contract-migrations.txt'
               - 'docs/ops/database-migration-policy.md'
+              - 'docs/ops/**'
 
       - name: Resolve validation scope
         id: scope
@@ -308,37 +309,6 @@ jobs:
         run: chmod +x gradlew
         working-directory: backend
 
-      - name: Verify Flyway upgrade from the previous revision
-        env:
-          BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || (github.event_name == 'push' && github.event.before || 'HEAD^') }}
-          PGPASSWORD: noviis_ci
-        run: |
-          set -euo pipefail
-          upgrade_database=noviis_ci_upgrade
-          createdb -h localhost -U noviis_ci "$upgrade_database"
-          previous="$RUNNER_TEMP/previous-backend-upgrade"
-          git worktree add --detach "$previous" "$BASE_REF"
-          trap 'git worktree remove --force "$previous"' EXIT
-          chmod +x "$previous/backend/gradlew"
-          POSTGRES_SMOKE_TEST=true \
-          POSTGRES_SMOKE_DATASOURCE_URL="jdbc:postgresql://localhost:5432/$upgrade_database" \
-          POSTGRES_SMOKE_DATASOURCE_USERNAME=noviis_ci \
-          POSTGRES_SMOKE_DATASOURCE_PASSWORD=noviis_ci \
-            "$previous/backend/gradlew" -p "$previous/backend" test \
-              --tests '*PostgresApplicationContextSmokeTest.contextLoadsWithPostgresMigrations' --rerun-tasks
-          POSTGRES_SMOKE_TEST=true \
-          POSTGRES_SMOKE_DATASOURCE_URL="jdbc:postgresql://localhost:5432/$upgrade_database" \
-          POSTGRES_SMOKE_DATASOURCE_USERNAME=noviis_ci \
-          POSTGRES_SMOKE_DATASOURCE_PASSWORD=noviis_ci \
-            ./backend/gradlew -p backend test \
-              --tests '*PostgresApplicationContextSmokeTest.contextLoadsWithPostgresMigrations' --rerun-tasks
-          while IFS= read -r migration; do
-            version="${migration##*/V}"
-            version="${version%%__*}"
-            test "$(psql -h localhost -U noviis_ci -d "$upgrade_database" -Atc \
-              "select count(*) from flyway_schema_history where version = '$version' and success")" = 1
-          done < <(find backend/src/main/resources/db/migration -type f -name 'V*.sql' | sort -V)
-
       - name: Verify database documentation matches Flyway
         run: python3 backend/scripts/verify-database-doc.py
 
@@ -372,6 +342,69 @@ jobs:
           chmod +x "$previous/backend/gradlew"
           "$previous/backend/gradlew" -p "$previous/backend" test \
             --tests '*PostgresApplicationContextSmokeTest.contextLoadsWithPostgresMigrations' --rerun-tasks
+
+  backend-postgres-upgrade:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16@sha256:1d533553fefe4f12e5d80c7b80622ba0c382abb5758856f52983d8789179f0fb
+        env:
+          POSTGRES_DB: noviis_ci_upgrade
+          POSTGRES_USER: noviis_ci
+          POSTGRES_PASSWORD: noviis_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U noviis_ci -d noviis_ci_upgrade"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
+        with:
+          fetch-depth: 0
+      - name: Setup JDK 21
+        uses: actions/setup-java@dded0888837ed1f317902acf8a20df0ad188d165 # v5.0.0
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: 'gradle'
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - name: Verify Flyway upgrade from the previous revision
+        env:
+          BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || (github.event_name == 'push' && github.event.before || 'HEAD^') }}
+          PGPASSWORD: noviis_ci
+        run: |
+          set -euo pipefail
+          previous="$RUNNER_TEMP/previous-backend-upgrade"
+          git worktree add --detach "$previous" "$BASE_REF"
+          trap 'git worktree remove --force "$previous"' EXIT
+          chmod +x "$previous/backend/gradlew" ./backend/gradlew
+          POSTGRES_SMOKE_TEST=true \
+          POSTGRES_SMOKE_DATASOURCE_URL="jdbc:postgresql://localhost:5432/noviis_ci_upgrade" \
+          POSTGRES_SMOKE_DATASOURCE_USERNAME=noviis_ci \
+          POSTGRES_SMOKE_DATASOURCE_PASSWORD=noviis_ci \
+            "$previous/backend/gradlew" -p "$previous/backend" test \
+              --tests '*PostgresApplicationContextSmokeTest.contextLoadsWithPostgresMigrations' --rerun-tasks
+          POSTGRES_SMOKE_TEST=true \
+          POSTGRES_SMOKE_DATASOURCE_URL="jdbc:postgresql://localhost:5432/noviis_ci_upgrade" \
+          POSTGRES_SMOKE_DATASOURCE_USERNAME=noviis_ci \
+          POSTGRES_SMOKE_DATASOURCE_PASSWORD=noviis_ci \
+            ./backend/gradlew -p backend test \
+              --tests '*PostgresApplicationContextSmokeTest.contextLoadsWithPostgresMigrations' --rerun-tasks
+          while IFS= read -r migration; do
+            version="${migration##*/V}"
+            version="${version%%__*}"
+            test "$(psql -h localhost -U noviis_ci -d noviis_ci_upgrade -Atc \
+              "select count(*) from flyway_schema_history where version = '$version' and success")" = 1
+          done < <(find backend/src/main/resources/db/migration -type f -name 'V*.sql' | sort -V)
 
   ops-config-test:
     needs: changes
@@ -472,6 +505,7 @@ jobs:
           sudo bash deploy/monitoring/tests/rotate-grafana-admin-password-test.sh
           bash deploy/monitoring/tests/verify-grafana-archive-test.sh
           bash deploy/monitoring/tests/check-prometheus-health-test.sh
+          bash deploy/monitoring/tests/verify-resource-limit-evidence-test.sh
 
       - name: Validate repository migration policy changes
         env:
@@ -551,6 +585,7 @@ jobs:
       - backend-test
       - frontend-test
       - backend-postgres-migration
+      - backend-postgres-upgrade
       - ops-config-test
       - trusted-contract-evidence
     runs-on: ubuntu-24.04
@@ -565,6 +600,7 @@ jobs:
           BACKEND_RESULT: ${{ needs.backend-test.result }}
           FRONTEND_RESULT: ${{ needs.frontend-test.result }}
           POSTGRES_RESULT: ${{ needs.backend-postgres-migration.result }}
+          POSTGRES_UPGRADE_RESULT: ${{ needs.backend-postgres-upgrade.result }}
           OPS_RESULT: ${{ needs.ops-config-test.result }}
           TRUSTED_EVIDENCE_RESULT: ${{ needs.trusted-contract-evidence.result }}
           NEED_BACKEND: ${{ needs.changes.outputs.backend }}
@@ -598,6 +634,7 @@ jobs:
           }
           verify_job "$NEED_BACKEND" "$BACKEND_RESULT" backend-test
           verify_job "$NEED_BACKEND" "$POSTGRES_RESULT" backend-postgres-migration
+          verify_job "$NEED_BACKEND" "$POSTGRES_UPGRADE_RESULT" backend-postgres-upgrade
           verify_job "$NEED_FRONTEND" "$FRONTEND_RESULT" frontend-test
           verify_job "$NEED_OPS" "$OPS_RESULT" ops-config-test
           need_trusted_evidence=false

@@ -122,6 +122,7 @@ for (const protectedOpsPath of [
   '.github/CODEOWNERS',
   'docs/ops/contract-evidence/**',
   'docs/ops/postgres-backup-restore.md',
+  'docs/ops/**',
 ]) {
   assert(ciSource.includes(`- '${protectedOpsPath}'`), `${protectedOpsPath} must select ops validation`)
 }
@@ -161,13 +162,19 @@ for (const [name, workflow, group, queue] of [
   assert(workflow.concurrency?.queue === queue, `${name} concurrency queue policy changed`)
 }
 
-for (const name of ['backend-postgres-migration', 'ops-config-test']) {
+for (const name of ['backend-postgres-migration', 'backend-postgres-upgrade', 'ops-config-test']) {
   const granted = permissions(ci.jobs[name])
   assert(granted.contents === 'read', `${name} requires read-only contents`)
   for (const forbidden of ['actions', 'deployments', 'id-token', 'attestations']) {
     assert(!(forbidden in granted), `${name} received forbidden ${forbidden} permission`)
   }
 }
+assert(!stepRuns(ci.jobs['backend-postgres-migration'], 'previous-backend-upgrade'),
+  'current-schema PostgreSQL smoke must not also run the previous-revision upgrade')
+assert(stepRuns(ci.jobs['backend-postgres-upgrade'], 'previous-backend-upgrade'),
+  'isolated PostgreSQL upgrade smoke is missing its previous revision worktree')
+assert(ci.jobs['ci-gate'].needs.includes('backend-postgres-upgrade'),
+  'CI gate must include the isolated PostgreSQL upgrade smoke job')
 
 for (const name of ['candidate-backend', 'candidate-frontend']) {
   const granted = permissions(ci.jobs[name])
@@ -235,6 +242,9 @@ for (const [name, releaseJob] of [['backend', ci.jobs['deploy-backend']], ['fron
 const preflight = seo.jobs['seo-preflight']
 assert(stepRuns(preflight, 'refs/heads/main'), 'manual SEO runs must be restricted to main')
 assert(seo.jobs['verify-endpoints'].needs === 'seo-preflight', 'SEO endpoint verification must depend on preflight')
+const scheduledSeoVerify = seo.jobs['verify-endpoints'].steps.find((step) => step.name === 'Verify SEO endpoints')
+assert(scheduledSeoVerify?.env?.SEO_VERIFY_ROTATION_SEED === '${{ github.run_id }}-${{ github.run_attempt }}',
+  'scheduled SEO verification must rotate its sample by workflow run identity')
 assert(seo.jobs['submit-scheduled'].environment === 'production-seo', 'scheduled SEO submission must use the restricted production-seo environment')
 
 console.log('Workflow AST security contracts passed')
