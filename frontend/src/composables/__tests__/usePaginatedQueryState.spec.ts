@@ -42,6 +42,18 @@ describe('usePaginatedQueryState', () => {
         })
     })
 
+    it('clamps an out-of-range page after the server page count shrinks', () => {
+        const state = usePaginatedQueryState({ initialPage: 3, initialSize: 10 })
+
+        expect(state.clampPageToTotalPages(3)).toBe(true)
+        expect(state.page.value).toBe(2)
+        expect(state.params.value.page).toBe(2)
+        expect(state.clampPageToTotalPages(3)).toBe(false)
+
+        expect(state.clampPageToTotalPages(0)).toBe(true)
+        expect(state.page.value).toBe(0)
+    })
+
     it('projects page response fields with nullish fallbacks', () => {
         const fallbackPage = ref(2)
         const pageData = ref<PageResponse<string> | null>({

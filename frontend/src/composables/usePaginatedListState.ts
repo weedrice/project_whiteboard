@@ -1,4 +1,4 @@
-import { computed, type ComputedRef, type Ref } from 'vue'
+import { computed, watch, type ComputedRef, type Ref } from 'vue'
 import type { PageResponse } from '@/types'
 import { getListLoadErrorMessage } from '@/utils/listLoadError'
 import { usePageResponseState, usePaginatedQueryState } from '@/composables/usePaginatedQueryState'
@@ -43,6 +43,14 @@ export function usePaginatedListState<
   })
   const query = usePaginatedQuery(pagination.params)
   const pageState = usePageResponseState(query.data, pagination.page)
+  watch(
+    () => query.data.value?.totalPages,
+    (totalPages) => {
+      if (totalPages === undefined) return
+      pagination.clampPageToTotalPages(totalPages)
+    },
+    { immediate: true },
+  )
   const errorMessage = computed(() => {
     if (!query.isError.value) {
       return ''

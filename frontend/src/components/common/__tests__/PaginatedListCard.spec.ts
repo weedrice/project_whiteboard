@@ -77,4 +77,15 @@ describe('PaginatedListCard', () => {
     expect(wrapper.get('[data-testid="custom-loading"]').text()).toBe('Custom loading')
     expect(wrapper.find('.animate-pulse').exists()).toBe(false)
   })
+
+  it('keeps pagination available while an out-of-range page is temporarily empty', () => {
+    const wrapper = mountCard({
+      itemsCount: 0,
+      page: 2,
+      totalPages: 2,
+    })
+
+    expect(wrapper.findComponent({ name: 'Pagination' }).exists()).toBe(true)
+    expect(wrapper.find('.nv-surface-muted').exists()).toBe(true)
+  })
 })

@@ -203,7 +203,7 @@ const getLoadingRowClass = (preset: LoadingPreset) => {
       />
       <slot v-else />
 
-      <div v-if="itemsCount > 0" class="nv-surface-muted px-4 py-4 sm:px-6 flex flex-col items-center">
+      <div v-if="itemsCount > 0 || totalPages > 0" class="nv-surface-muted px-4 py-4 sm:px-6 flex flex-col items-center">
         <slot name="footer-meta" />
         <Pagination :current-page="page" :total-pages="totalPages" @page-change="emit('page-change', $event)" />
       </div>

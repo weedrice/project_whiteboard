@@ -37,6 +37,14 @@ export function usePaginatedQueryState<TExtraParams extends Record<string, unkno
     page.value = options.initialPage ?? 0
   }
 
+  function clampPageToTotalPages(totalPages: number) {
+    const lastPage = Math.max(0, Math.trunc(totalPages) - 1)
+    if (page.value <= lastPage) return false
+
+    page.value = lastPage
+    return true
+  }
+
   return {
     page,
     size,
@@ -44,6 +52,7 @@ export function usePaginatedQueryState<TExtraParams extends Record<string, unkno
     handlePageChange,
     handleSizeChange,
     resetPage,
+    clampPageToTotalPages,
   }
 }
 

@@ -78,6 +78,22 @@ describe('Pagination', () => {
         expect(nextButton.attributes('disabled')).toBeDefined()
     })
 
+    it('normalizes navigation while an out-of-range page is being corrected', async () => {
+        const wrapper = mount(Pagination, {
+            props: {
+                currentPage: 9,
+                totalPages: 2,
+            },
+            global: globalMountOptions,
+        })
+
+        expect(wrapper.find('[aria-current="page"]').text()).toBe('2')
+        expect(getButtonByText(wrapper, 'common.next').attributes('disabled')).toBeDefined()
+
+        await getButtonByText(wrapper, 'common.previous').trigger('click')
+        expect(wrapper.emitted('page-change')?.[0]).toEqual([0])
+    })
+
     it('emits previous and next page changes when navigation buttons are enabled', async () => {
         const wrapper = mount(Pagination, {
             props: {
