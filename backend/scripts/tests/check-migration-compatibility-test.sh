@@ -22,6 +22,24 @@ if (cd "$fixture" && bash "$script" missing HEAD); then
   exit 1
 fi
 
+printf 'CREATE TABLE sample (id bigint, changed boolean);\n' > "$fixture/backend/src/main/resources/db/migration/V1__base.sql"
+git -C "$fixture" add .
+git -C "$fixture" commit -qm modified-existing-migration
+if (cd "$fixture" && bash "$script" "$base" HEAD); then
+  echo "Expected a modified versioned migration to fail" >&2
+  exit 1
+fi
+
+git -C "$fixture" reset -q --hard "$base"
+git -C "$fixture" rm -q backend/src/main/resources/db/migration/V1__base.sql
+git -C "$fixture" commit -qm deleted-existing-migration
+if (cd "$fixture" && bash "$script" "$base" HEAD); then
+  echo "Expected a deleted versioned migration to fail" >&2
+  exit 1
+fi
+
+git -C "$fixture" reset -q --hard "$base"
+
 printf 'ALTER TABLE sample DROP CONSTRAINT sample_pkey;\n' > "$fixture/backend/src/main/resources/db/migration/V2__unsafe.sql"
 git -C "$fixture" add .
 git -C "$fixture" commit -qm unsafe
@@ -162,12 +180,36 @@ cat > "$fixture/backend/src/main/resources/db/migration/V2__online_index_without
 -- noviis:migration-phase expand
 -- noviis:online-index sample_idx
 SET lock_timeout = '5s';
-CREATE INDEX CONCURRENTLY IF NOT EXISTS sample_idx ON sample (id);
+CREATE INDEX CONCURRENTLY sample_idx ON sample (id);
 SQL
 git -C "$fixture" add .
 git -C "$fixture" commit -qm online-index-without-sidecar
 if (cd "$fixture" && bash "$script" "$base" HEAD); then
   echo "Expected an online index without a Flyway sidecar to fail" >&2
+  exit 1
+fi
+
+git -C "$fixture" reset -q --hard "$base"
+cat > "$fixture/backend/src/main/resources/db/migration/V2__online_index_if_not_exists.sql" <<'SQL'
+-- noviis:migration-phase expand
+-- noviis:online-index sample_idx
+SET lock_timeout = '5s';
+CREATE INDEX CONCURRENTLY IF NOT EXISTS sample_idx ON sample (id);
+SQL
+printf '%s\n' 'executeInTransaction=false' > "$fixture/backend/src/main/resources/db/migration/V2__online_index_if_not_exists.sql.conf"
+git -C "$fixture" add .
+git -C "$fixture" commit -qm online-index-if-not-exists
+if (cd "$fixture" && bash "$script" "$base" HEAD); then
+  echo "Expected IF NOT EXISTS on an online index to fail" >&2
+  exit 1
+fi
+
+git -C "$fixture" reset -q --hard "$base"
+printf '%s\n' 'executeInTransaction=false' > "$fixture/backend/src/main/resources/db/migration/V2__orphan.sql.conf"
+git -C "$fixture" add .
+git -C "$fixture" commit -qm orphan-sidecar
+if (cd "$fixture" && bash "$script" "$base" HEAD); then
+  echo "Expected a Flyway sidecar without its new migration to fail" >&2
   exit 1
 fi
 
@@ -267,11 +309,23 @@ git -C "$fixture" commit -qm safe-text
 (cd "$fixture" && bash "$script" "$base" HEAD)
 
 for dangerous_statement in \
+  'GRANT SELECT ON sample TO public;' \
   'REVOKE SELECT ON sample FROM public;' \
+  'ALTER DEFAULT PRIVILEGES GRANT SELECT ON TABLES TO public;' \
   'ALTER TABLE sample OWNER TO other_owner;' \
+  'ALTER TYPE sample_type OWNER TO other_owner;' \
+  'REASSIGN OWNED BY legacy_role TO current_role;' \
   'DROP OWNED BY legacy_role;' \
+  'CREATE TRIGGER sample_trigger BEFORE INSERT ON sample EXECUTE FUNCTION sample_trigger();' \
+  'CREATE EVENT TRIGGER sample_ddl_trigger ON ddl_command_start EXECUTE FUNCTION sample_trigger();' \
+  'ALTER TABLE sample ENABLE TRIGGER ALL;' \
   'ALTER TABLE sample DISABLE TRIGGER ALL;' \
+  'CREATE POLICY sample_policy ON sample USING (true);' \
+  'ALTER POLICY sample_policy ON sample USING (false);' \
+  'ALTER TABLE sample ENABLE ROW LEVEL SECURITY;' \
   'ALTER TABLE sample SET UNLOGGED;' \
+  'ALTER TABLE sample ATTACH PARTITION sample_new FOR VALUES FROM (1) TO (2);' \
+  'CREATE TABLE sample_new PARTITION OF sample FOR VALUES FROM (1) TO (2);' \
   'ALTER TABLE sample DETACH PARTITION sample_old;'; do
   git -C "$fixture" reset -q --hard "$base"
   {
@@ -285,6 +339,20 @@ for dangerous_statement in \
     exit 1
   fi
 done
+
+git -C "$fixture" reset -q --hard "$base"
+cat > "$fixture/backend/src/main/resources/db/migration/V2__multiline_risky_operation.sql" <<'SQL'
+-- noviis:migration-phase expand
+ALTER TABLE sample
+  ATTACH PARTITION sample_new
+  FOR VALUES FROM (1) TO (2);
+SQL
+git -C "$fixture" add .
+git -C "$fixture" commit -qm multiline-risky-operation
+if (cd "$fixture" && bash "$script" "$base" HEAD); then
+  echo "Expected multiline risky SQL to require a contract marker" >&2
+  exit 1
+fi
 
 git -C "$fixture" reset -q --hard "$base"
 cat > "$fixture/backend/src/main/resources/db/migration/V2__hidden_contract_marker.sql" <<'SQL'
@@ -344,6 +412,7 @@ EOF
 printf 'V2__contract.sql https://github.com/weedrice/project_whiteboard/actions/runs/1 0123456789abcdef0123456789abcdef01234567 %s\n' "$evidence_file" >> "$fixture/docs/ops/applied-contract-migrations.txt"
 git -C "$fixture" add .
 git -C "$fixture" commit -qm premature-allowlist
+allowlist_commit="$(git -C "$fixture" rev-parse HEAD)"
 if (cd "$fixture" && bash "$script" "$base" HEAD); then
   echo "Expected same-change contract acknowledgement to fail" >&2
   exit 1
@@ -398,6 +467,35 @@ fi
 if (cd "$fixture" && GH_BACKEND_JOB_MODE=wrong-run \
   PATH="$fake_bin:$PATH" VERIFY_CONTRACT_RUNS=true bash "$script" "$contract_commit" HEAD); then
   echo "Expected a backend job URL for another run to fail" >&2
+  exit 1
+fi
+
+cat > "$fixture/backend/src/main/resources/db/migration/V3__unrelated_expand.sql" <<'SQL'
+-- noviis:migration-phase expand
+ALTER TABLE sample ADD COLUMN unrelated_value bigint;
+SQL
+git -C "$fixture" add .
+git -C "$fixture" commit -qm migration-with-contract-evidence
+if (cd "$fixture" && bash "$script" "$contract_commit" HEAD); then
+  echo "Expected contract evidence added with an unrelated new migration to fail" >&2
+  exit 1
+fi
+
+git -C "$fixture" reset -q --hard "$allowlist_commit"
+printf '\nextra=mutable\n' >> "$fixture/$evidence_file"
+git -C "$fixture" add .
+git -C "$fixture" commit -qm modified-contract-evidence
+if (cd "$fixture" && bash "$script" "$allowlist_commit" HEAD); then
+  echo "Expected a reviewed contract evidence manifest to be immutable" >&2
+  exit 1
+fi
+
+git -C "$fixture" reset -q --hard "$allowlist_commit"
+printf '# applied contracts\n' > "$fixture/docs/ops/applied-contract-migrations.txt"
+git -C "$fixture" add .
+git -C "$fixture" commit -qm removed-contract-allowlist-entry
+if (cd "$fixture" && bash "$script" "$allowlist_commit" HEAD); then
+  echo "Expected an applied contract allowlist entry to be immutable" >&2
   exit 1
 fi
 

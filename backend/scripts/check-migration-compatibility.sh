@@ -7,6 +7,7 @@ migration_dir="backend/src/main/resources/db/migration"
 contract_allowlist="docs/ops/applied-contract-migrations.txt"
 contract_marker_text='noviis:migration-phase contract'
 contract_migration=false
+new_migration=false
 repository="${CONTRACT_EVIDENCE_REPOSITORY:-weedrice/project_whiteboard}"
 verify_contract_runs="${VERIFY_CONTRACT_RUNS:-false}"
 
@@ -103,6 +104,10 @@ validate_online_indexes() {
   ')
 
   if [ "$online_index" = true ]; then
+    if strip_sql_comments "$file" | grep -Eiq 'CREATE[[:space:]]+(UNIQUE[[:space:]]+)?INDEX[[:space:]]+CONCURRENTLY[[:space:]]+IF[[:space:]]+NOT[[:space:]]+EXISTS'; then
+      echo "Online index migration must not use IF NOT EXISTS: $file" >&2
+      return 1
+    fi
     grep -Eq "^[[:space:]]*SET[[:space:]]+lock_timeout[[:space:]]*=[[:space:]]*'([1-9]|10)s'[[:space:]]*;[[:space:]]*$" "$file" || {
       echo "Online index migration requires a lock_timeout between 1s and 10s: $file" >&2
       return 1
@@ -523,6 +528,7 @@ for change in "${changes[@]}"; do
       ;;
   esac
   if [ "$status" = A ]; then
+    new_migration=true
     phase_count="$(extract_sql_line_comments "$file" | grep -Ec '^noviis:migration-phase (expand|backfill|contract)$' || true)"
     if [ "$phase_count" -ne 1 ]; then
       echo "New migration requires exactly one expand, backfill, or contract phase marker: $file" >&2
@@ -530,7 +536,7 @@ for change in "${changes[@]}"; do
     fi
     validate_online_indexes "$file"
   fi
-  sql_for_risk="$(strip_sql_comments_and_strings "$file")" || {
+  sql_for_risk="$(strip_sql_comments_and_strings "$file" | tr '\r\n\t' '   ')" || {
     echo "Migration SQL cannot be safely classified: $file" >&2
     exit 1
   }
@@ -539,7 +545,7 @@ for change in "${changes[@]}"; do
     || grep -Eq '\$[A-Za-z0-9_]*\$' "$file"; then
     risky=true
   fi
-  if grep -Eiq '(^|[[:space:];])(DROP[[:space:]]+(TABLE|COLUMN|VIEW|TYPE|DOMAIN|SCHEMA|SEQUENCE|FUNCTION|PROCEDURE|TRIGGER|POLICY|EXTENSION|OWNED)|TRUNCATE([[:space:]]+TABLE)?|REVOKE([[:space:]]+|$)|ALTER[[:space:]]+(TABLE|VIEW|MATERIALIZED[[:space:]]+VIEW|SEQUENCE|FUNCTION|PROCEDURE|SCHEMA|DATABASE)[^;]*OWNER[[:space:]]+TO|ALTER[[:space:]]+TABLE[^;]*(RENAME|DROP[[:space:]]+(COLUMN|CONSTRAINT|DEFAULT)|ALTER[[:space:]]+COLUMN[^;]*(TYPE|DROP[[:space:]]+DEFAULT)|DISABLE[[:space:]]+TRIGGER|SET[[:space:]]+UNLOGGED|DETACH[[:space:]]+PARTITION)|ALTER[[:space:]]+TYPE[^;]*RENAME[[:space:]]+VALUE)' <<< "$sql_for_risk"; then
+  if grep -Eiq '(^|[[:space:];])(DROP[[:space:]]+(TABLE|COLUMN|VIEW|TYPE|DOMAIN|SCHEMA|SEQUENCE|FUNCTION|PROCEDURE|TRIGGER|EVENT[[:space:]]+TRIGGER|POLICY|EXTENSION|OWNED)|TRUNCATE([[:space:]]+TABLE)?|(GRANT|REVOKE)([[:space:]]+|$)|ALTER[[:space:]]+DEFAULT[[:space:]]+PRIVILEGES|REASSIGN[[:space:]]+OWNED|CREATE[[:space:]]+(OR[[:space:]]+REPLACE[[:space:]]+)?((CONSTRAINT|EVENT)[[:space:]]+)?TRIGGER|ALTER[[:space:]]+(EVENT[[:space:]]+)?TRIGGER|CREATE[[:space:]]+POLICY|ALTER[[:space:]]+POLICY|CREATE[[:space:]]+TABLE[^;]*PARTITION[[:space:]]+OF|ALTER[[:space:]]+[^;]*OWNER[[:space:]]+TO|ALTER[[:space:]]+TABLE[^;]*(RENAME|DROP[[:space:]]+(COLUMN|CONSTRAINT|DEFAULT)|ALTER[[:space:]]+COLUMN[^;]*(TYPE|DROP[[:space:]]+DEFAULT)|(ENABLE|DISABLE)[[:space:]]+TRIGGER|(ENABLE|DISABLE|FORCE|NO[[:space:]]+FORCE)[[:space:]]+ROW[[:space:]]+LEVEL[[:space:]]+SECURITY|SET[[:space:]]+UNLOGGED|(ATTACH|DETACH)[[:space:]]+PARTITION)|ALTER[[:space:]]+TYPE[^;]*RENAME[[:space:]]+VALUE)' <<< "$sql_for_risk"; then
     risky=true
   fi
   if grep -Eiq '(^|[[:space:];])DROP[[:space:]]+INDEX' <<< "$sql_for_risk" \
@@ -570,11 +576,39 @@ if [ ! -f "$contract_allowlist" ]; then
   exit 1
 fi
 
-base_allowlist="$(git show "$base_ref:$contract_allowlist" 2>/dev/null || true)"
+if ! base_allowlist="$(git show "$base_ref:$contract_allowlist" 2>/dev/null)"; then
+  echo "Contract migration allowlist cannot be read from the base commit: $contract_allowlist" >&2
+  exit 1
+fi
+
+while read -r base_migration_name base_deployment_run base_deployment_sha base_evidence_file base_extra; do
+  [ -n "$base_migration_name" ] || continue
+  [[ "$base_migration_name" = \#* ]] && continue
+  base_entry="$base_migration_name $base_deployment_run $base_deployment_sha $base_evidence_file"
+  grep -Fqx -- "$base_entry" "$contract_allowlist" || {
+    echo "Applied contract migration records are immutable: $base_migration_name" >&2
+    exit 1
+  }
+  [ -z "${base_extra:-}" ] || {
+    echo "Base contract allowlist contains an invalid record: $base_migration_name" >&2
+    exit 1
+  }
+  if ! git diff --quiet "$base_ref" "$head_ref" -- "$base_evidence_file"; then
+    echo "Reviewed contract evidence manifests are immutable: $base_evidence_file" >&2
+    exit 1
+  fi
+done <<< "$base_allowlist"
+
 while read -r migration_name deployment_run deployment_sha evidence_file extra; do
   [ -n "$migration_name" ] || continue
   [[ "$migration_name" = \#* ]] && continue
   case "$migration_name" in V*.sql) ;; *) echo "Invalid contract migration filename in allowlist: $migration_name" >&2; exit 1 ;; esac
+  migration_file="$migration_dir/$migration_name"
+  if ! git cat-file -e "$head_ref:$migration_file" 2>/dev/null \
+    || ! has_exact_line_comment "$migration_file" "$contract_marker_text"; then
+    echo "Contract allowlist entry must reference an existing contract migration: $migration_name" >&2
+    exit 1
+  fi
   case "$deployment_run" in https://github.com/weedrice/project_whiteboard/actions/runs/[0-9]*) ;; *) echo "Contract allowlist entry requires this repository's GitHub deployment run URL: $migration_name" >&2; exit 1 ;; esac
   if [[ ! "$deployment_sha" =~ ^[0-9a-f]{40}$ ]]; then
     echo "Contract allowlist entry requires the deployed 40-character commit SHA: $migration_name" >&2
@@ -585,7 +619,12 @@ while read -r migration_name deployment_run deployment_sha evidence_file extra; 
     echo "Unexpected extra fields in contract allowlist entry: $migration_name" >&2
     exit 1
   fi
-  if [ "$verify_contract_runs" = true ] && ! grep -Fqx -- "$migration_name $deployment_run $deployment_sha $evidence_file" <<< "$base_allowlist"; then
+  allowlist_entry="$migration_name $deployment_run $deployment_sha $evidence_file"
+  if ! grep -Fqx -- "$allowlist_entry" <<< "$base_allowlist" && [ "$new_migration" = true ]; then
+    echo "Contract evidence cannot be added in the same change as a new migration: $migration_name" >&2
+    exit 1
+  fi
+  if [ "$verify_contract_runs" = true ] && ! grep -Fqx -- "$allowlist_entry" <<< "$base_allowlist"; then
     run_id="${deployment_run##*/}"
     verify_contract_deployment_run "$run_id" "$deployment_sha"
   fi
