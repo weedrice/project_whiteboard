@@ -71,7 +71,7 @@ public class AuthService {
                 user,
                 resolvedMetadata);
 
-        loginAuditRecorder.recordSuccess(request, user, resolvedMetadata);
+        loginAuditRecorder.recordSuccessAfterCommit(request, user, resolvedMetadata);
         loginAccountRateLimiter.reset(request.getLoginId());
         user.updateLastLogin(LocalDateTime.now(clock));
 

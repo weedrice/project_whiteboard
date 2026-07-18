@@ -6,6 +6,8 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Counter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Service
 @Slf4j
@@ -23,13 +25,36 @@ public class LoginAuditRecorder {
                 "noviis.login.audit.failures", "audit_type", "login_failure");
     }
 
-    public void recordSuccess(LoginRequest request, User user, LoginClientMetadata metadata) {
+    public void recordSuccessAfterCommit(LoginRequest request, User user, LoginClientMetadata metadata) {
+        Long userId = user.getUserId();
+        String loginId = request.getLoginId();
+        String ipAddress = metadata.ipAddress();
+        String userAgent = metadata.userAgent();
+        Runnable auditTask = () -> recordSuccess(
+                userId,
+                loginId,
+                ipAddress,
+                userAgent);
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            auditTask.run();
+            return;
+        }
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                auditTask.run();
+            }
+        });
+    }
+
+    private void recordSuccess(Long userId, String loginId, String ipAddress, String userAgent) {
         try {
             loginHistoryAuditService.recordSuccess(
-                    user.getUserId(),
-                    request.getLoginId(),
-                    metadata.ipAddress(),
-                    metadata.userAgent());
+                    userId,
+                    loginId,
+                    ipAddress,
+                    userAgent);
         } catch (RuntimeException exception) {
             loginSuccessAuditFailures.increment();
             log.warn("Failed to record login success history. failureType={}",
