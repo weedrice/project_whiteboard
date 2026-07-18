@@ -28,6 +28,20 @@ if node "$validator" "$fixture"; then
 fi
 cp "$project_root/deploy/release-freshness-paths.txt" "$fixture/deploy/release-freshness-paths.txt"
 
+sed -i '/ref: \${{ github.sha }}/d' "$fixture/.github/workflows/ci.yml"
+if node "$validator" "$fixture"; then
+  echo "Expected a release repository script checkout without an exact ref to fail" >&2
+  exit 1
+fi
+cp "$project_root/.github/workflows/ci.yml" "$fixture/.github/workflows/ci.yml"
+
+sed -i '/sparse-checkout: deploy\/scripts\/download-attestation-with-retry.sh/d' "$fixture/.github/workflows/ci.yml"
+if node "$validator" "$fixture"; then
+  echo "Expected a release repository script checkout without the helper path to fail" >&2
+  exit 1
+fi
+cp "$project_root/.github/workflows/ci.yml" "$fixture/.github/workflows/ci.yml"
+
 cp "$project_root/.github/workflows/deploy-backend.yml" "$fixture/.github/workflows/deploy-backend.yml"
 sed -i '/^  deploy:$/,/^    steps:$/s/^      attestations: read$/      attestations: read\n      id-token: write/' "$fixture/.github/workflows/deploy-backend.yml"
 if node "$validator" "$fixture"; then

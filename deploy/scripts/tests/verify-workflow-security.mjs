@@ -79,6 +79,28 @@ function assertCheckoutDoesNotPersistCredentials(workflow, workflowName) {
   }
 }
 
+function assertTrustedRepositoryScriptCheckout(job, jobName, scriptPath) {
+  const steps = job?.steps ?? []
+  const scriptStepIndex = steps.findIndex((step) =>
+    typeof step.run === 'string' && step.run.includes(scriptPath),
+  )
+  assert(scriptStepIndex >= 0, `${jobName} no longer executes ${scriptPath}`)
+
+  const checkout = steps.slice(0, scriptStepIndex).findLast((step) =>
+    typeof step.uses === 'string' && step.uses.startsWith('actions/checkout@'),
+  )
+  assert(checkout, `${jobName} executes ${scriptPath} before checking out the repository`)
+  assert(checkout.with?.ref === '${{ github.sha }}', `${jobName} repository script checkout is not pinned to github.sha`)
+  assert(checkout.with?.['persist-credentials'] === false, `${jobName} repository script checkout persists credentials`)
+
+  const sparseCheckout = String(checkout.with?.['sparse-checkout'] ?? '')
+    .split(/\r?\n/)
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+  assert(sparseCheckout.includes(scriptPath), `${jobName} sparse checkout does not include ${scriptPath}`)
+  assert(checkout.with?.['sparse-checkout-cone-mode'] === false, `${jobName} repository script checkout must use non-cone sparse mode`)
+}
+
 function assertExactKeys(actual, expected, message) {
   const keys = Object.keys(actual ?? {}).sort()
   assert(JSON.stringify(keys) === JSON.stringify([...expected].sort()), `${message}: ${keys.join(', ')}`)
@@ -132,6 +154,7 @@ for (const name of ['candidate-backend', 'candidate-frontend']) {
 for (const name of ['release-backend', 'release-frontend']) {
   const granted = permissions(ci.jobs[name])
   assert(granted['id-token'] === 'write' && granted.attestations === 'write', `${name} signing permissions changed`)
+  assertTrustedRepositoryScriptCheckout(ci.jobs[name], name, 'deploy/scripts/download-attestation-with-retry.sh')
 }
 
 const trusted = ci.jobs['trusted-contract-evidence']
