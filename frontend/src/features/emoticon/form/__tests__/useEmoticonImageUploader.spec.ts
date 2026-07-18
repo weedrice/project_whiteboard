@@ -70,7 +70,7 @@ describe('useEmoticonImageUploader', () => {
     expect(session.setUploadProgress).toHaveBeenNthCalledWith(1, 0, 1)
     expect(session.setUploadProgress).toHaveBeenNthCalledWith(2, 1)
     expect(session.releaseUploadController).toHaveBeenCalledWith(controller)
-    expect(session.recordUploadedFile).toHaveBeenCalledWith(11)
+    expect(session.recordUploadedFile).toHaveBeenCalledWith(11, 7)
   })
 
   it('aborts pending uploads when a preview upload fails', async () => {
@@ -184,8 +184,8 @@ describe('useEmoticonImageUploader', () => {
     expect(started).toEqual(['image-0.png', 'image-1.png', 'image-2.png'])
     expect(fileApi.uploadFile).toHaveBeenCalledTimes(3)
     expect(session.abortPendingUploads).toHaveBeenCalled()
-    expect(session.recordUploadedFile).toHaveBeenCalledWith(21)
-    expect(session.recordUploadedFile).toHaveBeenCalledWith(22)
+    expect(session.recordUploadedFile).toHaveBeenCalledWith(21, 7)
+    expect(session.recordUploadedFile).toHaveBeenCalledWith(22, 7)
     expect(maxActiveCount).toBe(3)
   })
 })

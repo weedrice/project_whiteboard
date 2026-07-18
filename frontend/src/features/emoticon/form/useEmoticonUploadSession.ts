@@ -5,10 +5,10 @@ import { isCancellationError } from '@/utils/cancellationError'
 export function useEmoticonUploadSession() {
   const uploadProgress = ref({ current: 0, total: 0 })
   const uploadControllers = new Set<AbortController>()
-  const trackedUploadedFileIds = ref<number[]>([])
+  const trackedUploads = ref<Array<{ fileId: number, runId: number }>>([])
   const isDisposed = ref(false)
   let submitRunId = 0
-  let discardPromise: Promise<void> | null = null
+  const discardPromises = new Map<number, Promise<void>>()
 
   const createUploadCancelledError = () => new DOMException('Upload has been cancelled', 'AbortError')
 
@@ -39,45 +39,51 @@ export function useEmoticonUploadSession() {
     return submitRunId
   }
 
-  const recordUploadedFile = (fileId: number) => {
-    if (!trackedUploadedFileIds.value.includes(fileId)) {
-      trackedUploadedFileIds.value.push(fileId)
+  const recordUploadedFile = (fileId: number, runId = submitRunId) => {
+    if (!trackedUploads.value.some((upload) => upload.fileId === fileId)) {
+      trackedUploads.value.push({ fileId, runId })
     }
   }
 
-  const clearTrackedUploads = () => {
-    trackedUploadedFileIds.value = []
+  const clearTrackedUploads = (runId = submitRunId) => {
+    trackedUploads.value = trackedUploads.value.filter((upload) => upload.runId !== runId)
   }
 
-  const discardTrackedUploads = async () => {
-    if (discardPromise) {
-      return discardPromise
+  const discardTrackedUploads = async (runId = submitRunId) => {
+    const pendingDiscard = discardPromises.get(runId)
+    if (pendingDiscard) {
+      return pendingDiscard
     }
 
-    discardPromise = (async () => {
-      while (trackedUploadedFileIds.value.length > 0) {
-        const fileIds = [...trackedUploadedFileIds.value]
+    const discardPromise = (async () => {
+      while (true) {
+        const fileIds = trackedUploads.value
+          .filter((upload) => upload.runId === runId)
+          .map((upload) => upload.fileId)
+        if (fileIds.length === 0) return
         try {
           await fileApi.discardUploads(fileIds, { skipGlobalErrorHandler: true })
         } catch {
           return
         }
         const discardedIds = new Set(fileIds)
-        trackedUploadedFileIds.value = trackedUploadedFileIds.value.filter(
-          (fileId) => !discardedIds.has(fileId)
+        trackedUploads.value = trackedUploads.value.filter(
+          (upload) => upload.runId !== runId || !discardedIds.has(upload.fileId)
         )
       }
     })().finally(() => {
-      discardPromise = null
+      discardPromises.delete(runId)
     })
+    discardPromises.set(runId, discardPromise)
 
     return discardPromise
   }
 
   const cancelSubmitRun = () => {
+    const cancelledRunId = submitRunId
     submitRunId += 1
     abortPendingUploads()
-    void discardTrackedUploads()
+    void discardTrackedUploads(cancelledRunId)
   }
 
   const isSubmitActive = (runId?: number) => (
@@ -105,7 +111,7 @@ export function useEmoticonUploadSession() {
 
   return {
     uploadProgress,
-    trackedUploadedFileIds: computed(() => trackedUploadedFileIds.value),
+    trackedUploadedFileIds: computed(() => trackedUploads.value.map((upload) => upload.fileId)),
     isDisposed: computed(() => isDisposed.value),
     createUploadCancelledError,
     isUploadCancelledError,

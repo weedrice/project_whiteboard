@@ -22,7 +22,7 @@ interface UseEmoticonEditSubmitOptions {
   uploadSession: EmoticonUploadSession
   queryClient: QueryClient
   fallbackErrorMessage: string
-  onSuccess: () => void
+  onSuccess: (emoticonId: number) => void
   onError: (message: string) => void
   onLimitExceeded?: () => void
 }
@@ -97,12 +97,12 @@ export function useEmoticonEditSubmit({
       skipGlobalErrorHandler: true
     })
     uploadSession.assertSubmitActive(currentRunId)
-    uploadSession.clearTrackedUploads()
+    uploadSession.clearTrackedUploads(currentRunId)
 
     queryClient.invalidateQueries({ queryKey: emoticonQueryKeys.detail(submitSnapshot.emoticonId) })
     queryClient.invalidateQueries({ queryKey: emoticonQueryKeys.listRoot })
 
-    onSuccess()
+    onSuccess(submitSnapshot.emoticonId)
   })
 
   return {

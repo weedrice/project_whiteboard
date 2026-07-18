@@ -28,6 +28,21 @@ export function useEmoticonImageFormState({
   const emoticonInput = ref<HTMLInputElement | null>(null)
   let isDisposed = false
   let thumbnailSelectionVersion = 0
+  let imageSelectionVersion = 0
+
+  const resetImageFormState = () => {
+    thumbnailSelectionVersion++
+    imageSelectionVersion++
+    revokeEmoticonPreviewUrl(thumbnailPreview.value)
+    imagePreviews.value.forEach((item) => {
+      revokeEmoticonPreviewUrl(item.preview)
+    })
+    thumbnailFile.value = null
+    thumbnailPreview.value = null
+    imagePreviews.value = []
+    resetFileInput(thumbnailInput.value)
+    resetFileInput(emoticonInput.value)
+  }
 
   const setThumbnailPreviewFromRemote = (preview: string | null | undefined) => {
     thumbnailSelectionVersion++
@@ -70,10 +85,11 @@ export function useEmoticonImageFormState({
     const input = event.target as HTMLInputElement
     const files = input.files
     if (!files) return
+    const selectionVersion = imageSelectionVersion
 
     try {
       const selectedImages = await selectEmoticonImages(files, getRemainingSlots())
-      if (isDisposed) {
+      if (isDisposed || selectionVersion !== imageSelectionVersion) {
         selectedImages.forEach((item) => {
           revokeEmoticonPreviewUrl(item.preview)
         })
@@ -105,10 +121,7 @@ export function useEmoticonImageFormState({
 
   onUnmounted(() => {
     isDisposed = true
-    revokeEmoticonPreviewUrl(thumbnailPreview.value)
-    imagePreviews.value.forEach((item) => {
-      revokeEmoticonPreviewUrl(item.preview)
-    })
+    resetImageFormState()
   })
 
   return {
@@ -118,6 +131,7 @@ export function useEmoticonImageFormState({
     thumbnailInput,
     emoticonInput,
     setThumbnailPreviewFromRemote,
+    resetImageFormState,
     handleThumbnailSelect,
     removeThumbnail,
     handleEmoticonSelect,

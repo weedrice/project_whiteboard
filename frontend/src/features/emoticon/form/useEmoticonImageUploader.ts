@@ -96,7 +96,7 @@ export function useEmoticonImageUploader(uploadSession: EmoticonUploadSession) {
         skipGlobalErrorHandler: options.skipGlobalErrorHandler
       })
       const fileId = unwrapAxiosApiData(response).fileId
-      uploadSession.recordUploadedFile(fileId)
+      uploadSession.recordUploadedFile(fileId, runId)
       uploadSession.assertSubmitActive(runId)
       return fileId
     } catch (error) {

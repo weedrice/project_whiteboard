@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { defineComponent, computed, ref } from 'vue'
+import { defineComponent, computed, nextTick, ref, type Ref } from 'vue'
 import { mount } from '@vue/test-utils'
 import { useEmoticonEditForm } from '../useEmoticonEditForm'
 import { toEmoticonEditFormState } from '../useEmoticonEditResource'
@@ -37,14 +37,16 @@ const createConfirmMock = () => vi.fn<(message: string) => Promise<boolean>>().m
 const mountForm = (options: {
   confirm?: ReturnType<typeof createConfirmMock>
   emoticon?: ReturnType<typeof createEmoticon>
+  emoticonId?: Ref<number>
 } = {}) => {
   const confirm = options.confirm ?? createConfirmMock()
+  const emoticonId = options.emoticonId ?? ref(7)
   let form!: ReturnType<typeof useEmoticonEditForm>
   const wrapper = mount(defineComponent({
     setup() {
       const emoticon = options.emoticon ?? createEmoticon()
       form = useEmoticonEditForm({
-        emoticonId: computed(() => 7),
+        emoticonId: computed(() => emoticonId.value),
         emoticon,
         editFormState: computed(() => toEmoticonEditFormState(emoticon.value)),
         selectThumbnailImage: vi.fn(),
@@ -59,7 +61,7 @@ const mountForm = (options: {
     },
   }))
 
-  return { confirm, form, wrapper }
+  return { confirm, emoticonId, form, wrapper }
 }
 
 describe('useEmoticonEditForm', () => {
@@ -105,6 +107,45 @@ describe('useEmoticonEditForm', () => {
 
     expect(confirm).toHaveBeenCalledWith('emoticon.visibility.hideConfirm')
     expect(mocks.toggleVisibility).toHaveBeenCalledTimes(1)
+    wrapper.unmount()
+  })
+
+  it('cancels the active submit and clears route-local form state when the emoticon changes', async () => {
+    const { emoticonId, form, wrapper } = mountForm()
+    const cancelSubmitRun = vi.spyOn(form.uploadSession, 'cancelSubmitRun')
+    const activeRunId = form.uploadSession.startSubmitRun()
+    const file = new File(['new'], 'new.png', { type: 'image/png' })
+    form.isSubmitting.value = true
+    form.emoticonName.value = 'Changed'
+    form.imagesToDelete.value = [10]
+    form.thumbnailFile.value = file
+    form.thumbnailPreview.value = 'blob:thumbnail'
+    form.newEmoticonPreviews.value = [{
+      clientId: 'new',
+      file,
+      preview: 'blob:new',
+      width: 100,
+      height: 100,
+    }]
+    form.tagInput.value = 'pending'
+    form.tags.value = ['changed']
+    form.uploadSession.setUploadProgress(1, 2)
+
+    emoticonId.value = 8
+    await nextTick()
+
+    expect(cancelSubmitRun).toHaveBeenCalledTimes(1)
+    expect(form.uploadSession.isSubmitActive(activeRunId)).toBe(false)
+    expect(form.isSubmitting.value).toBe(false)
+    expect(form.emoticonName.value).toBe('')
+    expect(form.existingImages.value).toEqual([])
+    expect(form.imagesToDelete.value).toEqual([])
+    expect(form.thumbnailFile.value).toBeNull()
+    expect(form.thumbnailPreview.value).toBeNull()
+    expect(form.newEmoticonPreviews.value).toEqual([])
+    expect(form.tagInput.value).toBe('')
+    expect(form.tags.value).toEqual([])
+    expect(form.uploadProgress.value).toEqual({ current: 0, total: 0 })
     wrapper.unmount()
   })
 })

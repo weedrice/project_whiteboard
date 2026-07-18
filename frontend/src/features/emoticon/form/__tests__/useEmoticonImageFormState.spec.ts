@@ -32,13 +32,14 @@ function createInputEvent(file: File) {
 
 function createHarness(
   selectThumbnailImage: (file: File) => Promise<EmoticonImagePreview | null>,
+  selectEmoticonImages: (files: FileList, remainingSlots: number) => Promise<EmoticonImagePreview[]> = vi.fn().mockResolvedValue([]),
 ) {
   let composable!: ReturnType<typeof useEmoticonImageFormState>
   const wrapper = mount(defineComponent({
     setup() {
       composable = useEmoticonImageFormState({
         selectThumbnailImage,
-        selectEmoticonImages: vi.fn().mockResolvedValue([]),
+        selectEmoticonImages,
         getRemainingSlots: () => 10,
       })
 
@@ -80,6 +81,42 @@ describe('useEmoticonImageFormState', () => {
     expect(composable.thumbnailPreview.value).toBe('blob:second')
     expect(revokeEmoticonPreviewUrl).toHaveBeenCalledWith('blob:first')
 
+    wrapper.unmount()
+  })
+
+  it('revokes current and late image previews when the form state is reset', async () => {
+    const file = new File(['image'], 'image.png', { type: 'image/png' })
+    const selection = createDeferred<EmoticonImagePreview[]>()
+    const { composable, wrapper } = createHarness(
+      vi.fn().mockResolvedValue(null),
+      vi.fn().mockReturnValue(selection.promise),
+    )
+    composable.thumbnailPreview.value = 'blob:thumbnail'
+    composable.imagePreviews.value = [{
+      clientId: 'current',
+      file,
+      preview: 'blob:current',
+      width: 100,
+      height: 100,
+    }]
+
+    const pendingSelection = composable.handleEmoticonSelect(createInputEvent(file).event)
+    composable.resetImageFormState()
+
+    selection.resolve([{
+      clientId: 'late',
+      file,
+      preview: 'blob:late',
+      width: 100,
+      height: 100,
+    }])
+    await pendingSelection
+
+    expect(composable.thumbnailPreview.value).toBeNull()
+    expect(composable.imagePreviews.value).toEqual([])
+    expect(revokeEmoticonPreviewUrl).toHaveBeenCalledWith('blob:thumbnail')
+    expect(revokeEmoticonPreviewUrl).toHaveBeenCalledWith('blob:current')
+    expect(revokeEmoticonPreviewUrl).toHaveBeenCalledWith('blob:late')
     wrapper.unmount()
   })
 })

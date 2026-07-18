@@ -142,7 +142,7 @@ describe('useEmoticonEditSubmit', () => {
     })
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['emoticon', 7] })
     expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['emoticons'] })
-    expect(onSuccess).toHaveBeenCalledTimes(1)
+    expect(onSuccess).toHaveBeenCalledWith(7)
     expect(onError).not.toHaveBeenCalled()
     expect(uploadSession.clearTrackedUploads).toHaveBeenCalledTimes(1)
     expect(isSubmitting.value).toBe(false)

@@ -49,6 +49,7 @@ export function useEmoticonEditForm({
     thumbnailInput,
     emoticonInput,
     setThumbnailPreviewFromRemote,
+    resetImageFormState,
     handleThumbnailSelect,
     handleEmoticonSelect,
     removeImagePreview: removeNewEmoticonImage,
@@ -62,6 +63,20 @@ export function useEmoticonEditForm({
   })
 
   const changeThumbnail = openThumbnailInput
+
+  watch(emoticonId, () => {
+    uploadSession.cancelSubmitRun()
+    uploadSession.resetUploadProgress()
+    hydratedEmoticonId.value = null
+    isSubmitting.value = false
+    emoticonName.value = ''
+    originalThumbnailUrl.value = null
+    existingImages.value = []
+    imagesToDelete.value = []
+    tagInput.value = ''
+    tags.value = []
+    resetImageFormState()
+  }, { flush: 'sync' })
 
   watch(editFormState, (formState) => {
     if (!formState) return

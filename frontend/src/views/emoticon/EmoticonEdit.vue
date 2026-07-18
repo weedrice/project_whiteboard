@@ -95,9 +95,9 @@ const { handleSubmit } = useEmoticonEditSubmit({
   uploadSession,
   queryClient,
   fallbackErrorMessage: t('emoticon.edit.failed'),
-  onSuccess: () => {
+  onSuccess: (updatedEmoticonId) => {
     toastStore.addToast(t('emoticon.edit.updated'), 'success')
-    router.push({ name: 'emoticon-detail', params: { emoticonId: emoticonId.value } })
+    router.push({ name: 'emoticon-detail', params: { emoticonId: updatedEmoticonId } })
   },
   onError: (message) => {
     toastStore.addToast(message, 'error')

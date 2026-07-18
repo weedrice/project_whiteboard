@@ -1,24 +1,25 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { nextTick, ref } from 'vue'
+import { nextTick, reactive, ref } from 'vue'
 import { emoticonApiData, emoticonApiSuccess } from '@/test/emoticonApiFixtures'
 import { getExposedVm } from '@/test/vue-test-helpers'
+import { createDeferred } from '@/test/async'
 
 type ExistingEmoticonImageFixture = { imageId: number; emoticonId: number; imageUrl: string; sortOrder: number }
 type EmoticonEditExposed = {
+  emoticonName: string
   existingImages: ExistingEmoticonImageFixture[]
   imagesToDelete: number[]
+  isSubmitting: boolean
+  newEmoticonPreviews: Array<{ clientId: string; file: File; preview: string; width: number; height: number }>
+  tagInput: string
   tags: string[]
   tagItems: Array<{ clientId: string; value: string }>
   removeTag: (clientId: string) => void
 }
 
 const mocks = vi.hoisted(() => ({
-  route: {
-    params: {
-      emoticonId: '7',
-    },
-  },
+  route: null as { params: { emoticonId: string } } | null,
   push: vi.fn(),
   invalidateQueries: vi.fn(),
   getEmoticon: vi.fn(),
@@ -26,6 +27,7 @@ const mocks = vi.hoisted(() => ({
   addImage: vi.fn(),
   updateEmoticon: vi.fn(),
   uploadFile: vi.fn(),
+  discardUploads: vi.fn(),
   addToast: vi.fn(),
   confirm: vi.fn(),
   toggleVisibility: vi.fn(),
@@ -91,6 +93,7 @@ vi.mock('@/api/emoticon', () => ({
 vi.mock('@/api/file', () => ({
   fileApi: {
     uploadFile: mocks.uploadFile,
+    discardUploads: mocks.discardUploads,
   },
 }))
 
@@ -159,6 +162,7 @@ const baseButtonStub = {
 describe('EmoticonEdit', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mocks.route = reactive({ params: { emoticonId: '7' } })
     mocks.confirm.mockResolvedValue(true)
     mocks.deleteImage.mockResolvedValue(emoticonApiSuccess())
     mocks.addImage.mockResolvedValue(emoticonApiSuccess())
@@ -168,6 +172,7 @@ describe('EmoticonEdit', () => {
     mocks.uploadFile.mockImplementation((file: File) => Promise.resolve(
       emoticonApiData({ fileId: file.name === 'new-a.png' ? 101 : 102 })
     ))
+    mocks.discardUploads.mockResolvedValue(emoticonApiData({ discardedCount: 2 }))
     mocks.selectEmoticonImages.mockResolvedValue([
       {
         clientId: 'new-preview-a',
@@ -469,5 +474,96 @@ describe('EmoticonEdit', () => {
     expect(vm.tags).toEqual(['same', 'tail'])
     expect(vm.tagItems[0].clientId).toBe(firstTagId)
     expect(vm.tagItems[1].value).toBe('tail')
+  })
+
+  it('discards uploads and ignores a delayed update after the route emoticon changes', async () => {
+    const update = createDeferred<ReturnType<typeof emoticonApiSuccess>>()
+    mocks.updateEmoticon.mockReturnValueOnce(update.promise)
+    const wrapper = mount(EmoticonEdit, {
+      global: {
+        mocks: {
+          $t: (key: string) => key,
+        },
+        stubs: {
+          BaseButton: baseButtonStub,
+          ArrowLeft: true,
+          Upload: true,
+          X: true,
+          Plus: true,
+          EyeOff: true,
+          Eye: true,
+        },
+      },
+    })
+    await flushPromises()
+
+    const fileInput = wrapper.find('input[type="file"][multiple]')
+    Object.defineProperty(fileInput.element, 'files', {
+      value: [new File(['upload'], 'selected.png', { type: 'image/png' })],
+      configurable: true,
+    })
+    await fileInput.trigger('change')
+    await flushPromises()
+
+    const submit = wrapper.find('form').trigger('submit')
+    await vi.waitFor(() => expect(mocks.updateEmoticon).toHaveBeenCalledTimes(1))
+
+    mocks.route!.params.emoticonId = '8'
+    await nextTick()
+
+    const vm = getExposedVm<EmoticonEditExposed>(wrapper)
+    expect(vm.isSubmitting).toBe(false)
+    expect(vm.emoticonName).toBe('')
+    expect(vm.imagesToDelete).toEqual([])
+    expect(vm.newEmoticonPreviews).toEqual([])
+    expect(vm.tagInput).toBe('')
+    expect(vm.tags).toEqual([])
+    await vi.waitFor(() => expect(mocks.discardUploads).toHaveBeenCalledWith([101, 102], {
+      skipGlobalErrorHandler: true,
+    }))
+
+    update.resolve(emoticonApiSuccess())
+    await submit
+    await flushPromises()
+
+    expect(mocks.invalidateQueries).not.toHaveBeenCalled()
+    expect(mocks.addToast).not.toHaveBeenCalled()
+    expect(mocks.push).not.toHaveBeenCalled()
+  })
+
+  it('ignores a delayed update failure after the route emoticon changes', async () => {
+    const update = createDeferred<ReturnType<typeof emoticonApiSuccess>>()
+    mocks.updateEmoticon.mockReturnValueOnce(update.promise)
+    const wrapper = mount(EmoticonEdit, {
+      global: {
+        mocks: {
+          $t: (key: string) => key,
+        },
+        stubs: {
+          BaseButton: baseButtonStub,
+          ArrowLeft: true,
+          Upload: true,
+          X: true,
+          Plus: true,
+          EyeOff: true,
+          Eye: true,
+        },
+      },
+    })
+    await flushPromises()
+
+    const submit = wrapper.find('form').trigger('submit')
+    await vi.waitFor(() => expect(mocks.updateEmoticon).toHaveBeenCalledTimes(1))
+    mocks.route!.params.emoticonId = '8'
+    await nextTick()
+
+    update.reject(new Error('failed'))
+    await submit
+    await flushPromises()
+
+    expect(getExposedVm<EmoticonEditExposed>(wrapper).isSubmitting).toBe(false)
+    expect(mocks.invalidateQueries).not.toHaveBeenCalled()
+    expect(mocks.addToast).not.toHaveBeenCalled()
+    expect(mocks.push).not.toHaveBeenCalled()
   })
 })

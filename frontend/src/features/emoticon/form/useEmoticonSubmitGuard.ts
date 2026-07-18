@@ -30,13 +30,12 @@ export function useEmoticonSubmitGuard({
     try {
       await submit(currentRunId)
     } catch (error: unknown) {
-      await uploadSession.discardTrackedUploads()
-      if (extractErrorCode(error) === 'EM006') {
-        onLimitExceeded?.()
-      }
-      const isStaleCancellation = !uploadSession.isSubmitActive(currentRunId)
-        && uploadSession.isUploadCancelledError(error)
-      if (!uploadSession.isDisposed.value && !isStaleCancellation) {
+      await uploadSession.discardTrackedUploads(currentRunId)
+      const isCurrentSubmit = uploadSession.isSubmitActive(currentRunId)
+      if (!uploadSession.isDisposed.value && isCurrentSubmit) {
+        if (extractErrorCode(error) === 'EM006') {
+          onLimitExceeded?.()
+        }
         onError(extractErrorMessage(error) || fallbackErrorMessage)
       }
     } finally {

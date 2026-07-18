@@ -85,4 +85,19 @@ describe('useEmoticonUploadSession', () => {
     })
     expect(session.trackedUploadedFileIds.value).toEqual([])
   })
+
+  it('does not discard uploads owned by a newer submit run', async () => {
+    const { session } = mountSession()
+    const oldRunId = session.startSubmitRun()
+    session.recordUploadedFile(11, oldRunId)
+    const newRunId = session.startSubmitRun()
+    session.recordUploadedFile(12, newRunId)
+
+    await session.discardTrackedUploads(oldRunId)
+
+    expect(mocks.discardUploads).toHaveBeenCalledWith([11], {
+      skipGlobalErrorHandler: true,
+    })
+    expect(session.trackedUploadedFileIds.value).toEqual([12])
+  })
 })

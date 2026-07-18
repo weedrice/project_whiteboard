@@ -186,7 +186,7 @@ describe('useEmoticonRegisterSubmit', () => {
     lateImageUpload.resolve(emoticonApiData({ fileId: 20 }))
     await submitPromise
 
-    expect(uploadSession.recordUploadedFile).toHaveBeenCalledWith(20)
+    expect(uploadSession.recordUploadedFile).toHaveBeenCalledWith(20, 1)
     expect(uploadSession.discardTrackedUploads).toHaveBeenCalledTimes(1)
     expect(mocks.createEmoticon).not.toHaveBeenCalled()
   })

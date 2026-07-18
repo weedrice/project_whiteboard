@@ -83,7 +83,7 @@ export function useEmoticonRegisterSubmit({
       skipGlobalErrorHandler: true
     })
     uploadSession.assertSubmitActive(currentRunId)
-    uploadSession.clearTrackedUploads()
+    uploadSession.clearTrackedUploads(currentRunId)
 
     onSuccess()
   })
