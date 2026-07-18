@@ -14,7 +14,7 @@ public interface PostSeriesItemRepository extends JpaRepository<PostSeriesItem, 
 
     Optional<PostSeriesItem> findByPost_PostIdAndSeries_Owner_UserId(Long postId, Long ownerUserId);
 
-    @EntityGraph(attributePaths = { "post", "post.board" })
+    @EntityGraph(attributePaths = { "post", "post.board", "post.user" })
     List<PostSeriesItem> findBySeries_SeriesIdOrderBySortOrderAscItemIdAsc(Long seriesId);
 
     @Query("SELECT COALESCE(MAX(i.sortOrder), -1) FROM PostSeriesItem i WHERE i.series.seriesId = :seriesId")

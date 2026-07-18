@@ -6,6 +6,7 @@ import com.weedrice.whiteboard.domain.tag.constant.TagConstraints;
 import com.weedrice.whiteboard.global.validation.NoHtml;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -47,6 +48,7 @@ public class PostCreateRequest {
     @Size(max = FileAssociationConstraints.MAX_POST_FILE_COUNT, message = "{validation.post.files.max}")
     private List<Long> fileIds;
 
+    @Valid
     private PollRequest poll;
     private Long seriesId;
 

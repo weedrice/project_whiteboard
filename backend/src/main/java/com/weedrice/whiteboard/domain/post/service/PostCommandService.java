@@ -141,6 +141,9 @@ public class PostCommandService {
 
     @Transactional
     public Long updatePost(@NonNull Long userId, @NonNull Long postId, PostUpdateRequest request) {
+        if (request.getPoll() != null) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
         Post post = postRepository.findByIdWithRelationsForUpdate(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
         User modifier = userWritableResolver.resolve(userId);
@@ -162,7 +165,9 @@ public class PostCommandService {
         post.updatePost(category, request.getTitle(), sanitizedContents, isNotice, request.isNsfw(),
                 request.isSpoiler(), isSecret);
         tagAssignmentService.assignTags(post, request.getTags());
-        postSeriesService.attachPostToSeries(post.getUser().getUserId(), post, request.getSeriesId());
+        if (request.isSeriesIdPresent()) {
+            postSeriesService.updatePostSeries(post.getUser().getUserId(), post, request.getSeriesId());
+        }
 
         if (request.getFileIds() != null) {
             fileService.syncPostFiles(request.getFileIds(), userId, post.getPostId(), request.getDraftId());

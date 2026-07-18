@@ -121,6 +121,9 @@ export function buildPostFormPayload({
     const parsedSeriesId = form.seriesId == null || form.seriesId === ''
         ? undefined
         : (typeof form.seriesId === 'string' ? Number.parseInt(form.seriesId, 10) : form.seriesId)
+    const seriesId = parsedSeriesId != null && !Number.isNaN(parsedSeriesId) && parsedSeriesId > 0
+        ? parsedSeriesId
+        : (mode === 'edit' ? null : undefined)
     const poll = mode === 'create' ? normalizePostFormPoll(form.poll) : null
 
     return {
@@ -132,7 +135,7 @@ export function buildPostFormPayload({
         isSpoiler: hideSpoiler ? false : form.isSpoiler,
         isSecret: hideSecret ? false : form.isSecret,
         ...(showNotice && { isNotice: form.isNotice }),
-        ...(parsedSeriesId && !Number.isNaN(parsedSeriesId) && { seriesId: parsedSeriesId }),
+        ...(seriesId !== undefined && { seriesId }),
         ...(poll && { poll }),
         fileIds,
     }

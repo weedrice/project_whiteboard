@@ -117,9 +117,14 @@ public class PollService {
     }
 
     private void validatePollRequest(PollRequest request) {
-        if (request.getQuestion() == null || request.getQuestion().strip().isBlank()
+        if (request.getQuestion() == null
+                || request.getQuestion().strip().isBlank()
+                || request.getQuestion().length() > 200
                 || request.getOptions() == null || request.getOptions().size() < 2 || request.getOptions().size() > 10
-                || request.getOptions().stream().anyMatch(option -> option == null || option.strip().isBlank())) {
+                || request.getOptions().stream().anyMatch(option -> option == null
+                || option.strip().isBlank()
+                || option.length() > 100)
+                || request.getClosesAt() != null && !request.getClosesAt().isAfter(LocalDateTime.now())) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
     }

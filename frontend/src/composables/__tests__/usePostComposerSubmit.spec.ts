@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
 import { usePostComposerSubmit } from '../usePostComposerSubmit'
 import logger from '@/utils/logger'
+import { createDeferred } from '@/test/async'
 
 vi.mock('@/utils/logger', () => ({
   default: {
@@ -83,6 +84,37 @@ function createSubmit(overrides: {
 }
 
 describe('usePostComposerSubmit', () => {
+  it('keeps a single-flight lock from draft save through the mutation callback', async () => {
+    const draft = createDeferred<{ draftId: number }>()
+    const saveDraftNow = vi.fn(() => draft.promise)
+    const submit = createSubmit({ draftEnabled: true, saveDraftNow })
+
+    const first = submit.handleSubmit()
+    const duplicate = submit.handleSubmit()
+
+    expect(submit.isSubmissionLocked.value).toBe(true)
+    expect(saveDraftNow).toHaveBeenCalledOnce()
+    draft.resolve({ draftId: 8 })
+    await Promise.all([first, duplicate])
+
+    expect(submit.createPost).toHaveBeenCalledOnce()
+    expect(submit.isSubmissionLocked.value).toBe(true)
+    submit.createPost.mock.calls[0][1].onSuccess({ data: { data: { postId: 1 } } })
+    expect(submit.isSubmissionLocked.value).toBe(false)
+  })
+
+  it('releases the single-flight lock when mutation dispatch throws synchronously', async () => {
+    const submit = createSubmit()
+    submit.createPost.mockImplementation(() => {
+      throw new Error('dispatch failed')
+    })
+
+    await submit.handleSubmit()
+
+    expect(submit.isSubmissionLocked.value).toBe(false)
+    expect(submit.addToast).toHaveBeenCalledWith('common.error.unknown', 'error')
+  })
+
   it('blocks blank titles and missing categories before mutating', async () => {
     const blankTitle = createSubmit({ title: '   ' })
 

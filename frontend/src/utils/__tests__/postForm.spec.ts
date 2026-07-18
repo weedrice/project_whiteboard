@@ -82,8 +82,29 @@ describe('postForm', () => {
             isSpoiler: false,
             isSecret: false,
             isNotice: true,
+            seriesId: null,
             fileIds: [],
         })
+    })
+
+    it('omits an empty series on create and explicitly clears it on edit', () => {
+        const formWithoutSeries = { ...baseForm, seriesId: '' }
+
+        expect(buildPostFormPayload({
+            form: formWithoutSeries,
+            mode: 'create',
+            showNotice: true,
+            canShowNsfw: true,
+            fileIds: [],
+        })).not.toHaveProperty('seriesId')
+
+        expect(buildPostFormPayload({
+            form: formWithoutSeries,
+            mode: 'edit',
+            showNotice: true,
+            canShowNsfw: true,
+            fileIds: [],
+        })).toHaveProperty('seriesId', null)
     })
 
     it('includes valid poll data only for create payloads', () => {

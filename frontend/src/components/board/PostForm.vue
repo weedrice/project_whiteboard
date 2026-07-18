@@ -318,7 +318,7 @@ usePwaReloadBlocker(
   { retainWhileBlockedOnDispose: true },
 )
 
-const { handleSubmit } = usePostComposerSubmit({
+const { handleSubmit, isSubmissionLocked } = usePostComposerSubmit({
   mode: () => props.mode,
   boardUrl,
   postId,
@@ -428,7 +428,7 @@ defineExpose({
         :board-label="boardLabel"
         :hide-board-label="props.hideBoardLabel"
         :hide-preview="props.hidePreview"
-        :is-submitting="isSubmitting"
+        :is-submitting="isSubmitting || isSubmissionLocked"
         :submit-label="submitLabel"
         @cancel="handleCancel"
         @preview="showPreview = true"
@@ -538,7 +538,7 @@ defineExpose({
           variant="secondary"
           size="sm"
           class="min-h-[40px] flex-1"
-          :disabled="isSavingDraft"
+          :disabled="isSavingDraft || isSubmissionLocked"
           @click="handleSaveDraft"
         >
           {{ isSavingDraft ? $t('board.writePost.draftStatus.saving') : $t('board.writePost.actions.saveDraft') }}
@@ -548,7 +548,8 @@ defineExpose({
           variant="primary"
           size="sm"
           class="min-h-[40px] flex-1"
-          :loading="isSubmitting"
+          :loading="isSubmitting || isSubmissionLocked"
+          :disabled="isSavingDraft || isSubmissionLocked"
           @click="handleSubmit"
         >
           {{ scheduledAt ? $t('board.writePost.actions.schedule') : submitLabel }}
@@ -560,7 +561,7 @@ defineExpose({
         variant="secondary"
         size="sm"
         class="mt-2 min-h-[36px] w-full"
-        :disabled="isSavingDraft"
+        :disabled="isSavingDraft || isSubmissionLocked"
         @click="handleSaveDraft"
       >
         {{ isSavingDraft ? $t('board.writePost.draftStatus.saving') : $t('board.writePost.actions.saveDraft') }}

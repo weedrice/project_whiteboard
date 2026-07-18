@@ -19,6 +19,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -547,6 +548,26 @@ class PostControllerTest {
         }
 
         @Test
+        @DisplayName("게시글 생성 실패 - 설문 중첩 필드 검증")
+        void createPost_fail_invalidNestedPoll() throws Exception {
+            String json = """
+                    {
+                      "title": "Title",
+                      "contents": "Content",
+                      "poll": {"question": "%s", "options": ["A", "B"]}
+                    }
+                    """.formatted("q".repeat(201));
+
+            mockMvc.perform(post("/api/v1/boards/{boardUrl}/posts", "free")
+                    .with(user(customUserDetails))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(json))
+                    .andExpect(status().isBadRequest());
+
+            verify(postService, never()).createPostWithResponse(anyLong(), anyString(), any());
+        }
+
+        @Test
         @DisplayName("게시글 수정 성공")
         void updatePost_success() throws Exception {
             Long postId = 1L;
@@ -558,6 +579,40 @@ class PostControllerTest {
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isOk());
+        }
+
+        @Test
+        @DisplayName("게시글 수정은 seriesId 명시적 null을 해제 의도로 전달한다")
+        void updatePost_explicitNullSeries_tracksPresence() throws Exception {
+            Long postId = 1L;
+            when(postService.updatePost(anyLong(), eq(postId), any())).thenReturn(postId);
+
+            mockMvc.perform(put("/api/v1/posts/{postId}", postId)
+                    .with(user(customUserDetails))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""
+                            {"title":"Title","contents":"Content","seriesId":null}
+                            """))
+                    .andExpect(status().isOk());
+
+            ArgumentCaptor<PostUpdateRequest> requestCaptor = ArgumentCaptor.forClass(PostUpdateRequest.class);
+            verify(postService).updatePost(anyLong(), eq(postId), requestCaptor.capture());
+            assertThat(requestCaptor.getValue().getSeriesId()).isNull();
+            assertThat(requestCaptor.getValue().isSeriesIdPresent()).isTrue();
+        }
+
+        @Test
+        @DisplayName("게시글 수정 실패 - 설문 중첩 필드 검증")
+        void updatePost_fail_invalidNestedPoll() throws Exception {
+            mockMvc.perform(put("/api/v1/posts/{postId}", 1L)
+                    .with(user(customUserDetails))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("""
+                            {"title":"Title","contents":"Content","poll":{"question":"Q","options":["only"]}}
+                            """))
+                    .andExpect(status().isBadRequest());
+
+            verify(postService, never()).updatePost(anyLong(), anyLong(), any());
         }
 
         @Test

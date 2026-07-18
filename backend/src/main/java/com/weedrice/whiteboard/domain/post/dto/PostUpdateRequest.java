@@ -1,11 +1,14 @@
 package com.weedrice.whiteboard.domain.post.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonSetter;
 import com.weedrice.whiteboard.domain.file.support.FileAssociationConstraints;
 import com.weedrice.whiteboard.domain.tag.constant.TagConstraints;
 import com.weedrice.whiteboard.global.validation.NoHtml;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import jakarta.validation.Valid;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -45,8 +48,10 @@ public class PostUpdateRequest {
     @Size(max = FileAssociationConstraints.MAX_POST_FILE_COUNT, message = "{validation.post.files.max}")
     private List<Long> fileIds;
 
+    @Valid
     private PollRequest poll;
     private Long seriesId;
+    private boolean seriesIdPresent;
 
     public PostUpdateRequest(Long categoryId, String title, String contents, List<String> tags,
             boolean isNsfw, boolean isSpoiler, boolean isSecret, Long draftId, List<Long> fileIds) {
@@ -79,5 +84,17 @@ public class PostUpdateRequest {
         this.fileIds = fileIds;
         this.poll = poll;
         this.seriesId = seriesId;
+        this.seriesIdPresent = seriesId != null;
+    }
+
+    @JsonSetter("seriesId")
+    public void setSeriesId(Long seriesId) {
+        this.seriesId = seriesId;
+        this.seriesIdPresent = true;
+    }
+
+    @JsonIgnore
+    public boolean isSeriesIdPresent() {
+        return seriesIdPresent;
     }
 }

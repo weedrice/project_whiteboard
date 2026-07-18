@@ -70,7 +70,7 @@ public class PostDetailReadService {
         return PostResponse.from(
                 post, tags, context.viewHistory(), isLiked, isScrapped, imageUrls, isAdmin, boardListPage,
                 viewCountOverride, pollService.getPollResponse(post.getPostId(), context.readContext().viewerUserId()),
-                postSeriesService.getNavigation(post), resolveEditCount(post.getPostId()));
+                postSeriesService.getNavigation(post, context.readContext()), resolveEditCount(post.getPostId()));
     }
 
     private int resolveEditCount(Long postId) {

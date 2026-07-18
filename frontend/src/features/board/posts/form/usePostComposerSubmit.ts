@@ -1,4 +1,4 @@
-import type { Ref } from 'vue'
+import { ref, type Ref } from 'vue'
 import { unwrapApiData } from '@/api/response'
 import logger from '@/utils/logger'
 import type { ApiResponse } from '@/types'
@@ -15,12 +15,13 @@ type PostComposerPayload = {
   isSpoiler: boolean
   isSecret: boolean
   isNotice?: boolean
-  seriesId?: number
+  seriesId?: number | null
   fileIds: number[]
   poll?: PollPayload | null
   draftId?: number
   scheduledAt?: string
 }
+type CreatePostComposerPayload = Omit<PostComposerPayload, 'seriesId'> & { seriesId?: number }
 
 export type PostFormSubmitResult = {
   mode: PostComposerMode
@@ -34,7 +35,7 @@ export type PostFormSubmitResult = {
 }
 
 type CreatePostMutate = (
-  variables: { boardUrl: string, data: PostComposerPayload },
+  variables: { boardUrl: string, data: CreatePostComposerPayload },
   options: {
     onSuccess: (response: { data: ApiResponse<PostCreateResponse> }) => void
     onError: (error: unknown) => void
@@ -50,7 +51,7 @@ type UpdatePostMutate = (
 ) => void
 
 type CreateScheduledPostMutate = (
-  variables: { boardUrl: string, data: PostComposerPayload & { scheduledAt: string } },
+  variables: { boardUrl: string, data: CreatePostComposerPayload & { scheduledAt: string } },
   options: {
     onSuccess: (response: { data: ApiResponse<ScheduledPost> }) => void
     onError: (error: unknown) => void
@@ -84,6 +85,8 @@ type UsePostComposerSubmitOptions = {
 }
 
 export function usePostComposerSubmit(options: UsePostComposerSubmitOptions) {
+  const isSubmissionLocked = ref(false)
+
   function notifyCreateSubmitted(newPostId: string | number, payload: PostComposerPayload) {
     options.onSubmitted()?.({
       mode: 'create',
@@ -95,21 +98,34 @@ export function usePostComposerSubmit(options: UsePostComposerSubmitOptions) {
   }
 
   async function handleSubmit() {
+    if (isSubmissionLocked.value) return
+    isSubmissionLocked.value = true
+    const unlock = () => {
+      isSubmissionLocked.value = false
+    }
+
+    try {
     if (options.draftConflict.value) {
       options.addToast(options.t('board.writePost.draftStatus.conflict'), 'error')
+      unlock()
       return
     }
     if (options.validateBeforeSubmit) {
       const validationResult = options.validateBeforeSubmit()
       const isValid = validationResult instanceof Promise ? await validationResult : validationResult
-      if (!isValid) return
+      if (!isValid) {
+        unlock()
+        return
+      }
     }
     if (!options.form.value.title.trim()) {
       options.addToast(options.t('board.writePost.validation'), 'error')
+      unlock()
       return
     }
     if (options.mode() === 'create' && !options.hideCategory() && !options.form.value.categoryId) {
       options.addToast(options.t('board.writePost.validation'), 'error')
+      unlock()
       return
     }
 
@@ -123,6 +139,7 @@ export function usePostComposerSubmit(options: UsePostComposerSubmitOptions) {
       } catch (error) {
         logger.error('Failed to save draft before submit:', error)
         options.addToast(options.t('common.error.unknown'), 'error')
+        unlock()
         return
       }
     }
@@ -132,10 +149,15 @@ export function usePostComposerSubmit(options: UsePostComposerSubmitOptions) {
     }
 
     if (options.mode() === 'create') {
+      const { seriesId, ...payloadWithoutSeries } = payload
+      const createPayload: CreatePostComposerPayload = seriesId == null
+        ? payloadWithoutSeries
+        : { ...payloadWithoutSeries, seriesId }
       const scheduledAt = options.scheduledAt.value?.trim()
       if (scheduledAt) {
-        options.createScheduledPost({ boardUrl: options.boardUrl.value, data: { ...payload, scheduledAt } }, {
+        options.createScheduledPost({ boardUrl: options.boardUrl.value, data: { ...createPayload, scheduledAt } }, {
           onSuccess: (response) => {
+            unlock()
             options.markCurrentSnapshotSaved()
             options.clearScheduledDraftRecovery()
             const scheduledPost = unwrapApiData(response.data)
@@ -150,13 +172,15 @@ export function usePostComposerSubmit(options: UsePostComposerSubmitOptions) {
             })
           },
           onError: (error) => {
+            unlock()
             logger.error('Failed to schedule post:', error)
           },
         })
         return
       }
-      options.createPost({ boardUrl: options.boardUrl.value, data: payload }, {
+      options.createPost({ boardUrl: options.boardUrl.value, data: createPayload }, {
         onSuccess: (response) => {
+          unlock()
           options.markCurrentSnapshotSaved()
           options.cleanupPublishedDraft()
           const successToastMessage = options.createSuccessToastMessage()
@@ -170,6 +194,7 @@ export function usePostComposerSubmit(options: UsePostComposerSubmitOptions) {
           notifyCreateSubmitted(createdPost.postId, payload)
         },
         onError: (error) => {
+          unlock()
           logger.error('Failed to create post:', error)
         },
       })
@@ -178,6 +203,7 @@ export function usePostComposerSubmit(options: UsePostComposerSubmitOptions) {
 
     options.updatePost({ postId: options.postId.value, data: payload }, {
       onSuccess: () => {
+        unlock()
         options.markCurrentSnapshotSaved()
         options.cleanupPublishedDraft()
         options.onSubmitted()?.({
@@ -189,12 +215,19 @@ export function usePostComposerSubmit(options: UsePostComposerSubmitOptions) {
         })
       },
       onError: (error) => {
+        unlock()
         logger.error('Failed to update post:', error)
       },
     })
+    } catch (error) {
+      unlock()
+      logger.error('Failed to submit post:', error)
+      options.addToast(options.t('common.error.unknown'), 'error')
+    }
   }
 
   return {
     handleSubmit,
+    isSubmissionLocked,
   }
 }

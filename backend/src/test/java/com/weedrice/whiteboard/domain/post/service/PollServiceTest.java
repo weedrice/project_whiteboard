@@ -71,6 +71,15 @@ class PollServiceTest {
         assertThrows(BusinessException.class, () -> service.createPoll(post, request(" ", List.of("a", "b"), false, null)));
         assertThrows(BusinessException.class, () -> service.createPoll(post, request("q", List.of("a"), false, null)));
         assertThrows(BusinessException.class, () -> service.createPoll(post, request("q", List.of("a", " "), false, null)));
+        assertThrows(BusinessException.class,
+                () -> service.createPoll(post, request("q".repeat(201), List.of("a", "b"), false, null)));
+        assertThrows(BusinessException.class,
+                () -> service.createPoll(post, request("q", List.of("a".repeat(101), "b"), false, null)));
+        assertThrows(BusinessException.class,
+                () -> service.createPoll(post, request("q", List.of("a", "b"), false,
+                        LocalDateTime.now().minusSeconds(1))));
+
+        verify(polls, never()).save(any());
     }
 
     @Test

@@ -14,6 +14,7 @@ import com.weedrice.whiteboard.global.common.util.TextInputNormalizer;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import java.util.List;
+import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.NonNull;
 import org.springframework.stereotype.Service;
@@ -26,6 +27,8 @@ public class PostSeriesService {
     private final PostSeriesRepository postSeriesRepository;
     private final PostSeriesItemRepository postSeriesItemRepository;
     private final UserWritableResolver userWritableResolver;
+    private final PostReadContextResolver postReadContextResolver;
+    private final PostAccessPolicy postAccessPolicy;
 
     public List<PostSeriesResponse> getMySeries(@NonNull Long userId) {
         userWritableResolver.resolve(userId);
@@ -61,10 +64,27 @@ public class PostSeriesService {
         if (seriesId == null) {
             return;
         }
-        PostSeries series = getOwnedSeries(ownerUserId, seriesId);
+        attachPostToLockedSeries(ownerUserId, post, seriesId);
+    }
+
+    @Transactional
+    public void updatePostSeries(@NonNull Long ownerUserId, @NonNull Post post, Long seriesId) {
+        if (seriesId == null) {
+            postSeriesItemRepository.findByPost_PostIdAndSeries_Owner_UserId(post.getPostId(), ownerUserId)
+                    .ifPresent(postSeriesItemRepository::delete);
+            return;
+        }
+        attachPostToLockedSeries(ownerUserId, post, seriesId);
+    }
+
+    private void attachPostToLockedSeries(Long ownerUserId, Post post, Long seriesId) {
+        PostSeries series = getOwnedSeriesForUpdate(ownerUserId, seriesId);
         PostSeriesItem item = postSeriesItemRepository.findByPost_PostIdAndSeries_Owner_UserId(
                         post.getPostId(), ownerUserId)
                 .orElse(null);
+        if (item != null && Objects.equals(item.getSeries().getSeriesId(), seriesId)) {
+            return;
+        }
         int nextSortOrder = postSeriesItemRepository.findMaxSortOrder(seriesId) + 1;
         if (item == null) {
             postSeriesItemRepository.save(PostSeriesItem.builder()
@@ -77,22 +97,37 @@ public class PostSeriesService {
         item.moveTo(series, nextSortOrder);
     }
 
-    public PostSeriesNavigation getNavigation(@NonNull Post post) {
+    PostSeriesNavigation getNavigation(@NonNull Post post, PostReadContext readContext) {
         return postSeriesItemRepository.findByPost_PostId(post.getPostId())
                 .map(currentItem -> {
                     List<PostSeriesItem> items = postSeriesItemRepository
                             .findBySeries_SeriesIdOrderBySortOrderAscItemIdAsc(currentItem.getSeries().getSeriesId());
+                    List<Post> posts = items.stream().map(PostSeriesItem::getPost).toList();
+                    PostReadContext context = postReadContextResolver.withAdminBoardIdsForPosts(
+                            readContext == null ? PostReadContext.anonymous() : readContext,
+                            posts);
+                    List<PostSeriesItem> readableItems = items.stream()
+                            .filter(item -> postAccessPolicy.isReadable(
+                                    item.getPost(),
+                                    context.viewer(),
+                                    context.isAuthorBlocked(item.getPost()),
+                                    context.activeAdminBoardIds()))
+                            .toList();
                     int index = -1;
-                    for (int i = 0; i < items.size(); i++) {
-                        if (items.get(i).getPost().getPostId().equals(post.getPostId())) {
+                    for (int i = 0; i < readableItems.size(); i++) {
+                        if (readableItems.get(i).getPost().getPostId().equals(post.getPostId())) {
                             index = i;
                             break;
                         }
                     }
-                    Post previous = index > 0 ? items.get(index - 1).getPost() : null;
-                    Post next = index >= 0 && index < items.size() - 1 ? items.get(index + 1).getPost() : null;
+                    if (index < 0) {
+                        return null;
+                    }
+                    Post previous = index > 0 ? readableItems.get(index - 1).getPost() : null;
+                    Post next = index < readableItems.size() - 1 ? readableItems.get(index + 1).getPost() : null;
                     return PostSeriesNavigation.builder()
-                            .series(PostSeriesNavigation.seriesFrom(currentItem.getSeries(), index + 1, items.size()))
+                            .series(PostSeriesNavigation.seriesFrom(
+                                    currentItem.getSeries(), index + 1, readableItems.size()))
                             .previousPost(PostSeriesNavigation.postFrom(previous))
                             .nextPost(PostSeriesNavigation.postFrom(next))
                             .build();
@@ -102,6 +137,11 @@ public class PostSeriesService {
 
     private PostSeries getOwnedSeries(Long userId, Long seriesId) {
         return postSeriesRepository.findBySeriesIdAndOwner_UserId(seriesId, userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+    }
+
+    private PostSeries getOwnedSeriesForUpdate(Long userId, Long seriesId) {
+        return postSeriesRepository.findBySeriesIdAndOwnerUserIdForUpdate(seriesId, userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
     }
 
