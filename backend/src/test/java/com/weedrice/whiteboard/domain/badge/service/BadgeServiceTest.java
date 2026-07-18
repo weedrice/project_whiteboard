@@ -14,8 +14,11 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
@@ -50,5 +53,24 @@ class BadgeServiceTest {
         assertEquals(1L, response.getScannedUsers());
         assertEquals(3L, response.getAwardedBadges());
         verify(evaluations).evaluateContentCountBadges(argThat(activeUsers -> activeUsers.equals(List.of(active))));
+    }
+
+    @Test
+    void publicBadgeLookupRejectsInactiveOrDeletedUser() {
+        when(users.findByUserIdAndStatusAndDeletedAtIsNull(7L, User.STATUS_ACTIVE)).thenReturn(Optional.empty());
+
+        assertThrows(com.weedrice.whiteboard.global.exception.BusinessException.class,
+                () -> service.getUserBadges(7L));
+
+        verify(users).findByUserIdAndStatusAndDeletedAtIsNull(7L, User.STATUS_ACTIVE);
+    }
+
+    @Test
+    void representativeBadgeLookupDoesNotExposeInactiveUser() {
+        when(users.findByUserIdAndStatusAndDeletedAtIsNull(8L, User.STATUS_ACTIVE)).thenReturn(Optional.empty());
+
+        assertNull(service.getRepresentativeBadge(8L));
+
+        verify(users).findByUserIdAndStatusAndDeletedAtIsNull(8L, User.STATUS_ACTIVE);
     }
 }

@@ -35,7 +35,7 @@ public class BadgeService {
     private final BadgeEvaluationService badgeEvaluationService;
 
     public List<BadgeResponse> getUserBadges(Long targetUserId) {
-        User user = userRepository.findById(targetUserId)
+        User user = userRepository.findByUserIdAndStatusAndDeletedAtIsNull(targetUserId, User.STATUS_ACTIVE)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         List<Badge> badges = badgeRepository.findAllByOrderBySortOrderAscBadgeCodeAsc();
         Map<String, UserBadge> userBadges = userBadgeRepository
@@ -52,7 +52,7 @@ public class BadgeService {
         if (userId == null) {
             return null;
         }
-        return userRepository.findById(userId)
+        return userRepository.findByUserIdAndStatusAndDeletedAtIsNull(userId, User.STATUS_ACTIVE)
                 .map(User::getRepresentativeBadgeCode)
                 .flatMap(code -> userBadgeRepository.findByUser_UserIdAndBadge_BadgeCode(userId, code))
                 .map(UserBadge::getBadge)
