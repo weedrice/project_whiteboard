@@ -29,9 +29,11 @@ async function uploadBoardIcon(file: File, config?: AxiosRequestConfig): Promise
   return data.success ? unwrapApiData(data) : null
 }
 
-export async function uploadBoardIconFile(file: File, config?: AxiosRequestConfig): Promise<string | null> {
-  const uploadedFile = await uploadBoardIcon(file, config)
-  return uploadedFile ? resolveFileUploadUrl(uploadedFile) : null
+export async function uploadBoardIconFile(
+  file: File,
+  config?: AxiosRequestConfig,
+): Promise<FileUploadResponse | null> {
+  return uploadBoardIcon(file, config)
 }
 
 export function useBoardIconUpload({ setIconUrl }: UseBoardIconUploadOptions) {

@@ -9,7 +9,8 @@ vi.mock('vue-i18n', () => ({
 }))
 
 vi.mock('@/api/file', () => ({
-  fileApi: { uploadFile: vi.fn() },
+  fileApi: { uploadFile: vi.fn(), discardUploads: vi.fn() },
+  resolveFileUploadUrl: (uploadedFile: { url?: string; fileUrl?: string }) => uploadedFile.url ?? uploadedFile.fileUrl ?? null,
 }))
 
 vi.mock('@/stores/toast', () => ({
@@ -17,7 +18,7 @@ vi.mock('@/stores/toast', () => ({
 }))
 
 vi.mock('@/stores/auth', () => ({
-  useAuthStore: () => ({ user: { points: 1000 } }),
+  useAuthStore: () => ({ user: { points: 1000 }, sessionGeneration: 0 }),
 }))
 
 vi.mock('@/stores/config', () => ({
@@ -272,5 +273,54 @@ describe('BoardForm', () => {
     const submit = wrapper.emitted('submit')?.[0]?.[0] as { boardUrl: string; iconUrl: string }
     expect(submit.boardUrl).toBe('new')
     expect(submit.iconUrl).toBe('')
+  })
+
+  it('aborts and discards an uploaded icon when the form is unmounted before save completes', async () => {
+    vi.mocked(fileApi.uploadFile).mockResolvedValueOnce({
+      data: {
+        success: true,
+        data: { fileId: 51, fileUrl: '/api/v1/files/51' },
+      },
+    } as Awaited<ReturnType<typeof fileApi.uploadFile>>)
+    vi.mocked(fileApi.discardUploads).mockResolvedValue({
+      data: { success: true, data: { discardedCount: 1 } },
+    } as Awaited<ReturnType<typeof fileApi.discardUploads>>)
+    let resolveSave!: (value: boolean) => void
+    const submitAction = vi.fn().mockReturnValue(new Promise<boolean>((resolve) => {
+      resolveSave = resolve
+    }))
+    const wrapper = mount(BoardForm, {
+      props: { submitAction },
+      global: {
+        mocks: { $t: (key: string) => key },
+        stubs: {
+          BaseInput: BaseInputStub,
+          BaseTextarea: BaseTextareaStub,
+          BaseCheckbox: BaseCheckboxStub,
+          BaseButton: BaseButtonStub,
+        },
+      },
+    })
+    const file = new File(['icon'], 'icon.png', { type: 'image/png' })
+    const fileInput = wrapper.get<HTMLInputElement>('#icon-upload')
+    Object.defineProperty(fileInput.element, 'files', { value: [file], configurable: true })
+    await fileInput.trigger('change')
+
+    const textInputs = wrapper.findAll('input')
+      .filter((input) => input.attributes('type') !== 'file' && input.attributes('type') !== 'checkbox')
+    await textInputs[0].setValue('Board')
+    await textInputs[1].setValue('board')
+    void wrapper.find('form').trigger('submit.prevent')
+    await vi.waitFor(() => expect(submitAction).toHaveBeenCalledOnce())
+    const signal = submitAction.mock.calls[0][1].signal as AbortSignal
+
+    wrapper.unmount()
+    resolveSave(false)
+    await vi.waitFor(() => expect(fileApi.discardUploads).toHaveBeenCalledWith(
+      [51],
+      expect.any(Object),
+    ))
+
+    expect(signal.aborted).toBe(true)
   })
 })

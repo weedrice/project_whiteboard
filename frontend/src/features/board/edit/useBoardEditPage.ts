@@ -19,6 +19,7 @@ import { encodePathSegment } from '@/utils/urlPath'
 import { useAuthStore } from '@/stores/auth'
 import { captureAuthSessionIntent, isAuthSessionIntentCurrent } from '@/utils/authSessionIntent'
 import { isCancellationError } from '@/utils/cancellationError'
+import type { BoardFormSubmitContext } from '@/features/board/form/useBoardFormSubmit'
 
 export function useBoardEditPage() {
   const { t } = useI18n()
@@ -62,40 +63,54 @@ export function useBoardEditPage() {
     resetManagerAssignmentState()
   }
 
-  async function handleUpdate(formData: BoardEditFormData) {
+  async function handleUpdate(
+    formData: BoardEditFormData,
+    submissionContext?: BoardFormSubmitContext,
+  ): Promise<boolean> {
     error.value = ''
     const targetBoardUrl = boardUrl.value
     const routeIntent = route.fullPath
     const intent = captureAuthSessionIntent(authStore)
 
-    await submit(async () => {
+    return submit(async () => {
       updateController?.abort()
       const controller = new AbortController()
+      const abortFromSubmission = () => controller.abort()
+      if (submissionContext?.signal.aborted) {
+        controller.abort()
+      } else {
+        submissionContext?.signal.addEventListener('abort', abortFromSubmission, { once: true })
+      }
+      const signal = controller.signal
       updateController = controller
       try {
         const board = await updateBoard({
           boardUrl: targetBoardUrl,
           data: formData as BoardUpdateData,
-          signal: controller.signal,
+          signal,
         })
+        submissionContext?.commitUpload()
         if (
-          controller.signal.aborted
+          signal.aborted
           || !isAuthSessionIntentCurrent(authStore, intent)
           || boardUrl.value !== targetBoardUrl
           || route.fullPath !== routeIntent
-        ) return
+        ) return true
         toastStore.addToast(t('board.form.successUpdate'), 'success')
         await router.push(`/board/${encodePathSegment(board.boardUrl)}`)
+        return true
       } catch (err: unknown) {
         if (
-          controller.signal.aborted
+          signal.aborted
           || !isAuthSessionIntentCurrent(authStore, intent)
           || boardUrl.value !== targetBoardUrl
           || isCancellationError(err)
-        ) return
+        ) return false
         error.value = t('board.form.updateFailed')
         handleError(err, t('board.form.updateFailed'))
+        return false
       } finally {
+        submissionContext?.signal.removeEventListener('abort', abortFromSubmission)
         if (updateController === controller) updateController = null
       }
     })

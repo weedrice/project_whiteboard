@@ -18,6 +18,12 @@ type BoardRequiredFields = {
   boardName?: string | null
   boardUrl?: string | null
 }
+type BoardWriteFields = BoardRequiredFields & {
+  description?: string | null
+  iconUrl?: string | null
+  guidePrompt?: string | null
+  sortOrder?: number | null
+}
 type BoardRequiredFieldValidationResult =
   | { valid: true }
   | { valid: false, messageKey: 'board.form.validation', toastType: 'error' }
@@ -28,12 +34,47 @@ const BOARD_REQUIRED_FIELD_ERROR = {
   toastType: 'error'
 } as const
 
+export const BOARD_WRITE_LIMITS = {
+  boardName: 100,
+  boardUrl: 100,
+  description: 255,
+  iconUrl: 255,
+  guidePrompt: 5000,
+} as const
+
+const BOARD_URL_PATTERN = /^[a-z0-9_-]+$/
+
 export function hasRequiredBoardFields(board: BoardRequiredFields): boolean {
   return validateRequiredBoardFields(board).valid
 }
 
 export function validateRequiredBoardFields(board: BoardRequiredFields): BoardRequiredFieldValidationResult {
   if (isEmpty(board.boardName) || isEmpty(board.boardUrl)) {
+    return BOARD_REQUIRED_FIELD_ERROR
+  }
+
+  return { valid: true }
+}
+
+export function validateBoardWriteFields(board: BoardWriteFields): BoardRequiredFieldValidationResult {
+  const requiredValidation = validateRequiredBoardFields(board)
+  if (!requiredValidation.valid) return requiredValidation
+
+  const boardName = String(board.boardName ?? '').trim()
+  const boardUrl = String(board.boardUrl ?? '').trim()
+  const description = String(board.description ?? '').trim()
+  const iconUrl = String(board.iconUrl ?? '').trim()
+  const guidePrompt = String(board.guidePrompt ?? '').trim()
+
+  if (
+    boardName.length > BOARD_WRITE_LIMITS.boardName
+    || boardUrl.length > BOARD_WRITE_LIMITS.boardUrl
+    || !BOARD_URL_PATTERN.test(boardUrl)
+    || description.length > BOARD_WRITE_LIMITS.description
+    || iconUrl.length > BOARD_WRITE_LIMITS.iconUrl
+    || guidePrompt.length > BOARD_WRITE_LIMITS.guidePrompt
+    || (board.sortOrder != null && board.sortOrder < 0)
+  ) {
     return BOARD_REQUIRED_FIELD_ERROR
   }
 

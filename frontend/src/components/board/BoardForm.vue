@@ -6,8 +6,13 @@ import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
 import BaseCheckbox from '@/components/common/ui/BaseCheckbox.vue'
 import { useBoardCreationPolicy } from '@/features/board/form/useBoardCreationPolicy'
 import { useBoardFormState, type BoardFormData } from '@/features/board/form/useBoardFormState'
-import { useBoardFormSubmit } from '@/features/board/form/useBoardFormSubmit'
+import {
+  useBoardFormSubmit,
+  type BoardFormSubmitAction,
+} from '@/features/board/form/useBoardFormSubmit'
 import { IMAGE_UPLOAD_ACCEPT } from '@/utils/imageUploadPolicy'
+import { useAuthStore } from '@/stores/auth'
+import { BOARD_WRITE_LIMITS } from '@/utils/board'
 
 type BoardData = BoardFormData
 
@@ -16,6 +21,7 @@ const props = withDefaults(defineProps<{
   isEdit?: boolean
   isSubmitting?: boolean
   error?: string
+  submitAction?: BoardFormSubmitAction
 }>(), {
   initialData: () => ({
     boardName: '',
@@ -39,6 +45,7 @@ const emit = defineEmits<{
 }>()
 
 const isEditMode = computed(() => props.isEdit)
+const authStore = useAuthStore()
 const {
   userPoints,
   boardCreateCost,
@@ -61,13 +68,16 @@ const {
 const {
   isSubmitting: localIsSubmitting,
   handleSubmit,
+  cancelSubmission,
 } = useBoardFormSubmit({
   form,
   selectedFile,
   isEdit: () => props.isEdit,
   canCreate,
   boardCreateCost,
+  submitAction: props.submitAction,
   emitSubmit: (data) => emit('submit', data),
+  getSessionGeneration: () => authStore.sessionGeneration,
 })
 
 const isSubmitting = computed(() => props.isSubmitting || localIsSubmitting.value)
@@ -100,7 +110,8 @@ const isSubmitting = computed(() => props.isSubmitting || localIsSubmitting.valu
                   d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
             </div>
-            <input id="icon-upload" type="file" @change="handleFileChange" :accept="IMAGE_UPLOAD_ACCEPT" class="hidden" />
+            <input id="icon-upload" type="file" @change="handleFileChange" :accept="IMAGE_UPLOAD_ACCEPT"
+              :disabled="isSubmitting" class="hidden" />
             <span class="text-xs nv-text-subtle text-center block mt-1">{{ $t('board.form.iconImage')
             }}</span>
           </label>
@@ -108,17 +119,20 @@ const isSubmitting = computed(() => props.isSubmitting || localIsSubmitting.valu
 
         <div class="flex-1">
           <BaseInput :label="$t('board.form.name')" v-model="form.boardName" type="text" required
+            :maxlength="BOARD_WRITE_LIMITS.boardName"
             :placeholder="$t('board.form.placeholder.name')" labelClass="text-base" />
         </div>
       </div>
 
       <div class="sm:col-span-6">
         <BaseInput :label="$t('board.form.url')" v-model="form.boardUrl" type="text" required :disabled="isEdit"
+          :maxlength="BOARD_WRITE_LIMITS.boardUrl"
           :placeholder="$t('board.form.placeholder.url')" labelClass="text-base" pattern="[a-z0-9_-]*" />
       </div>
 
       <div class="sm:col-span-6">
         <BaseTextarea id="description" name="description" rows="3" v-model="form.description"
+          :maxlength="BOARD_WRITE_LIMITS.description"
           :label="$t('board.form.description')" :placeholder="$t('board.form.placeholder.desc')"
           labelClass="text-base" />
       </div>
@@ -147,7 +161,7 @@ const isSubmitting = computed(() => props.isSubmitting || localIsSubmitting.valu
           id="guide-prompt"
           name="guidePrompt"
           rows="6"
-          maxlength="5000"
+          :maxlength="BOARD_WRITE_LIMITS.guidePrompt"
           v-model="form.guidePrompt"
           :label="$t('board.form.guidePrompt')"
           :placeholder="$t('board.form.placeholder.guidePrompt')"
@@ -170,7 +184,7 @@ const isSubmitting = computed(() => props.isSubmitting || localIsSubmitting.valu
         <span class="mx-2 nv-text-subtle">|</span>
         <span>{{ $t('board.form.currentPoints') }}: {{ userPoints }} P</span>
       </div>
-      <BaseButton type="button" variant="secondary" @click="emit('cancel')">
+      <BaseButton type="button" variant="secondary" @click="cancelSubmission(); emit('cancel')">
         {{ $t('common.cancel') }}
       </BaseButton>
       <BaseButton type="submit" variant="primary" :loading="isSubmitting" :disabled="!isEdit && !canCreate">

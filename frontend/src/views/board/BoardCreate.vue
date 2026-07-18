@@ -13,6 +13,7 @@ import type { BoardCreateData } from '@/types'
 import { useAuthStore } from '@/stores/auth'
 import { captureAuthSessionIntent, isAuthSessionIntentCurrent } from '@/utils/authSessionIntent'
 import { isCancellationError } from '@/utils/cancellationError'
+import type { BoardFormSubmitContext } from '@/features/board/form/useBoardFormSubmit'
 
 interface BoardData {
   boardName: string
@@ -38,14 +39,24 @@ const { mutateAsync: createBoard } = useCreateBoard()
 const error = ref('')
 let createController: AbortController | null = null
 
-async function handleCreate(formData: BoardData) {
+async function handleCreate(
+  formData: BoardData,
+  submissionContext?: BoardFormSubmitContext,
+): Promise<boolean> {
   error.value = ''
   const intent = captureAuthSessionIntent(authStore)
   const routeIntent = route.fullPath
 
-  await submit(async () => {
+  return submit(async () => {
     createController?.abort()
     const controller = new AbortController()
+    const abortFromSubmission = () => controller.abort()
+    if (submissionContext?.signal.aborted) {
+      controller.abort()
+    } else {
+      submissionContext?.signal.addEventListener('abort', abortFromSubmission, { once: true })
+    }
+    const signal = controller.signal
     createController = controller
     try {
       const createData: BoardCreateData = {
@@ -57,18 +68,22 @@ async function handleCreate(formData: BoardData) {
         agentUseYn: formData.agentUseYn,
         guidePrompt: formData.guidePrompt,
       }
-      const board = await createBoard({ ...createData, signal: controller.signal })
+      const board = await createBoard({ ...createData, signal })
+      submissionContext?.commitUpload()
       if (
-        controller.signal.aborted
+        signal.aborted
         || !isAuthSessionIntentCurrent(authStore, intent)
         || route.fullPath !== routeIntent
-      ) return
+      ) return true
       await router.push(`/board/${encodePathSegment(board.boardUrl)}`)
+      return true
     } catch (err: unknown) {
-      if (controller.signal.aborted || !isAuthSessionIntentCurrent(authStore, intent) || isCancellationError(err)) return
+      if (signal.aborted || !isAuthSessionIntentCurrent(authStore, intent) || isCancellationError(err)) return false
       error.value = extractErrorMessage(err) || t('board.form.createFailed')
       handleError(err, t('board.form.createFailed'))
+      return false
     } finally {
+      submissionContext?.signal.removeEventListener('abort', abortFromSubmission)
       if (createController === controller) createController = null
     }
   })
@@ -82,6 +97,7 @@ onScopeDispose(() => createController?.abort())
   <div class="max-w-3xl mx-auto">
     <PageHeader :title="$t('board.form.createTitle')" size="hero" class="mb-6" />
 
-    <BoardForm :isSubmitting="isSubmitting" :error="error" @submit="handleCreate" @cancel="router.back()" />
+    <BoardForm :isSubmitting="isSubmitting" :error="error" :submit-action="handleCreate"
+      @submit="handleCreate" @cancel="router.back()" />
   </div>
 </template>

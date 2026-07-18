@@ -75,7 +75,8 @@ const managerAuditLogs = computed(() => managerAuditPage.value?.content ?? [])
 
       <div class="px-4 py-5 sm:p-6 space-y-6">
         <!-- Board Form -->
-        <BoardForm :initialData="form" :isEdit="true" :isSubmitting="isSubmitting" :error="error" @submit="handleUpdate"
+        <BoardForm :initialData="form" :isEdit="true" :isSubmitting="isSubmitting" :error="error"
+          :submit-action="handleUpdate" @submit="handleUpdate"
           @cancel="goBack" />
 
         <hr class="nv-border" />

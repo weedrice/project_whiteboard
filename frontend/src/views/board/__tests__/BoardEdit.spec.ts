@@ -7,6 +7,8 @@ import { boardApi } from '@/api/board'
 import type { ApiResponse, BoardDetail } from '@/types'
 import { getExposedVm } from '@/test/vue-test-helpers'
 import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
+import type { BoardFormData } from '@/features/board/form/useBoardFormState'
+import type { BoardFormSubmitAction } from '@/features/board/form/useBoardFormSubmit'
 
 type BoardEditExposed = {
   confirmManagerSelection(users: Array<{ loginId: string; displayName?: string }>): Promise<void>
@@ -115,18 +117,28 @@ const BoardFormStub = defineComponent({
   name: 'BoardForm',
   props: {
     initialData: {
-      type: Object as PropType<Partial<BoardDetail>>,
+      type: Object as PropType<BoardFormData>,
+      required: true,
+    },
+    submitAction: {
+      type: Function as PropType<BoardFormSubmitAction>,
       required: true,
     },
   },
   emits: ['submit', 'cancel'],
-  setup(props, { emit }) {
+  setup(props) {
     return () =>
       h('button', {
         type: 'button',
         'data-testid': 'board-form',
         'data-board-url': props.initialData.boardUrl,
-        onClick: () => emit('submit', props.initialData),
+        onClick: () => {
+          const controller = new AbortController()
+          void props.submitAction(props.initialData, {
+            signal: controller.signal,
+            commitUpload: vi.fn(),
+          })
+        },
       }, props.initialData.boardName)
   },
 })
@@ -276,6 +288,23 @@ describe('BoardEdit', () => {
       data: expect.objectContaining({ boardUrl: 'qna' }),
       signal: expect.any(AbortSignal),
     })
+  })
+
+  it('aborts a submitAction update when the board route changes in place', async () => {
+    vi.mocked(boardApi.getBoard)
+      .mockResolvedValueOnce(mockBoard('free', 'Free Board'))
+      .mockResolvedValueOnce(mockBoard('qna', 'Q&A Board'))
+    updateBoard.mockReturnValueOnce(new Promise(() => undefined))
+    const wrapper = await mountBoardEdit()
+
+    await wrapper.get('[data-testid="board-form"]').trigger('click')
+    await vi.waitFor(() => expect(updateBoard).toHaveBeenCalledOnce())
+    const signal = updateBoard.mock.calls[0][0].signal as AbortSignal
+
+    routeState.params.boardUrl = 'qna'
+    await nextTick()
+
+    expect(signal.aborted).toBe(true)
   })
 
   it('shows a retryable error instead of an empty audit table when manager audits fail', async () => {
