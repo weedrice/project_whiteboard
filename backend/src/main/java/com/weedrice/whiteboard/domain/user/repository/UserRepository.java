@@ -82,7 +82,9 @@ public interface UserRepository extends JpaRepository<User, Long>, UserRepositor
             FROM User u
             WHERE u.status = 'ACTIVE'
               AND u.deletedAt IS NULL
-              AND LOWER(u.displayName) LIKE LOWER(CONCAT(:keyword, '%'))
+              AND LOWER(u.displayName) LIKE LOWER(CONCAT(
+                    REPLACE(REPLACE(REPLACE(:keyword, '!', '!!'), '%', '!%'), '_', '!_'),
+                    '%')) ESCAPE '!'
               AND (:excludedUserIdsEmpty = true OR u.userId NOT IN :excludedUserIds)
             ORDER BY u.displayName ASC, u.userId ASC
             """)

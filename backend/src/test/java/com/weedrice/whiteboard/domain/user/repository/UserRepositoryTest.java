@@ -16,6 +16,8 @@ import jakarta.persistence.LockModeType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jpa.test.autoconfigure.TestEntityManager;
@@ -158,6 +160,71 @@ class UserRepositoryTest {
         assertThat(result.getContent())
                 .extracting(User::getDisplayName)
                 .containsExactly(user3.getDisplayName());
+    }
+
+    @Test
+    @DisplayName("멘션 후보 prefix 검색은 LIKE 특수문자를 리터럴로 처리한다")
+    void findMentionCandidates_treatsLikeMetacharactersAsLiterals() {
+        User literalMatch = User.builder()
+                .loginId("mention-literal")
+                .displayName("%_! mention")
+                .email("mention-literal@test.com")
+                .password("pass")
+                .build();
+        User wildcardOnlyMatch = User.builder()
+                .loginId("mention-wildcard")
+                .displayName("abc mention")
+                .email("mention-wildcard@test.com")
+                .password("pass")
+                .build();
+        entityManager.persist(literalMatch);
+        entityManager.persist(wildcardOnlyMatch);
+        entityManager.flush();
+
+        List<User> result = userRepository.findMentionCandidates(
+                "%_!",
+                true,
+                List.of(-1L),
+                PageRequest.of(0, 10));
+
+        assertThat(result).extracting(User::getLoginId).containsExactly("mention-literal");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"%", "_", "!"})
+    @DisplayName("관리자 검색은 기본·활동량 경로에서 LIKE 특수문자를 같은 리터럴로 처리한다")
+    void searchUsersForAdmin_treatsLikeMetacharactersAsLiteralsAcrossPaths(String keyword) {
+        User literalMatch = User.builder()
+                .loginId("admin-literal")
+                .displayName("Literal %_! User")
+                .email("admin-literal@test.com")
+                .password("pass")
+                .build();
+        User wildcardOnlyMatch = User.builder()
+                .loginId("admin-wildcard")
+                .displayName("Literal abc User")
+                .email("admin-wildcard@test.com")
+                .password("pass")
+                .build();
+        entityManager.persist(literalMatch);
+        entityManager.persist(wildcardOnlyMatch);
+        entityManager.flush();
+        entityManager.clear();
+
+        PageRequest pageable = PageRequest.of(0, 10, Sort.by(Sort.Direction.ASC, "displayName"));
+        Page<User> querydslResult = userRepository.searchUsersForAdmin(
+                keyword,
+                UserAdminSearchCondition.builder().build(),
+                pageable);
+        Page<User> nativeResult = userRepository.searchUsersForAdmin(
+                keyword,
+                UserAdminSearchCondition.builder().minActivityCount(0L).build(),
+                pageable);
+
+        assertSameOrderedUsers(nativeResult, querydslResult);
+        assertThat(nativeResult.getContent())
+                .extracting(User::getLoginId)
+                .containsExactly("admin-literal");
     }
 
     @Test

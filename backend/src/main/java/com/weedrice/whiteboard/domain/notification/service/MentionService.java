@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.notification.service;
 
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
+import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.notification.constant.NotificationSourceType;
@@ -8,7 +9,7 @@ import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
-import com.weedrice.whiteboard.domain.post.service.PostReadAccessService;
+import com.weedrice.whiteboard.domain.post.service.PostAccessPolicy;
 import com.weedrice.whiteboard.domain.user.dto.MentionCandidateResponse;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserBlockRepository;
@@ -24,7 +25,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -40,7 +43,8 @@ public class MentionService {
     private final ApplicationEventPublisher eventPublisher;
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
-    private final PostReadAccessService postReadAccessService;
+    private final AdminRepository adminRepository;
+    private final PostAccessPolicy postAccessPolicy;
 
     public List<MentionCandidateResponse> findCandidates(Long viewerUserId, String keyword) {
         String normalizedKeyword = keyword == null ? "" : keyword.strip();
@@ -80,9 +84,12 @@ public class MentionService {
             return;
         }
 
-        Set<Long> uniqueMentionedUserIds = mentionedUserIds.stream()
+        List<Long> uniqueMentionedUserIds = mentionedUserIds.stream()
                 .filter(id -> id != null && id > 0)
-                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
+                .collect(Collectors.toCollection(LinkedHashSet::new))
+                .stream()
+                .limit(MENTION_NOTIFICATION_LIMIT)
+                .toList();
         if (uniqueMentionedUserIds.isEmpty()) {
             return;
         }
@@ -92,14 +99,29 @@ public class MentionService {
             return;
         }
 
-        String actorName = resolveActorName(actor, actorAgent);
-        userRepository.findAllById(uniqueMentionedUserIds).stream()
+        List<User> candidates = userRepository.findAllById(uniqueMentionedUserIds).stream()
                 .filter(user -> User.STATUS_ACTIVE.equals(user.getStatus()))
                 .filter(user -> user.getDeletedAt() == null)
                 .filter(user -> !user.getUserId().equals(actor.getUserId()))
-                .filter(user -> !userBlockRepository.existsEitherDirection(actor.getUserId(), user.getUserId()))
-                .filter(user -> postReadAccessService.isReadable(sourcePost, user))
-                .limit(MENTION_NOTIFICATION_LIMIT)
+                .toList();
+        if (candidates.isEmpty()) {
+            return;
+        }
+
+        List<Long> candidateUserIds = candidates.stream().map(User::getUserId).toList();
+        Set<Long> blockedCandidateUserIds = Set.copyOf(
+                userBlockRepository.findBlockedCandidateUserIdsEitherDirection(
+                        actor.getUserId(), candidateUserIds));
+        Map<Long, Set<Long>> activeAdminBoardIdsByUser = resolveActiveAdminBoardIdsByUser(
+                sourcePost, candidateUserIds);
+        String actorName = resolveActorName(actor, actorAgent);
+        candidates.stream()
+                .filter(user -> !blockedCandidateUserIds.contains(user.getUserId()))
+                .filter(user -> postAccessPolicy.isReadable(
+                        sourcePost,
+                        user,
+                        false,
+                        activeAdminBoardIdsByUser.getOrDefault(user.getUserId(), Set.of())))
                 .forEach(user -> eventPublisher.publishEvent(NotificationEvent.localized(
                         user,
                         actor,
@@ -109,6 +131,22 @@ public class MentionService {
                         sourceId,
                         "notification.mention.created",
                         actorName)));
+    }
+
+    private Map<Long, Set<Long>> resolveActiveAdminBoardIdsByUser(Post sourcePost, List<Long> candidateUserIds) {
+        if (sourcePost.getBoard() == null || sourcePost.getBoard().getBoardId() == null) {
+            return Map.of();
+        }
+        Long boardId = sourcePost.getBoard().getBoardId();
+        return adminRepository.findByUserUserIdInAndIsActiveOrderByAdminIdAsc(candidateUserIds, true)
+                .stream()
+                .filter(admin -> admin.getUser() != null && admin.getBoard() != null)
+                .filter(admin -> boardId.equals(admin.getBoard().getBoardId()))
+                .collect(Collectors.groupingBy(
+                        admin -> admin.getUser().getUserId(),
+                        Collectors.mapping(
+                                admin -> admin.getBoard().getBoardId(),
+                                Collectors.toSet())));
     }
 
     private Post resolveSourcePost(NotificationSourceType sourceType, Long sourceId) {

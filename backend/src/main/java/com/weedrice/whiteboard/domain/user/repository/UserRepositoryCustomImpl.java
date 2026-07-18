@@ -39,6 +39,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class UserRepositoryCustomImpl implements UserRepositoryCustom {
 
+    private static final char LIKE_ESCAPE = '!';
     private final JPAQueryFactory queryFactory;
 
     @PersistenceContext
@@ -137,9 +138,10 @@ public class UserRepositoryCustomImpl implements UserRepositoryCustom {
         AdminSearchFilters filters = AdminSearchFilters.from(condition);
 
         if (StringUtils.hasText(keyword)) {
-            builder.and(user.displayName.containsIgnoreCase(keyword)
-                    .or(user.loginId.containsIgnoreCase(keyword))
-                    .or(user.email.containsIgnoreCase(keyword)));
+            String keywordPattern = toContainsLikePattern(keyword);
+            builder.and(user.displayName.lower().like(keywordPattern, LIKE_ESCAPE)
+                    .or(user.loginId.lower().like(keywordPattern, LIKE_ESCAPE))
+                    .or(user.email.lower().like(keywordPattern, LIKE_ESCAPE)));
         }
 
         if (filters.empty()) {
@@ -197,8 +199,10 @@ public class UserRepositoryCustomImpl implements UserRepositoryCustom {
         AdminSearchFilters filters = AdminSearchFilters.from(condition);
 
         if (StringUtils.hasText(keyword)) {
-            clauses.add("(lower(u.display_name) like :keyword or lower(u.login_id) like :keyword or lower(u.email) like :keyword)");
-            params.put("keyword", "%" + keyword.toLowerCase(Locale.ROOT) + "%");
+            clauses.add("(lower(u.display_name) like :keyword escape '!'"
+                    + " or lower(u.login_id) like :keyword escape '!'"
+                    + " or lower(u.email) like :keyword escape '!')");
+            params.put("keyword", toContainsLikePattern(keyword));
         }
 
         if (!filters.empty()) {
@@ -358,6 +362,19 @@ public class UserRepositoryCustomImpl implements UserRepositoryCustom {
 
     private void applyParameters(Query query, Map<String, Object> params) {
         params.forEach(query::setParameter);
+    }
+
+    private String toContainsLikePattern(String keyword) {
+        String normalizedKeyword = keyword.toLowerCase(Locale.ROOT);
+        StringBuilder escaped = new StringBuilder(normalizedKeyword.length());
+        for (int i = 0; i < normalizedKeyword.length(); i++) {
+            char ch = normalizedKeyword.charAt(i);
+            if (ch == LIKE_ESCAPE || ch == '%' || ch == '_') {
+                escaped.append(LIKE_ESCAPE);
+            }
+            escaped.append(ch);
+        }
+        return "%" + escaped + "%";
     }
 
     private String activityCountCte() {
