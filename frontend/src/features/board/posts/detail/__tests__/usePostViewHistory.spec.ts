@@ -100,6 +100,22 @@ describe('usePostViewHistory', () => {
     )
   })
 
+  it('does not move the last-read comment cursor backwards', async () => {
+    const wrapper = mount(TestHost)
+    wrapper.vm.setLastReadCommentId(9)
+    wrapper.vm.setLastReadCommentId(3)
+    now = 1_000
+
+    window.dispatchEvent(new Event('blur'))
+    await flushPromises()
+
+    expect(postApi.updateViewHistory).toHaveBeenCalledWith(
+      15,
+      { durationMs: 1_000, lastReadCommentId: 9 },
+      expect.any(Object),
+    )
+  })
+
   it('does not track anonymous or unavailable post views', async () => {
     mount(TestHost, { props: { enabled: false } })
     now = 30_000

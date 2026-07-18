@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount, RouterLinkStub } from '@vue/test-utils'
 import CommentList from '../CommentList.vue'
 
-const { authState, commentsValue, commentsState, deleteComment, fetchNextPage, refetchComments } = vi.hoisted(() => ({
+const { authState, bestCommentsValue, commentsValue, commentsState, deleteComment, fetchNextPage, refetchComments } = vi.hoisted(() => ({
   authState: {
     isAuthenticated: true,
   },
@@ -17,6 +17,7 @@ const { authState, commentsValue, commentsState, deleteComment, fetchNextPage, r
     error: null as Error | null,
     hasNextPage: false,
   },
+  bestCommentsValue: [] as Array<{ commentId: number; content: string }>,
   deleteComment: vi.fn(),
   fetchNextPage: vi.fn(),
   refetchComments: vi.fn(),
@@ -68,7 +69,7 @@ vi.mock('@/features/comments/queries/useComment', () => ({
       }
     },
     useBestComments: () => ({
-      data: ref([]),
+      data: ref(bestCommentsValue),
     }),
     useDeleteComment: () => ({
       mutate: deleteComment,
@@ -122,6 +123,7 @@ describe('CommentList', () => {
       { commentId: 1, content: '첫 댓글' },
     ]
     commentsValue.totalElements = 1
+    bestCommentsValue.splice(0)
     capturedCommentParams = null
   })
 
@@ -208,5 +210,50 @@ describe('CommentList', () => {
     ], {} as IntersectionObserver)
 
     expect(wrapper.emitted('last-read-comment')).toEqual([[1]])
+  })
+
+  it('observes only main comments in oldest-first order and excludes best comments', async () => {
+    commentsValue.content = [
+      { commentId: 1, content: '첫 번째' },
+      { commentId: 2, content: '두 번째' },
+    ]
+    commentsValue.totalElements = 2
+    bestCommentsValue.push({ commentId: 99, content: '베스트' })
+    const observed: Element[] = []
+    const unobserved: Element[] = []
+    const intersectionCallback: { value?: IntersectionObserverCallback } = {}
+    class ReadingIntersectionObserver {
+      constructor(callback: IntersectionObserverCallback) {
+        intersectionCallback.value = callback
+      }
+      observe(element: Element) { observed.push(element) }
+      unobserve(element: Element) { unobserved.push(element) }
+      disconnect() {}
+      takeRecords() { return [] }
+      readonly root = null
+      readonly rootMargin = ''
+      readonly thresholds = []
+    }
+    vi.stubGlobal('IntersectionObserver', ReadingIntersectionObserver)
+    const wrapper = mountCommentList()
+    await Promise.resolve()
+
+    expect(observed.map((element) => (element as HTMLElement).dataset.commentId)).toEqual(['1', '2'])
+    expect(observed.some((element) => (element as HTMLElement).dataset.commentId === '99')).toBe(false)
+
+    const mainTarget = wrapper.get('[data-reading-comment][data-comment-id="2"]').element
+    intersectionCallback.value?.([
+      { isIntersecting: true, target: mainTarget } as IntersectionObserverEntry,
+    ], {} as IntersectionObserver)
+    expect(wrapper.emitted('last-read-comment')).toEqual([[2]])
+
+    await wrapper.findAll('[data-testid="sort-control"] button')[1]!.trigger('click')
+    await Promise.resolve()
+    expect(unobserved).toEqual(expect.arrayContaining(observed))
+
+    intersectionCallback.value?.([
+      { isIntersecting: true, target: mainTarget } as IntersectionObserverEntry,
+    ], {} as IntersectionObserver)
+    expect(wrapper.emitted('last-read-comment')).toEqual([[2]])
   })
 })

@@ -177,7 +177,7 @@ export function usePostViewHistory(options: PostViewHistoryOptions) {
   function setLastReadCommentId(commentId: number) {
     const state = currentState()
     if (!state || !Number.isFinite(commentId) || commentId <= 0) return
-    state.lastReadCommentId = commentId
+    state.lastReadCommentId = Math.max(state.lastReadCommentId ?? 0, commentId)
   }
 
   watch(

@@ -30,7 +30,7 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const authStore = useAuthStore()
 const commentListRoot = ref<HTMLElement | null>(null)
-const observedCommentElements = new WeakSet<Element>()
+const observedCommentElements = new Set<Element>()
 let readObserver: IntersectionObserver | null = null
 let commentMutationObserver: MutationObserver | null = null
 const { useBestComments, useInfiniteComments, useDeleteComment } = useComment()
@@ -110,7 +110,17 @@ function isNewComment(comment: Comment) {
 function observeCommentElements() {
   if (!readObserver || !commentListRoot.value) return
 
-  commentListRoot.value.querySelectorAll<HTMLElement>('[data-comment-id]').forEach((element) => {
+  const eligibleElements = new Set<Element>(isOldestSort.value
+    ? Array.from(commentListRoot.value.querySelectorAll<HTMLElement>('[data-reading-comment][data-comment-id]'))
+    : [])
+
+  observedCommentElements.forEach((element) => {
+    if (eligibleElements.has(element)) return
+    readObserver?.unobserve(element)
+    observedCommentElements.delete(element)
+  })
+
+  eligibleElements.forEach((element) => {
     if (observedCommentElements.has(element)) return
     observedCommentElements.add(element)
     readObserver?.observe(element)
@@ -121,16 +131,20 @@ watch([comments, bestComments], () => {
   void nextTick(observeCommentElements)
 })
 
+watch(isOldestSort, () => {
+  void nextTick(observeCommentElements)
+})
+
 onMounted(() => {
   if (typeof IntersectionObserver === 'undefined') return
 
   readObserver = new IntersectionObserver((entries) => {
-    const latestVisibleEntry = entries.filter((entry) => entry.isIntersecting).at(-1)
-    const rawCommentId = (latestVisibleEntry?.target as HTMLElement | undefined)?.dataset.commentId
-    const commentId = Number(rawCommentId)
-    if (Number.isInteger(commentId) && commentId > 0) {
-      emit('last-read-comment', commentId)
-    }
+    if (!isOldestSort.value) return
+    const visibleCommentIds = entries
+      .filter((entry) => entry.isIntersecting && (entry.target as HTMLElement).hasAttribute('data-reading-comment'))
+      .map((entry) => Number((entry.target as HTMLElement).dataset.commentId))
+      .filter((commentId) => Number.isInteger(commentId) && commentId > 0)
+    if (visibleCommentIds.length > 0) emit('last-read-comment', Math.max(...visibleCommentIds))
   }, {
     rootMargin: '-20% 0px -60% 0px',
     threshold: 0,
@@ -147,6 +161,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   readObserver?.disconnect()
   readObserver = null
+  observedCommentElements.clear()
   commentMutationObserver?.disconnect()
   commentMutationObserver = null
 })
@@ -242,6 +257,7 @@ onBeforeUnmount(() => {
           :postId="postId"
           :boardUrl="boardUrl"
           :is-new-since-last-view="isNewComment(comment)"
+          data-reading-comment
           @delete="handleDelete"
         />
       </template>
