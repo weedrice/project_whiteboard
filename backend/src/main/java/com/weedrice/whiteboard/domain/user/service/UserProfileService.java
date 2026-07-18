@@ -158,7 +158,7 @@ public class UserProfileService {
 
         if (Boolean.TRUE.equals(removeProfileImage)) {
             removeProfileImage(user);
-        } else if (profileImageId != null) {
+        } else if (profileImageId != null && !isCurrentProfileImage(user, profileImageId)) {
             ProfileImageChargeResult chargeResult = chargeProfileImageChangeIfNeeded(user, profileImageId);
             spentPoints = chargeResult.spentPoints();
             remainingPoints = chargeResult.remainingPoints();
@@ -196,6 +196,10 @@ public class UserProfileService {
                 profileImageId,
                 PROFILE_IMAGE_RELATED_TYPE);
         return new ProfileImageChargeResult(cost, pointService.getCurrentBalance(user.getUserId()));
+    }
+
+    private boolean isCurrentProfileImage(User user, Long profileImageId) {
+        return profileImageId.equals(FileService.extractFileIdFromUrl(user.getProfileImageUrl()));
     }
 
     private void removeProfileImage(User user) {

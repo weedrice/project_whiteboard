@@ -39,10 +39,12 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -205,6 +207,42 @@ class UserProfileServiceTest {
         assertThat(response.getProfileImageUrl()).isEqualTo("/api/v1/files/100");
         verify(fileService).replaceUserProfileImageForLockedUser(100L, 1L, user);
         verify(userRepository, never()).findById(1L);
+    }
+
+    @Test
+    @DisplayName("현재 프로필 이미지와 같은 ID는 무료 변경권과 파일 연결을 유지한다")
+    void updateMyProfile_sameImage_keepsFreeChangeAndSkipsFileReplacement() {
+        User user = User.builder().displayName("Name").build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        user.updateProfileImage("/api/v1/files/100");
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+
+        UpdateProfileResponse response = userProfileService.updateMyProfile(1L, null, 100L);
+
+        assertThat(response.getProfileImageUrl()).isEqualTo("/api/v1/files/100");
+        assertThat(response.getSpentPoints()).isNull();
+        assertThat(response.getRemainingPoints()).isNull();
+        assertThat(user.canUseFreeProfileImageChange()).isTrue();
+        verify(fileService, never()).replaceUserProfileImageForLockedUser(anyLong(), anyLong(), any());
+        verifyNoInteractions(pointService);
+    }
+
+    @Test
+    @DisplayName("현재 프로필 이미지와 같은 ID는 유료 변경 포인트를 차감하지 않는다")
+    void updateMyProfile_sameImageAfterFreeChange_skipsPointCharge() {
+        User user = User.builder().displayName("Name").build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        user.updateProfileImage("https://noviis.kr/api/v1/files/100?size=profile");
+        user.markProfileImageChangeFreeUsed();
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+
+        UpdateProfileResponse response = userProfileService.updateMyProfile(1L, null, 100L);
+
+        assertThat(response.getProfileImageUrl()).contains("/files/100");
+        assertThat(response.getSpentPoints()).isNull();
+        verify(globalConfigService, never()).getConfig(anyString());
+        verifyNoInteractions(pointService);
+        verify(fileService, never()).replaceUserProfileImageForLockedUser(anyLong(), anyLong(), any());
     }
 
     @Test
