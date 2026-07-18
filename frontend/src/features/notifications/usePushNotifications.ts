@@ -2,11 +2,13 @@ import { computed, getCurrentScope, onScopeDispose, ref } from 'vue'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/vue-query'
 import { userApi } from '@/api/user'
 import { unwrapAxiosApiData } from '@/api/response'
-import { userSettingsQueryKey } from '@/composables/useUser'
+import { userSettingsQueryKey } from '@/features/user/useUser'
 import {
+  deleteBrowserPushSubscription,
   getBrowserPushSubscription,
   getNotificationPermission,
   isPushSupported,
+  isPushSubscriptionForApplicationServerKey,
   requestPushPermission,
   saveBrowserPushSubscription,
   subscribeBrowserPush,
@@ -48,7 +50,14 @@ export function usePushNotifications(resolveServerEnabled: () => boolean = () =>
   const supported = computed(() => isPushSupported())
   const syncState = computed<PushSubscriptionSyncState>(() => {
     const serverEnabled = resolveServerEnabled()
-    const browserEnabled = Boolean(browserSubscription.value)
+    const browserEnabled = Boolean(
+      browserSubscription.value
+      && publicKeyQuery.data.value?.publicKey
+      && isPushSubscriptionForApplicationServerKey(
+        browserSubscription.value,
+        publicKeyQuery.data.value.publicKey,
+      ),
+    )
     if (serverEnabled && browserEnabled) return 'enabled'
     if (serverEnabled) return 'server-only'
     if (browserEnabled) return 'browser-only'
@@ -115,6 +124,17 @@ export function usePushNotifications(resolveServerEnabled: () => boolean = () =>
         }
         subscription = await getBrowserPushSubscription()
         throwIfAuthSessionIntentChanged(authStore, intent, controller.signal)
+        if (subscription && !isPushSubscriptionForApplicationServerKey(
+          subscription,
+          publicKeyQuery.data.value.publicKey,
+        )) {
+          await deleteBrowserPushSubscription(subscription, { signal: controller.signal })
+          throwIfAuthSessionIntentChanged(authStore, intent, controller.signal)
+          const unsubscribed = await subscription.unsubscribe()
+          throwIfAuthSessionIntentChanged(authStore, intent, controller.signal)
+          if (!unsubscribed) throw new Error('The existing push subscription could not be replaced.')
+          subscription = null
+        }
         if (!subscription) {
           subscription = await subscribeBrowserPush(publicKeyQuery.data.value.publicKey)
           createdSubscription = true
@@ -178,7 +198,14 @@ export function usePushNotifications(resolveServerEnabled: () => boolean = () =>
     enabled,
     supported,
     syncState,
-    hasBrowserSubscription: computed(() => Boolean(browserSubscription.value)),
+    hasBrowserSubscription: computed(() => Boolean(
+      browserSubscription.value
+      && publicKeyQuery.data.value?.publicKey
+      && isPushSubscriptionForApplicationServerKey(
+        browserSubscription.value,
+        publicKeyQuery.data.value.publicKey,
+      ),
+    )),
     isBrowserSubscriptionLoading,
     refreshBrowserSubscription,
     permission,

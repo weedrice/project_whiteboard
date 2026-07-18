@@ -41,6 +41,22 @@ export async function saveBrowserPushSubscription(subscription: PushSubscription
   return userApi.createPushSubscription(toPushSubscriptionPayload(subscription), config)
 }
 
+export function isPushSubscriptionForApplicationServerKey(
+  subscription: PushSubscription,
+  publicKey: string,
+): boolean {
+  const applicationServerKey = subscription.options.applicationServerKey
+  if (!applicationServerKey) return false
+  const current = new Uint8Array(applicationServerKey)
+  const expected = urlBase64ToUint8Array(publicKey)
+  if (current.length !== expected.length) return false
+  let difference = 0
+  for (let index = 0; index < current.length; index += 1) {
+    difference |= current[index] ^ expected[index]
+  }
+  return difference === 0
+}
+
 async function getPushServiceWorkerRegistration(): Promise<ServiceWorkerRegistration> {
   const existing = await navigator.serviceWorker.getRegistration?.()
   if (existing?.active) return existing

@@ -59,6 +59,7 @@ vi.mock('@/features/notifications/pushSubscriptions', () => ({
   getBrowserPushSubscription: vi.fn(),
   getNotificationPermission: () => 'default',
   isPushSupported: () => true,
+  isPushSubscriptionForApplicationServerKey: vi.fn(() => true),
   requestPushPermission: vi.fn(),
   saveBrowserPushSubscription: vi.fn(),
   subscribeBrowserPush: vi.fn(),
@@ -71,6 +72,9 @@ describe('usePushNotifications', () => {
     vi.mocked(pushSubscriptions.requestPushPermission).mockReset()
     vi.mocked(pushSubscriptions.subscribeBrowserPush).mockReset()
     vi.mocked(pushSubscriptions.saveBrowserPushSubscription).mockReset()
+    vi.mocked(pushSubscriptions.deleteBrowserPushSubscription).mockReset()
+    vi.mocked(pushSubscriptions.isPushSubscriptionForApplicationServerKey).mockReset()
+    vi.mocked(pushSubscriptions.isPushSubscriptionForApplicationServerKey).mockReturnValue(true)
     vi.mocked(userApi.deleteAllPushSubscriptions).mockReset()
     mocks.queryOptions = null
     mocks.mutationOptions.length = 0
@@ -87,6 +91,7 @@ describe('usePushNotifications', () => {
       },
     } as Awaited<ReturnType<typeof userApi.getPushPublicKey>>)
     vi.mocked(userApi.deleteAllPushSubscriptions).mockResolvedValue({} as never)
+    vi.mocked(pushSubscriptions.deleteBrowserPushSubscription).mockResolvedValue({} as never)
     vi.mocked(pushSubscriptions.getBrowserPushSubscription).mockResolvedValue(null)
   })
 
@@ -159,6 +164,46 @@ describe('usePushNotifications', () => {
       subscription,
       { signal: expect.any(AbortSignal) },
     )
+  })
+
+  it('replaces an existing browser subscription when its application server key is stale', async () => {
+    const oldUnsubscribe = vi.fn(async () => true)
+    const oldSubscription = { unsubscribe: oldUnsubscribe } as unknown as PushSubscription
+    const nextSubscription = { unsubscribe: vi.fn(async () => true) } as unknown as PushSubscription
+    vi.mocked(pushSubscriptions.getBrowserPushSubscription).mockResolvedValue(oldSubscription)
+    vi.mocked(pushSubscriptions.isPushSubscriptionForApplicationServerKey).mockReturnValue(false)
+    vi.mocked(pushSubscriptions.requestPushPermission).mockResolvedValue('granted')
+    vi.mocked(pushSubscriptions.subscribeBrowserPush).mockResolvedValue(nextSubscription)
+    vi.mocked(pushSubscriptions.saveBrowserPushSubscription).mockResolvedValue({} as never)
+    const resource = usePushNotifications(() => true)
+
+    await resource.enablePush()
+
+    expect(pushSubscriptions.deleteBrowserPushSubscription).toHaveBeenCalledWith(
+      oldSubscription,
+      { signal: expect.any(AbortSignal) },
+    )
+    expect(oldUnsubscribe).toHaveBeenCalledOnce()
+    expect(pushSubscriptions.subscribeBrowserPush).toHaveBeenCalledWith('public-key')
+    expect(pushSubscriptions.saveBrowserPushSubscription).toHaveBeenCalledWith(
+      nextSubscription,
+      { signal: expect.any(AbortSignal) },
+    )
+  })
+
+  it('keeps a stale-key browser subscription when server cleanup fails', async () => {
+    const oldUnsubscribe = vi.fn(async () => true)
+    const oldSubscription = { unsubscribe: oldUnsubscribe } as unknown as PushSubscription
+    vi.mocked(pushSubscriptions.getBrowserPushSubscription).mockResolvedValue(oldSubscription)
+    vi.mocked(pushSubscriptions.isPushSubscriptionForApplicationServerKey).mockReturnValue(false)
+    vi.mocked(pushSubscriptions.requestPushPermission).mockResolvedValue('granted')
+    vi.mocked(pushSubscriptions.deleteBrowserPushSubscription).mockRejectedValueOnce(new Error('offline'))
+    const resource = usePushNotifications(() => true)
+
+    await expect(resource.enablePush()).rejects.toThrow('offline')
+
+    expect(oldUnsubscribe).not.toHaveBeenCalled()
+    expect(pushSubscriptions.subscribeBrowserPush).not.toHaveBeenCalled()
   })
 
   it('clears all server subscriptions even when the browser endpoint is already missing', async () => {

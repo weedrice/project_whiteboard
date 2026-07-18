@@ -3,6 +3,7 @@ import { userApi } from '@/api/user'
 import {
   detachBrowserPushSubscriptionForSession,
   getBrowserPushSubscription,
+  isPushSubscriptionForApplicationServerKey,
 } from '@/features/notifications/pushSubscriptions'
 
 vi.mock('@/api/user', () => ({
@@ -14,6 +15,18 @@ vi.mock('@/api/user', () => ({
 describe('push service worker registration', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+  })
+
+  it('compares the browser subscription application server key by value', () => {
+    const matching = {
+      options: { applicationServerKey: new Uint8Array([1, 2, 3]).buffer },
+    } as unknown as PushSubscription
+    const stale = {
+      options: { applicationServerKey: new Uint8Array([1, 2, 4]).buffer },
+    } as unknown as PushSubscription
+
+    expect(isPushSubscriptionForApplicationServerKey(matching, 'AQID')).toBe(true)
+    expect(isPushSubscriptionForApplicationServerKey(stale, 'AQID')).toBe(false)
   })
 
   afterEach(() => {
