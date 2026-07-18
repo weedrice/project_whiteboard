@@ -248,6 +248,35 @@ describe('useMailboxResource', () => {
         expect(resource.selectedMessage.value?.id).toBe(52)
     })
 
+    it('aborts and clears a pending partner conversation when it is closed', async () => {
+        const pending = createDeferred<Awaited<ReturnType<typeof messageApi.getConversation>>>()
+        vi.mocked(messageApi.getConversation).mockReturnValueOnce(pending.promise)
+        const { resource } = mountMailboxResource()
+
+        const opening = resource.openConversationByPartnerId(200)
+        const signal = vi.mocked(messageApi.getConversation).mock.calls[0][2]?.signal
+        resource.closeConversation()
+
+        expect(signal?.aborted).toBe(true)
+        expect(resource.conversationLoading.value).toBe(false)
+        expect(resource.selectedMessage.value).toBeNull()
+        expect(resource.selectedConversationMessages.value).toEqual([])
+
+        pending.resolve(apiSuccessDataResponse<typeof messageApi.getConversation>({
+            content: [detailDto(52)],
+            page: 0,
+            size: 50,
+            totalElements: 1,
+            totalPages: 1,
+            hasNext: false,
+            hasPrevious: false,
+        }))
+        await opening
+
+        expect(resource.selectedMessage.value).toBeNull()
+        expect(resource.selectedConversationMessages.value).toEqual([])
+    })
+
     it('keeps a newly sent reply visible when refreshing a conversation over 50 messages', async () => {
         vi.mocked(messageApi.getConversation).mockResolvedValueOnce(apiSuccessDataResponse<typeof messageApi.getConversation>({
             content: [detailDto(53), detailDto(52)],

@@ -22,6 +22,10 @@ const messageApi = vi.hoisted(() => ({
 
 const addToast = vi.hoisted(() => vi.fn())
 const extractErrorResponseMock = vi.hoisted(() => vi.fn())
+const routerMocks = vi.hoisted(() => ({
+    route: { query: {} as Record<string, string | undefined> },
+    replace: vi.fn(),
+}))
 
 vi.mock('@/api/message', () => ({
     messageApi,
@@ -67,12 +71,11 @@ vi.mock('vue-i18n', () => ({
 }))
 
 vi.mock('vue-router', () => ({
-    useRoute: () => ({
-        query: {},
-    }),
+    useRoute: () => routerMocks.route,
+    useRouter: () => ({ replace: routerMocks.replace }),
 }))
 
-export { addToast, extractErrorResponseMock, messageApi }
+export { addToast, extractErrorResponseMock, messageApi, routerMocks }
 
 export const baseModalStub = {
     props: {

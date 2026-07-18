@@ -77,7 +77,7 @@
         @retry="retryConversation"
     />
 
-    <BaseModal :isOpen="!!selectedMessage" :title="$t('user.message.detailTitle')" @close="selectedMessage = null"
+    <BaseModal :isOpen="!!selectedMessage" :title="$t('user.message.detailTitle')" @close="closeConversationAndSyncRoute"
         mobile-full mobile-fit-content size="2xl">
         <div v-if="selectedMessage" data-testid="message-detail-content" class="space-y-4">
             <div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,20rem)]">
@@ -191,7 +191,7 @@
             </div>
 
             <div class="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:space-x-2 pt-4 border-t nv-border">
-                <BaseButton @click="selectedMessage = null" variant="secondary"
+                <BaseButton @click="closeConversationAndSyncRoute" variant="secondary"
                     class="w-full sm:w-auto min-h-[44px] order-1 sm:order-none">
                     {{ $t('common.close') }}
                 </BaseButton>
@@ -215,12 +215,13 @@ import type { MailboxMessageViewModel } from '@/types'
 import { formatDate } from '@/utils/date'
 import { computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { usePwaReloadBlocker } from '@/pwaReloadGuard'
 import { isMessageContentTooLong, MESSAGE_CONTENT_MAX_LENGTH } from '@/utils/messageValidation'
 
 const { t } = useI18n()
 const route = useRoute()
+const router = useRouter()
 const messageBoxOptions = computed(() => [
     { value: 'conversations', label: t('user.message.conversations') },
     { value: 'received', label: t('user.message.received') },
@@ -250,6 +251,7 @@ const {
     changeViewType,
     openMessage,
     openConversationByPartnerId,
+    closeConversation,
     retryMessageDetail,
     retryConversation,
     deleteSelectedMessages,
@@ -257,6 +259,17 @@ const {
     cancelInlineReply,
     sendReply,
 } = useMailboxResource()
+
+function removePartnerIdFromRoute() {
+    if (route.query.partnerId === undefined) return
+    const { partnerId: _partnerId, ...query } = route.query
+    void router.replace({ query })
+}
+
+function closeConversationAndSyncRoute() {
+    closeConversation()
+    removePartnerIdFromRoute()
+}
 
 const replyContentError = computed(() => isMessageContentTooLong(replyContent.value)
     ? t('user.message.contentTooLong', { max: MESSAGE_CONTENT_MAX_LENGTH })
@@ -299,7 +312,11 @@ watch(
     (partnerId) => {
         const normalizedPartnerId = Array.isArray(partnerId) ? partnerId[0] : partnerId
         const numericPartnerId = Number(normalizedPartnerId)
-        if (!Number.isFinite(numericPartnerId) || numericPartnerId <= 0) return
+        if (!Number.isFinite(numericPartnerId) || numericPartnerId <= 0) {
+            closeConversation()
+            removePartnerIdFromRoute()
+            return
+        }
         openConversationByPartnerId(numericPartnerId)
     },
     { immediate: true }

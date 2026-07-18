@@ -10,12 +10,14 @@ import {
     messageApi,
     messageOpenButtons,
     mountMyMessages,
+    routerMocks,
     type MyMessagesExposed,
 } from './MyMessages.test-harness'
 
 describe('MyMessages', () => {
     beforeEach(() => {
         vi.clearAllMocks()
+        routerMocks.route.query = {}
         messageApi.getConversations.mockImplementation((params, config) => messageApi.getReceivedMessages(params, config))
         messageApi.getConversation.mockResolvedValue({
             data: {
@@ -173,6 +175,46 @@ describe('MyMessages', () => {
         const content = wrapper.find('[data-testid="message-detail-content"]')
         expect(content.classes()).not.toContain('p-4')
         expect(content.classes()).not.toContain('sm:p-6')
+    })
+
+    it('removes an invalid partner query instead of leaving a stale conversation route', async () => {
+        routerMocks.route.query = { partnerId: 'invalid' }
+
+        mountMyMessages()
+        await flushPromises()
+
+        expect(routerMocks.replace).toHaveBeenCalledWith({ query: {} })
+        expect(messageApi.getConversation).not.toHaveBeenCalled()
+    })
+
+    it('clears the partner query when the deep-linked conversation modal closes', async () => {
+        routerMocks.route.query = { partnerId: '2', page: '3' }
+        messageApi.getConversation.mockResolvedValue({
+            data: {
+                success: true,
+                data: {
+                    content: [{
+                        messageId: 5,
+                        content: 'deep-linked message',
+                        partner: { userId: 2, displayName: 'Other' },
+                        isRead: true,
+                        createdAt: '2026-04-16T11:00:00',
+                    }],
+                    totalPages: 1,
+                },
+            },
+        })
+
+        const wrapper = mountMyMessages()
+        await flushPromises()
+        const modal = wrapper.findComponent(baseModalStub)
+        expect(modal.props('isOpen')).toBe(true)
+
+        modal.vm.$emit('close')
+        await flushPromises()
+
+        expect(routerMocks.replace).toHaveBeenCalledWith({ query: { page: '3' } })
+        expect(modal.props('isOpen')).toBe(false)
     })
 
     it('shows a retryable conversation error without hiding the loaded message detail', async () => {

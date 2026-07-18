@@ -89,6 +89,22 @@ export function useMailboxResource() {
         deleteRequestAbortController = null
     }
 
+    function closeConversation() {
+        messageDetailRequestId++
+        abortMessageDetailRequest()
+        abortConversationRefresh()
+        selectedMessage.value = null
+        selectedConversationMessages.value = []
+        messageDetailLoading.value = false
+        messageDetailError.value = null
+        conversationLoading.value = false
+        conversationError.value = null
+        lastConversationPartnerId.value = null
+        isReplyModalOpen.value = false
+        replyTarget.value = null
+        resetReplyContent()
+    }
+
     function isStaleMessageDetail(requestId: number, messageId: number) {
         return requestId !== messageDetailRequestId || selectedMessage.value?.id !== messageId
     }
@@ -419,6 +435,7 @@ export function useMailboxResource() {
         changeViewType,
         openMessage,
         openConversationByPartnerId,
+        closeConversation,
         retryMessageDetail,
         retryConversation,
         deleteSelectedMessages,
