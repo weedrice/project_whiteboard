@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.auth.controller;
 
 import tools.jackson.databind.ObjectMapper;
 import com.weedrice.whiteboard.domain.auth.dto.LoginRequest;
+import com.weedrice.whiteboard.domain.auth.OAuthSignupTicketProperties;
 import com.weedrice.whiteboard.domain.auth.dto.LoginResponse;
 import com.weedrice.whiteboard.domain.auth.dto.LoginResult;
 import com.weedrice.whiteboard.domain.auth.dto.OAuthSignupTicketResponse;
@@ -74,6 +75,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Import({
         RefreshTokenCookieWriter.class,
         OAuthSignupTicketCookieWriter.class,
+        OAuthSignupTicketProperties.class,
         CurrentUserIdWebMvcConfig.class,
         CurrentUserIdArgumentResolver.class
 })
@@ -261,6 +263,8 @@ class AuthControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(cookie().maxAge(OAuthSignupTicketCookieWriter.COOKIE_NAME, 0));
+
+        verify(oAuthSignupTicketService).revoke("ticket-1");
     }
 
     @Test

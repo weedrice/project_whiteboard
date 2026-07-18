@@ -114,8 +114,10 @@ public class AuthController {
 
     @DeleteMapping("/oauth/signup-ticket")
     public ResponseEntity<ApiResponse<Void>> clearOAuthSignupTicket(
+            @CookieValue(name = OAuthSignupTicketCookieWriter.COOKIE_NAME, required = false) String ticket,
             HttpServletRequest servletRequest,
             HttpServletResponse servletResponse) {
+        oAuthSignupTicketService.revoke(ticket);
         oAuthSignupTicketCookieWriter.clear(servletResponse, servletRequest);
         return ResponseEntity.ok(ApiResponses.ok());
     }

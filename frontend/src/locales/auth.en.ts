@@ -52,6 +52,10 @@ export const authEn: AuthMessages = {
     discordLogin: 'Sign in with Discord',
     githubLogin: 'Sign in with GitHub',
   },
+  oauthTicket: {
+    loadFailed: 'Could not load the social sign-up information. Please try again.',
+    cancelFailed: 'Could not cancel social sign-up. Please try again.',
+  },
   emailNotVerified: 'Email verification is required.',
   passwordMismatch: 'Passwords do not match.',
   verificationFailed: 'Verification failed.',

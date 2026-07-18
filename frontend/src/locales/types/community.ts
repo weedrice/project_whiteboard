@@ -54,6 +54,10 @@ export interface AuthMessages {
     discordLogin: string
     githubLogin: string
   }
+  oauthTicket: {
+    loadFailed: string
+    cancelFailed: string
+  }
   emailNotVerified: string
   passwordMismatch: string
   verificationFailed: string

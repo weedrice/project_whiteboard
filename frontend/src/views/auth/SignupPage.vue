@@ -9,6 +9,8 @@ import BaseButton from '@/components/common/ui/BaseButton.vue'
 import AuthPasswordPairFields from '@/components/auth/AuthPasswordPairFields.vue'
 import { useSignupRegistration } from '@/composables/useSignupRegistration'
 import { usePwaReloadBlocker } from '@/pwaReloadGuard'
+import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
+import ErrorState from '@/components/common/ui/ErrorState.vue'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -19,11 +21,16 @@ const {
   fieldErrors,
   isLoading,
   isReregister,
+  oauthTicketLoading,
+  oauthTicketLoadError,
+  oauthTicketCancelling,
   verification,
   formatTime,
   sendVerificationCode,
   verifyCode,
-  handleSignup
+  handleSignup,
+  initializeFromRouteQuery,
+  cancelOAuthSignup,
 } = useSignupRegistration({
   route,
   router,
@@ -40,11 +47,13 @@ usePwaReloadBlocker(computed(() => (
 <template>
   <div class="relative flex h-full flex-col justify-center p-5 sm:p-8">
     <div class="absolute top-4 left-4">
-      <router-link to="/login"
-        class="nv-focus-ring flex min-h-11 items-center rounded-md px-1 nv-text-subtle transition-colors hover:text-[var(--nv-ink)]">
+      <button type="button"
+        class="nv-focus-ring flex min-h-11 items-center rounded-md px-1 nv-text-subtle transition-colors hover:text-[var(--nv-ink)]"
+        :disabled="oauthTicketCancelling"
+        @click="cancelOAuthSignup">
         <ChevronLeft class="h-5 w-5 mr-1" />
         <span class="text-sm font-medium">{{ $t('common.back') }}</span>
-      </router-link>
+      </button>
     </div>
     <div class="text-center mb-12 mt-16">
       <h1 class="text-3xl font-extrabold nv-title">
@@ -52,7 +61,17 @@ usePwaReloadBlocker(computed(() => (
       </h1>
     </div>
 
-    <form class="space-y-6" @submit.prevent="handleSignup">
+    <div v-if="oauthTicketLoading" class="flex justify-center py-12" role="status" aria-live="polite">
+      <BaseSpinner />
+      <span class="sr-only">{{ $t('common.loading') }}</span>
+    </div>
+    <ErrorState
+      v-else-if="oauthTicketLoadError"
+      :message="$t('auth.oauthTicket.loadFailed')"
+      show-retry
+      @retry="initializeFromRouteQuery"
+    />
+    <form v-else class="space-y-6" @submit.prevent="handleSignup">
       <div class="mx-auto w-full space-y-4 sm:w-[80%]">
         <div>
           <BaseInput id="login-id" v-model="form.loginId" name="loginId" type="text" required

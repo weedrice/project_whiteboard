@@ -1,8 +1,8 @@
 package com.weedrice.whiteboard.global.security;
 
+import com.weedrice.whiteboard.domain.auth.OAuthSignupTicketProperties;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.env.Environment;
 import org.springframework.core.env.Profiles;
 import org.springframework.http.HttpHeaders;
@@ -22,9 +22,9 @@ public class OAuthSignupTicketCookieWriter {
     private final boolean productionProfile;
 
     public OAuthSignupTicketCookieWriter(
-            @Value("${app.oauth.signup-ticket-ttl:10m}") Duration ticketTtl,
+            OAuthSignupTicketProperties properties,
             Environment environment) {
-        this.ticketTtl = ticketTtl;
+        this.ticketTtl = properties.getTtl();
         this.productionProfile = environment != null && environment.acceptsProfiles(Profiles.of("prod"));
     }
 

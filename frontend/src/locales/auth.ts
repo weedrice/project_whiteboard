@@ -52,6 +52,10 @@ export const auth: AuthMessages = {
     discordLogin: 'Discord 로그인',
     githubLogin: 'GitHub 로그인',
   },
+  oauthTicket: {
+    loadFailed: '소셜 가입 정보를 불러오지 못했습니다. 다시 시도해 주세요.',
+    cancelFailed: '소셜 가입을 취소하지 못했습니다. 다시 시도해 주세요.',
+  },
   emailNotVerified: '이메일 인증이 필요합니다.',
   passwordMismatch: '비밀번호가 일치하지 않습니다.',
   verificationFailed: '인증에 실패했습니다.',

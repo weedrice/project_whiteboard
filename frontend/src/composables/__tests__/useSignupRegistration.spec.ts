@@ -49,6 +49,7 @@ vi.mock('@/api/auth', () => ({
   authApi: {
     checkEmailForReregister: vi.fn(),
     getOAuthSignupTicket: vi.fn(),
+    deleteOAuthSignupTicket: vi.fn(),
     signup: vi.fn()
   }
 }))
@@ -121,6 +122,7 @@ describe('useSignupRegistration', () => {
     })
     vi.mocked(authApi.getOAuthSignupTicket).mockRejectedValue({ response: { status: 400 } })
     vi.mocked(authApi.signup).mockResolvedValue(apiSuccessResponse<typeof authApi.signup>())
+    vi.mocked(authApi.deleteOAuthSignupTicket).mockResolvedValue(apiSuccessResponse<typeof authApi.deleteOAuthSignupTicket>())
   })
 
   it('hydrates query email and name without performing a reregister lookup', async () => {
@@ -215,6 +217,7 @@ describe('useSignupRegistration', () => {
 
   it('blocks submit until email verification has a ticket', async () => {
     const { composable, wrapper } = mountSignupRegistration()
+    await flushMountedAsync()
     Object.assign(composable.form.value, {
       loginId: 'login_1',
       password: 'Password1!',
@@ -227,6 +230,31 @@ describe('useSignupRegistration', () => {
 
     expect(authApi.signup).not.toHaveBeenCalled()
     expect(mocks.toastStore.addToast).toHaveBeenCalledWith('auth.verificationRequired', 'error')
+    wrapper.unmount()
+  })
+
+  it('keeps the form blocked and exposes retry when the OAuth ticket lookup fails transiently', async () => {
+    vi.mocked(authApi.getOAuthSignupTicket).mockRejectedValueOnce({ response: { status: 503 } })
+    const { composable, wrapper } = mountSignupRegistration({ email: 'query@example.com' })
+    await flushMountedAsync()
+
+    expect(composable.oauthTicketLoadError.value).toBe(true)
+    expect(composable.form.value.email).toBe('')
+
+    await composable.handleSignup()
+    expect(authApi.signup).not.toHaveBeenCalled()
+    expect(mocks.toastStore.addToast).toHaveBeenCalledWith('auth.oauthTicket.loadFailed', 'error')
+    wrapper.unmount()
+  })
+
+  it('clears the server OAuth ticket before explicitly returning to login', async () => {
+    const { composable, wrapper } = mountSignupRegistration()
+    await flushMountedAsync()
+
+    await composable.cancelOAuthSignup()
+
+    expect(authApi.deleteOAuthSignupTicket).toHaveBeenCalledWith({ signal: expect.any(AbortSignal) })
+    expect(mocks.router.push).toHaveBeenCalledWith('/login')
     wrapper.unmount()
   })
 

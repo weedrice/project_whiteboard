@@ -20,6 +20,7 @@ import {
 import { useToastStore } from '@/stores/toast'
 import { extractErrorMessage } from '@/utils/errorHandler'
 import { isEmpty, isValidDisplayName, isValidEmail, isValidLoginId } from '@/utils/validation'
+import { isCancellationError } from '@/utils/cancellationError'
 
 interface SignupRegistrationOptions {
   route: RouteLocationNormalizedLoaded
@@ -44,6 +45,9 @@ export function useSignupRegistration({ route, router, t }: SignupRegistrationOp
   const error = ref('')
   const isLoading = ref(false)
   const isReregister = ref(false)
+  const oauthTicketLoading = ref(false)
+  const oauthTicketLoadError = ref(false)
+  const oauthTicketCancelling = ref(false)
   let requestRevision = 0
   let requestController: AbortController | null = null
 
@@ -158,6 +162,11 @@ export function useSignupRegistration({ route, router, t }: SignupRegistrationOp
   async function handleSignup() {
     error.value = ''
 
+    if (oauthTicketLoading.value || oauthTicketLoadError.value || oauthTicketCancelling.value) {
+      toastStore.addToast(t('auth.oauthTicket.loadFailed'), 'error')
+      return
+    }
+
     touchAllFields()
     validateAllFields()
 
@@ -228,16 +237,40 @@ export function useSignupRegistration({ route, router, t }: SignupRegistrationOp
 
   async function initializeFromRouteQuery() {
     const { revision, controller } = beginRequest()
+    oauthTicketLoading.value = true
+    oauthTicketLoadError.value = false
     try {
       const { data } = await authApi.getOAuthSignupTicket({ signal: controller.signal })
       if (isCurrentRequest(revision, controller)) {
         hydrateSignupFormFromOAuthTicket(form.value, unwrapApiData(data))
       }
-    } catch {
-      if (isCurrentRequest(revision, controller)) {
-        // A missing OAuth ticket is the normal direct-signup path.
+    } catch (caughtError) {
+      if (!isCurrentRequest(revision, controller) || isCancellationError(caughtError)) return
+      const status = caughtError && typeof caughtError === 'object'
+        ? (caughtError as { response?: { status?: number } }).response?.status
+        : undefined
+      if (status === 400 || status === 404) {
+        // A missing or expired OAuth ticket is the normal direct-signup path.
         hydrateSignupFormFromQuery(form.value, route.query)
+      } else {
+        oauthTicketLoadError.value = true
       }
+    } finally {
+      if (isCurrentRequest(revision, controller)) oauthTicketLoading.value = false
+    }
+  }
+
+  async function cancelOAuthSignup() {
+    const { revision, controller } = beginRequest()
+    oauthTicketCancelling.value = true
+    try {
+      await authApi.deleteOAuthSignupTicket({ signal: controller.signal })
+      if (isCurrentRequest(revision, controller)) await router.push('/login')
+    } catch (caughtError) {
+      if (!isCurrentRequest(revision, controller) || isCancellationError(caughtError)) return
+      toastStore.addToast(t('auth.oauthTicket.cancelFailed'), 'error')
+    } finally {
+      if (isCurrentRequest(revision, controller)) oauthTicketCancelling.value = false
     }
   }
 
@@ -245,6 +278,8 @@ export function useSignupRegistration({ route, router, t }: SignupRegistrationOp
     requestRevision += 1
     requestController?.abort()
     requestController = null
+    oauthTicketLoading.value = false
+    oauthTicketCancelling.value = false
     if (isLoading.value) {
       isLoading.value = false
     }
@@ -255,6 +290,9 @@ export function useSignupRegistration({ route, router, t }: SignupRegistrationOp
     requestController?.abort()
     requestController = null
     isLoading.value = false
+    oauthTicketLoading.value = false
+    oauthTicketLoadError.value = false
+    oauthTicketCancelling.value = false
     hydrateSignupFormFromQuery(form.value, route.query)
   })
 
@@ -291,11 +329,15 @@ export function useSignupRegistration({ route, router, t }: SignupRegistrationOp
     error,
     isLoading,
     isReregister,
+    oauthTicketLoading,
+    oauthTicketLoadError,
+    oauthTicketCancelling,
     verification,
     formatTime,
     sendVerificationCode,
     verifyCode,
     handleSignup,
-    initializeFromRouteQuery
+    initializeFromRouteQuery,
+    cancelOAuthSignup,
   }
 }

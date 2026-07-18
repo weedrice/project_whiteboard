@@ -10,6 +10,7 @@ import com.weedrice.whiteboard.domain.auth.entity.VerificationPurpose;
 import com.weedrice.whiteboard.domain.auth.entity.VerificationCode;
 import com.weedrice.whiteboard.domain.auth.repository.PasswordResetTokenRepository;
 import com.weedrice.whiteboard.domain.auth.repository.OAuthSignupTicketRepository;
+import com.weedrice.whiteboard.domain.auth.OAuthSignupTicketProperties;
 import com.weedrice.whiteboard.domain.auth.repository.RefreshTokenRepository;
 import com.weedrice.whiteboard.domain.auth.repository.VerificationCodeRepository;
 import com.weedrice.whiteboard.domain.point.repository.UserPointRepository;
@@ -155,7 +156,8 @@ class AuthServiceTest {
                 new OAuthSignupTicketService(
                         mock(OAuthSignupTicketRepository.class),
                         tokenHashService,
-                        FIXED_CLOCK));
+                        FIXED_CLOCK,
+                        new OAuthSignupTicketProperties()));
         RateLimitProperties rateLimitProperties = new RateLimitProperties();
         rateLimitProperties.setAuthAccountLimit(1_000);
         LoginAccountRateLimiter loginAccountRateLimiter = new LoginAccountRateLimiter(

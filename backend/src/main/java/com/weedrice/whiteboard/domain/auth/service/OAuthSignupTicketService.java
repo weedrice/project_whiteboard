@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.auth.service;
 
 import com.weedrice.whiteboard.domain.auth.dto.OAuthSignupTicketResponse;
+import com.weedrice.whiteboard.domain.auth.OAuthSignupTicketProperties;
 import com.weedrice.whiteboard.domain.auth.entity.OAuthSignupTicketEntity;
 import com.weedrice.whiteboard.domain.auth.repository.OAuthSignupTicketRepository;
 import com.weedrice.whiteboard.global.common.util.TextInputNormalizer;
@@ -11,7 +12,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -21,11 +21,10 @@ import java.util.UUID;
 public class OAuthSignupTicketService {
 
     private static final int TICKET_LENGTH = 36;
-    private static final Duration TICKET_TTL = Duration.ofMinutes(10);
-
     private final OAuthSignupTicketRepository ticketRepository;
     private final TokenHashService tokenHashService;
     private final Clock clock;
+    private final OAuthSignupTicketProperties properties;
 
     @Transactional
     public String issue(String email, String name, String provider, String providerId) {
@@ -36,7 +35,7 @@ public class OAuthSignupTicketService {
                 name,
                 provider,
                 providerId,
-                now().plus(TICKET_TTL)));
+                now().plus(properties.getTtl())));
         return ticket;
     }
 
@@ -55,6 +54,20 @@ public class OAuthSignupTicketService {
         OAuthSignupTicket payload = toPayload(entity);
         ticketRepository.delete(entity);
         return payload;
+    }
+
+    @Transactional
+    public void revoke(String ticket) {
+        if (!org.springframework.util.StringUtils.hasText(ticket)) {
+            return;
+        }
+        final String normalizedTicket;
+        try {
+            normalizedTicket = normalizeTicket(ticket);
+        } catch (BusinessException ignored) {
+            return;
+        }
+        ticketRepository.deleteByTicketHash(tokenHashService.hashSha256(normalizedTicket));
     }
 
     @Transactional

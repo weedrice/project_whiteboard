@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.auth.service;
 
 import com.weedrice.whiteboard.domain.auth.dto.OAuthSignupTicketResponse;
+import com.weedrice.whiteboard.domain.auth.OAuthSignupTicketProperties;
 import com.weedrice.whiteboard.domain.auth.entity.OAuthSignupTicketEntity;
 import com.weedrice.whiteboard.domain.auth.repository.OAuthSignupTicketRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -39,7 +40,8 @@ class OAuthSignupTicketServiceTest {
     @BeforeEach
     void setUp() {
         tokenHashService = new TokenHashService();
-        service = new OAuthSignupTicketService(ticketRepository, tokenHashService, CLOCK);
+        service = new OAuthSignupTicketService(
+                ticketRepository, tokenHashService, CLOCK, new OAuthSignupTicketProperties());
     }
 
     @Test
@@ -140,6 +142,25 @@ class OAuthSignupTicketServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
         verify(ticketRepository).delete(entity);
+    }
+
+    @Test
+    void revoke_deletesHashedTicketIdempotently() {
+        String ticket = UUID.randomUUID().toString();
+
+        service.revoke(ticket);
+        service.revoke(ticket);
+
+        verify(ticketRepository, org.mockito.Mockito.times(2))
+                .deleteByTicketHash(tokenHashService.hashSha256(ticket));
+    }
+
+    @Test
+    void revoke_ignoresMissingOrMalformedTicket() {
+        service.revoke(null);
+        service.revoke("forged-ticket");
+
+        verify(ticketRepository, never()).deleteByTicketHash(org.mockito.ArgumentMatchers.anyString());
     }
 
     @Test
