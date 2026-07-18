@@ -129,6 +129,7 @@ class UserBlockServiceTest {
         userBlockService.unblockUser(1L, 2L);
 
         verify(userBlockRepository).delete(userBlock);
+        verify(notificationAccessInvalidationService).invalidateCommentTopicsForUsersAfterCommit(1L, 2L);
     }
 
     @Test

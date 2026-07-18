@@ -124,6 +124,19 @@ class NotificationSseEmitterRegistryTest {
     }
 
     @Test
+    void invalidatingUserTopicsNotifiesActiveConnectionWithoutRegisteredTopic() {
+        CountingSseEmitter emitter = new CountingSseEmitter();
+        NotificationSseEmitterRegistry registry = new SequenceEmitterNotificationSseEmitterRegistry(emitter);
+        registry.subscribe(1L);
+
+        registry.invalidateCommentTopicsForUser(1L);
+
+        assertThat(emitter.lastEventData())
+                .anySatisfy(data -> assertThat(data.toString()).contains("comment-topic-access-revoked"))
+                .contains(Map.of("reason", "access-revoked"));
+    }
+
+    @Test
     void invalidatingBoardTopicsKeepsTopicsFromOtherBoards() {
         NotificationSseEmitterRegistry registry = registry(10_000L, 5);
         registry.subscribe(1L);

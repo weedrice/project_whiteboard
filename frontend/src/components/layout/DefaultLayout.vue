@@ -38,7 +38,10 @@ const { toggleTheme } = useThemePreference()
 
 const logoSrc = computed(() => (themeStore.isDark ? logoDark : logoLight))
 
-const { unreadCount } = useNotificationStream(() => authStore.isAuthenticated)
+const { unreadCount } = useNotificationStream(
+  () => authStore.isAuthenticated,
+  () => authStore.sessionGeneration,
+)
 const unreadNotificationText = computed(() => t('notification.unreadNotifications', { count: unreadCount.value ?? 0 }))
 const openNotificationsLabel = computed(() => unreadCount.value && unreadCount.value > 0
   ? `${t('layout.a11y.openNotifications')}. ${unreadNotificationText.value}`

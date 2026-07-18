@@ -195,7 +195,10 @@ describe('notificationStreamController dependencies', () => {
         stop()
     })
 
-    it('reconnects the current session after a comment topic invalidation', async () => {
+    it.each([
+        'comment-topic-invalidated',
+        'comment-topic-access-revoked',
+    ])('reconnects the current session after the %s control event', async (eventType) => {
         const encoder = new TextEncoder()
         let firstController!: ReadableStreamDefaultController<Uint8Array>
         const firstStream = new ReadableStream<Uint8Array>({
@@ -229,7 +232,7 @@ describe('notificationStreamController dependencies', () => {
         controller.connectToSse()
         await flushAsync()
         firstController.enqueue(encoder.encode(
-            'event: comment-topic-invalidated\ndata: {"boardId":100}\n\n',
+            `event: ${eventType}\ndata: {"reason":"access-changed"}\n\n`,
         ))
         await flushAsync()
         await vi.runOnlyPendingTimersAsync()

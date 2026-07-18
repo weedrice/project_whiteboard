@@ -69,6 +69,7 @@ public class UserBlockService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
 
         userBlockRepository.delete(userBlock);
+        notificationAccessInvalidationService.invalidateCommentTopicsForUsersAfterCommit(userId, targetUserId);
     }
 
     public Page<BlockedUserResponse> getBlockedUsers(Long userId, Pageable pageable) {

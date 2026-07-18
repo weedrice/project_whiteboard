@@ -543,6 +543,10 @@ public class NotificationSseEmitterRegistry
         }
         int removedTopics = 0;
         java.util.Set<String> affectedConnections = new java.util.HashSet<>();
+        Map<String, EmitterConnection> userEmitters = emitters.get(userId);
+        if (userEmitters != null) {
+            affectedConnections.addAll(userEmitters.keySet());
+        }
         synchronized (commentTopicLock) {
             for (Map.Entry<Long, ConcurrentMap<Long, ConcurrentMap<String, Boolean>>> entry
                     : new ArrayList<>(commentSubscribers.entrySet())) {
@@ -557,6 +561,8 @@ public class NotificationSseEmitterRegistry
         }
         if (removedTopics > 0) {
             commentTopicCleanups.increment(removedTopics);
+        }
+        if (!affectedConnections.isEmpty()) {
             publishControlEvent(userId, affectedConnections, "comment-topic-access-revoked", Map.of("reason", "access-revoked"));
         }
     }
