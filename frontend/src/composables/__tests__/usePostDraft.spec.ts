@@ -174,8 +174,7 @@ describe('usePostDraft', () => {
 
         await composable.saveNow()
 
-        expect(onServerSaved).toHaveBeenCalledOnce()
-        expect(onServerSaved).toHaveBeenCalledWith(payload.value)
+        expect(onServerSaved).toHaveBeenCalledExactlyOnceWith(payload.value)
     })
 
     it('aborts an in-flight draft request when the draft session resets', async () => {
