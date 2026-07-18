@@ -17,6 +17,7 @@ import org.jspecify.annotations.NonNull;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.HashSet;
@@ -36,6 +37,7 @@ public class PollService {
     private final UserWritableResolver userWritableResolver;
     private final PostReadContextResolver postReadContextResolver;
     private final PostAccessPolicy postAccessPolicy;
+    private final Clock clock;
 
     @Transactional
     public void createPoll(Post post, PollRequest request) {
@@ -101,6 +103,7 @@ public class PollService {
         Poll poll = pollRepository.findByPostIdForUpdate(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
         validateReadable(poll, user);
+        validateOpen(poll);
         pollVoteRepository.deleteByPoll_PollIdAndUser_UserId(poll.getPollId(), userId);
         return toResponse(poll, userId);
     }
@@ -124,7 +127,7 @@ public class PollService {
                 || request.getOptions().stream().anyMatch(option -> option == null
                 || option.strip().isBlank()
                 || option.length() > 100)
-                || request.getClosesAt() != null && !request.getClosesAt().isAfter(LocalDateTime.now())) {
+                || request.getClosesAt() != null && !request.getClosesAt().isAfter(now())) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
     }
@@ -142,9 +145,13 @@ public class PollService {
     }
 
     private void validateOpen(Poll poll) {
-        if (poll.getClosesAt() != null && poll.getClosesAt().isBefore(LocalDateTime.now())) {
+        if (poll.getClosesAt() != null && !poll.getClosesAt().isAfter(now())) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
+    }
+
+    private LocalDateTime now() {
+        return LocalDateTime.now(clock);
     }
 
     private void validateReadable(Poll poll, User viewer) {

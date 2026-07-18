@@ -17,7 +17,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 
@@ -38,6 +40,9 @@ import static org.mockito.Mockito.when;
 @MockitoSettings(strictness = Strictness.LENIENT)
 class PollServiceTest {
 
+    private static final LocalDateTime NOW = LocalDateTime.of(2026, 7, 18, 12, 0);
+    private static final Clock CLOCK = Clock.fixed(NOW.toInstant(ZoneOffset.UTC), ZoneOffset.UTC);
+
     @Mock PollRepository polls;
     @Mock PollVoteRepository votes;
     @Mock UserWritableResolver users;
@@ -47,7 +52,7 @@ class PollServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new PollService(polls, votes, users, postReadContextResolver, postAccessPolicy);
+        service = new PollService(polls, votes, users, postReadContextResolver, postAccessPolicy, CLOCK);
         PostReadContext context = PostReadContext.anonymous();
         when(postReadContextResolver.resolveForResolvedUser(any())).thenReturn(context);
         when(postReadContextResolver.withAdminBoardIdsForPosts(eq(context), anyList())).thenReturn(context);
@@ -77,7 +82,7 @@ class PollServiceTest {
                 () -> service.createPoll(post, request("q", List.of("a".repeat(101), "b"), false, null)));
         assertThrows(BusinessException.class,
                 () -> service.createPoll(post, request("q", List.of("a", "b"), false,
-                        LocalDateTime.now().minusSeconds(1))));
+                        NOW.minusSeconds(1))));
 
         verify(polls, never()).save(any());
     }
@@ -157,7 +162,7 @@ class PollServiceTest {
         when(polls.findByPostIdForUpdate(9L)).thenReturn(Optional.empty());
         assertThrows(BusinessException.class, () -> service.vote(1L, 9L, List.of(1L)));
 
-        Poll closed = poll(false, LocalDateTime.now().minusMinutes(1));
+        Poll closed = poll(false, NOW);
         when(polls.findByPostIdForUpdate(3L)).thenReturn(Optional.of(closed));
         assertThrows(BusinessException.class, () -> service.vote(1L, 3L, List.of(101L)));
 
@@ -177,6 +182,16 @@ class PollServiceTest {
 
         service.deleteVote(1L, 5L);
         verify(votes).deleteByPoll_PollIdAndUser_UserId(20L, 1L);
+    }
+
+    @Test
+    void deleteVoteRejectsClosedPollWithoutMutation() {
+        Poll closed = poll(false, NOW);
+        when(polls.findByPostIdForUpdate(5L)).thenReturn(Optional.of(closed));
+
+        assertThrows(BusinessException.class, () -> service.deleteVote(1L, 5L));
+
+        verify(votes, never()).deleteByPoll_PollIdAndUser_UserId(any(), any());
     }
 
     private static PollRequest request(String question, List<String> options, boolean multiple, LocalDateTime closesAt) {
