@@ -114,6 +114,18 @@ describe('authApi', () => {
         )
     })
 
+    it('deletes the OAuth signup ticket with skip flags', () => {
+        authApi.deleteOAuthSignupTicket()
+
+        expect(apiMock.delete).toHaveBeenCalledWith(
+            '/auth/oauth/signup-ticket',
+            {
+                skipAuthRefresh: true,
+                skipGlobalErrorHandler: true,
+            },
+        )
+    })
+
     it('calls findId with verification ticket and skip flags', () => {
         authApi.findId('test@example.com', 'ticket-1')
 

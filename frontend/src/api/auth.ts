@@ -74,6 +74,12 @@ export const authApi = {
             skipGlobalErrorHandler: true,
         } as AxiosRequestConfig),
 
+    deleteOAuthSignupTicket: () =>
+        api.delete<ApiResponse<void>>('/auth/oauth/signup-ticket', {
+            skipAuthRefresh: true,
+            skipGlobalErrorHandler: true,
+        }),
+
     findId: (email: string, verificationTicket: string) =>
         api.post<ApiResponse<{ loginId: string }>>(
             '/auth/find-id',
