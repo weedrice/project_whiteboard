@@ -128,6 +128,45 @@ class SignupServiceTest {
     }
 
     @Test
+    @DisplayName("OAuth 재가입 ticket은 한 번만 소비하고 삭제 계정에 연결한다")
+    void signup_oauthReregister_consumesTicketOnceAndLinksAccount() {
+        SignupRequest request = SignupRequest.builder()
+                .loginId("testuser")
+                .password("password123")
+                .email("test@example.com")
+                .displayName("Rejoined User")
+                .verificationTicket("verification-ticket")
+                .oauthRegistrationTicket("oauth-ticket")
+                .build();
+        User deletedUser = User.builder()
+                .loginId("testuser")
+                .password("old-password")
+                .email("test@example.com")
+                .displayName("Deleted User")
+                .build();
+        ReflectionTestUtils.setField(deletedUser, "userId", 1L);
+        ReflectionTestUtils.setField(deletedUser, "status", "DELETED");
+        ReflectionTestUtils.setField(deletedUser, "deletedAt", LocalDateTime.now().minusDays(1));
+        OAuthSignupTicketService.OAuthSignupTicket oauthTicket =
+                new OAuthSignupTicketService.OAuthSignupTicket(
+                        "test@example.com", "OAuth User", "google", "google-user-1");
+
+        when(oAuthSignupTicketService.consume("oauth-ticket")).thenReturn(oauthTicket);
+        when(accountUniquenessPolicy.findReregisterableSignupUser("test@example.com"))
+                .thenReturn(Optional.of(deletedUser));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(deletedUser));
+        when(passwordHistoryPolicy.encode("password123")).thenReturn("encoded-password");
+        when(userRepository.save(deletedUser)).thenReturn(deletedUser);
+
+        SignupResponse response = signupService.signup(request);
+
+        assertThat(response.getUserId()).isEqualTo(1L);
+        verify(oAuthSignupTicketService).consume("oauth-ticket");
+        verify(socialAccountLinkService).linkSocialAccount(
+                deletedUser, "google", "google-user-1");
+    }
+
+    @Test
     @DisplayName("재가입 verification ticket 검증이 실패하면 refresh token을 회수하지 않는다")
     void signup_reregister_doesNotRevokeTokensWhenVerificationFails() {
         SignupRequest request = SignupRequest.builder()

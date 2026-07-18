@@ -57,7 +57,7 @@ public class SignupService {
 
         var reregisterableUser = accountUniquenessPolicy.findReregisterableSignupUser(normalizedEmail);
         if (reregisterableUser.isPresent()) {
-            return reregister(reregisterableUser.get(), request, normalizedEmail);
+            return reregister(reregisterableUser.get(), request, normalizedEmail, oauthTicket);
         }
 
         accountUniquenessPolicy.validateLoginIdAvailable(request.getLoginId());
@@ -111,14 +111,18 @@ public class SignupService {
     public SignupResponse reregister(User existingUser, SignupRequest request) {
         validateLegacyOAuthIdentityAbsent(request);
         String normalizedEmail = AuthEmailNormalizer.normalize(request.getEmail());
-        return reregister(existingUser, request, normalizedEmail);
-    }
-
-    private SignupResponse reregister(User existingUser, SignupRequest request, String normalizedEmail) {
-        existingUser = userRepository.findByIdForUpdate(existingUser.getUserId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         OAuthSignupTicketService.OAuthSignupTicket oauthTicket = resolveOAuthTicket(request);
         validateOAuthTicketEmail(oauthTicket, normalizedEmail);
+        return reregister(existingUser, request, normalizedEmail, oauthTicket);
+    }
+
+    private SignupResponse reregister(
+            User existingUser,
+            SignupRequest request,
+            String normalizedEmail,
+            OAuthSignupTicketService.OAuthSignupTicket oauthTicket) {
+        existingUser = userRepository.findByIdForUpdate(existingUser.getUserId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
 
         if (!Objects.equals(existingUser.getLoginId(), request.getLoginId())) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);

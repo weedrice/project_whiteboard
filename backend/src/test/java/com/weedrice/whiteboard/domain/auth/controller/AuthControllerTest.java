@@ -52,6 +52,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.same;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
@@ -236,9 +237,30 @@ class AuthControllerTest {
     void getOAuthSignupTicket_doesNotAcceptTicketInQueryString() throws Exception {
         mockMvc.perform(get("/api/v1/auth/oauth/signup-ticket")
                         .param("ticket", "ticket-1"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(cookie().maxAge(OAuthSignupTicketCookieWriter.COOKIE_NAME, 0));
 
         verify(oAuthSignupTicketService, never()).getResponse(any());
+    }
+
+    @Test
+    void getOAuthSignupTicket_clearsInvalidCookie() throws Exception {
+        when(oAuthSignupTicketService.getResponse("expired-ticket"))
+                .thenThrow(new BusinessException(ErrorCode.INVALID_INPUT_VALUE));
+
+        mockMvc.perform(get("/api/v1/auth/oauth/signup-ticket")
+                        .cookie(new Cookie(OAuthSignupTicketCookieWriter.COOKIE_NAME, "expired-ticket")))
+                .andExpect(status().isBadRequest())
+                .andExpect(cookie().maxAge(OAuthSignupTicketCookieWriter.COOKIE_NAME, 0));
+    }
+
+    @Test
+    void clearOAuthSignupTicket_expiresCookie() throws Exception {
+        mockMvc.perform(delete("/api/v1/auth/oauth/signup-ticket")
+                        .cookie(new Cookie(OAuthSignupTicketCookieWriter.COOKIE_NAME, "ticket-1")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(cookie().maxAge(OAuthSignupTicketCookieWriter.COOKIE_NAME, 0));
     }
 
     @Test

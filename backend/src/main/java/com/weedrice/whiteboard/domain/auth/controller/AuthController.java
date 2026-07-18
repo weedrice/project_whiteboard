@@ -98,11 +98,26 @@ public class AuthController {
 
     @GetMapping("/oauth/signup-ticket")
     public ResponseEntity<ApiResponse<OAuthSignupTicketResponse>> getOAuthSignupTicket(
-            @CookieValue(name = OAuthSignupTicketCookieWriter.COOKIE_NAME, required = false) String ticket) {
-        if (!StringUtils.hasText(ticket)) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+            @CookieValue(name = OAuthSignupTicketCookieWriter.COOKIE_NAME, required = false) String ticket,
+            HttpServletRequest servletRequest,
+            HttpServletResponse servletResponse) {
+        try {
+            if (!StringUtils.hasText(ticket)) {
+                throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+            }
+            return ResponseEntity.ok(ApiResponse.success(oAuthSignupTicketService.getResponse(ticket)));
+        } catch (BusinessException exception) {
+            oAuthSignupTicketCookieWriter.clear(servletResponse, servletRequest);
+            throw exception;
         }
-        return ResponseEntity.ok(ApiResponse.success(oAuthSignupTicketService.getResponse(ticket)));
+    }
+
+    @DeleteMapping("/oauth/signup-ticket")
+    public ResponseEntity<ApiResponse<Void>> clearOAuthSignupTicket(
+            HttpServletRequest servletRequest,
+            HttpServletResponse servletResponse) {
+        oAuthSignupTicketCookieWriter.clear(servletResponse, servletRequest);
+        return ResponseEntity.ok(ApiResponses.ok());
     }
 
     @Operation(

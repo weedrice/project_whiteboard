@@ -90,6 +90,7 @@ Java 필드명과 JSON 직렬화 이름이 다른 기존 응답은 호환성을 
 | --- | --- | --- |
 | `POST` | `/api/v1/auth/signup` | 회원가입 |
 | `GET` | `/api/v1/auth/oauth/signup-ticket` | HttpOnly OAuth 가입 쿠키의 표시용 가입 정보 조회 |
+| `DELETE` | `/api/v1/auth/oauth/signup-ticket` | OAuth 가입 흐름 취소 및 HttpOnly 가입 쿠키 만료 |
 | `POST` | `/api/v1/auth/login` | 로그인 및 토큰 발급 |
 | `POST` | `/api/v1/auth/logout` | Refresh Token 폐기 |
 | `POST` | `/api/v1/auth/refresh` | Access/Refresh Token 재발급 |
@@ -109,6 +110,8 @@ Java 필드명과 JSON 직렬화 이름이 다른 기존 응답은 호환성을 
 미가입 OAuth 사용자의 가입 ticket은 URL이나 JSON 요청 필드로 전달하지 않는다. OAuth 성공 처리기가
 `HttpOnly`, `SameSite=Lax`, 10분 수명의 쿠키를 설정하며, 가입 정보 조회와 최종 가입은 이 쿠키만
 사용한다. 가입 성공 시 쿠키를 즉시 만료한다.
+만료·위조된 ticket 조회도 쿠키를 만료시키며, 사용자는 `DELETE /api/v1/auth/oauth/signup-ticket`으로
+OAuth 가입을 취소하고 일반 가입으로 돌아갈 수 있다.
 
 ### Users
 
