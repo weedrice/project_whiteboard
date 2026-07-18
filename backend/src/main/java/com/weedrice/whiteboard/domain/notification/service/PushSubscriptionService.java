@@ -2,11 +2,14 @@ package com.weedrice.whiteboard.domain.notification.service;
 
 import com.weedrice.whiteboard.domain.notification.dto.PushSubscriptionRequest;
 import com.weedrice.whiteboard.domain.notification.dto.PushSubscriptionResponse;
+import com.weedrice.whiteboard.domain.notification.config.WebPushProperties;
 import com.weedrice.whiteboard.domain.notification.entity.PushSubscription;
 import com.weedrice.whiteboard.domain.notification.repository.PushSubscriptionRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.service.UserSettingsService;
 import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,10 +24,20 @@ public class PushSubscriptionService {
     private final PushSubscriptionRepository pushSubscriptionRepository;
     private final UserWritableResolver userWritableResolver;
     private final UserSettingsService userSettingsService;
+    private final WebPushSubscriptionValidator subscriptionValidator;
+    private final WebPushProperties webPushProperties;
 
     @Transactional
     public PushSubscriptionResponse subscribe(Long userId, PushSubscriptionRequest request) {
         String endpoint = request.getEndpoint();
+        try {
+            subscriptionValidator.validateForRegistration(
+                    endpoint,
+                    request.getKeys().getP256dh(),
+                    request.getKeys().getAuth());
+        } catch (InvalidWebPushSubscriptionException exception) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+        }
         pushSubscriptionRepository.lockEndpoint(endpoint);
 
         PushSubscription existingSubscription = pushSubscriptionRepository.findByEndpoint(endpoint).orElse(null);
@@ -33,6 +46,13 @@ public class PushSubscriptionService {
                 userId,
                 previousUserId == null || previousUserId.equals(userId) ? List.of() : List.of(previousUserId));
         User user = findLockedUser(lockedUsers, userId);
+
+        boolean createsSubscriptionForCurrentUser = existingSubscription == null
+                || !userId.equals(previousUserId);
+        if (createsSubscriptionForCurrentUser
+                && pushSubscriptionRepository.countByUser_UserId(userId) >= maxSubscriptionsPerUser()) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+        }
 
         PushSubscription subscription = existingSubscription == null
                 ? PushSubscription.builder()
@@ -85,5 +105,13 @@ public class PushSubscriptionService {
                 .filter(user -> userId.equals(user.getUserId()))
                 .findFirst()
                 .orElseThrow(() -> new IllegalStateException("Locked user not found"));
+    }
+
+    private int maxSubscriptionsPerUser() {
+        int configuredLimit = webPushProperties.getMaxSubscriptionsPerUser();
+        if (configuredLimit < 1) {
+            throw new IllegalStateException("web-push.max-subscriptions-per-user must be positive");
+        }
+        return configuredLimit;
     }
 }

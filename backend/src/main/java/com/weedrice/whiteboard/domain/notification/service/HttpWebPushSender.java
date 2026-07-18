@@ -20,9 +20,11 @@ class HttpWebPushSender implements WebPushSender {
 
     private final WebPushProperties properties;
     private final CloseableHttpAsyncClient webPushHttpClient;
+    private final WebPushSubscriptionValidator subscriptionValidator;
 
     @Override
     public int send(PushSubscriptionSnapshot subscription, String payload) throws Exception {
+        subscriptionValidator.validateForDelivery(subscription);
         PushService pushService = new PushService(
                 properties.getPublicKey(),
                 properties.getPrivateKey(),

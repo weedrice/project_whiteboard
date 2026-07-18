@@ -32,6 +32,8 @@ public interface PushSubscriptionRepository
 
     boolean existsByUser_UserId(Long userId);
 
+    long countByUser_UserId(Long userId);
+
     @Modifying
     @Query("DELETE FROM PushSubscription ps WHERE ps.user.userId = :userId")
     int deleteAllByUserId(@Param("userId") Long userId);

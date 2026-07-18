@@ -87,6 +87,8 @@ class RateLimitInterceptorTest {
     @ValueSource(strings = {
             "/api/v1/auth/login",
             "/api/v1/auth/signup",
+            "/api/v1/auth/email/send-verification",
+            "/api/v1/auth/email/verify",
             "/api/v1/auth/password/send-reset-link",
             "/api/v1/auth/password/send-reset-link-by-email",
             "/api/v1/auth/password/reset",

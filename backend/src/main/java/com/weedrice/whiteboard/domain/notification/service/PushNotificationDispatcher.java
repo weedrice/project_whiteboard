@@ -33,6 +33,11 @@ public class PushNotificationDispatcher {
             recordDelivery("timeout");
             log.warn("Web push delivery timed out. subscriptionId={}", subscription.subscriptionId());
             return PushDeliveryOutcome.RETRYABLE_FAILURE;
+        } catch (InvalidWebPushSubscriptionException exception) {
+            recordDelivery("expired");
+            log.warn("Rejected invalid web push subscription. subscriptionId={}, reason={}",
+                    subscription.subscriptionId(), exception.getMessage());
+            return PushDeliveryOutcome.EXPIRED;
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             recordDelivery("retryable_failure");

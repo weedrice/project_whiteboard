@@ -42,6 +42,8 @@ import java.sql.Connection;
 import java.time.LocalDateTime;
 
 import java.util.List;
+import java.util.Base64;
+import java.util.HexFormat;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -55,7 +57,9 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
+@SpringBootTest(
+        webEnvironment = SpringBootTest.WebEnvironment.NONE,
+        properties = "web-push.allowed-hosts=push.example.test")
 @ActiveProfiles("postgres-smoke")
 @EnabledIfEnvironmentVariable(named = "POSTGRES_SMOKE_TEST", matches = "true")
 class PostgresApplicationContextSmokeTest {
@@ -578,7 +582,7 @@ class PostgresApplicationContextSmokeTest {
                         start.await(5, TimeUnit.SECONDS);
                         pushSubscriptionService.subscribe(
                                 user.getUserId(),
-                                pushSubscriptionRequest(endpoint, "key-" + user.getUserId()));
+                                pushSubscriptionRequest(endpoint));
                         return (Void) null;
                     }))
                     .toList();
@@ -611,10 +615,13 @@ class PostgresApplicationContextSmokeTest {
                 otherId));
     }
 
-    private PushSubscriptionRequest pushSubscriptionRequest(String endpoint, String keySuffix) {
+    private PushSubscriptionRequest pushSubscriptionRequest(String endpoint) {
         PushSubscriptionRequest.Keys keys = new PushSubscriptionRequest.Keys();
-        keys.setP256dh("p256dh-" + keySuffix);
-        keys.setAuth("auth-" + keySuffix);
+        byte[] publicKey = HexFormat.of().parseHex(
+                "046b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c296"
+                        + "4fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51f5");
+        keys.setP256dh(Base64.getUrlEncoder().withoutPadding().encodeToString(publicKey));
+        keys.setAuth(Base64.getUrlEncoder().withoutPadding().encodeToString(new byte[16]));
         PushSubscriptionRequest request = new PushSubscriptionRequest();
         request.setEndpoint(endpoint);
         request.setKeys(keys);

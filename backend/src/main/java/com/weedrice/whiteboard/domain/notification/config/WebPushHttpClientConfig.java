@@ -19,6 +19,7 @@ public class WebPushHttpClientConfig {
                 .setConnectTimeout(connectTimeoutMillis)
                 .setConnectionRequestTimeout(connectTimeoutMillis)
                 .setSocketTimeout(responseTimeoutMillis)
+                .setRedirectsEnabled(false)
                 .build();
         CloseableHttpAsyncClient client = HttpAsyncClients.custom()
                 .useSystemProperties()

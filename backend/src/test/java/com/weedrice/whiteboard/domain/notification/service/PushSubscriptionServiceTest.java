@@ -1,11 +1,14 @@
 package com.weedrice.whiteboard.domain.notification.service;
 
 import com.weedrice.whiteboard.domain.notification.dto.PushSubscriptionRequest;
+import com.weedrice.whiteboard.domain.notification.config.WebPushProperties;
 import com.weedrice.whiteboard.domain.notification.entity.PushSubscription;
 import com.weedrice.whiteboard.domain.notification.repository.PushSubscriptionRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.service.UserSettingsService;
 import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
+import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -14,8 +17,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Base64;
+import java.util.HexFormat;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -27,11 +33,20 @@ class PushSubscriptionServiceTest {
     @Mock PushSubscriptionRepository repository;
     @Mock UserWritableResolver userResolver;
     @Mock UserSettingsService settingsService;
+    @Mock WebPushHostResolver hostResolver;
     PushSubscriptionService service;
+    WebPushProperties properties;
 
     @BeforeEach
     void setUp() {
-        service = new PushSubscriptionService(repository, userResolver, settingsService);
+        properties = new WebPushProperties();
+        properties.setAllowedHosts(List.of("push.example"));
+        service = new PushSubscriptionService(
+                repository,
+                userResolver,
+                settingsService,
+                new WebPushSubscriptionValidator(properties, hostResolver),
+                properties);
     }
 
     @Test
@@ -70,7 +85,11 @@ class PushSubscriptionServiceTest {
         service.subscribe(8L, request);
 
         verify(repository).lockEndpoint(request.getEndpoint());
-        verify(existing).update(currentUser, "key", "auth", "browser");
+        verify(existing).update(
+                currentUser,
+                request.getKeys().getP256dh(),
+                request.getKeys().getAuth(),
+                "browser");
         verify(settingsService).setPushEnabledForLockedUser(currentUser, true);
         verify(settingsService).setPushEnabledForLockedUser(previousUser, false);
     }
@@ -94,6 +113,54 @@ class PushSubscriptionServiceTest {
         service.subscribe(12L, request);
 
         verify(settingsService).setPushEnabledForLockedUser(previousUser, true);
+    }
+
+    @Test
+    void subscribeRejectsDisallowedEndpointBeforeTakingLocks() {
+        PushSubscriptionRequest request = request("https://attacker.example/push");
+
+        assertThatThrownBy(() -> service.subscribe(7L, request))
+                .isInstanceOfSatisfying(BusinessException.class,
+                        exception -> assertEquals(ErrorCode.VALIDATION_ERROR, exception.getErrorCode()));
+
+        verify(repository, never()).lockEndpoint(request.getEndpoint());
+        verify(userResolver, never()).resolveForUpdateWithRelatedUsers(
+                org.mockito.ArgumentMatchers.anyLong(), org.mockito.ArgumentMatchers.anyList());
+    }
+
+    @Test
+    void subscribeRejectsNewEndpointAtUserSubscriptionLimit() {
+        properties.setMaxSubscriptionsPerUser(2);
+        User user = mock(User.class);
+        PushSubscriptionRequest request = request("https://push.example/third");
+        when(user.getUserId()).thenReturn(7L);
+        when(repository.findByEndpoint(request.getEndpoint())).thenReturn(Optional.empty());
+        when(userResolver.resolveForUpdateWithRelatedUsers(7L, List.of())).thenReturn(List.of(user));
+        when(repository.countByUser_UserId(7L)).thenReturn(2L);
+
+        assertThatThrownBy(() -> service.subscribe(7L, request))
+                .isInstanceOf(BusinessException.class);
+
+        verify(repository, never()).saveAndFlush(org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void subscribeUpdatesOwnedEndpointEvenAtUserSubscriptionLimit() {
+        properties.setMaxSubscriptionsPerUser(1);
+        User user = mock(User.class);
+        PushSubscription existing = mock(PushSubscription.class);
+        PushSubscriptionRequest request = request("https://push.example/existing-owned");
+        when(user.getUserId()).thenReturn(7L);
+        when(existing.getUser()).thenReturn(user);
+        when(existing.getEndpoint()).thenReturn(request.getEndpoint());
+        when(repository.findByEndpoint(request.getEndpoint())).thenReturn(Optional.of(existing));
+        when(userResolver.resolveForUpdateWithRelatedUsers(7L, List.of())).thenReturn(List.of(user));
+        when(repository.saveAndFlush(existing)).thenReturn(existing);
+
+        service.subscribe(7L, request);
+
+        verify(repository, never()).countByUser_UserId(7L);
+        verify(existing).update(user, request.getKeys().getP256dh(), request.getKeys().getAuth(), "browser");
     }
 
     @Test
@@ -130,8 +197,11 @@ class PushSubscriptionServiceTest {
 
     private static PushSubscriptionRequest request(String endpoint) {
         PushSubscriptionRequest.Keys keys = new PushSubscriptionRequest.Keys();
-        keys.setP256dh("key");
-        keys.setAuth("auth");
+        byte[] publicKey = HexFormat.of().parseHex(
+                "046b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c296"
+                        + "4fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51f5");
+        keys.setP256dh(Base64.getUrlEncoder().withoutPadding().encodeToString(publicKey));
+        keys.setAuth(Base64.getUrlEncoder().withoutPadding().encodeToString(new byte[16]));
         PushSubscriptionRequest request = new PushSubscriptionRequest();
         request.setEndpoint(endpoint);
         request.setKeys(keys);

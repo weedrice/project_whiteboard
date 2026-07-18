@@ -63,4 +63,13 @@ class PushNotificationDispatcherTest {
         assertThat(dispatcher.send(subscription, "payload")).isEqualTo(PushDeliveryOutcome.RETRYABLE_FAILURE);
         assertThat(meterRegistry.counter("noviis.webpush.delivery", "outcome", "timeout").count()).isEqualTo(1);
     }
+
+    @Test
+    void invalidStoredSubscriptionIsExpiredWithoutRetry() throws Exception {
+        when(webPushSender.send(subscription, "payload"))
+                .thenThrow(new InvalidWebPushSubscriptionException("unsafe endpoint"));
+
+        assertThat(dispatcher.send(subscription, "payload")).isEqualTo(PushDeliveryOutcome.EXPIRED);
+        assertThat(meterRegistry.counter("noviis.webpush.delivery", "outcome", "expired").count()).isEqualTo(1);
+    }
 }
