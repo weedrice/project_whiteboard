@@ -65,4 +65,15 @@ describe('GlobalPromptModal', () => {
         await input.trigger('keyup.enter')
         expect(confirmSpy).toHaveBeenCalledTimes(1)
     })
+
+    it('applies the caller-specific maximum input length', () => {
+        const pinia = createPinia()
+        setActivePinia(pinia)
+        const promptStore = usePromptStore()
+        promptStore.open('message', 'title', '', 'confirm', 'cancel', { maxLength: 255 })
+
+        const wrapper = mountPromptModal(pinia)
+
+        expect(wrapper.get('input').attributes('maxlength')).toBe('255')
+    })
 })

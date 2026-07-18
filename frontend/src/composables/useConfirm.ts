@@ -21,12 +21,14 @@ export function useConfirm() {
         title: string = t('common.confirm'),
         placeholder: string = t('common.reason'),
         confirmText: string = t('common.yes'),
-        cancelText: string = t('common.noValue')
+        cancelText: string = t('common.noValue'),
+        options: { maxLength?: number } = {},
     ): Promise<string | null> => {
         return promptStore.open(message, title, placeholder, confirmText, cancelText, {
             required: true,
             errorMessage: placeholder,
-            confirmVariant: 'danger'
+            confirmVariant: 'danger',
+            maxLength: options.maxLength,
         })
     }
 

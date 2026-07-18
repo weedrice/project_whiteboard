@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import BaseCheckbox from '@/components/common/ui/BaseCheckbox.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
+import { BOARD_WRITE_LIMITS } from '@/utils/board'
 
 const props = withDefaults(defineProps<{
   boardName: string
@@ -46,6 +47,7 @@ const urlFieldClass = computed(() => (props.layout === 'grid' ? 'md:col-span-4' 
         :model-value="boardName"
         :label="t('board.form.name')"
         :placeholder="t('board.form.placeholder.name')"
+        :maxlength="BOARD_WRITE_LIMITS.boardName"
         @update:model-value="emit('update:boardName', String($event))"
       />
     </div>
@@ -55,6 +57,7 @@ const urlFieldClass = computed(() => (props.layout === 'grid' ? 'md:col-span-4' 
         :label="t('board.form.url')"
         :placeholder="t('board.form.placeholder.url')"
         :pattern="boardUrlPattern"
+        :maxlength="BOARD_WRITE_LIMITS.boardUrl"
         @update:model-value="emit('update:boardUrl', String($event))"
       />
     </div>
@@ -66,6 +69,7 @@ const urlFieldClass = computed(() => (props.layout === 'grid' ? 'md:col-span-4' 
     :label="t('board.form.description')"
     :placeholder="t('board.form.placeholder.desc')"
     rows="4"
+    :maxlength="BOARD_WRITE_LIMITS.description"
     @update:model-value="emit('update:description', String($event))"
   />
 
@@ -83,7 +87,7 @@ const urlFieldClass = computed(() => (props.layout === 'grid' ? 'md:col-span-4' 
     :label="t('board.form.guidePrompt')"
     :placeholder="t('board.form.placeholder.guidePrompt')"
     rows="6"
-    maxlength="5000"
+    :maxlength="BOARD_WRITE_LIMITS.guidePrompt"
     @update:model-value="emit('update:guidePrompt', String($event))"
   />
 </template>

@@ -22,6 +22,7 @@ const {
   handleSave,
   hasUnsavedChanges,
   isLoading,
+  isCreatingConfig,
   isModalOpen,
   newConfig,
   openCreateModal,
@@ -98,7 +99,7 @@ const columns = [
           <BaseButton @click="closeCreateModal" variant="secondary">
             {{ t('common.cancel') }}
           </BaseButton>
-          <BaseButton @click="handleCreateConfig">
+          <BaseButton :disabled="isCreatingConfig" @click="handleCreateConfig">
             {{ t('common.save') }}
           </BaseButton>
         </AdminModalActions>

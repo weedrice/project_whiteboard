@@ -1,6 +1,7 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, type Ref } from 'vue'
+import { createPinia } from 'pinia'
 import type { Report } from '@/types'
 
 const mocks = vi.hoisted(() => ({
@@ -136,7 +137,12 @@ const SanctionModalStub = defineComponent({
         :data-content-type="user.sanctionContentType"
         @click="$emit('close')"
       >sanction modal</button>
-      <button data-testid="sanctioned" @click="$emit('sanctioned')">sanctioned</button>
+      <button data-testid="sanctioned" @click="$emit('sanctioned', {
+        targetUserId: user.id,
+        reportId: user.reportId,
+        modalRevision: user.modalRevision,
+        sessionGeneration: 0
+      })">sanctioned</button>
     </div>
   `,
 })
@@ -175,6 +181,7 @@ const PaginationStub = defineComponent({
 
 const mountReportManagement = () => mount(ReportManagement, {
   global: {
+    plugins: [createPinia()],
     stubs: {
       ReportList: ReportListStub,
       ReportDetailModal: ReportDetailModalStub,

@@ -4,6 +4,7 @@ import { useAdmin } from '@/features/admin/useAdmin'
 import { useConfirm } from '@/composables/useConfirm'
 import { usePageResponseState, usePaginatedQueryState } from '@/composables/usePaginatedQueryState'
 import { useToastStore } from '@/stores/toast'
+import { useAuthStore } from '@/stores/auth'
 import type { Report } from '@/types'
 
 interface SanctionTarget {
@@ -11,11 +12,21 @@ interface SanctionTarget {
   name: string
   sanctionContentId?: number
   sanctionContentType?: 'POST' | 'COMMENT' | 'USER'
+  reportId: number
+  modalRevision: number
+}
+
+interface SanctionCompletedIntent {
+  targetUserId: number
+  reportId?: number
+  modalRevision?: number
+  sessionGeneration: number
 }
 
 export function useReportModerationPage() {
   const { t } = useI18n()
   const toastStore = useToastStore()
+  const authStore = useAuthStore()
   const { confirmWithReason } = useConfirm()
   const { useReports, useResolveReport } = useAdmin()
 
@@ -38,6 +49,7 @@ export function useReportModerationPage() {
   const selectedSanctionReport = ref<Report | null>(null)
   const isDetailModalOpen = ref(false)
   const selectedReport = ref<Report | null>(null)
+  let sanctionModalRevision = 0
 
   function openDetailModal(report: Report) {
     selectedReport.value = report
@@ -54,47 +66,72 @@ export function useReportModerationPage() {
       return
     }
 
+    sanctionModalRevision += 1
     selectedUser.value = {
       id: userId,
       name: report.targetDisplayName ?? t('notification.actors.unknown'),
       sanctionContentId: report.targetId,
-      sanctionContentType: report.targetType
+      sanctionContentType: report.targetType,
+      reportId: report.reportId,
+      modalRevision: sanctionModalRevision,
     }
     selectedSanctionReport.value = report
     isModalOpen.value = true
   }
 
   function closeSanctionModal() {
+    sanctionModalRevision += 1
     isModalOpen.value = false
     selectedSanctionReport.value = null
+    selectedUser.value = null
   }
 
   function refreshList() {
     refetch()
   }
 
-  async function handleSanctioned() {
+  async function handleSanctioned(intent: SanctionCompletedIntent) {
     const report = selectedSanctionReport.value
-    if (!report || report.status !== 'PENDING') {
-      refreshList()
-      return
-    }
+    if (!report || report.status !== 'PENDING') return
+    if (
+      !isModalOpen.value
+      || intent.sessionGeneration !== authStore.sessionGeneration
+      || intent.reportId !== report.reportId
+      || intent.targetUserId !== selectedUser.value?.id
+      || intent.modalRevision !== selectedUser.value?.modalRevision
+    ) return
+
+    const sessionGeneration = intent.sessionGeneration
+    const reportId = report.reportId
 
     try {
-      await resolveReport({ reportId: report.reportId, data: { status: 'RESOLVED' } })
+      await resolveReport({ reportId, data: { status: 'RESOLVED' } })
+      if (sessionGeneration !== authStore.sessionGeneration) return
       toastStore.addToast(t('admin.reports.messages.sanctionResolved'), 'success')
     } catch {
-      toastStore.addToast(t('admin.reports.messages.sanctionResolveFailed'), 'error')
+      if (sessionGeneration === authStore.sessionGeneration) {
+        toastStore.addToast(t('admin.reports.messages.sanctionResolveFailed'), 'error')
+      }
     } finally {
-      refreshList()
+      if (sessionGeneration === authStore.sessionGeneration) refreshList()
     }
   }
 
   async function handleResolve(report: Report) {
-    const remark = await confirmWithReason(t('admin.reports.messages.confirmResolve'), t('admin.reports.actions.resolve'), t('admin.reports.remark'))
+    const sessionGeneration = authStore.sessionGeneration
+    const remark = await confirmWithReason(
+      t('admin.reports.messages.confirmResolve'),
+      t('admin.reports.actions.resolve'),
+      t('admin.reports.remark'),
+      undefined,
+      undefined,
+      { maxLength: 255 },
+    )
     if (!remark) return
+    if (sessionGeneration !== authStore.sessionGeneration) return
     try {
       await resolveReport({ reportId: report.reportId, data: { status: 'RESOLVED', remark } })
+      if (sessionGeneration !== authStore.sessionGeneration) return
       toastStore.addToast(t('admin.reports.messages.resolved'), 'success')
     } catch {
       // Error handled globally
@@ -102,10 +139,20 @@ export function useReportModerationPage() {
   }
 
   async function handleReject(report: Report) {
-    const remark = await confirmWithReason(t('admin.reports.messages.confirmReject'), t('admin.reports.actions.reject'), t('admin.reports.remark'))
+    const sessionGeneration = authStore.sessionGeneration
+    const remark = await confirmWithReason(
+      t('admin.reports.messages.confirmReject'),
+      t('admin.reports.actions.reject'),
+      t('admin.reports.remark'),
+      undefined,
+      undefined,
+      { maxLength: 255 },
+    )
     if (!remark) return
+    if (sessionGeneration !== authStore.sessionGeneration) return
     try {
       await resolveReport({ reportId: report.reportId, data: { status: 'REJECTED', remark } })
+      if (sessionGeneration !== authStore.sessionGeneration) return
       toastStore.addToast(t('admin.reports.messages.rejected'), 'success')
     } catch {
       // Error handled globally

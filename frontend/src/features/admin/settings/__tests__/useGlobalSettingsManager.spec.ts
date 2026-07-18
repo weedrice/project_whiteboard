@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createPinia, setActivePinia } from 'pinia'
 import { useGlobalSettingsManager } from '../useGlobalSettingsManager'
 import { apiSuccessResponse } from '@/test/apiResponseFixtures'
 
@@ -67,6 +68,7 @@ vi.mock('@/features/admin/useAdmin', () => ({
 
 describe('useGlobalSettingsManager', () => {
   beforeEach(() => {
+    setActivePinia(createPinia())
     vi.clearAllMocks()
     mocks.configsData.value = [
       {
@@ -211,5 +213,24 @@ describe('useGlobalSettingsManager', () => {
       description: 'Description',
     })
     expect(mocks.addToast).not.toHaveBeenCalled()
+  })
+
+  it('does not let an old create response close or reset a reopened modal', async () => {
+    let resolveCreate!: (value: unknown) => void
+    mocks.createConfig.mockReturnValueOnce(new Promise(resolve => { resolveCreate = resolve }))
+    const manager = useGlobalSettingsManager()
+    manager.openCreateModal()
+    Object.assign(manager.newConfig, { key: 'old.key', value: 'old', description: '' })
+    const pending = manager.handleCreateConfig()
+
+    manager.closeCreateModal()
+    manager.openCreateModal()
+    Object.assign(manager.newConfig, { key: 'new.key', value: 'new', description: 'new draft' })
+    resolveCreate(undefined)
+    await pending
+
+    expect(manager.isModalOpen.value).toBe(true)
+    expect(manager.newConfig).toEqual({ key: 'new.key', value: 'new', description: 'new draft' })
+    expect(mocks.addToast).not.toHaveBeenCalledWith('admin.settings.messages.saved', 'success')
   })
 })

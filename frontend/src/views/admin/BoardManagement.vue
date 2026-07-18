@@ -144,6 +144,7 @@ const {
   handleFileUpload,
   chooseIconFile
 } = useBoardIconUpload({
+  ownerKey: () => selectedBoardId.value,
   setIconUrl: (iconUrl) => {
     form.iconUrl = iconUrl
   }

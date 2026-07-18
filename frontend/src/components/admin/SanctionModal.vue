@@ -20,7 +20,9 @@
 
       <div>
         <BaseTextarea id="description" v-model="form.description" :label="t('admin.sanction.description')" rows="3"
-          :placeholder="t('admin.sanction.descriptionPlaceholder')" />
+          :placeholder="t('admin.sanction.descriptionPlaceholder')" maxlength="255"
+          :error="sanctionValidation.visibleError('description')"
+          @blur="sanctionValidation.touchField('description', sanctionValidationValues)" />
       </div>
 
       <div>
@@ -31,8 +33,8 @@
 
       <AdminModalActions class-name="mt-5">
         <BaseButton type="button" variant="secondary" @click="$emit('close')">{{ t('admin.sanction.cancel') }}</BaseButton>
-        <BaseButton type="submit" variant="danger" :disabled="loading">
-          {{ loading ? t('admin.sanction.processing') : t('admin.sanction.submit') }}
+        <BaseButton type="submit" variant="danger" :disabled="isSubmitting || loading">
+          {{ isSubmitting || loading ? t('admin.sanction.processing') : t('admin.sanction.submit') }}
         </BaseButton>
       </AdminModalActions>
     </form>
@@ -40,7 +42,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
@@ -51,6 +53,7 @@ import AdminModalActions from '@/components/admin/AdminModalActions.vue'
 import { useAdmin } from '@/features/admin/useAdmin'
 import { useToastStore } from '@/stores/toast'
 import { useFieldValidation } from '@/composables/useFieldValidation'
+import { useAuthStore } from '@/stores/auth'
 
 const { t } = useI18n()
 
@@ -65,14 +68,28 @@ const props = defineProps<{
     email?: string
     sanctionContentId?: number
     sanctionContentType?: 'POST' | 'COMMENT' | 'USER'
+    reportId?: number
+    modalRevision?: number
   } | null
 }>()
 
-const emit = defineEmits<{ (e: 'close'): void; (e: 'sanctioned'): void }>()
+interface SanctionCompletedIntent {
+  targetUserId: number
+  reportId?: number
+  modalRevision?: number
+  sessionGeneration: number
+}
+
+const emit = defineEmits<{
+  (e: 'close'): void
+  (e: 'sanctioned', intent: SanctionCompletedIntent): void
+}>()
 
 const toastStore = useToastStore()
+const authStore = useAuthStore()
 const { useSanctionUser } = useAdmin()
 const { mutateAsync: sanctionUser, isPending: loading } = useSanctionUser()
+const isSubmitting = ref(false)
 
 const sanctionTargetName = computed(() => props.user?.displayName || props.user?.nickname || props.user?.name || t('common.messages.unknown'))
 
@@ -81,38 +98,78 @@ const form = reactive({
   description: '',
   duration: 7
 })
-type SanctionField = 'reason' | 'duration'
+type SanctionField = 'reason' | 'description' | 'duration'
 const sanctionValidation = useFieldValidation<SanctionField>({
   validators: {
     reason: (values) => String(values.reason ?? '').trim() ? '' : t('admin.sanction.reason'),
+    description: (values) => String(values.description ?? '').trim().length <= 255 ? '' : t('admin.sanction.description'),
     duration: (values) => Number(values.duration) > 0 ? '' : t('admin.sanction.durationHint'),
   },
   fieldIds: { reason: 'reason', duration: 'duration' },
 })
-const sanctionValidationValues = computed(() => ({ reason: form.reason, duration: form.duration }))
+const sanctionValidationValues = computed(() => ({
+  reason: form.reason,
+  description: form.description,
+  duration: form.duration,
+}))
+
+function resetForm() {
+  form.reason = 'SPAM'
+  form.description = ''
+  form.duration = 7
+  sanctionValidation.clearValidation()
+}
+
+watch(
+  () => [props.isOpen, props.user?.userId ?? props.user?.id, props.user?.reportId, props.user?.modalRevision] as const,
+  ([isOpen]) => {
+    if (isOpen) resetForm()
+  },
+  { flush: 'sync' },
+)
 
 async function submitSanction() {
-  if (!props.user) return
+  if (!props.user || isSubmitting.value) return
   if (!sanctionValidation.validateAll(sanctionValidationValues.value)) return
 
+  const targetUserId = props.user.userId ?? props.user.id ?? 0
+  if (!targetUserId) return
+  const intent: SanctionCompletedIntent = {
+    targetUserId,
+    reportId: props.user.reportId,
+    modalRevision: props.user.modalRevision,
+    sessionGeneration: authStore.sessionGeneration,
+  }
+  const targetName = props.user.displayName || props.user.nickname || props.user.name || t('common.messages.unknown')
+  const contentId = props.user.sanctionContentId
+  const contentType = props.user.sanctionContentType
+  isSubmitting.value = true
+
   try {
-    const userId = props.user.userId ?? props.user.id ?? 0
     const description = form.description.trim()
     await sanctionUser({
-      targetUserId: userId,
+      targetUserId,
       type: 'BAN',
       remark: description || form.reason,
       endDate: resolveEndDate(),
-      contentId: props.user.sanctionContentId,
-      contentType: props.user.sanctionContentType
+      contentId,
+      contentType
     })
 
-    const name = props.user.displayName || props.user.nickname || props.user.name || t('common.messages.unknown')
-    toastStore.addToast(t('admin.sanction.success', { name }), 'success')
-    emit('sanctioned')
+    const isCurrentIntent = props.isOpen
+      && authStore.sessionGeneration === intent.sessionGeneration
+      && (props.user?.userId ?? props.user?.id) === intent.targetUserId
+      && props.user?.reportId === intent.reportId
+      && props.user?.modalRevision === intent.modalRevision
+    if (!isCurrentIntent) return
+
+    toastStore.addToast(t('admin.sanction.success', { name: targetName }), 'success')
+    emit('sanctioned', intent)
     emit('close')
   } catch {
     // Error handled globally
+  } finally {
+    isSubmitting.value = false
   }
 }
 

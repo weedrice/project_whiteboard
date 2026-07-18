@@ -11,6 +11,7 @@ import { useAuthStore } from '@/stores/auth'
 
 interface UseBoardIconUploadOptions {
   setIconUrl: (iconUrl: string) => void
+  ownerKey?: () => string | number | null | undefined
 }
 
 export function validateBoardIconFile(
@@ -36,7 +37,7 @@ export async function uploadBoardIconFile(
   return uploadBoardIcon(file, config)
 }
 
-export function useBoardIconUpload({ setIconUrl }: UseBoardIconUploadOptions) {
+export function useBoardIconUpload({ setIconUrl, ownerKey }: UseBoardIconUploadOptions) {
   const { t } = useI18n()
   const toastStore = useToastStore()
   const authStore = useAuthStore()
@@ -77,12 +78,15 @@ export function useBoardIconUpload({ setIconUrl }: UseBoardIconUploadOptions) {
     cancelUpload()
     const revision = uploadRevision
     const generation = authStore.sessionGeneration
+    const submittedOwnerKey = ownerKey?.()
     const controller = new AbortController()
     uploadController = controller
 
     try {
       const uploadedFile = await uploadBoardIcon(file, { signal: controller.signal })
-      const stale = revision !== uploadRevision || generation !== authStore.sessionGeneration
+      const stale = revision !== uploadRevision
+        || generation !== authStore.sessionGeneration
+        || submittedOwnerKey !== ownerKey?.()
       if (stale) {
         if (uploadedFile?.fileId) void discardStaleUpload(uploadedFile.fileId)
         return
@@ -92,7 +96,12 @@ export function useBoardIconUpload({ setIconUrl }: UseBoardIconUploadOptions) {
         setIconUrl(iconUrl)
       }
     } catch (error: unknown) {
-      if (controller.signal.aborted || revision !== uploadRevision || generation !== authStore.sessionGeneration) return
+      if (
+        controller.signal.aborted
+        || revision !== uploadRevision
+        || generation !== authStore.sessionGeneration
+        || submittedOwnerKey !== ownerKey?.()
+      ) return
       logger.error('Failed to upload board icon:', error)
       toastStore.addToast(t('common.messages.error'), 'error')
     } finally {
@@ -109,8 +118,12 @@ export function useBoardIconUpload({ setIconUrl }: UseBoardIconUploadOptions) {
     cancelUpload,
     { flush: 'sync' },
   )
+  const stopOwnerWatch = ownerKey
+    ? watch(ownerKey, cancelUpload, { flush: 'sync' })
+    : () => undefined
   if (getCurrentScope()) onScopeDispose(() => {
     stopSessionWatch()
+    stopOwnerWatch()
     cancelUpload()
   })
 

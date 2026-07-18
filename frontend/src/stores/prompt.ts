@@ -12,6 +12,7 @@ export const usePromptStore = defineStore('prompt', () => {
     const required = ref(false)
     const errorMessage = ref('')
     const confirmVariant = ref<'primary' | 'danger'>('primary')
+    const maxLength = ref<number | undefined>(undefined)
     const resolvePromise = ref<((value: string | null) => void) | null>(null)
 
     function open(
@@ -20,7 +21,7 @@ export const usePromptStore = defineStore('prompt', () => {
         placeholderText: string = '',
         confirmTxt: string = 'Confirm',
         cancelTxt: string = 'Cancel',
-        options: { required?: boolean; errorMessage?: string; confirmVariant?: 'primary' | 'danger' } = {}
+        options: { required?: boolean; errorMessage?: string; confirmVariant?: 'primary' | 'danger'; maxLength?: number } = {}
     ): Promise<string | null> {
         if (resolvePromise.value) {
             resolvePromise.value(null)
@@ -36,6 +37,7 @@ export const usePromptStore = defineStore('prompt', () => {
         required.value = options.required ?? false
         errorMessage.value = options.errorMessage ?? ''
         confirmVariant.value = options.confirmVariant ?? 'primary'
+        maxLength.value = options.maxLength
         isOpen.value = true
 
         return new Promise((resolve) => {
@@ -68,6 +70,7 @@ export const usePromptStore = defineStore('prompt', () => {
         required.value = false
         errorMessage.value = ''
         confirmVariant.value = 'primary'
+        maxLength.value = undefined
     }
 
     return {
@@ -81,6 +84,7 @@ export const usePromptStore = defineStore('prompt', () => {
         required,
         errorMessage,
         confirmVariant,
+        maxLength,
         open,
         confirm,
         cancel

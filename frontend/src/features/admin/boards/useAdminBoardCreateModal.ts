@@ -1,7 +1,7 @@
 import { reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useToastStore } from '@/stores/toast'
-import { normalizeBoardUrlInput, validateRequiredBoardFields } from '@/utils/board'
+import { normalizeBoardUrlInput, validateBoardWriteFields } from '@/utils/board'
 import { normalizeBoardWritePayload } from '@/utils/inputNormalization'
 import type { BoardCreateData } from '@/types'
 
@@ -57,7 +57,7 @@ export function useAdminBoardCreateModal(createBoard: CreateBoard) {
       return
     }
 
-    const requiredFieldValidation = validateRequiredBoardFields(createForm)
+    const requiredFieldValidation = validateBoardWriteFields(createForm)
     if (!requiredFieldValidation.valid) {
       toastStore.addToast(t(requiredFieldValidation.messageKey), requiredFieldValidation.toastType)
       return

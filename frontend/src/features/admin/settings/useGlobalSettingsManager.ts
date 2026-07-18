@@ -4,6 +4,7 @@ import { useAdmin } from '@/features/admin/useAdmin'
 import { useConfigEditor } from '@/features/admin/settings/useConfigEditor'
 import { useConfirm } from '@/composables/useConfirm'
 import { useToastStore } from '@/stores/toast'
+import { useAuthStore } from '@/stores/auth'
 import { normalizeConfigWritePayload } from '@/utils/inputNormalization'
 import {
   EMOTICON_IMAGE_MAX_COUNT_KEY,
@@ -21,12 +22,15 @@ function createEmptyConfigForm() {
 export function useGlobalSettingsManager() {
   const { t } = useI18n()
   const toastStore = useToastStore()
+  const authStore = useAuthStore()
   const { confirm } = useConfirm()
   const { refresh: refreshEmoticonImagePolicy } = useEmoticonImagePolicy()
   const { useConfigs, useUpdateConfig, useCreateConfig, useDeleteConfig } = useAdmin()
 
   const isModalOpen = ref(false)
+  const isCreatingConfig = ref(false)
   const newConfig = reactive(createEmptyConfigForm())
+  let modalRevision = 0
 
   const { data: configsData, isLoading } = useConfigs()
   const { mutateAsync: updateConfig } = useUpdateConfig()
@@ -39,11 +43,17 @@ export function useGlobalSettingsManager() {
   ))
 
   function openCreateModal() {
+    modalRevision += 1
+    isCreatingConfig.value = false
+    resetNewConfig()
     isModalOpen.value = true
   }
 
   function closeCreateModal() {
+    modalRevision += 1
+    isCreatingConfig.value = false
     isModalOpen.value = false
+    resetNewConfig()
   }
 
   function resetNewConfig() {
@@ -69,24 +79,40 @@ export function useGlobalSettingsManager() {
   }
 
   async function handleCreateConfig() {
+    if (isCreatingConfig.value || !isModalOpen.value) return
     const payload = normalizeConfigWritePayload(newConfig, { requireKey: true })
     if (!payload?.key) return
 
+    const submittedRevision = modalRevision
+    const sessionGeneration = authStore.sessionGeneration
+    isCreatingConfig.value = true
     try {
       await createConfig({
         key: payload.key,
         value: payload.value,
         description: payload.description,
       })
+      if (
+        submittedRevision !== modalRevision
+        || sessionGeneration !== authStore.sessionGeneration
+        || !isModalOpen.value
+      ) return
       if (payload.key === EMOTICON_IMAGE_MAX_COUNT_KEY) {
         await refreshEmoticonImagePolicy()
       }
 
+      if (
+        submittedRevision !== modalRevision
+        || sessionGeneration !== authStore.sessionGeneration
+        || !isModalOpen.value
+      ) return
+
       toastStore.addToast(t('admin.settings.messages.saved'), 'success')
       closeCreateModal()
-      resetNewConfig()
     } catch {
       // Error handled globally
+    } finally {
+      if (submittedRevision === modalRevision) isCreatingConfig.value = false
     }
   }
 
@@ -113,6 +139,7 @@ export function useGlobalSettingsManager() {
     handleSave,
     hasUnsavedChanges,
     isLoading,
+    isCreatingConfig,
     isModalOpen,
     newConfig,
     openCreateModal,

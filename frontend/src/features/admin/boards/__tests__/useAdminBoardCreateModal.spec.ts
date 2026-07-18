@@ -111,6 +111,18 @@ describe('useAdminBoardCreateModal', () => {
     expect(mocks.addToast).not.toHaveBeenCalledWith('admin.boards.messages.created', 'success')
   })
 
+  it('blocks create when a board field exceeds the backend contract', async () => {
+    const createBoard = vi.fn()
+    const modal = useAdminBoardCreateModal(createBoard)
+    modal.createForm.boardName = 'a'.repeat(101)
+    modal.createForm.boardUrl = 'board'
+
+    await modal.handleCreateBoard()
+
+    expect(createBoard).not.toHaveBeenCalled()
+    expect(mocks.addToast).toHaveBeenCalledWith('board.form.validation', 'error')
+  })
+
   it('ignores a completed request from a previously closed modal instance', async () => {
     const firstRequest = deferred<void>()
     const createBoard = vi.fn().mockReturnValue(firstRequest.promise)

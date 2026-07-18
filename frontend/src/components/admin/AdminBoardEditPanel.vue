@@ -26,6 +26,7 @@
                 v-model="sortOrderModel"
                 :label="t('common.sortOrder')"
                 type="number"
+                min="0"
               />
             </div>
             <div class="md:col-span-2 flex items-end justify-start md:justify-end">

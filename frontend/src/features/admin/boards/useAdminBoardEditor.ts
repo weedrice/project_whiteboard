@@ -2,7 +2,7 @@ import { computed, reactive, ref, watch, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useConfirm } from '@/composables/useConfirm'
 import { useToastStore } from '@/stores/toast'
-import { hasRequiredBoardFields, normalizeBoardUrlInput } from '@/utils/board'
+import { normalizeBoardUrlInput, validateBoardWriteFields } from '@/utils/board'
 import { normalizeBoardWritePayload } from '@/utils/inputNormalization'
 import type { AdminBoard, BoardUpdateData } from '@/types'
 
@@ -361,13 +361,24 @@ export function useAdminBoardEditor({ boardsData, updateBoard, reorderBoards, re
   async function handleSaveChanges() {
     if (!selectedBoard.value) return
 
-    if (!hasRequiredBoardFields(form)) {
+    const validation = validateBoardWriteFields({
+      ...form,
+      sortOrder: normalizedSortOrder.value,
+    })
+    if (!validation.valid) {
       toastStore.addToast(t('board.writePost.validation'), 'warning')
       return
     }
 
     const moderationReason = selectedBoard.value.isActive && !form.isActive
-      ? await confirmWithReason(t('admin.boards.messages.confirmDeactivate'))
+      ? await confirmWithReason(
+          t('admin.boards.messages.confirmDeactivate'),
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          { maxLength: 500 },
+        )
       : undefined
     if (selectedBoard.value.isActive && !form.isActive && !moderationReason) return
 

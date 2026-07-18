@@ -4,16 +4,19 @@ import { useAdmin } from '@/features/admin/useAdmin'
 import { useConfirm } from '@/composables/useConfirm'
 import { usePageResponseState } from '@/composables/usePaginatedQueryState'
 import { useToastStore } from '@/stores/toast'
+import { useAuthStore } from '@/stores/auth'
 import type { IpBlock } from '@/types'
 
 export function useAdminIpBlocksManager() {
   const { t } = useI18n()
   const toastStore = useToastStore()
+  const authStore = useAuthStore()
   const { confirm } = useConfirm()
   const { useIpBlocks, useBlockIp, useUnblockIp } = useAdmin()
 
   const newIp = ref('')
   const blockReason = ref('')
+  const isBlockingIp = ref(false)
   const page = ref(0)
   const ipBlockParams = computed(() => ({
     page: page.value,
@@ -38,27 +41,38 @@ export function useAdminIpBlocksManager() {
   }
 
   async function handleBlockIp() {
+    if (isBlockingIp.value) return
     const ipAddress = newIp.value.trim()
     const reason = blockReason.value.trim()
     if (!ipAddress || !reason) return
 
+    const sessionGeneration = authStore.sessionGeneration
+    isBlockingIp.value = true
     try {
       await blockIp({ ipAddress, reason })
+      if (sessionGeneration !== authStore.sessionGeneration) return
       page.value = 0
       toastStore.addToast(t('admin.security.messages.blocked'), 'success')
-      newIp.value = ''
-      blockReason.value = ''
+      if (newIp.value.trim() === ipAddress && blockReason.value.trim() === reason) {
+        newIp.value = ''
+        blockReason.value = ''
+      }
     } catch {
       // Error handled globally
+    } finally {
+      isBlockingIp.value = false
     }
   }
 
   async function handleUnblockIp(ipAddress: string) {
+    const sessionGeneration = authStore.sessionGeneration
     const isConfirmed = await confirm(t('admin.security.messages.confirmUnblock', { ip: ipAddress }))
     if (!isConfirmed) return
+    if (sessionGeneration !== authStore.sessionGeneration) return
 
     try {
       await unblockIp(ipAddress)
+      if (sessionGeneration !== authStore.sessionGeneration) return
       if (page.value > 0 && ipBlocks.value.length === 1) {
         page.value -= 1
       }
@@ -86,6 +100,7 @@ export function useAdminIpBlocksManager() {
     handleUnblockIp,
     ipBlocks,
     isDetailModalOpen,
+    isBlockingIp,
     newIp,
     openDetailModal,
     page,

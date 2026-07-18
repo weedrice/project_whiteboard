@@ -8,7 +8,11 @@ import {
     invalidateAdminBoardListCaches,
     invalidateAdminBoardManagerCache,
 } from '@/features/admin/queries/adminCacheInvalidation'
-import { invalidateBoardListCaches } from '@/features/board/queries/boardCacheInvalidation'
+import {
+    invalidateBoardListCaches,
+    invalidateBoardResourceCaches,
+    removeBoardResourceCaches,
+} from '@/features/board/queries/boardCacheInvalidation'
 import {
     callAdminApiWithOptionalConfig,
     useAdminDataQuery,
@@ -66,13 +70,11 @@ export function useAdminBoardManagement(queryClient: QueryClient) {
             onSuccess: (_, { boardUrl, data }, context) => {
                 if (!isCurrentMutation(context)) return
                 invalidateAdminBoardListCaches(queryClient, context.sessionGeneration)
-                queryClient.invalidateQueries({
-                    queryKey: sessionQueryKey(context.sessionGeneration, boardQueryKeys.detail(boardUrl)),
-                })
                 if (data.boardUrl && data.boardUrl !== boardUrl) {
-                    queryClient.invalidateQueries({
-                        queryKey: sessionQueryKey(context.sessionGeneration, boardQueryKeys.detail(data.boardUrl)),
-                    })
+                    removeBoardResourceCaches(queryClient, boardUrl, context.sessionGeneration)
+                    invalidateBoardResourceCaches(queryClient, data.boardUrl, context.sessionGeneration)
+                } else {
+                    invalidateBoardResourceCaches(queryClient, boardUrl, context.sessionGeneration)
                 }
                 invalidateBoardListCaches(queryClient, context.sessionGeneration)
             },
@@ -83,10 +85,11 @@ export function useAdminBoardManagement(queryClient: QueryClient) {
         return useMutation({
             mutationFn: (boardUrl: string) => adminApi.deleteBoard(boardUrl),
             onMutate: captureMutationSession,
-            onSuccess: (_data, _variables, context) => {
+            onSuccess: (_data, boardUrl, context) => {
                 if (!isCurrentMutation(context)) return
                 invalidateAdminBoardListCaches(queryClient, context.sessionGeneration)
                 invalidateBoardListCaches(queryClient, context.sessionGeneration)
+                removeBoardResourceCaches(queryClient, boardUrl, context.sessionGeneration)
             },
         })
     }

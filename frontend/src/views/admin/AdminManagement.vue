@@ -16,9 +16,11 @@ import ErrorState from '@/components/common/ui/ErrorState.vue'
 import { formatDate } from '@/utils/date'
 import type { SuperAdminInfo } from '@/types'
 import { useConfirm } from '@/composables/useConfirm'
+import { useAuthStore } from '@/stores/auth'
 
 const { t } = useI18n()
 const toastStore = useToastStore()
+const authStore = useAuthStore()
 const { confirmWithReason } = useConfirm()
 const {
   useSuperAdmins,
@@ -26,6 +28,8 @@ const {
 } = useAdmin()
 
 const newSuperAdminLoginId = ref('')
+const isCreatingSuperAdmin = ref(false)
+const pendingSuperAdminLoginIds = ref<Set<string>>(new Set())
 
 const { data: superAdminsData, isLoading: isSuperAdminsLoading, isError: isSuperAdminsError, refetch: refetchSuperAdmins } = useSuperAdmins()
 const { mutateAsync: updateSuperAdminStatus } = useUpdateSuperAdminStatus()
@@ -56,36 +60,67 @@ const superAdmins = computed<SuperAdminRow[]>(() => {
 })
 
 async function handleCreateSuperAdmin() {
+  if (isCreatingSuperAdmin.value) return
   const loginId = newSuperAdminLoginId.value.trim()
   if (!loginId) {
     toastStore.addToast(t('admin.admins.messages.inputLoginId'), 'warning')
     return
   }
 
-  const reason = await confirmWithReason(t('admin.admins.addSuperAdminDesc'))
+  const sessionGeneration = authStore.sessionGeneration
+  const reason = await confirmWithReason(
+    t('admin.admins.addSuperAdminDesc'),
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    { maxLength: 500 },
+  )
   if (!reason) return
+  if (sessionGeneration !== authStore.sessionGeneration || newSuperAdminLoginId.value.trim() !== loginId) return
 
+  isCreatingSuperAdmin.value = true
   try {
     await updateSuperAdminStatus({ loginId, action: 'activate', reason })
+    if (sessionGeneration !== authStore.sessionGeneration) return
     toastStore.addToast(t('admin.admins.messages.added'), 'success')
-    newSuperAdminLoginId.value = ''
+    if (newSuperAdminLoginId.value.trim() === loginId) newSuperAdminLoginId.value = ''
   } catch {
     // Error handled globally
+  } finally {
+    isCreatingSuperAdmin.value = false
   }
 }
 
 async function toggleSuperAdminStatus(admin: SuperAdminRow) {
+  const loginId = String(admin.loginId ?? '')
+  if (!loginId || pendingSuperAdminLoginIds.value.has(loginId)) return
+  const expectedStatus = admin.superAdmin
+  const sessionGeneration = authStore.sessionGeneration
   const reason = await confirmWithReason(
-    admin.superAdmin ? t('common.confirmDelete') : t('admin.admins.addSuperAdminDesc')
+    expectedStatus ? t('common.confirmDelete') : t('admin.admins.addSuperAdminDesc'),
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    { maxLength: 500 },
   )
   if (!reason) return
+  const currentAdmin = superAdmins.value.find((item) => item.loginId === loginId)
+  if (sessionGeneration !== authStore.sessionGeneration || currentAdmin?.superAdmin !== expectedStatus) return
 
+  pendingSuperAdminLoginIds.value = new Set(pendingSuperAdminLoginIds.value).add(loginId)
   try {
-    const action = admin.superAdmin ? 'deactivate' : 'activate'
-    await updateSuperAdminStatus({ loginId: String(admin.loginId ?? ''), action, reason })
+    const action = expectedStatus ? 'deactivate' : 'activate'
+    await updateSuperAdminStatus({ loginId, action, reason })
+    if (sessionGeneration !== authStore.sessionGeneration) return
     toastStore.addToast(t('admin.admins.messages.statusChanged'), 'success')
   } catch {
     // Error handled globally
+  } finally {
+    const nextPending = new Set(pendingSuperAdminLoginIds.value)
+    nextPending.delete(loginId)
+    pendingSuperAdminLoginIds.value = nextPending
   }
 }
 
@@ -117,7 +152,7 @@ const superAdminColumns: { key: string; label: string; width: string; align?: 'l
               hideLabel
             />
           </div>
-          <BaseButton type="submit">
+          <BaseButton type="submit" :disabled="isCreatingSuperAdmin">
             <UserPlus class="h-4 w-4 mr-2" />
             {{ t('common.add') }}
           </BaseButton>
@@ -169,6 +204,7 @@ const superAdminColumns: { key: string; label: string; width: string; align?: 'l
           <AdminActionButton
             :label="item.superAdmin ? t('common.deactivate') : t('common.activate')"
             tone="accent"
+            :disabled="pendingSuperAdminLoginIds.has(item.loginId)"
             @click="toggleSuperAdminStatus(item)"
           >
             {{ item.superAdmin ? t('common.deactivate') : t('common.activate') }}

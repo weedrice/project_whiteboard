@@ -20,6 +20,7 @@ const {
     handleUnblockIp,
     ipBlocks,
     isDetailModalOpen,
+    isBlockingIp,
     newIp,
     openDetailModal,
     page,
@@ -42,7 +43,7 @@ const {
                         :label="t('admin.security.reason')" :placeholder="t('admin.security.reasonPlaceholder')"
                         maxlength="255" hideLabel />
                 </AdminFilterField>
-                <BaseButton type="submit" variant="danger" class="mt-3 sm:mt-0">
+                <BaseButton type="submit" variant="danger" class="mt-3 sm:mt-0" :disabled="isBlockingIp">
                     <Shield class="h-4 w-4 mr-2" />
                     {{ t('common.block') }}
                 </BaseButton>

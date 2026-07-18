@@ -1,6 +1,7 @@
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { defineComponent, ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createPinia } from 'pinia'
 import AdminManagement from '../AdminManagement.vue'
 
 const superAdminsData = ref([
@@ -86,6 +87,7 @@ const AdminPaginatedTableStub = defineComponent({
 
 const mountAdminManagement = () => mount(AdminManagement, {
   global: {
+    plugins: [createPinia()],
     stubs: {
       UserPlus: true,
       BaseInput: BaseInputStub,
@@ -175,5 +177,22 @@ describe('AdminManagement', () => {
 
     expect(updateSuperAdminStatus).toHaveBeenCalledWith({ loginId: 'root', action: 'deactivate', reason: 'reviewed' })
     expect(addToast).toHaveBeenCalledWith('admin.admins.messages.statusChanged', 'success')
+  })
+
+  it('preserves a new login id draft and ignores duplicate submits while creation is pending', async () => {
+    let resolveUpdate!: () => void
+    updateSuperAdminStatus.mockReturnValueOnce(new Promise<void>(resolve => { resolveUpdate = resolve }))
+    const wrapper = mountAdminManagement()
+    await wrapper.get('#superAdminLoginId').setValue('old-admin')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    await wrapper.get('#superAdminLoginId').setValue('new-admin')
+    await wrapper.get('form').trigger('submit')
+    expect(updateSuperAdminStatus).toHaveBeenCalledTimes(1)
+
+    resolveUpdate()
+    await flushPromises()
+    expect((wrapper.get('#superAdminLoginId').element as HTMLInputElement).value).toBe('new-admin')
   })
 })

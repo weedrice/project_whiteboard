@@ -1,4 +1,4 @@
-import { defineComponent, h, nextTick } from 'vue'
+import { defineComponent, h, nextTick, ref, type Ref } from 'vue'
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia } from 'pinia'
@@ -29,12 +29,15 @@ vi.mock('vue-i18n', () => ({
   }),
 }))
 
-function createHarness() {
+function createHarness(ownerKey?: Ref<number | null>) {
   const setIconUrl = vi.fn()
   let composable!: ReturnType<typeof useBoardIconUpload>
   const Harness = defineComponent({
     setup() {
-      composable = useBoardIconUpload({ setIconUrl })
+      composable = useBoardIconUpload({
+        setIconUrl,
+        ...(ownerKey ? { ownerKey: () => ownerKey.value } : {}),
+      })
       return () => h('div')
     },
   })
@@ -149,6 +152,27 @@ describe('useBoardIconUpload', () => {
 
     expect(setIconUrl).not.toHaveBeenCalled()
     expect(discardUploadsMock).toHaveBeenCalledWith([13], expect.objectContaining({ skipGlobalErrorHandler: true }))
+  })
+
+  it('aborts and discards an upload when the selected board changes', async () => {
+    let resolveUpload!: (value: unknown) => void
+    uploadFileMock.mockReturnValueOnce(new Promise(resolve => { resolveUpload = resolve }))
+    discardUploadsMock.mockResolvedValue({ data: { success: true, data: { discardedCount: 1 } } })
+    const ownerKey = ref<number | null>(1)
+    const { composable, setIconUrl } = createHarness(ownerKey)
+    const pending = composable.handleFileUpload(
+      createInputEvent(new File(['x'], 'icon.png', { type: 'image/png' })).event,
+    )
+    const signal = uploadFileMock.mock.calls[0][1].signal as AbortSignal
+
+    ownerKey.value = 2
+    expect(signal.aborted).toBe(true)
+    resolveUpload({ data: { success: true, data: { fileId: 14, fileUrl: '/api/v1/files/14' } } })
+    await pending
+    await nextTick()
+
+    expect(setIconUrl).not.toHaveBeenCalled()
+    expect(discardUploadsMock).toHaveBeenCalledWith([14], expect.objectContaining({ skipGlobalErrorHandler: true }))
   })
 
   it('blocks invalid icons before upload', async () => {

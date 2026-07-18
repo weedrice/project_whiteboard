@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createPinia, setActivePinia } from 'pinia'
 import { nextTick, type Ref } from 'vue'
 import { useAdminIpBlocksManager } from '../useAdminIpBlocksManager'
 import { apiSuccessResponse, pageResponseFixture } from '@/test/apiResponseFixtures'
@@ -68,6 +69,7 @@ const pageResponse = (
 
 describe('useAdminIpBlocksManager', () => {
   beforeEach(() => {
+    setActivePinia(createPinia())
     vi.clearAllMocks()
     mocks.confirm.mockResolvedValue(true)
     mocks.blockIp.mockResolvedValue(apiSuccessResponse<() => Promise<unknown>>())
@@ -136,6 +138,37 @@ describe('useAdminIpBlocksManager', () => {
     expect(manager.newIp.value).toBe('10.0.0.1')
     expect(manager.blockReason.value).toBe('Abuse')
     expect(mocks.addToast).not.toHaveBeenCalled()
+  })
+
+  it('preserves a new inline draft when the previous block request succeeds', async () => {
+    let resolveBlock!: (value: unknown) => void
+    mocks.blockIp.mockReturnValueOnce(new Promise(resolve => { resolveBlock = resolve }))
+    const manager = useAdminIpBlocksManager()
+    manager.newIp.value = '10.0.0.1'
+    manager.blockReason.value = 'Old reason'
+    const pending = manager.handleBlockIp()
+
+    manager.newIp.value = '10.0.0.2'
+    manager.blockReason.value = 'New reason'
+    resolveBlock(undefined)
+    await pending
+
+    expect(manager.newIp.value).toBe('10.0.0.2')
+    expect(manager.blockReason.value).toBe('New reason')
+  })
+
+  it('ignores duplicate block submissions while a request is pending', async () => {
+    let resolveBlock!: (value: unknown) => void
+    mocks.blockIp.mockReturnValueOnce(new Promise(resolve => { resolveBlock = resolve }))
+    const manager = useAdminIpBlocksManager()
+    manager.newIp.value = '10.0.0.1'
+    manager.blockReason.value = 'Reason'
+    const first = manager.handleBlockIp()
+
+    await manager.handleBlockIp()
+    expect(mocks.blockIp).toHaveBeenCalledTimes(1)
+    resolveBlock(undefined)
+    await first
   })
 
   it('confirms before unblocking an IP', async () => {

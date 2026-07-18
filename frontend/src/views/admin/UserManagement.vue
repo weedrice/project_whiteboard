@@ -90,7 +90,14 @@ function getStatusActionLabel(status: AdminUserMutableStatus) {
 async function handleStatusChange(user: User, status: AdminUserMutableStatus) {
   if (!canChangeAdminUserStatus(user.status)) return
 
-  const reason = await confirmWithReason(t('admin.users.messages.confirmStatusChange', { action: getStatusActionLabel(user.status) }))
+  const reason = await confirmWithReason(
+    t('admin.users.messages.confirmStatusChange', { action: getStatusActionLabel(user.status) }),
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    { maxLength: 500 },
+  )
   if (!reason) return
   try {
     await updateUserStatus({ userId: user.userId, status, reason })

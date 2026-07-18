@@ -1,6 +1,7 @@
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createPinia } from 'pinia'
 import {
     BaseButtonStub,
     BaseInputStub,
@@ -37,13 +38,22 @@ vi.mock('@/stores/toast', () => ({
     })
 }))
 
-function mountModal(user: { id: number; name?: string; displayName?: string; nickname?: string; email?: string }) {
+function mountModal(user: {
+    id: number
+    name?: string
+    displayName?: string
+    nickname?: string
+    email?: string
+    reportId?: number
+    modalRevision?: number
+}) {
     return mount(SanctionModal, {
         props: {
             isOpen: true,
             user
         },
         global: {
+            plugins: [createPinia()],
             stubs: {
                 BaseModal: BaseModalStub,
                 AdminModalActions: PassThroughStub,
@@ -98,5 +108,22 @@ describe('SanctionModal', () => {
             targetUserId: 7,
             remark: 'repeated spam',
         }))
+    })
+
+    it('does not emit completion for a stale modal target', async () => {
+        let resolveSanction!: () => void
+        mocks.sanctionUser.mockReturnValueOnce(new Promise<void>(resolve => { resolveSanction = resolve }))
+        const wrapper = mountModal({ id: 7, name: 'Old', reportId: 1, modalRevision: 1 })
+        const pending = wrapper.get('form').trigger('submit')
+
+        await wrapper.setProps({
+            user: { id: 8, name: 'New', reportId: 2, modalRevision: 2 },
+        })
+        resolveSanction()
+        await pending
+        await flushPromises()
+
+        expect(wrapper.emitted('sanctioned')).toBeUndefined()
+        expect(mocks.addToast).not.toHaveBeenCalled()
     })
 })

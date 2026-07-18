@@ -20,6 +20,7 @@ const handleConfirmKeyup = (event: KeyboardEvent) => {
                 {{ promptStore.message }}
             </p>
             <BaseInput v-model="promptStore.inputValue" :label="promptStore.placeholder || promptStore.title" :placeholder="promptStore.placeholder" hideLabel
+                :maxlength="promptStore.maxLength"
                 :error="promptStore.required && !promptStore.inputValue.trim() ? promptStore.errorMessage : ''"
                 @keyup.enter="handleConfirmKeyup" />
         </div>

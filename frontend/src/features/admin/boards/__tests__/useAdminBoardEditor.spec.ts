@@ -195,7 +195,14 @@ describe('useAdminBoardEditor', () => {
 
     await editor.handleSaveChanges()
 
-    expect(confirmWithReasonMock).toHaveBeenCalledWith('admin.boards.messages.confirmDeactivate')
+    expect(confirmWithReasonMock).toHaveBeenCalledWith(
+      'admin.boards.messages.confirmDeactivate',
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      { maxLength: 500 },
+    )
     expect(updateBoard).not.toHaveBeenCalled()
   })
 
@@ -209,6 +216,19 @@ describe('useAdminBoardEditor', () => {
     await nextTick()
 
     editor.form.boardName = ''
+    await editor.handleSaveChanges()
+
+    expect(updateBoard).not.toHaveBeenCalled()
+    expect(toastMock.addToast).toHaveBeenCalledWith('board.writePost.validation', 'warning')
+  })
+
+  it('blocks saving when a board field exceeds the backend contract', async () => {
+    const boardsData = ref([createBoard({ boardId: 10, boardUrl: 'old-url' })])
+    const updateBoard = vi.fn()
+    const editor = createEditor(boardsData, updateBoard)
+    await nextTick()
+    editor.form.description = 'a'.repeat(256)
+
     await editor.handleSaveChanges()
 
     expect(updateBoard).not.toHaveBeenCalled()

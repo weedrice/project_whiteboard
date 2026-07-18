@@ -58,6 +58,7 @@ vi.mock('@/api/admin', () => ({
 
 // Mock vue-query
 const mockInvalidateQueries = vi.fn()
+const mockRemoveQueries = vi.fn()
 const mockFetchQuery = vi.fn(async (options: { queryFn: (context?: { signal?: AbortSignal }) => Promise<unknown> }) => (
     options.queryFn({})
 ))
@@ -107,6 +108,7 @@ vi.mock('@tanstack/vue-query', () => ({
     }),
     useQueryClient: vi.fn(() => ({
         invalidateQueries: mockInvalidateQueries,
+        removeQueries: mockRemoveQueries,
         fetchQuery: mockFetchQuery,
     }))
 }))
@@ -671,6 +673,27 @@ describe('useAdmin', () => {
 
             expect(adminApi.deleteBoard).toHaveBeenCalledWith('test-board')
             expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'boards'] })
+            expect(mockRemoveQueries).toHaveBeenCalledWith({
+                queryKey: ['session', 0, 'board', 'detail', 'test-board'],
+            })
+        })
+
+        it('cleans old board resources and refreshes new resources after a URL change', async () => {
+            const { useUpdateBoard } = useAdmin()
+            const mutation = useUpdateBoard()
+            vi.mocked(adminApi.updateBoard).mockResolvedValue(apiSuccessResponse<typeof adminApi.updateBoard>())
+
+            await mutation.mutateAsync({
+                boardUrl: 'old-board',
+                data: { boardName: 'Board', boardUrl: 'new-board' },
+            })
+
+            expect(mockRemoveQueries).toHaveBeenCalledWith({
+                queryKey: ['session', 0, 'board', 'detail', 'old-board'],
+            })
+            expect(mockInvalidateQueries).toHaveBeenCalledWith({
+                queryKey: ['session', 0, 'board', 'detail', 'new-board'],
+            })
         })
 
         it('useReorderBoards calls the atomic order API', async () => {
