@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.auth.service;
 
 import com.weedrice.whiteboard.domain.auth.entity.RefreshToken;
 import com.weedrice.whiteboard.domain.auth.repository.RefreshTokenRepository;
+import com.weedrice.whiteboard.domain.notification.service.NotificationAccessInvalidationService;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionPolicyService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.config.TimeConfig;
@@ -55,6 +56,9 @@ class SessionTokenServiceRefreshPersistenceTest {
 
     @MockitoBean
     private SanctionPolicyService sanctionPolicyService;
+
+    @MockitoBean
+    private NotificationAccessInvalidationService notificationAccessInvalidationService;
 
     @Test
     void refresh_inactiveUserRevokesRefreshTokenBeforeReturningUserNotActive() {
