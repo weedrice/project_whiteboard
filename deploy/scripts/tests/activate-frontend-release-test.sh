@@ -73,11 +73,30 @@ make_release() {
   printf '{\n  "commitSha": "%s",\n  "urlCount": 1,\n  "postUrlCount": 1,\n  "prerenderCount": 1\n}\n' "$commit" > "$source/.noviis-seo-release.json"
   printf 'asset\n' > "$source/assets/app.js"
   tar -czf "$release/frontend-release.tar.gz" -C "$source" .
-  printf 'commit_sha=%s\nrun_id=%s\nrun_number=%s\nrun_attempt=1\napi_contract_revision=test-v1\n' \
+  printf 'repository=legacy/local\ncommit_sha=%s\nrun_id=%s\nrun_number=%s\nrun_attempt=1\napi_contract_revision=test-v1\n' \
     "$commit" "$((1000 + run_number))" "$run_number" > "$release/RELEASE_METADATA"
   printf 'release_type=frontend\ncommit_sha=%s\n' "$commit" > "$release/RELEASE_ENVELOPE"
   (cd "$release" && sha256sum frontend-release.tar.gz RELEASE_METADATA > SHA256SUMS)
   printf '%s\n' "$release"
+}
+
+write_breakglass_for_release() {
+  local release="$1" commit="$2" now envelope_digest
+  now="$(date +%s)"
+  envelope_digest="$(sha256sum "$release/RELEASE_ENVELOPE" | awk '{print $1}')"
+  cat > "$fixture/frontend-rollback.allow" <<EOF
+repository=legacy/local
+target_commit=$commit
+target_run_id=$(sed -n 's/^run_id=//p' "$release/RELEASE_METADATA")
+target_run_number=$(sed -n 's/^run_number=//p' "$release/RELEASE_METADATA")
+target_run_attempt=$(sed -n 's/^run_attempt=//p' "$release/RELEASE_METADATA")
+release_envelope_sha256=$envelope_digest
+authorization_id=frontend-rollback-test
+issued_at=$now
+expires_at=$((now + 300))
+reason=verified frontend rollback fixture
+EOF
+  chmod 0600 "$fixture/frontend-rollback.allow"
 }
 
 run_activation() {
@@ -156,6 +175,10 @@ rm "$fixture/fail_health"
 retry_release="$(make_release retry "$retry_commit")"
 run_activation "$retry_release" "$retry_commit"
 test "$(readlink -f "$web_root")" = "$release_root/retry/site"
+if run_activation "$release_root/old" "$old_commit" rollback; then
+  echo "Expected a non-current historical release rollback to fail" >&2
+  exit 1
+fi
 grep -Fq "$release_root/retry/.state." "$fixture/mktemp.log"
 if find "$release_root/retry" -maxdepth 1 -name '.state.*' | grep -q .; then
   echo "Expected frontend state temporary files to be cleaned" >&2
@@ -171,10 +194,13 @@ if run_activation "$release_root/retry" "$retry_commit" rollback; then
   echo "Expected rollback health verification failure" >&2
   exit 1
 fi
-test "$(readlink -f "$web_root")" = "$release_root/old/site"
+test "$(readlink -f "$web_root")" = "$release_root/retry/site"
+test ! -e "$release_root/retry/ROLLBACK_LEASE"
 rm "$fixture/fail_health"
+write_breakglass_for_release "$release_root/old" "$old_commit"
 run_activation "$release_root/retry" "$retry_commit" rollback
 test "$(readlink -f "$web_root")" = "$release_root/old/site"
+test ! -e "$fixture/frontend-rollback.allow"
 
 middle_release="$(make_release middle-after-rollback "$new_commit")"
 sed -i 's/^run_number=.*/run_number=5/' "$middle_release/RELEASE_METADATA"

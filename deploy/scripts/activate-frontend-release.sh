@@ -25,8 +25,9 @@ ACTIVE_STATE_MODE="${ACTIVE_STATE_MODE:-600}"
 ROLLBACK_AUTH_FILE="${ROLLBACK_AUTH_FILE:-/var/lib/noviis/deployment-state/frontend-rollback.allow}"
 GENERATION_HIGH_WATER_FILE="${GENERATION_HIGH_WATER_FILE:-/var/lib/noviis/deployment-state/frontend-generation.state}"
 CLEANUP_DEBT_WRITER="${CLEANUP_DEBT_WRITER:-/usr/local/sbin/record-noviis-cleanup-debt}"
+AUTOMATIC_ROLLBACK_LEASE_SECONDS="${AUTOMATIC_ROLLBACK_LEASE_SECONDS:-1800}"
 
-for numeric_limit in ARCHIVE_MAX_FILES ARCHIVE_MAX_SINGLE_FILE_BYTES ARCHIVE_MAX_TOTAL_BYTES ARCHIVE_FREE_SPACE_HEADROOM_BYTES; do
+for numeric_limit in ARCHIVE_MAX_FILES ARCHIVE_MAX_SINGLE_FILE_BYTES ARCHIVE_MAX_TOTAL_BYTES ARCHIVE_FREE_SPACE_HEADROOM_BYTES AUTOMATIC_ROLLBACK_LEASE_SECONDS; do
   numeric_value="${!numeric_limit}"
   [[ "$numeric_value" =~ ^[1-9][0-9]*$ ]] || { echo "$numeric_limit must be a positive integer" >&2; exit 64; }
 done
@@ -142,6 +143,62 @@ authorize_release_generation() {
   echo "Root break-glass authorization $authorization_id consumed for frontend release generation $target_run_number/$target_attempt" >&2
 }
 
+write_automatic_rollback_lease() {
+  local target_path="$1" source_commit="$2" source_run_id="$3" source_run_number="$4" source_run_attempt="$5"
+  local target_commit="$6" now expires temporary target_release
+  [ -n "$target_path" ] || return 0
+  target_release="$(basename "$(dirname "$target_path")")"
+  [[ "$target_release" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]] || return 1
+  now="$(date +%s)"
+  expires=$((now + AUTOMATIC_ROLLBACK_LEASE_SECONDS))
+  temporary="$(mktemp "$release_real/.frontend-rollback-lease.XXXXXX")"
+  printf 'source_commit=%s\nsource_run_id=%s\nsource_run_number=%s\nsource_run_attempt=%s\ntarget_commit=%s\ntarget_release=%s\nissued_at=%s\nexpires_at=%s\n' \
+    "$source_commit" "$source_run_id" "$source_run_number" "$source_run_attempt" "$target_commit" "$target_release" "$now" "$expires" \
+    > "$temporary"
+  chmod 0600 "$temporary"
+  mv -Tf "$temporary" "$release_real/ROLLBACK_LEASE"
+}
+
+consume_automatic_rollback_lease() {
+  local source_commit="$1" source_run_id="$2" source_run_number="$3" source_run_attempt="$4"
+  local target_commit="$5" target_path="$6" lease="$release_real/ROLLBACK_LEASE"
+  local target_release issued_at expires_at now line_count
+  [ -f "$lease" ] && [ ! -L "$lease" ] || return 1
+  [ "$(stat -c %U:%G "$lease")" = "$ACTIVE_STATE_OWNER" ] && [ "$(stat -c %a "$lease")" = 600 ] || return 1
+  target_release="$(basename "$(dirname "$target_path")")"
+  issued_at="$(sed -n 's/^issued_at=//p' "$lease")"
+  expires_at="$(sed -n 's/^expires_at=//p' "$lease")"
+  line_count="$(wc -l < "$lease")"
+  now="$(date +%s)"
+  [ "$line_count" = 8 ] \
+    && grep -Fqx -- "source_commit=$source_commit" "$lease" \
+    && grep -Fqx -- "source_run_id=$source_run_id" "$lease" \
+    && grep -Fqx -- "source_run_number=$source_run_number" "$lease" \
+    && grep -Fqx -- "source_run_attempt=$source_run_attempt" "$lease" \
+    && grep -Fqx -- "target_commit=$target_commit" "$lease" \
+    && grep -Fqx -- "target_release=$target_release" "$lease" \
+    && [[ "$issued_at" =~ ^[0-9]+$ && "$expires_at" =~ ^[0-9]+$ ]] \
+    && [ "$issued_at" -le "$now" ] && [ "$expires_at" -gt "$now" ] \
+    && [ $((expires_at - issued_at)) -le "$AUTOMATIC_ROLLBACK_LEASE_SECONDS" ] \
+    || return 1
+  rm -f -- "$lease"
+}
+
+authorize_previous_release_break_glass() {
+  local previous_target="$1" previous_commit="$2" previous_release
+  local target_repository target_run_id target_run_number target_run_attempt target_envelope
+  previous_release="$(dirname "$previous_target")"
+  [ -f "$previous_release/RELEASE_METADATA" ] && [ ! -L "$previous_release/RELEASE_METADATA" ] \
+    && [ -f "$previous_release/RELEASE_ENVELOPE" ] && [ ! -L "$previous_release/RELEASE_ENVELOPE" ] || return 1
+  target_repository="$(sed -n 's/^repository=//p' "$previous_release/RELEASE_METADATA")"
+  target_run_id="$(sed -n 's/^run_id=//p' "$previous_release/RELEASE_METADATA")"
+  target_run_number="$(sed -n 's/^run_number=//p' "$previous_release/RELEASE_METADATA")"
+  target_run_attempt="$(sed -n 's/^run_attempt=//p' "$previous_release/RELEASE_METADATA")"
+  target_envelope="$(sha256sum "$previous_release/RELEASE_ENVELOPE" | awk '{print $1}')"
+  authorize_release_generation "$target_repository" "$previous_commit" "$target_run_id" "$target_run_number" \
+    "$target_run_attempt" "$target_envelope"
+}
+
 verify_frontend_commit() {
   local expected_commit="$1"
   local internal_commit public_commit
@@ -171,8 +228,14 @@ restore_previous() {
       || { echo "Previous frontend target does not match its recorded commit" >&2; return 2; }
     sudo ln -sfn "$previous_target" "$WEB_ROOT.rollback"
     sudo mv -Tf "$WEB_ROOT.rollback" "$WEB_ROOT"
-    verify_frontend_commit "$previous_commit" \
-      || { echo "Restored frontend target did not serve the recorded commit" >&2; return 2; }
+    if ! verify_frontend_commit "$previous_commit"; then
+      echo "Restored frontend target did not serve the recorded commit; restoring the source release" >&2
+      sudo ln -sfn "$release_real/site" "$WEB_ROOT.rollback"
+      sudo mv -Tf "$WEB_ROOT.rollback" "$WEB_ROOT"
+      verify_frontend_commit "$(tr -d '\r\n' < "$release_real/site/.noviis-release")" \
+        || { echo "Frontend rollback and roll-forward verification both failed" >&2; return 2; }
+      return 2
+    fi
     previous_release="$(dirname "$previous_target")"
     if [ -f "$previous_release/RELEASE_METADATA" ]; then
       previous_run_id="$(sed -n 's/^run_id=//p' "$previous_release/RELEASE_METADATA")"
@@ -215,6 +278,27 @@ if [ "$MODE" = rollback ]; then
   [[ "$EXPECTED_COMMIT" =~ ^[0-9a-f]{40}$ ]] || { echo "Rollback expected commit is invalid" >&2; exit 1; }
   [ "$(tr -d '\r\n' < "$release_real/ACTIVATED")" = "$EXPECTED_COMMIT" ] \
     || { echo "Rollback release does not match the expected commit" >&2; exit 1; }
+  test -L "$WEB_ROOT"
+  current_target="$(readlink -f "$WEB_ROOT")"
+  [ "$current_target" = "$release_real/site" ] \
+    || { echo "Rollback release is not the currently active frontend target" >&2; exit 1; }
+  test -f "$ACTIVE_STATE_FILE"
+  test ! -L "$ACTIVE_STATE_FILE"
+  test "$(stat -c %U:%G "$ACTIVE_STATE_FILE")" = "$ACTIVE_STATE_OWNER"
+  test "$(stat -c %a "$ACTIVE_STATE_FILE")" = "$ACTIVE_STATE_MODE"
+  grep -Fqx -- "commit_sha=$EXPECTED_COMMIT" "$ACTIVE_STATE_FILE"
+  grep -Fqx -- 'phase=stable' "$ACTIVE_STATE_FILE"
+  current_run_id="$(sed -n 's/^run_id=//p' "$ACTIVE_STATE_FILE")"
+  current_run_number="$(sed -n 's/^run_number=//p' "$ACTIVE_STATE_FILE")"
+  current_run_attempt="$(sed -n 's/^run_attempt=//p' "$ACTIVE_STATE_FILE")"
+  previous_target="$(realpath "$(cat "$release_real/PREVIOUS_TARGET")")"
+  previous_commit="$(tr -d '\r\n' < "$release_real/PREVIOUS_COMMIT")"
+  case "$previous_target/" in "$release_root_real"/*/site/) ;; *) echo "Rollback target is outside release root" >&2; exit 1 ;; esac
+  if ! consume_automatic_rollback_lease "$EXPECTED_COMMIT" "$current_run_id" "$current_run_number" \
+      "$current_run_attempt" "$previous_commit" "$previous_target"; then
+    authorize_previous_release_break_glass "$previous_target" "$previous_commit" \
+      || { echo "Rollback requires a valid automatic lease or root break-glass authorization" >&2; exit 1; }
+  fi
   restore_previous
   echo "Frontend release rolled back: $release_real"
   exit 0
@@ -369,9 +453,13 @@ write_active_state "$release_commit" "$release_run_id" "$release_run_number" "$r
   "$release_envelope_digest" "$api_contract_revision" pending
 
 if ! verify_frontend_commit "$release_commit"; then echo "Frontend health endpoints returned a different release commit" >&2; exit 1; fi
-verified=true
 write_active_state "$release_commit" "$release_run_id" "$release_run_number" "$release_run_attempt" \
   "$release_envelope_digest" "$api_contract_revision" stable
+if [ -n "$previous_target" ]; then
+  write_automatic_rollback_lease "$previous_target" "$release_commit" "$release_run_id" "$release_run_number" \
+    "$release_run_attempt" "$previous_commit"
+fi
+verified=true
 echo "ACTIVATED_SHA=$release_commit"
 echo "ACTIVATED_RUN_ID=$release_run_id"
 echo "ACTIVATED_RUN_NUMBER=$release_run_number"
