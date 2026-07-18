@@ -2,8 +2,11 @@ import { describe, expect, it } from 'vitest'
 import {
     assertAllowedSeoUrl,
     assertPostUrlsPresent,
+    assertStableActiveReleaseSha,
     isPrivateOrReservedAddress,
     resolveAllowedRedirect,
+    resolveActiveReleaseSha,
+    selectRotatingPostUrls,
     sitemapSha256,
     validateReleaseManifest
 } from '../verify-seo.mjs'
@@ -27,6 +30,8 @@ function manifest(overrides = {}) {
         urlCount: allUrls.length,
         postUrlCount: postUrls.length,
         prerenderCount: postUrls.length,
+        postUrlCapacity: 2000,
+        sitemapProtocolMaxUrls: 50000,
         sitemapSha256: sitemapSha256(sitemap),
         ...overrides
     })
@@ -90,11 +95,22 @@ describe('runtime SEO release verification', () => {
         })).toMatchObject({ commitSha, postUrlCount: 1 })
     })
 
+    it('binds the active release endpoint to the expected or discovered SHA', () => {
+        expect(resolveActiveReleaseSha(`${commitSha}\n`)).toBe(commitSha)
+        expect(resolveActiveReleaseSha(commitSha, commitSha)).toBe(commitSha)
+        expect(() => resolveActiveReleaseSha('f'.repeat(40), commitSha)).toThrow('active release mismatch')
+        expect(() => resolveActiveReleaseSha('not-a-sha')).toThrow('not a full lowercase commit SHA')
+        expect(assertStableActiveReleaseSha(commitSha, commitSha)).toBe(commitSha)
+        expect(() => assertStableActiveReleaseSha(commitSha, 'f'.repeat(40))).toThrow('active release changed')
+    })
+
     it.each([
         ['commit', { commitSha: 'f'.repeat(40) }],
         ['URL count', { urlCount: 99 }],
         ['post URL count', { postUrlCount: 99 }],
         ['prerender count', { prerenderCount: 99 }],
+        ['post capacity', { postUrlCapacity: 0 }],
+        ['sitemap capacity', { sitemapProtocolMaxUrls: 49_999 }],
         ['sitemap digest', { sitemapSha256: '0'.repeat(64) }]
     ])('rejects a stale or inconsistent %s', (_name, overrides) => {
         expect(() => validateReleaseManifest({
@@ -104,5 +120,18 @@ describe('runtime SEO release verification', () => {
             manifestText: manifest(overrides),
             expectedSha: commitSha
         })).toThrow()
+    })
+
+    it('selects a bounded, reproducible sample that rotates with the release SHA', () => {
+        const urls = Array.from({ length: 100 }, (_, index) => `https://noviis.kr/board/general/post/${index + 1}/`)
+        const first = selectRotatingPostUrls(urls, 10, `${'a'.repeat(40)}:run-1`)
+        const repeated = selectRotatingPostUrls(urls, 10, `${'a'.repeat(40)}:run-1`)
+        const next = selectRotatingPostUrls(urls, 10, `${'a'.repeat(40)}:run-2`)
+
+        expect(first).toHaveLength(10)
+        expect(first).toEqual(repeated)
+        expect(first).toContain(urls[0])
+        expect(first).toContain(urls.at(-1))
+        expect(next).not.toEqual(first)
     })
 })

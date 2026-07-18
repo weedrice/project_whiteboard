@@ -15,7 +15,9 @@ const maxUrlChecks = parsePositiveInt(process.env.SEO_VERIFY_MAX_URLS, 10)
 const requirePostUrls = process.env.SEO_REQUIRE_POST_URLS === 'true'
 const requireReleaseManifest = process.env.SEO_REQUIRE_RELEASE_MANIFEST === 'true'
 const releaseManifestUrl = process.env.SEO_RELEASE_MANIFEST_URL ?? `${siteUrl}/.noviis-seo-release.json`
+const releaseIdentityUrl = process.env.SEO_RELEASE_IDENTITY_URL ?? `${siteUrl}/.noviis-release`
 const expectedReleaseSha = String(process.env.SEO_EXPECTED_RELEASE_SHA ?? '').trim()
+const rotationSeed = String(process.env.SEO_VERIFY_ROTATION_SEED ?? '').trim()
 const siteOrigin = new URL(siteUrl).origin
 const pageOrigins = new Set([siteOrigin])
 const imageOrigins = new Set([
@@ -282,6 +284,8 @@ export function validateReleaseManifest({ sitemapText, allUrls, postUrls, manife
     const urlCount = requireNonNegativeInteger(manifest.urlCount, 'urlCount')
     const postUrlCount = requireNonNegativeInteger(manifest.postUrlCount, 'postUrlCount')
     const prerenderCount = requireNonNegativeInteger(manifest.prerenderCount, 'prerenderCount')
+    const postUrlCapacity = requireNonNegativeInteger(manifest.postUrlCapacity, 'postUrlCapacity')
+    const sitemapProtocolMaxUrls = requireNonNegativeInteger(manifest.sitemapProtocolMaxUrls, 'sitemapProtocolMaxUrls')
     if (urlCount !== allUrls.length) {
         throw new Error(`release manifest URL count mismatch: expected ${urlCount}, received ${allUrls.length}`)
     }
@@ -291,11 +295,57 @@ export function validateReleaseManifest({ sitemapText, allUrls, postUrls, manife
     if (prerenderCount !== postUrlCount) {
         throw new Error(`release manifest prerender count mismatch: posts=${postUrlCount}, prerenders=${prerenderCount}`)
     }
+    if (postUrlCapacity === 0 || postUrlCount > postUrlCapacity) {
+        throw new Error(`release manifest post capacity exceeded: posts=${postUrlCount}, capacity=${postUrlCapacity}`)
+    }
+    if (sitemapProtocolMaxUrls !== 50_000 || urlCount > sitemapProtocolMaxUrls) {
+        throw new Error(`release manifest sitemap protocol capacity is invalid: urls=${urlCount}, limit=${sitemapProtocolMaxUrls}`)
+    }
     const actualDigest = sitemapSha256(sitemapText)
     if (!/^[0-9a-f]{64}$/.test(manifest.sitemapSha256 ?? '') || manifest.sitemapSha256 !== actualDigest) {
         throw new Error('release manifest sitemap digest mismatch')
     }
     return manifest
+}
+
+export function selectRotatingPostUrls(postUrls, maximum, seed) {
+    if (postUrls.length <= maximum) return [...postUrls]
+    const selectedIndexes = new Set([0])
+    if (maximum > 1) selectedIndexes.add(postUrls.length - 1)
+    const digest = createHash('sha256').update(String(seed), 'utf8').digest()
+    let cursor = digest.readUInt32BE(0) % postUrls.length
+    let stride = (digest.readUInt32BE(4) % (postUrls.length - 1)) + 1
+    while (greatestCommonDivisor(stride, postUrls.length) !== 1) stride += 1
+    while (selectedIndexes.size < maximum) {
+        selectedIndexes.add(cursor)
+        cursor = (cursor + stride) % postUrls.length
+    }
+    return [...selectedIndexes].sort((left, right) => left - right).map((index) => postUrls[index])
+}
+
+export function resolveActiveReleaseSha(identityText, expectedSha = '') {
+    const activeReleaseSha = String(identityText).trim()
+    if (!/^[0-9a-f]{40}$/.test(activeReleaseSha)) {
+        throw new Error('active release identity is not a full lowercase commit SHA')
+    }
+    if (expectedSha && activeReleaseSha !== expectedSha) {
+        throw new Error(`active release mismatch: expected ${expectedSha}, received ${activeReleaseSha}`)
+    }
+    return activeReleaseSha
+}
+
+export function assertStableActiveReleaseSha(beforeSha, afterSha) {
+    if (beforeSha !== afterSha) {
+        throw new Error(`active release changed during SEO verification: ${beforeSha} -> ${afterSha}`)
+    }
+    return afterSha
+}
+
+function greatestCommonDivisor(left, right) {
+    let a = left
+    let b = right
+    while (b !== 0) [a, b] = [b, a % b]
+    return a
 }
 
 function escapeRegExp(value) {
@@ -316,6 +366,18 @@ function extractMetaContent(html, key) {
 
 async function main() {
     const failures = []
+    if (expectedReleaseSha && !/^[0-9a-f]{40}$/.test(expectedReleaseSha)) {
+        throw new Error('SEO_EXPECTED_RELEASE_SHA must be a full lowercase commit SHA')
+    }
+
+    let verifiedReleaseSha = expectedReleaseSha
+    if (requireReleaseManifest) {
+        const identityBefore = await fetchText(releaseIdentityUrl)
+        if (!identityBefore.ok) {
+            throw new Error(`release identity fetch failed: HTTP ${identityBefore.status}`)
+        }
+        verifiedReleaseSha = resolveActiveReleaseSha(identityBefore.text, expectedReleaseSha)
+    }
 
     const sitemapRes = await fetchText(sitemapUrl)
     if (!sitemapRes.ok) {
@@ -331,7 +393,29 @@ async function main() {
         assertAllowedSeoUrl(url, pageOrigins, 'sitemap URL')
     }
     const allPostUrls = findPostUrls(allUrls)
-    const postUrls = allPostUrls.slice(0, maxUrlChecks)
+    if (requireReleaseManifest) {
+        const manifestRes = await fetchText(releaseManifestUrl)
+        if (!manifestRes.ok) throw new Error(`release manifest fetch failed: HTTP ${manifestRes.status}`)
+        const identityAfter = await fetchText(releaseIdentityUrl)
+        if (!identityAfter.ok) {
+            throw new Error(`release identity recheck failed: HTTP ${identityAfter.status}`)
+        }
+        const recheckedReleaseSha = resolveActiveReleaseSha(identityAfter.text, expectedReleaseSha)
+        assertStableActiveReleaseSha(verifiedReleaseSha, recheckedReleaseSha)
+        validateReleaseManifest({
+            sitemapText: sitemapRes.text,
+            allUrls,
+            postUrls: allPostUrls,
+            manifestText: manifestRes.text,
+            expectedSha: verifiedReleaseSha
+        })
+    }
+
+    const postUrls = selectRotatingPostUrls(
+        allPostUrls,
+        maxUrlChecks,
+        `${verifiedReleaseSha || sitemapSha256(sitemapRes.text)}:${rotationSeed}`,
+    )
     const targetUrls = postUrls.length > 0
         ? postUrls
         : [`${siteUrl}/`, `${siteUrl}/boards`]
@@ -340,23 +424,6 @@ async function main() {
     if (postUrls.length === 0) {
         assertPostUrlsPresent(allPostUrls, requirePostUrls)
         console.warn('[seo-verify] no post URLs found in sitemap; running fallback checks on base URLs')
-    }
-
-    if (expectedReleaseSha && !/^[0-9a-f]{40}$/.test(expectedReleaseSha)) {
-        throw new Error('SEO_EXPECTED_RELEASE_SHA must be a full lowercase commit SHA')
-    }
-    if (requireReleaseManifest) {
-        const manifestRes = await fetchText(releaseManifestUrl)
-        if (!manifestRes.ok) {
-            throw new Error(`release manifest fetch failed: HTTP ${manifestRes.status}`)
-        }
-        validateReleaseManifest({
-            sitemapText: sitemapRes.text,
-            allUrls,
-            postUrls: allPostUrls,
-            manifestText: manifestRes.text,
-            expectedSha: expectedReleaseSha
-        })
     }
 
     for (const url of targetUrls) {

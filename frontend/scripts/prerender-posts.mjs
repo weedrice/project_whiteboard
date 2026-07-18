@@ -4,13 +4,14 @@ import { access, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { resolvePostOgImage } from './og-image.mjs'
 import { buildPreRenderedSnippet, injectIntoTemplate } from './prerender-html.mjs'
+import { assertSeoPostUrlCountWithinCapacity, readSeoPostUrlCapacity } from './seo-capacity.mjs'
 
 const siteUrl = normalizeBaseUrl(process.env.PRERENDER_SITE_URL ?? process.env.SITEMAP_SITE_URL ?? 'https://noviis.kr')
 const apiBaseUrl = normalizeBaseUrl(process.env.PRERENDER_API_BASE_URL ?? process.env.SITEMAP_API_BASE_URL ?? `${siteUrl}/api/v1`)
 const distDir = resolve(process.cwd(), 'dist')
 const distIndexPath = resolve(distDir, 'index.html')
 const sourceSitemapPath = resolve(process.cwd(), 'public', 'sitemap.xml')
-const maxUrls = parsePositiveInt(process.env.PRERENDER_MAX_URLS, 2000)
+const maxUrls = readSeoPostUrlCapacity()
 const requestTimeoutMs = parsePositiveInt(process.env.PRERENDER_REQUEST_TIMEOUT_MS, 15000)
 const fetchRetries = parseNonNegativeInt(process.env.PRERENDER_FETCH_RETRIES, 3)
 const fetchRetryDelayMs = parsePositiveInt(process.env.PRERENDER_FETCH_RETRY_DELAY_MS, 1000)
@@ -119,7 +120,6 @@ function extractPostPathsFromSitemap(xmlText) {
 
         seen.add(key)
         results.push({ boardUrl, postId, path: `/board/${boardUrl}/post/${postId}/` })
-        if (results.length >= maxUrls) break
     }
 
     return results
@@ -175,6 +175,7 @@ async function main() {
     ])
 
     const postPaths = extractPostPathsFromSitemap(sitemapXml)
+    assertSeoPostUrlCountWithinCapacity(postPaths.length, maxUrls)
     if (postPaths.length === 0) {
         if (strict) throw new Error('strict production prerender requires at least one post URL')
         console.log('[prerender] no post URLs found in sitemap; skipping')

@@ -2,6 +2,7 @@
 
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
+import { readSeoPostUrlCapacity, SITEMAP_PROTOCOL_MAX_URLS } from './seo-capacity.mjs'
 
 const siteUrl = normalizeBaseUrl(process.env.SITEMAP_SITE_URL ?? 'https://noviis.kr')
 const apiBaseUrl = normalizeBaseUrl(process.env.SITEMAP_API_BASE_URL ?? `${siteUrl}/api/v1`)
@@ -10,6 +11,7 @@ const pageSize = parsePositiveInt(process.env.SITEMAP_PAGE_SIZE, 100)
 const maxPagesPerBoard = parsePositiveInt(process.env.SITEMAP_MAX_PAGES_PER_BOARD, 200)
 const requestTimeoutMs = parsePositiveInt(process.env.SITEMAP_REQUEST_TIMEOUT_MS, 15000)
 const strict = process.env.SEO_STRICT === 'true'
+const postUrlCapacity = readSeoPostUrlCapacity()
 
 function normalizeBaseUrl(url) {
     return String(url).replace(/\/+$/, '')
@@ -34,6 +36,11 @@ function toLastmod(value) {
     const date = new Date(value)
     if (Number.isNaN(date.valueOf())) return null
     return date.toISOString().slice(0, 10)
+}
+
+function toSortTimestamp(value) {
+    const timestamp = Date.parse(value ?? '')
+    return Number.isFinite(timestamp) ? timestamp : 0
 }
 
 async function fetchApiData(path) {
@@ -64,6 +71,7 @@ function createEntry(loc, options = {}) {
     return {
         loc,
         lastmod: options.lastmod ?? null,
+        sortTimestamp: options.sortTimestamp ?? 0,
         changefreq: options.changefreq ?? 'daily',
         priority: options.priority ?? '0.8'
     }
@@ -123,6 +131,7 @@ async function fetchBoardPosts(boardUrl) {
                 toPostUrl(boardUrl, post.postId),
                 {
                     lastmod: toLastmod(post.modifiedAt || post.createdAt),
+                    sortTimestamp: toSortTimestamp(post.modifiedAt || post.createdAt),
                     changefreq: 'weekly',
                     priority: '0.7'
                 }
@@ -142,7 +151,12 @@ async function fetchBoardPosts(boardUrl) {
         consumePage(pageData)
     }
 
-    return postEntries
+    return {
+        entries: postEntries,
+        discoveredCount: Number.isSafeInteger(firstPage?.totalElements)
+            ? Number(firstPage.totalElements)
+            : postEntries.length
+    }
 }
 
 function renderSitemap(entries) {
@@ -173,6 +187,8 @@ function renderSitemap(entries) {
 async function main() {
     const entries = new Map()
     let postCount = 0
+    let discoveredPostCount = 0
+    const discoveredPostEntries = []
 
     upsertEntry(entries, createEntry(`${siteUrl}/`, { changefreq: 'daily', priority: '1.0' }))
     upsertEntry(entries, createEntry(`${siteUrl}/boards`, { changefreq: 'daily', priority: '0.9' }))
@@ -193,11 +209,9 @@ async function main() {
             ))
 
             try {
-                const postEntries = await fetchBoardPosts(boardUrl)
-                postCount += postEntries.length
-                for (const postEntry of postEntries) {
-                    upsertEntry(entries, postEntry)
-                }
+                const posts = await fetchBoardPosts(boardUrl)
+                discoveredPostCount += posts.discoveredCount
+                discoveredPostEntries.push(...posts.entries)
             } catch (error) {
                 if (strict) throw error
                 console.warn(`[sitemap] failed to fetch posts for board "${boardUrl}": ${String(error)}`)
@@ -209,13 +223,25 @@ async function main() {
         console.warn('[sitemap] falling back to base URLs only')
     }
 
+    const uniquePosts = new Map()
+    for (const postEntry of discoveredPostEntries) upsertEntry(uniquePosts, postEntry)
+    const selectedPosts = [...uniquePosts.values()]
+        .sort((left, right) => right.sortTimestamp - left.sortTimestamp || left.loc.localeCompare(right.loc))
+        .slice(0, postUrlCapacity)
+    for (const postEntry of selectedPosts) upsertEntry(entries, postEntry)
+    postCount = selectedPosts.length
+
     if (strict && postCount === 0) {
         throw new Error('strict production sitemap contains no post URLs')
+    }
+    if (entries.size > SITEMAP_PROTOCOL_MAX_URLS) {
+        throw new Error(`sitemap URL count exceeds protocol limit: ${entries.size}/${SITEMAP_PROTOCOL_MAX_URLS}`)
     }
 
     await mkdir(dirname(outputPath), { recursive: true })
     await writeFile(outputPath, renderSitemap(entries), 'utf8')
-    console.log(`[sitemap] wrote ${entries.size} URLs (${postCount} posts) to ${outputPath}`)
+    const omittedPostCount = Math.max(0, discoveredPostCount - postCount)
+    console.log(`[sitemap] wrote ${entries.size} URLs (${postCount}/${discoveredPostCount} posts, capacity=${postUrlCapacity}, omitted=${omittedPostCount}) to ${outputPath}`)
 }
 
 main().catch((error) => {

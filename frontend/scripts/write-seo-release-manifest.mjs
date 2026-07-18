@@ -3,12 +3,14 @@
 import { readFile, readdir, writeFile } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 import { resolve } from 'node:path'
+import { readSeoPostUrlCapacity, SITEMAP_PROTOCOL_MAX_URLS } from './seo-capacity.mjs'
 
 const distDir = resolve(process.cwd(), 'dist')
 const sitemapPath = resolve(process.cwd(), 'public', 'sitemap.xml')
 const outputPath = resolve(distDir, '.noviis-seo-release.json')
 const requestedCommitSha = String(process.env.SEO_RELEASE_SHA ?? process.env.VITE_COMMIT_HASH ?? '').trim()
 const strict = process.env.SEO_STRICT === 'true'
+const postUrlCapacity = readSeoPostUrlCapacity()
 
 async function main() {
     if (strict && !/^[0-9a-f]{40}$/.test(requestedCommitSha)) {
@@ -28,8 +30,19 @@ async function main() {
     if (strict && (postUrlCount === 0 || prerenderCount !== postUrlCount)) {
         throw new Error(`strict SEO release is incomplete: postUrls=${postUrlCount}, prerenders=${prerenderCount}`)
     }
+    if (urlCount > SITEMAP_PROTOCOL_MAX_URLS || postUrlCount > postUrlCapacity) {
+        throw new Error(`SEO release exceeds its capacity contract: urls=${urlCount}, posts=${postUrlCount}/${postUrlCapacity}`)
+    }
 
-    await writeFile(outputPath, `${JSON.stringify({ commitSha, urlCount, postUrlCount, prerenderCount, sitemapSha256 }, null, 2)}\n`, 'utf8')
+    await writeFile(outputPath, `${JSON.stringify({
+        commitSha,
+        urlCount,
+        postUrlCount,
+        prerenderCount,
+        postUrlCapacity,
+        sitemapProtocolMaxUrls: SITEMAP_PROTOCOL_MAX_URLS,
+        sitemapSha256
+    }, null, 2)}\n`, 'utf8')
     console.log(`[seo-manifest] wrote ${outputPath} (${postUrlCount} posts, ${prerenderCount} prerenders)`)
 }
 
