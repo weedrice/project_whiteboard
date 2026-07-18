@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { getCurrentScope, onScopeDispose, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { authApi } from '@/api/auth'
 import { unwrapAxiosApiData } from '@/api/response'
@@ -19,6 +19,7 @@ export interface EmailVerificationFlowOptions {
   afterSend?: (email: string) => Promise<void> | void
   afterVerify?: (context: {
     email: string
+    purpose: VerificationPurpose
     verificationTicket: string
     response: VerifyCodeResponse
   }) => Promise<void> | void
@@ -36,6 +37,8 @@ export function useEmailVerificationFlow(options: EmailVerificationFlowOptions) 
   const { t } = useI18n()
   const authStore = useAuthStore()
   const toastStore = useToastStore()
+  let requestRevision = 0
+  let activeController: AbortController | null = null
 
   const isVerifyModalOpen = ref(false)
   const {
@@ -55,10 +58,10 @@ export function useEmailVerificationFlow(options: EmailVerificationFlowOptions) 
     return options.purpose ?? 'CHANGE_EMAIL'
   }
 
-  const shouldValidateEmailFormat = () => options.validateEmailFormat ?? resolvePurpose() === 'CHANGE_EMAIL'
+  const shouldValidateEmailFormat = (purpose: VerificationPurpose) => options.validateEmailFormat ?? purpose === 'CHANGE_EMAIL'
   const shouldUseTimer = () => options.useTimer ?? true
   const shouldShowVerifySuccessToast = () => options.showVerifySuccessToast ?? true
-  const shouldCloseOnVerifySuccess = () => options.closeOnVerifySuccess ?? resolvePurpose() === 'CHANGE_EMAIL'
+  const shouldCloseOnVerifySuccess = (purpose: VerificationPurpose) => options.closeOnVerifySuccess ?? purpose === 'CHANGE_EMAIL'
 
   const setLoading = (loading: boolean) => {
     emailVerification.loading = loading
@@ -71,27 +74,56 @@ export function useEmailVerificationFlow(options: EmailVerificationFlowOptions) 
   }
 
   function closeVerifyModal() {
+    cancelPendingRequests()
     stopVerifyTimer()
     stopVerifyResendCooldown()
     isVerifyModalOpen.value = false
   }
 
+  function cancelPendingRequests() {
+    requestRevision++
+    activeController?.abort()
+    activeController = null
+    setLoading(false)
+  }
+
+  function startRequest() {
+    activeController?.abort()
+    const controller = new AbortController()
+    activeController = controller
+    return { controller, revision: ++requestRevision }
+  }
+
+  const isCurrentRequest = (revision: number, controller: AbortController) => (
+    revision === requestRevision && activeController === controller && !controller.signal.aborted
+  )
+
+  if (getCurrentScope()) {
+    onScopeDispose(cancelPendingRequests)
+  }
+
   async function sendVerifyCode() {
+    const purpose = resolvePurpose()
     emailVerification.email = options.getEmail()
     const trimmed = emailVerification.email.trim()
     if (!trimmed) {
       toastStore.addToast(options.emailRequiredMessage ?? t('auth.emailRequired'), 'error')
       return
     }
-    if (shouldValidateEmailFormat() && !isValidEmail(trimmed)) {
+    if (shouldValidateEmailFormat(purpose) && !isValidEmail(trimmed)) {
       toastStore.addToast(t('auth.validation.emailFormat'), 'error')
       return
     }
 
+    const { controller, revision } = startRequest()
     setLoading(true)
     try {
       await options.beforeSend?.(trimmed)
-      const { data } = await authApi.sendVerificationCode(trimmed, resolvePurpose())
+      if (!isCurrentRequest(revision, controller)) return
+      const { data } = await authApi.sendVerificationCode(trimmed, purpose, {
+        signal: controller.signal,
+      })
+      if (!isCurrentRequest(revision, controller)) return
       if (data.success) {
         emailVerification.code = ''
         emailVerification.verificationTicket = ''
@@ -102,9 +134,11 @@ export function useEmailVerificationFlow(options: EmailVerificationFlowOptions) 
           startVerifyResendCooldown()
         }
         await options.afterSend?.(trimmed)
+        if (!isCurrentRequest(revision, controller)) return
         toastStore.addToast(t('auth.codeSent'), 'success')
       }
     } catch (err: unknown) {
+      if (!isCurrentRequest(revision, controller)) return
       const handled = options.onSendError?.(err)
       if (!handled) {
         const message = extractErrorMessage(err) || t('auth.sendCodeFailed')
@@ -113,11 +147,15 @@ export function useEmailVerificationFlow(options: EmailVerificationFlowOptions) 
       emailVerification.resendCooldown = 0
       stopVerifyResendCooldown()
     } finally {
-      setLoading(false)
+      if (isCurrentRequest(revision, controller)) {
+        activeController = null
+        setLoading(false)
+      }
     }
   }
 
   async function verifyEmailCode() {
+    const purpose = resolvePurpose()
     emailVerification.email = options.getEmail()
     const trimmed = emailVerification.email.trim()
     const code = options.getCode ? options.getCode().trim() : emailVerification.code.trim()
@@ -131,35 +169,47 @@ export function useEmailVerificationFlow(options: EmailVerificationFlowOptions) 
       return
     }
 
+    const { controller, revision } = startRequest()
     setLoading(true)
     try {
-      const verifyResponse = await authApi.verifyCode(trimmed, code, resolvePurpose())
+      const verifyResponse = await authApi.verifyCode(trimmed, code, purpose, {
+        signal: controller.signal,
+      })
+      if (!isCurrentRequest(revision, controller)) return
       const response = unwrapAxiosApiData(verifyResponse)
       if (!verifyResponse.data.success || !response?.verificationTicket) {
         throw new Error(t('auth.verificationFailed'))
       }
 
       emailVerification.verificationTicket = response.verificationTicket
-      if (resolvePurpose() === 'CHANGE_EMAIL') {
+      if (purpose === 'CHANGE_EMAIL') {
         const { data } = await userApi.verifyEmail({
           email: trimmed,
           verificationTicket: emailVerification.verificationTicket
+        }, {
+          signal: controller.signal,
+          skipGlobalErrorHandler: true,
         })
         if (!data.success) {
           throw new Error(t('auth.verificationFailed'))
         }
+        if (!isCurrentRequest(revision, controller)) return
         if (authStore.user) {
           authStore.user.isEmailVerified = true
         }
         await authStore.fetchUser()
+        if (!isCurrentRequest(revision, controller)) return
         await options.refreshProfile?.()
+        if (!isCurrentRequest(revision, controller)) return
       }
 
       await options.afterVerify?.({
         email: trimmed,
+        purpose,
         verificationTicket: emailVerification.verificationTicket,
         response
       })
+      if (!isCurrentRequest(revision, controller)) return
 
       emailVerification.isVerified = true
       if (shouldUseTimer()) {
@@ -168,17 +218,23 @@ export function useEmailVerificationFlow(options: EmailVerificationFlowOptions) 
       if (shouldShowVerifySuccessToast()) {
         toastStore.addToast(t('auth.codeVerified'), 'success')
       }
-      if (shouldCloseOnVerifySuccess()) {
-        closeVerifyModal()
+      if (shouldCloseOnVerifySuccess(purpose)) {
+        stopVerifyTimer()
+        stopVerifyResendCooldown()
+        isVerifyModalOpen.value = false
       }
     } catch (err: unknown) {
+      if (!isCurrentRequest(revision, controller)) return
       const handled = options.onVerifyError?.(err)
       if (!handled) {
         const message = extractErrorMessage(err) || t('auth.verificationFailed')
         toastStore.addToast(message, 'error')
       }
     } finally {
-      setLoading(false)
+      if (isCurrentRequest(revision, controller)) {
+        activeController = null
+        setLoading(false)
+      }
     }
   }
 
@@ -189,6 +245,7 @@ export function useEmailVerificationFlow(options: EmailVerificationFlowOptions) 
     isValidEmail,
     openVerifyModal,
     closeVerifyModal,
+    cancelPendingRequests,
     sendVerifyCode,
     verifyEmailCode
   }

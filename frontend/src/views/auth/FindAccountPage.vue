@@ -54,12 +54,7 @@ const resetVerificationState = () => {
   status.verificationTicket = ''
 }
 
-const switchTab = (tab: string) => {
-  activeTab.value = tab
-  resetState()
-}
-
-const { findId } = useFindIdFlow({
+const { findId, cancelPendingRequests: cancelFindIdRequests } = useFindIdFlow({
   getEmail: () => form.email,
   onLoadingChange: (loading) => {
     status.loading = loading
@@ -92,6 +87,7 @@ const {
   sectionProps: emailVerificationSectionProps,
   sendVerifyCode: handleSendCode,
   verifyEmailCode: handleVerifyCode,
+  cancelPendingRequests: cancelEmailVerificationRequests,
 } = useAuthEmailVerificationSection({
   t,
   idPrefix: 'find-account',
@@ -115,14 +111,21 @@ const {
     status.isCodeSent = true
     status.foundId = ''
   },
-  afterVerify: async ({ verificationTicket }) => {
-    if (activeTab.value === 'id') {
+  afterVerify: async ({ verificationTicket, purpose }) => {
+    if (purpose === 'FIND_ID') {
       await findId(verificationTicket)
     } else {
       completePasswordResetVerification(verificationTicket)
     }
   },
 })
+
+const switchTab = (tab: string) => {
+  cancelEmailVerificationRequests()
+  cancelFindIdRequests()
+  activeTab.value = tab
+  resetState()
+}
 </script>
 
 <template>

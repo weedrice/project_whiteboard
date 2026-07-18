@@ -103,8 +103,10 @@ export const userAccountApi = {
     deleteAccount(password: string) {
         return api.delete<ApiResponse<ActionMessageResponse>>('/users/me', { data: { password } })
     },
-    verifyEmail(payload: { email: string, verificationTicket: string }) {
-        return api.post<ApiResponse<void>>('/users/me/email-verification', payload)
+    verifyEmail(payload: { email: string, verificationTicket: string }, config?: AxiosRequestConfig) {
+        return config
+            ? api.post<ApiResponse<void>>('/users/me/email-verification', payload, config)
+            : api.post<ApiResponse<void>>('/users/me/email-verification', payload)
     },
     getUserSettings(config?: AxiosRequestConfig) {
         return config

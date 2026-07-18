@@ -44,18 +44,19 @@ export const authApi = {
 
     getMe: (config?: AxiosRequestConfig) => api.get<ApiResponse<User>>('/users/me', config),
 
-    sendVerificationCode: (email: string, purpose: VerificationPurpose) =>
+    sendVerificationCode: (email: string, purpose: VerificationPurpose, config?: AxiosRequestConfig) =>
         api.post<ApiResponse<void>>(
             '/auth/email/send-verification',
             { email, purpose },
-            { skipAuthRefresh: true },
+            { ...config, skipAuthRefresh: true, skipGlobalErrorHandler: true },
         ),
 
-    verifyCode: (email: string, code: string, purpose: VerificationPurpose) =>
+    verifyCode: (email: string, code: string, purpose: VerificationPurpose, config?: AxiosRequestConfig) =>
         api.post<ApiResponse<VerifyCodeResponse>>(
             '/auth/email/verify',
             { email, code, purpose },
             {
+                ...config,
                 skipAuthRefresh: true,
                 skipGlobalErrorHandler: true,
             },
@@ -81,11 +82,12 @@ export const authApi = {
             skipGlobalErrorHandler: true,
         }),
 
-    findId: (email: string, verificationTicket: string) =>
+    findId: (email: string, verificationTicket: string, config?: AxiosRequestConfig) =>
         api.post<ApiResponse<{ loginId: string }>>(
             '/auth/find-id',
             { email, verificationTicket },
             {
+                ...config,
                 skipAuthRefresh: true,
                 skipGlobalErrorHandler: true,
             },

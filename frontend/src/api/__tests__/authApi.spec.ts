@@ -73,7 +73,7 @@ describe('authApi', () => {
         expect(apiMock.post).toHaveBeenCalledWith(
             '/auth/email/send-verification',
             { email: 'test@example.com', purpose: 'SIGNUP' },
-            { skipAuthRefresh: true },
+            { skipAuthRefresh: true, skipGlobalErrorHandler: true },
         )
     })
 

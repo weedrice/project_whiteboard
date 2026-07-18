@@ -17,7 +17,7 @@ export type AuthEmailVerificationSectionOptions = EmailVerificationFlowOptions &
 }
 
 export function useAuthEmailVerificationSection(options: AuthEmailVerificationSectionOptions) {
-  const { sendVerifyCode, verifyEmailCode } = useEmailVerificationFlow(options)
+  const { sendVerifyCode, verifyEmailCode, cancelPendingRequests } = useEmailVerificationFlow(options)
 
   const sectionProps: ComputedRef<{
     idPrefix: string
@@ -49,5 +49,6 @@ export function useAuthEmailVerificationSection(options: AuthEmailVerificationSe
     sectionProps,
     sendVerifyCode,
     verifyEmailCode,
+    cancelPendingRequests,
   }
 }

@@ -7,6 +7,8 @@ const mocks = vi.hoisted(() => ({
   findId: vi.fn(),
   completeVerification: vi.fn(),
   resetPassword: vi.fn(),
+  cancelPendingRequests: vi.fn(),
+  cancelFindIdRequests: vi.fn(),
   findOptions: null as Record<string, (...args: never[]) => unknown> | null,
   passwordOptions: null as Record<string, (...args: never[]) => unknown> | null,
   verificationOptions: null as Record<string, (...args: never[]) => unknown> | null,
@@ -17,7 +19,7 @@ vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }))
 vi.mock('@/composables/useFindIdFlow', () => ({
   useFindIdFlow: (options: Record<string, (...args: never[]) => unknown>) => {
     mocks.findOptions = options
-    return { findId: mocks.findId }
+    return { findId: mocks.findId, cancelPendingRequests: mocks.cancelFindIdRequests }
   },
 }))
 vi.mock('@/composables/usePasswordResetByVerificationFlow', () => ({
@@ -36,6 +38,7 @@ vi.mock('@/composables/useAuthEmailVerificationSection', () => ({
       sectionProps: {},
       sendVerifyCode: vi.fn(),
       verifyEmailCode: vi.fn(),
+      cancelPendingRequests: mocks.cancelPendingRequests,
     }
   },
 }))
@@ -75,7 +78,7 @@ describe('FindAccountPage', () => {
     expect(verification.purpose()).toBe('FIND_ID')
     verification.onLoadingChange(true as never)
     verification.afterSend()
-    await verification.afterVerify({ verificationTicket: 'ticket-1' } as never)
+    await verification.afterVerify({ verificationTicket: 'ticket-1', purpose: 'FIND_ID' } as never)
     expect(mocks.findId).toHaveBeenCalledWith('ticket-1')
 
     find.onLoadingChange(false as never)
@@ -93,8 +96,10 @@ describe('FindAccountPage', () => {
     const password = mocks.passwordOptions!
 
     expect(verification.purpose()).toBe('PASSWORD_RESET')
+    expect(mocks.cancelPendingRequests).toHaveBeenCalledOnce()
+    expect(mocks.cancelFindIdRequests).toHaveBeenCalledOnce()
     verification.afterSend()
-    await verification.afterVerify({ verificationTicket: 'reset-ticket' } as never)
+    await verification.afterVerify({ verificationTicket: 'reset-ticket', purpose: 'PASSWORD_RESET' } as never)
     expect(mocks.completeVerification).toHaveBeenCalledWith('reset-ticket')
 
     password.onLoadingChange(true as never)

@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { useFindIdFlow } from '../useFindIdFlow'
 import { authApi } from '@/api/auth'
 import { apiSuccessDataResponse } from '@/test/apiResponseFixtures'
+import { createDeferred } from '@/test/async'
 
 const routerPush = vi.hoisted(() => vi.fn())
 const toastMock = vi.hoisted(() => ({
@@ -55,7 +56,11 @@ describe('useFindIdFlow', () => {
 
         await findId('ticket-1')
 
-        expect(authApi.findId).toHaveBeenCalledWith('user@example.com', 'ticket-1')
+        expect(authApi.findId).toHaveBeenCalledWith(
+            'user@example.com',
+            'ticket-1',
+            expect.objectContaining({ signal: expect.any(AbortSignal) }),
+        )
         expect(onSuccess).toHaveBeenCalledWith({
             loginId: 'noviis-user',
             verificationTicket: 'ticket-1'
@@ -85,5 +90,29 @@ describe('useFindIdFlow', () => {
 
         expect(toastMock.addToast).toHaveBeenCalledWith('auth.userDeleted', 'info')
         expect(routerPush).toHaveBeenCalledWith('/signup?email=deleted%2Buser%40example.com')
+    })
+
+    it('aborts and discards a stale lookup when the flow is cancelled', async () => {
+        const pending = createDeferred<Awaited<ReturnType<typeof authApi.findId>>>()
+        vi.mocked(authApi.findId).mockReturnValueOnce(pending.promise)
+        const onSuccess = vi.fn()
+        const onLoadingChange = vi.fn()
+        const flow = useFindIdFlow({
+            getEmail: () => 'user@example.com',
+            onLoadingChange,
+            onSuccess,
+        })
+
+        const lookup = flow.findId('ticket-1')
+        const signal = vi.mocked(authApi.findId).mock.calls[0][2]?.signal
+        flow.cancelPendingRequests()
+        expect(signal?.aborted).toBe(true)
+
+        pending.resolve(apiSuccessDataResponse<typeof authApi.findId>({ loginId: 'stale-user' }))
+        await lookup
+
+        expect(onSuccess).not.toHaveBeenCalled()
+        expect(toastMock.addToast).not.toHaveBeenCalled()
+        expect(onLoadingChange).toHaveBeenLastCalledWith(false)
     })
 })
