@@ -68,7 +68,7 @@ describe('useNotification queries and mutations', () => {
     expect(mocks.queryClient.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'notifications', 'unread-count'] })
   })
 
-  it('marks all as read and sets unread-count cache to zero', async () => {
+  it('marks all as read and reconciles unread count with notifications that arrived concurrently', async () => {
     mocks.notificationApi.markAllAsRead.mockResolvedValueOnce(apiSuccessResponse<typeof mocks.notificationApi.markAllAsRead>())
     const { useMarkAllAsRead } = useNotification()
     const mutation = useMarkAllAsRead()
@@ -77,7 +77,11 @@ describe('useNotification queries and mutations', () => {
 
     expect(mocks.notificationApi.markAllAsRead).toHaveBeenCalled()
     expect(mocks.queryClient.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'notifications'] })
-    expect(mocks.queryClient.setQueryData).toHaveBeenCalledWith(['session', 0, 'notifications', 'unread-count'], 0)
+    expect(mocks.queryClient.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'notifications', 'unread-count'] })
+    expect(mocks.queryClient.setQueryData).not.toHaveBeenCalledWith(
+      ['session', 0, 'notifications', 'unread-count'],
+      0,
+    )
   })
 
   it('ignores a mutation callback from an older session generation', async () => {
