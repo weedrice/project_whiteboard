@@ -17,6 +17,9 @@ const ALLOWED_IFRAME_HOSTS = new Set([
     'youtube-nocookie.com',
     'player.vimeo.com',
 ])
+const ALLOWED_POST_IMAGE_HOSTS = new Set([
+    'cdn.noviis.kr',
+])
 
 export type SanitizedHtml = string & { readonly __sanitizedHtmlBrand: unique symbol }
 
@@ -93,6 +96,14 @@ function tightenQuillHtml(html: string): string {
         iframe.setAttribute('allow', 'encrypted-media; picture-in-picture')
     })
 
+    doc.querySelectorAll<HTMLImageElement>('img').forEach((image) => {
+        if (!isAllowedPostImageSrc(image.getAttribute('src'))) {
+            image.remove()
+            return
+        }
+        image.setAttribute('referrerpolicy', 'no-referrer')
+    })
+
     doc.querySelectorAll<HTMLElement>('[style]').forEach((element) => {
         const style = filterInlineStyle(element.getAttribute('style') ?? '')
         if (style) {
@@ -103,6 +114,34 @@ function tightenQuillHtml(html: string): string {
     })
 
     return doc.body.innerHTML
+}
+
+export function isAllowedPostImageSrc(src: string | null, applicationOrigin = getApplicationOrigin()): boolean {
+    if (!src || src.startsWith('//')) return false
+
+    try {
+        const origin = new URL(applicationOrigin).origin
+        const url = new URL(src, origin)
+
+        if (url.protocol === 'blob:') {
+            return url.origin === origin
+        }
+        if (url.protocol !== 'http:' && url.protocol !== 'https:') return false
+        if (url.origin === origin) return true
+
+        return url.protocol === 'https:'
+            && url.port === ''
+            && ALLOWED_POST_IMAGE_HOSTS.has(url.hostname.toLowerCase())
+    } catch {
+        return false
+    }
+}
+
+function getApplicationOrigin(): string {
+    if (typeof window !== 'undefined' && window.location?.origin) {
+        return window.location.origin
+    }
+    return 'https://noviis.kr'
 }
 
 function isAllowedIframeSrc(src: string | null): boolean {

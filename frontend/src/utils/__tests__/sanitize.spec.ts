@@ -70,6 +70,24 @@ describe('sanitize', () => {
         expect(clean).toContain('https://player.vimeo.com/video/456/')
     })
 
+    it('sanitizeQuillHtml keeps only same-origin and approved CDN images without referrers', () => {
+        const html = [
+            '<img src="/api/v1/files/1" alt="same origin">',
+            '<img src="https://cdn.noviis.kr/files/2" alt="cdn">',
+            '<img src="https://tracker.example/pixel.gif" alt="external">',
+            '<img src="//cdn.noviis.kr/files/3" alt="protocol relative">',
+            '<img src="data:image/png;base64,AAAA" alt="data">',
+        ].join('')
+        const clean = sanitizeQuillHtml(html)
+
+        expect(clean).toContain('src="/api/v1/files/1"')
+        expect(clean).toContain('src="https://cdn.noviis.kr/files/2"')
+        expect(clean.match(/referrerpolicy="no-referrer"/g)).toHaveLength(2)
+        expect(clean).not.toContain('tracker.example')
+        expect(clean).not.toContain('protocol relative')
+        expect(clean).not.toContain('data:image')
+    })
+
     it('sanitizeQuillHtml keeps only safe editor inline styles', () => {
         const html = '<p style="color: red; position: fixed; background-image: url(javascript:alert(1)); text-align: center; line-height: 1.5">hello</p>'
         const clean = sanitizeQuillHtml(html)

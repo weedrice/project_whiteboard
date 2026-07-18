@@ -16,11 +16,30 @@ vi.mock('@/utils/errorHandler', () => ({
 vi.mock('@/utils/vueErrorLog', () => ({ createErrorLogPayload: mocks.createErrorLogPayload }))
 
 import { configureQueryClientStoreResolvers, queryClient } from '@/queryClient'
+import { configureAuthQueryScope } from '@/queryAuthScope'
 
 describe('queryClient defaults', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.suppress.mockReturnValue(false)
+    configureAuthQueryScope(() => 1)
+  })
+
+  it('suppresses errors from a mutation completed after its session generation became stale', () => {
+    const addToast = vi.fn()
+    configureQueryClientStoreResolvers({ resolveToastStore: () => ({ addToast }) })
+    const mutationConfig = queryClient.getMutationCache().config
+
+    mutationConfig.onError?.(
+      new Error('old account'),
+      undefined,
+      { sessionGeneration: 0 },
+      { meta: { authScoped: true } } as never,
+      {} as never,
+    )
+
+    expect(addToast).not.toHaveBeenCalled()
+    expect(mocks.loggerError).not.toHaveBeenCalled()
   })
 
   it('keeps cache defaults and retry boundaries stable', () => {

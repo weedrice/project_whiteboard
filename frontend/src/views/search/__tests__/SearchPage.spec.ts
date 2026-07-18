@@ -1,4 +1,4 @@
-import { mount, RouterLinkStub } from '@vue/test-utils'
+import { flushPromises, mount, RouterLinkStub } from '@vue/test-utils'
 import { computed, defineComponent, h, ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -23,11 +23,22 @@ const searchState = vi.hoisted(() => ({
   popularTagsError: false,
   recentKeywordsLoading: false,
   recentKeywordsError: false,
+  recentKeywords: [] as Array<{ logId: number, keyword: string }>,
   refetchIntegrated: vi.fn(),
   refetchSemantic: vi.fn(),
   refetchPopularKeywords: vi.fn(),
   refetchPopularTags: vi.fn(),
   refetchRecentKeywords: vi.fn(),
+}))
+
+const authState = vi.hoisted(() => ({
+  isAuthenticated: true,
+  sessionGeneration: 0,
+}))
+
+const searchApiMocks = vi.hoisted(() => ({
+  deleteRecentSearch: vi.fn(),
+  deleteAllRecentSearches: vi.fn(),
 }))
 
 vi.mock('vue-router', () => ({
@@ -62,16 +73,13 @@ vi.mock('vue-i18n', async (importOriginal) => {
 })
 
 vi.mock('@/stores/auth', () => ({
-  useAuthStore: () => ({
-    isAuthenticated: false,
-    sessionGeneration: 0,
-  }),
+  useAuthStore: () => authState,
 }))
 
 vi.mock('@/api/search', () => ({
   searchApi: {
-    deleteRecentSearch: vi.fn(),
-    deleteAllRecentSearches: vi.fn(),
+    deleteRecentSearch: searchApiMocks.deleteRecentSearch,
+    deleteAllRecentSearches: searchApiMocks.deleteAllRecentSearches,
   },
 }))
 
@@ -105,7 +113,7 @@ vi.mock('@/composables/useSearch', () => ({
       refetch: searchState.refetchPopularKeywords,
     }),
     useRecentSearches: () => ({
-      data: ref({ content: [] }),
+      data: ref({ content: searchState.recentKeywords }),
       isLoading: ref(searchState.recentKeywordsLoading),
       isError: ref(searchState.recentKeywordsError),
       refetch: searchState.refetchRecentKeywords,
@@ -140,6 +148,7 @@ vi.mock('@/components/board/PostList.vue', () => ({
 }))
 
 const { default: SearchPage } = await import('../SearchPage.vue')
+const { notifyAuthSessionBoundary } = await import('@/queryAuthScope')
 
 const EmptyStateStub = defineComponent({
   name: 'EmptyStateStub',
@@ -171,6 +180,9 @@ describe('SearchPage', () => {
     searchState.popularTagsError = false
     searchState.recentKeywordsLoading = false
     searchState.recentKeywordsError = false
+    searchState.recentKeywords = []
+    authState.isAuthenticated = true
+    authState.sessionGeneration = 0
     searchState.refetchIntegrated.mockClear()
     searchState.refetchSemantic.mockClear()
     searchState.refetchPopularKeywords.mockClear()
@@ -178,6 +190,10 @@ describe('SearchPage', () => {
     searchState.refetchRecentKeywords.mockClear()
     routeState.routerPush.mockClear()
     routeState.invalidateQueries.mockClear()
+    searchApiMocks.deleteRecentSearch.mockReset()
+    searchApiMocks.deleteAllRecentSearches.mockReset()
+    searchApiMocks.deleteRecentSearch.mockResolvedValue(undefined)
+    searchApiMocks.deleteAllRecentSearches.mockResolvedValue(undefined)
   })
 
   const mountPage = () => mount(SearchPage, {
@@ -391,5 +407,65 @@ describe('SearchPage', () => {
     const recentAlert = sections[2].get('[role="alert"]')
     await recentAlert.get('button').trigger('click')
     expect(searchState.refetchRecentKeywords).toHaveBeenCalledOnce()
+  })
+
+  it('aborts a recent-search deletion and skips stale cache work after a session boundary', async () => {
+    searchState.recentKeywords = [{ logId: 7, keyword: 'old account' }]
+    let resolveDelete!: () => void
+    searchApiMocks.deleteRecentSearch.mockReturnValue(new Promise<void>((resolve) => {
+      resolveDelete = resolve
+    }))
+    const wrapper = mountPage()
+
+    await wrapper.get('button[aria-label="search.deleteRecent"]').trigger('click')
+    const requestConfig = searchApiMocks.deleteRecentSearch.mock.calls[0][1]
+
+    authState.sessionGeneration = 1
+    notifyAuthSessionBoundary(1)
+    resolveDelete()
+    await flushPromises()
+
+    expect(requestConfig.signal.aborted).toBe(true)
+    expect(routeState.invalidateQueries).not.toHaveBeenCalled()
+  })
+
+  it('invalidates only the captured current-session recent-search key', async () => {
+    searchState.recentKeywords = [{ logId: 8, keyword: 'current account' }]
+    authState.sessionGeneration = 3
+    const wrapper = mountPage()
+
+    await wrapper.get('button[aria-label="search.deleteRecent"]').trigger('click')
+    await flushPromises()
+
+    expect(routeState.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['session', 3, 'search', 'recent'],
+    })
+  })
+
+  it('does not cancel an earlier destructive request in the same session', async () => {
+    searchState.recentKeywords = [
+      { logId: 9, keyword: 'first' },
+      { logId: 10, keyword: 'second' },
+    ]
+    const resolvers: Array<() => void> = []
+    searchApiMocks.deleteRecentSearch.mockImplementation(() => new Promise<void>((resolve) => {
+      resolvers.push(resolve)
+    }))
+    const wrapper = mountPage()
+    const buttons = wrapper.findAll('button[aria-label="search.deleteRecent"]')
+
+    await buttons[0].trigger('click')
+    await buttons[1].trigger('click')
+
+    const firstSignal = searchApiMocks.deleteRecentSearch.mock.calls[0][1].signal
+    const secondSignal = searchApiMocks.deleteRecentSearch.mock.calls[1][1].signal
+    expect(firstSignal.aborted).toBe(false)
+    expect(secondSignal.aborted).toBe(false)
+
+    resolvers[0]()
+    resolvers[1]()
+    await flushPromises()
+
+    expect(routeState.invalidateQueries).toHaveBeenCalledTimes(2)
   })
 })

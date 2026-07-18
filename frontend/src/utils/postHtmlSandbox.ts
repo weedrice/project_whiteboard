@@ -30,13 +30,15 @@ export function decodeSandboxedPostHtml(content: string | null | undefined): str
 }
 
 export function buildSandboxedPostHtmlSource(content: string, frameId: string, nonce = createSandboxNonce()): string {
+    const applicationOrigin = getSandboxApplicationOrigin()
     return [
         '<!doctype html>',
         '<html>',
         '<head>',
         '<meta charset="utf-8">',
         '<meta name="viewport" content="width=device-width, initial-scale=1">',
-        `<meta http-equiv="Content-Security-Policy" content="${buildSandboxCsp(nonce)}">`,
+        `<meta http-equiv="Content-Security-Policy" content="${buildSandboxCsp(nonce, applicationOrigin)}">`,
+        '<meta name="referrer" content="no-referrer">',
         '<base target="_blank">',
         '<style>',
         getSandboxBaseCss(),
@@ -65,18 +67,30 @@ function createSandboxNonce(): string {
         .replace(/=+$/g, '')
 }
 
-function buildSandboxCsp(nonce: string): string {
+function buildSandboxCsp(nonce: string, applicationOrigin: string): string {
     return [
         "default-src 'none'",
         "style-src 'unsafe-inline'",
         `script-src 'nonce-${nonce}'`,
-        'img-src data: blob: https:',
+        `img-src blob: ${applicationOrigin} https://cdn.noviis.kr`,
         'font-src data: https:',
         'media-src data: blob: https:',
         "connect-src 'none'",
         "form-action 'none'",
         "base-uri 'none'",
     ].join('; ')
+}
+
+function getSandboxApplicationOrigin(): string {
+    if (typeof window !== 'undefined' && window.location?.origin) {
+        try {
+            const origin = new URL(window.location.origin).origin
+            if (origin.startsWith('http://') || origin.startsWith('https://')) return origin
+        } catch {
+            // Fall back to the production origin below.
+        }
+    }
+    return 'https://noviis.kr'
 }
 
 function decodeSandboxedPostHtmlWithPattern(content: string): string | null {

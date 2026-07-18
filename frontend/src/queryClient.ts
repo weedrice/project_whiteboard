@@ -4,6 +4,7 @@ import logger from '@/utils/logger'
 import { QUERY_STALE_TIME } from '@/utils/constants'
 import { extractErrorMessage, shouldSuppressGlobalErrorToast } from '@/utils/errorHandler'
 import { createErrorLogPayload } from '@/utils/vueErrorLog'
+import { isStaleMutationSessionContext } from '@/queryAuthScope'
 
 interface ToastStoreLike {
     addToast: (message: string, type: 'error') => void
@@ -35,7 +36,8 @@ export const queryClient = new QueryClient({
         }
     }),
     mutationCache: new MutationCache({
-        onError: (error: Error, _variables, _context, mutation) => {
+        onError: (error: Error, _variables, context, mutation) => {
+            if (isStaleMutationSessionContext(context)) return
             if (mutation.meta?.errorMessage === false) return
             if (shouldSuppressGlobalErrorToast(error)) return
 

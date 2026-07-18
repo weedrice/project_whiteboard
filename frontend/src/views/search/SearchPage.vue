@@ -345,7 +345,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onScopeDispose, ref } from 'vue'
 import { useQueryClient } from '@tanstack/vue-query'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -366,7 +366,11 @@ import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseSelect from '@/components/common/ui/BaseSelect.vue'
 import { Search, Layout } from 'lucide-vue-next'
 import { isInquiryPostItem, resolveBoardRoute, resolvePostDetailRoute } from '@/utils/postNavigation'
-import { currentSessionQueryKey } from '@/queryAuthScope'
+import {
+  isSessionGenerationCurrent,
+  sessionQueryKey,
+  subscribeAuthSessionBoundary,
+} from '@/queryAuthScope'
 
 const authStore = useAuthStore()
 const router = useRouter()
@@ -537,19 +541,47 @@ function searchKeyword(keyword: string) {
   })
 }
 
+const recentMutationControllers = new Set<AbortController>()
+
+async function runRecentKeywordMutation(request: (signal: AbortSignal) => Promise<unknown>) {
+  const generation = authStore.sessionGeneration
+  const controller = new AbortController()
+  recentMutationControllers.add(controller)
+
+  try {
+    await request(controller.signal)
+    if (controller.signal.aborted
+      || !isSessionGenerationCurrent(authStore, generation)) return
+    await queryClient.invalidateQueries({
+      queryKey: sessionQueryKey(generation, searchQueryKeys.recent),
+    })
+  } catch (error) {
+    if (controller.signal.aborted
+      || !isSessionGenerationCurrent(authStore, generation)) return
+    throw error
+  } finally {
+    recentMutationControllers.delete(controller)
+  }
+}
+
 async function deleteRecentKeyword(logId: number) {
-  await searchApi.deleteRecentSearch(logId)
-  await queryClient.invalidateQueries({
-    queryKey: currentSessionQueryKey(authStore, searchQueryKeys.recent),
-  })
+  await runRecentKeywordMutation((signal) => searchApi.deleteRecentSearch(logId, { signal }))
 }
 
 async function clearRecentKeywords() {
-  await searchApi.deleteAllRecentSearches()
-  await queryClient.invalidateQueries({
-    queryKey: currentSessionQueryKey(authStore, searchQueryKeys.recent),
-  })
+  await runRecentKeywordMutation((signal) => searchApi.deleteAllRecentSearches({ signal }))
 }
+
+const unsubscribeSessionBoundary = subscribeAuthSessionBoundary(() => {
+  recentMutationControllers.forEach((controller) => controller.abort())
+  recentMutationControllers.clear()
+})
+
+onScopeDispose(() => {
+  recentMutationControllers.forEach((controller) => controller.abort())
+  recentMutationControllers.clear()
+  unsubscribeSessionBoundary()
+})
 
 async function retrySearch() {
   await Promise.all([

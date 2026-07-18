@@ -67,9 +67,9 @@ export const searchApi = {
     getRecentSearches: (params: Pick<SearchParams, 'page' | 'size'>, config?: AxiosRequestConfig) =>
         api.get<ApiResponse<RecentSearchResponse>>('/search/recent', { ...config, params }),
 
-    deleteRecentSearch: (logId: number | string) =>
-        api.delete<ApiResponse<void>>(`/search/recent/${encodeURIComponent(String(logId))}`),
+    deleteRecentSearch: (logId: number | string, config?: AxiosRequestConfig) =>
+        api.delete<ApiResponse<void>>(`/search/recent/${encodeURIComponent(String(logId))}`, config),
 
-    deleteAllRecentSearches: () =>
-        api.delete<ApiResponse<void>>('/search/recent'),
+    deleteAllRecentSearches: (config?: AxiosRequestConfig) =>
+        api.delete<ApiResponse<void>>('/search/recent', config),
 }

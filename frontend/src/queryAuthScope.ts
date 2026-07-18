@@ -41,6 +41,12 @@ export function getCurrentSessionGeneration() {
   return resolveSessionGeneration()
 }
 
+export function isStaleMutationSessionContext(context: unknown): boolean {
+  if (!context || typeof context !== 'object' || !('sessionGeneration' in context)) return false
+  const generation = (context as { sessionGeneration?: unknown }).sessionGeneration
+  return typeof generation === 'number' && generation !== getCurrentSessionGeneration()
+}
+
 export function notifyAuthSessionBoundary(generation: number) {
   sessionBoundaryListeners.forEach((listener) => listener(generation))
 }
