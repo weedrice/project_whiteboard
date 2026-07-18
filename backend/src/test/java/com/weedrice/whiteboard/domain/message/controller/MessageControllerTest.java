@@ -140,12 +140,12 @@ class MessageControllerTest {
     }
 
     @Test
-    @DisplayName("메시지 목록은 요청 정렬을 서비스로 전달하지 않는다")
-    void getReceivedMessages_ignoresRequestedSort() throws Exception {
+    @DisplayName("메시지 목록은 요청 정렬을 서비스로 전달한다")
+    void getReceivedMessages_passesRequestedSort() throws Exception {
         when(messageService.getReceivedMessages(eq(1L), any())).thenReturn(MessageResponse.builder().build());
 
         mockMvc.perform(get("/api/v1/messages/received")
-                        .param("sort", "receiver.loginId,asc")
+                        .param("sort", "createdAt,asc")
                         .with(user(customUserDetails))
                         .with(csrf()))
                 .andExpect(status().isOk())
@@ -153,7 +153,8 @@ class MessageControllerTest {
 
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
         verify(messageService).getReceivedMessages(eq(1L), pageableCaptor.capture());
-        assertThat(pageableCaptor.getValue().getSort().isUnsorted()).isTrue();
+        assertThat(pageableCaptor.getValue().getSort().getOrderFor("createdAt")).isNotNull();
+        assertThat(pageableCaptor.getValue().getSort().getOrderFor("createdAt").isAscending()).isTrue();
     }
 
     @Test

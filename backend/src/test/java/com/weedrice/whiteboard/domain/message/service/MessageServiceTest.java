@@ -303,7 +303,8 @@ class MessageServiceTest {
         assertThat(captor.getValue().getPageSize()).isEqualTo(100);
         assertThat(captor.getValue().getSort().getOrderFor("createdAt")).isNotNull();
         assertThat(captor.getValue().getSort().getOrderFor("createdAt").isDescending()).isTrue();
-        assertThat(captor.getValue().getSort().getOrderFor("messageId")).isNull();
+        assertThat(captor.getValue().getSort().getOrderFor("messageId")).isNotNull();
+        assertThat(captor.getValue().getSort().getOrderFor("messageId").isDescending()).isTrue();
     }
 
     @Test
@@ -326,6 +327,8 @@ class MessageServiceTest {
                 captor.capture());
         assertThat(captor.getValue().getSort().getOrderFor("createdAt")).isNotNull();
         assertThat(captor.getValue().getSort().getOrderFor("createdAt").isAscending()).isTrue();
+        assertThat(captor.getValue().getSort().getOrderFor("messageId")).isNotNull();
+        assertThat(captor.getValue().getSort().getOrderFor("messageId").isAscending()).isTrue();
     }
 
     @Test
@@ -349,7 +352,47 @@ class MessageServiceTest {
         assertThat(captor.getValue().getPageSize()).isEqualTo(100);
         assertThat(captor.getValue().getSort().getOrderFor("createdAt")).isNotNull();
         assertThat(captor.getValue().getSort().getOrderFor("createdAt").isDescending()).isTrue();
-        assertThat(captor.getValue().getSort().getOrderFor("messageId")).isNull();
+        assertThat(captor.getValue().getSort().getOrderFor("messageId")).isNotNull();
+        assertThat(captor.getValue().getSort().getOrderFor("messageId").isDescending()).isTrue();
+    }
+
+    @Test
+    @DisplayName("대화 상대 목록은 클라이언트 정렬과 무관하게 최신순으로 고정한다")
+    void getConversations_forcesLatestMessageDescendingSort() {
+        Pageable requestedPageable = PageRequest.of(0, 10, Sort.by(Sort.Order.asc("createdAt")));
+        Page<Message> messagePage = new PageImpl<>(List.of(message), requestedPageable, 1);
+
+        when(userBlockService.getBlockedUserIdsEitherDirection(1L)).thenReturn(Collections.emptyList());
+        when(messageRepository.findConversationLatestPage(eq(1L), anyList(), any(Pageable.class)))
+                .thenReturn(messagePage);
+
+        messageService.getConversations(1L, requestedPageable);
+
+        ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
+        verify(messageRepository).findConversationLatestPage(eq(1L), anyList(), captor.capture());
+        assertThat(captor.getValue().getSort().getOrderFor("createdAt").isDescending()).isTrue();
+        assertThat(captor.getValue().getSort().getOrderFor("messageId").isDescending()).isTrue();
+    }
+
+    @Test
+    @DisplayName("대화 상세의 createdAt 오름차순은 messageId 오름차순을 타이브레이커로 사용한다")
+    void getConversation_couplesMessageIdDirectionToCreatedAt() {
+        Pageable requestedPageable = PageRequest.of(0, 10, Sort.by(
+                Sort.Order.asc("createdAt"),
+                Sort.Order.desc("messageId")));
+        Page<Message> messagePage = new PageImpl<>(List.of(message), requestedPageable, 1);
+
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L))
+                .thenReturn(Collections.emptyList());
+        when(messageRepository.findConversationMessages(eq(1L), eq(2L), anyList(), any(Pageable.class)))
+                .thenReturn(messagePage);
+
+        messageService.getConversation(1L, 2L, requestedPageable);
+
+        ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
+        verify(messageRepository).findConversationMessages(eq(1L), eq(2L), anyList(), captor.capture());
+        assertThat(captor.getValue().getSort().getOrderFor("createdAt").isAscending()).isTrue();
+        assertThat(captor.getValue().getSort().getOrderFor("messageId").isAscending()).isTrue();
     }
 
     @Test

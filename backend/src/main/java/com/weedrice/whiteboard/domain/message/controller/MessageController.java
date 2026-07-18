@@ -41,7 +41,7 @@ public class MessageController {
                         @RequestParam(defaultValue = "20") int size,
                 Sort sort,
                 @CurrentUserId Long userId) {
-                Pageable pageable = PageRequestUtils.of(page, size);
+                Pageable pageable = PageRequestUtils.of(page, size, sort);
                 return ApiResponse.success(messageService.getReceivedMessages(userId, pageable));
         }
 
@@ -51,7 +51,7 @@ public class MessageController {
                         @RequestParam(defaultValue = "20") int size,
                 Sort sort,
                 @CurrentUserId Long userId) {
-                Pageable pageable = PageRequestUtils.of(page, size);
+                Pageable pageable = PageRequestUtils.of(page, size, sort);
                 return ApiResponse.success(messageService.getSentMessages(userId, pageable));
         }
 

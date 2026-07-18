@@ -217,14 +217,14 @@ export function useMailboxResource() {
         const { data } = await messageApi.getConversation(partnerId, {
             page: 0,
             size: 50,
-            sort: 'createdAt,asc',
+            sort: 'createdAt,desc',
         }, {
             skipGlobalErrorHandler: true,
             signal: controller.signal,
         })
         const messagePage = unwrapApiData(data)
         if (data.success && messagePage) {
-            return messagePage.content.map(toMailboxMessageViewModel)
+            return messagePage.content.map(toMailboxMessageViewModel).reverse()
         }
         return []
     }

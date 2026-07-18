@@ -145,6 +145,36 @@ class MessageRepositoryTest {
     }
 
     @Test
+    @DisplayName("같은 생성 시각의 받은 쪽지는 createdAt 방향과 같은 messageId 타이브레이커를 사용한다")
+    void findReceivedMessagesExcludingBlocked_sameCreatedAtUsesCoupledMessageIdDirection() {
+        Message lowerIdMessage = message;
+        Message higherIdMessage = persistMessage(sender, receiver, "Higher id message");
+        LocalDateTime sameCreatedAt = LocalDateTime.now().minusHours(1);
+        updateCreatedAt(lowerIdMessage, sameCreatedAt);
+        updateCreatedAt(higherIdMessage, sameCreatedAt);
+        entityManager.flush();
+        entityManager.clear();
+
+        Page<Message> ascending = messageRepository.findReceivedMessagesExcludingBlocked(
+                receiver.getUserId(),
+                false,
+                List.of(),
+                PageRequest.of(0, 10, Sort.by(Sort.Order.asc("createdAt"))));
+        Page<Message> descending = messageRepository.findReceivedMessagesExcludingBlocked(
+                receiver.getUserId(),
+                false,
+                List.of(),
+                PageRequest.of(0, 10, Sort.by(Sort.Order.desc("createdAt"))));
+
+        assertThat(ascending.getContent())
+                .extracting(Message::getMessageId)
+                .containsExactly(lowerIdMessage.getMessageId(), higherIdMessage.getMessageId());
+        assertThat(descending.getContent())
+                .extracting(Message::getMessageId)
+                .containsExactly(higherIdMessage.getMessageId(), lowerIdMessage.getMessageId());
+    }
+
+    @Test
     @DisplayName("받은 쪽지 목록은 정렬이 없으면 최신순으로 조회한다")
     void findReceivedMessagesExcludingBlocked_defaultCreatedAtDesc() {
         Message olderMessage = message;

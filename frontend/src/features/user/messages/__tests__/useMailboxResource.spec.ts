@@ -225,6 +225,49 @@ describe('useMailboxResource', () => {
         expect(mocks.fetchMessages).toHaveBeenCalledTimes(2)
     })
 
+    it('loads the latest conversation window descending and presents it chronologically', async () => {
+        vi.mocked(messageApi.getConversation).mockResolvedValueOnce(apiSuccessDataResponse<typeof messageApi.getConversation>({
+            content: [detailDto(52), detailDto(51)],
+            page: 0,
+            size: 50,
+            totalElements: 52,
+            totalPages: 2,
+            hasNext: true,
+            hasPrevious: false,
+        }))
+        const { resource } = mountMailboxResource()
+
+        await resource.openConversationByPartnerId(200)
+
+        expect(messageApi.getConversation).toHaveBeenCalledWith(200, {
+            page: 0,
+            size: 50,
+            sort: 'createdAt,desc',
+        }, expect.objectContaining({ signal: expect.any(AbortSignal) }))
+        expect(resource.selectedConversationMessages.value.map(({ id }) => id)).toEqual([51, 52])
+        expect(resource.selectedMessage.value?.id).toBe(52)
+    })
+
+    it('keeps a newly sent reply visible when refreshing a conversation over 50 messages', async () => {
+        vi.mocked(messageApi.getConversation).mockResolvedValueOnce(apiSuccessDataResponse<typeof messageApi.getConversation>({
+            content: [detailDto(53), detailDto(52)],
+            page: 0,
+            size: 50,
+            totalElements: 53,
+            totalPages: 2,
+            hasNext: true,
+            hasPrevious: false,
+        }))
+        const { resource } = mountMailboxResource()
+        resource.startReply(message(6))
+
+        mocks.messageSubmitOnSuccess?.()
+        await flushPromises()
+
+        expect(resource.selectedConversationMessages.value.map(({ id }) => id)).toEqual([52, 53])
+        expect(mocks.fetchMessages).toHaveBeenCalledTimes(2)
+    })
+
     it('keeps message detail when only the conversation context fails and supports retry', async () => {
         vi.mocked(messageApi.getMessage).mockResolvedValueOnce(
             apiSuccessDataResponse<typeof messageApi.getMessage>(detailDto(7)),

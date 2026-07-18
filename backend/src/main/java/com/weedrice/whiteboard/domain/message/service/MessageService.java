@@ -38,7 +38,9 @@ public class MessageService {
     private static final int MESSAGE_DELETE_FETCH_CHUNK_SIZE = 500;
     private static final int MAX_BULK_DELETE_MESSAGE_COUNT = 500;
     private static final int DEFAULT_MESSAGE_PAGE_SIZE = 20;
-    private static final Sort MESSAGE_LIST_SORT = Sort.by(Sort.Order.desc("createdAt"));
+    private static final Sort MESSAGE_LIST_SORT = Sort.by(
+            Sort.Order.desc("createdAt"),
+            Sort.Order.desc("messageId"));
     private static final Set<String> ALLOWED_MESSAGE_SORTS = Set.of("createdAt");
 
     private final MessageRepository messageRepository;
@@ -99,8 +101,7 @@ public class MessageService {
         Pageable safePageable = PageRequestUtils.of(
                 pageable,
                 DEFAULT_MESSAGE_PAGE_SIZE,
-                MESSAGE_LIST_SORT,
-                ALLOWED_MESSAGE_SORTS);
+                MESSAGE_LIST_SORT);
         List<Long> blockedUserIds = getBlockedConversationUserIds(userId);
         return MessageResponse.from(
                 messageRepository.findConversationLatestPage(userId, blockedUserIds, safePageable),
@@ -108,11 +109,7 @@ public class MessageService {
     }
 
     public MessageResponse getConversation(Long userId, Long partnerId, Pageable pageable) {
-        Pageable safePageable = PageRequestUtils.of(
-                pageable,
-                DEFAULT_MESSAGE_PAGE_SIZE,
-                MESSAGE_LIST_SORT,
-                ALLOWED_MESSAGE_SORTS);
+        Pageable safePageable = normalizeMessageListPageable(pageable);
         List<Long> blockedUserIds = getBlockedConversationUserIdsForExistingUser(userId);
         Page<Message> messages = messageRepository.findConversationMessages(userId, partnerId, blockedUserIds,
                 safePageable);
@@ -120,14 +117,28 @@ public class MessageService {
     }
 
     private MessageResponse getMessages(Long userId, Pageable pageable, MessageListDirection direction) {
-        Pageable safePageable = PageRequestUtils.of(
+        Pageable safePageable = normalizeMessageListPageable(pageable);
+        List<Long> blockedUserIds = getBlockedConversationUserIds(userId);
+        Page<Message> messages = direction.findMessages(messageRepository, userId, blockedUserIds, safePageable);
+        return MessageResponse.from(messages, userId);
+    }
+
+    private Pageable normalizeMessageListPageable(Pageable pageable) {
+        Pageable boundedPageable = PageRequestUtils.of(
                 pageable,
                 DEFAULT_MESSAGE_PAGE_SIZE,
                 MESSAGE_LIST_SORT,
                 ALLOWED_MESSAGE_SORTS);
-        List<Long> blockedUserIds = getBlockedConversationUserIds(userId);
-        Page<Message> messages = direction.findMessages(messageRepository, userId, blockedUserIds, safePageable);
-        return MessageResponse.from(messages, userId);
+        Sort.Order createdAtOrder = boundedPageable.getSort().getOrderFor("createdAt");
+        Sort.Direction direction = createdAtOrder != null
+                ? createdAtOrder.getDirection()
+                : Sort.Direction.DESC;
+        return org.springframework.data.domain.PageRequest.of(
+                boundedPageable.getPageNumber(),
+                boundedPageable.getPageSize(),
+                Sort.by(
+                        new Sort.Order(direction, "createdAt"),
+                        new Sort.Order(direction, "messageId")));
     }
 
     private enum MessageListDirection {
