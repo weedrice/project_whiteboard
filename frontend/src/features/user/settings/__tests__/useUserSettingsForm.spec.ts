@@ -295,4 +295,63 @@ describe('useNotificationSettingsForm', () => {
     expect(form.settings.COMMENT).toBe(false)
     expect(form.canSave.value).toBe(false)
   })
+
+  it('keeps edits made during a save dirty against the submitted snapshot', async () => {
+    let resolveSave!: () => void
+    const updateNotificationSettings = vi.fn(() => new Promise<void>((resolve) => {
+      resolveSave = resolve
+    }))
+    const form = useNotificationSettingsForm({
+      notificationData: ref<NotificationSettingsPayload[]>([
+        { notificationType: 'LIKE', isEnabled: true },
+        { notificationType: 'COMMENT', isEnabled: true },
+      ]),
+      isSaving: ref(false),
+      updateNotificationSettings,
+      t,
+    })
+    await nextTick()
+    form.settings.LIKE = false
+
+    const save = form.save()
+    await vi.waitFor(() => expect(updateNotificationSettings).toHaveBeenCalledOnce())
+    form.settings.COMMENT = false
+    resolveSave()
+    await save
+
+    expect(updateNotificationSettings).toHaveBeenCalledWith(expect.objectContaining({
+      settings: expect.arrayContaining([
+        { notificationType: 'LIKE', isEnabled: false },
+        { notificationType: 'COMMENT', isEnabled: true },
+      ]),
+    }))
+    expect(form.isDirty.value).toBe(true)
+    expect(form.canSave.value).toBe(true)
+  })
+
+  it('ignores a delayed save after the auth session changes', async () => {
+    let generation = 1
+    let resolveSave!: () => void
+    const form = useNotificationSettingsForm({
+      notificationData: ref<NotificationSettingsPayload[]>([
+        { notificationType: 'LIKE', isEnabled: true },
+      ]),
+      isSaving: ref(false),
+      updateNotificationSettings: vi.fn(() => new Promise<void>((resolve) => {
+        resolveSave = resolve
+      })),
+      getSessionGeneration: () => generation,
+      t,
+    })
+    await nextTick()
+    form.settings.LIKE = false
+
+    const save = form.save()
+    generation += 1
+    resolveSave()
+    await save
+
+    expect(form.message.value).toBe('')
+    expect(form.isDirty.value).toBe(true)
+  })
 })

@@ -32,6 +32,7 @@ interface UseNotificationSettingsFormOptions {
   notificationData: Ref<NotificationSettingsPayload[] | undefined>
   isSaving: Ref<boolean>
   updateNotificationSettings: (payload: NotificationSettingsBulkPayload) => Promise<unknown>
+  getSessionGeneration?: () => number
   t: (key: string) => string
 }
 
@@ -151,6 +152,7 @@ export function useUserSettingsForm(options: UseUserSettingsFormOptions) {
 }
 
 export function useNotificationSettingsForm(options: UseNotificationSettingsFormOptions) {
+  let saveRevision = 0
   const settings = reactive<Record<NotificationSettingType, boolean>>({
     LIKE: true,
     COMMENT: true,
@@ -191,17 +193,25 @@ export function useNotificationSettingsForm(options: UseNotificationSettingsForm
 
     message.value = ''
     isError.value = false
+    const revision = ++saveRevision
+    const sessionGeneration = options.getSessionGeneration?.()
+    const isCurrentSave = () => revision === saveRevision
+      && (sessionGeneration === undefined || options.getSessionGeneration?.() === sessionGeneration)
+    const submittedSettings = { ...settings }
+    const payload: NotificationSettingsBulkPayload = {
+      settings: NOTIFICATION_TYPES.map((notificationType) => ({
+        notificationType,
+        isEnabled: submittedSettings[notificationType]
+      }))
+    }
     try {
-      await options.updateNotificationSettings({
-        settings: NOTIFICATION_TYPES.map((notificationType) => ({
-          notificationType,
-          isEnabled: settings[notificationType]
-        }))
-      })
+      await options.updateNotificationSettings(payload)
+      if (!isCurrentSave()) return
 
-      baseline.value = { ...settings }
+      baseline.value = submittedSettings
       message.value = options.t('user.settings.saved')
     } catch (error: unknown) {
+      if (!isCurrentSave()) return
       logger.error('Failed to save notification settings:', error)
       message.value = options.t('user.settings.failed')
       isError.value = true

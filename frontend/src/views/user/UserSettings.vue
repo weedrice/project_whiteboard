@@ -171,6 +171,7 @@ const {
   notificationData,
   isSaving: isUpdatingNotifications,
   updateNotificationSettings,
+  getSessionGeneration: () => authStore.sessionGeneration,
   t
 })
 
