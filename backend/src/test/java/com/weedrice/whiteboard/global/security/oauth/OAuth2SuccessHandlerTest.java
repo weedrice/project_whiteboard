@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.global.security.oauth;
 
 import com.weedrice.whiteboard.domain.auth.dto.TokenResponse;
+import com.weedrice.whiteboard.domain.auth.OAuthSignupTicketProperties;
 import com.weedrice.whiteboard.domain.auth.service.LoginAccountEligibilityService;
 import com.weedrice.whiteboard.domain.auth.service.LoginClientMetadata;
 import com.weedrice.whiteboard.domain.auth.service.LoginClientMetadataResolver;
@@ -20,6 +21,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.mock.env.MockEnvironment;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -59,10 +61,10 @@ class OAuth2SuccessHandlerTest {
                 sessionTokenService,
                 userRepository,
                 new LoginAccountEligibilityService(sanctionPolicyService),
-                new RefreshTokenCookieWriter(1209600000L),
+                new RefreshTokenCookieWriter(1209600000L, new MockEnvironment()),
                 new LoginClientMetadataResolver(clientIpResolver),
                 oAuthSignupTicketService,
-                new OAuthSignupTicketCookieWriter(java.time.Duration.ofMinutes(10), null));
+                new OAuthSignupTicketCookieWriter(new OAuthSignupTicketProperties(), new MockEnvironment()));
         ReflectionTestUtils.setField(handler, "frontendUrl", "http://localhost:5173");
 
         user = User.builder()

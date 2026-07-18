@@ -3,7 +3,6 @@ package com.weedrice.whiteboard.global.security;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.Getter;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.env.Environment;
 import org.springframework.core.env.Profiles;
@@ -26,21 +25,11 @@ public class RefreshTokenCookieWriter {
     private final long refreshTokenValidityInMilliseconds;
     private final boolean productionProfile;
 
-    @Autowired
     public RefreshTokenCookieWriter(
             @Value("${jwt.refresh-token.expiration}") long refreshTokenValidityInMilliseconds,
             Environment environment) {
-        this(refreshTokenValidityInMilliseconds,
-                environment != null && environment.acceptsProfiles(Profiles.of("prod")));
-    }
-
-    public RefreshTokenCookieWriter(long refreshTokenValidityInMilliseconds) {
-        this(refreshTokenValidityInMilliseconds, false);
-    }
-
-    RefreshTokenCookieWriter(long refreshTokenValidityInMilliseconds, boolean productionProfile) {
         this.refreshTokenValidityInMilliseconds = refreshTokenValidityInMilliseconds;
-        this.productionProfile = productionProfile;
+        this.productionProfile = environment != null && environment.acceptsProfiles(Profiles.of("prod"));
     }
 
     public void writeRefreshTokenCookie(

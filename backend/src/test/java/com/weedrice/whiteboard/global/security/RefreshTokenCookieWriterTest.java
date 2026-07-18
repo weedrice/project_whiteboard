@@ -3,12 +3,13 @@ package com.weedrice.whiteboard.global.security;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.mock.env.MockEnvironment;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class RefreshTokenCookieWriterTest {
 
-    private final RefreshTokenCookieWriter writer = new RefreshTokenCookieWriter(1209600000L);
+    private final RefreshTokenCookieWriter writer = new RefreshTokenCookieWriter(1209600000L, new MockEnvironment());
 
     @Test
     void writeRefreshTokenCookie_setsCurrentAndClearsLegacyCookie() {
@@ -79,7 +80,8 @@ class RefreshTokenCookieWriterTest {
 
     @Test
     void writeRefreshTokenCookie_forcesSecureFlagInProductionOnInsecureRequest() {
-        RefreshTokenCookieWriter productionWriter = new RefreshTokenCookieWriter(1209600000L, true);
+        RefreshTokenCookieWriter productionWriter = new RefreshTokenCookieWriter(
+                1209600000L, new MockEnvironment().withProperty("spring.profiles.active", "prod"));
         MockHttpServletRequest request = new MockHttpServletRequest();
         MockHttpServletResponse response = new MockHttpServletResponse();
 
