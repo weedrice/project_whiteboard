@@ -28,7 +28,7 @@ vi.mock('@/stores/auth', () => ({
   useAuthStore: () => authState,
 }))
 
-vi.mock('@/composables/useUser', () => ({
+vi.mock('@/features/user/useUser', () => ({
   useUser: () => ({
     useMyScraps: () => ({
       data: ref(null),
@@ -84,7 +84,7 @@ vi.mock('@/api/user', () => ({
   },
 }))
 
-vi.mock('@/composables/userQueryKeys', () => ({
+vi.mock('@/features/user/userQueryKeys', () => ({
   userQueryKeys: { scrapFolders: ['user', 'scrap-folders'] },
 }))
 

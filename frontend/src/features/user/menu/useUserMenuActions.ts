@@ -4,7 +4,7 @@ import { userApi } from '@/api/user'
 import { useAuthStore } from '@/stores/auth'
 import { commentQueryKeys } from '@/features/comments/queries/commentQueryKeys'
 import { useUserBlockAction } from '@/features/user/menu/useUserBlockAction'
-import { userQueryKeys } from '@/composables/userQueryKeys'
+import { userQueryKeys } from '@/features/user/userQueryKeys'
 import { isSessionGenerationCurrent, sessionQueryKey } from '@/queryAuthScope'
 
 interface UseUserMenuActionsOptions {

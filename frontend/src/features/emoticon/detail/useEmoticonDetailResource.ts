@@ -10,7 +10,7 @@ import { useToggleEmoticonVisibility } from '@/features/emoticon/useToggleEmotic
 import { useEmoticonPermissions } from '@/features/emoticon/detail/useEmoticonPermissions'
 import { useEmoticonDetailViewModel } from '@/features/emoticon/detail/useEmoticonDetailViewModel'
 import { emoticonQueryKeys } from '@/features/emoticon/emoticonQueryKeys'
-import { userQueryKeys } from '@/composables/userQueryKeys'
+import { userQueryKeys } from '@/features/user/userQueryKeys'
 import { extractErrorMessage } from '@/utils/errorHandler'
 import { callWithOptionalQuerySignal } from '@/utils/querySignal'
 import type { ApiResponse } from '@/types'

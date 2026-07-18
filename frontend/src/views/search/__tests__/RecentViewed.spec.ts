@@ -21,7 +21,7 @@ const recentMock = vi.hoisted(() => {
   }
 })
 
-vi.mock('@/composables/useUser', () => ({
+vi.mock('@/features/user/useUser', () => ({
   useUser: () => ({
     useRecentlyViewedPosts: (params: Ref<RecentParams>) => {
       recentMock.latestParams = params

@@ -11,7 +11,7 @@ import {
     updatePostInAllCaches,
 } from '@/features/board/posts/queries/postCacheUpdates'
 import { homeQueryKeys } from '@/composables/homeQueryKeys'
-import { userQueryKeys } from '@/composables/userQueryKeys'
+import { userQueryKeys } from '@/features/user/userQueryKeys'
 import { postDetailQueryKey, postQueryKeys } from '@/features/board/posts/queries/postQueryKeys'
 import { withQuerySignal } from '@/utils/querySignal'
 import { useAuthStore } from '@/stores/auth'

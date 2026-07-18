@@ -19,7 +19,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }))
 vi.mock('@tanstack/vue-query', () => ({ useQueryClient: () => ({ invalidateQueries: mocks.invalidateQueries }) }))
 vi.mock('@/composables/useConfirm', () => ({ useConfirm: () => ({ confirm: mocks.confirm }) }))
-vi.mock('@/composables/useUser', () => ({
+vi.mock('@/features/user/useUser', () => ({
   useUser: () => ({ useMyDrafts: vi.fn(), useMyScheduledPosts: vi.fn() }),
   userQueryKeys: { draftsRoot: ['user', 'drafts'], scheduledPostsRoot: ['user', 'scheduled'] },
 }))

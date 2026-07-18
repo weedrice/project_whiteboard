@@ -110,6 +110,12 @@ export default [
                 paths: [{
                     name: 'loglevel',
                     message: 'Import the shared @/utils/logger wrapper so Axios errors are sanitized before logging.',
+                }, {
+                    name: '@/composables/useUser',
+                    message: 'Product code must import the user feature implementation from @/features/user/useUser.',
+                }, {
+                    name: '@/composables/userQueryKeys',
+                    message: 'Product code must import user query keys from @/features/user/userQueryKeys.',
                 }],
             }],
             'no-useless-escape': 'off',
@@ -149,6 +155,12 @@ export default [
                 paths: [{
                     name: 'loglevel',
                     message: 'Import the shared @/utils/logger wrapper so Axios errors are sanitized before logging.',
+                }, {
+                    name: '@/composables/useUser',
+                    message: 'Product code must import the user feature implementation from @/features/user/useUser.',
+                }, {
+                    name: '@/composables/userQueryKeys',
+                    message: 'Product code must import user query keys from @/features/user/userQueryKeys.',
                 }],
             }],
             'no-useless-escape': 'off',

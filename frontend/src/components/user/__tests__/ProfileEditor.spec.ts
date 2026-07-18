@@ -56,7 +56,7 @@ vi.mock('@/composables/useConfirm', () => ({
   }),
 }))
 
-vi.mock('@/composables/useUser', () => ({
+vi.mock('@/features/user/useUser', () => ({
   useUser: () => ({
     useDeleteAccount: () => ({
       mutateAsync: mocks.deleteAccount,

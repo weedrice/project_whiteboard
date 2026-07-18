@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useUser } from '@/composables/useUser'
+import { useUser } from '@/features/user/useUser'
 import { Clock } from 'lucide-vue-next'
 import PostList from '@/components/board/PostList.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
-import { useUser } from '@/composables/useUser'
+import { useUser } from '@/features/user/useUser'
 import { formatDate } from '@/utils/date'
 import PaginatedListCard from '@/components/common/ui/PaginatedListCard.vue'
 import BaseBadge from '@/components/common/ui/BaseBadge.vue'

@@ -4,7 +4,7 @@ import { commentApi, type CommentParams, type CommentPayload } from '@/api/comme
 import { unwrapAxiosApiPageData } from '@/api/response'
 import { commentQueryKeys } from '@/features/comments/queries/commentQueryKeys'
 import { postQueryKeys } from '@/features/board/posts/queries/postQueryKeys'
-import { userQueryKeys } from '@/composables/userQueryKeys'
+import { userQueryKeys } from '@/features/user/userQueryKeys'
 import { useApiPageQuery, useApiQuery } from '@/composables/useApiQuery'
 import { callWithOptionalQuerySignal } from '@/utils/querySignal'
 import type { Comment, CommentListResponse } from '@/types'

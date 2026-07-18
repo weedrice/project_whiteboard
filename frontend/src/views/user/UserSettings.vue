@@ -5,7 +5,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import { useThemeStore } from '@/stores/theme'
-import { useUser } from '@/composables/useUser'
+import { useUser } from '@/features/user/useUser'
 import { useConfirm } from '@/composables/useConfirm'
 import {
   NOTIFICATION_TYPES,

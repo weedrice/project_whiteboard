@@ -61,7 +61,7 @@ vi.mock('@/stores/keyboard', () => ({
   useKeyboardStore: () => keyboardStore,
 }))
 
-vi.mock('@/composables/useUser', () => ({
+vi.mock('@/features/user/useUser', () => ({
   useUser: () => ({ useMyPoint }),
 }))
 

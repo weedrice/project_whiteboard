@@ -28,7 +28,7 @@ vi.mock('vue-router', () => ({
 vi.mock('@/stores/auth', () => ({ useAuthStore: () => authState }))
 vi.mock('@/stores/toast', () => ({ useToastStore: () => ({ addToast }) }))
 vi.mock('@/composables/useConfirm', () => ({ useConfirm: () => ({ confirm: confirmPurchase }) }))
-vi.mock('@/composables/useUser', () => ({
+vi.mock('@/features/user/useUser', () => ({
   useUser: () => ({ useMyPoint: () => ({ data: ref({ currentPoint: pointState.currentPoint }) }) }),
 }))
 vi.mock('@/features/shop/useShop', () => ({

@@ -96,7 +96,7 @@ vi.mock('vue-router', () => ({
   useRouter: () => ({ replace: routerReplaceMock }),
 }))
 
-vi.mock('@/composables/useUser', () => ({
+vi.mock('@/features/user/useUser', () => ({
   useUser: useUserMock,
 }))
 

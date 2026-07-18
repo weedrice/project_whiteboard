@@ -56,7 +56,7 @@ import AccountDeletionSection from '@/components/user/AccountDeletionSection.vue
 import ProfileAgentPanel from '@/components/user/ProfileAgentPanel.vue'
 import ProfileBasicForm from '@/components/user/ProfileBasicForm.vue'
 import { useConfirm } from '@/composables/useConfirm'
-import { useUser } from '@/composables/useUser'
+import { useUser } from '@/features/user/useUser'
 import { useAccountDeletion } from '@/features/user/profile/useAccountDeletion'
 import { useMyAgentActions } from '@/features/user/agents/useMyAgentActions'
 import { useProfileImageEditor } from '@/features/user/profile/useProfileImageEditor'

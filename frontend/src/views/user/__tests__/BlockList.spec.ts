@@ -29,7 +29,7 @@ const translate = (key: string, params?: Record<string, unknown>) => {
   return key
 }
 
-vi.mock('@/composables/useUser', () => ({
+vi.mock('@/features/user/useUser', () => ({
   useUser: () => ({
     useBlockList: (params?: Ref<BlockListParams>) => {
       blockListMock.latestParams = params

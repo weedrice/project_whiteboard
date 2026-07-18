@@ -16,7 +16,7 @@ vi.mock('@/composables/useConfirm', () => ({
   useConfirm: () => ({ confirm: mocks.confirm }),
 }))
 
-vi.mock('@/composables/useUser', () => ({
+vi.mock('@/features/user/useUser', () => ({
   useUser: () => ({
     useBlockUser: () => ({ mutateAsync: mocks.blockUser, isPending: ref(false) }),
     useUnblockUser: () => ({ mutateAsync: mocks.unblockUser, isPending: ref(false) }),

@@ -26,7 +26,7 @@ vi.mock('@tanstack/vue-query', async (importOriginal) => ({
 }))
 vi.mock('@/stores/auth', () => ({ useAuthStore: () => ({ user: { userId: 7 } }) }))
 vi.mock('@/stores/toast', () => ({ useToastStore: () => ({ addToast: mocks.addToast }) }))
-vi.mock('@/composables/useUser', () => ({
+vi.mock('@/features/user/useUser', () => ({
   useUser: () => ({
     useUserProfile: () => ({
       data: ref({ userId: 7, displayName: 'Novi', profileImageUrl: null, createdAt: '2026-01-01', postCount: 2, commentCount: 1 }),

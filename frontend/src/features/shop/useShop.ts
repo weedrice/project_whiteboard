@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import { shopApi, type ShopItemPageParams, type ShopPageParams } from '@/api/shop'
 import { useApiPageQuery } from '@/composables/useApiQuery'
 import { shopQueryKeys } from '@/features/shop/shopQueryKeys'
-import { userQueryKeys } from '@/composables/userQueryKeys'
+import { userQueryKeys } from '@/features/user/userQueryKeys'
 import { withQuerySignal } from '@/utils/querySignal'
 import {
   AUTH_SCOPED_QUERY_META,
