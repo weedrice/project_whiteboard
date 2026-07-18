@@ -6,13 +6,14 @@ import { postApi, type PollVotePayload, type PostCreateData, type PostDraftData,
 import { unwrapAxiosApiData } from '@/api/response'
 import {
     invalidatePostCaches,
+    invalidatePostCollectionCaches,
     restorePostCacheSnapshots,
     savePostCacheSnapshots,
     updatePostInAllCaches,
 } from '@/features/board/posts/queries/postCacheUpdates'
-import { homeQueryKeys } from '@/composables/homeQueryKeys'
 import { tagQueryKeys } from '@/composables/tagQueryKeys'
 import { userQueryKeys } from '@/features/user/userQueryKeys'
+import { invalidateMyReportCaches } from '@/features/user/reports/reportCacheInvalidation'
 import { LOCAL_MUTATION_ERROR_META } from '@/mutationErrorOwnership'
 import { postDetailQueryKey, postQueryKeys } from '@/features/board/posts/queries/postQueryKeys'
 import { withQuerySignal } from '@/utils/querySignal'
@@ -102,8 +103,7 @@ export function usePost() {
                 const sessionKey = (queryKey: readonly unknown[]) => (
                     sessionQueryKey(context.sessionGeneration, queryKey)
                 )
-                queryClient.invalidateQueries({ queryKey: sessionKey(postQueryKeys.boardPostsRoot) })
-                queryClient.invalidateQueries({ queryKey: sessionKey(homeQueryKeys.landingRoot) })
+                invalidatePostCollectionCaches(queryClient, context.sessionGeneration)
                 queryClient.invalidateQueries({ queryKey: sessionKey(userQueryKeys.pointsRoot) })
                 queryClient.invalidateQueries({ queryKey: sessionKey(tagQueryKeys.all) })
             },
@@ -229,8 +229,13 @@ export function usePost() {
 
     const useReportPost = () => {
         return useMutation({
+            onMutate: captureMutationSession,
             mutationFn: async (data: ReportData) => {
                 return await postApi.reportPost(data)
+            },
+            onSuccess: (_data, _variables, context) => {
+                if (!isCurrentMutation(context)) return
+                void invalidateMyReportCaches(queryClient, context.sessionGeneration)
             },
         })
     }

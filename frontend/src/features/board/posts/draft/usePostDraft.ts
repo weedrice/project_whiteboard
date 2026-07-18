@@ -35,6 +35,7 @@ interface UsePostDraftOptions {
     applyDraft: (draft: DraftRecoverySnapshot) => void
     onSaved?: () => void
     onServerSaved?: (payload: PostDraftData) => void
+    canPersist?: () => boolean
 }
 
 const AUTOSAVE_DELAY_MS = 1500
@@ -175,7 +176,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
     }
 
     const saveNow = async () => {
-        if (draftConflict.value) return null
+        if (draftConflict.value || options.canPersist?.() === false) return null
         if (savePromise) {
             saveQueued = true
             return savePromise
@@ -206,7 +207,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
     }
 
     const scheduleAutosave = () => {
-        if (!options.enabled.value || draftConflict.value) return
+        if (!options.enabled.value || draftConflict.value || options.canPersist?.() === false) return
         clearAutosaveTimer()
         autosaveTimer = setTimeout(() => {
             void saveNow().catch((error: unknown) => {

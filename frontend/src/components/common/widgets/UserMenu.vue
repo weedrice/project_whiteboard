@@ -82,6 +82,8 @@ import logger from '@/utils/logger'
 import { formatUserDisplayName } from '@/utils/userDisplay'
 import { getCurrentSessionGeneration } from '@/queryAuthScope'
 import { isCancellationError } from '@/utils/cancellationError'
+import { queryClient } from '@/queryClient'
+import { invalidateMyReportCaches } from '@/features/user/reports/reportCacheInvalidation'
 
 const { t } = useI18n()
 const toastStore = useToastStore()
@@ -261,6 +263,7 @@ async function submitUserReport(reason: string) {
     })
     if (!isCurrentReport() || !data.success) return false
 
+    void invalidateMyReportCaches(queryClient, sessionGeneration)
     toastStore.addToast(t('report.reportSuccess'), 'success')
     return true
   } catch (error) {

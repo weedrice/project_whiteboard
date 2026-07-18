@@ -32,6 +32,7 @@ export const userQueryKeys = {
     myPoints: (userIdentity?: string | number | null) =>
         ['user', 'points', 'me', userIdentity ?? 'anonymous'] as const,
     myPosts: (params: Readonly<UserQueryPaginationParams>) => ['user', 'me', 'posts', { ...params }] as const,
+    myPostsRoot: ['user', 'me', 'posts'] as const,
     myComments: (params: Readonly<UserQueryPaginationParams>) => ['user', 'me', 'comments', { ...params }] as const,
     myCommentsRoot: ['user', 'me', 'comments'] as const,
     publicPosts: (userId: string | number, params: Readonly<UserQueryPaginationParams> = {}) =>

@@ -8,6 +8,7 @@
           name="postTag"
           autocomplete="off"
           type="text"
+          :maxlength="POST_TAG_MAX_LENGTH"
           :label="$t('board.tags.placeholder')"
           :placeholder="$t('board.tags.placeholder')"
           input-class="rounded-full py-1 text-sm"
@@ -59,6 +60,7 @@
 import { computed, ref } from 'vue'
 import { isComposingKeyboardEvent } from '@/utils/keyboard'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
+import { POST_TAG_MAX_COUNT, POST_TAG_MAX_LENGTH } from '@/utils/postForm'
 
 const props = withDefaults(defineProps<{
   modelValue: string[]
@@ -97,7 +99,7 @@ const tagItems = computed(() => {
 
 const addTag = () => {
   const tag = newTag.value.trim()
-  if (tag && !props.modelValue.includes(tag)) {
+  if (tag && tag.length <= POST_TAG_MAX_LENGTH && props.modelValue.length < POST_TAG_MAX_COUNT && !props.modelValue.includes(tag)) {
     emit('update:modelValue', [...props.modelValue, tag])
   }
   newTag.value = ''

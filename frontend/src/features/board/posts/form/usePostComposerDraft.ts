@@ -24,6 +24,7 @@ type UsePostComposerDraftOptions = {
   releaseUploadedFileOwnership: (fileIds: number[]) => void
   t: (key: string, values?: Record<string, unknown>) => string
   addToast: (message: string, type: ComposerToastType) => void
+  validateBeforeSave?: () => boolean
 }
 
 export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
@@ -71,6 +72,7 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     applyDraft: options.applyDraft,
     onSaved: options.markCurrentSnapshotSaved,
     onServerSaved: (payload) => options.releaseUploadedFileOwnership(payload.fileIds ?? []),
+    canPersist: options.validateBeforeSave,
   })
 
   const draftStatusLabel = computed(() => {
@@ -154,6 +156,10 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
   )
 
   async function handleSaveDraft() {
+    if (options.validateBeforeSave?.() === false) {
+      options.addToast(options.t('board.writePost.validation'), 'error')
+      return
+    }
     try {
       const savedDraft = await saveDraftNow()
       if (savedDraft) {

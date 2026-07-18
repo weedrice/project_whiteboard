@@ -35,6 +35,9 @@ import {
   POST_POLL_MIN_OPTIONS,
   POST_POLL_OPTION_MAX_LENGTH,
   POST_POLL_QUESTION_MAX_LENGTH,
+  POST_SERIES_TITLE_MAX_LENGTH,
+  POST_TITLE_MAX_LENGTH,
+  validatePostFormContent,
   type PostFormPollValidationError,
   validatePostFormPoll,
 } from '@/utils/postForm'
@@ -222,6 +225,12 @@ const postValidation = useFieldValidation<PostRequiredField>({
   fieldIds: { title: 'title' },
 })
 const postRequiredValues = computed(() => ({ title: form.value.title }))
+const postContentIsValid = () => validatePostFormContent({
+  title: form.value.title,
+  content: form.value.content,
+  tags: props.hideTags ? [] : form.value.tags,
+  fileIds: buildPayload('content').fileIds,
+}) == null
 
 const {
   filteredCategories,
@@ -263,7 +272,7 @@ const { metadataPanelProps, metadataPanelHandlers } = usePostFormMetadataBinding
 
 async function handleCreateSeries() {
   const title = newSeriesTitle.value.trim()
-  if (!title || isCreatingSeries.value) return
+  if (!title || title.length > POST_SERIES_TITLE_MAX_LENGTH || isCreatingSeries.value) return
 
   isCreatingSeries.value = true
   const generation = authStore.sessionGeneration
@@ -376,6 +385,7 @@ const {
   releaseUploadedFileOwnership,
   t,
   addToast: toastStore.addToast,
+  validateBeforeSave: postContentIsValid,
 })
 
 usePwaReloadBlocker(computed(() => isDirty.value))
@@ -412,6 +422,11 @@ const { handleSubmit, isSubmissionLocked } = usePostComposerSubmit({
   validateBeforeSubmit: () => {
     const valid = postValidation.validateAll(postRequiredValues.value)
     if (!valid) {
+      toastStore.addToast(t('board.writePost.validation'), 'error')
+      return false
+    }
+
+    if (!postContentIsValid()) {
       toastStore.addToast(t('board.writePost.validation'), 'error')
       return false
     }
@@ -535,6 +550,7 @@ defineExpose({
       >
         <PostFormMainSection
           :title="form.title"
+          :title-max-length="POST_TITLE_MAX_LENGTH"
           :content="form.content"
           :title-error="postValidation.visibleError('title')"
           :tags="form.tags"

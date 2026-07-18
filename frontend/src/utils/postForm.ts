@@ -17,6 +17,35 @@ export const POST_POLL_QUESTION_MAX_LENGTH = 200
 export const POST_POLL_OPTION_MAX_LENGTH = 100
 export const POST_POLL_MIN_OPTIONS = 2
 export const POST_POLL_MAX_OPTIONS = 10
+export const POST_TITLE_MAX_LENGTH = 200
+export const POST_CONTENT_MAX_LENGTH = 100_000
+export const POST_TAG_MAX_COUNT = 10
+export const POST_TAG_MAX_LENGTH = 100
+export const POST_FILE_MAX_COUNT = 20
+export const POST_SERIES_TITLE_MAX_LENGTH = 120
+
+export type PostFormContentValidationError =
+    | 'titleRequired'
+    | 'titleTooLong'
+    | 'contentTooLong'
+    | 'tooManyTags'
+    | 'tagTooLong'
+    | 'tooManyFiles'
+
+export function validatePostFormContent(input: {
+    title: string
+    content: string
+    tags: string[]
+    fileIds: number[]
+}): PostFormContentValidationError | null {
+    if (!input.title.trim()) return 'titleRequired'
+    if (input.title.length > POST_TITLE_MAX_LENGTH) return 'titleTooLong'
+    if (input.content.length > POST_CONTENT_MAX_LENGTH) return 'contentTooLong'
+    if (input.tags.length > POST_TAG_MAX_COUNT) return 'tooManyTags'
+    if (input.tags.some((tag) => tag.trim().length > POST_TAG_MAX_LENGTH)) return 'tagTooLong'
+    if (new Set(input.fileIds).size > POST_FILE_MAX_COUNT) return 'tooManyFiles'
+    return null
+}
 
 export type PostFormPollValidationError =
     | 'questionRequired'

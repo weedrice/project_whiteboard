@@ -8,6 +8,7 @@ import BaseSelect from '@/components/common/ui/BaseSelect.vue'
 import PostTags from '@/components/tag/PostTags.vue'
 import { tagApi } from '@/api/tag'
 import { unwrapAxiosApiData } from '@/api/response'
+import { POST_SERIES_TITLE_MAX_LENGTH } from '@/utils/postForm'
 
 export type PostFormCategoryOption = {
   categoryId: number
@@ -202,6 +203,7 @@ function addSuggestedTag(tag: string) {
         <BaseInput
           :id="newSeriesInputId"
           :model-value="newSeriesTitle"
+          :maxlength="POST_SERIES_TITLE_MAX_LENGTH"
           :label="t('board.writePost.newSeries')"
           :placeholder="t('board.writePost.newSeriesPlaceholder')"
           hide-label
@@ -328,6 +330,7 @@ function addSuggestedTag(tag: string) {
         <BaseInput
           :id="newSeriesInputId"
           :model-value="newSeriesTitle"
+          :maxlength="POST_SERIES_TITLE_MAX_LENGTH"
           :label="t('board.writePost.newSeries')"
           :placeholder="t('board.writePost.newSeriesPlaceholder')"
           hide-label

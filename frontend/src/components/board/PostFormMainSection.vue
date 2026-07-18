@@ -15,6 +15,7 @@ import type { PostFormPoll } from '@/utils/postForm'
 
 defineProps<{
   title: string
+  titleMaxLength: number
   content: string
   titleError?: string
   tags: string[]
@@ -68,6 +69,7 @@ const emit = defineEmits<{
         name="title"
         type="text"
         required
+        :maxlength="titleMaxLength"
         :placeholder="$t('board.writePost.placeholder.title')"
         :label="$t('common.title')"
         :error="titleError"

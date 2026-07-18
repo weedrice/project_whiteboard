@@ -7,6 +7,7 @@ import {
     toEmbedPostVideoUrl,
     toSafePostLinkUrl,
     validatePostFormPoll,
+    validatePostFormContent,
 } from '../postForm'
 import { decodeSandboxedPostHtml } from '../postHtmlSandbox'
 
@@ -22,6 +23,16 @@ const baseForm = {
 }
 
 describe('postForm', () => {
+    it('enforces the shared post write limits', () => {
+        const valid = { title: 'title', content: 'body', tags: ['tag'], fileIds: [1] }
+        expect(validatePostFormContent(valid)).toBeNull()
+        expect(validatePostFormContent({ ...valid, title: 't'.repeat(201) })).toBe('titleTooLong')
+        expect(validatePostFormContent({ ...valid, content: 'c'.repeat(100_001) })).toBe('contentTooLong')
+        expect(validatePostFormContent({ ...valid, tags: Array.from({ length: 11 }, (_, index) => `tag${index}`) })).toBe('tooManyTags')
+        expect(validatePostFormContent({ ...valid, tags: ['t'.repeat(101)] })).toBe('tagTooLong')
+        expect(validatePostFormContent({ ...valid, fileIds: Array.from({ length: 21 }, (_, index) => index + 1) })).toBe('tooManyFiles')
+    })
+
     it('extracts local persisted file ids from image sources and data attributes', () => {
         expect(extractFileIdFromPostImageSrc('/api/v1/files/12', 'https://noviis.kr')).toBe(12)
         expect(extractFileIdFromPostImageSrc('/files/13', 'https://noviis.kr')).toBe(13)

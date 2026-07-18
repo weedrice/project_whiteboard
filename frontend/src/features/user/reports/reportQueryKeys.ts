@@ -4,6 +4,7 @@ export interface ReportQueryPaginationParams {
 }
 
 export const reportQueryKeys = {
+    myReportsRoot: ['reports', 'me'] as const,
     myReports: (params: ReportQueryPaginationParams = {}) =>
         ['reports', 'me', { ...params }] as const,
 }

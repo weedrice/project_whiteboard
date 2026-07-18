@@ -550,5 +550,8 @@ describe('usePost', () => {
         await useReportPost().mutate(payload)
 
         expect(postApi.reportPost).toHaveBeenCalledWith(payload)
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({
+            queryKey: sessionKey(['reports', 'me']),
+        })
     })
 })

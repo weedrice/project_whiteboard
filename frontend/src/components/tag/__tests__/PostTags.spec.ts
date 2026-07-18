@@ -52,6 +52,16 @@ describe('PostTags', () => {
         expect(wrapper.emitted('update:modelValue')).toBeUndefined()
     })
 
+    it('caps each tag at 100 characters and the list at 10 tags', async () => {
+        const wrapper = mountPostTags({ modelValue: Array.from({ length: 10 }, (_, index) => `tag${index}`) })
+        const input = wrapper.get('input')
+        expect(input.attributes('maxlength')).toBe('100')
+
+        await input.setValue('another')
+        await input.trigger('keydown.enter')
+        expect(wrapper.emitted('update:modelValue')).toBeUndefined()
+    })
+
     it('does not add or clear a tag while IME composition is active', async () => {
         const wrapper = mountPostTags()
         const input = wrapper.find('input')

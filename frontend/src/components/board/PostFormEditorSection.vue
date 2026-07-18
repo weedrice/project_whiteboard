@@ -5,6 +5,7 @@ import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
 import EmoticonPicker from '@/components/common/widgets/EmoticonPicker.vue'
 import PostVideoUrlPopover from '@/components/board/PostVideoUrlPopover.vue'
 import type { EmoticonImage } from '@/types/emoticon'
+import { POST_CONTENT_MAX_LENGTH } from '@/utils/postForm'
 
 const PostEditorTipTap = defineAsyncComponent(() => import('@/components/board/PostEditorTipTap.vue'))
 
@@ -93,6 +94,7 @@ const emit = defineEmits<{
           hide-label
           :placeholder="$t('board.writePost.htmlSourcePlaceholder')"
           spellcheck="false"
+          :maxlength="POST_CONTENT_MAX_LENGTH"
           @update:model-value="emit('update:modelValue', $event)"
         />
       </div>

@@ -33,6 +33,7 @@ const creatingFolder = ref(false)
 const deletingFolderId = ref<number | null>(null)
 const editingFolderId = ref<number | null>(null)
 const editingFolderName = ref('')
+const SCRAP_FOLDER_NAME_MAX_LENGTH = 60
 const updatingFolderId = ref<number | null>(null)
 const folderActionError = ref('')
 let folderOperationRevision = 0
@@ -119,7 +120,7 @@ function clearSearch() {
 
 async function createFolder() {
   const name = newFolderName.value.trim()
-  if (!name || creatingFolder.value) return
+  if (!name || name.length > SCRAP_FOLDER_NAME_MAX_LENGTH || creatingFolder.value) return
   const operation = beginFolderOperation()
   folderActionError.value = ''
   creatingFolder.value = true
@@ -150,7 +151,7 @@ function cancelEditFolder() {
 
 async function updateFolder(folderId: number) {
   const name = editingFolderName.value.trim()
-  if (!name || updatingFolderId.value !== null) return
+  if (!name || name.length > SCRAP_FOLDER_NAME_MAX_LENGTH || updatingFolderId.value !== null) return
   const operation = beginFolderOperation()
   folderActionError.value = ''
   updatingFolderId.value = folderId
@@ -240,6 +241,7 @@ async function deleteFolder(folderId: number) {
           :label="$t('user.scrapList.newFolder')"
           :placeholder="$t('user.scrapList.newFolder')"
           inputClass="h-9"
+          :maxlength="SCRAP_FOLDER_NAME_MAX_LENGTH"
           hideLabel
         />
         <BaseButton type="submit" size="sm" :disabled="!newFolderName.trim() || creatingFolder">
@@ -278,6 +280,7 @@ async function deleteFolder(folderId: number) {
               <BaseInput
                 :id="`scrap-folder-edit-${folder.folderId}`"
                 v-model="editingFolderName"
+                :maxlength="SCRAP_FOLDER_NAME_MAX_LENGTH"
                 :label="$t('user.scrapList.renameFolder')"
                 inputClass="h-8 w-36 rounded-full text-sm"
                 hideLabel
