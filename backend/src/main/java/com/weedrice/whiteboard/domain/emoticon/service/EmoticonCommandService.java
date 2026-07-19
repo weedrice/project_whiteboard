@@ -56,6 +56,7 @@ class EmoticonCommandService {
     }
 
     EmoticonMasterDto createEmoticon(Long userId, EmoticonCreateRequest request) {
+        List<String> normalizedTags = normalizeTags(request.getTags());
         validateDistinctImageFileIds(request.getImageFileIds());
         validateThumbnailIsDistinct(request.getThumbnailFileId(), request.getImageFileIds());
         int imageLimit = imageLimitPolicy.getCurrentLimit();
@@ -65,7 +66,7 @@ class EmoticonCommandService {
         EmoticonMaster master = EmoticonMaster.builder()
                 .name(request.getName())
                 .thumbnailUrl(null)
-                .tags(request.getTags())
+                .tags(normalizedTags)
                 .creator(user)
                 .build();
 
@@ -123,6 +124,7 @@ class EmoticonCommandService {
     }
 
     EmoticonMasterDto updateEmoticon(Long userId, Long emoticonId, EmoticonUpdateRequest request) {
+        List<String> normalizedTags = request.getTags() == null ? null : normalizeTags(request.getTags());
         userWritableResolver.resolveForUpdate(userId);
         ShopItem shopItem = shopItemLifecycleService.lockForUpdate(emoticonId);
         EmoticonMaster master = emoticonMasterRepository.findByIdForUpdate(emoticonId)
@@ -202,7 +204,7 @@ class EmoticonCommandService {
         master.update(
                 normalizeUpdateName(request.getName(), master.getName()),
                 thumbnailUrl,
-                request.getTags() != null ? request.getTags() : master.getTags());
+                normalizedTags != null ? normalizedTags : master.getTags());
         shopItemLifecycleService.updatePresentation(shopItem, master);
 
         return EmoticonMasterDto.from(master);
@@ -217,6 +219,20 @@ class EmoticonCommandService {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR);
         }
         return normalizedName;
+    }
+
+    private List<String> normalizeTags(List<String> tags) {
+        if (tags == null) {
+            return List.of();
+        }
+        List<String> normalizedTags = tags.stream()
+                .map(tag -> tag == null ? null : tag.trim())
+                .toList();
+        if (normalizedTags.stream().anyMatch(tag -> tag == null || tag.isBlank() || tag.length() > 100)
+                || new HashSet<>(normalizedTags).size() != normalizedTags.size()) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+        }
+        return normalizedTags;
     }
 
     EmoticonMasterDto toggleVisibility(Long userId, Long emoticonId) {

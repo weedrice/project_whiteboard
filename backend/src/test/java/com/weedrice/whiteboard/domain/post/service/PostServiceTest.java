@@ -315,7 +315,8 @@ class PostServiceTest {
                 postAuthorCommandPolicy,
                 semanticSearchEventPublisher,
                 mock(PostSeriesService.class),
-                mock(com.weedrice.whiteboard.domain.notification.service.NotificationAccessInvalidationService.class));
+                mock(com.weedrice.whiteboard.domain.notification.service.NotificationAccessInvalidationService.class),
+                mentionService);
         PostFacadeReadService postFacadeReadService = new PostFacadeReadService(
                 postRepository,
                 postVersionRepository,
@@ -1312,6 +1313,27 @@ class PostServiceTest {
         assertThat(post.getContents()).contains("<p>Safe</p>");
         assertThat(post.getContents()).doesNotContain("onmouseover");
         assertThat(post.getContents()).doesNotContain("javascript:");
+    }
+
+    @Test
+    void updatePost_publishesNotificationsOnlyForNewMentions() {
+        String originalContents = "<span data-mention-user-id=\"2\">Existing</span>";
+        ReflectionTestUtils.setField(post, "contents", originalContents);
+        PostUpdateRequest request = new PostUpdateRequest(null, "Updated Title",
+                originalContents + "<span data-mention-user-id=\"3\">Added</span>",
+                Collections.emptyList(), false, false, false, null);
+        when(postRepository.findByIdWithRelationsForUpdate(1L)).thenReturn(Optional.of(post));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+
+        postService.updatePost(1L, 1L, request);
+
+        verify(mentionService).publishNewMentions(
+                user,
+                null,
+                NotificationSourceType.POST,
+                1L,
+                originalContents,
+                post.getContents());
     }
 
     @Test

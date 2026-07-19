@@ -245,7 +245,15 @@ public class CommentCommandService {
 
         saveCommentVersion(comment, user, "MODIFY", originalContent);
         if (mentionedUserIds != null) {
-            replaceCommentMentions(comment, userId, mentionedUserIds);
+            Set<Long> previousMentionedUserIds = loadStoredMentionUserIds(comment.getCommentId());
+            List<User> storedMentionedUsers = replaceCommentMentions(comment, userId, mentionedUserIds);
+            mentionService.publishNewMentions(
+                    user,
+                    comment.getAgent(),
+                    NotificationSourceType.COMMENT,
+                    comment.getCommentId(),
+                    previousMentionedUserIds,
+                    storedMentionedUsers.stream().map(User::getUserId).toList());
         }
         semanticSearchEventPublisher.publish("COMMENT", comment.getCommentId(), SemanticSearchIndexAction.UPSERT);
         return comment.getCommentId();
@@ -388,11 +396,11 @@ public class CommentCommandService {
         commentVersionRepository.save(commentVersion);
     }
 
-    private void replaceCommentMentions(Comment comment, Long authorUserId, Collection<Long> mentionedUserIds) {
+    private List<User> replaceCommentMentions(Comment comment, Long authorUserId, Collection<Long> mentionedUserIds) {
         commentMentionRepository.deleteByCommentCommentId(comment.getCommentId());
         List<User> mentionedUsers = loadMentionedUsers(authorUserId, mentionedUserIds);
         if (mentionedUsers.isEmpty()) {
-            return;
+            return List.of();
         }
         List<CommentMention> mentions = mentionedUsers.stream()
                 .map(user -> CommentMention.builder()
@@ -401,6 +409,16 @@ public class CommentCommandService {
                         .build())
                 .toList();
         commentMentionRepository.saveAll(mentions);
+        return mentionedUsers;
+    }
+
+    private Set<Long> loadStoredMentionUserIds(Long commentId) {
+        return commentMentionRepository.findByCommentCommentIdIn(List.of(commentId)).stream()
+                .map(CommentMention::getUser)
+                .filter(Objects::nonNull)
+                .map(User::getUserId)
+                .filter(Objects::nonNull)
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
     }
 
     private List<User> loadMentionedUsers(Long authorUserId, Collection<Long> mentionedUserIds) {

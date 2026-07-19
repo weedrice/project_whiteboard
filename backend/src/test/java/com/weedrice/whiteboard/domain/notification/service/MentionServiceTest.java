@@ -111,6 +111,28 @@ class MentionServiceTest {
         verify(events, never()).publishEvent(any());
     }
 
+    @Test
+    void publishNewMentionsPublishesOnlyIdsAddedByTheEdit() {
+        User actor = user(1L, "Actor", User.STATUS_ACTIVE);
+        User addedRecipient = user(3L, "Added", User.STATUS_ACTIVE);
+        Post sourcePost = post(10L);
+        when(posts.findByIdWithRelations(10L)).thenReturn(java.util.Optional.of(sourcePost));
+        when(users.findAllById(List.of(3L))).thenReturn(List.of(addedRecipient));
+        when(blocks.findBlockedCandidateUserIdsEitherDirection(1L, List.of(3L))).thenReturn(List.of());
+        when(postAccessPolicy.isReadable(sourcePost, addedRecipient, false, java.util.Set.of())).thenReturn(true);
+
+        service.publishNewMentions(
+                actor,
+                null,
+                NotificationSourceType.POST,
+                10L,
+                "<span data-mention-user-id='2'></span><span data-mention-user-id='4'></span>",
+                "<span data-mention-user-id='2'></span><span data-mention-user-id='3'></span>");
+
+        verify(users).findAllById(List.of(3L));
+        verify(events).publishEvent(any(NotificationEvent.class));
+    }
+
     private static User user(Long id, String name, String status) {
         User user = mock(User.class);
         when(user.getUserId()).thenReturn(id);

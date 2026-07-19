@@ -62,6 +62,7 @@ import java.util.List;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -2090,6 +2091,43 @@ class CommentServiceTest {
         assertThat(result).isEqualTo(10L);
         assertThat(comment.getContent()).isEqualTo("New");
         verify(commentMentionRepository).deleteByCommentCommentId(10L);
+    }
+
+    @Test
+    void updateComment_publishesNotificationsOnlyForNewStoredMentions() {
+        User author = User.builder().displayName("Author").build();
+        ReflectionTestUtils.setField(author, "userId", 1L);
+        User existingMention = User.builder().displayName("Existing").build();
+        ReflectionTestUtils.setField(existingMention, "userId", 2L);
+        User addedMention = User.builder().displayName("Added").build();
+        ReflectionTestUtils.setField(addedMention, "userId", 3L);
+        Board board = Board.builder().boardUrl("free").creator(author).build();
+        ReflectionTestUtils.setField(board, "isActive", true);
+        ReflectionTestUtils.setField(board, "isPublic", true);
+        Post post = Post.builder().board(board).user(author).build();
+        Comment comment = Comment.builder().user(author).post(post).content("Old").build();
+        ReflectionTestUtils.setField(comment, "commentId", 10L);
+        CommentMention storedMention = CommentMention.builder()
+                .comment(comment)
+                .user(existingMention)
+                .build();
+
+        when(commentRepository.findByIdWithRelationsForUpdate(10L)).thenReturn(Optional.of(comment));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(author));
+        when(userRepository.findAllById(any())).thenReturn(List.of(existingMention, addedMention));
+        when(userBlockRepository.findBlockedUserIdsEitherDirectionByUserId(1L)).thenReturn(List.of());
+        when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of());
+        when(commentMentionRepository.findByCommentCommentIdIn(List.of(10L))).thenReturn(List.of(storedMention));
+
+        commentService.updateComment(1L, 10L, "New", List.of(2L, 3L));
+
+        verify(mentionService).publishNewMentions(
+                author,
+                null,
+                NotificationSourceType.COMMENT,
+                10L,
+                Set.of(2L),
+                List.of(2L, 3L));
     }
 
     @Test

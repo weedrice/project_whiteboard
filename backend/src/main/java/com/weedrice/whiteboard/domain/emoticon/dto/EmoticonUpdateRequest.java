@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.emoticon.dto;
 
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
@@ -21,7 +22,7 @@ public class EmoticonUpdateRequest {
     private Long thumbnailFileId;
 
     @Size(max = 10, message = "{validation.emoticon.tags.max}")
-    private List<String> tags;
+    private List<@NotBlank @Size(max = 100) String> tags;
 
     @Size(max = 101)
     private List<@NotNull Long> addImageFileIds;

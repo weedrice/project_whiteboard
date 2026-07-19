@@ -133,6 +133,25 @@ public class MentionService {
                         actorName)));
     }
 
+    public void publishNewMentions(User actor, Agent actorAgent, NotificationSourceType sourceType, Long sourceId,
+            String previousHtml, String currentHtml) {
+        publishNewMentions(
+                actor,
+                actorAgent,
+                sourceType,
+                sourceId,
+                extractMentionUserIds(previousHtml),
+                extractMentionUserIds(currentHtml));
+    }
+
+    public void publishNewMentions(User actor, Agent actorAgent, NotificationSourceType sourceType, Long sourceId,
+            Collection<Long> previousMentionedUserIds, Collection<Long> currentMentionedUserIds) {
+        Set<Long> previousIds = normalizeMentionUserIds(previousMentionedUserIds);
+        Set<Long> addedIds = normalizeMentionUserIds(currentMentionedUserIds);
+        addedIds.removeAll(previousIds);
+        publishMentions(actor, actorAgent, sourceType, sourceId, addedIds);
+    }
+
     private Map<Long, Set<Long>> resolveActiveAdminBoardIdsByUser(Post sourcePost, List<Long> candidateUserIds) {
         if (sourcePost.getBoard() == null || sourcePost.getBoard().getBoardId() == null) {
             return Map.of();
@@ -164,6 +183,9 @@ public class MentionService {
     }
 
     private Set<Long> extractMentionUserIds(String html) {
+        if (html == null || html.isBlank()) {
+            return new LinkedHashSet<>();
+        }
         Document document = Jsoup.parseBodyFragment(html);
         Set<Long> userIds = new LinkedHashSet<>();
         document.select("[data-mention-user-id]").forEach(element -> {
@@ -177,6 +199,18 @@ public class MentionService {
             }
         });
         return userIds;
+    }
+
+    private Set<Long> normalizeMentionUserIds(Collection<Long> mentionedUserIds) {
+        if (mentionedUserIds == null || mentionedUserIds.isEmpty()) {
+            return new LinkedHashSet<>();
+        }
+        return mentionedUserIds.stream()
+                .filter(id -> id != null && id > 0)
+                .collect(Collectors.toCollection(LinkedHashSet::new))
+                .stream()
+                .limit(MENTION_NOTIFICATION_LIMIT)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
     private String resolveActorName(User actor, Agent actorAgent) {

@@ -1,5 +1,7 @@
 package com.weedrice.whiteboard.domain.emoticon.dto;
 
+import jakarta.validation.Validation;
+import jakarta.validation.Validator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -9,6 +11,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @DisplayName("EmoticonUpdateRequest 테스트")
 class EmoticonUpdateRequestTest {
+
+    private final Validator validator = Validation.buildDefaultValidatorFactory().getValidator();
 
     @Test
     @DisplayName("builder와 getter가 fileId 기반 필드를 노출한다")
@@ -36,5 +40,16 @@ class EmoticonUpdateRequestTest {
         assertThat(full.getName()).isEqualTo("n");
         assertThat(full.getThumbnailFileId()).isEqualTo(1L);
         assertThat(full.getTags()).containsExactly("t");
+    }
+
+    @Test
+    void tagsRejectNullBlankAndOverlongElements() {
+        EmoticonUpdateRequest request = EmoticonUpdateRequest.builder()
+                .tags(java.util.Arrays.asList(null, " ", "x".repeat(101)))
+                .build();
+
+        assertThat(validator.validate(request))
+                .extracting(violation -> violation.getPropertyPath().toString())
+                .contains("tags[0].<list element>", "tags[1].<list element>", "tags[2].<list element>");
     }
 }

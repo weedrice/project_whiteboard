@@ -217,7 +217,7 @@ public class ScheduledPostService {
     private void validatePollClosesAfterSchedule(ScheduledPostRequest request) {
         if (request.getPoll() != null
                 && request.getPoll().getClosesAt() != null
-                && !request.getPoll().getClosesAt().isAfter(
+                && request.getPoll().getClosesAt().isBefore(
                         request.getScheduledAt().plusMinutes(MIN_POLL_LIFETIME_AFTER_SCHEDULE_MINUTES))) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }

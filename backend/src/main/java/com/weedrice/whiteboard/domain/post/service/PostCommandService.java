@@ -8,6 +8,8 @@ import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.board.util.BoardUrlNormalizer;
 import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.notification.service.NotificationAccessInvalidationService;
+import com.weedrice.whiteboard.domain.notification.constant.NotificationSourceType;
+import com.weedrice.whiteboard.domain.notification.service.MentionService;
 import com.weedrice.whiteboard.domain.point.service.ContentRewardPolicy;
 import com.weedrice.whiteboard.domain.point.service.ContentRewardService;
 import com.weedrice.whiteboard.domain.post.dto.PostCreateResponse;
@@ -54,6 +56,7 @@ public class PostCommandService {
     private final SemanticSearchEventPublisher semanticSearchEventPublisher;
     private final PostSeriesService postSeriesService;
     private final NotificationAccessInvalidationService notificationAccessInvalidationService;
+    private final MentionService mentionService;
 
     @Transactional
     public Long createPost(@NonNull Long userId, String boardUrl, PostCreateRequest request) {
@@ -190,6 +193,13 @@ public class PostCommandService {
         if (!originalSecret && Boolean.TRUE.equals(post.getIsSecret())) {
             notificationAccessInvalidationService.invalidateCommentTopicAfterCommit(post.getPostId());
         }
+        mentionService.publishNewMentions(
+                modifier,
+                post.getAgent(),
+                NotificationSourceType.POST,
+                post.getPostId(),
+                originalContents,
+                post.getContents());
 
         return post.getPostId();
     }

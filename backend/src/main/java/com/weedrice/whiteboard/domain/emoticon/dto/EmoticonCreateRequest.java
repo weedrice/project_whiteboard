@@ -23,7 +23,7 @@ public class EmoticonCreateRequest {
     private Long thumbnailFileId;
 
     @Size(max = 10, message = "{validation.emoticon.tags.max}")
-    private List<String> tags;
+    private List<@NotBlank @Size(max = 100) String> tags;
 
     @Size(max = 101)
     private List<@NotNull Long> imageFileIds;

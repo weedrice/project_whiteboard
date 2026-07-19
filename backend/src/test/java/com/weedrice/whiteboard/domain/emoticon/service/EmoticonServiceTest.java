@@ -712,6 +712,38 @@ class EmoticonServiceTest {
         }
 
         @Test
+        void createEmoticon_trimsTagsBeforePersisting() {
+            EmoticonCreateRequest request = EmoticonCreateRequest.builder()
+                    .name("name")
+                    .tags(List.of(" first ", "second"))
+                    .build();
+            givenWritableUser();
+            when(emoticonMasterRepository.save(any(EmoticonMaster.class))).thenAnswer(invocation -> {
+                EmoticonMaster master = invocation.getArgument(0);
+                ReflectionTestUtils.setField(master, "emoticonId", 10L);
+                return master;
+            });
+
+            emoticonService.createEmoticon(1L, request);
+
+            verify(emoticonMasterRepository).save(argThat(master -> master.getTags().equals(List.of("first", "second"))));
+        }
+
+        @Test
+        void createEmoticon_rejectsTagsDuplicatedAfterTrimming() {
+            EmoticonCreateRequest request = EmoticonCreateRequest.builder()
+                    .name("name")
+                    .tags(List.of("tag", " tag "))
+                    .build();
+
+            assertThatThrownBy(() -> emoticonService.createEmoticon(1L, request))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR);
+
+            verify(emoticonMasterRepository, never()).save(any());
+        }
+
+        @Test
         @DisplayName("이모티콘 생성 시 현재 설정 가격을 상품 스냅샷으로 저장한다")
         void createEmoticon_usesCurrentPriceSnapshot() {
             EmoticonCreateRequest request = EmoticonCreateRequest.builder().name("가격 상품").build();
@@ -886,6 +918,30 @@ class EmoticonServiceTest {
             assertThat(emoticonShopItem.getImageUrl()).isEqualTo("/api/v1/files/20");
             assertThat(emoticonShopItem.getPrice()).isEqualTo(250);
             verify(emoticonMasterRepository).findByIdForUpdate(1L);
+        }
+
+        @Test
+        void updateEmoticon_trimsTagsBeforePersisting() {
+            EmoticonUpdateRequest request = EmoticonUpdateRequest.builder()
+                    .tags(List.of(" updated "))
+                    .build();
+            givenWritableUser();
+            when(emoticonMasterRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(emoticonMaster));
+
+            emoticonService.updateEmoticon(1L, 1L, request);
+
+            assertThat(emoticonMaster.getTags()).containsExactly("updated");
+        }
+
+        @Test
+        void updateEmoticon_rejectsTagsDuplicatedAfterTrimming() {
+            EmoticonUpdateRequest request = EmoticonUpdateRequest.builder()
+                    .tags(List.of("tag", " tag "))
+                    .build();
+
+            assertThatThrownBy(() -> emoticonService.updateEmoticon(1L, 1L, request))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR);
         }
 
         @Test

@@ -153,6 +153,24 @@ class ScheduledPostServiceTest {
     }
 
     @Test
+    void createAllowsPollThatClosesExactlyOneMinuteAfterScheduledPublication() {
+        ScheduledPostRequest request = requestWithDraft(null);
+        setPollClosesAt(request, request.getScheduledAt().plusMinutes(1));
+        when(userWritableResolver.resolveForUpdate(1L)).thenReturn(user);
+        when(boardRepository.findByBoardUrl("scheduled-board")).thenReturn(Optional.of(board));
+        when(scheduledPostRepository.saveAndFlush(any(ScheduledPost.class)))
+                .thenAnswer(invocation -> {
+                    ScheduledPost saved = invocation.getArgument(0);
+                    ReflectionTestUtils.setField(saved, "scheduledPostId", 9L);
+                    return saved;
+                });
+
+        service.create(1L, "scheduled-board", request);
+
+        verify(scheduledPostRepository).saveAndFlush(any(ScheduledPost.class));
+    }
+
+    @Test
     void createRejectsPublicationPolicyViolationBeforePersisting() {
         ScheduledPostRequest request = requestWithDraft(null);
         when(userWritableResolver.resolveForUpdate(1L)).thenReturn(user);
