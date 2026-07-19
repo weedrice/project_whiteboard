@@ -42,15 +42,6 @@ updates:
     open-pull-requests-limit: 10
 
   - package-ecosystem: docker
-    directory: /
-    schedule:
-      interval: weekly
-      day: monday
-      time: "10:30"
-      timezone: Asia/Seoul
-    open-pull-requests-limit: 5
-
-  - package-ecosystem: docker
     directory: /backend
     schedule:
       interval: weekly

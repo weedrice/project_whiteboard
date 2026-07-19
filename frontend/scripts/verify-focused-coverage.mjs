@@ -7,7 +7,7 @@ const { createCoverageMap } = istanbulCoverage
 
 export const DEFAULT_FOCUSED_THRESHOLDS = new Map([
   ['src/queryClient.ts', 80],
-  ['src/composables/useAttendance.ts', 80],
+  ['src/features/user/attendance/useAttendance.ts', 80],
   ['src/features/user/profile/useAccountDeletion.ts', 80],
   ['src/features/board/posts/detail/usePostDetailKeyboardShortcuts.ts', 80],
   ['src/views/user/DraftList.vue', 70],

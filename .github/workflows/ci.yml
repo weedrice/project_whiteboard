@@ -105,9 +105,11 @@ jobs:
           if [ "$MANUAL_BACKEND" = "true" ]; then backend=true; fi
           if [ "$MANUAL_FRONTEND" = "true" ]; then frontend=true; fi
           if [ "$MANUAL_BACKEND" = "true" ] || [ "$MANUAL_FRONTEND" = "true" ]; then ops=true; fi
-          echo "backend=$backend" >> "$GITHUB_OUTPUT"
-          echo "frontend=$frontend" >> "$GITHUB_OUTPUT"
-          echo "ops=$ops" >> "$GITHUB_OUTPUT"
+          {
+            echo "backend=$backend"
+            echo "frontend=$frontend"
+            echo "ops=$ops"
+          } >> "$GITHUB_OUTPUT"
 
   backend-test:
     needs: changes
@@ -393,6 +395,21 @@ jobs:
           POSTGRES_SMOKE_DATASOURCE_PASSWORD=noviis_ci \
             "$previous/backend/gradlew" -p "$previous/backend" test \
               --tests '*PostgresApplicationContextSmokeTest.contextLoadsWithPostgresMigrations' --rerun-tasks
+          "$previous/backend/gradlew" -p "$previous/backend" --stop
+          # The base revision may still have schedulers enabled. Drain any lingering
+          # sessions before the current revision applies concurrent-index migrations.
+          remaining_sessions=1
+          for _ in {1..10}; do
+            psql -h localhost -U noviis_ci -d postgres -Atc \
+              "select pg_terminate_backend(pid) from pg_stat_activity where datname = 'noviis_ci_upgrade' and pid <> pg_backend_pid()" >/dev/null
+            remaining_sessions="$(psql -h localhost -U noviis_ci -d postgres -Atc \
+              "select count(*) from pg_stat_activity where datname = 'noviis_ci_upgrade' and pid <> pg_backend_pid()")"
+            if [ "$remaining_sessions" = 0 ]; then
+              break
+            fi
+            sleep 1
+          done
+          test "$remaining_sessions" = 0
           POSTGRES_SMOKE_TEST=true \
           POSTGRES_SMOKE_DATASOURCE_URL="jdbc:postgresql://localhost:5432/noviis_ci_upgrade" \
           POSTGRES_SMOKE_DATASOURCE_USERNAME=noviis_ci \
@@ -691,11 +708,13 @@ jobs:
           api_contract_revision="$(tr -d '\r\n' < ../docs/ops/api-contract-revision.txt)"
           [[ "$api_contract_revision" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$ ]]
           case "$CONTRACT_MIGRATION" in true|false) ;; *) exit 1 ;; esac
-          printf 'repository=%s\ncommit_sha=%s\nrun_id=%s\nrun_number=%s\nrun_attempt=%s\napi_contract_revision=%s\n' \
-            "$GITHUB_REPOSITORY" "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_NUMBER" "$GITHUB_RUN_ATTEMPT" "$api_contract_revision" > release/RELEASE_METADATA
-          printf 'backup_snapshot_id=%s\n' "$BACKUP_SNAPSHOT_ID" >> release/RELEASE_METADATA
-          printf 'contract_change_ticket=%s\n' "$CONTRACT_CHANGE_TICKET" >> release/RELEASE_METADATA
-          printf 'contract_migration=%s\n' "$CONTRACT_MIGRATION" >> release/RELEASE_METADATA
+          {
+            printf 'repository=%s\ncommit_sha=%s\nrun_id=%s\nrun_number=%s\nrun_attempt=%s\napi_contract_revision=%s\n' \
+              "$GITHUB_REPOSITORY" "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_NUMBER" "$GITHUB_RUN_ATTEMPT" "$api_contract_revision"
+            printf 'backup_snapshot_id=%s\n' "$BACKUP_SNAPSHOT_ID"
+            printf 'contract_change_ticket=%s\n' "$CONTRACT_CHANGE_TICKET"
+            printf 'contract_migration=%s\n' "$CONTRACT_MIGRATION"
+          } > release/RELEASE_METADATA
       - name: Generate backend SBOM
         uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
         with:

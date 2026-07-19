@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { verifyFocusedCoverage } from '../verify-focused-coverage.mjs'
+import {
+  DEFAULT_FOCUSED_THRESHOLDS,
+  verifyFocusedCoverage,
+} from '../verify-focused-coverage.mjs'
 
 function coverageFor(file, counts) {
   return {
@@ -19,6 +22,11 @@ function coverageFor(file, counts) {
 }
 
 describe('verifyFocusedCoverage', () => {
+  it('targets the attendance implementation instead of its compatibility re-export', () => {
+    expect(DEFAULT_FOCUSED_THRESHOLDS.has('src/features/user/attendance/useAttendance.ts')).toBe(true)
+    expect(DEFAULT_FOCUSED_THRESHOLDS.has('src/composables/useAttendance.ts')).toBe(false)
+  })
+
   it('returns results when the threshold is met', () => {
     const thresholds = new Map([['src/example.ts', 80]])
 
