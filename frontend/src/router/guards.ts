@@ -25,7 +25,7 @@ declare module 'vue-router' {
         requiresBoardAdmin?: boolean
         requiresEmoticonOwner?: boolean
         requiresPostAuthor?: boolean
-        requiresValidEmoticonId?: boolean
+        positiveIntegerParams?: string[]
         skipOnboarding?: boolean
     }
 }
@@ -34,16 +34,18 @@ export function createAppNavigationGuard() {
     return async (to: RouteLocationNormalized, from: RouteLocationNormalized) => {
         const authStore = useAuthStore()
 
+        const hasInvalidPositiveIntegerParam = to.meta.positiveIntegerParams?.some((paramName) => (
+            !isPositiveIntegerRouteParam(getStringRouteParam(to.params[paramName]))
+        ))
+        if (hasInvalidPositiveIntegerParam) {
+            return { name: 'error', query: { status: '404' } }
+        }
+
         const authResult = await ensureHydratedAuth(to)
         if (authResult !== true) return authResult
 
         const boardUrlParam = getStringRouteParam(to.params.boardUrl)
         if (isReservedBoardUrl(boardUrlParam)) {
-            return { name: 'error', query: { status: '404' } }
-        }
-
-        const emoticonIdParam = getStringRouteParam(to.params.emoticonId)
-        if (to.meta.requiresValidEmoticonId && !isPositiveIntegerRouteParam(emoticonIdParam)) {
             return { name: 'error', query: { status: '404' } }
         }
 

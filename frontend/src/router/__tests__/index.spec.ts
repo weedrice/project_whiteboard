@@ -532,6 +532,19 @@ describe('Router Navigation Guards', () => {
         },
     )
 
+    it.each([
+        '/user/foo',
+        '/user/0',
+        '/board/open/post/foo',
+        '/board/open/post/0/edit',
+        '/scheduled-posts/1.5/edit',
+    ])('redirects an invalid numeric resource id to the 404 error route: %s', async (path) => {
+        await router.push(path)
+
+        expect(router.currentRoute.value.name).toBe('error')
+        expect(router.currentRoute.value.query.status).toBe('404')
+    })
+
     it('redirects to emoticon detail when the user does not own the emoticon', async () => {
         mockAuthStore.isAuthenticated = true
         mockAuthStore.user = { userId: 1, role: 'USER' }

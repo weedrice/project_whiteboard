@@ -73,6 +73,7 @@ export const routes: RouteRecordRaw[] = [
         path: '/user/:userId',
         name: 'user-profile',
         component: () => import('@/views/user/UserProfilePage.vue'),
+        meta: { positiveIntegerParams: ['userId'] },
     },
     {
         path: '/onboarding',
@@ -106,13 +107,13 @@ export const routes: RouteRecordRaw[] = [
         path: '/emoticons/:emoticonId',
         name: 'emoticon-detail',
         component: () => import('@/views/emoticon/EmoticonDetail.vue'),
-        meta: { requiresValidEmoticonId: true },
+        meta: { positiveIntegerParams: ['emoticonId'] },
     },
     {
         path: '/emoticons/:emoticonId/edit',
         name: 'emoticon-edit',
         component: () => import('@/views/emoticon/EmoticonEdit.vue'),
-        meta: { requiresAuth: true, requiresEmoticonOwner: true, requiresValidEmoticonId: true },
+        meta: { requiresAuth: true, requiresEmoticonOwner: true, positiveIntegerParams: ['emoticonId'] },
     },
     {
         path: '/boards',
@@ -146,6 +147,7 @@ export const routes: RouteRecordRaw[] = [
                 path: 'post/:postId',
                 name: 'post-detail',
                 component: () => import('@/views/board/PostDetail.vue'),
+                meta: { positiveIntegerParams: ['postId'] },
             },
         ],
     },
@@ -153,13 +155,13 @@ export const routes: RouteRecordRaw[] = [
         path: '/board/:boardUrl/post/:postId/edit',
         name: 'post-edit',
         component: () => import(/* webpackChunkName: "post-editor" */ '@/views/board/PostEdit.vue'),
-        meta: { requiresAuth: true, requiresPostAuthor: true },
+        meta: { requiresAuth: true, requiresPostAuthor: true, positiveIntegerParams: ['postId'] },
     },
     {
         path: '/scheduled-posts/:scheduledPostId/edit',
         name: 'scheduled-post-edit',
         component: () => import(/* webpackChunkName: "post-editor" */ '@/views/board/ScheduledPostEdit.vue'),
-        meta: { requiresAuth: true },
+        meta: { requiresAuth: true, positiveIntegerParams: ['scheduledPostId'] },
     },
     {
         path: '/admin',
