@@ -60,9 +60,8 @@ describe('routes table', () => {
         expect(byName.get('MyAttendance')).toMatchObject({ path: 'attendance' })
     })
 
-    it('hides the unused shop route and protects purchase history through my page', () => {
-        expect(byName.has('shop')).toBe(false)
-        expect(routes.some((route) => route.path === '/shop')).toBe(false)
+    it('exposes the public shop and protects purchase history through my page', () => {
+        expect(byName.get('shop')).toMatchObject({ path: '/shop' })
         expect(byName.get('purchase-history')).toMatchObject({ path: 'purchases' })
         expect(routes.find((route) => route.path === '/mypage')?.meta).toMatchObject({ requiresAuth: true })
     })

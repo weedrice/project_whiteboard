@@ -2,9 +2,9 @@ import type { OnboardingMessages } from './types'
 
 export const onboarding: OnboardingMessages = {
   kicker: '시작하기',
-  title: '관심 있는 스페이스를 먼저 골라보세요',
-  description: '추천 스페이스를 구독하고 브라우저 푸시를 켜면 새 소식을 더 쉽게 따라갈 수 있습니다.',
-  recommendedBoards: '추천 스페이스',
+  title: '인기 스페이스를 둘러보세요',
+  description: '지금 많이 이용하는 스페이스를 구독하고 브라우저 푸시를 켜면 새 소식을 빠르게 확인할 수 있습니다.',
+  recommendedBoards: '인기 스페이스',
   subscribe: '구독',
   subscribed: '구독 중',
   pushTitle: '브라우저 푸시',

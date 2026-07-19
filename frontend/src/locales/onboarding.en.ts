@@ -2,9 +2,9 @@ import type { OnboardingMessages } from './types'
 
 export const onboardingEn: OnboardingMessages = {
   kicker: 'Get started',
-  title: 'Choose spaces to follow first',
-  description: 'Subscribe to recommended spaces and enable browser push to keep up with new activity.',
-  recommendedBoards: 'Recommended spaces',
+  title: 'Explore popular spaces',
+  description: 'Subscribe to spaces that are popular right now and enable browser push to keep up with new activity.',
+  recommendedBoards: 'Popular spaces',
   subscribe: 'Subscribe',
   subscribed: 'Subscribed',
   pushTitle: 'Browser push',

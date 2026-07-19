@@ -92,6 +92,11 @@ export const routes: RouteRecordRaw[] = [
         component: () => import('@/views/emoticon/EmoticonList.vue'),
     },
     {
+        path: '/shop',
+        name: 'shop',
+        component: () => import('@/views/shop/ShopPage.vue'),
+    },
+    {
         path: '/emoticons/register',
         name: 'emoticon-register',
         component: () => import('@/views/emoticon/EmoticonRegister.vue'),
