@@ -170,6 +170,9 @@ class SecurityConfigAuthorizationTest {
         mockMvc.perform(get("/api/v1/users/1/comments"))
                 .andExpect(status().isOk());
 
+        mockMvc.perform(get("/api/v1/users/1/badges"))
+                .andExpect(status().isOk());
+
         mockMvc.perform(get("/api/v1/common-codes/POST_STATUS/details"))
                 .andExpect(status().isOk());
 
@@ -295,6 +298,11 @@ class SecurityConfigAuthorizationTest {
         @GetMapping("/users/{userId}/comments")
         String userComments(@PathVariable Long userId) {
             return "user-comments-" + userId;
+        }
+
+        @GetMapping("/users/{userId}/badges")
+        String userBadges(@PathVariable Long userId) {
+            return "user-badges-" + userId;
         }
 
         @GetMapping("/search")
