@@ -4521,6 +4521,45 @@ class PostServiceTest {
         assertThat(response.getPoll()).isSameAs(incompletePoll);
     }
 
+    @Test
+    void updateViewHistory_omittedCommentIdPreservesExistingProgress() {
+        Comment existingLastReadComment = Comment.builder().post(post).build();
+        ReflectionTestUtils.setField(existingLastReadComment, "commentId", 100L);
+        ViewHistory existing = ViewHistory.builder().user(user).post(post).build();
+        existing.updateView(existingLastReadComment, 500L);
+        ViewHistoryRequest request = new ViewHistoryRequest(null, 1000L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(viewHistoryRepository.findByUserAndPostForUpdate(1L, 1L)).thenReturn(Optional.of(existing));
+
+        postService.updateViewHistory(1L, 1L, request);
+
+        assertThat(existing.getLastReadComment()).isSameAs(existingLastReadComment);
+        assertThat(existing.getDurationMs()).isEqualTo(1500L);
+        verify(commentRepository, never()).findByCommentIdAndPost_PostIdAndIsDeletedFalse(anyLong(), anyLong());
+    }
+
+    @Test
+    void updateViewHistory_olderCommentIdDoesNotMoveProgressBackward() {
+        Comment existingLastReadComment = Comment.builder().post(post).build();
+        ReflectionTestUtils.setField(existingLastReadComment, "commentId", 100L);
+        Comment staleLastReadComment = Comment.builder().post(post).build();
+        ReflectionTestUtils.setField(staleLastReadComment, "commentId", 50L);
+        ViewHistory existing = ViewHistory.builder().user(user).post(post).build();
+        existing.updateView(existingLastReadComment, 500L);
+        ViewHistoryRequest request = new ViewHistoryRequest(50L, 1000L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(postRepository.findByIdWithRelations(1L)).thenReturn(Optional.of(post));
+        when(commentRepository.findByCommentIdAndPost_PostIdAndIsDeletedFalse(50L, 1L))
+                .thenReturn(Optional.of(staleLastReadComment));
+        when(viewHistoryRepository.findByUserAndPostForUpdate(1L, 1L)).thenReturn(Optional.of(existing));
+
+        postService.updateViewHistory(1L, 1L, request);
+
+        assertThat(existing.getLastReadComment()).isSameAs(existingLastReadComment);
+        assertThat(existing.getDurationMs()).isEqualTo(1500L);
+    }
+
     private PostDraftRequest draftRequest(PollRequest poll) {
         return PostDraftRequest.builder()
                 .boardUrl("free")

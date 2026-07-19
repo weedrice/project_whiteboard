@@ -52,7 +52,21 @@ public class ViewHistory extends BaseTimeEntity {
     }
 
     public void updateView(Comment lastReadComment, long durationMs) {
-        this.lastReadComment = lastReadComment;
+        if (shouldAdvanceLastReadComment(lastReadComment)) {
+            this.lastReadComment = lastReadComment;
+        }
         this.durationMs += durationMs;
+    }
+
+    private boolean shouldAdvanceLastReadComment(Comment candidate) {
+        if (candidate == null) {
+            return false;
+        }
+        if (this.lastReadComment == null) {
+            return true;
+        }
+        Long currentCommentId = this.lastReadComment.getCommentId();
+        Long candidateCommentId = candidate.getCommentId();
+        return currentCommentId == null || candidateCommentId != null && candidateCommentId > currentCommentId;
     }
 }
