@@ -34,6 +34,7 @@ import com.weedrice.whiteboard.global.security.JwtTokenProvider;
 import com.weedrice.whiteboard.global.security.SecurityAuthorities;
 import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.MigrationVersion;
+import org.flywaydb.core.api.configuration.FluentConfiguration;
 import org.flywaydb.database.postgresql.PostgreSQLConfigurationExtension;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
@@ -54,6 +55,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Base64;
 import java.util.HexFormat;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -73,6 +75,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @ActiveProfiles("postgres-smoke")
 @EnabledIfEnvironmentVariable(named = "POSTGRES_SMOKE_TEST", matches = "true")
 class PostgresApplicationContextSmokeTest {
+
+    private static final String POSTGRES_TRANSACTIONAL_LOCK_PROPERTY =
+            "flyway.postgresql.transactional.lock";
 
     @Autowired
     private PopularPostAggregationLockRepository aggregationLockRepository;
@@ -141,6 +146,9 @@ class PostgresApplicationContextSmokeTest {
     void contextLoadsWithPostgresMigrations() {
         assertFalse(flyway.getConfigurationExtension(PostgreSQLConfigurationExtension.class)
                 .isTransactionalLock());
+        assertTrue(jdbcTemplate.queryForObject(
+                "SELECT to_regclass('pg_temp.legacy_scheduled_post_file_refs') IS NULL",
+                Boolean.class));
     }
 
     @Test
@@ -229,11 +237,7 @@ class PostgresApplicationContextSmokeTest {
         try (Connection connection = dataSource.getConnection()) {
             String originalSchema = connection.getSchema();
             try {
-                Flyway.configure()
-                        .dataSource(dataSource)
-                        .schemas(schema)
-                        .defaultSchema(schema)
-                        .locations("classpath:db/migration")
+                postgresFlyway(schema)
                         .target(MigrationVersion.fromVersion("56"))
                         .load()
                         .migrate();
@@ -255,11 +259,7 @@ class PostgresApplicationContextSmokeTest {
                             (NOW(), NOW(), NOW() + INTERVAL '7 days', '127.0.0.1', 'N', 'legacy-token-hash', 5701)
                         """);
 
-                Flyway.configure()
-                        .dataSource(dataSource)
-                        .schemas(schema)
-                        .defaultSchema(schema)
-                        .locations("classpath:db/migration")
+                postgresFlyway(schema)
                         .load()
                         .migrate();
 
@@ -326,7 +326,7 @@ class PostgresApplicationContextSmokeTest {
 
     @Test
     void concurrentRefreshAndLogoutLeaveSessionFamilyRevokedAndOtherFamilyActive() throws Exception {
-        String unique = UUID.randomUUID().toString();
+        String unique = uniqueSuffix();
         User user = userRepository.saveAndFlush(User.builder()
                 .loginId("refresh-race-" + unique)
                 .email("refresh-race-" + unique + "@example.com")
@@ -398,7 +398,7 @@ class PostgresApplicationContextSmokeTest {
 
     @Test
     void revokedSessionFamilyImmediatelyInvalidatesIssuedAccessToken() {
-        String unique = UUID.randomUUID().toString();
+        String unique = uniqueSuffix();
         User user = userRepository.saveAndFlush(User.builder()
                 .loginId("access-family-" + unique)
                 .email("access-family-" + unique + "@example.com")
@@ -430,7 +430,7 @@ class PostgresApplicationContextSmokeTest {
 
     @Test
     void opposingUserPairLockRequestsCompleteWithoutDeadlock() throws Exception {
-        String unique = UUID.randomUUID().toString();
+        String unique = uniqueSuffix();
         User first = userRepository.saveAndFlush(User.builder()
                 .loginId("pair-first-" + unique)
                 .email("pair-first-" + unique + "@example.com")
@@ -469,7 +469,7 @@ class PostgresApplicationContextSmokeTest {
 
     @Test
     void concurrentFirstBoardVisitsUpsertOneRow() throws Exception {
-        String unique = UUID.randomUUID().toString();
+        String unique = uniqueSuffix();
         User user = userRepository.saveAndFlush(User.builder()
                 .loginId("visit-race-" + unique)
                 .email("visit-race-" + unique + "@example.com")
@@ -509,7 +509,7 @@ class PostgresApplicationContextSmokeTest {
 
     @Test
     void concurrentKeywordSubscriptionsKeepTenItemLimit() throws Exception {
-        String unique = UUID.randomUUID().toString();
+        String unique = uniqueSuffix();
         User user = userRepository.saveAndFlush(User.builder()
                 .loginId("keyword-race-" + unique)
                 .email("keyword-race-" + unique + "@example.com")
@@ -557,7 +557,7 @@ class PostgresApplicationContextSmokeTest {
 
     @Test
     void concurrentDuplicateKeywordSubscriptionsAreIdempotent() throws Exception {
-        String unique = UUID.randomUUID().toString();
+        String unique = uniqueSuffix();
         User user = userRepository.saveAndFlush(User.builder()
                 .loginId("keyword-duplicate-" + unique)
                 .email("keyword-duplicate-" + unique + "@example.com")
@@ -589,7 +589,7 @@ class PostgresApplicationContextSmokeTest {
 
     @Test
     void concurrentSameEndpointSubscriptionsKeepOneOwnerAndConsistentSettings() throws Exception {
-        String unique = UUID.randomUUID().toString();
+        String unique = uniqueSuffix();
         User firstUser = userRepository.saveAndFlush(User.builder()
                 .loginId("push-race-a-" + unique)
                 .email("push-race-a-" + unique + "@example.com")
@@ -667,11 +667,7 @@ class PostgresApplicationContextSmokeTest {
         try (Connection connection = dataSource.getConnection()) {
             String originalSchema = connection.getSchema();
             try {
-                Flyway flywayToV51 = Flyway.configure()
-                    .dataSource(dataSource)
-                    .schemas(schema)
-                    .defaultSchema(schema)
-                    .locations("classpath:db/migration")
+                Flyway flywayToV51 = postgresFlyway(schema)
                     .target(MigrationVersion.fromVersion("51"))
                     .load();
                 flywayToV51.migrate();
@@ -713,11 +709,7 @@ class PostgresApplicationContextSmokeTest {
                     VALUES ('NOBICON_PRICE', 'invalid', 'legacy invalid price', NOW(), NOW())
                     """);
 
-                Flyway.configure()
-                    .dataSource(dataSource)
-                    .schemas(schema)
-                    .defaultSchema(schema)
-                    .locations("classpath:db/migration")
+                postgresFlyway(schema)
                     .load()
                     .migrate();
 
@@ -782,11 +774,7 @@ class PostgresApplicationContextSmokeTest {
         try (Connection connection = dataSource.getConnection()) {
             String originalSchema = connection.getSchema();
             try {
-                Flyway.configure()
-                    .dataSource(dataSource)
-                    .schemas(schema)
-                    .defaultSchema(schema)
-                    .locations("classpath:db/migration")
+                postgresFlyway(schema)
                     .target(MigrationVersion.fromVersion("52"))
                     .load()
                     .migrate();
@@ -800,11 +788,7 @@ class PostgresApplicationContextSmokeTest {
                     VALUES ('POINT_SIGNUP_BONUS', '777', 'operator override', ?, ?)
                     """, operatorModifiedAt, operatorModifiedAt);
 
-                Flyway.configure()
-                    .dataSource(dataSource)
-                    .schemas(schema)
-                    .defaultSchema(schema)
-                    .locations("classpath:db/migration")
+                postgresFlyway(schema)
                     .load()
                     .migrate();
 
@@ -1111,6 +1095,19 @@ class PostgresApplicationContextSmokeTest {
         } catch (BusinessException expected) {
             return false;
         }
+    }
+
+    private FluentConfiguration postgresFlyway(String schema) {
+        return Flyway.configure()
+                .configuration(Map.of(POSTGRES_TRANSACTIONAL_LOCK_PROPERTY, "false"))
+                .dataSource(dataSource)
+                .schemas(schema)
+                .defaultSchema(schema)
+                .locations("classpath:db/migration");
+    }
+
+    private static String uniqueSuffix() {
+        return UUID.randomUUID().toString().substring(0, 8);
     }
 
     private static void await(CountDownLatch latch) {
