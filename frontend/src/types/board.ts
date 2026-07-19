@@ -94,7 +94,7 @@ export interface BoardCreateData {
 }
 
 export interface BoardUpdateData {
-    boardName?: string
+    boardName: string
     boardUrl?: string
     description?: string
     iconUrl?: string

@@ -1,5 +1,5 @@
 import api from './index'
-import type { ApiResponse, Badge } from '@/types'
+import type { ApiResponse, Badge, BadgeCompact } from '@/types'
 import { encodePathSegment } from '@/utils/urlPath'
 import type { AxiosRequestConfig } from 'axios'
 
@@ -11,5 +11,5 @@ export const badgeApi = {
         api.get<ApiResponse<Badge[]>>('/users/me/badges', config),
 
     updateRepresentativeBadge: (badgeCode: string | null) =>
-        api.put<ApiResponse<Badge | null>>('/users/me/badges/representative', { badgeCode }),
+        api.put<ApiResponse<BadgeCompact | null>>('/users/me/badges/representative', { badgeCode }),
 }
