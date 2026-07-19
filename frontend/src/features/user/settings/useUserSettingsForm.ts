@@ -59,19 +59,26 @@ export function useUserSettingsForm(options: UseUserSettingsFormOptions) {
   ))
   const canSave = computed(() => isDirty.value && !options.isSaving.value)
 
+  const toFormSnapshot = (value: UserSettings): UserSettingsForm => ({
+    theme: value.theme,
+    language: value.language,
+    timezone: Object.hasOwn(value, 'timezone') ? value.timezone : form.timezone,
+    hideNsfw: Object.hasOwn(value, 'hideNsfw') ? value.hideNsfw : form.hideNsfw
+  })
+
+  const hydrateFromSettings = (value: UserSettings) => {
+    const nextForm = toFormSnapshot(value)
+    Object.assign(form, nextForm)
+    baseline.value = { ...nextForm }
+    return nextForm
+  }
+
   watch(options.settingsData, (value) => {
     if (!value || isDirty.value) {
       return
     }
 
-    const nextForm: UserSettingsForm = {
-      theme: value.theme,
-      language: value.language,
-      timezone: Object.hasOwn(value, 'timezone') ? value.timezone : form.timezone,
-      hideNsfw: Object.hasOwn(value, 'hideNsfw') ? value.hideNsfw : form.hideNsfw
-    }
-    Object.assign(form, nextForm)
-    baseline.value = { ...nextForm }
+    hydrateFromSettings(value)
   }, { immediate: true })
 
   watch(options.themeIsDark, (isDark) => {
@@ -140,6 +147,24 @@ export function useUserSettingsForm(options: UseUserSettingsFormOptions) {
           return
         }
         if (!isCurrentSave()) return
+        const reloadedSettings = options.settingsData.value
+        if (!reloadedSettings) {
+          message.value = options.t('user.settings.failed')
+          isError.value = true
+          return
+        }
+        const nextForm = toFormSnapshot(reloadedSettings)
+        const localeApplied = options.setLocale
+          ? await options.setLocale(nextForm.language as UserSettings['language'], isCurrentSave)
+          : true
+        if (!isCurrentSave()) return
+        if (!localeApplied) {
+          message.value = options.t('user.settings.failed')
+          isError.value = true
+          return
+        }
+        hydrateFromSettings(reloadedSettings)
+        options.setTheme(nextForm.theme)
         message.value = options.t('common.messages.concurrentModification')
         isError.value = true
         return

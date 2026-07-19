@@ -170,29 +170,43 @@ describe('useUserSettingsForm', () => {
   })
 
   it('reloads settings and asks for retry on a concurrent modification conflict', async () => {
-    const reloadSettings = vi.fn().mockResolvedValue(undefined)
+    const settingsData = ref<UserSettings>({
+      theme: 'LIGHT', language: 'ko', timezone: 'Asia/Seoul', hideNsfw: true, pushEnabled: false,
+    })
+    const reloadSettings = vi.fn(async () => {
+      settingsData.value = {
+        theme: 'DARK', language: 'en', timezone: 'UTC', hideNsfw: false, pushEnabled: false,
+      }
+    })
+    const setLocale = vi.fn().mockResolvedValue(true)
+    const setTheme = vi.fn()
     const updateSettings = vi.fn().mockRejectedValue({
       isAxiosError: true,
       response: { status: 409, data: { error: { code: 'C012' } } },
     })
     const form = useUserSettingsForm({
-      settingsData: ref<UserSettings>({
-        theme: 'LIGHT', language: 'ko', timezone: 'Asia/Seoul', hideNsfw: true, pushEnabled: false,
-      }),
+      settingsData,
       isSaving: ref(false),
       themeIsDark: () => false,
       updateSettings,
-      setTheme: vi.fn(),
+      setTheme,
+      setLocale,
       reloadSettings,
       t,
     })
     await nextTick()
     form.form.theme = 'DARK'
+    form.form.language = 'en'
     await nextTick()
 
     await form.save()
 
     expect(reloadSettings).toHaveBeenCalledTimes(1)
+    expect(form.form).toMatchObject({ theme: 'DARK', language: 'en', timezone: 'UTC', hideNsfw: false })
+    expect(form.isDirty.value).toBe(false)
+    expect(form.canSave.value).toBe(false)
+    expect(setTheme).toHaveBeenCalledWith('DARK')
+    expect(setLocale).toHaveBeenLastCalledWith('en', expect.any(Function))
     expect(form.message.value).toBe('common.messages.concurrentModification')
     expect(form.isError.value).toBe(true)
   })
