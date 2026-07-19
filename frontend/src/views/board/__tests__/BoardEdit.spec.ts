@@ -73,6 +73,9 @@ vi.mock('@/stores/auth', () => ({
 vi.mock('@/composables/useConfirm', () => ({
   useConfirm: () => ({ confirm: vi.fn().mockResolvedValue(true) }),
 }))
+vi.mock('@/features/board/posts/form/usePostFormLeaveGuard', () => ({
+  usePostFormLeaveGuard: vi.fn(),
+}))
 
 vi.mock('@/composables/useFormSubmit', () => ({
   useFormSubmit: () => ({
