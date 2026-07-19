@@ -6,6 +6,7 @@ const routeState = vi.hoisted(() => ({
   name: 'search' as string,
   query: {} as Record<string, unknown>,
   routerPush: vi.fn(),
+  routerReplace: vi.fn(),
   invalidateQueries: vi.fn(),
 }))
 
@@ -37,7 +38,8 @@ const searchState = vi.hoisted(() => ({
     boardPage?: ResultPageState
   },
   isLoading: false,
-  error: null as Error | null,
+  integratedError: null as Error | null,
+  semanticError: null as Error | null,
   popularKeywordsLoading: false,
   popularKeywordsError: false,
   popularTagsLoading: false,
@@ -64,7 +66,7 @@ const searchApiMocks = vi.hoisted(() => ({
 
 vi.mock('vue-router', () => ({
   useRoute: () => routeState,
-  useRouter: () => ({ push: routeState.routerPush }),
+  useRouter: () => ({ push: routeState.routerPush, replace: routeState.routerReplace }),
 }))
 
 vi.mock('@tanstack/vue-query', async (importOriginal) => {
@@ -117,7 +119,7 @@ vi.mock('@/composables/useSearch', () => ({
       return {
         data: ref(searchState.searchData),
         isLoading: ref(searchState.isLoading),
-        error: ref(searchState.error),
+        error: ref(searchState.integratedError),
         refetch: searchState.refetchIntegrated,
       }
     },
@@ -130,7 +132,7 @@ vi.mock('@/composables/useSearch', () => ({
       return {
         data: ref({ content: [] }),
         isLoading: ref(false),
-        error: ref(searchState.error),
+        error: ref(searchState.semanticError),
         refetch: searchState.refetchSemantic,
       }
     },
@@ -205,7 +207,8 @@ describe('SearchPage', () => {
       boardResults: [],
     }
     searchState.isLoading = false
-    searchState.error = null
+    searchState.integratedError = null
+    searchState.semanticError = null
     searchState.popularKeywordsLoading = false
     searchState.popularKeywordsError = false
     searchState.popularTagsLoading = false
@@ -221,6 +224,7 @@ describe('SearchPage', () => {
     searchState.refetchPopularTags.mockClear()
     searchState.refetchRecentKeywords.mockClear()
     routeState.routerPush.mockClear()
+    routeState.routerReplace.mockClear()
     routeState.invalidateQueries.mockClear()
     searchApiMocks.deleteRecentSearch.mockReset()
     searchApiMocks.deleteAllRecentSearches.mockReset()
@@ -393,7 +397,7 @@ describe('SearchPage', () => {
 
   it('shows a retryable error instead of an empty result when search fails', async () => {
     routeState.query = { q: 'failed' }
-    searchState.error = new Error('network failed')
+    searchState.integratedError = new Error('network failed')
     const wrapper = mountPage()
 
     expect(wrapper.get('[role="alert"]').text()).toContain('common.messages.loadFailed')
@@ -401,7 +405,46 @@ describe('SearchPage', () => {
 
     await wrapper.get('[role="alert"] button').trigger('click')
     expect(searchState.refetchIntegrated).toHaveBeenCalledOnce()
+    expect(searchState.refetchSemantic).not.toHaveBeenCalled()
+  })
+
+  it('keeps integrated results visible and retries semantic search independently', async () => {
+    routeState.query = { q: 'partial' }
+    searchState.searchData = {
+      postResults: [{ postId: 1, title: 'Keyword result' }],
+      commentResults: [],
+      userResults: [],
+      boardResults: [],
+    }
+    searchState.semanticError = new Error('semantic unavailable')
+    const wrapper = mountPage()
+
+    expect(wrapper.get('[data-testid="post-list"]').text()).toBe('1')
+    const alert = wrapper.get('aside [role="alert"]')
+    expect(alert.text()).toContain('common.messages.loadFailed')
+
+    await alert.get('button').trigger('click')
     expect(searchState.refetchSemantic).toHaveBeenCalledOnce()
+    expect(searchState.refetchIntegrated).not.toHaveBeenCalled()
+  })
+
+  it('replaces an out-of-range result page with the last valid page', async () => {
+    routeState.query = { q: 'vue', page: '99', searchType: 'TITLE' }
+    searchState.searchData = {
+      postResults: [],
+      commentResults: [],
+      userResults: [],
+      boardResults: [],
+      postPage: { totalElements: 21, totalPages: 3, page: 99, size: 10, hasMore: false },
+    }
+
+    mountPage()
+    await flushPromises()
+
+    expect(routeState.routerReplace).toHaveBeenCalledWith({
+      name: 'search',
+      query: { q: 'vue', page: '2', searchType: 'TITLE' },
+    })
   })
 
   it('renders active filter chips and removes filters through the route query', async () => {

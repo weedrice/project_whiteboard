@@ -27,6 +27,8 @@ public final class SearchRequestNormalizer {
             Sort.Order.desc("logId"));
     private static final Set<String> ALLOWED_POST_SEARCH_SORTS = Set.of(
             "createdAt", "postId", "viewCount", "likeCount");
+    private static final Set<String> ALLOWED_POST_SEARCH_TYPES = Set.of(
+            "TITLE_CONTENT", "TITLE", "CONTENT", "AUTHOR");
 
     private SearchRequestNormalizer() {
     }
@@ -51,6 +53,17 @@ public final class SearchRequestNormalizer {
 
     public static String canonicalizeOptionalAuthor(String author) {
         return canonicalizeKeyword(author, false);
+    }
+
+    public static String normalizePostSearchType(String searchType) {
+        if (searchType == null || searchType.isBlank()) {
+            return null;
+        }
+        String normalizedSearchType = searchType.trim().toUpperCase(Locale.ROOT);
+        if (!ALLOWED_POST_SEARCH_TYPES.contains(normalizedSearchType)) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+        }
+        return normalizedSearchType;
     }
 
     public static String normalizeSearchPeriod(String period) {

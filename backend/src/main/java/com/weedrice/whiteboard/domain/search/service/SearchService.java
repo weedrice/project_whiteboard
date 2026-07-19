@@ -83,6 +83,7 @@ public class SearchService {
     private Page<PostSummary> readSearchPosts(String keyword, String searchType, String boardUrl, String author,
             String from, String to, String period, int page, int size, Sort sort, Long currentUserId) {
         String canonicalKeyword = SearchRequestNormalizer.canonicalizeKeyword(keyword);
+        String normalizedSearchType = SearchRequestNormalizer.normalizePostSearchType(searchType);
         String canonicalBoardUrl = SearchRequestNormalizer.canonicalizeOptionalBoardUrl(boardUrl);
         String canonicalAuthor = SearchRequestNormalizer.canonicalizeOptionalAuthor(author);
         SearchDateRange dateRange = resolveDateRange(period, from, to);
@@ -105,7 +106,7 @@ public class SearchService {
                     ? userBlockService.getBlockedUserIdsEitherDirection(currentUserId)
                     : userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(currentUserId);
         }
-        Page<Post> postPage = postRepository.searchPosts(canonicalKeyword, searchType,
+        Page<Post> postPage = postRepository.searchPosts(canonicalKeyword, normalizedSearchType,
                 canonicalBoardUrl, canonicalAuthor, dateRange.from(), dateRange.to(), blockedUserIds, includeSecret,
                 currentUserId, normalizedPageable);
 

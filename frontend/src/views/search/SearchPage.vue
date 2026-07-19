@@ -364,7 +364,14 @@
           </div>
         </section>
 
-        <p v-if="semanticEnabled && !isSemanticLoading && semanticResults.length === 0" class="rounded-lg border nv-border nv-surface p-4 text-sm nv-text-subtle">
+        <ErrorState
+          v-if="semanticEnabled && semanticSearchError"
+          title-tag="h3"
+          :message="$t('common.messages.loadFailed')"
+          show-retry
+          @retry="refetchSemanticSearch"
+        />
+        <p v-else-if="semanticEnabled && !isSemanticLoading && semanticResults.length === 0" class="rounded-lg border nv-border nv-surface p-4 text-sm nv-text-subtle">
           {{ $t('search.semanticEmpty') }}
         </p>
       </aside>
@@ -373,7 +380,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onScopeDispose, ref } from 'vue'
+import { computed, onScopeDispose, ref, watch } from 'vue'
 import { useQueryClient } from '@tanstack/vue-query'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -526,7 +533,7 @@ const periodOptions = computed(() => [
   { value: 'CUSTOM', label: t('search.periodCustom') },
 ])
 const hasSearchError = computed(() => Boolean(
-  integratedSearchError.value || (semanticEnabled.value && semanticSearchError.value),
+  integratedSearchError.value,
 ))
 const activeFilterChips = computed<Array<{ key: SearchFilterKey, label: string }>>(() => {
   const chips: Array<{ key: SearchFilterKey, label: string }> = []
@@ -639,6 +646,14 @@ function buildSearchPageLink(page: number) {
   }
 }
 
+watch([pageQuery, totalKeywordPages], ([page, totalPages]) => {
+  if (totalPages <= 0 || page < totalPages) return
+  void router.replace({
+    name: 'search',
+    query: buildPageQuery(totalPages - 1),
+  })
+}, { immediate: true })
+
 async function deleteRecentKeyword(logId: number) {
   await runRecentKeywordMutation((signal) => searchApi.deleteRecentSearch(logId, { signal }))
 }
@@ -667,10 +682,6 @@ onScopeDispose(() => {
 })
 
 async function retrySearch() {
-  if (semanticEnabled.value) {
-    await Promise.all([refetchIntegratedSearch(), refetchSemanticSearch()])
-    return
-  }
   await refetchIntegratedSearch()
 }
 

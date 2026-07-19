@@ -734,6 +734,18 @@ class SearchServiceTest {
     }
 
     @Test
+    @DisplayName("게시글 검색은 알 수 없는 검색 범위를 거부한다")
+    void searchPosts_rejectsUnknownSearchTypeBeforeRepositoryCall() {
+        assertThatThrownBy(() -> searchPostsWithPageable("test", "TITEL", null, PageRequest.of(0, 20), null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR);
+
+        verify(postRepository, never()).searchPosts(
+                any(), any(), any(), any(), any(), any(), any(), anyBoolean(), any(), any());
+        verify(searchRecordEventPublisher, never()).publish(any(), anyString());
+    }
+
+    @Test
     void searchPosts_monthUsesOneCalendarMonth() {
         when(postRepository.searchPosts(anyString(), any(), any(), any(), any(), any(), any(), anyBoolean(), any(),
                 any(Pageable.class))).thenReturn(Page.empty());

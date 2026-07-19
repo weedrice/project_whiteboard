@@ -94,6 +94,7 @@ public class SearchPreviewReadService {
     public IntegratedSearchResponse integratedSearch(String keyword, String searchType, String boardUrl, String author,
             String from, String to, String period, int page, int size, Sort sort, Long currentUserId) {
         String canonicalKeyword = SearchRequestNormalizer.canonicalizeKeyword(keyword);
+        String normalizedSearchType = SearchRequestNormalizer.normalizePostSearchType(searchType);
         Pageable postPreviewPageable = SearchRequestNormalizer.normalizePostSearchPageable(page, size, sort);
         Pageable previewPageable = PageRequest.of(
                 postPreviewPageable.getPageNumber(), postPreviewPageable.getPageSize());
@@ -111,10 +112,10 @@ public class SearchPreviewReadService {
 
         DateRange dateRange = resolveDateRange(period, from, to);
         String canonicalAuthor = SearchRequestNormalizer.canonicalizeOptionalAuthor(author);
-        boolean hasPostOnlyFilters = hasPostOnlyFilters(searchType, canonicalAuthor, period, from, to);
+        boolean hasPostOnlyFilters = hasPostOnlyFilters(normalizedSearchType, canonicalAuthor, period, from, to);
         Page<Post> postPage = postRepository.searchPosts(
                 canonicalKeyword,
-                searchType,
+                normalizedSearchType,
                 boardContext.boardUrl(),
                 canonicalAuthor,
                 dateRange.from(),
