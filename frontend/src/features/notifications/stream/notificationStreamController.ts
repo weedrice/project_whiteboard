@@ -24,6 +24,8 @@ import { emitBadgeAwardEvent } from '@/features/notifications/events/badgeAwardE
 import { coordinateAuthRefresh } from '@/api/authRefreshCoordinator'
 import { handleTerminalAuthFailure } from '@/api/authTerminalFailure'
 import { setNotificationStreamConnection } from '@/features/notifications/stream/notificationStreamConnectionEvents'
+import { emitMessageStreamEvent } from '@/features/user/messages/messageStreamEvents'
+import { invalidateScheduledPostNotificationCaches } from '@/features/board/posts/queries/scheduledPostNotificationCacheInvalidation'
 
 function isAbortError(error: unknown): boolean {
     return isCancellationError(error, {
@@ -128,7 +130,11 @@ export function createNotificationStreamController(
                 notificationStreamRuntime.state.recentNotificationIds,
                 sessionGeneration,
             )
-            if (!isDuplicate) emitBadgeAwardEvent(notification)
+            if (!isDuplicate) {
+                emitBadgeAwardEvent(notification)
+                emitMessageStreamEvent(notification)
+                invalidateScheduledPostNotificationCaches(queryClient, notification, sessionGeneration)
+            }
         } catch (error: unknown) {
             logger.error('Failed to parse SSE notification:', error)
         }

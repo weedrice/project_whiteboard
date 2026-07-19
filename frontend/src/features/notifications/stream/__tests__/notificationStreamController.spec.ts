@@ -6,6 +6,7 @@ import {
 } from '@/features/notifications/stream/notificationStreamController'
 import type { Notification } from '@/types'
 import { subscribeNotificationStreamConnection } from '@/features/notifications/stream/notificationStreamConnectionEvents'
+import { subscribeMessageStreamEvents } from '@/features/user/messages/messageStreamEvents'
 
 vi.mock('@/utils/logger', () => ({
     default: {
@@ -110,6 +111,46 @@ describe('notificationStreamController dependencies', () => {
         expect(normalizeNotification).toHaveBeenCalledWith({ notification_id: 12 })
         expect(firstPage.content).toEqual([{ ...notification, isRead: false }])
         expect(unreadCount).toBe(1)
+    })
+
+    it('emits a message stream event only once for a duplicate notification', async () => {
+        const notification: Notification = {
+            notificationId: 42,
+            notificationType: 'MESSAGE',
+            sourceType: 'MESSAGE',
+            sourceId: 9,
+            isRead: false,
+            createdAt: '2026-01-01T00:00:00Z',
+            message: 'new message',
+            actor: { userId: 200, displayName: 'Sender' },
+            actorDisplayName: 'Sender',
+            actorInitial: 'S',
+        }
+        const received: Notification[] = []
+        const unsubscribe = subscribeMessageStreamEvents((event) => received.push(event))
+        const openStream = vi.fn(() => Promise.resolve({
+            ok: true,
+            body: createSseStream([
+                'event: message\ndata: {"notification_id":42}\n\n',
+                'event: message\ndata: {"notification_id":42}\n\n',
+            ].join('')),
+        } as Response))
+        const authStore = { accessToken: 'test-token', sessionGeneration: 7 }
+        const queryClient = {
+            setQueriesData: vi.fn(),
+            setQueryData: vi.fn(),
+            invalidateQueries: vi.fn(),
+        } as unknown as QueryClient
+
+        createNotificationStreamController(queryClient, {
+            openStream,
+            normalizeNotification: () => notification,
+            resolveAuthStore: (() => authStore) as never,
+        }).connectToSse()
+        await flushAsync()
+
+        expect(received).toEqual([notification])
+        unsubscribe()
     })
 
     it('publishes the server connection id for session-bound comment topic subscriptions', async () => {

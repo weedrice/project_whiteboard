@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { BLOCKED_BY_USER_CODE, messageApi } from '@/api/message'
 import { apiSuccessDataResponse, apiSuccessResponse } from '@/test/apiResponseFixtures'
 import { createDeferred } from '@/test/async'
-import type { MailboxMessageViewModel, MessageSummaryDto } from '@/types'
+import type { MailboxMessageViewModel, MessageSummaryDto, Notification } from '@/types'
 import { useMailboxResource } from '../useMailboxResource'
 
 const mocks = vi.hoisted(() => ({
@@ -16,8 +16,11 @@ const mocks = vi.hoisted(() => ({
     confirm: vi.fn(),
     sendReply: vi.fn(),
     resetReplyContent: vi.fn(),
+    cancelPendingReply: vi.fn(),
+    isSending: { value: false },
     resetMailboxState: vi.fn(),
     messageSubmitOnSuccess: undefined as (() => void) | undefined,
+    messageStreamListener: undefined as ((notification: Notification) => void) | undefined,
     listState: {
         viewType: { value: 'received' as 'conversations' | 'received' | 'sent' },
         messages: { value: [] as MailboxMessageViewModel[] },
@@ -69,10 +72,20 @@ vi.mock('@/features/user/messages/useMessageSubmit', () => ({
       mocks.messageSubmitOnSuccess = options.onSuccess
       return {
         content: { value: '' },
-        isSending: { value: false },
+        isSending: mocks.isSending,
         send: mocks.sendReply,
         reset: mocks.resetReplyContent,
+        cancel: mocks.cancelPendingReply,
       }
+    },
+}))
+
+vi.mock('@/features/user/messages/messageStreamEvents', () => ({
+    subscribeMessageStreamEvents: (listener: (notification: Notification) => void) => {
+        mocks.messageStreamListener = listener
+        return () => {
+            if (mocks.messageStreamListener === listener) mocks.messageStreamListener = undefined
+        }
     },
 }))
 
@@ -129,6 +142,8 @@ describe('useMailboxResource', () => {
         mocks.listState.viewType.value = 'received'
         mocks.listState.selectedMessages.value = [1]
         mocks.messageSubmitOnSuccess = undefined
+        mocks.messageStreamListener = undefined
+        mocks.isSending.value = false
         vi.mocked(messageApi.markAsRead).mockResolvedValue(apiSuccessResponse<typeof messageApi.markAsRead>())
         vi.mocked(messageApi.deleteMessages).mockResolvedValue(apiSuccessResponse<typeof messageApi.deleteMessages>())
         vi.mocked(messageApi.getConversation).mockResolvedValue(apiSuccessDataResponse<typeof messageApi.getConversation>({
@@ -223,6 +238,107 @@ describe('useMailboxResource', () => {
         }))
         expect(mocks.toastAdd).toHaveBeenCalledWith('common.messages.deleteSuccess', 'success')
         expect(mocks.fetchMessages).toHaveBeenCalledTimes(2)
+    })
+
+    it('cancels the pending reply request when the inline reply or conversation is closed', () => {
+        const { resource } = mountMailboxResource()
+
+        resource.cancelInlineReply()
+        resource.closeConversation()
+
+        expect(mocks.cancelPendingReply).toHaveBeenCalledTimes(2)
+        expect(mocks.resetReplyContent).toHaveBeenCalledTimes(2)
+    })
+
+    it('keeps the conversation and reply locked while the send request may already be committed', () => {
+        const { resource } = mountMailboxResource()
+        const selected = message(1)
+        resource.selectedMessage.value = selected
+        resource.replyTarget.value = selected
+        mocks.isSending.value = true
+
+        resource.cancelInlineReply()
+        resource.closeConversation()
+
+        expect(resource.selectedMessage.value).toEqual(selected)
+        expect(resource.replyTarget.value).toEqual(selected)
+        expect(mocks.cancelPendingReply).not.toHaveBeenCalled()
+        expect(mocks.resetReplyContent).not.toHaveBeenCalled()
+    })
+
+    it('refreshes the mailbox and the open partner conversation once for a message stream event', async () => {
+        vi.mocked(messageApi.getConversation).mockResolvedValue(apiSuccessDataResponse<typeof messageApi.getConversation>({
+            content: [detailDto(52)], page: 0, size: 50, totalElements: 1, totalPages: 1,
+            hasNext: false, hasPrevious: false,
+        }))
+        const { resource } = mountMailboxResource()
+        await resource.openConversationByPartnerId(200)
+        vi.mocked(messageApi.getConversation).mockClear()
+        mocks.fetchMessages.mockClear()
+
+        const incomingNotification = {
+            notificationId: 91,
+            notificationType: 'MESSAGE',
+            sourceType: 'MESSAGE',
+            sourceId: 52,
+            actor: { userId: 200 },
+        } as Notification
+        mocks.messageStreamListener?.(incomingNotification)
+        mocks.messageStreamListener?.(incomingNotification)
+        await flushPromises()
+
+        expect(mocks.fetchMessages).toHaveBeenCalledTimes(1)
+        expect(messageApi.getConversation).toHaveBeenCalledTimes(1)
+        expect(resource.selectedConversationMessages.value.map(({ id }) => id)).toEqual([52])
+    })
+
+    it('refreshes only the mailbox when a message stream event is for another partner', async () => {
+        const { resource } = mountMailboxResource()
+        await resource.openConversationByPartnerId(200)
+        vi.mocked(messageApi.getConversation).mockClear()
+        mocks.fetchMessages.mockClear()
+
+        mocks.messageStreamListener?.({
+            notificationId: 92,
+            notificationType: 'MESSAGE',
+            sourceType: 'MESSAGE',
+            sourceId: 53,
+            actor: { userId: 300 },
+        } as Notification)
+        await flushPromises()
+
+        expect(mocks.fetchMessages).toHaveBeenCalledTimes(1)
+        expect(messageApi.getConversation).not.toHaveBeenCalled()
+    })
+
+    it('keeps a streamed message when the initial conversation response finishes later', async () => {
+        const initialConversation = createDeferred<Awaited<ReturnType<typeof messageApi.getConversation>>>()
+        vi.mocked(messageApi.getConversation)
+            .mockReturnValueOnce(initialConversation.promise)
+            .mockResolvedValueOnce(apiSuccessDataResponse<typeof messageApi.getConversation>({
+                content: [detailDto(53)], page: 0, size: 50, totalElements: 2, totalPages: 1,
+                hasNext: false, hasPrevious: false,
+            }))
+        const { resource } = mountMailboxResource()
+
+        const opening = resource.openConversationByPartnerId(200)
+        mocks.messageStreamListener?.({
+            notificationId: 93,
+            notificationType: 'MESSAGE',
+            sourceType: 'MESSAGE',
+            sourceId: 53,
+            actor: { userId: 200 },
+        } as Notification)
+        await flushPromises()
+
+        initialConversation.resolve(apiSuccessDataResponse<typeof messageApi.getConversation>({
+            content: [detailDto(52)], page: 0, size: 50, totalElements: 2, totalPages: 1,
+            hasNext: false, hasPrevious: false,
+        }))
+        await opening
+
+        expect(resource.selectedConversationMessages.value.map(({ id }) => id)).toEqual([52, 53])
+        expect(resource.selectedMessage.value?.id).toBe(53)
     })
 
     it('loads the latest conversation window descending and presents it chronologically', async () => {

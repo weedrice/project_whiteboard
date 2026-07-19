@@ -18,7 +18,7 @@
                 }) }}
             </p>
             <div class="mt-4 flex justify-end">
-                <BaseButton @click="closeModal" variant="secondary" class="mr-2">{{ $t('common.cancel') }}
+                <BaseButton @click="closeModal" variant="secondary" class="mr-2" :disabled="isSendingMessage">{{ $t('common.cancel') }}
                 </BaseButton>
                 <BaseButton @click="handleSendMessage" :disabled="isSendingMessage">
                     {{ isSendingMessage ? $t('common.messages.sending') : $t('common.send') }}
@@ -68,6 +68,7 @@ const resetMessageSession = () => {
 }
 
 const closeModal = () => {
+    if (isSendingMessage.value) return
     resetMessageSession()
     emit('close')
 }

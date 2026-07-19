@@ -176,6 +176,7 @@
                     >
                         <BaseTextarea
                             v-model="replyContent"
+                            :disabled="isSending"
                             :label="$t('user.message.replyTitle')"
                             :maxlength="MESSAGE_CONTENT_MAX_LENGTH"
                             :error="replyContentError"
@@ -200,6 +201,7 @@
                                 type="button"
                                 size="sm"
                                 variant="secondary"
+                                :disabled="isSending"
                                 @click="cancelInlineReply"
                             >
                                 {{ $t('common.cancel') }}
@@ -210,7 +212,7 @@
             </div>
 
             <div class="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:space-x-2 pt-4 border-t nv-border">
-                <BaseButton @click="closeConversationAndSyncRoute" variant="secondary"
+                <BaseButton @click="closeConversationAndSyncRoute" variant="secondary" :disabled="isSending"
                     class="w-full sm:w-auto min-h-[44px] order-1 sm:order-none">
                     {{ $t('common.close') }}
                 </BaseButton>
@@ -290,6 +292,7 @@ function removePartnerIdFromRoute() {
 }
 
 function closeConversationAndSyncRoute() {
+    if (isSending.value) return
     closeConversation()
     removePartnerIdFromRoute()
 }

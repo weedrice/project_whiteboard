@@ -267,6 +267,42 @@ describe('MyMessages', () => {
         expect(modal.props('isOpen')).toBe(false)
     })
 
+    it('keeps the conversation route and modal open while a reply is sending', async () => {
+        routerMocks.route.query = { partnerId: '2', page: '3' }
+        const message = {
+            messageId: 5,
+            content: 'deep-linked message',
+            partner: { userId: 2, displayName: 'Other' },
+            isRead: true,
+            createdAt: '2026-04-16T11:00:00',
+        }
+        messageApi.getConversation.mockResolvedValue({
+            data: {
+                success: true,
+                data: { content: [message], totalPages: 1 },
+            },
+        })
+        const sendResult = createDeferred<{ data: { success: boolean } }>()
+        messageApi.sendMessage.mockReturnValue(sendResult.promise)
+
+        const wrapper = mountMyMessages()
+        await flushPromises()
+        const exposed = getExposedVm<MyMessagesExposed>(wrapper)
+        exposed.replyContent = 'pending reply'
+        const sending = exposed.sendReply()
+        await vi.waitFor(() => expect(messageApi.sendMessage).toHaveBeenCalledOnce())
+
+        const modal = wrapper.findComponent(baseModalStub)
+        modal.vm.$emit('close')
+        await flushPromises()
+
+        expect(routerMocks.replace).not.toHaveBeenCalled()
+        expect(modal.props('isOpen')).toBe(true)
+
+        sendResult.resolve({ data: { success: false } })
+        await sending
+    })
+
     it('shows a retryable conversation error without hiding the loaded message detail', async () => {
         const listedMessage = {
             messageId: 5,

@@ -159,7 +159,7 @@ describe('MessageModal', () => {
         expect(mocks.addToast).not.toHaveBeenCalledWith('user.message.sendSuccess', 'success')
     })
 
-    it('does not let a closed send complete a reopened modal', async () => {
+    it('keeps the modal open while a send may already be committed by the server', async () => {
         let resolveSend: (value: unknown) => void = () => undefined
         mocks.sendMessage.mockReturnValueOnce(new Promise((resolve) => {
             resolveSend = resolve
@@ -168,14 +168,15 @@ describe('MessageModal', () => {
         await wrapper.get('textarea').setValue('닫기 전 메시지')
         await getButtonByText(wrapper, 'common.send').trigger('click')
 
-        await getButtonByText(wrapper, 'common.cancel').trigger('click')
-        await wrapper.setProps({ isOpen: false })
-        await wrapper.setProps({ isOpen: true })
-        await wrapper.get('textarea').setValue('새 메시지')
+        const cancelButton = getButtonByText(wrapper, 'common.cancel')
+        expect(cancelButton.attributes('disabled')).toBeDefined()
+        await cancelButton.trigger('click')
+
+        expect(wrapper.emitted('close')).toBeUndefined()
+        expect((wrapper.get('textarea').element as HTMLTextAreaElement).value).toBe('닫기 전 메시지')
         resolveSend({ data: { success: true } })
         await flushAll()
 
         expect(wrapper.emitted('close')).toHaveLength(1)
-        expect((wrapper.get('textarea').element as HTMLTextAreaElement).value).toBe('새 메시지')
     })
 })

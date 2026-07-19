@@ -21,6 +21,7 @@ export function useMailboxListState() {
         handlePageChange: setPage,
         handleSizeChange: setSize,
         resetPage,
+        clampPageToTotalPages,
     } = usePaginatedQueryState({ initialSize: 15 })
     const totalPages = ref(0)
     const messageListTask = useLatestAsyncTask<string>({
@@ -44,8 +45,13 @@ export function useMailboxListState() {
 
         if (data?.success) {
             const messagePage = unwrapApiData(data)
+            const nextTotalPages = messagePage?.totalPages || 0
+            if (clampPageToTotalPages(nextTotalPages)) {
+                await fetchMessages()
+                return
+            }
             messages.value = messagePage?.content.map(toMailboxMessageViewModel) || []
-            totalPages.value = messagePage?.totalPages || 0
+            totalPages.value = nextTotalPages
         }
     }
 

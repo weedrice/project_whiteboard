@@ -12,6 +12,7 @@ import type { MailboxMessageViewModel, MessageResponse } from '@/types'
 import { extractErrorResponse } from '@/utils/errorHandler'
 import { markMailboxMessageRead, toMailboxMessageViewModel } from '@/features/user/messages/messageViewModel'
 import logger from '@/utils/logger'
+import { subscribeMessageStreamEvents } from '@/features/user/messages/messageStreamEvents'
 
 const NOT_FOUND_CODE = 'C006'
 
@@ -85,6 +86,7 @@ export function useMailboxResource() {
         isSending,
         send: sendReply,
         reset: resetReplyContent,
+        cancel: cancelPendingReply,
     } = useMessageSubmit({
         getReceiverId: () => replyTarget.value?.partnerUserId ?? selectedMessage.value?.partnerUserId,
         logMessage: 'Failed to send reply:',
@@ -101,6 +103,7 @@ export function useMailboxResource() {
     let conversationPageAbortController: AbortController | null = null
     let deleteRequestAbortController: AbortController | null = null
     const markAsReadAbortControllers = new Set<AbortController>()
+    const recentMessageNotificationIds = new Set<number>()
 
     function abortMessageDetailRequest() {
         messageDetailAbortController?.abort()
@@ -131,7 +134,10 @@ export function useMailboxResource() {
     }
 
     function applyInitialConversationPage(conversationPage: ConversationPage) {
-        selectedConversationMessages.value = mergeConversationMessages(conversationPage.messages)
+        selectedConversationMessages.value = mergeConversationMessages(
+            selectedConversationMessages.value,
+            conversationPage.messages,
+        )
         conversationNextPage.value = conversationPage.hasNext ? conversationPage.page + 1 : null
         conversationOlderError.value = null
     }
@@ -142,6 +148,7 @@ export function useMailboxResource() {
     }
 
     function closeConversation() {
+        if (isSending.value) return
         messageDetailRequestId++
         abortMessageDetailRequest()
         abortConversationRefresh()
@@ -155,6 +162,7 @@ export function useMailboxResource() {
         lastConversationPartnerId.value = null
         isReplyModalOpen.value = false
         replyTarget.value = null
+        cancelPendingReply()
         resetReplyContent()
     }
 
@@ -411,6 +419,48 @@ export function useMailboxResource() {
         }
     }
 
+    function handleMessageStreamEvent(notification: { notificationId: number; actor: { userId: number } }) {
+        if (recentMessageNotificationIds.has(notification.notificationId)) return
+        recentMessageNotificationIds.add(notification.notificationId)
+        if (recentMessageNotificationIds.size > 100) {
+            const oldestNotificationId = recentMessageNotificationIds.values().next().value
+            if (oldestNotificationId != null) recentMessageNotificationIds.delete(oldestNotificationId)
+        }
+
+        const generation = authStore.sessionGeneration
+        void fetchMessages()
+
+        const partnerId = notification.actor.userId
+        if (partnerId <= 0 || partnerId !== lastConversationPartnerId.value) return
+
+        abortConversationRefresh()
+        const requestId = conversationRefreshRequestId
+        const controller = new AbortController()
+        conversationRefreshAbortController = controller
+        void (async () => {
+            try {
+                const conversation = await loadConversationMessages(partnerId, controller)
+                if (
+                    controller.signal.aborted
+                    || requestId !== conversationRefreshRequestId
+                    || generation !== authStore.sessionGeneration
+                    || partnerId !== lastConversationPartnerId.value
+                ) return
+                selectedConversationMessages.value = mergeConversationMessages(
+                    selectedConversationMessages.value,
+                    conversation.messages,
+                )
+            } catch (error) {
+                if (controller.signal.aborted || generation !== authStore.sessionGeneration) return
+                logger.error('Failed to refresh message conversation from stream:', error)
+            } finally {
+                if (conversationRefreshAbortController === controller) {
+                    conversationRefreshAbortController = null
+                }
+            }
+        })()
+    }
+
     function retryMessageDetail() {
         if (selectedMessage.value) void openMessage(selectedMessage.value)
     }
@@ -462,13 +512,17 @@ export function useMailboxResource() {
     }
 
     function closeReplyModal() {
+        if (isSending.value) return
         isReplyModalOpen.value = false
         replyTarget.value = null
+        cancelPendingReply()
         resetReplyContent()
     }
 
     function cancelInlineReply() {
+        if (isSending.value) return
         replyTarget.value = null
+        cancelPendingReply()
         resetReplyContent()
     }
 
@@ -498,6 +552,8 @@ export function useMailboxResource() {
             lastConversationPartnerId.value = null
             selectedMessages.value = []
             replyTarget.value = null
+            recentMessageNotificationIds.clear()
+            cancelPendingReply()
             resetReplyContent()
         },
     )
@@ -506,6 +562,8 @@ export function useMailboxResource() {
         fetchMessages()
     })
 
+    const unsubscribeMessageStream = subscribeMessageStreamEvents(handleMessageStreamEvent)
+
     onUnmounted(() => {
         messageDetailRequestId++
         abortMessageDetailRequest()
@@ -513,6 +571,8 @@ export function useMailboxResource() {
         abortConversationRefresh()
         abortConversationPageRequest()
         abortDeleteRequest()
+        cancelPendingReply()
+        unsubscribeMessageStream()
     })
 
     return {
