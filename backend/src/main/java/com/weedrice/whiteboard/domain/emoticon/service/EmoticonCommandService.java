@@ -60,7 +60,7 @@ class EmoticonCommandService {
         validateThumbnailIsDistinct(request.getThumbnailFileId(), request.getImageFileIds());
         int imageLimit = imageLimitPolicy.getCurrentLimit();
         validateImageCount(sizeOf(request.getImageFileIds()), imageLimit);
-        User user = userWritableResolver.resolve(userId);
+        User user = userWritableResolver.resolveForUpdate(userId);
 
         EmoticonMaster master = EmoticonMaster.builder()
                 .name(request.getName())
@@ -123,6 +123,7 @@ class EmoticonCommandService {
     }
 
     EmoticonMasterDto updateEmoticon(Long userId, Long emoticonId, EmoticonUpdateRequest request) {
+        userWritableResolver.resolveForUpdate(userId);
         ShopItem shopItem = shopItemLifecycleService.lockForUpdate(emoticonId);
         EmoticonMaster master = emoticonMasterRepository.findByIdForUpdate(emoticonId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.EMOTICON_NOT_FOUND));
@@ -219,6 +220,7 @@ class EmoticonCommandService {
     }
 
     EmoticonMasterDto toggleVisibility(Long userId, Long emoticonId) {
+        userWritableResolver.resolveForUpdate(userId);
         ShopItem shopItem = shopItemLifecycleService.lockForUpdate(emoticonId);
         EmoticonMaster master = emoticonMasterRepository.findByIdForUpdate(emoticonId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.EMOTICON_NOT_FOUND));
@@ -238,6 +240,7 @@ class EmoticonCommandService {
     }
 
     void deleteEmoticon(Long userId, Long emoticonId) {
+        userWritableResolver.resolveForUpdate(userId);
         ShopItem shopItem = shopItemLifecycleService.lockForUpdate(emoticonId);
         EmoticonMaster master = emoticonMasterRepository.findByIdForUpdate(emoticonId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.EMOTICON_NOT_FOUND));
@@ -271,6 +274,7 @@ class EmoticonCommandService {
     }
 
     EmoticonMasterDto addImage(Long userId, Long emoticonId, Long fileId) {
+        userWritableResolver.resolveForUpdate(userId);
         EmoticonMaster master = emoticonMasterRepository.findByIdForUpdate(emoticonId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.EMOTICON_NOT_FOUND));
 
@@ -290,6 +294,7 @@ class EmoticonCommandService {
     }
 
     void deleteImage(Long userId, Long imageId) {
+        userWritableResolver.resolveForUpdate(userId);
         EmoticonImage imageSnapshot = emoticonImageRepository.findById(imageId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.EMOTICON_IMAGE_NOT_FOUND));
 
@@ -324,7 +329,6 @@ class EmoticonCommandService {
 
     private void validateWritableOwner(EmoticonMaster master, Long userId) {
         validateOwner(master, userId);
-        userWritableResolver.resolve(userId);
     }
 
     private void validateImageLimit(EmoticonMaster master) {

@@ -81,16 +81,16 @@ public class ShopService {
 
     @Transactional
     public Long purchaseItem(Long userId, Long itemId) {
+        User user = resolvePurchasingUser(userId);
         ShopItem item = shopItemRepository.findByIdForUpdate(itemId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.ITEM_NOT_AVAILABLE));
-        User user = resolvePurchasingUser(userId);
         return purchaseItem(user, item);
     }
 
     @Transactional
     public Long purchaseActiveItemByTarget(Long userId, String itemType, Long targetId) {
-        ShopItem item = resolveSingleItemByTargetForUpdate(normalizeItemType(itemType), targetId);
         User user = resolvePurchasingUser(userId);
+        ShopItem item = resolveSingleItemByTargetForUpdate(normalizeItemType(itemType), targetId);
         return purchaseItem(user, item);
     }
 
