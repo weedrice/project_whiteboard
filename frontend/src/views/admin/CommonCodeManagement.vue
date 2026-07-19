@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
+import { onBeforeRouteLeave } from 'vue-router'
 import { Plus, Save, Trash2 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import AdminDataPage from '@/components/admin/AdminDataPage.vue'
@@ -26,6 +27,7 @@ const isDetailModalOpen = ref(false)
 const editingDetailId = ref<number | null>(null)
 const isSaving = ref(false)
 const isMasterDirty = ref(false)
+let selectionRevision = 0
 
 type CommonCodeForm = Omit<CommonCodePayload, 'description'> & { description: string }
 const emptyCodeForm = (): CommonCodeForm => ({ typeCode: '', typeName: '', description: '' })
@@ -64,6 +66,7 @@ watch(selectedCode, (value) => {
 }, { immediate: true })
 
 function resetTransientState() {
+  selectionRevision += 1
   isCodeModalOpen.value = false
   isDetailModalOpen.value = false
   editingDetailId.value = null
@@ -92,6 +95,19 @@ function openCodeModal() {
   Object.assign(createCodeForm, emptyCodeForm())
   isCodeModalOpen.value = true
 }
+async function selectTypeCode(typeCode: string) {
+  if (typeCode === selectedTypeCode.value) return
+  const revision = ++selectionRevision
+  if (isMasterDirty.value && !(await confirm(t('admin.commonCodes.messages.confirmDiscardChanges')))) return
+  if (revision !== selectionRevision) return
+  selectedTypeCode.value = typeCode
+}
+
+onBeforeRouteLeave(async () => {
+  if (!isMasterDirty.value) return true
+  return confirm(t('admin.commonCodes.messages.confirmDiscardChanges'))
+})
+
 function closeCodeModal() {
   isCodeModalOpen.value = false
   isSaving.value = false
@@ -183,7 +199,7 @@ async function deleteDetail(detailId: number) {
         <button v-for="code in codes" :key="code.typeCode" type="button"
           class="mb-1 w-full rounded-md px-3 py-3 text-left nv-focus-ring"
           :class="selectedTypeCode === code.typeCode ? 'bg-[var(--nv-surface-2)] nv-title' : 'nv-text nv-hover-surface'"
-          @click="selectedTypeCode = code.typeCode">
+          @click="selectTypeCode(code.typeCode)">
           <span class="block font-semibold">{{ code.typeName }}</span>
           <span class="block text-xs nv-text-subtle">{{ code.typeCode }}</span>
         </button>

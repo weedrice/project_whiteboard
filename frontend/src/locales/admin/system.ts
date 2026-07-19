@@ -59,6 +59,7 @@ export const adminSystemMessages = {
       invalid: '필수 값과 입력 길이를 확인해 주세요.',
       saved: '코드 그룹을 저장했습니다.',
       detailSaved: '상세 코드를 저장했습니다.',
+      confirmDiscardChanges: '저장하지 않은 코드 그룹 변경사항이 있습니다. 이동하시겠습니까?',
       confirmDelete: '이 상세 코드를 삭제하시겠습니까?',
       deleted: '상세 코드를 삭제했습니다.',
     },

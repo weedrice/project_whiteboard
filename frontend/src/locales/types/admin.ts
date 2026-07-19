@@ -342,6 +342,7 @@ export interface AdminMessages {
       invalid: string
       saved: string
       detailSaved: string
+      confirmDiscardChanges: string
       confirmDelete: string
       deleted: string
     }

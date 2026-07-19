@@ -59,6 +59,7 @@ export const adminSystemMessagesEn = {
       invalid: 'Check the required values and input lengths.',
       saved: 'The code group has been saved.',
       detailSaved: 'The detail code has been saved.',
+      confirmDiscardChanges: 'You have unsaved code group changes. Leave this page?',
       confirmDelete: 'Delete this detail code?',
       deleted: 'The detail code has been deleted.',
     },
