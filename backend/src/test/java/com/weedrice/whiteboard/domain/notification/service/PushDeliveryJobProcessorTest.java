@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.notification.service;
 import com.weedrice.whiteboard.domain.notification.entity.PushDeliveryJob;
 import com.weedrice.whiteboard.domain.notification.config.PushDeliveryJobProperties;
 import com.weedrice.whiteboard.domain.notification.repository.PushDeliveryJobRepository;
+import com.weedrice.whiteboard.domain.user.repository.UserBlockRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -32,6 +33,8 @@ class PushDeliveryJobProcessorTest {
     @Mock PushNotificationDispatcher dispatcher;
     @Mock PushSubscriptionCleanupService subscriptionCleanupService;
     @Mock PushDeliveryJobMetrics metrics;
+    @Mock PushPayloadFactory payloadFactory;
+    @Mock UserBlockRepository userBlockRepository;
 
     private Clock clock;
     private LocalDateTime now;
@@ -48,7 +51,7 @@ class PushDeliveryJobProcessorTest {
         lease = new PushDeliveryLease(JOB_ID, now, subscription, "payload");
         processor = new PushDeliveryJobProcessor(
                 jobRepository, jobTransaction, snapshotReader, dispatcher, subscriptionCleanupService,
-                metrics, new PushDeliveryJobProperties(), clock);
+                payloadFactory, userBlockRepository, metrics, new PushDeliveryJobProperties(), clock);
         when(jobTransaction.claim(JOB_ID, now)).thenReturn(lease);
     }
 
@@ -102,6 +105,21 @@ class PushDeliveryJobProcessorTest {
 
         verify(jobTransaction).expire(lease, "Subscription changed or push disabled");
         verify(metrics).recordOutcome("stale_subscription");
+        org.mockito.Mockito.verifyNoInteractions(dispatcher);
+    }
+
+    @Test
+    void blockedActorExpiresQueuedPushWithoutSending() {
+        when(snapshotReader.isCurrentAndEnabled(subscription)).thenReturn(true);
+        when(payloadFactory.readActorUserId("payload")).thenReturn(7L);
+        when(userBlockRepository.existsEitherDirection(2L, 7L)).thenReturn(true);
+        when(jobTransaction.expire(lease, "Notification actor is blocked"))
+                .thenReturn(DeliveryJobTransitionResult.APPLIED_SUCCESS);
+
+        assertThat(processor.processJob(JOB_ID)).isTrue();
+
+        verify(jobTransaction).expire(lease, "Notification actor is blocked");
+        verify(metrics).recordOutcome("blocked_actor");
         org.mockito.Mockito.verifyNoInteractions(dispatcher);
     }
 

@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.notification.entity.Notification;
 
 record PushDispatchCommand(
         Long userId,
+        Long actorUserId,
         Long notificationId,
         String content,
         String notificationType) {
@@ -17,6 +18,7 @@ record PushDispatchCommand(
                 : notification.getNotificationType().name().toLowerCase();
         return new PushDispatchCommand(
                 notification.getUser().getUserId(),
+                notification.getActor() == null ? null : notification.getActor().getUserId(),
                 notification.getNotificationId(),
                 notification.getContent(),
                 type);

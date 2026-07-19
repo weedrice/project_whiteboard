@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.notification.service;
 import com.weedrice.whiteboard.domain.notification.entity.PushDeliveryJob;
 import com.weedrice.whiteboard.domain.notification.config.PushDeliveryJobProperties;
 import com.weedrice.whiteboard.domain.notification.repository.PushDeliveryJobRepository;
+import com.weedrice.whiteboard.domain.user.repository.UserBlockRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -31,6 +32,8 @@ public class PushDeliveryJobProcessor {
     private final PushDispatchSnapshotReader snapshotReader;
     private final PushNotificationDispatcher dispatcher;
     private final PushSubscriptionCleanupService subscriptionCleanupService;
+    private final PushPayloadFactory payloadFactory;
+    private final UserBlockRepository userBlockRepository;
     private final PushDeliveryJobMetrics metrics;
     private final PushDeliveryJobProperties properties;
     private final Clock clock;
@@ -74,6 +77,14 @@ public class PushDeliveryJobProcessor {
                         lease,
                         "Subscription changed or push disabled");
                 return recordTerminalResult(jobId, result, "stale_subscription", true);
+            }
+            Long actorUserId = payloadFactory.readActorUserId(lease.payload());
+            if (actorUserId != null
+                    && userBlockRepository.existsEitherDirection(lease.subscription().userId(), actorUserId)) {
+                DeliveryJobTransitionResult result = jobTransaction.expire(
+                        lease,
+                        "Notification actor is blocked");
+                return recordTerminalResult(jobId, result, "blocked_actor", true);
             }
             PushDeliveryOutcome outcome = dispatcher.send(lease.subscription(), lease.payload());
             switch (outcome) {

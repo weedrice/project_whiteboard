@@ -10,11 +10,14 @@ class PushPayloadFactoryTest {
     @Test
     void usesStableNotificationTagForBrowserDisplayDeduplication() {
         PushPayloadFactory factory = new PushPayloadFactory(new ObjectMapper());
-        PushDispatchCommand command = new PushDispatchCommand(3L, 7L, "content", "comment");
+        PushDispatchCommand command = new PushDispatchCommand(3L, 11L, 7L, "content", "comment");
 
         String first = factory.create(command);
         String second = factory.create(command);
 
-        assertThat(first).isEqualTo(second).contains("\"tag\":\"notification-7\"");
+        assertThat(first).isEqualTo(second)
+                .contains("\"tag\":\"notification-7\"")
+                .contains("\"actorUserId\":11");
+        assertThat(factory.readActorUserId(first)).isEqualTo(11L);
     }
 }
