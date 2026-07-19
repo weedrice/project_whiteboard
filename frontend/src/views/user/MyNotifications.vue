@@ -13,15 +13,16 @@ import { getNotificationMessage, getNotificationPresentation } from '@/features/
 import type { Notification } from '@/types'
 
 const { t } = useI18n()
-const { useMarkAllAsRead } = useNotification()
+const { useMarkAllAsRead, useUnreadCount } = useNotification()
 const { navigateFromNotification } = useNotificationNavigation({ showCommentFailureToast: true })
 
 const { page, size, params, handlePageChange, handleSizeChange } = usePaginatedQueryState({ initialSize: 15 })
 
 const { isLoading, isError, errorMessage, refetch, notifications, totalPages } = useNotificationListState(params, t)
+const { data: unreadCount } = useUnreadCount()
 const { mutate: markAllAsRead, isPending: isMarkingAllAsRead } = useMarkAllAsRead()
 
-const hasUnreadNotifications = computed(() => notifications.value.some((notification) => !notification.isRead))
+const hasUnreadNotifications = computed(() => (unreadCount.value ?? 0) > 0)
 
 async function handleNotificationClick(notification: Notification) {
   await navigateFromNotification(notification)

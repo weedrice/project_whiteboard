@@ -9,6 +9,7 @@ const isLoading = ref(false)
 const isError = ref(false)
 const error = ref<Error | null>(null)
 const isMarkingAllAsRead = ref(false)
+const unreadCount = ref(0)
 const refetchNotifications = vi.fn()
 const markAllAsRead = vi.fn()
 const navigateFromNotification = vi.fn()
@@ -21,6 +22,7 @@ vi.mock('@/features/notifications/queries/useNotification', () => ({
   useNotification: () => ({
     useNotifications: () => ({ data: notificationsData, isLoading, isError, error, refetch: refetchNotifications }),
     useMarkAllAsRead: () => ({ mutate: markAllAsRead, isPending: isMarkingAllAsRead }),
+    useUnreadCount: () => ({ data: unreadCount }),
   }),
 }))
 
@@ -92,11 +94,12 @@ describe('NotificationDropdown', () => {
     isError.value = false
     error.value = null
     isMarkingAllAsRead.value = false
+    unreadCount.value = 0
     notificationsData.value = { content: [] }
   })
 
-  it('disables mark-all when every notification is already read', async () => {
-    notificationsData.value = { content: [makeNotification(true)] }
+  it('disables mark-all when the global unread count is zero', async () => {
+    notificationsData.value = { content: [makeNotification(false)] }
     const wrapper = mountDropdown()
 
     const button = wrapper.get('button')
@@ -106,8 +109,9 @@ describe('NotificationDropdown', () => {
     expect(markAllAsRead).not.toHaveBeenCalled()
   })
 
-  it('marks all as read only when unread notifications exist', async () => {
-    notificationsData.value = { content: [makeNotification(false)] }
+  it('marks all as read when unread notifications exist outside the dropdown page', async () => {
+    notificationsData.value = { content: [makeNotification(true)] }
+    unreadCount.value = 2
     const wrapper = mountDropdown()
 
     const button = wrapper.get('button')

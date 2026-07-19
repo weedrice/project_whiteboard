@@ -17,7 +17,7 @@ import {
 } from '@/features/notifications/notificationPresentation'
 
 const { t } = useI18n()
-const { useMarkAllAsRead } = useNotification()
+const { useMarkAllAsRead, useUnreadCount } = useNotification()
 const { navigateFromNotification } = useNotificationNavigation()
 
 // Default params for dropdown
@@ -25,9 +25,10 @@ const params = ref<NotificationParams>({ page: 0, size: 20 })
 
 // Trigger fetch via useQuery
 const { isLoading, isError, errorMessage, refetch, notifications } = useNotificationListState(params, t)
+const { data: unreadCount } = useUnreadCount()
 const { mutate: markAllAsRead, isPending: isMarkingAllAsRead } = useMarkAllAsRead()
 
-const hasUnreadNotifications = computed(() => notifications.value.some((notification) => !notification.isRead))
+const hasUnreadNotifications = computed(() => (unreadCount.value ?? 0) > 0)
 
 async function handleNotificationClick(notification: Notification) {
   await navigateFromNotification(notification)

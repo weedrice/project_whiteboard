@@ -10,6 +10,7 @@ const isLoading = ref(false)
 const isError = ref(false)
 const error = ref<Error | null>(null)
 const isMarkingAllAsRead = ref(false)
+const unreadCount = ref(0)
 const refetchNotifications = vi.fn()
 const markAllAsRead = vi.fn()
 const navigateFromNotification = vi.fn()
@@ -35,6 +36,7 @@ vi.mock('@/features/notifications/queries/useNotification', () => ({
       return { data: notificationsData, isLoading, isError, error, refetch: refetchNotifications }
     },
     useMarkAllAsRead: () => ({ mutate: markAllAsRead, isPending: isMarkingAllAsRead }),
+    useUnreadCount: () => ({ data: unreadCount }),
   }),
 }))
 
@@ -129,12 +131,13 @@ describe('MyNotifications', () => {
     isError.value = false
     error.value = null
     isMarkingAllAsRead.value = false
+    unreadCount.value = 0
     notificationsData.value = makePage([])
     latestParams = undefined
   })
 
-  it('disables mark-all when the page has no unread notifications', async () => {
-    notificationsData.value = makePage([makeNotification(true)])
+  it('disables mark-all when the global unread count is zero', async () => {
+    notificationsData.value = makePage([makeNotification(false)])
     const wrapper = mountMyNotifications()
 
     const button = wrapper.get('button')
@@ -144,8 +147,9 @@ describe('MyNotifications', () => {
     expect(markAllAsRead).not.toHaveBeenCalled()
   })
 
-  it('marks all as read when the page has unread notifications', async () => {
-    notificationsData.value = makePage([makeNotification(false)])
+  it('marks all as read when unread notifications exist outside the current page', async () => {
+    notificationsData.value = makePage([makeNotification(true)])
+    unreadCount.value = 3
     const wrapper = mountMyNotifications()
 
     const button = wrapper.get('button')
