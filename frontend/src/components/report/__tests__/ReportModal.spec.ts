@@ -88,7 +88,7 @@ describe('ReportModal', () => {
         await reportButton.trigger('click')
 
         expect(submit).toHaveBeenCalledTimes(1)
-        expect(submit).toHaveBeenCalledWith('신고 사유')
+        expect(submit).toHaveBeenCalledWith('신고 사유', 'ETC')
 
         resolveSubmit(true)
         await flushAll()
@@ -103,7 +103,7 @@ describe('ReportModal', () => {
         await getButtonByText(wrapper, 'common.report').trigger('click')
         await flushAll()
 
-        expect(submit).toHaveBeenCalledWith('신고 사유')
+        expect(submit).toHaveBeenCalledWith('신고 사유', 'ETC')
         expect(wrapper.emitted('close')).toBeUndefined()
     })
 
@@ -118,6 +118,17 @@ describe('ReportModal', () => {
         expect(submit).not.toHaveBeenCalled()
         expect(mocks.addToast).toHaveBeenCalledWith('report.reasonTooLong', 'warning')
         expect(wrapper.get('textarea').attributes('data-error')).toBe('report.reasonTooLong')
+    })
+
+    it('submits the selected report type', async () => {
+        const submit = vi.fn(async () => true)
+        const wrapper = mountModal(submit)
+
+        await wrapper.get('select').setValue('SPAM')
+        await wrapper.get('textarea').setValue('spam links')
+        await getButtonByText(wrapper, 'common.report').trigger('click')
+
+        expect(submit).toHaveBeenCalledWith('spam links', 'SPAM')
     })
 
     it('resets the draft and ignores a delayed result after target identity changes', async () => {

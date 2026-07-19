@@ -6,6 +6,7 @@ import {
   getMyReportStatusLabel,
   getMyReportTargetTypeLabel,
   getReportProcessorText,
+  getReportReasonTypeLabel,
   getReportReasonText,
   getReportStatusVariant,
   getReportTargetDisplayText
@@ -36,6 +37,8 @@ describe('reportDisplay', () => {
     expect(getMyReportStatusLabel(t, 'PENDING')).toBe('translated:user.reportList.pending')
     expect(getMyReportStatusLabel(t, 'RESOLVED')).toBe('translated:user.reportList.processed')
     expect(getMyReportStatusLabel(t, 'REJECTED')).toBe('translated:user.reportList.rejected')
+    expect(getReportReasonTypeLabel(t, 'SPAM')).toBe('translated:report.reasonTypes.SPAM')
+    expect(getReportReasonTypeLabel(t, 'LEGACY')).toBe('LEGACY')
   })
 
   it('maps my-report status classes', () => {

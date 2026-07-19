@@ -84,6 +84,7 @@ import { getCurrentSessionGeneration } from '@/queryAuthScope'
 import { isCancellationError } from '@/utils/cancellationError'
 import { queryClient } from '@/queryClient'
 import { invalidateMyReportCaches } from '@/features/user/reports/reportCacheInvalidation'
+import type { ReportReasonType } from '@/types'
 
 const { t } = useI18n()
 const toastStore = useToastStore()
@@ -238,7 +239,7 @@ function cancelPendingUserReport() {
   reportAbortController = null
 }
 
-async function submitUserReport(reason: string) {
+async function submitUserReport(reason: string, reasonType: ReportReasonType) {
   const targetUserId = props.userId
   const targetDisplayName = props.displayName
   const sessionGeneration = getCurrentSessionGeneration()
@@ -260,7 +261,7 @@ async function submitUserReport(reason: string) {
     const { data } = await reportApi.reportUser(targetUserId, reason, '', {
       skipGlobalErrorHandler: true,
       signal: controller.signal,
-    })
+    }, reasonType)
     if (!isCurrentReport() || !data.success) return false
 
     void invalidateMyReportCaches(queryClient, sessionGeneration)

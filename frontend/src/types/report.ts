@@ -1,4 +1,6 @@
 // 신고 관련 타입 (API ReportResponse와 동일)
+export type ReportReasonType = 'SPAM' | 'ABUSE' | 'ADULT' | 'ETC'
+
 export interface Report {
     reportId: number
     reporterId?: number
@@ -7,7 +9,7 @@ export interface Report {
     targetId: number
     targetUserId?: number | null
     /** 신고 사유 유형 (SPAM, ABUSE, ADULT 등) */
-    reasonType: string
+    reasonType: ReportReasonType | string
     /** Report creation remark, such as a legacy user report link. */
     remark?: string | null
     /** Admin processing note. */
@@ -28,7 +30,7 @@ export interface Report {
 export interface MyReport {
     reportId: number
     targetType: 'POST' | 'COMMENT' | 'USER'
-    reasonType: string
+    reasonType: ReportReasonType | string
     status: 'PENDING' | 'RESOLVED' | 'REJECTED'
     contents?: string | null
     targetDisplayName?: string | null

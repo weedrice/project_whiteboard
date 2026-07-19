@@ -142,6 +142,7 @@ export interface ScheduledPostDetail extends ScheduledPost {
 export interface ReportData {
     targetPostId: string | number
     reason: string
+    reasonType?: import('@/types').ReportReasonType
 }
 
 const emptyStats = (): HomeLandingStats => ({

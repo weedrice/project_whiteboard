@@ -288,6 +288,29 @@ describe('reportApi', () => {
         })
         expect(apiMock.get).toHaveBeenCalledWith('/reports/me', { params: { page: 1, size: 10 } })
     })
+
+    it('adds an optional typed reason without changing legacy report calls', () => {
+        reportApi.reportUser(7, 'abuse', '/users/7', undefined, 'ABUSE')
+        reportApi.reportPost(11, 'spam', 'SPAM')
+        reportApi.reportComment(13, 'adult', 'ADULT')
+
+        expect(apiMock.post).toHaveBeenNthCalledWith(1, '/reports/users', {
+            targetUserId: 7,
+            reason: 'abuse',
+            link: '/users/7',
+            reasonType: 'ABUSE',
+        }, undefined)
+        expect(apiMock.post).toHaveBeenNthCalledWith(2, '/reports/posts', {
+            targetPostId: 11,
+            reason: 'spam',
+            reasonType: 'SPAM',
+        })
+        expect(apiMock.post).toHaveBeenNthCalledWith(3, '/reports/comments', {
+            targetCommentId: 13,
+            reason: 'adult',
+            reasonType: 'ADULT',
+        })
+    })
 })
 
 describe('searchApi', () => {

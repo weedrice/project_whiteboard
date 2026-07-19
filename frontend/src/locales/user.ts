@@ -125,6 +125,8 @@ export const user: UserMessages = {
     },
   },
   reportList: {
+    target: '대상',
+    reasonType: '유형',
     empty: '신고 내역이 없습니다.',
     pending: '대기중',
     processed: '처리됨',

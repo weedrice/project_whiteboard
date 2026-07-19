@@ -62,6 +62,13 @@ export function getMyReportTargetTypeLabel(t: TranslateFn, targetType: ReportTar
   return t(`report.types.${targetType.toLowerCase()}`)
 }
 
+export function getReportReasonTypeLabel(t: TranslateFn, reasonType: string) {
+  if (reasonType === 'SPAM' || reasonType === 'ABUSE' || reasonType === 'ADULT' || reasonType === 'ETC') {
+    return t(`report.reasonTypes.${reasonType}`)
+  }
+  return reasonType || '-'
+}
+
 export function getMyReportStatusLabel(t: TranslateFn, status: ReportStatus) {
   switch (status) {
     case 'PENDING':

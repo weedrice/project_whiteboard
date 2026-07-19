@@ -1,6 +1,13 @@
 import type { ReportMessages } from './types'
 
 export const report: ReportMessages = {
+  reasonType: '신고 유형',
+  reasonTypes: {
+    SPAM: '스팸',
+    ABUSE: '욕설 및 괴롭힘',
+    ADULT: '성인 콘텐츠',
+    ETC: '기타',
+  },
   title: '사용자 신고',
   target: '신고 대상',
   reason: '신고 사유',

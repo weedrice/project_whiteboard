@@ -706,6 +706,8 @@ export interface UserMessages {
     processed: string
     rejected: string
     targetType: string
+    target: string
+    reasonType: string
   }
   comments: {
     deletedPost: string
@@ -917,10 +919,17 @@ export interface ReportMessages {
   title: string
   target: string
   reason: string
+  reasonType: string
   inputReason: string
   reasonTooLong: string
   reportSuccess: string
   reportFailed: string
+  reasonTypes: {
+    SPAM: string
+    ABUSE: string
+    ADULT: string
+    ETC: string
+  }
   types: {
     post: string
     comment: string

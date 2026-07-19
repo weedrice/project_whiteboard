@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { User as UserIcon, CornerDownRight, Heart } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
@@ -14,6 +14,14 @@ import type { SanitizedHtml } from '@/utils/sanitize'
 import SanitizedHtmlView from '@/components/common/SanitizedHtmlView.vue'
 import CommentForm from './CommentForm.vue'
 import UserMenu from '@/components/common/widgets/UserMenu.vue'
+import ReportModal from '@/components/report/ReportModal.vue'
+import { reportApi } from '@/api/report'
+import { useToastStore } from '@/stores/toast'
+import { getCurrentSessionGeneration } from '@/queryAuthScope'
+import { isCancellationError } from '@/utils/cancellationError'
+import { queryClient } from '@/queryClient'
+import { invalidateMyReportCaches } from '@/features/user/reports/reportCacheInvalidation'
+import type { ReportReasonType } from '@/types'
 
 defineOptions({
   name: 'CommentItem',
@@ -40,6 +48,13 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 const router = useRouter()
+let toastStore: ReturnType<typeof useToastStore> | undefined
+try {
+  toastStore = useToastStore()
+} catch {
+  // Pinia 없이 격리 렌더링되는 경우 신고 토스트만 생략한다.
+  toastStore = undefined
+}
 const authStore = useAuthStore() as ReturnType<typeof useAuthStore> | undefined
 const { useToggleCommentLike } = useComment()
 const { mutate: toggleCommentLike, isPending: isLikePending } = useToggleCommentLike()
@@ -78,6 +93,16 @@ const childReplyTargetName = computed(() => (
 const shouldShowReplyTarget = computed(() => props.depth >= 3 && props.replyTargetName.trim().length > 0)
 const isEmoticonOnly = computed(() => isEmoticonOnlyContent(props.comment.content ?? ''))
 const isBlinded = computed(() => Boolean(props.comment.isBlinded))
+const canReportComment = computed(() => (
+  isAuthenticated.value
+  && canUseCommentActions.value
+  && !isCommentAuthor.value
+  && !props.comment.isDeleted
+  && !isBlinded.value
+))
+const isReportModalOpen = ref(false)
+let reportAbortController: AbortController | null = null
+let reportRevision = 0
 const createdAtShort = computed(() => formatDateShort(props.comment.createdAt))
 const createdAtFull = computed(() => formatDate(props.comment.createdAt))
 const replyToggleLabel = computed(() => {
@@ -122,6 +147,57 @@ function handleLike() {
   })
 }
 
+function cancelPendingCommentReport() {
+  reportRevision += 1
+  reportAbortController?.abort()
+  reportAbortController = null
+}
+
+function openCommentReport() {
+  if (!canReportComment.value) return
+  cancelPendingCommentReport()
+  isReportModalOpen.value = true
+}
+
+function closeCommentReport() {
+  cancelPendingCommentReport()
+  isReportModalOpen.value = false
+}
+
+async function submitCommentReport(reason: string, reasonType: ReportReasonType) {
+  const commentId = props.comment.commentId
+  const sessionGeneration = getCurrentSessionGeneration()
+  cancelPendingCommentReport()
+  const revision = reportRevision
+  const controller = new AbortController()
+  reportAbortController = controller
+  const isCurrent = () => (
+    reportRevision === revision
+    && reportAbortController === controller
+    && !controller.signal.aborted
+    && isReportModalOpen.value
+    && props.comment.commentId === commentId
+    && getCurrentSessionGeneration() === sessionGeneration
+  )
+
+  try {
+    const { data } = await reportApi.reportComment(commentId, reason, reasonType, {
+      skipGlobalErrorHandler: true,
+      signal: controller.signal,
+    })
+    if (!isCurrent() || !data.success) return false
+    void invalidateMyReportCaches(queryClient, sessionGeneration)
+    toastStore?.addToast(t('report.reportSuccess'), 'success')
+    return true
+  } catch (error) {
+    if (!isCurrent() || isCancellationError(error)) return false
+    toastStore?.addToast(t('report.reportFailed'), 'error')
+    return false
+  } finally {
+    if (reportAbortController === controller) reportAbortController = null
+  }
+}
+
 function navigateToMention(target: EventTarget | null): boolean {
   const mention = (target as HTMLElement | null)?.closest?.('[data-mention-user-id]')
   if (!(mention instanceof HTMLElement)) return false
@@ -161,6 +237,16 @@ watch(isBlinded, (blinded) => {
   isEditing.value = false
   isReplying.value = false
 })
+
+watch(
+  [() => props.comment.commentId, canReportComment],
+  ([nextCommentId, reportable], [previousCommentId]) => {
+    if (!reportable || nextCommentId !== previousCommentId) closeCommentReport()
+  },
+  { flush: 'sync' },
+)
+
+onUnmounted(cancelPendingCommentReport)
 </script>
 
 <template>
@@ -312,6 +398,15 @@ watch(isBlinded, (blinded) => {
             {{ $t('comment.reply') }}
           </button>
 
+          <button
+            v-if="canReportComment"
+            type="button"
+            class="nv-touch-target rounded-md px-2 py-1.5 text-xs font-medium text-[var(--nv-danger-text)] transition-colors hover:bg-[var(--nv-danger-bg)]"
+            @click="openCommentReport"
+          >
+            {{ $t('common.report') }}
+          </button>
+
           <template v-if="canUseCommentActions && isCommentAuthor && !isBlinded">
             <button
               v-if="!isEmoticonOnly"
@@ -390,6 +485,14 @@ watch(isBlinded, (blinded) => {
         </div>
       </div>
     </div>
+    <ReportModal
+      v-if="isReportModalOpen"
+      :is-open="isReportModalOpen"
+      :target-identity="`comment:${comment.commentId}`"
+      :target-text="`${$t('common.comment')} #${comment.commentId}`"
+      :submit="submitCommentReport"
+      @close="closeCommentReport"
+    />
   </div>
 </template>
 

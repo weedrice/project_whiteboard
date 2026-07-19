@@ -9,7 +9,8 @@ import type { MyReport } from '@/types'
 import {
   getMyReportStatusClass,
   getMyReportStatusLabel,
-  getMyReportTargetTypeLabel
+  getMyReportTargetTypeLabel,
+  getReportReasonTypeLabel,
 } from '@/utils/reportDisplay'
 
 const { t } = useI18n()
@@ -46,11 +47,19 @@ const {
   >
     <ul role="list" class="divide-y divide-[var(--nv-line)]">
       <li v-for="report in reports" :key="report.reportId"
-        class="px-4 py-4 sm:px-6 nv-hover-surface transition-colors duration-200 min-h-[44px] flex flex-row items-center justify-between gap-3">
+        class="px-4 py-4 sm:px-6 nv-hover-surface transition-colors duration-200 min-h-[44px] flex flex-row items-start justify-between gap-3">
         <div class="flex flex-col min-w-0 flex-1">
-          <p class="text-sm font-medium nv-accent-text line-clamp-2 sm:truncate">
-            {{ getMyReportTargetTypeLabel($t, report.targetType) }} {{ $t('user.reportList.targetType') }} - {{
-              report.reasonType || report.contents || '-' }}
+          <p class="text-sm font-medium nv-accent-text">
+            {{ getMyReportTargetTypeLabel($t, report.targetType) }} {{ $t('user.reportList.targetType') }}
+          </p>
+          <p v-if="report.targetDisplayName" class="mt-1 truncate text-sm nv-title">
+            {{ $t('user.reportList.target') }}: {{ report.targetDisplayName }}
+          </p>
+          <p class="mt-1 text-xs nv-text-subtle">
+            {{ $t('user.reportList.reasonType') }}: {{ getReportReasonTypeLabel($t, report.reasonType) }}
+          </p>
+          <p v-if="report.contents" class="mt-1 line-clamp-3 whitespace-pre-wrap text-sm nv-text">
+            {{ report.contents }}
           </p>
           <p class="mt-0.5 sm:mt-1 text-xs nv-text-subtle">
             {{ formatDate(report.createdAt) }}

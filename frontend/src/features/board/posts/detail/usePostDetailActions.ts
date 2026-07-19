@@ -4,6 +4,7 @@ import { useConfirm } from '@/composables/useConfirm'
 import { usePost } from '@/features/board/posts/queries/usePost'
 import { useToastStore } from '@/stores/toast'
 import type { Post } from '@/types'
+import type { ReportReasonType } from '@/types'
 import logger from '@/utils/logger'
 
 interface UsePostDetailActionsOptions {
@@ -163,7 +164,7 @@ export function usePostDetailActions({
     showReportModal.value = false
   }
 
-  async function submitReport(reason: string) {
+  async function submitReport(reason: string, reasonType?: ReportReasonType) {
     const intent = reportIntent
     if (!intent || !isIntentCurrent(intent.postId, intent.sessionGeneration)) {
       closeReportModal()
@@ -179,6 +180,7 @@ export function usePostDetailActions({
       reportMutate({
         targetPostId: intent.postId,
         reason,
+        ...(reasonType ? { reasonType } : {}),
       }, {
         onSuccess: () => {
           if (!isReportIntentCurrent()) {

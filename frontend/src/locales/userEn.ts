@@ -130,6 +130,8 @@ export const userEn: UserMessages = {
     processed: 'Processed',
     rejected: 'Rejected',
     targetType: 'Report',
+    target: 'Target',
+    reasonType: 'Type',
   },
   comments: {
     deletedPost: 'This post has been deleted.',

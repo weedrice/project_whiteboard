@@ -2,6 +2,13 @@
     <BaseModal :isOpen="isOpen" :title="title" @close="closeModal">
         <div class="p-4">
             <BaseInput :label="$t('report.target')" :modelValue="targetText" :disabled="true" class="mb-4" />
+            <BaseSelect
+                v-model="reportReasonType"
+                :label="$t('report.reasonType')"
+                :options="reasonTypeOptions"
+                class="mb-4"
+                :disabled="isReporting"
+            />
             <BaseTextarea
                 id="reportReason"
                 v-model="reportReason"
@@ -30,10 +37,12 @@ import BaseModal from '@/components/common/ui/BaseModal.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
+import BaseSelect from '@/components/common/ui/BaseSelect.vue'
 import { useModalSubmit } from '@/composables/useModalSubmit'
 import { useI18n } from 'vue-i18n'
 import { useToastStore } from '@/stores/toast'
-import { computed, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
+import type { ReportReasonType } from '@/types'
 import { useFieldValidation } from '@/composables/useFieldValidation'
 import {
     isReportReasonTooLong,
@@ -52,7 +61,7 @@ const props = withDefaults(defineProps<{
     submitLabel?: string
     pendingLabel?: string
     submitVariant?: 'primary' | 'secondary' | 'danger' | 'ghost'
-    submit: (reason: string) => boolean | Promise<boolean>
+    submit: (reason: string, reasonType: ReportReasonType) => boolean | Promise<boolean>
 }>(), {
     title: undefined,
     submitLabel: undefined,
@@ -67,6 +76,11 @@ const emit = defineEmits<{
 const title = props.title ?? t('report.title')
 const submitLabel = props.submitLabel ?? t('common.report')
 const pendingLabel = props.pendingLabel ?? t('common.messages.reporting')
+const reportReasonType = ref<ReportReasonType>('ETC')
+const reasonTypeOptions = computed(() => (['SPAM', 'ABUSE', 'ADULT', 'ETC'] as const).map((value) => ({
+    value,
+    label: t(`report.reasonTypes.${value}`),
+})))
 
 const {
     value: reportReason,
@@ -82,7 +96,7 @@ const {
             : t('report.inputReason'),
         'warning',
     ),
-    onSubmit: async (reason) => props.submit(reason.trim()),
+    onSubmit: async (reason) => props.submit(reason.trim(), reportReasonType.value),
     onSuccess: () => {
         emit('close')
     },
@@ -103,6 +117,7 @@ const validation = useFieldValidation<'reason'>({
 const validationValues = computed(() => ({ reason: reportReason.value }))
 const resetReportSession = () => {
     resetReport()
+    reportReasonType.value = 'ETC'
     validation.clearValidation()
 }
 const closeModal = () => {
