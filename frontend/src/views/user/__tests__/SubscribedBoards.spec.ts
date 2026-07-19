@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import SubscribedBoards from '../SubscribedBoards.vue'
 import { axiosApiPageSuccess } from '@/test/apiResponseFixtures'
 import type { SubscriptionBoardListItem } from '@/types'
+import { createDeferred } from '@/test/async'
 
 const mocks = vi.hoisted(() => ({
   getMySubscriptions: vi.fn(),
@@ -243,5 +244,32 @@ describe('SubscribedBoards', () => {
 
     expect(link.props('to')).toBe('/board/free')
     expect(link.attributes('aria-label')).toBe('Free')
+  })
+
+  it('hides stale unavailable subscriptions while reloading', async () => {
+    const hidden = {
+      ...subscription,
+      boardId: 3,
+      boardUrl: 'hidden',
+      boardName: 'Hidden',
+      accessState: 'INACCESSIBLE' as const,
+      inaccessibleReason: 'INACTIVE' as const,
+      isActive: false,
+      subscriptionAccessible: false,
+    }
+    const reload = createDeferred<ReturnType<typeof pageResponse>>()
+    mocks.getMySubscriptions
+      .mockResolvedValueOnce(pageResponse(0, 1, [hidden]))
+      .mockReturnValueOnce(reload.promise)
+    const wrapper = mountView()
+    await flushPromises()
+    expect(wrapper.text()).toContain('Hidden')
+
+    const pendingReload = (wrapper.vm as unknown as { fetchSubscriptions: () => Promise<void> }).fetchSubscriptions()
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.text()).not.toContain('Hidden')
+    reload.resolve(pageResponse(0, 1, []))
+    await pendingReload
   })
 })

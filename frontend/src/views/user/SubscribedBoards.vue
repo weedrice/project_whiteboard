@@ -35,7 +35,7 @@
             />
 
             <draggable v-else-if="accessibleBoards.length > 0" v-model="accessibleBoards" item-key="boardId" class="divide-y divide-[var(--nv-line)]"
-                tag="ul" :handle="isMobile ? undefined : '.handle'" :disabled="isMobile" @end="handleDragEnd">
+                tag="ul" :handle="isMobile ? undefined : '.handle'" :disabled="isMobile || isReordering" @end="handleDragEnd">
                 <template #item="{ element: board, index }">
                     <li
                         class="px-3 py-3 sm:px-6 sm:py-4 nv-hover-surface flex flex-row items-center justify-between gap-2 sm:gap-3 transition-colors duration-200">
@@ -99,6 +99,7 @@
                             </div>
                         </div>
                         <BaseButton
+                            :disabled="isReordering"
                             @click.stop="handleUnsubscribe(board)"
                             variant="danger"
                             size="sm"
@@ -109,7 +110,7 @@
                 </template>
             </draggable>
 
-            <ul v-if="unavailableBoards.length > 0" class="divide-y divide-[var(--nv-line)]">
+            <ul v-if="!loading && !loadError && unavailableBoards.length > 0" class="divide-y divide-[var(--nv-line)]">
                 <li
                     v-for="board in unavailableBoards"
                     :key="board.boardId"
@@ -122,7 +123,7 @@
                                 board.description || $t('user.subscriptions.unavailableBoardDescription') }}</p>
                         </div>
                     </div>
-                    <BaseButton @click.stop="handleUnsubscribe(board)" variant="danger" size="sm"
+                    <BaseButton :disabled="isReordering" @click.stop="handleUnsubscribe(board)" variant="danger" size="sm"
                         class="min-h-11 flex-shrink-0 rounded-md px-3 py-1.5 text-xs touch-manipulation sm:min-h-10 sm:rounded-lg sm:px-4 sm:py-2 sm:text-sm">
                         {{ $t('user.subscriptions.unsubscribe') }}
                     </BaseButton>

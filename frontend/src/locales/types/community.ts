@@ -782,6 +782,7 @@ export interface UserMessages {
     title: string
   }
   settings: {
+    leaveConfirm: string
     title: string
     sectionNavigation: string
     general: string

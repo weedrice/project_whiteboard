@@ -250,6 +250,12 @@ async function moveScrap() {
     await queryClient.invalidateQueries({
       queryKey: currentSessionQueryKey(authStore, ['user', 'scraps']),
     })
+    if (!isFolderOperationCurrent(operation)) return
+    const lastPage = Math.max(totalPages.value - 1, 0)
+    if (page.value > lastPage) {
+      page.value = lastPage
+      await scrapQuery.refetch()
+    }
   } catch {
     if (isFolderOperationCurrent(operation)) {
       folderActionError.value = t('user.scrapList.moveFailed')

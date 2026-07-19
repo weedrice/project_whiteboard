@@ -14,6 +14,8 @@ const mocks = vi.hoisted(() => ({
   invalidateQueries: vi.fn(),
   confirm: vi.fn(),
   resetPage: vi.fn(),
+  page: { __v_isRef: true, value: 0 },
+  totalPages: { __v_isRef: true, value: 0 },
 }))
 
 const authState = vi.hoisted(() => ({
@@ -53,7 +55,7 @@ vi.mock('@/composables/useApiQuery', () => ({
 
 vi.mock('@/composables/usePaginatedQueryState', () => ({
   usePaginatedQueryState: () => ({
-    page: ref(0),
+    page: mocks.page,
     size: ref(15),
     params: ref({ page: 0, size: 15 }),
     handlePageChange: vi.fn(),
@@ -62,7 +64,7 @@ vi.mock('@/composables/usePaginatedQueryState', () => ({
   }),
   usePageResponseState: () => ({
     items: mocks.scrapItems,
-    totalPages: ref(0),
+    totalPages: mocks.totalPages,
   }),
 }))
 
@@ -146,6 +148,8 @@ describe('ScrapList', () => {
     mocks.folderError.value = false
     mocks.folderFetching.value = false
     mocks.scrapItems.value = []
+    mocks.page.value = 0
+    mocks.totalPages.value = 0
     mocks.refetchFolders.mockResolvedValue(undefined)
     mocks.confirm.mockResolvedValue(true)
     authState.sessionGeneration = 1
@@ -237,5 +241,22 @@ describe('ScrapList', () => {
     expect(mocks.invalidateQueries).toHaveBeenCalledWith({
       queryKey: ['session', 1, 'user', 'scraps'],
     })
+  })
+
+  it('clamps and refetches after moving the last scrap off the final page', async () => {
+    mocks.folderData.value = [{ folderId: 7, name: 'Saved' }]
+    mocks.scrapItems.value = [{ postId: 11, title: 'Move me' }]
+    mocks.page.value = 1
+    mocks.totalPages.value = 1
+    vi.mocked(userApi.moveScrap).mockResolvedValueOnce({} as never)
+    const wrapper = mountScrapList()
+
+    await wrapper.get('#scrap-move-post').setValue('11')
+    await wrapper.get('#scrap-move-folder').setValue('7')
+    await wrapper.findAll('form').find((form) => form.find('#scrap-move-post').exists())!.trigger('submit')
+    await flushPromises()
+
+    expect(mocks.page.value).toBe(0)
+    expect(mocks.refetchScraps).toHaveBeenCalledOnce()
   })
 })

@@ -95,6 +95,7 @@ vi.mock('@/i18n', () => ({
 vi.mock('vue-router', () => ({
   useRoute: () => routeMock,
   useRouter: () => ({ replace: routerReplaceMock }),
+  onBeforeRouteLeave: vi.fn(),
 }))
 
 vi.mock('@/features/user/useUser', () => ({

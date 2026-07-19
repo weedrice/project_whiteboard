@@ -26,7 +26,7 @@ import { Monitor, Settings, X } from 'lucide-vue-next'
 import { useFieldValidation } from '@/composables/useFieldValidation'
 import { setAppLocale } from '@/i18n'
 import { captureAuthSessionIntent, isAuthSessionIntentCurrent } from '@/utils/authSessionIntent'
-import { usePwaReloadBlocker } from '@/pwaReloadGuard'
+import { useUnsavedChangesGuard } from '@/composables/useUnsavedChangesGuard'
 import { isCancellationError } from '@/utils/cancellationError'
 
 const { t, locale } = useI18n()
@@ -184,11 +184,20 @@ const {
   t
 })
 
-usePwaReloadBlocker(computed(() => (
+const hasUnsavedSettingsChanges = computed(() => (
   isGeneralSettingsDirty.value
   || isNotificationSettingsDirty.value
   || keywordInput.value.trim().length > 0
-)))
+))
+const isSettingsSavePending = computed(() => (
+  isUpdatingSettings.value || isUpdatingNotifications.value || isCreatingKeyword.value
+))
+useUnsavedChangesGuard(
+  hasUnsavedSettingsChanges,
+  isSettingsSavePending,
+  () => t('user.settings.leaveConfirm'),
+  confirm,
+)
 
 const setKeywordMessage = (messageKey: string, isError = false) => {
   keywordMessage.value = t(messageKey)

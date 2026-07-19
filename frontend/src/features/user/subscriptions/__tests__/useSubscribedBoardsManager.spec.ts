@@ -226,6 +226,22 @@ describe('useSubscribedBoardsManager', () => {
     expect(manager.isReordering.value).toBe(false)
   })
 
+  it('does not start unsubscribe while an order update is pending', async () => {
+    const reorderResult = createDeferred<unknown>()
+    mocks.getMySubscriptions.mockResolvedValueOnce(pageResponse(0, 1, [subscription()]))
+    mocks.updateSubscriptionOrder.mockReturnValueOnce(reorderResult.promise)
+    const { manager } = mountManager()
+    await flushPromises()
+
+    const reorder = manager.handleDragEnd()
+    await manager.handleUnsubscribe(subscription())
+
+    expect(mocks.confirm).not.toHaveBeenCalled()
+    expect(mocks.unsubscribeBoard).not.toHaveBeenCalled()
+    reorderResult.resolve(axiosApiResponse(apiEmptySuccess()))
+    await reorder
+  })
+
   it('removes mobile media query listener on unmount', () => {
     mocks.getMySubscriptions.mockResolvedValue(pageResponse(0, 1, []))
 

@@ -204,6 +204,7 @@ export const userEn: UserMessages = {
     title: 'Inquiry details',
   },
   settings: {
+    leaveConfirm: 'You have unsaved settings changes. Leave this page?',
     title: 'Settings',
     sectionNavigation: 'Settings sections',
     general: 'General settings',

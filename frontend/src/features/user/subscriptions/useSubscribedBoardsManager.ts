@@ -124,9 +124,10 @@ export function useSubscribedBoardsManager() {
   }
 
   async function handleUnsubscribe(board: SubscriptionBoardListItem) {
+    if (isReordering.value) return
     const generation = authStore.sessionGeneration
     const isConfirmed = await confirm(t('user.subscriptions.unsubscribeConfirm'))
-    if (!isConfirmed || generation !== authStore.sessionGeneration) return
+    if (!isConfirmed || generation !== authStore.sessionGeneration || isReordering.value) return
     const controller = new AbortController()
     mutationAbortControllers.add(controller)
     try {
