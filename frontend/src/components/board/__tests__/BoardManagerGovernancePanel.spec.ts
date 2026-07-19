@@ -174,6 +174,14 @@ describe('BoardManagerGovernancePanel', () => {
     expect(boardApiMock.getManagerAudits).toHaveBeenCalledOnce()
   })
 
+  it('only exposes report target types that belong to the selected board', async () => {
+    const { wrapper } = mountPanel()
+    await flushPromises()
+
+    const options = wrapper.get('#board-report-target').findAll('option')
+    expect(options.map((option) => option.attributes('value'))).toEqual(['', 'POST', 'COMMENT'])
+  })
+
   it('clears an open report detail when its board, authorization, or auth session changes', async () => {
     const report: Report = {
       reportId: 7,

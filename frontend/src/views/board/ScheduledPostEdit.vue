@@ -17,6 +17,9 @@ const { data: scheduledPost, isLoading, isError, refetch } = useScheduledPostDet
   scheduledPostId,
   computed(() => Boolean(scheduledPostId.value)),
 )
+const isEditable = computed(() => (
+  scheduledPost.value?.status === 'SCHEDULED' || scheduledPost.value?.status === 'FAILED'
+))
 
 function handleSubmitted() {
   router.push('/mypage/drafts')
@@ -25,13 +28,17 @@ function handleSubmitted() {
 
 <template>
   <PostForm
-    v-if="scheduledPost"
+    v-if="scheduledPost && isEditable"
     ref="postFormRef"
     mode="edit"
     :board-url="scheduledPost.boardUrl"
     :scheduled-post-id="scheduledPostId"
     :on-submitted="handleSubmitted"
     @cancel="handleCancel"
+  />
+  <ErrorState
+    v-else-if="scheduledPost"
+    :message="t('board.writePost.scheduledNotEditable')"
   />
   <div v-else-if="isLoading" class="py-10 text-center">
     <BaseSpinner size="lg" />

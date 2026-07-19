@@ -282,6 +282,7 @@ export interface BoardMessages {
     createTitle: string
     editTitle: string
     editScheduledTitle: string
+    scheduledNotEditable: string
     selectCategory: string
     noticeDesc: string
     nsfw: string

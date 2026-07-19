@@ -4,6 +4,7 @@ export const boardWritePostMessages: BoardMessages['writePost'] = {
     createTitle: '글 작성',
     editTitle: '게시글 수정',
     editScheduledTitle: '예약글 수정',
+    scheduledNotEditable: '이미 발행 처리되었거나 취소된 예약글은 수정할 수 없습니다.',
     selectCategory: '카테고리 선택',
     noticeDesc: '이 글을 공지사항으로 등록합니다.',
     nsfw: 'NSFW',

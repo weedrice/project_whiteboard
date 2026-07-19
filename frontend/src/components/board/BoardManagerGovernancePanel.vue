@@ -80,7 +80,6 @@ onScopeDispose(unsubscribeSessionBoundary)
                   { value: '', label: t('admin.common.all') },
                   { value: 'POST', label: t('admin.dashboard.auditTargets.POST') },
                   { value: 'COMMENT', label: t('admin.dashboard.auditTargets.COMMENT') },
-                  { value: 'USER', label: t('admin.dashboard.auditTargets.USER') },
                 ]"
                 @update:model-value="governance.handleReportTargetTypeChange"
               />

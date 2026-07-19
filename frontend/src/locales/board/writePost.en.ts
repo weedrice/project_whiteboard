@@ -6,6 +6,7 @@ export const boardEnWritePostMessages: BoardMessages['writePost'] = {
     createTitle: 'Write post',
     editTitle: 'Edit post',
     editScheduledTitle: 'Edit scheduled post',
+    scheduledNotEditable: 'Scheduled posts that are being published, published, or canceled cannot be edited.',
     selectCategory: 'Select category',
     noticeDesc: 'Publish this post as a notice.',
     nsfwDesc: 'Marks this post as sensitive content.',
