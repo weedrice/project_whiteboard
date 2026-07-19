@@ -73,7 +73,7 @@ jobs:
           persist-credentials: false
 
       - name: Configure narrowly scoped AWS credentials for contract evidence
-        uses: aws-actions/configure-aws-credentials@56d6a583f00f6bad6d19d91d53a7bc3b8143d0e9 # v5.1.1
+        uses: aws-actions/configure-aws-credentials@9d2a1c17c0d020ee966ed3fa5e24c290d759b4fa # v5.1.1
         with:
           role-to-assume: ${{ secrets.AWS_CONTRACT_EVIDENCE_READ_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION }}
@@ -284,7 +284,7 @@ jobs:
       id-token: write
     steps:
       - name: Configure narrowly scoped AWS credentials
-        uses: aws-actions/configure-aws-credentials@56d6a583f00f6bad6d19d91d53a7bc3b8143d0e9 # v5.1.1
+        uses: aws-actions/configure-aws-credentials@9d2a1c17c0d020ee966ed3fa5e24c290d759b4fa # v5.1.1
         with:
           role-to-assume: ${{ secrets.AWS_CONTRACT_EVIDENCE_CONSUME_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION }}
