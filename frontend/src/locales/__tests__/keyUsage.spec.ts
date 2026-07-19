@@ -23,6 +23,8 @@ const allowedTemplateCalls = [
   { template: 'admin.users.role.${role}', keys: /^admin\.users\.role\.[^.]+$/ },
   { template: 'admin.reports.status.${status}', keys: /^admin\.reports\.status\.[^.]+$/ },
   { template: 'report.types.${targetType.toLowerCase()}', keys: /^report\.types\.[^.]+$/ },
+  { template: 'report.reasonTypes.${value}', keys: /^report\.reasonTypes\.(SPAM|ABUSE|ADULT|ETC)$/ },
+  { template: 'report.reasonTypes.${reasonType}', keys: /^report\.reasonTypes\.(SPAM|ABUSE|ADULT|ETC)$/ },
 ] as const
 
 const allowedDynamicCallSites: ReadonlyArray<{ file: string; line: RegExp }> = [
