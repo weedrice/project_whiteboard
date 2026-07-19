@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, nextTick } from 'vue'
 import { useAdmin } from '@/features/admin/useAdmin'
 import { useI18n } from 'vue-i18n'
 import { useToastStore } from '@/stores/toast'
@@ -118,6 +118,18 @@ async function handleStatusChange(user: User, status: AdminUserMutableStatus) {
     await updateUserStatus({ userId: targetUserId, status, reason })
     if (!isAuthSessionIntentCurrent(authStore, intent)) return
     toastStore.addToast(t('admin.users.messages.statusChanged'), 'success')
+
+    const refreshed = await refetch()
+    if (!isAuthSessionIntentCurrent(authStore, intent)) return
+
+    const refreshedTotalPages = refreshed.data?.totalPages ?? usersData.value?.totalPages ?? 0
+    const lastPage = Math.max(0, refreshedTotalPages - 1)
+    if (page.value > lastPage) {
+      page.value = lastPage
+      await nextTick()
+      if (!isAuthSessionIntentCurrent(authStore, intent)) return
+      await refetch()
+    }
   } catch {
     // Error handled globally
   }

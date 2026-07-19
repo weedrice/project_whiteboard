@@ -19,10 +19,18 @@ const mocks = vi.hoisted(() => {
         lastLoginAt: '2026-01-02T00:00:00',
     }
     const updateUserStatus = vi.fn()
+    const refetchUsers = vi.fn()
     const confirmWithReason = vi.fn()
     const authStore = { sessionGeneration: 1, user: { userId: 99 } }
 
-    return { user, updateUserStatus, confirmWithReason, authStore }
+    return {
+        user,
+        updateUserStatus,
+        refetchUsers,
+        confirmWithReason,
+        authStore,
+        userParams: null as { value: { page: number; size: number } } | null,
+    }
 })
 
 vi.mock('vue-i18n', () => ({
@@ -63,7 +71,9 @@ vi.mock('@/composables/useConfirm', () => ({
 
 vi.mock('@/features/admin/useAdmin', () => ({
     useAdmin: () => ({
-        useUsers: () => ({
+        useUsers: (params: { value: { page: number; size: number } }) => {
+            mocks.userParams = params
+            return {
             data: ref({
                 content: [mocks.user],
                 totalElements: 1,
@@ -71,7 +81,10 @@ vi.mock('@/features/admin/useAdmin', () => ({
                 number: 0,
             }),
             isLoading: ref(false),
-        }),
+            isError: ref(false),
+            refetch: mocks.refetchUsers,
+        }
+        },
         useUpdateUserStatus: () => ({
             mutateAsync: mocks.updateUserStatus,
         }),
@@ -126,6 +139,15 @@ describe('UserManagement', () => {
         mocks.user.status = 'ACTIVE'
         mocks.confirmWithReason.mockResolvedValue('policy violation')
         mocks.updateUserStatus.mockResolvedValue(undefined)
+        mocks.refetchUsers.mockResolvedValue({
+            data: {
+                content: [mocks.user],
+                totalElements: 1,
+                totalPages: 1,
+                number: 0,
+            },
+        })
+        mocks.userParams = null
     })
 
     it('opens user detail from the row action button', async () => {
@@ -232,5 +254,47 @@ describe('UserManagement', () => {
         await flushPromises()
 
         expect(mocks.updateUserStatus).not.toHaveBeenCalled()
+    })
+
+    it('clamps and refetches when a status change removes the last filtered-page item', async () => {
+        mocks.refetchUsers
+            .mockResolvedValueOnce({
+                data: {
+                    content: [],
+                    totalElements: 10,
+                    totalPages: 2,
+                    number: 2,
+                },
+            })
+            .mockResolvedValueOnce({
+                data: {
+                    content: [mocks.user],
+                    totalElements: 10,
+                    totalPages: 2,
+                    number: 1,
+                },
+            })
+        const wrapper = mount(UserManagement, {
+            global: {
+                stubs: {
+                    Search: iconStub,
+                    BaseInput: BaseInputStub,
+                    BaseBadge: BaseBadgeStub,
+                    UserDetailModal: UserDetailModalStub,
+                    Pagination: true,
+                },
+            },
+        })
+        const table = wrapper.findComponent({ name: 'AdminPaginatedTable' })
+        table.vm.$emit('pageChange', 2)
+        await wrapper.vm.$nextTick()
+        expect(mocks.userParams?.value.page).toBe(2)
+
+        await wrapper.get('button[aria-label="admin.users.status.SUSPENDED"]').trigger('click')
+        await flushPromises()
+
+        expect(mocks.updateUserStatus).toHaveBeenCalledOnce()
+        expect(mocks.refetchUsers).toHaveBeenCalledTimes(2)
+        expect(mocks.userParams?.value.page).toBe(1)
     })
 })
