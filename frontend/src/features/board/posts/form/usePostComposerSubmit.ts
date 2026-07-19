@@ -232,7 +232,7 @@ export function usePostComposerSubmit(options: UsePostComposerSubmitOptions) {
       const currentState = () => {
         const currentPayload = {
           ...options.buildPayload(),
-          ...(context.draftId !== undefined && { draftId: context.draftId }),
+          ...(currentDraftId !== undefined && { draftId: currentDraftId }),
         }
         const { seriesId: currentSeriesId, ...currentWithoutSeries } = currentPayload
         const normalizedCurrent = currentSeriesId == null

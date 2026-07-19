@@ -344,6 +344,34 @@ describe('usePostComposerSubmit', () => {
     expect(submit.isSubmissionLocked.value).toBe(false)
   })
 
+  it('compares scheduled save state with the draft id issued immediately before submit', async () => {
+    const submit = createSubmit({
+      mode: 'edit',
+      scheduledPostId: '44',
+      scheduledAt: '2026-07-20T12:00',
+      draftEnabled: true,
+      draftId: 4,
+      saveDraftNow: vi.fn().mockResolvedValue({ draftId: 91 }),
+    })
+
+    await submit.handleSubmit()
+
+    expect(submit.updateScheduledPost).toHaveBeenCalledWith({
+      scheduledPostId: '44',
+      data: { ...basePayload, draftId: 91, scheduledAt: '2026-07-20T12:00' },
+    }, expect.any(Object))
+
+    submit.updateScheduledPost.mock.calls[0][1].onSuccess({
+      data: { data: { scheduledPostId: 44, scheduledAt: '2026-07-20T12:00' } },
+    })
+
+    expect(submit.markCurrentSnapshotSaved).toHaveBeenCalledOnce()
+    expect(submit.addToast).not.toHaveBeenCalledWith(
+      'board.writePost.scheduleChangedDuringSave',
+      'warning',
+    )
+  })
+
   it.each([
     ['immediate create', { mode: 'create' as const }],
     ['scheduled create', { mode: 'create' as const, scheduledAt: '2026-07-14T12:00' }],
