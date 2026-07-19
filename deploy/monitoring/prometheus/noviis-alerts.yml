@@ -66,7 +66,13 @@ groups:
         labels: { cadence: daily, scheduled_job: FileCleanupScheduler.cleanupTemporaryFiles, threshold: 30h }
       - record: noviis_scheduler_expected_max_age_seconds
         expr: vector(108000)
+        labels: { cadence: daily, scheduled_job: LoginHistoryCleanupScheduler.cleanupExpiredLoginHistories, threshold: 30h }
+      - record: noviis_scheduler_expected_max_age_seconds
+        expr: vector(108000)
         labels: { cadence: daily, scheduled_job: PostDraftCleanupScheduler.cleanupExpiredDrafts, threshold: 30h }
+      - record: noviis_scheduler_expected_max_age_seconds
+        expr: vector(108000)
+        labels: { cadence: daily, scheduled_job: RefreshTokenCleanupScheduler.cleanupExpiredRefreshTokens, threshold: 30h }
       - record: noviis_scheduler_expected_max_age_seconds
         expr: vector(108000)
         labels: { cadence: daily, scheduled_job: TagCleanupScheduler.cleanupOrphanTags, threshold: 30h }

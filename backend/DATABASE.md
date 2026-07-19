@@ -4,9 +4,9 @@
 
 | 항목 | 내용 |
 | --- | --- |
-| 기준일 | 2026-07-18 |
+| 기준일 | 2026-07-20 |
 | 기준 소스 | `backend/src/main/resources/db/migration` |
-| 마이그레이션 범위 | `V1__baseline_schema.sql` - `V81__index_orphan_tag_cleanup.sql` |
+| 마이그레이션 범위 | `V1__baseline_schema.sql` - `V82__snapshot_purchase_history_item_presentation.sql` |
 | 현재 테이블 수 | 85개 |
 | DB | PostgreSQL |
 
@@ -131,7 +131,7 @@
 | `user_points` | 사용자 포인트 잔액 |
 | `point_histories` | 포인트 변동 이력 |
 | `shop_items` | 상점 아이템 |
-| `purchase_history` | 상점 구매 이력 |
+| `purchase_history` | 상점 구매 이력과 구매 시점의 상품명·유형·이미지 표시 snapshot |
 | `emoticon_masters` | 이모티콘 팩 |
 | `emoticon_images` | 이모티콘 이미지 |
 | `emoticon_purchases` | 이모티콘 구매 |
@@ -224,6 +224,7 @@
 | `V78` - `V79` | bounded Web Push retention cleanup용 partial index를 온라인 생성 |
 | `V80` | 완료·실패 알림 전달 job의 bounded retention cleanup용 partial index 추가 |
 | `V81` | 고아 태그 bounded cleanup용 `post_count = 0` partial index 추가 |
+| `V82` | 구매 이력에 구매 시점 상품명·유형·이미지 표시 snapshot 추가 |
 
 ## 운영 주의
 
