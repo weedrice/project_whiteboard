@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAdmin } from '@/features/admin/useAdmin'
 import { useConfirm } from '@/composables/useConfirm'
@@ -6,6 +6,7 @@ import { usePageResponseState, usePaginatedQueryState } from '@/composables/useP
 import { useToastStore } from '@/stores/toast'
 import { useAuthStore } from '@/stores/auth'
 import type { Report } from '@/types'
+import type { ReportStatusFilter, ReportTargetTypeFilter } from '@/api/adminTypes'
 
 interface SanctionTarget {
   id: number
@@ -30,11 +31,26 @@ export function useReportModerationPage() {
   const { confirmWithReason } = useConfirm()
   const { useReports, useResolveReport } = useAdmin()
 
-  const { page, size, params, handlePageChange, handleSizeChange } = usePaginatedQueryState({
+  const statusFilter = ref<ReportStatusFilter | ''>('')
+  const targetTypeFilter = ref<ReportTargetTypeFilter | ''>('')
+  const reportFilters = computed(() => ({
+    ...(statusFilter.value ? { status: statusFilter.value } : {}),
+    ...(targetTypeFilter.value ? { targetType: targetTypeFilter.value } : {}),
+  }))
+
+  const {
+    page,
+    size,
+    params,
+    handlePageChange,
+    handleSizeChange,
+    resetPage,
+  } = usePaginatedQueryState({
     initialSize: 20,
+    extraParams: reportFilters,
   })
 
-  const { data: reportsData, isLoading, refetch } = useReports(params)
+  const { data: reportsData, isLoading } = useReports(params)
   const { mutateAsync: resolveReport } = useResolveReport()
 
   const {
@@ -86,8 +102,14 @@ export function useReportModerationPage() {
     selectedUser.value = null
   }
 
-  function refreshList() {
-    refetch()
+  function handleStatusFilterChange(value: string | number) {
+    statusFilter.value = typeof value === 'string' ? value as ReportStatusFilter | '' : ''
+    resetPage()
+  }
+
+  function handleTargetTypeFilterChange(value: string | number) {
+    targetTypeFilter.value = typeof value === 'string' ? value as ReportTargetTypeFilter | '' : ''
+    resetPage()
   }
 
   async function handleSanctioned(intent: SanctionCompletedIntent) {
@@ -112,8 +134,6 @@ export function useReportModerationPage() {
       if (sessionGeneration === authStore.sessionGeneration) {
         toastStore.addToast(t('admin.reports.messages.sanctionResolveFailed'), 'error')
       }
-    } finally {
-      if (sessionGeneration === authStore.sessionGeneration) refreshList()
     }
   }
 
@@ -162,6 +182,8 @@ export function useReportModerationPage() {
   return {
     page,
     size,
+    statusFilter,
+    targetTypeFilter,
     reports,
     totalPages,
     totalElements,
@@ -173,11 +195,12 @@ export function useReportModerationPage() {
     selectedReport,
     handlePageChange,
     handleSizeChange,
+    handleStatusFilterChange,
+    handleTargetTypeFilterChange,
     openDetailModal,
     closeDetailModal,
     openSanctionModal,
     closeSanctionModal,
-    refreshList,
     handleSanctioned,
     handleResolve,
     handleReject,

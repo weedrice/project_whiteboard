@@ -358,5 +358,4 @@ export const user: UserMessages = {
       moveUp: '{name} 위로 이동',
       moveDown: '{name} 아래로 이동',
     },
-  sanctioned: '계정이 제재되었습니다. 로그아웃됩니다.',
 }

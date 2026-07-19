@@ -31,13 +31,11 @@ export type UserHydrationResult = 'success' | 'transient-failure' | 'terminal-fa
 
 interface AuthSessionEffects {
     syncThemeFromUser: (userData: User | null) => void
-    handleSanctionedSession: () => void
     onSessionBoundary: (generation: number) => void
 }
 
 const noopSessionEffects: AuthSessionEffects = {
     syncThemeFromUser: () => undefined,
-    handleSanctionedSession: () => undefined,
     onSessionBoundary: () => undefined,
 }
 
@@ -126,11 +124,6 @@ export const useAuthStore = defineStore('auth', () => {
         resetBootstrapState()
         clearSessionValues(false)
         if (broadcast) publishAuthBoundary('logout')
-    }
-
-    async function handleSanctionedSession() {
-        authSessionEffects.handleSanctionedSession()
-        await logout()
     }
 
     async function login(credentials: LoginCredentials, config?: AxiosRequestConfig): Promise<boolean> {
@@ -344,11 +337,6 @@ export const useAuthStore = defineStore('auth', () => {
             }
             user.value = nextUser
 
-            if (user.value?.status === 'SANCTIONED') {
-                await handleSanctionedSession()
-                return 'terminal-failure'
-            }
-
             syncThemeFromUser(user.value)
             return 'success'
         } catch (error: unknown) {
@@ -408,7 +396,6 @@ export const useAuthStore = defineStore('auth', () => {
         isAdmin: computed(() => user.value?.role === 'ADMIN' || user.value?.role === 'SUPER_ADMIN'),
         login,
         logout,
-        handleSanctionedSession,
         fetchUser,
         bootstrapSession,
         retryBootstrapSession,

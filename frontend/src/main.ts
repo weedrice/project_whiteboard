@@ -49,9 +49,6 @@ configureAuthSessionEffects({
             useThemeStore(pinia).setTheme(userData.theme)
         }
     },
-    handleSanctionedSession: () => {
-        useToastStore(pinia).addToast(i18n.global.t('user.sanctioned'), 'error')
-    },
     onSessionBoundary: (generation) => {
         notifyAuthSessionBoundary(generation)
         resetNotificationStreamSessionState()

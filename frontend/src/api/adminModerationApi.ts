@@ -23,7 +23,7 @@ export const adminModerationApi = {
         return api.get<ApiResponse<PageResponseRaw<Report>>>('/admin/reports', { ...config, params })
     },
     resolveReport(reportId: string | number, data: ReportResolveData) {
-        return api.put<ApiResponse<void>>(`/admin/reports/${encodePathSegment(reportId)}`, data)
+        return api.put<ApiResponse<Report>>(`/admin/reports/${encodePathSegment(reportId)}`, data)
     },
     getModerationAudits(params: ModerationAuditSearchParams, config?: AxiosRequestConfig) {
         return api.get<ApiResponse<PageResponseRaw<ModerationAuditLog>>>('/admin/moderation-audits', { ...config, params })

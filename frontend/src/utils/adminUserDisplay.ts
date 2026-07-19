@@ -3,7 +3,7 @@ export type AdminUserMutableStatus = 'ACTIVE' | 'SUSPENDED'
 
 export function getAdminUserStatusVariant(status: string): BadgeVariant {
   if (status === 'ACTIVE') return 'success'
-  if (status === 'SUSPENDED' || status === 'SANCTIONED') return 'danger'
+  if (status === 'SUSPENDED') return 'danger'
   if (status === 'DELETED') return 'warning'
   return 'gray'
 }

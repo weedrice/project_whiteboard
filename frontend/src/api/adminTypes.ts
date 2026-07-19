@@ -43,9 +43,14 @@ export interface ReportResolveData {
     remark?: string
 }
 
+export type ReportStatusFilter = 'PENDING' | 'RESOLVED' | 'REJECTED'
+export type ReportTargetTypeFilter = 'POST' | 'COMMENT' | 'USER'
+
 export interface ReportSearchParams {
     page?: number
     size?: number
+    status?: ReportStatusFilter
+    targetType?: ReportTargetTypeFilter
 }
 
 export interface ConfigCreateData {

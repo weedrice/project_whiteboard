@@ -30,6 +30,7 @@ export const adminModerationMessages = {
     reasonType: '신고 유형',
     targetContentId: '대상 콘텐츠 ID',
     remark: '사유',
+    statusFilter: '처리 상태',
     detail: {
       title: '신고 상세',
       reportInfo: '신고 정보',

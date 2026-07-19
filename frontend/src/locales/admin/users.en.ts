@@ -82,8 +82,6 @@ export const adminUserMessagesEn = {
       ACTIVE: 'Active',
       SUSPENDED: 'Suspended',
       DELETED: 'Deleted',
-      SANCTIONED: 'Sanctioned',
-      INACTIVE: 'Inactive',
     },
     role: {
       USER: 'User',

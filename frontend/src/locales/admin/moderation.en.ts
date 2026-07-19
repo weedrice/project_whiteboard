@@ -30,6 +30,7 @@ export const adminModerationMessagesEn = {
     reasonType: 'Report type',
     targetContentId: 'Target content ID',
     remark: 'Reason',
+    statusFilter: 'Status',
     detail: {
       title: 'Report details',
       reportInfo: 'Report information',

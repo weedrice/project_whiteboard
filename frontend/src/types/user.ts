@@ -13,6 +13,8 @@ export interface Badge extends BadgeCompact {
     representative: boolean
 }
 
+export type UserStatus = 'ACTIVE' | 'SUSPENDED' | 'DELETED'
+
 export interface User {
     userId: number
     loginId: string
@@ -20,7 +22,7 @@ export interface User {
     email: string
     role?: 'USER' | 'ADMIN' | 'SUPER_ADMIN' | 'BOARD_ADMIN' | 'MODERATOR'
     isSuperAdmin?: boolean
-    status: 'ACTIVE' | 'INACTIVE' | 'SANCTIONED' | 'SUSPENDED' | 'DELETED'
+    status: UserStatus
     bio?: string
     profileImageUrl?: string
     theme?: 'LIGHT' | 'DARK'

@@ -37,7 +37,6 @@ vi.mock('@/features/notifications/pushSubscriptions', () => ({
 }))
 
 const mockSyncThemeFromUser = vi.fn()
-const mockHandleSanctionedSession = vi.fn()
 const mockSessionBoundary = vi.fn()
 
 vi.mock('@/utils/logger', () => ({
@@ -71,7 +70,6 @@ describe('Auth Store', () => {
         vi.clearAllMocks()
         configureAuthSessionEffects({
             syncThemeFromUser: mockSyncThemeFromUser,
-            handleSanctionedSession: mockHandleSanctionedSession,
             onSessionBoundary: mockSessionBoundary,
         })
         store = useAuthStore()
@@ -231,22 +229,6 @@ describe('Auth Store', () => {
         })
     })
 
-    describe('handleSanctionedSession', () => {
-        it('shows sanction toast and clears auth state', async () => {
-            store.accessToken = 'token'
-            store.user = authUser({ status: 'SANCTIONED' })
-            persistAccessToken('token')
-            vi.mocked(authApi.logout).mockResolvedValue(authLogoutResponse())
-
-            await store.handleSanctionedSession()
-
-            expect(mockHandleSanctionedSession).toHaveBeenCalled()
-            expect(authApi.logout).toHaveBeenCalled()
-            expect(store.accessToken).toBeNull()
-            expect(store.user).toBeNull()
-        })
-    })
-
     describe('fetchUser', () => {
         it('does nothing if no token', async () => {
             store.accessToken = null
@@ -292,19 +274,6 @@ describe('Auth Store', () => {
 
             expect(result).toBe(false)
             expect(store.user).toBeNull()
-        })
-
-        it('handles sanctioned user', async () => {
-            persistAccessToken('token')
-            store.accessToken = 'token'
-            const mockUser = authUser({ status: 'SANCTIONED' })
-            vi.mocked(authApi.getMe).mockResolvedValue(authUserResponse(mockUser))
-
-            const result = await store.fetchUser()
-
-            expect(result).toBe(false)
-            expect(store.accessToken).toBeNull() // Should have logged out
-            expect(mockHandleSanctionedSession).toHaveBeenCalled()
         })
 
         it('does not logout on fetch error (handled by interceptor)', async () => {

@@ -144,8 +144,6 @@ export interface AdminMessages {
       ACTIVE: string
       SUSPENDED: string
       DELETED: string
-      SANCTIONED: string
-      INACTIVE: string
     }
     role: {
       USER: string
@@ -216,6 +214,7 @@ export interface AdminMessages {
     reasonType: string
     targetContentId: string
     remark: string
+    statusFilter: string
     detail: {
       title: string
       reportInfo: string

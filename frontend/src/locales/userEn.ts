@@ -358,5 +358,4 @@ export const userEn: UserMessages = {
     moveUp: 'Move {name} up',
     moveDown: 'Move {name} down',
   },
-  sanctioned: 'Your account has been sanctioned. You will be logged out.',
 }

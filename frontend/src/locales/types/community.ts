@@ -895,7 +895,6 @@ export interface UserMessages {
       moveUp: string
       moveDown: string
     }
-  sanctioned: string
 }
 
 // 신고 메시지 타입

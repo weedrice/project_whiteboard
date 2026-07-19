@@ -36,11 +36,6 @@ export function createAppNavigationGuard() {
         const authResult = await ensureHydratedAuth(to)
         if (authResult !== true) return authResult
 
-        if (authStore.user?.status === 'SANCTIONED') {
-            await authStore.handleSanctionedSession()
-            return { name: 'login' }
-        }
-
         const boardUrlParam = getStringRouteParam(to.params.boardUrl)
         if (isReservedBoardUrl(boardUrlParam)) {
             return { name: 'error', query: { status: '404' } }

@@ -4,7 +4,6 @@ import { adminApi } from '@/api/admin'
 import { adminQueryKeys } from '@/features/admin/queries/adminQueryKeys'
 import {
     invalidateAdminIpBlockCaches,
-    invalidateAdminReportCaches,
 } from '@/features/admin/queries/adminCacheInvalidation'
 import { callAdminApiWithOptionalConfig, useAdminPageQuery } from '@/features/admin/queries/adminApiQuery'
 import type {
@@ -13,8 +12,40 @@ import type {
     ReportSearchParams,
 } from '@/api/admin'
 import type { IpBlock, Report } from '@/types'
+import type { PageResponse } from '@/types'
 import { useAuthStore } from '@/stores/auth'
-import { captureSessionGeneration, isSessionGenerationCurrent } from '@/queryAuthScope'
+import { captureSessionGeneration, isSessionGenerationCurrent, sessionQueryKey } from '@/queryAuthScope'
+import { unwrapAxiosApiData } from '@/api/response'
+
+function isReportPage(value: unknown): value is PageResponse<Report> {
+    return !!value && typeof value === 'object' && Array.isArray((value as PageResponse<Report>).content)
+}
+
+function replaceReport(page: PageResponse<Report> | undefined, updatedReport: Report) {
+    if (!isReportPage(page)) return page
+    let changed = false
+    const content = page.content.map((report) => {
+        if (report.reportId !== updatedReport.reportId) return report
+        changed = true
+        return updatedReport
+    })
+    return changed ? { ...page, content } : page
+}
+
+function removeReport(page: PageResponse<Report> | undefined, reportId: number) {
+    if (!isReportPage(page) || !page.content.some((report) => report.reportId === reportId)) return page
+    const content = page.content.filter((report) => report.reportId !== reportId)
+    const totalElements = Math.max(0, page.totalElements - 1)
+    const totalPages = page.size > 0 ? Math.ceil(totalElements / page.size) : 0
+    return {
+        ...page,
+        content,
+        totalElements,
+        totalPages,
+        empty: content.length === 0,
+        last: page.number >= Math.max(0, totalPages - 1),
+    }
+}
 
 export function useAdminModeration(queryClient: QueryClient) {
     const authStore = useAuthStore()
@@ -42,9 +73,35 @@ export function useAdminModeration(queryClient: QueryClient) {
         return useMutation({
             mutationFn: ({ reportId, data }: { reportId: string | number, data: ReportResolveData }) => adminApi.resolveReport(reportId, data),
             onMutate: captureMutationSession,
-            onSettled: (_data, _error, _variables, context) => {
+            onSuccess: (response, _variables, context) => {
                 if (!isCurrentMutation(context)) return
-                invalidateAdminReportCaches(queryClient, context.sessionGeneration)
+                const updatedReport = unwrapAxiosApiData(response)
+                const reportRoot = sessionQueryKey(context.sessionGeneration, adminQueryKeys.reportsRoot)
+                const hasMismatchedStatusFilter = (query: { queryKey: readonly unknown[] }) => {
+                    const queryKey = query.queryKey
+                    if (!reportRoot.every((segment, index) => queryKey[index] === segment)) return false
+                    const params = queryKey[reportRoot.length]
+                    return !!params
+                        && typeof params === 'object'
+                        && 'status' in params
+                        && typeof params.status === 'string'
+                        && params.status !== updatedReport.status
+                }
+
+                queryClient.setQueriesData<PageResponse<Report>>(
+                    { predicate: hasMismatchedStatusFilter },
+                    (page) => removeReport(page, updatedReport.reportId),
+                )
+                queryClient.setQueriesData<PageResponse<Report>>(
+                    {
+                        predicate: (query) => (
+                            reportRoot.every((segment, index) => query.queryKey[index] === segment)
+                            && !hasMismatchedStatusFilter(query)
+                        ),
+                    },
+                    (page) => replaceReport(page, updatedReport),
+                )
+                void queryClient.invalidateQueries({ predicate: hasMismatchedStatusFilter })
             },
         })
     }

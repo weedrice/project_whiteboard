@@ -38,12 +38,22 @@ const mocks = vi.hoisted(() => ({
   confirm: vi.fn(),
   confirmWithReason: vi.fn(),
   addToast: vi.fn(),
-  params: null as Ref<{ page: number; size: number }> | null,
+  params: null as Ref<{
+    page: number
+    size: number
+    status?: 'PENDING' | 'RESOLVED' | 'REJECTED'
+    targetType?: 'POST' | 'COMMENT' | 'USER'
+  }> | null,
 }))
 
 vi.mock('@/features/admin/useAdmin', () => ({
   useAdmin: () => ({
-    useReports: (params: Ref<{ page: number; size: number }>) => {
+    useReports: (params: Ref<{
+      page: number
+      size: number
+      status?: 'PENDING' | 'RESOLVED' | 'REJECTED'
+      targetType?: 'POST' | 'COMMENT' | 'USER'
+    }>) => {
       mocks.params = params
       return {
         data: mocks.reportsData,
@@ -231,6 +241,25 @@ describe('ReportManagement', () => {
     expect(mocks.params?.value).toEqual({ page: 0, size: 50 })
   })
 
+  it('adds report filters to the query and resets the page', async () => {
+    const wrapper = mountReportManagement()
+
+    await wrapper.get('[data-testid="page-change"]').trigger('click')
+    await wrapper.get('#admin-report-status-filter').setValue('PENDING')
+
+    expect(mocks.params?.value).toEqual({ page: 0, size: 20, status: 'PENDING' })
+
+    await wrapper.get('[data-testid="page-change"]').trigger('click')
+    await wrapper.get('#admin-report-target-filter').setValue('COMMENT')
+
+    expect(mocks.params?.value).toEqual({
+      page: 0,
+      size: 20,
+      status: 'PENDING',
+      targetType: 'COMMENT',
+    })
+  })
+
   it('does not directly refetch after resolving because mutation invalidates reports', async () => {
     mocks.confirmWithReason.mockResolvedValueOnce('reviewed')
     mocks.resolveReport.mockResolvedValueOnce(undefined)
@@ -270,7 +299,7 @@ describe('ReportManagement', () => {
     expect(wrapper.get('[data-testid="detail-modal"]').attributes('data-open')).toBe('false')
   })
 
-  it('maps report target data for sanctions and refetches after sanctioning', async () => {
+  it('maps report target data for sanctions without a redundant direct refetch', async () => {
     const wrapper = mountReportManagement()
 
     await wrapper.get('[data-testid="sanction-report"]').trigger('click')
@@ -283,6 +312,6 @@ describe('ReportManagement', () => {
 
     await wrapper.get('[data-testid="sanctioned"]').trigger('click')
 
-    expect(mocks.refetch).toHaveBeenCalledTimes(1)
+    expect(mocks.refetch).not.toHaveBeenCalled()
   })
 })

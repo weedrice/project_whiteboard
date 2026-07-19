@@ -82,8 +82,6 @@ export const adminUserMessages = {
       ACTIVE: '활동 중',
       SUSPENDED: '정지됨',
       DELETED: '삭제됨',
-      SANCTIONED: '제재됨',
-      INACTIVE: '비활성',
     },
     role: {
       USER: '일반 사용자',

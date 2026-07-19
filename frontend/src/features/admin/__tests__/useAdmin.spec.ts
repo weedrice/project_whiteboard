@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { isRef, ref } from 'vue'
 import { useAdmin } from '../useAdmin'
 import { adminApi } from '@/api/admin'
-import { apiDataResponse, apiSuccessResponse } from '@/test/apiResponseFixtures'
+import { apiDataResponse, apiSuccessDataResponse, apiSuccessResponse } from '@/test/apiResponseFixtures'
 
 const mockAuthStore = vi.hoisted(() => ({ sessionGeneration: 0 }))
 const mockInvalidateConfig = vi.hoisted(() => vi.fn())
@@ -58,6 +58,7 @@ vi.mock('@/api/admin', () => ({
 
 // Mock vue-query
 const mockInvalidateQueries = vi.fn()
+const mockSetQueriesData = vi.fn()
 const mockRemoveQueries = vi.fn()
 const mockFetchQuery = vi.fn(async (options: { queryFn: (context?: { signal?: AbortSignal }) => Promise<unknown> }) => (
     options.queryFn({})
@@ -108,6 +109,7 @@ vi.mock('@tanstack/vue-query', () => ({
     }),
     useQueryClient: vi.fn(() => ({
         invalidateQueries: mockInvalidateQueries,
+        setQueriesData: mockSetQueriesData,
         removeQueries: mockRemoveQueries,
         fetchQuery: mockFetchQuery,
     }))
@@ -457,16 +459,37 @@ describe('useAdmin', () => {
         it('useResolveReport calls adminApi.resolveReport', async () => {
             const { useResolveReport } = useAdmin()
             const mutation = useResolveReport()
+            const updatedReport = {
+                reportId: 1,
+                status: 'RESOLVED',
+                targetType: 'POST',
+                targetId: 10,
+            }
 
-            vi.mocked(adminApi.resolveReport).mockResolvedValue(apiSuccessResponse<typeof adminApi.resolveReport>())
+            vi.mocked(adminApi.resolveReport).mockResolvedValue(
+                apiSuccessDataResponse<typeof adminApi.resolveReport>(updatedReport),
+            )
 
             await mutation.mutateAsync({ reportId: 1, data: { status: 'RESOLVED' } })
 
             expect(adminApi.resolveReport).toHaveBeenCalledWith(1, { status: 'RESOLVED' })
-            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'reports'] })
+            expect(mockSetQueriesData).toHaveBeenCalledTimes(2)
+            expect(mockInvalidateQueries).toHaveBeenCalledTimes(1)
+
+            const replaceCachedReport = mockSetQueriesData.mock.calls[1]?.[1] as (page: unknown) => unknown
+            expect(replaceCachedReport({
+                content: [{ ...updatedReport, status: 'PENDING' }],
+                number: 0,
+                size: 20,
+                totalElements: 1,
+                totalPages: 1,
+                first: true,
+                last: true,
+                empty: false,
+            })).toMatchObject({ content: [updatedReport] })
         })
 
-        it('useResolveReport invalidates reports even when resolve fails', async () => {
+        it('useResolveReport leaves report caches unchanged when resolve fails', async () => {
             const { useResolveReport } = useAdmin()
             const mutation = useResolveReport()
             const error = new Error('validation error')
@@ -476,7 +499,8 @@ describe('useAdmin', () => {
             await expect(mutation.mutateAsync({ reportId: 1, data: { status: 'RESOLVED' } })).rejects.toThrow(error)
 
             expect(adminApi.resolveReport).toHaveBeenCalledWith(1, { status: 'RESOLVED' })
-            expect(mockInvalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'admin', 'reports'] })
+            expect(mockSetQueriesData).not.toHaveBeenCalled()
+            expect(mockInvalidateQueries).not.toHaveBeenCalled()
         })
     })
 

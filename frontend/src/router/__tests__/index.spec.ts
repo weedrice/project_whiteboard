@@ -217,7 +217,7 @@ const axiosStatusError = (status: number) => ({
 type MockAuthUser = {
     userId?: number
     role?: 'USER' | 'ADMIN' | 'SUPER_ADMIN' | 'BOARD_ADMIN' | 'MODERATOR'
-    status?: 'ACTIVE' | 'INACTIVE' | 'SANCTIONED' | 'SUSPENDED' | 'DELETED'
+    status?: 'ACTIVE' | 'SUSPENDED' | 'DELETED'
 }
 
 type MockAuthStore = {
@@ -230,7 +230,6 @@ type MockAuthStore = {
     retryBootstrapSession: ReturnType<typeof vi.fn<() => Promise<boolean>>>
     fetchUser: ReturnType<typeof vi.fn<() => Promise<boolean | void>>>
     logout: ReturnType<typeof vi.fn<() => void>>
-    handleSanctionedSession: ReturnType<typeof vi.fn<() => void>>
 }
 
 describe('Router Navigation Guards', () => {
@@ -255,10 +254,6 @@ describe('Router Navigation Guards', () => {
                 mockAuthStore.user = null
                 mockAuthStore.isAuthenticated = false
             }),
-            handleSanctionedSession: vi.fn().mockImplementation(() => {
-                mockAuthStore.user = null
-                mockAuthStore.isAuthenticated = false
-            })
         }
         vi.mocked(useAuthStore).mockReturnValue(mockAuthStore as unknown as ReturnType<typeof useAuthStore>)
         i18n.global.locale.value = 'ko'
@@ -710,16 +705,6 @@ describe('Router Navigation Guards', () => {
         await router.push('/auth/oauth/callback')
 
         expect(sessionStorage.getItem('loginRedirect')).toBeNull()
-    })
-
-    it('logs out and redirects to login if user is sanctioned', async () => {
-        mockAuthStore.user = { status: 'SANCTIONED' }
-        mockAuthStore.isAuthenticated = true
-
-        await router.push('/boards')
-
-        expect(mockAuthStore.handleSanctionedSession).toHaveBeenCalled()
-        expect(router.currentRoute.value.name).toBe('login')
     })
 
     it('applies scroll behavior for saved position, hash and default top', () => {

@@ -15,7 +15,6 @@ describe('adminUserDisplay', () => {
   it('maps user statuses to badge variants', () => {
     expect(getAdminUserStatusVariant('ACTIVE')).toBe('success')
     expect(getAdminUserStatusVariant('SUSPENDED')).toBe('danger')
-    expect(getAdminUserStatusVariant('SANCTIONED')).toBe('danger')
     expect(getAdminUserStatusVariant('DELETED')).toBe('warning')
     expect(getAdminUserStatusVariant('UNKNOWN')).toBe('gray')
   })
