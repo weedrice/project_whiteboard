@@ -272,8 +272,9 @@ diagnose() {
   if [ "$(sudo stat -c %s "$diagnostic_file")" -gt "$DIAGNOSTIC_MAX_FILE_BYTES" ]; then
     diagnostic_trimmed="$DIAGNOSTIC_ROOT/.backend-diagnostic-trimmed.$$"
     if sudo tail -c "$DIAGNOSTIC_MAX_FILE_BYTES" "$diagnostic_file" | sudo tee "$diagnostic_trimmed" >/dev/null; then
-      sudo chown root:root "$diagnostic_trimmed" && sudo chmod 0600 "$diagnostic_trimmed" \
-        && sudo mv -Tf "$diagnostic_trimmed" "$diagnostic_file" || true
+      if sudo chown root:root "$diagnostic_trimmed" && sudo chmod 0600 "$diagnostic_trimmed"; then
+        sudo mv -Tf "$diagnostic_trimmed" "$diagnostic_file" || true
+      fi
     fi
     sudo rm -f -- "$diagnostic_trimmed" 2>/dev/null || true
   fi
@@ -283,8 +284,7 @@ diagnose() {
 
 wait_for_health() {
   local expected_commit="${1:-}"
-  local attempt
-  for attempt in $(seq 1 "$HEALTH_ATTEMPTS"); do
+  for _ in $(seq 1 "$HEALTH_ATTEMPTS"); do
     if curl -fsS --max-time 3 "$HEALTH_URL" >/dev/null; then
       if [ -z "$expected_commit" ] || curl -fsS --max-time 3 "${HEALTH_URL%/health}/info" | grep -Fq -- "\"commit\":\"$expected_commit\""; then
         return 0

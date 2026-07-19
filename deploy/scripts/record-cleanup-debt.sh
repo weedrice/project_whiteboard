@@ -62,19 +62,23 @@ if [ "$action" = reconcile ]; then
   done < <(find "$incoming_root_real" -mindepth 1 -maxdepth 1 -print0)
   [ "$orphan_count" -eq 0 ] || value=1
 fi
-printf '# HELP noviis_deployment_cleanup_debt Deployment follow-up debt requiring operator action.\n' > "$temporary"
-printf '# TYPE noviis_deployment_cleanup_debt gauge\n' >> "$temporary"
-printf 'noviis_deployment_cleanup_debt{component="%s",debt="%s"} %s\n' "$component" "$debt" "$value" >> "$temporary"
-printf '# HELP noviis_deployment_cleanup_writer_success_timestamp_seconds Last successful cleanup debt metric write.\n' >> "$temporary"
-printf '# TYPE noviis_deployment_cleanup_writer_success_timestamp_seconds gauge\n' >> "$temporary"
-printf 'noviis_deployment_cleanup_writer_success_timestamp_seconds{component="%s",debt="%s"} %s\n' "$component" "$debt" "$(date +%s)" >> "$temporary"
+{
+  printf '# HELP noviis_deployment_cleanup_debt Deployment follow-up debt requiring operator action.\n'
+  printf '# TYPE noviis_deployment_cleanup_debt gauge\n'
+  printf 'noviis_deployment_cleanup_debt{component="%s",debt="%s"} %s\n' "$component" "$debt" "$value"
+  printf '# HELP noviis_deployment_cleanup_writer_success_timestamp_seconds Last successful cleanup debt metric write.\n'
+  printf '# TYPE noviis_deployment_cleanup_writer_success_timestamp_seconds gauge\n'
+  printf 'noviis_deployment_cleanup_writer_success_timestamp_seconds{component="%s",debt="%s"} %s\n' "$component" "$debt" "$(date +%s)"
+} > "$temporary"
 if [ "$action" = reconcile ]; then
-  printf '# HELP noviis_deployment_incoming_orphans Incoming release directories awaiting cleanup.\n' >> "$temporary"
-  printf '# TYPE noviis_deployment_incoming_orphans gauge\n' >> "$temporary"
-  printf 'noviis_deployment_incoming_orphans{component="%s"} %s\n' "$component" "$orphan_count" >> "$temporary"
-  printf '# HELP noviis_deployment_incoming_orphan_oldest_age_seconds Age of the oldest incoming release directory.\n' >> "$temporary"
-  printf '# TYPE noviis_deployment_incoming_orphan_oldest_age_seconds gauge\n' >> "$temporary"
-  printf 'noviis_deployment_incoming_orphan_oldest_age_seconds{component="%s"} %s\n' "$component" "$oldest_age_seconds" >> "$temporary"
+  {
+    printf '# HELP noviis_deployment_incoming_orphans Incoming release directories awaiting cleanup.\n'
+    printf '# TYPE noviis_deployment_incoming_orphans gauge\n'
+    printf 'noviis_deployment_incoming_orphans{component="%s"} %s\n' "$component" "$orphan_count"
+    printf '# HELP noviis_deployment_incoming_orphan_oldest_age_seconds Age of the oldest incoming release directory.\n'
+    printf '# TYPE noviis_deployment_incoming_orphan_oldest_age_seconds gauge\n'
+    printf 'noviis_deployment_incoming_orphan_oldest_age_seconds{component="%s"} %s\n' "$component" "$oldest_age_seconds"
+  } >> "$temporary"
 fi
 chmod 0644 "$temporary"
 mv -Tf "$temporary" "$destination"

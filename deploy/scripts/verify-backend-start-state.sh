@@ -11,8 +11,12 @@ fail() {
 }
 
 [ "$EUID" -eq 0 ] || fail "verifier must run as root"
-[ -f "$APP_DIR/app.jar" ] && [ ! -L "$APP_DIR/app.jar" ] || fail "application JAR is missing or unsafe"
-[ -f "$ACTIVE_STATE_FILE" ] && [ ! -L "$ACTIVE_STATE_FILE" ] || fail "active state is missing or unsafe"
+if ! { [ -f "$APP_DIR/app.jar" ] && [ ! -L "$APP_DIR/app.jar" ]; }; then
+  fail "application JAR is missing or unsafe"
+fi
+if ! { [ -f "$ACTIVE_STATE_FILE" ] && [ ! -L "$ACTIVE_STATE_FILE" ]; }; then
+  fail "active state is missing or unsafe"
+fi
 [ "$(stat -c %U:%G "$ACTIVE_STATE_FILE")" = root:root ] || fail "active state owner is invalid"
 [ "$(stat -c %a "$ACTIVE_STATE_FILE")" = 600 ] || fail "active state mode is invalid"
 
@@ -30,19 +34,21 @@ activation_expires_at="$(sed -n 's/^activation_expires_at=//p' "$ACTIVE_STATE_FI
 [[ "$run_id" =~ ^[0-9]+$ ]] || fail "run id is invalid"
 [[ "$run_number" =~ ^[0-9]+$ ]] || fail "run number is invalid"
 [[ "$run_attempt" =~ ^[0-9]+$ ]] || fail "run attempt is invalid"
-[[ "$phase" = pending || "$phase" = stable ]] || fail "activation phase is invalid"
+[[ "$phase" = "pending" || "$phase" = "stable" ]] || fail "activation phase is invalid"
 if [ "$phase" = pending ]; then
   [[ "$activation_nonce" =~ ^[0-9a-f]{32}$ ]] || fail "pending activation nonce is invalid"
   [[ "$activation_issued_at" =~ ^[0-9]+$ && "$activation_expires_at" =~ ^[0-9]+$ ]] \
     || fail "pending activation lease timestamps are invalid"
-  [ "$activation_issued_at" -le "$(date +%s)" ] && [ "$activation_expires_at" -gt "$(date +%s)" ] \
-    || fail "pending activation lease is expired or not active"
+  if ! { [ "$activation_issued_at" -le "$(date +%s)" ] && [ "$activation_expires_at" -gt "$(date +%s)" ]; }; then
+    fail "pending activation lease is expired or not active"
+  fi
   command -v flock >/dev/null 2>&1 || fail "flock is required for pending activation verification"
-  [ -f "$BACKEND_ACTIVATION_LEASE_FILE" ] && [ ! -L "$BACKEND_ACTIVATION_LEASE_FILE" ] \
-    || fail "pending activation lease file is missing or unsafe"
-  [ "$(stat -c %U:%G "$BACKEND_ACTIVATION_LEASE_FILE")" = root:root ] \
-    && [ "$(stat -c %a "$BACKEND_ACTIVATION_LEASE_FILE")" = 600 ] \
-    || fail "pending activation lease file permissions are invalid"
+  if ! { [ -f "$BACKEND_ACTIVATION_LEASE_FILE" ] && [ ! -L "$BACKEND_ACTIVATION_LEASE_FILE" ]; }; then
+    fail "pending activation lease file is missing or unsafe"
+  fi
+  if ! { [ "$(stat -c %U:%G "$BACKEND_ACTIVATION_LEASE_FILE")" = root:root ] && [ "$(stat -c %a "$BACKEND_ACTIVATION_LEASE_FILE")" = 600 ]; }; then
+    fail "pending activation lease file permissions are invalid"
+  fi
   [ "$(tr -d '\r\n' < "$BACKEND_ACTIVATION_LEASE_FILE")" = "$activation_nonce" ] \
     || fail "pending activation lease nonce does not match"
   if flock -n "$BACKEND_ACTIVATION_LEASE_FILE" true; then
@@ -52,8 +58,9 @@ else
   [ -n "$activation_nonce" ] || activation_nonce=none
   [ -n "$activation_issued_at" ] || activation_issued_at=0
   [ -n "$activation_expires_at" ] || activation_expires_at=0
-  [ "$activation_nonce" = none ] && [ "$activation_issued_at" = 0 ] && [ "$activation_expires_at" = 0 ] \
-    || fail "stable activation unexpectedly contains a lease"
+  if ! { [ "$activation_nonce" = none ] && [ "$activation_issued_at" = 0 ] && [ "$activation_expires_at" = 0 ]; }; then
+    fail "stable activation unexpectedly contains a lease"
+  fi
 fi
 [ "$(sha256sum "$APP_DIR/app.jar" | awk '{print $1}')" = "$jar_sha256" ] || fail "JAR digest does not match active state"
 

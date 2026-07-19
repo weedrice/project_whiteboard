@@ -22,7 +22,9 @@ esac
 [ "$actual_arch" = "$expected_arch" ] \
   || fail "runner architecture $actual_arch does not match pinned archive $expected_arch"
 [[ "$expected_sha256" =~ ^[0-9a-f]{64}$ ]] || fail "expected SHA-256 is invalid"
-[ -f "$archive" ] && [ ! -L "$archive" ] || fail "archive must be a regular non-symlink file"
+if ! { [ -f "$archive" ] && [ ! -L "$archive" ]; }; then
+  fail "archive must be a regular non-symlink file"
+fi
 
 actual_sha256="$(sha256sum "$archive" | awk '{print $1}')"
 [ "$actual_sha256" = "$expected_sha256" ] || fail "archive checksum mismatch"

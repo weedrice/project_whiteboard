@@ -18,10 +18,10 @@ while read -r scope pattern extra; do
   [ -n "${scope:-}" ] || continue
   [[ "$scope" = \#* ]] && continue
   case "$scope" in common|backend|frontend) ;; *) echo "invalid freshness manifest scope: $scope" >&2; exit 1 ;; esac
-  [ -n "${pattern:-}" ] && [ -z "${extra:-}" ] || {
+  if [ -z "${pattern:-}" ] || [ -n "${extra:-}" ]; then
     echo "invalid freshness manifest entry: $scope ${pattern:-}" >&2
     exit 1
-  }
+  fi
   manifest_entries+=("$scope|$pattern")
 done < "$manifest"
 [ "${#manifest_entries[@]}" -gt 0 ] || { echo "deployment freshness manifest is empty" >&2; exit 1; }
@@ -42,6 +42,8 @@ is_component_path() {
   for entry in "${manifest_entries[@]}"; do
     scope="${entry%%|*}"
     pattern="${entry#*|}"
+    # Manifest entries intentionally use Bash glob matching.
+    # shellcheck disable=SC2053
     if { [ "$scope" = common ] || [ "$scope" = "$component" ]; } && [[ "$path" == $pattern ]]; then
       return 0
     fi
