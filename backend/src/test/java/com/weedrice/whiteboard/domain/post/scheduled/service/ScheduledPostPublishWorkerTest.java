@@ -2,6 +2,8 @@ package com.weedrice.whiteboard.domain.post.scheduled.service;
 
 import tools.jackson.databind.ObjectMapper;
 import com.weedrice.whiteboard.domain.board.entity.Board;
+import com.weedrice.whiteboard.domain.notification.constant.NotificationSourceType;
+import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.post.dto.PostCreateRequest;
 import com.weedrice.whiteboard.domain.post.dto.PostCreateResponse;
 import com.weedrice.whiteboard.domain.post.scheduled.entity.ScheduledPost;
@@ -11,8 +13,10 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
+import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -125,6 +129,44 @@ class ScheduledPostPublishWorkerTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("lease changed");
         verify(repository, never()).markFailed(any(), any(), any());
+    }
+
+    @Test
+    void publishedNotificationTargetsCreatedPost() {
+        LocalDateTime claimedAt = LocalDateTime.of(2026, 7, 14, 12, 0);
+        ScheduledPost scheduledPost = scheduledPost();
+        when(repository.findByScheduledPostIdAndStatusAndProcessingStartedAt(
+                7L, ScheduledPost.STATUS_PUBLISHING, claimedAt)).thenReturn(Optional.of(scheduledPost));
+        when(payloadMapper.toPostCreateRequest(scheduledPost)).thenReturn(new PostCreateRequest());
+        when(postCommandService.createPostWithResponse(any(), any(), any()))
+                .thenReturn(PostCreateResponse.builder().postId(91L).build());
+        when(repository.markPublished(any(), any(), any(), any())).thenReturn(1);
+
+        worker().publishClaimed(7L, claimedAt);
+
+        ArgumentCaptor<NotificationEvent> eventCaptor = ArgumentCaptor.forClass(NotificationEvent.class);
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        assertThat(eventCaptor.getValue().getSourceType()).isEqualTo(NotificationSourceType.POST);
+        assertThat(eventCaptor.getValue().getSourceId()).isEqualTo(91L);
+        assertThat(eventCaptor.getValue().getMessageKey()).isEqualTo("notification.scheduled.published");
+    }
+
+    @Test
+    void failedNotificationTargetsEditableScheduledPost() {
+        LocalDateTime claimedAt = LocalDateTime.of(2026, 7, 14, 12, 0);
+        ScheduledPost scheduledPost = scheduledPost();
+        ReflectionTestUtils.setField(scheduledPost, "scheduledPostId", 7L);
+        when(repository.findByScheduledPostIdAndStatusAndProcessingStartedAt(
+                7L, ScheduledPost.STATUS_PUBLISHING, claimedAt)).thenReturn(Optional.of(scheduledPost));
+        when(repository.markFailed(any(), any(), any())).thenReturn(1);
+
+        worker().markFailed(7L, claimedAt, new IllegalStateException("boom"));
+
+        ArgumentCaptor<NotificationEvent> eventCaptor = ArgumentCaptor.forClass(NotificationEvent.class);
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        assertThat(eventCaptor.getValue().getSourceType()).isEqualTo(NotificationSourceType.SYSTEM);
+        assertThat(eventCaptor.getValue().getSourceId()).isEqualTo(7L);
+        assertThat(eventCaptor.getValue().getMessageKey()).isEqualTo("notification.scheduled.failed");
     }
 
     private ScheduledPostPublishWorker worker() {

@@ -118,7 +118,7 @@ class ReportModerationCommandServiceTest {
                 7L,
                 null,
                 "no evidence");
-        verify(reportAutoBlindService).restoreAutoBlindedCommentIfEligible("POST", 10L);
+        verify(reportAutoBlindService).restoreAutoBlindedTargetIfEligible("POST", 10L);
     }
 
     @Test

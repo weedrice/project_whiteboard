@@ -6,6 +6,8 @@ import com.weedrice.whiteboard.domain.notification.constant.NotificationSourceTy
 import com.weedrice.whiteboard.domain.notification.entity.Notification;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
+import com.weedrice.whiteboard.domain.post.scheduled.entity.ScheduledPost;
+import com.weedrice.whiteboard.domain.post.scheduled.repository.ScheduledPostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostReadAccessService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import lombok.RequiredArgsConstructor;
@@ -25,9 +27,12 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 class RepositoryNotificationTargetUrlResolver implements NotificationTargetUrlResolver {
 
+    private static final String SCHEDULED_POST_FAILED_MESSAGE_KEY = "notification.scheduled.failed";
+
     private final PostRepository postRepository;
     private final CommentRepository commentRepository;
     private final PostReadAccessService postReadAccessService;
+    private final ScheduledPostRepository scheduledPostRepository;
 
     @Override
     public Map<Long, String> resolveAll(Collection<Notification> notifications) {
@@ -42,6 +47,11 @@ class RepositoryNotificationTargetUrlResolver implements NotificationTargetUrlRe
                 .collect(Collectors.toSet());
         Set<Long> commentIds = notifications.stream()
                 .filter(notification -> isSourceType(notification, NotificationSourceType.COMMENT))
+                .map(Notification::getSourceId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Set<Long> failedScheduledPostIds = notifications.stream()
+                .filter(this::isScheduledPostFailure)
                 .map(Notification::getSourceId)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
@@ -62,6 +72,10 @@ class RepositoryNotificationTargetUrlResolver implements NotificationTargetUrlRe
                 ? Map.of()
                 : postRepository.findByPostIdInAndIsDeletedFalseAndIsBlindedFalse(targetPostIds).stream()
                         .collect(Collectors.toMap(Post::getPostId, Function.identity()));
+        Map<Long, ScheduledPost> failedScheduledPostsById = failedScheduledPostIds.isEmpty()
+                ? Map.of()
+                : scheduledPostRepository.findByScheduledPostIdIn(failedScheduledPostIds).stream()
+                        .collect(Collectors.toMap(ScheduledPost::getScheduledPostId, Function.identity()));
         Map<Long, Set<Long>> readablePostIdsByUserId = resolveReadablePostIdsByUser(
                 notifications,
                 postsById.values());
@@ -76,7 +90,12 @@ class RepositoryNotificationTargetUrlResolver implements NotificationTargetUrlRe
             Set<Long> readablePostIds = receiverUserId == null
                     ? Set.of()
                     : readablePostIdsByUserId.getOrDefault(receiverUserId, Set.of());
-            String targetUrl = resolveTargetUrl(notification, postsById, commentsById, readablePostIds);
+            String targetUrl = resolveTargetUrl(
+                    notification,
+                    postsById,
+                    commentsById,
+                    failedScheduledPostsById,
+                    readablePostIds);
             if (targetUrl != null) {
                 targetUrls.put(notification.getNotificationId(), targetUrl);
             }
@@ -107,6 +126,7 @@ class RepositoryNotificationTargetUrlResolver implements NotificationTargetUrlRe
             Notification notification,
             Map<Long, Post> postsById,
             Map<Long, Comment> commentsById,
+            Map<Long, ScheduledPost> failedScheduledPostsById,
             Set<Long> readablePostIds) {
         if (isSourceType(notification, NotificationSourceType.POST)) {
             Post post = postsById.get(notification.getSourceId());
@@ -129,7 +149,25 @@ class RepositoryNotificationTargetUrlResolver implements NotificationTargetUrlRe
             return "/mypage/messages";
         }
 
+        if (isScheduledPostFailure(notification)) {
+            ScheduledPost scheduledPost = failedScheduledPostsById.get(notification.getSourceId());
+            Long receiverUserId = notification.getUser() != null
+                    ? notification.getUser().getUserId()
+                    : null;
+            if (scheduledPost != null
+                    && scheduledPost.isEditable()
+                    && scheduledPost.getUser() != null
+                    && Objects.equals(receiverUserId, scheduledPost.getUser().getUserId())) {
+                return "/scheduled-posts/%d/edit".formatted(scheduledPost.getScheduledPostId());
+            }
+        }
+
         return null;
+    }
+
+    private boolean isScheduledPostFailure(Notification notification) {
+        return isSourceType(notification, NotificationSourceType.SYSTEM)
+                && SCHEDULED_POST_FAILED_MESSAGE_KEY.equals(notification.getMessageKey());
     }
 
     private boolean isSourceType(Notification notification, NotificationSourceType sourceType) {

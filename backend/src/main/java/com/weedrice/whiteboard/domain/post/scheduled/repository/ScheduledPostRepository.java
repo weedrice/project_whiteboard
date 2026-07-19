@@ -13,6 +13,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -40,6 +41,9 @@ public interface ScheduledPostRepository extends JpaRepository<ScheduledPost, Lo
 
     @EntityGraph(attributePaths = {"user", "board"})
     Page<ScheduledPost> findByUser_UserIdOrderByScheduledAtDescScheduledPostIdDesc(Long userId, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"user", "board"})
+    List<ScheduledPost> findByScheduledPostIdIn(Collection<Long> scheduledPostIds);
 
     @Query("""
             SELECT s.scheduledPostId AS scheduledPostId

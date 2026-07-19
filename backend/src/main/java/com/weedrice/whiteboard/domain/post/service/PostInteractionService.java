@@ -33,6 +33,7 @@ import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import com.weedrice.whiteboard.global.common.service.ReactionWriter;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.common.util.TextInputNormalizer;
+import com.weedrice.whiteboard.global.config.AnonymousReadCacheInvalidator;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import jakarta.persistence.EntityManager;
@@ -88,6 +89,7 @@ public class PostInteractionService {
     private final EntityManager entityManager;
     private final BadgeEvaluationService badgeEvaluationService;
     private final SanctionService sanctionService;
+    private final AnonymousReadCacheInvalidator anonymousReadCacheInvalidator;
 
     @Transactional
     public Post getPostById(@NonNull Long postId, Long userId) {
@@ -201,6 +203,7 @@ public class PostInteractionService {
                 resolveNotificationActorName(user, actorAgent));
         eventPublisher.publishEvent(event);
         badgeEvaluationService.evaluatePopularPostBadges(postOwner.getUserId(), likeCount);
+        anonymousReadCacheInvalidator.evictPostEngagementCachesAfterCommit(post.getBoard().getBoardUrl());
 
         return likeCount;
     }
@@ -218,7 +221,7 @@ public class PostInteractionService {
     public int unlikePost(@NonNull Long userId, @NonNull Long postId) {
         User user = userWritableResolver.resolveForUpdate(userId);
         sanctionService.validateNotMuted(user);
-        getReadablePostForResolvedUser(postId, user);
+        Post post = getReadablePostForResolvedUser(postId, user);
 
         int deletedCount = postLikeRepository.deleteByUserIdAndPostId(userId, postId);
         if (deletedCount == 0) {
@@ -226,6 +229,7 @@ public class PostInteractionService {
         }
 
         decrementPostLikeCount(postId);
+        anonymousReadCacheInvalidator.evictPostEngagementCachesAfterCommit(post.getBoard().getBoardUrl());
         return getPostLikeCount(postId);
     }
 

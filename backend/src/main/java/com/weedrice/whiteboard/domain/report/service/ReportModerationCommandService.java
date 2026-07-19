@@ -36,7 +36,7 @@ class ReportModerationCommandService {
                 normalizedRemark);
         reportRepository.save(report);
         if (Report.STATUS_REJECTED.equals(normalizedStatus)) {
-            reportAutoBlindService.restoreAutoBlindedCommentIfEligible(
+            reportAutoBlindService.restoreAutoBlindedTargetIfEligible(
                     report.getTargetType(), report.getTargetId());
         }
         moderationAuditLogService.recordUserAction(

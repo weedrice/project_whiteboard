@@ -25,6 +25,7 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import com.weedrice.whiteboard.global.config.AnonymousReadCacheInvalidator;
 import com.weedrice.whiteboard.global.util.InputSanitizer;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.NonNull;
@@ -57,6 +58,7 @@ public class PostCommandService {
     private final PostSeriesService postSeriesService;
     private final NotificationAccessInvalidationService notificationAccessInvalidationService;
     private final MentionService mentionService;
+    private final AnonymousReadCacheInvalidator anonymousReadCacheInvalidator;
 
     @Transactional
     public Long createPost(@NonNull Long userId, String boardUrl, PostCreateRequest request) {
@@ -136,6 +138,7 @@ public class PostCommandService {
                 savedPost,
                 request);
         postSeriesService.attachPostToSeries(target.user().getUserId(), savedPost, request.getSeriesId());
+        anonymousReadCacheInvalidator.evictPostRelatedCachesAfterCommit();
         return new CreatedPost(savedPost, earnedPoints);
     }
 
@@ -200,6 +203,7 @@ public class PostCommandService {
                 post.getPostId(),
                 originalContents,
                 post.getContents());
+        anonymousReadCacheInvalidator.evictPostRelatedCachesAfterCommit();
 
         return post.getPostId();
     }
@@ -248,6 +252,7 @@ public class PostCommandService {
 
         contentRewardService.rollbackCreateReward(modifier, post.getPostId(), ContentRewardPolicy.POST);
         semanticSearchEventPublisher.publish("POST", post.getPostId(), SemanticSearchIndexAction.DELETE);
+        anonymousReadCacheInvalidator.evictPostRelatedCachesAfterCommit();
     }
 
     private BoardCategory findActiveCategory(Board board, Long categoryId) {

@@ -155,6 +155,10 @@ public class PostDraftService {
 
         DraftPost draftPost = draftPostRepository.findByDraftIdAndUserForUpdate(request.getDraftId(), user)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+        if (scheduledPostRepository.existsByDraftIdAndStatusIn(
+                draftPost.getDraftId(), ScheduledPost.PROTECTED_DRAFT_STATUSES)) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
         if (!isMatchingDraftVersion(request.getUpdatedAt(), draftPost.getModifiedAt())) {
             throw new BusinessException(ErrorCode.DRAFT_OUTDATED);
         }

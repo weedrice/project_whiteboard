@@ -13,6 +13,7 @@ import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import com.weedrice.whiteboard.global.config.AnonymousReadCacheInvalidator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,12 +35,14 @@ public class PostManagerModerationService {
     private final ModerationAuditLogService moderationAuditLogService;
     private final SemanticSearchEventPublisher semanticSearchEventPublisher;
     private final NotificationAccessInvalidationService notificationAccessInvalidationService;
+    private final AnonymousReadCacheInvalidator anonymousReadCacheInvalidator;
     private final Clock clock;
 
     public void pinPost(Long managerUserId, Long postId) {
         ManagedPost managedPost = loadManagedPost(managerUserId, postId);
         Post post = managedPost.post();
         post.pin(now());
+        anonymousReadCacheInvalidator.evictPostRelatedCachesAfterCommit();
         recordPostAction(managedPost.manager(), post, ModerationAuditLogService.ACTION_POST_PIN, null);
     }
 
@@ -47,6 +50,7 @@ public class PostManagerModerationService {
         ManagedPost managedPost = loadManagedPost(managerUserId, postId);
         Post post = managedPost.post();
         post.unpin();
+        anonymousReadCacheInvalidator.evictPostRelatedCachesAfterCommit();
         recordPostAction(managedPost.manager(), post, ModerationAuditLogService.ACTION_POST_UNPIN, null);
     }
 
@@ -57,6 +61,7 @@ public class PostManagerModerationService {
         post.blind(normalizedReason, now());
         notificationAccessInvalidationService.invalidateCommentTopicAfterCommit(post.getPostId());
         semanticSearchEventPublisher.publish("POST", post.getPostId(), SemanticSearchIndexAction.DELETE);
+        anonymousReadCacheInvalidator.evictPostRelatedCachesAfterCommit();
         recordPostAction(managedPost.manager(), post, ModerationAuditLogService.ACTION_POST_BLIND, normalizedReason);
     }
 
@@ -66,6 +71,7 @@ public class PostManagerModerationService {
         post.unblind();
         semanticSearchEventPublisher.publish("POST", post.getPostId(), SemanticSearchIndexAction.UPSERT);
         semanticSearchEventPublisher.publishPostCommentsReindex(post.getPostId());
+        anonymousReadCacheInvalidator.evictPostRelatedCachesAfterCommit();
         recordPostAction(managedPost.manager(), post, ModerationAuditLogService.ACTION_POST_UNBLIND, null);
     }
 

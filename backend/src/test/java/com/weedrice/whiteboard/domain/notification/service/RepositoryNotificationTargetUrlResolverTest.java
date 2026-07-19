@@ -7,6 +7,8 @@ import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
 import com.weedrice.whiteboard.domain.notification.entity.Notification;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
+import com.weedrice.whiteboard.domain.post.scheduled.entity.ScheduledPost;
+import com.weedrice.whiteboard.domain.post.scheduled.repository.ScheduledPostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostReadAccessService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import org.junit.jupiter.api.DisplayName;
@@ -36,6 +38,9 @@ class RepositoryNotificationTargetUrlResolverTest {
 
     @Mock
     private PostReadAccessService postReadAccessService;
+
+    @Mock
+    private ScheduledPostRepository scheduledPostRepository;
 
     @Test
     @DisplayName("POST와 COMMENT 알림의 내부 이동 경로를 batch로 계산한다")
@@ -89,11 +94,35 @@ class RepositoryNotificationTargetUrlResolverTest {
         assertThat(targetUrls).containsEntry(3L, "/mypage/messages");
     }
 
+    @Test
+    @DisplayName("예약 발행 실패 알림은 소유자의 예약글 수정 경로로 연결한다")
+    void resolveAll_buildsFailedScheduledPostTargetUrlForOwner() {
+        Notification failedNotification = notification(4L, "SYSTEM", 40L);
+        ReflectionTestUtils.setField(failedNotification, "messageKey", "notification.scheduled.failed");
+        User owner = failedNotification.getUser();
+        ScheduledPost scheduledPost = ScheduledPost.builder()
+                .user(owner)
+                .board(Board.builder().boardName("free").boardUrl("free").creator(owner).build())
+                .title("scheduled")
+                .contents("contents")
+                .scheduledAt(java.time.LocalDateTime.of(2026, 7, 20, 12, 0))
+                .build();
+        ReflectionTestUtils.setField(scheduledPost, "scheduledPostId", 40L);
+        ReflectionTestUtils.setField(scheduledPost, "status", ScheduledPost.STATUS_FAILED);
+        when(scheduledPostRepository.findByScheduledPostIdIn(Set.of(40L)))
+                .thenReturn(List.of(scheduledPost));
+
+        Map<Long, String> targetUrls = resolver().resolveAll(List.of(failedNotification));
+
+        assertThat(targetUrls).containsEntry(4L, "/scheduled-posts/40/edit");
+    }
+
     private RepositoryNotificationTargetUrlResolver resolver() {
         return new RepositoryNotificationTargetUrlResolver(
                 postRepository,
                 commentRepository,
-                postReadAccessService);
+                postReadAccessService,
+                scheduledPostRepository);
     }
 
     private Notification notification(Long notificationId, String sourceType, Long sourceId) {

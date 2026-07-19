@@ -128,6 +128,11 @@ export const user: UserMessages = {
       CANCELED: '취소됨',
       FAILED: '게시 실패',
     },
+    scheduledFailure: {
+      businessRejected: '발행 조건이 변경되었습니다. 예약글을 확인하고 다시 저장해 주세요.',
+      internalError: '일시적인 문제로 발행하지 못했습니다. 예약글을 확인한 뒤 다시 시도해 주세요.',
+      unknown: '예약 발행에 실패했습니다. 예약글을 확인한 뒤 다시 시도해 주세요.',
+    },
   },
   reportList: {
     target: '대상',

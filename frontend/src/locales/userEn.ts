@@ -128,6 +128,11 @@ export const userEn: UserMessages = {
       CANCELED: 'Canceled',
       FAILED: 'Failed',
     },
+    scheduledFailure: {
+      businessRejected: 'Publishing conditions changed. Review the scheduled post and save it again.',
+      internalError: 'A temporary problem prevented publishing. Review the scheduled post and try again.',
+      unknown: 'The scheduled post could not be published. Review it and try again.',
+    },
   },
   reportList: {
     empty: 'No report history.',

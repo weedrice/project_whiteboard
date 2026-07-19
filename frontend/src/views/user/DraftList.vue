@@ -150,6 +150,17 @@ async function handleCancelScheduledPost(post: ScheduledPost) {
     toastStore.addToast(t('user.draftList.cancelScheduledFailed'), 'error')
   }
 }
+
+function getScheduledFailureMessage(failureReason: string | null | undefined) {
+  if (!failureReason) return null
+  if (failureReason === 'PUBLISH_BUSINESS_REJECTED') {
+    return t('user.draftList.scheduledFailure.businessRejected')
+  }
+  if (failureReason === 'PUBLISH_INTERNAL_ERROR') {
+    return t('user.draftList.scheduledFailure.internalError')
+  }
+  return t('user.draftList.scheduledFailure.unknown')
+}
 </script>
 
 <template>
@@ -252,7 +263,9 @@ async function handleCancelScheduledPost(post: ScheduledPost) {
               <BaseBadge :variant="getScheduledStatus(post).variant" size="sm">
                 {{ getScheduledStatus(post).label }}
               </BaseBadge>
-              <span v-if="post.failureReason" class="text-[var(--nv-danger-text)]">{{ post.failureReason }}</span>
+              <span v-if="getScheduledFailureMessage(post.failureReason)" class="text-[var(--nv-danger-text)]">
+                {{ getScheduledFailureMessage(post.failureReason) }}
+              </span>
             </div>
           </div>
 

@@ -12,6 +12,7 @@ import com.weedrice.whiteboard.domain.report.repository.ReportRepository;
 import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchEventPublisher;
 import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchIndexAction;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
+import com.weedrice.whiteboard.global.config.AnonymousReadCacheInvalidator;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -41,6 +42,7 @@ class ReportAutoBlindService {
     private final GlobalConfigService globalConfigService;
     private final SemanticSearchEventPublisher semanticSearchEventPublisher;
     private final NotificationAccessInvalidationService notificationAccessInvalidationService;
+    private final AnonymousReadCacheInvalidator anonymousReadCacheInvalidator;
     private final Clock clock;
 
     @Transactional(propagation = Propagation.MANDATORY)
@@ -82,21 +84,46 @@ class ReportAutoBlindService {
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
-    void restoreAutoBlindedCommentIfEligible(String targetType, Long targetId) {
-        if (ReportTargetType.from(targetType) != ReportTargetType.COMMENT) {
+    void restoreAutoBlindedTargetIfEligible(String targetType, Long targetId) {
+        ReportTargetType normalizedTargetType = ReportTargetType.from(targetType);
+        if (normalizedTargetType == ReportTargetType.POST) {
+            restoreAutoBlindedPostIfEligible(targetId);
+        } else if (normalizedTargetType == ReportTargetType.COMMENT) {
+            restoreAutoBlindedCommentIfEligible(targetId);
+        }
+    }
+
+    private void restoreAutoBlindedPostIfEligible(Long postId) {
+        Post post = postRepository.findByIdWithRelationsForBlindUpdate(postId).orElse(null);
+        if (post == null || Boolean.TRUE.equals(post.getIsDeleted())
+                || !Boolean.TRUE.equals(post.getIsBlinded())
+                || !AUTO_REPORT_REASON.equals(post.getBlindReason())) {
             return;
         }
+        if (hasRemainingReportThatRequiresBlind(ReportTargetType.POST, postId)) {
+            return;
+        }
+        post.unblind();
+        notificationAccessInvalidationService.invalidateCommentTopicAfterCommit(post.getPostId());
+        semanticSearchEventPublisher.publish("POST", post.getPostId(), SemanticSearchIndexAction.UPSERT);
+        semanticSearchEventPublisher.publishPostCommentsReindex(post.getPostId());
+        anonymousReadCacheInvalidator.evictPostRelatedCachesAfterCommit();
+        moderationAuditLogService.recordSystemAction(
+                ModerationAuditLogService.ACTION_POST_AUTO_UNBLIND,
+                ModerationAuditLogService.TARGET_TYPE_POST,
+                post.getPostId(),
+                post.getBoard(),
+                AUTO_REPORT_REASON);
+    }
+
+    private void restoreAutoBlindedCommentIfEligible(Long targetId) {
         Comment comment = commentRepository.findByIdWithRelationsForBlindUpdate(targetId).orElse(null);
         if (comment == null || Boolean.TRUE.equals(comment.getIsDeleted())
                 || !Boolean.TRUE.equals(comment.getIsBlinded())
                 || !AUTO_REPORT_REASON.equals(comment.getBlindReason())) {
             return;
         }
-        if (pendingReportCount(ReportTargetType.COMMENT, targetId) > 0) {
-            return;
-        }
-        if (reportRepository.countByTargetTypeAndTargetIdAndStatus(
-                ReportTargetType.COMMENT.name(), targetId, Report.STATUS_RESOLVED) > 0) {
+        if (hasRemainingReportThatRequiresBlind(ReportTargetType.COMMENT, targetId)) {
             return;
         }
         comment.unblind();
@@ -108,6 +135,12 @@ class ReportAutoBlindService {
                 comment.getCommentId(),
                 comment.getPost().getBoard(),
                 AUTO_REPORT_REASON);
+    }
+
+    private boolean hasRemainingReportThatRequiresBlind(ReportTargetType targetType, Long targetId) {
+        return pendingReportCount(targetType, targetId) > 0
+                || reportRepository.countByTargetTypeAndTargetIdAndStatus(
+                        targetType.name(), targetId, Report.STATUS_RESOLVED) > 0;
     }
 
     private int resolveThreshold() {
@@ -128,6 +161,7 @@ class ReportAutoBlindService {
         post.blind(AUTO_REPORT_REASON, LocalDateTime.now(clock));
         notificationAccessInvalidationService.invalidateCommentTopicAfterCommit(post.getPostId());
         semanticSearchEventPublisher.publish("POST", post.getPostId(), SemanticSearchIndexAction.DELETE);
+        anonymousReadCacheInvalidator.evictPostRelatedCachesAfterCommit();
         moderationAuditLogService.recordSystemAction(
                 ModerationAuditLogService.ACTION_POST_AUTO_BLIND,
                 ModerationAuditLogService.TARGET_TYPE_POST,

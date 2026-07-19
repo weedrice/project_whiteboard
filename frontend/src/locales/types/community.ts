@@ -706,6 +706,11 @@ export interface UserMessages {
       CANCELED: string
       FAILED: string
     }
+    scheduledFailure: {
+      businessRejected: string
+      internalError: string
+      unknown: string
+    }
   }
   reportList: {
     empty: string

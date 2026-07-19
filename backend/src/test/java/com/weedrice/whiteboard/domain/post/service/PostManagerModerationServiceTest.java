@@ -12,6 +12,7 @@ import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchIndexAction;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
+import com.weedrice.whiteboard.global.config.AnonymousReadCacheInvalidator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -43,6 +44,7 @@ class PostManagerModerationServiceTest {
     @Mock ModerationAuditLogService audits;
     @Mock SemanticSearchEventPublisher semanticSearchEvents;
     @Mock NotificationAccessInvalidationService notificationAccessInvalidationService;
+    @Mock AnonymousReadCacheInvalidator anonymousReadCacheInvalidator;
     PostManagerModerationService service;
     User manager;
     Post post;
@@ -52,6 +54,7 @@ class PostManagerModerationServiceTest {
     void setUp() {
         service = new PostManagerModerationService(posts, boards, users, accessPolicy, audits, semanticSearchEvents,
                 notificationAccessInvalidationService,
+                anonymousReadCacheInvalidator,
                 Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC));
         manager = mock(User.class);
         post = mock(Post.class);
@@ -74,6 +77,8 @@ class PostManagerModerationServiceTest {
         verify(accessPolicy, org.mockito.Mockito.times(2)).validateBoardAdmin(board, manager);
         verify(post).pin(LocalDateTime.of(2026, 1, 1, 0, 0));
         verify(post).unpin();
+        verify(anonymousReadCacheInvalidator, org.mockito.Mockito.times(2))
+                .evictPostRelatedCachesAfterCommit();
         verify(audits).recordUserAction(manager, ModerationAuditLogService.ACTION_POST_PIN,
                 ModerationAuditLogService.TARGET_TYPE_POST, 2L, board, null);
     }
@@ -97,6 +102,8 @@ class PostManagerModerationServiceTest {
         verify(semanticSearchEvents).publish("POST", 2L, SemanticSearchIndexAction.DELETE);
         verify(semanticSearchEvents).publish("POST", 2L, SemanticSearchIndexAction.UPSERT);
         verify(semanticSearchEvents).publishPostCommentsReindex(2L);
+        verify(anonymousReadCacheInvalidator, org.mockito.Mockito.times(2))
+                .evictPostRelatedCachesAfterCommit();
 
         verify(post).blind("MANAGER", LocalDateTime.of(2026, 1, 1, 0, 0));
         verify(notificationAccessInvalidationService).invalidateCommentTopicAfterCommit(2L);

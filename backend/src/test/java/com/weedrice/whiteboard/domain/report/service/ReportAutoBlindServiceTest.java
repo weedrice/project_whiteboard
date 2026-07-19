@@ -14,6 +14,7 @@ import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchIndexAction;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
+import com.weedrice.whiteboard.global.config.AnonymousReadCacheInvalidator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -42,12 +43,14 @@ class ReportAutoBlindServiceTest {
     @Mock GlobalConfigService configs;
     @Mock SemanticSearchEventPublisher semanticSearchEvents;
     @Mock NotificationAccessInvalidationService notificationAccessInvalidationService;
+    @Mock AnonymousReadCacheInvalidator anonymousReadCacheInvalidator;
     ReportAutoBlindService service;
 
     @BeforeEach
     void setUp() {
         service = new ReportAutoBlindService(reports, posts, comments, users, audits, configs, semanticSearchEvents,
                 notificationAccessInvalidationService,
+                anonymousReadCacheInvalidator,
                 Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC));
     }
 
@@ -106,6 +109,7 @@ class ReportAutoBlindServiceTest {
         verify(post).blind("AUTO_REPORT", LocalDateTime.of(2026, 1, 1, 0, 0));
         verify(notificationAccessInvalidationService).invalidateCommentTopicAfterCommit(3L);
         verify(semanticSearchEvents).publish("POST", 3L, SemanticSearchIndexAction.DELETE);
+        verify(anonymousReadCacheInvalidator).evictPostRelatedCachesAfterCommit();
         verify(audits).recordSystemAction(ModerationAuditLogService.ACTION_POST_AUTO_BLIND,
                 ModerationAuditLogService.TARGET_TYPE_POST, 3L, board, "AUTO_REPORT");
     }
@@ -151,7 +155,7 @@ class ReportAutoBlindServiceTest {
         when(reports.countByTargetTypeAndTargetIdAndStatus("COMMENT", 6L, Report.STATUS_PENDING)).thenReturn(0L);
         when(reports.countByTargetTypeAndTargetIdAndStatus("COMMENT", 6L, Report.STATUS_RESOLVED)).thenReturn(0L);
 
-        service.restoreAutoBlindedCommentIfEligible("COMMENT", 6L);
+        service.restoreAutoBlindedTargetIfEligible("COMMENT", 6L);
 
         verify(comment).unblind();
         verify(notificationAccessInvalidationService).invalidateCommentTopicAfterCommit(3L);
@@ -173,7 +177,7 @@ class ReportAutoBlindServiceTest {
         when(comment.getBlindReason()).thenReturn("AUTO_REPORT");
         when(reports.countByTargetTypeAndTargetIdAndStatus("COMMENT", 7L, Report.STATUS_PENDING)).thenReturn(1L);
 
-        service.restoreAutoBlindedCommentIfEligible("COMMENT", 7L);
+        service.restoreAutoBlindedTargetIfEligible("COMMENT", 7L);
 
         verify(comment, never()).unblind();
         verify(semanticSearchEvents, never()).publish("COMMENT", 7L, SemanticSearchIndexAction.UPSERT);
@@ -187,7 +191,7 @@ class ReportAutoBlindServiceTest {
         when(comment.getIsBlinded()).thenReturn(true);
         when(comment.getBlindReason()).thenReturn("MANAGER");
 
-        service.restoreAutoBlindedCommentIfEligible("COMMENT", 8L);
+        service.restoreAutoBlindedTargetIfEligible("COMMENT", 8L);
 
         verify(comment, never()).unblind();
         verify(reports, never()).countByTargetTypeAndTargetIdAndStatus(
@@ -204,9 +208,53 @@ class ReportAutoBlindServiceTest {
         when(reports.countByTargetTypeAndTargetIdAndStatus("COMMENT", 9L, Report.STATUS_PENDING)).thenReturn(0L);
         when(reports.countByTargetTypeAndTargetIdAndStatus("COMMENT", 9L, Report.STATUS_RESOLVED)).thenReturn(1L);
 
-        service.restoreAutoBlindedCommentIfEligible("COMMENT", 9L);
+        service.restoreAutoBlindedTargetIfEligible("COMMENT", 9L);
 
         verify(comment, never()).unblind();
         verify(semanticSearchEvents, never()).publish("COMMENT", 9L, SemanticSearchIndexAction.UPSERT);
+    }
+
+    @Test
+    void rejectedReportsRestoreAutoBlindedPostWhenNoPendingOrResolvedReportsRemain() {
+        Post post = mock(Post.class);
+        Board board = mock(Board.class);
+        when(posts.findByIdWithRelationsForBlindUpdate(10L)).thenReturn(Optional.of(post));
+        when(post.getPostId()).thenReturn(10L);
+        when(post.getBoard()).thenReturn(board);
+        when(post.getIsDeleted()).thenReturn(false);
+        when(post.getIsBlinded()).thenReturn(true);
+        when(post.getBlindReason()).thenReturn("AUTO_REPORT");
+        when(reports.countByTargetTypeAndTargetIdAndStatus("POST", 10L, Report.STATUS_PENDING)).thenReturn(0L);
+        when(reports.countByTargetTypeAndTargetIdAndStatus("POST", 10L, Report.STATUS_RESOLVED)).thenReturn(0L);
+
+        service.restoreAutoBlindedTargetIfEligible("POST", 10L);
+
+        verify(post).unblind();
+        verify(notificationAccessInvalidationService).invalidateCommentTopicAfterCommit(10L);
+        verify(semanticSearchEvents).publish("POST", 10L, SemanticSearchIndexAction.UPSERT);
+        verify(semanticSearchEvents).publishPostCommentsReindex(10L);
+        verify(anonymousReadCacheInvalidator).evictPostRelatedCachesAfterCommit();
+        verify(audits).recordSystemAction(
+                ModerationAuditLogService.ACTION_POST_AUTO_UNBLIND,
+                ModerationAuditLogService.TARGET_TYPE_POST,
+                10L,
+                board,
+                "AUTO_REPORT");
+    }
+
+    @Test
+    void rejectedReportKeepsPostBlindedWhenAnotherReportWasResolved() {
+        Post post = mock(Post.class);
+        when(posts.findByIdWithRelationsForBlindUpdate(11L)).thenReturn(Optional.of(post));
+        when(post.getIsDeleted()).thenReturn(false);
+        when(post.getIsBlinded()).thenReturn(true);
+        when(post.getBlindReason()).thenReturn("AUTO_REPORT");
+        when(reports.countByTargetTypeAndTargetIdAndStatus("POST", 11L, Report.STATUS_PENDING)).thenReturn(0L);
+        when(reports.countByTargetTypeAndTargetIdAndStatus("POST", 11L, Report.STATUS_RESOLVED)).thenReturn(1L);
+
+        service.restoreAutoBlindedTargetIfEligible("POST", 11L);
+
+        verify(post, never()).unblind();
+        verify(anonymousReadCacheInvalidator, never()).evictPostRelatedCachesAfterCommit();
     }
 }

@@ -50,7 +50,7 @@ vi.mock('@/composables/usePaginatedListState', () => ({
     return {
       page: ref(0), size: ref(10), handlePageChange: vi.fn(), handleSizeChange: vi.fn(),
       items: ref([
-        { scheduledPostId: 10, title: ' Scheduled ', boardUrl: 'news', boardName: 'News', scheduledAt: '2026-07-03', status: 'SCHEDULED', publishedPostId: null },
+        { scheduledPostId: 10, title: ' Scheduled ', boardUrl: 'news', boardName: 'News', scheduledAt: '2026-07-03', status: 'FAILED', publishedPostId: null, failureReason: 'PUBLISH_INTERNAL_ERROR' },
         { scheduledPostId: 11, title: '', boardUrl: 'free', boardName: '', scheduledAt: '2026-07-04', status: 'PUBLISHED', publishedPostId: 9 },
       ]),
       totalPages: ref(1), isLoading: ref(false), errorMessage: ref(''), refetch: mocks.scheduledRefetch,
@@ -91,6 +91,8 @@ describe('DraftList', () => {
     const wrapper = mountList()
     expect(wrapper.text()).toContain('Draft')
     expect(wrapper.text()).toContain('user.draftList.untitled')
+    expect(wrapper.text()).toContain('user.draftList.scheduledFailure.internalError')
+    expect(wrapper.text()).not.toContain('PUBLISH_INTERNAL_ERROR')
     expect(wrapper.find('a[data-to="/scheduled-posts/10/edit"]').exists()).toBe(true)
 
     const buttons = wrapper.findAll('button')

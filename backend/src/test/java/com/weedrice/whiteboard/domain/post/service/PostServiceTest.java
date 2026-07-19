@@ -28,6 +28,8 @@ import com.weedrice.whiteboard.domain.point.service.PointService;
 import com.weedrice.whiteboard.domain.post.dto.*;
 import com.weedrice.whiteboard.domain.post.entity.*;
 import com.weedrice.whiteboard.domain.post.repository.*;
+import com.weedrice.whiteboard.domain.post.scheduled.entity.ScheduledPost;
+import com.weedrice.whiteboard.domain.post.scheduled.repository.ScheduledPostRepository;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchEventPublisher;
 import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchIndexAction;
@@ -38,6 +40,7 @@ import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserBlockRepository;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
+import com.weedrice.whiteboard.global.config.AnonymousReadCacheInvalidator;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import com.weedrice.whiteboard.global.common.service.ReactionWriter;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -107,6 +110,8 @@ class PostServiceTest {
     @Mock
     private DraftPostRepository draftPostRepository;
     @Mock
+    private ScheduledPostRepository scheduledPostRepository;
+    @Mock
     private ViewHistoryRepository viewHistoryRepository;
     @Mock
     private CommentRepository commentRepository;
@@ -138,6 +143,8 @@ class PostServiceTest {
     private PostRelatedReadService postRelatedReadService;
     @Mock
     private PostManagerModerationService postManagerModerationService;
+    @Mock
+    private AnonymousReadCacheInvalidator anonymousReadCacheInvalidator;
     private BoardAccessPolicy boardAccessPolicy;
     private PostAccessPolicy postAccessPolicy;
     private PostSummaryAssembler postSummaryAssembler;
@@ -225,7 +232,7 @@ class PostServiceTest {
                 postRepository,
                 mock(PostSeriesRepository.class),
                 draftPostRepository,
-                mock(com.weedrice.whiteboard.domain.post.scheduled.repository.ScheduledPostRepository.class),
+                scheduledPostRepository,
                 fileService,
                 userWritableResolver,
                 sanctionService,
@@ -250,7 +257,8 @@ class PostServiceTest {
                 postViewCountWriter,
                 entityManager,
                 badgeEvaluationService,
-                sanctionService);
+                sanctionService,
+                anonymousReadCacheInvalidator);
         postLatestReadService = new PostLatestReadService(
                 postRepository,
                 userBlockService,
@@ -316,7 +324,8 @@ class PostServiceTest {
                 semanticSearchEventPublisher,
                 mock(PostSeriesService.class),
                 mock(com.weedrice.whiteboard.domain.notification.service.NotificationAccessInvalidationService.class),
-                mentionService);
+                mentionService,
+                anonymousReadCacheInvalidator);
         PostFacadeReadService postFacadeReadService = new PostFacadeReadService(
                 postRepository,
                 postVersionRepository,
@@ -415,6 +424,7 @@ class PostServiceTest {
         assertThat(postCaptor.getValue().getTitle()).isEqualTo("New Post");
         verify(fileService).attachFilesToPost(List.of(1L, 2L), 1L, 100L, null);
         verify(pointService).addPointIfAbsent(eq(1L), eq(50), anyString(), eq(100L), eq("POST"));
+        verify(anonymousReadCacheInvalidator).evictPostRelatedCachesAfterCommit();
         InOrder lockOrder = inOrder(userRepository, boardRepository);
         lockOrder.verify(userRepository).findByIdForUpdate(1L);
         lockOrder.verify(boardRepository).findByBoardUrlForUpdate("free");
@@ -1220,6 +1230,7 @@ class PostServiceTest {
         verify(tagAssignmentService).assignTags(post, request.getTags());
         verify(fileService).syncPostFiles(List.of(5L), 1L, 1L, null);
         verify(postVersionRepository).save(any(PostVersion.class));
+        verify(anonymousReadCacheInvalidator).evictPostRelatedCachesAfterCommit();
         InOrder lockOrder = inOrder(userRepository, postRepository, boardRepository);
         lockOrder.verify(userRepository).findByIdForUpdate(1L);
         lockOrder.verify(postRepository).findBoardIdByPostId(1L);
@@ -1464,6 +1475,7 @@ class PostServiceTest {
         verify(fileService).markPostContentFilesDeletionPending(1L);
         verify(pointService).reverseRewardPoint(eq(1L), eq(50), anyString(), eq(1L), eq("POST"));
         verify(semanticSearchEventPublisher).publish("POST", 1L, SemanticSearchIndexAction.DELETE);
+        verify(anonymousReadCacheInvalidator).evictPostRelatedCachesAfterCommit();
         verify(globalConfigService, never()).getConfig("POINT_POST_CREATE_REWARD");
     }
 
@@ -1539,6 +1551,7 @@ class PostServiceTest {
 
         verify(postLikeRepository).saveAndFlush(any(PostLike.class));
         verify(postRepository).incrementLikeCount(1L);
+        verify(anonymousReadCacheInvalidator).evictPostEngagementCachesAfterCommit("free");
         verify(userRepository).findById(1L);
         assertThat(likeCount).isEqualTo(1);
     }
@@ -1662,6 +1675,7 @@ class PostServiceTest {
         verify(postLikeRepository).deleteByUserIdAndPostId(1L, 1L);
         verify(postRepository).findByIdWithRelations(1L);
         verify(postRepository).decrementLikeCount(1L);
+        verify(anonymousReadCacheInvalidator).evictPostEngagementCachesAfterCommit("free");
         verify(userRepository).findById(1L);
         assertThat(likeCount).isZero();
     }
@@ -2280,6 +2294,36 @@ class PostServiceTest {
         assertThat(draft.getTitle()).isEqualTo("New Title");
         assertThat(draft.getContents()).isEqualTo("New Content");
         verify(fileService).syncDraftFiles(Collections.emptyList(), 1L, 10L);
+    }
+
+    @Test
+    @DisplayName("예약 발행이 참조 중인 초안은 수정할 수 없다")
+    void saveDraftPost_scheduledDraftUpdateRejected() {
+        DraftPost existingDraft = DraftPost.builder().user(user).board(board).title("Old").build();
+        ReflectionTestUtils.setField(existingDraft, "draftId", 10L);
+        LocalDateTime version = LocalDateTime.of(2025, 1, 2, 12, 0);
+        ReflectionTestUtils.setField(existingDraft, "modifiedAt", version);
+        PostDraftRequest request = PostDraftRequest.builder()
+                .draftId(10L)
+                .boardUrl("free")
+                .title("Changed after scheduling")
+                .contents("Changed contents")
+                .fileIds(Collections.emptyList())
+                .updatedAt(version)
+                .build();
+
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+        when(draftPostRepository.findByDraftIdAndUserForUpdate(10L, user)).thenReturn(Optional.of(existingDraft));
+        when(scheduledPostRepository.existsByDraftIdAndStatusIn(10L, ScheduledPost.PROTECTED_DRAFT_STATUSES))
+                .thenReturn(true);
+
+        assertThatThrownBy(() -> postService.saveDraftPost(1L, request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(draftPostRepository, never()).saveAndFlush(any(DraftPost.class));
+        verify(fileService, never()).syncDraftFiles(any(), anyLong(), anyLong());
     }
 
     @Test

@@ -49,7 +49,11 @@ public class ScheduledPostPublishWorker {
         int updated = scheduledPostRepository.markPublished(
                 scheduledPostId, claimedAt, created.getPostId(), now());
         requireSingleLeaseUpdate(updated, scheduledPostId, "publish");
-        publishSystemNotification(scheduledPost, "notification.scheduled.published");
+        publishNotification(
+                scheduledPost,
+                NotificationSourceType.POST,
+                created.getPostId(),
+                "notification.scheduled.published");
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -60,7 +64,11 @@ public class ScheduledPostPublishWorker {
         requireSingleLeaseUpdate(updated, scheduledPostId, "fail");
         log.warn("Scheduled post publish failed. scheduledPostId={}, failureCode={}, exceptionType={}",
                 scheduledPostId, reason, exception.getClass().getSimpleName());
-        publishSystemNotification(scheduledPost, "notification.scheduled.failed");
+        publishNotification(
+                scheduledPost,
+                NotificationSourceType.SYSTEM,
+                scheduledPost.getScheduledPostId(),
+                "notification.scheduled.failed");
     }
 
     private ScheduledPost loadClaimed(Long scheduledPostId, LocalDateTime claimedAt) {
@@ -88,13 +96,17 @@ public class ScheduledPostPublishWorker {
         }
     }
 
-    private void publishSystemNotification(ScheduledPost scheduledPost, String messageKey) {
+    private void publishNotification(
+            ScheduledPost scheduledPost,
+            NotificationSourceType sourceType,
+            Long sourceId,
+            String messageKey) {
         eventPublisher.publishEvent(NotificationEvent.localized(
                 scheduledPost.getUser(),
                 null,
                 NotificationType.SYSTEM,
-                NotificationSourceType.SYSTEM,
-                scheduledPost.getScheduledPostId(),
+                sourceType,
+                sourceId,
                 messageKey,
                 scheduledPost.getTitle()));
     }
