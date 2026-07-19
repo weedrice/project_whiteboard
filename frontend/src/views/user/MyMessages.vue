@@ -118,6 +118,25 @@
                         @retry="retryConversation"
                     />
                     <div v-else class="mt-3 max-h-[18rem] space-y-2 overflow-y-auto pr-1">
+                        <div v-if="conversationHasMore || conversationOlderError" class="text-center">
+                            <BaseButton
+                                data-testid="load-older-conversation"
+                                type="button"
+                                size="sm"
+                                variant="secondary"
+                                :disabled="conversationLoadingMore"
+                                @click="loadOlderConversationMessages"
+                            >
+                                {{ conversationLoadingMore ? $t('common.loading') : $t('user.message.loadOlder') }}
+                            </BaseButton>
+                            <p
+                                v-if="conversationOlderError"
+                                class="mt-1 text-xs text-[var(--nv-danger-text)]"
+                                role="alert"
+                            >
+                                {{ conversationOlderError }}
+                            </p>
+                        </div>
                         <article
                             v-for="message in conversationMessages"
                             :key="message.id"
@@ -146,7 +165,7 @@
                                 <p class="mt-1 whitespace-pre-wrap nv-text-subtle">{{ message.body }}</p>
                             </div>
                         </article>
-                        <p v-if="conversationMessages.length <= 1" class="text-sm nv-text-subtle">
+                        <p v-if="conversationMessages.length <= 1 && !conversationHasMore" class="text-sm nv-text-subtle">
                             {{ $t('user.message.contextEmpty') }}
                         </p>
                     </div>
@@ -239,6 +258,9 @@ const {
     messageDetailError,
     conversationLoading,
     conversationError,
+    conversationHasMore,
+    conversationLoadingMore,
+    conversationOlderError,
     selectedMessages,
     page,
     size,
@@ -254,6 +276,7 @@ const {
     closeConversation,
     retryMessageDetail,
     retryConversation,
+    loadOlderConversationMessages,
     deleteSelectedMessages,
     startReply,
     cancelInlineReply,

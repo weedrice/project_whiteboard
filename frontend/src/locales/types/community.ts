@@ -176,6 +176,7 @@ export interface BoardMessages {
     createFailed: string
     updateFailed: string
     deleteFailed: string
+    leaveConfirm: string
     placeholder: {
       name: string
       url: string
@@ -676,6 +677,11 @@ export interface UserMessages {
     saveFolder: string
     cancelEditFolder: string
     folderActionFailed: string
+    selectScrap: string
+    destinationFolder: string
+    unfiled: string
+    move: string
+    moveFailed: string
   }
   draftList: {
     empty: string
@@ -886,6 +892,7 @@ export interface UserMessages {
     me: string
     currentMessage: string
     contextEmpty: string
+    loadOlder: string
     detailLoadFailed: string
     conversationLoadFailed: string
   }

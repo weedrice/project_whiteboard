@@ -126,6 +126,34 @@ describe('useNotificationNavigation', () => {
         expect(mocks.routerPush).toHaveBeenCalledWith('/board/free/post/99#comment-50')
     })
 
+    it('resolves a message source before opening a generic mailbox target', async () => {
+        vi.mocked(messageApi.getMessage).mockResolvedValueOnce(
+            apiSuccessDataResponse<typeof messageApi.getMessage>({
+                messageId: 72,
+                content: 'hello',
+                partner: { userId: 31, displayName: 'Partner' },
+                isRead: false,
+                createdAt: '2026-07-19T00:00:00Z',
+            }),
+        )
+
+        const { navigateFromNotification } = useNotificationNavigation()
+        await navigateFromNotification(makeNotification({
+            sourceType: 'MESSAGE',
+            sourceId: 72,
+            targetUrl: '/mypage/messages',
+        }))
+
+        expect(messageApi.getMessage).toHaveBeenCalledWith(72, {
+            signal: expect.any(AbortSignal),
+            skipGlobalErrorHandler: true,
+        })
+        expect(mocks.routerPush).toHaveBeenCalledWith({
+            name: 'MyMessages',
+            query: { partnerId: '31' },
+        })
+    })
+
     it('ignores unsafe absolute targetUrl values and falls back to source lookup', async () => {
         vi.mocked(postApi.getPost).mockResolvedValueOnce(
             apiSuccessDataResponse<typeof postApi.getPost>({

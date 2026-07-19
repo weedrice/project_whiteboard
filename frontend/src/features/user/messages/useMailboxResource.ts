@@ -1,4 +1,4 @@
-import { onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { AxiosError } from 'axios'
 import { messageApi, BLOCKED_BY_USER_CODE } from '@/api/message'
@@ -8,12 +8,41 @@ import { useMailboxListState } from '@/features/user/messages/useMailboxListStat
 import { useMessageSubmit } from '@/features/user/messages/useMessageSubmit'
 import { useToastStore } from '@/stores/toast'
 import { useAuthStore } from '@/stores/auth'
-import type { MailboxMessageViewModel } from '@/types'
+import type { MailboxMessageViewModel, MessageResponse } from '@/types'
 import { extractErrorResponse } from '@/utils/errorHandler'
 import { markMailboxMessageRead, toMailboxMessageViewModel } from '@/features/user/messages/messageViewModel'
 import logger from '@/utils/logger'
 
 const NOT_FOUND_CODE = 'C006'
+
+interface ConversationPage {
+    messages: MailboxMessageViewModel[]
+    page: number
+    hasNext: boolean
+}
+
+function mergeConversationMessages(
+    ...messageGroups: MailboxMessageViewModel[][]
+): MailboxMessageViewModel[] {
+    const messagesById = new Map<number, MailboxMessageViewModel>()
+    messageGroups.flat().forEach((message) => messagesById.set(message.id, message))
+    return Array.from(messagesById.values()).sort((left, right) => {
+        const createdAtDifference = new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime()
+        return createdAtDifference || left.id - right.id
+    })
+}
+
+function toConversationPage(messagePage: MessageResponse, requestedPage: number): ConversationPage {
+    const page = Number.isInteger(messagePage.page) ? messagePage.page : requestedPage
+    const hasNext = typeof messagePage.hasNext === 'boolean'
+        ? messagePage.hasNext
+        : page + 1 < (messagePage.totalPages ?? 0)
+    return {
+        messages: messagePage.content.map(toMailboxMessageViewModel),
+        page,
+        hasNext,
+    }
+}
 
 export function useMailboxResource() {
     const { t } = useI18n()
@@ -43,6 +72,10 @@ export function useMailboxResource() {
     const messageDetailError = ref<string | null>(null)
     const conversationLoading = ref(false)
     const conversationError = ref<string | null>(null)
+    const conversationNextPage = ref<number | null>(null)
+    const conversationLoadingMore = ref(false)
+    const conversationOlderError = ref<string | null>(null)
+    const conversationHasMore = computed(() => conversationNextPage.value !== null)
     const lastConversationPartnerId = ref<number | null>(null)
 
     const isReplyModalOpen = ref(false)
@@ -65,6 +98,7 @@ export function useMailboxResource() {
     let messageDetailAbortController: AbortController | null = null
     let conversationRefreshRequestId = 0
     let conversationRefreshAbortController: AbortController | null = null
+    let conversationPageAbortController: AbortController | null = null
     let deleteRequestAbortController: AbortController | null = null
     const markAsReadAbortControllers = new Set<AbortController>()
 
@@ -84,6 +118,24 @@ export function useMailboxResource() {
         conversationRefreshAbortController = null
     }
 
+    function abortConversationPageRequest() {
+        conversationPageAbortController?.abort()
+        conversationPageAbortController = null
+        conversationLoadingMore.value = false
+    }
+
+    function resetConversationPagination() {
+        abortConversationPageRequest()
+        conversationNextPage.value = null
+        conversationOlderError.value = null
+    }
+
+    function applyInitialConversationPage(conversationPage: ConversationPage) {
+        selectedConversationMessages.value = mergeConversationMessages(conversationPage.messages)
+        conversationNextPage.value = conversationPage.hasNext ? conversationPage.page + 1 : null
+        conversationOlderError.value = null
+    }
+
     function abortDeleteRequest() {
         deleteRequestAbortController?.abort()
         deleteRequestAbortController = null
@@ -93,6 +145,7 @@ export function useMailboxResource() {
         messageDetailRequestId++
         abortMessageDetailRequest()
         abortConversationRefresh()
+        resetConversationPagination()
         selectedMessage.value = null
         selectedConversationMessages.value = []
         messageDetailLoading.value = false
@@ -112,6 +165,8 @@ export function useMailboxResource() {
     function startMessageDetailRequest(msg: MailboxMessageViewModel) {
         const requestId = ++messageDetailRequestId
         abortMessageDetailRequest()
+        abortConversationRefresh()
+        resetConversationPagination()
         const controller = new AbortController()
         messageDetailAbortController = controller
         const messageId = msg.id
@@ -208,7 +263,7 @@ export function useMailboxResource() {
             try {
                 const conversation = await loadConversationMessages(msg.partnerUserId, controller)
                 if (isStaleMessageDetail(requestId, messageId)) return
-                selectedConversationMessages.value = conversation
+                applyInitialConversationPage(conversation)
                 conversationError.value = null
             } catch (error) {
                 if (!isStaleMessageDetail(requestId, messageId) && !controller.signal.aborted) {
@@ -229,9 +284,13 @@ export function useMailboxResource() {
         }
     }
 
-    async function loadConversationMessages(partnerId: number, controller: AbortController) {
+    async function loadConversationMessages(
+        partnerId: number,
+        controller: AbortController,
+        page = 0,
+    ): Promise<ConversationPage> {
         const { data } = await messageApi.getConversation(partnerId, {
-            page: 0,
+            page,
             size: 50,
             sort: 'createdAt,desc',
         }, {
@@ -240,9 +299,48 @@ export function useMailboxResource() {
         })
         const messagePage = unwrapApiData(data)
         if (data.success && messagePage) {
-            return messagePage.content.map(toMailboxMessageViewModel).reverse()
+            return toConversationPage(messagePage, page)
         }
-        return []
+        return { messages: [], page, hasNext: false }
+    }
+
+    async function loadOlderConversationMessages() {
+        const partnerId = lastConversationPartnerId.value ?? selectedMessage.value?.partnerUserId
+        const nextPage = conversationNextPage.value
+        if (partnerId == null || nextPage == null || conversationLoadingMore.value) return
+
+        abortConversationPageRequest()
+        const controller = new AbortController()
+        conversationPageAbortController = controller
+        const detailRequestId = messageDetailRequestId
+        const generation = authStore.sessionGeneration
+        conversationLoadingMore.value = true
+        conversationOlderError.value = null
+
+        const isCurrent = () => !controller.signal.aborted
+            && conversationPageAbortController === controller
+            && detailRequestId === messageDetailRequestId
+            && generation === authStore.sessionGeneration
+            && partnerId === lastConversationPartnerId.value
+
+        try {
+            const conversationPage = await loadConversationMessages(partnerId, controller, nextPage)
+            if (!isCurrent()) return
+            selectedConversationMessages.value = mergeConversationMessages(
+                conversationPage.messages,
+                selectedConversationMessages.value,
+            )
+            conversationNextPage.value = conversationPage.hasNext ? conversationPage.page + 1 : null
+        } catch (error) {
+            if (!isCurrent()) return
+            logger.error('Failed to load older message conversation:', error)
+            conversationOlderError.value = t('user.message.conversationLoadFailed')
+        } finally {
+            if (conversationPageAbortController === controller) {
+                conversationPageAbortController = null
+                conversationLoadingMore.value = false
+            }
+        }
     }
 
     async function refreshConversationAfterReply() {
@@ -261,7 +359,10 @@ export function useMailboxResource() {
                 || requestId !== conversationRefreshRequestId
                 || generation !== authStore.sessionGeneration
             ) return
-            selectedConversationMessages.value = conversation
+            selectedConversationMessages.value = mergeConversationMessages(
+                selectedConversationMessages.value,
+                conversation.messages,
+            )
             await fetchMessages()
         } catch (error) {
             if (controller.signal.aborted || generation !== authStore.sessionGeneration) return
@@ -279,6 +380,8 @@ export function useMailboxResource() {
     async function openConversationByPartnerId(partnerId: number) {
         const requestId = ++messageDetailRequestId
         abortMessageDetailRequest()
+        abortConversationRefresh()
+        resetConversationPagination()
         const controller = new AbortController()
         messageDetailAbortController = controller
         messageFromBlockedUser.value = false
@@ -293,8 +396,8 @@ export function useMailboxResource() {
             if (requestId !== messageDetailRequestId || controller.signal.aborted) {
                 return
             }
-            selectedConversationMessages.value = conversation
-            selectedMessage.value = conversation.length > 0 ? conversation[conversation.length - 1] : null
+            applyInitialConversationPage(conversation)
+            selectedMessage.value = selectedConversationMessages.value.at(-1) ?? null
         } catch (error) {
             if (!controller.signal.aborted) {
                 logger.error('Failed to open message conversation:', error)
@@ -383,6 +486,7 @@ export function useMailboxResource() {
             abortMessageDetailRequest()
             abortMarkAsReadRequests()
             abortConversationRefresh()
+            resetConversationPagination()
             abortDeleteRequest()
             resetMailboxState()
             selectedMessage.value = null
@@ -407,6 +511,7 @@ export function useMailboxResource() {
         abortMessageDetailRequest()
         abortMarkAsReadRequests()
         abortConversationRefresh()
+        abortConversationPageRequest()
         abortDeleteRequest()
     })
 
@@ -421,6 +526,9 @@ export function useMailboxResource() {
         messageDetailError,
         conversationLoading,
         conversationError,
+        conversationHasMore,
+        conversationLoadingMore,
+        conversationOlderError,
         selectedMessages,
         page,
         size,
@@ -438,6 +546,7 @@ export function useMailboxResource() {
         closeConversation,
         retryMessageDetail,
         retryConversation,
+        loadOlderConversationMessages,
         deleteSelectedMessages,
         startReply,
         closeReplyModal,

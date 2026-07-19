@@ -95,7 +95,11 @@ export function useNotificationNavigation(options: NotificationNavigationOptions
             markAsRead(notification.notificationId)
         }
 
-        if (isInternalTargetUrl(notification.targetUrl)) {
+        // The generic mailbox target does not identify the message partner, so
+        // resolve that specific MESSAGE target from its source before navigating.
+        const needsMessageSourceLookup = notification.sourceType === 'MESSAGE'
+            && notification.targetUrl === '/mypage/messages'
+        if (!needsMessageSourceLookup && isInternalTargetUrl(notification.targetUrl)) {
             if (isCurrent()) router.push(notification.targetUrl)
             return
         }

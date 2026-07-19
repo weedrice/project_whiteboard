@@ -248,6 +248,101 @@ describe('useMailboxResource', () => {
         expect(resource.selectedMessage.value?.id).toBe(52)
     })
 
+    it('loads older conversation pages, removes duplicates, and merges them chronologically', async () => {
+        vi.mocked(messageApi.getConversation)
+            .mockResolvedValueOnce(apiSuccessDataResponse<typeof messageApi.getConversation>({
+                content: [detailDto(52), detailDto(51)],
+                page: 0,
+                size: 50,
+                totalElements: 3,
+                totalPages: 2,
+                hasNext: true,
+                hasPrevious: false,
+            }))
+            .mockResolvedValueOnce(apiSuccessDataResponse<typeof messageApi.getConversation>({
+                content: [detailDto(51), detailDto(50)],
+                page: 1,
+                size: 50,
+                totalElements: 3,
+                totalPages: 2,
+                hasNext: false,
+                hasPrevious: true,
+            }))
+        const { resource } = mountMailboxResource()
+
+        await resource.openConversationByPartnerId(200)
+        expect(resource.conversationHasMore.value).toBe(true)
+
+        await resource.loadOlderConversationMessages()
+
+        expect(messageApi.getConversation).toHaveBeenLastCalledWith(200, {
+            page: 1,
+            size: 50,
+            sort: 'createdAt,desc',
+        }, expect.objectContaining({ signal: expect.any(AbortSignal) }))
+        expect(resource.selectedConversationMessages.value.map(({ id }) => id)).toEqual([50, 51, 52])
+        expect(resource.conversationHasMore.value).toBe(false)
+    })
+
+    it('aborts and discards an older-page response when the conversation partner changes', async () => {
+        vi.mocked(messageApi.getConversation).mockResolvedValueOnce(
+            apiSuccessDataResponse<typeof messageApi.getConversation>({
+                content: [detailDto(52)], page: 0, size: 50, totalElements: 2, totalPages: 2,
+                hasNext: true, hasPrevious: false,
+            }),
+        )
+        const olderPage = createDeferred<Awaited<ReturnType<typeof messageApi.getConversation>>>()
+        const { resource } = mountMailboxResource()
+        await resource.openConversationByPartnerId(200)
+
+        vi.mocked(messageApi.getConversation)
+            .mockReturnValueOnce(olderPage.promise)
+            .mockResolvedValueOnce(apiSuccessDataResponse<typeof messageApi.getConversation>({
+                content: [detailDto(80)], page: 0, size: 50, totalElements: 1, totalPages: 1,
+                hasNext: false, hasPrevious: false,
+            }))
+        const loadingOlder = resource.loadOlderConversationMessages()
+        const olderSignal = vi.mocked(messageApi.getConversation).mock.calls.at(-1)?.[2]?.signal
+        await resource.openConversationByPartnerId(300)
+
+        expect(olderSignal?.aborted).toBe(true)
+        olderPage.resolve(apiSuccessDataResponse<typeof messageApi.getConversation>({
+            content: [detailDto(50)], page: 1, size: 50, totalElements: 2, totalPages: 2,
+            hasNext: false, hasPrevious: true,
+        }))
+        await loadingOlder
+
+        expect(resource.selectedConversationMessages.value.map(({ id }) => id)).toEqual([80])
+    })
+
+    it('aborts and discards an older-page response when the account changes', async () => {
+        vi.mocked(messageApi.getConversation).mockResolvedValueOnce(
+            apiSuccessDataResponse<typeof messageApi.getConversation>({
+                content: [detailDto(52)], page: 0, size: 50, totalElements: 2, totalPages: 2,
+                hasNext: true, hasPrevious: false,
+            }),
+        )
+        const olderPage = createDeferred<Awaited<ReturnType<typeof messageApi.getConversation>>>()
+        const { resource } = mountMailboxResource()
+        await resource.openConversationByPartnerId(200)
+
+        vi.mocked(messageApi.getConversation).mockReturnValueOnce(olderPage.promise)
+        const loadingOlder = resource.loadOlderConversationMessages()
+        const olderSignal = vi.mocked(messageApi.getConversation).mock.calls.at(-1)?.[2]?.signal
+        useAuthStore().setTokens('next-account-token')
+        await nextTick()
+
+        expect(olderSignal?.aborted).toBe(true)
+        olderPage.resolve(apiSuccessDataResponse<typeof messageApi.getConversation>({
+            content: [detailDto(50)], page: 1, size: 50, totalElements: 2, totalPages: 2,
+            hasNext: false, hasPrevious: true,
+        }))
+        await loadingOlder
+
+        expect(resource.selectedConversationMessages.value).toEqual([])
+        expect(resource.conversationHasMore.value).toBe(false)
+    })
+
     it('aborts and clears a pending partner conversation when it is closed', async () => {
         const pending = createDeferred<Awaited<ReturnType<typeof messageApi.getConversation>>>()
         vi.mocked(messageApi.getConversation).mockReturnValueOnce(pending.promise)

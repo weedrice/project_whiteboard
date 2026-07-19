@@ -177,6 +177,56 @@ describe('MyMessages', () => {
         expect(content.classes()).not.toContain('sm:p-6')
     })
 
+    it('offers to load older conversation pages when more history exists', async () => {
+        routerMocks.route.query = { partnerId: '2' }
+        const newestMessage = {
+            messageId: 52,
+            content: 'newest',
+            partner: { userId: 2, displayName: 'Other' },
+            isRead: true,
+            createdAt: '2026-04-16T12:00:00',
+        }
+        const olderMessage = {
+            ...newestMessage,
+            messageId: 2,
+            content: 'older',
+            createdAt: '2026-04-15T12:00:00',
+        }
+        messageApi.getConversation
+            .mockResolvedValueOnce({
+                data: {
+                    success: true,
+                    data: {
+                        content: [newestMessage], page: 0, size: 50, totalElements: 51, totalPages: 2,
+                        hasNext: true, hasPrevious: false,
+                    },
+                },
+            })
+            .mockResolvedValueOnce({
+                data: {
+                    success: true,
+                    data: {
+                        content: [olderMessage], page: 1, size: 50, totalElements: 51, totalPages: 2,
+                        hasNext: false, hasPrevious: true,
+                    },
+                },
+            })
+
+        const wrapper = mountMyMessages()
+        await flushPromises()
+
+        const loadOlderButton = wrapper.get('[data-testid="load-older-conversation"]')
+        await loadOlderButton.trigger('click')
+        await flushPromises()
+
+        expect(messageApi.getConversation).toHaveBeenLastCalledWith(2, {
+            page: 1,
+            size: 50,
+            sort: 'createdAt,desc',
+        }, expect.objectContaining({ signal: expect.any(AbortSignal) }))
+        expect(wrapper.text()).toContain('older')
+    })
+
     it('removes an invalid partner query instead of leaving a stale conversation route', async () => {
         routerMocks.route.query = { partnerId: 'invalid' }
 
