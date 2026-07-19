@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onScopeDispose } from 'vue'
 import { useRouter } from 'vue-router'
 import { useHead } from '@unhead/vue'
 import { ArrowLeft } from 'lucide-vue-next'
@@ -19,6 +19,7 @@ import { useEmoticonTags } from '@/features/emoticon/form/useEmoticonTags'
 import { useEmoticonUploadSession } from '@/features/emoticon/form/useEmoticonUploadSession'
 import { useEmoticonImagePolicy } from '@/features/emoticon/form/useEmoticonImagePolicy'
 import { SUPPORTED_EMOTICON_IMAGE_ACCEPT } from '@/utils/emoticonImage'
+import { subscribeAuthSessionBoundary } from '@/queryAuthScope'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -40,7 +41,7 @@ const emoticonName = ref('')
 const isSubmitting = ref(false)
 const uploadSession = useEmoticonUploadSession()
 const { uploadProgress } = uploadSession
-const { tagInput, tagItems, tags, addTag, removeTag } = useEmoticonTags({
+const { tagInput, tagItems, tags, addTag, removeTag, resetTags } = useEmoticonTags({
   onMaxTags: () => {
     toastStore.addToast(t('emoticon.validation.maxTags'), 'error')
   }
@@ -55,6 +56,7 @@ const {
   removeThumbnail,
   handleEmoticonSelect,
   removeImagePreview: removeEmoticonImage,
+  resetImageFormState,
 } = useEmoticonImageFormState({
   selectThumbnailImage,
   selectEmoticonImages,
@@ -67,6 +69,18 @@ const isFormValid = computed(() => {
          emoticonPreviews.value.length > 0 &&
          emoticonPreviews.value.length <= maxImageCount.value
 })
+
+const resetRegistrationState = () => {
+  uploadSession.cancelSubmitRun()
+  uploadSession.resetUploadProgress()
+  isSubmitting.value = false
+  emoticonName.value = ''
+  resetImageFormState()
+  resetTags()
+}
+
+const unsubscribeSessionBoundary = subscribeAuthSessionBoundary(resetRegistrationState)
+onScopeDispose(unsubscribeSessionBoundary)
 
 const { handleSubmit } = useEmoticonRegisterSubmit({
   isFormValid,

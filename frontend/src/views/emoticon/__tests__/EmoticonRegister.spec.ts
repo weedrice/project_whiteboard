@@ -4,14 +4,18 @@ import EmoticonRegister from '../EmoticonRegister.vue'
 import { emoticonApiData, emoticonApiSuccess } from '@/test/emoticonApiFixtures'
 import { getExposedVm } from '@/test/vue-test-helpers'
 import { ref } from 'vue'
+import { notifyAuthSessionBoundary } from '@/queryAuthScope'
 
 type EmoticonPreviewFixture = { clientId: string; file: File; preview: string; width: number; height: number }
 type EmoticonRegisterExposed = {
   emoticonName: string
-  thumbnailFile: File
-  thumbnailPreview: string
+  isSubmitting: boolean
+  thumbnailFile: File | null
+  thumbnailPreview: string | null
   emoticonPreviews: EmoticonPreviewFixture[]
+  tagInput: string
   tags: string[]
+  uploadProgress: { current: number; total: number }
 }
 
 const mocks = vi.hoisted(() => ({
@@ -267,6 +271,49 @@ describe('EmoticonRegister', () => {
     wrapper.unmount()
 
     expect(capturedSignal.current?.aborted).toBe(true)
+    expect(mocks.createEmoticon).not.toHaveBeenCalled()
+    expect(mocks.addToast).not.toHaveBeenCalled()
+    expect(mocks.push).not.toHaveBeenCalled()
+  })
+
+  it('cancels uploads and clears account-owned draft state at the auth boundary', async () => {
+    let rejectUpload: ((reason?: unknown) => void) | undefined
+    const capturedSignal: { current: AbortSignal | null } = { current: null }
+    mocks.uploadFile.mockImplementationOnce((_file: File, config?: { signal?: AbortSignal }) => {
+      capturedSignal.current = config?.signal ?? null
+      return new Promise((_resolve, reject) => {
+        rejectUpload = reject
+      })
+    })
+
+    const wrapper = mountRegister()
+    setValidForm(wrapper)
+    const vm = getExposedVm<EmoticonRegisterExposed>(wrapper)
+    vm.thumbnailPreview = 'blob:thumbnail.png'
+    vm.tagInput = 'draft-tag'
+
+    await wrapper.find('form').trigger('submit')
+    expect(vm.isSubmitting).toBe(true)
+    expect(capturedSignal.current?.aborted).toBe(false)
+
+    notifyAuthSessionBoundary(1)
+    await flushPromises()
+
+    expect(capturedSignal.current?.aborted).toBe(true)
+    expect(vm.isSubmitting).toBe(false)
+    expect(vm.emoticonName).toBe('')
+    expect(vm.thumbnailFile).toBeNull()
+    expect(vm.thumbnailPreview).toBeNull()
+    expect(vm.emoticonPreviews).toEqual([])
+    expect(vm.tagInput).toBe('')
+    expect(vm.tags).toEqual([])
+    expect(vm.uploadProgress).toEqual({ current: 0, total: 0 })
+    expect(mocks.revokeEmoticonPreviewUrl).toHaveBeenCalledWith('blob:thumbnail.png')
+    expect(mocks.revokeEmoticonPreviewUrl).toHaveBeenCalledWith('blob:image.png')
+
+    rejectUpload?.(new DOMException('cancelled', 'AbortError'))
+    await flushPromises()
+
     expect(mocks.createEmoticon).not.toHaveBeenCalled()
     expect(mocks.addToast).not.toHaveBeenCalled()
     expect(mocks.push).not.toHaveBeenCalled()

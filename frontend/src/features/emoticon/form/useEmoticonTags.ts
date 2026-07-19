@@ -25,11 +25,17 @@ export function useEmoticonTags(options: UseEmoticonTagsOptions = {}) {
     removeTagItem(clientId)
   }
 
+  const resetTags = () => {
+    tagInput.value = ''
+    tags.value = []
+  }
+
   return {
     tagInput,
     tagItems,
     tags,
     addTag,
     removeTag,
+    resetTags,
   }
 }
