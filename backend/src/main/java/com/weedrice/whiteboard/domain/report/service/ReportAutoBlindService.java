@@ -81,6 +81,35 @@ class ReportAutoBlindService {
         blindComment(targetId, threshold);
     }
 
+    @Transactional(propagation = Propagation.MANDATORY)
+    void restoreAutoBlindedCommentIfEligible(String targetType, Long targetId) {
+        if (ReportTargetType.from(targetType) != ReportTargetType.COMMENT) {
+            return;
+        }
+        Comment comment = commentRepository.findByIdWithRelationsForBlindUpdate(targetId).orElse(null);
+        if (comment == null || Boolean.TRUE.equals(comment.getIsDeleted())
+                || !Boolean.TRUE.equals(comment.getIsBlinded())
+                || !AUTO_REPORT_REASON.equals(comment.getBlindReason())) {
+            return;
+        }
+        if (pendingReportCount(ReportTargetType.COMMENT, targetId) > 0) {
+            return;
+        }
+        if (reportRepository.countByTargetTypeAndTargetIdAndStatus(
+                ReportTargetType.COMMENT.name(), targetId, Report.STATUS_RESOLVED) > 0) {
+            return;
+        }
+        comment.unblind();
+        notificationAccessInvalidationService.invalidateCommentTopicAfterCommit(comment.getPost().getPostId());
+        semanticSearchEventPublisher.publish("COMMENT", comment.getCommentId(), SemanticSearchIndexAction.UPSERT);
+        moderationAuditLogService.recordSystemAction(
+                ModerationAuditLogService.ACTION_COMMENT_AUTO_UNBLIND,
+                ModerationAuditLogService.TARGET_TYPE_COMMENT,
+                comment.getCommentId(),
+                comment.getPost().getBoard(),
+                AUTO_REPORT_REASON);
+    }
+
     private int resolveThreshold() {
         return GlobalConfigService.parseIntConfigOrDefault(
                 globalConfigService.getConfig(AUTO_BLIND_THRESHOLD_CONFIG),
@@ -117,6 +146,7 @@ class ReportAutoBlindService {
             return;
         }
         comment.blind(AUTO_REPORT_REASON, LocalDateTime.now(clock));
+        notificationAccessInvalidationService.invalidateCommentTopicAfterCommit(comment.getPost().getPostId());
         semanticSearchEventPublisher.publish("COMMENT", comment.getCommentId(), SemanticSearchIndexAction.DELETE);
         moderationAuditLogService.recordSystemAction(
                 ModerationAuditLogService.ACTION_COMMENT_AUTO_BLIND,

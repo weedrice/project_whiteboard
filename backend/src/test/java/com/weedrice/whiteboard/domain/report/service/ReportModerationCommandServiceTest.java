@@ -33,6 +33,8 @@ class ReportModerationCommandServiceTest {
     private ModerationActorResolver moderationActorResolver;
     @Mock
     private ModerationAuditLogService moderationAuditLogService;
+    @Mock
+    private ReportAutoBlindService reportAutoBlindService;
 
     @InjectMocks
     private ReportModerationCommandService reportModerationCommandService;
@@ -116,6 +118,7 @@ class ReportModerationCommandServiceTest {
                 7L,
                 null,
                 "no evidence");
+        verify(reportAutoBlindService).restoreAutoBlindedCommentIfEligible("POST", 10L);
     }
 
     @Test

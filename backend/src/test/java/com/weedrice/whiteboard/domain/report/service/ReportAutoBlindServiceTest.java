@@ -125,6 +125,7 @@ class ReportAutoBlindServiceTest {
 
         service.applyIfThresholdReached("COMMENT", 4L);
         verify(comment).blind("AUTO_REPORT", LocalDateTime.of(2026, 1, 1, 0, 0));
+        verify(notificationAccessInvalidationService).invalidateCommentTopicAfterCommit(post.getPostId());
         verify(semanticSearchEvents).publish("COMMENT", 4L, SemanticSearchIndexAction.DELETE);
 
         Post blinded = mock(Post.class);
@@ -132,5 +133,80 @@ class ReportAutoBlindServiceTest {
         when(blinded.getIsBlinded()).thenReturn(true);
         service.applyIfThresholdReached("POST", 5L);
         verify(blinded, never()).blind(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void rejectedReportRestoresAutoBlindedCommentWhenAllReportsWereRejected() {
+        Comment comment = mock(Comment.class);
+        Post post = mock(Post.class);
+        Board board = mock(Board.class);
+        when(comments.findByIdWithRelationsForBlindUpdate(6L)).thenReturn(Optional.of(comment));
+        when(comment.getCommentId()).thenReturn(6L);
+        when(comment.getPost()).thenReturn(post);
+        when(post.getPostId()).thenReturn(3L);
+        when(post.getBoard()).thenReturn(board);
+        when(comment.getIsDeleted()).thenReturn(false);
+        when(comment.getIsBlinded()).thenReturn(true);
+        when(comment.getBlindReason()).thenReturn("AUTO_REPORT");
+        when(reports.countByTargetTypeAndTargetIdAndStatus("COMMENT", 6L, Report.STATUS_PENDING)).thenReturn(0L);
+        when(reports.countByTargetTypeAndTargetIdAndStatus("COMMENT", 6L, Report.STATUS_RESOLVED)).thenReturn(0L);
+
+        service.restoreAutoBlindedCommentIfEligible("COMMENT", 6L);
+
+        verify(comment).unblind();
+        verify(notificationAccessInvalidationService).invalidateCommentTopicAfterCommit(3L);
+        verify(semanticSearchEvents).publish("COMMENT", 6L, SemanticSearchIndexAction.UPSERT);
+        verify(audits).recordSystemAction(
+                ModerationAuditLogService.ACTION_COMMENT_AUTO_UNBLIND,
+                ModerationAuditLogService.TARGET_TYPE_COMMENT,
+                6L,
+                board,
+                "AUTO_REPORT");
+    }
+
+    @Test
+    void rejectedReportKeepsCommentBlindedWhileAnotherReportIsPending() {
+        Comment comment = mock(Comment.class);
+        when(comments.findByIdWithRelationsForBlindUpdate(7L)).thenReturn(Optional.of(comment));
+        when(comment.getIsDeleted()).thenReturn(false);
+        when(comment.getIsBlinded()).thenReturn(true);
+        when(comment.getBlindReason()).thenReturn("AUTO_REPORT");
+        when(reports.countByTargetTypeAndTargetIdAndStatus("COMMENT", 7L, Report.STATUS_PENDING)).thenReturn(1L);
+
+        service.restoreAutoBlindedCommentIfEligible("COMMENT", 7L);
+
+        verify(comment, never()).unblind();
+        verify(semanticSearchEvents, never()).publish("COMMENT", 7L, SemanticSearchIndexAction.UPSERT);
+    }
+
+    @Test
+    void rejectedReportKeepsManuallyBlindedComment() {
+        Comment comment = mock(Comment.class);
+        when(comments.findByIdWithRelationsForBlindUpdate(8L)).thenReturn(Optional.of(comment));
+        when(comment.getIsDeleted()).thenReturn(false);
+        when(comment.getIsBlinded()).thenReturn(true);
+        when(comment.getBlindReason()).thenReturn("MANAGER");
+
+        service.restoreAutoBlindedCommentIfEligible("COMMENT", 8L);
+
+        verify(comment, never()).unblind();
+        verify(reports, never()).countByTargetTypeAndTargetIdAndStatus(
+                "COMMENT", 8L, Report.STATUS_PENDING);
+    }
+
+    @Test
+    void rejectedReportKeepsCommentBlindedWhenAnotherReportWasResolved() {
+        Comment comment = mock(Comment.class);
+        when(comments.findByIdWithRelationsForBlindUpdate(9L)).thenReturn(Optional.of(comment));
+        when(comment.getIsDeleted()).thenReturn(false);
+        when(comment.getIsBlinded()).thenReturn(true);
+        when(comment.getBlindReason()).thenReturn("AUTO_REPORT");
+        when(reports.countByTargetTypeAndTargetIdAndStatus("COMMENT", 9L, Report.STATUS_PENDING)).thenReturn(0L);
+        when(reports.countByTargetTypeAndTargetIdAndStatus("COMMENT", 9L, Report.STATUS_RESOLVED)).thenReturn(1L);
+
+        service.restoreAutoBlindedCommentIfEligible("COMMENT", 9L);
+
+        verify(comment, never()).unblind();
+        verify(semanticSearchEvents, never()).publish("COMMENT", 9L, SemanticSearchIndexAction.UPSERT);
     }
 }

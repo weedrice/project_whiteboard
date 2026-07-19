@@ -18,6 +18,7 @@ class ReportModerationCommandService {
     private final ReportRepository reportRepository;
     private final ModerationActorResolver moderationActorResolver;
     private final ModerationAuditLogService moderationAuditLogService;
+    private final ReportAutoBlindService reportAutoBlindService;
 
     @Transactional
     public Long processReport(Long adminUserId, Long reportId, String status, String remark) {
@@ -34,6 +35,10 @@ class ReportModerationCommandService {
                 normalizedStatus,
                 normalizedRemark);
         reportRepository.save(report);
+        if (Report.STATUS_REJECTED.equals(normalizedStatus)) {
+            reportAutoBlindService.restoreAutoBlindedCommentIfEligible(
+                    report.getTargetType(), report.getTargetId());
+        }
         moderationAuditLogService.recordUserAction(
                 moderationActor.user(),
                 Report.STATUS_RESOLVED.equals(normalizedStatus)
