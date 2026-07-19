@@ -351,6 +351,8 @@ class IpBlockServiceTest {
         assertThat(pageable.getPageSize()).isEqualTo(20);
         assertThat(pageable.getSort().getOrderFor("startDate")).isNotNull();
         assertThat(pageable.getSort().getOrderFor("startDate").isDescending()).isTrue();
+        assertThat(pageable.getSort().getOrderFor("ipAddress")).isNotNull();
+        assertThat(pageable.getSort().getOrderFor("ipAddress").isDescending()).isTrue();
     }
 
     @Test
@@ -360,11 +362,13 @@ class IpBlockServiceTest {
                 .thenReturn(new PageImpl<>(List.of(), PageRequest.of(1, 100), 0));
 
         ipBlockService.getBlockedIps(PageRequest.of(1, 250,
-                Sort.by(Sort.Order.asc("reason"), Sort.Order.desc("ipAddress"))));
+                Sort.by(Sort.Order.asc("reason"), Sort.Order.asc("endDate"))));
 
         Pageable pageable = captureBlockedIpsPageable();
         assertThat(pageable.getPageNumber()).isEqualTo(1);
         assertThat(pageable.getPageSize()).isEqualTo(100);
+        assertThat(pageable.getSort().getOrderFor("endDate")).isNotNull();
+        assertThat(pageable.getSort().getOrderFor("endDate").isAscending()).isTrue();
         assertThat(pageable.getSort().getOrderFor("ipAddress")).isNotNull();
         assertThat(pageable.getSort().getOrderFor("ipAddress").isDescending()).isTrue();
         assertThat(pageable.getSort().getOrderFor("reason")).isNull();

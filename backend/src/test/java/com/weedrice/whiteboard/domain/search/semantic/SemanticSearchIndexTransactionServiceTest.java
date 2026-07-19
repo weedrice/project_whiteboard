@@ -91,6 +91,28 @@ class SemanticSearchIndexTransactionServiceTest {
     }
 
     @Test
+    void upsertCommentRejectsPayloadWhenCommentRelationshipChangedAfterEmbedding() {
+        Post indexedPost = post("title", "body");
+        Comment indexedComment = comment(indexedPost, "comment");
+        String embeddingText = textBuilder.buildCommentText(indexedComment);
+        SemanticSearchCommentIndexPayload payload = new SemanticSearchCommentIndexPayload(
+                2L, 1L, 10L, 100L, null, embeddingText, textBuilder.hash(embeddingText));
+
+        Post movedPost = post("moved title", "moved body");
+        ReflectionTestUtils.setField(movedPost, "postId", 3L);
+        ReflectionTestUtils.setField(movedPost.getBoard(), "boardId", 30L);
+        Comment movedComment = comment(movedPost, "comment");
+        when(postRepository.findByIdWithRelationsForUpdate(1L)).thenReturn(Optional.of(indexedPost));
+        when(commentRepository.findByIdWithRelationsForUpdate(2L)).thenReturn(Optional.of(movedComment));
+
+        assertThatThrownBy(() -> transactionService.upsertComment(payload, "model", new float[] { 0.1F }))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("comment payload changed");
+
+        verify(embeddingRepository, never()).upsertComment(any(), any(), any(), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
     void upsertPostLocksSourceRowsBeforeWritingEmbedding() {
         Post post = post("title", "body");
         String embeddingText = textBuilder.buildPostText(post);
@@ -101,9 +123,9 @@ class SemanticSearchIndexTransactionServiceTest {
 
         transactionService.upsertPost(payload, "model", embedding);
 
-        var inOrder = inOrder(postRepository, boardRepository, embeddingRepository);
-        inOrder.verify(postRepository).findByIdWithRelationsForUpdate(1L);
+        var inOrder = inOrder(boardRepository, postRepository, embeddingRepository);
         inOrder.verify(boardRepository).findByIdForUpdate(10L);
+        inOrder.verify(postRepository).findByIdWithRelationsForUpdate(1L);
         inOrder.verify(embeddingRepository).upsertPost(
                 1L, 10L, 100L, null, embeddingText, textBuilder.hash(embeddingText), "model", embedding);
     }
@@ -127,10 +149,10 @@ class SemanticSearchIndexTransactionServiceTest {
 
         transactionService.upsertComment(payload, "model", embedding);
 
-        var inOrder = inOrder(commentRepository, postRepository, boardRepository, embeddingRepository);
-        inOrder.verify(commentRepository).findByIdWithRelationsForUpdate(2L);
-        inOrder.verify(postRepository).findByIdWithRelationsForUpdate(1L);
+        var inOrder = inOrder(boardRepository, postRepository, commentRepository, embeddingRepository);
         inOrder.verify(boardRepository).findByIdForUpdate(10L);
+        inOrder.verify(postRepository).findByIdWithRelationsForUpdate(1L);
+        inOrder.verify(commentRepository).findByIdWithRelationsForUpdate(2L);
         inOrder.verify(embeddingRepository).upsertComment(
                 2L, 1L, 10L, 100L, null, embeddingText, textBuilder.hash(embeddingText), "model", embedding);
     }
@@ -226,7 +248,7 @@ class SemanticSearchIndexTransactionServiceTest {
                 new SemanticSearchCommentIndexPayload(
                         2L, 1L, 10L, 100L, null, embeddingText, textBuilder.hash(embeddingText));
         ReflectionTestUtils.setField(post.getBoard(), "isActive", false);
-        when(commentRepository.findByIdWithRelationsForUpdate(2L)).thenReturn(Optional.of(comment));
+        when(postRepository.findByIdWithRelationsForUpdate(1L)).thenReturn(Optional.of(post));
 
         transactionService.upsertComment(payload, "model", new float[] { 0.1F });
 

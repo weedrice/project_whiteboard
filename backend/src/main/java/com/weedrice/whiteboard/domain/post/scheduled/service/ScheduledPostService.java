@@ -6,6 +6,7 @@ import com.weedrice.whiteboard.domain.board.util.BoardUrlNormalizer;
 import com.weedrice.whiteboard.domain.post.entity.DraftPost;
 import com.weedrice.whiteboard.domain.post.repository.DraftPostRepository;
 import com.weedrice.whiteboard.domain.post.scheduled.dto.ScheduledPostRequest;
+import com.weedrice.whiteboard.domain.post.scheduled.dto.ScheduledPostDetailResponse;
 import com.weedrice.whiteboard.domain.post.scheduled.dto.ScheduledPostResponse;
 import com.weedrice.whiteboard.domain.post.scheduled.entity.ScheduledPost;
 import com.weedrice.whiteboard.domain.post.scheduled.repository.ScheduledPostRepository;
@@ -61,7 +62,7 @@ public class ScheduledPostService {
 
     @Transactional
     public ScheduledPostResponse create(Long userId, String boardUrl, ScheduledPostRequest request) {
-        User user = userWritableResolver.resolve(userId);
+        User user = userWritableResolver.resolveForUpdate(userId);
         sanctionService.validateNotMuted(user);
         String normalizedBoardUrl = BoardUrlNormalizer.normalizeLookup(boardUrl);
         Board board = boardRepository.findByBoardUrl(normalizedBoardUrl)
@@ -106,13 +107,13 @@ public class ScheduledPostService {
                 .map(ScheduledPostResponse::from);
     }
 
-    public ScheduledPostResponse getOwned(Long userId, Long scheduledPostId) {
-        return ScheduledPostResponse.from(loadOwned(userId, scheduledPostId));
+    public ScheduledPostDetailResponse getOwned(Long userId, Long scheduledPostId) {
+        return payloadMapper.toDetailResponse(loadOwned(userId, scheduledPostId));
     }
 
     @Transactional
     public ScheduledPostResponse update(Long userId, Long scheduledPostId, ScheduledPostRequest request) {
-        User user = userWritableResolver.resolve(userId);
+        User user = userWritableResolver.resolveForUpdate(userId);
         sanctionService.validateNotMuted(user);
         ScheduledPost scheduledPost = loadOwnedForUpdate(userId, scheduledPostId);
         if (!scheduledPost.isEditable()) {

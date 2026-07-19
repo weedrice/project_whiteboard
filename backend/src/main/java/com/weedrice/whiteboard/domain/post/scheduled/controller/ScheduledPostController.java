@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.post.scheduled.controller;
 
 import com.weedrice.whiteboard.domain.post.scheduled.dto.ScheduledPostRequest;
+import com.weedrice.whiteboard.domain.post.scheduled.dto.ScheduledPostDetailResponse;
 import com.weedrice.whiteboard.domain.post.scheduled.dto.ScheduledPostResponse;
 import com.weedrice.whiteboard.domain.post.scheduled.service.ScheduledPostService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
@@ -48,7 +49,7 @@ public class ScheduledPostController {
     }
 
     @GetMapping("/scheduled-posts/{scheduledPostId}")
-    public ApiResponse<ScheduledPostResponse> getScheduledPost(
+    public ApiResponse<ScheduledPostDetailResponse> getScheduledPost(
             @PathVariable Long scheduledPostId,
             @CurrentUserId Long userId) {
         return ApiResponse.success(scheduledPostService.getOwned(userId, scheduledPostId));

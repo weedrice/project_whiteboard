@@ -87,7 +87,7 @@ class ScheduledPostServiceTest {
     void createValidatesAndStoresOwnedDraftOnSameBoard() {
         ScheduledPostRequest request = requestWithDraft(77L);
         ReflectionTestUtils.setField(request, "fileIds", List.of(10L, 11L));
-        when(userWritableResolver.resolve(1L)).thenReturn(user);
+        when(userWritableResolver.resolveForUpdate(1L)).thenReturn(user);
         when(boardRepository.findByBoardUrl("scheduled-board")).thenReturn(Optional.of(board));
         when(draftPostRepository.findByDraftIdAndUserForUpdate(77L, user)).thenReturn(Optional.of(draft));
         when(scheduledPostRepository.saveAndFlush(any(ScheduledPost.class)))
@@ -100,6 +100,9 @@ class ScheduledPostServiceTest {
         var response = service.create(1L, "scheduled-board", request);
 
         assertThat(response.getDraftId()).isEqualTo(77L);
+        var lockOrder = org.mockito.Mockito.inOrder(userWritableResolver, boardRepository);
+        lockOrder.verify(userWritableResolver).resolveForUpdate(1L);
+        lockOrder.verify(boardRepository).findByBoardUrl("scheduled-board");
         verify(draftPostRepository).findByDraftIdAndUserForUpdate(77L, user);
         verify(scheduledPostRepository).existsByDraftId(77L);
         verify(scheduledPostFileService).replaceReferences(9L, 1L, 77L, List.of(10L, 11L));
@@ -108,7 +111,7 @@ class ScheduledPostServiceTest {
     @Test
     void createRejectsDraftAlreadyReferencedByAnotherSchedule() {
         ScheduledPostRequest request = requestWithDraft(77L);
-        when(userWritableResolver.resolve(1L)).thenReturn(user);
+        when(userWritableResolver.resolveForUpdate(1L)).thenReturn(user);
         when(boardRepository.findByBoardUrl("scheduled-board")).thenReturn(Optional.of(board));
         when(draftPostRepository.findByDraftIdAndUserForUpdate(77L, user)).thenReturn(Optional.of(draft));
         when(scheduledPostRepository.existsByDraftId(77L)).thenReturn(true);
@@ -123,7 +126,7 @@ class ScheduledPostServiceTest {
     void createRejectsPollThatClosesAtOrBeforeScheduledPublication() {
         ScheduledPostRequest request = requestWithDraft(null);
         setPollClosesAt(request, request.getScheduledAt());
-        when(userWritableResolver.resolve(1L)).thenReturn(user);
+        when(userWritableResolver.resolveForUpdate(1L)).thenReturn(user);
         when(boardRepository.findByBoardUrl("scheduled-board")).thenReturn(Optional.of(board));
 
         assertThatThrownBy(() -> service.create(1L, "scheduled-board", request))
@@ -138,7 +141,7 @@ class ScheduledPostServiceTest {
     void createRejectsPollThatCanExpireBeforeTheNextPublisherTick() {
         ScheduledPostRequest request = requestWithDraft(null);
         setPollClosesAt(request, request.getScheduledAt().plusSeconds(30));
-        when(userWritableResolver.resolve(1L)).thenReturn(user);
+        when(userWritableResolver.resolveForUpdate(1L)).thenReturn(user);
         when(boardRepository.findByBoardUrl("scheduled-board")).thenReturn(Optional.of(board));
 
         assertThatThrownBy(() -> service.create(1L, "scheduled-board", request))
@@ -152,7 +155,7 @@ class ScheduledPostServiceTest {
     @Test
     void createRejectsPublicationPolicyViolationBeforePersisting() {
         ScheduledPostRequest request = requestWithDraft(null);
-        when(userWritableResolver.resolve(1L)).thenReturn(user);
+        when(userWritableResolver.resolveForUpdate(1L)).thenReturn(user);
         when(boardRepository.findByBoardUrl("scheduled-board")).thenReturn(Optional.of(board));
         doThrow(new com.weedrice.whiteboard.global.exception.BusinessException(
                 com.weedrice.whiteboard.global.exception.ErrorCode.FORBIDDEN))
@@ -174,7 +177,7 @@ class ScheduledPostServiceTest {
                 .scheduledAt(LocalDateTime.of(2026, 7, 13, 1, 0)).build();
         ScheduledPostRequest request = requestWithDraft(77L);
         ReflectionTestUtils.setField(request, "fileIds", List.of(10L));
-        when(userWritableResolver.resolve(1L)).thenReturn(user);
+        when(userWritableResolver.resolveForUpdate(1L)).thenReturn(user);
         when(scheduledPostRepository.findOwnedForUpdate(9L, 1L))
                 .thenReturn(Optional.of(scheduledPost));
         when(draftPostRepository.findByDraftIdAndUserForUpdate(77L, user)).thenReturn(Optional.of(draft));
@@ -183,6 +186,9 @@ class ScheduledPostServiceTest {
 
         assertThat(response.getDraftId()).isEqualTo(77L);
         assertThat(scheduledPost.getDraftId()).isEqualTo(77L);
+        var lockOrder = org.mockito.Mockito.inOrder(userWritableResolver, scheduledPostRepository);
+        lockOrder.verify(userWritableResolver).resolveForUpdate(1L);
+        lockOrder.verify(scheduledPostRepository).findOwnedForUpdate(9L, 1L);
         verify(scheduledPostRepository).existsByDraftIdAndScheduledPostIdNot(77L, 9L);
         verify(scheduledPostRepository).findOwnedForUpdate(9L, 1L);
         verify(scheduledPostFileService).replaceReferences(9L, 1L, 77L, List.of(10L));
@@ -195,7 +201,7 @@ class ScheduledPostServiceTest {
                 .scheduledAt(LocalDateTime.of(2026, 7, 13, 1, 0)).build();
         ScheduledPostRequest request = requestWithDraft(null);
         setPollClosesAt(request, request.getScheduledAt().minusSeconds(1));
-        when(userWritableResolver.resolve(1L)).thenReturn(user);
+        when(userWritableResolver.resolveForUpdate(1L)).thenReturn(user);
         when(scheduledPostRepository.findOwnedForUpdate(9L, 1L)).thenReturn(Optional.of(scheduledPost));
 
         assertThatThrownBy(() -> service.update(1L, 9L, request))
@@ -216,7 +222,7 @@ class ScheduledPostServiceTest {
                 .user(user).board(board).title("old").contents("old")
                 .scheduledAt(originalScheduledAt).build();
         ScheduledPostRequest request = requestWithDraft(null);
-        when(userWritableResolver.resolve(1L)).thenReturn(user);
+        when(userWritableResolver.resolveForUpdate(1L)).thenReturn(user);
         when(scheduledPostRepository.findOwnedForUpdate(9L, 1L)).thenReturn(Optional.of(scheduledPost));
         doThrow(new com.weedrice.whiteboard.global.exception.BusinessException(
                 com.weedrice.whiteboard.global.exception.ErrorCode.FORBIDDEN))

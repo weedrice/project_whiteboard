@@ -6,6 +6,7 @@ import tools.jackson.databind.ObjectMapper;
 import com.weedrice.whiteboard.domain.post.dto.PollRequest;
 import com.weedrice.whiteboard.domain.post.dto.PostCreateRequest;
 import com.weedrice.whiteboard.domain.post.scheduled.dto.ScheduledPostRequest;
+import com.weedrice.whiteboard.domain.post.scheduled.dto.ScheduledPostDetailResponse;
 import com.weedrice.whiteboard.domain.post.scheduled.entity.ScheduledPost;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
@@ -51,6 +52,14 @@ class ScheduledPostPayloadMapper {
                 fromJson(scheduledPost.getFileIdsJson(), LONG_LIST_TYPE),
                 fromJson(scheduledPost.getPollJson(), PollRequest.class),
                 scheduledPost.getSeriesId());
+    }
+
+    ScheduledPostDetailResponse toDetailResponse(ScheduledPost scheduledPost) {
+        return ScheduledPostDetailResponse.from(
+                scheduledPost,
+                fromJson(scheduledPost.getTagsJson(), STRING_LIST_TYPE),
+                fromJson(scheduledPost.getFileIdsJson(), LONG_LIST_TYPE),
+                fromJson(scheduledPost.getPollJson(), PollRequest.class));
     }
 
     private String toJson(Object value) {

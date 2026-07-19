@@ -56,12 +56,12 @@ class SemanticSearchIndexTransactionService {
 
     @Transactional
     public void upsertPost(SemanticSearchPostIndexPayload payload, String embeddingModel, float[] embedding) {
+        boardRepository.findByIdForUpdate(payload.boardId());
         Post post = postRepository.findByIdWithRelationsForUpdate(payload.postId()).orElse(null);
         if (!isIndexablePost(post)) {
             tombstonePost(payload.postId());
             return;
         }
-        boardRepository.findByIdForUpdate(post.getBoard().getBoardId());
         validateCurrentPostPayload(payload, post);
         embeddingRepository.upsertPost(
                 payload.postId(),
@@ -76,17 +76,17 @@ class SemanticSearchIndexTransactionService {
 
     @Transactional
     public void upsertComment(SemanticSearchCommentIndexPayload payload, String embeddingModel, float[] embedding) {
+        boardRepository.findByIdForUpdate(payload.boardId());
+        Post post = postRepository.findByIdWithRelationsForUpdate(payload.postId()).orElse(null);
+        if (!isIndexablePost(post)) {
+            tombstoneComment(payload.commentId());
+            return;
+        }
         Comment comment = commentRepository.findByIdWithRelationsForUpdate(payload.commentId()).orElse(null);
         if (!isIndexableComment(comment)) {
             tombstoneComment(payload.commentId());
             return;
         }
-        Post post = postRepository.findByIdWithRelationsForUpdate(comment.getPost().getPostId()).orElse(null);
-        if (!isIndexablePost(post)) {
-            tombstoneComment(payload.commentId());
-            return;
-        }
-        boardRepository.findByIdForUpdate(post.getBoard().getBoardId());
         validateCurrentCommentPayload(payload, comment);
         embeddingRepository.upsertComment(
                 payload.commentId(),

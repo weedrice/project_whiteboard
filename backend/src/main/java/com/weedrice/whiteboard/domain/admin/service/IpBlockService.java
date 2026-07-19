@@ -25,7 +25,9 @@ import java.util.Set;
 public class IpBlockService {
     private static final int MAX_REASON_LENGTH = 255;
     private static final int DEFAULT_BLOCKED_IP_PAGE_SIZE = 20;
-    private static final Sort DEFAULT_BLOCKED_IP_SORT = Sort.by(Sort.Order.desc("startDate"));
+    private static final Sort DEFAULT_BLOCKED_IP_SORT = Sort.by(
+            Sort.Order.desc("startDate"),
+            Sort.Order.desc("ipAddress"));
     private static final Set<String> ALLOWED_BLOCKED_IP_SORTS = Set.of("startDate", "endDate", "ipAddress");
 
     private final IpBlockRepository ipBlockRepository;

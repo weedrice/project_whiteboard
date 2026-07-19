@@ -4058,6 +4058,8 @@ class PostServiceTest {
         verify(postRepository).findByBoard_BoardIdAndIsDeletedFalse(eq(1L), pageableCaptor.capture());
         assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(100);
         assertThat(pageableCaptor.getValue().getSort().getOrderFor("createdAt")).isNotNull();
+        assertThat(pageableCaptor.getValue().getSort().getOrderFor("postId")).isNotNull();
+        assertThat(pageableCaptor.getValue().getSort().getOrderFor("postId").isDescending()).isTrue();
     }
 
     @Test
@@ -4074,6 +4076,24 @@ class PostServiceTest {
         verify(postRepository).findByBoard_BoardIdAndIsDeletedFalse(eq(1L), pageableCaptor.capture());
         assertThat(pageableCaptor.getValue().getSort().getOrderFor("title")).isNull();
         assertThat(pageableCaptor.getValue().getSort().getOrderFor("createdAt")).isNotNull();
+        assertThat(pageableCaptor.getValue().getSort().getOrderFor("postId")).isNotNull();
+        assertThat(pageableCaptor.getValue().getSort().getOrderFor("postId").isDescending()).isTrue();
+    }
+
+    @Test
+    @DisplayName("관리자 문의글 목록은 허용 정렬에도 게시글 ID 안정 정렬을 추가한다")
+    void getInquiryPostsForAdmin_appendsPostIdTieBreakerToAllowedSort() {
+        ReflectionTestUtils.setField(board, "boardUrl", "inquiry");
+        when(boardRepository.findByBoardUrl("inquiry")).thenReturn(Optional.of(board));
+        when(postRepository.findByBoard_BoardIdAndIsDeletedFalse(eq(1L), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(), PageRequest.of(0, 20), 0));
+
+        postService.getInquiryPostsForAdmin(PageRequest.of(0, 20, Sort.by("viewCount").ascending()));
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(postRepository).findByBoard_BoardIdAndIsDeletedFalse(eq(1L), pageableCaptor.capture());
+        assertThat(pageableCaptor.getValue().getSort().getOrderFor("viewCount").isAscending()).isTrue();
+        assertThat(pageableCaptor.getValue().getSort().getOrderFor("postId").isDescending()).isTrue();
     }
 
     @Test

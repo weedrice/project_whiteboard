@@ -54,7 +54,9 @@ public class PostListReadService {
     private static final Sort DEFAULT_MY_POST_SORT = Sort.by(
             Sort.Order.desc("createdAt"),
             Sort.Order.desc("postId"));
-    private static final Sort DEFAULT_INQUIRY_POST_SORT = Sort.by(Sort.Direction.DESC, "createdAt");
+    private static final Sort DEFAULT_INQUIRY_POST_SORT = Sort.by(
+            Sort.Order.desc("createdAt"),
+            Sort.Order.desc("postId"));
     private static final Set<String> BOARD_POST_SORT_PROPERTIES = Set.of(
             "createdAt", "postId", "viewCount", "likeCount", "pinnedAt");
     private static final Set<String> TAG_POST_SORT_PROPERTIES = Set.of(
