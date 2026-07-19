@@ -20,28 +20,28 @@ import java.util.Optional;
 public interface EmoticonMasterRepository extends JpaRepository<EmoticonMaster, Long>, EmoticonMasterSearchRepository {
 
     @EntityGraph(attributePaths = "creator")
-    @Query("SELECT e FROM EmoticonMaster e WHERE e.isActive = 'Y' ORDER BY e.createdAt DESC")
+    @Query("SELECT e FROM EmoticonMaster e WHERE e.isActive = 'Y' ORDER BY e.createdAt DESC, e.emoticonId DESC")
     Page<EmoticonMaster> findAllActive(Pageable pageable);
 
     @EntityGraph(attributePaths = "creator")
-    @Query("SELECT e FROM EmoticonMaster e WHERE e.isActive = 'Y' ORDER BY e.createdAt ASC")
+    @Query("SELECT e FROM EmoticonMaster e WHERE e.isActive = 'Y' ORDER BY e.createdAt ASC, e.emoticonId ASC")
     Page<EmoticonMaster> findAllActiveOrderByCreatedAtAsc(Pageable pageable);
 
     @EntityGraph(attributePaths = "creator")
-    @Query("SELECT e FROM EmoticonMaster e WHERE e.isActive = 'Y' ORDER BY e.purchaseCount DESC, e.createdAt DESC")
+    @Query("SELECT e FROM EmoticonMaster e WHERE e.isActive = 'Y' ORDER BY e.purchaseCount DESC, e.createdAt DESC, e.emoticonId DESC")
     Page<EmoticonMaster> findAllActiveOrderByPurchaseCount(Pageable pageable);
 
     @EntityGraph(attributePaths = "creator")
-    @Query("SELECT e FROM EmoticonMaster e WHERE e.creator.userId = :creatorId ORDER BY e.createdAt DESC")
+    @Query("SELECT e FROM EmoticonMaster e WHERE e.creator.userId = :creatorId ORDER BY e.createdAt DESC, e.emoticonId DESC")
     Page<EmoticonMaster> findByCreatorId(@Param("creatorId") Long creatorId, Pageable pageable);
 
-    @Query(value = "SELECT * FROM emoticon_masters WHERE is_active = 'Y' AND :tag = ANY(tags) ORDER BY created_at DESC",
+    @Query(value = "SELECT * FROM emoticon_masters WHERE is_active = 'Y' AND :tag = ANY(tags) ORDER BY created_at DESC, emoticon_id DESC",
             countQuery = "SELECT COUNT(*) FROM emoticon_masters WHERE is_active = 'Y' AND :tag = ANY(tags)",
             nativeQuery = true)
     Page<EmoticonMaster> findByTag(@Param("tag") String tag, Pageable pageable);
 
     @EntityGraph(attributePaths = "creator")
-    @Query("SELECT e FROM EmoticonMaster e WHERE e.isActive = 'Y' AND LOWER(e.name) LIKE LOWER(CONCAT('%', REPLACE(REPLACE(REPLACE(:keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) ESCAPE '!' ORDER BY e.createdAt DESC")
+    @Query("SELECT e FROM EmoticonMaster e WHERE e.isActive = 'Y' AND LOWER(e.name) LIKE LOWER(CONCAT('%', REPLACE(REPLACE(REPLACE(:keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) ESCAPE '!' ORDER BY e.createdAt DESC, e.emoticonId DESC")
     Page<EmoticonMaster> findByKeyword(@Param("keyword") String keyword, Pageable pageable);
 
     @Query("SELECT e FROM EmoticonMaster e LEFT JOIN FETCH e.images LEFT JOIN FETCH e.creator WHERE e.emoticonId = :emoticonId")
@@ -87,7 +87,7 @@ public interface EmoticonMasterRepository extends JpaRepository<EmoticonMaster, 
                 GROUP BY ep.emoticon_id
             ) purchase_stats ON em.emoticon_id = purchase_stats.emoticon_id
             WHERE em.is_active = 'Y'
-            ORDER BY COALESCE(purchase_stats.cnt, 0) DESC, em.created_at DESC
+            ORDER BY COALESCE(purchase_stats.cnt, 0) DESC, em.created_at DESC, em.emoticon_id DESC
             LIMIT :limit
             """, nativeQuery = true)
     List<EmoticonMaster> findPopularEmoticons(@Param("startDate") LocalDateTime startDate, @Param("limit") int limit);
@@ -96,7 +96,7 @@ public interface EmoticonMasterRepository extends JpaRepository<EmoticonMaster, 
             SELECT DISTINCT em.* FROM emoticon_masters em
             JOIN emoticon_purchases ep ON em.emoticon_id = ep.emoticon_id AND ep.user_id = :userId
             WHERE ep.purchase_id IS NOT NULL
-            ORDER BY em.created_at DESC
+            ORDER BY em.created_at DESC, em.emoticon_id DESC
             """,
             countQuery = """
             SELECT COUNT(DISTINCT em.emoticon_id) FROM emoticon_masters em

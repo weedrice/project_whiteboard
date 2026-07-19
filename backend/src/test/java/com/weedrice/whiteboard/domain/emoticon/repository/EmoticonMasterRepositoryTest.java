@@ -93,7 +93,7 @@ class EmoticonMasterRepositoryTest {
         Query query = method.getAnnotation(Query.class);
 
         assertThat(query).isNotNull();
-        assertThat(query.value()).contains("ORDER BY e.createdAt DESC");
+        assertThat(query.value()).contains("ORDER BY e.createdAt DESC, e.emoticonId DESC");
     }
 
     @Test
@@ -104,7 +104,7 @@ class EmoticonMasterRepositoryTest {
         Query query = method.getAnnotation(Query.class);
 
         assertThat(query).isNotNull();
-        assertThat(query.value()).contains("ORDER BY e.createdAt ASC");
+        assertThat(query.value()).contains("ORDER BY e.createdAt ASC, e.emoticonId ASC");
     }
 
     @Test
@@ -116,7 +116,8 @@ class EmoticonMasterRepositoryTest {
         assertThat(query).isNotNull();
         assertThat(query.value())
                 .contains("REPLACE(REPLACE(REPLACE(:keyword, '!', '!!'), '%', '!%'), '_', '!_')")
-                .contains("ESCAPE '!'");
+                .contains("ESCAPE '!'")
+                .contains("ORDER BY e.createdAt DESC, e.emoticonId DESC");
     }
 
     @Test
@@ -253,7 +254,9 @@ class EmoticonMasterRepositoryTest {
         Query query = method.getAnnotation(Query.class);
 
         assertThat(query).isNotNull();
-        assertThat(query.value()).contains(":tag = ANY(tags)");
+        assertThat(query.value())
+                .contains(":tag = ANY(tags)")
+                .contains("ORDER BY created_at DESC, emoticon_id DESC");
         assertThat(query.countQuery())
                 .contains("SELECT COUNT(*) FROM emoticon_masters")
                 .contains(":tag = ANY(tags)");
@@ -271,11 +274,33 @@ class EmoticonMasterRepositoryTest {
                 .contains("JOIN emoticon_purchases")
                 .doesNotContain("LEFT JOIN emoticon_purchases")
                 .contains("ep.purchase_id IS NOT NULL")
+                .contains("ORDER BY em.created_at DESC, em.emoticon_id DESC")
                 .doesNotContain("em.creator_id = :userId");
         assertThat(query.countQuery())
                 .contains("JOIN emoticon_purchases")
                 .doesNotContain("LEFT JOIN emoticon_purchases")
                 .contains("ep.purchase_id IS NOT NULL")
                 .doesNotContain("em.creator_id = :userId");
+    }
+
+    @Test
+    @DisplayName("인기순·작성자·기간 인기 목록도 ID로 안정 정렬한다")
+    void remainingListQueries_declareStableIdOrdering() throws NoSuchMethodException {
+        Query popularPage = EmoticonMasterRepository.class
+                .getMethod("findAllActiveOrderByPurchaseCount", Pageable.class)
+                .getAnnotation(Query.class);
+        Query creatorPage = EmoticonMasterRepository.class
+                .getMethod("findByCreatorId", Long.class, Pageable.class)
+                .getAnnotation(Query.class);
+        Query periodPopular = EmoticonMasterRepository.class
+                .getMethod("findPopularEmoticons", java.time.LocalDateTime.class, int.class)
+                .getAnnotation(Query.class);
+
+        assertThat(popularPage.value())
+                .contains("e.purchaseCount DESC, e.createdAt DESC, e.emoticonId DESC");
+        assertThat(creatorPage.value())
+                .contains("e.createdAt DESC, e.emoticonId DESC");
+        assertThat(periodPopular.value())
+                .contains("em.created_at DESC, em.emoticon_id DESC");
     }
 }

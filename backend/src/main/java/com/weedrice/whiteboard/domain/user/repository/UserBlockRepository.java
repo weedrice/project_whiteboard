@@ -63,7 +63,7 @@ public interface UserBlockRepository extends JpaRepository<UserBlock, Long> {
             WHERE ub.user = :user
               AND ub.target.status = 'ACTIVE'
               AND ub.target.deletedAt IS NULL
-            ORDER BY ub.createdAt DESC
+            ORDER BY ub.createdAt DESC, ub.relationId DESC
             """, countQuery = """
             SELECT COUNT(ub)
             FROM UserBlock ub

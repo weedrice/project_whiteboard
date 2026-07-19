@@ -14,7 +14,7 @@ import java.util.Optional;
 
 public interface LoginHistoryRepository extends JpaRepository<LoginHistory, Long> {
 
-    Page<LoginHistory> findByUserOrderByCreatedAtDesc(User user, Pageable pageable);
+    Page<LoginHistory> findByUser(User user, Pageable pageable);
 
     Page<LoginHistory> findByIpAddressOrderByCreatedAtDesc(String ipAddress, Pageable pageable);
 

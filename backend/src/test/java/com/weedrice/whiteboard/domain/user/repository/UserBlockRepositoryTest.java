@@ -15,6 +15,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -93,6 +94,26 @@ class UserBlockRepositoryTest {
         assertThat(result.getContent())
                 .extracting(block -> block.getTarget().getUserId())
                 .containsExactlyInAnyOrder(user2.getUserId(), user3.getUserId());
+    }
+
+    @Test
+    @DisplayName("차단 시각이 같으면 관계 ID 내림차순으로 안정 정렬한다")
+    void findPageByUserWithTarget_ordersSameCreatedAtByRelationIdDesc() {
+        entityManager.getEntityManager().createQuery("""
+                UPDATE UserBlock ub
+                SET ub.createdAt = :createdAt
+                WHERE ub.user.userId = :userId
+                """)
+                .setParameter("createdAt", LocalDateTime.of(2026, 7, 19, 0, 0))
+                .setParameter("userId", user1.getUserId())
+                .executeUpdate();
+        entityManager.clear();
+
+        Page<UserBlock> result = userBlockRepository.findPageByUserWithTarget(user1, PageRequest.of(0, 10));
+
+        assertThat(result.getContent())
+                .extracting(UserBlock::getRelationId)
+                .isSortedAccordingTo((left, right) -> Long.compare(right, left));
     }
 
     @Test

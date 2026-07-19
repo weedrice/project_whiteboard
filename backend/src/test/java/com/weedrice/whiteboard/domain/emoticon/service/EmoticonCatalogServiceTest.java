@@ -28,6 +28,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -161,6 +162,21 @@ class EmoticonCatalogServiceTest {
         verify(emoticonMasterRepository).findAllActive(pageableCaptor.capture());
         assertThat(pageableCaptor.getValue().getPageNumber()).isZero();
         assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(20);
+        assertThat(pageableCaptor.getValue().getSort().isUnsorted()).isTrue();
+    }
+
+    @Test
+    @DisplayName("구매 이모티콘 목록도 서비스 경계에서 pageable을 보정한다")
+    void getPurchasedEmoticons_boundsPageableAtServiceBoundary() {
+        when(emoticonMasterRepository.findPurchasedEmoticons(any(), any(Pageable.class)))
+                .thenAnswer(invocation -> new PageImpl<>(List.of(), invocation.getArgument(1), 0));
+
+        catalogService.getPurchasedEmoticons(1L, PageRequest.of(3, 500, Sort.by("createdAt")));
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(emoticonMasterRepository).findPurchasedEmoticons(eq(1L), pageableCaptor.capture());
+        assertThat(pageableCaptor.getValue().getPageNumber()).isEqualTo(3);
+        assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(100);
         assertThat(pageableCaptor.getValue().getSort().isUnsorted()).isTrue();
     }
 }

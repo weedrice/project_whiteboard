@@ -15,12 +15,15 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -33,6 +36,9 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -138,10 +144,32 @@ class UserSessionServiceTest {
         when(history.getIpAddress()).thenReturn("127.0.0.1");
         when(history.getUserAgent()).thenReturn("Browser");
         PageRequest pageable = PageRequest.of(0, 10);
-        when(histories.findByUserOrderByCreatedAtDesc(user, pageable))
+        when(histories.findByUser(user, PageRequest.of(0, 10, Sort.by(
+                Sort.Order.desc("createdAt"), Sort.Order.desc("historyId")))))
                 .thenReturn(new PageImpl<>(List.of(history), pageable, 1));
 
         assertTrue(service.getLoginHistory(1L, pageable).hasContent());
+    }
+
+    @Test
+    void loginHistoryWhitelistsSortAndAddsStableFallback() {
+        when(histories.findByUser(eq(user), any(Pageable.class)))
+                .thenAnswer(invocation -> new PageImpl<>(List.of(), invocation.getArgument(1), 0));
+        Pageable requested = PageRequest.of(2, 500, Sort.by(
+                Sort.Order.asc("isSuccess"),
+                Sort.Order.desc("ipAddress")));
+
+        service.getLoginHistory(1L, requested);
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(histories).findByUser(eq(user), pageableCaptor.capture());
+        Pageable actual = pageableCaptor.getValue();
+        assertThat(actual.getPageNumber()).isEqualTo(2);
+        assertThat(actual.getPageSize()).isEqualTo(100);
+        assertThat(actual.getSort()).containsExactly(
+                Sort.Order.asc("isSuccess"),
+                Sort.Order.desc("createdAt"),
+                Sort.Order.desc("historyId"));
     }
 
     private static RefreshToken token(Long id, User owner, String hash, LocalDateTime createdAt,
