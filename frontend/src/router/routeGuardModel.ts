@@ -19,6 +19,11 @@ export function isReservedBoardUrl(boardUrl: string): boolean {
     return boardUrl.toLowerCase() === 'inquiry'
 }
 
+export function isPositiveIntegerRouteParam(value: string): boolean {
+    if (!/^[1-9]\d*$/.test(value)) return false
+    return Number.isSafeInteger(Number(value))
+}
+
 export function shouldRedirectToOnboarding(
     routeName: unknown,
     skipOnboarding: boolean | undefined,

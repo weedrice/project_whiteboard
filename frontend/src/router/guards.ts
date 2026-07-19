@@ -10,7 +10,7 @@ import {
     guardEmoticonOwner,
     guardPostAuthor,
 } from '@/router/resourceAccessGuards'
-import { getStringRouteParam, isReservedBoardUrl, shouldRedirectToOnboarding } from '@/router/routeGuardModel'
+import { getStringRouteParam, isPositiveIntegerRouteParam, isReservedBoardUrl, shouldRedirectToOnboarding } from '@/router/routeGuardModel'
 import { saveLoginRedirect } from '@/utils/authRedirect'
 import { QUERY_STALE_TIME } from '@/utils/constants'
 import { isSessionGenerationCurrent } from '@/queryAuthScope'
@@ -25,6 +25,7 @@ declare module 'vue-router' {
         requiresBoardAdmin?: boolean
         requiresEmoticonOwner?: boolean
         requiresPostAuthor?: boolean
+        requiresValidEmoticonId?: boolean
         skipOnboarding?: boolean
     }
 }
@@ -38,6 +39,11 @@ export function createAppNavigationGuard() {
 
         const boardUrlParam = getStringRouteParam(to.params.boardUrl)
         if (isReservedBoardUrl(boardUrlParam)) {
+            return { name: 'error', query: { status: '404' } }
+        }
+
+        const emoticonIdParam = getStringRouteParam(to.params.emoticonId)
+        if (to.meta.requiresValidEmoticonId && !isPositiveIntegerRouteParam(emoticonIdParam)) {
             return { name: 'error', query: { status: '404' } }
         }
 

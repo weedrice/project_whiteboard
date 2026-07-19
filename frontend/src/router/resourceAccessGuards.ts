@@ -16,7 +16,7 @@ import { QUERY_STALE_TIME } from '@/utils/constants'
 import logger from '@/utils/logger'
 import i18n from '@/i18n'
 import type { Post } from '@/types'
-import { getRouteFetchErrorStatus, getStringRouteParam } from '@/router/routeGuardModel'
+import { getRouteFetchErrorStatus, getStringRouteParam, isPositiveIntegerRouteParam } from '@/router/routeGuardModel'
 import {
     AUTH_SCOPED_QUERY_META,
     isSessionGenerationCurrent,
@@ -88,10 +88,11 @@ export async function guardEmoticonOwner(to: RouteLocationNormalized): Promise<R
 
     const authStore = useAuthStore()
     const sessionGeneration = authStore.sessionGeneration
-    const emoticonIdParam = typeof to.params.emoticonId === 'string' ? Number(to.params.emoticonId) : NaN
-    if (!Number.isFinite(emoticonIdParam)) {
+    const rawEmoticonId = getStringRouteParam(to.params.emoticonId)
+    if (!isPositiveIntegerRouteParam(rawEmoticonId)) {
         return { name: 'error', query: { status: '404' } }
     }
+    const emoticonIdParam = Number(rawEmoticonId)
 
     try {
         const emoticon = await queryClient.fetchQuery({

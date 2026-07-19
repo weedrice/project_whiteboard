@@ -106,12 +106,13 @@ export const routes: RouteRecordRaw[] = [
         path: '/emoticons/:emoticonId',
         name: 'emoticon-detail',
         component: () => import('@/views/emoticon/EmoticonDetail.vue'),
+        meta: { requiresValidEmoticonId: true },
     },
     {
         path: '/emoticons/:emoticonId/edit',
         name: 'emoticon-edit',
         component: () => import('@/views/emoticon/EmoticonEdit.vue'),
-        meta: { requiresAuth: true, requiresEmoticonOwner: true },
+        meta: { requiresAuth: true, requiresEmoticonOwner: true, requiresValidEmoticonId: true },
     },
     {
         path: '/boards',

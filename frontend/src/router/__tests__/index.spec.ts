@@ -521,6 +521,17 @@ describe('Router Navigation Guards', () => {
         expect(router.currentRoute.value.name).toBe('emoticon-edit')
     })
 
+    it.each(['/emoticons/foo', '/emoticons/0', '/emoticons/1.5'])(
+        'redirects an invalid emoticon detail id to the 404 error route: %s',
+        async (path) => {
+            await router.push(path)
+
+            expect(router.currentRoute.value.name).toBe('error')
+            expect(router.currentRoute.value.query.status).toBe('404')
+            expect(emoticonApi.getEmoticonData).not.toHaveBeenCalled()
+        },
+    )
+
     it('redirects to emoticon detail when the user does not own the emoticon', async () => {
         mockAuthStore.isAuthenticated = true
         mockAuthStore.user = { userId: 1, role: 'USER' }

@@ -4,6 +4,7 @@ import type { InternalAxiosRequestConfig } from 'axios'
 import {
     getRouteFetchErrorStatus,
     getStringRouteParam,
+    isPositiveIntegerRouteParam,
     isReservedBoardUrl,
     shouldRedirectToOnboarding,
 } from '@/router/routeGuardModel'
@@ -43,6 +44,18 @@ describe('routeGuardModel', () => {
         expect(isReservedBoardUrl('Inquiry')).toBe(true)
         expect(isReservedBoardUrl('free')).toBe(false)
         expect(isReservedBoardUrl('')).toBe(false)
+    })
+
+    it.each([
+        ['1', true],
+        ['42', true],
+        ['0', false],
+        ['-1', false],
+        ['1.5', false],
+        ['foo', false],
+        ['9007199254740992', false],
+    ])('validates positive integer resource ids: %s', (value, expected) => {
+        expect(isPositiveIntegerRouteParam(value)).toBe(expected)
     })
 
     it('detects routes that should enter onboarding', () => {
