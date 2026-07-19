@@ -119,6 +119,11 @@ export function useBoardDetailResource({
       ? (infinitePostsData.value?.pages[0]?.totalPages ?? 0)
       : pagedTotalPages.value
   ))
+  const isPostPageResolved = computed(() => (
+    isMobilePostList.value
+      ? infinitePostsData.value?.pages[0] !== undefined
+      : postsData.value !== undefined
+  ))
   const isNoticesExpanded = ref(false)
   const notices = computed(() => (
     [...(noticesData.value ?? [])].sort((left, right) => {
@@ -205,6 +210,7 @@ export function useBoardDetailResource({
     isInitialLoading,
     isFetchingNextPostPage,
     isMobilePostList,
+    isPostPageResolved,
     isNoticesExpanded,
     isSubscribePending,
     posts,

@@ -25,6 +25,10 @@ public interface BoardCategoryRepository extends JpaRepository<BoardCategory, Lo
             Boolean isActive,
             Long categoryId);
 
+    @Query("SELECT COALESCE(MAX(c.sortOrder), 0) FROM BoardCategory c "
+            + "WHERE c.board.boardId = :boardId AND c.isActive = true")
+    int findMaxActiveSortOrder(@Param("boardId") Long boardId);
+
     @EntityGraph(attributePaths = "board")
     Optional<BoardCategory> findByCategoryIdAndBoard_BoardIdAndIsActive(Long categoryId, Long boardId, Boolean isActive);
 

@@ -135,10 +135,14 @@ export function useBoardCategoriesManager(boardUrl: Readonly<Ref<string>>) {
         const intent = beginMutation()
         if (!intent) return
         try {
+            const nextSortOrder = categories.value.reduce(
+                (maxSortOrder, category) => Math.max(maxSortOrder, category.sortOrder),
+                0,
+            ) + 1
             const { data } = await boardApi.createCategory(intent.boardUrl, {
                 name,
                 minWriteRole: newCategoryRole.value,
-                sortOrder: categories.value.length + 1,
+                sortOrder: nextSortOrder,
             }, { signal: intent.controller.signal })
             if (data.success && isMutationCurrent(intent)) {
                 categories.value.push(unwrapApiData(data))

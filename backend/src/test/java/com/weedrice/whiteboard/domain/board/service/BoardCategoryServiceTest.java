@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.board.service;
 
 import com.weedrice.whiteboard.domain.board.dto.CategoryResponse;
+import com.weedrice.whiteboard.domain.board.dto.CategoryRequest;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
 import com.weedrice.whiteboard.domain.board.repository.BoardCategoryRepository;
@@ -17,6 +18,8 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -52,8 +55,8 @@ class BoardCategoryServiceTest {
         categoryA = category(2L, "A", 2, false);
         categoryB = category(3L, "B", 3, false);
 
-        when(mutationResolver.resolveBoardForUpdate("free", 7L)).thenReturn(board);
-        when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(10L, true))
+        lenient().when(mutationResolver.resolveBoardForUpdate("free", 7L)).thenReturn(board);
+        lenient().when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(10L, true))
                 .thenReturn(List.of(defaultCategory, categoryA, categoryB));
     }
 
@@ -97,6 +100,33 @@ class BoardCategoryServiceTest {
         assertThat(categoryA.getSortOrder()).isEqualTo(2);
     }
 
+    @Test
+    void createCategory_movesStaleRequestedOrderAfterCurrentMaximum() {
+        CategoryRequest request = categoryRequest("New", 3);
+        when(mutationResolver.resolveBoardForCreate("free", 7L)).thenReturn(board);
+        when(boardCategoryRepository.findMaxActiveSortOrder(10L)).thenReturn(3);
+        when(boardCategoryRepository.saveAndFlush(any(BoardCategory.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        CategoryResponse response = service.createCategory("free", request, 7L);
+
+        assertThat(response.getSortOrder()).isEqualTo(4);
+        verify(boardCategoryRepository).findMaxActiveSortOrder(10L);
+    }
+
+    @Test
+    void createCategory_preservesRequestedOrderWhenItIsAfterCurrentMaximum() {
+        CategoryRequest request = categoryRequest("New", 10);
+        when(mutationResolver.resolveBoardForCreate("free", 7L)).thenReturn(board);
+        when(boardCategoryRepository.findMaxActiveSortOrder(10L)).thenReturn(3);
+        when(boardCategoryRepository.saveAndFlush(any(BoardCategory.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        CategoryResponse response = service.createCategory("free", request, 7L);
+
+        assertThat(response.getSortOrder()).isEqualTo(10);
+    }
+
     private void assertValidationError(List<Long> categoryIds) {
         assertThatThrownBy(() -> service.reorderCategories("free", categoryIds, 7L))
                 .isInstanceOfSatisfying(BusinessException.class,
@@ -116,5 +146,13 @@ class BoardCategoryServiceTest {
                 .build();
         ReflectionTestUtils.setField(category, "categoryId", id);
         return category;
+    }
+
+    private CategoryRequest categoryRequest(String name, int sortOrder) {
+        CategoryRequest request = new CategoryRequest();
+        ReflectionTestUtils.setField(request, "name", name);
+        ReflectionTestUtils.setField(request, "sortOrder", sortOrder);
+        ReflectionTestUtils.setField(request, "minWriteRole", "USER");
+        return request;
     }
 }

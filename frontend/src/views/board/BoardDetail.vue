@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useHead } from '@unhead/vue'
 import { useI18n } from 'vue-i18n'
@@ -57,6 +57,7 @@ const {
   isInitialLoading,
   isFetchingNextPostPage,
   isMobilePostList,
+  isPostPageResolved,
   isNoticesExpanded,
   isSubscribePending,
   hasMorePosts,
@@ -76,6 +77,11 @@ const {
   isSearching,
   t
 })
+
+watch([page, totalPages, isPostPageResolved], ([currentPage, resolvedTotalPages, isResolved]) => {
+  if (!isResolved) return
+  handlePageChange(currentPage, resolvedTotalPages)
+}, { immediate: true })
 
 useBoardRecentVisit(board)
 

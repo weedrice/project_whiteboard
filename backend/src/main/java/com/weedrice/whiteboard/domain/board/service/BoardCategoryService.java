@@ -47,11 +47,13 @@ class BoardCategoryService {
         if (requestedDefault) {
             defaultCommand.clearDefaultCategories(board.getBoardId(), null);
         }
+        int nextAvailableSortOrder = boardCategoryRepository.findMaxActiveSortOrder(board.getBoardId()) + 1;
+        int sortOrder = Math.max(request.getSortOrder(), nextAvailableSortOrder);
 
         BoardCategory category = BoardCategory.builder()
                 .board(board)
                 .name(normalizedName)
-                .sortOrder(request.getSortOrder())
+                .sortOrder(sortOrder)
                 .minWriteRole(request.getMinWriteRole())
                 .isDefault(requestedDefault)
                 .build();

@@ -176,6 +176,7 @@ describe('useBoardDetailResource', () => {
       { postId: 12, title: 'Second' },
     ])
     expect(resource.totalPages.value).toBe(3)
+    expect(resource.isPostPageResolved.value).toBe(true)
     expect(resource.hasMorePosts.value).toBe(true)
 
     resource.loadMorePosts()

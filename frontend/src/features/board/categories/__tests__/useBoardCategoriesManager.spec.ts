@@ -136,6 +136,25 @@ describe('useBoardCategoriesManager', () => {
         })
     })
 
+    it('appends a category after the highest sort order when existing orders have gaps', async () => {
+        const manager = createManager()
+        manager.categories.value = [
+            makeCategory({ categoryId: 1, isDefault: true, sortOrder: 1 }),
+            makeCategory({ categoryId: 3, name: 'Later', sortOrder: 7 }),
+        ]
+        manager.newCategoryName.value = 'Newest'
+
+        vi.mocked(boardApi.createCategory).mockResolvedValueOnce(
+            axiosApiResponse(apiSuccess(makeCategory({ categoryId: 4, name: 'Newest', sortOrder: 8 })))
+        )
+
+        await manager.handleAdd()
+
+        expect(boardApi.createCategory).toHaveBeenCalledWith('free-board', expect.objectContaining({
+            sortOrder: 8,
+        }), { signal: expect.any(AbortSignal) })
+    })
+
     it('does not delete when confirmation is cancelled', async () => {
         mocks.confirm.mockResolvedValueOnce(false)
         const manager = createManager()

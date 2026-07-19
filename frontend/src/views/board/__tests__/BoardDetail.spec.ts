@@ -823,4 +823,55 @@ describe('BoardDetail', () => {
       isSubscribed: true
     })
   })
+
+  it('replaces an out-of-range desktop page and updates the paged query params', async () => {
+    route.query = { page: '999' }
+    postsPayload.totalPages = 4
+
+    mount(BoardDetail, {
+      global: {
+        stubs: {
+          RouterLink: RouterLinkStub,
+          RouterView: true,
+          PostList: true,
+          Pagination: true,
+          UserMenu: true,
+          BaseSkeleton: true
+        }
+      }
+    })
+    await nextTick()
+
+    expect(router.replace).toHaveBeenCalledWith({
+      path: '/board/free',
+      query: { page: '4' }
+    })
+    expect((useBoardPostsCalls[0][1] as { value: { page: number } }).value.page).toBe(3)
+  })
+
+  it('replaces an out-of-range mobile page and updates the infinite query params', async () => {
+    route.query = { page: '999' }
+    isMobilePostList.value = true
+    infinitePostsPayload.pages = [{ content: [], totalElements: 0, totalPages: 3 }]
+
+    mount(BoardDetail, {
+      global: {
+        stubs: {
+          RouterLink: RouterLinkStub,
+          RouterView: true,
+          PostList: true,
+          Pagination: true,
+          UserMenu: true,
+          BaseSkeleton: true
+        }
+      }
+    })
+    await nextTick()
+
+    expect(router.replace).toHaveBeenCalledWith({
+      path: '/board/free',
+      query: { page: '3' }
+    })
+    expect((useInfiniteBoardPostsCalls[0][1] as { value: { page: number } }).value.page).toBe(2)
+  })
 })
