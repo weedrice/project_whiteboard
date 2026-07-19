@@ -29,6 +29,11 @@ vi.mock('@tanstack/vue-query', () => ({
 }))
 
 vi.mock('@/api/search', () => ({
+    normalizeSearchParams: (params: SearchParams) => {
+        const { keyword, ...rest } = params
+        const q = rest.q?.trim() ? rest.q : keyword
+        return q === undefined ? rest : { ...rest, q }
+    },
     searchApi: {
         search: vi.fn(),
         searchPosts: vi.fn(),
@@ -84,6 +89,13 @@ describe('useSearch', () => {
         useSearchPosts(keywordParams)
         const keywordOptions = mocks.queryOptions.at(-1)!
         expect((keywordOptions.enabled as ReturnType<typeof computed>).value).toBe(true)
+        expect((keywordOptions.queryKey as ReturnType<typeof computed>).value).toEqual([
+          'session',
+          0,
+          'search',
+          'posts',
+          { q: 'vite' },
+        ])
 
         const disabledParams = ref<SearchParams>({})
         useSearchPosts(disabledParams)
@@ -96,7 +108,7 @@ describe('useSearch', () => {
         expect((blankOptions.enabled as ReturnType<typeof computed>).value).toBe(false)
     })
 
-    it('fetches integrated search and uses q-only enabled condition', async () => {
+    it('fetches integrated search and normalizes the legacy keyword alias', async () => {
         vi.mocked(searchApi.search).mockResolvedValueOnce(
             apiDataResponse<typeof searchApi.search>({
                 keyword: 'pinia',
@@ -181,10 +193,13 @@ describe('useSearch', () => {
             },
         })
 
-        const disabledParams = ref<SearchParams>({ keyword: 'only-keyword' })
-        useIntegratedSearch(disabledParams)
-        const disabledOptions = mocks.queryOptions.at(-1)!
-        expect((disabledOptions.enabled as ReturnType<typeof computed>).value).toBe(false)
+        const legacyParams = ref<SearchParams>({ keyword: 'only-keyword' })
+        useIntegratedSearch(legacyParams)
+        const legacyOptions = mocks.queryOptions.at(-1)!
+        expect((legacyOptions.enabled as ReturnType<typeof computed>).value).toBe(true)
+        expect((legacyOptions.queryKey as ReturnType<typeof computed>).value).toEqual([
+          'session', 0, 'search', 'integrated', { q: 'only-keyword' },
+        ])
 
         const blankParams = ref<SearchParams>({ q: '   ' })
         useIntegratedSearch(blankParams)

@@ -46,6 +46,7 @@ export type PostSearchType = 'TITLE_CONTENT' | 'TITLE' | 'CONTENT' | 'AUTHOR'
 
 export interface SearchParams {
     q?: string
+    /** @deprecated Use q. Retained as a request-boundary compatibility alias. */
     keyword?: string
     page?: number
     size?: number

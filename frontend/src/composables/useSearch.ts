@@ -1,4 +1,4 @@
-import { searchApi } from '@/api/search'
+import { normalizeSearchParams, searchApi } from '@/api/search'
 import type {
     BoardSearchItem,
     CommentResponse,
@@ -70,14 +70,15 @@ export const toSearchPageViewModel = (response: IntegratedSearchResponse): Searc
 export function useSearch() {
 
     const useSearchPosts = (params: Ref<SearchParams>) => {
+        const normalizedParams = computed(() => normalizeSearchParams(params.value))
         return useApiPageQuery<PostSummary>({
-            queryKey: computed(() => searchQueryKeys.posts(params.value)),
+            queryKey: computed(() => searchQueryKeys.posts(normalizedParams.value)),
             request: (context) => callWithOptionalQuerySignal(
                 context,
                 () => searchApi.searchPosts(params.value),
                 (config) => searchApi.searchPosts(params.value, config),
             ),
-            enabled: computed(() => hasSearchText(params.value.q) || hasSearchText(params.value.keyword)),
+            enabled: computed(() => hasSearchText(normalizedParams.value.q)),
             meta: AUTH_SCOPED_QUERY_META,
         })
     }
@@ -86,28 +87,30 @@ export function useSearch() {
         params: Ref<SearchParams>,
         enabled?: Ref<boolean> | ComputedRef<boolean>,
     ) => {
+        const normalizedParams = computed(() => normalizeSearchParams(params.value))
         return useApiPageQuery<SemanticSearchResult>({
-            queryKey: computed(() => searchQueryKeys.semantic(params.value)),
+            queryKey: computed(() => searchQueryKeys.semantic(normalizedParams.value)),
             request: (context) => callWithOptionalQuerySignal(
                 context,
                 () => searchApi.semanticSearch(params.value),
                 (config) => searchApi.semanticSearch(params.value, config),
             ),
-            enabled: computed(() => hasSearchText(params.value.q) && (enabled?.value ?? true)),
+            enabled: computed(() => hasSearchText(normalizedParams.value.q) && (enabled?.value ?? true)),
             meta: AUTH_SCOPED_QUERY_META,
         })
     }
 
     const useIntegratedSearch = (params: Ref<SearchParams>) => {
+        const normalizedParams = computed(() => normalizeSearchParams(params.value))
         return useApiQuery<IntegratedSearchResponse, SearchPageViewModel>({
-            queryKey: computed(() => searchQueryKeys.integrated(params.value)),
+            queryKey: computed(() => searchQueryKeys.integrated(normalizedParams.value)),
             request: (context) => callWithOptionalQuerySignal(
                 context,
                 () => searchApi.search(params.value),
                 (config) => searchApi.search(params.value, config),
             ),
             selectData: toSearchPageViewModel,
-            enabled: computed(() => hasSearchText(params.value.q)),
+            enabled: computed(() => hasSearchText(normalizedParams.value.q)),
             keepPreviousData: true,
             meta: AUTH_SCOPED_QUERY_META,
         })

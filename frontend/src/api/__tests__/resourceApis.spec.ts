@@ -275,11 +275,14 @@ describe('searchApi', () => {
 
         searchApi.search(params)
         searchApi.searchPosts(params)
+        searchApi.semanticSearch(params)
         const response = await searchApi.getPopularKeywords()
 
-        expect(apiMock.get).toHaveBeenNthCalledWith(1, '/search', { params })
-        expect(apiMock.get).toHaveBeenNthCalledWith(2, '/search/posts', { params })
-        expect(apiMock.get).toHaveBeenNthCalledWith(3, '/search/popular')
+        const normalizedParams = { q: 'vue', page: 1, size: 20, type: 'post' }
+        expect(apiMock.get).toHaveBeenNthCalledWith(1, '/search', { params: normalizedParams })
+        expect(apiMock.get).toHaveBeenNthCalledWith(2, '/search/posts', { params: normalizedParams })
+        expect(apiMock.get).toHaveBeenNthCalledWith(3, '/search/semantic', { params: normalizedParams })
+        expect(apiMock.get).toHaveBeenNthCalledWith(4, '/search/popular')
         expect(response.data).toEqual({
             success: true,
             data: [{ keyword: 'vue', count: 10 }],

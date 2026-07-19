@@ -32,6 +32,12 @@ type IntegratedSearchResponseWire = Omit<IntegratedSearchResponse, 'postResults'
     }
 }
 
+export function normalizeSearchParams(params: SearchParams): SearchParams {
+    const { keyword, ...rest } = params
+    const q = rest.q?.trim() ? rest.q : keyword
+    return q === undefined ? rest : { ...rest, q }
+}
+
 const normalizeIntegratedSearch = (response: IntegratedSearchResponseWire): IntegratedSearchResponse => ({
     ...response,
     postResults: {
@@ -43,17 +49,26 @@ const normalizeIntegratedSearch = (response: IntegratedSearchResponseWire): Inte
 export const searchApi = {
     // General search
     search: (params: SearchParams, config?: AxiosRequestConfig) =>
-        api.get<ApiResponse<IntegratedSearchResponseWire>>('/search', { ...config, params })
+        api.get<ApiResponse<IntegratedSearchResponseWire>>('/search', {
+            ...config,
+            params: normalizeSearchParams(params),
+        })
             .then((response) => mapApiDataResponse(response, normalizeIntegratedSearch)),
 
     // Search posts
     searchPosts: (params: SearchParams, config?: AxiosRequestConfig) =>
-        api.get<ApiResponse<PageResponseRaw<PostSummaryWire>>>('/search/posts', { ...config, params })
+        api.get<ApiResponse<PageResponseRaw<PostSummaryWire>>>('/search/posts', {
+            ...config,
+            params: normalizeSearchParams(params),
+        })
             .then((response) => mapApiDataResponse(response, normalizePostSummaryPage)),
 
     // Semantic search
     semanticSearch: (params: SearchParams, config?: AxiosRequestConfig) =>
-        api.get<ApiResponse<PageResponseRaw<SemanticSearchResult>>>('/search/semantic', { ...config, params }),
+        api.get<ApiResponse<PageResponseRaw<SemanticSearchResult>>>('/search/semantic', {
+            ...config,
+            params: normalizeSearchParams(params),
+        }),
 
     // Get popular keywords
     async getPopularKeywords(config?: AxiosRequestConfig) {
