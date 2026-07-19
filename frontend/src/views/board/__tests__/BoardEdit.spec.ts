@@ -19,6 +19,7 @@ type BoardDetailResponse = AxiosResponse<ApiResponse<BoardDetail>>
 const boardApiMock = vi.hoisted(() => ({
   getBoard: vi.fn<(boardUrl: string) => Promise<BoardDetailResponse>>(),
   getManagerAudits: vi.fn(),
+  getManagerReports: vi.fn(),
 }))
 
 const authStoreMock = vi.hoisted(() => ({
@@ -177,8 +178,12 @@ describe('BoardEdit', () => {
     transferBoardManager.mockReset()
     vi.mocked(boardApi.getBoard).mockReset()
     boardApiMock.getManagerAudits.mockReset()
+    boardApiMock.getManagerReports.mockReset()
     boardApiMock.getManagerAudits.mockResolvedValue({
       data: { success: true, data: { content: [], page: 0, size: 5, totalElements: 0, totalPages: 0, last: true } },
+    })
+    boardApiMock.getManagerReports.mockResolvedValue({
+      data: { success: true, data: { content: [], page: 0, size: 20, totalElements: 0, totalPages: 0, last: true } },
     })
   })
 

@@ -3,6 +3,7 @@ import type { BoardMessages } from '../types'
 export const boardWritePostMessages: BoardMessages['writePost'] = {
     createTitle: '글 작성',
     editTitle: '게시글 수정',
+    editScheduledTitle: '예약글 수정',
     selectCategory: '카테고리 선택',
     noticeDesc: '이 글을 공지사항으로 등록합니다.',
     nsfw: 'NSFW',
@@ -49,6 +50,9 @@ export const boardWritePostMessages: BoardMessages['writePost'] = {
     scheduleAt: '예약 발행 시간',
     scheduleHelp: '현재부터 5분 이후, 30일 이내 시간만 예약할 수 있습니다.',
     scheduleSuccess: '게시글 발행을 예약했습니다.',
+    scheduleUpdateSuccess: '예약글을 수정했습니다.',
+    scheduleChangedDuringSave: '이전 변경 사항은 저장됐지만 저장 중 추가한 수정 내용이 남아 있습니다. 다시 저장해 주세요.',
+    updateSchedule: '예약 수정',
     update: '수정 완료',
     updating: '저장 중...',
     createFailed: '게시글 작성에 실패했습니다.',

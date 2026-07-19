@@ -1,15 +1,26 @@
 <script setup lang="ts">
+import { computed, ref, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useUser } from '@/features/user/useUser'
 import { formatDate } from '@/utils/date'
 import PaginatedListCard from '@/components/common/ui/PaginatedListCard.vue'
 import BaseBadge from '@/components/common/ui/BaseBadge.vue'
+import BaseSelect from '@/components/common/ui/BaseSelect.vue'
 import { Coins } from 'lucide-vue-next'
 import { usePaginatedListState } from '@/composables/usePaginatedListState'
-import type { PointHistory } from '@/types'
+import type { PointHistory, PointHistoryType } from '@/types'
+import type { PointHistoryParams } from '@/api/user'
 
 const { t } = useI18n()
 const { useMyPointHistories } = useUser()
+const typeFilter = ref<PointHistoryType | ''>('')
+const useFilteredPointHistories = (params: Ref<{ page: number; size: number }>) => {
+  const filteredParams = computed<PointHistoryParams>(() => ({
+    ...params.value,
+    ...(typeFilter.value ? { type: typeFilter.value } : {}),
+  }))
+  return useMyPointHistories(filteredParams)
+}
 const {
   page,
   size,
@@ -20,7 +31,12 @@ const {
   isLoading: loading,
   errorMessage,
   refetch,
-} = usePaginatedListState<PointHistory>(useMyPointHistories, { initialSize: 15, t })
+} = usePaginatedListState<PointHistory>(useFilteredPointHistories, { initialSize: 15, t })
+
+function handleTypeFilterChange(value: string | number) {
+  typeFilter.value = typeof value === 'string' ? value as PointHistoryType | '' : ''
+  page.value = 0
+}
 
 const transactionKind = (item: PointHistory) => {
   if (item.type === 'EXPIRE') return 'expired'
@@ -68,6 +84,23 @@ const formatBalance = (balance: number) => `${balance.toLocaleString()} P`
     @page-change="handlePageChange"
     @size-change="handleSizeChange"
   >
+    <template #subheader>
+      <BaseSelect
+        id="point-history-type-filter"
+        :model-value="typeFilter"
+        :label="$t('user.pointsHistory.typeFilter')"
+        :options="[
+          { value: '', label: $t('user.pointsHistory.types.ALL') },
+          { value: 'EARN', label: $t('user.pointsHistory.types.EARN') },
+          { value: 'SPEND', label: $t('user.pointsHistory.types.SPEND') },
+          { value: 'EXPIRE', label: $t('user.pointsHistory.types.EXPIRE') },
+          { value: 'PENALTY', label: $t('user.pointsHistory.types.PENALTY') },
+          { value: 'REWARD_REVERSAL', label: $t('user.pointsHistory.types.REWARD_REVERSAL') },
+        ]"
+        input-class="sm:w-52"
+        @update:model-value="handleTypeFilterChange"
+      />
+    </template>
     <ul role="list" class="divide-y divide-[var(--nv-line)]">
       <li v-for="item in history" :key="item.historyId"
         class="px-3 py-3 sm:px-6 sm:py-4 nv-hover-surface transition-colors duration-200">

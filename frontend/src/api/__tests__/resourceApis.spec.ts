@@ -102,6 +102,36 @@ describe('boardApi', () => {
         })
     })
 
+    it('forwards board-manager report and audit filters with an abort signal', () => {
+        const controller = new AbortController()
+        const config = { signal: controller.signal }
+        const reportParams = { page: 1, size: 20, status: 'PENDING' as const, targetType: 'POST' as const }
+        const auditParams = {
+            page: 2,
+            size: 50,
+            action: 'POST_BLIND',
+            actorType: 'USER',
+            actorUserId: 7,
+            startDate: '2026-07-01',
+            endDate: '2026-07-31',
+            sort: 'createdAt,desc',
+        }
+
+        boardApi.getManagerReports('general', reportParams, config)
+        boardApi.getManagerAudits('general', auditParams, config)
+
+        expect(apiMock.get).toHaveBeenNthCalledWith(
+            1,
+            '/boards/general/manager/reports',
+            { ...config, params: reportParams },
+        )
+        expect(apiMock.get).toHaveBeenNthCalledWith(
+            2,
+            '/boards/general/manager/audits',
+            { ...config, params: auditParams },
+        )
+    })
+
     it('serializes board recommendation and recent-update arrays as repeated query keys', () => {
         boardApi.getBoardRecommendations(['ai agents', '게시판'], {
             params: { locale: 'ko' },

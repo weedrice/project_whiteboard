@@ -69,6 +69,21 @@ const baseBadgeStub = {
     template: '<span data-testid="base-badge"><slot /></span>',
 }
 
+const pageResponse = () => ({
+    data: {
+        data: {
+            content: [],
+            page: 0,
+            size: 15,
+            totalElements: 0,
+            totalPages: 0,
+            hasNext: false,
+            hasPrevious: false,
+            last: true,
+        },
+    },
+})
+
 const mountList = (component: typeof ScrapList) => {
     const queryClient = new QueryClient({
         defaultOptions: {
@@ -281,6 +296,20 @@ describe('paginated user lists', () => {
         expect(wrapper.text()).toContain('150 P')
         expect(wrapper.text()).toContain('130 P')
         expect(wrapper.text()).toContain('120 P')
+    })
+
+    it('filters point history by explicit type and resets to the first page', async () => {
+        userApi.getMyPointHistories.mockResolvedValue(pageResponse())
+        const wrapper = mountList(PointHistory)
+        await flushPromises()
+
+        await wrapper.get('#point-history-type-filter').setValue('PENALTY')
+        await flushPromises()
+
+        expect(userApi.getMyPointHistories).toHaveBeenLastCalledWith(
+            { page: 0, size: 15, type: 'PENALTY' },
+            { signal: expect.any(AbortSignal) },
+        )
     })
 
     it('shows an error state when reports fail to load', async () => {

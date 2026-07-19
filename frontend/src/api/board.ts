@@ -19,7 +19,9 @@ import type {
     Category,
     ModerationAuditLog,
     ModerationAuditSearchParams,
+    Report,
 } from '@/types'
+import type { ReportSearchParams } from '@/api/adminTypes'
 import type { PageResponseRaw } from '@/utils/pageResponse'
 import { encodePathSegment } from '@/utils/urlPath'
 
@@ -156,6 +158,9 @@ export const boardApi = {
 
     getManagerAudits: (boardUrl: string, params: ModerationAuditSearchParams, config?: AxiosRequestConfig) =>
         api.get<ApiResponse<PageResponseRaw<ModerationAuditLog>>>(`/boards/${encodePathSegment(boardUrl)}/manager/audits`, { ...config, params }),
+
+    getManagerReports: (boardUrl: string, params: ReportSearchParams, config?: AxiosRequestConfig) =>
+        api.get<ApiResponse<PageResponseRaw<Report>>>(`/boards/${encodePathSegment(boardUrl)}/manager/reports`, { ...config, params }),
 
     // Delete board
     deleteBoard: (boardUrl: string, config?: AxiosRequestConfig) =>

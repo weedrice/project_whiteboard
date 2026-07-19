@@ -4,7 +4,8 @@ import {
     type KeywordSubscriptionPayload,
     type KeywordSubscriptionResponse,
     type UserUpdatePayload,
-    type NotificationSettingsBulkPayload
+    type NotificationSettingsBulkPayload,
+    type PointHistoryParams,
 } from '@/api/user'
 import { unwrapAxiosApiData } from '@/api/response'
 import { computed, type Ref } from 'vue'
@@ -231,7 +232,7 @@ export function useUser() {
         })
     }
 
-    const useMyPointHistories = (params?: Ref<PaginationParams>) => {
+    const useMyPointHistories = (params?: Ref<PointHistoryParams>) => {
         return useApiQuery({
             queryKey: computed(() => userQueryKeys.pointHistories(params?.value)),
             meta: AUTH_SCOPED_QUERY_META,

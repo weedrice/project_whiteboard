@@ -281,6 +281,7 @@ export interface BoardMessages {
   writePost: {
     createTitle: string
     editTitle: string
+    editScheduledTitle: string
     selectCategory: string
     noticeDesc: string
     nsfw: string
@@ -327,6 +328,9 @@ export interface BoardMessages {
     scheduleAt: string
     scheduleHelp: string
     scheduleSuccess: string
+    scheduleUpdateSuccess: string
+    scheduleChangedDuringSave: string
+    updateSchedule: string
     update: string
     updating: string
     createFailed: string
@@ -639,6 +643,15 @@ export interface UserMessages {
     representativeUpdateFailed: string
   }
   pointsHistory: {
+    typeFilter: string
+    types: {
+      ALL: string
+      EARN: string
+      SPEND: string
+      EXPIRE: string
+      PENALTY: string
+      REWARD_REVERSAL: string
+    }
     description: string
     empty: string
     adjustment: string
@@ -677,6 +690,7 @@ export interface UserMessages {
     cancelScheduledSuccess: string
     cancelScheduledFailed: string
     openPublished: string
+    editScheduled: string
     scheduledStatus: {
       SCHEDULED: string
       PUBLISHING: string

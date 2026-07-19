@@ -21,6 +21,9 @@ export {
     type UserUpdatePayload,
 } from '@/api/userAccountApi'
 export {
+    type PointHistoryParams,
+} from '@/api/userActivityApi'
+export {
     type UserAgent,
     type UserAgentListResponse,
 } from '@/api/userAgentApi'

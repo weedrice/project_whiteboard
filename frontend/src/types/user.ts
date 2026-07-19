@@ -91,9 +91,11 @@ export interface ActionMessageResponse {
 }
 
 // Point history
+export type PointHistoryType = 'EARN' | 'SPEND' | 'EXPIRE' | 'PENALTY' | 'REWARD_REVERSAL'
+
 export interface PointHistory {
     historyId: number
-    type: 'EARN' | 'SPEND' | 'EXPIRE' | 'PENALTY' | 'REWARD_REVERSAL'
+    type: PointHistoryType
     amount: number
     balanceAfter: number
     description: string | null

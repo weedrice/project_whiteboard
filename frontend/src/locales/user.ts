@@ -68,6 +68,15 @@ export const user: UserMessages = {
     representativeUpdateFailed: '대표 뱃지를 변경하지 못했습니다.',
   },
   pointsHistory: {
+    typeFilter: '유형',
+    types: {
+      ALL: '전체',
+      EARN: '적립',
+      SPEND: '사용',
+      EXPIRE: '만료',
+      PENALTY: '페널티',
+      REWARD_REVERSAL: '보상 회수',
+    },
     transaction: {
       earned: '적립',
       spent: '사용',
@@ -106,6 +115,7 @@ export const user: UserMessages = {
     cancelScheduledSuccess: '예약글을 취소했습니다.',
     cancelScheduledFailed: '예약글 취소에 실패했습니다.',
     openPublished: '게시글 열기',
+    editScheduled: '예약 수정',
     scheduledStatus: {
       SCHEDULED: '예약됨',
       PUBLISHING: '게시 중',

@@ -7,6 +7,7 @@ import type {
     MyComment,
     PointHistory,
     PointHistoryResponse,
+    PointHistoryType,
     PostSeries,
     PostSeriesPayload,
     ScrapFolder,
@@ -34,6 +35,10 @@ export interface PaginationParams {
 
 interface SubscriptionParams extends PaginationParams {
     includeUnavailable?: boolean
+}
+
+export interface PointHistoryParams extends PaginationParams {
+    type?: PointHistoryType
 }
 
 export const userActivityApi = {
@@ -110,7 +115,7 @@ export const userActivityApi = {
             ? api.get<ApiResponse<UserPoint>>('/points/me', config)
             : api.get<ApiResponse<UserPoint>>('/points/me')
     },
-    getMyPointHistories(params: PaginationParams, config?: AxiosRequestConfig) {
+    getMyPointHistories(params: PointHistoryParams, config?: AxiosRequestConfig) {
         return api.get<ApiResponse<PointHistoryResponse>>('/points/me/history', { ...config, params })
             .then((response) => mapApiPageResponse<PointHistoryResponse, PointHistory>(
                 response,

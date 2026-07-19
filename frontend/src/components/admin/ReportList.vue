@@ -19,9 +19,12 @@ import type { Report } from '@/types'
 
 const { t } = useI18n()
 
-defineProps<{
+withDefaults(defineProps<{
   reports: Report[]
-}>()
+  readOnly?: boolean
+}>(), {
+  readOnly: false,
+})
 
 const emit = defineEmits<{
   (e: 'resolve', report: Report): void
@@ -122,7 +125,7 @@ const columns = computed(() => [
           <AdminActionButton :label="t('common.viewDetail')" tone="accent" icon-only @click="$emit('viewDetail', item)">
             <Eye class="h-4 w-4" />
           </AdminActionButton>
-          <template v-if="item.status === 'PENDING'">
+          <template v-if="!readOnly && item.status === 'PENDING'">
             <AdminActionButton :label="t('admin.reports.actions.sanction')" tone="neutral" icon-only @click="onSanction(item)">
               <ShieldAlert class="h-4 w-4" />
             </AdminActionButton>

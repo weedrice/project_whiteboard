@@ -68,6 +68,15 @@ export const userEn: UserMessages = {
     representativeUpdateFailed: 'Failed to update representative badge.',
   },
   pointsHistory: {
+    typeFilter: 'Type',
+    types: {
+      ALL: 'All',
+      EARN: 'Earned',
+      SPEND: 'Spent',
+      EXPIRE: 'Expired',
+      PENALTY: 'Penalty',
+      REWARD_REVERSAL: 'Reward reversal',
+    },
     transaction: {
       earned: 'Earned',
       spent: 'Spent',
@@ -106,6 +115,7 @@ export const userEn: UserMessages = {
     cancelScheduledSuccess: 'The scheduled post has been canceled.',
     cancelScheduledFailed: 'Failed to cancel the scheduled post.',
     openPublished: 'Open published post',
+    editScheduled: 'Edit schedule',
     scheduledStatus: {
       SCHEDULED: 'Scheduled',
       PUBLISHING: 'Publishing',

@@ -22,4 +22,10 @@ export const boardQueryKeys = {
     managerCandidatesRoot: (boardUrl: string) => ['board', 'manager-candidates', boardUrl] as const,
     managerCandidates: <TParams extends object>(boardUrl: string, params: Readonly<TParams>) =>
         ['board', 'manager-candidates', boardUrl, { ...params }] as const,
+    managerReportsRoot: (boardUrl: string) => ['board', 'manager-reports', boardUrl] as const,
+    managerReports: <TParams extends object>(boardUrl: string, params: Readonly<TParams>) =>
+        ['board', 'manager-reports', boardUrl, { ...params }] as const,
+    managerAuditsRoot: (boardUrl: string) => ['board', 'manager-audits', boardUrl] as const,
+    managerAudits: <TParams extends object>(boardUrl: string, params: Readonly<TParams>) =>
+        ['board', 'manager-audits', boardUrl, { ...params }] as const,
 }
