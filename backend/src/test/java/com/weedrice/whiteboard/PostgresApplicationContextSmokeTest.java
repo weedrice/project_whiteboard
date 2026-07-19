@@ -34,6 +34,7 @@ import com.weedrice.whiteboard.global.security.JwtTokenProvider;
 import com.weedrice.whiteboard.global.security.SecurityAuthorities;
 import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.MigrationVersion;
+import org.flywaydb.database.postgresql.PostgreSQLConfigurationExtension;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.dao.DuplicateKeyException;
@@ -133,8 +134,13 @@ class PostgresApplicationContextSmokeTest {
     @Autowired
     private DataSource dataSource;
 
+    @Autowired
+    private Flyway flyway;
+
     @Test
     void contextLoadsWithPostgresMigrations() {
+        assertFalse(flyway.getConfigurationExtension(PostgreSQLConfigurationExtension.class)
+                .isTransactionalLock());
     }
 
     @Test
