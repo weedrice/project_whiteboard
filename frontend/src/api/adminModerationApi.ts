@@ -7,6 +7,7 @@ import type {
     IpBlockData,
     PaginationParams,
     ReportResolveData,
+    ReportSearchParams,
 } from '@/api/adminTypes'
 
 export const adminModerationApi = {
@@ -19,7 +20,7 @@ export const adminModerationApi = {
     unblockIp(ipAddress: string) {
         return api.delete<ApiResponse<void>>(`/admin/ip-blocks/${encodePathSegment(ipAddress)}`)
     },
-    getReports(params: PaginationParams, config?: AxiosRequestConfig) {
+    getReports(params: ReportSearchParams, config?: AxiosRequestConfig) {
         return api.get<ApiResponse<PageResponseRaw<Report>>>('/admin/reports', { ...config, params })
     },
     resolveReport(reportId: string | number, data: ReportResolveData) {

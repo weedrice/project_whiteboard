@@ -476,6 +476,19 @@ describe('useAdmin', () => {
             expect(mockSetQueriesData).toHaveBeenCalledTimes(2)
             expect(mockInvalidateQueries).toHaveBeenCalledTimes(1)
 
+            const statusFilterPredicate = mockInvalidateQueries.mock.calls[0]?.[0]?.predicate as (
+                query: { queryKey: readonly unknown[] }
+            ) => boolean
+            expect(statusFilterPredicate({
+                queryKey: ['session', 0, 'admin', 'reports', { status: 'PENDING' }],
+            })).toBe(true)
+            expect(statusFilterPredicate({
+                queryKey: ['session', 0, 'admin', 'reports', { status: 'RESOLVED' }],
+            })).toBe(true)
+            expect(statusFilterPredicate({
+                queryKey: ['session', 0, 'admin', 'reports', { targetType: 'POST' }],
+            })).toBe(false)
+
             const replaceCachedReport = mockSetQueriesData.mock.calls[1]?.[1] as (page: unknown) => unknown
             expect(replaceCachedReport({
                 content: [{ ...updatedReport, status: 'PENDING' }],

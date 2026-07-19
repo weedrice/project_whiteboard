@@ -77,14 +77,24 @@ export function useAdminModeration(queryClient: QueryClient) {
                 if (!isCurrentMutation(context)) return
                 const updatedReport = unwrapAxiosApiData(response)
                 const reportRoot = sessionQueryKey(context.sessionGeneration, adminQueryKeys.reportsRoot)
-                const hasMismatchedStatusFilter = (query: { queryKey: readonly unknown[] }) => {
+                const reportParams = (query: { queryKey: readonly unknown[] }) => {
                     const queryKey = query.queryKey
-                    if (!reportRoot.every((segment, index) => queryKey[index] === segment)) return false
-                    const params = queryKey[reportRoot.length]
+                    if (!reportRoot.every((segment, index) => queryKey[index] === segment)) return null
+                    return queryKey[reportRoot.length]
+                }
+                const hasStatusFilter = (query: { queryKey: readonly unknown[] }) => {
+                    const params = reportParams(query)
                     return !!params
                         && typeof params === 'object'
                         && 'status' in params
                         && typeof params.status === 'string'
+                }
+                const hasMismatchedStatusFilter = (query: { queryKey: readonly unknown[] }) => {
+                    const params = reportParams(query)
+                    return hasStatusFilter(query)
+                        && !!params
+                        && typeof params === 'object'
+                        && 'status' in params
                         && params.status !== updatedReport.status
                 }
 
@@ -101,7 +111,7 @@ export function useAdminModeration(queryClient: QueryClient) {
                     },
                     (page) => replaceReport(page, updatedReport),
                 )
-                void queryClient.invalidateQueries({ predicate: hasMismatchedStatusFilter })
+                void queryClient.invalidateQueries({ predicate: hasStatusFilter })
             },
         })
     }
