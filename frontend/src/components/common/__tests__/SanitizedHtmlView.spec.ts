@@ -41,12 +41,13 @@ describe('SanitizedHtmlView', () => {
     expect(protectedImage.attributes('src')).toBeUndefined()
     expect(wrapper.get('img[alt="cdn"]').attributes('src')).toBe('https://cdn.noviis.kr/files/18')
 
+    await vi.waitFor(() => {
+      expect(mocks.get).toHaveBeenCalledWith('/files/17?size=sm', expect.objectContaining({
+        responseType: 'blob',
+        skipGlobalErrorHandler: true,
+      }))
+    })
     await flushPromises()
-
-    expect(mocks.get).toHaveBeenCalledWith('/files/17?size=sm', expect.objectContaining({
-      responseType: 'blob',
-      skipGlobalErrorHandler: true,
-    }))
     expect(protectedImage.attributes('src')).toBe('blob:preview')
     wrapper.unmount()
   })
@@ -56,12 +57,11 @@ describe('SanitizedHtmlView', () => {
     const wrapper = mount(SanitizedHtmlView, {
       props: { html: asSanitizedHtml('<img src="/api/v1/files/21">') },
     })
-    await flushPromises()
+    await vi.waitFor(() => expect(mocks.get).toHaveBeenCalledTimes(1))
 
     notifyAuthSessionBoundary(2)
-    await flushPromises()
+    await vi.waitFor(() => expect(mocks.get).toHaveBeenCalledTimes(2))
 
-    expect(mocks.get).toHaveBeenCalledTimes(2)
     expect(revokeObjectUrlSpy).toHaveBeenCalledWith('blob:preview')
 
     wrapper.unmount()
@@ -74,9 +74,9 @@ describe('SanitizedHtmlView', () => {
       props: { html: asSanitizedHtml('<img alt="protected" src="/api/v1/files/22">') },
     })
 
-    await flushPromises()
-
-    expect(wrapper.get('img').attributes('src')).toBe('/images/default-emoticon.png')
+    await vi.waitFor(() => {
+      expect(wrapper.get('img').attributes('src')).toBe('/images/default-emoticon.png')
+    })
     wrapper.unmount()
   })
 })

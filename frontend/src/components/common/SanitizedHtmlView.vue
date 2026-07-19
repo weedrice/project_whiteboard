@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import api from '@/api'
 import { subscribeAuthSessionBoundary } from '@/queryAuthScope'
 import { applyImageFallback } from '@/utils/imageFallback'
 import { asSanitizedHtml, type SanitizedHtml } from '@/utils/sanitize'
@@ -73,6 +72,13 @@ async function hydrateAuthenticatedFiles() {
   const images = Array.from(
     root.querySelectorAll<HTMLImageElement>(`img[${AUTHENTICATED_FILE_SRC_ATTRIBUTE}]`),
   )
+  if (images.length === 0) {
+    activeController = null
+    return
+  }
+
+  const { default: api } = await import('@/api')
+  if (controller.signal.aborted || generation !== hydrationGeneration) return
 
   await Promise.allSettled(images.map(async (image) => {
     const requestPath = image.getAttribute(AUTHENTICATED_FILE_SRC_ATTRIBUTE)
