@@ -35,6 +35,8 @@ const mocks = vi.hoisted(() => ({
   createUploadableEmoticonImageFile: vi.fn(),
   createUploadableEmoticonThumbnailFile: vi.fn(),
   refreshImagePolicy: vi.fn(),
+  routeLeaveGuard: null as null | (() => boolean),
+  routeUpdateGuard: null as null | (() => boolean),
 }))
 
 vi.mock('@/features/emoticon/form/useEmoticonImagePolicy', () => ({
@@ -45,6 +47,8 @@ vi.mock('@/features/emoticon/form/useEmoticonImagePolicy', () => ({
 }))
 
 vi.mock('vue-router', () => ({
+  onBeforeRouteLeave: (guard: () => boolean) => { mocks.routeLeaveGuard = guard },
+  onBeforeRouteUpdate: (guard: () => boolean) => { mocks.routeUpdateGuard = guard },
   useRoute: () => mocks.route,
   useRouter: () => ({
     push: mocks.push,
@@ -162,6 +166,8 @@ const baseButtonStub = {
 describe('EmoticonEdit', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mocks.routeLeaveGuard = null
+    mocks.routeUpdateGuard = null
     mocks.route = reactive({ params: { emoticonId: '7' } })
     mocks.confirm.mockResolvedValue(true)
     mocks.deleteImage.mockResolvedValue(emoticonApiSuccess())
@@ -476,7 +482,7 @@ describe('EmoticonEdit', () => {
     expect(vm.tagItems[1].value).toBe('tail')
   })
 
-  it('discards uploads and ignores a delayed update after the route emoticon changes', async () => {
+  it('blocks route changes and keeps final-request uploads owned until a delayed update succeeds', async () => {
     const update = createDeferred<ReturnType<typeof emoticonApiSuccess>>()
     mocks.updateEmoticon.mockReturnValueOnce(update.promise)
     const wrapper = mount(EmoticonEdit, {
@@ -507,6 +513,8 @@ describe('EmoticonEdit', () => {
 
     const submit = wrapper.find('form').trigger('submit')
     await vi.waitFor(() => expect(mocks.updateEmoticon).toHaveBeenCalledTimes(1))
+    expect(mocks.routeLeaveGuard?.()).toBe(false)
+    expect(mocks.routeUpdateGuard?.()).toBe(false)
 
     mocks.route!.params.emoticonId = '8'
     await nextTick()
@@ -518,15 +526,12 @@ describe('EmoticonEdit', () => {
     expect(vm.newEmoticonPreviews).toEqual([])
     expect(vm.tagInput).toBe('')
     expect(vm.tags).toEqual([])
-    await vi.waitFor(() => expect(mocks.discardUploads).toHaveBeenCalledWith([101, 102], {
-      skipGlobalErrorHandler: true,
-    }))
-
     update.resolve(emoticonApiSuccess())
     await submit
     await flushPromises()
 
     expect(mocks.invalidateQueries).not.toHaveBeenCalled()
+    expect(mocks.discardUploads).not.toHaveBeenCalled()
     expect(mocks.addToast).not.toHaveBeenCalled()
     expect(mocks.push).not.toHaveBeenCalled()
   })

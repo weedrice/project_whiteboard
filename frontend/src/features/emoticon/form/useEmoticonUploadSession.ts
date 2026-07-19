@@ -9,6 +9,7 @@ export function useEmoticonUploadSession() {
   const isDisposed = ref(false)
   let submitRunId = 0
   const discardPromises = new Map<number, Promise<void>>()
+  const finalRequestRuns = new Set<number>()
 
   const createUploadCancelledError = () => new DOMException('Upload has been cancelled', 'AbortError')
 
@@ -79,11 +80,23 @@ export function useEmoticonUploadSession() {
     return discardPromise
   }
 
+  const beginFinalRequest = (runId: number) => {
+    assertSubmitActive(runId)
+    finalRequestRuns.add(runId)
+  }
+
+  const finishFinalRequest = (runId: number) => {
+    finalRequestRuns.delete(runId)
+  }
+
   const cancelSubmitRun = () => {
     const cancelledRunId = submitRunId
     submitRunId += 1
     abortPendingUploads()
-    void discardTrackedUploads(cancelledRunId)
+    if (!finalRequestRuns.has(cancelledRunId)) {
+      void discardTrackedUploads(cancelledRunId)
+    }
+    return true
   }
 
   const isSubmitActive = (runId?: number) => (
@@ -119,6 +132,8 @@ export function useEmoticonUploadSession() {
     createUploadController,
     releaseUploadController,
     startSubmitRun,
+    beginFinalRequest,
+    finishFinalRequest,
     cancelSubmitRun,
     recordUploadedFile,
     clearTrackedUploads,

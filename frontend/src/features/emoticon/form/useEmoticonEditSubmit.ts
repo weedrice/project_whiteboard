@@ -87,22 +87,28 @@ export function useEmoticonEditSubmit({
     }
 
     uploadSession.assertSubmitActive(currentRunId)
-    await emoticonApi.updateEmoticon(submitSnapshot.emoticonId, {
-      name: submitSnapshot.name,
-      thumbnailFileId,
-      tags: submitSnapshot.tags,
-      addImageFileIds: imageFileIds,
-      deleteImageIds: submitSnapshot.imagesToDelete,
-    }, {
-      skipGlobalErrorHandler: true
-    })
-    uploadSession.assertSubmitActive(currentRunId)
-    uploadSession.clearTrackedUploads(currentRunId)
+    uploadSession.beginFinalRequest(currentRunId)
+    try {
+      await emoticonApi.updateEmoticon(submitSnapshot.emoticonId, {
+        name: submitSnapshot.name,
+        thumbnailFileId,
+        tags: submitSnapshot.tags,
+        addImageFileIds: imageFileIds,
+        deleteImageIds: submitSnapshot.imagesToDelete,
+      }, {
+        skipGlobalErrorHandler: true
+      })
+      uploadSession.clearTrackedUploads(currentRunId)
 
-    queryClient.invalidateQueries({ queryKey: emoticonQueryKeys.detail(submitSnapshot.emoticonId) })
-    queryClient.invalidateQueries({ queryKey: emoticonQueryKeys.listRoot })
+      if (uploadSession.isSubmitActive(currentRunId)) {
+        queryClient.invalidateQueries({ queryKey: emoticonQueryKeys.detail(submitSnapshot.emoticonId) })
+        queryClient.invalidateQueries({ queryKey: emoticonQueryKeys.listRoot })
 
-    onSuccess(submitSnapshot.emoticonId)
+        onSuccess(submitSnapshot.emoticonId)
+      }
+    } finally {
+      uploadSession.finishFinalRequest(currentRunId)
+    }
   })
 
   return {

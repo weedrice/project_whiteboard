@@ -15,9 +15,11 @@
   <BaseModal
     :isOpen="showDeleteModal"
     :title="$t('user.settings.deleteAccount')"
-    @close="$emit('update:showDeleteModal', false)"
+    :close-on-backdrop="!isDeleting"
+    :close-on-escape="!isDeleting"
+    @close="closeDeleteModal"
   >
-    <div class="space-y-4">
+    <fieldset :disabled="isDeleting" :inert="isDeleting ? true : undefined" class="m-0 min-w-0 space-y-4 border-0 p-0">
       <p class="text-sm nv-text-muted">
         {{ $t('user.settings.deleteAccountConfirmation') }}
       </p>
@@ -45,15 +47,16 @@
         :label="$t('common.password')"
         :placeholder="$t('auth.placeholders.password')"
         :error="deleteError"
+        :disabled="isDeleting"
         @update:model-value="$emit('update:deletePassword', String($event))"
       />
-    </div>
+    </fieldset>
     <template #footer>
       <div class="flex justify-end space-x-3">
-        <BaseButton variant="secondary" @click="$emit('update:showDeleteModal', false)">
+        <BaseButton variant="secondary" :disabled="isDeleting" @click="closeDeleteModal">
           {{ $t('common.cancel') }}
         </BaseButton>
-        <BaseButton variant="danger" :loading="isDeleting" @click="$emit('delete')">
+        <BaseButton variant="danger" :loading="isDeleting" :disabled="isDeleting" @click="$emit('delete')">
           {{ $t('user.settings.deleteAccount') }}
         </BaseButton>
       </div>
@@ -66,7 +69,14 @@ import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseModal from '@/components/common/ui/BaseModal.vue'
 
-defineProps<{
+const emit = defineEmits<{
+  (e: 'update:showDeleteModal', value: boolean): void
+  (e: 'update:deletePassword', value: string): void
+  (e: 'save'): void
+  (e: 'delete'): void
+}>()
+
+const props = defineProps<{
   showDeleteModal: boolean
   deletePassword: string
   deleteError: string
@@ -74,10 +84,8 @@ defineProps<{
   loading: boolean
 }>()
 
-defineEmits<{
-  (e: 'update:showDeleteModal', value: boolean): void
-  (e: 'update:deletePassword', value: string): void
-  (e: 'save'): void
-  (e: 'delete'): void
-}>()
+function closeDeleteModal() {
+  if (props.isDeleting) return
+  emit('update:showDeleteModal', false)
+}
 </script>

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { onBeforeRouteLeave, onBeforeRouteUpdate, useRoute, useRouter } from 'vue-router'
 import { useQueryClient } from '@tanstack/vue-query'
 import { useHead } from '@unhead/vue'
 import { ArrowLeft, EyeOff, Eye } from 'lucide-vue-next'
@@ -20,6 +20,7 @@ import { useEmoticonEditSubmit } from '@/features/emoticon/form/useEmoticonEditS
 import { useEmoticonImageSelection } from '@/features/emoticon/form/useEmoticonImageSelection'
 import { useEmoticonImagePolicy } from '@/features/emoticon/form/useEmoticonImagePolicy'
 import { SUPPORTED_EMOTICON_IMAGE_ACCEPT } from '@/utils/emoticonImage'
+import { useEventListener } from '@/composables/useEventListener'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -44,6 +45,7 @@ useHead({
 })
 
 const SUPPORTED_IMAGE_ACCEPT = SUPPORTED_EMOTICON_IMAGE_ACCEPT
+let allowSuccessfulRouteLeave = false
 const {
   emoticonName,
   existingImages,
@@ -97,6 +99,7 @@ const { handleSubmit } = useEmoticonEditSubmit({
   fallbackErrorMessage: t('emoticon.edit.failed'),
   onSuccess: (updatedEmoticonId) => {
     toastStore.addToast(t('emoticon.edit.updated'), 'success')
+    allowSuccessfulRouteLeave = true
     router.push({ name: 'emoticon-detail', params: { emoticonId: updatedEmoticonId } })
   },
   onError: (message) => {
@@ -108,8 +111,25 @@ const { handleSubmit } = useEmoticonEditSubmit({
 })
 
 const goToDetail = () => {
+  if (isSubmitting.value) return
   router.push({ name: 'emoticon-detail', params: { emoticonId: emoticonId.value } })
 }
+
+onBeforeRouteLeave(() => {
+  if (allowSuccessfulRouteLeave) {
+    allowSuccessfulRouteLeave = false
+    return true
+  }
+  return !isSubmitting.value
+})
+
+onBeforeRouteUpdate(() => !isSubmitting.value)
+
+useEventListener(() => window, 'beforeunload', (event: BeforeUnloadEvent) => {
+  if (!isSubmitting.value) return
+  event.preventDefault()
+  event.returnValue = ''
+})
 </script>
 
 
@@ -122,7 +142,7 @@ const goToDetail = () => {
       class="mb-8"
     >
       <template #actions>
-        <button type="button" @click="goToDetail"
+        <button type="button" :disabled="isSubmitting" @click="goToDetail"
           class="nv-focus-ring inline-flex min-h-11 items-center rounded-md px-2 text-sm nv-text-muted hover:text-[var(--nv-accent)] transition-colors">
           <ArrowLeft class="w-4 h-4 mr-1" />
           {{ t('emoticon.form.back') }}
@@ -149,7 +169,13 @@ const goToDetail = () => {
     </div>
 
     <!-- 폼 -->
-    <form v-else-if="emoticon" @submit.prevent="handleSubmit" class="space-y-8">
+    <form v-else-if="emoticon" @submit.prevent="handleSubmit">
+      <fieldset
+        :disabled="isSubmitting"
+        :inert="isSubmitting ? true : undefined"
+        :aria-busy="isSubmitting ? 'true' : undefined"
+        class="m-0 min-w-0 space-y-8 border-0 p-0"
+      >
       <!-- 숨김/표시 전환 (등록자만) -->
       <div class="nv-surface rounded-lg shadow-sm border nv-border p-4">
         <div class="flex items-center justify-between">
@@ -160,7 +186,7 @@ const goToDetail = () => {
             </span>
             <span v-else class="text-sm nv-text-subtle">{{ t('emoticon.form.onSale') }}</span>
           </div>
-          <button type="button" @click="handleToggleVisibility" :disabled="isToggling"
+          <button type="button" @click="handleToggleVisibility" :disabled="isToggling || isSubmitting"
             :class="emoticon.isActive
               ? 'nv-focus-ring inline-flex min-h-11 items-center px-3 py-1.5 text-sm nv-status-warning nv-hover-surface rounded-lg transition-colors'
               : 'nv-focus-ring inline-flex min-h-11 items-center px-3 py-1.5 text-sm nv-status-success nv-hover-surface rounded-lg transition-colors'">
@@ -243,11 +269,12 @@ const goToDetail = () => {
         :submitting-text="t('emoticon.form.updatingSubmit')"
       >
         <template #before-submit>
-          <BaseButton type="button" @click="goToDetail" variant="secondary" size="lg">
+          <BaseButton type="button" :disabled="isSubmitting" @click="goToDetail" variant="secondary" size="lg">
             {{ t('common.cancel') }}
           </BaseButton>
         </template>
       </EmoticonFormActions>
+      </fieldset>
     </form>
   </div>
 </template>

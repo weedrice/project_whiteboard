@@ -55,10 +55,13 @@ const createUploadSession = () => {
       activeRunId += 1
       return activeRunId
     }),
+    beginFinalRequest: vi.fn(),
+    finishFinalRequest: vi.fn(),
     assertSubmitActive: vi.fn(),
     isSubmitActive: vi.fn((runId?: number) => runId === activeRunId),
     cancelSubmitRun: vi.fn(() => {
       activeRunId = 0
+      return true
     }),
     resetUploadProgress: vi.fn(),
     setUploadProgress: vi.fn(),
@@ -145,6 +148,8 @@ describe('useEmoticonEditSubmit', () => {
     expect(onSuccess).toHaveBeenCalledWith(7)
     expect(onError).not.toHaveBeenCalled()
     expect(uploadSession.clearTrackedUploads).toHaveBeenCalledTimes(1)
+    expect(uploadSession.beginFinalRequest).toHaveBeenCalledWith(1)
+    expect(uploadSession.finishFinalRequest).toHaveBeenCalledWith(1)
     expect(isSubmitting.value).toBe(false)
   })
 

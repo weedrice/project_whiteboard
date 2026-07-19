@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onScopeDispose } from 'vue'
-import { useRouter } from 'vue-router'
+import { onBeforeRouteLeave, useRouter } from 'vue-router'
 import { useHead } from '@unhead/vue'
 import { ArrowLeft } from 'lucide-vue-next'
 import { useToastStore } from '@/stores/toast'
@@ -20,6 +20,7 @@ import { useEmoticonUploadSession } from '@/features/emoticon/form/useEmoticonUp
 import { useEmoticonImagePolicy } from '@/features/emoticon/form/useEmoticonImagePolicy'
 import { SUPPORTED_EMOTICON_IMAGE_ACCEPT } from '@/utils/emoticonImage'
 import { subscribeAuthSessionBoundary } from '@/queryAuthScope'
+import { useEventListener } from '@/composables/useEventListener'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -41,6 +42,7 @@ const emoticonName = ref('')
 const isSubmitting = ref(false)
 const uploadSession = useEmoticonUploadSession()
 const { uploadProgress } = uploadSession
+let allowSuccessfulRouteLeave = false
 const { tagInput, tagItems, tags, addTag, removeTag, resetTags } = useEmoticonTags({
   onMaxTags: () => {
     toastStore.addToast(t('emoticon.validation.maxTags'), 'error')
@@ -93,6 +95,7 @@ const { handleSubmit } = useEmoticonRegisterSubmit({
   fallbackErrorMessage: t('emoticon.register.failed'),
   onSuccess: () => {
     toastStore.addToast(t('emoticon.register.created'), 'success')
+    allowSuccessfulRouteLeave = true
     router.push({ name: 'emoticon-list' })
   },
   onError: (message) => {
@@ -104,8 +107,23 @@ const { handleSubmit } = useEmoticonRegisterSubmit({
 })
 
 const goToList = () => {
+  if (isSubmitting.value) return
   router.push({ name: 'emoticon-list' })
 }
+
+onBeforeRouteLeave(() => {
+  if (allowSuccessfulRouteLeave) {
+    allowSuccessfulRouteLeave = false
+    return true
+  }
+  return !isSubmitting.value
+})
+
+useEventListener(() => window, 'beforeunload', (event: BeforeUnloadEvent) => {
+  if (!isSubmitting.value) return
+  event.preventDefault()
+  event.returnValue = ''
+})
 </script>
 
 
@@ -120,6 +138,7 @@ const goToList = () => {
       <template #actions>
         <button
           type="button"
+          :disabled="isSubmitting"
           @click="goToList"
           class="nv-focus-ring inline-flex min-h-11 items-center rounded-md px-2 text-sm nv-text-muted hover:text-[var(--nv-accent)] transition-colors"
         >
@@ -129,7 +148,13 @@ const goToList = () => {
       </template>
     </PageHeader>
 
-    <form @submit.prevent="handleSubmit" class="space-y-8">
+    <form @submit.prevent="handleSubmit">
+      <fieldset
+        :disabled="isSubmitting"
+        :inert="isSubmitting ? true : undefined"
+        :aria-busy="isSubmitting ? 'true' : undefined"
+        class="m-0 min-w-0 space-y-8 border-0 p-0"
+      >
       <!-- 이모티콘 이름과 썸네일 -->
       <BaseCard padding="lg" bordered>
         <div class="flex flex-col md:flex-row gap-6">
@@ -187,6 +212,7 @@ const goToList = () => {
         :submit-text="t('emoticon.form.createSubmit')"
         :submitting-text="t('emoticon.form.creatingSubmit')"
       />
+      </fieldset>
     </form>
   </div>
 </template>

@@ -86,6 +86,24 @@ describe('useEmoticonUploadSession', () => {
     expect(session.trackedUploadedFileIds.value).toEqual([])
   })
 
+  it('keeps final-request uploads owned without preserving stale UI intent after unmount', async () => {
+    const { wrapper, session } = mountSession()
+    const runId = session.startSubmitRun()
+    session.recordUploadedFile(11, runId)
+    session.beginFinalRequest(runId)
+
+    wrapper.unmount()
+    await Promise.resolve()
+
+    expect(session.isDisposed.value).toBe(true)
+    expect(session.isSubmitActive(runId)).toBe(false)
+    expect(mocks.discardUploads).not.toHaveBeenCalled()
+
+    session.clearTrackedUploads(runId)
+    session.finishFinalRequest(runId)
+    expect(session.isSubmitActive(runId)).toBe(false)
+  })
+
   it('does not discard uploads owned by a newer submit run', async () => {
     const { session } = mountSession()
     const oldRunId = session.startSubmitRun()

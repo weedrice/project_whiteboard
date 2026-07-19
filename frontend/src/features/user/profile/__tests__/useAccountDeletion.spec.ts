@@ -68,7 +68,7 @@ describe('useAccountDeletion', () => {
     expect(result.deleteError.value).toBe('t:common.messages.error')
   })
 
-  it('ignores a deletion result after the modal is closed and clears sensitive state', async () => {
+  it('completes logout and navigation after deletion even if the modal revision changes', async () => {
     let resolveDelete!: () => void
     const request = new Promise<void>((resolve) => { resolveDelete = resolve })
     const { result, options } = setup(vi.fn(() => request))
@@ -82,8 +82,8 @@ describe('useAccountDeletion', () => {
 
     expect(result.deletePassword.value).toBe('')
     expect(result.deleteError.value).toBe('')
-    expect(options.logout).not.toHaveBeenCalled()
-    expect(options.pushHome).not.toHaveBeenCalled()
+    expect(options.logout).toHaveBeenCalledTimes(1)
+    expect(options.pushHome).toHaveBeenCalledTimes(1)
   })
 
   it('does not log out a replacement session', async () => {

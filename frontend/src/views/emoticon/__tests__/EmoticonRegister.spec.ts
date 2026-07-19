@@ -28,6 +28,7 @@ const mocks = vi.hoisted(() => ({
   uploadEmoticonImagePreviews: vi.fn(),
   revokeEmoticonPreviewUrl: vi.fn(),
   refreshImagePolicy: vi.fn(),
+  routeLeaveGuard: null as null | (() => boolean),
 }))
 
 vi.mock('@/features/emoticon/form/useEmoticonImagePolicy', () => ({
@@ -38,6 +39,7 @@ vi.mock('@/features/emoticon/form/useEmoticonImagePolicy', () => ({
 }))
 
 vi.mock('vue-router', () => ({
+  onBeforeRouteLeave: (guard: () => boolean) => { mocks.routeLeaveGuard = guard },
   useRouter: () => ({
     push: mocks.push,
   }),
@@ -130,6 +132,7 @@ const setValidForm = (wrapper: ReturnType<typeof mountRegister>) => {
 describe('EmoticonRegister', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mocks.routeLeaveGuard = null
     mocks.uploadFile.mockImplementation((file: File) => Promise.resolve(
       emoticonApiData({ fileId: file.name === 'thumb.png' ? 10 : 20 })
     ))
@@ -267,6 +270,7 @@ describe('EmoticonRegister', () => {
 
     await wrapper.find('form').trigger('submit')
     expect(capturedSignal.current?.aborted).toBe(false)
+    expect(mocks.routeLeaveGuard?.()).toBe(false)
 
     wrapper.unmount()
 

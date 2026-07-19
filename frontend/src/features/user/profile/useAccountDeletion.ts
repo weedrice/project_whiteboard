@@ -38,21 +38,22 @@ export function useAccountDeletion(options: UseAccountDeletionOptions) {
     const revision = modalRevision
     const sessionGeneration = options.getSessionGeneration()
     const password = deletePassword.value
-    const isCurrentIntent = () => (
+    const isCurrentModalIntent = () => (
       showDeleteModal.value
       && modalRevision === revision
       && options.getSessionGeneration() === sessionGeneration
     )
+    const isCurrentSession = () => options.getSessionGeneration() === sessionGeneration
     isDeleting.value = true
 
     try {
       await options.deleteAccount(password)
-      if (!isCurrentIntent()) return
+      if (!isCurrentSession()) return
       showDeleteModal.value = false
       await options.logout()
       await options.pushHome()
     } catch (error: unknown) {
-      if (!isCurrentIntent()) return
+      if (!isCurrentModalIntent()) return
       logger.error('Failed to delete account:', error)
       const axiosError = error as AxiosError
       const validationErrors = extractValidationErrors(axiosError)
@@ -68,7 +69,7 @@ export function useAccountDeletion(options: UseAccountDeletionOptions) {
       const errorMessage = extractErrorMessage(axiosError)
       deleteError.value = errorMessage || options.t('common.messages.error')
     } finally {
-      if (isCurrentIntent()) isDeleting.value = false
+      if (isCurrentModalIntent()) isDeleting.value = false
     }
   }
 

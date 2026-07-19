@@ -74,18 +74,21 @@ export function useEmoticonRegisterSubmit({
     const imageFileIds = imageUploads.value
     uploadSession.assertSubmitActive(currentRunId)
 
-    await emoticonApi.createEmoticon({
-      name: submitSnapshot.name,
-      thumbnailFileId,
-      tags: submitSnapshot.tags,
-      imageFileIds
-    }, {
-      skipGlobalErrorHandler: true
-    })
-    uploadSession.assertSubmitActive(currentRunId)
-    uploadSession.clearTrackedUploads(currentRunId)
-
-    onSuccess()
+    uploadSession.beginFinalRequest(currentRunId)
+    try {
+      await emoticonApi.createEmoticon({
+        name: submitSnapshot.name,
+        thumbnailFileId,
+        tags: submitSnapshot.tags,
+        imageFileIds
+      }, {
+        skipGlobalErrorHandler: true
+      })
+      uploadSession.clearTrackedUploads(currentRunId)
+      if (uploadSession.isSubmitActive(currentRunId)) onSuccess()
+    } finally {
+      uploadSession.finishFinalRequest(currentRunId)
+    }
   })
 
   return {
