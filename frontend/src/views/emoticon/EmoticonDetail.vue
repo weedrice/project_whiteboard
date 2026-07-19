@@ -10,11 +10,13 @@ import { applyImageFallback } from '@/utils/imageFallback'
 import { formatDateOnlyLongOrDash } from '@/utils/date'
 import { useEmoticonDetailResource } from '@/features/emoticon/detail/useEmoticonDetailResource'
 import { useEmoticonDetailActions } from '@/features/emoticon/detail/useEmoticonDetailActions'
+import { useAuthStore } from '@/stores/auth'
 
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const { confirm } = useConfirm()
+const authStore = useAuthStore()
 
 const emoticonId = computed(() => Number(route.params.emoticonId))
 
@@ -39,6 +41,7 @@ const {
   handlePurchase,
   handleToggleVisibility,
 } = useEmoticonDetailActions({
+  authSession: authStore,
   canPurchase,
   confirm,
   emoticonId,

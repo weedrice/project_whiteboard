@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { effectScope } from 'vue'
 import { useMyPageDashboardResource } from '../useMyPageDashboardResource'
 import { userApi } from '@/api/user'
 import { apiEnvelopeResponse, apiPageSuccessDataResponse, apiSuccessDataResponse } from '@/test/apiResponseFixtures'
 import { createDeferred } from '@/test/async'
 import { QUERY_STALE_TIME } from '@/utils/constants'
 import logger from '@/utils/logger'
+import { notifyAuthSessionBoundary } from '@/queryAuthScope'
 
 const mocks = vi.hoisted(() => ({
   fetchQuery: vi.fn(),
@@ -12,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   getQueryData: vi.fn(),
   authStore: {
     user: null as null | Record<string, unknown>,
+    isAuthenticated: true,
     sessionGeneration: 0,
   },
 }))
@@ -62,6 +65,7 @@ describe('useMyPageDashboardResource', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mocks.authStore.user = null
+    mocks.authStore.isAuthenticated = true
     mocks.authStore.sessionGeneration = 0
     mocks.getQueryData.mockReturnValue(undefined)
     mocks.fetchQuery.mockImplementation(async (options: { queryFn: () => Promise<unknown> }) => options.queryFn())
@@ -396,5 +400,52 @@ describe('useMyPageDashboardResource', () => {
     expect(resource.myComments.value).toEqual([])
     expect(resource.myPostsTotalCount.value).toBe(0)
     expect(resource.myCommentsTotalCount.value).toBe(0)
+  })
+
+  it('clears account data immediately and reloads it for the next authenticated session', async () => {
+    mocks.authStore.user = {
+      userId: 1,
+      email: 'first@example.com',
+      loginId: 'first',
+      displayName: 'First',
+      status: 'ACTIVE',
+      createdAt: '2026-05-20T10:00:00',
+    }
+    const scope = effectScope()
+    const resource = scope.run(() => useMyPageDashboardResource(t))!
+    await resource.loadDashboard()
+    expect(resource.profile.value?.email).toBe('first@example.com')
+    expect(resource.myPosts.value).toHaveLength(1)
+    resource.myPostsCurrentPage.value = 3
+    resource.myPostsSort.value = 'likeCount,desc'
+
+    mocks.authStore.user = {
+      userId: 2,
+      email: 'second@example.com',
+      loginId: 'second',
+      displayName: 'Second',
+      status: 'ACTIVE',
+      createdAt: '2026-05-21T10:00:00',
+    }
+    mocks.authStore.sessionGeneration = 1
+    notifyAuthSessionBoundary(1)
+
+    expect(resource.profile.value).toBeNull()
+    expect(resource.myAgents.value).toEqual([])
+    expect(resource.myPosts.value).toEqual([])
+    expect(resource.myComments.value).toEqual([])
+    expect(resource.myPostsCurrentPage.value).toBe(0)
+    expect(resource.myPostsSort.value).toBe('createdAt,desc')
+
+    await vi.waitFor(() => {
+      expect(resource.profile.value?.email).toBe('second@example.com')
+      expect(resource.myPosts.value).toHaveLength(1)
+      expect(resource.myComments.value).toHaveLength(1)
+    })
+    expect(mocks.fetchQuery).toHaveBeenCalledWith(expect.objectContaining({
+      queryKey: ['session', 1, 'user', 'agents'],
+    }))
+
+    scope.stop()
   })
 })

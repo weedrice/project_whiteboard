@@ -1,8 +1,14 @@
 import type { ComputedRef } from 'vue'
 import type { Router } from 'vue-router'
 import type { EmoticonDetailViewModel } from '@/features/emoticon/detail/useEmoticonDetailViewModel'
+import {
+  captureAuthSessionIntent,
+  isAuthSessionIntentCurrent,
+  type AuthSessionIntentSource,
+} from '@/utils/authSessionIntent'
 
 interface UseEmoticonDetailActionsOptions {
+  authSession: AuthSessionIntentSource
   canPurchase: ComputedRef<boolean>
   confirm: (message: string) => Promise<boolean>
   emoticonId: ComputedRef<number>
@@ -26,6 +32,7 @@ export function useEmoticonDetailActions(options: UseEmoticonDetailActionsOption
   async function handlePurchase() {
     if (!options.canPurchase.value) return
     const targetEmoticonId = options.emoticonId.value
+    const sessionIntent = captureAuthSessionIntent(options.authSession)
     const isConfirmed = await options.confirm(options.t('emoticon.purchase.confirm', {
       price: options.purchasePrice.value,
     }))
@@ -33,6 +40,7 @@ export function useEmoticonDetailActions(options: UseEmoticonDetailActionsOption
       !isConfirmed
       || options.emoticonId.value !== targetEmoticonId
       || !options.canPurchase.value
+      || !isAuthSessionIntentCurrent(options.authSession, sessionIntent)
     ) return
 
     options.purchase()

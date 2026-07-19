@@ -8,6 +8,8 @@ import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import { extractErrorMessage } from '@/utils/errorHandler'
 import { isValidEmail } from '@/utils/validation'
+import { subscribeAuthSessionBoundary } from '@/queryAuthScope'
+import { captureAuthSessionIntent, isAuthSessionIntentCurrent } from '@/utils/authSessionIntent'
 import type { VerificationPurpose, VerifyCodeResponse } from '@/api/auth'
 
 export interface EmailVerificationFlowOptions {
@@ -75,8 +77,7 @@ export function useEmailVerificationFlow(options: EmailVerificationFlowOptions) 
 
   function closeVerifyModal() {
     cancelPendingRequests()
-    stopVerifyTimer()
-    stopVerifyResendCooldown()
+    resetVerification()
     isVerifyModalOpen.value = false
   }
 
@@ -91,15 +92,30 @@ export function useEmailVerificationFlow(options: EmailVerificationFlowOptions) 
     activeController?.abort()
     const controller = new AbortController()
     activeController = controller
-    return { controller, revision: ++requestRevision }
+    return {
+      controller,
+      intent: captureAuthSessionIntent(authStore),
+      revision: ++requestRevision,
+    }
   }
 
-  const isCurrentRequest = (revision: number, controller: AbortController) => (
-    revision === requestRevision && activeController === controller && !controller.signal.aborted
+  const isCurrentRequest = (
+    revision: number,
+    controller: AbortController,
+    intent: ReturnType<typeof captureAuthSessionIntent>,
+  ) => (
+    revision === requestRevision
+    && activeController === controller
+    && !controller.signal.aborted
+    && isAuthSessionIntentCurrent(authStore, intent)
   )
 
   if (getCurrentScope()) {
-    onScopeDispose(cancelPendingRequests)
+    const stopSessionBoundary = subscribeAuthSessionBoundary(closeVerifyModal)
+    onScopeDispose(() => {
+      stopSessionBoundary()
+      closeVerifyModal()
+    })
   }
 
   async function sendVerifyCode() {
@@ -115,15 +131,15 @@ export function useEmailVerificationFlow(options: EmailVerificationFlowOptions) 
       return
     }
 
-    const { controller, revision } = startRequest()
+    const { controller, intent, revision } = startRequest()
     setLoading(true)
     try {
       await options.beforeSend?.(trimmed)
-      if (!isCurrentRequest(revision, controller)) return
+      if (!isCurrentRequest(revision, controller, intent)) return
       const { data } = await authApi.sendVerificationCode(trimmed, purpose, {
         signal: controller.signal,
       })
-      if (!isCurrentRequest(revision, controller)) return
+      if (!isCurrentRequest(revision, controller, intent)) return
       if (data.success) {
         emailVerification.code = ''
         emailVerification.verificationTicket = ''
@@ -134,11 +150,11 @@ export function useEmailVerificationFlow(options: EmailVerificationFlowOptions) 
           startVerifyResendCooldown()
         }
         await options.afterSend?.(trimmed)
-        if (!isCurrentRequest(revision, controller)) return
+        if (!isCurrentRequest(revision, controller, intent)) return
         toastStore.addToast(t('auth.codeSent'), 'success')
       }
     } catch (err: unknown) {
-      if (!isCurrentRequest(revision, controller)) return
+      if (!isCurrentRequest(revision, controller, intent)) return
       const handled = options.onSendError?.(err)
       if (!handled) {
         const message = extractErrorMessage(err) || t('auth.sendCodeFailed')
@@ -147,7 +163,7 @@ export function useEmailVerificationFlow(options: EmailVerificationFlowOptions) 
       emailVerification.resendCooldown = 0
       stopVerifyResendCooldown()
     } finally {
-      if (isCurrentRequest(revision, controller)) {
+      if (isCurrentRequest(revision, controller, intent)) {
         activeController = null
         setLoading(false)
       }
@@ -169,13 +185,13 @@ export function useEmailVerificationFlow(options: EmailVerificationFlowOptions) 
       return
     }
 
-    const { controller, revision } = startRequest()
+    const { controller, intent, revision } = startRequest()
     setLoading(true)
     try {
       const verifyResponse = await authApi.verifyCode(trimmed, code, purpose, {
         signal: controller.signal,
       })
-      if (!isCurrentRequest(revision, controller)) return
+      if (!isCurrentRequest(revision, controller, intent)) return
       const response = unwrapAxiosApiData(verifyResponse)
       if (!verifyResponse.data.success || !response?.verificationTicket) {
         throw new Error(t('auth.verificationFailed'))
@@ -193,14 +209,14 @@ export function useEmailVerificationFlow(options: EmailVerificationFlowOptions) 
         if (!data.success) {
           throw new Error(t('auth.verificationFailed'))
         }
-        if (!isCurrentRequest(revision, controller)) return
+        if (!isCurrentRequest(revision, controller, intent)) return
         if (authStore.user) {
           authStore.user.isEmailVerified = true
         }
         await authStore.fetchUser()
-        if (!isCurrentRequest(revision, controller)) return
+        if (!isCurrentRequest(revision, controller, intent)) return
         await options.refreshProfile?.()
-        if (!isCurrentRequest(revision, controller)) return
+        if (!isCurrentRequest(revision, controller, intent)) return
       }
 
       await options.afterVerify?.({
@@ -209,7 +225,7 @@ export function useEmailVerificationFlow(options: EmailVerificationFlowOptions) 
         verificationTicket: emailVerification.verificationTicket,
         response
       })
-      if (!isCurrentRequest(revision, controller)) return
+      if (!isCurrentRequest(revision, controller, intent)) return
 
       emailVerification.isVerified = true
       if (shouldUseTimer()) {
@@ -219,19 +235,17 @@ export function useEmailVerificationFlow(options: EmailVerificationFlowOptions) 
         toastStore.addToast(t('auth.codeVerified'), 'success')
       }
       if (shouldCloseOnVerifySuccess(purpose)) {
-        stopVerifyTimer()
-        stopVerifyResendCooldown()
-        isVerifyModalOpen.value = false
+        closeVerifyModal()
       }
     } catch (err: unknown) {
-      if (!isCurrentRequest(revision, controller)) return
+      if (!isCurrentRequest(revision, controller, intent)) return
       const handled = options.onVerifyError?.(err)
       if (!handled) {
         const message = extractErrorMessage(err) || t('auth.verificationFailed')
         toastStore.addToast(message, 'error')
       }
     } finally {
-      if (isCurrentRequest(revision, controller)) {
+      if (isCurrentRequest(revision, controller, intent)) {
         activeController = null
         setLoading(false)
       }

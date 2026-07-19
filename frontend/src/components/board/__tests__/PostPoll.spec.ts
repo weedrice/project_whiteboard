@@ -1,4 +1,4 @@
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi, beforeEach } from 'vitest'
 import { defineComponent, h, ref } from 'vue'
 import PostPoll from '../PostPoll.vue'
@@ -51,7 +51,10 @@ const poll = (overrides: Partial<PostPollType> = {}): PostPollType => ({
   ...overrides,
 })
 
-const mountPoll = (props: { poll?: PostPollType; isAuthenticated?: boolean } = {}) => mount(PostPoll, {
+const mountPoll = (
+  props: { poll?: PostPollType; isAuthenticated?: boolean } = {},
+  errorHandler?: (error: unknown) => void,
+) => mount(PostPoll, {
   props: {
     postId: 99,
     poll: props.poll ?? poll(),
@@ -59,6 +62,7 @@ const mountPoll = (props: { poll?: PostPollType; isAuthenticated?: boolean } = {
   },
   global: {
     stubs: { BaseButton: BaseButtonStub },
+    ...(errorHandler ? { config: { errorHandler } } : {}),
   },
 })
 
@@ -121,6 +125,40 @@ describe('PostPoll', () => {
 
     resolveVote()
     await voteClick
+  })
+
+  it('consumes a rejected vote mutation after its mutation error handler runs', async () => {
+    voteMutateAsync.mockRejectedValueOnce(new Error('vote failed'))
+    const errorHandler = vi.fn()
+    const wrapper = mountPoll({}, errorHandler)
+
+    await wrapper.findAll('input[type="radio"]')[0].setValue(true)
+    await wrapper.findAll('button').at(-1)?.trigger('click')
+    await flushPromises()
+
+    expect(voteMutateAsync).toHaveBeenCalledOnce()
+    expect(errorHandler).not.toHaveBeenCalled()
+    expect(wrapper.findAll('button').at(-1)?.attributes('disabled')).toBeUndefined()
+  })
+
+  it('consumes a rejected vote cancellation after its mutation error handler runs', async () => {
+    deleteMutateAsync.mockRejectedValueOnce(new Error('delete failed'))
+    const errorHandler = vi.fn()
+    const wrapper = mountPoll({
+      poll: poll({
+        options: [
+          { optionId: 10, optionText: 'First', sortOrder: 0, voteCount: 2, selected: true },
+          { optionId: 11, optionText: 'Second', sortOrder: 1, voteCount: 1, selected: false },
+        ],
+      }),
+    }, errorHandler)
+
+    await wrapper.findAll('button')[0].trigger('click')
+    await flushPromises()
+
+    expect(deleteMutateAsync).toHaveBeenCalledOnce()
+    expect(errorHandler).not.toHaveBeenCalled()
+    expect(wrapper.findAll('button')[0].attributes('disabled')).toBeUndefined()
   })
 
   it('reactively closes the poll when its deadline passes while the view stays open', async () => {

@@ -4,6 +4,8 @@ import { authApi } from '@/api/auth'
 import { userApi } from '@/api/user'
 import { apiSuccessDataResponse, apiSuccessResponse } from '@/test/apiResponseFixtures'
 import { createDeferred } from '@/test/async'
+import { effectScope } from 'vue'
+import { notifyAuthSessionBoundary } from '@/queryAuthScope'
 
 const toastMock = vi.hoisted(() => ({
   addToast: vi.fn()
@@ -11,7 +13,8 @@ const toastMock = vi.hoisted(() => ({
 
 const authStoreMock = vi.hoisted(() => ({
   fetchUser: vi.fn(),
-  user: { isEmailVerified: false }
+  sessionGeneration: 0,
+  user: { userId: 1, isEmailVerified: false }
 }))
 
 vi.mock('vue-i18n', async (importOriginal) => {
@@ -48,6 +51,8 @@ vi.mock('@/stores/toast', () => ({
 describe('useEmailVerificationFlow', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    authStoreMock.sessionGeneration = 0
+    authStoreMock.user.userId = 1
     authStoreMock.user.isEmailVerified = false
   })
 
@@ -107,6 +112,8 @@ describe('useEmailVerificationFlow', () => {
     expect(authStoreMock.fetchUser.mock.invocationCallOrder[0])
       .toBeLessThan(refreshProfile.mock.invocationCallOrder[0])
     expect(flow.isVerifyModalOpen.value).toBe(false)
+    expect(flow.emailVerification.code).toBe('')
+    expect(flow.emailVerification.verificationTicket).toBe('')
   })
 
   it('keeps the verification purpose captured when the request starts', async () => {
@@ -157,5 +164,37 @@ describe('useEmailVerificationFlow', () => {
 
     expect(afterVerify).not.toHaveBeenCalled()
     expect(toastMock.addToast).not.toHaveBeenCalled()
+  })
+
+  it('aborts and clears sensitive verification state when the auth session changes', async () => {
+    const deferred = createDeferred<Awaited<ReturnType<typeof authApi.verifyCode>>>()
+    vi.mocked(authApi.verifyCode).mockReturnValueOnce(deferred.promise)
+    const scope = effectScope()
+    const flow = scope.run(() => useEmailVerificationFlow({
+      getEmail: () => 'first@example.com',
+      getCode: () => '123456',
+      useTimer: false,
+    }))!
+    flow.openVerifyModal()
+
+    const verify = flow.verifyEmailCode()
+    const signal = vi.mocked(authApi.verifyCode).mock.calls[0][3]?.signal
+    authStoreMock.sessionGeneration = 1
+    authStoreMock.user.userId = 2
+    notifyAuthSessionBoundary(1)
+
+    expect(signal?.aborted).toBe(true)
+    expect(flow.isVerifyModalOpen.value).toBe(false)
+    expect(flow.emailVerification.email).toBe('')
+    expect(flow.emailVerification.code).toBe('')
+    expect(flow.emailVerification.verificationTicket).toBe('')
+
+    deferred.resolve(apiSuccessDataResponse<typeof authApi.verifyCode>({ verificationTicket: 'stale-ticket' }))
+    await verify
+    expect(userApi.verifyEmail).not.toHaveBeenCalled()
+    expect(authStoreMock.fetchUser).not.toHaveBeenCalled()
+    expect(toastMock.addToast).not.toHaveBeenCalled()
+
+    scope.stop()
   })
 })

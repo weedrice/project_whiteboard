@@ -73,6 +73,16 @@ export function useDashboardPagination<T>(
     return fetch()
   }
 
+  const reset = () => {
+    fetchTask.reset()
+    page.value = initialParams.page ?? 0
+    size.value = initialParams.size ?? 20
+    sort.value = initialParams.sort
+    items.value = []
+    totalCount.value = 0
+    totalPages.value = 0
+  }
+
   return {
     page,
     size,
@@ -84,5 +94,6 @@ export function useDashboardPagination<T>(
     error,
     fetch,
     handlePageChange,
+    reset,
   }
 }

@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/vue-query'
-import { computed, ref } from 'vue'
+import { computed, getCurrentScope, onScopeDispose, ref } from 'vue'
 import { userApi, type UserAgent } from '@/api/user'
 import { useDashboardPagination } from '@/composables/useDashboardPagination'
 import { useErrorHandler } from '@/composables/useErrorHandler'
@@ -11,7 +11,7 @@ import type { MyComment, PostSummary, User } from '@/types'
 import { QUERY_STALE_TIME } from '@/utils/constants'
 import { getListLoadErrorMessage } from '@/utils/listLoadError'
 import { encodePathSegment } from '@/utils/urlPath'
-import { currentSessionQueryKey } from '@/queryAuthScope'
+import { currentSessionQueryKey, subscribeAuthSessionBoundary } from '@/queryAuthScope'
 
 type Translate = (key: string) => string
 
@@ -179,7 +179,10 @@ export function useMyPageDashboardResource(t: Translate) {
     return t('user.dashboard.agentStatus.pending')
   }
 
+  let loadRevision = 0
+
   async function loadDashboard() {
+    const revision = ++loadRevision
     isLoading.value = true
     profileError.value = null
     agentsError.value = null
@@ -193,8 +196,41 @@ export function useMyPageDashboardResource(t: Translate) {
         fetchMyComments()
       ])
     } finally {
-      isLoading.value = false
+      if (revision === loadRevision) isLoading.value = false
     }
+  }
+
+  let disposed = false
+
+  function resetDashboard() {
+    loadRevision++
+    profileTask.reset()
+    agentsTask.reset()
+    myPostsPagination.reset()
+    myCommentsPagination.reset()
+    profile.value = null
+    myAgents.value = []
+    isLoading.value = false
+  }
+
+  if (getCurrentScope()) {
+    const stopSessionBoundary = subscribeAuthSessionBoundary((generation) => {
+      resetDashboard()
+      queueMicrotask(() => {
+        if (
+          disposed
+          || authStore.sessionGeneration !== generation
+          || !authStore.isAuthenticated
+        ) return
+        void loadDashboard()
+      })
+    })
+
+    onScopeDispose(() => {
+      disposed = true
+      stopSessionBoundary()
+      resetDashboard()
+    })
   }
 
   return {
@@ -230,6 +266,6 @@ export function useMyPageDashboardResource(t: Translate) {
     handleMyPostsSortChange,
     handleMyCommentsPageChange,
     getAgentStatusLabel,
-    loadDashboard
+    loadDashboard,
   }
 }

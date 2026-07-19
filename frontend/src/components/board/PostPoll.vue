@@ -96,6 +96,8 @@ async function submitVote() {
       postId: props.postId,
       data: { optionIds: selectedOptionIds.value },
     })
+  } catch {
+    // Mutation-level/global handlers own user-visible API errors.
   } finally {
     localMutationPending.value = false
   }
@@ -109,6 +111,8 @@ async function cancelVote() {
   localMutationPending.value = true
   try {
     await deleteVoteMutation.mutateAsync(props.postId)
+  } catch {
+    // Mutation-level/global handlers own user-visible API errors.
   } finally {
     localMutationPending.value = false
   }
