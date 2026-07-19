@@ -24,6 +24,7 @@ export const boardEnWritePostMessages: BoardMessages['writePost'] = {
     poll: {
       add: 'Add poll',
       remove: 'Remove poll',
+      readOnlyNotice: 'Existing polls cannot be changed or removed while editing a post.',
       title: 'Poll',
       question: 'Question',
       questionPlaceholder: 'Enter a poll question',

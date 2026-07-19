@@ -285,9 +285,15 @@ describe('usePost', () => {
 
         const { useUpdatePost } = usePost()
         const mutation = useUpdatePost()
-        await mutation.mutate({ postId: 1, data: { title: 'updated' } })
+        const data = {
+            title: 'updated',
+            isNsfw: false,
+            isSpoiler: false,
+            isSecret: false,
+        }
+        await mutation.mutate({ postId: 1, data })
 
-        expect(postApi.updatePost).toHaveBeenCalledWith(1, { title: 'updated' })
+        expect(postApi.updatePost).toHaveBeenCalledWith(1, data)
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: sessionKey(['post', 1]) })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: sessionKey(['posts']) })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: sessionKey(['home', 'landing']) })

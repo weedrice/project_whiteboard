@@ -33,7 +33,7 @@ describe('postForm', () => {
         expect(validatePostFormContent({ ...valid, fileIds: Array.from({ length: 21 }, (_, index) => index + 1) })).toBe('tooManyFiles')
     })
 
-    it('extracts local persisted file ids from image sources and data attributes', () => {
+    it('extracts unique local persisted file ids from images and attachment links', () => {
         expect(extractFileIdFromPostImageSrc('/api/v1/files/12', 'https://noviis.kr')).toBe(12)
         expect(extractFileIdFromPostImageSrc('/files/13', 'https://noviis.kr')).toBe(13)
         expect(extractFileIdFromPostImageSrc('https://external.test/files/14', 'https://noviis.kr')).toBeNull()
@@ -42,9 +42,12 @@ describe('postForm', () => {
             '<img src="blob:https://noviis.kr/local" data-file-id="15">',
             '<img src="/api/v1/files/16">',
             '<img src="https://external.test/files/17">',
+            '<a href="/api/v1/files/18">attachment</a>',
+            '<a href="/files/16">duplicate attachment</a>',
+            '<a href="https://external.test/files/19">external attachment</a>',
         ].join('')
 
-        expect(extractPostFileIdsFromContent(content)).toEqual([15, 16])
+        expect(extractPostFileIdsFromContent(content)).toEqual([15, 16, 18])
     })
 
     it('filters draft payload file ids to files tracked by the draft', () => {
@@ -119,7 +122,7 @@ describe('postForm', () => {
         })).toHaveProperty('seriesId', null)
     })
 
-    it('includes valid poll data only for create payloads', () => {
+    it('includes valid poll data for create and explicitly enabled scheduled-edit payloads', () => {
         const formWithPoll = {
             ...baseForm,
             poll: {
@@ -154,6 +157,15 @@ describe('postForm', () => {
             canShowNsfw: true,
             fileIds: [],
         })).not.toHaveProperty('poll')
+
+        expect(buildPostFormPayload({
+            form: formWithPoll,
+            mode: 'edit',
+            showNotice: true,
+            canShowNsfw: true,
+            fileIds: [],
+            includePoll: true,
+        })).toHaveProperty('poll.question', 'Pick one')
     })
 
     it('validates complete poll limits and a future close time before publishing', () => {

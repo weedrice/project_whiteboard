@@ -14,6 +14,7 @@ defineProps<{
   editorViewMode: string
   editorViewOptions: SegmentedControlOption[]
   uploadOwnerIdentity: string
+  pollEnabled?: boolean
   showVideoPopover: boolean
   showEmoticonPicker: boolean
   videoUrl: string
@@ -62,6 +63,7 @@ const emit = defineEmits<{
           :ref="assignTiptapEditor"
           :model-value="modelValue"
           :upload-owner-identity="uploadOwnerIdentity"
+          :poll-enabled="pollEnabled"
           @update:model-value="emit('update:modelValue', $event)"
           @open-video="emit('openVideo')"
           @open-emoticon="emit('update:showEmoticonPicker', true)"

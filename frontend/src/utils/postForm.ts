@@ -79,6 +79,7 @@ export type BuildPostFormPayloadOptions = {
     showNotice: boolean
     canShowNsfw: boolean
     fileIds: number[]
+    includePoll?: boolean
 }
 
 export function extractFileIdFromPostImageSrc(src: string, baseOrigin = getDefaultBaseOrigin()): number | null {
@@ -124,6 +125,13 @@ export function extractPostFileIdsFromContent(content: string): number[] {
         }
     })
 
+    doc.querySelectorAll('a[href]').forEach((link) => {
+        const fileId = extractFileIdFromPostImageSrc(link.getAttribute('href') ?? '')
+        if (fileId != null) {
+            fileIds.add(fileId)
+        }
+    })
+
     return [...fileIds]
 }
 
@@ -150,6 +158,7 @@ export function buildPostFormPayload({
     showNotice,
     canShowNsfw,
     fileIds,
+    includePoll,
 }: BuildPostFormPayloadOptions) {
     const normalizedContents = requiresSandboxedPostHtml(form.content)
         ? normalizeLegacyFileUrls(form.content)
@@ -167,7 +176,7 @@ export function buildPostFormPayload({
     const seriesId = parsedSeriesId != null && !Number.isNaN(parsedSeriesId) && parsedSeriesId > 0
         ? parsedSeriesId
         : (mode === 'edit' ? null : undefined)
-    const poll = mode === 'create' ? normalizePostFormPoll(form.poll) : null
+    const poll = (includePoll ?? mode === 'create') ? normalizePostFormPoll(form.poll) : null
 
     return {
         title: form.title.trim(),

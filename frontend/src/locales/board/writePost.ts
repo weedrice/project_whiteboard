@@ -23,6 +23,7 @@ export const boardWritePostMessages: BoardMessages['writePost'] = {
     poll: {
       add: '투표 추가',
       remove: '투표 제거',
+      readOnlyNotice: '기존 투표는 게시글 수정 화면에서 변경하거나 제거할 수 없습니다.',
       title: '투표',
       question: '질문',
       questionPlaceholder: '투표 질문을 입력하세요',

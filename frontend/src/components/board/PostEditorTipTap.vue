@@ -30,6 +30,7 @@ import logger from '@/utils/logger'
 const props = defineProps<{
   modelValue: string
   uploadOwnerIdentity?: string
+  pollEnabled?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -45,6 +46,11 @@ const toastStore = useToastStore()
 const themeStore = useThemeStore()
 const modelValue = toRef(props, 'modelValue')
 const uploadOwnerIdentity = toRef(props, 'uploadOwnerIdentity')
+const availableSlashActions = computed(() => (
+  props.pollEnabled === false
+    ? slashActions.filter((action) => action !== 'poll')
+    : slashActions
+))
 
 const { isUploadingImage, validateImageFile, uploadImage, abortImageUpload, isAbortUploadError } = useEditorImageUpload(
   undefined,
@@ -360,7 +366,7 @@ onBeforeUnmount(() => {
       :link-position="linkPosition"
       :image-alt-position="imageAltPosition"
       :table-position="tablePosition"
-      :slash-actions="slashActions"
+      :slash-actions="availableSlashActions"
       :slash-active-index="slashActiveIndex"
       :color-presets="colorPresets"
       :color-preset-labels="colorPresetLabels"

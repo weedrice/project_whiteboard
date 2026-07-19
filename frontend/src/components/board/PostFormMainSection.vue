@@ -13,14 +13,14 @@ import type {
 import type { EmoticonImage } from '@/types/emoticon'
 import type { PostFormPoll } from '@/utils/postForm'
 
-defineProps<{
+const props = defineProps<{
   title: string
   titleMaxLength: number
   content: string
   titleError?: string
   tags: string[]
   poll: PostFormPoll | null
-  mode: 'create' | 'edit'
+  pollReadOnly?: boolean
   hideTags?: boolean
   metadataPanelProps: PostFormMetadataPanelProps
   metadataPanelHandlers: PostFormMetadataPanelHandlers
@@ -52,6 +52,10 @@ const emit = defineEmits<{
   (event: 'fileUploaded', fileId: number): void
   (event: 'blurTitle'): void
 }>()
+
+function handleOpenPoll() {
+  if (!props.pollReadOnly) emit('openPoll')
+}
 </script>
 
 <template>
@@ -84,6 +88,7 @@ const emit = defineEmits<{
         :editor-view-mode="editorViewMode"
         :editor-view-options="editorViewOptions"
         :upload-owner-identity="uploadOwnerIdentity"
+        :poll-enabled="!pollReadOnly"
         :show-video-popover="showVideoPopover"
         :show-emoticon-picker="showEmoticonPicker"
         :video-url="videoUrl"
@@ -100,12 +105,12 @@ const emit = defineEmits<{
         @insert-video="emit('insertVideo')"
         @select-emoticon="emit('selectEmoticon', $event)"
         @file-uploaded="emit('fileUploaded', $event)"
-        @open-poll="emit('openPoll')"
+        @open-poll="handleOpenPoll"
       />
 
       <PostPollEditor
         :model-value="poll"
-        :mode="mode"
+        :read-only="pollReadOnly"
         @update:model-value="emit('update:poll', $event)"
       />
 

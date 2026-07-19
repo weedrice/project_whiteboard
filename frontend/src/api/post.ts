@@ -35,17 +35,16 @@ export interface PostCreateData {
 }
 
 export interface PostUpdateData {
-    title?: string
+    title: string
     contents?: string
     categoryId?: number
     isNotice?: boolean
-    isNsfw?: boolean
-    isSpoiler?: boolean
-    isSecret?: boolean
+    isNsfw: boolean
+    isSpoiler: boolean
+    isSecret: boolean
     tags?: string[]
     draftId?: number
     fileIds?: number[]
-    poll?: PollPayload | null
     seriesId?: number | null
 }
 

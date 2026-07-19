@@ -269,6 +269,26 @@ describe('PostForm', () => {
         })
     })
 
+    it('does not open a new poll editor for a live post that cannot persist poll changes', async () => {
+        postRef.value = {
+            postId: 1,
+            title: 'Existing post',
+            contents: 'Existing content',
+            category: null,
+            tags: [],
+            isNsfw: false,
+            isSpoiler: false,
+            poll: null,
+        }
+        const wrapper = mountPostForm('edit')
+        await nextTick()
+
+        await wrapper.get('[data-testid="open-poll"]').trigger('click')
+        await nextTick()
+
+        expect(wrapper.find('[data-testid="poll-question"]').exists()).toBe(false)
+    })
+
     it('blocks publishing an incomplete poll instead of silently dropping it', async () => {
         const wrapper = mountPostForm('create')
         await fillPostForm(wrapper, { categoryId: '12' })
@@ -457,7 +477,7 @@ describe('PostForm', () => {
         })
     })
 
-    it('preserves existing edit image file ids from post content', async () => {
+    it('preserves existing edit image and attachment file ids from post content', async () => {
         routeState.params.postId = '78'
         postRef.value = {
             postId: 78,
@@ -475,7 +495,7 @@ describe('PostForm', () => {
         await submitPostForm(wrapper)
 
         const variables = getLastUpdatePostVariables()
-        expect(variables.data.fileIds).toEqual([31, 32])
+        expect(variables.data.fileIds).toEqual([31, 32, 99])
         expect(variables.data.contents).toContain('src="/api/v1/files/32?size=sm"')
     })
 
@@ -790,7 +810,13 @@ describe('PostForm', () => {
             isSecret: true,
             fileIds: [10],
             draftId: 5,
-            poll: null,
+            poll: {
+                question: 'Scheduled question',
+                options: [{ optionText: 'First' }, { optionText: 'Second' }],
+                multipleChoiceEnabled: false,
+                anonymousEnabled: true,
+                closesAt: '2026-07-21T12:00',
+            },
             seriesId: null,
             scheduledAt: '2026-07-20T12:00',
         }
@@ -822,6 +848,13 @@ describe('PostForm', () => {
                 fileIds: [10],
                 draftId: 5,
                 scheduledAt: '2026-07-20T12:00',
+                poll: {
+                    question: 'Scheduled question',
+                    options: ['First', 'Second'],
+                    multipleChoiceEnabled: false,
+                    anonymousEnabled: true,
+                    closesAt: '2026-07-21T12:00',
+                },
             }),
         }, expect.any(Object))
         expect(mockUpdateMutate).not.toHaveBeenCalled()

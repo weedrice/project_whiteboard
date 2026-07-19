@@ -10,7 +10,7 @@ import {
 
 const props = defineProps<{
   modelValue: PostFormPoll | null
-  mode?: 'create' | 'edit'
+  readOnly?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -61,10 +61,24 @@ function setClosesAt(closesAt: string) {
   <section v-if="modelValue" class="mt-5 rounded-[var(--nv-radius-xl)] border border-[var(--nv-line)] bg-[var(--nv-elevated)] p-4">
     <div class="flex items-center justify-between gap-3">
       <h2 class="text-sm font-semibold nv-title">{{ $t('board.writePost.poll.title') }}</h2>
-      <BaseButton type="button" variant="secondary" size="sm" @click="emit('update:modelValue', null)">
+      <BaseButton
+        type="button"
+        variant="secondary"
+        size="sm"
+        :disabled="readOnly"
+        @click="emit('update:modelValue', null)"
+      >
         {{ $t('board.writePost.poll.remove') }}
       </BaseButton>
     </div>
+
+    <p
+      v-if="readOnly"
+      class="mt-3 rounded-lg border border-[var(--nv-line)] bg-[var(--nv-surface)] px-3 py-2 text-xs text-[var(--nv-muted)]"
+      role="status"
+    >
+      {{ $t('board.writePost.poll.readOnlyNotice') }}
+    </p>
 
     <BaseInput
       id="poll-question"
@@ -75,7 +89,7 @@ function setClosesAt(closesAt: string) {
       label-class="uppercase tracking-[0.18em] text-[var(--nv-muted)]"
       :placeholder="$t('board.writePost.poll.questionPlaceholder')"
       :maxlength="POST_POLL_QUESTION_MAX_LENGTH"
-      :disabled="mode === 'edit'"
+      :disabled="readOnly"
       @update:model-value="setQuestion(String($event))"
     />
 
@@ -93,14 +107,14 @@ function setClosesAt(closesAt: string) {
           hide-label
           :placeholder="$t('board.writePost.poll.optionPlaceholder')"
           :maxlength="POST_POLL_OPTION_MAX_LENGTH"
-          :disabled="mode === 'edit'"
+          :disabled="readOnly"
           @update:model-value="setOption(index, String($event))"
         />
         <BaseButton
           type="button"
           variant="secondary"
           size="sm"
-          :disabled="mode === 'edit' || modelValue.options.length <= 2"
+          :disabled="readOnly || modelValue.options.length <= 2"
           @click="removeOption(index)"
         >
           {{ $t('common.delete') }}
@@ -113,7 +127,7 @@ function setClosesAt(closesAt: string) {
         type="button"
         variant="secondary"
         size="sm"
-        :disabled="mode === 'edit' || modelValue.options.length >= 10"
+        :disabled="readOnly || modelValue.options.length >= 10"
         @click="addOption"
       >
         {{ $t('board.writePost.poll.addOption') }}
@@ -126,14 +140,14 @@ function setClosesAt(closesAt: string) {
         data-testid="poll-multiple"
         :model-value="modelValue.multipleChoiceEnabled"
         :label="$t('board.writePost.poll.multiple')"
-        :disabled="mode === 'edit'"
+        :disabled="readOnly"
         @update:model-value="toggle('multipleChoiceEnabled', Boolean($event))"
       />
       <BaseCheckbox
         id="poll-anonymous"
         :model-value="modelValue.anonymousEnabled"
         :label="$t('board.writePost.poll.anonymous')"
-        :disabled="mode === 'edit'"
+        :disabled="readOnly"
         @update:model-value="toggle('anonymousEnabled', Boolean($event))"
       />
       <BaseInput
@@ -143,7 +157,7 @@ function setClosesAt(closesAt: string) {
         :model-value="modelValue.closesAt ?? ''"
         :label="$t('board.writePost.poll.closesAt')"
         label-class="uppercase tracking-[0.18em] text-[var(--nv-muted)]"
-        :disabled="mode === 'edit'"
+        :disabled="readOnly"
         @update:model-value="setClosesAt(String($event))"
       />
     </div>

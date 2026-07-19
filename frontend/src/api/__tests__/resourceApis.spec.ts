@@ -165,7 +165,13 @@ describe('postApi', () => {
             stats: {},
         }))
         const postData = { title: 'title', contents: 'body', isNotice: false }
-        const updateData = { title: 'updated title', tags: ['a'] }
+        const updateData = {
+            title: 'updated title',
+            tags: ['a'],
+            isNsfw: false,
+            isSpoiler: false,
+            isSecret: false,
+        }
         const reportData = { targetPostId: 3, reason: 'spam' }
         const requestConfig = { skipAuthRefresh: true }
 

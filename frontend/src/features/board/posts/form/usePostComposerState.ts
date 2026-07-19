@@ -52,6 +52,7 @@ type UsePostComposerStateOptions = {
   hideSecret: () => boolean | undefined
   showNotice: Ref<boolean>
   canShowNsfw: Ref<boolean>
+  includePoll?: () => boolean
 }
 
 export function createEmptyPostComposerForm(): PostComposerFormState {
@@ -150,6 +151,7 @@ export function usePostComposerState(options: UsePostComposerStateOptions) {
       showNotice: options.showNotice.value,
       canShowNsfw: options.canShowNsfw.value,
       fileIds: resolvePostFormFileIds(form.value.content, draftFileIds.value, fileIdScope),
+      includePoll: options.includePoll?.(),
     })
     if (fileIdScope !== 'draft' || !form.value.poll) return payload
     return {

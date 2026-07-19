@@ -302,6 +302,7 @@ export interface BoardMessages {
     poll: {
       add: string
       remove: string
+      readOnlyNotice: string
       title: string
       question: string
       questionPlaceholder: string

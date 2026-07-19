@@ -215,6 +215,7 @@ const {
   hideSecret: () => props.hideSecret,
   showNotice,
   canShowNsfw,
+  includePoll: () => props.mode === 'create' || Boolean(scheduledPostId.value),
 })
 
 const hasUnsavedChanges = computed(() => (
@@ -617,7 +618,7 @@ defineExpose({
           :title-error="postValidation.visibleError('title')"
           :tags="form.tags"
           :poll="form.poll"
-          :mode="props.mode"
+          :poll-read-only="props.mode === 'edit' && !scheduledPostId"
           :hide-tags="props.hideTags"
           :metadata-panel-props="metadataPanelProps"
           :metadata-panel-handlers="metadataPanelHandlers"
