@@ -52,6 +52,42 @@ describe('SanitizedHtmlView', () => {
     wrapper.unmount()
   })
 
+  it('loads local protected attachment links through the authenticated API client', async () => {
+    mocks.get.mockResolvedValue({ data: new Blob(['file'], { type: 'application/pdf' }) })
+    const wrapper = mount(SanitizedHtmlView, {
+      props: {
+        html: asSanitizedHtml(
+          '<a id="protected" href="/api/v1/files/31?download=true">download</a><a id="external" href="https://cdn.noviis.kr/files/31">external</a>',
+        ),
+      },
+    })
+
+    expect(wrapper.get('#protected').attributes('href')).toBeUndefined()
+    expect(wrapper.get('#external').attributes('href')).toBe('https://cdn.noviis.kr/files/31')
+
+    await vi.waitFor(() => {
+      expect(mocks.get).toHaveBeenCalledWith('/files/31?download=true', expect.objectContaining({
+        responseType: 'blob',
+        skipGlobalErrorHandler: true,
+      }))
+      expect(wrapper.get('#protected').attributes('href')).toBe('blob:preview')
+    })
+    wrapper.unmount()
+  })
+
+  it('disables a protected attachment link when its authenticated request fails', async () => {
+    mocks.get.mockRejectedValue(new Error('forbidden'))
+    const wrapper = mount(SanitizedHtmlView, {
+      props: { html: asSanitizedHtml('<a id="protected" href="/api/v1/files/32">download</a>') },
+    })
+
+    await vi.waitFor(() => {
+      expect(wrapper.get('#protected').attributes('aria-disabled')).toBe('true')
+    })
+    expect(wrapper.get('#protected').attributes('href')).toBeUndefined()
+    wrapper.unmount()
+  })
+
   it('revokes old object URLs and reloads images at an authentication boundary', async () => {
     mocks.get.mockResolvedValue({ data: new Blob(['image'], { type: 'image/png' }) })
     const wrapper = mount(SanitizedHtmlView, {

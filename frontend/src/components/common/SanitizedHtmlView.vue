@@ -15,6 +15,7 @@ const props = withDefaults(defineProps<{
 
 const element = ref<HTMLElement | null>(null)
 const AUTHENTICATED_FILE_SRC_ATTRIBUTE = 'data-authenticated-file-src'
+const AUTHENTICATED_FILE_HREF_ATTRIBUTE = 'data-authenticated-file-href'
 const LOCAL_FILE_PATH_PATTERN = /^\/api\/v1\/files\/([1-9]\d*)$/
 let activeController: AbortController | null = null
 let hydrationGeneration = 0
@@ -32,6 +33,14 @@ const renderedHtml = computed(() => {
     image.setAttribute(AUTHENTICATED_FILE_SRC_ATTRIBUTE, requestPath)
     image.removeAttribute('src')
     image.removeAttribute('srcset')
+  })
+  document.querySelectorAll<HTMLAnchorElement>('a[href]').forEach((link) => {
+    const href = link.getAttribute('href')
+    const requestPath = resolveAuthenticatedFileRequestPath(href)
+    if (!requestPath) return
+
+    link.setAttribute(AUTHENTICATED_FILE_HREF_ATTRIBUTE, requestPath)
+    link.removeAttribute('href')
   })
   return asSanitizedHtml(document.body.innerHTML)
 })
@@ -72,7 +81,10 @@ async function hydrateAuthenticatedFiles() {
   const images = Array.from(
     root.querySelectorAll<HTMLImageElement>(`img[${AUTHENTICATED_FILE_SRC_ATTRIBUTE}]`),
   )
-  if (images.length === 0) {
+  const links = Array.from(
+    root.querySelectorAll<HTMLAnchorElement>(`a[${AUTHENTICATED_FILE_HREF_ATTRIBUTE}]`),
+  )
+  if (images.length === 0 && links.length === 0) {
     activeController = null
     return
   }
@@ -80,8 +92,11 @@ async function hydrateAuthenticatedFiles() {
   const { default: api } = await import('@/api')
   if (controller.signal.aborted || generation !== hydrationGeneration) return
 
-  await Promise.allSettled(images.map(async (image) => {
-    const requestPath = image.getAttribute(AUTHENTICATED_FILE_SRC_ATTRIBUTE)
+  const targets = [
+    ...images.map((node) => ({ node, requestPath: node.getAttribute(AUTHENTICATED_FILE_SRC_ATTRIBUTE), kind: 'image' as const })),
+    ...links.map((node) => ({ node, requestPath: node.getAttribute(AUTHENTICATED_FILE_HREF_ATTRIBUTE), kind: 'link' as const })),
+  ]
+  await Promise.allSettled(targets.map(async ({ node, requestPath, kind }) => {
     if (!requestPath) return
 
     try {
@@ -90,14 +105,20 @@ async function hydrateAuthenticatedFiles() {
         signal: controller.signal,
         skipGlobalErrorHandler: true,
       })
-      if (controller.signal.aborted || generation !== hydrationGeneration || !root.contains(image)) return
+      if (controller.signal.aborted || generation !== hydrationGeneration || !root.contains(node)) return
 
       const objectUrl = URL.createObjectURL(response.data)
       objectUrls.add(objectUrl)
-      image.src = objectUrl
+      if (kind === 'image') {
+        node.src = objectUrl
+      } else {
+        node.href = objectUrl
+        node.removeAttribute('aria-disabled')
+      }
     } catch {
-      if (controller.signal.aborted || generation !== hydrationGeneration || !root.contains(image)) return
-      if (props.useImageFallback) image.src = '/images/default-emoticon.png'
+      if (controller.signal.aborted || generation !== hydrationGeneration || !root.contains(node)) return
+      if (kind === 'image' && props.useImageFallback) node.src = '/images/default-emoticon.png'
+      if (kind === 'link') node.setAttribute('aria-disabled', 'true')
     }
   }))
 
