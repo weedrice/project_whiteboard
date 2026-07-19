@@ -6,6 +6,7 @@ import com.weedrice.whiteboard.domain.notification.entity.Notification;
 import com.weedrice.whiteboard.domain.notification.entity.PushDeliveryJob;
 import com.weedrice.whiteboard.domain.notification.repository.PushDeliveryJobRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,18 +17,23 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 class PushDeliveryJobEnqueuer {
 
     private final WebPushProperties webPushProperties;
     private final PushDispatchSnapshotReader snapshotReader;
     private final PushDeliveryJobRepository jobRepository;
     private final PushPayloadFactory payloadFactory;
+    private final NotificationTargetUrlResolver targetUrlResolver;
     private final Clock clock;
 
     @Transactional(propagation = Propagation.MANDATORY)
     public int enqueue(NotificationEvent event, Notification notification) {
-        PushDispatchCommand command = PushDispatchCommand.from(notification);
-        if (!webPushProperties.isEnabled() || event == null || event.getEventId() == null || command == null) {
+        if (!webPushProperties.isEnabled() || event == null || event.getEventId() == null || notification == null) {
+            return 0;
+        }
+        PushDispatchCommand command = PushDispatchCommand.from(notification, resolveTargetUrl(notification));
+        if (command == null) {
             return 0;
         }
         List<PushSubscriptionSnapshot> subscriptions = snapshotReader.loadEnabledSubscriptions(command.userId());
@@ -49,5 +55,16 @@ class PushDeliveryJobEnqueuer {
                         now))
                 .filter(jobRepository::insertIfAbsent)
                 .count();
+    }
+
+    private String resolveTargetUrl(Notification notification) {
+        try {
+            return targetUrlResolver.resolve(notification);
+        } catch (RuntimeException exception) {
+            log.warn("Failed to resolve push target URL. notificationId={}, exceptionType={}",
+                    notification != null ? notification.getNotificationId() : null,
+                    exception.getClass().getSimpleName());
+            return null;
+        }
     }
 }

@@ -14,6 +14,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -35,7 +36,12 @@ class PushDeliveryJobEnqueuerTest {
         PushPayloadFactory payloadFactory = mock(PushPayloadFactory.class);
         Clock clock = Clock.fixed(Instant.parse("2026-07-18T00:00:00Z"), ZoneOffset.UTC);
         PushDeliveryJobEnqueuer enqueuer = new PushDeliveryJobEnqueuer(
-                properties, reader, repository, payloadFactory, clock);
+                properties,
+                reader,
+                repository,
+                payloadFactory,
+                notifications -> Map.of(7L, "/board/free/post/7"),
+                clock);
         UUID eventId = UUID.randomUUID();
         NotificationEvent event = mock(NotificationEvent.class);
         Notification notification = mock(Notification.class);
@@ -54,6 +60,11 @@ class PushDeliveryJobEnqueuerTest {
         when(repository.insertIfAbsent(org.mockito.ArgumentMatchers.any())).thenReturn(true);
 
         assertThat(enqueuer.enqueue(event, notification)).isEqualTo(2);
+
+        org.mockito.ArgumentCaptor<PushDispatchCommand> commandCaptor =
+                org.mockito.ArgumentCaptor.forClass(PushDispatchCommand.class);
+        verify(payloadFactory).create(commandCaptor.capture());
+        assertThat(commandCaptor.getValue().targetUrl()).isEqualTo("/board/free/post/7");
 
         org.mockito.ArgumentCaptor<PushDeliveryJob> captor = org.mockito.ArgumentCaptor.forClass(PushDeliveryJob.class);
         verify(repository, times(2)).insertIfAbsent(captor.capture());
@@ -76,7 +87,7 @@ class PushDeliveryJobEnqueuerTest {
         PushPayloadFactory payloadFactory = mock(PushPayloadFactory.class);
         Clock clock = Clock.fixed(Instant.parse("2026-07-18T00:00:00Z"), ZoneOffset.UTC);
         PushDeliveryJobEnqueuer enqueuer = new PushDeliveryJobEnqueuer(
-                properties, reader, repository, payloadFactory, clock);
+                properties, reader, repository, payloadFactory, notifications -> Map.of(), clock);
         NotificationEvent event = mock(NotificationEvent.class);
         Notification notification = mock(Notification.class);
         User receiver = mock(User.class);

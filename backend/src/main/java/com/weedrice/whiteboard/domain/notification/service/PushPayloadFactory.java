@@ -6,6 +6,8 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.JsonNode;
 
+import java.net.URI;
+
 @Component
 @RequiredArgsConstructor
 class PushPayloadFactory {
@@ -41,7 +43,25 @@ class PushPayloadFactory {
             String tag = command.notificationId() == null
                     ? command.notificationType()
                     : "notification-" + command.notificationId();
-            return new PushPayload(DEFAULT_TITLE, command.content(), DEFAULT_URL, tag, command.actorUserId());
+            return new PushPayload(
+                    DEFAULT_TITLE,
+                    command.content(),
+                    safeTargetUrl(command.targetUrl()),
+                    tag,
+                    command.actorUserId());
+        }
+
+        private static String safeTargetUrl(String targetUrl) {
+            if (targetUrl == null || targetUrl.isBlank() || !targetUrl.startsWith("/")
+                    || targetUrl.startsWith("//") || targetUrl.indexOf('\r') >= 0 || targetUrl.indexOf('\n') >= 0) {
+                return DEFAULT_URL;
+            }
+            try {
+                URI uri = URI.create(targetUrl);
+                return uri.isAbsolute() || uri.getAuthority() != null ? DEFAULT_URL : targetUrl;
+            } catch (IllegalArgumentException exception) {
+                return DEFAULT_URL;
+            }
         }
     }
 }

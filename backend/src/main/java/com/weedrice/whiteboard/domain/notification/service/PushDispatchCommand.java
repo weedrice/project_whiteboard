@@ -7,9 +7,10 @@ record PushDispatchCommand(
         Long actorUserId,
         Long notificationId,
         String content,
-        String notificationType) {
+        String notificationType,
+        String targetUrl) {
 
-    static PushDispatchCommand from(Notification notification) {
+    static PushDispatchCommand from(Notification notification, String targetUrl) {
         if (notification == null || notification.getUser() == null) {
             return null;
         }
@@ -21,6 +22,7 @@ record PushDispatchCommand(
                 notification.getActor() == null ? null : notification.getActor().getUserId(),
                 notification.getNotificationId(),
                 notification.getContent(),
-                type);
+                type,
+                targetUrl);
     }
 }
