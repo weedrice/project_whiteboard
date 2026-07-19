@@ -101,6 +101,17 @@ class AdminRepositoryTest {
     }
 
     @Test
+    @DisplayName("관리자 상태 변경 잠금은 연관 엔티티를 조인하지 않고 대상 행만 조회한다")
+    void findByAdminId_locksOnlyAdminRow() {
+        Admin result = adminRepository.findByAdminId(newerAdmin.getAdminId()).orElseThrow();
+        PersistenceUnitUtil persistenceUnitUtil = entityManagerFactory.getPersistenceUnitUtil();
+
+        assertThat(result.getAdminId()).isEqualTo(newerAdmin.getAdminId());
+        assertThat(persistenceUnitUtil.isLoaded(result, "user")).isFalse();
+        assertThat(persistenceUnitUtil.isLoaded(result, "board")).isFalse();
+    }
+
+    @Test
     @DisplayName("user id 목록으로 활성 관리자 조회 시 user를 함께 로드한다")
     void findByUserUserIdInAndIsActiveOrderByAdminIdAsc_fetchesUser() {
         List<Admin> result = adminRepository.findByUserUserIdInAndIsActiveOrderByAdminIdAsc(

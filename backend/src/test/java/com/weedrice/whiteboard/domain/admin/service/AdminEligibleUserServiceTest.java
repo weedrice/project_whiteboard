@@ -72,11 +72,11 @@ class AdminEligibleUserServiceTest {
     void lockActiveUser_locksCandidateById() {
         User user = User.builder().build();
         org.springframework.test.util.ReflectionTestUtils.setField(user, "userId", 7L);
-        when(userRepository.findActiveByIdForUpdate(7L)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(7L)).thenReturn(Optional.of(user));
 
         assertThat(adminEligibleUserService.lockActiveUser(user)).isSameAs(user);
 
-        verify(userRepository).findActiveByIdForUpdate(7L);
+        verify(userRepository).findByIdForUpdate(7L);
     }
 
     @Test
@@ -84,8 +84,8 @@ class AdminEligibleUserServiceTest {
     void lockActiveUser_rejectsUserThatBecameInactive() {
         User user = User.builder().build();
         org.springframework.test.util.ReflectionTestUtils.setField(user, "userId", 7L);
-        when(userRepository.findActiveByIdForUpdate(7L)).thenReturn(Optional.empty());
-        when(userRepository.existsById(7L)).thenReturn(true);
+        user.suspend();
+        when(userRepository.findByIdForUpdate(7L)).thenReturn(Optional.of(user));
 
         assertThatThrownBy(() -> adminEligibleUserService.lockActiveUser(user))
                 .isInstanceOf(BusinessException.class)

@@ -175,8 +175,7 @@ class AdminAssignmentServiceTest {
         inactiveAdmin.deactivate();
         ReflectionTestUtils.setField(inactiveAdmin, "adminId", 300L);
 
-        when(adminRepository.findById(300L)).thenReturn(Optional.of(inactiveAdmin));
-        when(boardRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(board));
+        stubAdminLock(300L, inactiveAdmin);
         doThrow(new BusinessException(ErrorCode.DUPLICATE_RESOURCE))
                 .when(duplicatePolicy)
                 .validateNoOtherActiveAdmin(inactiveAdmin, board);
@@ -191,8 +190,7 @@ class AdminAssignmentServiceTest {
     void activateAdmin_boardAdmin_delegatesToBoardManagerAssignmentService() {
         admin.deactivate();
 
-        when(adminRepository.findById(1L)).thenReturn(Optional.of(admin));
-        when(boardRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(board));
+        stubAdminLock(1L, admin);
 
         adminAssignmentService.activateAdmin(1L);
 
@@ -235,7 +233,7 @@ class AdminAssignmentServiceTest {
     void deactivateAdmin_success() {
         Admin moderator = Admin.builder().user(user).board(board).role(AdminRole.MODERATOR.name()).build();
         ReflectionTestUtils.setField(moderator, "adminId", 200L);
-        when(adminRepository.findById(200L)).thenReturn(Optional.of(moderator));
+        stubAdminLock(200L, moderator);
 
         adminAssignmentService.deactivateAdmin(200L);
 
@@ -246,7 +244,7 @@ class AdminAssignmentServiceTest {
     @Test
     @DisplayName("Last active board manager cannot be deactivated")
     void deactivateAdmin_lastActiveBoardAdmin_throwsValidationError() {
-        when(adminRepository.findById(100L)).thenReturn(Optional.of(admin));
+        stubAdminLock(100L, admin);
         doThrow(new BusinessException(ErrorCode.VALIDATION_ERROR))
                 .when(privilegeRevocationGuard)
                 .validateBoardAdminCanBeRevoked(admin);
@@ -261,11 +259,18 @@ class AdminAssignmentServiceTest {
     @Test
     @DisplayName("Board manager can be deactivated when another active manager remains")
     void deactivateAdmin_boardAdminWithAnotherActiveManager_success() {
-        when(adminRepository.findById(100L)).thenReturn(Optional.of(admin));
+        stubAdminLock(100L, admin);
 
         adminAssignmentService.deactivateAdmin(100L);
 
         assertThat(admin.getIsActive()).isFalse();
         verify(privilegeRevocationGuard).validateBoardAdminCanBeRevoked(admin);
+    }
+
+    private void stubAdminLock(Long adminId, Admin target) {
+        when(adminRepository.findById(adminId)).thenReturn(Optional.of(target));
+        when(boardRepository.findByIdForUpdate(target.getBoard().getBoardId()))
+                .thenReturn(Optional.of(target.getBoard()));
+        when(adminRepository.findByAdminId(adminId)).thenReturn(Optional.of(target));
     }
 }

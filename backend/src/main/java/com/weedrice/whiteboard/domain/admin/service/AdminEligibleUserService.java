@@ -37,12 +37,18 @@ public class AdminEligibleUserService {
 
     @Transactional
     public User lockActiveUser(User user) {
+        User lockedUser = lockUser(user);
+        validateActiveUser(lockedUser);
+        return lockedUser;
+    }
+
+    @Transactional
+    public User lockUser(User user) {
         if (user == null || user.getUserId() == null) {
             throw new BusinessException(ErrorCode.USER_NOT_FOUND);
         }
-        return userRepository.findActiveByIdForUpdate(user.getUserId())
-                .orElseThrow(() -> new BusinessException(
-                        userRepository.existsById(user.getUserId()) ? ErrorCode.USER_NOT_ACTIVE : ErrorCode.USER_NOT_FOUND));
+        return userRepository.findByIdForUpdate(user.getUserId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
     }
 
     public void validateActiveUser(User user) {

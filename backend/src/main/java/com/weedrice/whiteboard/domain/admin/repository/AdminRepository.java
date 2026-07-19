@@ -17,6 +17,9 @@ import java.util.List;
 import java.util.Optional;
 
 public interface AdminRepository extends JpaRepository<Admin, Long> {
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    Optional<Admin> findByAdminId(Long adminId);
+
     Optional<Admin> findByUserAndBoardAndIsActive(User user, Board board, Boolean isActive);
     List<Admin> findByIsActive(Boolean isActive);
     boolean existsByUserAndBoardAndRoleAndIsActive(User user, Board board, String role, Boolean isActive);

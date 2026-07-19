@@ -77,8 +77,7 @@ public class AdminAssignmentService {
 
     @Transactional
     public void deactivateAdmin(Long adminId) {
-        Admin admin = adminRepository.findById(adminId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+        Admin admin = lockAdminInAssignmentOrder(adminId, false);
         if (Role.BOARD_ADMIN.equals(admin.getRole()) && Boolean.TRUE.equals(admin.getIsActive())) {
             privilegeRevocationGuard.validateBoardAdminCanBeRevoked(admin);
         }
@@ -87,11 +86,8 @@ public class AdminAssignmentService {
 
     @Transactional
     public void activateAdmin(Long adminId) {
-        Admin admin = adminRepository.findById(adminId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
-        adminEligibleUserService.lockActiveUser(admin.getUser());
-        Board board = boardRepository.findByIdForUpdate(admin.getBoard().getBoardId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+        Admin admin = lockAdminInAssignmentOrder(adminId, true);
+        Board board = admin.getBoard();
         if (Role.BOARD_ADMIN.equals(admin.getRole())) {
             boardManagerAssignmentService.activateBoardManager(admin, board);
             return;
@@ -100,6 +96,20 @@ public class AdminAssignmentService {
         duplicatePolicy.validateNoOtherActiveAdmin(admin, board);
         admin.activate();
         duplicatePolicy.flushAndMapDuplicate(admin);
+    }
+
+    private Admin lockAdminInAssignmentOrder(Long adminId, boolean requireActiveUser) {
+        Admin snapshot = adminRepository.findById(adminId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+        if (requireActiveUser) {
+            adminEligibleUserService.lockActiveUser(snapshot.getUser());
+        } else {
+            adminEligibleUserService.lockUser(snapshot.getUser());
+        }
+        boardRepository.findByIdForUpdate(snapshot.getBoard().getBoardId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+        return adminRepository.findByAdminId(adminId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
     }
 
 }
