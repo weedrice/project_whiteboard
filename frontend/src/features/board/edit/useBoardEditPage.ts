@@ -98,6 +98,7 @@ export function useBoardEditPage() {
           || route.fullPath !== routeIntent
         ) return true
         toastStore.addToast(t('board.form.successUpdate'), 'success')
+        submissionContext?.markSaved?.()
         await router.push(`/board/${encodePathSegment(board.boardUrl)}`)
         return true
       } catch (err: unknown) {
@@ -117,7 +118,7 @@ export function useBoardEditPage() {
     })
   }
 
-  async function handleDelete() {
+  async function handleDelete(markSaved?: () => void) {
     const targetBoardUrl = boardUrl.value
     const sessionGeneration = authStore.sessionGeneration
     const isConfirmed = await confirm(t('board.form.deleteConfirm'))
@@ -134,6 +135,7 @@ export function useBoardEditPage() {
         || authStore.sessionGeneration !== sessionGeneration
       ) return
       toastStore.addToast(t('board.form.successDelete'), 'success')
+      markSaved?.()
       router.push('/')
     } catch (err: unknown) {
       if (

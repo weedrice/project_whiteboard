@@ -323,4 +323,36 @@ describe('BoardForm', () => {
 
     expect(signal.aborted).toBe(true)
   })
+
+  it('tracks unsaved changes, blocks browser unload, and can mark the current snapshot saved', async () => {
+    const wrapper = mount(BoardForm, {
+      global: {
+        mocks: { $t: (key: string) => key },
+        stubs: {
+          BaseInput: BaseInputStub,
+          BaseTextarea: BaseTextareaStub,
+          BaseCheckbox: BaseCheckboxStub,
+          BaseButton: BaseButtonStub,
+        },
+      },
+    })
+    const exposed = wrapper.vm as unknown as {
+      hasUnsavedChanges(): boolean
+      markCurrentSnapshotSaved(): void
+    }
+
+    expect(exposed.hasUnsavedChanges()).toBe(false)
+    const textInputs = wrapper.findAll('input')
+      .filter((input) => input.attributes('type') !== 'file' && input.attributes('type') !== 'checkbox')
+    await textInputs[0].setValue('Changed')
+    expect(exposed.hasUnsavedChanges()).toBe(true)
+
+    const event = new Event('beforeunload', { cancelable: true }) as BeforeUnloadEvent
+    window.dispatchEvent(event)
+    expect(event.defaultPrevented).toBe(true)
+
+    exposed.markCurrentSnapshotSaved()
+    expect(exposed.hasUnsavedChanges()).toBe(false)
+    wrapper.unmount()
+  })
 })

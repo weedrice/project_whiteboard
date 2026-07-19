@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
@@ -13,6 +13,7 @@ import {
 import { IMAGE_UPLOAD_ACCEPT } from '@/utils/imageUploadPolicy'
 import { useAuthStore } from '@/stores/auth'
 import { BOARD_WRITE_LIMITS } from '@/utils/board'
+import { usePwaReloadBlocker } from '@/pwaReloadGuard'
 
 type BoardData = BoardFormData
 
@@ -43,6 +44,16 @@ const emit = defineEmits<{
   (e: 'submit', data: BoardData): void
   (e: 'cancel'): void
 }>()
+
+function formSnapshot(data: BoardData) {
+  return JSON.stringify({
+    ...data,
+    agentUseYn: data.isPublic ? data.agentUseYn : false,
+  })
+}
+
+const savedSnapshot = ref(formSnapshot(props.initialData))
+const savedSelectedFile = ref<File | null>(null)
 
 const isEditMode = computed(() => props.isEdit)
 const authStore = useAuthStore()
@@ -78,9 +89,42 @@ const {
   submitAction: props.submitAction,
   emitSubmit: (data) => emit('submit', data),
   getSessionGeneration: () => authStore.sessionGeneration,
+  markSaved: markCurrentSnapshotSaved,
 })
 
 const isSubmitting = computed(() => props.isSubmitting || localIsSubmitting.value)
+const hasUnsavedChangesState = computed(() => (
+  selectedFile.value !== savedSelectedFile.value || formSnapshot(form.value) !== savedSnapshot.value
+))
+
+watch(() => props.initialData, (initialData) => {
+  savedSnapshot.value = formSnapshot(initialData)
+  savedSelectedFile.value = null
+}, { deep: true })
+
+function hasUnsavedChanges() {
+  return hasUnsavedChangesState.value
+}
+
+function markCurrentSnapshotSaved() {
+  savedSnapshot.value = formSnapshot(form.value)
+  savedSelectedFile.value = selectedFile.value
+}
+
+function handleBeforeUnload(event: BeforeUnloadEvent) {
+  if (!hasUnsavedChanges()) return
+  event.preventDefault()
+  event.returnValue = ''
+}
+
+usePwaReloadBlocker(hasUnsavedChangesState)
+onMounted(() => window.addEventListener('beforeunload', handleBeforeUnload))
+onBeforeUnmount(() => window.removeEventListener('beforeunload', handleBeforeUnload))
+
+defineExpose({
+  hasUnsavedChanges,
+  markCurrentSnapshotSaved,
+})
 </script>
 
 <template>

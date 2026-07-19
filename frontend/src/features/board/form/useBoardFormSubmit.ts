@@ -20,6 +20,7 @@ import logger from '@/utils/logger'
 export interface BoardFormSubmitContext {
   signal: AbortSignal
   commitUpload: () => void
+  markSaved?: () => void
 }
 
 export type BoardFormSubmitAction = (
@@ -36,6 +37,7 @@ interface UseBoardFormSubmitOptions {
   submitAction?: BoardFormSubmitAction
   emitSubmit: (data: BoardFormData) => void
   getSessionGeneration?: () => number
+  markSaved?: () => void
 }
 
 function toBoardSubmitPayload(form: BoardFormData, iconUrl: string): BoardFormData {
@@ -196,7 +198,11 @@ export function useBoardFormSubmit(options: UseBoardFormSubmitOptions) {
 
         activeMutationStarted = true
         const succeeded = options.submitAction
-          ? await options.submitAction(payload, { signal: controller.signal, commitUpload })
+          ? await options.submitAction(payload, {
+              signal: controller.signal,
+              commitUpload,
+              markSaved: options.markSaved,
+            })
           : (options.emitSubmit(payload), true)
 
         if (succeeded) {

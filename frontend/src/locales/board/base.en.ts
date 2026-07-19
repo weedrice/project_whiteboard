@@ -106,6 +106,7 @@ export const boardEnBaseMessages = {
     createFailed: 'Failed to create space.',
     updateFailed: 'Failed to update space.',
     deleteFailed: 'Failed to delete space.',
+    leaveConfirm: 'Leave this page? Unsaved space changes may be lost.',
     placeholder: {
       name: 'e.g. Free space',
       url: 'e.g. free, qna',

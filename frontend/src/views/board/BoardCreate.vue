@@ -14,6 +14,8 @@ import { useAuthStore } from '@/stores/auth'
 import { captureAuthSessionIntent, isAuthSessionIntentCurrent } from '@/utils/authSessionIntent'
 import { isCancellationError } from '@/utils/cancellationError'
 import type { BoardFormSubmitContext } from '@/features/board/form/useBoardFormSubmit'
+import { usePostFormLeaveGuard } from '@/features/board/posts/form/usePostFormLeaveGuard'
+import { useConfirm } from '@/composables/useConfirm'
 
 interface BoardData {
   boardName: string
@@ -35,6 +37,10 @@ const { isSubmitting, submit } = useFormSubmit()
 const { handleError } = useErrorHandler()
 const { useCreateBoard } = useBoard()
 const { mutateAsync: createBoard } = useCreateBoard()
+const boardFormRef = ref<InstanceType<typeof BoardForm> | null>(null)
+const { confirm } = useConfirm()
+
+usePostFormLeaveGuard(boardFormRef, t('board.form.leaveConfirm'), confirm)
 
 const error = ref('')
 let createController: AbortController | null = null
@@ -75,6 +81,7 @@ async function handleCreate(
         || !isAuthSessionIntentCurrent(authStore, intent)
         || route.fullPath !== routeIntent
       ) return true
+      submissionContext?.markSaved?.()
       await router.push(`/board/${encodePathSegment(board.boardUrl)}`)
       return true
     } catch (err: unknown) {
@@ -97,7 +104,7 @@ onScopeDispose(() => createController?.abort())
   <div class="max-w-3xl mx-auto">
     <PageHeader :title="$t('board.form.createTitle')" size="hero" class="mb-6" />
 
-    <BoardForm :isSubmitting="isSubmitting" :error="error" :submit-action="handleCreate"
+    <BoardForm ref="boardFormRef" :isSubmitting="isSubmitting" :error="error" :submit-action="handleCreate"
       @submit="handleCreate" @cancel="router.back()" />
   </div>
 </template>

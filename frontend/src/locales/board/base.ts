@@ -102,6 +102,7 @@ export const boardBaseMessages = {
     createFailed: '스페이스 생성에 실패했습니다.',
     updateFailed: '스페이스 수정에 실패했습니다.',
     deleteFailed: '스페이스 삭제에 실패했습니다.',
+    leaveConfirm: '페이지에서 나가시겠습니까? 저장되지 않은 스페이스 변경 사항이 사라질 수 있습니다.',
     placeholder: {
       name: '예: 자유 스페이스',
       url: '예: free, qna',

@@ -7,6 +7,15 @@ import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import PageHeader from '@/components/common/ui/PageHeader.vue'
 import UserSelectModal from '@/components/common/widgets/UserSelectModal.vue'
 import { useBoardEditPage } from '@/features/board/edit/useBoardEditPage'
+import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { useConfirm } from '@/composables/useConfirm'
+import { usePostFormLeaveGuard } from '@/features/board/posts/form/usePostFormLeaveGuard'
+
+const { t } = useI18n()
+const { confirm } = useConfirm()
+const boardFormRef = ref<InstanceType<typeof BoardForm> | null>(null)
+usePostFormLeaveGuard(boardFormRef, t('board.form.leaveConfirm'), confirm)
 
 const {
   boardUrl,
@@ -25,6 +34,10 @@ const {
   isTransferringManager,
   openManagerModal
 } = useBoardEditPage()
+
+function deleteBoard() {
+  return handleDelete(() => boardFormRef.value?.markCurrentSnapshotSaved())
+}
 
 </script>
 
@@ -51,7 +64,7 @@ const {
 
       <div class="px-4 py-5 sm:p-6 space-y-6">
         <!-- Board Form -->
-        <BoardForm :initialData="form" :isEdit="true" :isSubmitting="isSubmitting" :error="error"
+        <BoardForm ref="boardFormRef" :initialData="form" :isEdit="true" :isSubmitting="isSubmitting" :error="error"
           :submit-action="handleUpdate" @submit="handleUpdate"
           @cancel="goBack" />
 
@@ -84,7 +97,7 @@ const {
 
         <!-- Delete Board (Moved to bottom right) -->
         <div class="flex justify-end">
-          <BaseButton type="button" @click="handleDelete" variant="danger">
+          <BaseButton type="button" @click="deleteBoard" variant="danger">
             {{ $t('board.form.delete') }}
           </BaseButton>
         </div>

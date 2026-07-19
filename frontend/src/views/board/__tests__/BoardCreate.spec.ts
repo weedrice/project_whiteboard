@@ -25,6 +25,9 @@ vi.mock('@/composables/useFormSubmit', () => ({
 vi.mock('@/composables/useErrorHandler', () => ({
   useErrorHandler: () => ({ handleError: mocks.handleError }),
 }))
+vi.mock('@/composables/useConfirm', () => ({
+  useConfirm: () => ({ confirm: vi.fn().mockResolvedValue(true) }),
+}))
 vi.mock('@/features/board/useBoard', () => ({
   useBoard: () => ({ useCreateBoard: () => ({ mutateAsync: mocks.createBoard }) }),
 }))
