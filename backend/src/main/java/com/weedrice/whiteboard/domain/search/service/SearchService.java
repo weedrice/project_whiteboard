@@ -122,13 +122,20 @@ public class SearchService {
         LocalDate today = DateTimeUtils.nowKST().toLocalDate();
         return switch (normalizedPeriod) {
             case "TODAY" -> SearchDateRange.between(today, today);
-            case "WEEK" -> SearchDateRange.between(today.minusWeeks(1), today);
-            case "MONTH" -> SearchDateRange.between(today.minusMonths(1), today);
-            case "CUSTOM" -> SearchDateRange.between(
-                    SearchRequestNormalizer.parseOptionalDate(from),
-                    SearchRequestNormalizer.parseOptionalDate(to));
+            case "WEEK" -> SearchDateRange.between(today.minusWeeks(1).plusDays(1), today);
+            case "MONTH" -> SearchDateRange.between(today.minusMonths(1).plusDays(1), today);
+            case "CUSTOM" -> customDateRange(from, to);
             default -> throw new BusinessException(ErrorCode.VALIDATION_ERROR);
         };
+    }
+
+    private SearchDateRange customDateRange(String from, String to) {
+        LocalDate startDate = SearchRequestNormalizer.parseOptionalDate(from);
+        LocalDate endDate = SearchRequestNormalizer.parseOptionalDate(to);
+        if (startDate != null && endDate != null && startDate.isAfter(endDate)) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+        }
+        return SearchDateRange.between(startDate, endDate);
     }
 
     private record SearchDateRange(LocalDateTime from, LocalDateTime to) {
@@ -186,8 +193,8 @@ public class SearchService {
     private LocalDate resolvePopularKeywordStartDate(String period, LocalDate endDate) {
         return switch (period) {
             case "DAILY" -> endDate;
-            case "MONTHLY" -> endDate.minusMonths(1);
-            case "WEEKLY" -> endDate.minusWeeks(1);
+            case "MONTHLY" -> endDate.minusMonths(1).plusDays(1);
+            case "WEEKLY" -> endDate.minusWeeks(1).plusDays(1);
             default -> throw new BusinessException(ErrorCode.VALIDATION_ERROR);
         };
     }

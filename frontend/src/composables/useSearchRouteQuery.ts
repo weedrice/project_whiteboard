@@ -49,6 +49,12 @@ export function useSearchRouteQuery() {
     getCurrentSearchQuery: () => searchQuery.value,
   })
   const hasSearchQuery = computed(() => searchQuery.value.length > 0)
+  const isCustomDateRangeValid = computed(() => {
+    if (periodInput.value.trim().toUpperCase() !== 'CUSTOM') return true
+    const from = fromInput.value.trim()
+    const to = toInput.value.trim()
+    return !from || !to || from <= to
+  })
   const params = computed<SearchParams>(() => {
     const nextParams: SearchParams = {
       q: searchQuery.value,
@@ -173,6 +179,7 @@ export function useSearchRouteQuery() {
     boardUrlQuery,
     pageQuery,
     hasSearchQuery,
+    isCustomDateRangeValid,
     params,
     handleSearchSubmit,
     buildFilterQuery,

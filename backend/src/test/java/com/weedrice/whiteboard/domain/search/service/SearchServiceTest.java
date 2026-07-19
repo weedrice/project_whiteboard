@@ -544,7 +544,7 @@ class SearchServiceTest {
                 startDateCaptor.capture(),
                 endDateCaptor.capture(),
                 eq(PageRequest.of(0, 10)));
-        assertThat(startDateCaptor.getValue().plusWeeks(1)).isEqualTo(endDateCaptor.getValue());
+        assertThat(startDateCaptor.getValue().plusDays(6)).isEqualTo(endDateCaptor.getValue());
     }
 
     @Test
@@ -716,6 +716,77 @@ class SearchServiceTest {
 
         verify(searchPersonalizationRepository).deleteAllByUserId(userId);
         verify(searchUserLookupPolicy).validateExists(userId);
+    }
+
+    @Test
+    void searchPosts_weekUsesSevenCalendarDays() {
+        when(postRepository.searchPosts(anyString(), any(), any(), any(), any(), any(), any(), anyBoolean(), any(),
+                any(Pageable.class))).thenReturn(Page.empty());
+
+        searchService.searchPosts("test", null, null, null, null, null, "WEEK",
+                0, 20, Sort.unsorted(), null);
+
+        ArgumentCaptor<LocalDateTime> fromCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
+        ArgumentCaptor<LocalDateTime> toCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
+        verify(postRepository).searchPosts(eq("test"), isNull(), isNull(), isNull(), fromCaptor.capture(),
+                toCaptor.capture(), isNull(), eq(false), isNull(), any(Pageable.class));
+        assertThat(java.time.Duration.between(fromCaptor.getValue(), toCaptor.getValue()).toDays()).isEqualTo(7L);
+    }
+
+    @Test
+    void searchPosts_monthUsesOneCalendarMonth() {
+        when(postRepository.searchPosts(anyString(), any(), any(), any(), any(), any(), any(), anyBoolean(), any(),
+                any(Pageable.class))).thenReturn(Page.empty());
+
+        searchService.searchPosts("test", null, null, null, null, null, "MONTH",
+                0, 20, Sort.unsorted(), null);
+
+        ArgumentCaptor<LocalDateTime> fromCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
+        ArgumentCaptor<LocalDateTime> toCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
+        verify(postRepository).searchPosts(eq("test"), isNull(), isNull(), isNull(), fromCaptor.capture(),
+                toCaptor.capture(), isNull(), eq(false), isNull(), any(Pageable.class));
+        assertThat(fromCaptor.getValue().toLocalDate())
+                .isEqualTo(toCaptor.getValue().toLocalDate().minusMonths(1));
+    }
+
+    @Test
+    void searchPosts_rejectsReversedCustomDateRange() {
+        assertThatThrownBy(() -> searchService.searchPosts(
+                "test", null, null, null, "2026-07-20", "2026-07-10", "CUSTOM",
+                0, 20, Sort.unsorted(), null))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.VALIDATION_ERROR);
+
+        verify(postRepository, never()).searchPosts(any(), any(), any(), any(), any(), any(), any(), anyBoolean(),
+                any(), any());
+    }
+
+    @Test
+    void popularKeywords_weeklyUsesSevenCalendarDays() {
+        when(searchStatisticRepository.findPopularKeywords(any(), any(), any())).thenReturn(List.of());
+
+        searchService.getPopularKeywords("WEEKLY", 10);
+
+        ArgumentCaptor<LocalDate> startCaptor = ArgumentCaptor.forClass(LocalDate.class);
+        ArgumentCaptor<LocalDate> endCaptor = ArgumentCaptor.forClass(LocalDate.class);
+        verify(searchStatisticRepository).findPopularKeywords(
+                startCaptor.capture(), endCaptor.capture(), eq(PageRequest.of(0, 10)));
+        assertThat(java.time.temporal.ChronoUnit.DAYS.between(startCaptor.getValue(), endCaptor.getValue()))
+                .isEqualTo(6L);
+    }
+
+    @Test
+    void popularKeywords_monthlyMatchesPostSearchBoundary() {
+        when(searchStatisticRepository.findPopularKeywords(any(), any(), any())).thenReturn(List.of());
+
+        searchService.getPopularKeywords("MONTHLY", 10);
+
+        ArgumentCaptor<LocalDate> startCaptor = ArgumentCaptor.forClass(LocalDate.class);
+        ArgumentCaptor<LocalDate> endCaptor = ArgumentCaptor.forClass(LocalDate.class);
+        verify(searchStatisticRepository).findPopularKeywords(
+                startCaptor.capture(), endCaptor.capture(), eq(PageRequest.of(0, 10)));
+        assertThat(startCaptor.getValue()).isEqualTo(endCaptor.getValue().minusMonths(1).plusDays(1));
     }
 
     private SearchStatisticRepository.PopularKeywordProjection popularKeyword(String keyword, Long count) {

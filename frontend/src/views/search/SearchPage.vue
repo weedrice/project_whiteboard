@@ -95,6 +95,7 @@
               name="from"
               type="date"
               :label="$t('search.fromDate')"
+              :max="toInput || undefined"
               inputClass="h-10"
             />
             <BaseInput
@@ -104,9 +105,15 @@
               name="to"
               type="date"
               :label="$t('search.toDate')"
+              :min="fromInput || undefined"
               inputClass="h-10"
             />
-            <BaseButton type="submit" variant="secondary" class="h-10 self-end">
+            <BaseButton
+              type="submit"
+              variant="secondary"
+              class="h-10 self-end"
+              :disabled="!isCustomDateRangeValid"
+            >
               {{ $t('search.applyFilters') }}
             </BaseButton>
           </form>
@@ -421,6 +428,7 @@ const {
   buildFilterQuery,
   buildQueryWithoutFilter,
   buildPageQuery,
+  isCustomDateRangeValid,
 } = useSearchRouteQuery()
 const isFilterOpen = ref(false)
 

@@ -129,6 +129,21 @@ describe('useSearchRouteQuery', () => {
     })
   })
 
+  it('identifies reversed custom date input before navigation', () => {
+    const routeQuery = useSearchRouteQuery()
+    routeQuery.periodInput.value = 'CUSTOM'
+    routeQuery.fromInput.value = '2026-07-20'
+    routeQuery.toInput.value = '2026-07-10'
+
+    expect(routeQuery.isCustomDateRangeValid.value).toBe(false)
+
+    routeQuery.toInput.value = '2026-07-20'
+    expect(routeQuery.isCustomDateRangeValid.value).toBe(true)
+
+    routeQuery.toInput.value = ''
+    expect(routeQuery.isCustomDateRangeValid.value).toBe(true)
+  })
+
   it('preserves boardUrl as a supported integrated and semantic search scope', () => {
     routeState.query = { q: 'old', boardUrl: ' notice ' }
     const routeQuery = useSearchRouteQuery()
