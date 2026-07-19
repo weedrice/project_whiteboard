@@ -44,7 +44,7 @@ class NotificationQueryServiceTest {
         queryService = new NotificationQueryService(
                 notificationRepository,
                 notifications -> Map.of(),
-                userBlockRepository);
+                new NotificationActorVisibilityService(userBlockRepository));
         User user = User.builder().build();
         ReflectionTestUtils.setField(user, "userId", 1L);
         notification = Notification.builder()

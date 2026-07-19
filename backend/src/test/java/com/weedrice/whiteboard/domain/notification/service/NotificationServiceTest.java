@@ -589,11 +589,12 @@ class NotificationServiceTest {
                 messageSource);
         NotificationDeliveryPublisher deliveryPublisher = new NotificationDeliveryPublisher(
                 streamPublisher,
-                notifications -> Collections.emptyMap());
+                notifications -> Collections.emptyMap(),
+                new NotificationActorVisibilityService(userBlockRepository));
         NotificationQueryService queryService = new NotificationQueryService(
                 notificationRepository,
                 notifications -> Collections.emptyMap(),
-                userBlockRepository);
+                new NotificationActorVisibilityService(userBlockRepository));
         NotificationReadCommandService readCommandService =
                 new NotificationReadCommandService(commandService);
         return new NotificationService(

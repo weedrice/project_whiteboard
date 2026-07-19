@@ -15,6 +15,7 @@ class NotificationDeliveryPublisher {
 
     private final NotificationStreamPublisher streamPublisher;
     private final NotificationTargetUrlResolver targetUrlResolver;
+    private final NotificationActorVisibilityService actorVisibilityService;
 
     void publishAfterCommit(Long userId, Notification notification) {
         if (!TransactionSynchronizationManager.isSynchronizationActive()) {
@@ -35,7 +36,8 @@ class NotificationDeliveryPublisher {
                     userId,
                     NotificationResponse.NotificationSummary.from(
                             notification,
-                            targetUrlResolver.resolve(notification)));
+                            targetUrlResolver.resolve(notification),
+                            actorVisibilityService.shouldHideActor(userId, notification)));
         } catch (RuntimeException exception) {
             log.warn("Failed to deliver notification SSE. userId={}, notificationId={}, exceptionType={}",
                     userId,

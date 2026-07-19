@@ -307,6 +307,21 @@ describe('CommentForm', () => {
     )
   })
 
+  it('ignores a previous post response after the form identity changes', async () => {
+    const wrapper = mountCommentForm()
+    await wrapper.get('textarea').setValue('previous post comment')
+    await wrapper.get('form').trigger('submit')
+    const previousCallbacks = createComment.mock.calls[0]?.[1]
+
+    await wrapper.setProps({ postId: 11, initialContent: '', initialMentions: [] })
+    await wrapper.get('textarea').setValue('new post draft')
+    previousCallbacks.onSuccess({ data: { success: true, data: { earnedPoints: 5 } } })
+
+    expect(wrapper.get('textarea').element).toHaveProperty('value', 'new post draft')
+    expect(addToast).not.toHaveBeenCalled()
+    expect(wrapper.emitted('success')).toBeUndefined()
+  })
+
   it('trims content before updating a comment', async () => {
     const wrapper = mountCommentForm({
       commentId: 30,

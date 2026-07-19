@@ -47,6 +47,7 @@ const emit = defineEmits<{
 const { useCreateComment, useUpdateComment } = useComment()
 const { mutate: createComment, isPending: isCreating } = useCreateComment()
 const { mutate: updateComment, isPending: isUpdating } = useUpdateComment()
+let formRevision = 0
 
 const content = ref(props.initialContent)
 const isSubmitting = computed(() => isCreating.value || isUpdating.value)
@@ -154,6 +155,7 @@ const handleMentionKeydown = mentionAutocomplete.handleKeydown
 watch(
   () => [props.postId, props.parentId, props.commentId] as const,
   () => {
+    formRevision += 1
     content.value = props.initialContent
     selectedMentionUsers.value = props.initialMentions.map((mention) => ({
       userId: mention.userId,
@@ -197,13 +199,16 @@ const handleEmoticonSelect = (image: EmoticonImage) => {
     content: emoticonContent,
     parentId: props.parentId ? Number(props.parentId) : null
   }
+  const submissionRevision = formRevision
   
   createComment({ postId: props.postId, data: payload }, {
     onSuccess: (response) => {
+      if (submissionRevision !== formRevision) return
       showEarnedPointsToast(response)
       emit('success')
     },
     onError: (err) => {
+      if (submissionRevision !== formRevision) return
       handleCommentSubmitError('Failed to post emoticon comment:', err)
     }
   })
@@ -215,6 +220,7 @@ async function handleSubmit() {
 
   showEmoticonPicker.value = false
   closeMentionMenu()
+  const submissionRevision = formRevision
 
   if (props.commentId) {
     // Update existing comment
@@ -224,9 +230,11 @@ async function handleSubmit() {
     }
     updateComment({ commentId: props.commentId, postId: props.postId, data: payload }, {
       onSuccess: () => {
+        if (submissionRevision !== formRevision) return
         emit('success')
       },
       onError: (err) => {
+        if (submissionRevision !== formRevision) return
         handleCommentSubmitError('Failed to save comment:', err)
       }
     })
@@ -241,6 +249,7 @@ async function handleSubmit() {
     }
     createComment({ postId: props.postId, data: payload }, {
       onSuccess: (response) => {
+        if (submissionRevision !== formRevision) return
         showEarnedPointsToast(response)
         content.value = ''
         selectedMentionUsers.value = []
@@ -248,6 +257,7 @@ async function handleSubmit() {
         emit('success')
       },
       onError: (err) => {
+        if (submissionRevision !== formRevision) return
         handleCommentSubmitError('Failed to save comment:', err)
       }
     })

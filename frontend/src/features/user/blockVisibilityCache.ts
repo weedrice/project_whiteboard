@@ -6,6 +6,7 @@ import { commentQueryKeys } from '@/features/comments/queries/commentQueryKeys'
 import { feedQueryKeys } from '@/features/feed/feedQueryKeys'
 import { postQueryKeys } from '@/features/board/posts/queries/postQueryKeys'
 import { userQueryKeys } from '@/features/user/userQueryKeys'
+import { notificationsQueryKey } from '@/features/notifications/queries/notificationQueryKeys'
 import { sessionQueryKey } from '@/queryAuthScope'
 
 export const messageVisibilityQueryKeys = {
@@ -33,6 +34,7 @@ export function invalidateBlockVisibilityCaches(
     commentQueryKeys.all,
     messageVisibilityQueryKeys.all,
     messageVisibilityQueryKeys.unreadCount,
+    notificationsQueryKey,
   ]
 
   return Promise.all(visibilityRoots.map((queryKey) => queryClient.invalidateQueries({

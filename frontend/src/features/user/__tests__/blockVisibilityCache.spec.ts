@@ -25,7 +25,8 @@ describe('invalidateBlockVisibilityCaches', () => {
       ['session', 7, 'comments'],
       ['session', 7, 'messages'],
       ['session', 7, 'messages', 'unread-count'],
+      ['session', 7, 'notifications'],
     ]))
-    expect(invalidateQueries).toHaveBeenCalledTimes(14)
+    expect(invalidateQueries).toHaveBeenCalledTimes(15)
   })
 })

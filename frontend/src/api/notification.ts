@@ -13,7 +13,7 @@ export interface NotificationParams {
 }
 
 export interface CommentStreamEvent {
-    action: 'CREATED' | 'DELETED'
+    action: 'CREATED' | 'UPDATED' | 'DELETED'
     postId: number
     commentId: number
     actorUserId: number

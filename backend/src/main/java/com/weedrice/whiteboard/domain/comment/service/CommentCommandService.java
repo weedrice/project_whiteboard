@@ -32,6 +32,7 @@ import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import com.weedrice.whiteboard.global.config.AnonymousReadCacheInvalidator;
 import com.weedrice.whiteboard.global.util.InputSanitizer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -71,6 +72,7 @@ public class CommentCommandService {
     private final SemanticSearchEventPublisher semanticSearchEventPublisher;
     private final CommentLikeCommand commentLikeCommand;
     private final BadgeEvaluationService badgeEvaluationService;
+    private final AnonymousReadCacheInvalidator anonymousReadCacheInvalidator;
 
     @Transactional
     public Long createComment(CommentCreateCommand command) {
@@ -140,6 +142,7 @@ public class CommentCommandService {
         publishMentionNotifications(user, agent, savedComment.getCommentId(), content, mentionedUserIds);
         semanticSearchEventPublisher.publish("COMMENT", savedComment.getCommentId(), SemanticSearchIndexAction.UPSERT);
         publishCommentStreamEvent("CREATED", post.getPostId(), savedComment.getCommentId(), userId);
+        anonymousReadCacheInvalidator.evictPostEngagementCachesAfterCommit(post.getBoard().getBoardUrl());
         badgeEvaluationService.evaluateCommentCountBadges(userId);
 
         return CommentCreateResponse.builder()
@@ -256,6 +259,7 @@ public class CommentCommandService {
                     storedMentionedUsers.stream().map(User::getUserId).toList());
         }
         semanticSearchEventPublisher.publish("COMMENT", comment.getCommentId(), SemanticSearchIndexAction.UPSERT);
+        publishCommentStreamEvent("UPDATED", target.post().getPostId(), comment.getCommentId(), userId);
         return comment.getCommentId();
     }
 
@@ -276,6 +280,8 @@ public class CommentCommandService {
         contentRewardService.rollbackCreateReward(user, commentId, ContentRewardPolicy.COMMENT);
         semanticSearchEventPublisher.publish("COMMENT", comment.getCommentId(), SemanticSearchIndexAction.DELETE);
         publishCommentStreamEvent("DELETED", postId, comment.getCommentId(), userId);
+        anonymousReadCacheInvalidator.evictPostEngagementCachesAfterCommit(
+                target.post().getBoard().getBoardUrl());
     }
 
     private void publishCommentStreamEvent(String action, Long postId, Long commentId, Long actorUserId) {

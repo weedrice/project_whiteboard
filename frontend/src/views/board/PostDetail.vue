@@ -369,7 +369,7 @@ const stopCommentStreamListener = onCommentStreamEvent((event) => {
   if (event.sessionGeneration !== authStore.sessionGeneration) return
   if (String(event.postId) !== String(postId.value)) return
 
-  if (event.action === 'DELETED') {
+  if (event.action === 'UPDATED' || event.action === 'DELETED') {
     scheduleCommentRefresh(event.sessionGeneration)
     return
   }

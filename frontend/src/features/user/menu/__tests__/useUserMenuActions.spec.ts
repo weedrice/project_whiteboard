@@ -124,7 +124,8 @@ describe('useUserMenuActions', () => {
         expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'messages'] })
         expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'messages', 'unread-count'] })
         expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'tags'] })
-        expect(invalidateQueries).toHaveBeenCalledTimes(14)
+        expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'notifications'] })
+        expect(invalidateQueries).toHaveBeenCalledTimes(15)
     })
 
     it('does not block a replacement target after a delayed confirmation', async () => {

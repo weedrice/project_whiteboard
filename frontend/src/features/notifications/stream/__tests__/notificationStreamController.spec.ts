@@ -7,6 +7,7 @@ import {
 import type { Notification } from '@/types'
 import { subscribeNotificationStreamConnection } from '@/features/notifications/stream/notificationStreamConnectionEvents'
 import { subscribeMessageStreamEvents } from '@/features/user/messages/messageStreamEvents'
+import { onCommentStreamEvent } from '@/features/comments/commentStreamEvents'
 
 vi.mock('@/utils/logger', () => ({
     default: {
@@ -113,6 +114,39 @@ describe('notificationStreamController dependencies', () => {
         expect(unreadCount).toBe(1)
     })
 
+    it('forwards updated comment events to comment listeners', async () => {
+        const commentEvents: unknown[] = []
+        const stop = onCommentStreamEvent((event) => commentEvents.push(event))
+        const openStream = vi.fn().mockResolvedValue({
+            ok: true,
+            body: createSseStream(
+                'event: comment\ndata: {"action":"UPDATED","postId":3,"commentId":9,"actorUserId":4,"occurredAt":"2026-07-19T12:00:00"}\n\n',
+            ),
+        } as Response)
+        const queryClient = {
+            setQueriesData: vi.fn(),
+            setQueryData: vi.fn(),
+            invalidateQueries: vi.fn(),
+        } as unknown as QueryClient
+        const controller = createNotificationStreamController(queryClient, {
+            openStream,
+            resolveAuthStore: (() => ({ accessToken: 'token', sessionGeneration: 7 })) as never,
+        })
+
+        controller.connectToSse()
+        await flushAsync()
+
+        expect(commentEvents).toContainEqual(expect.objectContaining({
+            action: 'UPDATED',
+            postId: 3,
+            commentId: 9,
+            sessionGeneration: 7,
+        }))
+
+        controller.closeSse()
+        stop()
+    })
+
     it('emits a message stream event only once for a duplicate notification', async () => {
         const notification: Notification = {
             notificationId: 42,
@@ -168,6 +202,7 @@ describe('notificationStreamController dependencies', () => {
         const queryClient = {
             setQueriesData: vi.fn(),
             setQueryData: vi.fn(),
+            invalidateQueries: vi.fn(),
         } as unknown as QueryClient
 
         createNotificationStreamController(queryClient, {
@@ -264,6 +299,7 @@ describe('notificationStreamController dependencies', () => {
         const queryClient = {
             setQueriesData: vi.fn(),
             setQueryData: vi.fn(),
+            invalidateQueries: vi.fn(),
         } as unknown as QueryClient
         const controller = createNotificationStreamController(queryClient, {
             openStream,
@@ -281,6 +317,11 @@ describe('notificationStreamController dependencies', () => {
 
         expect(openStream).toHaveBeenCalledTimes(2)
         expect(openStream).toHaveBeenLastCalledWith('test-token', expect.any(AbortSignal))
+        expect(vi.mocked(queryClient.invalidateQueries).mock.calls).toEqual(
+            eventType === 'comment-topic-access-revoked'
+                ? [[{ queryKey: ['session', 7] }]]
+                : [],
+        )
 
         controller.closeSse()
     })

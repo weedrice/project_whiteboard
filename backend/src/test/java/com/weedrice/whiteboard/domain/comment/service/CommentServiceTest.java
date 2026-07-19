@@ -20,6 +20,7 @@ import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.comment.repository.CommentVersionRepository;
 import com.weedrice.whiteboard.domain.notification.constant.NotificationSourceType;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
+import com.weedrice.whiteboard.domain.notification.dto.CommentStreamEvent;
 import com.weedrice.whiteboard.domain.notification.service.CommentStreamEventDispatcher;
 import com.weedrice.whiteboard.domain.notification.service.MentionService;
 import com.weedrice.whiteboard.domain.badge.service.BadgeEvaluationService;
@@ -41,6 +42,7 @@ import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import com.weedrice.whiteboard.global.config.AnonymousReadCacheInvalidator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -135,6 +137,8 @@ class CommentServiceTest {
     private CommentStreamEventDispatcher commentStreamEventDispatcher;
     @Mock
     private BadgeEvaluationService badgeEvaluationService;
+    @Mock
+    private AnonymousReadCacheInvalidator anonymousReadCacheInvalidator;
 
     @BeforeEach
     void setUp() {
@@ -216,7 +220,8 @@ class CommentServiceTest {
                 commentStreamEventDispatcher,
                 semanticSearchEventPublisher,
                 commentLikeCommand,
-                badgeEvaluationService);
+                badgeEvaluationService,
+                anonymousReadCacheInvalidator);
         commentService = new CommentService(commentQueryService, commentCommandService);
     }
 
@@ -248,6 +253,7 @@ class CommentServiceTest {
         assertThat(commentCaptor.getValue().getDepth()).isZero();
         verify(commentClosureRepository).createSelfClosure(10L);
         verify(postRepository).incrementCommentCount(1L);
+        verify(anonymousReadCacheInvalidator).evictPostEngagementCachesAfterCommit("free");
         verify(pointService).addPointIfAbsent(eq(1L), eq(10), anyString(), eq(10L), eq("COMMENT"));
     }
 
@@ -2024,6 +2030,7 @@ class CommentServiceTest {
         ReflectionTestUtils.setField(board, "isPublic", true);
 
         Post post = Post.builder().board(board).user(user).build();
+        ReflectionTestUtils.setField(post, "postId", 5L);
         Comment comment = Comment.builder().user(user).post(post).content("Old @Alice").build();
         ReflectionTestUtils.setField(comment, "commentId", 10L);
 
@@ -2036,6 +2043,13 @@ class CommentServiceTest {
         assertThat(result).isEqualTo(10L);
         assertThat(comment.getContent()).isEqualTo("New @Alice");
         verify(commentMentionRepository, never()).deleteByCommentCommentId(anyLong());
+        ArgumentCaptor<CommentStreamEvent> streamEventCaptor =
+                ArgumentCaptor.forClass(CommentStreamEvent.class);
+        verify(commentStreamEventDispatcher).publishAfterCommit(streamEventCaptor.capture());
+        assertThat(streamEventCaptor.getValue().getAction()).isEqualTo("UPDATED");
+        assertThat(streamEventCaptor.getValue().getPostId()).isEqualTo(5L);
+        assertThat(streamEventCaptor.getValue().getCommentId()).isEqualTo(10L);
+        assertThat(streamEventCaptor.getValue().getActorUserId()).isEqualTo(1L);
     }
 
     @Test
@@ -2302,6 +2316,7 @@ class CommentServiceTest {
 
         assertThat(comment.getIsDeleted()).isTrue();
         verify(postRepository).decrementCommentCount(1L);
+        verify(anonymousReadCacheInvalidator).evictPostEngagementCachesAfterCommit("free");
     }
 
     @Test
