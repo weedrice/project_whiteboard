@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -19,4 +20,8 @@ public interface PostSeriesItemRepository extends JpaRepository<PostSeriesItem, 
 
     @Query("SELECT COALESCE(MAX(i.sortOrder), -1) FROM PostSeriesItem i WHERE i.series.seriesId = :seriesId")
     int findMaxSortOrder(@Param("seriesId") Long seriesId);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("DELETE FROM PostSeriesItem i WHERE i.series.seriesId = :seriesId")
+    int deleteAllBySeriesId(@Param("seriesId") Long seriesId);
 }

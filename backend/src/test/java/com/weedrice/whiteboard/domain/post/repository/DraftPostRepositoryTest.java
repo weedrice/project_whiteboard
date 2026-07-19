@@ -2,6 +2,9 @@ package com.weedrice.whiteboard.domain.post.repository;
 
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.post.entity.DraftPost;
+import com.weedrice.whiteboard.domain.post.entity.Post;
+import com.weedrice.whiteboard.domain.post.entity.PostSeries;
+import com.weedrice.whiteboard.domain.post.entity.PostSeriesItem;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.config.QuerydslConfig;
 import jakarta.persistence.EntityManagerFactory;
@@ -32,6 +35,12 @@ class DraftPostRepositoryTest {
 
     @Autowired
     private DraftPostRepository draftPostRepository;
+
+    @Autowired
+    private PostSeriesRepository postSeriesRepository;
+
+    @Autowired
+    private PostSeriesItemRepository postSeriesItemRepository;
 
     private User user;
     private Board board;
@@ -104,6 +113,50 @@ class DraftPostRepositoryTest {
         assertThat(result.getContent())
                 .extracting(DraftPost::getDraftId)
                 .containsSubsequence(newerDraftId.getDraftId(), olderDraftId.getDraftId());
+    }
+
+    @Test
+    @DisplayName("시리즈 삭제 전 게시글 연결과 임시글 참조를 정리할 수 있다")
+    void cleanupSeriesReferences_allowsSeriesDeletion() {
+        PostSeries series = PostSeries.builder()
+                .owner(user)
+                .title("series")
+                .build();
+        entityManager.persist(series);
+        Post post = Post.builder()
+                .user(user)
+                .board(board)
+                .title("post")
+                .contents("contents")
+                .build();
+        entityManager.persist(post);
+        entityManager.persist(PostSeriesItem.builder()
+                .series(series)
+                .post(post)
+                .sortOrder(0)
+                .build());
+        DraftPost linkedDraft = DraftPost.builder()
+                .user(user)
+                .board(board)
+                .series(series)
+                .title("linked")
+                .contents("contents")
+                .build();
+        entityManager.persist(linkedDraft);
+        entityManager.flush();
+
+        assertThat(postSeriesItemRepository.deleteAllBySeriesId(series.getSeriesId())).isEqualTo(1);
+        assertThat(draftPostRepository.clearSeriesReference(series.getSeriesId())).isEqualTo(1);
+        postSeriesRepository.delete(series);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(postSeriesRepository.findById(series.getSeriesId())).isEmpty();
+        assertThat(postSeriesItemRepository.findByPost_PostId(post.getPostId())).isEmpty();
+        assertThat(draftPostRepository.findById(linkedDraft.getDraftId()))
+                .get()
+                .extracting(DraftPost::getSeries)
+                .isNull();
     }
 
     private void updateDraftModifiedAt(Long draftId, LocalDateTime modifiedAt) {

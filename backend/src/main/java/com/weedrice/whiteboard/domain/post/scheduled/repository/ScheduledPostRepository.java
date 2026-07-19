@@ -119,6 +119,12 @@ public interface ScheduledPostRepository extends JpaRepository<ScheduledPost, Lo
             """)
     int recoverStalePublishing(@Param("staleBefore") LocalDateTime staleBefore);
 
+    @Modifying(flushAutomatically = true)
+    @Transactional
+    @Query("UPDATE ScheduledPost s SET s.seriesId = null "
+            + "WHERE s.seriesId = :seriesId AND s.status IN ('SCHEDULED', 'FAILED', 'PUBLISHING')")
+    int clearSeriesReference(@Param("seriesId") Long seriesId);
+
     @Modifying
     @Transactional
     @Query("""

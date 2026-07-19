@@ -14,6 +14,8 @@ import com.weedrice.whiteboard.domain.post.dto.PostSeriesNavigation;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.entity.PostSeries;
 import com.weedrice.whiteboard.domain.post.entity.PostSeriesItem;
+import com.weedrice.whiteboard.domain.post.repository.DraftPostRepository;
+import com.weedrice.whiteboard.domain.post.scheduled.repository.ScheduledPostRepository;
 import com.weedrice.whiteboard.domain.post.repository.PostSeriesItemRepository;
 import com.weedrice.whiteboard.domain.post.repository.PostSeriesRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -37,6 +39,12 @@ class PostSeriesServiceTest {
     private PostSeriesItemRepository postSeriesItemRepository;
 
     @Mock
+    private DraftPostRepository draftPostRepository;
+
+    @Mock
+    private ScheduledPostRepository scheduledPostRepository;
+
+    @Mock
     private UserWritableResolver userWritableResolver;
 
     @Mock
@@ -47,6 +55,8 @@ class PostSeriesServiceTest {
         PostSeriesService service = new PostSeriesService(
                 postSeriesRepository,
                 postSeriesItemRepository,
+                draftPostRepository,
+                scheduledPostRepository,
                 userWritableResolver,
                 postReadContextResolver,
                 new PostAccessPolicy(mock(BoardAccessPolicy.class)));
@@ -81,6 +91,8 @@ class PostSeriesServiceTest {
         PostSeriesService service = new PostSeriesService(
                 postSeriesRepository,
                 postSeriesItemRepository,
+                draftPostRepository,
+                scheduledPostRepository,
                 userWritableResolver,
                 postReadContextResolver,
                 new PostAccessPolicy(mock(BoardAccessPolicy.class)));
@@ -130,6 +142,8 @@ class PostSeriesServiceTest {
         PostSeriesService service = new PostSeriesService(
                 postSeriesRepository,
                 postSeriesItemRepository,
+                draftPostRepository,
+                scheduledPostRepository,
                 userWritableResolver,
                 postReadContextResolver,
                 mock(PostAccessPolicy.class));
@@ -155,6 +169,8 @@ class PostSeriesServiceTest {
         PostSeriesService service = new PostSeriesService(
                 postSeriesRepository,
                 postSeriesItemRepository,
+                draftPostRepository,
+                scheduledPostRepository,
                 userWritableResolver,
                 postReadContextResolver,
                 mock(PostAccessPolicy.class));
@@ -179,6 +195,8 @@ class PostSeriesServiceTest {
         PostSeriesService service = new PostSeriesService(
                 postSeriesRepository,
                 postSeriesItemRepository,
+                draftPostRepository,
+                scheduledPostRepository,
                 userWritableResolver,
                 postReadContextResolver,
                 mock(PostAccessPolicy.class));
@@ -193,6 +211,37 @@ class PostSeriesServiceTest {
         service.updatePostSeries(1L, post, null);
 
         verify(postSeriesItemRepository).delete(item);
+    }
+
+    @Test
+    void deleteSeries_clearsItemsAndDraftReferencesBeforeDeletingSeries() {
+        PostSeriesService service = new PostSeriesService(
+                postSeriesRepository,
+                postSeriesItemRepository,
+                draftPostRepository,
+                scheduledPostRepository,
+                userWritableResolver,
+                postReadContextResolver,
+                mock(PostAccessPolicy.class));
+        User owner = createUser(1L);
+        PostSeries series = createSeries(10L, owner, "Series");
+        when(postSeriesRepository.findBySeriesIdAndOwnerUserIdForUpdate(10L, 1L))
+                .thenReturn(Optional.of(series));
+        org.mockito.InOrder inOrder = org.mockito.Mockito.inOrder(
+                userWritableResolver,
+                postSeriesRepository,
+                postSeriesItemRepository,
+                draftPostRepository,
+                scheduledPostRepository);
+
+        service.deleteSeries(1L, 10L);
+
+        inOrder.verify(userWritableResolver).resolveForUpdate(1L);
+        inOrder.verify(postSeriesRepository).findBySeriesIdAndOwnerUserIdForUpdate(10L, 1L);
+        inOrder.verify(postSeriesItemRepository).deleteAllBySeriesId(10L);
+        inOrder.verify(draftPostRepository).clearSeriesReference(10L);
+        inOrder.verify(scheduledPostRepository).clearSeriesReference(10L);
+        inOrder.verify(postSeriesRepository).delete(series);
     }
 
     private User createUser(Long userId) {

@@ -8,6 +8,8 @@ import com.weedrice.whiteboard.domain.post.entity.PostSeries;
 import com.weedrice.whiteboard.domain.post.entity.PostSeriesItem;
 import com.weedrice.whiteboard.domain.post.repository.PostSeriesItemRepository;
 import com.weedrice.whiteboard.domain.post.repository.PostSeriesRepository;
+import com.weedrice.whiteboard.domain.post.repository.DraftPostRepository;
+import com.weedrice.whiteboard.domain.post.scheduled.repository.ScheduledPostRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import com.weedrice.whiteboard.global.common.util.TextInputNormalizer;
@@ -29,6 +31,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class PostSeriesService {
     private final PostSeriesRepository postSeriesRepository;
     private final PostSeriesItemRepository postSeriesItemRepository;
+    private final DraftPostRepository draftPostRepository;
+    private final ScheduledPostRepository scheduledPostRepository;
     private final UserWritableResolver userWritableResolver;
     private final PostReadContextResolver postReadContextResolver;
     private final PostAccessPolicy postAccessPolicy;
@@ -61,7 +65,11 @@ public class PostSeriesService {
     @Transactional
     public void deleteSeries(@NonNull Long userId, @NonNull Long seriesId) {
         userWritableResolver.resolveForUpdate(userId);
-        postSeriesRepository.delete(getOwnedSeriesForUpdate(userId, seriesId));
+        PostSeries series = getOwnedSeriesForUpdate(userId, seriesId);
+        postSeriesItemRepository.deleteAllBySeriesId(seriesId);
+        draftPostRepository.clearSeriesReference(seriesId);
+        scheduledPostRepository.clearSeriesReference(seriesId);
+        postSeriesRepository.delete(series);
     }
 
     @Transactional
