@@ -722,13 +722,30 @@ describe('Router Navigation Guards', () => {
         expect(JSON.parse(sessionStorage.getItem('loginRedirect') ?? '{}')).toMatchObject({ path: '/' })
     })
 
-    it('does not store loginRedirect for oauth callback', async () => {
-        mockAuthStore.isAuthenticated = false
+    it('leaves the full session exchange to oauth callback even with stale auth state', async () => {
+        await router.push('/terms')
+        mockAuthStore.isAuthenticated = true
+        mockAuthStore.accessToken = 'stale-access'
+        mockAuthStore.user = { userId: 1, role: 'USER' }
 
-        await router.push('/')
+        mockAuthStore.bootstrapSession.mockClear()
+        mockAuthStore.fetchUser.mockClear()
+        queryClientMock.fetchQuery.mockClear()
+        vi.mocked(userApi.getUserSettings).mockClear()
+        vi.mocked(boardApi.getBoard).mockClear()
+        vi.mocked(emoticonApi.getEmoticonData).mockClear()
+        vi.mocked(postApi.getPost).mockClear()
         await router.push('/auth/oauth/callback')
 
+        expect(router.currentRoute.value.name).toBe('oauth-callback')
         expect(sessionStorage.getItem('loginRedirect')).toBeNull()
+        expect(mockAuthStore.bootstrapSession).not.toHaveBeenCalled()
+        expect(mockAuthStore.fetchUser).not.toHaveBeenCalled()
+        expect(queryClientMock.fetchQuery).not.toHaveBeenCalled()
+        expect(userApi.getUserSettings).not.toHaveBeenCalled()
+        expect(boardApi.getBoard).not.toHaveBeenCalled()
+        expect(emoticonApi.getEmoticonData).not.toHaveBeenCalled()
+        expect(postApi.getPost).not.toHaveBeenCalled()
     })
 
     it('applies scroll behavior for saved position, hash and default top', () => {

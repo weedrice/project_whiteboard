@@ -52,7 +52,6 @@ test('opened mobile write sheet is axe-clean, traps focus, and restores its trig
   await page.setViewportSize({ width: 390, height: 844 })
   await installMockApi(page)
   await login(page)
-  await page.goto('/')
   const trigger = page.locator('button[aria-controls="mobile-write-sheet"]')
   await trigger.click()
 

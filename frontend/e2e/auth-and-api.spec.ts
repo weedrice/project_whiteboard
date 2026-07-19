@@ -26,7 +26,7 @@ test('OAuth callback hydrates the user or returns to login on failure', async ({
   await page.goto('/auth/oauth/callback?accessToken=must-be-cleared')
   await expect(page).toHaveURL('/')
   expect(new URL(page.url()).search).toBe('')
-  expect(state.refreshCount).toBeGreaterThanOrEqual(1)
+  expect(state.refreshCount).toBe(1)
 
   state.authenticated = false
   await page.goto('/auth/oauth/callback')

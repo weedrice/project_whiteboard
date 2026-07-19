@@ -32,14 +32,18 @@ declare module 'vue-router' {
 
 export function createAppNavigationGuard() {
     return async (to: RouteLocationNormalized, from: RouteLocationNormalized) => {
-        const authStore = useAuthStore()
-
         const hasInvalidPositiveIntegerParam = to.meta.positiveIntegerParams?.some((paramName) => (
             !isPositiveIntegerRouteParam(getStringRouteParam(to.params[paramName]))
         ))
         if (hasInvalidPositiveIntegerParam) {
             return { name: 'error', query: { status: '404' } }
         }
+
+        // OAuthCallback exclusively owns the refresh-cookie exchange. Running any
+        // session or resource guard first could consume it with a stale access token.
+        if (to.name === 'oauth-callback') return true
+
+        const authStore = useAuthStore()
 
         const authResult = await ensureHydratedAuth(to)
         if (authResult !== true) return authResult
