@@ -9,6 +9,7 @@ import com.weedrice.whiteboard.domain.badge.repository.BadgeRepository;
 import com.weedrice.whiteboard.domain.badge.repository.UserBadgeRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +32,7 @@ public class BadgeService {
     private final BadgeRepository badgeRepository;
     private final UserBadgeRepository userBadgeRepository;
     private final UserRepository userRepository;
+    private final UserWritableResolver userWritableResolver;
     private final BadgeEvaluationService badgeEvaluationService;
 
     public List<BadgeResponse> getUserBadges(Long targetUserId) {
@@ -61,8 +63,7 @@ public class BadgeService {
 
     @Transactional
     public BadgeCompactResponse updateRepresentativeBadge(Long userId, String badgeCode) {
-        User user = userRepository.findByUserIdAndStatusAndDeletedAtIsNull(userId, User.STATUS_ACTIVE)
-                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        User user = userWritableResolver.resolveForUpdate(userId);
         String normalizedBadgeCode = badgeCode == null || badgeCode.isBlank() ? null : badgeCode.strip();
         if (normalizedBadgeCode == null) {
             user.updateRepresentativeBadgeCode(null);

@@ -5,6 +5,7 @@ import com.weedrice.whiteboard.domain.badge.repository.BadgeRepository;
 import com.weedrice.whiteboard.domain.badge.repository.UserBadgeRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
+import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -19,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -28,11 +30,12 @@ class BadgeServiceTest {
     @Mock UserBadgeRepository userBadges;
     @Mock UserRepository users;
     @Mock BadgeEvaluationService evaluations;
+    @Mock UserWritableResolver userWritableResolver;
     BadgeService service;
 
     @BeforeEach
     void setUp() {
-        service = new BadgeService(badges, userBadges, users, evaluations);
+        service = new BadgeService(badges, userBadges, users, userWritableResolver, evaluations);
     }
 
     @Test
@@ -73,6 +76,18 @@ class BadgeServiceTest {
         assertNull(service.getRepresentativeBadge(8L));
 
         verify(users).findByUserIdAndStatusAndDeletedAtIsNull(8L, User.STATUS_ACTIVE);
+    }
+
+    @Test
+    void representativeBadgeUpdateLocksAndValidatesWritableUser() {
+        User user = mock(User.class);
+        when(userWritableResolver.resolveForUpdate(9L)).thenReturn(user);
+
+        assertNull(service.updateRepresentativeBadge(9L, "  "));
+
+        verify(userWritableResolver).resolveForUpdate(9L);
+        verify(user).updateRepresentativeBadgeCode(null);
+        verify(users, never()).findByUserIdAndStatusAndDeletedAtIsNull(9L, User.STATUS_ACTIVE);
     }
 
     private List<User> usersFrom(int firstId, int lastId) {
