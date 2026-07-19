@@ -86,6 +86,7 @@ const { mutateAsync: deleteKeywordSubscription, isPending: isDeletingKeyword } =
 const keywordInput = ref('')
 const keywordMessage = ref('')
 const keywordIsError = ref(false)
+let keywordOperationRevision = 0
 const pushMessage = ref('')
 const pushIsError = ref(false)
 const pushNotifications = usePushNotifications(() => Boolean(settingsData.value?.pushEnabled))
@@ -112,6 +113,14 @@ const keywordValidation = useFieldValidation<'keyword'>({
   fieldIds: { keyword: 'keyword-subscription-input' },
 })
 const keywordValidationValues = computed(() => ({ keyword: keywordInput.value }))
+
+watch(() => authStore.sessionGeneration, () => {
+  keywordOperationRevision += 1
+  keywordInput.value = ''
+  keywordMessage.value = ''
+  keywordIsError.value = false
+  keywordValidation.clearValidation()
+})
 const keywordNotificationEnabled = computed(() => notificationSettings.KEYWORD !== false)
 const keywordPending = computed(() => isKeywordLoading.value || isCreatingKeyword.value || isDeletingKeyword.value)
 const pushPending = computed(() => pushNotifications.isEnabling.value || pushNotifications.isDisabling.value)
@@ -202,20 +211,29 @@ const addKeyword = async () => {
     return
   }
 
+  const intent = captureAuthSessionIntent(authStore)
+  const operationRevision = ++keywordOperationRevision
   try {
     await createKeywordSubscription({ keyword })
+    if (operationRevision !== keywordOperationRevision || !isAuthSessionIntentCurrent(authStore, intent)) return
     keywordInput.value = ''
+    keywordValidation.clearValidation()
     setKeywordMessage('user.settings.keywordAdded')
   } catch {
+    if (operationRevision !== keywordOperationRevision || !isAuthSessionIntentCurrent(authStore, intent)) return
     setKeywordMessage('user.settings.keywordAddFailed', true)
   }
 }
 
 const removeKeyword = async (keyword: string) => {
+  const intent = captureAuthSessionIntent(authStore)
+  const operationRevision = ++keywordOperationRevision
   try {
     await deleteKeywordSubscription({ keyword })
+    if (operationRevision !== keywordOperationRevision || !isAuthSessionIntentCurrent(authStore, intent)) return
     setKeywordMessage('user.settings.keywordRemoved')
   } catch {
+    if (operationRevision !== keywordOperationRevision || !isAuthSessionIntentCurrent(authStore, intent)) return
     setKeywordMessage('user.settings.keywordRemoveFailed', true)
   }
 }

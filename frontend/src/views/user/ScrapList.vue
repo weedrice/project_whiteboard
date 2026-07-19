@@ -55,18 +55,6 @@ function finishFolderOperation(operation: ReturnType<typeof beginFolderOperation
   folderOperationControllers.delete(operation.controller)
 }
 
-watch(() => authStore.sessionGeneration, () => {
-  folderOperationRevision += 1
-  folderOperationControllers.forEach((controller) => controller.abort())
-  folderOperationControllers.clear()
-  creatingFolder.value = false
-  deletingFolderId.value = null
-  updatingFolderId.value = null
-  newFolderName.value = ''
-  cancelEditFolder()
-  folderActionError.value = ''
-})
-
 const {
   page,
   size,
@@ -75,6 +63,22 @@ const {
   handleSizeChange,
   resetPage,
 } = usePaginatedQueryState({ initialSize: 15 })
+
+watch(() => authStore.sessionGeneration, () => {
+  folderOperationRevision += 1
+  folderOperationControllers.forEach((controller) => controller.abort())
+  folderOperationControllers.clear()
+  creatingFolder.value = false
+  deletingFolderId.value = null
+  updatingFolderId.value = null
+  selectedFolderId.value = null
+  searchInput.value = ''
+  appliedSearch.value = ''
+  newFolderName.value = ''
+  cancelEditFolder()
+  folderActionError.value = ''
+  resetPage()
+})
 
 const scrapParams = computed(() => ({
   ...paginationParams.value,

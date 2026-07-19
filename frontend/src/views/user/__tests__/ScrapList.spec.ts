@@ -1,6 +1,6 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { defineComponent, h, ref } from 'vue'
+import { defineComponent, h, reactive, ref } from 'vue'
 import ScrapList from '../ScrapList.vue'
 import { userApi } from '@/api/user'
 
@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   refetchScraps: vi.fn(),
   invalidateQueries: vi.fn(),
   confirm: vi.fn(),
+  resetPage: vi.fn(),
 }))
 
 const authState = vi.hoisted(() => ({
@@ -19,13 +20,14 @@ const authState = vi.hoisted(() => ({
   accessToken: 'token-a' as string | null,
   user: { userId: 1 } as { userId: number } | null,
 }))
+const reactiveAuthState = reactive(authState)
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({ t: (key: string) => key }),
 }))
 
 vi.mock('@/stores/auth', () => ({
-  useAuthStore: () => authState,
+  useAuthStore: () => reactiveAuthState,
 }))
 
 vi.mock('@/features/user/useUser', () => ({
@@ -55,7 +57,7 @@ vi.mock('@/composables/usePaginatedQueryState', () => ({
     params: ref({ page: 0, size: 15 }),
     handlePageChange: vi.fn(),
     handleSizeChange: vi.fn(),
-    resetPage: vi.fn(),
+    resetPage: mocks.resetPage,
   }),
   usePageResponseState: () => ({
     items: ref([]),
@@ -102,16 +104,26 @@ const BaseButtonStub = defineComponent({
   },
 })
 
+const BaseInputStub = defineComponent({
+  name: 'BaseInput',
+  props: { modelValue: { type: [String, Number], default: '' }, id: String },
+  emits: ['update:modelValue'],
+  setup(props, { emit }) {
+    return () => h('input', {
+      id: props.id,
+      value: props.modelValue,
+      onInput: (event: Event) => emit('update:modelValue', (event.target as HTMLInputElement).value),
+    })
+  },
+})
+
 function mountScrapList() {
   return mount(ScrapList, {
     global: {
       mocks: { $t: (key: string) => key },
       stubs: {
         BaseButton: BaseButtonStub,
-        BaseInput: {
-          props: ['modelValue', 'id'],
-          template: '<input :id="id" :value="modelValue" />',
-        },
+        BaseInput: BaseInputStub,
         PaginatedListCard: {
           template: '<main><slot name="header-actions" /><slot name="subheader" /><slot /></main>',
         },
@@ -183,5 +195,27 @@ describe('ScrapList', () => {
     await flushPromises()
 
     expect(userApi.deleteScrapFolder).not.toHaveBeenCalled()
+  })
+
+  it('resets account-bound filters and pagination when the session changes', async () => {
+    mocks.folderData.value = [{ folderId: 7, name: 'Saved' }]
+    const wrapper = mountScrapList()
+
+    await wrapper.findAll('button').find((button) => button.text() === 'Saved')!.trigger('click')
+    await wrapper.get('#scrap-search').setValue('previous account')
+    await wrapper.findAll('form')[1].trigger('submit')
+    expect(wrapper.text()).toContain('common.reset')
+
+    reactiveAuthState.sessionGeneration = 2
+    reactiveAuthState.accessToken = 'token-b'
+    reactiveAuthState.user = { userId: 2 }
+    await flushPromises()
+
+    expect((wrapper.get('#scrap-search').element as HTMLInputElement).value).toBe('')
+    expect(wrapper.text()).not.toContain('common.reset')
+    expect(mocks.resetPage).toHaveBeenCalled()
+    const allFolderButton = wrapper.findAll('button')
+      .find((button) => button.text() === 'user.scrapList.allFolder')!
+    expect(allFolderButton.classes()).toContain('nv-accent-bg')
   })
 })

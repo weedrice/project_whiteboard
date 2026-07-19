@@ -124,4 +124,37 @@ describe('DraftList', () => {
     expect(mocks.addToast).toHaveBeenCalledWith('user.draftList.deleteFailed', 'error')
     expect(mocks.addToast).toHaveBeenCalledWith('user.draftList.cancelScheduledFailed', 'error')
   })
+
+  it('does not mutate the next account after confirmation resolves', async () => {
+    let resolveConfirm!: (value: boolean) => void
+    mocks.confirm.mockImplementationOnce(() => new Promise((resolve) => { resolveConfirm = resolve }))
+    const wrapper = mountList()
+
+    const click = wrapper.findAll('button')[0].trigger('click')
+    mocks.authStore.sessionGeneration = 1
+    mocks.authStore.user = { userId: 8 }
+    resolveConfirm(true)
+    await click
+    await flushPromises()
+
+    expect(mocks.deleteDraft).not.toHaveBeenCalled()
+    expect(mocks.markDeleted).not.toHaveBeenCalled()
+    expect(mocks.addToast).not.toHaveBeenCalled()
+  })
+
+  it('does not show a stale failure after the account changes during a mutation', async () => {
+    let rejectDelete!: (reason?: unknown) => void
+    mocks.deleteDraft.mockImplementationOnce(() => new Promise((_resolve, reject) => { rejectDelete = reject }))
+    const wrapper = mountList()
+
+    const click = wrapper.findAll('button')[0].trigger('click')
+    await flushPromises()
+    mocks.authStore.sessionGeneration = 1
+    mocks.authStore.user = { userId: 8 }
+    rejectDelete(new Error('old account request failed'))
+    await click
+    await flushPromises()
+
+    expect(mocks.addToast).not.toHaveBeenCalled()
+  })
 })

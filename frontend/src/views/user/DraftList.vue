@@ -14,7 +14,8 @@ import { usePost } from '@/features/board/posts/queries/usePost'
 import { markDraftDeletedLocally } from '@/features/board/posts/draft/postDraftTombstone'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
-import { isSessionGenerationCurrent, sessionQueryKey } from '@/queryAuthScope'
+import { sessionQueryKey } from '@/queryAuthScope'
+import { captureAuthSessionIntent, isAuthSessionIntentCurrent } from '@/utils/authSessionIntent'
 import { formatDateTimeOrDash } from '@/utils/date'
 import { encodePathSegment } from '@/utils/urlPath'
 import type { DraftPostSummary } from '@/types'
@@ -82,20 +83,23 @@ function getDraftRoute(draft: DraftPostSummary) {
 }
 
 async function handleDeleteDraft(draft: DraftPostSummary) {
-  if (!(await confirm(t('user.draftList.deleteConfirm')))) return
-  const sessionGeneration = authStore.sessionGeneration
+  const intent = captureAuthSessionIntent(authStore)
+  const draftId = draft.draftId
   const userId = authStore.user?.userId
+  if (!(await confirm(t('user.draftList.deleteConfirm')))) return
+  if (!isAuthSessionIntentCurrent(authStore, intent)) return
 
   try {
-    await deleteDraft(draft.draftId)
-    if (!isSessionGenerationCurrent(authStore, sessionGeneration)) return
+    await deleteDraft(draftId)
+    if (!isAuthSessionIntentCurrent(authStore, intent)) return
     if (userId != null) {
-      markDraftDeletedLocally(userId, draft.draftId)
+      markDraftDeletedLocally(userId, draftId)
     }
     toastStore.addToast(t('user.draftList.deleted'), 'success')
-    queryClient.invalidateQueries({ queryKey: sessionQueryKey(sessionGeneration, userQueryKeys.draftsRoot) })
+    queryClient.invalidateQueries({ queryKey: sessionQueryKey(intent.sessionGeneration, userQueryKeys.draftsRoot) })
     refetch()
   } catch {
+    if (!isAuthSessionIntentCurrent(authStore, intent)) return
     toastStore.addToast(t('user.draftList.deleteFailed'), 'error')
   }
 }
@@ -128,18 +132,21 @@ function getScheduledStatus(post: ScheduledPost) {
 }
 
 async function handleCancelScheduledPost(post: ScheduledPost) {
+  const intent = captureAuthSessionIntent(authStore)
+  const scheduledPostId = post.scheduledPostId
   if (!(await confirm(t('user.draftList.cancelScheduledConfirm')))) return
-  const sessionGeneration = authStore.sessionGeneration
+  if (!isAuthSessionIntentCurrent(authStore, intent)) return
 
   try {
-    await cancelScheduledPost(post.scheduledPostId)
-    if (!isSessionGenerationCurrent(authStore, sessionGeneration)) return
+    await cancelScheduledPost(scheduledPostId)
+    if (!isAuthSessionIntentCurrent(authStore, intent)) return
     toastStore.addToast(t('user.draftList.cancelScheduledSuccess'), 'success')
     queryClient.invalidateQueries({
-      queryKey: sessionQueryKey(sessionGeneration, userQueryKeys.scheduledPostsRoot),
+      queryKey: sessionQueryKey(intent.sessionGeneration, userQueryKeys.scheduledPostsRoot),
     })
     refetchScheduledPosts()
   } catch {
+    if (!isAuthSessionIntentCurrent(authStore, intent)) return
     toastStore.addToast(t('user.draftList.cancelScheduledFailed'), 'error')
   }
 }

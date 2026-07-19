@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { defineComponent, h, nextTick, ref } from 'vue'
+import { defineComponent, h, nextTick, reactive, ref } from 'vue'
 import { mount } from '@vue/test-utils'
 import type {
   KeywordSubscriptionPayload,
@@ -57,6 +57,7 @@ const authStoreMock = vi.hoisted(() => ({
   user: { userId: 1 } as { userId: number } | null,
   clearSessionState: vi.fn(),
 }))
+const reactiveAuthStoreMock = reactive(authStoreMock)
 const toastStoreMock = vi.hoisted(() => ({
   addToast: vi.fn(),
 }))
@@ -105,7 +106,7 @@ vi.mock('@/stores/theme', () => ({
 }))
 
 vi.mock('@/stores/auth', () => ({
-  useAuthStore: () => authStoreMock,
+  useAuthStore: () => reactiveAuthStoreMock,
 }))
 
 vi.mock('@/stores/toast', () => ({
@@ -576,6 +577,46 @@ describe('UserSettings', () => {
 
     expect(deleteKeywordSubscription).toHaveBeenCalledWith({ keyword: 'vue' })
     expect(wrapper.text()).toContain('user.settings.keywordRemoved')
+  })
+
+  it('clears keyword draft, message, and validation when the account changes', async () => {
+    const wrapper = mountUserSettings()
+    await wrapper.get('#keyword-subscription-input').setValue('old account draft')
+    await wrapper.get('form').trigger('submit')
+    await flushAll()
+    expect(wrapper.text()).toContain('user.settings.keywordAdded')
+
+    await wrapper.get('#keyword-subscription-input').trigger('blur')
+    expect(wrapper.text()).toContain('user.settings.keywordRequired')
+    await wrapper.get('#keyword-subscription-input').setValue('new draft')
+    reactiveAuthStoreMock.sessionGeneration = 2
+    reactiveAuthStoreMock.accessToken = 'token-b'
+    reactiveAuthStoreMock.user = { userId: 2 }
+    await nextTick()
+
+    expect((wrapper.get('#keyword-subscription-input').element as HTMLInputElement).value).toBe('')
+    expect(wrapper.text()).not.toContain('user.settings.keywordAdded')
+    expect(wrapper.text()).not.toContain('user.settings.keywordRequired')
+  })
+
+  it('ignores stale keyword mutation results after the account changes', async () => {
+    let resolveCreate!: () => void
+    createKeywordSubscription.mockImplementationOnce(() => new Promise<void>((resolve) => { resolveCreate = resolve }))
+    const wrapper = mountUserSettings()
+    await wrapper.get('#keyword-subscription-input').setValue('spring')
+    const submit = wrapper.get('form').trigger('submit')
+    await nextTick()
+
+    reactiveAuthStoreMock.sessionGeneration = 2
+    reactiveAuthStoreMock.accessToken = 'token-b'
+    reactiveAuthStoreMock.user = { userId: 2 }
+    resolveCreate()
+    await submit
+    await flushAll()
+
+    expect(createKeywordSubscription).toHaveBeenCalledWith({ keyword: 'spring' })
+    expect(wrapper.text()).not.toContain('user.settings.keywordAdded')
+    expect(wrapper.text()).not.toContain('user.settings.keywordAddFailed')
   })
 
   it('shows keyword disabled notice when keyword notifications are off', async () => {
