@@ -45,7 +45,7 @@ vi.mock('@/features/user/useUser', () => ({
       isLoading: ref(false), isError: ref(false), refetch: mocks.refetchPosts,
     }),
     usePublicProfileComments: () => ({
-      data: ref({ content: [{ commentId: 2, content: 'Comment', post: { boardUrl: 'news', postId: 1, title: 'Post' } }], totalPages: 2 }),
+      data: ref({ content: [{ commentId: 2, content: '![emoticon](/uploads/happy.png)', post: { boardUrl: 'news', postId: 1, title: 'Post' } }], totalPages: 2 }),
       isLoading: ref(false), isError: ref(false), refetch: mocks.refetchComments,
     }),
   }),
@@ -97,7 +97,8 @@ describe('UserProfilePage', () => {
     expect(wrapper.find('[data-post-list]').exists()).toBe(true)
     await wrapper.find('[data-page]').trigger('click')
     await wrapper.find('[data-comments]').trigger('click')
-    expect(wrapper.text()).toContain('Comment')
+    expect(wrapper.get('.comment-content-list img').attributes('src')).toContain('/uploads/happy.png')
+    expect(wrapper.text()).not.toContain('![emoticon]')
 
     mocks.route!.params.userId = '8'
     await wrapper.vm.$nextTick()

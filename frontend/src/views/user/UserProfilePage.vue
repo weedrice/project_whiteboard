@@ -16,6 +16,9 @@ import PostList from '@/components/board/PostList.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import { formatDate } from '@/utils/date'
+import SanitizedHtmlView from '@/components/common/SanitizedHtmlView.vue'
+import { renderCommentContentHtml } from '@/features/comments/commentContent'
+import type { SanitizedHtml } from '@/utils/sanitize'
 
 const route = useRoute()
 const { t } = useI18n()
@@ -48,6 +51,10 @@ const { data: commentsData, isLoading: commentsLoading, isError: commentsError, 
 const { mutateAsync: updateRepresentativeBadge, isPending: isUpdatingRepresentativeBadge } = useUpdateRepresentativeBadge()
 const acquiredBadges = computed(() => (badges.value || []).filter((badge) => badge.acquired))
 const isOwnProfile = computed(() => String(authStore.user?.userId || '') === userId.value)
+
+function renderCommentContent(content: string | null | undefined): SanitizedHtml {
+  return renderCommentContentHtml(content, 'comment-emoticon comment-emoticon-list', [], t('comment.emoticonAlt'))
+}
 
 const seoTitle = computed(() => profile.value?.displayName || t('user.publicProfile.overview'))
 const seoDescription = computed(() => {
@@ -247,7 +254,13 @@ async function handleRepresentativeBadge(badgeCode: string | null) {
             >
               {{ comment.post.title }}
             </router-link>
-            <p class="mt-2 line-clamp-2 text-sm nv-text-subtle">{{ comment.content }}</p>
+            <div class="comment-content-list mt-2">
+              <SanitizedHtmlView
+                tag="p"
+                class="line-clamp-2 text-sm nv-text-subtle"
+                :html="renderCommentContent(comment.content)"
+              />
+            </div>
           </li>
         </ul>
         <div v-if="commentsData && commentsData.totalPages > 1" class="border-t border-[var(--nv-line)] p-4">
