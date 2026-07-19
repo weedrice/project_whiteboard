@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onScopeDispose, ref, watch, type ComponentPublicInstance } from 'vue'
+import { computed, nextTick, onMounted, onScopeDispose, ref, watch, type ComponentPublicInstance } from 'vue'
 import { usePostComposerDraft } from '@/features/board/posts/form/usePostComposerDraft'
 import { usePostComposerEffects, type ComposerEditor } from '@/features/board/posts/form/usePostComposerEffects'
 import { usePostComposerSubmit, type PostFormSubmitResult } from '@/features/board/posts/form/usePostComposerSubmit'
@@ -46,6 +46,7 @@ const props = defineProps<{
   mode: 'create' | 'edit'
   boardUrl?: string
   postId?: string | number
+  scheduledPostId?: string | number
   initialDraftId?: string | number | null
   onSubmitted?: (result: PostFormSubmitResult) => void
   redirectOnCreate?: string
@@ -75,6 +76,7 @@ const isPostSeriesError = ref(false)
 const newSeriesTitle = ref('')
 const isCreatingSeries = ref(false)
 const scheduledAt = ref('')
+const savedScheduledAt = ref('')
 const seriesOptions = computed(() => localSeriesOptions.value ?? serverSeriesOptions.value)
 let createSeriesAbortController: AbortController | null = null
 
@@ -118,12 +120,17 @@ onScopeDispose(cancelCreateSeriesRequest)
 
 const boardUrl = computed(() => props.boardUrl ?? '')
 const postId = computed(() => props.postId ?? '')
+const scheduledPostId = computed(() => props.scheduledPostId ?? '')
 const preferredDraftId = computed(() => {
   if (props.initialDraftId == null || props.initialDraftId === '') return null
   const numericDraftId = Number(props.initialDraftId)
   return Number.isFinite(numericDraftId) && numericDraftId > 0 ? numericDraftId : null
 })
-const routeFormIdentity = computed(() => `${props.mode}:${boardUrl.value || 'unknown'}:${postId.value || 'new'}`)
+const routeFormIdentity = computed(() => [
+  props.mode,
+  boardUrl.value || 'unknown',
+  scheduledPostId.value ? `scheduled-${scheduledPostId.value}` : (postId.value || 'new'),
+].join(':'))
 const formIdentity = computed(() => [
   authStore.sessionGeneration,
   authStore.user?.userId ?? 'hydrating',
@@ -134,30 +141,37 @@ const {
   board,
   categories,
   post,
+  scheduledPost,
   isLoading,
   isSubmitting,
   showNotice,
   canShowNsfw,
   createPost,
   createScheduledPost,
+  updateScheduledPost,
   updatePost,
 } = usePostFormResource({
   mode: () => props.mode,
   boardUrl,
   postId,
+  scheduledPostId,
   skipBoardLookup: () => props.skipBoardLookup,
   hideNotice: () => props.hideNotice,
 })
 
 const pageTitle = computed(() =>
-  props.mode === 'create'
+  scheduledPostId.value
+    ? t('board.writePost.editScheduledTitle')
+    : props.mode === 'create'
     ? (props.createTitleOverride || t('board.writePost.createTitle'))
     : t('board.writePost.editTitle'),
 )
 const boardLabel = computed(() => board.value?.boardName || boardUrl.value)
 
 const submitLabel = computed(() =>
-  scheduledAt.value
+  scheduledPostId.value
+    ? (isSubmitting.value ? t('board.writePost.updating') : t('board.writePost.updateSchedule'))
+    : scheduledAt.value
     ? (isSubmitting.value ? t('board.writePost.scheduling') : t('board.writePost.actions.schedule'))
     :
   isSubmitting.value
@@ -187,7 +201,6 @@ function pollValidationMessage(error: PostFormPollValidationError) {
 const {
   form,
   isDirty,
-  isFormDirty,
   markCurrentSnapshotSaved,
   applyDraftSnapshot,
   buildPayload,
@@ -203,6 +216,15 @@ const {
   showNotice,
   canShowNsfw,
 })
+
+const hasUnsavedChanges = computed(() => (
+  isDirty.value || (Boolean(scheduledPostId.value) && scheduledAt.value !== savedScheduledAt.value)
+))
+
+function markCurrentComposerSaved() {
+  markCurrentSnapshotSaved()
+  savedScheduledAt.value = scheduledAt.value
+}
 
 const {
   recordUploadedFile,
@@ -322,7 +344,7 @@ async function handleCreateSeries() {
 }
 
 function onBeforeUnload(event: BeforeUnloadEvent) {
-  if (!isDirty.value) return
+  if (!hasUnsavedChanges.value) return
   event.preventDefault()
   event.returnValue = leaveConfirmMessage.value
   return leaveConfirmMessage.value
@@ -332,14 +354,20 @@ function resetFormIdentityState() {
   resetEditHydrationState()
   resetFormState()
   newSeriesTitle.value = ''
+  scheduledAt.value = ''
+  savedScheduledAt.value = ''
+  hasHydratedScheduledPost.value = false
 }
 
 watch(
   formIdentity,
-  (_current, previous) => {
+  (current, previous) => {
     if (previous === undefined) return
     cancelCreateSeriesRequest()
     resetFormIdentityState()
+    void nextTick(() => {
+      if (formIdentity.value === current) hydrateScheduledPost(scheduledPost.value)
+    })
   },
 )
 
@@ -348,8 +376,36 @@ const { resetEditHydrationState } = usePostFormEditHydration({
   post,
   postId,
   applyDraftSnapshot,
-  markCurrentSnapshotSaved,
+  markCurrentSnapshotSaved: markCurrentComposerSaved,
 })
+
+const hasHydratedScheduledPost = ref(false)
+watch(scheduledPostId, () => {
+  hasHydratedScheduledPost.value = false
+}, { flush: 'sync' })
+function hydrateScheduledPost(value: typeof scheduledPost.value) {
+  if (!scheduledPostId.value || !value || hasHydratedScheduledPost.value) return
+  if (String(value.scheduledPostId) !== String(scheduledPostId.value)) return
+  if (value.userId != null && value.userId !== authStore.user?.userId) return
+  if (value.boardUrl !== boardUrl.value) return
+  hasHydratedScheduledPost.value = true
+  applyDraftSnapshot({
+    title: value.title,
+    contents: value.contents,
+    categoryId: value.categoryId,
+    tags: value.tags ?? [],
+    isNsfw: value.isNsfw,
+    isSpoiler: value.isSpoiler,
+    isNotice: value.isNotice,
+    isSecret: value.isSecret,
+    seriesId: value.seriesId,
+    poll: value.poll ?? null,
+    fileIds: value.fileIds ?? [],
+  })
+  scheduledAt.value = value.scheduledAt
+  markCurrentComposerSaved()
+}
+watch(scheduledPost, hydrateScheduledPost, { immediate: true })
 
 const {
   draftEnabled,
@@ -363,7 +419,7 @@ const {
   cleanupPublishedDraft,
   clearScheduledDraftRecovery,
 } = usePostComposerDraft({
-  isAuthenticated: computed(() => Boolean(authStore.isAuthenticated)),
+  isAuthenticated: computed(() => Boolean(authStore.isAuthenticated) && !scheduledPostId.value),
   userId: computed(() => authStore.user?.userId),
   sessionGeneration: computed(() => authStore.sessionGeneration),
   identity: formIdentity,
@@ -388,7 +444,11 @@ const {
   validateBeforeSave: postContentIsValid,
 })
 
-usePwaReloadBlocker(computed(() => isDirty.value))
+const effectiveDraftId = computed(() => (
+  scheduledPostId.value ? (scheduledPost.value?.draftId ?? null) : draftId.value
+))
+
+usePwaReloadBlocker(hasUnsavedChanges)
 usePwaReloadBlocker(
   computed(() => isSubmitting.value || isSavingDraft.value),
   { retainWhileBlockedOnDispose: true },
@@ -399,20 +459,22 @@ const { handleSubmit, isSubmissionLocked } = usePostComposerSubmit({
   mode: () => props.mode,
   boardUrl,
   postId,
+  scheduledPostId,
   board,
   form,
   hideCategory: () => props.hideCategory,
   draftEnabled,
   draftConflict,
-  draftId,
+  draftId: effectiveDraftId,
   saveDraftNow,
   buildPayload,
-  markCurrentSnapshotSaved,
+  markCurrentSnapshotSaved: markCurrentComposerSaved,
   cleanupPublishedDraft,
   clearScheduledDraftRecovery,
   releaseUploadedFileOwnership,
   createPost,
   createScheduledPost,
+  updateScheduledPost,
   updatePost,
   onSubmitted: () => props.onSubmitted,
   createSuccessToastMessage: () => props.createSuccessToastMessage,
@@ -431,7 +493,7 @@ const { handleSubmit, isSubmissionLocked } = usePostComposerSubmit({
       return false
     }
 
-    if (props.mode === 'create') {
+    if (props.mode === 'create' || scheduledPostId.value) {
       const pollError = validatePostFormPoll(form.value.poll, Date.now(), scheduledAt.value)
       if (pollError) {
         toastStore.addToast(pollValidationMessage(pollError), 'error')
@@ -505,7 +567,7 @@ function assignVideoPopover(value: Element | ComponentPublicInstance | null) {
 }
 
 defineExpose({
-  hasUnsavedChanges: () => isFormDirty(),
+  hasUnsavedChanges: () => hasUnsavedChanges.value,
   getLeaveConfirmMessage: () => leaveConfirmMessage.value,
 })
 </script>
@@ -593,7 +655,7 @@ defineExpose({
           :is-saving-draft="isSavingDraft"
           :draft-conflict="draftConflict"
           :scheduled-at="scheduledAt"
-          :show-scheduler="props.mode === 'create'"
+          :show-scheduler="props.mode === 'create' || Boolean(scheduledPostId)"
           @save-draft="handleSaveDraft"
           @reload-server-draft="handleReloadServerDraft"
           @update:scheduled-at="scheduledAt = $event"

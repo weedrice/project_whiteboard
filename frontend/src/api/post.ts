@@ -126,6 +126,19 @@ export interface ScheduledPost {
     modifiedAt?: string
 }
 
+export interface ScheduledPostDetail extends ScheduledPost {
+    contents: string
+    tags?: string[] | null
+    isNotice: boolean
+    isNsfw: boolean
+    isSpoiler: boolean
+    isSecret: boolean
+    fileIds?: number[] | null
+    poll?: PollPayload | null
+    seriesId?: number | null
+    draftId?: number | null
+}
+
 export interface ReportData {
     targetPostId: string | number
     reason: string
@@ -182,7 +195,7 @@ export const postApi = {
         }),
 
     getScheduledPost: (scheduledPostId: string | number) =>
-        api.get<ApiResponse<ScheduledPost>>(`/scheduled-posts/${encodePathSegment(scheduledPostId)}`),
+        api.get<ApiResponse<ScheduledPostDetail>>(`/scheduled-posts/${encodePathSegment(scheduledPostId)}`),
 
     updateScheduledPost: (scheduledPostId: string | number, data: ScheduledPostData) =>
         api.put<ApiResponse<ScheduledPost>>(`/scheduled-posts/${encodePathSegment(scheduledPostId)}`, data),

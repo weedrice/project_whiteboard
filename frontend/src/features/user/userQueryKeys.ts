@@ -24,6 +24,8 @@ export const userQueryKeys = {
     pointsRoot: ['user', 'points'] as const,
     draftsRoot: ['user', 'drafts'] as const,
     scheduledPostsRoot: ['user', 'scheduled-posts'] as const,
+    scheduledPost: (scheduledPostId: string | number) =>
+        ['user', 'scheduled-posts', String(scheduledPostId)] as const,
     badgesRoot: ['user', 'badges'] as const,
     scrapFolders: ['user', 'scrap-folders'] as const,
     scrapsRoot: ['user', 'scraps'] as const,

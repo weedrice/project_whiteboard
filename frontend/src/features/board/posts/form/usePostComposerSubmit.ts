@@ -58,11 +58,20 @@ type CreateScheduledPostMutate = (
   },
 ) => void
 
+type UpdateScheduledPostMutate = (
+  variables: { scheduledPostId: string | number, data: CreatePostComposerPayload & { scheduledAt: string } },
+  options: {
+    onSuccess: (response: { data: ApiResponse<ScheduledPost> }) => void
+    onError: (error: unknown) => void
+  },
+) => void
+
 type UsePostComposerSubmitOptions = {
   identity: Ref<string>
   mode: () => PostComposerMode
   boardUrl: Ref<string>
   postId: Ref<string | number>
+  scheduledPostId: Ref<string | number>
   board: Ref<{ isAdmin?: boolean } | null | undefined>
   form: Ref<{ title: string, categoryId: string | number }>
   hideCategory: () => boolean | undefined
@@ -77,6 +86,7 @@ type UsePostComposerSubmitOptions = {
   releaseUploadedFileOwnership: (fileIds: number[]) => void
   createPost: CreatePostMutate
   createScheduledPost: CreateScheduledPostMutate
+  updateScheduledPost: UpdateScheduledPostMutate
   updatePost: UpdatePostMutate
   onSubmitted: () => ((result: PostFormSubmitResult) => void) | undefined
   createSuccessToastMessage: () => string | undefined
@@ -127,6 +137,7 @@ export function usePostComposerSubmit(options: UsePostComposerSubmitOptions) {
     mode: PostComposerMode
     boardUrl: string
     postId: string | number
+    scheduledPostId: string | number
     draftId?: number
     scheduledAt: string
     isBoardAdmin: boolean
@@ -142,6 +153,7 @@ export function usePostComposerSubmit(options: UsePostComposerSubmitOptions) {
       mode: options.mode(),
       boardUrl: options.boardUrl.value,
       postId: options.postId.value,
+      scheduledPostId: options.scheduledPostId.value,
       draftId: options.draftId.value ?? undefined,
       scheduledAt: options.scheduledAt.value?.trim(),
       isBoardAdmin: options.board.value?.isAdmin ?? false,
@@ -202,6 +214,66 @@ export function usePostComposerSubmit(options: UsePostComposerSubmitOptions) {
     const payload = {
       ...options.buildPayload(),
       ...(currentDraftId !== undefined && { draftId: currentDraftId }),
+    }
+
+    if (context.scheduledPostId) {
+      const scheduledAt = context.scheduledAt
+      if (!scheduledAt) {
+        options.addToast(options.t('board.writePost.validation'), 'error')
+        unlock()
+        return
+      }
+      const { seriesId, ...payloadWithoutSeries } = payload
+      const scheduledPayload: CreatePostComposerPayload = seriesId == null
+        ? payloadWithoutSeries
+        : { ...payloadWithoutSeries, seriesId }
+      const requestData = { ...scheduledPayload, scheduledAt }
+      const submittedState = JSON.stringify(requestData)
+      const currentState = () => {
+        const currentPayload = {
+          ...options.buildPayload(),
+          ...(context.draftId !== undefined && { draftId: context.draftId }),
+        }
+        const { seriesId: currentSeriesId, ...currentWithoutSeries } = currentPayload
+        const normalizedCurrent = currentSeriesId == null
+          ? currentWithoutSeries
+          : { ...currentWithoutSeries, seriesId: currentSeriesId }
+        return JSON.stringify({
+          ...normalizedCurrent,
+          scheduledAt: options.scheduledAt.value?.trim(),
+        })
+      }
+      options.updateScheduledPost({
+        scheduledPostId: context.scheduledPostId,
+        data: requestData,
+      }, {
+        onSuccess: (response) => {
+          if (!isCurrentSubmission()) return
+          unlock()
+          options.releaseUploadedFileOwnership(payload.fileIds)
+          if (submittedState !== currentState()) {
+            options.addToast(options.t('board.writePost.scheduleChangedDuringSave'), 'warning')
+            return
+          }
+          options.markCurrentSnapshotSaved()
+          const scheduledPost = unwrapApiData(response.data)
+          options.addToast(options.t('board.writePost.scheduleUpdateSuccess'), 'success')
+          context.onSubmitted?.({
+            mode: 'edit',
+            boardUrl: context.boardUrl,
+            scheduledPostId: scheduledPost.scheduledPostId,
+            scheduledAt: scheduledPost.scheduledAt,
+            isSecret: payload.isSecret,
+            isBoardAdmin: context.isBoardAdmin,
+          })
+        },
+        onError: (error) => {
+          if (!isCurrentSubmission()) return
+          unlock()
+          logger.error('Failed to update scheduled post:', error)
+        },
+      })
+      return
     }
 
     if (context.mode === 'create') {

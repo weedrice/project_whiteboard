@@ -71,7 +71,7 @@ function mountList() {
           emits: ['click'],
         },
         BaseBadge: { template: '<span><slot /></span>' },
-        RouterLink: { template: '<a><slot /></a>', props: ['to'] },
+        RouterLink: { template: '<a :data-to="typeof to === \'string\' ? to : to?.path"><slot /></a>', props: ['to'] },
         Pencil: true, Trash2: true, ExternalLink: true, XCircle: true,
       },
     },
@@ -91,6 +91,7 @@ describe('DraftList', () => {
     const wrapper = mountList()
     expect(wrapper.text()).toContain('Draft')
     expect(wrapper.text()).toContain('user.draftList.untitled')
+    expect(wrapper.find('a[data-to="/scheduled-posts/10/edit"]').exists()).toBe(true)
 
     const buttons = wrapper.findAll('button')
     await buttons[0].trigger('click')

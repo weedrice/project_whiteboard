@@ -17,10 +17,12 @@ import {
     mockAddToast,
     mockCreateMutate,
     mockCreateScheduledMutate,
+    mockUpdateScheduledMutate,
     mockUpdateMutate,
     mockUsePostDetail,
     mountPostForm,
     postRef,
+    scheduledPostRef,
     resetPostFormTestState,
     routeState,
     setBoardCategories,
@@ -767,5 +769,61 @@ describe('PostForm', () => {
 
         const variables = getLastCreatePostVariables()
         expect(variables.data.fileIds).toEqual([])
+    })
+
+    it('hydrates and updates every editable scheduled-post field', async () => {
+        boardRef.value = {
+            allowNsfw: true,
+            isAdmin: true,
+            categories: [{ categoryId: 3, name: 'Scheduled', minWriteRole: 'USER' }],
+        }
+        scheduledPostRef.value = {
+            scheduledPostId: 44,
+            boardUrl: 'free',
+            categoryId: 3,
+            title: 'Scheduled title',
+            contents: '<p>Scheduled body<img src="/api/v1/files/10"></p>',
+            tags: ['alpha'],
+            isNotice: true,
+            isNsfw: true,
+            isSpoiler: true,
+            isSecret: true,
+            fileIds: [10],
+            draftId: 5,
+            poll: null,
+            seriesId: null,
+            scheduledAt: '2026-07-20T12:00',
+        }
+
+        const wrapper = mountPostForm('edit', {}, {}, { scheduledPostId: '44', postId: '' })
+        await nextTick()
+
+        expect(wrapper.get('#title').element).toHaveProperty('value', 'Scheduled title')
+        expect(wrapper.get('[data-testid="editor-input"]').element).toHaveProperty(
+            'value',
+            '<p>Scheduled body<img src="/api/v1/files/10"></p>',
+        )
+        expect(wrapper.get('#scheduled-at').element).toHaveProperty('value', '2026-07-20T12:00')
+
+        await wrapper.get('#title').setValue('Updated schedule')
+        await submitPostForm(wrapper)
+
+        expect(mockUpdateScheduledMutate).toHaveBeenCalledWith({
+            scheduledPostId: '44',
+            data: expect.objectContaining({
+                title: 'Updated schedule',
+                contents: '<p>Scheduled body<img src="/api/v1/files/10"></p>',
+                categoryId: 3,
+                tags: ['alpha'],
+                isNotice: true,
+                isNsfw: true,
+                isSpoiler: true,
+                isSecret: true,
+                fileIds: [10],
+                draftId: 5,
+                scheduledAt: '2026-07-20T12:00',
+            }),
+        }, expect.any(Object))
+        expect(mockUpdateMutate).not.toHaveBeenCalled()
     })
 })

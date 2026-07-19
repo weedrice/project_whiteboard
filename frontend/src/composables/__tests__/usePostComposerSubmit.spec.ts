@@ -31,14 +31,18 @@ function createSubmit(overrides: {
   draftConflict?: boolean
   draftId?: number | null
   scheduledAt?: string
+  scheduledPostId?: string
   saveDraftNow?: () => Promise<{ draftId?: number | null } | null>
   createSuccessToastMessage?: () => string | undefined
 } = {}) {
   const identity = ref('session-1:create:free:new')
+  const payload = ref({ ...basePayload })
   const boardUrl = ref('free')
   const postId = ref('77')
+  const scheduledPostId = ref(overrides.scheduledPostId ?? '')
   const createPost = vi.fn()
   const createScheduledPost = vi.fn()
+  const updateScheduledPost = vi.fn()
   const updatePost = vi.fn()
   const addToast = vi.fn()
   const markCurrentSnapshotSaved = vi.fn()
@@ -51,6 +55,7 @@ function createSubmit(overrides: {
     mode: () => overrides.mode ?? 'create',
     boardUrl,
     postId,
+    scheduledPostId,
     board: ref({ isAdmin: true }),
     form: ref({
       title: overrides.title ?? 'Post title',
@@ -61,13 +66,14 @@ function createSubmit(overrides: {
     draftConflict: ref(overrides.draftConflict ?? false),
     draftId: ref(overrides.draftId ?? null),
     saveDraftNow: overrides.saveDraftNow ?? vi.fn().mockResolvedValue(null),
-    buildPayload: () => basePayload,
+    buildPayload: () => payload.value,
     markCurrentSnapshotSaved,
     cleanupPublishedDraft,
     clearScheduledDraftRecovery,
     releaseUploadedFileOwnership,
     createPost,
     createScheduledPost,
+    updateScheduledPost,
     updatePost,
     scheduledAt: ref(overrides.scheduledAt ?? ''),
     onSubmitted: () => onSubmitted,
@@ -81,12 +87,15 @@ function createSubmit(overrides: {
     identity,
     boardUrl,
     postId,
+    payload,
+    scheduledPostId,
     addToast,
     cleanupPublishedDraft,
     clearScheduledDraftRecovery,
     releaseUploadedFileOwnership,
     createPost,
     createScheduledPost,
+    updateScheduledPost,
     markCurrentSnapshotSaved,
     onSubmitted,
     updatePost,
@@ -277,6 +286,62 @@ describe('usePostComposerSubmit', () => {
     expect(submit.clearScheduledDraftRecovery).toHaveBeenCalledOnce()
     expect(submit.cleanupPublishedDraft).not.toHaveBeenCalled()
     expect(submit.releaseUploadedFileOwnership).toHaveBeenCalledWith([10])
+  })
+
+  it('updates an editable scheduled post with its complete composer payload', async () => {
+    const submit = createSubmit({
+      mode: 'edit',
+      scheduledPostId: '44',
+      scheduledAt: '2026-07-20T12:00',
+    })
+
+    await submit.handleSubmit()
+
+    expect(submit.updateScheduledPost).toHaveBeenCalledWith({
+      scheduledPostId: '44',
+      data: { ...basePayload, scheduledAt: '2026-07-20T12:00' },
+    }, expect.objectContaining({
+      onSuccess: expect.any(Function),
+      onError: expect.any(Function),
+    }))
+    expect(submit.updatePost).not.toHaveBeenCalled()
+
+    submit.updateScheduledPost.mock.calls[0][1].onSuccess({
+      data: { data: { scheduledPostId: 44, scheduledAt: '2026-07-20T12:00' } },
+    })
+
+    expect(submit.markCurrentSnapshotSaved).toHaveBeenCalledOnce()
+    expect(submit.addToast).toHaveBeenCalledWith('board.writePost.scheduleUpdateSuccess', 'success')
+    expect(submit.onSubmitted).toHaveBeenCalledWith({
+      mode: 'edit',
+      boardUrl: 'free',
+      scheduledPostId: 44,
+      scheduledAt: '2026-07-20T12:00',
+      isSecret: false,
+      isBoardAdmin: true,
+    })
+  })
+
+  it('keeps edits made while a scheduled update is pending and asks for another save', async () => {
+    const submit = createSubmit({
+      mode: 'edit',
+      scheduledPostId: '44',
+      scheduledAt: '2026-07-20T12:00',
+    })
+    await submit.handleSubmit()
+    submit.payload.value = { ...basePayload, title: 'Edited while saving' }
+
+    submit.updateScheduledPost.mock.calls[0][1].onSuccess({
+      data: { data: { scheduledPostId: 44, scheduledAt: '2026-07-20T12:00' } },
+    })
+
+    expect(submit.markCurrentSnapshotSaved).not.toHaveBeenCalled()
+    expect(submit.onSubmitted).not.toHaveBeenCalled()
+    expect(submit.addToast).toHaveBeenCalledWith(
+      'board.writePost.scheduleChangedDuringSave',
+      'warning',
+    )
+    expect(submit.isSubmissionLocked.value).toBe(false)
   })
 
   it.each([

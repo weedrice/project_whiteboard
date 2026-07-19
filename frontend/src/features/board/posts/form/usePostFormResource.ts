@@ -6,6 +6,7 @@ type UsePostFormResourceOptions = {
     mode: () => 'create' | 'edit'
     boardUrl: Ref<string>
     postId: Ref<string | number>
+    scheduledPostId: Ref<string | number>
     skipBoardLookup: () => boolean | undefined
     hideNotice: () => boolean | undefined
 }
@@ -14,8 +15,10 @@ export function usePostFormResource(options: UsePostFormResourceOptions) {
     const { useBoardDetail } = useBoard()
     const {
         usePostDetail,
+        useScheduledPostDetail,
         useCreatePost,
         useCreateScheduledPost,
+        useUpdateScheduledPost,
         useUpdatePost,
     } = usePost()
 
@@ -29,13 +32,24 @@ export function usePostFormResource(options: UsePostFormResourceOptions) {
         enabled: computed(() => options.mode() === 'edit' && !!options.postId.value),
         requestConfig: { params: { incrementView: false } },
     })
+    const isScheduledEdit = computed(() => Boolean(options.scheduledPostId.value))
+    const { data: scheduledPost, isLoading: isScheduledPostLoading } = useScheduledPostDetail(
+        options.scheduledPostId,
+        isScheduledEdit,
+    )
     const { mutate: createPost, isPending: isCreateSubmitting } = useCreatePost()
     const { mutate: createScheduledPost, isPending: isCreateScheduledSubmitting } = useCreateScheduledPost()
+    const { mutate: updateScheduledPost, isPending: isUpdateScheduledSubmitting } = useUpdateScheduledPost()
     const { mutate: updatePost, isPending: isUpdateSubmitting } = useUpdatePost()
 
-    const isSubmitting = computed(() => isCreateSubmitting.value || isCreateScheduledSubmitting.value || isUpdateSubmitting.value)
+    const isSubmitting = computed(() => isCreateSubmitting.value
+        || isCreateScheduledSubmitting.value
+        || isUpdateScheduledSubmitting.value
+        || isUpdateSubmitting.value)
     const isLoading = computed(() =>
-        isBoardLoading.value || (options.mode() === 'edit' && isPostLoading.value),
+        isBoardLoading.value
+        || (options.mode() === 'edit' && Boolean(options.postId.value) && isPostLoading.value)
+        || (isScheduledEdit.value && isScheduledPostLoading.value),
     )
     const showNotice = computed(() =>
         !options.hideNotice() && Boolean(board.value?.isAdmin),
@@ -46,12 +60,14 @@ export function usePostFormResource(options: UsePostFormResourceOptions) {
         board,
         categories,
         post,
+        scheduledPost,
         isLoading,
         isSubmitting,
         showNotice,
         canShowNsfw,
         createPost,
         createScheduledPost,
+        updateScheduledPost,
         updatePost,
     }
 }

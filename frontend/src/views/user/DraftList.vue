@@ -109,6 +109,10 @@ function getScheduledPostRoute(post: ScheduledPost) {
   return `/board/${encodePathSegment(post.boardUrl)}/post/${encodePathSegment(post.publishedPostId)}`
 }
 
+function getScheduledEditRoute(post: ScheduledPost) {
+  return `/scheduled-posts/${encodePathSegment(post.scheduledPostId)}/edit`
+}
+
 function getScheduledStatus(post: ScheduledPost) {
   const variants: Record<ScheduledPost['status'], 'info' | 'warning' | 'success' | 'secondary' | 'danger'> = {
     SCHEDULED: 'info',
@@ -246,6 +250,14 @@ async function handleCancelScheduledPost(post: ScheduledPost) {
           </div>
 
           <div class="flex flex-shrink-0 items-center gap-2">
+            <RouterLink
+              v-if="post.status === 'SCHEDULED' || post.status === 'FAILED'"
+              :to="getScheduledEditRoute(post)"
+              class="inline-flex min-h-11 items-center justify-center rounded-md border border-[var(--nv-line)] px-3 text-xs font-medium nv-text hover:bg-[var(--nv-surface-2)]"
+            >
+              <Pencil class="mr-1.5 h-3.5 w-3.5" />
+              {{ $t('user.draftList.editScheduled') }}
+            </RouterLink>
             <RouterLink
               v-if="getScheduledPostRoute(post)"
               :to="getScheduledPostRoute(post)!"

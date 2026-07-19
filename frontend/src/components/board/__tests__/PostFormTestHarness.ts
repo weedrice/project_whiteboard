@@ -276,10 +276,13 @@ const stubs = {
 const mockAddToast = vi.fn()
 const mockCreateMutate = vi.fn()
 const mockCreateScheduledMutate = vi.fn()
+const mockUpdateScheduledMutate = vi.fn()
 const mockUpdateMutate = vi.fn()
 const mockUsePostDetail = vi.fn()
+const mockUseScheduledPostDetail = vi.fn()
 const mockUseCreatePost = vi.fn()
 const mockUseCreateScheduledPost = vi.fn()
+const mockUseUpdateScheduledPost = vi.fn()
 const mockUseUpdatePost = vi.fn()
 const mockSaveDraftMutateAsync = vi.fn()
 const mockDeleteDraftMutateAsync = vi.fn()
@@ -324,10 +327,12 @@ type FillPostFormOptions = {
 
 const boardRef = ref<TestBoard | null>({ allowNsfw: false, isAdmin: false, categories: [] })
 const postRef = ref<unknown>(null)
+const scheduledPostRef = ref<unknown>(null)
 const isBoardLoadingRef = ref(false)
 const isPostLoadingRef = ref(false)
 const isCreatePendingRef = ref(false)
 const isCreateScheduledPendingRef = ref(false)
+const isUpdateScheduledPendingRef = ref(false)
 const isUpdatePendingRef = ref(false)
 const mountedWrappers: Array<ReturnType<typeof mount>> = []
 
@@ -522,10 +527,12 @@ export const resetPostFormTestState = () => {
         categories: [{ categoryId: 1, name: 'General', minWriteRole: 'USER' }],
     }
     postRef.value = null
+    scheduledPostRef.value = null
     isBoardLoadingRef.value = false
     isPostLoadingRef.value = false
     isCreatePendingRef.value = false
     isCreateScheduledPendingRef.value = false
+    isUpdateScheduledPendingRef.value = false
     isUpdatePendingRef.value = false
 
     mockPostFormAuthStore({ user: { role: 'USER' } })
@@ -537,16 +544,20 @@ export const resetPostFormTestState = () => {
 
     vi.mocked(usePost).mockReturnValue({
         usePostDetail: mockUsePostDetail,
+        useScheduledPostDetail: mockUseScheduledPostDetail,
         useCreatePost: mockUseCreatePost,
         useCreateScheduledPost: mockUseCreateScheduledPost,
+        useUpdateScheduledPost: mockUseUpdateScheduledPost,
         useUpdatePost: mockUseUpdatePost,
         useSaveDraft: () => ({ isPending: isSaveDraftPendingRef, mutateAsync: mockSaveDraftMutateAsync }),
         useDeleteDraft: () => ({ isPending: isDeleteDraftPendingRef, mutateAsync: mockDeleteDraftMutateAsync }),
     } as unknown as ReturnType<typeof usePost>)
 
     mockUsePostDetail.mockImplementation(() => ({ data: postRef, isLoading: isPostLoadingRef }))
+    mockUseScheduledPostDetail.mockImplementation(() => ({ data: scheduledPostRef, isLoading: ref(false) }))
     mockUseCreatePost.mockImplementation(() => ({ mutate: mockCreateMutate, isPending: isCreatePendingRef }))
     mockUseCreateScheduledPost.mockImplementation(() => ({ mutate: mockCreateScheduledMutate, isPending: isCreateScheduledPendingRef }))
+    mockUseUpdateScheduledPost.mockImplementation(() => ({ mutate: mockUpdateScheduledMutate, isPending: isUpdateScheduledPendingRef }))
     mockUseUpdatePost.mockImplementation(() => ({ mutate: mockUpdateMutate, isPending: isUpdatePendingRef }))
     mockSaveDraftMutateAsync.mockResolvedValue({
         data: {
@@ -588,6 +599,7 @@ export {
     isUpdatePendingRef,
     mockAddToast,
     mockCreateScheduledMutate,
+    mockUpdateScheduledMutate,
     mockCreateMutate,
     mockCreatePostSeries,
     mockSaveDraftMutateAsync,
@@ -596,6 +608,7 @@ export {
     mockPostFormAuthStore,
     mountPostForm,
     postRef,
+    scheduledPostRef,
     routeState,
     setBoardCategories,
     submitPostForm,

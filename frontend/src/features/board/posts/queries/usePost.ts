@@ -77,6 +77,15 @@ export function usePost() {
         })
     }
 
+    const useScheduledPostDetail = (scheduledPostId: Ref<string | number>, enabled: Ref<boolean>) => {
+        return useQuery({
+            queryKey: computed(() => authKey(userQueryKeys.scheduledPost(scheduledPostId.value))),
+            queryFn: async () => unwrapAxiosApiData(await postApi.getScheduledPost(scheduledPostId.value)),
+            enabled: computed(() => Boolean(scheduledPostId.value) && enabled.value),
+            meta: AUTH_SCOPED_QUERY_META,
+        })
+    }
+
     const usePostVersions = (postId: Ref<string | number>, enabled: Ref<boolean>) => {
         return useQuery({
             queryKey: computed(() => authKey(postQueryKeys.versions(postId.value))),
@@ -115,6 +124,19 @@ export function usePost() {
             onMutate: captureMutationSession,
             mutationFn: async ({ boardUrl, data }: { boardUrl: string, data: ScheduledPostData }) => {
                 return await postApi.createScheduledPost(boardUrl, data)
+            },
+            onSuccess: (_data, _variables, context) => {
+                if (!isCurrentMutation(context)) return
+                queryClient.invalidateQueries({ queryKey: authKey(userQueryKeys.scheduledPostsRoot) })
+            },
+        })
+    }
+
+    const useUpdateScheduledPost = () => {
+        return useMutation({
+            onMutate: captureMutationSession,
+            mutationFn: async ({ scheduledPostId, data }: { scheduledPostId: string | number, data: ScheduledPostData }) => {
+                return await postApi.updateScheduledPost(scheduledPostId, data)
             },
             onSuccess: (_data, _variables, context) => {
                 if (!isCurrentMutation(context)) return
@@ -345,10 +367,12 @@ export function usePost() {
 
     return {
         usePostDetail,
+        useScheduledPostDetail,
         useRelatedPosts,
         usePostVersions,
         useCreatePost,
         useCreateScheduledPost,
+        useUpdateScheduledPost,
         useUpdatePost,
         useDeletePost,
         useLikePost,

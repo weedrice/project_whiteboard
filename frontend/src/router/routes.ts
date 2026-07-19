@@ -150,6 +150,12 @@ export const routes: RouteRecordRaw[] = [
         meta: { requiresAuth: true, requiresPostAuthor: true },
     },
     {
+        path: '/scheduled-posts/:scheduledPostId/edit',
+        name: 'scheduled-post-edit',
+        component: () => import(/* webpackChunkName: "post-editor" */ '@/views/board/ScheduledPostEdit.vue'),
+        meta: { requiresAuth: true },
+    },
+    {
         path: '/admin',
         meta: { requiresAuth: true, roles: ['SUPER_ADMIN'], layout: 'AdminLayout' },
         children: [
