@@ -3,6 +3,7 @@ import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
 import { createPinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import CommonCodeManagement from '../CommonCodeManagement.vue'
+import { createDeferred } from '@/test/async'
 
 const commonCodeApiMock = vi.hoisted(() => ({
   getAll: vi.fn(),
@@ -128,5 +129,38 @@ describe('CommonCodeManagement', () => {
 
     await expect(navigationMocks.routeLeaveGuard?.()).resolves.toBe(false)
     expect(navigationMocks.confirm).toHaveBeenCalledWith('admin.commonCodes.messages.confirmDiscardChanges')
+  })
+
+  it('locks a create modal and route leave until its save request settles', async () => {
+    const createRequest = createDeferred<unknown>()
+    commonCodeApiMock.create.mockReturnValueOnce(createRequest.promise)
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const wrapper = mount(CommonCodeManagement, {
+      global: {
+        plugins: [createPinia(), [VueQueryPlugin, { queryClient }]],
+        mocks: { $t: (key: string) => key },
+        stubs: { Teleport: true },
+      },
+    })
+    await flushPromises()
+
+    await wrapper.findAll('button').find((button) => button.text().includes('admin.commonCodes.addCode'))?.trigger('click')
+    const vm = wrapper.vm as unknown as {
+      createCodeForm: { typeCode: string; typeName: string }
+      saveCode: () => Promise<void>
+    }
+    Object.assign(vm.createCodeForm, { typeCode: 'NEW_CODE', typeName: 'New code' })
+    const pendingSave = vm.saveCode()
+    await vi.waitFor(() => expect(commonCodeApiMock.create).toHaveBeenCalledTimes(1))
+
+    const lockedModal = wrapper.get('[role="dialog"]')
+    expect(lockedModal.findAll('input')[0].attributes('disabled')).toBeDefined()
+    expect(lockedModal.findAll('button').find((button) => button.text() === 'common.cancel')?.attributes('disabled')).toBeDefined()
+    await expect(navigationMocks.routeLeaveGuard?.()).resolves.toBe(false)
+
+    createRequest.resolve(response({ typeCode: 'NEW_CODE' }))
+    await pendingSave
+    await flushPromises()
+    expect(wrapper.findAll('button').some((button) => button.text() === 'common.cancel')).toBe(false)
   })
 })

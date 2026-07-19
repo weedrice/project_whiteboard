@@ -22,6 +22,7 @@
           :boards="boards"
           :loading="loading"
           :selected-board-id="selectedBoardId"
+          :reorder-disabled="isSavingSortOrder || isSubmitting"
           @update:boards="updateBoards"
           @create="openCreateModal"
           @select="selectBoard"
@@ -51,8 +52,9 @@
       </section>
     </div>
 
-    <BaseModal :isOpen="isModalOpen" :title="$t('admin.boards.addTitle')" @close="closeModal">
-      <div class="p-4 space-y-4">
+    <BaseModal :isOpen="isModalOpen" :title="$t('admin.boards.addTitle')"
+      :close-on-backdrop="!isCreatingBoard" :close-on-escape="!isCreatingBoard" @close="closeModal">
+      <fieldset :disabled="isCreatingBoard" :inert="isCreatingBoard ? true : undefined" class="p-4 space-y-4 border-0">
         <AdminBoardFormFields
           v-model:board-name="createForm.boardName"
           v-model:board-url="createForm.boardUrl"
@@ -62,12 +64,12 @@
           board-url-pattern="[a-z0-9_-]*"
         />
         <AdminModalActions class-name="pt-2">
-          <BaseButton variant="secondary" @click="closeModal">{{ $t('common.cancel') }}</BaseButton>
+          <BaseButton variant="secondary" :disabled="isCreatingBoard" @click="closeModal">{{ $t('common.cancel') }}</BaseButton>
           <BaseButton :disabled="isCreatingBoard" @click="handleCreateBoard">
             {{ isCreatingBoard ? $t('common.messages.saving') : $t('common.save') }}
           </BaseButton>
         </AdminModalActions>
-      </div>
+      </fieldset>
     </BaseModal>
 
     <UserSelectModal
@@ -81,7 +83,8 @@
 </template>
 
 <script setup lang="ts">
-import { type ComponentPublicInstance } from 'vue'
+import { computed, type ComponentPublicInstance } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useAdmin } from '@/features/admin/useAdmin'
 import { useAdminBoardEditor, type AdminBoardEditorForm } from '@/features/admin/boards/useAdminBoardEditor'
 import { useAdminBoardCreateModal } from '@/features/admin/boards/useAdminBoardCreateModal'
@@ -97,7 +100,9 @@ import BaseModal from '@/components/common/ui/BaseModal.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import ErrorState from '@/components/common/ui/ErrorState.vue'
 import UserSelectModal from '@/components/common/widgets/UserSelectModal.vue'
-import { usePwaReloadBlocker } from '@/pwaReloadGuard'
+import { useConfirm } from '@/composables/useConfirm'
+import { useUnsavedChangesGuard } from '@/composables/useUnsavedChangesGuard'
+const { t } = useI18n()
 const {
   useAdminBoards,
   useCreateBoard,
@@ -127,6 +132,7 @@ const {
   form,
   hasUnsavedChanges,
   isSubmitting,
+  isSavingSortOrder,
   handleDragEnd,
   toggleBoardStatus,
   selectBoard,
@@ -137,7 +143,14 @@ const {
   reorderBoards,
   refetchBoards: async () => { await refetchBoards() },
 })
-usePwaReloadBlocker(hasUnsavedChanges)
+const { confirm } = useConfirm()
+const isBoardOperationPending = computed(() => isSubmitting.value || isSavingSortOrder.value)
+useUnsavedChangesGuard(
+  hasUnsavedChanges,
+  isBoardOperationPending,
+  () => t('admin.boards.messages.confirmDiscardChanges'),
+  confirm,
+)
 
 const {
   fileInput,
@@ -156,6 +169,7 @@ const setFileInputRef = (element: Element | ComponentPublicInstance | null) => {
 }
 
 const updateBoards = (nextBoards: AdminBoard[]) => {
+  if (isSavingSortOrder.value || isSubmitting.value) return
   boards.value = nextBoards
 }
 

@@ -123,6 +123,25 @@ describe('SanctionModal', () => {
         }))
     })
 
+    it('locks cancellation and inputs while a sanction request is pending', async () => {
+        let resolveSanction!: () => void
+        mocks.sanctionUser.mockReturnValueOnce(new Promise<void>((resolve) => { resolveSanction = resolve }))
+        const wrapper = mountModal({ id: 7, name: 'Reported User' })
+
+        await wrapper.get('form').trigger('submit')
+        await flushPromises()
+
+        const cancelButton = wrapper.findAll('button').find((button) => button.text() === 'admin.sanction.cancel')
+        expect(cancelButton?.attributes('disabled')).toBeDefined()
+        expect(wrapper.get('select#sanction-type').attributes('disabled')).toBeDefined()
+        await cancelButton?.trigger('click')
+        expect(wrapper.emitted('close')).toBeUndefined()
+
+        resolveSanction()
+        await flushPromises()
+        expect(wrapper.emitted('close')).toHaveLength(1)
+    })
+
     it('requires a positive whole-day duration for mute sanctions', async () => {
         const wrapper = mountModal({ id: 7, name: 'Reported User' })
 

@@ -59,4 +59,27 @@ describe('AdminBoardListPanel', () => {
     expect(wrapper.emitted('drag-end')).toHaveLength(1)
     expect(wrapper.get('[role="status"]').text()).toBe('common.moved')
   })
+
+  it('does not apply another local order while an order save is pending', async () => {
+    const boards = [makeBoard(1, 'General'), makeBoard(2, 'News')]
+    const wrapper = mount(AdminBoardListPanel, {
+      props: { boards, loading: false, selectedBoardId: 1, reorderDisabled: true },
+      global: {
+        stubs: {
+          AdminPanel: { template: '<div><slot /></div>' },
+          AdminContentState: { template: '<div><slot /></div>' },
+          BooleanBadge: true,
+          ChevronDown: true,
+          ChevronUp: true,
+          GripVertical: true,
+        },
+      },
+    })
+
+    const moveDown = wrapper.find('button[aria-label="common.moveDown"]')
+    expect(moveDown.attributes('disabled')).toBeDefined()
+    await moveDown.trigger('click')
+    expect(wrapper.emitted('update:boards')).toBeUndefined()
+    expect(wrapper.emitted('drag-end')).toBeUndefined()
+  })
 })

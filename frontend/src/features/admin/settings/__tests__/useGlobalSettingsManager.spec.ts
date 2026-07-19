@@ -119,6 +119,23 @@ describe('useGlobalSettingsManager', () => {
     expect(mocks.refreshImagePolicy).toHaveBeenCalledTimes(1)
   })
 
+  it('blocks repeated saves for the same key until its request settles', async () => {
+    const update = createDeferred<unknown>()
+    mocks.updateConfig.mockReturnValueOnce(update.promise)
+    const manager = useGlobalSettingsManager()
+    manager.updateDraft('site.name', { value: 'Updated' })
+
+    const firstSave = manager.handleSave('site.name')
+    const secondSave = manager.handleSave('site.name')
+
+    expect(manager.isSavePending('site.name')).toBe(true)
+    expect(mocks.updateConfig).toHaveBeenCalledTimes(1)
+
+    update.resolve(undefined)
+    await Promise.all([firstSave, secondSave])
+    expect(manager.isSavePending('site.name')).toBe(false)
+  })
+
   it('ignores an existing-config save response from an older authentication session', async () => {
     const update = createDeferred<unknown>()
     mocks.updateConfig.mockReturnValueOnce(update.promise)
@@ -268,7 +285,7 @@ describe('useGlobalSettingsManager', () => {
     expect(mocks.addToast).not.toHaveBeenCalled()
   })
 
-  it('does not let an old create response close or reset a reopened modal', async () => {
+  it('does not let the create modal close or reopen while creation is pending', async () => {
     let resolveCreate!: (value: unknown) => void
     mocks.createConfig.mockReturnValueOnce(new Promise(resolve => { resolveCreate = resolve }))
     const manager = useGlobalSettingsManager()
@@ -278,13 +295,15 @@ describe('useGlobalSettingsManager', () => {
 
     manager.closeCreateModal()
     manager.openCreateModal()
-    Object.assign(manager.newConfig, { key: 'new.key', value: 'new', description: 'new draft' })
+    expect(manager.isModalOpen.value).toBe(true)
+    expect(manager.newConfig).toEqual({ key: 'old.key', value: 'old', description: '' })
+
     resolveCreate(undefined)
     await pending
 
-    expect(manager.isModalOpen.value).toBe(true)
-    expect(manager.newConfig).toEqual({ key: 'new.key', value: 'new', description: 'new draft' })
-    expect(mocks.addToast).not.toHaveBeenCalledWith('admin.settings.messages.saved', 'success')
+    expect(manager.isModalOpen.value).toBe(false)
+    expect(manager.newConfig).toEqual({ key: '', value: '', description: '' })
+    expect(mocks.addToast).toHaveBeenCalledWith('admin.settings.messages.saved', 'success')
   })
 
   it('closes and clears the create modal at the authentication boundary', () => {

@@ -1,6 +1,8 @@
 <template>
-  <BaseModal :isOpen="isOpen" :title="t('admin.sanction.title')" @close="$emit('close')">
-    <form @submit.prevent="submitSanction" class="space-y-4">
+  <BaseModal :isOpen="isOpen" :title="t('admin.sanction.title')"
+    :close-on-backdrop="!isLocked" :close-on-escape="!isLocked" @close="requestClose">
+    <form @submit.prevent="submitSanction">
+      <fieldset :disabled="isLocked" :inert="isLocked ? true : undefined" class="space-y-4 border-0 p-0">
       <div>
         <label class="block text-sm font-medium nv-text-muted">{{ t('admin.sanction.userLabel') }}</label>
         <p class="mt-1 text-sm nv-text">
@@ -9,7 +11,7 @@
       </div>
 
       <div>
-        <BaseSelect id="sanction-type" v-model="form.type" :label="t('admin.sanction.type')"
+        <BaseSelect id="sanction-type" v-model="form.type" :label="t('admin.sanction.type')" :disabled="isLocked"
           :error="sanctionValidation.visibleError('type')" @blur="sanctionValidation.touchField('type', sanctionValidationValues)">
           <option value="WARNING">{{ t('admin.sanction.types.WARNING') }}</option>
           <option value="MUTE">{{ t('admin.sanction.types.MUTE') }}</option>
@@ -18,7 +20,7 @@
       </div>
 
       <div>
-        <BaseSelect id="reason" v-model="form.reason" :label="t('admin.sanction.reason')"
+        <BaseSelect id="reason" v-model="form.reason" :label="t('admin.sanction.reason')" :disabled="isLocked"
           :error="sanctionValidation.visibleError('reason')" @blur="sanctionValidation.touchField('reason', sanctionValidationValues)">
           <option value="SPAM">{{ t('admin.sanction.reasons.SPAM') }}</option>
           <option value="ABUSIVE_LANGUAGE">{{ t('admin.sanction.reasons.ABUSIVE_LANGUAGE') }}</option>
@@ -29,13 +31,13 @@
 
       <div>
         <BaseTextarea id="description" v-model="form.description" :label="t('admin.sanction.description')" rows="3"
-          :placeholder="t('admin.sanction.descriptionPlaceholder')" maxlength="255"
+          :placeholder="t('admin.sanction.descriptionPlaceholder')" maxlength="255" :disabled="isLocked"
           :error="sanctionValidation.visibleError('description')"
           @blur="sanctionValidation.touchField('description', sanctionValidationValues)" />
       </div>
 
       <div v-if="form.type !== 'WARNING'">
-        <BaseInput id="duration" v-model="form.duration" type="number" :label="t('admin.sanction.duration')" min="1" step="1"
+        <BaseInput id="duration" v-model="form.duration" type="number" :label="t('admin.sanction.duration')" min="1" step="1" :disabled="isLocked"
           :error="sanctionValidation.visibleError('duration')" @blur="sanctionValidation.touchField('duration', sanctionValidationValues)" />
         <p class="mt-1 text-xs nv-text-subtle">
           {{ form.type === 'MUTE' ? t('admin.sanction.durationHintMute') : t('admin.sanction.durationHintBan') }}
@@ -43,11 +45,12 @@
       </div>
 
       <AdminModalActions class-name="mt-5">
-        <BaseButton type="button" variant="secondary" @click="$emit('close')">{{ t('admin.sanction.cancel') }}</BaseButton>
+        <BaseButton type="button" variant="secondary" :disabled="isLocked" @click="requestClose">{{ t('admin.sanction.cancel') }}</BaseButton>
         <BaseButton type="submit" variant="danger" :disabled="isSubmitting || loading">
           {{ isSubmitting || loading ? t('admin.sanction.processing') : t('admin.sanction.submit') }}
         </BaseButton>
       </AdminModalActions>
+      </fieldset>
     </form>
   </BaseModal>
 </template>
@@ -103,6 +106,7 @@ const authStore = useAuthStore()
 const { useSanctionUser } = useAdmin()
 const { mutateAsync: sanctionUser, isPending: loading } = useSanctionUser()
 const isSubmitting = ref(false)
+const isLocked = computed(() => isSubmitting.value || loading.value)
 
 const sanctionTargetName = computed(() => props.user?.displayName || props.user?.nickname || props.user?.name || t('common.messages.unknown'))
 
@@ -211,6 +215,11 @@ async function submitSanction() {
   } finally {
     isSubmitting.value = false
   }
+}
+
+function requestClose() {
+  if (isLocked.value) return
+  emit('close')
 }
 
 function resolveEndDate() {

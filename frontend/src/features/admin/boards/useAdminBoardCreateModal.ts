@@ -39,6 +39,7 @@ export function useAdminBoardCreateModal(createBoard: CreateBoard) {
   }
 
   function openCreateModal() {
+    if (isCreatingBoard.value) return
     modalGeneration += 1
     activeRequest = 0
     isCreatingBoard.value = false
@@ -47,12 +48,17 @@ export function useAdminBoardCreateModal(createBoard: CreateBoard) {
     isModalOpen.value = true
   }
 
-  function closeModal() {
+  function forceCloseModal() {
     modalGeneration += 1
     activeRequest = 0
     modalSessionIntent = null
     isCreatingBoard.value = false
     isModalOpen.value = false
+  }
+
+  function closeModal() {
+    if (isCreatingBoard.value) return
+    forceCloseModal()
   }
 
   watch(() => createForm.boardUrl, (boardUrl) => {
@@ -93,7 +99,7 @@ export function useAdminBoardCreateModal(createBoard: CreateBoard) {
         return
       }
       toastStore.addToast(t('admin.boards.messages.created'), 'success')
-      closeModal()
+      forceCloseModal()
     } catch {
       // Error handled globally
     } finally {
@@ -108,7 +114,7 @@ export function useAdminBoardCreateModal(createBoard: CreateBoard) {
     () => [authStore.sessionGeneration, authStore.user?.userId] as const,
     () => {
       if (!isModalOpen.value) return
-      closeModal()
+      forceCloseModal()
       resetCreateForm()
     },
     { flush: 'sync' },

@@ -129,7 +129,7 @@ describe('useAdminBoardCreateModal', () => {
     expect(mocks.addToast).toHaveBeenCalledWith('board.form.validation', 'error')
   })
 
-  it('ignores a completed request from a previously closed modal instance', async () => {
+  it('keeps the modal and submitted draft locked until creation completes', async () => {
     const firstRequest = deferred<void>()
     const createBoard = vi.fn().mockReturnValue(firstRequest.promise)
     const modal = useAdminBoardCreateModal(createBoard)
@@ -142,43 +142,31 @@ describe('useAdminBoardCreateModal', () => {
     const pendingSubmit = modal.handleCreateBoard()
     modal.closeModal()
     modal.openCreateModal()
-    Object.assign(modal.createForm, {
-      boardName: 'New board',
-      boardUrl: 'new-board',
-    })
+    expect(modal.isModalOpen.value).toBe(true)
+    expect(modal.isCreatingBoard.value).toBe(true)
+    expect(modal.createForm.boardName).toBe('Old board')
+
     firstRequest.resolve()
     await pendingSubmit
 
-    expect(modal.isModalOpen.value).toBe(true)
+    expect(modal.isModalOpen.value).toBe(false)
     expect(modal.isCreatingBoard.value).toBe(false)
-    expect(modal.createForm.boardName).toBe('New board')
-    expect(mocks.addToast).not.toHaveBeenCalledWith('admin.boards.messages.created', 'success')
+    expect(mocks.addToast).toHaveBeenCalledWith('admin.boards.messages.created', 'success')
   })
 
-  it('does not let an old request clear the creating state of a new request', async () => {
+  it('does not submit again while creation is pending', async () => {
     const firstRequest = deferred<void>()
-    const secondRequest = deferred<void>()
-    const createBoard = vi.fn()
-      .mockReturnValueOnce(firstRequest.promise)
-      .mockReturnValueOnce(secondRequest.promise)
+    const createBoard = vi.fn().mockReturnValueOnce(firstRequest.promise)
     const modal = useAdminBoardCreateModal(createBoard)
     modal.openCreateModal()
     Object.assign(modal.createForm, { boardName: 'Old board', boardUrl: 'old-board' })
     const firstSubmit = modal.handleCreateBoard()
-
-    modal.closeModal()
-    modal.openCreateModal()
-    Object.assign(modal.createForm, { boardName: 'New board', boardUrl: 'new-board' })
     const secondSubmit = modal.handleCreateBoard()
+
+    expect(createBoard).toHaveBeenCalledTimes(1)
     firstRequest.resolve()
-    await firstSubmit
-
-    expect(modal.isModalOpen.value).toBe(true)
-    expect(modal.isCreatingBoard.value).toBe(true)
-
-    secondRequest.reject(new Error('failed'))
-    await secondSubmit
-    expect(modal.isCreatingBoard.value).toBe(false)
+    await Promise.all([firstSubmit, secondSubmit])
+    expect(modal.isModalOpen.value).toBe(false)
   })
 
   it('closes and clears the modal when the authentication session changes', async () => {

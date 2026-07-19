@@ -30,6 +30,8 @@ export function useGlobalSettingsManager() {
 
   const isModalOpen = ref(false)
   const isCreatingConfig = ref(false)
+  const pendingSaveKeys = ref<Set<string>>(new Set())
+  const pendingSaveOperations = new Map<string, symbol>()
   const newConfig = reactive(createEmptyConfigForm())
   let modalRevision = 0
 
@@ -44,32 +46,48 @@ export function useGlobalSettingsManager() {
   ))
 
   function openCreateModal() {
+    if (isCreatingConfig.value) return
     modalRevision += 1
     isCreatingConfig.value = false
     resetNewConfig()
     isModalOpen.value = true
   }
 
-  function closeCreateModal() {
+  function forceCloseCreateModal() {
     modalRevision += 1
     isCreatingConfig.value = false
     isModalOpen.value = false
     resetNewConfig()
   }
 
+  function closeCreateModal() {
+    if (isCreatingConfig.value) return
+    forceCloseCreateModal()
+  }
+
   function resetNewConfig() {
     Object.assign(newConfig, createEmptyConfigForm())
   }
 
-  watch(() => authStore.sessionGeneration, closeCreateModal, { flush: 'sync' })
+  watch(() => authStore.sessionGeneration, () => {
+    pendingSaveOperations.clear()
+    pendingSaveKeys.value = new Set()
+    forceCloseCreateModal()
+  }, { flush: 'sync' })
+
+  const isSavePending = (key: string) => pendingSaveKeys.value.has(key)
 
   async function handleSave(key: string) {
+    if (isSavePending(key)) return
     const config = getDraft(key)
     if (!config) return
 
     const payload = normalizeConfigWritePayload(config)
     if (!payload) return
     const intent = captureAuthSessionIntent(authStore)
+    const operationId = Symbol(key)
+    pendingSaveOperations.set(key, operationId)
+    pendingSaveKeys.value = new Set(pendingSaveKeys.value).add(key)
 
     try {
       await updateConfig({ key: config.key, value: payload.value, description: payload.description })
@@ -81,6 +99,13 @@ export function useGlobalSettingsManager() {
       toastStore.addToast(t('admin.settings.messages.saved'), 'success')
     } catch {
       // Error handled globally
+    } finally {
+      if (pendingSaveOperations.get(key) === operationId) {
+        pendingSaveOperations.delete(key)
+        const nextPending = new Set(pendingSaveKeys.value)
+        nextPending.delete(key)
+        pendingSaveKeys.value = nextPending
+      }
     }
   }
 
@@ -114,7 +139,7 @@ export function useGlobalSettingsManager() {
       ) return
 
       toastStore.addToast(t('admin.settings.messages.saved'), 'success')
-      closeCreateModal()
+      forceCloseCreateModal()
     } catch {
       // Error handled globally
     } finally {
@@ -123,6 +148,7 @@ export function useGlobalSettingsManager() {
   }
 
   async function handleDelete(key: string) {
+    if (isSavePending(key)) return
     const targetKey = configs.value.find((config) => config.key === key)?.key
     if (!targetKey) return
     const intent = captureAuthSessionIntent(authStore)
@@ -155,6 +181,7 @@ export function useGlobalSettingsManager() {
     hasUnsavedChanges,
     isLoading,
     isCreatingConfig,
+    isSavePending,
     isModalOpen,
     newConfig,
     openCreateModal,

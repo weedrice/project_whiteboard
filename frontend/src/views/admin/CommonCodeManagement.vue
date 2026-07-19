@@ -92,6 +92,7 @@ const detailPayload = (): CommonCodeDetailPayload => ({
 })
 
 function openCodeModal() {
+  if (isSaving.value) return
   Object.assign(createCodeForm, emptyCodeForm())
   isCodeModalOpen.value = true
 }
@@ -104,16 +105,21 @@ async function selectTypeCode(typeCode: string) {
 }
 
 onBeforeRouteLeave(async () => {
+  if (isSaving.value) return false
   if (!isMasterDirty.value) return true
   return confirm(t('admin.commonCodes.messages.confirmDiscardChanges'))
 })
 
-function closeCodeModal() {
+function forceCloseCodeModal() {
   isCodeModalOpen.value = false
-  isSaving.value = false
   Object.assign(createCodeForm, emptyCodeForm())
 }
+function closeCodeModal() {
+  if (isSaving.value) return
+  forceCloseCodeModal()
+}
 function openDetailModal(detailId?: number) {
+  if (isSaving.value) return
   const detail = detailId == null ? null : details.value.find((item) => item.id === detailId)
   editingDetailId.value = detail?.id ?? null
   Object.assign(detailForm, detail ? {
@@ -121,10 +127,13 @@ function openDetailModal(detailId?: number) {
   } : emptyDetailForm())
   isDetailModalOpen.value = true
 }
-function closeDetailModal() {
+function forceCloseDetailModal() {
   isDetailModalOpen.value = false
   editingDetailId.value = null
-  isSaving.value = false
+}
+function closeDetailModal() {
+  if (isSaving.value) return
+  forceCloseDetailModal()
 }
 
 async function saveCode() {
@@ -146,7 +155,7 @@ async function saveCode() {
     if (!isAuthSessionIntentCurrent(authStore, intent)) return
     selectedTypeCode.value = payload.typeCode
     toastStore.addToast(t('admin.commonCodes.messages.saved'), 'success')
-    if (creating) closeCodeModal()
+    if (creating) forceCloseCodeModal()
   } finally {
     if (isAuthSessionIntentCurrent(authStore, intent)) isSaving.value = false
   }
@@ -168,7 +177,7 @@ async function saveDetail() {
     await detailsQuery.refetch()
     if (!isAuthSessionIntentCurrent(authStore, intent)) return
     toastStore.addToast(t('admin.commonCodes.messages.detailSaved'), 'success')
-    closeDetailModal()
+    forceCloseDetailModal()
   } finally {
     if (isAuthSessionIntentCurrent(authStore, intent)) isSaving.value = false
   }
@@ -209,8 +218,8 @@ async function deleteDetail(detailId: number) {
           <h2 class="mb-4 text-lg font-semibold nv-title">{{ t('admin.commonCodes.master') }}</h2>
           <div class="grid gap-4 sm:grid-cols-2">
             <BaseInput v-model="masterCodeForm.typeCode" :label="t('admin.commonCodes.typeCode')" disabled />
-            <BaseInput v-model="masterCodeForm.typeName" :label="t('admin.commonCodes.typeName')" maxlength="100" @update:model-value="isMasterDirty = true" />
-            <BaseInput v-model="masterCodeForm.description" :label="t('common.description')" maxlength="255" class="sm:col-span-2" @update:model-value="isMasterDirty = true" />
+            <BaseInput v-model="masterCodeForm.typeName" :label="t('admin.commonCodes.typeName')" maxlength="100" :disabled="isSaving" @update:model-value="isMasterDirty = true" />
+            <BaseInput v-model="masterCodeForm.description" :label="t('common.description')" maxlength="255" :disabled="isSaving" class="sm:col-span-2" @update:model-value="isMasterDirty = true" />
           </div>
           <div class="mt-4 flex justify-end"><BaseButton :disabled="isSaving" @click="saveCode"><Save class="mr-2 h-4 w-4" />{{ t('common.save') }}</BaseButton></div>
         </div>
@@ -234,19 +243,21 @@ async function deleteDetail(detailId: number) {
       </section>
     </div>
 
-    <BaseModal :is-open="isCodeModalOpen" :title="t('admin.commonCodes.addCode')" @close="closeCodeModal">
-      <div class="space-y-4"><BaseInput v-model="createCodeForm.typeCode" :label="t('admin.commonCodes.typeCode')" maxlength="50" />
-        <BaseInput v-model="createCodeForm.typeName" :label="t('admin.commonCodes.typeName')" maxlength="100" />
-        <BaseInput v-model="createCodeForm.description" :label="t('common.description')" maxlength="255" /></div>
-      <template #footer><AdminModalActions><BaseButton variant="secondary" @click="closeCodeModal">{{ t('common.cancel') }}</BaseButton>
+    <BaseModal :is-open="isCodeModalOpen" :title="t('admin.commonCodes.addCode')"
+      :close-on-backdrop="!isSaving" :close-on-escape="!isSaving" @close="closeCodeModal">
+      <fieldset :disabled="isSaving" :inert="isSaving ? true : undefined" class="space-y-4 border-0 p-0"><BaseInput v-model="createCodeForm.typeCode" :label="t('admin.commonCodes.typeCode')" maxlength="50" :disabled="isSaving" />
+        <BaseInput v-model="createCodeForm.typeName" :label="t('admin.commonCodes.typeName')" maxlength="100" :disabled="isSaving" />
+        <BaseInput v-model="createCodeForm.description" :label="t('common.description')" maxlength="255" :disabled="isSaving" /></fieldset>
+      <template #footer><AdminModalActions><BaseButton variant="secondary" :disabled="isSaving" @click="closeCodeModal">{{ t('common.cancel') }}</BaseButton>
         <BaseButton :disabled="isSaving" @click="saveCode">{{ t('common.save') }}</BaseButton></AdminModalActions></template>
     </BaseModal>
-    <BaseModal :is-open="isDetailModalOpen" :title="editingDetailId == null ? t('admin.commonCodes.addDetail') : t('admin.commonCodes.editDetail')" @close="closeDetailModal">
-      <div class="space-y-4"><BaseInput v-model="detailForm.codeValue" :label="t('admin.commonCodes.codeValue')" maxlength="100" />
-        <BaseInput v-model="detailForm.codeName" :label="t('admin.commonCodes.codeName')" maxlength="100" />
-        <BaseInput v-model="detailForm.sortOrder" :label="t('common.sortOrder')" type="number" />
-        <BaseCheckbox v-model="detailForm.isActive" :label="t('common.active')" /></div>
-      <template #footer><AdminModalActions><BaseButton variant="secondary" @click="closeDetailModal">{{ t('common.cancel') }}</BaseButton>
+    <BaseModal :is-open="isDetailModalOpen" :title="editingDetailId == null ? t('admin.commonCodes.addDetail') : t('admin.commonCodes.editDetail')"
+      :close-on-backdrop="!isSaving" :close-on-escape="!isSaving" @close="closeDetailModal">
+      <fieldset :disabled="isSaving" :inert="isSaving ? true : undefined" class="space-y-4 border-0 p-0"><BaseInput v-model="detailForm.codeValue" :label="t('admin.commonCodes.codeValue')" maxlength="100" :disabled="isSaving" />
+        <BaseInput v-model="detailForm.codeName" :label="t('admin.commonCodes.codeName')" maxlength="100" :disabled="isSaving" />
+        <BaseInput v-model="detailForm.sortOrder" :label="t('common.sortOrder')" type="number" :disabled="isSaving" />
+        <BaseCheckbox v-model="detailForm.isActive" :label="t('common.active')" :disabled="isSaving" /></fieldset>
+      <template #footer><AdminModalActions><BaseButton variant="secondary" :disabled="isSaving" @click="closeDetailModal">{{ t('common.cancel') }}</BaseButton>
         <BaseButton :disabled="isSaving" @click="saveDetail">{{ t('common.save') }}</BaseButton></AdminModalActions></template>
     </BaseModal>
   </AdminDataPage>

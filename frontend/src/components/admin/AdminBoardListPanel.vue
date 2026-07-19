@@ -7,9 +7,10 @@
         :model-value="boards"
         item-key="boardId"
         handle=".drag-handle"
+        :disabled="reorderDisabled"
         class="mt-3 space-y-2 max-h-[70vh] overflow-y-auto pr-1"
-        @update:model-value="emit('update:boards', $event)"
-        @end="emit('drag-end')"
+        @update:model-value="handleBoardsUpdate"
+        @end="handleDragEnd"
       >
         <template #item="{ element: board, index }">
           <div
@@ -17,7 +18,11 @@
             :class="selectedBoardId === board.boardId ? 'board-row-selected' : 'nv-border nv-hover-surface'"
           >
             <div class="flex items-start justify-between gap-2">
-              <GripVertical class="mt-0.5 h-4 w-4 shrink-0 nv-text-subtle drag-handle cursor-move" aria-hidden="true" />
+              <GripVertical
+                class="mt-0.5 h-4 w-4 shrink-0 nv-text-subtle drag-handle"
+                :class="reorderDisabled ? 'cursor-not-allowed opacity-40' : 'cursor-move'"
+                aria-hidden="true"
+              />
               <button type="button" class="min-h-11 min-w-0 flex-1 rounded-md text-left nv-focus-ring" @click="emit('select', board)">
                 <span class="block truncate text-sm font-semibold nv-title">{{ board.boardName }}</span>
                 <span class="mt-2 block text-xs nv-text-subtle">
@@ -35,7 +40,7 @@
                   type="button"
                   class="nv-touch-target-square nv-focus-ring inline-flex items-center justify-center rounded-md nv-text-subtle nv-hover-surface disabled:cursor-not-allowed disabled:opacity-40"
                   :aria-label="t('common.moveUp', { name: board.boardName })"
-                  :disabled="index === 0"
+                  :disabled="reorderDisabled || index === 0"
                   @click="moveBoard(index, -1)"
                 >
                   <ChevronUp class="h-4 w-4" aria-hidden="true" />
@@ -44,7 +49,7 @@
                   type="button"
                   class="nv-touch-target-square nv-focus-ring inline-flex items-center justify-center rounded-md nv-text-subtle nv-hover-surface disabled:cursor-not-allowed disabled:opacity-40"
                   :aria-label="t('common.moveDown', { name: board.boardName })"
-                  :disabled="index === boards.length - 1"
+                  :disabled="reorderDisabled || index === boards.length - 1"
                   @click="moveBoard(index, 1)"
                 >
                   <ChevronDown class="h-4 w-4" aria-hidden="true" />
@@ -73,6 +78,7 @@ const props = defineProps<{
   boards: AdminBoard[]
   loading: boolean
   selectedBoardId: number | null
+  reorderDisabled?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -85,7 +91,18 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const reorderAnnouncement = ref('')
 
+const handleBoardsUpdate = (boards: AdminBoard[]) => {
+  if (props.reorderDisabled) return
+  emit('update:boards', boards)
+}
+
+const handleDragEnd = () => {
+  if (props.reorderDisabled) return
+  emit('drag-end')
+}
+
 const moveBoard = (index: number, offset: -1 | 1) => {
+  if (props.reorderDisabled) return
   const targetIndex = index + offset
   if (targetIndex < 0 || targetIndex >= props.boards.length) return
 

@@ -40,6 +40,11 @@ vi.mock('@/composables/useConfirm', () => ({
   }),
 }))
 
+vi.mock('vue-router', async (importOriginal) => ({
+  ...await importOriginal<typeof import('vue-router')>(),
+  onBeforeRouteLeave: vi.fn(),
+}))
+
 vi.mock('@/features/admin/useAdmin', () => ({
   useAdmin: () => ({
     useAdminBoards: () => ({

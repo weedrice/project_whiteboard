@@ -23,6 +23,7 @@ const {
   hasUnsavedChanges,
   isLoading,
   isCreatingConfig,
+  isSavePending,
   isModalOpen,
   newConfig,
   openCreateModal,
@@ -61,14 +62,14 @@ const columns = [
         :show-footer="false"
       >
         <template #cell-description="{ item }">
-          <BaseInput :model-value="item.description"
+          <BaseInput :model-value="item.description" :disabled="isSavePending(item.key)"
             :label="`${item.key} ${t('common.description')}`" hideLabel
             @update:model-value="updateDraft(item.key, { description: String($event) })"
             inputClass="block w-full border-0 p-0 nv-text placeholder-[var(--nv-muted)] focus:ring-0 sm:text-sm bg-transparent shadow-none" />
         </template>
 
         <template #cell-value="{ item }">
-          <BaseInput :model-value="item.value"
+          <BaseInput :model-value="item.value" :disabled="isSavePending(item.key)"
             :label="`${item.key} ${t('common.value')}`" hideLabel
             @update:model-value="updateDraft(item.key, { value: String($event) })"
             inputClass="block w-full border-0 p-0 nv-text placeholder-[var(--nv-muted)] focus:ring-0 sm:text-sm bg-transparent shadow-none" />
@@ -76,10 +77,10 @@ const columns = [
 
         <template #cell-actions="{ item }">
           <AdminTableActions>
-            <AdminActionButton :label="t('common.save')" tone="accent" icon-only @click="handleSave(item.key)">
+            <AdminActionButton :label="t('common.save')" tone="accent" icon-only :disabled="isSavePending(item.key)" @click="handleSave(item.key)">
               <Save class="h-4 w-4" aria-hidden="true" />
             </AdminActionButton>
-            <AdminActionButton :label="t('common.delete')" tone="danger" icon-only @click="handleDelete(item.key)">
+            <AdminActionButton :label="t('common.delete')" tone="danger" icon-only :disabled="isSavePending(item.key)" @click="handleDelete(item.key)">
               <Trash2 class="h-4 w-4" aria-hidden="true" />
             </AdminActionButton>
           </AdminTableActions>
@@ -88,15 +89,16 @@ const columns = [
     </div>
 
     <!-- Add Config Modal -->
-    <BaseModal :isOpen="isModalOpen" :title="t('admin.settings.addConfig')" @close="closeCreateModal">
-      <div class="space-y-4">
-        <BaseInput v-model="newConfig.key" :label="t('common.key')" type="text" />
-        <BaseInput v-model="newConfig.value" :label="t('common.value')" type="text" />
-        <BaseInput v-model="newConfig.description" :label="t('common.description')" type="text" />
-      </div>
+    <BaseModal :isOpen="isModalOpen" :title="t('admin.settings.addConfig')"
+      :close-on-backdrop="!isCreatingConfig" :close-on-escape="!isCreatingConfig" @close="closeCreateModal">
+      <fieldset :disabled="isCreatingConfig" :inert="isCreatingConfig ? true : undefined" class="space-y-4 border-0 p-0">
+        <BaseInput v-model="newConfig.key" :label="t('common.key')" type="text" :disabled="isCreatingConfig" />
+        <BaseInput v-model="newConfig.value" :label="t('common.value')" type="text" :disabled="isCreatingConfig" />
+        <BaseInput v-model="newConfig.description" :label="t('common.description')" type="text" :disabled="isCreatingConfig" />
+      </fieldset>
       <template #footer>
         <AdminModalActions>
-          <BaseButton @click="closeCreateModal" variant="secondary">
+          <BaseButton :disabled="isCreatingConfig" @click="closeCreateModal" variant="secondary">
             {{ t('common.cancel') }}
           </BaseButton>
           <BaseButton :disabled="isCreatingConfig" @click="handleCreateConfig">
