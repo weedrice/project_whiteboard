@@ -80,7 +80,7 @@ class FileAccessService {
                 yield FileAccessResult.CacheScope.OTHER;
             }
             case FileRelatedType.USER_PROFILE -> {
-                validateCurrentUserProfile(file);
+                validateCurrentUserProfile(file, viewerUserId);
                 yield FileAccessResult.CacheScope.OTHER;
             }
             case FileRelatedType.BOARD_ICON -> {
@@ -125,12 +125,18 @@ class FileAccessService {
         return resolveEmoticonCacheScope(masters);
     }
 
-    private void validateCurrentUserProfile(File file) {
+    private void validateCurrentUserProfile(File file, Long viewerUserId) {
         User profileOwner = userRepository.findByUserIdAndStatusAndDeletedAtIsNull(
                         file.getRelatedId(), User.STATUS_ACTIVE)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
         Long currentProfileFileId = FileService.extractFileIdFromUrl(profileOwner.getProfileImageUrl());
         if (!Objects.equals(file.getFileId(), currentProfileFileId)) {
+            throw new BusinessException(ErrorCode.NOT_FOUND);
+        }
+        Long profileOwnerId = profileOwner.getUserId();
+        if (viewerUserId != null
+                && !viewerUserId.equals(profileOwnerId)
+                && userBlockService.isEitherDirectionBlocked(viewerUserId, profileOwnerId)) {
             throw new BusinessException(ErrorCode.NOT_FOUND);
         }
     }

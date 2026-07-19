@@ -147,6 +147,67 @@ class FileAccessServiceTest {
         File result = fileAccessService.getFileForDownload(10L, null);
 
         assertThat(result).isSameAs(file);
+        verify(userBlockService, never()).isEitherDirectionBlocked(anyLong(), anyLong());
+    }
+
+    @Test
+    @DisplayName("차단 관계인 사용자의 현재 프로필 이미지는 직접 다운로드할 수 없다")
+    void getFileForDownload_blockedUserProfile_notFound() {
+        User owner = User.builder().build();
+        ReflectionTestUtils.setField(owner, "userId", 100L);
+        owner.updateProfileImage("/api/v1/files/10");
+        File file = file(FileRelatedType.USER_PROFILE, 100L);
+        ReflectionTestUtils.setField(file, "fileId", 10L);
+        when(fileRepository.findByFileIdAndStorageStatus(10L, FileStorageStatus.ACTIVE))
+                .thenReturn(Optional.of(file));
+        when(userRepository.findByUserIdAndStatusAndDeletedAtIsNull(100L, User.STATUS_ACTIVE))
+                .thenReturn(Optional.of(owner));
+        when(userBlockService.isEitherDirectionBlocked(1L, 100L)).thenReturn(true);
+
+        assertThatThrownBy(() -> fileAccessService.getFileForDownload(10L, 1L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.NOT_FOUND);
+
+        verify(userBlockService).isEitherDirectionBlocked(1L, 100L);
+    }
+
+    @Test
+    @DisplayName("차단 관계가 아닌 로그인 사용자는 현재 프로필 이미지를 다운로드할 수 있다")
+    void getFileForDownload_unblockedUserProfile_allowsAuthenticatedViewer() {
+        User owner = User.builder().build();
+        ReflectionTestUtils.setField(owner, "userId", 100L);
+        owner.updateProfileImage("/api/v1/files/10");
+        File file = file(FileRelatedType.USER_PROFILE, 100L);
+        ReflectionTestUtils.setField(file, "fileId", 10L);
+        when(fileRepository.findByFileIdAndStorageStatus(10L, FileStorageStatus.ACTIVE))
+                .thenReturn(Optional.of(file));
+        when(userRepository.findByUserIdAndStatusAndDeletedAtIsNull(100L, User.STATUS_ACTIVE))
+                .thenReturn(Optional.of(owner));
+        when(userBlockService.isEitherDirectionBlocked(1L, 100L)).thenReturn(false);
+
+        File result = fileAccessService.getFileForDownload(10L, 1L);
+
+        assertThat(result).isSameAs(file);
+        verify(userBlockService).isEitherDirectionBlocked(1L, 100L);
+    }
+
+    @Test
+    @DisplayName("본인은 차단 관계 조회 없이 현재 프로필 이미지를 다운로드할 수 있다")
+    void getFileForDownload_ownUserProfile_skipsBlockCheck() {
+        User owner = User.builder().build();
+        ReflectionTestUtils.setField(owner, "userId", 100L);
+        owner.updateProfileImage("/api/v1/files/10");
+        File file = file(FileRelatedType.USER_PROFILE, 100L);
+        ReflectionTestUtils.setField(file, "fileId", 10L);
+        when(fileRepository.findByFileIdAndStorageStatus(10L, FileStorageStatus.ACTIVE))
+                .thenReturn(Optional.of(file));
+        when(userRepository.findByUserIdAndStatusAndDeletedAtIsNull(100L, User.STATUS_ACTIVE))
+                .thenReturn(Optional.of(owner));
+
+        File result = fileAccessService.getFileForDownload(10L, 100L);
+
+        assertThat(result).isSameAs(file);
+        verify(userBlockService, never()).isEitherDirectionBlocked(anyLong(), anyLong());
     }
 
     @Test

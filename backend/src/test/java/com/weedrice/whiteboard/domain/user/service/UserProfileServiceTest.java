@@ -250,7 +250,7 @@ class UserProfileServiceTest {
     void updateMyProfile_normalizesDisplayName() {
         User user = User.builder().displayName("Old Name").build();
         ReflectionTestUtils.setField(user, "userId", 1L);
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
 
         UpdateProfileResponse response = userProfileService.updateMyProfile(1L, "  New Name  ", null);
 
@@ -261,7 +261,8 @@ class UserProfileServiceTest {
         assertThat(historyCaptor.getValue().getPreviousName()).isEqualTo("Old Name");
         assertThat(historyCaptor.getValue().getNewName()).isEqualTo("New Name");
         assertThat(historyCaptor.getValue().getChangedAt()).isEqualTo(FIXED_NOW);
-        verify(userRepository, never()).findByIdForUpdate(1L);
+        verify(userRepository).findByIdForUpdate(1L);
+        verify(userRepository, never()).findById(1L);
     }
 
     @Test
@@ -269,42 +270,39 @@ class UserProfileServiceTest {
     void updateMyProfile_sameDisplayNameAfterNormalize_doesNotSaveHistory() {
         User user = User.builder().displayName("Same Name").build();
         ReflectionTestUtils.setField(user, "userId", 1L);
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
 
         UpdateProfileResponse response = userProfileService.updateMyProfile(1L, " Same Name ", null);
 
         assertThat(response.getDisplayName()).isEqualTo("Same Name");
         verify(displayNameHistoryRepository, never()).save(any());
+        verify(userRepository).findByIdForUpdate(1L);
     }
 
     @Test
     @DisplayName("공백 표시명은 거부한다")
     void updateMyProfile_blankDisplayName_throwsInvalidInput() {
-        User user = User.builder().displayName("Old Name").build();
-        ReflectionTestUtils.setField(user, "userId", 1L);
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-
         assertThatThrownBy(() -> userProfileService.updateMyProfile(1L, "   ", null))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
 
         verify(displayNameHistoryRepository, never()).save(any());
+        verify(userRepository, never()).findByIdForUpdate(anyLong());
+        verify(userRepository, never()).findById(anyLong());
     }
 
     @Test
     @DisplayName("정규화한 표시명이 길이 제한을 벗어나면 거부한다")
     void updateMyProfile_normalizedDisplayNameTooShort_throwsInvalidInput() {
-        User user = User.builder().displayName("Old Name").build();
-        ReflectionTestUtils.setField(user, "userId", 1L);
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-
         assertThatThrownBy(() -> userProfileService.updateMyProfile(1L, " a ", null))
                 .isInstanceOf(BusinessException.class)
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
 
         verify(displayNameHistoryRepository, never()).save(any());
+        verify(userRepository, never()).findByIdForUpdate(anyLong());
+        verify(userRepository, never()).findById(anyLong());
     }
 
     @Test
@@ -358,7 +356,7 @@ class UserProfileServiceTest {
     void updateMyProfile_bannedUser() {
         User user = User.builder().displayName("Old Name").build();
         ReflectionTestUtils.setField(user, "userId", 1L);
-        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
         doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE))
                 .when(sanctionService)
                 .validateNotBanned(user);

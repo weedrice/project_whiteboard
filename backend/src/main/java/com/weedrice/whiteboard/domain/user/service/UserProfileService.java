@@ -137,12 +137,13 @@ public class UserProfileService {
             Long profileImageId,
             Boolean removeProfileImage) {
         validateProfileImageRequest(profileImageId, removeProfileImage);
+        String normalizedDisplayName = normalizeDisplayName(displayName);
         boolean imageMutationRequested = profileImageId != null || Boolean.TRUE.equals(removeProfileImage);
-        User user = imageMutationRequested
+        boolean profileMutationRequested = normalizedDisplayName != null || imageMutationRequested;
+        User user = profileMutationRequested
                 ? userWritableResolver.resolveForUpdate(userId)
                 : userWritableResolver.resolve(userId);
         String oldDisplayName = user.getDisplayName();
-        String normalizedDisplayName = normalizeDisplayName(displayName);
         Integer spentPoints = null;
         Integer remainingPoints = null;
 
