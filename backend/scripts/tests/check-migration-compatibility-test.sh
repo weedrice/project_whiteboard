@@ -208,6 +208,35 @@ if (cd "$fixture" && bash "$script" "$base" HEAD); then
 fi
 
 git -C "$fixture" reset -q --hard "$base"
+cat > "$fixture/backend/src/main/resources/db/migration/V55__limit_verification_code_attempts.sql" <<'SQL'
+ALTER TABLE verification_codes
+    ADD COLUMN failed_attempts INTEGER NOT NULL DEFAULT 0;
+
+ALTER TABLE verification_codes
+    ADD CONSTRAINT chk_verification_codes_failed_attempts
+        CHECK (failed_attempts BETWEEN 0 AND 5);
+SQL
+git -C "$fixture" add .
+git -C "$fixture" commit -qm approved-legacy-markerless-migration
+(cd "$fixture" && bash "$script" "$base" HEAD)
+
+git -C "$fixture" reset -q --hard "$base"
+cat > "$fixture/backend/src/main/resources/db/migration/V55__limit_verification_code_attempts.sql" <<'SQL'
+ALTER TABLE verification_codes
+    ADD COLUMN failed_attempts INTEGER NOT NULL DEFAULT 0;
+
+ALTER TABLE verification_codes
+    ADD CONSTRAINT chk_verification_codes_failed_attempts
+        CHECK (failed_attempts BETWEEN 0 AND 6);
+SQL
+git -C "$fixture" add .
+git -C "$fixture" commit -qm modified-legacy-markerless-migration
+if (cd "$fixture" && bash "$script" "$base" HEAD); then
+  echo "Expected a modified legacy markerless migration to fail checksum validation" >&2
+  exit 1
+fi
+
+git -C "$fixture" reset -q --hard "$base"
 cat > "$fixture/backend/src/main/resources/db/migration/V2__blocking_index.sql" <<'SQL'
 -- noviis:migration-phase expand
 CREATE INDEX sample_idx ON sample (id);

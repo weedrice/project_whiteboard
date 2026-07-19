@@ -6,6 +6,8 @@ head_ref="${2:-HEAD}"
 migration_dir="backend/src/main/resources/db/migration"
 contract_allowlist="docs/ops/applied-contract-migrations.txt"
 contract_marker_text='noviis:migration-phase contract'
+legacy_markerless_migration='backend/src/main/resources/db/migration/V55__limit_verification_code_attempts.sql'
+legacy_markerless_migration_sha256='a557b508c9aeb6141cac960de03353875c807364e0f17731187183d7e2276ffc'
 contract_migration=false
 new_migration=false
 repository="${CONTRACT_EVIDENCE_REPOSITORY:-weedrice/project_whiteboard}"
@@ -33,6 +35,15 @@ decimal_greater_than() {
   else
     [[ "$left" > "$right" ]]
   fi
+}
+
+is_approved_legacy_markerless_migration() {
+  local file="$1"
+  local actual_sha256
+
+  [ "$file" = "$legacy_markerless_migration" ] || return 1
+  actual_sha256="$(git show "$head_ref:$file" | sha256sum | awk '{print $1}')"
+  [ "$actual_sha256" = "$legacy_markerless_migration_sha256" ]
 }
 
 base_max_version=0
@@ -579,7 +590,7 @@ for change in "${changes[@]}"; do
   if [ "$status" = A ]; then
     new_migration=true
     phase_count="$(extract_sql_line_comments "$file" | grep -Ec '^noviis:migration-phase (expand|backfill|contract)$' || true)"
-    if [ "$phase_count" -ne 1 ]; then
+    if [ "$phase_count" -ne 1 ] && ! is_approved_legacy_markerless_migration "$file"; then
       echo "New migration requires exactly one expand, backfill, or contract phase marker: $file" >&2
       exit 1
     fi
