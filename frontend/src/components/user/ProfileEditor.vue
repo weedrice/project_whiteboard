@@ -49,7 +49,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive } from 'vue'
+import { computed, reactive, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import AccountDeletionSection from '@/components/user/AccountDeletionSection.vue'
@@ -106,7 +106,8 @@ const {
   profileImageError,
   profileImageDisplayUrl,
   handleFileChange,
-  clearProfileImage
+  clearProfileImage,
+  resetProfileImageDraft,
 } = useProfileImageEditor({
   profileImageUrl: () => authStore.user?.profileImageUrl,
   onFileSizeExceeded: () => toastStore.addToast(t('common.messages.fileSizeExceeded'), 'warning'),
@@ -153,6 +154,18 @@ const {
   onRefreshed: () => emit('refreshed'),
   onClose: () => emit('close')
 })
+
+watch(
+  () => [authStore.sessionGeneration, authStore.user?.userId] as const,
+  () => {
+    form.displayName = authStore.user?.displayName || ''
+    resetProfileImageDraft()
+    profileValidation.clearValidation()
+    errors.displayName = ''
+    errors.profileImage = ''
+  },
+  { flush: 'sync' },
+)
 
 async function handleProfileSubmit() {
   if (!profileValidation.validateAll(profileValidationValues.value)) return

@@ -1,11 +1,13 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { nextTick } from 'vue'
 import ProfileEditor from '../ProfileEditor.vue'
 import { IMAGE_UPLOAD_ACCEPT } from '@/utils/imageUploadPolicy'
 import { getExposedVm } from '@/test/vue-test-helpers'
 
 type ProfileEditorExposed = {
-  selectedFile: File
+  selectedFile: File | null
+  removeProfileImage: boolean
 }
 
 const mocks = vi.hoisted(() => ({
@@ -31,6 +33,12 @@ const mocks = vi.hoisted(() => ({
     isEmailVerified: true,
     profileImageUrl: '',
   } as Record<string, unknown>,
+  authStore: null as unknown as {
+    sessionGeneration: number
+    user: Record<string, unknown>
+    fetchUser: () => Promise<unknown>
+    logout: () => Promise<unknown>
+  },
 }))
 
 vi.mock('vue-i18n', () => ({
@@ -85,13 +93,16 @@ vi.mock('@/features/user/useUser', () => ({
   }),
 }))
 
-vi.mock('@/stores/auth', () => ({
-  useAuthStore: () => ({
+vi.mock('@/stores/auth', async () => {
+  const { reactive } = await import('vue')
+  mocks.authStore = reactive({
+    sessionGeneration: 1,
     user: mocks.user,
     fetchUser: mocks.fetchUser,
     logout: mocks.logout,
-  }),
-}))
+  })
+  return { useAuthStore: () => mocks.authStore }
+})
 
 vi.mock('@/stores/toast', () => ({
   useToastStore: () => ({
@@ -198,6 +209,11 @@ describe('ProfileEditor', () => {
     mocks.isAgentsError.value = false
     mocks.isClaiming.value = false
     mocks.user.isEmailVerified = true
+    mocks.user.userId = 1
+    mocks.user.displayName = 'tester'
+    mocks.user.profileImageUrl = ''
+    mocks.authStore.sessionGeneration = 1
+    mocks.authStore.user = mocks.user
     mocks.activateMyAgent.mockResolvedValue({ success: true })
     mocks.claimAgent.mockResolvedValue({ success: true })
     mocks.updateProfile.mockResolvedValue({ success: true })
@@ -348,6 +364,27 @@ describe('ProfileEditor', () => {
       displayName: 'Updated Name',
       profileImageId: null,
     })
+  })
+
+  it('discards the profile draft when the authenticated account changes', async () => {
+    const wrapper = mountProfileEditor()
+    const vm = getExposedVm<ProfileEditorExposed>(wrapper)
+    await wrapper.find('input[placeholder="user.profile.displayNamePlaceholder"]').setValue('Draft Name')
+    vm.selectedFile = new File(['avatar'], 'avatar.png', { type: 'image/png' })
+    vm.removeProfileImage = true
+
+    mocks.authStore.sessionGeneration += 1
+    mocks.authStore.user = {
+      ...mocks.user,
+      userId: 2,
+      displayName: 'next-user',
+      profileImageUrl: 'https://example.com/next.png',
+    }
+    await nextTick()
+
+    expect(wrapper.find('input[placeholder="user.profile.displayNamePlaceholder"]').element).toHaveProperty('value', 'next-user')
+    expect(vm.selectedFile).toBeNull()
+    expect(vm.removeProfileImage).toBe(false)
   })
 
   it('emits refreshed after a successful agent claim', async () => {

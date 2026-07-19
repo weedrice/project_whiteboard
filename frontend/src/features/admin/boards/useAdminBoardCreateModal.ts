@@ -1,8 +1,14 @@
 import { reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useToastStore } from '@/stores/toast'
+import { useAuthStore } from '@/stores/auth'
 import { normalizeBoardUrlInput, validateBoardWriteFields } from '@/utils/board'
 import { normalizeBoardWritePayload } from '@/utils/inputNormalization'
+import {
+  captureAuthSessionIntent,
+  isAuthSessionIntentCurrent,
+  type AuthSessionIntent,
+} from '@/utils/authSessionIntent'
 import type { BoardCreateData } from '@/types'
 
 type CreateBoard = (data: BoardCreateData) => Promise<unknown>
@@ -19,12 +25,14 @@ const createEmptyForm = (): BoardCreateData => ({
 export function useAdminBoardCreateModal(createBoard: CreateBoard) {
   const { t } = useI18n()
   const toastStore = useToastStore()
+  const authStore = useAuthStore()
   const isModalOpen = ref(false)
   const isCreatingBoard = ref(false)
   const createForm = reactive<BoardCreateData>(createEmptyForm())
   let modalGeneration = 0
   let requestSequence = 0
   let activeRequest = 0
+  let modalSessionIntent: AuthSessionIntent | null = null
 
   function resetCreateForm() {
     Object.assign(createForm, createEmptyForm())
@@ -35,12 +43,14 @@ export function useAdminBoardCreateModal(createBoard: CreateBoard) {
     activeRequest = 0
     isCreatingBoard.value = false
     resetCreateForm()
+    modalSessionIntent = captureAuthSessionIntent(authStore)
     isModalOpen.value = true
   }
 
   function closeModal() {
     modalGeneration += 1
     activeRequest = 0
+    modalSessionIntent = null
     isCreatingBoard.value = false
     isModalOpen.value = false
   }
@@ -53,7 +63,12 @@ export function useAdminBoardCreateModal(createBoard: CreateBoard) {
   })
 
   async function handleCreateBoard() {
-    if (isCreatingBoard.value) {
+    if (
+      isCreatingBoard.value
+      || !isModalOpen.value
+      || !modalSessionIntent
+      || !isAuthSessionIntentCurrent(authStore, modalSessionIntent)
+    ) {
       return
     }
 
@@ -64,12 +79,17 @@ export function useAdminBoardCreateModal(createBoard: CreateBoard) {
     }
 
     const submittedGeneration = modalGeneration
+    const submittedSessionIntent = modalSessionIntent
     const requestId = ++requestSequence
     activeRequest = requestId
     isCreatingBoard.value = true
     try {
       await createBoard(normalizeBoardWritePayload(createForm))
-      if (submittedGeneration !== modalGeneration || activeRequest !== requestId) {
+      if (
+        submittedGeneration !== modalGeneration
+        || activeRequest !== requestId
+        || !isAuthSessionIntentCurrent(authStore, submittedSessionIntent)
+      ) {
         return
       }
       toastStore.addToast(t('admin.boards.messages.created'), 'success')
@@ -83,6 +103,16 @@ export function useAdminBoardCreateModal(createBoard: CreateBoard) {
       }
     }
   }
+
+  watch(
+    () => [authStore.sessionGeneration, authStore.user?.userId] as const,
+    () => {
+      if (!isModalOpen.value) return
+      closeModal()
+      resetCreateForm()
+    },
+    { flush: 'sync' },
+  )
 
   return {
     closeModal,

@@ -1,7 +1,9 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { afterEach, describe, expect, it, vi, beforeEach } from 'vitest'
 import { ref, type Ref } from 'vue'
+import { createPinia, setActivePinia } from 'pinia'
 import UserSelectModal from '../UserSelectModal.vue'
+import { useAuthStore } from '@/stores/auth'
 
 type SelectableUser = {
   userId: number
@@ -152,6 +154,7 @@ function getActionButton(wrapper: ReturnType<typeof mount>, label: string) {
 
 describe('UserSelectModal', () => {
   beforeEach(() => {
+    setActivePinia(createPinia())
     mocks.adminCalls.length = 0
     mocks.boardCalls.length = 0
     mocks.adminUsers = [
@@ -362,6 +365,17 @@ describe('UserSelectModal', () => {
     expect(wrapper.get('.overflow-x-auto').classes()).toEqual(expect.arrayContaining(['max-h-[420px]', 'overflow-y-auto']))
     expect(wrapper.get('th').classes()).toEqual(expect.arrayContaining(['px-2', 'py-2']))
     expect(wrapper.get('td').classes()).toEqual(expect.arrayContaining(['px-2', 'py-1.5']))
+  })
+
+  it('clears the selection and requests close when the authentication session changes', async () => {
+    const wrapper = mountModal({ isOpen: true })
+    await wrapper.findAll('tbody tr')[0].trigger('click')
+
+    useAuthStore().sessionGeneration += 1
+    await flushPromises()
+
+    expect(wrapper.emitted('close')).toHaveLength(1)
+    expect(getActionButton(wrapper, 'common.save').attributes('disabled')).toBeDefined()
   })
 
   it('traps focus in the real modal, closes on Escape, and restores the opener', async () => {

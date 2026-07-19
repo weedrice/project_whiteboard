@@ -111,6 +111,12 @@ import {
   type UserSelectSource
 } from '@/composables/useUserSelectSource'
 import { useDebounce } from '@/composables/useDebounce'
+import { useAuthStore } from '@/stores/auth'
+import {
+  captureAuthSessionIntent,
+  isAuthSessionIntentCurrent,
+  type AuthSessionIntent,
+} from '@/utils/authSessionIntent'
 
 const props = withDefaults(defineProps<{
   isOpen: boolean
@@ -128,6 +134,7 @@ const props = withDefaults(defineProps<{
   excludeUserIds: () => []
 })
 const { t } = useI18n()
+const authStore = useAuthStore()
 const modalTitle = computed(() => props.title ?? t('user.selectModal.title'))
 
 const emit = defineEmits<{
@@ -140,6 +147,7 @@ const debouncedSearchQuery = useDebounce(searchQuery, 300)
 const selectedMap = ref<Record<number, SelectableUser>>({})
 const hasUserSelectionChanged = ref(false)
 const hasAppliedInitialSelection = ref(false)
+let modalSessionIntent: AuthSessionIntent | null = null
 
 const {
   filteredUsers,
@@ -198,7 +206,15 @@ function toggleSelection(user: SelectableUser) {
 }
 
 function confirmSelection() {
+  if (!modalSessionIntent || !isAuthSessionIntentCurrent(authStore, modalSessionIntent)) return
   emit('confirm', selectedUsers.value)
+}
+
+function resetSelectionState() {
+  searchQuery.value = ''
+  selectedMap.value = {}
+  hasUserSelectionChanged.value = false
+  hasAppliedInitialSelection.value = false
 }
 
 function applyInitialSelection(users: SelectableUser[]) {
@@ -239,14 +255,28 @@ watch([
   () => props.boardUrl,
   () => props.excludeUserIds,
 ], ([isOpen]) => {
-  if (!isOpen) return
+  if (!isOpen) {
+    modalSessionIntent = null
+    resetSelectionState()
+    return
+  }
 
-  searchQuery.value = ''
-  selectedMap.value = {}
-  hasUserSelectionChanged.value = false
-  hasAppliedInitialSelection.value = false
+  modalSessionIntent = captureAuthSessionIntent(authStore)
+  resetSelectionState()
   applyInitialSelection(filteredUsers.value)
-})
+}, { immediate: true })
+
+watch(
+  () => [authStore.sessionGeneration, authStore.user?.userId] as const,
+  () => {
+    if (!props.isOpen || !modalSessionIntent) return
+    if (isAuthSessionIntentCurrent(authStore, modalSessionIntent)) return
+    modalSessionIntent = null
+    resetSelectionState()
+    emit('close')
+  },
+  { flush: 'sync' },
+)
 
 watch(filteredUsers, (users) => {
   applyInitialSelection(users)

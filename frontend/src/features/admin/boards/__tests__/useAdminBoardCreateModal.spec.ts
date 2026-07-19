@@ -1,6 +1,8 @@
 import { nextTick } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createPinia, setActivePinia } from 'pinia'
 import { useAdminBoardCreateModal } from '../useAdminBoardCreateModal'
+import { useAuthStore } from '@/stores/auth'
 
 const mocks = vi.hoisted(() => ({
   addToast: vi.fn(),
@@ -31,6 +33,7 @@ vi.mock('@/stores/toast', () => ({
 
 describe('useAdminBoardCreateModal', () => {
   beforeEach(() => {
+    setActivePinia(createPinia())
     vi.clearAllMocks()
   })
 
@@ -59,6 +62,7 @@ describe('useAdminBoardCreateModal', () => {
   it('normalizes create payload before submitting', async () => {
     const createBoard = vi.fn().mockResolvedValue(undefined)
     const modal = useAdminBoardCreateModal(createBoard)
+    modal.openCreateModal()
     Object.assign(modal.createForm, {
       boardName: '  Free Board  ',
       boardUrl: 'Free-Board_1!',
@@ -86,6 +90,7 @@ describe('useAdminBoardCreateModal', () => {
   it('blocks create when required fields are blank', async () => {
     const createBoard = vi.fn()
     const modal = useAdminBoardCreateModal(createBoard)
+    modal.openCreateModal()
     modal.createForm.boardName = '   '
     modal.createForm.boardUrl = 'board'
 
@@ -114,6 +119,7 @@ describe('useAdminBoardCreateModal', () => {
   it('blocks create when a board field exceeds the backend contract', async () => {
     const createBoard = vi.fn()
     const modal = useAdminBoardCreateModal(createBoard)
+    modal.openCreateModal()
     modal.createForm.boardName = 'a'.repeat(101)
     modal.createForm.boardUrl = 'board'
 
@@ -173,5 +179,20 @@ describe('useAdminBoardCreateModal', () => {
     secondRequest.reject(new Error('failed'))
     await secondSubmit
     expect(modal.isCreatingBoard.value).toBe(false)
+  })
+
+  it('closes and clears the modal when the authentication session changes', async () => {
+    const createBoard = vi.fn()
+    const modal = useAdminBoardCreateModal(createBoard)
+    modal.openCreateModal()
+    Object.assign(modal.createForm, { boardName: 'Draft', boardUrl: 'draft' })
+
+    useAuthStore().sessionGeneration += 1
+    await nextTick()
+
+    expect(modal.isModalOpen.value).toBe(false)
+    expect(modal.createForm.boardName).toBe('')
+    await modal.handleCreateBoard()
+    expect(createBoard).not.toHaveBeenCalled()
   })
 })

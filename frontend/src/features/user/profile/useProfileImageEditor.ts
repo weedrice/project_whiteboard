@@ -19,6 +19,7 @@ export function useProfileImageEditor(options: UseProfileImageEditorOptions): {
   profileImageDisplayUrl: Ref<string>
   handleFileChange: (event: Event) => Promise<void>
   clearProfileImage: () => void
+  resetProfileImageDraft: () => void
 } {
   const fileInputRef = ref<HTMLInputElement | null>(null)
   const selectedFile = ref<File | null>(null)
@@ -85,6 +86,15 @@ export function useProfileImageEditor(options: UseProfileImageEditorOptions): {
     clearPreviewUrl()
   }
 
+  const resetProfileImageDraft = () => {
+    fileSelectionVersion++
+    selectedFile.value = null
+    removeProfileImage.value = false
+    profileImageError.value = false
+    if (fileInputRef.value) fileInputRef.value.value = ''
+    clearPreviewUrl()
+  }
+
   return {
     fileInputRef,
     selectedFile,
@@ -92,6 +102,7 @@ export function useProfileImageEditor(options: UseProfileImageEditorOptions): {
     profileImageError,
     profileImageDisplayUrl,
     handleFileChange,
-    clearProfileImage
+    clearProfileImage,
+    resetProfileImageDraft,
   }
 }

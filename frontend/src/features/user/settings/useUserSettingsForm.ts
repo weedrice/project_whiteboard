@@ -38,12 +38,13 @@ interface UseNotificationSettingsFormOptions {
 
 export function useUserSettingsForm(options: UseUserSettingsFormOptions) {
   let saveRevision = 0
-  const form = reactive<UserSettingsForm>({
+  const createDefaultForm = (): UserSettingsForm => ({
     theme: 'LIGHT',
     language: 'ko',
     timezone: 'Asia/Seoul',
     hideNsfw: true
   })
+  const form = reactive<UserSettingsForm>(createDefaultForm())
   const message = ref('')
   const isError = ref(false)
   const baseline = ref<UserSettingsForm | null>(null)
@@ -79,6 +80,14 @@ export function useUserSettingsForm(options: UseUserSettingsFormOptions) {
       form.theme = theme
     }
   })
+
+  watch(() => options.getSessionGeneration?.(), () => {
+    saveRevision += 1
+    Object.assign(form, createDefaultForm())
+    baseline.value = null
+    message.value = ''
+    isError.value = false
+  }, { flush: 'sync' })
 
   const save = async () => {
     if (!canSave.value) {
@@ -153,7 +162,7 @@ export function useUserSettingsForm(options: UseUserSettingsFormOptions) {
 
 export function useNotificationSettingsForm(options: UseNotificationSettingsFormOptions) {
   let saveRevision = 0
-  const settings = reactive<Record<NotificationSettingType, boolean>>({
+  const createDefaultSettings = (): Record<NotificationSettingType, boolean> => ({
     LIKE: true,
     COMMENT: true,
     REPLY: true,
@@ -164,6 +173,7 @@ export function useNotificationSettingsForm(options: UseNotificationSettingsForm
     KEYWORD: true,
     BADGE: true
   })
+  const settings = reactive<Record<NotificationSettingType, boolean>>(createDefaultSettings())
   const message = ref('')
   const isError = ref(false)
   const baseline = ref<Record<NotificationSettingType, boolean> | null>(null)
@@ -185,6 +195,14 @@ export function useNotificationSettingsForm(options: UseNotificationSettingsForm
     Object.assign(settings, nextSettings)
     baseline.value = { ...nextSettings }
   }, { immediate: true })
+
+  watch(() => options.getSessionGeneration?.(), () => {
+    saveRevision += 1
+    Object.assign(settings, createDefaultSettings())
+    baseline.value = null
+    message.value = ''
+    isError.value = false
+  }, { flush: 'sync' })
 
   const save = async () => {
     if (!canSave.value) {

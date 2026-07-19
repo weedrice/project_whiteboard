@@ -196,6 +196,39 @@ describe('useUserSettingsForm', () => {
     expect(form.message.value).toBe('common.messages.concurrentModification')
     expect(form.isError.value).toBe(true)
   })
+
+  it('discards a dirty general-settings draft when the account session changes', async () => {
+    const generation = ref(1)
+    const settingsData = ref<UserSettings>({
+      theme: 'LIGHT', language: 'ko', timezone: 'Asia/Seoul', hideNsfw: true, pushEnabled: false,
+    })
+    const form = useUserSettingsForm({
+      settingsData,
+      isSaving: ref(false),
+      themeIsDark: () => false,
+      updateSettings: vi.fn(),
+      setTheme: vi.fn(),
+      getSessionGeneration: () => generation.value,
+      t,
+    })
+    await nextTick()
+    form.form.language = 'en'
+    expect(form.isDirty.value).toBe(true)
+
+    generation.value += 1
+    await nextTick()
+
+    expect(form.form.language).toBe('ko')
+    expect(form.isDirty.value).toBe(false)
+    expect(form.canSave.value).toBe(false)
+
+    settingsData.value = {
+      theme: 'DARK', language: 'en', timezone: 'UTC', hideNsfw: false, pushEnabled: false,
+    }
+    await nextTick()
+    expect(form.form).toMatchObject({ theme: 'DARK', language: 'en', timezone: 'UTC', hideNsfw: false })
+    expect(form.isDirty.value).toBe(false)
+  })
 })
 
 describe('useNotificationSettingsForm', () => {
@@ -353,5 +386,34 @@ describe('useNotificationSettingsForm', () => {
 
     expect(form.message.value).toBe('')
     expect(form.isDirty.value).toBe(true)
+  })
+
+  it('discards dirty notification settings when the account session changes', async () => {
+    const generation = ref(1)
+    const notificationData = ref<NotificationSettingsPayload[]>([
+      { notificationType: 'LIKE', isEnabled: false },
+    ])
+    const form = useNotificationSettingsForm({
+      notificationData,
+      isSaving: ref(false),
+      updateNotificationSettings: vi.fn(),
+      getSessionGeneration: () => generation.value,
+      t,
+    })
+    await nextTick()
+    form.settings.LIKE = true
+    expect(form.isDirty.value).toBe(true)
+
+    generation.value += 1
+    await nextTick()
+
+    expect(form.settings.LIKE).toBe(true)
+    expect(form.isDirty.value).toBe(false)
+    expect(form.canSave.value).toBe(false)
+
+    notificationData.value = [{ notificationType: 'LIKE', isEnabled: false }]
+    await nextTick()
+    expect(form.settings.LIKE).toBe(false)
+    expect(form.isDirty.value).toBe(false)
   })
 })

@@ -1,9 +1,10 @@
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 import { useBoardManagerAssignment } from '../useBoardManagerAssignment'
 import { createDeferred } from '@/test/async'
 import type { AdminBoard } from '@/types'
+import { useAuthStore } from '@/stores/auth'
 
 const mocks = vi.hoisted(() => ({
   addToast: vi.fn(),
@@ -101,5 +102,22 @@ describe('useBoardManagerAssignment', () => {
     expect(selected.adminDisplayName).toBe('New')
     expect(assignment.isManagerModalOpen.value).toBe(false)
     expect(mocks.addToast).toHaveBeenCalledWith('admin.admins.messages.added', 'success')
+  })
+
+  it('closes the manager modal and rejects its selection after an account switch', async () => {
+    const updateBoardManager = vi.fn()
+    const assignment = useBoardManagerAssignment({
+      selectedBoard: computed(() => board({ boardId: 3 })),
+      boardManagerData: ref(null),
+      updateBoardManager,
+    })
+    assignment.openManagerModal()
+
+    useAuthStore().sessionGeneration += 1
+    await nextTick()
+    await assignment.confirmManagerSelection([{ loginId: 'new-manager' }])
+
+    expect(assignment.isManagerModalOpen.value).toBe(false)
+    expect(updateBoardManager).not.toHaveBeenCalled()
   })
 })

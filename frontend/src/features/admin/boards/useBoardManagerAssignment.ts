@@ -1,7 +1,12 @@
-import { computed, ref, type ComputedRef, type Ref } from 'vue'
+import { computed, ref, watch, type ComputedRef, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useToastStore } from '@/stores/toast'
 import { useAuthStore } from '@/stores/auth'
+import {
+  captureAuthSessionIntent,
+  isAuthSessionIntentCurrent,
+  type AuthSessionIntent,
+} from '@/utils/authSessionIntent'
 import type { AdminBoard, BoardAdminInfo } from '@/types'
 
 type UpdateBoardManagerPayload = {
@@ -29,6 +34,7 @@ export function useBoardManagerAssignment({
   const managerSelectionMode = ref<'single' | 'multiple'>('single')
   let modalRevision = 0
   let modalBoardId: number | null = null
+  let modalSessionIntent: AuthSessionIntent | null = null
 
   const currentManagerLabel = computed(() => {
     const manager = boardManagerData.value
@@ -49,6 +55,7 @@ export function useBoardManagerAssignment({
     if (!boardId) return
     modalRevision += 1
     modalBoardId = boardId
+    modalSessionIntent = captureAuthSessionIntent(authStore)
     isAssigningManager.value = false
     managerSelectionMode.value = mode
     isManagerModalOpen.value = true
@@ -57,6 +64,7 @@ export function useBoardManagerAssignment({
   function closeManagerModal() {
     modalRevision += 1
     modalBoardId = null
+    modalSessionIntent = null
     isAssigningManager.value = false
     isManagerModalOpen.value = false
   }
@@ -69,10 +77,12 @@ export function useBoardManagerAssignment({
       || isAssigningManager.value
       || !isManagerModalOpen.value
       || modalBoardId !== targetBoard.boardId
+      || !modalSessionIntent
+      || !isAuthSessionIntentCurrent(authStore, modalSessionIntent)
     ) return
 
     const submittedRevision = modalRevision
-    const submittedSessionGeneration = authStore.sessionGeneration
+    const submittedSessionIntent = modalSessionIntent
     isAssigningManager.value = true
     try {
       const selectedUser = users[0]
@@ -82,7 +92,7 @@ export function useBoardManagerAssignment({
       })
 
       const isCurrentIntent = submittedRevision === modalRevision
-        && submittedSessionGeneration === authStore.sessionGeneration
+        && isAuthSessionIntentCurrent(authStore, submittedSessionIntent)
         && isManagerModalOpen.value
         && modalBoardId === targetBoard.boardId
         && selectedBoard.value?.boardId === targetBoard.boardId
@@ -97,6 +107,14 @@ export function useBoardManagerAssignment({
       if (submittedRevision === modalRevision) isAssigningManager.value = false
     }
   }
+
+  watch(
+    () => [authStore.sessionGeneration, authStore.user?.userId] as const,
+    () => {
+      if (isManagerModalOpen.value) closeManagerModal()
+    },
+    { flush: 'sync' },
+  )
 
   return {
     isAssigningManager,

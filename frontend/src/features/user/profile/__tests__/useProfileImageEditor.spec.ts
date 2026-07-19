@@ -148,4 +148,19 @@ describe('useProfileImageEditor', () => {
     expect(composable.selectedFile.value).toBe(secondResized)
     expect(composable.profileImageDisplayUrl.value).toBe('blob:second-resized.png')
   })
+
+  it('clears a selected image and removal intent when the draft is reset', async () => {
+    const { composable } = createHarness()
+    const resizedFile = new File(['resized'], 'avatar-resized.png', { type: 'image/png' })
+    resizeImageToBoundsFileMock.mockResolvedValueOnce(resizedFile)
+    await composable.handleFileChange(createInputEvent(resizedFile).event)
+    composable.clearProfileImage()
+
+    composable.resetProfileImageDraft()
+
+    expect(composable.selectedFile.value).toBeNull()
+    expect(composable.removeProfileImage.value).toBe(false)
+    expect(composable.profileImageError.value).toBe(false)
+    expect(composable.profileImageDisplayUrl.value).toBe('')
+  })
 })
