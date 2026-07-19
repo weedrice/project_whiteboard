@@ -4,6 +4,7 @@ import { useAdmin } from '@/features/admin/useAdmin'
 import { useToastStore } from '@/stores/toast'
 import type { ErrorLogDetail, ErrorLogListItem } from '@/types'
 import { useAuthStore } from '@/stores/auth'
+import { captureAuthSessionIntent, isAuthSessionIntentCurrent } from '@/utils/authSessionIntent'
 
 export function useErrorLogDetailModal() {
     const { t } = useI18n()
@@ -18,50 +19,72 @@ export function useErrorLogDetailModal() {
     const isResolveModalOpen = ref(false)
     const resolveTargetLog = ref<ErrorLogListItem | ErrorLogDetail | null>(null)
     const resolveMemo = ref('')
+    const isResolving = ref(false)
+    let detailRevision = 0
+    let resolveRevision = 0
 
     async function openDetailModal(log: ErrorLogListItem) {
-        const sessionGeneration = authStore.sessionGeneration
+        const revision = ++detailRevision
+        const intent = captureAuthSessionIntent(authStore)
+        const errorLogId = log.errorLogId
+        selectedLog.value = null
+        isDetailModalOpen.value = false
         try {
-            const detail = await fetchErrorLogDetail(log.errorLogId)
-            if (sessionGeneration !== authStore.sessionGeneration) return
+            const detail = await fetchErrorLogDetail(errorLogId)
+            if (revision !== detailRevision || !isAuthSessionIntentCurrent(authStore, intent)) return
             selectedLog.value = detail
             isDetailModalOpen.value = true
         } catch {
+            if (revision !== detailRevision || !isAuthSessionIntentCurrent(authStore, intent)) return
             toastStore.addToast(t('common.messages.error'), 'error')
         }
     }
 
     function closeDetailModal() {
+        detailRevision += 1
         isDetailModalOpen.value = false
         selectedLog.value = null
     }
 
     function openResolveModal(log: ErrorLogListItem | ErrorLogDetail) {
+        resolveRevision += 1
         resolveTargetLog.value = log
         resolveMemo.value = ''
+        isResolving.value = false
         isResolveModalOpen.value = true
     }
 
     function closeResolveModal() {
+        resolveRevision += 1
         isResolveModalOpen.value = false
         resolveTargetLog.value = null
         resolveMemo.value = ''
+        isResolving.value = false
     }
 
     async function handleResolve() {
-        if (!resolveTargetLog.value) return
+        if (!resolveTargetLog.value || isResolving.value) return
 
+        const revision = resolveRevision
+        const intent = captureAuthSessionIntent(authStore)
+        const errorLogId = resolveTargetLog.value.errorLogId
         const memo = resolveMemo.value.trim()
+        isResolving.value = true
 
         try {
             await resolveErrorLog({
-                errorLogId: resolveTargetLog.value.errorLogId,
+                errorLogId,
                 data: memo ? { memo } : undefined
             })
+            if (revision !== resolveRevision || !isAuthSessionIntentCurrent(authStore, intent)) return
             toastStore.addToast(t('admin.errorLogs.messages.resolved'), 'success')
             closeResolveModal()
         } catch {
             // Error handled globally
+        } finally {
+            if (revision === resolveRevision && isAuthSessionIntentCurrent(authStore, intent)) {
+                isResolving.value = false
+            }
         }
     }
 
@@ -87,6 +110,7 @@ export function useErrorLogDetailModal() {
         copyStackTrace,
         handleResolve,
         isDetailModalOpen,
+        isResolving,
         isResolveModalOpen,
         openDetailModal,
         openResolveModal,

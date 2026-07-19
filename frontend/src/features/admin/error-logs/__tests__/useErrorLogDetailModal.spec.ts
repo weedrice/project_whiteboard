@@ -131,4 +131,39 @@ describe('useErrorLogDetailModal', () => {
         expect(modal.selectedLog.value).toBeNull()
         expect(modal.isDetailModalOpen.value).toBe(false)
     })
+
+    it('keeps the latest selected log when detail responses arrive out of order', async () => {
+        const first = createDeferred<ErrorLogDetail>()
+        const second = createDeferred<ErrorLogDetail>()
+        mocks.fetchErrorLogDetail
+            .mockReturnValueOnce(first.promise)
+            .mockReturnValueOnce(second.promise)
+        const modal = mountErrorLogDetailModal()
+
+        const openingFirst = modal.openDetailModal({ errorLogId: 1 } as ErrorLogDetail)
+        const openingSecond = modal.openDetailModal({ errorLogId: 2 } as ErrorLogDetail)
+        second.resolve({ errorLogId: 2, stackTrace: 'latest' } as ErrorLogDetail)
+        await openingSecond
+        first.resolve({ errorLogId: 1, stackTrace: 'stale' } as ErrorLogDetail)
+        await openingFirst
+
+        expect(modal.selectedLog.value?.errorLogId).toBe(2)
+        expect(modal.isDetailModalOpen.value).toBe(true)
+    })
+
+    it('prevents duplicate resolve submissions while one is pending', async () => {
+        const deferred = createDeferred<void>()
+        mocks.resolveErrorLog.mockReturnValueOnce(deferred.promise)
+        const modal = mountErrorLogDetailModal()
+        modal.openResolveModal({ errorLogId: 7 } as ErrorLogDetail)
+
+        const firstResolve = modal.handleResolve()
+        const duplicateResolve = modal.handleResolve()
+
+        expect(modal.isResolving.value).toBe(true)
+        expect(mocks.resolveErrorLog).toHaveBeenCalledOnce()
+        deferred.resolve()
+        await Promise.all([firstResolve, duplicateResolve])
+        expect(modal.isResolving.value).toBe(false)
+    })
 })

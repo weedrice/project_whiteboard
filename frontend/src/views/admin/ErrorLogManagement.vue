@@ -47,6 +47,7 @@ const {
   copyStackTrace,
   handleResolve,
   isDetailModalOpen,
+  isResolving,
   isResolveModalOpen,
   openDetailModal,
   openResolveModal,
@@ -269,6 +270,7 @@ function resolveFromDetail(log: ErrorLogDetail) {
     <ErrorLogResolveModal
       v-model:memo="resolveMemo"
       :is-open="isResolveModalOpen"
+      :is-resolving="isResolving"
       :log="resolveTargetLog"
       @close="closeResolveModal"
       @resolve="handleResolve"

@@ -25,13 +25,15 @@ const isCodeModalOpen = ref(false)
 const isDetailModalOpen = ref(false)
 const editingDetailId = ref<number | null>(null)
 const isSaving = ref(false)
+const isMasterDirty = ref(false)
 
 type CommonCodeForm = Omit<CommonCodePayload, 'description'> & { description: string }
 const emptyCodeForm = (): CommonCodeForm => ({ typeCode: '', typeName: '', description: '' })
 const emptyDetailForm = (): CommonCodeDetailPayload => ({
   codeValue: '', codeName: '', sortOrder: 0, isActive: true,
 })
-const codeForm = reactive<CommonCodeForm>(emptyCodeForm())
+const masterCodeForm = reactive<CommonCodeForm>(emptyCodeForm())
+const createCodeForm = reactive<CommonCodeForm>(emptyCodeForm())
 const detailForm = reactive<CommonCodeDetailPayload>(emptyDetailForm())
 
 const codesQuery = useAdminDataQuery(['admin', 'common-codes'], (config) => commonCodeApi.getAll(config))
@@ -50,7 +52,15 @@ watch(codes, (value) => {
 }, { immediate: true })
 
 watch(selectedCode, (value) => {
-  if (value) Object.assign(codeForm, { typeCode: value.typeCode, typeName: value.typeName, description: value.description ?? '' })
+  if (!value) {
+    Object.assign(masterCodeForm, emptyCodeForm())
+    isMasterDirty.value = false
+    return
+  }
+  if (masterCodeForm.typeCode !== value.typeCode || !isMasterDirty.value) {
+    Object.assign(masterCodeForm, { typeCode: value.typeCode, typeName: value.typeName, description: value.description ?? '' })
+    isMasterDirty.value = false
+  }
 }, { immediate: true })
 
 function resetTransientState() {
@@ -58,6 +68,8 @@ function resetTransientState() {
   isDetailModalOpen.value = false
   editingDetailId.value = null
   isSaving.value = false
+  isMasterDirty.value = false
+  Object.assign(createCodeForm, emptyCodeForm())
   Object.assign(detailForm, emptyDetailForm())
 }
 watch(() => authStore.sessionGeneration, resetTransientState, { flush: 'sync' })
@@ -68,8 +80,8 @@ const validCode = (value: CommonCodePayload) => value.typeCode.trim().length > 0
 const validDetail = (value: CommonCodeDetailPayload) => value.codeValue.trim().length > 0
   && value.codeValue.trim().length <= 100 && value.codeName.trim().length > 0
   && value.codeName.trim().length <= 100 && Number.isInteger(Number(value.sortOrder))
-const codePayload = (): CommonCodePayload => ({
-  typeCode: codeForm.typeCode.trim(), typeName: codeForm.typeName.trim(), description: codeForm.description?.trim() || null,
+const codePayload = (form: CommonCodeForm): CommonCodePayload => ({
+  typeCode: form.typeCode.trim(), typeName: form.typeName.trim(), description: form.description?.trim() || null,
 })
 const detailPayload = (): CommonCodeDetailPayload => ({
   codeValue: detailForm.codeValue.trim(), codeName: detailForm.codeName.trim(),
@@ -77,12 +89,13 @@ const detailPayload = (): CommonCodeDetailPayload => ({
 })
 
 function openCodeModal() {
-  Object.assign(codeForm, emptyCodeForm())
+  Object.assign(createCodeForm, emptyCodeForm())
   isCodeModalOpen.value = true
 }
 function closeCodeModal() {
   isCodeModalOpen.value = false
   isSaving.value = false
+  Object.assign(createCodeForm, emptyCodeForm())
 }
 function openDetailModal(detailId?: number) {
   const detail = detailId == null ? null : details.value.find((item) => item.id === detailId)
@@ -99,18 +112,20 @@ function closeDetailModal() {
 }
 
 async function saveCode() {
-  if (isSaving.value || !validCode(codeForm)) {
+  const creating = isCodeModalOpen.value
+  const form = creating ? createCodeForm : masterCodeForm
+  if (isSaving.value || !validCode(form)) {
     if (!isSaving.value) toastStore.addToast(t('admin.commonCodes.messages.invalid'), 'warning')
     return
   }
   const intent = captureAuthSessionIntent(authStore)
-  const payload = codePayload()
-  const creating = isCodeModalOpen.value
+  const payload = codePayload(form)
   isSaving.value = true
   try {
     if (creating) await commonCodeApi.create(payload)
     else await commonCodeApi.update(payload.typeCode, payload)
     if (!isAuthSessionIntentCurrent(authStore, intent)) return
+    if (!creating) isMasterDirty.value = false
     await codesQuery.refetch()
     if (!isAuthSessionIntentCurrent(authStore, intent)) return
     selectedTypeCode.value = payload.typeCode
@@ -177,9 +192,9 @@ async function deleteDetail(detailId: number) {
         <div class="rounded-lg border border-[var(--nv-line)] bg-[var(--nv-surface)] p-5">
           <h2 class="mb-4 text-lg font-semibold nv-title">{{ t('admin.commonCodes.master') }}</h2>
           <div class="grid gap-4 sm:grid-cols-2">
-            <BaseInput v-model="codeForm.typeCode" :label="t('admin.commonCodes.typeCode')" disabled />
-            <BaseInput v-model="codeForm.typeName" :label="t('admin.commonCodes.typeName')" maxlength="100" />
-            <BaseInput v-model="codeForm.description" :label="t('common.description')" maxlength="255" class="sm:col-span-2" />
+            <BaseInput v-model="masterCodeForm.typeCode" :label="t('admin.commonCodes.typeCode')" disabled />
+            <BaseInput v-model="masterCodeForm.typeName" :label="t('admin.commonCodes.typeName')" maxlength="100" @update:model-value="isMasterDirty = true" />
+            <BaseInput v-model="masterCodeForm.description" :label="t('common.description')" maxlength="255" class="sm:col-span-2" @update:model-value="isMasterDirty = true" />
           </div>
           <div class="mt-4 flex justify-end"><BaseButton :disabled="isSaving" @click="saveCode"><Save class="mr-2 h-4 w-4" />{{ t('common.save') }}</BaseButton></div>
         </div>
@@ -204,9 +219,9 @@ async function deleteDetail(detailId: number) {
     </div>
 
     <BaseModal :is-open="isCodeModalOpen" :title="t('admin.commonCodes.addCode')" @close="closeCodeModal">
-      <div class="space-y-4"><BaseInput v-model="codeForm.typeCode" :label="t('admin.commonCodes.typeCode')" maxlength="50" />
-        <BaseInput v-model="codeForm.typeName" :label="t('admin.commonCodes.typeName')" maxlength="100" />
-        <BaseInput v-model="codeForm.description" :label="t('common.description')" maxlength="255" /></div>
+      <div class="space-y-4"><BaseInput v-model="createCodeForm.typeCode" :label="t('admin.commonCodes.typeCode')" maxlength="50" />
+        <BaseInput v-model="createCodeForm.typeName" :label="t('admin.commonCodes.typeName')" maxlength="100" />
+        <BaseInput v-model="createCodeForm.description" :label="t('common.description')" maxlength="255" /></div>
       <template #footer><AdminModalActions><BaseButton variant="secondary" @click="closeCodeModal">{{ t('common.cancel') }}</BaseButton>
         <BaseButton :disabled="isSaving" @click="saveCode">{{ t('common.save') }}</BaseButton></AdminModalActions></template>
     </BaseModal>

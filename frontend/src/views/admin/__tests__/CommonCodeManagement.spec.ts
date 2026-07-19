@@ -47,4 +47,30 @@ describe('CommonCodeManagement', () => {
     expect(wrapper.text()).toContain('Report reason')
     expect(wrapper.text()).toContain('Spam')
   })
+
+  it('keeps the selected code editor intact after cancelling code creation', async () => {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const wrapper = mount(CommonCodeManagement, {
+      global: {
+        plugins: [createPinia(), [VueQueryPlugin, { queryClient }]],
+        mocks: { $t: (key: string) => key },
+        stubs: { Teleport: true },
+      },
+    })
+    await flushPromises()
+
+    const masterInputs = wrapper.findAll('input')
+    expect(masterInputs[0].element.value).toBe('REPORT_REASON')
+    expect(masterInputs[1].element.value).toBe('Report reason')
+    expect(masterInputs[2].element.value).toBe('Reasons')
+
+    const addButton = wrapper.findAll('button').find((button) => button.text().includes('admin.commonCodes.addCode'))
+    await addButton?.trigger('click')
+    const cancelButton = wrapper.findAll('button').find((button) => button.text() === 'common.cancel')
+    await cancelButton?.trigger('click')
+
+    expect(wrapper.findAll('input')[0].element.value).toBe('REPORT_REASON')
+    expect(wrapper.findAll('input')[1].element.value).toBe('Report reason')
+    expect(wrapper.findAll('input')[2].element.value).toBe('Reasons')
+  })
 })

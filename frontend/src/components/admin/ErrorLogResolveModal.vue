@@ -10,6 +10,7 @@ defineProps<{
   isOpen: boolean
   log: ErrorLogListItem | ErrorLogDetail | null
   memo: string
+  isResolving?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -41,6 +42,7 @@ const emit = defineEmits<{
           rows="3"
           input-class="filter-input w-full"
           :placeholder="$t('admin.errorLogs.memoPlaceholder')"
+          :disabled="isResolving"
           @update:model-value="emit('update:memo', $event)"
         />
       </div>
@@ -48,11 +50,11 @@ const emit = defineEmits<{
 
     <template #footer>
       <AdminModalActions gap-class="gap-2">
-        <BaseButton type="button" variant="primary" size="sm" class="btn-resolve" @click="emit('resolve')">
+        <BaseButton type="button" variant="primary" size="sm" class="btn-resolve" :loading="isResolving" :disabled="isResolving" @click="emit('resolve')">
           <CheckCircle class="mr-1 h-4 w-4" />
           {{ $t('admin.errorLogs.actions.resolve') }}
         </BaseButton>
-        <BaseButton type="button" variant="secondary" size="sm" class="btn-cancel" @click="emit('close')">
+        <BaseButton type="button" variant="secondary" size="sm" class="btn-cancel" :disabled="isResolving" @click="emit('close')">
           {{ $t('admin.sanction.cancel') }}
         </BaseButton>
       </AdminModalActions>
