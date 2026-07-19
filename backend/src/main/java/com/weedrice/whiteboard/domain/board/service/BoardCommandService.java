@@ -32,8 +32,7 @@ class BoardCommandService {
 
     BoardCreateCommandResult createBoard(Long creatorId, BoardCreateRequest request) {
         domainLockManager.lockBoardOrder();
-        User creator = getCurrentUser(creatorId);
-        adminEligibleUserService.validateActiveUser(creator);
+        User creator = adminEligibleUserService.lockActiveUser(getCurrentUser(creatorId));
         String iconUrl = normalizeIconUrl(request.getIconUrl());
         String boardUrl = BoardUrlNormalizer.normalizeCreatable(request.getBoardUrl());
 

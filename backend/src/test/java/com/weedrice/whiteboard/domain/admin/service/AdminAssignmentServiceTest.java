@@ -79,7 +79,7 @@ class AdminAssignmentServiceTest {
     @Test
     @DisplayName("노드 관리자 생성은 공통 배정 서비스로 위임한다")
     void createAdmin_boardAdmin_delegatesToBoardManagerAssignmentService() {
-        when(adminEligibleUserService.getActiveUserByLoginId("testUser")).thenReturn(user);
+        when(adminEligibleUserService.getActiveUserByLoginIdForUpdate("testUser")).thenReturn(user);
         when(boardRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(board));
         when(boardManagerAssignmentService.assignBoardManager(board, user)).thenReturn(admin);
 
@@ -97,14 +97,14 @@ class AdminAssignmentServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR);
 
-        verify(adminEligibleUserService, never()).getActiveUserByLoginId(any());
+        verify(adminEligibleUserService, never()).getActiveUserByLoginIdForUpdate(any());
         verify(boardRepository, never()).findByIdForUpdate(any());
     }
 
     @Test
     @DisplayName("비활성 사용자는 관리자 배정 대상이 될 수 없다")
     void createAdmin_rejectsInactiveCandidate() {
-        when(adminEligibleUserService.getActiveUserByLoginId("testUser"))
+        when(adminEligibleUserService.getActiveUserByLoginIdForUpdate("testUser"))
                 .thenThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE));
 
         assertThatThrownBy(() -> adminAssignmentService.createAdmin("testUser", 10L, AdminRole.BOARD_ADMIN))
@@ -121,7 +121,7 @@ class AdminAssignmentServiceTest {
         Admin inactiveAdmin = Admin.builder().user(user).board(board).role("MODERATOR").build();
         inactiveAdmin.deactivate();
 
-        when(adminEligibleUserService.getActiveUserByLoginId("testUser")).thenReturn(user);
+        when(adminEligibleUserService.getActiveUserByLoginIdForUpdate("testUser")).thenReturn(user);
         when(boardRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(board));
         when(duplicatePolicy.findReusableAdmin(user, board, "MODERATOR"))
                 .thenReturn(Optional.of(inactiveAdmin));
@@ -139,7 +139,7 @@ class AdminAssignmentServiceTest {
     @Test
     @DisplayName("동시성으로 일반 관리자 중복 저장이 발생하면 DUPLICATE_RESOURCE로 변환한다")
     void createAdmin_duplicateScopedAdmin_throwsBusinessException() {
-        when(adminEligibleUserService.getActiveUserByLoginId("testUser")).thenReturn(user);
+        when(adminEligibleUserService.getActiveUserByLoginIdForUpdate("testUser")).thenReturn(user);
         when(boardRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(board));
         when(duplicatePolicy.findReusableAdmin(user, board, "MODERATOR"))
                 .thenReturn(Optional.empty());
@@ -154,7 +154,7 @@ class AdminAssignmentServiceTest {
     @Test
     @DisplayName("일반 관리자 생성 시 활성 row가 있으면 비활성 이력이 있어도 중복으로 거부한다")
     void createAdmin_scopedAdmin_prefersActiveDuplicateCheck() {
-        when(adminEligibleUserService.getActiveUserByLoginId("testUser")).thenReturn(user);
+        when(adminEligibleUserService.getActiveUserByLoginIdForUpdate("testUser")).thenReturn(user);
         when(boardRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(board));
         doThrow(new BusinessException(ErrorCode.DUPLICATE_RESOURCE))
                 .when(duplicatePolicy)
@@ -207,10 +207,9 @@ class AdminAssignmentServiceTest {
         ReflectionTestUtils.setField(inactiveAdmin, "adminId", 300L);
 
         when(adminRepository.findById(300L)).thenReturn(Optional.of(inactiveAdmin));
-        when(boardRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(board));
         doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE))
                 .when(adminEligibleUserService)
-                .validateActiveUser(user);
+                .lockActiveUser(user);
 
         assertThatThrownBy(() -> adminAssignmentService.activateAdmin(300L))
                 .isInstanceOf(BusinessException.class)

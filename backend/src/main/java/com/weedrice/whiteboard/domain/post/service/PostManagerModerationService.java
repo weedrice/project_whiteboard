@@ -1,5 +1,7 @@
 package com.weedrice.whiteboard.domain.post.service;
 
+import com.weedrice.whiteboard.domain.board.entity.Board;
+import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.moderation.service.ModerationAuditLogService;
 import com.weedrice.whiteboard.domain.notification.service.NotificationAccessInvalidationService;
@@ -26,6 +28,7 @@ public class PostManagerModerationService {
     private static final String DEFAULT_MANAGER_BLIND_REASON = "MANAGER";
 
     private final PostRepository postRepository;
+    private final BoardRepository boardRepository;
     private final UserRepository userRepository;
     private final BoardAccessPolicy boardAccessPolicy;
     private final ModerationAuditLogService moderationAuditLogService;
@@ -67,14 +70,21 @@ public class PostManagerModerationService {
     }
 
     private ManagedPost loadManagedPost(Long managerUserId, Long postId) {
-        User manager = userRepository.findById(managerUserId)
+        User manager = userRepository.findByIdForUpdate(managerUserId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        Long boardId = postRepository.findBoardIdByPostId(postId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+        Board board = boardRepository.findByIdForUpdate(boardId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
         Post post = postRepository.findByIdWithRelationsForBlindUpdate(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
         if (Boolean.TRUE.equals(post.getIsDeleted())) {
             throw new BusinessException(ErrorCode.POST_NOT_FOUND);
         }
-        boardAccessPolicy.validateBoardAdmin(post.getBoard(), manager);
+        if (!boardId.equals(post.getBoard().getBoardId())) {
+            throw new BusinessException(ErrorCode.POST_NOT_FOUND);
+        }
+        boardAccessPolicy.validateBoardAdmin(board, manager);
         return new ManagedPost(manager, post);
     }
 

@@ -26,6 +26,25 @@ public class AdminEligibleUserService {
         return user;
     }
 
+    @Transactional
+    public User getActiveUserByLoginIdForUpdate(String loginId) {
+        String normalizedLoginId = TextInputNormalizer.normalizeRequired(loginId, LOGIN_ID_MAX_LENGTH);
+        User user = userRepository.findByLoginIdForUpdate(normalizedLoginId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        validateActiveUser(user);
+        return user;
+    }
+
+    @Transactional
+    public User lockActiveUser(User user) {
+        if (user == null || user.getUserId() == null) {
+            throw new BusinessException(ErrorCode.USER_NOT_FOUND);
+        }
+        return userRepository.findActiveByIdForUpdate(user.getUserId())
+                .orElseThrow(() -> new BusinessException(
+                        userRepository.existsById(user.getUserId()) ? ErrorCode.USER_NOT_ACTIVE : ErrorCode.USER_NOT_FOUND));
+    }
+
     public void validateActiveUser(User user) {
         if (user == null) {
             throw new BusinessException(ErrorCode.USER_NOT_FOUND);

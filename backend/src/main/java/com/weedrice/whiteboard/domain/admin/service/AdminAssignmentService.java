@@ -35,7 +35,7 @@ public class AdminAssignmentService {
 
         String roleValue = role.name();
 
-        var user = adminEligibleUserService.getActiveUserByLoginId(loginId);
+        var user = adminEligibleUserService.getActiveUserByLoginIdForUpdate(loginId);
         Board board = boardRepository.findByIdForUpdate(boardId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
 
@@ -89,6 +89,7 @@ public class AdminAssignmentService {
     public void activateAdmin(Long adminId) {
         Admin admin = adminRepository.findById(adminId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+        adminEligibleUserService.lockActiveUser(admin.getUser());
         Board board = boardRepository.findByIdForUpdate(admin.getBoard().getBoardId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
         if (Role.BOARD_ADMIN.equals(admin.getRole())) {
@@ -96,7 +97,6 @@ public class AdminAssignmentService {
             return;
         }
 
-        adminEligibleUserService.validateActiveUser(admin.getUser());
         duplicatePolicy.validateNoOtherActiveAdmin(admin, board);
         admin.activate();
         duplicatePolicy.flushAndMapDuplicate(admin);

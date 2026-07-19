@@ -50,6 +50,49 @@ class AdminEligibleUserServiceTest {
     }
 
     @Test
+    @DisplayName("관리자 배정 대상은 쓰기 잠금으로 조회하고 활성 상태를 검증한다")
+    void getActiveUserByLoginIdForUpdate_locksNormalizedUser() {
+        User user = User.builder()
+                .loginId("target")
+                .password("encoded")
+                .email("target@example.com")
+                .displayName("target")
+                .build();
+        when(userRepository.findByLoginIdForUpdate("target")).thenReturn(Optional.of(user));
+
+        User result = adminEligibleUserService.getActiveUserByLoginIdForUpdate(" target ");
+
+        assertThat(result).isSameAs(user);
+        verify(userRepository).findByLoginIdForUpdate("target");
+        verify(userRepository, never()).findByLoginId("target");
+    }
+
+    @Test
+    @DisplayName("관리자 재활성화 대상도 사용자 ID로 쓰기 잠금한다")
+    void lockActiveUser_locksCandidateById() {
+        User user = User.builder().build();
+        org.springframework.test.util.ReflectionTestUtils.setField(user, "userId", 7L);
+        when(userRepository.findActiveByIdForUpdate(7L)).thenReturn(Optional.of(user));
+
+        assertThat(adminEligibleUserService.lockActiveUser(user)).isSameAs(user);
+
+        verify(userRepository).findActiveByIdForUpdate(7L);
+    }
+
+    @Test
+    @DisplayName("잠금 시점에 비활성화된 관리자는 배정 대상에서 제외한다")
+    void lockActiveUser_rejectsUserThatBecameInactive() {
+        User user = User.builder().build();
+        org.springframework.test.util.ReflectionTestUtils.setField(user, "userId", 7L);
+        when(userRepository.findActiveByIdForUpdate(7L)).thenReturn(Optional.empty());
+        when(userRepository.existsById(7L)).thenReturn(true);
+
+        assertThatThrownBy(() -> adminEligibleUserService.lockActiveUser(user))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
+    }
+
+    @Test
     @DisplayName("빈 loginId는 조회 전에 거절한다")
     void getActiveUserByLoginId_rejectsBlankLoginId() {
         assertThatThrownBy(() -> adminEligibleUserService.getActiveUserByLoginId("  "))

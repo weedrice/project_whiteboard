@@ -183,6 +183,7 @@ public interface UserRepository extends JpaRepository<User, Long>, UserRepositor
             WHERE u.isSuperAdmin = true
               AND u.status = 'ACTIVE'
               AND u.deletedAt IS NULL
+            ORDER BY u.userId ASC
             """)
     List<User> findUsableSuperAdmins();
 
@@ -193,12 +194,23 @@ public interface UserRepository extends JpaRepository<User, Long>, UserRepositor
             WHERE u.isSuperAdmin = true
               AND u.status = 'ACTIVE'
               AND u.deletedAt IS NULL
+            ORDER BY u.userId ASC
             """)
     List<User> findUsableSuperAdminsForUpdate();
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT u FROM User u WHERE u.userId = :userId")
     Optional<User> findByIdForUpdate(@Param("userId") Long userId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT u
+            FROM User u
+            WHERE u.userId = :userId
+              AND u.status = 'ACTIVE'
+              AND u.deletedAt IS NULL
+            """)
+    Optional<User> findActiveByIdForUpdate(@Param("userId") Long userId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT u FROM User u WHERE u.userId IN :userIds ORDER BY u.userId ASC")

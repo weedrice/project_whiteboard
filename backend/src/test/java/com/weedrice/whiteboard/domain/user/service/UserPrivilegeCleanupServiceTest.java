@@ -4,6 +4,8 @@ import com.weedrice.whiteboard.domain.admin.entity.Admin;
 import com.weedrice.whiteboard.domain.admin.entity.AdminRole;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
 import com.weedrice.whiteboard.domain.admin.service.OperationalPrivilegeRevocationGuard;
+import com.weedrice.whiteboard.domain.board.entity.Board;
+import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -12,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.InOrder;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
@@ -19,6 +22,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -27,10 +31,28 @@ import static org.mockito.Mockito.when;
 class UserPrivilegeCleanupServiceTest {
 
     @Mock private AdminRepository adminRepository;
+    @Mock private BoardRepository boardRepository;
     @Mock private OperationalPrivilegeRevocationGuard privilegeRevocationGuard;
 
     @InjectMocks
     private UserPrivilegeCleanupService userPrivilegeCleanupService;
+
+    @Test
+    void removeOperationalPrivileges_locksBoardsBeforeAdminRows() {
+        User user = User.builder().build();
+        Board board = Board.builder().creator(user).build();
+        Admin admin = Admin.builder().user(user).board(board).role(Role.BOARD_ADMIN).build();
+        when(adminRepository.findActiveBoardIdsByUser(user)).thenReturn(List.of(10L));
+        when(boardRepository.findByBoardIdInForUpdate(List.of(10L))).thenReturn(List.of(board));
+        when(adminRepository.findAllByUserAndIsActiveOrderByAdminIdAsc(user, true)).thenReturn(List.of(admin));
+
+        userPrivilegeCleanupService.removeOperationalPrivileges(user);
+
+        InOrder ordered = inOrder(adminRepository, boardRepository);
+        ordered.verify(adminRepository).findActiveBoardIdsByUser(user);
+        ordered.verify(boardRepository).findByBoardIdInForUpdate(List.of(10L));
+        ordered.verify(adminRepository).findAllByUserAndIsActiveOrderByAdminIdAsc(user, true);
+    }
 
     @Test
     void removeOperationalPrivileges_revokesSuperAdminAndDeactivatesActiveAdmins() {

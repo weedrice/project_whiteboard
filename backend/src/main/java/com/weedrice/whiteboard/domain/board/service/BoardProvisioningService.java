@@ -58,25 +58,29 @@ class BoardProvisioningService {
 
     void ensureInquiryBoard(Long userId, String requestedBoardUrl) {
         User currentUser = getCurrentUserOrNull(userId);
+        User manager = resolveInquiryBoardCreatorForUpdate(currentUser);
         String inquiryBoardUrl = normalizeInquiryBoardUrl(requestedBoardUrl);
 
         Board board = boardRepository.findByBoardUrlForUpdate(inquiryBoardUrl)
-                .orElseGet(() -> createInquiryBoard(currentUser, inquiryBoardUrl));
+                .orElseGet(() -> createInquiryBoard(manager, inquiryBoardUrl));
 
         ensureInquiryBoardIsPrivate(board);
         ensureInquiryBoardCategory(board);
-        ensureInquiryBoardManager(board, currentUser);
+        ensureInquiryBoardManager(board, manager);
     }
 
     Board transferBoardManager(String boardUrl, String loginId, Long userId) {
         String normalizedBoardUrl = BoardUrlNormalizer.normalizeLookup(boardUrl);
+        Board readableBoard = boardRepository.findByBoardUrl(normalizedBoardUrl)
+                .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+        User currentUser = getCurrentUser(userId);
+        boardAccessPolicy.validateBoardAdmin(readableBoard, currentUser);
+
+        User nextManager = adminEligibleUserService.getActiveUserByLoginIdForUpdate(loginId);
         Board board = boardRepository.findByBoardUrlForUpdate(normalizedBoardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
-
-        User currentUser = getCurrentUser(userId);
         boardAccessPolicy.validateBoardAdmin(board, currentUser);
 
-        User nextManager = adminEligibleUserService.getActiveUserByLoginId(loginId);
         if (!boardSubscriptionRepository.existsByUserAndBoard(nextManager, board)) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
@@ -116,8 +120,7 @@ class BoardProvisioningService {
         return BoardPolicyConstants.INQUIRY_BOARD_URL;
     }
 
-    private Board createInquiryBoard(User requester, String inquiryBoardUrl) {
-        User creator = resolveInquiryBoardCreator(requester);
+    private Board createInquiryBoard(User creator, String inquiryBoardUrl) {
         Integer maxSortOrder = boardRepository.findMaxSortOrder();
 
         String boardName = resolveInquiryBoardName(inquiryBoardUrl);
@@ -216,15 +219,14 @@ class BoardProvisioningService {
     }
 
     private void ensureInquiryBoardManager(Board board, User requester) {
-        User manager = resolveInquiryBoardCreator(requester);
-        boardManagerAssignmentService.assignBoardManager(board, manager);
+        boardManagerAssignmentService.assignBoardManager(board, requester);
     }
 
-    private User resolveInquiryBoardCreator(User fallbackUser) {
-        User creator = userRepository.findUsableSuperAdmins().stream()
+    private User resolveInquiryBoardCreatorForUpdate(User fallbackUser) {
+        User creator = userRepository.findUsableSuperAdminsForUpdate().stream()
                 .filter(Objects::nonNull)
                 .min(Comparator.comparing(User::getUserId))
-                .orElse(fallbackUser);
+                .orElseGet(() -> fallbackUser == null ? null : adminEligibleUserService.lockActiveUser(fallbackUser));
         if (creator == null) {
             throw new BusinessException(ErrorCode.USER_NOT_FOUND);
         }

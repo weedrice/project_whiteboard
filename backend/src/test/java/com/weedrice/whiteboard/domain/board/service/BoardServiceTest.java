@@ -272,6 +272,7 @@ class BoardServiceTest {
         ReflectionTestUtils.setField(user, "userId", 1L);
         lenient().when(userRepository.findByLoginId(anyString())).thenReturn(Optional.of(user));
         lenient().when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        lenient().when(adminEligibleUserService.lockActiveUser(user)).thenReturn(user);
 
         board = Board.builder()
                 .boardName("Test Board")
@@ -652,15 +653,16 @@ class BoardServiceTest {
                 .build();
         ReflectionTestUtils.setField(nextManager, "userId", 2L);
 
+        when(boardRepository.findByBoardUrl("test-board")).thenReturn(Optional.of(board));
         when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
-        when(adminEligibleUserService.getActiveUserByLoginId("nextmanager")).thenReturn(nextManager);
+        when(adminEligibleUserService.getActiveUserByLoginIdForUpdate("nextmanager")).thenReturn(nextManager);
         when(boardSubscriptionRepository.existsByUserAndBoard(nextManager, board)).thenReturn(true);
 
         BoardCommandResult result = boardService.transferBoardManager("test-board", "nextmanager", 1L);
 
         assertThat(result.boardUrl()).isEqualTo("test-board");
         verify(boardRepository).findByBoardUrlForUpdate("test-board");
-        verify(boardRepository, never()).findByBoardUrl("test-board");
+        verify(boardRepository).findByBoardUrl("test-board");
         verify(boardManagerAssignmentService).assignBoardManager(board, nextManager);
         verify(notificationAccessInvalidationService).invalidateCommentTopicsForBoardAfterCommit(1L);
     }
@@ -676,16 +678,17 @@ class BoardServiceTest {
                 .build();
         ReflectionTestUtils.setField(nextManager, "userId", 2L);
 
-        when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
-        when(adminEligibleUserService.getActiveUserByLoginId("nextmanager")).thenReturn(nextManager);
-        when(boardSubscriptionRepository.existsByUserAndBoard(nextManager, board)).thenReturn(true);
         when(boardRepository.findByBoardUrl("test-board")).thenReturn(Optional.of(board));
+        when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
+        when(adminEligibleUserService.getActiveUserByLoginIdForUpdate("nextmanager")).thenReturn(nextManager);
+        when(boardSubscriptionRepository.existsByUserAndBoard(nextManager, board)).thenReturn(true);
 
         BoardDetailResponse response = boardApplicationService.transferBoardManagerDetail("test-board", "nextmanager", 1L);
 
         assertThat(response.getBoardUrl()).isEqualTo("test-board");
         verify(boardManagerAssignmentService).assignBoardManager(board, nextManager);
         InOrder inOrder = inOrder(boardRepository);
+        inOrder.verify(boardRepository).findByBoardUrl("test-board");
         inOrder.verify(boardRepository).findByBoardUrlForUpdate("test-board");
         inOrder.verify(boardRepository).findByBoardUrl("test-board");
     }
@@ -701,8 +704,9 @@ class BoardServiceTest {
                 .build();
         ReflectionTestUtils.setField(nextManager, "userId", 2L);
 
+        when(boardRepository.findByBoardUrl("test-board")).thenReturn(Optional.of(board));
         when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
-        when(adminEligibleUserService.getActiveUserByLoginId("nextmanager")).thenReturn(nextManager);
+        when(adminEligibleUserService.getActiveUserByLoginIdForUpdate("nextmanager")).thenReturn(nextManager);
         when(boardSubscriptionRepository.existsByUserAndBoard(nextManager, board)).thenReturn(false);
 
         BusinessException exception = assertThrows(BusinessException.class,
@@ -723,7 +727,7 @@ class BoardServiceTest {
                 .build();
         ReflectionTestUtils.setField(otherUser, "userId", 99L);
 
-        when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
+        when(boardRepository.findByBoardUrl("test-board")).thenReturn(Optional.of(board));
         when(userRepository.findById(99L)).thenReturn(Optional.of(otherUser));
         when(adminRepository.existsByUserAndBoardAndIsActive(otherUser, board, true)).thenReturn(false);
 
@@ -732,24 +736,24 @@ class BoardServiceTest {
                 () -> boardService.transferBoardManager("test-board", "nextmanager", 99L));
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.FORBIDDEN);
-        verify(boardRepository).findByBoardUrlForUpdate("test-board");
-        verify(boardRepository, never()).findByBoardUrl("test-board");
-        verify(adminEligibleUserService, never()).getActiveUserByLoginId(anyString());
+        verify(boardRepository, never()).findByBoardUrlForUpdate("test-board");
+        verify(boardRepository).findByBoardUrl("test-board");
+        verify(adminEligibleUserService, never()).getActiveUserByLoginIdForUpdate(anyString());
         verify(boardManagerAssignmentService, never()).assignBoardManager(any(), any());
     }
 
     @Test
     @DisplayName("노드 관리자 이관은 잠금 조회에서 노드이 없으면 BOARD_NOT_FOUND를 던진다")
     void transferBoardManager_lockedBoardNotFound() {
-        when(boardRepository.findByBoardUrlForUpdate("missing-board")).thenReturn(Optional.empty());
+        when(boardRepository.findByBoardUrl("missing-board")).thenReturn(Optional.empty());
 
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> boardService.transferBoardManager("missing-board", "nextmanager", null));
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.BOARD_NOT_FOUND);
-        verify(boardRepository).findByBoardUrlForUpdate("missing-board");
-        verify(boardRepository, never()).findByBoardUrl("missing-board");
-        verify(adminEligibleUserService, never()).getActiveUserByLoginId(anyString());
+        verify(boardRepository, never()).findByBoardUrlForUpdate("missing-board");
+        verify(boardRepository).findByBoardUrl("missing-board");
+        verify(adminEligibleUserService, never()).getActiveUserByLoginIdForUpdate(anyString());
         verify(boardManagerAssignmentService, never()).assignBoardManager(any(), any());
     }
 
@@ -910,7 +914,7 @@ class BoardServiceTest {
         when(userRepository.findById(creatorId)).thenReturn(Optional.of(user));
         doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE))
                 .when(adminEligibleUserService)
-                .validateActiveUser(user);
+                .lockActiveUser(user);
 
         BusinessException exception = assertThrows(BusinessException.class,
                 () -> boardService.createBoard(creatorId, request));
@@ -2356,7 +2360,7 @@ class BoardServiceTest {
         deletedSuperAdmin.grantSuperAdminRole();
         deletedSuperAdmin.delete(java.time.LocalDateTime.of(2026, 7, 7, 12, 0));
         when(boardRepository.findByBoardUrlForUpdate("inquiry")).thenReturn(Optional.empty());
-        when(userRepository.findUsableSuperAdmins()).thenReturn(List.of(activeSuperAdmin));
+        when(userRepository.findUsableSuperAdminsForUpdate()).thenReturn(List.of(activeSuperAdmin));
         when(boardRepository.findMaxSortOrder()).thenReturn(0);
         when(boardRepository.findExistingBoardNamesIn(any())).thenReturn(Collections.emptyList());
         when(boardRepository.saveAndFlush(any(Board.class))).thenAnswer(invocation -> {
@@ -2381,7 +2385,7 @@ class BoardServiceTest {
                 .containsOnly("일반");
         assertThat(categoryCaptor.getAllValues())
                 .allMatch(BoardCategory::isDefaultCategory);
-        verify(userRepository, org.mockito.Mockito.atLeastOnce()).findUsableSuperAdmins();
+        verify(userRepository, org.mockito.Mockito.atLeastOnce()).findUsableSuperAdminsForUpdate();
         verify(boardManagerAssignmentService, org.mockito.Mockito.atLeastOnce())
                 .assignBoardManager(boardCaptor.getValue(), activeSuperAdmin);
     }
@@ -2398,7 +2402,7 @@ class BoardServiceTest {
         ReflectionTestUtils.setField(superAdmin, "userId", 2L);
         superAdmin.grantSuperAdminRole();
         when(boardRepository.findByBoardUrlForUpdate("inquiry")).thenReturn(Optional.empty());
-        when(userRepository.findUsableSuperAdmins()).thenReturn(List.of(superAdmin));
+        when(userRepository.findUsableSuperAdminsForUpdate()).thenReturn(List.of(superAdmin));
         when(boardRepository.findMaxSortOrder()).thenReturn(0);
         when(boardRepository.findExistingBoardNamesIn(any()))
                 .thenReturn(List.of("문의", "문의-inquiry"));
@@ -2435,7 +2439,7 @@ class BoardServiceTest {
         ReflectionTestUtils.setField(superAdmin, "userId", 2L);
         superAdmin.grantSuperAdminRole();
         when(boardRepository.findByBoardUrlForUpdate("inquiry")).thenReturn(Optional.empty());
-        when(userRepository.findUsableSuperAdmins()).thenReturn(List.of(superAdmin));
+        when(userRepository.findUsableSuperAdminsForUpdate()).thenReturn(List.of(superAdmin));
         when(boardRepository.findMaxSortOrder()).thenReturn(0);
         when(boardRepository.findExistingBoardNamesIn(any())).thenAnswer(invocation -> {
             Collection<String> candidates = invocation.getArgument(0);
@@ -2485,7 +2489,7 @@ class BoardServiceTest {
         ReflectionTestUtils.setField(duplicateCategory, "categoryId", 11L);
 
         when(boardRepository.findByBoardUrlForUpdate("inquiry")).thenReturn(Optional.of(board));
-        when(userRepository.findUsableSuperAdmins()).thenReturn(List.of(superAdmin));
+        when(userRepository.findUsableSuperAdminsForUpdate()).thenReturn(List.of(superAdmin));
         when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(board.getBoardId(), true))
                 .thenReturn(List.of(defaultCategory, duplicateCategory));
 
@@ -2513,7 +2517,7 @@ class BoardServiceTest {
         superAdmin.grantSuperAdminRole();
 
         when(boardRepository.findByBoardUrlForUpdate("inquiry")).thenReturn(Optional.of(board));
-        when(userRepository.findUsableSuperAdmins()).thenReturn(List.of(superAdmin));
+        when(userRepository.findUsableSuperAdminsForUpdate()).thenReturn(List.of(superAdmin));
         when(boardCategoryRepository.findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(board.getBoardId(), true))
                 .thenReturn(Collections.emptyList());
         when(boardCategoryRepository.saveAndFlush(any(com.weedrice.whiteboard.domain.board.entity.BoardCategory.class)))
@@ -2539,7 +2543,7 @@ class BoardServiceTest {
         when(boardRepository.findByBoardUrlForUpdate("inquiry"))
                 .thenReturn(Optional.empty())
                 .thenReturn(Optional.of(board));
-        when(userRepository.findUsableSuperAdmins()).thenReturn(List.of(superAdmin));
+        when(userRepository.findUsableSuperAdminsForUpdate()).thenReturn(List.of(superAdmin));
         when(boardRepository.findMaxSortOrder()).thenReturn(0);
         when(boardRepository.findExistingBoardNamesIn(any())).thenReturn(Collections.emptyList());
         when(boardRepository.saveAndFlush(any(Board.class)))
@@ -2572,7 +2576,7 @@ class BoardServiceTest {
         when(boardRepository.findByBoardUrlForUpdate("inquiry"))
                 .thenReturn(Optional.empty())
                 .thenReturn(Optional.of(board));
-        when(userRepository.findUsableSuperAdmins()).thenReturn(List.of(superAdmin));
+        when(userRepository.findUsableSuperAdminsForUpdate()).thenReturn(List.of(superAdmin));
         when(boardRepository.findMaxSortOrder()).thenReturn(0);
         when(boardRepository.findExistingBoardNamesIn(any())).thenReturn(Collections.emptyList());
         when(boardRepository.saveAndFlush(any(Board.class)))

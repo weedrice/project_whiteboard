@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.post.service;
 
 import com.weedrice.whiteboard.domain.board.entity.Board;
+import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.moderation.service.ModerationAuditLogService;
 import com.weedrice.whiteboard.domain.notification.service.NotificationAccessInvalidationService;
@@ -27,6 +28,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -35,6 +37,7 @@ import static org.mockito.Mockito.when;
 class PostManagerModerationServiceTest {
 
     @Mock PostRepository posts;
+    @Mock BoardRepository boards;
     @Mock UserRepository users;
     @Mock BoardAccessPolicy accessPolicy;
     @Mock ModerationAuditLogService audits;
@@ -47,15 +50,18 @@ class PostManagerModerationServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new PostManagerModerationService(posts, users, accessPolicy, audits, semanticSearchEvents,
+        service = new PostManagerModerationService(posts, boards, users, accessPolicy, audits, semanticSearchEvents,
                 notificationAccessInvalidationService,
                 Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneOffset.UTC));
         manager = mock(User.class);
         post = mock(Post.class);
         board = mock(Board.class);
-        when(users.findById(1L)).thenReturn(Optional.of(manager));
+        when(users.findByIdForUpdate(1L)).thenReturn(Optional.of(manager));
+        when(posts.findBoardIdByPostId(2L)).thenReturn(Optional.of(10L));
+        when(boards.findByIdForUpdate(10L)).thenReturn(Optional.of(board));
         when(posts.findByIdWithRelationsForBlindUpdate(2L)).thenReturn(Optional.of(post));
         when(post.getBoard()).thenReturn(board);
+        when(board.getBoardId()).thenReturn(10L);
         when(post.getPostId()).thenReturn(2L);
         when(post.getIsDeleted()).thenReturn(false);
     }
@@ -70,6 +76,17 @@ class PostManagerModerationServiceTest {
         verify(post).unpin();
         verify(audits).recordUserAction(manager, ModerationAuditLogService.ACTION_POST_PIN,
                 ModerationAuditLogService.TARGET_TYPE_POST, 2L, board, null);
+    }
+
+    @Test
+    void locksBoardBeforePostAndRevalidatesManagerInsideBoardLock() {
+        service.pinPost(1L, 2L);
+
+        var ordered = inOrder(posts, boards, accessPolicy);
+        ordered.verify(posts).findBoardIdByPostId(2L);
+        ordered.verify(boards).findByIdForUpdate(10L);
+        ordered.verify(posts).findByIdWithRelationsForBlindUpdate(2L);
+        ordered.verify(accessPolicy).validateBoardAdmin(board, manager);
     }
 
     @Test
@@ -90,10 +107,11 @@ class PostManagerModerationServiceTest {
 
     @Test
     void missingManagerPostOrDeletedPostIsRejected() {
-        when(users.findById(9L)).thenReturn(Optional.empty());
+        when(users.findByIdForUpdate(9L)).thenReturn(Optional.empty());
         assertThrows(BusinessException.class, () -> service.pinPost(9L, 2L));
 
         when(posts.findByIdWithRelationsForBlindUpdate(8L)).thenReturn(Optional.empty());
+        when(posts.findBoardIdByPostId(8L)).thenReturn(Optional.of(10L));
         assertThrows(BusinessException.class, () -> service.pinPost(1L, 8L));
 
         when(post.getIsDeleted()).thenReturn(true);
