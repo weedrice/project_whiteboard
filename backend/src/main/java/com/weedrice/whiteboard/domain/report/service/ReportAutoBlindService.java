@@ -129,6 +129,8 @@ class ReportAutoBlindService {
         comment.unblind();
         notificationAccessInvalidationService.invalidateCommentTopicAfterCommit(comment.getPost().getPostId());
         semanticSearchEventPublisher.publish("COMMENT", comment.getCommentId(), SemanticSearchIndexAction.UPSERT);
+        anonymousReadCacheInvalidator.evictPostEngagementCachesAfterCommit(
+                comment.getPost().getBoard().getBoardUrl());
         moderationAuditLogService.recordSystemAction(
                 ModerationAuditLogService.ACTION_COMMENT_AUTO_UNBLIND,
                 ModerationAuditLogService.TARGET_TYPE_COMMENT,
@@ -182,6 +184,8 @@ class ReportAutoBlindService {
         comment.blind(AUTO_REPORT_REASON, LocalDateTime.now(clock));
         notificationAccessInvalidationService.invalidateCommentTopicAfterCommit(comment.getPost().getPostId());
         semanticSearchEventPublisher.publish("COMMENT", comment.getCommentId(), SemanticSearchIndexAction.DELETE);
+        anonymousReadCacheInvalidator.evictPostEngagementCachesAfterCommit(
+                comment.getPost().getBoard().getBoardUrl());
         moderationAuditLogService.recordSystemAction(
                 ModerationAuditLogService.ACTION_COMMENT_AUTO_BLIND,
                 ModerationAuditLogService.TARGET_TYPE_COMMENT,

@@ -20,6 +20,7 @@ import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import com.weedrice.whiteboard.global.config.AnonymousReadCacheInvalidator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -70,6 +71,7 @@ class UserProfileServiceTest {
     @Mock private SanctionService sanctionService;
     @Mock private PasswordEncoder passwordEncoder;
     @Mock private UserLifecycleService userLifecycleService;
+    @Mock private AnonymousReadCacheInvalidator anonymousReadCacheInvalidator;
 
     @BeforeEach
     void setUp() {
@@ -92,7 +94,8 @@ class UserProfileServiceTest {
                 userWritableResolver,
                 userLifecycleService,
                 FIXED_CLOCK,
-                new StaticMessageSource());
+                new StaticMessageSource(),
+                anonymousReadCacheInvalidator);
     }
 
     @Test
@@ -263,6 +266,7 @@ class UserProfileServiceTest {
         assertThat(historyCaptor.getValue().getChangedAt()).isEqualTo(FIXED_NOW);
         verify(userRepository).findByIdForUpdate(1L);
         verify(userRepository, never()).findById(1L);
+        verify(anonymousReadCacheInvalidator).evictAuthorProjectionCachesAfterCommit();
     }
 
     @Test

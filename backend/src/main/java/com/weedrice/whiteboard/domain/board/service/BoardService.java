@@ -167,12 +167,14 @@ public class BoardService {
     public void subscribeBoard(Long userId, String boardUrl) {
         String normalizedBoardUrl = validatePublicBoardPath(boardUrl);
         subscriptionService.subscribeBoard(userId, normalizedBoardUrl);
+        cacheInvalidator.evictBoardSubscriptionCachesAfterCommit(normalizedBoardUrl);
     }
 
     @Transactional
     public void unsubscribeBoard(Long userId, String boardUrl) {
         String normalizedBoardUrl = validatePublicBoardPath(boardUrl);
         subscriptionService.unsubscribeBoard(userId, normalizedBoardUrl);
+        cacheInvalidator.evictBoardSubscriptionCachesAfterCommit(normalizedBoardUrl);
     }
 
     public Page<SubscriptionBoardResponse> getMySubscriptions(Long userId, Pageable pageable) {

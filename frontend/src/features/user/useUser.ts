@@ -469,7 +469,11 @@ export function useUser() {
             },
             onSuccess: (_data, _variables, context) => {
                 if (!isCurrentMutation(context)) return
-                queryClient.invalidateQueries({ queryKey: authKey(userQueryKeys.me) })
+                void invalidateProfileAuthorCaches(
+                    queryClient,
+                    context.sessionGeneration,
+                    authStore.user?.userId,
+                )
                 queryClient.invalidateQueries({ queryKey: userQueryKeys.badgesRoot })
             }
         })

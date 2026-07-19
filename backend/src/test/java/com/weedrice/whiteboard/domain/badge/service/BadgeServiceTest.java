@@ -6,6 +6,7 @@ import com.weedrice.whiteboard.domain.badge.repository.UserBadgeRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
+import com.weedrice.whiteboard.global.config.AnonymousReadCacheInvalidator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,11 +32,18 @@ class BadgeServiceTest {
     @Mock UserRepository users;
     @Mock BadgeEvaluationService evaluations;
     @Mock UserWritableResolver userWritableResolver;
+    @Mock AnonymousReadCacheInvalidator anonymousReadCacheInvalidator;
     BadgeService service;
 
     @BeforeEach
     void setUp() {
-        service = new BadgeService(badges, userBadges, users, userWritableResolver, evaluations);
+        service = new BadgeService(
+                badges,
+                userBadges,
+                users,
+                userWritableResolver,
+                evaluations,
+                anonymousReadCacheInvalidator);
     }
 
     @Test
@@ -87,6 +95,7 @@ class BadgeServiceTest {
 
         verify(userWritableResolver).resolveForUpdate(9L);
         verify(user).updateRepresentativeBadgeCode(null);
+        verify(anonymousReadCacheInvalidator).evictAuthorProjectionCachesAfterCommit();
         verify(users, never()).findByUserIdAndStatusAndDeletedAtIsNull(9L, User.STATUS_ACTIVE);
     }
 

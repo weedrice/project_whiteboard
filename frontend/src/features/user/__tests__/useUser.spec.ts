@@ -2,8 +2,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { computed, ref } from 'vue'
 import { useUser } from '@/features/user/useUser'
 import { userApi } from '@/api/user'
+import { badgeApi } from '@/api/badge'
 import { QUERY_STALE_TIME } from '@/utils/constants'
-import { apiDataResponse, apiSuccessResponse } from '@/test/apiResponseFixtures'
+import { apiDataResponse, apiEnvelopeResponse, apiSuccessResponse } from '@/test/apiResponseFixtures'
 import { createPinia, setActivePinia } from 'pinia'
 
 const mocks = vi.hoisted(() => {
@@ -88,6 +89,14 @@ vi.mock('@/api/user', () => ({
         blockUser: vi.fn(),
         unblockUser: vi.fn(),
         getRecentlyViewedPosts: vi.fn(),
+    },
+}))
+
+vi.mock('@/api/badge', () => ({
+    badgeApi: {
+        getUserBadges: vi.fn(),
+        getMyBadges: vi.fn(),
+        updateRepresentativeBadge: vi.fn(),
     },
 }))
 
@@ -449,5 +458,20 @@ describe('useUser', () => {
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'user', '123'] })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'user', '123', 'posts'] })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'user', '123', 'comments'] })
+    })
+
+    it('updates the representative badge and invalidates cached author projections', async () => {
+        vi.mocked(badgeApi.updateRepresentativeBadge).mockResolvedValueOnce(
+            apiEnvelopeResponse<typeof badgeApi.updateRepresentativeBadge, null>(true, null),
+        )
+
+        const { useUpdateRepresentativeBadge } = useUser()
+        await useUpdateRepresentativeBadge().mutateAsync('HELPFUL')
+
+        expect(badgeApi.updateRepresentativeBadge).toHaveBeenCalledWith('HELPFUL')
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'post'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'comments'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'home'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['user', 'badges'] })
     })
 })

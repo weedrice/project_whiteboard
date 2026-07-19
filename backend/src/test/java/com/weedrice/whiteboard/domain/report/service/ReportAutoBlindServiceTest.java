@@ -124,6 +124,7 @@ class ReportAutoBlindServiceTest {
         when(comment.getCommentId()).thenReturn(4L);
         when(comment.getPost()).thenReturn(post);
         when(post.getBoard()).thenReturn(board);
+        when(board.getBoardUrl()).thenReturn("free");
         when(comment.getIsDeleted()).thenReturn(false);
         when(comment.getIsBlinded()).thenReturn(false);
 
@@ -131,6 +132,7 @@ class ReportAutoBlindServiceTest {
         verify(comment).blind("AUTO_REPORT", LocalDateTime.of(2026, 1, 1, 0, 0));
         verify(notificationAccessInvalidationService).invalidateCommentTopicAfterCommit(post.getPostId());
         verify(semanticSearchEvents).publish("COMMENT", 4L, SemanticSearchIndexAction.DELETE);
+        verify(anonymousReadCacheInvalidator).evictPostEngagementCachesAfterCommit("free");
 
         Post blinded = mock(Post.class);
         when(posts.findByIdWithRelationsForBlindUpdate(5L)).thenReturn(Optional.of(blinded));
@@ -149,6 +151,7 @@ class ReportAutoBlindServiceTest {
         when(comment.getPost()).thenReturn(post);
         when(post.getPostId()).thenReturn(3L);
         when(post.getBoard()).thenReturn(board);
+        when(board.getBoardUrl()).thenReturn("free");
         when(comment.getIsDeleted()).thenReturn(false);
         when(comment.getIsBlinded()).thenReturn(true);
         when(comment.getBlindReason()).thenReturn("AUTO_REPORT");
@@ -160,6 +163,7 @@ class ReportAutoBlindServiceTest {
         verify(comment).unblind();
         verify(notificationAccessInvalidationService).invalidateCommentTopicAfterCommit(3L);
         verify(semanticSearchEvents).publish("COMMENT", 6L, SemanticSearchIndexAction.UPSERT);
+        verify(anonymousReadCacheInvalidator).evictPostEngagementCachesAfterCommit("free");
         verify(audits).recordSystemAction(
                 ModerationAuditLogService.ACTION_COMMENT_AUTO_UNBLIND,
                 ModerationAuditLogService.TARGET_TYPE_COMMENT,

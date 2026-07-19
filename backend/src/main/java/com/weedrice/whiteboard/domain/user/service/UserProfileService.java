@@ -15,6 +15,7 @@ import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.common.service.GlobalConfigService;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import com.weedrice.whiteboard.global.config.AnonymousReadCacheInvalidator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
@@ -55,6 +56,7 @@ public class UserProfileService {
     private final UserLifecycleService userLifecycleService;
     private final Clock clock;
     private final MessageSource messageSource;
+    private final AnonymousReadCacheInvalidator anonymousReadCacheInvalidator;
 
     public Long findUserIdByLoginId(String loginId) {
         User user = userRepository.findByLoginId(loginId)
@@ -144,6 +146,7 @@ public class UserProfileService {
                 ? userWritableResolver.resolveForUpdate(userId)
                 : userWritableResolver.resolve(userId);
         String oldDisplayName = user.getDisplayName();
+        String oldProfileImageUrl = user.getProfileImageUrl();
         Integer spentPoints = null;
         Integer remainingPoints = null;
 
@@ -164,6 +167,11 @@ public class UserProfileService {
             spentPoints = chargeResult.spentPoints();
             remainingPoints = chargeResult.remainingPoints();
             user.updateProfileImage(fileService.replaceUserProfileImageForLockedUser(profileImageId, userId, user));
+        }
+
+        if (!java.util.Objects.equals(oldDisplayName, user.getDisplayName())
+                || !java.util.Objects.equals(oldProfileImageUrl, user.getProfileImageUrl())) {
+            anonymousReadCacheInvalidator.evictAuthorProjectionCachesAfterCommit();
         }
 
         return new UpdateProfileResponse(

@@ -563,6 +563,7 @@ class BoardServiceTest {
         // then
         verify(userRepository).findByIdForUpdate(userId);
         verify(boardSubscriptionRepository).saveAndFlush(any(BoardSubscription.class));
+        verify(cacheInvalidator).evictBoardSubscriptionCachesAfterCommit(boardUrl);
     }
 
     @Test
@@ -1987,6 +1988,7 @@ class BoardServiceTest {
         InOrder lockOrder = inOrder(userRepository, boardSubscriptionRepository);
         lockOrder.verify(userRepository).findByIdForUpdate(userId);
         lockOrder.verify(boardSubscriptionRepository).findByIdForUpdate(userId, board.getBoardId());
+        verify(cacheInvalidator).evictBoardSubscriptionCachesAfterCommit(boardUrl);
     }
 
     @Test

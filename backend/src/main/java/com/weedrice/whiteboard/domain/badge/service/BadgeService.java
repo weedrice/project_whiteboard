@@ -12,6 +12,7 @@ import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import com.weedrice.whiteboard.global.config.AnonymousReadCacheInvalidator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -34,6 +35,7 @@ public class BadgeService {
     private final UserRepository userRepository;
     private final UserWritableResolver userWritableResolver;
     private final BadgeEvaluationService badgeEvaluationService;
+    private final AnonymousReadCacheInvalidator anonymousReadCacheInvalidator;
 
     public List<BadgeResponse> getUserBadges(Long targetUserId) {
         User user = userRepository.findByUserIdAndStatusAndDeletedAtIsNull(targetUserId, User.STATUS_ACTIVE)
@@ -67,11 +69,13 @@ public class BadgeService {
         String normalizedBadgeCode = badgeCode == null || badgeCode.isBlank() ? null : badgeCode.strip();
         if (normalizedBadgeCode == null) {
             user.updateRepresentativeBadgeCode(null);
+            anonymousReadCacheInvalidator.evictAuthorProjectionCachesAfterCommit();
             return null;
         }
         UserBadge userBadge = userBadgeRepository.findByUser_UserIdAndBadge_BadgeCode(userId, normalizedBadgeCode)
                 .orElseThrow(() -> new BusinessException(ErrorCode.FORBIDDEN));
         user.updateRepresentativeBadgeCode(normalizedBadgeCode);
+        anonymousReadCacheInvalidator.evictAuthorProjectionCachesAfterCommit();
         return BadgeCompactResponse.from(userBadge.getBadge());
     }
 

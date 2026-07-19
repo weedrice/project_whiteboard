@@ -10,13 +10,15 @@ import { sessionQueryKey } from '@/queryAuthScope'
 export function invalidateProfileAuthorCaches(
   queryClient: QueryClient,
   sessionGeneration: number,
-  userId: string | number,
+  userId?: string | number | null,
 ) {
   const queryKeys: readonly (readonly unknown[])[] = [
     userQueryKeys.me,
-    userQueryKeys.profile(userId),
-    userQueryKeys.publicPostsRoot(userId),
-    userQueryKeys.publicCommentsRoot(userId),
+    ...(userId == null ? [] : [
+      userQueryKeys.profile(userId),
+      userQueryKeys.publicPostsRoot(userId),
+      userQueryKeys.publicCommentsRoot(userId),
+    ]),
     userQueryKeys.scrapsRoot,
     userQueryKeys.recentlyViewedPostsRoot,
     postQueryKeys.detailsRoot,

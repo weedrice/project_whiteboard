@@ -79,6 +79,21 @@ class AnonymousReadCacheInvalidatorTest {
         assertThat(cacheManager.getCache(CacheNames.BOARD_CATALOG_ANONYMOUS).get("key")).isNotNull();
     }
 
+    @Test
+    void subscriptionInvalidationClearsCatalogAndOnlyAffectedBoardDetail() {
+        ConcurrentMapCacheManager cacheManager = populatedCacheManager();
+        cacheManager.getCache(CacheNames.BOARD_DETAIL_ANONYMOUS).put("other", "value");
+        AnonymousReadCacheInvalidator invalidator = new AnonymousReadCacheInvalidator(cacheManager);
+
+        invalidator.evictBoardSubscriptionCachesAfterCommit("key");
+
+        assertThat(cacheManager.getCache(CacheNames.BOARD_CATALOG_ANONYMOUS).get("key")).isNull();
+        assertThat(cacheManager.getCache(CacheNames.BOARD_DETAIL_ANONYMOUS).get("key")).isNull();
+        assertThat(cacheManager.getCache(CacheNames.BOARD_DETAIL_ANONYMOUS).get("other")).isNotNull();
+        assertThat(cacheManager.getCache(CacheNames.TRENDING_POSTS_ANONYMOUS).get("key")).isNotNull();
+        assertThat(cacheManager.getCache(CacheNames.HOME_LANDING_ANONYMOUS).get("key")).isNotNull();
+    }
+
     private ConcurrentMapCacheManager populatedCacheManager() {
         ConcurrentMapCacheManager cacheManager = new ConcurrentMapCacheManager(CACHE_NAMES.toArray(String[]::new));
         CACHE_NAMES.forEach(cacheName -> cacheManager.getCache(cacheName).put("key", "value"));

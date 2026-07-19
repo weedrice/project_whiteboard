@@ -41,6 +41,17 @@ public class AnonymousReadCacheInvalidator {
         });
     }
 
+    public void evictBoardSubscriptionCachesAfterCommit(String boardUrl) {
+        runAfterCommit(() -> {
+            evictCaches(List.of(CacheNames.BOARD_CATALOG_ANONYMOUS));
+            evictCacheEntry(CacheNames.BOARD_DETAIL_ANONYMOUS, boardUrl);
+        });
+    }
+
+    public void evictAuthorProjectionCachesAfterCommit() {
+        evictAfterCommit(POST_RELATED_CACHES);
+    }
+
     private void evictAfterCommit(List<String> cacheNames) {
         runAfterCommit(() -> evictCaches(cacheNames));
     }
