@@ -34,6 +34,15 @@ class PostCreateTargetResolver {
         return new PostCreateTarget(user, agent, board, isBoardWritablePrevalidated(context));
     }
 
+    public PostCreateTarget resolveTargetByBoardUrl(Long userId, Long agentId, String boardUrl) {
+        User user = userWritableResolver.resolveForUpdate(userId);
+        sanctionService.validateNotMuted(user);
+        Agent agent = resolveAgent(userId, agentId, null);
+        Board board = boardRepository.findByBoardUrlForUpdate(boardUrl)
+                .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
+        return new PostCreateTarget(user, agent, board, false);
+    }
+
     public PostCreateCategoryTarget resolveCategory(Board board, Long categoryId, PostCreateContext context) {
         BoardCategory category = resolveCreatedCategory(board, categoryId, context);
         return new PostCreateCategoryTarget(
@@ -81,12 +90,13 @@ class PostCreateTargetResolver {
             if (boardId != null && !Objects.equals(contextBoard.getBoardId(), boardId)) {
                 throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
             }
-            return contextBoard;
+            return boardRepository.findByIdForUpdate(contextBoard.getBoardId())
+                    .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
         }
         if (boardId == null) {
             throw new BusinessException(ErrorCode.BOARD_NOT_FOUND);
         }
-        return boardRepository.findById(boardId)
+        return boardRepository.findByIdForUpdate(boardId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
     }
 

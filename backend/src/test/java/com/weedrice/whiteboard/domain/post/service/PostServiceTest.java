@@ -249,7 +249,8 @@ class PostServiceTest {
                 reactionWriter,
                 postViewCountWriter,
                 entityManager,
-                badgeEvaluationService);
+                badgeEvaluationService,
+                sanctionService);
         postLatestReadService = new PostLatestReadService(
                 postRepository,
                 userBlockService,
@@ -367,6 +368,15 @@ class PostServiceTest {
         ReflectionTestUtils.setField(post, "postId", 1L);
         ReflectionTestUtils.setField(post, "likeCount", 0);
         ReflectionTestUtils.setField(post, "viewCount", 0);
+
+        lenient().when(boardRepository.findByBoardUrlForUpdate(anyString()))
+                .thenAnswer(invocation -> boardRepository.findByBoardUrl(invocation.getArgument(0)));
+        lenient().when(boardRepository.findByIdForUpdate(anyLong()))
+                .thenAnswer(invocation -> {
+                    Optional<Board> resolved = boardRepository.findById(invocation.getArgument(0));
+                    return resolved.isPresent() ? resolved : Optional.of(board);
+                });
+        lenient().when(postRepository.findBoardIdByPostId(1L)).thenReturn(Optional.of(1L));
     }
 
     private void assertDeleteVersionRecorded(User modifier) {
@@ -404,6 +414,9 @@ class PostServiceTest {
         assertThat(postCaptor.getValue().getTitle()).isEqualTo("New Post");
         verify(fileService).attachFilesToPost(List.of(1L, 2L), 1L, 100L, null);
         verify(pointService).addPointIfAbsent(eq(1L), eq(50), anyString(), eq(100L), eq("POST"));
+        InOrder lockOrder = inOrder(userRepository, boardRepository);
+        lockOrder.verify(userRepository).findByIdForUpdate(1L);
+        lockOrder.verify(boardRepository).findByBoardUrlForUpdate("free");
     }
 
     @Test
@@ -590,7 +603,6 @@ class PostServiceTest {
         PostCreateRequest request = new PostCreateRequest(null, "New Post", "New Contents", Collections.emptyList(),
                 false, false, false, false, null);
 
-        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotBanned(user);
 
@@ -607,7 +619,6 @@ class PostServiceTest {
         PostCreateRequest request = new PostCreateRequest(null, "New Post", "New Contents", Collections.emptyList(),
                 false, false, false, false, null);
 
-        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotMuted(user);
 
@@ -1208,6 +1219,11 @@ class PostServiceTest {
         verify(tagAssignmentService).assignTags(post, request.getTags());
         verify(fileService).syncPostFiles(List.of(5L), 1L, 1L, null);
         verify(postVersionRepository).save(any(PostVersion.class));
+        InOrder lockOrder = inOrder(userRepository, postRepository, boardRepository);
+        lockOrder.verify(userRepository).findByIdForUpdate(1L);
+        lockOrder.verify(postRepository).findBoardIdByPostId(1L);
+        lockOrder.verify(boardRepository).findByIdForUpdate(1L);
+        lockOrder.verify(postRepository).findByIdWithRelationsForUpdate(1L);
     }
 
     @Test
@@ -1519,6 +1535,19 @@ class PostServiceTest {
     }
 
     @Test
+    void likePost_mutedUser_forbiddenBeforeLoadingPost() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotMuted(user);
+
+        assertThatThrownBy(() -> postService.likePost(1L, 1L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
+
+        verify(postRepository, never()).findByIdWithRelations(anyLong());
+        verify(postLikeRepository, never()).saveAndFlush(any(PostLike.class));
+    }
+
+    @Test
     @DisplayName("좋아요 실패 - 이미 좋아요 함")
     void likePost_alreadyLiked() {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
@@ -1700,6 +1729,19 @@ class PostServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
 
+        verify(postLikeRepository, never()).deleteByUserIdAndPostId(anyLong(), anyLong());
+    }
+
+    @Test
+    void unlikePost_mutedUser_forbiddenBeforeLoadingPost() {
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotMuted(user);
+
+        assertThatThrownBy(() -> postService.unlikePost(1L, 1L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
+
+        verify(postRepository, never()).findByIdWithRelations(anyLong());
         verify(postLikeRepository, never()).deleteByUserIdAndPostId(anyLong(), anyLong());
     }
 
@@ -3690,8 +3732,6 @@ class PostServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(boardCategoryRepository.findByCategoryIdAndBoard_BoardIdAndIsActive(2L, 1L, true))
                 .thenReturn(Optional.of(otherCategory));
-        when(adminRepository.existsByUserAndBoardAndIsActive(user, board, true)).thenReturn(false);
-
         assertThatThrownBy(() -> postService.updatePost(1L, 1L, request))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
@@ -3714,7 +3754,6 @@ class PostServiceTest {
 
         when(postRepository.findByIdWithRelationsForUpdate(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(adminRepository.existsByUserAndBoardAndIsActive(user, board, true)).thenReturn(false);
 
         assertThatThrownBy(() -> postService.updatePost(1L, 1L, request))
                 .isInstanceOf(BusinessException.class)
@@ -3733,7 +3772,6 @@ class PostServiceTest {
 
         when(postRepository.findByIdWithRelationsForUpdate(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
-        when(adminRepository.existsByUserAndBoardAndIsActive(user, board, true)).thenReturn(false);
 
         assertThatThrownBy(() -> postService.updatePost(1L, 1L, request))
                 .isInstanceOf(BusinessException.class)
@@ -3757,8 +3795,8 @@ class PostServiceTest {
     }
 
     @Test
-    @DisplayName("게시글 수정 - 기존 비활성 카테고리는 유지한 채 수정 가능")
-    void updatePost_sameInactiveCategory_success() {
+    @DisplayName("게시글 수정 - 기존 카테고리가 비활성화되면 수정할 수 없다")
+    void updatePost_sameInactiveCategory_notFound() {
         category.deactivate();
         ReflectionTestUtils.setField(post, "category", category);
         PostUpdateRequest request = new PostUpdateRequest(1L, "Updated Title", "Updated Contents",
@@ -3766,12 +3804,11 @@ class PostServiceTest {
 
         when(postRepository.findByIdWithRelationsForUpdate(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        assertThatThrownBy(() -> postService.updatePost(1L, 1L, request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.NOT_FOUND);
 
-        postService.updatePost(1L, 1L, request);
-
-        assertThat(post.getCategory()).isEqualTo(category);
-        assertThat(post.getTitle()).isEqualTo("Updated Title");
-        verify(boardCategoryRepository, never()).findByCategoryIdAndBoard_BoardIdAndIsActive(anyLong(), anyLong(), anyBoolean());
+        assertThat(post.getTitle()).isEqualTo("Test Post");
     }
 
     @Test

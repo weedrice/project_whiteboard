@@ -63,10 +63,8 @@ public class PostCommandService {
     @Transactional
     public PostCreateResponse createPostWithResponse(@NonNull Long userId, String boardUrl, PostCreateRequest request) {
         String normalizedBoardUrl = BoardUrlNormalizer.normalizeLookup(boardUrl);
-        Board board = boardRepository.findByBoardUrl(normalizedBoardUrl)
-                .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
-        CreatedPost createdPost = createPost(userId, null, board.getBoardId(), request,
-                new PostCreateContext(null, board, null, false));
+        PostCreateTarget target = postCreateTargetResolver.resolveTargetByBoardUrl(userId, null, normalizedBoardUrl);
+        CreatedPost createdPost = createPost(target, request, null);
         return PostCreateResponse.builder()
                 .postId(createdPost.post().getPostId())
                 .earnedPoints(createdPost.earnedPoints() > 0 ? createdPost.earnedPoints() : null)
@@ -77,10 +75,8 @@ public class PostCommandService {
     public Long createPostAsAgent(@NonNull Long userId, @NonNull Long agentId, String boardUrl,
             PostCreateRequest request) {
         String normalizedBoardUrl = BoardUrlNormalizer.normalizeLookup(boardUrl);
-        Board board = boardRepository.findByBoardUrl(normalizedBoardUrl)
-                .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
-        return createPost(userId, agentId, board.getBoardId(), request, new PostCreateContext(null, board, null, false))
-                .post().getPostId();
+        PostCreateTarget target = postCreateTargetResolver.resolveTargetByBoardUrl(userId, agentId, normalizedBoardUrl);
+        return createPost(target, request, null).post().getPostId();
     }
 
     @Transactional
@@ -102,6 +98,10 @@ public class PostCommandService {
     private CreatedPost createPost(@NonNull Long userId, Long agentId, Long boardId, PostCreateRequest request,
             PostCreateContext context) {
         PostCreateTarget target = postCreateTargetResolver.resolveTarget(userId, agentId, boardId, context);
+        return createPost(target, request, context);
+    }
+
+    private CreatedPost createPost(PostCreateTarget target, PostCreateRequest request, PostCreateContext context) {
         postCreatePolicyValidator.validateBoardAndNotice(target, request);
         PostCreateCategoryTarget categoryTarget =
                 postCreateTargetResolver.resolveCategory(target.board(), request.getCategoryId(), context);
@@ -127,7 +127,7 @@ public class PostCommandService {
 
         Post savedPost = postRepository.save(post);
         int earnedPoints = postCreateSideEffectService.applyAfterCreate(
-                userId,
+                target.user().getUserId(),
                 target.user(),
                 target.board().getBoardId(),
                 savedPost,
@@ -146,12 +146,20 @@ public class PostCommandService {
         }
         User modifier = userWritableResolver.resolveForUpdate(userId);
         sanctionService.validateNotMuted(modifier);
+        Long boardId = postRepository.findBoardIdByPostId(postId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+        Board board = boardRepository.findByIdForUpdate(boardId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
         Post post = postRepository.findByIdWithRelationsForUpdate(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.POST_NOT_FOUND));
+        if (!Objects.equals(boardId, post.getBoard().getBoardId())) {
+            throw new BusinessException(ErrorCode.POST_NOT_FOUND);
+        }
 
         postAuthorCommandPolicy.validateAuthorCommand(post, modifier);
-        BoardCategory category = resolveUpdatedCategory(post, request.getCategoryId());
-        postAuthorCommandPolicy.validateWritableCommand(post, modifier, category);
+        BoardCategory category = resolveUpdatedCategory(post, board, request.getCategoryId());
+        postAuthorCommandPolicy.validateBoardWritable(board, modifier);
+        postAuthorCommandPolicy.validateAppliedCategoryWriteRole(board, modifier, category);
         tagAssignmentService.validateTags(request.getTags());
         PostTitleValidator.validate(request.getTitle());
 
@@ -160,7 +168,7 @@ public class PostCommandService {
         boolean originalSecret = Boolean.TRUE.equals(post.getIsSecret());
         String sanitizedContents = sanitizePostContents(request.getContents());
 
-        boolean isSecret = !boardAccessPolicy.isInquiryBoard(post.getBoard()) && request.isSecret();
+        boolean isSecret = !boardAccessPolicy.isInquiryBoard(board) && request.isSecret();
         boolean isNotice = resolveUpdatedNotice(post, modifier, request.getIsNotice());
         post.updatePost(category, request.getTitle(), sanitizedContents, isNotice, request.isNsfw(),
                 request.isSpoiler(), isSecret);
@@ -240,17 +248,20 @@ public class PostCommandService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
     }
 
-    private BoardCategory resolveUpdatedCategory(Post post, Long categoryId) {
+    private BoardCategory resolveUpdatedCategory(Post post, Board board, Long categoryId) {
         if (categoryId == null) {
             return null;
         }
-
         BoardCategory currentCategory = post.getCategory();
         if (currentCategory != null && Objects.equals(currentCategory.getCategoryId(), categoryId)) {
+            if (!Boolean.TRUE.equals(currentCategory.getIsActive())
+                    || currentCategory.getBoard() == null
+                    || !Objects.equals(currentCategory.getBoard().getBoardId(), board.getBoardId())) {
+                throw new BusinessException(ErrorCode.NOT_FOUND);
+            }
             return currentCategory;
         }
-
-        return findActiveCategory(post.getBoard(), categoryId);
+        return findActiveCategory(board, categoryId);
     }
 
     private String sanitizePostContents(String contents) {

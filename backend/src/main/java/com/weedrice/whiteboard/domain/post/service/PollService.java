@@ -8,6 +8,7 @@ import com.weedrice.whiteboard.domain.post.entity.PollVote;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PollRepository;
 import com.weedrice.whiteboard.domain.post.repository.PollVoteRepository;
+import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -37,6 +38,7 @@ public class PollService {
     private final UserWritableResolver userWritableResolver;
     private final PostReadContextResolver postReadContextResolver;
     private final PostAccessPolicy postAccessPolicy;
+    private final SanctionService sanctionService;
     private final Clock clock;
 
     @Transactional
@@ -72,6 +74,7 @@ public class PollService {
     @Transactional
     public PollResponse vote(Long userId, Long postId, Collection<Long> optionIds) {
         User user = userWritableResolver.resolveForUpdate(userId);
+        sanctionService.validateNotMuted(user);
         Poll poll = pollRepository.findByPostIdForUpdate(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
         validateReadable(poll, user);
@@ -100,6 +103,7 @@ public class PollService {
     @Transactional
     public PollResponse deleteVote(Long userId, Long postId) {
         User user = userWritableResolver.resolveForUpdate(userId);
+        sanctionService.validateNotMuted(user);
         Poll poll = pollRepository.findByPostIdForUpdate(postId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
         validateReadable(poll, user);

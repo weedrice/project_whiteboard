@@ -6,6 +6,7 @@ import com.weedrice.whiteboard.domain.post.entity.PollOption;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PollRepository;
 import com.weedrice.whiteboard.domain.post.repository.PollVoteRepository;
+import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import com.weedrice.whiteboard.global.exception.BusinessException;
@@ -48,11 +49,12 @@ class PollServiceTest {
     @Mock UserWritableResolver users;
     @Mock PostReadContextResolver postReadContextResolver;
     @Mock PostAccessPolicy postAccessPolicy;
+    @Mock SanctionService sanctions;
     PollService service;
 
     @BeforeEach
     void setUp() {
-        service = new PollService(polls, votes, users, postReadContextResolver, postAccessPolicy, CLOCK);
+        service = new PollService(polls, votes, users, postReadContextResolver, postAccessPolicy, sanctions, CLOCK);
         PostReadContext context = PostReadContext.anonymous();
         when(postReadContextResolver.resolveForResolvedUser(any())).thenReturn(context);
         when(postReadContextResolver.withAdminBoardIdsForPosts(eq(context), anyList())).thenReturn(context);
@@ -127,6 +129,19 @@ class PollServiceTest {
     }
 
     @Test
+    void voteRejectsMutedUserBeforeLoadingPoll() {
+        User user = mock(User.class);
+        when(users.resolveForUpdate(7L)).thenReturn(user);
+        doThrow(new BusinessException(com.weedrice.whiteboard.global.exception.ErrorCode.USER_NOT_ACTIVE))
+                .when(sanctions).validateNotMuted(user);
+
+        assertThrows(BusinessException.class, () -> service.vote(7L, 2L, List.of(101L)));
+
+        verify(polls, never()).findByPostIdForUpdate(any());
+        verify(votes, never()).deleteByPoll_PollIdAndUser_UserId(any(), any());
+    }
+
+    @Test
     void voteRejectsUnreadablePostBeforeMutation() {
         User user = mock(User.class);
         Poll poll = poll(true, null);
@@ -191,6 +206,19 @@ class PollServiceTest {
 
         assertThrows(BusinessException.class, () -> service.deleteVote(1L, 5L));
 
+        verify(votes, never()).deleteByPoll_PollIdAndUser_UserId(any(), any());
+    }
+
+    @Test
+    void deleteVoteRejectsMutedUserBeforeLoadingPoll() {
+        User user = mock(User.class);
+        when(users.resolveForUpdate(7L)).thenReturn(user);
+        doThrow(new BusinessException(com.weedrice.whiteboard.global.exception.ErrorCode.USER_NOT_ACTIVE))
+                .when(sanctions).validateNotMuted(user);
+
+        assertThrows(BusinessException.class, () -> service.deleteVote(7L, 2L));
+
+        verify(polls, never()).findByPostIdForUpdate(any());
         verify(votes, never()).deleteByPoll_PollIdAndUser_UserId(any(), any());
     }
 

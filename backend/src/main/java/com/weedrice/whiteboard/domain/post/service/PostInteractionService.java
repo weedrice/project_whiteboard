@@ -27,6 +27,7 @@ import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.repository.ScrapRepository;
 import com.weedrice.whiteboard.domain.post.repository.ScrapFolderRepository;
 import com.weedrice.whiteboard.domain.post.repository.ViewHistoryRepository;
+import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import com.weedrice.whiteboard.global.common.service.ReactionWriter;
@@ -86,6 +87,7 @@ public class PostInteractionService {
     private final PostViewCountWriter postViewCountWriter;
     private final EntityManager entityManager;
     private final BadgeEvaluationService badgeEvaluationService;
+    private final SanctionService sanctionService;
 
     @Transactional
     public Post getPostById(@NonNull Long postId, Long userId) {
@@ -165,6 +167,7 @@ public class PostInteractionService {
     @Transactional
     public int likePost(@NonNull Long userId, Long actorAgentId, @NonNull Long postId) {
         User user = userWritableResolver.resolveForUpdate(userId);
+        sanctionService.validateNotMuted(user);
         Agent actorAgent = agentOwnershipService.resolveOwnedActiveAgent(userId, actorAgentId);
         Post post = getReadablePostForResolvedUser(postId, user);
         return likeResolvedPost(user, actorAgent, post);
@@ -173,6 +176,7 @@ public class PostInteractionService {
     @Transactional
     int likePost(@NonNull Long userId, Agent actorAgent, @NonNull Post post) {
         User user = userWritableResolver.resolveForUpdate(userId);
+        sanctionService.validateNotMuted(user);
         validateResolvedActorAgent(userId, actorAgent);
         return likeResolvedPost(user, actorAgent, post);
     }
@@ -213,6 +217,7 @@ public class PostInteractionService {
     @Transactional
     public int unlikePost(@NonNull Long userId, @NonNull Long postId) {
         User user = userWritableResolver.resolveForUpdate(userId);
+        sanctionService.validateNotMuted(user);
         getReadablePostForResolvedUser(postId, user);
 
         int deletedCount = postLikeRepository.deleteByUserIdAndPostId(userId, postId);
