@@ -16,11 +16,13 @@ type TransferBoardManager = (payload: {
 
 interface UseBoardEditManagerAssignmentOptions {
   boardUrl: Ref<string>
+  sessionGeneration: Ref<number>
   transferBoardManager: TransferBoardManager
 }
 
 export function useBoardEditManagerAssignment({
   boardUrl,
+  sessionGeneration,
   transferBoardManager,
 }: UseBoardEditManagerAssignmentOptions) {
   const { t } = useI18n()
@@ -56,7 +58,11 @@ export function useBoardEditManagerAssignment({
 
     const selectedUser = users[0]
     const transferBoardUrl = boardUrl.value
+    const transferSessionGeneration = sessionGeneration.value
     const requestId = ++managerTransferRequestId
+    const isCurrentRequest = () => requestId === managerTransferRequestId
+      && transferBoardUrl === boardUrl.value
+      && transferSessionGeneration === sessionGeneration.value
 
     isTransferringManager.value = true
     try {
@@ -64,15 +70,15 @@ export function useBoardEditManagerAssignment({
         boardUrl: transferBoardUrl,
         loginId: selectedUser.loginId
       })
-      if (requestId !== managerTransferRequestId || transferBoardUrl !== boardUrl.value) return
+      if (!isCurrentRequest()) return
       currentManagerLabel.value = updatedBoard.adminDisplayName || `${selectedUser.displayName} (${selectedUser.loginId})`
       closeManagerModal()
       toastStore.addToast(t('common.messages.saveSuccess'), 'success')
     } catch (err: unknown) {
-      if (requestId !== managerTransferRequestId || transferBoardUrl !== boardUrl.value) return
+      if (!isCurrentRequest()) return
       handleError(err, t('common.messages.saveFailed'))
     } finally {
-      if (requestId === managerTransferRequestId && transferBoardUrl === boardUrl.value) {
+      if (isCurrentRequest()) {
         isTransferringManager.value = false
       }
     }

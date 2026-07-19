@@ -1,8 +1,9 @@
-import { mount } from '@vue/test-utils'
-import { describe, expect, it, vi } from 'vitest'
+import { flushPromises, mount } from '@vue/test-utils'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, ref } from 'vue'
 import UserManagement from '../UserManagement.vue'
 import type { User } from '@/types'
+import { createDeferred } from '@/test/async'
 
 const mocks = vi.hoisted(() => {
     const user: User = {
@@ -18,8 +19,10 @@ const mocks = vi.hoisted(() => {
         lastLoginAt: '2026-01-02T00:00:00',
     }
     const updateUserStatus = vi.fn()
+    const confirmWithReason = vi.fn()
+    const authStore = { sessionGeneration: 1, user: { userId: 99 } }
 
-    return { user, updateUserStatus }
+    return { user, updateUserStatus, confirmWithReason, authStore }
 })
 
 vi.mock('vue-i18n', () => ({
@@ -48,9 +51,13 @@ vi.mock('@/stores/toast', () => ({
     }),
 }))
 
+vi.mock('@/stores/auth', () => ({
+    useAuthStore: () => mocks.authStore,
+}))
+
 vi.mock('@/composables/useConfirm', () => ({
     useConfirm: () => ({
-        confirm: vi.fn().mockResolvedValue(true),
+        confirmWithReason: mocks.confirmWithReason,
     }),
 }))
 
@@ -112,6 +119,15 @@ const UserDetailModalStub = defineComponent({
 })
 
 describe('UserManagement', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+        mocks.authStore.sessionGeneration = 1
+        mocks.authStore.user = { userId: 99 }
+        mocks.user.status = 'ACTIVE'
+        mocks.confirmWithReason.mockResolvedValue('policy violation')
+        mocks.updateUserStatus.mockResolvedValue(undefined)
+    })
+
     it('opens user detail from the row action button', async () => {
         const wrapper = mount(UserManagement, {
             global: {
@@ -170,5 +186,51 @@ describe('UserManagement', () => {
 
         expect(wrapper.find('label[for="admin-user-page-size"]').exists()).toBe(true)
         expect(wrapper.find('select#admin-user-page-size').exists()).toBe(true)
+    })
+
+    it('does not change status when the session changes while confirmation is open', async () => {
+        const confirmation = createDeferred<string | null>()
+        mocks.confirmWithReason.mockReturnValueOnce(confirmation.promise)
+        const wrapper = mount(UserManagement, {
+            global: {
+                stubs: {
+                    Search: iconStub,
+                    BaseInput: BaseInputStub,
+                    BaseBadge: BaseBadgeStub,
+                    UserDetailModal: UserDetailModalStub,
+                    Pagination: true,
+                },
+            },
+        })
+
+        await wrapper.get('button[aria-label="admin.users.status.SUSPENDED"]').trigger('click')
+        mocks.authStore.sessionGeneration = 2
+        confirmation.resolve('policy violation')
+        await flushPromises()
+
+        expect(mocks.updateUserStatus).not.toHaveBeenCalled()
+    })
+
+    it('does not change status when the target status changes while confirmation is open', async () => {
+        const confirmation = createDeferred<string | null>()
+        mocks.confirmWithReason.mockReturnValueOnce(confirmation.promise)
+        const wrapper = mount(UserManagement, {
+            global: {
+                stubs: {
+                    Search: iconStub,
+                    BaseInput: BaseInputStub,
+                    BaseBadge: BaseBadgeStub,
+                    UserDetailModal: UserDetailModalStub,
+                    Pagination: true,
+                },
+            },
+        })
+
+        await wrapper.get('button[aria-label="admin.users.status.SUSPENDED"]').trigger('click')
+        mocks.user.status = 'SUSPENDED'
+        confirmation.resolve('policy violation')
+        await flushPromises()
+
+        expect(mocks.updateUserStatus).not.toHaveBeenCalled()
     })
 })

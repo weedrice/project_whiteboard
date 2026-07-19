@@ -1,8 +1,9 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { defineComponent, type Ref } from 'vue'
-import { createPinia } from 'pinia'
+import { defineComponent, nextTick, type Ref } from 'vue'
+import { createPinia, type Pinia } from 'pinia'
 import type { Report } from '@/types'
+import { useAuthStore } from '@/stores/auth'
 
 const mocks = vi.hoisted(() => ({
   reportsData: {
@@ -46,8 +47,11 @@ const mocks = vi.hoisted(() => ({
   }> | null,
 }))
 
-vi.mock('@/features/admin/useAdmin', () => ({
-  useAdmin: () => ({
+vi.mock('@/features/admin/useAdmin', async () => {
+  const { ref } = await vi.importActual<typeof import('vue')>('vue')
+  mocks.reportsData = ref(mocks.reportsData.value)
+  return {
+    useAdmin: () => ({
     useReports: (params: Ref<{
       page: number
       size: number
@@ -64,8 +68,9 @@ vi.mock('@/features/admin/useAdmin', () => ({
     useResolveReport: () => ({
       mutateAsync: mocks.resolveReport,
     }),
-  }),
-}))
+    }),
+  }
+})
 
 vi.mock('@/composables/useConfirm', () => ({
   useConfirm: () => ({
@@ -145,6 +150,7 @@ const SanctionModalStub = defineComponent({
         :data-user-id="user.id"
         :data-content-id="user.sanctionContentId"
         :data-content-type="user.sanctionContentType"
+        :data-session-generation="user.sessionGeneration"
         @click="$emit('close')"
       >sanction modal</button>
       <button data-testid="sanctioned" @click="$emit('sanctioned', {
@@ -189,9 +195,13 @@ const PaginationStub = defineComponent({
   template: '<button data-testid="page-change" @click="$emit(\'page-change\', 2)">{{ currentPage }}/{{ totalPages }}</button>',
 })
 
-const mountReportManagement = () => mount(ReportManagement, {
+let activePinia: Pinia
+
+const mountReportManagement = () => {
+  activePinia = createPinia()
+  return mount(ReportManagement, {
   global: {
-    plugins: [createPinia()],
+    plugins: [activePinia],
     stubs: {
       ReportList: ReportListStub,
       ReportDetailModal: ReportDetailModalStub,
@@ -200,7 +210,8 @@ const mountReportManagement = () => mount(ReportManagement, {
       Pagination: PaginationStub,
     },
   },
-})
+  })
+}
 
 describe('ReportManagement', () => {
   beforeEach(() => {
@@ -297,6 +308,7 @@ describe('ReportManagement', () => {
     await wrapper.get('[data-testid="detail-modal"]').trigger('click')
 
     expect(wrapper.get('[data-testid="detail-modal"]').attributes('data-open')).toBe('false')
+    expect(wrapper.get('[data-testid="detail-modal"]').attributes('data-report-id')).toBe('')
   })
 
   it('maps report target data for sanctions without a redundant direct refetch', async () => {
@@ -309,9 +321,45 @@ describe('ReportManagement', () => {
     expect(modal.attributes('data-user-id')).toBe('20')
     expect(modal.attributes('data-content-id')).toBe('20')
     expect(modal.attributes('data-content-type')).toBe('POST')
+    expect(modal.attributes('data-session-generation')).toBe('0')
 
     await wrapper.get('[data-testid="sanctioned"]').trigger('click')
 
     expect(mocks.refetch).not.toHaveBeenCalled()
+  })
+
+  it('clears report detail and sanction state at the authentication boundary', async () => {
+    const wrapper = mountReportManagement()
+    const authStore = useAuthStore(activePinia)
+
+    await wrapper.get('[data-testid="view-report"]').trigger('click')
+    await wrapper.get('[data-testid="sanction-report"]').trigger('click')
+    expect(wrapper.get('[data-testid="detail-modal"]').attributes('data-open')).toBe('true')
+    expect(wrapper.find('[data-testid="sanction-modal"]').exists()).toBe(true)
+
+    authStore.sessionGeneration += 1
+    await nextTick()
+
+    expect(wrapper.get('[data-testid="detail-modal"]').attributes('data-open')).toBe('false')
+    expect(wrapper.get('[data-testid="detail-modal"]').attributes('data-report-id')).toBe('')
+    expect(wrapper.find('[data-testid="sanction-modal"]').exists()).toBe(false)
+  })
+
+  it('clamps the query page when resolving the last item shrinks total pages', async () => {
+    const wrapper = mountReportManagement()
+
+    await wrapper.get('[data-testid="page-change"]').trigger('click')
+    expect(mocks.params?.value.page).toBe(2)
+
+    mocks.reportsData.value = {
+      ...mocks.reportsData.value,
+      content: [],
+      number: 2,
+      totalPages: 1,
+      totalElements: 20,
+    }
+    await nextTick()
+
+    expect(mocks.params?.value.page).toBe(0)
   })
 })

@@ -53,13 +53,14 @@ export function useBoardEditPage() {
     setCurrentManagerLabel,
   } = useBoardEditManagerAssignment({
     boardUrl,
+    sessionGeneration: computed(() => authStore.sessionGeneration),
     transferBoardManager,
   })
 
-  function resetBoardState() {
+  function resetBoardState(manageable = true) {
     form.value = createEmptyBoardEditForm()
     error.value = ''
-    canManageBoard.value = true
+    canManageBoard.value = manageable
     resetManagerAssignmentState()
   }
 
@@ -148,7 +149,10 @@ export function useBoardEditPage() {
     resetBoardState()
   }, { immediate: true })
 
-  watch(() => authStore.sessionGeneration, () => updateController?.abort())
+  watch(() => authStore.sessionGeneration, () => {
+    updateController?.abort()
+    resetBoardState(false)
+  }, { flush: 'sync' })
   onScopeDispose(() => updateController?.abort())
 
   watch(boardData, (board) => {
@@ -162,6 +166,7 @@ export function useBoardEditPage() {
       return
     }
 
+    canManageBoard.value = true
     form.value = toBoardEditForm(board)
     setCurrentManagerLabel(resolveBoardManagerLabel(board, t('common.noData')))
   }, { immediate: true })

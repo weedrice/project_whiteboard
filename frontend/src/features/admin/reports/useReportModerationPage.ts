@@ -1,4 +1,4 @@
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAdmin } from '@/features/admin/useAdmin'
 import { useConfirm } from '@/composables/useConfirm'
@@ -15,6 +15,7 @@ interface SanctionTarget {
   sanctionContentType?: 'POST' | 'COMMENT' | 'USER'
   reportId: number
   modalRevision: number
+  sessionGeneration: number
 }
 
 interface SanctionCompletedIntent {
@@ -45,6 +46,7 @@ export function useReportModerationPage() {
     handlePageChange,
     handleSizeChange,
     resetPage,
+    clampPageToTotalPages,
   } = usePaginatedQueryState({
     initialSize: 20,
     extraParams: reportFilters,
@@ -74,6 +76,7 @@ export function useReportModerationPage() {
 
   function closeDetailModal() {
     isDetailModalOpen.value = false
+    selectedReport.value = null
   }
 
   function openSanctionModal(report: Report) {
@@ -90,6 +93,7 @@ export function useReportModerationPage() {
       sanctionContentType: report.targetType,
       reportId: report.reportId,
       modalRevision: sanctionModalRevision,
+      sessionGeneration: authStore.sessionGeneration,
     }
     selectedSanctionReport.value = report
     isModalOpen.value = true
@@ -118,6 +122,7 @@ export function useReportModerationPage() {
     if (
       !isModalOpen.value
       || intent.sessionGeneration !== authStore.sessionGeneration
+      || selectedUser.value?.sessionGeneration !== authStore.sessionGeneration
       || intent.reportId !== report.reportId
       || intent.targetUserId !== selectedUser.value?.id
       || intent.modalRevision !== selectedUser.value?.modalRevision
@@ -136,6 +141,15 @@ export function useReportModerationPage() {
       }
     }
   }
+
+  watch(totalPages, (nextTotalPages) => {
+    clampPageToTotalPages(nextTotalPages)
+  })
+
+  watch(() => authStore.sessionGeneration, () => {
+    closeDetailModal()
+    closeSanctionModal()
+  }, { flush: 'sync' })
 
   async function handleResolve(report: Report) {
     const sessionGeneration = authStore.sessionGeneration

@@ -47,6 +47,7 @@ export const adminUserMessagesEn = {
       createdTo: 'Joined to',
       lastLoginFrom: 'Last login from',
       lastLoginTo: 'Last login to',
+      minActivityCount: 'Minimum activity count',
       userSearch: 'Search users',
       unit: 'users',
     },

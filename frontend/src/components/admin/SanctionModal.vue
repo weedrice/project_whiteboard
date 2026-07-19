@@ -70,6 +70,7 @@ const props = defineProps<{
     sanctionContentType?: 'POST' | 'COMMENT' | 'USER'
     reportId?: number
     modalRevision?: number
+    sessionGeneration?: number
   } | null
 }>()
 
@@ -134,11 +135,13 @@ async function submitSanction() {
 
   const targetUserId = props.user.userId ?? props.user.id ?? 0
   if (!targetUserId) return
+  const openSessionGeneration = props.user.sessionGeneration ?? authStore.sessionGeneration
+  if (openSessionGeneration !== authStore.sessionGeneration) return
   const intent: SanctionCompletedIntent = {
     targetUserId,
     reportId: props.user.reportId,
     modalRevision: props.user.modalRevision,
-    sessionGeneration: authStore.sessionGeneration,
+    sessionGeneration: openSessionGeneration,
   }
   const targetName = props.user.displayName || props.user.nickname || props.user.name || t('common.messages.unknown')
   const contentId = props.user.sanctionContentId

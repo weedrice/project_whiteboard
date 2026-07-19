@@ -38,6 +38,7 @@ export function useAdminIpBlocksManager() {
 
   function closeDetailModal() {
     isDetailModalOpen.value = false
+    selectedIpBlock.value = null
   }
 
   async function handleBlockIp() {
@@ -92,6 +93,13 @@ export function useAdminIpBlocksManager() {
       page.value = nextTotalPages - 1
     }
   })
+
+  watch(() => authStore.sessionGeneration, () => {
+    newIp.value = ''
+    blockReason.value = ''
+    page.value = 0
+    closeDetailModal()
+  }, { flush: 'sync' })
 
   return {
     blockReason,

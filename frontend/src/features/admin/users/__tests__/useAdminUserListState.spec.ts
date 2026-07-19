@@ -22,6 +22,7 @@ describe('useAdminUserListState', () => {
       createdTo: undefined,
       lastLoginFrom: undefined,
       lastLoginTo: undefined,
+      minActivityCount: undefined,
       sort: 'createdAt,desc',
     })
     expect(state.getSortLabel('Joined', 'createdAt')).toBe('Joined ▼')
@@ -52,6 +53,7 @@ describe('useAdminUserListState', () => {
       createdTo: '2026-01-31',
       lastLoginFrom: '2026-02-01',
       lastLoginTo: '2026-02-28',
+      minActivityCount: '12',
     })
     state.page.value = 4
 
@@ -69,7 +71,21 @@ describe('useAdminUserListState', () => {
       createdTo: '2026-01-31',
       lastLoginFrom: '2026-02-01',
       lastLoginTo: '2026-02-28',
+      minActivityCount: 12,
     })
+  })
+
+  it('omits invalid activity counts and keeps zero as a valid threshold', () => {
+    const state = useAdminUserListState()
+    state.filterForm.minActivityCount = '-1'
+    state.applyFilters()
+    expect(state.params.value.minActivityCount).toBeUndefined()
+
+    state.filterForm.minActivityCount = '0'
+    state.page.value = 3
+    state.applyFilters()
+    expect(state.page.value).toBe(0)
+    expect(state.params.value.minActivityCount).toBe(0)
   })
 
   it('omits blank search keywords after trimming filters', () => {

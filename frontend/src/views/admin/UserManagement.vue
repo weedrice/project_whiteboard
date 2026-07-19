@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { useAdmin } from '@/features/admin/useAdmin'
 import { useI18n } from 'vue-i18n'
 import { useToastStore } from '@/stores/toast'
+import { useAuthStore } from '@/stores/auth'
 import AdminPaginatedTable from '@/components/admin/AdminPaginatedTable.vue'
 import AdminActionButton from '@/components/admin/AdminActionButton.vue'
 import AdminDataPage from '@/components/admin/AdminDataPage.vue'
@@ -23,6 +24,7 @@ import {
   type AdminUserFilterForm,
 } from '@/features/admin/users/useAdminUserListState'
 import type { User } from '@/types'
+import { captureAuthSessionIntent, isAuthSessionIntentCurrent } from '@/utils/authSessionIntent'
 import {
   canChangeAdminUserStatus,
   getAdminUserStatusActionLabel,
@@ -35,6 +37,7 @@ import {
 
 const { t } = useI18n()
 const toastStore = useToastStore()
+const authStore = useAuthStore()
 const { confirmWithReason } = useConfirm()
 const { useUsers, useUpdateUserStatus } = useAdmin()
 
@@ -90,6 +93,10 @@ function getStatusActionLabel(status: AdminUserMutableStatus) {
 async function handleStatusChange(user: User, status: AdminUserMutableStatus) {
   if (!canChangeAdminUserStatus(user.status)) return
 
+  const intent = captureAuthSessionIntent(authStore)
+  const targetUserId = user.userId
+  const originalStatus = user.status
+
   const reason = await confirmWithReason(
     t('admin.users.messages.confirmStatusChange', { action: getStatusActionLabel(user.status) }),
     undefined,
@@ -99,8 +106,17 @@ async function handleStatusChange(user: User, status: AdminUserMutableStatus) {
     { maxLength: 500 },
   )
   if (!reason) return
+  const currentUser = users.value.find((item) => item.userId === targetUserId)
+  if (
+    !isAuthSessionIntentCurrent(authStore, intent)
+    || !currentUser
+    || currentUser.status !== originalStatus
+    || !canChangeAdminUserStatus(currentUser.status)
+    || getNextAdminUserStatus(currentUser.status) !== status
+  ) return
   try {
-    await updateUserStatus({ userId: user.userId, status, reason })
+    await updateUserStatus({ userId: targetUserId, status, reason })
+    if (!isAuthSessionIntentCurrent(authStore, intent)) return
     toastStore.addToast(t('admin.users.messages.statusChanged'), 'success')
   } catch {
     // Error handled globally

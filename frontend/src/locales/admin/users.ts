@@ -47,6 +47,7 @@ export const adminUserMessages = {
       createdTo: '가입일 종료',
       lastLoginFrom: '최근 로그인 시작',
       lastLoginTo: '최근 로그인 종료',
+      minActivityCount: '최소 활동 수',
       userSearch: '사용자 검색',
       unit: '명',
     },

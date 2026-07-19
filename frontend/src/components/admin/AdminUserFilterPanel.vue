@@ -46,6 +46,7 @@ const filterModels = {
   createdTo: createFilterModel('createdTo'),
   lastLoginFrom: createFilterModel('lastLoginFrom'),
   lastLoginTo: createFilterModel('lastLoginTo'),
+  minActivityCount: createFilterModel('minActivityCount'),
 }
 
 const filterControlIds = {
@@ -59,6 +60,7 @@ const filterControlIds = {
   createdTo: 'admin-user-filter-created-to',
   lastLoginFrom: 'admin-user-filter-last-login-from',
   lastLoginTo: 'admin-user-filter-last-login-to',
+  minActivityCount: 'admin-user-filter-min-activity-count',
 } as const
 
 const statusOptions = computed(() => [
@@ -143,6 +145,15 @@ function handleSearchKeyup(event: KeyboardEvent) {
         </AdminFilterField>
         <AdminFilterField :label="t('admin.users.filters.lastLoginTo')" :for-id="filterControlIds.lastLoginTo" width="date">
           <BaseInput :id="filterControlIds.lastLoginTo" v-model="filterModels.lastLoginTo.value" type="date" />
+        </AdminFilterField>
+        <AdminFilterField :label="t('admin.users.filters.minActivityCount')" :for-id="filterControlIds.minActivityCount">
+          <BaseInput
+            :id="filterControlIds.minActivityCount"
+            v-model="filterModels.minActivityCount.value"
+            type="number"
+            min="0"
+            step="1"
+          />
         </AdminFilterField>
       </div>
 

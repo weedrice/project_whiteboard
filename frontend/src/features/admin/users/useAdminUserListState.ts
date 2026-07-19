@@ -14,6 +14,7 @@ export type AdminUserFilterForm = {
   createdTo: string
   lastLoginFrom: string
   lastLoginTo: string
+  minActivityCount: string
 }
 
 export interface AdminUserSearchParams {
@@ -29,6 +30,7 @@ export interface AdminUserSearchParams {
   createdTo?: string
   lastLoginFrom?: string
   lastLoginTo?: string
+  minActivityCount?: number
   sort?: string
 }
 
@@ -44,11 +46,19 @@ export function createInitialAdminUserFilters(): AdminUserFilterForm {
     createdTo: '',
     lastLoginFrom: '',
     lastLoginTo: '',
+    minActivityCount: '',
   }
 }
 
 function toOptionalBoolean(value: string) {
   return value === '' ? undefined : value === 'true'
+}
+
+function toOptionalNonNegativeInteger(value: string) {
+  const normalized = value.trim()
+  if (!/^\d+$/.test(normalized)) return undefined
+  const parsed = Number(normalized)
+  return Number.isSafeInteger(parsed) ? parsed : undefined
 }
 
 function normalizeFilters(filters: AdminUserFilterForm): AdminUserFilterForm {
@@ -81,6 +91,7 @@ export function useAdminUserListState() {
     createdTo: appliedFilters.value.createdTo || undefined,
     lastLoginFrom: appliedFilters.value.lastLoginFrom || undefined,
     lastLoginTo: appliedFilters.value.lastLoginTo || undefined,
+    minActivityCount: toOptionalNonNegativeInteger(appliedFilters.value.minActivityCount),
     sort: sort.value || undefined,
   }))
 

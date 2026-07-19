@@ -1,16 +1,18 @@
-import { computed, defineComponent, ref } from 'vue'
+import { computed, defineComponent, nextTick, ref } from 'vue'
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useBoardEditPage } from '@/features/board/edit/useBoardEditPage'
 
 const mocks = vi.hoisted(() => ({
-  authStore: { sessionGeneration: 0 },
+  authStore: null as unknown as { sessionGeneration: number },
+  authState: { sessionGeneration: 0 },
   confirm: vi.fn(),
   deleteBoard: vi.fn(),
   updateBoard: vi.fn(),
   routerBack: vi.fn(),
   routerPush: vi.fn(),
   route: { params: { boardUrl: 'free' }, fullPath: '/board/free/edit' },
+  resetManagerAssignmentState: vi.fn(),
 }))
 
 vi.mock('vue-router', () => ({
@@ -18,7 +20,11 @@ vi.mock('vue-router', () => ({
   useRouter: () => ({ push: mocks.routerPush, back: mocks.routerBack }),
 }))
 vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }))
-vi.mock('@/stores/auth', () => ({ useAuthStore: () => mocks.authStore }))
+vi.mock('@/stores/auth', async () => {
+  const { reactive } = await vi.importActual<typeof import('vue')>('vue')
+  mocks.authStore = reactive(mocks.authState)
+  return { useAuthStore: () => mocks.authStore }
+})
 vi.mock('@/stores/toast', () => ({ useToastStore: () => ({ addToast: vi.fn() }) }))
 vi.mock('@/composables/useConfirm', () => ({ useConfirm: () => ({ confirm: mocks.confirm }) }))
 vi.mock('@/composables/useFormSubmit', () => ({
@@ -41,7 +47,7 @@ vi.mock('@/features/board/edit/useBoardEditManagerAssignment', () => ({
     isManagerModalOpen: ref(false),
     isTransferringManager: ref(false),
     openManagerModal: vi.fn(),
-    resetManagerAssignmentState: vi.fn(),
+    resetManagerAssignmentState: mocks.resetManagerAssignmentState,
     setCurrentManagerLabel: vi.fn(),
   }),
 }))
@@ -128,6 +134,30 @@ describe('useBoardEditPage destructive intent', () => {
       signal: expect.any(AbortSignal),
     }))
     expect(mocks.routerPush).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('clears board management state and revokes local access at the authentication boundary', async () => {
+    const { page, wrapper } = mountPage()
+    page.form.value = {
+      boardName: 'Private manager draft',
+      boardUrl: 'free',
+      description: 'old session',
+      iconUrl: '',
+      sortOrder: 1,
+      allowNsfw: false,
+      isPublic: true,
+      agentUseYn: false,
+      guidePrompt: '',
+    }
+    mocks.resetManagerAssignmentState.mockClear()
+
+    mocks.authStore.sessionGeneration = 1
+    await nextTick()
+
+    expect(page.canManageBoard.value).toBe(false)
+    expect(page.form.value).toMatchObject({ boardName: '', boardUrl: '' })
+    expect(mocks.resetManagerAssignmentState).toHaveBeenCalledOnce()
     wrapper.unmount()
   })
 })

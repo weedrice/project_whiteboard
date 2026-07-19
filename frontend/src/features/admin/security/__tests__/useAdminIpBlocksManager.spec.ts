@@ -4,6 +4,7 @@ import { nextTick, type Ref } from 'vue'
 import { useAdminIpBlocksManager } from '../useAdminIpBlocksManager'
 import { apiSuccessResponse, pageResponseFixture } from '@/test/apiResponseFixtures'
 import type { IpBlock, PageResponse } from '@/types'
+import { useAuthStore } from '@/stores/auth'
 
 const mocks = vi.hoisted(() => ({
   addToast: vi.fn(),
@@ -249,7 +250,7 @@ describe('useAdminIpBlocksManager', () => {
     expect(manager.page.value).toBe(2)
   })
 
-  it('opens and closes the detail modal while preserving selected IP block', () => {
+  it('opens and closes the detail modal while clearing the selected IP block', () => {
     const manager = useAdminIpBlocksManager()
     const selected = ipBlock('10.0.0.1')
 
@@ -260,6 +261,23 @@ describe('useAdminIpBlocksManager', () => {
     manager.closeDetailModal()
 
     expect(manager.isDetailModalOpen.value).toBe(false)
-    expect(manager.selectedIpBlock.value).toEqual(selected)
+    expect(manager.selectedIpBlock.value).toBeNull()
+  })
+
+  it('clears private drafts, detail state, and pagination at the authentication boundary', () => {
+    const manager = useAdminIpBlocksManager()
+    const authStore = useAuthStore()
+    manager.newIp.value = '10.0.0.1'
+    manager.blockReason.value = 'Abuse'
+    manager.page.value = 3
+    manager.openDetailModal(ipBlock('10.0.0.2'))
+
+    authStore.sessionGeneration += 1
+
+    expect(manager.newIp.value).toBe('')
+    expect(manager.blockReason.value).toBe('')
+    expect(manager.page.value).toBe(0)
+    expect(manager.isDetailModalOpen.value).toBe(false)
+    expect(manager.selectedIpBlock.value).toBeNull()
   })
 })

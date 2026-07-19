@@ -1,10 +1,11 @@
-import { computed, reactive, ref } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAdmin } from '@/features/admin/useAdmin'
 import { useConfigEditor } from '@/features/admin/settings/useConfigEditor'
 import { useConfirm } from '@/composables/useConfirm'
 import { useToastStore } from '@/stores/toast'
 import { useAuthStore } from '@/stores/auth'
+import { captureAuthSessionIntent, isAuthSessionIntentCurrent } from '@/utils/authSessionIntent'
 import { normalizeConfigWritePayload } from '@/utils/inputNormalization'
 import {
   EMOTICON_IMAGE_MAX_COUNT_KEY,
@@ -60,17 +61,22 @@ export function useGlobalSettingsManager() {
     Object.assign(newConfig, createEmptyConfigForm())
   }
 
+  watch(() => authStore.sessionGeneration, closeCreateModal, { flush: 'sync' })
+
   async function handleSave(key: string) {
     const config = getDraft(key)
     if (!config) return
 
     const payload = normalizeConfigWritePayload(config)
     if (!payload) return
+    const intent = captureAuthSessionIntent(authStore)
 
     try {
       await updateConfig({ key: config.key, value: payload.value, description: payload.description })
+      if (!isAuthSessionIntentCurrent(authStore, intent)) return
       if (config.key === EMOTICON_IMAGE_MAX_COUNT_KEY) {
         await refreshEmoticonImagePolicy()
+        if (!isAuthSessionIntentCurrent(authStore, intent)) return
       }
       toastStore.addToast(t('admin.settings.messages.saved'), 'success')
     } catch {
@@ -117,13 +123,22 @@ export function useGlobalSettingsManager() {
   }
 
   async function handleDelete(key: string) {
+    const targetKey = configs.value.find((config) => config.key === key)?.key
+    if (!targetKey) return
+    const intent = captureAuthSessionIntent(authStore)
     const isConfirmed = await confirm(t('common.confirmDelete'))
     if (!isConfirmed) return
+    if (
+      !isAuthSessionIntentCurrent(authStore, intent)
+      || !configs.value.some((config) => config.key === targetKey)
+    ) return
 
     try {
-      await deleteConfig(key)
-      if (key === EMOTICON_IMAGE_MAX_COUNT_KEY) {
+      await deleteConfig(targetKey)
+      if (!isAuthSessionIntentCurrent(authStore, intent)) return
+      if (targetKey === EMOTICON_IMAGE_MAX_COUNT_KEY) {
         await refreshEmoticonImagePolicy()
+        if (!isAuthSessionIntentCurrent(authStore, intent)) return
       }
       toastStore.addToast(t('common.deleted'), 'success')
     } catch {

@@ -2,8 +2,10 @@ import { computed, reactive, ref, watch, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useConfirm } from '@/composables/useConfirm'
 import { useToastStore } from '@/stores/toast'
+import { useAuthStore } from '@/stores/auth'
 import { normalizeBoardUrlInput, validateBoardWriteFields } from '@/utils/board'
 import { normalizeBoardWritePayload } from '@/utils/inputNormalization'
+import { captureAuthSessionIntent, isAuthSessionIntentCurrent } from '@/utils/authSessionIntent'
 import type { AdminBoard, BoardUpdateData } from '@/types'
 
 type UpdateBoardPayload = {
@@ -40,6 +42,7 @@ export interface AdminBoardEditorForm {
 export function useAdminBoardEditor({ boardsData, updateBoard, reorderBoards, refetchBoards }: UseAdminBoardEditorOptions) {
   const { t } = useI18n()
   const toastStore = useToastStore()
+  const authStore = useAuthStore()
   const { confirm, confirmWithReason } = useConfirm()
 
   const boards = ref<AdminBoard[]>([])
@@ -49,6 +52,9 @@ export function useAdminBoardEditor({ boardsData, updateBoard, reorderBoards, re
   const isSubmitting = ref(false)
   const isSavingSortOrder = ref(false)
   const orderDirty = ref(false)
+  let editorRevision = 0
+  let saveOperationRevision = 0
+  let sortOperationRevision = 0
 
   const form = reactive<AdminBoardEditorForm>({
     boardName: '',
@@ -104,6 +110,19 @@ export function useAdminBoardEditor({ boardsData, updateBoard, reorderBoards, re
     form.isActive = board.isActive
     form.agentUseYn = board.isPublic ? (board.agentUseYn ?? false) : false
     form.guidePrompt = board.guidePrompt || ''
+  }
+
+  function resetForm() {
+    Object.assign(form, {
+      boardName: '',
+      boardUrl: '',
+      description: '',
+      iconUrl: '',
+      sortOrder: '0',
+      isActive: true,
+      agentUseYn: false,
+      guidePrompt: '',
+    })
   }
 
   function createSnapshot(snapshotBoards = cloneBoards(boards.value)): BoardEditorSnapshot {
@@ -180,10 +199,15 @@ export function useAdminBoardEditor({ boardsData, updateBoard, reorderBoards, re
   }, { immediate: true })
 
   watch(selectedBoardId, () => {
+    editorRevision += 1
     const board = selectedBoard.value
     if (!board) return
     syncFormFromBoard(board)
-  }, { immediate: true })
+  }, { immediate: true, flush: 'sync' })
+
+  watch(form, () => {
+    editorRevision += 1
+  }, { deep: true, flush: 'sync' })
 
   watch(() => form.boardUrl, (boardUrl) => {
     const normalizedBoardUrl = normalizeBoardUrlInput(boardUrl)
@@ -218,9 +242,14 @@ export function useAdminBoardEditor({ boardsData, updateBoard, reorderBoards, re
     return changedBoardIds
   }
 
-  async function saveBoardUpdates(boardIds: number[], showSuccessToast = true, moderationReason?: string) {
+  async function saveBoardUpdates(
+    boardIds: number[],
+    showSuccessToast = true,
+    moderationReason?: string,
+    isCurrent: () => boolean = () => true,
+  ) {
     const uniqueBoardIds = [...new Set(boardIds)]
-    if (uniqueBoardIds.length === 0) return
+    if (uniqueBoardIds.length === 0) return true
 
     const updates = uniqueBoardIds.map((boardId) => {
       const board = boards.value.find((item) => item.boardId === boardId)
@@ -244,26 +273,30 @@ export function useAdminBoardEditor({ boardsData, updateBoard, reorderBoards, re
           ...(moderationReason && board.boardId === selectedBoardId.value ? { moderationReason } : {})
         }
       }).then(() => {
-        originalBoardUrls.value[board.boardId] = board.boardUrl
+        if (isCurrent()) originalBoardUrls.value[board.boardId] = board.boardUrl
       })
     })
 
     await Promise.all(updates)
+    if (!isCurrent()) return false
 
     modifiedBoardIds.value = modifiedBoardIds.value.filter((boardId) => !uniqueBoardIds.includes(boardId))
 
     if (showSuccessToast) {
       toastStore.addToast(t('common.messages.saveSuccess'), 'success')
     }
+    return true
   }
 
-  async function saveBoardOrder() {
+  async function saveBoardOrder(isCurrent: () => boolean = () => true) {
     const canonicalBoards = await reorderBoards(boards.value.map((board) => board.boardId))
+    if (!isCurrent()) return false
     const copied = sortedBoardCopies(canonicalBoards)
     boards.value = copied
     originalBoardUrls.value = Object.fromEntries(copied.map((board) => [board.boardId, board.boardUrl]))
     orderDirty.value = false
     if (selectedBoard.value) syncFormFromBoard(selectedBoard.value)
+    return true
   }
 
   async function handleDragEnd() {
@@ -273,14 +306,26 @@ export function useAdminBoardEditor({ boardsData, updateBoard, reorderBoards, re
     const changedBoardIds = renumberSortOrder()
     if (changedBoardIds.length === 0) return
 
+    const intent = captureAuthSessionIntent(authStore)
+    let revision = editorRevision
+    const selectedId = selectedBoardId.value
+    const operationRevision = ++sortOperationRevision
+    const isCurrent = () => isAuthSessionIntentCurrent(authStore, intent)
+      && editorRevision === revision
+      && selectedBoardId.value === selectedId
+
     isSavingSortOrder.value = true
     try {
-      await saveBoardOrder()
+      const orderSaved = await saveBoardOrder(isCurrent)
+      if (orderSaved) revision = editorRevision
     } catch {
-      restoreSnapshot(snapshot)
+      if (isCurrent()) {
+        restoreSnapshot(snapshot)
+        revision = editorRevision
+      }
       // Error handled globally
     } finally {
-      isSavingSortOrder.value = false
+      if (operationRevision === sortOperationRevision) isSavingSortOrder.value = false
     }
   }
 
@@ -292,11 +337,21 @@ export function useAdminBoardEditor({ boardsData, updateBoard, reorderBoards, re
     if (selectedBoardId.value === board.boardId) return
 
     if (hasUnsavedChanges.value) {
+      const intent = captureAuthSessionIntent(authStore)
+      const revision = editorRevision
+      const selectedId = selectedBoardId.value
       const isConfirmed = await confirm(t('admin.boards.messages.confirmDiscardChanges'))
       if (!isConfirmed) return
+      if (
+        !isAuthSessionIntentCurrent(authStore, intent)
+        || editorRevision !== revision
+        || selectedBoardId.value !== selectedId
+      ) return
     }
 
-    selectedBoardId.value = board.boardId
+    if (boards.value.some((item) => item.boardId === board.boardId)) {
+      selectedBoardId.value = board.boardId
+    }
   }
 
   function applySelectedBoardForm() {
@@ -370,7 +425,11 @@ export function useAdminBoardEditor({ boardsData, updateBoard, reorderBoards, re
       return
     }
 
-    const moderationReason = selectedBoard.value.isActive && !form.isActive
+    const promptIntent = captureAuthSessionIntent(authStore)
+    const promptRevision = editorRevision
+    const promptBoardId = selectedBoard.value.boardId
+    const promptBoardWasActive = selectedBoard.value.isActive
+    const moderationReason = promptBoardWasActive && !form.isActive
       ? await confirmWithReason(
           t('admin.boards.messages.confirmDeactivate'),
           undefined,
@@ -380,7 +439,13 @@ export function useAdminBoardEditor({ boardsData, updateBoard, reorderBoards, re
           { maxLength: 500 },
         )
       : undefined
-    if (selectedBoard.value.isActive && !form.isActive && !moderationReason) return
+    if (promptBoardWasActive && !form.isActive && !moderationReason) return
+    if (
+      !isAuthSessionIntentCurrent(authStore, promptIntent)
+      || editorRevision !== promptRevision
+      || selectedBoardId.value !== promptBoardId
+      || selectedBoard.value?.isActive !== promptBoardWasActive
+    ) return
 
     const snapshot = createSnapshot()
     applySelectedBoardForm()
@@ -389,19 +454,54 @@ export function useAdminBoardEditor({ boardsData, updateBoard, reorderBoards, re
       return
     }
 
+    const operationIntent = captureAuthSessionIntent(authStore)
+    let operationRevision = editorRevision
+    const operationBoardId = selectedBoardId.value
+    const saveRevision = ++saveOperationRevision
+    const isCurrent = () => isAuthSessionIntentCurrent(authStore, operationIntent)
+      && editorRevision === operationRevision
+      && selectedBoardId.value === operationBoardId
+
     isSubmitting.value = true
     try {
-      await saveBoardUpdates(modifiedBoardIds.value, false, moderationReason ?? undefined)
-      if (orderDirty.value) await saveBoardOrder()
+      const updatesSaved = await saveBoardUpdates(
+        modifiedBoardIds.value,
+        false,
+        moderationReason ?? undefined,
+        isCurrent,
+      )
+      if (!updatesSaved) return
+      if (orderDirty.value) {
+        const orderSaved = await saveBoardOrder(isCurrent)
+        if (!orderSaved) return
+        operationRevision = editorRevision
+      }
+      if (!isCurrent()) return
       toastStore.addToast(t('common.messages.saveSuccess'), 'success')
     } catch {
+      if (!isCurrent()) return
       restoreSnapshot(snapshot)
+      operationRevision = editorRevision
       await refetchBoards()
       // Error handled globally
     } finally {
-      isSubmitting.value = false
+      if (saveRevision === saveOperationRevision) isSubmitting.value = false
     }
   }
+
+  watch(() => authStore.sessionGeneration, () => {
+    editorRevision += 1
+    saveOperationRevision += 1
+    sortOperationRevision += 1
+    boards.value = []
+    originalBoardUrls.value = {}
+    modifiedBoardIds.value = []
+    selectedBoardId.value = null
+    orderDirty.value = false
+    isSubmitting.value = false
+    isSavingSortOrder.value = false
+    resetForm()
+  }, { flush: 'sync' })
 
   return {
     boards,

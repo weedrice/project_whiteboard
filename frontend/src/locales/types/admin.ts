@@ -109,6 +109,7 @@ export interface AdminMessages {
       createdTo: string
       lastLoginFrom: string
       lastLoginTo: string
+      minActivityCount: string
       userSearch: string
       unit: string
     }

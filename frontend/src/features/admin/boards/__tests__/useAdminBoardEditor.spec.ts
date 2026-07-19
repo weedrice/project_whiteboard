@@ -1,8 +1,10 @@
 import { nextTick, ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { createPinia, setActivePinia } from 'pinia'
 import { useAdminBoardEditor } from '../useAdminBoardEditor'
 import { createDeferred } from '@/test/async'
 import type { AdminBoard } from '@/types'
+import { useAuthStore } from '@/stores/auth'
 
 const toastMock = vi.hoisted(() => ({
   addToast: vi.fn()
@@ -70,6 +72,7 @@ function createEditor(
 
 describe('useAdminBoardEditor', () => {
   beforeEach(() => {
+    setActivePinia(createPinia())
     vi.clearAllMocks()
     confirmMock.mockResolvedValue(true)
     confirmWithReasonMock.mockResolvedValue('maintenance')
@@ -204,6 +207,45 @@ describe('useAdminBoardEditor', () => {
       { maxLength: 500 },
     )
     expect(updateBoard).not.toHaveBeenCalled()
+  })
+
+  it('does not save a deactivation when the session changes during the reason prompt', async () => {
+    const reason = createDeferred<string | null>()
+    confirmWithReasonMock.mockReturnValueOnce(reason.promise)
+    const boardsData = ref([createBoard({ boardId: 10, boardUrl: 'old-url' })])
+    const updateBoard = vi.fn().mockResolvedValue(undefined)
+    const editor = createEditor(boardsData, updateBoard)
+    const authStore = useAuthStore()
+    await nextTick()
+    editor.form.isActive = false
+    const pending = editor.handleSaveChanges()
+
+    authStore.sessionGeneration += 1
+    reason.resolve('maintenance')
+    await pending
+
+    expect(updateBoard).not.toHaveBeenCalled()
+    expect(editor.selectedBoardId.value).toBeNull()
+    expect(editor.form.boardName).toBe('')
+    expect(editor.hasUnsavedChanges.value).toBe(false)
+  })
+
+  it('does not save a deactivation when the selected form changes during the reason prompt', async () => {
+    const reason = createDeferred<string | null>()
+    confirmWithReasonMock.mockReturnValueOnce(reason.promise)
+    const boardsData = ref([createBoard({ boardId: 10, boardUrl: 'old-url' })])
+    const updateBoard = vi.fn().mockResolvedValue(undefined)
+    const editor = createEditor(boardsData, updateBoard)
+    await nextTick()
+    editor.form.isActive = false
+    const pending = editor.handleSaveChanges()
+
+    editor.form.description = 'changed while confirming'
+    reason.resolve('maintenance')
+    await pending
+
+    expect(updateBoard).not.toHaveBeenCalled()
+    expect(editor.form.description).toBe('changed while confirming')
   })
 
   it('blocks saving and shows the shared validation toast when required fields are missing', async () => {

@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
+import type { Ref } from 'vue'
 import { useGlobalSettingsManager } from '../useGlobalSettingsManager'
 import { apiSuccessResponse } from '@/test/apiResponseFixtures'
+import { createDeferred } from '@/test/async'
+import { useAuthStore } from '@/stores/auth'
 
 const mocks = vi.hoisted(() => ({
   addToast: vi.fn(),
@@ -15,10 +18,10 @@ const mocks = vi.hoisted(() => ({
         description: 'Service name',
       },
     ] as Array<{ key: string; value: string; description?: string }>,
-  },
+  } as unknown as Ref<Array<{ key: string; value: string; description?: string }>>,
   createConfig: vi.fn(),
   deleteConfig: vi.fn(),
-  isLoading: { __v_isRef: true, value: false },
+  isLoading: { __v_isRef: true, value: false } as unknown as Ref<boolean>,
   updateConfig: vi.fn(),
   refreshImagePolicy: vi.fn(),
 }))
@@ -48,8 +51,12 @@ vi.mock('@/composables/useConfirm', () => ({
   }),
 }))
 
-vi.mock('@/features/admin/useAdmin', () => ({
-  useAdmin: () => ({
+vi.mock('@/features/admin/useAdmin', async () => {
+  const { ref } = await vi.importActual<typeof import('vue')>('vue')
+  mocks.configsData = ref(mocks.configsData.value)
+  mocks.isLoading = ref(false)
+  return {
+    useAdmin: () => ({
     useConfigs: () => ({
       data: mocks.configsData,
       isLoading: mocks.isLoading,
@@ -63,8 +70,9 @@ vi.mock('@/features/admin/useAdmin', () => ({
     useDeleteConfig: () => ({
       mutateAsync: mocks.deleteConfig,
     }),
-  }),
-}))
+    }),
+  }
+})
 
 describe('useGlobalSettingsManager', () => {
   beforeEach(() => {
@@ -109,6 +117,22 @@ describe('useGlobalSettingsManager', () => {
     await manager.handleSave('EMOTICON_IMAGE_MAX_COUNT')
 
     expect(mocks.refreshImagePolicy).toHaveBeenCalledTimes(1)
+  })
+
+  it('ignores an existing-config save response from an older authentication session', async () => {
+    const update = createDeferred<unknown>()
+    mocks.updateConfig.mockReturnValueOnce(update.promise)
+    const manager = useGlobalSettingsManager()
+    const authStore = useAuthStore()
+    manager.updateDraft('site.name', { value: 'Updated' })
+    const pending = manager.handleSave('site.name')
+
+    authStore.sessionGeneration += 1
+    update.resolve(undefined)
+    await pending
+
+    expect(mocks.refreshImagePolicy).not.toHaveBeenCalled()
+    expect(mocks.addToast).not.toHaveBeenCalledWith('admin.settings.messages.saved', 'success')
   })
 
   it('skips saving when the draft value is blank after trimming', async () => {
@@ -215,6 +239,35 @@ describe('useGlobalSettingsManager', () => {
     expect(mocks.addToast).not.toHaveBeenCalled()
   })
 
+  it('skips deletion when the authentication session changes during confirmation', async () => {
+    const confirmation = createDeferred<boolean>()
+    mocks.confirm.mockReturnValueOnce(confirmation.promise)
+    const manager = useGlobalSettingsManager()
+    const authStore = useAuthStore()
+    const pending = manager.handleDelete('site.name')
+
+    authStore.sessionGeneration += 1
+    confirmation.resolve(true)
+    await pending
+
+    expect(mocks.deleteConfig).not.toHaveBeenCalled()
+    expect(mocks.addToast).not.toHaveBeenCalled()
+  })
+
+  it('skips deletion when the selected config key disappears during confirmation', async () => {
+    const confirmation = createDeferred<boolean>()
+    mocks.confirm.mockReturnValueOnce(confirmation.promise)
+    const manager = useGlobalSettingsManager()
+    const pending = manager.handleDelete('site.name')
+
+    mocks.configsData.value.splice(0)
+    confirmation.resolve(true)
+    await pending
+
+    expect(mocks.deleteConfig).not.toHaveBeenCalled()
+    expect(mocks.addToast).not.toHaveBeenCalled()
+  })
+
   it('does not let an old create response close or reset a reopened modal', async () => {
     let resolveCreate!: (value: unknown) => void
     mocks.createConfig.mockReturnValueOnce(new Promise(resolve => { resolveCreate = resolve }))
@@ -232,5 +285,17 @@ describe('useGlobalSettingsManager', () => {
     expect(manager.isModalOpen.value).toBe(true)
     expect(manager.newConfig).toEqual({ key: 'new.key', value: 'new', description: 'new draft' })
     expect(mocks.addToast).not.toHaveBeenCalledWith('admin.settings.messages.saved', 'success')
+  })
+
+  it('closes and clears the create modal at the authentication boundary', () => {
+    const manager = useGlobalSettingsManager()
+    const authStore = useAuthStore()
+    manager.openCreateModal()
+    Object.assign(manager.newConfig, { key: 'old.key', value: 'old', description: 'private draft' })
+
+    authStore.sessionGeneration += 1
+
+    expect(manager.isModalOpen.value).toBe(false)
+    expect(manager.newConfig).toEqual({ key: '', value: '', description: '' })
   })
 })

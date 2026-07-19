@@ -46,6 +46,7 @@ function mountModal(user: {
     email?: string
     reportId?: number
     modalRevision?: number
+    sessionGeneration?: number
 }) {
     return mount(SanctionModal, {
         props: {
@@ -125,5 +126,20 @@ describe('SanctionModal', () => {
 
         expect(wrapper.emitted('sanctioned')).toBeUndefined()
         expect(mocks.addToast).not.toHaveBeenCalled()
+    })
+
+    it('does not submit a sanction opened by a different authentication session', async () => {
+        const wrapper = mountModal({
+            id: 7,
+            name: 'Old session target',
+            reportId: 1,
+            modalRevision: 1,
+            sessionGeneration: 1,
+        })
+
+        await wrapper.get('form').trigger('submit')
+
+        expect(mocks.sanctionUser).not.toHaveBeenCalled()
+        expect(wrapper.emitted('sanctioned')).toBeUndefined()
     })
 })
