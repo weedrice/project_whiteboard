@@ -157,6 +157,7 @@ export interface ScrapPostInfo {
 
 export interface ScrapSummary {
     scrapId: number
+    folderId?: number | null
     post: ScrapPostInfo
     remark?: string | null
     createdAt: string

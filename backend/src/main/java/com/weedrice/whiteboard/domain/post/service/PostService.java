@@ -292,8 +292,18 @@ public class PostService {
     }
 
     @Transactional
+    public void scrapPost(@NonNull Long userId, @NonNull Long postId, String remark, Long folderId) {
+        postInteractionService.scrapPost(userId, postId, remark, folderId);
+    }
+
+    @Transactional
     public void unscrapPost(@NonNull Long userId, @NonNull Long postId) {
         postInteractionService.unscrapPost(userId, postId);
+    }
+
+    @Transactional
+    public void moveScrap(@NonNull Long userId, @NonNull Long postId, Long folderId) {
+        postInteractionService.moveScrap(userId, postId, folderId);
     }
 
     public ScrapListResponse getMyScraps(@NonNull Long userId, Long folderId, String keyword,

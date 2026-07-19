@@ -677,20 +677,37 @@ class PostControllerTest {
         @DisplayName("스크랩 성공 - Request Body 있음")
         void scrapPost_withRequest() throws Exception {
             Long postId = 1L;
-            PostScrapRequest request = new PostScrapRequest("Remark");
-            doNothing().when(postService).scrapPost(anyLong(), eq(postId), anyString());
+            PostScrapRequest request = new PostScrapRequest("Remark", null);
+            doNothing().when(postService).scrapPost(anyLong(), eq(postId), anyString(), isNull());
             mockMvc.perform(post("/api/v1/posts/{postId}/scrap", postId)
                     .with(user(customUserDetails))
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isCreated());
+
+            verify(postService).scrapPost(anyLong(), eq(postId), eq("Remark"), isNull());
+        }
+
+        @Test
+        @DisplayName("스크랩 성공 - 폴더 지정")
+        void scrapPost_withFolder() throws Exception {
+            Long postId = 1L;
+            PostScrapRequest request = new PostScrapRequest("Remark", 7L);
+
+            mockMvc.perform(post("/api/v1/posts/{postId}/scrap", postId)
+                    .with(user(customUserDetails))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isCreated());
+
+            verify(postService).scrapPost(anyLong(), eq(postId), eq("Remark"), eq(7L));
         }
 
         @Test
         @DisplayName("스크랩 생성 - remark 길이 초과는 400")
         void scrapPost_longRemark_validationFailure() throws Exception {
             Long postId = 1L;
-            PostScrapRequest request = new PostScrapRequest("a".repeat(256));
+            PostScrapRequest request = new PostScrapRequest("a".repeat(256), null);
 
             mockMvc.perform(post("/api/v1/posts/{postId}/scrap", postId)
                     .with(user(customUserDetails))
@@ -698,14 +715,29 @@ class PostControllerTest {
                     .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isBadRequest());
 
-            verify(postService, never()).scrapPost(anyLong(), anyLong(), any());
+            verify(postService, never()).scrapPost(anyLong(), anyLong(), any(), any());
+        }
+
+        @Test
+        @DisplayName("스크랩 생성 - 0 이하 폴더 ID는 400")
+        void scrapPost_invalidFolder_validationFailure() throws Exception {
+            Long postId = 1L;
+            PostScrapRequest request = new PostScrapRequest(null, 0L);
+
+            mockMvc.perform(post("/api/v1/posts/{postId}/scrap", postId)
+                    .with(user(customUserDetails))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isBadRequest());
+
+            verify(postService, never()).scrapPost(anyLong(), anyLong(), any(), any());
         }
 
         @Test
         @DisplayName("스크랩 성공 - Request Body 없음")
         void scrapPost_noRequest() throws Exception {
             Long postId = 1L;
-            doNothing().when(postService).scrapPost(anyLong(), eq(postId), isNull());
+            doNothing().when(postService).scrapPost(anyLong(), eq(postId), isNull(), isNull());
             mockMvc.perform(post("/api/v1/posts/{postId}/scrap", postId).with(user(customUserDetails)))
                     .andExpect(status().isCreated());
         }
@@ -718,6 +750,48 @@ class PostControllerTest {
             mockMvc.perform(delete("/api/v1/posts/{postId}/scrap", postId)
                     .with(user(customUserDetails)))
                     .andExpect(status().isOk());
+        }
+
+        @Test
+        @DisplayName("스크랩 폴더 이동 성공")
+        void moveScrap_success() throws Exception {
+            Long postId = 1L;
+
+            mockMvc.perform(patch("/api/v1/users/me/scraps/{postId}", postId)
+                    .with(user(customUserDetails))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"folderId\":7}"))
+                    .andExpect(status().isOk());
+
+            verify(postService).moveScrap(anyLong(), eq(postId), eq(7L));
+        }
+
+        @Test
+        @DisplayName("스크랩을 미분류로 이동 성공")
+        void moveScrap_toUnfiled_success() throws Exception {
+            Long postId = 1L;
+
+            mockMvc.perform(patch("/api/v1/users/me/scraps/{postId}", postId)
+                    .with(user(customUserDetails))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"folderId\":null}"))
+                    .andExpect(status().isOk());
+
+            verify(postService).moveScrap(anyLong(), eq(postId), isNull());
+        }
+
+        @Test
+        @DisplayName("스크랩 이동 - 0 이하 폴더 ID는 400")
+        void moveScrap_invalidFolder_validationFailure() throws Exception {
+            Long postId = 1L;
+
+            mockMvc.perform(patch("/api/v1/users/me/scraps/{postId}", postId)
+                    .with(user(customUserDetails))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"folderId\":0}"))
+                    .andExpect(status().isBadRequest());
+
+            verify(postService, never()).moveScrap(anyLong(), anyLong(), any());
         }
 
         @Test

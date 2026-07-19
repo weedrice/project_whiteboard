@@ -88,6 +88,9 @@ export const userActivityApi = {
     deleteScrapFolder(folderId: string | number, config?: AxiosRequestConfig) {
         return api.delete<ApiResponse<void>>(`/users/me/scrap-folders/${encodePathSegment(folderId)}`, config)
     },
+    moveScrap(postId: string | number, payload: { folderId: number | null }, config?: AxiosRequestConfig) {
+        return api.patch<ApiResponse<void>>(`/users/me/scraps/${encodePathSegment(postId)}`, payload, config)
+    },
     getPostSeries(config?: AxiosRequestConfig) {
         return api.get<ApiResponse<PostSeries[]>>('/users/me/post-series', config)
     },

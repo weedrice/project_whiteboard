@@ -11,6 +11,7 @@ import PostList from '@/components/board/PostList.vue'
 import PaginatedListCard from '@/components/common/ui/PaginatedListCard.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
+import BaseSelect from '@/components/common/ui/BaseSelect.vue'
 import ErrorState from '@/components/common/ui/ErrorState.vue'
 import { Bookmark, Check, Pencil, X } from 'lucide-vue-next'
 import { isInquiryPostItem, resolveBoardRoute, resolvePostDetailRoute } from '@/utils/postNavigation'
@@ -35,6 +36,9 @@ const editingFolderId = ref<number | null>(null)
 const editingFolderName = ref('')
 const SCRAP_FOLDER_NAME_MAX_LENGTH = 60
 const updatingFolderId = ref<number | null>(null)
+const movingScrapPostId = ref<number | null>(null)
+const selectedMovePostId = ref<number | ''>('')
+const selectedDestinationFolderId = ref<number | ''>('')
 const folderActionError = ref('')
 let folderOperationRevision = 0
 const folderOperationControllers = new Set<AbortController>()
@@ -71,6 +75,9 @@ watch(() => authStore.sessionGeneration, () => {
   creatingFolder.value = false
   deletingFolderId.value = null
   updatingFolderId.value = null
+  movingScrapPostId.value = null
+  selectedMovePostId.value = ''
+  selectedDestinationFolderId.value = ''
   selectedFolderId.value = null
   searchInput.value = ''
   appliedSearch.value = ''
@@ -104,6 +111,14 @@ const {
 const scraps = computed(() => pageState.items.value)
 const totalPages = computed(() => pageState.totalPages.value)
 const folders = computed(() => folderData.value || [])
+const movePostOptions = computed(() => scraps.value.map((scrap) => ({
+  label: scrap.title,
+  value: scrap.postId,
+})))
+const destinationFolderOptions = computed(() => [
+  { label: t('user.scrapList.unfiled'), value: 0 },
+  ...folders.value.map((folder) => ({ label: folder.name, value: folder.folderId })),
+])
 const loading = computed(() => scrapQuery.isLoading.value)
 const errorMessage = computed(() => scrapQuery.isError.value ? t('common.messages.loadFailed') : '')
 
@@ -215,6 +230,33 @@ async function deleteFolder(folderId: number) {
   } finally {
     finishFolderOperation(operation)
     if (isFolderOperationCurrent(operation)) deletingFolderId.value = null
+  }
+}
+
+async function moveScrap() {
+  if (selectedMovePostId.value === '' || selectedDestinationFolderId.value === '' || movingScrapPostId.value !== null) return
+  const postId = Number(selectedMovePostId.value)
+  const destinationFolderId = Number(selectedDestinationFolderId.value)
+  const operation = beginFolderOperation()
+  folderActionError.value = ''
+  movingScrapPostId.value = postId
+  try {
+    await userApi.moveScrap(postId, { folderId: destinationFolderId === 0 ? null : destinationFolderId }, {
+      signal: operation.controller.signal,
+    })
+    if (!isFolderOperationCurrent(operation)) return
+    selectedMovePostId.value = ''
+    selectedDestinationFolderId.value = ''
+    await queryClient.invalidateQueries({
+      queryKey: currentSessionQueryKey(authStore, ['user', 'scraps']),
+    })
+  } catch {
+    if (isFolderOperationCurrent(operation)) {
+      folderActionError.value = t('user.scrapList.moveFailed')
+    }
+  } finally {
+    finishFolderOperation(operation)
+    if (isFolderOperationCurrent(operation)) movingScrapPostId.value = null
   }
 }
 </script>
@@ -342,6 +384,32 @@ async function deleteFolder(folderId: number) {
         <p v-if="folderActionError" class="nv-form-error text-sm" role="alert" aria-live="assertive">
           {{ folderActionError }}
         </p>
+        <form v-if="scraps.length" class="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]" @submit.prevent="moveScrap">
+          <BaseSelect
+            id="scrap-move-post"
+            v-model="selectedMovePostId"
+            :label="$t('user.scrapList.selectScrap')"
+            :placeholder="$t('user.scrapList.selectScrap')"
+            :options="movePostOptions"
+            hide-label
+          />
+          <BaseSelect
+            id="scrap-move-folder"
+            v-model="selectedDestinationFolderId"
+            :label="$t('user.scrapList.destinationFolder')"
+            :placeholder="$t('user.scrapList.destinationFolder')"
+            :options="destinationFolderOptions"
+            hide-label
+          />
+          <BaseButton
+            type="submit"
+            variant="secondary"
+            class="h-10"
+            :disabled="selectedMovePostId === '' || selectedDestinationFolderId === '' || movingScrapPostId !== null"
+          >
+            {{ $t('user.scrapList.move') }}
+          </BaseButton>
+        </form>
         <form class="flex flex-col gap-2 sm:flex-row" @submit.prevent="applySearch">
           <BaseInput
             id="scrap-search"

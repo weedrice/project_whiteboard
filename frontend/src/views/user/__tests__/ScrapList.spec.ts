@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   folderData: { __v_isRef: true, value: [] as Array<{ folderId: number; name: string }> },
   folderError: { __v_isRef: true, value: false },
   folderFetching: { __v_isRef: true, value: false },
+  scrapItems: { __v_isRef: true, value: [] as Array<Record<string, unknown>> },
   refetchFolders: vi.fn(),
   refetchScraps: vi.fn(),
   invalidateQueries: vi.fn(),
@@ -60,7 +61,7 @@ vi.mock('@/composables/usePaginatedQueryState', () => ({
     resetPage: mocks.resetPage,
   }),
   usePageResponseState: () => ({
-    items: ref([]),
+    items: mocks.scrapItems,
     totalPages: ref(0),
   }),
 }))
@@ -83,6 +84,7 @@ vi.mock('@/api/user', () => ({
     createScrapFolder: vi.fn(),
     updateScrapFolder: vi.fn(),
     deleteScrapFolder: vi.fn(),
+    moveScrap: vi.fn(),
   },
 }))
 
@@ -143,6 +145,7 @@ describe('ScrapList', () => {
     mocks.folderData.value = []
     mocks.folderError.value = false
     mocks.folderFetching.value = false
+    mocks.scrapItems.value = []
     mocks.refetchFolders.mockResolvedValue(undefined)
     mocks.confirm.mockResolvedValue(true)
     authState.sessionGeneration = 1
@@ -217,5 +220,22 @@ describe('ScrapList', () => {
     const allFolderButton = wrapper.findAll('button')
       .find((button) => button.text() === 'user.scrapList.allFolder')!
     expect(allFolderButton.classes()).toContain('nv-accent-bg')
+  })
+
+  it('moves a saved post to the selected folder and refreshes the session-scoped list', async () => {
+    mocks.folderData.value = [{ folderId: 7, name: 'Saved' }]
+    mocks.scrapItems.value = [{ postId: 11, title: 'Move me' }]
+    vi.mocked(userApi.moveScrap).mockResolvedValueOnce({} as never)
+    const wrapper = mountScrapList()
+
+    await wrapper.get('#scrap-move-post').setValue('11')
+    await wrapper.get('#scrap-move-folder').setValue('7')
+    await wrapper.findAll('form').find((form) => form.find('#scrap-move-post').exists())!.trigger('submit')
+    await flushPromises()
+
+    expect(userApi.moveScrap).toHaveBeenCalledWith(11, { folderId: 7 }, expect.objectContaining({ signal: expect.any(AbortSignal) }))
+    expect(mocks.invalidateQueries).toHaveBeenCalledWith({
+      queryKey: ['session', 1, 'user', 'scraps'],
+    })
   })
 })

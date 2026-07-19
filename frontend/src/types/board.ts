@@ -176,6 +176,7 @@ export interface PostSummary {
     createdAt: string
     liked?: boolean
     scrapped?: boolean
+    scrapFolderId?: number | null
     subscribed?: boolean
     boardUrl?: string
     boardName?: string

@@ -196,7 +196,8 @@ public class PostController {
             @Valid @RequestBody(required = false) PostScrapRequest request,
             @CurrentUserId Long userId) {
         String remark = (request != null) ? request.getRemark() : null;
-        postService.scrapPost(userId, postId, remark);
+        Long folderId = (request != null) ? request.getFolderId() : null;
+        postService.scrapPost(userId, postId, remark, folderId);
         return ApiResponses.ok();
     }
 
@@ -205,6 +206,15 @@ public class PostController {
             @PathVariable Long postId,
             @CurrentUserId Long userId) {
         postService.unscrapPost(userId, postId);
+        return ApiResponses.ok();
+    }
+
+    @PatchMapping("/users/me/scraps/{postId}")
+    public ApiResponse<Void> moveScrap(
+            @PathVariable Long postId,
+            @Valid @RequestBody ScrapFolderAssignmentRequest request,
+            @CurrentUserId Long userId) {
+        postService.moveScrap(userId, postId, request.getFolderId());
         return ApiResponses.ok();
     }
 

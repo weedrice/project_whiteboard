@@ -208,6 +208,7 @@ describe('userApi', () => {
         const result = toScrapPostSummaryPage({
             content: [{
                 scrapId: 10,
+                folderId: 7,
                 post: {
                     postId: 33,
                     title: 'Saved post',
@@ -248,8 +249,21 @@ describe('userApi', () => {
             isNsfw: false,
             isSpoiler: false,
             isSecret: false,
+            scrapFolderId: 7,
             scrapped: true,
         })
+    })
+
+    it('moves a saved post to a folder with the provided request config', () => {
+        const controller = new AbortController()
+
+        userApi.moveScrap(33, { folderId: 7 }, { signal: controller.signal })
+
+        expect(apiMock.patch).toHaveBeenCalledWith(
+            '/users/me/scraps/33',
+            { folderId: 7 },
+            { signal: controller.signal },
+        )
     })
 
     it('maps backend block list DTOs to normalized view models', () => {

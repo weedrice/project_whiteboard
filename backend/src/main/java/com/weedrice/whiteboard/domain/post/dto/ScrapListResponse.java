@@ -26,6 +26,7 @@ public class ScrapListResponse {
     @Builder
     public static class ScrapSummary {
         private Long scrapId;
+        private Long folderId;
         private PostInfo post;
         private String remark;
         private LocalDateTime createdAt;
@@ -67,6 +68,7 @@ public class ScrapListResponse {
                     PostSummaryFields fields = PostSummaryFields.from(post, null);
                     return ScrapSummary.builder()
                             .scrapId(post.getPostId())
+                            .folderId(scrap.getFolder() != null ? scrap.getFolder().getFolderId() : null)
                             .post(PostInfo.builder()
                                     .postId(fields.postId())
                                     .title(fields.title())

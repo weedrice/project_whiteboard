@@ -231,14 +231,21 @@ public class PostInteractionService {
 
     @Transactional
     public void scrapPost(@NonNull Long userId, @NonNull Long postId, String remark) {
+        scrapPost(userId, postId, remark, null);
+    }
+
+    @Transactional
+    public void scrapPost(@NonNull Long userId, @NonNull Long postId, String remark, Long folderId) {
         String normalizedRemark = normalizeScrapRemark(remark);
         User user = userWritableResolver.resolveForUpdate(userId);
         Post post = getReadablePostForResolvedUser(postId, user);
+        ScrapFolder folder = folderId == null ? null : getOwnedScrapFolderForUpdate(userId, folderId);
 
         Scrap scrap = Scrap.builder()
                 .user(user)
                 .post(post)
                 .remark(normalizedRemark)
+                .folder(folder)
                 .build();
         reactionWriter.insertOrThrowDuplicate(
                 () -> scrapRepository.saveAndFlush(scrap),
@@ -253,6 +260,15 @@ public class PostInteractionService {
         if (deletedCount == 0) {
             throw new BusinessException(ErrorCode.NOT_SCRAPED);
         }
+    }
+
+    @Transactional
+    public void moveScrap(@NonNull Long userId, @NonNull Long postId, Long folderId) {
+        userWritableResolver.resolveForUpdate(userId);
+        Scrap scrap = scrapRepository.findOwnedByPostIdForUpdate(userId, postId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_SCRAPED));
+        ScrapFolder folder = folderId == null ? null : getOwnedScrapFolderForUpdate(userId, folderId);
+        scrap.moveToFolder(folder);
     }
 
     public ScrapListResponse getMyScraps(@NonNull Long userId, Long folderId, String keyword,

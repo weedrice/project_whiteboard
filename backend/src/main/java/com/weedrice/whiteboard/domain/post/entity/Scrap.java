@@ -40,4 +40,8 @@ public class Scrap extends BaseTimeEntity {
         this.remark = remark;
         this.folder = folder;
     }
+
+    public void moveToFolder(ScrapFolder folder) {
+        this.folder = folder;
+    }
 }

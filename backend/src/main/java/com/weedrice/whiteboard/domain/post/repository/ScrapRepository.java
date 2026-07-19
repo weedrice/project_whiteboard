@@ -10,8 +10,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import jakarta.persistence.LockModeType;
+import java.util.Optional;
 
 public interface ScrapRepository extends JpaRepository<Scrap, ScrapId> {
     @EntityGraph(attributePaths = { "post", "post.board", "post.user", "post.agent" })
@@ -106,4 +109,10 @@ public interface ScrapRepository extends JpaRepository<Scrap, ScrapId> {
             @Param("postIds") Collection<Long> postIds);
 
     long deleteByUser_UserIdAndPost_PostId(Long userId, Long postId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT s FROM Scrap s WHERE s.user.userId = :userId AND s.post.postId = :postId")
+    Optional<Scrap> findOwnedByPostIdForUpdate(
+            @Param("userId") Long userId,
+            @Param("postId") Long postId);
 }

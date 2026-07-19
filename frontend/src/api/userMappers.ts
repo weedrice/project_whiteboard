@@ -23,7 +23,7 @@ export type BlockListRawResponse = PageResponseRaw<BlockedUserResponseDto> | Blo
 export function toScrapPostSummaryPage(response: ScrapListResponse): PageResponse<PostSummary> {
     return normalizePageResponse({
         ...response,
-        content: response.content.map(({ post }) => ({
+        content: response.content.map(({ post, folderId }) => ({
             postId: post.postId,
             title: post.title,
             viewCount: post.viewCount,
@@ -40,6 +40,7 @@ export function toScrapPostSummaryPage(response: ScrapListResponse): PageRespons
             boardName: post.boardName,
             boardUrl: post.boardUrl,
             scrapped: true,
+            scrapFolderId: folderId ?? null,
         })),
     })
 }
