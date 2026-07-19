@@ -62,6 +62,37 @@ export function usePostDetailScrollEffects({
 }: UsePostDetailScrollEffectsOptions) {
   const contentRef = ref<HTMLElement | null>(null)
   const commentsRef = ref<HTMLElement | null>(null)
+  let hashTargetObserver: MutationObserver | null = null
+  let hashTargetTimeout: ReturnType<typeof setTimeout> | null = null
+
+  function cancelHashTargetWait() {
+    hashTargetObserver?.disconnect()
+    hashTargetObserver = null
+    if (hashTargetTimeout) {
+      clearTimeout(hashTargetTimeout)
+      hashTargetTimeout = null
+    }
+  }
+
+  function scrollToHashTarget(hash: string) {
+    cancelHashTargetWait()
+    const scrollIfPresent = () => {
+      if (isPostDetailUiDisposed() || route.hash !== hash) return false
+      const element = findPostDetailElementByHash(hash)
+      if (!element) return false
+      element.scrollIntoView({ behavior: getMotionAwareScrollBehavior() })
+      cancelHashTargetWait()
+      return true
+    }
+
+    if (scrollIfPresent() || !/^#comment-\d+$/.test(hash)) return
+
+    const root = commentsRef.value
+    if (!root || typeof MutationObserver === 'undefined') return
+    hashTargetObserver = new MutationObserver(scrollIfPresent)
+    hashTargetObserver.observe(root, { childList: true, subtree: true })
+    hashTargetTimeout = setTimeout(cancelHashTargetWait, 10_000)
+  }
 
   function scrollToTop() {
     window.scrollTo({ top: 0, behavior: getMotionAwareScrollBehavior() })
@@ -140,6 +171,7 @@ export function usePostDetailScrollEffects({
   }
 
   watch(() => route.hash, (newHash) => {
+    cancelHashTargetWait()
     if (!newHash) return
 
     nextTick(() => {
@@ -148,10 +180,7 @@ export function usePostDetailScrollEffects({
         return
       }
 
-      const element = findPostDetailElementByHash(newHash)
-      if (element) {
-        element.scrollIntoView({ behavior: getMotionAwareScrollBehavior() })
-      }
+      scrollToHashTarget(newHash)
     })
   })
 
@@ -187,10 +216,7 @@ export function usePostDetailScrollEffects({
 
         window.scrollTo(0, 0)
         if (hash) {
-          const element = findPostDetailElementByHash(hash)
-          if (element) {
-            element.scrollIntoView({ behavior: getMotionAwareScrollBehavior() })
-          }
+          scrollToHashTarget(hash)
         }
       })
     }
@@ -218,6 +244,7 @@ export function usePostDetailScrollEffects({
   useEventListener(() => window, 'resize', handleResize)
 
   onUnmounted(() => {
+    cancelHashTargetWait()
     disposePostDetailUiEffects()
   })
 

@@ -34,10 +34,12 @@ const props = withDefaults(defineProps<{
   depth?: number
   replyTargetName?: string
   isNewSinceLastView?: boolean
+  deepLinkCommentIds?: readonly number[]
 }>(), {
   depth: 0,
   replyTargetName: '',
   isNewSinceLastView: false,
+  deepLinkCommentIds: () => [],
 })
 
 const emit = defineEmits<{
@@ -73,7 +75,7 @@ const {
   toggleReplies,
   loadMoreReplies,
   refetchReplies,
-} = useCommentReplies(commentRef)
+} = useCommentReplies(commentRef, computed(() => props.deepLinkCommentIds))
 const {
   isBlockedAuthor,
   canUseCommentActions,
@@ -466,6 +468,7 @@ onUnmounted(cancelPendingCommentReport)
               :boardUrl="boardUrl"
               :depth="depth + 1"
               :reply-target-name="childReplyTargetName"
+              :deep-link-comment-ids="deepLinkCommentIds"
               @reply-success="$emit('reply-success')"
               @edit-success="$emit('edit-success')"
               @delete="(childComment) => $emit('delete', childComment)"

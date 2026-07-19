@@ -136,7 +136,7 @@ describe('CommentItem', () => {
         })
     })
 
-    it('loads and shows replies by default when the parent has replies', async () => {
+    it('loads replies only after the parent branch is opened', async () => {
         const wrapper = mount(CommentItem, {
             props: {
                 comment: {
@@ -185,14 +185,23 @@ describe('CommentItem', () => {
 
         await flushPromises()
 
-        expect(wrapper.text()).toContain('child reply')
+        expect(wrapper.text()).not.toContain('child reply')
         expect(useRepliesMock).toHaveBeenCalled()
 
         const enabled = useRepliesMock.mock.calls[0][2]
-        expect((enabled as ReturnType<typeof computed>).value).toBe(true)
+        expect((enabled as ReturnType<typeof computed>).value).toBe(false)
 
-        const repliesToggle = wrapper.findAll('button').find((button) => button.text() === commentLocale.hideReplies)
+        const repliesToggle = wrapper.findAll('button').find((button) => (
+            button.text() === commentLocale.viewReplies.replace('{count}', '1')
+        ))
         await repliesToggle?.trigger('click')
+        await flushPromises()
+
+        expect((enabled as ReturnType<typeof computed>).value).toBe(true)
+        expect(wrapper.text()).toContain('child reply')
+
+        const hideRepliesToggle = wrapper.findAll('button').find((button) => button.text() === commentLocale.hideReplies)
+        await hideRepliesToggle?.trigger('click')
         await flushPromises()
 
         expect((enabled as ReturnType<typeof computed>).value).toBe(false)
@@ -288,6 +297,12 @@ describe('CommentItem', () => {
             },
         })
 
+        await flushPromises()
+
+        const repliesToggle = wrapper.findAll('button').find((button) => (
+            button.text() === commentLocale.viewReplies.replace('{count}', '1')
+        ))
+        await repliesToggle?.trigger('click')
         await flushPromises()
 
         expect(wrapper.text()).toContain('child reply')
@@ -431,7 +446,7 @@ describe('CommentItem', () => {
         expect(toggleCommentLikeMock).not.toHaveBeenCalled()
     })
 
-    it('shows a reply target and caps visual indentation for deep replies', () => {
+    it('shows a reply target and caps visual indentation for deep replies', async () => {
         const wrapper = mount(CommentItem, {
             props: {
                 comment: {
@@ -473,6 +488,11 @@ describe('CommentItem', () => {
         })
 
         expect(wrapper.text()).toContain('@parent-user')
+        const repliesToggle = wrapper.findAll('button').find((button) => (
+            button.text() === commentLocale.viewReplies.replace('{count}', '1')
+        ))
+        await repliesToggle?.trigger('click')
+        await flushPromises()
         expect(wrapper.find('.nv-comment-reply-branch-capped').exists()).toBe(true)
         expect(wrapper.findComponent({ name: 'CornerDownRight' }).exists()).toBe(false)
     })

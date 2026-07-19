@@ -175,6 +175,35 @@ describe('usePostDetailScrollEffects', () => {
     expect(target.scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth' })
   })
 
+  it('waits for a deep-linked comment to be rendered before scrolling', async () => {
+    let mutationCallback: MutationCallback | undefined
+    class HashTargetMutationObserver {
+      constructor(callback: MutationCallback) {
+        mutationCallback = callback
+      }
+      observe() {}
+      disconnect() {}
+      takeRecords() { return [] }
+    }
+    vi.stubGlobal('MutationObserver', HashTargetMutationObserver)
+    const state = mountScrollEffects()
+    const comments = document.createElement('section')
+    state.exposed.commentsRef.value = comments
+    document.body.append(comments)
+
+    state.route.hash = '#comment-75'
+    await nextTick()
+    await nextTick()
+
+    const target = document.createElement('article')
+    target.id = 'comment-75'
+    target.scrollIntoView = vi.fn()
+    comments.append(target)
+    mutationCallback?.([], {} as MutationObserver)
+
+    expect(target.scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth' })
+  })
+
   it('falls back to the comments section when the composer is missing', () => {
     const state = mountScrollEffects()
     const comments = document.createElement('section')

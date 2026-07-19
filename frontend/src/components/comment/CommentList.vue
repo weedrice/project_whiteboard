@@ -2,6 +2,8 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { Comment } from '@/api/comment'
+import { commentApi } from '@/api/comment'
+import { unwrapApiData } from '@/api/response'
 import { useComment } from '@/features/comments/queries/useComment'
 import { useAuthStore } from '@/stores/auth'
 import { useConfirm } from '@/composables/useConfirm'
@@ -20,6 +22,7 @@ const props = defineProps<{
   boardUrl: string
   lastViewedAt?: string | null
   pendingCommentCount?: number
+  targetCommentId?: number | null
 }>()
 
 const emit = defineEmits<{
@@ -54,6 +57,10 @@ const bestComments = computed<Comment[]>(() => bestCommentsData.value || [])
 const totalCommentCount = computed(() => commentsData.value?.pages[0]?.totalElements ?? comments.value.length)
 const hasMoreComments = computed(() => Boolean(hasNextPage.value))
 const commentLoadFailedMessage = computed(() => t('comment.loadFailed'))
+const deepLinkCommentIds = ref<number[]>([])
+let deepLinkRevision = 0
+let deepLinkController: AbortController | null = null
+let isLoadingDeepLinkPage = false
 const sortOptions = computed(() => [
   { value: 'createdAt,asc', label: t('comment.sort.oldest') },
   { value: 'createdAt,desc', label: t('comment.sort.newest') },
@@ -97,6 +104,71 @@ async function handleDelete(comment: Comment) {
 function loadMoreComments() {
   void fetchNextPage()
 }
+
+async function resolveDeepLinkPath(targetCommentId: number, revision: number, controller: AbortController) {
+  const reversedPath: number[] = []
+  const visited = new Set<number>()
+  let currentId: number | null | undefined = targetCommentId
+
+  while (currentId != null && !visited.has(currentId) && reversedPath.length < 32) {
+    visited.add(currentId)
+    const { data } = await commentApi.getComment(currentId, {
+      signal: controller.signal,
+      skipGlobalErrorHandler: true,
+    })
+    if (revision !== deepLinkRevision || controller.signal.aborted || !data.success) return
+
+    const current = unwrapApiData(data)
+    if (String(current.postId) !== String(props.postId)) return
+    reversedPath.push(current.commentId)
+    currentId = current.parentId
+  }
+
+  if (revision !== deepLinkRevision || controller.signal.aborted) return
+  deepLinkCommentIds.value = reversedPath.reverse()
+  void loadDeepLinkRootPage(revision)
+}
+
+async function loadDeepLinkRootPage(revision = deepLinkRevision) {
+  if (isLoadingDeepLinkPage || isLoading.value || revision !== deepLinkRevision) return
+  const rootCommentId = deepLinkCommentIds.value[0]
+  if (!rootCommentId) return
+
+  isLoadingDeepLinkPage = true
+  try {
+    while (
+      revision === deepLinkRevision
+      && !comments.value.some((comment) => comment.commentId === rootCommentId)
+      && hasNextPage.value
+    ) {
+      await fetchNextPage()
+      await nextTick()
+    }
+  } finally {
+    isLoadingDeepLinkPage = false
+  }
+}
+
+watch(
+  [() => props.targetCommentId, () => props.postId],
+  ([targetCommentId]) => {
+    deepLinkRevision += 1
+    deepLinkController?.abort()
+    deepLinkController = null
+    deepLinkCommentIds.value = []
+    if (!targetCommentId) return
+
+    const revision = deepLinkRevision
+    const controller = new AbortController()
+    deepLinkController = controller
+    void resolveDeepLinkPath(targetCommentId, revision, controller).catch(() => undefined)
+  },
+  { immediate: true },
+)
+
+watch([comments, hasNextPage, isLoading, deepLinkCommentIds], () => {
+  void loadDeepLinkRootPage()
+})
 
 function isNewComment(comment: Comment) {
   if (lastViewedTime.value == null) {
@@ -159,6 +231,9 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  deepLinkRevision += 1
+  deepLinkController?.abort()
+  deepLinkController = null
   readObserver?.disconnect()
   readObserver = null
   observedCommentElements.clear()
@@ -252,11 +327,12 @@ onBeforeUnmount(() => {
           <span>{{ $t('comment.readUntilHere') }}</span>
         </div>
         <CommentItem
-          v-memo="[postId, boardUrl, props.lastViewedAt, comment.commentId, comment.content, comment.likeCount, comment.createdAt, comment.isDeleted, comment.isBlinded, comment.isBlockedAuthor, comment.maskedAuthorId, comment.replyCount, comment.hasReplies]"
+          v-memo="[postId, boardUrl, props.lastViewedAt, comment.commentId, comment.content, comment.likeCount, comment.createdAt, comment.isDeleted, comment.isBlinded, comment.isBlockedAuthor, comment.maskedAuthorId, comment.replyCount, comment.hasReplies, deepLinkCommentIds.join(',')]"
           :comment="comment"
           :postId="postId"
           :boardUrl="boardUrl"
           :is-new-since-last-view="isNewComment(comment)"
+          :deep-link-comment-ids="deepLinkCommentIds"
           data-reading-comment
           @delete="handleDelete"
         />

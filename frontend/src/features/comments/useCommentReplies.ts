@@ -2,15 +2,24 @@ import { computed, ref, watch, type ComputedRef } from 'vue'
 import type { Comment } from '@/api/comment'
 import { useComment } from '@/features/comments/queries/useComment'
 
-export function useCommentReplies(comment: ComputedRef<Comment>) {
+export function useCommentReplies(
+  comment: ComputedRef<Comment>,
+  deepLinkCommentIds?: ComputedRef<readonly number[]>,
+) {
   const { useReplies } = useComment()
 
-  const isRepliesOpen = ref(!comment.value.isDeleted && Boolean(comment.value.hasReplies))
+  const isRepliesOpen = ref(false)
+  const openedForDeepLink = ref(false)
   const optimisticHasReplies = ref(false)
   const replyParams = ref({ page: 0, size: 50 })
   const loadedReplies = ref<Comment[]>([])
   const replyHasNext = ref(false)
   const commentId = computed(() => comment.value.commentId)
+  const deepLinkChildId = computed(() => {
+    const path = deepLinkCommentIds?.value ?? []
+    const currentIndex = path.indexOf(commentId.value)
+    return currentIndex >= 0 ? path[currentIndex + 1] : undefined
+  })
   const canLoadReplies = computed(() => !comment.value.isDeleted && Boolean(comment.value.hasReplies || optimisticHasReplies.value))
   const repliesEnabled = computed(() => isRepliesOpen.value && canLoadReplies.value)
 
@@ -21,11 +30,13 @@ export function useCommentReplies(comment: ComputedRef<Comment>) {
 
   function markReplyCreated() {
     optimisticHasReplies.value = true
+    openedForDeepLink.value = false
     isRepliesOpen.value = true
     replyParams.value = { ...replyParams.value, page: 0 }
   }
 
   function toggleReplies() {
+    openedForDeepLink.value = false
     isRepliesOpen.value = !isRepliesOpen.value
   }
 
@@ -59,6 +70,14 @@ export function useCommentReplies(comment: ComputedRef<Comment>) {
 
     replyHasNext.value = pageData.hasNext
 
+    if (
+      deepLinkChildId.value !== undefined
+      && !loadedReplies.value.some((reply) => reply.commentId === deepLinkChildId.value)
+      && replyHasNext.value
+    ) {
+      loadMoreReplies()
+    }
+
     if (!comment.value.hasReplies && !optimisticHasReplies.value && loadedReplies.value.length === 0) {
       optimisticHasReplies.value = false
       isRepliesOpen.value = false
@@ -70,22 +89,29 @@ export function useCommentReplies(comment: ComputedRef<Comment>) {
     replyParams.value = { ...replyParams.value, page: 0 }
     loadedReplies.value = []
     replyHasNext.value = false
-    isRepliesOpen.value = !comment.value.isDeleted && Boolean(comment.value.hasReplies)
+    openedForDeepLink.value = false
+    isRepliesOpen.value = false
   })
 
   watch(() => comment.value.hasReplies, (hasReplies) => {
-    if (!hasReplies && !optimisticHasReplies.value) {
-      optimisticHasReplies.value = false
-      loadedReplies.value = []
-      replyHasNext.value = false
-      isRepliesOpen.value = false
-      return
-    }
+    if (hasReplies || optimisticHasReplies.value) return
 
-    if (hasReplies && !comment.value.isDeleted) {
-      isRepliesOpen.value = true
-    }
+    optimisticHasReplies.value = false
+    loadedReplies.value = []
+    replyHasNext.value = false
+    openedForDeepLink.value = false
+    isRepliesOpen.value = false
   })
+
+  watch(deepLinkChildId, (childId) => {
+    if (childId !== undefined && !comment.value.isDeleted) {
+      openedForDeepLink.value = true
+      isRepliesOpen.value = true
+    } else if (openedForDeepLink.value) {
+      openedForDeepLink.value = false
+      isRepliesOpen.value = false
+    }
+  }, { immediate: true })
 
   watch(() => comment.value.isDeleted, (isDeleted) => {
     if (!isDeleted) {
@@ -95,6 +121,7 @@ export function useCommentReplies(comment: ComputedRef<Comment>) {
     optimisticHasReplies.value = false
     loadedReplies.value = []
     replyHasNext.value = false
+    openedForDeepLink.value = false
     isRepliesOpen.value = false
   })
 

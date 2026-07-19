@@ -139,7 +139,7 @@ describe('useMyPageDashboardResource', () => {
       commentId: 3,
       content: 'Comment',
       createdAt: '2026-05-20T10:00:00',
-      postLink: '/board/notice/post/9',
+      postLink: '/board/notice/post/9#comment-3',
       postTitle: 'Post title',
       boardLabel: 'Notice',
     }])

@@ -79,7 +79,7 @@ export function useMyPageDashboardResource(t: Translate) {
     content: comment.content,
     createdAt: comment.createdAt,
     postLink: comment.post
-      ? `/board/${encodePathSegment(comment.post.boardUrl)}/post/${encodePathSegment(comment.post.postId)}`
+      ? `/board/${encodePathSegment(comment.post.boardUrl)}/post/${encodePathSegment(comment.post.postId)}#comment-${encodePathSegment(comment.commentId)}`
       : null,
     postTitle: comment.post?.title ?? '',
     boardLabel: comment.post?.boardName ?? ''

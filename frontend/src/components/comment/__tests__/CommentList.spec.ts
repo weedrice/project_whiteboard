@@ -1,9 +1,9 @@
 import { ref, type Ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { mount, RouterLinkStub } from '@vue/test-utils'
+import { flushPromises, mount, RouterLinkStub } from '@vue/test-utils'
 import CommentList from '../CommentList.vue'
 
-const { authState, bestCommentsValue, commentsValue, commentsState, deleteComment, fetchNextPage, refetchComments } = vi.hoisted(() => ({
+const { authState, bestCommentsValue, commentsValue, commentsState, deleteComment, fetchNextPage, getComment, refetchComments } = vi.hoisted(() => ({
   authState: {
     isAuthenticated: true,
   },
@@ -20,6 +20,7 @@ const { authState, bestCommentsValue, commentsValue, commentsState, deleteCommen
   bestCommentsValue: [] as Array<{ commentId: number; content: string }>,
   deleteComment: vi.fn(),
   fetchNextPage: vi.fn(),
+  getComment: vi.fn(),
   refetchComments: vi.fn(),
 }))
 
@@ -54,6 +55,12 @@ vi.mock('@/composables/useConfirm', () => ({
   }),
 }))
 
+vi.mock('@/api/comment', () => ({
+  commentApi: {
+    getComment,
+  },
+}))
+
 vi.mock('@/features/comments/queries/useComment', () => ({
   useComment: () => ({
     useInfiniteComments: (_postId: Ref<string | number>, params: Ref<{ page: number; size: number; sort: string }>) => {
@@ -77,10 +84,11 @@ vi.mock('@/features/comments/queries/useComment', () => ({
   }),
 }))
 
-const mountCommentList = () => mount(CommentList, {
+const mountCommentList = (props: { targetCommentId?: number | null } = {}) => mount(CommentList, {
   props: {
     postId: 1,
     boardUrl: 'free',
+    ...props,
   },
   global: {
     mocks: {
@@ -95,8 +103,8 @@ const mountCommentList = () => mount(CommentList, {
       },
       CommentItem: {
         emits: ['delete'],
-        props: ['comment'],
-        template: '<div data-testid="comment-item" :data-comment-id="comment.commentId"><span>{{ comment.content }}</span><button type="button" data-testid="delete-comment" @click="$emit(\'delete\', comment)">delete</button></div>',
+        props: ['comment', 'deepLinkCommentIds'],
+        template: '<div data-testid="comment-item" :data-comment-id="comment.commentId" :data-deep-link-path="(deepLinkCommentIds || []).join(\',\')"><span>{{ comment.content }}</span><button type="button" data-testid="delete-comment" @click="$emit(\'delete\', comment)">delete</button></div>',
       },
       BaseSkeleton: true,
       BaseButton: {
@@ -119,6 +127,7 @@ describe('CommentList', () => {
     commentsState.hasNextPage = false
     fetchNextPage.mockClear()
     refetchComments.mockClear()
+    getComment.mockReset()
     commentsValue.content = [
       { commentId: 1, content: '첫 댓글' },
     ]
@@ -173,6 +182,22 @@ describe('CommentList', () => {
 
     expect(capturedCommentParams?.value).toEqual({ page: 0, size: 50, sort: 'createdAt,asc' })
     expect(fetchNextPage).toHaveBeenCalledTimes(1)
+  })
+
+  it('resolves a deep-link ancestry path and passes only that branch to comment items', async () => {
+    getComment
+      .mockResolvedValueOnce({
+        data: { success: true, data: { commentId: 11, parentId: 1, postId: 1 } },
+      })
+      .mockResolvedValueOnce({
+        data: { success: true, data: { commentId: 1, parentId: null, postId: 1 } },
+      })
+
+    const wrapper = mountCommentList({ targetCommentId: 11 })
+    await flushPromises()
+
+    expect(getComment).toHaveBeenCalledTimes(2)
+    expect(wrapper.get('[data-comment-id="1"]').attributes('data-deep-link-path')).toBe('1,11')
   })
 
   it('deletes comments with the current post id for scoped cache invalidation', async () => {

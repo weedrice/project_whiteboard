@@ -67,6 +67,12 @@ const {
 } = usePost()
 
 const postId = computed(() => route.params.postId as string)
+const targetCommentId = computed(() => {
+  const match = route.hash.match(/^#comment-(\d+)$/)
+  if (!match) return null
+  const value = Number(match[1])
+  return Number.isSafeInteger(value) && value > 0 ? value : null
+})
 type ActiveCommentTopic = NotificationStreamConnection & { postId: string }
 let activeCommentTopic: ActiveCommentTopic | null = null
 let commentTopicOperation = 0
@@ -481,6 +487,7 @@ onBeforeUnmount(() => {
                 :boardUrl="postView.boardUrl"
                 :last-viewed-at="postView.lastViewedAt"
                 :pending-comment-count="pendingCommentCount"
+                :target-comment-id="targetCommentId"
                 @refresh-comments="refreshComments"
                 @last-read-comment="setLastReadCommentId"
               />
