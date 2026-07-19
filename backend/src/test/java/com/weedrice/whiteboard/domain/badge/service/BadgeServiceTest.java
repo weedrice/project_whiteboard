@@ -10,17 +10,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.Pageable;
-
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -40,19 +36,24 @@ class BadgeServiceTest {
     }
 
     @Test
-    void backfillEvaluatesActiveUsersAsOnePageBatch() {
-        User active = mock(User.class);
-        User inactive = mock(User.class);
-        when(active.isActiveAccount()).thenReturn(true);
-        when(inactive.isActiveAccount()).thenReturn(false);
-        when(users.findAll(any(Pageable.class))).thenReturn(new PageImpl<>(List.of(active, inactive)));
-        when(evaluations.evaluateContentCountBadges(any())).thenReturn(3);
+    void backfillUsesStableKeysetBatches() {
+        List<User> firstBatch = usersFrom(1, 200);
+        List<User> secondBatch = usersFrom(201, 400);
+        List<User> lastBatch = usersFrom(401, 401);
+        when(users.findTop200ByUserIdGreaterThanOrderByUserIdAsc(0L)).thenReturn(firstBatch);
+        when(users.findTop200ByUserIdGreaterThanOrderByUserIdAsc(200L)).thenReturn(secondBatch);
+        when(users.findTop200ByUserIdGreaterThanOrderByUserIdAsc(400L)).thenReturn(lastBatch);
+        when(evaluations.evaluateContentCountBadges(firstBatch)).thenReturn(2);
+        when(evaluations.evaluateContentCountBadges(secondBatch)).thenReturn(3);
+        when(evaluations.evaluateContentCountBadges(lastBatch)).thenReturn(1);
 
         BadgeBackfillResponse response = service.backfillAll();
 
-        assertEquals(1L, response.getScannedUsers());
-        assertEquals(3L, response.getAwardedBadges());
-        verify(evaluations).evaluateContentCountBadges(argThat(activeUsers -> activeUsers.equals(List.of(active))));
+        assertEquals(401L, response.getScannedUsers());
+        assertEquals(6L, response.getAwardedBadges());
+        verify(users).findTop200ByUserIdGreaterThanOrderByUserIdAsc(0L);
+        verify(users).findTop200ByUserIdGreaterThanOrderByUserIdAsc(200L);
+        verify(users).findTop200ByUserIdGreaterThanOrderByUserIdAsc(400L);
     }
 
     @Test
@@ -72,5 +73,18 @@ class BadgeServiceTest {
         assertNull(service.getRepresentativeBadge(8L));
 
         verify(users).findByUserIdAndStatusAndDeletedAtIsNull(8L, User.STATUS_ACTIVE);
+    }
+
+    private List<User> usersFrom(int firstId, int lastId) {
+        return IntStream.rangeClosed(firstId, lastId)
+                .mapToObj(id -> {
+                    User user = mock(User.class);
+                    if (id == lastId) {
+                        when(user.getUserId()).thenReturn((long) id);
+                    }
+                    when(user.isActiveAccount()).thenReturn(true);
+                    return user;
+                })
+                .toList();
     }
 }

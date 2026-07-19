@@ -97,6 +97,7 @@ public interface UserRepository extends JpaRepository<User, Long>, UserRepositor
     List<User> findByIsSuperAdminTrue();
     List<User> findByIsSuperAdminTrueAndDeletedAtIsNull();
     List<User> findByIsSuperAdminTrueAndStatusAndDeletedAtIsNull(String status);
+    List<User> findTop200ByUserIdGreaterThanOrderByUserIdAsc(Long userId);
 
     @Query("""
             SELECT COUNT(u)

@@ -6,10 +6,8 @@ import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.security.CurrentUserId;
 import com.weedrice.whiteboard.global.security.SuperAdminPolicy;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -21,7 +19,6 @@ public class BadgeAdminController {
     private final SuperAdminPolicy superAdminPolicy;
 
     @PostMapping("/backfill")
-    @ResponseStatus(HttpStatus.ACCEPTED)
     public ApiResponse<BadgeBackfillResponse> backfillBadges(@CurrentUserId Long userId) {
         superAdminPolicy.requireUsableSuperAdmin(userId);
         return ApiResponse.success(badgeService.backfillAll());

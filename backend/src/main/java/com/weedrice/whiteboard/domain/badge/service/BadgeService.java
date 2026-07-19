@@ -12,9 +12,8 @@ import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -75,21 +74,27 @@ public class BadgeService {
         return BadgeCompactResponse.from(userBadge.getBadge());
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public BadgeBackfillResponse backfillAll() {
         long scannedUsers = 0L;
         long awardedBadges = 0L;
-        int page = 0;
-        Page<User> users;
-        do {
-            users = userRepository.findAll(PageRequest.of(page, BACKFILL_PAGE_SIZE));
-            List<User> activeUsers = users.getContent().stream()
+        long lastUserId = 0L;
+        while (true) {
+            List<User> users = userRepository
+                    .findTop200ByUserIdGreaterThanOrderByUserIdAsc(lastUserId);
+            if (users.isEmpty()) {
+                break;
+            }
+            List<User> activeUsers = users.stream()
                     .filter(User::isActiveAccount)
                     .toList();
             scannedUsers += activeUsers.size();
             awardedBadges += badgeEvaluationService.evaluateContentCountBadges(activeUsers);
-            page++;
-        } while (users.hasNext());
+            lastUserId = users.getLast().getUserId();
+            if (users.size() < BACKFILL_PAGE_SIZE) {
+                break;
+            }
+        }
         return BadgeBackfillResponse.builder()
                 .scannedUsers(scannedUsers)
                 .awardedBadges(awardedBadges)
