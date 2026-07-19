@@ -345,7 +345,7 @@ async function handleCreateSeries() {
 }
 
 function onBeforeUnload(event: BeforeUnloadEvent) {
-  if (!hasUnsavedChanges.value) return
+  if (!hasUnsavedChanges.value && !isSubmitting.value && !isSubmissionLocked.value) return
   event.preventDefault()
   event.returnValue = leaveConfirmMessage.value
   return leaveConfirmMessage.value
@@ -507,6 +507,7 @@ const { handleSubmit, isSubmissionLocked } = usePostComposerSubmit({
 })
 
 function handleCancel() {
+  if (isSubmitting.value || isSubmissionLocked.value) return
   emit('cancel')
 }
 
@@ -569,6 +570,7 @@ function assignVideoPopover(value: Element | ComponentPublicInstance | null) {
 
 defineExpose({
   hasUnsavedChanges: () => hasUnsavedChanges.value,
+  isSubmissionInProgress: () => isSubmissionLocked.value,
   getLeaveConfirmMessage: () => leaveConfirmMessage.value,
 })
 </script>
@@ -611,56 +613,63 @@ defineExpose({
         class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_18.5rem]"
         @submit.prevent="handleSubmit"
       >
-        <PostFormMainSection
-          :title="form.title"
-          :title-max-length="POST_TITLE_MAX_LENGTH"
-          :content="form.content"
-          :title-error="postValidation.visibleError('title')"
-          :tags="form.tags"
-          :poll="form.poll"
-          :poll-read-only="props.mode === 'edit' && !scheduledPostId"
-          :hide-tags="props.hideTags"
-          :metadata-panel-props="metadataPanelProps"
-          :metadata-panel-handlers="metadataPanelHandlers"
-          :editor-view-mode="editorViewMode"
-          :editor-view-options="editorViewOptions"
-          :upload-owner-identity="formIdentity"
-          :show-video-popover="showVideoPopover"
-          :show-emoticon-picker="showEmoticonPicker"
-          :video-url="videoUrl"
-          :video-popover-style="videoPopoverStyle"
-          :assign-tiptap-editor="assignTiptapEditor"
-          :assign-editor-wrapper="assignEditorWrapper"
-          :assign-video-popover="assignVideoPopover"
-          @update:title="form.title = $event"
-          @update:content="form.content = $event"
-          @blur-title="postValidation.touchField('title', postRequiredValues)"
-          @update:tags="form.tags = $event"
-          @update:poll="form.poll = $event"
-          @update:editor-view-mode="handleEditorViewModeChange"
-          @update:show-emoticon-picker="showEmoticonPicker = $event"
-          @update:video-url="videoUrl = $event"
-          @open-video="openVideoPopover"
-          @close-video="closeVideoPopover"
-          @insert-video="insertVideoFromPopover"
-          @select-emoticon="handleEmoticonSelect"
-          @file-uploaded="handleEditorFileUploaded"
-          @open-poll="openPollEditor"
-        />
+        <fieldset
+          class="contents"
+          :disabled="isSubmitting || isSubmissionLocked"
+          :inert="isSubmitting || isSubmissionLocked"
+          :aria-busy="isSubmitting || isSubmissionLocked"
+        >
+          <PostFormMainSection
+            :title="form.title"
+            :title-max-length="POST_TITLE_MAX_LENGTH"
+            :content="form.content"
+            :title-error="postValidation.visibleError('title')"
+            :tags="form.tags"
+            :poll="form.poll"
+            :poll-read-only="props.mode === 'edit' && !scheduledPostId"
+            :hide-tags="props.hideTags"
+            :metadata-panel-props="metadataPanelProps"
+            :metadata-panel-handlers="metadataPanelHandlers"
+            :editor-view-mode="editorViewMode"
+            :editor-view-options="editorViewOptions"
+            :upload-owner-identity="formIdentity"
+            :show-video-popover="showVideoPopover"
+            :show-emoticon-picker="showEmoticonPicker"
+            :video-url="videoUrl"
+            :video-popover-style="videoPopoverStyle"
+            :assign-tiptap-editor="assignTiptapEditor"
+            :assign-editor-wrapper="assignEditorWrapper"
+            :assign-video-popover="assignVideoPopover"
+            @update:title="form.title = $event"
+            @update:content="form.content = $event"
+            @blur-title="postValidation.touchField('title', postRequiredValues)"
+            @update:tags="form.tags = $event"
+            @update:poll="form.poll = $event"
+            @update:editor-view-mode="handleEditorViewModeChange"
+            @update:show-emoticon-picker="showEmoticonPicker = $event"
+            @update:video-url="videoUrl = $event"
+            @open-video="openVideoPopover"
+            @close-video="closeVideoPopover"
+            @insert-video="insertVideoFromPopover"
+            @select-emoticon="handleEmoticonSelect"
+            @file-uploaded="handleEditorFileUploaded"
+            @open-poll="openPollEditor"
+          />
 
-        <PostFormSidePanel
-          :metadata-panel-props="metadataPanelProps"
-          :metadata-panel-handlers="metadataPanelHandlers"
-          :draft-status-label="draftStatusLabel"
-          :draft-enabled="draftEnabled"
-          :is-saving-draft="isSavingDraft"
-          :draft-conflict="draftConflict"
-          :scheduled-at="scheduledAt"
-          :show-scheduler="props.mode === 'create' || Boolean(scheduledPostId)"
-          @save-draft="handleSaveDraft"
-          @reload-server-draft="handleReloadServerDraft"
-          @update:scheduled-at="scheduledAt = $event"
-        />
+          <PostFormSidePanel
+            :metadata-panel-props="metadataPanelProps"
+            :metadata-panel-handlers="metadataPanelHandlers"
+            :draft-status-label="draftStatusLabel"
+            :draft-enabled="draftEnabled"
+            :is-saving-draft="isSavingDraft"
+            :draft-conflict="draftConflict"
+            :scheduled-at="scheduledAt"
+            :show-scheduler="props.mode === 'create' || Boolean(scheduledPostId)"
+            @save-draft="handleSaveDraft"
+            @reload-server-draft="handleReloadServerDraft"
+            @update:scheduled-at="scheduledAt = $event"
+          />
+        </fieldset>
       </form>
     </div>
 
@@ -674,12 +683,20 @@ defineExpose({
         variant="secondary"
         size="sm"
         class="min-h-[36px] w-full"
+        :disabled="isSubmitting || isSubmissionLocked"
         @click="handleReloadServerDraft"
       >
         {{ $t('board.writePost.draftStatus.reloadServer') }}
       </BaseButton>
       <div class="flex items-center gap-2">
-        <BaseButton type="button" variant="secondary" size="sm" class="min-h-[40px]" @click="handleCancel">
+        <BaseButton
+          type="button"
+          variant="secondary"
+          size="sm"
+          class="min-h-[40px]"
+          :disabled="isSubmitting || isSubmissionLocked"
+          @click="handleCancel"
+        >
           {{ $t('common.cancel') }}
         </BaseButton>
         <BaseButton
@@ -688,6 +705,7 @@ defineExpose({
           variant="secondary"
           size="sm"
           class="min-h-[40px] flex-1"
+          :disabled="isSubmitting || isSubmissionLocked"
           @click="showPreview = true"
         >
           {{ $t('board.writePost.actions.preview') }}
@@ -698,7 +716,7 @@ defineExpose({
           variant="secondary"
           size="sm"
           class="min-h-[40px] flex-1"
-          :disabled="isSavingDraft || isSubmissionLocked"
+          :disabled="isSavingDraft || isSubmitting || isSubmissionLocked"
           @click="handleSaveDraft"
         >
           {{ isSavingDraft ? $t('board.writePost.draftStatus.saving') : $t('board.writePost.actions.saveDraft') }}
@@ -709,7 +727,7 @@ defineExpose({
           size="sm"
           class="min-h-[40px] flex-1"
           :loading="isSubmitting || isSubmissionLocked"
-          :disabled="isSavingDraft || isSubmissionLocked"
+          :disabled="isSavingDraft || isSubmitting || isSubmissionLocked"
           @click="handleSubmit"
         >
           {{ scheduledAt ? $t('board.writePost.actions.schedule') : submitLabel }}
@@ -721,7 +739,7 @@ defineExpose({
         variant="secondary"
         size="sm"
         class="mt-2 min-h-[36px] w-full"
-        :disabled="isSavingDraft || isSubmissionLocked"
+        :disabled="isSavingDraft || isSubmitting || isSubmissionLocked"
         @click="handleSaveDraft"
       >
         {{ isSavingDraft ? $t('board.writePost.draftStatus.saving') : $t('board.writePost.actions.saveDraft') }}

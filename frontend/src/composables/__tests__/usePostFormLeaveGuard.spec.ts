@@ -31,6 +31,37 @@ describe('usePostFormLeaveGuard', () => {
         expect(result).toBe(true)
     })
 
+    it('blocks navigation without prompting while a server mutation is in progress', async () => {
+        const postFormRef = ref({
+            hasUnsavedChanges: () => true,
+            isSubmissionInProgress: () => true,
+        })
+        const confirmLeave = vi.fn().mockResolvedValue(true)
+
+        usePostFormLeaveGuard(postFormRef, 'fallback', confirmLeave)
+
+        const result = await runGuard()
+
+        expect(confirmLeave).not.toHaveBeenCalled()
+        expect(result).toBe(false)
+    })
+
+    it('allows the success navigation after the submitted snapshot is marked saved', async () => {
+        const postFormRef = ref({
+            hasUnsavedChanges: () => false,
+            isSubmissionInProgress: () => true,
+            consumeSuccessfulSubmissionNavigation: vi.fn().mockReturnValue(true),
+        })
+        const confirmLeave = vi.fn()
+
+        usePostFormLeaveGuard(postFormRef, 'fallback', confirmLeave)
+
+        const result = await runGuard()
+
+        expect(confirmLeave).not.toHaveBeenCalled()
+        expect(result).toBe(true)
+    })
+
     it('blocks navigation when confirm rejects leaving', async () => {
         const postFormRef = ref({
             hasUnsavedChanges: () => true,

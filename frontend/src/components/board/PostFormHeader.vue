@@ -29,13 +29,13 @@ defineEmits<{
     </div>
 
     <div class="flex flex-wrap items-center justify-end gap-2">
-      <BaseButton type="button" variant="secondary" size="sm" @click="$emit('cancel')">
+      <BaseButton type="button" variant="secondary" size="sm" :disabled="isSubmitting" @click="$emit('cancel')">
         {{ $t('common.cancel') }}
       </BaseButton>
-      <BaseButton v-if="!hidePreview" type="button" variant="secondary" size="sm" @click="$emit('preview')">
+      <BaseButton v-if="!hidePreview" type="button" variant="secondary" size="sm" :disabled="isSubmitting" @click="$emit('preview')">
         {{ $t('board.writePost.actions.preview') }}
       </BaseButton>
-      <BaseButton type="button" variant="primary" size="sm" :loading="isSubmitting" @click="$emit('submit')">
+      <BaseButton type="button" variant="primary" size="sm" :loading="isSubmitting" :disabled="isSubmitting" @click="$emit('submit')">
         {{ submitLabel }}
       </BaseButton>
     </div>

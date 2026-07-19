@@ -88,8 +88,12 @@ const BaseCheckboxStub = defineComponent({
 
 const BaseButtonStub = defineComponent({
   name: 'BaseButton',
-  setup(_, { slots }) {
-    return () => h('button', slots.default?.())
+  props: {
+    type: { type: String, default: 'button' },
+    disabled: { type: Boolean, default: false },
+  },
+  setup(props, { slots }) {
+    return () => h('button', { type: props.type, disabled: props.disabled }, slots.default?.())
   },
 })
 
@@ -176,6 +180,39 @@ describe('BoardForm', () => {
 
     const submit = wrapper.emitted('submit')?.[0]?.[0] as { agentUseYn: boolean }
     expect(submit.agentUseYn).toBe(false)
+  })
+
+  it('locks editable board fields while a save request is pending', () => {
+    const wrapper = mount(BoardForm, {
+      props: {
+        isEdit: true,
+        isSubmitting: true,
+      },
+      global: {
+        mocks: {
+          $t: (key: string) => key,
+        },
+        stubs: {
+          BaseInput: BaseInputStub,
+          BaseTextarea: BaseTextareaStub,
+          BaseCheckbox: BaseCheckboxStub,
+          BaseButton: BaseButtonStub,
+        },
+      },
+    })
+
+    expect(wrapper.get('fieldset').attributes()).toMatchObject({
+      disabled: '',
+      inert: 'true',
+      'aria-busy': 'true',
+    })
+    expect(wrapper.get('button[type="submit"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.findAll('button').every((button) => button.attributes('disabled') !== undefined)).toBe(true)
+    expect((wrapper.vm as unknown as { isSubmissionInProgress: () => boolean }).isSubmissionInProgress()).toBe(true)
+
+    const unloadEvent = new Event('beforeunload', { cancelable: true }) as BeforeUnloadEvent
+    window.dispatchEvent(unloadEvent)
+    expect(unloadEvent.defaultPrevented).toBe(true)
   })
 
   it('keeps board URL input to lowercase letters, numbers, underscores, and hyphens on create', async () => {

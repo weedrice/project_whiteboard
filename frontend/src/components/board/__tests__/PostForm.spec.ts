@@ -36,6 +36,7 @@ import { whenPwaReloadSafe } from '@/pwaReloadGuard'
 
 type PostFormExposed = {
     hasUnsavedChanges: () => boolean
+    isSubmissionInProgress: () => boolean
     getLeaveConfirmMessage: () => string
 }
 
@@ -619,10 +620,11 @@ describe('PostForm', () => {
 
         const escapeForCancel = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true })
         document.dispatchEvent(escapeForCancel)
-        expect(wrapper.emitted('cancel')).toHaveLength(1)
+        expect(wrapper.emitted('cancel')).toBeUndefined()
 
         const exposed = getExposedVm<PostFormExposed>(wrapper)
         expect(exposed.hasUnsavedChanges()).toBe(true)
+        expect(exposed.isSubmissionInProgress()).toBe(true)
         expect(exposed.getLeaveConfirmMessage()).toBe('board.writePost.leaveConfirm')
 
         const beforeUnloadEvent = new Event('beforeunload', { cancelable: true }) as BeforeUnloadEvent
@@ -696,6 +698,11 @@ describe('PostForm', () => {
         const createWrapper = mountPostForm('create')
         await nextTick()
         expect(createWrapper.text()).toContain('board.writePost.submitting')
+        expect(createWrapper.get('form fieldset').attributes()).toMatchObject({
+            disabled: '',
+            inert: 'true',
+            'aria-busy': 'true',
+        })
 
         isCreatePendingRef.value = false
         isUpdatePendingRef.value = true
@@ -711,6 +718,31 @@ describe('PostForm', () => {
         const editWrapper = mountPostForm('edit')
         await nextTick()
         expect(editWrapper.text()).toContain('board.writePost.updating')
+    })
+
+    it('locks every composer field after a submit starts', async () => {
+        const wrapper = mountPostForm('create')
+        await fillPostForm(wrapper)
+
+        await submitPostForm(wrapper)
+
+        expect(mockCreateMutate).toHaveBeenCalledOnce()
+        expect(wrapper.get('form fieldset').attributes()).toMatchObject({
+            disabled: '',
+            inert: 'true',
+            'aria-busy': 'true',
+        })
+        const cancelButtons = wrapper.findAll('button')
+            .filter((button) => button.text().includes('common.cancel'))
+        expect(cancelButtons).not.toHaveLength(0)
+        expect(cancelButtons.every((button) => button.attributes('disabled') !== undefined)).toBe(true)
+        await cancelButtons[0]?.trigger('click')
+        expect(wrapper.emitted('cancel')).toBeUndefined()
+        expect((wrapper.vm as unknown as { isSubmissionInProgress: () => boolean }).isSubmissionInProgress()).toBe(true)
+
+        const unloadEvent = new Event('beforeunload', { cancelable: true }) as BeforeUnloadEvent
+        window.dispatchEvent(unloadEvent)
+        expect(unloadEvent.defaultPrevented).toBe(true)
     })
 
     it('uses wrapper fallback popover position and rejects unsupported video URLs', async () => {

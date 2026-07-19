@@ -173,6 +173,45 @@ describe('CommentForm', () => {
     expect(updateComment).not.toHaveBeenCalled()
   })
 
+  it('locks comment editing and cancellation while a create request is pending', async () => {
+    const wrapper = mountCommentForm({ parentId: 20 })
+    isCreating.value = true
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.get('form').attributes()).toMatchObject({
+      inert: 'true',
+      'aria-busy': 'true',
+    })
+    expect(wrapper.get('textarea').attributes('disabled')).toBeDefined()
+    expect(wrapper.findAll('button').every((button) => button.attributes('disabled') !== undefined)).toBe(true)
+  })
+
+  it('closes transient mention and emoticon controls when submission starts', async () => {
+    apiMocks.getMentionCandidates.mockResolvedValueOnce({
+      data: {
+        success: true,
+        data: [
+          { userId: 7, displayName: 'Alice', profileImageUrl: null },
+        ],
+      },
+    })
+    const wrapper = mountCommentForm()
+    const textarea = wrapper.get('textarea')
+
+    await wrapper.get('button[aria-label="board.writePost.toolbar.emoticon"]').trigger('click')
+    await textarea.setValue('hello @al')
+    const textareaElement = textarea.element as HTMLTextAreaElement
+    textareaElement.setSelectionRange(textareaElement.value.length, textareaElement.value.length)
+    await textarea.trigger('keyup')
+    await flushPromises()
+    expect(textarea.attributes('aria-expanded')).toBe('true')
+
+    await wrapper.get('form').trigger('submit')
+
+    expect(textarea.attributes('aria-expanded')).toBe('false')
+    expect(wrapper.get('button[aria-label="board.writePost.toolbar.emoticon"]').attributes('aria-pressed')).toBe('false')
+  })
+
   it('trims content before creating a comment', async () => {
     const wrapper = mountCommentForm({ parentId: 20 })
 

@@ -93,6 +93,7 @@ const {
 })
 
 const isSubmitting = computed(() => props.isSubmitting || localIsSubmitting.value)
+let allowSuccessfulRouteLeave = false
 const hasUnsavedChangesState = computed(() => (
   selectedFile.value !== savedSelectedFile.value || formSnapshot(form.value) !== savedSnapshot.value
 ))
@@ -109,10 +110,23 @@ function hasUnsavedChanges() {
 function markCurrentSnapshotSaved() {
   savedSnapshot.value = formSnapshot(form.value)
   savedSelectedFile.value = selectedFile.value
+  allowSuccessfulRouteLeave = true
+}
+
+function consumeSuccessfulSubmissionNavigation() {
+  if (!allowSuccessfulRouteLeave) return false
+  allowSuccessfulRouteLeave = false
+  return true
+}
+
+function handleCancel() {
+  if (isSubmitting.value) return
+  cancelSubmission()
+  emit('cancel')
 }
 
 function handleBeforeUnload(event: BeforeUnloadEvent) {
-  if (!hasUnsavedChanges()) return
+  if (!hasUnsavedChanges() && !isSubmitting.value) return
   event.preventDefault()
   event.returnValue = ''
 }
@@ -123,6 +137,8 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', handleBeforeUnl
 
 defineExpose({
   hasUnsavedChanges,
+  isSubmissionInProgress: () => isSubmitting.value,
+  consumeSuccessfulSubmissionNavigation,
   markCurrentSnapshotSaved,
 })
 </script>
@@ -138,7 +154,12 @@ defineExpose({
       </div>
     </div>
 
-    <div class="grid grid-cols-1 gap-y-8 gap-x-4 sm:grid-cols-6">
+    <fieldset
+      class="grid grid-cols-1 gap-y-8 gap-x-4 sm:grid-cols-6"
+      :disabled="isSubmitting"
+      :inert="isSubmitting"
+      :aria-busy="isSubmitting"
+    >
 
       <!-- Board Name + Icon Upload Row -->
       <div class="sm:col-span-6 flex items-end gap-4">
@@ -212,7 +233,7 @@ defineExpose({
           labelClass="text-base"
         />
       </div>
-    </div>
+    </fieldset>
 
     <div class="flex justify-end space-x-3 items-center">
       <div v-if="!isEdit" class="flex items-center mr-2 text-sm"
@@ -228,10 +249,10 @@ defineExpose({
         <span class="mx-2 nv-text-subtle">|</span>
         <span>{{ $t('board.form.currentPoints') }}: {{ userPoints }} P</span>
       </div>
-      <BaseButton type="button" variant="secondary" @click="cancelSubmission(); emit('cancel')">
+      <BaseButton type="button" variant="secondary" :disabled="isSubmitting" @click="handleCancel">
         {{ $t('common.cancel') }}
       </BaseButton>
-      <BaseButton type="submit" variant="primary" :loading="isSubmitting" :disabled="!isEdit && !canCreate">
+      <BaseButton type="submit" variant="primary" :loading="isSubmitting" :disabled="isSubmitting || (!isEdit && !canCreate)">
         {{ isEdit ? $t('board.form.save') : $t('board.form.create') }}
       </BaseButton>
     </div>

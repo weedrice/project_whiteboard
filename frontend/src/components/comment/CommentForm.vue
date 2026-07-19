@@ -213,6 +213,9 @@ async function handleSubmit() {
   if (!await commentValidation.validateAll(commentValues.value)) return
   if (!canSubmit.value) return
 
+  showEmoticonPicker.value = false
+  closeMentionMenu()
+
   if (props.commentId) {
     // Update existing comment
     const payload: CommentPayload = { content: trimmedContent.value }
@@ -253,11 +256,17 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <form @submit.prevent="handleSubmit" class="mt-3 sm:mt-4 text-sm sm:text-base">
+  <form
+    class="mt-3 sm:mt-4 text-sm sm:text-base"
+    :inert="isSubmitting"
+    :aria-busy="isSubmitting"
+    @submit.prevent="handleSubmit"
+  >
     <div class="relative">
       <BaseTextarea ref="textareaRoot" :id="textareaId" v-model="content" rows="3" maxlength="1000" name="comment-content"
         :label="parentId ? $t('comment.writeReply') : $t('comment.writeComment')"
         :placeholder="parentId ? $t('comment.writeReply') : $t('comment.writeComment')" required hideLabel
+        :disabled="isSubmitting"
         :error="commentValidation.visibleError('content')"
         role="combobox"
         aria-autocomplete="list"
@@ -298,6 +307,7 @@ async function handleSubmit() {
         <button
           v-if="authStore.isAuthenticated && !commentId"
           type="button"
+          :disabled="isSubmitting"
           @click="showEmoticonPicker = !showEmoticonPicker"
           class="inline-flex items-center justify-center px-2 py-1.5 sm:px-3 sm:py-1.5 text-xs sm:text-sm nv-text-muted nv-hover-surface hover:text-[var(--nv-accent)] rounded-lg transition-colors"
           :class="{ 'text-[var(--nv-accent)] nv-active-surface': showEmoticonPicker }"
@@ -310,7 +320,7 @@ async function handleSubmit() {
       </div>
       
       <div class="flex items-center">
-        <BaseButton v-if="parentId" type="button" @click="emit('cancel')" variant="secondary" size="sm" class="mr-3">
+        <BaseButton v-if="parentId" type="button" :disabled="isSubmitting" @click="emit('cancel')" variant="secondary" size="sm" class="mr-3">
           {{ $t('common.cancel') }}
         </BaseButton>
         <BaseButton type="submit" :loading="isSubmitting" :disabled="!canSubmit" variant="primary" size="sm">
