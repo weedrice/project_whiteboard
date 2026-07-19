@@ -18,6 +18,7 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -62,11 +63,14 @@ public class AttendanceService {
         List<UserAttendance> attendances = attendanceRepository
                 .findByUser_UserIdAndAttendanceDateBetweenOrderByAttendanceDateAsc(userId, startDate, endDate);
 
-        boolean checkedInToday = attendances.stream()
-                .anyMatch(attendance -> attendance.getAttendanceDate().equals(today));
-        int currentStreakCount = attendanceRepository.findTopByUser_UserIdAndAttendanceDateBeforeOrderByAttendanceDateDesc(
+        Optional<UserAttendance> latestAttendance = attendanceRepository
+                .findTopByUser_UserIdAndAttendanceDateBeforeOrderByAttendanceDateDesc(
                         userId,
-                        today.plusDays(1))
+                        today.plusDays(1));
+        boolean checkedInToday = latestAttendance
+                .filter(attendance -> attendance.getAttendanceDate().equals(today))
+                .isPresent();
+        int currentStreakCount = latestAttendance
                 .filter(attendance -> !attendance.getAttendanceDate().isBefore(today.minusDays(1)))
                 .map(UserAttendance::getStreakCount)
                 .orElse(0);

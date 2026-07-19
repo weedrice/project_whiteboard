@@ -146,4 +146,20 @@ class AttendanceServiceTest {
         assertFalse(response.isCheckedInToday());
         assertEquals(0, response.getCurrentStreakCount());
     }
+
+    @Test
+    void requestedPastMonthStillReportsTodaysCheckIn() {
+        User user = mock(User.class);
+        UserAttendance today = new UserAttendance(user, TODAY, 4);
+        when(attendances.findByUser_UserIdAndAttendanceDateBetweenOrderByAttendanceDateAsc(
+                7L, LocalDate.of(2025, 12, 1), LocalDate.of(2025, 12, 31))).thenReturn(List.of());
+        when(attendances.findTopByUser_UserIdAndAttendanceDateBeforeOrderByAttendanceDateDesc(
+                7L, TODAY.plusDays(1))).thenReturn(Optional.of(today));
+
+        var response = service.getMyAttendance(7L, YearMonth.of(2025, 12));
+
+        assertTrue(response.isCheckedInToday());
+        assertEquals(4, response.getCurrentStreakCount());
+        assertTrue(response.getDays().isEmpty());
+    }
 }
