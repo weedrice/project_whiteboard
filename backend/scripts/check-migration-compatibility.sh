@@ -172,10 +172,10 @@ validate_online_indexes() {
       echo "Online index migration requires a lock_timeout between 1s and 10s: $file" >&2
       return 1
     }
-    [ -f "$sidecar" ] && [ "$(tr -d '\r' < "$sidecar")" = 'executeInTransaction=false' ] || {
+    if ! { [ -f "$sidecar" ] && [ "$(tr -d '\r' < "$sidecar")" = 'executeInTransaction=false' ]; }; then
       echo "Online index migration requires an exact Flyway non-transactional sidecar: $sidecar" >&2
       return 1
-    }
+    fi
   elif [ -f "$sidecar" ]; then
     echo "Flyway transaction sidecar is only allowed for a migration with an online index: $sidecar" >&2
     return 1
@@ -255,13 +255,15 @@ validate_contract_evidence_manifest() {
     echo "Contract evidence file is not tracked: $evidence_file" >&2
     exit 1
   }
-  grep -Fqx -- "migration=$migration_name" "$evidence_file" \
-    && grep -Fqx -- "repository=$repository" "$evidence_file" \
-    && grep -Fqx -- "run_url=$deployment_run" "$evidence_file" \
-    && grep -Fqx -- "deployed_sha=$deployment_sha" "$evidence_file" || {
-      echo "Contract evidence manifest does not match its allowlist entry: $migration_name" >&2
-      exit 1
-    }
+  if ! {
+    grep -Fqx -- "migration=$migration_name" "$evidence_file" \
+      && grep -Fqx -- "repository=$repository" "$evidence_file" \
+      && grep -Fqx -- "run_url=$deployment_run" "$evidence_file" \
+      && grep -Fqx -- "deployed_sha=$deployment_sha" "$evidence_file"
+  }; then
+    echo "Contract evidence manifest does not match its allowlist entry: $migration_name" >&2
+    exit 1
+  fi
   [ "$(grep -Ec '^(migration|repository|run_url|deployed_sha)=' "$evidence_file")" -eq 4 ] || {
     echo "Contract evidence manifest has missing or duplicate fields: $migration_name" >&2
     exit 1

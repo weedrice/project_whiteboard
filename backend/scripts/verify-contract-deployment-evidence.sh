@@ -46,6 +46,8 @@ IFS=$'\t' read -r status database_identifier created_at snapshot_type snapshot_a
 case "$engine_version" in "$expected_engine_major"|"$expected_engine_major".*) ;; *) fail "snapshot engine major version differs" ;; esac
 case "$snapshot_arn" in arn:aws*:rds:"$expected_region":"$expected_account":snapshot:*) ;; *) fail "snapshot ARN belongs to a different account or region" ;; esac
 
+# The single-quoted JMESPath expression deliberately protects AWS query backticks from Bash.
+# shellcheck disable=SC2016
 tag_record="$(aws rds list-tags-for-resource --resource-name "$snapshot_arn" \
   --query 'Tags[?Key==`noviis:deployment-sha` || Key==`noviis:change-ticket` || Key==`noviis:contract-consumed`].[Key,Value]' \
   --output text)" || fail "snapshot tag lookup failed"
