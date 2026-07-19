@@ -1,7 +1,8 @@
 package com.weedrice.whiteboard.domain.notification.service;
 
-import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.admin.repository.AdminRepository;
+import com.weedrice.whiteboard.domain.comment.entity.Comment;
+import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.notification.constant.NotificationSourceType;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.post.entity.Post;
@@ -109,6 +110,25 @@ class MentionServiceTest {
         service.publishMentions(actor, null, NotificationSourceType.POST, 10L, List.of(2L));
 
         verify(events, never()).publishEvent(any());
+    }
+
+    @Test
+    void commentMentionUsesVisibleCommentPostForAccessCheck() {
+        User actor = user(1L, "Actor", User.STATUS_ACTIVE);
+        User recipient = user(2L, "Recipient", User.STATUS_ACTIVE);
+        Post sourcePost = post(10L);
+        Comment sourceComment = mock(Comment.class);
+        when(sourceComment.getIsBlinded()).thenReturn(false);
+        when(sourceComment.getPost()).thenReturn(sourcePost);
+        when(comments.findNonDeletedByIdWithRelations(20L)).thenReturn(java.util.Optional.of(sourceComment));
+        when(users.findAllById(List.of(2L))).thenReturn(List.of(recipient));
+        when(blocks.findBlockedCandidateUserIdsEitherDirection(1L, List.of(2L))).thenReturn(List.of());
+        when(postAccessPolicy.isReadable(sourcePost, recipient, false, java.util.Set.of())).thenReturn(true);
+
+        service.publishMentions(actor, null, NotificationSourceType.COMMENT, 20L, List.of(2L));
+
+        verify(postAccessPolicy).isReadable(sourcePost, recipient, false, java.util.Set.of());
+        verify(events).publishEvent(any(NotificationEvent.class));
     }
 
     @Test
