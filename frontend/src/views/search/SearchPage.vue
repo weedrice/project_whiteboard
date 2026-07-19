@@ -149,25 +149,10 @@
             <BaseSpinner size="md" />
           </div>
 
-          <section
+          <SemanticSearchResults
             v-if="keywordResultsEmpty && semanticResults.length > 0"
-            class="min-w-0 space-y-3"
-          >
-            <h2 class="text-lg font-semibold nv-title mb-4 flex items-center gap-2">
-              <Search class="w-5 h-5" />
-              {{ $t('search.semanticRelated') }}
-            </h2>
-            <RouterLink
-              v-for="result in semanticResults"
-              :key="`${result.contentType}-${result.contentId}`"
-              :to="{ name: 'post-detail', params: { boardUrl: result.boardUrl, postId: result.postId } }"
-              class="block min-w-0 rounded-md border nv-border p-4 nv-surface nv-hover-surface"
-            >
-              <p class="truncate text-sm font-semibold nv-title">{{ result.title }}</p>
-              <p class="mt-1 line-clamp-2 text-sm nv-text-subtle">{{ result.excerpt }}</p>
-              <p class="mt-2 text-xs nv-accent-text">{{ result.boardName }}</p>
-            </RouterLink>
-          </section>
+            :results="semanticResults"
+          />
 
           <!-- Board Results -->
           <div v-if="boards.length > 0" class="min-w-0">
@@ -252,25 +237,10 @@
             :link-builder="buildSearchPageLink"
           />
 
-          <section
+          <SemanticSearchResults
             v-if="!keywordResultsEmpty && semanticResults.length > 0"
-            class="min-w-0 space-y-3"
-          >
-            <h2 class="text-lg font-semibold nv-title mb-4 flex items-center gap-2">
-              <Search class="w-5 h-5" />
-              {{ $t('search.semanticRelated') }}
-            </h2>
-            <RouterLink
-              v-for="result in semanticResults"
-              :key="`${result.contentType}-${result.contentId}`"
-              :to="{ name: 'post-detail', params: { boardUrl: result.boardUrl, postId: result.postId } }"
-              class="block min-w-0 rounded-md border nv-border p-4 nv-surface nv-hover-surface"
-            >
-              <p class="truncate text-sm font-semibold nv-title">{{ result.title }}</p>
-              <p class="mt-1 line-clamp-2 text-sm nv-text-subtle">{{ result.excerpt }}</p>
-              <p class="mt-2 text-xs nv-accent-text">{{ result.boardName }}</p>
-            </RouterLink>
-          </section>
+            :results="semanticResults"
+          />
         </div>
       </div>
       <aside class="w-full min-w-0 space-y-4 md:w-72 md:shrink-0 lg:w-80">
@@ -416,6 +386,7 @@ import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseSelect from '@/components/common/ui/BaseSelect.vue'
 import UserAvatar from '@/components/common/ui/UserAvatar.vue'
+import SemanticSearchResults from '@/components/search/SemanticSearchResults.vue'
 import Pagination from '@/components/common/ui/Pagination.vue'
 import { Search, Layout, MessageSquare, User } from 'lucide-vue-next'
 import { isInquiryPostItem, resolveBoardRoute, resolvePostDetailRoute } from '@/utils/postNavigation'
