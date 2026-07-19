@@ -167,6 +167,7 @@ export const routes: RouteRecordRaw[] = [
             { path: 'reports', name: 'ReportManagement', component: () => import('@/views/admin/ReportManagement.vue') },
             { path: 'security', name: 'SecuritySettings', component: () => import('@/views/admin/SecuritySettings.vue') },
             { path: 'settings', name: 'GlobalSettings', component: () => import('@/views/admin/GlobalSettings.vue') },
+            { path: 'common-codes', name: 'CommonCodeManagement', component: () => import('@/views/admin/CommonCodeManagement.vue') },
             { path: 'error-logs', name: 'ErrorLogManagement', component: () => import('@/views/admin/ErrorLogManagement.vue') },
             { path: '', redirect: '/admin/dashboard' },
         ],

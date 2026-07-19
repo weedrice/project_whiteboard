@@ -25,6 +25,7 @@ export interface AdminMessages {
     security: string
     settings: string
     errorLogs: string
+    commonCodes: string
   }
   dashboard: {
     title: string
@@ -84,6 +85,7 @@ export interface AdminMessages {
       writtenPosts: string
       writtenComments: string
       subscribedBoards: string
+      sanctions: string
       reportsAndSanctions: string
       joinedAndRecentLogin: string
       joined: string
@@ -93,6 +95,7 @@ export interface AdminMessages {
       postsEmpty: string
       commentsEmpty: string
       subscriptionsEmpty: string
+      sanctionsEmpty: string
       loadFailed: string
     }
     filters: {
@@ -169,12 +172,25 @@ export interface AdminMessages {
   }
   sanction: {
     title: string
+    type: string
+    typeRequired: string
+    types: {
+      WARNING: string
+      MUTE: string
+      BAN: string
+    }
     userLabel: string
     reason: string
     description: string
     descriptionPlaceholder: string
     duration: string
-    durationHint: string
+    durationHintMute: string
+    durationHintBan: string
+    durationRequired: string
+    historyProcessor: string
+    historyPeriod: string
+    permanent: string
+    relatedContent: string
     cancel: string
     processing: string
     submit: string
@@ -308,6 +324,26 @@ export interface AdminMessages {
     messages: {
       saved: string
       saveFailed: string
+    }
+  }
+  commonCodes: {
+    title: string
+    description: string
+    master: string
+    details: string
+    addCode: string
+    addDetail: string
+    editDetail: string
+    typeCode: string
+    typeName: string
+    codeValue: string
+    codeName: string
+    messages: {
+      invalid: string
+      saved: string
+      detailSaved: string
+      confirmDelete: string
+      deleted: string
     }
   }
   boards: {

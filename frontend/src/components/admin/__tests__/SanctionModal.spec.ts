@@ -111,6 +111,49 @@ describe('SanctionModal', () => {
         }))
     })
 
+    it('submits a warning without an end date by default', async () => {
+        const wrapper = mountModal({ id: 7, name: 'Reported User' })
+
+        await wrapper.get('form').trigger('submit')
+
+        expect(mocks.sanctionUser).toHaveBeenCalledWith(expect.objectContaining({
+            targetUserId: 7,
+            type: 'WARNING',
+            endDate: undefined,
+        }))
+    })
+
+    it('requires a positive whole-day duration for mute sanctions', async () => {
+        const wrapper = mountModal({ id: 7, name: 'Reported User' })
+
+        await wrapper.get('select#sanction-type').setValue('MUTE')
+        await wrapper.get('input#duration').setValue('0')
+        await wrapper.get('form').trigger('submit')
+        expect(mocks.sanctionUser).not.toHaveBeenCalled()
+
+        await wrapper.get('input#duration').setValue('3')
+        await wrapper.get('form').trigger('submit')
+
+        expect(mocks.sanctionUser).toHaveBeenCalledWith(expect.objectContaining({
+            targetUserId: 7,
+            type: 'MUTE',
+            endDate: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/),
+        }))
+    })
+
+    it('submits a permanent ban when its duration is empty', async () => {
+        const wrapper = mountModal({ id: 7, name: 'Reported User' })
+
+        await wrapper.get('select#sanction-type').setValue('BAN')
+        await wrapper.get('form').trigger('submit')
+
+        expect(mocks.sanctionUser).toHaveBeenCalledWith(expect.objectContaining({
+            targetUserId: 7,
+            type: 'BAN',
+            endDate: undefined,
+        }))
+    })
+
     it('does not emit completion for a stale modal target', async () => {
         let resolveSanction!: () => void
         mocks.sanctionUser.mockReturnValueOnce(new Promise<void>(resolve => { resolveSanction = resolve }))

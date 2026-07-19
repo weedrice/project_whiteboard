@@ -43,6 +43,26 @@ export const adminSystemMessagesEn = {
       saveFailed: 'Failed to save setting',
     },
   },
+  commonCodes: {
+    title: 'Common code management',
+    description: 'Manage code groups and detail codes used by operational policies.',
+    master: 'Code group',
+    details: 'Detail codes',
+    addCode: 'Add code group',
+    addDetail: 'Add detail code',
+    editDetail: 'Edit detail code',
+    typeCode: 'Type code',
+    typeName: 'Type name',
+    codeValue: 'Code value',
+    codeName: 'Code name',
+    messages: {
+      invalid: 'Check the required values and input lengths.',
+      saved: 'The code group has been saved.',
+      detailSaved: 'The detail code has been saved.',
+      confirmDelete: 'Delete this detail code?',
+      deleted: 'The detail code has been deleted.',
+    },
+  },
   boards: {
     title: 'Space management',
     description: 'View and manage all spaces.',
@@ -131,4 +151,4 @@ export const adminSystemMessagesEn = {
     },
     memoPlaceholder: 'Enter resolution notes (optional)',
   },
-} satisfies Pick<AdminMessages, 'security' | 'settings' | 'boards' | 'errorLogs'>
+} satisfies Pick<AdminMessages, 'security' | 'settings' | 'commonCodes' | 'boards' | 'errorLogs'>

@@ -7,6 +7,7 @@ import type {
     AdminUserSubscriptionItem,
     ApiResponse,
     SanctionData,
+    SanctionHistoryItem,
     User,
 } from '@/types'
 import type { PageResponseRaw } from '@/utils/pageResponse'
@@ -38,5 +39,11 @@ export const adminUserApi = {
     },
     sanctionUser(data: SanctionData) {
         return api.post<ApiResponse<number>>('/admin/sanctions', data)
+    },
+    getUserSanctions(userId: string | number, params: PaginationParams, config?: AxiosRequestConfig) {
+        return api.get<ApiResponse<PageResponseRaw<SanctionHistoryItem>>>('/admin/sanctions', {
+            ...config,
+            params: { ...params, userId },
+        })
     },
 }

@@ -209,6 +209,19 @@ export interface SanctionData {
     contentType?: 'POST' | 'COMMENT' | 'USER'
 }
 
+export interface SanctionHistoryItem {
+    sanctionId: number
+    targetUserId: number
+    targetUserDisplayName: string
+    adminId?: number | null
+    type: SanctionData['type']
+    remark?: string | null
+    startDate: string
+    endDate?: string | null
+    contentId?: number | null
+    contentType?: SanctionData['contentType'] | null
+}
+
 export interface AdminUserRecentLogin {
     ipAddress: string
     userAgent?: string

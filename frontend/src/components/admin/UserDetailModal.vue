@@ -11,6 +11,7 @@ import DescriptionItem from '@/components/admin/detail/DescriptionItem.vue'
 import AdminUserCommentsTab from '@/components/admin/user-detail/AdminUserCommentsTab.vue'
 import AdminUserPostsTab from '@/components/admin/user-detail/AdminUserPostsTab.vue'
 import AdminUserSubscriptionsTab from '@/components/admin/user-detail/AdminUserSubscriptionsTab.vue'
+import AdminUserSanctionsTab from '@/components/admin/user-detail/AdminUserSanctionsTab.vue'
 import { useAdmin } from '@/features/admin/useAdmin'
 import { useAdminUserDetailTabs } from '@/features/admin/users/useAdminUserDetailTabs'
 import { formatDate } from '@/utils/date'
@@ -48,20 +49,27 @@ const {
   isPostsError,
   isSubscriptionsLoading,
   isSubscriptionsError,
+  isSanctionsLoading,
+  isSanctionsError,
   nextCommentsPage,
   nextPostsPage,
   nextSubscriptionsPage,
+  nextSanctionsPage,
   prevCommentsPage,
   prevPostsPage,
   prevSubscriptionsPage,
+  prevSanctionsPage,
   refetchComments,
   refetchPosts,
   refetchSubscriptions,
+  refetchSanctions,
   postItems,
   subscriptionItems,
+  sanctionItems,
   userComments,
   userPosts,
   userSubscriptions,
+  userSanctions,
 } = useAdminUserDetailTabs({
   isOpen: computed(() => props.isOpen),
   userId: computed(() => props.userId),
@@ -89,6 +97,7 @@ const detailTabOptions = computed(() => [
   { value: 'posts', label: t('admin.users.detail.writtenPosts') },
   { value: 'comments', label: t('admin.users.detail.writtenComments') },
   { value: 'subscriptions', label: t('admin.users.detail.subscribedBoards') },
+  { value: 'sanctions', label: t('admin.users.detail.sanctions') },
 ])
 
 function renderCommentContent(content: string | null | undefined): SanitizedHtml {
@@ -221,7 +230,7 @@ function isCommentEmoticonOnly(content: string | null | undefined): boolean {
         />
 
         <AdminUserSubscriptionsTab
-          v-else
+          v-else-if="activeTab === 'subscriptions'"
           :items="subscriptionItems"
           :loading="isSubscriptionsLoading"
           :error="isSubscriptionsError"
@@ -229,6 +238,17 @@ function isCommentEmoticonOnly(content: string | null | undefined): boolean {
           @previous="prevSubscriptionsPage"
           @next="nextSubscriptionsPage"
           @retry="refetchSubscriptions()"
+        />
+
+        <AdminUserSanctionsTab
+          v-else
+          :items="sanctionItems"
+          :loading="isSanctionsLoading"
+          :error="isSanctionsError"
+          :page-data="userSanctions"
+          @previous="prevSanctionsPage"
+          @next="nextSanctionsPage"
+          @retry="refetchSanctions()"
         />
       </div>
     </div>

@@ -30,6 +30,7 @@ vi.mock('@/api/admin', () => ({
         getUserPosts: vi.fn(),
         getUserComments: vi.fn(),
         getUserSubscriptions: vi.fn(),
+        getUserSanctions: vi.fn(),
         updateUserStatus: vi.fn(),
         sanctionUser: vi.fn(),
         getReports: vi.fn(),
@@ -362,7 +363,7 @@ describe('useAdmin', () => {
         })
 
         it('admin user detail queries forward user-specific params', async () => {
-            const { useAdminUserDetail, useAdminUserPosts, useAdminUserComments, useAdminUserSubscriptions } = useAdmin()
+            const { useAdminUserDetail, useAdminUserPosts, useAdminUserComments, useAdminUserSubscriptions, useAdminUserSanctions } = useAdmin()
             const userId = ref(5)
             const params = ref({ page: 1, size: 10 })
 
@@ -370,6 +371,7 @@ describe('useAdmin', () => {
             vi.mocked(adminApi.getUserPosts).mockResolvedValueOnce(apiDataResponse<typeof adminApi.getUserPosts>({ content: [{ postId: 1, deleted: true }], page: 1, size: 10, totalElements: 21, totalPages: 3, hasNext: true, hasPrevious: true }))
             vi.mocked(adminApi.getUserComments).mockResolvedValueOnce(apiDataResponse<typeof adminApi.getUserComments>({ content: [{ commentId: 2, deleted: true }], page: 0, size: 10, totalElements: 2, totalPages: 1, hasNext: false, hasPrevious: false }))
             vi.mocked(adminApi.getUserSubscriptions).mockResolvedValueOnce(apiDataResponse<typeof adminApi.getUserSubscriptions>({ content: [{ boardId: 3, subscriptionAccessible: false }], page: 2, size: 10, totalElements: 23, totalPages: 3, hasNext: false, hasPrevious: true }))
+            vi.mocked(adminApi.getUserSanctions).mockResolvedValueOnce(apiDataResponse<typeof adminApi.getUserSanctions>({ content: [{ sanctionId: 4, type: 'WARNING' }], page: 0, size: 10, totalElements: 1, totalPages: 1, hasNext: false, hasPrevious: false }))
 
             useAdminUserDetail(userId)
             const detailQuery = mockQueryOptions.at(-1) as { queryFn: () => Promise<unknown> }
@@ -417,6 +419,20 @@ describe('useAdmin', () => {
             })
             expect(adminApi.getUserSubscriptions).toHaveBeenCalledWith(5, params.value)
             expect(subscriptionsQuery.placeholderData).toBeUndefined()
+
+            useAdminUserSanctions(userId, params)
+            const sanctionsQuery = mockQueryOptions.at(-1) as {
+                queryFn: () => Promise<unknown>
+                placeholderData: (prev: unknown) => unknown
+            }
+            await expect(sanctionsQuery.queryFn()).resolves.toMatchObject({
+                content: [{ sanctionId: 4, type: 'WARNING' }],
+                number: 0,
+                first: true,
+                last: true
+            })
+            expect(adminApi.getUserSanctions).toHaveBeenCalledWith(5, params.value)
+            expect(sanctionsQuery.placeholderData).toBeUndefined()
         })
     })
 

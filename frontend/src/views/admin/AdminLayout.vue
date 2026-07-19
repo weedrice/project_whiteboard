@@ -10,7 +10,8 @@ import {
   UserCog,
   FileText,
   Bug,
-  MessageSquare
+  MessageSquare,
+  ListTree,
 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
@@ -28,6 +29,7 @@ const navigation = computed(() => [
   { name: t('admin.menu.errorLogs'), href: '/admin/error-logs', icon: Bug },
   { name: t('admin.menu.security'), href: '/admin/security', icon: ShieldAlert },
   { name: t('admin.menu.settings'), href: '/admin/settings', icon: Settings },
+  { name: t('admin.menu.commonCodes'), href: '/admin/common-codes', icon: ListTree },
 ])
 
 const activeNavigationItem = computed(() => (

@@ -16,6 +16,8 @@ export const adminQueryKeys = {
         ['admin', 'users', 'detail', userId, 'comments', snapshotParams(params)] as const,
     userSubscriptions: <TParams extends object>(userId: number | null, params: TParams) =>
         ['admin', 'users', 'detail', userId, 'subscriptions', snapshotParams(params)] as const,
+    userSanctions: <TParams extends object>(userId: number | null, params: TParams) =>
+        ['admin', 'users', 'detail', userId, 'sanctions', snapshotParams(params)] as const,
     reportsRoot: ['admin', 'reports'] as const,
     reports: <TParams extends object>(params: TParams) => ['admin', 'reports', snapshotParams(params)] as const,
     moderationAuditsRoot: ['admin', 'moderation-audits'] as const,

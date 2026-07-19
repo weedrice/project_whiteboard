@@ -25,6 +25,7 @@ import type {
     AdminUserSubscriptionItem,
     BoardAdminInfo,
     SanctionData,
+    SanctionHistoryItem,
     SuperAdminInfo,
     User,
 } from '@/types'
@@ -187,6 +188,22 @@ export function useAdminAccountManagement(queryClient: QueryClient) {
         )
     }
 
+    const useAdminUserSanctions = (userId: Ref<number | null>, params: Ref<{ page?: number, size?: number }>) => {
+        const enabled = computed(() => userId.value !== null)
+
+        return useAdminNullablePageQuery<SanctionHistoryItem>(
+            computed(() => adminQueryKeys.userSanctions(userId.value, params.value)),
+            (config) => userId.value == null
+                ? null
+                : callAdminApiWithOptionalConfig(
+                    config,
+                    (requestConfig) => adminApi.getUserSanctions(userId.value as number, params.value, requestConfig),
+                    () => adminApi.getUserSanctions(userId.value as number, params.value),
+                ),
+            enabled
+        )
+    }
+
     const useSanctionUser = () => {
         return useMutation({
             mutationFn: (data: SanctionData) => adminApi.sanctionUser(data),
@@ -210,6 +227,7 @@ export function useAdminAccountManagement(queryClient: QueryClient) {
         useAdminUserPosts,
         useAdminUserComments,
         useAdminUserSubscriptions,
+        useAdminUserSanctions,
         useSanctionUser,
     }
 }

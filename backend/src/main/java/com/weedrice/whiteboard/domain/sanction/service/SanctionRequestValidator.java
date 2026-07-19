@@ -16,6 +16,8 @@ import java.util.Set;
 class SanctionRequestValidator {
 
     private static final String TYPE_BAN = "BAN";
+    private static final String TYPE_MUTE = "MUTE";
+    private static final String TYPE_WARNING = "WARNING";
     private static final int MAX_REMARK_LENGTH = 255;
     private static final Set<String> ALLOWED_TYPES = Set.of("WARNING", "MUTE", "BAN");
 
@@ -26,7 +28,7 @@ class SanctionRequestValidator {
         String normalizedType = normalizeType(type);
         String normalizedContentType = normalizeContentType(contentId, contentType);
         String normalizedRemark = normalizeRemark(remark);
-        validateEndDate(endDate);
+        validateEndDate(normalizedType, endDate);
         return new NormalizedCommand(normalizedType, normalizedRemark, endDate, contentId, normalizedContentType);
     }
 
@@ -72,7 +74,13 @@ class SanctionRequestValidator {
         return normalizedRemark;
     }
 
-    private void validateEndDate(LocalDateTime endDate) {
+    private void validateEndDate(String type, LocalDateTime endDate) {
+        if (TYPE_WARNING.equals(type) && endDate != null) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        if (TYPE_MUTE.equals(type) && endDate == null) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
         if (endDate != null && !endDate.isAfter(LocalDateTime.now(clock))) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }

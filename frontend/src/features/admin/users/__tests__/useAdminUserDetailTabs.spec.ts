@@ -6,9 +6,11 @@ const captured = vi.hoisted(() => ({
     postsUserId: null as Ref<number | null> | null,
     commentsUserId: null as Ref<number | null> | null,
     subscriptionsUserId: null as Ref<number | null> | null,
+    sanctionsUserId: null as Ref<number | null> | null,
     postsParams: null as Ref<{ page?: number, size?: number }> | null,
     commentsParams: null as Ref<{ page?: number, size?: number }> | null,
     subscriptionsParams: null as Ref<{ page?: number, size?: number }> | null,
+    sanctionsParams: null as Ref<{ page?: number, size?: number }> | null,
 }))
 
 vi.mock('@/features/admin/useAdmin', () => ({
@@ -98,6 +100,29 @@ vi.mock('@/features/admin/useAdmin', () => ({
                 isLoading: ref(false)
             }
         },
+        useAdminUserSanctions: (userId: Ref<number | null>, params: Ref<{ page?: number, size?: number }>) => {
+            captured.sanctionsUserId = userId
+            captured.sanctionsParams = params
+            return {
+                data: ref({
+                    number: 0,
+                    totalPages: 3,
+                    content: [{
+                        sanctionId: 10,
+                        targetUserId: 7,
+                        targetUserDisplayName: 'Target',
+                        adminId: 2,
+                        type: 'BAN',
+                        remark: 'repeated spam',
+                        startDate: '2026-04-23T00:00:00',
+                        endDate: null,
+                        contentId: 5,
+                        contentType: 'POST'
+                    }]
+                }),
+                isLoading: ref(false)
+            }
+        },
     })
 }))
 
@@ -127,9 +152,11 @@ describe('useAdminUserDetailTabs', () => {
         captured.postsUserId = null
         captured.commentsUserId = null
         captured.subscriptionsUserId = null
+        captured.sanctionsUserId = null
         captured.postsParams = null
         captured.commentsParams = null
         captured.subscriptionsParams = null
+        captured.sanctionsParams = null
     })
 
     it('passes the user id only to the active tab query', async () => {
@@ -140,6 +167,7 @@ describe('useAdminUserDetailTabs', () => {
         expect(captured.postsUserId?.value).toBe(7)
         expect(captured.commentsUserId?.value).toBeNull()
         expect(captured.subscriptionsUserId?.value).toBeNull()
+        expect(captured.sanctionsUserId?.value).toBeNull()
 
         tabs.activeTab.value = 'comments'
         await nextTick()
@@ -147,6 +175,7 @@ describe('useAdminUserDetailTabs', () => {
         expect(captured.postsUserId?.value).toBeNull()
         expect(captured.commentsUserId?.value).toBe(7)
         expect(captured.subscriptionsUserId?.value).toBeNull()
+        expect(captured.sanctionsUserId?.value).toBeNull()
 
         tabs.activeTab.value = 'subscriptions'
         await nextTick()
@@ -154,6 +183,15 @@ describe('useAdminUserDetailTabs', () => {
         expect(captured.postsUserId?.value).toBeNull()
         expect(captured.commentsUserId?.value).toBeNull()
         expect(captured.subscriptionsUserId?.value).toBe(7)
+        expect(captured.sanctionsUserId?.value).toBeNull()
+
+        tabs.activeTab.value = 'sanctions'
+        await nextTick()
+
+        expect(captured.postsUserId?.value).toBeNull()
+        expect(captured.commentsUserId?.value).toBeNull()
+        expect(captured.subscriptionsUserId?.value).toBeNull()
+        expect(captured.sanctionsUserId?.value).toBe(7)
     })
 
     it('resets the active tab and page params when the modal opens', async () => {
@@ -165,11 +203,13 @@ describe('useAdminUserDetailTabs', () => {
         tabs.nextPostsPage()
         tabs.nextCommentsPage()
         tabs.nextSubscriptionsPage()
+        tabs.nextSanctionsPage()
         await nextTick()
 
         expect(captured.postsParams?.value.page).toBe(1)
         expect(captured.commentsParams?.value.page).toBe(1)
         expect(captured.subscriptionsParams?.value.page).toBe(1)
+        expect(captured.sanctionsParams?.value.page).toBe(1)
 
         isOpen.value = false
         await nextTick()
@@ -180,6 +220,7 @@ describe('useAdminUserDetailTabs', () => {
         expect(captured.postsParams?.value.page).toBe(0)
         expect(captured.commentsParams?.value.page).toBe(0)
         expect(captured.subscriptionsParams?.value.page).toBe(0)
+        expect(captured.sanctionsParams?.value.page).toBe(0)
     })
 
     it('maps raw admin tab DTOs to view-model items', () => {
@@ -223,5 +264,13 @@ describe('useAdminUserDetailTabs', () => {
             '비공개',
             'MEMBER'
         ])
+        expect(tabs.sanctionItems.value[0]).toMatchObject({
+            sanctionId: 10,
+            typeLabel: 'admin.sanction.types.BAN',
+            typeVariant: 'danger',
+            remark: 'repeated spam',
+            processorText: 'admin.sanction.historyProcessor',
+            contentText: 'admin.sanction.relatedContent'
+        })
     })
 })

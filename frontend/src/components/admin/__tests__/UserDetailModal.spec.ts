@@ -114,7 +114,28 @@ vi.mock('@/features/admin/useAdmin', () => ({
             isLoading: ref(false),
             isError: ref(false),
             refetch: vi.fn(),
-        })
+        }),
+        useAdminUserSanctions: () => ({
+            data: ref({
+                content: [{
+                    sanctionId: 60,
+                    targetUserId: 1,
+                    targetUserDisplayName: 'Writer',
+                    adminId: 2,
+                    type: 'BAN',
+                    remark: 'repeated spam',
+                    startDate: '2026-04-21T00:00:00',
+                    endDate: null,
+                    contentId: 10,
+                    contentType: 'POST'
+                }],
+                number: 0,
+                totalPages: 1
+            }),
+            isLoading: ref(false),
+            isError: ref(false),
+            refetch: vi.fn(),
+        }),
     })
 }))
 
@@ -144,5 +165,9 @@ describe('UserDetailModal', () => {
         await wrapper.findAll('button')[2]?.trigger('click')
         expect(wrapper.text()).toContain('/hidden')
         expect(wrapper.text()).toContain('MEMBER')
+
+        await wrapper.findAll('button')[3]?.trigger('click')
+        expect(wrapper.text()).toContain('repeated spam')
+        expect(wrapper.text()).toContain('admin.sanction.types.BAN')
     })
 })

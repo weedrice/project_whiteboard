@@ -9,6 +9,15 @@
       </div>
 
       <div>
+        <BaseSelect id="sanction-type" v-model="form.type" :label="t('admin.sanction.type')"
+          :error="sanctionValidation.visibleError('type')" @blur="sanctionValidation.touchField('type', sanctionValidationValues)">
+          <option value="WARNING">{{ t('admin.sanction.types.WARNING') }}</option>
+          <option value="MUTE">{{ t('admin.sanction.types.MUTE') }}</option>
+          <option value="BAN">{{ t('admin.sanction.types.BAN') }}</option>
+        </BaseSelect>
+      </div>
+
+      <div>
         <BaseSelect id="reason" v-model="form.reason" :label="t('admin.sanction.reason')"
           :error="sanctionValidation.visibleError('reason')" @blur="sanctionValidation.touchField('reason', sanctionValidationValues)">
           <option value="SPAM">{{ t('admin.sanction.reasons.SPAM') }}</option>
@@ -25,10 +34,12 @@
           @blur="sanctionValidation.touchField('description', sanctionValidationValues)" />
       </div>
 
-      <div>
-        <BaseInput id="duration" v-model="form.duration" type="number" :label="t('admin.sanction.duration')" min="1"
+      <div v-if="form.type !== 'WARNING'">
+        <BaseInput id="duration" v-model="form.duration" type="number" :label="t('admin.sanction.duration')" min="1" step="1"
           :error="sanctionValidation.visibleError('duration')" @blur="sanctionValidation.touchField('duration', sanctionValidationValues)" />
-        <p class="mt-1 text-xs nv-text-subtle">{{ t('admin.sanction.durationHint') }}</p>
+        <p class="mt-1 text-xs nv-text-subtle">
+          {{ form.type === 'MUTE' ? t('admin.sanction.durationHintMute') : t('admin.sanction.durationHintBan') }}
+        </p>
       </div>
 
       <AdminModalActions class-name="mt-5">
@@ -54,6 +65,7 @@ import { useAdmin } from '@/features/admin/useAdmin'
 import { useToastStore } from '@/stores/toast'
 import { useFieldValidation } from '@/composables/useFieldValidation'
 import { useAuthStore } from '@/stores/auth'
+import type { SanctionData } from '@/types'
 
 const { t } = useI18n()
 
@@ -94,32 +106,57 @@ const isSubmitting = ref(false)
 
 const sanctionTargetName = computed(() => props.user?.displayName || props.user?.nickname || props.user?.name || t('common.messages.unknown'))
 
-const form = reactive({
+type SanctionType = SanctionData['type']
+
+const form = reactive<{
+  type: SanctionType
+  reason: string
+  description: string
+  duration: number | ''
+}>({
+  type: 'WARNING',
   reason: 'SPAM',
   description: '',
-  duration: 7
+  duration: ''
 })
-type SanctionField = 'reason' | 'description' | 'duration'
+type SanctionField = 'type' | 'reason' | 'description' | 'duration'
 const sanctionValidation = useFieldValidation<SanctionField>({
   validators: {
+    type: (values) => ['WARNING', 'MUTE', 'BAN'].includes(String(values.type)) ? '' : t('admin.sanction.typeRequired'),
     reason: (values) => String(values.reason ?? '').trim() ? '' : t('admin.sanction.reason'),
     description: (values) => String(values.description ?? '').trim().length <= 255 ? '' : t('admin.sanction.description'),
-    duration: (values) => Number(values.duration) > 0 ? '' : t('admin.sanction.durationHint'),
+    duration: (values) => {
+      if (values.type === 'WARNING') return ''
+      if (values.type === 'BAN' && values.duration === '') return ''
+      const duration = Number(values.duration)
+      return Number.isInteger(duration) && duration > 0 ? '' : t('admin.sanction.durationRequired')
+    },
   },
-  fieldIds: { reason: 'reason', duration: 'duration' },
+  fieldIds: { type: 'sanction-type', reason: 'reason', duration: 'duration' },
 })
 const sanctionValidationValues = computed(() => ({
+  type: form.type,
   reason: form.reason,
   description: form.description,
   duration: form.duration,
 }))
 
 function resetForm() {
+  form.type = 'WARNING'
   form.reason = 'SPAM'
   form.description = ''
-  form.duration = 7
+  form.duration = ''
   sanctionValidation.clearValidation()
 }
+
+watch(() => form.type, (type, previousType) => {
+  if (type === 'WARNING') {
+    form.duration = ''
+  } else if (type === 'MUTE' && (previousType === 'WARNING' || form.duration === '')) {
+    form.duration = 7
+  }
+  sanctionValidation.errors.duration = ''
+})
 
 watch(
   () => [props.isOpen, props.user?.userId ?? props.user?.id, props.user?.reportId, props.user?.modalRevision] as const,
@@ -152,9 +189,9 @@ async function submitSanction() {
     const description = form.description.trim()
     await sanctionUser({
       targetUserId,
-      type: 'BAN',
+      type: form.type,
       remark: description || form.reason,
-      endDate: resolveEndDate(),
+      endDate: form.type === 'WARNING' ? undefined : resolveEndDate(),
       contentId,
       contentType
     })
@@ -177,8 +214,9 @@ async function submitSanction() {
 }
 
 function resolveEndDate() {
+  if (form.duration === '') return undefined
   const durationDays = Number(form.duration)
-  if (!Number.isFinite(durationDays) || durationDays <= 0) {
+  if (!Number.isInteger(durationDays) || durationDays <= 0) {
     return undefined
   }
 

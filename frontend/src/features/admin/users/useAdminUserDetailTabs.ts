@@ -2,9 +2,9 @@ import { computed, ref, watch, type Ref } from 'vue'
 import { useAdmin } from '@/features/admin/useAdmin'
 import { formatDate } from '@/utils/date'
 import { formatInteger } from '@/utils/numberFormat'
-import type { AdminUserCommentItem, AdminUserPostItem, AdminUserSubscriptionItem } from '@/types'
+import type { AdminUserCommentItem, AdminUserPostItem, AdminUserSubscriptionItem, SanctionHistoryItem } from '@/types'
 
-export type AdminUserDetailTab = 'posts' | 'comments' | 'subscriptions'
+export type AdminUserDetailTab = 'posts' | 'comments' | 'subscriptions' | 'sanctions'
 type AdminUserTabBadgeVariant = 'success' | 'danger' | 'warning' | 'gray'
 type Translate = (key: string, params?: Record<string, unknown>) => string
 
@@ -36,6 +36,16 @@ export interface AdminUserSubscriptionViewItem {
     badges: AdminUserTabBadge[]
     boardPath: string
     sortOrderText: string
+}
+
+export interface AdminUserSanctionViewItem {
+    sanctionId: number
+    typeLabel: string
+    typeVariant: AdminUserTabBadgeVariant
+    remark: string
+    periodText: string
+    processorText: string
+    contentText: string
 }
 
 interface UseAdminUserDetailTabsOptions {
@@ -167,18 +177,49 @@ function toSubscriptionViewItem(board: AdminUserSubscriptionItem, t: Translate):
     }
 }
 
+function toSanctionViewItem(sanction: SanctionHistoryItem, t: Translate): AdminUserSanctionViewItem {
+    const typeVariant: AdminUserTabBadgeVariant = sanction.type === 'BAN'
+        ? 'danger'
+        : sanction.type === 'MUTE' ? 'warning' : 'gray'
+    const end = sanction.endDate ? formatDate(sanction.endDate) : t('admin.sanction.permanent')
+
+    return {
+        sanctionId: sanction.sanctionId,
+        typeLabel: getSanctionTypeLabel(sanction.type, t),
+        typeVariant,
+        remark: sanction.remark || '-',
+        periodText: t('admin.sanction.historyPeriod', {
+            start: formatDate(sanction.startDate),
+            end,
+        }),
+        processorText: sanction.adminId == null
+            ? '-'
+            : t('admin.sanction.historyProcessor', { id: sanction.adminId }),
+        contentText: sanction.contentId == null || !sanction.contentType
+            ? ''
+            : t('admin.sanction.relatedContent', { type: sanction.contentType, id: sanction.contentId }),
+    }
+}
+
+function getSanctionTypeLabel(type: SanctionHistoryItem['type'], t: Translate) {
+    if (type === 'WARNING') return t('admin.sanction.types.WARNING')
+    if (type === 'MUTE') return t('admin.sanction.types.MUTE')
+    return t('admin.sanction.types.BAN')
+}
+
 export function useAdminUserDetailTabs({
     isOpen,
     userId,
     tabSize = 10,
     t
 }: UseAdminUserDetailTabsOptions) {
-    const { useAdminUserPosts, useAdminUserComments, useAdminUserSubscriptions } = useAdmin()
+    const { useAdminUserPosts, useAdminUserComments, useAdminUserSubscriptions, useAdminUserSanctions } = useAdmin()
 
     const activeTab = ref<AdminUserDetailTab>('posts')
     const postsPage = ref(0)
     const commentsPage = ref(0)
     const subscriptionsPage = ref(0)
+    const sanctionsPage = ref(0)
 
     const openedUserId = computed<number | null>(() => (isOpen.value ? userId.value : null))
     const activePostsUserId = computed<number | null>(() => (
@@ -190,10 +231,14 @@ export function useAdminUserDetailTabs({
     const activeSubscriptionsUserId = computed<number | null>(() => (
         activeTab.value === 'subscriptions' ? openedUserId.value : null
     ))
+    const activeSanctionsUserId = computed<number | null>(() => (
+        activeTab.value === 'sanctions' ? openedUserId.value : null
+    ))
 
     const postsParams = computed(() => ({ page: postsPage.value, size: tabSize }))
     const commentsParams = computed(() => ({ page: commentsPage.value, size: tabSize }))
     const subscriptionsParams = computed(() => ({ page: subscriptionsPage.value, size: tabSize }))
+    const sanctionsParams = computed(() => ({ page: sanctionsPage.value, size: tabSize }))
 
     const { data: userPosts, isLoading: isPostsLoading, isError: isPostsError, refetch: refetchPosts } = useAdminUserPosts(activePostsUserId, postsParams)
     const { data: userComments, isLoading: isCommentsLoading, isError: isCommentsError, refetch: refetchComments } = useAdminUserComments(activeCommentsUserId, commentsParams)
@@ -201,9 +246,14 @@ export function useAdminUserDetailTabs({
         activeSubscriptionsUserId,
         subscriptionsParams
     )
+    const { data: userSanctions, isLoading: isSanctionsLoading, isError: isSanctionsError, refetch: refetchSanctions } = useAdminUserSanctions(
+        activeSanctionsUserId,
+        sanctionsParams
+    )
     const postItems = computed(() => userPosts.value?.content.map((post) => toPostViewItem(post, t)) ?? [])
     const commentItems = computed(() => userComments.value?.content.map((comment) => toCommentViewItem(comment, t)) ?? [])
     const subscriptionItems = computed(() => userSubscriptions.value?.content.map((board) => toSubscriptionViewItem(board, t)) ?? [])
+    const sanctionItems = computed(() => userSanctions.value?.content.map((sanction) => toSanctionViewItem(sanction, t)) ?? [])
 
     watch(isOpen, (open) => {
         if (!open) return
@@ -211,6 +261,7 @@ export function useAdminUserDetailTabs({
         postsPage.value = 0
         commentsPage.value = 0
         subscriptionsPage.value = 0
+        sanctionsPage.value = 0
     })
 
     function prevPostsPage() {
@@ -237,6 +288,14 @@ export function useAdminUserDetailTabs({
         movePage(subscriptionsPage, userSubscriptions, 1)
     }
 
+    function prevSanctionsPage() {
+        movePage(sanctionsPage, userSanctions, -1)
+    }
+
+    function nextSanctionsPage() {
+        movePage(sanctionsPage, userSanctions, 1)
+    }
+
     return {
         activeTab,
         commentItems,
@@ -247,21 +306,29 @@ export function useAdminUserDetailTabs({
         isPostsError,
         isSubscriptionsLoading,
         isSubscriptionsError,
+        isSanctionsLoading,
+        isSanctionsError,
         nextCommentsPage,
         nextPostsPage,
         postItems,
         postsPage,
         nextSubscriptionsPage,
+        nextSanctionsPage,
         prevCommentsPage,
         prevPostsPage,
         prevSubscriptionsPage,
+        prevSanctionsPage,
         refetchComments,
         refetchPosts,
         refetchSubscriptions,
+        refetchSanctions,
         subscriptionItems,
         subscriptionsPage,
+        sanctionItems,
+        sanctionsPage,
         userComments,
         userPosts,
         userSubscriptions,
+        userSanctions,
     }
 }

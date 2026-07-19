@@ -23,6 +23,7 @@ export const adminCoreMessages = {
     security: '보안 설정',
     settings: '전역 설정',
     errorLogs: '에러 로그',
+    commonCodes: '공통 코드',
   },
   dashboard: {
     title: '대시보드',

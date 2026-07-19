@@ -43,6 +43,26 @@ export const adminSystemMessages = {
       saveFailed: '저장 실패',
     },
   },
+  commonCodes: {
+    title: '공통 코드 관리',
+    description: '운영 정책에서 사용하는 코드 그룹과 상세 코드를 관리합니다.',
+    master: '코드 그룹',
+    details: '상세 코드',
+    addCode: '코드 그룹 추가',
+    addDetail: '상세 코드 추가',
+    editDetail: '상세 코드 수정',
+    typeCode: '유형 코드',
+    typeName: '유형명',
+    codeValue: '코드 값',
+    codeName: '코드명',
+    messages: {
+      invalid: '필수 값과 입력 길이를 확인해 주세요.',
+      saved: '코드 그룹을 저장했습니다.',
+      detailSaved: '상세 코드를 저장했습니다.',
+      confirmDelete: '이 상세 코드를 삭제하시겠습니까?',
+      deleted: '상세 코드를 삭제했습니다.',
+    },
+  },
   boards: {
     title: '스페이스 관리',
     description: '전체 스페이스를 조회하고 관리합니다.',
@@ -131,4 +151,4 @@ export const adminSystemMessages = {
     },
     memoPlaceholder: '처리 메모를 입력하세요 (선택)',
   },
-} satisfies Pick<AdminMessages, 'security' | 'settings' | 'boards' | 'errorLogs'>
+} satisfies Pick<AdminMessages, 'security' | 'settings' | 'commonCodes' | 'boards' | 'errorLogs'>

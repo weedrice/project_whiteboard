@@ -23,6 +23,7 @@ export const adminCoreMessagesEn = {
     security: 'Security settings',
     settings: 'Global settings',
     errorLogs: 'Error logs',
+    commonCodes: 'Common codes',
   },
   dashboard: {
     title: 'Dashboard',

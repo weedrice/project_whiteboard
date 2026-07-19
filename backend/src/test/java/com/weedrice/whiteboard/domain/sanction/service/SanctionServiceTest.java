@@ -246,6 +246,30 @@ class SanctionServiceTest {
     }
 
     @Test
+    @DisplayName("warning rejects an end date")
+    void createSanction_warningRejectsEndDate() {
+        assertThatThrownBy(() -> sanctionService.createSanction(
+                1L, 2L, "WARNING", "Notice only", FIXED_NOW.plusDays(1), null, null))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(sanctionRepository, never()).save(any(Sanction.class));
+    }
+
+    @Test
+    @DisplayName("mute requires an end date")
+    void createSanction_muteRequiresEndDate() {
+        assertThatThrownBy(() -> sanctionService.createSanction(
+                1L, 2L, "MUTE", "Temporary restriction", null, null, null))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(sanctionRepository, never()).save(any(Sanction.class));
+    }
+
+    @Test
     @DisplayName("reject unsupported sanction type")
     void createSanction_rejectsUnsupportedType() {
 

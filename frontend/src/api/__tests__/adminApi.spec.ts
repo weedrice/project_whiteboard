@@ -126,8 +126,10 @@ describe('adminApi - Other Endpoints', () => {
         adminApi.getUsers(params)
         adminApi.updateUserStatus(1, 'ACTIVE', 'reviewed')
         adminApi.sanctionUser({ targetUserId: 1, type: 'BAN', remark: 'spam' })
+        adminApi.getUserSanctions(1, { page: 0, size: 10 })
 
         expect(apiMock.get).toHaveBeenNthCalledWith(1, '/admin/users', { params })
+        expect(apiMock.get).toHaveBeenNthCalledWith(2, '/admin/sanctions', { params: { page: 0, size: 10, userId: 1 } })
         expect(apiMock.put).toHaveBeenNthCalledWith(1, '/admin/users/1/status', { status: 'ACTIVE', reason: 'reviewed' })
         expect(apiMock.post).toHaveBeenNthCalledWith(1, '/admin/sanctions', { targetUserId: 1, type: 'BAN', remark: 'spam' })
     })
