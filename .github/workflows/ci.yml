@@ -327,6 +327,8 @@ jobs:
           POSTGRES_SMOKE_DATASOURCE_URL: jdbc:postgresql://localhost:5432/noviis_ci_app
           POSTGRES_SMOKE_DATASOURCE_USERNAME: noviis_ci
           POSTGRES_SMOKE_DATASOURCE_PASSWORD: noviis_ci
+          FLYWAY_POSTGRESQL_TRANSACTIONAL_LOCK: "false"
+          SPRING_FLYWAY_POSTGRESQL_TRANSACTIONAL_LOCK: "false"
 
       - name: Verify previous backend against the expanded schema
         env:
@@ -385,6 +387,8 @@ jobs:
         env:
           BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || (github.event_name == 'push' && github.event.before || 'HEAD^') }}
           PGPASSWORD: noviis_ci
+          FLYWAY_POSTGRESQL_TRANSACTIONAL_LOCK: "false"
+          SPRING_FLYWAY_POSTGRESQL_TRANSACTIONAL_LOCK: "false"
         run: |
           set -euo pipefail
           previous="$RUNNER_TEMP/previous-backend-upgrade"
@@ -495,7 +499,9 @@ jobs:
           tar -xzf "$archive" -C "$extract_root"
           grafana_binary="$(find "$extract_root" -type f -path '*/bin/grafana' -print -quit)"
           test -n "$grafana_binary"
-          "$grafana_binary" --version | grep -F "Version ${GRAFANA_VERSION}"
+          grafana_version_output="$("$grafana_binary" --version)"
+          printf '%s\n' "$grafana_version_output"
+          grep -F -- "$GRAFANA_VERSION" <<< "$grafana_version_output"
           jq -e . deploy/monitoring/grafana/dashboards/noviis-overview.json >/dev/null
 
       - name: Validate shell scripts
