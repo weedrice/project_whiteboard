@@ -337,7 +337,8 @@ jobs:
           POSTGRES_SMOKE_DATASOURCE_URL: jdbc:postgresql://localhost:5432/noviis_ci
           POSTGRES_SMOKE_DATASOURCE_USERNAME: noviis_ci
           POSTGRES_SMOKE_DATASOURCE_PASSWORD: noviis_ci
-          SPRING_FLYWAY_ENABLED: "false"
+          FLYWAY_POSTGRESQL_TRANSACTIONAL_LOCK: "false"
+          SPRING_FLYWAY_POSTGRESQL_TRANSACTIONAL_LOCK: "false"
         run: |
           set -euo pipefail
           previous="$RUNNER_TEMP/previous-backend"
