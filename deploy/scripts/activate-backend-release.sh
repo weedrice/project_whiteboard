@@ -50,9 +50,14 @@ contract_migration=false
 contract_start_attempted=false
 
 generate_activation_nonce() {
+  local uuid
   if [ -r /proc/sys/kernel/random/uuid ]; then
-    tr -d '-' < /proc/sys/kernel/random/uuid | cut -c1-32
-    return
+    IFS= read -r uuid < /proc/sys/kernel/random/uuid || true
+    uuid="${uuid//-/}"
+    if [[ "$uuid" =~ ^[0-9a-f]{32}$ ]]; then
+      printf '%s\n' "$uuid"
+      return 0
+    fi
   fi
   command -v openssl >/dev/null 2>&1 || {
     echo "A cryptographically secure nonce generator is required" >&2
