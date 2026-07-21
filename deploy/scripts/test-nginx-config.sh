@@ -13,6 +13,7 @@ touch "$fixture/letsencrypt/options-ssl-nginx.conf"
 openssl req -x509 -newkey rsa:2048 -nodes -days 1 -subj '/CN=noviis.invalid' \
   -keyout "$fixture/letsencrypt/live/noviis.kr/privkey.pem" \
   -out "$fixture/letsencrypt/live/noviis.kr/fullchain.pem" >/dev/null 2>&1
+chmod 0644 "$fixture/letsencrypt/live/noviis.kr/privkey.pem"
 
 docker run --rm --network none --read-only --cap-drop ALL \
   --tmpfs /var/cache/nginx --tmpfs /var/run --tmpfs /tmp \
