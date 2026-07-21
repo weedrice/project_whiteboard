@@ -55,7 +55,7 @@ if [ "$action" = reconcile ]; then
     orphan_real="$(realpath -m -- "$orphan")"
     case "$orphan_real" in "$incoming_root_real"/*) ;; *) echo "orphan escaped incoming root" >&2; exit 1 ;; esac
     orphan_count=$((orphan_count + 1))
-    modified_epoch="$(stat -c %Y "$orphan_real")"
+    modified_epoch="$(stat -c %Y -- "$orphan")"
     age=$((now_epoch - modified_epoch))
     [ "$age" -ge 0 ] || age=0
     [ "$age" -le "$oldest_age_seconds" ] || oldest_age_seconds="$age"

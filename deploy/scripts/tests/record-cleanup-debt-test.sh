@@ -19,7 +19,7 @@ run_reconcile() {
   TEXTFILE_DIR="$textfiles" \
     NOVIIS_CLEANUP_TEST_MODE=true \
     NOVIIS_CLEANUP_TEST_INCOMING_ROOT="$incoming" \
-    "$writer" backend reconcile incoming_release
+    bash "$writer" backend reconcile incoming_release
 }
 
 if run_reconcile; then
