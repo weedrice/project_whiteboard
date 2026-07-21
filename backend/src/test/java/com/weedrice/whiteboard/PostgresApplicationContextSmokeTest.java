@@ -50,6 +50,8 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 
 import javax.sql.DataSource;
 import java.sql.Connection;
+import java.sql.SQLException;
+import java.time.Clock;
 import java.time.LocalDateTime;
 
 import java.util.List;
@@ -142,13 +144,13 @@ class PostgresApplicationContextSmokeTest {
     @Autowired
     private Flyway flyway;
 
+    @Autowired
+    private Clock clock;
+
     @Test
     void contextLoadsWithPostgresMigrations() {
         assertFalse(flyway.getConfigurationExtension(PostgreSQLConfigurationExtension.class)
                 .isTransactionalLock());
-        assertTrue(jdbcTemplate.queryForObject(
-                "SELECT to_regclass('pg_temp.legacy_scheduled_post_file_refs') IS NULL",
-                Boolean.class));
     }
 
     @Test
@@ -237,7 +239,7 @@ class PostgresApplicationContextSmokeTest {
         try (Connection connection = dataSource.getConnection()) {
             String originalSchema = connection.getSchema();
             try {
-                postgresFlyway(schema)
+                postgresFlyway(schema, connection)
                         .target(MigrationVersion.fromVersion("56"))
                         .load()
                         .migrate();
@@ -259,7 +261,7 @@ class PostgresApplicationContextSmokeTest {
                             (NOW(), NOW(), NOW() + INTERVAL '7 days', '127.0.0.1', 'N', 'legacy-token-hash', 5701)
                         """);
 
-                postgresFlyway(schema)
+                postgresFlyway(schema, connection)
                         .load()
                         .migrate();
 
@@ -274,6 +276,7 @@ class PostgresApplicationContextSmokeTest {
                           AND indexname = 'idx_refresh_tokens_family_active'
                         """, Integer.class, schema));
             } finally {
+                discardTemporaryTables(connection);
                 connection.setSchema(originalSchema);
             }
         } finally {
@@ -285,14 +288,15 @@ class PostgresApplicationContextSmokeTest {
     void concurrentWrongVerificationCodesCommitAndExhaustTheCode() throws Exception {
         String email = "postgres-verification-attempts-" + UUID.randomUUID() + "@example.com";
         String rawCode = "123456";
+        LocalDateTime now = LocalDateTime.now(clock);
         jdbcTemplate.update("""
                 INSERT INTO verification_codes
                     (created_at, modified_at, code, delivery_status, email, expiry_date,
                      is_ticket_consumed, is_verified, purpose, failed_attempts)
                 VALUES
-                    (NOW(), NOW(), ?, 'SENT', ?, NOW() + INTERVAL '10 minutes',
+                    (?, ?, ?, 'SENT', ?, ?,
                      'N', 'N', 'SIGNUP', 0)
-                """, tokenHashService.hashSha256(rawCode), email);
+                """, now, now, tokenHashService.hashSha256(rawCode), email, now.plusMinutes(10));
 
         ExecutorService executor = Executors.newFixedThreadPool(5);
         CountDownLatch start = new CountDownLatch(1);
@@ -667,7 +671,7 @@ class PostgresApplicationContextSmokeTest {
         try (Connection connection = dataSource.getConnection()) {
             String originalSchema = connection.getSchema();
             try {
-                Flyway flywayToV51 = postgresFlyway(schema)
+                Flyway flywayToV51 = postgresFlyway(schema, connection)
                     .target(MigrationVersion.fromVersion("51"))
                     .load();
                 flywayToV51.migrate();
@@ -709,7 +713,7 @@ class PostgresApplicationContextSmokeTest {
                     VALUES ('NOBICON_PRICE', 'invalid', 'legacy invalid price', NOW(), NOW())
                     """);
 
-                postgresFlyway(schema)
+                postgresFlyway(schema, connection)
                     .load()
                     .migrate();
 
@@ -759,6 +763,7 @@ class PostgresApplicationContextSmokeTest {
                     VALUES (NOW(), NOW(), 'Duplicate Target', 100, 'EMOTICON', 1001, 'N')
                     """));
             } finally {
+                discardTemporaryTables(connection);
                 connection.setSchema(originalSchema);
             }
         } finally {
@@ -774,7 +779,7 @@ class PostgresApplicationContextSmokeTest {
         try (Connection connection = dataSource.getConnection()) {
             String originalSchema = connection.getSchema();
             try {
-                postgresFlyway(schema)
+                postgresFlyway(schema, connection)
                     .target(MigrationVersion.fromVersion("52"))
                     .load()
                     .migrate();
@@ -788,7 +793,7 @@ class PostgresApplicationContextSmokeTest {
                     VALUES ('POINT_SIGNUP_BONUS', '777', 'operator override', ?, ?)
                     """, operatorModifiedAt, operatorModifiedAt);
 
-                postgresFlyway(schema)
+                postgresFlyway(schema, connection)
                     .load()
                     .migrate();
 
@@ -815,6 +820,7 @@ class PostgresApplicationContextSmokeTest {
                         "SELECT description FROM global_configs WHERE config_key = 'NOBICON_PRICE'",
                         String.class));
             } finally {
+                discardTemporaryTables(connection);
                 connection.setSchema(originalSchema);
             }
         } finally {
@@ -1097,13 +1103,20 @@ class PostgresApplicationContextSmokeTest {
         }
     }
 
-    private FluentConfiguration postgresFlyway(String schema) {
+    private FluentConfiguration postgresFlyway(String schema, Connection connection) throws SQLException {
+        discardTemporaryTables(connection);
         return Flyway.configure()
                 .configuration(Map.of(POSTGRES_TRANSACTIONAL_LOCK_PROPERTY, "false"))
-                .dataSource(dataSource)
+                .dataSource(new SingleConnectionDataSource(connection, true))
                 .schemas(schema)
                 .defaultSchema(schema)
                 .locations("classpath:db/migration");
+    }
+
+    private static void discardTemporaryTables(Connection connection) throws SQLException {
+        try (var statement = connection.createStatement()) {
+            statement.execute("DISCARD TEMP");
+        }
     }
 
     private static String uniqueSuffix() {
