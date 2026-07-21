@@ -847,10 +847,10 @@ describe('PostForm', () => {
                 options: [{ optionText: 'First' }, { optionText: 'Second' }],
                 multipleChoiceEnabled: false,
                 anonymousEnabled: true,
-                closesAt: '2026-07-21T12:00',
+                closesAt: '2099-07-21T12:00',
             },
             seriesId: null,
-            scheduledAt: '2026-07-20T12:00',
+            scheduledAt: '2099-07-20T12:00',
         }
 
         const wrapper = mountPostForm('edit', {}, {}, { scheduledPostId: '44', postId: '' })
@@ -861,7 +861,7 @@ describe('PostForm', () => {
             'value',
             '<p>Scheduled body<img src="/api/v1/files/10"></p>',
         )
-        expect(wrapper.get('#scheduled-at').element).toHaveProperty('value', '2026-07-20T12:00')
+        expect(wrapper.get('#scheduled-at').element).toHaveProperty('value', '2099-07-20T12:00')
 
         await wrapper.get('#title').setValue('Updated schedule')
         await submitPostForm(wrapper)
@@ -879,13 +879,13 @@ describe('PostForm', () => {
                 isSecret: true,
                 fileIds: [10],
                 draftId: 5,
-                scheduledAt: '2026-07-20T12:00',
+                scheduledAt: '2099-07-20T12:00',
                 poll: {
                     question: 'Scheduled question',
                     options: ['First', 'Second'],
                     multipleChoiceEnabled: false,
                     anonymousEnabled: true,
-                    closesAt: '2026-07-21T12:00',
+                    closesAt: '2099-07-21T12:00',
                 },
             }),
         }, expect.any(Object))
