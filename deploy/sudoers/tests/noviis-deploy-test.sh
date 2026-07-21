@@ -9,8 +9,30 @@ fi
 project_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 fixture="$(mktemp -d)"
 installed_fixture="/etc/sudoers.d/noviis-ci-matrix"
-trap 'rm -f "$installed_fixture"; rm -rf "$fixture"' EXIT
+created_command_stubs=()
+cleanup() {
+  rm -f "$installed_fixture"
+  for command_stub in "${created_command_stubs[@]}"; do
+    rm -f -- "$command_stub"
+  done
+  rm -rf "$fixture"
+}
+trap cleanup EXIT
 test_user="nobody"
+
+# Recent sudo versions require each command path to exist even for list-only checks.
+for command_path in \
+  /usr/local/sbin/activate-noviis-backend \
+  /usr/local/sbin/verify-noviis-backend \
+  /usr/local/sbin/activate-noviis-frontend \
+  /usr/local/sbin/verify-noviis-frontend \
+  /usr/local/sbin/record-noviis-cleanup-debt; do
+  if [ ! -e "$command_path" ] && [ ! -L "$command_path" ]; then
+    ln -s /bin/true "$command_path"
+    created_command_stubs+=("$command_path")
+  fi
+done
+
 sed "s/^noviis-deploy /$test_user /" "$project_root/deploy/sudoers/noviis-deploy" > "$fixture/noviis-deploy"
 chmod 0440 "$fixture/noviis-deploy"
 visudo -cf "$fixture/noviis-deploy"
