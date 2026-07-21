@@ -337,8 +337,8 @@ jobs:
           POSTGRES_SMOKE_DATASOURCE_URL: jdbc:postgresql://localhost:5432/noviis_ci
           POSTGRES_SMOKE_DATASOURCE_USERNAME: noviis_ci
           POSTGRES_SMOKE_DATASOURCE_PASSWORD: noviis_ci
-          FLYWAY_POSTGRESQL_TRANSACTIONAL_LOCK: "false"
-          SPRING_FLYWAY_POSTGRESQL_TRANSACTIONAL_LOCK: "false"
+          POSTGRES_EXPANDED_SCHEMA_TEST: "true"
+          SPRING_FLYWAY_ENABLED: "false"
         run: |
           set -euo pipefail
           previous="$RUNNER_TEMP/previous-backend"
@@ -346,9 +346,11 @@ jobs:
           trap 'git worktree remove --force "$previous"' EXIT
           cp backend/gradle/verification-metadata.xml \
             "$previous/backend/gradle/verification-metadata.xml"
+          compatibility_test=backend/src/test/java/com/weedrice/whiteboard/PostgresExpandedSchemaCompatibilityTest.java
+          cp "$compatibility_test" "$previous/$compatibility_test"
           chmod +x "$previous/backend/gradlew"
           "$previous/backend/gradlew" -p "$previous/backend" test \
-            --tests '*PostgresApplicationContextSmokeTest.contextLoadsWithPostgresMigrations' --rerun-tasks
+            --tests '*PostgresExpandedSchemaCompatibilityTest' --rerun-tasks
 
   backend-postgres-upgrade:
     needs: changes
