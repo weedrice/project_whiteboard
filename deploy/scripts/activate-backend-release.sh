@@ -123,7 +123,7 @@ write_pending_active_state() {
   now="$(date +%s)"
   expires=$((now + PENDING_LEASE_SECONDS))
   nonce="$(generate_activation_nonce)" || return 1
-  exec 8>&- 2>/dev/null || true
+  { exec 8>&-; } 2>/dev/null || true
   lease_dir="$(dirname "$BACKEND_ACTIVATION_LEASE_FILE")"
   sudo install -d -o root -g root -m 0755 "$lease_dir"
   lease_tmp="$(mktemp "$release_root_real/.backend-lease.XXXXXX")"
@@ -150,7 +150,7 @@ write_contract_recovery_state() {
 }
 
 release_pending_lease() {
-  exec 8>&- 2>/dev/null || true
+  { exec 8>&-; } 2>/dev/null || true
   sudo rm -f -- "$BACKEND_ACTIVATION_LEASE_FILE" 2>/dev/null || true
 }
 

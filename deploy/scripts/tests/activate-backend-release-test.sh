@@ -485,7 +485,7 @@ if [ "$status" -ne 2 ]; then
   echo "Expected a healthy rollback with the wrong SHA to fail, got $status" >&2
   exit 1
 fi
-rm "$state_dir/fail_new_health" "$state_dir/arm_wrong_rollback_sha" "$state_dir/wrong_rollback_sha"
+rm -f "$state_dir/fail_new_health" "$state_dir/arm_wrong_rollback_sha" "$state_dir/wrong_rollback_sha"
 
 for index in 1 2 3 4 5 6; do
   old_release="$release_root/old-$index"
