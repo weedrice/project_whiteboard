@@ -34,16 +34,11 @@ fi
 
 printf '0123456789abcdef0123456789abcdef\n' > "$fixture/lease.source"
 sudo install -o root -g root -m 0600 "$fixture/lease.source" "$lease_file"
-(
-  exec 8<>"$lease_file"
-  flock 8
-  sleep 10
-) &
+sudo flock "$lease_file" sleep 1 &
 lock_holder=$!
 sleep 0.1
 sudo APP_DIR="$app_dir" ACTIVE_STATE_FILE="$state_file" BACKEND_ACTIVATION_LEASE_FILE="$lease_file" bash "$verifier" >/dev/null
-kill "$lock_holder"
-wait "$lock_holder" 2>/dev/null || true
+wait "$lock_holder"
 
 write_state pending 0123456789abcdef0123456789abcdef "$((now - 120))" "$((now - 60))"
 if sudo APP_DIR="$app_dir" ACTIVE_STATE_FILE="$state_file" BACKEND_ACTIVATION_LEASE_FILE="$lease_file" bash "$verifier"; then
