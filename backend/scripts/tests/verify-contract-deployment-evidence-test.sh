@@ -68,7 +68,7 @@ for failure in \
   'CONSUMED_SHA=0123456789abcdef0123456789abcdef01234567'; do
   variable="${failure%%=*}"
   printf -v "$variable" '%s' "${failure#*=}"
-  export "$variable"
+  export "${variable?}"
   if run_verify; then
     echo "Expected contract evidence mismatch to fail: $failure" >&2
     exit 1
