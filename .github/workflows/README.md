@@ -4,6 +4,8 @@
 
 `ci.yml`은 `main`·`develop` push와 pull request를 검증한다. 수동 배포 입력의 기본값은 모두 `false`이며 production 배포는 `main`에서만 허용한다. 변경 감지 뒤 선택된 backend, frontend, ops job이 모두 성공해야 `ci-gate`를 통과한다. 선택된 필수 job이 `skipped`여도 gate는 실패한다.
 
+검증 범위와 배포 범위는 별도로 판정한다. CI·배포 workflow, 문서, backend/frontend 테스트만 변경되면 관련 검증 job은 실행하지만 candidate·release·production 배포 job은 실행하지 않는다. 실제 runtime·빌드 입력이 바뀐 영역만 자동 배포 대상으로 선택하며, `docs/ops/api-contract-revision.txt` 변경은 API 계약 동기화를 위해 backend와 frontend 배포 범위를 함께 선택한다. 수동 `workflow_dispatch`의 명시적 배포 입력은 경로 감지 결과와 무관하게 해당 검증·배포 체인을 실행한다.
+
 검증 job은 다음 책임을 가진다.
 
 - Backend: Java 21, Gradle test, JaCoCo coverage verification

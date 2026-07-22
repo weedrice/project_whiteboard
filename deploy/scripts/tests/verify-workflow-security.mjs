@@ -106,6 +106,26 @@ function assertExactKeys(actual, expected, message) {
   assert(JSON.stringify(keys) === JSON.stringify([...expected].sort()), `${message}: ${keys.join(', ')}`)
 }
 
+function pathFilterEntries(filterSource, filterName) {
+  const lines = String(filterSource).split(/\r?\n/)
+  const start = lines.findIndex((line) => line.trim() === `${filterName}:`)
+  assert(start >= 0, `missing path filter: ${filterName}`)
+  const baseIndent = lines[start].match(/^\s*/)[0].length
+  const entries = []
+  for (const line of lines.slice(start + 1)) {
+    if (line.trim() && line.match(/^\s*/)[0].length <= baseIndent) break
+    const match = line.match(/^\s+- ['"](.+)['"]$/)
+    if (match) entries.push(match[1])
+  }
+  return entries
+}
+
+function matchesEveryPathRule(entries, file) {
+  return entries.every((entry) => entry.startsWith('!')
+    ? !globMatches(entry.slice(1), file)
+    : globMatches(entry, file))
+}
+
 const ci = load('.github/workflows/ci.yml')
 const backend = load('.github/workflows/deploy-backend.yml')
 const frontend = load('.github/workflows/deploy-frontend.yml')
@@ -116,8 +136,51 @@ const ciSource = loadText('.github/workflows/ci.yml')
 const contractRevisionFilterEntries = ciSource.match(
   /^\s+- 'docs\/ops\/api-contract-revision\.txt'\s*$/gm,
 ) ?? []
-assert(contractRevisionFilterEntries.length === 3,
-  'API contract revision must select backend, frontend, and ops validation scopes')
+assert(contractRevisionFilterEntries.length === 4,
+  'API contract revision must select backend, frontend, ops validation, and coordinated deployment scopes')
+
+const validationFilter = ci.jobs.changes.steps.find((step) => step.id === 'filter')
+const deployFilter = ci.jobs.changes.steps.find((step) => step.id === 'deploy-filter')
+assert(validationFilter && deployFilter, 'validation and deployment path filters must remain separate')
+assert(deployFilter.with?.['predicate-quantifier'] === 'every', 'deployment exclusions require every-rule matching')
+const backendValidationPaths = pathFilterEntries(validationFilter.with?.filters, 'backend')
+const frontendValidationPaths = pathFilterEntries(validationFilter.with?.filters, 'frontend')
+const backendDeployPaths = pathFilterEntries(deployFilter.with?.filters, 'backend')
+const frontendDeployPaths = pathFilterEntries(deployFilter.with?.filters, 'frontend')
+const contractDeployPaths = pathFilterEntries(deployFilter.with?.filters, 'contract')
+assert(backendValidationPaths.includes('.github/workflows/ci.yml'), 'CI workflow changes must validate backend')
+assert(frontendValidationPaths.includes('.github/workflows/ci.yml'), 'CI workflow changes must validate frontend')
+assert(!backendDeployPaths.some((entry) => entry.includes('.github/workflows/')), 'workflow-only changes must not deploy backend')
+assert(!frontendDeployPaths.some((entry) => entry.includes('.github/workflows/')), 'workflow-only changes must not deploy frontend')
+assert(backendDeployPaths.includes('backend/**') && backendDeployPaths.includes('!backend/src/test/**'), 'backend deployment scope must exclude tests')
+assert(frontendDeployPaths.includes('frontend/**') && frontendDeployPaths.includes('!frontend/**/__tests__/**')
+  && frontendDeployPaths.includes('!frontend/**/*.spec.*'), 'frontend deployment scope must exclude tests')
+assert(matchesEveryPathRule(backendDeployPaths, 'backend/src/main/java/com/example/App.java'),
+  'backend runtime changes must select deployment')
+assert(!matchesEveryPathRule(backendDeployPaths, 'backend/src/test/java/com/example/AppTest.java'),
+  'backend test-only changes must not select deployment')
+assert(matchesEveryPathRule(frontendDeployPaths, 'frontend/src/views/Home.vue'),
+  'frontend runtime changes must select deployment')
+assert(!matchesEveryPathRule(frontendDeployPaths, 'frontend/src/views/__tests__/Home.spec.ts'),
+  'frontend test-only changes must not select deployment')
+assert(!matchesEveryPathRule(frontendDeployPaths, 'frontend/e2e/home.spec.ts'),
+  'frontend E2E-only changes must not select deployment')
+assert(JSON.stringify(contractDeployPaths) === JSON.stringify(['docs/ops/api-contract-revision.txt']),
+  'API contract revision must coordinate backend and frontend deployment')
+assert(ci.jobs.changes.outputs.backend_deploy === '${{ steps.deploy-scope.outputs.backend }}', 'backend deploy output bypasses deployment scope resolver')
+assert(ci.jobs.changes.outputs.frontend_deploy === '${{ steps.deploy-scope.outputs.frontend }}', 'frontend deploy output bypasses deployment scope resolver')
+assert(!ciSource.includes('backend_changed') && !ciSource.includes('frontend_changed'), 'legacy validation/deployment coupling remains')
+for (const [jobName, outputName] of [
+  ['candidate-backend', 'backend_deploy'],
+  ['deploy-backend', 'backend_deploy'],
+  ['candidate-frontend', 'frontend_deploy'],
+  ['deploy-frontend', 'frontend_deploy'],
+]) {
+  assert(String(ci.jobs[jobName].if).includes(`needs.changes.outputs.${outputName}`),
+    `${jobName} does not use its deployment-only change scope`)
+}
+assert(String(ci.jobs['deploy-frontend'].if).includes("needs.changes.outputs.backend_deploy != 'true'"),
+  'frontend deployment must wait only for an actual backend deployment change')
 for (const protectedOpsPath of [
   '.github/CODEOWNERS',
   'docs/ops/contract-evidence/**',
