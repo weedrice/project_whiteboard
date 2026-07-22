@@ -47,13 +47,13 @@ jobs:
       backend: ${{ steps.scope.outputs.backend }}
       frontend: ${{ steps.scope.outputs.frontend }}
       ops: ${{ steps.scope.outputs.ops }}
-      backend_changed: ${{ steps.filter.outputs.backend }}
-      frontend_changed: ${{ steps.filter.outputs.frontend }}
+      backend_deploy: ${{ steps.deploy-scope.outputs.backend }}
+      frontend_deploy: ${{ steps.deploy-scope.outputs.frontend }}
     steps:
       - name: Checkout
         uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
 
-      - name: Detect changed areas
+      - name: Detect validation areas
         id: filter
         uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4
         with:
@@ -89,6 +89,62 @@ jobs:
               - 'docs/ops/applied-contract-migrations.txt'
               - 'docs/ops/database-migration-policy.md'
               - 'docs/ops/**'
+
+      - name: Detect deployable areas
+        id: deploy-filter
+        uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4
+        with:
+          predicate-quantifier: 'every'
+          filters: |
+            backend:
+              - 'backend/**'
+              - '!backend/src/test/**'
+              - '!backend/src/testFixtures/**'
+              - '!backend/scripts/**'
+              - '!backend/**/*.md'
+              - '!backend/DATABASE_INIT.sql'
+              - '!backend/Dockerfile'
+              - '!backend/.dockerignore'
+              - '!backend/.gitignore'
+              - '!backend/compileTestJava.log'
+            frontend:
+              - 'frontend/**'
+              - '!frontend/**/__tests__/**'
+              - '!frontend/**/*.spec.*'
+              - '!frontend/**/*.test.*'
+              - '!frontend/e2e/**'
+              - '!frontend/docs/**'
+              - '!frontend/scripts/__tests__/**'
+              - '!frontend/**/*.md'
+              - '!frontend/.dockerignore'
+              - '!frontend/.gitignore'
+              - '!frontend/.vscode/**'
+              - '!frontend/Dockerfile'
+              - '!frontend/nginx.conf'
+              - '!frontend/eslint.config.mjs'
+              - '!frontend/jsconfig.json'
+              - '!frontend/playwright*.config.ts'
+              - '!frontend/vitest.config.ts'
+            contract:
+              - 'docs/ops/api-contract-revision.txt'
+
+      - name: Resolve deployment scope
+        id: deploy-scope
+        env:
+          BACKEND_DEPLOY_CHANGED: ${{ steps.deploy-filter.outputs.backend }}
+          FRONTEND_DEPLOY_CHANGED: ${{ steps.deploy-filter.outputs.frontend }}
+          CONTRACT_CHANGED: ${{ steps.deploy-filter.outputs.contract }}
+        run: |
+          backend="$BACKEND_DEPLOY_CHANGED"
+          frontend="$FRONTEND_DEPLOY_CHANGED"
+          if [ "$CONTRACT_CHANGED" = "true" ]; then
+            backend=true
+            frontend=true
+          fi
+          {
+            echo "backend=$backend"
+            echo "frontend=$frontend"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Resolve validation scope
         id: scope
@@ -693,7 +749,7 @@ jobs:
     needs: [changes, ci-gate]
     if: >-
       needs.ci-gate.result == 'success' &&
-      ((github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.backend_changed == 'true') ||
+      ((github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.backend_deploy == 'true') ||
       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.deploy_backend))
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -822,7 +878,7 @@ jobs:
     needs: [changes, ci-gate]
     if: >-
       needs.ci-gate.result == 'success' &&
-      ((github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.frontend_changed == 'true') ||
+      ((github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.frontend_deploy == 'true') ||
       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.deploy_frontend))
     runs-on: ubuntu-24.04
     timeout-minutes: 25
@@ -962,7 +1018,7 @@ jobs:
     if: >-
       needs.ci-gate.result == 'success' &&
       needs.release-backend.result == 'success' &&
-      ((github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.backend_changed == 'true') ||
+      ((github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.backend_deploy == 'true') ||
       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.deploy_backend)) &&
       (needs.ci-gate.outputs.contract_migration != 'true' ||
       (github.event_name == 'workflow_dispatch' && inputs.allow_contract_migration && inputs.backup_snapshot_id != '' && inputs.contract_change_ticket != ''))
@@ -996,9 +1052,9 @@ jobs:
       needs.ci-gate.result == 'success' &&
       needs.release-frontend.result == 'success' &&
       (needs.deploy-backend.result == 'success' ||
-      (needs.deploy-backend.result == 'skipped' && needs.changes.outputs.backend_changed != 'true' &&
+      (needs.deploy-backend.result == 'skipped' && needs.changes.outputs.backend_deploy != 'true' &&
       !(github.event_name == 'workflow_dispatch' && inputs.deploy_backend))) &&
-      ((github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.frontend_changed == 'true') ||
+      ((github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.frontend_deploy == 'true') ||
       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.deploy_frontend))
     uses: ./.github/workflows/deploy-frontend.yml
     permissions:
