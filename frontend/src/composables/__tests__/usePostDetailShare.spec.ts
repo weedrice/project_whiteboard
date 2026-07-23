@@ -2,7 +2,7 @@ import { mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, ref } from 'vue'
 import type { RouteLocationNormalizedLoaded } from 'vue-router'
-import { usePostDetailShare } from '../usePostDetailShare'
+import { usePostDetailShare } from '@/features/board/posts/detail/usePostDetailShare'
 import { createDeferred } from '@/test/async'
 import type { Post } from '@/types'
 

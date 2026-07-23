@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ref } from 'vue'
-import { usePostContentViewRef } from '../usePostContentViewRef'
+import { usePostContentViewRef } from '@/features/board/posts/detail/usePostContentViewRef'
 
 describe('usePostContentViewRef', () => {
   it('assigns exposed plain and ref-like elements', () => {

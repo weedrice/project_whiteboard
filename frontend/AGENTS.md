@@ -20,7 +20,7 @@ frontend/
 |   |-- api/          Axios clients and request/response handling
 |   |-- assets/       CSS and static frontend assets
 |   |-- components/   Reusable UI components
-|   |-- composables/  Shared composables and compatibility re-export shims
+|   |-- composables/  Shared cross-feature and low-level composables
 |   |-- extensions/   TipTap and editor extensions
 |   |-- features/     Domain feature logic, feature-local composables, and query helpers
 |   |-- locales/      Translation resources
@@ -41,7 +41,7 @@ frontend/
 
 - `src/api`: endpoint definitions, token refresh handling, request/response typing
 - `src/features`: domain feature orchestration, feature-local composables, query keys, cache invalidation helpers
-- `src/composables`: shared cross-feature composables and compatibility shims for older import paths
+- `src/composables`: shared cross-feature and low-level reusable composables
 - `src/views`: route-level feature work
 - `src/components`: reusable UI work
 - `src/router`: route metadata, auth guards, navigation rules
@@ -99,7 +99,7 @@ Important behavior:
 - Put route pages in `views` and reusable UI in `components`
 - Reuse existing base components under `components/common/ui` and widgets under `components/common/widgets`
 - Keep route-level orchestration in views and extract domain-specific logic into `src/features/{domain}` when it belongs to a feature slice
-- Use `src/composables` for shared cross-feature helpers, low-level reusable behavior, or compatibility re-export shims
+- Use `src/composables` for shared cross-feature helpers and low-level reusable behavior
 
 ### Data fetching and mutations
 
@@ -116,8 +116,7 @@ Important behavior:
 - Feature slices may be adopted incrementally; the presence of a domain directory does not mean every root composable for that domain has already moved.
 - `board/posts` owns post detail, draft, editor, form, and post query helpers.
 - `emoticon` owns detail, form, list, and picker helpers.
-- Keep old `src/composables/useX` paths as thin re-export shims when existing tests or consumers still rely on them; do not add new domain implementation logic to those shim files.
-- Prefer importing moved domain logic from `src/features/...` in new code.
+- Import domain logic directly from `src/features/...`; do not recreate compatibility re-export shims under `src/composables`.
 
 ### API contract rules
 
@@ -253,4 +252,4 @@ Do not expose secrets through `VITE_*`, component constants, test fixtures, or d
 
 ### 9. Rebuilding domain logic in root composables
 
-Do not put new domain implementation logic in `src/composables` when an existing feature slice owns the behavior. Add it under `src/features/{domain}` and expose a compatibility shim only when older imports need it.
+Do not put domain implementation logic in `src/composables` when an existing feature slice owns the behavior. Add it under `src/features/{domain}` and migrate consumers to that path.

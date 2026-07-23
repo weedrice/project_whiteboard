@@ -1,6 +1,6 @@
 import { vi } from 'vitest'
-import { defineComponent, h, nextTick } from 'vue'
-import { flushPromises, mount } from '@vue/test-utils'
+import { defineComponent, h } from 'vue'
+import { mount } from '@vue/test-utils'
 
 export type PostEditorTipTapAttributes =
     | { color: string; fontSize: string; lineHeight: string }

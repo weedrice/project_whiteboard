@@ -29,7 +29,6 @@ const allowedTemplateCalls = [
 
 const allowedDynamicCallSites: ReadonlyArray<{ file: string; line: RegExp }> = [
   { file: 'features/notifications/notificationPresentation.ts', line: /t\(notification\.(messageKey|actorLabelKey)/ },
-  { file: 'components/user/UserNavigation.vue', line: /\$t\(tab\.nameKey/ },
   { file: 'components/admin/AdminAuditLogTable.vue', line: /t\(key/ },
   { file: 'views/admin/AdminInquiryPosts.vue', line: /t\(item\.statusLabelKey/ },
   { file: 'components/user/MyPageSummaryCards.vue', line: /\$t\(card\.titleKey/ },

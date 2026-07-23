@@ -2,7 +2,7 @@ import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { computed, defineComponent, h, ref } from 'vue'
 import type { RouteLocationNormalizedLoaded, Router } from 'vue-router'
-import { usePostDetailActions } from '../usePostDetailActions'
+import { usePostDetailActions } from '@/features/board/posts/detail/usePostDetailActions'
 import type { Post } from '@/types'
 
 const mocks = vi.hoisted(() => ({

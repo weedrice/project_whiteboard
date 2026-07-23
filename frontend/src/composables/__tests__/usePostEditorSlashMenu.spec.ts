@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
 import { slashActions } from '@/components/board/editor/postEditorOptions'
-import { usePostEditorSlashMenu } from '../usePostEditorSlashMenu'
+import { usePostEditorSlashMenu } from '@/features/board/posts/editor/usePostEditorSlashMenu'
 
 describe('usePostEditorSlashMenu', () => {
   it('opens, toggles and bounds slash action selection', () => {

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { computed, ref } from 'vue'
-import { postDetailQueryKey, usePost } from '../usePost'
+import { postDetailQueryKey, usePost } from '@/features/board/posts/queries/usePost'
 import { postApi } from '@/api/post'
 import { apiDataResponse, apiSuccessResponse } from '@/test/apiResponseFixtures'
 

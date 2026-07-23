@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { toPostDetailViewModel } from '../usePostDetailViewModel'
+import { toPostDetailViewModel } from '@/features/board/posts/detail/usePostDetailViewModel'
 import type { Post } from '@/types'
 
 const basePost: Post = {

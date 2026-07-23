@@ -88,7 +88,7 @@ vi.mock('@/utils/date', () => ({
     formatDateShort: () => '04-20',
 }))
 
-vi.mock('@/utils/commentContent', () => ({
+vi.mock('@/features/comments/commentContent', () => ({
     isEmoticonOnlyContent: () => false,
     renderCommentContentHtml: (content: string | null | undefined) => content ?? '',
 }))

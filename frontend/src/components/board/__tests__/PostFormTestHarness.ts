@@ -1,6 +1,6 @@
 import { vi } from 'vitest'
-import { defineComponent, h, nextTick, ref } from 'vue'
-import { flushPromises, mount } from '@vue/test-utils'
+import { defineComponent, h, ref } from 'vue'
+import { mount } from '@vue/test-utils'
 import type { EmoticonImage } from '@/types/emoticon'
 import PostForm from '../PostForm.vue'
 import { useBoard } from '@/features/board/useBoard'
@@ -8,7 +8,6 @@ import { usePost } from '@/features/board/posts/queries/usePost'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import type { User } from '@/types'
-import logger from '@/utils/logger'
 
 const userApiMocks = vi.hoisted(() => ({
     createPostSeries: vi.fn(),

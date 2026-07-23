@@ -121,7 +121,7 @@ vi.mock('@/utils/date', () => ({
   formatDate: (value: string) => value,
 }))
 
-vi.mock('@/utils/commentContent', () => ({
+vi.mock('@/features/comments/commentContent', () => ({
   renderCommentContentHtml: (value: string) => value,
 }))
 

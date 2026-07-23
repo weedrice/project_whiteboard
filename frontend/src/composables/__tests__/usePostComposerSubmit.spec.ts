@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
-import { usePostComposerSubmit } from '../usePostComposerSubmit'
+import { usePostComposerSubmit } from '@/features/board/posts/form/usePostComposerSubmit'
 import logger from '@/utils/logger'
 import { createDeferred } from '@/test/async'
 

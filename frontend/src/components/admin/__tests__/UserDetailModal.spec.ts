@@ -14,7 +14,7 @@ vi.mock('@/utils/date', () => ({
     formatDate: (value: string) => value
 }))
 
-vi.mock('@/utils/commentContent', () => ({
+vi.mock('@/features/comments/commentContent', () => ({
     isEmoticonOnlyContent: () => false,
     renderCommentContentHtml: (content?: string) => content ?? ''
 }))

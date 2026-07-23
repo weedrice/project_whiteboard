@@ -1,6 +1,6 @@
 import { ref } from 'vue'
 import { describe, expect, it } from 'vitest'
-import { usePostDetailPermissions } from '../usePostDetailPermissions'
+import { usePostDetailPermissions } from '@/features/board/posts/detail/usePostDetailPermissions'
 import type { Post } from '@/types'
 
 const createPost = (overrides: Partial<Post> = {}): Post => ({

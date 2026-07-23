@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { effectScope, shallowRef } from 'vue'
 import type { Editor } from '@tiptap/core'
-import { usePostEditorUploadedImages } from '../usePostEditorUploadedImages'
+import { usePostEditorUploadedImages } from '@/features/board/posts/editor/usePostEditorUploadedImages'
 
 const createEditorRef = () => {
     const chain = {

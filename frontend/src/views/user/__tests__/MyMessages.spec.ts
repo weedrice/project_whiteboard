@@ -1,6 +1,6 @@
 import { flushPromises } from '@vue/test-utils'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { toMailboxMessageViewModel } from '@/utils/messageViewModel'
+import { toMailboxMessageViewModel } from '@/features/user/messages/messageViewModel'
 import { getExposedVm } from '@/test/vue-test-helpers'
 import { createDeferred } from '@/test/async'
 import {

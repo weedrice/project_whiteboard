@@ -1,7 +1,7 @@
 import { mount } from '@vue/test-utils'
 import { vi } from 'vitest'
 import MyMessages from '../MyMessages.vue'
-import { toMailboxMessageViewModel } from '@/utils/messageViewModel'
+import { toMailboxMessageViewModel } from '@/features/user/messages/messageViewModel'
 
 export type MyMessagesExposed = {
     startReply: (message: ReturnType<typeof toMailboxMessageViewModel>) => void

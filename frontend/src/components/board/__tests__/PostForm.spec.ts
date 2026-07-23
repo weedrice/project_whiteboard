@@ -8,7 +8,6 @@ import {
     editorSetVideo,
     fillPostForm,
     findButtonByText,
-    findEditorModeButtons,
     getLastCreatePostVariables,
     getLastUpdatePostVariables,
     isBoardLoadingRef,

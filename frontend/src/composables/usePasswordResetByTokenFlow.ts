@@ -1,8 +1,9 @@
-import { getCurrentScope, onScopeDispose, ref, type Ref } from 'vue'
+import { ref, type Ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { authApi } from '@/api/auth'
 import { useAuthPasswordValidation } from '@/composables/useAuthPasswordValidation'
+import { useLatestRequestGate } from '@/composables/useLatestAsyncTask'
 import { useToastStore } from '@/stores/toast'
 import { extractErrorMessage } from '@/utils/errorHandler'
 
@@ -18,8 +19,14 @@ export function usePasswordResetByTokenFlow(options: UsePasswordResetByTokenFlow
   const toastStore = useToastStore()
   const { validatePasswordPair } = useAuthPasswordValidation()
   const isLoading = ref(false)
-  let requestRevision = 0
-  let requestController: AbortController | null = null
+  const currentRouteIdentity = () => router.currentRoute?.value.fullPath ?? window.location.href
+  const requestGate = useLatestRequestGate<string>({
+    captureContext: currentRouteIdentity,
+    isContextCurrent: (routeIdentity) => currentRouteIdentity() === routeIdentity,
+    onActiveChange: (active) => {
+      isLoading.value = active
+    },
+  })
 
   const resetPassword = async () => {
     if (!options.token.value) {
@@ -40,42 +47,24 @@ export function usePasswordResetByTokenFlow(options: UsePasswordResetByTokenFlow
       return
     }
 
-    requestController?.abort()
-    const controller = new AbortController()
-    requestController = controller
-    const revision = ++requestRevision
-    const routeIdentity = router.currentRoute?.value.fullPath ?? window.location.href
-    const isCurrent = () => requestRevision === revision
-      && requestController === controller
-      && !controller.signal.aborted
-      && (router.currentRoute?.value.fullPath ?? window.location.href) === routeIdentity
-    isLoading.value = true
+    const request = requestGate.start()
     try {
       const { data } = await authApi.resetPasswordWithToken(
         options.token.value,
         options.newPassword.value,
-        { signal: controller.signal },
+        { signal: request.signal },
       )
-      if (isCurrent() && data.success) {
+      if (request.isCurrent() && data.success) {
         toastStore.addToast(t('auth.passwordResetSuccess'), 'success')
         router.push('/login')
       }
     } catch (error: unknown) {
-      if (!isCurrent()) return
+      if (!request.isCurrent()) return
       const message = extractErrorMessage(error) || t('auth.verificationFailed')
       toastStore.addToast(message, 'error')
     } finally {
-      if (isCurrent()) isLoading.value = false
+      request.finish()
     }
-  }
-
-  if (getCurrentScope()) {
-    onScopeDispose(() => {
-      requestRevision += 1
-      requestController?.abort()
-      requestController = null
-      isLoading.value = false
-    })
   }
 
   return {

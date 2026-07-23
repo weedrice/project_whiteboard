@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { markMailboxMessageRead, toMailboxMessageViewModel } from '../messageViewModel'
+import { markMailboxMessageRead, toMailboxMessageViewModel } from '@/features/user/messages/messageViewModel'
 
 describe('messageViewModel', () => {
     it('maps backend message summary dto to mailbox view model', () => {

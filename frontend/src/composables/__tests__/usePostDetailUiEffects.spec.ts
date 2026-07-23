@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { usePostDetailUiEffects } from '../usePostDetailUiEffects'
+import { usePostDetailUiEffects } from '@/features/board/posts/detail/usePostDetailUiEffects'
 
 describe('usePostDetailUiEffects', () => {
   beforeEach(() => {

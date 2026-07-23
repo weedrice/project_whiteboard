@@ -1,8 +1,8 @@
-import { getCurrentScope, onScopeDispose } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { authApi } from '@/api/auth'
 import { useAuthPasswordValidation } from '@/composables/useAuthPasswordValidation'
+import { useLatestRequestGate } from '@/composables/useLatestAsyncTask'
 import { useToastStore } from '@/stores/toast'
 import { extractErrorMessage } from '@/utils/errorHandler'
 import { handleDeletedAccountRedirect } from '@/utils/authRedirect'
@@ -21,15 +21,13 @@ export function usePasswordResetByVerificationFlow(options: UsePasswordResetByVe
     const router = useRouter()
     const toastStore = useToastStore()
     const { validatePasswordPair } = useAuthPasswordValidation()
-    let requestRevision = 0
-    let requestController: AbortController | null = null
-
-    const cancelPendingRequests = () => {
-        requestRevision += 1
-        requestController?.abort()
-        requestController = null
-        options.onLoadingChange?.(false)
-    }
+    const currentRouteIdentity = () => router.currentRoute?.value.fullPath ?? window.location.href
+    const requestGate = useLatestRequestGate<string>({
+        captureContext: currentRouteIdentity,
+        isContextCurrent: (routeIdentity) => currentRouteIdentity() === routeIdentity,
+        onActiveChange: options.onLoadingChange,
+    })
+    const cancelPendingRequests = requestGate.cancel
 
     const completeVerification = (verificationTicket: string) => {
         options.onVerified?.(verificationTicket)
@@ -49,28 +47,19 @@ export function usePasswordResetByVerificationFlow(options: UsePasswordResetByVe
         }
 
         const email = options.getEmail().trim()
-        requestController?.abort()
-        const controller = new AbortController()
-        requestController = controller
-        const revision = ++requestRevision
-        const routeIdentity = router.currentRoute?.value.fullPath ?? window.location.href
-        const isCurrent = () => requestRevision === revision
-            && requestController === controller
-            && !controller.signal.aborted
-            && (router.currentRoute?.value.fullPath ?? window.location.href) === routeIdentity
-        options.onLoadingChange?.(true)
+        const request = requestGate.start()
         try {
             const { data } = await authApi.resetPassword({
                 email,
                 verificationTicket: options.getVerificationTicket(),
                 newPassword: options.getNewPassword()
-            }, { signal: controller.signal })
-            if (isCurrent() && data.success) {
+            }, { signal: request.signal })
+            if (request.isCurrent() && data.success) {
                 toastStore.addToast(t('auth.passwordResetSuccess'), 'success')
                 router.push('/login')
             }
         } catch (error: unknown) {
-            if (!isCurrent()) return
+            if (!request.isCurrent()) return
             if (handleDeletedAccountRedirect(error, {
                 email,
                 t,
@@ -83,12 +72,8 @@ export function usePasswordResetByVerificationFlow(options: UsePasswordResetByVe
                 toastStore.addToast(message, 'error')
             }
         } finally {
-            if (isCurrent()) options.onLoadingChange?.(false)
+            request.finish()
         }
-    }
-
-    if (getCurrentScope()) {
-        onScopeDispose(cancelPendingRequests)
     }
 
     return {
