@@ -8,7 +8,7 @@
 애플리케이션 전반에서 사용되는 공통 클래스와 전역 설정 기능을 포함합니다.
 - **ApiResponse.java**: 모든 API 응답을 감싸는 표준 래퍼 클래스입니다. 성공/실패 여부, 데이터, 에러 메시지 등을 통일된 포맷으로 제공합니다.
 - **entity/BaseTimeEntity.java**: JPA 엔티티들의 생성일시(`created_at`), 수정일시(`modified_at`)를 자동으로 관리하는 상위 엔티티입니다.
-- **util/**: 유틸리티 클래스 모음 (예: `SecurityUtils` 등)
+- **util/**: 페이지 요청, 클라이언트 정보 등 공통 유틸리티 클래스 모음
 - **전역 설정 (Global Config)**: 시스템의 동적인 설정을 관리하는 `GlobalConfig` 도메인(Entity, Service, Controller)이 포함되어 있습니다.
 
 ### 1.2 `config`
@@ -84,4 +84,4 @@ throw new BusinessException(ErrorCode.USER_NOT_FOUND);
 ### 보안 및 인증
 - **인증 필요 API**: Spring Security 설정에 따라 보호되며, 요청 헤더에 유효한 `Bearer` 토큰이 필요합니다.
 - **현재 사용자 접근**: 컨트롤러 메서드 인자로 `@CurrentUserId Long userId`를 받아 현재 인증된 사용자의 ID를 획득합니다. 공개 API에서 선택적 인증이 필요하면 `@CurrentUserId(required = false) Long userId`를 사용합니다.
-- **슈퍼 관리자 권한**: `SecurityUtils.validateSuperAdminPermission()`을 호출하여 관리자 권한을 강제로 체크할 수 있습니다.
+- **슈퍼 관리자 권한**: 컨트롤러의 `@PreAuthorize`와 서비스의 `SuperAdminPolicy`로 권한을 검증합니다.
