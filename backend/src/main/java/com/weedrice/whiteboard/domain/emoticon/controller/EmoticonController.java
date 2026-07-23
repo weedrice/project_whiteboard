@@ -1,7 +1,6 @@
 package com.weedrice.whiteboard.domain.emoticon.controller;
 
 import com.weedrice.whiteboard.domain.emoticon.dto.EmoticonCreateRequest;
-import com.weedrice.whiteboard.domain.emoticon.dto.EmoticonImageAddRequest;
 import com.weedrice.whiteboard.domain.emoticon.dto.EmoticonMasterDto;
 import com.weedrice.whiteboard.domain.emoticon.dto.EmoticonPurchaseStatusResponse;
 import com.weedrice.whiteboard.domain.emoticon.dto.EmoticonUpdateRequest;
@@ -37,14 +36,6 @@ public class EmoticonController {
 
     private final EmoticonService emoticonService;
 
-    @GetMapping
-    public ApiResponse<PageResponse<EmoticonMasterDto>> getEmoticons(
-            @RequestParam(defaultValue = "latest") String sortBy,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        return ApiResponses.page(emoticonService.getActiveEmoticons(pageable(page, size), sortBy));
-    }
-
     @GetMapping("/popular")
     public ApiResponse<List<EmoticonMasterDto>> getPopularEmoticons(
             @RequestParam(defaultValue = "daily") String period) {
@@ -60,22 +51,6 @@ public class EmoticonController {
             @RequestParam(defaultValue = "20") int size) {
         return ApiResponses.page(
                 emoticonService.searchAll(keyword, searchType, pageable(page, size), sortBy));
-    }
-
-    @GetMapping("/search/tag")
-    public ApiResponse<PageResponse<EmoticonMasterDto>> searchByTag(
-            @RequestParam String tag,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        return ApiResponses.page(emoticonService.searchByTag(tag, pageable(page, size)));
-    }
-
-    @GetMapping("/search")
-    public ApiResponse<PageResponse<EmoticonMasterDto>> searchByKeyword(
-            @RequestParam String keyword,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        return ApiResponses.page(emoticonService.searchByKeyword(keyword, pageable(page, size)));
     }
 
     @GetMapping("/my")
@@ -121,25 +96,6 @@ public class EmoticonController {
             @CurrentUserId Long userId,
             @PathVariable Long emoticonId) {
         emoticonService.deleteEmoticon(userId, emoticonId);
-        return ApiResponses.ok();
-    }
-
-    @PostMapping("/{emoticonId}/images")
-    public ApiResponse<EmoticonMasterDto> addImage(
-            @CurrentUserId Long userId,
-            @PathVariable Long emoticonId,
-            @Valid @RequestBody EmoticonImageAddRequest request) {
-        return ApiResponse.success(emoticonService.addImage(
-                userId,
-                emoticonId,
-                request.getFileId()));
-    }
-
-    @DeleteMapping("/images/{imageId}")
-    public ApiResponse<Void> deleteImage(
-            @CurrentUserId Long userId,
-            @PathVariable Long imageId) {
-        emoticonService.deleteImage(userId, imageId);
         return ApiResponses.ok();
     }
 

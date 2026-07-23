@@ -120,94 +120,6 @@ class EmoticonControllerTest {
     class GetEmoticons {
 
         @Test
-        @DisplayName("이모티콘 목록 조회 성공 - latest 정렬")
-        void getEmoticons_latest() throws Exception {
-            Page<EmoticonMasterDto> page = new PageImpl<>(List.of(EmoticonMasterDto.builder().emoticonId(1L).build()), PageRequest.of(0, 20), 1);
-            when(emoticonService.getActiveEmoticons(any(), eq("latest"))).thenReturn(page);
-
-            mockMvc.perform(get("/api/v1/emoticons")
-                            .param("sortBy", "latest")
-                            .param("page", "0")
-                            .param("size", "20")
-                            .with(csrf()))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.success").value(true))
-                    .andExpect(jsonPath("$.data.content[0].emoticonId").value(1))
-                    .andExpect(jsonPath("$.data.page").value(0));
-
-            verify(emoticonService).getActiveEmoticons(any(), eq("latest"));
-        }
-
-        @Test
-        @DisplayName("이모티콘 목록 조회 성공 - popular 정렬")
-        void getEmoticons_popular() throws Exception {
-            Page<EmoticonMasterDto> page = new PageImpl<>(List.of(EmoticonMasterDto.builder().emoticonId(1L).build()), PageRequest.of(0, 20), 1);
-            when(emoticonService.getActiveEmoticons(any(), eq("popular"))).thenReturn(page);
-
-            mockMvc.perform(get("/api/v1/emoticons")
-                            .param("sortBy", "popular")
-                            .with(csrf()))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.success").value(true))
-                    .andExpect(jsonPath("$.data.content").isArray());
-
-            verify(emoticonService).getActiveEmoticons(any(), eq("popular"));
-        }
-
-        @Test
-        @DisplayName("이모티콘 목록 조회 성공 - oldest 정렬")
-        void getEmoticons_oldest() throws Exception {
-            Page<EmoticonMasterDto> page = new PageImpl<>(List.of(EmoticonMasterDto.builder().emoticonId(1L).build()), PageRequest.of(0, 20), 1);
-            when(emoticonService.getActiveEmoticons(any(), eq("oldest"))).thenReturn(page);
-
-            mockMvc.perform(get("/api/v1/emoticons")
-                            .param("sortBy", "oldest")
-                            .with(csrf()))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.success").value(true))
-                    .andExpect(jsonPath("$.data.content").isArray());
-
-            verify(emoticonService).getActiveEmoticons(any(), eq("oldest"));
-        }
-
-        @Test
-        @DisplayName("이모티콘 목록 page/size를 정규화하고 sort 파라미터를 무시한다")
-        void getEmoticons_normalizesPageableAndIgnoresClientSort() throws Exception {
-            Page<EmoticonMasterDto> page = new PageImpl<>(
-                    List.of(EmoticonMasterDto.builder().emoticonId(1L).build()),
-                    PageRequest.of(2, 100),
-                    1);
-            when(emoticonService.getActiveEmoticons(any(), eq("createdAt"))).thenReturn(page);
-
-            mockMvc.perform(get("/api/v1/emoticons")
-                            .param("sortBy", "createdAt")
-                            .param("page", "2")
-                            .param("size", "500")
-                            .param("sort", "purchaseCount,desc")
-                            .with(csrf()))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.success").value(true));
-
-            ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
-            verify(emoticonService).getActiveEmoticons(pageableCaptor.capture(), eq("createdAt"));
-            Pageable pageable = pageableCaptor.getValue();
-            assertThat(pageable.getPageNumber()).isEqualTo(2);
-            assertThat(pageable.getPageSize()).isEqualTo(100);
-            assertThat(pageable.getSort().isUnsorted()).isTrue();
-        }
-
-        @Test
-        @DisplayName("이모티콘 목록 page 요청이 유효하지 않으면 거절한다")
-        void getEmoticons_invalidPageRequest() throws Exception {
-            mockMvc.perform(get("/api/v1/emoticons")
-                            .param("page", "-1")
-                            .param("size", "20")
-                            .with(csrf()))
-                    .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.success").value(false));
-        }
-
-        @Test
         @DisplayName("인기 이모티콘 조회 성공")
         void getPopularEmoticons_success() throws Exception {
             List<EmoticonMasterDto> list = List.of(EmoticonMasterDto.builder().emoticonId(1L).build());
@@ -255,6 +167,24 @@ class EmoticonControllerTest {
     @Nested
     @DisplayName("이모티콘 검색 API")
     class SearchEmoticons {
+
+        @Test
+        @DisplayName("검색어 없이 통합 검색하면 이모티콘 목록을 조회한다")
+        void searchAll_withoutKeywordListsEmoticons() throws Exception {
+            Page<EmoticonMasterDto> page = new PageImpl<>(
+                    List.of(EmoticonMasterDto.builder().emoticonId(1L).build()),
+                    PageRequest.of(0, 20),
+                    1);
+            when(emoticonService.searchAll(isNull(), eq("ALL"), any(), eq("latest"))).thenReturn(page);
+
+            mockMvc.perform(get("/api/v1/emoticons/search/all")
+                            .with(csrf()))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.success").value(true))
+                    .andExpect(jsonPath("$.data.content[0].emoticonId").value(1));
+
+            verify(emoticonService).searchAll(isNull(), eq("ALL"), any(), eq("latest"));
+        }
 
         @Test
         @DisplayName("통합 검색 성공")
@@ -324,41 +254,6 @@ class EmoticonControllerTest {
             verify(emoticonService).searchAll(eq("test"), eq("NAME"), any(), eq("OLDEST"));
         }
 
-        @Test
-        @DisplayName("태그로 검색 성공")
-        void searchByTag_success() throws Exception {
-            Page<EmoticonMasterDto> page = new PageImpl<>(List.of(EmoticonMasterDto.builder().emoticonId(1L).build()), PageRequest.of(0, 20), 1);
-            when(emoticonService.searchByTag(eq("웃음"), any())).thenReturn(page);
-
-            mockMvc.perform(get("/api/v1/emoticons/search/tag")
-                            .param("tag", "웃음")
-                            .param("page", "0")
-                            .param("size", "20")
-                            .with(csrf()))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.success").value(true))
-                    .andExpect(jsonPath("$.data.content").isArray());
-
-            verify(emoticonService).searchByTag(eq("웃음"), any());
-        }
-
-        @Test
-        @DisplayName("키워드로 검색 성공")
-        void searchByKeyword_success() throws Exception {
-            Page<EmoticonMasterDto> page = new PageImpl<>(List.of(EmoticonMasterDto.builder().emoticonId(1L).build()), PageRequest.of(0, 20), 1);
-            when(emoticonService.searchByKeyword(eq("이모티콘"), any())).thenReturn(page);
-
-            mockMvc.perform(get("/api/v1/emoticons/search")
-                            .param("keyword", "이모티콘")
-                            .param("page", "0")
-                            .param("size", "20")
-                            .with(csrf()))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.success").value(true))
-                    .andExpect(jsonPath("$.data.content").isArray());
-
-            verify(emoticonService).searchByKeyword(eq("이모티콘"), any());
-        }
     }
 
     @Nested
@@ -440,47 +335,6 @@ class EmoticonControllerTest {
                     .andExpect(jsonPath("$.success").value(true));
 
             verify(emoticonService).deleteEmoticon(eq(1L), eq(1L));
-        }
-
-        @Test
-        @DisplayName("이미지 추가 성공")
-        void addImage_success() throws Exception {
-            EmoticonMasterDto dto = EmoticonMasterDto.builder().emoticonId(1L).build();
-            when(emoticonService.addImage(eq(1L), eq(1L), eq(99L))).thenReturn(dto);
-
-            mockMvc.perform(post("/api/v1/emoticons/{emoticonId}/images", 1L)
-                            .contentType("application/json")
-                            .content("{\"fileId\":99}")
-                            .with(user(customUserDetails))
-                            .with(csrf()))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.success").value(true));
-
-            verify(emoticonService).addImage(eq(1L), eq(1L), eq(99L));
-        }
-
-        @Test
-        @DisplayName("이미지 추가 - fileId가 없으면 400")
-        void addImage_fileIdRequired() throws Exception {
-            mockMvc.perform(post("/api/v1/emoticons/{emoticonId}/images", 1L)
-                            .contentType("application/json")
-                            .content("{}")
-                            .with(user(customUserDetails))
-                            .with(csrf()))
-                    .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.success").value(false));
-        }
-
-        @Test
-        @DisplayName("이미지 삭제 성공")
-        void deleteImage_success() throws Exception {
-            mockMvc.perform(delete("/api/v1/emoticons/images/{imageId}", 10L)
-                            .with(user(customUserDetails))
-                            .with(csrf()))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.success").value(true));
-
-            verify(emoticonService).deleteImage(eq(1L), eq(10L));
         }
 
         @Test

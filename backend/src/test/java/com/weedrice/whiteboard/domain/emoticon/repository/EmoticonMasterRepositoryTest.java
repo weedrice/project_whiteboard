@@ -108,19 +108,6 @@ class EmoticonMasterRepositoryTest {
     }
 
     @Test
-    void findByKeyword_escapesLikeWildcards() throws NoSuchMethodException {
-        var method = EmoticonMasterRepository.class.getMethod("findByKeyword", String.class, Pageable.class);
-
-        Query query = method.getAnnotation(Query.class);
-
-        assertThat(query).isNotNull();
-        assertThat(query.value())
-                .contains("REPLACE(REPLACE(REPLACE(:keyword, '!', '!!'), '%', '!%'), '_', '!_')")
-                .contains("ESCAPE '!'")
-                .contains("ORDER BY e.createdAt DESC, e.emoticonId DESC");
-    }
-
-    @Test
     @DisplayName("custom search keeps tag ANY condition and popular ordering")
     void searchActive_tagPopular_buildsExpectedNativeQuery() {
         EntityManager entityManager = mock(EntityManager.class);
@@ -244,22 +231,6 @@ class EmoticonMasterRepositoryTest {
         ArgumentCaptor<Object> keywordPattern = ArgumentCaptor.forClass(Object.class);
         verify(contentQuery).setParameter(eq("keywordPattern"), keywordPattern.capture());
         assertThat(keywordPattern.getValue()).isEqualTo("%!%!_!!%");
-    }
-
-    @Test
-    @DisplayName("latest tag search declares explicit count query")
-    void findByTag_declaresCountQuery() throws NoSuchMethodException {
-        var method = EmoticonMasterRepository.class.getMethod("findByTag", String.class, Pageable.class);
-
-        Query query = method.getAnnotation(Query.class);
-
-        assertThat(query).isNotNull();
-        assertThat(query.value())
-                .contains(":tag = ANY(tags)")
-                .contains("ORDER BY created_at DESC, emoticon_id DESC");
-        assertThat(query.countQuery())
-                .contains("SELECT COUNT(*) FROM emoticon_masters")
-                .contains(":tag = ANY(tags)");
     }
 
     @Test

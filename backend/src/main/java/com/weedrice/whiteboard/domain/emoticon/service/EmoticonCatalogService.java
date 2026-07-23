@@ -53,22 +53,6 @@ class EmoticonCatalogService {
         this.clock = clock;
     }
 
-    Page<EmoticonMasterDto> getActiveEmoticons(Pageable pageable) {
-        return toSummaryPage(emoticonMasterRepository.findAllActive(normalizePageable(pageable)));
-    }
-
-    Page<EmoticonMasterDto> searchByTag(String tag, Pageable pageable) {
-        return toSummaryPage(emoticonMasterRepository.findByTag(
-                EmoticonRequestNormalizer.normalizeRequiredTag(tag),
-                normalizePageable(pageable)));
-    }
-
-    Page<EmoticonMasterDto> searchByKeyword(String keyword, Pageable pageable) {
-        return toSummaryPage(emoticonMasterRepository.findByKeyword(
-                EmoticonRequestNormalizer.normalizeRequiredKeyword(keyword),
-                normalizePageable(pageable)));
-    }
-
     Page<EmoticonMasterDto> getMyEmoticons(Long userId, Pageable pageable) {
         return toSummaryPage(emoticonMasterRepository.findByCreatorId(userId, normalizePageable(pageable)));
     }

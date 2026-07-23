@@ -87,7 +87,7 @@ class EmoticonCatalogServiceTest {
         when(emoticonMasterRepository.findAllActive(PageRequest.of(0, 20)))
                 .thenReturn(new PageImpl<>(List.of(master), PageRequest.of(0, 20), 1));
 
-        EmoticonMasterDto result = catalogService.getActiveEmoticons(PageRequest.of(0, 20))
+        EmoticonMasterDto result = catalogService.searchAll(null, "ALL", PageRequest.of(0, 20), "latest")
                 .getContent()
                 .get(0);
 
@@ -126,7 +126,7 @@ class EmoticonCatalogServiceTest {
                 .thenReturn(new PageImpl<>(List.of(master), PageRequest.of(0, 20), 1));
         when(userRepository.findAllById(any())).thenReturn(List.of(loadedCreator));
 
-        EmoticonMasterDto result = catalogService.getActiveEmoticons(PageRequest.of(0, 20))
+        EmoticonMasterDto result = catalogService.searchAll(null, "ALL", PageRequest.of(0, 20), "latest")
                 .getContent()
                 .get(0);
 
@@ -141,7 +141,7 @@ class EmoticonCatalogServiceTest {
         when(emoticonMasterRepository.findAllActive(any(Pageable.class)))
                 .thenAnswer(invocation -> new PageImpl<>(List.of(), invocation.getArgument(0), 0));
 
-        catalogService.getActiveEmoticons(PageRequest.of(2, 500, Sort.by("name")));
+        catalogService.searchAll(null, "ALL", PageRequest.of(2, 500, Sort.by("name")), "latest");
 
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
         verify(emoticonMasterRepository).findAllActive(pageableCaptor.capture());
@@ -156,7 +156,7 @@ class EmoticonCatalogServiceTest {
         when(emoticonMasterRepository.findAllActive(any(Pageable.class)))
                 .thenAnswer(invocation -> new PageImpl<>(List.of(), invocation.getArgument(0), 0));
 
-        catalogService.getActiveEmoticons(null);
+        catalogService.searchAll(null, "ALL", null, "latest");
 
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
         verify(emoticonMasterRepository).findAllActive(pageableCaptor.capture());

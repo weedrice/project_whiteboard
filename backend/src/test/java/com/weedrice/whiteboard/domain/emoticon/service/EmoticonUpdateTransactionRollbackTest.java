@@ -326,7 +326,6 @@ class EmoticonUpdateTransactionRollbackTest {
         @Bean
         EmoticonCommandService emoticonCommandService(
                 EmoticonMasterRepository emoticonMasterRepository,
-                EmoticonImageRepository emoticonImageRepository,
                 UserWritableResolver userWritableResolver,
                 EmoticonAttachmentHelper attachmentHelper,
                 EmoticonDeletePolicy deletePolicy,
@@ -334,7 +333,6 @@ class EmoticonUpdateTransactionRollbackTest {
                 EmoticonShopItemLifecycleService shopItemLifecycleService) {
             return new EmoticonCommandService(
                     emoticonMasterRepository,
-                    emoticonImageRepository,
                     userWritableResolver,
                     attachmentHelper,
                     deletePolicy,

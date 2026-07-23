@@ -27,18 +27,6 @@ public class EmoticonService {
         this.purchaseService = purchaseService;
     }
 
-    public Page<EmoticonMasterDto> getActiveEmoticons(Pageable pageable) {
-        return catalogService.getActiveEmoticons(pageable);
-    }
-
-    public Page<EmoticonMasterDto> searchByTag(String tag, Pageable pageable) {
-        return catalogService.searchByTag(tag, pageable);
-    }
-
-    public Page<EmoticonMasterDto> searchByKeyword(String keyword, Pageable pageable) {
-        return catalogService.searchByKeyword(keyword, pageable);
-    }
-
     public Page<EmoticonMasterDto> getMyEmoticons(Long userId, Pageable pageable) {
         return catalogService.getMyEmoticons(userId, pageable);
     }
@@ -65,20 +53,6 @@ public class EmoticonService {
     @Transactional
     public void deleteEmoticon(Long userId, Long emoticonId) {
         commandService.deleteEmoticon(userId, emoticonId);
-    }
-
-    @Transactional
-    public EmoticonMasterDto addImage(Long userId, Long emoticonId, Long fileId) {
-        return commandService.addImage(userId, emoticonId, fileId);
-    }
-
-    @Transactional
-    public void deleteImage(Long userId, Long imageId) {
-        commandService.deleteImage(userId, imageId);
-    }
-
-    public Page<EmoticonMasterDto> getActiveEmoticons(Pageable pageable, String sortBy) {
-        return catalogService.getActiveEmoticons(pageable, sortBy);
     }
 
     public List<EmoticonMasterDto> getPopularEmoticons(String period) {

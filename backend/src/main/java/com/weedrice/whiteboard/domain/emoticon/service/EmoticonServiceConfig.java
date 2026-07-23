@@ -1,6 +1,5 @@
 package com.weedrice.whiteboard.domain.emoticon.service;
 
-import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonImageRepository;
 import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonMasterRepository;
 import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonPurchaseRepository;
 import com.weedrice.whiteboard.domain.file.service.FileService;
@@ -40,7 +39,6 @@ class EmoticonServiceConfig {
 
     @Bean
     EmoticonCommandService emoticonCommandService(EmoticonMasterRepository emoticonMasterRepository,
-                                                    EmoticonImageRepository emoticonImageRepository,
                                                     UserWritableResolver userWritableResolver,
                                                     EmoticonAttachmentHelper attachmentHelper,
                                                     EmoticonDeletePolicy deletePolicy,
@@ -48,7 +46,6 @@ class EmoticonServiceConfig {
                                                     EmoticonShopItemLifecycleService shopItemLifecycleService) {
         return new EmoticonCommandService(
                 emoticonMasterRepository,
-                emoticonImageRepository,
                 userWritableResolver,
                 attachmentHelper,
                 deletePolicy,

@@ -6,7 +6,6 @@ import com.weedrice.whiteboard.domain.emoticon.dto.EmoticonPurchaseStatusRespons
 import com.weedrice.whiteboard.domain.emoticon.dto.EmoticonUpdateRequest;
 import com.weedrice.whiteboard.domain.emoticon.entity.EmoticonImage;
 import com.weedrice.whiteboard.domain.emoticon.entity.EmoticonMaster;
-import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonImageRepository;
 import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonMasterRepository;
 import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonPurchaseRepository;
 import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonSearchCondition;
@@ -51,8 +50,6 @@ class EmoticonServiceTest {
 
     @Mock
     private EmoticonMasterRepository emoticonMasterRepository;
-    @Mock
-    private EmoticonImageRepository emoticonImageRepository;
     @Mock
     private EmoticonPurchaseRepository emoticonPurchaseRepository;
     @Mock
@@ -122,7 +119,6 @@ class EmoticonServiceTest {
                 globalConfigService);
         EmoticonCommandService commandService = new EmoticonCommandService(
                 emoticonMasterRepository,
-                emoticonImageRepository,
                 userWritableResolver,
                 attachmentHelper,
                 deletePolicy,
@@ -146,24 +142,13 @@ class EmoticonServiceTest {
     class GetEmoticons {
 
         @Test
-        @DisplayName("활성 이모티콘 목록 조회 - Pageable 단일 인자 overload")
-        void getActiveEmoticons_pageableOnly() {
-            Page<EmoticonMaster> page = new PageImpl<>(List.of(emoticonMaster), PageRequest.of(0, 20), 1);
-            when(emoticonMasterRepository.findAllActive(any(Pageable.class))).thenReturn(page);
-
-            Page<EmoticonMasterDto> result = emoticonService.getActiveEmoticons(PageRequest.of(0, 20));
-
-            assertThat(result.getContent()).hasSize(1);
-            verify(emoticonMasterRepository).findAllActive(any(Pageable.class));
-        }
-
-        @Test
         @DisplayName("활성 이모티콘 목록 조회 - latest 정렬")
         void getActiveEmoticons_latest() {
             Page<EmoticonMaster> page = new PageImpl<>(List.of(emoticonMaster), PageRequest.of(0, 20), 1);
             when(emoticonMasterRepository.findAllActive(any(Pageable.class))).thenReturn(page);
 
-            Page<EmoticonMasterDto> result = emoticonService.getActiveEmoticons(PageRequest.of(0, 20), "latest");
+            Page<EmoticonMasterDto> result = emoticonService.searchAll(
+                    null, "ALL", PageRequest.of(0, 20), "latest");
 
             assertThat(result.getContent()).hasSize(1);
             assertThat(result.getContent().get(0).getName()).isEqualTo("테스트 이모티콘");
@@ -176,7 +161,8 @@ class EmoticonServiceTest {
             Page<EmoticonMaster> page = new PageImpl<>(List.of(emoticonMaster), PageRequest.of(0, 20), 1);
             when(emoticonMasterRepository.findAllActiveOrderByCreatedAtAsc(any(Pageable.class))).thenReturn(page);
 
-            Page<EmoticonMasterDto> result = emoticonService.getActiveEmoticons(PageRequest.of(0, 20), "oldest");
+            Page<EmoticonMasterDto> result = emoticonService.searchAll(
+                    null, "ALL", PageRequest.of(0, 20), "oldest");
 
             assertThat(result.getContent()).hasSize(1);
             verify(emoticonMasterRepository).findAllActiveOrderByCreatedAtAsc(any(Pageable.class));
@@ -188,7 +174,8 @@ class EmoticonServiceTest {
             Page<EmoticonMaster> page = new PageImpl<>(List.of(emoticonMaster), PageRequest.of(0, 20), 1);
             when(emoticonMasterRepository.findAllActiveOrderByPurchaseCount(any(Pageable.class))).thenReturn(page);
 
-            Page<EmoticonMasterDto> result = emoticonService.getActiveEmoticons(PageRequest.of(0, 20), "popular");
+            Page<EmoticonMasterDto> result = emoticonService.searchAll(
+                    null, "ALL", PageRequest.of(0, 20), "popular");
 
             assertThat(result.getContent()).hasSize(1);
             verify(emoticonMasterRepository).findAllActiveOrderByPurchaseCount(any(Pageable.class));
@@ -200,7 +187,7 @@ class EmoticonServiceTest {
             Page<EmoticonMaster> page = new PageImpl<>(List.of(emoticonMaster), PageRequest.of(0, 20), 1);
             when(emoticonMasterRepository.findAllActiveOrderByPurchaseCount(any(Pageable.class))).thenReturn(page);
 
-            emoticonService.getActiveEmoticons(PageRequest.of(0, 20), "POPULAR");
+            emoticonService.searchAll(null, "ALL", PageRequest.of(0, 20), "POPULAR");
 
             verify(emoticonMasterRepository).findAllActiveOrderByPurchaseCount(any(Pageable.class));
         }
@@ -210,7 +197,7 @@ class EmoticonServiceTest {
             Page<EmoticonMaster> page = new PageImpl<>(List.of(emoticonMaster), PageRequest.of(0, 20), 1);
             when(emoticonMasterRepository.findAllActiveOrderByPurchaseCount(any(Pageable.class))).thenReturn(page);
 
-            emoticonService.getActiveEmoticons(PageRequest.of(0, 20), " popular ");
+            emoticonService.searchAll(null, "ALL", PageRequest.of(0, 20), " popular ");
 
             verify(emoticonMasterRepository).findAllActiveOrderByPurchaseCount(any(Pageable.class));
         }
@@ -219,7 +206,8 @@ class EmoticonServiceTest {
         void getActiveEmoticons_rejectsTooLongSortBy() {
             String longSortBy = "a".repeat(EmoticonRequestNormalizer.MAX_OPTION_LENGTH + 1);
 
-            assertThatThrownBy(() -> emoticonService.getActiveEmoticons(PageRequest.of(0, 20), longSortBy))
+            assertThatThrownBy(() -> emoticonService.searchAll(
+                    null, "ALL", PageRequest.of(0, 20), longSortBy))
                     .isInstanceOf(BusinessException.class)
                     .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
 
@@ -311,62 +299,6 @@ class EmoticonServiceTest {
                         BusinessException be = (BusinessException) ex;
                         assertThat(be.getErrorCode()).isEqualTo(ErrorCode.EMOTICON_NOT_FOUND);
                     });
-        }
-
-        @Test
-        @DisplayName("태그로 검색")
-        void searchByTag_success() {
-            Page<EmoticonMaster> page = new PageImpl<>(List.of(emoticonMaster), PageRequest.of(0, 20), 1);
-            when(emoticonMasterRepository.findByTag(eq("웃음"), any(Pageable.class))).thenReturn(page);
-
-            Page<EmoticonMasterDto> result = emoticonService.searchByTag("웃음", PageRequest.of(0, 20));
-
-            assertThat(result.getContent()).hasSize(1);
-            verify(emoticonMasterRepository).findByTag(eq("웃음"), any(Pageable.class));
-        }
-
-        @Test
-        @DisplayName("키워드로 검색")
-        void searchByKeyword_success() {
-            Page<EmoticonMaster> page = new PageImpl<>(List.of(emoticonMaster), PageRequest.of(0, 20), 1);
-            when(emoticonMasterRepository.findByKeyword(eq("테스트"), any(Pageable.class))).thenReturn(page);
-
-            Page<EmoticonMasterDto> result = emoticonService.searchByKeyword("테스트", PageRequest.of(0, 20));
-
-            assertThat(result.getContent()).hasSize(1);
-            verify(emoticonMasterRepository).findByKeyword(eq("테스트"), any(Pageable.class));
-        }
-
-        @Test
-        @DisplayName("search keyword is trimmed and too long keyword is rejected")
-        void searchByKeyword_rejectsTooLongKeyword() {
-            String longKeyword = " " + "a".repeat(120) + " ";
-
-            assertThatThrownBy(() -> emoticonService.searchByKeyword(longKeyword, PageRequest.of(0, 20)))
-                    .isInstanceOf(BusinessException.class)
-                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
-
-            verify(emoticonMasterRepository, never()).findByKeyword(anyString(), any(Pageable.class));
-        }
-
-        @Test
-        @DisplayName("too long tag search is rejected")
-        void searchByTag_rejectsTooLongTag() {
-            String longTag = "가".repeat(EmoticonRequestNormalizer.MAX_TAG_LENGTH + 1);
-
-            assertThatThrownBy(() -> emoticonService.searchByTag(longTag, PageRequest.of(0, 20)))
-                    .isInstanceOf(BusinessException.class)
-                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
-
-            verify(emoticonMasterRepository, never()).findByTag(anyString(), any(Pageable.class));
-        }
-
-        @Test
-        @DisplayName("blank keyword search is rejected")
-        void searchByKeyword_blankKeywordRejected() {
-            assertThatThrownBy(() -> emoticonService.searchByKeyword("  ", PageRequest.of(0, 20)))
-                    .isInstanceOf(BusinessException.class)
-                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
         }
 
         @Test
@@ -1314,209 +1246,6 @@ class EmoticonServiceTest {
             assertThatThrownBy(() -> emoticonService.deleteEmoticon(1L, 999L))
                     .isInstanceOf(BusinessException.class)
                     .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode()).isEqualTo(ErrorCode.EMOTICON_NOT_FOUND));
-        }
-    }
-
-    @Nested
-    @DisplayName("이미지 추가/삭제")
-    class ImageOps {
-
-        @Test
-        @DisplayName("이미지 추가 성공")
-        void addImage_success() {
-            givenWritableUser();
-            when(emoticonMasterRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(emoticonMaster));
-
-            EmoticonMasterDto result = emoticonService.addImage(1L, 1L, 30L);
-
-            assertThat(result).isNotNull();
-            assertThat(result.getImages()).hasSize(1);
-            assertThat(result.getImages().get(0).getSortOrder()).isEqualTo(0);
-            verify(emoticonMasterRepository).findByIdForUpdate(1L);
-        }
-
-        @Test
-        @DisplayName("이미지 삭제 후 재추가는 기존 최대 순번 다음 값을 사용한다")
-        void addImage_afterDeletion_usesMaxSortOrderPlusOne() {
-            EmoticonImage firstImage = EmoticonImage.builder()
-                    .emoticonMaster(emoticonMaster)
-                    .imageUrl("/api/v1/files/10")
-                    .sortOrder(0)
-                    .build();
-            ReflectionTestUtils.setField(firstImage, "imageId", 10L);
-            EmoticonImage lastImage = EmoticonImage.builder()
-                    .emoticonMaster(emoticonMaster)
-                    .imageUrl("/api/v1/files/20")
-                    .sortOrder(2)
-                    .build();
-            ReflectionTestUtils.setField(lastImage, "imageId", 20L);
-            ReflectionTestUtils.setField(emoticonMaster, "images", new java.util.ArrayList<>(List.of(firstImage, lastImage)));
-            givenWritableUser();
-            when(emoticonMasterRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(emoticonMaster));
-
-            EmoticonMasterDto result = emoticonService.addImage(1L, 1L, 30L);
-
-            assertThat(result.getImages()).extracting("sortOrder").containsExactly(0, 2, 3);
-        }
-
-        @Test
-        @DisplayName("이미지 추가 - 최대 이미지 수를 초과할 수 없다")
-        void addImage_rejectsWhenImageCountLimitReached() {
-            ReflectionTestUtils.setField(emoticonMaster, "images", emoticonImages(20));
-            givenWritableUser();
-            when(emoticonMasterRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(emoticonMaster));
-
-            assertThatThrownBy(() -> emoticonService.addImage(1L, 1L, 30L))
-                    .isInstanceOf(BusinessException.class)
-                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.EMOTICON_IMAGE_LIMIT_EXCEEDED);
-
-            assertThat(emoticonMaster.getImages()).hasSize(20);
-            verify(fileService, never()).associateFileWithEntity(anyLong(), anyLong(), anyLong(), anyString());
-        }
-
-        @Test
-        @DisplayName("동적 한도가 100이면 100번째는 허용하고 101번째는 거부한다")
-        void addImage_dynamicLimit100_allows100AndRejects101() {
-            ReflectionTestUtils.setField(emoticonMaster, "images", emoticonImages(99));
-            givenWritableUser();
-            when(imageLimitPolicy.getCurrentLimit()).thenReturn(100);
-            when(emoticonMasterRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(emoticonMaster));
-
-            EmoticonMasterDto result = emoticonService.addImage(1L, 1L, 500L);
-
-            assertThat(result.getImages()).hasSize(100);
-            assertThat(result.getImages().get(99).getSortOrder()).isEqualTo(99);
-
-            assertThatThrownBy(() -> emoticonService.addImage(1L, 1L, 501L))
-                    .isInstanceOf(BusinessException.class)
-                    .hasFieldOrPropertyWithValue("errorCode", ErrorCode.EMOTICON_IMAGE_LIMIT_EXCEEDED);
-
-            assertThat(emoticonMaster.getImages()).hasSize(100);
-            verify(fileService).associateFileWithEntity(500L, 1L, 1L, "EMOTICON_IMAGE");
-            verify(fileService, never()).associateFileWithEntity(501L, 1L, 1L, "EMOTICON_IMAGE");
-        }
-
-        @Test
-        @DisplayName("이미지 추가 - 이모티콘 없으면 EMOTICON_NOT_FOUND")
-        void addImage_emoticonNotFound() {
-            when(emoticonMasterRepository.findByIdForUpdate(999L)).thenReturn(Optional.empty());
-
-            assertThatThrownBy(() -> emoticonService.addImage(1L, 999L, 30L))
-                    .isInstanceOf(BusinessException.class)
-                    .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode()).isEqualTo(ErrorCode.EMOTICON_NOT_FOUND));
-        }
-
-        @Test
-        @DisplayName("이미지 추가 - 소유자가 아니면 FORBIDDEN")
-        void addImage_forbidden() {
-            when(userWritableResolver.resolveForUpdate(2L)).thenReturn(user);
-            when(emoticonMasterRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(emoticonMaster));
-
-            assertThatThrownBy(() -> emoticonService.addImage(2L, 1L, 30L))
-                    .isInstanceOf(BusinessException.class)
-                    .satisfies(EmoticonServiceTest::assertDefaultForbiddenException);
-
-            assertThat(emoticonMaster.getImages()).isEmpty();
-            verify(userWritableResolver).resolveForUpdate(2L);
-        }
-
-        @Test
-        @DisplayName("이미지 추가 - 제재 소유자는 USER_NOT_ACTIVE")
-        void addImage_bannedOwner() {
-            when(userWritableResolver.resolveForUpdate(1L))
-                    .thenThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE));
-
-            assertThatThrownBy(() -> emoticonService.addImage(1L, 1L, 30L))
-                    .isInstanceOf(BusinessException.class)
-                    .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode())
-                            .isEqualTo(ErrorCode.USER_NOT_ACTIVE));
-
-            assertThat(emoticonMaster.getImages()).isEmpty();
-        }
-
-        @Test
-        @DisplayName("이미지 삭제 성공")
-        void deleteImage_success() {
-            EmoticonImage image = EmoticonImage.builder()
-                    .emoticonMaster(emoticonMaster)
-                    .imageUrl("https://example.com/img.png")
-                    .sortOrder(0)
-                    .build();
-            ReflectionTestUtils.setField(image, "imageId", 10L);
-            ReflectionTestUtils.setField(emoticonMaster, "images", new java.util.ArrayList<>(List.of(image)));
-
-            givenWritableUser();
-            when(emoticonImageRepository.findById(10L)).thenReturn(Optional.of(image));
-            when(emoticonMasterRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(emoticonMaster));
-
-            emoticonService.deleteImage(1L, 10L);
-
-            verify(emoticonImageRepository).delete(image);
-        }
-
-        @Test
-        @DisplayName("이미지 삭제 - 이미지 없으면 EMOTICON_IMAGE_NOT_FOUND")
-        void deleteImage_notFound() {
-            when(emoticonImageRepository.findById(999L)).thenReturn(Optional.empty());
-
-            assertThatThrownBy(() -> emoticonService.deleteImage(1L, 999L))
-                    .isInstanceOf(BusinessException.class)
-                    .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode()).isEqualTo(ErrorCode.EMOTICON_IMAGE_NOT_FOUND));
-        }
-
-        @Test
-        @DisplayName("이미지 삭제 - 소유자가 아니면 FORBIDDEN")
-        void deleteImage_forbidden() {
-            User otherUser = User.builder().loginId("other").displayName("Other").email("o@o.com").password("p").build();
-            ReflectionTestUtils.setField(otherUser, "userId", 99L);
-            EmoticonMaster otherMaster = EmoticonMaster.builder()
-                    .name("other")
-                    .thumbnailUrl("u")
-                    .tags(List.of())
-                    .creator(otherUser)
-                    .build();
-            ReflectionTestUtils.setField(otherMaster, "emoticonId", 2L);
-            EmoticonImage image = EmoticonImage.builder()
-                    .emoticonMaster(otherMaster)
-                    .imageUrl("url")
-                    .sortOrder(0)
-                    .build();
-            ReflectionTestUtils.setField(image, "imageId", 10L);
-            ReflectionTestUtils.setField(otherMaster, "images", new java.util.ArrayList<>(List.of(image)));
-
-            when(userWritableResolver.resolveForUpdate(1L)).thenReturn(user);
-            when(emoticonImageRepository.findById(10L)).thenReturn(Optional.of(image));
-            when(emoticonMasterRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(otherMaster));
-
-            assertThatThrownBy(() -> emoticonService.deleteImage(1L, 10L))
-                    .isInstanceOf(BusinessException.class)
-                    .satisfies(EmoticonServiceTest::assertDefaultForbiddenException);
-
-            verify(userWritableResolver).resolveForUpdate(1L);
-            verify(emoticonImageRepository, never()).delete(any());
-        }
-
-        @Test
-        @DisplayName("이미지 삭제 - 제재 소유자는 USER_NOT_ACTIVE")
-        void deleteImage_bannedOwner() {
-            EmoticonImage image = EmoticonImage.builder()
-                    .emoticonMaster(emoticonMaster)
-                    .imageUrl("https://example.com/img.png")
-                    .sortOrder(0)
-                    .build();
-            ReflectionTestUtils.setField(image, "imageId", 10L);
-            ReflectionTestUtils.setField(emoticonMaster, "images", new java.util.ArrayList<>(List.of(image)));
-
-            when(userWritableResolver.resolveForUpdate(1L))
-                    .thenThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE));
-
-            assertThatThrownBy(() -> emoticonService.deleteImage(1L, 10L))
-                    .isInstanceOf(BusinessException.class)
-                    .satisfies(ex -> assertThat(((BusinessException) ex).getErrorCode())
-                            .isEqualTo(ErrorCode.USER_NOT_ACTIVE));
-
-            verify(fileService, never()).deleteFileWithStorageIfAssociated(anyLong(), anyLong(), anyString());
-            verify(emoticonImageRepository, never()).delete(any());
         }
     }
 

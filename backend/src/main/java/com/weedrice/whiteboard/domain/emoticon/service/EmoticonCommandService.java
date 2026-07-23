@@ -5,7 +5,6 @@ import com.weedrice.whiteboard.domain.emoticon.dto.EmoticonMasterDto;
 import com.weedrice.whiteboard.domain.emoticon.dto.EmoticonUpdateRequest;
 import com.weedrice.whiteboard.domain.emoticon.entity.EmoticonImage;
 import com.weedrice.whiteboard.domain.emoticon.entity.EmoticonMaster;
-import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonImageRepository;
 import com.weedrice.whiteboard.domain.emoticon.repository.EmoticonMasterRepository;
 import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.shop.entity.ShopItem;
@@ -26,7 +25,6 @@ import java.util.stream.Collectors;
 class EmoticonCommandService {
 
     private final EmoticonMasterRepository emoticonMasterRepository;
-    private final EmoticonImageRepository emoticonImageRepository;
     private final UserWritableResolver userWritableResolver;
     private final EmoticonAttachmentHelper attachmentHelper;
     private final EmoticonDeletePolicy deletePolicy;
@@ -36,7 +34,6 @@ class EmoticonCommandService {
     private final String emoticonImageType;
 
     EmoticonCommandService(EmoticonMasterRepository emoticonMasterRepository,
-                            EmoticonImageRepository emoticonImageRepository,
                             UserWritableResolver userWritableResolver,
                             EmoticonAttachmentHelper attachmentHelper,
                             EmoticonDeletePolicy deletePolicy,
@@ -45,7 +42,6 @@ class EmoticonCommandService {
                             String emoticonThumbnailType,
                             String emoticonImageType) {
         this.emoticonMasterRepository = emoticonMasterRepository;
-        this.emoticonImageRepository = emoticonImageRepository;
         this.userWritableResolver = userWritableResolver;
         this.attachmentHelper = attachmentHelper;
         this.deletePolicy = deletePolicy;
@@ -289,48 +285,6 @@ class EmoticonCommandService {
         }
     }
 
-    EmoticonMasterDto addImage(Long userId, Long emoticonId, Long fileId) {
-        userWritableResolver.resolveForUpdate(userId);
-        EmoticonMaster master = emoticonMasterRepository.findByIdForUpdate(emoticonId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.EMOTICON_NOT_FOUND));
-
-        validateWritableOwner(master, userId);
-        validateFilesAreNotAlreadyImages(master, List.of(fileId));
-        validateImageLimit(master);
-
-        int nextSortOrder = resolveNextSortOrder(master);
-        EmoticonImage image = EmoticonImage.builder()
-                .emoticonMaster(master)
-                .imageUrl(attachmentHelper.attachFile(fileId, userId, master.getEmoticonId(), emoticonImageType))
-                .sortOrder(nextSortOrder)
-                .build();
-        master.addImage(image);
-
-        return EmoticonMasterDto.from(master);
-    }
-
-    void deleteImage(Long userId, Long imageId) {
-        userWritableResolver.resolveForUpdate(userId);
-        EmoticonImage imageSnapshot = emoticonImageRepository.findById(imageId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.EMOTICON_IMAGE_NOT_FOUND));
-
-        EmoticonMaster master = emoticonMasterRepository.findByIdForUpdate(
-                        imageSnapshot.getEmoticonMaster().getEmoticonId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.EMOTICON_IMAGE_NOT_FOUND));
-        EmoticonImage image = master.getImages().stream()
-                .filter(candidate -> imageId.equals(candidate.getImageId()))
-                .findFirst()
-                .orElseThrow(() -> new BusinessException(ErrorCode.EMOTICON_IMAGE_NOT_FOUND));
-
-        validateWritableOwner(master, userId);
-        attachmentHelper.deleteAssociatedFile(
-                image.getImageUrl(),
-                master.getEmoticonId(),
-                emoticonImageType);
-
-        emoticonImageRepository.delete(image);
-    }
-
     private void validateOwner(EmoticonMaster master, Long userId) {
         if (!master.isOwner(userId)) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
@@ -345,11 +299,6 @@ class EmoticonCommandService {
 
     private void validateWritableOwner(EmoticonMaster master, Long userId) {
         validateOwner(master, userId);
-    }
-
-    private void validateImageLimit(EmoticonMaster master) {
-        int imageCount = master.getImages() == null ? 0 : master.getImages().size();
-        validateImageCount(imageCount + 1, imageLimitPolicy.getCurrentLimit());
     }
 
     private void validateFilesAreNotAlreadyImages(EmoticonMaster master, List<Long> fileIds) {

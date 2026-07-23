@@ -467,27 +467,21 @@ describe('emoticonApi', () => {
     })
 
     it('calls emoticon GET endpoints with proper params', () => {
-        emoticonApi.getEmoticons({ page: 0, size: 20 })
         emoticonApi.getPopularEmoticons()
         emoticonApi.getPopularEmoticons('weekly')
         emoticonApi.searchAll({ keyword: 'cat' })
-        emoticonApi.searchByTag('cute', { page: 1, size: 10 })
-        emoticonApi.searchByKeyword('laugh', { page: 2, size: 5 })
         emoticonApi.getMyEmoticons({ page: 0, size: 10 })
         emoticonApi.getEmoticon(99)
         emoticonApi.getPurchasedEmoticons({ page: 0, size: 5 })
         emoticonApi.checkPurchaseStatus(99)
 
-        expect(apiMock.get).toHaveBeenNthCalledWith(1, '/emoticons', { params: { page: 0, size: 20 } })
-        expect(apiMock.get).toHaveBeenNthCalledWith(2, '/emoticons/popular', { params: { period: 'daily' } })
-        expect(apiMock.get).toHaveBeenNthCalledWith(3, '/emoticons/popular', { params: { period: 'weekly' } })
-        expect(apiMock.get).toHaveBeenNthCalledWith(4, '/emoticons/search/all', { params: { keyword: 'cat' } })
-        expect(apiMock.get).toHaveBeenNthCalledWith(5, '/emoticons/search/tag', { params: { tag: 'cute', page: 1, size: 10 } })
-        expect(apiMock.get).toHaveBeenNthCalledWith(6, '/emoticons/search', { params: { keyword: 'laugh', page: 2, size: 5 } })
-        expect(apiMock.get).toHaveBeenNthCalledWith(7, '/emoticons/my', { params: { page: 0, size: 10 } })
-        expect(apiMock.get).toHaveBeenNthCalledWith(8, '/emoticons/99')
-        expect(apiMock.get).toHaveBeenNthCalledWith(9, '/emoticons/purchased', { params: { page: 0, size: 5 } })
-        expect(apiMock.get).toHaveBeenNthCalledWith(10, '/emoticons/99/purchased')
+        expect(apiMock.get).toHaveBeenNthCalledWith(1, '/emoticons/popular', { params: { period: 'daily' } })
+        expect(apiMock.get).toHaveBeenNthCalledWith(2, '/emoticons/popular', { params: { period: 'weekly' } })
+        expect(apiMock.get).toHaveBeenNthCalledWith(3, '/emoticons/search/all', { params: { keyword: 'cat' } })
+        expect(apiMock.get).toHaveBeenNthCalledWith(4, '/emoticons/my', { params: { page: 0, size: 10 } })
+        expect(apiMock.get).toHaveBeenNthCalledWith(5, '/emoticons/99')
+        expect(apiMock.get).toHaveBeenNthCalledWith(6, '/emoticons/purchased', { params: { page: 0, size: 5 } })
+        expect(apiMock.get).toHaveBeenNthCalledWith(7, '/emoticons/99/purchased')
     })
 
     it('calls emoticon mutation endpoints with proper payload', () => {
@@ -498,17 +492,13 @@ describe('emoticonApi', () => {
         emoticonApi.updateEmoticon(9, updateData)
         emoticonApi.toggleVisibility(9)
         emoticonApi.deleteEmoticon(9)
-        emoticonApi.addImage(9, 77)
-        emoticonApi.deleteImage(55)
         emoticonApi.purchaseEmoticon(9)
 
         expect(apiMock.post).toHaveBeenNthCalledWith(1, '/emoticons', createData)
         expect(apiMock.put).toHaveBeenNthCalledWith(1, '/emoticons/9', updateData)
         expect(apiMock.patch).toHaveBeenNthCalledWith(1, '/emoticons/9/visibility')
         expect(apiMock.delete).toHaveBeenNthCalledWith(1, '/emoticons/9')
-        expect(apiMock.post).toHaveBeenNthCalledWith(2, '/emoticons/9/images', { fileId: 77 })
-        expect(apiMock.delete).toHaveBeenNthCalledWith(2, '/emoticons/images/55')
-        expect(apiMock.post).toHaveBeenNthCalledWith(3, '/emoticons/9/purchase')
+        expect(apiMock.post).toHaveBeenNthCalledWith(2, '/emoticons/9/purchase')
     })
 
     it('unwraps emoticon response helpers without changing endpoint calls', async () => {

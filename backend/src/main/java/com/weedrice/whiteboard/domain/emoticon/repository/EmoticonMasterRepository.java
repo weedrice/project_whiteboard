@@ -35,15 +35,6 @@ public interface EmoticonMasterRepository extends JpaRepository<EmoticonMaster, 
     @Query("SELECT e FROM EmoticonMaster e WHERE e.creator.userId = :creatorId ORDER BY e.createdAt DESC, e.emoticonId DESC")
     Page<EmoticonMaster> findByCreatorId(@Param("creatorId") Long creatorId, Pageable pageable);
 
-    @Query(value = "SELECT * FROM emoticon_masters WHERE is_active = 'Y' AND :tag = ANY(tags) ORDER BY created_at DESC, emoticon_id DESC",
-            countQuery = "SELECT COUNT(*) FROM emoticon_masters WHERE is_active = 'Y' AND :tag = ANY(tags)",
-            nativeQuery = true)
-    Page<EmoticonMaster> findByTag(@Param("tag") String tag, Pageable pageable);
-
-    @EntityGraph(attributePaths = "creator")
-    @Query("SELECT e FROM EmoticonMaster e WHERE e.isActive = 'Y' AND LOWER(e.name) LIKE LOWER(CONCAT('%', REPLACE(REPLACE(REPLACE(:keyword, '!', '!!'), '%', '!%'), '_', '!_'), '%')) ESCAPE '!' ORDER BY e.createdAt DESC, e.emoticonId DESC")
-    Page<EmoticonMaster> findByKeyword(@Param("keyword") String keyword, Pageable pageable);
-
     @Query("SELECT e FROM EmoticonMaster e LEFT JOIN FETCH e.images LEFT JOIN FETCH e.creator WHERE e.emoticonId = :emoticonId")
     Optional<EmoticonMaster> findByIdWithImages(@Param("emoticonId") Long emoticonId);
 

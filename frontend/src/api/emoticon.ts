@@ -44,15 +44,6 @@ export function unwrapEmoticonResponse<T>(response: EmoticonResponse<T>): T {
 }
 
 export const emoticonApi = {
-    // List emoticon packs.
-    getEmoticons(params?: EmoticonSearchParams, config?: AxiosRequestConfig) {
-        return api.get<ApiResponse<PageResponseRaw<EmoticonMasterWire>>>('/emoticons', { ...config, params })
-            .then(mapEmoticonPageResponse)
-    },
-    async getEmoticonsData(params?: EmoticonSearchParams, config?: AxiosRequestConfig) {
-        return unwrapEmoticonResponse(await emoticonApi.getEmoticons(params, config))
-    },
-
     // List popular emoticon packs by period.
     getPopularEmoticons(period: EmoticonPeriod = 'daily', config?: AxiosRequestConfig) {
         return api.get<ApiResponse<EmoticonMasterWire[]>>('/emoticons/popular', {
@@ -71,26 +62,6 @@ export const emoticonApi = {
     },
     async searchAllData(params?: EmoticonSearchParams, config?: AxiosRequestConfig) {
         return unwrapEmoticonResponse(await emoticonApi.searchAll(params, config))
-    },
-
-    // Search emoticon packs by tag.
-    searchByTag(tag: string, params?: EmoticonPageParams) {
-        return api.get<ApiResponse<PageResponseRaw<EmoticonMasterWire>>>('/emoticons/search/tag', {
-            params: { tag, ...params },
-        }).then(mapEmoticonPageResponse)
-    },
-    async searchByTagData(tag: string, params?: EmoticonPageParams) {
-        return unwrapEmoticonResponse(await emoticonApi.searchByTag(tag, params))
-    },
-
-    // Search emoticon packs by keyword.
-    searchByKeyword(keyword: string, params?: EmoticonPageParams) {
-        return api.get<ApiResponse<PageResponseRaw<EmoticonMasterWire>>>('/emoticons/search', {
-            params: { keyword, ...params },
-        }).then(mapEmoticonPageResponse)
-    },
-    async searchByKeywordData(keyword: string, params?: EmoticonPageParams) {
-        return unwrapEmoticonResponse(await emoticonApi.searchByKeyword(keyword, params))
     },
 
     // List emoticon packs owned by the current user.
@@ -152,29 +123,6 @@ export const emoticonApi = {
     // Delete an emoticon pack.
     deleteEmoticon(emoticonId: number) {
         return api.delete(`/emoticons/${encodePathSegment(emoticonId)}`)
-    },
-
-    // Add an image.
-    addImage(emoticonId: number, fileId: number, config?: AxiosRequestConfig) {
-        const encodedId = encodePathSegment(emoticonId)
-        if (config) {
-            return api.post<ApiResponse<EmoticonMasterWire>>(`/emoticons/${encodedId}/images`, { fileId }, config)
-                .then(mapEmoticonResponse)
-        }
-        return api.post<ApiResponse<EmoticonMasterWire>>(`/emoticons/${encodedId}/images`, { fileId })
-            .then(mapEmoticonResponse)
-    },
-    async addImageData(emoticonId: number, fileId: number, config?: AxiosRequestConfig) {
-        return unwrapEmoticonResponse(await emoticonApi.addImage(emoticonId, fileId, config))
-    },
-
-    // Delete an image.
-    deleteImage(imageId: number, config?: AxiosRequestConfig) {
-        const encodedId = encodePathSegment(imageId)
-        if (config) {
-            return api.delete(`/emoticons/images/${encodedId}`, config)
-        }
-        return api.delete(`/emoticons/images/${encodedId}`)
     },
 
     // Purchase an emoticon pack.

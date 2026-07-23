@@ -343,19 +343,14 @@ OAuth 가입을 취소하고 일반 가입으로 돌아갈 수 있다.
 
 | Method | URI | 설명 |
 | --- | --- | --- |
-| `GET` | `/api/v1/emoticons` | 이모티콘 목록 |
 | `GET` | `/api/v1/emoticons/popular` | 인기 이모티콘 |
-| `GET` | `/api/v1/emoticons/search/all` | 전체 검색 |
-| `GET` | `/api/v1/emoticons/search/tag` | 태그 검색 |
-| `GET` | `/api/v1/emoticons/search` | 키워드 검색 |
+| `GET` | `/api/v1/emoticons/search/all` | 이모티콘 목록 및 통합 검색 |
 | `GET` | `/api/v1/emoticons/my` | 내가 만든 이모티콘 |
 | `GET` | `/api/v1/emoticons/{emoticonId}` | 이모티콘 상세 |
 | `POST` | `/api/v1/emoticons` | 이모티콘 생성 |
 | `PUT` | `/api/v1/emoticons/{emoticonId}` | 이모티콘 수정 |
 | `PATCH` | `/api/v1/emoticons/{emoticonId}/visibility` | 공개 여부 변경 |
 | `DELETE` | `/api/v1/emoticons/{emoticonId}` | 이모티콘 삭제 |
-| `POST` | `/api/v1/emoticons/{emoticonId}/images` | 이미지 추가 |
-| `DELETE` | `/api/v1/emoticons/images/{imageId}` | 이미지 삭제 |
 | `POST` | `/api/v1/emoticons/{emoticonId}/purchase` | 이모티콘 구매 |
 | `GET` | `/api/v1/emoticons/purchased` | 구매한 이모티콘 |
 | `GET` | `/api/v1/emoticons/{emoticonId}/purchased` | 구매 여부 |
