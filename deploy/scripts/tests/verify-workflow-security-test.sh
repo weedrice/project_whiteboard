@@ -35,9 +35,9 @@ if node "$validator" "$fixture"; then
 fi
 cp "$project_root/.github/workflows/ci.yml" "$fixture/.github/workflows/ci.yml"
 
-sed -i "/docs\/ops\/contract-evidence/d" "$fixture/.github/workflows/ci.yml"
+sed -i 's/inputs\.allow_contract_migration/true/g' "$fixture/.github/workflows/ci.yml"
 if node "$validator" "$fixture"; then
-  echo "Expected contract evidence outside the ops change filter to fail" >&2
+  echo "Expected a contract deployment without explicit manual approval to fail" >&2
   exit 1
 fi
 cp "$project_root/.github/workflows/ci.yml" "$fixture/.github/workflows/ci.yml"

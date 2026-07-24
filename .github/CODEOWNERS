@@ -15,7 +15,6 @@
 /deploy/systemd/ @weedrice
 /docs/design-notes/ @weedrice
 /docs/ops/applied-contract-migrations.txt @weedrice
-/docs/ops/contract-evidence/ @weedrice
 /docs/ops/database-migration-policy.md @weedrice
 /docs/ops/api-contract-revision.txt @weedrice
 /docs/ops/postgres-backup-restore.md @weedrice

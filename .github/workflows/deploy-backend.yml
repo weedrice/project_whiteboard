@@ -13,14 +13,6 @@ on:
       release_artifact_name:
         required: true
         type: string
-      backup_snapshot_id:
-        required: false
-        type: string
-        default: ''
-      contract_change_ticket:
-        required: false
-        type: string
-        default: ''
       contract_migration:
         required: false
         type: boolean
@@ -32,20 +24,6 @@ on:
         required: true
       EC2_HOST_FINGERPRINT:
         required: true
-      AWS_CONTRACT_EVIDENCE_READ_ROLE_ARN:
-        required: false
-      AWS_CONTRACT_EVIDENCE_CONSUME_ROLE_ARN:
-        required: false
-      AWS_REGION:
-        required: false
-      RDS_PRODUCTION_DB_IDENTIFIER:
-        required: false
-      AWS_EXPECTED_ACCOUNT_ID:
-        required: false
-      RDS_SNAPSHOT_KMS_KEY_ARN:
-        required: false
-      RDS_ENGINE_MAJOR_VERSION:
-        required: false
 
 concurrency:
   group: deploy-production
@@ -57,42 +35,7 @@ permissions:
   attestations: read
 
 jobs:
-  contract-evidence:
-    if: inputs.contract_migration
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    environment: production
-    permissions:
-      contents: read
-      id-token: write
-    steps:
-      - name: Checkout expected commit
-        uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
-        with:
-          ref: ${{ inputs.expected_sha }}
-          persist-credentials: false
-
-      - name: Configure narrowly scoped AWS credentials for contract evidence
-        uses: aws-actions/configure-aws-credentials@56d6a583f00f6bad6d19d91d53a7bc3b8143d0e9 # v5.1.1
-        with:
-          role-to-assume: ${{ secrets.AWS_CONTRACT_EVIDENCE_READ_ROLE_ARN }}
-          aws-region: ${{ secrets.AWS_REGION }}
-          role-session-name: noviis-contract-evidence-${{ github.run_id }}
-
-      - name: Verify contract migration snapshot evidence
-        env:
-          SNAPSHOT_ID: ${{ inputs.backup_snapshot_id }}
-          PRODUCTION_DB_IDENTIFIER: ${{ secrets.RDS_PRODUCTION_DB_IDENTIFIER }}
-          EXPECTED_SHA: ${{ inputs.expected_sha }}
-          CHANGE_TICKET: ${{ inputs.contract_change_ticket }}
-          AWS_EXPECTED_ACCOUNT_ID: ${{ secrets.AWS_EXPECTED_ACCOUNT_ID }}
-          RDS_SNAPSHOT_KMS_KEY_ARN: ${{ secrets.RDS_SNAPSHOT_KMS_KEY_ARN }}
-          RDS_ENGINE_MAJOR_VERSION: ${{ secrets.RDS_ENGINE_MAJOR_VERSION }}
-        run: bash backend/scripts/verify-contract-deployment-evidence.sh "$SNAPSHOT_ID" "$PRODUCTION_DB_IDENTIFIER" "$EXPECTED_SHA" "$CHANGE_TICKET"
-
   deploy:
-    needs: contract-evidence
-    if: ${{ always() && (inputs.contract_migration == false || needs.contract-evidence.result == 'success') }}
     outputs:
       activated_sha: ${{ steps.activation-result.outputs.activated_sha }}
     runs-on: ubuntu-24.04
@@ -119,8 +62,6 @@ jobs:
       - name: Verify backend artifact checksum and metadata
         env:
           EXPECTED_SHA: ${{ inputs.expected_sha }}
-          BACKUP_SNAPSHOT_ID: ${{ inputs.backup_snapshot_id }}
-          CONTRACT_CHANGE_TICKET: ${{ inputs.contract_change_ticket }}
           CONTRACT_MIGRATION: ${{ inputs.contract_migration }}
         run: |
           set -euo pipefail
@@ -130,12 +71,6 @@ jobs:
           grep -Fqx -- "run_id=$GITHUB_RUN_ID" release-artifact/RELEASE_METADATA
           grep -Fqx -- "run_number=$GITHUB_RUN_NUMBER" release-artifact/RELEASE_METADATA
           grep -Fqx -- "run_attempt=$GITHUB_RUN_ATTEMPT" release-artifact/RELEASE_METADATA
-          if [ -n "$BACKUP_SNAPSHOT_ID" ]; then
-            grep -Fqx -- "backup_snapshot_id=$BACKUP_SNAPSHOT_ID" release-artifact/RELEASE_METADATA
-          fi
-          if [ -n "$CONTRACT_CHANGE_TICKET" ]; then
-            grep -Fqx -- "contract_change_ticket=$CONTRACT_CHANGE_TICKET" release-artifact/RELEASE_METADATA
-          fi
           grep -Fqx -- "contract_migration=$CONTRACT_MIGRATION" release-artifact/RELEASE_METADATA
 
       - name: Verify backend GitHub artifact attestation
@@ -272,30 +207,3 @@ jobs:
         run: |
           echo "::warning title=Backend cleanup debt::The verified backend release remains active; incoming cleanup requires operator follow-up."
           echo "Backend incoming cleanup failed after activation of ${{ inputs.expected_sha }}." >> "$GITHUB_STEP_SUMMARY"
-
-  consume-contract-evidence:
-    needs: [contract-evidence, deploy]
-    if: ${{ inputs.contract_migration && needs.contract-evidence.result == 'success' && needs.deploy.result == 'success' }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    environment: production
-    permissions:
-      contents: read
-      id-token: write
-    steps:
-      - name: Configure narrowly scoped AWS credentials
-        uses: aws-actions/configure-aws-credentials@56d6a583f00f6bad6d19d91d53a7bc3b8143d0e9 # v5.1.1
-        with:
-          role-to-assume: ${{ secrets.AWS_CONTRACT_EVIDENCE_CONSUME_ROLE_ARN }}
-          aws-region: ${{ secrets.AWS_REGION }}
-          role-session-name: noviis-contract-consume-${{ github.run_id }}
-      - name: Mark contract snapshot consumed by this deployment
-        env:
-          SNAPSHOT_ID: ${{ inputs.backup_snapshot_id }}
-          EXPECTED_SHA: ${{ inputs.expected_sha }}
-        run: |
-          set -euo pipefail
-          snapshot_arn="$(aws rds describe-db-snapshots --db-snapshot-identifier "$SNAPSHOT_ID" --snapshot-type manual --query 'DBSnapshots[0].DBSnapshotArn' --output text)"
-          [[ "$snapshot_arn" == arn:aws*:rds:*:*:snapshot:* ]]
-          aws rds add-tags-to-resource --resource-name "$snapshot_arn" \
-            --tags "Key=noviis:contract-consumed,Value=$EXPECTED_SHA"

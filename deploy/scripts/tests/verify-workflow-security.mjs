@@ -183,7 +183,6 @@ assert(String(ci.jobs['deploy-frontend'].if).includes("needs.changes.outputs.bac
   'frontend deployment must wait only for an actual backend deployment change')
 for (const protectedOpsPath of [
   '.github/CODEOWNERS',
-  'docs/ops/contract-evidence/**',
   'docs/ops/postgres-backup-restore.md',
   'docs/ops/**',
 ]) {
@@ -254,7 +253,6 @@ for (const name of ['release-backend', 'release-frontend']) {
 const signingPermissionAllowlist = new Map([
   ['release-backend', new Set(['id-token', 'attestations', 'artifact-metadata'])],
   ['release-frontend', new Set(['id-token', 'attestations', 'artifact-metadata'])],
-  ['deploy-backend', new Set(['id-token'])],
 ])
 for (const [jobName, job] of Object.entries(ci.jobs ?? {})) {
   const allowed = signingPermissionAllowlist.get(jobName) ?? new Set()
@@ -266,14 +264,27 @@ for (const [jobName, job] of Object.entries(ci.jobs ?? {})) {
   }
 }
 
-const trusted = ci.jobs['trusted-contract-evidence']
-assert(String(trusted.if).includes("github.ref == 'refs/heads/main'"), 'contract evidence must be restricted to main')
-assert(permissions(trusted).actions === 'read' && permissions(trusted).deployments === 'read', 'contract evidence read permissions changed')
-assert((trusted.steps ?? []).some((step) => step.env?.VERIFY_CONTRACT_RUNS === 'true'), 'contract evidence must verify deployment runs')
-
-assert(permissions(backend.jobs['contract-evidence'])['id-token'] === 'write', 'contract evidence job requires OIDC')
 assert(!('id-token' in permissions(backend.jobs.deploy)), 'backend activation may not receive OIDC')
 assert(!('id-token' in permissions(frontend.jobs.deploy)), 'frontend activation may not receive OIDC')
+assert(!('trusted-contract-evidence' in ci.jobs), 'remote contract evidence verification must remain removed')
+assert(!('contract-evidence' in backend.jobs) && !('consume-contract-evidence' in backend.jobs),
+  'backend deployment must not require organization-scale contract evidence jobs')
+for (const removedContractEvidenceField of [
+  'backup_snapshot_id',
+  'contract_change_ticket',
+  'AWS_CONTRACT_EVIDENCE_READ_ROLE_ARN',
+  'AWS_CONTRACT_EVIDENCE_CONSUME_ROLE_ARN',
+]) {
+  assert(!ciSource.includes(removedContractEvidenceField)
+    && !loadText('.github/workflows/deploy-backend.yml').includes(removedContractEvidenceField),
+  `${removedContractEvidenceField} must remain outside the simplified deployment workflow`)
+}
+const contractDeployCondition = String(ci.jobs['deploy-backend'].if)
+assert(contractDeployCondition.includes("needs.ci-gate.outputs.contract_migration != 'true'"),
+  'contract migrations must remain blocked by default')
+assert(contractDeployCondition.includes("github.event_name == 'workflow_dispatch'")
+  && contractDeployCondition.includes('inputs.allow_contract_migration'),
+'contract migrations must require an explicit manual approval')
 assert(stepRuns(backend.jobs.deploy, 'verify-deployment-freshness.sh') && stepRuns(backend.jobs.deploy, ' backend'), 'backend deployment must use the path-aware freshness verifier')
 assert(stepRuns(frontend.jobs.deploy, 'verify-deployment-freshness.sh') && stepRuns(frontend.jobs.deploy, ' frontend'), 'frontend deployment must use the path-aware freshness verifier')
 
@@ -285,10 +296,7 @@ assertCheckoutDoesNotPersistCredentials(backend, 'backend deploy')
 assertCheckoutDoesNotPersistCredentials(frontend, 'frontend deploy')
 assertCheckoutDoesNotPersistCredentials(seo, 'SEO monitor')
 assertExactKeys(backend.on?.workflow_call?.secrets, [
-  'EC2_HOST', 'EC2_SSH_KEY', 'EC2_HOST_FINGERPRINT', 'AWS_CONTRACT_EVIDENCE_READ_ROLE_ARN',
-  'AWS_CONTRACT_EVIDENCE_CONSUME_ROLE_ARN',
-  'AWS_REGION', 'RDS_PRODUCTION_DB_IDENTIFIER', 'AWS_EXPECTED_ACCOUNT_ID',
-  'RDS_SNAPSHOT_KMS_KEY_ARN', 'RDS_ENGINE_MAJOR_VERSION',
+  'EC2_HOST', 'EC2_SSH_KEY', 'EC2_HOST_FINGERPRINT',
 ], 'backend reusable workflow secret allowlist changed')
 assertExactKeys(frontend.on?.workflow_call?.secrets, [
   'EC2_HOST', 'EC2_SSH_KEY', 'EC2_HOST_FINGERPRINT', 'GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN',

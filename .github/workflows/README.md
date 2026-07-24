@@ -18,7 +18,7 @@
 
 backend와 frontend가 함께 변경되면 backend를 먼저 활성화한다. SSH action 결과만으로 성공을 판정하지 않고 별도 readback 연결에서 관리 health, build-info, root-owned active-state digest를 다시 검증한 경우에만 reusable backend workflow가 `activated_sha`를 출력한다. frontend도 내부·공개 release endpoint를 별도 연결에서 재확인하며, 전달받은 backend SHA가 자신의 대상 SHA와 같은지 확인한 뒤 결과를 확정한다. 따라서 activation 직후 전송 채널이 끊겨도 실제 활성 상태는 reconciliation되고, 반대로 성공 문자열만 남은 실패는 배포 성공이 되지 않는다.
 
-contract migration은 자동 배포하지 않는다. `main`의 수동 실행, `allow_contract_migration=true`, 비어 있지 않은 검증된 snapshot ID, tracked design note, production environment 승인과 GitHub run evidence가 모두 필요하다. Snapshot 조회용 OIDC 권한은 별도 `contract-evidence` job에만 부여하며 SSH activation job에는 전달하지 않는다. Run evidence는 같은 SHA의 임의 deployment가 아니라 해당 run의 성공한 `deploy-backend` reusable job ID와 그 job URL을 기록한 `production` deployment status가 정확히 결합돼야 한다. 신규 적용 기록은 원격 run을 검증하고 `docs/ops/contract-evidence/`의 durable manifest로 보존한다. `backend/scripts/check-migration-compatibility.sh`와 evidence verifier가 base commit 또는 승인 증거를 확인하지 못하면 fail-closed 처리한다.
+contract migration은 자동 배포하지 않는다. `main`의 수동 실행에서 `allow_contract_migration=true`를 명시하고 production environment 승인을 거쳐야 한다. 배포 전 수동 RDS snapshot 생성과 `available` 상태 확인은 운영 절차로 유지하지만, 개인 프로젝트에 과도한 변경 티켓·snapshot tag·AWS OIDC 증거 검증은 CI에서 요구하지 않는다. 적용이 끝난 migration filename만 `docs/ops/applied-contract-migrations.txt`에 별도 변경으로 기록한다.
 
 ## 활성화와 정리
 
@@ -52,17 +52,13 @@ Grafana 관리 비밀번호는 `/etc/noviis/monitoring.env`와 root-only 회전 
 
 Backend/frontend production deploy는 `queue: single`, `cancel-in-progress: false`로 현재 활성 실행을 취소하지 않으면서 최신 pending 하나만 보존한다. 유실하면 안 되는 SEO 제출만 별도 `queue: max` group을 사용한다.
 
-Contract evidence 조회 job과 소비 job은 서로 다른 OIDC role을 사용한다. Read role은 snapshot describe/tag 조회만, consume role은 검증된 production snapshot ARN의 `noviis:contract-consumed` tag 추가만 허용한다.
+workflow 기본 권한은 `contents: read`이며 attestation과 artifact metadata 권한은 필요한 release job에만 부여한다. PR에서 repository script를 실행하는 PostgreSQL·ops job에는 `actions: read`, `deployments: read`, `id-token: write`를 부여하지 않는다. third-party Action은 검토한 release의 full commit SHA로 고정한다. workflow, activation script, sudoers, migration 정책 변경은 CODEOWNERS review 대상이다.
 
-workflow 기본 권한은 `contents: read`이며 attestation, OIDC, artifact metadata 권한은 필요한 release/deploy job에만 부여한다. PR에서 repository script를 실행하는 PostgreSQL·ops job에는 `actions: read`나 `deployments: read`를 부여하지 않는다. 적용 완료 contract evidence의 GitHub API 검증은 보호된 `main`의 push 또는 수동 실행에서만 별도 job으로 수행한다. third-party Action은 검토한 release의 full commit SHA로 고정한다. workflow, activation script, sudoers, migration 정책 변경은 CODEOWNERS review 대상이다.
-
-배포 freshness 경계의 source of truth는 `deploy/release-freshness-paths.txt`다. workflow가 참조하는 activation·verification·provenance 파일이 이 manifest에서 빠지면 ops CI가 실패한다. Contract 배포는 snapshot ID뿐 아니라 SHA에 결합된 change ticket을 요구하며, production checkout은 Git credential을 보존하지 않는다.
-
-Contract evidence OIDC role은 production snapshot describe·tag 조회와 검증 완료 snapshot에 `noviis:contract-consumed` 태그를 추가하는 권한만 가진다. 일반 backend activation job에는 AWS OIDC 권한을 전달하지 않는다.
+배포 freshness 경계의 source of truth는 `deploy/release-freshness-paths.txt`다. workflow가 참조하는 activation·verification·provenance 파일이 이 manifest에서 빠지면 ops CI가 실패한다. Contract 배포는 수동 실행의 명시적 승인 없이는 시작되지 않으며 production checkout은 Git credential을 보존하지 않는다.
 
 Pinned actionlint 1.7.7은 GitHub의 2026 `concurrency.queue`와 `artifact-metadata` permission schema를 아직 알지 못하므로 CI는 그 두 exact parser diagnostics만 무시한다. 별도 YAML AST 계약이 production deploy의 `queue: single`, SEO 제출의 `queue: max`, 최소 permission, main-only deploy, secret allowlist를 검증한다. actionlint가 두 필드를 지원하는 버전으로 갱신되면 ignore도 같은 변경에서 제거한다.
 
-주요 timeout은 change detection·gate·SEO preflight 5분, contract evidence 10분, backend test 45분, frontend test 60분, PostgreSQL·ops 30분, release 20–25분, deploy 30분, SEO 검증 15분·제출 10분이다. YAML에서 값을 바꾸면 이 문서도 같은 변경에서 갱신한다.
+주요 timeout은 change detection·gate·SEO preflight 5분, backend test 45분, frontend test 60분, PostgreSQL·ops 30분, release 20–25분, deploy 30분, SEO 검증 15분·제출 10분이다. YAML에서 값을 바꾸면 이 문서도 같은 변경에서 갱신한다.
 
 ## Production environment와 Secrets
 
@@ -73,16 +69,6 @@ GitHub `production` environment는 `main` branch restriction, required reviewer,
 - `EC2_HOST`
 - `EC2_SSH_KEY`
 - `EC2_HOST_FINGERPRINT`
-
-contract evidence에 필요한 secret:
-
-- `AWS_CONTRACT_EVIDENCE_READ_ROLE_ARN`
-- `AWS_CONTRACT_EVIDENCE_CONSUME_ROLE_ARN`
-- `AWS_REGION`
-- `RDS_PRODUCTION_DB_IDENTIFIER`
-- `AWS_EXPECTED_ACCOUNT_ID`
-- `RDS_SNAPSHOT_KMS_KEY_ARN`
-- `RDS_ENGINE_MAJOR_VERSION`
 
 SEO 제출은 아래 Google credential 묶음 또는 custom provider 묶음 중 최소 하나가 필요하다. Google refresh credential 세 값은 모두 설정하거나 모두 비워야 한다.
 

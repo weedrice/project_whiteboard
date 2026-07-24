@@ -10,8 +10,6 @@ legacy_markerless_migration='backend/src/main/resources/db/migration/V55__limit_
 legacy_markerless_migration_sha256='a557b508c9aeb6141cac960de03353875c807364e0f17731187183d7e2276ffc'
 contract_migration=false
 new_migration=false
-repository="${CONTRACT_EVIDENCE_REPOSITORY:-weedrice/project_whiteboard}"
-verify_contract_runs="${VERIFY_CONTRACT_RUNS:-false}"
 
 if [[ "$base_ref" =~ ^0+$ ]] || ! git cat-file -e "$base_ref^{commit}" 2>/dev/null; then
   echo "Migration compatibility check cannot prove the base commit: $base_ref" >&2
@@ -244,125 +242,6 @@ validate_redundant_index_drops() {
       return 1
     }
   fi
-}
-
-validate_contract_evidence_manifest() {
-  local migration_name="$1" deployment_run="$2" deployment_sha="$3" evidence_file="$4"
-  case "$evidence_file" in docs/ops/contract-evidence/*.evidence) ;;
-    *) echo "Contract evidence must be tracked under docs/ops/contract-evidence: $migration_name" >&2; exit 1 ;;
-  esac
-  git ls-files --error-unmatch "$evidence_file" >/dev/null 2>&1 || {
-    echo "Contract evidence file is not tracked: $evidence_file" >&2
-    exit 1
-  }
-  if ! {
-    grep -Fqx -- "migration=$migration_name" "$evidence_file" \
-      && grep -Fqx -- "repository=$repository" "$evidence_file" \
-      && grep -Fqx -- "run_url=$deployment_run" "$evidence_file" \
-      && grep -Fqx -- "deployed_sha=$deployment_sha" "$evidence_file"
-  }; then
-    echo "Contract evidence manifest does not match its allowlist entry: $migration_name" >&2
-    exit 1
-  fi
-  [ "$(grep -Ec '^(migration|repository|run_url|deployed_sha)=' "$evidence_file")" -eq 4 ] || {
-    echo "Contract evidence manifest has missing or duplicate fields: $migration_name" >&2
-    exit 1
-  }
-}
-
-verify_contract_deployment_run() {
-  local run_id="$1"
-  local deployment_sha="$2"
-  local run_data
-  local conclusion
-  local branch
-  local event
-  local workflow_path
-  local head_sha
-  local backend_job
-  local backend_job_id
-  local backend_job_name
-  local backend_job_conclusion
-  local backend_job_url
-  local deployment_ids
-  local deployment_id
-  local matching_status
-
-  command -v gh >/dev/null 2>&1 || {
-    echo "GitHub CLI is required to verify contract deployment evidence" >&2
-    exit 1
-  }
-  run_data="$(gh api "repos/$repository/actions/runs/$run_id" \
-    --jq '[.conclusion, .head_branch, .event, .path, .head_sha] | @tsv')" || {
-      echo "Contract deployment run cannot be read: $run_id" >&2
-      exit 1
-    }
-  IFS=$'\t' read -r conclusion branch event workflow_path head_sha <<< "$run_data"
-  if [ "$conclusion" != success ] || [ "$branch" != main ] || [ "$event" != workflow_dispatch ] \
-    || [ "$workflow_path" != .github/workflows/ci.yml ] || [ "$head_sha" != "$deployment_sha" ]; then
-    echo "Contract deployment run does not match the required successful manual main deployment: $run_id" >&2
-    exit 1
-  fi
-
-  backend_job="$(gh api --paginate "repos/$repository/actions/runs/$run_id/jobs?per_page=100" \
-    --jq '.jobs[] | select((.name == "deploy-backend / deploy" or .name == "deploy-backend / Deploy Backend / deploy") and .conclusion == "success") | [.id, .name, .conclusion, .html_url] | @tsv')" || {
-      echo "Backend deployment job cannot be read for run: $run_id" >&2
-      exit 1
-    }
-  if [ "$(printf '%s\n' "$backend_job" | sed '/^$/d' | wc -l)" -ne 1 ]; then
-    echo "Contract deployment must contain exactly one successful backend deployment job: $run_id" >&2
-    exit 1
-  fi
-  IFS=$'\t' read -r backend_job_id backend_job_name backend_job_conclusion backend_job_url <<< "$backend_job"
-  [[ "$backend_job_id" =~ ^[0-9]+$ ]] || {
-    echo "Backend deployment job id is invalid for run: $run_id" >&2
-    exit 1
-  }
-  [ "$backend_job_conclusion" = success ] || {
-    echo "Backend deployment job is not successful for run: $run_id" >&2
-    exit 1
-  }
-  case "$backend_job_name" in
-    "deploy-backend / deploy"|"deploy-backend / Deploy Backend / deploy") ;;
-    *)
-      echo "Production deployment evidence belongs to a different job: $backend_job_name" >&2
-      exit 1
-      ;;
-  esac
-  case "$backend_job_url" in
-    "https://github.com/$repository/actions/runs/$run_id/job/$backend_job_id"|\
-    "https://github.com/$repository/runs/$run_id/jobs/$backend_job_id") ;;
-    *)
-      echo "Backend deployment job URL does not belong to the recorded run: $run_id" >&2
-      exit 1
-      ;;
-  esac
-
-  deployment_ids="$(gh api "repos/$repository/deployments?sha=$deployment_sha&environment=production&per_page=100" \
-    --jq '.[] | select(.environment == "production") | .id')" || {
-      echo "Production environment deployments cannot be read for run: $run_id" >&2
-      exit 1
-    }
-  [ -n "$deployment_ids" ] || {
-    echo "Contract deployment has no production environment record: $run_id" >&2
-    exit 1
-  }
-
-  matching_status=false
-  while read -r deployment_id; do
-    [ -n "$deployment_id" ] || continue
-    [[ "$deployment_id" =~ ^[0-9]+$ ]] || continue
-    if gh api "repos/$repository/deployments/$deployment_id/statuses?per_page=100" \
-      --jq ".[] | select(.state == \"success\" and .log_url == \"$backend_job_url\") | .id" \
-      | grep -Eq '^[0-9]+$'; then
-      matching_status=true
-      break
-    fi
-  done <<< "$deployment_ids"
-  [ "$matching_status" = true ] || {
-    echo "No successful production deployment status is bound to backend job $backend_job_name in run $run_id" >&2
-    exit 1
-  }
 }
 
 strip_sql_comments() {
@@ -646,25 +525,20 @@ if ! base_allowlist="$(git show "$base_ref:$contract_allowlist" 2>/dev/null)"; t
   exit 1
 fi
 
-while read -r base_migration_name base_deployment_run base_deployment_sha base_evidence_file base_extra; do
+while read -r base_migration_name base_extra; do
   [ -n "$base_migration_name" ] || continue
   [[ "$base_migration_name" = \#* ]] && continue
-  base_entry="$base_migration_name $base_deployment_run $base_deployment_sha $base_evidence_file"
-  grep -Fqx -- "$base_entry" "$contract_allowlist" || {
-    echo "Applied contract migration records are immutable: $base_migration_name" >&2
-    exit 1
-  }
   [ -z "${base_extra:-}" ] || {
     echo "Base contract allowlist contains an invalid record: $base_migration_name" >&2
     exit 1
   }
-  if ! git diff --quiet "$base_ref" "$head_ref" -- "$base_evidence_file"; then
-    echo "Reviewed contract evidence manifests are immutable: $base_evidence_file" >&2
+  awk 'NF && $1 !~ /^#/ { print $1 }' "$contract_allowlist" | grep -Fqx -- "$base_migration_name" || {
+    echo "Applied contract migration records are immutable: $base_migration_name" >&2
     exit 1
-  fi
+  }
 done <<< "$base_allowlist"
 
-while read -r migration_name deployment_run deployment_sha evidence_file extra; do
+while read -r migration_name extra; do
   [ -n "$migration_name" ] || continue
   [[ "$migration_name" = \#* ]] && continue
   case "$migration_name" in V*.sql) ;; *) echo "Invalid contract migration filename in allowlist: $migration_name" >&2; exit 1 ;; esac
@@ -674,24 +548,14 @@ while read -r migration_name deployment_run deployment_sha evidence_file extra; 
     echo "Contract allowlist entry must reference an existing contract migration: $migration_name" >&2
     exit 1
   fi
-  case "$deployment_run" in https://github.com/weedrice/project_whiteboard/actions/runs/[0-9]*) ;; *) echo "Contract allowlist entry requires this repository's GitHub deployment run URL: $migration_name" >&2; exit 1 ;; esac
-  if [[ ! "$deployment_sha" =~ ^[0-9a-f]{40}$ ]]; then
-    echo "Contract allowlist entry requires the deployed 40-character commit SHA: $migration_name" >&2
-    exit 1
-  fi
-  validate_contract_evidence_manifest "$migration_name" "$deployment_run" "$deployment_sha" "${evidence_file:-}"
   if [ -n "${extra:-}" ]; then
     echo "Unexpected extra fields in contract allowlist entry: $migration_name" >&2
     exit 1
   fi
-  allowlist_entry="$migration_name $deployment_run $deployment_sha $evidence_file"
-  if ! grep -Fqx -- "$allowlist_entry" <<< "$base_allowlist" && [ "$new_migration" = true ]; then
-    echo "Contract evidence cannot be added in the same change as a new migration: $migration_name" >&2
+  if ! awk 'NF && $1 !~ /^#/ { print $1 }' <<< "$base_allowlist" | grep -Fqx -- "$migration_name" \
+    && [ "$new_migration" = true ]; then
+    echo "A contract migration cannot be marked applied in the same change as a new migration: $migration_name" >&2
     exit 1
-  fi
-  if [ "$verify_contract_runs" = true ] && ! grep -Fqx -- "$allowlist_entry" <<< "$base_allowlist"; then
-    run_id="${deployment_run##*/}"
-    verify_contract_deployment_run "$run_id" "$deployment_sha"
   fi
 done < "$contract_allowlist"
 

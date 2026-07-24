@@ -22,16 +22,6 @@ on:
         required: false
         type: boolean
         default: false
-      backup_snapshot_id:
-        description: Identifier of the verified pre-contract production snapshot
-        required: false
-        type: string
-        default: ''
-      contract_change_ticket:
-        description: Approved change ticket bound to the contract snapshot and deployment SHA
-        required: false
-        type: string
-        default: ''
 
 permissions:
   contents: read
@@ -76,7 +66,6 @@ jobs:
               - 'deploy/**'
               - '.github/CODEOWNERS'
               - 'docs/ops/api-contract-revision.txt'
-              - 'docs/ops/contract-evidence/**'
               - 'docs/ops/postgres-backup-restore.md'
               - 'backend/scripts/**'
               - 'docker-compose*.yml'
@@ -336,7 +325,6 @@ jobs:
         id: migration_guard
         env:
           BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || (github.event_name == 'push' && github.event.before || 'HEAD^') }}
-          VERIFY_CONTRACT_RUNS: "false"
         run: bash backend/scripts/check-migration-compatibility.sh "$BASE_REF" HEAD
 
       - name: Install PostgreSQL client
@@ -587,7 +575,6 @@ jobs:
           bash deploy/scripts/tests/record-cleanup-debt-test.sh
           bash deploy/scripts/tests/verify-workflow-security-test.sh
           bash backend/scripts/tests/check-migration-compatibility-test.sh
-          bash backend/scripts/tests/verify-contract-deployment-evidence-test.sh
           sudo bash deploy/monitoring/tests/rotate-grafana-admin-password-test.sh
           bash deploy/monitoring/tests/verify-grafana-archive-test.sh
           bash deploy/monitoring/tests/check-prometheus-health-test.sh
@@ -596,7 +583,6 @@ jobs:
       - name: Validate repository migration policy changes
         env:
           BASE_REF: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || (github.event_name == 'push' && github.event.before || 'HEAD^') }}
-          VERIFY_CONTRACT_RUNS: "false"
         run: bash backend/scripts/check-migration-compatibility.sh "$BASE_REF" HEAD
 
       - name: Validate production Nginx configuration
@@ -641,31 +627,6 @@ jobs:
           JWT_SECRET_DEV: Y2ktb25seS1kdW1teS1qd3Qtc2VjcmV0LWtleS0zMi1ieXRlcw==
         run: docker compose config --quiet
 
-  trusted-contract-evidence:
-    needs: changes
-    if: >-
-      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
-      github.ref == 'refs/heads/main' &&
-      (needs.changes.outputs.backend == 'true' || needs.changes.outputs.ops == 'true')
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    permissions:
-      contents: read
-      actions: read
-      deployments: read
-    steps:
-      - name: Checkout trusted main revision
-        uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - name: Verify applied contract deployment evidence
-        env:
-          BASE_REF: ${{ github.event_name == 'push' && github.event.before || 'HEAD^' }}
-          GH_TOKEN: ${{ github.token }}
-          VERIFY_CONTRACT_RUNS: "true"
-        run: bash backend/scripts/check-migration-compatibility.sh "$BASE_REF" HEAD
-
   ci-gate:
     name: CI Gate
     if: always()
@@ -676,7 +637,6 @@ jobs:
       - backend-postgres-migration
       - backend-postgres-upgrade
       - ops-config-test
-      - trusted-contract-evidence
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     outputs:
@@ -691,17 +651,10 @@ jobs:
           POSTGRES_RESULT: ${{ needs.backend-postgres-migration.result }}
           POSTGRES_UPGRADE_RESULT: ${{ needs.backend-postgres-upgrade.result }}
           OPS_RESULT: ${{ needs.ops-config-test.result }}
-          TRUSTED_EVIDENCE_RESULT: ${{ needs.trusted-contract-evidence.result }}
           NEED_BACKEND: ${{ needs.changes.outputs.backend }}
           NEED_FRONTEND: ${{ needs.changes.outputs.frontend }}
           NEED_OPS: ${{ needs.changes.outputs.ops }}
           CONTRACT_MIGRATION: ${{ needs.backend-postgres-migration.outputs.contract_migration }}
-          EVENT_NAME: ${{ github.event_name }}
-          GIT_REF: ${{ github.ref }}
-          DEPLOY_BACKEND: ${{ inputs.deploy_backend || false }}
-          ALLOW_CONTRACT: ${{ inputs.allow_contract_migration || false }}
-          BACKUP_SNAPSHOT_ID: ${{ inputs.backup_snapshot_id || '' }}
-          CONTRACT_CHANGE_TICKET: ${{ inputs.contract_change_ticket || '' }}
         run: |
           if [ "$CHANGES_RESULT" != "success" ]; then
             echo "Change detection failed: $CHANGES_RESULT"
@@ -726,23 +679,7 @@ jobs:
           verify_job "$NEED_BACKEND" "$POSTGRES_UPGRADE_RESULT" backend-postgres-upgrade
           verify_job "$NEED_FRONTEND" "$FRONTEND_RESULT" frontend-test
           verify_job "$NEED_OPS" "$OPS_RESULT" ops-config-test
-          need_trusted_evidence=false
-          if [ "$GIT_REF" = refs/heads/main ] && [ "$EVENT_NAME" != pull_request ] \
-            && { [ "$NEED_BACKEND" = true ] || [ "$NEED_OPS" = true ]; }; then
-            need_trusted_evidence=true
-          fi
-          verify_job "$need_trusted_evidence" "$TRUSTED_EVIDENCE_RESULT" trusted-contract-evidence
           if [ "$CONTRACT_MIGRATION" != "true" ]; then CONTRACT_MIGRATION=false; fi
-          if [ "$CONTRACT_MIGRATION" = "true" ] && [ "$EVENT_NAME" = workflow_dispatch ] && [ "$DEPLOY_BACKEND" = true ] && [ "$ALLOW_CONTRACT" = true ]; then
-            if [[ ! "$BACKUP_SNAPSHOT_ID" =~ ^[A-Za-z0-9][A-Za-z0-9._:/-]{2,255}$ ]]; then
-              echo "Contract deployment requires a concrete backup snapshot identifier without whitespace"
-              exit 1
-            fi
-            if [[ ! "$CONTRACT_CHANGE_TICKET" =~ ^[A-Za-z0-9][A-Za-z0-9._:/-]{2,127}$ ]]; then
-              echo "Contract deployment requires an approved change ticket"
-              exit 1
-            fi
-          fi
           echo "contract_migration=$CONTRACT_MIGRATION" >> "$GITHUB_OUTPUT"
 
   candidate-backend:
@@ -768,8 +705,6 @@ jobs:
         working-directory: backend
         env:
           BUILD_COMMIT_SHA: ${{ github.sha }}
-          BACKUP_SNAPSHOT_ID: ${{ inputs.backup_snapshot_id || '' }}
-          CONTRACT_CHANGE_TICKET: ${{ inputs.contract_change_ticket || '' }}
           CONTRACT_MIGRATION: ${{ needs.ci-gate.outputs.contract_migration }}
         run: |
           set -euo pipefail
@@ -783,8 +718,6 @@ jobs:
           {
             printf 'repository=%s\ncommit_sha=%s\nrun_id=%s\nrun_number=%s\nrun_attempt=%s\napi_contract_revision=%s\n' \
               "$GITHUB_REPOSITORY" "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_NUMBER" "$GITHUB_RUN_ATTEMPT" "$api_contract_revision"
-            printf 'backup_snapshot_id=%s\n' "$BACKUP_SNAPSHOT_ID"
-            printf 'contract_change_ticket=%s\n' "$CONTRACT_CHANGE_TICKET"
             printf 'contract_migration=%s\n' "$CONTRACT_MIGRATION"
           } > release/RELEASE_METADATA
       - name: Generate backend SBOM
@@ -1021,29 +954,19 @@ jobs:
       ((github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.backend_deploy == 'true') ||
       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.deploy_backend)) &&
       (needs.ci-gate.outputs.contract_migration != 'true' ||
-      (github.event_name == 'workflow_dispatch' && inputs.allow_contract_migration && inputs.backup_snapshot_id != '' && inputs.contract_change_ticket != ''))
+      (github.event_name == 'workflow_dispatch' && inputs.allow_contract_migration))
     uses: ./.github/workflows/deploy-backend.yml
     permissions:
       contents: read
       attestations: read
-      id-token: write
     with:
       expected_sha: ${{ github.sha }}
       release_artifact_name: backend-release-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
-      backup_snapshot_id: ${{ inputs.backup_snapshot_id || '' }}
-      contract_change_ticket: ${{ inputs.contract_change_ticket || '' }}
       contract_migration: ${{ needs.ci-gate.outputs.contract_migration == 'true' }}
     secrets:
       EC2_HOST: ${{ secrets.EC2_HOST }}
       EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
       EC2_HOST_FINGERPRINT: ${{ secrets.EC2_HOST_FINGERPRINT }}
-      AWS_CONTRACT_EVIDENCE_READ_ROLE_ARN: ${{ secrets.AWS_CONTRACT_EVIDENCE_READ_ROLE_ARN }}
-      AWS_CONTRACT_EVIDENCE_CONSUME_ROLE_ARN: ${{ secrets.AWS_CONTRACT_EVIDENCE_CONSUME_ROLE_ARN }}
-      AWS_REGION: ${{ secrets.AWS_REGION }}
-      RDS_PRODUCTION_DB_IDENTIFIER: ${{ secrets.RDS_PRODUCTION_DB_IDENTIFIER }}
-      AWS_EXPECTED_ACCOUNT_ID: ${{ secrets.AWS_EXPECTED_ACCOUNT_ID }}
-      RDS_SNAPSHOT_KMS_KEY_ARN: ${{ secrets.RDS_SNAPSHOT_KMS_KEY_ARN }}
-      RDS_ENGINE_MAJOR_VERSION: ${{ secrets.RDS_ENGINE_MAJOR_VERSION }}
 
   deploy-frontend:
     needs: [changes, ci-gate, release-frontend, deploy-backend]

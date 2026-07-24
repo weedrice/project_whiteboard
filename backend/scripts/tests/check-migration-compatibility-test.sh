@@ -9,7 +9,7 @@ trap 'rm -rf "$fixture"' EXIT
 git -C "$fixture" init -q
 git -C "$fixture" config user.email ci@example.invalid
 git -C "$fixture" config user.name CI
-mkdir -p "$fixture/backend/src/main/resources/db/migration" "$fixture/docs/ops/contract-evidence" "$fixture/docs/design-notes"
+mkdir -p "$fixture/backend/src/main/resources/db/migration" "$fixture/docs/ops" "$fixture/docs/design-notes"
 printf 'CREATE TABLE sample (id bigint);\n' > "$fixture/backend/src/main/resources/db/migration/V1__base.sql"
 printf '# applied contracts\n' > "$fixture/docs/ops/applied-contract-migrations.txt"
 printf '# Contract design\n' > "$fixture/docs/design-notes/remove-sample.md"
@@ -475,14 +475,7 @@ output_file="$fixture/output"
 grep -qx 'contract_migration=true' "$output_file"
 
 contract_commit="$(git -C "$fixture" rev-parse HEAD)"
-evidence_file='docs/ops/contract-evidence/V2__contract.evidence'
-cat > "$fixture/$evidence_file" <<'EOF'
-migration=V2__contract.sql
-repository=weedrice/project_whiteboard
-run_url=https://github.com/weedrice/project_whiteboard/actions/runs/1
-deployed_sha=0123456789abcdef0123456789abcdef01234567
-EOF
-printf 'V2__contract.sql https://github.com/weedrice/project_whiteboard/actions/runs/1 0123456789abcdef0123456789abcdef01234567 %s\n' "$evidence_file" >> "$fixture/docs/ops/applied-contract-migrations.txt"
+printf 'V2__contract.sql\n' >> "$fixture/docs/ops/applied-contract-migrations.txt"
 git -C "$fixture" add .
 git -C "$fixture" commit -qm premature-allowlist
 allowlist_commit="$(git -C "$fixture" rev-parse HEAD)"
@@ -491,75 +484,16 @@ if (cd "$fixture" && bash "$script" "$base" HEAD); then
   exit 1
 fi
 
-fake_bin="$fixture/fake-bin"
-mkdir -p "$fake_bin"
-cat > "$fake_bin/gh" <<'EOF'
-#!/usr/bin/env bash
-endpoint=""
-for argument in "$@"; do
-  case "$argument" in repos/weedrice/project_whiteboard/*) endpoint="$argument"; break ;; esac
-done
-case "$endpoint" in
-  repos/weedrice/project_whiteboard/actions/runs/1)
-    printf 'success\tmain\tworkflow_dispatch\t.github/workflows/ci.yml\t%s\n' \
-      "${GH_RUN_SHA:-0123456789abcdef0123456789abcdef01234567}"
-    ;;
-  repos/weedrice/project_whiteboard/actions/runs/1/jobs\?*)
-    case "${GH_BACKEND_JOB_MODE:-success}" in
-      success) printf '42\tdeploy-backend / Deploy Backend / deploy\tsuccess\thttps://github.com/weedrice/project_whiteboard/actions/runs/1/job/42\n' ;;
-      wrong-run) printf '42\tdeploy-backend / Deploy Backend / deploy\tsuccess\thttps://github.com/weedrice/project_whiteboard/actions/runs/999/job/42\n' ;;
-      frontend-only) printf '84\tdeploy-frontend / Deploy Frontend / deploy\tsuccess\thttps://github.com/weedrice/project_whiteboard/actions/runs/1/job/84\n' ;;
-      missing) ;;
-    esac
-    ;;
-  repos/weedrice/project_whiteboard/deployments\?*) printf '99\n' ;;
-  repos/weedrice/project_whiteboard/deployments/99/statuses\?*)
-    if [ "${GH_BOUND_BACKEND_STATUS:-true}" = true ]; then printf '123\n'; fi
-    ;;
-  *) exit 1 ;;
-esac
-EOF
-chmod +x "$fake_bin/gh"
-
-(cd "$fixture" && PATH="$fake_bin:$PATH" VERIFY_CONTRACT_RUNS=true bash "$script" "$contract_commit" HEAD)
-if (cd "$fixture" && GH_RUN_SHA=ffffffffffffffffffffffffffffffffffffffff \
-  PATH="$fake_bin:$PATH" VERIFY_CONTRACT_RUNS=true bash "$script" "$contract_commit" HEAD); then
-  echo "Expected a deployment run for another commit to fail" >&2
-  exit 1
-fi
-if (cd "$fixture" && GH_BOUND_BACKEND_STATUS=false \
-  PATH="$fake_bin:$PATH" VERIFY_CONTRACT_RUNS=true bash "$script" "$contract_commit" HEAD); then
-  echo "Expected a production deployment not bound to the backend job to fail" >&2
-  exit 1
-fi
-if (cd "$fixture" && GH_BACKEND_JOB_MODE=frontend-only \
-  PATH="$fake_bin:$PATH" VERIFY_CONTRACT_RUNS=true bash "$script" "$contract_commit" HEAD); then
-  echo "Expected a frontend-only production deployment to fail" >&2
-  exit 1
-fi
-if (cd "$fixture" && GH_BACKEND_JOB_MODE=wrong-run \
-  PATH="$fake_bin:$PATH" VERIFY_CONTRACT_RUNS=true bash "$script" "$contract_commit" HEAD); then
-  echo "Expected a backend job URL for another run to fail" >&2
-  exit 1
-fi
+(cd "$fixture" && bash "$script" "$contract_commit" HEAD)
 
 cat > "$fixture/backend/src/main/resources/db/migration/V3__unrelated_expand.sql" <<'SQL'
 -- noviis:migration-phase expand
 ALTER TABLE sample ADD COLUMN unrelated_value bigint;
 SQL
 git -C "$fixture" add .
-git -C "$fixture" commit -qm migration-with-contract-evidence
+git -C "$fixture" commit -qm migration-with-applied-contract-record
 if (cd "$fixture" && bash "$script" "$contract_commit" HEAD); then
-  echo "Expected contract evidence added with an unrelated new migration to fail" >&2
-  exit 1
-fi
-
-git -C "$fixture" reset -q --hard "$allowlist_commit"
-printf '\nextra=mutable\n' >> "$fixture/$evidence_file"
-git -C "$fixture" add .
-git -C "$fixture" commit -qm modified-contract-evidence
-if (cd "$fixture" && bash "$script" "$allowlist_commit" HEAD); then
-  echo "Expected a reviewed contract evidence manifest to be immutable" >&2
+  echo "Expected an applied contract record added with an unrelated new migration to fail" >&2
   exit 1
 fi
 
