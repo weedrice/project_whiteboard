@@ -63,7 +63,6 @@ const mainMenuItems: UserDropdownMenuItem[] = [
 const activityMenuItems: UserDropdownMenuItem[] = [
   { key: '5', route: '/mypage/scraps', label: 'common.scrap', icon: FileText },
   { key: '6', route: '/mypage/subscriptions', label: 'user.tabs.subscriptions', icon: Star },
-  { route: '/shop', label: 'shop.title', icon: ShoppingBag },
   { route: '/mypage/purchases', label: 'shop.purchases.title', icon: ShoppingBag },
 ]
 

@@ -133,7 +133,7 @@ describe('UserDropdown', () => {
     expect(keyboardStore.setOpenDropdown.mock.calls[0][1]).toHaveLength(9)
     expect(wrapper.text()).toContain('layout.menu.createBoard')
     expect(wrapper.text()).toContain('emoticon.title')
-    expect(wrapper.text()).toContain('shop.title')
+    expect(wrapper.text()).not.toContain('shop.title')
     expect(wrapper.text()).toContain('shop.purchases.title')
   })
 
