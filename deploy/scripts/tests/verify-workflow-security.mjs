@@ -174,9 +174,10 @@ for (const [jobName, outputName] of [
   ['candidate-backend', 'backend_deploy'],
   ['deploy-backend', 'backend_deploy'],
   ['candidate-frontend', 'frontend_deploy'],
-  ['deploy-frontend', 'frontend_deploy'],
+  ['frontend-deploy-readiness', 'frontend_deploy'],
 ]) {
-  assert(String(ci.jobs[jobName].if).includes(`needs.changes.outputs.${outputName}`),
+  const jobSource = JSON.stringify(ci.jobs[jobName])
+  assert(jobSource.includes(`needs.changes.outputs.${outputName}`),
     `${jobName} does not use its deployment-only change scope`)
 }
 for (const jobName of [
@@ -185,15 +186,25 @@ for (const jobName of [
   'candidate-frontend',
   'release-frontend',
   'deploy-backend',
+  'frontend-deploy-readiness',
   'deploy-frontend',
 ]) {
   assert(String(ci.jobs[jobName].if).includes('!cancelled()'),
     `${jobName} may inherit skipped validation jobs through the CI gate`)
 }
-assert(String(ci.jobs['deploy-frontend'].if).includes("needs.changes.outputs.backend_deploy != 'true'"),
+const frontendReadiness = ci.jobs['frontend-deploy-readiness']
+const frontendReadinessSource = JSON.stringify(frontendReadiness)
+assert(frontendReadinessSource.includes("needs.changes.outputs.backend_deploy"),
   'frontend deployment must wait only for an actual backend deployment change')
-assert(String(ci.jobs['deploy-frontend'].if).includes('always()'),
+assert(String(frontendReadiness.if).includes('always()'),
   'frontend deployment must tolerate an intentionally skipped backend deployment')
+assert((frontendReadiness.needs ?? []).includes('deploy-backend')
+  && (frontendReadiness.needs ?? []).includes('release-frontend')
+  && (frontendReadiness.needs ?? []).includes('ci-gate'),
+  'frontend readiness must preserve release, CI gate, and backend deployment ordering')
+assert(ci.jobs['deploy-frontend'].needs === 'frontend-deploy-readiness'
+  && String(ci.jobs['deploy-frontend'].if).includes("needs.frontend-deploy-readiness.outputs.deploy == 'true'"),
+  'frontend deployment must consume the explicit readiness decision')
 for (const protectedOpsPath of [
   '.github/CODEOWNERS',
   'docs/ops/postgres-backup-restore.md',
@@ -320,11 +331,12 @@ for (const [name, workflow] of [['backend', backend], ['frontend', frontend]]) {
   assert(source.includes('username: ${{ secrets.EC2_USER }}'), `${name} deployment does not use EC2_USER`)
 }
 
-for (const [name, releaseJob] of [['backend', ci.jobs['deploy-backend']], ['frontend', ci.jobs['deploy-frontend']]]) {
-  assert((releaseJob.needs ?? []).includes('ci-gate'), `${name} deployment bypasses ci-gate`)
-  assert((releaseJob.needs ?? []).some((need) => need === `release-${name}`), `${name} deployment bypasses verified release artifacts`)
-  assert(String(releaseJob.if).includes("github.ref == 'refs/heads/main'"), `${name} production deployment is not main-only`)
-}
+const backendDeployment = ci.jobs['deploy-backend']
+assert((backendDeployment.needs ?? []).includes('ci-gate'), 'backend deployment bypasses ci-gate')
+assert((backendDeployment.needs ?? []).includes('release-backend'), 'backend deployment bypasses verified release artifacts')
+assert(String(backendDeployment.if).includes("github.ref == 'refs/heads/main'"), 'backend production deployment is not main-only')
+assert(frontendReadinessSource.includes("github.ref") && frontendReadinessSource.includes('refs/heads/main'),
+  'frontend production deployment is not main-only')
 
 const preflight = seo.jobs['seo-preflight']
 assert(stepRuns(preflight, 'refs/heads/main'), 'manual SEO runs must be restricted to main')

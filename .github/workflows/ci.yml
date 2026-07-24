@@ -977,18 +977,68 @@ jobs:
       EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
       EC2_USER: ${{ secrets.EC2_USER }}
 
-  deploy-frontend:
+  frontend-deploy-readiness:
     needs: [changes, ci-gate, release-frontend, deploy-backend]
+    if: always() && !cancelled()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      deploy: ${{ steps.readiness.outputs.deploy }}
+      backend_activated_sha: ${{ steps.readiness.outputs.backend_activated_sha }}
+    steps:
+      - name: Resolve frontend deployment readiness
+        id: readiness
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref }}
+          CI_GATE_RESULT: ${{ needs.ci-gate.result }}
+          RELEASE_FRONTEND_RESULT: ${{ needs.release-frontend.result }}
+          DEPLOY_BACKEND_RESULT: ${{ needs.deploy-backend.result }}
+          BACKEND_DEPLOY_CHANGED: ${{ needs.changes.outputs.backend_deploy }}
+          FRONTEND_DEPLOY_CHANGED: ${{ needs.changes.outputs.frontend_deploy }}
+          MANUAL_BACKEND: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_backend || false }}
+          MANUAL_FRONTEND: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_frontend || false }}
+          BACKEND_ACTIVATED_SHA: ${{ needs.deploy-backend.outputs.activated_sha || '' }}
+        run: |
+          set -euo pipefail
+          frontend_requested=false
+          backend_ready=false
+
+          if [ "$EVENT_NAME" = "push" ] && [ "$REF_NAME" = "refs/heads/main" ] &&
+             [ "$FRONTEND_DEPLOY_CHANGED" = "true" ]; then
+            frontend_requested=true
+          elif [ "$EVENT_NAME" = "workflow_dispatch" ] && [ "$REF_NAME" = "refs/heads/main" ] &&
+               [ "$MANUAL_FRONTEND" = "true" ]; then
+            frontend_requested=true
+          fi
+
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            if [ "$MANUAL_BACKEND" != "true" ] || [ "$DEPLOY_BACKEND_RESULT" = "success" ]; then
+              backend_ready=true
+            fi
+          elif [ "$BACKEND_DEPLOY_CHANGED" != "true" ] || [ "$DEPLOY_BACKEND_RESULT" = "success" ]; then
+            backend_ready=true
+          fi
+
+          deploy=false
+          if [ "$CI_GATE_RESULT" = "success" ] &&
+             [ "$RELEASE_FRONTEND_RESULT" = "success" ] &&
+             [ "$frontend_requested" = "true" ] &&
+             [ "$backend_ready" = "true" ]; then
+            deploy=true
+          fi
+
+          {
+            echo "deploy=$deploy"
+            echo "backend_activated_sha=$BACKEND_ACTIVATED_SHA"
+          } >> "$GITHUB_OUTPUT"
+          echo "frontend_requested=$frontend_requested backend_ready=$backend_ready deploy=$deploy"
+
+  deploy-frontend:
+    needs: frontend-deploy-readiness
     if: >-
-      always() &&
       !cancelled() &&
-      needs.ci-gate.result == 'success' &&
-      needs.release-frontend.result == 'success' &&
-      (needs.deploy-backend.result == 'success' ||
-      (needs.deploy-backend.result == 'skipped' && needs.changes.outputs.backend_deploy != 'true' &&
-      !(github.event_name == 'workflow_dispatch' && inputs.deploy_backend))) &&
-      ((github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.frontend_deploy == 'true') ||
-      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.deploy_frontend))
+      needs.frontend-deploy-readiness.outputs.deploy == 'true'
     uses: ./.github/workflows/deploy-frontend.yml
     permissions:
       contents: read
@@ -996,7 +1046,7 @@ jobs:
     with:
       expected_sha: ${{ github.sha }}
       release_artifact_name: frontend-release-${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}
-      backend_activated_sha: ${{ needs.deploy-backend.outputs.activated_sha || '' }}
+      backend_activated_sha: ${{ needs.frontend-deploy-readiness.outputs.backend_activated_sha }}
     secrets:
       EC2_HOST: ${{ secrets.EC2_HOST }}
       EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}

@@ -42,7 +42,7 @@ if node "$validator" "$fixture"; then
 fi
 cp "$project_root/.github/workflows/ci.yml" "$fixture/.github/workflows/ci.yml"
 
-sed -i '/^  deploy-frontend:$/,/^    uses:/s/always() &&/true \&\&/' "$fixture/.github/workflows/ci.yml"
+sed -i '/^  frontend-deploy-readiness:$/,/^    runs-on:/s/always() &&/true \&\&/' "$fixture/.github/workflows/ci.yml"
 if node "$validator" "$fixture"; then
   echo "Expected frontend deployment without a skipped-backend override to fail" >&2
   exit 1
