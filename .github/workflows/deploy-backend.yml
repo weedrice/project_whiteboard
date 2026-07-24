@@ -80,7 +80,7 @@ jobs:
           gh attestation verify release-artifact/RELEASE_ENVELOPE --repo "$GITHUB_REPOSITORY" --signer-workflow "github.com/$GITHUB_REPOSITORY/.github/workflows/ci.yml" --source-ref refs/heads/main --source-digest "${{ inputs.expected_sha }}" --predicate-type https://slsa.dev/provenance/v1 --deny-self-hosted-runners
           gh attestation verify release-artifact/app.jar --repo "$GITHUB_REPOSITORY" --signer-workflow "github.com/$GITHUB_REPOSITORY/.github/workflows/ci.yml" --source-ref refs/heads/main --source-digest "${{ inputs.expected_sha }}" --predicate-type https://spdx.dev/Document/v2.3 --deny-self-hosted-runners
 
-      - name: Prepare backend release directory
+      - name: Prepare backend staging directory
         uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -88,15 +88,10 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             set -eu
-            test "$(sha256sum /usr/local/sbin/activate-noviis-backend | awk '{print $1}')" = "${{ hashFiles('deploy/scripts/activate-backend-release.sh') }}"
-            test "$(sha256sum /usr/local/sbin/verify-noviis-backend | awk '{print $1}')" = "${{ hashFiles('deploy/scripts/verify-active-backend-release.sh') }}"
-            test "$(sha256sum /usr/local/sbin/verify-noviis-backend-start-state | awk '{print $1}')" = "${{ hashFiles('deploy/scripts/verify-backend-start-state.sh') }}"
-            test "$(sha256sum /usr/local/sbin/verify-noviis-release | awk '{print $1}')" = "${{ hashFiles('deploy/scripts/verify-release-provenance.sh') }}"
-            test "$(sha256sum /usr/local/sbin/record-noviis-cleanup-debt | awk '{print $1}')" = "${{ hashFiles('deploy/scripts/record-cleanup-debt.sh') }}"
-            test "$(sha256sum /etc/systemd/system/app.service | awk '{print $1}')" = "${{ hashFiles('deploy/systemd/app.service') }}"
-            RELEASE_DIR="/opt/app/backend/incoming/${{ inputs.expected_sha }}-${{ github.run_id }}-${{ github.run_attempt }}"
-            test ! -e "$RELEASE_DIR"
-            install -d -m 0755 "$RELEASE_DIR"
+            STAGING_DIR="/tmp/noviis-backend-${{ inputs.expected_sha }}-${{ github.run_id }}-${{ github.run_attempt }}"
+            case "$STAGING_DIR" in /tmp/noviis-backend-*) ;; *) exit 64 ;; esac
+            test ! -e "$STAGING_DIR"
+            install -d -m 0700 "$STAGING_DIR"
 
       - name: Upload verified backend artifact
         uses: appleboy/scp-action@ff85246acaad7bdce478db94a363cd2bf7c90345 # v1.0.0
@@ -105,7 +100,7 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           source: "release-artifact/app.jar,release-artifact/SHA256SUMS,release-artifact/RELEASE_METADATA,release-artifact/sbom.spdx.json,release-artifact/RELEASE_ENVELOPE,release-artifact/PROVENANCE_BUNDLE.jsonl"
-          target: "/opt/app/backend/incoming/${{ inputs.expected_sha }}-${{ github.run_id }}-${{ github.run_attempt }}"
+          target: "/tmp/noviis-backend-${{ inputs.expected_sha }}-${{ github.run_id }}-${{ github.run_attempt }}"
           strip_components: 1
 
       - name: Reject a stale deployment immediately before activation
@@ -118,7 +113,6 @@ jobs:
 
       - name: Activate backend release
         id: activate
-        continue-on-error: true
         uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -127,9 +121,60 @@ jobs:
           capture_stdout: true
           script: |
             set -eu
-            RELEASE_DIR="/opt/app/backend/incoming/${{ inputs.expected_sha }}-${{ github.run_id }}-${{ github.run_attempt }}"
-            sudo /usr/local/sbin/activate-noviis-backend "$RELEASE_DIR" "${{ inputs.expected_sha }}" \
-              "${{ github.run_id }}" "${{ github.run_attempt }}" "${{ github.run_number }}"
+            EXPECTED_SHA="${{ inputs.expected_sha }}"
+            CONTRACT_MIGRATION="${{ inputs.contract_migration }}"
+            STAGING_DIR="/tmp/noviis-backend-${{ inputs.expected_sha }}-${{ github.run_id }}-${{ github.run_attempt }}"
+            APP_DIR="/opt/app/backend"
+            HEALTH_URL="http://127.0.0.1:8081/actuator/health"
+
+            case "$STAGING_DIR" in /tmp/noviis-backend-*) ;; *) exit 64 ;; esac
+            [ "$CONTRACT_MIGRATION" = true ] || [ "$CONTRACT_MIGRATION" = false ]
+            (cd "$STAGING_DIR" && sha256sum --strict --check SHA256SUMS)
+            grep -Fqx -- "commit_sha=$EXPECTED_SHA" "$STAGING_DIR/RELEASE_METADATA"
+            expected_digest="$(awk '$2 == "app.jar" { print $1 }' "$STAGING_DIR/SHA256SUMS")"
+            echo "$expected_digest" | grep -Eq '^[0-9a-f]{64}$'
+
+            sudo install -d -m 0755 "$APP_DIR"
+            had_previous=false
+            if sudo test -f "$APP_DIR/app.jar"; then
+              sudo install -m 0644 "$APP_DIR/app.jar" "$APP_DIR/app.jar.rollback"
+              had_previous=true
+            fi
+
+            sudo systemctl stop app || true
+            sudo install -m 0644 "$STAGING_DIR/app.jar" "$APP_DIR/app.jar.next"
+            test "$(sudo sha256sum "$APP_DIR/app.jar.next" | awk '{print $1}')" = "$expected_digest"
+            sudo mv "$APP_DIR/app.jar.next" "$APP_DIR/app.jar"
+            sudo systemctl daemon-reload
+
+            healthy=false
+            if sudo systemctl start app; then
+              attempt=0
+              while [ "$attempt" -lt 45 ]; do
+                if curl -fsS --max-time 5 "$HEALTH_URL" >/dev/null; then
+                  healthy=true
+                  break
+                fi
+                attempt=$((attempt + 1))
+                sleep 2
+              done
+            fi
+
+            if [ "$healthy" != true ]; then
+              sudo systemctl stop app || true
+              if [ "$CONTRACT_MIGRATION" = false ] && [ "$had_previous" = true ]; then
+                sudo install -m 0644 "$APP_DIR/app.jar.rollback" "$APP_DIR/app.jar"
+                sudo systemctl start app
+              fi
+              echo "Backend health check failed after activation" >&2
+              exit 1
+            fi
+
+            test "$(sudo sha256sum "$APP_DIR/app.jar" | awk '{print $1}')" = "$expected_digest"
+            echo "ACTIVATED_SHA=$EXPECTED_SHA"
+            echo "ACTIVATED_RUN_ID=${{ github.run_id }}"
+            echo "ACTIVATED_RUN_NUMBER=${{ github.run_number }}"
+            echo "ACTIVATED_RUN_ATTEMPT=${{ github.run_attempt }}"
 
       - name: Reconcile backend activation from independent readback
         id: reconcile
@@ -142,7 +187,16 @@ jobs:
           capture_stdout: true
           script: |
             set -eu
-            sudo /usr/local/sbin/verify-noviis-backend "${{ inputs.expected_sha }}"
+            EXPECTED_SHA="${{ inputs.expected_sha }}"
+            STAGING_DIR="/tmp/noviis-backend-${{ inputs.expected_sha }}-${{ github.run_id }}-${{ github.run_attempt }}"
+            expected_digest="$(awk '$2 == "app.jar" { print $1 }' "$STAGING_DIR/SHA256SUMS")"
+            test "$(sudo sha256sum /opt/app/backend/app.jar | awk '{print $1}')" = "$expected_digest"
+            sudo systemctl is-active --quiet app
+            curl -fsS --max-time 10 http://127.0.0.1:8081/actuator/health >/dev/null
+            echo "ACTIVATED_SHA=$EXPECTED_SHA"
+            echo "ACTIVATED_RUN_ID=${{ github.run_id }}"
+            echo "ACTIVATED_RUN_NUMBER=${{ github.run_number }}"
+            echo "ACTIVATED_RUN_ATTEMPT=${{ github.run_attempt }}"
 
       - name: Record verified backend activation
         id: activation-result
@@ -150,7 +204,6 @@ jobs:
         env:
           EXPECTED_SHA: ${{ inputs.expected_sha }}
           ACTIVATION_STDOUT: ${{ steps.reconcile.outputs.stdout }}
-          ACTIVATOR_STDOUT: ${{ steps.activate.outputs.stdout }}
           RECONCILIATION_OUTCOME: ${{ steps.reconcile.outcome }}
         run: |
           set -euo pipefail
@@ -160,18 +213,9 @@ jobs:
           test "$(printf '%s\n' "$ACTIVATION_STDOUT" | sed -n 's/^ACTIVATED_RUN_ID=//p' | tail -n 1)" = "$GITHUB_RUN_ID"
           test "$(printf '%s\n' "$ACTIVATION_STDOUT" | sed -n 's/^ACTIVATED_RUN_NUMBER=//p' | tail -n 1)" = "$GITHUB_RUN_NUMBER"
           test "$(printf '%s\n' "$ACTIVATION_STDOUT" | sed -n 's/^ACTIVATED_RUN_ATTEMPT=//p' | tail -n 1)" = "$GITHUB_RUN_ATTEMPT"
-          if [ "${{ steps.activate.outcome }}" != success ]; then
-            echo "::warning title=Activation transport reconciled::The activation channel failed, but independent host state and health prove the expected backend release is active."
-          fi
-          while IFS= read -r cleanup_debt; do
-            [ -n "$cleanup_debt" ] || continue
-            echo "::warning title=Backend cleanup debt::$cleanup_debt"
-            echo "$cleanup_debt" >> "$GITHUB_STEP_SUMMARY"
-          done < <(printf '%s\n' "$ACTIVATOR_STDOUT" | grep '^CLEANUP_DEBT=' || true)
           echo "activated_sha=$activated_sha" >> "$GITHUB_OUTPUT"
 
-      - name: Clean backend incoming release
-        id: cleanup
+      - name: Clean backend staging directory
         if: always()
         uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         with:
@@ -180,24 +224,8 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             set -eu
-            RELEASE_DIR="/opt/app/backend/incoming/${{ inputs.expected_sha }}-${{ github.run_id }}-${{ github.run_attempt }}"
-            if [ -e "$RELEASE_DIR" ]; then
-              case "$(realpath "$RELEASE_DIR")/" in /opt/app/backend/incoming/*/) rm -rf -- "$RELEASE_DIR" ;; *) exit 1 ;; esac
+            STAGING_DIR="/tmp/noviis-backend-${{ inputs.expected_sha }}-${{ github.run_id }}-${{ github.run_attempt }}"
+            case "$STAGING_DIR" in /tmp/noviis-backend-*) ;; *) exit 64 ;; esac
+            if [ -e "$STAGING_DIR" ]; then
+              rm -rf -- "$STAGING_DIR"
             fi
-            sudo /usr/local/sbin/record-noviis-cleanup-debt backend reconcile incoming_release
-        continue-on-error: true
-
-      - name: Persist backend cleanup debt
-        if: always() && steps.cleanup.outcome == 'failure'
-        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: sudo /usr/local/sbin/record-noviis-cleanup-debt backend reconcile incoming_release || [ "$?" -eq 2 ]
-
-      - name: Report backend cleanup debt
-        if: always() && steps.cleanup.outcome == 'failure'
-        run: |
-          echo "::warning title=Backend cleanup debt::The verified backend release remains active; incoming cleanup requires operator follow-up."
-          echo "Backend incoming cleanup failed after activation of ${{ inputs.expected_sha }}." >> "$GITHUB_STEP_SUMMARY"

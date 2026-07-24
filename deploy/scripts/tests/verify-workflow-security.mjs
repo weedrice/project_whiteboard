@@ -299,9 +299,7 @@ assertExactKeys(backend.on?.workflow_call?.secrets, [
   'EC2_HOST', 'EC2_SSH_KEY', 'EC2_USER',
 ], 'backend reusable workflow secret allowlist changed')
 assertExactKeys(frontend.on?.workflow_call?.secrets, [
-  'EC2_HOST', 'EC2_SSH_KEY', 'EC2_USER', 'GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN',
-  'GOOGLE_SEARCH_CONSOLE_CLIENT_ID', 'GOOGLE_SEARCH_CONSOLE_CLIENT_SECRET',
-  'GOOGLE_SEARCH_CONSOLE_REFRESH_TOKEN', 'CUSTOM_SITEMAP_SUBMIT_URL', 'CUSTOM_SITEMAP_SUBMIT_ALLOWED_ORIGINS',
+  'EC2_HOST', 'EC2_SSH_KEY', 'EC2_USER',
 ], 'frontend reusable workflow secret allowlist changed')
 for (const [name, workflow] of [['backend', backend], ['frontend', frontend]]) {
   const source = loadText(`.github/workflows/deploy-${name}.yml`)

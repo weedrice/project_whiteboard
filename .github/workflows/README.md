@@ -16,19 +16,19 @@
 
 자동·수동 배포는 검증이 끝난 동일 실행에서 release artifact를 한 번 생성한다. 권한 없는 candidate job이 빌드하고, Gradle/npm을 실행하지 않는 별도 release job만 OIDC·attestation 쓰기 권한으로 candidate digest를 서명한다. artifact 이름은 영역, `run_id`, `run_attempt`, commit SHA를 모두 포함하며 reusable deployment workflow는 그 정확한 이름만 내려받는다. 서명된 metadata의 `run_number/run_attempt`가 배포 세대 순서이며 `run_id`는 정확한 실행 식별에만 사용한다. 재실행이 이전 attempt의 artifact를 재사용하면 안 된다.
 
-backend와 frontend가 함께 변경되면 backend를 먼저 활성화한다. SSH action 결과만으로 성공을 판정하지 않고 별도 readback 연결에서 관리 health, build-info, root-owned active-state digest를 다시 검증한 경우에만 reusable backend workflow가 `activated_sha`를 출력한다. frontend도 내부·공개 release endpoint를 별도 연결에서 재확인하며, 전달받은 backend SHA가 자신의 대상 SHA와 같은지 확인한 뒤 결과를 확정한다. 따라서 activation 직후 전송 채널이 끊겨도 실제 활성 상태는 reconciliation되고, 반대로 성공 문자열만 남은 실패는 배포 성공이 되지 않는다.
+backend와 frontend가 함께 변경되면 backend를 먼저 활성화한다. backend는 별도 readback 연결에서 설치된 JAR digest, systemd 활성 상태와 8081 management health를 다시 검증한 경우에만 `activated_sha`를 출력한다. frontend도 `/var/www/app`의 release identity와 내부·공개 release endpoint를 별도 연결에서 재확인하며, 전달받은 backend SHA가 자신의 대상 SHA와 같은지 확인한 뒤 결과를 확정한다.
 
 contract migration은 자동 배포하지 않는다. `main`의 수동 실행에서 `allow_contract_migration=true`를 명시하고 production environment 승인을 거쳐야 한다. 배포 전 수동 RDS snapshot 생성과 `available` 상태 확인은 운영 절차로 유지하지만, 개인 프로젝트에 과도한 변경 티켓·snapshot tag·AWS OIDC 증거 검증은 CI에서 요구하지 않는다. 적용이 끝난 migration filename만 `docs/ops/applied-contract-migrations.txt`에 별도 변경으로 기록한다.
 
 ## 활성화와 정리
 
-Contract migration 여부는 release metadata와 envelope에 서명된다. 새 contract release의 서비스 시작을 시도한 뒤 실패하면 이전 JAR의 schema 호환성을 증명할 수 없으므로 자동 rollback하지 않는다. 서비스는 중지되고 root-only recovery state가 기록되며, 운영자가 DB 복구 또는 contract-compatible artifact를 명시적으로 선택해야 한다.
+Contract migration 여부는 release metadata와 envelope에 서명된다. 새 contract release의 서비스 시작을 시도한 뒤 실패하면 이전 JAR의 schema 호환성을 증명할 수 없으므로 자동 rollback하지 않는다. 서비스는 중지되며 운영자가 DB 복구 또는 contract-compatible artifact를 명시적으로 선택해야 한다.
 
-활성화 스크립트는 provenance, checksum, commit metadata, 서비스 health를 검증한 뒤 `ACTIVATED_SHA=<sha>`를 출력한다. 이 시점 이후 release 보존 정리, 상태 진단, incoming 삭제 실패는 건강한 release를 rollback하지 않는다. 대신 `CLEANUP_DEBT=...` 경고와 workflow cleanup 결과로 후속 조치한다. 실패 진단의 애플리케이션 로그·journal 원문은 Actions 출력으로 보내지 않고 host의 root-only 진단 파일에만 저장한다.
+배포 workflow는 GitHub runner에서 checksum, commit metadata와 attestation을 검증하고 EC2의 실행별 `/tmp` staging 경로로 전송한다. EC2에서도 checksum을 다시 확인한 뒤 기존 서비스 경로에 반영하며, 임시 staging 경로는 성공 여부와 관계없이 정리한다.
 
-backend/frontend artifact는 payload·metadata·SBOM·SHA-256 manifest의 digest를 담은 `RELEASE_ENVELOPE`, envelope provenance attestation, 실제 payload를 대상으로 한 SBOM attestation을 포함한다. 서버는 envelope attestation을 먼저 검증하고 내부 digest와 payload SBOM attestation을 각각 확인하므로 deploy 계정이 checksum과 SBOM을 함께 바꿔도 활성화할 수 없다. frontend SBOM은 source tree가 아니라 실제 배포 `dist`를 대상으로 생성한다. attestation bundle 다운로드는 bounded exponential backoff로 재시도하며 소진되면 release 생성을 실패시킨다. 배포 직전 최신 `origin/main`을 fetch하고 대상 이후의 변경 경로를 영역별로 비교한다. backend와 frontend에 무관한 문서 변경은 이미 검증된 배포를 막지 않지만 해당 영역 또는 공통 운영 경로가 바뀐 stale artifact는 차단한다. SSH와 SCP는 독립적으로 확인한 host fingerprint를 필수로 사용한다. production deploy concurrency는 활성 실행을 취소하지 않고 최신 대기 실행 하나를 보존해 직렬화한다.
+backend/frontend artifact는 payload·metadata·SBOM·SHA-256 manifest의 digest를 담은 `RELEASE_ENVELOPE`, envelope provenance attestation, 실제 payload를 대상으로 한 SBOM attestation을 포함한다. frontend SBOM은 source tree가 아니라 실제 배포 `dist`를 대상으로 생성한다. attestation bundle 다운로드는 bounded exponential backoff로 재시도하며 소진되면 release 생성을 실패시킨다. 배포 직전 최신 `origin/main`을 fetch하고 대상 이후의 변경 경로를 영역별로 비교한다. backend와 frontend에 무관한 문서 변경은 이미 검증된 배포를 막지 않지만 해당 영역 또는 공통 운영 경로가 바뀐 stale artifact는 차단한다. production deploy concurrency는 활성 실행을 취소하지 않고 최신 대기 실행 하나를 보존해 직렬화한다.
 
-backend activator는 이전 JAR을 보존하고 서비스 stop, atomic JAR 교체, 8081 management health와 build-info 검증을 수행한다. root-only active-state는 `pending`으로 시작해 연속 health 검증 후에만 `stable`이 되며 systemd도 시작 전 JAR digest와 상태를 독립 검증한다. 이전 `run_number/run_attempt`의 재생은 root-only 일회성 break-glass 사유가 없으면 거부한다. frontend activator도 root state를 기록하며 별도 verifier가 symlink, release metadata, envelope digest와 실행 세대를 독립 readback한다. frontend-only 배포는 서명된 API contract revision이 현재 stable backend와 일치해야 한다. release 정리는 mtime 기준 최신 5개를 보존하고 realpath가 release root 밖이면 삭제하지 않는다. incoming 정리는 단순 성공 플래그가 아니라 root-owned helper가 실제 디렉터리를 다시 열거해 orphan 수와 가장 오래된 age를 기록하며, 잔재가 있으면 cleanup debt를 유지한다.
+backend는 기존 JAR을 `app.jar.rollback`으로 보존하고 서비스 stop, JAR 교체, 8081 management health 검증을 수행한다. 일반 변경의 시작 실패는 이전 JAR로 자동 복원하고, contract migration은 이전 schema 호환성을 보장할 수 없으므로 자동 rollback하지 않는다. frontend는 현재 `/var/www/app`을 실행별 rollback 경로로 옮긴 뒤 새 파일을 활성화한다. 내부 및 공개 검증이 끝나면 backup을 제거하고, 검증 실패 시 이전 디렉터리를 복원한다. 별도 상시 설치 helper와 root-owned 배포 상태 파일은 요구하지 않는다.
 
 ## SEO
 
@@ -36,7 +36,7 @@ backend activator는 이전 JAR을 보존하고 서비스 stop, atomic JAR 교�
 
 production frontend release는 `SEO_STRICT=true`로 sitemap과 prerender를 생성한다. API 조회 실패, 게시글 URL 0건, URL과 prerender 개수 불일치는 release 생성을 실패시킨다. sitemap과 prerender는 공통 `SEO_POST_URL_CAPACITY` 계약을 사용하며 기본 2,000개의 최신 게시글 URL만 포함한다. 전체 sitemap은 프로토콜 상한 50,000 URL을 넘지 못한다. `.noviis-seo-release.json`에 commit SHA, 전체 URL 수, 게시글 URL 수, prerender 수, 용량 상한과 sitemap SHA-256을 기록한다. 배포 후 검증과 정기 monitor는 `/.noviis-release`의 현재 활성 SHA를 manifest와 항상 결합한다. 배포 직후는 SHA 기반 결정적 표본을 사용하고, 정기 monitor는 SHA와 workflow run identity를 결합한 순환 표본으로 sitemap 앞부분만 반복 검사하는 편향을 피한다.
 
-배포 전에는 provider 존재 여부, Google credential 묶음, custom HTTPS origin allowlist를 먼저 검증한다. 배포 후 sitemap 제출과 `seo-monitor.yml`의 정기 제출은 `seo-submit-production` concurrency group으로 직렬화한다. production 제출은 Google 또는 custom provider가 최소 하나 없거나 제출이 실패하면 warning으로 완화하지 않고 workflow를 실패시키며 `frontend/seo_submission` debt를 기록한다. 성공한 재실행은 debt를 해제한다. 이 실패는 이미 검증된 frontend 활성화를 되돌리지는 않으므로 운영자는 실패한 제출 job을 재실행한다. Google refresh credential 세 값은 all-or-none이며, custom endpoint는 별도 HTTPS origin allowlist와 globally routable DNS 검증을 통과한 IP로 연결을 고정하되 원 hostname의 TLS SNI·Host를 유지한다. Node의 단일·다중 주소 lookup 계약 모두 같은 검증 IP만 반환하며 redirect와 DNS rebinding은 허용하지 않는다. 외부 응답 body는 오류 로그에 포함하지 않는다. 정기 제출의 인증 오류, 429, 5xx, timeout은 job 실패다.
+production 배포는 공개 SEO endpoint 검증까지만 수행하며 검색 엔진 제출 자격 증명을 필수로 요구하지 않는다. 검색 엔진 제출이 필요하면 `seo-monitor.yml`의 별도 `production-seo` 실행으로 관리한다. Google refresh credential 세 값은 all-or-none이며, custom endpoint는 별도 HTTPS origin allowlist와 globally routable DNS 검증을 통과한 IP로 연결을 고정하되 원 hostname의 TLS SNI·Host를 유지한다.
 
 ## Ops 검증
 
