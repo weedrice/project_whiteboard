@@ -1,2 +1,5 @@
 # One successfully deployed contract migration filename per line.
 # Add an entry only after the contract migration has been applied in production.
+V67__notification_unread_group_unique.sql
+V70__password_reset_token_retention.sql
+V71__semantic_reindex_retry_state.sql
