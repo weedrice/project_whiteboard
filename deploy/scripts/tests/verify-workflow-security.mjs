@@ -179,6 +179,17 @@ for (const [jobName, outputName] of [
   assert(String(ci.jobs[jobName].if).includes(`needs.changes.outputs.${outputName}`),
     `${jobName} does not use its deployment-only change scope`)
 }
+for (const jobName of [
+  'candidate-backend',
+  'release-backend',
+  'candidate-frontend',
+  'release-frontend',
+  'deploy-backend',
+  'deploy-frontend',
+]) {
+  assert(String(ci.jobs[jobName].if).includes('!cancelled()'),
+    `${jobName} may inherit skipped validation jobs through the CI gate`)
+}
 assert(String(ci.jobs['deploy-frontend'].if).includes("needs.changes.outputs.backend_deploy != 'true'"),
   'frontend deployment must wait only for an actual backend deployment change')
 for (const protectedOpsPath of [

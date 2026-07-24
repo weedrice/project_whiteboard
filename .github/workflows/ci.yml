@@ -685,6 +685,7 @@ jobs:
   candidate-backend:
     needs: [changes, ci-gate]
     if: >-
+      !cancelled() &&
       needs.ci-gate.result == 'success' &&
       ((github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.backend_deploy == 'true') ||
       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.deploy_backend))
@@ -744,7 +745,10 @@ jobs:
 
   release-backend:
     needs: [candidate-backend, ci-gate]
-    if: needs.candidate-backend.result == 'success' && needs.ci-gate.result == 'success'
+    if: >-
+      !cancelled() &&
+      needs.candidate-backend.result == 'success' &&
+      needs.ci-gate.result == 'success'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -810,6 +814,7 @@ jobs:
   candidate-frontend:
     needs: [changes, ci-gate]
     if: >-
+      !cancelled() &&
       needs.ci-gate.result == 'success' &&
       ((github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.frontend_deploy == 'true') ||
       (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.deploy_frontend))
@@ -877,7 +882,10 @@ jobs:
 
   release-frontend:
     needs: [candidate-frontend, ci-gate]
-    if: needs.candidate-frontend.result == 'success' && needs.ci-gate.result == 'success'
+    if: >-
+      !cancelled() &&
+      needs.candidate-frontend.result == 'success' &&
+      needs.ci-gate.result == 'success'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -949,6 +957,7 @@ jobs:
   deploy-backend:
     needs: [changes, ci-gate, release-backend]
     if: >-
+      !cancelled() &&
       needs.ci-gate.result == 'success' &&
       needs.release-backend.result == 'success' &&
       ((github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.backend_deploy == 'true') ||
@@ -971,7 +980,7 @@ jobs:
   deploy-frontend:
     needs: [changes, ci-gate, release-frontend, deploy-backend]
     if: >-
-      always() &&
+      !cancelled() &&
       needs.ci-gate.result == 'success' &&
       needs.release-frontend.result == 'success' &&
       (needs.deploy-backend.result == 'success' ||
