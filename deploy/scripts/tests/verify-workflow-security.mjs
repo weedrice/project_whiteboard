@@ -192,6 +192,8 @@ for (const jobName of [
 }
 assert(String(ci.jobs['deploy-frontend'].if).includes("needs.changes.outputs.backend_deploy != 'true'"),
   'frontend deployment must wait only for an actual backend deployment change')
+assert(String(ci.jobs['deploy-frontend'].if).includes('always()'),
+  'frontend deployment must tolerate an intentionally skipped backend deployment')
 for (const protectedOpsPath of [
   '.github/CODEOWNERS',
   'docs/ops/postgres-backup-restore.md',

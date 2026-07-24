@@ -42,6 +42,13 @@ if node "$validator" "$fixture"; then
 fi
 cp "$project_root/.github/workflows/ci.yml" "$fixture/.github/workflows/ci.yml"
 
+sed -i '/^  deploy-frontend:$/,/^    uses:/s/always() &&/true \&\&/' "$fixture/.github/workflows/ci.yml"
+if node "$validator" "$fixture"; then
+  echo "Expected frontend deployment without a skipped-backend override to fail" >&2
+  exit 1
+fi
+cp "$project_root/.github/workflows/ci.yml" "$fixture/.github/workflows/ci.yml"
+
 sed -i 's/inputs\.allow_contract_migration/true/g' "$fixture/.github/workflows/ci.yml"
 if node "$validator" "$fixture"; then
   echo "Expected a contract deployment without explicit manual approval to fail" >&2
