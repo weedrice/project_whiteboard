@@ -296,13 +296,18 @@ assertCheckoutDoesNotPersistCredentials(backend, 'backend deploy')
 assertCheckoutDoesNotPersistCredentials(frontend, 'frontend deploy')
 assertCheckoutDoesNotPersistCredentials(seo, 'SEO monitor')
 assertExactKeys(backend.on?.workflow_call?.secrets, [
-  'EC2_HOST', 'EC2_SSH_KEY', 'EC2_HOST_FINGERPRINT',
+  'EC2_HOST', 'EC2_SSH_KEY', 'EC2_USER',
 ], 'backend reusable workflow secret allowlist changed')
 assertExactKeys(frontend.on?.workflow_call?.secrets, [
-  'EC2_HOST', 'EC2_SSH_KEY', 'EC2_HOST_FINGERPRINT', 'GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN',
+  'EC2_HOST', 'EC2_SSH_KEY', 'EC2_USER', 'GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN',
   'GOOGLE_SEARCH_CONSOLE_CLIENT_ID', 'GOOGLE_SEARCH_CONSOLE_CLIENT_SECRET',
   'GOOGLE_SEARCH_CONSOLE_REFRESH_TOKEN', 'CUSTOM_SITEMAP_SUBMIT_URL', 'CUSTOM_SITEMAP_SUBMIT_ALLOWED_ORIGINS',
 ], 'frontend reusable workflow secret allowlist changed')
+for (const [name, workflow] of [['backend', backend], ['frontend', frontend]]) {
+  const source = loadText(`.github/workflows/deploy-${name}.yml`)
+  assert(!source.includes('username: noviis-deploy'), `${name} deployment bypasses the configured EC2 user`)
+  assert(source.includes('username: ${{ secrets.EC2_USER }}'), `${name} deployment does not use EC2_USER`)
+}
 
 for (const [name, releaseJob] of [['backend', ci.jobs['deploy-backend']], ['frontend', ci.jobs['deploy-frontend']]]) {
   assert((releaseJob.needs ?? []).includes('ci-gate'), `${name} deployment bypasses ci-gate`)

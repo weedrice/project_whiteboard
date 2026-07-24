@@ -68,7 +68,7 @@ GitHub `production` environment는 `main` branch restriction, required reviewer,
 
 - `EC2_HOST`
 - `EC2_SSH_KEY`
-- `EC2_HOST_FINGERPRINT`
+- `EC2_USER`
 
 SEO 제출은 아래 Google credential 묶음 또는 custom provider 묶음 중 최소 하나가 필요하다. Google refresh credential 세 값은 모두 설정하거나 모두 비워야 한다.
 
@@ -79,4 +79,4 @@ SEO 제출은 아래 Google credential 묶음 또는 custom provider 묶음 중 
 - `CUSTOM_SITEMAP_SUBMIT_URL`
 - `CUSTOM_SITEMAP_SUBMIT_ALLOWED_ORIGINS` (쉼표로 구분한 HTTPS origin allowlist)
 
-`EC2_HOST_FINGERPRINT`는 배포 연결과 독립적인 채널에서 확인한 SHA-256 host-key fingerprint여야 한다. secret 값은 workflow 로그, fixture, 문서, release metadata에 기록하지 않는다. reusable workflow에는 필요한 secret만 명시적으로 매핑하며 `secrets: inherit`를 사용하지 않는다.
+secret 값은 workflow 로그, fixture, 문서, release metadata에 기록하지 않는다. reusable workflow에는 필요한 secret만 명시적으로 매핑하며 `secrets: inherit`를 사용하지 않는다.

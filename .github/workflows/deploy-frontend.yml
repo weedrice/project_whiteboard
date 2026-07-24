@@ -22,7 +22,7 @@ on:
         required: true
       EC2_SSH_KEY:
         required: true
-      EC2_HOST_FINGERPRINT:
+      EC2_USER:
         required: true
       GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN:
         required: false
@@ -116,9 +116,8 @@ jobs:
         uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         with:
           host: ${{ secrets.EC2_HOST }}
-          username: noviis-deploy
+          username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          fingerprint: ${{ secrets.EC2_HOST_FINGERPRINT }}
           script: |
             set -eu
             test "$(sha256sum /usr/local/sbin/verify-noviis-backend | awk '{print $1}')" = "${{ hashFiles('deploy/scripts/verify-active-backend-release.sh') }}"
@@ -128,9 +127,8 @@ jobs:
         uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         with:
           host: ${{ secrets.EC2_HOST }}
-          username: noviis-deploy
+          username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          fingerprint: ${{ secrets.EC2_HOST_FINGERPRINT }}
           script: |
             set -eu
             test "$(sha256sum /usr/local/sbin/activate-noviis-frontend | awk '{print $1}')" = "${{ hashFiles('deploy/scripts/activate-frontend-release.sh') }}"
@@ -147,9 +145,8 @@ jobs:
         uses: appleboy/scp-action@ff85246acaad7bdce478db94a363cd2bf7c90345 # v1.0.0
         with:
           host: ${{ secrets.EC2_HOST }}
-          username: noviis-deploy
+          username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          fingerprint: ${{ secrets.EC2_HOST_FINGERPRINT }}
           source: "release-artifact/frontend-release.tar.gz,release-artifact/RELEASE_METADATA,release-artifact/SHA256SUMS,release-artifact/sbom.spdx.json,release-artifact/RELEASE_ENVELOPE,release-artifact/PROVENANCE_BUNDLE.jsonl"
           target: "/var/www/incoming/frontend/${{ inputs.expected_sha }}-${{ github.run_id }}-${{ github.run_attempt }}"
           strip_components: 1
@@ -168,9 +165,8 @@ jobs:
         uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         with:
           host: ${{ secrets.EC2_HOST }}
-          username: noviis-deploy
+          username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          fingerprint: ${{ secrets.EC2_HOST_FINGERPRINT }}
           capture_stdout: true
           script: |
             set -eu
@@ -184,9 +180,8 @@ jobs:
         uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         with:
           host: ${{ secrets.EC2_HOST }}
-          username: noviis-deploy
+          username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          fingerprint: ${{ secrets.EC2_HOST_FINGERPRINT }}
           capture_stdout: true
           script: |
             set -eu
@@ -249,9 +244,8 @@ jobs:
         uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         with:
           host: ${{ secrets.EC2_HOST }}
-          username: noviis-deploy
+          username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          fingerprint: ${{ secrets.EC2_HOST_FINGERPRINT }}
           script: |
             set -eu
             RELEASE_DIR="/var/www/releases/frontend/${{ inputs.expected_sha }}-${{ github.run_id }}-${{ github.run_attempt }}"
@@ -263,9 +257,8 @@ jobs:
         uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         with:
           host: ${{ secrets.EC2_HOST }}
-          username: noviis-deploy
+          username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          fingerprint: ${{ secrets.EC2_HOST_FINGERPRINT }}
           script: |
             set -eu
             RELEASE_DIR="/var/www/incoming/frontend/${{ inputs.expected_sha }}-${{ github.run_id }}-${{ github.run_attempt }}"
@@ -280,9 +273,8 @@ jobs:
         uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         with:
           host: ${{ secrets.EC2_HOST }}
-          username: noviis-deploy
+          username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          fingerprint: ${{ secrets.EC2_HOST_FINGERPRINT }}
           script: sudo /usr/local/sbin/record-noviis-cleanup-debt frontend reconcile incoming_release || [ "$?" -eq 2 ]
 
       - name: Report frontend cleanup debt
@@ -334,9 +326,8 @@ jobs:
         uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
         with:
           host: ${{ secrets.EC2_HOST }}
-          username: noviis-deploy
+          username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          fingerprint: ${{ secrets.EC2_HOST_FINGERPRINT }}
           script: >-
             sudo /usr/local/sbin/record-noviis-cleanup-debt frontend
             ${{ steps.seo-submit.outcome == 'success' && 'clear' || 'set' }} seo_submission

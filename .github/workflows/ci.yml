@@ -966,7 +966,7 @@ jobs:
     secrets:
       EC2_HOST: ${{ secrets.EC2_HOST }}
       EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
-      EC2_HOST_FINGERPRINT: ${{ secrets.EC2_HOST_FINGERPRINT }}
+      EC2_USER: ${{ secrets.EC2_USER }}
 
   deploy-frontend:
     needs: [changes, ci-gate, release-frontend, deploy-backend]
@@ -990,7 +990,7 @@ jobs:
     secrets:
       EC2_HOST: ${{ secrets.EC2_HOST }}
       EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
-      EC2_HOST_FINGERPRINT: ${{ secrets.EC2_HOST_FINGERPRINT }}
+      EC2_USER: ${{ secrets.EC2_USER }}
       GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN: ${{ secrets.GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN }}
       GOOGLE_SEARCH_CONSOLE_CLIENT_ID: ${{ secrets.GOOGLE_SEARCH_CONSOLE_CLIENT_ID }}
       GOOGLE_SEARCH_CONSOLE_CLIENT_SECRET: ${{ secrets.GOOGLE_SEARCH_CONSOLE_CLIENT_SECRET }}
