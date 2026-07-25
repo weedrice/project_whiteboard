@@ -2,9 +2,12 @@
  * 알림 SSE 스트림의 이벤트 이름 계약.
  *
  * 값은 백엔드 `com.weedrice.whiteboard.domain.notification.web.NotificationSseEvents`와
- * 1:1로 대응한다. 백엔드는 `NotificationSseEventContractTest`가 상수 사용을 강제하고,
- * 프론트엔드는 이 union 타입이 분기 누락과 오타를 타입 검사에서 잡는다.
- * 한쪽을 고치면 반드시 다른 쪽도 함께 고쳐야 한다.
+ * 1:1로 대응하며 한쪽을 고치면 반드시 다른 쪽도 함께 고쳐야 한다.
+ *
+ * 가드는 타입이 아니라 테스트가 맡는다. SSE 이벤트 이름은 wire에서 임의 문자열로 도착하므로
+ * `handleSseEvent`의 파라미터는 `string`일 수밖에 없고, 따라서 분기 누락이나 오타를
+ * 타입 검사로 잡을 수 없다. 대신 `notificationSseEvents.spec.ts`가
+ * (1) 백엔드 상수 집합과의 일치, (2) 모든 이름이 실제로 분기 처리되는지를 검증한다.
  */
 export const NOTIFICATION_SSE_EVENTS = {
     /** 구독 직후 연결 식별자를 전달한다. */
@@ -18,9 +21,6 @@ export const NOTIFICATION_SSE_EVENTS = {
     /** 댓글 구독 대상 접근 권한 상실. */
     COMMENT_TOPIC_ACCESS_REVOKED: 'comment-topic-access-revoked',
 } as const
-
-export type NotificationSseEventName =
-    (typeof NOTIFICATION_SSE_EVENTS)[keyof typeof NOTIFICATION_SSE_EVENTS]
 
 /**
  * SSE 규격이 정한, `event:` 줄이 없는 프레임의 기본 이름.

@@ -579,6 +579,12 @@ public class NotificationSseEmitterRegistry
             java.util.Set<String> connectionIds,
             String eventName,
             Map<String, Object> data) {
+        // 이름을 인자로 받는 유일한 경로라 원본 스캔이 들여다볼 수 없다. 런타임에서 막는다.
+        if (!NotificationSseEvents.ALL.contains(eventName)) {
+            throw new IllegalArgumentException(
+                    "NotificationSseEvents에 등재되지 않은 SSE 이벤트 이름: " + eventName);
+        }
+
         Map<String, EmitterConnection> userEmitters = emitters.get(userId);
         if (userEmitters == null || userEmitters.isEmpty()) {
             return;

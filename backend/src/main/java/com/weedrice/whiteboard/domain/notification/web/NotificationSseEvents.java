@@ -10,6 +10,9 @@ import java.util.Set;
  * 이름을 쓰면 {@code NotificationSseEventContractTest}가 실패한다.
  *
  * <p>이름을 추가·변경할 때는 프론트엔드 union 타입도 함께 고쳐야 한다.
+ *
+ * <p>테스트는 이 상수를 참조하지 말고 기대하는 wire 값을 리터럴로 적는다. 테스트가 상수를
+ * 따라가면 값을 잘못 고쳐도 함께 움직여 회귀를 놓친다.
  */
 public final class NotificationSseEvents {
 
