@@ -1,5 +1,6 @@
 import { ref, onBeforeUnmount, watch, type Ref } from 'vue'
 import { fileApi, resolveFileUploadUrl } from '@/api/file'
+import { FILE_UPLOAD_TARGETS } from '@/api/fileUploadTargets'
 import { unwrapApiData } from '@/api/response'
 import { validateImageFile as validateGenericImageFile } from '@/utils/imageFile'
 import { POST_EDITOR_IMAGE_UPLOAD_POLICY } from '@/utils/imageUploadPolicy'
@@ -37,7 +38,7 @@ export function useEditorImageUpload(
         uploadAbortController = controller
 
         try {
-            const { data } = await fileApi.uploadFile(file, { signal: controller.signal })
+            const { data } = await fileApi.uploadFile(file, { signal: controller.signal }, FILE_UPLOAD_TARGETS.POST_CONTENT)
             if (!data.success) return null
             const uploadedFile = unwrapApiData(data)
             const imageUrl = resolveFileUploadUrl(uploadedFile)

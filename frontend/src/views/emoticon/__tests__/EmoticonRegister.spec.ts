@@ -5,6 +5,7 @@ import { emoticonApiData, emoticonApiSuccess } from '@/test/emoticonApiFixtures'
 import { getExposedVm } from '@/test/vue-test-helpers'
 import { ref } from 'vue'
 import { notifyAuthSessionBoundary } from '@/queryAuthScope'
+import { FILE_UPLOAD_TARGETS } from '@/api/fileUploadTargets'
 
 type EmoticonPreviewFixture = { clientId: string; file: File; preview: string; width: number; height: number }
 type EmoticonRegisterExposed = {
@@ -250,11 +251,13 @@ describe('EmoticonRegister', () => {
       1,
       expect.any(File),
       expect.objectContaining({ signal: expect.any(AbortSignal) }),
+      FILE_UPLOAD_TARGETS.EMOTICON,
     )
     expect(mocks.uploadFile).toHaveBeenNthCalledWith(
       2,
       expect.any(File),
       expect.objectContaining({ signal: expect.any(AbortSignal) }),
+      FILE_UPLOAD_TARGETS.EMOTICON,
     )
   })
 

@@ -25,18 +25,29 @@ class FileUploadService {
 
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public FileUploadResponse uploadFile(Long uploaderId, MultipartFile multipartFile) {
-        File file = processUpload(uploaderId, multipartFile);
+        return uploadFile(uploaderId, multipartFile, FileUploadTarget.GENERIC);
+    }
+
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public FileUploadResponse uploadFile(Long uploaderId, MultipartFile multipartFile, FileUploadTarget target) {
+        File file = processUpload(uploaderId, multipartFile, target);
         return FileUploadResponse.from(file);
     }
 
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public FileSimpleResponse uploadSimpleFile(Long uploaderId, MultipartFile multipartFile) {
-        File file = processUpload(uploaderId, multipartFile);
+        return uploadSimpleFile(uploaderId, multipartFile, FileUploadTarget.GENERIC);
+    }
+
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public FileSimpleResponse uploadSimpleFile(Long uploaderId, MultipartFile multipartFile,
+            FileUploadTarget target) {
+        File file = processUpload(uploaderId, multipartFile, target);
         return FileSimpleResponse.from(file);
     }
 
-    private File processUpload(Long uploaderId, MultipartFile multipartFile) {
-        ValidatedUpload validatedUpload = validationPolicy.validate(multipartFile);
+    private File processUpload(Long uploaderId, MultipartFile multipartFile, FileUploadTarget target) {
+        ValidatedUpload validatedUpload = validationPolicy.validate(multipartFile, target);
         userWritableResolver.resolve(uploaderId);
         String storedFileName = fileStorageService.generateStoredFileName(validatedUpload.originalFilename());
         File pendingUploadFile = stateCommand.createPendingUploadRecord(

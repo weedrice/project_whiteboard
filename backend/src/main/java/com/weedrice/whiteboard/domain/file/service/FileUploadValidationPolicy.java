@@ -20,15 +20,27 @@ class FileUploadValidationPolicy {
 
     private static final int MAX_ORIGINAL_FILENAME_LENGTH = 255;
     private static final int IMAGE_SIGNATURE_READ_BYTES = 12;
+    /**
+     * 전역 상한. {@code spring.servlet.multipart.max-file-size}와 같은 값이어야 하며,
+     * 그쪽이 먼저 걸리면 {@code MaxUploadSizeExceededException}으로 처리된다.
+     * 대상별 상한은 {@link FileUploadTarget}에 둔다.
+     */
     private static final long MAX_FILE_SIZE = 10 * 1024 * 1024;
     static final int MAX_IMAGE_DIMENSION = 16_384;
     static final long MAX_IMAGE_PIXELS = 50_000_000L;
 
     ValidatedUpload validate(MultipartFile multipartFile) {
+        return validate(multipartFile, FileUploadTarget.GENERIC);
+    }
+
+    ValidatedUpload validate(MultipartFile multipartFile, FileUploadTarget target) {
+        FileUploadTarget safeTarget = target != null ? target : FileUploadTarget.GENERIC;
         if (multipartFile.isEmpty()) {
             throw new BusinessException(ErrorCode.FILE_EMPTY);
         }
-        if (multipartFile.getSize() > MAX_FILE_SIZE) {
+        // 대상별 상한과 전역 상한 중 더 엄격한 쪽을 적용한다.
+        long sizeLimit = Math.min(safeTarget.getMaxSizeBytes(), MAX_FILE_SIZE);
+        if (multipartFile.getSize() > sizeLimit) {
             throw new BusinessException(ErrorCode.FILE_TOO_LARGE);
         }
 
@@ -51,6 +63,7 @@ class FileUploadValidationPolicy {
 
         ImageMetadata metadata = readImageMetadata(multipartFile);
         validateImageDimensions(metadata);
+        validateTargetDimensions(metadata, safeTarget);
         return new ValidatedUpload(
                 originalFilename,
                 detectedMimeType,
@@ -177,6 +190,16 @@ class FileUploadValidationPolicy {
         } catch (BusinessException e) {
             throw e;
         } catch (IOException | RuntimeException e) {
+            throw new BusinessException(ErrorCode.INVALID_FILE_TYPE);
+        }
+    }
+
+    /** 대상이 해상도 상한을 두었다면 전역 상한과 별개로 한 번 더 확인한다. */
+    private void validateTargetDimensions(ImageMetadata metadata, FileUploadTarget target) {
+        if (!target.hasDimensionLimit()) {
+            return;
+        }
+        if (metadata.width() > target.getMaxWidth() || metadata.height() > target.getMaxHeight()) {
             throw new BusinessException(ErrorCode.INVALID_FILE_TYPE);
         }
     }

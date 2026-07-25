@@ -2,6 +2,7 @@ import { defineComponent, h, nextTick, ref, type Ref } from 'vue'
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useEditorImageUpload } from '@/features/board/posts/editor/useEditorImageUpload'
+import { FILE_UPLOAD_TARGETS } from '@/api/fileUploadTargets'
 
 const uploadFileMock = vi.hoisted(() => vi.fn())
 const discardUploadsMock = vi.hoisted(() => vi.fn())
@@ -82,6 +83,7 @@ describe('useEditorImageUpload', () => {
             expect.objectContaining({
                 signal: expect.any(AbortSignal),
             }),
+            FILE_UPLOAD_TARGETS.POST_CONTENT,
         )
         expect(result).toEqual({
             url: 'https://cdn.example.com/img.png',

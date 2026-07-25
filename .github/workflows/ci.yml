@@ -62,6 +62,7 @@ jobs:
               # 프론트 계약 테스트가 직접 읽는 백엔드 소스. 이 파일만 바뀌는 커밋에서도
               # 프론트 테스트가 돌아야 SSE 이벤트 이름 불일치를 잡을 수 있다.
               - 'backend/src/main/java/com/weedrice/whiteboard/domain/notification/web/NotificationSseEvents.java'
+              - 'backend/src/main/java/com/weedrice/whiteboard/domain/file/service/FileUploadTarget.java'
               - 'docker-compose.yml'
               - '.github/workflows/ci.yml'
               - '.github/workflows/deploy-frontend.yml'

@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createPinia } from 'pinia'
 import { useAuthStore } from '@/stores/auth'
 import { useBoardIconUpload, validateBoardIconFile } from '../useBoardIconUpload'
+import { FILE_UPLOAD_TARGETS } from '@/api/fileUploadTargets'
 
 const uploadFileMock = vi.hoisted(() => vi.fn())
 const discardUploadsMock = vi.hoisted(() => vi.fn())
@@ -96,7 +97,11 @@ describe('useBoardIconUpload', () => {
     await composable.handleFileUpload(event)
     await nextTick()
 
-    expect(uploadFileMock).toHaveBeenCalledWith(file, expect.objectContaining({ signal: expect.any(AbortSignal) }))
+    expect(uploadFileMock).toHaveBeenCalledWith(
+        file,
+        expect.objectContaining({ signal: expect.any(AbortSignal) }),
+        FILE_UPLOAD_TARGETS.BOARD_ICON,
+    )
     expect(setIconUrl).toHaveBeenCalledWith('/api/v1/files/10')
     expect(input.value).toBe('')
   })

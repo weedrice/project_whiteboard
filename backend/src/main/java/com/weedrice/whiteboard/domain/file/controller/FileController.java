@@ -11,6 +11,7 @@ import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.file.service.FileUploadDiscardService;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.security.CurrentUserId;
+import com.weedrice.whiteboard.domain.file.service.FileUploadTarget;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.Resource;
@@ -40,16 +41,20 @@ public class FileController {
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<FileUploadResponse> uploadFile(
             @RequestParam("file") MultipartFile multipartFile,
+            @RequestParam(value = "target", required = false) String target,
             @CurrentUserId Long userId) {
-        return ApiResponse.success(fileService.uploadFile(userId, multipartFile));
+        return ApiResponse.success(
+                fileService.uploadFile(userId, multipartFile, FileUploadTarget.from(target)));
     }
 
     @PostMapping("/upload")
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<FileSimpleResponse> uploadSimple(
             @RequestParam("file") MultipartFile multipartFile,
+            @RequestParam(value = "target", required = false) String target,
             @CurrentUserId Long userId) {
-        return ApiResponse.success(fileService.uploadSimpleFile(userId, multipartFile));
+        return ApiResponse.success(
+                fileService.uploadSimpleFile(userId, multipartFile, FileUploadTarget.from(target)));
     }
 
     @PostMapping("/uploads/discard")

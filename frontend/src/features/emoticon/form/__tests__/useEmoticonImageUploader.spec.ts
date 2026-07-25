@@ -4,6 +4,7 @@ import { fileApi } from '@/api/file'
 import { apiDataResponse } from '@/test/apiResponseFixtures'
 import { createDeferred } from '@/test/async'
 import type { useEmoticonUploadSession } from '../useEmoticonUploadSession'
+import { FILE_UPLOAD_TARGETS } from '@/api/fileUploadTargets'
 
 const createUploadableEmoticonImageFile = vi.hoisted(() => vi.fn())
 
@@ -66,7 +67,7 @@ describe('useEmoticonImageUploader', () => {
     expect(fileApi.uploadFile).toHaveBeenCalledWith(file, {
       signal: controller.signal,
       skipGlobalErrorHandler: true
-    })
+    }, FILE_UPLOAD_TARGETS.EMOTICON)
     expect(session.setUploadProgress).toHaveBeenNthCalledWith(1, 0, 1)
     expect(session.setUploadProgress).toHaveBeenNthCalledWith(2, 1)
     expect(session.releaseUploadController).toHaveBeenCalledWith(controller)

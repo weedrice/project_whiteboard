@@ -1,4 +1,5 @@
 import { fileApi } from '@/api/file'
+import { FILE_UPLOAD_TARGETS } from '@/api/fileUploadTargets'
 import { unwrapAxiosApiData } from '@/api/response'
 import {
   createUploadableEmoticonImageFile,
@@ -94,7 +95,7 @@ export function useEmoticonImageUploader(uploadSession: EmoticonUploadSession) {
       const response = await fileApi.uploadFile(file, {
         signal: controller.signal,
         skipGlobalErrorHandler: options.skipGlobalErrorHandler
-      })
+      }, FILE_UPLOAD_TARGETS.EMOTICON)
       const fileId = unwrapAxiosApiData(response).fileId
       uploadSession.recordUploadedFile(fileId, runId)
       uploadSession.assertSubmitActive(runId)

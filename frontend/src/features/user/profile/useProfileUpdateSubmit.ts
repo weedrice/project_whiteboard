@@ -1,6 +1,7 @@
 import { getCurrentScope, onScopeDispose, reactive, ref, type Ref } from 'vue'
 import type { AxiosError } from 'axios'
 import { fileApi } from '@/api/file'
+import { FILE_UPLOAD_TARGETS } from '@/api/fileUploadTargets'
 import { unwrapAxiosApiData } from '@/api/response'
 import type { UserUpdatePayload } from '@/api/user'
 import {
@@ -78,6 +79,7 @@ export function useProfileUpdateSubmit(options: UseProfileUpdateSubmitOptions) {
         const uploadRes = await fileApi.uploadFile(
           options.selectedFile.value,
           { signal: controller.signal },
+          FILE_UPLOAD_TARGETS.PROFILE_IMAGE,
         )
         const uploadedFile = unwrapAxiosApiData(uploadRes)
         if (uploadRes.data.success && uploadedFile?.fileId) {

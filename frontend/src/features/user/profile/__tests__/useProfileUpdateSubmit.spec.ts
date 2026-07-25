@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useProfileUpdateSubmit } from '../useProfileUpdateSubmit'
 import { axiosApiSuccess } from '@/test/factories'
 import { createDeferred } from '@/test/async'
+import { FILE_UPLOAD_TARGETS } from '@/api/fileUploadTargets'
 
 const mocks = vi.hoisted(() => ({
   uploadFile: vi.fn(),
@@ -98,7 +99,11 @@ describe('useProfileUpdateSubmit', () => {
 
     await submitter.updateProfile()
 
-    expect(mocks.uploadFile).toHaveBeenCalledWith(file, { signal: expect.any(AbortSignal) })
+    expect(mocks.uploadFile).toHaveBeenCalledWith(
+        file,
+        { signal: expect.any(AbortSignal) },
+        FILE_UPLOAD_TARGETS.PROFILE_IMAGE,
+    )
     expect(updateProfile).toHaveBeenCalledWith({
       displayName: 'Display Name',
       profileImageId: 123,
