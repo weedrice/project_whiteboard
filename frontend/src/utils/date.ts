@@ -48,6 +48,21 @@ const formatterOptions: Record<DateFormatterKind, Intl.DateTimeFormatOptions> = 
 
 type DateInput = string | number[] | null | undefined
 
+/** 서버 시각의 기준 지역. 백엔드 `DateTimeUtils.KST_ZONE_ID`와 같은 값이다. */
+const SERVER_UTC_OFFSET = '+09:00'
+
+/** offset이나 Z가 이미 붙어 있는지 본다. 날짜만 있는 값(`2026-07-25`)은 대상이 아니다. */
+const HAS_EXPLICIT_OFFSET = /(?:Z|[+-]\d{2}:?\d{2})$/i
+
+/**
+ * 서버가 준 시각 문자열을 Date로 바꾼다.
+ *
+ * 백엔드는 `LocalDateTime`을 KST offset이 붙은 형식으로 내보낸다. 다만 아직 offset 없이
+ * 도착하는 값이 있을 수 있어(캐시된 응답, 예전 클라이언트가 저장한 값) 그런 경우에도
+ * 서버 기준인 KST로 해석한다. 브라우저 로컬로 해석하면 KST 밖 사용자에게 어긋난다.
+ *
+ * 배열 형태는 Jackson이 timestamp 배열로 직렬화했을 때의 형식이며 UTC 기준이다.
+ */
 function toDate(dateString: DateInput): Date | null {
     if (!dateString) return null
 
@@ -56,8 +71,20 @@ function toDate(dateString: DateInput): Date | null {
         return new Date(Date.UTC(year, month - 1, day, hour || 0, minute || 0, second || 0))
     }
 
-    const date = new Date(dateString)
+    const date = new Date(withServerOffset(dateString))
     return Number.isNaN(date.getTime()) ? null : date
+}
+
+/**
+ * offset이 없는 date-time 문자열에 서버 기준 offset을 붙인다.
+ * 해석 규칙을 직접 검증할 수 있도록 내보낸다.
+ * ECMAScript 규격상 offset 없는 date-time은 브라우저 로컬로 해석되므로, 그대로 두면
+ * 같은 값이 사용자 지역마다 다른 순간을 가리킨다. 날짜만 있는 값은 건드리지 않는다.
+ */
+export function withServerOffset(value: string): string {
+    if (!value.includes('T')) return value
+    if (HAS_EXPLICIT_OFFSET.test(value)) return value
+    return `${value}${SERVER_UTC_OFFSET}`
 }
 
 /**

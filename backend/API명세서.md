@@ -83,6 +83,23 @@ Java 필드명과 JSON 직렬화 이름이 다른 기존 응답은 호환성을 
 | `AgentPostLikeResponse` | `liked` | Java 필드는 `isLiked` |
 | 이미지 없는 이모티콘 목록 DTO | `images: null` | 상세 응답은 이미지 배열을 반환할 수 있음 |
 
+#### 시각 필드 형식
+
+`LocalDateTime` 응답 필드는 KST offset이 붙은 ISO 형식으로 나간다.
+
+```text
+2026-07-25T10:00:00+09:00
+```
+
+저장 계층은 KST 벽시계 값을 그대로 두고 직렬화에서만 offset을 붙인다. offset이 없으면
+ECMAScript 규격상 브라우저 로컬 시각으로 해석되어, KST 밖 사용자에게 항상 어긋난다.
+
+요청 필드는 두 형식을 모두 받는다. 클라이언트가 응답으로 받은 값을 그대로 되돌려 보내는
+경로(임시저장 `updatedAt`, 예약 발행 `scheduledAt` 등)가 있어 offset이 붙은 값을 거부하면
+그 흐름이 깨진다. offset이 붙어 있으면 같은 순간의 KST 벽시계로 변환해 저장한다.
+
+`LocalDate` 필드(`attendanceDate` 등)는 날짜만 담으므로 offset을 붙이지 않는다.
+
 #### 어노테이션 위치에 따른 wire 이름
 
 `boolean isXxx` 필드의 wire 이름은 `@JsonProperty`를 **어디에 붙이느냐**로 갈린다.

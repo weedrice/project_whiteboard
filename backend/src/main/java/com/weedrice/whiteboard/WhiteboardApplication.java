@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard;
 
 import com.weedrice.whiteboard.global.common.util.DateTimeUtils;
+import com.weedrice.whiteboard.global.config.LocalDateTimeWireModule;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
@@ -40,6 +41,18 @@ public class WhiteboardApplication {
     public DateTimeProvider auditingDateTimeProvider() {
         Clock clock = Clock.system(DateTimeUtils.KST_ZONE_ID);
         return () -> Optional.of(LocalDateTime.now(clock));
+    }
+
+    /**
+     * `LocalDateTime` 필드를 offset이 붙은 형식으로 주고받게 한다.
+     *
+     * <p>{@code auditingDateTimeProvider}와 같은 이유로 여기에 둔다. 별도 {@code @Configuration}에
+     * 두면 {@code @WebMvcTest} 같은 슬라이스가 이를 제외해, 슬라이스 테스트는 offset 없는
+     * 예전 형식을 보게 되고 실제 응답과 어긋난다.
+     */
+    @Bean
+    public LocalDateTimeWireModule localDateTimeWireModule() {
+        return new LocalDateTimeWireModule();
     }
 
     public static void main(String[] args) {
