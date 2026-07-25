@@ -21,7 +21,7 @@
 | A6 | 응답 정규화 shim이 6곳에 흩어져 있다 | 계약 | 중 |
 | A7 | `PageResponseRaw`에 실패 모드가 없다 | 계약 | 하 |
 | B1 | `validationErrorResponse`의 파라미터 2개가 미사용이다 | 백엔드 | 하 |
-| B2 | `MessageSource`가 시스템 로케일로 fallback한다 | 백엔드 | 하 |
+| B2 | `spring.messages` 설정이 죽어 있고 로케일 fallback 동작이 미확인이다 | 백엔드 | 하 |
 | C1 | 백엔드 에러 코드 리터럴이 6곳에 분산되어 있다 | 프론트엔드 | 하 |
 | D1 | HSTS `max-age`가 1일이다 | 배포 | 하 |
 | E1 | 스케줄러 timezone 지정이 일관되지 않다 | 실행 환경 | 하 |
@@ -31,6 +31,7 @@
 | F2 | 익명 캐시가 in-process라 scale-out의 선결 과제다 | 실행 환경 | 하 |
 | **G1** | **`UserSettings.timezone`이 저장만 되고 쓰이지 않는다** | **기능** | **중** |
 | **G2** | **시각 표시를 사용자 지역 기준으로 전환하는 설계** | **설계** | — |
+| **H1** | **정제 후 변환 결과를 재검증 없이 재브랜딩한다** | **보안(심층방어)** | **하** |
 
 ### 2026-07-25 정정
 
@@ -40,6 +41,17 @@
 - 운영 timezone이 KST임을 확인했다.
 
 따라서 주입 `Clock`(KST)과 JPA auditing(JVM 기본 = KST)은 **같은 기준**이며, 인기글 기간 필터와 알림 재시도 스케줄에 현재 어긋남은 없다. E1·E3은 실동작 결함이 아니라 명시성 항목으로 내리고, 해당 파급 서술을 삭제했다.
+
+### 2026-07-25 전면 재검증
+
+정정 이후 문서의 모든 항목을 근거까지 다시 확인했다. 결과는 다음과 같다.
+
+- **근거 유지 (재확인 완료)**: A1, A2, A3, A4, A5, A6, A7, B1, C1, D1, E2, F1, F2, G1
+  - A3은 백엔드 전체 `SseEmitter.event()` 호출 6곳을 전수 확인했다. 발신 이름은 `connect`·`notification`·`comment`·`comment-topic-invalidated`·`comment-topic-access-revoked`와 heartbeat 주석뿐이며, `message`는 없다.
+  - A2는 프론트 전체에서 `Retry-After`를 읽는 코드가 없음을 재확인했다. `apiRefreshRetry.ts`의 `retryAfterRefresh`는 이름만 유사한 인증 토큰 갱신 로직으로 무관하다.
+- **수정**: B2 — 초판이 프레임워크 기본값을 단정했으나 이 환경에서 검증할 수 없었다. 대신 검증 가능한 사실(`spring.messages` 블록이 커스텀 빈에 의해 무효화됨)을 근거로 교체했다.
+- **기각**: 날짜 전용(`LocalDate`) 필드의 하루 밀림을 의심해 확인했으나 **결함이 아니었다.** `MyAttendance.vue`는 달력 셀을 문자열로 만들어 문자열끼리 비교하고, 라벨 렌더링에서만 `T00:00:00`을 명시적으로 덧붙여 로컬 기준으로 파싱한다. 의도적으로 올바른 처리이므로 G2 진행 시 이 패턴을 깨지 않아야 한다.
+- **신규**: H1
 
 **E2는 정정 대상이 아니다.** 오히려 이 확인으로 성격이 분명해졌다 — 서버는 KST 벽시계 값을 offset 없이 내보내므로, 브라우저가 KST인 사용자에게만 우연히 맞고 그 밖의 사용자에게는 항상 어긋난다. G1은 이 문제를 다루기 위해 필요한 설계를 정리한 신규 항목이다.
 
@@ -232,13 +244,36 @@ wire 형태가 A1로 고정되고 나면, springdoc이 이미 제공하는 `/api
 
 **제안**: 의도를 확인한 뒤 둘 중 하나로 정리한다. 로깅이 필요하면 파라미터를 실제로 사용하고, 불필요하면 파라미터를 제거해 의도를 코드로 드러낸다. 현재 상태는 "빠뜨린 것"과 "일부러 뺀 것"이 구분되지 않는다.
 
-### B2. `MessageSource`가 시스템 로케일로 fallback한다
+### B2. `spring.messages` 설정이 죽어 있고 로케일 fallback 동작이 미확인이다
 
-`MessageConfig`의 `ReloadableResourceBundleMessageSource`에 `setFallbackToSystemLocale(false)`와 `setDefaultLocale`이 설정되어 있지 않다.
+**현상 1 — 죽은 설정 (확인됨)**
 
-현재 `messages.properties`와 `messages_en.properties`는 키 150개로 완전히 일치하며 `GlobalExceptionTest`가 parity를 강제하고 있어 **실제 문제는 발생하지 않는다.** 다만 향후 영어 키가 하나 누락되면 Spring은 기본 번들이 아니라 JVM 기본 로케일 번들로 떨어지므로, 한국 로케일 서버에서 영어 사용자가 한국어 메시지를 받게 된다.
+`application.yml`에 `spring.messages` 블록이 있다.
 
-**제안**: `setFallbackToSystemLocale(false)`와 `setDefaultLocale(Locale.KOREAN)`을 명시한다. 한 줄 예방 조치이며 현재 동작을 바꾸지 않는다.
+```yaml
+  messages:
+    basename: messages
+    encoding: UTF-8
+```
+
+그런데 `MessageConfig`가 `messageSource`라는 이름의 빈을 직접 정의한다. Spring Boot의 `MessageSourceAutoConfiguration`은 `@ConditionalOnMissingBean(name = "messageSource")` 조건이므로 자동설정 전체가 물러나고, **`spring.messages.*` 값은 하나도 적용되지 않는다.** 현재 두 곳이 같은 값(`messages`, `UTF-8`)을 지정하고 있어 증상은 없지만, 설정 출처가 둘이고 그중 하나는 무효다.
+
+실질적 위험은 이것이다. 아래 현상 2를 고치려고 `spring.messages.fallback-to-system-locale: false`를 추가하면 **조용히 무시된다.** 설정을 넣었는데 동작이 안 바뀌는 형태의 디버깅이 발생한다.
+
+**현상 2 — fallback 동작 (미확인)**
+
+`MessageConfig`의 `ReloadableResourceBundleMessageSource`에 `setFallbackToSystemLocale`과 `setDefaultLocale`이 명시되어 있지 않다.
+
+**이 절의 초판은 프레임워크 기본값이 `true`라고 단정했으나, 이 환경에서는 Spring 의존성 jar를 확인할 수 없어 검증하지 못했다.** Spring Boot 4.1(Spring Framework 7.x) 기준 실제 기본값은 착수 전에 확인이 필요하다.
+
+기본값이 `true`라면, 영어 번들에 키가 누락됐을 때 기본 번들이 아니라 JVM 기본 **로케일**(timezone이 아니다) 번들로 떨어진다. 현재 `messages.properties`와 `messages_en.properties`는 키 150개로 완전히 일치하고 `GlobalExceptionTest`가 parity를 강제하므로 **어느 쪽이든 지금 증상은 없다.**
+
+**제안**
+
+1. `spring.messages` 블록을 제거하거나, 반대로 `MessageConfig`의 커스텀 빈을 없애고 Boot 자동설정에 맡긴다. 후자를 택하면 `spring.messages.fallback-to-system-locale` 같은 속성이 정상 동작한다. 단 `LocalValidatorFactoryBean`이 같은 설정 클래스에 있으므로 함께 정리해야 한다.
+2. 현상 2의 실제 기본값을 확인한 뒤, 필요하면 `setFallbackToSystemLocale(false)`와 `setDefaultLocale`을 명시한다. 1번에서 커스텀 빈을 유지하기로 했다면 코드로, 자동설정으로 옮겼다면 속성으로 지정한다.
+
+우선순위는 낮다. 현재 동작에 문제가 없고, parity 테스트가 실질적인 방어선 역할을 하고 있다.
 
 ## C. 프론트엔드 단독
 
@@ -482,6 +517,39 @@ B형을 뷰어 기준으로 바꾸면 안 된다. 기기 timezone을 바꿔 하�
 - 이메일·웹푸시 본문의 시각 표기는 클라이언트 렌더링이 아니므로 별도 처리가 필요하다. 수신자의 `UserSettings.timezone`을 서버에서 읽어 포맷해야 하며, 이 경우에만 서버가 사용자 timezone을 직접 사용한다.
 - 관리자 화면의 운영 지표(오류 로그, 감사 로그)는 운영 기준 시각이 자연스러우므로 KST 고정을 검토한다.
 
+## H. 보안 심층 방어
+
+### H1. 정제 후 변환 결과를 재검증 없이 재브랜딩한다
+
+**전제**: 이 항목은 **취약점이 아니다.** 현재 경로에서 XSS가 성립하는 시나리오는 찾지 못했다. 파이프라인 구조상 남는 여지를 기록한다.
+
+**현상**
+
+프론트의 HTML 렌더링 경계는 잘 설계되어 있다. `v-html` 직접 사용이 **0건**이고, `SanitizedHtml` 브랜드 타입과 단일 컴포넌트 `SanitizedHtmlView`로 주입 지점이 하나로 모여 있다. `sanitizeQuillHtml`은 DOMPurify allowlist에 더해 `tightenQuillHtml`로 iframe 호스트·경로 정규식, 이미지 호스트, 인라인 스타일 속성까지 2차로 조인다.
+
+다만 `asSanitizedHtml`은 검증 없는 단순 캐스팅이며, 정제 **이후** 문서를 변형한 결과에 다시 붙는다.
+
+| 위치 | 정제 후 수행하는 변형 |
+| --- | --- |
+| `postContentHtml.ts:28` | 코드 하이라이터 콜백, 멘션 링크 속성 부여, 이미지 lazy 속성 부여 |
+| `SanitizedHtmlView.vue:45` | `DOMParser` 재파싱 후 인증 파일 `src`/`href`를 data 속성으로 치환 |
+| `feedPreview.ts:43` | 정규식으로 `img`·`iframe`·`div` 태그 제거 |
+
+**영향**
+
+세 경로 모두 현재는 안전하다. 속성 부여와 태그 제거는 마크업을 추가하지 않고, `DOMParser` 왕복은 스크립트를 실행시키지 않는다.
+
+남는 여지는 두 가지다.
+
+- `postContentHtml.ts`의 `codeBlockHighlighter`는 주입 가능한 임의의 `(doc: Document) => void` 콜백이다(`PostContentView.vue`가 `codeBlockHighlighterLoader` prop으로 교체 가능). 구문 하이라이터는 본질적으로 사용자 코드 텍스트를 `<span>`으로 감싸는 일을 하므로, 하이라이터 구현이나 그 의존 라이브러리가 이스케이프를 놓치면 정제 이후 단계에서 마크업이 들어온다. 그 결과는 재검증 없이 `SanitizedHtml`로 표시된다.
+- `feedPreview.ts`는 HTML을 정규식으로 자른다. 정제된 입력이라 실행 위험은 없지만 중첩 구조에서 잘못 잘릴 수 있고, 이후 누군가 이 자리에 치환 로직을 추가하면 성격이 바뀐다.
+
+**제안**
+
+- 변형 파이프라인의 마지막에 `DOMPurify.sanitize`를 한 번 더 통과시키고 그 결과에만 브랜드를 붙인다. 변형이 순수 추가·삭제라면 출력이 달라지지 않으므로 비용은 정제 1회분이다.
+- `asSanitizedHtml`을 `utils/sanitize.ts` 모듈 내부로 한정하고, 외부에는 정제를 거친 함수만 노출한다. 그러면 브랜드가 캐스팅이 아니라 실제 보증이 된다. 빈 문자열용은 별도 상수로 뺀다.
+- `feedPreview.ts`의 정규식 태그 제거를 `DOMParser` 기반으로 바꾼다.
+
 ## 검토 결과 양호한 영역
 
 기록 목적으로 남긴다. 아래 항목은 점검했고 조치가 필요하지 않다.
@@ -513,6 +581,6 @@ B형을 뷰어 기준으로 바꾸면 안 된다. 기기 timezone을 바꿔 하�
 5. **A4**, **A3** — 사용자에게 보이는 오류 표시와 실시간 채널의 신뢰도를 올린다.
 6. **A5** — 서버 정책 설계가 필요하므로 별도 논의를 거친다.
 7. **E1**, **E3** — 동작 변화 없는 명시성 정리다. 언제 해도 무방하나 G2 완료 후에 하면 `setDefault` 제거까지 한 번에 판단할 수 있다.
-8. **B1**, **B2**, **C1**, **D1** — 국소 변경이며 위 항목과 독립적으로 처리 가능하다.
+8. **B1**, **B2**, **C1**, **D1**, **H1** — 국소 변경이며 위 항목과 독립적으로 처리 가능하다. H1은 취약점이 아니므로 급하지 않으나, `asSanitizedHtml` 노출 범위를 좁히는 것만으로도 효과가 있다.
 9. **A6**, **A7** — A1 완료 후 착수한다.
 10. **F1**, **F2** — 범위 내 실사용 결함이 아니다. 공용 유틸리티 정리나 수평 확장 계획이 생길 때 착수한다.
