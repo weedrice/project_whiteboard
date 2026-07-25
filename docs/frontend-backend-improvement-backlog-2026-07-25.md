@@ -24,13 +24,24 @@
 | B2 | `MessageSource`가 시스템 로케일로 fallback한다 | 백엔드 | 하 |
 | C1 | 백엔드 에러 코드 리터럴이 6곳에 분산되어 있다 | 프론트엔드 | 하 |
 | D1 | HSTS `max-age`가 1일이다 | 배포 | 하 |
-| E1 | 스케줄러 timezone 지정이 일관되지 않다 | 실행 환경 | 중 |
-| E2 | 프론트의 타임스탬프 해석이 timezone-naive하다 | 실행 환경 | 상 |
-| **E3** | **백엔드 내부에 시간 기준 두 개가 공존한다** | **실행 환경** | **최상** |
+| E1 | 스케줄러 timezone 지정이 일관되지 않다 | 실행 환경 | 하 |
+| E2 | wire 타임스탬프에 offset이 없어 KST 밖 사용자에게 어긋난다 | 실행 환경 | 상 |
+| E3 | 시간 기준 통일이 `setDefault` 한 줄에 의존한다 | 실행 환경 | 하 |
 | F1 | `PageRequestUtils` 오버로드의 두 번째 인자 의미가 충돌한다 | 내부 API | 하 |
 | F2 | 익명 캐시가 in-process라 scale-out의 선결 과제다 | 실행 환경 | 하 |
+| **G1** | **`UserSettings.timezone`이 저장만 되고 쓰이지 않는다** | **기능** | **중** |
+| **G2** | **시각 표시를 사용자 지역 기준으로 전환하는 설계** | **설계** | — |
 
-E1·E2·E3은 하나의 뿌리(고정되지 않은 JVM timezone)에서 갈라진다. **E1을 `TZ` 환경변수로 해결하면 E2·E3이 함께 악화되므로** 세 항목은 반드시 함께 판단한다. E3은 이 문서에서 유일하게 **현재 동작에 영향이 확인된** 항목이다.
+### 2026-07-25 정정
+
+초판은 JVM timezone이 UTC일 가능성을 전제로 E1을 "중", E3을 "최상"으로 기재하고 인기글 기간 필터가 실제로 어긋난다고 적었다. **이 판단은 틀렸다.**
+
+- `WhiteboardApplication.java:15`의 `@PostConstruct`가 기동 시 `TimeZone.setDefault("Asia/Seoul")`을 호출해 JVM 기본 timezone을 KST로 강제한다. 초판 조사는 Dockerfile·systemd 유닛·compose·`application*.yml`만 확인하고 이 지점을 놓쳤다.
+- 운영 timezone이 KST임을 확인했다.
+
+따라서 주입 `Clock`(KST)과 JPA auditing(JVM 기본 = KST)은 **같은 기준**이며, 인기글 기간 필터와 알림 재시도 스케줄에 현재 어긋남은 없다. E1·E3은 실동작 결함이 아니라 명시성 항목으로 내리고, 해당 파급 서술을 삭제했다.
+
+**E2는 정정 대상이 아니다.** 오히려 이 확인으로 성격이 분명해졌다 — 서버는 KST 벽시계 값을 offset 없이 내보내므로, 브라우저가 KST인 사용자에게만 우연히 맞고 그 밖의 사용자에게는 항상 어긋난다. G1은 이 문제를 다루기 위해 필요한 설계를 정리한 신규 항목이다.
 
 ## A. 계약 지점
 
@@ -264,40 +275,29 @@ wire 형태가 A1로 고정되고 나면, springdoc이 이미 제공하는 `/api
 
 **현상**
 
-`@Scheduled` cron 20개 중 일부만 `zone = "Asia/Seoul"`을 지정한다. 지정하지 않으면 JVM 기본 timezone이 적용된다.
+`@Scheduled` cron 20개 중 일부만 `zone = "Asia/Seoul"`을 지정한다. 일별 작업 8개 중 6개는 지정하고 2개는 지정하지 않는다.
 
-zone을 지정한 일별 작업 (의도대로 KST 새벽에 실행):
-
-| 스케줄러 | cron | 실행 시각 |
+| 스케줄러 | cron | `zone` |
 | --- | --- | --- |
-| `PostDraftCleanupScheduler` | `0 15 3 * * ?` | 03:15 KST |
-| `TagCleanupScheduler` | `0 20 3 * * ?` | 03:20 KST |
-| `UserFeedCleanupScheduler` | `0 30 3 * * ?` | 03:30 KST |
-| `ErrorLogCleanupScheduler` | `0 10 4 * * ?` | 04:10 KST |
-| `VerificationCodeCleanupScheduler` | `0 20 4 * * ?` | 04:20 KST |
-| `RefreshTokenCleanupScheduler` | `0 40 4 * * ?` | 04:40 KST |
-
-zone을 지정하지 않은 일별 작업:
-
-| 스케줄러 | cron | JVM이 UTC일 때 실행 시각 |
-| --- | --- | --- |
-| `FileCleanupScheduler` | `0 0 2 * * ?` | **11:00 KST** |
-| `LoginHistoryCleanupScheduler` | `0 40 3 * * ?` | **12:40 KST** |
-
-시간별·분별 작업(`0 0 * * * ?`, `0 * * * * ?` 등)은 timezone과 무관하게 동작하므로 영향이 없다.
-
-**JVM timezone 확인 결과**: `backend/Dockerfile`(`eclipse-temurin:21-jre-alpine`), `deploy/systemd/app.service`, `docker-compose.yml`, `application*.yml` 어디에도 `TZ`나 `spring.jackson.time-zone` 설정이 없다. Alpine 기본값은 UTC다. systemd 유닛이 읽는 `/etc/noviis/app.env`는 저장소에 없어 확인할 수 없으므로, 실제 값은 운영에서 검증이 필요하다.
+| `PostDraftCleanupScheduler` | `0 15 3 * * ?` | 지정 |
+| `TagCleanupScheduler` | `0 20 3 * * ?` | 지정 |
+| `UserFeedCleanupScheduler` | `0 30 3 * * ?` | 지정 |
+| `ErrorLogCleanupScheduler` | `0 10 4 * * ?` | 지정 |
+| `VerificationCodeCleanupScheduler` | `0 20 4 * * ?` | 지정 |
+| `RefreshTokenCleanupScheduler` | `0 40 4 * * ?` | 지정 |
+| `FileCleanupScheduler` | `0 0 2 * * ?` | **없음** |
+| `LoginHistoryCleanupScheduler` | `0 40 3 * * ?` | **없음** |
 
 **영향**
 
-6개 스케줄러에 명시된 "KST 새벽 유지보수" 의도가 2개 일별 작업에서는 지켜지지 않는다. JVM이 UTC라면 임시 파일 정리와 로그인 이력 정리가 한국 기준 정오 무렵, 즉 트래픽 피크에 배치 삭제를 수행한다.
+`WhiteboardApplication.java:15`가 JVM 기본 timezone을 KST로 강제하므로 `zone`을 지정하지 않은 두 작업도 결과적으로 02:00 KST, 03:40 KST에 실행된다. **현재 실행 시각은 의도대로다.**
 
-`deploy/monitoring/scheduled-jobs.txt`와 `verify-scheduled-jobs.py`는 작업의 존재 여부와 최종 실행 경과 시간만 검증하고 실행 시각대는 다루지 않으므로 이 어긋남을 잡지 못한다.
+남는 문제는 두 작업의 정확성이 `setDefault` 한 줄에 암묵적으로 의존한다는 점이다. 나머지 6개는 그 줄이 없어도 옳게 동작하지만 이 둘은 아니다.
 
 **제안**
 
-- 두 스케줄러에 `zone = "Asia/Seoul"`을 추가한다. **`TZ` 환경변수로 JVM 전체를 KST로 바꾸는 방식은 택하지 않는다** — E2의 타임스탬프 해석이 JVM timezone에 묶여 있어 모든 표시 시각이 9시간 이동한다.
-- 일별 cron에 `zone` 지정을 강제하는 규칙을 `verify-scheduled-jobs.py`에 추가해 회귀를 막는다. 매니페스트에 `daily`로 분류된 작업만 검사하면 시간별 작업의 불필요한 잡음을 피할 수 있다.
+- 두 스케줄러에 `zone = "Asia/Seoul"`을 추가해 나머지와 표기를 맞춘다. 동작 변화는 없고 의존만 제거된다.
+- 일별 cron에 `zone` 지정을 요구하는 규칙을 `verify-scheduled-jobs.py`에 추가한다. 매니페스트에서 `daily`로 분류된 작업만 검사하면 시간별 작업의 잡음을 피할 수 있다.
 
 ### E2. 타임스탬프 계약이 timezone-naive하다
 
@@ -333,66 +333,45 @@ wire 계약 변경이므로 단계를 나눈다.
 3. **정본화**: 신규 응답 필드부터 `Instant`(직렬화 시 `Z` 접미사 포함)로 전환하고, 기존 필드는 A1과 같은 방식으로 legacy 허용 목록에 등재해 점진 이행한다. 프론트는 offset이 있는 문자열을 그대로 `new Date()`에 넘기면 되므로 정규화 계층이 필요 없다.
 4. 전환 전까지 `LocalDateTime` 필드가 늘어나지 않도록 A1의 DTO 스캔 테스트에 검사를 함께 넣는다.
 
-### E3. 백엔드 내부에 시간 기준 두 개가 공존한다
+### E3. 시간 기준 통일이 `setDefault` 한 줄에 의존한다
 
 **현상**
 
-저장되는 `LocalDateTime` 값이 두 가지 서로 다른 기준으로 생성된다.
+저장되는 `LocalDateTime` 값이 두 갈래 경로로 생성된다.
 
-**기준 1 — KST.** `TimeConfig`가 `Clock.system(DateTimeUtils.KST_ZONE_ID)`(`Asia/Seoul`)를 빈으로 등록하고, 15개 이상의 서비스가 이를 주입받아 `LocalDateTime.now(clock)`으로 시각을 만든다. `AttendanceService`, `PostListReadService`, `ScheduledPostService`, `PollService`, `NotificationDeliveryJobProcessor`, `PushDeliveryJobProcessor` 등이 여기 속한다.
+**경로 1 — 주입 `Clock`.** `TimeConfig`가 `Clock.system(DateTimeUtils.KST_ZONE_ID)`를 빈으로 등록하고, 15개 이상의 서비스가 이를 주입받아 `LocalDateTime.now(clock)`을 호출한다. `AttendanceService`, `PostListReadService`, `ScheduledPostService`, `PollService`, `NotificationDeliveryJobProcessor` 등이다.
 
-**기준 2 — JVM 기본 timezone.** 다음 지점은 주입 clock을 쓰지 않고 맨 `LocalDateTime.now()`를 호출한다.
+**경로 2 — JVM 기본 timezone.** 다음 지점은 주입 clock 없이 맨 `LocalDateTime.now()`를 호출한다.
 
 | 위치 | 용도 |
 | --- | --- |
-| `BaseTimeEntity`의 `@CreatedDate`·`@LastModifiedDate` | **모든 엔티티의 `created_at`·`modified_at`** |
+| `BaseTimeEntity`의 `@CreatedDate`·`@LastModifiedDate` | 모든 엔티티의 `created_at`·`modified_at` |
 | `NotificationDeliveryJobTransaction.java:51, 70, 85` | 알림 작업 실패·거부 시각 |
 | `UserSettingsService.java:87` | 온보딩 완료 시각 |
 | `ModerationAuditLog.java:88` | 감사 로그 생성 시각 |
 
-`WhiteboardApplication.java:9`의 `@EnableJpaAuditing`에는 `dateTimeProviderRef`가 지정되어 있지 않고, 커스텀 `DateTimeProvider` 빈도 없다. 따라서 Spring Data는 기본 `CurrentDateTimeProvider`를 쓰며 이는 JVM 기본 timezone을 따른다. **컨텍스트에 `Clock` 빈이 있어도 auditing은 이를 사용하지 않는다.**
+`@EnableJpaAuditing`에 `dateTimeProviderRef`가 없고 커스텀 `DateTimeProvider` 빈도 없으므로, auditing은 기본 `CurrentDateTimeProvider`를 통해 JVM 기본 timezone을 따른다. **컨텍스트에 `Clock` 빈이 있어도 auditing은 이를 사용하지 않는다.**
 
-E1에서 확인했듯 JVM timezone은 어디에도 고정되어 있지 않고 Alpine 기본값은 UTC다.
+**영향**
 
-**확인된 파급 — 인기글 기간 필터**
+`WhiteboardApplication.java:15`의 `@PostConstruct`가 JVM 기본을 `Asia/Seoul`로 강제하므로 두 경로는 같은 값을 낸다. **현재 데이터에 어긋남은 없다.**
 
-두 기준이 같은 쿼리에서 만나는 경로를 끝까지 추적했다.
+남는 것은 결합의 형태다. 두 경로는 서로 독립적으로 정의되어 있고, 오직 `setDefault` 한 줄 덕분에 일치한다. 구체적으로 다음이 걸린다.
 
-```
-PostListReadService.resolveTrendingSince()
-  → now() = LocalDateTime.now(clock)          // 기준 1: KST
-  → postRepository.findTrendingPosts(since, …)
-  → PostRepositoryCustomImpl:570  post.createdAt.goe(since)
-      post.createdAt = BaseTimeEntity @CreatedDate  // 기준 2: JVM 기본
-```
-
-JVM이 UTC라면 `now(KST)`가 저장값보다 9시간 앞서므로, `now(KST).minusHours(24)`는 실질적으로 `now(UTC).minusHours(15)`가 된다.
-
-| 요청 기간 | 실제 적용 구간 |
-| --- | --- |
-| `24h` | 최근 15시간 |
-| `7d` | 최근 6일 15시간 |
-| `30d` | 최근 29일 15시간 |
-
-`PostRepository.java:171-175`의 오늘·어제 버킷 분류(`:todayStart`, `:tomorrowStart`, `:yesterdayStart`)도 같은 방식으로 어긋난다.
-
-**확인된 파급 — 알림 재시도 스케줄**
-
-`NotificationDeliveryJobTransaction.fail(...)`은 `claimedAt`과 `nextAttemptAt`을 호출자(`NotificationDeliveryJobProcessor`, 기준 1)로부터 받으면서, 실패 시각은 자체적으로 `LocalDateTime.now()`(기준 2)로 만든다. 한 행 안에 9시간 어긋난 두 시각이 함께 기록되며 재시도·dead-letter 판정이 혼합된 기준을 비교한다.
-
-**전제 확인 필요**
-
-systemd 유닛이 읽는 `/etc/noviis/app.env`는 저장소에 없어 실제 `TZ` 값을 확인할 수 없다. 여기에 `TZ=Asia/Seoul`이 설정되어 있다면 두 기준이 우연히 일치해 현재는 증상이 나타나지 않는다. **그 경우에도 결함은 남는다** — 두 기준이 독립적으로 정의되어 있어 우연에 의해서만 맞고, 이 파일은 저장소 리뷰 대상이 아니며, E1을 고치려고 `TZ`를 건드리는 순간 조용히 깨진다.
+- 그 줄을 지우거나 `@PostConstruct` 실행 순서가 바뀌면 두 경로가 조용히 갈라진다. 컴파일 오류도 테스트 실패도 나지 않고 데이터만 어긋난다.
+- 테스트에서 고정 `Clock`을 주입해도 `created_at`은 실제 시각으로 기록된다. 시간 의존 로직의 재현 테스트를 쓸 때 경로 2를 통제할 수단이 없다.
+- `setDefault`는 JVM 전역 상태를 바꾸므로 라이브러리·드라이버의 시각 처리에도 함께 영향을 준다.
 
 **제안**
 
-1. **즉시 확인**: 운영 JVM의 `user.timezone`과 `created_at` 표본값의 기준을 확인한다. 이 값이 이후 모든 판단의 전제다.
-2. **기준 통일**: `@EnableJpaAuditing(dateTimeProviderRef = "auditingDateTimeProvider")`와 함께 주입 `Clock`을 사용하는 `DateTimeProvider` 빈을 등록해 auditing을 기준 1로 맞춘다. 이것만으로 가장 넓은 표면(모든 엔티티의 `created_at`)이 정리된다.
-3. **잔여 지점 정리**: 위 표의 나머지 3개 지점을 주입 `Clock` 사용으로 바꾼다.
-4. **회귀 방지**: 맨 `LocalDateTime.now()`·`LocalDate.now()` 호출을 금지하는 정적 검사를 추가한다. ArchUnit 또는 기존 `deploy/monitoring`의 파이썬 검증 스크립트 방식 어느 쪽이든 가능하다.
-5. **데이터 보정**: 1번 확인 결과 기존 데이터에 두 기준이 섞여 있다면, 보정 범위와 방법을 별도 마이그레이션으로 다룬다. 코드만 고치면 과거 행은 어긋난 채 남는다.
+우선순위는 낮다. 현재 결함이 아니라 구조 정리다.
 
-2~3번은 저장 시각의 의미를 바꾸므로 5번과 함께 계획해야 한다. 순서를 뒤집으면 신·구 데이터가 섞인다.
+1. 주입 `Clock`을 사용하는 `DateTimeProvider` 빈을 등록하고 `@EnableJpaAuditing(dateTimeProviderRef = ...)`로 연결한다. auditing이 `setDefault`가 아니라 `Clock`을 따르게 되어 의존이 하나로 모인다.
+2. 위 표의 나머지 3개 지점을 주입 `Clock` 사용으로 바꾼다.
+3. 맨 `LocalDateTime.now()`·`LocalDate.now()` 호출을 금지하는 정적 검사를 추가한다. 1~2번을 마친 뒤에 켜야 기존 코드가 걸리지 않는다.
+4. 1~3번이 끝나면 `setDefault` 호출의 필요성을 재검토한다. G1의 wire 변경까지 마치면 이 줄은 제거 후보가 된다.
+
+**주의**: 이 항목은 저장 시각의 *기준*을 바꾸지 않는다. 1~2번은 같은 값을 다른 경로로 얻게 만들 뿐이므로 데이터 보정이 필요 없다. 기준 자체를 바꾸는 것은 G1의 범위다.
 
 ## F. 내부 API 설계
 
@@ -439,6 +418,70 @@ systemd 유닛이 읽는 `/etc/noviis/app.env`는 저장소에 없어 실제 `TZ
 
 수평 확장 계획이 생길 때 착수할 항목으로 기록해 둔다. 그 시점에 공유 캐시로 전환하거나, 무효화 이벤트를 인스턴스 간에 전파하는 방식을 선택한다. 현재 토폴로지에서는 조치가 필요 없다.
 
+## G. 사용자 지역 기준 시각
+
+### G1. `UserSettings.timezone`이 저장만 되고 쓰이지 않는다
+
+**현상**
+
+사용자별 timezone 설정이 양쪽에 이미 배선되어 있으나, 어떤 시각 표시에도 사용되지 않는다.
+
+| 계층 | 상태 |
+| --- | --- |
+| DB·엔티티 | `UserSettings.timezone` 컬럼 존재, 기본값 `Asia/Seoul` |
+| 서비스 | `UserSettingsService.normalizeTimezone`으로 검증 |
+| API | `UserSettingsResponse`·`UpdateSettingsRequest`에 포함 |
+| 프론트 폼 | `useUserSettingsForm.ts`가 값을 싣고 저장 시 전송 |
+| 프론트 UI | **선택 컨트롤 없음.** `UserSettings.vue`에 입력 요소가 없고 i18n 라벨도 없다 |
+| 표시 로직 | **소비처 없음.** `date.ts`를 포함해 이 값을 읽는 코드가 없다 |
+
+폼 기본값이 `'Asia/Seoul'`로 하드코딩되어 있어, 저장할 때마다 같은 값이 왕복한다.
+
+**영향**
+
+현재 사용자에게 보이는 오작동은 없다. 다만 컬럼·검증·DTO·폼 필드가 모두 유지 비용을 발생시키면서 아무 기능도 제공하지 않는다. 그리고 이 필드는 E2가 지적한 문제를 푸는 데 필요한 재료이므로, 미사용 상태로 두는 것보다 연결하는 편이 낫다.
+
+### G2. 시각 표시를 사용자 지역 기준으로 전환하는 설계
+
+**결론: 가능하다. 단 "표시"만 사용자 기준으로 하고 "판정"은 서비스 기준(KST)을 유지해야 한다.**
+
+#### 두 종류의 시간을 먼저 구분한다
+
+| 구분 | 예시 | 기준 |
+| --- | --- | --- |
+| **A형 — 순간** | 게시글·댓글 작성 시각, 알림 발생 시각, 로그인 이력, 쪽지 시각 | **뷰어 지역**으로 표시 |
+| **B형 — 서비스 달력 판정** | 출석 체크의 "오늘", 일일 포인트·작성 한도, 인기글 오늘/어제 버킷, 예약 발행 시각 | **KST 고정** |
+
+B형을 뷰어 기준으로 바꾸면 안 된다. 기기 timezone을 바꿔 하루에 두 번 출석하거나 일일 한도를 초기화하는 우회가 생긴다. 예약 발행도 작성자가 지정한 시각의 의미가 조회 시점마다 달라진다. `AttendanceService`가 이미 주입 `Clock`(KST)을 쓰고 있으므로 **B형은 손대지 않는 것이 정답이다.**
+
+#### 선결 조건
+
+현재 wire는 offset이 없는 KST 벽시계 문자열(`"2026-07-25T10:00:00"`)이다. 클라이언트는 이 값이 어느 순간인지 알 수 없으므로, **어떤 렌더링 개선도 이 형식 위에서는 불가능하다.** E2의 근본 원인이자 G2의 1단계다.
+
+#### 단계
+
+1. **wire에 offset을 싣는다.** 저장값이 전부 KST임이 확정되었으므로 DB 변경 없이 직렬화 계층에서 해결된다. `LocalDateTime`을 `atZone(KST_ZONE_ID).toInstant()`로 변환해 `"2026-07-25T10:00:00+09:00"` 또는 `Z` 형식으로 내보낸다. A1의 legacy 허용 목록과 같은 방식으로 DTO별 점진 이행이 가능하다.
+
+2. **프론트 `toDate`를 통일한다.** offset이 붙으면 `new Date(str)`이 명확해지고, 배열 분기(`Date.UTC`)와 문자열 분기가 같은 기준을 갖게 된다. E2의 2단계와 동일한 작업이다.
+
+3. **표시 지역을 결정한다.** 기존 `language` 설정과 같은 구조를 쓴다.
+   - 기본: 브라우저 자동 감지 `Intl.DateTimeFormat().resolvedOptions().timeZone`
+   - 우선: `UserSettings.timezone`이 명시적으로 설정된 경우 그 값
+   - G1의 UI 컨트롤과 i18n 라벨을 이때 함께 추가한다. "자동" 옵션을 기본으로 두면 대부분의 사용자는 설정을 건드릴 필요가 없다.
+
+4. **`date.ts`에 `timeZone`을 전달한다.** `formatter()`가 이미 `Intl.DateTimeFormat`을 쓰고 있어 옵션 하나를 넘기면 된다. `formatTimeAgo`는 절대 시각끼리 빼는 방식이라 offset이 붙는 순간 자동으로 옳아진다.
+
+5. **B형 경계를 문서화한다.** 어떤 값이 서비스 기준이고 어떤 값이 뷰어 기준인지 `API명세서.md`에 명시한다. 이 구분이 코드에 드러나지 않으면 이후 누군가 출석 판정을 뷰어 기준으로 바꾼다.
+
+#### DB 전환은 별도 판단
+
+장기적으로는 `timestamptz` + `Instant`가 정답이지만, **1단계만으로 사용자 지역 표시는 완성된다.** 저장 계층 전환은 마이그레이션 비용과 기존 쿼리 영향이 크므로 G2와 분리해 판단한다. 신규 컬럼부터 `timestamptz`를 쓰는 방식으로 점진 이행할 수 있다.
+
+#### 범위 밖
+
+- 이메일·웹푸시 본문의 시각 표기는 클라이언트 렌더링이 아니므로 별도 처리가 필요하다. 수신자의 `UserSettings.timezone`을 서버에서 읽어 포맷해야 하며, 이 경우에만 서버가 사용자 timezone을 직접 사용한다.
+- 관리자 화면의 운영 지표(오류 로그, 감사 로그)는 운영 기준 시각이 자연스러우므로 KST 고정을 검토한다.
+
 ## 검토 결과 양호한 영역
 
 기록 목적으로 남긴다. 아래 항목은 점검했고 조치가 필요하지 않다.
@@ -463,14 +506,13 @@ systemd 유닛이 읽는 `/etc/noviis/app.env`는 저장소에 없어 실제 `TZ
 
 의존 관계를 고려한 순서다.
 
-0. **E3의 1단계(운영 JVM timezone과 `created_at` 표본 확인)** — 조사만으로 끝나며 비용이 거의 없다. E1·E2·E3의 실제 심각도가 모두 이 결과에 달려 있으므로 가장 먼저 수행한다.
-1. **E3의 2~3단계(시간 기준 통일)** — 현재 동작에 영향이 확인된 유일한 항목이다. 5단계(데이터 보정)와 함께 계획한다.
-2. **E1** — 스케줄러 2개에 `zone`을 추가하는 국소 변경이다. E3 확인 결과와 무관하게 안전하며, `TZ` 방식을 배제하는 판단만 지키면 된다.
-3. **A2** — 이미 구현·검증된 서버 기능을 클라이언트에 연결하는 것으로, 변경 범위가 좁고 효과가 즉시 나타난다.
-4. **E2의 2단계(`toDate` 분기 통일)** — E3의 기준이 확정된 뒤에 착수한다. 그전에 손대면 잘못된 기준으로 고정된다.
-5. **A1** — 이후 모든 DTO 변경의 재발을 막는 구조적 방어이며, A6의 선행 조건이다. E3 4단계의 정적 검사와 함께 설계하면 작업이 겹치지 않는다.
-6. **A4**, **A3** — 사용자에게 보이는 오류 표시와 실시간 채널의 신뢰도를 올린다.
-7. **A5** — 서버 정책 설계가 필요하므로 별도 논의를 거친다.
+1. **G2 1단계 + E2** — wire에 offset을 싣는 작업이다. E2의 근본 원인을 없애고 사용자 지역 표시의 선결 조건을 동시에 만든다. DB 변경 없이 직렬화 계층에서 끝나며, 이 문서에서 **현재 사용자에게 영향이 있는 유일한 항목**(KST 밖 사용자의 시각 오표시)을 해소한다.
+2. **A2** — 이미 구현·검증된 서버 기능을 클라이언트에 연결한다. 변경 범위가 좁고 효과가 즉시 나타난다.
+3. **G2 2~4단계 + G1** — 프론트 `toDate` 통일, 표시 지역 결정, 설정 UI 노출을 함께 처리한다. 1단계가 끝나야 착수할 수 있다.
+4. **A1** — 이후 모든 DTO 변경의 재발을 막는 구조적 방어이며 A6의 선행 조건이다. G2 1단계의 점진 이행 목록과 방식이 같으므로 함께 설계하면 작업이 겹치지 않는다.
+5. **A4**, **A3** — 사용자에게 보이는 오류 표시와 실시간 채널의 신뢰도를 올린다.
+6. **A5** — 서버 정책 설계가 필요하므로 별도 논의를 거친다.
+7. **E1**, **E3** — 동작 변화 없는 명시성 정리다. 언제 해도 무방하나 G2 완료 후에 하면 `setDefault` 제거까지 한 번에 판단할 수 있다.
 8. **B1**, **B2**, **C1**, **D1** — 국소 변경이며 위 항목과 독립적으로 처리 가능하다.
 9. **A6**, **A7** — A1 완료 후 착수한다.
 10. **F1**, **F2** — 범위 내 실사용 결함이 아니다. 공용 유틸리티 정리나 수평 확장 계획이 생길 때 착수한다.
