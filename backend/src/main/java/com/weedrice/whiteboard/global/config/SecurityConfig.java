@@ -7,6 +7,7 @@ import com.weedrice.whiteboard.global.security.AgentAuthenticationFilter;
 
 import com.weedrice.whiteboard.global.security.oauth.CustomOAuth2UserService;
 import com.weedrice.whiteboard.global.security.oauth.OAuth2SuccessHandler;
+import com.weedrice.whiteboard.global.ratelimit.RateLimitHeaderWriter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -175,10 +176,14 @@ public class SecurityConfig {
                                 ));
                 
                 // 클라이언트가 접근할 수 있는 응답 헤더
-                // - 필요시 커스텀 헤더 추가 가능 (예: X-Total-Count 등)
+                // Content-Type과 Content-Length는 CORS safelisted 응답 헤더라 명시하지 않아도
+                // 읽을 수 있다. rate limit 헤더는 safelist에 없으므로 여기에 노출해야
+                // 브라우저 JS가 읽을 수 있다.
                 configuration.setExposedHeaders(Arrays.asList(
-                                "Content-Type",
-                                "Content-Length"
+                                RateLimitHeaderWriter.HEADER_LIMIT,
+                                RateLimitHeaderWriter.HEADER_REMAINING,
+                                RateLimitHeaderWriter.HEADER_RESET,
+                                RateLimitHeaderWriter.HEADER_RETRY_AFTER
                 ));
                 
                 // 인증 정보(쿠키, Authorization 헤더) 허용

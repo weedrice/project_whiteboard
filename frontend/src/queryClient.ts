@@ -5,6 +5,7 @@ import { QUERY_STALE_TIME } from '@/utils/constants'
 import { extractErrorMessage, shouldSuppressGlobalErrorToast } from '@/utils/errorHandler'
 import { createErrorLogPayload } from '@/utils/vueErrorLog'
 import { isStaleMutationSessionContext } from '@/queryAuthScope'
+import { getRetryAfterMs, shouldRetryAfterDelay } from '@/api/retryAfter'
 
 interface ToastStoreLike {
     addToast: (message: string, type: 'error') => void
@@ -59,11 +60,19 @@ export const queryClient = new QueryClient({
                     return failureCount < 2
                 }
                 if (status === 429) {
+                    const retryAfterMs = getRetryAfterMs(axiosError)
+                    // 서버가 대기 시간을 알려줬다면 그만큼만 기다렸다가 한 번만 다시 시도한다.
+                    // 지시가 상한을 넘으면 화면을 멈춰 두지 않고 즉시 오류를 노출한다.
+                    if (retryAfterMs !== null) {
+                        return shouldRetryAfterDelay(retryAfterMs) && failureCount < 1
+                    }
                     return failureCount < 3
                 }
                 return false
             },
-            retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+            // 429에서는 서버가 알려준 Retry-After를 우선 따르고, 없을 때만 지수 백오프로 떨어진다.
+            retryDelay: (attemptIndex, error: unknown) =>
+                getRetryAfterMs(error) ?? Math.min(1000 * 2 ** attemptIndex, 30000),
             refetchOnWindowFocus: false,
             refetchOnReconnect: true
         },
