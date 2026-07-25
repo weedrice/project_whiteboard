@@ -31,6 +31,7 @@
 | F2 | 익명 캐시가 in-process라 scale-out의 선결 과제다 | 실행 환경 | 하 |
 | **G1** | **`UserSettings.timezone`이 저장만 되고 쓰이지 않는다** | **기능** | **중** |
 | **G2** | **시각 표시를 사용자 지역 기준으로 전환하는 설계** | **설계** | — |
+| **A8** | **51개 boolean 필드가 wire에 키를 두 개씩 내보낸다** | **계약** | **중** |
 
 ### 2026-07-25 정정
 
@@ -72,8 +73,8 @@ Jackson은 Lombok이 생성한 `isXxx()` getter에서 `is` 접두사를 제거�
 현재 세 가지 표기 방식이 공존한다.
 
 1. 필드 그대로 — Jackson이 `is` 제거 (`PostSummary.isNotice`)
-2. 필드에 `@JsonProperty` — `is` 유지 (`PostResponse.isNotice`)
-3. 명시적 getter에 `@JsonProperty` — `is` 유지 (`LoginResponse.java:27`)
+2. 필드에 `@JsonProperty` — **두 이름이 함께 나간다** (`PostResponse.isNotice`). 초판은 이를 "`is` 유지"로 잘못 적었다. A8 참고.
+3. getter에 `@JsonProperty` — `is` 유지 (`LoginResponse.java:27`)
 
 `PostSummary` 한 클래스 안에서도 `isSpoiler`·`isSecret`·`isBlinded`는 `is`를 유지하고 `isNotice`·`isNsfw`·`isLiked`·`isScrapped`·`isSubscribed`는 떨어진다.
 
@@ -85,10 +86,15 @@ Jackson은 Lombok이 생성한 `isXxx()` getter에서 `is` 접두사를 제거�
 
 손으로 나열하는 테스트를 리플렉션 기반 스캔으로 교체한다. `*/dto/*` 하위 클래스를 순회하며 `boolean is[A-Z]*` 필드를 전부 수집하고, 각 필드가 다음 중 하나를 만족하지 못하면 실패시킨다.
 
-- `@JsonProperty`가 필드 또는 getter에 붙어 있다
+- **getter**에 `@JsonProperty`가 붙어 있다
 - 명시적 legacy 허용 목록에 등재되어 있다
 
-허용 목록은 기존 6개 DTO와 `LoginResponse.UserInfo`로 시작한다. 스캔 대상에서 agent·ad를 제외할지는 두 도메인 소유 주체와 협의해 정한다. 이렇게 하면 신규 DTO는 규칙을 따르거나 목록에 의식적으로 등재하는 것 외의 선택지가 없어진다. 이후 `API명세서.md`의 표는 허용 목록에서 생성하거나, 최소한 목록과 표의 일치를 같은 테스트에서 검증한다.
+**구현 중 정정**: 초판은 "필드 또는 getter"라고 적었으나, 필드 어노테이션은 이름을 바꾸지
+못하고 키를 하나 더 만든다. 상세와 파급은 A8에 기록했다. 따라서 규칙은 getter 어노테이션만
+인정한다.
+
+허용 목록은 어노테이션이 없는 10개 필드와, 필드 어노테이션으로 중복 키를 내보내는 51개
+필드로 나누어 시작한다. 스캔 대상에서 agent·ad를 제외할지는 두 도메인 소유 주체와 협의해 정한다. 이렇게 하면 신규 DTO는 규칙을 따르거나 목록에 의식적으로 등재하는 것 외의 선택지가 없어진다. 이후 `API명세서.md`의 표는 허용 목록에서 생성하거나, 최소한 목록과 표의 일치를 같은 테스트에서 검증한다.
 
 ### A2. rate limit 응답 헤더를 아무도 읽지 않는다
 
@@ -235,6 +241,50 @@ wire 형태가 A1로 고정되고 나면, springdoc이 이미 제공하는 `/api
 **제안**
 
 정규화 함수에 개발 모드 경고를 추가해 `page`와 `number`가 모두 없을 때 로깅한다. 계약 테스트가 1차 방어선이고, 이 경고는 테스트가 놓친 경우의 2차 신호다.
+
+### A8. 51개 boolean 필드가 wire에 키를 두 개씩 내보낸다
+
+**A1 구현 중 발견한 신규 항목이다.** 초판 A1은 "필드에 `@JsonProperty`를 붙이면 wire 이름이
+명시된다"를 전제로 삼았다. **이 전제는 틀렸다.**
+
+**현상**
+
+`boolean isXxx` 필드의 wire 이름은 어노테이션 위치로 갈린다. 실제 직렬화로 확인했다.
+
+| 패턴 | wire 이름 |
+| --- | --- |
+| 어노테이션 없음 | `xxx` 하나 |
+| **필드**에 `@JsonProperty` | `xxx`와 `isXxx` **둘 다** |
+| **getter**에 `@JsonProperty` | `isXxx` 하나 |
+
+필드에 붙이면 getter에서 파생된 `xxx` 속성이 그대로 남고 필드가 **별도 속성으로 추가**된다.
+이름이 바뀌는 것이 아니라 키가 늘어난다.
+
+실제 응답 예시다.
+
+```
+PostSummary  → ..., blinded, isBlinded, isSecret, isSpoiler, ..., secret, spoiler, ...
+PostResponse → ..., blinded, isBlinded, isLiked, isNotice, isNsfw, isScrapped, isSecret,
+                isSpoiler, ..., liked, notice, nsfw, scrapped, secret, spoiler, ...
+```
+
+`PostResponse`는 7쌍이 중복이다. 저장소 전체에서 **51개 필드**가 이 상태다.
+
+**영향**
+
+- 모든 게시글·댓글·스페이스 응답이 boolean 키를 두 배로 싣는다. 목록 응답에서는 항목 수만큼 곱해진다.
+- 프론트엔드가 두 이름을 섞어 읽는다(`notice` 118회, `isNotice` 115회). 중복 덕분에 양쪽 다 동작하고 있어 문제가 드러나지 않았다.
+- `API명세서.md`의 기존 표는 절반만 맞았다. `isSpoiler`가 유지된다고 적었지만 `spoiler`도 함께 나간다.
+
+**제안**
+
+키 제거는 wire 축소이므로 프론트 정리가 선행되어야 한다.
+
+1. 프론트엔드가 참조하는 이름을 한쪽으로 모은다. 정규화 계층(`postContract.ts`)이 이미 있으므로 그 안에서 흡수할 수 있다.
+2. 백엔드를 `@Getter(onMethod_ = @JsonProperty("isXxx"))` 패턴으로 옮긴다. `ScheduledPostDetailResponse`가 이미 이 방식을 쓰고 있어 참고할 선례가 있다.
+3. `BooleanWireNameContractTest`의 `LEGACY_DUPLICATE_KEYS`에서 해당 항목을 지운다. 목록이 비면 이 항목이 끝난다.
+
+당장 깨진 것은 없으므로 우선순위는 중이다. 다만 목록이 51개에서 더 늘지 않도록 테스트가 막고 있다.
 
 ## B. 백엔드 단독
 

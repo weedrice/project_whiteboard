@@ -83,10 +83,28 @@ Java 필드명과 JSON 직렬화 이름이 다른 기존 응답은 호환성을 
 | `AgentPostLikeResponse` | `liked` | Java 필드는 `isLiked` |
 | 이미지 없는 이모티콘 목록 DTO | `images: null` | 상세 응답은 이미지 배열을 반환할 수 있음 |
 
-이 표의 필드는 `BooleanWireNameContractTest`의 `LEGACY_UNPREFIXED_FIELDS` 목록과 짝을 이룬다.
-새 DTO에 `boolean isXxx` 필드를 추가할 때는 `@JsonProperty`로 wire 이름을 명시해야 하며,
-그러지 않으면 해당 테스트가 실패한다. record 컴포넌트는 Jackson이 이름을 그대로 쓰므로
-접두사가 유지되고 이 규칙의 대상이 아니다.
+#### 어노테이션 위치에 따른 wire 이름
+
+`boolean isXxx` 필드의 wire 이름은 `@JsonProperty`를 **어디에 붙이느냐**로 갈린다.
+아래는 실제 직렬화 결과이며 `BooleanWireNameContractTest`가 고정한다.
+
+| 패턴 | wire 이름 |
+| --- | --- |
+| 어노테이션 없음 | `xxx` 하나 |
+| **필드**에 `@JsonProperty` | `xxx`와 `isXxx` **둘 다** |
+| **getter**에 `@JsonProperty` | `isXxx` 하나 |
+
+필드에 붙이면 이름이 바뀌는 것이 아니라 키가 하나 더 생긴다. getter에서 파생된 `xxx`가
+그대로 남고 필드가 별도 속성으로 추가되기 때문이다. 이름을 하나로 정하려면
+`@Getter(onMethod_ = @JsonProperty("isXxx"))`나 명시적 getter를 써야 한다.
+
+현재 51개 필드가 필드 어노테이션 방식이라 두 이름을 함께 내보내고 있다. 위 표에서
+`isSpoiler`, `isSecret`, `isBlinded` 등이 `is*` 이름을 유지한다고 적은 것은 절반만 맞다.
+`spoiler`, `secret`, `blinded`도 함께 나간다. 프론트엔드가 두 이름을 섞어 읽고 있어
+어느 쪽도 단독으로 제거할 수 없으며, 정리는 별도 과제로 다룬다.
+
+신규 DTO는 getter 패턴을 쓰거나 `BooleanWireNameContractTest`의 legacy 목록에 등재해야 한다.
+record 컴포넌트는 Jackson이 이름을 그대로 쓰므로 접두사가 유지되고 이 규칙의 대상이 아니다.
 
 ## Endpoint Catalog
 
