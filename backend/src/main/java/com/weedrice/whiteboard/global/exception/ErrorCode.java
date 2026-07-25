@@ -89,6 +89,7 @@ public enum ErrorCode {
     FILE_LOAD_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "F005", "error.file.loadError"),
     FILE_DELETE_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "F006", "error.file.deleteError"),
     FILE_ALREADY_ASSOCIATED(HttpStatus.CONFLICT, "F007", "error.file.alreadyAssociated"),
+    FILE_DIMENSION_TOO_LARGE(HttpStatus.BAD_REQUEST, "F008", "error.file.dimensionTooLarge"),
 
     // Email
     EMAIL_SEND_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "E001", "error.email.sendFailed"),

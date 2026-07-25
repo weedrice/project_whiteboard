@@ -200,7 +200,8 @@ class FileUploadValidationPolicy {
             return;
         }
         if (metadata.width() > target.getMaxWidth() || metadata.height() > target.getMaxHeight()) {
-            throw new BusinessException(ErrorCode.INVALID_FILE_TYPE);
+            // 형식이 아니라 해상도가 문제이므로 클라이언트가 구분할 수 있는 코드를 쓴다.
+            throw new BusinessException(ErrorCode.FILE_DIMENSION_TOO_LARGE);
         }
     }
 

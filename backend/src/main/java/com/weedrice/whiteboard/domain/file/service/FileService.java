@@ -48,6 +48,7 @@ public class FileService {
         return uploadFile(uploaderId, multipartFile, FileUploadTarget.GENERIC);
     }
 
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public FileUploadResponse uploadFile(Long uploaderId, MultipartFile multipartFile, FileUploadTarget target) {
         return fileUploadService.uploadFile(uploaderId, multipartFile, target);
     }
@@ -57,6 +58,7 @@ public class FileService {
         return uploadSimpleFile(uploaderId, multipartFile, FileUploadTarget.GENERIC);
     }
 
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public FileSimpleResponse uploadSimpleFile(Long uploaderId, MultipartFile multipartFile,
             FileUploadTarget target) {
         return fileUploadService.uploadSimpleFile(uploaderId, multipartFile, target);

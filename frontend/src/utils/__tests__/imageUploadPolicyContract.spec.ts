@@ -6,6 +6,11 @@ import {
     POST_EDITOR_IMAGE_UPLOAD_POLICY,
     PROFILE_IMAGE_UPLOAD_POLICY,
 } from '@/utils/imageUploadPolicy'
+import {
+    EMOTICON_IMAGE_UPLOAD_MAX_DIMENSION,
+    EMOTICON_THUMBNAIL_UPLOAD_MAX_DIMENSION,
+    MAX_EMOTICON_GIF_SIZE_BYTES,
+} from '@/utils/emoticonImage'
 
 /**
  * 업로드 제한은 양쪽에 각각 정의되어 있다. 프론트 값은 사용자에게 미리 알려 주기 위한 것이고
@@ -35,7 +40,9 @@ function readBackendLimits(): Map<string, BackendLimit> {
     const limits = new Map<string, BackendLimit>()
 
     // 예: BOARD_ICON(2L * 1024 * 1024, 0, 0),
-    const pattern = /^\s{4}([A-Z_]+)\(([^)]+)\)[,;]$/gm
+    // 줄바꿈과 들여쓰기 변화, 후행 주석을 허용한다. 한 줄 형태만 보면 포매터가 줄을 접는 순간
+    // 해당 상수가 조용히 빠지고 양쪽 집합이 함께 비어 테스트가 통과해 버린다.
+    const pattern = /^[ \t]*([A-Z_]+)\(([^)]*?)\)\s*[,;]/gms
     for (const match of source.matchAll(pattern)) {
         const [size, width, height] = match[2].split(',').map((part) => evaluateJavaLiteral(part))
         limits.set(match[1], { maxSizeBytes: size, maxWidth: width, maxHeight: height })
@@ -47,17 +54,41 @@ function readBackendLimits(): Map<string, BackendLimit> {
     return limits
 }
 
-/** `2L * 1024 * 1024` 형태의 곱셈 리터럴만 다룬다. */
+/** `2L * 1024 * 1024`, `10_000_000`, `512` 형태를 다룬다. 해석할 수 없으면 실패시킨다. */
 function evaluateJavaLiteral(expression: string): number {
-    return expression
+    const value = expression
         .trim()
         .split('*')
-        .map((factor) => Number(factor.trim().replace(/L$/i, '')))
+        .map((factor) => {
+            const literal = factor.trim().replace(/[_]/g, '').replace(/L$/i, '')
+            const parsed = Number(literal)
+            if (!Number.isFinite(parsed)) {
+                throw new Error(`백엔드 enum의 숫자 리터럴을 해석할 수 없다: ${factor.trim()}`)
+            }
+            return parsed
+        })
         .reduce((product, factor) => product * factor, 1)
+    return value
+}
+
+/**
+ * 백엔드가 지켜야 할 상한. 프론트 값과 비교만 하면 서버 쪽을 느슨하게 되돌려도 통과하므로
+ * 기대값을 직접 못박는다.
+ */
+const EXPECTED_BACKEND_LIMITS: Record<string, BackendLimit> = {
+    GENERIC: { maxSizeBytes: 10 * 1024 * 1024, maxWidth: 0, maxHeight: 0 },
+    POST_CONTENT: { maxSizeBytes: 10 * 1024 * 1024, maxWidth: 0, maxHeight: 0 },
+    BOARD_ICON: { maxSizeBytes: 2 * 1024 * 1024, maxWidth: 0, maxHeight: 0 },
+    PROFILE_IMAGE: { maxSizeBytes: 2 * 1024 * 1024, maxWidth: 512, maxHeight: 512 },
+    EMOTICON: { maxSizeBytes: 3 * 1024 * 1024, maxWidth: 2048, maxHeight: 2048 },
 }
 
 describe('업로드 정책 계약', () => {
     const limits = readBackendLimits()
+
+    it('백엔드 상한이 기대값과 정확히 일치한다', () => {
+        expect(Object.fromEntries(limits)).toEqual(EXPECTED_BACKEND_LIMITS)
+    })
 
     it('백엔드가 프론트에서 쓰는 대상을 모두 정의한다', () => {
         expect([...limits.keys()]).toEqual(
@@ -65,21 +96,36 @@ describe('업로드 정책 계약', () => {
         )
     })
 
-    it('프론트 크기 상한이 서버 상한을 넘지 않는다', () => {
+    it('원본을 그대로 올리는 대상은 프론트 상한이 서버 상한을 넘지 않는다', () => {
+        // 게시글 이미지와 스페이스 아이콘은 사용자가 고른 파일을 그대로 올린다.
         // 프론트가 더 크게 허용하면 UI를 통과한 파일이 서버에서 거부된다.
         expect(POST_EDITOR_IMAGE_UPLOAD_POLICY.maxSizeBytes)
             .toBeLessThanOrEqual(limits.get('POST_CONTENT')!.maxSizeBytes)
         expect(BOARD_ICON_UPLOAD_POLICY.maxSizeBytes)
             .toBeLessThanOrEqual(limits.get('BOARD_ICON')!.maxSizeBytes)
-        expect(PROFILE_IMAGE_UPLOAD_POLICY.maxSizeBytes)
-            .toBeLessThanOrEqual(limits.get('PROFILE_IMAGE')!.maxSizeBytes)
     })
 
-    it('프론트 해상도 상한이 서버 상한을 넘지 않는다', () => {
+    it('리사이즈 후 올리는 대상은 축소 결과가 서버 해상도 상한 안에 든다', () => {
+        // 프로필 이미지와 이모티콘은 소스 파일을 검사한 뒤 축소해서 올린다.
+        // 따라서 소스 크기 제한(10MiB 등)은 업로드 크기의 상한이 아니며,
+        // 서버 상한과 비교해야 하는 값은 축소 목표 해상도다.
         const profile = limits.get('PROFILE_IMAGE')!
+        expect(PROFILE_IMAGE_UPLOAD_POLICY.maxWidth!).toBeLessThanOrEqual(profile.maxWidth)
+        expect(PROFILE_IMAGE_UPLOAD_POLICY.maxHeight!).toBeLessThanOrEqual(profile.maxHeight)
 
-        expect(profile.maxWidth).toBeGreaterThan(0)
-        expect(PROFILE_IMAGE_UPLOAD_POLICY.maxWidth ?? 0).toBeLessThanOrEqual(profile.maxWidth)
-        expect(PROFILE_IMAGE_UPLOAD_POLICY.maxHeight ?? 0).toBeLessThanOrEqual(profile.maxHeight)
+        const emoticon = limits.get('EMOTICON')!
+        expect(EMOTICON_IMAGE_UPLOAD_MAX_DIMENSION).toBeLessThanOrEqual(emoticon.maxWidth)
+        expect(EMOTICON_THUMBNAIL_UPLOAD_MAX_DIMENSION).toBeLessThanOrEqual(emoticon.maxHeight)
+    })
+
+    it('프론트가 해상도 검사를 유지한다', () => {
+        // ?? 0 으로 넘기면 프론트가 해상도 검사를 아예 없애도 통과하므로 존재부터 확인한다.
+        expect(PROFILE_IMAGE_UPLOAD_POLICY.maxWidth).toBeGreaterThan(0)
+        expect(PROFILE_IMAGE_UPLOAD_POLICY.maxHeight).toBeGreaterThan(0)
+    })
+
+    it('GIF는 축소하지 않으므로 프론트 상한이 서버 상한 안에 든다', () => {
+        // GIF는 애니메이션을 잃지 않도록 축소 없이 원본을 올린다.
+        expect(MAX_EMOTICON_GIF_SIZE_BYTES).toBeLessThanOrEqual(limits.get('EMOTICON')!.maxSizeBytes)
     })
 })

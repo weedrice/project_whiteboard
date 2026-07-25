@@ -16,17 +16,23 @@ public enum FileUploadTarget {
     /** 대상을 지정하지 않은 업로드. 기존 계약을 유지한다. */
     GENERIC(10L * 1024 * 1024, 0, 0),
 
-    /** 게시글 본문 이미지. */
+    /** 게시글 본문 이미지. 프론트도 10MiB를 허용한다. */
     POST_CONTENT(10L * 1024 * 1024, 0, 0),
 
     /** 스페이스 아이콘. 작게 렌더링되므로 원본도 작아야 한다. */
     BOARD_ICON(2L * 1024 * 1024, 0, 0),
 
-    /** 프로필 이미지. 프론트에서 100×100으로 줄여 올린다. */
-    PROFILE_IMAGE(10L * 1024 * 1024, 512, 512),
+    /**
+     * 프로필 이미지. 프론트가 100×100으로 줄여 올리므로 실제 파일은 매우 작다.
+     * 여유를 두되, 아바타로 대용량 파일을 저장하는 것은 막는다.
+     */
+    PROFILE_IMAGE(2L * 1024 * 1024, 512, 512),
 
-    /** 이모티콘 이미지. */
-    EMOTICON(10L * 1024 * 1024, 0, 0);
+    /**
+     * 이모티콘 이미지. 프론트는 GIF를 3MiB로 제한하고 원본 해상도를 2048로 제한한 뒤
+     * 이미지는 160, 썸네일은 256으로 줄여 올린다.
+     */
+    EMOTICON(3L * 1024 * 1024, 2048, 2048);
 
     private final long maxSizeBytes;
     private final int maxWidth;
@@ -54,6 +60,27 @@ public enum FileUploadTarget {
 
     public boolean hasDimensionLimit() {
         return maxWidth > 0 && maxHeight > 0;
+    }
+
+    /**
+     * 연결 대상({@code relatedType})에 대응하는 제한을 고른다.
+     *
+     * <p>업로드 시점의 {@code target}은 클라이언트가 보내는 값이라 생략하면 {@link #GENERIC}으로
+     * 떨어진다. 반면 {@code relatedType}은 어느 엔드포인트를 호출했는지로 서버가 정하므로
+     * 위조할 수 없다. 실제 강제는 이 매핑을 쓰는 연결 시점 검사가 담당하고,
+     * 업로드 시점 검사는 사용자에게 빨리 알려 주는 역할만 한다.
+     */
+    static FileUploadTarget forRelatedType(String relatedType) {
+        if (relatedType == null) {
+            return GENERIC;
+        }
+        return switch (relatedType) {
+            case FileRelatedType.POST_CONTENT, FileRelatedType.DRAFT_POST -> POST_CONTENT;
+            case FileRelatedType.BOARD_ICON -> BOARD_ICON;
+            case FileRelatedType.USER_PROFILE -> PROFILE_IMAGE;
+            case FileRelatedType.EMOTICON_THUMBNAIL, FileRelatedType.EMOTICON_IMAGE -> EMOTICON;
+            default -> GENERIC;
+        };
     }
 
     /**

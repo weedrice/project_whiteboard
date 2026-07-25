@@ -113,7 +113,7 @@ class FileUploadValidationPolicyTest {
         assertThatThrownBy(() -> policy.validate(png(1024, 1024), FileUploadTarget.PROFILE_IMAGE))
                 .isInstanceOf(BusinessException.class)
                 .extracting(e -> ((BusinessException) e).getErrorCode())
-                .isEqualTo(ErrorCode.INVALID_FILE_TYPE);
+                .isEqualTo(ErrorCode.FILE_DIMENSION_TOO_LARGE);
     }
 
     @Test

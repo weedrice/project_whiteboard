@@ -1216,4 +1216,40 @@ class FileServiceTest {
         }
     }
 
+
+    @Test
+    @DisplayName("대상별 크기 제한이 FileService -> FileUploadService -> 검증 정책까지 전달된다")
+    void uploadFile_appliesTargetSizeLimitThroughRealCollaborators() {
+        // FileService에서 검증 정책까지 target이 실제로 전달되는지 확인한다.
+        // 이 경로가 끊기면 대상별 제한이 조용히 무력화된다.
+        Long uploaderId = 1L;
+        byte[] oversizedIcon = new byte[3 * 1024 * 1024];
+        System.arraycopy(validJpegBytes(), 0, oversizedIcon, 0, validJpegBytes().length);
+        MultipartFile multipartFile =
+                new MockMultipartFile("file", "icon.jpg", "image/jpeg", oversizedIcon);
+
+        assertThatThrownBy(() ->
+                fileService.uploadFile(uploaderId, multipartFile, FileUploadTarget.BOARD_ICON))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.FILE_TOO_LARGE);
+
+        verify(fileStorageService, never()).storeFileAs(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("같은 파일도 대상을 지정하지 않으면 크기 때문에 막히지 않는다")
+    void uploadFile_genericTargetKeepsPreviousSizeBehaviour() {
+        Long uploaderId = 1L;
+        User uploader = User.builder().build();
+        byte[] oversizedIcon = new byte[3 * 1024 * 1024];
+        System.arraycopy(validJpegBytes(), 0, oversizedIcon, 0, validJpegBytes().length);
+        MultipartFile multipartFile =
+                new MockMultipartFile("file", "icon.jpg", "image/jpeg", oversizedIcon);
+        when(userWritableResolver.resolve(uploaderId)).thenReturn(uploader);
+        stubSuccessfulUpload(multipartFile, "icon.jpg", "image/jpeg", "storedIcon.jpg");
+
+        assertThat(fileService.uploadFile(uploaderId, multipartFile).getOriginalName())
+                .isEqualTo("icon.jpg");
+    }
 }
