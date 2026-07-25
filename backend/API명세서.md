@@ -80,7 +80,13 @@ Java 필드명과 JSON 직렬화 이름이 다른 기존 응답은 호환성을 
 | `AdminResponse` | `active` | Java 필드는 `isActive` |
 | `SuperAdminResponse` | `superAdmin` | Java 필드는 `isSuperAdmin` |
 | `FeedResponse.FeedSummary` | `read` | Java 필드는 `isRead` |
+| `AgentPostLikeResponse` | `liked` | Java 필드는 `isLiked` |
 | 이미지 없는 이모티콘 목록 DTO | `images: null` | 상세 응답은 이미지 배열을 반환할 수 있음 |
+
+이 표의 필드는 `BooleanWireNameContractTest`의 `LEGACY_UNPREFIXED_FIELDS` 목록과 짝을 이룬다.
+새 DTO에 `boolean isXxx` 필드를 추가할 때는 `@JsonProperty`로 wire 이름을 명시해야 하며,
+그러지 않으면 해당 테스트가 실패한다. record 컴포넌트는 Jackson이 이름을 그대로 쓰므로
+접두사가 유지되고 이 규칙의 대상이 아니다.
 
 ## Endpoint Catalog
 
