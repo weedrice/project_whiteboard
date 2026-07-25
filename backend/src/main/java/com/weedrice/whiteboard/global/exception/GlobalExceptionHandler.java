@@ -67,6 +67,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class GlobalExceptionHandler {
     private static final String AUTH_REFRESH_URI = "/api/v1/auth/refresh";
+    /** 특정 필드로 귀속할 수 없는 검증 오류의 details 키. */
+    private static final String DEFAULT_VIOLATION_FIELD = "request";
     private static final String AUTH_SESSION_EXPIRED_MESSAGE = "error.auth.sessionExpired";
     private static final Set<ErrorCode> SUPPRESSED_REFRESH_BUSINESS_CODES = EnumSet.of(
             ErrorCode.INVALID_REFRESH_TOKEN,
@@ -221,9 +223,12 @@ public class GlobalExceptionHandler {
         log.warn("[{}] Constraint violation: {}", request.getRequestURI(), e.getMessage());
 
         Map<String, List<String>> errors = new LinkedHashMap<>();
-        for (ConstraintViolation<?> violation : e.getConstraintViolations()) {
-            errors.computeIfAbsent(leafPropertyName(violation), key -> new ArrayList<>())
-                    .add(violation.getMessage());
+        Set<ConstraintViolation<?>> violations = e.getConstraintViolations();
+        if (violations != null) {
+            for (ConstraintViolation<?> violation : violations) {
+                errors.computeIfAbsent(violationFieldName(violation), key -> new ArrayList<>())
+                        .add(violation.getMessage());
+            }
         }
 
         return validationErrorResponse(errors);
@@ -239,47 +244,75 @@ public class GlobalExceptionHandler {
         e.visitResults(new HandlerMethodValidationException.Visitor() {
             @Override
             public void requestParam(RequestParam requestParam, ParameterValidationResult result) {
-                collect(parameterName(result), result);
+                collect(annotatedName(requestParam.name(), result), result);
             }
 
             @Override
             public void requestHeader(RequestHeader requestHeader, ParameterValidationResult result) {
-                collect(parameterName(result), result);
+                collect(annotatedName(requestHeader.name(), result), result);
             }
 
             @Override
             public void pathVariable(PathVariable pathVariable, ParameterValidationResult result) {
-                collect(parameterName(result), result);
+                collect(annotatedName(pathVariable.name(), result), result);
             }
 
             @Override
             public void cookieValue(CookieValue cookieValue, ParameterValidationResult result) {
-                collect(parameterName(result), result);
+                collect(annotatedName(cookieValue.name(), result), result);
             }
 
             @Override
             public void matrixVariable(MatrixVariable matrixVariable, ParameterValidationResult result) {
+                collect(annotatedName(matrixVariable.name(), result), result);
+            }
+
+            @Override
+            public void modelAttribute(ModelAttribute modelAttribute, ParameterErrors parameterErrors) {
+                collectFieldErrors(parameterErrors);
+            }
+
+            @Override
+            public void requestBody(RequestBody requestBody, ParameterErrors parameterErrors) {
+                collectFieldErrors(parameterErrors);
+            }
+
+            /**
+             * {@code @RequestBody} 파라미터 자체에 걸린 값 제약은 {@link ParameterErrors}가 아니라
+             * 평범한 {@link ParameterValidationResult}로 도착해 이 기본 메서드로 분기된다.
+             * 오버라이드하지 않으면 Spring 기본 구현이 조용히 버린다.
+             */
+            @Override
+            public void requestBodyValidationResult(RequestBody requestBody, ParameterValidationResult result) {
                 collect(parameterName(result), result);
             }
 
             @Override
-            public void modelAttribute(ModelAttribute modelAttribute, ParameterErrors errors2) {
-                collect(parameterName(errors2), errors2);
-            }
-
-            @Override
-            public void requestBody(RequestBody requestBody, ParameterErrors errors2) {
-                collect(parameterName(errors2), errors2);
-            }
-
-            @Override
-            public void requestPart(RequestPart requestPart, ParameterErrors errors2) {
-                collect(parameterName(errors2), errors2);
+            public void requestPart(RequestPart requestPart, ParameterErrors parameterErrors) {
+                collectFieldErrors(parameterErrors);
             }
 
             @Override
             public void other(ParameterValidationResult result) {
                 collect(parameterName(result), result);
+            }
+
+            /** 애노테이션이 지정한 wire 이름을 우선한다. 없을 때만 Java 파라미터 이름을 쓴다. */
+            private String annotatedName(String annotationName, ParameterValidationResult result) {
+                return annotationName != null && !annotationName.isBlank()
+                        ? annotationName
+                        : parameterName(result);
+            }
+
+            /** DTO 본문 오류는 파라미터 이름이 아니라 필드 경로로 묶어 body 검증 경로와 형태를 맞춘다. */
+            private void collectFieldErrors(ParameterErrors parameterErrors) {
+                if (parameterErrors.getFieldErrorCount() == 0) {
+                    collect(parameterName(parameterErrors), parameterErrors);
+                    return;
+                }
+                parameterErrors.getFieldErrors().forEach(fieldError ->
+                        errors.computeIfAbsent(fieldError.getField(), key -> new ArrayList<>())
+                                .add(resolveValidationMessage(fieldError)));
             }
 
             private void collect(String field, ParameterValidationResult result) {
@@ -288,6 +321,8 @@ public class GlobalExceptionHandler {
             }
         });
 
+        // 교차 파라미터 제약은 visitResults가 훑지 않는다. 그런 제약이 생기면 errors가 비어
+        // details 없는 응답으로 떨어지며, 이는 이 변경 이전의 동작과 같다.
         return validationErrorResponse(errors);
     }
 
@@ -363,38 +398,48 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 위반 경로에서 클라이언트가 화면 필드와 짝지을 수 있는 이름을 고른다.
-     * 메서드 파라미터 검증 경로는 {@code method.param[0].<list element>} 형태이므로
-     * 마지막 마디를 그대로 쓰면 컨테이너 원소 이름({@code <list element>})이 나온다.
-     * 파라미터·속성 마디만 골라 가장 마지막 것을 사용한다.
+     * 위반 경로에서 클라이언트가 화면 필드와 짝지을 이름을 만든다.
+     *
+     * <p>메서드 파라미터 검증 경로는 {@code method.param[0].<list element>} 형태라 마지막 마디를
+     * 그대로 쓰면 컨테이너 원소 이름이 나온다. 또 중첩 빈 경로에서 잎만 쓰면
+     * {@code address.city}와 {@code work.city}가 같은 키로 합쳐지고,
+     * {@code MethodArgumentNotValidException} 경로가 쓰는 {@code FieldError.getField()}
+     * 형태와도 어긋난다. 그래서 속성 마디를 점으로 이어 붙이고, 속성이 없을 때만
+     * 파라미터 마디를 쓴다.
      */
-    private static String leafPropertyName(ConstraintViolation<?> violation) {
+    private static String violationFieldName(ConstraintViolation<?> violation) {
         Path propertyPath = violation.getPropertyPath();
         if (propertyPath == null) {
-            return "request";
+            return DEFAULT_VIOLATION_FIELD;
         }
 
-        String selected = null;
+        List<String> properties = new ArrayList<>();
+        String lastParameter = null;
         for (Path.Node node : propertyPath) {
-            if (node.getKind() != ElementKind.PARAMETER && node.getKind() != ElementKind.PROPERTY) {
+            if (node.getName() == null || node.getName().isBlank()) {
                 continue;
             }
-            if (node.getName() != null && !node.getName().isBlank()) {
-                selected = node.getName();
+            if (node.getKind() == ElementKind.PROPERTY) {
+                properties.add(node.getName());
+            } else if (node.getKind() == ElementKind.PARAMETER) {
+                lastParameter = node.getName();
             }
         }
 
-        if (selected != null) {
-            return selected;
+        if (!properties.isEmpty()) {
+            return String.join(".", properties);
         }
-
-        String path = propertyPath.toString();
-        return path.isBlank() ? "request" : path;
+        if (lastParameter != null) {
+            return lastParameter;
+        }
+        // 교차 파라미터·반환값 경로만 남는 경우다. 경로 문자열에는 Java 메서드 이름이 들어 있어
+        // 응답에 실을 수 없고 화면 필드와도 짝지을 수 없으므로 고정 키를 쓴다.
+        return DEFAULT_VIOLATION_FIELD;
     }
 
     private static String parameterName(ParameterValidationResult result) {
         String name = result.getMethodParameter().getParameterName();
-        return name != null ? name : "request";
+        return name != null ? name : DEFAULT_VIOLATION_FIELD;
     }
 
     private String resolveValidationMessage(MessageSourceResolvable error) {

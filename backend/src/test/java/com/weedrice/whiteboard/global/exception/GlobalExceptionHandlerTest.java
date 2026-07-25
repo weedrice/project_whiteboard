@@ -9,7 +9,10 @@ import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.util.ClientIpResolver;
 import com.weedrice.whiteboard.global.log.service.ErrorLogService;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
+import jakarta.validation.Path;
+import jakarta.validation.ElementKind;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -36,6 +39,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
@@ -395,6 +399,8 @@ class GlobalExceptionHandlerTest {
         assertThat(response.getBody().isSuccess()).isFalse();
         assertThat(response.getBody().getError().getCode()).isEqualTo(ErrorCode.VALIDATION_ERROR.getCode());
         assertThat(response.getBody().getError().getMessage()).isEqualTo("Validation failed.");
+        // 본문 파싱 실패는 필드를 특정할 수 없어 details 없이 응답하는 것이 계약이다.
+        assertThat(response.getBody().getError().getDetails()).isNull();
         verify(errorLogService, never()).saveErrorLog(anyString(), anyString(), anyInt(), anyString(),
                 anyString(), anyString(), any(), anyString(), anyString(), any());
     }
@@ -539,5 +545,88 @@ class GlobalExceptionHandlerTest {
                 anyString(),
                 isNull(),
                 contains("NullPointerException"));
+    }
+
+    @Test
+    @DisplayName("컨테이너 원소 위반은 파라미터 이름을 details 키로 쓴다")
+    void constraintViolationOnContainerElementUsesParameterName() {
+        Path containerPath = pathOf(node("getRecentBoardUpdates", ElementKind.METHOD),
+                        node("boardUrls", ElementKind.PARAMETER),
+                        node("<list element>", ElementKind.CONTAINER_ELEMENT));
+        ConstraintViolation<?> violation = mock(ConstraintViolation.class);
+        when(violation.getPropertyPath()).thenReturn(containerPath);
+        when(violation.getMessage()).thenReturn("must match pattern");
+        ConstraintViolationException ex =
+                new ConstraintViolationException("invalid", Set.of(violation));
+        when(messageSource.getMessage(eq("error.common.validationFailedSummaryFields"), any(Object[].class),
+                any(Locale.class)))
+                .thenReturn("Validation failed for 1 field(s).");
+
+        ResponseEntity<ApiResponse<Object>> response =
+                globalExceptionHandler.handleConstraintViolationException(ex, request);
+
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getError().getDetails())
+                .isEqualTo(Map.of("boardUrls", List.of("must match pattern")));
+    }
+
+    @Test
+    @DisplayName("중첩 속성 위반은 점으로 이은 경로를 details 키로 쓴다")
+    void constraintViolationOnNestedPropertyUsesDottedPath() {
+        Path nestedPath = pathOf(node("save", ElementKind.METHOD),
+                        node("form", ElementKind.PARAMETER),
+                        node("address", ElementKind.PROPERTY),
+                        node("city", ElementKind.PROPERTY));
+        ConstraintViolation<?> violation = mock(ConstraintViolation.class);
+        when(violation.getPropertyPath()).thenReturn(nestedPath);
+        when(violation.getMessage()).thenReturn("must not be blank");
+        ConstraintViolationException ex =
+                new ConstraintViolationException("invalid", Set.of(violation));
+        when(messageSource.getMessage(eq("error.common.validationFailedSummaryFields"), any(Object[].class),
+                any(Locale.class)))
+                .thenReturn("Validation failed for 1 field(s).");
+
+        ResponseEntity<ApiResponse<Object>> response =
+                globalExceptionHandler.handleConstraintViolationException(ex, request);
+
+        assertThat(response.getBody()).isNotNull();
+        // MethodArgumentNotValidException 경로의 FieldError.getField()와 같은 형태여야 한다.
+        assertThat(response.getBody().getError().getDetails())
+                .isEqualTo(Map.of("address.city", List.of("must not be blank")));
+    }
+
+    @Test
+    @DisplayName("교차 파라미터 위반은 Java 메서드 이름을 노출하지 않는다")
+    void crossParameterViolationDoesNotLeakMethodName() {
+        Path crossPath = pathOf(node("transfer", ElementKind.METHOD),
+                        node("<cross-parameter>", ElementKind.CROSS_PARAMETER));
+        ConstraintViolation<?> violation = mock(ConstraintViolation.class);
+        when(violation.getPropertyPath()).thenReturn(crossPath);
+        when(violation.getMessage()).thenReturn("invalid combination");
+        ConstraintViolationException ex =
+                new ConstraintViolationException("invalid", Set.of(violation));
+        when(messageSource.getMessage(eq("error.common.validationFailedSummaryFields"), any(Object[].class),
+                any(Locale.class)))
+                .thenReturn("Validation failed for 1 field(s).");
+
+        ResponseEntity<ApiResponse<Object>> response =
+                globalExceptionHandler.handleConstraintViolationException(ex, request);
+
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getError().getDetails())
+                .isEqualTo(Map.of("request", List.of("invalid combination")));
+    }
+
+    private static Path.Node node(String name, ElementKind kind) {
+        Path.Node node = mock(Path.Node.class);
+        when(node.getName()).thenReturn(name);
+        when(node.getKind()).thenReturn(kind);
+        return node;
+    }
+
+    private static Path pathOf(Path.Node... nodes) {
+        Path path = mock(Path.class);
+        when(path.iterator()).thenReturn(List.of(nodes).iterator());
+        return path;
     }
 }
