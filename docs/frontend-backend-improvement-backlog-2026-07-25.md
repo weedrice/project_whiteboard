@@ -4,6 +4,7 @@
 
 - 기준일: 2026-07-25
 - 범위: `backend/` 도메인·global 계층, `frontend/src` 전체, 두 계층을 잇는 wire 계약과 배포 설정
+- **제외 도메인**: `domain/agent`, `domain/ad`. 두 도메인은 소유 주체와 계약 경계가 달라 이번 검토 대상에서 뺐다. 제외에 따라 근거가 바뀐 항목은 A1과 F1이며 각 절에 명시했다.
 - 방법: 정적 코드 검토. 런타임 재현이나 부하 시험은 수행하지 않았다.
 - 선행 문서: [Frontend–Backend 연결 계약 감사](./frontend-backend-contract-audit-2026-07-14.md)에서 이미 해소한 항목은 중복 기재하지 않고, 그 감사가 남긴 구조적 빈틈과 감사 범위 밖 영역만 다룬다.
 - 이 문서는 기록용 backlog이며, 항목별 코드 변경은 포함하지 않는다.
@@ -24,11 +25,12 @@
 | C1 | 백엔드 에러 코드 리터럴이 6곳에 분산되어 있다 | 프론트엔드 | 하 |
 | D1 | HSTS `max-age`가 1일이다 | 배포 | 하 |
 | E1 | 스케줄러 timezone 지정이 일관되지 않다 | 실행 환경 | 중 |
-| E2 | 타임스탬프 계약이 timezone-naive하다 | 실행 환경 | 상 |
+| E2 | 프론트의 타임스탬프 해석이 timezone-naive하다 | 실행 환경 | 상 |
+| **E3** | **백엔드 내부에 시간 기준 두 개가 공존한다** | **실행 환경** | **최상** |
 | F1 | `PageRequestUtils` 오버로드의 두 번째 인자 의미가 충돌한다 | 내부 API | 하 |
 | F2 | 익명 캐시가 in-process라 scale-out의 선결 과제다 | 실행 환경 | 하 |
 
-E1과 E2는 서로 얽혀 있다. **E1을 `TZ` 환경변수로 해결하면 E2가 악화되므로** 두 항목은 함께 판단해야 한다. 상세는 각 절에 기록한다.
+E1·E2·E3은 하나의 뿌리(고정되지 않은 JVM timezone)에서 갈라진다. **E1을 `TZ` 환경변수로 해결하면 E2·E3이 함께 악화되므로** 세 항목은 반드시 함께 판단한다. E3은 이 문서에서 유일하게 **현재 동작에 영향이 확인된** 항목이다.
 
 ## A. 계약 지점
 
@@ -38,14 +40,15 @@ E1과 E2는 서로 얽혀 있다. **E1을 `TZ` 환경변수로 해결하면 E2�
 
 Jackson은 Lombok이 생성한 `isXxx()` getter에서 `is` 접두사를 제거하므로, `private boolean isNotice`는 어노테이션이 없으면 wire에서 `notice`가 된다. 저장소는 이 동작을 legacy 계약으로 확정하고 `ApiWireContractSerializationTest`와 `backend/API명세서.md`의 "DTO별 boolean wire 이름" 표로 고정해 두었다.
 
-문제는 고정 대상이 **손으로 나열한 6개 DTO**뿐이라는 점이다. 전체 DTO를 훑으면 양쪽 어디에도 없는 필드가 남아 있다.
+문제는 고정 대상이 **손으로 나열한 6개 DTO**뿐이라는 점이다. agent·ad를 제외하고 전체 DTO를 다시 훑으면 `isXxx` boolean 필드는 10개이며, 그중 9개는 계약 테스트가 덮고 있고 다음 1개만 양쪽 어디에도 없다.
 
 | DTO | 필드 | 실제 wire | 테스트 | 문서 |
 | --- | --- | --- | --- | --- |
-| `AgentPostLikeResponse` | `isLiked` | `liked` | 없음 | 없음 |
 | `LoginResponse.UserInfo` | `isEmailVerified` | `isEmailVerified` | 없음 | 없음 |
 
-또한 현재 세 가지 표기 방식이 공존한다.
+이 필드는 명시적 getter에 `@JsonProperty`가 붙어 있어 wire 이름 자체는 어긋나지 않는다. 즉 **지금 깨진 필드는 없다.** 다만 세 번째 표기 방식을 쓰면서 테스트와 문서 어디에도 등재되지 않아, 이 스타일이 허용되는지 여부가 코드로 표현되어 있지 않다.
+
+현재 세 가지 표기 방식이 공존한다.
 
 1. 필드 그대로 — Jackson이 `is` 제거 (`PostSummary.isNotice`)
 2. 필드에 `@JsonProperty` — `is` 유지 (`PostResponse.isNotice`)
@@ -55,16 +58,16 @@ Jackson은 Lombok이 생성한 `isXxx()` getter에서 `is` 접두사를 제거�
 
 **영향**
 
-지금 깨진 화면은 없다. 다만 새 DTO에 `boolean isXxx` 필드를 추가할 때 어느 규칙을 따를지 코드가 알려주지 않고, 어긋나도 빌드가 통과한다. 프론트가 해당 필드를 읽으면 값은 조용히 `undefined`가 되어 falsy로 동작한다.
+지금 깨진 화면은 없다. 이 항목의 값어치는 현재 결함이 아니라 **재발 방지**에 있다. 새 DTO에 `boolean isXxx` 필드를 추가할 때 어느 규칙을 따를지 코드가 알려주지 않고, 어긋나도 빌드가 통과한다. 프론트가 해당 필드를 읽으면 값은 조용히 `undefined`가 되어 falsy로 동작한다.
 
 **제안**
 
 손으로 나열하는 테스트를 리플렉션 기반 스캔으로 교체한다. `*/dto/*` 하위 클래스를 순회하며 `boolean is[A-Z]*` 필드를 전부 수집하고, 각 필드가 다음 중 하나를 만족하지 못하면 실패시킨다.
 
-- `@JsonProperty`가 붙어 있다
+- `@JsonProperty`가 필드 또는 getter에 붙어 있다
 - 명시적 legacy 허용 목록에 등재되어 있다
 
-허용 목록은 기존 6개 DTO와 위 표의 2개로 시작한다. 이렇게 하면 신규 DTO는 규칙을 따르거나 목록에 의식적으로 등재하는 것 외의 선택지가 없어진다. 이후 `API명세서.md`의 표는 허용 목록에서 생성하거나, 최소한 목록과 표의 일치를 같은 테스트에서 검증한다.
+허용 목록은 기존 6개 DTO와 `LoginResponse.UserInfo`로 시작한다. 스캔 대상에서 agent·ad를 제외할지는 두 도메인 소유 주체와 협의해 정한다. 이렇게 하면 신규 DTO는 규칙을 따르거나 목록에 의식적으로 등재하는 것 외의 선택지가 없어진다. 이후 `API명세서.md`의 표는 허용 목록에서 생성하거나, 최소한 목록과 표의 일치를 같은 테스트에서 검증한다.
 
 ### A2. rate limit 응답 헤더를 아무도 읽지 않는다
 
@@ -319,7 +322,7 @@ zone을 지정하지 않은 일별 작업:
 - `postDraftRecovery.pickNewestDraftSnapshot`은 브라우저가 생성한 로컬 스냅샷 시각(`toISOString()`, 실제 UTC)과 서버 시각(로컬로 해석됨)을 문자열 비교해 최신본을 고른다. 계통적 편차가 있으면 항상 한쪽만 승리하므로, 임시저장 복구가 서버 최신본 또는 로컬 최신본을 일관되게 버린다.
 - 해외 사용자는 서버 timezone과 무관하게 항상 어긋난 시각을 본다.
 
-**참고**: agent 도메인 DTO는 이미 `Instant`·`OffsetDateTime`을 사용한다. 더 안전한 패턴이 저장소 안에 이미 존재하며, 사용자 대면 도메인에만 적용되지 않은 상태다.
+**E3과의 관계**: 이 항목은 "브라우저가 서버 시각을 어떻게 읽는가"의 문제다. 서버가 **어떤 기준으로 시각을 쓰는가**는 별개이며 더 심각하다. E3을 먼저 읽어야 이 절의 전제가 성립한다.
 
 **제안**
 
@@ -329,6 +332,67 @@ wire 계약 변경이므로 단계를 나눈다.
 2. **응급**: `toDate`의 문자열 분기를 배열 분기와 같은 기준으로 통일하고, 어느 쪽을 정본으로 삼을지 한 곳에 문서화한다. 두 분기가 다른 해석을 쓰는 상태 자체가 결함이다.
 3. **정본화**: 신규 응답 필드부터 `Instant`(직렬화 시 `Z` 접미사 포함)로 전환하고, 기존 필드는 A1과 같은 방식으로 legacy 허용 목록에 등재해 점진 이행한다. 프론트는 offset이 있는 문자열을 그대로 `new Date()`에 넘기면 되므로 정규화 계층이 필요 없다.
 4. 전환 전까지 `LocalDateTime` 필드가 늘어나지 않도록 A1의 DTO 스캔 테스트에 검사를 함께 넣는다.
+
+### E3. 백엔드 내부에 시간 기준 두 개가 공존한다
+
+**현상**
+
+저장되는 `LocalDateTime` 값이 두 가지 서로 다른 기준으로 생성된다.
+
+**기준 1 — KST.** `TimeConfig`가 `Clock.system(DateTimeUtils.KST_ZONE_ID)`(`Asia/Seoul`)를 빈으로 등록하고, 15개 이상의 서비스가 이를 주입받아 `LocalDateTime.now(clock)`으로 시각을 만든다. `AttendanceService`, `PostListReadService`, `ScheduledPostService`, `PollService`, `NotificationDeliveryJobProcessor`, `PushDeliveryJobProcessor` 등이 여기 속한다.
+
+**기준 2 — JVM 기본 timezone.** 다음 지점은 주입 clock을 쓰지 않고 맨 `LocalDateTime.now()`를 호출한다.
+
+| 위치 | 용도 |
+| --- | --- |
+| `BaseTimeEntity`의 `@CreatedDate`·`@LastModifiedDate` | **모든 엔티티의 `created_at`·`modified_at`** |
+| `NotificationDeliveryJobTransaction.java:51, 70, 85` | 알림 작업 실패·거부 시각 |
+| `UserSettingsService.java:87` | 온보딩 완료 시각 |
+| `ModerationAuditLog.java:88` | 감사 로그 생성 시각 |
+
+`WhiteboardApplication.java:9`의 `@EnableJpaAuditing`에는 `dateTimeProviderRef`가 지정되어 있지 않고, 커스텀 `DateTimeProvider` 빈도 없다. 따라서 Spring Data는 기본 `CurrentDateTimeProvider`를 쓰며 이는 JVM 기본 timezone을 따른다. **컨텍스트에 `Clock` 빈이 있어도 auditing은 이를 사용하지 않는다.**
+
+E1에서 확인했듯 JVM timezone은 어디에도 고정되어 있지 않고 Alpine 기본값은 UTC다.
+
+**확인된 파급 — 인기글 기간 필터**
+
+두 기준이 같은 쿼리에서 만나는 경로를 끝까지 추적했다.
+
+```
+PostListReadService.resolveTrendingSince()
+  → now() = LocalDateTime.now(clock)          // 기준 1: KST
+  → postRepository.findTrendingPosts(since, …)
+  → PostRepositoryCustomImpl:570  post.createdAt.goe(since)
+      post.createdAt = BaseTimeEntity @CreatedDate  // 기준 2: JVM 기본
+```
+
+JVM이 UTC라면 `now(KST)`가 저장값보다 9시간 앞서므로, `now(KST).minusHours(24)`는 실질적으로 `now(UTC).minusHours(15)`가 된다.
+
+| 요청 기간 | 실제 적용 구간 |
+| --- | --- |
+| `24h` | 최근 15시간 |
+| `7d` | 최근 6일 15시간 |
+| `30d` | 최근 29일 15시간 |
+
+`PostRepository.java:171-175`의 오늘·어제 버킷 분류(`:todayStart`, `:tomorrowStart`, `:yesterdayStart`)도 같은 방식으로 어긋난다.
+
+**확인된 파급 — 알림 재시도 스케줄**
+
+`NotificationDeliveryJobTransaction.fail(...)`은 `claimedAt`과 `nextAttemptAt`을 호출자(`NotificationDeliveryJobProcessor`, 기준 1)로부터 받으면서, 실패 시각은 자체적으로 `LocalDateTime.now()`(기준 2)로 만든다. 한 행 안에 9시간 어긋난 두 시각이 함께 기록되며 재시도·dead-letter 판정이 혼합된 기준을 비교한다.
+
+**전제 확인 필요**
+
+systemd 유닛이 읽는 `/etc/noviis/app.env`는 저장소에 없어 실제 `TZ` 값을 확인할 수 없다. 여기에 `TZ=Asia/Seoul`이 설정되어 있다면 두 기준이 우연히 일치해 현재는 증상이 나타나지 않는다. **그 경우에도 결함은 남는다** — 두 기준이 독립적으로 정의되어 있어 우연에 의해서만 맞고, 이 파일은 저장소 리뷰 대상이 아니며, E1을 고치려고 `TZ`를 건드리는 순간 조용히 깨진다.
+
+**제안**
+
+1. **즉시 확인**: 운영 JVM의 `user.timezone`과 `created_at` 표본값의 기준을 확인한다. 이 값이 이후 모든 판단의 전제다.
+2. **기준 통일**: `@EnableJpaAuditing(dateTimeProviderRef = "auditingDateTimeProvider")`와 함께 주입 `Clock`을 사용하는 `DateTimeProvider` 빈을 등록해 auditing을 기준 1로 맞춘다. 이것만으로 가장 넓은 표면(모든 엔티티의 `created_at`)이 정리된다.
+3. **잔여 지점 정리**: 위 표의 나머지 3개 지점을 주입 `Clock` 사용으로 바꾼다.
+4. **회귀 방지**: 맨 `LocalDateTime.now()`·`LocalDate.now()` 호출을 금지하는 정적 검사를 추가한다. ArchUnit 또는 기존 `deploy/monitoring`의 파이썬 검증 스크립트 방식 어느 쪽이든 가능하다.
+5. **데이터 보정**: 1번 확인 결과 기존 데이터에 두 기준이 섞여 있다면, 보정 범위와 방법을 별도 마이그레이션으로 다룬다. 코드만 고치면 과거 행은 어긋난 채 남는다.
+
+2~3번은 저장 시각의 의미를 바꾸므로 5번과 함께 계획해야 한다. 순서를 뒤집으면 신·구 데이터가 섞인다.
 
 ## F. 내부 API 설계
 
@@ -343,13 +407,15 @@ wire 계약 변경이므로 단계를 나눈다.
 | `bounded(Pageable, int defaultPageSize, int maxPageSize)` | 기본 크기 |
 | `bounded(Pageable, int maxPageSize, Sort, Set)` | **최대 크기** (기본값으로도 함께 쓰임) |
 
-두 형태 모두 실제로 사용된다. `AgentNoteService:54`는 전자를, `AgentQueryService:300`은 후자를 호출하며 두 파일은 같은 도메인에 인접해 있다.
+**범위 주의**: `bounded(...)` 호출부는 저장소 전체에 5곳뿐이며 **전부 agent 도메인**(`AgentNoteService`, `AgentQueryService`)이다. 이번 검토 범위에는 호출부가 하나도 없다. 반면 `PageRequestUtils` 자체는 `global/common/util`에 있는 공용 클래스이고, 범위 내 코드는 `of(...)` 계열을 68곳에서 사용한다.
 
 또한 잘못된 입력의 처리 방식도 계열마다 다르다. `of(...)`는 `size < 1`에 `VALIDATION_ERROR`를 던지고, `bounded(...)`는 `Math.max(requestedSize, 1)`로 조용히 보정한다.
 
 **영향**
 
-호출부만 읽어서는 두 번째 인자가 기본값인지 상한인지 판별되지 않는다. 오버로드를 잘못 고르면 페이지 크기 상한이 조용히 바뀌며, 타입이 같으므로 컴파일러도 테스트도 잡지 못한다.
+현재 범위 내에서 실제로 잘못 호출되고 있는 곳은 없다. 다만 공용 유틸리티에 남은 잠재적 함정이다. 범위 내 도메인이 향후 `bounded(...)`를 쓰기 시작하면 두 번째 인자가 기본값인지 상한인지 호출부만으로 판별되지 않고, 타입이 같으므로 컴파일러도 테스트도 잡지 못한다. `of`와 `bounded`의 입력 검증 방식이 다른 점은 지금도 공용 유틸리티의 일관성 문제다.
+
+우선순위가 낮은 이유가 여기에 있다. **범위 내 실사용 결함이 아니라 공용 코드의 설계 정리 항목이다.**
 
 **제안**
 
@@ -397,13 +463,14 @@ wire 계약 변경이므로 단계를 나눈다.
 
 의존 관계를 고려한 순서다.
 
-0. **E2의 1단계(운영 JVM timezone 확인)** — 조사만으로 끝나며 비용이 거의 없다. 결과에 따라 E1·E2의 실제 심각도가 확정되므로 가장 먼저 수행한다.
-1. **E1** — 스케줄러 2개에 `zone`을 추가하는 국소 변경이다. E2 확인 결과와 무관하게 안전하며, `TZ` 방식을 배제하는 판단만 지키면 된다.
-2. **A2** — 이미 구현·검증된 서버 기능을 클라이언트에 연결하는 것으로, 변경 범위가 좁고 효과가 즉시 나타난다.
-3. **A1** — 이후 모든 DTO 변경의 재발을 막는 구조적 방어이며, A6와 E2 4단계의 선행 조건이다.
-4. **E2의 2단계(`toDate` 분기 통일)** — 두 분기가 다른 기준을 쓰는 상태를 먼저 없앤다. wire 변경 없이 프론트 안에서 끝난다.
-5. **A4**, **A3** — 사용자에게 보이는 오류 표시와 실시간 채널의 신뢰도를 올린다.
-6. **A5**, **E2의 3~4단계** — 서버 정책 설계와 wire 계약 이행이 필요하므로 별도 논의를 거친다.
-7. **B1**, **B2**, **C1**, **D1**, **F1** — 국소 변경이며 위 항목과 독립적으로 처리 가능하다.
-8. **A6**, **A7** — A1 완료 후 착수한다.
-9. **F2** — 수평 확장 계획이 생길 때 착수한다.
+0. **E3의 1단계(운영 JVM timezone과 `created_at` 표본 확인)** — 조사만으로 끝나며 비용이 거의 없다. E1·E2·E3의 실제 심각도가 모두 이 결과에 달려 있으므로 가장 먼저 수행한다.
+1. **E3의 2~3단계(시간 기준 통일)** — 현재 동작에 영향이 확인된 유일한 항목이다. 5단계(데이터 보정)와 함께 계획한다.
+2. **E1** — 스케줄러 2개에 `zone`을 추가하는 국소 변경이다. E3 확인 결과와 무관하게 안전하며, `TZ` 방식을 배제하는 판단만 지키면 된다.
+3. **A2** — 이미 구현·검증된 서버 기능을 클라이언트에 연결하는 것으로, 변경 범위가 좁고 효과가 즉시 나타난다.
+4. **E2의 2단계(`toDate` 분기 통일)** — E3의 기준이 확정된 뒤에 착수한다. 그전에 손대면 잘못된 기준으로 고정된다.
+5. **A1** — 이후 모든 DTO 변경의 재발을 막는 구조적 방어이며, A6의 선행 조건이다. E3 4단계의 정적 검사와 함께 설계하면 작업이 겹치지 않는다.
+6. **A4**, **A3** — 사용자에게 보이는 오류 표시와 실시간 채널의 신뢰도를 올린다.
+7. **A5** — 서버 정책 설계가 필요하므로 별도 논의를 거친다.
+8. **B1**, **B2**, **C1**, **D1** — 국소 변경이며 위 항목과 독립적으로 처리 가능하다.
+9. **A6**, **A7** — A1 완료 후 착수한다.
+10. **F1**, **F2** — 범위 내 실사용 결함이 아니다. 공용 유틸리티 정리나 수평 확장 계획이 생길 때 착수한다.
