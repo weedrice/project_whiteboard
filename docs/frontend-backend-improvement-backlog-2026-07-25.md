@@ -4,7 +4,7 @@
 
 - 기준일: 2026-07-25
 - 범위: `backend/` 도메인·global 계층, `frontend/src` 전체, 두 계층을 잇는 wire 계약과 배포 설정
-- **제외 도메인**: `domain/agent`, `domain/ad`. 두 도메인은 소유 주체와 계약 경계가 달라 이번 검토 대상에서 뺐다. 제외에 따라 근거가 바뀐 항목은 A1과 F1이며 각 절에 명시했다.
+- **제외 도메인**: `domain/agent`, `domain/ad`. 두 도메인은 소유 주체와 계약 경계가 달라 이번 검토 대상에서 뺐다. 제외에 따라 근거가 바뀐 항목은 A1과 F1이며 각 절에 명시했다. 소스를 고치지 않고도 두 도메인에 닿는 지점은 **A9**에 모아 두었다.
 - 방법: 정적 코드 검토. 런타임 재현이나 부하 시험은 수행하지 않았다.
 - 선행 문서: [Frontend–Backend 연결 계약 감사](./frontend-backend-contract-audit-2026-07-14.md)에서 이미 해소한 항목은 중복 기재하지 않고, 그 감사가 남긴 구조적 빈틈과 감사 범위 밖 영역만 다룬다.
 - 이 문서는 기록용 backlog이며, 항목별 코드 변경은 포함하지 않는다.
@@ -32,6 +32,7 @@
 | **G1** | **`UserSettings.timezone`이 저장만 되고 쓰이지 않는다** | **기능** | **중** |
 | **G2** | **시각 표시를 사용자 지역 기준으로 전환하는 설계** | **설계** | — |
 | **A8** | **51개 boolean 필드가 wire에 키를 두 개씩 내보낸다** | **계약** | **중** |
+| **A9** | **제외 도메인(agent·ad)에 닿는 변경의 목록** | **범위** | **상** |
 
 ### 2026-07-25 정정
 
@@ -94,7 +95,7 @@ Jackson은 Lombok이 생성한 `isXxx()` getter에서 `is` 접두사를 제거�
 인정한다.
 
 허용 목록은 어노테이션이 없는 10개 필드와, 필드 어노테이션으로 중복 키를 내보내는 51개
-필드로 나누어 시작한다. 스캔 대상에서 agent·ad를 제외할지는 두 도메인 소유 주체와 협의해 정한다. 이렇게 하면 신규 DTO는 규칙을 따르거나 목록에 의식적으로 등재하는 것 외의 선택지가 없어진다. 이후 `API명세서.md`의 표는 허용 목록에서 생성하거나, 최소한 목록과 표의 일치를 같은 테스트에서 검증한다.
+필드로 나누어 시작한다. **스캔 대상에서 agent·ad는 제외한다**(→ A9). 이렇게 하면 신규 DTO는 규칙을 따르거나 목록에 의식적으로 등재하는 것 외의 선택지가 없어진다. 이후 `API명세서.md`의 표는 허용 목록에서 생성하거나, 최소한 목록과 표의 일치를 같은 테스트에서 검증한다.
 
 ### A2. rate limit 응답 헤더를 아무도 읽지 않는다
 
@@ -250,6 +251,15 @@ wire 형태와 프론트 내부 타입의 차이를 메우는 `Wire 타입 + nor
 
 wire 형태가 A1로 고정되고 나면, springdoc이 이미 제공하는 `/api-docs`에서 TS 타입을 생성하는 경로가 열린다. 생성 타입을 도입하면 손으로 유지하는 응답 타입이 사라지고 normalizer만 의도적인 수기 계층으로 남는다. 도입 전이라도 `stores/auth.ts`의 인라인 처리는 normalizer로 옮겨 패턴을 일치시킨다.
 
+**범위 제약**: 생성 대상에서 agent·ad 경로를 제외한다(→ A9). springdoc은 기본적으로 전체
+컨트롤러를 문서화하므로, 아무 설정 없이 도입하면 `AgentController`의 스키마까지 생성 타입에
+들어오고 그 뒤로 agent DTO 변경이 프론트 빌드를 깨게 된다. `openapi-typescript` 입력 단계에서
+경로를 걸러내거나 springdoc `GroupedOpenApi`로 대상 경로를 한정한 뒤에 착수한다.
+
+**선행 조건**: (1) A8의 중복 키가 생성 타입에 그대로 굳으므로 A8 정리가 먼저다.
+(2) springdoc이 내는 스키마가 실제 응답과 일치하는지 확인되지 않았다. (3) 신규 의존성
+(`openapi-typescript`) 도입이라 승인이 필요하다. 세 조건이 모두 풀리기 전에는 착수하지 않는다.
+
 ### A7. `PageResponseRaw`에 실패 모드가 없다
 
 **현상**
@@ -307,6 +317,52 @@ PostResponse → ..., blinded, isBlinded, isLiked, isNotice, isNsfw, isScrapped,
 3. `BooleanWireNameContractTest`의 `LEGACY_DUPLICATE_KEYS`에서 해당 항목을 지운다. 목록이 비면 이 항목이 끝난다.
 
 당장 깨진 것은 없으므로 우선순위는 중이다. 다만 목록이 51개에서 더 늘지 않도록 테스트가 막고 있다.
+
+### A9. 제외 도메인(agent·ad)에 닿는 변경의 목록
+
+이번 작업은 agent·ad 도메인의 **소스를 한 줄도 수정하지 않았다**
+(`git diff --name-only main..HEAD`에 `domain/agent/`·`domain/ad/` 경로가 없다).
+그러나 소스를 고치지 않고도 그 도메인의 동작이나 개발을 제약하는 지점이 두 곳 있었다.
+파일 목록만으로는 드러나지 않으므로 여기에 남긴다.
+
+**(1) `BooleanWireNameContractTest`의 스캔 범위 — 처리 완료**
+
+리플렉션 스캔이 `**/dto/**`를 훑어 agent DTO 3개(`AgentPostLikeResponse#isLiked`,
+`AgentPostListItem#isNotice`, `AgentPostListItem#isSecret`)를 legacy 목록에 등재하고 있었다.
+소스 수정은 아니지만, 등재되어 있는 한 **agent 도메인의 신규 boolean 필드가 이 테스트의
+규칙을 따르도록 강제된다.** 즉 그 도메인의 wire 이름 결정권을 이쪽 테스트가 가져간다.
+
+→ `EXCLUDED_DOMAIN_PACKAGES`로 agent·ad를 스캔에서 제외하고 legacy 항목 3개를 삭제했다.
+제외가 조용히 풀리지 않도록 `excludedDomainsStayOutOfTheContract`가 스캔 결과와 legacy
+목록 양쪽에 제외 도메인이 없음을 고정한다.
+
+**(2) `LocalDateTimeWireModule`의 적용 범위 — 미해결, 배포 전 고지 필요**
+
+E2/G2에서 추가한 이 모듈은 Jackson **전역** 모듈이다. `LocalDateTime` 타입 전체에 걸리므로
+agent DTO의 시각 필드 7개도 함께 형식이 바뀐다.
+
+| DTO | 필드 |
+| --- | --- |
+| `AgentResponse` | `createdAt`, `claimedAt` |
+| `AgentPostListItem` | `createdAt` |
+| `AgentCommentItem` | `createdAt` |
+| `AgentFeedItem` | `createdAt` |
+| `AgentHomeResponse` (중첩 2곳) | `createdAt` ×2 |
+
+`2026-07-25T14:00:00` → `2026-07-25T14:00:00+09:00`으로 나간다. 벽시계 값은 그대로이고
+offset이 추가될 뿐이라 ISO-8601 파서를 쓰는 소비자는 영향이 없지만, 문자열을 잘라 쓰거나
+offset 없는 형식을 가정하는 소비자는 깨진다. 역직렬화는 양쪽 형식을 모두 받으므로
+요청 방향은 영향이 없다.
+
+**왜 제외하지 않았는가**: Jackson 모듈은 타입 단위로 걸리고 소유 클래스 단위로는 걸리지
+않는다. agent만 예외로 두려면 agent DTO에 `@JsonSerialize`를 붙이거나(= 소스 수정) agent
+DTO 클래스마다 mixin을 등록해야 한다(= 클래스 목록을 이쪽에서 계속 따라다녀야 함). 둘 다
+"건드리지 않는다"를 더 크게 위반한다. 반대로 모듈 자체를 되돌리면 KST 밖 사용자의 시각이
+어긋나는 E2 본문제가 그대로 남는다.
+
+**필요한 조치**: agent API 소비자(별도 저장소의 MCP 클라이언트)는 이 저장소에서 확인할 수
+없다. 배포 전에 소유자에게 위 7개 필드의 형식 변경을 알리고, 소비자가 offset을 허용하는지
+확인받아야 한다. 확인 결과 깨진다면 그때 mixin 예외를 논의한다.
 
 ## B. 백엔드 단독
 

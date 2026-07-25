@@ -44,12 +44,23 @@ import static org.assertj.core.api.Assertions.assertThat;
  * <p>신규 DTO는 getter 패턴을 쓰거나, 기존 계약을 유지해야 한다면 아래 목록에 등재해야 한다.
  * record와 Lombok 빌더는 제외한다. record는 컴포넌트 이름이 그대로 쓰여 접두사가 유지되고,
  * 빌더는 직렬화 대상이 아니다.
+ *
+ * <p>{@code agent}·{@code ad} 도메인도 제외한다. 자세한 이유는 {@link #EXCLUDED_DOMAIN_PACKAGES}.
  */
 class BooleanWireNameContractTest {
 
     private static final String MAIN_CLASSES_MARKER = "/classes/java/main/";
     private static final String DTO_RESOURCE_PATTERN =
             "classpath*:com/weedrice/whiteboard/**/dto/**/*.class";
+
+    /**
+     * 이 계약에서 제외하는 도메인. 검사 대상에 넣으면 해당 도메인의 신규 DTO가 여기의
+     * 규칙을 따르도록 강제되므로, 소스를 고치지 않아도 사실상 그 도메인을 건드리게 된다.
+     * 소유자가 따로 있는 영역이라 wire 이름 결정도 그쪽에 맡긴다.
+     */
+    private static final Set<String> EXCLUDED_DOMAIN_PACKAGES = Set.of(
+            "com.weedrice.whiteboard.domain.agent.",
+            "com.weedrice.whiteboard.domain.ad.");
 
     /** 스캔이 조용히 반쪽만 돌지 않았는지 보는 하한. 현재 290개가 넘는다. */
     private static final int MINIMUM_EXPECTED_DTO_CLASSES = 100;
@@ -67,8 +78,7 @@ class BooleanWireNameContractTest {
             "com.weedrice.whiteboard.domain.admin.dto.AdminResponse#isActive",
             "com.weedrice.whiteboard.domain.admin.dto.SuperAdminResponse#isSuperAdmin",
             "com.weedrice.whiteboard.domain.admin.dto.SuperAdminUpdateResponse#isSuperAdmin",
-            "com.weedrice.whiteboard.domain.feed.dto.FeedResponse$FeedSummary#isRead",
-            "com.weedrice.whiteboard.domain.agent.dto.AgentPostLikeResponse#isLiked");
+            "com.weedrice.whiteboard.domain.feed.dto.FeedResponse$FeedSummary#isRead");
 
     /**
      * 필드에 {@code @JsonProperty}가 붙어 {@code xxx}와 {@code isXxx}가 <b>둘 다</b> 나가는 필드.
@@ -78,8 +88,6 @@ class BooleanWireNameContractTest {
      * getter 패턴으로 옮긴 뒤 목록에서 지우는 순서로 진행해야 한다.
      */
     private static final Set<String> LEGACY_DUPLICATE_KEYS = Set.of(
-            "com.weedrice.whiteboard.domain.agent.dto.AgentPostListItem#isNotice",
-            "com.weedrice.whiteboard.domain.agent.dto.AgentPostListItem#isSecret",
             "com.weedrice.whiteboard.domain.auth.dto.VerifyCodeResponse#isReregister",
             "com.weedrice.whiteboard.domain.board.dto.AdminBoardResponse#isActive",
             "com.weedrice.whiteboard.domain.board.dto.AdminBoardResponse#isPublic",
@@ -177,6 +185,31 @@ class BooleanWireNameContractTest {
     }
 
     @Test
+    @DisplayName("제외 도메인은 스캔에도 legacy 목록에도 들어오지 않는다")
+    void excludedDomainsStayOutOfTheContract() throws IOException {
+        assertThat(findDtoClasses())
+                .as("제외 도메인의 DTO가 스캔에 들어왔다. 들어오면 그 도메인의 신규 필드가 "
+                        + "이 계약을 따르도록 강제된다")
+                .noneMatch(dtoClass -> isExcludedDomain(dtoClass.getName()));
+
+        List<String> leaked = new ArrayList<>();
+        for (String key : List.copyOf(LEGACY_PREFIX_STRIPPED)) {
+            if (isExcludedDomain(key)) {
+                leaked.add(key);
+            }
+        }
+        for (String key : List.copyOf(LEGACY_DUPLICATE_KEYS)) {
+            if (isExcludedDomain(key)) {
+                leaked.add(key);
+            }
+        }
+        assertThat(leaked)
+                .as("제외 도메인의 필드가 legacy 목록에 남아 있다. 스캔에서 빠지므로 "
+                        + "legacyListsHaveNoStaleEntries가 항상 실패한다")
+                .isEmpty();
+    }
+
+    @Test
     @DisplayName("어노테이션 위치별 wire 이름 규칙을 실제 직렬화로 고정한다")
     void wireNamingRulesHoldForRealDtos() {
         JsonMapper mapper = JsonMapper.builder().build();
@@ -258,6 +291,9 @@ class BooleanWireNameContractTest {
                 continue;
             }
             String className = metadataReaderFactory.getMetadataReader(resource).getClassMetadata().getClassName();
+            if (isExcludedDomain(className)) {
+                continue;
+            }
             try {
                 classes.add(Class.forName(className, false, BooleanWireNameContractTest.class.getClassLoader()));
             } catch (ClassNotFoundException | NoClassDefFoundError e) {
@@ -272,6 +308,10 @@ class BooleanWireNameContractTest {
                 .as("스캔이 반쪽만 돌았을 수 있다. 컴파일 산출물이 최신인지 확인할 것")
                 .hasSizeGreaterThanOrEqualTo(MINIMUM_EXPECTED_DTO_CLASSES);
         return classes;
+    }
+
+    private static boolean isExcludedDomain(String className) {
+        return EXCLUDED_DOMAIN_PACKAGES.stream().anyMatch(className::startsWith);
     }
 
     /**

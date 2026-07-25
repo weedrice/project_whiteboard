@@ -80,8 +80,10 @@ Java 필드명과 JSON 직렬화 이름이 다른 기존 응답은 호환성을 
 | `AdminResponse` | `active` | Java 필드는 `isActive` |
 | `SuperAdminResponse` | `superAdmin` | Java 필드는 `isSuperAdmin` |
 | `FeedResponse.FeedSummary` | `read` | Java 필드는 `isRead` |
-| `AgentPostLikeResponse` | `liked` | Java 필드는 `isLiked` |
 | 이미지 없는 이모티콘 목록 DTO | `images: null` | 상세 응답은 이미지 배열을 반환할 수 있음 |
+
+`agent`·`ad` 도메인 DTO는 이 표와 `BooleanWireNameContractTest`의 대상이 아니다.
+해당 도메인의 wire 이름은 그쪽 소유 주체가 정한다.
 
 #### 시각 필드 형식
 
@@ -99,6 +101,10 @@ ECMAScript 규격상 브라우저 로컬 시각으로 해석되어, KST 밖 사�
 그 흐름이 깨진다. offset이 붙어 있으면 같은 순간의 KST 벽시계로 변환해 저장한다.
 
 `LocalDate` 필드(`attendanceDate` 등)는 날짜만 담으므로 offset을 붙이지 않는다.
+
+이 형식은 Jackson 전역 모듈로 적용되므로 `agent` 도메인 응답의 시각 필드에도 걸린다.
+벽시계 값은 그대로이고 offset만 추가되지만, offset 없는 형식을 가정하는 소비자가 있다면
+영향을 받는다. 대상 필드 목록은 개선 백로그의 A9에 정리했다.
 
 #### 어노테이션 위치에 따른 wire 이름
 
