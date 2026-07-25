@@ -30,6 +30,7 @@ import { AUTH_SCOPED_QUERY_META, sessionQueryKey } from '@/queryAuthScope'
 import { userQueryKeys } from '@/features/user/userQueryKeys'
 import { queryClient } from '@/queryClient'
 import ErrorState from '@/components/common/ui/ErrorState.vue'
+import { toDateTimeLocalInputValue } from '@/utils/date'
 import {
   POST_POLL_MAX_OPTIONS,
   POST_POLL_MIN_OPTIONS,
@@ -403,7 +404,8 @@ function hydrateScheduledPost(value: typeof scheduledPost.value) {
     poll: value.poll ?? null,
     fileIds: value.fileIds ?? [],
   })
-  scheduledAt.value = value.scheduledAt
+  // offset이 붙은 값을 그대로 넣으면 datetime-local 입력이 빈칸이 된다.
+  scheduledAt.value = toDateTimeLocalInputValue(value.scheduledAt)
   markCurrentComposerSaved()
 }
 watch(scheduledPost, hydrateScheduledPost, { immediate: true })

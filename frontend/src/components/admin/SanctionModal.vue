@@ -231,12 +231,30 @@ function resolveEndDate() {
 
   const endDate = new Date()
   endDate.setDate(endDate.getDate() + durationDays)
-  return formatLocalDateTime(endDate)
+  return formatServerDateTime(endDate)
 }
 
-function formatLocalDateTime(date: Date) {
-  const pad = (value: number) => value.toString().padStart(2, '0')
+/**
+ * 제재 종료 시각을 서버 기준(KST) 벽시계로 만든다.
+ *
+ * 브라우저 로컬 벽시계를 그대로 보내면 서버가 그것을 KST로 읽어, 한국 밖 관리자가 건
+ * 7일 정지가 실제로는 시차만큼 일찍 풀린다. 서버가 읽는 기준에 맞춰 만든다.
+ */
+function formatServerDateTime(date: Date) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).formatToParts(date)
 
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+  const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? ''
+  const hour = get('hour') === '24' ? '00' : get('hour')
+
+  return `${get('year')}-${get('month')}-${get('day')}T${hour}:${get('minute')}:${get('second')}`
 }
 </script>

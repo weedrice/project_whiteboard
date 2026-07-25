@@ -1,4 +1,4 @@
-import { rememberUserTimeZone } from '@/utils/displayTimeZone'
+import { AUTO_TIME_ZONE, rememberUserTimeZone } from '@/utils/displayTimeZone'
 import { computed, reactive, ref, watch, type Ref } from 'vue'
 import type { NotificationSettingType, NotificationSettingsBulkPayload, NotificationSettingsPayload } from '@/api/user'
 import logger from '@/utils/logger'
@@ -42,7 +42,7 @@ export function useUserSettingsForm(options: UseUserSettingsFormOptions) {
   const createDefaultForm = (): UserSettingsForm => ({
     theme: 'LIGHT',
     language: 'ko',
-    timezone: 'Asia/Seoul',
+    timezone: AUTO_TIME_ZONE,
     hideNsfw: true
   })
   const form = reactive<UserSettingsForm>(createDefaultForm())
@@ -63,7 +63,7 @@ export function useUserSettingsForm(options: UseUserSettingsFormOptions) {
   const toFormSnapshot = (value: UserSettings): UserSettingsForm => ({
     theme: value.theme,
     language: value.language,
-    timezone: Object.hasOwn(value, 'timezone') ? value.timezone : form.timezone,
+    timezone: Object.hasOwn(value, 'timezone') ? (value.timezone || AUTO_TIME_ZONE) : form.timezone,
     hideNsfw: Object.hasOwn(value, 'hideNsfw') ? value.hideNsfw : form.hideNsfw
   })
 
@@ -114,7 +114,9 @@ export function useUserSettingsForm(options: UseUserSettingsFormOptions) {
     const payload: UserSettingsForm & { language: UserSettings['language'] } = {
       theme: form.theme,
       language: form.language as UserSettings['language'],
-      timezone: form.timezone,
+      // AUTO는 프론트 전용 표식이다. 서버 normalizeTimezone은 ZoneId.of로 검증하므로
+      // 그대로 보내면 400이 나고 테마·언어까지 함께 저장에 실패한다.
+      timezone: form.timezone === AUTO_TIME_ZONE ? undefined : form.timezone,
       hideNsfw: form.hideNsfw
     }
     try {

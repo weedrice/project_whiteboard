@@ -4,6 +4,17 @@ function stripHtml(html) {
     return String(html ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
 }
 
+/** 서비스 기준 지역. 빌드 컨테이너 지역(UTC)이 아니라 독자 기준으로 그린다. */
+const SERVICE_TIME_ZONE = 'Asia/Seoul'
+
+function formatServiceDateTime(value) {
+    return new Intl.DateTimeFormat('ko-KR', {
+        timeZone: SERVICE_TIME_ZONE,
+        dateStyle: 'long',
+        timeStyle: 'short',
+    }).format(new Date(value))
+}
+
 function escapeHtml(value) {
     return String(value ?? '')
         .replace(/&/g, '&amp;')
@@ -49,7 +60,7 @@ export function buildPreRenderedSnippet(post, canonicalUrl, ogImage) {
         body: `
 <article data-prerendered="true" style="max-width:760px;margin:0 auto;padding:24px 16px;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;line-height:1.6;color:#111827;">
   <h1 style="font-size:1.75rem;font-weight:700;margin:0 0 12px;">${escapeHtml(title)}</h1>
-  <p style="font-size:0.875rem;color:#6b7280;margin:0 0 20px;">${escapeHtml(authorName)}${createdAt ? ` | <time datetime="${createdAt}">${escapeHtml(new Date(createdAt).toLocaleString('ko-KR'))}</time>` : ''}</p>
+  <p style="font-size:0.875rem;color:#6b7280;margin:0 0 20px;">${escapeHtml(authorName)}${createdAt ? ` | <time datetime="${createdAt}">${escapeHtml(formatServiceDateTime(createdAt))}</time>` : ''}</p>
   <section class="post-prerender-body">${articleBody}</section>
 </article>`.trim()
     }

@@ -1,10 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { rememberUserTimeZone, resetUserTimeZoneResolverForTest } from '@/utils/displayTimeZone'
+import { Storage } from '@/utils/storage'
 import {
     formatDateOnlyLongOrDash,
     formatDateTimeOrDash,
     formatRelativeDate,
     formatTimeAgo,
-    withServerOffset
+    withServerOffset,
+    formatDateShort,
+    formatDateOnly
 } from '../date'
 
 describe('date utilities', () => {
@@ -89,5 +93,45 @@ describe('서버 시각을 지역과 무관하게 같은 순간으로 읽는다'
 
         expect(withoutOffset).toBe(withOffset)
         expect(asUtc).toBe(withOffset)
+    })
+})
+
+describe('표시 지역을 바꾸면 판정과 표시가 함께 따라간다', () => {
+    afterEach(() => {
+        Storage.remove('displayTimeZone')
+        resetUserTimeZoneResolverForTest()
+        vi.useRealTimers()
+    })
+
+    it('"오늘" 판정을 표시 지역 기준으로 한다', () => {
+        // 실행 지역은 UTC로 고정돼 있다. 표시 지역을 뉴욕으로 두면
+        // KST 오전 9시 글은 뉴욕 기준 전날이므로 시각이 아니라 날짜로 그려져야 한다.
+        vi.useFakeTimers()
+        vi.setSystemTime(new Date('2026-07-25T05:00:00Z')) // 뉴욕 2026-07-25 01:00
+        rememberUserTimeZone('America/New_York')
+
+        const previousDayInNewYork = formatRelativeDate('2026-07-25T09:00:00+09:00')
+
+        expect(previousDayInNewYork).toContain('2026')
+    })
+
+    it('같은 순간을 표시 지역에 맞춰 그린다', () => {
+        rememberUserTimeZone('America/New_York')
+        const inNewYork = formatDateShort('2026-07-25T09:00:00+09:00')
+
+        rememberUserTimeZone('Asia/Seoul')
+        const inSeoul = formatDateShort('2026-07-25T09:00:00+09:00')
+
+        expect(inSeoul).toBe('26.07.25 09:00')
+        expect(inNewYork).toBe('26.07.24 20:00')
+    })
+
+    it('짧은 표기와 전체 표기가 같은 날짜를 가리킨다', () => {
+        rememberUserTimeZone('America/New_York')
+        const value = '2026-07-25T09:00:00+09:00'
+
+        // 한쪽만 기기 지역을 쓰면 같은 댓글의 두 표기가 하루씩 어긋난다.
+        expect(formatDateShort(value)).toContain('07.24')
+        expect(formatDateOnly(value)).toContain('24')
     })
 })

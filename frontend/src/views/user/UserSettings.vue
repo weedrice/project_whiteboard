@@ -171,18 +171,29 @@ const {
 })
 
 /**
- * 고를 수 있는 시간대. 전 세계 목록을 나열하면 선택이 어려우므로
- * 서버 기준, 기기 기준, 이미 저장된 값만 보여 준다. "자동"이 기본값이라
- * 대부분의 사용자는 이 목록을 건드릴 필요가 없다.
+ * 고를 수 있는 시간대.
+ *
+ * 서버·기기·저장된 값만 보여 주면 다른 지역을 고를 방법이 없어, 여행 중이거나 해외에
+ * 거주하는 사용자가 이 기능을 쓸 수 없다. 브라우저가 전체 목록을 알려 주면 그것을 쓰고,
+ * 알려 주지 못하는 환경에서만 최소 목록으로 떨어진다.
  */
 const selectableTimeZones = computed(() => {
-  const zones = new Set<string>([SERVER_TIME_ZONE])
+  const zones = new Set<string>(supportedTimeZones())
+  zones.add(SERVER_TIME_ZONE)
   const detected = detectBrowserTimeZone()
   if (detected) zones.add(detected)
   const current = userSettingsForm.timezone
   if (current && current !== AUTO_TIME_ZONE) zones.add(current)
   return [...zones].sort()
 })
+
+function supportedTimeZones(): string[] {
+  try {
+    return Intl.supportedValuesOf?.('timeZone') ?? []
+  } catch {
+    return []
+  }
+}
 
 const {
   canSave: canSaveNotifications,

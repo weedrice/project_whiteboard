@@ -31,11 +31,21 @@ function escapeXml(value) {
         .replace(/'/g, '&apos;')
 }
 
+/** 서비스 기준 지역. lastmod는 서비스의 하루 경계를 따라야 한다. */
+const SERVICE_TIME_ZONE = 'Asia/Seoul'
+
 function toLastmod(value) {
     if (!value) return null
     const date = new Date(value)
     if (Number.isNaN(date.valueOf())) return null
-    return date.toISOString().slice(0, 10)
+    // toISOString()은 UTC 기준이라 KST 새벽에 작성된 글이 하루 이르게 기록된다.
+    // 서비스 기준 지역의 날짜를 쓴다.
+    return new Intl.DateTimeFormat('en-CA', {
+        timeZone: SERVICE_TIME_ZONE,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+    }).format(date)
 }
 
 function toSortTimestamp(value) {

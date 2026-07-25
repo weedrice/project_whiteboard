@@ -1,5 +1,5 @@
 import type { SupportedLocale } from '@/locales/types'
-import { getDisplayTimeZone } from '@/utils/displayTimeZone'
+import { SERVER_TIME_ZONE, getDisplayTimeZone } from '@/utils/displayTimeZone'
 
 type DateFormatterKind = 'dateTime' | 'dateOnly' | 'longDateOnly' | 'timeOnly'
 
@@ -67,7 +67,8 @@ const HAS_EXPLICIT_OFFSET = /(?:Z|[+-]\d{2}:?\d{2})$/i
  * 도착하는 값이 있을 수 있어(캐시된 응답, 예전 클라이언트가 저장한 값) 그런 경우에도
  * 서버 기준인 KST로 해석한다. 브라우저 로컬로 해석하면 KST 밖 사용자에게 어긋난다.
  *
- * 배열 형태는 Jackson이 timestamp 배열로 직렬화했을 때의 형식이며 UTC 기준이다.
+ * 배열 형태는 Jackson이 timestamp 배열로 직렬화하던 시절의 형식이다. 현재 백엔드는
+ * 항상 offset이 붙은 문자열을 내보내므로 도달하지 않지만, 캐시된 예전 응답을 위해 남긴다.
  */
 function toDate(dateString: DateInput): Date | null {
     if (!dateString) return null
@@ -120,14 +121,39 @@ export function formatDateOnlyLongOrDash(dateString: DateInput, locale: Supporte
  * If the date is today, returns the time (e.g., "14:30").
  * Otherwise, returns the date (e.g., "2023. 10. 27.").
  */
+
+/**
+ * 표시 지역 기준의 달력 필드를 뽑는다.
+ *
+ * `Date`의 `getFullYear`/`getDate` 같은 접근자는 항상 기기 지역을 쓴다. 그 값으로 "오늘"을
+ * 판정한 뒤 표시 지역으로 그리면 둘이 어긋나, 표시 지역에서는 어제인 글이 시각만 찍혀 나온다.
+ * 판정과 표시를 같은 지역에서 하도록 여기서 한 번에 뽑는다.
+ */
+function displayZoneParts(date: Date) {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: getDisplayTimeZone(),
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+    }).formatToParts(date)
+
+    const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? ''
+    const hour = get('hour') === '24' ? '00' : get('hour')
+
+    return { year: get('year'), month: get('month'), day: get('day'), hour, minute: get('minute') }
+}
+
 export function formatRelativeDate(dateString: string, locale: SupportedLocale = 'ko'): string {
     const date = toDate(dateString)
     if (!date) return ''
-    const today = new Date()
 
-    const isToday = date.getDate() === today.getDate() &&
-        date.getMonth() === today.getMonth() &&
-        date.getFullYear() === today.getFullYear()
+    // "오늘"인지는 표시 지역 기준으로 판정해야 화면에 그려지는 날짜와 어긋나지 않는다.
+    const target = displayZoneParts(date)
+    const today = displayZoneParts(new Date())
+    const isToday = target.year === today.year && target.month === today.month && target.day === today.day
 
     if (isToday) {
         return formatter('timeOnly', locale).format(date)
@@ -148,12 +174,9 @@ export function formatDateShort(dateString: string | number[]): string {
     const date = toDate(dateString)
     if (!date) return ''
 
-    const yy = String(date.getFullYear()).slice(-2)
-    const mm = String(date.getMonth() + 1).padStart(2, '0')
-    const dd = String(date.getDate()).padStart(2, '0')
-    const hh = String(date.getHours()).padStart(2, '0')
-    const mi = String(date.getMinutes()).padStart(2, '0')
-    return `${yy}.${mm}.${dd} ${hh}:${mi}`
+    // 같은 화면의 다른 시각 표시와 지역이 어긋나지 않도록 표시 지역을 따른다.
+    const { year, month, day, hour, minute } = displayZoneParts(date)
+    return `${year.slice(-2)}.${month}.${day} ${hour}:${minute}`
 }
 
 export function formatDateOnly(dateString: string | number[], locale: SupportedLocale = 'ko'): string {
@@ -178,5 +201,36 @@ export function formatTimeAgo(dateString: string | number[], t: (key: string, va
     const days = Math.floor(hours / 24)
     if (days < 7) return t('common.time.daysAgo', { count: days })
 
-    return date.toLocaleDateString()
+    return formatter('dateOnly', 'ko').format(date)
+}
+
+/**
+ * 서버 시각을 `<input type="datetime-local">`이 받아들이는 형식으로 바꾼다.
+ *
+ * HTML 규격상 offset이 붙은 값은 유효한 local date-time이 아니어서 브라우저가 빈 문자열로
+ * 지워 버린다. 서버가 offset을 붙여 보내기 시작한 뒤로 예약 발행 시각과 투표 마감 시각이
+ * 수정 화면에서 빈칸으로 보이던 원인이다.
+ *
+ * 서버 기준(KST) 벽시계로 그린다. 이 입력이 만든 값은 그대로 서버로 가고 서버가 KST로
+ * 읽으므로, 표시와 전송이 같은 기준이어야 왕복이 어긋나지 않는다. 사용자의 표시 지역을
+ * 쓰지 않는 이유가 여기에 있다.
+ */
+export function toDateTimeLocalInputValue(value: string | null | undefined): string {
+    const date = toDate(value)
+    if (!date) return ''
+
+    const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: SERVER_TIME_ZONE,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+    }).formatToParts(date)
+
+    const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? ''
+    const hour = get('hour') === '24' ? '00' : get('hour')
+
+    return `${get('year')}-${get('month')}-${get('day')}T${hour}:${get('minute')}`
 }

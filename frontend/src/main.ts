@@ -21,6 +21,7 @@ import { registerPwaAutoUpdate } from '@/pwa'
 import { applyStandaloneDisplayModeClass } from '@/pwaDisplayMode'
 import { clearAuthScopedQueries, configureAuthQueryScope, notifyAuthSessionBoundary } from '@/queryAuthScope'
 import { resetNotificationStreamSessionState } from '@/features/notifications/stream/notificationStreamController'
+import { clearUserTimeZone } from '@/utils/displayTimeZone'
 
 validateEnv()
 applyStandaloneDisplayModeClass()
@@ -50,6 +51,9 @@ configureAuthSessionEffects({
         }
     },
     onSessionBoundary: (generation) => {
+        // 저장된 표시 시간대는 계정에 딸린 설정이다. 공용 기기에서 다음 사용자가
+        // 앞 사용자의 지역으로 시각을 보지 않도록 경계에서 비운다.
+        clearUserTimeZone()
         notifyAuthSessionBoundary(generation)
         resetNotificationStreamSessionState()
         clearAuthScopedQueries(queryClient)

@@ -30,11 +30,13 @@ let resolveUserTimeZone: () => string | null | undefined = () => Storage.getStri
  */
 export function configureUserTimeZoneResolver(resolver: () => string | null | undefined): void {
     resolveUserTimeZone = resolver
+    invalidateDisplayTimeZone()
 }
 
 /** 테스트에서 등록 상태를 되돌린다. */
 export function resetUserTimeZoneResolverForTest(): void {
     resolveUserTimeZone = () => Storage.getString(STORAGE_KEY)
+    invalidateDisplayTimeZone()
 }
 
 /**
@@ -42,12 +44,23 @@ export function resetUserTimeZoneResolverForTest(): void {
  * 서버 설정이 정본이지만, 저장 직후와 다음 방문의 첫 렌더에 바로 반영되도록 함께 둔다.
  */
 export function rememberUserTimeZone(timeZone: string | null | undefined): void {
+    invalidateDisplayTimeZone()
+
     if (!timeZone || timeZone === AUTO_TIME_ZONE) {
         Storage.remove(STORAGE_KEY)
         return
     }
     if (!isSupportedTimeZone(timeZone)) return
     Storage.setString(STORAGE_KEY, timeZone)
+}
+
+/**
+ * 세션 경계에서 호출한다. 저장된 지역은 기기가 아니라 계정에 딸린 설정이므로,
+ * 남겨 두면 공용 기기에서 다음 사용자가 앞 사용자의 지역으로 시각을 보게 된다.
+ */
+export function clearUserTimeZone(): void {
+    Storage.remove(STORAGE_KEY)
+    invalidateDisplayTimeZone()
 }
 
 /** 브라우저가 판단한 지역. 알 수 없으면 null. */
@@ -64,14 +77,24 @@ export function detectBrowserTimeZone(): string | null {
  * `Intl`이 모르는 값이 저장돼 있으면 무시한다. 잘못된 값 하나로 모든 시각 표시가
  * 깨지는 것보다 자동 판단으로 떨어지는 편이 낫다.
  */
+let resolvedTimeZone: string | null = null
+
 export function getDisplayTimeZone(): string {
+    // 매 호출마다 Intl.DateTimeFormat을 만들면 date.ts의 formatter 캐시가 무의미해진다.
+    // 목록 한 화면이 수십 번 포맷하므로 결과를 기억하고, 설정이 바뀔 때만 비운다.
+    if (resolvedTimeZone) return resolvedTimeZone
+
     const configured = resolveUserTimeZone()?.trim()
+    resolvedTimeZone = configured && configured !== AUTO_TIME_ZONE && isSupportedTimeZone(configured)
+        ? configured
+        : detectBrowserTimeZone() ?? SERVER_TIME_ZONE
 
-    if (configured && configured !== AUTO_TIME_ZONE && isSupportedTimeZone(configured)) {
-        return configured
-    }
+    return resolvedTimeZone
+}
 
-    return detectBrowserTimeZone() ?? SERVER_TIME_ZONE
+/** 설정이 바뀌었을 때 기억해 둔 지역을 비운다. */
+export function invalidateDisplayTimeZone(): void {
+    resolvedTimeZone = null
 }
 
 export function isSupportedTimeZone(timeZone: string): boolean {

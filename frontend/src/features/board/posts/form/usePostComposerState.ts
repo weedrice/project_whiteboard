@@ -7,6 +7,7 @@ import {
   type PostFormFileIdScope,
 } from '@/utils/postForm'
 import { decodeSandboxedPostHtml } from '@/utils/postHtmlSandbox'
+import { toDateTimeLocalInputValue } from '@/utils/date'
 
 export type PostComposerMode = 'create' | 'edit'
 
@@ -134,7 +135,8 @@ export function usePostComposerState(options: UsePostComposerStateOptions) {
         options: draft.poll.options.map((option) => typeof option === 'string' ? option : option.optionText),
         multipleChoiceEnabled: Boolean(draft.poll.multipleChoiceEnabled),
         anonymousEnabled: Boolean(draft.poll.anonymousEnabled),
-        closesAt: draft.poll.closesAt ?? null,
+        // datetime-local 입력에 들어가므로 offset을 떼고 서버 기준 벽시계로 넣는다.
+        closesAt: draft.poll.closesAt ? toDateTimeLocalInputValue(draft.poll.closesAt) : null,
       } : null,
     }
     draftFileIds.value = [...(draft.fileIds ?? [])]
