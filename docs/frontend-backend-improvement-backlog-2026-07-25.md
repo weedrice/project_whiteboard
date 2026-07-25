@@ -126,17 +126,21 @@ REST 응답 envelope는 `ApiWireContractSerializationTest`로 고정되어 있�
 프론트가 분기 처리하는 이름 (`notificationStreamController.ts`):
 
 - `connect`, `comment`, `comment-topic-invalidated`, `comment-topic-access-revoked`, `notification`
-- **`message`** — `notificationStreamController.ts:124`에서 `notification`과 동일하게 처리하지만, 백엔드 전 범위에서 이 이름으로 보내는 코드를 찾지 못했다.
+- **`message`** — `notificationStreamController.ts:124`에서 `notification`과 동일하게 처리한다.
+
+**`message` 관련 정정 (구현 중 확인)**
+
+초판은 이 분기를 "제거된 기능의 잔재"로 추정했다. **이 추정은 틀렸다.** `message`는 SSE 규격이 정한, `event:` 줄이 없는 프레임의 기본 이름이며 `notificationSseStream.ts:29,35,44,71`이 파서에서 이 값을 채운다. 백엔드가 보내는 이름이 아니라 프로토콜 기본값이므로 제거하면 이름 없는 data 프레임이 조용히 버려진다. 분기는 유지하고 그 이유를 주석으로 남겼다.
 
 **영향**
 
-`message` 분기는 현재 도달하지 않는 코드다. 제거된 기능의 잔재이거나 연결되지 않은 기능으로 보이며, 어느 쪽인지 코드만으로는 판별되지 않는다. 더 중요한 문제는 이름 하나를 백엔드에서 바꿔도 프론트 빌드·테스트가 아무 신호를 주지 않는다는 점이다.
+이름 하나를 백엔드에서 바꿔도 프론트 빌드·테스트가 아무 신호를 주지 않는다. REST envelope에는 직렬화 계약 테스트가 있지만 SSE 채널에는 대응 장치가 없다.
 
 **제안**
 
-- `message` 분기의 의도를 먼저 확인한다. 미연결 기능이면 backlog로 분리하고, 잔재면 제거한다.
-- 이벤트 이름을 백엔드 상수 클래스로 모으고, REST의 wire 계약 테스트와 같은 층위에서 "상수 목록과 실제 `SseEmitter.event().name(...)` 호출이 일치한다"를 검증한다.
-- 프론트는 이름 집합을 union 타입으로 선언해 분기 누락과 오타를 타입 검사에서 잡는다.
+- 이벤트 이름을 백엔드 상수 클래스로 모으고, 상수를 거치지 않은 문자열 리터럴 사용을 원본 검사로 막는다.
+- 프론트는 이름 집합을 union 타입으로 선언하고, 백엔드 상수 파일을 읽어 두 집합이 일치하는지 검증한다.
+- SSE 프로토콜 기본값(`message`)은 백엔드 이벤트 집합과 분리해 표기한다.
 
 ### A4. `C008`이 두 가지 payload 형태를 가진다
 
