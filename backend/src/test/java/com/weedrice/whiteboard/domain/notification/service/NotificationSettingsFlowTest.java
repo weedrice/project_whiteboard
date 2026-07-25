@@ -31,6 +31,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import com.weedrice.whiteboard.global.common.util.DateTimeUtils;
+
+import java.time.Clock;
+import java.time.Instant;
+
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -77,7 +82,8 @@ class NotificationSettingsFlowTest {
         userSettingsService = new UserSettingsService(
                 userSettingsRepository,
                 userNotificationSettingsRepository,
-                new UserWritableResolver(userRepository, sanctionService));
+                new UserWritableResolver(userRepository, sanctionService),
+                Clock.fixed(Instant.parse("2026-07-25T01:23:45Z"), DateTimeUtils.KST_ZONE_ID));
         NotificationPreferenceService preferenceService = new NotificationPreferenceService(userNotificationSettingsRepository);
         NotificationStreamPublisher streamPublisher = (userId, summary) -> {
         };

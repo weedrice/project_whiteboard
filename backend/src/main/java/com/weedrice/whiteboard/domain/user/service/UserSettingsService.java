@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.DateTimeException;
+import java.time.Clock;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -39,6 +40,7 @@ public class UserSettingsService {
         private final UserSettingsRepository userSettingsRepository;
         private final UserNotificationSettingsRepository userNotificationSettingsRepository;
         private final UserWritableResolver userWritableResolver;
+        private final Clock clock;
 
         public UserSettingsResponse getSettings(Long userId) {
                 UserSettingsRepository.SettingsReadProjection settings = userSettingsRepository
@@ -84,7 +86,7 @@ public class UserSettingsService {
         public UserSettingsResponse completeOnboarding(Long userId) {
                 User user = validateUserCanWrite(userId);
                 UserSettings settings = getOrCreateSettingsEntity(user);
-                settings.completeOnboarding(LocalDateTime.now());
+                settings.completeOnboarding(LocalDateTime.now(clock));
                 return toResponse(userSettingsRepository.save(settings));
         }
 
