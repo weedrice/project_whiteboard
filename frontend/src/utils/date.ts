@@ -1,4 +1,5 @@
 import type { SupportedLocale } from '@/locales/types'
+import { getDisplayTimeZone } from '@/utils/displayTimeZone'
 
 type DateFormatterKind = 'dateTime' | 'dateOnly' | 'longDateOnly' | 'timeOnly'
 
@@ -8,13 +9,18 @@ function localeCode(locale: SupportedLocale = 'ko') {
     return locale === 'en' ? 'en-US' : 'ko-KR'
 }
 
+/**
+ * 표시 지역까지 캐시 키에 넣는다. 사용자가 설정에서 시간대를 바꾸면 같은 종류·언어라도
+ * 다른 formatter가 필요하므로, 지역을 빼면 바꾼 뒤에도 예전 지역으로 계속 그려진다.
+ */
 function formatter(kind: DateFormatterKind, locale: SupportedLocale = 'ko') {
-    const key = `${kind}:${locale}`
+    const timeZone = getDisplayTimeZone()
+    const key = `${kind}:${locale}:${timeZone}`
     const cached = formatterCache.get(key)
     if (cached) return cached
 
     const intlLocale = localeCode(locale)
-    const nextFormatter = new Intl.DateTimeFormat(intlLocale, formatterOptions[kind])
+    const nextFormatter = new Intl.DateTimeFormat(intlLocale, { ...formatterOptions[kind], timeZone })
     formatterCache.set(key, nextFormatter)
     return nextFormatter
 }

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { AUTO_TIME_ZONE, SERVER_TIME_ZONE, detectBrowserTimeZone } from '@/utils/displayTimeZone'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
@@ -167,6 +168,20 @@ const {
   getSessionGeneration: () => authStore.sessionGeneration,
   reloadSettings: async () => { await refetchSettings() },
   t
+})
+
+/**
+ * 고를 수 있는 시간대. 전 세계 목록을 나열하면 선택이 어려우므로
+ * 서버 기준, 기기 기준, 이미 저장된 값만 보여 준다. "자동"이 기본값이라
+ * 대부분의 사용자는 이 목록을 건드릴 필요가 없다.
+ */
+const selectableTimeZones = computed(() => {
+  const zones = new Set<string>([SERVER_TIME_ZONE])
+  const detected = detectBrowserTimeZone()
+  if (detected) zones.add(detected)
+  const current = userSettingsForm.timezone
+  if (current && current !== AUTO_TIME_ZONE) zones.add(current)
+  return [...zones].sort()
 })
 
 const {
@@ -361,6 +376,20 @@ const handleRevokeOtherSessions = async () => {
                 <option value="ko">{{ $t('common.languages.ko') }}</option>
                 <option value="en">{{ $t('common.languages.en') }}</option>
               </BaseSelect>
+            </div>
+
+            <div>
+              <BaseSelect
+                v-model="userSettingsForm.timezone"
+                :label="$t('user.settings.timezone')"
+                aria-describedby="settings-timezone-help"
+              >
+                <option :value="AUTO_TIME_ZONE">{{ $t('user.settings.timezoneAuto') }}</option>
+                <option v-for="zone in selectableTimeZones" :key="zone" :value="zone">{{ zone }}</option>
+              </BaseSelect>
+              <p id="settings-timezone-help" class="mt-1 text-sm nv-muted">
+                {{ $t('user.settings.timezoneHelp') }}
+              </p>
             </div>
           </div>
           <div class="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">

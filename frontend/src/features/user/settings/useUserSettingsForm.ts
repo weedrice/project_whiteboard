@@ -1,3 +1,4 @@
+import { rememberUserTimeZone } from '@/utils/displayTimeZone'
 import { computed, reactive, ref, watch, type Ref } from 'vue'
 import type { NotificationSettingType, NotificationSettingsBulkPayload, NotificationSettingsPayload } from '@/api/user'
 import logger from '@/utils/logger'
@@ -69,6 +70,8 @@ export function useUserSettingsForm(options: UseUserSettingsFormOptions) {
   const hydrateFromSettings = (value: UserSettings) => {
     const nextForm = toFormSnapshot(value)
     Object.assign(form, nextForm)
+    // 서버 설정이 정본이다. 기기에도 남겨 두면 다음 방문의 첫 렌더부터 바로 반영된다.
+    rememberUserTimeZone(nextForm.timezone)
     baseline.value = { ...nextForm }
     return nextForm
   }
@@ -128,6 +131,7 @@ export function useUserSettingsForm(options: UseUserSettingsFormOptions) {
       if (!isCurrentSave()) return
 
       options.setTheme(payload.theme)
+      rememberUserTimeZone(payload.timezone)
       baseline.value = { ...payload }
       message.value = options.t('user.settings.saved')
     } catch (error: unknown) {

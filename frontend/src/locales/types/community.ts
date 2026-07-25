@@ -789,6 +789,9 @@ export interface UserMessages {
     generalDesc: string
     theme: string
     language: string
+    timezone: string
+    timezoneAuto: string
+    timezoneHelp: string
     light: string
     dark: string
     notifications: string
