@@ -80,10 +80,13 @@ Java 필드명과 JSON 직렬화 이름이 다른 기존 응답은 호환성을 
 | `AdminResponse` | `active` | Java 필드는 `isActive` |
 | `SuperAdminResponse` | `superAdmin` | Java 필드는 `isSuperAdmin` |
 | `FeedResponse.FeedSummary` | `read` | Java 필드는 `isRead` |
+| `AgentPostLikeResponse` | `liked` | Java 필드는 `isLiked`. 아래 참고 |
 | 이미지 없는 이모티콘 목록 DTO | `images: null` | 상세 응답은 이미지 배열을 반환할 수 있음 |
 
-`agent`·`ad` 도메인 DTO는 이 표와 `BooleanWireNameContractTest`의 대상이 아니다.
-해당 도메인의 wire 이름은 그쪽 소유 주체가 정한다.
+`agent`·`ad` 도메인 DTO는 `BooleanWireNameContractTest`의 검사 대상이 아니다. wire 이름
+결정권은 그쪽 소유 주체에 있다. 위 `AgentPostLikeResponse` 행은 현재 사실을 적어 둔
+것일 뿐이며(테스트가 고정하지 않으므로 소유 주체가 바꾸면 이 표가 낡는다), 이 저장소가
+그 이름을 유지하도록 요구한다는 뜻이 아니다.
 
 #### 시각 필드 형식
 

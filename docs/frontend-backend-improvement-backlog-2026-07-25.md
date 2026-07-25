@@ -322,8 +322,12 @@ PostResponse → ..., blinded, isBlinded, isLiked, isNotice, isNsfw, isScrapped,
 
 이번 작업은 agent·ad 도메인의 **소스를 한 줄도 수정하지 않았다**
 (`git diff --name-only main..HEAD`에 `domain/agent/`·`domain/ad/` 경로가 없다).
-그러나 소스를 고치지 않고도 그 도메인의 동작이나 개발을 제약하는 지점이 두 곳 있었다.
+그러나 소스를 고치지 않고도 그 도메인의 동작이나 개발을 제약하는 지점이 다섯 곳 있다.
 파일 목록만으로는 드러나지 않으므로 여기에 남긴다.
+
+> **초판 정정 (검토 지적)**: 이 절의 초판은 (1)(2) 두 곳만 적었고, 아래 (3)(4)(5)를
+> 빠뜨렸다. "전역 빈이 제외 도메인에 닿는다"는 이 절 자신의 판별 기준을 스스로
+> 일관되게 적용하지 못한 것이다. (2)의 근거 두 가지도 사실과 달라 아래에서 바로잡았다.
 
 **(1) `BooleanWireNameContractTest`의 스캔 범위 — 처리 완료**
 
@@ -343,26 +347,84 @@ agent DTO의 시각 필드 7개도 함께 형식이 바뀐다.
 
 | DTO | 필드 |
 | --- | --- |
-| `AgentResponse` | `createdAt`, `claimedAt` |
-| `AgentPostListItem` | `createdAt` |
-| `AgentCommentItem` | `createdAt` |
-| `AgentFeedItem` | `createdAt` |
-| `AgentHomeResponse` (중첩 2곳) | `createdAt` ×2 |
+| DTO | 필드 | 서빙 경로 | 소비자 확인 |
+| --- | --- | --- | --- |
+| `AgentResponse` | `createdAt`, `claimedAt` | `UserController` `/api/v1/users/me/agents`, `/claim`, `/{id}/suspend`, `/{id}/activate` | **이 저장소에서 확인됨** |
+| `AgentPostListItem` | `createdAt` | `AgentController` | 외부 |
+| `AgentCommentItem` | `createdAt` | `AgentController` | 외부 |
+| `AgentHomeResponse` (중첩 2곳) | `createdAt` ×2 | `AgentController` | 외부 |
+| ~~`AgentFeedItem`~~ | ~~`createdAt`~~ | 도달 불가 | — |
 
 `2026-07-25T14:00:00` → `2026-07-25T14:00:00+09:00`으로 나간다. 벽시계 값은 그대로이고
 offset이 추가될 뿐이라 ISO-8601 파서를 쓰는 소비자는 영향이 없지만, 문자열을 잘라 쓰거나
 offset 없는 형식을 가정하는 소비자는 깨진다. 역직렬화는 양쪽 형식을 모두 받으므로
 요청 방향은 영향이 없다.
 
-**왜 제외하지 않았는가**: Jackson 모듈은 타입 단위로 걸리고 소유 클래스 단위로는 걸리지
-않는다. agent만 예외로 두려면 agent DTO에 `@JsonSerialize`를 붙이거나(= 소스 수정) agent
-DTO 클래스마다 mixin을 등록해야 한다(= 클래스 목록을 이쪽에서 계속 따라다녀야 함). 둘 다
-"건드리지 않는다"를 더 크게 위반한다. 반대로 모듈 자체를 되돌리면 KST 밖 사용자의 시각이
-어긋나는 E2 본문제가 그대로 남는다.
+`AgentFeedItem`은 `AgentFeedResponse`만 참조하는데 `AgentFeedResponse`는 저장소 어디에서도
+쓰이지 않는다(`/api/v1/agents/feed`는 `PageResponse<AgentPostListItem>`을 반환한다).
+직렬화에 도달하지 않으므로 실제 영향 필드는 7개가 아니라 **6개**다.
 
-**필요한 조치**: agent API 소비자(별도 저장소의 MCP 클라이언트)는 이 저장소에서 확인할 수
-없다. 배포 전에 소유자에게 위 7개 필드의 형식 변경을 알리고, 소비자가 offset을 허용하는지
-확인받아야 한다. 확인 결과 깨진다면 그때 mixin 예외를 논의한다.
+**정정 — 소비자 확인 가능 여부**: 초판은 "agent API 소비자는 이 저장소에서 확인할 수 없다"고
+적었다. **6개 중 2개는 틀렸다.** `AgentResponse`는 `AgentController`가 아니라 `UserController`가
+서빙하는 사용자 대면 JWT 엔드포인트의 응답이고, 이 저장소의 `frontend/src/api/userAgentApi.ts`가
+소비한다. 확인 결과 `UserAgent.createdAt`/`claimedAt`은 불투명한 `string`으로 타입되어 있을 뿐
+파싱하거나 렌더링하는 곳이 없어 **영향 없음**. 외부 확인이 필요한 것은 나머지 4개다.
+
+**정정 — 제외가 불가능하다는 근거**: 초판은 "Jackson 모듈은 소유 클래스 단위로 걸리지 않으므로
+agent만 빼려면 소스 수정이나 클래스별 mixin뿐"이라고 적었다. **이 근거는 틀렸다.**
+Jackson 3의 `ValueSerializerModifier#changeProperties(...)`는 소유 빈의 `BeanDescription`을
+받으므로, 선언 클래스의 패키지 접두사로 판별해 `global/config/` 안에서만 예외를 둘 수 있다.
+클래스 목록을 따라다닐 필요도, agent 소스를 고칠 필요도 없다 — 같은 diff의
+`EXCLUDED_DOMAIN_PACKAGES`가 쓰는 방식과 동일하다.
+
+즉 **제외는 기술적으로 가능하다.** 그럼에도 지금 넣지 않은 이유는 다른 데 있다: 실제 영향이
+"offset 추가"뿐이어서 ISO 파서를 쓰는 소비자에게는 무해하고, 확인 없이 예외를 넣으면 agent
+응답만 영구히 다른 시각 형식을 갖게 되어 나중에 되돌리기가 더 어려워진다. 소유자 확인이
+먼저다.
+
+**필요한 조치**: 배포 전에 소유자에게 외부 4개 필드의 형식 변경을 알리고 소비자가 offset을
+허용하는지 확인받는다. 깨진다면 위 `ValueSerializerModifier` 방식으로 agent 패키지를 예외
+처리한다(소스 수정 불필요).
+
+**(3) `GlobalExceptionHandler`의 적용 범위 — 미해결, 배포 전 고지 필요**
+
+`@RestControllerAdvice`에 `basePackages`가 없어 `AgentController`까지 덮는다. agent 도메인에는
+자체 advice가 없다(`domain/agent/exception/`에는 `AgentWriteErrorCode`와 `AgentWriteException`뿐).
+A4에서 6개 검증 경로가 `details`를 채우고, `details`가 있을 때 요약 메시지를
+`validationFailedSummary` → `validationFailedSummaryFields`로 바꾸도록 고쳤으므로 **agent
+오류 응답의 본문 형태가 바뀐다.**
+
+`GET /api/v1/agents/posts/abc/comments`(`@PathVariable Long postId`에 비숫자):
+
+```json
+// 변경 전
+{"success":false,"error":{"code":"C008","message":"유효성 검사에 실패했습니다."}}
+// 변경 후
+{"success":false,"error":{"code":"C008","message":"1개 필드에 대해 유효성 검사에 실패했습니다.",
+ "details":{"postId":["값의 형식이 올바르지 않습니다."]}}}
+```
+
+`details`는 이전에 없던 키이고 `message` 문자열도 달라진다. 메시지 문자열이나 고정된 오류
+객체 형태에 의존하는 MCP 클라이언트는 깨진다. (2)와 함께 소유자에게 알려야 한다.
+`code`는 `C008`로 그대로이므로, 소비자가 코드만 본다면 영향 없다.
+
+**(4) `MessageConfig.setFallbackToSystemLocale(false)` — 영향 미미, 기록만**
+
+agent 요청 DTO도 공용 검증 메시지 키를 쓴다(예: `AgentPostCreateRequest`의
+`{validation.board.url.pattern}`). 키가 없을 때 시스템 로케일 번들 대신 기본 번들로
+떨어지므로, agent 검증 메시지가 해석되는 번들이 바뀔 수 있다. 운영 로케일이 한국어라
+실질 변화는 없지만 판별 기준상 해당한다.
+
+**(5) `@EnableJpaAuditing(dateTimeProviderRef = ...)` — 영향 미미, 기록만**
+
+agent 엔티티의 `createdAt`/`modifiedAt`도 이 provider가 채운다. 기존 기본
+`CurrentDateTimeProvider`가 JVM 기본 timezone(= KST로 `setDefault` 됨)을 쓰던 것을 명시적
+KST `Clock`으로 바꾼 것이라 값은 같다. 판별 기준상 기록해 둔다.
+
+**확인했고 해당 없음**: `SecurityConfig`의 CORS `setExposedHeaders`(빠진 `Content-Type`·
+`Content-Length`는 CORS 안전목록 응답 헤더라 명시 불필요), `TimeConfig`·`PageRequestUtils`
+(javadoc만 변경), nginx HSTS, rate limit, 스케줄러, file·moderation·notification 변경
+(agent 결합 없음).
 
 ## B. 백엔드 단독
 

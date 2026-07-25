@@ -62,7 +62,10 @@ class BooleanWireNameContractTest {
             "com.weedrice.whiteboard.domain.agent.",
             "com.weedrice.whiteboard.domain.ad.");
 
-    /** 스캔이 조용히 반쪽만 돌지 않았는지 보는 하한. 현재 290개가 넘는다. */
+    /**
+     * 스캔이 조용히 반쪽만 돌지 않았는지 보는 하한.
+     * 제외 도메인과 빌더·record를 걸러낸 뒤 현재 217개다(2026-07-25 실측).
+     */
     private static final int MINIMUM_EXPECTED_DTO_CLASSES = 100;
 
     /**
@@ -187,6 +190,17 @@ class BooleanWireNameContractTest {
     @Test
     @DisplayName("제외 도메인은 스캔에도 legacy 목록에도 들어오지 않는다")
     void excludedDomainsStayOutOfTheContract() throws IOException {
+        // 필터를 거치기 전에 실제로 제외 대상이 존재하는지부터 본다. 이 확인이 없으면
+        // 접두사에 오타가 나면(`domain.agents.` 등) 술어가 모두 거짓이 되어 아래 검사가
+        // 공허하게 통과한다. 즉 제외가 조용히 풀린 것을 잡지 못한다.
+        List<String> allNames = findDtoClassNames();
+        for (String prefix : EXCLUDED_DOMAIN_PACKAGES) {
+            assertThat(allNames)
+                    .as("접두사 '%s'에 걸리는 DTO가 스캔 경로에 하나도 없다. 접두사 오타이거나, "
+                            + "해당 도메인이 사라졌다면 EXCLUDED_DOMAIN_PACKAGES에서도 지울 것", prefix)
+                    .anyMatch(name -> name.startsWith(prefix));
+        }
+
         assertThat(findDtoClasses())
                 .as("제외 도메인의 DTO가 스캔에 들어왔다. 들어오면 그 도메인의 신규 필드가 "
                         + "이 계약을 따르도록 강제된다")
@@ -280,17 +294,9 @@ class BooleanWireNameContractTest {
      * 이 테스트 자신이 걸려 "하나도 못 찾았다" 검사가 항상 통과해 버린다.
      */
     private static List<Class<?>> findDtoClasses() throws IOException {
-        PathMatchingResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
-        MetadataReaderFactory metadataReaderFactory = new CachingMetadataReaderFactory(resolver);
-        Resource[] resources = resolver.getResources(DTO_RESOURCE_PATTERN);
-
         List<Class<?>> classes = new ArrayList<>();
         List<String> skipped = new ArrayList<>();
-        for (Resource resource : resources) {
-            if (!resource.getURL().toString().contains(MAIN_CLASSES_MARKER)) {
-                continue;
-            }
-            String className = metadataReaderFactory.getMetadataReader(resource).getClassMetadata().getClassName();
+        for (String className : findDtoClassNames()) {
             if (isExcludedDomain(className)) {
                 continue;
             }
@@ -312,6 +318,21 @@ class BooleanWireNameContractTest {
 
     private static boolean isExcludedDomain(String className) {
         return EXCLUDED_DOMAIN_PACKAGES.stream().anyMatch(className::startsWith);
+    }
+
+    /** 제외 필터를 거치기 <b>전</b>의 이름 전체. 제외가 실제로 무언가를 걸러내는지 확인하는 데 쓴다. */
+    private static List<String> findDtoClassNames() throws IOException {
+        PathMatchingResourcePatternResolver resolver = new PathMatchingResourcePatternResolver();
+        MetadataReaderFactory metadataReaderFactory = new CachingMetadataReaderFactory(resolver);
+
+        List<String> names = new ArrayList<>();
+        for (Resource resource : resolver.getResources(DTO_RESOURCE_PATTERN)) {
+            if (!resource.getURL().toString().contains(MAIN_CLASSES_MARKER)) {
+                continue;
+            }
+            names.add(metadataReaderFactory.getMetadataReader(resource).getClassMetadata().getClassName());
+        }
+        return names;
     }
 
     /**
