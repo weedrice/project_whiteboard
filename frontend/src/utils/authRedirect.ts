@@ -1,8 +1,9 @@
+import { API_ERROR_CODES } from '@/api/errorCodes'
 import { SessionStorage } from '@/utils/storage'
 
 export const LOGIN_REDIRECT_KEY = 'loginRedirect'
 export const LOGIN_REDIRECT_TTL_MS = 10 * 60 * 1000
-export const DELETED_ACCOUNT_ERROR_CODE = 'A009'
+export const DELETED_ACCOUNT_ERROR_CODE = API_ERROR_CODES.USER_DELETED
 export const DELETED_ACCOUNT_MESSAGE_KEY = 'auth.userDeleted'
 
 interface LoginRedirectIntent {

@@ -2,6 +2,7 @@ import { isAxiosError } from 'axios'
 import { postApi, type PostDraftData } from '@/api/post'
 import { userApi } from '@/api/user'
 import { unwrapAxiosApiData } from '@/api/response'
+import { API_ERROR_CODES } from '@/api/errorCodes'
 import type { DraftPost, DraftPostSummary } from '@/types'
 
 export interface DraftRecoverySnapshot extends PostDraftData {
@@ -17,7 +18,7 @@ type ApiErrorPayload = {
     }
 }
 
-const DRAFT_OUTDATED_ERROR_CODE = 'P004'
+const DRAFT_OUTDATED_ERROR_CODE = API_ERROR_CODES.DRAFT_OUTDATED
 
 export const toIsoTime = (value?: string | null): string | null => {
     if (!value) return null

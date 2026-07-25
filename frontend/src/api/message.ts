@@ -1,5 +1,6 @@
 import type { AxiosRequestConfig } from 'axios'
 import api from './index'
+import { API_ERROR_CODES } from '@/api/errorCodes'
 import type { ApiResponse, MessageResponse, MessageSummaryDto } from '@/types'
 import { encodePathSegment } from '@/utils/urlPath'
 
@@ -9,7 +10,7 @@ interface MessageParams {
     sort?: string
 }
 
-const BLOCKED_BY_USER_CODE = 'U009'
+const BLOCKED_BY_USER_CODE = API_ERROR_CODES.BLOCKED_BY_USER
 
 export const messageApi = {
     sendMessage: (receiverId: string | number, content: string, config?: AxiosRequestConfig) =>
