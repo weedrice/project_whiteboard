@@ -595,4 +595,20 @@ class BoardControllerTest {
                 false,
                 null);
     }
+
+    @Test
+    @DisplayName("쿼리 파라미터 검증 실패도 필드 단위 details를 돌려준다")
+    void queryParameterValidationFailureIncludesFieldDetails() throws Exception {
+        // boardUrls 원소의 @Pattern 위반. @Valid @RequestBody 경로와 같은 형태의
+        // details를 돌려줘야 클라이언트가 검증 경로에 관계없이 동일하게 표시할 수 있다.
+        mockMvc.perform(get("/api/v1/boards/recent-updates")
+                        .param("boardUrls", "NOT VALID URL")
+                        .with(user("tester")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error.code").value("C008"))
+                .andExpect(jsonPath("$.error.details").isMap())
+                .andExpect(jsonPath("$.error.details.boardUrls").isArray())
+                .andExpect(jsonPath("$.error.details.boardUrls[0]").isString());
+    }
 }

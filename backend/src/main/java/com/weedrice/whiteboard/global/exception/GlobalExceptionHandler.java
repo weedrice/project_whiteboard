@@ -8,6 +8,9 @@ import com.weedrice.whiteboard.global.log.service.ErrorLogService;
 import com.weedrice.whiteboard.global.ratelimit.RateLimitExceededException;
 import com.weedrice.whiteboard.global.ratelimit.RateLimitHeaderWriter;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ElementKind;
+import jakarta.validation.Path;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +18,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.MessageSource;
+import org.springframework.context.MessageSourceResolvable;
+import org.springframework.context.NoSuchMessageException;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -35,6 +40,16 @@ import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.springframework.validation.method.ParameterErrors;
+import org.springframework.validation.method.ParameterValidationResult;
+import org.springframework.web.bind.annotation.CookieValue;
+import org.springframework.web.bind.annotation.MatrixVariable;
+import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.io.PrintWriter;
@@ -171,49 +186,109 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
-    public ResponseEntity<ApiResponse<Void>> handleHttpMessageNotReadableException(HttpMessageNotReadableException e,
+    public ResponseEntity<ApiResponse<Object>> handleHttpMessageNotReadableException(HttpMessageNotReadableException e,
             HttpServletRequest request) {
         log.warn("[{}] Request body parse exception: {}", request.getRequestURI(), e.getMessage());
 
-        return validationErrorResponse("HttpMessageNotReadableException", request);
+        // 어느 필드가 문제인지 특정할 수 없는 유일한 검증 경로이므로 details 없이 응답한다.
+        return validationErrorResponse(null);
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
-    public ResponseEntity<ApiResponse<Void>> handleMethodArgumentTypeMismatchException(
+    public ResponseEntity<ApiResponse<Object>> handleMethodArgumentTypeMismatchException(
             MethodArgumentTypeMismatchException e,
             HttpServletRequest request) {
         log.warn("[{}] Request parameter type mismatch: {} - {}", request.getRequestURI(), e.getName(),
                 e.getValue());
 
-        return validationErrorResponse("MethodArgumentTypeMismatchException", request);
+        return validationErrorResponse(singleFieldError(e.getName(), "error.common.typeMismatch"));
     }
 
     @ExceptionHandler(MissingServletRequestParameterException.class)
-    public ResponseEntity<ApiResponse<Void>> handleMissingServletRequestParameterException(
+    public ResponseEntity<ApiResponse<Object>> handleMissingServletRequestParameterException(
             MissingServletRequestParameterException e,
             HttpServletRequest request) {
         log.warn("[{}] Missing request parameter: {} ({})", request.getRequestURI(), e.getParameterName(),
                 e.getParameterType());
 
-        return validationErrorResponse("MissingServletRequestParameterException", request);
+        return validationErrorResponse(singleFieldError(e.getParameterName(), "error.common.missingParameter"));
     }
 
     @ExceptionHandler(ConstraintViolationException.class)
-    public ResponseEntity<ApiResponse<Void>> handleConstraintViolationException(
+    public ResponseEntity<ApiResponse<Object>> handleConstraintViolationException(
             ConstraintViolationException e,
             HttpServletRequest request) {
         log.warn("[{}] Constraint violation: {}", request.getRequestURI(), e.getMessage());
 
-        return validationErrorResponse("ConstraintViolationException", request);
+        Map<String, List<String>> errors = new LinkedHashMap<>();
+        for (ConstraintViolation<?> violation : e.getConstraintViolations()) {
+            errors.computeIfAbsent(leafPropertyName(violation), key -> new ArrayList<>())
+                    .add(violation.getMessage());
+        }
+
+        return validationErrorResponse(errors);
     }
 
     @ExceptionHandler(HandlerMethodValidationException.class)
-    public ResponseEntity<ApiResponse<Void>> handleHandlerMethodValidationException(
+    public ResponseEntity<ApiResponse<Object>> handleHandlerMethodValidationException(
             HandlerMethodValidationException e,
             HttpServletRequest request) {
         log.warn("[{}] Handler method validation failed: {}", request.getRequestURI(), e.getReason());
 
-        return validationErrorResponse("HandlerMethodValidationException", request);
+        Map<String, List<String>> errors = new LinkedHashMap<>();
+        e.visitResults(new HandlerMethodValidationException.Visitor() {
+            @Override
+            public void requestParam(RequestParam requestParam, ParameterValidationResult result) {
+                collect(parameterName(result), result);
+            }
+
+            @Override
+            public void requestHeader(RequestHeader requestHeader, ParameterValidationResult result) {
+                collect(parameterName(result), result);
+            }
+
+            @Override
+            public void pathVariable(PathVariable pathVariable, ParameterValidationResult result) {
+                collect(parameterName(result), result);
+            }
+
+            @Override
+            public void cookieValue(CookieValue cookieValue, ParameterValidationResult result) {
+                collect(parameterName(result), result);
+            }
+
+            @Override
+            public void matrixVariable(MatrixVariable matrixVariable, ParameterValidationResult result) {
+                collect(parameterName(result), result);
+            }
+
+            @Override
+            public void modelAttribute(ModelAttribute modelAttribute, ParameterErrors errors2) {
+                collect(parameterName(errors2), errors2);
+            }
+
+            @Override
+            public void requestBody(RequestBody requestBody, ParameterErrors errors2) {
+                collect(parameterName(errors2), errors2);
+            }
+
+            @Override
+            public void requestPart(RequestPart requestPart, ParameterErrors errors2) {
+                collect(parameterName(errors2), errors2);
+            }
+
+            @Override
+            public void other(ParameterValidationResult result) {
+                collect(parameterName(result), result);
+            }
+
+            private void collect(String field, ParameterValidationResult result) {
+                List<String> messages = errors.computeIfAbsent(field, key -> new ArrayList<>());
+                result.getResolvableErrors().forEach(error -> messages.add(resolveValidationMessage(error)));
+            }
+        });
+
+        return validationErrorResponse(errors);
     }
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
@@ -258,13 +333,76 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error(ErrorCode.FILE_TOO_LARGE.getCode(), message));
     }
 
-    private ResponseEntity<ApiResponse<Void>> validationErrorResponse(String errorType, HttpServletRequest request) {
-        String message = messageSource.getMessage("error.common.validationFailedSummary", null,
-                LocaleContextHolder.getLocale());
+    /**
+     * 검증 실패 응답을 만든다. {@code errors}가 비어 있지 않으면 {@code MethodArgumentNotValidException}
+     * 경로와 같은 {@code {필드명: [메시지]}} 형태로 details를 채워, 클라이언트가 검증 경로에 관계없이
+     * 동일한 방식으로 필드 단위 오류를 표시할 수 있게 한다.
+     */
+    private ResponseEntity<ApiResponse<Object>> validationErrorResponse(Map<String, List<String>> errors) {
+        boolean hasFieldErrors = errors != null && !errors.isEmpty();
+        String message = hasFieldErrors
+                ? messageSource.getMessage("error.common.validationFailedSummaryFields",
+                        new Object[] { errors.size() }, LocaleContextHolder.getLocale())
+                : messageSource.getMessage("error.common.validationFailedSummary", null,
+                        LocaleContextHolder.getLocale());
 
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
-                .body(ApiResponse.error(ErrorCode.VALIDATION_ERROR.getCode(), message));
+                .body(ApiResponse.error(ErrorCode.VALIDATION_ERROR.getCode(), message,
+                        hasFieldErrors ? errors : null));
+    }
+
+    private Map<String, List<String>> singleFieldError(String field, String messageKey) {
+        if (field == null || field.isBlank()) {
+            return Map.of();
+        }
+        String message = messageSource.getMessage(messageKey, null, LocaleContextHolder.getLocale());
+        Map<String, List<String>> errors = new LinkedHashMap<>();
+        errors.put(field, new ArrayList<>(List.of(message)));
+        return errors;
+    }
+
+    /**
+     * 위반 경로에서 클라이언트가 화면 필드와 짝지을 수 있는 이름을 고른다.
+     * 메서드 파라미터 검증 경로는 {@code method.param[0].<list element>} 형태이므로
+     * 마지막 마디를 그대로 쓰면 컨테이너 원소 이름({@code <list element>})이 나온다.
+     * 파라미터·속성 마디만 골라 가장 마지막 것을 사용한다.
+     */
+    private static String leafPropertyName(ConstraintViolation<?> violation) {
+        Path propertyPath = violation.getPropertyPath();
+        if (propertyPath == null) {
+            return "request";
+        }
+
+        String selected = null;
+        for (Path.Node node : propertyPath) {
+            if (node.getKind() != ElementKind.PARAMETER && node.getKind() != ElementKind.PROPERTY) {
+                continue;
+            }
+            if (node.getName() != null && !node.getName().isBlank()) {
+                selected = node.getName();
+            }
+        }
+
+        if (selected != null) {
+            return selected;
+        }
+
+        String path = propertyPath.toString();
+        return path.isBlank() ? "request" : path;
+    }
+
+    private static String parameterName(ParameterValidationResult result) {
+        String name = result.getMethodParameter().getParameterName();
+        return name != null ? name : "request";
+    }
+
+    private String resolveValidationMessage(MessageSourceResolvable error) {
+        try {
+            return messageSource.getMessage(error, LocaleContextHolder.getLocale());
+        } catch (NoSuchMessageException ex) {
+            return error.getDefaultMessage() != null ? error.getDefaultMessage() : "";
+        }
     }
 
     @ExceptionHandler({ BadCredentialsException.class, UsernameNotFoundException.class })

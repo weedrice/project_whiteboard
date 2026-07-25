@@ -387,7 +387,7 @@ class GlobalExceptionHandlerTest {
         when(messageSource.getMessage(eq("error.common.validationFailedSummary"), isNull(), any(Locale.class)))
                 .thenReturn("Validation failed.");
 
-        ResponseEntity<ApiResponse<Void>> response =
+        ResponseEntity<ApiResponse<Object>> response =
                 globalExceptionHandler.handleHttpMessageNotReadableException(ex, request);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
@@ -424,16 +424,21 @@ class GlobalExceptionHandlerTest {
     void handleMethodArgumentTypeMismatchException() {
         MethodArgumentTypeMismatchException ex = new MethodArgumentTypeMismatchException(
                 "abc", Integer.class, "page", mock(MethodParameter.class), new NumberFormatException("abc"));
-        when(messageSource.getMessage(eq("error.common.validationFailedSummary"), isNull(), any(Locale.class)))
-                .thenReturn("Validation failed.");
+        when(messageSource.getMessage(eq("error.common.typeMismatch"), isNull(), any(Locale.class)))
+                .thenReturn("The value has an invalid format.");
+        when(messageSource.getMessage(eq("error.common.validationFailedSummaryFields"), any(Object[].class),
+                any(Locale.class)))
+                .thenReturn("Validation failed for 1 field(s).");
 
-        ResponseEntity<ApiResponse<Void>> response =
+        ResponseEntity<ApiResponse<Object>> response =
                 globalExceptionHandler.handleMethodArgumentTypeMismatchException(ex, request);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().isSuccess()).isFalse();
         assertThat(response.getBody().getError().getCode()).isEqualTo(ErrorCode.VALIDATION_ERROR.getCode());
+        assertThat(response.getBody().getError().getDetails())
+                .isEqualTo(Map.of("page", List.of("The value has an invalid format.")));
         verify(errorLogService, never()).saveErrorLog(anyString(), anyString(), anyInt(), anyString(),
                 anyString(), anyString(), any(), anyString(), anyString(), any());
     }
@@ -443,17 +448,22 @@ class GlobalExceptionHandlerTest {
     void handleMissingServletRequestParameterException() {
         MissingServletRequestParameterException ex =
                 new MissingServletRequestParameterException("q", "String");
-        when(messageSource.getMessage(eq("error.common.validationFailedSummary"), isNull(), any(Locale.class)))
-                .thenReturn("Validation failed.");
+        when(messageSource.getMessage(eq("error.common.missingParameter"), isNull(), any(Locale.class)))
+                .thenReturn("This field is required.");
+        when(messageSource.getMessage(eq("error.common.validationFailedSummaryFields"), any(Object[].class),
+                any(Locale.class)))
+                .thenReturn("Validation failed for 1 field(s).");
 
-        ResponseEntity<ApiResponse<Void>> response =
+        ResponseEntity<ApiResponse<Object>> response =
                 globalExceptionHandler.handleMissingServletRequestParameterException(ex, request);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().isSuccess()).isFalse();
         assertThat(response.getBody().getError().getCode()).isEqualTo(ErrorCode.VALIDATION_ERROR.getCode());
-        assertThat(response.getBody().getError().getMessage()).isEqualTo("Validation failed.");
+        assertThat(response.getBody().getError().getMessage()).isEqualTo("Validation failed for 1 field(s).");
+        assertThat(response.getBody().getError().getDetails())
+                .isEqualTo(Map.of("q", List.of("This field is required.")));
         verify(errorLogService, never()).saveErrorLog(anyString(), anyString(), anyInt(), anyString(),
                 anyString(), anyString(), any(), anyString(), anyString(), any());
     }
@@ -464,7 +474,7 @@ class GlobalExceptionHandlerTest {
         when(messageSource.getMessage(eq("error.common.validationFailedSummary"), isNull(), any(Locale.class)))
                 .thenReturn("Validation failed.");
 
-        ResponseEntity<ApiResponse<Void>> response =
+        ResponseEntity<ApiResponse<Object>> response =
                 globalExceptionHandler.handleConstraintViolationException(ex, request);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
