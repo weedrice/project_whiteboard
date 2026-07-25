@@ -23,6 +23,12 @@
 | B2 | `MessageSource`가 시스템 로케일로 fallback한다 | 백엔드 | 하 |
 | C1 | 백엔드 에러 코드 리터럴이 6곳에 분산되어 있다 | 프론트엔드 | 하 |
 | D1 | HSTS `max-age`가 1일이다 | 배포 | 하 |
+| E1 | 스케줄러 timezone 지정이 일관되지 않다 | 실행 환경 | 중 |
+| E2 | 타임스탬프 계약이 timezone-naive하다 | 실행 환경 | 상 |
+| F1 | `PageRequestUtils` 오버로드의 두 번째 인자 의미가 충돌한다 | 내부 API | 하 |
+| F2 | 익명 캐시가 in-process라 scale-out의 선결 과제다 | 실행 환경 | 하 |
+
+E1과 E2는 서로 얽혀 있다. **E1을 `TZ` 환경변수로 해결하면 E2가 악화되므로** 두 항목은 함께 판단해야 한다. 상세는 각 절에 기록한다.
 
 ## A. 계약 지점
 
@@ -249,6 +255,124 @@ wire 형태가 A1로 고정되고 나면, springdoc이 이미 제공하는 `/api
 
 **제안**: 단계적으로 상향한다(1일 → 7일 → 6개월 → 1년). 하위 도메인 구성을 확인한 뒤 `includeSubDomains` 추가를 검토하고, `preload`는 되돌리기 비용이 크므로 별도 판단한다.
 
+## E. 실행 환경과 시간
+
+### E1. 스케줄러 timezone 지정이 일관되지 않다
+
+**현상**
+
+`@Scheduled` cron 20개 중 일부만 `zone = "Asia/Seoul"`을 지정한다. 지정하지 않으면 JVM 기본 timezone이 적용된다.
+
+zone을 지정한 일별 작업 (의도대로 KST 새벽에 실행):
+
+| 스케줄러 | cron | 실행 시각 |
+| --- | --- | --- |
+| `PostDraftCleanupScheduler` | `0 15 3 * * ?` | 03:15 KST |
+| `TagCleanupScheduler` | `0 20 3 * * ?` | 03:20 KST |
+| `UserFeedCleanupScheduler` | `0 30 3 * * ?` | 03:30 KST |
+| `ErrorLogCleanupScheduler` | `0 10 4 * * ?` | 04:10 KST |
+| `VerificationCodeCleanupScheduler` | `0 20 4 * * ?` | 04:20 KST |
+| `RefreshTokenCleanupScheduler` | `0 40 4 * * ?` | 04:40 KST |
+
+zone을 지정하지 않은 일별 작업:
+
+| 스케줄러 | cron | JVM이 UTC일 때 실행 시각 |
+| --- | --- | --- |
+| `FileCleanupScheduler` | `0 0 2 * * ?` | **11:00 KST** |
+| `LoginHistoryCleanupScheduler` | `0 40 3 * * ?` | **12:40 KST** |
+
+시간별·분별 작업(`0 0 * * * ?`, `0 * * * * ?` 등)은 timezone과 무관하게 동작하므로 영향이 없다.
+
+**JVM timezone 확인 결과**: `backend/Dockerfile`(`eclipse-temurin:21-jre-alpine`), `deploy/systemd/app.service`, `docker-compose.yml`, `application*.yml` 어디에도 `TZ`나 `spring.jackson.time-zone` 설정이 없다. Alpine 기본값은 UTC다. systemd 유닛이 읽는 `/etc/noviis/app.env`는 저장소에 없어 확인할 수 없으므로, 실제 값은 운영에서 검증이 필요하다.
+
+**영향**
+
+6개 스케줄러에 명시된 "KST 새벽 유지보수" 의도가 2개 일별 작업에서는 지켜지지 않는다. JVM이 UTC라면 임시 파일 정리와 로그인 이력 정리가 한국 기준 정오 무렵, 즉 트래픽 피크에 배치 삭제를 수행한다.
+
+`deploy/monitoring/scheduled-jobs.txt`와 `verify-scheduled-jobs.py`는 작업의 존재 여부와 최종 실행 경과 시간만 검증하고 실행 시각대는 다루지 않으므로 이 어긋남을 잡지 못한다.
+
+**제안**
+
+- 두 스케줄러에 `zone = "Asia/Seoul"`을 추가한다. **`TZ` 환경변수로 JVM 전체를 KST로 바꾸는 방식은 택하지 않는다** — E2의 타임스탬프 해석이 JVM timezone에 묶여 있어 모든 표시 시각이 9시간 이동한다.
+- 일별 cron에 `zone` 지정을 강제하는 규칙을 `verify-scheduled-jobs.py`에 추가해 회귀를 막는다. 매니페스트에 `daily`로 분류된 작업만 검사하면 시간별 작업의 불필요한 잡음을 피할 수 있다.
+
+### E2. 타임스탬프 계약이 timezone-naive하다
+
+**현상**
+
+사용자 대면 도메인의 DTO 62개가 `LocalDateTime`을 쓴다. `BaseTimeEntity`의 `createdAt`·`modifiedAt`도 `LocalDateTime`이고, DB 컬럼은 `timestamp(6)`(timezone 없음)이다. Jackson은 이를 offset 없는 문자열(`"2026-07-25T10:00:00"`)로 직렬화한다.
+
+프론트 `utils/date.ts`의 `toDate`는 두 갈래로 해석한다.
+
+| 입력 형태 | 처리 | 해석 |
+| --- | --- | --- |
+| `number[]` | `Date.UTC(...)` | **UTC로 간주** |
+| `string` | `new Date(str)` | offset이 없으면 ECMAScript 규격상 **브라우저 로컬로 간주** |
+
+두 분기가 서로 다른 기준을 쓴다. 그리고 `formatDate`의 주석은 `"2023-10-27T10:00:00" -> "2023. 10. 27. 10:00:00"`이라고 적혀 있는데, 이는 브라우저 timezone이 서버 timezone과 같을 때만 성립한다.
+
+**영향**
+
+표시 시각의 정확성이 "JVM timezone == 뷰어의 브라우저 timezone"이라는, 어디에도 고정되어 있지 않은 전제에 의존한다. 어긋나면 다음이 함께 틀어진다.
+
+- `formatTimeAgo`는 서버 시각과 브라우저 `new Date()`를 직접 뺀다. 방금 작성한 글이 "9시간 전"으로 표시되거나 상대 시간 구간을 건너뛰어 절대 날짜로 떨어진다.
+- `postDraftRecovery.pickNewestDraftSnapshot`은 브라우저가 생성한 로컬 스냅샷 시각(`toISOString()`, 실제 UTC)과 서버 시각(로컬로 해석됨)을 문자열 비교해 최신본을 고른다. 계통적 편차가 있으면 항상 한쪽만 승리하므로, 임시저장 복구가 서버 최신본 또는 로컬 최신본을 일관되게 버린다.
+- 해외 사용자는 서버 timezone과 무관하게 항상 어긋난 시각을 본다.
+
+**참고**: agent 도메인 DTO는 이미 `Instant`·`OffsetDateTime`을 사용한다. 더 안전한 패턴이 저장소 안에 이미 존재하며, 사용자 대면 도메인에만 적용되지 않은 상태다.
+
+**제안**
+
+wire 계약 변경이므로 단계를 나눈다.
+
+1. **확인**: 운영 JVM의 실제 timezone과 DB에 저장된 시각의 기준을 먼저 확정한다. 이 값 없이는 이후 판단이 불가능하다.
+2. **응급**: `toDate`의 문자열 분기를 배열 분기와 같은 기준으로 통일하고, 어느 쪽을 정본으로 삼을지 한 곳에 문서화한다. 두 분기가 다른 해석을 쓰는 상태 자체가 결함이다.
+3. **정본화**: 신규 응답 필드부터 `Instant`(직렬화 시 `Z` 접미사 포함)로 전환하고, 기존 필드는 A1과 같은 방식으로 legacy 허용 목록에 등재해 점진 이행한다. 프론트는 offset이 있는 문자열을 그대로 `new Date()`에 넘기면 되므로 정규화 계층이 필요 없다.
+4. 전환 전까지 `LocalDateTime` 필드가 늘어나지 않도록 A1의 DTO 스캔 테스트에 검사를 함께 넣는다.
+
+## F. 내부 API 설계
+
+### F1. `PageRequestUtils` 오버로드의 두 번째 인자 의미가 충돌한다
+
+**현상**
+
+`PageRequestUtils`는 `of`·`bounded` 오버로드를 9개 제공하는데, 같은 위치의 `int` 인자가 오버로드마다 다른 뜻을 가진다.
+
+| 시그니처 | 두 번째 `int`의 의미 |
+| --- | --- |
+| `bounded(Pageable, int defaultPageSize, int maxPageSize)` | 기본 크기 |
+| `bounded(Pageable, int maxPageSize, Sort, Set)` | **최대 크기** (기본값으로도 함께 쓰임) |
+
+두 형태 모두 실제로 사용된다. `AgentNoteService:54`는 전자를, `AgentQueryService:300`은 후자를 호출하며 두 파일은 같은 도메인에 인접해 있다.
+
+또한 잘못된 입력의 처리 방식도 계열마다 다르다. `of(...)`는 `size < 1`에 `VALIDATION_ERROR`를 던지고, `bounded(...)`는 `Math.max(requestedSize, 1)`로 조용히 보정한다.
+
+**영향**
+
+호출부만 읽어서는 두 번째 인자가 기본값인지 상한인지 판별되지 않는다. 오버로드를 잘못 고르면 페이지 크기 상한이 조용히 바뀌며, 타입이 같으므로 컴파일러도 테스트도 잡지 못한다.
+
+**제안**
+
+- 최소 조치로 `bounded(Pageable, int, Sort, Set)` 오버로드의 파라미터 이름을 호출 의미에 맞게 정리하고 Javadoc으로 상한·기본값 관계를 명시한다.
+- 근본 조치로는 `PageBounds`류의 명시적 값 객체(기본 크기와 상한을 필드로 분리)를 받아 오버로드 수를 줄인다.
+- `of`와 `bounded`의 잘못된 입력 처리(예외 대 보정)를 한쪽으로 통일한다.
+
+### F2. 익명 캐시가 in-process라 scale-out의 선결 과제다
+
+**현상**
+
+`CacheConfig`의 캐시 5종은 모두 Caffeine 로컬 캐시다. 익명 사용자 대상 캐시(`boardCatalogAnonymous` 60초, `boardDetailAnonymous`·`trendingPostsAnonymous`·`homeLandingAnonymous` 각 30초)는 JVM 프로세스 안에만 존재한다.
+
+현재 배포는 systemd `Type=simple` 단일 인스턴스(`deploy/systemd/app.service`)이고 compose에도 replica 설정이 없으므로 **지금은 문제가 되지 않는다.**
+
+**영향**
+
+인스턴스를 늘리는 순간 익명 응답이 인스턴스별로 최대 30~60초 어긋나고, `AnonymousReadCacheInvalidator`의 무효화가 자신의 프로세스에만 적용되어 게시글 수정이 일부 사용자에게 지연 반영된다.
+
+**제안**
+
+수평 확장 계획이 생길 때 착수할 항목으로 기록해 둔다. 그 시점에 공유 캐시로 전환하거나, 무효화 이벤트를 인스턴스 간에 전파하는 방식을 선택한다. 현재 토폴로지에서는 조치가 필요 없다.
+
 ## 검토 결과 양호한 영역
 
 기록 목적으로 남긴다. 아래 항목은 점검했고 조치가 필요하지 않다.
@@ -263,14 +387,23 @@ wire 형태가 A1로 고정되고 나면, springdoc이 이미 제공하는 `/api
 - **타입 안정성**: `any` 3건, `@ts-ignore` 0건, `eslint-disable` 0건, TODO/FIXME 0건.
 - **메시지 번들**: 한국어·영어 각 150키로 완전 일치하며 `GlobalExceptionTest`가 parity와 `MessageFormat` 렌더링을 검증한다.
 - **CI 구성**: paths-filter로 검증 범위와 배포 범위를 분리하고, 배포 필터만 테스트 파일을 제외한다. 검증 필터는 `frontend/**` 전체를 포함하므로 테스트 변경도 CI를 거친다. Actions는 SHA로 고정되어 있다.
+- **페이지네이션 방어**: `PageRequestUtils`가 페이지 크기를 상한으로 클램프하고, 정렬 속성을 allowlist로 걸러 정렬 주입을 차단한다. 설계 정리 여지는 F1로 분리했고 방어 자체는 유효하다.
+- **로그 마스킹**: `SensitiveDataMaskingFilter`가 AOP 파라미터 로깅, logback 패턴 변환(`MaskedMessageConverter`), DB 에러 로그 적재 세 경로에 모두 적용된다.
+- **i18n 강제**: 커스텀 ESLint 규칙 `local-i18n/no-bare-korean-in-template`이 error 수준으로 걸려 있고, `messages.spec.ts`·`keyUsage.spec.ts`가 키 존재와 사용 여부를 검증한다.
+- **비동기 실행**: 용도별 executor 3종(durable·notification·observability)을 분리하고 거부 정책을 구분했으며, MDC 전파와 큐 게이지 메트릭을 갖췄다. 미처리 예외 핸들러도 등록되어 있다.
+- **DB 마이그레이션**: Flyway 88개 파일이 버전 순으로 관리되고, 계약성 마이그레이션은 `docs/ops/applied-contract-migrations.txt`로 별도 추적한다. `open-in-view: false`로 뷰 계층 지연 로딩도 차단되어 있다.
 
 ## 진행 제안
 
 의존 관계를 고려한 순서다.
 
-1. **A2** — 이미 구현·검증된 서버 기능을 클라이언트에 연결하는 것으로, 변경 범위가 좁고 효과가 즉시 나타난다.
-2. **A1** — 이후 모든 DTO 변경의 재발을 막는 구조적 방어이며, A6의 선행 조건이다.
-3. **A4**, **A3** — 사용자에게 보이는 오류 표시와 실시간 채널의 신뢰도를 올린다.
-4. **A5** — 서버 정책 설계가 필요하므로 별도 논의를 거친다.
-5. **B1**, **B2**, **C1**, **D1** — 국소 변경이며 위 항목과 독립적으로 처리 가능하다.
-6. **A6**, **A7** — A1 완료 후 착수한다.
+0. **E2의 1단계(운영 JVM timezone 확인)** — 조사만으로 끝나며 비용이 거의 없다. 결과에 따라 E1·E2의 실제 심각도가 확정되므로 가장 먼저 수행한다.
+1. **E1** — 스케줄러 2개에 `zone`을 추가하는 국소 변경이다. E2 확인 결과와 무관하게 안전하며, `TZ` 방식을 배제하는 판단만 지키면 된다.
+2. **A2** — 이미 구현·검증된 서버 기능을 클라이언트에 연결하는 것으로, 변경 범위가 좁고 효과가 즉시 나타난다.
+3. **A1** — 이후 모든 DTO 변경의 재발을 막는 구조적 방어이며, A6와 E2 4단계의 선행 조건이다.
+4. **E2의 2단계(`toDate` 분기 통일)** — 두 분기가 다른 기준을 쓰는 상태를 먼저 없앤다. wire 변경 없이 프론트 안에서 끝난다.
+5. **A4**, **A3** — 사용자에게 보이는 오류 표시와 실시간 채널의 신뢰도를 올린다.
+6. **A5**, **E2의 3~4단계** — 서버 정책 설계와 wire 계약 이행이 필요하므로 별도 논의를 거친다.
+7. **B1**, **B2**, **C1**, **D1**, **F1** — 국소 변경이며 위 항목과 독립적으로 처리 가능하다.
+8. **A6**, **A7** — A1 완료 후 착수한다.
+9. **F2** — 수평 확장 계획이 생길 때 착수한다.
