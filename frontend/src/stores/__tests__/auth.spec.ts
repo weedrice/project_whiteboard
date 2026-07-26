@@ -400,7 +400,7 @@ describe('Auth Store', () => {
             const user = authUser()
             vi.mocked(authApi.login).mockResolvedValue(authLoginResponse(user, 'login-token'))
 
-            await store.login({ email: 'a@b.c', password: 'pw' })
+            await store.login({ loginId: 'tester', password: 'pw' })
             expect(mockPrincipalChange).toHaveBeenCalledTimes(1)
 
             store.clearSessionState()

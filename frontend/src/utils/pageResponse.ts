@@ -27,6 +27,9 @@ function warnOnMissingPageNumber(raw: unknown): void {
 
   const candidate = raw as { page?: unknown; number?: unknown; content?: unknown }
   if (!Array.isArray(candidate.content)) return
+  // 빈 목록은 정상 응답이다. 백엔드가 page를 함께 생략하는 경우가 있어, 여기서 걸러내지
+  // 않으면 "필드 이름이 바뀌었다"는 잘못된 신호가 개발 중에 계속 뜬다.
+  if (candidate.content.length === 0) return
   if (typeof candidate.page === 'number' || typeof candidate.number === 'number') return
 
   logger.warn(

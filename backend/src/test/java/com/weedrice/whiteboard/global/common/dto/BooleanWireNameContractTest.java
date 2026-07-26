@@ -152,9 +152,7 @@ class BooleanWireNameContractTest {
                     continue;
                 }
                 String key = dtoClass.getName() + "#" + field.getName();
-                if (annotatedOnGetter(dtoClass, field)
-                        || LEGACY_PREFIX_STRIPPED.contains(key)
-                        || LEGACY_DUPLICATE_KEYS.contains(key)) {
+                if (annotatedOnGetter(dtoClass, field) || inMatchingLegacyList(field, key)) {
                     continue;
                 }
                 unguarded.add(key);
@@ -162,11 +160,25 @@ class BooleanWireNameContractTest {
         }
 
         assertThat(unguarded)
-                .as("wire 이름이 정해지지 않은 boolean 필드가 있다. "
-                        + "@Getter(onMethod_ = @JsonProperty(\"isXxx\"))로 이름을 명시하거나, "
-                        + "기존 계약을 유지해야 한다면 해당 legacy 목록에 등재할 것. "
+                .as("wire 이름이 정해지지 않았거나, 등재된 legacy 목록이 실제 어노테이션과 어긋나는 "
+                        + "boolean 필드가 있다. @Getter(onMethod_ = @JsonProperty(\"isXxx\"))로 이름을 "
+                        + "명시하거나, 기존 계약을 유지해야 한다면 실제 패턴에 맞는 목록에 등재할 것. "
                         + "필드에 직접 @JsonProperty를 붙이면 이름이 바뀌지 않고 키가 하나 더 생긴다")
                 .isEmpty();
+    }
+
+    /**
+     * 두 legacy 목록은 <b>서로 다른 wire 계약</b>을 뜻한다. 합집합으로만 보면 필드가 한쪽
+     * 계약에서 다른 쪽으로 넘어가도 통과해 버린다.
+     *
+     * <p>구체적으로, 필드에서 {@code @JsonProperty}를 <b>지우면</b> {@code isXxx} 키가 wire에서
+     * 사라지는데 키가 여전히 {@code LEGACY_DUPLICATE_KEYS}에 있어 검사를 빠져나간다. A8 정리가
+     * 정확히 그 방향의 작업이므로, 등재된 목록이 실제 어노테이션 위치와 맞는지까지 본다.
+     */
+    private static boolean inMatchingLegacyList(Field field, String key) {
+        return field.isAnnotationPresent(JsonProperty.class)
+                ? LEGACY_DUPLICATE_KEYS.contains(key)
+                : LEGACY_PREFIX_STRIPPED.contains(key);
     }
 
     @Test

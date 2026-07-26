@@ -1,18 +1,20 @@
 import { buildPostOgMeta, PRIVATE_POST_OG_TITLE, resolvePostOgTitle } from './og-image.mjs'
+import { parseServiceInstant, SERVICE_TIME_ZONE } from './serviceTime.mjs'
 
 function stripHtml(html) {
     return String(html ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
 }
 
-/** 서비스 기준 지역. 빌드 컨테이너 지역(UTC)이 아니라 독자 기준으로 그린다. */
-const SERVICE_TIME_ZONE = 'Asia/Seoul'
-
 function formatServiceDateTime(value) {
+    // 서비스 기준 지역으로 그린다. 빌드 컨테이너 지역(UTC)이 아니라 독자 기준이어야 한다.
+    // 입력에 offset이 없으면 컨테이너 지역으로 오해석되므로 파싱도 서비스 기준을 따른다.
+    const date = parseServiceInstant(value)
+    if (!date) return ''
     return new Intl.DateTimeFormat('ko-KR', {
         timeZone: SERVICE_TIME_ZONE,
         dateStyle: 'long',
         timeStyle: 'short',
-    }).format(new Date(value))
+    }).format(date)
 }
 
 function escapeHtml(value) {
@@ -28,7 +30,9 @@ export function buildPreRenderedSnippet(post, canonicalUrl, ogImage) {
     const isPrivatePost = Boolean(post?.isSecret || post?.isBlinded)
     const title = resolvePostOgTitle(post)
     const authorName = isPrivatePost ? 'NoviIs' : (post?.author?.displayName ?? 'Unknown')
-    const createdAt = !isPrivatePost && post?.createdAt ? new Date(post.createdAt).toISOString() : null
+    const createdAt = !isPrivatePost && post?.createdAt
+        ? (parseServiceInstant(post.createdAt)?.toISOString() ?? null)
+        : null
     const articleBody = isPrivatePost ? PRIVATE_POST_OG_TITLE : (post?.contents ?? '')
     const articleSummary = isPrivatePost
         ? PRIVATE_POST_OG_TITLE
