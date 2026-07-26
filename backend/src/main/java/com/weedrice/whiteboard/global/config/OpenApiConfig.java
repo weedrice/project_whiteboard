@@ -35,6 +35,9 @@ public class OpenApiConfig {
     /** 프론트 타입 생성 입력이 되는 그룹 이름. `/api-docs/{group}`으로 노출된다. */
     public static final String FRONTEND_CODEGEN_GROUP = "frontend";
 
+    /** 전체 문서 그룹. 아무것도 거르지 않는다. 이유는 {@link #allApi()}. */
+    public static final String ALL_GROUP = "all";
+
     /** 생성 대상에서 빼는 경로. 이유는 {@link #frontendCodegenApi()}. */
     public static final List<String> EXCLUDED_CODEGEN_PATHS = List.of(
             "/api/v1/agents/**",
@@ -64,8 +67,8 @@ public class OpenApiConfig {
      * 계약을 정하지 않는다. 그룹에 넣으면 그쪽 DTO가 바뀔 때마다 프론트 빌드가 깨져,
      * 소스를 고치지 않고도 그 도메인의 개발을 사실상 제약하게 된다.
      *
-     * <p>기본 그룹(전체 문서)은 그대로 두므로 Swagger UI에서는 여전히 모든 API를 볼 수 있다.
-     * 여기서 거르는 것은 <b>코드 생성 입력</b>뿐이다.
+     * <p>여기서 거르는 것은 <b>코드 생성 입력</b>뿐이다. UI에서의 가시성은 {@link #allApi()}가
+     * 따로 보장한다.
      */
     @Bean
     public GroupedOpenApi frontendCodegenApi() {
@@ -73,6 +76,24 @@ public class OpenApiConfig {
                 .group(FRONTEND_CODEGEN_GROUP)
                 .pathsToMatch("/api/**")
                 .pathsToExclude(EXCLUDED_CODEGEN_PATHS.toArray(String[]::new))
+                .build();
+    }
+
+    /**
+     * Swagger UI용 전체 문서 그룹.
+     *
+     * <p>{@code GroupedOpenApi} 빈이 하나라도 있으면 springdoc은 UI의 문서 목록을 <b>등록된
+     * 그룹만으로</b> 구성한다. 코드 생성 그룹만 두면 agent·ad API가 UI에서 사라져, 코드 생성
+     * 입력만 거르려던 의도를 넘어 그 도메인의 문서 접근성까지 건드리게 된다.
+     * 아무것도 거르지 않는 그룹을 함께 등록해 그 일이 없게 한다.
+     *
+     * <p>{@code swaggerUiStillExposesExcludedDomains}가 이 보장을 고정한다.
+     */
+    @Bean
+    public GroupedOpenApi allApi() {
+        return GroupedOpenApi.builder()
+                .group(ALL_GROUP)
+                .pathsToMatch("/**")
                 .build();
     }
 

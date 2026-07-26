@@ -79,6 +79,37 @@ class OpenApiSpecSnapshotTest {
     @Autowired
     private WebApplicationContext context;
 
+    /**
+     * {@code GroupedOpenApi} 빈을 등록하면 Swagger UI가 그룹 목록만 보여 준다는 지적이 있었다.
+     * 사실이라면 agent·ad 엔드포인트가 UI에서 사라져, 코드 생성 입력만 거른다는 의도를 넘어
+     * 그 도메인의 문서 접근성까지 건드리게 된다. 실제로 확인해 고정한다.
+     */
+    @Test
+    @DisplayName("그룹을 등록해도 Swagger UI에서 제외 도메인을 볼 수 있다")
+    void swaggerUiStillExposesExcludedDomains() throws Exception {
+        MockMvc mockMvc = MockMvcBuilders.webAppContextSetup(context).build();
+
+        String config = mockMvc.perform(get("/api-docs/swagger-config"))
+                .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+        JsonNode urls = JsonMapper.builder().build().readTree(config).path("urls");
+
+        List<String> groups = new ArrayList<>();
+        urls.forEach(entry -> groups.add(entry.path("name").asString()));
+
+        // UI는 등록된 그룹만 목록에 싣는다. 전체 문서 그룹이 없으면 agent·ad API를 볼 방법이 없다.
+        assertThat(groups)
+                .as("Swagger UI 그룹 목록에 전체 문서 그룹이 없다. "
+                        + "코드 생성 그룹만 남으면 agent·ad API가 UI에서 사라진다")
+                .contains(OpenApiConfig.ALL_GROUP);
+
+        // 전체 문서에는 제외 경로가 그대로 있어야 한다.
+        String allSpec = mockMvc.perform(get("/api-docs/" + OpenApiConfig.ALL_GROUP))
+                .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+        assertThat(JsonMapper.builder().build().readTree(allSpec).path("paths").propertyNames())
+                .as("전체 문서 그룹에서 agent 경로가 빠졌다")
+                .anyMatch(path -> path.startsWith("/api/v1/agents"));
+    }
+
     @Test
     @DisplayName("프론트 codegen 스펙 스냅샷이 최신이다")
     void snapshotIsUpToDate() throws Exception {

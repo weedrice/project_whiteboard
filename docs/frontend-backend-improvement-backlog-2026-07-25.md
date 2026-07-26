@@ -252,7 +252,11 @@ wire 형태와 프론트 내부 타입의 차이를 메우는 `Wire 타입 + nor
 
 wire 형태가 A1로 고정되고 나면, springdoc이 이미 제공하는 `/api-docs`에서 TS 타입을 생성하는 경로가 열린다. 생성 타입을 도입하면 손으로 유지하는 응답 타입이 사라지고 normalizer만 의도적인 수기 계층으로 남는다. 도입 전이라도 `stores/auth.ts`의 인라인 처리는 normalizer로 옮겨 패턴을 일치시킨다.
 
-**범위 제약**: 생성 대상에서 agent·ad 경로를 제외한다(→ A9). springdoc은 기본적으로 전체
+**범위 제약**: 생성 대상에서 agent·ad 경로를 제외한다(→ A9). 다만 `GroupedOpenApi`를
+하나라도 등록하면 springdoc은 Swagger UI의 문서 목록을 **등록된 그룹만으로** 구성한다.
+코드 생성 그룹만 두면 agent·ad API가 UI에서 사라져, 생성 입력만 거르려던 의도를 넘어
+그 도메인의 문서 접근성까지 건드리게 된다. 아무것도 거르지 않는 `all` 그룹을 함께 등록해
+막았고 `swaggerUiStillExposesExcludedDomains`가 고정한다. springdoc은 기본적으로 전체
 컨트롤러를 문서화하므로, 아무 설정 없이 도입하면 `AgentController`의 스키마까지 생성 타입에
 들어오고 그 뒤로 agent DTO 변경이 프론트 빌드를 깨게 된다. `openapi-typescript` 입력 단계에서
 경로를 걸러내거나 springdoc `GroupedOpenApi`로 대상 경로를 한정한 뒤에 착수한다.
