@@ -79,6 +79,21 @@ export function detectBrowserTimeZone(): string | null {
  */
 let resolvedTimeZone: string | null = null
 
+/**
+ * 다른 탭이 지역을 바꾸면 이 탭의 기억을 비운다.
+ *
+ * 기억은 프로세스 단위라 한 번 굳으면 스스로 풀리지 않는다. 탭 A가 뉴욕으로 기억한 뒤
+ * 탭 B에서 설정을 바꾸면, 저장소는 바뀌었는데 탭 A는 계속 뉴욕으로 그린다.
+ */
+if (typeof window !== 'undefined') {
+    window.addEventListener('storage', (event) => {
+        // key가 null이면 저장소 전체가 비워진 경우다.
+        if (event.key === null || event.key === STORAGE_KEY) {
+            invalidateDisplayTimeZone()
+        }
+    })
+}
+
 export function getDisplayTimeZone(): string {
     // 매 호출마다 Intl.DateTimeFormat을 만들면 date.ts의 formatter 캐시가 무의미해진다.
     // 목록 한 화면이 수십 번 포맷하므로 결과를 기억하고, 설정이 바뀔 때만 비운다.

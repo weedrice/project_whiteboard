@@ -111,12 +111,13 @@ export function useUserSettingsForm(options: UseUserSettingsFormOptions) {
     const isCurrentSave = () => revision === saveRevision
       && (sessionGeneration === undefined || options.getSessionGeneration?.() === sessionGeneration)
     const previousLanguage = baseline.value?.language as UserSettings['language'] | undefined
+    // AUTO도 그대로 보낸다. 서버가 이 표식을 저장하므로 "자동"이 다른 기기와 다음
+    // 방문에도 유지된다. 빼고 보내면 서버는 "변경 없음"으로 읽어 이전에 고른 지역이
+    // 그대로 남고, 화면에는 저장 성공으로 보이는 조용한 실패가 된다.
     const payload: UserSettingsForm & { language: UserSettings['language'] } = {
       theme: form.theme,
       language: form.language as UserSettings['language'],
-      // AUTO는 프론트 전용 표식이다. 서버 normalizeTimezone은 ZoneId.of로 검증하므로
-      // 그대로 보내면 400이 나고 테마·언어까지 함께 저장에 실패한다.
-      timezone: form.timezone === AUTO_TIME_ZONE ? undefined : form.timezone,
+      timezone: form.timezone,
       hideNsfw: form.hideNsfw
     }
     try {

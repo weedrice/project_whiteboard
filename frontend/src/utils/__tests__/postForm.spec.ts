@@ -199,6 +199,42 @@ describe('postForm', () => {
         )).toBeNull()
     })
 
+    // `datetime-local` 입력이 만드는 값은 offset이 없는 서버 기준(KST) 벽시계다.
+    // 이를 기기 지역으로 읽으면 KST 밖 사용자는 실제로는 미래인 마감 시각을
+    // "현재보다 이전"이라며 거부당한다.
+    it('reads an offset-less close time as the server zone, not the device zone', () => {
+        const poll = {
+            question: 'Pick one',
+            options: ['Alpha', 'Beta'],
+            multipleChoiceEnabled: false,
+            anonymousEnabled: false,
+            // KST 2026-07-26 09:00 = 2026-07-26T00:00:00Z
+            closesAt: '2026-07-26T09:00',
+        }
+        // 진짜 현재는 마감 30분 전이다.
+        const now = new Date('2026-07-25T23:30:00Z').getTime()
+
+        expect(validatePostFormPoll(poll, now)).toBeNull()
+
+        // 같은 벽시계 값이 실제로 과거라면 여전히 거부해야 한다.
+        const afterClose = new Date('2026-07-26T00:30:00Z').getTime()
+        expect(validatePostFormPoll(poll, afterClose)).toBe('closesAtFuture')
+    })
+
+    it('compares an offset-less close time against an offset-less schedule in the same zone', () => {
+        const poll = {
+            question: 'Pick one',
+            options: ['Alpha', 'Beta'],
+            multipleChoiceEnabled: false,
+            anonymousEnabled: false,
+            closesAt: '2026-07-26T09:00',
+        }
+        const now = new Date('2026-07-25T23:30:00Z').getTime()
+
+        expect(validatePostFormPoll(poll, now, '2026-07-26T08:59')).toBe('closesAtAfterSchedule')
+        expect(validatePostFormPoll(poll, now, '2026-07-26T08:00')).toBeNull()
+    })
+
     it('encodes script-style html widgets before submit', () => {
         const rawWidget = '<style>.cl{display:grid}</style><button onclick="toggle()">여권</button><script>function toggle(){}</script>'
         const payload = buildPostFormPayload({

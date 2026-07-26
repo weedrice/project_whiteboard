@@ -129,21 +129,41 @@ export function formatDateOnlyLongOrDash(dateString: DateInput, locale: Supporte
  * 판정한 뒤 표시 지역으로 그리면 둘이 어긋나, 표시 지역에서는 어제인 글이 시각만 찍혀 나온다.
  * 판정과 표시를 같은 지역에서 하도록 여기서 한 번에 뽑는다.
  */
-function displayZoneParts(date: Date) {
-    const parts = new Intl.DateTimeFormat('en-CA', {
-        timeZone: getDisplayTimeZone(),
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
-    }).formatToParts(date)
+const PARTS_OPTIONS: Intl.DateTimeFormatOptions = {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+}
+
+/**
+ * 비싼 것은 `Intl.DateTimeFormat` 생성이지 `formatToParts` 호출이 아니다.
+ * 목록 한 화면이 수십 번 부르므로 지역별로 하나만 만들어 재사용한다.
+ */
+const partsFormatterCache = new Map<string, Intl.DateTimeFormat>()
+
+function partsFormatter(timeZone: string) {
+    const cached = partsFormatterCache.get(timeZone)
+    if (cached) return cached
+
+    const created = new Intl.DateTimeFormat('en-CA', { ...PARTS_OPTIONS, timeZone })
+    partsFormatterCache.set(timeZone, created)
+    return created
+}
+
+function zoneParts(date: Date, timeZone: string) {
+    const parts = partsFormatter(timeZone).formatToParts(date)
 
     const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? ''
     const hour = get('hour') === '24' ? '00' : get('hour')
 
     return { year: get('year'), month: get('month'), day: get('day'), hour, minute: get('minute') }
+}
+
+function displayZoneParts(date: Date) {
+    return zoneParts(date, getDisplayTimeZone())
 }
 
 export function formatRelativeDate(dateString: string, locale: SupportedLocale = 'ko'): string {
@@ -179,6 +199,15 @@ export function formatDateShort(dateString: string | number[]): string {
     return `${year.slice(-2)}.${month}.${day} ${hour}:${minute}`
 }
 
+/**
+ * 시:분만 표시 지역 기준으로 그린다.
+ * `toLocaleTimeString()`은 항상 기기 지역을 쓰므로, 같은 화면의 다른 시각과 어긋난다.
+ */
+export function formatTimeOnly(dateString: DateInput, locale: SupportedLocale = 'ko'): string {
+    const date = toDate(dateString)
+    return date ? formatter('timeOnly', locale).format(date) : ''
+}
+
 export function formatDateOnly(dateString: string | number[], locale: SupportedLocale = 'ko'): string {
     const date = toDate(dateString)
     if (!date) return ''
@@ -186,7 +215,11 @@ export function formatDateOnly(dateString: string | number[], locale: SupportedL
     return formatter('dateOnly', locale).format(date)
 }
 
-export function formatTimeAgo(dateString: string | number[], t: (key: string, values?: Record<string, unknown>) => string): string {
+export function formatTimeAgo(
+    dateString: string | number[],
+    t: (key: string, values?: Record<string, unknown>) => string,
+    locale: SupportedLocale = 'ko',
+): string {
     const date = toDate(dateString)
     if (!date) return ''
 
@@ -201,7 +234,19 @@ export function formatTimeAgo(dateString: string | number[], t: (key: string, va
     const days = Math.floor(hours / 24)
     if (days < 7) return t('common.time.daysAgo', { count: days })
 
-    return formatter('dateOnly', 'ko').format(date)
+    return formatter('dateOnly', locale).format(date)
+}
+
+/**
+ * 서버가 날짜로 필터링하는 파라미터(`startDate`/`endDate` 등)에 쓸 `YYYY-MM-DD`를 만든다.
+ *
+ * 기기 지역으로 만들면 KST와 날짜가 다른 지역의 사용자가 서버와 다른 날을 가리킨다.
+ * 예를 들어 로스앤젤레스의 25일 17시는 KST 26일이라, 기기 기준 범위는 서버의 오늘을
+ * 통째로 빠뜨린다. 표시가 아니라 서버 판정에 쓰는 값이므로 서버 기준으로 만든다.
+ */
+export function toServerDateString(date: Date = new Date()): string {
+    const { year, month, day } = zoneParts(date, SERVER_TIME_ZONE)
+    return `${year}-${month}-${day}`
 }
 
 /**
@@ -219,18 +264,6 @@ export function toDateTimeLocalInputValue(value: string | null | undefined): str
     const date = toDate(value)
     if (!date) return ''
 
-    const parts = new Intl.DateTimeFormat('en-CA', {
-        timeZone: SERVER_TIME_ZONE,
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
-    }).formatToParts(date)
-
-    const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? ''
-    const hour = get('hour') === '24' ? '00' : get('hour')
-
-    return `${get('year')}-${get('month')}-${get('day')}T${hour}:${get('minute')}`
+    const { year, month, day, hour, minute } = zoneParts(date, SERVER_TIME_ZONE)
+    return `${year}-${month}-${day}T${hour}:${minute}`
 }

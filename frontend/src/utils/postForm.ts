@@ -1,5 +1,6 @@
 import { normalizeEditorFileImageUrls, normalizeLegacyFileUrls } from '@/utils/fileUrl'
 import { getWindowOrigin } from '@/utils/browserEnv'
+import { withServerOffset } from '@/utils/date'
 import { encodeSandboxedPostHtml, requiresSandboxedPostHtml } from '@/utils/postHtmlSandbox'
 import type { PollPayload } from '@/api/post'
 
@@ -237,10 +238,13 @@ export function validatePostFormPoll(
     if (options.some((option) => option.length > POST_POLL_OPTION_MAX_LENGTH)) return 'optionTooLong'
 
     if (poll.closesAt) {
-        const closesAt = new Date(poll.closesAt).getTime()
+        // 두 값은 `datetime-local` 입력이 만든 서버 기준(KST) 벽시계다. offset이 없어
+        // 그냥 `new Date`로 읽으면 기기 지역으로 해석되어, KST 밖 사용자는 실제로는
+        // 미래인 마감 시각을 "현재보다 이전"이라며 거부당한다(UTC+14면 최대 5시간).
+        const closesAt = new Date(withServerOffset(poll.closesAt)).getTime()
         if (!Number.isFinite(closesAt) || closesAt <= now) return 'closesAtFuture'
 
-        const scheduledTime = scheduledAt ? new Date(scheduledAt).getTime() : Number.NaN
+        const scheduledTime = scheduledAt ? new Date(withServerOffset(scheduledAt)).getTime() : Number.NaN
         if (Number.isFinite(scheduledTime) && closesAt <= scheduledTime + 60_000) {
             return 'closesAtAfterSchedule'
         }

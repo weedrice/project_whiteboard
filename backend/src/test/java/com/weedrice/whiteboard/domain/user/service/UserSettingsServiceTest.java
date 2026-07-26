@@ -156,6 +156,26 @@ class UserSettingsServiceTest {
     }
 
     @Test
+    @DisplayName("Settings update stores the AUTO timezone marker")
+    void updateSettings_autoTimezone() {
+        // "자동"은 ZoneId로 표현할 수 없는 선택지다. 이 값을 받지 않으면 클라이언트가
+        // 자동을 저장할 방법이 없어, 이전에 고른 지역이 계속 남는다.
+        User user = User.builder().build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        UserSettings settings = new UserSettings(user);
+        ReflectionTestUtils.setField(settings, "timezone", "Asia/Tokyo");
+
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(userSettingsRepository.findById(1L)).thenReturn(Optional.of(settings));
+        when(userSettingsRepository.save(any())).thenReturn(settings);
+
+        UserSettingsResponse response = userSettingsService.updateSettings(
+                1L, null, null, " " + UserSettingsService.AUTO_TIMEZONE + " ", null);
+
+        assertThat(response.getTimezone()).isEqualTo(UserSettingsService.AUTO_TIMEZONE);
+    }
+
+    @Test
     @DisplayName("Settings update rejects blank timezone")
     void updateSettings_blankTimezone() {
         assertThatThrownBy(() -> userSettingsService.updateSettings(1L, null, null, "   ", null))

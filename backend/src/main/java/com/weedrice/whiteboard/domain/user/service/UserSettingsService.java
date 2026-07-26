@@ -34,6 +34,18 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class UserSettingsService {
+        /**
+         * "표시 지역을 브라우저 판단에 맡긴다"를 뜻하는 값.
+         *
+         * <p>`ZoneId`로 표현할 수 없는 선택지라 별도 표식이 필요하다. 이 값을 받지 않으면
+         * 클라이언트가 "자동"을 저장할 방법이 없어, 이전에 고른 지역이 계속 남는다.
+         *
+         * <p>서버는 이 필드를 판정에 쓰지 않고 저장·응답만 하므로(출석의 "오늘", 일일 한도
+         * 등은 모두 KST 고정) 표식을 그대로 담아도 서버 로직에 영향이 없다. 표시 계층만
+         * 이 값을 해석한다.
+         */
+        public static final String AUTO_TIMEZONE = "AUTO";
+
         private static final Set<String> SUPPORTED_THEMES = Set.of("LIGHT", "DARK");
         private static final Set<String> SUPPORTED_LANGUAGES = Set.of("ko", "en");
 
@@ -235,6 +247,9 @@ public class UserSettingsService {
                 String normalizedTimezone = timezone.strip();
                 if (normalizedTimezone.isBlank()) {
                         throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+                }
+                if (AUTO_TIMEZONE.equals(normalizedTimezone)) {
+                        return AUTO_TIMEZONE;
                 }
 
                 try {

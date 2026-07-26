@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { nextTick, ref } from 'vue'
 import type { NotificationSettingsPayload } from '@/api/user'
 import type { UserSettings } from '@/types'
+import { AUTO_TIME_ZONE } from '@/utils/displayTimeZone'
 import {
   useNotificationSettingsForm,
   useUserSettingsForm
@@ -241,6 +242,77 @@ describe('useUserSettingsForm', () => {
     }
     await nextTick()
     expect(form.form).toMatchObject({ theme: 'DARK', language: 'en', timezone: 'UTC', hideNsfw: false })
+    expect(form.isDirty.value).toBe(false)
+  })
+
+  // "자동"은 서버에 표식으로 저장되어야 한다. 값을 빼고 보내면 서버는 "변경 없음"으로
+  // 읽어 이전에 고른 지역이 그대로 남고, 화면에는 저장 성공으로 보이는 조용한 실패가 된다.
+  it('sends the AUTO marker so "자동" actually replaces the stored zone', async () => {
+    const settingsData = ref<UserSettings>({
+      theme: 'LIGHT',
+      language: 'ko' as UserSettings['language'],
+      timezone: 'Asia/Tokyo',
+      hideNsfw: true,
+      pushEnabled: false
+    })
+    const updateSettings = vi.fn().mockResolvedValue(undefined)
+    const form = useUserSettingsForm({
+      settingsData,
+      isSaving: ref(false),
+      themeIsDark: () => false,
+      updateSettings,
+      setTheme: vi.fn(),
+      t
+    })
+    await nextTick()
+    expect(form.form.timezone).toBe('Asia/Tokyo')
+
+    form.form.timezone = AUTO_TIME_ZONE
+    await nextTick()
+    expect(form.canSave.value).toBe(true)
+
+    await form.save()
+
+    expect(updateSettings).toHaveBeenCalledWith({
+      theme: 'LIGHT',
+      language: 'ko',
+      timezone: AUTO_TIME_ZONE,
+      hideNsfw: true
+    })
+    expect(form.message.value).toBe('user.settings.saved')
+    // baseline이 보낸 값과 어긋나면 isDirty가 영원히 참으로 남아, 저장 버튼이 계속
+    // 활성화되고 서버 재동기화(hydrate watch)가 이 세션 동안 막힌다.
+    expect(form.isDirty.value).toBe(false)
+    expect(form.canSave.value).toBe(false)
+  })
+
+  it('re-syncs from the server after saving AUTO', async () => {
+    const settingsData = ref<UserSettings>({
+      theme: 'LIGHT',
+      language: 'ko' as UserSettings['language'],
+      timezone: 'Asia/Tokyo',
+      hideNsfw: true,
+      pushEnabled: false
+    })
+    const form = useUserSettingsForm({
+      settingsData,
+      isSaving: ref(false),
+      themeIsDark: () => false,
+      updateSettings: vi.fn().mockResolvedValue(undefined),
+      setTheme: vi.fn(),
+      t
+    })
+    await nextTick()
+    form.form.timezone = AUTO_TIME_ZONE
+    await nextTick()
+    await form.save()
+
+    settingsData.value = {
+      theme: 'LIGHT', language: 'ko', timezone: AUTO_TIME_ZONE, hideNsfw: true, pushEnabled: false,
+    }
+    await nextTick()
+
+    expect(form.form.timezone).toBe(AUTO_TIME_ZONE)
     expect(form.isDirty.value).toBe(false)
   })
 })

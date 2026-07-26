@@ -3,6 +3,7 @@ import { usePostDraft } from '@/features/board/posts/draft/usePostDraft'
 import type { PostComposerSnapshot } from '@/features/board/posts/form/usePostComposerState'
 import type { PostFormFileIdScope } from '@/utils/postForm'
 import logger from '@/utils/logger'
+import { formatTimeOnly } from '@/utils/date'
 
 type ComposerToastType = 'info' | 'success' | 'warning' | 'error'
 
@@ -83,11 +84,11 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     if (lastSavedAt.value) {
       if (lastSaveScope.value === 'browser') {
         return options.t('board.writePost.draftStatus.savedBrowserAt', {
-          time: new Date(lastSavedAt.value).toLocaleTimeString(),
+          time: formatTimeOnly(lastSavedAt.value),
         })
       }
       return options.t('board.writePost.draftStatus.savedAt', {
-        time: new Date(lastSavedAt.value).toLocaleTimeString(),
+        time: formatTimeOnly(lastSavedAt.value),
       })
     }
     return options.t('board.writePost.draftStatus.ready')

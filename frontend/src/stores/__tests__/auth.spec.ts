@@ -38,6 +38,7 @@ vi.mock('@/features/notifications/pushSubscriptions', () => ({
 
 const mockSyncThemeFromUser = vi.fn()
 const mockSessionBoundary = vi.fn()
+const mockPrincipalChange = vi.fn()
 
 vi.mock('@/utils/logger', () => ({
     default: {
@@ -71,6 +72,7 @@ describe('Auth Store', () => {
         configureAuthSessionEffects({
             syncThemeFromUser: mockSyncThemeFromUser,
             onSessionBoundary: mockSessionBoundary,
+            onPrincipalChange: mockPrincipalChange,
         })
         store = useAuthStore()
     })
@@ -378,6 +380,31 @@ describe('Auth Store', () => {
             expect(getStoredAccessToken()).toBe('boot-token')
             expect(store.user).toEqual(user)
             expect(mockSyncThemeFromUser).toHaveBeenCalledWith(user)
+        })
+
+        // 부트스트랩은 같은 사용자가 토큰만 새로 받는 것이지 주체 변경이 아니다.
+        // 여기서 주체 변경으로 처리하면, 계정 설정에서 온 기기 저장값(표시 시간대 등)이
+        // 새로고침마다 지워져 설정 응답이 도착하기 전까지 잘못된 값으로 그려진다.
+        it('does not report a principal change when bootstrapping an existing session', async () => {
+            const user = authUser()
+            vi.mocked(authApi.refreshToken).mockResolvedValue(authLoginResponse(user, 'boot-token'))
+            vi.mocked(authApi.getMe).mockResolvedValue(authUserResponse(user))
+
+            await expect(store.bootstrapSession()).resolves.toBe(true)
+
+            expect(mockSessionBoundary).toHaveBeenCalled()
+            expect(mockPrincipalChange).not.toHaveBeenCalled()
+        })
+
+        it('reports a principal change on login and on logout', async () => {
+            const user = authUser()
+            vi.mocked(authApi.login).mockResolvedValue(authLoginResponse(user, 'login-token'))
+
+            await store.login({ email: 'a@b.c', password: 'pw' })
+            expect(mockPrincipalChange).toHaveBeenCalledTimes(1)
+
+            store.clearSessionState()
+            expect(mockPrincipalChange).toHaveBeenCalledTimes(2)
         })
 
         it('clears state when refresh response is unsuccessful', async () => {
