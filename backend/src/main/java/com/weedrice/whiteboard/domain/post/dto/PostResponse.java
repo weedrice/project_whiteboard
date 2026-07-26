@@ -24,29 +24,29 @@ public class PostResponse {
     private int viewCount;
     private int likeCount;
     private int commentCount;
-    @JsonProperty("isNotice")
+    @Getter(onMethod_ = @JsonProperty("isNotice"))
     private boolean isNotice;
 
-    @JsonProperty("isNsfw")
+    @Getter(onMethod_ = @JsonProperty("isNsfw"))
     private boolean isNsfw;
 
-    @JsonProperty("isSpoiler")
+    @Getter(onMethod_ = @JsonProperty("isSpoiler"))
     private boolean isSpoiler;
 
-    @JsonProperty("isSecret")
+    @Getter(onMethod_ = @JsonProperty("isSecret"))
     private boolean isSecret;
 
-    @JsonProperty("isBlinded")
+    @Getter(onMethod_ = @JsonProperty("isBlinded"))
     private boolean isBlinded;
 
     private String blindReason;
 
     private LocalDateTime pinnedAt;
 
-    @JsonProperty("isLiked")
+    @Getter(onMethod_ = @JsonProperty("isLiked"))
     private boolean isLiked; // 현재 유저의 좋아요 여부
 
-    @JsonProperty("isScrapped")
+    @Getter(onMethod_ = @JsonProperty("isScrapped"))
     private boolean isScrapped; // 현재 유저의 스크랩 여부
     private Long lastReadCommentId;
     private LocalDateTime lastViewedAt;
@@ -75,7 +75,7 @@ public class PostResponse {
         private Long boardId;
         private String boardName;
         private String boardUrl;
-        @JsonProperty("isAdmin")
+        @Getter(onMethod_ = @JsonProperty("isAdmin"))
         private boolean isAdmin;
     }
 

@@ -27,7 +27,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  *
  * <p>Jackson은 Lombok이 만든 {@code isXxx()} getter에서 {@code is}를 떼므로 기본 wire 이름은
  * {@code xxx}가 된다. 중요한 것은 <b>어노테이션을 어디에 붙이느냐에 따라 결과가 다르다</b>는 점이다.
- * 아래는 이 저장소의 실제 직렬화 결과로 확인한 것이며 {@code wireNamingRulesHoldForRealDtos}가 고정한다.
+ * 아래는 실제 직렬화 결과로 확인한 것이며 {@code wireNamingRulesHold}가 고정한다.
  *
  * <table border="1">
  *   <caption>어노테이션 위치별 wire 이름</caption>
@@ -41,8 +41,10 @@ import static org.assertj.core.api.Assertions.assertThat;
  * {@code xxx}는 그대로 남고 필드가 별도 속성으로 추가되기 때문이다. 따라서 이름을 정하려면
  * {@code @Getter(onMethod_ = @JsonProperty("isXxx"))}나 명시적 getter를 써야 한다.
  *
- * <p>신규 DTO는 getter 패턴을 쓰거나, 기존 계약을 유지해야 한다면 아래 목록에 등재해야 한다.
- * record와 Lombok 빌더는 제외한다. record는 컴포넌트 이름이 그대로 쓰여 접두사가 유지되고,
+ * <p>필드 어노테이션 패턴은 A8에서 51개를 정리해 운영 코드에서 사라졌고,
+ * {@code noProductionDtoUsesTheFieldAnnotationPattern}이 재유입을 막는다. 신규 DTO는 getter
+ * 패턴을 쓰거나, 접두사가 떨어진 기존 계약을 유지해야 한다면 {@link #LEGACY_PREFIX_STRIPPED}에
+ * 등재해야 한다. record와 Lombok 빌더는 제외한다. record는 컴포넌트 이름이 그대로 쓰여 접두사가 유지되고,
  * 빌더는 직렬화 대상이 아니다.
  *
  * <p>{@code agent}·{@code ad} 도메인도 제외한다. 자세한 이유는 {@link #EXCLUDED_DOMAIN_PACKAGES}.
@@ -83,64 +85,6 @@ class BooleanWireNameContractTest {
             "com.weedrice.whiteboard.domain.admin.dto.SuperAdminUpdateResponse#isSuperAdmin",
             "com.weedrice.whiteboard.domain.feed.dto.FeedResponse$FeedSummary#isRead");
 
-    /**
-     * 필드에 {@code @JsonProperty}가 붙어 {@code xxx}와 {@code isXxx}가 <b>둘 다</b> 나가는 필드.
-     * 프론트엔드가 두 이름을 섞어 읽고 있어 어느 쪽도 지금은 지울 수 없다.
-     *
-     * <p><b>이 목록은 늘리지 않는다.</b> 정리하려면 프론트엔드가 참조하는 이름을 하나로 모으고,
-     * getter 패턴으로 옮긴 뒤 목록에서 지우는 순서로 진행해야 한다.
-     */
-    private static final Set<String> LEGACY_DUPLICATE_KEYS = Set.of(
-            "com.weedrice.whiteboard.domain.auth.dto.VerifyCodeResponse#isReregister",
-            "com.weedrice.whiteboard.domain.board.dto.AdminBoardResponse#isActive",
-            "com.weedrice.whiteboard.domain.board.dto.AdminBoardResponse#isPublic",
-            "com.weedrice.whiteboard.domain.board.dto.BoardDetailResponse#isAdmin",
-            "com.weedrice.whiteboard.domain.board.dto.BoardListResponse#isActive",
-            "com.weedrice.whiteboard.domain.board.dto.BoardListResponse#isPublic",
-            "com.weedrice.whiteboard.domain.board.dto.BoardListResponse#isSubscribed",
-            "com.weedrice.whiteboard.domain.board.dto.CategoryResponse#isDefault",
-            "com.weedrice.whiteboard.domain.board.dto.SubscriptionBoardResponse#isActive",
-            "com.weedrice.whiteboard.domain.board.dto.SubscriptionBoardResponse#isPublic",
-            "com.weedrice.whiteboard.domain.board.dto.SubscriptionBoardResponse#isSubscribed",
-            "com.weedrice.whiteboard.domain.comment.dto.CommentResponse#isBlinded",
-            "com.weedrice.whiteboard.domain.comment.dto.CommentResponse#isBlockedAuthor",
-            "com.weedrice.whiteboard.domain.comment.dto.CommentResponse#isDeleted",
-            "com.weedrice.whiteboard.domain.feed.dto.FeedPostSummary#isNotice",
-            "com.weedrice.whiteboard.domain.feed.dto.FeedPostSummary#isNsfw",
-            "com.weedrice.whiteboard.domain.feed.dto.FeedPostSummary#isSecret",
-            "com.weedrice.whiteboard.domain.feed.dto.FeedPostSummary#isSpoiler",
-            "com.weedrice.whiteboard.domain.post.dto.DraftResponse#isNotice",
-            "com.weedrice.whiteboard.domain.post.dto.DraftResponse#isNsfw",
-            "com.weedrice.whiteboard.domain.post.dto.DraftResponse#isSecret",
-            "com.weedrice.whiteboard.domain.post.dto.DraftResponse#isSpoiler",
-            "com.weedrice.whiteboard.domain.post.dto.PostCreateRequest#isNotice",
-            "com.weedrice.whiteboard.domain.post.dto.PostCreateRequest#isNsfw",
-            "com.weedrice.whiteboard.domain.post.dto.PostCreateRequest#isSecret",
-            "com.weedrice.whiteboard.domain.post.dto.PostCreateRequest#isSpoiler",
-            "com.weedrice.whiteboard.domain.post.dto.PostDraftRequest#isNotice",
-            "com.weedrice.whiteboard.domain.post.dto.PostDraftRequest#isNsfw",
-            "com.weedrice.whiteboard.domain.post.dto.PostDraftRequest#isSecret",
-            "com.weedrice.whiteboard.domain.post.dto.PostDraftRequest#isSpoiler",
-            "com.weedrice.whiteboard.domain.post.dto.PostResponse#isBlinded",
-            "com.weedrice.whiteboard.domain.post.dto.PostResponse#isLiked",
-            "com.weedrice.whiteboard.domain.post.dto.PostResponse#isNotice",
-            "com.weedrice.whiteboard.domain.post.dto.PostResponse#isNsfw",
-            "com.weedrice.whiteboard.domain.post.dto.PostResponse#isScrapped",
-            "com.weedrice.whiteboard.domain.post.dto.PostResponse#isSecret",
-            "com.weedrice.whiteboard.domain.post.dto.PostResponse#isSpoiler",
-            "com.weedrice.whiteboard.domain.post.dto.PostResponse$BoardInfo#isAdmin",
-            "com.weedrice.whiteboard.domain.post.dto.PostSummary#isBlinded",
-            "com.weedrice.whiteboard.domain.post.dto.PostSummary#isSecret",
-            "com.weedrice.whiteboard.domain.post.dto.PostSummary#isSpoiler",
-            "com.weedrice.whiteboard.domain.post.dto.PostUpdateRequest#isNsfw",
-            "com.weedrice.whiteboard.domain.post.dto.PostUpdateRequest#isSecret",
-            "com.weedrice.whiteboard.domain.post.dto.PostUpdateRequest#isSpoiler",
-            "com.weedrice.whiteboard.domain.post.scheduled.dto.ScheduledPostRequest#isNotice",
-            "com.weedrice.whiteboard.domain.post.scheduled.dto.ScheduledPostRequest#isNsfw",
-            "com.weedrice.whiteboard.domain.post.scheduled.dto.ScheduledPostRequest#isSecret",
-            "com.weedrice.whiteboard.domain.post.scheduled.dto.ScheduledPostRequest#isSpoiler",
-            "com.weedrice.whiteboard.domain.user.dto.NotificationSettingResponse#isEnabled");
-
     @Test
     @DisplayName("boolean isXxx 필드는 wire 이름 규칙 중 하나를 명시적으로 따라야 한다")
     void everyPrefixedBooleanFieldFollowsAKnownRule() throws IOException {
@@ -152,7 +96,7 @@ class BooleanWireNameContractTest {
                     continue;
                 }
                 String key = dtoClass.getName() + "#" + field.getName();
-                if (annotatedOnGetter(dtoClass, field) || inMatchingLegacyList(field, key)) {
+                if (annotatedOnGetter(dtoClass, field) || LEGACY_PREFIX_STRIPPED.contains(key)) {
                     continue;
                 }
                 unguarded.add(key);
@@ -165,20 +109,6 @@ class BooleanWireNameContractTest {
                         + "명시하거나, 기존 계약을 유지해야 한다면 실제 패턴에 맞는 목록에 등재할 것. "
                         + "필드에 직접 @JsonProperty를 붙이면 이름이 바뀌지 않고 키가 하나 더 생긴다")
                 .isEmpty();
-    }
-
-    /**
-     * 두 legacy 목록은 <b>서로 다른 wire 계약</b>을 뜻한다. 합집합으로만 보면 필드가 한쪽
-     * 계약에서 다른 쪽으로 넘어가도 통과해 버린다.
-     *
-     * <p>구체적으로, 필드에서 {@code @JsonProperty}를 <b>지우면</b> {@code isXxx} 키가 wire에서
-     * 사라지는데 키가 여전히 {@code LEGACY_DUPLICATE_KEYS}에 있어 검사를 빠져나간다. A8 정리가
-     * 정확히 그 방향의 작업이므로, 등재된 목록이 실제 어노테이션 위치와 맞는지까지 본다.
-     */
-    private static boolean inMatchingLegacyList(Field field, String key) {
-        return field.isAnnotationPresent(JsonProperty.class)
-                ? LEGACY_DUPLICATE_KEYS.contains(key)
-                : LEGACY_PREFIX_STRIPPED.contains(key);
     }
 
     @Test
@@ -195,8 +125,7 @@ class BooleanWireNameContractTest {
 
         assertThat(present)
                 .as("legacy 목록의 항목이 실제 DTO에 없다. 필드가 사라졌다면 목록에서도 지울 것")
-                .containsAll(LEGACY_PREFIX_STRIPPED)
-                .containsAll(LEGACY_DUPLICATE_KEYS);
+                .containsAll(LEGACY_PREFIX_STRIPPED);
     }
 
     @Test
@@ -224,42 +153,124 @@ class BooleanWireNameContractTest {
                 leaked.add(key);
             }
         }
-        for (String key : List.copyOf(LEGACY_DUPLICATE_KEYS)) {
-            if (isExcludedDomain(key)) {
-                leaked.add(key);
-            }
-        }
         assertThat(leaked)
                 .as("제외 도메인의 필드가 legacy 목록에 남아 있다. 스캔에서 빠지므로 "
                         + "legacyListsHaveNoStaleEntries가 항상 실패한다")
                 .isEmpty();
     }
 
+    /**
+     * 세 패턴의 결과를 고정하는 fixture.
+     *
+     * <p>필드 어노테이션 패턴은 이제 어느 운영 DTO에도 없다(A8 정리 완료). 그래도 규칙 자체는
+     * 남겨 두어야 다음 사람이 같은 실수를 반복하지 않으므로, 운영 DTO 대신 여기서 재현한다.
+     * {@code noProductionDtoUsesTheFieldAnnotationPattern}이 운영 코드에 다시 새어 나오지
+     * 않도록 막는다.
+     */
+    @SuppressWarnings("unused")
+    static class WireNamingFixture {
+        private final boolean isUnannotated;
+
+        @JsonProperty("isFieldAnnotated")
+        private final boolean isFieldAnnotated;
+
+        private final boolean isGetterAnnotated;
+
+        WireNamingFixture(boolean value) {
+            this.isUnannotated = value;
+            this.isFieldAnnotated = value;
+            this.isGetterAnnotated = value;
+        }
+
+        // Lombok이 만드는 getter와 같은 모양이다. 테스트 소스에는 Lombok이 없어 직접 쓴다.
+        public boolean isUnannotated() {
+            return isUnannotated;
+        }
+
+        public boolean isFieldAnnotated() {
+            return isFieldAnnotated;
+        }
+
+        @JsonProperty("isGetterAnnotated")
+        public boolean isGetterAnnotated() {
+            return isGetterAnnotated;
+        }
+    }
+
     @Test
     @DisplayName("어노테이션 위치별 wire 이름 규칙을 실제 직렬화로 고정한다")
-    void wireNamingRulesHoldForRealDtos() {
-        JsonMapper mapper = JsonMapper.builder().build();
+    void wireNamingRulesHold() {
+        JsonNode json = JsonMapper.builder().build().valueToTree(new WireNamingFixture(true));
 
         // 어노테이션 없음 -> is가 떨어진 이름 하나
-        JsonNode summary = mapper.valueToTree(
-                com.weedrice.whiteboard.domain.post.dto.PostSummary.builder()
-                        .isNotice(true)
-                        .isBlinded(true)
-                        .build());
-        assertThat(summary.has("notice")).isTrue();
-        assertThat(summary.has("isNotice")).isFalse();
+        assertThat(json.has("unannotated")).isTrue();
+        assertThat(json.has("isUnannotated")).isFalse();
 
-        // 필드에 @JsonProperty -> 두 이름이 함께 나간다
-        assertThat(summary.has("blinded")).isTrue();
-        assertThat(summary.has("isBlinded")).isTrue();
+        // 필드에 @JsonProperty -> 이름이 바뀌는 것이 아니라 두 이름이 함께 나간다
+        assertThat(json.has("fieldAnnotated")).isTrue();
+        assertThat(json.has("isFieldAnnotated")).isTrue();
 
         // getter에 @JsonProperty -> is가 붙은 이름 하나
-        JsonNode userInfo = mapper.valueToTree(
-                com.weedrice.whiteboard.domain.auth.dto.LoginResponse.UserInfo.builder()
-                        .isEmailVerified(true)
+        assertThat(json.has("isGetterAnnotated")).isTrue();
+        assertThat(json.has("getterAnnotated")).isFalse();
+    }
+
+    @Test
+    @DisplayName("운영 DTO는 boolean 필드에 @JsonProperty를 직접 붙이지 않는다")
+    void noProductionDtoUsesTheFieldAnnotationPattern() throws IOException {
+        List<String> fieldAnnotated = new ArrayList<>();
+
+        for (Class<?> dtoClass : findDtoClasses()) {
+            for (Field field : dtoClass.getDeclaredFields()) {
+                if (isPrefixedBooleanField(field) && field.isAnnotationPresent(JsonProperty.class)) {
+                    fieldAnnotated.add(dtoClass.getName() + "#" + field.getName());
+                }
+            }
+        }
+
+        assertThat(fieldAnnotated)
+                .as("필드에 @JsonProperty를 붙이면 이름이 바뀌지 않고 키가 하나 더 나간다. "
+                        + "@Getter(onMethod_ = @JsonProperty(\"isXxx\"))를 쓸 것. "
+                        + "A8에서 51개를 정리했으므로 이 목록은 비어 있어야 한다")
+                .isEmpty();
+    }
+
+    @Test
+    @DisplayName("A8에서 정리한 DTO는 키를 하나만 내보낸다")
+    void cleanedDtosEmitASingleKey() {
+        JsonMapper mapper = JsonMapper.builder().build();
+
+        JsonNode summary = mapper.valueToTree(
+                com.weedrice.whiteboard.domain.post.dto.PostSummary.builder()
+                        .isBlinded(true)
+                        .isSecret(true)
+                        .isSpoiler(true)
                         .build());
-        assertThat(userInfo.has("isEmailVerified")).isTrue();
-        assertThat(userInfo.has("emailVerified")).isFalse();
+        assertThat(summary.has("isBlinded")).isTrue();
+        assertThat(summary.has("blinded")).isFalse();
+        assertThat(summary.has("isSecret")).isTrue();
+        assertThat(summary.has("secret")).isFalse();
+
+        JsonNode post = mapper.valueToTree(
+                com.weedrice.whiteboard.domain.post.dto.PostResponse.builder()
+                        .isNotice(true)
+                        .isLiked(true)
+                        .build());
+        assertThat(post.has("isNotice")).isTrue();
+        assertThat(post.has("notice")).isFalse();
+        assertThat(post.has("isLiked")).isTrue();
+        assertThat(post.has("liked")).isFalse();
+
+        JsonNode comment = mapper.valueToTree(
+                com.weedrice.whiteboard.domain.comment.dto.CommentResponse.builder()
+                        .isDeleted(true)
+                        .build());
+        assertThat(comment.has("isDeleted")).isTrue();
+        assertThat(comment.has("deleted")).isFalse();
+
+        // 어노테이션이 없어 접두사가 떨어진 필드는 이번 정리 대상이 아니다. 그대로여야 한다.
+        assertThat(summary.has("notice")).isTrue();
+        assertThat(summary.has("isNotice")).isFalse();
     }
 
     @Test

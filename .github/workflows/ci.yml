@@ -63,6 +63,16 @@ jobs:
               # 프론트 테스트가 돌아야 SSE 이벤트 이름 불일치를 잡을 수 있다.
               - 'backend/src/main/java/com/weedrice/whiteboard/domain/notification/web/NotificationSseEvents.java'
               - 'backend/src/main/java/com/weedrice/whiteboard/domain/file/service/FileUploadTarget.java'
+              # booleanWireNameContract.spec.ts가 읽는 DTO. 어노테이션 위치가 바뀌면
+              # wire 이름이 바뀌므로 프론트 테스트가 함께 돌아야 한다.
+              - 'backend/src/main/java/com/weedrice/whiteboard/domain/post/dto/PostResponse.java'
+              - 'backend/src/main/java/com/weedrice/whiteboard/domain/post/dto/PostSummary.java'
+              - 'backend/src/main/java/com/weedrice/whiteboard/domain/post/dto/DraftResponse.java'
+              - 'backend/src/main/java/com/weedrice/whiteboard/domain/feed/dto/FeedPostSummary.java'
+              - 'backend/src/main/java/com/weedrice/whiteboard/domain/comment/dto/CommentResponse.java'
+              - 'backend/src/main/java/com/weedrice/whiteboard/domain/board/dto/'
+              - 'backend/src/main/java/com/weedrice/whiteboard/domain/auth/dto/VerifyCodeResponse.java'
+              - 'backend/src/main/java/com/weedrice/whiteboard/domain/user/dto/NotificationSettingResponse.java'
               - 'docker-compose.yml'
               - '.github/workflows/ci.yml'
               - '.github/workflows/deploy-frontend.yml'

@@ -24,6 +24,6 @@ public class CategoryRequest {
     @Pattern(regexp = "USER|BOARD_ADMIN|SUPER_ADMIN", message = "{validation.category.minWriteRole.pattern}")
     private String minWriteRole;
 
-    @JsonProperty("isDefault")
+    @Getter(onMethod_ = @JsonProperty("isDefault"))
     private Boolean isDefault;
 }
