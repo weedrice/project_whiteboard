@@ -81,4 +81,56 @@ class FileUploadValidationPolicyTest {
         crc.update(data);
         output.writeInt((int) crc.getValue());
     }
+
+    @Test
+    void validate_rejectsFileAboveTargetSizeLimit() {
+        // 스페이스 아이콘은 2MiB가 상한이다. 전역 상한(10MB)만 보면 통과하던 크기다.
+        MockMultipartFile oversized = new MockMultipartFile(
+                "file", "icon.png", "image/png", new byte[3 * 1024 * 1024]);
+
+        assertThatThrownBy(() -> policy.validate(oversized, FileUploadTarget.BOARD_ICON))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.FILE_TOO_LARGE);
+    }
+
+    @Test
+    void validate_allowsSameFileForGenericTarget() {
+        // 대상을 지정하지 않으면 기존 동작을 유지한다. 3MiB는 전역 상한 아래라 크기 검사를 통과하고,
+        // 이후 이미지 형식 검사에서 걸린다. 즉 크기 때문에 막힌 것이 아님을 확인한다.
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "icon.png", "image/png", new byte[3 * 1024 * 1024]);
+
+        assertThatThrownBy(() -> policy.validate(file, FileUploadTarget.GENERIC))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.INVALID_FILE_TYPE);
+    }
+
+    @Test
+    void validate_rejectsImageAboveTargetDimensionLimit() {
+        // 프로필 이미지는 512x512가 상한이다. 전역 상한(16384)만 보면 통과하던 해상도다.
+        assertThatThrownBy(() -> policy.validate(png(1024, 1024), FileUploadTarget.PROFILE_IMAGE))
+                .isInstanceOf(BusinessException.class)
+                .extracting(e -> ((BusinessException) e).getErrorCode())
+                .isEqualTo(ErrorCode.FILE_DIMENSION_TOO_LARGE);
+    }
+
+    @Test
+    void validate_acceptsImageWithinTargetDimensionLimit() {
+        assertThat(policy.validate(png(256, 256), FileUploadTarget.PROFILE_IMAGE).width()).isEqualTo(256);
+    }
+
+    @Test
+    void validate_appliesNoTargetDimensionLimitWhenTargetDeclaresNone() {
+        // 게시글 본문 이미지는 대상별 해상도 제한이 없어 전역 상한만 적용된다.
+        assertThat(policy.validate(png(1024, 1024), FileUploadTarget.POST_CONTENT).height()).isEqualTo(1024);
+    }
+
+    @Test
+    void validate_treatsUnknownTargetAsGeneric() {
+        assertThat(FileUploadTarget.from("does-not-exist")).isEqualTo(FileUploadTarget.GENERIC);
+        assertThat(FileUploadTarget.from(null)).isEqualTo(FileUploadTarget.GENERIC);
+        assertThat(FileUploadTarget.from(" board_icon ")).isEqualTo(FileUploadTarget.BOARD_ICON);
+    }
 }

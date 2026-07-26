@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 
 @Service
@@ -26,6 +27,7 @@ class NotificationDeliveryJobTransaction {
     private final NotificationDeliveryPublisher deliveryPublisher;
     private final EntityManager entityManager;
     private final NotificationPayloadValidator payloadValidator;
+    private final Clock clock;
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public LocalDateTime claim(Long jobId, LocalDateTime claimedAt) {
@@ -48,7 +50,7 @@ class NotificationDeliveryJobTransaction {
         }
         String invalidReason = payloadValidator.validate(job);
         if (invalidReason != null) {
-            job.rejectInvalidPayload(invalidReason, LocalDateTime.now());
+            job.rejectInvalidPayload(invalidReason, now());
             return DeliveryJobTransitionResult.REJECTED_INVALID;
         }
         Notification notification = notificationCommandService.handleNotificationEvent(toEvent(job));
@@ -67,7 +69,7 @@ class NotificationDeliveryJobTransaction {
             LocalDateTime nextAttemptAt) {
         return jobRepository.findByIdForUpdate(jobId)
                 .filter(job -> job.hasLease(claimedAt))
-                .map(job -> job.fail(error, LocalDateTime.now(), nextAttemptAt, MAX_RETRY_COUNT)
+                .map(job -> job.fail(error, now(), nextAttemptAt, MAX_RETRY_COUNT)
                         ? DeliveryJobTransitionResult.APPLIED_DEAD_LETTER
                         : DeliveryJobTransitionResult.APPLIED_RETRY)
                 .orElse(DeliveryJobTransitionResult.LEASE_LOST);
@@ -82,7 +84,7 @@ class NotificationDeliveryJobTransaction {
                 .filter(job -> job.getStatus() == NotificationDeliveryJob.Status.PROCESSING)
                 .filter(job -> job.getProcessingStartedAt() == null
                         || job.getProcessingStartedAt().isBefore(staleBefore))
-                .map(job -> job.fail("Processing lease expired", LocalDateTime.now(), nextAttemptAt, MAX_RETRY_COUNT)
+                .map(job -> job.fail("Processing lease expired", now(), nextAttemptAt, MAX_RETRY_COUNT)
                         ? DeliveryJobTransitionResult.APPLIED_DEAD_LETTER
                         : DeliveryJobTransitionResult.APPLIED_RETRY)
                 .orElse(DeliveryJobTransitionResult.LEASE_LOST);
@@ -137,5 +139,9 @@ class NotificationDeliveryJobTransaction {
                 job.getContent(),
                 null,
                 java.util.List.of());
+    }
+
+    private LocalDateTime now() {
+        return LocalDateTime.now(clock);
     }
 }

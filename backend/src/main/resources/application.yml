@@ -26,9 +26,8 @@ spring:
         # 예: @BatchSize(size = 50)을 @OneToMany 컬렉션에 적용
         order_inserts: true
         order_updates: true
-  messages:
-    basename: messages
-    encoding: UTF-8
+  # spring.messages.* 는 의도적으로 두지 않는다. MessageConfig가 `messageSource` 빈을
+  # 직접 정의해 Boot 자동설정이 물러나므로 이 위치의 값은 적용되지 않는다.
   lifecycle:
     timeout-per-shutdown-phase: 30s
   task:

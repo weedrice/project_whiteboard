@@ -1,6 +1,7 @@
 import axios, { type AxiosError } from 'axios'
 import { API_PATHS } from '@/api/apiPaths'
 import { getRequestPathname } from '@/api/apiUrl'
+import { API_ERROR_CODES } from '@/api/errorCodes'
 import type { ErrorResponse, ValidationErrors } from '@/types/common'
 import i18n from '@/i18n'
 
@@ -140,7 +141,7 @@ export function extractErrorCode(error: unknown): string | null {
 export function isConcurrentModificationError(error: unknown): boolean {
     return axios.isAxiosError(error)
         && error.response?.status === 409
-        && extractErrorCode(error) === 'C012'
+        && extractErrorCode(error) === API_ERROR_CODES.CONCURRENT_MODIFICATION
 }
 
 /**

@@ -3,6 +3,7 @@
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { readSeoPostUrlCapacity, SITEMAP_PROTOCOL_MAX_URLS } from './seo-capacity.mjs'
+import { parseServiceInstant, SERVICE_TIME_ZONE } from './serviceTime.mjs'
 
 const siteUrl = normalizeBaseUrl(process.env.SITEMAP_SITE_URL ?? 'https://noviis.kr')
 const apiBaseUrl = normalizeBaseUrl(process.env.SITEMAP_API_BASE_URL ?? `${siteUrl}/api/v1`)
@@ -32,15 +33,22 @@ function escapeXml(value) {
 }
 
 function toLastmod(value) {
-    if (!value) return null
-    const date = new Date(value)
-    if (Number.isNaN(date.valueOf())) return null
-    return date.toISOString().slice(0, 10)
+    // offset이 없는 값은 빌드 컨테이너 지역(대개 UTC)으로 해석되므로 서비스 기준을 붙여 읽는다.
+    const date = parseServiceInstant(value)
+    if (!date) return null
+    // toISOString()은 UTC 기준이라 KST 새벽에 작성된 글이 하루 이르게 기록된다.
+    // 서비스 기준 지역의 날짜를 쓴다.
+    return new Intl.DateTimeFormat('en-CA', {
+        timeZone: SERVICE_TIME_ZONE,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+    }).format(date)
 }
 
 function toSortTimestamp(value) {
-    const timestamp = Date.parse(value ?? '')
-    return Number.isFinite(timestamp) ? timestamp : 0
+    // 같은 값을 toLastmod와 다른 기준으로 읽으면 정렬과 표기가 어긋난다.
+    return parseServiceInstant(value)?.valueOf() ?? 0
 }
 
 async function fetchApiData(path) {

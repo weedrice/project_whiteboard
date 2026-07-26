@@ -26,6 +26,7 @@ import { handleTerminalAuthFailure } from '@/api/authTerminalFailure'
 import { setNotificationStreamConnection } from '@/features/notifications/stream/notificationStreamConnectionEvents'
 import { emitMessageStreamEvent } from '@/features/user/messages/messageStreamEvents'
 import { invalidateScheduledPostNotificationCaches } from '@/features/board/posts/queries/scheduledPostNotificationCacheInvalidation'
+import { NOTIFICATION_SSE_EVENTS, SSE_DEFAULT_EVENT_NAME } from '@/features/notifications/stream/notificationSseEvents'
 
 function isAbortError(error: unknown): boolean {
     return isCancellationError(error, {
@@ -99,20 +100,21 @@ export function createNotificationStreamController(
         if (controller.signal.aborted
             || notificationStreamRuntime.state.streamAbortController !== controller) return
         if (!payload) return
-        if (eventType === 'connect') {
+        if (eventType === NOTIFICATION_SSE_EVENTS.CONNECT) {
             if (resolveAuthStore().sessionGeneration !== sessionGeneration) return
             const connectionId = payload.trim()
             if (!connectionId || connectionId.length > 128) return
             setNotificationStreamConnection({ connectionId, sessionGeneration })
             return
         }
-        if (eventType === 'comment') {
+        if (eventType === NOTIFICATION_SSE_EVENTS.COMMENT) {
             handleCommentSseEvent(payload, sessionGeneration)
             return
         }
-        if (eventType === 'comment-topic-invalidated' || eventType === 'comment-topic-access-revoked') {
+        if (eventType === NOTIFICATION_SSE_EVENTS.COMMENT_TOPIC_INVALIDATED
+            || eventType === NOTIFICATION_SSE_EVENTS.COMMENT_TOPIC_ACCESS_REVOKED) {
             if (resolveAuthStore().sessionGeneration === sessionGeneration) {
-                if (eventType === 'comment-topic-access-revoked') {
+                if (eventType === NOTIFICATION_SSE_EVENTS.COMMENT_TOPIC_ACCESS_REVOKED) {
                     void queryClient.invalidateQueries({
                         queryKey: ['session', sessionGeneration],
                     })
@@ -121,7 +123,8 @@ export function createNotificationStreamController(
             }
             return
         }
-        if (eventType !== 'notification' && eventType !== 'message') return
+        // SSE 규격상 event: 줄이 없는 프레임은 'message'로 도착하므로 함께 받는다.
+        if (eventType !== NOTIFICATION_SSE_EVENTS.NOTIFICATION && eventType !== SSE_DEFAULT_EVENT_NAME) return
 
         try {
             const rawNotification = JSON.parse(payload) as NotificationRaw

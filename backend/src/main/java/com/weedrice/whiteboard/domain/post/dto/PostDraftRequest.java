@@ -36,12 +36,16 @@ public class PostDraftRequest {
     private List<@NotBlank(message = "{validation.post.tagName.required}")
             @Size(max = TagConstraints.MAX_TAG_NAME_LENGTH, message = "{validation.post.tagName.max}") String> tags;
     @JsonProperty("isNotice")
+    @Getter(onMethod_ = @JsonProperty("isNotice"))
     private boolean isNotice;
     @JsonProperty("isNsfw")
+    @Getter(onMethod_ = @JsonProperty("isNsfw"))
     private boolean isNsfw;
     @JsonProperty("isSpoiler")
+    @Getter(onMethod_ = @JsonProperty("isSpoiler"))
     private boolean isSpoiler;
     @JsonProperty("isSecret")
+    @Getter(onMethod_ = @JsonProperty("isSecret"))
     private boolean isSecret;
     @Size(max = FileAssociationConstraints.MAX_POST_FILE_COUNT, message = "{validation.post.files.max}")
     private List<Long> fileIds;

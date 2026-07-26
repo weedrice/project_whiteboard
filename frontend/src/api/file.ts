@@ -1,6 +1,7 @@
 import api from './index'
 import type { ApiResponse } from '@/types'
 import type { AxiosRequestConfig } from 'axios'
+import type { FileUploadTarget } from '@/api/fileUploadTargets'
 
 export interface FileUploadResponse {
     fileId: number
@@ -12,14 +13,17 @@ export interface FileDiscardResponse {
     discardedCount: number
 }
 
+
 export function resolveFileUploadUrl(uploadedFile: FileUploadResponse): string | null {
     return uploadedFile.url ?? uploadedFile.fileUrl ?? null
 }
 
 export const fileApi = {
-    uploadFile: (file: File, config?: AxiosRequestConfig) => {
+    uploadFile: (file: File, config?: AxiosRequestConfig, target?: FileUploadTarget) => {
         const formData = new FormData()
         formData.append('file', file)
+        // 대상을 함께 보내야 서버에서도 같은 제한이 걸린다. 생략하면 서버는 GENERIC으로 처리한다.
+        if (target) formData.append('target', target)
 
         return api.post<ApiResponse<FileUploadResponse>>('/files/upload', formData, {
             ...config,

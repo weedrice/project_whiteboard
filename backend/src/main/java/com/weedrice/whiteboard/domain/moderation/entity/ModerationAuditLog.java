@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.moderation.entity;
 
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.user.entity.User;
+import com.weedrice.whiteboard.global.common.util.DateTimeUtils;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -71,7 +72,8 @@ public class ModerationAuditLog {
             String targetType,
             Long targetId,
             Board board,
-            String reason) {
+            String reason,
+            LocalDateTime createdAt) {
         this.actorType = actorType;
         this.actorUser = actorUser;
         this.adminId = adminId;
@@ -80,12 +82,13 @@ public class ModerationAuditLog {
         this.targetId = targetId;
         this.board = board;
         this.reason = reason;
+        this.createdAt = createdAt;
     }
 
     @PrePersist
     void prePersist() {
         if (createdAt == null) {
-            createdAt = LocalDateTime.now();
+            createdAt = DateTimeUtils.nowKST();
         }
     }
 }

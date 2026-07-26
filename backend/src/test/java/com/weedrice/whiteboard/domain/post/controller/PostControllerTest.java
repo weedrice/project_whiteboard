@@ -1033,7 +1033,10 @@ class PostControllerTest {
                 .andExpect(jsonPath("$.data[0].versionId").value(10L))
                 .andExpect(jsonPath("$.data[0].actionType").value("MODIFY"))
                 .andExpect(jsonPath("$.data[0].title").value("Original title"))
-                .andExpect(jsonPath("$.data[0].createdAt").exists());
+                .andExpect(jsonPath("$.data[0].createdAt").exists())
+                // 저장 기준이 KST임을 값 자체에 담아 보낸다. offset이 없으면 브라우저가
+                // 자기 지역 시각으로 해석해 KST 밖 사용자에게 어긋난다.
+                .andExpect(jsonPath("$.data[0].createdAt").value("2026-05-26T16:00:00+09:00"));
     }
 
     @Test

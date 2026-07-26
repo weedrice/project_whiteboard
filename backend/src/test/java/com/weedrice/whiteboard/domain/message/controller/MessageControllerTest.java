@@ -264,4 +264,23 @@ class MessageControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data").value(5L));
     }
+
+    @Test
+    @DisplayName("@RequestBody 값 제약 위반도 필드 단위 details를 돌려준다")
+    void requestBodyValueConstraintViolationIncludesFieldDetails() throws Exception {
+        // @RequestBody 파라미터 자체에 걸린 값 제약은 ParameterErrors가 아니라 평범한
+        // ParameterValidationResult로 도착해 Visitor의 기본 메서드로 분기된다.
+        // 이를 오버라이드하지 않으면 오류가 조용히 버려져 details 없는 C008이 나간다.
+        mockMvc.perform(delete("/api/v1/messages")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("[-1]")
+                        .with(user(customUserDetails))
+                        .with(csrf()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.error.code").value("C008"))
+                .andExpect(jsonPath("$.error.details").isMap())
+                .andExpect(jsonPath("$.error.details.messageIds").isArray())
+                .andExpect(jsonPath("$.error.details.messageIds[0]").isString());
+    }
 }

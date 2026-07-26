@@ -11,6 +11,7 @@ import com.weedrice.whiteboard.domain.user.entity.UserSettings;
 import com.weedrice.whiteboard.domain.user.repository.UserNotificationSettingsRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import com.weedrice.whiteboard.domain.user.repository.UserSettingsRepository;
+import com.weedrice.whiteboard.global.common.util.DateTimeUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,6 +24,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Collections;
@@ -64,7 +67,8 @@ class UserSettingsServiceTest {
         userSettingsService = new UserSettingsService(
                 userSettingsRepository,
                 userNotificationSettingsRepository,
-                userWritableResolver);
+                userWritableResolver,
+                Clock.fixed(Instant.parse("2026-07-25T01:23:45Z"), DateTimeUtils.KST_ZONE_ID));
     }
 
     @Test
@@ -149,6 +153,26 @@ class UserSettingsServiceTest {
 
         verify(userRepository, never()).findById(any());
         verify(userSettingsRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Settings update stores the AUTO timezone marker")
+    void updateSettings_autoTimezone() {
+        // "자동"은 ZoneId로 표현할 수 없는 선택지다. 이 값을 받지 않으면 클라이언트가
+        // 자동을 저장할 방법이 없어, 이전에 고른 지역이 계속 남는다.
+        User user = User.builder().build();
+        ReflectionTestUtils.setField(user, "userId", 1L);
+        UserSettings settings = new UserSettings(user);
+        ReflectionTestUtils.setField(settings, "timezone", "Asia/Tokyo");
+
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(userSettingsRepository.findById(1L)).thenReturn(Optional.of(settings));
+        when(userSettingsRepository.save(any())).thenReturn(settings);
+
+        UserSettingsResponse response = userSettingsService.updateSettings(
+                1L, null, null, " " + UserSettingsService.AUTO_TIMEZONE + " ", null);
+
+        assertThat(response.getTimezone()).isEqualTo(UserSettingsService.AUTO_TIMEZONE);
     }
 
     @Test

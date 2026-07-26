@@ -2,7 +2,9 @@ import { isAxiosError } from 'axios'
 import { postApi, type PostDraftData } from '@/api/post'
 import { userApi } from '@/api/user'
 import { unwrapAxiosApiData } from '@/api/response'
+import { API_ERROR_CODES } from '@/api/errorCodes'
 import type { DraftPost, DraftPostSummary } from '@/types'
+import { withServerOffset } from '@/utils/date'
 
 export interface DraftRecoverySnapshot extends PostDraftData {
     draftId?: number
@@ -17,11 +19,13 @@ type ApiErrorPayload = {
     }
 }
 
-const DRAFT_OUTDATED_ERROR_CODE = 'P004'
+const DRAFT_OUTDATED_ERROR_CODE = API_ERROR_CODES.DRAFT_OUTDATED
 
 export const toIsoTime = (value?: string | null): string | null => {
     if (!value) return null
-    const parsed = new Date(value)
+    // 서버 값과 기기에 저장된 값을 함께 비교하므로 해석 기준을 맞춰야 한다.
+    // 기준이 다르면 오래된 로컬 스냅샷이 최신 서버본을 이길 수 있다.
+    const parsed = new Date(withServerOffset(value))
     if (Number.isNaN(parsed.getTime())) return null
     return parsed.toISOString()
 }

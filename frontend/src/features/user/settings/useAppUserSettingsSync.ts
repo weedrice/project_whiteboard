@@ -7,6 +7,7 @@ import type { UserSettings } from '@/types/user'
 import logger from '@/utils/logger'
 import { Storage } from '@/utils/storage'
 import { setAppLocale } from '@/i18n'
+import { rememberUserTimeZone } from '@/utils/displayTimeZone'
 
 type AppAuthStore = {
     isAuthenticated: boolean
@@ -29,6 +30,13 @@ export function useAppUserSettingsSync(
         expectedSessionGeneration = authStore.sessionGeneration,
         expectedLoadGeneration = settingsLoadGeneration,
     ) => {
+        // 설정 화면을 열지 않아도 저장된 표시 시간대가 앱 전체에 적용되게 한다.
+        // 저장에 실패하더라도 테마·언어 적용까지 막지는 않는다.
+        try {
+            rememberUserTimeZone(settings.timezone)
+        } catch (error) {
+            logger.warn('Failed to apply display time zone', error)
+        }
         if (settings.theme) {
             themeStore.setTheme(settings.theme)
         }

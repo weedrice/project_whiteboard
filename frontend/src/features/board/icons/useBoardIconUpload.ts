@@ -2,6 +2,7 @@ import { getCurrentScope, onScopeDispose, ref, watch } from 'vue'
 import type { AxiosRequestConfig } from 'axios'
 import { useI18n } from 'vue-i18n'
 import { fileApi, resolveFileUploadUrl, type FileUploadResponse } from '@/api/file'
+import { FILE_UPLOAD_TARGETS } from '@/api/fileUploadTargets'
 import { unwrapApiData } from '@/api/response'
 import { useToastStore } from '@/stores/toast'
 import logger from '@/utils/logger'
@@ -26,7 +27,7 @@ export function validateBoardIconFile(
 }
 
 async function uploadBoardIcon(file: File, config?: AxiosRequestConfig): Promise<FileUploadResponse | null> {
-  const { data } = await fileApi.uploadFile(file, config)
+  const { data } = await fileApi.uploadFile(file, config, FILE_UPLOAD_TARGETS.BOARD_ICON)
   return data.success ? unwrapApiData(data) : null
 }
 

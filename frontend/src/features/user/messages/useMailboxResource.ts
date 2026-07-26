@@ -9,12 +9,13 @@ import { useMessageSubmit } from '@/features/user/messages/useMessageSubmit'
 import { useToastStore } from '@/stores/toast'
 import { useAuthStore } from '@/stores/auth'
 import type { MailboxMessageViewModel, MessageResponse } from '@/types'
+import { API_ERROR_CODES } from '@/api/errorCodes'
 import { extractErrorResponse } from '@/utils/errorHandler'
 import { markMailboxMessageRead, toMailboxMessageViewModel } from '@/features/user/messages/messageViewModel'
 import logger from '@/utils/logger'
 import { subscribeMessageStreamEvents } from '@/features/user/messages/messageStreamEvents'
 
-const NOT_FOUND_CODE = 'C006'
+const NOT_FOUND_CODE = API_ERROR_CODES.NOT_FOUND
 
 interface ConversationPage {
     messages: MailboxMessageViewModel[]

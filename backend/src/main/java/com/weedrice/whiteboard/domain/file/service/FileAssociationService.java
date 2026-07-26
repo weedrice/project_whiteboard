@@ -289,12 +289,40 @@ class FileAssociationService {
             return;
         }
         validateAssociableFile(file);
+        validateFileFitsRelatedType(file, relatedType);
         int updated = fileRepository.associateIfUnassociated(file.getFileId(), ownerUserId, relatedId, relatedType);
         if (updated == 1) {
             file.updateRelatedInfo(relatedId, relatedType);
             return;
         }
         handleFailedBatchAssociation(file, ownerUserId, relatedId, relatedType);
+    }
+
+    /**
+     * 연결 대상별 크기·해상도 제한을 확인한다.
+     *
+     * <p>업로드 시점 검사는 클라이언트가 보낸 {@code target}에 의존하므로 생략하면 우회된다.
+     * 여기서 쓰는 {@code relatedType}은 호출한 엔드포인트가 정하는 값이라 위조할 수 없다.
+     * 이미 연결된 파일은 호출부에서 걸러지므로 과거 정책으로 저장된 파일은 영향을 받지 않는다.
+     */
+    private void validateFileFitsRelatedType(File file, String relatedType) {
+        FileUploadTarget target = FileUploadTarget.forRelatedType(relatedType);
+
+        if (file.getFileSize() != null && file.getFileSize() > target.getMaxSizeBytes()) {
+            throw new BusinessException(ErrorCode.FILE_TOO_LARGE);
+        }
+
+        if (!target.hasDimensionLimit()) {
+            return;
+        }
+        Integer width = file.getImageWidth();
+        Integer height = file.getImageHeight();
+        if (width != null && width > target.getMaxWidth()) {
+            throw new BusinessException(ErrorCode.FILE_DIMENSION_TOO_LARGE);
+        }
+        if (height != null && height > target.getMaxHeight()) {
+            throw new BusinessException(ErrorCode.FILE_DIMENSION_TOO_LARGE);
+        }
     }
 
     private Map<Long, File> loadActiveFilesById(Set<Long> fileIds) {

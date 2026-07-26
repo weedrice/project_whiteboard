@@ -18,6 +18,12 @@ export default defineConfig({
     },
     test: {
         environment: 'jsdom',
+
+        // 시각 포맷 테스트가 실행 지역에 따라 갈리지 않도록 고정한다.
+
+        // 고정하지 않으면 CI(UTC)는 초록불인데 KST 개발 머신에서만 빨간불이 뜬다.
+
+        env: { TZ: 'UTC' },
         exclude: [...configDefaults.exclude, 'e2e/**'],
         root: fileURLToPath(new URL('./', import.meta.url)),
         setupFiles: ['./src/test/setup.ts'],

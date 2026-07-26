@@ -29,6 +29,8 @@ vi.mock('@/utils/logger', () => ({
 vi.mock('@/utils/storage', () => ({
   Storage: {
     getString: vi.fn(),
+    setString: vi.fn(),
+    remove: vi.fn(),
   },
 }))
 

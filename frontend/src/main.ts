@@ -21,6 +21,7 @@ import { registerPwaAutoUpdate } from '@/pwa'
 import { applyStandaloneDisplayModeClass } from '@/pwaDisplayMode'
 import { clearAuthScopedQueries, configureAuthQueryScope, notifyAuthSessionBoundary } from '@/queryAuthScope'
 import { resetNotificationStreamSessionState } from '@/features/notifications/stream/notificationStreamController'
+import { clearUserTimeZone } from '@/utils/displayTimeZone'
 
 validateEnv()
 applyStandaloneDisplayModeClass()
@@ -48,6 +49,15 @@ configureAuthSessionEffects({
         if (userData?.theme) {
             useThemeStore(pinia).setTheme(userData.theme)
         }
+    },
+    onPrincipalChange: () => {
+        // 저장된 표시 시간대는 계정에 딸린 설정이다. 공용 기기에서 다음 사용자가
+        // 앞 사용자의 지역으로 시각을 보지 않도록 주체가 바뀔 때 비운다.
+        //
+        // 세션 경계(onSessionBoundary)가 아니라 주체 변경에 걸어야 한다. 경계는 같은
+        // 사용자의 부트스트랩·토큰 갱신에도 발생하므로, 거기에 걸면 새로고침마다
+        // 지워진 뒤 설정 응답이 오기 전까지 브라우저 지역으로 그려진다.
+        clearUserTimeZone()
     },
     onSessionBoundary: (generation) => {
         notifyAuthSessionBoundary(generation)

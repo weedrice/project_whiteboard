@@ -11,6 +11,7 @@ import java.util.List;
 public class BoardDetailResponse extends BoardListResponse {
 
     @JsonProperty("isAdmin")
+    @Getter(onMethod_ = @JsonProperty("isAdmin"))
     private final boolean isAdmin;
 
     @JsonProperty("allowNsfw")

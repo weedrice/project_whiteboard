@@ -14,6 +14,7 @@ public class VerifyCodeResponse {
     private String loginId;
 
     @JsonProperty("isReregister")
+    @Getter(onMethod_ = @JsonProperty("isReregister"))
     private boolean isReregister;
 
     public VerifyCodeResponse(boolean verified, String verificationTicket, String loginId, boolean isReregister) {

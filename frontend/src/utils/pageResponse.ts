@@ -1,4 +1,5 @@
 import type { PageResponse } from '@/types'
+import logger from '@/utils/logger'
 
 export interface PageResponseRaw<T> {
   content?: T[] | null
@@ -19,10 +20,37 @@ interface NormalizePageResponseOptions {
   fallbackTotalPages?: number | ((context: { size: number; totalElements: number; contentLength: number }) => number)
 }
 
+/** 페이지 번호 필드가 통째로 빠진 응답을 개발 모드에서만 알린다. */
+function warnOnMissingPageNumber(raw: unknown): void {
+  if (!import.meta.env.DEV) return
+  if (raw == null || typeof raw !== 'object') return
+
+  const candidate = raw as { page?: unknown; number?: unknown; content?: unknown }
+  if (!Array.isArray(candidate.content)) return
+  // 빈 목록은 정상 응답이다. 백엔드가 page를 함께 생략하는 경우가 있어, 여기서 걸러내지
+  // 않으면 "필드 이름이 바뀌었다"는 잘못된 신호가 개발 중에 계속 뜬다.
+  if (candidate.content.length === 0) return
+  if (typeof candidate.page === 'number' || typeof candidate.number === 'number') return
+
+  logger.warn(
+    '[pageResponse] 페이지 응답에 page/number 필드가 없어 0페이지로 처리한다. '
+    + '백엔드 PageResponse 필드 이름이 바뀌었는지 확인할 것.',
+    raw,
+  )
+}
+
+/**
+ * 백엔드 `PageResponse`(page/hasNext/hasPrevious)를 프론트 내부 형태(number/first/last)로 옮긴다.
+ *
+ * 모든 필드가 optional이라 어긋난 응답도 기본값으로 조용히 채워진다. 계약 테스트가 1차
+ * 방어선이지만, 그것이 놓친 경우를 개발 중에 알아채도록 페이지 번호 필드가 통째로 없을 때만
+ * 경고한다. 빈 목록 응답은 정상이므로 content가 비어 있는 경우는 대상이 아니다.
+ */
 export function normalizePageResponse<T>(
   raw: PageResponseRaw<T> | null | undefined,
   options: NormalizePageResponseOptions = {}
 ): PageResponse<T> {
+  warnOnMissingPageNumber(raw)
   const content = raw?.content ?? []
   const number = typeof raw?.number === 'number'
     ? raw.number

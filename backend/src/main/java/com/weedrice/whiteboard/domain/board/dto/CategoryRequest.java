@@ -25,5 +25,6 @@ public class CategoryRequest {
     private String minWriteRole;
 
     @JsonProperty("isDefault")
+    @Getter(onMethod_ = @JsonProperty("isDefault"))
     private Boolean isDefault;
 }

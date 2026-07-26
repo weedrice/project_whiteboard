@@ -19,9 +19,11 @@ public class AdminBoardResponse {
     private final boolean allowNsfw;
 
     @JsonProperty("isActive")
+    @Getter(onMethod_ = @JsonProperty("isActive"))
     private final boolean isActive;
 
     @JsonProperty("isPublic")
+    @Getter(onMethod_ = @JsonProperty("isPublic"))
     private final boolean isPublic;
 
     private final boolean agentUseYn;

@@ -20,12 +20,16 @@ public class DraftResponse {
     private Long categoryId;
     private List<String> tags;
     @JsonProperty("isNotice")
+    @Getter(onMethod_ = @JsonProperty("isNotice"))
     private boolean isNotice;
     @JsonProperty("isNsfw")
+    @Getter(onMethod_ = @JsonProperty("isNsfw"))
     private boolean isNsfw;
     @JsonProperty("isSpoiler")
+    @Getter(onMethod_ = @JsonProperty("isSpoiler"))
     private boolean isSpoiler;
     @JsonProperty("isSecret")
+    @Getter(onMethod_ = @JsonProperty("isSecret"))
     private boolean isSecret;
     private List<Long> fileIds;
     private PollRequest poll;

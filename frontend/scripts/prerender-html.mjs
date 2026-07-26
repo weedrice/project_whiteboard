@@ -1,7 +1,20 @@
 import { buildPostOgMeta, PRIVATE_POST_OG_TITLE, resolvePostOgTitle } from './og-image.mjs'
+import { parseServiceInstant, SERVICE_TIME_ZONE } from './serviceTime.mjs'
 
 function stripHtml(html) {
     return String(html ?? '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+}
+
+function formatServiceDateTime(value) {
+    // 서비스 기준 지역으로 그린다. 빌드 컨테이너 지역(UTC)이 아니라 독자 기준이어야 한다.
+    // 입력에 offset이 없으면 컨테이너 지역으로 오해석되므로 파싱도 서비스 기준을 따른다.
+    const date = parseServiceInstant(value)
+    if (!date) return ''
+    return new Intl.DateTimeFormat('ko-KR', {
+        timeZone: SERVICE_TIME_ZONE,
+        dateStyle: 'long',
+        timeStyle: 'short',
+    }).format(date)
 }
 
 function escapeHtml(value) {
@@ -17,7 +30,9 @@ export function buildPreRenderedSnippet(post, canonicalUrl, ogImage) {
     const isPrivatePost = Boolean(post?.isSecret || post?.isBlinded)
     const title = resolvePostOgTitle(post)
     const authorName = isPrivatePost ? 'NoviIs' : (post?.author?.displayName ?? 'Unknown')
-    const createdAt = !isPrivatePost && post?.createdAt ? new Date(post.createdAt).toISOString() : null
+    const createdAt = !isPrivatePost && post?.createdAt
+        ? (parseServiceInstant(post.createdAt)?.toISOString() ?? null)
+        : null
     const articleBody = isPrivatePost ? PRIVATE_POST_OG_TITLE : (post?.contents ?? '')
     const articleSummary = isPrivatePost
         ? PRIVATE_POST_OG_TITLE
@@ -49,7 +64,7 @@ export function buildPreRenderedSnippet(post, canonicalUrl, ogImage) {
         body: `
 <article data-prerendered="true" style="max-width:760px;margin:0 auto;padding:24px 16px;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;line-height:1.6;color:#111827;">
   <h1 style="font-size:1.75rem;font-weight:700;margin:0 0 12px;">${escapeHtml(title)}</h1>
-  <p style="font-size:0.875rem;color:#6b7280;margin:0 0 20px;">${escapeHtml(authorName)}${createdAt ? ` | <time datetime="${createdAt}">${escapeHtml(new Date(createdAt).toLocaleString('ko-KR'))}</time>` : ''}</p>
+  <p style="font-size:0.875rem;color:#6b7280;margin:0 0 20px;">${escapeHtml(authorName)}${createdAt ? ` | <time datetime="${createdAt}">${escapeHtml(formatServiceDateTime(createdAt))}</time>` : ''}</p>
   <section class="post-prerender-body">${articleBody}</section>
 </article>`.trim()
     }

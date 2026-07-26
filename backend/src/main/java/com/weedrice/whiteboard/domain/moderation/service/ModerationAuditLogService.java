@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.Set;
 
@@ -60,6 +61,7 @@ public class ModerationAuditLogService {
     private final BoardRepository boardRepository;
     private final UserReadableResolver userReadableResolver;
     private final BoardAccessPolicy boardAccessPolicy;
+    private final Clock clock;
 
     @Transactional(propagation = Propagation.MANDATORY)
     public void recordUserAction(
@@ -77,6 +79,7 @@ public class ModerationAuditLogService {
                 .targetId(targetId)
                 .board(board)
                 .reason(normalizeReason(reason))
+                .createdAt(LocalDateTime.now(clock))
                 .build());
     }
 
@@ -94,6 +97,7 @@ public class ModerationAuditLogService {
                 .targetId(targetId)
                 .board(board)
                 .reason(normalizeReason(reason))
+                .createdAt(LocalDateTime.now(clock))
                 .build());
     }
 

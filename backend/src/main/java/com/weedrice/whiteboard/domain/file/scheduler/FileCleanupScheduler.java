@@ -13,7 +13,7 @@ public class FileCleanupScheduler {
 
     private final FileService fileService;
 
-    @Scheduled(cron = "0 0 2 * * ?")
+    @Scheduled(cron = "0 0 2 * * ?", zone = "Asia/Seoul")
     public void cleanupTemporaryFiles() {
         log.info("Starting temporary file cleanup scheduler");
         fileService.cleanUpTemporaryFiles();

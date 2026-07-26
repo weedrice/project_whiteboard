@@ -11,6 +11,7 @@ public class CategoryResponse {
     private final int sortOrder;
     private final String minWriteRole;
     @JsonProperty("isDefault")
+    @Getter(onMethod_ = @JsonProperty("isDefault"))
     private final boolean isDefault;
 
     public CategoryResponse(BoardCategory category) {

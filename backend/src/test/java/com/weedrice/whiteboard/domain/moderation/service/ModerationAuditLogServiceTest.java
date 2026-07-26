@@ -8,6 +8,7 @@ import com.weedrice.whiteboard.domain.moderation.entity.ModerationAuditLog;
 import com.weedrice.whiteboard.domain.moderation.repository.ModerationAuditLogRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.service.UserReadableResolver;
+import com.weedrice.whiteboard.global.common.util.DateTimeUtils;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -20,6 +21,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -41,9 +44,12 @@ class ModerationAuditLogServiceTest {
     @Mock BoardAccessPolicy accessPolicy;
     ModerationAuditLogService service;
 
+    private static final Clock FIXED_CLOCK =
+            Clock.fixed(Instant.parse("2026-07-25T01:23:45Z"), DateTimeUtils.KST_ZONE_ID);
+
     @BeforeEach
     void setUp() {
-        service = new ModerationAuditLogService(audits, boards, users, accessPolicy);
+        service = new ModerationAuditLogService(audits, boards, users, accessPolicy, FIXED_CLOCK);
     }
 
     @Test
@@ -58,6 +64,9 @@ class ModerationAuditLogServiceTest {
         verify(audits, org.mockito.Mockito.times(2)).save(captor.capture());
         assertEquals("reason", captor.getAllValues().get(0).getReason());
         assertNull(captor.getAllValues().get(1).getReason());
+        LocalDateTime expectedCreatedAt = LocalDateTime.now(FIXED_CLOCK);
+        assertEquals(expectedCreatedAt, captor.getAllValues().get(0).getCreatedAt());
+        assertEquals(expectedCreatedAt, captor.getAllValues().get(1).getCreatedAt());
     }
 
     @Test

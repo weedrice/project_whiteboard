@@ -32,11 +32,20 @@ export type UserHydrationResult = 'success' | 'transient-failure' | 'terminal-fa
 interface AuthSessionEffects {
     syncThemeFromUser: (userData: User | null) => void
     onSessionBoundary: (generation: number) => void
+    /**
+     * 세션의 **주체가 바뀌었을 때만** 부른다(로그인·계정 전환·로그아웃).
+     *
+     * `onSessionBoundary`는 같은 사용자가 토큰만 새로 받는 경우(부트스트랩, 갱신)에도
+     * 불리므로, 계정에 딸린 기기 저장값을 비우는 용도로는 쓸 수 없다. 새로고침마다
+     * 지워져 버린다.
+     */
+    onPrincipalChange: () => void
 }
 
 const noopSessionEffects: AuthSessionEffects = {
     syncThemeFromUser: () => undefined,
     onSessionBoundary: () => undefined,
+    onPrincipalChange: () => undefined,
 }
 
 let authSessionEffects: AuthSessionEffects = noopSessionEffects
@@ -110,6 +119,7 @@ export const useAuthStore = defineStore('auth', () => {
         user.value = userData
         persistAccessToken(token)
         syncThemeFromUser(userData)
+        authSessionEffects.onPrincipalChange()
         publishAuthBoundary(boundary)
     }
 
@@ -123,6 +133,8 @@ export const useAuthStore = defineStore('auth', () => {
         advanceSessionGeneration()
         resetBootstrapState()
         clearSessionValues(false)
+        // 다른 탭이 알려 온 로그아웃(broadcast=false)도 이 탭에서는 주체 변경이다.
+        authSessionEffects.onPrincipalChange()
         if (broadcast) publishAuthBoundary('logout')
     }
 
@@ -383,7 +395,13 @@ export const useAuthStore = defineStore('auth', () => {
         resetBootstrapState()
         accessToken.value = token
         persistAccessToken(token)
-        if (broadcastBoundary) publishAuthBoundary(user.value ? 'account-switch' : 'login')
+        // 부트스트랩은 broadcastBoundary=false로 들어온다. 같은 사용자가 토큰만 새로
+        // 받는 경우라 주체 변경이 아니다. 여기서 주체 변경으로 처리하면 새로고침마다
+        // 계정 설정에서 온 기기 저장값이 지워진다.
+        if (broadcastBoundary) {
+            authSessionEffects.onPrincipalChange()
+            publishAuthBoundary(user.value ? 'account-switch' : 'login')
+        }
         return true
     }
 

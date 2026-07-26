@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { AUTO_TIME_ZONE, SERVER_TIME_ZONE, detectBrowserTimeZone } from '@/utils/displayTimeZone'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
@@ -168,6 +169,31 @@ const {
   reloadSettings: async () => { await refetchSettings() },
   t
 })
+
+/**
+ * 고를 수 있는 시간대.
+ *
+ * 서버·기기·저장된 값만 보여 주면 다른 지역을 고를 방법이 없어, 여행 중이거나 해외에
+ * 거주하는 사용자가 이 기능을 쓸 수 없다. 브라우저가 전체 목록을 알려 주면 그것을 쓰고,
+ * 알려 주지 못하는 환경에서만 최소 목록으로 떨어진다.
+ */
+const selectableTimeZones = computed(() => {
+  const zones = new Set<string>(supportedTimeZones())
+  zones.add(SERVER_TIME_ZONE)
+  const detected = detectBrowserTimeZone()
+  if (detected) zones.add(detected)
+  const current = userSettingsForm.timezone
+  if (current && current !== AUTO_TIME_ZONE) zones.add(current)
+  return [...zones].sort()
+})
+
+function supportedTimeZones(): string[] {
+  try {
+    return Intl.supportedValuesOf?.('timeZone') ?? []
+  } catch {
+    return []
+  }
+}
 
 const {
   canSave: canSaveNotifications,
@@ -361,6 +387,20 @@ const handleRevokeOtherSessions = async () => {
                 <option value="ko">{{ $t('common.languages.ko') }}</option>
                 <option value="en">{{ $t('common.languages.en') }}</option>
               </BaseSelect>
+            </div>
+
+            <div>
+              <BaseSelect
+                v-model="userSettingsForm.timezone"
+                :label="$t('user.settings.timezone')"
+                aria-describedby="settings-timezone-help"
+              >
+                <option :value="AUTO_TIME_ZONE">{{ $t('user.settings.timezoneAuto') }}</option>
+                <option v-for="zone in selectableTimeZones" :key="zone" :value="zone">{{ zone }}</option>
+              </BaseSelect>
+              <p id="settings-timezone-help" class="mt-1 text-sm nv-muted">
+                {{ $t('user.settings.timezoneHelp') }}
+              </p>
             </div>
           </div>
           <div class="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">

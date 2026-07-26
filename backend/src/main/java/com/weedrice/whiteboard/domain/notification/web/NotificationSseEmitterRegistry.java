@@ -97,7 +97,7 @@ public class NotificationSseEmitterRegistry
 
         try {
             emitter.send(SseEmitter.event()
-                    .name("connect")
+                    .name(NotificationSseEvents.CONNECT)
                     .id(connectionId)
                     .data(connectionId));
         } catch (IOException | RuntimeException e) {
@@ -146,7 +146,7 @@ public class NotificationSseEmitterRegistry
         for (Map.Entry<String, EmitterConnection> entry : new ArrayList<>(userEmitters.entrySet())) {
             try {
                 entry.getValue().emitter().send(SseEmitter.event()
-                        .name("notification")
+                        .name(NotificationSseEvents.NOTIFICATION)
                         .data(summary));
             } catch (IOException | RuntimeException e) {
                 completeWithError(userId, entry.getKey(), entry.getValue().emitter(), e);
@@ -259,7 +259,7 @@ public class NotificationSseEmitterRegistry
             }
             try {
                 entry.getValue().emitter().send(SseEmitter.event()
-                        .name("comment")
+                        .name(NotificationSseEvents.COMMENT)
                         .data(event));
             } catch (IOException | RuntimeException e) {
                 completeWithError(userId, entry.getKey(), entry.getValue().emitter(), e);
@@ -528,7 +528,7 @@ public class NotificationSseEmitterRegistry
             }
             try {
                 entry.getValue().emitter().send(SseEmitter.event()
-                        .name("comment-topic-invalidated")
+                        .name(NotificationSseEvents.COMMENT_TOPIC_INVALIDATED)
                         .data(Map.of("boardId", boardId)));
             } catch (IOException | RuntimeException exception) {
                 completeWithError(userId, entry.getKey(), entry.getValue().emitter(), exception);
@@ -563,7 +563,7 @@ public class NotificationSseEmitterRegistry
             commentTopicCleanups.increment(removedTopics);
         }
         if (!affectedConnections.isEmpty()) {
-            publishControlEvent(userId, affectedConnections, "comment-topic-access-revoked", Map.of("reason", "access-revoked"));
+            publishControlEvent(userId, affectedConnections, NotificationSseEvents.COMMENT_TOPIC_ACCESS_REVOKED, Map.of("reason", "access-revoked"));
         }
     }
 
@@ -571,7 +571,7 @@ public class NotificationSseEmitterRegistry
             ConcurrentMap<Long, ConcurrentMap<String, Boolean>> removed,
             Map<String, Object> data) {
         removed.forEach((userId, connectionIds) ->
-                publishControlEvent(userId, connectionIds.keySet(), "comment-topic-access-revoked", data));
+                publishControlEvent(userId, connectionIds.keySet(), NotificationSseEvents.COMMENT_TOPIC_ACCESS_REVOKED, data));
     }
 
     private void publishControlEvent(
@@ -579,6 +579,12 @@ public class NotificationSseEmitterRegistry
             java.util.Set<String> connectionIds,
             String eventName,
             Map<String, Object> data) {
+        // 이름을 인자로 받는 유일한 경로라 원본 스캔이 들여다볼 수 없다. 런타임에서 막는다.
+        if (!NotificationSseEvents.ALL.contains(eventName)) {
+            throw new IllegalArgumentException(
+                    "NotificationSseEvents에 등재되지 않은 SSE 이벤트 이름: " + eventName);
+        }
+
         Map<String, EmitterConnection> userEmitters = emitters.get(userId);
         if (userEmitters == null || userEmitters.isEmpty()) {
             return;

@@ -13,6 +13,7 @@ import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.security.CurrentUserIdArgumentResolver;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
+import com.weedrice.whiteboard.domain.file.service.FileUploadTarget;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -37,6 +38,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.verify;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -129,7 +132,7 @@ class FileControllerTest {
     void uploadFile_returnsSuccess() throws Exception {
         MockMultipartFile file = new MockMultipartFile("file", "test.txt", "text/plain", "test content".getBytes());
         FileUploadResponse response = FileUploadResponse.builder().build();
-        when(fileService.uploadFile(any(), any())).thenReturn(response);
+        when(fileService.uploadFile(any(), any(), any())).thenReturn(response);
 
         mockMvc.perform(multipart("/api/v1/files")
                         .file(file)
@@ -143,7 +146,7 @@ class FileControllerTest {
     void uploadSimple_returnsSuccess() throws Exception {
         MockMultipartFile file = new MockMultipartFile("file", "test.txt", "text/plain", "test content".getBytes());
         FileSimpleResponse response = FileSimpleResponse.builder().build();
-        when(fileService.uploadSimpleFile(any(), any())).thenReturn(response);
+        when(fileService.uploadSimpleFile(any(), any(), any())).thenReturn(response);
 
         mockMvc.perform(multipart("/api/v1/files/upload")
                         .file(file)
@@ -299,7 +302,7 @@ class FileControllerTest {
     @DisplayName("파일 업로드 실패 - 파일 비어있음")
     void uploadFile_empty() throws Exception {
         MockMultipartFile file = new MockMultipartFile("file", "", "text/plain", new byte[0]);
-        when(fileService.uploadFile(any(), any())).thenThrow(new BusinessException(ErrorCode.FILE_EMPTY));
+        when(fileService.uploadFile(any(), any(), any())).thenThrow(new BusinessException(ErrorCode.FILE_EMPTY));
 
         mockMvc.perform(multipart("/api/v1/files")
                         .file(file)
@@ -312,5 +315,36 @@ class FileControllerTest {
                 new ByteArrayInputStream("test content".getBytes()),
                 originalName,
                 contentType);
+    }
+
+    @Test
+    @DisplayName("업로드 대상 파라미터가 서비스로 전달된다")
+    void uploadFile_passesTargetToService() throws Exception {
+        FileUploadResponse response = FileUploadResponse.builder().build();
+        when(fileService.uploadFile(any(), any(), any())).thenReturn(response);
+        MockMultipartFile file = new MockMultipartFile("file", "icon.png", "image/png", new byte[] { 1 });
+
+        mockMvc.perform(multipart("/api/v1/files")
+                        .file(file)
+                        .param("target", "BOARD_ICON")
+                        .with(user(customUserDetails)))
+                .andExpect(status().isCreated());
+
+        verify(fileService).uploadFile(any(), any(), eq(FileUploadTarget.BOARD_ICON));
+    }
+
+    @Test
+    @DisplayName("업로드 대상을 생략하면 GENERIC으로 처리한다")
+    void uploadFile_defaultsToGenericTarget() throws Exception {
+        FileUploadResponse response = FileUploadResponse.builder().build();
+        when(fileService.uploadFile(any(), any(), any())).thenReturn(response);
+        MockMultipartFile file = new MockMultipartFile("file", "icon.png", "image/png", new byte[] { 1 });
+
+        mockMvc.perform(multipart("/api/v1/files")
+                        .file(file)
+                        .with(user(customUserDetails)))
+                .andExpect(status().isCreated());
+
+        verify(fileService).uploadFile(any(), any(), eq(FileUploadTarget.GENERIC));
     }
 }

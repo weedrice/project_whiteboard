@@ -32,15 +32,19 @@ public class PostCreateRequest {
     private List<@NotBlank(message = "{validation.post.tagName.required}")
             @Size(max = TagConstraints.MAX_TAG_NAME_LENGTH, message = "{validation.post.tagName.max}") String> tags;
     @JsonProperty("isNotice")
+    @Getter(onMethod_ = @JsonProperty("isNotice"))
     private boolean isNotice = false;
 
     @JsonProperty("isNsfw")
+    @Getter(onMethod_ = @JsonProperty("isNsfw"))
     private boolean isNsfw = false;
 
     @JsonProperty("isSpoiler")
+    @Getter(onMethod_ = @JsonProperty("isSpoiler"))
     private boolean isSpoiler = false;
 
     @JsonProperty("isSecret")
+    @Getter(onMethod_ = @JsonProperty("isSecret"))
     private boolean isSecret = false;
 
     private Long draftId;

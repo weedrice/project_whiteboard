@@ -15,7 +15,7 @@ public class LoginHistoryCleanupScheduler {
     private final LoginHistoryCleanupService cleanupService;
     private final LoginHistoryRetentionProperties properties;
 
-    @Scheduled(cron = "0 40 3 * * ?")
+    @Scheduled(cron = "0 40 3 * * ?", zone = "Asia/Seoul")
     public void cleanupExpiredLoginHistories() {
         int totalDeleted = 0;
         for (int batch = 0; batch < properties.getCleanupMaxBatches(); batch++) {

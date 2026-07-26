@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { normalizePageResponse } from '../pageResponse'
+import logger from '@/utils/logger'
 
 describe('normalizePageResponse', () => {
   it('prefers number over page and falls back to page when number is missing', () => {
@@ -61,4 +62,46 @@ describe('normalizePageResponse', () => {
       empty: false,
     })
   })
+})
+
+describe('페이지 번호 누락 경고', () => {
+    afterEach(() => {
+        vi.restoreAllMocks()
+    })
+
+    it('page와 number가 모두 없으면 개발 모드에서 경고한다', () => {
+        const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {})
+
+        normalizePageResponse({ content: [1], size: 10, totalElements: 1 })
+
+        expect(warn).toHaveBeenCalledTimes(1)
+        expect(String(warn.mock.calls[0][0])).toContain('page/number')
+    })
+
+    it('page만 있어도 경고하지 않는다', () => {
+        const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {})
+
+        normalizePageResponse({ content: [1], page: 0, size: 10, totalElements: 1 })
+
+        expect(warn).not.toHaveBeenCalled()
+    })
+
+    it('응답이 없으면 경고 대상이 아니다', () => {
+        const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {})
+
+        normalizePageResponse(null)
+        normalizePageResponse(undefined)
+
+        expect(warn).not.toHaveBeenCalled()
+    })
+
+    it('빈 목록 응답은 page가 없어도 경고 대상이 아니다', () => {
+        const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {})
+
+        // 이전 테스트는 null/undefined만 넣어 이 분기를 한 번도 실행하지 않았다.
+        // 실제로 확인해야 하는 것은 content가 빈 배열인 경우다.
+        normalizePageResponse({ content: [], size: 10, totalElements: 0 })
+
+        expect(warn).not.toHaveBeenCalled()
+    })
 })

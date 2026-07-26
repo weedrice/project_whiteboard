@@ -19,6 +19,8 @@ public class LoginResponse {
         private String loginId;
         private String displayName;
         private String profileImageUrl;
+        // 명시적 getter에만 붙이면 속성이 읽기 전용이 된다. 양쪽에 같은 이름을 준다.
+        @JsonProperty("isEmailVerified")
         private boolean isEmailVerified;
         private String role;
         private String theme;

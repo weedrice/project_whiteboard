@@ -1,3 +1,4 @@
+import { AUTO_TIME_ZONE, rememberUserTimeZone } from '@/utils/displayTimeZone'
 import { computed, reactive, ref, watch, type Ref } from 'vue'
 import type { NotificationSettingType, NotificationSettingsBulkPayload, NotificationSettingsPayload } from '@/api/user'
 import logger from '@/utils/logger'
@@ -41,7 +42,7 @@ export function useUserSettingsForm(options: UseUserSettingsFormOptions) {
   const createDefaultForm = (): UserSettingsForm => ({
     theme: 'LIGHT',
     language: 'ko',
-    timezone: 'Asia/Seoul',
+    timezone: AUTO_TIME_ZONE,
     hideNsfw: true
   })
   const form = reactive<UserSettingsForm>(createDefaultForm())
@@ -62,13 +63,15 @@ export function useUserSettingsForm(options: UseUserSettingsFormOptions) {
   const toFormSnapshot = (value: UserSettings): UserSettingsForm => ({
     theme: value.theme,
     language: value.language,
-    timezone: Object.hasOwn(value, 'timezone') ? value.timezone : form.timezone,
+    timezone: Object.hasOwn(value, 'timezone') ? (value.timezone || AUTO_TIME_ZONE) : form.timezone,
     hideNsfw: Object.hasOwn(value, 'hideNsfw') ? value.hideNsfw : form.hideNsfw
   })
 
   const hydrateFromSettings = (value: UserSettings) => {
     const nextForm = toFormSnapshot(value)
     Object.assign(form, nextForm)
+    // 서버 설정이 정본이다. 기기에도 남겨 두면 다음 방문의 첫 렌더부터 바로 반영된다.
+    rememberUserTimeZone(nextForm.timezone)
     baseline.value = { ...nextForm }
     return nextForm
   }
@@ -108,6 +111,9 @@ export function useUserSettingsForm(options: UseUserSettingsFormOptions) {
     const isCurrentSave = () => revision === saveRevision
       && (sessionGeneration === undefined || options.getSessionGeneration?.() === sessionGeneration)
     const previousLanguage = baseline.value?.language as UserSettings['language'] | undefined
+    // AUTO도 그대로 보낸다. 서버가 이 표식을 저장하므로 "자동"이 다른 기기와 다음
+    // 방문에도 유지된다. 빼고 보내면 서버는 "변경 없음"으로 읽어 이전에 고른 지역이
+    // 그대로 남고, 화면에는 저장 성공으로 보이는 조용한 실패가 된다.
     const payload: UserSettingsForm & { language: UserSettings['language'] } = {
       theme: form.theme,
       language: form.language as UserSettings['language'],
@@ -128,6 +134,7 @@ export function useUserSettingsForm(options: UseUserSettingsFormOptions) {
       if (!isCurrentSave()) return
 
       options.setTheme(payload.theme)
+      rememberUserTimeZone(payload.timezone)
       baseline.value = { ...payload }
       message.value = options.t('user.settings.saved')
     } catch (error: unknown) {

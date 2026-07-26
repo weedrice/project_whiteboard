@@ -1,6 +1,7 @@
 import type { ComputedRef, Ref } from 'vue'
 import type { useEmoticonUploadSession } from '@/features/emoticon/form/useEmoticonUploadSession'
 import { extractErrorCode, extractErrorMessage } from '@/utils/errorHandler'
+import { API_ERROR_CODES } from '@/api/errorCodes'
 
 type EmoticonUploadSession = ReturnType<typeof useEmoticonUploadSession>
 
@@ -33,7 +34,7 @@ export function useEmoticonSubmitGuard({
       await uploadSession.discardTrackedUploads(currentRunId)
       const isCurrentSubmit = uploadSession.isSubmitActive(currentRunId)
       if (!uploadSession.isDisposed.value && isCurrentSubmit) {
-        if (extractErrorCode(error) === 'EM006') {
+        if (extractErrorCode(error) === API_ERROR_CODES.EMOTICON_IMAGE_LIMIT_EXCEEDED) {
           onLimitExceeded?.()
         }
         onError(extractErrorMessage(error) || fallbackErrorMessage)

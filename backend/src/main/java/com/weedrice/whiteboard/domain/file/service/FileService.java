@@ -45,12 +45,23 @@ public class FileService {
 
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public FileUploadResponse uploadFile(Long uploaderId, MultipartFile multipartFile) {
-        return fileUploadService.uploadFile(uploaderId, multipartFile);
+        return uploadFile(uploaderId, multipartFile, FileUploadTarget.GENERIC);
+    }
+
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public FileUploadResponse uploadFile(Long uploaderId, MultipartFile multipartFile, FileUploadTarget target) {
+        return fileUploadService.uploadFile(uploaderId, multipartFile, target);
     }
 
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public FileSimpleResponse uploadSimpleFile(Long uploaderId, MultipartFile multipartFile) {
-        return fileUploadService.uploadSimpleFile(uploaderId, multipartFile);
+        return uploadSimpleFile(uploaderId, multipartFile, FileUploadTarget.GENERIC);
+    }
+
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public FileSimpleResponse uploadSimpleFile(Long uploaderId, MultipartFile multipartFile,
+            FileUploadTarget target) {
+        return fileUploadService.uploadSimpleFile(uploaderId, multipartFile, target);
     }
 
     @Transactional

@@ -4,6 +4,7 @@ import type { QueryClient } from '@tanstack/vue-query'
 import { useEmoticonEditSubmit } from '../useEmoticonEditSubmit'
 import { apiSuccessResponse } from '@/test/apiResponseFixtures'
 import type { EmoticonImagePreview } from '@/utils/emoticonImage'
+import { FILE_UPLOAD_TARGETS } from '@/api/fileUploadTargets'
 
 const mocks = vi.hoisted(() => ({
   deleteImage: vi.fn(),
@@ -132,7 +133,7 @@ describe('useEmoticonEditSubmit', () => {
     expect(mocks.uploadFile).toHaveBeenCalledWith(expect.any(File), {
       signal: expect.any(AbortSignal),
       skipGlobalErrorHandler: true,
-    })
+    }, FILE_UPLOAD_TARGETS.EMOTICON)
     expect(mocks.addImage).not.toHaveBeenCalled()
     expect(mocks.updateEmoticon).toHaveBeenCalledWith(7, {
       name: 'Updated',

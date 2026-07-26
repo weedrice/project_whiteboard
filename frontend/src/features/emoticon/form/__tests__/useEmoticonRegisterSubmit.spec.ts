@@ -4,6 +4,7 @@ import { useEmoticonRegisterSubmit } from '../useEmoticonRegisterSubmit'
 import type { EmoticonImagePreview } from '@/utils/emoticonImage'
 import { emoticonApiData, emoticonApiSuccess } from '@/test/emoticonApiFixtures'
 import { createDeferred } from '@/test/async'
+import { FILE_UPLOAD_TARGETS } from '@/api/fileUploadTargets'
 
 const mocks = vi.hoisted(() => ({
   createEmoticon: vi.fn(),
@@ -119,7 +120,7 @@ describe('useEmoticonRegisterSubmit', () => {
     expect(mocks.uploadFile).toHaveBeenCalledWith(expect.any(File), {
       signal: expect.any(AbortSignal),
       skipGlobalErrorHandler: true,
-    })
+    }, FILE_UPLOAD_TARGETS.EMOTICON)
     expect(mocks.createEmoticon).toHaveBeenCalledWith({
       name: 'New pack',
       thumbnailFileId: 10,
