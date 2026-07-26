@@ -72,7 +72,7 @@ jobs:
               - 'backend/src/main/java/com/weedrice/whiteboard/domain/post/dto/DraftResponse.java'
               - 'backend/src/main/java/com/weedrice/whiteboard/domain/feed/dto/FeedPostSummary.java'
               - 'backend/src/main/java/com/weedrice/whiteboard/domain/comment/dto/CommentResponse.java'
-              - 'backend/src/main/java/com/weedrice/whiteboard/domain/board/dto/'
+              - 'backend/src/main/java/com/weedrice/whiteboard/domain/board/dto/**'
               - 'backend/src/main/java/com/weedrice/whiteboard/domain/auth/dto/VerifyCodeResponse.java'
               - 'backend/src/main/java/com/weedrice/whiteboard/domain/user/dto/NotificationSettingResponse.java'
               # 생성 타입의 입력. 스펙이 바뀌면 api:check와 타입 검사가 돌아야 한다.

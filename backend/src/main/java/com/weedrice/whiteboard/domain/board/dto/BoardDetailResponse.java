@@ -10,6 +10,7 @@ import java.util.List;
 @Getter
 public class BoardDetailResponse extends BoardListResponse {
 
+    @JsonProperty("isAdmin")
     @Getter(onMethod_ = @JsonProperty("isAdmin"))
     private final boolean isAdmin;
 

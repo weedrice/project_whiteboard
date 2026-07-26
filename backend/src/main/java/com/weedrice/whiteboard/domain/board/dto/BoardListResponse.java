@@ -16,12 +16,15 @@ public class BoardListResponse {
     private final long postCount;
     private final String adminDisplayName;
 
+    @JsonProperty("isSubscribed")
     @Getter(onMethod_ = @JsonProperty("isSubscribed"))
     private final boolean isSubscribed;
 
+    @JsonProperty("isActive")
     @Getter(onMethod_ = @JsonProperty("isActive"))
     private final boolean isActive;
 
+    @JsonProperty("isPublic")
     @Getter(onMethod_ = @JsonProperty("isPublic"))
     private final boolean isPublic;
 

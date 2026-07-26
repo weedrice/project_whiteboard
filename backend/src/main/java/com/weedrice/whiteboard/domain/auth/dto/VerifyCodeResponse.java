@@ -13,6 +13,7 @@ public class VerifyCodeResponse {
     private String verificationTicket;
     private String loginId;
 
+    @JsonProperty("isReregister")
     @Getter(onMethod_ = @JsonProperty("isReregister"))
     private boolean isReregister;
 

@@ -27,8 +27,12 @@ type Schemas = components['schemas']
  * `PostCategorySummary` 등). 그 매핑은 normalizer가 소유하므로 여기서 구조 일치를
  * 요구하면 정상 설계가 오류로 잡힌다. 목록으로 하나씩 빼는 대신 규칙으로 잘라낸다.
  *
- * 이 검사가 잡으려는 것은 평면 필드의 **이름과 타입 어긋남**이다. A8처럼 wire 이름이
- * 바뀌거나 백엔드가 `number`를 `string`으로 바꾸면 여기서 컴파일이 깨진다.
+ * **이 검사가 잡는 것과 못 잡는 것**을 분명히 해 둔다.
+ * - 잡는다: 공유 필드의 **타입** 어긋남(백엔드가 `number`를 `string`으로 바꾸는 등).
+ * - 못 잡는다: **이름 변경**. 이름이 바뀌면 그 필드가 공유 집합에서 빠질 뿐 오류가 나지 않는다.
+ *
+ * 이름 변경은 아래 명시적 단언과 `booleanWireNameContract.spec.ts`(백엔드 소스를 직접 읽어
+ * wire 이름을 계산한다)가 맡는다. 이 파일 하나로 다 잡힌다고 믿으면 안 된다.
  */
 type Scalar = string | number | boolean
 type ScalarKeys<W> = {
@@ -71,7 +75,7 @@ type _BoardList = Assert<WireAssignableToHand<Schemas['BoardListResponse'], Boar
 
 /**
  * A8이 정리한 boolean 키가 스키마에 그대로 있는지 본다.
- * 어느 하나라도 접두사 없는 쪽으로 돌아가면 여기서 걸린다.
+ * 위 구조 검사는 이름 변경을 못 잡으므로, 중요한 키는 여기서 이름을 직접 못 박는다.
  */
 type _A8PostNotice = Assert<Schemas['PostResponse'] extends { isNotice?: boolean } ? true : false>
 type _A8PostLiked = Assert<Schemas['PostResponse'] extends { isLiked?: boolean } ? true : false>
@@ -91,6 +95,10 @@ type _LegacySummaryLiked = Assert<Schemas['PostSummary'] extends { liked?: boole
  * `/api/v1/agents/**` 제외가 풀린 것이므로 여기서 걸린다.
  */
 type ExpectedAgentSchemas = 'AgentClaimRequest' | 'AgentResponse' | 'AgentListResponse'
+/**
+ * `ad` 도메인은 접두사로 거를 수 없다. `Admin*` 스키마가 다수 존재해 `Ad${string}`이
+ * 그것들과 충돌한다. ad 경로 제외는 `OpenApiSpecSnapshotTest`가 경로 기준으로 확인한다.
+ */
 type _NoUnexpectedAgentSchemas = Assert<
     [Exclude<Extract<keyof Schemas, `Agent${string}`>, ExpectedAgentSchemas>] extends [never]
         ? true

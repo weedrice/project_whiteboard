@@ -10,6 +10,7 @@ import lombok.Data;
 public class NotificationSettingResponse {
     private String notificationType;
 
+    @JsonProperty("isEnabled")
     @Getter(onMethod_ = @JsonProperty("isEnabled"))
     private boolean isEnabled;
 }

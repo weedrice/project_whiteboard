@@ -10,6 +10,7 @@ public class CategoryResponse {
     private final String name;
     private final int sortOrder;
     private final String minWriteRole;
+    @JsonProperty("isDefault")
     @Getter(onMethod_ = @JsonProperty("isDefault"))
     private final boolean isDefault;
 

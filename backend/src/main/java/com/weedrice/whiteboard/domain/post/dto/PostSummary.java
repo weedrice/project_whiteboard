@@ -25,10 +25,13 @@ public class PostSummary {
     private int commentCount;
     private boolean isNotice;
     private boolean isNsfw;
+    @JsonProperty("isSpoiler")
     @Getter(onMethod_ = @JsonProperty("isSpoiler"))
     private boolean isSpoiler;
+    @JsonProperty("isSecret")
     @Getter(onMethod_ = @JsonProperty("isSecret"))
     private boolean isSecret;
+    @JsonProperty("isBlinded")
     @Getter(onMethod_ = @JsonProperty("isBlinded"))
     private boolean isBlinded;
     private String blindReason;

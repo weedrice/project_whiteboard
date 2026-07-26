@@ -34,6 +34,21 @@ const CHECKED_DTOS: { dto: string; fields: string[]; readBy: string[] }[] = [
     { dto: 'board/dto/CategoryResponse.java', fields: ['isDefault'], readBy: ['src/types/board.ts'] },
     { dto: 'auth/dto/VerifyCodeResponse.java', fields: ['isReregister'], readBy: ['src/api/auth.ts'] },
     { dto: 'user/dto/NotificationSettingResponse.java', fields: ['isEnabled'], readBy: ['src/api/userAccountApi.ts'] },
+    { dto: 'post/scheduled/dto/ScheduledPostDetailResponse.java', fields: ['isNotice', 'isNsfw', 'isSpoiler', 'isSecret'], readBy: ['src/api/post.ts'] },
+]
+
+/**
+ * **요청** DTO. 프론트가 보내는 키 이름이 서버가 읽는 이름과 같아야 한다.
+ *
+ * 응답만 검사하면 안 된다는 것이 실제 사고로 드러났다. A8 1차 작업에서 직렬화는 정상인데
+ * 역직렬화가 깨져 `isSecret`이 무시됐고, 응답 방향만 보던 검사는 전부 통과했다.
+ * 서버 쪽 역직렬화 자체는 `BooleanWireRoundTripContractTest`가 고정한다.
+ */
+const CHECKED_REQUEST_DTOS: { dto: string; fields: string[]; sentBy: string[] }[] = [
+    { dto: 'post/dto/PostCreateRequest.java', fields: ['isNotice', 'isNsfw', 'isSpoiler', 'isSecret'], sentBy: ['src/api/post.ts'] },
+    { dto: 'post/dto/PostUpdateRequest.java', fields: ['isNsfw', 'isSpoiler', 'isSecret'], sentBy: ['src/api/post.ts'] },
+    { dto: 'post/dto/PostDraftRequest.java', fields: ['isNotice', 'isNsfw', 'isSpoiler', 'isSecret'], sentBy: ['src/api/post.ts'] },
+    { dto: 'post/scheduled/dto/ScheduledPostRequest.java', fields: ['isNotice', 'isNsfw', 'isSpoiler', 'isSecret'], sentBy: ['src/api/post.ts'] },
 ]
 
 function readBackendSource(relativePath: string): string {
@@ -50,8 +65,9 @@ function readBackendSource(relativePath: string): string {
 /**
  * 필드가 어떤 wire 이름으로 나가는지 소스에서 판정한다.
  *
- * - getter에 `@JsonProperty("isXxx")` (Lombok `onMethod_` 포함) -> `isXxx` 하나
- * - 필드에 `@JsonProperty("isXxx")` -> `xxx`와 `isXxx` 둘 다 (A8이 없앤 패턴)
+ * - 필드와 getter **양쪽**에 `@JsonProperty("isXxx")` -> `isXxx` 하나, 읽기·쓰기 모두 됨
+ * - getter에만 -> `isXxx` 하나지만 **읽기 전용**(요청 값이 무시된다)
+ * - 필드에만 -> `xxx`와 `isXxx` 둘 다 (A8이 없앤 패턴)
  * - 어노테이션 없음 -> `xxx` 하나
  */
 function wireNamesFor(source: string, field: string): string[] {
@@ -90,6 +106,25 @@ describe('boolean wire 이름이 백엔드와 프론트에서 일치한다', () 
             expect(
                 new RegExp(`\\b${field}\\??:`).test(frontendSources),
                 `${dto}#${field}는 wire에서 '${field}'로 나가는데 ${readBy.join(', ')}에 그 이름이 없다`,
+            ).toBe(true)
+        }
+    })
+
+    it.each(CHECKED_REQUEST_DTOS)('$dto (요청)', ({ dto, fields, sentBy }) => {
+        const source = readBackendSource(dto)
+        const frontendSources = sentBy.map((path) => readFileSync(resolve(process.cwd(), path), 'utf-8')).join('\n')
+
+        for (const field of fields) {
+            const names = wireNamesFor(source, field)
+
+            expect(names, `${dto}#${field}가 키를 두 개 받는다`).toHaveLength(1)
+            expect(names[0], `${dto}#${field}의 wire 이름이 접두사 없는 쪽으로 바뀌었다`).toBe(field)
+
+            // 프론트 페이로드 타입이 그 이름으로 보내야 한다. 이름이 어긋나면 서버는
+            // 그 필드를 못 읽고 기본값(false)으로 처리한다.
+            expect(
+                new RegExp(`\\b${field}\\??:`).test(frontendSources),
+                `${dto}#${field}는 서버가 '${field}'로 읽는데 ${sentBy.join(', ')}에 그 이름이 없다`,
             ).toBe(true)
         }
     })

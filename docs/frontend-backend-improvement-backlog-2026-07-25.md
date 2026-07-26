@@ -374,6 +374,50 @@ fixture로 옮겼다. 규칙 문서화는 유지하되 운영 코드와 분리�
 **접두사가 떨어진 9개 필드(`LEGACY_PREFIX_STRIPPED`)는 대상이 아니다.** 키가 하나뿐이라
 낭비도 함정도 없고, 함께 바꾸면 프론트 정규화 계층이 조용히 false로 떨어진다.
 
+#### 1차 작업이 만든 회귀와 정정 (2026-07-26)
+
+**1차 작업은 틀렸다.** `@JsonProperty`를 필드에서 getter로 **옮겼더니** 키는 하나가 되었지만
+**속성이 읽기 전용이 되어 요청 본문의 값이 무시됐다.** 보조 검토가 잡아냈고 직접 재현했다.
+
+```
+CREATE notice=false nsfw=false spoiler=false secret=false   (입력: 전부 true)
+```
+
+원인: Lombok이 primitive `boolean isXxx`에 만드는 getter는 `isXxx()`이고 Jackson이 유추하는
+이름은 `is`가 떨어진 `xxx`다. 필드의 유추 이름은 `isXxx`라 **서로 다른 속성**으로 잡힌다.
+getter 쪽만 명시 이름을 받으면 그 속성에는 mutator가 없다. `Boolean` 래퍼는 getter가
+`getIsXxx()`라 유추 이름이 `isXxx`로 같아 **우연히** 살아남았다(`PostUpdateRequest#isNotice`,
+`CategoryRequest#isDefault`).
+
+**실제 피해**(수정 전 기준):
+
+- `POST /api/v1/posts`에 `isSecret:true`를 보내면 **비밀글이 공개로 생성된다.**
+- 기존 비밀글을 수정하면 `isSecret`/`isNsfw`/`isSpoiler`가 전부 false로 덮인다.
+  **수정 한 번에 비밀글이 공개로 바뀐다.**
+- 임시저장·예약발행도 같은 경로로 플래그가 사라진다.
+
+**정정된 규칙**: 필드와 getter **양쪽**에 같은 이름을 준다. 그래야 한 속성으로 합쳐져
+키도 하나이고 읽기·쓰기가 모두 된다. 실측:
+
+| 패턴 | 직렬화 | 역직렬화 |
+| --- | --- | --- |
+| 어노테이션 없음 | `xxx` 하나 | 됨 |
+| 필드에만 | `xxx`와 `isXxx` **둘 다** | 됨 |
+| getter에만 | `isXxx` 하나 | **안 됨(읽기 전용)** |
+| **양쪽** | `isXxx` 하나 | 됨 |
+
+`noProductionDtoAnnotatesOnlyOneSide`가 한쪽만 붙은 상태를 금지한다. 이 규칙이 기존
+`LoginResponse.UserInfo#isEmailVerified`도 잡아내 함께 고쳤다(응답 전용이라 실피해는 없었다).
+
+**왜 3392개 테스트가 전부 통과했는가**: 저장소의 wire 계약 테스트가 **전부 직렬화만** 본다.
+요청 DTO를 다루는 컨트롤러 테스트는 서비스를 목으로 대체해 역직렬화 결과를 검증하지 않는다.
+→ `BooleanWireRoundTripContractTest`를 추가해 역직렬화를 고정했고, 프론트
+`booleanWireNameContract.spec.ts`에도 요청 DTO 4개를 넣었다. 회귀를 다시 주입해 두 검사가
+실제로 실패하는 것을 확인했다.
+
+**교훈**: 직렬화 이름만 맞추는 것은 계약의 절반이다. 읽는 방향을 검증하지 않으면
+"키가 하나로 줄었다"는 성공 신호가 데이터 유실을 가린다.
+
 ### A9. 제외 도메인(agent·ad)에 닿는 변경의 목록
 
 이번 작업은 agent·ad 도메인의 **소스를 한 줄도 수정하지 않았다**

@@ -34,7 +34,12 @@ const workDir = mkdtempSync(join(tmpdir(), 'api-check-'))
 const regenerated = join(workDir, 'api.ts')
 
 try {
-    execFileSync('npx', ['openapi-typescript', SPEC, '-o', regenerated], { stdio: 'pipe' })
+    // --no-install: 없으면 npx가 레지스트리에서 조용히 받아 와, 락파일과 다른 버전으로
+    // 비교하거나 오프라인 러너에서 엉뚱한 이유로 실패한다. 설치된 것만 쓴다.
+    execFileSync('npx', ['--no-install', 'openapi-typescript', SPEC, '-o', regenerated], {
+        stdio: 'pipe',
+        shell: process.platform === 'win32',
+    })
 
     const fresh = readFileSync(regenerated, 'utf-8')
     if (fresh !== committed) {

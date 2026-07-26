@@ -22,10 +22,13 @@ public class CommentResponse {
     private AuthorInfo author;
     private int depth;
     private int likeCount;
+    @JsonProperty("isDeleted")
     @Getter(onMethod_ = @JsonProperty("isDeleted"))
     private boolean isDeleted;
+    @JsonProperty("isBlockedAuthor")
     @Getter(onMethod_ = @JsonProperty("isBlockedAuthor"))
     private boolean isBlockedAuthor;
+    @JsonProperty("isBlinded")
     @Getter(onMethod_ = @JsonProperty("isBlinded"))
     private boolean isBlinded;
     private String blindReason;

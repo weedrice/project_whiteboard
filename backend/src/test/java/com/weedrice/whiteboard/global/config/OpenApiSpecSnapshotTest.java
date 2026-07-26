@@ -13,6 +13,8 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.SerializationFeature;
 import tools.jackson.databind.json.JsonMapper;
+import tools.jackson.databind.node.ArrayNode;
+import tools.jackson.databind.node.ObjectNode;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -154,9 +156,37 @@ class OpenApiSpecSnapshotTest {
                 .contains("\"paths\"");
 
         ObjectMapper mapper = JsonMapper.builder()
-                .enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS)
                 .enable(SerializationFeature.INDENT_OUTPUT)
                 .build();
-        return mapper.writeValueAsString(mapper.readTree(body)) + "\n";
+        return mapper.writeValueAsString(sortRecursively(mapper.readTree(body), mapper)) + "\n";
+    }
+
+    /**
+     * 객체 키를 재귀적으로 정렬한다.
+     *
+     * <p>{@code ORDER_MAP_ENTRIES_BY_KEYS}는 {@code Map} 직렬화에만 걸리고 이미 만들어진
+     * {@code JsonNode} 트리에는 아무 효과가 없다. 그래서 정렬을 직접 한다.
+     *
+     * <p>정렬이 필요한 이유: springdoc은 속성 순서를 리플렉션 순서에 맡긴다. getter에서 이름을
+     * 얻는 속성(모든 {@code is} 접두사 boolean)은 {@code Class.getDeclaredMethods()} 순서를 타는데,
+     * 이 순서는 JDK·컴파일러 구현에 따라 달라진다. 정렬하지 않으면 스냅샷이 생성한 기계에서만
+     * 통과하고 CI 러너에서 깨진다.
+     *
+     * <p>배열은 정렬하지 않는다. OpenAPI에서 배열은 순서가 의미를 갖거나(파라미터, 서버)
+     * 이미 안정적이다(swagger-core가 {@code required}를 정렬해서 낸다).
+     */
+    private static JsonNode sortRecursively(JsonNode node, ObjectMapper mapper) {
+        if (node.isObject()) {
+            ObjectNode sorted = mapper.createObjectNode();
+            node.propertyNames().stream().sorted()
+                    .forEach(name -> sorted.set(name, sortRecursively(node.get(name), mapper)));
+            return sorted;
+        }
+        if (node.isArray()) {
+            ArrayNode copied = mapper.createArrayNode();
+            node.forEach(element -> copied.add(sortRecursively(element, mapper)));
+            return copied;
+        }
+        return node;
     }
 }

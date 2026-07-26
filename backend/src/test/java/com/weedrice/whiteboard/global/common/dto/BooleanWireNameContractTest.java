@@ -32,14 +32,25 @@ import static org.assertj.core.api.Assertions.assertThat;
  * <table border="1">
  *   <caption>어노테이션 위치별 wire 이름</caption>
  *   <tr><th>패턴</th><th>wire 이름</th></tr>
- *   <tr><td>어노테이션 없음</td><td>{@code xxx} 하나</td></tr>
- *   <tr><td>필드에 {@code @JsonProperty}</td><td>{@code xxx}와 {@code isXxx} <b>둘 다</b></td></tr>
- *   <tr><td>getter에 {@code @JsonProperty}</td><td>{@code isXxx} 하나</td></tr>
+ *   <tr><th>패턴</th><th>wire 이름</th><th>역직렬화</th></tr>
+ *   <tr><td>어노테이션 없음</td><td>{@code xxx} 하나</td><td>됨</td></tr>
+ *   <tr><td>필드에만</td><td>{@code xxx}와 {@code isXxx} <b>둘 다</b></td><td>됨</td></tr>
+ *   <tr><td>getter에만</td><td>{@code isXxx} 하나</td><td><b>안 됨(읽기 전용)</b></td></tr>
+ *   <tr><td><b>필드와 getter 양쪽</b></td><td>{@code isXxx} 하나</td><td>됨</td></tr>
  * </table>
  *
- * <p>필드에 붙이면 이름이 바뀌는 것이 아니라 <b>키가 하나 더 생긴다.</b> getter 파생 속성
- * {@code xxx}는 그대로 남고 필드가 별도 속성으로 추가되기 때문이다. 따라서 이름을 정하려면
- * {@code @Getter(onMethod_ = @JsonProperty("isXxx"))}나 명시적 getter를 써야 한다.
+ * <p>필드에만 붙이면 이름이 바뀌는 것이 아니라 <b>키가 하나 더 생긴다.</b> getter 파생 속성
+ * {@code xxx}는 그대로 남고 필드가 별도 속성으로 추가되기 때문이다.
+ *
+ * <p>getter에만 붙이면 키는 하나가 되지만 <b>속성이 읽기 전용이 된다.</b> Lombok이 primitive
+ * {@code boolean isXxx}에 만드는 getter는 {@code isXxx()}이고 Jackson이 유추하는 이름은
+ * {@code is}가 떨어진 {@code xxx}인데, 필드의 유추 이름은 {@code isXxx}라 서로 다른 속성으로
+ * 잡히기 때문이다. getter 쪽만 명시 이름을 받으면 그 속성에 mutator가 없다.
+ * A8 1차 작업이 이 함정에 빠져 요청 본문의 {@code isSecret}이 무시됐다.
+ *
+ * <p>따라서 정답은 <b>필드와 getter 양쪽</b>에 같은 이름을 주는 것이다. 그래야 하나의 속성으로
+ * 합쳐져 키도 하나이고 읽기·쓰기가 모두 된다. 역직렬화 쪽은
+ * {@link BooleanWireRoundTripContractTest}가 고정한다.
  *
  * <p>필드 어노테이션 패턴은 A8에서 51개를 정리해 운영 코드에서 사라졌고,
  * {@code noProductionDtoUsesTheFieldAnnotationPattern}이 재유입을 막는다. 신규 DTO는 getter
@@ -96,7 +107,7 @@ class BooleanWireNameContractTest {
                     continue;
                 }
                 String key = dtoClass.getName() + "#" + field.getName();
-                if (annotatedOnGetter(dtoClass, field) || LEGACY_PREFIX_STRIPPED.contains(key)) {
+                if (annotatedOnBothSides(dtoClass, field) || LEGACY_PREFIX_STRIPPED.contains(key)) {
                     continue;
                 }
                 unguarded.add(key);
@@ -104,10 +115,11 @@ class BooleanWireNameContractTest {
         }
 
         assertThat(unguarded)
-                .as("wire 이름이 정해지지 않았거나, 등재된 legacy 목록이 실제 어노테이션과 어긋나는 "
-                        + "boolean 필드가 있다. @Getter(onMethod_ = @JsonProperty(\"isXxx\"))로 이름을 "
-                        + "명시하거나, 기존 계약을 유지해야 한다면 실제 패턴에 맞는 목록에 등재할 것. "
-                        + "필드에 직접 @JsonProperty를 붙이면 이름이 바뀌지 않고 키가 하나 더 생긴다")
+                .as("wire 이름이 정해지지 않은 boolean 필드가 있다. 필드와 getter 양쪽에 "
+                        + "@JsonProperty(\"isXxx\")를 붙일 것"
+                        + "(@JsonProperty + @Getter(onMethod_ = @JsonProperty(...))). "
+                        + "필드에만 붙이면 키가 하나 더 생기고, getter에만 붙이면 읽기 전용이 되어 "
+                        + "요청 본문의 값이 무시된다. 기존 계약을 유지해야 한다면 legacy 목록에 등재할 것")
                 .isEmpty();
     }
 
@@ -216,22 +228,31 @@ class BooleanWireNameContractTest {
     }
 
     @Test
-    @DisplayName("운영 DTO는 boolean 필드에 @JsonProperty를 직접 붙이지 않는다")
-    void noProductionDtoUsesTheFieldAnnotationPattern() throws IOException {
-        List<String> fieldAnnotated = new ArrayList<>();
+    @DisplayName("운영 DTO는 한쪽에만 @JsonProperty를 붙이지 않는다")
+    void noProductionDtoAnnotatesOnlyOneSide() throws IOException {
+        List<String> lopsided = new ArrayList<>();
 
         for (Class<?> dtoClass : findDtoClasses()) {
             for (Field field : dtoClass.getDeclaredFields()) {
-                if (isPrefixedBooleanField(field) && field.isAnnotationPresent(JsonProperty.class)) {
-                    fieldAnnotated.add(dtoClass.getName() + "#" + field.getName());
+                if (!isPrefixedBooleanField(field)) {
+                    continue;
+                }
+                String key = dtoClass.getName() + "#" + field.getName();
+                if (LEGACY_PREFIX_STRIPPED.contains(key)) {
+                    continue;
+                }
+                boolean hasAny = field.isAnnotationPresent(JsonProperty.class)
+                        || annotatedOnGetterRegardlessOfName(dtoClass, field);
+                if (hasAny && !annotatedOnBothSides(dtoClass, field)) {
+                    lopsided.add(key);
                 }
             }
         }
 
-        assertThat(fieldAnnotated)
-                .as("필드에 @JsonProperty를 붙이면 이름이 바뀌지 않고 키가 하나 더 나간다. "
-                        + "@Getter(onMethod_ = @JsonProperty(\"isXxx\"))를 쓸 것. "
-                        + "A8에서 51개를 정리했으므로 이 목록은 비어 있어야 한다")
+        assertThat(lopsided)
+                .as("한쪽에만 @JsonProperty가 붙은 boolean 필드가 있다. "
+                        + "필드에만 붙이면 키가 하나 더 나가고, getter에만 붙이면 읽기 전용이 되어 "
+                        + "요청 본문의 값이 조용히 무시된다. 양쪽에 같은 이름을 붙일 것")
                 .isEmpty();
     }
 
@@ -290,10 +311,32 @@ class BooleanWireNameContractTest {
     }
 
     /**
-     * getter에 {@code @JsonProperty}가 있어야 wire 이름이 하나로 정해진다.
-     * 필드 어노테이션은 이름을 정하지 못하고 키를 늘리므로 여기서 인정하지 않는다.
+     * 필드와 getter <b>양쪽</b>에 같은 이름의 {@code @JsonProperty}가 있어야 한 속성으로 합쳐져
+     * 키가 하나가 되고 읽기·쓰기가 모두 된다. 한쪽만 있으면 키가 늘거나 읽기 전용이 된다.
      */
-    private static boolean annotatedOnGetter(Class<?> owner, Field field) {
+    private static boolean annotatedOnBothSides(Class<?> owner, Field field) {
+        JsonProperty onField = field.getAnnotation(JsonProperty.class);
+        if (onField == null) {
+            return false;
+        }
+
+        String capitalized = Character.toUpperCase(field.getName().charAt(0)) + field.getName().substring(1);
+        for (String getterName : List.of(field.getName(), "get" + capitalized)) {
+            Method getter = findMethod(owner, getterName);
+            if (getter == null) {
+                continue;
+            }
+            JsonProperty onGetter = getter.getAnnotation(JsonProperty.class);
+            // 이름까지 같아야 한다. 다르면 속성이 둘로 갈려 키가 두 개 나간다.
+            if (onGetter != null && onGetter.value().equals(onField.value())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** 이름이 무엇이든 getter에 어노테이션이 있는지만 본다. 한쪽만 붙은 상태를 찾는 데 쓴다. */
+    private static boolean annotatedOnGetterRegardlessOfName(Class<?> owner, Field field) {
         String capitalized = Character.toUpperCase(field.getName().charAt(0)) + field.getName().substring(1);
         for (String getterName : List.of(field.getName(), "get" + capitalized)) {
             Method getter = findMethod(owner, getterName);
