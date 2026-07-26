@@ -14,6 +14,7 @@ import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import io.swagger.v3.oas.models.servers.Server;
 import io.swagger.v3.oas.models.tags.Tag;
+import org.springdoc.core.models.GroupedOpenApi;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -31,6 +32,14 @@ import java.util.List;
 @Configuration
 public class OpenApiConfig {
 
+    /** 프론트 타입 생성 입력이 되는 그룹 이름. `/api-docs/{group}`으로 노출된다. */
+    public static final String FRONTEND_CODEGEN_GROUP = "frontend";
+
+    /** 생성 대상에서 빼는 경로. 이유는 {@link #frontendCodegenApi()}. */
+    public static final List<String> EXCLUDED_CODEGEN_PATHS = List.of(
+            "/api/v1/agents/**",
+            "/api/v1/ads/**");
+
     private static final String API_VERSION = "v1";
     private static final String API_TITLE = "NoviIs Whiteboard API";
     private static final String API_DESCRIPTION = """
@@ -47,6 +56,25 @@ public class OpenApiConfig {
             ## 에러 코드
             각 에러는 고유한 코드를 가지며, 자세한 내용은 에러 코드 섹션을 참조하세요.
             """;
+
+    /**
+     * 프론트엔드 타입 생성(A6)이 입력으로 쓰는 그룹.
+     *
+     * <p>{@code agent}·{@code ad} 경로를 뺀다. 두 도메인은 소유 주체가 달라 이 저장소가
+     * 계약을 정하지 않는다. 그룹에 넣으면 그쪽 DTO가 바뀔 때마다 프론트 빌드가 깨져,
+     * 소스를 고치지 않고도 그 도메인의 개발을 사실상 제약하게 된다.
+     *
+     * <p>기본 그룹(전체 문서)은 그대로 두므로 Swagger UI에서는 여전히 모든 API를 볼 수 있다.
+     * 여기서 거르는 것은 <b>코드 생성 입력</b>뿐이다.
+     */
+    @Bean
+    public GroupedOpenApi frontendCodegenApi() {
+        return GroupedOpenApi.builder()
+                .group(FRONTEND_CODEGEN_GROUP)
+                .pathsToMatch("/api/**")
+                .pathsToExclude(EXCLUDED_CODEGEN_PATHS.toArray(String[]::new))
+                .build();
+    }
 
     @Bean
     public OpenAPI openAPI() {

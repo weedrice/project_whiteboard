@@ -257,9 +257,45 @@ wire 형태가 A1로 고정되고 나면, springdoc이 이미 제공하는 `/api
 들어오고 그 뒤로 agent DTO 변경이 프론트 빌드를 깨게 된다. `openapi-typescript` 입력 단계에서
 경로를 걸러내거나 springdoc `GroupedOpenApi`로 대상 경로를 한정한 뒤에 착수한다.
 
-**선행 조건**: (1) A8의 중복 키가 생성 타입에 그대로 굳으므로 A8 정리가 먼저다.
-(2) springdoc이 내는 스키마가 실제 응답과 일치하는지 확인되지 않았다. (3) 신규 의존성
-(`openapi-typescript`) 도입이라 승인이 필요하다. 세 조건이 모두 풀리기 전에는 착수하지 않는다.
+**조치 완료 (2026-07-26)**
+
+선행 조건 세 가지를 모두 해소한 뒤 착수했다. A8은 완료했고, agent 경로 제외는
+`GroupedOpenApi`로 해결했으며, springdoc 스키마 정확성은 실제 직렬화 결과와 대조해
+확인했다(`PostSummary`의 혼합 명명까지 정확히 일치했다).
+
+구성:
+
+1. **`OpenApiConfig.frontendCodegenApi()`** — `/api/v1/agents/**`, `/api/v1/ads/**`를 뺀
+   `frontend` 그룹. 기본 그룹은 그대로라 Swagger UI에서는 여전히 전체 API를 볼 수 있다.
+   거르는 것은 **코드 생성 입력**뿐이다. 결과: 185 경로, 340 스키마, agent·ad 경로 0개.
+2. **`docs/api/openapi-frontend.json`** — 스펙 스냅샷을 커밋한다. 생성이 실행 중인 백엔드에
+   의존하지 않게 하고, 스펙 변화가 diff로 드러나게 하려는 것이다.
+3. **`OpenApiSpecSnapshotTest`** — MockMvc로 springdoc을 호출해 스냅샷과 대조한다. 서버를
+   띄우지 않아 CI에서 그대로 돈다. 갱신은 `UPDATE_OPENAPI_SNAPSHOT=true`.
+4. **`npm run api:generate` / `api:check`** — 생성 타입(`src/types/generated/api.ts`)을
+   커밋하고, CI가 스펙으로부터 재생성해 diff를 비교한다.
+5. **`src/types/generatedApiConformance.ts`** — 생성 타입을 **기준자**로 삼아 수기 타입을
+   타입 수준에서 검증한다. `npm run type-check`가 이미 CI에서 도므로 별도 장치가 없다.
+
+**왜 51개 API 파일을 갈아엎지 않았는가**: A6의 문제 제기는 "백엔드 DTO를 수정해도 프론트
+타입은 아무 신호를 주지 않는다"였다. 그 신호는 5번으로 확보된다. 전면 이행은 위험 대비
+얻는 것이 적고, normalizer 계층은 어차피 수기로 남겨야 한다. 점진 이행 경로는 열려 있다.
+
+**검증**: 생성 타입에서 `isNotice`를 `notice`로 바꾸는 변이를 주입해 타입 검사가 실제로
+깨지는 것을 확인했다. `api:check`도 생성 파일에 한 줄을 더해 실패를 확인했다.
+
+**설계 판단 두 가지**
+
+- 비교 대상을 **스칼라 필드로 한정**했다. 중첩 DTO(`category`, `board`, `author`, `poll`,
+  `children`, `mentions`)는 정규화 계층이 wire 모양과 내부 모양을 의도적으로 다르게 잡으므로,
+  구조 일치를 요구하면 정상 설계가 오류로 잡힌다. 목록으로 빼는 대신 규칙으로 잘랐다.
+- optional 여부는 비교에서 뺐다. springdoc은 `@NotNull`이 없는 필드를 전부 optional로
+  내보내므로, 그대로 비교하면 수기 타입이 필수로 선언한 필드가 전부 걸려 신호가 잡음에 묻힌다.
+
+**남은 사실 하나**: `AgentClaimRequest`·`AgentResponse`·`AgentListResponse`는 생성 대상에
+들어 있다. `AgentController`가 아니라 `UserController`의 사용자 대면 엔드포인트
+(`/api/v1/users/me/agents` 계열)가 서빙하고 프론트가 실제로 소비하기 때문이다(A9 참조).
+그 외 `Agent*` 스키마가 새로 들어오면 conformance 검사가 잡는다.
 
 ### A7. `PageResponseRaw`에 실패 모드가 없다
 
@@ -319,22 +355,23 @@ PostResponse → ..., blinded, isBlinded, isLiked, isNotice, isNsfw, isScrapped,
 
 **조치 완료 (2026-07-26)**
 
-51개 전부 로 옮겨 키를 하나로 줄였다.
-프론트는 이미 내부 타입에서 를 쓰고 있었고, 정규화 계층(,
-)이 wire 이름 차이를 흡수하고 있어 읽기 쪽 수정은 필요 없었다. 요청 DTO도
-프론트가 이미 를 보내고 있어 안전했다(는 boolean
+51개 전부 `@Getter(onMethod_ = @JsonProperty("isXxx"))`로 옮겨 키를 하나로 줄였다.
+프론트는 이미 내부 타입에서 `isXxx`를 쓰고 있었고, 정규화 계층(`postContract.ts`,
+`feed.ts`)이 wire 이름 차이를 흡수하고 있어 읽기 쪽 수정은 필요 없었다. 요청 DTO도
+프론트가 이미 `isXxx`를 보내고 있어 안전했다(`ScheduledPostPayloadMapper`는 boolean
 플래그를 JSON으로 저장하지 않으므로 저장된 payload 영향도 없다).
 
- 목록은 비워 삭제했고, 대신 규칙을 강하게 바꿨다:
-이 **필드 어노테이션 패턴의 재유입 자체를
-금지**한다. 규칙 표를 고정하던 테스트는 운영 DTO 대신 전용 fixture를 쓴다.
+`LEGACY_DUPLICATE_KEYS` 목록은 비워 삭제했고, 대신 규칙을 강하게 바꿨다.
+`noProductionDtoUsesTheFieldAnnotationPattern`이 **필드 어노테이션 패턴의 재유입 자체를
+금지**한다. 규칙 표를 고정하던 테스트는 운영 DTO의 중복 키에 의존하고 있었으므로 전용
+fixture로 옮겼다. 규칙 문서화는 유지하되 운영 코드와 분리한 것이다.
 
-프론트에는 를 추가해 백엔드 DTO 소스에서 실제 wire
+프론트에는 `booleanWireNameContract.spec.ts`를 추가했다. 백엔드 DTO 소스에서 실제 wire
 이름을 계산하고 프론트 타입이 같은 이름을 쓰는지 확인한다. 목 데이터로 도는 단위
-테스트는 이 어긋남을 잡지 못하기 때문이다. 실제로 이 테스트가 작성 중  매핑
+테스트는 이 어긋남을 잡지 못하기 때문이다. 실제로 이 테스트가 작성 중 `readBy` 매핑
 오류 2건을 잡아냈다.
 
-**접두사가 떨어진 9개 필드()는 대상이 아니다.** 키가 하나뿐이라
+**접두사가 떨어진 9개 필드(`LEGACY_PREFIX_STRIPPED`)는 대상이 아니다.** 키가 하나뿐이라
 낭비도 함정도 없고, 함께 바꾸면 프론트 정규화 계층이 조용히 false로 떨어진다.
 
 ### A9. 제외 도메인(agent·ad)에 닿는 변경의 목록

@@ -51,6 +51,8 @@ jobs:
             backend:
               - 'backend/**'
               - 'docs/ops/api-contract-revision.txt'
+              # 손으로 고친 스냅샷을 OpenApiSpecSnapshotTest가 잡도록 백엔드도 함께 돈다.
+              - 'docs/api/openapi-frontend.json'
               - 'deploy/nginx/**'
               - 'deploy/scripts/activate-backend-release.sh'
               - 'docker-compose.yml'
@@ -73,6 +75,8 @@ jobs:
               - 'backend/src/main/java/com/weedrice/whiteboard/domain/board/dto/'
               - 'backend/src/main/java/com/weedrice/whiteboard/domain/auth/dto/VerifyCodeResponse.java'
               - 'backend/src/main/java/com/weedrice/whiteboard/domain/user/dto/NotificationSettingResponse.java'
+              # 생성 타입의 입력. 스펙이 바뀌면 api:check와 타입 검사가 돌아야 한다.
+              - 'docs/api/openapi-frontend.json'
               - 'docker-compose.yml'
               - '.github/workflows/ci.yml'
               - '.github/workflows/deploy-frontend.yml'
@@ -248,6 +252,14 @@ jobs:
         run: npm run check:ui
         working-directory: frontend
 
+      # 커밋된 생성 타입이 스펙 스냅샷과 어긋나지 않았는지 본다.
+      # 백엔드 쪽 짝은 OpenApiSpecSnapshotTest(스펙 스냅샷 <-> 실제 컨트롤러)다.
+      - name: Check generated API types
+        run: npm run api:check
+        working-directory: frontend
+
+      # generatedApiConformance.ts가 여기서 검사된다. 백엔드가 wire 이름을 바꾸면
+      # 생성 타입이 바뀌고, 수기 타입과 어긋나 이 단계가 깨진다.
       - name: Type check
         run: npm run type-check
         working-directory: frontend
