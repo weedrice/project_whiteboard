@@ -88,6 +88,28 @@ Java 필드명과 JSON 직렬화 이름이 다른 기존 응답은 호환성을 
 것일 뿐이며(테스트가 고정하지 않으므로 소유 주체가 바꾸면 이 표가 낡는다), 이 저장소가
 그 이름을 유지하도록 요구한다는 뜻이 아니다.
 
+#### 업로드 대상별 제한 (`target`)
+
+두 업로드 엔드포인트는 선택 폼 파라미터 `target`을 받는다. 생략하거나 알 수 없는 값이면
+`GENERIC`으로 처리한다. 대상마다 크기·해상도 상한이 다르며 **서버에서 강제**한다.
+
+| `target` | 크기 상한 | 해상도 상한 | 용도 |
+| --- | --- | --- | --- |
+| `GENERIC` | 10 MiB | 없음 | 기본값. 대상을 지정하지 않은 요청 |
+| `POST_CONTENT` | 10 MiB | 없음 | 게시글 본문 이미지 |
+| `BOARD_ICON` | 2 MiB | 없음 | 게시판 아이콘 |
+| `PROFILE_IMAGE` | 2 MiB | 512×512 | 프로필 이미지 |
+| `EMOTICON` | 3 MiB | 2048×2048 | 이모티콘 이미지 |
+
+상한을 넘으면 업로드가 거부된다. `target`은 클라이언트가 보내는 값이라 위조할 수 있으므로
+**업로드 시점의 검사는 1차 방어선**이다. 파일을 실제 대상에 연결하는 시점에는 서버가 정한
+`relatedType`에서 대상을 다시 유도해(`FileUploadTarget.forRelatedType`) 한 번 더 강제한다.
+따라서 `GENERIC`으로 올린 3 MiB 이미지를 프로필로 연결하려 하면 연결 단계에서 거부된다.
+
+프로필 이미지와 이모티콘은 프런트가 업로드 전에 축소하므로, 사용자가 고를 수 있는 원본
+파일의 크기 상한과 위 업로드 상한은 서로 다른 값이다.
+
+
 #### 시각 필드 형식
 
 `LocalDateTime` 응답 필드는 KST offset이 붙은 ISO 형식으로 나간다.
@@ -114,22 +136,30 @@ ECMAScript 규격상 브라우저 로컬 시각으로 해석되어, KST 밖 사�
 `boolean isXxx` 필드의 wire 이름은 `@JsonProperty`를 **어디에 붙이느냐**로 갈린다.
 아래는 실제 직렬화 결과이며 `BooleanWireNameContractTest`가 고정한다.
 
-| 패턴 | wire 이름 |
-| --- | --- |
-| 어노테이션 없음 | `xxx` 하나 |
-| **필드**에 `@JsonProperty` | `xxx`와 `isXxx` **둘 다** |
-| **getter**에 `@JsonProperty` | `isXxx` 하나 |
+| 패턴 | wire 이름 | 역직렬화 |
+| --- | --- | --- |
+| 어노테이션 없음 | `xxx` 하나 | 됨 |
+| **필드**에만 | `xxx`와 `isXxx` **둘 다** | 됨 |
+| **getter**에만 | `isXxx` 하나 | **안 됨(읽기 전용)** |
+| **양쪽 모두** | `isXxx` 하나 | 됨 |
 
-필드에 붙이면 이름이 바뀌는 것이 아니라 키가 하나 더 생긴다. getter에서 파생된 `xxx`가
-그대로 남고 필드가 별도 속성으로 추가되기 때문이다. 이름을 하나로 정하려면
-`@Getter(onMethod_ = @JsonProperty("isXxx"))`나 명시적 getter를 써야 한다.
+필드에만 붙이면 이름이 바뀌는 것이 아니라 키가 하나 더 생긴다. getter에서 파생된 `xxx`가
+그대로 남고 필드가 별도 속성으로 추가되기 때문이다.
 
-현재 51개 필드가 필드 어노테이션 방식이라 두 이름을 함께 내보내고 있다. 위 표에서
-`isSpoiler`, `isSecret`, `isBlinded` 등이 `is*` 이름을 유지한다고 적은 것은 절반만 맞다.
-`spoiler`, `secret`, `blinded`도 함께 나간다. 프론트엔드가 두 이름을 섞어 읽고 있어
-어느 쪽도 단독으로 제거할 수 없으며, 정리는 별도 과제로 다룬다.
+getter에만 붙이면 키는 하나가 되지만 **속성이 읽기 전용이 된다.** Lombok이 primitive
+`boolean isXxx`에 만드는 getter는 `isXxx()`이고 Jackson이 유추하는 이름은 `is`가 떨어진
+`xxx`인데, 필드의 유추 이름은 `isXxx`라 서로 다른 속성으로 잡히기 때문이다. 요청 DTO에서
+이렇게 하면 클라이언트가 보낸 값이 조용히 무시된다.
 
-신규 DTO는 getter 패턴을 쓰거나 `BooleanWireNameContractTest`의 legacy 목록에 등재해야 한다.
+**따라서 필드와 getter 양쪽에 같은 이름을 붙인다.** 그래야 하나의 속성으로 합쳐져 키도
+하나이고 읽기·쓰기가 모두 된다. 두 이름을 함께 내보내던 필드 55개를 이 방식으로 정리했다.
+`BooleanWireNameContractTest`가 직렬화를, `BooleanWireRoundTripContractTest`가 역직렬화를
+고정한다.
+
+접두사가 떨어진 채 배포된 필드(`PostSummary`의 `notice`·`nsfw`·`liked`·`scrapped`·`subscribed`,
+`AdminResponse#active` 등)는 정리 대상이 아니다. 키가 하나뿐이라 낭비도 함정도 없고,
+함께 바꾸면 프론트 정규화 계층이 조용히 `false`로 떨어진다.
+
 record 컴포넌트는 Jackson이 이름을 그대로 쓰므로 접두사가 유지되고 이 규칙의 대상이 아니다.
 
 ## Endpoint Catalog
@@ -366,8 +396,8 @@ OAuth 가입을 취소하고 일반 가입으로 돌아갈 수 있다.
 
 | Method | URI | 설명 |
 | --- | --- | --- |
-| `POST` | `/api/v1/files` | 파일 업로드(사용자별 미연결 파일 100개·500 MiB 상한) |
-| `POST` | `/api/v1/files/upload` | 파일 업로드 및 프록시 URL 반환(사용자별 미연결 파일 quota 적용) |
+| `POST` | `/api/v1/files` | 파일 업로드(사용자별 미연결 파일 100개·500 MiB 상한, `target`별 개별 상한) |
+| `POST` | `/api/v1/files/upload` | 파일 업로드 및 프록시 URL 반환(사용자별 미연결 파일 quota 적용, `target`별 개별 상한) |
 | `POST` | `/api/v1/files/uploads/discard` | 현재 사용자의 미연결 선업로드 파일 폐기 예약 |
 | `GET` | `/api/v1/files/{fileId}` | 파일 다운로드 |
 | `GET` | `/api/v1/files/{fileId}/variants/{variantType}` | 이미지 variant 다운로드 |
