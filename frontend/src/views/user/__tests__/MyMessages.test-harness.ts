@@ -84,6 +84,7 @@ export const baseModalStub = {
         size: String,
         mobileFull: Boolean,
         mobileFitContent: Boolean,
+        bodyClass: String,
     },
     template: '<div v-if="isOpen"><slot /></div>',
 }

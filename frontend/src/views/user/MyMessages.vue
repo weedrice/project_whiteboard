@@ -77,37 +77,38 @@
         @retry="retryConversation"
     />
 
-    <BaseModal :isOpen="!!selectedMessage" :title="$t('user.message.detailTitle')" @close="closeConversationAndSyncRoute"
-        mobile-full mobile-fit-content size="2xl">
-        <div v-if="selectedMessage" data-testid="message-detail-content" class="space-y-4">
-            <div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,20rem)]">
-                <section class="min-w-0" :aria-busy="messageDetailLoading">
-                    <p v-if="messageDetailLoading" class="py-8 text-center text-sm nv-text-subtle" role="status">
-                        {{ $t('common.loading') }}
+    <BaseModal :isOpen="!!selectedMessage" :title="conversationTitle" @close="closeConversationAndSyncRoute"
+        body-class="overflow-hidden" mobile-full mobile-fit-content size="xl">
+        <div
+            v-if="selectedMessage"
+            data-testid="conversation-modal-content"
+            class="flex max-h-[calc(100dvh-10rem)] min-h-0 flex-col gap-4 overflow-hidden sm:max-h-[42rem]"
+        >
+            <section
+                class="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border nv-border nv-surface-muted"
+                :aria-label="$t('user.message.conversationContext')"
+                :aria-busy="conversationLoading"
+            >
+                <header class="flex shrink-0 items-center justify-between gap-3 border-b nv-border px-4 py-3">
+                    <div class="min-w-0">
+                        <span class="block text-xs nv-text-subtle">{{ selectedPartnerLabel }}</span>
+                        <span class="block truncate text-sm font-semibold nv-title">
+                            {{ selectedMessage.partnerName }}
+                        </span>
+                    </div>
+                    <span class="shrink-0 text-xs nv-text-subtle">
+                        {{ $t('user.message.conversationContext') }}
+                    </span>
+                </header>
+                <div class="flex min-h-0 flex-1 flex-col p-3 sm:p-4">
+                    <p
+                        v-if="pendingConversationMessageCount > 0"
+                        data-testid="pending-conversation-messages"
+                        class="mb-3 shrink-0 rounded-lg border border-[var(--nv-accent)] px-3 py-2 text-center text-xs nv-accent-bg nv-accent-text"
+                        role="status"
+                    >
+                        {{ $t('user.message.newMessagesPending', { count: pendingConversationMessageCount }) }}
                     </p>
-                    <ErrorState
-                        v-else-if="messageDetailError"
-                        :message="messageDetailError"
-                        show-retry
-                        @retry="retryMessageDetail"
-                    />
-                    <template v-else>
-                    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 border-b nv-border pb-3">
-                        <div class="min-w-0">
-                            <span class="block text-xs nv-text-subtle">{{ selectedPartnerLabel }}</span>
-                            <span class="text-sm font-medium nv-title truncate block">{{
-                                selectedMessage.partnerName }}</span>
-                        </div>
-                        <span class="text-xs nv-text-subtle flex-shrink-0">{{ formatDate(selectedMessage.createdAt) }}</span>
-                    </div>
-                    <div class="text-sm nv-text whitespace-pre-wrap min-h-[120px] overflow-y-auto max-h-[50vh] sm:max-h-none pt-4">
-                        {{ selectedMessage.body }}
-                    </div>
-                    </template>
-                </section>
-
-                <section class="rounded-lg border nv-border nv-surface-muted p-3" :aria-busy="conversationLoading">
-                    <h3 class="text-sm font-semibold nv-title">{{ $t('user.message.conversationContext') }}</h3>
                     <p v-if="conversationLoading" class="py-6 text-center text-sm nv-text-subtle" role="status">
                         {{ $t('common.loading') }}
                     </p>
@@ -117,17 +118,31 @@
                         show-retry
                         @retry="retryConversation"
                     />
-                    <div v-else class="mt-3 max-h-[18rem] space-y-2 overflow-y-auto pr-1">
+                    <div
+                        v-else
+                        ref="conversationTimelineRef"
+                        data-testid="conversation-timeline"
+                        class="min-h-[10rem] flex-1 space-y-3 overflow-y-auto pr-1"
+                        :aria-busy="conversationLoadingMore"
+                        @scroll.passive="handleConversationScroll"
+                    >
                         <div v-if="conversationHasMore || conversationOlderError" class="text-center">
+                            <p
+                                v-if="conversationLoadingMore"
+                                class="py-2 text-xs nv-text-subtle"
+                                role="status"
+                            >
+                                {{ $t('common.loading') }}
+                            </p>
                             <BaseButton
+                                v-else-if="conversationOlderError"
                                 data-testid="load-older-conversation"
                                 type="button"
                                 size="sm"
                                 variant="secondary"
-                                :disabled="conversationLoadingMore"
-                                @click="loadOlderConversationMessages"
+                                @click="loadOlderWithScrollPreservation"
                             >
-                                {{ conversationLoadingMore ? $t('common.loading') : $t('user.message.loadOlder') }}
+                                {{ $t('user.message.loadOlder') }}
                             </BaseButton>
                             <p
                                 v-if="conversationOlderError"
@@ -135,6 +150,9 @@
                                 role="alert"
                             >
                                 {{ conversationOlderError }}
+                            </p>
+                            <p v-else-if="!conversationLoadingMore" class="py-2 text-xs nv-text-subtle">
+                                {{ $t('user.message.scrollForOlder') }}
                             </p>
                         </div>
                         <article
@@ -145,24 +163,18 @@
                             :data-message-direction="message.sentByMe ? 'sent' : 'received'"
                         >
                             <div
-                                class="max-w-[85%] rounded-lg border p-3 text-sm"
-                                :class="[
-                                    message.sentByMe
-                                        ? 'border-[var(--nv-accent)] nv-accent-bg text-right'
-                                        : 'nv-border nv-surface text-left',
-                                    message.isCurrent ? 'ring-1 ring-[var(--nv-accent)]' : ''
-                                ]"
+                                class="max-w-[82%] rounded-xl border px-3 py-2.5 text-sm"
+                                :class="message.sentByMe
+                                    ? 'border-[var(--nv-accent)] nv-accent-bg text-right'
+                                    : 'nv-border nv-surface text-left'"
                             >
                                 <div class="flex items-center justify-between gap-2" :class="message.sentByMe ? 'flex-row-reverse' : ''">
                                     <span class="truncate text-xs font-medium nv-title">
                                         {{ message.sentByMe ? $t('user.message.me') : message.partnerName }}
-                                        <span v-if="message.isCurrent" class="nv-text-subtle">
-                                            · {{ $t('user.message.currentMessage') }}
-                                        </span>
                                     </span>
                                     <span class="shrink-0 text-xs nv-text-subtle">{{ formatDate(message.createdAt) }}</span>
                                 </div>
-                                <p class="mt-1 whitespace-pre-wrap nv-text-subtle">{{ message.body }}</p>
+                                <p class="mt-1 whitespace-pre-wrap nv-text">{{ message.body }}</p>
                             </div>
                         </article>
                         <p v-if="conversationMessages.length <= 1 && !conversationHasMore" class="text-sm nv-text-subtle">
@@ -171,7 +183,7 @@
                     </div>
                     <form
                         v-if="viewType !== 'sent'"
-                        class="mt-4 border-t nv-border pt-3"
+                        class="mt-4 shrink-0 border-t nv-border pt-4"
                         @submit.prevent="sendReply"
                     >
                         <BaseTextarea
@@ -208,10 +220,10 @@
                             </BaseButton>
                         </div>
                     </form>
-                </section>
-            </div>
+                </div>
+            </section>
 
-            <div class="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:space-x-2 pt-4 border-t nv-border">
+            <div class="flex shrink-0 flex-col-reverse justify-end gap-2 border-t nv-border pt-4 sm:flex-row sm:space-x-2">
                 <BaseButton @click="closeConversationAndSyncRoute" variant="secondary" :disabled="isSending"
                     class="w-full sm:w-auto min-h-[44px] order-1 sm:order-none">
                     {{ $t('common.close') }}
@@ -234,7 +246,7 @@ import { useMailboxResource } from '@/features/user/messages/useMailboxResource'
 import type { MailboxViewType } from '@/features/user/messages/useMailboxListState'
 import type { MailboxMessageViewModel } from '@/types'
 import { formatDate } from '@/utils/date'
-import { computed, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { usePwaReloadBlocker } from '@/pwaReloadGuard'
@@ -243,6 +255,9 @@ import { isMessageContentTooLong, MESSAGE_CONTENT_MAX_LENGTH } from '@/utils/mes
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
+const conversationTimelineRef = ref<HTMLElement | null>(null)
+const OLDER_MESSAGE_SCROLL_THRESHOLD = 64
+let latestScrolledPartnerId: number | null = null
 const messageBoxOptions = computed(() => [
     { value: 'conversations', label: t('user.message.conversations') },
     { value: 'received', label: t('user.message.received') },
@@ -256,13 +271,12 @@ const {
     error,
     selectedMessage,
     selectedConversationMessages,
-    messageDetailLoading,
-    messageDetailError,
     conversationLoading,
     conversationError,
     conversationHasMore,
     conversationLoadingMore,
     conversationOlderError,
+    pendingConversationMessageCount,
     selectedMessages,
     page,
     size,
@@ -276,7 +290,6 @@ const {
     openMessage,
     openConversationByPartnerId,
     closeConversation,
-    retryMessageDetail,
     retryConversation,
     loadOlderConversationMessages,
     deleteSelectedMessages,
@@ -297,12 +310,39 @@ function closeConversationAndSyncRoute() {
     removePartnerIdFromRoute()
 }
 
+async function loadOlderWithScrollPreservation() {
+    const timeline = conversationTimelineRef.value
+    if (!timeline || conversationLoadingMore.value || !conversationHasMore.value) return
+
+    const previousScrollHeight = timeline.scrollHeight
+    const previousScrollTop = timeline.scrollTop
+    await loadOlderConversationMessages()
+    await nextTick()
+
+    if (conversationTimelineRef.value !== timeline) return
+    timeline.scrollTop = previousScrollTop + (timeline.scrollHeight - previousScrollHeight)
+}
+
+function handleConversationScroll() {
+    const timeline = conversationTimelineRef.value
+    if (
+        !timeline
+        || timeline.scrollTop > OLDER_MESSAGE_SCROLL_THRESHOLD
+        || conversationLoadingMore.value
+        || !conversationHasMore.value
+    ) return
+
+    void loadOlderWithScrollPreservation()
+}
+
 const replyContentError = computed(() => isMessageContentTooLong(replyContent.value)
     ? t('user.message.contentTooLong', { max: MESSAGE_CONTENT_MAX_LENGTH })
     : '')
 usePwaReloadBlocker(computed(() => replyContent.value.trim().length > 0))
 
-type ConversationMessage = MailboxMessageViewModel & { isCurrent: boolean }
+const conversationTitle = computed(() => selectedMessage.value
+    ? t('user.message.conversationTitle', { name: selectedMessage.value.partnerName })
+    : t('user.message.conversationContext'))
 
 const selectedPartnerLabel = computed(() => {
     if (viewType.value === 'received') return t('user.message.from')
@@ -310,7 +350,7 @@ const selectedPartnerLabel = computed(() => {
     return t('user.message.conversation')
 })
 
-const conversationMessages = computed<ConversationMessage[]>(() => {
+const conversationMessages = computed<MailboxMessageViewModel[]>(() => {
     if (!selectedMessage.value) return []
 
     const selected = selectedMessage.value
@@ -327,10 +367,6 @@ const conversationMessages = computed<ConversationMessage[]>(() => {
 
     return Array.from(byId.values())
         .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
-        .map((message) => ({
-            ...message,
-            isCurrent: message.id === selected.id,
-        }))
 })
 
 watch(
@@ -346,6 +382,27 @@ watch(
         openConversationByPartnerId(numericPartnerId)
     },
     { immediate: true }
+)
+
+watch(
+    () => [
+        selectedMessage.value?.partnerUserId ?? null,
+        conversationLoading.value,
+    ] as const,
+    async ([partnerId, isLoading]) => {
+        if (partnerId == null) {
+            latestScrolledPartnerId = null
+            return
+        }
+        if (isLoading || latestScrolledPartnerId === partnerId) return
+
+        await nextTick()
+        const timeline = conversationTimelineRef.value
+        if (!timeline || selectedMessage.value?.partnerUserId !== partnerId) return
+        timeline.scrollTop = timeline.scrollHeight
+        latestScrolledPartnerId = partnerId
+    },
+    { flush: 'post' },
 )
 
 defineExpose({

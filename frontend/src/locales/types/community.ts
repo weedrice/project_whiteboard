@@ -877,7 +877,7 @@ export interface UserMessages {
   }
   message: {
     title: string
-    detailTitle: string
+    conversationTitle: string
     receiver: string
     content: string
     inputContent: string
@@ -900,9 +900,10 @@ export interface UserMessages {
     openMessage: string
     conversationContext: string
     me: string
-    currentMessage: string
     contextEmpty: string
     loadOlder: string
+    scrollForOlder: string
+    newMessagesPending: string
     detailLoadFailed: string
     conversationLoadFailed: string
   }

@@ -16,6 +16,7 @@ import logger from '@/utils/logger'
 import { subscribeMessageStreamEvents } from '@/features/user/messages/messageStreamEvents'
 
 const NOT_FOUND_CODE = API_ERROR_CODES.NOT_FOUND
+const CONVERSATION_PAGE_SIZE = 20
 
 interface ConversationPage {
     messages: MailboxMessageViewModel[]
@@ -65,7 +66,6 @@ export function useMailboxResource() {
         handlePageChange,
         handleSizeChange,
         changeViewType,
-        markListMessageRead,
         resetMailboxState,
     } = useMailboxListState()
     const selectedMessage = ref<MailboxMessageViewModel | null>(null)
@@ -79,6 +79,8 @@ export function useMailboxResource() {
     const conversationOlderError = ref<string | null>(null)
     const conversationHasMore = computed(() => conversationNextPage.value !== null)
     const lastConversationPartnerId = ref<number | null>(null)
+    const mailboxRefreshPending = ref(false)
+    const pendingConversationMessageCount = ref(0)
 
     const isReplyModalOpen = ref(false)
     const replyTarget = ref<MailboxMessageViewModel | null>(null)
@@ -148,8 +150,24 @@ export function useMailboxResource() {
         deleteRequestAbortController = null
     }
 
+    async function refreshMailboxNow() {
+        mailboxRefreshPending.value = false
+        await fetchMessages()
+    }
+
+    async function requestMailboxRefresh() {
+        if (selectedMessage.value) {
+            mailboxRefreshPending.value = true
+            return
+        }
+        await refreshMailboxNow()
+    }
+
     function closeConversation() {
         if (isSending.value) return
+        const shouldRefreshMailbox = mailboxRefreshPending.value
+        mailboxRefreshPending.value = false
+        pendingConversationMessageCount.value = 0
         messageDetailRequestId++
         abortMessageDetailRequest()
         abortConversationRefresh()
@@ -165,6 +183,9 @@ export function useMailboxResource() {
         replyTarget.value = null
         cancelPendingReply()
         resetReplyContent()
+        if (shouldRefreshMailbox) {
+            void refreshMailboxNow()
+        }
     }
 
     function isStaleMessageDetail(requestId: number, messageId: number) {
@@ -187,6 +208,7 @@ export function useMailboxResource() {
         conversationLoading.value = true
         conversationError.value = null
         lastConversationPartnerId.value = msg.partnerUserId
+        pendingConversationMessageCount.value = 0
         return { requestId, messageId, controller }
     }
 
@@ -217,7 +239,7 @@ export function useMailboxResource() {
         } finally {
             markAsReadAbortControllers.delete(markAsReadController)
         }
-        markListMessageRead(messageId)
+        await requestMailboxRefresh()
         if (isStaleMessageDetail(requestId, messageId)) {
             return
         }
@@ -241,7 +263,8 @@ export function useMailboxResource() {
             messageFromBlockedUser.value = true
         } else if (errRes?.code === NOT_FOUND_CODE) {
             selectedMessage.value = null
-            await fetchMessages()
+            pendingConversationMessageCount.value = 0
+            await refreshMailboxNow()
             toastStore.addToast(t('common.messages.notFound'), 'info')
         } else {
             logger.error('Failed to open message:', error)
@@ -300,7 +323,7 @@ export function useMailboxResource() {
     ): Promise<ConversationPage> {
         const { data } = await messageApi.getConversation(partnerId, {
             page,
-            size: 50,
+            size: CONVERSATION_PAGE_SIZE,
             sort: 'createdAt,desc',
         }, {
             skipGlobalErrorHandler: true,
@@ -356,6 +379,7 @@ export function useMailboxResource() {
         const partnerId = replyTarget.value?.partnerUserId ?? selectedMessage.value?.partnerUserId
         if (partnerId == null) return
 
+        mailboxRefreshPending.value = true
         abortConversationRefresh()
         const requestId = conversationRefreshRequestId
         const generation = authStore.sessionGeneration
@@ -372,7 +396,6 @@ export function useMailboxResource() {
                 selectedConversationMessages.value,
                 conversation.messages,
             )
-            await fetchMessages()
         } catch (error) {
             if (controller.signal.aborted || generation !== authStore.sessionGeneration) return
             logger.error('Failed to refresh message conversation:', error)
@@ -399,6 +422,7 @@ export function useMailboxResource() {
         conversationLoading.value = true
         conversationError.value = null
         lastConversationPartnerId.value = partnerId
+        pendingConversationMessageCount.value = 0
 
         try {
             const conversation = await loadConversationMessages(partnerId, controller)
@@ -428,10 +452,17 @@ export function useMailboxResource() {
             if (oldestNotificationId != null) recentMessageNotificationIds.delete(oldestNotificationId)
         }
 
-        const generation = authStore.sessionGeneration
-        void fetchMessages()
-
         const partnerId = notification.actor.userId
+        if (selectedMessage.value) {
+            mailboxRefreshPending.value = true
+            if (partnerId > 0 && partnerId === lastConversationPartnerId.value) {
+                pendingConversationMessageCount.value++
+            }
+            return
+        }
+
+        const generation = authStore.sessionGeneration
+        void refreshMailboxNow()
         if (partnerId <= 0 || partnerId !== lastConversationPartnerId.value) return
 
         abortConversationRefresh()
@@ -553,6 +584,8 @@ export function useMailboxResource() {
             lastConversationPartnerId.value = null
             selectedMessages.value = []
             replyTarget.value = null
+            mailboxRefreshPending.value = false
+            pendingConversationMessageCount.value = 0
             recentMessageNotificationIds.clear()
             cancelPendingReply()
             resetReplyContent()
@@ -590,6 +623,8 @@ export function useMailboxResource() {
         conversationHasMore,
         conversationLoadingMore,
         conversationOlderError,
+        mailboxRefreshPending,
+        pendingConversationMessageCount,
         selectedMessages,
         page,
         size,

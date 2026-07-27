@@ -114,7 +114,8 @@ describe('MyMessages', () => {
         expect(messageApi.sendMessage).not.toHaveBeenCalled()
     })
 
-    it('renders conversation messages with visual direction and inline reply controls', async () => {
+    it('renders only the recent conversation timeline with inline reply controls', async () => {
+        const scrollHeightSpy = vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(640)
         const listedMessage = {
             messageId: 5,
             content: 'received summary',
@@ -167,17 +168,26 @@ describe('MyMessages', () => {
         expect(wrapper.find('base-textarea-stub').attributes('label')).toBe('user.message.replyTitle')
         expect(wrapper.find('base-textarea-stub').attributes('maxlength')).toBe('5000')
         const modal = wrapper.findComponent(baseModalStub)
-        expect(modal.props('size')).toBe('2xl')
-        expect(modal.props('title')).toBe('user.message.detailTitle')
+        expect(modal.props('size')).toBe('xl')
+        expect(modal.props('title')).toBe('user.message.conversationTitle')
         expect(modal.props('mobileFull')).toBe(true)
         expect(modal.props('mobileFitContent')).toBe(true)
+        expect(modal.props('bodyClass')).toBe('overflow-hidden')
 
-        const content = wrapper.find('[data-testid="message-detail-content"]')
+        const content = wrapper.find('[data-testid="conversation-modal-content"]')
+        expect(content.find('[data-testid="conversation-timeline"]').exists()).toBe(true)
+        expect(content.text().match(/received summary/g)).toHaveLength(1)
+        expect(content.classes()).toContain('max-h-[calc(100dvh-10rem)]')
+        expect(content.classes()).toContain('overflow-hidden')
+        expect(content.find('[data-testid="conversation-timeline"]').classes()).toContain('overflow-y-auto')
+        expect(content.find('[data-testid="conversation-timeline"]').classes()).not.toContain('max-h-[55vh]')
+        expect((content.find('[data-testid="conversation-timeline"]').element as HTMLElement).scrollTop).toBe(640)
         expect(content.classes()).not.toContain('p-4')
         expect(content.classes()).not.toContain('sm:p-6')
+        scrollHeightSpy.mockRestore()
     })
 
-    it('offers to load older conversation pages when more history exists', async () => {
+    it('loads older conversation pages near the top and preserves the visible position', async () => {
         routerMocks.route.query = { partnerId: '2' }
         const newestMessage = {
             messageId: 52,
@@ -197,7 +207,7 @@ describe('MyMessages', () => {
                 data: {
                     success: true,
                     data: {
-                        content: [newestMessage], page: 0, size: 50, totalElements: 51, totalPages: 2,
+                        content: [newestMessage], page: 0, size: 20, totalElements: 21, totalPages: 2,
                         hasNext: true, hasPrevious: false,
                     },
                 },
@@ -206,7 +216,7 @@ describe('MyMessages', () => {
                 data: {
                     success: true,
                     data: {
-                        content: [olderMessage], page: 1, size: 50, totalElements: 51, totalPages: 2,
+                        content: [olderMessage], page: 1, size: 20, totalElements: 21, totalPages: 2,
                         hasNext: false, hasPrevious: true,
                     },
                 },
@@ -215,16 +225,23 @@ describe('MyMessages', () => {
         const wrapper = mountMyMessages()
         await flushPromises()
 
-        const loadOlderButton = wrapper.get('[data-testid="load-older-conversation"]')
-        await loadOlderButton.trigger('click')
+        const timeline = wrapper.get('[data-testid="conversation-timeline"]')
+        const scrollHeights = [500, 800]
+        Object.defineProperty(timeline.element, 'scrollHeight', {
+            configurable: true,
+            get: () => scrollHeights.shift() ?? 800,
+        })
+        ;(timeline.element as HTMLElement).scrollTop = 0
+        await timeline.trigger('scroll')
         await flushPromises()
 
         expect(messageApi.getConversation).toHaveBeenLastCalledWith(2, {
             page: 1,
-            size: 50,
+            size: 20,
             sort: 'createdAt,desc',
         }, expect.objectContaining({ signal: expect.any(AbortSignal) }))
         expect(wrapper.text()).toContain('older')
+        expect((timeline.element as HTMLElement).scrollTop).toBe(300)
     })
 
     it('removes an invalid partner query instead of leaving a stale conversation route', async () => {
@@ -303,7 +320,7 @@ describe('MyMessages', () => {
         await sending
     })
 
-    it('shows a retryable conversation error without hiding the loaded message detail', async () => {
+    it('shows a retryable conversation error without hiding the selected conversation', async () => {
         const listedMessage = {
             messageId: 5,
             content: 'loaded detail',
@@ -363,7 +380,7 @@ describe('MyMessages', () => {
         expect(wrapper.get('label.sr-only').text()).toBe('user.message.selectMessage')
     })
 
-    it('ignores stale detail responses when another message is selected first', async () => {
+    it('keeps the conversation on the latest selection when an older detail response arrives', async () => {
         const firstMessage = {
             messageId: 1,
             content: 'first listed',
@@ -422,7 +439,7 @@ describe('MyMessages', () => {
         })
         await flushPromises()
 
-        expect(wrapper.text()).toContain('second detail')
+        expect(wrapper.text()).toContain('second listed')
         expect(wrapper.text()).not.toContain('first stale detail')
     })
 
@@ -525,7 +542,7 @@ describe('MyMessages', () => {
         expect(addToast).toHaveBeenCalledWith('common.messages.notFound', 'info')
     })
 
-    it('ignores stale detail responses after another message is selected', async () => {
+    it('keeps the latest conversation selected after an older unread detail response arrives', async () => {
         const firstMessage = {
             messageId: 5,
             content: 'first summary',
@@ -580,7 +597,7 @@ describe('MyMessages', () => {
         })
         await flushPromises()
 
-        expect(wrapper.text()).toContain('second detail')
+        expect(wrapper.text()).toContain('second summary')
         expect(wrapper.text()).not.toContain('first stale detail')
         expect(messageApi.markAsRead).toHaveBeenCalledTimes(1)
         expect(messageApi.markAsRead).toHaveBeenCalledWith(6, expect.objectContaining({ skipGlobalErrorHandler: true }))
@@ -644,7 +661,7 @@ describe('MyMessages', () => {
         await flushPromises()
 
         expect(firstMessage.isRead).toBe(false)
-        expect(wrapper.text()).toContain('second detail')
+        expect(wrapper.text()).toContain('second summary')
         expect(wrapper.text()).not.toContain('first detail')
     })
 })

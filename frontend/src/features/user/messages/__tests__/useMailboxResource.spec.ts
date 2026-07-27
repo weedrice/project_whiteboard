@@ -177,11 +177,19 @@ describe('useMailboxResource', () => {
         await firstOpen
 
         expect(resource.selectedMessage.value?.id).toBe(2)
-        expect(mocks.markListMessageRead).toHaveBeenCalledWith(2)
+        expect(mocks.markListMessageRead).not.toHaveBeenCalled()
         expect(messageApi.markAsRead).toHaveBeenCalledWith(2, expect.objectContaining({
             signal: expect.any(AbortSignal),
             skipGlobalErrorHandler: true,
         }))
+        expect(resource.mailboxRefreshPending.value).toBe(true)
+        expect(mocks.fetchMessages).toHaveBeenCalledTimes(1)
+
+        resource.closeConversation()
+        await flushPromises()
+
+        expect(resource.mailboxRefreshPending.value).toBe(false)
+        expect(mocks.fetchMessages).toHaveBeenCalledTimes(2)
     })
 
     it('refreshes the list and clears selection when an opened message no longer exists', async () => {
@@ -266,7 +274,7 @@ describe('useMailboxResource', () => {
         expect(mocks.resetReplyContent).not.toHaveBeenCalled()
     })
 
-    it('refreshes the mailbox and the open partner conversation once for a message stream event', async () => {
+    it('defers a streamed message for the open conversation until the modal closes', async () => {
         vi.mocked(messageApi.getConversation).mockResolvedValue(apiSuccessDataResponse<typeof messageApi.getConversation>({
             content: [detailDto(52)], page: 0, size: 50, totalElements: 1, totalPages: 1,
             hasNext: false, hasPrevious: false,
@@ -287,12 +295,23 @@ describe('useMailboxResource', () => {
         mocks.messageStreamListener?.(incomingNotification)
         await flushPromises()
 
-        expect(mocks.fetchMessages).toHaveBeenCalledTimes(1)
-        expect(messageApi.getConversation).toHaveBeenCalledTimes(1)
+        expect(mocks.fetchMessages).not.toHaveBeenCalled()
+        expect(messageApi.getConversation).not.toHaveBeenCalled()
         expect(resource.selectedConversationMessages.value.map(({ id }) => id)).toEqual([52])
+        expect(resource.pendingConversationMessageCount.value).toBe(1)
+
+        resource.closeConversation()
+        await flushPromises()
+
+        expect(mocks.fetchMessages).toHaveBeenCalledTimes(1)
+        expect(resource.pendingConversationMessageCount.value).toBe(0)
     })
 
-    it('refreshes only the mailbox when a message stream event is for another partner', async () => {
+    it('defers another partner mailbox update until the modal closes without showing a badge', async () => {
+        vi.mocked(messageApi.getConversation).mockResolvedValue(apiSuccessDataResponse<typeof messageApi.getConversation>({
+            content: [detailDto(52)], page: 0, size: 50, totalElements: 1, totalPages: 1,
+            hasNext: false, hasPrevious: false,
+        }))
         const { resource } = mountMailboxResource()
         await resource.openConversationByPartnerId(200)
         vi.mocked(messageApi.getConversation).mockClear()
@@ -307,8 +326,14 @@ describe('useMailboxResource', () => {
         } as Notification)
         await flushPromises()
 
-        expect(mocks.fetchMessages).toHaveBeenCalledTimes(1)
+        expect(mocks.fetchMessages).not.toHaveBeenCalled()
         expect(messageApi.getConversation).not.toHaveBeenCalled()
+        expect(resource.pendingConversationMessageCount.value).toBe(0)
+
+        resource.closeConversation()
+        await flushPromises()
+
+        expect(mocks.fetchMessages).toHaveBeenCalledTimes(1)
     })
 
     it('keeps a streamed message when the initial conversation response finishes later', async () => {
@@ -357,7 +382,7 @@ describe('useMailboxResource', () => {
 
         expect(messageApi.getConversation).toHaveBeenCalledWith(200, {
             page: 0,
-            size: 50,
+            size: 20,
             sort: 'createdAt,desc',
         }, expect.objectContaining({ signal: expect.any(AbortSignal) }))
         expect(resource.selectedConversationMessages.value.map(({ id }) => id)).toEqual([51, 52])
@@ -393,7 +418,7 @@ describe('useMailboxResource', () => {
 
         expect(messageApi.getConversation).toHaveBeenLastCalledWith(200, {
             page: 1,
-            size: 50,
+            size: 20,
             sort: 'createdAt,desc',
         }, expect.objectContaining({ signal: expect.any(AbortSignal) }))
         expect(resource.selectedConversationMessages.value.map(({ id }) => id)).toEqual([50, 51, 52])
@@ -505,6 +530,12 @@ describe('useMailboxResource', () => {
         await flushPromises()
 
         expect(resource.selectedConversationMessages.value.map(({ id }) => id)).toEqual([52, 53])
+        expect(resource.mailboxRefreshPending.value).toBe(true)
+        expect(mocks.fetchMessages).toHaveBeenCalledTimes(1)
+
+        resource.closeConversation()
+        await flushPromises()
+
         expect(mocks.fetchMessages).toHaveBeenCalledTimes(2)
     })
 
