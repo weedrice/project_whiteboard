@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: seo-submit-production
+  group: seo-monitor-production
   cancel-in-progress: false
   queue: max
 
@@ -24,7 +24,7 @@ jobs:
           GIT_REF: ${{ github.ref }}
         run: |
           if [ "$EVENT_NAME" = workflow_dispatch ] && [ "$GIT_REF" != refs/heads/main ]; then
-            echo "Manual production SEO verification and submission are allowed only from main" >&2
+            echo "Manual production SEO verification is allowed only from main" >&2
             exit 1
           fi
 
@@ -63,75 +63,3 @@ jobs:
           SEO_VERIFY_ROTATION_SEED: ${{ github.run_id }}-${{ github.run_attempt }}
           SEO_REQUIRE_POST_URLS: "true"
           SEO_REQUIRE_RELEASE_MANIFEST: "true"
-
-  submit-scheduled:
-    needs: verify-endpoints
-    if: github.event_name == 'schedule' && needs.verify-endpoints.result == 'success'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    environment: production-seo
-    steps:
-      - name: Checkout trusted main schedule SHA
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-        with:
-          ref: ${{ github.sha }}
-          persist-credentials: false
-      - name: Setup Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 22
-          cache: "npm"
-          cache-dependency-path: frontend/package-lock.json
-      - name: Install frontend dependencies
-        run: npm ci
-        working-directory: frontend
-      - name: Submit sitemap to search engines
-        run: npm run seo:submit
-        working-directory: frontend
-        env:
-          SEO_SITE_URL: https://noviis.kr
-          SEO_SITEMAP_URL: https://noviis.kr/sitemap.xml
-          GOOGLE_SEARCH_CONSOLE_SITE_URL: https://noviis.kr
-          GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN: ${{ secrets.GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN }}
-          GOOGLE_SEARCH_CONSOLE_CLIENT_ID: ${{ secrets.GOOGLE_SEARCH_CONSOLE_CLIENT_ID }}
-          GOOGLE_SEARCH_CONSOLE_CLIENT_SECRET: ${{ secrets.GOOGLE_SEARCH_CONSOLE_CLIENT_SECRET }}
-          GOOGLE_SEARCH_CONSOLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_SEARCH_CONSOLE_REFRESH_TOKEN }}
-          CUSTOM_SITEMAP_SUBMIT_URL: ${{ secrets.CUSTOM_SITEMAP_SUBMIT_URL }}
-          CUSTOM_SITEMAP_SUBMIT_ALLOWED_ORIGINS: ${{ secrets.CUSTOM_SITEMAP_SUBMIT_ALLOWED_ORIGINS }}
-          SEO_SUBMIT_REQUIRED: "true"
-
-  submit-manual:
-    needs: verify-endpoints
-    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && needs.verify-endpoints.result == 'success'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    environment: production
-    steps:
-      - name: Checkout approved main SHA
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-        with:
-          ref: ${{ github.sha }}
-          persist-credentials: false
-      - name: Setup Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 22
-          cache: "npm"
-          cache-dependency-path: frontend/package-lock.json
-      - name: Install frontend dependencies
-        run: npm ci
-        working-directory: frontend
-      - name: Submit sitemap to search engines
-        run: npm run seo:submit
-        working-directory: frontend
-        env:
-          SEO_SITE_URL: https://noviis.kr
-          SEO_SITEMAP_URL: https://noviis.kr/sitemap.xml
-          GOOGLE_SEARCH_CONSOLE_SITE_URL: https://noviis.kr
-          GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN: ${{ secrets.GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN }}
-          GOOGLE_SEARCH_CONSOLE_CLIENT_ID: ${{ secrets.GOOGLE_SEARCH_CONSOLE_CLIENT_ID }}
-          GOOGLE_SEARCH_CONSOLE_CLIENT_SECRET: ${{ secrets.GOOGLE_SEARCH_CONSOLE_CLIENT_SECRET }}
-          GOOGLE_SEARCH_CONSOLE_REFRESH_TOKEN: ${{ secrets.GOOGLE_SEARCH_CONSOLE_REFRESH_TOKEN }}
-          CUSTOM_SITEMAP_SUBMIT_URL: ${{ secrets.CUSTOM_SITEMAP_SUBMIT_URL }}
-          CUSTOM_SITEMAP_SUBMIT_ALLOWED_ORIGINS: ${{ secrets.CUSTOM_SITEMAP_SUBMIT_ALLOWED_ORIGINS }}
-          SEO_SUBMIT_REQUIRED: "true"

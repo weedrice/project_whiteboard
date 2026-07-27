@@ -132,6 +132,7 @@ const frontend = load('.github/workflows/deploy-frontend.yml')
 const seo = load('.github/workflows/seo-monitor.yml')
 const freshness = freshnessEntries()
 const ciSource = loadText('.github/workflows/ci.yml')
+const seoSource = loadText('.github/workflows/seo-monitor.yml')
 
 const contractRevisionFilterEntries = ciSource.match(
   /^\s+- 'docs\/ops\/api-contract-revision\.txt'\s*$/gm,
@@ -241,7 +242,7 @@ for (const [component, workflow] of [['backend', backend], ['frontend', frontend
 for (const [name, workflow, group, queue] of [
   ['backend deploy', backend, 'deploy-production', 'single'],
   ['frontend deploy', frontend, 'deploy-production', 'single'],
-  ['SEO submit', seo, 'seo-submit-production', 'max'],
+  ['SEO monitor', seo, 'seo-monitor-production', 'max'],
 ]) {
   assert(workflow.concurrency?.group === group, `${name} concurrency group changed`)
   assert(workflow.concurrency?.['cancel-in-progress'] === false, `${name} may not cancel an active production operation`)
@@ -344,6 +345,8 @@ assert(seo.jobs['verify-endpoints'].needs === 'seo-preflight', 'SEO endpoint ver
 const scheduledSeoVerify = seo.jobs['verify-endpoints'].steps.find((step) => step.name === 'Verify SEO endpoints')
 assert(scheduledSeoVerify?.env?.SEO_VERIFY_ROTATION_SEED === '${{ github.run_id }}-${{ github.run_attempt }}',
   'scheduled SEO verification must rotate its sample by workflow run identity')
-assert(seo.jobs['submit-scheduled'].environment === 'production-seo', 'scheduled SEO submission must use the restricted production-seo environment')
+assertExactKeys(seo.jobs, ['seo-preflight', 'verify-endpoints'], 'SEO monitor must remain verification-only')
+assert(!seoSource.includes('${{ secrets.') && !seoSource.includes('submit'),
+  'SEO monitor must not depend on submission credentials or jobs')
 
 console.log('Workflow AST security contracts passed')

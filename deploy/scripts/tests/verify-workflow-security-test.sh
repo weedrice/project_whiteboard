@@ -63,9 +63,9 @@ if node "$validator" "$fixture"; then
 fi
 cp "$project_root/.github/workflows/ci.yml" "$fixture/.github/workflows/ci.yml"
 
-sed -i '/environment: production-seo/d' "$fixture/.github/workflows/seo-monitor.yml"
+sed -i '/SEO_SITE_URL:/a\          UNEXPECTED_SECRET: ${{ secrets.UNEXPECTED_SECRET }}' "$fixture/.github/workflows/seo-monitor.yml"
 if node "$validator" "$fixture"; then
-  echo "Expected scheduled SEO submission without its environment to fail" >&2
+  echo "Expected SEO monitoring with a submission secret to fail" >&2
   exit 1
 fi
 cp "$project_root/.github/workflows/seo-monitor.yml" "$fixture/.github/workflows/seo-monitor.yml"

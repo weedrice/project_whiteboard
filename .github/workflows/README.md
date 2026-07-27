@@ -32,11 +32,9 @@ backend는 기존 JAR을 `app.jar.rollback`으로 보존하고 서비스 stop, J
 
 ## SEO
 
-정기 SEO 제출 자격 증명은 사람 승인형 배포 environment와 분리된 default-branch 전용 `production-seo` environment에만 둔다.
-
 production frontend release는 `SEO_STRICT=true`로 sitemap과 prerender를 생성한다. API 조회 실패, 게시글 URL 0건, URL과 prerender 개수 불일치는 release 생성을 실패시킨다. sitemap과 prerender는 공통 `SEO_POST_URL_CAPACITY` 계약을 사용하며 기본 2,000개의 최신 게시글 URL만 포함한다. 전체 sitemap은 프로토콜 상한 50,000 URL을 넘지 못한다. `.noviis-seo-release.json`에 commit SHA, 전체 URL 수, 게시글 URL 수, prerender 수, 용량 상한과 sitemap SHA-256을 기록한다. 배포 후 검증과 정기 monitor는 `/.noviis-release`의 현재 활성 SHA를 manifest와 항상 결합한다. 배포 직후는 SHA 기반 결정적 표본을 사용하고, 정기 monitor는 SHA와 workflow run identity를 결합한 순환 표본으로 sitemap 앞부분만 반복 검사하는 편향을 피한다.
 
-production 배포는 공개 SEO endpoint 검증까지만 수행하며 검색 엔진 제출 자격 증명을 필수로 요구하지 않는다. 검색 엔진 제출이 필요하면 `seo-monitor.yml`의 별도 `production-seo` 실행으로 관리한다. Google refresh credential 세 값은 all-or-none이며, custom endpoint는 별도 HTTPS origin allowlist와 globally routable DNS 검증을 통과한 IP로 연결을 고정하되 원 hostname의 TLS SNI·Host를 유지한다.
+production 배포와 정기 monitor는 공개 SEO endpoint 검증만 수행한다. 검색 엔진 제출 API와 제출 자격 증명은 운영하지 않는다.
 
 ## Ops 검증
 
@@ -50,15 +48,15 @@ Grafana 관리 비밀번호는 `/etc/noviis/monitoring.env`와 root-only 회전 
 
 ## 권한과 유지보수
 
-Backend/frontend production deploy는 `queue: single`, `cancel-in-progress: false`로 현재 활성 실행을 취소하지 않으면서 최신 pending 하나만 보존한다. 유실하면 안 되는 SEO 제출만 별도 `queue: max` group을 사용한다.
+Backend/frontend production deploy는 `queue: single`, `cancel-in-progress: false`로 현재 활성 실행을 취소하지 않으면서 최신 pending 하나만 보존한다. 정기 SEO 검증은 실행 이력을 빠뜨리지 않도록 별도 `queue: max` group을 사용한다.
 
 workflow 기본 권한은 `contents: read`이며 attestation과 artifact metadata 권한은 필요한 release job에만 부여한다. PR에서 repository script를 실행하는 PostgreSQL·ops job에는 `actions: read`, `deployments: read`, `id-token: write`를 부여하지 않는다. third-party Action은 검토한 release의 full commit SHA로 고정한다. workflow, activation script, sudoers, migration 정책 변경은 CODEOWNERS review 대상이다.
 
 배포 freshness 경계의 source of truth는 `deploy/release-freshness-paths.txt`다. workflow가 참조하는 activation·verification·provenance 파일이 이 manifest에서 빠지면 ops CI가 실패한다. Contract 배포는 수동 실행의 명시적 승인 없이는 시작되지 않으며 production checkout은 Git credential을 보존하지 않는다.
 
-Pinned actionlint 1.7.7은 GitHub의 2026 `concurrency.queue`와 `artifact-metadata` permission schema를 아직 알지 못하므로 CI는 그 두 exact parser diagnostics만 무시한다. 별도 YAML AST 계약이 production deploy의 `queue: single`, SEO 제출의 `queue: max`, 최소 permission, main-only deploy, secret allowlist를 검증한다. actionlint가 두 필드를 지원하는 버전으로 갱신되면 ignore도 같은 변경에서 제거한다.
+Pinned actionlint 1.7.7은 GitHub의 2026 `concurrency.queue`와 `artifact-metadata` permission schema를 아직 알지 못하므로 CI는 그 두 exact parser diagnostics만 무시한다. 별도 YAML AST 계약이 production deploy의 `queue: single`, SEO 검증의 `queue: max`, 최소 permission, main-only deploy, secret allowlist를 검증한다. actionlint가 두 필드를 지원하는 버전으로 갱신되면 ignore도 같은 변경에서 제거한다.
 
-주요 timeout은 change detection·gate·SEO preflight 5분, backend test 45분, frontend test 60분, PostgreSQL·ops 30분, release 20–25분, deploy 30분, SEO 검증 15분·제출 10분이다. YAML에서 값을 바꾸면 이 문서도 같은 변경에서 갱신한다.
+주요 timeout은 change detection·gate·SEO preflight 5분, backend test 45분, frontend test 60분, PostgreSQL·ops 30분, release 20–25분, deploy 30분, SEO 검증 15분이다. YAML에서 값을 바꾸면 이 문서도 같은 변경에서 갱신한다.
 
 ## Production environment와 Secrets
 
@@ -69,14 +67,5 @@ GitHub `production` environment는 `main` branch restriction, required reviewer,
 - `EC2_HOST`
 - `EC2_SSH_KEY`
 - `EC2_USER`
-
-SEO 제출은 아래 Google credential 묶음 또는 custom provider 묶음 중 최소 하나가 필요하다. Google refresh credential 세 값은 모두 설정하거나 모두 비워야 한다.
-
-- `GOOGLE_SEARCH_CONSOLE_ACCESS_TOKEN`
-- `GOOGLE_SEARCH_CONSOLE_CLIENT_ID`
-- `GOOGLE_SEARCH_CONSOLE_CLIENT_SECRET`
-- `GOOGLE_SEARCH_CONSOLE_REFRESH_TOKEN`
-- `CUSTOM_SITEMAP_SUBMIT_URL`
-- `CUSTOM_SITEMAP_SUBMIT_ALLOWED_ORIGINS` (쉼표로 구분한 HTTPS origin allowlist)
 
 secret 값은 workflow 로그, fixture, 문서, release metadata에 기록하지 않는다. reusable workflow에는 필요한 secret만 명시적으로 매핑하며 `secrets: inherit`를 사용하지 않는다.
