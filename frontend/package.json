@@ -79,7 +79,7 @@
     "@tailwindcss/typography": "^0.5.20",
     "@types/node": "^24.10.2",
     "@vitejs/plugin-vue": "^6.0.7",
-    "@vitest/coverage-v8": "^4.0.15",
+    "@vitest/coverage-v8": "^4.1.10",
     "@vitest/eslint-plugin": "^1.6.23",
     "@vue/test-utils": "^2.4.6",
     "autoprefixer": "^10.5.4",
