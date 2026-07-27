@@ -154,6 +154,31 @@ describe('useUser', () => {
         expect((options.enabled as ReturnType<typeof computed>).value).toBe(false)
     })
 
+    it('fetches my badges with an auth-scoped query key', async () => {
+        vi.mocked(badgeApi.getMyBadges).mockResolvedValueOnce(
+            apiDataResponse<typeof badgeApi.getMyBadges>([{
+                badgeCode: 'FIRST_POST',
+                name: 'First post',
+                description: 'Published a post',
+                acquired: true,
+                representative: false,
+            }]),
+        )
+
+        const { useMyBadges } = useUser()
+        useMyBadges()
+        const options = mocks.queryOptions.at(-1)!
+        expect((options.queryKey as ReturnType<typeof computed>).value).toEqual([
+            'session', 0, 'user', 'badges', 'me',
+        ])
+
+        const controller = new AbortController()
+        await (options.queryFn as (context: { signal: AbortSignal }) => Promise<unknown>)({
+            signal: controller.signal,
+        })
+        expect(badgeApi.getMyBadges).toHaveBeenCalledWith({ signal: controller.signal })
+    })
+
     it('fetches settings, blocks and notification settings queries', async () => {
         vi.mocked(userApi.getUserSettings).mockResolvedValueOnce(
             apiDataResponse<typeof userApi.getUserSettings>({ theme: 'LIGHT' })
@@ -472,6 +497,7 @@ describe('useUser', () => {
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'post'] })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'comments'] })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'home'] })
+        expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'user', 'badges', 'me'] })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['user', 'badges'] })
     })
 })

@@ -60,6 +60,11 @@ describe('routes table', () => {
         expect(byName.get('MyAttendance')).toMatchObject({ path: 'attendance' })
     })
 
+    it('exposes earned badges under the authenticated my page', () => {
+        expect(byName.get('MyBadges')).toMatchObject({ path: 'badges' })
+        expect(routes.find((route) => route.path === '/mypage')?.meta).toMatchObject({ requiresAuth: true })
+    })
+
     it('hides the shop route and protects purchase history through my page', () => {
         expect(byName.has('shop')).toBe(false)
         expect(routes.some((route) => route.path === '/shop')).toBe(false)

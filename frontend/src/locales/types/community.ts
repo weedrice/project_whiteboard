@@ -771,6 +771,25 @@ export interface UserMessages {
     checkedDay: string
     today: string
   }
+  badges: {
+    title: string
+    description: string
+    total: string
+    acquired: string
+    locked: string
+    acquiredEmpty: string
+    lockedEmpty: string
+    acquiredAt: string
+    representative: string
+    setRepresentative: string
+    unsetRepresentative: string
+    representativeUpdated: string
+    representativeUpdateFailed: string
+    catalog: Record<string, {
+      name: string
+      description: string
+    }>
+  }
   badgeAward: {
     title: string
     setRepresentative: string

@@ -193,6 +193,63 @@ export const user: UserMessages = {
     checkedDay: '출석 {count}일차',
     today: '오늘',
   },
+  badges: {
+    title: '내 배지',
+    description: '획득한 배지와 앞으로 획득할 수 있는 배지를 확인하고 대표 배지를 설정하세요.',
+    total: '전체 배지',
+    acquired: '획득한 배지',
+    locked: '미획득 배지',
+    acquiredEmpty: '아직 획득한 배지가 없습니다.',
+    lockedEmpty: '모든 배지를 획득했습니다.',
+    acquiredAt: '{date} 획득',
+    representative: '대표 배지',
+    setRepresentative: '대표 배지로 설정',
+    unsetRepresentative: '대표 배지 해제',
+    representativeUpdated: '대표 배지를 변경했습니다.',
+    representativeUpdateFailed: '대표 배지를 변경하지 못했습니다.',
+    catalog: {
+      FIRST_POST: {
+        name: '첫 게시글',
+        description: '첫 번째 게시글을 작성하면 획득합니다.',
+      },
+      POSTS_10: {
+        name: '게시글 10개',
+        description: '게시글을 10개 작성하면 획득합니다.',
+      },
+      POSTS_100: {
+        name: '게시글 100개',
+        description: '게시글을 100개 작성하면 획득합니다.',
+      },
+      FIRST_COMMENT: {
+        name: '첫 댓글',
+        description: '첫 번째 댓글을 작성하면 획득합니다.',
+      },
+      COMMENTS_10: {
+        name: '댓글 10개',
+        description: '댓글을 10개 작성하면 획득합니다.',
+      },
+      COMMENTS_100: {
+        name: '댓글 100개',
+        description: '댓글을 100개 작성하면 획득합니다.',
+      },
+      ATTENDANCE_7: {
+        name: '7일 연속 출석',
+        description: '7일 연속으로 출석 체크하면 획득합니다.',
+      },
+      ATTENDANCE_30: {
+        name: '30일 연속 출석',
+        description: '30일 연속으로 출석 체크하면 획득합니다.',
+      },
+      POPULAR_POST_10: {
+        name: '좋아요 10개 게시글',
+        description: '작성한 게시글 하나가 좋아요 10개를 받으면 획득합니다.',
+      },
+      POPULAR_POST_50: {
+        name: '좋아요 50개 게시글',
+        description: '작성한 게시글 하나가 좋아요 50개를 받으면 획득합니다.',
+      },
+    },
+  },
   badgeAward: {
     title: '새 뱃지를 획득했습니다',
     setRepresentative: '대표 뱃지 설정',

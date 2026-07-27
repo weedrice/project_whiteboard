@@ -59,6 +59,7 @@ export const routes: RouteRecordRaw[] = [
             { path: 'points', name: 'point-history', component: () => import('@/views/user/PointHistory.vue') },
             { path: 'purchases', name: 'purchase-history', component: () => import('@/views/user/PurchaseHistory.vue') },
             { path: 'attendance', name: 'MyAttendance', component: () => import('@/views/user/MyAttendance.vue') },
+            { path: 'badges', name: 'MyBadges', component: () => import('@/views/user/MyBadges.vue') },
             { path: 'scraps', name: 'MyScraps', component: () => import('@/views/user/ScrapList.vue') },
             { path: 'drafts', name: 'MyDrafts', component: () => import('@/views/user/DraftList.vue') },
             { path: 'messages', name: 'MyMessages', component: () => import('@/views/user/MyMessages.vue') },

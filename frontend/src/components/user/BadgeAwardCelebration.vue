@@ -24,9 +24,11 @@ import type { Badge } from '@/types'
 import logger from '@/utils/logger'
 import { subscribeAuthSessionBoundary } from '@/queryAuthScope'
 import { isCancellationError } from '@/utils/cancellationError'
+import { useBadgeTranslation } from '@/features/user/useBadgeTranslation'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const { badgeName, badgeDescription } = useBadgeTranslation()
 const awardedBadge = ref<Badge | null>(null)
 const shownBadgeCodes = new Set<string>()
 let badgeLoadRevision = 0
@@ -85,9 +87,8 @@ const showLatestBadge = async () => {
 }
 
 const goToBadges = async () => {
-  const userId = authStore.user?.userId
   close()
-  if (userId) await router.push(`/user/${userId}`)
+  await router.push('/mypage/badges')
 }
 
 let unsubscribe: (() => void) | undefined
@@ -118,8 +119,8 @@ onUnmounted(() => {
         <component :is="badgeIcon" class="h-10 w-10" aria-hidden="true" />
       </div>
       <p class="mt-5 nv-kicker">{{ awardedBadge.tier }}</p>
-      <h3 class="mt-1 text-xl font-semibold nv-title">{{ awardedBadge.name || awardedBadge.badgeCode }}</h3>
-      <p class="mt-2 text-sm nv-text-subtle">{{ awardedBadge.description }}</p>
+      <h3 class="mt-1 text-xl font-semibold nv-title">{{ badgeName(awardedBadge) }}</h3>
+      <p class="mt-2 text-sm nv-text-subtle">{{ badgeDescription(awardedBadge) }}</p>
     </div>
     <template #footer>
       <BaseButton variant="secondary" @click="close">{{ $t('common.close') }}</BaseButton>

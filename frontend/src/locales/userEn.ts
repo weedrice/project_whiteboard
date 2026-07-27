@@ -193,6 +193,63 @@ export const userEn: UserMessages = {
     checkedDay: 'Streak day {count}',
     today: 'Today',
   },
+  badges: {
+    title: 'My badges',
+    description: 'Review earned and available badges, and choose your representative badge.',
+    total: 'All badges',
+    acquired: 'Earned badges',
+    locked: 'Locked badges',
+    acquiredEmpty: 'You have not earned any badges yet.',
+    lockedEmpty: 'You have earned every badge.',
+    acquiredAt: 'Earned {date}',
+    representative: 'Representative badge',
+    setRepresentative: 'Set as representative',
+    unsetRepresentative: 'Remove representative',
+    representativeUpdated: 'Representative badge updated.',
+    representativeUpdateFailed: 'Failed to update the representative badge.',
+    catalog: {
+      FIRST_POST: {
+        name: 'First Post',
+        description: 'Earned after writing your first post.',
+      },
+      POSTS_10: {
+        name: '10 Posts',
+        description: 'Earned after writing 10 posts.',
+      },
+      POSTS_100: {
+        name: '100 Posts',
+        description: 'Earned after writing 100 posts.',
+      },
+      FIRST_COMMENT: {
+        name: 'First Comment',
+        description: 'Earned after writing your first comment.',
+      },
+      COMMENTS_10: {
+        name: '10 Comments',
+        description: 'Earned after writing 10 comments.',
+      },
+      COMMENTS_100: {
+        name: '100 Comments',
+        description: 'Earned after writing 100 comments.',
+      },
+      ATTENDANCE_7: {
+        name: '7 Day Streak',
+        description: 'Earned after 7 consecutive attendance check-ins.',
+      },
+      ATTENDANCE_30: {
+        name: '30 Day Streak',
+        description: 'Earned after 30 consecutive attendance check-ins.',
+      },
+      POPULAR_POST_10: {
+        name: 'Popular Post 10',
+        description: 'Earned when one of your posts receives 10 likes.',
+      },
+      POPULAR_POST_50: {
+        name: 'Popular Post 50',
+        description: 'Earned when one of your posts receives 50 likes.',
+      },
+    },
+  },
   badgeAward: {
     title: 'New badge earned',
     setRepresentative: 'Set representative badge',

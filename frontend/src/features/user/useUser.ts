@@ -9,7 +9,7 @@ import {
 } from '@/api/user'
 import { unwrapAxiosApiData } from '@/api/response'
 import { computed, type Ref } from 'vue'
-import type { DraftPostListResponse, DraftPostSummary, LoginHistory, PageResponse, UserPoint, UserSettingsUpdatePayload } from '@/types'
+import type { Badge, DraftPostListResponse, DraftPostSummary, LoginHistory, PageResponse, UserPoint, UserSettingsUpdatePayload } from '@/types'
 import { QUERY_STALE_TIME } from '@/utils/constants'
 import type { AxiosRequestConfig } from 'axios'
 import { callWithOptionalQuerySignal, withQuerySignal } from '@/utils/querySignal'
@@ -229,6 +229,18 @@ export function useUser() {
                 (config) => apiGetUserBadgesWithConfig(userId.value, config),
             ),
             enabled: computed(() => !!userId.value),
+        })
+    }
+
+    const useMyBadges = () => {
+        return useApiQuery<Badge[]>({
+            queryKey: userQueryKeys.myBadges,
+            request: (context) => callWithOptionalQuerySignal(
+                context,
+                () => badgeApi.getMyBadges(),
+                (config) => badgeApi.getMyBadges(config),
+            ),
+            meta: AUTH_SCOPED_QUERY_META,
         })
     }
 
@@ -474,6 +486,7 @@ export function useUser() {
                     context.sessionGeneration,
                     authStore.user?.userId,
                 )
+                queryClient.invalidateQueries({ queryKey: authKey(userQueryKeys.myBadges) })
                 queryClient.invalidateQueries({ queryKey: userQueryKeys.badgesRoot })
             }
         })
@@ -532,6 +545,7 @@ export function useUser() {
         useMyDrafts,
         useMyScheduledPosts,
         useUserBadges,
+        useMyBadges,
         useMyPointHistories,
         useRecentlyViewedPosts,
         usePublicProfilePosts,

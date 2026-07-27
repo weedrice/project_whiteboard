@@ -27,6 +27,7 @@ export const userQueryKeys = {
     scheduledPost: (scheduledPostId: string | number) =>
         ['user', 'scheduled-posts', String(scheduledPostId)] as const,
     badgesRoot: ['user', 'badges'] as const,
+    myBadges: ['user', 'badges', 'me'] as const,
     scrapFolders: ['user', 'scrap-folders'] as const,
     scrapsRoot: ['user', 'scraps'] as const,
     recentlyViewedPostsRoot: ['user', 'history', 'views'] as const,

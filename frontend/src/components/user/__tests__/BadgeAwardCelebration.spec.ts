@@ -82,15 +82,16 @@ describe('BadgeAwardCelebration', () => {
     emitBadgeAwardEvent(badgeNotification)
     await flushPromises()
 
-    expect(wrapper.text()).toContain('7 Day Streak')
+    expect(wrapper.text()).toContain('7일 연속 출석')
     expect(wrapper.text()).toContain('SILVER')
-    expect(wrapper.get('h3').text()).toBe('7 Day Streak')
+    expect(wrapper.get('h3').text()).toBe('7일 연속 출석')
+    expect(wrapper.text()).toContain('7일 연속으로 출석 체크하면 획득합니다.')
 
     const representativeButton = wrapper.findAll('button')
       .find((button) => button.text() === 'user.badgeAward.setRepresentative')!
     await representativeButton.trigger('click')
 
-    expect(mocks.routerPush).toHaveBeenCalledWith('/user/7')
+    expect(mocks.routerPush).toHaveBeenCalledWith('/mypage/badges')
     wrapper.unmount()
   })
 
