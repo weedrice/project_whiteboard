@@ -26,6 +26,7 @@ export const authApi = {
     login: (credentials: LoginCredentials, config?: AxiosRequestConfig) =>
         api.post<ApiResponse<LoginResponse>>('/auth/login', credentials, {
             ...config,
+            skipAuthRefresh: true,
             skipGlobalErrorHandler: true,
         }),
 

@@ -20,7 +20,7 @@ describe('authApi', () => {
         vi.clearAllMocks()
     })
 
-    it('calls login and signup with skipGlobalErrorHandler', () => {
+    it('keeps login errors out of auth refresh and global error handling', () => {
         const credentials = { loginId: 'tester', password: 'secret' }
         const signupData = {
             loginId: 'tester',
@@ -38,7 +38,11 @@ describe('authApi', () => {
             1,
             '/auth/login',
             credentials,
-            { signal: controller.signal, skipGlobalErrorHandler: true },
+            {
+                signal: controller.signal,
+                skipAuthRefresh: true,
+                skipGlobalErrorHandler: true,
+            },
         )
         expect(apiMock.post).toHaveBeenNthCalledWith(
             2,
