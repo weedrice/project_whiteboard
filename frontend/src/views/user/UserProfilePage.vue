@@ -19,9 +19,11 @@ import { formatDate } from '@/utils/date'
 import SanitizedHtmlView from '@/components/common/SanitizedHtmlView.vue'
 import { renderCommentContentHtml } from '@/features/comments/commentContent'
 import type { SanitizedHtml } from '@/utils/sanitize'
+import { useBadgeTranslation } from '@/features/user/useBadgeTranslation'
 
 const route = useRoute()
 const { t } = useI18n()
+const { badgeName, badgeDescription } = useBadgeTranslation()
 const authStore = useAuthStore()
 const toastStore = useToastStore()
 const {
@@ -187,8 +189,8 @@ async function handleRepresentativeBadge(badgeCode: string | null) {
             >
               <div class="flex items-start justify-between gap-2">
                 <div class="min-w-0">
-                  <p class="truncate text-sm font-semibold nv-title">{{ badge.name || badge.badgeCode }}</p>
-                  <p class="mt-1 line-clamp-2 text-xs nv-text-subtle">{{ badge.description }}</p>
+                  <p class="truncate text-sm font-semibold nv-title">{{ badgeName(badge) }}</p>
+                  <p class="mt-1 line-clamp-2 text-xs nv-text-subtle">{{ badgeDescription(badge) }}</p>
                 </div>
                 <span class="rounded-full border border-[var(--nv-line)] px-2 py-0.5 text-xs font-semibold uppercase nv-text-subtle">
                   {{ badge.tier }}

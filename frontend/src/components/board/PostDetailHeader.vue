@@ -6,6 +6,7 @@ import BaseButton from '@/components/common/ui/BaseButton.vue'
 import UserMenu from '@/components/common/widgets/UserMenu.vue'
 import type { PostDetailViewModel } from '@/features/board/posts/detail/usePostDetailViewModel'
 import { formatDate } from '@/utils/date'
+import { useBadgeTranslation } from '@/features/user/useBadgeTranslation'
 
 withDefaults(defineProps<{
   postView: PostDetailViewModel
@@ -29,6 +30,7 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+const { badgeName } = useBadgeTranslation()
 
 const seriesMeta = (postView: PostDetailViewModel) => {
   const series = postView.seriesNavigation?.series
@@ -150,7 +152,7 @@ const seriesMeta = (postView: PostDetailViewModel) => {
                 v-if="postView.representativeBadge"
                 class="rounded-full border border-[var(--nv-line)] px-1.5 py-0.5 text-xs font-semibold"
               >
-                {{ postView.representativeBadge.name || postView.representativeBadge.badgeCode }}
+                {{ badgeName(postView.representativeBadge) }}
               </span>
               <span
                 v-if="isAgentAuthor"

@@ -22,6 +22,7 @@ import { isCancellationError } from '@/utils/cancellationError'
 import { queryClient } from '@/queryClient'
 import { invalidateMyReportCaches } from '@/features/user/reports/reportCacheInvalidation'
 import type { ReportReasonType } from '@/types'
+import { useBadgeTranslation } from '@/features/user/useBadgeTranslation'
 
 defineOptions({
   name: 'CommentItem',
@@ -49,6 +50,7 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+const { badgeName } = useBadgeTranslation()
 const router = useRouter()
 let toastStore: ReturnType<typeof useToastStore> | undefined
 try {
@@ -304,7 +306,7 @@ onUnmounted(cancelPendingCommentReport)
               v-else-if="!comment.isDeleted && comment.author?.representativeBadge"
               class="inline-flex items-center rounded-full border border-[var(--nv-line)] px-1.5 py-0.5 text-xs font-semibold"
             >
-              {{ comment.author.representativeBadge.name || comment.author.representativeBadge.badgeCode }}
+              {{ badgeName(comment.author.representativeBadge) }}
             </span>
             <span
               v-else-if="comment.isDeleted"
