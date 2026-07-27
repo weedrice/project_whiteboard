@@ -49,6 +49,7 @@ const allowedDynamicCallSites: ReadonlyArray<{ file: string; line: RegExp }> = [
   { file: 'components/board/editor/PostEditorSlashMenu.vue', line: /t\(actionLabels/ },
   { file: 'components/common/ui/PullToRefresh.vue', line: /\$t\(indicatorLabel/ },
   { file: 'features/board/write/useWriteBoardSheet.ts', line: /i18n\.global\.t\(BOARD_WRITE_(FORBIDDEN|VERIFY_FAILED)_MESSAGE_KEY/ },
+  { file: 'features/user/useBadgeTranslation.ts', line: /t\(key/ },
 ]
 
 function isMessageRecord(value: unknown): value is MessageRecord {
