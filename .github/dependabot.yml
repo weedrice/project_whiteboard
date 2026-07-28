@@ -31,6 +31,10 @@ updates:
       - dependency-name: "pinia"
         versions:
           - "4.0.1"
+      # lucide-vue-next 1.0.0 was published unintentionally; use a corrected release instead.
+      - dependency-name: "lucide-vue-next"
+        versions:
+          - "1.0.0"
 
   - package-ecosystem: github-actions
     directory: /
