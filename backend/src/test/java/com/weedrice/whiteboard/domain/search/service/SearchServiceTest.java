@@ -758,7 +758,7 @@ class SearchServiceTest {
         verify(postRepository).searchPosts(eq("test"), isNull(), isNull(), isNull(), fromCaptor.capture(),
                 toCaptor.capture(), isNull(), eq(false), isNull(), any(Pageable.class));
         assertThat(fromCaptor.getValue().toLocalDate())
-                .isEqualTo(toCaptor.getValue().toLocalDate().minusMonths(1));
+                .isEqualTo(toCaptor.getValue().toLocalDate().minusMonths(1).plusDays(1));
     }
 
     @Test
