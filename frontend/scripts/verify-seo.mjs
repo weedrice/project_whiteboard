@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-
 import { createHash } from 'node:crypto'
 import { lookup } from 'node:dns/promises'
 import { request as httpsRequest } from 'node:https'
