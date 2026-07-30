@@ -63,7 +63,7 @@ function handleTabKeydown(event: KeyboardEvent) {
 
   const currentIndex = findSelectedIndex()
   const lastIndex = props.options.length - 1
-  let nextIndex: number | null = null
+  let nextIndex: number
 
   switch (event.key) {
     case 'ArrowLeft':

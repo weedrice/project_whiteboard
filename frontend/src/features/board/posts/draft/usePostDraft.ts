@@ -183,7 +183,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         }
         const generation = sessionGeneration
         const pendingSave = (async () => {
-            let savedDraft: DraftPost | null = null
+            let savedDraft: DraftPost | null
             do {
                 saveQueued = false
                 savedDraft = await persistNow()
