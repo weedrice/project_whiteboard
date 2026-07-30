@@ -43,7 +43,7 @@ project_whiteboard/
 
 - Git
 - Java 25
-- Node.js `>=22.12.0`
+- Node.js `>=24.11.0 <25`
 - npm
 - PostgreSQL과 `pg_trgm`, `vector` 확장
 
