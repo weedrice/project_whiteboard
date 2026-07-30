@@ -28,6 +28,10 @@ updates:
         patterns:
           - "@tiptap/*"
     ignore:
+      # Keep Node.js typings aligned with the Node 24 runtime baseline.
+      - dependency-name: "@types/node"
+        update-types:
+          - "version-update:semver-major"
       - dependency-name: "pinia"
         versions:
           - "4.0.1"
@@ -67,3 +71,8 @@ updates:
       time: "10:50"
       timezone: Asia/Seoul
     open-pull-requests-limit: 5
+    ignore:
+      # Coordinate Node.js major upgrades across Docker, CI, typings, and docs.
+      - dependency-name: "node"
+        update-types:
+          - "version-update:semver-major"

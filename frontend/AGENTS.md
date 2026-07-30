@@ -53,7 +53,7 @@ frontend/
 
 ### Prerequisites
 
-- Node.js `^20.19.0` or `>=22.12.0`
+- Node.js `>=24.11.0 <25`
 - npm
 
 ### Run
