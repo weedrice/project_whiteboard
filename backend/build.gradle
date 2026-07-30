@@ -22,7 +22,7 @@ version = '0.0.1-SNAPSHOT'
 
 java {
 	toolchain {
-		languageVersion = JavaLanguageVersion.of(21)
+		languageVersion = JavaLanguageVersion.of(25)
 	}
 }
 
@@ -95,6 +95,8 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform()
+	maxHeapSize = '1g'
+	jvmArgs '--enable-native-access=ALL-UNNAMED'
 	finalizedBy tasks.named('jacocoTestReport')
 }
 

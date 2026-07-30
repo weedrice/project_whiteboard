@@ -1,4 +1,4 @@
-FROM eclipse-temurin:21-jdk-alpine@sha256:1ff763083f2993d57d0bf374ab10bb3e2cb873af6c13a04458ebbd3e0337dc76 AS build
+FROM eclipse-temurin:25-jdk-alpine@sha256:5ecfde8e5ecde5954ea3721155b345ef56c1d579b940c761318ad4c05959a151 AS build
 
 WORKDIR /workspace
 
@@ -15,7 +15,7 @@ RUN export BUILD_COMMIT_SHA && if [ "$SKIP_TESTS" = "true" ]; then \
         sh ./gradlew test bootJar --no-daemon; \
     fi
 
-FROM eclipse-temurin:21-jre-alpine@sha256:3f08b13888f595cc49edabea7250ba69499ba25602b267da591720769400e08c
+FROM eclipse-temurin:25-jre-alpine@sha256:28db6fdf60e38945e43d840c0333aeaec66c15943070104f7586fd3c9d1665b0
 
 WORKDIR /app
 
@@ -29,4 +29,5 @@ EXPOSE 8080
 
 USER app
 
-ENTRYPOINT ["java", "-jar", "/app/app.jar"]
+# webp-imageio loads its JNI library from the application classpath.
+ENTRYPOINT ["java", "--enable-native-access=ALL-UNNAMED", "-jar", "/app/app.jar"]

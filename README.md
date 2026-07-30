@@ -17,7 +17,7 @@ NoviIs(`noviis.kr`)는 스페이스를 중심으로 글과 대화를 나누는 �
 | 영역 | 주요 기술 |
 | --- | --- |
 | Frontend | Vue 3, TypeScript, Vite 8, Vue Router, Pinia, TanStack Vue Query, Tailwind CSS 4, TipTap, Vue I18n |
-| Backend | Java 21, Spring Boot 4.1, Spring Security, Spring Data JPA, Querydsl, Flyway, Gradle 9.6.1 |
+| Backend | Java 25, Spring Boot 4.1, Spring Security, Spring Data JPA, Querydsl, Flyway, Gradle 9.6.1 |
 | Data | PostgreSQL, `pg_trgm`, `pgvector`, Caffeine cache |
 | Integration | JWT, OAuth2, SSE, Web Push, AWS S3, SMTP |
 | Test | Vitest, Vue Test Utils, JUnit 5, Mockito, Spring Boot Test, H2 PostgreSQL mode |
@@ -42,7 +42,7 @@ project_whiteboard/
 ### 요구 사항
 
 - Git
-- Java 21
+- Java 25
 - Node.js `>=22.12.0`
 - npm
 - PostgreSQL과 `pg_trgm`, `vector` 확장

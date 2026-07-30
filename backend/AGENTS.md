@@ -2,7 +2,7 @@
 
 ## Module Overview
 
-This directory contains the NoviIs backend API server built with Java 21, Spring Boot 4.1, Gradle 9.6.1, JPA, and PostgreSQL. From an AI agent perspective, this module owns:
+This directory contains the NoviIs backend API server built with Java 25, Spring Boot 4.1, Gradle 9.6.1, JPA, and PostgreSQL. From an AI agent perspective, this module owns:
 
 - Authentication and authorization
 - Boards, posts, comments, tags, reports, sanctions, notifications, and admin APIs
@@ -41,13 +41,13 @@ backend/
 
 ### Prerequisites
 
-- Java 21
+- Java 25
 - PostgreSQL
 
-On Windows, if multiple JDKs are installed, set Java 21 explicitly before running Gradle:
+On Windows, if multiple JDKs are installed, set Java 25 explicitly before running Gradle:
 
 ```powershell
-$env:JAVA_HOME='C:\Program Files\Eclipse Adoptium\jdk-21.0.8.9-hotspot'
+$env:JAVA_HOME='C:\Program Files\Eclipse Adoptium\jdk-25.0.4.7-hotspot'
 $env:Path="$env:JAVA_HOME\bin;$env:Path"
 ```
 

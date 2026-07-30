@@ -8,7 +8,7 @@
 
 검증 job은 다음 책임을 가진다.
 
-- Backend: Java 21, Gradle test, JaCoCo coverage verification
+- Backend: Java 25, Gradle test, JaCoCo coverage verification
 - PostgreSQL: Flyway 호환성·현재 schema smoke와 이전 revision→현재 revision upgrade smoke를 독립 job으로 실행
 - Frontend: Node 22, lint, i18n·UI 규약, type-check, coverage, build, Playwright E2E·접근성
 - Ops: actionlint, Prometheus rule fixture, Grafana JSON, shell, sudoers, systemd, migration·activation fixture
