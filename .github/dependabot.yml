@@ -53,6 +53,11 @@ updates:
       time: "10:40"
       timezone: Asia/Seoul
     open-pull-requests-limit: 5
+    ignore:
+      # Keep Java runtime baseline upgrades explicit and coordinated with Gradle and CI.
+      - dependency-name: "eclipse-temurin"
+        update-types:
+          - "version-update:semver-major"
 
   - package-ecosystem: docker
     directory: /frontend
