@@ -40,7 +40,7 @@
     "lint:ci": "eslint \"src/**/*.{ts,vue}\" --max-warnings=0"
   },
   "dependencies": {
-    "@tanstack/vue-query": "^5.91.4",
+    "@tanstack/vue-query": "^5.101.4",
     "@tiptap/extension-code-block-lowlight": "3.29.2",
     "@tiptap/extension-color": "3.29.2",
     "@tiptap/extension-highlight": "3.29.2",
