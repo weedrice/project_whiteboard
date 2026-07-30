@@ -53,7 +53,7 @@ export function saveLoginRedirect(path: unknown, now = Date.now()): string | nul
 
 export function getStoredLoginRedirect(now = Date.now()): string | null {
   const rawIntent = SessionStorage.getString(LOGIN_REDIRECT_KEY)
-  let intent: LoginRedirectIntent | null = null
+  let intent: LoginRedirectIntent | null
   try {
     intent = rawIntent ? JSON.parse(rawIntent) as LoginRedirectIntent : null
   } catch {
