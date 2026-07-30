@@ -69,7 +69,6 @@ export async function resolveServerDraftForRecovery({
     ) {
       nextLocalSnapshot = stripDraftServerIdentity(nextLocalSnapshot)
       onStaleLocalSnapshot(nextLocalSnapshot)
-      serverDraftId = null
       try {
         const fallbackDraftId = await findMatchingServerDraftId(payload)
         if (fallbackDraftId != null) {
