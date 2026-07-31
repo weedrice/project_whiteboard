@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/vue-query'
 import { useRoute, useRouter } from 'vue-router'
-import { searchQueryKeys } from '@/composables/searchQueryKeys'
+import { searchQueryKeys } from '@/features/search/queries/searchQueryKeys'
 import { firstQueryValue } from '@/utils/routeQueryValue'
 import { useAuthStore } from '@/stores/auth'
 import { currentSessionQueryKey } from '@/queryAuthScope'

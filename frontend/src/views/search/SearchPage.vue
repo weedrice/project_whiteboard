@@ -387,10 +387,13 @@ import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import { searchApi } from '@/api/search'
 import { tagApi } from '@/api/tag'
-import { useSearch } from '@/composables/useSearch'
+import { useSearch } from '@/features/search/queries/useSearch'
 import { useApiQuery } from '@/composables/useApiQuery'
-import { searchQueryKeys } from '@/composables/searchQueryKeys'
-import { useSearchRouteQuery, type SearchFilterKey } from '@/composables/useSearchRouteQuery'
+import { searchQueryKeys } from '@/features/search/queries/searchQueryKeys'
+import {
+  useSearchRouteQuery,
+  type SearchFilterKey,
+} from '@/features/search/navigation/useSearchRouteQuery'
 import BoardCard from '@/components/board/BoardCard.vue'
 import PostList from '@/components/board/PostList.vue'
 import EmptyState from '@/components/common/ui/EmptyState.vue'

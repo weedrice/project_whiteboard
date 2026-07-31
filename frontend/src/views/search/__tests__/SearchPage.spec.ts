@@ -112,7 +112,7 @@ vi.mock('@/api/tag', () => ({
   },
 }))
 
-vi.mock('@/composables/useSearch', () => ({
+vi.mock('@/features/search/queries/useSearch', () => ({
   useSearch: () => ({
     useIntegratedSearch: (params: ReturnType<typeof computed<Record<string, unknown>>>) => {
       searchState.lastParams = params

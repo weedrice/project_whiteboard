@@ -12,7 +12,7 @@ import type {
 } from '@/types'
 import { computed, type ComputedRef, type Ref } from 'vue'
 import { QUERY_STALE_TIME } from '@/utils/constants'
-import { searchQueryKeys } from '@/composables/searchQueryKeys'
+import { searchQueryKeys } from '@/features/search/queries/searchQueryKeys'
 import { useApiPageQuery, useApiQuery } from '@/composables/useApiQuery'
 import { callWithOptionalQuerySignal } from '@/utils/querySignal'
 import { AUTH_SCOPED_QUERY_META } from '@/queryAuthScope'

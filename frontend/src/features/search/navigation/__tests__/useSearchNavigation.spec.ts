@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { nextTick, ref } from 'vue'
-import { useSearchNavigation } from '../useSearchNavigation'
+import { useSearchNavigation } from '@/features/search/navigation/useSearchNavigation'
 import type { BoardListItem } from '@/types'
 
 const routerPush = vi.fn()

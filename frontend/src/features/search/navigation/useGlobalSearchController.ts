@@ -1,7 +1,7 @@
 import { nextTick, ref, type Ref } from 'vue'
 import { useEventListener } from '@/composables/useEventListener'
 import { useMobileViewport } from '@/composables/useMediaQuery'
-import { useSearchNavigation } from '@/composables/useSearchNavigation'
+import { useSearchNavigation } from '@/features/search/navigation/useSearchNavigation'
 import type { BoardListItem } from '@/types'
 
 interface SearchInputLike {

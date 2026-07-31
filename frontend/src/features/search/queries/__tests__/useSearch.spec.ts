@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { computed, ref } from 'vue'
-import { useSearch } from '../useSearch'
+import { useSearch } from '@/features/search/queries/useSearch'
 import { searchApi } from '@/api/search'
 import { QUERY_STALE_TIME } from '@/utils/constants'
 import { apiDataResponse, apiSuccessDataResponse } from '@/test/apiResponseFixtures'

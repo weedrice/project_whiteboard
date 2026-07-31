@@ -4,7 +4,7 @@ import { Search, X } from 'lucide-vue-next'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BoardAutocompleteList from '@/components/search/BoardAutocompleteList.vue'
 import { useBoardAutocomplete } from '@/features/board/search/useBoardAutocomplete'
-import { useGlobalSearchController } from '@/composables/useGlobalSearchController'
+import { useGlobalSearchController } from '@/features/search/navigation/useGlobalSearchController'
 
 const searchContainer = ref<HTMLElement | null>(null)
 const searchInputRef = ref<{ $el?: HTMLElement; focus?: () => void } | null>(null)

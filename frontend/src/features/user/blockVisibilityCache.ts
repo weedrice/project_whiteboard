@@ -1,6 +1,6 @@
 import type { QueryClient } from '@tanstack/vue-query'
 import { homeQueryKeys } from '@/composables/homeQueryKeys'
-import { searchQueryKeys } from '@/composables/searchQueryKeys'
+import { searchQueryKeys } from '@/features/search/queries/searchQueryKeys'
 import { tagQueryKeys } from '@/composables/tagQueryKeys'
 import { commentQueryKeys } from '@/features/comments/queries/commentQueryKeys'
 import { feedQueryKeys } from '@/features/feed/feedQueryKeys'

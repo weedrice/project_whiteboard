@@ -1,6 +1,6 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { useSearchSubmitNavigation } from '@/composables/useSearchSubmitNavigation'
+import { useSearchSubmitNavigation } from '@/features/search/navigation/useSearchSubmitNavigation'
 import { firstQueryValue } from '@/utils/routeQueryValue'
 import type { PostSearchType, SearchParams } from '@/types'
 

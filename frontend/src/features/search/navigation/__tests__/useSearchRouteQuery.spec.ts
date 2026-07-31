@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick, reactive } from 'vue'
-import { useSearchRouteQuery } from '../useSearchRouteQuery'
+import { useSearchRouteQuery } from '@/features/search/navigation/useSearchRouteQuery'
 
 const routerPush = vi.fn()
 const invalidateQueries = vi.fn()

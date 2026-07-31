@@ -1,7 +1,7 @@
 import { computed, watch, type Ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useKeyboardNavigation } from '@/composables/useKeyboardNavigation'
-import { useSearchSubmitNavigation } from '@/composables/useSearchSubmitNavigation'
+import { useSearchSubmitNavigation } from '@/features/search/navigation/useSearchSubmitNavigation'
 import type { BoardListItem } from '@/types'
 import { encodePathSegment } from '@/utils/urlPath'
 
