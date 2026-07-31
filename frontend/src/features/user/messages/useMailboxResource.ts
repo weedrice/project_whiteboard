@@ -8,44 +8,20 @@ import { useMailboxListState } from '@/features/user/messages/useMailboxListStat
 import { useMessageSubmit } from '@/features/user/messages/useMessageSubmit'
 import { useToastStore } from '@/stores/toast'
 import { useAuthStore } from '@/stores/auth'
-import type { MailboxMessageViewModel, MessageResponse } from '@/types'
+import type { MailboxMessageViewModel } from '@/types'
 import { API_ERROR_CODES } from '@/api/errorCodes'
 import { extractErrorResponse } from '@/utils/errorHandler'
 import { markMailboxMessageRead, toMailboxMessageViewModel } from '@/features/user/messages/messageViewModel'
 import logger from '@/utils/logger'
 import { subscribeMessageStreamEvents } from '@/features/user/messages/messageStreamEvents'
+import {
+    mergeConversationMessages,
+    toConversationPage,
+    type ConversationPage,
+} from '@/features/user/messages/conversationModel'
 
 const NOT_FOUND_CODE = API_ERROR_CODES.NOT_FOUND
 const CONVERSATION_PAGE_SIZE = 20
-
-interface ConversationPage {
-    messages: MailboxMessageViewModel[]
-    page: number
-    hasNext: boolean
-}
-
-function mergeConversationMessages(
-    ...messageGroups: MailboxMessageViewModel[][]
-): MailboxMessageViewModel[] {
-    const messagesById = new Map<number, MailboxMessageViewModel>()
-    messageGroups.flat().forEach((message) => messagesById.set(message.id, message))
-    return Array.from(messagesById.values()).sort((left, right) => {
-        const createdAtDifference = new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime()
-        return createdAtDifference || left.id - right.id
-    })
-}
-
-function toConversationPage(messagePage: MessageResponse, requestedPage: number): ConversationPage {
-    const page = Number.isInteger(messagePage.page) ? messagePage.page : requestedPage
-    const hasNext = typeof messagePage.hasNext === 'boolean'
-        ? messagePage.hasNext
-        : page + 1 < (messagePage.totalPages ?? 0)
-    return {
-        messages: messagePage.content.map(toMailboxMessageViewModel),
-        page,
-        hasNext,
-    }
-}
 
 export function useMailboxResource() {
     const { t } = useI18n()
