@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onScopeDispose, ref, watch, type ComponentPublicInstance } from 'vue'
+import { computed, nextTick, ref, watch, type ComponentPublicInstance } from 'vue'
 import { usePostComposerDraft } from '@/features/board/posts/form/usePostComposerDraft'
 import { usePostComposerEffects, type ComposerEditor } from '@/features/board/posts/form/usePostComposerEffects'
 import { usePostComposerSubmit, type PostFormSubmitResult } from '@/features/board/posts/form/usePostComposerSubmit'
@@ -8,14 +8,13 @@ import { usePostFormEditHydration } from '@/features/board/posts/form/usePostFor
 import { usePostFormCategoryOptions } from '@/features/board/posts/form/usePostFormCategoryOptions'
 import { usePostFormMetadataBindings } from '@/features/board/posts/form/usePostFormMetadataBindings'
 import { usePostFormResource } from '@/features/board/posts/form/usePostFormResource'
+import { usePostSeriesOptions } from '@/features/board/posts/form/usePostSeriesOptions'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 import type { SegmentedControlOption } from '@/components/common/ui/BaseSegmentedControl.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseSpinner from '@/components/common/ui/BaseSpinner.vue'
 import { useToastStore } from '@/stores/toast'
-import { userApi } from '@/api/user'
-import { unwrapAxiosApiData } from '@/api/response'
 import PostFormHeader from '@/components/board/PostFormHeader.vue'
 import PostFormMainSection from '@/components/board/PostFormMainSection.vue'
 import PostFormSidePanel from '@/components/board/PostFormSidePanel.vue'
@@ -23,12 +22,8 @@ import PostPreviewModal from '@/components/board/PostPreviewModal.vue'
 import { requiresSandboxedPostHtml } from '@/utils/postHtmlSandbox'
 import { usePostComposerState } from '@/features/board/posts/form/usePostComposerState'
 import { usePostComposerUploadOwnership } from '@/features/board/posts/form/usePostComposerUploadOwnership'
-import type { PostSeries } from '@/types'
 import { useFieldValidation } from '@/composables/useFieldValidation'
 import { usePwaReloadBlocker } from '@/pwaReloadGuard'
-import { AUTH_SCOPED_QUERY_META, sessionQueryKey } from '@/queryAuthScope'
-import { userQueryKeys } from '@/features/user/userQueryKeys'
-import { queryClient } from '@/queryClient'
 import ErrorState from '@/components/common/ui/ErrorState.vue'
 import { toDateTimeLocalInputValue } from '@/utils/date'
 import {
@@ -36,7 +31,6 @@ import {
   POST_POLL_MIN_OPTIONS,
   POST_POLL_OPTION_MAX_LENGTH,
   POST_POLL_QUESTION_MAX_LENGTH,
-  POST_SERIES_TITLE_MAX_LENGTH,
   POST_TITLE_MAX_LENGTH,
   validatePostFormContent,
   type PostFormPollValidationError,
@@ -71,53 +65,8 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const authStore = useAuthStore()
 const toastStore = useToastStore()
-const localSeriesOptions = ref<PostSeries[] | null>(null)
-const serverSeriesOptions = ref<PostSeries[]>([])
-const isPostSeriesError = ref(false)
-const newSeriesTitle = ref('')
-const isCreatingSeries = ref(false)
 const scheduledAt = ref('')
 const savedScheduledAt = ref('')
-const seriesOptions = computed(() => localSeriesOptions.value ?? serverSeriesOptions.value)
-let createSeriesAbortController: AbortController | null = null
-
-function cancelCreateSeriesRequest() {
-  const controller = createSeriesAbortController
-  createSeriesAbortController = null
-  controller?.abort()
-  isCreatingSeries.value = false
-}
-
-async function loadPostSeries() {
-  const generation = authStore.sessionGeneration
-  isPostSeriesError.value = false
-  try {
-    const series = await queryClient.fetchQuery({
-      queryKey: sessionQueryKey(generation, userQueryKeys.postSeries),
-      meta: AUTH_SCOPED_QUERY_META,
-      queryFn: async ({ signal }) => unwrapAxiosApiData(await userApi.getPostSeries({ signal })),
-    })
-    if (generation !== authStore.sessionGeneration) return
-    serverSeriesOptions.value = series
-  } catch {
-    if (generation !== authStore.sessionGeneration) return
-    isPostSeriesError.value = true
-  }
-}
-
-onMounted(() => {
-  if (authStore.isAuthenticated) void loadPostSeries()
-})
-
-watch(() => authStore.sessionGeneration, () => {
-  cancelCreateSeriesRequest()
-  localSeriesOptions.value = null
-  serverSeriesOptions.value = []
-  isPostSeriesError.value = false
-  newSeriesTitle.value = ''
-})
-
-onScopeDispose(cancelCreateSeriesRequest)
 
 const boardUrl = computed(() => props.boardUrl ?? '')
 const postId = computed(() => props.postId ?? '')
@@ -219,6 +168,20 @@ const {
   includePoll: () => props.mode === 'create' || Boolean(scheduledPostId.value),
 })
 
+const {
+  seriesOptions,
+  newSeriesTitle,
+  isCreatingSeries,
+  isPostSeriesError,
+  loadPostSeries,
+  createSeries: handleCreateSeries,
+  cancelCreateSeriesRequest,
+  resetSeriesInput,
+} = usePostSeriesOptions({
+  form,
+  formIdentity,
+})
+
 const hasUnsavedChanges = computed(() => (
   isDirty.value || (Boolean(scheduledPostId.value) && scheduledAt.value !== savedScheduledAt.value)
 ))
@@ -294,57 +257,6 @@ const { metadataPanelProps, metadataPanelHandlers } = usePostFormMetadataBinding
   boardUrl,
 })
 
-async function handleCreateSeries() {
-  const title = newSeriesTitle.value.trim()
-  if (!title || title.length > POST_SERIES_TITLE_MAX_LENGTH || isCreatingSeries.value) return
-
-  isCreatingSeries.value = true
-  const generation = authStore.sessionGeneration
-  const identity = formIdentity.value
-  const controller = new AbortController()
-  createSeriesAbortController?.abort()
-  createSeriesAbortController = controller
-  try {
-    const createdSeries = unwrapAxiosApiData(await userApi.createPostSeries({ title }, {
-      signal: controller.signal,
-    }))
-    if (
-      controller.signal.aborted
-      || createSeriesAbortController !== controller
-      || authStore.sessionGeneration !== generation
-      || formIdentity.value !== identity
-    ) return
-    localSeriesOptions.value = [
-      ...seriesOptions.value.filter((series) => series.seriesId !== createdSeries.seriesId),
-      createdSeries,
-    ]
-    queryClient.setQueryData(
-      sessionQueryKey(generation, userQueryKeys.postSeries),
-      localSeriesOptions.value,
-    )
-    form.value.seriesId = createdSeries.seriesId
-    newSeriesTitle.value = ''
-    toastStore.addToast(t('board.writePost.createSeriesSuccess'), 'success')
-  } catch {
-    if (
-      controller.signal.aborted
-      || createSeriesAbortController !== controller
-      || authStore.sessionGeneration !== generation
-      || formIdentity.value !== identity
-    ) return
-    toastStore.addToast(t('board.writePost.createSeriesFailed'), 'error')
-  } finally {
-    if (
-      createSeriesAbortController === controller
-      && authStore.sessionGeneration === generation
-      && formIdentity.value === identity
-    ) {
-      createSeriesAbortController = null
-      isCreatingSeries.value = false
-    }
-  }
-}
-
 function onBeforeUnload(event: BeforeUnloadEvent) {
   if (!hasUnsavedChanges.value && !isSubmitting.value && !isSubmissionLocked.value) return
   event.preventDefault()
@@ -355,7 +267,7 @@ function onBeforeUnload(event: BeforeUnloadEvent) {
 function resetFormIdentityState() {
   resetEditHydrationState()
   resetFormState()
-  newSeriesTitle.value = ''
+  resetSeriesInput()
   scheduledAt.value = ''
   savedScheduledAt.value = ''
   hasHydratedScheduledPost.value = false
