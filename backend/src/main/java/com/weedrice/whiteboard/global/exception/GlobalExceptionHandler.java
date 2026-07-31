@@ -3,13 +3,15 @@ package com.weedrice.whiteboard.global.exception;
 import com.weedrice.whiteboard.domain.agent.exception.AgentWriteErrorCode;
 import com.weedrice.whiteboard.domain.agent.exception.AgentWriteException;
 import com.weedrice.whiteboard.global.common.ApiResponse;
+import com.weedrice.whiteboard.global.common.util.ClientIpResolver;
+import com.weedrice.whiteboard.global.log.service.ErrorLogService;
 import com.weedrice.whiteboard.global.ratelimit.RateLimitExceededException;
 import com.weedrice.whiteboard.global.ratelimit.RateLimitHeaderWriter;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.servlet.http.HttpServletRequest;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
 import org.springframework.http.HttpStatus;
@@ -39,7 +41,6 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @RestControllerAdvice
-@RequiredArgsConstructor
 public class GlobalExceptionHandler {
     private static final String AUTH_REFRESH_URI = "/api/v1/auth/refresh";
     private static final String AUTH_SESSION_EXPIRED_MESSAGE = "error.auth.sessionExpired";
@@ -63,6 +64,17 @@ public class GlobalExceptionHandler {
     private final MessageSource messageSource;
     private final ValidationErrorCollector validationErrorCollector;
     private final ExceptionErrorLogReporter errorLogReporter;
+
+    public GlobalExceptionHandler(
+            MessageSource messageSource,
+            ObjectProvider<ClientIpResolver> clientIpResolverProvider,
+            ObjectProvider<ErrorLogService> errorLogServiceProvider) {
+        this.messageSource = messageSource;
+        this.validationErrorCollector = new ValidationErrorCollector(messageSource);
+        this.errorLogReporter = new ExceptionErrorLogReporter(
+                clientIpResolverProvider,
+                errorLogServiceProvider);
+    }
 
     @ExceptionHandler(AgentWriteException.class)
     public ResponseEntity<ApiResponse<Object>> handleAgentWriteException(AgentWriteException e,

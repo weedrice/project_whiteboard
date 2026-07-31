@@ -9,7 +9,6 @@ import org.springframework.context.MessageSource;
 import org.springframework.context.MessageSourceResolvable;
 import org.springframework.context.NoSuchMessageException;
 import org.springframework.context.i18n.LocaleContextHolder;
-import org.springframework.stereotype.Component;
 import org.springframework.validation.method.ParameterErrors;
 import org.springframework.validation.method.ParameterValidationResult;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -29,7 +28,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-@Component
 @RequiredArgsConstructor
 public class ValidationErrorCollector {
 
