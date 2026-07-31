@@ -251,6 +251,31 @@ class SearchPreviewReadServiceTest {
     }
 
     @Test
+    @DisplayName("통합 검색은 알 수 없는 검색 기간을 거부한다")
+    void integratedSearch_rejectsUnknownPeriod() {
+        assertThatThrownBy(() -> searchPreviewReadService.integratedSearch(
+                "test", null, null, null, null, null, "YEAR", Sort.unsorted(), null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR);
+
+        verify(postRepository, never()).searchPosts(
+                any(), any(), any(), any(), any(), any(), any(), anyBoolean(), any(), any());
+    }
+
+    @Test
+    @DisplayName("통합 검색은 시작일이 종료일보다 늦은 사용자 지정 기간을 거부한다")
+    void integratedSearch_rejectsReversedCustomDateRange() {
+        assertThatThrownBy(() -> searchPreviewReadService.integratedSearch(
+                "test", null, null, null, "2026-07-20", "2026-07-10", "CUSTOM",
+                Sort.unsorted(), null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_ERROR);
+
+        verify(postRepository, never()).searchPosts(
+                any(), any(), any(), any(), any(), any(), any(), anyBoolean(), any(), any());
+    }
+
+    @Test
     @DisplayName("필터 통합 검색은 boardUrl을 정규화하고 게시글과 댓글 범위에 전달한다")
     void integratedSearch_withBoardUrl_validatesAndScopesPostAndCommentSearch() {
         String keyword = "test";

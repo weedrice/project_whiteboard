@@ -361,6 +361,8 @@ OAuth 가입을 취소하고 일반 가입으로 돌아갈 수 있다.
 | `POST` | `/api/v1/admin/search/semantic/backfill` | semantic embedding backfill enqueue |
 | `POST` | `/api/v1/admin/search/semantic/reindex/jobs/{jobId}/redrive` | 실패한 semantic 재색인 cursor job 재실행(SUPER_ADMIN) |
 
+`GET /api/v1/search`와 `GET /api/v1/search/posts`의 `period`는 `TODAY`, `WEEK`, `MONTH`, `CUSTOM`을 지원한다. `WEEK`는 오늘을 포함한 7일, `MONTH`는 오늘을 포함한 최근 달력상 1개월로 계산하며 종료일의 다음 날 00:00을 exclusive upper bound로 사용한다. `CUSTOM`의 `from`이 `to`보다 늦거나 지원하지 않는 `period`이면 `VALIDATION_ERROR`를 반환한다.
+
 ### Notifications, Messages, Feed
 
 | Method | URI | 설명 |

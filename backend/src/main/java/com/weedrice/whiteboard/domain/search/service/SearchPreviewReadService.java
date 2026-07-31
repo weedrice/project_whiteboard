@@ -11,6 +11,7 @@ import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostSummaryAssembler;
 import com.weedrice.whiteboard.domain.search.dto.IntegratedSearchResponse;
+import com.weedrice.whiteboard.domain.search.service.SearchDateRangeResolver.SearchDateRange;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.dto.UserSummary;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
@@ -25,8 +26,6 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -110,7 +109,7 @@ public class SearchPreviewReadService {
                     : userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(currentUserId);
         }
 
-        DateRange dateRange = resolveDateRange(period, from, to);
+        SearchDateRange dateRange = SearchDateRangeResolver.resolve(period, from, to);
         String canonicalAuthor = SearchRequestNormalizer.canonicalizeOptionalAuthor(author);
         boolean hasPostOnlyFilters = hasPostOnlyFilters(normalizedSearchType, canonicalAuthor, period, from, to);
         Page<Post> postPage = postRepository.searchPosts(
@@ -182,31 +181,6 @@ public class SearchPreviewReadService {
                 canonicalBoardUrl,
                 boardAccessPolicy.canViewSecretPosts(board, viewer),
                 viewer);
-    }
-
-    private DateRange resolveDateRange(String period, String from, String to) {
-        String normalizedPeriod = SearchRequestNormalizer.normalizeSearchPeriod(period);
-        if (normalizedPeriod == null) {
-            return new DateRange(null, null);
-        }
-        LocalDate today = com.weedrice.whiteboard.global.common.util.DateTimeUtils.nowKST().toLocalDate();
-        return switch (normalizedPeriod) {
-            case "TODAY" -> DateRange.between(today, today);
-            case "WEEK" -> DateRange.between(today.minusWeeks(1), today);
-            case "MONTH" -> DateRange.between(today.minusMonths(1), today);
-            case "CUSTOM" -> DateRange.between(
-                    SearchRequestNormalizer.parseOptionalDate(from),
-                    SearchRequestNormalizer.parseOptionalDate(to));
-            default -> new DateRange(null, null);
-        };
-    }
-
-    private record DateRange(LocalDateTime from, LocalDateTime to) {
-        static DateRange between(LocalDate from, LocalDate to) {
-            LocalDateTime start = from == null ? null : from.atStartOfDay();
-            LocalDateTime end = to == null ? null : to.plusDays(1).atStartOfDay();
-            return new DateRange(start, end);
-        }
     }
 
     private record BoardSearchContext(

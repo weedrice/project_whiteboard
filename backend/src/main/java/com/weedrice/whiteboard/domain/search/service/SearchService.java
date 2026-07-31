@@ -12,6 +12,7 @@ import com.weedrice.whiteboard.domain.search.dto.SearchPersonalizationResponse;
 import com.weedrice.whiteboard.domain.search.entity.SearchPersonalization;
 import com.weedrice.whiteboard.domain.search.repository.SearchPersonalizationRepository;
 import com.weedrice.whiteboard.domain.search.repository.SearchStatisticRepository;
+import com.weedrice.whiteboard.domain.search.service.SearchDateRangeResolver.SearchDateRange;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
 import com.weedrice.whiteboard.global.common.util.DateTimeUtils;
@@ -27,7 +28,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -86,7 +86,7 @@ public class SearchService {
         String normalizedSearchType = SearchRequestNormalizer.normalizePostSearchType(searchType);
         String canonicalBoardUrl = SearchRequestNormalizer.canonicalizeOptionalBoardUrl(boardUrl);
         String canonicalAuthor = SearchRequestNormalizer.canonicalizeOptionalAuthor(author);
-        SearchDateRange dateRange = resolveDateRange(period, from, to);
+        SearchDateRange dateRange = SearchDateRangeResolver.resolve(period, from, to);
         Pageable normalizedPageable = SearchRequestNormalizer.normalizePostSearchPageable(page, size, sort);
         boolean includeSecret = false;
         User currentUser = null;
@@ -112,43 +112,6 @@ public class SearchService {
 
         Page<PostSummary> response = postSummaryAssembler.assembleSearchPage(postPage);
         return response;
-    }
-
-    private SearchDateRange resolveDateRange(String period, String from, String to) {
-        String normalizedPeriod = SearchRequestNormalizer.normalizeSearchPeriod(period);
-        if (normalizedPeriod == null) {
-            return SearchDateRange.empty();
-        }
-
-        LocalDate today = DateTimeUtils.nowKST().toLocalDate();
-        return switch (normalizedPeriod) {
-            case "TODAY" -> SearchDateRange.between(today, today);
-            case "WEEK" -> SearchDateRange.between(today.minusWeeks(1).plusDays(1), today);
-            case "MONTH" -> SearchDateRange.between(today.minusMonths(1).plusDays(1), today);
-            case "CUSTOM" -> customDateRange(from, to);
-            default -> throw new BusinessException(ErrorCode.VALIDATION_ERROR);
-        };
-    }
-
-    private SearchDateRange customDateRange(String from, String to) {
-        LocalDate startDate = SearchRequestNormalizer.parseOptionalDate(from);
-        LocalDate endDate = SearchRequestNormalizer.parseOptionalDate(to);
-        if (startDate != null && endDate != null && startDate.isAfter(endDate)) {
-            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
-        }
-        return SearchDateRange.between(startDate, endDate);
-    }
-
-    private record SearchDateRange(LocalDateTime from, LocalDateTime to) {
-        static SearchDateRange empty() {
-            return new SearchDateRange(null, null);
-        }
-
-        static SearchDateRange between(LocalDate from, LocalDate to) {
-            LocalDateTime start = from == null ? null : from.atStartOfDay();
-            LocalDateTime endExclusive = to == null ? null : to.plusDays(1).atStartOfDay();
-            return new SearchDateRange(start, endExclusive);
-        }
     }
 
     public SearchPersonalizationResponse getRecentSearches(Long userId, Pageable pageable) {
