@@ -610,6 +610,14 @@ public class NotificationSseEmitterRegistry
                 .count();
     }
 
+    int commentTopicCount() {
+        return commentSubscribers.size();
+    }
+
+    boolean hasCommentTopic(Long postId) {
+        return commentSubscribers.containsKey(postId);
+    }
+
     private void removeCommentSubscriptions(Long userId, String connectionId) {
         int removedTopics = 0;
         synchronized (commentTopicLock) {

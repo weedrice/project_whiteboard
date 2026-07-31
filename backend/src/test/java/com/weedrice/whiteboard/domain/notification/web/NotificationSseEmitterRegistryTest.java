@@ -45,8 +45,7 @@ class NotificationSseEmitterRegistryTest {
 
         ReflectionTestUtils.invokeMethod(registry, "removeEmitter", 1L, connectionId);
 
-        Map<?, ?> commentSubscribers = (Map<?, ?>) ReflectionTestUtils.getField(registry, "commentSubscribers");
-        assertThat(commentSubscribers).isEmpty();
+        assertThat(registry.commentTopicCount()).isZero();
     }
 
     @Test
@@ -60,7 +59,7 @@ class NotificationSseEmitterRegistryTest {
 
         assertThat(emitters(registry)).doesNotContainKey(1L);
         assertThat(userLocks(registry)).doesNotContainKey(1L);
-        assertThat(commentSubscribers(registry)).isEmpty();
+        assertThat(registry.commentTopicCount()).isZero();
     }
 
     @Test
@@ -77,7 +76,7 @@ class NotificationSseEmitterRegistryTest {
         registry.disconnectSessionFamily(1L, FAMILY_A);
 
         assertThat(activeEmitters(registry, 1L)).containsExactly(second);
-        assertThat(commentSubscribers(registry)).isEmpty();
+        assertThat(registry.commentTopicCount()).isZero();
         assertThat(userLocks(registry)).containsKey(1L);
     }
 
@@ -105,7 +104,8 @@ class NotificationSseEmitterRegistryTest {
 
         registry.invalidateCommentTopic(10L);
 
-        assertThat(commentSubscribers(registry)).doesNotContainKey(10L).containsKey(11L);
+        assertThat(registry.hasCommentTopic(10L)).isFalse();
+        assertThat(registry.hasCommentTopic(11L)).isTrue();
     }
 
     @Test
@@ -147,9 +147,9 @@ class NotificationSseEmitterRegistryTest {
 
         registry.invalidateCommentTopicsForBoard(100L);
 
-        assertThat(commentSubscribers(registry))
-                .doesNotContainKeys(10L, 11L)
-                .containsKey(20L);
+        assertThat(registry.hasCommentTopic(10L)).isFalse();
+        assertThat(registry.hasCommentTopic(11L)).isFalse();
+        assertThat(registry.hasCommentTopic(20L)).isTrue();
     }
 
     @Test
@@ -172,7 +172,8 @@ class NotificationSseEmitterRegistryTest {
                 .anySatisfy(data -> assertThat(data.toString()).contains("comment-topic-invalidated"))
                 .contains(Map.of("boardId", 100L));
         assertThat(unaffected.sendCount()).isEqualTo(1);
-        assertThat(commentSubscribers(registry)).doesNotContainKey(10L).containsKey(20L);
+        assertThat(registry.hasCommentTopic(10L)).isFalse();
+        assertThat(registry.hasCommentTopic(20L)).isTrue();
     }
 
     @Test
@@ -429,12 +430,6 @@ class NotificationSseEmitterRegistryTest {
     }
 
     @SuppressWarnings("unchecked")
-    private Map<Long, ?> commentSubscribers(NotificationSseEmitterRegistry registry) {
-        Map<Long, ?> subscribers = (Map<Long, ?>) ReflectionTestUtils.getField(registry, "commentSubscribers");
-        assertThat(subscribers).isNotNull();
-        return subscribers;
-    }
-
     private NotificationSseEmitterRegistry registry(long timeoutMillis, int maxConnectionsPerUser) {
         return new NotificationSseEmitterRegistry(
                 properties(timeoutMillis, maxConnectionsPerUser),
