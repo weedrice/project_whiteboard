@@ -1,28 +1,33 @@
+import {
+  AUTH_REFRESH_CHANNEL,
+  AUTH_REFRESH_STORAGE_EVENT_KEY,
+  createAuthRefreshId,
+  getOrCreateSharedAuthSessionId,
+  isRefreshMessage,
+  rotateSharedAuthSessionId as rotateProtocolAuthSessionId,
+  type RefreshMessage,
+} from '@/api/authRefreshProtocol'
+import {
+  STORAGE_ELECTION_WINDOW_MS,
+  STORAGE_LEASE_HEARTBEAT_MS,
+  STORAGE_LEASE_MS,
+  STORAGE_TAKEOVER_JITTER_MS,
+  acquireStorageLease,
+  clearStorageLeaseForTest,
+  readStorageLease as readLease,
+  releaseStorageLease as releaseOwnedStorageLease,
+  releaseStorageLeaseOwnedBy,
+  renewStorageLease,
+  sameStorageLease,
+  type StorageLease,
+} from '@/api/authRefreshStorageLease'
+
 const AUTH_REFRESH_LOCK = 'noviis-auth-refresh'
-const AUTH_REFRESH_CHANNEL = 'noviis-auth-session'
-const AUTH_REFRESH_STORAGE_EVENT_KEY = 'noviisAuthRefreshEvent'
-const AUTH_REFRESH_STORAGE_LEASE_KEY = 'noviisAuthRefreshLease'
-const AUTH_REFRESH_SESSION_KEY = 'noviisAuthRefreshSession'
-const STORAGE_UNAVAILABLE_SESSION_ID = 'shared-origin-cookie-session'
-const ELECTION_WINDOW_MS = 40
+const ELECTION_WINDOW_MS = STORAGE_ELECTION_WINDOW_MS
 const PEER_RESULT_TIMEOUT_MS = 15_000
-const STORAGE_LEASE_MS = 30_000
-const STORAGE_LEASE_HEARTBEAT_MS = 5_000
-const STORAGE_TAKEOVER_JITTER_MS = 120
 
 type LockManagerLike = {
   request: <T>(name: string, callback: () => Promise<T>) => Promise<T>
-}
-
-type RefreshMessage = {
-  type: 'refresh-request' | 'refresh-result' | 'refresh-error' | 'refresh-cancelled'
-  sourceId: string
-  requestId?: string
-  previousToken?: string | null
-  sessionId?: string
-  accessToken?: string
-  message?: string
-  at: number
 }
 
 type RefreshFlight = {
@@ -48,13 +53,6 @@ type StorageWaiter = {
   timer: ReturnType<typeof setTimeout>
 }
 
-type StorageLease = {
-  ownerId: string
-  sessionId: string
-  fence: number
-  expiresAt: number
-}
-
 type CoordinatorState = {
   sourceId: string
   epoch: number
@@ -77,7 +75,7 @@ export interface CoordinateAuthRefreshOptions {
 const GLOBAL_STATE_KEY = '__noviisAuthRefreshCoordinator__'
 const globalState = globalThis as typeof globalThis & { [GLOBAL_STATE_KEY]?: CoordinatorState }
 const state = globalState[GLOBAL_STATE_KEY] ??= {
-  sourceId: createId(),
+  sourceId: createAuthRefreshId(),
   epoch: 0,
   channel: null,
   inFlight: null,
@@ -89,45 +87,9 @@ const state = globalState[GLOBAL_STATE_KEY] ??= {
   activeStorageLease: null,
 }
 
-function createId() {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID()
-  return `${Date.now()}-${Math.random().toString(36).slice(2)}`
-}
-
-function readSharedAuthSessionId(): string | null {
-  if (typeof localStorage === 'undefined') return null
-  try {
-    const value = localStorage.getItem(AUTH_REFRESH_SESSION_KEY)
-    return value && value.length <= 128 ? value : null
-  } catch {
-    return null
-  }
-}
-
-function getOrCreateSharedAuthSessionId(): string {
-  if (typeof localStorage === 'undefined') return STORAGE_UNAVAILABLE_SESSION_ID
-  const existing = readSharedAuthSessionId()
-  if (existing) return existing
-  const created = createId()
-  try {
-    localStorage.setItem(AUTH_REFRESH_SESSION_KEY, created)
-    return readSharedAuthSessionId() ?? created
-  } catch {
-    // The HttpOnly refresh cookie is still origin-wide, so tabs must coordinate
-    // in one scope even when persistent storage is unavailable.
-    return STORAGE_UNAVAILABLE_SESSION_ID
-  }
-}
-
 /** Rotates the non-secret, cross-tab coordination identity at an auth boundary. */
 export function rotateSharedAuthSessionId(): string {
-  const next = createId()
-  try {
-    localStorage.setItem(AUTH_REFRESH_SESSION_KEY, next)
-  } catch {
-    // Storage can be unavailable; the current tab still cancels its local flight.
-  }
-  return next
+  return rotateProtocolAuthSessionId()
 }
 
 function createRefreshAbortError() {
@@ -180,13 +142,6 @@ function delay(ms: number, signal?: AbortSignal) {
       reject(new DOMException('Authentication refresh was cancelled', 'AbortError'))
     }, { once: true })
   })
-}
-
-function isRefreshMessage(value: unknown): value is RefreshMessage {
-  if (!value || typeof value !== 'object') return false
-  const type = (value as { type?: unknown }).type
-  return type === 'refresh-request' || type === 'refresh-result'
-    || type === 'refresh-error' || type === 'refresh-cancelled'
 }
 
 function notifyPendingResults(message: RefreshMessage) {
@@ -265,7 +220,10 @@ function postStorageSignal(message: RefreshMessage) {
   if (typeof localStorage === 'undefined') return
   try {
     const { accessToken: _accessToken, ...safeMessage } = message
-    localStorage.setItem(AUTH_REFRESH_STORAGE_EVENT_KEY, JSON.stringify({ ...safeMessage, nonce: createId() }))
+    localStorage.setItem(AUTH_REFRESH_STORAGE_EVENT_KEY, JSON.stringify({
+      ...safeMessage,
+      nonce: createAuthRefreshId(),
+    }))
     localStorage.removeItem(AUTH_REFRESH_STORAGE_EVENT_KEY)
   } catch {
     // Cross-tab coordination is best effort when storage is blocked.
@@ -317,68 +275,9 @@ function waitForStorageCompletion(sessionId: string, signal: AbortSignal, timeou
   })
 }
 
-function readLease(): StorageLease | null {
-  try {
-    const value = localStorage.getItem(AUTH_REFRESH_STORAGE_LEASE_KEY)
-    if (!value) return null
-    const lease = JSON.parse(value) as {
-      ownerId?: unknown
-      sessionId?: unknown
-      fence?: unknown
-      expiresAt?: unknown
-    }
-    return typeof lease.ownerId === 'string' && typeof lease.sessionId === 'string'
-      && typeof lease.expiresAt === 'number'
-      && (lease.fence === undefined || typeof lease.fence === 'number')
-      ? { ownerId: lease.ownerId, sessionId: lease.sessionId, fence: lease.fence ?? 0, expiresAt: lease.expiresAt }
-      : null
-  } catch {
-    return null
-  }
-}
-
-function sameStorageLease(left: StorageLease | null, right: StorageLease | null): boolean {
-  return Boolean(left && right
-    && left.ownerId === right.ownerId
-    && left.sessionId === right.sessionId
-    && left.fence === right.fence)
-}
-
-async function acquireStorageLease(sessionId: string, signal: AbortSignal): Promise<StorageLease | null> {
-  if (typeof localStorage === 'undefined') {
-    return { ownerId: state.sourceId, sessionId, fence: 0, expiresAt: Number.POSITIVE_INFINITY }
-  }
-  const existing = readLease()
-  if (existing && existing.sessionId === sessionId
-    && existing.expiresAt > Date.now() && existing.ownerId !== state.sourceId) return null
-  try {
-    const candidate: StorageLease = {
-      ownerId: state.sourceId,
-      sessionId,
-      fence: Math.max(existing?.fence ?? 0, Date.now()) + 1,
-      expiresAt: Date.now() + STORAGE_LEASE_MS,
-    }
-    localStorage.setItem(AUTH_REFRESH_STORAGE_LEASE_KEY, JSON.stringify(candidate))
-    await delay(ELECTION_WINDOW_MS + Math.floor(Math.random() * STORAGE_TAKEOVER_JITTER_MS), signal)
-    const lease = readLease()
-    return sameStorageLease(lease, candidate) ? candidate : null
-  } catch {
-    return { ownerId: state.sourceId, sessionId, fence: 0, expiresAt: Number.POSITIVE_INFINITY }
-  }
-}
-
 function releaseStorageLease(message: RefreshMessage) {
   const activeLease = state.activeStorageLease
-  let didOwnLease = activeLease?.fence === 0
-  try {
-    if (sameStorageLease(readLease(), activeLease)) {
-      didOwnLease = true
-      localStorage.removeItem(AUTH_REFRESH_STORAGE_LEASE_KEY)
-    }
-  } catch {
-    // Ignore blocked storage.
-    didOwnLease = true
-  }
+  const didOwnLease = releaseOwnedStorageLease(activeLease)
   state.activeStorageLease = null
   if (didOwnLease || !activeLease) postStorageSignal(message)
 }
@@ -418,7 +317,7 @@ function waitForPeerResult(
       postChannel({
         type: 'refresh-request',
         sourceId: state.sourceId,
-        requestId: createId(),
+        requestId: createAuthRefreshId(),
         sessionId,
         previousToken,
         at: Date.now(),
@@ -444,7 +343,7 @@ async function coordinateWithBroadcast(
   refresh: (signal: AbortSignal) => Promise<string>,
   signal: AbortSignal,
 ): Promise<string> {
-  const requestId = createId()
+  const requestId = createAuthRefreshId()
   const ownRequest: RefreshMessage = {
     type: 'refresh-request', sourceId: state.sourceId, requestId, sessionId, previousToken, at: Date.now(),
   }
@@ -484,24 +383,15 @@ async function coordinateWithStorage(
   refresh: (signal: AbortSignal) => Promise<string>,
   signal: AbortSignal,
 ) {
-  const lease = await acquireStorageLease(sessionId, signal)
+  const lease = await acquireStorageLease(state.sourceId, sessionId, signal)
   if (lease) {
     state.activeStorageLease = lease
     const leaseController = new AbortController()
     const abortForSessionBoundary = () => leaseController.abort(createRefreshAbortError())
     signal.addEventListener('abort', abortForSessionBoundary, { once: true })
     const heartbeat = lease.fence === 0 ? null : setInterval(() => {
-      try {
-        const current = readLease()
-        if (!sameStorageLease(current, lease)) {
-          leaseController.abort(new StorageLeaseLostError())
-          return
-        }
-        const renewed = { ...lease, expiresAt: Date.now() + STORAGE_LEASE_MS }
-        localStorage.setItem(AUTH_REFRESH_STORAGE_LEASE_KEY, JSON.stringify(renewed))
-        lease.expiresAt = renewed.expiresAt
-      } catch {
-        // A later ownership check fails closed if the lease can no longer be verified.
+      if (!renewStorageLease(lease)) {
+        leaseController.abort(new StorageLeaseLostError())
       }
     }, STORAGE_LEASE_HEARTBEAT_MS)
     try {
@@ -531,11 +421,7 @@ async function coordinateWithStorage(
   }
   if (completed.type === 'refresh-error') throw new Error(completed.message || 'Authentication refresh failed')
   // Tokens remain memory-only. Compete for the next lease and rotate sequentially with the cookie.
-  try {
-    if (readLease()?.ownerId === completed.sourceId) localStorage.removeItem(AUTH_REFRESH_STORAGE_LEASE_KEY)
-  } catch {
-    // Storage may be blocked after the completion event.
-  }
+  releaseStorageLeaseOwnedBy(completed.sourceId)
   return coordinateWithStorage(sessionId, previousToken, refresh, signal)
 }
 
@@ -638,7 +524,7 @@ export function closeAuthRefreshCoordinatorForTest() {
   }
   try {
     localStorage.removeItem(AUTH_REFRESH_STORAGE_EVENT_KEY)
-    localStorage.removeItem(AUTH_REFRESH_STORAGE_LEASE_KEY)
+    clearStorageLeaseForTest()
   } catch {
     // Ignore unavailable storage in non-browser tests.
   }
