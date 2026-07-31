@@ -212,6 +212,13 @@ class PostServiceTest {
                 mock(PostDraftCleanupBatchService.class));
         viewHistoryCommandService = new ViewHistoryCommandService(viewHistoryRepository);
         PostViewCountWriter postViewCountWriter = new PostViewCountWriter(postRepository);
+        PostReactionService postReactionService = new PostReactionService(
+                postRepository,
+                postLikeRepository,
+                eventPublisher,
+                reactionWriter,
+                badgeEvaluationService,
+                anonymousReadCacheInvalidator);
         postDetailReadService = new PostDetailReadService(
                 postRepository,
                 postVersionRepository,
@@ -243,7 +250,7 @@ class PostServiceTest {
                 postDraftCleanupService);
         postInteractionService = new PostInteractionService(
                 postRepository,
-                postLikeRepository,
+                postReactionService,
                 scrapRepository,
                 mock(com.weedrice.whiteboard.domain.post.repository.ScrapFolderRepository.class),
                 viewHistoryRepository,
@@ -252,15 +259,12 @@ class PostServiceTest {
                 postReadContextResolver,
                 agentOwnershipService,
                 userWritableResolver,
-                eventPublisher,
                 postSummaryAssembler,
                 postAccessPolicy,
                 reactionWriter,
                 postViewCountWriter,
                 entityManager,
-                badgeEvaluationService,
-                sanctionService,
-                anonymousReadCacheInvalidator);
+                sanctionService);
         postLatestReadService = new PostLatestReadService(
                 postRepository,
                 userBlockService,

@@ -39,6 +39,7 @@ class PostInteractionScrapFolderTest {
 
     @Mock PostRepository postRepository;
     @Mock PostLikeRepository postLikeRepository;
+    @Mock PostReactionService postReactionService;
     @Mock ScrapRepository scrapRepository;
     @Mock ScrapFolderRepository scrapFolderRepository;
     @Mock ViewHistoryRepository viewHistoryRepository;

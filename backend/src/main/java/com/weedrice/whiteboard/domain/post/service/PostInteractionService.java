@@ -2,13 +2,9 @@ package com.weedrice.whiteboard.domain.post.service;
 
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
 import com.weedrice.whiteboard.domain.agent.service.AgentOwnershipService;
-import com.weedrice.whiteboard.domain.badge.service.BadgeEvaluationService;
 import com.weedrice.whiteboard.domain.board.constant.BoardPolicyConstants;
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
-import com.weedrice.whiteboard.domain.notification.constant.NotificationSourceType;
-import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
-import com.weedrice.whiteboard.domain.notification.dto.NotificationEvent;
 import com.weedrice.whiteboard.domain.post.constant.ScrapConstraints;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.dto.ScrapFolderRequest;
@@ -16,13 +12,10 @@ import com.weedrice.whiteboard.domain.post.dto.ScrapFolderResponse;
 import com.weedrice.whiteboard.domain.post.dto.ScrapListResponse;
 import com.weedrice.whiteboard.domain.post.dto.ViewHistoryRequest;
 import com.weedrice.whiteboard.domain.post.entity.Post;
-import com.weedrice.whiteboard.domain.post.entity.PostLike;
-import com.weedrice.whiteboard.domain.post.entity.PostLikeId;
 import com.weedrice.whiteboard.domain.post.entity.Scrap;
 import com.weedrice.whiteboard.domain.post.entity.ScrapFolder;
 import com.weedrice.whiteboard.domain.post.entity.ScrapId;
 import com.weedrice.whiteboard.domain.post.entity.ViewHistory;
-import com.weedrice.whiteboard.domain.post.repository.PostLikeRepository;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.repository.ScrapRepository;
 import com.weedrice.whiteboard.domain.post.repository.ScrapFolderRepository;
@@ -33,12 +26,10 @@ import com.weedrice.whiteboard.domain.user.service.UserWritableResolver;
 import com.weedrice.whiteboard.global.common.service.ReactionWriter;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.global.common.util.TextInputNormalizer;
-import com.weedrice.whiteboard.global.config.AnonymousReadCacheInvalidator;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -72,7 +63,7 @@ public class PostInteractionService {
             Sort.Order.desc("post_id"));
 
     private final PostRepository postRepository;
-    private final PostLikeRepository postLikeRepository;
+    private final PostReactionService postReactionService;
     private final ScrapRepository scrapRepository;
     private final ScrapFolderRepository scrapFolderRepository;
     private final ViewHistoryRepository viewHistoryRepository;
@@ -81,15 +72,12 @@ public class PostInteractionService {
     private final PostReadContextResolver postReadContextResolver;
     private final AgentOwnershipService agentOwnershipService;
     private final UserWritableResolver userWritableResolver;
-    private final ApplicationEventPublisher eventPublisher;
     private final PostSummaryAssembler postSummaryAssembler;
     private final PostAccessPolicy postAccessPolicy;
     private final ReactionWriter reactionWriter;
     private final PostViewCountWriter postViewCountWriter;
     private final EntityManager entityManager;
-    private final BadgeEvaluationService badgeEvaluationService;
     private final SanctionService sanctionService;
-    private final AnonymousReadCacheInvalidator anonymousReadCacheInvalidator;
 
     @Transactional
     public Post getPostById(@NonNull Long postId, Long userId) {
@@ -118,7 +106,7 @@ public class PostInteractionService {
         if (userId == null) {
             return false;
         }
-        return postLikeRepository.existsById(new PostLikeId(userId, postId));
+        return postReactionService.isLikedBy(userId, postId);
     }
 
     public boolean isPostScrappedByUser(@NonNull Long postId, Long userId) {
@@ -172,7 +160,7 @@ public class PostInteractionService {
         sanctionService.validateNotMuted(user);
         Agent actorAgent = agentOwnershipService.resolveOwnedActiveAgent(userId, actorAgentId);
         Post post = getReadablePostForResolvedUser(postId, user);
-        return likeResolvedPost(user, actorAgent, post);
+        return postReactionService.like(user, actorAgent, post);
     }
 
     @Transactional
@@ -180,32 +168,7 @@ public class PostInteractionService {
         User user = userWritableResolver.resolveForUpdate(userId);
         sanctionService.validateNotMuted(user);
         validateResolvedActorAgent(userId, actorAgent);
-        return likeResolvedPost(user, actorAgent, post);
-    }
-
-    private int likeResolvedPost(User user, Agent actorAgent, Post post) {
-        User postOwner = resolvePostOwner(post);
-        Long postId = post.getPostId();
-
-        PostLike postLike = PostLike.builder()
-                .user(user)
-                .post(post)
-                .build();
-        reactionWriter.insertOrThrowDuplicate(
-                () -> postLikeRepository.saveAndFlush(postLike),
-                ErrorCode.ALREADY_LIKED);
-
-        incrementPostLikeCount(postId);
-        int likeCount = getPostLikeCount(postId);
-
-        NotificationEvent event = NotificationEvent.localized(postOwner, user, actorAgent, NotificationType.LIKE,
-                NotificationSourceType.POST, postId, "notification.post.liked",
-                resolveNotificationActorName(user, actorAgent));
-        eventPublisher.publishEvent(event);
-        badgeEvaluationService.evaluatePopularPostBadges(postOwner.getUserId(), likeCount);
-        anonymousReadCacheInvalidator.evictPostEngagementCachesAfterCommit(post.getBoard().getBoardUrl());
-
-        return likeCount;
+        return postReactionService.like(user, actorAgent, post);
     }
 
     private void validateResolvedActorAgent(Long userId, Agent actorAgent) {
@@ -223,14 +186,7 @@ public class PostInteractionService {
         sanctionService.validateNotMuted(user);
         Post post = getReadablePostForResolvedUser(postId, user);
 
-        int deletedCount = postLikeRepository.deleteByUserIdAndPostId(userId, postId);
-        if (deletedCount == 0) {
-            throw new BusinessException(ErrorCode.NOT_LIKED);
-        }
-
-        decrementPostLikeCount(postId);
-        anonymousReadCacheInvalidator.evictPostEngagementCachesAfterCommit(post.getBoard().getBoardUrl());
-        return getPostLikeCount(postId);
+        return postReactionService.unlike(userId, post);
     }
 
     @Transactional
@@ -486,40 +442,6 @@ public class PostInteractionService {
                 context.viewer(),
                 context.isAuthorBlocked(post),
                 context.activeAdminBoardIds());
-    }
-
-    private int getPostLikeCount(Long postId) {
-        Integer likeCount = postRepository.findLikeCountByPostId(postId);
-        if (likeCount == null) {
-            throw new BusinessException(ErrorCode.POST_NOT_FOUND);
-        }
-        return likeCount;
-    }
-
-    private void incrementPostLikeCount(Long postId) {
-        if (postRepository.incrementLikeCount(postId) == 0) {
-            throw new BusinessException(ErrorCode.POST_NOT_FOUND);
-        }
-    }
-
-    private void decrementPostLikeCount(Long postId) {
-        if (postRepository.decrementLikeCount(postId) == 0) {
-            throw new BusinessException(ErrorCode.POST_NOT_FOUND);
-        }
-    }
-
-    private User resolvePostOwner(Post post) {
-        if (post.getAgent() != null) {
-            return post.getAgent().getUser();
-        }
-        return post.getUser();
-    }
-
-    private String resolveNotificationActorName(User user, Agent actorAgent) {
-        if (actorAgent != null && actorAgent.getName() != null && !actorAgent.getName().isBlank()) {
-            return actorAgent.getName();
-        }
-        return user.getDisplayName();
     }
 
     private record BlockedUserFilter(boolean empty, List<Long> ids) {
