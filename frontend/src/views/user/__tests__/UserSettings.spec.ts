@@ -689,17 +689,17 @@ describe('UserSettings', () => {
     expect(pushNotificationMock.refetch).toHaveBeenCalledOnce()
   })
 
-  it('retries all critical settings queries from the error state', async () => {
+  it('keeps the settings shell available and retries only the failed section', async () => {
     isSettingsError.value = true
     const wrapper = mountUserSettings()
 
-    expect(wrapper.find('[role="alert"]').exists()).toBe(true)
-    expect(wrapper.findComponent({ name: 'PageHeader' }).exists()).toBe(false)
-    await wrapper.get('[role="alert"] button').trigger('click')
+    expect(wrapper.find('#general [role="alert"]').exists()).toBe(true)
+    expect(wrapper.findComponent({ name: 'PageHeader' }).exists()).toBe(true)
+    await wrapper.get('#general [role="alert"] button').trigger('click')
 
     expect(refetchSettings).toHaveBeenCalledOnce()
-    expect(refetchNotifications).toHaveBeenCalledOnce()
-    expect(refetchSessions).toHaveBeenCalledOnce()
+    expect(refetchNotifications).not.toHaveBeenCalled()
+    expect(refetchSessions).not.toHaveBeenCalled()
   })
 
   it('does not revoke the new account sessions after a delayed confirmation', async () => {
