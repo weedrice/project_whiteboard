@@ -73,8 +73,8 @@ class GlobalExceptionHandlerTest {
         request.setRequestURI("/test/uri");
         globalExceptionHandler = new GlobalExceptionHandler(
                 messageSource,
-                clientIpResolverProvider,
-                errorLogServiceProvider);
+                new ValidationErrorCollector(messageSource),
+                new ExceptionErrorLogReporter(clientIpResolverProvider, errorLogServiceProvider));
         lenient().when(clientIpResolverProvider.getIfAvailable()).thenReturn(clientIpResolver);
         lenient().when(errorLogServiceProvider.getIfAvailable()).thenReturn(errorLogService);
         lenient().when(clientIpResolver.resolve(any(HttpServletRequest.class))).thenReturn("127.0.0.1");
