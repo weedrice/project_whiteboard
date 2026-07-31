@@ -5,7 +5,6 @@ import com.weedrice.whiteboard.domain.admin.dto.AdminInquirySummaryResponse;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
-import com.weedrice.whiteboard.domain.feed.dto.FeedPostSummary;
 import com.weedrice.whiteboard.domain.post.dto.DraftListResponse;
 import com.weedrice.whiteboard.domain.post.dto.DraftResponse;
 import com.weedrice.whiteboard.domain.post.dto.PostCreateRequest;
@@ -67,14 +66,6 @@ public class PostService {
         return postListReadService.getPosts(boardUrl, categoryId, keyword, minLikes, currentUserId, pageable);
     }
 
-    public List<PostSummary> getNoticeSummaries(String boardUrl, Long currentUserId) {
-        return postListReadService.getNoticeSummaries(boardUrl, currentUserId);
-    }
-
-    public List<PostSummary> getNoticeSummaries(Long boardId, Long currentUserId, Boolean includeSecret) {
-        return postListReadService.getNoticeSummaries(boardId, currentUserId, includeSecret);
-    }
-
     public List<Post> getNotices(String boardUrl, Long currentUserId) {
         return postListReadService.getNotices(boardUrl, currentUserId);
     }
@@ -111,18 +102,6 @@ public class PostService {
         return postListReadService.getNotices(boardId, currentUserId, includeSecret);
     }
 
-    public Page<PostSummary> getPostsByTag(Long tagId, Long currentUserId, @NonNull Pageable pageable) {
-        return postListReadService.getPostsByTag(tagId, currentUserId, pageable);
-    }
-
-    public Page<PostSummary> getMyPosts(Long userId, @NonNull Pageable pageable) {
-        return postListReadService.getMyPosts(userId, pageable);
-    }
-
-    public Page<PostSummary> getPublicProfilePosts(Long targetUserId, Long viewerUserId, @NonNull Pageable pageable) {
-        return postListReadService.getPublicProfilePosts(targetUserId, viewerUserId, pageable);
-    }
-
     public Page<AdminInquirySummaryResponse> getInquiryPostsForAdmin(@NonNull Pageable pageable) {
         return postListReadService.getInquiryPostsForAdmin(pageable);
     }
@@ -141,14 +120,6 @@ public class PostService {
 
     public List<PostSummary> getPublicLandingLatestPosts(Pageable pageable, Long currentUserId) {
         return postListReadService.getPublicLandingLatestPosts(pageable, currentUserId);
-    }
-
-    public List<FeedPostSummary> getTrendingFeedPosts(Pageable pageable, Long currentUserId, String period) {
-        return postListReadService.getTrendingFeedPosts(pageable, currentUserId, period);
-    }
-
-    public List<FeedPostSummary> getPublicLandingLatestFeedPosts(Pageable pageable, Long currentUserId) {
-        return postListReadService.getPublicLandingLatestFeedPosts(pageable, currentUserId);
     }
 
     @Transactional
@@ -381,10 +352,6 @@ public class PostService {
         return postFacadeReadService.getTagsForPost(postId);
     }
 
-    public Page<PostSummary> getRecentlyViewedPosts(@NonNull Long userId, @NonNull Pageable pageable) {
-        return postInteractionService.getRecentlyViewedPosts(userId, pageable);
-    }
-
     public List<String> getPostImageUrls(@NonNull Long postId) {
         return postFacadeReadService.getPostImageUrls(postId);
     }
@@ -436,14 +403,6 @@ public class PostService {
     public Map<Long, List<PostSummary>> getLatestPostsByBoards(List<Long> boardIds, int limit, Long currentUserId,
             Set<Long> secretVisibleBoardIds) {
         return postListReadService.getLatestPostsByBoards(boardIds, limit, currentUserId, secretVisibleBoardIds);
-    }
-
-    public Map<Long, PostSummary> getPostSummariesByIds(List<Long> postIds, Long currentUserId) {
-        return postFacadeReadService.getPostSummariesByIds(postIds, currentUserId);
-    }
-
-    public Map<Long, PostSummary> getPostSummariesByIds(List<Long> postIds, PostSummaryReadContext readContext) {
-        return postFacadeReadService.getPostSummariesByIds(postIds, readContext);
     }
 
 }

@@ -154,6 +154,8 @@ class PostServiceTest {
     private PostDetailViewCommandService postDetailViewCommandService;
     private PostDraftService postDraftService;
     private PostInteractionService postInteractionService;
+    private PostListReadService postListReadService;
+    private PostFacadeReadService postFacadeReadService;
     private PostLatestReadService postLatestReadService;
     private PostAuthorCommandPolicy postAuthorCommandPolicy;
     private PostCommandService postCommandService;
@@ -263,7 +265,7 @@ class PostServiceTest {
                 postRepository,
                 userBlockService,
                 postSummaryAssembler);
-        PostListReadService postListReadService = new PostListReadService(
+        postListReadService = new PostListReadService(
                 postRepository,
                 boardRepository,
                 userRepository,
@@ -326,7 +328,7 @@ class PostServiceTest {
                 mock(com.weedrice.whiteboard.domain.notification.service.NotificationAccessInvalidationService.class),
                 mentionService,
                 anonymousReadCacheInvalidator);
-        PostFacadeReadService postFacadeReadService = new PostFacadeReadService(
+        postFacadeReadService = new PostFacadeReadService(
                 postRepository,
                 postVersionRepository,
                 tagAssignmentService,
@@ -1130,7 +1132,7 @@ class PostServiceTest {
         when(postRepository.findTrendingPosts(any(LocalDateTime.class), isNull(), any(Pageable.class)))
                 .thenReturn(Collections.emptyList());
 
-        postService.getTrendingFeedPosts(PageRequest.of(2, 1000), null, "24h");
+        postListReadService.getTrendingFeedPosts(PageRequest.of(2, 1000), null, "24h");
 
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
         verify(postRepository).findTrendingPosts(any(LocalDateTime.class), isNull(), pageableCaptor.capture());
@@ -1144,7 +1146,7 @@ class PostServiceTest {
         when(postRepository.findPublicLandingLatestPosts(anyString(), isNull(), any(Pageable.class)))
                 .thenReturn(Collections.emptyList());
 
-        postService.getPublicLandingLatestFeedPosts(PageRequest.of(1, 1000), null);
+        postListReadService.getPublicLandingLatestFeedPosts(PageRequest.of(1, 1000), null);
 
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
         verify(postRepository).findPublicLandingLatestPosts(anyString(), isNull(), pageableCaptor.capture());
@@ -2802,7 +2804,7 @@ class PostServiceTest {
                 .thenReturn(new PageImpl<>(List.of(1L), Pageable.unpaged(), 1));
         when(postRepository.findByPostIdInAndIsDeletedFalseAndIsBlindedFalse(List.of(1L))).thenReturn(List.of(post));
 
-        Page<PostSummary> result = postService.getRecentlyViewedPosts(1L, Pageable.unpaged());
+        Page<PostSummary> result = postInteractionService.getRecentlyViewedPosts(1L, Pageable.unpaged());
 
         assertThat(result.getContent()).hasSize(1);
         assertThat(result.getContent().get(0).getPostId()).isEqualTo(1L);
@@ -2832,7 +2834,7 @@ class PostServiceTest {
                 .thenReturn(new PageImpl<>(List.of(1L), Pageable.unpaged(), 1));
         when(postRepository.findByPostIdInAndIsDeletedFalseAndIsBlindedFalse(List.of(1L))).thenReturn(List.of(post));
 
-        Page<PostSummary> result = postService.getRecentlyViewedPosts(1L, Pageable.unpaged());
+        Page<PostSummary> result = postInteractionService.getRecentlyViewedPosts(1L, Pageable.unpaged());
 
         assertThat(result.getContent()).extracting(PostSummary::getPostId).containsExactly(1L);
         verify(viewHistoryRepository).findVisiblePostIdsByUserIdOrderByModifiedAtDesc(
@@ -2857,7 +2859,7 @@ class PostServiceTest {
                 any(Pageable.class)))
                 .thenAnswer(invocation -> Page.empty(invocation.getArgument(5)));
 
-        Page<PostSummary> result = postService.getRecentlyViewedPosts(
+        Page<PostSummary> result = postInteractionService.getRecentlyViewedPosts(
                 1L,
                 PageRequest.of(2, 1000, Sort.by(Sort.Order.asc("createdAt"))));
 
@@ -2919,7 +2921,7 @@ class PostServiceTest {
         lenient().when(fileService.getFirstImageFileIdsForPosts(anyList()))
                 .thenReturn(Collections.emptyMap());
 
-        postService.getPostsByTag(1L, null, Pageable.unpaged());
+        postListReadService.getPostsByTag(1L, null, Pageable.unpaged());
 
         verify(postRepository).findByTagId(eq(1L), isNull(), any(Pageable.class));
     }
@@ -2930,7 +2932,7 @@ class PostServiceTest {
         when(postRepository.findByTagId(eq(1L), isNull(), any(Pageable.class))).thenReturn(Page.empty());
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
 
-        postService.getPostsByTag(1L, null, Pageable.unpaged());
+        postListReadService.getPostsByTag(1L, null, Pageable.unpaged());
 
         verify(postRepository).findByTagId(eq(1L), isNull(), pageableCaptor.capture());
         assertThat(pageableCaptor.getValue().getSort()).isEqualTo(Sort.by(
@@ -2943,7 +2945,7 @@ class PostServiceTest {
     void getPostsByTag_normalizesNullPageable() {
         when(postRepository.findByTagId(eq(1L), isNull(), any(Pageable.class))).thenReturn(Page.empty());
 
-        postService.getPostsByTag(1L, null, null);
+        postListReadService.getPostsByTag(1L, null, null);
 
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
         verify(postRepository).findByTagId(eq(1L), isNull(), pageableCaptor.capture());
@@ -2960,7 +2962,7 @@ class PostServiceTest {
         when(postRepository.findByTagId(eq(1L), isNull(), any(Pageable.class))).thenReturn(Page.empty());
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
 
-        postService.getPostsByTag(1L, null, PageRequest.of(2, 250, Sort.by("unknown")));
+        postListReadService.getPostsByTag(1L, null, PageRequest.of(2, 250, Sort.by("unknown")));
 
         verify(postRepository).findByTagId(eq(1L), isNull(), pageableCaptor.capture());
         Pageable safePageable = pageableCaptor.getValue();
@@ -2977,7 +2979,10 @@ class PostServiceTest {
         when(postRepository.findByTagId(eq(1L), isNull(), any(Pageable.class))).thenReturn(Page.empty());
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
 
-        postService.getPostsByTag(1L, null, PageRequest.of(0, 10, Sort.by(Sort.Order.desc("likeCount"))));
+        postListReadService.getPostsByTag(
+                1L,
+                null,
+                PageRequest.of(0, 10, Sort.by(Sort.Order.desc("likeCount"))));
 
         verify(postRepository).findByTagId(eq(1L), isNull(), pageableCaptor.capture());
         assertThat(pageableCaptor.getValue().getSort()).isEqualTo(Sort.by(
@@ -2995,7 +3000,7 @@ class PostServiceTest {
         lenient().when(fileService.getFirstImageFileIdsForPosts(anyList()))
                 .thenReturn(Collections.emptyMap());
 
-        postService.getMyPosts(1L, Pageable.unpaged());
+        postListReadService.getMyPosts(1L, Pageable.unpaged());
 
         verify(postRepository).findByUserAndIsDeleted(eq(user), eq(false), pageableCaptor.capture());
         Pageable safePageable = pageableCaptor.getValue();
@@ -3013,7 +3018,9 @@ class PostServiceTest {
         when(postRepository.findByUserAndIsDeleted(eq(user), eq(false), any(Pageable.class))).thenReturn(Page.empty());
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
 
-        postService.getMyPosts(1L, PageRequest.of(2, 250, Sort.by(Sort.Order.asc("commentCount"))));
+        postListReadService.getMyPosts(
+                1L,
+                PageRequest.of(2, 250, Sort.by(Sort.Order.asc("commentCount"))));
 
         verify(postRepository).findByUserAndIsDeleted(eq(user), eq(false), pageableCaptor.capture());
         Pageable safePageable = pageableCaptor.getValue();
@@ -4129,7 +4136,7 @@ class PostServiceTest {
         when(postRepository.findNoticesByBoardId(eq(1L), eq(true), eq(false), isNull(), eq(false), isNull()))
                 .thenReturn(List.of(post));
 
-        List<PostSummary> summaries = postService.getNoticeSummaries("free", null);
+        List<PostSummary> summaries = postListReadService.getNoticeSummaries("free", null);
 
         assertThat(summaries).hasSize(1);
         assertThat(summaries.get(0).getTitle()).isEqualTo("Test Post");
@@ -4141,7 +4148,7 @@ class PostServiceTest {
         when(postRepository.findNoticesByBoardId(eq(1L), eq(true), eq(false), isNull(), eq(false), isNull()))
                 .thenReturn(List.of(post));
 
-        List<PostSummary> summaries = postService.getNoticeSummaries(1L, null, false);
+        List<PostSummary> summaries = postListReadService.getNoticeSummaries(1L, null, false);
 
         assertThat(summaries).hasSize(1);
         assertThat(summaries.get(0).getTitle()).isEqualTo("Test Post");
@@ -4420,7 +4427,9 @@ class PostServiceTest {
                 .thenReturn(List.of(admin));
         stubSummaryInteractions(user);
 
-        Map<Long, PostSummary> summaries = postService.getPostSummariesByIds(List.of(100L, 200L), 1L);
+        Map<Long, PostSummary> summaries = postFacadeReadService.getPostSummariesByIds(
+                List.of(100L, 200L),
+                1L);
 
         assertThat(summaries.keySet()).containsExactly(100L);
         verify(adminRepository).findByUserAndBoard_BoardIdInAndIsActive(user, List.of(10L, 20L), true);
@@ -4446,7 +4455,9 @@ class PostServiceTest {
                 .thenReturn(List.of(adminPost, privatePost));
         stubSummaryInteractions(user);
 
-        Map<Long, PostSummary> summaries = postService.getPostSummariesByIds(List.of(100L, 200L), readContext);
+        Map<Long, PostSummary> summaries = postFacadeReadService.getPostSummariesByIds(
+                List.of(100L, 200L),
+                readContext);
 
         assertThat(summaries.keySet()).containsExactly(100L);
         verify(userRepository, never()).findById(1L);
@@ -4469,7 +4480,7 @@ class PostServiceTest {
         when(adminRepository.findByUserAndBoard_BoardIdInAndIsActive(user, List.of(10L), true))
                 .thenReturn(Collections.emptyList());
 
-        Map<Long, PostSummary> summaries = postService.getPostSummariesByIds(List.of(100L), 1L);
+        Map<Long, PostSummary> summaries = postFacadeReadService.getPostSummariesByIds(List.of(100L), 1L);
 
         assertThat(summaries).isEmpty();
         verify(adminRepository).findByUserAndBoard_BoardIdInAndIsActive(user, List.of(10L), true);
@@ -4490,7 +4501,7 @@ class PostServiceTest {
         when(postRepository.findByPostIdInAndIsDeletedFalse(List.of(100L))).thenReturn(List.of(privatePost));
         stubSummaryInteractions(superAdmin);
 
-        Map<Long, PostSummary> summaries = postService.getPostSummariesByIds(List.of(100L), 3L);
+        Map<Long, PostSummary> summaries = postFacadeReadService.getPostSummariesByIds(List.of(100L), 3L);
 
         assertThat(summaries.keySet()).containsExactly(100L);
         verify(adminRepository, never()).findByUserAndBoard_BoardIdInAndIsActive(
@@ -4510,7 +4521,7 @@ class PostServiceTest {
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(1L)).thenReturn(List.of(2L));
         when(postRepository.findByPostIdInAndIsDeletedFalse(List.of(100L))).thenReturn(List.of(blockedPost));
 
-        Map<Long, PostSummary> summaries = postService.getPostSummariesByIds(List.of(100L), 1L);
+        Map<Long, PostSummary> summaries = postFacadeReadService.getPostSummariesByIds(List.of(100L), 1L);
 
         assertThat(summaries).isEmpty();
         verify(postLikeRepository, never()).findPostIdsByUserIdAndPostIdIn(any(), any());
@@ -4532,7 +4543,7 @@ class PostServiceTest {
         when(postRepository.findByPostIdInAndIsDeletedFalse(List.of(100L))).thenReturn(List.of(publicPost));
         stubSummaryInteractions(user);
 
-        Map<Long, PostSummary> summaries = postService.getPostSummariesByIds(List.of(100L), 1L);
+        Map<Long, PostSummary> summaries = postFacadeReadService.getPostSummariesByIds(List.of(100L), 1L);
 
         assertThat(summaries.keySet()).containsExactly(100L);
         verify(adminRepository, never()).findByUserAndBoard_BoardIdInAndIsActive(
