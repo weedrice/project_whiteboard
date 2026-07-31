@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useQueryClient, type QueryClient } from '@tanstack/vue-query'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -25,21 +25,10 @@ import { usePostDetailUiEffects } from '@/features/board/posts/detail/usePostDet
 import { usePostDetailViewModel } from '@/features/board/posts/detail/usePostDetailViewModel'
 import { usePostContentViewRef } from '@/features/board/posts/detail/usePostContentViewRef'
 import { usePostViewHistory } from '@/features/board/posts/detail/usePostViewHistory'
+import { usePostCommentRealtimeSync } from '@/features/board/posts/detail/usePostCommentRealtimeSync'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
-import { notificationApi } from '@/api/notification'
-import { onCommentStreamEvent } from '@/features/comments/commentStreamEvents'
-import { commentQueryKeys } from '@/features/comments/queries/commentQueryKeys'
-import { sessionQueryKey } from '@/queryAuthScope'
 import { isRestrictedResourceError } from '@/utils/errorHandler'
-import {
-  getNotificationStreamConnection,
-  subscribeNotificationStreamConnection,
-  type NotificationStreamConnection,
-} from '@/features/notifications/stream/notificationStreamConnectionEvents'
-import { recycleNotificationStreamConnection } from '@/features/notifications/stream/notificationStreamController'
-import { isAxiosError } from 'axios'
-import { isCancellationError } from '@/utils/cancellationError'
 import logger from '@/utils/logger'
 
 const route = useRoute()
@@ -73,12 +62,6 @@ const targetCommentId = computed(() => {
   const value = Number(match[1])
   return Number.isSafeInteger(value) && value > 0 ? value : null
 })
-type ActiveCommentTopic = NotificationStreamConnection & { postId: string }
-let activeCommentTopic: ActiveCommentTopic | null = null
-let commentTopicOperation = 0
-const commentTopicAbortControllers = new Set<AbortController>()
-let commentRefreshTimer: ReturnType<typeof setTimeout> | null = null
-const pendingCommentCount = ref(0)
 const {
   data: post,
   isLoading,
@@ -122,6 +105,17 @@ const {
 
 const postContents = computed(() => post.value?.contents ?? '')
 const commentQueryPostId = computed(() => post.value?.postId ?? postId.value)
+const {
+  pendingCommentCount,
+  refreshComments,
+} = usePostCommentRealtimeSync({
+  postId,
+  commentQueryPostId,
+  currentUserId,
+  isAuthenticated,
+  sessionGeneration: computed(() => authStore.sessionGeneration),
+  queryClient,
+})
 const pinPostMutation = usePinPostByManager()
 const unpinPostMutation = useUnpinPostByManager()
 const blindPostMutation = useBlindPostByManager()
@@ -272,111 +266,6 @@ const {
 })
 
 const { assignContentRef } = usePostContentViewRef(contentRef)
-
-function isCurrentCommentConnection(connection: NotificationStreamConnection) {
-  const current = getNotificationStreamConnection()
-  return authStore.isAuthenticated
-    && authStore.sessionGeneration === connection.sessionGeneration
-    && current?.sessionGeneration === connection.sessionGeneration
-    && current.connectionId === connection.connectionId
-}
-
-function isUncertainTopicRegistrationError(error: unknown) {
-  return isCancellationError(error) || !isAxiosError(error) || !error.response
-}
-
-async function syncCommentTopic(connection = getNotificationStreamConnection()) {
-  const operation = ++commentTopicOperation
-  if (!connection) {
-    commentTopicAbortControllers.forEach((pendingController) => pendingController.abort())
-    commentTopicAbortControllers.clear()
-  }
-  const controller = new AbortController()
-  commentTopicAbortControllers.add(controller)
-  const desiredPostId = postId.value
-
-  const previous = activeCommentTopic
-  activeCommentTopic = null
-  if (previous && previous.sessionGeneration === authStore.sessionGeneration) {
-    try {
-      await notificationApi.unsubscribeCommentTopic(previous.postId, previous.connectionId, {
-        signal: controller.signal,
-        skipGlobalErrorHandler: true,
-      })
-    } catch {
-      if (isCurrentCommentConnection(previous)) recycleNotificationStreamConnection()
-    }
-  }
-
-  if (operation !== commentTopicOperation
-    || controller.signal.aborted
-    || !connection
-    || !isCurrentCommentConnection(connection)) {
-    commentTopicAbortControllers.delete(controller)
-    return
-  }
-
-  try {
-    await notificationApi.subscribeCommentTopic(desiredPostId, connection.connectionId, {
-      signal: controller.signal,
-      skipGlobalErrorHandler: true,
-    })
-    if (operation !== commentTopicOperation
-      || controller.signal.aborted
-      || postId.value !== desiredPostId
-      || !isCurrentCommentConnection(connection)) {
-      if (isCurrentCommentConnection(connection)) {
-        void notificationApi.unsubscribeCommentTopic(desiredPostId, connection.connectionId, {
-          skipGlobalErrorHandler: true,
-        }).catch(() => undefined)
-      }
-      return
-    }
-    activeCommentTopic = { ...connection, postId: desiredPostId }
-  } catch (error) {
-    if (isCurrentCommentConnection(connection) && isUncertainTopicRegistrationError(error)) {
-      recycleNotificationStreamConnection()
-    }
-    // SSE comments are an enhancement; the regular comment queries keep working.
-  } finally {
-    commentTopicAbortControllers.delete(controller)
-  }
-}
-
-function clearCommentRefreshTimer() {
-  if (!commentRefreshTimer) return
-  clearTimeout(commentRefreshTimer)
-  commentRefreshTimer = null
-}
-
-function refreshComments(sessionGeneration = authStore.sessionGeneration) {
-  clearCommentRefreshTimer()
-  if (sessionGeneration !== authStore.sessionGeneration) return
-  pendingCommentCount.value = 0
-  void queryClient?.invalidateQueries({
-    queryKey: sessionQueryKey(sessionGeneration, commentQueryKeys.postRoot(commentQueryPostId.value)),
-  })
-}
-
-function scheduleCommentRefresh(sessionGeneration: number) {
-  clearCommentRefreshTimer()
-  commentRefreshTimer = setTimeout(() => {
-    refreshComments(sessionGeneration)
-  }, 2000)
-}
-
-const stopCommentStreamListener = onCommentStreamEvent((event) => {
-  if (event.sessionGeneration !== authStore.sessionGeneration) return
-  if (String(event.postId) !== String(postId.value)) return
-
-  if (event.action === 'UPDATED' || event.action === 'DELETED') {
-    scheduleCommentRefresh(event.sessionGeneration)
-    return
-  }
-
-  if (event.action !== 'CREATED' || event.actorUserId === currentUserId.value) return
-  pendingCommentCount.value += 1
-})
 const canViewHistory = computed(() => isAuthor.value || canManage.value)
 const isVersionHistoryOpen = ref(false)
 const versionQueryEnabled = computed(() => isVersionHistoryOpen.value && canViewHistory.value)
@@ -396,38 +285,6 @@ const { setLastReadCommentId } = usePostViewHistory({
   userId: currentUserId,
 })
 
-const stopCommentConnectionListener = subscribeNotificationStreamConnection((connection) => {
-  void syncCommentTopic(connection)
-})
-
-watch([postId, isAuthenticated], ([_nextPostId, authenticated]) => {
-  pendingCommentCount.value = 0
-  clearCommentRefreshTimer()
-  if (!authenticated) {
-    void syncCommentTopic(null)
-    return
-  }
-
-  void syncCommentTopic()
-}, { immediate: true })
-
-onBeforeUnmount(() => {
-  clearCommentRefreshTimer()
-  stopCommentStreamListener()
-  stopCommentConnectionListener()
-  commentTopicOperation += 1
-  commentTopicAbortControllers.forEach((controller) => controller.abort())
-  commentTopicAbortControllers.clear()
-  const active = activeCommentTopic
-  activeCommentTopic = null
-  if (active && isCurrentCommentConnection(active)) {
-    void notificationApi.unsubscribeCommentTopic(active.postId, active.connectionId, {
-      skipGlobalErrorHandler: true,
-    }).catch(() => {
-      if (isCurrentCommentConnection(active)) recycleNotificationStreamConnection()
-    })
-  }
-})
 </script>
 
 <template>
