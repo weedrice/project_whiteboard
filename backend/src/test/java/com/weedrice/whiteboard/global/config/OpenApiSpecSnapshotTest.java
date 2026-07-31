@@ -127,7 +127,8 @@ class OpenApiSpecSnapshotTest {
         assertThat(actual)
                 .as("OpenAPI 스펙이 스냅샷과 다르다. 의도한 변경이면 %s=true 로 갱신하고 "
                         + "생성 타입(npm run api:generate)도 함께 커밋할 것", UPDATE_FLAG)
-                .isEqualTo(Files.readString(SNAPSHOT, StandardCharsets.UTF_8));
+                .isEqualTo(normalizeLineEndings(
+                        Files.readString(SNAPSHOT, StandardCharsets.UTF_8)));
     }
 
     @Test
@@ -189,7 +190,8 @@ class OpenApiSpecSnapshotTest {
         ObjectMapper mapper = JsonMapper.builder()
                 .enable(SerializationFeature.INDENT_OUTPUT)
                 .build();
-        return mapper.writeValueAsString(sortRecursively(mapper.readTree(body), mapper)) + "\n";
+        return normalizeLineEndings(
+                mapper.writeValueAsString(sortRecursively(mapper.readTree(body), mapper)) + "\n");
     }
 
     /**
@@ -219,5 +221,15 @@ class OpenApiSpecSnapshotTest {
             return copied;
         }
         return node;
+    }
+
+    /**
+     * Git의 {@code core.autocrlf} 설정과 무관하게 스냅샷 내용을 비교한다.
+     *
+     * <p>생성 스펙은 LF로 직렬화하지만 Windows 체크아웃에서는 저장된 파일이 CRLF가 될 수 있다.
+     * 줄바꿈 형식만 다른 경우까지 API 계약 변경으로 취급하지 않는다.
+     */
+    private static String normalizeLineEndings(String value) {
+        return value.replace("\r\n", "\n").replace('\r', '\n');
     }
 }
