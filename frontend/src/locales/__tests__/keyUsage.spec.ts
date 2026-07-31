@@ -33,7 +33,10 @@ const allowedDynamicCallSites: ReadonlyArray<{ file: string; line: RegExp }> = [
   { file: 'views/admin/AdminInquiryPosts.vue', line: /t\(item\.statusLabelKey/ },
   { file: 'components/user/MyPageSummaryCards.vue', line: /\$t\(card\.titleKey/ },
   { file: 'components/user/MyPageNavigation.vue', line: /\$t\((group|item)\.nameKey/ },
-  { file: 'views/user/UserSettings.vue', line: /(?:t\(messageKey|\$t\(pushStatusKey)/ },
+  {
+    file: 'features/user/settings/NotificationSettingsSection.vue',
+    line: /(?:t\(messageKey|\$t\(pushStatusKey)/,
+  },
   { file: 'utils/authRedirect.ts', line: /options\.t\(DELETED_ACCOUNT_MESSAGE_KEY/ },
   { file: 'components/notification/NotificationDropdown.vue', line: /t\(getNotificationPresentation/ },
   { file: 'components/layout/UserDropdown.vue', line: /\$t\(item\.label/ },
