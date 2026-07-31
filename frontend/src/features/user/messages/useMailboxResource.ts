@@ -13,7 +13,8 @@ import { API_ERROR_CODES } from '@/api/errorCodes'
 import { extractErrorResponse } from '@/utils/errorHandler'
 import { markMailboxMessageRead, toMailboxMessageViewModel } from '@/features/user/messages/messageViewModel'
 import logger from '@/utils/logger'
-import { subscribeMessageStreamEvents } from '@/features/user/messages/messageStreamEvents'
+import { useMailboxRequestLifecycle } from '@/features/user/messages/useMailboxRequestLifecycle'
+import { useMailboxRealtimeSync } from '@/features/user/messages/useMailboxRealtimeSync'
 import {
     mergeConversationMessages,
     toConversationPage,
@@ -75,39 +76,15 @@ export function useMailboxResource() {
     })
     /** Block relationship can make detail/read fail; show toast only when user attempts reply. */
     const messageFromBlockedUser = ref(false)
-    let messageDetailRequestId = 0
-    let messageDetailAbortController: AbortController | null = null
-    let conversationRefreshRequestId = 0
-    let conversationRefreshAbortController: AbortController | null = null
-    let conversationPageAbortController: AbortController | null = null
-    let deleteRequestAbortController: AbortController | null = null
-    const markAsReadAbortControllers = new Set<AbortController>()
-    const recentMessageNotificationIds = new Set<number>()
+    const requestLifecycle = useMailboxRequestLifecycle(() => authStore.sessionGeneration)
 
-    function abortMessageDetailRequest() {
-        messageDetailAbortController?.abort()
-        messageDetailAbortController = null
-    }
-
-    function abortMarkAsReadRequests() {
-        markAsReadAbortControllers.forEach((controller) => controller.abort())
-        markAsReadAbortControllers.clear()
-    }
-
-    function abortConversationRefresh() {
-        conversationRefreshRequestId++
-        conversationRefreshAbortController?.abort()
-        conversationRefreshAbortController = null
-    }
-
-    function abortConversationPageRequest() {
-        conversationPageAbortController?.abort()
-        conversationPageAbortController = null
+    function cancelConversationPageRequest() {
+        requestLifecycle.conversationPage.cancel()
         conversationLoadingMore.value = false
     }
 
     function resetConversationPagination() {
-        abortConversationPageRequest()
+        cancelConversationPageRequest()
         conversationNextPage.value = null
         conversationOlderError.value = null
     }
@@ -119,11 +96,6 @@ export function useMailboxResource() {
         )
         conversationNextPage.value = conversationPage.hasNext ? conversationPage.page + 1 : null
         conversationOlderError.value = null
-    }
-
-    function abortDeleteRequest() {
-        deleteRequestAbortController?.abort()
-        deleteRequestAbortController = null
     }
 
     async function refreshMailboxNow() {
@@ -144,9 +116,9 @@ export function useMailboxResource() {
         const shouldRefreshMailbox = mailboxRefreshPending.value
         mailboxRefreshPending.value = false
         pendingConversationMessageCount.value = 0
-        messageDetailRequestId++
-        abortMessageDetailRequest()
-        abortConversationRefresh()
+        requestLifecycle.messageDetail.cancel()
+        requestLifecycle.initialConversation.cancel()
+        requestLifecycle.conversationRefresh.cancel()
         resetConversationPagination()
         selectedMessage.value = null
         selectedConversationMessages.value = []
@@ -164,17 +136,11 @@ export function useMailboxResource() {
         }
     }
 
-    function isStaleMessageDetail(requestId: number, messageId: number) {
-        return requestId !== messageDetailRequestId || selectedMessage.value?.id !== messageId
-    }
-
     function startMessageDetailRequest(msg: MailboxMessageViewModel) {
-        const requestId = ++messageDetailRequestId
-        abortMessageDetailRequest()
-        abortConversationRefresh()
+        requestLifecycle.messageDetail.cancel()
+        requestLifecycle.initialConversation.cancel()
+        requestLifecycle.conversationRefresh.cancel()
         resetConversationPagination()
-        const controller = new AbortController()
-        messageDetailAbortController = controller
         const messageId = msg.id
         messageFromBlockedUser.value = false
         selectedMessage.value = msg
@@ -185,13 +151,17 @@ export function useMailboxResource() {
         conversationError.value = null
         lastConversationPartnerId.value = msg.partnerUserId
         pendingConversationMessageCount.value = 0
-        return { requestId, messageId, controller }
+        return {
+            messageId,
+            detailRequest: requestLifecycle.messageDetail.start(),
+            conversationRequest: requestLifecycle.initialConversation.start(),
+        }
     }
 
-    async function loadMessageDetail(messageId: number, controller: AbortController) {
+    async function loadMessageDetail(messageId: number, signal: AbortSignal) {
         const { data } = await messageApi.getMessage(messageId, {
             skipGlobalErrorHandler: true,
-            signal: controller.signal
+            signal,
         })
         const message = unwrapApiData(data)
         if (data.success && message) {
@@ -200,37 +170,39 @@ export function useMailboxResource() {
         return null
     }
 
-    async function markMessageAsReadIfNeeded(messageId: number, wasUnread: boolean, requestId: number) {
+    async function markMessageAsReadIfNeeded(
+        messageId: number,
+        wasUnread: boolean,
+        isCurrentSelection: () => boolean,
+    ) {
         if (viewType.value === 'sent' || !wasUnread || selectedMessage.value?.sentByMe) {
             return
         }
 
-        const markAsReadController = new AbortController()
-        markAsReadAbortControllers.add(markAsReadController)
+        const request = requestLifecycle.startMarkAsRead()
         try {
             await messageApi.markAsRead(messageId, {
                 skipGlobalErrorHandler: true,
-                signal: markAsReadController.signal
+                signal: request.signal,
             })
+            if (!request.isCurrent()) return
+            await requestMailboxRefresh()
+            if (!request.isCurrent() || !isCurrentSelection()) return
+            if (selectedMessage.value?.id === messageId) {
+                selectedMessage.value = markMailboxMessageRead(selectedMessage.value)
+            }
         } finally {
-            markAsReadAbortControllers.delete(markAsReadController)
-        }
-        await requestMailboxRefresh()
-        if (isStaleMessageDetail(requestId, messageId)) {
-            return
-        }
-        if (selectedMessage.value?.id === messageId) {
-            selectedMessage.value = markMailboxMessageRead(selectedMessage.value)
+            request.finish()
         }
     }
 
     async function handleMessageDetailError(
         error: unknown,
-        requestId: number,
         messageId: number,
-        controller: AbortController
+        signal: AbortSignal,
+        isCurrentSelection: () => boolean,
     ) {
-        if (isStaleMessageDetail(requestId, messageId) || controller.signal.aborted) {
+        if (!isCurrentSelection() || signal.aborted) {
             return
         }
 
@@ -249,52 +221,56 @@ export function useMailboxResource() {
     }
 
     async function openMessage(msg: MailboxMessageViewModel) {
-        const { requestId, messageId, controller } = startMessageDetailRequest(msg)
+        const { messageId, detailRequest, conversationRequest } = startMessageDetailRequest(msg)
+        const isCurrentSelection = () => detailRequest.isCurrent()
+            && selectedMessage.value?.id === messageId
         const detailTask = (async () => {
             try {
-                const detail = await loadMessageDetail(messageId, controller)
-                if (isStaleMessageDetail(requestId, messageId)) return
+                const detail = await loadMessageDetail(messageId, detailRequest.signal)
+                if (!isCurrentSelection()) return
                 if (detail) selectedMessage.value = detail
                 messageDetailError.value = null
                 try {
-                    await markMessageAsReadIfNeeded(messageId, msg.isUnread, requestId)
+                    await markMessageAsReadIfNeeded(messageId, msg.isUnread, isCurrentSelection)
                 } catch (error) {
-                    await handleMessageDetailError(error, requestId, messageId, controller)
+                    await handleMessageDetailError(
+                        error,
+                        messageId,
+                        detailRequest.signal,
+                        isCurrentSelection,
+                    )
                 }
             } catch (error) {
-                await handleMessageDetailError(error, requestId, messageId, controller)
+                await handleMessageDetailError(error, messageId, detailRequest.signal, isCurrentSelection)
             } finally {
-                if (!isStaleMessageDetail(requestId, messageId)) messageDetailLoading.value = false
+                if (detailRequest.finish()) messageDetailLoading.value = false
             }
         })()
         const conversationTask = (async () => {
             try {
-                const conversation = await loadConversationMessages(msg.partnerUserId, controller)
-                if (isStaleMessageDetail(requestId, messageId)) return
+                const conversation = await loadConversationMessages(
+                    msg.partnerUserId,
+                    conversationRequest.signal,
+                )
+                if (!conversationRequest.isCurrent() || selectedMessage.value?.id !== messageId) return
                 applyInitialConversationPage(conversation)
                 conversationError.value = null
             } catch (error) {
-                if (!isStaleMessageDetail(requestId, messageId) && !controller.signal.aborted) {
+                if (conversationRequest.isCurrent()) {
                     logger.error('Failed to load message conversation:', error)
                     conversationError.value = t('user.message.conversationLoadFailed')
                 }
             } finally {
-                if (!isStaleMessageDetail(requestId, messageId)) conversationLoading.value = false
+                if (conversationRequest.finish()) conversationLoading.value = false
             }
         })()
 
-        try {
-            await Promise.all([detailTask, conversationTask])
-        } finally {
-            if (messageDetailAbortController === controller) {
-                messageDetailAbortController = null
-            }
-        }
+        await Promise.all([detailTask, conversationTask])
     }
 
     async function loadConversationMessages(
         partnerId: number,
-        controller: AbortController,
+        signal: AbortSignal,
         page = 0,
     ): Promise<ConversationPage> {
         const { data } = await messageApi.getConversation(partnerId, {
@@ -303,7 +279,7 @@ export function useMailboxResource() {
             sort: 'createdAt,desc',
         }, {
             skipGlobalErrorHandler: true,
-            signal: controller.signal,
+            signal,
         })
         const messagePage = unwrapApiData(data)
         if (data.success && messagePage) {
@@ -317,22 +293,15 @@ export function useMailboxResource() {
         const nextPage = conversationNextPage.value
         if (partnerId == null || nextPage == null || conversationLoadingMore.value) return
 
-        abortConversationPageRequest()
-        const controller = new AbortController()
-        conversationPageAbortController = controller
-        const detailRequestId = messageDetailRequestId
-        const generation = authStore.sessionGeneration
+        const request = requestLifecycle.conversationPage.start()
         conversationLoadingMore.value = true
         conversationOlderError.value = null
 
-        const isCurrent = () => !controller.signal.aborted
-            && conversationPageAbortController === controller
-            && detailRequestId === messageDetailRequestId
-            && generation === authStore.sessionGeneration
+        const isCurrent = () => request.isCurrent()
             && partnerId === lastConversationPartnerId.value
 
         try {
-            const conversationPage = await loadConversationMessages(partnerId, controller, nextPage)
+            const conversationPage = await loadConversationMessages(partnerId, request.signal, nextPage)
             if (!isCurrent()) return
             selectedConversationMessages.value = mergeConversationMessages(
                 conversationPage.messages,
@@ -344,8 +313,7 @@ export function useMailboxResource() {
             logger.error('Failed to load older message conversation:', error)
             conversationOlderError.value = t('user.message.conversationLoadFailed')
         } finally {
-            if (conversationPageAbortController === controller) {
-                conversationPageAbortController = null
+            if (request.finish()) {
                 conversationLoadingMore.value = false
             }
         }
@@ -356,42 +324,30 @@ export function useMailboxResource() {
         if (partnerId == null) return
 
         mailboxRefreshPending.value = true
-        abortConversationRefresh()
-        const requestId = conversationRefreshRequestId
-        const generation = authStore.sessionGeneration
-        const controller = new AbortController()
-        conversationRefreshAbortController = controller
+        const request = requestLifecycle.conversationRefresh.start()
         try {
-            const conversation = await loadConversationMessages(partnerId, controller)
-            if (
-                controller.signal.aborted
-                || requestId !== conversationRefreshRequestId
-                || generation !== authStore.sessionGeneration
-            ) return
+            const conversation = await loadConversationMessages(partnerId, request.signal)
+            if (!request.isCurrent()) return
             selectedConversationMessages.value = mergeConversationMessages(
                 selectedConversationMessages.value,
                 conversation.messages,
             )
         } catch (error) {
-            if (controller.signal.aborted || generation !== authStore.sessionGeneration) return
+            if (!request.isCurrent()) return
             logger.error('Failed to refresh message conversation:', error)
         } finally {
-            if (conversationRefreshAbortController === controller) {
-                conversationRefreshAbortController = null
-            }
-            if (requestId === conversationRefreshRequestId && generation === authStore.sessionGeneration) {
+            if (request.finish()) {
                 replyTarget.value = selectedMessage.value
             }
         }
     }
 
     async function openConversationByPartnerId(partnerId: number) {
-        const requestId = ++messageDetailRequestId
-        abortMessageDetailRequest()
-        abortConversationRefresh()
+        requestLifecycle.messageDetail.cancel()
+        requestLifecycle.initialConversation.cancel()
+        requestLifecycle.conversationRefresh.cancel()
         resetConversationPagination()
-        const controller = new AbortController()
-        messageDetailAbortController = controller
+        const request = requestLifecycle.initialConversation.start()
         messageFromBlockedUser.value = false
         selectedMessage.value = null
         selectedConversationMessages.value = []
@@ -401,73 +357,55 @@ export function useMailboxResource() {
         pendingConversationMessageCount.value = 0
 
         try {
-            const conversation = await loadConversationMessages(partnerId, controller)
-            if (requestId !== messageDetailRequestId || controller.signal.aborted) {
+            const conversation = await loadConversationMessages(partnerId, request.signal)
+            if (!request.isCurrent() || partnerId !== lastConversationPartnerId.value) {
                 return
             }
             applyInitialConversationPage(conversation)
             selectedMessage.value = selectedConversationMessages.value.at(-1) ?? null
         } catch (error) {
-            if (!controller.signal.aborted) {
+            if (request.isCurrent()) {
                 logger.error('Failed to open message conversation:', error)
                 conversationError.value = t('user.message.conversationLoadFailed')
             }
         } finally {
-            if (requestId === messageDetailRequestId) conversationLoading.value = false
-            if (messageDetailAbortController === controller) {
-                messageDetailAbortController = null
-            }
+            if (request.finish()) conversationLoading.value = false
         }
     }
 
-    function handleMessageStreamEvent(notification: { notificationId: number; actor: { userId: number } }) {
-        if (recentMessageNotificationIds.has(notification.notificationId)) return
-        recentMessageNotificationIds.add(notification.notificationId)
-        if (recentMessageNotificationIds.size > 100) {
-            const oldestNotificationId = recentMessageNotificationIds.values().next().value
-            if (oldestNotificationId != null) recentMessageNotificationIds.delete(oldestNotificationId)
-        }
-
-        const partnerId = notification.actor.userId
-        if (selectedMessage.value) {
-            mailboxRefreshPending.value = true
-            if (partnerId > 0 && partnerId === lastConversationPartnerId.value) {
-                pendingConversationMessageCount.value++
-            }
-            return
-        }
-
-        const generation = authStore.sessionGeneration
-        void refreshMailboxNow()
-        if (partnerId <= 0 || partnerId !== lastConversationPartnerId.value) return
-
-        abortConversationRefresh()
-        const requestId = conversationRefreshRequestId
-        const controller = new AbortController()
-        conversationRefreshAbortController = controller
+    function refreshConversationFromStream(partnerId: number) {
+        const request = requestLifecycle.conversationRefresh.start()
         void (async () => {
             try {
-                const conversation = await loadConversationMessages(partnerId, controller)
-                if (
-                    controller.signal.aborted
-                    || requestId !== conversationRefreshRequestId
-                    || generation !== authStore.sessionGeneration
-                    || partnerId !== lastConversationPartnerId.value
-                ) return
+                const conversation = await loadConversationMessages(partnerId, request.signal)
+                if (!request.isCurrent() || partnerId !== lastConversationPartnerId.value) return
                 selectedConversationMessages.value = mergeConversationMessages(
                     selectedConversationMessages.value,
                     conversation.messages,
                 )
             } catch (error) {
-                if (controller.signal.aborted || generation !== authStore.sessionGeneration) return
+                if (!request.isCurrent()) return
                 logger.error('Failed to refresh message conversation from stream:', error)
             } finally {
-                if (conversationRefreshAbortController === controller) {
-                    conversationRefreshAbortController = null
-                }
+                request.finish()
             }
         })()
     }
+
+    const realtimeSync = useMailboxRealtimeSync({
+        isConversationOpen: () => selectedMessage.value !== null,
+        getConversationPartnerId: () => lastConversationPartnerId.value,
+        deferMailboxRefresh: () => {
+            mailboxRefreshPending.value = true
+        },
+        refreshMailbox: () => {
+            void refreshMailboxNow()
+        },
+        refreshConversation: refreshConversationFromStream,
+        incrementPendingConversationMessages: () => {
+            pendingConversationMessageCount.value++
+        },
+    })
 
     function retryMessageDetail() {
         if (selectedMessage.value) void openMessage(selectedMessage.value)
@@ -485,27 +423,23 @@ export function useMailboxResource() {
         const generation = authStore.sessionGeneration
         const isConfirmed = await confirm(t('common.messages.confirmDelete'))
         if (!isConfirmed || generation !== authStore.sessionGeneration) return
-        abortDeleteRequest()
-        const controller = new AbortController()
-        deleteRequestAbortController = controller
+        const request = requestLifecycle.deleteMessages.start()
         try {
             const { data } = await messageApi.deleteMessages([...selectedMessages.value], {
                 skipGlobalErrorHandler: true,
-                signal: controller.signal,
+                signal: request.signal,
             })
-            if (controller.signal.aborted || generation !== authStore.sessionGeneration) return
+            if (!request.isCurrent()) return
             if (data.success) {
                 toastStore.addToast(t('common.messages.deleteSuccess'), 'success')
                 await fetchMessages()
             }
         } catch (error) {
-            if (controller.signal.aborted || generation !== authStore.sessionGeneration) return
+            if (!request.isCurrent()) return
             logger.error('Failed to delete messages:', error)
             toastStore.addToast(t('common.messages.deleteFailed'), 'error')
         } finally {
-            if (deleteRequestAbortController === controller) {
-                deleteRequestAbortController = null
-            }
+            request.finish()
         }
     }
 
@@ -544,12 +478,10 @@ export function useMailboxResource() {
     watch(
         () => authStore.sessionGeneration,
         () => {
-            messageDetailRequestId++
-            abortMessageDetailRequest()
-            abortMarkAsReadRequests()
-            abortConversationRefresh()
-            resetConversationPagination()
-            abortDeleteRequest()
+            requestLifecycle.cancelAll()
+            conversationNextPage.value = null
+            conversationLoadingMore.value = false
+            conversationOlderError.value = null
             resetMailboxState()
             selectedMessage.value = null
             selectedConversationMessages.value = []
@@ -562,7 +494,7 @@ export function useMailboxResource() {
             replyTarget.value = null
             mailboxRefreshPending.value = false
             pendingConversationMessageCount.value = 0
-            recentMessageNotificationIds.clear()
+            realtimeSync.reset()
             cancelPendingReply()
             resetReplyContent()
         },
@@ -572,17 +504,10 @@ export function useMailboxResource() {
         fetchMessages()
     })
 
-    const unsubscribeMessageStream = subscribeMessageStreamEvents(handleMessageStreamEvent)
-
     onUnmounted(() => {
-        messageDetailRequestId++
-        abortMessageDetailRequest()
-        abortMarkAsReadRequests()
-        abortConversationRefresh()
-        abortConversationPageRequest()
-        abortDeleteRequest()
+        requestLifecycle.cancelAll()
         cancelPendingReply()
-        unsubscribeMessageStream()
+        realtimeSync.stop()
     })
 
     return {
