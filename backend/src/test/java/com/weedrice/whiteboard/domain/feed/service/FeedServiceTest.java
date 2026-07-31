@@ -6,7 +6,7 @@ import com.weedrice.whiteboard.domain.feed.entity.UserFeed;
 import com.weedrice.whiteboard.domain.feed.repository.UserFeedRepository;
 import com.weedrice.whiteboard.domain.feed.repository.UserFeedVisibilityCondition;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
-import com.weedrice.whiteboard.domain.post.service.PostService;
+import com.weedrice.whiteboard.domain.post.service.PostFacadeReadService;
 import com.weedrice.whiteboard.domain.post.service.PostSummaryReadContext;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
@@ -56,7 +56,7 @@ class FeedServiceTest {
     private UserRepository userRepository;
 
     @Mock
-    private PostService postService;
+    private PostFacadeReadService postFacadeReadService;
 
     @Mock
     private FeedGenerationService feedGenerationService;
@@ -72,7 +72,7 @@ class FeedServiceTest {
         feedService = new FeedService(
                 userFeedRepository,
                 new UserReadableResolver(userRepository),
-                postService,
+                postFacadeReadService,
                 feedGenerationService,
                 userBlockService,
                 adminRepository);
@@ -100,7 +100,7 @@ class FeedServiceTest {
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(userId)).thenReturn(List.of());
         when(userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(vf(user), pageable)).thenReturn(feedPage);
-        when(postService.getPostSummariesByIds(List.of(101L, 202L), readContext(userId, user)))
+        when(postFacadeReadService.getPostSummariesByIds(List.of(101L, 202L), readContext(userId, user)))
                 .thenReturn(postSummaries);
 
         FeedResponse response = feedService.getUserFeeds(userId, pageable);
@@ -129,7 +129,7 @@ class FeedServiceTest {
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(userId)).thenReturn(List.of());
         when(userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(vf(user), pageable)).thenReturn(feedPage);
-        when(postService.getPostSummariesByIds(List.of(101L, 202L), readContext(userId, user)))
+        when(postFacadeReadService.getPostSummariesByIds(List.of(101L, 202L), readContext(userId, user)))
                 .thenReturn(Map.of(202L, validPost));
 
         FeedResponse response = feedService.getUserFeeds(userId, pageable);
@@ -161,7 +161,7 @@ class FeedServiceTest {
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(userId)).thenReturn(List.of());
         when(userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(vf(user), pageable)).thenReturn(feedPage);
-        when(postService.getPostSummariesByIds(List.of(101L, 202L), readContext(userId, user)))
+        when(postFacadeReadService.getPostSummariesByIds(List.of(101L, 202L), readContext(userId, user)))
                 .thenReturn(Map.of(202L, validPost));
 
         FeedResponse response = feedService.getUserFeeds(userId, pageable);
@@ -212,7 +212,9 @@ class FeedServiceTest {
         when(userBlockService.getBlockedUserIdsEitherDirectionForExistingUser(userId)).thenReturn(List.of(99L));
         when(userFeedRepository.findVisibleByTargetUserOrderByCreatedAtDesc(vf(user, List.of(99L)), pageable))
                 .thenReturn(feedPage);
-        when(postService.getPostSummariesByIds(List.of(101L), readContext(userId, user, List.of(99L), List.of())))
+        when(postFacadeReadService.getPostSummariesByIds(
+                List.of(101L),
+                readContext(userId, user, List.of(99L), List.of())))
                 .thenReturn(Map.of(101L, validPost));
 
         FeedResponse response = feedService.getUserFeeds(userId, pageable);
@@ -252,7 +254,7 @@ class FeedServiceTest {
         assertThat(response.isHasNext()).isFalse();
         assertThat(response.isHasPrevious()).isFalse();
         verify(userFeedRepository, never()).deleteAllInBatch(org.mockito.ArgumentMatchers.anyList());
-        verifyNoInteractions(postService);
+        verifyNoInteractions(postFacadeReadService);
     }
 
     @Test

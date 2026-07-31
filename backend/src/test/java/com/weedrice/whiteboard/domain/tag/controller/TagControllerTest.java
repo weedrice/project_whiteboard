@@ -2,7 +2,7 @@ package com.weedrice.whiteboard.domain.tag.controller;
 
 import tools.jackson.databind.ObjectMapper;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
-import com.weedrice.whiteboard.domain.post.service.PostService;
+import com.weedrice.whiteboard.domain.post.service.PostListReadService;
 import com.weedrice.whiteboard.domain.tag.dto.TagResponse;
 import com.weedrice.whiteboard.domain.tag.model.PublicTagCount;
 import com.weedrice.whiteboard.domain.tag.service.TagService;
@@ -87,7 +87,7 @@ class TagControllerTest {
     private TagSuggestionService tagSuggestionService;
 
     @MockitoBean
-    private PostService postService;
+    private PostListReadService postListReadService;
 
     @MockitoBean
     private com.weedrice.whiteboard.global.security.JwtAuthenticationFilter jwtAuthenticationFilter;
@@ -134,13 +134,13 @@ class TagControllerTest {
                 com.weedrice.whiteboard.domain.tag.entity.Tag.builder().tagName("123").build();
         org.springframework.test.util.ReflectionTestUtils.setField(tag, "tagId", 99L);
         when(tagService.findByName("123")).thenReturn(Optional.of(tag));
-        when(postService.getPostsByTag(eq(99L), isNull(), any()))
+        when(postListReadService.getPostsByTag(eq(99L), isNull(), any()))
                 .thenReturn(Page.empty());
 
         mockMvc.perform(get("/api/v1/tags/123/posts").with(anonymous()))
                 .andExpect(status().isOk());
 
-        verify(postService).getPostsByTag(eq(99L), isNull(), any());
+        verify(postListReadService).getPostsByTag(eq(99L), isNull(), any());
     }
 
     @Test
@@ -187,7 +187,7 @@ class TagControllerTest {
         PostSummary postSummary = PostSummary.builder().build();
         Page<PostSummary> page = new PageImpl<>(List.of(postSummary), pageRequest, 1);
 
-        when(postService.getPostsByTag(eq(tagId), any(), any())).thenReturn(page);
+        when(postListReadService.getPostsByTag(eq(tagId), any(), any())).thenReturn(page);
 
         // when & then
         mockMvc.perform(get("/api/v1/tags/{tagId}/posts", tagId)
@@ -208,7 +208,7 @@ class TagControllerTest {
         PostSummary postSummary = PostSummary.builder().build();
         Page<PostSummary> page = new PageImpl<>(List.of(postSummary), pageRequest, 1);
 
-        when(postService.getPostsByTag(eq(tagId), isNull(), any())).thenReturn(page);
+        when(postListReadService.getPostsByTag(eq(tagId), isNull(), any())).thenReturn(page);
 
         // when & then
         mockMvc.perform(get("/api/v1/tags/{tagId}/posts", tagId)
@@ -227,14 +227,14 @@ class TagControllerTest {
         Page<PostSummary> page = new PageImpl<>(List.of(), PageRequest.of(0, 20), 0);
         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
 
-        when(postService.getPostsByTag(eq(tagId), isNull(), any())).thenReturn(page);
+        when(postListReadService.getPostsByTag(eq(tagId), isNull(), any())).thenReturn(page);
 
         mockMvc.perform(get("/api/v1/tags/{tagId}/posts", tagId)
                         .with(anonymous()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
 
-        verify(postService).getPostsByTag(eq(tagId), isNull(), pageableCaptor.capture());
+        verify(postListReadService).getPostsByTag(eq(tagId), isNull(), pageableCaptor.capture());
         assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(20);
     }
 }

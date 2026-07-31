@@ -8,7 +8,7 @@ import com.weedrice.whiteboard.domain.comment.repository.CommentRepository;
 import com.weedrice.whiteboard.domain.feed.dto.FeedPostSummary;
 import com.weedrice.whiteboard.domain.feed.dto.HomeLandingResponse;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
-import com.weedrice.whiteboard.domain.post.service.PostService;
+import com.weedrice.whiteboard.domain.post.service.PostListReadService;
 import com.weedrice.whiteboard.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
@@ -31,7 +31,7 @@ public class HomeLandingService {
     private static final int LANDING_CURATED_POST_LIMIT = 16;
     private static final int LANDING_LATEST_POST_LIMIT = 6;
 
-    private final PostService postService;
+    private final PostListReadService postListReadService;
     private final BoardService boardService;
     private final PostRepository postRepository;
     private final BoardRepository boardRepository;
@@ -111,11 +111,13 @@ public class HomeLandingService {
     }
 
     private List<FeedPostSummary> getCuratedPosts(Long userId, String period) {
-        return postService.getTrendingFeedPosts(PageRequest.of(0, LANDING_CURATED_POST_LIMIT), userId, period);
+        return postListReadService.getTrendingFeedPosts(PageRequest.of(0, LANDING_CURATED_POST_LIMIT), userId, period);
     }
 
     private List<FeedPostSummary> getLatestPosts(Long userId) {
-        return postService.getPublicLandingLatestFeedPosts(PageRequest.of(0, LANDING_LATEST_POST_LIMIT), userId);
+        return postListReadService.getPublicLandingLatestFeedPosts(
+                PageRequest.of(0, LANDING_LATEST_POST_LIMIT),
+                userId);
     }
 
     private List<BoardListResponse> getBoards(Long userId) {

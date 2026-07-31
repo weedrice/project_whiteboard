@@ -11,7 +11,8 @@ import com.weedrice.whiteboard.domain.board.service.BoardService;
 import com.weedrice.whiteboard.domain.comment.dto.MyCommentResponse;
 import com.weedrice.whiteboard.domain.comment.service.CommentService;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
-import com.weedrice.whiteboard.domain.post.service.PostService;
+import com.weedrice.whiteboard.domain.post.service.PostInteractionService;
+import com.weedrice.whiteboard.domain.post.service.PostListReadService;
 import com.weedrice.whiteboard.domain.notification.service.MentionService;
 import com.weedrice.whiteboard.domain.user.dto.*;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
@@ -50,7 +51,8 @@ public class UserController {
         private final UserBlockService userBlockService;
         private final MentionService mentionService;
         private final BoardService boardService;
-        private final PostService postService;
+        private final PostListReadService postListReadService;
+        private final PostInteractionService postInteractionService;
         private final CommentService commentService;
         private final AgentLifecycleService agentLifecycleService;
         private final UserActionResponseFactory userActionResponseFactory;
@@ -286,7 +288,7 @@ public class UserController {
                         @RequestParam(defaultValue = "20") int size,
                 Sort sort) {
                 Pageable pageable = pageable(page, size, sort);
-                Page<PostSummary> response = postService.getMyPosts(userId, pageable);
+                Page<PostSummary> response = postListReadService.getMyPosts(userId, pageable);
                 return ApiResponses.page(response);
         }
 
@@ -298,7 +300,7 @@ public class UserController {
                         @RequestParam(defaultValue = "20") int size,
                         Sort sort) {
                 Pageable pageable = pageable(page, size, sort);
-                Page<PostSummary> response = postService.getPublicProfilePosts(userId, viewerUserId, pageable);
+                Page<PostSummary> response = postListReadService.getPublicProfilePosts(userId, viewerUserId, pageable);
                 return ApiResponses.page(response);
         }
 
@@ -332,7 +334,7 @@ public class UserController {
                         @RequestParam(defaultValue = "20") int size,
                 Sort sort) {
                 Pageable pageable = pageable(page, size, sort);
-                Page<PostSummary> response = postService.getRecentlyViewedPosts(userId, pageable);
+                Page<PostSummary> response = postInteractionService.getRecentlyViewedPosts(userId, pageable);
                 return ApiResponses.page(response);
         }
 

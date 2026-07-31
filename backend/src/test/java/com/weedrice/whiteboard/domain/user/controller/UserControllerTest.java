@@ -15,7 +15,8 @@ import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.comment.service.CommentService;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.entity.Post;
-import com.weedrice.whiteboard.domain.post.service.PostService;
+import com.weedrice.whiteboard.domain.post.service.PostInteractionService;
+import com.weedrice.whiteboard.domain.post.service.PostListReadService;
 import com.weedrice.whiteboard.domain.user.dto.*;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.entity.UserNotificationSettings;
@@ -76,7 +77,10 @@ class UserControllerTest {
         private BoardService boardService;
 
         @Mock
-        private PostService postService;
+        private PostListReadService postListReadService;
+
+        @Mock
+        private PostInteractionService postInteractionService;
 
         @Mock
         private CommentService commentService;
@@ -291,7 +295,7 @@ class UserControllerTest {
                         PostSummary postSummary = PostSummary.from(post);
                         Page<PostSummary> postPage = new PageImpl<>(List.of(postSummary), pageable, 1);
 
-                        given(postService.getMyPosts(USER_ID, pageable)).willReturn(postPage);
+                        given(postListReadService.getMyPosts(USER_ID, pageable)).willReturn(postPage);
 
                         // when
                         ApiResponse<PageResponse<PostSummary>> response = userController.getMyPosts(USER_ID,
@@ -307,12 +311,12 @@ class UserControllerTest {
                 @DisplayName("내 활동 목록은 요청 정렬을 서비스로 전달하지 않는다")
                 void getMyPosts_passesRequestedSort() {
                         Page<PostSummary> postPage = new PageImpl<>(List.of(), pageable, 0);
-                        given(postService.getMyPosts(eq(USER_ID), any(Pageable.class))).willReturn(postPage);
+                        given(postListReadService.getMyPosts(eq(USER_ID), any(Pageable.class))).willReturn(postPage);
 
                         userController.getMyPosts(USER_ID, 0, 10, Sort.by("displayName"));
 
                         ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
-                        verify(postService).getMyPosts(eq(USER_ID), pageableCaptor.capture());
+                        verify(postListReadService).getMyPosts(eq(USER_ID), pageableCaptor.capture());
                         assertThat(pageableCaptor.getValue().getSort()).isEqualTo(Sort.by("displayName"));
                 }
 
@@ -369,7 +373,8 @@ class UserControllerTest {
 
                         Page<PostSummary> postSummaryPage = new PageImpl<>(List.of(postSummary), pageable, 1);
 
-                        given(postService.getRecentlyViewedPosts(USER_ID, pageable)).willReturn(postSummaryPage);
+                        given(postInteractionService.getRecentlyViewedPosts(USER_ID, pageable))
+                                        .willReturn(postSummaryPage);
 
                         // when
                         ApiResponse<PageResponse<PostSummary>> response = userController

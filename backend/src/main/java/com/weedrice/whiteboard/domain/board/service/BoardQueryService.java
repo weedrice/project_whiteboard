@@ -18,7 +18,7 @@ import com.weedrice.whiteboard.domain.board.repository.BoardRepository.TopBoardP
 import com.weedrice.whiteboard.domain.board.repository.BoardSubscriptionRepository;
 import com.weedrice.whiteboard.domain.board.util.BoardUrlNormalizer;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
-import com.weedrice.whiteboard.domain.post.service.PostService;
+import com.weedrice.whiteboard.domain.post.service.PostListReadService;
 import com.weedrice.whiteboard.global.common.util.PageRequestUtils;
 import com.weedrice.whiteboard.domain.user.entity.Role;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -56,7 +56,7 @@ class BoardQueryService {
     private final UserRepository userRepository;
     private final BoardResponseAssembler boardResponseAssembler;
     private final BoardAccessPolicy boardAccessPolicy;
-    private final PostService postService;
+    private final PostListReadService postListReadService;
     private final BoardVisitService boardVisitService;
 
     BoardQueryService(BoardRepository boardRepository,
@@ -66,7 +66,7 @@ class BoardQueryService {
                       UserRepository userRepository,
                       BoardResponseAssembler boardResponseAssembler,
                       BoardAccessPolicy boardAccessPolicy,
-                      PostService postService,
+                      PostListReadService postListReadService,
                       BoardVisitService boardVisitService) {
         this.boardRepository = boardRepository;
         this.boardCategoryRepository = boardCategoryRepository;
@@ -75,7 +75,7 @@ class BoardQueryService {
         this.userRepository = userRepository;
         this.boardResponseAssembler = boardResponseAssembler;
         this.boardAccessPolicy = boardAccessPolicy;
-        this.postService = postService;
+        this.postListReadService = postListReadService;
         this.boardVisitService = boardVisitService;
     }
 
@@ -170,7 +170,7 @@ class BoardQueryService {
         User currentUser = getCurrentUserByIdOrNull(currentUserId);
         boardAccessPolicy.validateReadable(board, currentUser);
         boolean includeSecret = boardAccessPolicy.canViewSecretPosts(board, currentUser);
-        return postService.getNoticeSummaries(board.getBoardId(), currentUserId, includeSecret);
+        return postListReadService.getNoticeSummaries(board.getBoardId(), currentUserId, includeSecret);
     }
 
     Page<SubscriptionBoardResponse> getMySubscriptions(Long userId, Pageable pageable) {

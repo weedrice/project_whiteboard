@@ -29,7 +29,7 @@ import com.weedrice.whiteboard.domain.post.dto.PostSummary;
 import com.weedrice.whiteboard.domain.post.repository.DraftPostRepository;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.service.PostLatestReadService;
-import com.weedrice.whiteboard.domain.post.service.PostService;
+import com.weedrice.whiteboard.domain.post.service.PostListReadService;
 import com.weedrice.whiteboard.domain.point.service.PointService;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
 import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchEventPublisher;
@@ -105,7 +105,7 @@ class BoardServiceTest {
     @Mock
     private AdminRepository adminRepository;
     @Mock
-    private PostService postService;
+    private PostListReadService postListReadService;
     @Mock
     private PostLatestReadService postLatestReadService;
     @Mock
@@ -169,7 +169,7 @@ class BoardServiceTest {
                 userRepository,
                 boardResponseAssembler,
                 boardAccessPolicy,
-                postService,
+                postListReadService,
                 boardVisitService);
         BoardIconAttachmentService boardIconAttachmentService = new BoardIconAttachmentService(fileService);
         BoardCreationBillingService boardCreationBillingService = new BoardCreationBillingService(
@@ -1887,13 +1887,13 @@ class BoardServiceTest {
                 .build();
 
         when(boardRepository.findByBoardUrl("test-board")).thenReturn(Optional.of(board));
-        when(postService.getNoticeSummaries(1L, null, false)).thenReturn(List.of(noticeSummary));
+        when(postListReadService.getNoticeSummaries(1L, null, false)).thenReturn(List.of(noticeSummary));
 
         List<PostSummary> summaries = boardService.getNoticeSummaries("test-board", null);
 
         assertThat(summaries).hasSize(1);
         assertThat(summaries.get(0).getTitle()).isEqualTo("Notice");
-        verify(postService).getNoticeSummaries(1L, null, false);
+        verify(postListReadService).getNoticeSummaries(1L, null, false);
     }
 
     @Test
@@ -1914,7 +1914,7 @@ class BoardServiceTest {
                 () -> boardService.getNoticeSummaries("private-board", null));
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.BOARD_NOT_FOUND);
-        verify(postService, never()).getNoticeSummaries(anyLong(), any(), anyBoolean());
+        verify(postListReadService, never()).getNoticeSummaries(anyLong(), any(), anyBoolean());
     }
 
     @Test
@@ -1935,7 +1935,7 @@ class BoardServiceTest {
                 () -> boardService.getNoticeSummaries("inactive-board", null));
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.BOARD_NOT_FOUND);
-        verify(postService, never()).getNoticeSummaries(anyLong(), any(), anyBoolean());
+        verify(postListReadService, never()).getNoticeSummaries(anyLong(), any(), anyBoolean());
     }
 
     @Test
@@ -1945,7 +1945,7 @@ class BoardServiceTest {
                 () -> boardService.getNoticeSummaries("inquiry", null));
 
         assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.BOARD_NOT_FOUND);
-        verify(postService, never()).getNoticeSummaries(anyLong(), any(), anyBoolean());
+        verify(postListReadService, never()).getNoticeSummaries(anyLong(), any(), anyBoolean());
     }
 
     @Test

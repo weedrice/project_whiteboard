@@ -1,7 +1,7 @@
 package com.weedrice.whiteboard.domain.tag.controller;
 
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
-import com.weedrice.whiteboard.domain.post.service.PostService;
+import com.weedrice.whiteboard.domain.post.service.PostListReadService;
 import com.weedrice.whiteboard.domain.tag.entity.Tag;
 import com.weedrice.whiteboard.domain.tag.constant.TagConstraints;
 import com.weedrice.whiteboard.domain.tag.dto.TagResponse;
@@ -33,7 +33,7 @@ public class TagController {
 
     private final TagService tagService;
     private final TagSuggestionService tagSuggestionService;
-    private final PostService postService;
+    private final PostListReadService postListReadService;
 
     @GetMapping
     public ApiResponse<TagResponse> getPopularTags() {
@@ -56,11 +56,11 @@ public class TagController {
                 ? tagService.findByName(tagKey).orElse(null)
                 : null;
         if (tag != null) {
-            return ApiResponses.page(postService.getPostsByTag(tag.getTagId(), userId, pageable));
+            return ApiResponses.page(postListReadService.getPostsByTag(tag.getTagId(), userId, pageable));
         }
         if (!tagKey.isEmpty() && tagKey.chars().allMatch(Character::isDigit)) {
             try {
-                return ApiResponses.page(postService.getPostsByTag(Long.parseLong(tagKey), userId, pageable));
+                return ApiResponses.page(postListReadService.getPostsByTag(Long.parseLong(tagKey), userId, pageable));
             } catch (NumberFormatException exception) {
                 throw new BusinessException(ErrorCode.NOT_FOUND);
             }

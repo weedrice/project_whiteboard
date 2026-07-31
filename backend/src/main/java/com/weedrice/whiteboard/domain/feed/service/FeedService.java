@@ -6,7 +6,7 @@ import com.weedrice.whiteboard.domain.feed.entity.UserFeed;
 import com.weedrice.whiteboard.domain.feed.repository.UserFeedRepository;
 import com.weedrice.whiteboard.domain.feed.repository.UserFeedVisibilityCondition;
 import com.weedrice.whiteboard.domain.post.dto.PostSummary;
-import com.weedrice.whiteboard.domain.post.service.PostService;
+import com.weedrice.whiteboard.domain.post.service.PostFacadeReadService;
 import com.weedrice.whiteboard.domain.post.service.PostSummaryReadContext;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.service.UserBlockService;
@@ -36,7 +36,7 @@ public class FeedService {
 
     private final UserFeedRepository userFeedRepository;
     private final UserReadableResolver userReadableResolver;
-    private final PostService postService;
+    private final PostFacadeReadService postFacadeReadService;
     private final FeedGenerationService feedGenerationService;
     private final UserBlockService userBlockService;
     private final AdminRepository adminRepository;
@@ -71,7 +71,7 @@ public class FeedService {
         if (postIds.isEmpty()) {
             return Map.of();
         }
-        return postService.getPostSummariesByIds(postIds, readContext);
+        return postFacadeReadService.getPostSummariesByIds(postIds, readContext);
     }
 
     private UserFeedVisibilityCondition resolveVisibilityCondition(User user, List<Long> blockedUserIds) {
