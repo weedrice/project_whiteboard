@@ -219,6 +219,16 @@ class PostServiceTest {
                 reactionWriter,
                 badgeEvaluationService,
                 anonymousReadCacheInvalidator);
+        PostScrapService postScrapService = new PostScrapService(
+                scrapRepository,
+                mock(com.weedrice.whiteboard.domain.post.repository.ScrapFolderRepository.class),
+                reactionWriter);
+        PostViewHistoryService postViewHistoryService = new PostViewHistoryService(
+                viewHistoryRepository,
+                viewHistoryCommandService,
+                commentRepository,
+                postRepository,
+                postSummaryAssembler);
         postDetailReadService = new PostDetailReadService(
                 postRepository,
                 postVersionRepository,
@@ -251,17 +261,12 @@ class PostServiceTest {
         postInteractionService = new PostInteractionService(
                 postRepository,
                 postReactionService,
-                scrapRepository,
-                mock(com.weedrice.whiteboard.domain.post.repository.ScrapFolderRepository.class),
-                viewHistoryRepository,
-                viewHistoryCommandService,
-                commentRepository,
+                postScrapService,
+                postViewHistoryService,
                 postReadContextResolver,
                 agentOwnershipService,
                 userWritableResolver,
-                postSummaryAssembler,
                 postAccessPolicy,
-                reactionWriter,
                 postViewCountWriter,
                 entityManager,
                 sanctionService);
