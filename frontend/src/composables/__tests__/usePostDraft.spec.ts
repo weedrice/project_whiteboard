@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { defineComponent, h, nextTick, ref, type Ref } from 'vue'
 import { mount } from '@vue/test-utils'
-import { usePostDraft } from '@/features/board/posts/draft/usePostDraft'
+import { isTransientDraftSaveError, usePostDraft } from '@/features/board/posts/draft/usePostDraft'
 import type { DraftRecoverySnapshot } from '@/features/board/posts/draft/usePostDraft'
 import type { PostDraftData } from '@/api/post'
 import { Storage } from '@/utils/storage'
@@ -771,6 +771,79 @@ describe('usePostDraft', () => {
         await vi.advanceTimersByTimeAsync(1500)
 
         expect(mocks.saveDraftMutateAsync).not.toHaveBeenCalled()
+    })
+
+    it('retries a transient save failure with exponential backoff', async () => {
+        const random = vi.spyOn(Math, 'random').mockReturnValue(0.5)
+        mocks.saveDraftMutateAsync.mockRejectedValueOnce({ isAxiosError: true })
+        const { composable } = mountComposable()
+
+        await expect(composable.saveNow()).rejects.toMatchObject({ isAxiosError: true })
+        expect(composable.lastSaveFailed.value).toBe(true)
+        await vi.advanceTimersByTimeAsync(999)
+        expect(mocks.saveDraftMutateAsync).toHaveBeenCalledTimes(1)
+
+        await vi.advanceTimersByTimeAsync(1)
+
+        expect(mocks.saveDraftMutateAsync).toHaveBeenCalledTimes(2)
+        expect(composable.lastSaveFailed.value).toBe(false)
+        random.mockRestore()
+    })
+
+    it('does not retry permanent client errors', async () => {
+        mocks.saveDraftMutateAsync.mockRejectedValueOnce({
+            isAxiosError: true,
+            response: { status: 400 },
+        })
+        const { composable } = mountComposable()
+
+        await expect(composable.saveNow()).rejects.toMatchObject({ response: { status: 400 } })
+        await vi.advanceTimersByTimeAsync(60_000)
+
+        expect(mocks.saveDraftMutateAsync).toHaveBeenCalledTimes(1)
+    })
+
+    it('replaces a pending failure retry with the normal debounce after a new edit', async () => {
+        const random = vi.spyOn(Math, 'random').mockReturnValue(0.5)
+        mocks.saveDraftMutateAsync.mockRejectedValueOnce({ isAxiosError: true })
+        const { composable, payloadRef } = mountComposable()
+        await expect(composable.saveNow()).rejects.toMatchObject({ isAxiosError: true })
+
+        payloadRef.value = { ...payloadRef.value, title: 'New edit after failure' }
+        composable.scheduleAutosave()
+        await vi.advanceTimersByTimeAsync(1000)
+        expect(mocks.saveDraftMutateAsync).toHaveBeenCalledTimes(1)
+
+        await vi.advanceTimersByTimeAsync(500)
+
+        expect(mocks.saveDraftMutateAsync).toHaveBeenCalledTimes(2)
+        expect(mocks.saveDraftMutateAsync).toHaveBeenLastCalledWith(expect.objectContaining({
+            title: 'New edit after failure',
+        }))
+        random.mockRestore()
+    })
+
+    it('caps repeated transient retries', async () => {
+        const random = vi.spyOn(Math, 'random').mockReturnValue(0.5)
+        mocks.saveDraftMutateAsync.mockRejectedValue({
+            isAxiosError: true,
+            response: { status: 503 },
+        })
+        const { composable } = mountComposable()
+
+        await expect(composable.saveNow()).rejects.toMatchObject({ response: { status: 503 } })
+        await vi.advanceTimersByTimeAsync(60_000)
+
+        expect(mocks.saveDraftMutateAsync).toHaveBeenCalledTimes(6)
+        random.mockRestore()
+    })
+
+    it('classifies only network, throttling, and server errors as transient', () => {
+        expect(isTransientDraftSaveError({ isAxiosError: true })).toBe(true)
+        expect(isTransientDraftSaveError({ isAxiosError: true, response: { status: 429 } })).toBe(true)
+        expect(isTransientDraftSaveError({ isAxiosError: true, response: { status: 500 } })).toBe(true)
+        expect(isTransientDraftSaveError({ isAxiosError: true, response: { status: 409 } })).toBe(false)
+        expect(isTransientDraftSaveError(new Error('local storage failed'))).toBe(false)
     })
 
     it('preserves local recovery state when published draft cleanup fails', async () => {

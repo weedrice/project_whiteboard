@@ -51,6 +51,24 @@ interface UsePostDraftOptions {
 }
 
 const AUTOSAVE_DELAY_MS = 1500
+const SAVE_RETRY_BASE_DELAY_MS = 1000
+const SAVE_RETRY_MAX_DELAY_MS = 30_000
+const SAVE_RETRY_MAX_ATTEMPTS = 5
+
+export const isTransientDraftSaveError = (error: unknown) => {
+    if (!isAxiosError(error)) return false
+    const status = error.response?.status
+    return status == null || status === 429 || status >= 500
+}
+
+const getSaveRetryDelay = (attempt: number) => {
+    const exponentialDelay = Math.min(
+        SAVE_RETRY_BASE_DELAY_MS * 2 ** Math.max(0, attempt - 1),
+        SAVE_RETRY_MAX_DELAY_MS,
+    )
+    const jitter = 0.8 + Math.random() * 0.4
+    return Math.min(Math.round(exponentialDelay * jitter), SAVE_RETRY_MAX_DELAY_MS)
+}
 
 export function usePostDraft(options: UsePostDraftOptions) {
     let requestController: AbortController | null = null
@@ -79,6 +97,8 @@ export function usePostDraft(options: UsePostDraftOptions) {
     const restoreSource = ref<'idle' | 'local' | 'server'>('idle')
     const hasRestoredDraft = ref(false)
     let autosaveTimer: ReturnType<typeof setTimeout> | null = null
+    let saveRetryTimer: ReturnType<typeof setTimeout> | null = null
+    let saveRetryAttempt = 0
     let savePromise: Promise<DraftPost | null> | null = null
     let saveQueued = false
     let localRevision = 0
@@ -133,12 +153,21 @@ export function usePostDraft(options: UsePostDraftOptions) {
         return storeLocalSnapshot(snapshot)
     }
 
+    const clearSaveRetry = (resetAttempt = true) => {
+        if (saveRetryTimer) {
+            clearTimeout(saveRetryTimer)
+            saveRetryTimer = null
+        }
+        if (resetAttempt) saveRetryAttempt = 0
+    }
+
     const transitionToDeletedDraft = () => {
         const deletedDraftId = draftId.value
         if (deletedDraftId != null && options.ownerId?.value != null) {
             markDraftDeletedLocally(options.ownerId.value, deletedDraftId)
         }
         clearAutosaveTimer()
+        clearSaveRetry()
         resetDraftTracking()
         draftDeleted.value = true
         draftConflict.value = false
@@ -206,6 +235,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
                 lastSaveScope.value = null
             }
             lastSaveFailed.value = false
+            clearSaveRetry()
             persistedRevision = localRevision
             options.onSaved?.()
             return null
@@ -229,6 +259,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
             storeLocalSnapshot(createDraftRecoverySnapshot(options.buildPayload(), savedDraft.draftId, updatedAt.value))
         }
         lastSaveFailed.value = false
+        clearSaveRetry()
         return savedDraft
     }
 
@@ -256,6 +287,11 @@ export function usePostDraft(options: UsePostDraftOptions) {
                 lastSaveFailed.value = !draftConflict.value && !draftProtected.value && !draftDeleted.value
                 if (draftConflict.value) clearAutosaveTimer()
                 if (draftProtected.value) clearAutosaveTimer()
+                if (lastSaveFailed.value && isTransientDraftSaveError(error)) {
+                    scheduleTransientSaveRetry()
+                } else {
+                    clearSaveRetry()
+                }
             }
             throw error
         })
@@ -268,8 +304,26 @@ export function usePostDraft(options: UsePostDraftOptions) {
         return trackedSave
     }
 
+    function scheduleTransientSaveRetry() {
+        if (saveRetryTimer
+            || saveRetryAttempt >= SAVE_RETRY_MAX_ATTEMPTS
+            || !options.enabled.value
+            || draftConflict.value
+            || draftProtected.value
+            || draftDeleted.value
+            || options.canPersist?.() === false) return
+        saveRetryAttempt++
+        saveRetryTimer = setTimeout(() => {
+            saveRetryTimer = null
+            void saveNow().catch((error: unknown) => {
+                logger.error('Failed to retry draft autosave:', error)
+            })
+        }, getSaveRetryDelay(saveRetryAttempt))
+    }
+
     const scheduleAutosave = () => {
         if (!options.enabled.value || draftConflict.value || draftProtected.value || draftDeleted.value || options.canPersist?.() === false) return
+        clearSaveRetry()
         clearAutosaveTimer()
         autosaveTimer = setTimeout(() => {
             void saveNow().catch((error: unknown) => {
@@ -442,6 +496,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
     const clearRecovery = () => {
         invalidatePendingSaves()
         clearAutosaveTimer()
+        clearSaveRetry()
         Storage.remove(options.storageKey.value)
         lastSaveScope.value = null
         draftDeleted.value = false
@@ -452,6 +507,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
     const resetSession = () => {
         invalidatePendingSaves()
         clearAutosaveTimer()
+        clearSaveRetry()
         lastSaveScope.value = null
         lastSaveFailed.value = false
         lastLocalSaveFailed.value = false
@@ -468,6 +524,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
     watch(options.enabled, (enabled) => {
         if (!enabled) {
             clearAutosaveTimer()
+            clearSaveRetry()
         }
     })
 
@@ -480,6 +537,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
             return
         }
         if (lastSaveFailed.value) {
+            clearSaveRetry()
             void saveNow().catch((error: unknown) => {
                 logger.error('Failed to retry draft autosave:', error)
             })
@@ -561,6 +619,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
 
     const cleanupDraft = async () => {
         clearAutosaveTimer()
+        clearSaveRetry()
         const currentDraftId = draftId.value
         if (currentDraftId == null) {
             clearRecovery()
@@ -581,6 +640,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
 
     onUnmounted(() => {
         clearAutosaveTimer()
+        clearSaveRetry()
         invalidatePendingSaves()
         if (typeof window !== 'undefined') {
             window.removeEventListener('online', handleOnline)
