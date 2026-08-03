@@ -56,14 +56,26 @@ export type MockApiState = {
   refreshCount: number
   homeCount: number
   writes: Array<{ method: string, url: string, payload: unknown }>
+  draft: Record<string, unknown> | null
+  draftSaveCount: number
+  draftGetCount: number
+  draftGetDelayMs?: number
+  dropNextDraftSaveResponse?: boolean
 }
 
-export async function installMockApi(page: Page, overrides: Partial<MockApiState> = {}) {
-  const state: MockApiState = {
+export async function installMockApi(
+  page: Page,
+  overrides: Partial<MockApiState> = {},
+  sharedState?: MockApiState,
+) {
+  const state: MockApiState = sharedState ?? {
     authenticated: false,
     refreshCount: 0,
     homeCount: 0,
     writes: [],
+    draft: null,
+    draftSaveCount: 0,
+    draftGetCount: 0,
     ...overrides,
   }
 
@@ -89,6 +101,67 @@ export async function installMockApi(page: Page, overrides: Partial<MockApiState
     }
     if (path === '/users/me') {
       return state.authenticated ? json(route, apiResponse(mockUser)) : json(route, {}, 401)
+    }
+    if (path === '/users/me/drafts' && method === 'GET') {
+      const content = state.draft ? [{
+        draftId: state.draft.draftId,
+        boardId: state.draft.boardId,
+        boardUrl: state.draft.boardUrl,
+        boardName: state.draft.boardName,
+        originalPostId: state.draft.originalPostId ?? null,
+        updatedAt: state.draft.updatedAt,
+      }] : []
+      return json(route, apiResponse({
+        content,
+        page: 0,
+        size: 50,
+        totalElements: content.length,
+        totalPages: content.length ? 1 : 0,
+        hasNext: false,
+        hasPrevious: false,
+      }))
+    }
+    if (/^\/drafts\/\d+$/.test(path) && method === 'GET') {
+      state.draftGetCount += 1
+      if (state.draftGetDelayMs) {
+        await new Promise((resolve) => setTimeout(resolve, state.draftGetDelayMs))
+      }
+      return state.draft
+        ? json(route, apiResponse(state.draft))
+        : json(route, { success: false, data: null, error: { code: 'C004', message: 'Not found' } }, 404)
+    }
+    if (path === '/drafts' && method === 'POST') {
+      const payload = request.postDataJSON() as Record<string, unknown>
+      state.draftSaveCount += 1
+      state.writes.push({ method, url: path, payload })
+      const previousVersion = typeof state.draft?.version === 'number' ? state.draft.version : -1
+      state.draft = {
+        ...state.draft,
+        ...payload,
+        draftId: 91,
+        clientDraftKey: payload.clientDraftKey ?? state.draft?.clientDraftKey,
+        version: previousVersion + 1,
+        boardId: 1,
+        boardUrl: 'general',
+        boardName: 'General',
+        tags: payload.tags ?? [],
+        fileIds: payload.fileIds ?? [],
+        isNotice: payload.isNotice ?? false,
+        isNsfw: payload.isNsfw ?? false,
+        isSpoiler: payload.isSpoiler ?? false,
+        isSecret: payload.isSecret ?? false,
+        updatedAt: `2026-07-15T00:00:0${state.draftSaveCount}`,
+        modifiedAt: `2026-07-15T00:00:0${state.draftSaveCount}`,
+      }
+      if (state.dropNextDraftSaveResponse) {
+        state.dropNextDraftSaveResponse = false
+        return route.abort('failed')
+      }
+      return json(route, apiResponse(state.draft))
+    }
+    if (/^\/drafts\/\d+$/.test(path) && method === 'DELETE') {
+      state.draft = null
+      return json(route, apiResponse(null))
     }
     if (path === '/home/landing') {
       state.homeCount += 1

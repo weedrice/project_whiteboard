@@ -1,4 +1,4 @@
-import { computed, ref, watch, type ComputedRef, type Ref } from 'vue'
+import { computed, nextTick, ref, watch, type ComputedRef, type Ref } from 'vue'
 import { usePostDraft } from '@/features/board/posts/draft/usePostDraft'
 import type { PostComposerSnapshot } from '@/features/board/posts/form/usePostComposerState'
 import type { PostFormFileIdScope } from '@/utils/postForm'
@@ -127,12 +127,15 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
       }
       if (hasRestoredDraft.value) return
       const restoringIdentity = identity
-      hasRestoredDraft.value = true
 
       if (options.mode() === 'create' && !options.selectedCategoryId.value && options.firstCategoryId.value != null) {
         options.selectedCategoryId.value = options.firstCategoryId.value
+        // 기본 카테고리 초기화는 사용자 편집이 아니다. 해당 변경 감시를 먼저 소진해야
+        // 복구 중 실제 입력만 로컬 수정으로 기록되고 멀티탭 자동 동기화를 막지 않는다.
+        await nextTick()
       }
 
+      hasRestoredDraft.value = true
       await restoreDraft()
       if (restoringIdentity !== draftIdentity.value) return
       const restoredDraftSource = restoreSource.value

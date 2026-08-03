@@ -1138,6 +1138,35 @@ describe('usePostDraft', () => {
         expect(composable.restoreFailed.value).toBe(false)
     })
 
+    it('adopts a canonical server save from another tab when this tab has no unsaved edits', async () => {
+        const { composable, appliedDrafts } = mountComposable()
+
+        window.dispatchEvent(new StorageEvent('storage', {
+            key: 'noviis:test:draft',
+            newValue: JSON.stringify({
+                draftId: 91,
+                clientDraftKey: 'other-tab-draft-key',
+                version: 3,
+                boardUrl: 'free',
+                title: 'Other tab edit',
+                contents: 'Other tab body',
+                fileIds: [],
+                updatedAt: '2026-07-07T13:00:00.000Z',
+                clientInstanceId: 'other-tab',
+                hasLocalChanges: false,
+            }),
+        }))
+
+        expect(appliedDrafts[0]).toEqual(expect.objectContaining({
+            draftId: 91,
+            title: 'Other tab edit',
+        }))
+        expect(composable.draftId.value).toBe(91)
+        expect(composable.draftVersion.value).toBe(3)
+        expect(composable.updatedAt.value).toBe('2026-07-07T13:00:00.000Z')
+        expect(composable.draftConflict.value).toBe(false)
+    })
+
     it('stops autosave when another tab advances the same draft', async () => {
         const { composable, payloadRef } = mountComposable()
         await composable.saveNow()

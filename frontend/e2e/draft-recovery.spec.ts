@@ -1,0 +1,126 @@
+import { expect, test, type Page } from '@playwright/test'
+import { installMockApi, login, type MockApiState } from './fixtures/mockApi'
+
+const editor = (page: Page) => page.locator('.ProseMirror').first()
+
+async function openComposer(page: Page) {
+  await page.goto('/board/general/write')
+  await expect(page.locator('#title')).toBeVisible()
+  await expect(page.getByText('자동 임시 저장이 준비되었습니다.', { exact: true }).first()).toBeVisible()
+}
+
+function serverDraft(overrides: Record<string, unknown> = {}) {
+  return {
+    draftId: 91,
+    clientDraftKey: 'existing-client-draft-key',
+    version: 0,
+    boardId: 1,
+    boardUrl: 'general',
+    boardName: 'General',
+    originalPostId: null,
+    title: 'Server title',
+    contents: '<p>Server body</p>',
+    tags: [],
+    fileIds: [],
+    isNotice: false,
+    isNsfw: false,
+    isSpoiler: false,
+    isSecret: false,
+    updatedAt: '2026-07-15T00:00:00Z',
+    modifiedAt: '2026-07-15T00:00:00Z',
+    ...overrides,
+  }
+}
+
+test('body-only content is autosaved to the server', async ({ page }) => {
+  const state = await installMockApi(page)
+  await login(page)
+  await openComposer(page)
+
+  await editor(page).fill('Body only draft')
+
+  await expect.poll(() => state.draftSaveCount).toBe(1)
+  expect(state.writes[0]?.payload).toMatchObject({
+    title: '',
+    clientDraftKey: expect.any(String),
+  })
+  expect((state.writes[0]?.payload as { contents?: string }).contents).toContain('Body only draft')
+})
+
+test('an edit made during slow recovery is preserved and reported as a conflict', async ({ page }) => {
+  const state = await installMockApi(page, {
+    draft: serverDraft(),
+    draftGetDelayMs: 1_500,
+  })
+  await login(page)
+
+  await page.goto('/board/general/write')
+  await expect.poll(() => state.draftGetCount).toBe(1)
+  await page.locator('#title').fill('Typed while restoring')
+
+  await expect(page.locator('#title')).toHaveValue('Typed while restoring')
+  await expect(page.getByText(/로컬 초안과 서버 초안/).first()).toBeVisible()
+})
+
+test('a failed offline autosave retries automatically when connectivity returns', async ({ page }) => {
+  const state = await installMockApi(page)
+  await login(page)
+  await openComposer(page)
+  state.dropNextDraftSaveResponse = true
+
+  await page.locator('#title').fill('Offline edit')
+  await expect.poll(() => state.draftSaveCount).toBe(1)
+  await expect(page.getByText(/자동 임시 저장에 실패했습니다/).first()).toBeVisible()
+
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => false })
+    window.dispatchEvent(new Event('offline'))
+    Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => true })
+    window.dispatchEvent(new Event('online'))
+  })
+  await expect.poll(() => state.draftSaveCount).toBe(2)
+  await expect(page.getByText(/에 저장됨$/).first()).toBeVisible()
+})
+
+test('retry after a dropped response reuses the client key and one logical draft', async ({ page }) => {
+  const state = await installMockApi(page)
+  await login(page)
+  await openComposer(page)
+  state.dropNextDraftSaveResponse = true
+
+  await page.locator('#title').fill('Retry-safe draft')
+  await expect.poll(() => state.draftSaveCount).toBe(1)
+  await expect(page.getByText(/자동 임시 저장에 실패했습니다/).first()).toBeVisible()
+
+  await page.evaluate(() => window.dispatchEvent(new Event('online')))
+  await expect.poll(() => state.draftSaveCount).toBe(2)
+
+  const saves = state.writes.filter((write) => write.url === '/drafts')
+  expect(saves).toHaveLength(2)
+  expect((saves[0]?.payload as { clientDraftKey?: string }).clientDraftKey).toBe(
+    (saves[1]?.payload as { clientDraftKey?: string }).clientDraftKey,
+  )
+  expect(state.draft?.draftId).toBe(91)
+})
+
+test('tabs synchronize clean saves but preserve a local edit when the other tab advances', async ({ page, context }) => {
+  const state = await installMockApi(page)
+  await login(page)
+  await openComposer(page)
+
+  const secondPage = await context.newPage()
+  await installMockApi(secondPage, {}, state as MockApiState)
+  await openComposer(secondPage)
+
+  await page.locator('#title').fill('Saved in first tab')
+  await expect.poll(() => state.draftSaveCount).toBe(1)
+  await expect(secondPage.locator('#title')).toHaveValue('Saved in first tab')
+
+  await page.locator('#title').fill('Unsaved first-tab edit')
+  await secondPage.locator('#title').fill('Saved in second tab')
+  await secondPage.getByRole('button', { name: '임시 저장', exact: true }).first().click()
+
+  await expect.poll(() => state.draftSaveCount).toBe(2)
+  await expect(page.locator('#title')).toHaveValue('Unsaved first-tab edit')
+  await expect(page.getByText(/로컬 초안과 서버 초안/).first()).toBeVisible()
+})

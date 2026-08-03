@@ -77,6 +77,8 @@ export function usePostDraft(options: UsePostDraftOptions) {
     let savePromise: Promise<DraftPost | null> | null = null
     let saveQueued = false
     let localRevision = 0
+    let persistedRevision = 0
+    let suppressNextLocalWrite = false
     let sessionGeneration = 0
     const createClientKey = () => typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
         ? crypto.randomUUID()
@@ -106,6 +108,8 @@ export function usePostDraft(options: UsePostDraftOptions) {
         savePromise = null
         saveQueued = false
         localRevision = 0
+        persistedRevision = 0
+        suppressNextLocalWrite = false
     }
 
     const storeLocalSnapshot = (snapshot: DraftRecoverySnapshot) => {
@@ -121,6 +125,10 @@ export function usePostDraft(options: UsePostDraftOptions) {
 
     const writeLocalSnapshot = () => {
         if (!options.enabled.value) return
+        if (suppressNextLocalWrite) {
+            suppressNextLocalWrite = false
+            return true
+        }
         localRevision++
         const snapshot = createDraftRecoverySnapshot(options.buildPayload(), draftId.value, updatedAt.value)
         return storeLocalSnapshot(snapshot)
@@ -185,6 +193,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
                 lastSaveScope.value = null
             }
             lastSaveFailed.value = false
+            persistedRevision = localRevision
             options.onSaved?.()
             return null
         }
@@ -200,6 +209,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         lastSavedAt.value = updatedAt.value
         lastSaveScope.value = 'server'
         if (revision === localRevision) {
+            persistedRevision = revision
             storeLocalSnapshot(createStoredSavedDraftSnapshot(payload, savedDraft, updatedAt.value))
             options.onSaved?.()
         } else {
@@ -462,8 +472,25 @@ export function usePostDraft(options: UsePostDraftOptions) {
             if (!incoming.clientInstanceId || incoming.clientInstanceId === clientInstanceId) return
             const sameDraft = incoming.draftId != null && incoming.draftId === draftId.value
             const serverAdvanced = sameDraft
-                && getDraftUpdatedAt(incoming as DraftPost) !== updatedAt.value
-            if (localRevision > 0 && (incoming.hasLocalChanges || serverAdvanced)) {
+                && (incoming.updatedAt ?? incoming.modifiedAt ?? null) !== updatedAt.value
+            const matchingComposer = isMatchingLoadedDraft(incoming as DraftPost, options.buildPayload())
+            const hasUnsavedLocalChanges = localRevision !== persistedRevision
+            if (!hasUnsavedLocalChanges
+                && incoming.hasLocalChanges === false
+                && matchingComposer
+                && incoming.draftId != null) {
+                draftId.value = incoming.draftId
+                draftVersion.value = incoming.version ?? null
+                clientDraftKey.value = incoming.clientDraftKey ?? clientDraftKey.value
+                updatedAt.value = incoming.updatedAt ?? incoming.modifiedAt ?? null
+                lastSavedAt.value = updatedAt.value
+                lastSaveScope.value = 'server'
+                suppressNextLocalWrite = true
+                options.applyDraft(incoming)
+                options.onSaved?.()
+                return
+            }
+            if (hasUnsavedLocalChanges && (incoming.hasLocalChanges || serverAdvanced)) {
                 draftConflict.value = true
                 clearAutosaveTimer()
             }
