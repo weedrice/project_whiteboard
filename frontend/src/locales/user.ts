@@ -114,6 +114,8 @@ export const user: UserMessages = {
     deleteConfirm: '이 임시저장 글을 삭제할까요?',
     deleted: '임시저장 글을 삭제했습니다.',
     deleteFailed: '임시저장 글 삭제에 실패했습니다.',
+    retentionNotice: '서버 임시저장 글은 마지막 수정 후 {days}일 동안 최대 {max}개까지 보관됩니다. 명시적으로 로그아웃하면 이 브라우저의 로컬 복구본도 삭제됩니다.',
+    expiresAt: '{date} 만료 예정',
     scheduledTitle: '예약글',
     scheduledEmpty: '예약된 글이 없습니다.',
     cancelScheduledConfirm: '이 예약글을 취소할까요?',

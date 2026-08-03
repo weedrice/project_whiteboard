@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Storage } from '@/utils/storage'
 import {
   cleanupExpiredDraftSnapshots,
+  clearStoredDraftSnapshotsForUser,
   enforceDraftSnapshotBudget,
   loadStoredDraftSnapshot,
   MAX_LOCAL_DRAFT_SNAPSHOTS,
@@ -11,6 +12,7 @@ import {
 import {
   isDraftDeletedLocally,
   markDraftDeletedLocally,
+  clearDraftTombstonesForUser,
 } from '@/features/board/posts/draft/postDraftTombstone'
 
 describe('draft browser lifecycle', () => {
@@ -62,6 +64,21 @@ describe('draft browser lifecycle', () => {
     expect(Storage.get('noviis:draft-deleted:1:91')).toEqual({
       deletedAt: '2026-08-03T00:00:00.000Z',
     })
+  })
+
+  it('clears only the explicitly logged-out user draft state', () => {
+    Storage.set('noviis:draft:1:create:free:new', { title: 'user one' })
+    Storage.set('noviis:draft:2:create:free:new', { title: 'user two' })
+    markDraftDeletedLocally(1, 91)
+    markDraftDeletedLocally(2, 92)
+
+    expect(clearStoredDraftSnapshotsForUser(1)).toBe(1)
+    expect(clearDraftTombstonesForUser(1)).toBe(1)
+
+    expect(Storage.has('noviis:draft:1:create:free:new')).toBe(false)
+    expect(Storage.has('noviis:draft-deleted:1:91')).toBe(false)
+    expect(Storage.has('noviis:draft:2:create:free:new')).toBe(true)
+    expect(Storage.has('noviis:draft-deleted:2:92')).toBe(true)
   })
 
   it('moves a matching legacy snapshot into a draft-specific storage key', () => {

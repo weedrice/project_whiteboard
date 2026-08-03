@@ -22,6 +22,8 @@ import { applyStandaloneDisplayModeClass } from '@/pwaDisplayMode'
 import { clearAuthScopedQueries, configureAuthQueryScope, notifyAuthSessionBoundary } from '@/queryAuthScope'
 import { resetNotificationStreamSessionState } from '@/features/notifications/stream/notificationStreamController'
 import { clearUserTimeZone } from '@/utils/displayTimeZone'
+import { clearStoredDraftSnapshotsForUser } from '@/features/board/posts/draft/postDraftLifecycle'
+import { clearDraftTombstonesForUser } from '@/features/board/posts/draft/postDraftTombstone'
 
 validateEnv()
 applyStandaloneDisplayModeClass()
@@ -58,6 +60,11 @@ configureAuthSessionEffects({
         // 사용자의 부트스트랩·토큰 갱신에도 발생하므로, 거기에 걸면 새로고침마다
         // 지워진 뒤 설정 응답이 오기 전까지 브라우저 지역으로 그려진다.
         clearUserTimeZone()
+    },
+    onExplicitLogout: (userId) => {
+        if (userId == null) return
+        clearStoredDraftSnapshotsForUser(userId)
+        clearDraftTombstonesForUser(userId)
     },
     onSessionBoundary: (generation) => {
         notifyAuthSessionBoundary(generation)

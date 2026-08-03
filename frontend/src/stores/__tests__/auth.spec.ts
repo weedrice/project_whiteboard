@@ -39,6 +39,7 @@ vi.mock('@/features/notifications/pushSubscriptions', () => ({
 const mockSyncThemeFromUser = vi.fn()
 const mockSessionBoundary = vi.fn()
 const mockPrincipalChange = vi.fn()
+const mockExplicitLogout = vi.fn()
 
 vi.mock('@/utils/logger', () => ({
     default: {
@@ -73,6 +74,7 @@ describe('Auth Store', () => {
             syncThemeFromUser: mockSyncThemeFromUser,
             onSessionBoundary: mockSessionBoundary,
             onPrincipalChange: mockPrincipalChange,
+            onExplicitLogout: mockExplicitLogout,
         })
         store = useAuthStore()
     })
@@ -204,6 +206,7 @@ describe('Auth Store', () => {
             expect(getStoredAccessToken()).toBeNull()
             expect(localStorage.getItem('refreshToken')).toBeNull()
             expect(sessionStorage.getItem('loginRedirect')).toBeNull()
+            expect(mockExplicitLogout).toHaveBeenCalledWith(1)
         })
 
         it('cleans up state even if api call fails', async () => {

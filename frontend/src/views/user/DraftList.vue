@@ -12,11 +12,15 @@ import { useConfirm } from '@/composables/useConfirm'
 import { useUser, userQueryKeys } from '@/features/user/useUser'
 import { usePost } from '@/features/board/posts/queries/usePost'
 import { markDraftDeletedLocally } from '@/features/board/posts/draft/postDraftTombstone'
+import {
+  DRAFT_RETENTION_DAYS,
+  MAX_SERVER_DRAFTS_PER_USER,
+} from '@/features/board/posts/draft/postDraftLifecycle'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import { sessionQueryKey } from '@/queryAuthScope'
 import { captureAuthSessionIntent, isAuthSessionIntentCurrent } from '@/utils/authSessionIntent'
-import { formatDateTimeOrDash } from '@/utils/date'
+import { formatDateTimeOrDash, withServerOffset } from '@/utils/date'
 import { encodePathSegment } from '@/utils/urlPath'
 import type { DraftPostSummary } from '@/types'
 import type { ScheduledPost } from '@/api/post'
@@ -65,6 +69,14 @@ function getDraftTitle(draft: DraftPostSummary) {
 
 function getDraftTimestamp(draft: DraftPostSummary) {
   return draft.updatedAt ?? draft.modifiedAt
+}
+
+function getDraftExpiresAt(draft: DraftPostSummary) {
+  const timestamp = getDraftTimestamp(draft)
+  if (!timestamp) return null
+  const modifiedAt = new Date(withServerOffset(timestamp)).getTime()
+  if (!Number.isFinite(modifiedAt)) return null
+  return new Date(modifiedAt + DRAFT_RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString()
 }
 
 function getDraftRoute(draft: DraftPostSummary) {
@@ -165,6 +177,12 @@ function getScheduledFailureMessage(failureReason: string | null | undefined) {
 
 <template>
   <div class="space-y-6">
+    <p class="rounded-lg border border-[var(--nv-line)] bg-[var(--nv-surface-2)] px-4 py-3 text-sm nv-text-subtle">
+      {{ $t('user.draftList.retentionNotice', {
+        days: DRAFT_RETENTION_DAYS,
+        max: MAX_SERVER_DRAFTS_PER_USER,
+      }) }}
+    </p>
     <PaginatedListCard
       title-tag="h1"
       :title="listTitle"
@@ -198,6 +216,9 @@ function getScheduledFailureMessage(failureReason: string | null | undefined) {
           <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs nv-text-subtle">
             <span>{{ draft.boardName || draft.boardUrl }}</span>
             <span>{{ formatDateTimeOrDash(getDraftTimestamp(draft)) }}</span>
+            <span v-if="getDraftExpiresAt(draft)">
+              {{ $t('user.draftList.expiresAt', { date: formatDateTimeOrDash(getDraftExpiresAt(draft)) }) }}
+            </span>
             <span v-if="draft.originalPostId != null">{{ $t('user.draftList.editDraft') }}</span>
           </div>
         </div>

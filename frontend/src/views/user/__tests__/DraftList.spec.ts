@@ -91,6 +91,8 @@ describe('DraftList', () => {
     const wrapper = mountList()
     expect(wrapper.text()).toContain('Draft')
     expect(wrapper.text()).toContain('user.draftList.untitled')
+    expect(wrapper.text()).toContain('user.draftList.retentionNotice')
+    expect(wrapper.text()).toContain('user.draftList.expiresAt')
     expect(wrapper.text()).toContain('user.draftList.scheduledFailure.internalError')
     expect(wrapper.text()).not.toContain('PUBLISH_INTERNAL_ERROR')
     expect(wrapper.find('a[data-to="/scheduled-posts/10/edit"]').exists()).toBe(true)

@@ -114,6 +114,8 @@ export const userEn: UserMessages = {
     deleteConfirm: 'Delete this draft?',
     deleted: 'The draft has been deleted.',
     deleteFailed: 'Failed to delete the draft.',
+    retentionNotice: 'Server drafts are kept for {days} days after the last edit, up to {max} drafts. Explicit logout also removes local recovery copies from this browser.',
+    expiresAt: 'Expires {date}',
     scheduledTitle: 'Scheduled posts',
     scheduledEmpty: 'No scheduled posts.',
     cancelScheduledConfirm: 'Cancel this scheduled post?',

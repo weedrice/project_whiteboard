@@ -44,3 +44,14 @@ export function cleanupExpiredDraftTombstones() {
     if (userId && draftId) isDraftDeletedLocally(userId, draftId)
   }
 }
+
+export function clearDraftTombstonesForUser(userId: string | number) {
+  const userPrefix = `${DRAFT_TOMBSTONE_PREFIX}:${userId}:`
+  let removed = 0
+  for (const key of Storage.keys()) {
+    if (!key.startsWith(userPrefix)) continue
+    Storage.remove(key)
+    removed++
+  }
+  return removed
+}

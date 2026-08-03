@@ -40,12 +40,15 @@ interface AuthSessionEffects {
      * 지워져 버린다.
      */
     onPrincipalChange: () => void
+    /** 사용자가 명시적으로 로그아웃할 때 계정별 브라우저 데이터를 정리한다. */
+    onExplicitLogout: (userId: number | null) => void
 }
 
 const noopSessionEffects: AuthSessionEffects = {
     syncThemeFromUser: () => undefined,
     onSessionBoundary: () => undefined,
     onPrincipalChange: () => undefined,
+    onExplicitLogout: () => undefined,
 }
 
 let authSessionEffects: AuthSessionEffects = noopSessionEffects
@@ -159,6 +162,7 @@ export const useAuthStore = defineStore('auth', () => {
     }
 
     async function logout() {
+        authSessionEffects.onExplicitLogout(user.value?.userId ?? null)
         clearSessionState()
         clearLoginRedirect()
         try {

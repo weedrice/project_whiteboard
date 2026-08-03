@@ -706,6 +706,8 @@ export interface UserMessages {
     deleteConfirm: string
     deleted: string
     deleteFailed: string
+    retentionNotice: string
+    expiresAt: string
     scheduledTitle: string
     scheduledEmpty: string
     cancelScheduledConfirm: string

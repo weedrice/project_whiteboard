@@ -1,9 +1,11 @@
 import { Storage } from '@/utils/storage'
 import type { DraftRecoverySnapshot } from '@/features/board/posts/draft/postDraftRecovery'
 
-export const DRAFT_LOCAL_RETENTION_DAYS = 90
+export const DRAFT_RETENTION_DAYS = 90
+export const DRAFT_LOCAL_RETENTION_DAYS = DRAFT_RETENTION_DAYS
 export const MAX_LOCAL_DRAFT_SNAPSHOTS = 50
 export const MAX_LOCAL_DRAFT_BYTES = 3 * 1024 * 1024
+export const MAX_SERVER_DRAFTS_PER_USER = 100
 const DRAFT_STORAGE_PREFIX = 'noviis:draft:'
 const RETENTION_MS = DRAFT_LOCAL_RETENTION_DAYS * 24 * 60 * 60 * 1000
 
@@ -89,6 +91,17 @@ export function enforceDraftSnapshotBudget(protectedKey?: string, now = Date.now
 export function cleanupExpiredDraftSnapshots(now = Date.now()) {
   collectStoredDraftEntries(now)
   enforceDraftSnapshotBudget(undefined, now)
+}
+
+export function clearStoredDraftSnapshotsForUser(userId: string | number) {
+  const userPrefix = `${DRAFT_STORAGE_PREFIX}${userId}:`
+  let removed = 0
+  for (const key of Storage.keys()) {
+    if (!key.startsWith(userPrefix)) continue
+    Storage.remove(key)
+    removed++
+  }
+  return removed
 }
 
 export function storeDraftSnapshotWithBudget(key: string, snapshot: DraftRecoverySnapshot): boolean {
