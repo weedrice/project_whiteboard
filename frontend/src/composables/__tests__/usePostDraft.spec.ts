@@ -780,6 +780,8 @@ describe('usePostDraft', () => {
 
         await expect(composable.saveNow()).rejects.toMatchObject({ isAxiosError: true })
         expect(composable.lastSaveFailed.value).toBe(true)
+        expect(composable.saveRetryScheduled.value).toBe(true)
+        expect(composable.saveRetryAttempt.value).toBe(1)
         await vi.advanceTimersByTimeAsync(999)
         expect(mocks.saveDraftMutateAsync).toHaveBeenCalledTimes(1)
 
@@ -787,6 +789,8 @@ describe('usePostDraft', () => {
 
         expect(mocks.saveDraftMutateAsync).toHaveBeenCalledTimes(2)
         expect(composable.lastSaveFailed.value).toBe(false)
+        expect(composable.saveRetryScheduled.value).toBe(false)
+        expect(composable.saveRetryAttempt.value).toBe(0)
         random.mockRestore()
     })
 
@@ -835,6 +839,27 @@ describe('usePostDraft', () => {
         await vi.advanceTimersByTimeAsync(60_000)
 
         expect(mocks.saveDraftMutateAsync).toHaveBeenCalledTimes(6)
+        expect(composable.saveRetryScheduled.value).toBe(false)
+        expect(composable.saveRetryAttempt.value).toBe(5)
+        expect(composable.saveRetryExhausted.value).toBe(true)
+
+        mocks.saveDraftMutateAsync.mockResolvedValueOnce({
+            data: {
+                data: {
+                    draftId: 91,
+                    boardUrl: 'free',
+                    title: 'Draft title',
+                    contents: 'Draft body',
+                    tags: [],
+                    fileIds: [7],
+                    updatedAt: '2026-07-07T12:01:00.000Z',
+                },
+            },
+        })
+
+        await expect(composable.retrySaveNow()).resolves.toEqual(expect.objectContaining({ draftId: 91 }))
+        expect(composable.saveRetryAttempt.value).toBe(0)
+        expect(composable.saveRetryExhausted.value).toBe(false)
         random.mockRestore()
     })
 

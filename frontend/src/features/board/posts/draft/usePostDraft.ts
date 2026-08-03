@@ -94,11 +94,13 @@ export function usePostDraft(options: UsePostDraftOptions) {
     const draftConflict = ref(false)
     const draftProtected = ref(false)
     const draftDeleted = ref(false)
+    const saveRetryAttempt = ref(0)
+    const saveRetryScheduled = ref(false)
+    const saveRetryExhausted = ref(false)
     const restoreSource = ref<'idle' | 'local' | 'server'>('idle')
     const hasRestoredDraft = ref(false)
     let autosaveTimer: ReturnType<typeof setTimeout> | null = null
     let saveRetryTimer: ReturnType<typeof setTimeout> | null = null
-    let saveRetryAttempt = 0
     let savePromise: Promise<DraftPost | null> | null = null
     let saveQueued = false
     let localRevision = 0
@@ -158,7 +160,11 @@ export function usePostDraft(options: UsePostDraftOptions) {
             clearTimeout(saveRetryTimer)
             saveRetryTimer = null
         }
-        if (resetAttempt) saveRetryAttempt = 0
+        saveRetryScheduled.value = false
+        if (resetAttempt) {
+            saveRetryAttempt.value = 0
+            saveRetryExhausted.value = false
+        }
     }
 
     const transitionToDeletedDraft = () => {
@@ -306,19 +312,31 @@ export function usePostDraft(options: UsePostDraftOptions) {
 
     function scheduleTransientSaveRetry() {
         if (saveRetryTimer
-            || saveRetryAttempt >= SAVE_RETRY_MAX_ATTEMPTS
+            || saveRetryAttempt.value >= SAVE_RETRY_MAX_ATTEMPTS
             || !options.enabled.value
             || draftConflict.value
             || draftProtected.value
             || draftDeleted.value
-            || options.canPersist?.() === false) return
-        saveRetryAttempt++
+            || options.canPersist?.() === false) {
+            if (saveRetryAttempt.value >= SAVE_RETRY_MAX_ATTEMPTS) {
+                saveRetryExhausted.value = true
+            }
+            return
+        }
+        saveRetryAttempt.value++
+        saveRetryScheduled.value = true
         saveRetryTimer = setTimeout(() => {
             saveRetryTimer = null
+            saveRetryScheduled.value = false
             void saveNow().catch((error: unknown) => {
                 logger.error('Failed to retry draft autosave:', error)
             })
-        }, getSaveRetryDelay(saveRetryAttempt))
+        }, getSaveRetryDelay(saveRetryAttempt.value))
+    }
+
+    const retrySaveNow = async () => {
+        clearSaveRetry()
+        return saveNow()
     }
 
     const scheduleAutosave = () => {
@@ -672,6 +690,10 @@ export function usePostDraft(options: UsePostDraftOptions) {
         lastSavedAt: computed(() => lastSavedAt.value),
         lastSaveScope: computed(() => lastSaveScope.value),
         lastSaveFailed: computed(() => lastSaveFailed.value),
+        saveRetryAttempt: computed(() => saveRetryAttempt.value),
+        saveRetryScheduled: computed(() => saveRetryScheduled.value),
+        saveRetryExhausted: computed(() => saveRetryExhausted.value),
+        saveRetryMaxAttempts: SAVE_RETRY_MAX_ATTEMPTS,
         lastLocalSaveFailed: computed(() => lastLocalSaveFailed.value),
         restoreFailed: computed(() => restoreFailed.value),
         isRestoringDraft: computed(() => isRestoringDraft.value),
@@ -681,6 +703,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         isSavingDraft: computed(() => saveDraftMutation.isPending.value),
         restoreSource: computed(() => restoreSource.value),
         saveNow,
+        retrySaveNow,
         scheduleAutosave,
         restoreDraft,
         retryRestore,

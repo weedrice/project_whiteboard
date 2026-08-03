@@ -69,6 +69,7 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
 
   const {
     saveNow: saveDraftNow,
+    retrySaveNow,
     scheduleAutosave,
     restoreDraft,
     clearRecovery,
@@ -77,6 +78,10 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     lastSavedAt,
     lastSaveScope,
     lastSaveFailed,
+    saveRetryAttempt,
+    saveRetryScheduled,
+    saveRetryExhausted,
+    saveRetryMaxAttempts,
     lastLocalSaveFailed,
     draftConflict,
     draftProtected,
@@ -117,6 +122,13 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     if (draftProtected.value) return options.t('board.writePost.draftStatus.protected')
     if (restoreFailed.value) return options.t('board.writePost.draftStatus.restoreFailed')
     if (lastLocalSaveFailed.value) return options.t('board.writePost.draftStatus.localStorageFailed')
+    if (saveRetryScheduled.value) {
+      return options.t('board.writePost.draftStatus.retryScheduled', {
+        attempt: saveRetryAttempt.value,
+        max: saveRetryMaxAttempts,
+      })
+    }
+    if (saveRetryExhausted.value) return options.t('board.writePost.draftStatus.retryExhausted')
     if (lastSaveFailed.value) return options.t('board.writePost.draftStatus.failed')
     if (lastSavedAt.value) {
       if (lastSaveScope.value === 'browser') {
@@ -225,7 +237,7 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
       return
     }
     try {
-      const savedDraft = await saveDraftNow()
+      const savedDraft = await retrySaveNow()
       if (savedDraft) {
         options.markCurrentSnapshotSaved()
         options.addToast(options.t('board.writePost.draftStatus.saved'), 'success')
@@ -311,6 +323,9 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     restoreFailed,
     isRestoringDraft,
     isSavingDraft,
+    lastSaveFailed,
+    saveRetryScheduled,
+    saveRetryExhausted,
     saveDraftNow,
     handleSaveDraft,
     handleReloadServerDraft,

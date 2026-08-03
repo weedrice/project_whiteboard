@@ -375,6 +375,9 @@ export interface BoardMessages {
       savedBrowserAt: string
       ready: string
       failed: string
+      retryScheduled: string
+      retryExhausted: string
+      retryNow: string
       localStorageFailed: string
       restoreFailed: string
       conflict: string

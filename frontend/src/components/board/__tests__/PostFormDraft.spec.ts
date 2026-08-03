@@ -56,6 +56,7 @@ describe('PostForm draft behavior', () => {
     await flushPromises()
 
     expect(mockAddToast).toHaveBeenCalledWith('common.messages.saveFailed', 'error')
+    expect(wrapper.text()).toContain('board.writePost.draftStatus.retryNow')
   })
 
   it('saves a body-only draft to the server without requiring a title', async () => {

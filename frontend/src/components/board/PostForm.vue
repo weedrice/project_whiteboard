@@ -339,6 +339,7 @@ const {
   restoreFailed,
   isRestoringDraft,
   isSavingDraft,
+  lastSaveFailed,
   saveDraftNow,
   handleSaveDraft,
   handleReloadServerDraft,
@@ -596,6 +597,7 @@ defineExpose({
             :draft-protected="draftProtected"
             :draft-deleted="draftDeleted"
             :restore-failed="restoreFailed"
+            :save-failed="lastSaveFailed"
             :scheduled-at="scheduledAt"
             :show-scheduler="props.mode === 'create' || Boolean(scheduledPostId)"
             @save-draft="handleSaveDraft"
@@ -700,7 +702,11 @@ defineExpose({
           :disabled="isSavingDraft || isSubmitting || isSubmissionLocked"
           @click="handleSaveDraft"
         >
-          {{ isSavingDraft ? $t('board.writePost.draftStatus.saving') : $t('board.writePost.actions.saveDraft') }}
+          {{ isSavingDraft
+            ? $t('board.writePost.draftStatus.saving')
+            : lastSaveFailed
+              ? $t('board.writePost.draftStatus.retryNow')
+              : $t('board.writePost.actions.saveDraft') }}
         </BaseButton>
         <BaseButton
           type="button"
@@ -723,7 +729,11 @@ defineExpose({
         :disabled="isSavingDraft || isSubmitting || isSubmissionLocked"
         @click="handleSaveDraft"
       >
-        {{ isSavingDraft ? $t('board.writePost.draftStatus.saving') : $t('board.writePost.actions.saveDraft') }}
+        {{ isSavingDraft
+          ? $t('board.writePost.draftStatus.saving')
+          : lastSaveFailed
+            ? $t('board.writePost.draftStatus.retryNow')
+            : $t('board.writePost.actions.saveDraft') }}
       </BaseButton>
     </div>
 

@@ -18,6 +18,7 @@ defineProps<{
   draftProtected: boolean
   draftDeleted: boolean
   restoreFailed: boolean
+  saveFailed: boolean
   scheduledAt: string
   showScheduler: boolean
 }>()
@@ -52,6 +53,7 @@ defineEmits<{
       :draft-protected="draftProtected"
       :draft-deleted="draftDeleted"
       :restore-failed="restoreFailed"
+      :save-failed="saveFailed"
       @save-draft="$emit('saveDraft')"
       @reload-server-draft="$emit('reloadServerDraft')"
       @keep-local-draft="$emit('keepLocalDraft')"

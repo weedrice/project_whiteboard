@@ -10,6 +10,7 @@ defineProps<{
   draftProtected: boolean
   draftDeleted: boolean
   restoreFailed: boolean
+  saveFailed: boolean
 }>()
 
 defineEmits<{
@@ -93,7 +94,11 @@ defineEmits<{
         :disabled="isSavingDraft || isRestoringDraft"
         @click="$emit('saveDraft')"
       >
-        {{ isSavingDraft ? $t('board.writePost.draftStatus.saving') : $t('board.writePost.actions.saveDraft') }}
+        {{ isSavingDraft
+          ? $t('board.writePost.draftStatus.saving')
+          : saveFailed
+            ? $t('board.writePost.draftStatus.retryNow')
+            : $t('board.writePost.actions.saveDraft') }}
       </BaseButton>
     </div>
   </section>
