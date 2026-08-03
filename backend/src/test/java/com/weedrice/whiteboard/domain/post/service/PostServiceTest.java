@@ -2426,21 +2426,21 @@ class PostServiceTest {
     }
 
     @Test
-    @DisplayName("같은 clientDraftKey로 신규 저장을 재시도하면 기존 초안을 갱신한다")
+    @DisplayName("같은 clientDraftKey와 동일한 내용으로 신규 저장을 재시도하면 기존 초안을 반환한다")
     void saveDraftPost_reusesClientDraftKey() {
         DraftPost existingDraft = DraftPost.builder()
                 .user(user)
                 .board(board)
                 .clientDraftKey("client-draft-key-1234")
                 .title("First attempt")
+                .contents("")
                 .build();
         ReflectionTestUtils.setField(existingDraft, "draftId", 10L);
         ReflectionTestUtils.setField(existingDraft, "version", 2L);
         PostDraftRequest request = PostDraftRequest.builder()
                 .clientDraftKey("client-draft-key-1234")
                 .boardUrl("free")
-                .title("Retry payload")
-                .contents("Latest contents")
+                .title("First attempt")
                 .fileIds(Collections.emptyList())
                 .build();
 
@@ -2455,8 +2455,41 @@ class PostServiceTest {
         assertThat(response.getDraftId()).isEqualTo(10L);
         assertThat(response.getClientDraftKey()).isEqualTo("client-draft-key-1234");
         assertThat(response.getVersion()).isEqualTo(2L);
-        assertThat(response.getTitle()).isEqualTo("Retry payload");
+        assertThat(response.getTitle()).isEqualTo("First attempt");
         verify(fileService).syncDraftFiles(Collections.emptyList(), 1L, 10L);
+    }
+
+    @Test
+    @DisplayName("같은 clientDraftKey라도 내용이 다르면 오래된 신규 저장 재시도를 거부한다")
+    void saveDraftPost_rejectsChangedClientDraftKeyRetry() {
+        DraftPost existingDraft = DraftPost.builder()
+                .user(user)
+                .board(board)
+                .clientDraftKey("client-draft-key-1234")
+                .title("Latest title")
+                .contents("Latest contents")
+                .build();
+        ReflectionTestUtils.setField(existingDraft, "draftId", 10L);
+        ReflectionTestUtils.setField(existingDraft, "version", 2L);
+        PostDraftRequest request = PostDraftRequest.builder()
+                .clientDraftKey("client-draft-key-1234")
+                .boardUrl("free")
+                .title("Stale title")
+                .contents("Stale contents")
+                .fileIds(Collections.emptyList())
+                .build();
+
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+        when(draftPostRepository.findByUserAndClientDraftKeyForUpdate(user, "client-draft-key-1234"))
+                .thenReturn(Optional.of(existingDraft));
+
+        assertThatThrownBy(() -> postService.saveDraftPost(1L, request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.DRAFT_OUTDATED);
+
+        verify(draftPostRepository, never()).saveAndFlush(any(DraftPost.class));
+        verify(fileService, never()).syncDraftFiles(any(), anyLong(), anyLong());
     }
 
     @Test

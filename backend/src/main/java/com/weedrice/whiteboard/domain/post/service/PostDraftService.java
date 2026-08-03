@@ -36,6 +36,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 
 @Service
@@ -167,6 +169,11 @@ public class PostDraftService {
                 draftPost.getDraftId(), ScheduledPost.PROTECTED_DRAFT_STATUSES)) {
             throw new BusinessException(ErrorCode.DRAFT_PROTECTED);
         }
+        if (request.getDraftId() == null
+                && !isMatchingIdempotentCreateRetry(
+                        draftPost, request, board, category, series, originalPost, sanitizedContents)) {
+            throw new BusinessException(ErrorCode.DRAFT_OUTDATED);
+        }
         if (request.getDraftId() != null
                 && !isMatchingDraftVersion(
                         request.getVersion(), draftPost.getVersion(), request.getUpdatedAt(), draftPost.getModifiedAt())) {
@@ -193,6 +200,39 @@ public class PostDraftService {
                 series,
                 originalPost);
         return draftPost;
+    }
+
+    private boolean isMatchingIdempotentCreateRetry(DraftPost draftPost, PostDraftRequest request,
+            Board board, BoardCategory category, PostSeries series, Post originalPost, String sanitizedContents) {
+        return Objects.equals(draftPost.getBoard().getBoardId(), board.getBoardId())
+                && Objects.equals(entityId(draftPost.getCategory()), entityId(category))
+                && Objects.equals(draftPost.getTitle(), request.getTitle())
+                && Objects.equals(draftPost.getContents(), sanitizedContents)
+                && Objects.equals(orEmpty(draftPost.getTags()), orEmpty(request.getTags()))
+                && draftPost.isNotice() == request.isNotice()
+                && draftPost.isNsfw() == request.isNsfw()
+                && draftPost.isSpoiler() == request.isSpoiler()
+                && draftPost.isSecret() == request.isSecret()
+                && Objects.equals(orEmpty(draftPost.getFileIds()), orEmpty(request.getFileIds()))
+                && Objects.equals(draftPost.getPoll(), request.getPoll())
+                && Objects.equals(entityId(draftPost.getSeries()), entityId(series))
+                && Objects.equals(postId(draftPost.getOriginalPost()), postId(originalPost));
+    }
+
+    private Long entityId(BoardCategory category) {
+        return category == null ? null : category.getCategoryId();
+    }
+
+    private Long entityId(PostSeries series) {
+        return series == null ? null : series.getSeriesId();
+    }
+
+    private Long postId(Post post) {
+        return post == null ? null : post.getPostId();
+    }
+
+    private <T> List<T> orEmpty(List<T> values) {
+        return values == null ? Collections.emptyList() : values;
     }
 
     private boolean isMatchingDraftVersion(Long requestVersion, Long draftVersion,
