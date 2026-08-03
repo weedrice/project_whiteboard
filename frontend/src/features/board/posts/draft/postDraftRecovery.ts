@@ -11,6 +11,7 @@ export interface DraftRecoverySnapshot extends PostDraftData {
     categoryId?: number | null
     modifiedAt?: string
     clientModifiedAt?: string
+    clientInstanceId?: string
     hasLocalChanges?: boolean
 }
 

@@ -23,14 +23,16 @@ export class Storage {
     /**
      * JSON-stringify and write a localStorage value.
      */
-    static set<T>(key: string, value: T): void {
+    static set<T>(key: string, value: T): boolean {
         try {
             localStorage.setItem(key, JSON.stringify(value))
+            return true
         } catch (error: unknown) {
             logger.error(`Failed to set item to localStorage: ${key}`, error)
             if (error instanceof DOMException && error.name === 'QuotaExceededError') {
                 logger.warn('localStorage quota exceeded. Consider clearing old data.')
             }
+            return false
         }
     }
 

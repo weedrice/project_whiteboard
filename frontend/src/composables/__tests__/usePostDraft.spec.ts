@@ -978,4 +978,128 @@ describe('usePostDraft', () => {
         expect(composable.draftConflict.value).toBe(true)
         expect(composable.restoreSource.value).toBe('local')
     })
+
+    it('does not overwrite edits made while the initial server recovery is in flight', async () => {
+        let resolveDraft: (value: unknown) => void = () => undefined
+        mocks.getMyDrafts.mockResolvedValueOnce({
+            data: { data: { content: [{ draftId: 91, boardUrl: 'free', originalPostId: null }], hasNext: false } },
+        })
+        mocks.getDraft.mockReturnValueOnce(new Promise((resolve) => {
+            resolveDraft = resolve
+        }))
+        const { composable, payloadRef, appliedDrafts } = mountComposable(ref({
+            boardUrl: 'free',
+            title: '',
+            contents: '',
+            fileIds: [],
+        }))
+
+        const restoring = composable.restoreDraft()
+        await Promise.resolve()
+        payloadRef.value = { ...payloadRef.value, title: 'Typed while restoring' }
+        composable.writeLocalSnapshot()
+        resolveDraft({
+            data: { data: {
+                draftId: 91,
+                boardUrl: 'free',
+                title: 'Server title',
+                contents: 'Server body',
+                fileIds: [],
+                updatedAt: '2026-07-07T11:00:00.000Z',
+            } },
+        })
+        await restoring
+
+        expect(appliedDrafts).toHaveLength(0)
+        expect(composable.draftConflict.value).toBe(true)
+        expect(Storage.get('noviis:test:draft')).toEqual(expect.objectContaining({
+            title: 'Typed while restoring',
+            hasLocalChanges: true,
+        }))
+    })
+
+    it('does not overwrite edits made while reloading the server conflict copy', async () => {
+        const { composable, payloadRef, appliedDrafts } = mountComposable()
+        await composable.saveNow()
+        let resolveDraft: (value: unknown) => void = () => undefined
+        mocks.getDraft.mockReturnValueOnce(new Promise((resolve) => {
+            resolveDraft = resolve
+        }))
+
+        const reloading = composable.reloadServerDraft()
+        payloadRef.value = { ...payloadRef.value, title: 'New edit during reload' }
+        composable.writeLocalSnapshot()
+        resolveDraft({
+            data: { data: {
+                draftId: 91,
+                boardUrl: 'free',
+                title: 'Server title',
+                contents: 'Server body',
+                fileIds: [],
+                updatedAt: '2026-07-07T11:00:00.000Z',
+            } },
+        })
+
+        await expect(reloading).resolves.toBe(false)
+        expect(appliedDrafts).toHaveLength(0)
+        expect(composable.draftConflict.value).toBe(true)
+    })
+
+    it('reports a browser-only save failure when localStorage rejects the write', async () => {
+        const setItem = vi.spyOn(Storage, 'set').mockReturnValue(false)
+        const { composable } = mountComposable(ref({
+            boardUrl: 'free',
+            title: '',
+            contents: '',
+            fileIds: [],
+            categoryId: 5,
+        }))
+
+        await expect(composable.saveNow()).rejects.toThrow('DRAFT_LOCAL_STORAGE_FAILED')
+        expect(composable.lastLocalSaveFailed.value).toBe(true)
+        expect(composable.lastSaveScope.value).toBeNull()
+        setItem.mockRestore()
+    })
+
+    it('retries a failed server recovery when connectivity returns', async () => {
+        mocks.getMyDrafts.mockRejectedValueOnce(new Error('offline'))
+        const { composable } = mountComposable(ref({
+            boardUrl: 'free',
+            title: '',
+            contents: '',
+            fileIds: [],
+        }))
+
+        await composable.restoreDraft()
+        expect(composable.restoreFailed.value).toBe(true)
+
+        window.dispatchEvent(new Event('online'))
+        await Promise.resolve()
+        await Promise.resolve()
+
+        expect(mocks.getMyDrafts).toHaveBeenCalledTimes(2)
+        expect(composable.restoreFailed.value).toBe(false)
+    })
+
+    it('stops autosave when another tab advances the same draft', async () => {
+        const { composable, payloadRef } = mountComposable()
+        await composable.saveNow()
+        payloadRef.value = { ...payloadRef.value, title: 'Unsaved tab edit' }
+        composable.writeLocalSnapshot()
+
+        window.dispatchEvent(new StorageEvent('storage', {
+            key: 'noviis:test:draft',
+            newValue: JSON.stringify({
+                draftId: 91,
+                boardUrl: 'free',
+                title: 'Other tab edit',
+                contents: 'Other tab body',
+                updatedAt: '2026-07-07T13:00:00.000Z',
+                clientInstanceId: 'other-tab',
+                hasLocalChanges: false,
+            }),
+        }))
+
+        expect(composable.draftConflict.value).toBe(true)
+    })
 })

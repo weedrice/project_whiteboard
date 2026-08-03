@@ -21,6 +21,7 @@ interface ResolveServerDraftOptions {
 export interface ResolveServerDraftResult {
   localSnapshot: DraftRecoverySnapshot | null
   serverDraft: DraftPost | null
+  recoveryFailed: boolean
 }
 
 export async function resolveServerDraftForRecovery({
@@ -32,6 +33,7 @@ export async function resolveServerDraftForRecovery({
 }: ResolveServerDraftOptions): Promise<ResolveServerDraftResult> {
   let nextLocalSnapshot = localSnapshot
   let serverDraft: DraftPost | null = null
+  let recoveryFailed = false
   let serverDraftId = preferredDraftId ?? nextLocalSnapshot?.draftId ?? null
 
   if (serverDraftId == null) {
@@ -39,15 +41,16 @@ export async function resolveServerDraftForRecovery({
       serverDraftId = await findMatchingServerDraftId(payload)
     } catch (error: unknown) {
       logger.error('Failed to resolve server draft id:', error)
+      recoveryFailed = true
     }
   }
 
   if (serverDraftId == null) {
-    return { localSnapshot: nextLocalSnapshot, serverDraft }
+    return { localSnapshot: nextLocalSnapshot, serverDraft, recoveryFailed }
   }
 
   try {
-    if (!generationIsCurrent()) return { localSnapshot: nextLocalSnapshot, serverDraft }
+    if (!generationIsCurrent()) return { localSnapshot: nextLocalSnapshot, serverDraft, recoveryFailed }
     const loadedDraft = await loadDraftById(serverDraftId)
     if (isMatchingLoadedDraft(loadedDraft, payload)) {
       serverDraft = loadedDraft
@@ -61,7 +64,7 @@ export async function resolveServerDraftForRecovery({
       }
     }
   } catch (error: unknown) {
-    if (!generationIsCurrent()) return { localSnapshot: nextLocalSnapshot, serverDraft }
+    if (!generationIsCurrent()) return { localSnapshot: nextLocalSnapshot, serverDraft, recoveryFailed }
     if (
       nextLocalSnapshot?.draftId === serverDraftId
       && isAxiosError(error)
@@ -76,10 +79,13 @@ export async function resolveServerDraftForRecovery({
         }
       } catch (resolveError: unknown) {
         logger.error('Failed to restore replacement server draft:', resolveError)
+        recoveryFailed = true
       }
+    } else {
+      recoveryFailed = true
     }
     logger.error('Failed to restore server draft:', error)
   }
 
-  return { localSnapshot: nextLocalSnapshot, serverDraft }
+  return { localSnapshot: nextLocalSnapshot, serverDraft, recoveryFailed }
 }

@@ -32,6 +32,7 @@ import {
   POST_POLL_OPTION_MAX_LENGTH,
   POST_POLL_QUESTION_MAX_LENGTH,
   POST_TITLE_MAX_LENGTH,
+  validatePostDraftContent,
   validatePostFormContent,
   type PostFormPollValidationError,
   validatePostFormPoll,
@@ -218,6 +219,12 @@ const postContentIsValid = () => validatePostFormContent({
   tags: props.hideTags ? [] : form.value.tags,
   fileIds: buildPayload('content').fileIds,
 }) == null
+const draftContentIsValid = () => validatePostDraftContent({
+  title: form.value.title,
+  content: form.value.content,
+  tags: props.hideTags ? [] : form.value.tags,
+  fileIds: buildPayload('draft').fileIds,
+}) == null
 
 const {
   filteredCategories,
@@ -327,11 +334,14 @@ const {
   draftStatusLabel,
   draftId,
   draftConflict,
+  restoreFailed,
+  isRestoringDraft,
   isSavingDraft,
   saveDraftNow,
   handleSaveDraft,
   handleReloadServerDraft,
   handleKeepLocalDraft,
+  handleRetryDraftRestore,
   cleanupPublishedDraft,
   clearScheduledDraftRecovery,
 } = usePostComposerDraft({
@@ -357,7 +367,7 @@ const {
   releaseUploadedFileOwnership,
   t,
   addToast: toastStore.addToast,
-  validateBeforeSave: postContentIsValid,
+  validateBeforeSave: draftContentIsValid,
 })
 
 const effectiveDraftId = computed(() => (
@@ -577,12 +587,15 @@ defineExpose({
             :draft-status-label="draftStatusLabel"
             :draft-enabled="draftEnabled"
             :is-saving-draft="isSavingDraft"
+            :is-restoring-draft="isRestoringDraft"
             :draft-conflict="draftConflict"
+            :restore-failed="restoreFailed"
             :scheduled-at="scheduledAt"
             :show-scheduler="props.mode === 'create' || Boolean(scheduledPostId)"
             @save-draft="handleSaveDraft"
             @reload-server-draft="handleReloadServerDraft"
             @keep-local-draft="handleKeepLocalDraft"
+            @retry-restore="handleRetryDraftRestore"
             @update:scheduled-at="scheduledAt = $event"
           />
         </fieldset>
@@ -599,7 +612,7 @@ defineExpose({
           variant="secondary"
           size="sm"
           class="min-h-[36px] w-full"
-          :disabled="isSavingDraft || isSubmitting || isSubmissionLocked"
+          :disabled="isSavingDraft || isRestoringDraft || isSubmitting || isSubmissionLocked"
           @click="handleReloadServerDraft"
         >
           {{ $t('board.writePost.draftStatus.reloadServer') }}
@@ -609,12 +622,23 @@ defineExpose({
           variant="primary"
           size="sm"
           class="min-h-[36px] w-full"
-          :disabled="isSavingDraft || isSubmitting || isSubmissionLocked"
+          :disabled="isSavingDraft || isRestoringDraft || isSubmitting || isSubmissionLocked"
           @click="handleKeepLocalDraft"
         >
           {{ $t('board.writePost.draftStatus.keepLocal') }}
         </BaseButton>
       </div>
+      <BaseButton
+        v-else-if="restoreFailed"
+        type="button"
+        variant="secondary"
+        size="sm"
+        class="min-h-[36px] w-full"
+        :disabled="isRestoringDraft || isSubmitting || isSubmissionLocked"
+        @click="handleRetryDraftRestore"
+      >
+        {{ $t('board.writePost.draftStatus.retryRestore') }}
+      </BaseButton>
       <div class="flex items-center gap-2">
         <BaseButton
           type="button"

@@ -48,6 +48,20 @@ export function validatePostFormContent(input: {
     return null
 }
 
+export function validatePostDraftContent(input: {
+    title: string
+    content: string
+    tags: string[]
+    fileIds: number[]
+}): Exclude<PostFormContentValidationError, 'titleRequired'> | null {
+    if (input.title.length > POST_TITLE_MAX_LENGTH) return 'titleTooLong'
+    if (input.content.length > POST_CONTENT_MAX_LENGTH) return 'contentTooLong'
+    if (input.tags.length > POST_TAG_MAX_COUNT) return 'tooManyTags'
+    if (input.tags.some((tag) => tag.trim().length > POST_TAG_MAX_LENGTH)) return 'tagTooLong'
+    if (new Set(input.fileIds).size > POST_FILE_MAX_COUNT) return 'tooManyFiles'
+    return null
+}
+
 export type PostFormPollValidationError =
     | 'questionRequired'
     | 'questionTooLong'

@@ -370,13 +370,17 @@ export interface BoardMessages {
     tableInsert: string
     draftStatus: {
       saving: string
+      restoring: string
       savedAt: string
       savedBrowserAt: string
       ready: string
       failed: string
+      localStorageFailed: string
+      restoreFailed: string
       conflict: string
       reloadServer: string
       keepLocal: string
+      retryRestore: string
       restoredLocal: string
       restoredServer: string
       saved: string

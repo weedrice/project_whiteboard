@@ -13,7 +13,9 @@ defineProps<{
   draftStatusLabel: string
   draftEnabled: boolean
   isSavingDraft: boolean
+  isRestoringDraft: boolean
   draftConflict: boolean
+  restoreFailed: boolean
   scheduledAt: string
   showScheduler: boolean
 }>()
@@ -22,6 +24,7 @@ defineEmits<{
   saveDraft: []
   reloadServerDraft: []
   keepLocalDraft: []
+  retryRestore: []
   'update:scheduledAt': [value: string]
 }>()
 </script>
@@ -40,10 +43,13 @@ defineEmits<{
       :label="draftStatusLabel"
       :draft-enabled="draftEnabled"
       :is-saving-draft="isSavingDraft"
+      :is-restoring-draft="isRestoringDraft"
       :draft-conflict="draftConflict"
+      :restore-failed="restoreFailed"
       @save-draft="$emit('saveDraft')"
       @reload-server-draft="$emit('reloadServerDraft')"
       @keep-local-draft="$emit('keepLocalDraft')"
+      @retry-restore="$emit('retryRestore')"
     />
 
     <section

@@ -54,9 +54,13 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     lastSavedAt,
     lastSaveScope,
     lastSaveFailed,
+    lastLocalSaveFailed,
     draftConflict,
+    restoreFailed,
+    isRestoringDraft,
     reloadServerDraft,
     keepLocalDraft,
+    retryRestore,
     isSavingDraft,
     restoreSource,
     draftId,
@@ -79,8 +83,11 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
 
   const draftStatusLabel = computed(() => {
     if (!draftEnabled.value) return ''
+    if (isRestoringDraft.value) return options.t('board.writePost.draftStatus.restoring')
     if (isSavingDraft.value) return options.t('board.writePost.draftStatus.saving')
     if (draftConflict.value) return options.t('board.writePost.draftStatus.conflict')
+    if (restoreFailed.value) return options.t('board.writePost.draftStatus.restoreFailed')
+    if (lastLocalSaveFailed.value) return options.t('board.writePost.draftStatus.localStorageFailed')
     if (lastSaveFailed.value) return options.t('board.writePost.draftStatus.failed')
     if (lastSavedAt.value) {
       if (lastSaveScope.value === 'browser') {
@@ -199,16 +206,28 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     }
   }
 
+  async function handleRetryDraftRestore() {
+    try {
+      await retryRestore()
+    } catch (error) {
+      logger.error('Failed to retry draft recovery:', error)
+      options.addToast(options.t('common.error.unknown'), 'error')
+    }
+  }
+
   return {
     draftEnabled,
     draftStatusLabel,
     draftId,
     draftConflict,
+    restoreFailed,
+    isRestoringDraft,
     isSavingDraft,
     saveDraftNow,
     handleSaveDraft,
     handleReloadServerDraft,
     handleKeepLocalDraft,
+    handleRetryDraftRestore,
     cleanupPublishedDraft: clearRecovery,
     clearScheduledDraftRecovery: clearRecovery,
   }

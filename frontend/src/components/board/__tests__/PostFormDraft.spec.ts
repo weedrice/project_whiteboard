@@ -57,6 +57,24 @@ describe('PostForm draft behavior', () => {
     expect(mockAddToast).toHaveBeenCalledWith('common.messages.saveFailed', 'error')
   })
 
+  it('saves a body-only draft to the server without requiring a title', async () => {
+    mockPostFormAuthStore({
+      isAuthenticated: true,
+      user: { userId: 1, role: 'USER' },
+    })
+    const wrapper = mountPostForm('create')
+
+    await wrapper.get('[data-testid="editor-input"]').setValue('Body without a title')
+    await findButtonByText(wrapper, 'board.writePost.actions.saveDraft').trigger('click')
+    await flushPromises()
+
+    expect(mockSaveDraftMutateAsync).toHaveBeenCalledWith(expect.objectContaining({
+      title: '',
+      contents: 'Body without a title',
+    }))
+    expect(mockAddToast).toHaveBeenCalledWith('board.writePost.draftStatus.saved', 'success')
+  })
+
   it('saves the draft before create submit and includes draft id', async () => {
     mockPostFormAuthStore({
       isAuthenticated: true,

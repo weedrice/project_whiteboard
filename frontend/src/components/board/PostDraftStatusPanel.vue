@@ -5,13 +5,16 @@ defineProps<{
   label: string
   draftEnabled: boolean
   isSavingDraft: boolean
+  isRestoringDraft: boolean
   draftConflict: boolean
+  restoreFailed: boolean
 }>()
 
 defineEmits<{
   saveDraft: []
   reloadServerDraft: []
   keepLocalDraft: []
+  retryRestore: []
 }>()
 </script>
 
@@ -28,7 +31,7 @@ defineEmits<{
           variant="secondary"
           size="sm"
           full-width
-          :disabled="isSavingDraft"
+          :disabled="isSavingDraft || isRestoringDraft"
           @click="$emit('reloadServerDraft')"
         >
           {{ $t('board.writePost.draftStatus.reloadServer') }}
@@ -38,19 +41,30 @@ defineEmits<{
           variant="primary"
           size="sm"
           full-width
-          :disabled="isSavingDraft"
+          :disabled="isSavingDraft || isRestoringDraft"
           @click="$emit('keepLocalDraft')"
         >
           {{ $t('board.writePost.draftStatus.keepLocal') }}
         </BaseButton>
       </template>
       <BaseButton
+        v-else-if="restoreFailed"
+        type="button"
+        variant="secondary"
+        size="sm"
+        full-width
+        :disabled="isRestoringDraft"
+        @click="$emit('retryRestore')"
+      >
+        {{ $t('board.writePost.draftStatus.retryRestore') }}
+      </BaseButton>
+      <BaseButton
         v-else-if="draftEnabled"
         type="button"
         variant="secondary"
         size="sm"
         full-width
-        :disabled="isSavingDraft"
+        :disabled="isSavingDraft || isRestoringDraft"
         @click="$emit('saveDraft')"
       >
         {{ isSavingDraft ? $t('board.writePost.draftStatus.saving') : $t('board.writePost.actions.saveDraft') }}
