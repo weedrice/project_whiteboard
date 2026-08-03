@@ -22,6 +22,10 @@ import java.util.List;
 @AllArgsConstructor
 public class PostDraftRequest {
     private Long draftId;
+    @Size(max = 64)
+    @Pattern(regexp = "[A-Za-z0-9_-]{8,64}")
+    private String clientDraftKey;
+    private Long version;
     @NotBlank
     @Size(max = 100)
     @Pattern(regexp = BoardUrlNormalizer.BOARD_URL_PATTERN, message = "{validation.board.url.pattern}")
@@ -56,6 +60,8 @@ public class PostDraftRequest {
 
     public PostDraftRequest(Long draftId, String boardUrl, String title, String contents, Long originalPostId) {
         this.draftId = draftId;
+        this.clientDraftKey = null;
+        this.version = null;
         this.boardUrl = boardUrl;
         this.title = title;
         this.contents = contents;

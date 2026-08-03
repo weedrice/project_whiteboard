@@ -44,7 +44,7 @@ class PostDraftPublicationService {
                 && scheduledPostRepository.existsByScheduledPostIdAndDraftIdAndStatus(
                         publishingScheduledPostId, draftId, ScheduledPost.STATUS_PUBLISHING);
         if (protectedBySchedule && !claimedByCurrentPublication) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+            throw new BusinessException(ErrorCode.DRAFT_PROTECTED);
         }
         return draftPost;
     }

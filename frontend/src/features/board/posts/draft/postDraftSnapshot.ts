@@ -25,6 +25,11 @@ export function createStoredSavedDraftSnapshot(
 ): DraftRecoverySnapshot {
   return {
     ...payload,
+    ...savedDraft,
+    clientDraftKey: savedDraft.clientDraftKey ?? payload.clientDraftKey,
+    originalPostId: savedDraft.originalPostId ?? payload.originalPostId,
+    contents: savedDraft.contents ?? payload.contents,
+    title: savedDraft.title ?? payload.title,
     poll: savedDraft.poll ?? null,
     seriesId: savedDraft.seriesId ?? undefined,
     draftId: savedDraft.draftId,

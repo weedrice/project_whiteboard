@@ -19,6 +19,7 @@ import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -39,6 +40,13 @@ public class DraftPost extends BaseTimeEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "draft_id")
     private Long draftId;
+
+    @Version
+    @Column(name = "entity_version", nullable = false)
+    private Long version;
+
+    @Column(name = "client_draft_key", length = 64)
+    private String clientDraftKey;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
@@ -91,11 +99,13 @@ public class DraftPost extends BaseTimeEntity {
     private Post originalPost;
 
     @Builder
-    public DraftPost(User user, Board board, BoardCategory category, String title, String contents, List<String> tags,
+    public DraftPost(User user, Board board, BoardCategory category, String clientDraftKey,
+            String title, String contents, List<String> tags,
             boolean isNotice, boolean isNsfw, boolean isSpoiler, boolean isSecret, List<Long> fileIds,
             PollRequest poll, PostSeries series, Post originalPost) {
         this.user = user;
         this.board = board;
+        this.clientDraftKey = clientDraftKey;
         this.category = category;
         this.title = title;
         this.contents = contents;
@@ -108,6 +118,12 @@ public class DraftPost extends BaseTimeEntity {
         this.poll = poll;
         this.series = series;
         this.originalPost = originalPost;
+    }
+
+    public void adoptClientDraftKey(String clientDraftKey) {
+        if (this.clientDraftKey == null) {
+            this.clientDraftKey = clientDraftKey;
+        }
     }
 
     public void updateDraft(Board board, BoardCategory category, String title, String contents, List<String> tags,

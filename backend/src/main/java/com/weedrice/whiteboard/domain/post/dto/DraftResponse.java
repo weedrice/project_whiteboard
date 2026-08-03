@@ -12,6 +12,8 @@ import java.util.List;
 @Builder
 public class DraftResponse {
     private Long draftId;
+    private String clientDraftKey;
+    private Long version;
     private Long boardId;
     private String boardUrl;
     private String boardName;
@@ -41,6 +43,8 @@ public class DraftResponse {
     public static DraftResponse from(DraftPost draftPost) {
         return DraftResponse.builder()
                 .draftId(draftPost.getDraftId())
+                .clientDraftKey(draftPost.getClientDraftKey())
+                .version(draftPost.getVersion())
                 .boardId(draftPost.getBoard().getBoardId())
                 .boardUrl(draftPost.getBoard().getBoardUrl())
                 .boardName(draftPost.getBoard().getBoardName())

@@ -46,6 +46,12 @@ public interface DraftPostRepository extends JpaRepository<DraftPost, Long> {
     Optional<DraftPost> findByDraftIdAndUser(Long draftId, User user);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT d FROM DraftPost d WHERE d.user = :user AND d.clientDraftKey = :clientDraftKey")
+    Optional<DraftPost> findByUserAndClientDraftKeyForUpdate(
+            @Param("user") User user,
+            @Param("clientDraftKey") String clientDraftKey);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT d FROM DraftPost d WHERE d.draftId = :draftId AND d.user = :user")
     Optional<DraftPost> findByDraftIdAndUserForUpdate(@Param("draftId") Long draftId, @Param("user") User user);
 

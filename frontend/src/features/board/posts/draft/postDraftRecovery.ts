@@ -29,6 +29,7 @@ type ApiErrorPayload = {
 }
 
 const DRAFT_OUTDATED_ERROR_CODE = API_ERROR_CODES.DRAFT_OUTDATED
+const DRAFT_PROTECTED_ERROR_CODE = API_ERROR_CODES.DRAFT_PROTECTED
 
 export const toIsoTime = (value?: string | null): string | null => {
     if (!value) return null
@@ -92,6 +93,14 @@ export const isDraftOutdatedError = (error: unknown): boolean => {
     }
     const data = error.response.data as ApiErrorPayload | undefined
     return data?.error?.code === DRAFT_OUTDATED_ERROR_CODE || data?.code === DRAFT_OUTDATED_ERROR_CODE
+}
+
+export const isDraftProtectedError = (error: unknown): boolean => {
+    if (!isAxiosError(error) || error.response?.status !== 409) {
+        return false
+    }
+    const data = error.response.data as ApiErrorPayload | undefined
+    return data?.error?.code === DRAFT_PROTECTED_ERROR_CODE || data?.code === DRAFT_PROTECTED_ERROR_CODE
 }
 
 export const findMatchingServerDraftId = async (payload: PostDraftData): Promise<number | null> => {

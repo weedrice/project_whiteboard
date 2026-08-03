@@ -70,6 +70,8 @@ export interface PollVotePayload {
 
 export interface PostDraftData {
     draftId?: number
+    clientDraftKey?: string
+    version?: number
     boardUrl: string
     title?: string
     contents?: string

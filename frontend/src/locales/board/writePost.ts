@@ -99,6 +99,7 @@ export const boardWritePostMessages: BoardMessages['writePost'] = {
       localStorageFailed: '브라우저 저장 공간에 기록하지 못했습니다.',
       restoreFailed: '서버 임시 저장본을 확인하지 못했습니다.',
       conflict: '로컬 초안과 서버 초안이 모두 변경되었습니다. 사용할 내용을 선택해 주세요.',
+      protected: '예약 발행에서 사용 중인 임시 저장본은 여기서 변경할 수 없습니다.',
       reloadServer: '서버 초안 다시 불러오기',
       keepLocal: '로컬 초안으로 덮어쓰기',
       retryRestore: '다시 확인',

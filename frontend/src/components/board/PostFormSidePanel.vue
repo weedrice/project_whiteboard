@@ -15,6 +15,7 @@ defineProps<{
   isSavingDraft: boolean
   isRestoringDraft: boolean
   draftConflict: boolean
+  draftProtected: boolean
   restoreFailed: boolean
   scheduledAt: string
   showScheduler: boolean
@@ -45,6 +46,7 @@ defineEmits<{
       :is-saving-draft="isSavingDraft"
       :is-restoring-draft="isRestoringDraft"
       :draft-conflict="draftConflict"
+      :draft-protected="draftProtected"
       :restore-failed="restoreFailed"
       @save-draft="$emit('saveDraft')"
       @reload-server-draft="$emit('reloadServerDraft')"

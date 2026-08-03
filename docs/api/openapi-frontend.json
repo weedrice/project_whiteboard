@@ -3113,6 +3113,9 @@
             "format" : "int64",
             "type" : "integer"
           },
+          "clientDraftKey" : {
+            "type" : "string"
+          },
           "fileIds" : {
             "items" : {
               "format" : "int64",
@@ -3159,6 +3162,10 @@
           "updatedAt" : {
             "format" : "date-time",
             "type" : "string"
+          },
+          "version" : {
+            "format" : "int64",
+            "type" : "integer"
           }
         },
         "type" : "object"
@@ -5750,6 +5757,12 @@
             "format" : "int64",
             "type" : "integer"
           },
+          "clientDraftKey" : {
+            "maxLength" : 64,
+            "minLength" : 0,
+            "pattern" : "[A-Za-z0-9_-]{8,64}",
+            "type" : "string"
+          },
           "contents" : {
             "maxLength" : 100000,
             "minLength" : 0,
@@ -5809,6 +5822,10 @@
           "updatedAt" : {
             "format" : "date-time",
             "type" : "string"
+          },
+          "version" : {
+            "format" : "int64",
+            "type" : "integer"
           }
         },
         "required" : [ "boardUrl" ],

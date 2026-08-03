@@ -56,6 +56,7 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     lastSaveFailed,
     lastLocalSaveFailed,
     draftConflict,
+    draftProtected,
     restoreFailed,
     isRestoringDraft,
     reloadServerDraft,
@@ -86,6 +87,7 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     if (isRestoringDraft.value) return options.t('board.writePost.draftStatus.restoring')
     if (isSavingDraft.value) return options.t('board.writePost.draftStatus.saving')
     if (draftConflict.value) return options.t('board.writePost.draftStatus.conflict')
+    if (draftProtected.value) return options.t('board.writePost.draftStatus.protected')
     if (restoreFailed.value) return options.t('board.writePost.draftStatus.restoreFailed')
     if (lastLocalSaveFailed.value) return options.t('board.writePost.draftStatus.localStorageFailed')
     if (lastSaveFailed.value) return options.t('board.writePost.draftStatus.failed')
@@ -220,6 +222,7 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     draftStatusLabel,
     draftId,
     draftConflict,
+    draftProtected,
     restoreFailed,
     isRestoringDraft,
     isSavingDraft,

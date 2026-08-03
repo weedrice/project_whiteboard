@@ -320,6 +320,8 @@ export interface DraftPostListResponse {
 
 export interface DraftPost {
     draftId: number
+    clientDraftKey?: string | null
+    version?: number
     boardId: number
     boardUrl: string
     boardName: string

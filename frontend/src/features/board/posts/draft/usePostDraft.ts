@@ -8,6 +8,7 @@ import { Storage } from '@/utils/storage'
 import logger from '@/utils/logger'
 import {
     getDraftUpdatedAt,
+    isDraftProtectedError,
     isDraftOutdatedError,
     isMatchingLoadedDraft,
     loadDraftById,
@@ -53,6 +54,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
     const deleteDraftMutation = useDeleteDraft(resolveRequestConfig)
 
     const draftId = ref<number | null>(null)
+    const draftVersion = ref<number | null>(null)
     const updatedAt = ref<string | null>(null)
     const lastSavedAt = ref<string | null>(null)
     const lastSaveScope = ref<DraftSaveScope | null>(null)
@@ -61,6 +63,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
     const restoreFailed = ref(false)
     const isRestoringDraft = ref(false)
     const draftConflict = ref(false)
+    const draftProtected = ref(false)
     const restoreSource = ref<'idle' | 'local' | 'server'>('idle')
     const hasRestoredDraft = ref(false)
     let autosaveTimer: ReturnType<typeof setTimeout> | null = null
@@ -68,9 +71,11 @@ export function usePostDraft(options: UsePostDraftOptions) {
     let saveQueued = false
     let localRevision = 0
     let sessionGeneration = 0
-    const clientInstanceId = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    const createClientKey = () => typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
         ? crypto.randomUUID()
         : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+    const clientInstanceId = createClientKey()
+    const clientDraftKey = ref(createClientKey())
 
     const clearAutosaveTimer = () => {
         if (autosaveTimer) {
@@ -81,6 +86,8 @@ export function usePostDraft(options: UsePostDraftOptions) {
 
     const resetDraftTracking = () => {
         draftId.value = null
+        draftVersion.value = null
+        clientDraftKey.value = createClientKey()
         updatedAt.value = null
         lastSavedAt.value = null
     }
@@ -97,6 +104,8 @@ export function usePostDraft(options: UsePostDraftOptions) {
     const storeLocalSnapshot = (snapshot: DraftRecoverySnapshot) => {
         const stored = Storage.set(options.storageKey.value, {
             ...snapshot,
+            clientDraftKey: snapshot.clientDraftKey ?? clientDraftKey.value,
+            version: snapshot.version ?? draftVersion.value ?? undefined,
             clientInstanceId,
         })
         lastLocalSaveFailed.value = !stored
@@ -118,6 +127,8 @@ export function usePostDraft(options: UsePostDraftOptions) {
             return await saveDraftMutation.mutateAsync({
                 ...payload,
                 draftId: draftId.value ?? undefined,
+                clientDraftKey: clientDraftKey.value,
+                version: draftVersion.value ?? undefined,
                 updatedAt: updatedAt.value ?? undefined,
             })
         } finally {
@@ -176,6 +187,8 @@ export function usePostDraft(options: UsePostDraftOptions) {
         options.onServerSaved?.(payload)
         if (generation !== sessionGeneration) return null
         draftId.value = savedDraft.draftId
+        draftVersion.value = savedDraft.version ?? null
+        clientDraftKey.value = savedDraft.clientDraftKey ?? clientDraftKey.value
         updatedAt.value = getDraftUpdatedAt(savedDraft) ?? new Date().toISOString()
         lastSavedAt.value = updatedAt.value
         lastSaveScope.value = 'server'
@@ -190,7 +203,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
     }
 
     const saveNow = async () => {
-        if (draftConflict.value || options.canPersist?.() === false) return null
+        if (draftConflict.value || draftProtected.value || options.canPersist?.() === false) return null
         if (savePromise) {
             saveQueued = true
             return savePromise
@@ -206,8 +219,10 @@ export function usePostDraft(options: UsePostDraftOptions) {
         })().catch((error: unknown) => {
             if (generation === sessionGeneration) {
                 draftConflict.value = isDraftOutdatedError(error)
-                lastSaveFailed.value = !draftConflict.value
+                draftProtected.value = isDraftProtectedError(error)
+                lastSaveFailed.value = !draftConflict.value && !draftProtected.value
                 if (draftConflict.value) clearAutosaveTimer()
+                if (draftProtected.value) clearAutosaveTimer()
             }
             throw error
         })
@@ -221,7 +236,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
     }
 
     const scheduleAutosave = () => {
-        if (!options.enabled.value || draftConflict.value || options.canPersist?.() === false) return
+        if (!options.enabled.value || draftConflict.value || draftProtected.value || options.canPersist?.() === false) return
         clearAutosaveTimer()
         autosaveTimer = setTimeout(() => {
             void saveNow().catch((error: unknown) => {
@@ -245,10 +260,13 @@ export function usePostDraft(options: UsePostDraftOptions) {
             }
             if (!isMatchingLoadedDraft(latestDraft, options.buildPayload())) return false
             draftId.value = latestDraft.draftId
+            draftVersion.value = latestDraft.version ?? null
+            clientDraftKey.value = latestDraft.clientDraftKey ?? clientDraftKey.value
             updatedAt.value = getDraftUpdatedAt(latestDraft)
             lastSavedAt.value = updatedAt.value
             lastSaveScope.value = 'server'
             draftConflict.value = false
+            draftProtected.value = false
             lastSaveFailed.value = false
             restoreFailed.value = false
             const latestSnapshot = latestDraft as unknown as DraftRecoverySnapshot
@@ -277,7 +295,10 @@ export function usePostDraft(options: UsePostDraftOptions) {
             if (generation !== sessionGeneration || draftId.value !== currentDraftId) return false
             if (!isMatchingLoadedDraft(latestDraft, options.buildPayload())) return false
             updatedAt.value = getDraftUpdatedAt(latestDraft)
+            draftVersion.value = latestDraft.version ?? null
+            clientDraftKey.value = latestDraft.clientDraftKey ?? clientDraftKey.value
             draftConflict.value = false
+            draftProtected.value = false
             await saveNow()
             return true
         } finally {
@@ -323,6 +344,8 @@ export function usePostDraft(options: UsePostDraftOptions) {
         if (revision !== localRevision) {
             if (resolved.serverDraft) {
                 draftId.value = resolved.serverDraft.draftId
+                draftVersion.value = resolved.serverDraft.version ?? null
+                clientDraftKey.value = resolved.serverDraft.clientDraftKey ?? clientDraftKey.value
                 draftConflict.value = true
                 updatedAt.value = resolved.localSnapshot?.updatedAt
                     ?? resolved.localSnapshot?.modifiedAt
@@ -340,10 +363,17 @@ export function usePostDraft(options: UsePostDraftOptions) {
         draftId.value = recovery.conflict && resolved.serverDraft
             ? resolved.serverDraft.draftId
             : chosen.draftId ?? null
+        draftVersion.value = recovery.conflict && resolved.serverDraft
+            ? resolved.serverDraft.version ?? null
+            : chosen.version ?? null
+        clientDraftKey.value = chosen.clientDraftKey
+            ?? resolved.serverDraft?.clientDraftKey
+            ?? clientDraftKey.value
         // 충돌 중에는 로컬 변경이 갈라져 나온 기준 버전을 보존한다. 최신 서버
         // 버전은 사용자가 로컬본 덮어쓰기를 선택한 순간에만 다시 조회한다.
         updatedAt.value = chosen.updatedAt ?? chosen.modifiedAt ?? null
         draftConflict.value = recovery.conflict
+        draftProtected.value = false
         restoreSource.value = recovery.source
         options.applyDraft(chosen)
         if (recovery.source === 'server') {
@@ -389,6 +419,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         restoreFailed.value = false
         isRestoringDraft.value = false
         draftConflict.value = false
+        draftProtected.value = false
         resetDraftTracking()
         restoreSource.value = 'idle'
         hasRestoredDraft.value = false
@@ -401,7 +432,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
     })
 
     const handleOnline = () => {
-        if (!options.enabled.value || draftConflict.value) return
+        if (!options.enabled.value || draftConflict.value || draftProtected.value) return
         if (restoreFailed.value) {
             void retryRestore().catch((error: unknown) => {
                 logger.error('Failed to retry draft recovery:', error)
@@ -468,6 +499,8 @@ export function usePostDraft(options: UsePostDraftOptions) {
 
     return {
         draftId,
+        draftVersion: computed(() => draftVersion.value),
+        clientDraftKey: computed(() => clientDraftKey.value),
         updatedAt,
         lastSavedAt: computed(() => lastSavedAt.value),
         lastSaveScope: computed(() => lastSaveScope.value),
@@ -476,6 +509,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         restoreFailed: computed(() => restoreFailed.value),
         isRestoringDraft: computed(() => isRestoringDraft.value),
         draftConflict: computed(() => draftConflict.value),
+        draftProtected: computed(() => draftProtected.value),
         isSavingDraft: computed(() => saveDraftMutation.isPending.value),
         restoreSource: computed(() => restoreSource.value),
         saveNow,

@@ -125,7 +125,7 @@ public class PostDraftService {
         DraftPost draftPost = draftPostRepository.findByDraftIdAndUserForUpdate(draftId, user)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
         if (scheduledPostRepository.existsByDraftIdAndStatusIn(draftId, ScheduledPost.PROTECTED_DRAFT_STATUSES)) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+            throw new BusinessException(ErrorCode.DRAFT_PROTECTED);
         }
         fileService.markDraftFilesDeletionPending(draftId);
         draftPostRepository.delete(draftPost);
@@ -134,11 +134,21 @@ public class PostDraftService {
     private DraftPost resolveDraftPost(User user, PostDraftRequest request, Board board,
                                        BoardCategory category, PostSeries series, Post originalPost) {
         String sanitizedContents = sanitizeDraftContents(request.getContents());
-        if (request.getDraftId() == null) {
+        DraftPost draftPost = null;
+        if (request.getDraftId() != null) {
+            draftPost = draftPostRepository.findByDraftIdAndUserForUpdate(request.getDraftId(), user)
+                    .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+        } else if (request.getClientDraftKey() != null && !request.getClientDraftKey().isBlank()) {
+            draftPost = draftPostRepository.findByUserAndClientDraftKeyForUpdate(user, request.getClientDraftKey())
+                    .orElse(null);
+        }
+
+        if (draftPost == null) {
             return DraftPost.builder()
                     .user(user)
                     .board(board)
                     .category(category)
+                    .clientDraftKey(request.getClientDraftKey())
                     .title(request.getTitle())
                     .contents(sanitizedContents)
                     .tags(request.getTags())
@@ -153,15 +163,21 @@ public class PostDraftService {
                     .build();
         }
 
-        DraftPost draftPost = draftPostRepository.findByDraftIdAndUserForUpdate(request.getDraftId(), user)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
         if (scheduledPostRepository.existsByDraftIdAndStatusIn(
                 draftPost.getDraftId(), ScheduledPost.PROTECTED_DRAFT_STATUSES)) {
-            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+            throw new BusinessException(ErrorCode.DRAFT_PROTECTED);
         }
-        if (!isMatchingDraftVersion(request.getUpdatedAt(), draftPost.getModifiedAt())) {
+        if (request.getDraftId() != null
+                && !isMatchingDraftVersion(
+                        request.getVersion(), draftPost.getVersion(), request.getUpdatedAt(), draftPost.getModifiedAt())) {
             throw new BusinessException(ErrorCode.DRAFT_OUTDATED);
         }
+        if (request.getClientDraftKey() != null
+                && draftPost.getClientDraftKey() != null
+                && !request.getClientDraftKey().equals(draftPost.getClientDraftKey())) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
+        draftPost.adoptClientDraftKey(request.getClientDraftKey());
         draftPost.updateDraft(
                 board,
                 category,
@@ -179,7 +195,11 @@ public class PostDraftService {
         return draftPost;
     }
 
-    private boolean isMatchingDraftVersion(LocalDateTime requestUpdatedAt, LocalDateTime draftModifiedAt) {
+    private boolean isMatchingDraftVersion(Long requestVersion, Long draftVersion,
+            LocalDateTime requestUpdatedAt, LocalDateTime draftModifiedAt) {
+        if (requestVersion != null) {
+            return requestVersion.equals(draftVersion);
+        }
         if (requestUpdatedAt == null || draftModifiedAt == null) {
             return false;
         }

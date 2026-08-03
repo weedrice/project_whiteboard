@@ -317,12 +317,15 @@ OAuth 가입을 취소하고 일반 가입으로 돌아갈 수 있다.
 | `fileIds` | 선택 | 초안에 연결할 현재 사용자 소유 파일 ID 목록. |
 | `poll` | 선택 | 작성 중인 투표 payload. 질문·선택지가 불완전한 상태도 보존하되 질문 200자, 선택지 10개, 선택지별 100자 상한은 적용한다. |
 | `seriesId` | 선택 | 현재 사용자 소유 시리즈 ID. |
-| `updatedAt` | 기존 초안 수정 시 필수 | 마지막 단건 조회 또는 저장 응답의 `updatedAt`. DB microsecond 정밀도로 현재 `modifiedAt`과 정확히 일치해야 한다. |
+| `clientDraftKey` | 신규 초안 저장 시 권장 | 클라이언트가 생성한 8~64자 멱등키. 같은 사용자의 동일 키 재시도는 기존 초안을 갱신한다. |
+| `version` | 기존 초안 수정 시 권장 | 마지막 단건 조회 또는 저장 응답의 숫자형 버전. |
+| `updatedAt` | 구버전 호환 | `version`이 없을 때 DB microsecond 정밀도로 현재 `modifiedAt`과 비교한다. |
 | `originalPostId` | 수정 초안에서 선택 | 원본 게시글은 현재 사용자 소유이고 삭제되지 않았으며 요청 스페이스와 일치해야 한다. |
 
-초안 단건 응답은 `draftId`, 스페이스 정보, 제목·본문·카테고리·태그·상태 플래그·`fileIds`, `poll`, `seriesId`, `originalPostId`, `updatedAt`, `modifiedAt`을 반환한다. `updatedAt`과 `modifiedAt`은 현재 동일한 초안 버전 시각을 나타낸다.
+초안 단건 응답은 `draftId`, `clientDraftKey`, `version`, 스페이스 정보, 제목·본문·카테고리·태그·상태 플래그·`fileIds`, `poll`, `seriesId`, `originalPostId`, `updatedAt`, `modifiedAt`을 반환한다.
 
-- 기존 초안 수정에서 `updatedAt`이 없거나 현재 버전과 정확히 일치하지 않으면 `409 Conflict`, 오류 코드 `P004`(`DRAFT_OUTDATED`)를 반환한다.
+- 기존 초안 수정에서 `version` 또는 호환용 `updatedAt`이 현재 버전과 일치하지 않으면 `409 Conflict`, 오류 코드 `P004`(`DRAFT_OUTDATED`)를 반환한다.
+- 예약 발행이 보호하는 초안의 수정·삭제·일반 발행은 `409 Conflict`, 오류 코드 `P005`(`DRAFT_PROTECTED`)를 반환한다.
 - 프론트엔드 자동 저장은 충돌 후 자동 덮어쓰기를 중단한다. 사용자가 서버 초안을 다시 불러온 뒤 편집을 계속해야 한다.
 - 초안 목록은 `modifiedAt DESC`, `draftId DESC` 순서이며 기본 크기는 20이다. 활성·발행 중·실패 예약발행이 참조하는 초안은 예약발행 목록에서 관리하므로 일반 초안 목록에서 제외한다.
 - `DELETE /api/v1/drafts/{draftId}`는 연결 파일을 삭제 대기 상태로 전환한 뒤 초안을 삭제한다.

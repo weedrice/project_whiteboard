@@ -7,6 +7,7 @@ defineProps<{
   isSavingDraft: boolean
   isRestoringDraft: boolean
   draftConflict: boolean
+  draftProtected: boolean
   restoreFailed: boolean
 }>()
 
@@ -59,7 +60,7 @@ defineEmits<{
         {{ $t('board.writePost.draftStatus.retryRestore') }}
       </BaseButton>
       <BaseButton
-        v-else-if="draftEnabled"
+        v-else-if="draftEnabled && !draftProtected"
         type="button"
         variant="secondary"
         size="sm"

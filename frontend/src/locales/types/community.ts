@@ -378,6 +378,7 @@ export interface BoardMessages {
       localStorageFailed: string
       restoreFailed: string
       conflict: string
+      protected: string
       reloadServer: string
       keepLocal: string
       retryRestore: string

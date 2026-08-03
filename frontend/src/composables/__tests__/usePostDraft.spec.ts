@@ -97,6 +97,8 @@ describe('usePostDraft', () => {
             data: {
                 data: {
                     draftId: 91,
+                    clientDraftKey: 'client-draft-key-1234',
+                    version: 0,
                     boardId: 1,
                     boardUrl: 'free',
                     boardName: 'Free',
@@ -147,14 +149,33 @@ describe('usePostDraft', () => {
             fileIds: [7],
             originalPostId: undefined,
             draftId: undefined,
+            clientDraftKey: expect.any(String),
+            version: undefined,
             updatedAt: undefined,
         })
         expect(Storage.get('noviis:test:draft')).toEqual(expect.objectContaining({
             draftId: 91,
+            clientDraftKey: 'client-draft-key-1234',
+            version: 0,
             fileIds: [7],
             updatedAt: '2025-01-01T00:00:00.000Z',
             clientModifiedAt: '2026-07-07T12:00:00.000Z',
             hasLocalChanges: false,
+        }))
+    })
+
+    it('sends the numeric version returned by the previous save', async () => {
+        const { composable, payloadRef } = mountComposable()
+        await composable.saveNow()
+        payloadRef.value = { ...payloadRef.value, title: 'Second revision' }
+
+        await composable.saveNow()
+
+        expect(mocks.saveDraftMutateAsync).toHaveBeenLastCalledWith(expect.objectContaining({
+            draftId: 91,
+            clientDraftKey: 'client-draft-key-1234',
+            version: 0,
+            title: 'Second revision',
         }))
     })
 
@@ -373,6 +394,22 @@ describe('usePostDraft', () => {
         }
     })
 
+    it('stops saving when a scheduled publication protects the draft', async () => {
+        const { composable } = mountComposable()
+        await composable.saveNow()
+        mocks.saveDraftMutateAsync.mockRejectedValueOnce({
+            isAxiosError: true,
+            response: { status: 409, data: { error: { code: 'P005' } } },
+        })
+
+        await expect(composable.saveNow()).rejects.toMatchObject({ response: { status: 409 } })
+
+        expect(composable.draftProtected.value).toBe(true)
+        expect(composable.lastSaveFailed.value).toBe(false)
+        await expect(composable.saveNow()).resolves.toBeNull()
+        expect(mocks.saveDraftMutateAsync).toHaveBeenCalledTimes(2)
+    })
+
     it('preserves local changes when the server advanced and lets the user overwrite explicitly', async () => {
         Storage.set('noviis:test:draft', {
             boardUrl: 'free',
@@ -588,6 +625,26 @@ describe('usePostDraft', () => {
         mocks.saveDraftMutateAsync.mockReturnValueOnce(new Promise((resolve) => {
             resolveFirstSave = resolve
         }))
+        mocks.saveDraftMutateAsync.mockResolvedValueOnce({
+            data: {
+                data: {
+                    draftId: 91,
+                    clientDraftKey: 'client-draft-key-1234',
+                    version: 1,
+                    boardUrl: 'free',
+                    title: 'Latest editor title',
+                    contents: 'Draft body',
+                    tags: [],
+                    fileIds: [7],
+                    isNotice: false,
+                    isNsfw: false,
+                    isSpoiler: false,
+                    isSecret: false,
+                    updatedAt: '2025-01-01T00:00:01.000Z',
+                    modifiedAt: '2025-01-01T00:00:01.000Z',
+                },
+            },
+        })
         const { composable, payloadRef } = mountComposable()
 
         const firstSave = composable.saveNow()

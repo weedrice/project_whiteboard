@@ -516,7 +516,7 @@ class PostServiceTest {
 
         assertThatThrownBy(() -> postService.createPost(1L, "free", request))
                 .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.DRAFT_PROTECTED);
 
         verify(fileService, never()).attachFilesToPost(anyList(), anyLong(), anyLong(), any());
         verify(draftPostRepository, never()).delete(any(DraftPost.class));
@@ -2418,10 +2418,69 @@ class PostServiceTest {
 
         assertThatThrownBy(() -> postService.saveDraftPost(1L, request))
                 .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.DRAFT_PROTECTED);
 
         verify(draftPostRepository, never()).saveAndFlush(any(DraftPost.class));
         verify(fileService, never()).syncDraftFiles(any(), anyLong(), anyLong());
+    }
+
+    @Test
+    @DisplayName("같은 clientDraftKey로 신규 저장을 재시도하면 기존 초안을 갱신한다")
+    void saveDraftPost_reusesClientDraftKey() {
+        DraftPost existingDraft = DraftPost.builder()
+                .user(user)
+                .board(board)
+                .clientDraftKey("client-draft-key-1234")
+                .title("First attempt")
+                .build();
+        ReflectionTestUtils.setField(existingDraft, "draftId", 10L);
+        ReflectionTestUtils.setField(existingDraft, "version", 2L);
+        PostDraftRequest request = PostDraftRequest.builder()
+                .clientDraftKey("client-draft-key-1234")
+                .boardUrl("free")
+                .title("Retry payload")
+                .contents("Latest contents")
+                .fileIds(Collections.emptyList())
+                .build();
+
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+        when(draftPostRepository.findByUserAndClientDraftKeyForUpdate(user, "client-draft-key-1234"))
+                .thenReturn(Optional.of(existingDraft));
+        when(draftPostRepository.saveAndFlush(existingDraft)).thenReturn(existingDraft);
+
+        DraftResponse response = postService.saveDraftPost(1L, request);
+
+        assertThat(response.getDraftId()).isEqualTo(10L);
+        assertThat(response.getClientDraftKey()).isEqualTo("client-draft-key-1234");
+        assertThat(response.getVersion()).isEqualTo(2L);
+        assertThat(response.getTitle()).isEqualTo("Retry payload");
+        verify(fileService).syncDraftFiles(Collections.emptyList(), 1L, 10L);
+    }
+
+    @Test
+    @DisplayName("숫자형 초안 버전이 다르면 수정 저장을 거부한다")
+    void saveDraftPost_rejectsMismatchedEntityVersion() {
+        DraftPost existingDraft = DraftPost.builder().user(user).board(board).title("Old").build();
+        ReflectionTestUtils.setField(existingDraft, "draftId", 10L);
+        ReflectionTestUtils.setField(existingDraft, "version", 4L);
+        PostDraftRequest request = PostDraftRequest.builder()
+                .draftId(10L)
+                .version(3L)
+                .boardUrl("free")
+                .title("Stale payload")
+                .contents("Stale contents")
+                .build();
+
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+        when(draftPostRepository.findByDraftIdAndUserForUpdate(10L, user)).thenReturn(Optional.of(existingDraft));
+
+        assertThatThrownBy(() -> postService.saveDraftPost(1L, request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.DRAFT_OUTDATED);
+
+        verify(draftPostRepository, never()).saveAndFlush(any(DraftPost.class));
     }
 
     @Test

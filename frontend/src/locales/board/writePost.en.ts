@@ -100,6 +100,7 @@ export const boardEnWritePostMessages: BoardMessages['writePost'] = {
       localStorageFailed: 'The draft could not be saved in this browser.',
       restoreFailed: 'The server draft could not be checked.',
       conflict: 'Both the local and server drafts changed. Choose which copy to keep.',
+      protected: 'This draft is used by a scheduled publication and cannot be changed here.',
       reloadServer: 'Reload server draft',
       keepLocal: 'Overwrite with local draft',
       retryRestore: 'Try again',

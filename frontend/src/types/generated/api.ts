@@ -4085,6 +4085,7 @@ export interface components {
             contents?: string;
             /** Format: int64 */
             draftId?: number;
+            clientDraftKey?: string;
             fileIds?: number[];
             isNotice?: boolean;
             isNsfw?: boolean;
@@ -4101,6 +4102,8 @@ export interface components {
             title?: string;
             /** Format: date-time */
             updatedAt?: string;
+            /** Format: int64 */
+            version?: number;
         };
         DraftSummary: {
             /** Format: int64 */
@@ -5066,6 +5069,7 @@ export interface components {
             boardUrl: string;
             /** Format: int64 */
             categoryId?: number;
+            clientDraftKey?: string;
             contents?: string;
             /** Format: int64 */
             draftId?: number;
@@ -5083,6 +5087,8 @@ export interface components {
             title?: string;
             /** Format: date-time */
             updatedAt?: string;
+            /** Format: int64 */
+            version?: number;
         };
         PostInfo: {
             boardName?: string;

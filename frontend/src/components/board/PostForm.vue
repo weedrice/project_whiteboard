@@ -334,6 +334,7 @@ const {
   draftStatusLabel,
   draftId,
   draftConflict,
+  draftProtected,
   restoreFailed,
   isRestoringDraft,
   isSavingDraft,
@@ -390,7 +391,7 @@ const { handleSubmit, isSubmissionLocked } = usePostComposerSubmit({
   form,
   hideCategory: () => props.hideCategory,
   draftEnabled,
-  draftConflict,
+  draftConflict: computed(() => draftConflict.value || draftProtected.value),
   draftId: effectiveDraftId,
   saveDraftNow,
   buildPayload,
@@ -589,6 +590,7 @@ defineExpose({
             :is-saving-draft="isSavingDraft"
             :is-restoring-draft="isRestoringDraft"
             :draft-conflict="draftConflict"
+            :draft-protected="draftProtected"
             :restore-failed="restoreFailed"
             :scheduled-at="scheduledAt"
             :show-scheduler="props.mode === 'create' || Boolean(scheduledPostId)"
@@ -662,7 +664,7 @@ defineExpose({
           {{ $t('board.writePost.actions.preview') }}
         </BaseButton>
         <BaseButton
-          v-else-if="draftEnabled && !draftConflict"
+          v-else-if="draftEnabled && !draftConflict && !draftProtected"
           type="button"
           variant="secondary"
           size="sm"
@@ -685,7 +687,7 @@ defineExpose({
         </BaseButton>
       </div>
       <BaseButton
-        v-if="!props.hidePreview && draftEnabled && !draftConflict"
+        v-if="!props.hidePreview && draftEnabled && !draftConflict && !draftProtected"
         type="button"
         variant="secondary"
         size="sm"

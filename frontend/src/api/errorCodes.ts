@@ -19,6 +19,8 @@ export const API_ERROR_CODES = {
     USER_DELETED: 'A009',
     /** P004 DRAFT_OUTDATED — 임시저장본이 서버 최신본보다 오래됨 */
     DRAFT_OUTDATED: 'P004',
+    /** P005 DRAFT_PROTECTED — 예약 발행이 임시저장본을 보호 중 */
+    DRAFT_PROTECTED: 'P005',
     /** EM006 EMOTICON_IMAGE_LIMIT_EXCEEDED — 이모티콘 이미지 개수 초과 */
     EMOTICON_IMAGE_LIMIT_EXCEEDED: 'EM006',
 } as const

@@ -59,7 +59,7 @@
 
 #### `draft_posts` 보존 정책
 
-- 초안 수정의 버전 값은 `modified_at`이며 API의 `updatedAt`과 DB microsecond 정밀도로 정확히 일치해야 한다.
+- 초안 수정은 `entity_version` 숫자 버전을 우선 사용하며, 호환 요청은 `modified_at`과 API `updatedAt`을 DB microsecond 정밀도로 비교한다. `client_draft_key`는 사용자별 신규 저장 재시도를 멱등 처리한다.
 - 일반 초안은 사용자당 최근 100개를 유지한다. 새 초안 저장 후 한도를 초과하면 `modified_at ASC`, `draft_id ASC` 순서의 오래된 초안을 먼저 삭제한다. 활성 예약발행이 참조하는 보호 초안은 한도와 일반 초안 목록에서 제외한다.
 - `modified_at`이 현재 시각 기준 90일보다 오래된 초안은 매일 03:15(Asia/Seoul) 정리 대상이다.
 - 초안 레코드를 삭제하기 전에 `DRAFT_POST`로 연결된 활성 파일을 삭제 대기 상태로 전환한다. 게시글 발행에서는 선택 파일을 `POST_CONTENT`로 승격한 뒤 초안을 정리한다.
@@ -226,6 +226,8 @@
 | `V81` | 고아 태그 bounded cleanup용 `post_count = 0` partial index 추가 |
 | `V82` | 구매 이력에 구매 시점 상품명·유형·이미지 표시 snapshot 추가 |
 | `V83` | 만료 초안 배치 정리용 `(modified_at, draft_id)` 온라인 인덱스 추가 |
+| `V84` | 초안 생성 멱등키와 숫자형 버전 컬럼 추가 |
+| `V85` | 사용자별 초안 멱등키 온라인 고유 인덱스 추가 |
 
 ## 운영 주의
 
