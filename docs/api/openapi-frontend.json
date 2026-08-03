@@ -2678,7 +2678,7 @@
             "type" : "string"
           },
           "source" : {
-            "enum" : [ "VUE", "WINDOW_ERROR", "UNHANDLED_REJECTION" ],
+            "enum" : [ "VUE", "WINDOW_ERROR", "UNHANDLED_REJECTION", "DRAFT_AUTOSAVE" ],
             "type" : "string"
           },
           "stackTrace" : {

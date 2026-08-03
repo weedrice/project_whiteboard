@@ -3929,7 +3929,7 @@ export interface components {
             message: string;
             pageUrl: string;
             /** @enum {string} */
-            source: "VUE" | "WINDOW_ERROR" | "UNHANDLED_REJECTION";
+            source: "VUE" | "WINDOW_ERROR" | "UNHANDLED_REJECTION" | "DRAFT_AUTOSAVE";
             stackTrace?: string;
         };
         CommentCreateRequest: {

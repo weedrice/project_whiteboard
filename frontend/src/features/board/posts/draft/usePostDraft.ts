@@ -7,6 +7,7 @@ import { usePost } from '@/features/board/posts/queries/usePost'
 import type { DraftPost } from '@/types'
 import { Storage } from '@/utils/storage'
 import logger from '@/utils/logger'
+import { reportDraftOperationalEvent } from '@/utils/clientErrorReporter'
 import {
     getDraftUpdatedAt,
     hasSameDraftContent,
@@ -158,6 +159,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
             logger.error('Draft local snapshot storage failed.', {
                 event: 'draft_local_snapshot_write_failed',
             })
+            void reportDraftOperationalEvent('local_storage_write_failed')
         }
         lastLocalSaveFailed.value = !stored
         return stored
@@ -315,6 +317,8 @@ export function usePostDraft(options: UsePostDraftOptions) {
             if (generation === sessionGeneration) {
                 draftConflict.value = isDraftOutdatedError(error)
                 draftProtected.value = isDraftProtectedError(error)
+                if (draftConflict.value) void reportDraftOperationalEvent('draft_conflict')
+                if (draftProtected.value) void reportDraftOperationalEvent('draft_protected')
                 if (isDraftMissingError(error) && draftId.value != null) {
                     transitionToDeletedDraft()
                 }
@@ -373,6 +377,9 @@ export function usePostDraft(options: UsePostDraftOptions) {
                 saveRetryExhausted.value = true
                 logger.error('Draft autosave retries exhausted.', {
                     event: 'draft_autosave_retry_exhausted',
+                    attempts: saveRetryAttempt.value,
+                })
+                void reportDraftOperationalEvent('autosave_retry_exhausted', {
                     attempts: saveRetryAttempt.value,
                 })
             }
@@ -508,6 +515,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         const chosen = recovery.snapshot
         restoreFailed.value = resolved.recoveryFailed
         multipleDraftsFound.value = resolved.multipleMatchesFound
+        if (multipleDraftsFound.value) void reportDraftOperationalEvent('multiple_recovery_candidates')
         if (!chosen) return
 
         if (revision !== localRevision) {
@@ -641,6 +649,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
             options.storageKey.value,
         )) {
             transitionToProtectedDraft()
+            void reportDraftOperationalEvent('scheduled_in_another_tab')
             return
         }
         if (draftId.value != null

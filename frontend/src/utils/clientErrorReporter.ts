@@ -34,6 +34,14 @@ interface ClientErrorReportingOptions {
     onVueError?: (error: unknown) => void
 }
 
+export type DraftOperationalEvent =
+    | 'local_storage_write_failed'
+    | 'autosave_retry_exhausted'
+    | 'draft_conflict'
+    | 'draft_protected'
+    | 'multiple_recovery_candidates'
+    | 'scheduled_in_another_tab'
+
 function truncate(value: string, maxLength: number): string {
     return value.length > maxLength ? value.slice(0, maxLength) : value
 }
@@ -127,6 +135,17 @@ export function reportVueError(
     info: string,
 ) {
     return send(createVueErrorLogPayload(error, instance, info), 'VUE')
+}
+
+export function reportDraftOperationalEvent(
+    event: DraftOperationalEvent,
+    metadata: Readonly<Record<string, number | boolean | string>> = {},
+) {
+    return send({
+        error: { name: 'DraftAutosaveEvent', message: event },
+        component: 'PostDraft',
+        info: JSON.stringify(metadata),
+    }, 'DRAFT_AUTOSAVE')
 }
 
 export function installClientErrorReporting(app: App, options: ClientErrorReportingOptions = {}) {

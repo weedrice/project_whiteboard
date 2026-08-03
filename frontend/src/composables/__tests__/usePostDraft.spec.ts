@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => {
     const getDraft = vi.fn()
     const getMyDrafts = vi.fn()
     const loggerError = vi.fn()
+    const reportDraftOperationalEvent = vi.fn()
 
     return {
         saveDraftMutateAsync,
@@ -21,6 +22,7 @@ const mocks = vi.hoisted(() => {
         getDraft,
         getMyDrafts,
         loggerError,
+        reportDraftOperationalEvent,
         saveDraftConfig: undefined as (() => { signal?: AbortSignal } | undefined) | undefined,
     }
 })
@@ -55,6 +57,10 @@ vi.mock('@/api/user', () => ({
 
 vi.mock('@/utils/logger', () => ({
     default: { error: mocks.loggerError },
+}))
+
+vi.mock('@/utils/clientErrorReporter', () => ({
+    reportDraftOperationalEvent: mocks.reportDraftOperationalEvent,
 }))
 
 function mountComposable(payloadRef: Ref<PostDraftData> = ref({
@@ -1046,6 +1052,8 @@ describe('usePostDraft', () => {
             'Draft autosave retries exhausted.',
             { event: 'draft_autosave_retry_exhausted', attempts: 5 },
         )
+        expect(mocks.reportDraftOperationalEvent)
+            .toHaveBeenCalledExactlyOnceWith('autosave_retry_exhausted', { attempts: 5 })
 
         mocks.saveDraftMutateAsync.mockResolvedValueOnce({
             data: {
@@ -1419,6 +1427,8 @@ describe('usePostDraft', () => {
             'Draft local snapshot storage failed.',
             { event: 'draft_local_snapshot_write_failed' },
         )
+        expect(mocks.reportDraftOperationalEvent)
+            .toHaveBeenCalledExactlyOnceWith('local_storage_write_failed')
         setItem.mockRestore()
     })
 

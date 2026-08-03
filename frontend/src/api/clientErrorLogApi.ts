@@ -1,6 +1,6 @@
 import api from '@/api'
 
-export type ClientErrorSource = 'VUE' | 'WINDOW_ERROR' | 'UNHANDLED_REJECTION'
+export type ClientErrorSource = 'VUE' | 'WINDOW_ERROR' | 'UNHANDLED_REJECTION' | 'DRAFT_AUTOSAVE'
 
 export interface ClientErrorLogRequest {
     source: ClientErrorSource

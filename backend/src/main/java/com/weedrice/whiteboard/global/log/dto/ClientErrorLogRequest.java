@@ -13,7 +13,8 @@ public class ClientErrorLogRequest {
     public enum Source {
         VUE,
         WINDOW_ERROR,
-        UNHANDLED_REJECTION
+        UNHANDLED_REJECTION,
+        DRAFT_AUTOSAVE
     }
 
     @NotNull

@@ -16,7 +16,7 @@ vi.mock('@/utils/logger', () => ({
     },
 }))
 
-import { installClientErrorReporting } from '../clientErrorReporter'
+import { installClientErrorReporting, reportDraftOperationalEvent } from '../clientErrorReporter'
 
 function createAppStub(): App {
     return {
@@ -111,5 +111,17 @@ describe('clientErrorReporter', () => {
         expect(() => app.config.errorHandler?.(new Error('safe-report-failure'), null, 'render'))
             .not.toThrow()
         await vi.waitFor(() => expect(createClientErrorLog).toHaveBeenCalledTimes(1))
+    })
+
+    it('reports draft operational events without draft contents or identifiers', async () => {
+        await reportDraftOperationalEvent('autosave_retry_exhausted', { attempts: 5 })
+
+        expect(createClientErrorLog).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+            source: 'DRAFT_AUTOSAVE',
+            errorType: 'DraftAutosaveEvent',
+            message: 'autosave_retry_exhausted',
+            component: 'PostDraft',
+            info: '{"attempts":5}',
+        }))
     })
 })
