@@ -8,6 +8,7 @@ import { Storage } from '@/utils/storage'
 import logger from '@/utils/logger'
 import {
     getDraftUpdatedAt,
+    hasSameDraftContent,
     isDraftMissingError,
     isDraftProtectedError,
     isDraftOutdatedError,
@@ -582,7 +583,10 @@ export function usePostDraft(options: UsePostDraftOptions) {
             const incoming = JSON.parse(event.newValue) as DraftRecoverySnapshot
             if (!incoming.clientInstanceId || incoming.clientInstanceId === clientInstanceId) return
             const sameDraft = incoming.draftId != null && incoming.draftId === draftId.value
-            const serverAdvanced = sameDraft
+            const sameClientDraft = Boolean(incoming.clientDraftKey)
+                && incoming.clientDraftKey === clientDraftKey.value
+            const sameLogicalDraft = sameDraft || (draftId.value == null && sameClientDraft)
+            const serverAdvanced = sameLogicalDraft
                 && (incoming.updatedAt ?? incoming.modifiedAt ?? null) !== updatedAt.value
             const matchingComposer = isMatchingLoadedDraft(incoming as DraftPost, options.buildPayload())
             const hasUnsavedLocalChanges = localRevision !== persistedRevision
@@ -597,6 +601,22 @@ export function usePostDraft(options: UsePostDraftOptions) {
                 localRevision++
                 restoreSource.value = 'local'
                 options.applyDraft(incoming)
+                return
+            }
+            if (hasUnsavedLocalChanges
+                && sameLogicalDraft
+                && incoming.hasLocalChanges === false
+                && matchingComposer
+                && hasSameDraftContent(incoming, options.buildPayload())) {
+                draftId.value = incoming.draftId ?? draftId.value
+                draftVersion.value = incoming.version ?? null
+                clientDraftKey.value = incoming.clientDraftKey ?? clientDraftKey.value
+                updatedAt.value = incoming.updatedAt ?? incoming.modifiedAt ?? null
+                lastSavedAt.value = updatedAt.value
+                lastSaveScope.value = 'server'
+                persistedRevision = localRevision
+                options.applyDraft(incoming)
+                options.onSaved?.()
                 return
             }
             if (!hasUnsavedLocalChanges

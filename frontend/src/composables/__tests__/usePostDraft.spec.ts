@@ -1309,6 +1309,53 @@ describe('usePostDraft', () => {
         expect(composable.draftConflict.value).toBe(true)
     })
 
+    it('reconciles an adopted tab edit when the same content finishes saving on the server', async () => {
+        const { composable, appliedDrafts, payloadRef } = mountComposable()
+
+        window.dispatchEvent(new StorageEvent('storage', {
+            key: 'noviis:test:draft',
+            newValue: JSON.stringify({
+                clientDraftKey: 'client-draft-key-1234',
+                boardUrl: 'free',
+                title: 'Unsaved edit from another tab',
+                contents: 'Draft body',
+                updatedAt: '2025-01-01T00:00:00.000Z',
+                clientInstanceId: 'other-tab',
+                hasLocalChanges: true,
+            }),
+        }))
+        payloadRef.value = {
+            ...payloadRef.value,
+            title: 'Unsaved edit from another tab',
+        }
+
+        window.dispatchEvent(new StorageEvent('storage', {
+            key: 'noviis:test:draft',
+            newValue: JSON.stringify({
+                draftId: 91,
+                clientDraftKey: 'client-draft-key-1234',
+                version: 1,
+                boardUrl: 'free',
+                title: 'Unsaved edit from another tab',
+                contents: 'Draft body',
+                fileIds: [7],
+                updatedAt: '2025-01-02T00:00:00.000Z',
+                clientInstanceId: 'other-tab',
+                hasLocalChanges: false,
+            }),
+        }))
+
+        expect(appliedDrafts.at(-1)).toEqual(expect.objectContaining({
+            draftId: 91,
+            title: 'Unsaved edit from another tab',
+            version: 1,
+        }))
+        expect(composable.draftId.value).toBe(91)
+        expect(composable.draftVersion.value).toBe(1)
+        expect(composable.updatedAt.value).toBe('2025-01-02T00:00:00.000Z')
+        expect(composable.draftConflict.value).toBe(false)
+    })
+
     it('stops autosave when another tab advances the same draft', async () => {
         const { composable, payloadRef } = mountComposable()
         await composable.saveNow()

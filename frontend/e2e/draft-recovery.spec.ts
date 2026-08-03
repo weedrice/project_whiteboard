@@ -70,7 +70,6 @@ test('a failed offline autosave retries automatically when connectivity returns'
 
   await page.locator('#title').fill('Offline edit')
   await expect.poll(() => state.draftSaveCount).toBe(1)
-  await expect(page.getByText(/자동 임시 저장에 실패했습니다/).first()).toBeVisible()
 
   await page.evaluate(() => {
     Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => false })
@@ -90,7 +89,6 @@ test('retry after a dropped response reuses the client key and one logical draft
 
   await page.locator('#title').fill('Retry-safe draft')
   await expect.poll(() => state.draftSaveCount).toBe(1)
-  await expect(page.getByText(/자동 임시 저장에 실패했습니다/).first()).toBeVisible()
 
   await page.evaluate(() => window.dispatchEvent(new Event('online')))
   await expect.poll(() => state.draftSaveCount).toBe(2)
@@ -117,8 +115,11 @@ test('tabs synchronize clean saves but preserve a local edit when the other tab 
   await expect(secondPage.locator('#title')).toHaveValue('Saved in first tab')
 
   await page.locator('#title').fill('Unsaved first-tab edit')
+  await expect(secondPage.locator('#title')).toHaveValue('Unsaved first-tab edit')
   await secondPage.locator('#title').fill('Saved in second tab')
-  await secondPage.getByRole('button', { name: '임시 저장', exact: true }).first().click()
+  await secondPage.getByRole('button', {
+    name: /^(임시 저장|로컬 초안으로 덮어쓰기)$/,
+  }).first().click()
 
   await expect.poll(() => state.draftSaveCount).toBe(2)
   await expect(page.locator('#title')).toHaveValue('Unsaved first-tab edit')

@@ -84,6 +84,32 @@ export const isMatchingLoadedDraft = (draft: DraftPost, payload: PostDraftData) 
     return draftOriginalPostId === payloadOriginalPostId
 }
 
+const normalizeDraftContent = (draft: PostDraftData) => ({
+    title: draft.title ?? '',
+    contents: draft.contents ?? '',
+    categoryId: draft.categoryId ?? null,
+    tags: [...(draft.tags ?? [])].sort(),
+    isNotice: draft.isNotice ?? false,
+    isNsfw: draft.isNsfw ?? false,
+    isSpoiler: draft.isSpoiler ?? false,
+    isSecret: draft.isSecret ?? false,
+    fileIds: [...(draft.fileIds ?? [])].sort((left, right) => left - right),
+    poll: draft.poll
+        ? {
+            question: draft.poll.question,
+            options: draft.poll.options,
+            multipleChoiceEnabled: draft.poll.multipleChoiceEnabled ?? false,
+            anonymousEnabled: draft.poll.anonymousEnabled ?? false,
+            closesAt: draft.poll.closesAt ?? null,
+        }
+        : null,
+    seriesId: draft.seriesId ?? null,
+})
+
+export const hasSameDraftContent = (left: PostDraftData, right: PostDraftData): boolean => (
+    JSON.stringify(normalizeDraftContent(left)) === JSON.stringify(normalizeDraftContent(right))
+)
+
 export const getDraftUpdatedAt = (draft: Pick<DraftPost, 'updatedAt' | 'modifiedAt'>): string | null => (
     draft.updatedAt ?? draft.modifiedAt ?? null
 )
