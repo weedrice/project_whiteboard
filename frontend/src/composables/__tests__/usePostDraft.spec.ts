@@ -418,7 +418,7 @@ describe('usePostDraft', () => {
             fileIds: [],
             draftId: 91,
             updatedAt: '2025-01-01T00:00:00.000Z',
-            clientModifiedAt: '2025-01-03T00:00:00.000Z',
+            clientModifiedAt: '2026-07-06T00:00:00.000Z',
             hasLocalChanges: true,
         })
         const payload = ref<PostDraftData>({

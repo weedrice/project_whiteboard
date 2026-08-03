@@ -109,6 +109,22 @@ class ScheduledPostServiceTest {
     }
 
     @Test
+    void createRejectsWhenProtectedScheduleLimitIsReached() {
+        ScheduledPostRequest request = requestWithDraft(null);
+        when(userWritableResolver.resolveForUpdate(1L)).thenReturn(user);
+        when(scheduledPostRepository.countByUser_UserIdAndStatusIn(
+                1L, ScheduledPost.PROTECTED_DRAFT_STATUSES)).thenReturn(100L);
+
+        assertThatThrownBy(() -> service.create(1L, "scheduled-board", request))
+                .isInstanceOf(com.weedrice.whiteboard.global.exception.BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(com.weedrice.whiteboard.global.exception.ErrorCode.SCHEDULED_POST_LIMIT_EXCEEDED);
+
+        verify(boardRepository, never()).findByBoardUrl(any());
+        verify(scheduledPostRepository, never()).saveAndFlush(any(ScheduledPost.class));
+    }
+
+    @Test
     void createRejectsDraftAlreadyReferencedByAnotherSchedule() {
         ScheduledPostRequest request = requestWithDraft(77L);
         when(userWritableResolver.resolveForUpdate(1L)).thenReturn(user);

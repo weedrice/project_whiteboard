@@ -22,7 +22,14 @@ import {
     hasMeaningfulDraftContent,
 } from '@/features/board/posts/draft/postDraftSnapshot'
 import { resolveServerDraftForRecovery } from '@/features/board/posts/draft/postDraftRestore'
-import { isDraftDeletedLocally } from '@/features/board/posts/draft/postDraftTombstone'
+import {
+    cleanupExpiredDraftTombstones,
+    isDraftDeletedLocally,
+} from '@/features/board/posts/draft/postDraftTombstone'
+import {
+    cleanupExpiredDraftSnapshots,
+    loadStoredDraftSnapshot,
+} from '@/features/board/posts/draft/postDraftLifecycle'
 
 export type { DraftRecoverySnapshot } from '@/features/board/posts/draft/postDraftRecovery'
 export type DraftSaveScope = 'server' | 'browser'
@@ -315,7 +322,9 @@ export function usePostDraft(options: UsePostDraftOptions) {
         restoreFailed.value = false
 
         try {
-        let localSnapshot = Storage.get<DraftRecoverySnapshot>(options.storageKey.value, null)
+        cleanupExpiredDraftSnapshots()
+        cleanupExpiredDraftTombstones()
+        let localSnapshot = loadStoredDraftSnapshot(options.storageKey.value)
         if (isDraftDeletedLocally(options.ownerId?.value, localSnapshot?.draftId)) {
             Storage.remove(options.storageKey.value)
             localSnapshot = null

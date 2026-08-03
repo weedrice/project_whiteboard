@@ -19,6 +19,8 @@ import java.util.Optional;
 
 public interface ScheduledPostRepository extends JpaRepository<ScheduledPost, Long> {
 
+    long countByUser_UserIdAndStatusIn(Long userId, Collection<String> statuses);
+
     boolean existsByDraftIdAndStatusIn(Long draftId, List<String> statuses);
 
     boolean existsByDraftId(Long draftId);
@@ -55,6 +57,17 @@ public interface ScheduledPostRepository extends JpaRepository<ScheduledPost, Lo
             ORDER BY s.scheduledAt ASC, s.scheduledPostId ASC
             """)
     List<ScheduledPostIdProjection> findDueScheduledPostIds(@Param("now") LocalDateTime now, Pageable pageable);
+
+    @EntityGraph(attributePaths = {"user", "board"})
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT s
+            FROM ScheduledPost s
+            WHERE s.status = 'FAILED'
+              AND s.scheduledAt < :cutoff
+            ORDER BY s.scheduledAt ASC, s.scheduledPostId ASC
+            """)
+    List<ScheduledPost> findExpiredFailedBefore(@Param("cutoff") LocalDateTime cutoff, Pageable pageable);
 
     @EntityGraph(attributePaths = {"user", "board"})
     Optional<ScheduledPost> findByScheduledPostIdAndStatusAndProcessingStartedAt(

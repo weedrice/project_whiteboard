@@ -40,6 +40,7 @@ public class ScheduledPostService {
 
     private static final int DEFAULT_PAGE_SIZE = 20;
     private static final int PUBLISH_BATCH_SIZE = 20;
+    static final int MAX_PROTECTED_SCHEDULED_POSTS_PER_USER = 100;
     private static final int MIN_SCHEDULE_MINUTES = 5;
     private static final int MAX_SCHEDULE_DAYS = 30;
     private static final int MIN_POLL_LIFETIME_AFTER_SCHEDULE_MINUTES = 1;
@@ -64,6 +65,10 @@ public class ScheduledPostService {
     public ScheduledPostResponse create(Long userId, String boardUrl, ScheduledPostRequest request) {
         User user = userWritableResolver.resolveForUpdate(userId);
         sanctionService.validateNotMuted(user);
+        if (scheduledPostRepository.countByUser_UserIdAndStatusIn(
+                userId, ScheduledPost.PROTECTED_DRAFT_STATUSES) >= MAX_PROTECTED_SCHEDULED_POSTS_PER_USER) {
+            throw new BusinessException(ErrorCode.SCHEDULED_POST_LIMIT_EXCEEDED);
+        }
         String normalizedBoardUrl = BoardUrlNormalizer.normalizeLookup(boardUrl);
         Board board = boardRepository.findByBoardUrl(normalizedBoardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));

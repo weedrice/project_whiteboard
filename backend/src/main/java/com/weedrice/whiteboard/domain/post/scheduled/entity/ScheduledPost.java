@@ -156,4 +156,14 @@ public class ScheduledPost extends BaseTimeEntity {
     public boolean isEditable() {
         return STATUS_SCHEDULED.equals(status) || STATUS_FAILED.equals(status);
     }
+
+    public void expireFailed(LocalDateTime canceledAt) {
+        if (!STATUS_FAILED.equals(status)) {
+            return;
+        }
+        this.status = STATUS_CANCELED;
+        this.canceledAt = canceledAt;
+        this.processingStartedAt = null;
+        this.draftId = null;
+    }
 }
