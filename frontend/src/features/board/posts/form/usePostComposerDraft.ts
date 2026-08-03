@@ -87,6 +87,7 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     draftProtected,
     draftDeleted,
     restoreFailed,
+    multipleDraftsFound,
     isRestoringDraft,
     reloadServerDraft,
     keepLocalDraft,
@@ -120,6 +121,7 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     if (draftDeleted.value) return options.t('board.writePost.draftStatus.deleted')
     if (draftConflict.value) return options.t('board.writePost.draftStatus.conflict')
     if (draftProtected.value) return options.t('board.writePost.draftStatus.protected')
+    if (multipleDraftsFound.value) return options.t('board.writePost.draftStatus.multipleFound')
     if (restoreFailed.value) return options.t('board.writePost.draftStatus.restoreFailed')
     if (lastLocalSaveFailed.value) return options.t('board.writePost.draftStatus.localStorageFailed')
     if (saveRetryScheduled.value) {
@@ -321,6 +323,7 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     draftProtected,
     draftDeleted,
     restoreFailed,
+    multipleDraftsFound,
     isRestoringDraft,
     isSavingDraft,
     lastSaveFailed,

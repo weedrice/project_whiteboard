@@ -799,6 +799,7 @@ describe('usePostDraft', () => {
         expect(mocks.getDraft).not.toHaveBeenCalled()
         expect(appliedDrafts).toHaveLength(0)
         expect(composable.restoreSource.value).toBe('idle')
+        expect(composable.multipleDraftsFound.value).toBe(true)
     })
 
     it('debounces autosave and cleans up local/server drafts on publish cleanup', async () => {
@@ -1104,7 +1105,7 @@ describe('usePostDraft', () => {
         const { composable, appliedDrafts } = mountComposable()
         mocks.getDraft.mockRejectedValueOnce({
             isAxiosError: true,
-            response: { status: 404 },
+            response: { status: 404, data: { error: { code: 'P007' } } },
         })
 
         await composable.restoreDraft()
@@ -1118,6 +1119,31 @@ describe('usePostDraft', () => {
         }))
         expect(composable.restoreSource.value).toBe('local')
         expect(Storage.get('noviis:test:draft')).not.toHaveProperty('draftId')
+    })
+
+    it('keeps local server identity when draft recovery gets a related-resource 404', async () => {
+        Storage.set('noviis:test:draft', {
+            boardUrl: 'free',
+            title: 'Local draft',
+            contents: 'Local contents',
+            draftId: 91,
+            updatedAt: '2025-01-01T00:00:00.000Z',
+            clientModifiedAt: '2026-07-07T11:30:00.000Z',
+        })
+
+        const { composable, appliedDrafts } = mountComposable()
+        mocks.getDraft.mockRejectedValueOnce({
+            isAxiosError: true,
+            response: { status: 404, data: { error: { code: 'B001' } } },
+        })
+
+        await composable.restoreDraft()
+        await nextTick()
+
+        expect(composable.restoreFailed.value).toBe(true)
+        expect(composable.draftId.value).toBe(91)
+        expect(appliedDrafts[0]).toEqual(expect.objectContaining({ title: 'Local draft' }))
+        expect(Storage.get('noviis:test:draft')).toEqual(expect.objectContaining({ draftId: 91 }))
     })
 
     it('updates an existing server draft when only its category remains', async () => {
@@ -1223,7 +1249,7 @@ describe('usePostDraft', () => {
 
         mocks.getDraft.mockRejectedValueOnce({
             isAxiosError: true,
-            response: { status: 404 },
+            response: { status: 404, data: { error: { code: 'P007' } } },
         })
         mocks.getMyDrafts.mockResolvedValueOnce({
             data: {

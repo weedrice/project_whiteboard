@@ -136,7 +136,14 @@ export const isDraftMissingError = (error: unknown): boolean => {
     return data?.error?.code === DRAFT_NOT_FOUND_ERROR_CODE || data?.code === DRAFT_NOT_FOUND_ERROR_CODE
 }
 
-export const findMatchingServerDraftId = async (payload: PostDraftData): Promise<number | null> => {
+export interface MatchingServerDraftResolution {
+    draftId: number | null
+    multipleMatchesFound: boolean
+}
+
+export const resolveMatchingServerDraft = async (
+    payload: PostDraftData,
+): Promise<MatchingServerDraftResolution> => {
     let page = 0
     let hasNext = true
     const matchingCreateDraftIds: number[] = []
@@ -152,7 +159,7 @@ export const findMatchingServerDraftId = async (payload: PostDraftData): Promise
             }
 
             if (payloadOriginalPostId != null) {
-                return draft.draftId
+                return { draftId: draft.draftId, multipleMatchesFound: false }
             }
 
             if (draft.draftId != null) {
@@ -163,8 +170,15 @@ export const findMatchingServerDraftId = async (payload: PostDraftData): Promise
         page += 1
     }
 
-    return matchingCreateDraftIds.length === 1 ? matchingCreateDraftIds[0] : null
+    return {
+        draftId: matchingCreateDraftIds.length === 1 ? matchingCreateDraftIds[0] : null,
+        multipleMatchesFound: matchingCreateDraftIds.length > 1,
+    }
 }
+
+export const findMatchingServerDraftId = async (payload: PostDraftData): Promise<number | null> => (
+    (await resolveMatchingServerDraft(payload)).draftId
+)
 
 export const loadDraftById = async (draftId: number) => (
     unwrapAxiosApiData(await postApi.getDraft(draftId))

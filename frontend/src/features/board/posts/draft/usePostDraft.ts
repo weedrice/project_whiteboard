@@ -92,6 +92,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
     const lastSaveFailed = ref(false)
     const lastLocalSaveFailed = ref(false)
     const restoreFailed = ref(false)
+    const multipleDraftsFound = ref(false)
     const isRestoringDraft = ref(false)
     const draftConflict = ref(false)
     const draftProtected = ref(false)
@@ -269,6 +270,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
             storeLocalSnapshot(createDraftRecoverySnapshot(options.buildPayload(), savedDraft.draftId, updatedAt.value))
         }
         lastSaveFailed.value = false
+        multipleDraftsFound.value = false
         clearSaveRetry()
         return savedDraft
     }
@@ -450,6 +452,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         hasRestoredDraft.value = true
         isRestoringDraft.value = true
         restoreFailed.value = false
+        multipleDraftsFound.value = false
 
         try {
         cleanupExpiredDraftSnapshots()
@@ -477,6 +480,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         const recovery = resolveDraftRecoverySnapshot(resolved.localSnapshot, resolved.serverDraft)
         const chosen = recovery.snapshot
         restoreFailed.value = resolved.recoveryFailed
+        multipleDraftsFound.value = resolved.multipleMatchesFound
         if (!chosen) return
         if (generation !== sessionGeneration) return
 
@@ -538,6 +542,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
     const retryRestore = async () => {
         hasRestoredDraft.value = false
         restoreFailed.value = false
+        multipleDraftsFound.value = false
         await restoreDraft()
     }
 
@@ -548,6 +553,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         Storage.remove(options.storageKey.value)
         lastSaveScope.value = null
         draftDeleted.value = false
+        multipleDraftsFound.value = false
         resetDraftTracking()
         restoreSource.value = 'idle'
     }
@@ -560,6 +566,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         lastSaveFailed.value = false
         lastLocalSaveFailed.value = false
         restoreFailed.value = false
+        multipleDraftsFound.value = false
         isRestoringDraft.value = false
         draftConflict.value = false
         draftProtected.value = false
@@ -752,6 +759,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         saveRetryMaxAttempts: SAVE_RETRY_MAX_ATTEMPTS,
         lastLocalSaveFailed: computed(() => lastLocalSaveFailed.value),
         restoreFailed: computed(() => restoreFailed.value),
+        multipleDraftsFound: computed(() => multipleDraftsFound.value),
         isRestoringDraft: computed(() => isRestoringDraft.value),
         draftConflict: computed(() => draftConflict.value),
         draftProtected: computed(() => draftProtected.value),

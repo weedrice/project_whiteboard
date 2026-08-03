@@ -337,6 +337,7 @@ const {
   draftProtected,
   draftDeleted,
   restoreFailed,
+  multipleDraftsFound,
   isRestoringDraft,
   isSavingDraft,
   lastSaveFailed,
@@ -597,6 +598,7 @@ defineExpose({
             :draft-protected="draftProtected"
             :draft-deleted="draftDeleted"
             :restore-failed="restoreFailed"
+            :multiple-drafts-found="multipleDraftsFound"
             :save-failed="lastSaveFailed"
             :scheduled-at="scheduledAt"
             :show-scheduler="props.mode === 'create' || Boolean(scheduledPostId)"
@@ -660,6 +662,18 @@ defineExpose({
           {{ $t('board.writePost.draftStatus.keepLocal') }}
         </BaseButton>
       </div>
+      <BaseButton
+        v-else-if="draftProtected || multipleDraftsFound"
+        type="button"
+        variant="secondary"
+        size="sm"
+        class="min-h-[36px] w-full"
+        to="/mypage/drafts"
+      >
+        {{ draftProtected
+          ? $t('board.writePost.draftStatus.openScheduledPosts')
+          : $t('board.writePost.draftStatus.openDrafts') }}
+      </BaseButton>
       <BaseButton
         v-else-if="restoreFailed"
         type="button"

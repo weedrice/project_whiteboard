@@ -1,11 +1,11 @@
-import { isAxiosError } from 'axios'
 import type { PostDraftData } from '@/api/post'
 import type { DraftPost } from '@/types'
 import logger from '@/utils/logger'
 import {
-  findMatchingServerDraftId,
+  isDraftMissingError,
   isMatchingLoadedDraft,
   loadDraftById,
+  resolveMatchingServerDraft,
   type DraftRecoverySnapshot,
 } from '@/features/board/posts/draft/postDraftRecovery'
 import { stripDraftServerIdentity } from '@/features/board/posts/draft/postDraftSnapshot'
@@ -22,6 +22,7 @@ export interface ResolveServerDraftResult {
   localSnapshot: DraftRecoverySnapshot | null
   serverDraft: DraftPost | null
   recoveryFailed: boolean
+  multipleMatchesFound: boolean
 }
 
 export async function resolveServerDraftForRecovery({
@@ -34,11 +35,14 @@ export async function resolveServerDraftForRecovery({
   let nextLocalSnapshot = localSnapshot
   let serverDraft: DraftPost | null = null
   let recoveryFailed = false
+  let multipleMatchesFound = false
   let serverDraftId = preferredDraftId ?? nextLocalSnapshot?.draftId ?? null
 
   if (serverDraftId == null) {
     try {
-      serverDraftId = await findMatchingServerDraftId(payload)
+      const matchingDraft = await resolveMatchingServerDraft(payload)
+      serverDraftId = matchingDraft.draftId
+      multipleMatchesFound = matchingDraft.multipleMatchesFound
     } catch (error: unknown) {
       logger.error('Failed to resolve server draft id:', error)
       recoveryFailed = true
@@ -46,16 +50,20 @@ export async function resolveServerDraftForRecovery({
   }
 
   if (serverDraftId == null) {
-    return { localSnapshot: nextLocalSnapshot, serverDraft, recoveryFailed }
+    return { localSnapshot: nextLocalSnapshot, serverDraft, recoveryFailed, multipleMatchesFound }
   }
 
   try {
-    if (!generationIsCurrent()) return { localSnapshot: nextLocalSnapshot, serverDraft, recoveryFailed }
+    if (!generationIsCurrent()) {
+      return { localSnapshot: nextLocalSnapshot, serverDraft, recoveryFailed, multipleMatchesFound }
+    }
     const loadedDraft = await loadDraftById(serverDraftId)
     if (isMatchingLoadedDraft(loadedDraft, payload)) {
       serverDraft = loadedDraft
     } else {
-      const fallbackDraftId = await findMatchingServerDraftId(payload)
+      const fallbackResolution = await resolveMatchingServerDraft(payload)
+      const fallbackDraftId = fallbackResolution.draftId
+      multipleMatchesFound ||= fallbackResolution.multipleMatchesFound
       if (fallbackDraftId != null && fallbackDraftId !== serverDraftId) {
         const fallbackDraft = await loadDraftById(fallbackDraftId)
         if (isMatchingLoadedDraft(fallbackDraft, payload)) {
@@ -64,16 +72,19 @@ export async function resolveServerDraftForRecovery({
       }
     }
   } catch (error: unknown) {
-    if (!generationIsCurrent()) return { localSnapshot: nextLocalSnapshot, serverDraft, recoveryFailed }
+    if (!generationIsCurrent()) {
+      return { localSnapshot: nextLocalSnapshot, serverDraft, recoveryFailed, multipleMatchesFound }
+    }
     if (
       nextLocalSnapshot?.draftId === serverDraftId
-      && isAxiosError(error)
-      && error.response?.status === 404
+      && isDraftMissingError(error)
     ) {
       nextLocalSnapshot = stripDraftServerIdentity(nextLocalSnapshot)
       onStaleLocalSnapshot(nextLocalSnapshot)
       try {
-        const fallbackDraftId = await findMatchingServerDraftId(payload)
+        const fallbackResolution = await resolveMatchingServerDraft(payload)
+        const fallbackDraftId = fallbackResolution.draftId
+        multipleMatchesFound ||= fallbackResolution.multipleMatchesFound
         if (fallbackDraftId != null) {
           serverDraft = await loadDraftById(fallbackDraftId)
         }
@@ -87,5 +98,5 @@ export async function resolveServerDraftForRecovery({
     logger.error('Failed to restore server draft:', error)
   }
 
-  return { localSnapshot: nextLocalSnapshot, serverDraft, recoveryFailed }
+  return { localSnapshot: nextLocalSnapshot, serverDraft, recoveryFailed, multipleMatchesFound }
 }
