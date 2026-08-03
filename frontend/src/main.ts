@@ -67,10 +67,10 @@ configureAuthSessionEffects({
     onExplicitLogout: (userId) => {
         if (userId == null) return
         const unsyncedDraftCount = countUnsyncedStoredDraftSnapshotsForUser(userId)
-        if (unsyncedDraftCount > 0 && !window.confirm(i18n.global.t(
-            'board.writePost.draftStatus.confirmLogoutWithUnsynced',
-            { count: unsyncedDraftCount },
-        ))) {
+        const confirmation = i18n.global.t('board.writePost.draftStatus.confirmLogoutWithUnsynced', {
+            count: unsyncedDraftCount,
+        })
+        if (unsyncedDraftCount > 0 && !window.confirm(confirmation)) {
             return false
         }
         clearStoredDraftSnapshotsForUser(userId)
