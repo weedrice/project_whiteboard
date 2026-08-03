@@ -8,6 +8,7 @@ import { Storage } from '@/utils/storage'
 import logger from '@/utils/logger'
 import {
     getDraftUpdatedAt,
+    isDraftMissingError,
     isDraftProtectedError,
     isDraftOutdatedError,
     isMatchingLoadedDraft,
@@ -24,7 +25,9 @@ import {
 import { resolveServerDraftForRecovery } from '@/features/board/posts/draft/postDraftRestore'
 import {
     cleanupExpiredDraftTombstones,
+    getDraftTombstoneKey,
     isDraftDeletedLocally,
+    markDraftDeletedLocally,
 } from '@/features/board/posts/draft/postDraftTombstone'
 import {
     cleanupExpiredDraftSnapshots,
@@ -71,6 +74,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
     const isRestoringDraft = ref(false)
     const draftConflict = ref(false)
     const draftProtected = ref(false)
+    const draftDeleted = ref(false)
     const restoreSource = ref<'idle' | 'local' | 'server'>('idle')
     const hasRestoredDraft = ref(false)
     let autosaveTimer: ReturnType<typeof setTimeout> | null = null
@@ -126,6 +130,20 @@ export function usePostDraft(options: UsePostDraftOptions) {
         localRevision++
         const snapshot = createDraftRecoverySnapshot(options.buildPayload(), draftId.value, updatedAt.value)
         return storeLocalSnapshot(snapshot)
+    }
+
+    const transitionToDeletedDraft = () => {
+        const deletedDraftId = draftId.value
+        if (deletedDraftId != null && options.ownerId?.value != null) {
+            markDraftDeletedLocally(options.ownerId.value, deletedDraftId)
+        }
+        clearAutosaveTimer()
+        resetDraftTracking()
+        draftDeleted.value = true
+        draftConflict.value = false
+        draftProtected.value = false
+        lastSaveFailed.value = false
+        storeLocalSnapshot(createDraftRecoverySnapshot(options.buildPayload(), null, null))
     }
 
     const savePayload = async (payload: PostDraftData) => {
@@ -214,7 +232,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
     }
 
     const saveNow = async () => {
-        if (draftConflict.value || draftProtected.value || options.canPersist?.() === false) return null
+        if (draftConflict.value || draftProtected.value || draftDeleted.value || options.canPersist?.() === false) return null
         if (savePromise) {
             saveQueued = true
             return savePromise
@@ -231,7 +249,10 @@ export function usePostDraft(options: UsePostDraftOptions) {
             if (generation === sessionGeneration) {
                 draftConflict.value = isDraftOutdatedError(error)
                 draftProtected.value = isDraftProtectedError(error)
-                lastSaveFailed.value = !draftConflict.value && !draftProtected.value
+                if (isDraftMissingError(error) && draftId.value != null) {
+                    transitionToDeletedDraft()
+                }
+                lastSaveFailed.value = !draftConflict.value && !draftProtected.value && !draftDeleted.value
                 if (draftConflict.value) clearAutosaveTimer()
                 if (draftProtected.value) clearAutosaveTimer()
             }
@@ -247,7 +268,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
     }
 
     const scheduleAutosave = () => {
-        if (!options.enabled.value || draftConflict.value || draftProtected.value || options.canPersist?.() === false) return
+        if (!options.enabled.value || draftConflict.value || draftProtected.value || draftDeleted.value || options.canPersist?.() === false) return
         clearAutosaveTimer()
         autosaveTimer = setTimeout(() => {
             void saveNow().catch((error: unknown) => {
@@ -278,6 +299,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
             lastSaveScope.value = 'server'
             draftConflict.value = false
             draftProtected.value = false
+            draftDeleted.value = false
             lastSaveFailed.value = false
             restoreFailed.value = false
             const latestSnapshot = latestDraft as unknown as DraftRecoverySnapshot
@@ -310,6 +332,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
             clientDraftKey.value = latestDraft.clientDraftKey ?? clientDraftKey.value
             draftConflict.value = false
             draftProtected.value = false
+            draftDeleted.value = false
             await saveNow()
             return true
         } finally {
@@ -387,6 +410,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         updatedAt.value = chosen.updatedAt ?? chosen.modifiedAt ?? null
         draftConflict.value = recovery.conflict
         draftProtected.value = false
+        draftDeleted.value = false
         restoreSource.value = recovery.source
         options.applyDraft(chosen)
         if (recovery.source === 'server') {
@@ -419,6 +443,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         clearAutosaveTimer()
         Storage.remove(options.storageKey.value)
         lastSaveScope.value = null
+        draftDeleted.value = false
         resetDraftTracking()
         restoreSource.value = 'idle'
     }
@@ -433,6 +458,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         isRestoringDraft.value = false
         draftConflict.value = false
         draftProtected.value = false
+        draftDeleted.value = false
         resetDraftTracking()
         restoreSource.value = 'idle'
         hasRestoredDraft.value = false
@@ -445,7 +471,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
     })
 
     const handleOnline = () => {
-        if (!options.enabled.value || draftConflict.value || draftProtected.value) return
+        if (!options.enabled.value || draftConflict.value || draftProtected.value || draftDeleted.value) return
         if (restoreFailed.value) {
             void retryRestore().catch((error: unknown) => {
                 logger.error('Failed to retry draft recovery:', error)
@@ -460,7 +486,29 @@ export function usePostDraft(options: UsePostDraftOptions) {
     }
 
     const handleStorage = (event: StorageEvent) => {
-        if (event.key !== options.storageKey.value || !event.newValue || !options.enabled.value) return
+        if (!options.enabled.value) return
+        const ownerId = options.ownerId?.value
+        if (draftId.value != null
+            && ownerId != null
+            && event.key === getDraftTombstoneKey(ownerId, draftId.value)
+            && event.newValue) {
+            transitionToDeletedDraft()
+            return
+        }
+        if (event.key !== options.storageKey.value) return
+        if (!event.newValue) {
+            try {
+                const removed = event.oldValue ? JSON.parse(event.oldValue) as DraftRecoverySnapshot : null
+                if (removed?.clientInstanceId !== clientInstanceId
+                    && removed?.draftId != null
+                    && removed.draftId === draftId.value) {
+                    transitionToDeletedDraft()
+                }
+            } catch (error: unknown) {
+                logger.error('Failed to process a removed draft from another tab:', error)
+            }
+            return
+        }
         try {
             const incoming = JSON.parse(event.newValue) as DraftRecoverySnapshot
             if (!incoming.clientInstanceId || incoming.clientInstanceId === clientInstanceId) return
@@ -491,6 +539,18 @@ export function usePostDraft(options: UsePostDraftOptions) {
         } catch (error: unknown) {
             logger.error('Failed to process a draft update from another tab:', error)
         }
+    }
+
+    const saveDeletedDraftAsNew = async () => {
+        if (!draftDeleted.value) return false
+        draftDeleted.value = false
+        const saved = await saveNow()
+        return saved != null || lastSaveScope.value === 'browser'
+    }
+
+    const discardDeletedDraft = () => {
+        draftDeleted.value = false
+        clearRecovery()
     }
 
     if (typeof window !== 'undefined') {
@@ -540,6 +600,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         isRestoringDraft: computed(() => isRestoringDraft.value),
         draftConflict: computed(() => draftConflict.value),
         draftProtected: computed(() => draftProtected.value),
+        draftDeleted: computed(() => draftDeleted.value),
         isSavingDraft: computed(() => saveDraftMutation.isPending.value),
         restoreSource: computed(() => restoreSource.value),
         saveNow,
@@ -552,5 +613,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         clearRecovery,
         cleanupDraft,
         writeLocalSnapshot,
+        saveDeletedDraftAsNew,
+        discardDeletedDraft,
     }
 }

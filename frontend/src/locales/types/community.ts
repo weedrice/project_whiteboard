@@ -379,6 +379,11 @@ export interface BoardMessages {
       restoreFailed: string
       conflict: string
       protected: string
+      deleted: string
+      saveAsNew: string
+      discardLocal: string
+      savedAsNew: string
+      discarded: string
       reloadServer: string
       keepLocal: string
       retryRestore: string

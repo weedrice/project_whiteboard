@@ -7,7 +7,7 @@ type DraftTombstone = {
   deletedAt: string
 }
 
-function getDraftTombstoneKey(userId: string | number, draftId: string | number) {
+export function getDraftTombstoneKey(userId: string | number, draftId: string | number) {
   return `${DRAFT_TOMBSTONE_PREFIX}:${userId}:${draftId}`
 }
 

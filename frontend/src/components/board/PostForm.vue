@@ -335,6 +335,7 @@ const {
   draftId,
   draftConflict,
   draftProtected,
+  draftDeleted,
   restoreFailed,
   isRestoringDraft,
   isSavingDraft,
@@ -343,6 +344,8 @@ const {
   handleReloadServerDraft,
   handleKeepLocalDraft,
   handleRetryDraftRestore,
+  handleSaveDeletedDraftAsNew,
+  handleDiscardDeletedDraft,
   cleanupPublishedDraft,
   clearScheduledDraftRecovery,
 } = usePostComposerDraft({
@@ -391,7 +394,7 @@ const { handleSubmit, isSubmissionLocked } = usePostComposerSubmit({
   form,
   hideCategory: () => props.hideCategory,
   draftEnabled,
-  draftConflict: computed(() => draftConflict.value || draftProtected.value),
+  draftConflict: computed(() => draftConflict.value || draftProtected.value || draftDeleted.value),
   draftId: effectiveDraftId,
   saveDraftNow,
   buildPayload,
@@ -591,6 +594,7 @@ defineExpose({
             :is-restoring-draft="isRestoringDraft"
             :draft-conflict="draftConflict"
             :draft-protected="draftProtected"
+            :draft-deleted="draftDeleted"
             :restore-failed="restoreFailed"
             :scheduled-at="scheduledAt"
             :show-scheduler="props.mode === 'create' || Boolean(scheduledPostId)"
@@ -598,6 +602,8 @@ defineExpose({
             @reload-server-draft="handleReloadServerDraft"
             @keep-local-draft="handleKeepLocalDraft"
             @retry-restore="handleRetryDraftRestore"
+            @save-deleted-as-new="handleSaveDeletedDraftAsNew"
+            @discard-deleted="handleDiscardDeletedDraft"
             @update:scheduled-at="scheduledAt = $event"
           />
         </fieldset>
@@ -608,7 +614,29 @@ defineExpose({
       <div v-if="draftStatusLabel" class="truncate px-1 text-xs font-medium text-[var(--nv-muted)]">
         {{ draftStatusLabel }}
       </div>
-      <div v-if="draftConflict" class="grid grid-cols-2 gap-2">
+      <div v-if="draftDeleted" class="grid grid-cols-2 gap-2">
+        <BaseButton
+          type="button"
+          variant="primary"
+          size="sm"
+          class="min-h-[36px] w-full"
+          :disabled="isSavingDraft || isRestoringDraft || isSubmitting || isSubmissionLocked"
+          @click="handleSaveDeletedDraftAsNew"
+        >
+          {{ $t('board.writePost.draftStatus.saveAsNew') }}
+        </BaseButton>
+        <BaseButton
+          type="button"
+          variant="secondary"
+          size="sm"
+          class="min-h-[36px] w-full"
+          :disabled="isSavingDraft || isRestoringDraft || isSubmitting || isSubmissionLocked"
+          @click="handleDiscardDeletedDraft"
+        >
+          {{ $t('board.writePost.draftStatus.discardLocal') }}
+        </BaseButton>
+      </div>
+      <div v-else-if="draftConflict" class="grid grid-cols-2 gap-2">
         <BaseButton
           type="button"
           variant="secondary"
@@ -664,7 +692,7 @@ defineExpose({
           {{ $t('board.writePost.actions.preview') }}
         </BaseButton>
         <BaseButton
-          v-else-if="draftEnabled && !draftConflict && !draftProtected"
+          v-else-if="draftEnabled && !draftConflict && !draftProtected && !draftDeleted"
           type="button"
           variant="secondary"
           size="sm"
@@ -687,7 +715,7 @@ defineExpose({
         </BaseButton>
       </div>
       <BaseButton
-        v-if="!props.hidePreview && draftEnabled && !draftConflict && !draftProtected"
+        v-if="!props.hidePreview && draftEnabled && !draftConflict && !draftProtected && !draftDeleted"
         type="button"
         variant="secondary"
         size="sm"

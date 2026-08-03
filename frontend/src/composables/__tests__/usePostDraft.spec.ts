@@ -1212,4 +1212,58 @@ describe('usePostDraft', () => {
         expect(appliedDrafts).toHaveLength(0)
         expect(composable.draftConflict.value).toBe(false)
     })
+
+    it('preserves local content and can save it as new when the server draft disappeared', async () => {
+        const { composable, payloadRef } = mountComposable()
+        await composable.saveNow()
+        const previousClientKey = composable.clientDraftKey.value
+        payloadRef.value = { ...payloadRef.value, title: 'Preserved after deletion' }
+        composable.writeLocalSnapshot()
+        mocks.saveDraftMutateAsync.mockRejectedValueOnce({
+            isAxiosError: true,
+            response: { status: 404 },
+        })
+
+        await expect(composable.saveNow()).rejects.toMatchObject({ response: { status: 404 } })
+
+        expect(composable.draftDeleted.value).toBe(true)
+        expect(composable.draftId.value).toBeNull()
+        expect(composable.lastSaveFailed.value).toBe(false)
+        expect(Storage.get('noviis:test:draft')).toEqual(expect.objectContaining({
+            title: 'Preserved after deletion',
+            hasLocalChanges: true,
+        }))
+        expect(Storage.get('noviis:test:draft')).not.toHaveProperty('draftId')
+
+        await expect(composable.saveDeletedDraftAsNew()).resolves.toBe(true)
+
+        expect(mocks.saveDraftMutateAsync).toHaveBeenLastCalledWith(expect.objectContaining({
+            draftId: undefined,
+            title: 'Preserved after deletion',
+            clientDraftKey: expect.not.stringMatching(new RegExp(`^${previousClientKey}$`)),
+        }))
+        expect(composable.draftDeleted.value).toBe(false)
+    })
+
+    it('enters deleted state when another tab records a tombstone for the active draft', async () => {
+        const { composable } = mountComposable(
+            undefined,
+            ref('noviis:test:draft'),
+            ref(true),
+            ref(7),
+        )
+        await composable.saveNow()
+
+        window.dispatchEvent(new StorageEvent('storage', {
+            key: 'noviis:draft-deleted:7:91',
+            newValue: JSON.stringify({ deletedAt: '2026-07-07T13:00:00.000Z' }),
+        }))
+
+        expect(composable.draftDeleted.value).toBe(true)
+        expect(composable.draftId.value).toBeNull()
+        expect(Storage.get('noviis:test:draft')).toEqual(expect.objectContaining({
+            title: 'Draft title',
+            hasLocalChanges: true,
+        }))
+    })
 })

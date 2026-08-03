@@ -103,6 +103,10 @@ export const isDraftProtectedError = (error: unknown): boolean => {
     return data?.error?.code === DRAFT_PROTECTED_ERROR_CODE || data?.code === DRAFT_PROTECTED_ERROR_CODE
 }
 
+export const isDraftMissingError = (error: unknown): boolean => (
+    isAxiosError(error) && error.response?.status === 404
+)
+
 export const findMatchingServerDraftId = async (payload: PostDraftData): Promise<number | null> => {
     let page = 0
     let hasNext = true

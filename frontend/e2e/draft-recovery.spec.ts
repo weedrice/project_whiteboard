@@ -124,3 +124,31 @@ test('tabs synchronize clean saves but preserve a local edit when the other tab 
   await expect(page.locator('#title')).toHaveValue('Unsaved first-tab edit')
   await expect(page.getByText(/로컬 초안과 서버 초안/).first()).toBeVisible()
 })
+
+test('a draft deleted in another tab can be preserved as a new draft', async ({ page, context }) => {
+  const state = await installMockApi(page)
+  await login(page)
+  await openComposer(page)
+  await page.locator('#title').fill('Keep this local content')
+  await expect.poll(() => state.draftSaveCount).toBe(1)
+  const originalClientKey = (state.writes[0]?.payload as { clientDraftKey?: string }).clientDraftKey
+
+  const secondPage = await context.newPage()
+  await installMockApi(secondPage, {}, state as MockApiState)
+  await secondPage.goto('/')
+  await secondPage.evaluate(() => {
+    localStorage.setItem(
+      'noviis:draft-deleted:7:91',
+      JSON.stringify({ deletedAt: new Date().toISOString() }),
+    )
+  })
+
+  await expect(page.getByText(/다른 위치에서 삭제되었습니다/).first()).toBeVisible()
+  await expect(page.locator('#title')).toHaveValue('Keep this local content')
+  await page.getByRole('button', { name: '새 초안으로 저장', exact: true }).first().click()
+  await expect.poll(() => state.draftSaveCount).toBe(2)
+
+  const recreated = state.writes[1]?.payload as { draftId?: number, clientDraftKey?: string }
+  expect(recreated.draftId).toBeUndefined()
+  expect(recreated.clientDraftKey).not.toBe(originalClientKey)
+})

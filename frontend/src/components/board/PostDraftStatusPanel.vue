@@ -8,6 +8,7 @@ defineProps<{
   isRestoringDraft: boolean
   draftConflict: boolean
   draftProtected: boolean
+  draftDeleted: boolean
   restoreFailed: boolean
 }>()
 
@@ -16,6 +17,8 @@ defineEmits<{
   reloadServerDraft: []
   keepLocalDraft: []
   retryRestore: []
+  saveDeletedAsNew: []
+  discardDeleted: []
 }>()
 </script>
 
@@ -26,7 +29,29 @@ defineEmits<{
     </div>
     <div class="flex flex-col gap-3">
       <p class="text-sm text-[var(--nv-ink-soft)]">{{ label }}</p>
-      <template v-if="draftConflict">
+      <template v-if="draftDeleted">
+        <BaseButton
+          type="button"
+          variant="primary"
+          size="sm"
+          full-width
+          :disabled="isSavingDraft || isRestoringDraft"
+          @click="$emit('saveDeletedAsNew')"
+        >
+          {{ $t('board.writePost.draftStatus.saveAsNew') }}
+        </BaseButton>
+        <BaseButton
+          type="button"
+          variant="secondary"
+          size="sm"
+          full-width
+          :disabled="isSavingDraft || isRestoringDraft"
+          @click="$emit('discardDeleted')"
+        >
+          {{ $t('board.writePost.draftStatus.discardLocal') }}
+        </BaseButton>
+      </template>
+      <template v-else-if="draftConflict">
         <BaseButton
           type="button"
           variant="secondary"

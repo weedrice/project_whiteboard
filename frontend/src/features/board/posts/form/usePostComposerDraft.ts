@@ -77,6 +77,7 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     lastLocalSaveFailed,
     draftConflict,
     draftProtected,
+    draftDeleted,
     restoreFailed,
     isRestoringDraft,
     reloadServerDraft,
@@ -86,6 +87,8 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     restoreSource,
     draftId,
     resetSession,
+    saveDeletedDraftAsNew,
+    discardDeletedDraft,
   } = usePostDraft({
     enabled: draftEnabled,
     storageKey: draftStorageKey,
@@ -106,6 +109,7 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     if (!draftEnabled.value) return ''
     if (isRestoringDraft.value) return options.t('board.writePost.draftStatus.restoring')
     if (isSavingDraft.value) return options.t('board.writePost.draftStatus.saving')
+    if (draftDeleted.value) return options.t('board.writePost.draftStatus.deleted')
     if (draftConflict.value) return options.t('board.writePost.draftStatus.conflict')
     if (draftProtected.value) return options.t('board.writePost.draftStatus.protected')
     if (restoreFailed.value) return options.t('board.writePost.draftStatus.restoreFailed')
@@ -246,12 +250,44 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     }
   }
 
+  async function handleSaveDeletedDraftAsNew() {
+    try {
+      if (await saveDeletedDraftAsNew()) {
+        options.markCurrentSnapshotSaved()
+        options.addToast(options.t('board.writePost.draftStatus.savedAsNew'), 'success')
+      }
+    } catch (error) {
+      logger.error('Failed to save deleted draft as new:', error)
+      options.addToast(options.t('common.messages.saveFailed'), 'error')
+    }
+  }
+
+  function handleDiscardDeletedDraft() {
+    discardDeletedDraft()
+    applyDraftWithoutTracking({
+      title: '',
+      contents: '',
+      categoryId: options.firstCategoryId.value,
+      tags: [],
+      fileIds: [],
+      isNotice: false,
+      isNsfw: false,
+      isSpoiler: false,
+      isSecret: false,
+      poll: null,
+      seriesId: null,
+    })
+    options.markCurrentSnapshotSaved()
+    options.addToast(options.t('board.writePost.draftStatus.discarded'), 'info')
+  }
+
   return {
     draftEnabled,
     draftStatusLabel,
     draftId,
     draftConflict,
     draftProtected,
+    draftDeleted,
     restoreFailed,
     isRestoringDraft,
     isSavingDraft,
@@ -260,6 +296,8 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     handleReloadServerDraft,
     handleKeepLocalDraft,
     handleRetryDraftRestore,
+    handleSaveDeletedDraftAsNew,
+    handleDiscardDeletedDraft,
     cleanupPublishedDraft: clearRecovery,
     clearScheduledDraftRecovery: clearRecovery,
   }
