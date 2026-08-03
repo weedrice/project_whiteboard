@@ -43,8 +43,20 @@ export function isExpiredDraftSnapshot(snapshot: DraftRecoverySnapshot, now = Da
 }
 
 export function loadStoredDraftSnapshot(key: string, now = Date.now()): DraftRecoverySnapshot | null {
-  const snapshot = Storage.get<DraftRecoverySnapshot>(key, null)
-  if (!snapshot) return null
+  const raw = Storage.getString(key)
+  if (raw == null) return null
+  let snapshot: DraftRecoverySnapshot
+  try {
+    const parsed = JSON.parse(raw) as unknown
+    if (parsed == null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      Storage.remove(key)
+      return null
+    }
+    snapshot = parsed as DraftRecoverySnapshot
+  } catch {
+    Storage.remove(key)
+    return null
+  }
   const normalized = normalizeLegacySnapshot(key, snapshot, now)
   if (isExpiredDraftSnapshot(normalized, now)) {
     Storage.remove(key)
@@ -105,6 +117,14 @@ export function clearStoredDraftSnapshotsForUser(userId: string | number) {
 }
 
 export function storeDraftSnapshotWithBudget(key: string, snapshot: DraftRecoverySnapshot): boolean {
+  let rawSize: number
+  try {
+    rawSize = JSON.stringify(snapshot).length * 2
+  } catch {
+    return false
+  }
+  if (rawSize > MAX_LOCAL_DRAFT_BYTES) return false
+
   enforceDraftSnapshotBudget(key)
   if (Storage.set(key, snapshot)) {
     enforceDraftSnapshotBudget(key)

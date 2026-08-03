@@ -5,6 +5,7 @@ import {
   clearStoredDraftSnapshotsForUser,
   enforceDraftSnapshotBudget,
   loadStoredDraftSnapshot,
+  MAX_LOCAL_DRAFT_BYTES,
   MAX_LOCAL_DRAFT_SNAPSHOTS,
   migrateStoredDraftSnapshot,
   storeDraftSnapshotWithBudget,
@@ -135,6 +136,22 @@ describe('draft browser lifecycle', () => {
     }))
   })
 
+  it('removes a corrupted draft snapshot when it is loaded', () => {
+    const key = 'noviis:draft:1:create:free:corrupted'
+    localStorage.setItem(key, '{not-json')
+
+    expect(loadStoredDraftSnapshot(key)).toBeNull()
+    expect(Storage.has(key)).toBe(false)
+  })
+
+  it('removes a non-object draft snapshot when it is loaded', () => {
+    const key = 'noviis:draft:1:create:free:invalid'
+    localStorage.setItem(key, JSON.stringify('not-a-draft'))
+
+    expect(loadStoredDraftSnapshot(key)).toBeNull()
+    expect(Storage.has(key)).toBe(false)
+  })
+
   it('evicts the oldest snapshots over the local count limit while protecting the active key', () => {
     for (let index = 0; index < MAX_LOCAL_DRAFT_SNAPSHOTS + 2; index++) {
       Storage.set(`noviis:draft:1:create:free:${index}`, {
@@ -177,5 +194,24 @@ describe('draft browser lifecycle', () => {
     expect(Storage.has(oldKey)).toBe(false)
     expect(Storage.has(targetKey)).toBe(true)
     setSpy.mockRestore()
+  })
+
+  it('rejects an oversized snapshot without evicting existing drafts', () => {
+    const existingKey = 'noviis:draft:1:create:free:existing'
+    const targetKey = 'noviis:draft:1:create:free:oversized'
+    Storage.set(existingKey, {
+      boardUrl: 'free',
+      title: 'keep me',
+      clientModifiedAt: '2026-08-01T00:00:00.000Z',
+    })
+
+    expect(storeDraftSnapshotWithBudget(targetKey, {
+      boardUrl: 'free',
+      title: 'x'.repeat(MAX_LOCAL_DRAFT_BYTES),
+      clientModifiedAt: '2026-08-03T00:00:00.000Z',
+    })).toBe(false)
+
+    expect(Storage.get(existingKey)).toEqual(expect.objectContaining({ title: 'keep me' }))
+    expect(Storage.has(targetKey)).toBe(false)
   })
 })
