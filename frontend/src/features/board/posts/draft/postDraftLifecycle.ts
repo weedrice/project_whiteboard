@@ -4,6 +4,7 @@ import type { DraftRecoverySnapshot } from '@/features/board/posts/draft/postDra
 export const DRAFT_LOCAL_RETENTION_DAYS = 90
 export const MAX_LOCAL_DRAFT_SNAPSHOTS = 50
 export const MAX_LOCAL_DRAFT_BYTES = 3 * 1024 * 1024
+export const MIN_LOCAL_DRAFT_SNAPSHOTS_TO_RETAIN = 3
 const DRAFT_STORAGE_PREFIX = 'noviis:draft:'
 const RETENTION_MS = DRAFT_LOCAL_RETENTION_DAYS * 24 * 60 * 60 * 1000
 
@@ -134,23 +135,50 @@ export function storeDraftSnapshotWithBudget(key: string, snapshot: DraftRecover
   }
   if (rawSize > MAX_LOCAL_DRAFT_BYTES) return false
 
-  enforceDraftSnapshotBudget(key)
-  if (Storage.set(key, snapshot)) {
-    enforceDraftSnapshotBudget(key)
-    return true
-  }
-
   const candidates = collectStoredDraftEntries()
     .filter((entry) => entry.key !== key)
     .sort((left, right) => left.modifiedAt - right.modifiedAt || left.key.localeCompare(right.key))
-  for (const candidate of candidates) {
+  const protectedKeys = new Set(candidates
+    .slice(-MIN_LOCAL_DRAFT_SNAPSHOTS_TO_RETAIN)
+    .map((entry) => entry.key))
+  const retainedBytes = candidates
+    .filter((entry) => protectedKeys.has(entry.key))
+    .reduce((total, entry) => total + entry.rawSize, 0)
+  if (rawSize + retainedBytes > MAX_LOCAL_DRAFT_BYTES) return false
+
+  let projectedCount = candidates.length + 1
+  let projectedBytes = candidates.reduce((total, entry) => total + entry.rawSize, rawSize)
+  const removed: StoredDraftEntry[] = []
+  const removable = candidates.filter((entry) => !protectedKeys.has(entry.key))
+
+  while (removable.length > 0
+    && (projectedCount > MAX_LOCAL_DRAFT_SNAPSHOTS || projectedBytes > MAX_LOCAL_DRAFT_BYTES)) {
+    const candidate = removable.shift()!
     Storage.remove(candidate.key)
-    if (Storage.set(key, snapshot)) {
-      enforceDraftSnapshotBudget(key)
-      return true
-    }
+    removed.push(candidate)
+    projectedCount--
+    projectedBytes -= candidate.rawSize
   }
+  if (projectedCount > MAX_LOCAL_DRAFT_SNAPSHOTS || projectedBytes > MAX_LOCAL_DRAFT_BYTES) {
+    restoreRemovedDraftEntries(removed)
+    return false
+  }
+
+  let result = Storage.setWithResult(key, snapshot)
+  while (!result.ok && result.reason === 'quota-exceeded' && removable.length > 0) {
+    const candidate = removable.shift()!
+    Storage.remove(candidate.key)
+    removed.push(candidate)
+    result = Storage.setWithResult(key, snapshot)
+  }
+  if (result.ok) return true
+
+  restoreRemovedDraftEntries(removed)
   return false
+}
+
+function restoreRemovedDraftEntries(entries: StoredDraftEntry[]) {
+  for (const entry of entries) Storage.set(entry.key, entry.snapshot)
 }
 
 export function migrateStoredDraftSnapshot(

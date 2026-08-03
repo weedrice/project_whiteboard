@@ -75,10 +75,26 @@ describe('Storage', () => {
             throw quotaError
         })
 
-        StorageUtil.set('profile', { id: 1 })
+        expect(StorageUtil.setWithResult('profile', { id: 1 })).toEqual({
+            ok: false,
+            reason: 'quota-exceeded',
+        })
         StorageUtil.setString('token', 'abc')
 
         expect(logger.warn).toHaveBeenCalledTimes(2)
+        spy.mockRestore()
+    })
+
+    it('distinguishes unavailable storage writes from quota failures', () => {
+        const storageProto = Object.getPrototypeOf(window.localStorage) as globalThis.Storage
+        const spy = vi.spyOn(storageProto, 'setItem').mockImplementation(() => {
+            throw new Error('storage disabled')
+        })
+
+        expect(StorageUtil.setWithResult('profile', { id: 1 })).toEqual({
+            ok: false,
+            reason: 'unavailable',
+        })
         spy.mockRestore()
     })
 

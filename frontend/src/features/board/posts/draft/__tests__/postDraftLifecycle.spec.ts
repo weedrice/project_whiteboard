@@ -8,6 +8,7 @@ import {
   loadStoredDraftSnapshot,
   MAX_LOCAL_DRAFT_BYTES,
   MAX_LOCAL_DRAFT_SNAPSHOTS,
+  MIN_LOCAL_DRAFT_SNAPSHOTS_TO_RETAIN,
   migrateStoredDraftSnapshot,
   storeDraftSnapshotWithBudget,
 } from '@/features/board/posts/draft/postDraftLifecycle'
@@ -25,6 +26,7 @@ describe('draft browser lifecycle', () => {
   })
 
   afterEach(() => {
+    vi.restoreAllMocks()
     Storage.clear()
     vi.useRealTimers()
   })
@@ -192,18 +194,21 @@ describe('draft browser lifecycle', () => {
     expect(Storage.has('noviis:draft:1:create:free:2')).toBe(false)
   })
 
-  it('reclaims an older snapshot and retries when the first storage write fails', () => {
-    const oldKey = 'noviis:draft:1:create:free:old'
+  it('reclaims old snapshots on quota errors while retaining recent backups', () => {
     const targetKey = 'noviis:draft:1:create:free:current'
-    Storage.set(oldKey, {
-      boardUrl: 'free',
-      title: 'old draft',
-      clientModifiedAt: '2026-08-01T00:00:00.000Z',
-    })
-    const originalSet = Storage.set.bind(Storage)
+    for (let index = 0; index < MIN_LOCAL_DRAFT_SNAPSHOTS_TO_RETAIN + 1; index++) {
+      Storage.set(`noviis:draft:1:create:free:${index}`, {
+        boardUrl: 'free',
+        title: `draft ${index}`,
+        clientModifiedAt: new Date(Date.UTC(2026, 7, 1 + index)).toISOString(),
+      })
+    }
+    const originalSet = Storage.setWithResult.bind(Storage)
     let targetAttempts = 0
-    const setSpy = vi.spyOn(Storage, 'set').mockImplementation((key, value) => {
-      if (key === targetKey && targetAttempts++ === 0) return false
+    const setSpy = vi.spyOn(Storage, 'setWithResult').mockImplementation((key, value) => {
+      if (key === targetKey && targetAttempts++ === 0) {
+        return { ok: false, reason: 'quota-exceeded' }
+      }
       return originalSet(key, value)
     })
 
@@ -212,9 +217,52 @@ describe('draft browser lifecycle', () => {
       title: 'current draft',
       clientModifiedAt: '2026-08-03T00:00:00.000Z',
     })).toBe(true)
-    expect(Storage.has(oldKey)).toBe(false)
+    expect(Storage.has('noviis:draft:1:create:free:0')).toBe(false)
+    expect(Storage.keys().filter((key) => key.startsWith('noviis:draft:1:create:free:')))
+      .toHaveLength(MIN_LOCAL_DRAFT_SNAPSHOTS_TO_RETAIN + 1)
     expect(Storage.has(targetKey)).toBe(true)
     setSpy.mockRestore()
+  })
+
+  it('does not evict drafts for non-quota storage failures', () => {
+    const existingKey = 'noviis:draft:1:create:free:existing'
+    const targetKey = 'noviis:draft:1:create:free:current'
+    Storage.set(existingKey, {
+      boardUrl: 'free',
+      title: 'keep me',
+      clientModifiedAt: '2026-08-01T00:00:00.000Z',
+    })
+    vi.spyOn(Storage, 'setWithResult').mockReturnValue({ ok: false, reason: 'unavailable' })
+
+    expect(storeDraftSnapshotWithBudget(targetKey, {
+      boardUrl: 'free',
+      title: 'current draft',
+      clientModifiedAt: '2026-08-03T00:00:00.000Z',
+    })).toBe(false)
+    expect(Storage.has(existingKey)).toBe(true)
+  })
+
+  it('restores evicted drafts when quota retries never succeed', () => {
+    const targetKey = 'noviis:draft:1:create:free:current'
+    for (let index = 0; index < MIN_LOCAL_DRAFT_SNAPSHOTS_TO_RETAIN + 2; index++) {
+      Storage.set(`noviis:draft:1:create:free:${index}`, {
+        boardUrl: 'free',
+        title: `draft ${index}`,
+        clientModifiedAt: new Date(Date.UTC(2026, 7, 1 + index)).toISOString(),
+      })
+    }
+    const originalSet = Storage.setWithResult.bind(Storage)
+    vi.spyOn(Storage, 'setWithResult').mockImplementation((key, value) => key === targetKey
+      ? { ok: false, reason: 'quota-exceeded' }
+      : originalSet(key, value))
+
+    expect(storeDraftSnapshotWithBudget(targetKey, {
+      boardUrl: 'free',
+      title: 'current draft',
+      clientModifiedAt: '2026-08-03T00:00:00.000Z',
+    })).toBe(false)
+    expect(Storage.keys().filter((key) => key.startsWith('noviis:draft:1:create:free:'))).toHaveLength(5)
+    expect(Storage.has(targetKey)).toBe(false)
   })
 
   it('rejects an oversized snapshot without evicting existing drafts', () => {

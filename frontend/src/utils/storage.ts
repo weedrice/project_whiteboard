@@ -1,5 +1,9 @@
 import logger from '@/utils/logger'
 
+export type StorageWriteResult =
+    | { ok: true }
+    | { ok: false; reason: 'quota-exceeded' | 'unavailable' }
+
 /**
  * Safe localStorage helpers.
  */
@@ -24,15 +28,21 @@ export class Storage {
      * JSON-stringify and write a localStorage value.
      */
     static set<T>(key: string, value: T): boolean {
+        return Storage.setWithResult(key, value).ok
+    }
+
+    /** Write a value while preserving the reason a browser storage write failed. */
+    static setWithResult<T>(key: string, value: T): StorageWriteResult {
         try {
             localStorage.setItem(key, JSON.stringify(value))
-            return true
+            return { ok: true }
         } catch (error: unknown) {
             logger.error(`Failed to set item to localStorage: ${key}`, error)
             if (error instanceof DOMException && error.name === 'QuotaExceededError') {
                 logger.warn('localStorage quota exceeded. Consider clearing old data.')
+                return { ok: false, reason: 'quota-exceeded' }
             }
-            return false
+            return { ok: false, reason: 'unavailable' }
         }
     }
 

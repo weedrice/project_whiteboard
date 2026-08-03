@@ -1346,7 +1346,8 @@ describe('usePostDraft', () => {
     })
 
     it('reports a browser-only save failure when localStorage rejects the write', async () => {
-        const setItem = vi.spyOn(Storage, 'set').mockReturnValue(false)
+        const setItem = vi.spyOn(Storage, 'setWithResult')
+            .mockReturnValue({ ok: false, reason: 'unavailable' })
         const { composable } = mountComposable(ref({
             boardUrl: 'free',
             title: '',
