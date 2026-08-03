@@ -56,6 +56,7 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     lastSaveFailed,
     draftConflict,
     reloadServerDraft,
+    keepLocalDraft,
     isSavingDraft,
     restoreSource,
     draftId,
@@ -186,6 +187,18 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     }
   }
 
+  async function handleKeepLocalDraft() {
+    try {
+      if (await keepLocalDraft()) {
+        options.markCurrentSnapshotSaved()
+        options.addToast(options.t('board.writePost.draftStatus.saved'), 'success')
+      }
+    } catch (error) {
+      logger.error('Failed to keep local draft:', error)
+      options.addToast(options.t('common.messages.saveFailed'), 'error')
+    }
+  }
+
   return {
     draftEnabled,
     draftStatusLabel,
@@ -195,6 +208,7 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     saveDraftNow,
     handleSaveDraft,
     handleReloadServerDraft,
+    handleKeepLocalDraft,
     cleanupPublishedDraft: clearRecovery,
     clearScheduledDraftRecovery: clearRecovery,
   }

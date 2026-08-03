@@ -376,6 +376,7 @@ export interface BoardMessages {
       failed: string
       conflict: string
       reloadServer: string
+      keepLocal: string
       restoredLocal: string
       restoredServer: string
       saved: string

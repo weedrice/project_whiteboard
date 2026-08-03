@@ -331,6 +331,7 @@ const {
   saveDraftNow,
   handleSaveDraft,
   handleReloadServerDraft,
+  handleKeepLocalDraft,
   cleanupPublishedDraft,
   clearScheduledDraftRecovery,
 } = usePostComposerDraft({
@@ -581,6 +582,7 @@ defineExpose({
             :show-scheduler="props.mode === 'create' || Boolean(scheduledPostId)"
             @save-draft="handleSaveDraft"
             @reload-server-draft="handleReloadServerDraft"
+            @keep-local-draft="handleKeepLocalDraft"
             @update:scheduled-at="scheduledAt = $event"
           />
         </fieldset>
@@ -591,17 +593,28 @@ defineExpose({
       <div v-if="draftStatusLabel" class="truncate px-1 text-xs font-medium text-[var(--nv-muted)]">
         {{ draftStatusLabel }}
       </div>
-      <BaseButton
-        v-if="draftConflict"
-        type="button"
-        variant="secondary"
-        size="sm"
-        class="min-h-[36px] w-full"
-        :disabled="isSubmitting || isSubmissionLocked"
-        @click="handleReloadServerDraft"
-      >
-        {{ $t('board.writePost.draftStatus.reloadServer') }}
-      </BaseButton>
+      <div v-if="draftConflict" class="grid grid-cols-2 gap-2">
+        <BaseButton
+          type="button"
+          variant="secondary"
+          size="sm"
+          class="min-h-[36px] w-full"
+          :disabled="isSavingDraft || isSubmitting || isSubmissionLocked"
+          @click="handleReloadServerDraft"
+        >
+          {{ $t('board.writePost.draftStatus.reloadServer') }}
+        </BaseButton>
+        <BaseButton
+          type="button"
+          variant="primary"
+          size="sm"
+          class="min-h-[36px] w-full"
+          :disabled="isSavingDraft || isSubmitting || isSubmissionLocked"
+          @click="handleKeepLocalDraft"
+        >
+          {{ $t('board.writePost.draftStatus.keepLocal') }}
+        </BaseButton>
+      </div>
       <div class="flex items-center gap-2">
         <BaseButton
           type="button"
@@ -625,7 +638,7 @@ defineExpose({
           {{ $t('board.writePost.actions.preview') }}
         </BaseButton>
         <BaseButton
-          v-else-if="draftEnabled"
+          v-else-if="draftEnabled && !draftConflict"
           type="button"
           variant="secondary"
           size="sm"
@@ -648,7 +661,7 @@ defineExpose({
         </BaseButton>
       </div>
       <BaseButton
-        v-if="!props.hidePreview && draftEnabled"
+        v-if="!props.hidePreview && draftEnabled && !draftConflict"
         type="button"
         variant="secondary"
         size="sm"

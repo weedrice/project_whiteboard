@@ -21,6 +21,7 @@ defineProps<{
 defineEmits<{
   saveDraft: []
   reloadServerDraft: []
+  keepLocalDraft: []
   'update:scheduledAt': [value: string]
 }>()
 </script>
@@ -42,6 +43,7 @@ defineEmits<{
       :draft-conflict="draftConflict"
       @save-draft="$emit('saveDraft')"
       @reload-server-draft="$emit('reloadServerDraft')"
+      @keep-local-draft="$emit('keepLocalDraft')"
     />
 
     <section

@@ -6,11 +6,14 @@ export function createDraftRecoverySnapshot(
   payload: PostDraftData,
   draftId: number | null,
   updatedAt: string | null,
+  clientModifiedAt = new Date().toISOString(),
 ): DraftRecoverySnapshot {
   return {
     ...payload,
     draftId: draftId ?? undefined,
     updatedAt: updatedAt ?? undefined,
+    clientModifiedAt,
+    hasLocalChanges: true,
   }
 }
 
@@ -18,6 +21,7 @@ export function createStoredSavedDraftSnapshot(
   payload: PostDraftData,
   savedDraft: DraftPost,
   fallbackUpdatedAt?: string,
+  clientModifiedAt = new Date().toISOString(),
 ): DraftRecoverySnapshot {
   return {
     ...payload,
@@ -25,6 +29,8 @@ export function createStoredSavedDraftSnapshot(
     seriesId: savedDraft.seriesId ?? undefined,
     draftId: savedDraft.draftId,
     updatedAt: getDraftUpdatedAt(savedDraft) ?? fallbackUpdatedAt,
+    clientModifiedAt,
+    hasLocalChanges: false,
   }
 }
 
@@ -56,5 +62,7 @@ export function stripDraftServerIdentity(snapshot: DraftRecoverySnapshot): Draft
     draftId: undefined,
     updatedAt: undefined,
     modifiedAt: undefined,
+    hasLocalChanges: true,
+    clientModifiedAt: new Date().toISOString(),
   }
 }

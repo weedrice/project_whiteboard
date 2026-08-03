@@ -153,6 +153,8 @@ describe('usePostDraft', () => {
             draftId: 91,
             fileIds: [7],
             updatedAt: '2025-01-01T00:00:00.000Z',
+            clientModifiedAt: '2026-07-07T12:00:00.000Z',
+            hasLocalChanges: false,
         }))
     })
 
@@ -369,6 +371,66 @@ describe('usePostDraft', () => {
             ...payloadRef.value,
             title: 'Autosaved title',
         }
+    })
+
+    it('preserves local changes when the server advanced and lets the user overwrite explicitly', async () => {
+        Storage.set('noviis:test:draft', {
+            boardUrl: 'free',
+            title: 'Unsaved local title',
+            contents: 'Unsaved local body',
+            fileIds: [],
+            draftId: 91,
+            updatedAt: '2025-01-01T00:00:00.000Z',
+            clientModifiedAt: '2025-01-03T00:00:00.000Z',
+            hasLocalChanges: true,
+        })
+        const payload = ref<PostDraftData>({
+            boardUrl: 'free',
+            title: 'Unsaved local title',
+            contents: 'Unsaved local body',
+            fileIds: [],
+        })
+        const serverDraft = {
+            draftId: 91,
+            boardId: 1,
+            boardUrl: 'free',
+            boardName: 'Free',
+            title: 'New server title',
+            contents: 'New server body',
+            tags: [],
+            fileIds: [],
+            isNotice: false,
+            isNsfw: false,
+            isSpoiler: false,
+            isSecret: false,
+            updatedAt: '2025-01-02T00:00:00.000Z',
+            modifiedAt: '2025-01-02T00:00:00.000Z',
+        }
+        mocks.getDraft.mockResolvedValue({ data: { data: serverDraft } })
+        mocks.saveDraftMutateAsync.mockResolvedValueOnce({
+            data: { data: { ...serverDraft, ...payload.value, updatedAt: '2025-01-04T00:00:00.000Z' } },
+        })
+        const { composable, appliedDrafts } = mountComposable(payload)
+
+        await composable.restoreDraft()
+
+        expect(appliedDrafts[0]).toEqual(expect.objectContaining({ title: 'Unsaved local title' }))
+        expect(composable.draftConflict.value).toBe(true)
+        expect(composable.restoreSource.value).toBe('local')
+        expect(composable.updatedAt.value).toBe('2025-01-01T00:00:00.000Z')
+
+        await expect(composable.keepLocalDraft()).resolves.toBe(true)
+
+        expect(mocks.saveDraftMutateAsync).toHaveBeenCalledWith(expect.objectContaining({
+            draftId: 91,
+            title: 'Unsaved local title',
+            updatedAt: '2025-01-02T00:00:00.000Z',
+        }))
+        expect(composable.draftConflict.value).toBe(false)
+        expect(Storage.get('noviis:test:draft')).toEqual(expect.objectContaining({
+            hasLocalChanges: false,
+            updatedAt: '2025-01-04T00:00:00.000Z',
+        }))
     })
 
     it('resets draft restoration tracking for a changed form identity', async () => {
@@ -752,6 +814,7 @@ describe('usePostDraft', () => {
             title: 'Local draft',
             contents: 'Local contents',
         }))
+        expect(composable.restoreSource.value).toBe('local')
         expect(Storage.get('noviis:test:draft')).not.toHaveProperty('draftId')
     })
 
@@ -908,9 +971,11 @@ describe('usePostDraft', () => {
         expect(mocks.getMyDrafts).toHaveBeenCalledWith({ page: 0, size: 50 })
         expect(mocks.getDraft).toHaveBeenNthCalledWith(2, 13)
         expect(appliedDrafts[0]).toEqual(expect.objectContaining({
-            draftId: 13,
-            title: 'Recovered replacement',
+            title: 'Local draft',
+            contents: 'Local contents',
         }))
-        expect(composable.restoreSource.value).toBe('server')
+        expect(composable.draftId.value).toBe(13)
+        expect(composable.draftConflict.value).toBe(true)
+        expect(composable.restoreSource.value).toBe('local')
     })
 })

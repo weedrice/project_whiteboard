@@ -11,7 +11,7 @@ import {
     isDraftOutdatedError,
     isMatchingLoadedDraft,
     loadDraftById,
-    pickNewestDraftSnapshot,
+    resolveDraftRecoverySnapshot,
     type DraftRecoverySnapshot,
 } from '@/features/board/posts/draft/postDraftRecovery'
 import {
@@ -235,8 +235,23 @@ export function usePostDraft(options: UsePostDraftOptions) {
             ...latestSnapshot,
             draftId: latestDraft.draftId,
             updatedAt: updatedAt.value ?? undefined,
+            clientModifiedAt: new Date().toISOString(),
+            hasLocalChanges: false,
         })
         options.onSaved?.()
+        return true
+    }
+
+    const keepLocalDraft = async () => {
+        const generation = sessionGeneration
+        const currentDraftId = draftId.value
+        if (currentDraftId == null) return false
+        const latestDraft = await loadDraftById(currentDraftId)
+        if (generation !== sessionGeneration || draftId.value !== currentDraftId) return false
+        if (!isMatchingLoadedDraft(latestDraft, options.buildPayload())) return false
+        updatedAt.value = getDraftUpdatedAt(latestDraft)
+        draftConflict.value = false
+        await saveNow()
         return true
     }
 
@@ -265,15 +280,34 @@ export function usePostDraft(options: UsePostDraftOptions) {
             },
         })
 
-        const chosen = pickNewestDraftSnapshot(resolved.localSnapshot, resolved.serverDraft)
+        const recovery = resolveDraftRecoverySnapshot(resolved.localSnapshot, resolved.serverDraft)
+        const chosen = recovery.snapshot
         if (!chosen) return
         if (generation !== sessionGeneration) return
 
-        draftId.value = chosen.draftId ?? null
+        draftId.value = recovery.conflict && resolved.serverDraft
+            ? resolved.serverDraft.draftId
+            : chosen.draftId ?? null
+        // 충돌 중에는 로컬 변경이 갈라져 나온 기준 버전을 보존한다. 최신 서버
+        // 버전은 사용자가 로컬본 덮어쓰기를 선택한 순간에만 다시 조회한다.
         updatedAt.value = chosen.updatedAt ?? chosen.modifiedAt ?? null
-        restoreSource.value = chosen === localSnapshot ? 'local' : 'server'
+        draftConflict.value = recovery.conflict
+        restoreSource.value = recovery.source
         options.applyDraft(chosen)
-        writeLocalSnapshot()
+        if (recovery.source === 'server') {
+            storeLocalSnapshot({
+                ...chosen,
+                clientModifiedAt: new Date().toISOString(),
+                hasLocalChanges: false,
+            })
+        } else {
+            storeLocalSnapshot({
+                ...chosen,
+                draftId: draftId.value ?? undefined,
+                clientModifiedAt: chosen.clientModifiedAt ?? new Date().toISOString(),
+                hasLocalChanges: chosen.hasLocalChanges ?? true,
+            })
+        }
     }
 
     const clearRecovery = () => {
@@ -340,6 +374,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         scheduleAutosave,
         restoreDraft,
         reloadServerDraft,
+        keepLocalDraft,
         resetSession,
         clearRecovery,
         cleanupDraft,

@@ -11,6 +11,7 @@ defineProps<{
 defineEmits<{
   saveDraft: []
   reloadServerDraft: []
+  keepLocalDraft: []
 }>()
 </script>
 
@@ -21,16 +22,28 @@ defineEmits<{
     </div>
     <div class="flex flex-col gap-3">
       <p class="text-sm text-[var(--nv-ink-soft)]">{{ label }}</p>
-      <BaseButton
-        v-if="draftConflict"
-        type="button"
-        variant="secondary"
-        size="sm"
-        full-width
-        @click="$emit('reloadServerDraft')"
-      >
-        {{ $t('board.writePost.draftStatus.reloadServer') }}
-      </BaseButton>
+      <template v-if="draftConflict">
+        <BaseButton
+          type="button"
+          variant="secondary"
+          size="sm"
+          full-width
+          :disabled="isSavingDraft"
+          @click="$emit('reloadServerDraft')"
+        >
+          {{ $t('board.writePost.draftStatus.reloadServer') }}
+        </BaseButton>
+        <BaseButton
+          type="button"
+          variant="primary"
+          size="sm"
+          full-width
+          :disabled="isSavingDraft"
+          @click="$emit('keepLocalDraft')"
+        >
+          {{ $t('board.writePost.draftStatus.keepLocal') }}
+        </BaseButton>
+      </template>
       <BaseButton
         v-else-if="draftEnabled"
         type="button"
