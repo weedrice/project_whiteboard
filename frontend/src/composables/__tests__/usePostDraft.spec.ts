@@ -6,6 +6,7 @@ import type { DraftRecoverySnapshot } from '@/features/board/posts/draft/usePost
 import type { PostDraftData } from '@/api/post'
 import { Storage } from '@/utils/storage'
 import { markDraftDeletedLocally } from '@/features/board/posts/draft/postDraftTombstone'
+import type { DraftScheduledEvent } from '@/features/board/posts/draft/postDraftScheduledEvent'
 
 const mocks = vi.hoisted(() => {
     const saveDraftMutateAsync = vi.fn()
@@ -468,6 +469,31 @@ describe('usePostDraft', () => {
         expect(composable.lastSaveFailed.value).toBe(false)
         await expect(composable.saveNow()).resolves.toBeNull()
         expect(mocks.saveDraftMutateAsync).toHaveBeenCalledTimes(2)
+    })
+
+    it('stops autosave immediately when another tab schedules the draft', async () => {
+        const ownerId = ref<number | null>(1)
+        const { composable } = mountComposable(undefined, undefined, undefined, ownerId)
+        await composable.saveNow()
+        mocks.saveDraftMutateAsync.mockClear()
+        composable.scheduleAutosave()
+        const message: DraftScheduledEvent = {
+            type: 'draft-scheduled',
+            ownerId: '1',
+            draftId: 91,
+            storageKey: 'noviis:test:draft',
+            at: Date.now(),
+        }
+
+        window.dispatchEvent(new StorageEvent('storage', {
+            key: 'noviis:draft-scheduled-event',
+            newValue: JSON.stringify(message),
+        }))
+        await vi.advanceTimersByTimeAsync(10_000)
+
+        expect(composable.draftProtected.value).toBe(true)
+        expect(mocks.saveDraftMutateAsync).not.toHaveBeenCalled()
+        expect(Storage.has('noviis:test:draft')).toBe(false)
     })
 
     it('preserves local changes when the server advanced and lets the user overwrite explicitly', async () => {

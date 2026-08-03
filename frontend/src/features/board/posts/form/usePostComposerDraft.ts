@@ -72,8 +72,8 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     retrySaveNow,
     scheduleAutosave,
     restoreDraft,
-    clearRecovery,
     clearPublishedDraftRecovery,
+    clearScheduledDraftRecovery,
     writeLocalSnapshot,
     lastSavedAt,
     lastSaveScope,
@@ -337,6 +337,6 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     handleSaveDeletedDraftAsNew,
     handleDiscardDeletedDraft,
     cleanupPublishedDraft: clearPublishedDraftRecovery,
-    clearScheduledDraftRecovery: clearRecovery,
+    clearScheduledDraftRecovery,
   }
 }

@@ -37,6 +37,11 @@ import {
     parseDraftRecoverySnapshot,
     storeDraftSnapshotWithBudget,
 } from '@/features/board/posts/draft/postDraftLifecycle'
+import {
+    matchesDraftScheduledEvent,
+    parseDraftScheduledStorageEvent,
+    publishDraftScheduledEvent,
+} from '@/features/board/posts/draft/postDraftScheduledEvent'
 
 export type { DraftRecoverySnapshot } from '@/features/board/posts/draft/postDraftRecovery'
 export type DraftSaveScope = 'server' | 'browser'
@@ -191,6 +196,17 @@ export function usePostDraft(options: UsePostDraftOptions) {
         draftProtected.value = false
         lastSaveFailed.value = false
         storeLocalSnapshot(createDraftRecoverySnapshot(options.buildPayload(), null, null))
+    }
+
+    const transitionToProtectedDraft = () => {
+        clearAutosaveTimer()
+        clearSaveRetry()
+        invalidatePendingSaves()
+        draftProtected.value = true
+        draftConflict.value = false
+        draftDeleted.value = false
+        lastSaveFailed.value = false
+        Storage.remove(options.storageKey.value)
     }
 
     const savePayload = async (payload: PostDraftData) => {
@@ -617,6 +633,16 @@ export function usePostDraft(options: UsePostDraftOptions) {
     const handleStorage = (event: StorageEvent) => {
         if (!options.enabled.value) return
         const ownerId = options.ownerId?.value
+        const scheduledEvent = parseDraftScheduledStorageEvent(event)
+        if (scheduledEvent && matchesDraftScheduledEvent(
+            scheduledEvent,
+            ownerId,
+            draftId.value,
+            options.storageKey.value,
+        )) {
+            transitionToProtectedDraft()
+            return
+        }
         if (draftId.value != null
             && ownerId != null
             && event.key === getDraftTombstoneKey(ownerId, draftId.value)
@@ -721,6 +747,13 @@ export function usePostDraft(options: UsePostDraftOptions) {
         clearRecovery()
     }
 
+    const clearScheduledDraftRecovery = (scheduledDraftId: number | null = draftId.value) => {
+        if (options.ownerId?.value != null) {
+            publishDraftScheduledEvent(options.ownerId.value, scheduledDraftId, options.storageKey.value)
+        }
+        clearRecovery()
+    }
+
     onUnmounted(() => {
         clearAutosaveTimer()
         clearSaveRetry()
@@ -763,6 +796,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         resetSession,
         clearRecovery,
         clearPublishedDraftRecovery,
+        clearScheduledDraftRecovery,
         writeLocalSnapshot,
         saveDeletedDraftAsNew,
         discardDeletedDraft,

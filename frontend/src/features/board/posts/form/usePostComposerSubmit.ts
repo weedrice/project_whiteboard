@@ -82,7 +82,7 @@ type UsePostComposerSubmitOptions = {
   buildPayload: () => Omit<PostComposerPayload, 'draftId'>
   markCurrentSnapshotSaved: () => void
   cleanupPublishedDraft: () => void
-  clearScheduledDraftRecovery: () => void
+  clearScheduledDraftRecovery: (draftId: number | null) => void
   releaseUploadedFileOwnership: (fileIds: number[]) => void
   createPost: CreatePostMutate
   createScheduledPost: CreateScheduledPostMutate
@@ -289,7 +289,7 @@ export function usePostComposerSubmit(options: UsePostComposerSubmitOptions) {
             unlock()
             options.releaseUploadedFileOwnership(payload.fileIds)
             options.markCurrentSnapshotSaved()
-            options.clearScheduledDraftRecovery()
+            options.clearScheduledDraftRecovery(currentDraftId ?? null)
             const scheduledPost = unwrapApiData(response.data)
             options.addToast(options.t('board.writePost.scheduleSuccess'), 'success')
             context.onSubmitted?.({

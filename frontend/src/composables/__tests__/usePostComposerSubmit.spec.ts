@@ -283,7 +283,7 @@ describe('usePostComposerSubmit', () => {
       data: { data: { scheduledPostId: 44, scheduledAt: '2026-07-14T12:00' } },
     })
 
-    expect(submit.clearScheduledDraftRecovery).toHaveBeenCalledOnce()
+    expect(submit.clearScheduledDraftRecovery).toHaveBeenCalledExactlyOnceWith(91)
     expect(submit.cleanupPublishedDraft).not.toHaveBeenCalled()
     expect(submit.releaseUploadedFileOwnership).toHaveBeenCalledWith([10])
   })
