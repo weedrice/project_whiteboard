@@ -570,6 +570,19 @@ export function usePostDraft(options: UsePostDraftOptions) {
             const hasUnsavedLocalChanges = localRevision !== persistedRevision
             if (!hasUnsavedLocalChanges
                 && (draftId.value == null || sameDraft)
+                && incoming.hasLocalChanges === true
+                && matchingComposer) {
+                draftId.value = incoming.draftId ?? null
+                draftVersion.value = incoming.version ?? null
+                clientDraftKey.value = incoming.clientDraftKey ?? clientDraftKey.value
+                updatedAt.value = incoming.updatedAt ?? incoming.modifiedAt ?? null
+                localRevision++
+                restoreSource.value = 'local'
+                options.applyDraft(incoming)
+                return
+            }
+            if (!hasUnsavedLocalChanges
+                && (draftId.value == null || sameDraft)
                 && incoming.hasLocalChanges === false
                 && matchingComposer
                 && incoming.draftId != null) {

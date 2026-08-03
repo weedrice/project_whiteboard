@@ -5,6 +5,7 @@ import type { PostFormFileIdScope } from '@/utils/postForm'
 import logger from '@/utils/logger'
 import { formatTimeOnly } from '@/utils/date'
 import { migrateStoredDraftSnapshot } from '@/features/board/posts/draft/postDraftLifecycle'
+import { useEventListener } from '@/composables/useEventListener'
 
 type ComposerToastType = 'info' | 'success' | 'warning' | 'error'
 
@@ -53,6 +54,7 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     options.preferredDraftId?.value ?? 'default',
   ].join(':'))
   let appliedDraftSignature: string | null = null
+  let lastStoredDraftSignature: string | null = null
 
   const serializeDraftPayload = () => JSON.stringify({
     ...options.buildPayload('draft'),
@@ -135,6 +137,7 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
       if (previous === undefined) return
       hasRestoredDraft.value = false
       initializedBaselineIdentity.value = null
+      lastStoredDraftSignature = null
       resetSession()
     },
   )
@@ -179,6 +182,7 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
       }
       options.markCurrentSnapshotSaved()
       initializedBaselineIdentity.value = restoringIdentity
+      lastStoredDraftSignature = serializeDraftPayload()
     },
     { immediate: true },
   )
@@ -191,14 +195,29 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
       if (!hasRestoredDraft.value || !draftEnabled.value || options.isLoading.value) return
       if (appliedDraftSignature === signature) {
         appliedDraftSignature = null
+        lastStoredDraftSignature = signature
         return
       }
       appliedDraftSignature = null
       writeLocalSnapshot()
+      lastStoredDraftSignature = signature
       scheduleAutosave()
     },
     { flush: 'post' },
   )
+
+  const flushLatestLocalSnapshot = () => {
+    if (!hasRestoredDraft.value || !draftEnabled.value || options.isLoading.value) return
+    const signature = serializeDraftPayload()
+    if (signature === lastStoredDraftSignature) return
+    writeLocalSnapshot()
+    lastStoredDraftSignature = signature
+  }
+
+  useEventListener(() => window, 'pagehide', flushLatestLocalSnapshot)
+  useEventListener(() => document, 'visibilitychange', () => {
+    if (document.visibilityState === 'hidden') flushLatestLocalSnapshot()
+  })
 
   async function handleSaveDraft() {
     if (options.validateBeforeSave?.() === false) {

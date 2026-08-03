@@ -1242,6 +1242,48 @@ describe('usePostDraft', () => {
         expect(composable.draftConflict.value).toBe(false)
     })
 
+    it('adopts compatible unsaved edits from another tab before this tab diverges', async () => {
+        const { composable, appliedDrafts } = mountComposable()
+        await composable.saveNow()
+
+        window.dispatchEvent(new StorageEvent('storage', {
+            key: 'noviis:test:draft',
+            newValue: JSON.stringify({
+                draftId: 91,
+                clientDraftKey: 'client-draft-key-1234',
+                version: 0,
+                boardUrl: 'free',
+                title: 'Unsaved edit from another tab',
+                contents: 'Draft body',
+                updatedAt: '2025-01-01T00:00:00.000Z',
+                clientInstanceId: 'other-tab',
+                hasLocalChanges: true,
+            }),
+        }))
+
+        expect(appliedDrafts.at(-1)).toEqual(expect.objectContaining({
+            title: 'Unsaved edit from another tab',
+        }))
+        expect(composable.draftConflict.value).toBe(false)
+
+        window.dispatchEvent(new StorageEvent('storage', {
+            key: 'noviis:test:draft',
+            newValue: JSON.stringify({
+                draftId: 91,
+                clientDraftKey: 'client-draft-key-1234',
+                version: 1,
+                boardUrl: 'free',
+                title: 'Server advanced elsewhere',
+                contents: 'Draft body',
+                updatedAt: '2025-01-02T00:00:00.000Z',
+                clientInstanceId: 'third-tab',
+                hasLocalChanges: false,
+            }),
+        }))
+
+        expect(composable.draftConflict.value).toBe(true)
+    })
+
     it('stops autosave when another tab advances the same draft', async () => {
         const { composable, payloadRef } = mountComposable()
         await composable.saveNow()

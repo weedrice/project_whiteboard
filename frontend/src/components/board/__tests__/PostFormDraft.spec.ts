@@ -178,4 +178,48 @@ describe('PostForm draft behavior', () => {
     }))
     expect(mockSaveDraftMutateAsync).not.toHaveBeenCalled()
   })
+
+  it('flushes the latest input synchronously when the page is hidden', async () => {
+    mockPostFormAuthStore({
+      isAuthenticated: true,
+      user: { userId: 1, role: 'USER' },
+    })
+    const wrapper = mountPostForm('create', {}, {}, { postId: '' })
+    await flushPromises()
+    const title = wrapper.get('#title').element as HTMLInputElement
+    title.value = 'Typed immediately before page hide'
+    title.dispatchEvent(new Event('input', { bubbles: true }))
+
+    window.dispatchEvent(new Event('pagehide'))
+
+    expect(Storage.get('noviis:draft:1:create:free:new')).toEqual(expect.objectContaining({
+      title: 'Typed immediately before page hide',
+      hasLocalChanges: true,
+    }))
+  })
+
+  it('does not turn a clean snapshot into a local edit on page hide', async () => {
+    mockPostFormAuthStore({
+      isAuthenticated: true,
+      user: { userId: 1, role: 'USER' },
+    })
+    const storageKey = 'noviis:draft:1:create:free:new'
+    Storage.set(storageKey, {
+      draftId: 91,
+      boardUrl: 'free',
+      title: 'Canonical draft',
+      contents: 'Canonical body',
+      clientModifiedAt: '2026-08-02T00:00:00.000Z',
+      hasLocalChanges: false,
+    })
+    mountPostForm('create')
+    await flushPromises()
+
+    window.dispatchEvent(new Event('pagehide'))
+
+    expect(Storage.get(storageKey)).toEqual(expect.objectContaining({
+      title: 'Canonical draft',
+      hasLocalChanges: false,
+    }))
+  })
 })
