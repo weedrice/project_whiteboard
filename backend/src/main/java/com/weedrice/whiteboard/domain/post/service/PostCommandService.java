@@ -15,6 +15,7 @@ import com.weedrice.whiteboard.domain.point.service.ContentRewardService;
 import com.weedrice.whiteboard.domain.post.dto.PostCreateResponse;
 import com.weedrice.whiteboard.domain.post.dto.PostCreateRequest;
 import com.weedrice.whiteboard.domain.post.dto.PostUpdateRequest;
+import com.weedrice.whiteboard.domain.post.entity.DraftPost;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.sanction.service.SanctionService;
@@ -67,9 +68,19 @@ public class PostCommandService {
 
     @Transactional
     public PostCreateResponse createPostWithResponse(@NonNull Long userId, String boardUrl, PostCreateRequest request) {
+        return createPostWithResponse(userId, boardUrl, request, null);
+    }
+
+    public PostCreateResponse createScheduledPostWithResponse(@NonNull Long userId, String boardUrl,
+            PostCreateRequest request, @NonNull Long scheduledPostId) {
+        return createPostWithResponse(userId, boardUrl, request, scheduledPostId);
+    }
+
+    private PostCreateResponse createPostWithResponse(@NonNull Long userId, String boardUrl, PostCreateRequest request,
+            Long publishingScheduledPostId) {
         String normalizedBoardUrl = BoardUrlNormalizer.normalizeLookup(boardUrl);
         PostCreateTarget target = postCreateTargetResolver.resolveTargetByBoardUrl(userId, null, normalizedBoardUrl);
-        CreatedPost createdPost = createPost(target, request, null);
+        CreatedPost createdPost = createPost(target, request, null, publishingScheduledPostId);
         return PostCreateResponse.builder()
                 .postId(createdPost.post().getPostId())
                 .earnedPoints(createdPost.earnedPoints() > 0 ? createdPost.earnedPoints() : null)
@@ -107,6 +118,11 @@ public class PostCommandService {
     }
 
     private CreatedPost createPost(PostCreateTarget target, PostCreateRequest request, PostCreateContext context) {
+        return createPost(target, request, context, null);
+    }
+
+    private CreatedPost createPost(PostCreateTarget target, PostCreateRequest request, PostCreateContext context,
+            Long publishingScheduledPostId) {
         postCreatePolicyValidator.validateBoardAndNotice(target, request);
         PostCreateCategoryTarget categoryTarget =
                 postCreateTargetResolver.resolveCategory(target.board(), request.getCategoryId(), context);
@@ -136,7 +152,8 @@ public class PostCommandService {
                 target.user(),
                 target.board().getBoardId(),
                 savedPost,
-                request);
+                request,
+                publishingScheduledPostId);
         postSeriesService.attachPostToSeries(target.user().getUserId(), savedPost, request.getSeriesId());
         anonymousReadCacheInvalidator.evictPostRelatedCachesAfterCommit();
         return new CreatedPost(savedPost, earnedPoints);
@@ -183,10 +200,12 @@ public class PostCommandService {
             postSeriesService.updatePostSeries(post.getUser().getUserId(), post, request.getSeriesId());
         }
 
+        DraftPost publishedDraft = postDraftPublicationService.lockAndValidateForPublication(
+                request.getDraftId(), modifier, board, post.getPostId(), null);
         if (request.getFileIds() != null) {
             fileService.syncPostFiles(request.getFileIds(), userId, post.getPostId(), request.getDraftId());
         }
-        postDraftPublicationService.deletePublishedDraftIfOwned(request.getDraftId(), modifier);
+        postDraftPublicationService.deletePublishedDraft(publishedDraft);
 
         postVersionRecorder.record(post, modifier, "MODIFY", originalTitle, originalContents);
         semanticSearchEventPublisher.publish("POST", post.getPostId(), SemanticSearchIndexAction.UPSERT);

@@ -25,6 +25,8 @@ public interface ScheduledPostRepository extends JpaRepository<ScheduledPost, Lo
 
     boolean existsByDraftIdAndScheduledPostIdNot(Long draftId, Long scheduledPostId);
 
+    boolean existsByScheduledPostIdAndDraftIdAndStatus(Long scheduledPostId, Long draftId, String status);
+
     interface ScheduledPostIdProjection {
         Long getScheduledPostId();
     }

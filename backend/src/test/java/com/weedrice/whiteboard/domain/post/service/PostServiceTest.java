@@ -304,6 +304,7 @@ class PostServiceTest {
         PostVersionRecorder postVersionRecorder = new PostVersionRecorder(postVersionRepository);
         PostDraftPublicationService postDraftPublicationService = new PostDraftPublicationService(
                 draftPostRepository,
+                scheduledPostRepository,
                 fileService);
         PostCreateSideEffectService postCreateSideEffectService = new PostCreateSideEffectService(
                 tagAssignmentService,
@@ -447,6 +448,7 @@ class PostServiceTest {
         PostCreateRequest request = new PostCreateRequest(null, "New Post", "New Contents", Collections.emptyList(),
                 false, false, false, false, 55L, List.of(1L));
         DraftPost existingDraft = DraftPost.builder().user(user).board(board).title("Draft").build();
+        ReflectionTestUtils.setField(existingDraft, "draftId", 55L);
 
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
@@ -460,10 +462,92 @@ class PostServiceTest {
         postService.createPost(1L, "free", request);
 
         verify(fileService).attachFilesToPost(List.of(1L), 1L, 100L, 55L);
-        InOrder inOrder = inOrder(fileService, draftPostRepository);
+        InOrder inOrder = inOrder(draftPostRepository, fileService);
+        inOrder.verify(draftPostRepository).findByDraftIdAndUserForUpdate(55L, user);
         inOrder.verify(fileService).attachFilesToPost(List.of(1L), 1L, 100L, 55L);
         inOrder.verify(fileService).markDraftFilesDeletionPending(55L);
         inOrder.verify(draftPostRepository).delete(existingDraft);
+    }
+
+    @Test
+    @DisplayName("게시글 생성은 다른 게시판의 초안을 발행하지 않는다")
+    void createPost_rejectsDraftFromAnotherBoard() {
+        PostCreateRequest request = new PostCreateRequest(null, "New Post", "New Contents", Collections.emptyList(),
+                false, false, false, false, 55L, List.of(1L));
+        Board otherBoard = Board.builder().boardName("Other").boardUrl("other").build();
+        ReflectionTestUtils.setField(otherBoard, "boardId", 2L);
+        DraftPost existingDraft = DraftPost.builder().user(user).board(otherBoard).title("Draft").build();
+
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(postRepository.save(any(Post.class))).thenAnswer(invocation -> {
+            Post saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "postId", 100L);
+            return saved;
+        });
+        when(draftPostRepository.findByDraftIdAndUserForUpdate(55L, user)).thenReturn(Optional.of(existingDraft));
+
+        assertThatThrownBy(() -> postService.createPost(1L, "free", request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(fileService, never()).attachFilesToPost(anyList(), anyLong(), anyLong(), any());
+        verify(draftPostRepository, never()).delete(any(DraftPost.class));
+    }
+
+    @Test
+    @DisplayName("게시글 생성은 예약발행이 보호하는 초안을 발행하지 않는다")
+    void createPost_rejectsScheduledDraft() {
+        PostCreateRequest request = new PostCreateRequest(null, "New Post", "New Contents", Collections.emptyList(),
+                false, false, false, false, 55L, List.of(1L));
+        DraftPost existingDraft = DraftPost.builder().user(user).board(board).title("Draft").build();
+        ReflectionTestUtils.setField(existingDraft, "draftId", 55L);
+
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(postRepository.save(any(Post.class))).thenAnswer(invocation -> {
+            Post saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "postId", 100L);
+            return saved;
+        });
+        when(draftPostRepository.findByDraftIdAndUserForUpdate(55L, user)).thenReturn(Optional.of(existingDraft));
+        when(scheduledPostRepository.existsByDraftIdAndStatusIn(55L, ScheduledPost.PROTECTED_DRAFT_STATUSES))
+                .thenReturn(true);
+
+        assertThatThrownBy(() -> postService.createPost(1L, "free", request))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(fileService, never()).attachFilesToPost(anyList(), anyLong(), anyLong(), any());
+        verify(draftPostRepository, never()).delete(any(DraftPost.class));
+    }
+
+    @Test
+    @DisplayName("예약발행 워커는 자신이 발행 중인 보호 초안을 사용할 수 있다")
+    void createScheduledPost_allowsClaimedScheduledDraft() {
+        PostCreateRequest request = new PostCreateRequest(null, "Scheduled Post", "Contents", Collections.emptyList(),
+                false, false, false, false, 55L, List.of(1L));
+        DraftPost existingDraft = DraftPost.builder().user(user).board(board).title("Draft").build();
+        ReflectionTestUtils.setField(existingDraft, "draftId", 55L);
+
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(postRepository.save(any(Post.class))).thenAnswer(invocation -> {
+            Post saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "postId", 100L);
+            return saved;
+        });
+        when(draftPostRepository.findByDraftIdAndUserForUpdate(55L, user)).thenReturn(Optional.of(existingDraft));
+        when(scheduledPostRepository.existsByDraftIdAndStatusIn(55L, ScheduledPost.PROTECTED_DRAFT_STATUSES))
+                .thenReturn(true);
+        when(scheduledPostRepository.existsByScheduledPostIdAndDraftIdAndStatus(
+                77L, 55L, ScheduledPost.STATUS_PUBLISHING)).thenReturn(true);
+
+        PostCreateResponse response = postCommandService.createScheduledPostWithResponse(1L, "free", request, 77L);
+
+        assertThat(response.getPostId()).isEqualTo(100L);
+        verify(fileService).attachFilesToPost(List.of(1L), 1L, 100L, 55L);
+        verify(draftPostRepository).delete(existingDraft);
     }
 
     @Test
@@ -472,6 +556,7 @@ class PostServiceTest {
         PostCreateRequest request = new PostCreateRequest(null, "New Post", "New Contents", Collections.emptyList(),
                 false, false, false, false, 55L, Collections.emptyList());
         DraftPost existingDraft = DraftPost.builder().user(user).board(board).title("Draft").build();
+        ReflectionTestUtils.setField(existingDraft, "draftId", 55L);
 
         when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
@@ -1304,7 +1389,8 @@ class PostServiceTest {
     void updatePost_withDraftId_passesDraftIdToFileService() {
         PostUpdateRequest request = new PostUpdateRequest(null, "Updated Title", "Updated Contents",
                 Collections.emptyList(), false, false, false, 55L, List.of(5L));
-        DraftPost existingDraft = DraftPost.builder().user(user).board(board).title("Draft").build();
+        DraftPost existingDraft = DraftPost.builder().user(user).board(board).originalPost(post).title("Draft").build();
+        ReflectionTestUtils.setField(existingDraft, "draftId", 55L);
 
         when(postRepository.findByIdWithRelationsForUpdate(1L)).thenReturn(Optional.of(post));
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
@@ -1313,7 +1399,8 @@ class PostServiceTest {
         postService.updatePost(1L, 1L, request);
 
         verify(fileService).syncPostFiles(List.of(5L), 1L, 1L, 55L);
-        InOrder inOrder = inOrder(fileService, draftPostRepository);
+        InOrder inOrder = inOrder(draftPostRepository, fileService);
+        inOrder.verify(draftPostRepository).findByDraftIdAndUserForUpdate(55L, user);
         inOrder.verify(fileService).syncPostFiles(List.of(5L), 1L, 1L, 55L);
         inOrder.verify(fileService).markDraftFilesDeletionPending(55L);
         inOrder.verify(draftPostRepository).delete(existingDraft);

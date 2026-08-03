@@ -80,7 +80,7 @@ class ScheduledPostPublishWorkerTest {
         when(repository.findByScheduledPostIdAndStatusAndProcessingStartedAt(
                 7L, ScheduledPost.STATUS_PUBLISHING, claimedAt)).thenReturn(Optional.of(scheduledPost));
         when(payloadMapper.toPostCreateRequest(scheduledPost)).thenReturn(request);
-        when(postCommandService.createPostWithResponse(any(), any(), any())).thenReturn(response);
+        when(postCommandService.createScheduledPostWithResponse(any(), any(), any(), any())).thenReturn(response);
         when(repository.markPublished(any(), any(), any(), any())).thenReturn(0);
 
         ScheduledPostPublishWorker worker = worker();
@@ -116,7 +116,7 @@ class ScheduledPostPublishWorkerTest {
         assertThatThrownBy(() -> worker().publishClaimed(7L, claimedAt))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("lease changed");
-        verify(postCommandService, never()).createPostWithResponse(any(), any(), any());
+        verify(postCommandService, never()).createScheduledPostWithResponse(any(), any(), any(), any());
     }
 
     @Test
@@ -138,7 +138,7 @@ class ScheduledPostPublishWorkerTest {
         when(repository.findByScheduledPostIdAndStatusAndProcessingStartedAt(
                 7L, ScheduledPost.STATUS_PUBLISHING, claimedAt)).thenReturn(Optional.of(scheduledPost));
         when(payloadMapper.toPostCreateRequest(scheduledPost)).thenReturn(new PostCreateRequest());
-        when(postCommandService.createPostWithResponse(any(), any(), any()))
+        when(postCommandService.createScheduledPostWithResponse(any(), any(), any(), any()))
                 .thenReturn(PostCreateResponse.builder().postId(91L).build());
         when(repository.markPublished(any(), any(), any(), any())).thenReturn(1);
 

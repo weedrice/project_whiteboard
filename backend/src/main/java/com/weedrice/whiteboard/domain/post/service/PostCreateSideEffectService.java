@@ -8,6 +8,7 @@ import com.weedrice.whiteboard.domain.notification.service.MentionService;
 import com.weedrice.whiteboard.domain.point.service.ContentRewardPolicy;
 import com.weedrice.whiteboard.domain.point.service.ContentRewardService;
 import com.weedrice.whiteboard.domain.post.dto.PostCreateRequest;
+import com.weedrice.whiteboard.domain.post.entity.DraftPost;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchEventPublisher;
 import com.weedrice.whiteboard.domain.search.semantic.SemanticSearchIndexAction;
@@ -32,15 +33,18 @@ public class PostCreateSideEffectService {
     private final PollService pollService;
     private final BadgeEvaluationService badgeEvaluationService;
 
-    public int applyAfterCreate(Long userId, User user, Long boardId, Post savedPost, PostCreateRequest request) {
+    public int applyAfterCreate(Long userId, User user, Long boardId, Post savedPost, PostCreateRequest request,
+            Long publishingScheduledPostId) {
         tagAssignmentService.assignTags(savedPost, request.getTags());
         pollService.createPoll(savedPost, request.getPoll());
         postVersionRecorder.record(savedPost, user, "CREATE", null, null);
 
+        DraftPost publishedDraft = postDraftPublicationService.lockAndValidateForPublication(
+                request.getDraftId(), user, savedPost.getBoard(), null, publishingScheduledPostId);
         if (request.getFileIds() != null && !request.getFileIds().isEmpty()) {
             fileService.attachFilesToPost(request.getFileIds(), userId, savedPost.getPostId(), request.getDraftId());
         }
-        postDraftPublicationService.deletePublishedDraftIfOwned(request.getDraftId(), user);
+        postDraftPublicationService.deletePublishedDraft(publishedDraft);
 
         int earnedPoints = contentRewardService.rewardCreate(userId, savedPost.getPostId(), ContentRewardPolicy.POST);
         mentionService.publishMentions(user, savedPost.getAgent(), NotificationSourceType.POST, savedPost.getPostId(),

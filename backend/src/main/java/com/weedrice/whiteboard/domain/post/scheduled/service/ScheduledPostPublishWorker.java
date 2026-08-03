@@ -41,10 +41,11 @@ public class ScheduledPostPublishWorker {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void publishClaimed(Long scheduledPostId, LocalDateTime claimedAt) {
         ScheduledPost scheduledPost = loadClaimed(scheduledPostId, claimedAt);
-        PostCreateResponse created = postCommandService.createPostWithResponse(
+        PostCreateResponse created = postCommandService.createScheduledPostWithResponse(
                 scheduledPost.getUser().getUserId(),
                 scheduledPost.getBoard().getBoardUrl(),
-                payloadMapper.toPostCreateRequest(scheduledPost));
+                payloadMapper.toPostCreateRequest(scheduledPost),
+                scheduledPostId);
         scheduledPostFileService.removeReferences(scheduledPostId);
         int updated = scheduledPostRepository.markPublished(
                 scheduledPostId, claimedAt, created.getPostId(), now());
