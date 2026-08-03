@@ -23,11 +23,23 @@ public interface DraftPostRepository extends JpaRepository<DraftPost, Long> {
             SELECT d
             FROM DraftPost d
             WHERE d.user = :user
+              AND NOT EXISTS (
+                  SELECT s.scheduledPostId
+                  FROM ScheduledPost s
+                  WHERE s.draftId = d.draftId
+                    AND s.status IN ('SCHEDULED', 'PUBLISHING', 'FAILED')
+              )
             ORDER BY d.modifiedAt DESC, d.draftId DESC
             """, countQuery = """
             SELECT COUNT(d)
             FROM DraftPost d
             WHERE d.user = :user
+              AND NOT EXISTS (
+                  SELECT s.scheduledPostId
+                  FROM ScheduledPost s
+                  WHERE s.draftId = d.draftId
+                    AND s.status IN ('SCHEDULED', 'PUBLISHING', 'FAILED')
+              )
             """)
     Page<DraftPost> findPageByUserWithBoard(@Param("user") User user, Pageable pageable);
 
@@ -37,7 +49,18 @@ public interface DraftPostRepository extends JpaRepository<DraftPost, Long> {
     @Query("SELECT d FROM DraftPost d WHERE d.draftId = :draftId AND d.user = :user")
     Optional<DraftPost> findByDraftIdAndUserForUpdate(@Param("draftId") Long draftId, @Param("user") User user);
 
-    long countByUser(User user);
+    @Query("""
+            SELECT COUNT(d)
+            FROM DraftPost d
+            WHERE d.user = :user
+              AND NOT EXISTS (
+                  SELECT s.scheduledPostId
+                  FROM ScheduledPost s
+                  WHERE s.draftId = d.draftId
+                    AND s.status IN ('SCHEDULED', 'PUBLISHING', 'FAILED')
+              )
+            """)
+    long countDeletableByUser(@Param("user") User user);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""

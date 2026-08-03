@@ -53,7 +53,7 @@ class PostDraftCleanupServiceTest {
     void enforceUserDraftLimit_deletesOldestDraftsWithFiles() {
         DraftPost first = draft(1L, "first");
         DraftPost second = draft(2L, "second");
-        when(draftPostRepository.countByUser(user)).thenReturn(102L);
+        when(draftPostRepository.countDeletableByUser(user)).thenReturn(102L);
         when(draftPostRepository.findOldestByUser(eq(user), any(Pageable.class)))
                 .thenReturn(List.of(first, second));
 

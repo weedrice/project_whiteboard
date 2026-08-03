@@ -5,6 +5,7 @@ import com.weedrice.whiteboard.domain.post.entity.DraftPost;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.entity.PostSeries;
 import com.weedrice.whiteboard.domain.post.entity.PostSeriesItem;
+import com.weedrice.whiteboard.domain.post.scheduled.entity.ScheduledPost;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.config.QuerydslConfig;
 import jakarta.persistence.EntityManagerFactory;
@@ -113,6 +114,36 @@ class DraftPostRepositoryTest {
         assertThat(result.getContent())
                 .extracting(DraftPost::getDraftId)
                 .containsSubsequence(newerDraftId.getDraftId(), olderDraftId.getDraftId());
+    }
+
+    @Test
+    @DisplayName("예약발행이 보호하는 초안은 일반 목록과 일반 초안 한도에서 제외된다")
+    void findPageByUserWithBoard_excludesProtectedScheduledDrafts() {
+        DraftPost protectedDraft = DraftPost.builder()
+                .user(user)
+                .board(board)
+                .title("protected")
+                .contents("contents")
+                .build();
+        entityManager.persist(protectedDraft);
+        entityManager.flush();
+        entityManager.persist(ScheduledPost.builder()
+                .user(user)
+                .board(board)
+                .title("scheduled")
+                .contents("contents")
+                .draftId(protectedDraft.getDraftId())
+                .scheduledAt(LocalDateTime.of(2030, 1, 1, 0, 0))
+                .build());
+        entityManager.flush();
+        entityManager.clear();
+
+        Page<DraftPost> result = draftPostRepository.findPageByUserWithBoard(user, PageRequest.of(0, 10));
+
+        assertThat(result.getContent())
+                .extracting(DraftPost::getTitle)
+                .containsExactly("draft");
+        assertThat(draftPostRepository.countDeletableByUser(user)).isEqualTo(1);
     }
 
     @Test

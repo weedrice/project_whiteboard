@@ -30,7 +30,7 @@ public class PostDraftCleanupService {
     private final PostDraftCleanupBatchService cleanupBatchService;
 
     public int enforceUserDraftLimit(User user) {
-        long excessCount = draftPostRepository.countByUser(user) - MAX_DRAFTS_PER_USER;
+        long excessCount = draftPostRepository.countDeletableByUser(user) - MAX_DRAFTS_PER_USER;
         int deletedCount = 0;
 
         while (excessCount > 0) {
