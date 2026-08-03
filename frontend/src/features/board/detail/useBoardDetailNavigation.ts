@@ -67,7 +67,7 @@ export function useBoardDetailNavigation({
   ))
 
   const buildBoardListRoute = () => ({
-    path: `/board/${encodePathSegment(boardUrl.value)}`,
+    path: `/board/${encodePathSegment(boardUrl.value)}/`,
     query: listQuery.value
   })
 
@@ -77,7 +77,7 @@ export function useBoardDetailNavigation({
 
   function getNoticeRoute(notice: PostSummary) {
     return {
-      path: `/board/${encodePathSegment(boardUrl.value)}/post/${encodePathSegment(notice.postId)}`,
+      path: `/board/${encodePathSegment(boardUrl.value)}/post/${encodePathSegment(notice.postId)}/`,
       query: listQuery.value
     }
   }

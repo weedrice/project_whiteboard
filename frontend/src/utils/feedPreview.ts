@@ -124,5 +124,5 @@ export const isFeedSpoiler = (post: Pick<FeedPost, 'isSpoiler'> & { spoiler?: bo
 }
 
 export const buildPostDetailPath = (boardUrl: string | number, postId: string | number, hash = '') => {
-  return `/board/${encodePathSegment(boardUrl)}/post/${encodePathSegment(postId)}${hash}`
+  return `/board/${encodePathSegment(boardUrl)}/post/${encodePathSegment(postId)}/${hash}`
 }

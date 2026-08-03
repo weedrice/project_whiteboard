@@ -40,7 +40,7 @@ describe('postListModel', () => {
     const item = post({ boardUrl: '/Free/' })
 
     expect(getPostListResolvedBoardUrl(item)).toBe('free')
-    expect(resolvePostListBoardRoute(item, undefined)).toBe('/board/free')
+    expect(resolvePostListBoardRoute(item, undefined)).toBe('/board/free/')
     expect(resolvePostListBoardRoute(item, undefined, (_post, boardUrl) => ({
       name: 'board-detail',
       params: { boardUrl },

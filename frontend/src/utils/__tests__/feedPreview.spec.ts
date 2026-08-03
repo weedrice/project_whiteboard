@@ -69,8 +69,8 @@ describe('feedPreview', () => {
     it('derives spoiler state and post detail path', () => {
         expect(isFeedSpoiler({ isSpoiler: true })).toBe(true)
         expect(isFeedSpoiler({ isSpoiler: undefined as unknown as boolean, spoiler: true })).toBe(true)
-        expect(buildPostDetailPath('free', 42)).toBe('/board/free/post/42')
-        expect(buildPostDetailPath('free', 42, '#comments')).toBe('/board/free/post/42#comments')
-        expect(buildPostDetailPath('free board', 'a/b')).toBe('/board/free%20board/post/a%2Fb')
+        expect(buildPostDetailPath('free', 42)).toBe('/board/free/post/42/')
+        expect(buildPostDetailPath('free', 42, '#comments')).toBe('/board/free/post/42/#comments')
+        expect(buildPostDetailPath('free board', 'a/b')).toBe('/board/free%20board/post/a%2Fb/')
     })
 })

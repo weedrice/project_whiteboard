@@ -199,13 +199,13 @@ describe('HomePostCard', () => {
 
     expect(article.attributes('role')).toBeUndefined()
     expect(article.attributes('tabindex')).toBeUndefined()
-    expect(titleLink.attributes('href')).toBe('/board/free/post/101')
+    expect(titleLink.attributes('href')).toBe('/board/free/post/101/')
 
     await article.trigger('click')
     expect(push).not.toHaveBeenCalled()
 
     await titleLink.trigger('click')
 
-    expect(push).toHaveBeenCalledWith('/board/free/post/101')
+    expect(push).toHaveBeenCalledWith('/board/free/post/101/')
   })
 })

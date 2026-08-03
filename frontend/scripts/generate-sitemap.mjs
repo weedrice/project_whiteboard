@@ -199,7 +199,7 @@ async function main() {
     const discoveredPostEntries = []
 
     upsertEntry(entries, createEntry(`${siteUrl}/`, { changefreq: 'daily', priority: '1.0' }))
-    upsertEntry(entries, createEntry(`${siteUrl}/boards`, { changefreq: 'daily', priority: '0.9' }))
+    upsertEntry(entries, createEntry(`${siteUrl}/boards/`, { changefreq: 'daily', priority: '0.9' }))
 
     try {
         const boards = await fetchBoards()

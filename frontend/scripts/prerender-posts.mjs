@@ -3,7 +3,7 @@
 import { access, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { resolvePostOgImage } from './og-image.mjs'
-import { buildPreRenderedSnippet, injectIntoTemplate } from './prerender-html.mjs'
+import { buildPreRenderedListingSnippet, buildPreRenderedSnippet, injectIntoTemplate } from './prerender-html.mjs'
 import { assertSeoPostUrlCountWithinCapacity, readSeoPostUrlCapacity } from './seo-capacity.mjs'
 
 const siteUrl = normalizeBaseUrl(process.env.PRERENDER_SITE_URL ?? process.env.SITEMAP_SITE_URL ?? 'https://noviis.kr')
@@ -125,6 +125,30 @@ function extractPostPathsFromSitemap(xmlText) {
     return results
 }
 
+function extractListingPathsFromSitemap(xmlText) {
+    const matches = [...xmlText.matchAll(/<loc>(.*?)<\/loc>/g)].map((match) => match[1].trim())
+    const results = []
+
+    for (const loc of matches) {
+        let url
+        try {
+            url = new URL(loc)
+        } catch {
+            continue
+        }
+
+        const path = decodeURI(url.pathname)
+        if (path === '/boards/' || /^\/board\/[^/]+\/$/.test(path)) {
+            results.push({
+                path,
+                boardUrl: path === '/boards/' ? null : path.split('/')[2]
+            })
+        }
+    }
+
+    return results
+}
+
 async function writeIfMissing(outputPath, html) {
     try {
         await access(outputPath)
@@ -168,6 +192,57 @@ async function ensureSpaFallbackIndexes(indexHtml, postPaths) {
     return createdCount
 }
 
+async function renderListingPages(indexHtml, listingPaths, postsByBoard) {
+    const boards = await fetchJson('/boards')
+    if (!Array.isArray(boards)) {
+        throw new Error('board list response is not an array')
+    }
+
+    const boardByUrl = new Map(boards.map((board) => [String(board.boardUrl), board]))
+    let successCount = 0
+    const failedTargets = []
+
+    for (const target of listingPaths) {
+        try {
+            const isAllBoards = target.boardUrl === null
+            const board = isAllBoards ? null : boardByUrl.get(target.boardUrl)
+            if (!isAllBoards && !board) {
+                throw new Error(`board metadata not found: ${target.boardUrl}`)
+            }
+
+            const canonicalUrl = `${siteUrl}${target.path}`
+            const title = isAllBoards ? '전체 게시판' : String(board.boardName || target.boardUrl)
+            const description = isAllBoards
+                ? 'NoviIs의 공개 게시판과 관심 주제를 살펴보세요.'
+                : String(board.description || `${title}의 최신 게시글을 확인하세요.`)
+            const items = isAllBoards
+                ? boards.map((item) => ({
+                    title: String(item.boardName || item.boardUrl),
+                    description: String(item.description || ''),
+                    url: `${siteUrl}/board/${encodeURIComponent(item.boardUrl)}/`
+                }))
+                : (postsByBoard.get(target.boardUrl) ?? [])
+            const renderData = buildPreRenderedListingSnippet({
+                title,
+                description,
+                canonicalUrl,
+                items
+            })
+            const html = injectIntoTemplate(indexHtml, renderData)
+            const outputPath = resolve(distDir, target.path.replace(/^\//, ''), 'index.html')
+
+            await mkdir(dirname(outputPath), { recursive: true })
+            await writeFile(outputPath, html, 'utf8')
+            successCount += 1
+        } catch (error) {
+            failedTargets.push(target.path)
+            console.warn(`[prerender] failed listing page ${target.path}: ${String(error)}`)
+        }
+    }
+
+    return { successCount, failedTargets }
+}
+
 async function main() {
     const [indexHtml, sitemapXml] = await Promise.all([
         readFile(distIndexPath, 'utf8'),
@@ -175,6 +250,7 @@ async function main() {
     ])
 
     const postPaths = extractPostPathsFromSitemap(sitemapXml)
+    const listingPaths = extractListingPathsFromSitemap(sitemapXml)
     assertSeoPostUrlCountWithinCapacity(postPaths.length, maxUrls)
     if (postPaths.length === 0) {
         if (strict) throw new Error('strict production prerender requires at least one post URL')
@@ -184,6 +260,7 @@ async function main() {
 
     let successCount = 0
     const failedTargets = []
+    const postsByBoard = new Map()
     for (const target of postPaths) {
         try {
             const post = await fetchJson(`/posts/${target.postId}?incrementView=false`)
@@ -195,6 +272,13 @@ async function main() {
 
             await mkdir(dirname(outputPath), { recursive: true })
             await writeFile(outputPath, html, 'utf8')
+            const boardPosts = postsByBoard.get(target.boardUrl) ?? []
+            boardPosts.push({
+                title: renderData.title,
+                description: renderData.description,
+                url: canonicalUrl
+            })
+            postsByBoard.set(target.boardUrl, boardPosts)
             successCount += 1
         } catch (error) {
             failedTargets.push(target.path)
@@ -203,11 +287,15 @@ async function main() {
     }
 
     const fallbackIndexCount = await ensureSpaFallbackIndexes(indexHtml, postPaths)
+    const listingResult = await renderListingPages(indexHtml, listingPaths, postsByBoard)
     console.log(`[prerender] wrote ${fallbackIndexCount} SPA fallback index files for parent directories`)
     console.log(`[prerender] wrote ${successCount}/${postPaths.length} pre-rendered post pages`)
+    console.log(`[prerender] wrote ${listingResult.successCount}/${listingPaths.length} pre-rendered listing pages`)
+
+    failedTargets.push(...listingResult.failedTargets)
 
     if (failedTargets.length > 0) {
-        console.error(`[prerender] failed to render ${failedTargets.length}/${postPaths.length} post pages`)
+        console.error(`[prerender] failed to render ${failedTargets.length} SEO pages`)
         for (const path of failedTargets.slice(0, 20)) {
             console.error(`[prerender] missing pre-rendered page: ${path}`)
         }

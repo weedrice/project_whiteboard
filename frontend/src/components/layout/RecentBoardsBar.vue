@@ -53,7 +53,7 @@ function hasNewPosts(boardUrl: string, visitedAt: string) {
                 <span class="recent-boards-label">{{ $t('layout.recentBoards.title') }}</span>
                 <div class="recent-boards-list">
                     <div v-for="board in verifiedRecentBoards" :key="board.boardUrl" class="recent-board-chip">
-                        <router-link :to="`/board/${encodePathSegment(board.boardUrl)}`" class="recent-board-link">
+                        <router-link :to="`/board/${encodePathSegment(board.boardUrl)}/`" class="recent-board-link">
                         <img v-if="board.iconUrl" :src="getOptimizedBoardIconUrl(board.iconUrl, 24)" loading="lazy" decoding="async"
                             class="recent-board-icon" alt="" @error="handleImageError($event)" />
                         <span v-else class="recent-board-icon-fallback">{{ board.boardName[0] }}</span>

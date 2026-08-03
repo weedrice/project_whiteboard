@@ -16,7 +16,7 @@ withDefaults(defineProps<{
 
 <template>
   <router-link
-    :to="`/board/${encodePathSegment(board.boardUrl)}`"
+    :to="`/board/${encodePathSegment(board.boardUrl)}/`"
     class="nv-focus-ring nv-surface overflow-hidden shadow rounded-lg hover:shadow-md transition-all duration-200 border nv-border block focus:outline-none"
     :class="variant === 'compact' ? 'p-4 flex items-center gap-3' : ''"
   >

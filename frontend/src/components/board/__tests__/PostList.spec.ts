@@ -491,7 +491,7 @@ describe('PostList', () => {
 
     const targets = wrapper.findAllComponents(RouterLinkStub).map((link) => link.props('to'))
 
-    expect(targets).toContain('/board/free')
+    expect(targets).toContain('/board/free/')
     expect(targets).toContainEqual({
       name: 'post-detail',
       params: {

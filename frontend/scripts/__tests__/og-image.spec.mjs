@@ -11,7 +11,7 @@ import {
     resolvePostOgImage,
 } from '../og-image.mjs'
 import { extractMetaContent, validatePng, validatePrerenderHtml } from '../prerender-output-validation.mjs'
-import { buildPreRenderedSnippet, injectIntoTemplate } from '../prerender-html.mjs'
+import { buildPreRenderedListingSnippet, buildPreRenderedSnippet, injectIntoTemplate } from '../prerender-html.mjs'
 
 const tempDirs = []
 
@@ -99,6 +99,25 @@ describe('post OG images', () => {
         expect(extractMetaContent(html, 'og:image:alt')).toBe(image.alt)
         expect(extractMetaContent(html, 'twitter:image')).toBe(image.url)
         expect(extractMetaContent(html, 'twitter:card')).toBe('summary_large_image')
+    })
+
+    it('injects canonical metadata and crawlable links into listing HTML', () => {
+        const renderData = buildPreRenderedListingSnippet({
+            title: '자유 게시판',
+            description: '자유롭게 이야기를 나누는 공간입니다.',
+            canonicalUrl: 'https://noviis.kr/board/free/',
+            items: [{
+                title: '첫 글',
+                description: '첫 글 본문 요약',
+                url: 'https://noviis.kr/board/free/post/1/'
+            }]
+        })
+        const html = injectIntoTemplate('<html><head><title>NoviIs</title></head><body><div id="app"></div></body></html>', renderData)
+
+        expect(html).toContain('<link rel="canonical" href="https://noviis.kr/board/free/">')
+        expect(html).toContain('data-prerendered="true"')
+        expect(html).toContain('href="https://noviis.kr/board/free/post/1/"')
+        expect(html).toContain('CollectionPage')
     })
 
     it('removes private post details from the complete pre-rendered HTML', () => {

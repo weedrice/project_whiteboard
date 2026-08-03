@@ -112,7 +112,7 @@ export const routes: RouteRecordRaw[] = [
         meta: { requiresAuth: true, requiresEmoticonOwner: true, positiveIntegerParams: ['emoticonId'] },
     },
     {
-        path: '/boards',
+        path: '/boards/',
         name: 'all-boards',
         component: () => import('@/views/board/AllBoardsPage.vue'),
     },
@@ -135,12 +135,12 @@ export const routes: RouteRecordRaw[] = [
         meta: { requiresAuth: true, requiresWritableBoard: true },
     },
     {
-        path: '/board/:boardUrl',
+        path: '/board/:boardUrl/',
         name: 'board-detail',
         component: () => import('@/views/board/BoardDetail.vue'),
         children: [
             {
-                path: 'post/:postId',
+                path: 'post/:postId/',
                 name: 'post-detail',
                 component: () => import('@/views/board/PostDetail.vue'),
                 meta: { positiveIntegerParams: ['postId'] },

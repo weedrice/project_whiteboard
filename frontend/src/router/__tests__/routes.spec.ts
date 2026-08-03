@@ -10,7 +10,7 @@ const byName = new Map(flattenRoutes(routes).map((route) => [route.name, route])
 describe('routes table', () => {
     it('keeps inquiry before dynamic board detail routes', () => {
         const inquiryIndex = routes.findIndex((route) => route.path === '/inquiry')
-        const boardDetailIndex = routes.findIndex((route) => route.path === '/board/:boardUrl')
+        const boardDetailIndex = routes.findIndex((route) => route.path === '/board/:boardUrl/')
 
         expect(inquiryIndex).toBeGreaterThanOrEqual(0)
         expect(boardDetailIndex).toBeGreaterThanOrEqual(0)

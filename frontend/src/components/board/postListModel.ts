@@ -53,7 +53,7 @@ export function resolvePostListBoardRoute(
 ): RouteLocationRaw | null {
   const resolvedBoardUrl = getPostListResolvedBoardUrl(item, boardUrl)
   if (!resolvedBoardUrl) return null
-  return resolveBoardRoute?.(item, resolvedBoardUrl) ?? `/board/${encodePathSegment(resolvedBoardUrl)}`
+  return resolveBoardRoute?.(item, resolvedBoardUrl) ?? `/board/${encodePathSegment(resolvedBoardUrl)}/`
 }
 
 export function resolvePostListPostRoute(
