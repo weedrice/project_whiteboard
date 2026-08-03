@@ -2741,15 +2741,7 @@
           "hasPrevious" : {
             "type" : "boolean"
           },
-          "maxDraftsPerUser" : {
-            "format" : "int32",
-            "type" : "integer"
-          },
           "page" : {
-            "format" : "int32",
-            "type" : "integer"
-          },
-          "retentionDays" : {
             "format" : "int32",
             "type" : "integer"
           },
@@ -3079,7 +3071,15 @@
           "hasPrevious" : {
             "type" : "boolean"
           },
+          "maxDraftsPerUser" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
           "page" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "retentionDays" : {
             "format" : "int32",
             "type" : "integer"
           },
@@ -3114,15 +3114,15 @@
             "format" : "int64",
             "type" : "integer"
           },
+          "clientDraftKey" : {
+            "type" : "string"
+          },
           "contents" : {
             "type" : "string"
           },
           "draftId" : {
             "format" : "int64",
             "type" : "integer"
-          },
-          "clientDraftKey" : {
-            "type" : "string"
           },
           "fileIds" : {
             "items" : {

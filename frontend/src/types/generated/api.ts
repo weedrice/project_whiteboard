@@ -3949,11 +3949,7 @@ export interface components {
             hasNext?: boolean;
             hasPrevious?: boolean;
             /** Format: int32 */
-            maxDraftsPerUser?: number;
-            /** Format: int32 */
             page?: number;
-            /** Format: int32 */
-            retentionDays?: number;
             /** Format: int32 */
             size?: number;
             /** Format: int64 */
@@ -4071,7 +4067,11 @@ export interface components {
             hasNext?: boolean;
             hasPrevious?: boolean;
             /** Format: int32 */
+            maxDraftsPerUser?: number;
+            /** Format: int32 */
             page?: number;
+            /** Format: int32 */
+            retentionDays?: number;
             /** Format: int32 */
             size?: number;
             /** Format: int64 */
@@ -4086,10 +4086,10 @@ export interface components {
             boardUrl?: string;
             /** Format: int64 */
             categoryId?: number;
+            clientDraftKey?: string;
             contents?: string;
             /** Format: int64 */
             draftId?: number;
-            clientDraftKey?: string;
             fileIds?: number[];
             isNotice?: boolean;
             isNsfw?: boolean;
