@@ -8,6 +8,7 @@ import { usePost } from '@/features/board/posts/queries/usePost'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import type { User } from '@/types'
+import { Storage } from '@/utils/storage'
 
 const userApiMocks = vi.hoisted(() => ({
     createPostSeries: vi.fn(),
@@ -510,6 +511,7 @@ export const unmountPostFormWrappers = () => {
 }
 
 export const resetPostFormTestState = () => {
+    Storage.clear()
     vi.clearAllMocks()
     editorSetVideo.mockReset()
     editorSetEmoticon.mockReset()

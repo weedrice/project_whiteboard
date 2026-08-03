@@ -63,6 +63,7 @@ describe('PostForm draft behavior', () => {
       user: { userId: 1, role: 'USER' },
     })
     const wrapper = mountPostForm('create')
+    await flushPromises()
 
     await wrapper.get('[data-testid="editor-input"]').setValue('Body without a title')
     await findButtonByText(wrapper, 'board.writePost.actions.saveDraft').trigger('click')
