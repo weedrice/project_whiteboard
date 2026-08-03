@@ -83,7 +83,7 @@
     "@vitest/eslint-plugin": "^1.6.24",
     "@vue/test-utils": "^2.4.11",
     "autoprefixer": "^10.5.4",
-    "baseline-browser-mapping": "^2.11.7",
+    "baseline-browser-mapping": "^2.11.8",
     "eslint": "^10.8.0",
     "eslint-plugin-vue": "^10.10.0",
     "esbuild": "0.28.1",
