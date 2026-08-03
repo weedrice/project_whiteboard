@@ -103,6 +103,7 @@ export const boardWritePostMessages: BoardMessages['writePost'] = {
       restoreFailed: '서버 임시 저장본을 확인하지 못했습니다.',
       conflict: '로컬 초안과 서버 초안이 모두 변경되었습니다. 사용할 내용을 선택해 주세요.',
       protected: '예약 발행에서 사용 중인 임시 저장본은 여기서 변경할 수 없습니다.',
+      openScheduledPosts: '예약글 관리로 이동',
       deleted: '이 임시 저장본이 다른 위치에서 삭제되었습니다. 로컬 내용을 새 초안으로 저장하거나 폐기해 주세요.',
       saveAsNew: '새 초안으로 저장',
       discardLocal: '로컬 내용 폐기',

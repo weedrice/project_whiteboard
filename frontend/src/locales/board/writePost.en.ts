@@ -104,6 +104,7 @@ export const boardEnWritePostMessages: BoardMessages['writePost'] = {
       restoreFailed: 'The server draft could not be checked.',
       conflict: 'Both the local and server drafts changed. Choose which copy to keep.',
       protected: 'This draft is used by a scheduled publication and cannot be changed here.',
+      openScheduledPosts: 'Open scheduled posts',
       deleted: 'This draft was deleted elsewhere. Save the local content as a new draft or discard it.',
       saveAsNew: 'Save as new draft',
       discardLocal: 'Discard local content',

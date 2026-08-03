@@ -382,6 +382,7 @@ export interface BoardMessages {
       restoreFailed: string
       conflict: string
       protected: string
+      openScheduledPosts: string
       deleted: string
       saveAsNew: string
       discardLocal: string

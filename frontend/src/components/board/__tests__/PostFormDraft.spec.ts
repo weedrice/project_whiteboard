@@ -59,6 +59,25 @@ describe('PostForm draft behavior', () => {
     expect(wrapper.text()).toContain('board.writePost.draftStatus.retryNow')
   })
 
+  it('offers scheduled post management when the draft becomes protected', async () => {
+    mockPostFormAuthStore({
+      isAuthenticated: true,
+      user: { userId: 1, role: 'USER' },
+    })
+    mockSaveDraftMutateAsync.mockRejectedValueOnce({
+      isAxiosError: true,
+      response: { status: 409, data: { error: { code: 'P005' } } },
+    })
+    const wrapper = mountPostForm('create')
+    await flushPromises()
+
+    await wrapper.get('#title').setValue('Protected draft')
+    await findButtonByText(wrapper, 'board.writePost.actions.saveDraft').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('board.writePost.draftStatus.openScheduledPosts')
+  })
+
   it('saves a body-only draft to the server without requiring a title', async () => {
     mockPostFormAuthStore({
       isAuthenticated: true,

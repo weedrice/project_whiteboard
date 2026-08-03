@@ -314,6 +314,64 @@ describe('usePostDraft', () => {
         }))
     })
 
+    it('treats the reloaded server copy as clean for later tab synchronization', async () => {
+        const { composable, payloadRef, appliedDrafts } = mountComposable()
+        await composable.saveNow()
+        payloadRef.value = { ...payloadRef.value, title: 'Unsaved local title' }
+        composable.writeLocalSnapshot()
+
+        window.dispatchEvent(new StorageEvent('storage', {
+            key: 'noviis:test:draft',
+            newValue: JSON.stringify({
+                draftId: 91,
+                clientDraftKey: 'client-draft-key-1234',
+                version: 1,
+                boardUrl: 'free',
+                title: 'Server title',
+                contents: 'Draft body',
+                fileIds: [7],
+                updatedAt: '2025-01-02T00:00:00.000Z',
+                clientInstanceId: 'other-tab',
+                hasLocalChanges: false,
+            }),
+        }))
+        expect(composable.draftConflict.value).toBe(true)
+
+        mocks.getDraft.mockResolvedValueOnce({
+            data: { data: {
+                draftId: 91,
+                clientDraftKey: 'client-draft-key-1234',
+                version: 1,
+                boardUrl: 'free',
+                title: 'Server title',
+                contents: 'Draft body',
+                fileIds: [7],
+                updatedAt: '2025-01-02T00:00:00.000Z',
+            } },
+        })
+        await expect(composable.reloadServerDraft()).resolves.toBe(true)
+        payloadRef.value = { ...payloadRef.value, title: 'Server title' }
+
+        window.dispatchEvent(new StorageEvent('storage', {
+            key: 'noviis:test:draft',
+            newValue: JSON.stringify({
+                draftId: 91,
+                clientDraftKey: 'client-draft-key-1234',
+                version: 2,
+                boardUrl: 'free',
+                title: 'Later server title',
+                contents: 'Draft body',
+                fileIds: [7],
+                updatedAt: '2025-01-03T00:00:00.000Z',
+                clientInstanceId: 'third-tab',
+                hasLocalChanges: false,
+            }),
+        }))
+
+        expect(composable.draftConflict.value).toBe(false)
+        expect(appliedDrafts.at(-1)).toEqual(expect.objectContaining({ title: 'Later server title' }))
+    })
+
     it('restores the newest server draft even when local storage has no draft id', async () => {
         const { composable, appliedDrafts, payloadRef } = mountComposable(ref({
             boardUrl: 'free',

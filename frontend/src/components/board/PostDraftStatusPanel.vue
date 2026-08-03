@@ -75,6 +75,16 @@ defineEmits<{
         </BaseButton>
       </template>
       <BaseButton
+        v-else-if="draftProtected"
+        type="button"
+        variant="secondary"
+        size="sm"
+        full-width
+        to="/mypage/drafts"
+      >
+        {{ $t('board.writePost.draftStatus.openScheduledPosts') }}
+      </BaseButton>
+      <BaseButton
         v-else-if="restoreFailed"
         type="button"
         variant="secondary"
@@ -86,7 +96,7 @@ defineEmits<{
         {{ $t('board.writePost.draftStatus.retryRestore') }}
       </BaseButton>
       <BaseButton
-        v-else-if="draftEnabled && !draftProtected"
+        v-else-if="draftEnabled"
         type="button"
         variant="secondary"
         size="sm"

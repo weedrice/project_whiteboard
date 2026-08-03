@@ -385,6 +385,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
                 clientModifiedAt: new Date().toISOString(),
                 hasLocalChanges: false,
             })
+            persistedRevision = localRevision
             options.onSaved?.()
             return true
         } finally {
