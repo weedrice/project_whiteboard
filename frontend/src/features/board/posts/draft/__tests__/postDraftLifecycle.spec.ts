@@ -3,6 +3,7 @@ import { Storage } from '@/utils/storage'
 import {
   cleanupExpiredDraftSnapshots,
   clearStoredDraftSnapshotsForUser,
+  countUnsyncedStoredDraftSnapshotsForUser,
   enforceDraftSnapshotBudget,
   loadStoredDraftSnapshot,
   MAX_LOCAL_DRAFT_BYTES,
@@ -80,6 +81,26 @@ describe('draft browser lifecycle', () => {
     expect(Storage.has('noviis:draft-deleted:1:91')).toBe(false)
     expect(Storage.has('noviis:draft:2:create:free:new')).toBe(true)
     expect(Storage.has('noviis:draft-deleted:2:92')).toBe(true)
+  })
+
+  it('counts only unsynced snapshots owned by the requested user', () => {
+    Storage.set('noviis:draft:1:create:free:first', {
+      boardUrl: 'free',
+      hasLocalChanges: true,
+      clientModifiedAt: '2026-08-02T00:00:00.000Z',
+    })
+    Storage.set('noviis:draft:1:create:free:synced', {
+      boardUrl: 'free',
+      hasLocalChanges: false,
+      clientModifiedAt: '2026-08-02T00:00:00.000Z',
+    })
+    Storage.set('noviis:draft:2:create:free:other', {
+      boardUrl: 'free',
+      hasLocalChanges: true,
+      clientModifiedAt: '2026-08-02T00:00:00.000Z',
+    })
+
+    expect(countUnsyncedStoredDraftSnapshotsForUser(1)).toBe(1)
   })
 
   it('moves a matching legacy snapshot into a draft-specific storage key', () => {

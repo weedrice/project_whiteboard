@@ -114,6 +114,17 @@ export function clearStoredDraftSnapshotsForUser(userId: string | number) {
   return removed
 }
 
+export function countUnsyncedStoredDraftSnapshotsForUser(userId: string | number) {
+  const userPrefix = `${DRAFT_STORAGE_PREFIX}${userId}:`
+  let count = 0
+  for (const key of Storage.keys()) {
+    if (!key.startsWith(userPrefix)) continue
+    const snapshot = loadStoredDraftSnapshot(key)
+    if (snapshot && snapshot.hasLocalChanges !== false) count++
+  }
+  return count
+}
+
 export function storeDraftSnapshotWithBudget(key: string, snapshot: DraftRecoverySnapshot): boolean {
   let rawSize: number
   try {

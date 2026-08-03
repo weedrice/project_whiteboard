@@ -232,6 +232,17 @@ describe('Auth Store', () => {
             pendingLogout.resolve(authLogoutResponse())
             await logout
         })
+
+        it('keeps the session when explicit logout cleanup is cancelled', async () => {
+            mockExplicitLogout.mockResolvedValueOnce(false)
+
+            await expect(store.logout()).resolves.toBe(false)
+
+            expect(authApi.logout).not.toHaveBeenCalled()
+            expect(store.accessToken).toBe('token')
+            expect(store.user).toEqual(authUser())
+            expect(getStoredAccessToken()).toBe('token')
+        })
     })
 
     describe('fetchUser', () => {

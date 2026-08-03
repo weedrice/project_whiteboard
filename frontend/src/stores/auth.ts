@@ -40,8 +40,8 @@ interface AuthSessionEffects {
      * 지워져 버린다.
      */
     onPrincipalChange: () => void
-    /** 사용자가 명시적으로 로그아웃할 때 계정별 브라우저 데이터를 정리한다. */
-    onExplicitLogout: (userId: number | null) => void
+    /** 사용자가 명시적으로 로그아웃할 때 계정별 브라우저 데이터를 정리한다. false면 로그아웃을 취소한다. */
+    onExplicitLogout: (userId: number | null) => boolean | void | Promise<boolean | void>
 }
 
 const noopSessionEffects: AuthSessionEffects = {
@@ -162,7 +162,9 @@ export const useAuthStore = defineStore('auth', () => {
     }
 
     async function logout() {
-        authSessionEffects.onExplicitLogout(user.value?.userId ?? null)
+        const logoutDecision = authSessionEffects.onExplicitLogout(user.value?.userId ?? null)
+        const shouldLogout = logoutDecision instanceof Promise ? await logoutDecision : logoutDecision
+        if (shouldLogout === false) return false
         clearSessionState()
         clearLoginRedirect()
         try {
@@ -170,6 +172,7 @@ export const useAuthStore = defineStore('auth', () => {
         } catch (error: unknown) {
             logger.error('Logout failed:', error)
         }
+        return true
     }
 
     async function fetchUser(config?: AxiosRequestConfig, expectedUserId?: number | null): Promise<boolean> {

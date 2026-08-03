@@ -22,7 +22,10 @@ import { applyStandaloneDisplayModeClass } from '@/pwaDisplayMode'
 import { clearAuthScopedQueries, configureAuthQueryScope, notifyAuthSessionBoundary } from '@/queryAuthScope'
 import { resetNotificationStreamSessionState } from '@/features/notifications/stream/notificationStreamController'
 import { clearUserTimeZone } from '@/utils/displayTimeZone'
-import { clearStoredDraftSnapshotsForUser } from '@/features/board/posts/draft/postDraftLifecycle'
+import {
+    clearStoredDraftSnapshotsForUser,
+    countUnsyncedStoredDraftSnapshotsForUser,
+} from '@/features/board/posts/draft/postDraftLifecycle'
 import { clearDraftTombstonesForUser } from '@/features/board/posts/draft/postDraftTombstone'
 
 validateEnv()
@@ -63,8 +66,16 @@ configureAuthSessionEffects({
     },
     onExplicitLogout: (userId) => {
         if (userId == null) return
+        const unsyncedDraftCount = countUnsyncedStoredDraftSnapshotsForUser(userId)
+        if (unsyncedDraftCount > 0 && !window.confirm(i18n.global.t(
+            'board.writePost.draftStatus.confirmLogoutWithUnsynced',
+            { count: unsyncedDraftCount },
+        ))) {
+            return false
+        }
         clearStoredDraftSnapshotsForUser(userId)
         clearDraftTombstonesForUser(userId)
+        return true
     },
     onSessionBoundary: (generation) => {
         notifyAuthSessionBoundary(generation)

@@ -398,7 +398,7 @@ export interface BoardMessages {
       saved: string
       savedBrowser: string
       cleanupFailed: string
-      clearLocalBackup: string
+      confirmLogoutWithUnsynced: string
     }
     actions: {
       preview: string
