@@ -21,6 +21,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -144,6 +145,31 @@ class DraftPostRepositoryTest {
                 .extracting(DraftPost::getTitle)
                 .containsExactly("draft");
         assertThat(draftPostRepository.countDeletableByUser(user)).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("복구용 조회는 작성 대상에 맞는 최신 초안을 최대 요청 개수만 반환한다")
+    void findMatchingByUserAndTarget_returnsStableLimitedCandidates() {
+        entityManager.persist(DraftPost.builder()
+                .user(user)
+                .board(board)
+                .title("newer")
+                .contents("contents")
+                .build());
+        entityManager.persist(DraftPost.builder()
+                .user(user)
+                .board(board)
+                .title("newest")
+                .contents("contents")
+                .build());
+        entityManager.flush();
+        entityManager.clear();
+
+        List<DraftPost> result = draftPostRepository.findMatchingByUserAndTarget(
+                user, "draft-board", null, PageRequest.of(0, 2));
+
+        assertThat(result).hasSize(2);
+        assertThat(result).extracting(DraftPost::getTitle).containsExactly("newest", "newer");
     }
 
     @Test

@@ -815,6 +815,23 @@ class PostControllerTest {
         }
 
         @Test
+        @DisplayName("복구용 임시저장 후보 조회")
+        void getMatchingDraft_success() throws Exception {
+            when(postService.getMatchingDraft(1L, "free", 7L)).thenReturn(DraftMatchResponse.builder()
+                    .draftId(91L)
+                    .multipleMatchesFound(false)
+                    .build());
+
+            mockMvc.perform(get("/api/v1/users/me/drafts/match")
+                            .param("boardUrl", "free")
+                            .param("originalPostId", "7")
+                            .with(user(customUserDetails)))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.draftId").value(91))
+                    .andExpect(jsonPath("$.data.multipleMatchesFound").value(false));
+        }
+
+        @Test
         @DisplayName("임시저장 단건 조회")
         void getDraft_success() throws Exception {
             Long draftId = 1L;

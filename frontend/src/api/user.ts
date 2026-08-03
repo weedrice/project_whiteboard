@@ -21,6 +21,7 @@ export {
     type UserUpdatePayload,
 } from '@/api/userAccountApi'
 export {
+    type DraftMatchResponse,
     type PointHistoryParams,
 } from '@/api/userActivityApi'
 export {

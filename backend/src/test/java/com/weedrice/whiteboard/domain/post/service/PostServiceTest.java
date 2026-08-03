@@ -3666,6 +3666,40 @@ class PostServiceTest {
     }
 
     @Test
+    @DisplayName("복구용 초안 조회는 생성 초안이 복수이면 자동 선택하지 않는다")
+    void getMatchingDraft_reportsMultipleCreateDrafts() {
+        DraftPost first = DraftPost.builder().user(user).board(board).title("first").build();
+        DraftPost second = DraftPost.builder().user(user).board(board).title("second").build();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(draftPostRepository.findMatchingByUserAndTarget(
+                eq(user), eq("free"), isNull(), any(Pageable.class)))
+                .thenReturn(List.of(first, second));
+
+        DraftMatchResponse response = postService.getMatchingDraft(1L, "free", null);
+
+        assertThat(response.getDraftId()).isNull();
+        assertThat(response.isMultipleMatchesFound()).isTrue();
+        verify(draftPostRepository).findMatchingByUserAndTarget(
+                eq(user), eq("free"), isNull(), argThat(pageable -> pageable.getPageSize() == 2));
+    }
+
+    @Test
+    @DisplayName("복구용 수정 초안 조회는 최신 후보를 반환한다")
+    void getMatchingDraft_returnsEditDraft() {
+        DraftPost draft = DraftPost.builder().user(user).board(board).title("edit").build();
+        ReflectionTestUtils.setField(draft, "draftId", 91L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(draftPostRepository.findMatchingByUserAndTarget(
+                eq(user), eq("free"), eq(7L), any(Pageable.class)))
+                .thenReturn(List.of(draft));
+
+        DraftMatchResponse response = postService.getMatchingDraft(1L, "free", 7L);
+
+        assertThat(response.getDraftId()).isEqualTo(91L);
+        assertThat(response.isMultipleMatchesFound()).isFalse();
+    }
+
+    @Test
     @DisplayName("초안 단건 조회")
     void getDraftPost_success() {
         DraftPost draft = DraftPost.builder().user(user).board(board).title("Draft").build();

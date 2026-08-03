@@ -161,7 +161,6 @@ export function enforceDraftSnapshotBudget(protectedKey?: string, now = Date.now
 }
 
 export function cleanupExpiredDraftSnapshots(now = Date.now()) {
-  collectStoredDraftEntries(now)
   enforceDraftSnapshotBudget(undefined, now)
 }
 

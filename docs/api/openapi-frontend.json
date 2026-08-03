@@ -664,6 +664,20 @@
         },
         "type" : "object"
       },
+      "ApiResponseDraftMatchResponse" : {
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/DraftMatchResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          },
+          "success" : {
+            "type" : "boolean"
+          }
+        },
+        "type" : "object"
+      },
       "ApiResponseDraftResponse" : {
         "properties" : {
           "data" : {
@@ -3094,6 +3108,18 @@
           "totalPages" : {
             "format" : "int32",
             "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "DraftMatchResponse" : {
+        "properties" : {
+          "draftId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "multipleMatchesFound" : {
+            "type" : "boolean"
           }
         },
         "type" : "object"
@@ -15354,6 +15380,48 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/ApiResponseDraftListResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "post-controller" ]
+      }
+    },
+    "/api/v1/users/me/drafts/match" : {
+      "get" : {
+        "operationId" : "getMatchingDraft",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "boardUrl",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "originalPostId",
+          "required" : false,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "userId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseDraftMatchResponse"
                 }
               }
             },

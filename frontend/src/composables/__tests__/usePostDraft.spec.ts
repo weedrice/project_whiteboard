@@ -12,7 +12,7 @@ const mocks = vi.hoisted(() => {
     const saveDraftMutateAsync = vi.fn()
     const deleteDraftMutateAsync = vi.fn()
     const getDraft = vi.fn()
-    const getMyDrafts = vi.fn()
+    const getMatchingDraft = vi.fn()
     const loggerError = vi.fn()
     const reportDraftOperationalEvent = vi.fn()
 
@@ -20,7 +20,7 @@ const mocks = vi.hoisted(() => {
         saveDraftMutateAsync,
         deleteDraftMutateAsync,
         getDraft,
-        getMyDrafts,
+        getMatchingDraft,
         loggerError,
         reportDraftOperationalEvent,
         saveDraftConfig: undefined as (() => { signal?: AbortSignal } | undefined) | undefined,
@@ -51,7 +51,7 @@ vi.mock('@/api/post', () => ({
 
 vi.mock('@/api/user', () => ({
     userApi: {
-        getMyDrafts: mocks.getMyDrafts,
+        getMatchingDraft: mocks.getMatchingDraft,
     },
 }))
 
@@ -125,16 +125,11 @@ describe('usePostDraft', () => {
             },
         })
         mocks.deleteDraftMutateAsync.mockResolvedValue({ data: { data: null } })
-        mocks.getMyDrafts.mockResolvedValue({
+        mocks.getMatchingDraft.mockResolvedValue({
             data: {
                 data: {
-                    content: [],
-                    page: 0,
-                    size: 50,
-                    totalElements: 0,
-                    totalPages: 0,
-                    hasNext: false,
-                    hasPrevious: false,
+                    draftId: null,
+                    multipleMatchesFound: false,
                 },
             },
         })
@@ -390,23 +385,11 @@ describe('usePostDraft', () => {
             originalPostId: 7,
         }))
 
-        mocks.getMyDrafts.mockResolvedValueOnce({
+        mocks.getMatchingDraft.mockResolvedValueOnce({
             data: {
                 data: {
-                    content: [{
-                        draftId: 13,
-                        boardId: 1,
-                        boardUrl: 'free',
-                        boardName: 'Free',
-                        originalPostId: 7,
-                        updatedAt: '2025-01-01T00:00:00.000Z',
-                    }],
-                    page: 0,
-                    size: 50,
-                    totalElements: 1,
-                    totalPages: 1,
-                    hasNext: false,
-                    hasPrevious: false,
+                    draftId: 13,
+                    multipleMatchesFound: false,
                 },
             },
         })
@@ -444,7 +427,7 @@ describe('usePostDraft', () => {
         await composable.restoreDraft()
         await nextTick()
 
-        expect(mocks.getMyDrafts).toHaveBeenCalledWith({ page: 0, size: 50 })
+        expect(mocks.getMatchingDraft).toHaveBeenCalledWith({ boardUrl: 'free', originalPostId: 7 })
         expect(mocks.getDraft).toHaveBeenCalledWith(13)
         expect(appliedDrafts[0]).toEqual(expect.objectContaining({
             title: 'Recovered draft',
@@ -591,7 +574,7 @@ describe('usePostDraft', () => {
 
     it('ignores restore status returned after the form identity resets', async () => {
         let resolveDrafts: (value: unknown) => void = () => undefined
-        mocks.getMyDrafts.mockReturnValueOnce(new Promise((resolve) => {
+        mocks.getMatchingDraft.mockReturnValueOnce(new Promise((resolve) => {
             resolveDrafts = resolve
         }))
         const { composable } = mountComposable()
@@ -601,15 +584,8 @@ describe('usePostDraft', () => {
         resolveDrafts({
             data: {
                 data: {
-                    content: [
-                        { draftId: 91, boardUrl: 'free', originalPostId: null },
-                        { draftId: 92, boardUrl: 'free', originalPostId: null },
-                    ],
-                    page: 0,
-                    size: 50,
-                    totalElements: 2,
-                    totalPages: 1,
-                    hasNext: false,
+                    draftId: null,
+                    multipleMatchesFound: true,
                 },
             },
         })
@@ -814,43 +790,11 @@ describe('usePostDraft', () => {
             originalPostId: undefined,
         }))
 
-        mocks.getMyDrafts.mockResolvedValueOnce({
+        mocks.getMatchingDraft.mockResolvedValueOnce({
             data: {
                 data: {
-                    content: [{
-                        draftId: 13,
-                        boardId: 1,
-                        boardUrl: 'free',
-                        boardName: 'Free',
-                        originalPostId: null,
-                        updatedAt: '2025-01-01T00:00:00.000Z',
-                    }],
-                    page: 0,
-                    size: 50,
-                    totalElements: 2,
-                    totalPages: 2,
-                    hasNext: true,
-                    hasPrevious: false,
-                },
-            },
-        })
-        mocks.getMyDrafts.mockResolvedValueOnce({
-            data: {
-                data: {
-                    content: [{
-                        draftId: 22,
-                        boardId: 1,
-                        boardUrl: 'free',
-                        boardName: 'Free',
-                        originalPostId: null,
-                        updatedAt: '2025-01-02T00:00:00.000Z',
-                    }],
-                    page: 1,
-                    size: 50,
-                    totalElements: 2,
-                    totalPages: 2,
-                    hasNext: false,
-                    hasPrevious: true,
+                    draftId: null,
+                    multipleMatchesFound: true,
                 },
             },
         })
@@ -858,8 +802,7 @@ describe('usePostDraft', () => {
         await composable.restoreDraft()
         await nextTick()
 
-        expect(mocks.getMyDrafts).toHaveBeenNthCalledWith(1, { page: 0, size: 50 })
-        expect(mocks.getMyDrafts).toHaveBeenNthCalledWith(2, { page: 1, size: 50 })
+        expect(mocks.getMatchingDraft).toHaveBeenCalledExactlyOnceWith({ boardUrl: 'free' })
         expect(mocks.getDraft).not.toHaveBeenCalled()
         expect(appliedDrafts).toHaveLength(0)
         expect(composable.restoreSource.value).toBe('idle')
@@ -1286,23 +1229,11 @@ describe('usePostDraft', () => {
             isAxiosError: true,
             response: { status: 404, data: { error: { code: 'P007' } } },
         })
-        mocks.getMyDrafts.mockResolvedValueOnce({
+        mocks.getMatchingDraft.mockResolvedValueOnce({
             data: {
                 data: {
-                    content: [{
-                        draftId: 13,
-                        boardId: 1,
-                        boardUrl: 'free',
-                        boardName: 'Free',
-                        originalPostId: 7,
-                        updatedAt: '2025-01-03T00:00:00.000Z',
-                    }],
-                    page: 0,
-                    size: 50,
-                    totalElements: 1,
-                    totalPages: 1,
-                    hasNext: false,
-                    hasPrevious: false,
+                    draftId: 13,
+                    multipleMatchesFound: false,
                 },
             },
         })
@@ -1332,7 +1263,7 @@ describe('usePostDraft', () => {
         await nextTick()
 
         expect(mocks.getDraft).toHaveBeenNthCalledWith(1, 91)
-        expect(mocks.getMyDrafts).toHaveBeenCalledWith({ page: 0, size: 50 })
+        expect(mocks.getMatchingDraft).toHaveBeenCalledWith({ boardUrl: 'free', originalPostId: 7 })
         expect(mocks.getDraft).toHaveBeenNthCalledWith(2, 13)
         expect(appliedDrafts[0]).toEqual(expect.objectContaining({
             title: 'Local draft',
@@ -1345,8 +1276,8 @@ describe('usePostDraft', () => {
 
     it('does not overwrite edits made while the initial server recovery is in flight', async () => {
         let resolveDraft: (value: unknown) => void = () => undefined
-        mocks.getMyDrafts.mockResolvedValueOnce({
-            data: { data: { content: [{ draftId: 91, boardUrl: 'free', originalPostId: null }], hasNext: false } },
+        mocks.getMatchingDraft.mockResolvedValueOnce({
+            data: { data: { draftId: 91, multipleMatchesFound: false } },
         })
         mocks.getDraft.mockReturnValueOnce(new Promise((resolve) => {
             resolveDraft = resolve
@@ -1433,7 +1364,7 @@ describe('usePostDraft', () => {
     })
 
     it('retries a failed server recovery when connectivity returns', async () => {
-        mocks.getMyDrafts.mockRejectedValueOnce(new Error('offline'))
+        mocks.getMatchingDraft.mockRejectedValueOnce(new Error('offline'))
         const { composable } = mountComposable(ref({
             boardUrl: 'free',
             title: '',
@@ -1448,7 +1379,7 @@ describe('usePostDraft', () => {
         await Promise.resolve()
         await Promise.resolve()
 
-        expect(mocks.getMyDrafts).toHaveBeenCalledTimes(2)
+        expect(mocks.getMatchingDraft).toHaveBeenCalledTimes(2)
         expect(composable.restoreFailed.value).toBe(false)
     })
 

@@ -8,6 +8,7 @@ import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.board.util.BoardUrlNormalizer;
 import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.post.dto.DraftListResponse;
+import com.weedrice.whiteboard.domain.post.dto.DraftMatchResponse;
 import com.weedrice.whiteboard.domain.post.dto.DraftResponse;
 import com.weedrice.whiteboard.domain.post.dto.PostDraftRequest;
 import com.weedrice.whiteboard.domain.post.dto.PollRequest;
@@ -29,6 +30,8 @@ import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.util.InputSanitizer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.jspecify.annotations.NonNull;
@@ -200,6 +203,21 @@ public class PostDraftService {
                 series,
                 originalPost);
         return draftPost;
+    }
+
+    public DraftMatchResponse getMatchingDraft(@NonNull Long userId, String boardUrl, Long originalPostId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
+        String normalizedBoardUrl = BoardUrlNormalizer.normalizeLookup(boardUrl);
+        List<DraftPost> matches = draftPostRepository.findMatchingByUserAndTarget(
+                user, normalizedBoardUrl, originalPostId, PageRequest.of(0, 2));
+        boolean multipleMatchesFound = originalPostId == null && matches.size() > 1;
+        return DraftMatchResponse.builder()
+                .draftId(matches.size() == 1 || originalPostId != null && !matches.isEmpty()
+                        ? matches.getFirst().getDraftId()
+                        : null)
+                .multipleMatchesFound(multipleMatchesFound)
+                .build();
     }
 
     private boolean isMatchingIdempotentCreateRetry(DraftPost draftPost, PostDraftRequest request,

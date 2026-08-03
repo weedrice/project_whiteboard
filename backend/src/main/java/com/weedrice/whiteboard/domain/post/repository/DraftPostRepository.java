@@ -43,6 +43,27 @@ public interface DraftPostRepository extends JpaRepository<DraftPost, Long> {
             """)
     Page<DraftPost> findPageByUserWithBoard(@Param("user") User user, Pageable pageable);
 
+    @Query("""
+            SELECT d
+            FROM DraftPost d
+            WHERE d.user = :user
+              AND d.board.boardUrl = :boardUrl
+              AND ((:originalPostId IS NULL AND d.originalPost IS NULL)
+                   OR d.originalPost.postId = :originalPostId)
+              AND NOT EXISTS (
+                  SELECT s.scheduledPostId
+                  FROM ScheduledPost s
+                  WHERE s.draftId = d.draftId
+                    AND s.status IN ('SCHEDULED', 'PUBLISHING', 'FAILED')
+              )
+            ORDER BY d.modifiedAt DESC, d.draftId DESC
+            """)
+    List<DraftPost> findMatchingByUserAndTarget(
+            @Param("user") User user,
+            @Param("boardUrl") String boardUrl,
+            @Param("originalPostId") Long originalPostId,
+            Pageable pageable);
+
     Optional<DraftPost> findByDraftIdAndUser(Long draftId, User user);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

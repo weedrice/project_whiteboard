@@ -293,6 +293,14 @@ public class PostController {
                 .success(postService.getDraftPosts(userId, pageable));
     }
 
+    @GetMapping("/users/me/drafts/match")
+    public ApiResponse<DraftMatchResponse> getMatchingDraft(
+            @RequestParam String boardUrl,
+            @RequestParam(required = false) Long originalPostId,
+            @CurrentUserId Long userId) {
+        return ApiResponse.success(postService.getMatchingDraft(userId, boardUrl, originalPostId));
+    }
+
     @GetMapping("/drafts/{draftId}")
     public ApiResponse<DraftResponse> getDraft(
             @PathVariable Long draftId,

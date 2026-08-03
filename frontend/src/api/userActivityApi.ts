@@ -26,6 +26,11 @@ import {
     type BlockListRawResponse,
 } from '@/api/userMappers'
 
+export interface DraftMatchResponse {
+    draftId: number | null
+    multipleMatchesFound: boolean
+}
+
 export interface PaginationParams {
     page?: number
     size?: number
@@ -105,6 +110,12 @@ export const userActivityApi = {
     },
     getMyDrafts(params: PaginationParams, config?: AxiosRequestConfig) {
         return api.get<ApiResponse<DraftPostListResponse>>('/users/me/drafts', { ...config, params })
+    },
+    getMatchingDraft(
+        params: { boardUrl: string, originalPostId?: number },
+        config?: AxiosRequestConfig,
+    ) {
+        return api.get<ApiResponse<DraftMatchResponse>>('/users/me/drafts/match', { ...config, params })
     },
     getRecentlyViewedPosts(params: PaginationParams, config?: AxiosRequestConfig) {
         return api.get<ApiResponse<PageResponseRaw<PostSummaryWire>>>('/users/me/history/views', { ...config, params })
