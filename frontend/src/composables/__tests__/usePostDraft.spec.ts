@@ -1296,7 +1296,7 @@ describe('usePostDraft', () => {
         composable.writeLocalSnapshot()
         mocks.saveDraftMutateAsync.mockRejectedValueOnce({
             isAxiosError: true,
-            response: { status: 404 },
+            response: { status: 404, data: { error: { code: 'P007' } } },
         })
 
         await expect(composable.saveNow()).rejects.toMatchObject({ response: { status: 404 } })
@@ -1318,6 +1318,29 @@ describe('usePostDraft', () => {
             clientDraftKey: expect.not.stringMatching(new RegExp(`^${previousClientKey}$`)),
         }))
         expect(composable.draftDeleted.value).toBe(false)
+    })
+
+    it('does not report the draft as deleted for a related-resource 404', async () => {
+        const { composable, payloadRef } = mountComposable()
+        await composable.saveNow()
+        payloadRef.value = { ...payloadRef.value, title: 'Still recoverable' }
+        composable.writeLocalSnapshot()
+        mocks.saveDraftMutateAsync.mockRejectedValueOnce({
+            isAxiosError: true,
+            response: { status: 404, data: { error: { code: 'B001' } } },
+        })
+
+        await expect(composable.saveNow()).rejects.toMatchObject({
+            response: { status: 404, data: { error: { code: 'B001' } } },
+        })
+
+        expect(composable.draftDeleted.value).toBe(false)
+        expect(composable.draftId.value).toBe(91)
+        expect(composable.lastSaveFailed.value).toBe(true)
+        expect(Storage.get('noviis:test:draft')).toEqual(expect.objectContaining({
+            draftId: 91,
+            title: 'Still recoverable',
+        }))
     })
 
     it('enters deleted state when another tab records a tombstone for the active draft', async () => {

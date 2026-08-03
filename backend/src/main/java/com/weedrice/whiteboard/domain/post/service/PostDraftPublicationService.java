@@ -28,7 +28,7 @@ class PostDraftPublicationService {
             return null;
         }
         DraftPost draftPost = draftPostRepository.findByDraftIdAndUserForUpdate(draftId, user)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+                .orElseThrow(() -> new BusinessException(ErrorCode.DRAFT_NOT_FOUND));
         if (!Objects.equals(draftPost.getBoard().getBoardId(), targetBoard.getBoardId())) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }

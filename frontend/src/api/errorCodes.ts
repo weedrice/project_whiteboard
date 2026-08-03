@@ -23,6 +23,8 @@ export const API_ERROR_CODES = {
     DRAFT_PROTECTED: 'P005',
     /** P006 SCHEDULED_POST_LIMIT_EXCEEDED — 보호 상태 예약 게시글 상한 초과 */
     SCHEDULED_POST_LIMIT_EXCEEDED: 'P006',
+    /** P007 DRAFT_NOT_FOUND — 초안 자체가 존재하지 않음 */
+    DRAFT_NOT_FOUND: 'P007',
     /** EM006 EMOTICON_IMAGE_LIMIT_EXCEEDED — 이모티콘 이미지 개수 초과 */
     EMOTICON_IMAGE_LIMIT_EXCEEDED: 'EM006',
 } as const

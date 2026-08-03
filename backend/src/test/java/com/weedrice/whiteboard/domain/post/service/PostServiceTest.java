@@ -3650,7 +3650,7 @@ class PostServiceTest {
 
         assertThatThrownBy(() -> postService.getDraftPost(1L, 10L))
                 .isInstanceOf(BusinessException.class)
-                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.NOT_FOUND);
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.DRAFT_NOT_FOUND);
     }
 
     // --- Tags ---

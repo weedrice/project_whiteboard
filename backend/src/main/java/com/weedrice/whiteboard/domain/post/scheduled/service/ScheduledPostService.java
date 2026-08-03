@@ -242,7 +242,7 @@ public class ScheduledPostService {
             return;
         }
         DraftPost draft = draftPostRepository.findByDraftIdAndUserForUpdate(draftId, user)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+                .orElseThrow(() -> new BusinessException(ErrorCode.DRAFT_NOT_FOUND));
         if (!draft.getBoard().getBoardId().equals(board.getBoardId())) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }

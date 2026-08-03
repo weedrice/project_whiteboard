@@ -76,7 +76,7 @@ public class PostDraftService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         DraftPost draftPost = draftPostRepository.findByDraftIdAndUser(draftId, user)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+                .orElseThrow(() -> new BusinessException(ErrorCode.DRAFT_NOT_FOUND));
         return DraftResponse.from(draftPost);
     }
 
@@ -123,7 +123,7 @@ public class PostDraftService {
     public void deleteDraftPost(@NonNull Long userId, @NonNull Long draftId) {
         User user = userWritableResolver.resolve(userId);
         DraftPost draftPost = draftPostRepository.findByDraftIdAndUserForUpdate(draftId, user)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+                .orElseThrow(() -> new BusinessException(ErrorCode.DRAFT_NOT_FOUND));
         if (scheduledPostRepository.existsByDraftIdAndStatusIn(draftId, ScheduledPost.PROTECTED_DRAFT_STATUSES)) {
             throw new BusinessException(ErrorCode.DRAFT_PROTECTED);
         }
@@ -137,7 +137,7 @@ public class PostDraftService {
         DraftPost draftPost = null;
         if (request.getDraftId() != null) {
             draftPost = draftPostRepository.findByDraftIdAndUserForUpdate(request.getDraftId(), user)
-                    .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+                    .orElseThrow(() -> new BusinessException(ErrorCode.DRAFT_NOT_FOUND));
         } else if (request.getClientDraftKey() != null && !request.getClientDraftKey().isBlank()) {
             draftPost = draftPostRepository.findByUserAndClientDraftKeyForUpdate(user, request.getClientDraftKey())
                     .orElse(null);

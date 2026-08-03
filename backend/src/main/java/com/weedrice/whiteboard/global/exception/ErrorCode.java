@@ -49,6 +49,7 @@ public enum ErrorCode {
     DRAFT_OUTDATED(HttpStatus.CONFLICT, "P004", "error.post.draftOutdated"),
     DRAFT_PROTECTED(HttpStatus.CONFLICT, "P005", "error.post.draftProtected"),
     SCHEDULED_POST_LIMIT_EXCEEDED(HttpStatus.CONFLICT, "P006", "error.post.scheduledPostLimitExceeded"),
+    DRAFT_NOT_FOUND(HttpStatus.NOT_FOUND, "P007", "error.post.draftNotFound"),
 
     // Comment
     COMMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "CM001", "error.comment.notFound"),
