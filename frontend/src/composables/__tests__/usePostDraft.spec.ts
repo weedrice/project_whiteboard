@@ -852,6 +852,94 @@ describe('usePostDraft', () => {
         random.mockRestore()
     })
 
+    it('waits for connectivity without consuming retry attempts', async () => {
+        let online = false
+        const onlineSpy = vi.spyOn(window.navigator, 'onLine', 'get').mockImplementation(() => online)
+        mocks.saveDraftMutateAsync.mockRejectedValueOnce({ isAxiosError: true })
+        const { composable } = mountComposable()
+
+        await expect(composable.saveNow()).rejects.toMatchObject({ isAxiosError: true })
+        expect(composable.saveRetryScheduled.value).toBe(true)
+        expect(composable.saveRetryAttempt.value).toBe(0)
+
+        await vi.advanceTimersByTimeAsync(60_000)
+        expect(mocks.saveDraftMutateAsync).toHaveBeenCalledTimes(1)
+        expect(composable.saveRetryAttempt.value).toBe(0)
+
+        online = true
+        window.dispatchEvent(new Event('online'))
+        await vi.advanceTimersByTimeAsync(0)
+
+        expect(mocks.saveDraftMutateAsync).toHaveBeenCalledTimes(2)
+        expect(composable.lastSaveFailed.value).toBe(false)
+        onlineSpy.mockRestore()
+    })
+
+    it('pauses a scheduled retry when connectivity drops', async () => {
+        let online = true
+        const onlineSpy = vi.spyOn(window.navigator, 'onLine', 'get').mockImplementation(() => online)
+        const random = vi.spyOn(Math, 'random').mockReturnValue(0.5)
+        mocks.saveDraftMutateAsync.mockRejectedValueOnce({ isAxiosError: true })
+        const { composable } = mountComposable()
+
+        await expect(composable.saveNow()).rejects.toMatchObject({ isAxiosError: true })
+        expect(composable.saveRetryAttempt.value).toBe(1)
+
+        online = false
+        window.dispatchEvent(new Event('offline'))
+        expect(composable.saveRetryAttempt.value).toBe(0)
+        await vi.advanceTimersByTimeAsync(10_000)
+        expect(mocks.saveDraftMutateAsync).toHaveBeenCalledTimes(1)
+
+        online = true
+        window.dispatchEvent(new Event('online'))
+        await vi.advanceTimersByTimeAsync(0)
+
+        expect(mocks.saveDraftMutateAsync).toHaveBeenCalledTimes(2)
+        expect(composable.lastSaveFailed.value).toBe(false)
+        random.mockRestore()
+        onlineSpy.mockRestore()
+    })
+
+    it('honors Retry-After when throttled', async () => {
+        mocks.saveDraftMutateAsync.mockRejectedValueOnce({
+            isAxiosError: true,
+            response: {
+                status: 429,
+                headers: { 'retry-after': '5' },
+            },
+        })
+        const { composable } = mountComposable()
+
+        await expect(composable.saveNow()).rejects.toMatchObject({ response: { status: 429 } })
+        await vi.advanceTimersByTimeAsync(4999)
+        expect(mocks.saveDraftMutateAsync).toHaveBeenCalledTimes(1)
+
+        await vi.advanceTimersByTimeAsync(1)
+
+        expect(mocks.saveDraftMutateAsync).toHaveBeenCalledTimes(2)
+        expect(composable.lastSaveFailed.value).toBe(false)
+    })
+
+    it('does not retry early when Retry-After exceeds one timer window', async () => {
+        mocks.saveDraftMutateAsync.mockRejectedValueOnce({
+            isAxiosError: true,
+            response: {
+                status: 429,
+                headers: { 'retry-after': '60' },
+            },
+        })
+        const { composable } = mountComposable()
+
+        await expect(composable.saveNow()).rejects.toMatchObject({ response: { status: 429 } })
+        await vi.advanceTimersByTimeAsync(59_999)
+        expect(mocks.saveDraftMutateAsync).toHaveBeenCalledTimes(1)
+
+        await vi.advanceTimersByTimeAsync(1)
+
+        expect(mocks.saveDraftMutateAsync).toHaveBeenCalledTimes(2)
+    })
+
     it('does not retry permanent client errors', async () => {
         mocks.saveDraftMutateAsync.mockRejectedValueOnce({
             isAxiosError: true,
