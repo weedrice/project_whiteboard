@@ -24,3 +24,16 @@ export function cleanupExpiredDraftSnapshots(now = Date.now()) {
     loadStoredDraftSnapshot(key, now)
   }
 }
+
+export function migrateStoredDraftSnapshot(
+  legacyKey: string,
+  targetKey: string,
+  expectedDraftId: number | null | undefined,
+) {
+  if (legacyKey === targetKey || expectedDraftId == null || Storage.has(targetKey)) return false
+  const legacySnapshot = loadStoredDraftSnapshot(legacyKey)
+  if (legacySnapshot?.draftId !== expectedDraftId) return false
+  if (!Storage.set(targetKey, legacySnapshot)) return false
+  Storage.remove(legacyKey)
+  return true
+}

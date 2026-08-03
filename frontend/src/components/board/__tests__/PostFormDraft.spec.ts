@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { nextTick } from 'vue'
 import { flushPromises } from '@vue/test-utils'
+import { Storage } from '@/utils/storage'
 import {
   findButtonByText,
   getLastCreatePostVariables,
@@ -119,5 +120,62 @@ describe('PostForm draft behavior', () => {
 
     const variables = getLastUpdatePostVariables()
     expect(variables.data.draftId).toBe(91)
+  })
+
+  it('reinitializes the composer when the preferred draft id changes on the same route', async () => {
+    mockPostFormAuthStore({
+      isAuthenticated: true,
+      user: { userId: 1, role: 'USER' },
+    })
+    Storage.set('noviis:draft:1:create:free:new:draft-91', {
+      draftId: 91,
+      boardUrl: 'free',
+      title: 'First draft',
+      contents: 'First body',
+      clientModifiedAt: '2026-08-02T00:00:00.000Z',
+      hasLocalChanges: true,
+    })
+    Storage.set('noviis:draft:1:create:free:new:draft-92', {
+      draftId: 92,
+      boardUrl: 'free',
+      title: 'Second draft',
+      contents: 'Second body',
+      clientModifiedAt: '2026-08-02T01:00:00.000Z',
+      hasLocalChanges: true,
+    })
+    const wrapper = mountPostForm('create', {}, {}, { postId: '', initialDraftId: '91' })
+    await flushPromises()
+    expect(wrapper.get('#title').element).toHaveProperty('value', 'First draft')
+
+    await wrapper.setProps({ initialDraftId: '92' })
+    await flushPromises()
+
+    expect(wrapper.get('#title').element).toHaveProperty('value', 'Second draft')
+    expect(wrapper.get('[data-testid="editor-input"]').element).toHaveProperty('value', 'Second body')
+  })
+
+  it('keeps a restored server snapshot canonical instead of marking it locally changed', async () => {
+    mockPostFormAuthStore({
+      isAuthenticated: true,
+      user: { userId: 1, role: 'USER' },
+    })
+    const storageKey = 'noviis:draft:1:create:free:new'
+    Storage.set(storageKey, {
+      draftId: 91,
+      boardUrl: 'free',
+      title: 'Recovered draft',
+      contents: 'Recovered body',
+      clientModifiedAt: '2026-08-02T00:00:00.000Z',
+      hasLocalChanges: false,
+    })
+
+    mountPostForm('create', {}, {}, { postId: '' })
+    await flushPromises()
+
+    expect(Storage.get(storageKey)).toEqual(expect.objectContaining({
+      title: 'Recovered draft',
+      hasLocalChanges: false,
+    }))
+    expect(mockSaveDraftMutateAsync).not.toHaveBeenCalled()
   })
 })

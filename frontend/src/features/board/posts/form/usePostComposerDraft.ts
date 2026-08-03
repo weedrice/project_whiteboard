@@ -4,6 +4,7 @@ import type { PostComposerSnapshot } from '@/features/board/posts/form/usePostCo
 import type { PostFormFileIdScope } from '@/utils/postForm'
 import logger from '@/utils/logger'
 import { formatTimeOnly } from '@/utils/date'
+import { migrateStoredDraftSnapshot } from '@/features/board/posts/draft/postDraftLifecycle'
 
 type ComposerToastType = 'info' | 'success' | 'warning' | 'error'
 
@@ -34,16 +35,35 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     && options.userId.value != null
     && !!options.boardUrl.value
   ))
-  const draftStorageKey = computed(() =>
+  const legacyDraftStorageKey = computed(() =>
     `noviis:draft:${options.userId.value ?? 'guest'}:${options.mode()}:${options.boardUrl.value || 'unknown'}:${options.postId.value || 'new'}`,
   )
+  const draftStorageKey = computed(() => {
+    const preferredDraftId = options.preferredDraftId?.value
+    return preferredDraftId == null
+      ? legacyDraftStorageKey.value
+      : `${legacyDraftStorageKey.value}:draft-${preferredDraftId}`
+  })
   const hasRestoredDraft = ref(false)
   const initializedBaselineIdentity = ref<string | null>(null)
   const draftIdentity = computed(() => [
     options.sessionGeneration.value,
     options.userId.value ?? 'hydrating',
     options.identity.value,
+    options.preferredDraftId?.value ?? 'default',
   ].join(':'))
+  let appliedDraftSignature: string | null = null
+
+  const serializeDraftPayload = () => JSON.stringify({
+    ...options.buildPayload('draft'),
+    boardUrl: options.boardUrl.value,
+    originalPostId: options.mode() === 'edit' ? Number(options.postId.value) : undefined,
+  })
+
+  const applyDraftWithoutTracking = (draft: PostComposerSnapshot) => {
+    options.applyDraft(draft)
+    appliedDraftSignature = serializeDraftPayload()
+  }
 
   const {
     saveNow: saveDraftNow,
@@ -76,7 +96,7 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
       boardUrl: options.boardUrl.value,
       originalPostId: options.mode() === 'edit' ? Number(options.postId.value) : undefined,
     }),
-    applyDraft: options.applyDraft,
+    applyDraft: applyDraftWithoutTracking,
     onSaved: options.markCurrentSnapshotSaved,
     onServerSaved: (payload) => options.releaseUploadedFileOwnership(payload.fileIds ?? []),
     canPersist: options.validateBeforeSave,
@@ -127,6 +147,11 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
       }
       if (hasRestoredDraft.value) return
       const restoringIdentity = identity
+      migrateStoredDraftSnapshot(
+        legacyDraftStorageKey.value,
+        draftStorageKey.value,
+        options.preferredDraftId?.value,
+      )
 
       if (options.mode() === 'create' && !options.selectedCategoryId.value && options.firstCategoryId.value != null) {
         options.selectedCategoryId.value = options.firstCategoryId.value
@@ -153,16 +178,17 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     { immediate: true },
   )
 
-  const draftSignature = computed(() => JSON.stringify({
-    ...options.buildPayload('draft'),
-    boardUrl: options.boardUrl.value,
-    originalPostId: options.mode() === 'edit' ? Number(options.postId.value) : undefined,
-  }))
+  const draftSignature = computed(serializeDraftPayload)
 
   watch(
     draftSignature,
-    () => {
+    (signature) => {
       if (!hasRestoredDraft.value || !draftEnabled.value || options.isLoading.value) return
+      if (appliedDraftSignature === signature) {
+        appliedDraftSignature = null
+        return
+      }
+      appliedDraftSignature = null
       writeLocalSnapshot()
       scheduleAutosave()
     },

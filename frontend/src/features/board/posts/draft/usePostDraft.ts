@@ -78,7 +78,6 @@ export function usePostDraft(options: UsePostDraftOptions) {
     let saveQueued = false
     let localRevision = 0
     let persistedRevision = 0
-    let suppressNextLocalWrite = false
     let sessionGeneration = 0
     const createClientKey = () => typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
         ? crypto.randomUUID()
@@ -109,7 +108,6 @@ export function usePostDraft(options: UsePostDraftOptions) {
         saveQueued = false
         localRevision = 0
         persistedRevision = 0
-        suppressNextLocalWrite = false
     }
 
     const storeLocalSnapshot = (snapshot: DraftRecoverySnapshot) => {
@@ -125,10 +123,6 @@ export function usePostDraft(options: UsePostDraftOptions) {
 
     const writeLocalSnapshot = () => {
         if (!options.enabled.value) return
-        if (suppressNextLocalWrite) {
-            suppressNextLocalWrite = false
-            return true
-        }
         localRevision++
         const snapshot = createDraftRecoverySnapshot(options.buildPayload(), draftId.value, updatedAt.value)
         return storeLocalSnapshot(snapshot)
@@ -476,6 +470,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
             const matchingComposer = isMatchingLoadedDraft(incoming as DraftPost, options.buildPayload())
             const hasUnsavedLocalChanges = localRevision !== persistedRevision
             if (!hasUnsavedLocalChanges
+                && (draftId.value == null || sameDraft)
                 && incoming.hasLocalChanges === false
                 && matchingComposer
                 && incoming.draftId != null) {
@@ -485,7 +480,6 @@ export function usePostDraft(options: UsePostDraftOptions) {
                 updatedAt.value = incoming.updatedAt ?? incoming.modifiedAt ?? null
                 lastSavedAt.value = updatedAt.value
                 lastSaveScope.value = 'server'
-                suppressNextLocalWrite = true
                 options.applyDraft(incoming)
                 options.onSaved?.()
                 return

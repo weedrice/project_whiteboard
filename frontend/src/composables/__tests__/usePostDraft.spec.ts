@@ -1188,4 +1188,28 @@ describe('usePostDraft', () => {
 
         expect(composable.draftConflict.value).toBe(true)
     })
+
+    it('does not replace an already tracked draft with a different draft from another tab', async () => {
+        const { composable, appliedDrafts } = mountComposable()
+        await composable.saveNow()
+
+        window.dispatchEvent(new StorageEvent('storage', {
+            key: 'noviis:test:draft',
+            newValue: JSON.stringify({
+                draftId: 92,
+                clientDraftKey: 'different-draft-key',
+                version: 1,
+                boardUrl: 'free',
+                title: 'Different draft',
+                contents: 'Different body',
+                updatedAt: '2026-07-07T13:00:00.000Z',
+                clientInstanceId: 'other-tab',
+                hasLocalChanges: false,
+            }),
+        }))
+
+        expect(composable.draftId.value).toBe(91)
+        expect(appliedDrafts).toHaveLength(0)
+        expect(composable.draftConflict.value).toBe(false)
+    })
 })
