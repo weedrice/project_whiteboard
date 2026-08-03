@@ -2,8 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Storage } from '@/utils/storage'
 import {
   cleanupExpiredDraftSnapshots,
+  enforceDraftSnapshotBudget,
   loadStoredDraftSnapshot,
+  MAX_LOCAL_DRAFT_SNAPSHOTS,
   migrateStoredDraftSnapshot,
+  storeDraftSnapshotWithBudget,
 } from '@/features/board/posts/draft/postDraftLifecycle'
 import {
   isDraftDeletedLocally,
@@ -89,5 +92,73 @@ describe('draft browser lifecycle', () => {
     expect(migrateStoredDraftSnapshot(legacyKey, targetKey, 92)).toBe(false)
     expect(Storage.has(legacyKey)).toBe(true)
     expect(Storage.has(targetKey)).toBe(false)
+  })
+
+  it('expires legacy snapshots using the server timestamp when the client timestamp is missing', () => {
+    const key = 'noviis:draft:1:create:free:legacy'
+    Storage.set(key, {
+      boardUrl: 'free',
+      title: 'old legacy draft',
+      modifiedAt: '2026-04-01T00:00:00.000Z',
+    })
+
+    expect(loadStoredDraftSnapshot(key)).toBeNull()
+    expect(Storage.has(key)).toBe(false)
+  })
+
+  it('timestamps an undated legacy snapshot when it is first loaded', () => {
+    const key = 'noviis:draft:1:create:free:undated'
+    Storage.set(key, { boardUrl: 'free', title: 'undated draft' })
+
+    expect(loadStoredDraftSnapshot(key)).toEqual(expect.objectContaining({
+      clientModifiedAt: '2026-08-03T00:00:00.000Z',
+    }))
+    expect(Storage.get(key)).toEqual(expect.objectContaining({
+      clientModifiedAt: '2026-08-03T00:00:00.000Z',
+    }))
+  })
+
+  it('evicts the oldest snapshots over the local count limit while protecting the active key', () => {
+    for (let index = 0; index < MAX_LOCAL_DRAFT_SNAPSHOTS + 2; index++) {
+      Storage.set(`noviis:draft:1:create:free:${index}`, {
+        boardUrl: 'free',
+        title: `draft ${index}`,
+        clientModifiedAt: new Date(Date.UTC(2026, 6, 1, 0, index)).toISOString(),
+      })
+    }
+    const protectedKey = 'noviis:draft:1:create:free:0'
+
+    expect(enforceDraftSnapshotBudget(protectedKey)).toBe(2)
+
+    const remainingKeys = Storage.keys().filter((key) => key.startsWith('noviis:draft:'))
+    expect(remainingKeys).toHaveLength(MAX_LOCAL_DRAFT_SNAPSHOTS)
+    expect(Storage.has(protectedKey)).toBe(true)
+    expect(Storage.has('noviis:draft:1:create:free:1')).toBe(false)
+    expect(Storage.has('noviis:draft:1:create:free:2')).toBe(false)
+  })
+
+  it('reclaims an older snapshot and retries when the first storage write fails', () => {
+    const oldKey = 'noviis:draft:1:create:free:old'
+    const targetKey = 'noviis:draft:1:create:free:current'
+    Storage.set(oldKey, {
+      boardUrl: 'free',
+      title: 'old draft',
+      clientModifiedAt: '2026-08-01T00:00:00.000Z',
+    })
+    const originalSet = Storage.set.bind(Storage)
+    let targetAttempts = 0
+    const setSpy = vi.spyOn(Storage, 'set').mockImplementation((key, value) => {
+      if (key === targetKey && targetAttempts++ === 0) return false
+      return originalSet(key, value)
+    })
+
+    expect(storeDraftSnapshotWithBudget(targetKey, {
+      boardUrl: 'free',
+      title: 'current draft',
+      clientModifiedAt: '2026-08-03T00:00:00.000Z',
+    })).toBe(true)
+    expect(Storage.has(oldKey)).toBe(false)
+    expect(Storage.has(targetKey)).toBe(true)
+    setSpy.mockRestore()
   })
 })

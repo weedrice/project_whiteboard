@@ -32,6 +32,7 @@ import {
 import {
     cleanupExpiredDraftSnapshots,
     loadStoredDraftSnapshot,
+    storeDraftSnapshotWithBudget,
 } from '@/features/board/posts/draft/postDraftLifecycle'
 
 export type { DraftRecoverySnapshot } from '@/features/board/posts/draft/postDraftRecovery'
@@ -115,7 +116,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
     }
 
     const storeLocalSnapshot = (snapshot: DraftRecoverySnapshot) => {
-        const stored = Storage.set(options.storageKey.value, {
+        const stored = storeDraftSnapshotWithBudget(options.storageKey.value, {
             ...snapshot,
             clientDraftKey: snapshot.clientDraftKey ?? clientDraftKey.value,
             version: snapshot.version ?? draftVersion.value ?? undefined,

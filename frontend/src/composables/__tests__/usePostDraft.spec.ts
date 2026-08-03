@@ -854,6 +854,7 @@ describe('usePostDraft', () => {
             contents: 'Local contents',
             draftId: 91,
             updatedAt: '2025-01-01T00:00:00.000Z',
+            clientModifiedAt: '2026-07-07T11:30:00.000Z',
         })
 
         const { composable, appliedDrafts } = mountComposable()
@@ -964,6 +965,7 @@ describe('usePostDraft', () => {
             contents: 'Local contents',
             draftId: 91,
             updatedAt: '2025-01-01T00:00:00.000Z',
+            clientModifiedAt: '2026-07-07T11:30:00.000Z',
             originalPostId: 7,
         })
 
