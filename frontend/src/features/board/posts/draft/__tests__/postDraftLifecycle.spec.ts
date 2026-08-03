@@ -4,6 +4,7 @@ import {
   cleanupExpiredDraftSnapshots,
   clearStoredDraftSnapshotsForUser,
   countUnsyncedStoredDraftSnapshotsForUser,
+  DRAFT_SNAPSHOT_SCHEMA_VERSION,
   enforceDraftSnapshotBudget,
   loadStoredDraftSnapshot,
   MAX_LOCAL_DRAFT_BYTES,
@@ -156,7 +157,45 @@ describe('draft browser lifecycle', () => {
     }))
     expect(Storage.get(key)).toEqual(expect.objectContaining({
       clientModifiedAt: '2026-08-03T00:00:00.000Z',
+      schemaVersion: DRAFT_SNAPSHOT_SCHEMA_VERSION,
     }))
+  })
+
+  it('removes snapshots with unsupported schema versions', () => {
+    const key = 'noviis:draft:1:create:free:future-schema'
+    Storage.set(key, {
+      schemaVersion: DRAFT_SNAPSHOT_SCHEMA_VERSION + 1,
+      boardUrl: 'free',
+      clientModifiedAt: '2026-08-03T00:00:00.000Z',
+    })
+
+    expect(loadStoredDraftSnapshot(key)).toBeNull()
+    expect(Storage.has(key)).toBe(false)
+  })
+
+  it('removes malformed snapshots and implausible future timestamps', () => {
+    const malformedKey = 'noviis:draft:1:create:free:malformed'
+    const futureKey = 'noviis:draft:1:create:free:future'
+    Storage.set(malformedKey, {
+      boardUrl: 'free',
+      fileIds: [1, 'invalid'],
+      clientModifiedAt: '2026-08-03T00:00:00.000Z',
+    })
+    Storage.set(futureKey, {
+      boardUrl: 'free',
+      clientModifiedAt: '2026-08-05T00:00:01.000Z',
+    })
+
+    expect(loadStoredDraftSnapshot(malformedKey)).toBeNull()
+    expect(loadStoredDraftSnapshot(futureKey)).toBeNull()
+  })
+
+  it('removes object snapshots without a board identity', () => {
+    const key = 'noviis:draft:1:create:free:missing-board'
+    Storage.set(key, { title: 'orphaned draft' })
+
+    expect(loadStoredDraftSnapshot(key)).toBeNull()
+    expect(Storage.has(key)).toBe(false)
   })
 
   it('removes a corrupted draft snapshot when it is loaded', () => {
@@ -200,7 +239,7 @@ describe('draft browser lifecycle', () => {
       Storage.set(`noviis:draft:1:create:free:${index}`, {
         boardUrl: 'free',
         title: `draft ${index}`,
-        clientModifiedAt: new Date(Date.UTC(2026, 7, 1 + index)).toISOString(),
+        clientModifiedAt: new Date(Date.UTC(2026, 7, 3, 0, index)).toISOString(),
       })
     }
     const originalSet = Storage.setWithResult.bind(Storage)
@@ -248,7 +287,7 @@ describe('draft browser lifecycle', () => {
       Storage.set(`noviis:draft:1:create:free:${index}`, {
         boardUrl: 'free',
         title: `draft ${index}`,
-        clientModifiedAt: new Date(Date.UTC(2026, 7, 1 + index)).toISOString(),
+        clientModifiedAt: new Date(Date.UTC(2026, 7, 3, 0, index)).toISOString(),
       })
     }
     const originalSet = Storage.setWithResult.bind(Storage)

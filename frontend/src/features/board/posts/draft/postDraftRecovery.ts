@@ -7,6 +7,7 @@ import type { DraftPost, DraftPostSummary } from '@/types'
 import { withServerOffset } from '@/utils/date'
 
 export interface DraftRecoverySnapshot extends PostDraftData {
+    schemaVersion?: number
     draftId?: number
     categoryId?: number | null
     modifiedAt?: string

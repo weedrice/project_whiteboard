@@ -34,6 +34,7 @@ import {
 import {
     cleanupExpiredDraftSnapshots,
     loadStoredDraftSnapshot,
+    parseDraftRecoverySnapshot,
     storeDraftSnapshotWithBudget,
 } from '@/features/board/posts/draft/postDraftLifecycle'
 
@@ -485,13 +486,13 @@ export function usePostDraft(options: UsePostDraftOptions) {
                 Storage.set(options.storageKey.value, snapshot)
             },
         })
+        if (generation !== sessionGeneration) return
 
         const recovery = resolveDraftRecoverySnapshot(resolved.localSnapshot, resolved.serverDraft)
         const chosen = recovery.snapshot
         restoreFailed.value = resolved.recoveryFailed
         multipleDraftsFound.value = resolved.multipleMatchesFound
         if (!chosen) return
-        if (generation !== sessionGeneration) return
 
         if (revision !== localRevision) {
             if (resolved.serverDraft) {
@@ -630,7 +631,8 @@ export function usePostDraft(options: UsePostDraftOptions) {
             return
         }
         try {
-            const incoming = JSON.parse(event.newValue) as DraftRecoverySnapshot
+            const incoming = parseDraftRecoverySnapshot(JSON.parse(event.newValue))
+            if (!incoming) return
             if (!incoming.clientInstanceId || incoming.clientInstanceId === clientInstanceId) return
             const sameDraft = incoming.draftId != null && incoming.draftId === draftId.value
             const sameClientDraft = Boolean(incoming.clientDraftKey)

@@ -557,6 +557,36 @@ describe('usePostDraft', () => {
         ])
     })
 
+    it('ignores restore status returned after the form identity resets', async () => {
+        let resolveDrafts: (value: unknown) => void = () => undefined
+        mocks.getMyDrafts.mockReturnValueOnce(new Promise((resolve) => {
+            resolveDrafts = resolve
+        }))
+        const { composable } = mountComposable()
+
+        const restoring = composable.restoreDraft()
+        composable.resetSession()
+        resolveDrafts({
+            data: {
+                data: {
+                    content: [
+                        { draftId: 91, boardUrl: 'free', originalPostId: null },
+                        { draftId: 92, boardUrl: 'free', originalPostId: null },
+                    ],
+                    page: 0,
+                    size: 50,
+                    totalElements: 2,
+                    totalPages: 1,
+                    hasNext: false,
+                },
+            },
+        })
+        await restoring
+
+        expect(composable.multipleDraftsFound.value).toBe(false)
+        expect(composable.restoreFailed.value).toBe(false)
+    })
+
     it('ignores an in-flight save result after the form identity resets', async () => {
         let resolveSave: (value: unknown) => void = () => undefined
         mocks.saveDraftMutateAsync.mockReturnValueOnce(new Promise((resolve) => {

@@ -236,7 +236,7 @@ describe('Auth Store', () => {
         it('keeps the session when explicit logout cleanup is cancelled', async () => {
             mockExplicitLogout.mockResolvedValueOnce(false)
 
-            await expect(store.logout()).resolves.toBe(false)
+            await store.logout()
 
             expect(authApi.logout).not.toHaveBeenCalled()
             expect(store.accessToken).toBe('token')

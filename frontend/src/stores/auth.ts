@@ -164,7 +164,7 @@ export const useAuthStore = defineStore('auth', () => {
     async function logout() {
         const logoutDecision = authSessionEffects.onExplicitLogout(user.value?.userId ?? null)
         const shouldLogout = logoutDecision instanceof Promise ? await logoutDecision : logoutDecision
-        if (shouldLogout === false) return false
+        if (shouldLogout === false) return
         clearSessionState()
         clearLoginRedirect()
         try {
@@ -172,7 +172,6 @@ export const useAuthStore = defineStore('auth', () => {
         } catch (error: unknown) {
             logger.error('Logout failed:', error)
         }
-        return true
     }
 
     async function fetchUser(config?: AxiosRequestConfig, expectedUserId?: number | null): Promise<boolean> {
