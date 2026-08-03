@@ -12,12 +12,14 @@ const mocks = vi.hoisted(() => {
     const deleteDraftMutateAsync = vi.fn()
     const getDraft = vi.fn()
     const getMyDrafts = vi.fn()
+    const loggerError = vi.fn()
 
     return {
         saveDraftMutateAsync,
         deleteDraftMutateAsync,
         getDraft,
         getMyDrafts,
+        loggerError,
         saveDraftConfig: undefined as (() => { signal?: AbortSignal } | undefined) | undefined,
     }
 })
@@ -51,7 +53,7 @@ vi.mock('@/api/user', () => ({
 }))
 
 vi.mock('@/utils/logger', () => ({
-    default: { error: vi.fn() },
+    default: { error: mocks.loggerError },
 }))
 
 function mountComposable(payloadRef: Ref<PostDraftData> = ref({
@@ -802,7 +804,7 @@ describe('usePostDraft', () => {
         expect(composable.multipleDraftsFound.value).toBe(true)
     })
 
-    it('debounces autosave and cleans up local/server drafts on publish cleanup', async () => {
+    it('debounces autosave', async () => {
         const { composable, payloadRef } = mountComposable()
 
         payloadRef.value = {
@@ -813,11 +815,6 @@ describe('usePostDraft', () => {
         await vi.advanceTimersByTimeAsync(1500)
 
         expect(mocks.saveDraftMutateAsync).toHaveBeenCalledTimes(1)
-
-        await composable.cleanupDraft()
-
-        expect(mocks.deleteDraftMutateAsync).toHaveBeenCalledWith(91)
-        expect(Storage.get('noviis:test:draft')).toBeNull()
     })
 
     it('cancels a pending autosave when drafts are disabled', async () => {
@@ -989,6 +986,10 @@ describe('usePostDraft', () => {
         expect(composable.saveRetryScheduled.value).toBe(false)
         expect(composable.saveRetryAttempt.value).toBe(5)
         expect(composable.saveRetryExhausted.value).toBe(true)
+        expect(mocks.loggerError).toHaveBeenCalledWith(
+            'Draft autosave retries exhausted.',
+            { event: 'draft_autosave_retry_exhausted', attempts: 5 },
+        )
 
         mocks.saveDraftMutateAsync.mockResolvedValueOnce({
             data: {
@@ -1016,36 +1017,6 @@ describe('usePostDraft', () => {
         expect(isTransientDraftSaveError({ isAxiosError: true, response: { status: 500 } })).toBe(true)
         expect(isTransientDraftSaveError({ isAxiosError: true, response: { status: 409 } })).toBe(false)
         expect(isTransientDraftSaveError(new Error('local storage failed'))).toBe(false)
-    })
-
-    it('preserves local recovery state when published draft cleanup fails', async () => {
-        const { composable } = mountComposable()
-
-        await composable.saveNow()
-        mocks.deleteDraftMutateAsync.mockRejectedValueOnce(new Error('cleanup failed'))
-
-        await expect(composable.cleanupDraft()).rejects.toThrow('cleanup failed')
-        expect(composable.draftId.value).toBe(91)
-        expect(Storage.get('noviis:test:draft')).toEqual(expect.objectContaining({
-            draftId: 91,
-            title: 'Draft title',
-        }))
-    })
-
-    it('clears local recovery when the published draft was already deleted by the server', async () => {
-        const { composable } = mountComposable()
-
-        await composable.saveNow()
-        mocks.deleteDraftMutateAsync.mockRejectedValueOnce({
-            isAxiosError: true,
-            response: { status: 404 },
-        })
-
-        await composable.cleanupDraft()
-
-        expect(mocks.deleteDraftMutateAsync).toHaveBeenCalledWith(91)
-        expect(composable.draftId.value).toBeNull()
-        expect(Storage.get('noviis:test:draft')).toBeNull()
     })
 
     it('deletes an existing server draft when all meaningful content is cleared', async () => {
@@ -1387,6 +1358,10 @@ describe('usePostDraft', () => {
         await expect(composable.saveNow()).rejects.toThrow('DRAFT_LOCAL_STORAGE_FAILED')
         expect(composable.lastLocalSaveFailed.value).toBe(true)
         expect(composable.lastSaveScope.value).toBeNull()
+        expect(mocks.loggerError).toHaveBeenCalledWith(
+            'Draft local snapshot storage failed.',
+            { event: 'draft_local_snapshot_write_failed' },
+        )
         setItem.mockRestore()
     })
 

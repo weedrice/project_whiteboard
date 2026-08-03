@@ -148,6 +148,11 @@ export function usePostDraft(options: UsePostDraftOptions) {
             version: snapshot.version ?? draftVersion.value ?? undefined,
             clientInstanceId,
         })
+        if (!stored && !lastLocalSaveFailed.value) {
+            logger.error('Draft local snapshot storage failed.', {
+                event: 'draft_local_snapshot_write_failed',
+            })
+        }
         lastLocalSaveFailed.value = !stored
         return stored
     }
@@ -347,8 +352,12 @@ export function usePostDraft(options: UsePostDraftOptions) {
             || draftProtected.value
             || draftDeleted.value
             || options.canPersist?.() === false) {
-            if (saveRetryAttempt.value >= SAVE_RETRY_MAX_ATTEMPTS) {
+            if (saveRetryAttempt.value >= SAVE_RETRY_MAX_ATTEMPTS && !saveRetryExhausted.value) {
                 saveRetryExhausted.value = true
+                logger.error('Draft autosave retries exhausted.', {
+                    event: 'draft_autosave_retry_exhausted',
+                    attempts: saveRetryAttempt.value,
+                })
             }
             return
         }
@@ -702,30 +711,6 @@ export function usePostDraft(options: UsePostDraftOptions) {
         window.addEventListener('storage', handleStorage)
     }
 
-    const cleanupDraft = async () => {
-        clearAutosaveTimer()
-        clearSaveRetry()
-        const currentDraftId = draftId.value
-        if (currentDraftId == null) {
-            clearRecovery()
-            return
-        }
-        try {
-            await deleteDraft(currentDraftId)
-            if (options.ownerId?.value != null) {
-                markDraftDeletedLocally(options.ownerId.value, currentDraftId)
-            }
-            clearRecovery()
-        } catch (error: unknown) {
-            if (isAxiosError(error) && error.response?.status === 404) {
-                clearRecovery()
-                return
-            }
-            logger.error('Failed to delete draft after publish:', error)
-            throw error
-        }
-    }
-
     const clearPublishedDraftRecovery = () => {
         const publishedDraftId = draftId.value
         if (publishedDraftId != null && options.ownerId?.value != null) {
@@ -776,7 +761,6 @@ export function usePostDraft(options: UsePostDraftOptions) {
         resetSession,
         clearRecovery,
         clearPublishedDraftRecovery,
-        cleanupDraft,
         writeLocalSnapshot,
         saveDeletedDraftAsNew,
         discardDeletedDraft,

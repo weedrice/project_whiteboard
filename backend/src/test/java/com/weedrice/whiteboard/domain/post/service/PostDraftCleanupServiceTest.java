@@ -5,6 +5,7 @@ import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.post.entity.DraftPost;
 import com.weedrice.whiteboard.domain.post.repository.DraftPostRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -39,11 +40,14 @@ class PostDraftCleanupServiceTest {
     private PostDraftCleanupService cleanupService;
     private User user;
     private Board board;
+    private SimpleMeterRegistry meterRegistry;
 
     @BeforeEach
     void setUp() {
         Clock clock = Clock.fixed(Instant.parse("2026-07-13T00:00:00Z"), ZoneOffset.UTC);
-        cleanupService = new PostDraftCleanupService(draftPostRepository, fileService, clock, cleanupBatchService);
+        meterRegistry = new SimpleMeterRegistry();
+        cleanupService = new PostDraftCleanupService(
+                draftPostRepository, fileService, clock, cleanupBatchService, meterRegistry);
         user = User.builder().email("draft@example.com").displayName("draft-user").build();
         board = Board.builder().boardName("Draft Board").boardUrl("draft-board").build();
     }
@@ -66,6 +70,8 @@ class PostDraftCleanupServiceTest {
         ordered.verify(fileService).markDraftFilesDeletionPending(2L);
         ordered.verify(draftPostRepository).delete(second);
         ordered.verify(draftPostRepository).flush();
+        assertThat(meterRegistry.counter("noviis.post.draft.cleaned", "reason", "limit").count())
+                .isEqualTo(2);
     }
 
     @Test
@@ -78,6 +84,8 @@ class PostDraftCleanupServiceTest {
         int deleted = cleanupService.cleanupExpiredDrafts();
 
         assertThat(deleted).isEqualTo(102);
+        assertThat(meterRegistry.counter("noviis.post.draft.cleaned", "reason", "retention").count())
+                .isEqualTo(102);
         org.mockito.Mockito.verify(cleanupBatchService, org.mockito.Mockito.times(2))
                 .cleanupExpiredBatch(cutoff, 100);
     }

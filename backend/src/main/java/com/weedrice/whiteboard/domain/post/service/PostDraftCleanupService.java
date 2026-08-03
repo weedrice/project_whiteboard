@@ -5,6 +5,7 @@ import com.weedrice.whiteboard.domain.post.constant.PostDraftPolicy;
 import com.weedrice.whiteboard.domain.post.entity.DraftPost;
 import com.weedrice.whiteboard.domain.post.repository.DraftPostRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -27,6 +28,7 @@ public class PostDraftCleanupService {
     private final FileService fileService;
     private final Clock clock;
     private final PostDraftCleanupBatchService cleanupBatchService;
+    private final MeterRegistry meterRegistry;
 
     public int enforceUserDraftLimit(User user) {
         long excessCount = draftPostRepository.countDeletableByUser(user) - PostDraftPolicy.MAX_DRAFTS_PER_USER;
@@ -45,6 +47,7 @@ public class PostDraftCleanupService {
             deletedCount += oldestDrafts.size();
             excessCount -= oldestDrafts.size();
         }
+        recordCleanup("limit", deletedCount);
         return deletedCount;
     }
 
@@ -64,7 +67,15 @@ public class PostDraftCleanupService {
         if (deletedCount > 0) {
             log.info("Deleted {} expired post draft(s)", deletedCount);
         }
+        recordCleanup("retention", deletedCount);
         return deletedCount;
+    }
+
+    private void recordCleanup(String reason, int count) {
+        if (count <= 0) {
+            return;
+        }
+        meterRegistry.counter("noviis.post.draft.cleaned", "reason", reason).increment(count);
     }
 
     private void deleteDrafts(List<DraftPost> drafts) {

@@ -209,7 +209,8 @@ class PostServiceTest {
                 draftPostRepository,
                 fileService,
                 Clock.systemUTC(),
-                mock(PostDraftCleanupBatchService.class));
+                mock(PostDraftCleanupBatchService.class),
+                new io.micrometer.core.instrument.simple.SimpleMeterRegistry());
         viewHistoryCommandService = new ViewHistoryCommandService(viewHistoryRepository);
         PostViewCountWriter postViewCountWriter = new PostViewCountWriter(postRepository);
         PostReactionService postReactionService = new PostReactionService(
