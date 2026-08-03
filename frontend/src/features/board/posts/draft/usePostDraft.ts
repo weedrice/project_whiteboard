@@ -556,16 +556,8 @@ export function usePostDraft(options: UsePostDraftOptions) {
         }
         if (event.key !== options.storageKey.value) return
         if (!event.newValue) {
-            try {
-                const removed = event.oldValue ? JSON.parse(event.oldValue) as DraftRecoverySnapshot : null
-                if (removed?.clientInstanceId !== clientInstanceId
-                    && removed?.draftId != null
-                    && removed.draftId === draftId.value) {
-                    transitionToDeletedDraft()
-                }
-            } catch (error: unknown) {
-                logger.error('Failed to process a removed draft from another tab:', error)
-            }
+            // 만료·용량 정리·예약 발행 전환도 같은 localStorage 제거 이벤트를
+            // 발생시킨다. 서버 삭제는 전용 tombstone으로만 판정한다.
             return
         }
         try {
@@ -627,6 +619,9 @@ export function usePostDraft(options: UsePostDraftOptions) {
         }
         try {
             await deleteDraft(currentDraftId)
+            if (options.ownerId?.value != null) {
+                markDraftDeletedLocally(options.ownerId.value, currentDraftId)
+            }
             clearRecovery()
         } catch (error: unknown) {
             if (isAxiosError(error) && error.response?.status === 404) {
@@ -636,6 +631,14 @@ export function usePostDraft(options: UsePostDraftOptions) {
             logger.error('Failed to delete draft after publish:', error)
             throw error
         }
+    }
+
+    const clearPublishedDraftRecovery = () => {
+        const publishedDraftId = draftId.value
+        if (publishedDraftId != null && options.ownerId?.value != null) {
+            markDraftDeletedLocally(options.ownerId.value, publishedDraftId)
+        }
+        clearRecovery()
     }
 
     onUnmounted(() => {
@@ -672,6 +675,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         keepLocalDraft,
         resetSession,
         clearRecovery,
+        clearPublishedDraftRecovery,
         cleanupDraft,
         writeLocalSnapshot,
         saveDeletedDraftAsNew,

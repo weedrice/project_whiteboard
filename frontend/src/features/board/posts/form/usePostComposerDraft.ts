@@ -70,6 +70,7 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     scheduleAutosave,
     restoreDraft,
     clearRecovery,
+    clearPublishedDraftRecovery,
     writeLocalSnapshot,
     lastSavedAt,
     lastSaveScope,
@@ -298,7 +299,7 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     handleRetryDraftRestore,
     handleSaveDeletedDraftAsNew,
     handleDiscardDeletedDraft,
-    cleanupPublishedDraft: clearRecovery,
+    cleanupPublishedDraft: clearPublishedDraftRecovery,
     clearScheduledDraftRecovery: clearRecovery,
   }
 }

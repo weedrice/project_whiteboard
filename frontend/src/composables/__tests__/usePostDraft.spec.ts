@@ -1288,6 +1288,34 @@ describe('usePostDraft', () => {
         expect(composable.draftConflict.value).toBe(false)
     })
 
+    it('does not treat local snapshot eviction as server draft deletion', async () => {
+        const { composable } = mountComposable(undefined, ref('noviis:test:draft'), ref(true), ref(7))
+        await composable.saveNow()
+        const snapshot = Storage.get<DraftRecoverySnapshot>('noviis:test:draft')
+
+        window.dispatchEvent(new StorageEvent('storage', {
+            key: 'noviis:test:draft',
+            oldValue: JSON.stringify({ ...snapshot, clientInstanceId: 'other-tab' }),
+            newValue: null,
+        }))
+
+        expect(composable.draftDeleted.value).toBe(false)
+        expect(composable.draftId.value).toBe(91)
+    })
+
+    it('broadcasts a tombstone when a published draft recovery is cleared', async () => {
+        const { composable } = mountComposable(undefined, ref('noviis:test:draft'), ref(true), ref(7))
+        await composable.saveNow()
+
+        composable.clearPublishedDraftRecovery()
+
+        expect(Storage.get('noviis:draft-deleted:7:91')).toEqual({
+            deletedAt: '2026-07-07T12:00:00.000Z',
+        })
+        expect(Storage.get('noviis:test:draft')).toBeNull()
+        expect(composable.draftId.value).toBeNull()
+    })
+
     it('preserves local content and can save it as new when the server draft disappeared', async () => {
         const { composable, payloadRef } = mountComposable()
         await composable.saveNow()
