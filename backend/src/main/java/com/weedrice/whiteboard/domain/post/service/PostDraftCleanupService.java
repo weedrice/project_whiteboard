@@ -1,6 +1,7 @@
 package com.weedrice.whiteboard.domain.post.service;
 
 import com.weedrice.whiteboard.domain.file.service.FileService;
+import com.weedrice.whiteboard.domain.post.constant.PostDraftPolicy;
 import com.weedrice.whiteboard.domain.post.entity.DraftPost;
 import com.weedrice.whiteboard.domain.post.repository.DraftPostRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -20,8 +21,6 @@ import java.util.List;
 @RequiredArgsConstructor
 public class PostDraftCleanupService {
 
-    static final int MAX_DRAFTS_PER_USER = 100;
-    static final int DRAFT_RETENTION_DAYS = 90;
     private static final int CLEANUP_BATCH_SIZE = 100;
 
     private final DraftPostRepository draftPostRepository;
@@ -30,7 +29,7 @@ public class PostDraftCleanupService {
     private final PostDraftCleanupBatchService cleanupBatchService;
 
     public int enforceUserDraftLimit(User user) {
-        long excessCount = draftPostRepository.countDeletableByUser(user) - MAX_DRAFTS_PER_USER;
+        long excessCount = draftPostRepository.countDeletableByUser(user) - PostDraftPolicy.MAX_DRAFTS_PER_USER;
         int deletedCount = 0;
 
         while (excessCount > 0) {
@@ -51,7 +50,7 @@ public class PostDraftCleanupService {
 
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public int cleanupExpiredDrafts() {
-        LocalDateTime cutoff = LocalDateTime.now(clock).minusDays(DRAFT_RETENTION_DAYS);
+        LocalDateTime cutoff = LocalDateTime.now(clock).minusDays(PostDraftPolicy.RETENTION_DAYS);
         int deletedCount = 0;
 
         while (true) {

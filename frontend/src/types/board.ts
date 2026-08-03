@@ -1,4 +1,5 @@
 import type { DraftPollPayload } from '@/api/post'
+import type { PageResponse } from './common'
 import type { UserSummary } from './user'
 
 export interface BoardListItem {
@@ -316,6 +317,13 @@ export interface DraftPostListResponse {
     totalPages: number
     hasNext: boolean
     hasPrevious: boolean
+    retentionDays: number
+    maxDraftsPerUser: number
+}
+
+export interface DraftPostPageResponse extends PageResponse<DraftPostSummary> {
+    retentionDays: number
+    maxDraftsPerUser: number
 }
 
 export interface DraftPost {

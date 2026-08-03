@@ -12,17 +12,13 @@ import { useConfirm } from '@/composables/useConfirm'
 import { useUser, userQueryKeys } from '@/features/user/useUser'
 import { usePost } from '@/features/board/posts/queries/usePost'
 import { markDraftDeletedLocally } from '@/features/board/posts/draft/postDraftTombstone'
-import {
-  DRAFT_RETENTION_DAYS,
-  MAX_SERVER_DRAFTS_PER_USER,
-} from '@/features/board/posts/draft/postDraftLifecycle'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import { sessionQueryKey } from '@/queryAuthScope'
 import { captureAuthSessionIntent, isAuthSessionIntentCurrent } from '@/utils/authSessionIntent'
 import { formatDateTimeOrDash, withServerOffset } from '@/utils/date'
 import { encodePathSegment } from '@/utils/urlPath'
-import type { DraftPostSummary } from '@/types'
+import type { DraftPostPageResponse, DraftPostSummary } from '@/types'
 import type { ScheduledPost } from '@/api/post'
 
 const { t } = useI18n()
@@ -43,7 +39,18 @@ const {
   isLoading: loading,
   errorMessage,
   refetch,
-} = usePaginatedListState<DraftPostSummary>(useMyDrafts, { initialSize: 15, t })
+  data: draftPage,
+} = usePaginatedListState<DraftPostSummary, ReturnType<typeof useMyDrafts>>(
+  useMyDrafts,
+  { initialSize: 15, t },
+)
+
+const draftRetentionDays = computed(() => (
+  (draftPage.value as DraftPostPageResponse | undefined)?.retentionDays
+))
+const maxDraftsPerUser = computed(() => (
+  (draftPage.value as DraftPostPageResponse | undefined)?.maxDraftsPerUser
+))
 
 const {
   page: scheduledPage,
@@ -73,10 +80,10 @@ function getDraftTimestamp(draft: DraftPostSummary) {
 
 function getDraftExpiresAt(draft: DraftPostSummary) {
   const timestamp = getDraftTimestamp(draft)
-  if (!timestamp) return null
+  if (!timestamp || draftRetentionDays.value == null) return null
   const modifiedAt = new Date(withServerOffset(timestamp)).getTime()
   if (!Number.isFinite(modifiedAt)) return null
-  return new Date(modifiedAt + DRAFT_RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString()
+  return new Date(modifiedAt + draftRetentionDays.value * 24 * 60 * 60 * 1000).toISOString()
 }
 
 function getDraftRoute(draft: DraftPostSummary) {
@@ -177,10 +184,13 @@ function getScheduledFailureMessage(failureReason: string | null | undefined) {
 
 <template>
   <div class="space-y-6">
-    <p class="rounded-lg border border-[var(--nv-line)] bg-[var(--nv-surface-2)] px-4 py-3 text-sm nv-text-subtle">
+    <p
+      v-if="draftRetentionDays != null && maxDraftsPerUser != null"
+      class="rounded-lg border border-[var(--nv-line)] bg-[var(--nv-surface-2)] px-4 py-3 text-sm nv-text-subtle"
+    >
       {{ $t('user.draftList.retentionNotice', {
-        days: DRAFT_RETENTION_DAYS,
-        max: MAX_SERVER_DRAFTS_PER_USER,
+        days: draftRetentionDays,
+        max: maxDraftsPerUser,
       }) }}
     </p>
     <PaginatedListCard

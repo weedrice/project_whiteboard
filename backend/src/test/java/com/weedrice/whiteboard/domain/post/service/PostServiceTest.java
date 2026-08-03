@@ -3607,6 +3607,8 @@ class PostServiceTest {
         assertThat(response.getContent()).hasSize(1);
         assertThat(response.getContent().getFirst().getDraftId()).isEqualTo(11L);
         assertThat(response.getContent().getFirst().getBoardName()).isEqualTo("Test Board");
+        assertThat(response.getRetentionDays()).isEqualTo(90);
+        assertThat(response.getMaxDraftsPerUser()).isEqualTo(100);
         verify(draftPostRepository).findPageByUserWithBoard(eq(user), any(Pageable.class));
     }
 

@@ -45,6 +45,7 @@ vi.mock('@/composables/usePaginatedListState', () => ({
           { draftId: 2, title: ' ', boardUrl: 'free', boardName: '', modifiedAt: '2026-07-02', originalPostId: null },
         ]),
         totalPages: ref(1), isLoading: ref(false), errorMessage: ref(''), refetch: mocks.draftRefetch,
+        data: ref({ retentionDays: 45, maxDraftsPerUser: 25 }),
       }
     }
     return {
@@ -54,6 +55,7 @@ vi.mock('@/composables/usePaginatedListState', () => ({
         { scheduledPostId: 11, title: '', boardUrl: 'free', boardName: '', scheduledAt: '2026-07-04', status: 'PUBLISHED', publishedPostId: 9 },
       ]),
       totalPages: ref(1), isLoading: ref(false), errorMessage: ref(''), refetch: mocks.scheduledRefetch,
+      data: ref(undefined),
     }
   },
 }))

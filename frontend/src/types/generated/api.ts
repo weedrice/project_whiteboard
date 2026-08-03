@@ -3949,7 +3949,11 @@ export interface components {
             hasNext?: boolean;
             hasPrevious?: boolean;
             /** Format: int32 */
+            maxDraftsPerUser?: number;
+            /** Format: int32 */
             page?: number;
+            /** Format: int32 */
+            retentionDays?: number;
             /** Format: int32 */
             size?: number;
             /** Format: int64 */

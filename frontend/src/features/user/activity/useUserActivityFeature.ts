@@ -8,7 +8,7 @@ import { useApiPageQuery, useApiQuery } from '@/composables/useApiQuery'
 import type {
   Badge,
   DraftPostListResponse,
-  DraftPostSummary,
+  DraftPostPageResponse,
   PageResponse,
   UserPoint,
 } from '@/types'
@@ -21,7 +21,7 @@ import { invalidateProfileAuthorCaches } from '@/features/user/profile/profileCa
 import { userQueryKeys, type UserQueryPaginationParams } from '@/features/user/userQueryKeys'
 import type { UserFeatureContext } from '@/features/user/userFeatureContext'
 
-function toDraftPageResponse(data: DraftPostListResponse): PageResponse<DraftPostSummary> {
+function toDraftPageResponse(data: DraftPostListResponse): DraftPostPageResponse {
   return {
     content: data.content,
     totalElements: data.totalElements,
@@ -31,6 +31,8 @@ function toDraftPageResponse(data: DraftPostListResponse): PageResponse<DraftPos
     first: !data.hasPrevious,
     last: !data.hasNext,
     empty: data.content.length === 0,
+    retentionDays: data.retentionDays,
+    maxDraftsPerUser: data.maxDraftsPerUser,
   }
 }
 
@@ -65,7 +67,7 @@ export function useUserActivityFeature(context: UserFeatureContext) {
 
   const useMyDrafts = (params?: Ref<UserQueryPaginationParams>) => useApiQuery<
     DraftPostListResponse,
-    PageResponse<DraftPostSummary>
+    DraftPostPageResponse
   >({
     queryKey: computed(() => userQueryKeys.drafts(params?.value)),
     request: (queryContext) => userApi.getMyDrafts(

@@ -1,11 +1,9 @@
 import { Storage } from '@/utils/storage'
 import type { DraftRecoverySnapshot } from '@/features/board/posts/draft/postDraftRecovery'
 
-export const DRAFT_RETENTION_DAYS = 90
-export const DRAFT_LOCAL_RETENTION_DAYS = DRAFT_RETENTION_DAYS
+export const DRAFT_LOCAL_RETENTION_DAYS = 90
 export const MAX_LOCAL_DRAFT_SNAPSHOTS = 50
 export const MAX_LOCAL_DRAFT_BYTES = 3 * 1024 * 1024
-export const MAX_SERVER_DRAFTS_PER_USER = 100
 const DRAFT_STORAGE_PREFIX = 'noviis:draft:'
 const RETENTION_MS = DRAFT_LOCAL_RETENTION_DAYS * 24 * 60 * 60 * 1000
 

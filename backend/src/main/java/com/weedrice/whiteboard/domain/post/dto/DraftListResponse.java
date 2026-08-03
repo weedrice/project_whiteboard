@@ -1,5 +1,6 @@
 package com.weedrice.whiteboard.domain.post.dto;
 
+import com.weedrice.whiteboard.domain.post.constant.PostDraftPolicy;
 import com.weedrice.whiteboard.domain.post.entity.DraftPost;
 import lombok.Builder;
 import lombok.Getter;
@@ -19,6 +20,8 @@ public class DraftListResponse {
     private int totalPages;
     private boolean hasNext;
     private boolean hasPrevious;
+    private int retentionDays;
+    private int maxDraftsPerUser;
 
     @Getter
     @Builder
@@ -55,6 +58,8 @@ public class DraftListResponse {
                 .totalPages(draftPage.getTotalPages())
                 .hasNext(draftPage.hasNext())
                 .hasPrevious(draftPage.hasPrevious())
+                .retentionDays(PostDraftPolicy.RETENTION_DAYS)
+                .maxDraftsPerUser(PostDraftPolicy.MAX_DRAFTS_PER_USER)
                 .build();
     }
 }

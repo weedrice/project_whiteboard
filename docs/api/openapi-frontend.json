@@ -2741,7 +2741,15 @@
           "hasPrevious" : {
             "type" : "boolean"
           },
+          "maxDraftsPerUser" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
           "page" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "retentionDays" : {
             "format" : "int32",
             "type" : "integer"
           },
