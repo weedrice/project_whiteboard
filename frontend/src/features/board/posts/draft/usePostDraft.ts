@@ -40,8 +40,8 @@ import {
 } from '@/features/board/posts/draft/postDraftLifecycle'
 import {
     matchesDraftScheduledEvent,
-    parseDraftScheduledStorageEvent,
     publishDraftScheduledEvent,
+    registerDraftScheduledListener,
 } from '@/features/board/posts/draft/postDraftScheduledEvent'
 
 export type { DraftRecoverySnapshot } from '@/features/board/posts/draft/postDraftRecovery'
@@ -641,17 +641,6 @@ export function usePostDraft(options: UsePostDraftOptions) {
     const handleStorage = (event: StorageEvent) => {
         if (!options.enabled.value) return
         const ownerId = options.ownerId?.value
-        const scheduledEvent = parseDraftScheduledStorageEvent(event)
-        if (scheduledEvent && matchesDraftScheduledEvent(
-            scheduledEvent,
-            ownerId,
-            draftId.value,
-            options.storageKey.value,
-        )) {
-            transitionToProtectedDraft()
-            void reportDraftOperationalEvent('scheduled_in_another_tab')
-            return
-        }
         if (draftId.value != null
             && ownerId != null
             && event.key === getDraftTombstoneKey(ownerId, draftId.value)
@@ -742,6 +731,20 @@ export function usePostDraft(options: UsePostDraftOptions) {
         clearRecovery()
     }
 
+    const unregisterDraftScheduledListener = typeof window !== 'undefined'
+        ? registerDraftScheduledListener((scheduledEvent) => {
+            if (!options.enabled.value || !matchesDraftScheduledEvent(
+                scheduledEvent,
+                options.ownerId?.value,
+                draftId.value,
+                clientDraftKey.value,
+                options.storageKey.value,
+            )) return
+            transitionToProtectedDraft()
+            void reportDraftOperationalEvent('scheduled_in_another_tab')
+        })
+        : () => undefined
+
     if (typeof window !== 'undefined') {
         window.addEventListener('online', handleOnline)
         window.addEventListener('offline', handleOffline)
@@ -758,7 +761,12 @@ export function usePostDraft(options: UsePostDraftOptions) {
 
     const clearScheduledDraftRecovery = (scheduledDraftId: number | null = draftId.value) => {
         if (options.ownerId?.value != null) {
-            publishDraftScheduledEvent(options.ownerId.value, scheduledDraftId, options.storageKey.value)
+            publishDraftScheduledEvent(
+                options.ownerId.value,
+                scheduledDraftId,
+                clientDraftKey.value,
+                options.storageKey.value,
+            )
         }
         clearRecovery()
     }
@@ -767,6 +775,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         clearAutosaveTimer()
         clearSaveRetry()
         invalidatePendingSaves()
+        unregisterDraftScheduledListener()
         if (typeof window !== 'undefined') {
             window.removeEventListener('online', handleOnline)
             window.removeEventListener('offline', handleOffline)

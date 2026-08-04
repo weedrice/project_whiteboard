@@ -6,7 +6,10 @@ import type { DraftRecoverySnapshot } from '@/features/board/posts/draft/usePost
 import type { PostDraftData } from '@/api/post'
 import { Storage } from '@/utils/storage'
 import { markDraftDeletedLocally } from '@/features/board/posts/draft/postDraftTombstone'
-import type { DraftScheduledEvent } from '@/features/board/posts/draft/postDraftScheduledEvent'
+import {
+    closeDraftScheduledChannelForTest,
+    type DraftScheduledEvent,
+} from '@/features/board/posts/draft/postDraftScheduledEvent'
 
 const mocks = vi.hoisted(() => {
     const saveDraftMutateAsync = vi.fn()
@@ -136,6 +139,7 @@ describe('usePostDraft', () => {
     })
 
     afterEach(() => {
+        closeDraftScheduledChannelForTest()
         vi.useRealTimers()
         Storage.clear()
     })
@@ -468,8 +472,11 @@ describe('usePostDraft', () => {
         composable.scheduleAutosave()
         const message: DraftScheduledEvent = {
             type: 'draft-scheduled',
+            eventId: 'scheduled-event-1',
+            sourceId: 'peer-tab',
             ownerId: '1',
             draftId: 91,
+            clientDraftKey: 'client-draft-key-1234',
             storageKey: 'noviis:test:draft',
             at: Date.now(),
         }
