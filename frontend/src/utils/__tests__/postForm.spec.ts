@@ -6,6 +6,7 @@ import {
     resolvePostFormFileIds,
     toEmbedPostVideoUrl,
     toSafePostLinkUrl,
+    validatePostDraftPoll,
     validatePostFormPoll,
     validatePostFormContent,
 } from '../postForm'
@@ -197,6 +198,19 @@ describe('postForm', () => {
             now,
             '2026-01-02T00:00:00Z',
         )).toBeNull()
+    })
+
+    it('validates draft poll structure without rejecting an expired close time', () => {
+        const expiredPoll = {
+            question: 'Pick one',
+            options: ['Alpha', 'Beta'],
+            multipleChoiceEnabled: false,
+            anonymousEnabled: false,
+            closesAt: '2025-01-01T00:00:00Z',
+        }
+
+        expect(validatePostDraftPoll(expiredPoll)).toBeNull()
+        expect(validatePostDraftPoll({ ...expiredPoll, options: ['Alpha'] })).toBe('optionCount')
     })
 
     // `datetime-local` 입력이 만드는 값은 offset이 없는 서버 기준(KST) 벽시계다.

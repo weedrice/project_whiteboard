@@ -102,6 +102,7 @@ export const boardEnWritePostMessages: BoardMessages['writePost'] = {
       retryNow: 'Retry save now',
       localStorageFailed: 'The draft could not be saved in this browser.',
       restoreFailed: 'The server draft could not be checked.',
+      constraintsExceeded: 'The recovered draft contains values outside the current limits. Update them before saving.',
       multipleFound: 'Multiple drafts exist for this board, so none was selected automatically.',
       conflict: 'Both the local and server drafts changed. Choose which copy to keep.',
       protected: 'This draft is used by a scheduled publication and cannot be changed here.',

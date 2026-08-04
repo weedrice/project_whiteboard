@@ -226,6 +226,58 @@ describe('draft browser lifecycle', () => {
     expect(Storage.has(futureKey)).toBe(true)
   })
 
+  it('normalizes invalid client identifiers without discarding draft content', () => {
+    const key = 'noviis:draft:1:create:free:invalid-identifiers'
+    Storage.set(key, {
+      schemaVersion: DRAFT_SNAPSHOT_SCHEMA_VERSION,
+      boardUrl: 'free',
+      title: 'keep this content',
+      clientDraftKey: 'short',
+      clientInstanceId: 'contains spaces',
+      clientModifiedAt: '2026-08-03T00:00:00.000Z',
+    })
+
+    expect(loadStoredDraftSnapshot(key)).toEqual(expect.objectContaining({
+      title: 'keep this content',
+      clientDraftKey: undefined,
+      clientInstanceId: undefined,
+    }))
+    expect(Storage.get(key)).not.toHaveProperty('clientDraftKey')
+    expect(Storage.get(key)).not.toHaveProperty('clientInstanceId')
+  })
+
+  it('restores content outside current limits as requiring correction', () => {
+    const key = 'noviis:draft:1:create:free:oversized-content'
+    Storage.set(key, {
+      boardUrl: 'free',
+      title: 'x'.repeat(201),
+      poll: {
+        question: 'Pick one',
+        options: ['only one'],
+      },
+      clientModifiedAt: '2026-08-03T00:00:00.000Z',
+    })
+
+    expect(loadStoredDraftSnapshot(key)).toEqual(expect.objectContaining({
+      title: 'x'.repeat(201),
+      contractValidationFailed: true,
+    }))
+    expect(Storage.has(key)).toBe(true)
+  })
+
+  it('quarantines snapshots with an invalid board identity instead of deleting them', () => {
+    const key = 'noviis:draft:1:create:free:invalid-board'
+    Storage.set(key, {
+      boardUrl: 'Free Board',
+      title: 'recoverable content',
+      clientModifiedAt: '2026-08-03T00:00:00.000Z',
+    })
+
+    expect(loadStoredDraftSnapshot(key)).toBeNull()
+    expect(Storage.has(key)).toBe(true)
+    expect(countUnsyncedStoredDraftSnapshotsForUser(1)).toBe(1)
+  })
+
   it('removes object snapshots without a board identity', () => {
     const key = 'noviis:draft:1:create:free:missing-board'
     Storage.set(key, { title: 'orphaned draft' })

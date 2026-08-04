@@ -15,6 +15,7 @@ export interface DraftRecoverySnapshot extends PostDraftData {
     clientInstanceId?: string
     hasLocalChanges?: boolean
     staleReferencesReset?: boolean
+    contractValidationFailed?: boolean
 }
 
 export interface DraftRecoveryResolution {

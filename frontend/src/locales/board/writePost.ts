@@ -101,6 +101,7 @@ export const boardWritePostMessages: BoardMessages['writePost'] = {
       retryNow: '지금 다시 저장',
       localStorageFailed: '브라우저 저장 공간에 기록하지 못했습니다.',
       restoreFailed: '서버 임시 저장본을 확인하지 못했습니다.',
+      constraintsExceeded: '복구한 임시 저장본에 현재 입력 제한을 벗어난 항목이 있습니다. 내용을 수정해 주세요.',
       multipleFound: '이 게시판에 임시 저장본이 여러 개 있어 자동으로 선택하지 않았습니다.',
       conflict: '로컬 초안과 서버 초안이 모두 변경되었습니다. 사용할 내용을 선택해 주세요.',
       protected: '예약 발행에서 사용 중인 임시 저장본은 여기서 변경할 수 없습니다.',

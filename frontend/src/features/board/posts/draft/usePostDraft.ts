@@ -108,6 +108,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
     const draftProtected = ref(false)
     const draftDeleted = ref(false)
     const staleReferencesReset = ref(false)
+    const contractValidationFailed = ref(false)
     const saveRetryAttempt = ref(0)
     const saveRetryScheduled = ref(false)
     const saveRetryExhausted = ref(false)
@@ -172,7 +173,11 @@ export function usePostDraft(options: UsePostDraftOptions) {
     const writeLocalSnapshot = () => {
         if (!options.enabled.value) return
         localRevision++
-        const snapshot = createDraftRecoverySnapshot(options.buildPayload(), draftId.value, updatedAt.value)
+        contractValidationFailed.value = options.canPersist?.() === false
+        const snapshot = {
+            ...createDraftRecoverySnapshot(options.buildPayload(), draftId.value, updatedAt.value),
+            contractValidationFailed: contractValidationFailed.value,
+        }
         return storeLocalSnapshot(snapshot)
     }
 
@@ -298,6 +303,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         lastSavedAt.value = updatedAt.value
         lastSaveScope.value = 'server'
         staleReferencesReset.value = false
+        contractValidationFailed.value = false
         if (revision === localRevision) {
             persistedRevision = revision
             storeLocalSnapshot(createStoredSavedDraftSnapshot(payload, savedDraft, updatedAt.value))
@@ -570,6 +576,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         draftProtected.value = false
         draftDeleted.value = false
         staleReferencesReset.value = Boolean(chosen.staleReferencesReset)
+        contractValidationFailed.value = Boolean(chosen.contractValidationFailed)
         restoreSource.value = recovery.source
         options.applyDraft(chosen)
         if (staleReferencesReset.value) options.onStaleReferencesReset?.()
@@ -607,6 +614,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         lastSaveScope.value = null
         draftDeleted.value = false
         staleReferencesReset.value = false
+        contractValidationFailed.value = false
         multipleDraftsFound.value = false
         resetDraftTracking()
         restoreSource.value = 'idle'
@@ -626,6 +634,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         draftProtected.value = false
         draftDeleted.value = false
         staleReferencesReset.value = false
+        contractValidationFailed.value = false
         resetDraftTracking()
         restoreSource.value = 'idle'
         hasRestoredDraft.value = false
@@ -824,6 +833,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         draftProtected: computed(() => draftProtected.value),
         draftDeleted: computed(() => draftDeleted.value),
         staleReferencesReset: computed(() => staleReferencesReset.value),
+        contractValidationFailed: computed(() => contractValidationFailed.value),
         isSavingDraft: computed(() => saveDraftMutation.isPending.value),
         restoreSource: computed(() => restoreSource.value),
         saveNow,

@@ -33,6 +33,7 @@ import {
   POST_POLL_QUESTION_MAX_LENGTH,
   POST_TITLE_MAX_LENGTH,
   validatePostDraftContent,
+  validatePostDraftPoll,
   validatePostFormContent,
   type PostFormPollValidationError,
   validatePostFormPoll,
@@ -219,12 +220,15 @@ const postContentIsValid = () => validatePostFormContent({
   tags: props.hideTags ? [] : form.value.tags,
   fileIds: buildPayload('content').fileIds,
 }) == null
-const draftContentIsValid = () => validatePostDraftContent({
-  title: form.value.title,
-  content: form.value.content,
-  tags: props.hideTags ? [] : form.value.tags,
-  fileIds: buildPayload('draft').fileIds,
-}) == null
+const draftContentIsValid = () => (
+  validatePostDraftContent({
+    title: form.value.title,
+    content: form.value.content,
+    tags: props.hideTags ? [] : form.value.tags,
+    fileIds: buildPayload('draft').fileIds,
+  }) == null
+  && validatePostDraftPoll(form.value.poll) == null
+)
 
 const {
   filteredCategories,

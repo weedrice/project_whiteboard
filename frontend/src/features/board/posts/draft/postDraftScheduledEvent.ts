@@ -1,3 +1,5 @@
+import { isValidDraftClientIdentifier } from '@/features/board/posts/draft/postDraftContract'
+
 const DRAFT_SCHEDULED_CHANNEL = 'noviis-draft-scheduled'
 const DRAFT_SCHEDULED_EVENT_KEY = 'noviis:draft-scheduled-event'
 const DRAFT_SCHEDULED_EVENT_TTL_MS = 60_000
@@ -57,7 +59,7 @@ function isDraftScheduledEvent(value: unknown, now = Date.now()): value is Draft
       || (typeof message.draftId === 'number' && Number.isInteger(message.draftId) && message.draftId > 0))
     && (message.clientDraftKey === null
       || (typeof message.clientDraftKey === 'string'
-        && /^[A-Za-z0-9_-]{8,64}$/.test(message.clientDraftKey)))
+        && isValidDraftClientIdentifier(message.clientDraftKey)))
     && typeof message.storageKey === 'string'
     && message.storageKey.length > 0
     && message.storageKey.length <= 512

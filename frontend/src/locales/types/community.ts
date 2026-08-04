@@ -380,6 +380,7 @@ export interface BoardMessages {
       retryNow: string
       localStorageFailed: string
       restoreFailed: string
+      constraintsExceeded: string
       multipleFound: string
       conflict: string
       protected: string

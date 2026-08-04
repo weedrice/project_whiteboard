@@ -1029,6 +1029,28 @@ class PostControllerTest {
         }
 
         @Test
+        @DisplayName("임시글 설문은 중첩 입력 제한을 검증한다")
+        void saveDraft_rejectsInvalidPoll() throws Exception {
+            PollRequest poll = new PollRequest();
+            poll.setQuestion("Pick one");
+            poll.setOptions(List.of("only one"));
+            PostDraftRequest request = PostDraftRequest.builder()
+                    .boardUrl("free")
+                    .title("Title")
+                    .contents("Content")
+                    .poll(poll)
+                    .build();
+            clearInvocations(postService);
+
+            mockMvc.perform(post("/api/v1/drafts").with(user(customUserDetails))
+                    .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.success").value(false));
+
+            verify(postService, never()).saveDraftPost(anyLong(), any());
+        }
+
+        @Test
         @DisplayName("임시저장 삭제")
         void deleteDraft_success() throws Exception {
             doNothing().when(postService).deleteDraftPost(anyLong(), eq(1L));

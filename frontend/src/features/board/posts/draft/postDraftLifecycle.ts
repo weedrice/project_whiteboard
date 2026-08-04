@@ -1,5 +1,20 @@
 import { Storage } from '@/utils/storage'
 import type { DraftRecoverySnapshot } from '@/features/board/posts/draft/postDraftRecovery'
+import {
+  isValidDraftBoardUrl,
+  normalizeDraftClientIdentifier,
+} from '@/features/board/posts/draft/postDraftContract'
+import {
+  POST_CONTENT_MAX_LENGTH,
+  POST_FILE_MAX_COUNT,
+  POST_POLL_MAX_OPTIONS,
+  POST_POLL_MIN_OPTIONS,
+  POST_POLL_OPTION_MAX_LENGTH,
+  POST_POLL_QUESTION_MAX_LENGTH,
+  POST_TAG_MAX_COUNT,
+  POST_TAG_MAX_LENGTH,
+  POST_TITLE_MAX_LENGTH,
+} from '@/utils/postForm'
 
 export const DRAFT_LOCAL_RETENTION_DAYS = 90
 export const DRAFT_SNAPSHOT_SCHEMA_VERSION = 1
@@ -53,6 +68,9 @@ function shouldPreserveUnparseableSnapshot(value: unknown, now: number): boolean
   if (typeof value.schemaVersion === 'number'
     && Number.isInteger(value.schemaVersion)
     && value.schemaVersion > DRAFT_SNAPSHOT_SCHEMA_VERSION) return true
+  if (typeof value.boardUrl === 'string'
+    && value.boardUrl.trim()
+    && !isValidDraftBoardUrl(value.boardUrl)) return true
   return typeof value.clientModifiedAt === 'string'
     && Date.parse(value.clientModifiedAt) > now + MAX_FUTURE_CLOCK_SKEW_MS
 }
@@ -85,13 +103,31 @@ function isValidPoll(value: unknown): boolean {
     && (value.closesAt === null || isOptionalDate(value.closesAt))
 }
 
+function hasDraftPayloadContractViolation(value: Record<string, unknown>): boolean {
+  if (typeof value.title === 'string' && value.title.length > POST_TITLE_MAX_LENGTH) return true
+  if (typeof value.contents === 'string' && value.contents.length > POST_CONTENT_MAX_LENGTH) return true
+  if (Array.isArray(value.tags) && (value.tags.length > POST_TAG_MAX_COUNT
+    || value.tags.some((tag) => typeof tag === 'string'
+      && (!tag.trim() || tag.length > POST_TAG_MAX_LENGTH)))) return true
+  if (Array.isArray(value.fileIds) && value.fileIds.length > POST_FILE_MAX_COUNT) return true
+  if (!isRecord(value.poll)) return false
+  if (typeof value.poll.question === 'string'
+    && (!value.poll.question.trim() || value.poll.question.length > POST_POLL_QUESTION_MAX_LENGTH)) return true
+  return Array.isArray(value.poll.options)
+    && (value.poll.options.length < POST_POLL_MIN_OPTIONS
+      || value.poll.options.length > POST_POLL_MAX_OPTIONS
+      || value.poll.options.some((option) => typeof option === 'string'
+        && (!option.trim() || option.length > POST_POLL_OPTION_MAX_LENGTH)))
+}
+
 export function parseDraftRecoverySnapshot(
   value: unknown,
   now = Date.now(),
 ): DraftRecoverySnapshot | null {
   if (!isRecord(value)) return null
   if (value.schemaVersion !== undefined && value.schemaVersion !== DRAFT_SNAPSHOT_SCHEMA_VERSION) return null
-  if (typeof value.boardUrl !== 'string' || !value.boardUrl.trim() || value.boardUrl.length > 255) return null
+  if (typeof value.boardUrl !== 'string' || !value.boardUrl.trim()
+    || !isValidDraftBoardUrl(value.boardUrl)) return null
   if (!isOptionalString(value.title) || !isOptionalString(value.contents)
     || !isOptionalString(value.clientDraftKey) || !isOptionalString(value.clientInstanceId)) return null
   if (!isOptionalPositiveInteger(value.draftId) || !isOptionalPositiveInteger(value.categoryId, true)
@@ -105,7 +141,7 @@ export function parseDraftRecoverySnapshot(
   if (!isOptionalBoolean(value.isNotice) || !isOptionalBoolean(value.isNsfw)
     || !isOptionalBoolean(value.isSpoiler) || !isOptionalBoolean(value.isSecret)
     || !isOptionalBoolean(value.hasLocalChanges) || !isOptionalBoolean(value.staleReferencesReset)
-    || !isValidPoll(value.poll)) return null
+    || !isOptionalBoolean(value.contractValidationFailed) || !isValidPoll(value.poll)) return null
   if (!isOptionalDate(value.updatedAt) || !isOptionalDate(value.modifiedAt)
     || !isOptionalDate(value.clientModifiedAt)) return null
   if (typeof value.clientModifiedAt === 'string'
@@ -114,6 +150,10 @@ export function parseDraftRecoverySnapshot(
   const fallbackModifiedAt = getSnapshotModifiedAt(value as unknown as DraftRecoverySnapshot) ?? now
   return {
     ...value,
+    clientDraftKey: normalizeDraftClientIdentifier(value.clientDraftKey),
+    clientInstanceId: normalizeDraftClientIdentifier(value.clientInstanceId),
+    contractValidationFailed: value.contractValidationFailed === true
+      || hasDraftPayloadContractViolation(value),
     schemaVersion: DRAFT_SNAPSHOT_SCHEMA_VERSION,
     clientModifiedAt: typeof value.clientModifiedAt === 'string'
       ? value.clientModifiedAt
@@ -151,7 +191,10 @@ function readStoredDraftSnapshot(key: string, now = Date.now()): StoredDraftRead
   }
   if (!isRecord(parsed)
     || parsed.schemaVersion !== DRAFT_SNAPSHOT_SCHEMA_VERSION
-    || parsed.clientModifiedAt !== snapshot.clientModifiedAt) {
+    || parsed.clientModifiedAt !== snapshot.clientModifiedAt
+    || parsed.clientDraftKey !== snapshot.clientDraftKey
+    || parsed.clientInstanceId !== snapshot.clientInstanceId
+    || parsed.contractValidationFailed !== snapshot.contractValidationFailed) {
     Storage.set(key, snapshot)
   }
   return { status: 'valid', snapshot, rawSize }
