@@ -75,15 +75,37 @@ class DraftPostRepositoryTest {
     }
 
     @Test
-    @DisplayName("초안 목록 전용 조회는 board를 함께 로드한다")
-    void findPageByUserWithBoard_fetchesBoard() {
+    @DisplayName("초안 목록 전용 조회는 board와 수정 대상 게시글을 함께 로드한다")
+    void findPageByUserWithBoard_fetchesListRelations() {
+        Post originalPost = Post.builder()
+                .user(user)
+                .board(board)
+                .title("original")
+                .contents("contents")
+                .build();
+        entityManager.persist(originalPost);
+        entityManager.persist(DraftPost.builder()
+                .user(user)
+                .board(board)
+                .originalPost(originalPost)
+                .title("edit-draft")
+                .contents("contents")
+                .build());
+        entityManager.flush();
+        entityManager.clear();
+
         Page<DraftPost> result = draftPostRepository.findPageByUserWithBoard(user, PageRequest.of(0, 10));
         PersistenceUnitUtil persistenceUnitUtil = entityManagerFactory.getPersistenceUnitUtil();
 
-        assertThat(result.getContent()).hasSize(1);
-        DraftPost draftPost = result.getContent().getFirst();
+        assertThat(result.getContent()).hasSize(2);
+        DraftPost draftPost = result.getContent().stream()
+                .filter(draft -> "edit-draft".equals(draft.getTitle()))
+                .findFirst()
+                .orElseThrow();
         assertThat(persistenceUnitUtil.isLoaded(draftPost, "board")).isTrue();
+        assertThat(persistenceUnitUtil.isLoaded(draftPost, "originalPost")).isTrue();
         assertThat(draftPost.getBoard().getBoardName()).isEqualTo("draft-board");
+        assertThat(draftPost.getOriginalPost().getPostId()).isEqualTo(originalPost.getPostId());
     }
 
     @Test

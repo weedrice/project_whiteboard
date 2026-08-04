@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface DraftPostRepository extends JpaRepository<DraftPost, Long> {
-    @EntityGraph(attributePaths = "board")
+    @EntityGraph(attributePaths = {"board", "originalPost"})
     @Query(value = """
             SELECT d
             FROM DraftPost d
