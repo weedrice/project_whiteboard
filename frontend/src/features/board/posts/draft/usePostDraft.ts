@@ -506,7 +506,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
             generationIsCurrent: () => generation === sessionGeneration,
             onStaleLocalSnapshot: (snapshot) => {
                 resetDraftTracking()
-                Storage.set(options.storageKey.value, snapshot)
+                storeLocalSnapshot(snapshot)
             },
         })
         if (generation !== sessionGeneration) return

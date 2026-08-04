@@ -65,6 +65,7 @@ export function stripDraftServerIdentity(snapshot: DraftRecoverySnapshot): Draft
   return {
     ...snapshot,
     draftId: undefined,
+    version: undefined,
     updatedAt: undefined,
     modifiedAt: undefined,
     hasLocalChanges: true,

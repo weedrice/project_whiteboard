@@ -1076,6 +1076,7 @@ describe('usePostDraft', () => {
             title: 'Local draft',
             contents: 'Local contents',
             draftId: 91,
+            version: 4,
             updatedAt: '2025-01-01T00:00:00.000Z',
             clientModifiedAt: '2026-07-07T11:30:00.000Z',
         })
@@ -1096,7 +1097,12 @@ describe('usePostDraft', () => {
             contents: 'Local contents',
         }))
         expect(composable.restoreSource.value).toBe('local')
+        expect(Storage.get('noviis:test:draft')).toEqual(expect.objectContaining({
+            schemaVersion: 1,
+            hasLocalChanges: true,
+        }))
         expect(Storage.get('noviis:test:draft')).not.toHaveProperty('draftId')
+        expect(Storage.get('noviis:test:draft')).not.toHaveProperty('version')
     })
 
     it('keeps local server identity when draft recovery gets a related-resource 404', async () => {
