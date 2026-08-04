@@ -1044,8 +1044,8 @@ class PostControllerTest {
         }
 
         @Test
-        @DisplayName("임시글 설문은 중첩 입력 제한을 검증한다")
-        void saveDraft_rejectsInvalidPoll() throws Exception {
+        @DisplayName("임시글 설문은 작성 중인 질문과 선택지를 허용한다")
+        void saveDraft_allowsIncompletePoll() throws Exception {
             PollRequest poll = new PollRequest();
             poll.setQuestion("Pick one");
             poll.setOptions(List.of("only one"));
@@ -1059,10 +1059,10 @@ class PostControllerTest {
 
             mockMvc.perform(post("/api/v1/drafts").with(user(customUserDetails))
                     .contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(request)))
-                    .andExpect(status().isBadRequest())
-                    .andExpect(jsonPath("$.success").value(false));
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.success").value(true));
 
-            verify(postService, never()).saveDraftPost(anyLong(), any());
+            verify(postService).saveDraftPost(anyLong(), any(PostDraftRequest.class));
         }
 
         @Test

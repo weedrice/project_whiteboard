@@ -274,6 +274,16 @@ export function validatePostDraftPoll(
     return null
 }
 
+export function validatePostDraftPollContract(
+    poll?: PostFormPoll | null,
+): Extract<PostFormPollValidationError, 'questionTooLong' | 'optionCount' | 'optionTooLong'> | null {
+    if (!poll) return null
+    if (poll.question.length > POST_POLL_QUESTION_MAX_LENGTH) return 'questionTooLong'
+    if (poll.options.length > POST_POLL_MAX_OPTIONS) return 'optionCount'
+    if (poll.options.some((option) => option.length > POST_POLL_OPTION_MAX_LENGTH)) return 'optionTooLong'
+    return null
+}
+
 export function toSafePostLinkUrl(url: string): string {
     const trimmed = (url || '').trim()
     if (!trimmed) return ''

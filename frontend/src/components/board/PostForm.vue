@@ -33,7 +33,7 @@ import {
   POST_POLL_QUESTION_MAX_LENGTH,
   POST_TITLE_MAX_LENGTH,
   validatePostDraftContent,
-  validatePostDraftPoll,
+  validatePostDraftPollContract,
   validatePostFormContent,
   type PostFormPollValidationError,
   validatePostFormPoll,
@@ -227,7 +227,7 @@ const draftContentIsValid = () => (
     tags: props.hideTags ? [] : form.value.tags,
     fileIds: buildPayload('draft').fileIds,
   }) == null
-  && validatePostDraftPoll(form.value.poll) == null
+  && validatePostDraftPollContract(form.value.poll) == null
 )
 
 const {

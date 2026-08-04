@@ -7,6 +7,7 @@ import {
     toEmbedPostVideoUrl,
     toSafePostLinkUrl,
     validatePostDraftPoll,
+    validatePostDraftPollContract,
     validatePostFormPoll,
     validatePostFormContent,
 } from '../postForm'
@@ -211,6 +212,21 @@ describe('postForm', () => {
 
         expect(validatePostDraftPoll(expiredPoll)).toBeNull()
         expect(validatePostDraftPoll({ ...expiredPoll, options: ['Alpha'] })).toBe('optionCount')
+    })
+
+    it('allows incomplete draft polls while enforcing only storage upper bounds', () => {
+        const incompletePoll = {
+            question: '',
+            options: [''],
+            multipleChoiceEnabled: false,
+            anonymousEnabled: false,
+            closesAt: null,
+        }
+
+        expect(validatePostDraftPollContract(incompletePoll)).toBeNull()
+        expect(validatePostDraftPollContract({ ...incompletePoll, question: 'q'.repeat(201) })).toBe('questionTooLong')
+        expect(validatePostDraftPollContract({ ...incompletePoll, options: Array(11).fill('') })).toBe('optionCount')
+        expect(validatePostDraftPollContract({ ...incompletePoll, options: ['o'.repeat(101)] })).toBe('optionTooLong')
     })
 
     // `datetime-local` 입력이 만드는 값은 offset이 없는 서버 기준(KST) 벽시계다.
