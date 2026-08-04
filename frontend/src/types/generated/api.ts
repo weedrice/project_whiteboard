@@ -4128,6 +4128,7 @@ export interface components {
             poll?: components["schemas"]["PollRequest"];
             /** Format: int64 */
             seriesId?: number;
+            staleReferencesReset?: boolean;
             tags?: string[];
             title?: string;
             /** Format: date-time */

@@ -3184,6 +3184,9 @@
             "format" : "int64",
             "type" : "integer"
           },
+          "staleReferencesReset" : {
+            "type" : "boolean"
+          },
           "tags" : {
             "items" : {
               "type" : "string"
