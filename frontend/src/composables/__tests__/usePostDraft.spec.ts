@@ -1391,6 +1391,40 @@ describe('usePostDraft', () => {
         setItem.mockRestore()
     })
 
+    it('reports evicted draft rollback failures without exposing draft data', async () => {
+        const targetKey = 'noviis:test:draft'
+        const rollbackFailureKey = 'noviis:draft:1:create:free:0'
+        for (let index = 0; index < 5; index++) {
+            Storage.set(`noviis:draft:1:create:free:${index}`, {
+                boardUrl: 'free',
+                title: `draft ${index}`,
+                hasLocalChanges: false,
+                clientModifiedAt: new Date(Date.UTC(2026, 6, 1, 0, index)).toISOString(),
+            })
+        }
+        const originalSet = Storage.setWithResult.bind(Storage)
+        const setItem = vi.spyOn(Storage, 'setWithResult').mockImplementation((key, value) => {
+            if (key === targetKey) return { ok: false, reason: 'quota-exceeded' }
+            if (key === rollbackFailureKey) return { ok: false, reason: 'unavailable' }
+            return originalSet(key, value)
+        })
+        try {
+            const { composable } = mountComposable(undefined, ref(targetKey))
+
+            expect(composable.writeLocalSnapshot()).toBe(false)
+            expect(mocks.loggerError).toHaveBeenCalledWith(
+                'Draft local snapshot rollback failed.',
+                { event: 'draft_local_snapshot_rollback_failed', failedCount: 1 },
+            )
+            expect(mocks.reportDraftOperationalEvent).toHaveBeenCalledWith(
+                'local_storage_rollback_failed',
+                { failedCount: 1 },
+            )
+        } finally {
+            setItem.mockRestore()
+        }
+    })
+
     it('retries a failed server recovery when connectivity returns', async () => {
         mocks.getMatchingDraft.mockRejectedValueOnce(new Error('offline'))
         const { composable } = mountComposable(ref({

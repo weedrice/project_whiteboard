@@ -12,6 +12,7 @@ import {
   MIN_LOCAL_DRAFT_SNAPSHOTS_TO_RETAIN,
   migrateStoredDraftSnapshot,
   storeDraftSnapshotWithBudget,
+  storeDraftSnapshotWithBudgetResult,
 } from '@/features/board/posts/draft/postDraftLifecycle'
 import {
   isDraftDeletedLocally,
@@ -460,6 +461,33 @@ describe('draft browser lifecycle', () => {
     })).toBe(false)
     expect(Storage.keys().filter((key) => key.startsWith('noviis:draft:1:create:free:'))).toHaveLength(5)
     expect(Storage.has(targetKey)).toBe(false)
+  })
+
+  it('reports how many evicted drafts could not be restored after a failed write', () => {
+    const targetKey = 'noviis:draft:1:create:free:current'
+    const rollbackFailureKey = 'noviis:draft:1:create:free:0'
+    for (let index = 0; index < MIN_LOCAL_DRAFT_SNAPSHOTS_TO_RETAIN + 2; index++) {
+      Storage.set(`noviis:draft:1:create:free:${index}`, {
+        boardUrl: 'free',
+        title: `draft ${index}`,
+        hasLocalChanges: false,
+        clientModifiedAt: new Date(Date.UTC(2026, 7, 3, 0, index)).toISOString(),
+      })
+    }
+    const originalSet = Storage.setWithResult.bind(Storage)
+    vi.spyOn(Storage, 'setWithResult').mockImplementation((key, value) => {
+      if (key === targetKey) return { ok: false, reason: 'quota-exceeded' }
+      if (key === rollbackFailureKey) return { ok: false, reason: 'unavailable' }
+      return originalSet(key, value)
+    })
+
+    expect(storeDraftSnapshotWithBudgetResult(targetKey, {
+      boardUrl: 'free',
+      title: 'current draft',
+      clientModifiedAt: '2026-08-03T00:00:00.000Z',
+    })).toEqual({ stored: false, rollbackFailedCount: 1 })
+    expect(Storage.has(rollbackFailureKey)).toBe(false)
+    expect(Storage.has('noviis:draft:1:create:free:1')).toBe(true)
   })
 
   it('rejects an oversized snapshot without evicting existing drafts', () => {

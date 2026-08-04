@@ -37,7 +37,7 @@ import {
     cleanupExpiredDraftSnapshots,
     loadStoredDraftSnapshot,
     parseDraftRecoverySnapshot,
-    storeDraftSnapshotWithBudget,
+    storeDraftSnapshotWithBudgetResult,
 } from '@/features/board/posts/draft/postDraftLifecycle'
 import {
     matchesDraftScheduledEvent,
@@ -101,6 +101,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
     const lastSaveScope = ref<DraftSaveScope | null>(null)
     const lastSaveFailed = ref(false)
     const lastLocalSaveFailed = ref(false)
+    const lastLocalRollbackFailed = ref(false)
     const restoreFailed = ref(false)
     const multipleDraftsFound = ref(false)
     const isRestoringDraft = ref(false)
@@ -154,18 +155,29 @@ export function usePostDraft(options: UsePostDraftOptions) {
     }
 
     const storeLocalSnapshot = (snapshot: DraftRecoverySnapshot) => {
-        const stored = storeDraftSnapshotWithBudget(options.storageKey.value, {
+        const result = storeDraftSnapshotWithBudgetResult(options.storageKey.value, {
             ...snapshot,
             clientDraftKey: snapshot.clientDraftKey ?? clientDraftKey.value,
             version: snapshot.version ?? draftVersion.value ?? undefined,
             clientInstanceId,
         })
+        const stored = result.stored
+        if (result.rollbackFailedCount > 0 && !lastLocalRollbackFailed.value) {
+            logger.error('Draft local snapshot rollback failed.', {
+                event: 'draft_local_snapshot_rollback_failed',
+                failedCount: result.rollbackFailedCount,
+            })
+            void reportDraftOperationalEvent('local_storage_rollback_failed', {
+                failedCount: result.rollbackFailedCount,
+            })
+        }
         if (!stored && !lastLocalSaveFailed.value) {
             logger.error('Draft local snapshot storage failed.', {
                 event: 'draft_local_snapshot_write_failed',
             })
             void reportDraftOperationalEvent('local_storage_write_failed')
         }
+        lastLocalRollbackFailed.value = result.rollbackFailedCount > 0
         lastLocalSaveFailed.value = !stored
         return stored
     }
@@ -627,6 +639,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         lastSaveScope.value = null
         lastSaveFailed.value = false
         lastLocalSaveFailed.value = false
+        lastLocalRollbackFailed.value = false
         restoreFailed.value = false
         multipleDraftsFound.value = false
         isRestoringDraft.value = false

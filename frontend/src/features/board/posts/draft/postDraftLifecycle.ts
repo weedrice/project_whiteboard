@@ -301,8 +301,18 @@ export function countUnsyncedStoredDraftSnapshotsForUser(userId: string | number
   return count
 }
 
-export function storeDraftSnapshotWithBudget(key: string, snapshot: DraftRecoverySnapshot): boolean {
-  if (readStoredDraftSnapshot(key).status === 'preserved-unknown') return false
+export interface DraftSnapshotStoreResult {
+  stored: boolean
+  rollbackFailedCount: number
+}
+
+export function storeDraftSnapshotWithBudgetResult(
+  key: string,
+  snapshot: DraftRecoverySnapshot,
+): DraftSnapshotStoreResult {
+  if (readStoredDraftSnapshot(key).status === 'preserved-unknown') {
+    return { stored: false, rollbackFailedCount: 0 }
+  }
   const versionedSnapshot = {
     ...snapshot,
     schemaVersion: DRAFT_SNAPSHOT_SCHEMA_VERSION,
@@ -311,9 +321,9 @@ export function storeDraftSnapshotWithBudget(key: string, snapshot: DraftRecover
   try {
     rawSize = JSON.stringify(versionedSnapshot).length * 2
   } catch {
-    return false
+    return { stored: false, rollbackFailedCount: 0 }
   }
-  if (rawSize > MAX_LOCAL_DRAFT_BYTES) return false
+  if (rawSize > MAX_LOCAL_DRAFT_BYTES) return { stored: false, rollbackFailedCount: 0 }
 
   const inventory = collectStoredDraftInventory()
   const candidates = inventory.entries
@@ -322,7 +332,9 @@ export function storeDraftSnapshotWithBudget(key: string, snapshot: DraftRecover
   const retainedBytes = candidates
     .filter((entry) => protectedKeys.has(entry.key))
     .reduce((total, entry) => total + entry.rawSize, 0)
-  if (rawSize + retainedBytes + inventory.preservedUnknownBytes > MAX_LOCAL_DRAFT_BYTES) return false
+  if (rawSize + retainedBytes + inventory.preservedUnknownBytes > MAX_LOCAL_DRAFT_BYTES) {
+    return { stored: false, rollbackFailedCount: 0 }
+  }
 
   let projectedCount = candidates.length + inventory.preservedUnknownCount + 1
   let projectedBytes = candidates.reduce(
@@ -341,8 +353,7 @@ export function storeDraftSnapshotWithBudget(key: string, snapshot: DraftRecover
     projectedBytes -= candidate.rawSize
   }
   if (projectedCount > MAX_LOCAL_DRAFT_SNAPSHOTS || projectedBytes > MAX_LOCAL_DRAFT_BYTES) {
-    restoreRemovedDraftEntries(removed)
-    return false
+    return { stored: false, rollbackFailedCount: restoreRemovedDraftEntries(removed) }
   }
 
   let result = Storage.setWithResult(key, versionedSnapshot)
@@ -352,14 +363,21 @@ export function storeDraftSnapshotWithBudget(key: string, snapshot: DraftRecover
     removed.push(candidate)
     result = Storage.setWithResult(key, versionedSnapshot)
   }
-  if (result.ok) return true
+  if (result.ok) return { stored: true, rollbackFailedCount: 0 }
 
-  restoreRemovedDraftEntries(removed)
-  return false
+  return { stored: false, rollbackFailedCount: restoreRemovedDraftEntries(removed) }
+}
+
+export function storeDraftSnapshotWithBudget(key: string, snapshot: DraftRecoverySnapshot): boolean {
+  return storeDraftSnapshotWithBudgetResult(key, snapshot).stored
 }
 
 function restoreRemovedDraftEntries(entries: StoredDraftEntry[]) {
-  for (const entry of entries) Storage.set(entry.key, entry.snapshot)
+  let failedCount = 0
+  for (const entry of entries) {
+    if (!Storage.setWithResult(entry.key, entry.snapshot).ok) failedCount++
+  }
+  return failedCount
 }
 
 export function migrateStoredDraftSnapshot(

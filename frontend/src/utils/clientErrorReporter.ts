@@ -36,6 +36,7 @@ interface ClientErrorReportingOptions {
 
 export type DraftOperationalEvent =
     | 'local_storage_write_failed'
+    | 'local_storage_rollback_failed'
     | 'autosave_retry_exhausted'
     | 'draft_conflict'
     | 'draft_protected'
