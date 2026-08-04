@@ -21,6 +21,8 @@ export const DRAFT_SNAPSHOT_SCHEMA_VERSION = 1
 export const MAX_LOCAL_DRAFT_SNAPSHOTS = 50
 export const MAX_LOCAL_DRAFT_BYTES = 3 * 1024 * 1024
 export const MIN_LOCAL_DRAFT_SNAPSHOTS_TO_RETAIN = 3
+export const MAX_PRESERVED_UNKNOWN_DRAFT_SNAPSHOTS = 20
+export const MAX_PRESERVED_UNKNOWN_DRAFT_BYTES = 1024 * 1024
 const DRAFT_STORAGE_PREFIX = 'noviis:draft:'
 const RETENTION_MS = DRAFT_LOCAL_RETENTION_DAYS * 24 * 60 * 60 * 1000
 const MAX_FUTURE_CLOCK_SKEW_MS = 24 * 60 * 60 * 1000
@@ -33,15 +35,21 @@ type StoredDraftEntry = {
   modifiedAt: number
 }
 
+type PreservedUnknownDraftEntry = {
+  key: string
+  ownerId: string | null
+  rawSize: number
+  modifiedAt: number
+}
+
 type StoredDraftReadResult =
   | { status: 'valid', snapshot: DraftRecoverySnapshot, rawSize: number }
-  | { status: 'preserved-unknown', rawSize: number }
+  | { status: 'preserved-unknown', rawSize: number, modifiedAt: number }
   | { status: 'missing' | 'invalid', rawSize: 0 }
 
 type StoredDraftInventory = {
   entries: StoredDraftEntry[]
-  preservedUnknownCount: number
-  preservedUnknownBytes: number
+  preservedUnknownEntries: PreservedUnknownDraftEntry[]
 }
 
 function getSnapshotModifiedAt(snapshot: DraftRecoverySnapshot): number | null {
@@ -63,16 +71,29 @@ function getDraftOwnerId(key: string): string | null {
   return ownerId || null
 }
 
+function getUnparseableSnapshotModifiedAt(value: Record<string, unknown>): number | null {
+  for (const field of ['clientModifiedAt', 'updatedAt', 'modifiedAt']) {
+    const candidate = value[field]
+    if (typeof candidate !== 'string') continue
+    const parsed = Date.parse(candidate)
+    if (Number.isFinite(parsed)) return parsed
+  }
+  return null
+}
+
 function shouldPreserveUnparseableSnapshot(value: unknown, now: number): boolean {
   if (!isRecord(value)) return false
-  if (typeof value.schemaVersion === 'number'
+  const hasFutureSchema = typeof value.schemaVersion === 'number'
     && Number.isInteger(value.schemaVersion)
-    && value.schemaVersion > DRAFT_SNAPSHOT_SCHEMA_VERSION) return true
-  if (typeof value.boardUrl === 'string'
+    && value.schemaVersion > DRAFT_SNAPSHOT_SCHEMA_VERSION
+  const hasUnknownBoardFormat = typeof value.boardUrl === 'string'
     && value.boardUrl.trim()
-    && !isValidDraftBoardUrl(value.boardUrl)) return true
-  return typeof value.clientModifiedAt === 'string'
+    && !isValidDraftBoardUrl(value.boardUrl)
+  const hasFutureTimestamp = typeof value.clientModifiedAt === 'string'
     && Date.parse(value.clientModifiedAt) > now + MAX_FUTURE_CLOCK_SKEW_MS
+  if (!hasFutureSchema && !hasUnknownBoardFormat && !hasFutureTimestamp) return false
+  const modifiedAt = getUnparseableSnapshotModifiedAt(value)
+  return modifiedAt == null || modifiedAt >= now - RETENTION_MS
 }
 
 function isOptionalString(value: unknown): value is string | undefined {
@@ -180,7 +201,8 @@ function readStoredDraftSnapshot(key: string, now = Date.now()): StoredDraftRead
   const snapshot = parseDraftRecoverySnapshot(parsed, now)
   if (!snapshot) {
     if (shouldPreserveUnparseableSnapshot(parsed, now)) {
-      return { status: 'preserved-unknown', rawSize }
+      const modifiedAt = isRecord(parsed) ? getUnparseableSnapshotModifiedAt(parsed) : null
+      return { status: 'preserved-unknown', rawSize, modifiedAt: Math.min(modifiedAt ?? now, now) }
     }
     Storage.remove(key)
     return { status: 'invalid', rawSize: 0 }
@@ -207,14 +229,17 @@ export function loadStoredDraftSnapshot(key: string, now = Date.now()): DraftRec
 
 function collectStoredDraftInventory(now = Date.now()): StoredDraftInventory {
   const entries: StoredDraftEntry[] = []
-  let preservedUnknownCount = 0
-  let preservedUnknownBytes = 0
+  const preservedUnknownEntries: PreservedUnknownDraftEntry[] = []
   for (const key of Storage.keys()) {
     if (!key.startsWith(DRAFT_STORAGE_PREFIX)) continue
     const result = readStoredDraftSnapshot(key, now)
     if (result.status === 'preserved-unknown') {
-      preservedUnknownCount++
-      preservedUnknownBytes += result.rawSize
+      preservedUnknownEntries.push({
+        key,
+        ownerId: getDraftOwnerId(key),
+        rawSize: result.rawSize,
+        modifiedAt: result.modifiedAt,
+      })
       continue
     }
     if (result.status !== 'valid') continue
@@ -226,7 +251,23 @@ function collectStoredDraftInventory(now = Date.now()): StoredDraftInventory {
       modifiedAt: getSnapshotModifiedAt(result.snapshot) ?? now,
     })
   }
-  return { entries, preservedUnknownCount, preservedUnknownBytes }
+  return { entries, preservedUnknownEntries }
+}
+
+function prunePreservedUnknownEntries(inventory: StoredDraftInventory) {
+  const entries = inventory.preservedUnknownEntries
+    .sort((left, right) => left.modifiedAt - right.modifiedAt || left.key.localeCompare(right.key))
+  let totalBytes = entries.reduce((total, entry) => total + entry.rawSize, 0)
+  let removed = 0
+  while (entries.length > MAX_PRESERVED_UNKNOWN_DRAFT_SNAPSHOTS
+    || totalBytes > MAX_PRESERVED_UNKNOWN_DRAFT_BYTES) {
+    const entry = entries.shift()
+    if (!entry) break
+    Storage.remove(entry.key)
+    totalBytes -= entry.rawSize
+    removed++
+  }
+  return removed
 }
 
 function getProtectedSnapshotKeys(entries: StoredDraftEntry[]): Set<string> {
@@ -258,11 +299,11 @@ function getRemovableSyncedEntries(entries: StoredDraftEntry[], protectedKey?: s
 
 export function enforceDraftSnapshotBudget(protectedKey?: string, now = Date.now()) {
   const inventory = collectStoredDraftInventory(now)
+  let removed = prunePreservedUnknownEntries(inventory)
   const { entries } = inventory
-  let count = entries.length + inventory.preservedUnknownCount
-  let totalBytes = inventory.preservedUnknownBytes
+  let count = entries.length + inventory.preservedUnknownEntries.length
+  let totalBytes = inventory.preservedUnknownEntries.reduce((total, entry) => total + entry.rawSize, 0)
     + entries.reduce((total, entry) => total + entry.rawSize, 0)
-  let removed = 0
 
   for (const entry of getRemovableSyncedEntries(entries, protectedKey)) {
     if (count <= MAX_LOCAL_DRAFT_SNAPSHOTS && totalBytes <= MAX_LOCAL_DRAFT_BYTES) break
@@ -326,20 +367,23 @@ export function storeDraftSnapshotWithBudgetResult(
   if (rawSize > MAX_LOCAL_DRAFT_BYTES) return { stored: false, rollbackFailedCount: 0 }
 
   const inventory = collectStoredDraftInventory()
+  prunePreservedUnknownEntries(inventory)
   const candidates = inventory.entries
     .filter((entry) => entry.key !== key)
   const protectedKeys = getProtectedSnapshotKeys(candidates)
   const retainedBytes = candidates
     .filter((entry) => protectedKeys.has(entry.key))
     .reduce((total, entry) => total + entry.rawSize, 0)
-  if (rawSize + retainedBytes + inventory.preservedUnknownBytes > MAX_LOCAL_DRAFT_BYTES) {
+  const preservedUnknownBytes = inventory.preservedUnknownEntries
+    .reduce((total, entry) => total + entry.rawSize, 0)
+  if (rawSize + retainedBytes + preservedUnknownBytes > MAX_LOCAL_DRAFT_BYTES) {
     return { stored: false, rollbackFailedCount: 0 }
   }
 
-  let projectedCount = candidates.length + inventory.preservedUnknownCount + 1
+  let projectedCount = candidates.length + inventory.preservedUnknownEntries.length + 1
   let projectedBytes = candidates.reduce(
     (total, entry) => total + entry.rawSize,
-    rawSize + inventory.preservedUnknownBytes,
+    rawSize + preservedUnknownBytes,
   )
   const removed: StoredDraftEntry[] = []
   const removable = getRemovableSyncedEntries(candidates)

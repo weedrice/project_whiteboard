@@ -9,6 +9,8 @@ import {
   loadStoredDraftSnapshot,
   MAX_LOCAL_DRAFT_BYTES,
   MAX_LOCAL_DRAFT_SNAPSHOTS,
+  MAX_PRESERVED_UNKNOWN_DRAFT_BYTES,
+  MAX_PRESERVED_UNKNOWN_DRAFT_SNAPSHOTS,
   MIN_LOCAL_DRAFT_SNAPSHOTS_TO_RETAIN,
   migrateStoredDraftSnapshot,
   storeDraftSnapshotWithBudget,
@@ -188,6 +190,19 @@ describe('draft browser lifecycle', () => {
     expect(Storage.has(key)).toBe(true)
   })
 
+  it('expires future schema snapshots after the local retention period', () => {
+    const key = 'noviis:draft:1:create:free:expired-future-schema'
+    Storage.set(key, {
+      schemaVersion: DRAFT_SNAPSHOT_SCHEMA_VERSION + 1,
+      boardUrl: 'free',
+      clientModifiedAt: '2026-04-01T00:00:00.000Z',
+    })
+
+    cleanupExpiredDraftSnapshots()
+
+    expect(Storage.has(key)).toBe(false)
+  })
+
   it('does not overwrite a snapshot written by a future schema version', () => {
     const key = 'noviis:draft:1:create:free:future-schema'
     Storage.set(key, {
@@ -338,7 +353,7 @@ describe('draft browser lifecycle', () => {
       .toHaveLength(MAX_LOCAL_DRAFT_SNAPSHOTS + 1)
   })
 
-  it('accounts for preserved unknown snapshots without evicting them', () => {
+  it('bounds preserved unknown snapshots before applying the regular budget', () => {
     for (let index = 0; index < MAX_LOCAL_DRAFT_SNAPSHOTS; index++) {
       Storage.set(`noviis:draft:1:create:free:future-${index}`, {
         schemaVersion: DRAFT_SNAPSHOT_SCHEMA_VERSION + 1,
@@ -354,8 +369,46 @@ describe('draft browser lifecycle', () => {
       })
     }
 
-    expect(enforceDraftSnapshotBudget()).toBe(1)
-    expect(Storage.keys().filter((key) => key.includes(':future-'))).toHaveLength(MAX_LOCAL_DRAFT_SNAPSHOTS)
+    expect(enforceDraftSnapshotBudget()).toBe(
+      MAX_LOCAL_DRAFT_SNAPSHOTS - MAX_PRESERVED_UNKNOWN_DRAFT_SNAPSHOTS,
+    )
+    expect(Storage.keys().filter((key) => key.includes(':future-')))
+      .toHaveLength(MAX_PRESERVED_UNKNOWN_DRAFT_SNAPSHOTS)
+    expect(Storage.keys().filter((key) => key.includes(':synced-')))
+      .toHaveLength(MIN_LOCAL_DRAFT_SNAPSHOTS_TO_RETAIN + 1)
+  })
+
+  it('lets the current app store a draft after pruning excess future snapshots', () => {
+    for (let index = 0; index < MAX_PRESERVED_UNKNOWN_DRAFT_SNAPSHOTS + 1; index++) {
+      Storage.set(`noviis:draft:1:create:free:future-${index}`, {
+        schemaVersion: DRAFT_SNAPSHOT_SCHEMA_VERSION + 1,
+        boardUrl: 'free',
+        clientModifiedAt: new Date(Date.UTC(2026, 7, 2, 0, index)).toISOString(),
+      })
+    }
+
+    expect(storeDraftSnapshotWithBudget('noviis:draft:1:create:free:current', {
+      boardUrl: 'free',
+      title: 'current app draft',
+      hasLocalChanges: true,
+      clientModifiedAt: '2026-08-03T00:00:00.000Z',
+    })).toBe(true)
+    expect(Storage.keys().filter((key) => key.includes(':future-')))
+      .toHaveLength(MAX_PRESERVED_UNKNOWN_DRAFT_SNAPSHOTS)
+  })
+
+  it('removes an unknown snapshot that alone exceeds its quarantine byte budget', () => {
+    const key = 'noviis:draft:1:create:free:oversized-future'
+    Storage.set(key, {
+      schemaVersion: DRAFT_SNAPSHOT_SCHEMA_VERSION + 1,
+      boardUrl: 'free',
+      title: 'x'.repeat(MAX_PRESERVED_UNKNOWN_DRAFT_BYTES),
+      clientModifiedAt: '2026-08-03T00:00:00.000Z',
+    })
+
+    cleanupExpiredDraftSnapshots()
+
+    expect(Storage.has(key)).toBe(false)
   })
 
   it('retains the newest synced backups separately for each user', () => {
