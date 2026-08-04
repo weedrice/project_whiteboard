@@ -351,6 +351,21 @@ describe('draft browser lifecycle', () => {
     expect(Storage.has('noviis:draft:1:create:free:2')).toBe(false)
   })
 
+  it('does not claim a snapshot was evicted when browser removal fails', () => {
+    for (let index = 0; index < MAX_LOCAL_DRAFT_SNAPSHOTS + 1; index++) {
+      Storage.set(`noviis:draft:1:create:free:${index}`, {
+        boardUrl: 'free',
+        hasLocalChanges: false,
+        clientModifiedAt: new Date(Date.UTC(2026, 6, 1, 0, index)).toISOString(),
+      })
+    }
+    vi.spyOn(Storage, 'remove').mockReturnValue(false)
+
+    expect(enforceDraftSnapshotBudget()).toBe(0)
+    expect(Storage.keys().filter((key) => key.startsWith('noviis:draft:')))
+      .toHaveLength(MAX_LOCAL_DRAFT_SNAPSHOTS + 1)
+  })
+
   it('never evicts unsynced snapshots to satisfy the local budget', () => {
     for (let index = 0; index < MAX_LOCAL_DRAFT_SNAPSHOTS + 1; index++) {
       Storage.set(`noviis:draft:1:create:free:${index}`, {

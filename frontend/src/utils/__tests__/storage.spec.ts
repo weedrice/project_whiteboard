@@ -116,7 +116,7 @@ describe('Storage', () => {
             return []
         })
 
-        expect(() => StorageUtil.remove('x')).not.toThrow()
+        expect(StorageUtil.remove('x')).toBe(false)
         expect(() => StorageUtil.clear()).not.toThrow()
         expect(StorageUtil.has('x')).toBe(false)
         expect(StorageUtil.keys()).toEqual([])

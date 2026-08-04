@@ -49,11 +49,13 @@ export class Storage {
     /**
      * Remove a localStorage value.
      */
-    static remove(key: string): void {
+    static remove(key: string): boolean {
         try {
             localStorage.removeItem(key)
+            return true
         } catch (error: unknown) {
             logger.error(`Failed to remove item from localStorage: ${key}`, error)
+            return false
         }
     }
 

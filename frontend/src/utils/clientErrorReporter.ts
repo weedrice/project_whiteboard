@@ -42,6 +42,9 @@ export type DraftOperationalEvent =
     | 'draft_protected'
     | 'multiple_recovery_candidates'
     | 'scheduled_in_another_tab'
+    | 'deleted_in_another_tab'
+    | 'local_storage_remove_failed'
+    | 'tombstone_write_failed'
 
 function truncate(value: string, maxLength: number): string {
     return value.length > maxLength ? value.slice(0, maxLength) : value

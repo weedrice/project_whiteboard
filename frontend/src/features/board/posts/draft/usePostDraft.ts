@@ -32,6 +32,7 @@ import {
     getDraftTombstoneKey,
     isDraftDeletedLocally,
     markDraftDeletedLocally,
+    registerDraftDeletedListener,
 } from '@/features/board/posts/draft/postDraftTombstone'
 import {
     cleanupExpiredDraftSnapshots,
@@ -194,6 +195,12 @@ export function usePostDraft(options: UsePostDraftOptions) {
         return storeLocalSnapshot(snapshot)
     }
 
+    const removeLocalSnapshot = () => {
+        const removed = Storage.remove(options.storageKey.value)
+        if (!removed) void reportDraftOperationalEvent('local_storage_remove_failed')
+        return removed
+    }
+
     const clearSaveRetry = (resetAttempt = true) => {
         if (saveRetryTimer) {
             clearTimeout(saveRetryTimer)
@@ -210,7 +217,9 @@ export function usePostDraft(options: UsePostDraftOptions) {
     const transitionToDeletedDraft = () => {
         const deletedDraftId = draftId.value
         if (deletedDraftId != null && options.ownerId?.value != null) {
-            markDraftDeletedLocally(options.ownerId.value, deletedDraftId)
+            if (!markDraftDeletedLocally(options.ownerId.value, deletedDraftId)) {
+                void reportDraftOperationalEvent('tombstone_write_failed')
+            }
         }
         clearAutosaveTimer()
         clearSaveRetry()
@@ -237,7 +246,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         draftConflict.value = false
         draftDeleted.value = false
         lastSaveFailed.value = false
-        Storage.remove(options.storageKey.value)
+        removeLocalSnapshot()
     }
 
     const savePayload = async (payload: PostDraftData) => {
@@ -526,7 +535,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         cleanupExpiredDraftTombstones()
         let localSnapshot = loadStoredDraftSnapshot(options.storageKey.value)
         if (isDraftDeletedLocally(options.ownerId?.value, localSnapshot?.draftId)) {
-            Storage.remove(options.storageKey.value)
+            removeLocalSnapshot()
             localSnapshot = null
         }
         const preferredDraftId = isDraftDeletedLocally(options.ownerId?.value, options.preferredDraftId?.value)
@@ -631,7 +640,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         invalidatePendingSaves()
         clearAutosaveTimer()
         clearSaveRetry()
-        Storage.remove(options.storageKey.value)
+        removeLocalSnapshot()
         lastSaveScope.value = null
         draftDeleted.value = false
         staleReferencesReset.value = false
@@ -797,6 +806,18 @@ export function usePostDraft(options: UsePostDraftOptions) {
         })
         : () => undefined
 
+    const unregisterDraftDeletedListener = typeof window !== 'undefined'
+        ? registerDraftDeletedListener((deletedEvent) => {
+            if (!options.enabled.value
+                || options.ownerId?.value == null
+                || deletedEvent.ownerId !== String(options.ownerId.value)
+                || draftId.value == null
+                || deletedEvent.draftId !== String(draftId.value)) return
+            transitionToDeletedDraft()
+            void reportDraftOperationalEvent('deleted_in_another_tab')
+        })
+        : () => undefined
+
     if (typeof window !== 'undefined') {
         window.addEventListener('online', handleOnline)
         window.addEventListener('offline', handleOffline)
@@ -806,7 +827,9 @@ export function usePostDraft(options: UsePostDraftOptions) {
     const clearPublishedDraftRecovery = () => {
         const publishedDraftId = draftId.value
         if (publishedDraftId != null && options.ownerId?.value != null) {
-            markDraftDeletedLocally(options.ownerId.value, publishedDraftId)
+            if (!markDraftDeletedLocally(options.ownerId.value, publishedDraftId)) {
+                void reportDraftOperationalEvent('tombstone_write_failed')
+            }
         }
         clearRecovery()
     }
@@ -828,6 +851,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         clearSaveRetry()
         invalidatePendingSaves()
         unregisterDraftScheduledListener()
+        unregisterDraftDeletedListener()
         if (typeof window !== 'undefined') {
             window.removeEventListener('online', handleOnline)
             window.removeEventListener('offline', handleOffline)

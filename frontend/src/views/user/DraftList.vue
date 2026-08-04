@@ -12,6 +12,7 @@ import { useConfirm } from '@/composables/useConfirm'
 import { useUser, userQueryKeys } from '@/features/user/useUser'
 import { usePost } from '@/features/board/posts/queries/usePost'
 import { markDraftDeletedLocally } from '@/features/board/posts/draft/postDraftTombstone'
+import { reportDraftOperationalEvent } from '@/utils/clientErrorReporter'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
 import { sessionQueryKey } from '@/queryAuthScope'
@@ -112,7 +113,9 @@ async function handleDeleteDraft(draft: DraftPostSummary) {
     await deleteDraft(draftId)
     if (!isAuthSessionIntentCurrent(authStore, intent)) return
     if (userId != null) {
-      markDraftDeletedLocally(userId, draftId)
+      if (!markDraftDeletedLocally(userId, draftId)) {
+        void reportDraftOperationalEvent('tombstone_write_failed')
+      }
     }
     toastStore.addToast(t('user.draftList.deleted'), 'success')
     queryClient.invalidateQueries({ queryKey: sessionQueryKey(intent.sessionGeneration, userQueryKeys.draftsRoot) })

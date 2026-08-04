@@ -261,9 +261,10 @@ function prunePreservedUnknownEntries(inventory: StoredDraftInventory) {
   let removed = 0
   while (entries.length > MAX_PRESERVED_UNKNOWN_DRAFT_SNAPSHOTS
     || totalBytes > MAX_PRESERVED_UNKNOWN_DRAFT_BYTES) {
-    const entry = entries.shift()
+    const entry = entries[0]
     if (!entry) break
-    Storage.remove(entry.key)
+    if (!Storage.remove(entry.key)) break
+    entries.shift()
     totalBytes -= entry.rawSize
     removed++
   }
@@ -307,7 +308,7 @@ export function enforceDraftSnapshotBudget(protectedKey?: string, now = Date.now
 
   for (const entry of getRemovableSyncedEntries(entries, protectedKey)) {
     if (count <= MAX_LOCAL_DRAFT_SNAPSHOTS && totalBytes <= MAX_LOCAL_DRAFT_BYTES) break
-    Storage.remove(entry.key)
+    if (!Storage.remove(entry.key)) continue
     count--
     totalBytes -= entry.rawSize
     removed++
@@ -324,8 +325,7 @@ export function clearStoredDraftSnapshotsForUser(userId: string | number) {
   let removed = 0
   for (const key of Storage.keys()) {
     if (!key.startsWith(userPrefix)) continue
-    Storage.remove(key)
-    removed++
+    if (Storage.remove(key)) removed++
   }
   return removed
 }
@@ -391,7 +391,7 @@ export function storeDraftSnapshotWithBudgetResult(
   while (removable.length > 0
     && (projectedCount > MAX_LOCAL_DRAFT_SNAPSHOTS || projectedBytes > MAX_LOCAL_DRAFT_BYTES)) {
     const candidate = removable.shift()!
-    Storage.remove(candidate.key)
+    if (!Storage.remove(candidate.key)) continue
     removed.push(candidate)
     projectedCount--
     projectedBytes -= candidate.rawSize
@@ -403,7 +403,7 @@ export function storeDraftSnapshotWithBudgetResult(
   let result = Storage.setWithResult(key, versionedSnapshot)
   while (!result.ok && result.reason === 'quota-exceeded' && removable.length > 0) {
     const candidate = removable.shift()!
-    Storage.remove(candidate.key)
+    if (!Storage.remove(candidate.key)) continue
     removed.push(candidate)
     result = Storage.setWithResult(key, versionedSnapshot)
   }
@@ -429,10 +429,10 @@ export function migrateStoredDraftSnapshot(
   targetKey: string,
   expectedDraftId: number | null | undefined,
 ) {
-  if (legacyKey === targetKey || expectedDraftId == null || Storage.has(targetKey)) return false
+  if (legacyKey === targetKey || expectedDraftId == null) return false
   const legacySnapshot = loadStoredDraftSnapshot(legacyKey)
   if (legacySnapshot?.draftId !== expectedDraftId) return false
+  if (Storage.has(targetKey)) return Storage.remove(legacyKey)
   if (!storeDraftSnapshotWithBudget(targetKey, legacySnapshot)) return false
-  Storage.remove(legacyKey)
-  return true
+  return Storage.remove(legacyKey)
 }

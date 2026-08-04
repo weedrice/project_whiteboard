@@ -32,6 +32,7 @@ vi.mock('@/features/board/posts/queries/usePost', () => ({
 vi.mock('@/features/board/posts/draft/postDraftTombstone', () => ({
   markDraftDeletedLocally: mocks.markDeleted,
 }))
+vi.mock('@/utils/clientErrorReporter', () => ({ reportDraftOperationalEvent: vi.fn() }))
 vi.mock('@/stores/auth', () => ({ useAuthStore: () => mocks.authStore }))
 vi.mock('@/stores/toast', () => ({ useToastStore: () => ({ addToast: mocks.addToast }) }))
 vi.mock('@/composables/usePaginatedListState', () => ({
@@ -86,6 +87,7 @@ describe('DraftList', () => {
     mocks.confirm.mockResolvedValue(true)
     mocks.deleteDraft.mockResolvedValue(undefined)
     mocks.cancelScheduledPost.mockResolvedValue(undefined)
+    mocks.markDeleted.mockReturnValue(true)
     mocks.authStore.sessionGeneration = 0
   })
 

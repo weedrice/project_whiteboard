@@ -5,7 +5,10 @@ import { isTransientDraftSaveError, usePostDraft } from '@/features/board/posts/
 import type { DraftRecoverySnapshot } from '@/features/board/posts/draft/usePostDraft'
 import type { PostDraftData } from '@/api/post'
 import { Storage } from '@/utils/storage'
-import { markDraftDeletedLocally } from '@/features/board/posts/draft/postDraftTombstone'
+import {
+    closeDraftDeletedChannelForTest,
+    markDraftDeletedLocally,
+} from '@/features/board/posts/draft/postDraftTombstone'
 import {
     closeDraftScheduledChannelForTest,
     type DraftScheduledEvent,
@@ -140,6 +143,9 @@ describe('usePostDraft', () => {
 
     afterEach(() => {
         closeDraftScheduledChannelForTest()
+        closeDraftDeletedChannelForTest()
+        vi.restoreAllMocks()
+        vi.unstubAllGlobals()
         vi.useRealTimers()
         Storage.clear()
     })
@@ -1251,6 +1257,40 @@ describe('usePostDraft', () => {
         expect(mocks.getDraft).not.toHaveBeenCalled()
         expect(appliedDrafts).toHaveLength(0)
         expect(Storage.get('noviis:test:draft')).toBeNull()
+    })
+
+    it('stops editing when another tab broadcasts deletion of the current draft', async () => {
+        closeDraftDeletedChannelForTest()
+        const channels: FakeBroadcastChannel[] = []
+        class FakeBroadcastChannel {
+            listeners: Array<(event: MessageEvent) => void> = []
+            constructor(readonly name: string) {
+                channels.push(this)
+            }
+            addEventListener(_type: string, listener: (event: MessageEvent) => void) {
+                this.listeners.push(listener)
+            }
+            postMessage(message: unknown) {
+                channels.filter((candidate) => candidate !== this && candidate.name === this.name)
+                    .forEach((candidate) => candidate.listeners.forEach((listener) => listener({ data: message } as MessageEvent)))
+            }
+            close() {}
+        }
+        vi.stubGlobal('BroadcastChannel', FakeBroadcastChannel)
+        const ownerId = ref<number | null>(7)
+        const { composable } = mountComposable(undefined, undefined, undefined, ownerId)
+        await composable.saveNow()
+        const peer = new FakeBroadcastChannel('noviis-draft-deleted')
+        peer.postMessage({
+            type: 'draft-deleted',
+            sourceId: 'peer-tab',
+            ownerId: '7',
+            draftId: '91',
+            at: Date.now(),
+        })
+
+        expect(composable.draftDeleted.value).toBe(true)
+        expect(mocks.reportDraftOperationalEvent).toHaveBeenCalledWith('deleted_in_another_tab')
     })
 
     it('falls back to a replacement server draft after a stale local draft id returns 404', async () => {
