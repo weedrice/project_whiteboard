@@ -28,7 +28,7 @@ function createSubmit(overrides: {
   categoryId?: string | number
   hideCategory?: boolean
   draftEnabled?: boolean
-  draftConflict?: boolean
+  draftBlockReason?: 'conflict' | 'protected' | 'deleted' | null
   draftId?: number | null
   scheduledAt?: string
   scheduledPostId?: string
@@ -63,7 +63,7 @@ function createSubmit(overrides: {
     }),
     hideCategory: () => overrides.hideCategory,
     draftEnabled: ref(overrides.draftEnabled ?? false),
-    draftConflict: ref(overrides.draftConflict ?? false),
+    draftBlockReason: ref(overrides.draftBlockReason ?? null),
     draftId: ref(overrides.draftId ?? null),
     saveDraftNow: overrides.saveDraftNow ?? vi.fn().mockResolvedValue(null),
     buildPayload: () => payload.value,
@@ -373,19 +373,18 @@ describe('usePostComposerSubmit', () => {
   })
 
   it.each([
-    ['immediate create', { mode: 'create' as const }],
-    ['scheduled create', { mode: 'create' as const, scheduledAt: '2026-07-14T12:00' }],
-    ['update', { mode: 'edit' as const }],
-  ])('blocks %s while the server draft is conflicted', async (_label, overrides) => {
+    ['conflict', 'board.writePost.draftStatus.conflict'],
+    ['protected', 'board.writePost.draftStatus.protected'],
+    ['deleted', 'board.writePost.draftStatus.deleted'],
+  ] as const)('shows the %s reason while draft submission is blocked', async (reason, messageKey) => {
     const submit = createSubmit({
-      ...overrides,
       draftEnabled: true,
-      draftConflict: true,
+      draftBlockReason: reason,
     })
 
     await submit.handleSubmit()
 
-    expect(submit.addToast).toHaveBeenCalledWith('board.writePost.draftStatus.conflict', 'error')
+    expect(submit.addToast).toHaveBeenCalledWith(messageKey, 'error')
     expect(submit.createPost).not.toHaveBeenCalled()
     expect(submit.createScheduledPost).not.toHaveBeenCalled()
     expect(submit.updatePost).not.toHaveBeenCalled()

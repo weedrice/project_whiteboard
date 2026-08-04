@@ -6,6 +6,7 @@ import type { PollPayload, PostCreateResponse, ScheduledPost } from '@/api/post'
 
 type ComposerToastType = 'info' | 'success' | 'warning' | 'error'
 type PostComposerMode = 'create' | 'edit'
+type DraftSubmitBlockReason = 'conflict' | 'protected' | 'deleted'
 type PostComposerPayload = {
   title: string
   categoryId?: number
@@ -76,7 +77,7 @@ type UsePostComposerSubmitOptions = {
   form: Ref<{ title: string, categoryId: string | number }>
   hideCategory: () => boolean | undefined
   draftEnabled: Ref<boolean>
-  draftConflict: Ref<boolean>
+  draftBlockReason: Ref<DraftSubmitBlockReason | null>
   draftId: Ref<number | null>
   saveDraftNow: () => Promise<{ draftId?: number | null } | null>
   buildPayload: () => Omit<PostComposerPayload, 'draftId'>
@@ -170,8 +171,8 @@ export function usePostComposerSubmit(options: UsePostComposerSubmitOptions) {
     }
 
     try {
-    if (options.draftConflict.value) {
-      options.addToast(options.t('board.writePost.draftStatus.conflict'), 'error')
+    if (options.draftBlockReason.value) {
+      options.addToast(options.t(`board.writePost.draftStatus.${options.draftBlockReason.value}`), 'error')
       unlock()
       return
     }

@@ -406,7 +406,12 @@ const { handleSubmit, isSubmissionLocked } = usePostComposerSubmit({
   form,
   hideCategory: () => props.hideCategory,
   draftEnabled,
-  draftConflict: computed(() => draftConflict.value || draftProtected.value || draftDeleted.value),
+  draftBlockReason: computed(() => {
+    if (draftDeleted.value) return 'deleted' as const
+    if (draftConflict.value) return 'conflict' as const
+    if (draftProtected.value) return 'protected' as const
+    return null
+  }),
   draftId: effectiveDraftId,
   saveDraftNow,
   buildPayload,
