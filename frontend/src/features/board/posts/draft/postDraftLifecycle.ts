@@ -12,6 +12,7 @@ const MAX_FUTURE_CLOCK_SKEW_MS = 24 * 60 * 60 * 1000
 
 type StoredDraftEntry = {
   key: string
+  ownerId: string | null
   snapshot: DraftRecoverySnapshot
   rawSize: number
   modifiedAt: number
@@ -28,6 +29,21 @@ function getSnapshotModifiedAt(snapshot: DraftRecoverySnapshot): number | null {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value != null && typeof value === 'object' && !Array.isArray(value)
+}
+
+function getDraftOwnerId(key: string): string | null {
+  if (!key.startsWith(DRAFT_STORAGE_PREFIX)) return null
+  const ownerId = key.slice(DRAFT_STORAGE_PREFIX.length).split(':', 1)[0]
+  return ownerId || null
+}
+
+function shouldPreserveUnparseableSnapshot(value: unknown, now: number): boolean {
+  if (!isRecord(value)) return false
+  if (typeof value.schemaVersion === 'number'
+    && Number.isInteger(value.schemaVersion)
+    && value.schemaVersion > DRAFT_SNAPSHOT_SCHEMA_VERSION) return true
+  return typeof value.clientModifiedAt === 'string'
+    && Date.parse(value.clientModifiedAt) > now + MAX_FUTURE_CLOCK_SKEW_MS
 }
 
 function isOptionalString(value: unknown): value is string | undefined {
@@ -110,6 +126,7 @@ export function loadStoredDraftSnapshot(key: string, now = Date.now()): DraftRec
   }
   const snapshot = parseDraftRecoverySnapshot(parsed, now)
   if (!snapshot) {
+    if (shouldPreserveUnparseableSnapshot(parsed, now)) return null
     Storage.remove(key)
     return null
   }
@@ -134,6 +151,7 @@ function collectStoredDraftEntries(now = Date.now()): StoredDraftEntry[] {
     const raw = Storage.getString(key, '') ?? ''
     entries.push({
       key,
+      ownerId: getDraftOwnerId(key),
       snapshot,
       rawSize: raw.length * 2,
       modifiedAt: getSnapshotModifiedAt(snapshot) ?? now,
@@ -142,16 +160,41 @@ function collectStoredDraftEntries(now = Date.now()): StoredDraftEntry[] {
   return entries
 }
 
+function getProtectedSnapshotKeys(entries: StoredDraftEntry[]): Set<string> {
+  const entriesByOwner = new Map<string, StoredDraftEntry[]>()
+  for (const entry of entries) {
+    const ownerKey = entry.ownerId ?? `unknown:${entry.key}`
+    const ownerEntries = entriesByOwner.get(ownerKey) ?? []
+    ownerEntries.push(entry)
+    entriesByOwner.set(ownerKey, ownerEntries)
+  }
+
+  const protectedKeys = new Set<string>()
+  for (const ownerEntries of entriesByOwner.values()) {
+    ownerEntries
+      .sort((left, right) => right.modifiedAt - left.modifiedAt || right.key.localeCompare(left.key))
+      .slice(0, MIN_LOCAL_DRAFT_SNAPSHOTS_TO_RETAIN)
+      .forEach((entry) => protectedKeys.add(entry.key))
+  }
+  return protectedKeys
+}
+
+function getRemovableSyncedEntries(entries: StoredDraftEntry[], protectedKey?: string): StoredDraftEntry[] {
+  const protectedKeys = getProtectedSnapshotKeys(entries)
+  if (protectedKey) protectedKeys.add(protectedKey)
+  return entries
+    .filter((entry) => entry.snapshot.hasLocalChanges === false && !protectedKeys.has(entry.key))
+    .sort((left, right) => left.modifiedAt - right.modifiedAt || left.key.localeCompare(right.key))
+}
+
 export function enforceDraftSnapshotBudget(protectedKey?: string, now = Date.now()) {
   const entries = collectStoredDraftEntries(now)
-    .sort((left, right) => left.modifiedAt - right.modifiedAt || left.key.localeCompare(right.key))
   let count = entries.length
   let totalBytes = entries.reduce((total, entry) => total + entry.rawSize, 0)
   let removed = 0
 
-  for (const entry of entries) {
+  for (const entry of getRemovableSyncedEntries(entries, protectedKey)) {
     if (count <= MAX_LOCAL_DRAFT_SNAPSHOTS && totalBytes <= MAX_LOCAL_DRAFT_BYTES) break
-    if (entry.key === protectedKey) continue
     Storage.remove(entry.key)
     count--
     totalBytes -= entry.rawSize
@@ -201,10 +244,7 @@ export function storeDraftSnapshotWithBudget(key: string, snapshot: DraftRecover
 
   const candidates = collectStoredDraftEntries()
     .filter((entry) => entry.key !== key)
-    .sort((left, right) => left.modifiedAt - right.modifiedAt || left.key.localeCompare(right.key))
-  const protectedKeys = new Set(candidates
-    .slice(-MIN_LOCAL_DRAFT_SNAPSHOTS_TO_RETAIN)
-    .map((entry) => entry.key))
+  const protectedKeys = getProtectedSnapshotKeys(candidates)
   const retainedBytes = candidates
     .filter((entry) => protectedKeys.has(entry.key))
     .reduce((total, entry) => total + entry.rawSize, 0)
@@ -213,7 +253,7 @@ export function storeDraftSnapshotWithBudget(key: string, snapshot: DraftRecover
   let projectedCount = candidates.length + 1
   let projectedBytes = candidates.reduce((total, entry) => total + entry.rawSize, rawSize)
   const removed: StoredDraftEntry[] = []
-  const removable = candidates.filter((entry) => !protectedKeys.has(entry.key))
+  const removable = getRemovableSyncedEntries(candidates)
 
   while (removable.length > 0
     && (projectedCount > MAX_LOCAL_DRAFT_SNAPSHOTS || projectedBytes > MAX_LOCAL_DRAFT_BYTES)) {

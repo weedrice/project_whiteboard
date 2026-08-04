@@ -161,7 +161,7 @@ describe('draft browser lifecycle', () => {
     }))
   })
 
-  it('removes snapshots with unsupported schema versions', () => {
+  it('preserves snapshots written by a future schema version', () => {
     const key = 'noviis:draft:1:create:free:future-schema'
     Storage.set(key, {
       schemaVersion: DRAFT_SNAPSHOT_SCHEMA_VERSION + 1,
@@ -170,10 +170,10 @@ describe('draft browser lifecycle', () => {
     })
 
     expect(loadStoredDraftSnapshot(key)).toBeNull()
-    expect(Storage.has(key)).toBe(false)
+    expect(Storage.has(key)).toBe(true)
   })
 
-  it('removes malformed snapshots and implausible future timestamps', () => {
+  it('removes malformed snapshots but preserves implausible future timestamps', () => {
     const malformedKey = 'noviis:draft:1:create:free:malformed'
     const futureKey = 'noviis:draft:1:create:free:future'
     Storage.set(malformedKey, {
@@ -188,6 +188,8 @@ describe('draft browser lifecycle', () => {
 
     expect(loadStoredDraftSnapshot(malformedKey)).toBeNull()
     expect(loadStoredDraftSnapshot(futureKey)).toBeNull()
+    expect(Storage.has(malformedKey)).toBe(false)
+    expect(Storage.has(futureKey)).toBe(true)
   })
 
   it('removes object snapshots without a board identity', () => {
@@ -219,6 +221,7 @@ describe('draft browser lifecycle', () => {
       Storage.set(`noviis:draft:1:create:free:${index}`, {
         boardUrl: 'free',
         title: `draft ${index}`,
+        hasLocalChanges: false,
         clientModifiedAt: new Date(Date.UTC(2026, 6, 1, 0, index)).toISOString(),
       })
     }
@@ -233,12 +236,60 @@ describe('draft browser lifecycle', () => {
     expect(Storage.has('noviis:draft:1:create:free:2')).toBe(false)
   })
 
+  it('never evicts unsynced snapshots to satisfy the local budget', () => {
+    for (let index = 0; index < MAX_LOCAL_DRAFT_SNAPSHOTS + 1; index++) {
+      Storage.set(`noviis:draft:1:create:free:${index}`, {
+        boardUrl: 'free',
+        title: `unsynced ${index}`,
+        hasLocalChanges: true,
+        clientModifiedAt: new Date(Date.UTC(2026, 6, 1, 0, index)).toISOString(),
+      })
+    }
+
+    expect(enforceDraftSnapshotBudget()).toBe(0)
+    expect(Storage.keys().filter((key) => key.startsWith('noviis:draft:')))
+      .toHaveLength(MAX_LOCAL_DRAFT_SNAPSHOTS + 1)
+  })
+
+  it('retains the newest synced backups separately for each user', () => {
+    for (const ownerId of [1, 2]) {
+      for (let index = 0; index < MIN_LOCAL_DRAFT_SNAPSHOTS_TO_RETAIN + 1; index++) {
+        Storage.set(`noviis:draft:${ownerId}:create:free:${index}`, {
+          boardUrl: 'free',
+          title: `user ${ownerId} draft ${index}`,
+          hasLocalChanges: false,
+          clientModifiedAt: new Date(Date.UTC(2026, 6, ownerId, 0, index)).toISOString(),
+        })
+      }
+    }
+    const originalSet = Storage.setWithResult.bind(Storage)
+    let targetAttempts = 0
+    vi.spyOn(Storage, 'setWithResult').mockImplementation((key, value) => {
+      if (key === 'noviis:draft:1:create:free:current' && targetAttempts++ === 0) {
+        return { ok: false, reason: 'quota-exceeded' }
+      }
+      return originalSet(key, value)
+    })
+
+    expect(storeDraftSnapshotWithBudget('noviis:draft:1:create:free:current', {
+      boardUrl: 'free',
+      title: 'current draft',
+      hasLocalChanges: true,
+      clientModifiedAt: '2026-08-03T00:00:00.000Z',
+    })).toBe(true)
+    expect(Storage.has('noviis:draft:1:create:free:0')).toBe(false)
+    expect(Storage.has('noviis:draft:2:create:free:0')).toBe(true)
+    expect(Storage.keys().filter((key) => key.startsWith('noviis:draft:2:')))
+      .toHaveLength(MIN_LOCAL_DRAFT_SNAPSHOTS_TO_RETAIN + 1)
+  })
+
   it('reclaims old snapshots on quota errors while retaining recent backups', () => {
     const targetKey = 'noviis:draft:1:create:free:current'
     for (let index = 0; index < MIN_LOCAL_DRAFT_SNAPSHOTS_TO_RETAIN + 1; index++) {
       Storage.set(`noviis:draft:1:create:free:${index}`, {
         boardUrl: 'free',
         title: `draft ${index}`,
+        hasLocalChanges: false,
         clientModifiedAt: new Date(Date.UTC(2026, 7, 3, 0, index)).toISOString(),
       })
     }
@@ -287,6 +338,7 @@ describe('draft browser lifecycle', () => {
       Storage.set(`noviis:draft:1:create:free:${index}`, {
         boardUrl: 'free',
         title: `draft ${index}`,
+        hasLocalChanges: false,
         clientModifiedAt: new Date(Date.UTC(2026, 7, 3, 0, index)).toISOString(),
       })
     }
