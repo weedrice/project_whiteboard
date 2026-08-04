@@ -106,6 +106,20 @@ describe('draft browser lifecycle', () => {
     expect(countUnsyncedStoredDraftSnapshotsForUser(1)).toBe(1)
   })
 
+  it('counts preserved unknown snapshots conservatively before logout', () => {
+    Storage.set('noviis:draft:1:create:free:future-schema', {
+      schemaVersion: DRAFT_SNAPSHOT_SCHEMA_VERSION + 1,
+      boardUrl: 'free',
+      clientModifiedAt: '2026-08-03T00:00:00.000Z',
+    })
+    Storage.set('noviis:draft:1:create:free:future-clock', {
+      boardUrl: 'free',
+      clientModifiedAt: '2026-08-05T00:00:01.000Z',
+    })
+
+    expect(countUnsyncedStoredDraftSnapshotsForUser(1)).toBe(2)
+  })
+
   it('moves a matching legacy snapshot into a draft-specific storage key', () => {
     const legacyKey = 'noviis:draft:1:create:free:new'
     const targetKey = `${legacyKey}:draft-91`
@@ -171,6 +185,26 @@ describe('draft browser lifecycle', () => {
 
     expect(loadStoredDraftSnapshot(key)).toBeNull()
     expect(Storage.has(key)).toBe(true)
+  })
+
+  it('does not overwrite a snapshot written by a future schema version', () => {
+    const key = 'noviis:draft:1:create:free:future-schema'
+    Storage.set(key, {
+      schemaVersion: DRAFT_SNAPSHOT_SCHEMA_VERSION + 1,
+      boardUrl: 'free',
+      title: 'newer app draft',
+      clientModifiedAt: '2026-08-03T00:00:00.000Z',
+    })
+
+    expect(storeDraftSnapshotWithBudget(key, {
+      boardUrl: 'free',
+      title: 'older app draft',
+      clientModifiedAt: '2026-08-03T00:00:01.000Z',
+    })).toBe(false)
+    expect(Storage.get(key)).toEqual(expect.objectContaining({
+      schemaVersion: DRAFT_SNAPSHOT_SCHEMA_VERSION + 1,
+      title: 'newer app draft',
+    }))
   })
 
   it('removes malformed snapshots but preserves implausible future timestamps', () => {
@@ -249,6 +283,26 @@ describe('draft browser lifecycle', () => {
     expect(enforceDraftSnapshotBudget()).toBe(0)
     expect(Storage.keys().filter((key) => key.startsWith('noviis:draft:')))
       .toHaveLength(MAX_LOCAL_DRAFT_SNAPSHOTS + 1)
+  })
+
+  it('accounts for preserved unknown snapshots without evicting them', () => {
+    for (let index = 0; index < MAX_LOCAL_DRAFT_SNAPSHOTS; index++) {
+      Storage.set(`noviis:draft:1:create:free:future-${index}`, {
+        schemaVersion: DRAFT_SNAPSHOT_SCHEMA_VERSION + 1,
+        boardUrl: 'free',
+        clientModifiedAt: '2026-08-03T00:00:00.000Z',
+      })
+    }
+    for (let index = 0; index < MIN_LOCAL_DRAFT_SNAPSHOTS_TO_RETAIN + 1; index++) {
+      Storage.set(`noviis:draft:2:create:free:synced-${index}`, {
+        boardUrl: 'free',
+        hasLocalChanges: false,
+        clientModifiedAt: new Date(Date.UTC(2026, 7, 3, 0, index)).toISOString(),
+      })
+    }
+
+    expect(enforceDraftSnapshotBudget()).toBe(1)
+    expect(Storage.keys().filter((key) => key.includes(':future-'))).toHaveLength(MAX_LOCAL_DRAFT_SNAPSHOTS)
   })
 
   it('retains the newest synced backups separately for each user', () => {

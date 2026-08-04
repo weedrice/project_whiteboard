@@ -119,7 +119,7 @@ export const boardWritePostMessages: BoardMessages['writePost'] = {
       saved: '임시 저장되었습니다.',
       savedBrowser: '이 브라우저에 임시 저장되었습니다.',
       cleanupFailed: '임시 저장 정리에 실패했습니다. 서버 초안이 남아 다시 보일 수 있습니다.',
-      confirmLogoutWithUnsynced: '서버에 저장되지 않은 임시글이 {count}개 있습니다. 로그아웃하면 이 브라우저의 해당 임시글이 삭제됩니다. 계속할까요?',
+      confirmLogoutWithUnsynced: '서버에 저장되지 않았거나 현재 앱에서 확인할 수 없는 로컬 임시글이 {count}개 있습니다. 로그아웃하면 이 브라우저의 해당 임시글이 삭제됩니다. 계속할까요?',
     },
     actions: {
       preview: '미리보기',

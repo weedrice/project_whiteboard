@@ -120,7 +120,7 @@ export const boardEnWritePostMessages: BoardMessages['writePost'] = {
       saved: 'Draft saved.',
       savedBrowser: 'Draft saved in this browser.',
       cleanupFailed: 'Draft cleanup failed. The server draft may appear again until it is removed.',
-      confirmLogoutWithUnsynced: '{count} draft(s) have not been saved to the server. Logging out will delete them from this browser. Continue?',
+      confirmLogoutWithUnsynced: '{count} local draft(s) are unsaved or cannot be verified by this app version. Logging out will delete them from this browser. Continue?',
     },
     actions: {
       preview: 'Preview',
