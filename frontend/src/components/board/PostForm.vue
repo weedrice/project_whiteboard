@@ -233,6 +233,7 @@ const draftContentIsValid = () => (
 const {
   filteredCategories,
   firstCategoryId,
+  isCategorySelectable,
 } = usePostFormCategoryOptions({
   categories,
   board,
@@ -371,6 +372,7 @@ const {
     },
   }),
   firstCategoryId,
+  isCategorySelectable,
   buildPayload,
   applyDraft: applyDraftSnapshot,
   markCurrentSnapshotSaved,

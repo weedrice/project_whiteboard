@@ -21,6 +21,7 @@ type UsePostComposerDraftOptions = {
   isLoading: Ref<boolean>
   selectedCategoryId: Ref<string | number>
   firstCategoryId: ComputedRef<number | undefined>
+  isCategorySelectable: (categoryId: string | number | null | undefined) => boolean
   buildPayload: (fileIdScope?: PostFormFileIdScope) => ReturnType<typeof import('@/utils/postForm').buildPostFormPayload>
   applyDraft: (draft: PostComposerSnapshot) => void
   markCurrentSnapshotSaved: () => void
@@ -67,6 +68,15 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     appliedDraftSignature = serializeDraftPayload()
   }
 
+  const prepareRecoveredSnapshot = (snapshot: PostComposerSnapshot): PostComposerSnapshot => {
+    if (snapshot.categoryId == null || options.isCategorySelectable(snapshot.categoryId)) return snapshot
+    return {
+      ...snapshot,
+      categoryId: options.firstCategoryId.value ?? null,
+      staleReferencesReset: true,
+    }
+  }
+
   const {
     saveNow: saveDraftNow,
     retrySaveNow,
@@ -110,12 +120,10 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
       originalPostId: options.mode() === 'edit' ? Number(options.postId.value) : undefined,
     }),
     applyDraft: applyDraftWithoutTracking,
+    prepareRecoveredSnapshot,
     onSaved: options.markCurrentSnapshotSaved,
     onServerSaved: (payload) => options.releaseUploadedFileOwnership(payload.fileIds ?? []),
-    prepareStaleSnapshot: (snapshot) => ({
-      ...snapshot,
-      categoryId: options.firstCategoryId.value ?? null,
-    }),
+    prepareStaleSnapshot: prepareRecoveredSnapshot,
     onStaleReferencesReset: () => options.addToast(
       options.t('board.writePost.draftStatus.referencesReset'),
       'warning',

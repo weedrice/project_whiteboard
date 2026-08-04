@@ -55,6 +55,7 @@ interface UsePostDraftOptions {
     preferredDraftId?: Ref<number | null>
     buildPayload: () => PostDraftData
     applyDraft: (draft: DraftRecoverySnapshot) => void
+    prepareRecoveredSnapshot?: (snapshot: DraftRecoverySnapshot) => DraftRecoverySnapshot
     onSaved?: () => void
     onServerSaved?: (payload: PostDraftData) => void
     prepareStaleSnapshot?: (snapshot: DraftRecoverySnapshot) => DraftRecoverySnapshot
@@ -470,7 +471,8 @@ export function usePostDraft(options: UsePostDraftOptions) {
             staleReferencesReset.value = false
             lastSaveFailed.value = false
             restoreFailed.value = false
-            const latestSnapshot = latestDraft as unknown as DraftRecoverySnapshot
+            const serverSnapshot = latestDraft as unknown as DraftRecoverySnapshot
+            const latestSnapshot = options.prepareRecoveredSnapshot?.(serverSnapshot) ?? serverSnapshot
             options.applyDraft(latestSnapshot)
             storeLocalSnapshot({
                 ...latestSnapshot,
@@ -547,7 +549,10 @@ export function usePostDraft(options: UsePostDraftOptions) {
         if (generation !== sessionGeneration) return
 
         const recovery = resolveDraftRecoverySnapshot(resolved.localSnapshot, resolved.serverDraft)
-        const chosen = recovery.snapshot
+        const recoveredSnapshot = recovery.snapshot
+        const chosen = recoveredSnapshot
+            ? options.prepareRecoveredSnapshot?.(recoveredSnapshot) ?? recoveredSnapshot
+            : null
         restoreFailed.value = resolved.recoveryFailed
         multipleDraftsFound.value = resolved.multipleMatchesFound
         if (multipleDraftsFound.value) void reportDraftOperationalEvent('multiple_recovery_candidates')

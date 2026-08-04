@@ -199,6 +199,37 @@ describe('PostForm draft behavior', () => {
     expect(mockSaveDraftMutateAsync).not.toHaveBeenCalled()
   })
 
+  it('resets an unavailable draft category to the first writable category', async () => {
+    mockPostFormAuthStore({
+      isAuthenticated: true,
+      user: { userId: 1, role: 'USER' },
+    })
+    setBoardCategories([{ categoryId: 12, name: 'General', minWriteRole: 'USER' }])
+    const storageKey = 'noviis:draft:1:create:free:new'
+    Storage.set(storageKey, {
+      draftId: 91,
+      boardUrl: 'free',
+      title: 'Recovered draft',
+      contents: 'Recovered body',
+      categoryId: 99,
+      clientModifiedAt: '2026-08-02T00:00:00.000Z',
+      hasLocalChanges: true,
+    })
+
+    const wrapper = mountPostForm('create', {}, {}, { postId: '' })
+    await flushPromises()
+
+    expect(wrapper.get('#category').element).toHaveProperty('value', '12')
+    expect(Storage.get(storageKey)).toEqual(expect.objectContaining({
+      categoryId: 12,
+      staleReferencesReset: true,
+    }))
+    expect(mockAddToast).toHaveBeenCalledWith(
+      'board.writePost.draftStatus.referencesReset',
+      'warning',
+    )
+  })
+
   it('flushes the latest input synchronously when the page is hidden', async () => {
     mockPostFormAuthStore({
       isAuthenticated: true,

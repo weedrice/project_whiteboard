@@ -30,12 +30,14 @@ export function usePostFormCategoryOptions<TCategory extends CategoryLike>({
   selectedCategoryId,
   userRole,
 }: UsePostFormCategoryOptionsParams<TCategory>) {
+  const selectableCategories = computed(() => categories.value.filter((cat) => canWriteCategory(
+    cat,
+    userRole.value,
+    board.value?.isAdmin ?? false,
+  )))
+
   const filteredCategories = computed<PostFormCategoryOption[]>(() => {
-    const selectableCategories = categories.value.filter((cat) => canWriteCategory(
-      cat,
-      userRole.value,
-      board.value?.isAdmin ?? false,
-    ))
+    const selectable = selectableCategories.value
     const selectedId = Number(selectedCategoryId.value)
     const selectedCategory = categories.value.find((category) => category.categoryId === selectedId)
       ?? (post.value?.category?.categoryId === selectedId
@@ -45,23 +47,29 @@ export function usePostFormCategoryOptions<TCategory extends CategoryLike>({
             minWriteRole: post.value.category.minWriteRole,
           }
         : null)
-    if (!selectedCategory) return selectableCategories
-    if (selectableCategories.some((category) => category.categoryId === selectedCategory.categoryId)) {
-      return selectableCategories
+    if (!selectedCategory) return selectable
+    if (selectable.some((category) => category.categoryId === selectedCategory.categoryId)) {
+      return selectable
     }
     return [
       {
         ...selectedCategory,
         disabled: true,
       },
-      ...selectableCategories,
+      ...selectable,
     ]
   })
 
-  const firstCategoryId = computed(() => filteredCategories.value[0]?.categoryId)
+  const firstCategoryId = computed(() => selectableCategories.value[0]?.categoryId)
+  const isCategorySelectable = (categoryId: string | number | null | undefined) => {
+    if (categoryId == null || categoryId === '') return false
+    const normalizedCategoryId = Number(categoryId)
+    return selectableCategories.value.some((category) => category.categoryId === normalizedCategoryId)
+  }
 
   return {
     filteredCategories,
     firstCategoryId,
+    isCategorySelectable,
   }
 }
