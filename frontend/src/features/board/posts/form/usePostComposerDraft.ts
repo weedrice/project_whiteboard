@@ -112,6 +112,7 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
   } = usePostDraft({
     enabled: draftEnabled,
     storageKey: draftStorageKey,
+    resolveStorageKey: (resolvedDraftId) => `${legacyDraftStorageKey.value}:draft-${resolvedDraftId}`,
     ownerId: options.userId,
     preferredDraftId: options.preferredDraftId,
     buildPayload: () => ({

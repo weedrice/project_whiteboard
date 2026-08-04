@@ -153,6 +153,58 @@ describe('draft browser lifecycle', () => {
     expect(Storage.has(targetKey)).toBe(false)
   })
 
+  it('keeps the newer unsynced snapshot when both draft storage keys exist', () => {
+    const legacyKey = 'noviis:draft:1:create:free:new'
+    const targetKey = `${legacyKey}:draft-91`
+    Storage.set(legacyKey, {
+      boardUrl: 'free',
+      draftId: 91,
+      title: 'new local content',
+      hasLocalChanges: true,
+      clientModifiedAt: '2026-08-03T00:02:00.000Z',
+    })
+    Storage.set(targetKey, {
+      boardUrl: 'free',
+      draftId: 91,
+      title: 'old server content',
+      hasLocalChanges: false,
+      clientModifiedAt: '2026-08-03T00:01:00.000Z',
+    })
+
+    expect(migrateStoredDraftSnapshot(legacyKey, targetKey, 91)).toBe(true)
+    expect(Storage.get(targetKey)).toEqual(expect.objectContaining({
+      title: 'new local content',
+      hasLocalChanges: true,
+    }))
+    expect(Storage.has(legacyKey)).toBe(false)
+  })
+
+  it('does not replace a newer unsynced draft-specific snapshot during migration', () => {
+    const legacyKey = 'noviis:draft:1:create:free:new'
+    const targetKey = `${legacyKey}:draft-91`
+    Storage.set(legacyKey, {
+      boardUrl: 'free',
+      draftId: 91,
+      title: 'old server content',
+      hasLocalChanges: false,
+      clientModifiedAt: '2026-08-03T00:01:00.000Z',
+    })
+    Storage.set(targetKey, {
+      boardUrl: 'free',
+      draftId: 91,
+      title: 'new local content',
+      hasLocalChanges: true,
+      clientModifiedAt: '2026-08-03T00:02:00.000Z',
+    })
+
+    expect(migrateStoredDraftSnapshot(legacyKey, targetKey, 91)).toBe(true)
+    expect(Storage.get(targetKey)).toEqual(expect.objectContaining({
+      title: 'new local content',
+      hasLocalChanges: true,
+    }))
+    expect(Storage.has(legacyKey)).toBe(false)
+  })
+
   it('expires legacy snapshots using the server timestamp when the client timestamp is missing', () => {
     const key = 'noviis:draft:1:create:free:legacy'
     Storage.set(key, {

@@ -1,5 +1,8 @@
 import { Storage } from '@/utils/storage'
-import type { DraftRecoverySnapshot } from '@/features/board/posts/draft/postDraftRecovery'
+import {
+  hasSameDraftContent,
+  type DraftRecoverySnapshot,
+} from '@/features/board/posts/draft/postDraftRecovery'
 import {
   isValidDraftBoardUrl,
   normalizeDraftClientIdentifier,
@@ -428,11 +431,37 @@ export function migrateStoredDraftSnapshot(
   legacyKey: string,
   targetKey: string,
   expectedDraftId: number | null | undefined,
+  expectedClientDraftKey?: string | null,
 ) {
   if (legacyKey === targetKey || expectedDraftId == null) return false
   const legacySnapshot = loadStoredDraftSnapshot(legacyKey)
-  if (legacySnapshot?.draftId !== expectedDraftId) return false
-  if (Storage.has(targetKey)) return Storage.remove(legacyKey)
-  if (!storeDraftSnapshotWithBudget(targetKey, legacySnapshot)) return false
+  const matchesDraftId = legacySnapshot?.draftId === expectedDraftId
+  const matchesClientKey = legacySnapshot?.draftId == null
+    && expectedClientDraftKey != null
+    && legacySnapshot?.clientDraftKey === expectedClientDraftKey
+  if (!legacySnapshot || (!matchesDraftId && !matchesClientKey)) return false
+
+  const targetSnapshot = loadStoredDraftSnapshot(targetKey)
+  if (targetSnapshot?.draftId != null && targetSnapshot.draftId !== expectedDraftId) return false
+  if (targetSnapshot) {
+    const sameContent = hasSameDraftContent(legacySnapshot, targetSnapshot)
+    if (!sameContent && legacySnapshot.hasLocalChanges !== targetSnapshot.hasLocalChanges) {
+      if (targetSnapshot.hasLocalChanges === true) return Storage.remove(legacyKey)
+    } else {
+      const legacyModifiedAt = Date.parse(legacySnapshot.clientModifiedAt ?? '')
+      const targetModifiedAt = Date.parse(targetSnapshot.clientModifiedAt ?? '')
+      if (Number.isFinite(legacyModifiedAt) && Number.isFinite(targetModifiedAt)) {
+        if (targetModifiedAt > legacyModifiedAt) return Storage.remove(legacyKey)
+        if (targetModifiedAt === legacyModifiedAt && !sameContent) return false
+      } else if (!sameContent) {
+        return false
+      }
+    }
+  }
+
+  if (!storeDraftSnapshotWithBudget(targetKey, {
+    ...legacySnapshot,
+    draftId: expectedDraftId,
+  })) return false
   return Storage.remove(legacyKey)
 }

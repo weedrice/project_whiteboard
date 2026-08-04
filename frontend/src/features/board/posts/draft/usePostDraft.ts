@@ -37,6 +37,7 @@ import {
 import {
     cleanupExpiredDraftSnapshots,
     loadStoredDraftSnapshot,
+    migrateStoredDraftSnapshot,
     parseDraftRecoverySnapshot,
     storeDraftSnapshotWithBudgetResult,
 } from '@/features/board/posts/draft/postDraftLifecycle'
@@ -52,6 +53,7 @@ export type DraftSaveScope = 'server' | 'browser'
 interface UsePostDraftOptions {
     enabled: Ref<boolean>
     storageKey: Ref<string>
+    resolveStorageKey?: (draftId: number) => string
     ownerId?: Ref<string | number | null | undefined>
     preferredDraftId?: Ref<number | null>
     buildPayload: () => PostDraftData
@@ -130,6 +132,19 @@ export function usePostDraft(options: UsePostDraftOptions) {
         : `${Date.now()}-${Math.random().toString(36).slice(2)}`
     const clientInstanceId = createClientKey()
     const clientDraftKey = ref(createClientKey())
+    const activeStorageKey = computed(() => draftId.value != null
+        ? options.resolveStorageKey?.(draftId.value) ?? options.storageKey.value
+        : options.storageKey.value)
+
+    watch(activeStorageKey, (nextKey, previousKey) => {
+        if (draftId.value == null || nextKey === previousKey) return
+        migrateStoredDraftSnapshot(
+            previousKey,
+            nextKey,
+            draftId.value,
+            clientDraftKey.value,
+        )
+    }, { flush: 'sync' })
 
     const clearAutosaveTimer = () => {
         if (autosaveTimer) {
@@ -157,7 +172,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
     }
 
     const storeLocalSnapshot = (snapshot: DraftRecoverySnapshot) => {
-        const result = storeDraftSnapshotWithBudgetResult(options.storageKey.value, {
+        const result = storeDraftSnapshotWithBudgetResult(activeStorageKey.value, {
             ...snapshot,
             clientDraftKey: snapshot.clientDraftKey ?? clientDraftKey.value,
             version: snapshot.version ?? draftVersion.value ?? undefined,
@@ -196,7 +211,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
     }
 
     const removeLocalSnapshot = () => {
-        const removed = Storage.remove(options.storageKey.value)
+        const removed = Storage.remove(activeStorageKey.value)
         if (!removed) void reportDraftOperationalEvent('local_storage_remove_failed')
         return removed
     }
@@ -294,6 +309,11 @@ export function usePostDraft(options: UsePostDraftOptions) {
                     logger.error('Failed to delete empty draft:', error)
                     throw error
                 }
+                if (options.ownerId?.value != null
+                    && !markDraftDeletedLocally(options.ownerId.value, existingDraftId)) {
+                    void reportDraftOperationalEvent('tombstone_write_failed')
+                }
+                removeLocalSnapshot()
             }
             if (generation !== sessionGeneration) return null
             resetDraftTracking()
@@ -533,7 +553,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         try {
         cleanupExpiredDraftSnapshots()
         cleanupExpiredDraftTombstones()
-        let localSnapshot = loadStoredDraftSnapshot(options.storageKey.value)
+        let localSnapshot = loadStoredDraftSnapshot(activeStorageKey.value)
         if (isDraftDeletedLocally(options.ownerId?.value, localSnapshot?.draftId)) {
             removeLocalSnapshot()
             localSnapshot = null
@@ -709,7 +729,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
             transitionToDeletedDraft()
             return
         }
-        if (event.key !== options.storageKey.value) return
+        if (event.key !== activeStorageKey.value) return
         if (!event.newValue) {
             // 만료·용량 정리·예약 발행 전환도 같은 localStorage 제거 이벤트를
             // 발생시킨다. 서버 삭제는 전용 tombstone으로만 판정한다.
@@ -799,7 +819,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
                 options.ownerId?.value,
                 draftId.value,
                 clientDraftKey.value,
-                options.storageKey.value,
+                activeStorageKey.value,
             )) return
             transitionToProtectedDraft()
             void reportDraftOperationalEvent('scheduled_in_another_tab')
@@ -840,7 +860,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
                 options.ownerId.value,
                 scheduledDraftId,
                 clientDraftKey.value,
-                options.storageKey.value,
+                activeStorageKey.value,
             )
         }
         clearRecovery()

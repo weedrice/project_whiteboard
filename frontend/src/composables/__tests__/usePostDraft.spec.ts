@@ -75,7 +75,7 @@ function mountComposable(payloadRef: Ref<PostDraftData> = ref({
     contents: 'Draft body',
     fileIds: [7],
     originalPostId: undefined as number | undefined,
-}), storageKeyRef = ref('noviis:test:draft'), enabledRef = ref(true), ownerIdRef = ref<number | null>(null), onServerSaved?: (payload: PostDraftData) => void) {
+}), storageKeyRef = ref('noviis:test:draft'), enabledRef = ref(true), ownerIdRef = ref<number | null>(null), onServerSaved?: (payload: PostDraftData) => void, resolveStorageKey?: (draftId: number) => string) {
     const appliedDrafts: DraftRecoverySnapshot[] = []
     let composable: ReturnType<typeof usePostDraft> | null = null
 
@@ -84,6 +84,7 @@ function mountComposable(payloadRef: Ref<PostDraftData> = ref({
             composable = usePostDraft({
                 enabled: enabledRef,
                 storageKey: storageKeyRef,
+                resolveStorageKey,
                 ownerId: ownerIdRef,
                 buildPayload: () => payloadRef.value,
                 applyDraft: (draft) => appliedDrafts.push(draft),
@@ -1063,7 +1064,12 @@ describe('usePostDraft', () => {
     })
 
     it('deletes an existing server draft when all meaningful content is cleared', async () => {
-        const { composable, payloadRef } = mountComposable()
+        const { composable, payloadRef } = mountComposable(
+            undefined,
+            ref('noviis:test:draft'),
+            ref(true),
+            ref(7),
+        )
 
         await composable.saveNow()
         payloadRef.value = {
@@ -1084,6 +1090,29 @@ describe('usePostDraft', () => {
             fileIds: [],
         }))
         expect(Storage.get('noviis:test:draft')).not.toHaveProperty('draftId')
+        expect(Storage.get('noviis:draft-deleted:7:91')).toEqual({
+            deletedAt: '2026-07-07T12:00:00.000Z',
+        })
+    })
+
+    it('switches a newly assigned draft to its draft-specific storage key', async () => {
+        const { composable } = mountComposable(
+            undefined,
+            ref('noviis:test:draft'),
+            ref(true),
+            ref(7),
+            undefined,
+            (draftId) => `noviis:test:draft:${draftId}`,
+        )
+
+        await composable.saveNow()
+
+        expect(Storage.has('noviis:test:draft')).toBe(false)
+        expect(Storage.get('noviis:test:draft:91')).toEqual(expect.objectContaining({
+            draftId: 91,
+            clientDraftKey: 'client-draft-key-1234',
+            hasLocalChanges: false,
+        }))
     })
 
     it('keeps the draft tracking state when deleting an empty server draft fails', async () => {
