@@ -15409,6 +15409,13 @@
           }
         }, {
           "in" : "query",
+          "name" : "clientDraftKey",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
           "name" : "userId",
           "required" : true,
           "schema" : {

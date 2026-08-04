@@ -10832,6 +10832,7 @@ export interface operations {
             query: {
                 boardUrl: string;
                 originalPostId?: number;
+                clientDraftKey?: string;
                 userId: number;
             };
             header?: never;
