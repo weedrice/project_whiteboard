@@ -8,6 +8,7 @@ import {
     toSafePostLinkUrl,
     validatePostDraftPoll,
     validatePostDraftPollContract,
+    validatePostDraftContent,
     validatePostFormPoll,
     validatePostFormContent,
 } from '../postForm'
@@ -32,6 +33,8 @@ describe('postForm', () => {
         expect(validatePostFormContent({ ...valid, content: 'c'.repeat(100_001) })).toBe('contentTooLong')
         expect(validatePostFormContent({ ...valid, tags: Array.from({ length: 11 }, (_, index) => `tag${index}`) })).toBe('tooManyTags')
         expect(validatePostFormContent({ ...valid, tags: ['t'.repeat(101)] })).toBe('tagTooLong')
+        expect(validatePostFormContent({ ...valid, title: '<b>title</b>' })).toBe('titleContainsHtml')
+        expect(validatePostFormContent({ ...valid, tags: [' '] })).toBe('tagRequired')
         expect(validatePostFormContent({ ...valid, fileIds: Array.from({ length: 21 }, (_, index) => index + 1) })).toBe('tooManyFiles')
     })
 
@@ -199,6 +202,30 @@ describe('postForm', () => {
             now,
             '2026-01-02T00:00:00Z',
         )).toBeNull()
+    })
+
+    it('validates the transformed draft payload sent to the server', () => {
+        const rawContent = `<style>${'x'.repeat(75_000)}</style>`
+        const payload = buildPostFormPayload({
+            form: { ...baseForm, content: rawContent },
+            mode: 'create',
+            showNotice: true,
+            canShowNsfw: true,
+            fileIds: [],
+        })
+
+        expect(validatePostDraftContent({
+            title: baseForm.title,
+            content: rawContent,
+            tags: baseForm.tags,
+            fileIds: [],
+        })).toBeNull()
+        expect(validatePostDraftContent({
+            title: payload.title,
+            content: payload.contents,
+            tags: payload.tags,
+            fileIds: payload.fileIds,
+        })).toBe('contentTooLong')
     })
 
     it('validates draft poll structure without rejecting an expired close time', () => {

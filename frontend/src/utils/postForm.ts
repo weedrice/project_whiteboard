@@ -28,10 +28,16 @@ export const POST_SERIES_TITLE_MAX_LENGTH = 120
 export type PostFormContentValidationError =
     | 'titleRequired'
     | 'titleTooLong'
+    | 'titleContainsHtml'
     | 'contentTooLong'
     | 'tooManyTags'
+    | 'tagRequired'
     | 'tagTooLong'
     | 'tooManyFiles'
+
+export function containsUnsafePostTitleHtml(value: string): boolean {
+    return /<[^>]+>|on\w+\s*=/i.test(value)
+}
 
 export function validatePostFormContent(input: {
     title: string
@@ -41,9 +47,11 @@ export function validatePostFormContent(input: {
 }): PostFormContentValidationError | null {
     if (!input.title.trim()) return 'titleRequired'
     if (input.title.length > POST_TITLE_MAX_LENGTH) return 'titleTooLong'
+    if (containsUnsafePostTitleHtml(input.title)) return 'titleContainsHtml'
     if (input.content.length > POST_CONTENT_MAX_LENGTH) return 'contentTooLong'
     if (input.tags.length > POST_TAG_MAX_COUNT) return 'tooManyTags'
-    if (input.tags.some((tag) => tag.trim().length > POST_TAG_MAX_LENGTH)) return 'tagTooLong'
+    if (input.tags.some((tag) => !tag.trim())) return 'tagRequired'
+    if (input.tags.some((tag) => tag.length > POST_TAG_MAX_LENGTH)) return 'tagTooLong'
     if (new Set(input.fileIds).size > POST_FILE_MAX_COUNT) return 'tooManyFiles'
     return null
 }
@@ -55,9 +63,11 @@ export function validatePostDraftContent(input: {
     fileIds: number[]
 }): Exclude<PostFormContentValidationError, 'titleRequired'> | null {
     if (input.title.length > POST_TITLE_MAX_LENGTH) return 'titleTooLong'
+    if (containsUnsafePostTitleHtml(input.title)) return 'titleContainsHtml'
     if (input.content.length > POST_CONTENT_MAX_LENGTH) return 'contentTooLong'
     if (input.tags.length > POST_TAG_MAX_COUNT) return 'tooManyTags'
-    if (input.tags.some((tag) => tag.trim().length > POST_TAG_MAX_LENGTH)) return 'tagTooLong'
+    if (input.tags.some((tag) => !tag.trim())) return 'tagRequired'
+    if (input.tags.some((tag) => tag.length > POST_TAG_MAX_LENGTH)) return 'tagTooLong'
     if (new Set(input.fileIds).size > POST_FILE_MAX_COUNT) return 'tooManyFiles'
     return null
 }

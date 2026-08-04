@@ -214,21 +214,25 @@ const postValidation = useFieldValidation<PostRequiredField>({
   fieldIds: { title: 'title' },
 })
 const postRequiredValues = computed(() => ({ title: form.value.title }))
-const postContentIsValid = () => validatePostFormContent({
-  title: form.value.title,
-  content: form.value.content,
-  tags: props.hideTags ? [] : form.value.tags,
-  fileIds: buildPayload('content').fileIds,
-}) == null
-const draftContentIsValid = () => (
-  validatePostDraftContent({
-    title: form.value.title,
-    content: form.value.content,
-    tags: props.hideTags ? [] : form.value.tags,
-    fileIds: buildPayload('draft').fileIds,
+const postContentIsValid = () => {
+  const payload = buildPayload('content')
+  return validatePostFormContent({
+    title: payload.title,
+    content: payload.contents,
+    tags: payload.tags,
+    fileIds: payload.fileIds,
   }) == null
-  && validatePostDraftPollContract(form.value.poll) == null
-)
+}
+const draftContentIsValid = () => {
+  const payload = buildPayload('draft')
+  return validatePostDraftContent({
+    title: payload.title,
+    content: payload.contents,
+    tags: payload.tags,
+    fileIds: payload.fileIds,
+  }) == null
+    && validatePostDraftPollContract(payload.poll) == null
+}
 
 const {
   filteredCategories,

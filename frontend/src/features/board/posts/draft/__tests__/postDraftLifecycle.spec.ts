@@ -281,6 +281,19 @@ describe('draft browser lifecycle', () => {
     expect(Storage.has(key)).toBe(true)
   })
 
+  it('does not mark an incomplete draft poll as a contract violation', () => {
+    const key = 'noviis:draft:1:create:free:incomplete-poll'
+    Storage.set(key, {
+      boardUrl: 'free',
+      poll: { question: '', options: [''] },
+      clientModifiedAt: '2026-08-03T00:00:00.000Z',
+    })
+
+    expect(loadStoredDraftSnapshot(key)).toEqual(expect.objectContaining({
+      contractValidationFailed: false,
+    }))
+  })
+
   it('quarantines snapshots with an invalid board identity instead of deleting them', () => {
     const key = 'noviis:draft:1:create:free:invalid-board'
     Storage.set(key, {

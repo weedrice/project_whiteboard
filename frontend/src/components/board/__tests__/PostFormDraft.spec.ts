@@ -97,6 +97,22 @@ describe('PostForm draft behavior', () => {
     expect(mockAddToast).toHaveBeenCalledWith('board.writePost.draftStatus.saved', 'success')
   })
 
+  it('rejects a draft title containing server-forbidden HTML before saving', async () => {
+    mockPostFormAuthStore({
+      isAuthenticated: true,
+      user: { userId: 1, role: 'USER' },
+    })
+    const wrapper = mountPostForm('create')
+    await flushPromises()
+
+    await wrapper.get('#title').setValue('<b>Draft title</b>')
+    await findButtonByText(wrapper, 'board.writePost.actions.saveDraft').trigger('click')
+    await flushPromises()
+
+    expect(mockSaveDraftMutateAsync).not.toHaveBeenCalled()
+    expect(mockAddToast).toHaveBeenCalledWith('board.writePost.validation', 'error')
+  })
+
   it('saves the draft before create submit and includes draft id', async () => {
     mockPostFormAuthStore({
       isAuthenticated: true,

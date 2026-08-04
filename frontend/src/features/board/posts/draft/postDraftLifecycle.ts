@@ -8,12 +8,12 @@ import {
   POST_CONTENT_MAX_LENGTH,
   POST_FILE_MAX_COUNT,
   POST_POLL_MAX_OPTIONS,
-  POST_POLL_MIN_OPTIONS,
   POST_POLL_OPTION_MAX_LENGTH,
   POST_POLL_QUESTION_MAX_LENGTH,
   POST_TAG_MAX_COUNT,
   POST_TAG_MAX_LENGTH,
   POST_TITLE_MAX_LENGTH,
+  containsUnsafePostTitleHtml,
 } from '@/utils/postForm'
 
 export const DRAFT_LOCAL_RETENTION_DAYS = 90
@@ -126,6 +126,7 @@ function isValidPoll(value: unknown): boolean {
 
 function hasDraftPayloadContractViolation(value: Record<string, unknown>): boolean {
   if (typeof value.title === 'string' && value.title.length > POST_TITLE_MAX_LENGTH) return true
+  if (typeof value.title === 'string' && containsUnsafePostTitleHtml(value.title)) return true
   if (typeof value.contents === 'string' && value.contents.length > POST_CONTENT_MAX_LENGTH) return true
   if (Array.isArray(value.tags) && (value.tags.length > POST_TAG_MAX_COUNT
     || value.tags.some((tag) => typeof tag === 'string'
@@ -133,12 +134,11 @@ function hasDraftPayloadContractViolation(value: Record<string, unknown>): boole
   if (Array.isArray(value.fileIds) && value.fileIds.length > POST_FILE_MAX_COUNT) return true
   if (!isRecord(value.poll)) return false
   if (typeof value.poll.question === 'string'
-    && (!value.poll.question.trim() || value.poll.question.length > POST_POLL_QUESTION_MAX_LENGTH)) return true
+    && value.poll.question.length > POST_POLL_QUESTION_MAX_LENGTH) return true
   return Array.isArray(value.poll.options)
-    && (value.poll.options.length < POST_POLL_MIN_OPTIONS
-      || value.poll.options.length > POST_POLL_MAX_OPTIONS
+    && (value.poll.options.length > POST_POLL_MAX_OPTIONS
       || value.poll.options.some((option) => typeof option === 'string'
-        && (!option.trim() || option.length > POST_POLL_OPTION_MAX_LENGTH)))
+        && option.length > POST_POLL_OPTION_MAX_LENGTH))
 }
 
 export function parseDraftRecoverySnapshot(
