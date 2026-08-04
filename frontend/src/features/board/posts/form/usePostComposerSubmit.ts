@@ -172,7 +172,12 @@ export function usePostComposerSubmit(options: UsePostComposerSubmitOptions) {
 
     try {
     if (options.draftBlockReason.value) {
-      options.addToast(options.t(`board.writePost.draftStatus.${options.draftBlockReason.value}`), 'error')
+      const message = options.draftBlockReason.value === 'deleted'
+        ? options.t('board.writePost.draftStatus.deleted')
+        : options.draftBlockReason.value === 'protected'
+          ? options.t('board.writePost.draftStatus.protected')
+          : options.t('board.writePost.draftStatus.conflict')
+      options.addToast(message, 'error')
       unlock()
       return
     }
