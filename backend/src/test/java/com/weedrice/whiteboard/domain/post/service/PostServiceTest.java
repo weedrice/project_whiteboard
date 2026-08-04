@@ -4885,7 +4885,30 @@ class PostServiceTest {
 
         DraftResponse response = postService.saveDraftPost(1L, draftRequest(incompletePoll));
 
-        assertThat(response.getPoll()).isSameAs(incompletePoll);
+        assertThat(response.getPoll().getQuestion()).isEmpty();
+        assertThat(response.getPoll().getOptions()).containsExactly("");
+        assertThat(response.getPoll().getMultipleChoiceEnabled()).isFalse();
+        assertThat(response.getPoll().getAnonymousEnabled()).isFalse();
+    }
+
+    @Test
+    @DisplayName("초안 투표의 누락된 필드는 복구 가능한 빈 값으로 정규화한다")
+    void saveDraftPost_normalizesMissingPollFields() {
+        PollRequest incompletePoll = new PollRequest();
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+        when(draftPostRepository.saveAndFlush(any(DraftPost.class))).thenAnswer(invocation -> {
+            DraftPost saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "draftId", 88L);
+            return saved;
+        });
+
+        DraftResponse response = postService.saveDraftPost(1L, draftRequest(incompletePoll));
+
+        assertThat(response.getPoll().getQuestion()).isEmpty();
+        assertThat(response.getPoll().getOptions()).isEmpty();
+        assertThat(response.getPoll().getMultipleChoiceEnabled()).isFalse();
+        assertThat(response.getPoll().getAnonymousEnabled()).isFalse();
     }
 
     @Test

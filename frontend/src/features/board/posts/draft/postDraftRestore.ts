@@ -80,7 +80,7 @@ export async function resolveServerDraftForRecovery({
     }
   } catch (error: unknown) {
     if (!generationIsCurrent()) {
-      return { localSnapshot: nextLocalSnapshot, serverDraft, recoveryFailed, multipleMatchesFound }
+      return { localSnapshot: nextLocalSnapshot, serverDraft, recoveryFailed, draftProtected, multipleMatchesFound }
     }
     if (isDraftProtectedError(error)) {
       draftProtected = true

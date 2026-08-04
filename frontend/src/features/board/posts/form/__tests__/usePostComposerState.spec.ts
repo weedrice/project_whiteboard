@@ -42,4 +42,23 @@ describe('usePostComposerState', () => {
 
     expect(composer.form.value.seriesId).toBe(42)
   })
+
+  it('restores a malformed legacy poll with safe empty fields', () => {
+    const composer = createComposer()
+
+    composer.applyDraftSnapshot({
+      poll: {
+        question: null,
+        options: null,
+      },
+    })
+
+    expect(composer.form.value.poll).toEqual({
+      question: '',
+      options: [],
+      multipleChoiceEnabled: false,
+      anonymousEnabled: false,
+      closesAt: null,
+    })
+  })
 })

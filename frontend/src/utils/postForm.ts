@@ -285,7 +285,7 @@ export function validatePostDraftPoll(
 }
 
 export function validatePostDraftPollContract(
-    poll?: PostFormPoll | null,
+    poll?: Pick<PostFormPoll, 'question' | 'options'> | null,
 ): Extract<PostFormPollValidationError, 'questionTooLong' | 'optionCount' | 'optionTooLong'> | null {
     if (!poll) return null
     if (poll.question.length > POST_POLL_QUESTION_MAX_LENGTH) return 'questionTooLong'

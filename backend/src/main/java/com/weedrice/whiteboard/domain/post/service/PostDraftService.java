@@ -97,7 +97,8 @@ public class PostDraftService {
         Board board = boardRepository.findByBoardUrl(normalizedBoardUrl)
                 .orElseThrow(() -> new BusinessException(ErrorCode.BOARD_NOT_FOUND));
         postAuthorCommandPolicy.validateBoardWritable(board, user);
-        validateDraftPoll(request.getPoll());
+        PollRequest normalizedPoll = normalizeDraftPoll(request.getPoll());
+        validateDraftPoll(normalizedPoll);
 
         BoardCategory category = null;
         if (request.getCategoryId() != null) {
@@ -121,7 +122,8 @@ public class PostDraftService {
                     .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
         }
 
-        DraftPost draftPost = resolveDraftPost(user, request, board, category, series, originalPost);
+        DraftPost draftPost = resolveDraftPost(
+                user, request, board, category, series, originalPost, normalizedPoll);
         DraftPost savedDraftPost = draftPostRepository.saveAndFlush(draftPost);
         fileService.syncDraftFiles(request.getFileIds(), userId, savedDraftPost.getDraftId());
         postDraftCleanupService.enforceUserDraftLimit(user);
@@ -141,7 +143,8 @@ public class PostDraftService {
     }
 
     private DraftPost resolveDraftPost(User user, PostDraftRequest request, Board board,
-                                       BoardCategory category, PostSeries series, Post originalPost) {
+                                       BoardCategory category, PostSeries series, Post originalPost,
+                                       PollRequest normalizedPoll) {
         String sanitizedContents = sanitizeDraftContents(request.getContents());
         DraftPost draftPost = null;
         if (request.getDraftId() != null) {
@@ -166,7 +169,7 @@ public class PostDraftService {
                     .isSpoiler(request.isSpoiler())
                     .isSecret(request.isSecret())
                     .fileIds(request.getFileIds())
-                    .poll(request.getPoll())
+                    .poll(normalizedPoll)
                     .series(series)
                     .originalPost(originalPost)
                     .build();
@@ -178,7 +181,8 @@ public class PostDraftService {
         }
         if (request.getDraftId() == null
                 && !isMatchingIdempotentCreateRetry(
-                        draftPost, request, board, category, series, originalPost, sanitizedContents)) {
+                        draftPost, request, board, category, series, originalPost, sanitizedContents,
+                        normalizedPoll)) {
             throw new BusinessException(ErrorCode.DRAFT_OUTDATED);
         }
         if (request.getDraftId() != null
@@ -203,7 +207,7 @@ public class PostDraftService {
                 request.isSpoiler(),
                 request.isSecret(),
                 request.getFileIds(),
-                request.getPoll(),
+                normalizedPoll,
                 series,
                 originalPost);
         return draftPost;
@@ -238,7 +242,8 @@ public class PostDraftService {
     }
 
     private boolean isMatchingIdempotentCreateRetry(DraftPost draftPost, PostDraftRequest request,
-            Board board, BoardCategory category, PostSeries series, Post originalPost, String sanitizedContents) {
+            Board board, BoardCategory category, PostSeries series, Post originalPost, String sanitizedContents,
+            PollRequest normalizedPoll) {
         return Objects.equals(draftPost.getBoard().getBoardId(), board.getBoardId())
                 && Objects.equals(entityId(draftPost.getCategory()), entityId(category))
                 && Objects.equals(draftPost.getTitle(), request.getTitle())
@@ -249,7 +254,7 @@ public class PostDraftService {
                 && draftPost.isSpoiler() == request.isSpoiler()
                 && draftPost.isSecret() == request.isSecret()
                 && Objects.equals(orEmpty(draftPost.getFileIds()), orEmpty(request.getFileIds()))
-                && Objects.equals(draftPost.getPoll(), request.getPoll())
+                && Objects.equals(draftPost.getPoll(), normalizedPoll)
                 && Objects.equals(entityId(draftPost.getSeries()), entityId(series))
                 && Objects.equals(postId(draftPost.getOriginalPost()), postId(originalPost));
     }
@@ -288,6 +293,21 @@ public class PostDraftService {
 
     private String sanitizeDraftContents(String contents) {
         return Objects.toString(InputSanitizer.sanitizePostHtml(contents), "");
+    }
+
+    private PollRequest normalizeDraftPoll(PollRequest poll) {
+        if (poll == null) {
+            return null;
+        }
+        PollRequest normalized = new PollRequest();
+        normalized.setQuestion(Objects.toString(poll.getQuestion(), ""));
+        normalized.setOptions(poll.getOptions() == null
+                ? List.of()
+                : poll.getOptions().stream().map(option -> Objects.toString(option, "")).toList());
+        normalized.setMultipleChoiceEnabled(Boolean.TRUE.equals(poll.getMultipleChoiceEnabled()));
+        normalized.setAnonymousEnabled(Boolean.TRUE.equals(poll.getAnonymousEnabled()));
+        normalized.setClosesAt(poll.getClosesAt());
+        return normalized;
     }
 
     private void validateDraftPoll(PollRequest poll) {

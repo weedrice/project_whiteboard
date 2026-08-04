@@ -36,11 +36,11 @@ export type PostComposerSnapshot = {
   seriesId?: number | null
   seriesNavigation?: { series?: { seriesId?: number | null } | null } | null
   poll?: {
-    question: string
+    question?: string | null
     multipleChoiceEnabled?: boolean
     anonymousEnabled?: boolean
     closesAt?: string | null
-    options: Array<{ optionText: string } | string>
+    options?: Array<{ optionText: string } | string> | null
   } | null
   fileIds?: number[]
 }
@@ -131,8 +131,9 @@ export function usePostComposerState(options: UsePostComposerStateOptions) {
       isSecret: Boolean(draft.isSecret),
       seriesId: draft.seriesNavigation?.series?.seriesId ?? draft.seriesId ?? '',
       poll: draft.poll ? {
-        question: draft.poll.question,
-        options: draft.poll.options.map((option) => typeof option === 'string' ? option : option.optionText),
+        question: draft.poll.question ?? '',
+        options: (draft.poll.options ?? [])
+          .map((option) => typeof option === 'string' ? option : option.optionText),
         multipleChoiceEnabled: Boolean(draft.poll.multipleChoiceEnabled),
         anonymousEnabled: Boolean(draft.poll.anonymousEnabled),
         // datetime-local 입력에 들어가므로 offset을 떼고 서버 기준 벽시계로 넣는다.
