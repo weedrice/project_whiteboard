@@ -31,6 +31,7 @@ export function usePostSeriesOptions({
   const toastStore = useToastStore()
   const localOptions = ref<PostSeries[] | null>(null)
   const serverOptions = ref<PostSeries[]>([])
+  const hasLoadedPostSeries = ref(false)
   const isPostSeriesError = ref(false)
   const newSeriesTitle = ref('')
   const isCreatingSeries = ref(false)
@@ -55,6 +56,7 @@ export function usePostSeriesOptions({
       })
       if (generation !== authStore.sessionGeneration) return
       serverOptions.value = series
+      hasLoadedPostSeries.value = true
     } catch {
       if (generation !== authStore.sessionGeneration) return
       isPostSeriesError.value = true
@@ -116,6 +118,14 @@ export function usePostSeriesOptions({
     newSeriesTitle.value = ''
   }
 
+  function resetUnavailableSelectedSeries() {
+    if (!hasLoadedPostSeries.value || form.value.seriesId == null || form.value.seriesId === '') return
+    const selectedSeriesId = Number(form.value.seriesId)
+    if (seriesOptions.value.some((series) => series.seriesId === selectedSeriesId)) return
+    form.value.seriesId = ''
+    toastStore.addToast(t('board.writePost.draftStatus.referencesReset'), 'warning')
+  }
+
   onMounted(() => {
     if (authStore.isAuthenticated) void loadPostSeries()
   })
@@ -124,9 +134,16 @@ export function usePostSeriesOptions({
     cancelCreateSeriesRequest()
     localOptions.value = null
     serverOptions.value = []
+    hasLoadedPostSeries.value = false
     isPostSeriesError.value = false
     resetSeriesInput()
   })
+
+  watch(
+    [hasLoadedPostSeries, seriesOptions, () => form.value.seriesId],
+    resetUnavailableSelectedSeries,
+    { flush: 'post' },
+  )
 
   onScopeDispose(cancelCreateSeriesRequest)
 
@@ -135,6 +152,7 @@ export function usePostSeriesOptions({
     newSeriesTitle,
     isCreatingSeries,
     isPostSeriesError,
+    hasLoadedPostSeries,
     loadPostSeries,
     createSeries,
     cancelCreateSeriesRequest,

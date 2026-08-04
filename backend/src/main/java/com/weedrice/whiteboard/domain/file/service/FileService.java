@@ -87,6 +87,10 @@ public class FileService {
         fileAssociationService.syncDraftFiles(fileIds, ownerUserId, draftId);
     }
 
+    public List<Long> retainValidDraftFileIds(List<Long> fileIds, Long ownerUserId, Long draftId) {
+        return fileAssociationService.retainValidDraftFileIds(fileIds, ownerUserId, draftId);
+    }
+
     @Transactional
     public void attachFilesToPost(List<Long> fileIds, Long ownerUserId, Long postId) {
         fileAssociationService.attachFilesToPost(fileIds, ownerUserId, postId);

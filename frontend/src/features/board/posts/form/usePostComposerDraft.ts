@@ -1,5 +1,8 @@
 import { computed, nextTick, ref, watch, type ComputedRef, type Ref } from 'vue'
-import { usePostDraft } from '@/features/board/posts/draft/usePostDraft'
+import {
+  usePostDraft,
+  type DraftRecoverySnapshot,
+} from '@/features/board/posts/draft/usePostDraft'
 import type { PostComposerSnapshot } from '@/features/board/posts/form/usePostComposerState'
 import type { PostFormFileIdScope } from '@/utils/postForm'
 import logger from '@/utils/logger'
@@ -68,7 +71,7 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     appliedDraftSignature = serializeDraftPayload()
   }
 
-  const prepareRecoveredSnapshot = (snapshot: PostComposerSnapshot): PostComposerSnapshot => {
+  const prepareRecoveredSnapshot = (snapshot: DraftRecoverySnapshot): DraftRecoverySnapshot => {
     if (snapshot.categoryId == null || options.isCategorySelectable(snapshot.categoryId)) return snapshot
     return {
       ...snapshot,
@@ -123,7 +126,12 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     applyDraft: applyDraftWithoutTracking,
     prepareRecoveredSnapshot,
     onSaved: options.markCurrentSnapshotSaved,
-    onServerSaved: (payload) => options.releaseUploadedFileOwnership(payload.fileIds ?? []),
+    onServerSaved: (_payload, savedDraft) => options.releaseUploadedFileOwnership(savedDraft.fileIds ?? []),
+    onServerReferencesReset: (savedDraft) => applyDraftWithoutTracking({
+      ...options.buildPayload('draft'),
+      fileIds: savedDraft.fileIds ?? [],
+      seriesId: savedDraft.seriesId ?? null,
+    }),
     prepareStaleSnapshot: prepareRecoveredSnapshot,
     onStaleReferencesReset: () => options.addToast(
       options.t('board.writePost.draftStatus.referencesReset'),

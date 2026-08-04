@@ -96,6 +96,23 @@ class FileAssociationService {
         associateOrMoveOwnedFiles(requestedFileIds, ownerUserId, draftId, RELATED_TYPE_DRAFT_POST, draftId);
     }
 
+    public List<Long> retainValidDraftFileIds(List<Long> fileIds, Long ownerUserId, Long draftId) {
+        Set<Long> requestedFileIds = normalizeFileIds(fileIds, FileAssociationConstraints.MAX_POST_FILE_COUNT);
+        if (requestedFileIds.isEmpty()) {
+            return List.of();
+        }
+        Map<Long, File> filesById = loadActiveFilesById(requestedFileIds);
+        return requestedFileIds.stream()
+                .filter(fileId -> {
+                    File file = filesById.get(fileId);
+                    return file != null
+                            && file.getUploader() != null
+                            && ownerUserId.equals(file.getUploader().getUserId())
+                            && canAssociateOrMove(file, draftId, RELATED_TYPE_DRAFT_POST, draftId);
+                })
+                .toList();
+    }
+
     @Transactional
     public void attachFilesToPost(List<Long> fileIds, Long ownerUserId, Long postId) {
         attachFilesToPost(fileIds, ownerUserId, postId, null);

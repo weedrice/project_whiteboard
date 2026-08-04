@@ -15,6 +15,7 @@ const userApiMocks = vi.hoisted(() => ({
     getPostSeries: vi.fn(),
 }))
 const mockCreatePostSeries = userApiMocks.createPostSeries
+const mockGetPostSeries = userApiMocks.getPostSeries
 
 vi.mock('vue-i18n', () => ({
     useI18n: () => ({ t: (key: string) => key }),
@@ -603,6 +604,7 @@ export {
     mockUpdateScheduledMutate,
     mockCreateMutate,
     mockCreatePostSeries,
+    mockGetPostSeries,
     mockSaveDraftMutateAsync,
     mockUpdateMutate,
     mockUsePostDetail,

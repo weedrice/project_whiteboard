@@ -888,6 +888,26 @@ class FileServiceTest {
     }
 
     @Test
+    @DisplayName("초안 복구용 파일 검증은 소유하고 연결 가능한 활성 파일만 유지한다")
+    void retainValidDraftFileIds_filtersStaleAndUnavailableFiles() {
+        User owner = User.builder().build();
+        ReflectionTestUtils.setField(owner, "userId", 1L);
+        User anotherUser = User.builder().build();
+        ReflectionTestUtils.setField(anotherUser, "userId", 2L);
+        File valid = draftFile(11L, owner, null);
+        File foreign = draftFile(12L, anotherUser, null);
+        File otherDraft = draftFile(13L, owner, 99L);
+        when(fileRepository.findByFileIdInAndStorageStatus(
+                List.of(11L, 12L, 13L, 14L), FileStorageStatus.ACTIVE))
+                .thenReturn(List.of(valid, foreign, otherDraft));
+
+        List<Long> retained = fileService.retainValidDraftFileIds(
+                List.of(11L, 12L, 13L, 14L), 1L, 77L);
+
+        assertThat(retained).containsExactly(11L);
+    }
+
+    @Test
     @DisplayName("게시글 파일 동기화는 요청 목록에 없는 기존 파일을 삭제 예정으로 전환한다")
     void syncPostFiles_marksOmittedFilesPendingDelete() {
         User uploader = User.builder().build();
@@ -1174,6 +1194,20 @@ class FileServiceTest {
                 .fileSize(4L)
                 .mimeType("image/jpeg")
                 .uploader(uploader)
+                .build();
+        ReflectionTestUtils.setField(file, "fileId", fileId);
+        return file;
+    }
+
+    private File draftFile(Long fileId, User uploader, Long draftId) {
+        File file = File.builder()
+                .filePath("draft-" + fileId + ".jpg")
+                .originalName("draft-" + fileId + ".jpg")
+                .fileSize(4L)
+                .mimeType("image/jpeg")
+                .uploader(uploader)
+                .relatedId(draftId)
+                .relatedType(draftId == null ? null : FileService.RELATED_TYPE_DRAFT_POST)
                 .build();
         ReflectionTestUtils.setField(file, "fileId", fileId);
         return file;

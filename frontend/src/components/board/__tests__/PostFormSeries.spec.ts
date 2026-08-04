@@ -2,10 +2,13 @@ import { flushPromises } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { queryClient } from '@/queryClient'
 import { createDeferred } from '@/test/async'
+import { Storage } from '@/utils/storage'
 import {
   findButtonByText,
   mockAddToast,
   mockCreatePostSeries,
+  mockGetPostSeries,
+  mockPostFormAuthStore,
   mountPostForm,
   resetPostFormTestState,
   unmountPostFormWrappers,
@@ -84,5 +87,33 @@ describe('PostForm series creation identity', () => {
     expect((wrapper.get('#new-series').element as HTMLInputElement).value).toBe('Current draft title')
     expect(wrapper.get('#new-series').attributes('disabled')).toBeUndefined()
     expect(mockAddToast).not.toHaveBeenCalledWith('board.writePost.createSeriesFailed', 'error')
+  })
+
+  it('clears a restored series that is no longer available after options load', async () => {
+    mockPostFormAuthStore({
+      isAuthenticated: true,
+      user: { userId: 1, role: 'USER' },
+    })
+    mockGetPostSeries.mockResolvedValueOnce({
+      data: { data: [{ seriesId: 10, title: 'Available series' }] },
+    })
+    Storage.set('noviis:draft:1:create:free:new', {
+      draftId: 91,
+      boardUrl: 'free',
+      title: 'Recovered draft',
+      contents: 'Recovered body',
+      seriesId: 99,
+      clientModifiedAt: '2026-08-03T00:00:00.000Z',
+      hasLocalChanges: true,
+    })
+
+    const wrapper = mountPostForm('create', {}, {}, { postId: '' })
+    await flushPromises()
+
+    expect((wrapper.get('#series').element as HTMLSelectElement).value).toBe('')
+    expect(mockAddToast).toHaveBeenCalledWith(
+      'board.writePost.draftStatus.referencesReset',
+      'warning',
+    )
   })
 })

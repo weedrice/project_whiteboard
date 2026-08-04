@@ -60,7 +60,8 @@ interface UsePostDraftOptions {
     applyDraft: (draft: DraftRecoverySnapshot) => void
     prepareRecoveredSnapshot?: (snapshot: DraftRecoverySnapshot) => DraftRecoverySnapshot
     onSaved?: () => void
-    onServerSaved?: (payload: PostDraftData) => void
+    onServerSaved?: (payload: PostDraftData, savedDraft: DraftPost) => void
+    onServerReferencesReset?: (savedDraft: DraftPost) => void
     prepareStaleSnapshot?: (snapshot: DraftRecoverySnapshot) => DraftRecoverySnapshot
     onStaleReferencesReset?: () => void
     canPersist?: () => boolean
@@ -336,7 +337,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
 
         storeLocalSnapshot(createDraftRecoverySnapshot(payload, draftId.value, updatedAt.value))
         const savedDraft = unwrapAxiosApiData(await savePayload(payload))
-        options.onServerSaved?.(payload)
+        options.onServerSaved?.(payload, savedDraft)
         if (generation !== sessionGeneration) return null
         draftId.value = savedDraft.draftId
         draftVersion.value = savedDraft.version ?? null
@@ -344,7 +345,11 @@ export function usePostDraft(options: UsePostDraftOptions) {
         updatedAt.value = getDraftUpdatedAt(savedDraft) ?? new Date().toISOString()
         lastSavedAt.value = updatedAt.value
         lastSaveScope.value = 'server'
-        staleReferencesReset.value = false
+        staleReferencesReset.value = Boolean(savedDraft.staleReferencesReset)
+        if (staleReferencesReset.value) {
+            options.onServerReferencesReset?.(savedDraft)
+            options.onStaleReferencesReset?.()
+        }
         contractValidationFailed.value = false
         if (revision === localRevision) {
             persistedRevision = revision

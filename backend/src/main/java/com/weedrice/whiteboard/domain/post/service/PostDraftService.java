@@ -117,17 +117,28 @@ public class PostDraftService {
         }
 
         PostSeries series = null;
+        boolean staleReferencesReset = false;
         if (request.getSeriesId() != null) {
             series = postSeriesRepository.findBySeriesIdAndOwner_UserId(request.getSeriesId(), userId)
-                    .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
+                    .orElse(null);
+            staleReferencesReset = series == null;
         }
 
         DraftPost draftPost = resolveDraftPost(
                 user, request, board, category, series, originalPost, normalizedPoll);
         DraftPost savedDraftPost = draftPostRepository.saveAndFlush(draftPost);
-        fileService.syncDraftFiles(request.getFileIds(), userId, savedDraftPost.getDraftId());
+        List<Long> retainedFileIds = fileService.retainValidDraftFileIds(
+                request.getFileIds(), userId, savedDraftPost.getDraftId());
+        List<Long> requestedFileIds = orEmpty(request.getFileIds()).stream().distinct().toList();
+        if (!Objects.equals(requestedFileIds, retainedFileIds)) {
+            staleReferencesReset = true;
+        }
+        if (!Objects.equals(orEmpty(savedDraftPost.getFileIds()), retainedFileIds)) {
+            savedDraftPost.replaceFileIds(retainedFileIds);
+        }
+        fileService.syncDraftFiles(retainedFileIds, userId, savedDraftPost.getDraftId());
         postDraftCleanupService.enforceUserDraftLimit(user);
-        return DraftResponse.from(savedDraftPost);
+        return DraftResponse.from(savedDraftPost, staleReferencesReset);
     }
 
     @Transactional
@@ -153,6 +164,12 @@ public class PostDraftService {
         } else if (request.getClientDraftKey() != null && !request.getClientDraftKey().isBlank()) {
             draftPost = draftPostRepository.findByUserAndClientDraftKeyForUpdate(user, request.getClientDraftKey())
                     .orElse(null);
+        }
+
+        List<Long> resolvedFileIds = request.getFileIds();
+        if (draftPost != null) {
+            resolvedFileIds = fileService.retainValidDraftFileIds(
+                    request.getFileIds(), user.getUserId(), draftPost.getDraftId());
         }
 
         if (draftPost == null) {
@@ -182,7 +199,7 @@ public class PostDraftService {
         if (request.getDraftId() == null
                 && !isMatchingIdempotentCreateRetry(
                         draftPost, request, board, category, series, originalPost, sanitizedContents,
-                        normalizedPoll)) {
+                        normalizedPoll, resolvedFileIds)) {
             throw new BusinessException(ErrorCode.DRAFT_OUTDATED);
         }
         if (request.getDraftId() != null
@@ -206,7 +223,7 @@ public class PostDraftService {
                 request.isNsfw(),
                 request.isSpoiler(),
                 request.isSecret(),
-                request.getFileIds(),
+                resolvedFileIds,
                 normalizedPoll,
                 series,
                 originalPost);
@@ -243,7 +260,7 @@ public class PostDraftService {
 
     private boolean isMatchingIdempotentCreateRetry(DraftPost draftPost, PostDraftRequest request,
             Board board, BoardCategory category, PostSeries series, Post originalPost, String sanitizedContents,
-            PollRequest normalizedPoll) {
+            PollRequest normalizedPoll, List<Long> resolvedFileIds) {
         return Objects.equals(draftPost.getBoard().getBoardId(), board.getBoardId())
                 && Objects.equals(entityId(draftPost.getCategory()), entityId(category))
                 && Objects.equals(draftPost.getTitle(), request.getTitle())
@@ -253,7 +270,7 @@ public class PostDraftService {
                 && draftPost.isNsfw() == request.isNsfw()
                 && draftPost.isSpoiler() == request.isSpoiler()
                 && draftPost.isSecret() == request.isSecret()
-                && Objects.equals(orEmpty(draftPost.getFileIds()), orEmpty(request.getFileIds()))
+                && Objects.equals(orEmpty(draftPost.getFileIds()), orEmpty(resolvedFileIds))
                 && Objects.equals(draftPost.getPoll(), normalizedPoll)
                 && Objects.equals(entityId(draftPost.getSeries()), entityId(series))
                 && Objects.equals(postId(draftPost.getOriginalPost()), postId(originalPost));

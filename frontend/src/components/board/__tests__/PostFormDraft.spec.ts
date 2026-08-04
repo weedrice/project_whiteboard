@@ -208,10 +208,11 @@ describe('PostForm draft behavior', () => {
     mountPostForm('create', {}, {}, { postId: '' })
     await flushPromises()
 
-    expect(Storage.get(storageKey)).toEqual(expect.objectContaining({
+    expect(Storage.get(`${storageKey}:draft-91`)).toEqual(expect.objectContaining({
       title: 'Recovered draft',
       hasLocalChanges: false,
     }))
+    expect(Storage.has(storageKey)).toBe(false)
     expect(mockSaveDraftMutateAsync).not.toHaveBeenCalled()
   })
 
@@ -236,10 +237,11 @@ describe('PostForm draft behavior', () => {
     await flushPromises()
 
     expect(wrapper.get('#category').element).toHaveProperty('value', '12')
-    expect(Storage.get(storageKey)).toEqual(expect.objectContaining({
+    expect(Storage.get(`${storageKey}:draft-91`)).toEqual(expect.objectContaining({
       categoryId: 12,
       staleReferencesReset: true,
     }))
+    expect(Storage.has(storageKey)).toBe(false)
     expect(mockAddToast).toHaveBeenCalledWith(
       'board.writePost.draftStatus.referencesReset',
       'warning',

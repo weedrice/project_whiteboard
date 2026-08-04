@@ -37,10 +37,15 @@ public class DraftResponse {
     private PollRequest poll;
     private Long seriesId;
     private Long originalPostId;
+    private boolean staleReferencesReset;
     private LocalDateTime updatedAt;
     private LocalDateTime modifiedAt;
 
     public static DraftResponse from(DraftPost draftPost) {
+        return from(draftPost, false);
+    }
+
+    public static DraftResponse from(DraftPost draftPost, boolean staleReferencesReset) {
         return DraftResponse.builder()
                 .draftId(draftPost.getDraftId())
                 .clientDraftKey(draftPost.getClientDraftKey())
@@ -60,6 +65,7 @@ public class DraftResponse {
                 .poll(draftPost.getPoll())
                 .seriesId(draftPost.getSeries() != null ? draftPost.getSeries().getSeriesId() : null)
                 .originalPostId(draftPost.getOriginalPost() != null ? draftPost.getOriginalPost().getPostId() : null)
+                .staleReferencesReset(staleReferencesReset)
                 .updatedAt(draftPost.getModifiedAt())
                 .modifiedAt(draftPost.getModifiedAt())
                 .build();

@@ -110,6 +110,8 @@ class PostServiceTest {
     @Mock
     private DraftPostRepository draftPostRepository;
     @Mock
+    private PostSeriesRepository postSeriesRepository;
+    @Mock
     private ScheduledPostRepository scheduledPostRepository;
     @Mock
     private ViewHistoryRepository viewHistoryRepository;
@@ -250,7 +252,7 @@ class PostServiceTest {
                 boardRepository,
                 boardCategoryRepository,
                 postRepository,
-                mock(PostSeriesRepository.class),
+                postSeriesRepository,
                 draftPostRepository,
                 scheduledPostRepository,
                 fileService,
@@ -259,6 +261,10 @@ class PostServiceTest {
                 boardAccessPolicy,
                 postAuthorCommandPolicy,
                 postDraftCleanupService);
+        lenient().when(fileService.retainValidDraftFileIds(isNull(), anyLong(), anyLong()))
+                .thenReturn(List.of());
+        lenient().when(fileService.retainValidDraftFileIds(anyList(), anyLong(), anyLong()))
+                .thenAnswer(invocation -> new ArrayList<>(new LinkedHashSet<>(invocation.getArgument(0))));
         postInteractionService = new PostInteractionService(
                 postRepository,
                 postReactionService,
@@ -2294,6 +2300,35 @@ class PostServiceTest {
     }
 
     @Test
+    @DisplayName("초안 저장은 사라진 시리즈와 유효하지 않은 첨부 참조만 제거한다")
+    void saveDraftPost_recoversStaleSeriesAndFiles() {
+        PostDraftRequest request = PostDraftRequest.builder()
+                .boardUrl("free")
+                .title("Recover references")
+                .contents("Draft Content")
+                .fileIds(List.of(11L, 12L))
+                .seriesId(99L)
+                .build();
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+        when(postSeriesRepository.findBySeriesIdAndOwner_UserId(99L, 1L)).thenReturn(Optional.empty());
+        when(draftPostRepository.saveAndFlush(any(DraftPost.class))).thenAnswer(invocation -> {
+            DraftPost saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "draftId", 23L);
+            return saved;
+        });
+        when(fileService.retainValidDraftFileIds(List.of(11L, 12L), 1L, 23L))
+                .thenReturn(List.of(12L));
+
+        DraftResponse response = postService.saveDraftPost(1L, request);
+
+        assertThat(response.getSeriesId()).isNull();
+        assertThat(response.getFileIds()).containsExactly(12L);
+        assertThat(response.isStaleReferencesReset()).isTrue();
+        verify(fileService).syncDraftFiles(List.of(12L), 1L, 23L);
+    }
+
+    @Test
     @DisplayName("활성 BAN 사용자는 초안을 저장할 수 없다")
     void saveDraftPost_bannedUser_forbidden() {
         PostDraftRequest request = new PostDraftRequest(null, "free", "Draft Title", "Draft Content", null);
@@ -2457,6 +2492,41 @@ class PostServiceTest {
         assertThat(response.getVersion()).isEqualTo(2L);
         assertThat(response.getTitle()).isEqualTo("First attempt");
         verify(fileService).syncDraftFiles(Collections.emptyList(), 1L, 10L);
+    }
+
+    @Test
+    @DisplayName("유실된 첨부가 포함된 clientDraftKey 재시도도 유효한 첨부로 멱등 처리한다")
+    void saveDraftPost_reusesClientDraftKeyAfterStaleFileRecovery() {
+        DraftPost existingDraft = DraftPost.builder()
+                .user(user)
+                .board(board)
+                .clientDraftKey("client-draft-key-1234")
+                .title("First attempt")
+                .contents("")
+                .fileIds(List.of(12L))
+                .build();
+        ReflectionTestUtils.setField(existingDraft, "draftId", 10L);
+        ReflectionTestUtils.setField(existingDraft, "version", 2L);
+        PostDraftRequest request = PostDraftRequest.builder()
+                .clientDraftKey("client-draft-key-1234")
+                .boardUrl("free")
+                .title("First attempt")
+                .fileIds(List.of(11L, 12L))
+                .build();
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+        when(draftPostRepository.findByUserAndClientDraftKeyForUpdate(user, "client-draft-key-1234"))
+                .thenReturn(Optional.of(existingDraft));
+        when(draftPostRepository.saveAndFlush(existingDraft)).thenReturn(existingDraft);
+        when(fileService.retainValidDraftFileIds(List.of(11L, 12L), 1L, 10L))
+                .thenReturn(List.of(12L));
+
+        DraftResponse response = postService.saveDraftPost(1L, request);
+
+        assertThat(response.getDraftId()).isEqualTo(10L);
+        assertThat(response.getFileIds()).containsExactly(12L);
+        assertThat(response.isStaleReferencesReset()).isTrue();
+        verify(fileService).syncDraftFiles(List.of(12L), 1L, 10L);
     }
 
     @Test

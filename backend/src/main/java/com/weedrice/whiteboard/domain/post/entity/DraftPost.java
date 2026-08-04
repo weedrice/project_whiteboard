@@ -126,6 +126,10 @@ public class DraftPost extends BaseTimeEntity {
         }
     }
 
+    public void replaceFileIds(List<Long> fileIds) {
+        this.fileIds = fileIds != null ? new ArrayList<>(fileIds) : new ArrayList<>();
+    }
+
     public void updateDraft(Board board, BoardCategory category, String title, String contents, List<String> tags,
             boolean isNotice, boolean isNsfw, boolean isSpoiler, boolean isSecret, List<Long> fileIds,
             PollRequest poll, PostSeries series, Post originalPost) {

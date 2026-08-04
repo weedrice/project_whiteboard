@@ -4,6 +4,7 @@ import { mount } from '@vue/test-utils'
 import { isTransientDraftSaveError, usePostDraft } from '@/features/board/posts/draft/usePostDraft'
 import type { DraftRecoverySnapshot } from '@/features/board/posts/draft/usePostDraft'
 import type { PostDraftData } from '@/api/post'
+import type { DraftPost } from '@/types'
 import { Storage } from '@/utils/storage'
 import {
     closeDraftDeletedChannelForTest,
@@ -75,7 +76,7 @@ function mountComposable(payloadRef: Ref<PostDraftData> = ref({
     contents: 'Draft body',
     fileIds: [7],
     originalPostId: undefined as number | undefined,
-}), storageKeyRef = ref('noviis:test:draft'), enabledRef = ref(true), ownerIdRef = ref<number | null>(null), onServerSaved?: (payload: PostDraftData) => void, resolveStorageKey?: (draftId: number) => string) {
+}), storageKeyRef = ref('noviis:test:draft'), enabledRef = ref(true), ownerIdRef = ref<number | null>(null), onServerSaved?: (payload: PostDraftData, savedDraft: DraftPost) => void, resolveStorageKey?: (draftId: number) => string, onServerReferencesReset?: (savedDraft: DraftPost) => void) {
     const appliedDrafts: DraftRecoverySnapshot[] = []
     let composable: ReturnType<typeof usePostDraft> | null = null
 
@@ -89,6 +90,7 @@ function mountComposable(payloadRef: Ref<PostDraftData> = ref({
                 buildPayload: () => payloadRef.value,
                 applyDraft: (draft) => appliedDrafts.push(draft),
                 onServerSaved,
+                onServerReferencesReset,
             })
             return () => h('div')
         },
@@ -212,7 +214,57 @@ describe('usePostDraft', () => {
 
         await composable.saveNow()
 
-        expect(onServerSaved).toHaveBeenCalledExactlyOnceWith(payload.value)
+        expect(onServerSaved).toHaveBeenCalledExactlyOnceWith(
+            payload.value,
+            expect.objectContaining({ draftId: 91 }),
+        )
+    })
+
+    it('reports references removed by the server and keeps that recovery state', async () => {
+        mocks.saveDraftMutateAsync.mockResolvedValueOnce({
+            data: {
+                data: {
+                    draftId: 91,
+                    clientDraftKey: 'client-draft-key-1234',
+                    version: 0,
+                    boardId: 1,
+                    boardUrl: 'free',
+                    boardName: 'Free',
+                    title: 'Draft title',
+                    contents: 'Draft body',
+                    tags: [],
+                    fileIds: [],
+                    seriesId: null,
+                    isNotice: false,
+                    isNsfw: false,
+                    isSpoiler: false,
+                    isSecret: false,
+                    staleReferencesReset: true,
+                    updatedAt: '2025-01-01T00:00:00.000Z',
+                },
+            },
+        })
+        const onServerReferencesReset = vi.fn()
+        const { composable } = mountComposable(
+            undefined,
+            ref('noviis:test:draft'),
+            ref(true),
+            ref(1),
+            undefined,
+            undefined,
+            onServerReferencesReset,
+        )
+
+        await composable.saveNow()
+
+        expect(composable.staleReferencesReset.value).toBe(true)
+        expect(onServerReferencesReset).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+            draftId: 91,
+            fileIds: [],
+            seriesId: null,
+        }))
+        expect(Storage.get('noviis:test:draft')).toEqual(expect.objectContaining({ fileIds: [] }))
+        expect(Storage.get('noviis:test:draft')).not.toHaveProperty('seriesId')
     })
 
     it('aborts an in-flight draft request when the draft session resets', async () => {

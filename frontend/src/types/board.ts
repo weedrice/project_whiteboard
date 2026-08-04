@@ -345,6 +345,7 @@ export interface DraftPost {
     poll?: DraftPollPayload | null
     seriesId?: number | null
     originalPostId?: number | null
+    staleReferencesReset?: boolean
     updatedAt?: string
     modifiedAt?: string
 }
