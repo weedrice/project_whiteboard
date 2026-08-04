@@ -1082,7 +1082,11 @@ describe('usePostDraft', () => {
             boardUrl: 'free',
             title: 'Local draft',
             contents: 'Local contents',
+            categoryId: 5,
+            fileIds: [31, 32],
+            seriesId: 8,
             draftId: 91,
+            clientDraftKey: 'client-draft-key-1234',
             version: 4,
             updatedAt: '2025-01-01T00:00:00.000Z',
             clientModifiedAt: '2026-07-07T11:30:00.000Z',
@@ -1102,6 +1106,10 @@ describe('usePostDraft', () => {
         expect(appliedDrafts[0]).toEqual(expect.objectContaining({
             title: 'Local draft',
             contents: 'Local contents',
+            categoryId: null,
+            fileIds: [],
+            seriesId: null,
+            staleReferencesReset: true,
         }))
         expect(composable.restoreSource.value).toBe('local')
         expect(Storage.get('noviis:test:draft')).toEqual(expect.objectContaining({
@@ -1110,6 +1118,9 @@ describe('usePostDraft', () => {
         }))
         expect(Storage.get('noviis:test:draft')).not.toHaveProperty('draftId')
         expect(Storage.get('noviis:test:draft')).not.toHaveProperty('version')
+        expect(Storage.get('noviis:test:draft')).not.toEqual(expect.objectContaining({
+            clientDraftKey: 'client-draft-key-1234',
+        }))
     })
 
     it('keeps local server identity when draft recovery gets a related-resource 404', async () => {
@@ -1280,7 +1291,6 @@ describe('usePostDraft', () => {
         expect(mocks.getMatchingDraft).toHaveBeenCalledWith({
             boardUrl: 'free',
             originalPostId: 7,
-            clientDraftKey: 'client-draft-key-1234',
         })
         expect(mocks.getDraft).toHaveBeenNthCalledWith(2, 13)
         expect(appliedDrafts[0]).toEqual(expect.objectContaining({
@@ -1611,6 +1621,10 @@ describe('usePostDraft', () => {
         expect(composable.lastSaveFailed.value).toBe(false)
         expect(Storage.get('noviis:test:draft')).toEqual(expect.objectContaining({
             title: 'Preserved after deletion',
+            categoryId: null,
+            fileIds: [],
+            seriesId: null,
+            staleReferencesReset: true,
             hasLocalChanges: true,
         }))
         expect(Storage.get('noviis:test:draft')).not.toHaveProperty('draftId')

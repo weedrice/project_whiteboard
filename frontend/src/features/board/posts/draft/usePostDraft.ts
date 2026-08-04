@@ -24,6 +24,7 @@ import {
     createStoredSavedDraftSnapshot,
     hasBrowserDraftContent,
     hasMeaningfulDraftContent,
+    stripDraftServerIdentity,
 } from '@/features/board/posts/draft/postDraftSnapshot'
 import { resolveServerDraftForRecovery } from '@/features/board/posts/draft/postDraftRestore'
 import {
@@ -56,6 +57,8 @@ interface UsePostDraftOptions {
     applyDraft: (draft: DraftRecoverySnapshot) => void
     onSaved?: () => void
     onServerSaved?: (payload: PostDraftData) => void
+    prepareStaleSnapshot?: (snapshot: DraftRecoverySnapshot) => DraftRecoverySnapshot
+    onStaleReferencesReset?: () => void
     canPersist?: () => boolean
 }
 
@@ -104,6 +107,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
     const draftConflict = ref(false)
     const draftProtected = ref(false)
     const draftDeleted = ref(false)
+    const staleReferencesReset = ref(false)
     const saveRetryAttempt = ref(0)
     const saveRetryScheduled = ref(false)
     const saveRetryExhausted = ref(false)
@@ -194,10 +198,17 @@ export function usePostDraft(options: UsePostDraftOptions) {
         clearSaveRetry()
         resetDraftTracking()
         draftDeleted.value = true
+        staleReferencesReset.value = true
         draftConflict.value = false
         draftProtected.value = false
         lastSaveFailed.value = false
-        storeLocalSnapshot(createDraftRecoverySnapshot(options.buildPayload(), null, null))
+        const strippedSnapshot = stripDraftServerIdentity(
+            createDraftRecoverySnapshot(options.buildPayload(), null, null),
+        )
+        const staleSnapshot = options.prepareStaleSnapshot?.(strippedSnapshot) ?? strippedSnapshot
+        options.applyDraft(staleSnapshot)
+        options.onStaleReferencesReset?.()
+        storeLocalSnapshot(staleSnapshot)
     }
 
     const transitionToProtectedDraft = () => {
@@ -286,6 +297,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         updatedAt.value = getDraftUpdatedAt(savedDraft) ?? new Date().toISOString()
         lastSavedAt.value = updatedAt.value
         lastSaveScope.value = 'server'
+        staleReferencesReset.value = false
         if (revision === localRevision) {
             persistedRevision = revision
             storeLocalSnapshot(createStoredSavedDraftSnapshot(payload, savedDraft, updatedAt.value))
@@ -437,6 +449,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
             draftConflict.value = false
             draftProtected.value = false
             draftDeleted.value = false
+            staleReferencesReset.value = false
             lastSaveFailed.value = false
             restoreFailed.value = false
             const latestSnapshot = latestDraft as unknown as DraftRecoverySnapshot
@@ -471,6 +484,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
             draftConflict.value = false
             draftProtected.value = false
             draftDeleted.value = false
+            staleReferencesReset.value = false
             await saveNow()
             return true
         } finally {
@@ -505,8 +519,11 @@ export function usePostDraft(options: UsePostDraftOptions) {
             preferredDraftId,
             generationIsCurrent: () => generation === sessionGeneration,
             onStaleLocalSnapshot: (snapshot) => {
+                const preparedSnapshot = options.prepareStaleSnapshot?.(snapshot) ?? snapshot
                 resetDraftTracking()
-                storeLocalSnapshot(snapshot)
+                staleReferencesReset.value = true
+                storeLocalSnapshot(preparedSnapshot)
+                return preparedSnapshot
             },
         })
         if (generation !== sessionGeneration) return
@@ -552,8 +569,10 @@ export function usePostDraft(options: UsePostDraftOptions) {
         draftConflict.value = recovery.conflict
         draftProtected.value = false
         draftDeleted.value = false
+        staleReferencesReset.value = Boolean(chosen.staleReferencesReset)
         restoreSource.value = recovery.source
         options.applyDraft(chosen)
+        if (staleReferencesReset.value) options.onStaleReferencesReset?.()
         if (recovery.source === 'server') {
             storeLocalSnapshot({
                 ...chosen,
@@ -587,6 +606,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         Storage.remove(options.storageKey.value)
         lastSaveScope.value = null
         draftDeleted.value = false
+        staleReferencesReset.value = false
         multipleDraftsFound.value = false
         resetDraftTracking()
         restoreSource.value = 'idle'
@@ -605,6 +625,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         draftConflict.value = false
         draftProtected.value = false
         draftDeleted.value = false
+        staleReferencesReset.value = false
         resetDraftTracking()
         restoreSource.value = 'idle'
         hasRestoredDraft.value = false
@@ -802,6 +823,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         draftConflict: computed(() => draftConflict.value),
         draftProtected: computed(() => draftProtected.value),
         draftDeleted: computed(() => draftDeleted.value),
+        staleReferencesReset: computed(() => staleReferencesReset.value),
         isSavingDraft: computed(() => saveDraftMutation.isPending.value),
         restoreSource: computed(() => restoreSource.value),
         saveNow,

@@ -65,9 +65,14 @@ export function stripDraftServerIdentity(snapshot: DraftRecoverySnapshot): Draft
   return {
     ...snapshot,
     draftId: undefined,
+    clientDraftKey: undefined,
     version: undefined,
     updatedAt: undefined,
     modifiedAt: undefined,
+    categoryId: null,
+    fileIds: [],
+    seriesId: null,
+    staleReferencesReset: true,
     hasLocalChanges: true,
     clientModifiedAt: new Date().toISOString(),
   }

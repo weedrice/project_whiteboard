@@ -15,7 +15,7 @@ interface ResolveServerDraftOptions {
   localSnapshot: DraftRecoverySnapshot | null
   preferredDraftId?: number | null
   generationIsCurrent: () => boolean
-  onStaleLocalSnapshot: (snapshot: DraftRecoverySnapshot) => void
+  onStaleLocalSnapshot: (snapshot: DraftRecoverySnapshot) => DraftRecoverySnapshot
 }
 
 export interface ResolveServerDraftResult {
@@ -83,8 +83,7 @@ export async function resolveServerDraftForRecovery({
       nextLocalSnapshot?.draftId === serverDraftId
       && isDraftMissingError(error)
     ) {
-      nextLocalSnapshot = stripDraftServerIdentity(nextLocalSnapshot)
-      onStaleLocalSnapshot(nextLocalSnapshot)
+      nextLocalSnapshot = onStaleLocalSnapshot(stripDraftServerIdentity(nextLocalSnapshot))
       try {
         const fallbackResolution = await resolveMatchingDraft()
         const fallbackDraftId = fallbackResolution.draftId

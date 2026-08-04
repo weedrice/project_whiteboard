@@ -111,6 +111,14 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     applyDraft: applyDraftWithoutTracking,
     onSaved: options.markCurrentSnapshotSaved,
     onServerSaved: (payload) => options.releaseUploadedFileOwnership(payload.fileIds ?? []),
+    prepareStaleSnapshot: (snapshot) => ({
+      ...snapshot,
+      categoryId: options.firstCategoryId.value ?? null,
+    }),
+    onStaleReferencesReset: () => options.addToast(
+      options.t('board.writePost.draftStatus.referencesReset'),
+      'warning',
+    ),
     canPersist: options.validateBeforeSave,
   })
 

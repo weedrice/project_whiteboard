@@ -395,6 +395,7 @@ export interface BoardMessages {
       retryRestore: string
       restoredLocal: string
       restoredServer: string
+      referencesReset: string
       saved: string
       savedBrowser: string
       cleanupFailed: string

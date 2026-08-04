@@ -116,6 +116,7 @@ export const boardWritePostMessages: BoardMessages['writePost'] = {
       retryRestore: '다시 확인',
       restoredLocal: '로컬 임시 저장본을 복원했습니다.',
       restoredServer: '서버 임시 저장본을 복원했습니다.',
+      referencesReset: '서버에서 사라진 임시 저장본을 복구했습니다. 첨부파일과 카테고리·시리즈 선택을 다시 확인해 주세요.',
       saved: '임시 저장되었습니다.',
       savedBrowser: '이 브라우저에 임시 저장되었습니다.',
       cleanupFailed: '임시 저장 정리에 실패했습니다. 서버 초안이 남아 다시 보일 수 있습니다.',

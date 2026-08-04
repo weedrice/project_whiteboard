@@ -104,7 +104,8 @@ export function parseDraftRecoverySnapshot(
     && (!Array.isArray(value.fileIds) || !value.fileIds.every((id) => Number.isInteger(id) && id > 0))) return null
   if (!isOptionalBoolean(value.isNotice) || !isOptionalBoolean(value.isNsfw)
     || !isOptionalBoolean(value.isSpoiler) || !isOptionalBoolean(value.isSecret)
-    || !isOptionalBoolean(value.hasLocalChanges) || !isValidPoll(value.poll)) return null
+    || !isOptionalBoolean(value.hasLocalChanges) || !isOptionalBoolean(value.staleReferencesReset)
+    || !isValidPoll(value.poll)) return null
   if (!isOptionalDate(value.updatedAt) || !isOptionalDate(value.modifiedAt)
     || !isOptionalDate(value.clientModifiedAt)) return null
   if (typeof value.clientModifiedAt === 'string'
