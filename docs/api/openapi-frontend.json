@@ -15397,6 +15397,9 @@
           "name" : "boardUrl",
           "required" : true,
           "schema" : {
+            "maxLength" : 100,
+            "minLength" : 0,
+            "pattern" : "^[a-z0-9_-]+$",
             "type" : "string"
           }
         }, {
@@ -15412,6 +15415,9 @@
           "name" : "clientDraftKey",
           "required" : false,
           "schema" : {
+            "maxLength" : 64,
+            "minLength" : 0,
+            "pattern" : "[A-Za-z0-9_-]{8,64}",
             "type" : "string"
           }
         }, {

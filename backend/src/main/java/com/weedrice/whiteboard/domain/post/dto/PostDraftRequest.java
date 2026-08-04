@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.post.dto;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.weedrice.whiteboard.domain.board.util.BoardUrlNormalizer;
 import com.weedrice.whiteboard.domain.file.support.FileAssociationConstraints;
+import com.weedrice.whiteboard.domain.post.constant.PostDraftPolicy;
 import com.weedrice.whiteboard.domain.tag.constant.TagConstraints;
 import com.weedrice.whiteboard.global.validation.NoHtml;
 import jakarta.validation.Valid;
@@ -23,8 +24,8 @@ import java.util.List;
 @AllArgsConstructor
 public class PostDraftRequest {
     private Long draftId;
-    @Size(max = 64)
-    @Pattern(regexp = "[A-Za-z0-9_-]{8,64}")
+    @Size(max = PostDraftPolicy.MAX_CLIENT_DRAFT_KEY_LENGTH)
+    @Pattern(regexp = PostDraftPolicy.CLIENT_DRAFT_KEY_PATTERN)
     private String clientDraftKey;
     private Long version;
     @NotBlank

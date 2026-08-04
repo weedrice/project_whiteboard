@@ -7,6 +7,7 @@ import com.weedrice.whiteboard.domain.board.repository.BoardRepository;
 import com.weedrice.whiteboard.domain.board.service.BoardAccessPolicy;
 import com.weedrice.whiteboard.domain.board.util.BoardUrlNormalizer;
 import com.weedrice.whiteboard.domain.file.service.FileService;
+import com.weedrice.whiteboard.domain.post.constant.PostDraftPolicy;
 import com.weedrice.whiteboard.domain.post.dto.DraftListResponse;
 import com.weedrice.whiteboard.domain.post.dto.DraftMatchResponse;
 import com.weedrice.whiteboard.domain.post.dto.DraftResponse;
@@ -206,6 +207,10 @@ public class PostDraftService {
 
     public DraftMatchResponse getMatchingDraft(
             @NonNull Long userId, String boardUrl, Long originalPostId, String clientDraftKey) {
+        if (clientDraftKey != null && !clientDraftKey.isBlank()
+                && !PostDraftPolicy.isValidClientDraftKey(clientDraftKey)) {
+            throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
+        }
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         String normalizedBoardUrl = BoardUrlNormalizer.normalizeLookup(boardUrl);

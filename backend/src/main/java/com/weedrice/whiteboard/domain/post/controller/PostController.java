@@ -1,5 +1,7 @@
 package com.weedrice.whiteboard.domain.post.controller;
 
+import com.weedrice.whiteboard.domain.board.util.BoardUrlNormalizer;
+import com.weedrice.whiteboard.domain.post.constant.PostDraftPolicy;
 import com.weedrice.whiteboard.domain.post.dto.*;
 import com.weedrice.whiteboard.domain.post.service.PollService;
 import com.weedrice.whiteboard.domain.post.service.PostService;
@@ -12,6 +14,9 @@ import com.weedrice.whiteboard.global.ratelimit.CounterEventGuard;
 import com.weedrice.whiteboard.global.security.CurrentUserId;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -295,9 +300,16 @@ public class PostController {
 
     @GetMapping("/users/me/drafts/match")
     public ApiResponse<DraftMatchResponse> getMatchingDraft(
-            @RequestParam String boardUrl,
+            @RequestParam
+            @NotBlank
+            @Size(max = BoardUrlNormalizer.MAX_BOARD_URL_LENGTH)
+            @Pattern(regexp = BoardUrlNormalizer.BOARD_URL_PATTERN, message = "{validation.board.url.pattern}")
+            String boardUrl,
             @RequestParam(required = false) Long originalPostId,
-            @RequestParam(required = false) String clientDraftKey,
+            @RequestParam(required = false)
+            @Size(max = PostDraftPolicy.MAX_CLIENT_DRAFT_KEY_LENGTH)
+            @Pattern(regexp = PostDraftPolicy.CLIENT_DRAFT_KEY_PATTERN)
+            String clientDraftKey,
             @CurrentUserId Long userId) {
         return ApiResponse.success(postService.getMatchingDraft(
                 userId, boardUrl, originalPostId, clientDraftKey));

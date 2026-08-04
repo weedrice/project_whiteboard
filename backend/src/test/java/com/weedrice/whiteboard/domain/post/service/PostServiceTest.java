@@ -3724,6 +3724,17 @@ class PostServiceTest {
     }
 
     @Test
+    @DisplayName("복구용 초안 조회는 잘못된 clientDraftKey를 저장소 조회 전에 거부한다")
+    void getMatchingDraft_rejectsInvalidClientDraftKey() {
+        assertThatThrownBy(() -> postService.getMatchingDraft(1L, "free", null, "invalid key"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_INPUT_VALUE);
+
+        verify(userRepository, never()).findById(anyLong());
+        verifyNoInteractions(draftPostRepository);
+    }
+
+    @Test
     @DisplayName("복구용 초안 조회는 수정 초안도 복수이면 자동 선택하지 않는다")
     void getMatchingDraft_reportsMultipleEditDrafts() {
         DraftPost first = DraftPost.builder().user(user).board(board).title("first edit").build();

@@ -834,6 +834,21 @@ class PostControllerTest {
         }
 
         @Test
+        @DisplayName("복구용 임시저장 후보 조회는 잘못된 clientDraftKey를 거부한다")
+        void getMatchingDraft_rejectsInvalidClientDraftKey() throws Exception {
+            clearInvocations(postService);
+
+            mockMvc.perform(get("/api/v1/users/me/drafts/match")
+                            .param("boardUrl", "free")
+                            .param("clientDraftKey", "invalid key")
+                            .with(user(customUserDetails)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.success").value(false));
+
+            verify(postService, never()).getMatchingDraft(anyLong(), anyString(), any(), anyString());
+        }
+
+        @Test
         @DisplayName("임시저장 단건 조회")
         void getDraft_success() throws Exception {
             Long draftId = 1L;
