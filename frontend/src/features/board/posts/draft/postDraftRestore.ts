@@ -3,6 +3,7 @@ import type { DraftPost } from '@/types'
 import logger from '@/utils/logger'
 import {
   isDraftMissingError,
+  isDraftProtectedError,
   isMatchingLoadedDraft,
   loadDraftById,
   resolveMatchingServerDraft,
@@ -22,6 +23,7 @@ export interface ResolveServerDraftResult {
   localSnapshot: DraftRecoverySnapshot | null
   serverDraft: DraftPost | null
   recoveryFailed: boolean
+  draftProtected: boolean
   multipleMatchesFound: boolean
 }
 
@@ -35,6 +37,7 @@ export async function resolveServerDraftForRecovery({
   let nextLocalSnapshot = localSnapshot
   let serverDraft: DraftPost | null = null
   let recoveryFailed = false
+  let draftProtected = false
   let multipleMatchesFound = false
   let serverDraftId = preferredDraftId ?? nextLocalSnapshot?.draftId ?? null
   const resolveMatchingDraft = () => resolveMatchingServerDraft({
@@ -54,12 +57,12 @@ export async function resolveServerDraftForRecovery({
   }
 
   if (serverDraftId == null) {
-    return { localSnapshot: nextLocalSnapshot, serverDraft, recoveryFailed, multipleMatchesFound }
+    return { localSnapshot: nextLocalSnapshot, serverDraft, recoveryFailed, draftProtected, multipleMatchesFound }
   }
 
   try {
     if (!generationIsCurrent()) {
-      return { localSnapshot: nextLocalSnapshot, serverDraft, recoveryFailed, multipleMatchesFound }
+      return { localSnapshot: nextLocalSnapshot, serverDraft, recoveryFailed, draftProtected, multipleMatchesFound }
     }
     const loadedDraft = await loadDraftById(serverDraftId)
     if (isMatchingLoadedDraft(loadedDraft, payload)) {
@@ -79,7 +82,9 @@ export async function resolveServerDraftForRecovery({
     if (!generationIsCurrent()) {
       return { localSnapshot: nextLocalSnapshot, serverDraft, recoveryFailed, multipleMatchesFound }
     }
-    if (
+    if (isDraftProtectedError(error)) {
+      draftProtected = true
+    } else if (
       nextLocalSnapshot?.draftId === serverDraftId
       && isDraftMissingError(error)
     ) {
@@ -93,7 +98,8 @@ export async function resolveServerDraftForRecovery({
         }
       } catch (resolveError: unknown) {
         logger.error('Failed to restore replacement server draft:', resolveError)
-        recoveryFailed = true
+        if (isDraftProtectedError(resolveError)) draftProtected = true
+        else recoveryFailed = true
       }
     } else {
       recoveryFailed = true
@@ -101,5 +107,5 @@ export async function resolveServerDraftForRecovery({
     logger.error('Failed to restore server draft:', error)
   }
 
-  return { localSnapshot: nextLocalSnapshot, serverDraft, recoveryFailed, multipleMatchesFound }
+  return { localSnapshot: nextLocalSnapshot, serverDraft, recoveryFailed, draftProtected, multipleMatchesFound }
 }

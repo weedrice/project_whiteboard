@@ -464,6 +464,29 @@ describe('usePostDraft', () => {
         expect(mocks.saveDraftMutateAsync).toHaveBeenCalledTimes(2)
     })
 
+    it('enters protected state when direct recovery targets a scheduled draft', async () => {
+        Storage.set('noviis:test:draft', {
+            boardUrl: 'free',
+            title: 'Scheduled draft',
+            contents: 'Scheduled body',
+            draftId: 91,
+            clientModifiedAt: '2026-07-07T11:30:00.000Z',
+            hasLocalChanges: false,
+        })
+        mocks.getDraft.mockRejectedValueOnce({
+            isAxiosError: true,
+            response: { status: 409, data: { error: { code: 'P005' } } },
+        })
+        const { composable, appliedDrafts } = mountComposable()
+
+        await composable.restoreDraft()
+
+        expect(composable.draftProtected.value).toBe(true)
+        expect(composable.restoreFailed.value).toBe(false)
+        expect(appliedDrafts).toHaveLength(0)
+        expect(Storage.has('noviis:test:draft')).toBe(false)
+    })
+
     it('stops autosave immediately when another tab schedules the draft', async () => {
         const ownerId = ref<number | null>(1)
         const { composable } = mountComposable(undefined, undefined, undefined, ownerId)

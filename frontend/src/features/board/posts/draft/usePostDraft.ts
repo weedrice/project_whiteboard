@@ -547,6 +547,10 @@ export function usePostDraft(options: UsePostDraftOptions) {
             },
         })
         if (generation !== sessionGeneration) return
+        if (resolved.draftProtected) {
+            transitionToProtectedDraft()
+            return
+        }
 
         const recovery = resolveDraftRecoverySnapshot(resolved.localSnapshot, resolved.serverDraft)
         const recoveredSnapshot = recovery.snapshot

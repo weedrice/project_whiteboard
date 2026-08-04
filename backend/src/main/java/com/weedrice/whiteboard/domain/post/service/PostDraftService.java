@@ -82,6 +82,10 @@ public class PostDraftService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         DraftPost draftPost = draftPostRepository.findByDraftIdAndUser(draftId, user)
                 .orElseThrow(() -> new BusinessException(ErrorCode.DRAFT_NOT_FOUND));
+        if (scheduledPostRepository.existsByDraftIdAndStatusIn(
+                draftId, ScheduledPost.PROTECTED_DRAFT_STATUSES)) {
+            throw new BusinessException(ErrorCode.DRAFT_PROTECTED);
+        }
         return DraftResponse.from(draftPost);
     }
 

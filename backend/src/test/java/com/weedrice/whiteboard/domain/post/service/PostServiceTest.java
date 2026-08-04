@@ -3774,6 +3774,20 @@ class PostServiceTest {
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.DRAFT_NOT_FOUND);
     }
 
+    @Test
+    @DisplayName("예약발행이 보호하는 초안은 단건 조회하지 않는다")
+    void getDraftPost_rejectsProtectedDraft() {
+        DraftPost draft = DraftPost.builder().user(user).board(board).title("Draft").build();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(draftPostRepository.findByDraftIdAndUser(10L, user)).thenReturn(Optional.of(draft));
+        when(scheduledPostRepository.existsByDraftIdAndStatusIn(
+                10L, ScheduledPost.PROTECTED_DRAFT_STATUSES)).thenReturn(true);
+
+        assertThatThrownBy(() -> postService.getDraftPost(1L, 10L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.DRAFT_PROTECTED);
+    }
+
     // --- Tags ---
 
     @Test
