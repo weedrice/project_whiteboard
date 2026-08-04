@@ -297,8 +297,10 @@ public class PostController {
     public ApiResponse<DraftMatchResponse> getMatchingDraft(
             @RequestParam String boardUrl,
             @RequestParam(required = false) Long originalPostId,
+            @RequestParam(required = false) String clientDraftKey,
             @CurrentUserId Long userId) {
-        return ApiResponse.success(postService.getMatchingDraft(userId, boardUrl, originalPostId));
+        return ApiResponse.success(postService.getMatchingDraft(
+                userId, boardUrl, originalPostId, clientDraftKey));
     }
 
     @GetMapping("/drafts/{draftId}")

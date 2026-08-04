@@ -817,7 +817,8 @@ class PostControllerTest {
         @Test
         @DisplayName("복구용 임시저장 후보 조회")
         void getMatchingDraft_success() throws Exception {
-            when(postService.getMatchingDraft(1L, "free", 7L)).thenReturn(DraftMatchResponse.builder()
+            when(postService.getMatchingDraft(1L, "free", 7L, "client-draft-key-1234"))
+                    .thenReturn(DraftMatchResponse.builder()
                     .draftId(91L)
                     .multipleMatchesFound(false)
                     .build());
@@ -825,6 +826,7 @@ class PostControllerTest {
             mockMvc.perform(get("/api/v1/users/me/drafts/match")
                             .param("boardUrl", "free")
                             .param("originalPostId", "7")
+                            .param("clientDraftKey", "client-draft-key-1234")
                             .with(user(customUserDetails)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.draftId").value(91))

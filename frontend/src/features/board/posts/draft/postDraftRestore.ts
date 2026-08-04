@@ -37,10 +37,14 @@ export async function resolveServerDraftForRecovery({
   let recoveryFailed = false
   let multipleMatchesFound = false
   let serverDraftId = preferredDraftId ?? nextLocalSnapshot?.draftId ?? null
+  const resolveMatchingDraft = () => resolveMatchingServerDraft({
+    ...payload,
+    clientDraftKey: nextLocalSnapshot?.clientDraftKey ?? payload.clientDraftKey,
+  })
 
   if (serverDraftId == null) {
     try {
-      const matchingDraft = await resolveMatchingServerDraft(payload)
+      const matchingDraft = await resolveMatchingDraft()
       serverDraftId = matchingDraft.draftId
       multipleMatchesFound = matchingDraft.multipleMatchesFound
     } catch (error: unknown) {
@@ -61,7 +65,7 @@ export async function resolveServerDraftForRecovery({
     if (isMatchingLoadedDraft(loadedDraft, payload)) {
       serverDraft = loadedDraft
     } else {
-      const fallbackResolution = await resolveMatchingServerDraft(payload)
+      const fallbackResolution = await resolveMatchingDraft()
       const fallbackDraftId = fallbackResolution.draftId
       multipleMatchesFound ||= fallbackResolution.multipleMatchesFound
       if (fallbackDraftId != null && fallbackDraftId !== serverDraftId) {
@@ -82,7 +86,7 @@ export async function resolveServerDraftForRecovery({
       nextLocalSnapshot = stripDraftServerIdentity(nextLocalSnapshot)
       onStaleLocalSnapshot(nextLocalSnapshot)
       try {
-        const fallbackResolution = await resolveMatchingServerDraft(payload)
+        const fallbackResolution = await resolveMatchingDraft()
         const fallbackDraftId = fallbackResolution.draftId
         multipleMatchesFound ||= fallbackResolution.multipleMatchesFound
         if (fallbackDraftId != null) {

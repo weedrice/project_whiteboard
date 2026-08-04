@@ -123,6 +123,7 @@ class DraftPostRepositoryTest {
         DraftPost protectedDraft = DraftPost.builder()
                 .user(user)
                 .board(board)
+                .clientDraftKey("protected-client-key")
                 .title("protected")
                 .contents("contents")
                 .build();
@@ -145,6 +146,8 @@ class DraftPostRepositoryTest {
                 .extracting(DraftPost::getTitle)
                 .containsExactly("draft");
         assertThat(draftPostRepository.countDeletableByUser(user)).isEqualTo(1);
+        assertThat(draftPostRepository.findRecoverableByUserAndClientDraftKeyAndTarget(
+                user, "protected-client-key", "draft-board", null)).isEmpty();
     }
 
     @Test
@@ -170,6 +173,29 @@ class DraftPostRepositoryTest {
 
         assertThat(result).hasSize(2);
         assertThat(result).extracting(DraftPost::getTitle).containsExactly("newest", "newer");
+    }
+
+    @Test
+    @DisplayName("복구용 조회는 clientDraftKey와 작성 대상이 모두 일치하는 초안을 반환한다")
+    void findRecoverableByUserAndClientDraftKeyAndTarget_returnsExactMatch() {
+        DraftPost exact = DraftPost.builder()
+                .user(user)
+                .board(board)
+                .clientDraftKey("client-draft-key-1234")
+                .title("exact")
+                .contents("contents")
+                .build();
+        entityManager.persist(exact);
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(draftPostRepository.findRecoverableByUserAndClientDraftKeyAndTarget(
+                user, "client-draft-key-1234", "draft-board", null))
+                .get()
+                .extracting(DraftPost::getTitle)
+                .isEqualTo("exact");
+        assertThat(draftPostRepository.findRecoverableByUserAndClientDraftKeyAndTarget(
+                user, "client-draft-key-1234", "other-board", null)).isEmpty();
     }
 
     @Test

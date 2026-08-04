@@ -335,8 +335,9 @@ public class PostService {
         return postDraftService.getDraftPost(userId, draftId);
     }
 
-    public DraftMatchResponse getMatchingDraft(@NonNull Long userId, String boardUrl, Long originalPostId) {
-        return postDraftService.getMatchingDraft(userId, boardUrl, originalPostId);
+    public DraftMatchResponse getMatchingDraft(
+            @NonNull Long userId, String boardUrl, Long originalPostId, String clientDraftKey) {
+        return postDraftService.getMatchingDraft(userId, boardUrl, originalPostId, clientDraftKey);
     }
 
     @Transactional

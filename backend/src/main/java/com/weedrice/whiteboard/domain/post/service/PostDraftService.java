@@ -31,7 +31,6 @@ import com.weedrice.whiteboard.global.util.InputSanitizer;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.jspecify.annotations.NonNull;
@@ -205,17 +204,26 @@ public class PostDraftService {
         return draftPost;
     }
 
-    public DraftMatchResponse getMatchingDraft(@NonNull Long userId, String boardUrl, Long originalPostId) {
+    public DraftMatchResponse getMatchingDraft(
+            @NonNull Long userId, String boardUrl, Long originalPostId, String clientDraftKey) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.USER_NOT_FOUND));
         String normalizedBoardUrl = BoardUrlNormalizer.normalizeLookup(boardUrl);
+        if (clientDraftKey != null && !clientDraftKey.isBlank()) {
+            var exactMatch = draftPostRepository.findRecoverableByUserAndClientDraftKeyAndTarget(
+                    user, clientDraftKey, normalizedBoardUrl, originalPostId);
+            if (exactMatch.isPresent()) {
+                return DraftMatchResponse.builder()
+                        .draftId(exactMatch.get().getDraftId())
+                        .multipleMatchesFound(false)
+                        .build();
+            }
+        }
         List<DraftPost> matches = draftPostRepository.findMatchingByUserAndTarget(
                 user, normalizedBoardUrl, originalPostId, PageRequest.of(0, 2));
-        boolean multipleMatchesFound = originalPostId == null && matches.size() > 1;
+        boolean multipleMatchesFound = matches.size() > 1;
         return DraftMatchResponse.builder()
-                .draftId(matches.size() == 1 || originalPostId != null && !matches.isEmpty()
-                        ? matches.getFirst().getDraftId()
-                        : null)
+                .draftId(matches.size() == 1 ? matches.getFirst().getDraftId() : null)
                 .multipleMatchesFound(multipleMatchesFound)
                 .build();
     }

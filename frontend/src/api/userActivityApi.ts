@@ -112,7 +112,7 @@ export const userActivityApi = {
         return api.get<ApiResponse<DraftPostListResponse>>('/users/me/drafts', { ...config, params })
     },
     getMatchingDraft(
-        params: { boardUrl: string, originalPostId?: number },
+        params: { boardUrl: string, originalPostId?: number, clientDraftKey?: string },
         config?: AxiosRequestConfig,
     ) {
         return api.get<ApiResponse<DraftMatchResponse>>('/users/me/drafts/match', { ...config, params })

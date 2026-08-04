@@ -146,7 +146,11 @@ describe('userApi', () => {
         userApi.getMyComments(params)
         const scrapsResponse = await userApi.getMyScraps(params)
         userApi.getMyDrafts(params)
-        userApi.getMatchingDraft({ boardUrl: 'free', originalPostId: 7 })
+        userApi.getMatchingDraft({
+            boardUrl: 'free',
+            originalPostId: 7,
+            clientDraftKey: 'client-draft-key-1234',
+        })
         userApi.getRecentlyViewedPosts(params)
         userApi.getMySubscriptions(params)
         userApi.getMyPoint()
@@ -161,7 +165,11 @@ describe('userApi', () => {
         expect(apiMock.get).toHaveBeenNthCalledWith(5, '/users/me/scraps', { params })
         expect(apiMock.get).toHaveBeenNthCalledWith(6, '/users/me/drafts', { params })
         expect(apiMock.get).toHaveBeenNthCalledWith(7, '/users/me/drafts/match', {
-            params: { boardUrl: 'free', originalPostId: 7 },
+            params: {
+                boardUrl: 'free',
+                originalPostId: 7,
+                clientDraftKey: 'client-draft-key-1234',
+            },
         })
         expect(apiMock.get).toHaveBeenNthCalledWith(8, '/users/me/history/views', { params })
         expect(apiMock.get).toHaveBeenNthCalledWith(9, '/users/me/subscriptions', { params })

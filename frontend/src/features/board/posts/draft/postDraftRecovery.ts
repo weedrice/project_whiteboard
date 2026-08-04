@@ -141,6 +141,7 @@ export const resolveMatchingServerDraft = async (
     return unwrapAxiosApiData(await userApi.getMatchingDraft({
         boardUrl: payload.boardUrl,
         ...(payload.originalPostId != null ? { originalPostId: payload.originalPostId } : {}),
+        ...(payload.clientDraftKey ? { clientDraftKey: payload.clientDraftKey } : {}),
     }))
 }
 

@@ -3675,7 +3675,7 @@ class PostServiceTest {
                 eq(user), eq("free"), isNull(), any(Pageable.class)))
                 .thenReturn(List.of(first, second));
 
-        DraftMatchResponse response = postService.getMatchingDraft(1L, "free", null);
+        DraftMatchResponse response = postService.getMatchingDraft(1L, "free", null, null);
 
         assertThat(response.getDraftId()).isNull();
         assertThat(response.isMultipleMatchesFound()).isTrue();
@@ -3693,10 +3693,50 @@ class PostServiceTest {
                 eq(user), eq("free"), eq(7L), any(Pageable.class)))
                 .thenReturn(List.of(draft));
 
-        DraftMatchResponse response = postService.getMatchingDraft(1L, "free", 7L);
+        DraftMatchResponse response = postService.getMatchingDraft(1L, "free", 7L, null);
 
         assertThat(response.getDraftId()).isEqualTo(91L);
         assertThat(response.isMultipleMatchesFound()).isFalse();
+    }
+
+    @Test
+    @DisplayName("복구용 초안 조회는 clientDraftKey가 일치하면 해당 초안을 우선 반환한다")
+    void getMatchingDraft_prefersExactClientDraftKey() {
+        DraftPost draft = DraftPost.builder()
+                .user(user)
+                .board(board)
+                .clientDraftKey("client-draft-key-1234")
+                .title("exact")
+                .build();
+        ReflectionTestUtils.setField(draft, "draftId", 91L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(draftPostRepository.findRecoverableByUserAndClientDraftKeyAndTarget(
+                user, "client-draft-key-1234", "free", 7L))
+                .thenReturn(Optional.of(draft));
+
+        DraftMatchResponse response = postService.getMatchingDraft(
+                1L, "free", 7L, "client-draft-key-1234");
+
+        assertThat(response.getDraftId()).isEqualTo(91L);
+        assertThat(response.isMultipleMatchesFound()).isFalse();
+        verify(draftPostRepository, never()).findMatchingByUserAndTarget(
+                any(), anyString(), any(), any(Pageable.class));
+    }
+
+    @Test
+    @DisplayName("복구용 초안 조회는 수정 초안도 복수이면 자동 선택하지 않는다")
+    void getMatchingDraft_reportsMultipleEditDrafts() {
+        DraftPost first = DraftPost.builder().user(user).board(board).title("first edit").build();
+        DraftPost second = DraftPost.builder().user(user).board(board).title("second edit").build();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(draftPostRepository.findMatchingByUserAndTarget(
+                eq(user), eq("free"), eq(7L), any(Pageable.class)))
+                .thenReturn(List.of(first, second));
+
+        DraftMatchResponse response = postService.getMatchingDraft(1L, "free", 7L, null);
+
+        assertThat(response.getDraftId()).isNull();
+        assertThat(response.isMultipleMatchesFound()).isTrue();
     }
 
     @Test

@@ -1218,6 +1218,7 @@ describe('usePostDraft', () => {
             title: 'Local draft',
             contents: 'Local contents',
             draftId: 91,
+            clientDraftKey: 'client-draft-key-1234',
             updatedAt: '2025-01-01T00:00:00.000Z',
             clientModifiedAt: '2026-07-07T11:30:00.000Z',
             originalPostId: 7,
@@ -1269,7 +1270,11 @@ describe('usePostDraft', () => {
         await nextTick()
 
         expect(mocks.getDraft).toHaveBeenNthCalledWith(1, 91)
-        expect(mocks.getMatchingDraft).toHaveBeenCalledWith({ boardUrl: 'free', originalPostId: 7 })
+        expect(mocks.getMatchingDraft).toHaveBeenCalledWith({
+            boardUrl: 'free',
+            originalPostId: 7,
+            clientDraftKey: 'client-draft-key-1234',
+        })
         expect(mocks.getDraft).toHaveBeenNthCalledWith(2, 13)
         expect(appliedDrafts[0]).toEqual(expect.objectContaining({
             title: 'Local draft',
