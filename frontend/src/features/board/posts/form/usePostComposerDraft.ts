@@ -1,4 +1,4 @@
-import { computed, nextTick, ref, watch, type ComputedRef, type Ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch, type ComputedRef, type Ref } from 'vue'
 import {
   usePostDraft,
   type DraftRecoverySnapshot,
@@ -283,21 +283,22 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
         return
       }
       appliedDraftSignature = null
-      writeLocalSnapshot()
-      lastStoredDraftSignature = signature
+      if (writeLocalSnapshot()) lastStoredDraftSignature = signature
       scheduleAutosave()
     },
     { flush: 'post' },
   )
 
   const flushLatestLocalSnapshot = () => {
-    if (!hasRestoredDraft.value || !draftEnabled.value || options.isLoading.value) return
+    if (!hasRestoredDraft.value || !draftEnabled.value || options.isLoading.value) return false
     const signature = serializeDraftPayload()
-    if (signature === lastStoredDraftSignature) return
-    writeLocalSnapshot()
-    lastStoredDraftSignature = signature
+    if (signature === lastStoredDraftSignature) return true
+    const stored = writeLocalSnapshot() === true
+    if (stored) lastStoredDraftSignature = signature
+    return stored
   }
 
+  onBeforeUnmount(flushLatestLocalSnapshot)
   useEventListener(() => window, 'pagehide', flushLatestLocalSnapshot)
   useEventListener(() => document, 'visibilitychange', () => {
     if (document.visibilityState === 'hidden') flushLatestLocalSnapshot()

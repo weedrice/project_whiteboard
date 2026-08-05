@@ -663,6 +663,52 @@ describe('PostForm draft behavior', () => {
     }))
   })
 
+  it('retries a failed local snapshot when the page is hidden', async () => {
+    mockPostFormAuthStore({
+      isAuthenticated: true,
+      user: { userId: 1, role: 'USER' },
+    })
+    const wrapper = mountPostForm('create', {}, {}, { postId: '' })
+    await flushPromises()
+    const originalSet = Storage.setWithResult.bind(Storage)
+    const setItem = vi.spyOn(Storage, 'setWithResult')
+      .mockReturnValueOnce({ ok: false, reason: 'unavailable' })
+      .mockImplementation(originalSet)
+
+    try {
+      await wrapper.get('#title').setValue('Retry this local snapshot')
+
+      window.dispatchEvent(new Event('pagehide'))
+
+      expect(setItem).toHaveBeenCalledTimes(2)
+      expect(Storage.get('noviis:draft:1:create:free:new')).toEqual(expect.objectContaining({
+        title: 'Retry this local snapshot',
+        hasLocalChanges: true,
+      }))
+    } finally {
+      setItem.mockRestore()
+    }
+  })
+
+  it('flushes the latest input synchronously before a SPA unmount', async () => {
+    mockPostFormAuthStore({
+      isAuthenticated: true,
+      user: { userId: 1, role: 'USER' },
+    })
+    const wrapper = mountPostForm('create', {}, {}, { postId: '' })
+    await flushPromises()
+    const title = wrapper.get('#title').element as HTMLInputElement
+    title.value = 'Typed immediately before route change'
+    title.dispatchEvent(new Event('input', { bubbles: true }))
+
+    wrapper.unmount()
+
+    expect(Storage.get('noviis:draft:1:create:free:new')).toEqual(expect.objectContaining({
+      title: 'Typed immediately before route change',
+      hasLocalChanges: true,
+    }))
+  })
+
   it('does not turn a clean snapshot into a local edit on page hide', async () => {
     mockPostFormAuthStore({
       isAuthenticated: true,
