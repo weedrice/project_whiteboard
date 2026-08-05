@@ -11,13 +11,12 @@
  */
 
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
 const SPEC = resolve(process.cwd(), '../docs/api/openapi-frontend.json')
 const COMMITTED = resolve(process.cwd(), 'src/types/generated/api.ts')
-const DEBUG_OUTPUT = resolve(process.cwd(), 'test-results/generated-api-debug.ts')
 
 function fail(message) {
     console.error(`[api:check] ${message}`)
@@ -44,8 +43,6 @@ try {
 
     const fresh = readFileSync(regenerated, 'utf-8')
     if (fresh !== committed) {
-        mkdirSync(resolve(process.cwd(), 'test-results'), { recursive: true })
-        writeFileSync(DEBUG_OUTPUT, fresh)
         fail(
             '커밋된 생성 타입이 스펙 스냅샷과 다르다.\n'
             + '  스펙을 바꿨다면 npm run api:generate 결과도 함께 커밋할 것.\n'
