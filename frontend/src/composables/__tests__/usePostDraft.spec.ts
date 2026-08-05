@@ -78,7 +78,7 @@ function mountComposable(payloadRef: Ref<PostDraftData> = ref({
     contents: 'Draft body',
     fileIds: [7],
     originalPostId: undefined as number | undefined,
-}), storageKeyRef = ref('noviis:test:draft'), enabledRef = ref(true), ownerIdRef = ref<number | null>(null), onServerSaved?: (payload: PostDraftData, savedDraft: DraftPost) => void, resolveStorageKey?: (draftId: number) => string, onServerReferencesReset?: (savedDraft: DraftPost, payload: PostDraftData) => PostDraftData | void, prepareRecoveredSnapshot?: (snapshot: DraftRecoverySnapshot) => DraftRecoverySnapshot, canPersist?: () => boolean, getDetachedDraftFileIdsToPreserve?: (payload: PostDraftData) => number[], onLocalSnapshotRemoved?: () => void) {
+}), storageKeyRef = ref('noviis:test:draft'), enabledRef = ref(true), ownerIdRef = ref<number | null>(null), onServerSaved?: (payload: PostDraftData, savedDraft: DraftPost) => void, resolveStorageKey?: (draftId: number) => string, onServerReferencesReset?: (savedDraft: DraftPost, payload: PostDraftData) => PostDraftData | void, prepareRecoveredSnapshot?: (snapshot: DraftRecoverySnapshot) => DraftRecoverySnapshot, canPersist?: () => boolean, getDetachedDraftFileIdsToPreserve?: (payload: PostDraftData) => number[], onLocalSnapshotRemoved?: () => void, onLocalSnapshotAvailable?: (snapshot: DraftRecoverySnapshot) => void) {
     const appliedDrafts: DraftRecoverySnapshot[] = []
     let composable: ReturnType<typeof usePostDraft> | null = null
 
@@ -97,6 +97,7 @@ function mountComposable(payloadRef: Ref<PostDraftData> = ref({
                 canPersist,
                 getDetachedDraftFileIdsToPreserve,
                 onLocalSnapshotRemoved,
+                onLocalSnapshotAvailable,
             })
             return () => h('div')
         },
@@ -388,6 +389,40 @@ describe('usePostDraft', () => {
 
         expect(composable.restoreFailed.value).toBe(false)
         expect(mocks.loggerError).not.toHaveBeenCalled()
+    })
+
+    it('reports file ownership from an existing durable local snapshot', async () => {
+        Storage.set('noviis:test:draft', {
+            boardUrl: 'free',
+            title: 'Local draft',
+            contents: '<img src="/api/v1/files/8">',
+            fileIds: [8],
+            unassociatedUploadFileIds: [8],
+            clientModifiedAt: '2026-07-07T11:30:00.000Z',
+            hasLocalChanges: true,
+        })
+        const onLocalSnapshotAvailable = vi.fn()
+        const { composable } = mountComposable(
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            onLocalSnapshotAvailable,
+        )
+
+        await composable.restoreDraft()
+
+        expect(onLocalSnapshotAvailable).toHaveBeenCalledWith(expect.objectContaining({
+            fileIds: [8],
+            unassociatedUploadFileIds: [8],
+        }))
     })
 
     it('uses the current time when a saved draft response omits version timestamps', async () => {

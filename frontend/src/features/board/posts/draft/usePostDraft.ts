@@ -71,6 +71,7 @@ interface UsePostDraftOptions {
     getDetachedDraftFileIdsToPreserve?: (payload: PostDraftData) => number[]
     onStaleReferencesReset?: () => void
     onLocalSnapshotStored?: (snapshot: DraftRecoverySnapshot) => void
+    onLocalSnapshotAvailable?: (snapshot: DraftRecoverySnapshot) => void
     onLocalSnapshotRemoved?: () => void
     canPersist?: () => boolean
 }
@@ -772,6 +773,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         }
 
         const recovery = resolveDraftRecoverySnapshot(resolved.localSnapshot, resolved.serverDraft)
+        if (resolved.localSnapshot) options.onLocalSnapshotAvailable?.(resolved.localSnapshot)
         const recoveredSnapshot = recovery.snapshot
         const chosen = recoveredSnapshot
             ? options.prepareRecoveredSnapshot?.(recoveredSnapshot) ?? recoveredSnapshot
@@ -1026,6 +1028,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         try {
             const incoming = parseDraftRecoverySnapshot(JSON.parse(event.newValue))
             if (!incoming) return
+            options.onLocalSnapshotAvailable?.(incoming)
             reconcileIncomingSnapshot(incoming)
         } catch (error: unknown) {
             logger.error('Failed to process a draft update from another tab:', error)

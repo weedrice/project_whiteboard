@@ -193,6 +193,9 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
         lastStoredDraftSignature = JSON.stringify(currentPayload)
       }
     },
+    onLocalSnapshotAvailable: (snapshot) => {
+      options.durableDraftFileIds.value = [...(snapshot.fileIds ?? [])]
+    },
     onLocalSnapshotRemoved: () => {
       options.durableDraftFileIds.value = []
     },
