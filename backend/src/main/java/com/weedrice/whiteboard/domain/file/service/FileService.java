@@ -37,7 +37,9 @@ public class FileService {
     private static final int MAX_DELETE_RETRY_COUNT = 5;
     private static final int DELETE_CLAIM_STALE_MINUTES = 30;
     private static final int TEMPORARY_FILE_CLEANUP_BATCH_SIZE = 500;
-    private static final Pattern INTERNAL_FILE_URL_PATTERN = Pattern.compile(
+    private static final Pattern FILE_URL_PATTERN = Pattern.compile(
+            "/(?:api/v1/)?files/(\\d+)(?=$|[/?#])");
+    private static final Pattern INTERNAL_CONTENT_FILE_URL_PATTERN = Pattern.compile(
             "^/(?:api/v1/)?files/(\\d+)(?=$|[/?#])");
 
     private final FileUploadService fileUploadService;
@@ -203,10 +205,18 @@ public class FileService {
     }
 
     public static Long extractFileIdFromUrl(String url) {
+        return extractFileId(url, FILE_URL_PATTERN);
+    }
+
+    public static Long extractInternalContentFileIdFromUrl(String url) {
+        return extractFileId(url, INTERNAL_CONTENT_FILE_URL_PATTERN);
+    }
+
+    private static Long extractFileId(String url, Pattern pattern) {
         if (url == null || url.isBlank()) {
             return null;
         }
-        java.util.regex.Matcher matcher = INTERNAL_FILE_URL_PATTERN.matcher(url.trim());
+        java.util.regex.Matcher matcher = pattern.matcher(url.trim());
         if (matcher.find()) {
             try {
                 return Long.parseLong(matcher.group(1));

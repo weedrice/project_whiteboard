@@ -117,15 +117,25 @@ class FileServiceTest {
     }
 
     @Test
-    @DisplayName("내부 파일 경로에서만 파일 ID를 추출한다")
-    void extractFileIdFromUrl_acceptsOnlyInternalFilePaths() {
+    @DisplayName("저장된 파일 URL은 레거시 절대 URL에서도 파일 ID를 추출한다")
+    void extractFileIdFromUrl_acceptsStoredAbsoluteFileUrls() {
         assertThat(FileService.extractFileIdFromUrl("/api/v1/files/11")).isEqualTo(11L);
         assertThat(FileService.extractFileIdFromUrl("/files/12?download=true")).isEqualTo(12L);
         assertThat(FileService.extractFileIdFromUrl("/api/v1/files/13/variants/medium")).isEqualTo(13L);
+        assertThat(FileService.extractFileIdFromUrl(
+                "https://noviis.kr/api/v1/files/14?size=profile")).isEqualTo(14L);
+    }
 
-        assertThat(FileService.extractFileIdFromUrl("https://external.example/files/11")).isNull();
-        assertThat(FileService.extractFileIdFromUrl("//external.example/files/11")).isNull();
-        assertThat(FileService.extractFileIdFromUrl("/external/files/11")).isNull();
+    @Test
+    @DisplayName("사용자 HTML에서는 상대 내부 파일 경로만 파일 ID로 인정한다")
+    void extractInternalContentFileIdFromUrl_rejectsExternalUrls() {
+        assertThat(FileService.extractInternalContentFileIdFromUrl("/api/v1/files/11")).isEqualTo(11L);
+        assertThat(FileService.extractInternalContentFileIdFromUrl("/files/12?download=true")).isEqualTo(12L);
+
+        assertThat(FileService.extractInternalContentFileIdFromUrl(
+                "https://external.example/files/11")).isNull();
+        assertThat(FileService.extractInternalContentFileIdFromUrl("//external.example/files/11")).isNull();
+        assertThat(FileService.extractInternalContentFileIdFromUrl("/external/files/11")).isNull();
     }
 
     @Test

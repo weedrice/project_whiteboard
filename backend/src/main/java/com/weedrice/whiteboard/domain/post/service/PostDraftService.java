@@ -348,10 +348,12 @@ public class PostDraftService {
         Document document = Jsoup.parseBodyFragment(contents);
         document.outputSettings().prettyPrint(false);
         document.select("img[src]").stream()
-                .filter(image -> removedFileIds.contains(FileService.extractFileIdFromUrl(image.attr("src"))))
+                .filter(image -> removedFileIds.contains(
+                        FileService.extractInternalContentFileIdFromUrl(image.attr("src"))))
                 .forEach(element -> element.remove());
         document.select("a[href]").stream()
-                .filter(link -> removedFileIds.contains(FileService.extractFileIdFromUrl(link.attr("href"))))
+                .filter(link -> removedFileIds.contains(
+                        FileService.extractInternalContentFileIdFromUrl(link.attr("href"))))
                 .forEach(element -> element.unwrap());
         return document.body().html();
     }
@@ -364,7 +366,7 @@ public class PostDraftService {
         return java.util.stream.Stream.concat(
                         document.select("img[src]").stream().map(image -> image.attr("src")),
                         document.select("a[href]").stream().map(link -> link.attr("href")))
-                .map(FileService::extractFileIdFromUrl)
+                .map(FileService::extractInternalContentFileIdFromUrl)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
     }
