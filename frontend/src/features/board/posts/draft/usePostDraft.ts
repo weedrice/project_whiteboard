@@ -95,6 +95,7 @@ const getSaveRetryDelay = (attempt: number) => {
 
 export function usePostDraft(options: UsePostDraftOptions) {
     let requestController: AbortController | null = null
+    let recoveryRequestController: AbortController | null = null
     const { useSaveDraft, useDeleteDraft } = usePost()
     if (typeof useSaveDraft !== 'function' || typeof useDeleteDraft !== 'function') {
         throw new Error('Draft mutations are not available.')
@@ -175,6 +176,8 @@ export function usePostDraft(options: UsePostDraftOptions) {
         sessionGeneration++
         requestController?.abort()
         requestController = null
+        recoveryRequestController?.abort()
+        recoveryRequestController = null
         savePromise = null
         saveQueued = false
         if (resetRevisions) {
@@ -240,6 +243,19 @@ export function usePostDraft(options: UsePostDraftOptions) {
             saveRetryAttempt.value = 0
             saveRetryExhausted.value = false
         }
+    }
+
+    const startRecoveryRequest = () => {
+        recoveryRequestController?.abort()
+        const controller = new AbortController()
+        recoveryRequestController = controller
+        return controller
+    }
+
+    const finishRecoveryRequest = (controller: AbortController) => {
+        if (recoveryRequestController !== controller) return false
+        recoveryRequestController = null
+        return true
     }
 
     const transitionToDeletedDraft = () => {
@@ -603,10 +619,16 @@ export function usePostDraft(options: UsePostDraftOptions) {
         const revision = localRevision
         const currentDraftId = draftId.value
         if (currentDraftId == null) return false
+        const controller = startRecoveryRequest()
         isRestoringDraft.value = true
         try {
-            const latestDraft = await loadDraftById(currentDraftId)
-            if (generation !== sessionGeneration || draftId.value !== currentDraftId) return false
+            const latestDraft = await loadDraftById(currentDraftId, {
+                signal: controller.signal,
+                skipGlobalErrorHandler: true,
+            })
+            if (generation !== sessionGeneration
+                || recoveryRequestController !== controller
+                || draftId.value !== currentDraftId) return false
             if (revision !== localRevision) {
                 draftConflict.value = true
                 return false
@@ -646,7 +668,9 @@ export function usePostDraft(options: UsePostDraftOptions) {
             }
             return true
         } finally {
-            if (generation === sessionGeneration) isRestoringDraft.value = false
+            if (finishRecoveryRequest(controller) && generation === sessionGeneration) {
+                isRestoringDraft.value = false
+            }
         }
     }
 
@@ -654,10 +678,16 @@ export function usePostDraft(options: UsePostDraftOptions) {
         const generation = sessionGeneration
         const currentDraftId = draftId.value
         if (currentDraftId == null) return false
+        const controller = startRecoveryRequest()
         isRestoringDraft.value = true
         try {
-            const latestDraft = await loadDraftById(currentDraftId)
-            if (generation !== sessionGeneration || draftId.value !== currentDraftId) return false
+            const latestDraft = await loadDraftById(currentDraftId, {
+                signal: controller.signal,
+                skipGlobalErrorHandler: true,
+            })
+            if (generation !== sessionGeneration
+                || recoveryRequestController !== controller
+                || draftId.value !== currentDraftId) return false
             if (!isMatchingLoadedDraft(latestDraft, options.buildPayload())) return false
             updatedAt.value = getDraftUpdatedAt(latestDraft)
             draftVersion.value = latestDraft.version ?? null
@@ -669,7 +699,9 @@ export function usePostDraft(options: UsePostDraftOptions) {
             await saveNow()
             return true
         } finally {
-            if (generation === sessionGeneration) isRestoringDraft.value = false
+            if (finishRecoveryRequest(controller) && generation === sessionGeneration) {
+                isRestoringDraft.value = false
+            }
         }
     }
 
@@ -677,6 +709,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         if (hasRestoredDraft.value || !options.enabled.value) return
         const generation = sessionGeneration
         const revision = localRevision
+        const controller = startRecoveryRequest()
         hasRestoredDraft.value = true
         isRestoringDraft.value = true
         restoreFailed.value = false
@@ -698,7 +731,9 @@ export function usePostDraft(options: UsePostDraftOptions) {
             payload,
             localSnapshot,
             preferredDraftId,
-            generationIsCurrent: () => generation === sessionGeneration,
+            signal: controller.signal,
+            generationIsCurrent: () => generation === sessionGeneration
+                && recoveryRequestController === controller,
             onStaleLocalSnapshot: (snapshot) => {
                 const preparedSnapshot = options.prepareStaleSnapshot?.(snapshot) ?? snapshot
                 resetDraftTracking()
@@ -707,7 +742,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
                 return preparedSnapshot
             },
         })
-        if (generation !== sessionGeneration) return
+        if (generation !== sessionGeneration || recoveryRequestController !== controller) return
         if (resolved.draftProtected) {
             transitionToProtectedDraft()
             return
@@ -785,7 +820,9 @@ export function usePostDraft(options: UsePostDraftOptions) {
             })
         }
         } finally {
-            if (generation === sessionGeneration) isRestoringDraft.value = false
+            if (finishRecoveryRequest(controller) && generation === sessionGeneration) {
+                isRestoringDraft.value = false
+            }
         }
     }
 

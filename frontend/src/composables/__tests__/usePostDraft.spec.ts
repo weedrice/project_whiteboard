@@ -291,6 +291,24 @@ describe('usePostDraft', () => {
         await expect(pendingSave).resolves.toBeNull()
     })
 
+    it('aborts an in-flight draft recovery request when the draft session resets', async () => {
+        let resolveMatch!: (value: unknown) => void
+        mocks.getMatchingDraft.mockImplementationOnce(() => new Promise((resolve) => {
+            resolveMatch = resolve
+        }))
+        const { composable } = mountComposable()
+
+        const pendingRestore = composable.restoreDraft()
+        await Promise.resolve()
+        const signal = mocks.getMatchingDraft.mock.calls[0]?.[1]?.signal as AbortSignal | undefined
+        expect(signal).toBeInstanceOf(AbortSignal)
+
+        composable.resetSession()
+        expect(signal?.aborted).toBe(true)
+        resolveMatch({ data: { data: { draftId: null, multipleMatchesFound: false } } })
+        await expect(pendingRestore).resolves.toBeUndefined()
+    })
+
     it('uses the current time when a saved draft response omits version timestamps', async () => {
         mocks.saveDraftMutateAsync.mockResolvedValueOnce({
             data: {
@@ -496,8 +514,14 @@ describe('usePostDraft', () => {
         await composable.restoreDraft()
         await nextTick()
 
-        expect(mocks.getMatchingDraft).toHaveBeenCalledWith({ boardUrl: 'free', originalPostId: 7 })
-        expect(mocks.getDraft).toHaveBeenCalledWith(13)
+        expect(mocks.getMatchingDraft).toHaveBeenCalledWith(
+            { boardUrl: 'free', originalPostId: 7 },
+            expect.objectContaining({ signal: expect.any(AbortSignal), skipGlobalErrorHandler: true }),
+        )
+        expect(mocks.getDraft).toHaveBeenCalledWith(
+            13,
+            expect.objectContaining({ signal: expect.any(AbortSignal), skipGlobalErrorHandler: true }),
+        )
         expect(appliedDrafts[0]).toEqual(expect.objectContaining({
             title: 'Recovered draft',
             fileIds: [21],
@@ -1089,7 +1113,10 @@ describe('usePostDraft', () => {
         await composable.restoreDraft()
         await nextTick()
 
-        expect(mocks.getMatchingDraft).toHaveBeenCalledExactlyOnceWith({ boardUrl: 'free' })
+        expect(mocks.getMatchingDraft).toHaveBeenCalledExactlyOnceWith(
+            { boardUrl: 'free' },
+            expect.objectContaining({ signal: expect.any(AbortSignal), skipGlobalErrorHandler: true }),
+        )
         expect(mocks.getDraft).not.toHaveBeenCalled()
         expect(appliedDrafts).toHaveLength(0)
         expect(composable.restoreSource.value).toBe('idle')
@@ -1526,7 +1553,10 @@ describe('usePostDraft', () => {
         await composable.restoreDraft()
         await nextTick()
 
-        expect(mocks.getDraft).toHaveBeenCalledWith(91)
+        expect(mocks.getDraft).toHaveBeenCalledWith(
+            91,
+            expect.objectContaining({ signal: expect.any(AbortSignal), skipGlobalErrorHandler: true }),
+        )
         expect(composable.draftId.value).toBeNull()
         expect(appliedDrafts[0]).toEqual(expect.objectContaining({
             title: 'Local draft',
@@ -1804,12 +1834,20 @@ describe('usePostDraft', () => {
         await composable.restoreDraft()
         await nextTick()
 
-        expect(mocks.getDraft).toHaveBeenNthCalledWith(1, 91)
+        expect(mocks.getDraft).toHaveBeenNthCalledWith(
+            1,
+            91,
+            expect.objectContaining({ signal: expect.any(AbortSignal), skipGlobalErrorHandler: true }),
+        )
         expect(mocks.getMatchingDraft).toHaveBeenCalledWith({
             boardUrl: 'free',
             originalPostId: 7,
-        })
-        expect(mocks.getDraft).toHaveBeenNthCalledWith(2, 13)
+        }, expect.objectContaining({ signal: expect.any(AbortSignal), skipGlobalErrorHandler: true }))
+        expect(mocks.getDraft).toHaveBeenNthCalledWith(
+            2,
+            13,
+            expect.objectContaining({ signal: expect.any(AbortSignal), skipGlobalErrorHandler: true }),
+        )
         expect(appliedDrafts[0]).toEqual(expect.objectContaining({
             title: 'Local draft',
             contents: 'Local contents',

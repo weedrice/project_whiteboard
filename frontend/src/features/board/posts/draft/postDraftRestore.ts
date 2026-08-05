@@ -15,6 +15,7 @@ interface ResolveServerDraftOptions {
   payload: PostDraftData
   localSnapshot: DraftRecoverySnapshot | null
   preferredDraftId?: number | null
+  signal?: AbortSignal
   generationIsCurrent: () => boolean
   onStaleLocalSnapshot: (snapshot: DraftRecoverySnapshot) => DraftRecoverySnapshot
 }
@@ -31,6 +32,7 @@ export async function resolveServerDraftForRecovery({
   payload,
   localSnapshot,
   preferredDraftId,
+  signal,
   generationIsCurrent,
   onStaleLocalSnapshot,
 }: ResolveServerDraftOptions): Promise<ResolveServerDraftResult> {
@@ -40,10 +42,11 @@ export async function resolveServerDraftForRecovery({
   let draftProtected = false
   let multipleMatchesFound = false
   let serverDraftId = preferredDraftId ?? nextLocalSnapshot?.draftId ?? null
+  const requestConfig = { signal, skipGlobalErrorHandler: true }
   const resolveMatchingDraft = () => resolveMatchingServerDraft({
     ...payload,
     clientDraftKey: nextLocalSnapshot?.clientDraftKey ?? payload.clientDraftKey,
-  })
+  }, requestConfig)
 
   if (serverDraftId == null) {
     try {
@@ -64,7 +67,7 @@ export async function resolveServerDraftForRecovery({
     if (!generationIsCurrent()) {
       return { localSnapshot: nextLocalSnapshot, serverDraft, recoveryFailed, draftProtected, multipleMatchesFound }
     }
-    const loadedDraft = await loadDraftById(serverDraftId)
+    const loadedDraft = await loadDraftById(serverDraftId, requestConfig)
     if (isMatchingLoadedDraft(loadedDraft, payload)) {
       serverDraft = loadedDraft
     } else {
@@ -72,7 +75,7 @@ export async function resolveServerDraftForRecovery({
       const fallbackDraftId = fallbackResolution.draftId
       multipleMatchesFound ||= fallbackResolution.multipleMatchesFound
       if (fallbackDraftId != null && fallbackDraftId !== serverDraftId) {
-        const fallbackDraft = await loadDraftById(fallbackDraftId)
+        const fallbackDraft = await loadDraftById(fallbackDraftId, requestConfig)
         if (isMatchingLoadedDraft(fallbackDraft, payload)) {
           serverDraft = fallbackDraft
         }
@@ -94,7 +97,7 @@ export async function resolveServerDraftForRecovery({
         const fallbackDraftId = fallbackResolution.draftId
         multipleMatchesFound ||= fallbackResolution.multipleMatchesFound
         if (fallbackDraftId != null) {
-          serverDraft = await loadDraftById(fallbackDraftId)
+          serverDraft = await loadDraftById(fallbackDraftId, requestConfig)
         }
       } catch (resolveError: unknown) {
         logger.error('Failed to restore replacement server draft:', resolveError)

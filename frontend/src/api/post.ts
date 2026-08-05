@@ -283,7 +283,8 @@ export const postApi = {
     }).then(mapHomeLandingResponse),
 
     // Draft APIs
-    getDraft: (draftId: string | number) => api.get<ApiResponse<DraftPost>>(`/drafts/${encodePathSegment(draftId)}`),
+    getDraft: (draftId: string | number, config?: AxiosRequestConfig) =>
+        api.get<ApiResponse<DraftPost>>(`/drafts/${encodePathSegment(draftId)}`, config),
     saveDraft: (data: PostDraftData, config?: AxiosRequestConfig) =>
         api.post<ApiResponse<DraftPost>>('/drafts', data, config),
     deleteDraft: (draftId: string | number, config?: AxiosRequestConfig) =>

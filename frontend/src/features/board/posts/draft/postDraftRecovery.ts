@@ -1,4 +1,5 @@
 import { isAxiosError } from 'axios'
+import type { AxiosRequestConfig } from 'axios'
 import { postApi, type PostDraftData } from '@/api/post'
 import { userApi } from '@/api/user'
 import { unwrapAxiosApiData } from '@/api/response'
@@ -139,18 +140,19 @@ export interface MatchingServerDraftResolution {
 
 export const resolveMatchingServerDraft = async (
     payload: PostDraftData,
+    config?: AxiosRequestConfig,
 ): Promise<MatchingServerDraftResolution> => {
     return unwrapAxiosApiData(await userApi.getMatchingDraft({
         boardUrl: payload.boardUrl,
         ...(payload.originalPostId != null ? { originalPostId: payload.originalPostId } : {}),
         ...(payload.clientDraftKey ? { clientDraftKey: payload.clientDraftKey } : {}),
-    }))
+    }, config))
 }
 
 export const findMatchingServerDraftId = async (payload: PostDraftData): Promise<number | null> => (
     (await resolveMatchingServerDraft(payload)).draftId
 )
 
-export const loadDraftById = async (draftId: number) => (
-    unwrapAxiosApiData(await postApi.getDraft(draftId))
+export const loadDraftById = async (draftId: number, config?: AxiosRequestConfig) => (
+    unwrapAxiosApiData(await postApi.getDraft(draftId, config))
 )
