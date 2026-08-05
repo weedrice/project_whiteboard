@@ -42,6 +42,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -132,14 +133,18 @@ public class PostDraftService {
             staleReferencesReset |= series == null;
         }
 
-        DraftPost draftPost = resolveDraftPost(
+        DraftResolution draftResolution = resolveDraftPost(
                 user, request, board, category, series, originalPost, normalizedPoll);
-        DraftPost savedDraftPost = draftPostRepository.saveAndFlush(draftPost);
-        List<Long> retainedFileIds = fileService.retainValidDraftFileIds(
-                request.getFileIds(), userId, savedDraftPost.getDraftId());
+        DraftPost savedDraftPost = draftPostRepository.saveAndFlush(draftResolution.draftPost());
+        List<Long> retainedFileIds = draftResolution.retainedFileIds() != null
+                ? draftResolution.retainedFileIds()
+                : fileService.retainValidDraftFileIds(request.getFileIds(), userId, savedDraftPost.getDraftId());
         List<Long> requestedFileIds = orEmpty(request.getFileIds()).stream().distinct().toList();
-        Set<Long> removedFileIds = requestedFileIds.stream()
-                .filter(fileId -> !retainedFileIds.contains(fileId))
+        Set<Long> referencedFileIds = extractDraftFileReferences(savedDraftPost.getContents());
+        Set<Long> retainedFileIdSet = new HashSet<>(retainedFileIds);
+        Set<Long> removedFileIds = java.util.stream.Stream.concat(
+                        requestedFileIds.stream(), referencedFileIds.stream())
+                .filter(fileId -> !retainedFileIdSet.contains(fileId))
                 .collect(Collectors.toSet());
         if (!removedFileIds.isEmpty()) {
             staleReferencesReset = true;
@@ -177,7 +182,7 @@ public class PostDraftService {
         draftPostRepository.delete(draftPost);
     }
 
-    private DraftPost resolveDraftPost(User user, PostDraftRequest request, Board board,
+    private DraftResolution resolveDraftPost(User user, PostDraftRequest request, Board board,
                                        BoardCategory category, PostSeries series, Post originalPost,
                                        PollRequest normalizedPoll) {
         String sanitizedContents = sanitizeDraftContents(request.getContents());
@@ -197,7 +202,7 @@ public class PostDraftService {
         }
 
         if (draftPost == null) {
-            return DraftPost.builder()
+            return new DraftResolution(DraftPost.builder()
                     .user(user)
                     .board(board)
                     .category(category)
@@ -213,7 +218,7 @@ public class PostDraftService {
                     .poll(normalizedPoll)
                     .series(series)
                     .originalPost(originalPost)
-                    .build();
+                    .build(), null);
         }
 
         if (scheduledPostRepository.existsByDraftIdAndStatusIn(
@@ -251,7 +256,7 @@ public class PostDraftService {
                 normalizedPoll,
                 series,
                 originalPost);
-        return draftPost;
+        return new DraftResolution(draftPost, resolvedFileIds);
     }
 
     public DraftMatchResponse getMatchingDraft(
@@ -349,6 +354,22 @@ public class PostDraftService {
                 .filter(link -> removedFileIds.contains(FileService.extractFileIdFromUrl(link.attr("href"))))
                 .forEach(element -> element.unwrap());
         return document.body().html();
+    }
+
+    private Set<Long> extractDraftFileReferences(String contents) {
+        if (contents == null || contents.isBlank()) {
+            return Set.of();
+        }
+        Document document = Jsoup.parseBodyFragment(contents);
+        return java.util.stream.Stream.concat(
+                        document.select("img[src]").stream().map(image -> image.attr("src")),
+                        document.select("a[href]").stream().map(link -> link.attr("href")))
+                .map(FileService::extractFileIdFromUrl)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+    }
+
+    private record DraftResolution(DraftPost draftPost, List<Long> retainedFileIds) {
     }
 
     private PollRequest normalizeDraftPoll(PollRequest poll) {

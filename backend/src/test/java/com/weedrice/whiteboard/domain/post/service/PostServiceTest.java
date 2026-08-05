@@ -2341,6 +2341,42 @@ class PostServiceTest {
     }
 
     @Test
+    @DisplayName("초안 저장은 fileIds에서 이미 누락된 과거 본문 파일 참조도 제거한다")
+    void saveDraftPost_recoversLegacyContentFileReferences() {
+        DraftPost existingDraft = DraftPost.builder()
+                .user(user)
+                .board(board)
+                .title("Legacy references")
+                .contents("<p>Old</p>")
+                .fileIds(Collections.emptyList())
+                .build();
+        ReflectionTestUtils.setField(existingDraft, "draftId", 10L);
+        ReflectionTestUtils.setField(existingDraft, "version", 2L);
+        PostDraftRequest request = PostDraftRequest.builder()
+                .draftId(10L)
+                .version(2L)
+                .boardUrl("free")
+                .title("Legacy references")
+                .contents("<p>Draft</p><img src=\"/api/v1/files/11\">"
+                        + "<a href=\"/api/v1/files/12\">old attachment</a>")
+                .fileIds(Collections.emptyList())
+                .build();
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+        when(draftPostRepository.findByDraftIdAndUserForUpdate(10L, user)).thenReturn(Optional.of(existingDraft));
+        when(draftPostRepository.saveAndFlush(existingDraft)).thenReturn(existingDraft);
+
+        DraftResponse response = postService.saveDraftPost(1L, request);
+
+        assertThat(response.getContents())
+                .contains("Draft", "old attachment")
+                .doesNotContain("/api/v1/files/11", "/api/v1/files/12");
+        assertThat(response.isStaleReferencesReset()).isTrue();
+        verify(fileService, times(1)).retainValidDraftFileIds(Collections.emptyList(), 1L, 10L);
+        verify(fileService).syncDraftFiles(Collections.emptyList(), 1L, 10L);
+    }
+
+    @Test
     @DisplayName("초안 저장은 작성 중 사라진 카테고리 참조를 제거한다")
     void saveDraftPost_recoversStaleCategory() {
         PostDraftRequest request = PostDraftRequest.builder()
@@ -2567,6 +2603,7 @@ class PostServiceTest {
         assertThat(response.getDraftId()).isEqualTo(10L);
         assertThat(response.getFileIds()).containsExactly(12L);
         assertThat(response.isStaleReferencesReset()).isTrue();
+        verify(fileService, times(1)).retainValidDraftFileIds(List.of(11L, 12L), 1L, 10L);
         verify(fileService).syncDraftFiles(List.of(12L), 1L, 10L);
     }
 
