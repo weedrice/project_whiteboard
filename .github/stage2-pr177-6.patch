@@ -72,7 +72,7 @@ index 45ea224..791f1ef 100644
  }
  
  const draftUpdatedChannel = createDraftCrossTabChannel<DraftUpdatedEvent>({
-@@ -45,14 +63,12 @@ const draftUpdatedChannel = createDraftCrossTabChannel<DraftUpdatedEvent>({
+@@ -45,13 +63,11 @@ const draftUpdatedChannel = createDraftCrossTabChannel<DraftUpdatedEvent>({
  
  export function publishDraftUpdatedEvent(
    ownerId: string | number,
