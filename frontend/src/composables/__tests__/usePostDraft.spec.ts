@@ -591,6 +591,8 @@ describe('usePostDraft', () => {
             ...payloadRef.value,
             title: 'Unsaved protected edit',
             contents: '<p>Preserved text<img src="/api/v1/files/7"></p>',
+            categoryId: 5,
+            seriesId: 8,
         }
         composable.writeLocalSnapshot()
 
@@ -615,7 +617,9 @@ describe('usePostDraft', () => {
         expect(appliedDrafts.at(-1)).toEqual(expect.objectContaining({
             title: 'Unsaved protected edit',
             contents: '<p>Preserved text</p>',
+            categoryId: 5,
             fileIds: [],
+            seriesId: 8,
             hasLocalChanges: true,
         }))
         expect(Storage.get('noviis:test:draft')).toEqual(expect.objectContaining({
@@ -1366,9 +1370,9 @@ describe('usePostDraft', () => {
         expect(appliedDrafts[0]).toEqual(expect.objectContaining({
             title: 'Local draft',
             contents: 'Local contents',
-            categoryId: null,
+            categoryId: 5,
             fileIds: [],
-            seriesId: null,
+            seriesId: 8,
             staleReferencesReset: true,
         }))
         expect(composable.restoreSource.value).toBe('local')
@@ -2127,7 +2131,12 @@ describe('usePostDraft', () => {
         const { composable, payloadRef } = mountComposable()
         await composable.saveNow()
         const previousClientKey = composable.clientDraftKey.value
-        payloadRef.value = { ...payloadRef.value, title: 'Preserved after deletion' }
+        payloadRef.value = {
+            ...payloadRef.value,
+            title: 'Preserved after deletion',
+            categoryId: 5,
+            seriesId: 8,
+        }
         composable.writeLocalSnapshot()
         mocks.saveDraftMutateAsync.mockRejectedValueOnce({
             isAxiosError: true,
@@ -2141,9 +2150,9 @@ describe('usePostDraft', () => {
         expect(composable.lastSaveFailed.value).toBe(false)
         expect(Storage.get('noviis:test:draft')).toEqual(expect.objectContaining({
             title: 'Preserved after deletion',
-            categoryId: null,
+            categoryId: 5,
             fileIds: [],
-            seriesId: null,
+            seriesId: 8,
             staleReferencesReset: true,
             hasLocalChanges: true,
         }))
