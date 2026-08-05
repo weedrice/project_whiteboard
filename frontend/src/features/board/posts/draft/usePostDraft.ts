@@ -373,37 +373,38 @@ export function usePostDraft(options: UsePostDraftOptions) {
         storeLocalSnapshot(createDraftRecoverySnapshot(payload, draftId.value, updatedAt.value))
         let savedDraft = unwrapAxiosApiData(await savePayload(payload))
         if (generation !== sessionGeneration || !options.enabled.value) return null
-        options.onServerSaved?.(payload, savedDraft)
-        draftId.value = savedDraft.draftId
-        draftVersion.value = savedDraft.version ?? null
-        clientDraftKey.value = savedDraft.clientDraftKey ?? clientDraftKey.value
-        updatedAt.value = getDraftUpdatedAt(savedDraft) ?? new Date().toISOString()
-        lastSavedAt.value = updatedAt.value
-        lastSaveScope.value = 'server'
-        lastRemoteLocalChangeAt = 0
-        staleReferencesReset.value = Boolean(savedDraft.staleReferencesReset)
         let canonicalPayload = payload
-        if (staleReferencesReset.value) {
-            const recoveredPayload = options.onServerReferencesReset?.(savedDraft, payload)
+        let referenceRecoverySaveCount = 0
+        while (true) {
+            options.onServerSaved?.(canonicalPayload, savedDraft)
+            draftId.value = savedDraft.draftId
+            draftVersion.value = savedDraft.version ?? null
+            clientDraftKey.value = savedDraft.clientDraftKey ?? clientDraftKey.value
+            updatedAt.value = getDraftUpdatedAt(savedDraft) ?? new Date().toISOString()
+            lastSavedAt.value = updatedAt.value
+            lastSaveScope.value = 'server'
+            lastRemoteLocalChangeAt = 0
+            staleReferencesReset.value = Boolean(savedDraft.staleReferencesReset)
+            if (!staleReferencesReset.value) break
+
+            const recoveredPayload = options.onServerReferencesReset?.(savedDraft, canonicalPayload)
             options.onStaleReferencesReset?.()
+            if (!recoveredPayload) break
+            canonicalPayload = recoveredPayload
             const recoveredCategoryId = recoveredPayload?.categoryId ?? null
             const savedCategoryId = savedDraft.categoryId ?? null
-            if (recoveredPayload && recoveredCategoryId !== savedCategoryId) {
-                canonicalPayload = recoveredPayload
-                storeLocalSnapshot(createDraftRecoverySnapshot(
-                    recoveredPayload,
-                    savedDraft.draftId,
-                    updatedAt.value,
-                ))
-                savedDraft = unwrapAxiosApiData(await savePayload(recoveredPayload))
-                if (generation !== sessionGeneration || !options.enabled.value) return null
-                options.onServerSaved?.(recoveredPayload, savedDraft)
-                draftId.value = savedDraft.draftId
-                draftVersion.value = savedDraft.version ?? null
-                clientDraftKey.value = savedDraft.clientDraftKey ?? clientDraftKey.value
-                updatedAt.value = getDraftUpdatedAt(savedDraft) ?? new Date().toISOString()
-                lastSavedAt.value = updatedAt.value
+            if (recoveredCategoryId === savedCategoryId) break
+            storeLocalSnapshot(createDraftRecoverySnapshot(
+                recoveredPayload,
+                savedDraft.draftId,
+                updatedAt.value,
+            ))
+            if (referenceRecoverySaveCount >= 2) {
+                throw new Error('Draft reference recovery retry limit exceeded')
             }
+            referenceRecoverySaveCount++
+            savedDraft = unwrapAxiosApiData(await savePayload(recoveredPayload))
+            if (generation !== sessionGeneration || !options.enabled.value) return null
         }
         contractValidationFailed.value = false
         const canonicalSnapshot = {

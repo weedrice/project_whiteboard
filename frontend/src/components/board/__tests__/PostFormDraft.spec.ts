@@ -368,6 +368,69 @@ describe('PostForm draft behavior', () => {
     )
   })
 
+  it('re-resolves the fallback when categories change again during recovery', async () => {
+    mockPostFormAuthStore({
+      isAuthenticated: true,
+      user: { userId: 1, role: 'USER' },
+    })
+    setBoardCategories([
+      { categoryId: 12, name: 'First fallback', minWriteRole: 'USER' },
+      { categoryId: 99, name: 'Removed category', minWriteRole: 'USER' },
+    ])
+    const wrapper = mountPostForm('create', {}, {}, { postId: '' })
+    await flushPromises()
+    await wrapper.get('#title').setValue('Draft with changing category')
+    await wrapper.get('#category').setValue('99')
+    setBoardCategories([{ categoryId: 12, name: 'First fallback', minWriteRole: 'USER' }])
+
+    const draftResponse = (version: number, categoryId: number | null, staleReferencesReset: boolean) => ({
+      data: {
+        data: {
+          draftId: 91,
+          version,
+          boardId: 1,
+          boardUrl: 'free',
+          boardName: 'Free',
+          title: 'Draft with changing category',
+          contents: '',
+          categoryId,
+          tags: [],
+          fileIds: [],
+          seriesId: null,
+          isNotice: false,
+          isNsfw: false,
+          isSpoiler: false,
+          isSecret: false,
+          staleReferencesReset,
+          updatedAt: `2026-08-05T00:00:0${version}.000Z`,
+        },
+      },
+    })
+    mockSaveDraftMutateAsync
+      .mockResolvedValueOnce(draftResponse(1, null, true))
+      .mockImplementationOnce(async () => {
+        setBoardCategories([{ categoryId: 13, name: 'Second fallback', minWriteRole: 'USER' }])
+        return draftResponse(2, null, true)
+      })
+      .mockResolvedValueOnce(draftResponse(3, 13, false))
+
+    await findButtonByText(wrapper, 'board.writePost.actions.saveDraft').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('#category').element).toHaveProperty('value', '13')
+    expect(mockSaveDraftMutateAsync).toHaveBeenCalledTimes(3)
+    expect(mockSaveDraftMutateAsync).toHaveBeenLastCalledWith(expect.objectContaining({
+      draftId: 91,
+      version: 2,
+      categoryId: 13,
+    }))
+    expect(Storage.get('noviis:draft:1:create:free:new:draft-91')).toEqual(expect.objectContaining({
+      categoryId: 13,
+      version: 3,
+      hasLocalChanges: false,
+    }))
+  })
+
   it('flushes the latest input synchronously when the page is hidden', async () => {
     mockPostFormAuthStore({
       isAuthenticated: true,
