@@ -21,6 +21,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
@@ -36,6 +37,8 @@ public class FileService {
     private static final int MAX_DELETE_RETRY_COUNT = 5;
     private static final int DELETE_CLAIM_STALE_MINUTES = 30;
     private static final int TEMPORARY_FILE_CLEANUP_BATCH_SIZE = 500;
+    private static final Pattern INTERNAL_FILE_URL_PATTERN = Pattern.compile(
+            "^/(?:api/v1/)?files/(\\d+)(?=$|[/?#])");
 
     private final FileUploadService fileUploadService;
     private final FileAssociationService fileAssociationService;
@@ -203,8 +206,7 @@ public class FileService {
         if (url == null || url.isBlank()) {
             return null;
         }
-        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("/files/(\\d+)(?:\\?|$|/)");
-        java.util.regex.Matcher matcher = pattern.matcher(url);
+        java.util.regex.Matcher matcher = INTERNAL_FILE_URL_PATTERN.matcher(url.trim());
         if (matcher.find()) {
             try {
                 return Long.parseLong(matcher.group(1));

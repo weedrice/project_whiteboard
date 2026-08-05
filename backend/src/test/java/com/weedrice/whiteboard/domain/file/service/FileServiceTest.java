@@ -117,6 +117,18 @@ class FileServiceTest {
     }
 
     @Test
+    @DisplayName("내부 파일 경로에서만 파일 ID를 추출한다")
+    void extractFileIdFromUrl_acceptsOnlyInternalFilePaths() {
+        assertThat(FileService.extractFileIdFromUrl("/api/v1/files/11")).isEqualTo(11L);
+        assertThat(FileService.extractFileIdFromUrl("/files/12?download=true")).isEqualTo(12L);
+        assertThat(FileService.extractFileIdFromUrl("/api/v1/files/13/variants/medium")).isEqualTo(13L);
+
+        assertThat(FileService.extractFileIdFromUrl("https://external.example/files/11")).isNull();
+        assertThat(FileService.extractFileIdFromUrl("//external.example/files/11")).isNull();
+        assertThat(FileService.extractFileIdFromUrl("/external/files/11")).isNull();
+    }
+
+    @Test
     @DisplayName("파일 업로드 성공")
     void uploadFile_success() {
         Long uploaderId = 1L;

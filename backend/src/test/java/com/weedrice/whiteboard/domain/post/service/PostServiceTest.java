@@ -2358,7 +2358,8 @@ class PostServiceTest {
                 .boardUrl("free")
                 .title("Legacy references")
                 .contents("<p>Draft</p><img src=\"/api/v1/files/11\">"
-                        + "<a href=\"/api/v1/files/12\">old attachment</a>")
+                        + "<a href=\"/api/v1/files/12\">old attachment</a>"
+                        + "<a href=\"https://external.example/files/13\">external attachment</a>")
                 .fileIds(Collections.emptyList())
                 .build();
         when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
@@ -2369,7 +2370,7 @@ class PostServiceTest {
         DraftResponse response = postService.saveDraftPost(1L, request);
 
         assertThat(response.getContents())
-                .contains("Draft", "old attachment")
+                .contains("Draft", "old attachment", "https://external.example/files/13")
                 .doesNotContain("/api/v1/files/11", "/api/v1/files/12");
         assertThat(response.isStaleReferencesReset()).isTrue();
         verify(fileService, times(1)).retainValidDraftFileIds(Collections.emptyList(), 1L, 10L);
