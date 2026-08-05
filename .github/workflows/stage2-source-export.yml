@@ -15,16 +15,18 @@ jobs:
         with:
           ref: agent/simplify-draft-event-payload
           fetch-depth: 0
-      - name: Apply compact event patch
+      - name: Apply compact event patches
         run: |
-          if git apply --check .github/stage2-pr177.patch; then
-            git apply .github/stage2-pr177.patch
-          elif git apply --reverse --check .github/stage2-pr177.patch; then
-            echo "Patch already applied."
-          else
-            echo "Patch does not apply cleanly." >&2
-            exit 1
-          fi
+          for patch in .github/stage2-pr177-{1..7}.patch; do
+            if git apply --check "$patch"; then
+              git apply "$patch"
+            elif git apply --reverse --check "$patch"; then
+              echo "$patch already applied."
+            else
+              echo "$patch does not apply cleanly." >&2
+              exit 1
+            fi
+          done
       - uses: actions/setup-node@v4
         with:
           node-version: 24
