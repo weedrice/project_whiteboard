@@ -23,7 +23,6 @@ import {
     createStoredSavedDraftSnapshot,
     hasBrowserDraftContent,
     hasMeaningfulDraftContent,
-    stripDraftServerIdentity,
 } from '@/features/board/posts/draft/postDraftSnapshot'
 import { resolveServerDraftForRecovery } from '@/features/board/posts/draft/postDraftRestore'
 import {
@@ -51,6 +50,7 @@ import {
     SAVE_RETRY_MAX_ATTEMPTS,
 } from '@/features/board/posts/draft/postDraftSaveRetry'
 import { createDraftLocalSnapshotController } from '@/features/board/posts/draft/postDraftLocalSnapshot'
+import { createDraftStateTransitionController } from '@/features/board/posts/draft/postDraftStateTransitions'
 
 export type { DraftRecoverySnapshot } from '@/features/board/posts/draft/postDraftRecovery'
 export type DraftSaveScope = 'server' | 'browser'
@@ -210,6 +210,37 @@ export function usePostDraft(options: UsePostDraftOptions) {
         }
     }
 
+    const {
+        transitionToDeletedDraft,
+        transitionToProtectedDraft: applyProtectedDraftTransition,
+    } = createDraftStateTransitionController({
+        draftId,
+        ownerId: options.ownerId,
+        draftDeleted,
+        draftProtected,
+        protectedDraftForkAvailable,
+        staleReferencesReset,
+        draftConflict,
+        lastSaveFailed,
+        localRevision: () => localRevision,
+        persistedRevision: () => persistedRevision,
+        clearAutosaveTimer,
+        clearSaveRetry,
+        invalidatePendingSaves,
+        resetDraftTracking,
+        buildPayload: options.buildPayload,
+        getDetachedDraftFileIdsToPreserve: options.getDetachedDraftFileIdsToPreserve,
+        prepareStaleSnapshot: options.prepareStaleSnapshot,
+        applyDraft: options.applyDraft,
+        onStaleReferencesReset: options.onStaleReferencesReset,
+        loadLocalSnapshot,
+        removeLocalSnapshot,
+        storeLocalSnapshot,
+    })
+    const transitionToProtectedDraft = () => {
+        applyProtectedDraftTransition(options.canPersist?.() === false)
+    }
+
     const writeLocalSnapshot = () => {
         if (!options.enabled.value) return
         localRevision++
@@ -232,66 +263,6 @@ export function usePostDraft(options: UsePostDraftOptions) {
         if (recoveryRequestController !== controller) return false
         recoveryRequestController = null
         return true
-    }
-
-    const transitionToDeletedDraft = () => {
-        const deletedDraftId = draftId.value
-        if (deletedDraftId != null && options.ownerId?.value != null) {
-            if (!markDraftDeletedLocally(options.ownerId.value, deletedDraftId)) {
-                void reportDraftOperationalEvent('tombstone_write_failed')
-            }
-        }
-        clearAutosaveTimer()
-        clearSaveRetry()
-        invalidatePendingSaves()
-        resetDraftTracking()
-        draftDeleted.value = true
-        protectedDraftForkAvailable.value = false
-        staleReferencesReset.value = true
-        draftConflict.value = false
-        draftProtected.value = false
-        lastSaveFailed.value = false
-        const currentPayload = options.buildPayload()
-        const strippedSnapshot = stripDraftServerIdentity(
-            createDraftRecoverySnapshot(currentPayload, null, null),
-            options.getDetachedDraftFileIdsToPreserve?.(currentPayload),
-        )
-        const staleSnapshot = options.prepareStaleSnapshot?.(strippedSnapshot) ?? strippedSnapshot
-        options.applyDraft(staleSnapshot)
-        options.onStaleReferencesReset?.()
-        const storedLocally = storeLocalSnapshot(staleSnapshot)
-        if (!storedLocally) clearAutosaveTimer()
-    }
-
-    const transitionToProtectedDraft = () => {
-        const localSnapshot = loadLocalSnapshot()
-        const shouldPreserveLocalChanges = localRevision !== persistedRevision
-            || localSnapshot?.hasLocalChanges === true
-        clearAutosaveTimer()
-        clearSaveRetry()
-        invalidatePendingSaves()
-        if (shouldPreserveLocalChanges) {
-            removeLocalSnapshot()
-            resetDraftTracking()
-            const currentPayload = options.buildPayload()
-            const strippedSnapshot = stripDraftServerIdentity({
-                ...createDraftRecoverySnapshot(currentPayload, null, null),
-                contractValidationFailed: options.canPersist?.() === false,
-            }, options.getDetachedDraftFileIdsToPreserve?.(currentPayload))
-            const staleSnapshot = options.prepareStaleSnapshot?.(strippedSnapshot) ?? strippedSnapshot
-            options.applyDraft(staleSnapshot)
-            options.onStaleReferencesReset?.()
-            const storedLocally = storeLocalSnapshot(staleSnapshot)
-            if (!storedLocally) clearAutosaveTimer()
-        } else {
-            removeLocalSnapshot()
-        }
-        protectedDraftForkAvailable.value = shouldPreserveLocalChanges
-        draftProtected.value = true
-        draftConflict.value = false
-        draftDeleted.value = false
-        staleReferencesReset.value = shouldPreserveLocalChanges
-        lastSaveFailed.value = false
     }
 
     const savePayload = async (payload: PostDraftData) => {
