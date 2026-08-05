@@ -204,6 +204,7 @@ const {
   identity: formIdentity,
   content: computed(() => form.value.content),
   durableDraftFileIds,
+  ownerId: computed(() => authStore.user?.userId),
 })
 
 function handleEditorFileUploaded(fileId: number) {

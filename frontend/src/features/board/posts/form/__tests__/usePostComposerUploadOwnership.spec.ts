@@ -2,10 +2,12 @@ import { effectScope, nextTick, ref } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   POST_COMPOSER_UPLOAD_DISCARD_DELAY_MS,
+  POST_COMPOSER_UPLOAD_DISCARD_QUEUE_PREFIX,
   POST_COMPOSER_UPLOAD_RETRY_BASE_DELAY_MS,
   POST_COMPOSER_UPLOAD_RETRY_MAX_ATTEMPTS,
   usePostComposerUploadOwnership,
 } from '@/features/board/posts/form/usePostComposerUploadOwnership'
+import { Storage } from '@/utils/storage'
 
 const discardUploadsMock = vi.hoisted(() => vi.fn())
 
@@ -24,23 +26,27 @@ function createOwnership() {
   const identity = ref('session-1:create:free:new')
   const content = ref('')
   const durableDraftFileIds = ref<number[]>([])
+  const ownerId = ref<string | number | undefined>(1)
   const ownership = scope.run(() => usePostComposerUploadOwnership({
     identity,
     content,
     durableDraftFileIds,
+    ownerId,
   }))
   if (!ownership) throw new Error('Upload ownership composable was not initialized')
-  return { scope, identity, content, durableDraftFileIds, ownership }
+  return { scope, identity, content, durableDraftFileIds, ownerId, ownership }
 }
 
 describe('usePostComposerUploadOwnership', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     vi.clearAllMocks()
+    Storage.clear()
     discardUploadsMock.mockResolvedValue({ data: { data: { discardedCount: 1 } } })
   })
 
   afterEach(() => {
+    Storage.clear()
     vi.useRealTimers()
   })
 
@@ -205,5 +211,51 @@ describe('usePostComposerUploadOwnership', () => {
     expect(vi.getTimerCount()).toBe(0)
     ownership.releaseUploadedFiles([73])
     scope.stop()
+  })
+
+  it('persists terminal cleanup while offline and drains it in the next session', async () => {
+    const online = vi.spyOn(window.navigator, 'onLine', 'get').mockReturnValue(false)
+    const first = createOwnership()
+    first.ownership.recordUploadedFile(74)
+
+    first.scope.stop()
+    await Promise.resolve()
+
+    expect(discardUploadsMock).not.toHaveBeenCalled()
+    expect(Storage.get(`${POST_COMPOSER_UPLOAD_DISCARD_QUEUE_PREFIX}1`)).toEqual([74])
+
+    online.mockReturnValue(true)
+    const second = createOwnership()
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(discardUploadsMock).toHaveBeenCalledWith([74], { skipGlobalErrorHandler: true })
+    expect(Storage.has(`${POST_COMPOSER_UPLOAD_DISCARD_QUEUE_PREFIX}1`)).toBe(false)
+    second.scope.stop()
+    online.mockRestore()
+  })
+
+  it('waits for connectivity before retrying a non-terminal discard', async () => {
+    const online = vi.spyOn(window.navigator, 'onLine', 'get').mockReturnValue(false)
+    const { scope, content, ownership } = createOwnership()
+    ownership.recordUploadedFile(75)
+    content.value = '<img src="/api/v1/files/75">'
+    await nextTick()
+    content.value = ''
+    await nextTick()
+
+    await vi.advanceTimersByTimeAsync(POST_COMPOSER_UPLOAD_DISCARD_DELAY_MS)
+    expect(discardUploadsMock).not.toHaveBeenCalled()
+    expect(ownership.ownedUploadedFileIds.value).toEqual([75])
+
+    online.mockReturnValue(true)
+    window.dispatchEvent(new Event('online'))
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(discardUploadsMock).toHaveBeenCalledWith([75], { skipGlobalErrorHandler: true })
+    expect(ownership.ownedUploadedFileIds.value).toEqual([])
+    scope.stop()
+    online.mockRestore()
   })
 })
