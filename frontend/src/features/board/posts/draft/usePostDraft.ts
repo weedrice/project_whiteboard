@@ -46,6 +46,10 @@ import {
     publishDraftScheduledEvent,
     registerDraftScheduledListener,
 } from '@/features/board/posts/draft/postDraftScheduledEvent'
+import {
+    publishDraftUpdatedEvent,
+    registerDraftUpdatedListener,
+} from '@/features/board/posts/draft/postDraftUpdatedEvent'
 
 export type { DraftRecoverySnapshot } from '@/features/board/posts/draft/postDraftRecovery'
 export type DraftSaveScope = 'server' | 'browser'
@@ -354,12 +358,19 @@ export function usePostDraft(options: UsePostDraftOptions) {
             options.onStaleReferencesReset?.()
         }
         contractValidationFailed.value = false
+        const canonicalSnapshot = {
+            ...createStoredSavedDraftSnapshot(payload, savedDraft, updatedAt.value),
+            clientInstanceId,
+        }
         if (revision === localRevision) {
             persistedRevision = revision
-            storeLocalSnapshot(createStoredSavedDraftSnapshot(payload, savedDraft, updatedAt.value))
+            storeLocalSnapshot(canonicalSnapshot)
             options.onSaved?.()
         } else {
             storeLocalSnapshot(createDraftRecoverySnapshot(options.buildPayload(), savedDraft.draftId, updatedAt.value))
+        }
+        if (options.ownerId?.value != null) {
+            publishDraftUpdatedEvent(options.ownerId.value, activeStorageKey.value, canonicalSnapshot)
         }
         lastSaveFailed.value = false
         multipleDraftsFound.value = false
@@ -727,6 +738,68 @@ export function usePostDraft(options: UsePostDraftOptions) {
         saveRetryScheduled.value = true
     }
 
+    const reconcileIncomingSnapshot = (incoming: DraftRecoverySnapshot) => {
+        if (!incoming.clientInstanceId || incoming.clientInstanceId === clientInstanceId) return
+        const sameDraft = incoming.draftId != null && incoming.draftId === draftId.value
+        const sameClientDraft = Boolean(incoming.clientDraftKey)
+            && incoming.clientDraftKey === clientDraftKey.value
+        const sameLogicalDraft = sameDraft || (draftId.value == null && sameClientDraft)
+        const serverAdvanced = sameLogicalDraft
+            && (incoming.updatedAt ?? incoming.modifiedAt ?? null) !== updatedAt.value
+        const matchingComposer = isMatchingLoadedDraft(incoming as DraftPost, options.buildPayload())
+        const hasUnsavedLocalChanges = localRevision !== persistedRevision
+        if (!hasUnsavedLocalChanges
+            && sameLogicalDraft
+            && incoming.hasLocalChanges === true
+            && matchingComposer) {
+            draftId.value = incoming.draftId ?? null
+            draftVersion.value = incoming.version ?? null
+            clientDraftKey.value = incoming.clientDraftKey ?? clientDraftKey.value
+            updatedAt.value = incoming.updatedAt ?? incoming.modifiedAt ?? null
+            localRevision++
+            restoreSource.value = 'local'
+            options.applyDraft(incoming)
+            return
+        }
+        if (hasUnsavedLocalChanges
+            && sameLogicalDraft
+            && incoming.hasLocalChanges === false
+            && matchingComposer
+            && hasSameDraftContent(incoming, options.buildPayload())) {
+            draftId.value = incoming.draftId ?? draftId.value
+            draftVersion.value = incoming.version ?? null
+            clientDraftKey.value = incoming.clientDraftKey ?? clientDraftKey.value
+            updatedAt.value = incoming.updatedAt ?? incoming.modifiedAt ?? null
+            lastSavedAt.value = updatedAt.value
+            lastSaveScope.value = 'server'
+            persistedRevision = localRevision
+            options.applyDraft(incoming)
+            options.onSaved?.()
+            return
+        }
+        if (!hasUnsavedLocalChanges
+            && sameLogicalDraft
+            && incoming.hasLocalChanges === false
+            && matchingComposer
+            && incoming.draftId != null) {
+            draftId.value = incoming.draftId
+            draftVersion.value = incoming.version ?? null
+            clientDraftKey.value = incoming.clientDraftKey ?? clientDraftKey.value
+            updatedAt.value = incoming.updatedAt ?? incoming.modifiedAt ?? null
+            lastSavedAt.value = updatedAt.value
+            lastSaveScope.value = 'server'
+            options.applyDraft(incoming)
+            options.onSaved?.()
+            return
+        }
+        if (hasUnsavedLocalChanges
+            && sameLogicalDraft
+            && (incoming.hasLocalChanges || serverAdvanced)) {
+            draftConflict.value = true
+            clearAutosaveTimer()
+        }
+    }
+
     const handleStorage = (event: StorageEvent) => {
         if (!options.enabled.value) return
         const ownerId = options.ownerId?.value
@@ -746,63 +819,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         try {
             const incoming = parseDraftRecoverySnapshot(JSON.parse(event.newValue))
             if (!incoming) return
-            if (!incoming.clientInstanceId || incoming.clientInstanceId === clientInstanceId) return
-            const sameDraft = incoming.draftId != null && incoming.draftId === draftId.value
-            const sameClientDraft = Boolean(incoming.clientDraftKey)
-                && incoming.clientDraftKey === clientDraftKey.value
-            const sameLogicalDraft = sameDraft || (draftId.value == null && sameClientDraft)
-            const serverAdvanced = sameLogicalDraft
-                && (incoming.updatedAt ?? incoming.modifiedAt ?? null) !== updatedAt.value
-            const matchingComposer = isMatchingLoadedDraft(incoming as DraftPost, options.buildPayload())
-            const hasUnsavedLocalChanges = localRevision !== persistedRevision
-            if (!hasUnsavedLocalChanges
-                && (draftId.value == null || sameDraft)
-                && incoming.hasLocalChanges === true
-                && matchingComposer) {
-                draftId.value = incoming.draftId ?? null
-                draftVersion.value = incoming.version ?? null
-                clientDraftKey.value = incoming.clientDraftKey ?? clientDraftKey.value
-                updatedAt.value = incoming.updatedAt ?? incoming.modifiedAt ?? null
-                localRevision++
-                restoreSource.value = 'local'
-                options.applyDraft(incoming)
-                return
-            }
-            if (hasUnsavedLocalChanges
-                && sameLogicalDraft
-                && incoming.hasLocalChanges === false
-                && matchingComposer
-                && hasSameDraftContent(incoming, options.buildPayload())) {
-                draftId.value = incoming.draftId ?? draftId.value
-                draftVersion.value = incoming.version ?? null
-                clientDraftKey.value = incoming.clientDraftKey ?? clientDraftKey.value
-                updatedAt.value = incoming.updatedAt ?? incoming.modifiedAt ?? null
-                lastSavedAt.value = updatedAt.value
-                lastSaveScope.value = 'server'
-                persistedRevision = localRevision
-                options.applyDraft(incoming)
-                options.onSaved?.()
-                return
-            }
-            if (!hasUnsavedLocalChanges
-                && (draftId.value == null || sameDraft)
-                && incoming.hasLocalChanges === false
-                && matchingComposer
-                && incoming.draftId != null) {
-                draftId.value = incoming.draftId
-                draftVersion.value = incoming.version ?? null
-                clientDraftKey.value = incoming.clientDraftKey ?? clientDraftKey.value
-                updatedAt.value = incoming.updatedAt ?? incoming.modifiedAt ?? null
-                lastSavedAt.value = updatedAt.value
-                lastSaveScope.value = 'server'
-                options.applyDraft(incoming)
-                options.onSaved?.()
-                return
-            }
-            if (hasUnsavedLocalChanges && (incoming.hasLocalChanges || serverAdvanced)) {
-                draftConflict.value = true
-                clearAutosaveTimer()
-            }
+            reconcileIncomingSnapshot(incoming)
         } catch (error: unknown) {
             logger.error('Failed to process a draft update from another tab:', error)
         }
@@ -846,6 +863,15 @@ export function usePostDraft(options: UsePostDraftOptions) {
         })
         : () => undefined
 
+    const unregisterDraftUpdatedListener = typeof window !== 'undefined'
+        ? registerDraftUpdatedListener((updatedEvent) => {
+            if (!options.enabled.value
+                || options.ownerId?.value == null
+                || updatedEvent.ownerId !== String(options.ownerId.value)) return
+            reconcileIncomingSnapshot(updatedEvent.snapshot)
+        })
+        : () => undefined
+
     if (typeof window !== 'undefined') {
         window.addEventListener('online', handleOnline)
         window.addEventListener('offline', handleOffline)
@@ -880,6 +906,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         invalidatePendingSaves()
         unregisterDraftScheduledListener()
         unregisterDraftDeletedListener()
+        unregisterDraftUpdatedListener()
         if (typeof window !== 'undefined') {
             window.removeEventListener('online', handleOnline)
             window.removeEventListener('offline', handleOffline)

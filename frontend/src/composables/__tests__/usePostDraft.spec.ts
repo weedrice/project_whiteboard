@@ -14,6 +14,7 @@ import {
     closeDraftScheduledChannelForTest,
     type DraftScheduledEvent,
 } from '@/features/board/posts/draft/postDraftScheduledEvent'
+import { closeDraftUpdatedChannelForTest } from '@/features/board/posts/draft/postDraftUpdatedEvent'
 
 const mocks = vi.hoisted(() => {
     const saveDraftMutateAsync = vi.fn()
@@ -147,6 +148,7 @@ describe('usePostDraft', () => {
     afterEach(() => {
         closeDraftScheduledChannelForTest()
         closeDraftDeletedChannelForTest()
+        closeDraftUpdatedChannelForTest()
         vi.restoreAllMocks()
         vi.unstubAllGlobals()
         vi.useRealTimers()
@@ -1618,7 +1620,7 @@ describe('usePostDraft', () => {
             key: 'noviis:test:draft',
             newValue: JSON.stringify({
                 draftId: 91,
-                clientDraftKey: 'other-tab-draft-key',
+                clientDraftKey: composable.clientDraftKey.value,
                 version: 3,
                 boardUrl: 'free',
                 title: 'Other tab edit',
@@ -1637,6 +1639,83 @@ describe('usePostDraft', () => {
         expect(composable.draftId.value).toBe(91)
         expect(composable.draftVersion.value).toBe(3)
         expect(composable.updatedAt.value).toBe('2026-07-07T13:00:00.000Z')
+        expect(composable.draftConflict.value).toBe(false)
+    })
+
+    it('adopts the first server id through the update channel after the storage key changes', async () => {
+        const channels: FakeBroadcastChannel[] = []
+        class FakeBroadcastChannel {
+            listeners: Array<(event: MessageEvent) => void> = []
+            constructor(readonly name: string) { channels.push(this) }
+            addEventListener(_type: string, listener: (event: MessageEvent) => void) {
+                this.listeners.push(listener)
+            }
+            postMessage(data: unknown) {
+                channels
+                    .filter((channel) => channel !== this && channel.name === this.name)
+                    .forEach((channel) => channel.listeners.forEach((listener) => listener({ data } as MessageEvent)))
+            }
+            close() {}
+        }
+        vi.stubGlobal('BroadcastChannel', FakeBroadcastChannel)
+        const { composable, appliedDrafts } = mountComposable(
+            undefined,
+            ref('noviis:test:draft'),
+            ref(true),
+            ref(7),
+            undefined,
+            (draftId) => `noviis:test:draft:${draftId}`,
+        )
+        const peer = new FakeBroadcastChannel('noviis-draft-updated')
+
+        peer.postMessage({
+            type: 'draft-updated',
+            eventId: 'updated-event-1',
+            sourceId: 'other-tab',
+            ownerId: '7',
+            storageKey: 'noviis:test:draft:91',
+            at: Date.now(),
+            snapshot: {
+                draftId: 91,
+                clientDraftKey: composable.clientDraftKey.value,
+                version: 1,
+                boardUrl: 'free',
+                title: 'Draft title',
+                contents: 'Draft body',
+                fileIds: [7],
+                updatedAt: '2026-07-07T13:00:00.000Z',
+                clientModifiedAt: '2026-07-07T13:00:00.000Z',
+                clientInstanceId: 'other-tab',
+                hasLocalChanges: false,
+            },
+        })
+
+        expect(composable.draftId.value).toBe(91)
+        expect(composable.draftVersion.value).toBe(1)
+        expect(appliedDrafts.at(-1)).toEqual(expect.objectContaining({ draftId: 91 }))
+        expect(composable.draftConflict.value).toBe(false)
+    })
+
+    it('ignores an update channel event for a different logical draft', async () => {
+        const { composable, appliedDrafts } = mountComposable()
+
+        window.dispatchEvent(new StorageEvent('storage', {
+            key: 'noviis:test:draft',
+            newValue: JSON.stringify({
+                draftId: 92,
+                clientDraftKey: 'different-draft-key',
+                version: 1,
+                boardUrl: 'free',
+                title: 'Different draft',
+                contents: 'Different body',
+                updatedAt: '2026-07-07T13:00:00.000Z',
+                clientInstanceId: 'other-tab',
+                hasLocalChanges: false,
+            }),
+        }))
+
+        expect(composable.draftId.value).toBeNull()
+        expect(appliedDrafts).toHaveLength(0)
         expect(composable.draftConflict.value).toBe(false)
     })
 
@@ -1688,7 +1767,7 @@ describe('usePostDraft', () => {
         window.dispatchEvent(new StorageEvent('storage', {
             key: 'noviis:test:draft',
             newValue: JSON.stringify({
-                clientDraftKey: 'client-draft-key-1234',
+                clientDraftKey: composable.clientDraftKey.value,
                 boardUrl: 'free',
                 title: 'Unsaved edit from another tab',
                 contents: 'Draft body',
@@ -1706,7 +1785,7 @@ describe('usePostDraft', () => {
             key: 'noviis:test:draft',
             newValue: JSON.stringify({
                 draftId: 91,
-                clientDraftKey: 'client-draft-key-1234',
+                clientDraftKey: composable.clientDraftKey.value,
                 version: 1,
                 boardUrl: 'free',
                 title: 'Unsaved edit from another tab',
