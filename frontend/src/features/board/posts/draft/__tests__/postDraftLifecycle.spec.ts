@@ -5,16 +5,10 @@ import {
   clearStoredDraftSnapshotsForUser,
   countUnsyncedStoredDraftSnapshotsForUser,
   DRAFT_SNAPSHOT_SCHEMA_VERSION,
-  enforceDraftSnapshotBudget,
   loadStoredDraftSnapshot,
-  MAX_LOCAL_DRAFT_BYTES,
-  MAX_LOCAL_DRAFT_SNAPSHOTS,
-  MAX_PRESERVED_UNKNOWN_DRAFT_BYTES,
-  MAX_PRESERVED_UNKNOWN_DRAFT_SNAPSHOTS,
-  MIN_LOCAL_DRAFT_SNAPSHOTS_TO_RETAIN,
+  MAX_LOCAL_DRAFT_BACKUP_BYTES,
   migrateStoredDraftSnapshot,
-  storeDraftSnapshotWithBudget,
-  storeDraftSnapshotWithBudgetResult,
+  storeDraftSnapshot,
 } from '@/features/board/posts/draft/postDraftLifecycle'
 import {
   isDraftDeletedLocally,
@@ -321,7 +315,7 @@ describe('draft browser lifecycle', () => {
       clientModifiedAt: '2026-08-03T00:00:00.000Z',
     })
 
-    expect(storeDraftSnapshotWithBudget(key, {
+    expect(storeDraftSnapshot(key, {
       boardUrl: 'free',
       title: 'older app draft',
       clientModifiedAt: '2026-08-03T00:00:01.000Z',
@@ -440,262 +434,83 @@ describe('draft browser lifecycle', () => {
     expect(Storage.has(key)).toBe(false)
   })
 
-  it('evicts the oldest snapshots over the local count limit while protecting the active key', () => {
-    for (let index = 0; index < MAX_LOCAL_DRAFT_SNAPSHOTS + 2; index++) {
-      Storage.set(`noviis:draft:1:create:free:${index}`, {
-        boardUrl: 'free',
-        title: `draft ${index}`,
-        hasLocalChanges: false,
-        clientModifiedAt: new Date(Date.UTC(2026, 6, 1, 0, index)).toISOString(),
-      })
-    }
-    const protectedKey = 'noviis:draft:1:create:free:0'
-
-    expect(enforceDraftSnapshotBudget(protectedKey)).toBe(2)
-
-    const remainingKeys = Storage.keys().filter((key) => key.startsWith('noviis:draft:'))
-    expect(remainingKeys).toHaveLength(MAX_LOCAL_DRAFT_SNAPSHOTS)
-    expect(Storage.has(protectedKey)).toBe(true)
-    expect(Storage.has('noviis:draft:1:create:free:1')).toBe(false)
-    expect(Storage.has('noviis:draft:1:create:free:2')).toBe(false)
-  })
-
-  it('does not claim a snapshot was evicted when browser removal fails', () => {
-    for (let index = 0; index < MAX_LOCAL_DRAFT_SNAPSHOTS + 1; index++) {
-      Storage.set(`noviis:draft:1:create:free:${index}`, {
-        boardUrl: 'free',
-        hasLocalChanges: false,
-        clientModifiedAt: new Date(Date.UTC(2026, 6, 1, 0, index)).toISOString(),
-      })
-    }
-    vi.spyOn(Storage, 'remove').mockReturnValue(false)
-
-    expect(enforceDraftSnapshotBudget()).toBe(0)
-    expect(Storage.keys().filter((key) => key.startsWith('noviis:draft:')))
-      .toHaveLength(MAX_LOCAL_DRAFT_SNAPSHOTS + 1)
-  })
-
-  it('never evicts unsynced snapshots to satisfy the local budget', () => {
-    for (let index = 0; index < MAX_LOCAL_DRAFT_SNAPSHOTS + 1; index++) {
-      Storage.set(`noviis:draft:1:create:free:${index}`, {
-        boardUrl: 'free',
-        title: `unsynced ${index}`,
-        hasLocalChanges: true,
-        clientModifiedAt: new Date(Date.UTC(2026, 6, 1, 0, index)).toISOString(),
-      })
-    }
-
-    expect(enforceDraftSnapshotBudget()).toBe(0)
-    expect(Storage.keys().filter((key) => key.startsWith('noviis:draft:')))
-      .toHaveLength(MAX_LOCAL_DRAFT_SNAPSHOTS + 1)
-  })
-
-  it('bounds preserved unknown snapshots before applying the regular budget', () => {
-    for (let index = 0; index < MAX_LOCAL_DRAFT_SNAPSHOTS; index++) {
-      Storage.set(`noviis:draft:1:create:free:future-${index}`, {
-        schemaVersion: DRAFT_SNAPSHOT_SCHEMA_VERSION + 1,
-        boardUrl: 'free',
-        clientModifiedAt: '2026-08-03T00:00:00.000Z',
-      })
-    }
-    for (let index = 0; index < MIN_LOCAL_DRAFT_SNAPSHOTS_TO_RETAIN + 1; index++) {
-      Storage.set(`noviis:draft:2:create:free:synced-${index}`, {
-        boardUrl: 'free',
-        hasLocalChanges: false,
-        clientModifiedAt: new Date(Date.UTC(2026, 7, 3, 0, index)).toISOString(),
-      })
-    }
-
-    expect(enforceDraftSnapshotBudget()).toBe(
-      MAX_LOCAL_DRAFT_SNAPSHOTS - MAX_PRESERVED_UNKNOWN_DRAFT_SNAPSHOTS,
-    )
-    expect(Storage.keys().filter((key) => key.includes(':future-')))
-      .toHaveLength(MAX_PRESERVED_UNKNOWN_DRAFT_SNAPSHOTS)
-    expect(Storage.keys().filter((key) => key.includes(':synced-')))
-      .toHaveLength(MIN_LOCAL_DRAFT_SNAPSHOTS_TO_RETAIN + 1)
-  })
-
-  it('lets the current app store a draft after pruning excess future snapshots', () => {
-    for (let index = 0; index < MAX_PRESERVED_UNKNOWN_DRAFT_SNAPSHOTS + 1; index++) {
-      Storage.set(`noviis:draft:1:create:free:future-${index}`, {
-        schemaVersion: DRAFT_SNAPSHOT_SCHEMA_VERSION + 1,
-        boardUrl: 'free',
-        clientModifiedAt: new Date(Date.UTC(2026, 7, 2, 0, index)).toISOString(),
-      })
-    }
-
-    expect(storeDraftSnapshotWithBudget('noviis:draft:1:create:free:current', {
+  it('stores one latest backup per editor key without evicting another draft', () => {
+    const firstKey = 'noviis:draft:1:create:free:first'
+    const secondKey = 'noviis:draft:1:create:free:second'
+    Storage.set(firstKey, {
       boardUrl: 'free',
-      title: 'current app draft',
+      title: 'first draft',
       hasLocalChanges: true,
       clientModifiedAt: '2026-08-03T00:00:00.000Z',
+    })
+
+    expect(storeDraftSnapshot(secondKey, {
+      boardUrl: 'free',
+      title: 'second draft',
+      hasLocalChanges: true,
+      clientModifiedAt: '2026-08-03T00:01:00.000Z',
     })).toBe(true)
-    expect(Storage.keys().filter((key) => key.includes(':future-')))
-      .toHaveLength(MAX_PRESERVED_UNKNOWN_DRAFT_SNAPSHOTS)
+    expect(Storage.get(firstKey)).toEqual(expect.objectContaining({ title: 'first draft' }))
+    expect(Storage.get(secondKey)).toEqual(expect.objectContaining({ title: 'second draft' }))
   })
 
-  it('removes an unknown snapshot that alone exceeds its quarantine byte budget', () => {
-    const key = 'noviis:draft:1:create:free:oversized-future'
-    Storage.set(key, {
-      schemaVersion: DRAFT_SNAPSHOT_SCHEMA_VERSION + 1,
+  it('rejects an oversized backup without deleting another draft', () => {
+    const existingKey = 'noviis:draft:1:create:free:existing'
+    Storage.set(existingKey, {
       boardUrl: 'free',
-      title: 'x'.repeat(MAX_PRESERVED_UNKNOWN_DRAFT_BYTES),
+      title: 'keep me',
       clientModifiedAt: '2026-08-03T00:00:00.000Z',
     })
+
+    expect(storeDraftSnapshot('noviis:draft:1:create:free:oversized', {
+      boardUrl: 'free',
+      contents: 'x'.repeat(MAX_LOCAL_DRAFT_BACKUP_BYTES),
+      clientModifiedAt: '2026-08-03T00:01:00.000Z',
+    })).toBe(false)
+    expect(Storage.get(existingKey)).toEqual(expect.objectContaining({ title: 'keep me' }))
+  })
+
+  it('does not evict or retry other backups when the active write fails', () => {
+    const existingKey = 'noviis:draft:1:create:free:existing'
+    Storage.set(existingKey, {
+      boardUrl: 'free',
+      title: 'keep me',
+      clientModifiedAt: '2026-08-03T00:00:00.000Z',
+    })
+    const setWithResult = vi.spyOn(Storage, 'setWithResult').mockReturnValue({
+      ok: false,
+      reason: 'quota-exceeded',
+    })
+
+    expect(storeDraftSnapshot('noviis:draft:1:create:free:active', {
+      boardUrl: 'free',
+      title: 'cannot write',
+      clientModifiedAt: '2026-08-03T00:01:00.000Z',
+    })).toBe(false)
+    expect(setWithResult).toHaveBeenCalledTimes(1)
+    expect(Storage.get(existingKey)).toEqual(expect.objectContaining({ title: 'keep me' }))
+  })
+
+  it('cleanup removes only malformed or expired backups and keeps valid backups', () => {
+    const recentKey = 'noviis:draft:1:create:free:recent'
+    const expiredKey = 'noviis:draft:1:create:free:expired'
+    const malformedKey = 'noviis:draft:1:create:free:malformed-cleanup'
+    Storage.set(recentKey, {
+      boardUrl: 'free',
+      title: 'recent',
+      clientModifiedAt: '2026-08-02T00:00:00.000Z',
+    })
+    Storage.set(expiredKey, {
+      boardUrl: 'free',
+      title: 'expired',
+      clientModifiedAt: '2026-04-01T00:00:00.000Z',
+    })
+    localStorage.setItem(malformedKey, '{invalid')
 
     cleanupExpiredDraftSnapshots()
 
-    expect(Storage.has(key)).toBe(false)
-  })
-
-  it('retains the newest synced backups separately for each user', () => {
-    for (const ownerId of [1, 2]) {
-      for (let index = 0; index < MIN_LOCAL_DRAFT_SNAPSHOTS_TO_RETAIN + 1; index++) {
-        Storage.set(`noviis:draft:${ownerId}:create:free:${index}`, {
-          boardUrl: 'free',
-          title: `user ${ownerId} draft ${index}`,
-          hasLocalChanges: false,
-          clientModifiedAt: new Date(Date.UTC(2026, 6, ownerId, 0, index)).toISOString(),
-        })
-      }
-    }
-    const originalSet = Storage.setWithResult.bind(Storage)
-    let targetAttempts = 0
-    vi.spyOn(Storage, 'setWithResult').mockImplementation((key, value) => {
-      if (key === 'noviis:draft:1:create:free:current' && targetAttempts++ === 0) {
-        return { ok: false, reason: 'quota-exceeded' }
-      }
-      return originalSet(key, value)
-    })
-
-    expect(storeDraftSnapshotWithBudget('noviis:draft:1:create:free:current', {
-      boardUrl: 'free',
-      title: 'current draft',
-      hasLocalChanges: true,
-      clientModifiedAt: '2026-08-03T00:00:00.000Z',
-    })).toBe(true)
-    expect(Storage.has('noviis:draft:1:create:free:0')).toBe(false)
-    expect(Storage.has('noviis:draft:2:create:free:0')).toBe(true)
-    expect(Storage.keys().filter((key) => key.startsWith('noviis:draft:2:')))
-      .toHaveLength(MIN_LOCAL_DRAFT_SNAPSHOTS_TO_RETAIN + 1)
-  })
-
-  it('reclaims old snapshots on quota errors while retaining recent backups', () => {
-    const targetKey = 'noviis:draft:1:create:free:current'
-    for (let index = 0; index < MIN_LOCAL_DRAFT_SNAPSHOTS_TO_RETAIN + 1; index++) {
-      Storage.set(`noviis:draft:1:create:free:${index}`, {
-        boardUrl: 'free',
-        title: `draft ${index}`,
-        hasLocalChanges: false,
-        clientModifiedAt: new Date(Date.UTC(2026, 7, 3, 0, index)).toISOString(),
-      })
-    }
-    const originalSet = Storage.setWithResult.bind(Storage)
-    let targetAttempts = 0
-    const setSpy = vi.spyOn(Storage, 'setWithResult').mockImplementation((key, value) => {
-      if (key === targetKey && targetAttempts++ === 0) {
-        return { ok: false, reason: 'quota-exceeded' }
-      }
-      return originalSet(key, value)
-    })
-
-    expect(storeDraftSnapshotWithBudget(targetKey, {
-      boardUrl: 'free',
-      title: 'current draft',
-      clientModifiedAt: '2026-08-03T00:00:00.000Z',
-    })).toBe(true)
-    expect(Storage.has('noviis:draft:1:create:free:0')).toBe(false)
-    expect(Storage.keys().filter((key) => key.startsWith('noviis:draft:1:create:free:')))
-      .toHaveLength(MIN_LOCAL_DRAFT_SNAPSHOTS_TO_RETAIN + 1)
-    expect(Storage.has(targetKey)).toBe(true)
-    setSpy.mockRestore()
-  })
-
-  it('does not evict drafts for non-quota storage failures', () => {
-    const existingKey = 'noviis:draft:1:create:free:existing'
-    const targetKey = 'noviis:draft:1:create:free:current'
-    Storage.set(existingKey, {
-      boardUrl: 'free',
-      title: 'keep me',
-      clientModifiedAt: '2026-08-01T00:00:00.000Z',
-    })
-    vi.spyOn(Storage, 'setWithResult').mockReturnValue({ ok: false, reason: 'unavailable' })
-
-    expect(storeDraftSnapshotWithBudget(targetKey, {
-      boardUrl: 'free',
-      title: 'current draft',
-      clientModifiedAt: '2026-08-03T00:00:00.000Z',
-    })).toBe(false)
-    expect(Storage.has(existingKey)).toBe(true)
-  })
-
-  it('restores evicted drafts when quota retries never succeed', () => {
-    const targetKey = 'noviis:draft:1:create:free:current'
-    for (let index = 0; index < MIN_LOCAL_DRAFT_SNAPSHOTS_TO_RETAIN + 2; index++) {
-      Storage.set(`noviis:draft:1:create:free:${index}`, {
-        boardUrl: 'free',
-        title: `draft ${index}`,
-        hasLocalChanges: false,
-        clientModifiedAt: new Date(Date.UTC(2026, 7, 3, 0, index)).toISOString(),
-      })
-    }
-    const originalSet = Storage.setWithResult.bind(Storage)
-    vi.spyOn(Storage, 'setWithResult').mockImplementation((key, value) => key === targetKey
-      ? { ok: false, reason: 'quota-exceeded' }
-      : originalSet(key, value))
-
-    expect(storeDraftSnapshotWithBudget(targetKey, {
-      boardUrl: 'free',
-      title: 'current draft',
-      clientModifiedAt: '2026-08-03T00:00:00.000Z',
-    })).toBe(false)
-    expect(Storage.keys().filter((key) => key.startsWith('noviis:draft:1:create:free:'))).toHaveLength(5)
-    expect(Storage.has(targetKey)).toBe(false)
-  })
-
-  it('reports how many evicted drafts could not be restored after a failed write', () => {
-    const targetKey = 'noviis:draft:1:create:free:current'
-    const rollbackFailureKey = 'noviis:draft:1:create:free:0'
-    for (let index = 0; index < MIN_LOCAL_DRAFT_SNAPSHOTS_TO_RETAIN + 2; index++) {
-      Storage.set(`noviis:draft:1:create:free:${index}`, {
-        boardUrl: 'free',
-        title: `draft ${index}`,
-        hasLocalChanges: false,
-        clientModifiedAt: new Date(Date.UTC(2026, 7, 3, 0, index)).toISOString(),
-      })
-    }
-    const originalSet = Storage.setWithResult.bind(Storage)
-    vi.spyOn(Storage, 'setWithResult').mockImplementation((key, value) => {
-      if (key === targetKey) return { ok: false, reason: 'quota-exceeded' }
-      if (key === rollbackFailureKey) return { ok: false, reason: 'unavailable' }
-      return originalSet(key, value)
-    })
-
-    expect(storeDraftSnapshotWithBudgetResult(targetKey, {
-      boardUrl: 'free',
-      title: 'current draft',
-      clientModifiedAt: '2026-08-03T00:00:00.000Z',
-    })).toEqual({ stored: false, rollbackFailedCount: 1 })
-    expect(Storage.has(rollbackFailureKey)).toBe(false)
-    expect(Storage.has('noviis:draft:1:create:free:1')).toBe(true)
-  })
-
-  it('rejects an oversized snapshot without evicting existing drafts', () => {
-    const existingKey = 'noviis:draft:1:create:free:existing'
-    const targetKey = 'noviis:draft:1:create:free:oversized'
-    Storage.set(existingKey, {
-      boardUrl: 'free',
-      title: 'keep me',
-      clientModifiedAt: '2026-08-01T00:00:00.000Z',
-    })
-
-    expect(storeDraftSnapshotWithBudget(targetKey, {
-      boardUrl: 'free',
-      title: 'x'.repeat(MAX_LOCAL_DRAFT_BYTES),
-      clientModifiedAt: '2026-08-03T00:00:00.000Z',
-    })).toBe(false)
-
-    expect(Storage.get(existingKey)).toEqual(expect.objectContaining({ title: 'keep me' }))
-    expect(Storage.has(targetKey)).toBe(false)
+    expect(Storage.has(recentKey)).toBe(true)
+    expect(Storage.has(expiredKey)).toBe(false)
+    expect(Storage.has(malformedKey)).toBe(false)
   })
 })

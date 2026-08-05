@@ -26,7 +26,6 @@ import {
     markDraftDeletedLocally,
     registerDraftDeletedListener,
 } from '@/features/board/posts/draft/postDraftTombstone'
-import { parseDraftRecoverySnapshot } from '@/features/board/posts/draft/postDraftLifecycle'
 import {
     matchesDraftScheduledEvent,
     publishDraftScheduledEvent,
@@ -643,28 +642,12 @@ export function usePostDraft(options: UsePostDraftOptions) {
     }
 
     const handleStorage = (event: StorageEvent) => {
-        if (!options.enabled.value) return
+        if (!options.enabled.value || !event.newValue) return
         const ownerId = options.ownerId?.value
         if (draftId.value != null
             && ownerId != null
-            && event.key === getDraftTombstoneKey(ownerId, draftId.value)
-            && event.newValue) {
+            && event.key === getDraftTombstoneKey(ownerId, draftId.value)) {
             transitionToDeletedDraft()
-            return
-        }
-        if (event.key !== activeStorageKey.value) return
-        if (!event.newValue) {
-            // 만료·용량 정리·예약 발행 전환도 같은 localStorage 제거 이벤트를
-            // 발생시킨다. 서버 삭제는 전용 tombstone으로만 판정한다.
-            return
-        }
-        try {
-            const incoming = parseDraftRecoverySnapshot(JSON.parse(event.newValue))
-            if (!incoming) return
-            options.onLocalSnapshotAvailable?.(incoming)
-            reconcileIncomingSnapshot(incoming)
-        } catch (error: unknown) {
-            logger.error('Failed to process a draft update from another tab:', error)
         }
     }
 

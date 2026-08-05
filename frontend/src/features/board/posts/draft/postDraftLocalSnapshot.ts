@@ -4,7 +4,7 @@ import type { DraftRecoverySnapshot } from '@/features/board/posts/draft/postDra
 import {
   loadStoredDraftSnapshot,
   migrateStoredDraftSnapshot,
-  storeDraftSnapshotWithBudgetResult,
+  storeDraftSnapshot,
 } from '@/features/board/posts/draft/postDraftLifecycle'
 import { Storage } from '@/utils/storage'
 import logger from '@/utils/logger'
@@ -34,7 +34,6 @@ export function createDraftLocalSnapshotController({
   onRemoved,
 }: DraftLocalSnapshotControllerOptions) {
   const lastSaveFailed = ref(false)
-  const lastRollbackFailed = ref(false)
   const activeStorageKey = computed(() => draftId.value != null
     ? resolveStorageKey?.(draftId.value) ?? storageKey.value
     : storageKey.value)
@@ -65,25 +64,14 @@ export function createDraftLocalSnapshotController({
       version: snapshot.version ?? draftVersion.value ?? undefined,
       clientInstanceId,
     }
-    const result = storeDraftSnapshotWithBudgetResult(activeStorageKey.value, storedSnapshot)
-    const stored = result.stored
+    const stored = storeDraftSnapshot(activeStorageKey.value, storedSnapshot)
     if (stored) onStored?.(storedSnapshot)
-    if (result.rollbackFailedCount > 0 && !lastRollbackFailed.value) {
-      logger.error('Draft local snapshot rollback failed.', {
-        event: 'draft_local_snapshot_rollback_failed',
-        failedCount: result.rollbackFailedCount,
-      })
-      void reportDraftOperationalEvent('local_storage_rollback_failed', {
-        failedCount: result.rollbackFailedCount,
-      })
-    }
     if (!stored && !lastSaveFailed.value) {
       logger.error('Draft local snapshot storage failed.', {
         event: 'draft_local_snapshot_write_failed',
       })
       void reportDraftOperationalEvent('local_storage_write_failed')
     }
-    lastRollbackFailed.value = result.rollbackFailedCount > 0
     lastSaveFailed.value = !stored
     return stored
   }
@@ -101,7 +89,6 @@ export function createDraftLocalSnapshotController({
 
   const resetStatus = () => {
     lastSaveFailed.value = false
-    lastRollbackFailed.value = false
   }
 
   return {
