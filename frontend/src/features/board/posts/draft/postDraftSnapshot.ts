@@ -29,7 +29,9 @@ export function createStoredSavedDraftSnapshot(
     ...savedDraft,
     clientDraftKey: savedDraft.clientDraftKey ?? payload.clientDraftKey,
     originalPostId: savedDraft.originalPostId ?? payload.originalPostId,
-    contents: savedDraft.contents ?? payload.contents,
+    contents: savedDraft.staleReferencesReset
+      ? payload.contents
+      : savedDraft.contents ?? payload.contents,
     title: savedDraft.title ?? payload.title,
     poll: savedDraft.poll ?? null,
     seriesId: savedDraft.seriesId ?? undefined,

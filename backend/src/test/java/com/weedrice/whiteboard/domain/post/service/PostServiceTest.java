@@ -2308,7 +2308,8 @@ class PostServiceTest {
         PostDraftRequest request = PostDraftRequest.builder()
                 .boardUrl("free")
                 .title("Recover references")
-                .contents("Draft Content")
+                .contents("<p>Draft Content</p><img src=\"/api/v1/files/11\"><img src=\"/api/v1/files/12\">"
+                        + "<a href=\"/api/v1/files/11\">removed attachment</a>")
                 .fileIds(List.of(11L, 12L))
                 .seriesId(99L)
                 .build();
@@ -2329,6 +2330,10 @@ class PostServiceTest {
 
         assertThat(response.getSeriesId()).isNull();
         assertThat(response.getFileIds()).containsExactly(12L);
+        assertThat(response.getContents())
+                .contains("/api/v1/files/12")
+                .contains("removed attachment")
+                .doesNotContain("/api/v1/files/11");
         assertThat(response.getVersion()).isEqualTo(1L);
         assertThat(response.isStaleReferencesReset()).isTrue();
         verify(draftPostRepository, times(2)).saveAndFlush(any(DraftPost.class));

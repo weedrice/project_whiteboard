@@ -30,6 +30,8 @@ import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.util.InputSanitizer;
 import lombok.RequiredArgsConstructor;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -42,6 +44,8 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -134,11 +138,23 @@ public class PostDraftService {
         List<Long> retainedFileIds = fileService.retainValidDraftFileIds(
                 request.getFileIds(), userId, savedDraftPost.getDraftId());
         List<Long> requestedFileIds = orEmpty(request.getFileIds()).stream().distinct().toList();
-        if (!Objects.equals(requestedFileIds, retainedFileIds)) {
+        Set<Long> removedFileIds = requestedFileIds.stream()
+                .filter(fileId -> !retainedFileIds.contains(fileId))
+                .collect(Collectors.toSet());
+        if (!removedFileIds.isEmpty()) {
             staleReferencesReset = true;
+        }
+        String contentsWithoutInvalidFiles = removeDraftFileReferences(savedDraftPost.getContents(), removedFileIds);
+        boolean draftChanged = false;
+        if (!Objects.equals(savedDraftPost.getContents(), contentsWithoutInvalidFiles)) {
+            savedDraftPost.replaceContents(contentsWithoutInvalidFiles);
+            draftChanged = true;
         }
         if (!Objects.equals(orEmpty(savedDraftPost.getFileIds()), retainedFileIds)) {
             savedDraftPost.replaceFileIds(retainedFileIds);
+            draftChanged = true;
+        }
+        if (draftChanged) {
             savedDraftPost = draftPostRepository.saveAndFlush(savedDraftPost);
         }
         fileService.syncDraftFiles(retainedFileIds, userId, savedDraftPost.getDraftId());
@@ -318,6 +334,21 @@ public class PostDraftService {
 
     private String sanitizeDraftContents(String contents) {
         return Objects.toString(InputSanitizer.sanitizePostHtml(contents), "");
+    }
+
+    private String removeDraftFileReferences(String contents, Set<Long> removedFileIds) {
+        if (contents == null || contents.isBlank() || removedFileIds.isEmpty()) {
+            return contents;
+        }
+        Document document = Jsoup.parseBodyFragment(contents);
+        document.outputSettings().prettyPrint(false);
+        document.select("img[src]").stream()
+                .filter(image -> removedFileIds.contains(FileService.extractFileIdFromUrl(image.attr("src"))))
+                .forEach(element -> element.remove());
+        document.select("a[href]").stream()
+                .filter(link -> removedFileIds.contains(FileService.extractFileIdFromUrl(link.attr("href"))))
+                .forEach(element -> element.unwrap());
+        return document.body().html();
     }
 
     private PollRequest normalizeDraftPoll(PollRequest poll) {
