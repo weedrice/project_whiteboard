@@ -698,6 +698,42 @@ describe('PostForm draft behavior', () => {
     }
   })
 
+  it('retries a local snapshot that failed while restoring a draft', async () => {
+    mockPostFormAuthStore({
+      isAuthenticated: true,
+      user: { userId: 1, role: 'USER' },
+    })
+    const storageKey = 'noviis:draft:1:create:free:new'
+    Storage.set(storageKey, {
+      draftId: 91,
+      boardUrl: 'free',
+      title: 'Restored before transient failure',
+      contents: 'Restored body',
+      clientModifiedAt: '2026-08-02T00:00:00.000Z',
+      hasLocalChanges: true,
+    })
+    const originalSet = Storage.setWithResult.bind(Storage)
+    let failWrites = true
+    const setItem = vi.spyOn(Storage, 'setWithResult')
+      .mockImplementation((key, value) => failWrites
+        ? { ok: false, reason: 'unavailable' }
+        : originalSet(key, value))
+
+    try {
+      mountPostForm('create', {}, {}, { postId: '' })
+      await flushPromises()
+      const restoreWriteAttempts = setItem.mock.calls.length
+      expect(restoreWriteAttempts).toBeGreaterThan(0)
+
+      failWrites = false
+      window.dispatchEvent(new Event('pagehide'))
+
+      expect(setItem.mock.calls.length).toBeGreaterThan(restoreWriteAttempts)
+    } finally {
+      setItem.mockRestore()
+    }
+  })
+
   it('flushes the latest input synchronously before a SPA unmount', async () => {
     mockPostFormAuthStore({
       isAuthenticated: true,

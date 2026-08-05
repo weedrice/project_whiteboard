@@ -12,6 +12,7 @@ import {
 import logger from '@/utils/logger'
 import { formatTimeOnly } from '@/utils/date'
 import { migrateStoredDraftSnapshot } from '@/features/board/posts/draft/postDraftLifecycle'
+import { hasSameDraftContent } from '@/features/board/posts/draft/postDraftRecovery'
 import { useEventListener } from '@/composables/useEventListener'
 
 type ComposerToastType = 'info' | 'success' | 'warning' | 'error'
@@ -183,6 +184,14 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     ),
     onLocalSnapshotStored: (snapshot) => {
       options.durableDraftFileIds.value = [...(snapshot.fileIds ?? [])]
+      const currentPayload = {
+        ...options.buildPayload('draft'),
+        boardUrl: options.boardUrl.value,
+        originalPostId: options.mode() === 'edit' ? Number(options.postId.value) : undefined,
+      }
+      if (hasSameDraftContent(snapshot, currentPayload)) {
+        lastStoredDraftSignature = JSON.stringify(currentPayload)
+      }
     },
     onLocalSnapshotRemoved: () => {
       options.durableDraftFileIds.value = []
@@ -274,7 +283,6 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
       }
       options.markCurrentSnapshotSaved()
       initializedBaselineIdentity.value = restoringIdentity
-      lastStoredDraftSignature = serializeDraftPayload()
     },
     { immediate: true },
   )
@@ -287,7 +295,6 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
       if (!hasRestoredDraft.value || !draftEnabled.value || options.isLoading.value) return
       if (appliedDraftSignature === signature) {
         appliedDraftSignature = null
-        lastStoredDraftSignature = signature
         return
       }
       appliedDraftSignature = null
