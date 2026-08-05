@@ -400,9 +400,8 @@ export function usePostDraft(options: UsePostDraftOptions) {
                             null,
                         ))
                         if (!storedLocally) throw new Error('DRAFT_LOCAL_STORAGE_FAILED')
-                    } else if (Storage.has(activeStorageKey.value)
-                        && !Storage.remove(activeStorageKey.value)) {
-                        void reportDraftOperationalEvent('local_storage_remove_failed')
+                    } else {
+                        removeLocalSnapshot()
                     }
                     if (deletedStorageKey !== activeStorageKey.value && !Storage.remove(deletedStorageKey)) {
                         void reportDraftOperationalEvent('local_storage_remove_failed')
@@ -442,9 +441,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
                 lastSavedAt.value = new Date().toISOString()
                 lastSaveScope.value = 'browser'
             } else {
-                if (Storage.has(activeStorageKey.value) && !Storage.remove(activeStorageKey.value)) {
-                    void reportDraftOperationalEvent('local_storage_remove_failed')
-                }
+                removeLocalSnapshot()
                 lastSavedAt.value = null
                 lastSaveScope.value = null
             }

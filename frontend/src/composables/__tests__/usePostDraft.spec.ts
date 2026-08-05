@@ -78,7 +78,7 @@ function mountComposable(payloadRef: Ref<PostDraftData> = ref({
     contents: 'Draft body',
     fileIds: [7],
     originalPostId: undefined as number | undefined,
-}), storageKeyRef = ref('noviis:test:draft'), enabledRef = ref(true), ownerIdRef = ref<number | null>(null), onServerSaved?: (payload: PostDraftData, savedDraft: DraftPost) => void, resolveStorageKey?: (draftId: number) => string, onServerReferencesReset?: (savedDraft: DraftPost, payload: PostDraftData) => PostDraftData | void, prepareRecoveredSnapshot?: (snapshot: DraftRecoverySnapshot) => DraftRecoverySnapshot, canPersist?: () => boolean, getDetachedDraftFileIdsToPreserve?: (payload: PostDraftData) => number[]) {
+}), storageKeyRef = ref('noviis:test:draft'), enabledRef = ref(true), ownerIdRef = ref<number | null>(null), onServerSaved?: (payload: PostDraftData, savedDraft: DraftPost) => void, resolveStorageKey?: (draftId: number) => string, onServerReferencesReset?: (savedDraft: DraftPost, payload: PostDraftData) => PostDraftData | void, prepareRecoveredSnapshot?: (snapshot: DraftRecoverySnapshot) => DraftRecoverySnapshot, canPersist?: () => boolean, getDetachedDraftFileIdsToPreserve?: (payload: PostDraftData) => number[], onLocalSnapshotRemoved?: () => void) {
     const appliedDrafts: DraftRecoverySnapshot[] = []
     let composable: ReturnType<typeof usePostDraft> | null = null
 
@@ -96,6 +96,7 @@ function mountComposable(payloadRef: Ref<PostDraftData> = ref({
                 prepareRecoveredSnapshot,
                 canPersist,
                 getDetachedDraftFileIdsToPreserve,
+                onLocalSnapshotRemoved,
             })
             return () => h('div')
         },
@@ -1758,18 +1759,26 @@ describe('usePostDraft', () => {
     })
 
     it('does not create an unsynced local snapshot for a completely empty draft', async () => {
+        const onLocalSnapshotRemoved = vi.fn()
+        Storage.set('noviis:test:draft', {
+            boardUrl: 'free',
+            title: 'Previous local draft',
+            contents: '',
+            fileIds: [],
+        })
         const { composable } = mountComposable(ref({
             boardUrl: 'free',
             title: '',
             contents: '',
             categoryId: null,
             fileIds: [],
-        }))
+        }), undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, onLocalSnapshotRemoved)
 
         await composable.saveNow()
 
         expect(mocks.saveDraftMutateAsync).not.toHaveBeenCalled()
         expect(Storage.get('noviis:test:draft')).toBeNull()
+        expect(onLocalSnapshotRemoved).toHaveBeenCalledOnce()
         expect(composable.lastSaveScope.value).toBeNull()
     })
 
