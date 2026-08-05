@@ -366,6 +366,7 @@ const {
   handleDiscardProtectedDraft,
   cleanupPublishedDraft,
   clearScheduledDraftRecovery,
+  flushLatestLocalSnapshot,
 } = usePostComposerDraft({
   isAuthenticated: computed(() => Boolean(authStore.isAuthenticated) && !scheduledPostId.value),
   userId: computed(() => authStore.user?.userId),
@@ -528,6 +529,7 @@ defineExpose({
   hasUnsavedChanges: () => hasUnsavedChanges.value,
   isSubmissionInProgress: () => isSubmissionLocked.value,
   getLeaveConfirmMessage: () => leaveConfirmMessage.value,
+  flushPendingDraft: flushLatestLocalSnapshot,
 })
 </script>
 

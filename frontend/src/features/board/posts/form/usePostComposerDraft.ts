@@ -448,5 +448,6 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     handleDiscardProtectedDraft,
     cleanupPublishedDraft: clearPublishedDraftRecovery,
     clearScheduledDraftRecovery,
+    flushLatestLocalSnapshot,
   }
 }

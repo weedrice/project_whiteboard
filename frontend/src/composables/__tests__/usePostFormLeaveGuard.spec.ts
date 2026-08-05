@@ -3,17 +3,25 @@ import { ref } from 'vue'
 import { usePostFormLeaveGuard } from '@/features/board/posts/form/usePostFormLeaveGuard'
 
 const routeGuard = vi.hoisted(() => ({
-    callback: undefined as undefined | (() => boolean | Promise<boolean>),
+    leaveCallback: undefined as undefined | (() => boolean | Promise<boolean>),
+    updateCallback: undefined as undefined | (() => boolean | Promise<boolean>),
 }))
 
 vi.mock('vue-router', () => ({
     onBeforeRouteLeave: vi.fn((callback) => {
-        routeGuard.callback = callback
+        routeGuard.leaveCallback = callback
+    }),
+    onBeforeRouteUpdate: vi.fn((callback) => {
+        routeGuard.updateCallback = callback
     }),
 }))
 
-const runGuard = async () => {
-    return routeGuard.callback?.()
+const runLeaveGuard = async () => {
+    return routeGuard.leaveCallback?.()
+}
+
+const runUpdateGuard = async () => {
+    return routeGuard.updateCallback?.()
 }
 
 describe('usePostFormLeaveGuard', () => {
@@ -25,7 +33,7 @@ describe('usePostFormLeaveGuard', () => {
 
         usePostFormLeaveGuard(postFormRef, 'fallback', confirmLeave)
 
-        const result = await runGuard()
+        const result = await runLeaveGuard()
 
         expect(confirmLeave).not.toHaveBeenCalled()
         expect(result).toBe(true)
@@ -40,7 +48,7 @@ describe('usePostFormLeaveGuard', () => {
 
         usePostFormLeaveGuard(postFormRef, 'fallback', confirmLeave)
 
-        const result = await runGuard()
+        const result = await runLeaveGuard()
 
         expect(confirmLeave).not.toHaveBeenCalled()
         expect(result).toBe(false)
@@ -56,7 +64,7 @@ describe('usePostFormLeaveGuard', () => {
 
         usePostFormLeaveGuard(postFormRef, 'fallback', confirmLeave)
 
-        const result = await runGuard()
+        const result = await runLeaveGuard()
 
         expect(confirmLeave).not.toHaveBeenCalled()
         expect(result).toBe(true)
@@ -71,7 +79,7 @@ describe('usePostFormLeaveGuard', () => {
 
         usePostFormLeaveGuard(postFormRef, 'fallback', confirmLeave)
 
-        const result = await runGuard()
+        const result = await runLeaveGuard()
 
         expect(confirmLeave).toHaveBeenCalledWith('custom message')
         expect(result).toBe(false)
@@ -85,9 +93,26 @@ describe('usePostFormLeaveGuard', () => {
 
         usePostFormLeaveGuard(postFormRef, 'fallback', confirmLeave)
 
-        const result = await runGuard()
+        const result = await runLeaveGuard()
 
         expect(confirmLeave).toHaveBeenCalledWith('fallback')
+        expect(result).toBe(true)
+    })
+
+    it('guards same-route updates and flushes the current draft before allowing them', async () => {
+        const flushPendingDraft = vi.fn().mockReturnValue(true)
+        const postFormRef = ref({
+            hasUnsavedChanges: () => true,
+            flushPendingDraft,
+        })
+        const confirmLeave = vi.fn().mockResolvedValue(true)
+
+        usePostFormLeaveGuard(postFormRef, 'fallback', confirmLeave)
+
+        const result = await runUpdateGuard()
+
+        expect(confirmLeave).toHaveBeenCalledWith('fallback')
+        expect(flushPendingDraft).toHaveBeenCalledOnce()
         expect(result).toBe(true)
     })
 })
