@@ -346,16 +346,20 @@ export function usePostDraft(options: UsePostDraftOptions) {
                     throw error
                 }
                 if (generation !== sessionGeneration || !options.enabled.value) return null
-                if (revision !== localRevision) {
-                    const latestPayload = options.buildPayload()
+                const latestPayload = options.buildPayload()
+                if (revision !== localRevision || !hasSameDraftContent(payload, latestPayload)) {
                     resetDraftTracking()
-                    const storedLocally = storeLocalSnapshot(createDraftRecoverySnapshot(
-                        latestPayload,
-                        null,
-                        null,
-                    ))
-                    if (hasBrowserDraftContent(latestPayload) && !storedLocally) {
-                        throw new Error('DRAFT_LOCAL_STORAGE_FAILED')
+                    const shouldStoreLatestPayload = hasBrowserDraftContent(latestPayload)
+                    if (shouldStoreLatestPayload) {
+                        const storedLocally = storeLocalSnapshot(createDraftRecoverySnapshot(
+                            latestPayload,
+                            null,
+                            null,
+                        ))
+                        if (!storedLocally) throw new Error('DRAFT_LOCAL_STORAGE_FAILED')
+                    } else if (Storage.has(activeStorageKey.value)
+                        && !Storage.remove(activeStorageKey.value)) {
+                        void reportDraftOperationalEvent('local_storage_remove_failed')
                     }
                     if (deletedStorageKey !== activeStorageKey.value && !Storage.remove(deletedStorageKey)) {
                         void reportDraftOperationalEvent('local_storage_remove_failed')
@@ -368,10 +372,10 @@ export function usePostDraft(options: UsePostDraftOptions) {
                         saveQueued = true
                         return null
                     }
-                    lastSavedAt.value = hasBrowserDraftContent(latestPayload)
+                    lastSavedAt.value = shouldStoreLatestPayload
                         ? new Date().toISOString()
                         : null
-                    lastSaveScope.value = hasBrowserDraftContent(latestPayload) ? 'browser' : null
+                    lastSaveScope.value = shouldStoreLatestPayload ? 'browser' : null
                     lastSaveFailed.value = false
                     clearSaveRetry()
                     persistedRevision = localRevision
@@ -386,14 +390,19 @@ export function usePostDraft(options: UsePostDraftOptions) {
             }
             if (generation !== sessionGeneration) return null
             resetDraftTracking()
-            const storedLocally = storeLocalSnapshot(createDraftRecoverySnapshot(options.buildPayload(), null, null))
-            if (hasBrowserDraftContent(payload)) {
+            const latestPayload = options.buildPayload()
+            if (hasBrowserDraftContent(latestPayload)) {
+                const storedLocally = storeLocalSnapshot(createDraftRecoverySnapshot(latestPayload, null, null))
                 if (!storedLocally) {
                     throw new Error('DRAFT_LOCAL_STORAGE_FAILED')
                 }
                 lastSavedAt.value = new Date().toISOString()
                 lastSaveScope.value = 'browser'
             } else {
+                if (Storage.has(activeStorageKey.value) && !Storage.remove(activeStorageKey.value)) {
+                    void reportDraftOperationalEvent('local_storage_remove_failed')
+                }
+                lastSavedAt.value = null
                 lastSaveScope.value = null
             }
             lastSaveFailed.value = false

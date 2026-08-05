@@ -1392,13 +1392,7 @@ describe('usePostDraft', () => {
 
         expect(mocks.deleteDraftMutateAsync).toHaveBeenCalledWith({ draftId: 91, version: 0 })
         expect(composable.draftId.value).toBeNull()
-        expect(Storage.get('noviis:test:draft')).toEqual(expect.objectContaining({
-            boardUrl: 'free',
-            title: '',
-            contents: '',
-            fileIds: [],
-        }))
-        expect(Storage.get('noviis:test:draft')).not.toHaveProperty('draftId')
+        expect(Storage.get('noviis:test:draft')).toBeNull()
         expect(Storage.get('noviis:draft-deleted:7:91')).toEqual({
             deletedAt: '2026-07-07T12:00:00.000Z',
         })
@@ -1615,6 +1609,22 @@ describe('usePostDraft', () => {
         expect(mocks.deleteDraftMutateAsync).not.toHaveBeenCalled()
         expect(composable.lastSaveScope.value).toBe('browser')
         expect(Storage.get('noviis:test:draft')).toEqual(expect.objectContaining({ categoryId: 5 }))
+    })
+
+    it('does not create an unsynced local snapshot for a completely empty draft', async () => {
+        const { composable } = mountComposable(ref({
+            boardUrl: 'free',
+            title: '',
+            contents: '',
+            categoryId: null,
+            fileIds: [],
+        }))
+
+        await composable.saveNow()
+
+        expect(mocks.saveDraftMutateAsync).not.toHaveBeenCalled()
+        expect(Storage.get('noviis:test:draft')).toBeNull()
+        expect(composable.lastSaveScope.value).toBeNull()
     })
 
     it('persists poll and series settings in a server draft', async () => {
