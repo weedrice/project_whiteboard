@@ -11,10 +11,12 @@ import {
 import { Storage } from '@/utils/storage'
 
 const discardUploadsMock = vi.hoisted(() => vi.fn())
+const discardUploadsOnPageExitMock = vi.hoisted(() => vi.fn())
 
 vi.mock('@/api/file', () => ({
   fileApi: {
     discardUploads: discardUploadsMock,
+    discardUploadsOnPageExit: discardUploadsOnPageExitMock,
   },
 }))
 
@@ -45,6 +47,7 @@ describe('usePostComposerUploadOwnership', () => {
     vi.clearAllMocks()
     Storage.clear()
     discardUploadsMock.mockResolvedValue({ data: { data: { discardedCount: 1 } } })
+    discardUploadsOnPageExitMock.mockReturnValue(true)
   })
 
   afterEach(() => {
@@ -322,6 +325,18 @@ describe('usePostComposerUploadOwnership', () => {
     expect(discardUploadsMock).toHaveBeenCalledTimes(2)
     expect(Storage.has(`${POST_COMPOSER_UPLOAD_DISCARD_QUEUE_PREFIX}1`)).toBe(false)
     current.scope.stop()
+  })
+
+  it('falls back to a keepalive cleanup request when the terminal queue cannot be persisted', () => {
+    const storageSet = vi.spyOn(Storage, 'set').mockReturnValue(false)
+    const current = createOwnership()
+    current.ownership.recordUploadedFile(81)
+
+    current.scope.stop()
+
+    expect(discardUploadsOnPageExitMock).toHaveBeenCalledWith([81])
+    expect(discardUploadsMock).toHaveBeenCalledWith([81], { skipGlobalErrorHandler: true })
+    storageSet.mockRestore()
   })
 
   it('waits for connectivity before retrying a non-terminal discard', async () => {

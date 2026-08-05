@@ -2,6 +2,8 @@ import api from './index'
 import type { ApiResponse } from '@/types'
 import type { AxiosRequestConfig } from 'axios'
 import type { FileUploadTarget } from '@/api/fileUploadTargets'
+import { API } from '@/utils/constants'
+import { getStoredAccessToken } from '@/utils/authTokenStorage'
 
 export interface FileUploadResponse {
     fileId: number
@@ -16,6 +18,26 @@ export interface FileDiscardResponse {
 
 export function resolveFileUploadUrl(uploadedFile: FileUploadResponse): string | null {
     return uploadedFile.url ?? uploadedFile.fileUrl ?? null
+}
+
+export function discardUploadsOnPageExit(fileIds: number[]): boolean {
+    if (fileIds.length === 0 || typeof fetch === 'undefined') return false
+    const accessToken = getStoredAccessToken()
+    try {
+        void fetch(`${API.BASE_URL.replace(/\/+$/, '')}/files/uploads/discard`, {
+            method: 'POST',
+            credentials: 'include',
+            keepalive: true,
+            headers: {
+                'Content-Type': 'application/json',
+                ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+            },
+            body: JSON.stringify({ fileIds }),
+        }).catch(() => undefined)
+        return true
+    } catch {
+        return false
+    }
 }
 
 export const fileApi = {
@@ -35,5 +57,6 @@ export const fileApi = {
     },
     discardUploads: (fileIds: number[], config?: AxiosRequestConfig) => (
         api.post<ApiResponse<FileDiscardResponse>>('/files/uploads/discard', { fileIds }, config)
-    )
+    ),
+    discardUploadsOnPageExit,
 }

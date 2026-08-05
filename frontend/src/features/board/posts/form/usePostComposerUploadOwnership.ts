@@ -64,6 +64,7 @@ export function usePostComposerUploadOwnership(options: UsePostComposerUploadOwn
   }
   const persistCleanupIds = (fileIds: number[]) => {
     const groupedIds = new Map<string, number[]>()
+    const failedFileIds: number[] = []
     fileIds.forEach((fileId) => {
       const ownerId = uploadOwnerIds.get(fileId) ?? currentOwnerId()
       if (!ownerId) return
@@ -72,10 +73,12 @@ export function usePostComposerUploadOwnership(options: UsePostComposerUploadOwn
     groupedIds.forEach((ids, ownerId) => {
       ids.forEach((fileId) => {
         if (!Storage.set(cleanupItemStorageKey(ownerId, fileId), { queuedAt: Date.now() })) {
+          failedFileIds.push(fileId)
           logger.warn('Failed to persist post editor upload cleanup:', { ownerId, fileId })
         }
       })
     })
+    return failedFileIds
   }
   const removeOwnerCleanupIds = (ownerId: string, fileIds: Iterable<number>) => {
     const removedIds = new Set(fileIds)
@@ -264,7 +267,12 @@ export function usePostComposerUploadOwnership(options: UsePostComposerUploadOwn
     const requestedIds = new Set(fileIds)
     const discardedIds = ownedUploadedFileIds.value.filter((fileId) => requestedIds.has(fileId))
     if (discardedIds.length === 0) return
-    if (force) persistCleanupIds(discardedIds)
+    if (force) {
+      const failedToPersistIds = persistCleanupIds(discardedIds)
+      if (failedToPersistIds.length > 0) {
+        fileApi.discardUploadsOnPageExit(failedToPersistIds)
+      }
+    }
     if (!isOnline()) {
       discardedIds.forEach((fileId) => scheduleDiscardRetry(fileId, force))
       return

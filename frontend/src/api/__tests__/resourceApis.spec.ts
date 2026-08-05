@@ -23,6 +23,7 @@ import { reportApi } from '../report'
 import { apiEmptySuccess, apiSuccess, axiosApiResponse, axiosApiSuccess } from '@/test/factories'
 import type { BoardCreateData, BoardUpdateData, SearchParams } from '@/types'
 import type { EmoticonCreateRequest, EmoticonUpdateRequest } from '@/types/emoticon'
+import { clearStoredAuthTokens, persistAccessToken } from '@/utils/authTokenStorage'
 
 beforeEach(() => {
     const emptyResponse = axiosApiResponse(apiEmptySuccess())
@@ -408,6 +409,27 @@ describe('fileApi', () => {
         expect(apiMock.post).toHaveBeenCalledWith('/files/uploads/discard', {
             fileIds: [1, 2],
         }, config)
+    })
+
+    it('sends a credentialed keepalive cleanup request for page exit fallback', async () => {
+        const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue({} as Response)
+        persistAccessToken('page-exit-token')
+
+        expect(fileApi.discardUploadsOnPageExit([3, 4])).toBe(true)
+        expect(fetchMock).toHaveBeenCalledWith('/api/v1/files/uploads/discard', {
+            method: 'POST',
+            credentials: 'include',
+            keepalive: true,
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: 'Bearer page-exit-token',
+            },
+            body: JSON.stringify({ fileIds: [3, 4] }),
+        })
+
+        await Promise.resolve()
+        clearStoredAuthTokens(false)
+        fetchMock.mockRestore()
     })
 })
 
