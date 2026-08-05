@@ -115,18 +115,19 @@ describe('draft cross-tab reconciler', () => {
     expect(stale.applyDraft).not.toHaveBeenCalled()
   })
 
-  it('applies a newer local edit when the current tab has no unsaved changes', () => {
+  it('does not apply another tab local edit even when the current tab is clean', () => {
     const harness = createHarness()
-    const snapshot = incoming({ hasLocalChanges: true })
 
-    expect(harness.reconciler.reconcile(snapshot)).toBe('local-applied')
-    expect(harness.applyDraft).toHaveBeenCalledWith(snapshot)
-    expect(harness.getLocalRevision()).toBe(1)
-    expect(harness.restoreSource.value).toBe('local')
+    expect(harness.reconciler.reconcile(incoming({ hasLocalChanges: true }))).toBe('conflict')
+    expect(harness.draftConflict.value).toBe(true)
+    expect(harness.clearAutosaveTimer).toHaveBeenCalledTimes(1)
+    expect(harness.applyDraft).not.toHaveBeenCalled()
+    expect(harness.getLocalRevision()).toBe(0)
+    expect(harness.restoreSource.value).toBe('idle')
     expect(harness.getLastRemoteLocalChangeAt()).toBe(Date.parse('2026-08-05T12:00:03.000Z'))
   })
 
-  it('acknowledges a canonical save that matches the current unsaved content', () => {
+  it('acknowledges a canonical save that exactly matches the current content', () => {
     const current = payload({ title: 'Same title', contents: '<p>Same body</p>' })
     const harness = createHarness({ currentPayload: current, localRevision: 2, persistedRevision: 1 })
     const snapshot = incoming({
@@ -137,23 +138,24 @@ describe('draft cross-tab reconciler', () => {
 
     expect(harness.reconciler.reconcile(snapshot)).toBe('server-acknowledged')
     expect(harness.getPersistedRevision()).toBe(2)
+    expect(harness.draftVersion.value).toBe(2)
     expect(harness.lastSaveScope.value).toBe('server')
     expect(harness.lastSavedAt.value).toBe(snapshot.updatedAt)
     expect(harness.onSaved).toHaveBeenCalledTimes(1)
+    expect(harness.applyDraft).not.toHaveBeenCalled()
   })
 
-  it('applies a newer canonical server snapshot when the current tab is clean', () => {
+  it('does not apply a different canonical server snapshot when the current tab is clean', () => {
     const harness = createHarness()
-    const snapshot = incoming({ hasLocalChanges: false })
 
-    expect(harness.reconciler.reconcile(snapshot)).toBe('server-applied')
-    expect(harness.draftVersion.value).toBe(2)
-    expect(harness.lastSaveScope.value).toBe('server')
-    expect(harness.applyDraft).toHaveBeenCalledWith(snapshot)
-    expect(harness.onSaved).toHaveBeenCalledTimes(1)
+    expect(harness.reconciler.reconcile(incoming({ hasLocalChanges: false }))).toBe('conflict')
+    expect(harness.draftConflict.value).toBe(true)
+    expect(harness.clearAutosaveTimer).toHaveBeenCalledTimes(1)
+    expect(harness.applyDraft).not.toHaveBeenCalled()
+    expect(harness.lastSaveScope.value).toBeNull()
   })
 
-  it('preserves a local edit by entering conflict when another tab advances', () => {
+  it('preserves an unsaved local edit by entering conflict when another tab advances', () => {
     const harness = createHarness({ localRevision: 2, persistedRevision: 1 })
 
     expect(harness.reconciler.reconcile(incoming({ hasLocalChanges: false, version: 2 }))).toBe('conflict')
@@ -172,5 +174,6 @@ describe('draft cross-tab reconciler', () => {
       clientModifiedAt: '2026-08-05T12:00:03.000Z',
     }))).toBe('ignored')
     expect(harness.applyDraft).not.toHaveBeenCalled()
+    expect(harness.draftConflict.value).toBe(false)
   })
 })

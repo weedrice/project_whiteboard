@@ -521,7 +521,7 @@ describe('usePostDraft', () => {
         }))
     })
 
-    it('treats the reloaded server copy as clean for later tab synchronization', async () => {
+    it('keeps the reloaded server copy visible when a later tab changes it', async () => {
         const { composable, payloadRef, appliedDrafts } = mountComposable()
         await composable.saveNow()
         payloadRef.value = { ...payloadRef.value, title: 'Unsaved local title' }
@@ -558,6 +558,7 @@ describe('usePostDraft', () => {
         })
         await expect(composable.reloadServerDraft()).resolves.toBe(true)
         payloadRef.value = { ...payloadRef.value, title: 'Server title' }
+        const appliedCountAfterReload = appliedDrafts.length
 
         window.dispatchEvent(new StorageEvent('storage', {
             key: 'noviis:test:draft',
@@ -575,8 +576,9 @@ describe('usePostDraft', () => {
             }),
         }))
 
-        expect(composable.draftConflict.value).toBe(false)
-        expect(appliedDrafts.at(-1)).toEqual(expect.objectContaining({ title: 'Later server title' }))
+        expect(composable.draftConflict.value).toBe(true)
+        expect(appliedDrafts).toHaveLength(appliedCountAfterReload)
+        expect(appliedDrafts.at(-1)).toEqual(expect.objectContaining({ title: 'Server title' }))
     })
 
     it('restores the newest server draft even when local storage has no draft id', async () => {
@@ -2159,7 +2161,7 @@ describe('usePostDraft', () => {
         expect(composable.restoreFailed.value).toBe(false)
     })
 
-    it('adopts a canonical server save from another tab when this tab has no unsaved edits', async () => {
+    it('reports a conflict instead of adopting different canonical content from another tab', async () => {
         const { composable, appliedDrafts } = mountComposable()
 
         window.dispatchEvent(new StorageEvent('storage', {
@@ -2178,17 +2180,13 @@ describe('usePostDraft', () => {
             }),
         }))
 
-        expect(appliedDrafts[0]).toEqual(expect.objectContaining({
-            draftId: 91,
-            title: 'Other tab edit',
-        }))
-        expect(composable.draftId.value).toBe(91)
-        expect(composable.draftVersion.value).toBe(3)
-        expect(composable.updatedAt.value).toBe('2026-07-07T13:00:00.000Z')
-        expect(composable.draftConflict.value).toBe(false)
+        expect(appliedDrafts).toHaveLength(0)
+        expect(composable.draftId.value).toBeNull()
+        expect(composable.draftVersion.value).toBeNull()
+        expect(composable.draftConflict.value).toBe(true)
     })
 
-    it('adopts the first server id through the update channel after the storage key changes', async () => {
+    it('acknowledges the first matching server id without applying the remote body', async () => {
         const channels: FakeBroadcastChannel[] = []
         class FakeBroadcastChannel {
             listeners: Array<(event: MessageEvent) => void> = []
@@ -2238,7 +2236,7 @@ describe('usePostDraft', () => {
 
         expect(composable.draftId.value).toBe(91)
         expect(composable.draftVersion.value).toBe(1)
-        expect(appliedDrafts.at(-1)).toEqual(expect.objectContaining({ draftId: 91 }))
+        expect(appliedDrafts).toHaveLength(0)
         expect(composable.draftConflict.value).toBe(false)
     })
 
@@ -2265,7 +2263,7 @@ describe('usePostDraft', () => {
         expect(composable.draftConflict.value).toBe(false)
     })
 
-    it('adopts compatible unsaved edits from another tab before this tab diverges', async () => {
+    it('reports compatible unsaved edits from another tab without adopting them', async () => {
         const { composable, appliedDrafts } = mountComposable()
         await composable.saveNow()
 
@@ -2279,35 +2277,17 @@ describe('usePostDraft', () => {
                 title: 'Unsaved edit from another tab',
                 contents: 'Draft body',
                 updatedAt: '2025-01-01T00:00:00.000Z',
+                clientModifiedAt: '2025-01-01T00:00:01.000Z',
                 clientInstanceId: 'other-tab',
                 hasLocalChanges: true,
             }),
         }))
 
-        expect(appliedDrafts.at(-1)).toEqual(expect.objectContaining({
-            title: 'Unsaved edit from another tab',
-        }))
-        expect(composable.draftConflict.value).toBe(false)
-
-        window.dispatchEvent(new StorageEvent('storage', {
-            key: 'noviis:test:draft',
-            newValue: JSON.stringify({
-                draftId: 91,
-                clientDraftKey: 'client-draft-key-1234',
-                version: 1,
-                boardUrl: 'free',
-                title: 'Server advanced elsewhere',
-                contents: 'Draft body',
-                updatedAt: '2025-01-02T00:00:00.000Z',
-                clientInstanceId: 'third-tab',
-                hasLocalChanges: false,
-            }),
-        }))
-
+        expect(appliedDrafts).toHaveLength(0)
         expect(composable.draftConflict.value).toBe(true)
     })
 
-    it('reconciles an adopted tab edit when the same content finishes saving on the server', async () => {
+    it('clears the notification when the current content is confirmed by the server', async () => {
         const { composable, appliedDrafts, payloadRef } = mountComposable()
 
         window.dispatchEvent(new StorageEvent('storage', {
@@ -2317,11 +2297,14 @@ describe('usePostDraft', () => {
                 boardUrl: 'free',
                 title: 'Unsaved edit from another tab',
                 contents: 'Draft body',
-                updatedAt: '2025-01-01T00:00:00.000Z',
+                clientModifiedAt: '2025-01-01T00:00:00.000Z',
                 clientInstanceId: 'other-tab',
                 hasLocalChanges: true,
             }),
         }))
+        expect(composable.draftConflict.value).toBe(true)
+        expect(appliedDrafts).toHaveLength(0)
+
         payloadRef.value = {
             ...payloadRef.value,
             title: 'Unsaved edit from another tab',
@@ -2343,11 +2326,7 @@ describe('usePostDraft', () => {
             }),
         }))
 
-        expect(appliedDrafts.at(-1)).toEqual(expect.objectContaining({
-            draftId: 91,
-            title: 'Unsaved edit from another tab',
-            version: 1,
-        }))
+        expect(appliedDrafts).toHaveLength(0)
         expect(composable.draftId.value).toBe(91)
         expect(composable.draftVersion.value).toBe(1)
         expect(composable.updatedAt.value).toBe('2025-01-02T00:00:00.000Z')
@@ -2400,7 +2379,7 @@ describe('usePostDraft', () => {
         expect(composable.draftConflict.value).toBe(false)
     })
 
-    it('ignores an older canonical update that arrives after a newer server version', async () => {
+    it('does not apply newer or delayed older canonical content from another tab', async () => {
         const { composable, appliedDrafts } = mountComposable()
         await composable.saveNow()
 
@@ -2433,14 +2412,12 @@ describe('usePostDraft', () => {
             }),
         }))
 
-        expect(composable.draftVersion.value).toBe(2)
-        expect(composable.updatedAt.value).toBe('2025-01-03T00:00:00.000Z')
-        expect(appliedDrafts).toHaveLength(1)
-        expect(appliedDrafts[0]).toEqual(expect.objectContaining({ title: 'Newest server edit' }))
-        expect(composable.draftConflict.value).toBe(false)
+        expect(composable.draftVersion.value).toBe(0)
+        expect(appliedDrafts).toHaveLength(0)
+        expect(composable.draftConflict.value).toBe(true)
     })
 
-    it('ignores an older unsaved tab snapshot after adopting a newer one', async () => {
+    it('ignores an older unsaved tab snapshot after notifying about a newer one', async () => {
         const { composable, appliedDrafts } = mountComposable()
 
         window.dispatchEvent(new StorageEvent('storage', {
@@ -2468,9 +2445,8 @@ describe('usePostDraft', () => {
             }),
         }))
 
-        expect(appliedDrafts).toHaveLength(1)
-        expect(appliedDrafts[0]).toEqual(expect.objectContaining({ title: 'Newest local edit' }))
-        expect(composable.draftConflict.value).toBe(false)
+        expect(appliedDrafts).toHaveLength(0)
+        expect(composable.draftConflict.value).toBe(true)
     })
 
     it('does not treat local snapshot eviction as server draft deletion', async () => {
