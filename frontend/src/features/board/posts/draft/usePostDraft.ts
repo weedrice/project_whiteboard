@@ -78,6 +78,13 @@ const SAVE_RETRY_BASE_DELAY_MS = 1000
 const SAVE_RETRY_MAX_DELAY_MS = 30_000
 const SAVE_RETRY_MAX_ATTEMPTS = 5
 
+class DraftReferenceRecoveryLimitError extends Error {
+    constructor() {
+        super('Draft reference recovery retry limit exceeded')
+        this.name = 'DraftReferenceRecoveryLimitError'
+    }
+}
+
 export const isTransientDraftSaveError = (error: unknown) => {
     if (!isAxiosError(error)) return false
     const status = error.response?.status
@@ -473,7 +480,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
                 updatedAt.value,
             ))
             if (referenceRecoverySaveCount >= 2) {
-                throw new Error('Draft reference recovery retry limit exceeded')
+                throw new DraftReferenceRecoveryLimitError()
             }
             referenceRecoverySaveCount++
             savedDraft = unwrapAxiosApiData(await savePayload(recoveredPayload))
@@ -534,7 +541,14 @@ export function usePostDraft(options: UsePostDraftOptions) {
                 lastSaveFailed.value = !draftConflict.value && !draftProtected.value && !draftDeleted.value
                 if (draftConflict.value) clearAutosaveTimer()
                 if (draftProtected.value) clearAutosaveTimer()
-                if (lastSaveFailed.value && isTransientDraftSaveError(error)) {
+                const referenceRecoveryLimitReached = error instanceof DraftReferenceRecoveryLimitError
+                if (referenceRecoveryLimitReached && saveRetryAttempt.value === 0) {
+                    void reportDraftOperationalEvent('reference_recovery_retry_scheduled', {
+                        maxImmediateRetries: 2,
+                    })
+                }
+                if (lastSaveFailed.value
+                    && (isTransientDraftSaveError(error) || referenceRecoveryLimitReached)) {
                     scheduleTransientSaveRetry(error)
                 } else {
                     clearSaveRetry()

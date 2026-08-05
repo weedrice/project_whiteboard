@@ -38,6 +38,7 @@ export type DraftOperationalEvent =
     | 'local_storage_write_failed'
     | 'local_storage_rollback_failed'
     | 'autosave_retry_exhausted'
+    | 'reference_recovery_retry_scheduled'
     | 'draft_conflict'
     | 'draft_protected'
     | 'multiple_recovery_candidates'

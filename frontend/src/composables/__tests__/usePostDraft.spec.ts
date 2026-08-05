@@ -78,7 +78,7 @@ function mountComposable(payloadRef: Ref<PostDraftData> = ref({
     contents: 'Draft body',
     fileIds: [7],
     originalPostId: undefined as number | undefined,
-}), storageKeyRef = ref('noviis:test:draft'), enabledRef = ref(true), ownerIdRef = ref<number | null>(null), onServerSaved?: (payload: PostDraftData, savedDraft: DraftPost) => void, resolveStorageKey?: (draftId: number) => string, onServerReferencesReset?: (savedDraft: DraftPost) => void, prepareRecoveredSnapshot?: (snapshot: DraftRecoverySnapshot) => DraftRecoverySnapshot, canPersist?: () => boolean, getDetachedDraftFileIdsToPreserve?: (payload: PostDraftData) => number[]) {
+}), storageKeyRef = ref('noviis:test:draft'), enabledRef = ref(true), ownerIdRef = ref<number | null>(null), onServerSaved?: (payload: PostDraftData, savedDraft: DraftPost) => void, resolveStorageKey?: (draftId: number) => string, onServerReferencesReset?: (savedDraft: DraftPost, payload: PostDraftData) => PostDraftData | void, prepareRecoveredSnapshot?: (snapshot: DraftRecoverySnapshot) => DraftRecoverySnapshot, canPersist?: () => boolean, getDetachedDraftFileIdsToPreserve?: (payload: PostDraftData) => number[]) {
     const appliedDrafts: DraftRecoverySnapshot[] = []
     let composable: ReturnType<typeof usePostDraft> | null = null
 
@@ -271,6 +271,73 @@ describe('usePostDraft', () => {
         }), expect.objectContaining({ fileIds: [7] }))
         expect(Storage.get('noviis:test:draft')).toEqual(expect.objectContaining({ fileIds: [] }))
         expect(Storage.get('noviis:test:draft')).not.toHaveProperty('seriesId')
+    })
+
+    it('schedules a bounded retry when immediate reference recovery is exhausted', async () => {
+        const draftResponse = (version: number, staleReferencesReset: boolean) => ({
+            data: {
+                data: {
+                    draftId: 91,
+                    clientDraftKey: 'client-draft-key-1234',
+                    version,
+                    boardId: 1,
+                    boardUrl: 'free',
+                    boardName: 'Free',
+                    title: 'Draft title',
+                    contents: 'Draft body',
+                    categoryId: staleReferencesReset ? null : 12,
+                    tags: [],
+                    fileIds: [7],
+                    seriesId: null,
+                    isNotice: false,
+                    isNsfw: false,
+                    isSpoiler: false,
+                    isSecret: false,
+                    staleReferencesReset,
+                    updatedAt: `2025-01-01T00:00:0${version}.000Z`,
+                },
+            },
+        })
+        mocks.saveDraftMutateAsync
+            .mockResolvedValueOnce(draftResponse(1, true))
+            .mockResolvedValueOnce(draftResponse(2, true))
+            .mockResolvedValueOnce(draftResponse(3, true))
+            .mockResolvedValueOnce(draftResponse(4, false))
+        const payloadRef = ref<PostDraftData>({
+            boardUrl: 'free',
+            title: 'Draft title',
+            contents: 'Draft body',
+            categoryId: 99,
+            fileIds: [7],
+        })
+        const recoverReferences = vi.fn((_savedDraft: DraftPost, payload: PostDraftData) => ({
+            ...payload,
+            categoryId: 12,
+        }))
+        const { composable } = mountComposable(
+            payloadRef,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            recoverReferences,
+        )
+
+        await expect(composable.saveNow()).rejects.toMatchObject({
+            name: 'DraftReferenceRecoveryLimitError',
+        })
+        expect(composable.saveRetryScheduled.value).toBe(true)
+        expect(mocks.reportDraftOperationalEvent).toHaveBeenCalledWith(
+            'reference_recovery_retry_scheduled',
+            { maxImmediateRetries: 2 },
+        )
+
+        await vi.advanceTimersByTimeAsync(30_000)
+
+        expect(mocks.saveDraftMutateAsync).toHaveBeenCalledTimes(4)
+        expect(composable.lastSaveFailed.value).toBe(false)
+        expect(composable.saveRetryScheduled.value).toBe(false)
     })
 
     it('aborts an in-flight draft request when the draft session resets', async () => {
