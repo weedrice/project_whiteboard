@@ -7,6 +7,7 @@ import type { DraftPost } from '@/types'
 import logger from '@/utils/logger'
 import { reportDraftOperationalEvent } from '@/utils/clientErrorReporter'
 import {
+    createDraftContentFingerprint,
     getDraftUpdatedAt,
     hasSameDraftContent,
     isDraftMissingError,
@@ -249,14 +250,11 @@ export function usePostDraft(options: UsePostDraftOptions) {
         lastSavedAt,
         lastSaveScope,
         draftConflict,
-        restoreSource,
         buildPayload: options.buildPayload,
-        applyDraft: options.applyDraft,
         onSaved: options.onSaved,
         clearAutosaveTimer,
         getLocalRevision: () => localRevision,
         getPersistedRevision: () => persistedRevision,
-        incrementLocalRevision: () => { localRevision++ },
         markCurrentRevisionPersisted: () => { persistedRevision = localRevision },
         getLastRemoteLocalChangeAt: () => lastRemoteLocalChangeAt,
         setLastRemoteLocalChangeAt: (value) => { lastRemoteLocalChangeAt = value },
@@ -453,7 +451,13 @@ export function usePostDraft(options: UsePostDraftOptions) {
             })
         }
         if (options.ownerId?.value != null) {
-            publishDraftUpdatedEvent(options.ownerId.value, activeStorageKey.value, canonicalSnapshot)
+            publishDraftUpdatedEvent(options.ownerId.value, {
+                draftId: savedDraft.draftId,
+                clientDraftKey: savedDraft.clientDraftKey ?? clientDraftKey.value,
+                version: savedDraft.version ?? null,
+                updatedAt: updatedAt.value ?? new Date().toISOString(),
+                contentFingerprint: createDraftContentFingerprint(canonicalPayload),
+            })
         }
         lastSaveFailed.value = false
         multipleDraftsFound.value = false
@@ -722,7 +726,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
             if (!options.enabled.value
                 || options.ownerId?.value == null
                 || updatedEvent.ownerId !== String(options.ownerId.value)) return
-            reconcileIncomingSnapshot(updatedEvent.snapshot)
+            reconcileIncomingSnapshot({ ...updatedEvent, hasLocalChanges: false })
         })
         : () => undefined
 
