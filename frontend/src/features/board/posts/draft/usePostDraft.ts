@@ -243,6 +243,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         }
         clearAutosaveTimer()
         clearSaveRetry()
+        invalidatePendingSaves()
         resetDraftTracking()
         draftDeleted.value = true
         staleReferencesReset.value = true

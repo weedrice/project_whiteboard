@@ -8,6 +8,7 @@ import type { DraftPost } from '@/types'
 import { Storage } from '@/utils/storage'
 import {
     closeDraftDeletedChannelForTest,
+    getDraftTombstoneKey,
     markDraftDeletedLocally,
 } from '@/features/board/posts/draft/postDraftTombstone'
 import {
@@ -1396,6 +1397,48 @@ describe('usePostDraft', () => {
 
         expect(composable.draftDeleted.value).toBe(true)
         expect(mocks.reportDraftOperationalEvent).toHaveBeenCalledWith('deleted_in_another_tab')
+    })
+
+    it('does not re-adopt a delayed save response after another tab deletes the draft', async () => {
+        const ownerId = ref<number | null>(7)
+        const { composable } = mountComposable(undefined, undefined, undefined, ownerId)
+        await composable.saveNow()
+        let resolveSave!: (value: unknown) => void
+        mocks.saveDraftMutateAsync.mockImplementationOnce(() => new Promise((resolve) => {
+            resolveSave = resolve
+        }))
+
+        const pendingSave = composable.saveNow()
+        const pendingSignal = mocks.saveDraftConfig?.()?.signal
+        window.dispatchEvent(new StorageEvent('storage', {
+            key: getDraftTombstoneKey(7, 91),
+            newValue: JSON.stringify({ deletedAt: new Date().toISOString() }),
+        }))
+
+        expect(pendingSignal?.aborted).toBe(true)
+        resolveSave({
+            data: {
+                data: {
+                    draftId: 91,
+                    clientDraftKey: 'client-draft-key-1234',
+                    version: 1,
+                    boardUrl: 'free',
+                    title: 'Delayed server response',
+                    contents: 'Draft body',
+                    fileIds: [7],
+                    updatedAt: '2025-01-02T00:00:00.000Z',
+                },
+            },
+        })
+        await pendingSave
+
+        expect(composable.draftDeleted.value).toBe(true)
+        expect(composable.draftId.value).toBeNull()
+        expect(Storage.get('noviis:test:draft')).toEqual(expect.objectContaining({
+            title: 'Draft title',
+            hasLocalChanges: true,
+        }))
+        expect(Storage.get('noviis:test:draft')).not.toHaveProperty('draftId')
     })
 
     it('falls back to a replacement server draft after a stale local draft id returns 404', async () => {
