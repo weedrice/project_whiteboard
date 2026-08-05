@@ -1,0 +1,116 @@
+import { computed, ref, watch, type Ref } from 'vue'
+import type { PostDraftData } from '@/api/post'
+import type { DraftRecoverySnapshot } from '@/features/board/posts/draft/postDraftRecovery'
+import {
+  loadStoredDraftSnapshot,
+  migrateStoredDraftSnapshot,
+  storeDraftSnapshotWithBudgetResult,
+} from '@/features/board/posts/draft/postDraftLifecycle'
+import { Storage } from '@/utils/storage'
+import logger from '@/utils/logger'
+import { reportDraftOperationalEvent } from '@/utils/clientErrorReporter'
+
+interface DraftLocalSnapshotControllerOptions {
+  storageKey: Ref<string>
+  resolveStorageKey?: (draftId: number) => string
+  draftId: Ref<number | null>
+  draftVersion: Ref<number | null>
+  clientDraftKey: Ref<string>
+  clientInstanceId: string
+  getDetachedDraftFileIdsToPreserve?: (payload: PostDraftData) => number[]
+  onStored?: (snapshot: DraftRecoverySnapshot) => void
+  onRemoved?: () => void
+}
+
+export function createDraftLocalSnapshotController({
+  storageKey,
+  resolveStorageKey,
+  draftId,
+  draftVersion,
+  clientDraftKey,
+  clientInstanceId,
+  getDetachedDraftFileIdsToPreserve,
+  onStored,
+  onRemoved,
+}: DraftLocalSnapshotControllerOptions) {
+  const lastSaveFailed = ref(false)
+  const lastRollbackFailed = ref(false)
+  const activeStorageKey = computed(() => draftId.value != null
+    ? resolveStorageKey?.(draftId.value) ?? storageKey.value
+    : storageKey.value)
+
+  watch(activeStorageKey, (nextKey, previousKey) => {
+    if (draftId.value == null || nextKey === previousKey) return
+    migrateStoredDraftSnapshot(
+      previousKey,
+      nextKey,
+      draftId.value,
+      clientDraftKey.value,
+    )
+  }, { flush: 'sync' })
+
+  const store = (snapshot: DraftRecoverySnapshot) => {
+    const snapshotFileIds = new Set(snapshot.fileIds ?? [])
+    const requestedUnassociatedFileIds = snapshot.unassociatedUploadFileIds
+      ?? getDetachedDraftFileIdsToPreserve?.(snapshot)
+      ?? []
+    const unassociatedUploadFileIds = [...new Set(requestedUnassociatedFileIds)]
+      .filter((fileId) => snapshotFileIds.has(fileId))
+    const storedSnapshot = {
+      ...snapshot,
+      unassociatedUploadFileIds: unassociatedUploadFileIds.length > 0
+        ? unassociatedUploadFileIds
+        : undefined,
+      clientDraftKey: snapshot.clientDraftKey ?? clientDraftKey.value,
+      version: snapshot.version ?? draftVersion.value ?? undefined,
+      clientInstanceId,
+    }
+    const result = storeDraftSnapshotWithBudgetResult(activeStorageKey.value, storedSnapshot)
+    const stored = result.stored
+    if (stored) onStored?.(storedSnapshot)
+    if (result.rollbackFailedCount > 0 && !lastRollbackFailed.value) {
+      logger.error('Draft local snapshot rollback failed.', {
+        event: 'draft_local_snapshot_rollback_failed',
+        failedCount: result.rollbackFailedCount,
+      })
+      void reportDraftOperationalEvent('local_storage_rollback_failed', {
+        failedCount: result.rollbackFailedCount,
+      })
+    }
+    if (!stored && !lastSaveFailed.value) {
+      logger.error('Draft local snapshot storage failed.', {
+        event: 'draft_local_snapshot_write_failed',
+      })
+      void reportDraftOperationalEvent('local_storage_write_failed')
+    }
+    lastRollbackFailed.value = result.rollbackFailedCount > 0
+    lastSaveFailed.value = !stored
+    return stored
+  }
+
+  const load = () => loadStoredDraftSnapshot(activeStorageKey.value)
+
+  const removeKey = (key: string, notify = false) => {
+    const removed = Storage.remove(key)
+    if (!removed) void reportDraftOperationalEvent('local_storage_remove_failed')
+    if (removed && notify) onRemoved?.()
+    return removed
+  }
+
+  const remove = () => removeKey(activeStorageKey.value, true)
+
+  const resetStatus = () => {
+    lastSaveFailed.value = false
+    lastRollbackFailed.value = false
+  }
+
+  return {
+    activeStorageKey,
+    lastSaveFailed,
+    store,
+    load,
+    remove,
+    removeKey,
+    resetStatus,
+  }
+}
