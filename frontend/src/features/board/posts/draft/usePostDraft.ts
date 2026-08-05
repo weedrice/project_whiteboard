@@ -4,7 +4,6 @@ import type { PostDraftData } from '@/api/post'
 import { unwrapAxiosApiData } from '@/api/response'
 import { usePost } from '@/features/board/posts/queries/usePost'
 import type { DraftPost } from '@/types'
-import { Storage } from '@/utils/storage'
 import logger from '@/utils/logger'
 import { reportDraftOperationalEvent } from '@/utils/clientErrorReporter'
 import {
@@ -36,10 +35,7 @@ import {
 } from '@/features/board/posts/draft/postDraftTombstone'
 import {
     cleanupExpiredDraftSnapshots,
-    loadStoredDraftSnapshot,
-    migrateStoredDraftSnapshot,
     parseDraftRecoverySnapshot,
-    storeDraftSnapshotWithBudgetResult,
 } from '@/features/board/posts/draft/postDraftLifecycle'
 import {
     matchesDraftScheduledEvent,
@@ -54,6 +50,7 @@ import {
     createDraftSaveRetryController,
     SAVE_RETRY_MAX_ATTEMPTS,
 } from '@/features/board/posts/draft/postDraftSaveRetry'
+import { createDraftLocalSnapshotController } from '@/features/board/posts/draft/postDraftLocalSnapshot'
 
 export type { DraftRecoverySnapshot } from '@/features/board/posts/draft/postDraftRecovery'
 export type DraftSaveScope = 'server' | 'browser'
@@ -113,8 +110,6 @@ export function usePostDraft(options: UsePostDraftOptions) {
     const lastSavedAt = ref<string | null>(null)
     const lastSaveScope = ref<DraftSaveScope | null>(null)
     const lastSaveFailed = ref(false)
-    const lastLocalSaveFailed = ref(false)
-    const lastLocalRollbackFailed = ref(false)
     const restoreFailed = ref(false)
     const multipleDraftsFound = ref(false)
     const isRestoringDraft = ref(false)
@@ -138,9 +133,25 @@ export function usePostDraft(options: UsePostDraftOptions) {
         : `${Date.now()}-${Math.random().toString(36).slice(2)}`
     const clientInstanceId = createClientKey()
     const clientDraftKey = ref(createClientKey())
-    const activeStorageKey = computed(() => draftId.value != null
-        ? options.resolveStorageKey?.(draftId.value) ?? options.storageKey.value
-        : options.storageKey.value)
+    const {
+        activeStorageKey,
+        lastSaveFailed: lastLocalSaveFailed,
+        store: storeLocalSnapshot,
+        load: loadLocalSnapshot,
+        remove: removeLocalSnapshot,
+        removeKey: removeLocalSnapshotByKey,
+        resetStatus: resetLocalSnapshotStatus,
+    } = createDraftLocalSnapshotController({
+        storageKey: options.storageKey,
+        resolveStorageKey: options.resolveStorageKey,
+        draftId,
+        draftVersion,
+        clientDraftKey,
+        clientInstanceId,
+        getDetachedDraftFileIdsToPreserve: options.getDetachedDraftFileIdsToPreserve,
+        onStored: options.onLocalSnapshotStored,
+        onRemoved: options.onLocalSnapshotRemoved,
+    })
 
     const {
         attempt: saveRetryAttempt,
@@ -167,16 +178,6 @@ export function usePostDraft(options: UsePostDraftOptions) {
             void reportDraftOperationalEvent('autosave_retry_exhausted', { attempts })
         },
     })
-
-    watch(activeStorageKey, (nextKey, previousKey) => {
-        if (draftId.value == null || nextKey === previousKey) return
-        migrateStoredDraftSnapshot(
-            previousKey,
-            nextKey,
-            draftId.value,
-            clientDraftKey.value,
-        )
-    }, { flush: 'sync' })
 
     const clearAutosaveTimer = () => {
         if (autosaveTimer) {
@@ -209,45 +210,6 @@ export function usePostDraft(options: UsePostDraftOptions) {
         }
     }
 
-    const storeLocalSnapshot = (snapshot: DraftRecoverySnapshot) => {
-        const snapshotFileIds = new Set(snapshot.fileIds ?? [])
-        const requestedUnassociatedFileIds = snapshot.unassociatedUploadFileIds
-            ?? options.getDetachedDraftFileIdsToPreserve?.(snapshot)
-            ?? []
-        const unassociatedUploadFileIds = [...new Set(requestedUnassociatedFileIds)]
-            .filter((fileId) => snapshotFileIds.has(fileId))
-        const storedSnapshot = {
-            ...snapshot,
-            unassociatedUploadFileIds: unassociatedUploadFileIds.length > 0
-                ? unassociatedUploadFileIds
-                : undefined,
-            clientDraftKey: snapshot.clientDraftKey ?? clientDraftKey.value,
-            version: snapshot.version ?? draftVersion.value ?? undefined,
-            clientInstanceId,
-        }
-        const result = storeDraftSnapshotWithBudgetResult(activeStorageKey.value, storedSnapshot)
-        const stored = result.stored
-        if (stored) options.onLocalSnapshotStored?.(storedSnapshot)
-        if (result.rollbackFailedCount > 0 && !lastLocalRollbackFailed.value) {
-            logger.error('Draft local snapshot rollback failed.', {
-                event: 'draft_local_snapshot_rollback_failed',
-                failedCount: result.rollbackFailedCount,
-            })
-            void reportDraftOperationalEvent('local_storage_rollback_failed', {
-                failedCount: result.rollbackFailedCount,
-            })
-        }
-        if (!stored && !lastLocalSaveFailed.value) {
-            logger.error('Draft local snapshot storage failed.', {
-                event: 'draft_local_snapshot_write_failed',
-            })
-            void reportDraftOperationalEvent('local_storage_write_failed')
-        }
-        lastLocalRollbackFailed.value = result.rollbackFailedCount > 0
-        lastLocalSaveFailed.value = !stored
-        return stored
-    }
-
     const writeLocalSnapshot = () => {
         if (!options.enabled.value) return
         localRevision++
@@ -257,13 +219,6 @@ export function usePostDraft(options: UsePostDraftOptions) {
             contractValidationFailed: contractValidationFailed.value,
         }
         return storeLocalSnapshot(snapshot)
-    }
-
-    const removeLocalSnapshot = () => {
-        const removed = Storage.remove(activeStorageKey.value)
-        if (!removed) void reportDraftOperationalEvent('local_storage_remove_failed')
-        if (removed) options.onLocalSnapshotRemoved?.()
-        return removed
     }
 
     const startRecoveryRequest = () => {
@@ -309,7 +264,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
     }
 
     const transitionToProtectedDraft = () => {
-        const localSnapshot = loadStoredDraftSnapshot(activeStorageKey.value)
+        const localSnapshot = loadLocalSnapshot()
         const shouldPreserveLocalChanges = localRevision !== persistedRevision
             || localSnapshot?.hasLocalChanges === true
         clearAutosaveTimer()
@@ -403,8 +358,8 @@ export function usePostDraft(options: UsePostDraftOptions) {
                     } else {
                         removeLocalSnapshot()
                     }
-                    if (deletedStorageKey !== activeStorageKey.value && !Storage.remove(deletedStorageKey)) {
-                        void reportDraftOperationalEvent('local_storage_remove_failed')
+                    if (deletedStorageKey !== activeStorageKey.value) {
+                        removeLocalSnapshotByKey(deletedStorageKey)
                     }
                     if (options.ownerId?.value != null
                         && !markDraftDeletedLocally(options.ownerId.value, existingDraftId)) {
@@ -685,7 +640,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         try {
         cleanupExpiredDraftSnapshots()
         cleanupExpiredDraftTombstones()
-        let localSnapshot = loadStoredDraftSnapshot(activeStorageKey.value)
+        let localSnapshot = loadLocalSnapshot()
         if (isDraftDeletedLocally(options.ownerId?.value, localSnapshot?.draftId)) {
             removeLocalSnapshot()
             localSnapshot = null
@@ -822,8 +777,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         clearSaveRetry()
         lastSaveScope.value = null
         lastSaveFailed.value = false
-        lastLocalSaveFailed.value = false
-        lastLocalRollbackFailed.value = false
+        resetLocalSnapshotStatus()
         restoreFailed.value = false
         multipleDraftsFound.value = false
         isRestoringDraft.value = false
