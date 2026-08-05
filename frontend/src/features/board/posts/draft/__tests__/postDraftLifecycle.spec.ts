@@ -83,11 +83,13 @@ describe('draft browser lifecycle', () => {
   it('drops invalid unassociated upload metadata without deleting draft content', () => {
     const key = 'noviis:draft:1:create:free:new'
     Storage.set(key, {
+      schemaVersion: DRAFT_SNAPSHOT_SCHEMA_VERSION,
       boardUrl: 'free',
       title: 'recover me',
       contents: '<p>important draft</p>',
       fileIds: [7, 8],
       unassociatedUploadFileIds: [8, 9, -1, 'invalid', 8],
+      contractValidationFailed: false,
       clientModifiedAt: '2026-08-02T00:00:00.000Z',
     })
 
@@ -96,16 +98,20 @@ describe('draft browser lifecycle', () => {
       contents: '<p>important draft</p>',
       unassociatedUploadFileIds: [8],
     }))
-    expect(Storage.has(key)).toBe(true)
+    expect(Storage.get(key)).toEqual(expect.objectContaining({
+      unassociatedUploadFileIds: [8],
+    }))
   })
 
   it('ignores malformed unassociated upload metadata without deleting draft content', () => {
     const key = 'noviis:draft:1:create:free:new'
     Storage.set(key, {
+      schemaVersion: DRAFT_SNAPSHOT_SCHEMA_VERSION,
       boardUrl: 'free',
       title: 'recover me',
       fileIds: [7],
       unassociatedUploadFileIds: 'invalid',
+      contractValidationFailed: false,
       clientModifiedAt: '2026-08-02T00:00:00.000Z',
     })
 
@@ -113,7 +119,7 @@ describe('draft browser lifecycle', () => {
       title: 'recover me',
       unassociatedUploadFileIds: undefined,
     }))
-    expect(Storage.has(key)).toBe(true)
+    expect(Storage.get(key)).not.toHaveProperty('unassociatedUploadFileIds')
   })
 
   it('migrates legacy boolean tombstones to timestamped records', () => {

@@ -223,15 +223,22 @@ function readStoredDraftSnapshot(key: string, now = Date.now()): StoredDraftRead
     Storage.remove(key)
     return { status: 'invalid', rawSize: 0 }
   }
+  const normalizedOwnershipChanged = isRecord(parsed)
+    && JSON.stringify(parsed.unassociatedUploadFileIds)
+      !== JSON.stringify(snapshot.unassociatedUploadFileIds)
+  let normalizedRawSize = rawSize
   if (!isRecord(parsed)
     || parsed.schemaVersion !== DRAFT_SNAPSHOT_SCHEMA_VERSION
     || parsed.clientModifiedAt !== snapshot.clientModifiedAt
     || parsed.clientDraftKey !== snapshot.clientDraftKey
     || parsed.clientInstanceId !== snapshot.clientInstanceId
-    || parsed.contractValidationFailed !== snapshot.contractValidationFailed) {
-    Storage.set(key, snapshot)
+    || parsed.contractValidationFailed !== snapshot.contractValidationFailed
+    || normalizedOwnershipChanged) {
+    if (Storage.set(key, snapshot)) {
+      normalizedRawSize = JSON.stringify(snapshot).length * 2
+    }
   }
-  return { status: 'valid', snapshot, rawSize }
+  return { status: 'valid', snapshot, rawSize: normalizedRawSize }
 }
 
 export function loadStoredDraftSnapshot(key: string, now = Date.now()): DraftRecoverySnapshot | null {
