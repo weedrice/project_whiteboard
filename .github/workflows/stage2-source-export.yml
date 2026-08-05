@@ -1,22 +1,55 @@
-name: Stage 2 Source Export
+name: Stage 2 Draft Event Validation
 
 on:
   pull_request:
     types: [opened, ready_for_review, synchronize, reopened]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  export-source:
+  apply-and-validate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/upload-artifact@v4
         with:
-          name: stage2-source
-          path: |
-            frontend
-            backend
-            docs
-          retention-days: 1
+          ref: agent/simplify-draft-event-payload
+          fetch-depth: 0
+      - name: Apply compact event patch
+        run: |
+          if git apply --check .github/stage2-pr177.patch; then
+            git apply .github/stage2-pr177.patch
+          elif git apply --reverse --check .github/stage2-pr177.patch; then
+            echo "Patch already applied."
+          else
+            echo "Patch does not apply cleanly." >&2
+            exit 1
+          fi
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Lint
+        working-directory: frontend
+        run: npm run lint:ci
+      - name: Type check
+        working-directory: frontend
+        run: npm run type-check
+      - name: Draft contract tests
+        working-directory: frontend
+        run: npx vitest run src/composables/__tests__/usePostDraft.spec.ts src/features/board/posts/draft/__tests__/postDraftCrossTabReconciler.spec.ts src/features/board/posts/draft/__tests__/postDraftUpdatedEvent.spec.ts
+      - name: Commit validated source
+        run: |
+          if git diff --quiet -- frontend; then
+            echo "No source changes to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add frontend
+          git commit -m "refactor: shrink draft update event payload"
+          git push origin HEAD:agent/simplify-draft-event-payload
