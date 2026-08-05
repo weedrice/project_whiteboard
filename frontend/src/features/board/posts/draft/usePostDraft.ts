@@ -2,7 +2,6 @@ import { computed, onUnmounted, ref, watch, type Ref } from 'vue'
 import { isAxiosError } from 'axios'
 import type { PostDraftData } from '@/api/post'
 import { unwrapAxiosApiData } from '@/api/response'
-import { getRetryAfterMs } from '@/api/retryAfter'
 import { usePost } from '@/features/board/posts/queries/usePost'
 import type { DraftPost } from '@/types'
 import { Storage } from '@/utils/storage'
@@ -51,6 +50,10 @@ import {
     publishDraftUpdatedEvent,
     registerDraftUpdatedListener,
 } from '@/features/board/posts/draft/postDraftUpdatedEvent'
+import {
+    createDraftSaveRetryController,
+    SAVE_RETRY_MAX_ATTEMPTS,
+} from '@/features/board/posts/draft/postDraftSaveRetry'
 
 export type { DraftRecoverySnapshot } from '@/features/board/posts/draft/postDraftRecovery'
 export type DraftSaveScope = 'server' | 'browser'
@@ -77,9 +80,6 @@ interface UsePostDraftOptions {
 }
 
 const AUTOSAVE_DELAY_MS = 1500
-const SAVE_RETRY_BASE_DELAY_MS = 1000
-const SAVE_RETRY_MAX_DELAY_MS = 30_000
-const SAVE_RETRY_MAX_ATTEMPTS = 5
 
 class DraftReferenceRecoveryLimitError extends Error {
     constructor() {
@@ -92,15 +92,6 @@ export const isTransientDraftSaveError = (error: unknown) => {
     if (!isAxiosError(error)) return false
     const status = error.response?.status
     return status == null || status === 429 || status >= 500
-}
-
-const getSaveRetryDelay = (attempt: number) => {
-    const exponentialDelay = Math.min(
-        SAVE_RETRY_BASE_DELAY_MS * 2 ** Math.max(0, attempt - 1),
-        SAVE_RETRY_MAX_DELAY_MS,
-    )
-    const jitter = 0.8 + Math.random() * 0.4
-    return Math.min(Math.round(exponentialDelay * jitter), SAVE_RETRY_MAX_DELAY_MS)
 }
 
 export function usePostDraft(options: UsePostDraftOptions) {
@@ -133,14 +124,9 @@ export function usePostDraft(options: UsePostDraftOptions) {
     const draftDeleted = ref(false)
     const staleReferencesReset = ref(false)
     const contractValidationFailed = ref(false)
-    const saveRetryAttempt = ref(0)
-    const saveRetryScheduled = ref(false)
-    const saveRetryExhausted = ref(false)
     const restoreSource = ref<'idle' | 'local' | 'server'>('idle')
     const hasRestoredDraft = ref(false)
     let autosaveTimer: ReturnType<typeof setTimeout> | null = null
-    let saveRetryTimer: ReturnType<typeof setTimeout> | null = null
-    let saveRetryDueAt: number | null = null
     let savePromise: Promise<DraftPost | null> | null = null
     let saveQueued = false
     let localRevision = 0
@@ -155,6 +141,32 @@ export function usePostDraft(options: UsePostDraftOptions) {
     const activeStorageKey = computed(() => draftId.value != null
         ? options.resolveStorageKey?.(draftId.value) ?? options.storageKey.value
         : options.storageKey.value)
+
+    const {
+        attempt: saveRetryAttempt,
+        scheduled: saveRetryScheduled,
+        exhausted: saveRetryExhausted,
+        clear: clearSaveRetry,
+        schedule: scheduleTransientSaveRetry,
+        pauseForOffline: pauseSaveRetryForOffline,
+    } = createDraftSaveRetryController({
+        canRetry: () => options.enabled.value
+            && !draftConflict.value
+            && !draftProtected.value
+            && !draftDeleted.value
+            && options.canPersist?.() !== false,
+        retry: () => saveNow(),
+        onRetryError: (error) => {
+            logger.error('Failed to retry draft autosave:', error)
+        },
+        onExhausted: (attempts) => {
+            logger.error('Draft autosave retries exhausted.', {
+                event: 'draft_autosave_retry_exhausted',
+                attempts,
+            })
+            void reportDraftOperationalEvent('autosave_retry_exhausted', { attempts })
+        },
+    })
 
     watch(activeStorageKey, (nextKey, previousKey) => {
         if (draftId.value == null || nextKey === previousKey) return
@@ -252,19 +264,6 @@ export function usePostDraft(options: UsePostDraftOptions) {
         if (!removed) void reportDraftOperationalEvent('local_storage_remove_failed')
         if (removed) options.onLocalSnapshotRemoved?.()
         return removed
-    }
-
-    const clearSaveRetry = (resetAttempt = true) => {
-        if (saveRetryTimer) {
-            clearTimeout(saveRetryTimer)
-            saveRetryTimer = null
-        }
-        saveRetryDueAt = null
-        saveRetryScheduled.value = false
-        if (resetAttempt) {
-            saveRetryAttempt.value = 0
-            saveRetryExhausted.value = false
-        }
     }
 
     const startRecoveryRequest = () => {
@@ -515,7 +514,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         return savedDraft
     }
 
-    const saveNow = async () => {
+    async function saveNow() {
         if (draftConflict.value || draftProtected.value || draftDeleted.value || options.canPersist?.() === false) return null
         if (savePromise) {
             saveQueued = true
@@ -564,62 +563,6 @@ export function usePostDraft(options: UsePostDraftOptions) {
         })
         savePromise = trackedSave
         return trackedSave
-    }
-
-    const isBrowserOnline = () => typeof navigator === 'undefined' || navigator.onLine
-
-    const armSaveRetryTimer = () => {
-        if (saveRetryDueAt == null) return
-        const remainingDelayMs = Math.max(saveRetryDueAt - Date.now(), 0)
-        saveRetryTimer = setTimeout(() => {
-            saveRetryTimer = null
-            if (!isBrowserOnline()) {
-                saveRetryAttempt.value = Math.max(0, saveRetryAttempt.value - 1)
-                return
-            }
-            if (saveRetryDueAt != null && saveRetryDueAt > Date.now()) {
-                armSaveRetryTimer()
-                return
-            }
-            saveRetryScheduled.value = false
-            saveRetryDueAt = null
-            void saveNow().catch((error: unknown) => {
-                logger.error('Failed to retry draft autosave:', error)
-            })
-        }, Math.min(remainingDelayMs, SAVE_RETRY_MAX_DELAY_MS))
-    }
-
-    function scheduleTransientSaveRetry(error?: unknown) {
-        if (saveRetryTimer
-            || saveRetryAttempt.value >= SAVE_RETRY_MAX_ATTEMPTS
-            || !options.enabled.value
-            || draftConflict.value
-            || draftProtected.value
-            || draftDeleted.value
-            || options.canPersist?.() === false) {
-            if (saveRetryAttempt.value >= SAVE_RETRY_MAX_ATTEMPTS && !saveRetryExhausted.value) {
-                saveRetryExhausted.value = true
-                logger.error('Draft autosave retries exhausted.', {
-                    event: 'draft_autosave_retry_exhausted',
-                    attempts: saveRetryAttempt.value,
-                })
-                void reportDraftOperationalEvent('autosave_retry_exhausted', {
-                    attempts: saveRetryAttempt.value,
-                })
-            }
-            return
-        }
-
-        if (saveRetryDueAt == null) {
-            const retryAfterMs = getRetryAfterMs(error)
-            const delayMs = retryAfterMs ?? getSaveRetryDelay(saveRetryAttempt.value + 1)
-            saveRetryDueAt = Date.now() + delayMs
-        }
-        saveRetryScheduled.value = true
-        if (!isBrowserOnline()) return
-
-        saveRetryAttempt.value++
-        armSaveRetryTimer()
     }
 
     const retrySaveNow = async () => {
@@ -917,11 +860,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
     }
 
     const handleOffline = () => {
-        if (!saveRetryTimer) return
-        clearTimeout(saveRetryTimer)
-        saveRetryTimer = null
-        saveRetryAttempt.value = Math.max(0, saveRetryAttempt.value - 1)
-        saveRetryScheduled.value = true
+        pauseSaveRetryForOffline()
     }
 
     const reconcileIncomingSnapshot = (incoming: DraftRecoverySnapshot) => {
