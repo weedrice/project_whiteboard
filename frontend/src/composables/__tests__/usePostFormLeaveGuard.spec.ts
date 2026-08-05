@@ -115,4 +115,21 @@ describe('usePostFormLeaveGuard', () => {
         expect(flushPendingDraft).toHaveBeenCalledOnce()
         expect(result).toBe(true)
     })
+
+    it('blocks navigation when the latest local draft cannot be flushed', async () => {
+        const flushPendingDraft = vi.fn().mockReturnValue(false)
+        const postFormRef = ref({
+            hasUnsavedChanges: () => true,
+            flushPendingDraft,
+        })
+        const confirmLeave = vi.fn().mockResolvedValue(true)
+
+        usePostFormLeaveGuard(postFormRef, 'fallback', confirmLeave)
+
+        const result = await runLeaveGuard()
+
+        expect(confirmLeave).toHaveBeenCalledWith('fallback')
+        expect(flushPendingDraft).toHaveBeenCalledOnce()
+        expect(result).toBe(false)
+    })
 })

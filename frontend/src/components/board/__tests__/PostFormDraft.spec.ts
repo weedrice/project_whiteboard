@@ -450,25 +450,28 @@ describe('PostForm draft behavior', () => {
     }))
   })
 
-  it('ignores a non-integer preferred draft id and restores the route draft', async () => {
-    mockPostFormAuthStore({
-      isAuthenticated: true,
-      user: { userId: 1, role: 'USER' },
-    })
-    Storage.set('noviis:draft:1:create:free:new', {
-      boardUrl: 'free',
-      title: 'Route draft',
-      contents: 'Route draft body',
-      clientModifiedAt: '2026-08-02T00:00:00.000Z',
-      hasLocalChanges: true,
-    })
+  it.each(['1.5', '1e3', '0x10', ' 91 ', '9007199254740992'])(
+    'ignores invalid preferred draft id %s and restores the route draft',
+    async (initialDraftId) => {
+      mockPostFormAuthStore({
+        isAuthenticated: true,
+        user: { userId: 1, role: 'USER' },
+      })
+      Storage.set('noviis:draft:1:create:free:new', {
+        boardUrl: 'free',
+        title: 'Route draft',
+        contents: 'Route draft body',
+        clientModifiedAt: '2026-08-02T00:00:00.000Z',
+        hasLocalChanges: true,
+      })
 
-    const wrapper = mountPostForm('create', {}, {}, { postId: '', initialDraftId: '1.5' })
-    await flushPromises()
+      const wrapper = mountPostForm('create', {}, {}, { postId: '', initialDraftId })
+      await flushPromises()
 
-    expect(wrapper.get('#title').element).toHaveProperty('value', 'Route draft')
-    expect(wrapper.get('[data-testid="editor-input"]').element).toHaveProperty('value', 'Route draft body')
-  })
+      expect(wrapper.get('#title').element).toHaveProperty('value', 'Route draft')
+      expect(wrapper.get('[data-testid="editor-input"]').element).toHaveProperty('value', 'Route draft body')
+    },
+  )
 
   it('keeps a restored server snapshot canonical instead of marking it locally changed', async () => {
     mockPostFormAuthStore({

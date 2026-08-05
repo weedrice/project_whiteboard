@@ -74,8 +74,10 @@ const boardUrl = computed(() => props.boardUrl ?? '')
 const postId = computed(() => props.postId ?? '')
 const scheduledPostId = computed(() => props.scheduledPostId ?? '')
 const preferredDraftId = computed(() => {
-  if (props.initialDraftId == null || props.initialDraftId === '') return null
-  const numericDraftId = Number(props.initialDraftId)
+  const candidate = props.initialDraftId
+  if (candidate == null || candidate === '') return null
+  if (typeof candidate === 'string' && !/^[1-9]\d*$/.test(candidate)) return null
+  const numericDraftId = Number(candidate)
   return Number.isSafeInteger(numericDraftId) && numericDraftId > 0 ? numericDraftId : null
 })
 const routeFormIdentity = computed(() => [

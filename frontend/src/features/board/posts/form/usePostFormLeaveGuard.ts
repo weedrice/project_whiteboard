@@ -31,7 +31,9 @@ export function usePostFormLeaveGuard(
                 return false
             }
         }
-        form?.flushPendingDraft?.()
+        if (form?.flushPendingDraft?.() === false) {
+            return false
+        }
         return true
     }
 
