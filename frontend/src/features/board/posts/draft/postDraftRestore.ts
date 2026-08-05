@@ -115,14 +115,16 @@ export async function resolveServerDraftForRecovery({
         if (!generationIsCurrent() || isDraftRecoveryCancellation(resolveError)) {
           return { localSnapshot: nextLocalSnapshot, serverDraft, recoveryFailed, draftProtected, multipleMatchesFound }
         }
-        logger.error('Failed to restore replacement server draft:', resolveError)
         if (isDraftProtectedError(resolveError)) draftProtected = true
-        else recoveryFailed = true
+        else if (!isDraftMissingError(resolveError)) {
+          logger.error('Failed to restore replacement server draft:', resolveError)
+          recoveryFailed = true
+        }
       }
     } else {
+      logger.error('Failed to restore server draft:', error)
       recoveryFailed = true
     }
-    logger.error('Failed to restore server draft:', error)
   }
 
   return { localSnapshot: nextLocalSnapshot, serverDraft, recoveryFailed, draftProtected, multipleMatchesFound }

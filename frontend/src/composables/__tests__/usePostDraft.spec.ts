@@ -720,6 +720,7 @@ describe('usePostDraft', () => {
         expect(composable.restoreFailed.value).toBe(false)
         expect(appliedDrafts).toHaveLength(0)
         expect(Storage.has('noviis:test:draft')).toBe(false)
+        expect(mocks.loggerError).not.toHaveBeenCalled()
     })
 
     it('stops autosave immediately when another tab schedules the draft', async () => {
@@ -1656,6 +1657,7 @@ describe('usePostDraft', () => {
         expect(Storage.get('noviis:test:draft')).not.toEqual(expect.objectContaining({
             clientDraftKey: 'client-draft-key-1234',
         }))
+        expect(mocks.loggerError).not.toHaveBeenCalled()
     })
 
     it('preserves locally tracked unassociated uploads after a stale draft id returns 404', async () => {
