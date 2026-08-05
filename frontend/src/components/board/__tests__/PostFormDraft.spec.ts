@@ -84,6 +84,109 @@ describe('PostForm draft behavior', () => {
     expect(wrapper.get('[data-testid="editor-input"]').element).toHaveProperty('value', '<p>Kept body</p>')
   })
 
+  it('removes a legacy content reference that was already absent from draft fileIds', async () => {
+    mockPostFormAuthStore({
+      isAuthenticated: true,
+      user: { userId: 1, role: 'USER' },
+    })
+    const contents = '<p>Kept body</p><img src="/api/v1/files/7">'
+    mockSaveDraftMutateAsync.mockResolvedValueOnce({
+      data: {
+        data: {
+          draftId: 91,
+          version: 1,
+          boardId: 1,
+          boardUrl: 'free',
+          boardName: 'Free',
+          title: 'Draft title',
+          contents: '<p>Kept body</p>',
+          tags: [],
+          fileIds: [],
+          isNotice: false,
+          isNsfw: false,
+          isSpoiler: false,
+          isSecret: false,
+          staleReferencesReset: true,
+          updatedAt: '2026-08-05T00:00:00.000Z',
+        },
+      },
+    })
+    const wrapper = mountPostForm('create')
+    await flushPromises()
+
+    await wrapper.get('#title').setValue('Draft title')
+    await wrapper.get('[data-testid="editor-input"]').setValue(contents)
+    await findButtonByText(wrapper, 'board.writePost.actions.saveDraft').trigger('click')
+    await flushPromises()
+
+    expect(mockSaveDraftMutateAsync).toHaveBeenCalledWith(expect.objectContaining({ fileIds: [] }))
+    expect(wrapper.get('[data-testid="editor-input"]').element).toHaveProperty('value', '<p>Kept body</p>')
+  })
+
+  it('preserves a file uploaded while stale references are being recovered', async () => {
+    mockPostFormAuthStore({
+      isAuthenticated: true,
+      user: { userId: 1, role: 'USER' },
+    })
+    const firstResponse = {
+      data: {
+        data: {
+          draftId: 91,
+          version: 1,
+          boardId: 1,
+          boardUrl: 'free',
+          boardName: 'Free',
+          title: 'Draft title',
+          contents: '<img src="/api/v1/files/7">',
+          tags: [],
+          fileIds: [7],
+          isNotice: false,
+          isNsfw: false,
+          isSpoiler: false,
+          isSecret: false,
+          staleReferencesReset: true,
+          updatedAt: '2026-08-05T00:00:00.000Z',
+        },
+      },
+    }
+    let resolveFirstSave!: (response: typeof firstResponse) => void
+    mockSaveDraftMutateAsync
+      .mockImplementationOnce(() => new Promise((resolve) => { resolveFirstSave = resolve }))
+      .mockResolvedValueOnce({
+        data: {
+          data: {
+            ...firstResponse.data.data,
+            version: 2,
+            contents: '<img src="/api/v1/files/7"><img src="/api/v1/files/8">',
+            fileIds: [7, 8],
+            staleReferencesReset: false,
+            updatedAt: '2026-08-05T00:00:01.000Z',
+          },
+        },
+      })
+    const wrapper = mountPostForm('create')
+    await flushPromises()
+    await wrapper.get('#title').setValue('Draft title')
+    await wrapper.get('[data-testid="editor-input"]').setValue('<img src="/api/v1/files/7">')
+    ;(wrapper.vm as unknown as { handleEditorFileUploaded: (fileId: number) => void })
+      .handleEditorFileUploaded(7)
+
+    await findButtonByText(wrapper, 'board.writePost.actions.saveDraft').trigger('click')
+    await nextTick()
+    await wrapper.get('[data-testid="editor-input"]')
+      .setValue('<img src="/api/v1/files/7"><img src="/api/v1/files/8">')
+    ;(wrapper.vm as unknown as { handleEditorFileUploaded: (fileId: number) => void })
+      .handleEditorFileUploaded(8)
+    resolveFirstSave(firstResponse)
+    await flushPromises()
+
+    expect(mockSaveDraftMutateAsync).toHaveBeenCalledTimes(2)
+    expect(mockSaveDraftMutateAsync).toHaveBeenLastCalledWith(expect.objectContaining({
+      fileIds: [7, 8],
+      contents: '<img src="/api/v1/files/7"><img src="/api/v1/files/8">',
+    }))
+  })
+
   it('warns when saving a draft evicts older drafts over the account limit', async () => {
     mockPostFormAuthStore({
       isAuthenticated: true,

@@ -82,7 +82,9 @@ export const isMatchingLoadedDraft = (draft: DraftPost, payload: PostDraftData) 
     return draftOriginalPostId === payloadOriginalPostId
 }
 
-const normalizeDraftContent = (draft: PostDraftData) => ({
+type DraftContentSource = PostDraftData | DraftPost
+
+const normalizeDraftContent = (draft: DraftContentSource) => ({
     title: draft.title ?? '',
     contents: draft.contents ?? '',
     categoryId: draft.categoryId ?? null,
@@ -104,7 +106,7 @@ const normalizeDraftContent = (draft: PostDraftData) => ({
     seriesId: draft.seriesId ?? null,
 })
 
-export const hasSameDraftContent = (left: PostDraftData, right: PostDraftData): boolean => (
+export const hasSameDraftContent = (left: DraftContentSource, right: DraftContentSource): boolean => (
     JSON.stringify(normalizeDraftContent(left)) === JSON.stringify(normalizeDraftContent(right))
 )
 

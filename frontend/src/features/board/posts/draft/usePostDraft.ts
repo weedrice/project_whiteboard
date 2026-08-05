@@ -471,9 +471,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
             options.onStaleReferencesReset?.()
             if (!recoveredPayload) break
             canonicalPayload = recoveredPayload
-            const recoveredCategoryId = recoveredPayload?.categoryId ?? null
-            const savedCategoryId = savedDraft.categoryId ?? null
-            if (recoveredCategoryId === savedCategoryId) break
+            if (hasSameDraftContent(recoveredPayload, savedDraft)) break
             storeLocalSnapshot(createDraftRecoverySnapshot(
                 recoveredPayload,
                 savedDraft.draftId,

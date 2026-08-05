@@ -5,6 +5,7 @@ import {
 } from '@/features/board/posts/draft/usePostDraft'
 import type { PostComposerSnapshot } from '@/features/board/posts/form/usePostComposerState'
 import {
+  extractPostFileIdsFromContent,
   removePostFileReferencesFromContent,
   type PostFormFileIdScope,
 } from '@/utils/postForm'
@@ -148,16 +149,24 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     onServerReferencesReset: (savedDraft, payload) => {
       const currentPayload = options.buildPayload('draft')
       const retainedFileIds = new Set(savedDraft.fileIds ?? [])
-      const removedFileIds = (payload.fileIds ?? []).filter((fileId) => !retainedFileIds.has(fileId))
+      const removedFileIds = new Set([
+        ...(payload.fileIds ?? []).filter((fileId) => !retainedFileIds.has(fileId)),
+        ...extractPostFileIdsFromContent(payload.contents ?? '')
+          .filter((fileId) => !retainedFileIds.has(fileId)),
+      ])
+      const categoryChangedSinceSave = (currentPayload.categoryId ?? null) !== (payload.categoryId ?? null)
+      const seriesChangedSinceSave = (currentPayload.seriesId ?? null) !== (payload.seriesId ?? null)
       const recoveredPayload = {
         ...currentPayload,
         boardUrl: options.boardUrl.value,
         originalPostId: options.mode() === 'edit' ? Number(options.postId.value) : undefined,
-        contents: removePostFileReferencesFromContent(currentPayload.contents, removedFileIds),
-        categoryId: savedDraft.categoryId
-          ?? (payload.categoryId != null ? options.firstCategoryId.value ?? null : null),
-        fileIds: savedDraft.fileIds ?? [],
-        seriesId: savedDraft.seriesId ?? null,
+        contents: removePostFileReferencesFromContent(currentPayload.contents, [...removedFileIds]),
+        categoryId: categoryChangedSinceSave
+          ? currentPayload.categoryId
+          : savedDraft.categoryId
+            ?? (payload.categoryId != null ? options.firstCategoryId.value ?? null : null),
+        fileIds: (currentPayload.fileIds ?? []).filter((fileId) => !removedFileIds.has(fileId)),
+        seriesId: seriesChangedSinceSave ? currentPayload.seriesId : savedDraft.seriesId ?? null,
       }
       applyDraftWithoutTracking(recoveredPayload)
       return recoveredPayload
