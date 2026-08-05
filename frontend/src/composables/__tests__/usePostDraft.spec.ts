@@ -376,6 +376,19 @@ describe('usePostDraft', () => {
         await expect(pendingRestore).resolves.toBeUndefined()
     })
 
+    it('does not report a canceled draft recovery as a restore failure', async () => {
+        mocks.getMatchingDraft.mockRejectedValueOnce({
+            name: 'CanceledError',
+            code: 'ERR_CANCELED',
+        })
+        const { composable } = mountComposable()
+
+        await composable.restoreDraft()
+
+        expect(composable.restoreFailed.value).toBe(false)
+        expect(mocks.loggerError).not.toHaveBeenCalled()
+    })
+
     it('uses the current time when a saved draft response omits version timestamps', async () => {
         mocks.saveDraftMutateAsync.mockResolvedValueOnce({
             data: {

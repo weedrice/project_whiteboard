@@ -1,6 +1,7 @@
 import type { PostDraftData } from '@/api/post'
 import type { DraftPost } from '@/types'
 import logger from '@/utils/logger'
+import { isCancellationError } from '@/utils/cancellationError'
 import {
   isDraftMissingError,
   isDraftProtectedError,
@@ -28,6 +29,11 @@ export interface ResolveServerDraftResult {
   multipleMatchesFound: boolean
 }
 
+const isDraftRecoveryCancellation = (error: unknown) => isCancellationError(error, {
+  names: ['AbortError', 'CanceledError'],
+  codes: ['ERR_CANCELED'],
+})
+
 export async function resolveServerDraftForRecovery({
   payload,
   localSnapshot,
@@ -54,6 +60,9 @@ export async function resolveServerDraftForRecovery({
       serverDraftId = matchingDraft.draftId
       multipleMatchesFound = matchingDraft.multipleMatchesFound
     } catch (error: unknown) {
+      if (!generationIsCurrent() || isDraftRecoveryCancellation(error)) {
+        return { localSnapshot: nextLocalSnapshot, serverDraft, recoveryFailed, draftProtected, multipleMatchesFound }
+      }
       logger.error('Failed to resolve server draft id:', error)
       recoveryFailed = true
     }
@@ -82,7 +91,7 @@ export async function resolveServerDraftForRecovery({
       }
     }
   } catch (error: unknown) {
-    if (!generationIsCurrent()) {
+    if (!generationIsCurrent() || isDraftRecoveryCancellation(error)) {
       return { localSnapshot: nextLocalSnapshot, serverDraft, recoveryFailed, draftProtected, multipleMatchesFound }
     }
     if (isDraftProtectedError(error)) {
@@ -103,6 +112,9 @@ export async function resolveServerDraftForRecovery({
           serverDraft = await loadDraftById(fallbackDraftId, requestConfig)
         }
       } catch (resolveError: unknown) {
+        if (!generationIsCurrent() || isDraftRecoveryCancellation(resolveError)) {
+          return { localSnapshot: nextLocalSnapshot, serverDraft, recoveryFailed, draftProtected, multipleMatchesFound }
+        }
         logger.error('Failed to restore replacement server draft:', resolveError)
         if (isDraftProtectedError(resolveError)) draftProtected = true
         else recoveryFailed = true
