@@ -119,6 +119,7 @@ export const boardEnWritePostMessages: BoardMessages['writePost'] = {
       restoredLocal: 'Restored local draft.',
       restoredServer: 'Restored saved server draft.',
       referencesReset: 'Unavailable draft references were removed. Review the attachments, category, and series selection.',
+      limitEvicted: 'The draft limit was exceeded, so the {count} oldest draft(s) were removed.',
       saved: 'Draft saved.',
       savedBrowser: 'Draft saved in this browser.',
       cleanupFailed: 'Draft cleanup failed. The server draft may appear again until it is removed.',

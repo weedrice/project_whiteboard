@@ -4116,6 +4116,8 @@ export interface components {
             contents?: string;
             /** Format: int64 */
             draftId?: number;
+            /** Format: int32 */
+            evictedDraftCount?: number;
             fileIds?: number[];
             isNotice?: boolean;
             isNsfw?: boolean;

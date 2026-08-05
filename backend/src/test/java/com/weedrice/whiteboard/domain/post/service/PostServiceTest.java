@@ -147,6 +147,7 @@ class PostServiceTest {
     private PostManagerModerationService postManagerModerationService;
     @Mock
     private AnonymousReadCacheInvalidator anonymousReadCacheInvalidator;
+    private PostDraftCleanupService postDraftCleanupService;
     private BoardAccessPolicy boardAccessPolicy;
     private PostAccessPolicy postAccessPolicy;
     private PostSummaryAssembler postSummaryAssembler;
@@ -207,12 +208,12 @@ class PostServiceTest {
                 boardCategoryRepository,
                 new BoardCategoryWritePolicy(boardAccessPolicy));
         userWritableResolver = new UserWritableResolver(userRepository, sanctionService);
-        PostDraftCleanupService postDraftCleanupService = new PostDraftCleanupService(
+        postDraftCleanupService = spy(new PostDraftCleanupService(
                 draftPostRepository,
                 fileService,
                 Clock.systemUTC(),
                 mock(PostDraftCleanupBatchService.class),
-                new io.micrometer.core.instrument.simple.SimpleMeterRegistry());
+                new io.micrometer.core.instrument.simple.SimpleMeterRegistry()));
         viewHistoryCommandService = new ViewHistoryCommandService(viewHistoryRepository);
         PostViewCountWriter postViewCountWriter = new PostViewCountWriter(postRepository);
         PostReactionService postReactionService = new PostReactionService(
@@ -2286,6 +2287,7 @@ class PostServiceTest {
             ReflectionTestUtils.setField(draftPost, "draftId", 22L);
             return draftPost;
         });
+        doReturn(2).when(postDraftCleanupService).enforceUserDraftLimit(user);
 
         DraftResponse draft = postService.saveDraftPost(1L, request);
 
@@ -2296,6 +2298,7 @@ class PostServiceTest {
         assertThat(draft.isSecret()).isTrue();
         assertThat(draft.getFileIds()).containsExactly(11L, 12L);
         assertThat(draft.getOriginalPostId()).isEqualTo(77L);
+        assertThat(draft.getEvictedDraftCount()).isEqualTo(2);
         verify(fileService).syncDraftFiles(List.of(11L, 12L), 1L, 22L);
     }
 

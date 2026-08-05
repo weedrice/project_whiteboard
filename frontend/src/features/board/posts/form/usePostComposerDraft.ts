@@ -126,7 +126,14 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     applyDraft: applyDraftWithoutTracking,
     prepareRecoveredSnapshot,
     onSaved: options.markCurrentSnapshotSaved,
-    onServerSaved: (_payload, savedDraft) => options.releaseUploadedFileOwnership(savedDraft.fileIds ?? []),
+    onServerSaved: (_payload, savedDraft) => {
+      options.releaseUploadedFileOwnership(savedDraft.fileIds ?? [])
+      if ((savedDraft.evictedDraftCount ?? 0) > 0) {
+        options.addToast(options.t('board.writePost.draftStatus.limitEvicted', {
+          count: savedDraft.evictedDraftCount,
+        }), 'warning')
+      }
+    },
     onServerReferencesReset: (savedDraft, payload) => applyDraftWithoutTracking({
       ...options.buildPayload('draft'),
       categoryId: savedDraft.categoryId

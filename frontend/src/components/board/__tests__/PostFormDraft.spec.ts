@@ -42,6 +42,45 @@ describe('PostForm draft behavior', () => {
     expect(mockAddToast).toHaveBeenCalledWith('board.writePost.draftStatus.saved', 'success')
   })
 
+  it('warns when saving a draft evicts older drafts over the account limit', async () => {
+    mockPostFormAuthStore({
+      isAuthenticated: true,
+      user: { userId: 1, role: 'USER' },
+    })
+    const wrapper = mountPostForm('create')
+    await flushPromises()
+    mockSaveDraftMutateAsync.mockResolvedValueOnce({
+      data: {
+        data: {
+          draftId: 91,
+          version: 1,
+          boardId: 1,
+          boardUrl: 'free',
+          boardName: 'Free',
+          title: 'Draft title',
+          contents: '',
+          tags: [],
+          fileIds: [],
+          isNotice: false,
+          isNsfw: false,
+          isSpoiler: false,
+          isSecret: false,
+          evictedDraftCount: 2,
+          updatedAt: '2026-08-05T00:00:00.000Z',
+        },
+      },
+    })
+
+    await wrapper.get('#title').setValue('Draft title')
+    await findButtonByText(wrapper, 'board.writePost.actions.saveDraft').trigger('click')
+    await flushPromises()
+
+    expect(mockAddToast).toHaveBeenCalledWith(
+      'board.writePost.draftStatus.limitEvicted',
+      'warning',
+    )
+  })
+
   it('shows an error toast when manual draft save fails', async () => {
     mockPostFormAuthStore({
       isAuthenticated: true,

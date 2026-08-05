@@ -3150,6 +3150,10 @@
             "format" : "int64",
             "type" : "integer"
           },
+          "evictedDraftCount" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
           "fileIds" : {
             "items" : {
               "format" : "int64",

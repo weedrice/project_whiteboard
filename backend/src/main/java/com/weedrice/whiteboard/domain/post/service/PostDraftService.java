@@ -142,8 +142,8 @@ public class PostDraftService {
             savedDraftPost = draftPostRepository.saveAndFlush(savedDraftPost);
         }
         fileService.syncDraftFiles(retainedFileIds, userId, savedDraftPost.getDraftId());
-        postDraftCleanupService.enforceUserDraftLimit(user);
-        return DraftResponse.from(savedDraftPost, staleReferencesReset);
+        int evictedDraftCount = postDraftCleanupService.enforceUserDraftLimit(user);
+        return DraftResponse.from(savedDraftPost, staleReferencesReset, evictedDraftCount);
     }
 
     @Transactional

@@ -38,14 +38,20 @@ public class DraftResponse {
     private Long seriesId;
     private Long originalPostId;
     private boolean staleReferencesReset;
+    private int evictedDraftCount;
     private LocalDateTime updatedAt;
     private LocalDateTime modifiedAt;
 
     public static DraftResponse from(DraftPost draftPost) {
-        return from(draftPost, false);
+        return from(draftPost, false, 0);
     }
 
     public static DraftResponse from(DraftPost draftPost, boolean staleReferencesReset) {
+        return from(draftPost, staleReferencesReset, 0);
+    }
+
+    public static DraftResponse from(
+            DraftPost draftPost, boolean staleReferencesReset, int evictedDraftCount) {
         return DraftResponse.builder()
                 .draftId(draftPost.getDraftId())
                 .clientDraftKey(draftPost.getClientDraftKey())
@@ -66,6 +72,7 @@ public class DraftResponse {
                 .seriesId(draftPost.getSeries() != null ? draftPost.getSeries().getSeriesId() : null)
                 .originalPostId(draftPost.getOriginalPost() != null ? draftPost.getOriginalPost().getPostId() : null)
                 .staleReferencesReset(staleReferencesReset)
+                .evictedDraftCount(evictedDraftCount)
                 .updatedAt(draftPost.getModifiedAt())
                 .modifiedAt(draftPost.getModifiedAt())
                 .build();

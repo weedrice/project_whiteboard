@@ -118,6 +118,7 @@ export const boardWritePostMessages: BoardMessages['writePost'] = {
       restoredLocal: '로컬 임시 저장본을 복원했습니다.',
       restoredServer: '서버 임시 저장본을 복원했습니다.',
       referencesReset: '사용할 수 없는 임시저장 참조를 정리했습니다. 첨부파일과 카테고리·시리즈 선택을 다시 확인해 주세요.',
+      limitEvicted: '임시글 보관 한도를 초과해 가장 오래된 임시글 {count}개를 정리했습니다.',
       saved: '임시 저장되었습니다.',
       savedBrowser: '이 브라우저에 임시 저장되었습니다.',
       cleanupFailed: '임시 저장 정리에 실패했습니다. 서버 초안이 남아 다시 보일 수 있습니다.',

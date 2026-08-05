@@ -346,6 +346,7 @@ export interface DraftPost {
     seriesId?: number | null
     originalPostId?: number | null
     staleReferencesReset?: boolean
+    evictedDraftCount?: number
     updatedAt?: string
     modifiedAt?: string
 }
