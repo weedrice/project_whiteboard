@@ -112,6 +112,40 @@ function mountComposable(payloadRef: Ref<PostDraftData> = ref({
     return { wrapper, composable: composable as ReturnType<typeof usePostDraft>, appliedDrafts, payloadRef }
 }
 
+let draftUpdateEventSequence = 0
+function dispatchDraftUpdatedEvent({
+    ownerId = 7,
+    draftId = 91,
+    clientDraftKey,
+    version = 1,
+    updatedAt = '2026-07-07T13:00:00.000Z',
+    contentFingerprint = 'different-content',
+}: {
+    ownerId?: string | number
+    draftId?: number
+    clientDraftKey: string
+    version?: number | null
+    updatedAt?: string
+    contentFingerprint?: string
+}) {
+    draftUpdateEventSequence++
+    window.dispatchEvent(new StorageEvent('storage', {
+        key: 'noviis:draft-updated-event',
+        newValue: JSON.stringify({
+            type: 'draft-updated',
+            eventId: `updated-event-${draftUpdateEventSequence}`,
+            sourceId: `peer-tab-${draftUpdateEventSequence}`,
+            ownerId: String(ownerId),
+            at: Date.now(),
+            draftId,
+            clientDraftKey,
+            version,
+            updatedAt,
+            contentFingerprint,
+        }),
+    }))
+}
+
 describe('usePostDraft', () => {
     beforeEach(() => {
         vi.useFakeTimers()
@@ -119,6 +153,7 @@ describe('usePostDraft', () => {
         Storage.clear()
         vi.clearAllMocks()
         mocks.saveDraftConfig = undefined
+        draftUpdateEventSequence = 0
         mocks.saveDraftMutateAsync.mockResolvedValue({
             data: {
                 data: {
@@ -522,27 +557,22 @@ describe('usePostDraft', () => {
         }))
     })
 
-    it('keeps the reloaded server copy visible when a later tab changes it', async () => {
-        const { composable, payloadRef, appliedDrafts } = mountComposable()
+    it('keeps the reloaded server copy visible when a later tab announces a newer save', async () => {
+        const ownerId = ref<number | null>(7)
+        const { composable, payloadRef, appliedDrafts } = mountComposable(
+            undefined,
+            ref('noviis:test:draft'),
+            ref(true),
+            ownerId,
+        )
         await composable.saveNow()
         payloadRef.value = { ...payloadRef.value, title: 'Unsaved local title' }
         composable.writeLocalSnapshot()
 
-        window.dispatchEvent(new StorageEvent('storage', {
-            key: 'noviis:test:draft',
-            newValue: JSON.stringify({
-                draftId: 91,
-                clientDraftKey: 'client-draft-key-1234',
-                version: 1,
-                boardUrl: 'free',
-                title: 'Server title',
-                contents: 'Draft body',
-                fileIds: [7],
-                updatedAt: '2025-01-02T00:00:00.000Z',
-                clientInstanceId: 'other-tab',
-                hasLocalChanges: false,
-            }),
-        }))
+        dispatchDraftUpdatedEvent({
+            clientDraftKey: composable.clientDraftKey.value,
+            contentFingerprint: 'different-server-content',
+        })
         expect(composable.draftConflict.value).toBe(true)
 
         mocks.getDraft.mockResolvedValueOnce({
@@ -561,21 +591,12 @@ describe('usePostDraft', () => {
         payloadRef.value = { ...payloadRef.value, title: 'Server title' }
         const appliedCountAfterReload = appliedDrafts.length
 
-        window.dispatchEvent(new StorageEvent('storage', {
-            key: 'noviis:test:draft',
-            newValue: JSON.stringify({
-                draftId: 91,
-                clientDraftKey: 'client-draft-key-1234',
-                version: 2,
-                boardUrl: 'free',
-                title: 'Later server title',
-                contents: 'Draft body',
-                fileIds: [7],
-                updatedAt: '2025-01-03T00:00:00.000Z',
-                clientInstanceId: 'third-tab',
-                hasLocalChanges: false,
-            }),
-        }))
+        dispatchDraftUpdatedEvent({
+            clientDraftKey: composable.clientDraftKey.value,
+            version: 2,
+            updatedAt: '2025-01-03T00:00:00.000Z',
+            contentFingerprint: 'later-server-content',
+        })
 
         expect(composable.draftConflict.value).toBe(true)
         expect(appliedDrafts).toHaveLength(appliedCountAfterReload)
@@ -1297,10 +1318,12 @@ describe('usePostDraft', () => {
 
     it('keeps unsaved revision tracking while drafts are temporarily disabled', async () => {
         const enabled = ref(true)
+        const ownerId = ref<number | null>(7)
         const { composable, payloadRef } = mountComposable(
             undefined,
             ref('noviis:test:draft'),
             enabled,
+            ownerId,
         )
         await composable.saveNow()
         payloadRef.value = { ...payloadRef.value, title: 'Unsaved local edit' }
@@ -1310,20 +1333,10 @@ describe('usePostDraft', () => {
         await nextTick()
         enabled.value = true
         await nextTick()
-        window.dispatchEvent(new StorageEvent('storage', {
-            key: 'noviis:test:draft',
-            newValue: JSON.stringify({
-                draftId: 91,
-                clientDraftKey: 'client-draft-key-1234',
-                version: 1,
-                boardUrl: 'free',
-                title: 'Server edit while disabled',
-                contents: 'Draft body',
-                updatedAt: '2025-01-02T00:00:00.000Z',
-                clientInstanceId: 'other-tab',
-                hasLocalChanges: false,
-            }),
-        }))
+        dispatchDraftUpdatedEvent({
+            clientDraftKey: composable.clientDraftKey.value,
+            contentFingerprint: 'server-edit-while-disabled',
+        })
 
         expect(composable.draftConflict.value).toBe(true)
     })
@@ -2108,40 +2121,6 @@ describe('usePostDraft', () => {
         setItem.mockRestore()
     })
 
-    it('reports evicted draft rollback failures without exposing draft data', async () => {
-        const targetKey = 'noviis:test:draft'
-        const rollbackFailureKey = 'noviis:draft:1:create:free:0'
-        for (let index = 0; index < 5; index++) {
-            Storage.set(`noviis:draft:1:create:free:${index}`, {
-                boardUrl: 'free',
-                title: `draft ${index}`,
-                hasLocalChanges: false,
-                clientModifiedAt: new Date(Date.UTC(2026, 6, 1, 0, index)).toISOString(),
-            })
-        }
-        const originalSet = Storage.setWithResult.bind(Storage)
-        const setItem = vi.spyOn(Storage, 'setWithResult').mockImplementation((key, value) => {
-            if (key === targetKey) return { ok: false, reason: 'quota-exceeded' }
-            if (key === rollbackFailureKey) return { ok: false, reason: 'unavailable' }
-            return originalSet(key, value)
-        })
-        try {
-            const { composable } = mountComposable(undefined, ref(targetKey))
-
-            expect(composable.writeLocalSnapshot()).toBe(false)
-            expect(mocks.loggerError).toHaveBeenCalledWith(
-                'Draft local snapshot rollback failed.',
-                { event: 'draft_local_snapshot_rollback_failed', failedCount: 1 },
-            )
-            expect(mocks.reportDraftOperationalEvent).toHaveBeenCalledWith(
-                'local_storage_rollback_failed',
-                { failedCount: 1 },
-            )
-        } finally {
-            setItem.mockRestore()
-        }
-    })
-
     it('retries a failed server recovery when connectivity returns', async () => {
         mocks.getMatchingDraft.mockRejectedValueOnce(new Error('offline'))
         const { composable } = mountComposable(ref({
@@ -2163,23 +2142,19 @@ describe('usePostDraft', () => {
     })
 
     it('reports a conflict instead of adopting different canonical content from another tab', async () => {
-        const { composable, appliedDrafts } = mountComposable()
+        const ownerId = ref<number | null>(7)
+        const { composable, appliedDrafts } = mountComposable(
+            undefined,
+            ref('noviis:test:draft'),
+            ref(true),
+            ownerId,
+        )
 
-        window.dispatchEvent(new StorageEvent('storage', {
-            key: 'noviis:test:draft',
-            newValue: JSON.stringify({
-                draftId: 91,
-                clientDraftKey: composable.clientDraftKey.value,
-                version: 3,
-                boardUrl: 'free',
-                title: 'Other tab edit',
-                contents: 'Other tab body',
-                fileIds: [],
-                updatedAt: '2026-07-07T13:00:00.000Z',
-                clientInstanceId: 'other-tab',
-                hasLocalChanges: false,
-            }),
-        }))
+        dispatchDraftUpdatedEvent({
+            clientDraftKey: composable.clientDraftKey.value,
+            version: 3,
+            contentFingerprint: 'other-tab-content',
+        })
 
         expect(appliedDrafts).toHaveLength(0)
         expect(composable.draftId.value).toBeNull()
@@ -2238,29 +2213,26 @@ describe('usePostDraft', () => {
     })
 
     it('ignores an update channel event for a different logical draft', async () => {
-        const { composable, appliedDrafts } = mountComposable()
+        const ownerId = ref<number | null>(7)
+        const { composable, appliedDrafts } = mountComposable(
+            undefined,
+            ref('noviis:test:draft'),
+            ref(true),
+            ownerId,
+        )
 
-        window.dispatchEvent(new StorageEvent('storage', {
-            key: 'noviis:test:draft',
-            newValue: JSON.stringify({
-                draftId: 92,
-                clientDraftKey: 'different-draft-key',
-                version: 1,
-                boardUrl: 'free',
-                title: 'Different draft',
-                contents: 'Different body',
-                updatedAt: '2026-07-07T13:00:00.000Z',
-                clientInstanceId: 'other-tab',
-                hasLocalChanges: false,
-            }),
-        }))
+        dispatchDraftUpdatedEvent({
+            draftId: 92,
+            clientDraftKey: 'different-draft-key',
+            contentFingerprint: 'different-draft-content',
+        })
 
         expect(composable.draftId.value).toBeNull()
         expect(appliedDrafts).toHaveLength(0)
         expect(composable.draftConflict.value).toBe(false)
     })
 
-    it('reports compatible unsaved edits from another tab without adopting them', async () => {
+    it('does not use another tab local backup as a change transport', async () => {
         const { composable, appliedDrafts } = mountComposable()
         await composable.saveNow()
 
@@ -2268,60 +2240,43 @@ describe('usePostDraft', () => {
             key: 'noviis:test:draft',
             newValue: JSON.stringify({
                 draftId: 91,
-                clientDraftKey: 'client-draft-key-1234',
-                version: 0,
+                clientDraftKey: composable.clientDraftKey.value,
                 boardUrl: 'free',
                 title: 'Unsaved edit from another tab',
-                contents: 'Draft body',
-                updatedAt: '2025-01-01T00:00:00.000Z',
-                clientModifiedAt: '2025-01-01T00:00:01.000Z',
                 clientInstanceId: 'other-tab',
                 hasLocalChanges: true,
             }),
         }))
 
         expect(appliedDrafts).toHaveLength(0)
-        expect(composable.draftConflict.value).toBe(true)
+        expect(composable.draftConflict.value).toBe(false)
     })
 
     it('clears the notification when the current content is confirmed by the server', async () => {
-        const { composable, appliedDrafts, payloadRef } = mountComposable()
+        const ownerId = ref<number | null>(7)
+        const { composable, appliedDrafts, payloadRef } = mountComposable(
+            undefined,
+            ref('noviis:test:draft'),
+            ref(true),
+            ownerId,
+        )
 
-        window.dispatchEvent(new StorageEvent('storage', {
-            key: 'noviis:test:draft',
-            newValue: JSON.stringify({
-                clientDraftKey: composable.clientDraftKey.value,
-                boardUrl: 'free',
-                title: 'Unsaved edit from another tab',
-                contents: 'Draft body',
-                clientModifiedAt: '2025-01-01T00:00:00.000Z',
-                clientInstanceId: 'other-tab',
-                hasLocalChanges: true,
-            }),
-        }))
+        dispatchDraftUpdatedEvent({
+            clientDraftKey: composable.clientDraftKey.value,
+            contentFingerprint: 'different-content',
+        })
         expect(composable.draftConflict.value).toBe(true)
         expect(appliedDrafts).toHaveLength(0)
 
         payloadRef.value = {
             ...payloadRef.value,
-            title: 'Unsaved edit from another tab',
+            title: 'Confirmed content',
         }
-
-        window.dispatchEvent(new StorageEvent('storage', {
-            key: 'noviis:test:draft',
-            newValue: JSON.stringify({
-                draftId: 91,
-                clientDraftKey: composable.clientDraftKey.value,
-                version: 1,
-                boardUrl: 'free',
-                title: 'Unsaved edit from another tab',
-                contents: 'Draft body',
-                fileIds: [7],
-                updatedAt: '2025-01-02T00:00:00.000Z',
-                clientInstanceId: 'other-tab',
-                hasLocalChanges: false,
-            }),
-        }))
+        dispatchDraftUpdatedEvent({
+            clientDraftKey: composable.clientDraftKey.value,
+            contentFingerprint: createDraftContentFingerprint(payloadRef.value),
+            updatedAt: '2025-01-02T00:00:00.000Z',
+        })
 
         expect(appliedDrafts).toHaveLength(0)
         expect(composable.draftId.value).toBe(91)
@@ -2331,45 +2286,40 @@ describe('usePostDraft', () => {
     })
 
     it('stops autosave when another tab advances the same draft', async () => {
-        const { composable, payloadRef } = mountComposable()
+        const ownerId = ref<number | null>(7)
+        const { composable, payloadRef } = mountComposable(
+            undefined,
+            ref('noviis:test:draft'),
+            ref(true),
+            ownerId,
+        )
         await composable.saveNow()
         payloadRef.value = { ...payloadRef.value, title: 'Unsaved tab edit' }
         composable.writeLocalSnapshot()
 
-        window.dispatchEvent(new StorageEvent('storage', {
-            key: 'noviis:test:draft',
-            newValue: JSON.stringify({
-                draftId: 91,
-                boardUrl: 'free',
-                title: 'Other tab edit',
-                contents: 'Other tab body',
-                updatedAt: '2026-07-07T13:00:00.000Z',
-                clientInstanceId: 'other-tab',
-                hasLocalChanges: false,
-            }),
-        }))
+        dispatchDraftUpdatedEvent({
+            clientDraftKey: composable.clientDraftKey.value,
+            contentFingerprint: 'other-tab-content',
+        })
 
         expect(composable.draftConflict.value).toBe(true)
     })
 
     it('does not replace an already tracked draft with a different draft from another tab', async () => {
-        const { composable, appliedDrafts } = mountComposable()
+        const ownerId = ref<number | null>(7)
+        const { composable, appliedDrafts } = mountComposable(
+            undefined,
+            ref('noviis:test:draft'),
+            ref(true),
+            ownerId,
+        )
         await composable.saveNow()
 
-        window.dispatchEvent(new StorageEvent('storage', {
-            key: 'noviis:test:draft',
-            newValue: JSON.stringify({
-                draftId: 92,
-                clientDraftKey: 'different-draft-key',
-                version: 1,
-                boardUrl: 'free',
-                title: 'Different draft',
-                contents: 'Different body',
-                updatedAt: '2026-07-07T13:00:00.000Z',
-                clientInstanceId: 'other-tab',
-                hasLocalChanges: false,
-            }),
-        }))
+        dispatchDraftUpdatedEvent({
+            draftId: 92,
+            clientDraftKey: 'different-draft-key',
+            contentFingerprint: 'different-draft-content',
+        })
 
         expect(composable.draftId.value).toBe(91)
         expect(appliedDrafts).toHaveLength(0)
@@ -2377,76 +2327,34 @@ describe('usePostDraft', () => {
     })
 
     it('does not apply newer or delayed older canonical content from another tab', async () => {
-        const { composable, appliedDrafts } = mountComposable()
+        const ownerId = ref<number | null>(7)
+        const { composable, appliedDrafts } = mountComposable(
+            undefined,
+            ref('noviis:test:draft'),
+            ref(true),
+            ownerId,
+        )
         await composable.saveNow()
 
-        window.dispatchEvent(new StorageEvent('storage', {
-            key: 'noviis:test:draft',
-            newValue: JSON.stringify({
-                draftId: 91,
-                clientDraftKey: 'client-draft-key-1234',
-                version: 2,
-                boardUrl: 'free',
-                title: 'Newest server edit',
-                contents: 'Newest body',
-                updatedAt: '2025-01-03T00:00:00.000Z',
-                clientInstanceId: 'newer-tab',
-                hasLocalChanges: false,
-            }),
-        }))
-        window.dispatchEvent(new StorageEvent('storage', {
-            key: 'noviis:test:draft',
-            newValue: JSON.stringify({
-                draftId: 91,
-                clientDraftKey: 'client-draft-key-1234',
-                version: 1,
-                boardUrl: 'free',
-                title: 'Delayed older edit',
-                contents: 'Older body',
-                updatedAt: '2025-01-02T00:00:00.000Z',
-                clientInstanceId: 'older-tab',
-                hasLocalChanges: false,
-            }),
-        }))
+        dispatchDraftUpdatedEvent({
+            clientDraftKey: composable.clientDraftKey.value,
+            version: 2,
+            updatedAt: '2025-01-03T00:00:00.000Z',
+            contentFingerprint: 'newest-server-content',
+        })
+        dispatchDraftUpdatedEvent({
+            clientDraftKey: composable.clientDraftKey.value,
+            version: 1,
+            updatedAt: '2025-01-02T00:00:00.000Z',
+            contentFingerprint: 'older-server-content',
+        })
 
         expect(composable.draftVersion.value).toBe(0)
         expect(appliedDrafts).toHaveLength(0)
         expect(composable.draftConflict.value).toBe(true)
     })
 
-    it('ignores an older unsaved tab snapshot after notifying about a newer one', async () => {
-        const { composable, appliedDrafts } = mountComposable()
-
-        window.dispatchEvent(new StorageEvent('storage', {
-            key: 'noviis:test:draft',
-            newValue: JSON.stringify({
-                clientDraftKey: composable.clientDraftKey.value,
-                boardUrl: 'free',
-                title: 'Newest local edit',
-                contents: 'Draft body',
-                clientModifiedAt: '2026-07-07T12:00:02.000Z',
-                clientInstanceId: 'newer-tab',
-                hasLocalChanges: true,
-            }),
-        }))
-        window.dispatchEvent(new StorageEvent('storage', {
-            key: 'noviis:test:draft',
-            newValue: JSON.stringify({
-                clientDraftKey: composable.clientDraftKey.value,
-                boardUrl: 'free',
-                title: 'Delayed older local edit',
-                contents: 'Draft body',
-                clientModifiedAt: '2026-07-07T12:00:01.000Z',
-                clientInstanceId: 'older-tab',
-                hasLocalChanges: true,
-            }),
-        }))
-
-        expect(appliedDrafts).toHaveLength(0)
-        expect(composable.draftConflict.value).toBe(true)
-    })
-
-    it('does not treat local snapshot eviction as server draft deletion', async () => {
+    it('does not treat local backup removal as server draft deletion', async () => {
         const { composable } = mountComposable(undefined, ref('noviis:test:draft'), ref(true), ref(7))
         await composable.saveNow()
         const snapshot = Storage.get<DraftRecoverySnapshot>('noviis:test:draft')

@@ -1,8 +1,5 @@
 import { Storage } from '@/utils/storage'
-import {
-  hasSameDraftContent,
-  type DraftRecoverySnapshot,
-} from '@/features/board/posts/draft/postDraftRecovery'
+import type { DraftRecoverySnapshot } from '@/features/board/posts/draft/postDraftRecovery'
 import {
   isValidDraftBoardUrl,
   normalizeDraftClientIdentifier,
@@ -21,39 +18,15 @@ import {
 
 export const DRAFT_LOCAL_RETENTION_DAYS = 90
 export const DRAFT_SNAPSHOT_SCHEMA_VERSION = 1
-export const MAX_LOCAL_DRAFT_SNAPSHOTS = 50
-export const MAX_LOCAL_DRAFT_BYTES = 3 * 1024 * 1024
-export const MIN_LOCAL_DRAFT_SNAPSHOTS_TO_RETAIN = 3
-export const MAX_PRESERVED_UNKNOWN_DRAFT_SNAPSHOTS = 20
-export const MAX_PRESERVED_UNKNOWN_DRAFT_BYTES = 1024 * 1024
+export const MAX_LOCAL_DRAFT_BACKUP_BYTES = 3 * 1024 * 1024
 const DRAFT_STORAGE_PREFIX = 'noviis:draft:'
 const RETENTION_MS = DRAFT_LOCAL_RETENTION_DAYS * 24 * 60 * 60 * 1000
 const MAX_FUTURE_CLOCK_SKEW_MS = 24 * 60 * 60 * 1000
-
-type StoredDraftEntry = {
-  key: string
-  ownerId: string | null
-  snapshot: DraftRecoverySnapshot
-  rawSize: number
-  modifiedAt: number
-}
-
-type PreservedUnknownDraftEntry = {
-  key: string
-  ownerId: string | null
-  rawSize: number
-  modifiedAt: number
-}
 
 type StoredDraftReadResult =
   | { status: 'valid', snapshot: DraftRecoverySnapshot, rawSize: number }
   | { status: 'preserved-unknown', rawSize: number, modifiedAt: number }
   | { status: 'missing' | 'invalid', rawSize: 0 }
-
-type StoredDraftInventory = {
-  entries: StoredDraftEntry[]
-  preservedUnknownEntries: PreservedUnknownDraftEntry[]
-}
 
 function getSnapshotModifiedAt(snapshot: DraftRecoverySnapshot): number | null {
   for (const value of [snapshot.clientModifiedAt, snapshot.updatedAt, snapshot.modifiedAt]) {
@@ -66,12 +39,6 @@ function getSnapshotModifiedAt(snapshot: DraftRecoverySnapshot): number | null {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value != null && typeof value === 'object' && !Array.isArray(value)
-}
-
-function getDraftOwnerId(key: string): string | null {
-  if (!key.startsWith(DRAFT_STORAGE_PREFIX)) return null
-  const ownerId = key.slice(DRAFT_STORAGE_PREFIX.length).split(':', 1)[0]
-  return ownerId || null
 }
 
 function getUnparseableSnapshotModifiedAt(value: Record<string, unknown>): number | null {
@@ -246,97 +213,11 @@ export function loadStoredDraftSnapshot(key: string, now = Date.now()): DraftRec
   return result.status === 'valid' ? result.snapshot : null
 }
 
-function collectStoredDraftInventory(now = Date.now()): StoredDraftInventory {
-  const entries: StoredDraftEntry[] = []
-  const preservedUnknownEntries: PreservedUnknownDraftEntry[] = []
+export function cleanupExpiredDraftSnapshots(now = Date.now()) {
   for (const key of Storage.keys()) {
     if (!key.startsWith(DRAFT_STORAGE_PREFIX)) continue
-    const result = readStoredDraftSnapshot(key, now)
-    if (result.status === 'preserved-unknown') {
-      preservedUnknownEntries.push({
-        key,
-        ownerId: getDraftOwnerId(key),
-        rawSize: result.rawSize,
-        modifiedAt: result.modifiedAt,
-      })
-      continue
-    }
-    if (result.status !== 'valid') continue
-    entries.push({
-      key,
-      ownerId: getDraftOwnerId(key),
-      snapshot: result.snapshot,
-      rawSize: result.rawSize,
-      modifiedAt: getSnapshotModifiedAt(result.snapshot) ?? now,
-    })
+    readStoredDraftSnapshot(key, now)
   }
-  return { entries, preservedUnknownEntries }
-}
-
-function prunePreservedUnknownEntries(inventory: StoredDraftInventory) {
-  const entries = inventory.preservedUnknownEntries
-    .sort((left, right) => left.modifiedAt - right.modifiedAt || left.key.localeCompare(right.key))
-  let totalBytes = entries.reduce((total, entry) => total + entry.rawSize, 0)
-  let removed = 0
-  while (entries.length > MAX_PRESERVED_UNKNOWN_DRAFT_SNAPSHOTS
-    || totalBytes > MAX_PRESERVED_UNKNOWN_DRAFT_BYTES) {
-    const entry = entries[0]
-    if (!entry) break
-    if (!Storage.remove(entry.key)) break
-    entries.shift()
-    totalBytes -= entry.rawSize
-    removed++
-  }
-  return removed
-}
-
-function getProtectedSnapshotKeys(entries: StoredDraftEntry[]): Set<string> {
-  const entriesByOwner = new Map<string, StoredDraftEntry[]>()
-  for (const entry of entries) {
-    const ownerKey = entry.ownerId ?? `unknown:${entry.key}`
-    const ownerEntries = entriesByOwner.get(ownerKey) ?? []
-    ownerEntries.push(entry)
-    entriesByOwner.set(ownerKey, ownerEntries)
-  }
-
-  const protectedKeys = new Set<string>()
-  for (const ownerEntries of entriesByOwner.values()) {
-    ownerEntries
-      .sort((left, right) => right.modifiedAt - left.modifiedAt || right.key.localeCompare(left.key))
-      .slice(0, MIN_LOCAL_DRAFT_SNAPSHOTS_TO_RETAIN)
-      .forEach((entry) => protectedKeys.add(entry.key))
-  }
-  return protectedKeys
-}
-
-function getRemovableSyncedEntries(entries: StoredDraftEntry[], protectedKey?: string): StoredDraftEntry[] {
-  const protectedKeys = getProtectedSnapshotKeys(entries)
-  if (protectedKey) protectedKeys.add(protectedKey)
-  return entries
-    .filter((entry) => entry.snapshot.hasLocalChanges === false && !protectedKeys.has(entry.key))
-    .sort((left, right) => left.modifiedAt - right.modifiedAt || left.key.localeCompare(right.key))
-}
-
-export function enforceDraftSnapshotBudget(protectedKey?: string, now = Date.now()) {
-  const inventory = collectStoredDraftInventory(now)
-  let removed = prunePreservedUnknownEntries(inventory)
-  const { entries } = inventory
-  let count = entries.length + inventory.preservedUnknownEntries.length
-  let totalBytes = inventory.preservedUnknownEntries.reduce((total, entry) => total + entry.rawSize, 0)
-    + entries.reduce((total, entry) => total + entry.rawSize, 0)
-
-  for (const entry of getRemovableSyncedEntries(entries, protectedKey)) {
-    if (count <= MAX_LOCAL_DRAFT_SNAPSHOTS && totalBytes <= MAX_LOCAL_DRAFT_BYTES) break
-    if (!Storage.remove(entry.key)) continue
-    count--
-    totalBytes -= entry.rawSize
-    removed++
-  }
-  return removed
-}
-
-export function cleanupExpiredDraftSnapshots(now = Date.now()) {
-  enforceDraftSnapshotBudget(undefined, now)
 }
 
 export function clearStoredDraftSnapshotsForUser(userId: string | number) {
@@ -361,18 +242,13 @@ export function countUnsyncedStoredDraftSnapshotsForUser(userId: string | number
   return count
 }
 
-export interface DraftSnapshotStoreResult {
-  stored: boolean
-  rollbackFailedCount: number
-}
+/**
+ * Stores only the latest emergency backup for the supplied editor key.
+ * Other drafts are never inspected, evicted, or rewritten to make space.
+ */
+export function storeDraftSnapshot(key: string, snapshot: DraftRecoverySnapshot): boolean {
+  if (readStoredDraftSnapshot(key).status === 'preserved-unknown') return false
 
-export function storeDraftSnapshotWithBudgetResult(
-  key: string,
-  snapshot: DraftRecoverySnapshot,
-): DraftSnapshotStoreResult {
-  if (readStoredDraftSnapshot(key).status === 'preserved-unknown') {
-    return { stored: false, rollbackFailedCount: 0 }
-  }
   const versionedSnapshot = {
     ...snapshot,
     schemaVersion: DRAFT_SNAPSHOT_SCHEMA_VERSION,
@@ -381,66 +257,10 @@ export function storeDraftSnapshotWithBudgetResult(
   try {
     rawSize = JSON.stringify(versionedSnapshot).length * 2
   } catch {
-    return { stored: false, rollbackFailedCount: 0 }
+    return false
   }
-  if (rawSize > MAX_LOCAL_DRAFT_BYTES) return { stored: false, rollbackFailedCount: 0 }
-
-  const inventory = collectStoredDraftInventory()
-  prunePreservedUnknownEntries(inventory)
-  const candidates = inventory.entries
-    .filter((entry) => entry.key !== key)
-  const protectedKeys = getProtectedSnapshotKeys(candidates)
-  const retainedBytes = candidates
-    .filter((entry) => protectedKeys.has(entry.key))
-    .reduce((total, entry) => total + entry.rawSize, 0)
-  const preservedUnknownBytes = inventory.preservedUnknownEntries
-    .reduce((total, entry) => total + entry.rawSize, 0)
-  if (rawSize + retainedBytes + preservedUnknownBytes > MAX_LOCAL_DRAFT_BYTES) {
-    return { stored: false, rollbackFailedCount: 0 }
-  }
-
-  let projectedCount = candidates.length + inventory.preservedUnknownEntries.length + 1
-  let projectedBytes = candidates.reduce(
-    (total, entry) => total + entry.rawSize,
-    rawSize + preservedUnknownBytes,
-  )
-  const removed: StoredDraftEntry[] = []
-  const removable = getRemovableSyncedEntries(candidates)
-
-  while (removable.length > 0
-    && (projectedCount > MAX_LOCAL_DRAFT_SNAPSHOTS || projectedBytes > MAX_LOCAL_DRAFT_BYTES)) {
-    const candidate = removable.shift()!
-    if (!Storage.remove(candidate.key)) continue
-    removed.push(candidate)
-    projectedCount--
-    projectedBytes -= candidate.rawSize
-  }
-  if (projectedCount > MAX_LOCAL_DRAFT_SNAPSHOTS || projectedBytes > MAX_LOCAL_DRAFT_BYTES) {
-    return { stored: false, rollbackFailedCount: restoreRemovedDraftEntries(removed) }
-  }
-
-  let result = Storage.setWithResult(key, versionedSnapshot)
-  while (!result.ok && result.reason === 'quota-exceeded' && removable.length > 0) {
-    const candidate = removable.shift()!
-    if (!Storage.remove(candidate.key)) continue
-    removed.push(candidate)
-    result = Storage.setWithResult(key, versionedSnapshot)
-  }
-  if (result.ok) return { stored: true, rollbackFailedCount: 0 }
-
-  return { stored: false, rollbackFailedCount: restoreRemovedDraftEntries(removed) }
-}
-
-export function storeDraftSnapshotWithBudget(key: string, snapshot: DraftRecoverySnapshot): boolean {
-  return storeDraftSnapshotWithBudgetResult(key, snapshot).stored
-}
-
-function restoreRemovedDraftEntries(entries: StoredDraftEntry[]) {
-  let failedCount = 0
-  for (const entry of entries) {
-    if (!Storage.setWithResult(entry.key, entry.snapshot).ok) failedCount++
-  }
-  return failedCount
+  if (rawSize > MAX_LOCAL_DRAFT_BACKUP_BYTES) return false
+  return Storage.setWithResult(key, versionedSnapshot).ok
 }
 
 export function migrateStoredDraftSnapshot(
@@ -459,23 +279,17 @@ export function migrateStoredDraftSnapshot(
 
   const targetSnapshot = loadStoredDraftSnapshot(targetKey)
   if (targetSnapshot?.draftId != null && targetSnapshot.draftId !== expectedDraftId) return false
+
   if (targetSnapshot) {
-    const sameContent = hasSameDraftContent(legacySnapshot, targetSnapshot)
-    if (!sameContent && legacySnapshot.hasLocalChanges !== targetSnapshot.hasLocalChanges) {
-      if (targetSnapshot.hasLocalChanges === true) return Storage.remove(legacyKey)
-    } else {
-      const legacyModifiedAt = Date.parse(legacySnapshot.clientModifiedAt ?? '')
-      const targetModifiedAt = Date.parse(targetSnapshot.clientModifiedAt ?? '')
-      if (Number.isFinite(legacyModifiedAt) && Number.isFinite(targetModifiedAt)) {
-        if (targetModifiedAt > legacyModifiedAt) return Storage.remove(legacyKey)
-        if (targetModifiedAt === legacyModifiedAt && !sameContent) return false
-      } else if (!sameContent) {
-        return false
-      }
+    if (targetSnapshot.hasLocalChanges === true) return Storage.remove(legacyKey)
+    if (legacySnapshot.hasLocalChanges !== true) {
+      const legacyModifiedAt = getSnapshotModifiedAt(legacySnapshot) ?? 0
+      const targetModifiedAt = getSnapshotModifiedAt(targetSnapshot) ?? 0
+      if (targetModifiedAt >= legacyModifiedAt) return Storage.remove(legacyKey)
     }
   }
 
-  if (!storeDraftSnapshotWithBudget(targetKey, {
+  if (!storeDraftSnapshot(targetKey, {
     ...legacySnapshot,
     draftId: expectedDraftId,
   })) return false
