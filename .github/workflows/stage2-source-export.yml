@@ -29,6 +29,7 @@ jobs:
               exit 1
             fi
           done
+          sed -i 's/let localRevision = options.localRevision ?? 0/const localRevision = options.localRevision ?? 0/' frontend/src/features/board/posts/draft/__tests__/postDraftCrossTabReconciler.spec.ts
       - uses: actions/setup-node@v4
         with:
           node-version: 24
