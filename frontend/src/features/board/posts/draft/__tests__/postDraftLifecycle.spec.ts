@@ -80,17 +80,40 @@ describe('draft browser lifecycle', () => {
     }))
   })
 
-  it('rejects unassociated upload metadata outside the draft file list', () => {
+  it('drops invalid unassociated upload metadata without deleting draft content', () => {
     const key = 'noviis:draft:1:create:free:new'
     Storage.set(key, {
       boardUrl: 'free',
-      fileIds: [7],
-      unassociatedUploadFileIds: [8],
+      title: 'recover me',
+      contents: '<p>important draft</p>',
+      fileIds: [7, 8],
+      unassociatedUploadFileIds: [8, 9, -1, 'invalid', 8],
       clientModifiedAt: '2026-08-02T00:00:00.000Z',
     })
 
-    expect(loadStoredDraftSnapshot(key)).toBeNull()
-    expect(Storage.has(key)).toBe(false)
+    expect(loadStoredDraftSnapshot(key)).toEqual(expect.objectContaining({
+      title: 'recover me',
+      contents: '<p>important draft</p>',
+      unassociatedUploadFileIds: [8],
+    }))
+    expect(Storage.has(key)).toBe(true)
+  })
+
+  it('ignores malformed unassociated upload metadata without deleting draft content', () => {
+    const key = 'noviis:draft:1:create:free:new'
+    Storage.set(key, {
+      boardUrl: 'free',
+      title: 'recover me',
+      fileIds: [7],
+      unassociatedUploadFileIds: 'invalid',
+      clientModifiedAt: '2026-08-02T00:00:00.000Z',
+    })
+
+    expect(loadStoredDraftSnapshot(key)).toEqual(expect.objectContaining({
+      title: 'recover me',
+      unassociatedUploadFileIds: undefined,
+    }))
+    expect(Storage.has(key)).toBe(true)
   })
 
   it('migrates legacy boolean tombstones to timestamped records', () => {

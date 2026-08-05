@@ -162,13 +162,6 @@ export function parseDraftRecoverySnapshot(
     && (!Array.isArray(value.tags) || !value.tags.every((tag) => typeof tag === 'string'))) return null
   if (value.fileIds !== undefined
     && (!Array.isArray(value.fileIds) || !value.fileIds.every((id) => Number.isInteger(id) && id > 0))) return null
-  if (value.unassociatedUploadFileIds !== undefined
-    && (!Array.isArray(value.unassociatedUploadFileIds)
-      || value.unassociatedUploadFileIds.length > POST_FILE_MAX_COUNT
-      || !value.unassociatedUploadFileIds.every((id) => Number.isInteger(id)
-        && id > 0
-        && Array.isArray(value.fileIds)
-        && value.fileIds.includes(id)))) return null
   if (!isOptionalBoolean(value.isNotice) || !isOptionalBoolean(value.isNsfw)
     || !isOptionalBoolean(value.isSpoiler) || !isOptionalBoolean(value.isSecret)
     || !isOptionalBoolean(value.hasLocalChanges) || !isOptionalBoolean(value.staleReferencesReset)
@@ -179,8 +172,17 @@ export function parseDraftRecoverySnapshot(
     && Date.parse(value.clientModifiedAt) > now + MAX_FUTURE_CLOCK_SKEW_MS) return null
 
   const fallbackModifiedAt = getSnapshotModifiedAt(value as unknown as DraftRecoverySnapshot) ?? now
+  const draftFileIds = new Set(Array.isArray(value.fileIds) ? value.fileIds : [])
+  const unassociatedUploadFileIds = Array.isArray(value.unassociatedUploadFileIds)
+    ? [...new Set(value.unassociatedUploadFileIds
+        .filter((id): id is number => Number.isInteger(id) && Number(id) > 0 && draftFileIds.has(id as number)))]
+        .slice(0, POST_FILE_MAX_COUNT)
+    : []
   return {
     ...value,
+    unassociatedUploadFileIds: unassociatedUploadFileIds.length > 0
+      ? unassociatedUploadFileIds
+      : undefined,
     clientDraftKey: normalizeDraftClientIdentifier(value.clientDraftKey),
     clientInstanceId: normalizeDraftClientIdentifier(value.clientInstanceId),
     contractValidationFailed: value.contractValidationFailed === true
