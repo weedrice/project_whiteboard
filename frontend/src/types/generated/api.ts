@@ -4145,6 +4145,8 @@ export interface components {
             boardUrl?: string;
             /** Format: int64 */
             draftId?: number;
+            /** Format: int64 */
+            version?: number;
             /** Format: date-time */
             modifiedAt?: string;
             /** Format: int64 */

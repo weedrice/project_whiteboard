@@ -27,6 +27,7 @@ public class DraftListResponse {
     @Builder
     public static class DraftSummary {
         private Long draftId;
+        private Long version;
         private String title;
         private Long boardId;
         private String boardUrl;
@@ -40,6 +41,7 @@ public class DraftListResponse {
         List<DraftSummary> content = draftPage.getContent().stream()
                 .map(draft -> DraftSummary.builder()
                         .draftId(draft.getDraftId())
+                        .version(draft.getVersion())
                         .title(draft.getTitle())
                         .boardId(draft.getBoard().getBoardId())
                         .boardUrl(draft.getBoard().getBoardUrl())

@@ -113,6 +113,7 @@ export const userEn: UserMessages = {
     editDraft: 'Edit draft',
     deleteConfirm: 'Delete this draft?',
     deleted: 'The draft has been deleted.',
+    deleteOutdated: 'The draft changed elsewhere, so it was not deleted. The list has been refreshed.',
     deleteFailed: 'Failed to delete the draft.',
     retentionNotice: 'Server drafts are kept for {days} days after the last edit, up to {max} drafts. Explicit logout also removes local recovery copies from this browser.',
     expiresAt: 'Expires {date}',

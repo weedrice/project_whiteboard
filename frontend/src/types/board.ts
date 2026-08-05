@@ -300,6 +300,7 @@ export interface HomeLandingResponse {
 
 export interface DraftPostSummary {
     draftId: number
+    version: number
     title?: string
     boardId: number
     boardUrl: string

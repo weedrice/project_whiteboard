@@ -42,8 +42,8 @@ vi.mock('@/composables/usePaginatedListState', () => ({
       return {
         page: ref(0), size: ref(15), handlePageChange: vi.fn(), handleSizeChange: vi.fn(),
         items: ref([
-          { draftId: 1, title: ' Draft ', boardUrl: 'news', boardName: 'News', updatedAt: '2026-07-01', originalPostId: 3 },
-          { draftId: 2, title: ' ', boardUrl: 'free', boardName: '', modifiedAt: '2026-07-02', originalPostId: null },
+          { draftId: 1, version: 4, title: ' Draft ', boardUrl: 'news', boardName: 'News', updatedAt: '2026-07-01', originalPostId: 3 },
+          { draftId: 2, version: 2, title: ' ', boardUrl: 'free', boardName: '', modifiedAt: '2026-07-02', originalPostId: null },
         ]),
         totalPages: ref(1), isLoading: ref(false), errorMessage: ref(''), refetch: mocks.draftRefetch,
         data: ref({ retentionDays: 45, maxDraftsPerUser: 25 }),
@@ -107,7 +107,7 @@ describe('DraftList', () => {
     await buttons.at(-1)!.trigger('click')
     await flushPromises()
 
-    expect(mocks.deleteDraft).toHaveBeenCalledWith({ draftId: 1 })
+    expect(mocks.deleteDraft).toHaveBeenCalledWith({ draftId: 1, version: 4 })
     expect(mocks.markDeleted).toHaveBeenCalledWith(7, 1)
     expect(mocks.cancelScheduledPost).toHaveBeenCalledWith(10)
     expect(mocks.invalidateQueries).toHaveBeenCalledTimes(2)
@@ -148,6 +148,21 @@ describe('DraftList', () => {
     expect(mocks.deleteDraft).not.toHaveBeenCalled()
     expect(mocks.markDeleted).not.toHaveBeenCalled()
     expect(mocks.addToast).not.toHaveBeenCalled()
+  })
+
+  it('refreshes the list instead of deleting when the draft version is outdated', async () => {
+    mocks.deleteDraft.mockRejectedValueOnce({
+      isAxiosError: true,
+      response: { status: 409, data: { error: { code: 'P004' } } },
+    })
+    const wrapper = mountList()
+
+    await wrapper.findAll('button')[0].trigger('click')
+    await flushPromises()
+
+    expect(mocks.markDeleted).not.toHaveBeenCalled()
+    expect(mocks.addToast).toHaveBeenCalledWith('user.draftList.deleteOutdated', 'warning')
+    expect(mocks.draftRefetch).toHaveBeenCalled()
   })
 
   it('does not show a stale failure after the account changes during a mutation', async () => {

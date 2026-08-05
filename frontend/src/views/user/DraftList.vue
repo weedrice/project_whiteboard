@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { isAxiosError } from 'axios'
 import { useQueryClient } from '@tanstack/vue-query'
 import { CalendarClock, ExternalLink, FileEdit, Pencil, Trash2, XCircle } from 'lucide-vue-next'
 import { RouterLink } from 'vue-router'
@@ -12,6 +13,7 @@ import { useConfirm } from '@/composables/useConfirm'
 import { useUser, userQueryKeys } from '@/features/user/useUser'
 import { usePost } from '@/features/board/posts/queries/usePost'
 import { markDraftDeletedLocally } from '@/features/board/posts/draft/postDraftTombstone'
+import { API_ERROR_CODES } from '@/api/errorCodes'
 import { reportDraftOperationalEvent } from '@/utils/clientErrorReporter'
 import { useAuthStore } from '@/stores/auth'
 import { useToastStore } from '@/stores/toast'
@@ -28,6 +30,13 @@ const authStore = useAuthStore()
 const toastStore = useToastStore()
 const { confirm } = useConfirm()
 const { useMyDrafts, useMyScheduledPosts } = useUser()
+
+function isDraftDeleteOutdatedError(error: unknown) {
+  if (!isAxiosError(error) || error.response?.status !== 409) return false
+  const data = error.response.data as { code?: string, error?: { code?: string } } | undefined
+  return data?.code === API_ERROR_CODES.DRAFT_OUTDATED
+    || data?.error?.code === API_ERROR_CODES.DRAFT_OUTDATED
+}
 const { useDeleteDraft, useCancelScheduledPost } = usePost()
 
 const {
@@ -110,7 +119,7 @@ async function handleDeleteDraft(draft: DraftPostSummary) {
   if (!isAuthSessionIntentCurrent(authStore, intent)) return
 
   try {
-    await deleteDraft({ draftId })
+    await deleteDraft({ draftId, version: draft.version })
     if (!isAuthSessionIntentCurrent(authStore, intent)) return
     if (userId != null) {
       if (!markDraftDeletedLocally(userId, draftId)) {
@@ -120,8 +129,14 @@ async function handleDeleteDraft(draft: DraftPostSummary) {
     toastStore.addToast(t('user.draftList.deleted'), 'success')
     queryClient.invalidateQueries({ queryKey: sessionQueryKey(intent.sessionGeneration, userQueryKeys.draftsRoot) })
     refetch()
-  } catch {
+  } catch (error: unknown) {
     if (!isAuthSessionIntentCurrent(authStore, intent)) return
+    if (isDraftDeleteOutdatedError(error)) {
+      toastStore.addToast(t('user.draftList.deleteOutdated'), 'warning')
+      queryClient.invalidateQueries({ queryKey: sessionQueryKey(intent.sessionGeneration, userQueryKeys.draftsRoot) })
+      refetch()
+      return
+    }
     toastStore.addToast(t('user.draftList.deleteFailed'), 'error')
   }
 }

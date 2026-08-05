@@ -3756,6 +3756,7 @@ class PostServiceTest {
                 .contents("Draft Content")
                 .build();
         ReflectionTestUtils.setField(draft, "draftId", 11L);
+        ReflectionTestUtils.setField(draft, "version", 4L);
         when(draftPostRepository.findPageByUserWithBoard(eq(user), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(draft), PageRequest.of(0, 10), 1));
 
@@ -3763,6 +3764,7 @@ class PostServiceTest {
 
         assertThat(response.getContent()).hasSize(1);
         assertThat(response.getContent().getFirst().getDraftId()).isEqualTo(11L);
+        assertThat(response.getContent().getFirst().getVersion()).isEqualTo(4L);
         assertThat(response.getContent().getFirst().getBoardName()).isEqualTo("Test Board");
         assertThat(response.getRetentionDays()).isEqualTo(90);
         assertThat(response.getMaxDraftsPerUser()).isEqualTo(100);

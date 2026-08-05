@@ -711,6 +711,7 @@ export interface UserMessages {
     editDraft: string
     deleteConfirm: string
     deleted: string
+    deleteOutdated: string
     deleteFailed: string
     retentionNotice: string
     expiresAt: string
