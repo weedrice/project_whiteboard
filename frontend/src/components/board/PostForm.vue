@@ -82,6 +82,7 @@ const routeFormIdentity = computed(() => [
   props.mode,
   boardUrl.value || 'unknown',
   scheduledPostId.value ? `scheduled-${scheduledPostId.value}` : (postId.value || 'new'),
+  preferredDraftId.value ?? 'default-draft',
 ].join(':'))
 const formIdentity = computed(() => [
   authStore.sessionGeneration,

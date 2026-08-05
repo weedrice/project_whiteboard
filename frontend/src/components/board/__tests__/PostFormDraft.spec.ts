@@ -420,6 +420,8 @@ describe('PostForm draft behavior', () => {
       boardUrl: 'free',
       title: 'First draft',
       contents: 'First body',
+      fileIds: [61],
+      unassociatedUploadFileIds: [61],
       clientModifiedAt: '2026-08-02T00:00:00.000Z',
       hasLocalChanges: true,
     })
@@ -434,12 +436,18 @@ describe('PostForm draft behavior', () => {
     const wrapper = mountPostForm('create', {}, {}, { postId: '', initialDraftId: '91' })
     await flushPromises()
     expect(wrapper.get('#title').element).toHaveProperty('value', 'First draft')
+    expect(Storage.get('noviis:draft:1:create:free:new:draft-91')).toEqual(expect.objectContaining({
+      fileIds: [61],
+    }))
 
     await wrapper.setProps({ initialDraftId: '92' })
     await flushPromises()
 
     expect(wrapper.get('#title').element).toHaveProperty('value', 'Second draft')
     expect(wrapper.get('[data-testid="editor-input"]').element).toHaveProperty('value', 'Second body')
+    expect(Storage.get('noviis:draft:1:create:free:new:draft-91')).toEqual(expect.objectContaining({
+      fileIds: [61],
+    }))
   })
 
   it('keeps a restored server snapshot canonical instead of marking it locally changed', async () => {
