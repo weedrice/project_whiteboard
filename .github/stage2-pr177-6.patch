@@ -1,0 +1,90 @@
+diff --git a/frontend/src/features/board/posts/draft/postDraftUpdatedEvent.ts b/frontend/src/features/board/posts/draft/postDraftUpdatedEvent.ts
+index 45ea224..791f1ef 100644
+--- a/frontend/src/features/board/posts/draft/postDraftUpdatedEvent.ts
++++ b/frontend/src/features/board/posts/draft/postDraftUpdatedEvent.ts
+@@ -3,12 +3,6 @@ import {
+   isValidDraftCrossTabEventEnvelope,
+   type DraftCrossTabEventBase,
+ } from '@/features/board/posts/draft/postDraftCrossTabChannel'
+-import {
+-  parseDraftRecoverySnapshot,
+-} from '@/features/board/posts/draft/postDraftLifecycle'
+-import type {
+-  DraftRecoverySnapshot,
+-} from '@/features/board/posts/draft/postDraftRecovery'
+ 
+ const DRAFT_UPDATED_CHANNEL = 'noviis-draft-updated'
+ const DRAFT_UPDATED_EVENT_KEY = 'noviis:draft-updated-event'
+@@ -16,24 +10,48 @@ const DRAFT_UPDATED_EVENT_KEY = 'noviis:draft-updated-event'
+ export interface DraftUpdatedEvent extends DraftCrossTabEventBase {
+   type: 'draft-updated'
+   ownerId: string
+-  storageKey: string
+-  snapshot: DraftRecoverySnapshot
++  draftId: number
++  clientDraftKey: string
++  version: number | null
++  updatedAt: string
++  contentFingerprint: string
+ }
+ 
+ type DraftUpdatedListener = (message: DraftUpdatedEvent) => void
++type DraftUpdatedPayload = Omit<DraftUpdatedEvent, keyof DraftCrossTabEventBase | 'type' | 'ownerId'>
+ 
+ function parseDraftUpdatedEvent(value: unknown): DraftUpdatedEvent | null {
+   if (!isValidDraftCrossTabEventEnvelope(value, 'draft-updated')) return null
+   const message = value as Partial<DraftUpdatedEvent>
+-  const snapshot = parseDraftRecoverySnapshot(message.snapshot)
++  const validVersion = message.version === null
++    || (typeof message.version === 'number' && Number.isInteger(message.version) && message.version >= 0)
+   if (typeof message.ownerId !== 'string'
+     || message.ownerId.length === 0
+     || message.ownerId.length > 64
+-    || typeof message.storageKey !== 'string'
+-    || message.storageKey.length === 0
+-    || message.storageKey.length > 512
+-    || !snapshot) return null
+-  return { ...message, snapshot } as DraftUpdatedEvent
++    || typeof message.draftId !== 'number'
++    || !Number.isInteger(message.draftId)
++    || message.draftId <= 0
++    || typeof message.clientDraftKey !== 'string'
++    || message.clientDraftKey.length === 0
++    || message.clientDraftKey.length > 128
++    || !validVersion
++    || typeof message.updatedAt !== 'string'
++    || !Number.isFinite(Date.parse(message.updatedAt))
++    || typeof message.contentFingerprint !== 'string'
++    || message.contentFingerprint.length === 0
++    || message.contentFingerprint.length > 128) return null
++  return {
++    type: 'draft-updated',
++    eventId: message.eventId!,
++    sourceId: message.sourceId!,
++    at: message.at!,
++    ownerId: message.ownerId,
++    draftId: message.draftId,
++    clientDraftKey: message.clientDraftKey,
++    version: message.version as number | null,
++    updatedAt: message.updatedAt,
++    contentFingerprint: message.contentFingerprint,
++  }
+ }
+ 
+ const draftUpdatedChannel = createDraftCrossTabChannel<DraftUpdatedEvent>({
+@@ -45,14 +63,12 @@ const draftUpdatedChannel = createDraftCrossTabChannel<DraftUpdatedEvent>({
+ 
+ export function publishDraftUpdatedEvent(
+   ownerId: string | number,
+-  storageKey: string,
+-  snapshot: DraftRecoverySnapshot,
++  payload: DraftUpdatedPayload,
+ ) {
+   draftUpdatedChannel.publish({
+     type: 'draft-updated',
+     ownerId: String(ownerId),
+-    storageKey,
+-    snapshot,
++    ...payload,
+   })
+ }
