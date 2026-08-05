@@ -137,13 +137,19 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
         }), 'warning')
       }
     },
-    onServerReferencesReset: (savedDraft, payload) => applyDraftWithoutTracking({
-      ...options.buildPayload('draft'),
-      categoryId: savedDraft.categoryId
-        ?? (payload.categoryId != null ? options.firstCategoryId.value ?? null : null),
-      fileIds: savedDraft.fileIds ?? [],
-      seriesId: savedDraft.seriesId ?? null,
-    }),
+    onServerReferencesReset: (savedDraft, payload) => {
+      const recoveredPayload = {
+        ...options.buildPayload('draft'),
+        boardUrl: options.boardUrl.value,
+        originalPostId: options.mode() === 'edit' ? Number(options.postId.value) : undefined,
+        categoryId: savedDraft.categoryId
+          ?? (payload.categoryId != null ? options.firstCategoryId.value ?? null : null),
+        fileIds: savedDraft.fileIds ?? [],
+        seriesId: savedDraft.seriesId ?? null,
+      }
+      applyDraftWithoutTracking(recoveredPayload)
+      return recoveredPayload
+    },
     prepareStaleSnapshot: prepareRecoveredSnapshot,
     onStaleReferencesReset: () => options.addToast(
       options.t('board.writePost.draftStatus.referencesReset'),

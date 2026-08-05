@@ -296,7 +296,7 @@ describe('PostForm draft behavior', () => {
       { categoryId: 12, name: 'General', minWriteRole: 'USER' },
       { categoryId: 99, name: 'Removed soon', minWriteRole: 'USER' },
     ])
-    const wrapper = mountPostForm('create')
+    const wrapper = mountPostForm('create', {}, {}, { postId: '' })
     await flushPromises()
     await wrapper.get('#title').setValue('Draft with category')
     await wrapper.get('#category').setValue('99')
@@ -323,12 +323,45 @@ describe('PostForm draft behavior', () => {
           updatedAt: '2026-08-05T00:00:00.000Z',
         },
       },
+    }).mockResolvedValueOnce({
+      data: {
+        data: {
+          draftId: 91,
+          version: 2,
+          boardId: 1,
+          boardUrl: 'free',
+          boardName: 'Free',
+          title: 'Draft with category',
+          contents: '',
+          categoryId: 12,
+          tags: [],
+          fileIds: [],
+          seriesId: null,
+          isNotice: false,
+          isNsfw: false,
+          isSpoiler: false,
+          isSecret: false,
+          staleReferencesReset: false,
+          updatedAt: '2026-08-05T00:00:01.000Z',
+        },
+      },
     })
 
     await findButtonByText(wrapper, 'board.writePost.actions.saveDraft').trigger('click')
     await flushPromises()
 
     expect(wrapper.get('#category').element).toHaveProperty('value', '12')
+    expect(mockSaveDraftMutateAsync).toHaveBeenCalledTimes(2)
+    expect(mockSaveDraftMutateAsync).toHaveBeenLastCalledWith(expect.objectContaining({
+      draftId: 91,
+      version: 1,
+      categoryId: 12,
+    }))
+    expect(Storage.get('noviis:draft:1:create:free:new:draft-91')).toEqual(expect.objectContaining({
+      categoryId: 12,
+      version: 2,
+      hasLocalChanges: false,
+    }))
     expect(mockAddToast).toHaveBeenCalledWith(
       'board.writePost.draftStatus.referencesReset',
       'warning',

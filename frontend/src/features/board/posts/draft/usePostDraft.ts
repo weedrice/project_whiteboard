@@ -65,7 +65,7 @@ interface UsePostDraftOptions {
     prepareRecoveredSnapshot?: (snapshot: DraftRecoverySnapshot) => DraftRecoverySnapshot
     onSaved?: () => void
     onServerSaved?: (payload: PostDraftData, savedDraft: DraftPost) => void
-    onServerReferencesReset?: (savedDraft: DraftPost, payload: PostDraftData) => void
+    onServerReferencesReset?: (savedDraft: DraftPost, payload: PostDraftData) => PostDraftData | void
     prepareStaleSnapshot?: (snapshot: DraftRecoverySnapshot) => DraftRecoverySnapshot
     onStaleReferencesReset?: () => void
     canPersist?: () => boolean
@@ -364,7 +364,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         }
 
         storeLocalSnapshot(createDraftRecoverySnapshot(payload, draftId.value, updatedAt.value))
-        const savedDraft = unwrapAxiosApiData(await savePayload(payload))
+        let savedDraft = unwrapAxiosApiData(await savePayload(payload))
         options.onServerSaved?.(payload, savedDraft)
         if (generation !== sessionGeneration) return null
         draftId.value = savedDraft.draftId
@@ -374,13 +374,32 @@ export function usePostDraft(options: UsePostDraftOptions) {
         lastSavedAt.value = updatedAt.value
         lastSaveScope.value = 'server'
         staleReferencesReset.value = Boolean(savedDraft.staleReferencesReset)
+        let canonicalPayload = payload
         if (staleReferencesReset.value) {
-            options.onServerReferencesReset?.(savedDraft, payload)
+            const recoveredPayload = options.onServerReferencesReset?.(savedDraft, payload)
             options.onStaleReferencesReset?.()
+            const recoveredCategoryId = recoveredPayload?.categoryId ?? null
+            const savedCategoryId = savedDraft.categoryId ?? null
+            if (recoveredPayload && recoveredCategoryId !== savedCategoryId) {
+                canonicalPayload = recoveredPayload
+                storeLocalSnapshot(createDraftRecoverySnapshot(
+                    recoveredPayload,
+                    savedDraft.draftId,
+                    updatedAt.value,
+                ))
+                savedDraft = unwrapAxiosApiData(await savePayload(recoveredPayload))
+                options.onServerSaved?.(recoveredPayload, savedDraft)
+                if (generation !== sessionGeneration) return null
+                draftId.value = savedDraft.draftId
+                draftVersion.value = savedDraft.version ?? null
+                clientDraftKey.value = savedDraft.clientDraftKey ?? clientDraftKey.value
+                updatedAt.value = getDraftUpdatedAt(savedDraft) ?? new Date().toISOString()
+                lastSavedAt.value = updatedAt.value
+            }
         }
         contractValidationFailed.value = false
         const canonicalSnapshot = {
-            ...createStoredSavedDraftSnapshot(payload, savedDraft, updatedAt.value),
+            ...createStoredSavedDraftSnapshot(canonicalPayload, savedDraft, updatedAt.value),
             clientInstanceId,
         }
         if (revision === localRevision) {
