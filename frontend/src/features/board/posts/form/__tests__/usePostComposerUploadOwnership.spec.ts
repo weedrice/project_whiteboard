@@ -102,4 +102,18 @@ describe('usePostComposerUploadOwnership', () => {
     scope.stop()
     expect(discardUploadsMock).toHaveBeenCalledWith([53], { skipGlobalErrorHandler: true })
   })
+
+  it('restores upload ownership when discard fails so cleanup can be retried', async () => {
+    discardUploadsMock.mockRejectedValueOnce(new Error('network unavailable'))
+    const { scope, ownership } = createOwnership()
+    ownership.recordUploadedFile(71)
+
+    ownership.discardAllOwnedUploads()
+    await vi.waitFor(() => expect(ownership.ownedUploadedFileIds.value).toEqual([71]))
+
+    ownership.discardAllOwnedUploads()
+    await vi.waitFor(() => expect(ownership.ownedUploadedFileIds.value).toEqual([]))
+    expect(discardUploadsMock).toHaveBeenCalledTimes(2)
+    scope.stop()
+  })
 })

@@ -38,6 +38,7 @@ export function usePostComposerUploadOwnership(options: UsePostComposerUploadOwn
     try {
       await fileApi.discardUploads(discardedIds, { skipGlobalErrorHandler: true })
     } catch (error) {
+      adoptUploadedFiles(discardedIds)
       logger.warn('Failed to discard unowned post editor uploads:', error)
     }
   }
