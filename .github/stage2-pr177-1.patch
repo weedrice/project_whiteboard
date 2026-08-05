@@ -1,0 +1,40 @@
+diff --git a/frontend/src/composables/__tests__/usePostDraft.spec.ts b/frontend/src/composables/__tests__/usePostDraft.spec.ts
+index 2097896..fce2508 100644
+--- a/frontend/src/composables/__tests__/usePostDraft.spec.ts
++++ b/frontend/src/composables/__tests__/usePostDraft.spec.ts
+@@ -16,6 +16,7 @@ import {
+     type DraftScheduledEvent,
+ } from '@/features/board/posts/draft/postDraftScheduledEvent'
+ import { closeDraftUpdatedChannelForTest } from '@/features/board/posts/draft/postDraftUpdatedEvent'
++import { createDraftContentFingerprint } from '@/features/board/posts/draft/postDraftRecovery'
+ 
+ const mocks = vi.hoisted(() => {
+     const saveDraftMutateAsync = vi.fn()
+@@ -2217,21 +2218,17 @@ describe('usePostDraft', () => {
+             eventId: 'updated-event-1',
+             sourceId: 'other-tab',
+             ownerId: '7',
+-            storageKey: 'noviis:test:draft:91',
+             at: Date.now(),
+-            snapshot: {
+-                draftId: 91,
+-                clientDraftKey: composable.clientDraftKey.value,
+-                version: 1,
++            draftId: 91,
++            clientDraftKey: composable.clientDraftKey.value,
++            version: 1,
++            updatedAt: '2026-07-07T13:00:00.000Z',
++            contentFingerprint: createDraftContentFingerprint({
+                 boardUrl: 'free',
+                 title: 'Draft title',
+                 contents: 'Draft body',
+                 fileIds: [7],
+-                updatedAt: '2026-07-07T13:00:00.000Z',
+-                clientModifiedAt: '2026-07-07T13:00:00.000Z',
+-                clientInstanceId: 'other-tab',
+-                hasLocalChanges: false,
+-            },
++            }),
+         })
+ 
+         expect(composable.draftId.value).toBe(91)
