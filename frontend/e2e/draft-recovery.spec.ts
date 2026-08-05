@@ -3,8 +3,9 @@ import { installMockApi, login, type MockApiState } from './fixtures/mockApi'
 
 const editor = (page: Page) => page.locator('.ProseMirror').first()
 
-async function openComposer(page: Page) {
-  await page.goto('/board/general/write')
+async function openComposer(page: Page, draftId?: number) {
+  const query = draftId == null ? '' : `?draftId=${draftId}`
+  await page.goto(`/board/general/write${query}`)
   await expect(page.locator('#title')).toBeVisible()
   await expect(page.getByText('자동 임시 저장이 준비되었습니다.', { exact: true }).first()).toBeVisible()
 }
@@ -54,7 +55,7 @@ test('an edit made during slow recovery is preserved and reported as a conflict'
   })
   await login(page)
 
-  await page.goto('/board/general/write')
+  await page.goto('/board/general/write?draftId=91')
   await expect.poll(() => state.draftGetCount).toBe(1)
   await page.locator('#title').fill('Typed while restoring')
 
@@ -102,13 +103,15 @@ test('retry after a dropped response reuses the client key and one logical draft
 })
 
 test('tabs synchronize clean saves but preserve a local edit when the other tab advances', async ({ page, context }) => {
-  const state = await installMockApi(page)
+  const state = await installMockApi(page, { draft: serverDraft() })
   await login(page)
-  await openComposer(page)
+  await openComposer(page, 91)
+  await expect(page.locator('#title')).toHaveValue('Server title')
 
   const secondPage = await context.newPage()
   await installMockApi(secondPage, {}, state as MockApiState)
-  await openComposer(secondPage)
+  await openComposer(secondPage, 91)
+  await expect(secondPage.locator('#title')).toHaveValue('Server title')
 
   await page.locator('#title').fill('Saved in first tab')
   await expect.poll(() => state.draftSaveCount).toBe(1)
