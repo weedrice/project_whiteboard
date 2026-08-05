@@ -1279,6 +1279,47 @@ describe('usePostDraft', () => {
         })
     })
 
+    it('saves new input as a new draft when it arrives during empty draft deletion', async () => {
+        const { composable, payloadRef } = mountComposable(
+            undefined,
+            ref('noviis:test:draft'),
+            ref(true),
+            ref(7),
+        )
+        await composable.saveNow()
+        payloadRef.value = {
+            ...payloadRef.value,
+            title: '',
+            contents: '',
+            fileIds: [],
+        }
+        composable.writeLocalSnapshot()
+        let resolveDelete!: (value: unknown) => void
+        mocks.deleteDraftMutateAsync.mockImplementationOnce(() => new Promise((resolve) => {
+            resolveDelete = resolve
+        }))
+        mocks.saveDraftMutateAsync.mockClear()
+
+        const pendingSave = composable.saveNow()
+        await Promise.resolve()
+        payloadRef.value = {
+            ...payloadRef.value,
+            title: 'Typed during deletion',
+            contents: 'Preserve and save this body',
+        }
+        composable.writeLocalSnapshot()
+        resolveDelete({ data: { data: null } })
+
+        await expect(pendingSave).resolves.toEqual(expect.objectContaining({ draftId: 91 }))
+        expect(mocks.saveDraftMutateAsync).toHaveBeenCalledTimes(1)
+        expect(mocks.saveDraftMutateAsync).toHaveBeenCalledWith(expect.objectContaining({
+            draftId: undefined,
+            title: 'Typed during deletion',
+            contents: 'Preserve and save this body',
+        }))
+        expect(composable.draftId.value).toBe(91)
+    })
+
     it('switches a newly assigned draft to its draft-specific storage key', async () => {
         const { composable } = mountComposable(
             undefined,

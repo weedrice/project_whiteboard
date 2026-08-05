@@ -338,6 +338,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
             || (existingDraftId != null && payload.categoryId != null)
         if (!shouldPersistToServer) {
             if (existingDraftId != null) {
+                const deletedStorageKey = activeStorageKey.value
                 try {
                     await deleteDraft(existingDraftId)
                 } catch (error: unknown) {
@@ -345,6 +346,38 @@ export function usePostDraft(options: UsePostDraftOptions) {
                     throw error
                 }
                 if (generation !== sessionGeneration || !options.enabled.value) return null
+                if (revision !== localRevision) {
+                    const latestPayload = options.buildPayload()
+                    resetDraftTracking()
+                    const storedLocally = storeLocalSnapshot(createDraftRecoverySnapshot(
+                        latestPayload,
+                        null,
+                        null,
+                    ))
+                    if (hasBrowserDraftContent(latestPayload) && !storedLocally) {
+                        throw new Error('DRAFT_LOCAL_STORAGE_FAILED')
+                    }
+                    if (deletedStorageKey !== activeStorageKey.value && !Storage.remove(deletedStorageKey)) {
+                        void reportDraftOperationalEvent('local_storage_remove_failed')
+                    }
+                    if (options.ownerId?.value != null
+                        && !markDraftDeletedLocally(options.ownerId.value, existingDraftId)) {
+                        void reportDraftOperationalEvent('tombstone_write_failed')
+                    }
+                    if (hasMeaningfulDraftContent(latestPayload)) {
+                        saveQueued = true
+                        return null
+                    }
+                    lastSavedAt.value = hasBrowserDraftContent(latestPayload)
+                        ? new Date().toISOString()
+                        : null
+                    lastSaveScope.value = hasBrowserDraftContent(latestPayload) ? 'browser' : null
+                    lastSaveFailed.value = false
+                    clearSaveRetry()
+                    persistedRevision = localRevision
+                    options.onSaved?.()
+                    return null
+                }
                 if (options.ownerId?.value != null
                     && !markDraftDeletedLocally(options.ownerId.value, existingDraftId)) {
                     void reportDraftOperationalEvent('tombstone_write_failed')
