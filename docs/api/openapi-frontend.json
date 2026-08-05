@@ -11586,6 +11586,15 @@
           }
         }, {
           "in" : "query",
+          "name" : "version",
+          "required" : false,
+          "schema" : {
+            "format" : "int64",
+            "minimum" : 0,
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
           "name" : "userId",
           "required" : true,
           "schema" : {

@@ -1133,7 +1133,7 @@ describe('usePostDraft', () => {
 
         await composable.saveNow()
 
-        expect(mocks.deleteDraftMutateAsync).toHaveBeenCalledWith(91)
+        expect(mocks.deleteDraftMutateAsync).toHaveBeenCalledWith({ draftId: 91, version: 0 })
         expect(composable.draftId.value).toBeNull()
         expect(Storage.get('noviis:test:draft')).toEqual(expect.objectContaining({
             boardUrl: 'free',
@@ -1185,6 +1185,28 @@ describe('usePostDraft', () => {
             draftId: 91,
             title: 'Draft title',
         }))
+    })
+
+    it('keeps a newer server draft when an old tab tries to delete its empty copy', async () => {
+        const { composable, payloadRef } = mountComposable()
+
+        await composable.saveNow()
+        mocks.deleteDraftMutateAsync.mockRejectedValueOnce({
+            isAxiosError: true,
+            response: { status: 409, data: { error: { code: 'P004' } } },
+        })
+        payloadRef.value = {
+            ...payloadRef.value,
+            title: '',
+            contents: '',
+            fileIds: [],
+        }
+
+        await expect(composable.saveNow()).rejects.toMatchObject({ response: { status: 409 } })
+
+        expect(mocks.deleteDraftMutateAsync).toHaveBeenCalledWith({ draftId: 91, version: 0 })
+        expect(composable.draftConflict.value).toBe(true)
+        expect(composable.draftId.value).toBe(91)
     })
 
     it('drops a stale local draft id when the server draft was already deleted', async () => {

@@ -107,7 +107,7 @@ describe('DraftList', () => {
     await buttons.at(-1)!.trigger('click')
     await flushPromises()
 
-    expect(mocks.deleteDraft).toHaveBeenCalledWith(1)
+    expect(mocks.deleteDraft).toHaveBeenCalledWith({ draftId: 1 })
     expect(mocks.markDeleted).toHaveBeenCalledWith(7, 1)
     expect(mocks.cancelScheduledPost).toHaveBeenCalledWith(10)
     expect(mocks.invalidateQueries).toHaveBeenCalledTimes(2)

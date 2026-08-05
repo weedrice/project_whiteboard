@@ -2990,13 +2990,30 @@ class PostServiceTest {
     @DisplayName("초안 삭제")
     void deleteDraftPost_success() {
         DraftPost existingDraft = DraftPost.builder().user(user).build();
+        ReflectionTestUtils.setField(existingDraft, "version", 3L);
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(draftPostRepository.findByDraftIdAndUserForUpdate(10L, user)).thenReturn(Optional.of(existingDraft));
 
-        postService.deleteDraftPost(1L, 10L);
+        postService.deleteDraftPost(1L, 10L, 3L);
 
         verify(fileService).markDraftFilesDeletionPending(10L);
         verify(draftPostRepository).delete(existingDraft);
+    }
+
+    @Test
+    @DisplayName("오래된 버전으로 빈 초안을 삭제할 수 없다")
+    void deleteDraftPost_outdatedVersion_rejected() {
+        DraftPost existingDraft = DraftPost.builder().user(user).build();
+        ReflectionTestUtils.setField(existingDraft, "version", 4L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(draftPostRepository.findByDraftIdAndUserForUpdate(10L, user)).thenReturn(Optional.of(existingDraft));
+
+        assertThatThrownBy(() -> postService.deleteDraftPost(1L, 10L, 3L))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.DRAFT_OUTDATED);
+
+        verify(fileService, never()).markDraftFilesDeletionPending(anyLong());
+        verify(draftPostRepository, never()).delete(any(DraftPost.class));
     }
 
     @Test
@@ -3005,7 +3022,7 @@ class PostServiceTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         doThrow(new BusinessException(ErrorCode.USER_NOT_ACTIVE)).when(sanctionService).validateNotBanned(user);
 
-        assertThatThrownBy(() -> postService.deleteDraftPost(1L, 10L))
+        assertThatThrownBy(() -> postService.deleteDraftPost(1L, 10L, null))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.USER_NOT_ACTIVE);
 

@@ -1068,9 +1068,12 @@ class PostControllerTest {
         @Test
         @DisplayName("임시저장 삭제")
         void deleteDraft_success() throws Exception {
-            doNothing().when(postService).deleteDraftPost(anyLong(), eq(1L));
-            mockMvc.perform(delete("/api/v1/drafts/1").with(user(customUserDetails)))
+            doNothing().when(postService).deleteDraftPost(anyLong(), eq(1L), eq(3L));
+            mockMvc.perform(delete("/api/v1/drafts/1").with(user(customUserDetails))
+                            .param("version", "3"))
                     .andExpect(status().isOk());
+
+            verify(postService).deleteDraftPost(anyLong(), eq(1L), eq(3L));
         }
     }
 

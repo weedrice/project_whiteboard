@@ -16,6 +16,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -333,8 +334,9 @@ public class PostController {
     @DeleteMapping("/drafts/{draftId}")
     public ApiResponse<Void> deleteDraft(
             @PathVariable Long draftId,
+            @RequestParam(required = false) @PositiveOrZero Long version,
             @CurrentUserId Long userId) {
-        postService.deleteDraftPost(userId, draftId);
+        postService.deleteDraftPost(userId, draftId, version);
         return ApiResponses.ok();
     }
 

@@ -8466,6 +8466,7 @@ export interface operations {
     deleteDraft: {
         parameters: {
             query: {
+                version?: number;
                 userId: number;
             };
             header?: never;

@@ -287,7 +287,10 @@ export function usePostDraft(options: UsePostDraftOptions) {
         const controller = new AbortController()
         requestController = controller
         try {
-            return await deleteDraftMutation.mutateAsync(targetDraftId)
+            return await deleteDraftMutation.mutateAsync({
+                draftId: targetDraftId,
+                version: draftVersion.value ?? undefined,
+            })
         } finally {
             if (requestController === controller) requestController = null
         }

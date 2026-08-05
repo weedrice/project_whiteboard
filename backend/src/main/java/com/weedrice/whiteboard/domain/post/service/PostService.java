@@ -346,8 +346,8 @@ public class PostService {
     }
 
     @Transactional
-    public void deleteDraftPost(@NonNull Long userId, @NonNull Long draftId) {
-        postDraftService.deleteDraftPost(userId, draftId);
+    public void deleteDraftPost(@NonNull Long userId, @NonNull Long draftId, Long expectedVersion) {
+        postDraftService.deleteDraftPost(userId, draftId, expectedVersion);
     }
 
     public List<PostVersionResponse> getPostVersions(@NonNull Long postId, @NonNull Long userId) {

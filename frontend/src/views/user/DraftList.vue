@@ -110,7 +110,7 @@ async function handleDeleteDraft(draft: DraftPostSummary) {
   if (!isAuthSessionIntentCurrent(authStore, intent)) return
 
   try {
-    await deleteDraft(draftId)
+    await deleteDraft({ draftId })
     if (!isAuthSessionIntentCurrent(authStore, intent)) return
     if (userId != null) {
       if (!markDraftDeletedLocally(userId, draftId)) {

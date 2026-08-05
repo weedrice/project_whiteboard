@@ -143,10 +143,13 @@ public class PostDraftService {
     }
 
     @Transactional
-    public void deleteDraftPost(@NonNull Long userId, @NonNull Long draftId) {
+    public void deleteDraftPost(@NonNull Long userId, @NonNull Long draftId, Long expectedVersion) {
         User user = userWritableResolver.resolve(userId);
         DraftPost draftPost = draftPostRepository.findByDraftIdAndUserForUpdate(draftId, user)
                 .orElseThrow(() -> new BusinessException(ErrorCode.DRAFT_NOT_FOUND));
+        if (expectedVersion != null && !expectedVersion.equals(draftPost.getVersion())) {
+            throw new BusinessException(ErrorCode.DRAFT_OUTDATED);
+        }
         if (scheduledPostRepository.existsByDraftIdAndStatusIn(draftId, ScheduledPost.PROTECTED_DRAFT_STATUSES)) {
             throw new BusinessException(ErrorCode.DRAFT_PROTECTED);
         }

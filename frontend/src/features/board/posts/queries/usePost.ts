@@ -336,9 +336,14 @@ export function usePost() {
         return useMutation({
             meta: LOCAL_MUTATION_ERROR_META,
             onMutate: captureMutationSession,
-            mutationFn: async (draftId: string | number) => {
+            mutationFn: async ({ draftId, version }: { draftId: string | number, version?: number }) => {
+                const requestConfig = resolveRequestConfig?.()
                 return await postApi.deleteDraft(draftId, {
-                    ...resolveRequestConfig?.(),
+                    ...requestConfig,
+                    params: {
+                        ...requestConfig?.params,
+                        ...(version !== undefined ? { version } : {}),
+                    },
                     skipGlobalErrorHandler: true,
                 })
             },
