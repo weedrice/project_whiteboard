@@ -21,7 +21,7 @@ vi.mock('@/utils/logger', () => ({
   default: { warn: vi.fn() },
 }))
 
-function createOwnership() {
+function createOwnership(cleanupReady = ref(true)) {
   const scope = effectScope()
   const identity = ref('session-1:create:free:new')
   const content = ref('')
@@ -32,9 +32,10 @@ function createOwnership() {
     content,
     durableDraftFileIds,
     ownerId,
+    cleanupReady,
   }))
   if (!ownership) throw new Error('Upload ownership composable was not initialized')
-  return { scope, identity, content, durableDraftFileIds, ownerId, ownership }
+  return { scope, identity, content, durableDraftFileIds, ownerId, cleanupReady, ownership }
 }
 
 describe('usePostComposerUploadOwnership', () => {
@@ -233,6 +234,52 @@ describe('usePostComposerUploadOwnership', () => {
     expect(Storage.has(`${POST_COMPOSER_UPLOAD_DISCARD_QUEUE_PREFIX}1`)).toBe(false)
     second.scope.stop()
     online.mockRestore()
+  })
+
+  it('waits for draft recovery before draining persisted cleanup', async () => {
+    Storage.set(`${POST_COMPOSER_UPLOAD_DISCARD_QUEUE_PREFIX}1`, [76])
+    const cleanupReady = ref(false)
+    const current = createOwnership(cleanupReady)
+
+    await Promise.resolve()
+    expect(discardUploadsMock).not.toHaveBeenCalled()
+
+    cleanupReady.value = true
+    await nextTick()
+    await Promise.resolve()
+
+    expect(discardUploadsMock).toHaveBeenCalledWith([76], { skipGlobalErrorHandler: true })
+    expect(Storage.has(`${POST_COMPOSER_UPLOAD_DISCARD_QUEUE_PREFIX}1`)).toBe(false)
+    current.scope.stop()
+  })
+
+  it('cancels persisted cleanup for files referenced by any recovered local draft', async () => {
+    Storage.set(`${POST_COMPOSER_UPLOAD_DISCARD_QUEUE_PREFIX}1`, [77, 78])
+    Storage.set('noviis:draft:1:create:free:new', {
+      boardUrl: 'free',
+      fileIds: [77],
+      unassociatedUploadFileIds: [77],
+      clientModifiedAt: new Date().toISOString(),
+    })
+
+    const current = createOwnership()
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(discardUploadsMock).toHaveBeenCalledWith([78], { skipGlobalErrorHandler: true })
+    expect(discardUploadsMock).not.toHaveBeenCalledWith([77], expect.anything())
+    current.scope.stop()
+  })
+
+  it('cancels stale persisted cleanup when the same upload is recorded again', () => {
+    Storage.set(`${POST_COMPOSER_UPLOAD_DISCARD_QUEUE_PREFIX}1`, [79])
+    const cleanupReady = ref(false)
+    const current = createOwnership(cleanupReady)
+
+    current.ownership.recordUploadedFile(79)
+
+    expect(Storage.has(`${POST_COMPOSER_UPLOAD_DISCARD_QUEUE_PREFIX}1`)).toBe(false)
+    current.scope.stop()
   })
 
   it('waits for connectivity before retrying a non-terminal discard', async () => {

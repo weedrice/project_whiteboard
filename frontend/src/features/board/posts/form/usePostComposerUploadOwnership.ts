@@ -3,12 +3,14 @@ import { fileApi } from '@/api/file'
 import { extractPostFileIdsFromContent } from '@/utils/postForm'
 import logger from '@/utils/logger'
 import { Storage } from '@/utils/storage'
+import { loadStoredDraftSnapshot } from '@/features/board/posts/draft/postDraftLifecycle'
 
 type UsePostComposerUploadOwnershipOptions = {
   identity: Ref<string>
   content: Ref<string>
   durableDraftFileIds: Ref<number[]>
   ownerId: Ref<string | number | undefined>
+  cleanupReady: Ref<boolean>
 }
 
 export const POST_COMPOSER_UPLOAD_DISCARD_DELAY_MS = 1_500
@@ -76,10 +78,30 @@ export function usePostComposerUploadOwnership(options: UsePostComposerUploadOwn
     })
   }
 
+  const readLocallyReferencedFileIds = (ownerId: string) => {
+    const referencedIds = new Set<number>()
+    const ownerDraftPrefix = `noviis:draft:${ownerId}:`
+    Storage.keys()
+      .filter((key) => key.startsWith(ownerDraftPrefix))
+      .forEach((key) => {
+        const snapshot = loadStoredDraftSnapshot(key)
+        if (!snapshot) return
+        ;[
+          ...(snapshot.fileIds ?? []),
+          ...(snapshot.unassociatedUploadFileIds ?? []),
+        ].forEach((fileId) => referencedIds.add(fileId))
+      })
+    return referencedIds
+  }
+
   function drainPersistedCleanup(ownerId = currentOwnerId()) {
-    if (!ownerId || !isOnline()) return Promise.resolve()
+    if (!ownerId || !options.cleanupReady.value || !isOnline()) return Promise.resolve()
     const existingPromise = persistedCleanupPromises.get(ownerId)
     if (existingPromise) return existingPromise
+    const locallyReferencedIds = readLocallyReferencedFileIds(ownerId)
+    if (locallyReferencedIds.size > 0) {
+      removeOwnerCleanupIds(ownerId, locallyReferencedIds)
+    }
     const fileIds = readPersistedCleanupIds(ownerId)
     if (fileIds.length === 0) return Promise.resolve()
     const cleanupPromise = fileApi.discardUploads(fileIds, { skipGlobalErrorHandler: true })
@@ -156,7 +178,10 @@ export function usePostComposerUploadOwnership(options: UsePostComposerUploadOwn
       ownedUploadedFileIds.value.push(fileId)
     }
     const ownerId = currentOwnerId()
-    if (ownerId) uploadOwnerIds.set(fileId, ownerId)
+    if (ownerId) {
+      uploadOwnerIds.set(fileId, ownerId)
+      removeOwnerCleanupIds(ownerId, [fileId])
+    }
   }
 
   function adoptUploadedFiles(fileIds: number[]) {
@@ -241,7 +266,7 @@ export function usePostComposerUploadOwnership(options: UsePostComposerUploadOwn
   }
 
   const handleOnline = async () => {
-    await drainPersistedCleanup()
+    if (options.cleanupReady.value) await drainPersistedCleanup()
     const retries = [...offlineDiscardRetries.entries()]
     retries.forEach(([fileId, force]) => {
       offlineDiscardRetries.delete(fileId)
@@ -270,7 +295,7 @@ export function usePostComposerUploadOwnership(options: UsePostComposerUploadOwn
     { flush: 'sync' },
   )
   const stopOwnerWatch = watch(
-    options.ownerId,
+    () => [options.ownerId.value, options.cleanupReady.value] as const,
     () => void drainPersistedCleanup(),
     { immediate: true },
   )

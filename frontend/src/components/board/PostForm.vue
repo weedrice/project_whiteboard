@@ -195,6 +195,7 @@ function markCurrentComposerSaved() {
 }
 
 const durableDraftFileIds = ref<number[]>([])
+const uploadCleanupReady = ref(false)
 const {
   ownedUploadedFileIds,
   recordUploadedFile,
@@ -205,6 +206,7 @@ const {
   content: computed(() => form.value.content),
   durableDraftFileIds,
   ownerId: computed(() => authStore.user?.userId),
+  cleanupReady: uploadCleanupReady,
 })
 
 function handleEditorFileUploaded(fileId: number) {
@@ -392,6 +394,7 @@ const {
   markCurrentSnapshotSaved,
   ownedUploadedFileIds,
   durableDraftFileIds,
+  uploadCleanupReady,
   adoptUploadedFileOwnership,
   releaseUploadedFileOwnership,
   t,

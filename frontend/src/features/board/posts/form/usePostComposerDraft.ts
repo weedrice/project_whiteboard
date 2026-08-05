@@ -35,6 +35,7 @@ type UsePostComposerDraftOptions = {
   markCurrentSnapshotSaved: () => void
   ownedUploadedFileIds: Ref<number[]>
   durableDraftFileIds: Ref<number[]>
+  uploadCleanupReady: Ref<boolean>
   adoptUploadedFileOwnership: (fileIds: number[]) => void
   releaseUploadedFileOwnership: (fileIds: number[]) => void
   t: (key: string, values?: Record<string, unknown>) => string
@@ -238,6 +239,7 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     draftIdentity,
     (_current, previous) => {
       if (previous === undefined) return
+      options.uploadCleanupReady.value = false
       hasRestoredDraft.value = false
       initializedBaselineIdentity.value = null
       lastStoredDraftSignature = null
@@ -255,6 +257,7 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
           options.markCurrentSnapshotSaved()
           initializedBaselineIdentity.value = identity
         }
+        options.uploadCleanupReady.value = true
         return
       }
       if (hasRestoredDraft.value) return
@@ -286,6 +289,7 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
       }
       options.markCurrentSnapshotSaved()
       initializedBaselineIdentity.value = restoringIdentity
+      options.uploadCleanupReady.value = true
     },
     { immediate: true },
   )
