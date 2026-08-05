@@ -127,8 +127,10 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     prepareRecoveredSnapshot,
     onSaved: options.markCurrentSnapshotSaved,
     onServerSaved: (_payload, savedDraft) => options.releaseUploadedFileOwnership(savedDraft.fileIds ?? []),
-    onServerReferencesReset: (savedDraft) => applyDraftWithoutTracking({
+    onServerReferencesReset: (savedDraft, payload) => applyDraftWithoutTracking({
       ...options.buildPayload('draft'),
+      categoryId: savedDraft.categoryId
+        ?? (payload.categoryId != null ? options.firstCategoryId.value ?? null : null),
       fileIds: savedDraft.fileIds ?? [],
       seriesId: savedDraft.seriesId ?? null,
     }),

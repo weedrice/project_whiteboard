@@ -65,7 +65,7 @@ interface UsePostDraftOptions {
     prepareRecoveredSnapshot?: (snapshot: DraftRecoverySnapshot) => DraftRecoverySnapshot
     onSaved?: () => void
     onServerSaved?: (payload: PostDraftData, savedDraft: DraftPost) => void
-    onServerReferencesReset?: (savedDraft: DraftPost) => void
+    onServerReferencesReset?: (savedDraft: DraftPost, payload: PostDraftData) => void
     prepareStaleSnapshot?: (snapshot: DraftRecoverySnapshot) => DraftRecoverySnapshot
     onStaleReferencesReset?: () => void
     canPersist?: () => boolean
@@ -354,7 +354,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         lastSaveScope.value = 'server'
         staleReferencesReset.value = Boolean(savedDraft.staleReferencesReset)
         if (staleReferencesReset.value) {
-            options.onServerReferencesReset?.(savedDraft)
+            options.onServerReferencesReset?.(savedDraft, payload)
             options.onStaleReferencesReset?.()
         }
         contractValidationFailed.value = false

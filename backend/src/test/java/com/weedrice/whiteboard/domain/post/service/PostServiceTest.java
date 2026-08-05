@@ -2333,6 +2333,35 @@ class PostServiceTest {
     }
 
     @Test
+    @DisplayName("초안 저장은 작성 중 사라진 카테고리 참조를 제거한다")
+    void saveDraftPost_recoversStaleCategory() {
+        PostDraftRequest request = PostDraftRequest.builder()
+                .boardUrl("free")
+                .title("Recover category")
+                .contents("Draft Content")
+                .categoryId(99L)
+                .fileIds(Collections.emptyList())
+                .build();
+        when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+        when(boardRepository.findByBoardUrl("free")).thenReturn(Optional.of(board));
+        when(boardCategoryRepository.findByCategoryIdAndBoard_BoardIdAndIsActive(99L, 1L, true))
+                .thenReturn(Optional.empty());
+        when(draftPostRepository.saveAndFlush(any(DraftPost.class))).thenAnswer(invocation -> {
+            DraftPost saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "draftId", 24L);
+            return saved;
+        });
+
+        DraftResponse response = postService.saveDraftPost(1L, request);
+
+        assertThat(response.getCategoryId()).isNull();
+        assertThat(response.isStaleReferencesReset()).isTrue();
+        verify(boardCategoryRepository, never())
+                .findByBoard_BoardIdAndIsActiveOrderBySortOrderAsc(anyLong(), anyBoolean());
+        verify(fileService).syncDraftFiles(Collections.emptyList(), 1L, 24L);
+    }
+
+    @Test
     @DisplayName("활성 BAN 사용자는 초안을 저장할 수 없다")
     void saveDraftPost_bannedUser_forbidden() {
         PostDraftRequest request = new PostDraftRequest(null, "free", "Draft Title", "Draft Content", null);

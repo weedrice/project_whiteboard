@@ -248,6 +248,54 @@ describe('PostForm draft behavior', () => {
     )
   })
 
+  it('resets a category removed while the draft editor is open', async () => {
+    mockPostFormAuthStore({
+      isAuthenticated: true,
+      user: { userId: 1, role: 'USER' },
+    })
+    setBoardCategories([
+      { categoryId: 12, name: 'General', minWriteRole: 'USER' },
+      { categoryId: 99, name: 'Removed soon', minWriteRole: 'USER' },
+    ])
+    const wrapper = mountPostForm('create')
+    await flushPromises()
+    await wrapper.get('#title').setValue('Draft with category')
+    await wrapper.get('#category').setValue('99')
+    setBoardCategories([{ categoryId: 12, name: 'General', minWriteRole: 'USER' }])
+    mockSaveDraftMutateAsync.mockResolvedValueOnce({
+      data: {
+        data: {
+          draftId: 91,
+          version: 1,
+          boardId: 1,
+          boardUrl: 'free',
+          boardName: 'Free',
+          title: 'Draft with category',
+          contents: '',
+          categoryId: null,
+          tags: [],
+          fileIds: [],
+          seriesId: null,
+          isNotice: false,
+          isNsfw: false,
+          isSpoiler: false,
+          isSecret: false,
+          staleReferencesReset: true,
+          updatedAt: '2026-08-05T00:00:00.000Z',
+        },
+      },
+    })
+
+    await findButtonByText(wrapper, 'board.writePost.actions.saveDraft').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('#category').element).toHaveProperty('value', '12')
+    expect(mockAddToast).toHaveBeenCalledWith(
+      'board.writePost.draftStatus.referencesReset',
+      'warning',
+    )
+  })
+
   it('flushes the latest input synchronously when the page is hidden', async () => {
     mockPostFormAuthStore({
       isAuthenticated: true,

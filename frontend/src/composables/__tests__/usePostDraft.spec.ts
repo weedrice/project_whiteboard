@@ -264,7 +264,7 @@ describe('usePostDraft', () => {
             draftId: 91,
             fileIds: [],
             seriesId: null,
-        }))
+        }), expect.objectContaining({ fileIds: [7] }))
         expect(Storage.get('noviis:test:draft')).toEqual(expect.objectContaining({ fileIds: [] }))
         expect(Storage.get('noviis:test:draft')).not.toHaveProperty('seriesId')
     })

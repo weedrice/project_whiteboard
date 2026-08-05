@@ -101,10 +101,15 @@ public class PostDraftService {
         validateDraftPoll(normalizedPoll);
 
         BoardCategory category = null;
+        boolean staleReferencesReset = false;
         if (request.getCategoryId() != null) {
-            category = findActiveCategory(board, request.getCategoryId());
+            category = boardCategoryRepository.findByCategoryIdAndBoard_BoardIdAndIsActive(
+                    request.getCategoryId(), board.getBoardId(), true).orElse(null);
+            staleReferencesReset = category == null;
         }
-        postAuthorCommandPolicy.validateAppliedCategoryWriteRole(board, user, category);
+        if (!staleReferencesReset) {
+            postAuthorCommandPolicy.validateAppliedCategoryWriteRole(board, user, category);
+        }
         if (request.isNotice() && !boardAccessPolicy.hasBoardAdminAccess(board, user)) {
             throw new BusinessException(ErrorCode.FORBIDDEN);
         }
@@ -117,11 +122,10 @@ public class PostDraftService {
         }
 
         PostSeries series = null;
-        boolean staleReferencesReset = false;
         if (request.getSeriesId() != null) {
             series = postSeriesRepository.findBySeriesIdAndOwner_UserId(request.getSeriesId(), userId)
                     .orElse(null);
-            staleReferencesReset = series == null;
+            staleReferencesReset |= series == null;
         }
 
         DraftPost draftPost = resolveDraftPost(
@@ -347,14 +351,6 @@ public class PostDraftService {
                         .anyMatch(option -> option.length() > MAX_DRAFT_POLL_OPTION_LENGTH)) {
             throw new BusinessException(ErrorCode.INVALID_INPUT_VALUE);
         }
-    }
-
-    private BoardCategory findActiveCategory(Board board, Long categoryId) {
-        if (board == null || categoryId == null) {
-            throw new BusinessException(ErrorCode.NOT_FOUND);
-        }
-        return boardCategoryRepository.findByCategoryIdAndBoard_BoardIdAndIsActive(categoryId, board.getBoardId(), true)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND));
     }
 
     private void validateOriginalPostForDraft(Post originalPost, User user, Board board, BoardCategory category) {
