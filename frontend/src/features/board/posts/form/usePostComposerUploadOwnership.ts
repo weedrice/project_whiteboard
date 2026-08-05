@@ -53,6 +53,14 @@ export function usePostComposerUploadOwnership(options: UsePostComposerUploadOwn
     void discardUploadedFiles([...ownedUploadedFileIds.value])
   }
 
+  function handoffReferencedUploads(content = options.content.value) {
+    if (ownedUploadedFileIds.value.length === 0) return
+    const referencedIds = new Set(extractPostFileIdsFromContent(content))
+    const handedOffIds = ownedUploadedFileIds.value.filter((fileId) => referencedIds.has(fileId))
+    releaseUploadedFiles(handedOffIds)
+    discardAllOwnedUploads()
+  }
+
   const stopContentWatch = watch(
     options.content,
     (content) => discardUnreferencedUploads(content),
@@ -61,7 +69,7 @@ export function usePostComposerUploadOwnership(options: UsePostComposerUploadOwn
   const stopIdentityWatch = watch(
     options.identity,
     (_current, previous) => {
-      if (previous !== undefined) discardAllOwnedUploads()
+      if (previous !== undefined) handoffReferencedUploads()
     },
     { flush: 'sync' },
   )
@@ -70,7 +78,7 @@ export function usePostComposerUploadOwnership(options: UsePostComposerUploadOwn
     onScopeDispose(() => {
       stopContentWatch()
       stopIdentityWatch()
-      discardAllOwnedUploads()
+      handoffReferencedUploads()
     })
   }
 
@@ -81,5 +89,6 @@ export function usePostComposerUploadOwnership(options: UsePostComposerUploadOwn
     releaseUploadedFiles,
     discardUnreferencedUploads,
     discardAllOwnedUploads,
+    handoffReferencedUploads,
   }
 }

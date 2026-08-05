@@ -69,7 +69,22 @@ describe('usePostComposerUploadOwnership', () => {
 
     expect(discardUploadsMock).toHaveBeenCalledWith([81], { skipGlobalErrorHandler: true })
     scope.stop()
-    expect(discardUploadsMock).toHaveBeenCalledWith([82], { skipGlobalErrorHandler: true })
+    expect(discardUploadsMock).not.toHaveBeenCalledWith([82], expect.anything())
+    expect(ownership.ownedUploadedFileIds.value).toEqual([])
+  })
+
+  it('hands referenced uploads to local recovery and discards only unreferenced uploads on identity change', () => {
+    const { scope, identity, content, ownership } = createOwnership()
+    content.value = '<img src="/api/v1/files/61">'
+    ownership.recordUploadedFile(61)
+    ownership.recordUploadedFile(62)
+
+    identity.value = 'session-2:create:other:new'
+
+    expect(discardUploadsMock).toHaveBeenCalledWith([62], { skipGlobalErrorHandler: true })
+    expect(discardUploadsMock).not.toHaveBeenCalledWith([61], expect.anything())
+    expect(ownership.ownedUploadedFileIds.value).toEqual([])
+    scope.stop()
   })
 
   it('releases server-owned uploads and discards remaining uploads on identity change or dispose', () => {
