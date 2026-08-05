@@ -604,16 +604,24 @@ export function usePostDraft(options: UsePostDraftOptions) {
             restoreFailed.value = false
             const serverSnapshot = latestDraft as unknown as DraftRecoverySnapshot
             const latestSnapshot = options.prepareRecoveredSnapshot?.(serverSnapshot) ?? serverSnapshot
+            const preparedSnapshotChanged = !hasSameDraftContent(serverSnapshot, latestSnapshot)
+            staleReferencesReset.value = Boolean(latestSnapshot.staleReferencesReset) || preparedSnapshotChanged
             options.applyDraft(latestSnapshot)
             storeLocalSnapshot({
                 ...latestSnapshot,
                 draftId: latestDraft.draftId,
                 updatedAt: updatedAt.value ?? undefined,
                 clientModifiedAt: new Date().toISOString(),
-                hasLocalChanges: false,
+                hasLocalChanges: preparedSnapshotChanged,
             })
-            persistedRevision = localRevision
-            options.onSaved?.()
+            if (preparedSnapshotChanged) {
+                localRevision++
+                options.onStaleReferencesReset?.()
+                scheduleAutosave()
+            } else {
+                persistedRevision = localRevision
+                options.onSaved?.()
+            }
             return true
         } finally {
             if (generation === sessionGeneration) isRestoringDraft.value = false
@@ -688,6 +696,10 @@ export function usePostDraft(options: UsePostDraftOptions) {
         const chosen = recoveredSnapshot
             ? options.prepareRecoveredSnapshot?.(recoveredSnapshot) ?? recoveredSnapshot
             : null
+        const preparedServerSnapshotChanged = recovery.source === 'server'
+            && resolved.serverDraft != null
+            && chosen != null
+            && !hasSameDraftContent(chosen, resolved.serverDraft)
         restoreFailed.value = resolved.recoveryFailed
         multipleDraftsFound.value = resolved.multipleMatchesFound
         if (multipleDraftsFound.value) void reportDraftOperationalEvent('multiple_recovery_candidates')
@@ -736,8 +748,12 @@ export function usePostDraft(options: UsePostDraftOptions) {
             storeLocalSnapshot({
                 ...chosen,
                 clientModifiedAt: new Date().toISOString(),
-                hasLocalChanges: false,
+                hasLocalChanges: preparedServerSnapshotChanged,
             })
+            if (preparedServerSnapshotChanged) {
+                localRevision++
+                scheduleAutosave()
+            }
         } else {
             storeLocalSnapshot({
                 ...chosen,

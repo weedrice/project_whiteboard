@@ -78,7 +78,7 @@ function mountComposable(payloadRef: Ref<PostDraftData> = ref({
     contents: 'Draft body',
     fileIds: [7],
     originalPostId: undefined as number | undefined,
-}), storageKeyRef = ref('noviis:test:draft'), enabledRef = ref(true), ownerIdRef = ref<number | null>(null), onServerSaved?: (payload: PostDraftData, savedDraft: DraftPost) => void, resolveStorageKey?: (draftId: number) => string, onServerReferencesReset?: (savedDraft: DraftPost) => void) {
+}), storageKeyRef = ref('noviis:test:draft'), enabledRef = ref(true), ownerIdRef = ref<number | null>(null), onServerSaved?: (payload: PostDraftData, savedDraft: DraftPost) => void, resolveStorageKey?: (draftId: number) => string, onServerReferencesReset?: (savedDraft: DraftPost) => void, prepareRecoveredSnapshot?: (snapshot: DraftRecoverySnapshot) => DraftRecoverySnapshot) {
     const appliedDrafts: DraftRecoverySnapshot[] = []
     let composable: ReturnType<typeof usePostDraft> | null = null
 
@@ -93,6 +93,7 @@ function mountComposable(payloadRef: Ref<PostDraftData> = ref({
                 applyDraft: (draft) => appliedDrafts.push(draft),
                 onServerSaved,
                 onServerReferencesReset,
+                prepareRecoveredSnapshot,
             })
             return () => h('div')
         },
@@ -508,6 +509,72 @@ describe('usePostDraft', () => {
             ...payloadRef.value,
             title: 'Autosaved title',
         }
+    })
+
+    it('keeps a corrected server recovery as a local change and saves the correction', async () => {
+        const payloadRef = ref<PostDraftData>({
+            boardUrl: 'free',
+            title: '',
+            contents: '',
+            fileIds: [],
+        })
+        const { composable, appliedDrafts } = mountComposable(
+            payloadRef,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            (snapshot) => ({
+                ...snapshot,
+                categoryId: 12,
+                staleReferencesReset: true,
+            }),
+        )
+        mocks.getMatchingDraft.mockResolvedValueOnce({
+            data: { data: { draftId: 13, multipleMatchesFound: false } },
+        })
+        mocks.getDraft.mockResolvedValueOnce({
+            data: {
+                data: {
+                    draftId: 13,
+                    version: 2,
+                    boardId: 1,
+                    boardUrl: 'free',
+                    boardName: 'Free',
+                    title: 'Recovered draft',
+                    contents: 'Recovered body',
+                    categoryId: 99,
+                    tags: [],
+                    fileIds: [],
+                    isNotice: false,
+                    isNsfw: false,
+                    isSpoiler: false,
+                    isSecret: false,
+                    updatedAt: '2025-01-02T00:00:00.000Z',
+                },
+            },
+        })
+
+        await composable.restoreDraft()
+
+        expect(appliedDrafts.at(-1)).toEqual(expect.objectContaining({ categoryId: 12 }))
+        expect(Storage.get('noviis:test:draft')).toEqual(expect.objectContaining({
+            categoryId: 12,
+            staleReferencesReset: true,
+            hasLocalChanges: true,
+        }))
+        expect(mocks.saveDraftMutateAsync).not.toHaveBeenCalled()
+
+        payloadRef.value = { ...appliedDrafts.at(-1)! }
+        await vi.advanceTimersByTimeAsync(1500)
+
+        expect(mocks.saveDraftMutateAsync).toHaveBeenCalledWith(expect.objectContaining({
+            draftId: 13,
+            version: 2,
+            categoryId: 12,
+        }))
     })
 
     it('stops saving when a scheduled publication protects the draft', async () => {
