@@ -832,7 +832,7 @@ describe('usePostDraft', () => {
             response: { status: 409, data: { error: { code: 'P004' } } },
         })
 
-        await expect(savePromise).rejects.toMatchObject({ response: { status: 409 } })
+        await expect(savePromise).resolves.toBeNull()
         expect(composable.draftConflict.value).toBe(false)
         expect(composable.lastSaveFailed.value).toBe(false)
     })

@@ -441,6 +441,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
             } while (saveQueued && generation === sessionGeneration && options.enabled.value)
             return savedDraft
         })().catch((error: unknown) => {
+            if (generation !== sessionGeneration || !options.enabled.value) return null
             if (generation === sessionGeneration) {
                 draftConflict.value = isDraftOutdatedError(error)
                 draftProtected.value = isDraftProtectedError(error)
