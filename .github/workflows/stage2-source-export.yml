@@ -1,0 +1,22 @@
+name: Stage 2 Source Export
+
+on:
+  pull_request:
+    types: [opened, ready_for_review, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  export-source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stage2-source
+          path: |
+            frontend
+            backend
+            docs
+          retention-days: 1
