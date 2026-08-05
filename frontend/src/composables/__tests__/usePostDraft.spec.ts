@@ -744,7 +744,14 @@ describe('usePostDraft', () => {
         mocks.saveDraftMutateAsync.mockReturnValueOnce(new Promise((resolve) => {
             resolveSave = resolve
         }))
-        const { composable } = mountComposable()
+        const onServerSaved = vi.fn()
+        const { composable } = mountComposable(
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            onServerSaved,
+        )
 
         const savePromise = composable.saveNow()
         composable.resetSession()
@@ -772,6 +779,7 @@ describe('usePostDraft', () => {
         await expect(savePromise).resolves.toBeNull()
         expect(composable.draftId.value).toBeNull()
         expect(composable.lastSavedAt.value).toBeNull()
+        expect(onServerSaved).not.toHaveBeenCalled()
     })
 
     it('does not resurrect recovery state when it is cleared during an in-flight save', async () => {
@@ -976,6 +984,66 @@ describe('usePostDraft', () => {
         await vi.advanceTimersByTimeAsync(1500)
 
         expect(mocks.saveDraftMutateAsync).not.toHaveBeenCalled()
+    })
+
+    it('aborts and ignores an in-flight save response when drafts are disabled', async () => {
+        const enabled = ref(true)
+        const onServerSaved = vi.fn()
+        let resolveSave!: (value: unknown) => void
+        mocks.saveDraftMutateAsync.mockImplementationOnce(() => new Promise((resolve) => {
+            resolveSave = resolve
+        }))
+        const { composable } = mountComposable(
+            undefined,
+            ref('noviis:test:draft'),
+            enabled,
+            undefined,
+            onServerSaved,
+        )
+
+        const pendingSave = composable.saveNow()
+        const signal = mocks.saveDraftConfig?.()?.signal
+        enabled.value = false
+        await nextTick()
+
+        expect(signal?.aborted).toBe(true)
+        resolveSave({ data: { data: { draftId: 91, boardUrl: 'free' } } })
+        await expect(pendingSave).resolves.toBeNull()
+        expect(onServerSaved).not.toHaveBeenCalled()
+        expect(composable.draftId.value).toBeNull()
+    })
+
+    it('keeps unsaved revision tracking while drafts are temporarily disabled', async () => {
+        const enabled = ref(true)
+        const { composable, payloadRef } = mountComposable(
+            undefined,
+            ref('noviis:test:draft'),
+            enabled,
+        )
+        await composable.saveNow()
+        payloadRef.value = { ...payloadRef.value, title: 'Unsaved local edit' }
+        composable.writeLocalSnapshot()
+
+        enabled.value = false
+        await nextTick()
+        enabled.value = true
+        await nextTick()
+        window.dispatchEvent(new StorageEvent('storage', {
+            key: 'noviis:test:draft',
+            newValue: JSON.stringify({
+                draftId: 91,
+                clientDraftKey: 'client-draft-key-1234',
+                version: 1,
+                boardUrl: 'free',
+                title: 'Server edit while disabled',
+                contents: 'Draft body',
+                updatedAt: '2025-01-02T00:00:00.000Z',
+                clientInstanceId: 'other-tab',
+                hasLocalChanges: false,
+            }),
+        }))
+
+        expect(composable.draftConflict.value).toBe(true)
     })
 
     it('retries a transient save failure with exponential backoff', async () => {

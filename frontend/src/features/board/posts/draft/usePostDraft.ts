@@ -170,15 +170,17 @@ export function usePostDraft(options: UsePostDraftOptions) {
         lastRemoteLocalChangeAt = 0
     }
 
-    const invalidatePendingSaves = () => {
+    const invalidatePendingSaves = (resetRevisions = true) => {
         sessionGeneration++
         requestController?.abort()
         requestController = null
         savePromise = null
         saveQueued = false
-        localRevision = 0
-        persistedRevision = 0
-        lastRemoteLocalChangeAt = 0
+        if (resetRevisions) {
+            localRevision = 0
+            persistedRevision = 0
+            lastRemoteLocalChangeAt = 0
+        }
     }
 
     const storeLocalSnapshot = (snapshot: DraftRecoverySnapshot) => {
@@ -342,6 +344,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
                     logger.error('Failed to delete empty draft:', error)
                     throw error
                 }
+                if (generation !== sessionGeneration || !options.enabled.value) return null
                 if (options.ownerId?.value != null
                     && !markDraftDeletedLocally(options.ownerId.value, existingDraftId)) {
                     void reportDraftOperationalEvent('tombstone_write_failed')
@@ -369,8 +372,8 @@ export function usePostDraft(options: UsePostDraftOptions) {
 
         storeLocalSnapshot(createDraftRecoverySnapshot(payload, draftId.value, updatedAt.value))
         let savedDraft = unwrapAxiosApiData(await savePayload(payload))
+        if (generation !== sessionGeneration || !options.enabled.value) return null
         options.onServerSaved?.(payload, savedDraft)
-        if (generation !== sessionGeneration) return null
         draftId.value = savedDraft.draftId
         draftVersion.value = savedDraft.version ?? null
         clientDraftKey.value = savedDraft.clientDraftKey ?? clientDraftKey.value
@@ -393,8 +396,8 @@ export function usePostDraft(options: UsePostDraftOptions) {
                     updatedAt.value,
                 ))
                 savedDraft = unwrapAxiosApiData(await savePayload(recoveredPayload))
+                if (generation !== sessionGeneration || !options.enabled.value) return null
                 options.onServerSaved?.(recoveredPayload, savedDraft)
-                if (generation !== sessionGeneration) return null
                 draftId.value = savedDraft.draftId
                 draftVersion.value = savedDraft.version ?? null
                 clientDraftKey.value = savedDraft.clientDraftKey ?? clientDraftKey.value
@@ -761,6 +764,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         if (!enabled) {
             clearAutosaveTimer()
             clearSaveRetry()
+            invalidatePendingSaves(false)
         }
     })
 
