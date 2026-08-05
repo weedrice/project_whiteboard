@@ -102,7 +102,7 @@ test('retry after a dropped response reuses the client key and one logical draft
   expect(state.draft?.draftId).toBe(91)
 })
 
-test('tabs synchronize clean saves but preserve a local edit when the other tab advances', async ({ page, context }) => {
+test('tabs notify about remote changes without replacing either tab content', async ({ page, context }) => {
   const state = await installMockApi(page, { draft: serverDraft() })
   await login(page)
   await openComposer(page, 91)
@@ -115,10 +115,12 @@ test('tabs synchronize clean saves but preserve a local edit when the other tab 
 
   await page.locator('#title').fill('Saved in first tab')
   await expect.poll(() => state.draftSaveCount).toBe(1)
-  await expect(secondPage.locator('#title')).toHaveValue('Saved in first tab')
+  await expect(secondPage.locator('#title')).toHaveValue('Server title')
+  await expect(secondPage.getByText(/로컬 초안과 서버 초안/).first()).toBeVisible()
 
   await page.locator('#title').fill('Unsaved first-tab edit')
-  await expect(secondPage.locator('#title')).toHaveValue('Unsaved first-tab edit')
+  await expect(secondPage.locator('#title')).toHaveValue('Server title')
+
   await secondPage.locator('#title').fill('Saved in second tab')
   await secondPage.getByRole('button', {
     name: /^(임시 저장|로컬 초안으로 덮어쓰기)$/,
