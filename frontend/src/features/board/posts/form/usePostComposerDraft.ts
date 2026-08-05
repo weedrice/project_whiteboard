@@ -174,13 +174,13 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     if (!draftEnabled.value) return ''
     if (isRestoringDraft.value) return options.t('board.writePost.draftStatus.restoring')
     if (isSavingDraft.value) return options.t('board.writePost.draftStatus.saving')
+    if (lastLocalSaveFailed.value) return options.t('board.writePost.draftStatus.localStorageFailed')
     if (draftDeleted.value) return options.t('board.writePost.draftStatus.deleted')
     if (draftConflict.value) return options.t('board.writePost.draftStatus.conflict')
     if (draftProtected.value) return options.t('board.writePost.draftStatus.protected')
     if (multipleDraftsFound.value) return options.t('board.writePost.draftStatus.multipleFound')
     if (restoreFailed.value) return options.t('board.writePost.draftStatus.restoreFailed')
     if (contractValidationFailed.value) return options.t('board.writePost.draftStatus.constraintsExceeded')
-    if (lastLocalSaveFailed.value) return options.t('board.writePost.draftStatus.localStorageFailed')
     if (saveRetryScheduled.value) {
       return options.t('board.writePost.draftStatus.retryScheduled', {
         attempt: saveRetryAttempt.value,

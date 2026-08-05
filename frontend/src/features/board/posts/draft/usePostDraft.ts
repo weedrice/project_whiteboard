@@ -267,7 +267,8 @@ export function usePostDraft(options: UsePostDraftOptions) {
         const staleSnapshot = options.prepareStaleSnapshot?.(strippedSnapshot) ?? strippedSnapshot
         options.applyDraft(staleSnapshot)
         options.onStaleReferencesReset?.()
-        storeLocalSnapshot(staleSnapshot)
+        const storedLocally = storeLocalSnapshot(staleSnapshot)
+        if (!storedLocally) clearAutosaveTimer()
     }
 
     const transitionToProtectedDraft = () => {
@@ -288,7 +289,8 @@ export function usePostDraft(options: UsePostDraftOptions) {
             const staleSnapshot = options.prepareStaleSnapshot?.(strippedSnapshot) ?? strippedSnapshot
             options.applyDraft(staleSnapshot)
             options.onStaleReferencesReset?.()
-            storeLocalSnapshot(staleSnapshot)
+            const storedLocally = storeLocalSnapshot(staleSnapshot)
+            if (!storedLocally) clearAutosaveTimer()
         } else {
             removeLocalSnapshot()
         }

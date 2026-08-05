@@ -2382,6 +2382,31 @@ describe('usePostDraft', () => {
         }))
     })
 
+    it('reports a local storage failure while detaching a deleted server draft', async () => {
+        const { composable, payloadRef } = mountComposable()
+        await composable.saveNow()
+        payloadRef.value = { ...payloadRef.value, title: 'Memory-only recovery' }
+        const setItem = vi.spyOn(Storage, 'setWithResult')
+            .mockReturnValue({ ok: false, reason: 'quota-exceeded' })
+        mocks.saveDraftMutateAsync.mockRejectedValueOnce({
+            isAxiosError: true,
+            response: { status: 404, data: { error: { code: 'P007' } } },
+        })
+
+        try {
+            await expect(composable.saveNow()).rejects.toMatchObject({ response: { status: 404 } })
+
+            expect(composable.draftDeleted.value).toBe(true)
+            expect(composable.lastLocalSaveFailed.value).toBe(true)
+            expect(Storage.get('noviis:test:draft')).not.toEqual(expect.objectContaining({
+                title: 'Memory-only recovery',
+            }))
+            expect(mocks.reportDraftOperationalEvent).toHaveBeenCalledWith('local_storage_write_failed')
+        } finally {
+            setItem.mockRestore()
+        }
+    })
+
     it('does not report the draft as deleted for a related-resource 404', async () => {
         const { composable, payloadRef } = mountComposable()
         await composable.saveNow()

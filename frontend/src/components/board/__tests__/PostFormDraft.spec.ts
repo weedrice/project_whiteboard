@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import { flushPromises } from '@vue/test-utils'
 import { Storage } from '@/utils/storage'
@@ -138,6 +138,31 @@ describe('PostForm draft behavior', () => {
 
     expect(mockAddToast).toHaveBeenCalledWith('common.messages.saveFailed', 'error')
     expect(wrapper.text()).toContain('board.writePost.draftStatus.retryNow')
+  })
+
+  it('shows local storage failure ahead of the deleted draft state', async () => {
+    mockPostFormAuthStore({
+      isAuthenticated: true,
+      user: { userId: 1, role: 'USER' },
+    })
+    mockSaveDraftMutateAsync.mockRejectedValueOnce({
+      isAxiosError: true,
+      response: { status: 404, data: { error: { code: 'P007' } } },
+    })
+    const wrapper = mountPostForm('create')
+    await flushPromises()
+    await wrapper.get('#title').setValue('Memory-only recovery')
+    const setItem = vi.spyOn(Storage, 'setWithResult')
+      .mockReturnValue({ ok: false, reason: 'quota-exceeded' })
+
+    try {
+      await findButtonByText(wrapper, 'board.writePost.actions.saveDraft').trigger('click')
+      await flushPromises()
+
+      expect(wrapper.text()).toContain('board.writePost.draftStatus.localStorageFailed')
+    } finally {
+      setItem.mockRestore()
+    }
   })
 
   it('offers scheduled post management when the draft becomes protected', async () => {
