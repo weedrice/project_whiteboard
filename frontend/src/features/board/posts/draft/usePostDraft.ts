@@ -17,6 +17,7 @@ import {
     isMatchingLoadedDraft,
     loadDraftById,
     resolveDraftRecoverySnapshot,
+    toIsoTime,
     type DraftRecoverySnapshot,
 } from '@/features/board/posts/draft/postDraftRecovery'
 import {
@@ -132,6 +133,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
     let saveQueued = false
     let localRevision = 0
     let persistedRevision = 0
+    let lastRemoteLocalChangeAt = 0
     let sessionGeneration = 0
     const createClientKey = () => typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
         ? crypto.randomUUID()
@@ -165,6 +167,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         clientDraftKey.value = createClientKey()
         updatedAt.value = null
         lastSavedAt.value = null
+        lastRemoteLocalChangeAt = 0
     }
 
     const invalidatePendingSaves = () => {
@@ -175,6 +178,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         saveQueued = false
         localRevision = 0
         persistedRevision = 0
+        lastRemoteLocalChangeAt = 0
     }
 
     const storeLocalSnapshot = (snapshot: DraftRecoverySnapshot) => {
@@ -373,6 +377,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         updatedAt.value = getDraftUpdatedAt(savedDraft) ?? new Date().toISOString()
         lastSavedAt.value = updatedAt.value
         lastSaveScope.value = 'server'
+        lastRemoteLocalChangeAt = 0
         staleReferencesReset.value = Boolean(savedDraft.staleReferencesReset)
         let canonicalPayload = payload
         if (staleReferencesReset.value) {
@@ -786,8 +791,28 @@ export function usePostDraft(options: UsePostDraftOptions) {
         const sameClientDraft = Boolean(incoming.clientDraftKey)
             && incoming.clientDraftKey === clientDraftKey.value
         const sameLogicalDraft = sameDraft || (draftId.value == null && sameClientDraft)
-        const serverAdvanced = sameLogicalDraft
-            && (incoming.updatedAt ?? incoming.modifiedAt ?? null) !== updatedAt.value
+        const incomingServerTime = toIsoTime(incoming.updatedAt ?? incoming.modifiedAt)
+        const currentServerTime = toIsoTime(updatedAt.value)
+        const serverRevisionOrder = incoming.version != null && draftVersion.value != null
+            ? Math.sign(incoming.version - draftVersion.value)
+            : incomingServerTime && currentServerTime
+                ? Math.sign(Date.parse(incomingServerTime) - Date.parse(currentServerTime))
+                : null
+        if (sameLogicalDraft && incoming.hasLocalChanges === false && serverRevisionOrder != null) {
+            if (serverRevisionOrder < 0) return
+            if (serverRevisionOrder === 0
+                && draftId.value != null
+                && !hasSameDraftContent(incoming, options.buildPayload())) return
+        }
+        const incomingClientModifiedAt = toIsoTime(incoming.clientModifiedAt)
+        const incomingClientModifiedAtMs = incomingClientModifiedAt
+            ? Date.parse(incomingClientModifiedAt)
+            : 0
+        if (sameLogicalDraft
+            && incoming.hasLocalChanges === true
+            && lastRemoteLocalChangeAt > 0
+            && incomingClientModifiedAtMs <= lastRemoteLocalChangeAt) return
+        const serverAdvanced = sameLogicalDraft && serverRevisionOrder != null && serverRevisionOrder > 0
         const matchingComposer = isMatchingLoadedDraft(incoming as DraftPost, options.buildPayload())
         const hasUnsavedLocalChanges = localRevision !== persistedRevision
         if (!hasUnsavedLocalChanges
@@ -799,6 +824,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
             clientDraftKey.value = incoming.clientDraftKey ?? clientDraftKey.value
             updatedAt.value = incoming.updatedAt ?? incoming.modifiedAt ?? null
             localRevision++
+            lastRemoteLocalChangeAt = incomingClientModifiedAtMs
             restoreSource.value = 'local'
             options.applyDraft(incoming)
             return
@@ -815,6 +841,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
             lastSavedAt.value = updatedAt.value
             lastSaveScope.value = 'server'
             persistedRevision = localRevision
+            lastRemoteLocalChangeAt = 0
             options.applyDraft(incoming)
             options.onSaved?.()
             return
@@ -830,6 +857,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
             updatedAt.value = incoming.updatedAt ?? incoming.modifiedAt ?? null
             lastSavedAt.value = updatedAt.value
             lastSaveScope.value = 'server'
+            lastRemoteLocalChangeAt = 0
             options.applyDraft(incoming)
             options.onSaved?.()
             return
