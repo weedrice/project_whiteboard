@@ -16,6 +16,7 @@ defineProps<{
   isRestoringDraft: boolean
   draftConflict: boolean
   draftProtected: boolean
+  protectedDraftForkAvailable: boolean
   draftDeleted: boolean
   restoreFailed: boolean
   multipleDraftsFound: boolean
@@ -31,6 +32,8 @@ defineEmits<{
   retryRestore: []
   saveDeletedAsNew: []
   discardDeleted: []
+  saveProtectedAsNew: []
+  discardProtected: []
   'update:scheduledAt': [value: string]
 }>()
 </script>
@@ -52,6 +55,7 @@ defineEmits<{
       :is-restoring-draft="isRestoringDraft"
       :draft-conflict="draftConflict"
       :draft-protected="draftProtected"
+      :protected-draft-fork-available="protectedDraftForkAvailable"
       :draft-deleted="draftDeleted"
       :restore-failed="restoreFailed"
       :multiple-drafts-found="multipleDraftsFound"
@@ -62,6 +66,8 @@ defineEmits<{
       @retry-restore="$emit('retryRestore')"
       @save-deleted-as-new="$emit('saveDeletedAsNew')"
       @discard-deleted="$emit('discardDeleted')"
+      @save-protected-as-new="$emit('saveProtectedAsNew')"
+      @discard-protected="$emit('discardProtected')"
     />
 
     <section

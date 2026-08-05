@@ -8,6 +8,7 @@ defineProps<{
   isRestoringDraft: boolean
   draftConflict: boolean
   draftProtected: boolean
+  protectedDraftForkAvailable: boolean
   draftDeleted: boolean
   restoreFailed: boolean
   multipleDraftsFound: boolean
@@ -21,6 +22,8 @@ defineEmits<{
   retryRestore: []
   saveDeletedAsNew: []
   discardDeleted: []
+  saveProtectedAsNew: []
+  discardProtected: []
 }>()
 </script>
 
@@ -75,16 +78,39 @@ defineEmits<{
           {{ $t('board.writePost.draftStatus.keepLocal') }}
         </BaseButton>
       </template>
-      <BaseButton
-        v-else-if="draftProtected"
-        type="button"
-        variant="secondary"
-        size="sm"
-        full-width
-        to="/mypage/drafts"
-      >
-        {{ $t('board.writePost.draftStatus.openScheduledPosts') }}
-      </BaseButton>
+      <template v-else-if="draftProtected">
+        <template v-if="protectedDraftForkAvailable">
+          <BaseButton
+            type="button"
+            variant="primary"
+            size="sm"
+            full-width
+            :disabled="isSavingDraft || isRestoringDraft"
+            @click="$emit('saveProtectedAsNew')"
+          >
+            {{ $t('board.writePost.draftStatus.saveAsNew') }}
+          </BaseButton>
+          <BaseButton
+            type="button"
+            variant="secondary"
+            size="sm"
+            full-width
+            :disabled="isSavingDraft || isRestoringDraft"
+            @click="$emit('discardProtected')"
+          >
+            {{ $t('board.writePost.draftStatus.discardLocal') }}
+          </BaseButton>
+        </template>
+        <BaseButton
+          type="button"
+          variant="secondary"
+          size="sm"
+          full-width
+          to="/mypage/drafts"
+        >
+          {{ $t('board.writePost.draftStatus.openScheduledPosts') }}
+        </BaseButton>
+      </template>
       <BaseButton
         v-else-if="multipleDraftsFound"
         type="button"

@@ -98,6 +98,7 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     lastLocalSaveFailed,
     draftConflict,
     draftProtected,
+    protectedDraftForkAvailable,
     draftDeleted,
     contractValidationFailed,
     restoreFailed,
@@ -112,6 +113,8 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     resetSession,
     saveDeletedDraftAsNew,
     discardDeletedDraft,
+    saveProtectedDraftAsNew,
+    discardProtectedDraftFork,
   } = usePostDraft({
     enabled: draftEnabled,
     storageKey: draftStorageKey,
@@ -332,21 +335,42 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     }
   }
 
+  async function handleSaveProtectedDraftAsNew() {
+    try {
+      if (await saveProtectedDraftAsNew()) {
+        options.markCurrentSnapshotSaved()
+        options.addToast(options.t('board.writePost.draftStatus.savedAsNew'), 'success')
+      }
+    } catch (error) {
+      logger.error('Failed to save protected draft edits as new:', error)
+      options.addToast(options.t('common.messages.saveFailed'), 'error')
+    }
+  }
+
+  const applyEmptyDraft = () => applyDraftWithoutTracking({
+    title: '',
+    contents: '',
+    categoryId: options.firstCategoryId.value,
+    tags: [],
+    fileIds: [],
+    isNotice: false,
+    isNsfw: false,
+    isSpoiler: false,
+    isSecret: false,
+    poll: null,
+    seriesId: null,
+  })
+
   function handleDiscardDeletedDraft() {
     discardDeletedDraft()
-    applyDraftWithoutTracking({
-      title: '',
-      contents: '',
-      categoryId: options.firstCategoryId.value,
-      tags: [],
-      fileIds: [],
-      isNotice: false,
-      isNsfw: false,
-      isSpoiler: false,
-      isSecret: false,
-      poll: null,
-      seriesId: null,
-    })
+    applyEmptyDraft()
+    options.markCurrentSnapshotSaved()
+    options.addToast(options.t('board.writePost.draftStatus.discarded'), 'info')
+  }
+
+  function handleDiscardProtectedDraft() {
+    discardProtectedDraftFork()
+    applyEmptyDraft()
     options.markCurrentSnapshotSaved()
     options.addToast(options.t('board.writePost.draftStatus.discarded'), 'info')
   }
@@ -357,6 +381,7 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     draftId,
     draftConflict,
     draftProtected,
+    protectedDraftForkAvailable,
     draftDeleted,
     restoreFailed,
     multipleDraftsFound,
@@ -372,6 +397,8 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     handleRetryDraftRestore,
     handleSaveDeletedDraftAsNew,
     handleDiscardDeletedDraft,
+    handleSaveProtectedDraftAsNew,
+    handleDiscardProtectedDraft,
     cleanupPublishedDraft: clearPublishedDraftRecovery,
     clearScheduledDraftRecovery,
   }

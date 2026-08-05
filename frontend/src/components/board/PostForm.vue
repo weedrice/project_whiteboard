@@ -344,6 +344,7 @@ const {
   draftId,
   draftConflict,
   draftProtected,
+  protectedDraftForkAvailable,
   draftDeleted,
   restoreFailed,
   multipleDraftsFound,
@@ -357,6 +358,8 @@ const {
   handleRetryDraftRestore,
   handleSaveDeletedDraftAsNew,
   handleDiscardDeletedDraft,
+  handleSaveProtectedDraftAsNew,
+  handleDiscardProtectedDraft,
   cleanupPublishedDraft,
   clearScheduledDraftRecovery,
 } = usePostComposerDraft({
@@ -611,6 +614,7 @@ defineExpose({
             :is-restoring-draft="isRestoringDraft"
             :draft-conflict="draftConflict"
             :draft-protected="draftProtected"
+            :protected-draft-fork-available="protectedDraftForkAvailable"
             :draft-deleted="draftDeleted"
             :restore-failed="restoreFailed"
             :multiple-drafts-found="multipleDraftsFound"
@@ -623,6 +627,8 @@ defineExpose({
             @retry-restore="handleRetryDraftRestore"
             @save-deleted-as-new="handleSaveDeletedDraftAsNew"
             @discard-deleted="handleDiscardDeletedDraft"
+            @save-protected-as-new="handleSaveProtectedDraftAsNew"
+            @discard-protected="handleDiscardProtectedDraft"
             @update:scheduled-at="scheduledAt = $event"
           />
         </fieldset>
@@ -675,6 +681,28 @@ defineExpose({
           @click="handleKeepLocalDraft"
         >
           {{ $t('board.writePost.draftStatus.keepLocal') }}
+        </BaseButton>
+      </div>
+      <div v-else-if="draftProtected && protectedDraftForkAvailable" class="grid grid-cols-2 gap-2">
+        <BaseButton
+          type="button"
+          variant="primary"
+          size="sm"
+          class="min-h-[36px] w-full"
+          :disabled="isSavingDraft || isRestoringDraft || isSubmitting || isSubmissionLocked"
+          @click="handleSaveProtectedDraftAsNew"
+        >
+          {{ $t('board.writePost.draftStatus.saveAsNew') }}
+        </BaseButton>
+        <BaseButton
+          type="button"
+          variant="secondary"
+          size="sm"
+          class="min-h-[36px] w-full"
+          :disabled="isSavingDraft || isRestoringDraft || isSubmitting || isSubmissionLocked"
+          @click="handleDiscardProtectedDraft"
+        >
+          {{ $t('board.writePost.draftStatus.discardLocal') }}
         </BaseButton>
       </div>
       <BaseButton

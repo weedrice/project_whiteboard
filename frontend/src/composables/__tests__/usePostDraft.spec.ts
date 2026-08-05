@@ -577,6 +577,58 @@ describe('usePostDraft', () => {
         expect(Storage.has('noviis:test:draft')).toBe(false)
     })
 
+    it('preserves unsaved edits as a detached local draft when another tab schedules the server draft', async () => {
+        const ownerId = ref<number | null>(1)
+        const { composable, payloadRef, appliedDrafts } = mountComposable(
+            undefined,
+            undefined,
+            undefined,
+            ownerId,
+        )
+        await composable.saveNow()
+        const previousClientDraftKey = composable.clientDraftKey.value
+        payloadRef.value = { ...payloadRef.value, title: 'Unsaved protected edit' }
+        composable.writeLocalSnapshot()
+
+        window.dispatchEvent(new StorageEvent('storage', {
+            key: 'noviis:draft-scheduled-event',
+            newValue: JSON.stringify({
+                type: 'draft-scheduled',
+                eventId: 'scheduled-event-with-local-edits',
+                sourceId: 'peer-tab',
+                ownerId: '1',
+                draftId: 91,
+                clientDraftKey: previousClientDraftKey,
+                storageKey: 'noviis:test:draft',
+                at: Date.now(),
+            } satisfies DraftScheduledEvent),
+        }))
+
+        expect(composable.draftProtected.value).toBe(true)
+        expect(composable.protectedDraftForkAvailable.value).toBe(true)
+        expect(composable.draftId.value).toBeNull()
+        expect(composable.clientDraftKey.value).not.toBe(previousClientDraftKey)
+        expect(appliedDrafts.at(-1)).toEqual(expect.objectContaining({
+            title: 'Unsaved protected edit',
+            fileIds: [],
+            hasLocalChanges: true,
+        }))
+        expect(Storage.get('noviis:test:draft')).toEqual(expect.objectContaining({
+            title: 'Unsaved protected edit',
+            hasLocalChanges: true,
+        }))
+        expect(Storage.get('noviis:test:draft')).not.toHaveProperty('draftId')
+
+        mocks.saveDraftMutateAsync.mockClear()
+        await composable.saveProtectedDraftAsNew()
+
+        expect(mocks.saveDraftMutateAsync).toHaveBeenCalledWith(expect.objectContaining({
+            draftId: undefined,
+        }))
+        expect(composable.draftProtected.value).toBe(false)
+        expect(composable.protectedDraftForkAvailable.value).toBe(false)
+    })
+
     it('preserves local changes when the server advanced and lets the user overwrite explicitly', async () => {
         Storage.set('noviis:test:draft', {
             boardUrl: 'free',

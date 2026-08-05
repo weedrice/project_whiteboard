@@ -116,6 +116,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
     const isRestoringDraft = ref(false)
     const draftConflict = ref(false)
     const draftProtected = ref(false)
+    const protectedDraftForkAvailable = ref(false)
     const draftDeleted = ref(false)
     const staleReferencesReset = ref(false)
     const contractValidationFailed = ref(false)
@@ -246,6 +247,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         invalidatePendingSaves()
         resetDraftTracking()
         draftDeleted.value = true
+        protectedDraftForkAvailable.value = false
         staleReferencesReset.value = true
         draftConflict.value = false
         draftProtected.value = false
@@ -260,14 +262,32 @@ export function usePostDraft(options: UsePostDraftOptions) {
     }
 
     const transitionToProtectedDraft = () => {
+        const localSnapshot = loadStoredDraftSnapshot(activeStorageKey.value)
+        const shouldPreserveLocalChanges = localRevision !== persistedRevision
+            || localSnapshot?.hasLocalChanges === true
         clearAutosaveTimer()
         clearSaveRetry()
         invalidatePendingSaves()
+        if (shouldPreserveLocalChanges) {
+            removeLocalSnapshot()
+            resetDraftTracking()
+            const strippedSnapshot = stripDraftServerIdentity({
+                ...createDraftRecoverySnapshot(options.buildPayload(), null, null),
+                contractValidationFailed: options.canPersist?.() === false,
+            })
+            const staleSnapshot = options.prepareStaleSnapshot?.(strippedSnapshot) ?? strippedSnapshot
+            options.applyDraft(staleSnapshot)
+            options.onStaleReferencesReset?.()
+            storeLocalSnapshot(staleSnapshot)
+        } else {
+            removeLocalSnapshot()
+        }
+        protectedDraftForkAvailable.value = shouldPreserveLocalChanges
         draftProtected.value = true
         draftConflict.value = false
         draftDeleted.value = false
+        staleReferencesReset.value = shouldPreserveLocalChanges
         lastSaveFailed.value = false
-        removeLocalSnapshot()
     }
 
     const savePayload = async (payload: PostDraftData) => {
@@ -683,6 +703,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         removeLocalSnapshot()
         lastSaveScope.value = null
         draftDeleted.value = false
+        protectedDraftForkAvailable.value = false
         staleReferencesReset.value = false
         contractValidationFailed.value = false
         multipleDraftsFound.value = false
@@ -703,6 +724,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         isRestoringDraft.value = false
         draftConflict.value = false
         draftProtected.value = false
+        protectedDraftForkAvailable.value = false
         draftDeleted.value = false
         staleReferencesReset.value = false
         contractValidationFailed.value = false
@@ -838,6 +860,21 @@ export function usePostDraft(options: UsePostDraftOptions) {
         clearRecovery()
     }
 
+    const saveProtectedDraftAsNew = async () => {
+        if (!draftProtected.value || !protectedDraftForkAvailable.value) return false
+        draftProtected.value = false
+        protectedDraftForkAvailable.value = false
+        const saved = await saveNow()
+        return saved != null || lastSaveScope.value === 'browser'
+    }
+
+    const discardProtectedDraftFork = () => {
+        if (!protectedDraftForkAvailable.value) return
+        protectedDraftForkAvailable.value = false
+        draftProtected.value = false
+        clearRecovery()
+    }
+
     const unregisterDraftScheduledListener = typeof window !== 'undefined'
         ? registerDraftScheduledListener((scheduledEvent) => {
             if (!options.enabled.value || !matchesDraftScheduledEvent(
@@ -933,6 +970,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         isRestoringDraft: computed(() => isRestoringDraft.value),
         draftConflict: computed(() => draftConflict.value),
         draftProtected: computed(() => draftProtected.value),
+        protectedDraftForkAvailable: computed(() => protectedDraftForkAvailable.value),
         draftDeleted: computed(() => draftDeleted.value),
         staleReferencesReset: computed(() => staleReferencesReset.value),
         contractValidationFailed: computed(() => contractValidationFailed.value),
@@ -952,5 +990,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         writeLocalSnapshot,
         saveDeletedDraftAsNew,
         discardDeletedDraft,
+        saveProtectedDraftAsNew,
+        discardProtectedDraftFork,
     }
 }
