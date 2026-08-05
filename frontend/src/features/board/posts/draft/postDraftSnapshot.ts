@@ -70,7 +70,9 @@ export function stripDraftServerIdentity(snapshot: DraftRecoverySnapshot): Draft
     version: undefined,
     updatedAt: undefined,
     modifiedAt: undefined,
-    contents: removePostFileReferencesFromContent(snapshot.contents, snapshot.fileIds ?? []),
+    contents: snapshot.contents == null
+      ? snapshot.contents
+      : removePostFileReferencesFromContent(snapshot.contents, snapshot.fileIds ?? []),
     fileIds: [],
     staleReferencesReset: true,
     hasLocalChanges: true,
