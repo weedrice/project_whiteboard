@@ -91,7 +91,10 @@ export async function resolveServerDraftForRecovery({
       nextLocalSnapshot?.draftId === serverDraftId
       && isDraftMissingError(error)
     ) {
-      nextLocalSnapshot = onStaleLocalSnapshot(stripDraftServerIdentity(nextLocalSnapshot))
+      nextLocalSnapshot = onStaleLocalSnapshot(stripDraftServerIdentity(
+        nextLocalSnapshot,
+        nextLocalSnapshot.unassociatedUploadFileIds,
+      ))
       try {
         const fallbackResolution = await resolveMatchingDraft()
         const fallbackDraftId = fallbackResolution.draftId

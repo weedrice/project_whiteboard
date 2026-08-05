@@ -1578,6 +1578,39 @@ describe('usePostDraft', () => {
         }))
     })
 
+    it('preserves locally tracked unassociated uploads after a stale draft id returns 404', async () => {
+        Storage.set('noviis:test:draft', {
+            boardUrl: 'free',
+            title: 'Local draft',
+            contents: '<img src="/api/v1/files/31"><img src="/api/v1/files/32">',
+            fileIds: [31, 32],
+            unassociatedUploadFileIds: [32],
+            draftId: 91,
+            clientDraftKey: 'client-draft-key-1234',
+            version: 4,
+            updatedAt: '2025-01-01T00:00:00.000Z',
+            clientModifiedAt: '2026-07-07T11:30:00.000Z',
+        })
+        const { composable, appliedDrafts } = mountComposable()
+        mocks.getDraft.mockRejectedValueOnce({
+            isAxiosError: true,
+            response: { status: 404, data: { error: { code: 'P007' } } },
+        })
+
+        await composable.restoreDraft()
+        await nextTick()
+
+        expect(appliedDrafts[0]).toEqual(expect.objectContaining({
+            contents: '<img src="/api/v1/files/32">',
+            fileIds: [32],
+            unassociatedUploadFileIds: [32],
+        }))
+        expect(Storage.get('noviis:test:draft')).toEqual(expect.objectContaining({
+            fileIds: [32],
+            unassociatedUploadFileIds: [32],
+        }))
+    })
+
     it('keeps local server identity when draft recovery gets a related-resource 404', async () => {
         Storage.set('noviis:test:draft', {
             boardUrl: 'free',
@@ -2417,6 +2450,7 @@ describe('usePostDraft', () => {
         expect(Storage.get('noviis:test:draft')).toEqual(expect.objectContaining({
             contents: '<img src="/api/v1/files/8">',
             fileIds: [8],
+            unassociatedUploadFileIds: [8],
         }))
     })
 

@@ -65,6 +65,34 @@ describe('draft browser lifecycle', () => {
     expect(isDraftDeletedLocally(1, 91)).toBe(false)
   })
 
+  it('keeps valid unassociated upload ownership metadata', () => {
+    const key = 'noviis:draft:1:create:free:new'
+    Storage.set(key, {
+      boardUrl: 'free',
+      fileIds: [7, 8],
+      unassociatedUploadFileIds: [8],
+      clientModifiedAt: '2026-08-02T00:00:00.000Z',
+    })
+
+    expect(loadStoredDraftSnapshot(key)).toEqual(expect.objectContaining({
+      fileIds: [7, 8],
+      unassociatedUploadFileIds: [8],
+    }))
+  })
+
+  it('rejects unassociated upload metadata outside the draft file list', () => {
+    const key = 'noviis:draft:1:create:free:new'
+    Storage.set(key, {
+      boardUrl: 'free',
+      fileIds: [7],
+      unassociatedUploadFileIds: [8],
+      clientModifiedAt: '2026-08-02T00:00:00.000Z',
+    })
+
+    expect(loadStoredDraftSnapshot(key)).toBeNull()
+    expect(Storage.has(key)).toBe(false)
+  })
+
   it('migrates legacy boolean tombstones to timestamped records', () => {
     Storage.set('noviis:draft-deleted:1:91', true)
 

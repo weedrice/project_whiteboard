@@ -188,8 +188,17 @@ export function usePostDraft(options: UsePostDraftOptions) {
     }
 
     const storeLocalSnapshot = (snapshot: DraftRecoverySnapshot) => {
+        const snapshotFileIds = new Set(snapshot.fileIds ?? [])
+        const requestedUnassociatedFileIds = snapshot.unassociatedUploadFileIds
+            ?? options.getDetachedDraftFileIdsToPreserve?.(snapshot)
+            ?? []
+        const unassociatedUploadFileIds = [...new Set(requestedUnassociatedFileIds)]
+            .filter((fileId) => snapshotFileIds.has(fileId))
         const result = storeDraftSnapshotWithBudgetResult(activeStorageKey.value, {
             ...snapshot,
+            unassociatedUploadFileIds: unassociatedUploadFileIds.length > 0
+                ? unassociatedUploadFileIds
+                : undefined,
             clientDraftKey: snapshot.clientDraftKey ?? clientDraftKey.value,
             version: snapshot.version ?? draftVersion.value ?? undefined,
             clientInstanceId,

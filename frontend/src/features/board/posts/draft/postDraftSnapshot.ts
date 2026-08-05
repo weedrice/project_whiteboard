@@ -83,6 +83,7 @@ export function stripDraftServerIdentity(
       ? snapshot.contents
       : removePostFileReferencesFromContent(snapshot.contents, removedFileIds),
     fileIds: detachedFileIds,
+    unassociatedUploadFileIds: detachedFileIds.length > 0 ? detachedFileIds : undefined,
     staleReferencesReset: true,
     hasLocalChanges: true,
     clientModifiedAt: new Date().toISOString(),

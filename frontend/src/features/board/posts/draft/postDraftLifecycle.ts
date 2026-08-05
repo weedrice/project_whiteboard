@@ -162,6 +162,13 @@ export function parseDraftRecoverySnapshot(
     && (!Array.isArray(value.tags) || !value.tags.every((tag) => typeof tag === 'string'))) return null
   if (value.fileIds !== undefined
     && (!Array.isArray(value.fileIds) || !value.fileIds.every((id) => Number.isInteger(id) && id > 0))) return null
+  if (value.unassociatedUploadFileIds !== undefined
+    && (!Array.isArray(value.unassociatedUploadFileIds)
+      || value.unassociatedUploadFileIds.length > POST_FILE_MAX_COUNT
+      || !value.unassociatedUploadFileIds.every((id) => Number.isInteger(id)
+        && id > 0
+        && Array.isArray(value.fileIds)
+        && value.fileIds.includes(id)))) return null
   if (!isOptionalBoolean(value.isNotice) || !isOptionalBoolean(value.isNsfw)
     || !isOptionalBoolean(value.isSpoiler) || !isOptionalBoolean(value.isSecret)
     || !isOptionalBoolean(value.hasLocalChanges) || !isOptionalBoolean(value.staleReferencesReset)
