@@ -2,6 +2,8 @@ import { effectScope, nextTick, ref } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   POST_COMPOSER_UPLOAD_DISCARD_DELAY_MS,
+  POST_COMPOSER_UPLOAD_RETRY_BASE_DELAY_MS,
+  POST_COMPOSER_UPLOAD_RETRY_MAX_ATTEMPTS,
   usePostComposerUploadOwnership,
 } from '@/features/board/posts/form/usePostComposerUploadOwnership'
 
@@ -151,19 +153,57 @@ describe('usePostComposerUploadOwnership', () => {
     expect(discardUploadsMock).toHaveBeenCalledWith([53], { skipGlobalErrorHandler: true })
   })
 
-  it('restores upload ownership when discard fails so cleanup can be retried', async () => {
+  it('automatically retries a failed upload discard', async () => {
     discardUploadsMock.mockRejectedValueOnce(new Error('network unavailable'))
-    const { scope, ownership } = createOwnership()
+    const { scope, content, ownership } = createOwnership()
     ownership.recordUploadedFile(71)
+    content.value = '<img src="/api/v1/files/71">'
 
-    ownership.discardAllOwnedUploads()
+    scope.stop()
     await Promise.resolve()
     expect(ownership.ownedUploadedFileIds.value).toEqual([71])
 
-    ownership.discardAllOwnedUploads()
-    await Promise.resolve()
+    await vi.advanceTimersByTimeAsync(POST_COMPOSER_UPLOAD_RETRY_BASE_DELAY_MS)
+
     expect(ownership.ownedUploadedFileIds.value).toEqual([])
     expect(discardUploadsMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('cancels a non-terminal discard retry when the file is referenced again', async () => {
+    discardUploadsMock.mockRejectedValueOnce(new Error('network unavailable'))
+    const { scope, content, ownership } = createOwnership()
+    ownership.recordUploadedFile(72)
+    content.value = '<img src="/api/v1/files/72">'
+    await nextTick()
+    content.value = ''
+    await nextTick()
+    await vi.advanceTimersByTimeAsync(POST_COMPOSER_UPLOAD_DISCARD_DELAY_MS)
+    expect(ownership.ownedUploadedFileIds.value).toEqual([72])
+
+    content.value = '<img src="/api/v1/files/72">'
+    await nextTick()
+    await vi.advanceTimersByTimeAsync(POST_COMPOSER_UPLOAD_RETRY_BASE_DELAY_MS)
+
+    expect(discardUploadsMock).toHaveBeenCalledTimes(1)
+    expect(ownership.ownedUploadedFileIds.value).toEqual([72])
+    scope.stop()
+  })
+
+  it('bounds automatic retries when upload cleanup keeps failing', async () => {
+    discardUploadsMock.mockRejectedValue(new Error('network unavailable'))
+    const { scope, ownership } = createOwnership()
+    ownership.recordUploadedFile(73)
+
+    ownership.discardAllOwnedUploads()
+    await Promise.resolve()
+    for (let attempt = 0; attempt < POST_COMPOSER_UPLOAD_RETRY_MAX_ATTEMPTS; attempt++) {
+      await vi.advanceTimersByTimeAsync(POST_COMPOSER_UPLOAD_RETRY_BASE_DELAY_MS * 2 ** attempt)
+    }
+
+    expect(discardUploadsMock).toHaveBeenCalledTimes(POST_COMPOSER_UPLOAD_RETRY_MAX_ATTEMPTS + 1)
+    expect(ownership.ownedUploadedFileIds.value).toEqual([73])
+    expect(vi.getTimerCount()).toBe(0)
+    ownership.releaseUploadedFiles([73])
     scope.stop()
   })
 })
