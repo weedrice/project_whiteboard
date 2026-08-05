@@ -9,10 +9,30 @@ type UsePostComposerUploadOwnershipOptions = {
   durableDraftFileIds: Ref<number[]>
 }
 
+export const POST_COMPOSER_UPLOAD_DISCARD_DELAY_MS = 1_500
+
 export function usePostComposerUploadOwnership(options: UsePostComposerUploadOwnershipOptions) {
   const ownedUploadedFileIds = ref<number[]>([])
+  const pendingDiscardTimers = new Map<number, ReturnType<typeof setTimeout>>()
+
+  function cancelScheduledDiscard(fileId: number) {
+    const timer = pendingDiscardTimers.get(fileId)
+    if (!timer) return
+    clearTimeout(timer)
+    pendingDiscardTimers.delete(fileId)
+  }
+
+  function scheduleDiscard(fileId: number) {
+    if (pendingDiscardTimers.has(fileId)) return
+    pendingDiscardTimers.set(fileId, setTimeout(() => {
+      pendingDiscardTimers.delete(fileId)
+      if (extractPostFileIdsFromContent(options.content.value).includes(fileId)) return
+      void discardUploadedFiles([fileId])
+    }, POST_COMPOSER_UPLOAD_DISCARD_DELAY_MS))
+  }
 
   function recordUploadedFile(fileId: number) {
+    cancelScheduledDiscard(fileId)
     if (!ownedUploadedFileIds.value.includes(fileId)) {
       ownedUploadedFileIds.value.push(fileId)
     }
@@ -24,12 +44,14 @@ export function usePostComposerUploadOwnership(options: UsePostComposerUploadOwn
 
   function releaseUploadedFiles(fileIds: number[]) {
     if (fileIds.length === 0 || ownedUploadedFileIds.value.length === 0) return
+    fileIds.forEach(cancelScheduledDiscard)
     const releasedIds = new Set(fileIds)
     ownedUploadedFileIds.value = ownedUploadedFileIds.value.filter((fileId) => !releasedIds.has(fileId))
   }
 
   async function discardUploadedFiles(fileIds: number[]) {
     if (fileIds.length === 0 || ownedUploadedFileIds.value.length === 0) return
+    fileIds.forEach(cancelScheduledDiscard)
     const requestedIds = new Set(fileIds)
     const discardedIds = ownedUploadedFileIds.value.filter((fileId) => requestedIds.has(fileId))
     if (discardedIds.length === 0) return
@@ -47,8 +69,11 @@ export function usePostComposerUploadOwnership(options: UsePostComposerUploadOwn
   function discardUnreferencedUploads(content = options.content.value) {
     if (ownedUploadedFileIds.value.length === 0) return
     const referencedIds = new Set(extractPostFileIdsFromContent(content))
+    ownedUploadedFileIds.value
+      .filter((fileId) => referencedIds.has(fileId))
+      .forEach(cancelScheduledDiscard)
     const unreferencedIds = ownedUploadedFileIds.value.filter((fileId) => !referencedIds.has(fileId))
-    void discardUploadedFiles(unreferencedIds)
+    unreferencedIds.forEach(scheduleDiscard)
   }
 
   function discardAllOwnedUploads() {

@@ -1,6 +1,9 @@
 import { effectScope, nextTick, ref } from 'vue'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { usePostComposerUploadOwnership } from '@/features/board/posts/form/usePostComposerUploadOwnership'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  POST_COMPOSER_UPLOAD_DISCARD_DELAY_MS,
+  usePostComposerUploadOwnership,
+} from '@/features/board/posts/form/usePostComposerUploadOwnership'
 
 const discardUploadsMock = vi.hoisted(() => vi.fn())
 
@@ -30,8 +33,13 @@ function createOwnership() {
 
 describe('usePostComposerUploadOwnership', () => {
   beforeEach(() => {
+    vi.useFakeTimers()
     vi.clearAllMocks()
     discardUploadsMock.mockResolvedValue({ data: { data: { discardedCount: 1 } } })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   it('discards only current-session uploads removed from post content', async () => {
@@ -44,6 +52,9 @@ describe('usePostComposerUploadOwnership', () => {
 
     content.value = '<p>image removed</p>'
     await nextTick()
+
+    expect(discardUploadsMock).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(POST_COMPOSER_UPLOAD_DISCARD_DELAY_MS)
 
     expect(discardUploadsMock).toHaveBeenCalledWith([41], { skipGlobalErrorHandler: true })
     expect(ownership.ownedUploadedFileIds.value).toEqual([])
@@ -71,12 +82,31 @@ describe('usePostComposerUploadOwnership', () => {
 
     content.value = '<img src="/api/v1/files/82">'
     await nextTick()
+    await vi.advanceTimersByTimeAsync(POST_COMPOSER_UPLOAD_DISCARD_DELAY_MS)
 
     expect(discardUploadsMock).toHaveBeenCalledWith([81], { skipGlobalErrorHandler: true })
     durableDraftFileIds.value = [82]
     scope.stop()
     expect(discardUploadsMock).not.toHaveBeenCalledWith([82], expect.anything())
     expect(ownership.ownedUploadedFileIds.value).toEqual([])
+  })
+
+  it('cancels a pending discard when an upload is referenced again', async () => {
+    const { scope, content, ownership } = createOwnership()
+    ownership.recordUploadedFile(64)
+    content.value = '<img src="/api/v1/files/64">'
+    await nextTick()
+
+    content.value = ''
+    await nextTick()
+    await vi.advanceTimersByTimeAsync(POST_COMPOSER_UPLOAD_DISCARD_DELAY_MS - 1)
+    content.value = '<img src="/api/v1/files/64">'
+    await nextTick()
+    await vi.advanceTimersByTimeAsync(1)
+
+    expect(discardUploadsMock).not.toHaveBeenCalled()
+    expect(ownership.ownedUploadedFileIds.value).toEqual([64])
+    scope.stop()
   })
 
   it('hands referenced uploads to local recovery and discards only unreferenced uploads on identity change', () => {
@@ -127,10 +157,12 @@ describe('usePostComposerUploadOwnership', () => {
     ownership.recordUploadedFile(71)
 
     ownership.discardAllOwnedUploads()
-    await vi.waitFor(() => expect(ownership.ownedUploadedFileIds.value).toEqual([71]))
+    await Promise.resolve()
+    expect(ownership.ownedUploadedFileIds.value).toEqual([71])
 
     ownership.discardAllOwnedUploads()
-    await vi.waitFor(() => expect(ownership.ownedUploadedFileIds.value).toEqual([]))
+    await Promise.resolve()
+    expect(ownership.ownedUploadedFileIds.value).toEqual([])
     expect(discardUploadsMock).toHaveBeenCalledTimes(2)
     scope.stop()
   })
