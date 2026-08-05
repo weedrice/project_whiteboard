@@ -50,28 +50,18 @@ export const resolveDraftRecoverySnapshot = (
     localSnapshot: DraftRecoverySnapshot | null,
     serverDraft: DraftPost | null,
 ): DraftRecoveryResolution => {
-    if (!localSnapshot && !serverDraft) {
-        return { snapshot: null, source: 'idle', conflict: false }
-    }
-    if (!localSnapshot) {
-        return { snapshot: serverDraft as DraftRecoverySnapshot, source: 'server', conflict: false }
-    }
     if (!serverDraft) {
+        if (!localSnapshot) return { snapshot: null, source: 'idle', conflict: false }
         return { snapshot: localSnapshot, source: 'local', conflict: false }
     }
-
-    if (localSnapshot.hasLocalChanges === false) {
+    if (!localSnapshot
+        || localSnapshot.hasLocalChanges === false
+        || hasSameDraftContent(localSnapshot, serverDraft)) {
         return { snapshot: serverDraft as DraftRecoverySnapshot, source: 'server', conflict: false }
     }
 
-    const localUpdatedAt = toIsoTime(localSnapshot.updatedAt)
-    const serverUpdatedAt = toIsoTime(serverDraft.updatedAt ?? serverDraft.modifiedAt)
-    if (localUpdatedAt && serverUpdatedAt && localUpdatedAt === serverUpdatedAt) {
-        return { snapshot: localSnapshot, source: 'local', conflict: false }
-    }
-
-    // 로컬 내용이 어느 서버 버전에서 갈라졌는지 확인할 수 없거나 서버도 갱신되었다면
-    // 한쪽을 자동으로 버리지 않고 로컬 내용을 보존한 채 사용자가 선택하도록 한다.
+    // 서버가 정상 조회되면 서버본이 canonical이다. 다만 아직 서버에 반영되지 않은
+    // 로컬 내용은 자동 폐기하지 않고, 서버 identity를 유지한 채 사용자가 선택하게 한다.
     return { snapshot: localSnapshot, source: 'local', conflict: true }
 }
 
