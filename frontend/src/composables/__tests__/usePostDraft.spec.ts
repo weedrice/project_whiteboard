@@ -879,7 +879,7 @@ describe('usePostDraft', () => {
             undefined,
             undefined,
             undefined,
-            () => payloadRef.value.title.length <= 200,
+            () => (payloadRef.value.title?.length ?? 0) <= 200,
         )
 
         const savePromise = composable.saveNow()

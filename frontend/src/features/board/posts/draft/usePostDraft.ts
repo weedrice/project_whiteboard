@@ -715,7 +715,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
         const preparedServerSnapshotChanged = recovery.source === 'server'
             && resolved.serverDraft != null
             && chosen != null
-            && !hasSameDraftContent(chosen, resolved.serverDraft)
+            && !hasSameDraftContent(chosen, resolved.serverDraft as unknown as PostDraftData)
         restoreFailed.value = resolved.recoveryFailed
         multipleDraftsFound.value = resolved.multipleMatchesFound
         if (multipleDraftsFound.value) void reportDraftOperationalEvent('multiple_recovery_candidates')
