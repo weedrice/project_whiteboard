@@ -1,6 +1,7 @@
 import type { PostDraftData } from '@/api/post'
 import type { DraftPost } from '@/types'
 import { getDraftUpdatedAt, type DraftRecoverySnapshot } from '@/features/board/posts/draft/postDraftRecovery'
+import { removePostFileReferencesFromContent } from '@/utils/postForm'
 
 export function createDraftRecoverySnapshot(
   payload: PostDraftData,
@@ -70,6 +71,7 @@ export function stripDraftServerIdentity(snapshot: DraftRecoverySnapshot): Draft
     updatedAt: undefined,
     modifiedAt: undefined,
     categoryId: null,
+    contents: removePostFileReferencesFromContent(snapshot.contents, snapshot.fileIds ?? []),
     fileIds: [],
     seriesId: null,
     staleReferencesReset: true,

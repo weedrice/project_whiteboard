@@ -587,7 +587,11 @@ describe('usePostDraft', () => {
         )
         await composable.saveNow()
         const previousClientDraftKey = composable.clientDraftKey.value
-        payloadRef.value = { ...payloadRef.value, title: 'Unsaved protected edit' }
+        payloadRef.value = {
+            ...payloadRef.value,
+            title: 'Unsaved protected edit',
+            contents: '<p>Preserved text<img src="/api/v1/files/7"></p>',
+        }
         composable.writeLocalSnapshot()
 
         window.dispatchEvent(new StorageEvent('storage', {
@@ -610,6 +614,7 @@ describe('usePostDraft', () => {
         expect(composable.clientDraftKey.value).not.toBe(previousClientDraftKey)
         expect(appliedDrafts.at(-1)).toEqual(expect.objectContaining({
             title: 'Unsaved protected edit',
+            contents: '<p>Preserved text</p>',
             fileIds: [],
             hasLocalChanges: true,
         }))

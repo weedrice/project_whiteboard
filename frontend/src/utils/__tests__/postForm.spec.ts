@@ -3,6 +3,7 @@ import {
     buildPostFormPayload,
     extractFileIdFromPostImageSrc,
     extractPostFileIdsFromContent,
+    removePostFileReferencesFromContent,
     resolvePostFormFileIds,
     toEmbedPostVideoUrl,
     toSafePostLinkUrl,
@@ -60,6 +61,23 @@ describe('postForm', () => {
 
         expect(resolvePostFormFileIds(content, [11], 'content')).toEqual([10, 11])
         expect(resolvePostFormFileIds(content, [11], 'draft')).toEqual([11])
+    })
+
+    it('removes detached draft file references while preserving other content', () => {
+        const content = [
+            '<p>Before<img src="/api/v1/files/10"><img src="/api/v1/files/11"></p>',
+            '<p><img src="blob:https://noviis.kr/local" data-file-id="12" data-server-src="/api/v1/files/12"></p>',
+            '<a href="/api/v1/files/10">download</a>',
+            '<a href="https://external.test/files/10">external</a>',
+        ].join('')
+
+        const detached = removePostFileReferencesFromContent(content, [10, 12])
+
+        expect(detached).not.toContain('/api/v1/files/10')
+        expect(detached).not.toContain('data-file-id="12"')
+        expect(detached).toContain('src="/api/v1/files/11"')
+        expect(detached).toContain('download')
+        expect(detached).toContain('href="https://external.test/files/10"')
     })
 
     it('builds the same post payload shape used by create and update flows', () => {

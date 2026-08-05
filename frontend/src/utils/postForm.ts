@@ -160,6 +160,36 @@ export function extractPostFileIdsFromContent(content: string): number[] {
     return [...fileIds]
 }
 
+export function removePostFileReferencesFromContent(content: string, fileIds: number[]): string {
+    if (!content || fileIds.length === 0 || typeof DOMParser === 'undefined') return content
+
+    const removedFileIds = new Set(fileIds)
+    const parser = new DOMParser()
+    const doc = parser.parseFromString(content, 'text/html')
+    let changed = false
+
+    doc.querySelectorAll<HTMLImageElement>('img').forEach((image) => {
+        const dataFileId = image.getAttribute('data-file-id')
+        const candidateIds = [
+            dataFileId && /^\d+$/.test(dataFileId) ? Number(dataFileId) : null,
+            extractFileIdFromPostImageSrc(image.getAttribute('data-server-src') ?? ''),
+            extractFileIdFromPostImageSrc(image.getAttribute('src') ?? ''),
+        ]
+        if (!candidateIds.some((fileId) => fileId != null && removedFileIds.has(fileId))) return
+        image.remove()
+        changed = true
+    })
+
+    doc.querySelectorAll<HTMLAnchorElement>('a[href]').forEach((link) => {
+        const fileId = extractFileIdFromPostImageSrc(link.getAttribute('href') ?? '')
+        if (fileId == null || !removedFileIds.has(fileId)) return
+        link.replaceWith(...Array.from(link.childNodes))
+        changed = true
+    })
+
+    return changed ? doc.body.innerHTML : content
+}
+
 export function resolvePostFormFileIds(
     content: string,
     draftFileIds: number[],
