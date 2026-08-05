@@ -30,23 +30,7 @@ jobs:
             fi
           done
           sed -i 's/let localRevision = options.localRevision ?? 0/const localRevision = options.localRevision ?? 0/' frontend/src/features/board/posts/draft/__tests__/postDraftCrossTabReconciler.spec.ts
-          python - <<'PY'
-          from pathlib import Path
-          path = Path('frontend/src/features/board/posts/draft/usePostDraft.ts')
-          text = path.read_text()
-          old = """        getSessionGeneration: () => sessionGeneration,
-        getLocalRevision: () => localRevision,
-        markCurrentRevisionPersisted: () => { persistedRevision = localRevision },
-"""
-          new = """        getSessionGeneration: () => sessionGeneration,
-        getLocalRevision: () => localRevision,
-        incrementLocalRevision: () => { localRevision++ },
-        markCurrentRevisionPersisted: () => { persistedRevision = localRevision },
-"""
-          if old not in text:
-              raise SystemExit('recovery revision anchor not found')
-          path.write_text(text.replace(old, new, 1))
-          PY
+          perl -0pi -e 's/(        getSessionGeneration: \(\) => sessionGeneration,\n        getLocalRevision: \(\) => localRevision,\n)/$1        incrementLocalRevision: () => { localRevision++ },\n/' frontend/src/features/board/posts/draft/usePostDraft.ts
       - uses: actions/setup-node@v4
         with:
           node-version: 24
