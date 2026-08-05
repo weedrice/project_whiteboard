@@ -308,6 +308,13 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
         options.addToast(options.t('board.writePost.draftStatus.savedBrowser'), 'success')
       }
     } catch (error) {
+      if (saveRetryScheduled.value && !saveRetryExhausted.value) {
+        options.addToast(options.t('board.writePost.draftStatus.retryScheduled', {
+          attempt: saveRetryAttempt.value,
+          max: saveRetryMaxAttempts,
+        }), 'info')
+        return
+      }
       logger.error('Failed to save draft:', error)
       options.addToast(options.t('common.messages.saveFailed'), 'error')
     }

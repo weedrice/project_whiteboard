@@ -140,6 +140,49 @@ describe('PostForm draft behavior', () => {
     expect(wrapper.text()).toContain('board.writePost.draftStatus.retryNow')
   })
 
+  it('shows retry guidance instead of a failure when reference recovery is scheduled', async () => {
+    mockPostFormAuthStore({
+      isAuthenticated: true,
+      user: { userId: 1, role: 'USER' },
+    })
+    const contents = '<p>Draft body</p><img src="/api/v1/files/7">'
+    mockSaveDraftMutateAsync.mockResolvedValue({
+      data: {
+        data: {
+          draftId: 91,
+          version: 1,
+          boardId: 1,
+          boardUrl: 'free',
+          boardName: 'Free',
+          title: 'Draft title',
+          contents,
+          tags: [],
+          fileIds: [7],
+          isNotice: false,
+          isNsfw: false,
+          isSpoiler: false,
+          isSecret: false,
+          staleReferencesReset: true,
+          updatedAt: '2026-08-05T00:00:00.000Z',
+        },
+      },
+    })
+    const wrapper = mountPostForm('create')
+    await flushPromises()
+
+    await wrapper.get('#title').setValue('Draft title')
+    await wrapper.get('[data-testid="editor-input"]').setValue(contents)
+    await findButtonByText(wrapper, 'board.writePost.actions.saveDraft').trigger('click')
+    await flushPromises()
+
+    expect(mockSaveDraftMutateAsync).toHaveBeenCalledTimes(3)
+    expect(mockAddToast).toHaveBeenCalledWith(
+      'board.writePost.draftStatus.retryScheduled',
+      'info',
+    )
+    expect(mockAddToast).not.toHaveBeenCalledWith('common.messages.saveFailed', 'error')
+  })
+
   it('shows local storage failure ahead of the deleted draft state', async () => {
     mockPostFormAuthStore({
       isAuthenticated: true,
