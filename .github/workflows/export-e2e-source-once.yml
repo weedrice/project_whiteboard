@@ -1,0 +1,30 @@
+name: Export E2E Source Once
+
+on:
+  push:
+    branches:
+      - agent/fix-generated-api-drift
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout PR merge ref
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: refs/pull/168/merge
+
+      - name: List E2E files
+        run: find frontend/e2e -maxdepth 3 -type f -print | sort
+
+      - name: Upload E2E source
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: e2e-source
+          path: frontend/e2e
+          retention-days: 1
