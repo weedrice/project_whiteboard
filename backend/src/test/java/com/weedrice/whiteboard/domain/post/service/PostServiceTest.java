@@ -2315,6 +2315,8 @@ class PostServiceTest {
         when(draftPostRepository.saveAndFlush(any(DraftPost.class))).thenAnswer(invocation -> {
             DraftPost saved = invocation.getArgument(0);
             ReflectionTestUtils.setField(saved, "draftId", 23L);
+            Long currentVersion = saved.getVersion();
+            ReflectionTestUtils.setField(saved, "version", currentVersion == null ? 0L : currentVersion + 1);
             return saved;
         });
         when(fileService.retainValidDraftFileIds(List.of(11L, 12L), 1L, 23L))
@@ -2324,7 +2326,9 @@ class PostServiceTest {
 
         assertThat(response.getSeriesId()).isNull();
         assertThat(response.getFileIds()).containsExactly(12L);
+        assertThat(response.getVersion()).isEqualTo(1L);
         assertThat(response.isStaleReferencesReset()).isTrue();
+        verify(draftPostRepository, times(2)).saveAndFlush(any(DraftPost.class));
         verify(fileService).syncDraftFiles(List.of(12L), 1L, 23L);
     }
 

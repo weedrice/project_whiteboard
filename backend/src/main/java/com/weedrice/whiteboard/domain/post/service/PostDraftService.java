@@ -135,6 +135,7 @@ public class PostDraftService {
         }
         if (!Objects.equals(orEmpty(savedDraftPost.getFileIds()), retainedFileIds)) {
             savedDraftPost.replaceFileIds(retainedFileIds);
+            savedDraftPost = draftPostRepository.saveAndFlush(savedDraftPost);
         }
         fileService.syncDraftFiles(retainedFileIds, userId, savedDraftPost.getDraftId());
         postDraftCleanupService.enforceUserDraftLimit(user);
