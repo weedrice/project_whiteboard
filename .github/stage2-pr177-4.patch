@@ -1,0 +1,126 @@
+diff --git a/frontend/src/features/board/posts/draft/postDraftCrossTabReconciler.ts b/frontend/src/features/board/posts/draft/postDraftCrossTabReconciler.ts
+index 6513ff2..0c59648 100644
+--- a/frontend/src/features/board/posts/draft/postDraftCrossTabReconciler.ts
++++ b/frontend/src/features/board/posts/draft/postDraftCrossTabReconciler.ts
+@@ -1,6 +1,7 @@
+ import type { Ref } from 'vue'
+ import type { PostDraftData } from '@/api/post'
+ import {
++  createDraftContentFingerprint,
+   hasSameDraftContent,
+   toIsoTime,
+   type DraftRecoverySnapshot,
+@@ -11,6 +12,31 @@ export type DraftCrossTabReconcileResult =
+   | 'server-acknowledged'
+   | 'conflict'
+ 
++export interface DraftCrossTabChange {
++  sourceId?: string
++  clientInstanceId?: string
++  draftId?: number
++  clientDraftKey?: string
++  version?: number | null
++  updatedAt?: string
++  modifiedAt?: string
++  clientModifiedAt?: string
++  hasLocalChanges?: boolean
++  contentFingerprint?: string
++  boardUrl?: string
++  title?: string
++  contents?: string
++  categoryId?: number | null
++  tags?: string[]
++  isNotice?: boolean
++  isNsfw?: boolean
++  isSpoiler?: boolean
++  isSecret?: boolean
++  fileIds?: number[]
++  poll?: PostDraftData['poll']
++  seriesId?: number | null
++}
++
+ interface DraftCrossTabReconcilerOptions {
+   clientInstanceId: string
+   draftId: Ref<number | null>
+@@ -20,38 +46,29 @@ interface DraftCrossTabReconcilerOptions {
+   lastSavedAt: Ref<string | null>
+   lastSaveScope: Ref<'server' | 'browser' | null>
+   draftConflict: Ref<boolean>
+-  restoreSource: Ref<'idle' | 'local' | 'server'>
+   buildPayload: () => PostDraftData
+-  applyDraft: (snapshot: DraftRecoverySnapshot) => void
+   onSaved?: () => void
+   clearAutosaveTimer: () => void
+   getLocalRevision: () => number
+   getPersistedRevision: () => number
+-  incrementLocalRevision: () => void
+   markCurrentRevisionPersisted: () => void
+   getLastRemoteLocalChangeAt: () => number
+   setLastRemoteLocalChangeAt: (value: number) => void
+ }
+ 
+-/**
+- * Reconciles metadata from another tab without applying its editor payload.
+- *
+- * Cross-tab messages are notifications, not a second document transport. A
+- * canonical server event may acknowledge the exact content already visible in
+- * this tab. Every other valid change pauses autosave and lets the user choose
+- * whether to reload the server draft or keep the current editor content.
+- */
++function hasFullDraftContent(change: DraftCrossTabChange): change is DraftRecoverySnapshot {
++  return typeof change.boardUrl === 'string'
++}
++
+ export function createDraftCrossTabReconciler(options: DraftCrossTabReconcilerOptions) {
+   let remoteOrderKey: string | null = null
+   let latestRemoteServerVersion: number | null = null
+   let latestRemoteServerTimeMs = 0
+ 
+-  const reconcile = (incoming: DraftRecoverySnapshot): DraftCrossTabReconcileResult => {
+-    if (!incoming.clientInstanceId || incoming.clientInstanceId === options.clientInstanceId) {
+-      return 'ignored'
+-    }
++  const reconcile = (incoming: DraftCrossTabChange): DraftCrossTabReconcileResult => {
++    const sourceId = incoming.clientInstanceId ?? incoming.sourceId
++    if (!sourceId || sourceId === options.clientInstanceId) return 'ignored'
+ 
+-    const currentPayload = options.buildPayload()
+     const sameDraft = incoming.draftId != null && incoming.draftId === options.draftId.value
+     const sameClientDraft = Boolean(incoming.clientDraftKey)
+       && incoming.clientDraftKey === options.clientDraftKey.value
+@@ -84,12 +101,7 @@ export function createDraftCrossTabReconciler(options: DraftCrossTabReconcilerOp
+         && incomingServerTimeMs > 0
+         && latestRemoteServerTimeMs > 0
+         && incomingServerTimeMs < latestRemoteServerTimeMs) return 'ignored'
+-      if (serverRevisionOrder != null) {
+-        if (serverRevisionOrder < 0) return 'ignored'
+-        if (serverRevisionOrder === 0
+-          && options.draftId.value != null
+-          && !hasSameDraftContent(incoming, currentPayload)) return 'ignored'
+-      }
++      if (serverRevisionOrder != null && serverRevisionOrder < 0) return 'ignored'
+       if (incoming.version != null) {
+         latestRemoteServerVersion = Math.max(latestRemoteServerVersion ?? incoming.version, incoming.version)
+       }
+@@ -97,14 +109,17 @@ export function createDraftCrossTabReconciler(options: DraftCrossTabReconcilerOp
+     }
+ 
+     const incomingClientModifiedAt = toIsoTime(incoming.clientModifiedAt)
+-    const incomingClientModifiedAtMs = incomingClientModifiedAt
+-      ? Date.parse(incomingClientModifiedAt)
+-      : 0
++    const incomingClientModifiedAtMs = incomingClientModifiedAt ? Date.parse(incomingClientModifiedAt) : 0
+     if (incoming.hasLocalChanges === true
+       && options.getLastRemoteLocalChangeAt() > 0
+       && incomingClientModifiedAtMs <= options.getLastRemoteLocalChangeAt()) return 'ignored'
+ 
+-    if (incoming.hasLocalChanges === false && hasSameDraftContent(incoming, currentPayload)) {
++    const currentPayload = options.buildPayload()
++    const sameContent = incoming.contentFingerprint != null
++      ? incoming.contentFingerprint === createDraftContentFingerprint(currentPayload)
++      : hasFullDraftContent(incoming) && hasSameDraftContent(incoming, currentPayload)
++
++    if (incoming.hasLocalChanges === false && sameContent) {
+       options.draftId.value = incoming.draftId ?? options.draftId.value
+       options.draftVersion.value = incoming.version ?? null
+       options.clientDraftKey.value = incoming.clientDraftKey ?? options.clientDraftKey.value
