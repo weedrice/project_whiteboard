@@ -33,6 +33,7 @@ type UsePostComposerDraftOptions = {
   applyDraft: (draft: PostComposerSnapshot) => void
   markCurrentSnapshotSaved: () => void
   ownedUploadedFileIds: Ref<number[]>
+  durableDraftFileIds: Ref<number[]>
   adoptUploadedFileOwnership: (fileIds: number[]) => void
   releaseUploadedFileOwnership: (fileIds: number[]) => void
   t: (key: string, values?: Record<string, unknown>) => string
@@ -180,6 +181,12 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
       options.t('board.writePost.draftStatus.referencesReset'),
       'warning',
     ),
+    onLocalSnapshotStored: (snapshot) => {
+      options.durableDraftFileIds.value = [...(snapshot.fileIds ?? [])]
+    },
+    onLocalSnapshotRemoved: () => {
+      options.durableDraftFileIds.value = []
+    },
     canPersist: options.validateBeforeSave,
   })
 
@@ -222,6 +229,7 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
       hasRestoredDraft.value = false
       initializedBaselineIdentity.value = null
       lastStoredDraftSignature = null
+      options.durableDraftFileIds.value = []
       resetSession()
     },
   )

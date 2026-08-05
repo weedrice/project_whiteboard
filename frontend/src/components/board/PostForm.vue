@@ -193,6 +193,7 @@ function markCurrentComposerSaved() {
   savedScheduledAt.value = scheduledAt.value
 }
 
+const durableDraftFileIds = ref<number[]>([])
 const {
   ownedUploadedFileIds,
   recordUploadedFile,
@@ -201,6 +202,7 @@ const {
 } = usePostComposerUploadOwnership({
   identity: formIdentity,
   content: computed(() => form.value.content),
+  durableDraftFileIds,
 })
 
 function handleEditorFileUploaded(fileId: number) {
@@ -386,6 +388,7 @@ const {
   applyDraft: applyDraftSnapshot,
   markCurrentSnapshotSaved,
   ownedUploadedFileIds,
+  durableDraftFileIds,
   adoptUploadedFileOwnership,
   releaseUploadedFileOwnership,
   t,

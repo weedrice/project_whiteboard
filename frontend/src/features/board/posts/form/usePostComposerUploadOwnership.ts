@@ -6,6 +6,7 @@ import logger from '@/utils/logger'
 type UsePostComposerUploadOwnershipOptions = {
   identity: Ref<string>
   content: Ref<string>
+  durableDraftFileIds: Ref<number[]>
 }
 
 export function usePostComposerUploadOwnership(options: UsePostComposerUploadOwnershipOptions) {
@@ -54,10 +55,10 @@ export function usePostComposerUploadOwnership(options: UsePostComposerUploadOwn
     void discardUploadedFiles([...ownedUploadedFileIds.value])
   }
 
-  function handoffReferencedUploads(content = options.content.value) {
+  function handoffReferencedUploads() {
     if (ownedUploadedFileIds.value.length === 0) return
-    const referencedIds = new Set(extractPostFileIdsFromContent(content))
-    const handedOffIds = ownedUploadedFileIds.value.filter((fileId) => referencedIds.has(fileId))
+    const durableFileIds = new Set(options.durableDraftFileIds.value)
+    const handedOffIds = ownedUploadedFileIds.value.filter((fileId) => durableFileIds.has(fileId))
     releaseUploadedFiles(handedOffIds)
     discardAllOwnedUploads()
   }

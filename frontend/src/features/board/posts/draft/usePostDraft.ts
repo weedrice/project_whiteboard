@@ -70,6 +70,8 @@ interface UsePostDraftOptions {
     prepareStaleSnapshot?: (snapshot: DraftRecoverySnapshot) => DraftRecoverySnapshot
     getDetachedDraftFileIdsToPreserve?: (payload: PostDraftData) => number[]
     onStaleReferencesReset?: () => void
+    onLocalSnapshotStored?: (snapshot: DraftRecoverySnapshot) => void
+    onLocalSnapshotRemoved?: () => void
     canPersist?: () => boolean
 }
 
@@ -201,7 +203,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
             ?? []
         const unassociatedUploadFileIds = [...new Set(requestedUnassociatedFileIds)]
             .filter((fileId) => snapshotFileIds.has(fileId))
-        const result = storeDraftSnapshotWithBudgetResult(activeStorageKey.value, {
+        const storedSnapshot = {
             ...snapshot,
             unassociatedUploadFileIds: unassociatedUploadFileIds.length > 0
                 ? unassociatedUploadFileIds
@@ -209,8 +211,10 @@ export function usePostDraft(options: UsePostDraftOptions) {
             clientDraftKey: snapshot.clientDraftKey ?? clientDraftKey.value,
             version: snapshot.version ?? draftVersion.value ?? undefined,
             clientInstanceId,
-        })
+        }
+        const result = storeDraftSnapshotWithBudgetResult(activeStorageKey.value, storedSnapshot)
         const stored = result.stored
+        if (stored) options.onLocalSnapshotStored?.(storedSnapshot)
         if (result.rollbackFailedCount > 0 && !lastLocalRollbackFailed.value) {
             logger.error('Draft local snapshot rollback failed.', {
                 event: 'draft_local_snapshot_rollback_failed',
@@ -245,6 +249,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
     const removeLocalSnapshot = () => {
         const removed = Storage.remove(activeStorageKey.value)
         if (!removed) void reportDraftOperationalEvent('local_storage_remove_failed')
+        if (removed) options.onLocalSnapshotRemoved?.()
         return removed
     }
 
