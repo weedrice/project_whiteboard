@@ -17,6 +17,7 @@ export const POST_COMPOSER_UPLOAD_DISCARD_DELAY_MS = 1_500
 export const POST_COMPOSER_UPLOAD_RETRY_BASE_DELAY_MS = 1_000
 export const POST_COMPOSER_UPLOAD_RETRY_MAX_ATTEMPTS = 3
 export const POST_COMPOSER_UPLOAD_DISCARD_QUEUE_PREFIX = 'noviis:post-upload-discard:'
+export const POST_COMPOSER_UPLOAD_DISCARD_BATCH_SIZE = 101
 
 type DiscardRetry = {
   timer: ReturnType<typeof setTimeout>
@@ -35,17 +36,31 @@ export function usePostComposerUploadOwnership(options: UsePostComposerUploadOwn
   let ownershipGeneration = 0
   let disposed = false
   const persistedCleanupPromises = new Map<string, Promise<void>>()
+  const persistedCleanupRetryAttempts = new Map<string, number>()
+  const persistedCleanupRetryTimers = new Map<string, ReturnType<typeof setTimeout>>()
 
   const isOnline = () => typeof navigator === 'undefined' || navigator.onLine !== false
   const ownerStorageKey = (ownerId: string) => (
     `${POST_COMPOSER_UPLOAD_DISCARD_QUEUE_PREFIX}${encodeURIComponent(ownerId)}`
   )
+  const ownerStoragePrefix = (ownerId: string) => `${ownerStorageKey(ownerId)}:`
+  const cleanupItemStorageKey = (ownerId: string, fileId: number) => (
+    `${ownerStoragePrefix(ownerId)}${fileId}`
+  )
   const currentOwnerId = () => options.ownerId.value == null ? null : String(options.ownerId.value)
   const readPersistedCleanupIds = (ownerId: string) => {
-    const stored = Storage.get<unknown>(ownerStorageKey(ownerId), [])
-    if (!Array.isArray(stored)) return []
-    return [...new Set(stored
-      .filter((fileId): fileId is number => Number.isSafeInteger(fileId) && fileId > 0))]
+    const legacyStored = Storage.get<unknown>(ownerStorageKey(ownerId), [])
+    const legacyIds = Array.isArray(legacyStored)
+      ? legacyStored.filter((fileId): fileId is number => Number.isSafeInteger(fileId) && fileId > 0)
+      : []
+    const prefix = ownerStoragePrefix(ownerId)
+    const itemIds = Storage.keys()
+      .filter((key) => key.startsWith(prefix))
+      .map((key) => key.slice(prefix.length))
+      .filter((fileId) => /^[1-9]\d*$/.test(fileId))
+      .map(Number)
+      .filter((fileId) => Number.isSafeInteger(fileId))
+    return [...new Set([...legacyIds, ...itemIds])]
   }
   const persistCleanupIds = (fileIds: number[]) => {
     const groupedIds = new Map<string, number[]>()
@@ -55,13 +70,22 @@ export function usePostComposerUploadOwnership(options: UsePostComposerUploadOwn
       groupedIds.set(ownerId, [...(groupedIds.get(ownerId) ?? []), fileId])
     })
     groupedIds.forEach((ids, ownerId) => {
-      Storage.set(ownerStorageKey(ownerId), [...new Set([...readPersistedCleanupIds(ownerId), ...ids])])
+      ids.forEach((fileId) => {
+        if (!Storage.set(cleanupItemStorageKey(ownerId, fileId), { queuedAt: Date.now() })) {
+          logger.warn('Failed to persist post editor upload cleanup:', { ownerId, fileId })
+        }
+      })
     })
   }
   const removeOwnerCleanupIds = (ownerId: string, fileIds: Iterable<number>) => {
     const removedIds = new Set(fileIds)
-    const retainedIds = readPersistedCleanupIds(ownerId).filter((fileId) => !removedIds.has(fileId))
-    if (retainedIds.length > 0) Storage.set(ownerStorageKey(ownerId), retainedIds)
+    removedIds.forEach((fileId) => Storage.remove(cleanupItemStorageKey(ownerId, fileId)))
+    const legacyStored = Storage.get<unknown>(ownerStorageKey(ownerId), [])
+    if (!Array.isArray(legacyStored)) return
+    const retainedLegacyIds = legacyStored.filter((fileId) => (
+      typeof fileId !== 'number' || !removedIds.has(fileId)
+    ))
+    if (retainedLegacyIds.length > 0) Storage.set(ownerStorageKey(ownerId), retainedLegacyIds)
     else Storage.remove(ownerStorageKey(ownerId))
   }
   const removePersistedCleanupIds = (fileIds: number[]) => {
@@ -94,24 +118,55 @@ export function usePostComposerUploadOwnership(options: UsePostComposerUploadOwn
     return referencedIds
   }
 
+  function cancelPersistedCleanupRetry(ownerId: string, resetAttempt = true) {
+    const timer = persistedCleanupRetryTimers.get(ownerId)
+    if (timer) clearTimeout(timer)
+    persistedCleanupRetryTimers.delete(ownerId)
+    if (resetAttempt) persistedCleanupRetryAttempts.delete(ownerId)
+  }
+
+  function schedulePersistedCleanupRetry(ownerId: string) {
+    if (persistedCleanupRetryTimers.has(ownerId) || !isOnline()) return
+    const attempt = (persistedCleanupRetryAttempts.get(ownerId) ?? 0) + 1
+    if (attempt > POST_COMPOSER_UPLOAD_RETRY_MAX_ATTEMPTS) {
+      logger.warn('Persisted post editor upload cleanup retries exhausted:', { ownerId })
+      return
+    }
+    persistedCleanupRetryAttempts.set(ownerId, attempt)
+    const delay = POST_COMPOSER_UPLOAD_RETRY_BASE_DELAY_MS * 2 ** (attempt - 1)
+    persistedCleanupRetryTimers.set(ownerId, setTimeout(() => {
+      persistedCleanupRetryTimers.delete(ownerId)
+      void drainPersistedCleanup(ownerId)
+    }, delay))
+  }
+
   function drainPersistedCleanup(ownerId = currentOwnerId()) {
     if (!ownerId || !options.cleanupReady.value || !isOnline()) return Promise.resolve()
     const existingPromise = persistedCleanupPromises.get(ownerId)
     if (existingPromise) return existingPromise
-    const locallyReferencedIds = readLocallyReferencedFileIds(ownerId)
-    if (locallyReferencedIds.size > 0) {
-      removeOwnerCleanupIds(ownerId, locallyReferencedIds)
-    }
-    const fileIds = readPersistedCleanupIds(ownerId)
-    if (fileIds.length === 0) return Promise.resolve()
-    const cleanupPromise = fileApi.discardUploads(fileIds, { skipGlobalErrorHandler: true })
-      .then(() => {
-        removeOwnerCleanupIds(ownerId, fileIds)
-        releaseUploadedFiles(fileIds)
-      })
-      .catch((error) => {
-        logger.warn('Failed to drain persisted post editor upload cleanup:', error)
-      })
+    const cleanupPromise = (async () => {
+      while (true) {
+        const locallyReferencedIds = readLocallyReferencedFileIds(ownerId)
+        if (locallyReferencedIds.size > 0) {
+          removeOwnerCleanupIds(ownerId, locallyReferencedIds)
+        }
+        const batch = readPersistedCleanupIds(ownerId)
+          .slice(0, POST_COMPOSER_UPLOAD_DISCARD_BATCH_SIZE)
+        if (batch.length === 0) {
+          cancelPersistedCleanupRetry(ownerId)
+          return
+        }
+        try {
+          await fileApi.discardUploads(batch, { skipGlobalErrorHandler: true })
+          removeOwnerCleanupIds(ownerId, batch)
+          releaseUploadedFiles(batch)
+        } catch (error) {
+          schedulePersistedCleanupRetry(ownerId)
+          logger.warn('Failed to drain persisted post editor upload cleanup:', error)
+          return
+        }
+      }
+    })()
       .finally(() => {
         persistedCleanupPromises.delete(ownerId)
       })
@@ -266,7 +321,9 @@ export function usePostComposerUploadOwnership(options: UsePostComposerUploadOwn
   }
 
   const handleOnline = async () => {
-    if (options.cleanupReady.value) await drainPersistedCleanup()
+    const ownerId = currentOwnerId()
+    if (ownerId) cancelPersistedCleanupRetry(ownerId)
+    if (options.cleanupReady.value) void drainPersistedCleanup(ownerId)
     const retries = [...offlineDiscardRetries.entries()]
     retries.forEach(([fileId, force]) => {
       offlineDiscardRetries.delete(fileId)
@@ -296,7 +353,13 @@ export function usePostComposerUploadOwnership(options: UsePostComposerUploadOwn
   )
   const stopOwnerWatch = watch(
     () => [options.ownerId.value, options.cleanupReady.value] as const,
-    () => void drainPersistedCleanup(),
+    ([currentOwner], previous) => {
+      const previousOwner = previous?.[0]
+      if (previousOwner != null && previousOwner !== currentOwner) {
+        cancelPersistedCleanupRetry(String(previousOwner))
+      }
+      void drainPersistedCleanup()
+    },
     { immediate: true },
   )
 
@@ -309,6 +372,8 @@ export function usePostComposerUploadOwnership(options: UsePostComposerUploadOwn
       stopContentWatch()
       stopIdentityWatch()
       stopOwnerWatch()
+      persistedCleanupRetryTimers.forEach((timer) => clearTimeout(timer))
+      persistedCleanupRetryTimers.clear()
       if (typeof window !== 'undefined') window.removeEventListener('online', handleOnline)
       handoffReferencedUploads()
     })

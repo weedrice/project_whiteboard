@@ -2,6 +2,7 @@ import { effectScope, nextTick, ref } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   POST_COMPOSER_UPLOAD_DISCARD_DELAY_MS,
+  POST_COMPOSER_UPLOAD_DISCARD_BATCH_SIZE,
   POST_COMPOSER_UPLOAD_DISCARD_QUEUE_PREFIX,
   POST_COMPOSER_UPLOAD_RETRY_BASE_DELAY_MS,
   POST_COMPOSER_UPLOAD_RETRY_MAX_ATTEMPTS,
@@ -209,7 +210,10 @@ describe('usePostComposerUploadOwnership', () => {
 
     expect(discardUploadsMock).toHaveBeenCalledTimes(POST_COMPOSER_UPLOAD_RETRY_MAX_ATTEMPTS + 1)
     expect(ownership.ownedUploadedFileIds.value).toEqual([73])
-    expect(vi.getTimerCount()).toBe(0)
+    await vi.advanceTimersByTimeAsync(
+      POST_COMPOSER_UPLOAD_RETRY_BASE_DELAY_MS * 2 ** POST_COMPOSER_UPLOAD_RETRY_MAX_ATTEMPTS,
+    )
+    expect(discardUploadsMock).toHaveBeenCalledTimes(POST_COMPOSER_UPLOAD_RETRY_MAX_ATTEMPTS + 1)
     ownership.releaseUploadedFiles([73])
     scope.stop()
   })
@@ -223,7 +227,9 @@ describe('usePostComposerUploadOwnership', () => {
     await Promise.resolve()
 
     expect(discardUploadsMock).not.toHaveBeenCalled()
-    expect(Storage.get(`${POST_COMPOSER_UPLOAD_DISCARD_QUEUE_PREFIX}1`)).toEqual([74])
+    expect(Storage.get(`${POST_COMPOSER_UPLOAD_DISCARD_QUEUE_PREFIX}1:74`)).toEqual({
+      queuedAt: expect.any(Number),
+    })
 
     online.mockReturnValue(true)
     const second = createOwnership()
@@ -231,7 +237,7 @@ describe('usePostComposerUploadOwnership', () => {
     await Promise.resolve()
 
     expect(discardUploadsMock).toHaveBeenCalledWith([74], { skipGlobalErrorHandler: true })
-    expect(Storage.has(`${POST_COMPOSER_UPLOAD_DISCARD_QUEUE_PREFIX}1`)).toBe(false)
+    expect(Storage.has(`${POST_COMPOSER_UPLOAD_DISCARD_QUEUE_PREFIX}1:74`)).toBe(false)
     second.scope.stop()
     online.mockRestore()
   })
@@ -278,6 +284,42 @@ describe('usePostComposerUploadOwnership', () => {
 
     current.ownership.recordUploadedFile(79)
 
+    expect(Storage.has(`${POST_COMPOSER_UPLOAD_DISCARD_QUEUE_PREFIX}1`)).toBe(false)
+    current.scope.stop()
+  })
+
+  it('drains persisted cleanup in backend-sized batches', async () => {
+    const fileIds = Array.from(
+      { length: POST_COMPOSER_UPLOAD_DISCARD_BATCH_SIZE * 2 + 3 },
+      (_, index) => index + 1,
+    )
+    Storage.set(`${POST_COMPOSER_UPLOAD_DISCARD_QUEUE_PREFIX}1`, fileIds)
+
+    const current = createOwnership()
+    for (let index = 0; index < 8; index++) await Promise.resolve()
+
+    expect(discardUploadsMock).toHaveBeenCalledTimes(3)
+    expect(discardUploadsMock.mock.calls.map(([batch]) => batch.length)).toEqual([
+      POST_COMPOSER_UPLOAD_DISCARD_BATCH_SIZE,
+      POST_COMPOSER_UPLOAD_DISCARD_BATCH_SIZE,
+      3,
+    ])
+    expect(Storage.has(`${POST_COMPOSER_UPLOAD_DISCARD_QUEUE_PREFIX}1`)).toBe(false)
+    current.scope.stop()
+  })
+
+  it('retries an initial persisted cleanup drain failure', async () => {
+    Storage.set(`${POST_COMPOSER_UPLOAD_DISCARD_QUEUE_PREFIX}1`, [80])
+    discardUploadsMock.mockRejectedValueOnce(new Error('temporary failure'))
+    const current = createOwnership()
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(discardUploadsMock).toHaveBeenCalledTimes(1)
+
+    await vi.advanceTimersByTimeAsync(POST_COMPOSER_UPLOAD_RETRY_BASE_DELAY_MS)
+
+    expect(discardUploadsMock).toHaveBeenCalledTimes(2)
     expect(Storage.has(`${POST_COMPOSER_UPLOAD_DISCARD_QUEUE_PREFIX}1`)).toBe(false)
     current.scope.stop()
   })
