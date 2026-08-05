@@ -4,7 +4,10 @@ import {
   type DraftRecoverySnapshot,
 } from '@/features/board/posts/draft/usePostDraft'
 import type { PostComposerSnapshot } from '@/features/board/posts/form/usePostComposerState'
-import type { PostFormFileIdScope } from '@/utils/postForm'
+import {
+  removePostFileReferencesFromContent,
+  type PostFormFileIdScope,
+} from '@/utils/postForm'
 import logger from '@/utils/logger'
 import { formatTimeOnly } from '@/utils/date'
 import { migrateStoredDraftSnapshot } from '@/features/board/posts/draft/postDraftLifecycle'
@@ -138,10 +141,14 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
       }
     },
     onServerReferencesReset: (savedDraft, payload) => {
+      const currentPayload = options.buildPayload('draft')
+      const retainedFileIds = new Set(savedDraft.fileIds ?? [])
+      const removedFileIds = (payload.fileIds ?? []).filter((fileId) => !retainedFileIds.has(fileId))
       const recoveredPayload = {
-        ...options.buildPayload('draft'),
+        ...currentPayload,
         boardUrl: options.boardUrl.value,
         originalPostId: options.mode() === 'edit' ? Number(options.postId.value) : undefined,
+        contents: removePostFileReferencesFromContent(currentPayload.contents, removedFileIds),
         categoryId: savedDraft.categoryId
           ?? (payload.categoryId != null ? options.firstCategoryId.value ?? null : null),
         fileIds: savedDraft.fileIds ?? [],

@@ -42,6 +42,48 @@ describe('PostForm draft behavior', () => {
     expect(mockAddToast).toHaveBeenCalledWith('board.writePost.draftStatus.saved', 'success')
   })
 
+  it('removes invalid server-reset file references from the draft content', async () => {
+    mockPostFormAuthStore({
+      isAuthenticated: true,
+      user: { userId: 1, role: 'USER' },
+    })
+    const contents = '<p>Kept body</p><img src="/api/v1/files/7" data-file-id="7">'
+    mockSaveDraftMutateAsync.mockResolvedValueOnce({
+      data: {
+        data: {
+          draftId: 91,
+          version: 1,
+          boardId: 1,
+          boardUrl: 'free',
+          boardName: 'Free',
+          title: 'Draft title',
+          contents,
+          tags: [],
+          fileIds: [],
+          seriesId: null,
+          isNotice: false,
+          isNsfw: false,
+          isSpoiler: false,
+          isSecret: false,
+          staleReferencesReset: true,
+          updatedAt: '2026-08-05T00:00:00.000Z',
+        },
+      },
+    })
+    const wrapper = mountPostForm('create')
+    await flushPromises()
+
+    await wrapper.get('#title').setValue('Draft title')
+    await wrapper.get('[data-testid="editor-input"]').setValue(contents)
+    ;(wrapper.vm as unknown as { handleEditorFileUploaded: (fileId: number) => void })
+      .handleEditorFileUploaded(7)
+    await findButtonByText(wrapper, 'board.writePost.actions.saveDraft').trigger('click')
+    await flushPromises()
+
+    expect(mockSaveDraftMutateAsync).toHaveBeenCalledWith(expect.objectContaining({ fileIds: [7] }))
+    expect(wrapper.get('[data-testid="editor-input"]').element).toHaveProperty('value', '<p>Kept body</p>')
+  })
+
   it('warns when saving a draft evicts older drafts over the account limit', async () => {
     mockPostFormAuthStore({
       isAuthenticated: true,
