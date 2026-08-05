@@ -78,7 +78,7 @@ function mountComposable(payloadRef: Ref<PostDraftData> = ref({
     contents: 'Draft body',
     fileIds: [7],
     originalPostId: undefined as number | undefined,
-}), storageKeyRef = ref('noviis:test:draft'), enabledRef = ref(true), ownerIdRef = ref<number | null>(null), onServerSaved?: (payload: PostDraftData, savedDraft: DraftPost) => void, resolveStorageKey?: (draftId: number) => string, onServerReferencesReset?: (savedDraft: DraftPost) => void, prepareRecoveredSnapshot?: (snapshot: DraftRecoverySnapshot) => DraftRecoverySnapshot) {
+}), storageKeyRef = ref('noviis:test:draft'), enabledRef = ref(true), ownerIdRef = ref<number | null>(null), onServerSaved?: (payload: PostDraftData, savedDraft: DraftPost) => void, resolveStorageKey?: (draftId: number) => string, onServerReferencesReset?: (savedDraft: DraftPost) => void, prepareRecoveredSnapshot?: (snapshot: DraftRecoverySnapshot) => DraftRecoverySnapshot, canPersist?: () => boolean) {
     const appliedDrafts: DraftRecoverySnapshot[] = []
     let composable: ReturnType<typeof usePostDraft> | null = null
 
@@ -94,6 +94,7 @@ function mountComposable(payloadRef: Ref<PostDraftData> = ref({
                 onServerSaved,
                 onServerReferencesReset,
                 prepareRecoveredSnapshot,
+                canPersist,
             })
             return () => h('div')
         },
@@ -856,6 +857,63 @@ describe('usePostDraft', () => {
         expect(composable.draftId.value).toBeNull()
         expect(composable.lastSavedAt.value).toBeNull()
         expect(onServerSaved).not.toHaveBeenCalled()
+    })
+
+    it('preserves the latest contract failure when an older save completes', async () => {
+        const payloadRef = ref<PostDraftData>({
+            boardUrl: 'free',
+            title: 'Valid title',
+            contents: 'Draft body',
+            fileIds: [],
+        })
+        let resolveSave!: (value: unknown) => void
+        mocks.saveDraftMutateAsync.mockReturnValueOnce(new Promise((resolve) => {
+            resolveSave = resolve
+        }))
+        const { composable } = mountComposable(
+            payloadRef,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            () => payloadRef.value.title.length <= 200,
+        )
+
+        const savePromise = composable.saveNow()
+        payloadRef.value = { ...payloadRef.value, title: 'x'.repeat(201) }
+        composable.writeLocalSnapshot()
+        resolveSave({
+            data: {
+                data: {
+                    draftId: 91,
+                    version: 1,
+                    boardId: 1,
+                    boardUrl: 'free',
+                    boardName: 'Free',
+                    title: 'Valid title',
+                    contents: 'Draft body',
+                    tags: [],
+                    fileIds: [],
+                    isNotice: false,
+                    isNsfw: false,
+                    isSpoiler: false,
+                    isSecret: false,
+                    updatedAt: '2025-01-01T00:00:00.000Z',
+                },
+            },
+        })
+
+        await savePromise
+
+        expect(composable.contractValidationFailed.value).toBe(true)
+        expect(Storage.get('noviis:test:draft')).toEqual(expect.objectContaining({
+            title: 'x'.repeat(201),
+            contractValidationFailed: true,
+            hasLocalChanges: true,
+        }))
     })
 
     it('does not resurrect recovery state when it is cleared during an in-flight save', async () => {

@@ -439,17 +439,24 @@ export function usePostDraft(options: UsePostDraftOptions) {
             savedDraft = unwrapAxiosApiData(await savePayload(recoveredPayload))
             if (generation !== sessionGeneration || !options.enabled.value) return null
         }
-        contractValidationFailed.value = false
+        const latestPayload = options.buildPayload()
+        const hasNewerLocalChanges = revision !== localRevision
+            || !hasSameDraftContent(canonicalPayload, latestPayload)
+        contractValidationFailed.value = hasNewerLocalChanges
+            && options.canPersist?.() === false
         const canonicalSnapshot = {
             ...createStoredSavedDraftSnapshot(canonicalPayload, savedDraft, updatedAt.value),
             clientInstanceId,
         }
-        if (revision === localRevision) {
+        if (!hasNewerLocalChanges) {
             persistedRevision = revision
             storeLocalSnapshot(canonicalSnapshot)
             options.onSaved?.()
         } else {
-            storeLocalSnapshot(createDraftRecoverySnapshot(options.buildPayload(), savedDraft.draftId, updatedAt.value))
+            storeLocalSnapshot({
+                ...createDraftRecoverySnapshot(latestPayload, savedDraft.draftId, updatedAt.value),
+                contractValidationFailed: contractValidationFailed.value,
+            })
         }
         if (options.ownerId?.value != null) {
             publishDraftUpdatedEvent(options.ownerId.value, activeStorageKey.value, canonicalSnapshot)
