@@ -107,7 +107,6 @@ export function usePostDraft(options: UsePostDraftOptions) {
     const lastSaveScope = ref<DraftSaveScope | null>(null)
     const lastSaveFailed = ref(false)
     const restoreFailed = ref(false)
-    const multipleDraftsFound = ref(false)
     const isRestoringDraft = ref(false)
     const {
         status: draftBlockingStatus,
@@ -459,7 +458,6 @@ export function usePostDraft(options: UsePostDraftOptions) {
             })
         }
         lastSaveFailed.value = false
-        multipleDraftsFound.value = false
         clearSaveRetry()
         return savedDraft
     }
@@ -548,7 +546,6 @@ export function usePostDraft(options: UsePostDraftOptions) {
         lastSaveScope,
         lastSaveFailed,
         restoreFailed,
-        multipleDraftsFound,
         isRestoringDraft,
         draftConflict,
         draftProtected,
@@ -590,7 +587,6 @@ export function usePostDraft(options: UsePostDraftOptions) {
         protectedDraftForkAvailable.value = false
         staleReferencesReset.value = false
         contractValidationFailed.value = false
-        multipleDraftsFound.value = false
         resetDraftTracking()
         restoreSource.value = 'idle'
     }
@@ -603,7 +599,6 @@ export function usePostDraft(options: UsePostDraftOptions) {
         lastSaveFailed.value = false
         resetLocalSnapshotStatus()
         restoreFailed.value = false
-        multipleDraftsFound.value = false
         isRestoringDraft.value = false
         draftConflict.value = false
         draftProtected.value = false
@@ -778,7 +773,6 @@ export function usePostDraft(options: UsePostDraftOptions) {
         saveRetryMaxAttempts: SAVE_RETRY_MAX_ATTEMPTS,
         lastLocalSaveFailed: computed(() => lastLocalSaveFailed.value),
         restoreFailed: computed(() => restoreFailed.value),
-        multipleDraftsFound: computed(() => multipleDraftsFound.value),
         isRestoringDraft: computed(() => isRestoringDraft.value),
         draftConflict: computed(() => draftConflict.value),
         draftProtected: computed(() => draftProtected.value),

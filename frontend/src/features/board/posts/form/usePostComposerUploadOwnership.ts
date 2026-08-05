@@ -7,8 +7,6 @@ type UsePostComposerUploadOwnershipOptions = {
   identity: Ref<string>
   content: Ref<string>
   durableDraftFileIds: Ref<number[]>
-  ownerId: Ref<string | number | undefined>
-  cleanupReady: Ref<boolean>
 }
 
 export const POST_COMPOSER_UPLOAD_DISCARD_DELAY_MS = 1_500

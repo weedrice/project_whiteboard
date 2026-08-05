@@ -13,31 +13,6 @@ const BaseButtonStub = defineComponent({
 })
 
 describe('PostDraftStatusPanel', () => {
-  it('links to the draft list when automatic recovery is ambiguous', () => {
-    const wrapper = mount(PostDraftStatusPanel, {
-      props: {
-        label: 'board.writePost.draftStatus.multipleFound',
-        draftEnabled: true,
-        isSavingDraft: false,
-        isRestoringDraft: false,
-        draftConflict: false,
-        draftProtected: false,
-        protectedDraftForkAvailable: false,
-        draftDeleted: false,
-        restoreFailed: false,
-        multipleDraftsFound: true,
-        saveFailed: false,
-      },
-      global: {
-        mocks: { $t: (key: string) => key },
-        stubs: { BaseButton: BaseButtonStub },
-      },
-    })
-
-    expect(wrapper.text()).toContain('board.writePost.draftStatus.openDrafts')
-    expect(wrapper.get('a').attributes('href')).toBe('/mypage/drafts')
-  })
-
   it('offers save-as-new and discard actions for unsaved edits detached from a protected draft', async () => {
     const wrapper = mount(PostDraftStatusPanel, {
       props: {
@@ -50,7 +25,6 @@ describe('PostDraftStatusPanel', () => {
         protectedDraftForkAvailable: true,
         draftDeleted: false,
         restoreFailed: false,
-        multipleDraftsFound: false,
         saveFailed: false,
       },
       global: {

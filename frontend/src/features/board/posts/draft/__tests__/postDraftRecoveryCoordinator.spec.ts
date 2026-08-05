@@ -66,7 +66,6 @@ function createHarness() {
   const lastSaveScope = ref<'server' | 'browser' | null>(null)
   const lastSaveFailed = ref(false)
   const restoreFailed = ref(false)
-  const multipleDraftsFound = ref(false)
   const isRestoringDraft = ref(false)
   const draftConflict = ref(false)
   const draftProtected = ref(false)
@@ -102,7 +101,6 @@ function createHarness() {
     lastSaveScope,
     lastSaveFailed,
     restoreFailed,
-    multipleDraftsFound,
     isRestoringDraft,
     draftConflict,
     draftProtected,
@@ -195,7 +193,6 @@ describe('draft recovery coordinator', () => {
       lastSaveScope: harness.lastSaveScope,
       lastSaveFailed: ref(false),
       restoreFailed: harness.restoreFailed,
-      multipleDraftsFound: ref(false),
       isRestoringDraft: harness.isRestoringDraft,
       draftConflict: harness.draftConflict,
       draftProtected: harness.draftProtected,

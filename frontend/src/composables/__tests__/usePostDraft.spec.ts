@@ -978,7 +978,6 @@ describe('usePostDraft', () => {
         })
         await restoring
 
-        expect(composable.multipleDraftsFound.value).toBe(false)
         expect(composable.restoreFailed.value).toBe(false)
     })
 
@@ -1261,7 +1260,6 @@ describe('usePostDraft', () => {
         expect(mocks.getDraft).not.toHaveBeenCalled()
         expect(appliedDrafts).toHaveLength(0)
         expect(composable.restoreSource.value).toBe('idle')
-        expect(composable.multipleDraftsFound.value).toBe(true)
     })
 
     it('debounces autosave', async () => {

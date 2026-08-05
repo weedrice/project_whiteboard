@@ -381,11 +381,9 @@ export interface BoardMessages {
       localStorageFailed: string
       restoreFailed: string
       constraintsExceeded: string
-      multipleFound: string
       conflict: string
       protected: string
       openScheduledPosts: string
-      openDrafts: string
       deleted: string
       saveAsNew: string
       discardLocal: string
