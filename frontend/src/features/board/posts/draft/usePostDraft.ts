@@ -12,9 +12,6 @@ import {
     isDraftMissingError,
     isDraftProtectedError,
     isDraftOutdatedError,
-    isMatchingLoadedDraft,
-    loadDraftById,
-    resolveDraftRecoverySnapshot,
     type DraftRecoverySnapshot,
 } from '@/features/board/posts/draft/postDraftRecovery'
 import {
@@ -23,18 +20,12 @@ import {
     hasBrowserDraftContent,
     hasMeaningfulDraftContent,
 } from '@/features/board/posts/draft/postDraftSnapshot'
-import { resolveServerDraftForRecovery } from '@/features/board/posts/draft/postDraftRestore'
 import {
-    cleanupExpiredDraftTombstones,
     getDraftTombstoneKey,
-    isDraftDeletedLocally,
     markDraftDeletedLocally,
     registerDraftDeletedListener,
 } from '@/features/board/posts/draft/postDraftTombstone'
-import {
-    cleanupExpiredDraftSnapshots,
-    parseDraftRecoverySnapshot,
-} from '@/features/board/posts/draft/postDraftLifecycle'
+import { parseDraftRecoverySnapshot } from '@/features/board/posts/draft/postDraftLifecycle'
 import {
     matchesDraftScheduledEvent,
     publishDraftScheduledEvent,
@@ -51,6 +42,7 @@ import {
 import { createDraftLocalSnapshotController } from '@/features/board/posts/draft/postDraftLocalSnapshot'
 import { createDraftStateTransitionController } from '@/features/board/posts/draft/postDraftStateTransitions'
 import { createDraftCrossTabReconciler } from '@/features/board/posts/draft/postDraftCrossTabReconciler'
+import { createDraftRecoveryCoordinator } from '@/features/board/posts/draft/postDraftRecoveryCoordinator'
 
 export type { DraftRecoverySnapshot } from '@/features/board/posts/draft/postDraftRecovery'
 export type DraftSaveScope = 'server' | 'browser'
@@ -529,225 +521,54 @@ export function usePostDraft(options: UsePostDraftOptions) {
         }, AUTOSAVE_DELAY_MS)
     }
 
-    const reloadServerDraft = async () => {
-        const generation = sessionGeneration
-        const revision = localRevision
-        const currentDraftId = draftId.value
-        if (currentDraftId == null) return false
-        const controller = startRecoveryRequest()
-        isRestoringDraft.value = true
-        try {
-            const latestDraft = await loadDraftById(currentDraftId, {
-                signal: controller.signal,
-                skipGlobalErrorHandler: true,
-            })
-            if (generation !== sessionGeneration
-                || recoveryRequestController !== controller
-                || draftId.value !== currentDraftId) return false
-            if (revision !== localRevision) {
-                draftConflict.value = true
-                return false
-            }
-            if (!isMatchingLoadedDraft(latestDraft, options.buildPayload())) return false
-            draftId.value = latestDraft.draftId
-            draftVersion.value = latestDraft.version ?? null
-            clientDraftKey.value = latestDraft.clientDraftKey ?? clientDraftKey.value
-            updatedAt.value = getDraftUpdatedAt(latestDraft)
-            lastSavedAt.value = updatedAt.value
-            lastSaveScope.value = 'server'
-            draftConflict.value = false
-            draftProtected.value = false
-            draftDeleted.value = false
-            staleReferencesReset.value = false
-            lastSaveFailed.value = false
-            restoreFailed.value = false
-            const serverSnapshot = latestDraft as unknown as DraftRecoverySnapshot
-            const latestSnapshot = options.prepareRecoveredSnapshot?.(serverSnapshot) ?? serverSnapshot
-            const preparedSnapshotChanged = !hasSameDraftContent(serverSnapshot, latestSnapshot)
-            staleReferencesReset.value = Boolean(latestSnapshot.staleReferencesReset) || preparedSnapshotChanged
-            options.applyDraft(latestSnapshot)
-            storeLocalSnapshot({
-                ...latestSnapshot,
-                draftId: latestDraft.draftId,
-                updatedAt: updatedAt.value ?? undefined,
-                clientModifiedAt: new Date().toISOString(),
-                hasLocalChanges: preparedSnapshotChanged,
-            })
-            if (preparedSnapshotChanged) {
-                localRevision++
-                options.onStaleReferencesReset?.()
-                scheduleAutosave()
-            } else {
-                persistedRevision = localRevision
-                options.onSaved?.()
-            }
-            return true
-        } finally {
-            if (finishRecoveryRequest(controller) && generation === sessionGeneration) {
-                isRestoringDraft.value = false
-            }
-        }
-    }
-
-    const keepLocalDraft = async () => {
-        const generation = sessionGeneration
-        const currentDraftId = draftId.value
-        if (currentDraftId == null) return false
-        const controller = startRecoveryRequest()
-        isRestoringDraft.value = true
-        try {
-            const latestDraft = await loadDraftById(currentDraftId, {
-                signal: controller.signal,
-                skipGlobalErrorHandler: true,
-            })
-            if (generation !== sessionGeneration
-                || recoveryRequestController !== controller
-                || draftId.value !== currentDraftId) return false
-            if (!isMatchingLoadedDraft(latestDraft, options.buildPayload())) return false
-            updatedAt.value = getDraftUpdatedAt(latestDraft)
-            draftVersion.value = latestDraft.version ?? null
-            clientDraftKey.value = latestDraft.clientDraftKey ?? clientDraftKey.value
-            draftConflict.value = false
-            draftProtected.value = false
-            draftDeleted.value = false
-            staleReferencesReset.value = false
-            await saveNow()
-            return true
-        } finally {
-            if (finishRecoveryRequest(controller) && generation === sessionGeneration) {
-                isRestoringDraft.value = false
-            }
-        }
-    }
-
-    const restoreDraft = async () => {
-        if (hasRestoredDraft.value || !options.enabled.value) return
-        const generation = sessionGeneration
-        const revision = localRevision
-        const controller = startRecoveryRequest()
-        hasRestoredDraft.value = true
-        isRestoringDraft.value = true
-        restoreFailed.value = false
-        multipleDraftsFound.value = false
-
-        try {
-        cleanupExpiredDraftSnapshots()
-        cleanupExpiredDraftTombstones()
-        let localSnapshot = loadLocalSnapshot()
-        if (isDraftDeletedLocally(options.ownerId?.value, localSnapshot?.draftId)) {
-            removeLocalSnapshot()
-            localSnapshot = null
-        }
-        const preferredDraftId = isDraftDeletedLocally(options.ownerId?.value, options.preferredDraftId?.value)
-            ? null
-            : options.preferredDraftId?.value ?? null
-        const payload = options.buildPayload()
-        const resolved = await resolveServerDraftForRecovery({
-            payload,
-            localSnapshot,
-            preferredDraftId,
-            signal: controller.signal,
-            generationIsCurrent: () => generation === sessionGeneration
-                && recoveryRequestController === controller,
-            onStaleLocalSnapshot: (snapshot) => {
-                const preparedSnapshot = options.prepareStaleSnapshot?.(snapshot) ?? snapshot
-                resetDraftTracking()
-                staleReferencesReset.value = true
-                storeLocalSnapshot(preparedSnapshot)
-                return preparedSnapshot
-            },
-        })
-        if (generation !== sessionGeneration || recoveryRequestController !== controller) return
-        if (resolved.draftProtected) {
-            transitionToProtectedDraft()
-            return
-        }
-
-        const recovery = resolveDraftRecoverySnapshot(resolved.localSnapshot, resolved.serverDraft)
-        if (resolved.localSnapshot) options.onLocalSnapshotAvailable?.(resolved.localSnapshot)
-        const recoveredSnapshot = recovery.snapshot
-        const chosen = recoveredSnapshot
-            ? options.prepareRecoveredSnapshot?.(recoveredSnapshot) ?? recoveredSnapshot
-            : null
-        const preparedServerSnapshotChanged = recovery.source === 'server'
-            && resolved.serverDraft != null
-            && chosen != null
-            && !hasSameDraftContent(chosen, resolved.serverDraft as unknown as PostDraftData)
-        restoreFailed.value = resolved.recoveryFailed
-        multipleDraftsFound.value = resolved.multipleMatchesFound
-        if (multipleDraftsFound.value) void reportDraftOperationalEvent('multiple_recovery_candidates')
-        if (!chosen) return
-
-        if (revision !== localRevision) {
-            if (resolved.serverDraft) {
-                draftId.value = resolved.serverDraft.draftId
-                draftVersion.value = resolved.serverDraft.version ?? null
-                clientDraftKey.value = resolved.serverDraft.clientDraftKey ?? clientDraftKey.value
-                draftConflict.value = true
-                updatedAt.value = resolved.localSnapshot?.updatedAt
-                    ?? resolved.localSnapshot?.modifiedAt
-                    ?? null
-            }
-            restoreSource.value = 'local'
-            storeLocalSnapshot(createDraftRecoverySnapshot(
-                options.buildPayload(),
-                draftId.value,
-                updatedAt.value,
-            ))
-            return
-        }
-
-        draftId.value = recovery.conflict && resolved.serverDraft
-            ? resolved.serverDraft.draftId
-            : chosen.draftId ?? null
-        draftVersion.value = recovery.conflict && resolved.serverDraft
-            ? resolved.serverDraft.version ?? null
-            : chosen.version ?? null
-        clientDraftKey.value = chosen.clientDraftKey
-            ?? resolved.serverDraft?.clientDraftKey
-            ?? clientDraftKey.value
-        // 충돌 중에는 로컬 변경이 갈라져 나온 기준 버전을 보존한다. 최신 서버
-        // 버전은 사용자가 로컬본 덮어쓰기를 선택한 순간에만 다시 조회한다.
-        updatedAt.value = chosen.updatedAt ?? chosen.modifiedAt ?? null
-        draftConflict.value = recovery.conflict
-        draftProtected.value = false
-        draftDeleted.value = false
-        staleReferencesReset.value = Boolean(chosen.staleReferencesReset)
-        contractValidationFailed.value = Boolean(chosen.contractValidationFailed)
-        restoreSource.value = recovery.source
-        options.applyDraft(chosen)
-        if (staleReferencesReset.value) options.onStaleReferencesReset?.()
-        if (recovery.source === 'server') {
-            storeLocalSnapshot({
-                ...chosen,
-                clientModifiedAt: new Date().toISOString(),
-                hasLocalChanges: preparedServerSnapshotChanged,
-            })
-            if (preparedServerSnapshotChanged) {
-                localRevision++
-                scheduleAutosave()
-            }
-        } else {
-            storeLocalSnapshot({
-                ...chosen,
-                draftId: draftId.value ?? undefined,
-                clientModifiedAt: chosen.clientModifiedAt ?? new Date().toISOString(),
-                hasLocalChanges: chosen.hasLocalChanges ?? true,
-            })
-        }
-        } finally {
-            if (finishRecoveryRequest(controller) && generation === sessionGeneration) {
-                isRestoringDraft.value = false
-            }
-        }
-    }
-
-    const retryRestore = async () => {
-        hasRestoredDraft.value = false
-        restoreFailed.value = false
-        multipleDraftsFound.value = false
-        await restoreDraft()
-    }
+    const {
+        reloadServerDraft,
+        keepLocalDraft,
+        restoreDraft,
+        retryRestore,
+    } = createDraftRecoveryCoordinator({
+        enabled: options.enabled,
+        ownerId: options.ownerId,
+        preferredDraftId: options.preferredDraftId,
+        draftId,
+        draftVersion,
+        clientDraftKey,
+        updatedAt,
+        lastSavedAt,
+        lastSaveScope,
+        lastSaveFailed,
+        restoreFailed,
+        multipleDraftsFound,
+        isRestoringDraft,
+        draftConflict,
+        draftProtected,
+        draftDeleted,
+        staleReferencesReset,
+        contractValidationFailed,
+        restoreSource,
+        hasRestoredDraft,
+        getSessionGeneration: () => sessionGeneration,
+        getLocalRevision: () => localRevision,
+        incrementLocalRevision: () => { localRevision++ },
+        markCurrentRevisionPersisted: () => { persistedRevision = localRevision },
+        startRecoveryRequest,
+        finishRecoveryRequest,
+        isRecoveryRequestCurrent: (controller) => recoveryRequestController === controller,
+        buildPayload: options.buildPayload,
+        applyDraft: options.applyDraft,
+        prepareRecoveredSnapshot: options.prepareRecoveredSnapshot,
+        prepareStaleSnapshot: options.prepareStaleSnapshot,
+        onSaved: options.onSaved,
+        onStaleReferencesReset: options.onStaleReferencesReset,
+        onLocalSnapshotAvailable: options.onLocalSnapshotAvailable,
+        loadLocalSnapshot,
+        removeLocalSnapshot,
+        storeLocalSnapshot,
+        resetDraftTracking,
+        transitionToProtectedDraft,
+        scheduleAutosave,
+        saveNow,
+    })
 
     const clearRecovery = () => {
         invalidatePendingSaves()
