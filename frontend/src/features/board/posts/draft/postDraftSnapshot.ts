@@ -62,7 +62,14 @@ export function hasBrowserDraftContent(payload: PostDraftData): boolean {
   )
 }
 
-export function stripDraftServerIdentity(snapshot: DraftRecoverySnapshot): DraftRecoverySnapshot {
+export function stripDraftServerIdentity(
+  snapshot: DraftRecoverySnapshot,
+  preservedFileIds: number[] = [],
+): DraftRecoverySnapshot {
+  const preservedFileIdSet = new Set(preservedFileIds)
+  const snapshotFileIds = snapshot.fileIds ?? []
+  const detachedFileIds = snapshotFileIds.filter((fileId) => preservedFileIdSet.has(fileId))
+  const removedFileIds = snapshotFileIds.filter((fileId) => !preservedFileIdSet.has(fileId))
   return {
     ...snapshot,
     draftId: undefined,
@@ -72,8 +79,8 @@ export function stripDraftServerIdentity(snapshot: DraftRecoverySnapshot): Draft
     modifiedAt: undefined,
     contents: snapshot.contents == null
       ? snapshot.contents
-      : removePostFileReferencesFromContent(snapshot.contents, snapshot.fileIds ?? []),
-    fileIds: [],
+      : removePostFileReferencesFromContent(snapshot.contents, removedFileIds),
+    fileIds: detachedFileIds,
     staleReferencesReset: true,
     hasLocalChanges: true,
     clientModifiedAt: new Date().toISOString(),

@@ -31,6 +31,7 @@ type UsePostComposerDraftOptions = {
   buildPayload: (fileIdScope?: PostFormFileIdScope) => ReturnType<typeof import('@/utils/postForm').buildPostFormPayload>
   applyDraft: (draft: PostComposerSnapshot) => void
   markCurrentSnapshotSaved: () => void
+  ownedUploadedFileIds: Ref<number[]>
   releaseUploadedFileOwnership: (fileIds: number[]) => void
   t: (key: string, values?: Record<string, unknown>) => string
   addToast: (message: string, type: ComposerToastType) => void
@@ -158,6 +159,10 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
       return recoveredPayload
     },
     prepareStaleSnapshot: prepareRecoveredSnapshot,
+    getDetachedDraftFileIdsToPreserve: (payload) => {
+      const ownedFileIds = new Set(options.ownedUploadedFileIds.value)
+      return (payload.fileIds ?? []).filter((fileId) => ownedFileIds.has(fileId))
+    },
     onStaleReferencesReset: () => options.addToast(
       options.t('board.writePost.draftStatus.referencesReset'),
       'warning',

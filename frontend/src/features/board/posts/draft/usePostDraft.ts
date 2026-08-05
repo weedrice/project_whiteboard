@@ -68,6 +68,7 @@ interface UsePostDraftOptions {
     onServerSaved?: (payload: PostDraftData, savedDraft: DraftPost) => void
     onServerReferencesReset?: (savedDraft: DraftPost, payload: PostDraftData) => PostDraftData | void
     prepareStaleSnapshot?: (snapshot: DraftRecoverySnapshot) => DraftRecoverySnapshot
+    getDetachedDraftFileIdsToPreserve?: (payload: PostDraftData) => number[]
     onStaleReferencesReset?: () => void
     canPersist?: () => boolean
 }
@@ -258,8 +259,10 @@ export function usePostDraft(options: UsePostDraftOptions) {
         draftConflict.value = false
         draftProtected.value = false
         lastSaveFailed.value = false
+        const currentPayload = options.buildPayload()
         const strippedSnapshot = stripDraftServerIdentity(
-            createDraftRecoverySnapshot(options.buildPayload(), null, null),
+            createDraftRecoverySnapshot(currentPayload, null, null),
+            options.getDetachedDraftFileIdsToPreserve?.(currentPayload),
         )
         const staleSnapshot = options.prepareStaleSnapshot?.(strippedSnapshot) ?? strippedSnapshot
         options.applyDraft(staleSnapshot)
@@ -277,10 +280,11 @@ export function usePostDraft(options: UsePostDraftOptions) {
         if (shouldPreserveLocalChanges) {
             removeLocalSnapshot()
             resetDraftTracking()
+            const currentPayload = options.buildPayload()
             const strippedSnapshot = stripDraftServerIdentity({
-                ...createDraftRecoverySnapshot(options.buildPayload(), null, null),
+                ...createDraftRecoverySnapshot(currentPayload, null, null),
                 contractValidationFailed: options.canPersist?.() === false,
-            })
+            }, options.getDetachedDraftFileIdsToPreserve?.(currentPayload))
             const staleSnapshot = options.prepareStaleSnapshot?.(strippedSnapshot) ?? strippedSnapshot
             options.applyDraft(staleSnapshot)
             options.onStaleReferencesReset?.()

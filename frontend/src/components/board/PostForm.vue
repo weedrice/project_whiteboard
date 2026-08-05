@@ -194,6 +194,7 @@ function markCurrentComposerSaved() {
 }
 
 const {
+  ownedUploadedFileIds,
   recordUploadedFile,
   releaseUploadedFiles: releaseUploadedFileOwnership,
 } = usePostComposerUploadOwnership({
@@ -383,6 +384,7 @@ const {
   buildPayload,
   applyDraft: applyDraftSnapshot,
   markCurrentSnapshotSaved,
+  ownedUploadedFileIds,
   releaseUploadedFileOwnership,
   t,
   addToast: toastStore.addToast,

@@ -78,7 +78,7 @@ function mountComposable(payloadRef: Ref<PostDraftData> = ref({
     contents: 'Draft body',
     fileIds: [7],
     originalPostId: undefined as number | undefined,
-}), storageKeyRef = ref('noviis:test:draft'), enabledRef = ref(true), ownerIdRef = ref<number | null>(null), onServerSaved?: (payload: PostDraftData, savedDraft: DraftPost) => void, resolveStorageKey?: (draftId: number) => string, onServerReferencesReset?: (savedDraft: DraftPost) => void, prepareRecoveredSnapshot?: (snapshot: DraftRecoverySnapshot) => DraftRecoverySnapshot, canPersist?: () => boolean) {
+}), storageKeyRef = ref('noviis:test:draft'), enabledRef = ref(true), ownerIdRef = ref<number | null>(null), onServerSaved?: (payload: PostDraftData, savedDraft: DraftPost) => void, resolveStorageKey?: (draftId: number) => string, onServerReferencesReset?: (savedDraft: DraftPost) => void, prepareRecoveredSnapshot?: (snapshot: DraftRecoverySnapshot) => DraftRecoverySnapshot, canPersist?: () => boolean, getDetachedDraftFileIdsToPreserve?: (payload: PostDraftData) => number[]) {
     const appliedDrafts: DraftRecoverySnapshot[] = []
     let composable: ReturnType<typeof usePostDraft> | null = null
 
@@ -95,6 +95,7 @@ function mountComposable(payloadRef: Ref<PostDraftData> = ref({
                 onServerReferencesReset,
                 prepareRecoveredSnapshot,
                 canPersist,
+                getDetachedDraftFileIdsToPreserve,
             })
             return () => h('div')
         },
@@ -2342,6 +2343,43 @@ describe('usePostDraft', () => {
             clientDraftKey: expect.not.stringMatching(new RegExp(`^${previousClientKey}$`)),
         }))
         expect(composable.draftDeleted.value).toBe(false)
+    })
+
+    it('preserves newly uploaded unassociated files when a deleted server draft is detached', async () => {
+        const payloadRef = ref<PostDraftData>({
+            boardUrl: 'free',
+            title: 'Draft title',
+            contents: '<img src="/api/v1/files/7"><img src="/api/v1/files/8">',
+            fileIds: [7, 8],
+        })
+        const { composable, appliedDrafts } = mountComposable(
+            payloadRef,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            () => [8],
+        )
+        await composable.saveNow()
+        mocks.saveDraftMutateAsync.mockRejectedValueOnce({
+            isAxiosError: true,
+            response: { status: 404, data: { error: { code: 'P007' } } },
+        })
+
+        await expect(composable.saveNow()).rejects.toMatchObject({ response: { status: 404 } })
+
+        expect(appliedDrafts.at(-1)).toEqual(expect.objectContaining({
+            contents: '<img src="/api/v1/files/8">',
+            fileIds: [8],
+        }))
+        expect(Storage.get('noviis:test:draft')).toEqual(expect.objectContaining({
+            contents: '<img src="/api/v1/files/8">',
+            fileIds: [8],
+        }))
     })
 
     it('does not report the draft as deleted for a related-resource 404', async () => {
