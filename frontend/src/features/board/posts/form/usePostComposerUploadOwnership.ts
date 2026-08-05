@@ -17,6 +17,10 @@ export function usePostComposerUploadOwnership(options: UsePostComposerUploadOwn
     }
   }
 
+  function adoptUploadedFiles(fileIds: number[]) {
+    fileIds.forEach(recordUploadedFile)
+  }
+
   function releaseUploadedFiles(fileIds: number[]) {
     if (fileIds.length === 0 || ownedUploadedFileIds.value.length === 0) return
     const releasedIds = new Set(fileIds)
@@ -73,6 +77,7 @@ export function usePostComposerUploadOwnership(options: UsePostComposerUploadOwn
   return {
     ownedUploadedFileIds,
     recordUploadedFile,
+    adoptUploadedFiles,
     releaseUploadedFiles,
     discardUnreferencedUploads,
     discardAllOwnedUploads,

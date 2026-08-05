@@ -57,6 +57,21 @@ describe('usePostComposerUploadOwnership', () => {
     expect(discardUploadsMock).not.toHaveBeenCalled()
   })
 
+  it('adopts recovered unassociated uploads and manages their remaining lifecycle', async () => {
+    const { scope, content, ownership } = createOwnership()
+    content.value = '<img src="/api/v1/files/81"><img src="/api/v1/files/82">'
+    ownership.adoptUploadedFiles([81, 82, 81])
+
+    expect(ownership.ownedUploadedFileIds.value).toEqual([81, 82])
+
+    content.value = '<img src="/api/v1/files/82">'
+    await nextTick()
+
+    expect(discardUploadsMock).toHaveBeenCalledWith([81], { skipGlobalErrorHandler: true })
+    scope.stop()
+    expect(discardUploadsMock).toHaveBeenCalledWith([82], { skipGlobalErrorHandler: true })
+  })
+
   it('releases server-owned uploads and discards remaining uploads on identity change or dispose', () => {
     const { scope, identity, ownership } = createOwnership()
     ownership.recordUploadedFile(51)

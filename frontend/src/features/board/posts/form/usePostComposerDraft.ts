@@ -32,6 +32,7 @@ type UsePostComposerDraftOptions = {
   applyDraft: (draft: PostComposerSnapshot) => void
   markCurrentSnapshotSaved: () => void
   ownedUploadedFileIds: Ref<number[]>
+  adoptUploadedFileOwnership: (fileIds: number[]) => void
   releaseUploadedFileOwnership: (fileIds: number[]) => void
   t: (key: string, values?: Record<string, unknown>) => string
   addToast: (message: string, type: ComposerToastType) => void
@@ -70,8 +71,11 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
     originalPostId: options.mode() === 'edit' ? Number(options.postId.value) : undefined,
   })
 
-  const applyDraftWithoutTracking = (draft: PostComposerSnapshot) => {
+  const applyDraftWithoutTracking = (
+    draft: PostComposerSnapshot & Partial<Pick<DraftRecoverySnapshot, 'unassociatedUploadFileIds'>>,
+  ) => {
     options.applyDraft(draft)
+    options.adoptUploadedFileOwnership(draft.unassociatedUploadFileIds ?? [])
     appliedDraftSignature = serializeDraftPayload()
   }
 
