@@ -46,8 +46,6 @@ public class PostResponse {
 
     private String blindReason;
 
-    private LocalDateTime pinnedAt;
-
     @JsonProperty("isLiked")
     @Getter(onMethod_ = @JsonProperty("isLiked"))
     private boolean isLiked; // 현재 유저의 좋아요 여부
@@ -172,7 +170,6 @@ public class PostResponse {
                 .isSecret(post.getIsSecret())
                 .isBlinded(Boolean.TRUE.equals(post.getIsBlinded()))
                 .blindReason(post.getBlindReason())
-                .pinnedAt(post.getPinnedAt())
                 .isLiked(isLiked)
                 .isScrapped(isScrapped)
                 .lastReadCommentId(lastReadCommentId)

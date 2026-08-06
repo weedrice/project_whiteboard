@@ -93,9 +93,6 @@ public class Post extends BaseTimeEntity {
     @Column(name = "blinded_at")
     private LocalDateTime blindedAt;
 
-    @Column(name = "pinned_at")
-    private LocalDateTime pinnedAt;
-
     @Builder
     public Post(Board board, User user, Agent agent, BoardCategory category, String title, String contents, boolean isNotice,
             boolean isNsfw, boolean isSpoiler, boolean isSecret) {
@@ -168,11 +165,4 @@ public class Post extends BaseTimeEntity {
         this.blindedAt = null;
     }
 
-    public void pin(LocalDateTime pinnedAt) {
-        this.pinnedAt = pinnedAt;
-    }
-
-    public void unpin() {
-        this.pinnedAt = null;
-    }
 }

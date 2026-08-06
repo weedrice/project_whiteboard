@@ -38,22 +38,6 @@ public class PostManagerModerationService {
     private final AnonymousReadCacheInvalidator anonymousReadCacheInvalidator;
     private final Clock clock;
 
-    public void pinPost(Long managerUserId, Long postId) {
-        ManagedPost managedPost = loadManagedPost(managerUserId, postId);
-        Post post = managedPost.post();
-        post.pin(now());
-        anonymousReadCacheInvalidator.evictPostRelatedCachesAfterCommit();
-        recordPostAction(managedPost.manager(), post, ModerationAuditLogService.ACTION_POST_PIN, null);
-    }
-
-    public void unpinPost(Long managerUserId, Long postId) {
-        ManagedPost managedPost = loadManagedPost(managerUserId, postId);
-        Post post = managedPost.post();
-        post.unpin();
-        anonymousReadCacheInvalidator.evictPostRelatedCachesAfterCommit();
-        recordPostAction(managedPost.manager(), post, ModerationAuditLogService.ACTION_POST_UNPIN, null);
-    }
-
     public void blindPost(Long managerUserId, Long postId, String reason) {
         ManagedPost managedPost = loadManagedPost(managerUserId, postId);
         Post post = managedPost.post();

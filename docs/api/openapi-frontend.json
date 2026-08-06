@@ -6028,10 +6028,6 @@
             "format" : "date-time",
             "type" : "string"
           },
-          "pinnedAt" : {
-            "format" : "date-time",
-            "type" : "string"
-          },
           "poll" : {
             "$ref" : "#/components/schemas/PollResponse"
           },
@@ -6191,10 +6187,6 @@
           },
           "nsfw" : {
             "type" : "boolean"
-          },
-          "pinnedAt" : {
-            "format" : "date-time",
-            "type" : "string"
           },
           "postId" : {
             "format" : "int64",
@@ -13642,74 +13634,6 @@
             }
           }
         },
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseVoid"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "post-controller" ]
-      }
-    },
-    "/api/v1/posts/{postId}/manager/pin" : {
-      "delete" : {
-        "operationId" : "unpinPostByManager",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "postId",
-          "required" : true,
-          "schema" : {
-            "format" : "int64",
-            "type" : "integer"
-          }
-        }, {
-          "in" : "query",
-          "name" : "userId",
-          "required" : true,
-          "schema" : {
-            "format" : "int64",
-            "type" : "integer"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseVoid"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "tags" : [ "post-controller" ]
-      },
-      "post" : {
-        "operationId" : "pinPostByManager",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "postId",
-          "required" : true,
-          "schema" : {
-            "format" : "int64",
-            "type" : "integer"
-          }
-        }, {
-          "in" : "query",
-          "name" : "userId",
-          "required" : true,
-          "schema" : {
-            "format" : "int64",
-            "type" : "integer"
-          }
-        } ],
         "responses" : {
           "200" : {
             "content" : {

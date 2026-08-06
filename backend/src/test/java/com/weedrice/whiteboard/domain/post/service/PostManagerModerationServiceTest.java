@@ -70,22 +70,8 @@ class PostManagerModerationServiceTest {
     }
 
     @Test
-    void pinAndUnpinValidateManagerAndAudit() {
-        service.pinPost(1L, 2L);
-        service.unpinPost(1L, 2L);
-
-        verify(accessPolicy, org.mockito.Mockito.times(2)).validateBoardAdmin(board, manager);
-        verify(post).pin(LocalDateTime.of(2026, 1, 1, 0, 0));
-        verify(post).unpin();
-        verify(anonymousReadCacheInvalidator, org.mockito.Mockito.times(2))
-                .evictPostRelatedCachesAfterCommit();
-        verify(audits).recordUserAction(manager, ModerationAuditLogService.ACTION_POST_PIN,
-                ModerationAuditLogService.TARGET_TYPE_POST, 2L, board, null);
-    }
-
-    @Test
     void locksBoardBeforePostAndRevalidatesManagerInsideBoardLock() {
-        service.pinPost(1L, 2L);
+        service.blindPost(1L, 2L, null);
 
         var ordered = inOrder(posts, boards, accessPolicy);
         ordered.verify(posts).findBoardIdByPostId(2L);
@@ -115,13 +101,13 @@ class PostManagerModerationServiceTest {
     @Test
     void missingManagerPostOrDeletedPostIsRejected() {
         when(users.findByIdForUpdate(9L)).thenReturn(Optional.empty());
-        assertThrows(BusinessException.class, () -> service.pinPost(9L, 2L));
+        assertThrows(BusinessException.class, () -> service.blindPost(9L, 2L, null));
 
         when(posts.findByIdWithRelationsForBlindUpdate(8L)).thenReturn(Optional.empty());
         when(posts.findBoardIdByPostId(8L)).thenReturn(Optional.of(10L));
-        assertThrows(BusinessException.class, () -> service.pinPost(1L, 8L));
+        assertThrows(BusinessException.class, () -> service.blindPost(1L, 8L, null));
 
         when(post.getIsDeleted()).thenReturn(true);
-        assertThrows(BusinessException.class, () -> service.pinPost(1L, 2L));
+        assertThrows(BusinessException.class, () -> service.blindPost(1L, 2L, null));
     }
 }

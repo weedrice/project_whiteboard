@@ -1035,7 +1035,6 @@ class PostServiceTest {
         assertThat(pageable.getPageNumber()).isZero();
         assertThat(pageable.getPageSize()).isEqualTo(20);
         assertThat(pageable.getSort()).isEqualTo(Sort.by(
-                Sort.Order.desc("pinnedAt"),
                 Sort.Order.desc("createdAt"),
                 Sort.Order.desc("postId")));
         verify(searchRecordEventPublisher, never()).publish(any(), anyString());
@@ -1115,7 +1114,6 @@ class PostServiceTest {
                 pageableCaptor.capture());
         assertThat(pageableCaptor.getValue().getSort()).isEqualTo(Sort.by(
                 Sort.Order.desc("likeCount"),
-                Sort.Order.desc("pinnedAt"),
                 Sort.Order.desc("createdAt"),
                 Sort.Order.desc("postId")));
     }
@@ -4049,7 +4047,6 @@ class PostServiceTest {
                 pageableCaptor.capture());
         assertThat(pageableCaptor.getValue().getPageSize()).isEqualTo(5);
         assertThat(pageableCaptor.getValue().getSort()).isEqualTo(Sort.by(
-                Sort.Order.desc("pinnedAt"),
                 Sort.Order.desc("createdAt"),
                 Sort.Order.desc("postId")));
     }

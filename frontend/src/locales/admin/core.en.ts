@@ -60,7 +60,7 @@ export const adminCoreMessagesEn = {
     auditReason: 'Reason',
     auditCreatedAt: 'Date and time',
     auditActions: {
-      POST_PIN: 'Pin post', POST_UNPIN: 'Unpin post', POST_BLIND: 'Hide post', POST_UNBLIND: 'Restore post',
+      POST_BLIND: 'Hide post', POST_UNBLIND: 'Restore post',
       POST_AUTO_BLIND: 'Automatically hide post', COMMENT_AUTO_BLIND: 'Automatically hide comment', REPORT_RESOLVE: 'Resolve report', REPORT_REJECT: 'Reject report',
       USER_ACTIVATE: 'Activate user', USER_SUSPEND: 'Suspend user', SUPER_ADMIN_GRANT: 'Grant super admin', SUPER_ADMIN_REVOKE: 'Revoke super admin',
       BOARD_DEACTIVATE: 'Deactivate space',

@@ -60,7 +60,7 @@ export const adminCoreMessages = {
     auditReason: '사유',
     auditCreatedAt: '일시',
     auditActions: {
-      POST_PIN: '게시글 고정', POST_UNPIN: '게시글 고정 해제', POST_BLIND: '게시글 숨김', POST_UNBLIND: '게시글 숨김 해제',
+      POST_BLIND: '게시글 숨김', POST_UNBLIND: '게시글 숨김 해제',
       POST_AUTO_BLIND: '게시글 자동 숨김', COMMENT_AUTO_BLIND: '댓글 자동 숨김', REPORT_RESOLVE: '신고 처리', REPORT_REJECT: '신고 반려',
       USER_ACTIVATE: '사용자 활성화', USER_SUSPEND: '사용자 정지', SUPER_ADMIN_GRANT: '최고 관리자 부여', SUPER_ADMIN_REVOKE: '최고 관리자 해제',
       BOARD_DEACTIVATE: '스페이스 비활성화',

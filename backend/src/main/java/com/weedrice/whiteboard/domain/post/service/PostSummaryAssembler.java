@@ -173,7 +173,6 @@ public class PostSummaryAssembler {
                 .isNsfw(Boolean.TRUE.equals(post.isNsfw()))
                 .isSpoiler(Boolean.TRUE.equals(post.isSpoiler()))
                 .isSecret(Boolean.TRUE.equals(post.isSecret()))
-                .pinnedAt(post.pinnedAt())
                 .createdAt(post.createdAt())
                 .boardUrl(post.boardUrl())
                 .boardName(post.boardName())

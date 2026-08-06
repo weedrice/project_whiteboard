@@ -29,7 +29,7 @@
 | 키워드 알림 | `KeywordSubscriptionController` | 컨트롤러 전체 누락 | 조회/등록/해지 3건 추가 |
 | 푸시 | `PushSubscriptionController`, `PushPublicKeyController` | 컨트롤러 전체 누락 | 구독 등록/해지와 공개키 3건 추가 |
 | 포인트 | `PointController` | 누락 없음 | 유지 |
-| 게시글 | `PostController` | 관련 글, 투표, 스크랩 폴더, 시리즈, 매니저 도구 15건 누락 | 15건 추가 |
+| 게시글 | `PostController` | 관련 글, 투표, 스크랩 폴더, 시리즈, 매니저 도구 13건 누락 | 13건 추가 |
 | 예약 발행 | `ScheduledPostController` | 컨트롤러 전체 누락 | 생성/목록/상세/수정/취소 5건 추가 |
 | 신고 | `ReportController`, `AdminReportController` | 누락 없음 | 유지 |
 | 스페이스 신고 관리 | `BoardManagerReportController` | 컨트롤러 전체 누락 | 1건 추가 |
@@ -73,8 +73,6 @@
 | `GET` | `/api/v1/boards/recommendations` | `BoardController` |
 | `GET` | `/api/v1/boards/recent-updates` | `BoardController` |
 | `GET` | `/api/v1/posts/{postId}/related` | `PostController` |
-| `POST` | `/api/v1/posts/{postId}/manager/pin` | `PostController` |
-| `DELETE` | `/api/v1/posts/{postId}/manager/pin` | `PostController` |
 | `POST` | `/api/v1/posts/{postId}/manager/blind` | `PostController` |
 | `DELETE` | `/api/v1/posts/{postId}/manager/blind` | `PostController` |
 | `POST` | `/api/v1/posts/{postId}/poll/vote` | `PostController` |

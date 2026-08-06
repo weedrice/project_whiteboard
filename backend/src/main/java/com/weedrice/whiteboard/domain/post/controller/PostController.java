@@ -85,22 +85,6 @@ public class PostController {
         return ApiResponse.success(postService.getRelatedPosts(postId, userId, size));
     }
 
-    @PostMapping("/posts/{postId}/manager/pin")
-    public ApiResponse<Void> pinPostByManager(
-            @PathVariable Long postId,
-            @CurrentUserId Long userId) {
-        postService.pinPostByManager(userId, postId);
-        return ApiResponses.ok();
-    }
-
-    @DeleteMapping("/posts/{postId}/manager/pin")
-    public ApiResponse<Void> unpinPostByManager(
-            @PathVariable Long postId,
-            @CurrentUserId Long userId) {
-        postService.unpinPostByManager(userId, postId);
-        return ApiResponses.ok();
-    }
-
     @PostMapping("/posts/{postId}/manager/blind")
     public ApiResponse<Void> blindPostByManager(
             @PathVariable Long postId,

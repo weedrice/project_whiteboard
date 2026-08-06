@@ -45,7 +45,6 @@ public class PostListReadService {
 
     private static final int DEFAULT_BOARD_POST_PAGE_SIZE = 20;
     private static final Sort DEFAULT_BOARD_POST_SORT = Sort.by(
-            Sort.Order.desc("pinnedAt"),
             Sort.Order.desc("createdAt"),
             Sort.Order.desc("postId"));
     private static final Sort DEFAULT_TAG_POST_SORT = Sort.by(
@@ -58,7 +57,7 @@ public class PostListReadService {
             Sort.Order.desc("createdAt"),
             Sort.Order.desc("postId"));
     private static final Set<String> BOARD_POST_SORT_PROPERTIES = Set.of(
-            "createdAt", "postId", "viewCount", "likeCount", "pinnedAt");
+            "createdAt", "postId", "viewCount", "likeCount");
     private static final Set<String> TAG_POST_SORT_PROPERTIES = Set.of(
             "createdAt", "postId", "viewCount", "likeCount");
     private static final Set<String> MY_POST_SORT_PROPERTIES = Set.of(

@@ -24,7 +24,7 @@ const auditStartDate = ref('')
 const auditEndDate = ref('')
 const auditActionOptions = computed(() => [
   { value: '', label: t('admin.common.all') },
-  ...['POST_PIN', 'POST_UNPIN', 'POST_BLIND', 'POST_UNBLIND', 'POST_AUTO_BLIND', 'COMMENT_AUTO_BLIND']
+  ...['POST_BLIND', 'POST_UNBLIND', 'POST_AUTO_BLIND', 'COMMENT_AUTO_BLIND']
     .map(value => ({ value, label: value })),
 ])
 const auditActorOptions = computed(() => [

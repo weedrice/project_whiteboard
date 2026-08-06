@@ -36,8 +36,6 @@ public class ModerationAuditLogService {
     private static final Set<String> ALLOWED_AUDIT_SORT_PROPERTIES = Set.of(
             "auditId", "createdAt", "actorType", "adminId", "action", "targetType", "targetId");
 
-    public static final String ACTION_POST_PIN = "POST_PIN";
-    public static final String ACTION_POST_UNPIN = "POST_UNPIN";
     public static final String ACTION_POST_BLIND = "POST_BLIND";
     public static final String ACTION_POST_UNBLIND = "POST_UNBLIND";
     public static final String ACTION_POST_AUTO_BLIND = "POST_AUTO_BLIND";

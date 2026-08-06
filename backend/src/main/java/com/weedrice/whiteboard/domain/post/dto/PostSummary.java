@@ -35,7 +35,6 @@ public class PostSummary {
     @Getter(onMethod_ = @JsonProperty("isBlinded"))
     private boolean isBlinded;
     private String blindReason;
-    private LocalDateTime pinnedAt;
     private LocalDateTime createdAt;
     private String boardUrl;
     private String boardName;
@@ -104,7 +103,6 @@ public class PostSummary {
                 .isSecret(fields.flags().isSecret())
                 .isBlinded(Boolean.TRUE.equals(post.getIsBlinded()))
                 .blindReason(post.getBlindReason())
-                .pinnedAt(post.getPinnedAt())
                 .createdAt(fields.createdAt())
                 .boardUrl(fields.boardUrl())
                 .boardName(fields.boardName())

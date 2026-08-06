@@ -155,16 +155,6 @@ public class PostService {
     }
 
     @Transactional
-    public void pinPostByManager(@NonNull Long userId, @NonNull Long postId) {
-        postManagerModerationService.pinPost(userId, postId);
-    }
-
-    @Transactional
-    public void unpinPostByManager(@NonNull Long userId, @NonNull Long postId) {
-        postManagerModerationService.unpinPost(userId, postId);
-    }
-
-    @Transactional
     public void blindPostByManager(@NonNull Long userId, @NonNull Long postId, String reason) {
         postManagerModerationService.blindPost(userId, postId, reason);
     }

@@ -103,7 +103,6 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                         post.isNsfw,
                         post.isSpoiler,
                         post.isSecret,
-                        post.pinnedAt,
                         post.createdAt,
                         post.board.boardUrl,
                         post.board.boardName,
@@ -650,7 +649,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
         if (!pageable.getSort().isEmpty()) {
             boolean allAllowed = pageable.getSort().stream()
                     .allMatch(order -> switch (order.getProperty()) {
-                        case "viewCount", "likeCount", "pinnedAt", "createdAt", "postId" -> true;
+                        case "viewCount", "likeCount", "createdAt", "postId" -> true;
                         default -> false;
                     });
             if (!allAllowed) {
@@ -663,8 +662,6 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                         return new OrderSpecifier<>(direction, post.viewCount);
                     case "likeCount":
                         return new OrderSpecifier<>(direction, post.likeCount);
-                    case "pinnedAt":
-                        return new OrderSpecifier<>(direction, post.pinnedAt).nullsLast();
                     case "createdAt":
                         return new OrderSpecifier<>(direction, post.createdAt);
                     case "postId":
@@ -679,7 +676,6 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
 
     private OrderSpecifier<?>[] defaultOrderSpecifiers() {
         return new OrderSpecifier[] {
-                new OrderSpecifier<>(Order.DESC, post.pinnedAt).nullsLast(),
                 new OrderSpecifier<>(Order.DESC, post.createdAt),
                 new OrderSpecifier<>(Order.DESC, post.postId)
         };

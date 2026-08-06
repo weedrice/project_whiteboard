@@ -1924,22 +1924,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/posts/{postId}/manager/pin": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["pinPostByManager"];
-        delete: operations["unpinPostByManager"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/posts/{postId}/poll/vote": {
         parameters: {
             query?: never;
@@ -5182,8 +5166,6 @@ export interface components {
             likeCount?: number;
             /** Format: date-time */
             modifiedAt?: string;
-            /** Format: date-time */
-            pinnedAt?: string;
             poll?: components["schemas"]["PollResponse"];
             /** Format: int64 */
             postId?: number;
@@ -5243,8 +5225,6 @@ export interface components {
             liked?: boolean;
             notice?: boolean;
             nsfw?: boolean;
-            /** Format: date-time */
-            pinnedAt?: string;
             /** Format: int64 */
             postId?: number;
             /** Format: int64 */
@@ -9703,54 +9683,6 @@ export interface operations {
         };
     };
     unblindPostByManager: {
-        parameters: {
-            query: {
-                userId: number;
-            };
-            header?: never;
-            path: {
-                postId: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseVoid"];
-                };
-            };
-        };
-    };
-    pinPostByManager: {
-        parameters: {
-            query: {
-                userId: number;
-            };
-            header?: never;
-            path: {
-                postId: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseVoid"];
-                };
-            };
-        };
-    };
-    unpinPostByManager: {
         parameters: {
             query: {
                 userId: number;

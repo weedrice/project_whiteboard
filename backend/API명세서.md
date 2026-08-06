@@ -264,8 +264,6 @@ OAuth 가입을 취소하고 일반 가입으로 돌아갈 수 있다.
 | `GET` | `/api/v1/posts/trending` | 인기 게시글 |
 | `GET` | `/api/v1/posts/{postId}` | 게시글 상세 (`editCount`: `MODIFY` 버전 수, 수정이 없으면 `0`) |
 | `GET` | `/api/v1/posts/{postId}/related` | 관련 게시글 추천 |
-| `POST` | `/api/v1/posts/{postId}/manager/pin` | 매니저 게시글 상단 고정 |
-| `DELETE` | `/api/v1/posts/{postId}/manager/pin` | 매니저 게시글 고정 해제 |
 | `POST` | `/api/v1/posts/{postId}/manager/blind` | 매니저 게시글 블라인드 |
 | `DELETE` | `/api/v1/posts/{postId}/manager/blind` | 매니저 게시글 블라인드 해제 |
 | `POST` | `/api/v1/posts/{postId}/view` | 조회 기록 |
