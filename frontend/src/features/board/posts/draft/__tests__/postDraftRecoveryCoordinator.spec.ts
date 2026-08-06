@@ -277,4 +277,57 @@ describe('draft recovery coordinator', () => {
     expect(harness.storeLocalSnapshot).toHaveBeenCalledTimes(1)
     expect(harness.applyDraft).not.toHaveBeenCalled()
   })
+
+  it('marks a recovered browser backup and schedules its server synchronization', async () => {
+    const harness = createHarness()
+    harness.draftId.value = null
+    const localSnapshot: DraftRecoverySnapshot = {
+      ...payload(),
+      title: 'Recovered browser backup',
+      clientModifiedAt: '2026-08-06T09:00:00.000Z',
+      hasLocalChanges: true,
+    }
+    vi.mocked(resolveServerDraftForRecovery).mockResolvedValue({
+      localSnapshot,
+      serverDraft: null,
+      recoveryFailed: false,
+      draftProtected: false,
+      multipleMatchesFound: false,
+    })
+
+    await harness.coordinator.restoreDraft()
+
+    expect(harness.applyDraft).toHaveBeenCalledWith(localSnapshot)
+    expect(harness.lastSaveScope.value).toBe('browser')
+    expect(harness.lastSavedAt.value).toBe(localSnapshot.clientModifiedAt)
+    expect(harness.getLocalRevision()).toBe(1)
+    expect(harness.scheduleAutosave).toHaveBeenCalledTimes(1)
+  })
+
+  it.each([
+    { recoveryFailed: true, multipleMatchesFound: false },
+    { recoveryFailed: false, multipleMatchesFound: true },
+  ])('does not auto-sync an unsafe browser recovery state %o', async ({
+    recoveryFailed,
+    multipleMatchesFound,
+  }) => {
+    const harness = createHarness()
+    harness.draftId.value = null
+    vi.mocked(resolveServerDraftForRecovery).mockResolvedValue({
+      localSnapshot: {
+        ...payload(),
+        title: 'Keep only in browser',
+        hasLocalChanges: true,
+      },
+      serverDraft: null,
+      recoveryFailed,
+      draftProtected: false,
+      multipleMatchesFound,
+    })
+
+    await harness.coordinator.restoreDraft()
+
+    expect(harness.lastSaveScope.value).toBe('browser')
+    expect(harness.scheduleAutosave).not.toHaveBeenCalled()
+  })
 })

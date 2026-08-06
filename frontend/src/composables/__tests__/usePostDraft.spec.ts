@@ -677,6 +677,38 @@ describe('usePostDraft', () => {
         }
     })
 
+    it('autosaves a recovered browser backup when the server has no matching draft', async () => {
+        const payloadRef = ref<PostDraftData>({
+            boardUrl: 'free',
+            title: '',
+            contents: '',
+            fileIds: [],
+        })
+        Storage.set('noviis:test:draft', {
+            boardUrl: 'free',
+            title: 'Recovered browser title',
+            contents: 'Recovered browser body',
+            fileIds: [],
+            clientModifiedAt: '2026-07-07T11:00:00.000Z',
+            hasLocalChanges: true,
+        })
+        const { composable, appliedDrafts } = mountComposable(payloadRef)
+
+        await composable.restoreDraft()
+        payloadRef.value = {
+            ...payloadRef.value,
+            ...appliedDrafts.at(-1),
+        }
+        await vi.advanceTimersByTimeAsync(1500)
+
+        expect(composable.lastSaveScope.value).toBe('server')
+        expect(mocks.saveDraftMutateAsync).toHaveBeenCalledWith(expect.objectContaining({
+            draftId: undefined,
+            title: 'Recovered browser title',
+            contents: 'Recovered browser body',
+        }))
+    })
+
     it('keeps a corrected server recovery as a local change and saves the correction', async () => {
         const payloadRef = ref<PostDraftData>({
             boardUrl: 'free',

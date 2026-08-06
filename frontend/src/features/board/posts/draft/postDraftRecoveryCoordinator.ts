@@ -305,6 +305,18 @@ export function createDraftRecoveryCoordinator({
           clientModifiedAt: chosen.clientModifiedAt ?? new Date().toISOString(),
           hasLocalChanges: chosen.hasLocalChanges ?? true,
         })
+        lastSavedAt.value = chosen.clientModifiedAt
+          ?? chosen.updatedAt
+          ?? chosen.modifiedAt
+          ?? new Date().toISOString()
+        lastSaveScope.value = 'browser'
+        const canSyncRecoveredBackup = !recovery.conflict
+          && !resolved.recoveryFailed
+          && !resolved.multipleMatchesFound
+        if (canSyncRecoveredBackup) {
+          incrementLocalRevision()
+          scheduleAutosave()
+        }
       }
     } finally {
       finishRequest(generation, controller)
