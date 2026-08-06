@@ -132,7 +132,9 @@ public class CommentRepositoryCustomImpl implements CommentRepositoryCustom {
     }
 
     private BooleanExpression listedBoardOnlyForGlobalSearch(String boardUrl) {
-        return StringUtils.hasText(boardUrl) ? null : post.board.isListed.eq(true);
+        return StringUtils.hasText(boardUrl)
+                ? null
+                : post.board.isListed.eq(true).or(post.board.isListed.isNull());
     }
 
     private BooleanExpression postSecretCondition(boolean includeSecret, Long viewerUserId) {

@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.board.entity;
 
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.global.common.converter.BooleanToYNConverter;
+import com.weedrice.whiteboard.global.common.converter.NullableBooleanToYNConverter;
 import com.weedrice.whiteboard.global.common.entity.BaseTimeEntity;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -60,8 +61,8 @@ public class Board extends BaseTimeEntity {
     @Column(name = "is_public", length = 1, nullable = false, columnDefinition = "varchar(1) default 'Y'")
     private Boolean isPublic;
 
-    @Convert(converter = BooleanToYNConverter.class)
-    @Column(name = "is_listed", length = 1, nullable = false, columnDefinition = "varchar(1) default 'Y'")
+    @Convert(converter = NullableBooleanToYNConverter.class)
+    @Column(name = "is_listed", length = 1)
     private Boolean isListed;
 
     @Convert(converter = BooleanToYNConverter.class)
@@ -135,5 +136,12 @@ public class Board extends BaseTimeEntity {
 
     public boolean isAgentEnabled() {
         return Boolean.TRUE.equals(agentUseYn);
+    }
+
+    /**
+     * 구버전 애플리케이션이 롤백 호환 기간에 저장한 NULL은 기존 공개 동작을 유지한다.
+     */
+    public Boolean getIsListed() {
+        return Boolean.TRUE.equals(isPublic) && !Boolean.FALSE.equals(isListed);
     }
 }

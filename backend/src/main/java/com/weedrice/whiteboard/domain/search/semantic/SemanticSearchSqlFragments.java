@@ -27,7 +27,7 @@ final class SemanticSearchSqlFragments {
         String blockedPost = query.hasBlockedUserIds() ? " AND p.user_id NOT IN (:blockedUserIds)" : "";
         String boardUrlPredicate = query.hasBoardUrl()
                 ? " AND b.board_url = :boardUrl"
-                : " AND b.is_listed = 'Y'";
+                : " AND (b.is_listed = 'Y' OR b.is_listed IS NULL)";
         return indexedBoardPredicate() + boardUrlPredicate + blockedPost;
     }
 

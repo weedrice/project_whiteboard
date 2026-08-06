@@ -143,7 +143,7 @@
 - `users.email`, `users.login_id`는 unique다.
 - `V14`는 canonical email unique index를 추가한다.
 - `boards.board_name`, `boards.board_url`은 unique다.
-- `boards.is_public = 'Y' AND boards.is_listed = 'N'`은 URL·구독 접근은 허용하지만 발견 목록과 전역 검색에서는 제외하는 목록 비노출 상태다. 비공개 행은 `is_listed = 'N'`으로 정규화한다.
+- `boards.is_public = 'Y' AND boards.is_listed = 'N'`은 URL·구독 접근은 허용하지만 발견 목록과 전역 검색에서는 제외하는 목록 비노출 상태다. 새 애플리케이션은 비공개 행을 `is_listed = 'N'`으로 정규화한다. expand/rollback 기간에 구버전 애플리케이션이 컬럼을 생략해 저장한 `NULL`은 기존 공개 동작을 보존하기 위해 목록 노출로 해석한다.
 - `V2`는 활성 카테고리명, 활성 관리자, 활성 board admin 중복을 방지하는 unique index를 추가한다.
 - `board_subscriptions`는 `V6`에서 `(user_id, sort_order)` unique 제약을 추가한다.
 - `search_personalization`은 `V7`에서 `(user_id, normalized_keyword)` unique 제약과 사용자별 최근 검색 인덱스를 추가한다.

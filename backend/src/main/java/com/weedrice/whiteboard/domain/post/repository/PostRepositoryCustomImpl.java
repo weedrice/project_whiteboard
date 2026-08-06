@@ -190,7 +190,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                         post.isBlinded.eq(false),
                         post.board.isActive.eq(true),
                         post.board.isPublic.eq(true),
-                        post.board.isListed.eq(true),
+                        listedBoard(),
                         secretCondition(false, viewerUserId),
                         notBlockedCondition(blockedUserIds))
                 .offset(pageable.getOffset())
@@ -207,7 +207,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                         post.isBlinded.eq(false),
                         post.board.isActive.eq(true),
                         post.board.isPublic.eq(true),
-                        post.board.isListed.eq(true),
+                        listedBoard(),
                         secretCondition(false, viewerUserId),
                         notBlockedCondition(blockedUserIds))
                 .fetchOne();
@@ -303,7 +303,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                         post.isBlinded.eq(false),
                         post.board.isActive.eq(true),
                         post.board.isPublic.eq(true),
-                        post.board.isListed.eq(true),
+                        listedBoard(),
                         post.isSecret.eq(false),
                         notBlockedCondition(blockedUserIds))
                 .offset(pageable.getOffset())
@@ -320,7 +320,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                         postTag.post.isBlinded.eq(false),
                         postTag.post.board.isActive.eq(true),
                         postTag.post.board.isPublic.eq(true),
-                        postTag.post.board.isListed.eq(true),
+                        postTag.post.board.isListed.eq(true).or(postTag.post.board.isListed.isNull()),
                         postTag.post.isSecret.eq(false),
                         notBlockedPostTagCondition(blockedUserIds))
                 .fetchOne();
@@ -580,7 +580,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                 post.isSecret.eq(false),
                 post.board.isActive.eq(true),
                 post.board.isPublic.eq(true),
-                post.board.isListed.eq(true),
+                listedBoard(),
                 notBlockedCondition(blockedUserIds),
                 TrendingPostRankingPolicy.mediaCondition(post, file)
         };
@@ -594,7 +594,7 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
                 post.isSecret.eq(false),
                 post.board.isActive.eq(true),
                 post.board.isPublic.eq(true),
-                post.board.isListed.eq(true),
+                listedBoard(),
                 post.board.boardUrl.lower().ne(inquiryBoardUrl),
                 notBlockedCondition(blockedUserIds)
         };
@@ -619,7 +619,11 @@ public class PostRepositoryCustomImpl implements PostRepositoryCustom {
     }
 
     private BooleanExpression listedBoardOnlyForGlobalSearch(String boardUrl) {
-        return StringUtils.hasText(boardUrl) ? null : post.board.isListed.eq(true);
+        return StringUtils.hasText(boardUrl) ? null : listedBoard();
+    }
+
+    private BooleanExpression listedBoard() {
+        return post.board.isListed.eq(true).or(post.board.isListed.isNull());
     }
 
     private BooleanExpression searchSecretCondition(String boardUrl, Boolean includeSecret, Long viewerUserId) {

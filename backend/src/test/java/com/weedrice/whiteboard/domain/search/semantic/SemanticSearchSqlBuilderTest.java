@@ -93,12 +93,12 @@ class SemanticSearchSqlBuilderTest {
 
         assertThat(keywordRepository.searchSql(publicFallback))
                 .contains("b.is_active = 'Y' AND b.is_public = 'Y'")
-                .contains("b.is_listed = 'Y'")
+                .contains("(b.is_listed = 'Y' OR b.is_listed IS NULL)")
                 .contains("p.is_secret = 'N'")
                 .doesNotContain("NOT IN (:blockedUserIds)");
         assertThat(keywordRepository.countSql(publicFallback))
                 .contains("b.is_active = 'Y' AND b.is_public = 'Y'")
-                .contains("b.is_listed = 'Y'")
+                .contains("(b.is_listed = 'Y' OR b.is_listed IS NULL)")
                 .contains("p.is_secret = 'N'")
                 .doesNotContain("NOT IN (:blockedUserIds)");
     }

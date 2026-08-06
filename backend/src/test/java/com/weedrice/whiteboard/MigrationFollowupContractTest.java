@@ -43,6 +43,18 @@ class MigrationFollowupContractTest {
                 .contains("idx_file_variants_storage_status_created");
     }
 
+    @Test
+    void v87KeepsBoardListedVisibilityCompatibleWithPreviousWriters() throws Exception {
+        String sql = migration("V87__add_board_listed_visibility.sql");
+
+        assertThat(sql)
+                .contains("-- noviis:migration-phase expand")
+                .contains("ADD COLUMN is_listed varchar(1)")
+                .contains("CASE WHEN is_public = 'N' THEN 'N' ELSE 'Y' END")
+                .doesNotContain("DEFAULT 'Y'")
+                .doesNotContain("ALTER COLUMN is_listed SET NOT NULL");
+    }
+
     private String migration(String fileName) throws Exception {
         return new ClassPathResource("db/migration/" + fileName)
                 .getContentAsString(StandardCharsets.UTF_8);

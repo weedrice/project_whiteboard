@@ -153,6 +153,47 @@ class BoardRepositoryTest {
     }
 
     @Test
+    @DisplayName("구버전 writer가 남긴 목록 상태 NULL은 공개 여부에 따라 해석한다")
+    void legacyNullListedState_preservesPreviousPublicVisibility() {
+        Board legacyPublic = Board.builder()
+                .boardName("Legacy Public")
+                .boardUrl("legacy-public")
+                .creator(creator)
+                .sortOrder(10)
+                .isPublic(true)
+                .build();
+        entityManager.persist(legacyPublic);
+
+        Board legacyPrivate = Board.builder()
+                .boardName("Legacy Private")
+                .boardUrl("legacy-private")
+                .creator(creator)
+                .sortOrder(20)
+                .isPublic(false)
+                .build();
+        entityManager.persist(legacyPrivate);
+        entityManager.flush();
+
+        entityManager.getEntityManager().createNativeQuery(
+                        "UPDATE boards SET is_listed = NULL WHERE board_id IN (:publicId, :privateId)")
+                .setParameter("publicId", legacyPublic.getBoardId())
+                .setParameter("privateId", legacyPrivate.getBoardId())
+                .executeUpdate();
+        entityManager.clear();
+
+        var listedBoards = boardRepository.findReadableActiveBoardsOrderBySortOrderAscBoardIdAsc(
+                null,
+                false,
+                BoardPolicyConstants.INQUIRY_BOARD_URL);
+
+        assertThat(listedBoards).extracting(Board::getBoardId)
+                .contains(legacyPublic.getBoardId())
+                .doesNotContain(legacyPrivate.getBoardId());
+        assertThat(boardRepository.findByBoardUrl("legacy-public").orElseThrow().getIsListed()).isTrue();
+        assertThat(boardRepository.findByBoardUrl("legacy-private").orElseThrow().getIsListed()).isFalse();
+    }
+
+    @Test
     @DisplayName("보드 이름 검색 미리보기는 sortOrder 동률일 때 boardId로 안정 정렬")
     void findBoardPreviewByKeyword_ordersByBoardIdWhenSortOrderMatches() {
         Board first = persistBoard("Search Tie A", "search-tie-a", 10, true, true);
