@@ -6447,7 +6447,9 @@ export interface operations {
                 actorType?: string;
                 boardId?: number;
                 boardUrl?: string;
+                boardName?: string;
                 actorUserId?: number;
+                actorName?: string;
                 startDate?: string;
                 endDate?: string;
                 sort: components["schemas"]["Sort"];
