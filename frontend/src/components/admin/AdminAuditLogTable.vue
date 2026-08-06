@@ -8,8 +8,10 @@ withDefaults(defineProps<{
   audits: ModerationAuditLog[]
   caption: string
   emptyText: string
+  showBoardName?: boolean
   showBoardUrl?: boolean
 }>(), {
+  showBoardName: false,
   showBoardUrl: false,
 })
 
@@ -42,6 +44,9 @@ const formattedDate = (dateString: string) => formatDateTimeOrDash(dateString, l
           <th scope="col" class="px-4 py-3 text-left font-medium">{{ t('admin.dashboard.auditAction') }}</th>
           <th scope="col" class="px-4 py-3 text-left font-medium">{{ t('admin.dashboard.auditActor') }}</th>
           <th scope="col" class="px-4 py-3 text-left font-medium">{{ t('admin.dashboard.auditTarget') }}</th>
+          <th v-if="showBoardName" scope="col" class="px-4 py-3 text-left font-medium">
+            {{ t('admin.dashboard.auditBoardName') }}
+          </th>
           <th v-if="showBoardUrl" scope="col" class="px-4 py-3 text-left font-medium">
             {{ t('admin.dashboard.auditBoardUrl') }}
           </th>
@@ -54,6 +59,7 @@ const formattedDate = (dateString: string) => formatDateTimeOrDash(dateString, l
           <td class="px-4 py-3 font-medium nv-title">{{ actionLabel(audit) }}</td>
           <td class="px-4 py-3 nv-text-subtle">{{ actorLabel(audit) }}</td>
           <td class="px-4 py-3 nv-text-subtle">{{ targetLabel(audit) }}</td>
+          <td v-if="showBoardName" class="px-4 py-3 nv-text-subtle">{{ audit.boardName || '-' }}</td>
           <td v-if="showBoardUrl" class="px-4 py-3 nv-text-subtle">{{ audit.boardUrl || '-' }}</td>
           <td class="px-4 py-3 nv-text-subtle">{{ audit.reason || '-' }}</td>
           <td class="px-4 py-3 nv-text-subtle">{{ formattedDate(audit.createdAt) }}</td>

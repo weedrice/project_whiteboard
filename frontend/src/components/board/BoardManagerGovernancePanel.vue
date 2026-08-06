@@ -182,6 +182,7 @@ onScopeDispose(unsubscribeSessionBoundary)
         :audits="governance.auditPage.items.value"
         :caption="t('admin.dashboard.auditLogs')"
         :empty-text="t('admin.dashboard.auditEmpty')"
+        show-board-name
       />
       <div class="px-4 pb-4">
         <AdminPaginationFooter

@@ -30,12 +30,12 @@ const audit: ModerationAuditLog = {
   createdAt: '2026-07-12T10:00:00',
 }
 
-const mountTable = (showBoardUrl = false) => mount(AdminAuditLogTable, {
+const mountTable = (options: { showBoardName?: boolean; showBoardUrl?: boolean } = {}) => mount(AdminAuditLogTable, {
   props: {
     audits: [audit],
     caption: 'Moderation audit logs',
     emptyText: 'No logs',
-    showBoardUrl,
+    ...options,
   },
 })
 
@@ -54,13 +54,29 @@ describe('AdminAuditLogTable', () => {
       tabindex: '0',
     })
     expect(wrapper.get('table').classes()).toContain('w-full')
+    expect(wrapper.text()).not.toContain('admin.dashboard.auditBoardName')
     expect(wrapper.text()).not.toContain('admin.dashboard.auditBoardUrl')
   })
 
-  it('optionally shows the board URL column', () => {
-    const wrapper = mountTable(true)
+  it('optionally shows the board name and URL columns', () => {
+    const wrapper = mountTable({ showBoardName: true, showBoardUrl: true })
 
+    expect(wrapper.text()).toContain('admin.dashboard.auditBoardName')
+    expect(wrapper.text()).toContain('Vue')
     expect(wrapper.text()).toContain('admin.dashboard.auditBoardUrl')
     expect(wrapper.text()).toContain('vue')
+  })
+
+  it('uses a dash when the board name is unavailable', () => {
+    const wrapper = mount(AdminAuditLogTable, {
+      props: {
+        audits: [{ ...audit, boardName: null }],
+        caption: 'Moderation audit logs',
+        emptyText: 'No logs',
+        showBoardName: true,
+      },
+    })
+
+    expect(wrapper.findAll('tbody td').map((cell) => cell.text())).toContain('-')
   })
 })
