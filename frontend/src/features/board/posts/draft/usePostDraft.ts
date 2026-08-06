@@ -43,10 +43,7 @@ import { createDraftLocalSnapshotController } from '@/features/board/posts/draft
 import { createDraftStateTransitionController } from '@/features/board/posts/draft/postDraftStateTransitions'
 import { createDraftCrossTabReconciler } from '@/features/board/posts/draft/postDraftCrossTabReconciler'
 import { createDraftRecoveryCoordinator } from '@/features/board/posts/draft/postDraftRecoveryCoordinator'
-import {
-    createDraftBlockingStatusController,
-    resolveDraftStatus,
-} from '@/features/board/posts/draft/postDraftStatus'
+import { createDraftBlockingStatusController } from '@/features/board/posts/draft/postDraftStatus'
 
 export type { DraftRecoverySnapshot } from '@/features/board/posts/draft/postDraftRecovery'
 export type DraftSaveScope = 'server' | 'browser'
@@ -109,7 +106,6 @@ export function usePostDraft(options: UsePostDraftOptions) {
     const restoreFailed = ref(false)
     const isRestoringDraft = ref(false)
     const {
-        status: draftBlockingStatus,
         draftConflict,
         draftProtected,
         draftDeleted,
@@ -758,15 +754,6 @@ export function usePostDraft(options: UsePostDraftOptions) {
         lastSavedAt: computed(() => lastSavedAt.value),
         lastSaveScope: computed(() => lastSaveScope.value),
         lastSaveFailed: computed(() => lastSaveFailed.value),
-        draftStatus: computed(() => resolveDraftStatus({
-            enabled: options.enabled.value,
-            blockingStatus: draftBlockingStatus.value,
-            isRestoring: isRestoringDraft.value,
-            isSaving: saveDraftMutation.isPending.value,
-            restoreFailed: restoreFailed.value,
-            saveFailed: lastSaveFailed.value,
-            dirty: localRevision !== persistedRevision,
-        })),
         saveRetryAttempt: computed(() => saveRetryAttempt.value),
         saveRetryScheduled: computed(() => saveRetryScheduled.value),
         saveRetryExhausted: computed(() => saveRetryExhausted.value),
