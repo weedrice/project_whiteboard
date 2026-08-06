@@ -108,6 +108,17 @@ export function createDraftCrossTabReconciler(options: DraftCrossTabReconcilerOp
       latestRemoteServerTimeMs = Math.max(latestRemoteServerTimeMs, incomingServerTimeMs)
     }
 
+    // 같은 clientDraftKey를 가진 다른 탭이 새 초안을 먼저 생성한 경우에는
+    // 내용 충돌 여부와 관계없이 충돌 해결에 필요한 서버 identity를 보존한다.
+    if (options.draftId.value == null
+      && sameClientDraft
+      && incoming.hasLocalChanges === false
+      && incoming.draftId != null) {
+      options.draftId.value = incoming.draftId
+      options.draftVersion.value = incoming.version ?? null
+      options.updatedAt.value = incoming.updatedAt ?? incoming.modifiedAt ?? null
+    }
+
     const incomingClientModifiedAt = toIsoTime(incoming.clientModifiedAt)
     const incomingClientModifiedAtMs = incomingClientModifiedAt ? Date.parse(incomingClientModifiedAt) : 0
     if (incoming.hasLocalChanges === true

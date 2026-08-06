@@ -2139,7 +2139,7 @@ describe('usePostDraft', () => {
         expect(composable.restoreFailed.value).toBe(false)
     })
 
-    it('reports a conflict instead of adopting different canonical content from another tab', async () => {
+    it('keeps the first server identity so a different canonical save can be resolved', async () => {
         const ownerId = ref<number | null>(7)
         const { composable, appliedDrafts } = mountComposable(
             undefined,
@@ -2155,9 +2155,40 @@ describe('usePostDraft', () => {
         })
 
         expect(appliedDrafts).toHaveLength(0)
-        expect(composable.draftId.value).toBeNull()
-        expect(composable.draftVersion.value).toBeNull()
+        expect(composable.draftId.value).toBe(91)
+        expect(composable.draftVersion.value).toBe(3)
         expect(composable.draftConflict.value).toBe(true)
+
+        mocks.getDraft.mockResolvedValueOnce({
+            data: {
+                data: {
+                    draftId: 91,
+                    clientDraftKey: composable.clientDraftKey.value,
+                    version: 3,
+                    boardId: 1,
+                    boardUrl: 'free',
+                    boardName: 'Free',
+                    title: 'Saved in another tab',
+                    contents: 'Remote body',
+                    tags: [],
+                    fileIds: [],
+                    isNotice: false,
+                    isNsfw: false,
+                    isSpoiler: false,
+                    isSecret: false,
+                    updatedAt: '2026-07-07T13:00:00.000Z',
+                    modifiedAt: '2026-07-07T13:00:00.000Z',
+                },
+            },
+        })
+
+        await expect(composable.reloadServerDraft()).resolves.toBe(true)
+        expect(mocks.getDraft).toHaveBeenCalledWith(
+            91,
+            expect.objectContaining({ signal: expect.any(AbortSignal), skipGlobalErrorHandler: true }),
+        )
+        expect(composable.draftConflict.value).toBe(false)
+        expect(appliedDrafts.at(-1)).toEqual(expect.objectContaining({ title: 'Saved in another tab' }))
     })
 
     it('acknowledges the first matching server id without applying the remote body', async () => {
