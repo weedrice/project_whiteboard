@@ -77,7 +77,6 @@ const formatBalance = (balance: number) => `${balance.toLocaleString()} P`
     :page="page"
     :size="size"
     :total-pages="totalPages"
-    max-width-class="max-w-2xl"
     header-class="px-3 py-3 sm:py-5 sm:px-6 gap-2"
     loading-preset="compact-status-list"
     @retry="refetch"

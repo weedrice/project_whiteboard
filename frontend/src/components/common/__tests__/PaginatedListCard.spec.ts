@@ -43,6 +43,7 @@ describe('PaginatedListCard', () => {
   it('uses tokenized surfaces, borders, and title colors', () => {
     const wrapper = mountCard()
 
+    expect(wrapper.classes()).toContain('max-w-7xl')
     expect(wrapper.find('.nv-surface').exists()).toBe(true)
     expect(wrapper.get('.nv-title').text()).toContain('Notifications')
     expect(wrapper.findAll('.nv-border').length).toBeGreaterThan(0)

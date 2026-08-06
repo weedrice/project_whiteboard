@@ -34,7 +34,6 @@ const {
     :page="page"
     :size="size"
     :total-pages="totalPages"
-    max-width-class="max-w-3xl"
     loading-preset="avatar-action-list"
     @retry="refetch"
     @page-change="handlePageChange"

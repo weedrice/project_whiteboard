@@ -39,7 +39,7 @@ const props = withDefaults(defineProps<{
   loadingRows?: number
   inset?: boolean
 }>(), {
-  maxWidthClass: 'max-w-4xl',
+  maxWidthClass: 'max-w-7xl',
   headerClass: 'px-4 py-4 sm:py-5 sm:px-6 gap-3',
   pageSizeOptions: () => [15, 30, 50],
   actionsVisibility: 'desktop',
