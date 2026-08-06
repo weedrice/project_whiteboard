@@ -41,12 +41,9 @@ watch(() => props.postId, () => {
       @retry="refetch()"
     />
     <template v-else-if="feedPosts.length > 0">
-      <div>
-        <p class="nv-kicker">{{ $t('board.postDetail.relatedKicker') }}</p>
-        <h2 class="mt-1 text-lg font-semibold text-[var(--nv-ink)]">
-          {{ $t('board.postDetail.relatedTitle') }}
-        </h2>
-      </div>
+      <h2 class="text-lg font-semibold text-[var(--nv-ink)]">
+        {{ $t('board.postDetail.relatedTitle') }}
+      </h2>
       <div class="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
         <HomePostCard
           v-for="post in feedPosts"
@@ -55,6 +52,7 @@ watch(() => props.postId, () => {
           variant="compact"
           :show-media-preview="false"
           :show-body="false"
+          :show-author="false"
         />
       </div>
     </template>
@@ -66,5 +64,10 @@ watch(() => props.postId, () => {
   display: grid;
   gap: 1rem;
   min-height: 1px;
+}
+
+.nv-related-posts :deep(.nv-home-card-title) {
+  font-size: 0.95rem;
+  letter-spacing: -0.02em;
 }
 </style>

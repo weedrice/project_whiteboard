@@ -23,7 +23,7 @@ export type PostPredicate = (
 export type PostListInteractiveTag = 'button' | 'router-link' | 'div'
 export type PostListTitleTag = 'button' | 'router-link' | 'span'
 
-export const POST_LIST_MAX_AUTHOR_NAME_LENGTH = 10
+export const POST_LIST_MAX_AUTHOR_NAME_LENGTH = 16
 
 const SORT_FIELD_MAP: Record<string, string> = {
   postId: 'createdAt',
@@ -202,13 +202,13 @@ export function createPostListColumns(
   cols.push({
     key: 'title',
     label: labels.title,
-    width: showBoardName ? '34%' : '48%',
+    width: showBoardName ? '31%' : '45%',
     align: 'left'
   })
   cols.push({
     key: 'author',
     label: labels.author,
-    width: '13%',
+    width: '18%',
     align: 'left'
   })
   cols.push({
@@ -221,7 +221,7 @@ export function createPostListColumns(
   cols.push({
     key: 'viewCount',
     label: labels.views,
-    width: '8%',
+    width: '6%',
     align: 'right',
     sortable: true
   })

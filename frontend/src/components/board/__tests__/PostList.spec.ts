@@ -547,7 +547,7 @@ describe('PostList', () => {
     })
   })
 
-  it('can suppress post metadata that is unavailable for normalized summaries', () => {
+  it('renders notice posts like ordinary posts while suppressing unavailable metadata', () => {
     const wrapper = mount(PostList, {
       props: {
         posts: [
@@ -561,7 +561,6 @@ describe('PostList', () => {
             hasImage: true
           })
         ],
-        showNoticeBadge: false,
         showCommentCount: false,
         showPreviewIndicator: false,
         showSecretIndicator: false
@@ -579,6 +578,7 @@ describe('PostList', () => {
     })
 
     expect(wrapper.find('.nv-post-badge-notice').exists()).toBe(false)
+    expect(wrapper.find('.nv-post-card-notice').exists()).toBe(false)
     expect(wrapper.find('.nv-post-comment-count').exists()).toBe(false)
     expect(wrapper.find('.nv-post-mobile-comments').exists()).toBe(false)
     expect(wrapper.html()).not.toContain('board.writePost.secret')
