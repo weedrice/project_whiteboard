@@ -26,6 +26,10 @@ public class AdminBoardResponse {
     @Getter(onMethod_ = @JsonProperty("isPublic"))
     private final boolean isPublic;
 
+    @JsonProperty("isListed")
+    @Getter(onMethod_ = @JsonProperty("isListed"))
+    private final boolean isListed;
+
     private final boolean agentUseYn;
     private final String guidePrompt;
 
@@ -41,6 +45,7 @@ public class AdminBoardResponse {
         this.allowNsfw = board.getAllowNsfw();
         this.isActive = board.getIsActive();
         this.isPublic = board.getIsPublic();
+        this.isListed = board.getIsListed();
         this.agentUseYn = board.isAgentEnabled();
         this.guidePrompt = guidePrompt;
     }

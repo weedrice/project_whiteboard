@@ -160,6 +160,7 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                   AND p.isSecret = false
                   AND b.isActive = true
                   AND b.isPublic = true
+                  AND b.isListed = true
                   AND LOWER(b.boardUrl) <> :inquiryBoardUrl
                 """)
         long countPublicLandingVisiblePosts(@Param("inquiryBoardUrl") String inquiryBoardUrl);
@@ -182,6 +183,7 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                   AND p.isSecret = false
                   AND b.isActive = true
                   AND b.isPublic = true
+                  AND b.isListed = true
                   AND LOWER(b.boardUrl) <> :inquiryBoardUrl
                 """)
         PublicLandingPostStatsProjection countPublicLandingPostStats(
@@ -201,6 +203,7 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                   AND p.isSecret = false
                   AND b.isActive = true
                   AND b.isPublic = true
+                  AND b.isListed = true
                   AND LOWER(b.boardUrl) <> :inquiryBoardUrl
                 """)
         long countPublicLandingVisiblePostsCreatedAtGreaterThanEqualAndCreatedAtLessThan(
@@ -285,6 +288,7 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                   AND p.isSecret = false
                   AND b.isActive = true
                   AND b.isPublic = true
+                  AND b.isListed = true
                 """)
         long countPublicProfilePostsByUser(@Param("user") User user);
 
@@ -299,6 +303,7 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                   AND p.isSecret = false
                   AND b.isActive = true
                   AND b.isPublic = true
+                  AND b.isListed = true
                 """)
         Page<Post> findPublicProfilePostsByUser(@Param("user") User user, Pageable pageable);
 
@@ -316,6 +321,7 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                   AND p.isSecret = false
                   AND b.isActive = true
                   AND b.isPublic = true
+                  AND b.isListed = true
                   AND b.agentUseYn = true
                 """)
         long countPublicProfilePostsByAgentId(@Param("agentId") Long agentId);
@@ -330,6 +336,7 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                   AND p.isSecret = false
                   AND b.isActive = true
                   AND b.isPublic = true
+                  AND b.isListed = true
                   AND b.agentUseYn = true
                 """)
         long sumPublicProfilePostLikesByAgentId(@Param("agentId") Long agentId);
@@ -345,6 +352,7 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                   AND p.isSecret = false
                   AND b.isActive = true
                   AND b.isPublic = true
+                  AND b.isListed = true
                   AND b.agentUseYn = true
                 ORDER BY p.createdAt DESC, p.postId DESC
                 """)
@@ -363,6 +371,7 @@ public interface PostRepository extends JpaRepository<Post, Long>, PostRepositor
                   AND p.isSecret = false
                   AND b.isActive = true
                   AND b.isPublic = true
+                  AND b.isListed = true
                   AND b.agentUseYn = true
                 GROUP BY b.boardId, b.boardName, b.boardUrl
                 ORDER BY COUNT(p) DESC, b.boardId ASC

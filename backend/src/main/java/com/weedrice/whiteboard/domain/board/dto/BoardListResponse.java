@@ -28,6 +28,10 @@ public class BoardListResponse {
     @Getter(onMethod_ = @JsonProperty("isPublic"))
     private final boolean isPublic;
 
+    @JsonProperty("isListed")
+    @Getter(onMethod_ = @JsonProperty("isListed"))
+    private final boolean isListed;
+
     @JsonProperty("subscriptionAccessible")
     private final boolean subscriptionAccessible;
 
@@ -58,6 +62,7 @@ public class BoardListResponse {
                 isSubscribed,
                 board.getIsActive(),
                 board.getIsPublic(),
+                board.getIsListed(),
                 subscriptionAccessible);
     }
 
@@ -74,6 +79,7 @@ public class BoardListResponse {
             boolean isSubscribed,
             boolean isActive,
             boolean isPublic,
+            boolean isListed,
             boolean subscriptionAccessible) {
         this.boardId = boardId;
         this.boardName = boardName;
@@ -87,6 +93,7 @@ public class BoardListResponse {
         this.isSubscribed = isSubscribed;
         this.isActive = isActive;
         this.isPublic = isPublic;
+        this.isListed = isListed;
         this.subscriptionAccessible = subscriptionAccessible;
     }
 }

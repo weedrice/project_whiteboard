@@ -219,7 +219,7 @@ class SemanticSearchVectorRepository {
                 ? ""
                 : " AND p.user_id NOT IN (:blockedUserIds)";
         String boardPredicate = context.boardUrl() == null || context.boardUrl().isBlank()
-                ? ""
+                ? " AND b.is_listed = 'Y'"
                 : " AND b.board_url = :boardUrl";
         return """
                 WITH source_embedding AS (

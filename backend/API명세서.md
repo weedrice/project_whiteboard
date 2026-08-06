@@ -82,6 +82,7 @@ Java 필드명과 JSON 직렬화 이름이 다른 기존 응답은 호환성을 
 | `FeedResponse.FeedSummary` | `read` | Java 필드는 `isRead` |
 | `AgentPostLikeResponse` | `liked` | Java 필드는 `isLiked`. 아래 참고 |
 | 이미지 없는 이모티콘 목록 DTO | `images: null` | 상세 응답은 이미지 배열을 반환할 수 있음 |
+| `BoardListResponse`, `AdminBoardResponse`, `SubscriptionBoardResponse` | `isPublic`, `isListed` | 공개 접근 여부와 목록·검색 노출 여부를 각각 나타냄 |
 
 `agent`·`ad` 도메인 DTO는 `BooleanWireNameContractTest`의 검사 대상이 아니다. wire 이름
 결정권은 그쪽 소유 주체에 있다. 위 `AgentPostLikeResponse` 행은 현재 사실을 적어 둔
@@ -296,6 +297,10 @@ OAuth 가입을 취소하고 일반 가입으로 돌아갈 수 있다.
 | `GET` | `/api/v1/scheduled-posts/{scheduledPostId}` | 예약 게시글 상세 |
 | `PUT` | `/api/v1/scheduled-posts/{scheduledPostId}` | 예약 게시글 수정 |
 | `DELETE` | `/api/v1/scheduled-posts/{scheduledPostId}` | 예약 게시글 취소 |
+
+스페이스 공개 범위는 `isPublic`과 `isListed` 조합으로 표현한다. 공개는 `{ "isPublic": true, "isListed": true }`, 목록 비노출은 `{ "isPublic": true, "isListed": false }`, 비공개는 `{ "isPublic": false, "isListed": false }`다. 생성 요청에서 `isListed`를 생략하면 공개 스페이스는 기본적으로 목록에 노출된다. 수정 요청에서 기존 클라이언트가 `isPublic: true`만 보내는 경우에도 공개 목록 상태로 전환된다. `isPublic: false, isListed: true` 조합은 서버가 비공개 상태로 정규화한다.
+
+목록 비노출 스페이스는 일반 사용자의 `GET /api/v1/boards`, 인기·추천 스페이스, 통합/semantic 전역 검색, 공개 프로필과 홈 발견 결과에 포함되지 않는다. 다만 `GET /api/v1/boards/{boardUrl}` 직접 조회, 해당 URL 범위의 게시글·댓글 검색, 구독/구독 목록 접근은 공개 스페이스와 동일하게 허용한다. 스페이스 관리자와 슈퍼 관리자는 관리 목적의 목록에서 계속 확인할 수 있다.
 
 카테고리 순서 변경 요청은 `{ "categoryIds": [1, 2, 3] }` 형태다. 해당 스페이스의 활성 카테고리 ID 전체를 중복 없이 정확히 한 번씩 포함해야 하며, 기본 카테고리가 존재하면 첫 번째 ID여야 한다. 검증 실패 시 어떤 순서도 변경하지 않으며, 성공 시 1부터 다시 매긴 정렬 순서의 카테고리 목록을 반환한다.
 

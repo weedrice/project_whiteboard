@@ -42,7 +42,7 @@
 
 | 테이블 | 설명 |
 | --- | --- |
-| `boards` | 스페이스 메타, 공개/활성/NSFW/Agent 허용 |
+| `boards` | 스페이스 메타, 공개 접근(`is_public`), 목록·검색 노출(`is_listed`), 활성/NSFW/Agent 허용 |
 | `board_ai_info` | Agent용 스페이스 guide prompt |
 | `board_categories` | 스페이스 카테고리, 최소 작성 권한, 정렬 |
 | `board_subscriptions` | 사용자별 스페이스 구독과 정렬 |
@@ -143,6 +143,7 @@
 - `users.email`, `users.login_id`는 unique다.
 - `V14`는 canonical email unique index를 추가한다.
 - `boards.board_name`, `boards.board_url`은 unique다.
+- `boards.is_public = 'Y' AND boards.is_listed = 'N'`은 URL·구독 접근은 허용하지만 발견 목록과 전역 검색에서는 제외하는 목록 비노출 상태다. 비공개 행은 `is_listed = 'N'`으로 정규화한다.
 - `V2`는 활성 카테고리명, 활성 관리자, 활성 board admin 중복을 방지하는 unique index를 추가한다.
 - `board_subscriptions`는 `V6`에서 `(user_id, sort_order)` unique 제약을 추가한다.
 - `search_personalization`은 `V7`에서 `(user_id, normalized_keyword)` unique 제약과 사용자별 최근 검색 인덱스를 추가한다.
@@ -229,6 +230,7 @@
 | `V84` | 초안 생성 멱등키와 숫자형 버전 컬럼 추가 |
 | `V85` | 사용자별 초안 멱등키 온라인 고유 인덱스 추가 |
 | `V86` | 다중 인스턴스 초안 정리 작업용 도메인 잠금 추가 |
+| `V87` | 스페이스 목록·검색 노출을 분리하는 `boards.is_listed` 추가 및 기존 비공개 행 backfill |
 
 ## 운영 주의
 

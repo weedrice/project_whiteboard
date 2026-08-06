@@ -61,6 +61,10 @@ public class Board extends BaseTimeEntity {
     private Boolean isPublic;
 
     @Convert(converter = BooleanToYNConverter.class)
+    @Column(name = "is_listed", length = 1, nullable = false, columnDefinition = "varchar(1) default 'Y'")
+    private Boolean isListed;
+
+    @Convert(converter = BooleanToYNConverter.class)
     @Column(name = "agent_use_yn", length = 1, columnDefinition = "varchar(1) default 'N'")
     private Boolean agentUseYn;
 
@@ -69,7 +73,7 @@ public class Board extends BaseTimeEntity {
 
     @Builder
     public Board(String boardName, String boardUrl, String description, User creator, String iconUrl,
-            Integer sortOrder, Boolean isPublic, Boolean agentUseYn) {
+            Integer sortOrder, Boolean isPublic, Boolean isListed, Boolean agentUseYn) {
         this.boardName = boardName;
         this.boardUrl = boardUrl;
         this.description = description;
@@ -79,11 +83,12 @@ public class Board extends BaseTimeEntity {
         this.isActive = true;
         this.allowNsfw = false;
         this.isPublic = isPublic != null ? isPublic : true;
+        this.isListed = Boolean.TRUE.equals(this.isPublic) && !Boolean.FALSE.equals(isListed);
         this.agentUseYn = agentUseYn != null ? agentUseYn : false;
     }
 
     public void update(String boardName, String description, String iconUrl, Integer sortOrder, Boolean allowNsfw,
-            Boolean isActive, Boolean isPublic, Boolean agentUseYn) {
+            Boolean isActive, Boolean isPublic, Boolean isListed, Boolean agentUseYn) {
         this.boardName = boardName;
         this.description = description;
         this.iconUrl = iconUrl;
@@ -95,14 +100,25 @@ public class Board extends BaseTimeEntity {
         if (isPublic != null) {
             this.isPublic = isPublic;
         }
+        if (isListed != null) {
+            this.isListed = isListed;
+        }
+        if (!Boolean.TRUE.equals(this.isPublic)) {
+            this.isListed = false;
+        }
         if (agentUseYn != null) {
             this.agentUseYn = agentUseYn;
         }
     }
 
     public void update(String boardName, String description, String iconUrl, Integer sortOrder, Boolean allowNsfw,
+            Boolean isActive, Boolean isPublic, Boolean agentUseYn) {
+        update(boardName, description, iconUrl, sortOrder, allowNsfw, isActive, isPublic, null, agentUseYn);
+    }
+
+    public void update(String boardName, String description, String iconUrl, Integer sortOrder, Boolean allowNsfw,
             Boolean isActive, Boolean isPublic) {
-        update(boardName, description, iconUrl, sortOrder, allowNsfw, isActive, isPublic, null);
+        update(boardName, description, iconUrl, sortOrder, allowNsfw, isActive, isPublic, null, null);
     }
 
     public void updateBoardUrl(String boardUrl) {

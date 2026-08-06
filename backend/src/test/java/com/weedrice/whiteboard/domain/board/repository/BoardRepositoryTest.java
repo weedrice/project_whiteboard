@@ -118,6 +118,7 @@ class BoardRepositoryTest {
         persistBoard("Search 5", "search-5", 50, true, true);
         persistBoard("Search 6", "search-6", 60, true, true);
         persistBoard("Search Private", "search-private", 5, true, false);
+        persistUnlistedBoard("Search Unlisted", "search-unlisted", 4);
         persistBoard("Search Inactive", "search-inactive", 1, false, true);
         persistBoard("Other Board", "other-board", 2, true, true);
         entityManager.flush();
@@ -130,6 +131,25 @@ class BoardRepositoryTest {
         assertThat(boards).hasSize(5);
         assertThat(boards).extracting(Board::getBoardName)
                 .containsExactly("Search 2", "Search 3", "Search 1", "Search 4", "Search 5");
+    }
+
+    @Test
+    @DisplayName("목록 비노출 스페이스는 전체 목록에서 제외되지만 URL로 직접 조회할 수 있다")
+    void unlistedBoard_isHiddenFromListButReadableByUrl() {
+        Board unlisted = persistUnlistedBoard("Unlisted", "unlisted", 10);
+        entityManager.flush();
+        entityManager.clear();
+
+        var listedBoards = boardRepository.findReadableActiveBoardsOrderBySortOrderAscBoardIdAsc(
+                null,
+                false,
+                BoardPolicyConstants.INQUIRY_BOARD_URL);
+
+        assertThat(listedBoards).extracting(Board::getBoardId).doesNotContain(unlisted.getBoardId());
+        assertThat(boardRepository.findByBoardUrl("unlisted"))
+                .get()
+                .extracting(Board::getIsPublic, Board::getIsListed)
+                .containsExactly(true, false);
     }
 
     @Test
@@ -364,6 +384,19 @@ class BoardRepositoryTest {
         if (!isActive) {
             board.deactivate();
         }
+        entityManager.persist(board);
+        return board;
+    }
+
+    private Board persistUnlistedBoard(String boardName, String boardUrl, int sortOrder) {
+        Board board = Board.builder()
+                .boardName(boardName)
+                .boardUrl(boardUrl)
+                .creator(creator)
+                .sortOrder(sortOrder)
+                .isPublic(true)
+                .isListed(false)
+                .build();
         entityManager.persist(board);
         return board;
     }

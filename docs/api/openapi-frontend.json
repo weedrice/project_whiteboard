@@ -75,6 +75,9 @@
           "isActive" : {
             "type" : "boolean"
           },
+          "isListed" : {
+            "type" : "boolean"
+          },
           "isPublic" : {
             "type" : "boolean"
           },
@@ -2295,6 +2298,9 @@
             "minLength" : 0,
             "type" : "string"
           },
+          "isListed" : {
+            "type" : "boolean"
+          },
           "isPublic" : {
             "type" : "boolean"
           }
@@ -2346,6 +2352,9 @@
             "type" : "boolean"
           },
           "isAdmin" : {
+            "type" : "boolean"
+          },
+          "isListed" : {
             "type" : "boolean"
           },
           "isPublic" : {
@@ -2412,6 +2421,9 @@
             "type" : "string"
           },
           "isActive" : {
+            "type" : "boolean"
+          },
+          "isListed" : {
             "type" : "boolean"
           },
           "isPublic" : {
@@ -2566,6 +2578,9 @@
             "type" : "string"
           },
           "isActive" : {
+            "type" : "boolean"
+          },
+          "isListed" : {
             "type" : "boolean"
           },
           "isPublic" : {
@@ -7315,6 +7330,9 @@
             "type" : "string"
           },
           "isActive" : {
+            "type" : "boolean"
+          },
+          "isListed" : {
             "type" : "boolean"
           },
           "isPublic" : {

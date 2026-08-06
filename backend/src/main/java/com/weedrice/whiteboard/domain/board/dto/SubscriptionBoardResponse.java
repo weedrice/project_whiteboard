@@ -44,6 +44,10 @@ public class SubscriptionBoardResponse {
     @Getter(onMethod_ = @JsonProperty("isPublic"))
     private final boolean isPublic;
 
+    @JsonProperty("isListed")
+    @Getter(onMethod_ = @JsonProperty("isListed"))
+    private final boolean isListed;
+
     @JsonProperty("subscriptionAccessible")
     private final boolean subscriptionAccessible;
 
@@ -68,6 +72,7 @@ public class SubscriptionBoardResponse {
             boolean isSubscribed,
             boolean isActive,
             boolean isPublic,
+            boolean isListed,
             boolean subscriptionAccessible,
             AccessState accessState,
             InaccessibleReason inaccessibleReason) {
@@ -86,6 +91,7 @@ public class SubscriptionBoardResponse {
         this.isSubscribed = isSubscribed;
         this.isActive = isActive;
         this.isPublic = isPublic;
+        this.isListed = isListed;
         this.subscriptionAccessible = subscriptionAccessible;
         this.accessState = accessState;
         this.inaccessibleReason = inaccessibleReason;
@@ -112,6 +118,7 @@ public class SubscriptionBoardResponse {
                 board.isSubscribed(),
                 board.isActive(),
                 board.isPublic(),
+                board.isListed(),
                 true,
                 AccessState.ACCESSIBLE,
                 null);
@@ -133,6 +140,7 @@ public class SubscriptionBoardResponse {
                 true,
                 Boolean.TRUE.equals(board.getIsActive()),
                 Boolean.TRUE.equals(board.getIsPublic()),
+                Boolean.TRUE.equals(board.getIsListed()),
                 false,
                 AccessState.INACCESSIBLE,
                 resolveInaccessibleReason(board));

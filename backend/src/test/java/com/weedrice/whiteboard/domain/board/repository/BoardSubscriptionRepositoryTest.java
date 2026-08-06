@@ -41,6 +41,7 @@ class BoardSubscriptionRepositoryTest {
     private Board adminOnlyBoard;
     private Board ownPrivateBoard;
     private Board publicBoard;
+    private Board unlistedBoard;
     private Board hiddenBoard;
     private Board inactiveBoard;
 
@@ -60,6 +61,7 @@ class BoardSubscriptionRepositoryTest {
         adminOnlyBoard = persistBoard("Admin Only", "admin-only", owner, false, false);
         ownPrivateBoard = persistBoard("Own Private", "own-private", viewer, false, false);
         publicBoard = persistBoard("Public", "public", owner, true, true);
+        unlistedBoard = persistBoard("Unlisted", "unlisted", owner, true, true, false);
         hiddenBoard = persistBoard("Hidden", "hidden", owner, true, false);
         inactiveBoard = persistBoard("Inactive", "inactive", owner, false, true);
 
@@ -72,6 +74,7 @@ class BoardSubscriptionRepositoryTest {
         persistSubscription(viewer, adminOnlyBoard, 10);
         persistSubscription(viewer, ownPrivateBoard, 20);
         persistSubscription(viewer, publicBoard, 30);
+        persistSubscription(viewer, unlistedBoard, 35);
         persistSubscription(viewer, hiddenBoard, 40);
         persistSubscription(viewer, inactiveBoard, 50);
 
@@ -91,10 +94,10 @@ class BoardSubscriptionRepositoryTest {
                 PageRequest.of(0, 10));
         PersistenceUnitUtil persistenceUnitUtil = entityManagerFactory.getPersistenceUnitUtil();
 
-        assertThat(result.getTotalElements()).isEqualTo(2);
+        assertThat(result.getTotalElements()).isEqualTo(3);
         assertThat(result.getContent())
                 .extracting(subscription -> subscription.getBoard().getBoardUrl())
-                .containsExactly("admin-only", "public");
+                .containsExactly("admin-only", "public", "unlisted");
         assertThat(persistenceUnitUtil.isLoaded(result.getContent().get(0), "board")).isTrue();
         assertThat(persistenceUnitUtil.isLoaded(result.getContent().get(0).getBoard(), "creator")).isTrue();
     }
@@ -233,11 +236,17 @@ class BoardSubscriptionRepositoryTest {
     }
 
     private Board persistBoard(String boardName, String boardUrl, User creator, boolean isActive, boolean isPublic) {
+        return persistBoard(boardName, boardUrl, creator, isActive, isPublic, isPublic);
+    }
+
+    private Board persistBoard(String boardName, String boardUrl, User creator, boolean isActive, boolean isPublic,
+            boolean isListed) {
         Board board = Board.builder()
                 .boardName(boardName)
                 .boardUrl(boardUrl)
                 .creator(creator)
                 .isPublic(isPublic)
+                .isListed(isListed)
                 .build();
         if (!isActive) {
             board.deactivate();

@@ -78,6 +78,7 @@ class SemanticSearchSqlBuilderTest {
                 .contains("p.is_secret = 'N'")
                 .contains("p.user_id NOT IN (:blockedUserIds)")
                 .contains("u.user_id NOT IN (:blockedUserIds)")
+                .doesNotContain("b.is_listed = 'Y'")
                 .doesNotContain(":viewerSuperAdmin = TRUE")
                 .doesNotContain("adm.is_active = 'Y'");
         assertThat(vectorRepository.countSql(boardScoped))
@@ -86,15 +87,18 @@ class SemanticSearchSqlBuilderTest {
                 .contains("p.is_secret = 'N'")
                 .contains("p.user_id NOT IN (:blockedUserIds)")
                 .contains("u.user_id NOT IN (:blockedUserIds)")
+                .doesNotContain("b.is_listed = 'Y'")
                 .doesNotContain(":viewerSuperAdmin = TRUE")
                 .doesNotContain("adm.is_active = 'Y'");
 
         assertThat(keywordRepository.searchSql(publicFallback))
                 .contains("b.is_active = 'Y' AND b.is_public = 'Y'")
+                .contains("b.is_listed = 'Y'")
                 .contains("p.is_secret = 'N'")
                 .doesNotContain("NOT IN (:blockedUserIds)");
         assertThat(keywordRepository.countSql(publicFallback))
                 .contains("b.is_active = 'Y' AND b.is_public = 'Y'")
+                .contains("b.is_listed = 'Y'")
                 .contains("p.is_secret = 'N'")
                 .doesNotContain("NOT IN (:blockedUserIds)");
     }

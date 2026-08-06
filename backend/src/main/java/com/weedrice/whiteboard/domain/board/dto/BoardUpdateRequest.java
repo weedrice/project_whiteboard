@@ -29,6 +29,7 @@ public class BoardUpdateRequest {
     private Integer sortOrder;
     private Boolean isActive;
     private Boolean isPublic;
+    private Boolean isListed;
     private Boolean agentUseYn;
 
     @Size(max = 5000)

@@ -46,6 +46,7 @@ class BoardCommandService {
                 .iconUrl(iconUrl)
                 .sortOrder(maxSortOrder + 1)
                 .isPublic(request.getIsPublic())
+                .isListed(resolveCreateListed(request.getIsPublic(), request.getIsListed()))
                 .agentUseYn(resolveAgentUseYn(request.getIsPublic(), request.getAgentUseYn()))
                 .build();
 
@@ -85,6 +86,7 @@ class BoardCommandService {
                 request.getAllowNsfw() != null ? request.getAllowNsfw() : board.getAllowNsfw(),
                 request.getIsActive(),
                 request.getIsPublic(),
+                resolveUpdateListed(board, request),
                 resolveAgentUseYn(
                         request.getIsPublic() != null ? request.getIsPublic() : board.getIsPublic(),
                         request.getAgentUseYn()));
@@ -120,6 +122,23 @@ class BoardCommandService {
             return false;
         }
         return requestedAgentUseYn;
+    }
+
+    private Boolean resolveCreateListed(Boolean isPublic, Boolean requestedIsListed) {
+        return !Boolean.FALSE.equals(isPublic) && !Boolean.FALSE.equals(requestedIsListed);
+    }
+
+    private Boolean resolveUpdateListed(Board board, BoardUpdateRequest request) {
+        if (Boolean.FALSE.equals(request.getIsPublic())) {
+            return false;
+        }
+        if (request.getIsListed() != null) {
+            return request.getIsListed();
+        }
+        if (Boolean.TRUE.equals(request.getIsPublic())) {
+            return true;
+        }
+        return board.getIsListed();
     }
 
     private BusinessException resolveBoardConflict(DataIntegrityViolationException ex) {

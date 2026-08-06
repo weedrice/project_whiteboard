@@ -120,6 +120,22 @@ class BoardAccessPolicyTest {
     }
 
     @Test
+    @DisplayName("목록 비노출 활성 스페이스는 링크 접근과 쓰기를 허용한다")
+    void unlistedActiveBoard_remainsReadableAndWritable() {
+        Board board = Board.builder()
+                .boardName("unlisted")
+                .boardUrl("unlisted")
+                .creator(creator)
+                .isPublic(true)
+                .isListed(false)
+                .build();
+
+        assertThat(boardAccessPolicy.canReadBoard(board, null)).isTrue();
+        assertThat(boardAccessPolicy.canWriteBoard(board, manager)).isTrue();
+        verifyNoInteractions(adminRepository);
+    }
+
+    @Test
     @DisplayName("Private inactive board read checks admin access once")
     void canReadBoard_privateInactiveBoardChecksAdminAccessOnce() {
         Board board = board("hidden", false, false);

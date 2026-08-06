@@ -50,6 +50,7 @@ public class CommentRepositoryCustomImpl implements CommentRepositoryCustom {
                         boardUrlEq(boardUrl),
                         activeBoardOnlyForGlobalSearch(boardUrl),
                         publicBoardOnlyForGlobalSearch(boardUrl),
+                        listedBoardOnlyForGlobalSearch(boardUrl),
                         postSecretCondition(includeSecret, viewerUserId),
                         notBlockedCondition(blockedUserIds)
                 )
@@ -71,6 +72,7 @@ public class CommentRepositoryCustomImpl implements CommentRepositoryCustom {
                         boardUrlEq(boardUrl),
                         activeBoardOnlyForGlobalSearch(boardUrl),
                         publicBoardOnlyForGlobalSearch(boardUrl),
+                        listedBoardOnlyForGlobalSearch(boardUrl),
                         postSecretCondition(includeSecret, viewerUserId),
                         notBlockedCondition(blockedUserIds)
                 )
@@ -127,6 +129,10 @@ public class CommentRepositoryCustomImpl implements CommentRepositoryCustom {
 
     private BooleanExpression publicBoardOnlyForGlobalSearch(String boardUrl) {
         return StringUtils.hasText(boardUrl) ? null : post.board.isPublic.eq(true);
+    }
+
+    private BooleanExpression listedBoardOnlyForGlobalSearch(String boardUrl) {
+        return StringUtils.hasText(boardUrl) ? null : post.board.isListed.eq(true);
     }
 
     private BooleanExpression postSecretCondition(boolean includeSecret, Long viewerUserId) {

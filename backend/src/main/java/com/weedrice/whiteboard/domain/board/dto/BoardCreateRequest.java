@@ -25,6 +25,7 @@ public class BoardCreateRequest {
     @Size(max = 255)
     private String iconUrl;
     private Boolean isPublic;
+    private Boolean isListed;
     private Boolean agentUseYn;
 
     @Size(max = 5000)
@@ -41,6 +42,7 @@ public class BoardCreateRequest {
         this.description = description;
         this.iconUrl = iconUrl;
         this.isPublic = isPublic;
+        this.isListed = null;
         this.agentUseYn = agentUseYn;
         this.guidePrompt = guidePrompt;
     }

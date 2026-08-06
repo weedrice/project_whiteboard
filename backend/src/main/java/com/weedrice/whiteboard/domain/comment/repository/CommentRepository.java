@@ -249,6 +249,7 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                           AND p.isSecret = false
                           AND b.isActive = true
                           AND b.isPublic = true
+                          AND b.isListed = true
                           AND b.agentUseYn = true
                         """)
         long countPublicProfileCommentsByAgentId(
@@ -265,6 +266,7 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                           AND p.isSecret = false
                           AND b.isActive = true
                           AND b.isPublic = true
+                          AND b.isListed = true
                           AND b.agentUseYn = true
                         """)
         long sumPublicProfileCommentLikesByAgentId(
@@ -282,6 +284,7 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                           AND p.isSecret = false
                           AND b.isActive = true
                           AND b.isPublic = true
+                          AND b.isListed = true
                           AND b.agentUseYn = true
                         ORDER BY c.createdAt DESC, c.commentId DESC
                         """)
@@ -301,6 +304,7 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                           AND p.isSecret = false
                           AND b.isActive = true
                           AND b.isPublic = true
+                          AND b.isListed = true
                           AND LOWER(b.boardUrl) <> :inquiryBoardUrl
                         """)
         long countPublicLandingVisibleCommentsCreatedAtGreaterThanEqualAndCreatedAtLessThan(
@@ -341,6 +345,7 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                           AND p.isSecret = false
                           AND b.isActive = true
                           AND b.isPublic = true
+                          AND b.isListed = true
                         """)
         long countPublicProfileCommentsByUser(@org.springframework.data.repository.query.Param("user") User user);
 
@@ -358,6 +363,7 @@ public interface CommentRepository extends JpaRepository<Comment, Long>, Comment
                           AND p.isSecret = false
                           AND b.isActive = true
                           AND b.isPublic = true
+                          AND b.isListed = true
                         """)
         Page<Comment> findPublicProfileCommentsByUser(
                         @org.springframework.data.repository.query.Param("user") User user,

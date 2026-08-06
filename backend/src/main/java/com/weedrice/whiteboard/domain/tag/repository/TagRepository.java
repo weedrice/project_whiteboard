@@ -45,6 +45,7 @@ public interface TagRepository extends JpaRepository<Tag, Long>, TagRepositoryCu
               AND p.isSecret = false
               AND b.isActive = true
               AND b.isPublic = true
+              AND b.isListed = true
             GROUP BY t.tagId, t.tagName
             ORDER BY COUNT(pt) DESC, t.tagName ASC, t.tagId ASC
             """)

@@ -103,7 +103,8 @@ public class KeywordNotificationFanoutProcessor {
                 && !Boolean.TRUE.equals(post.getIsBlinded())
                 && post.getBoard() != null
                 && Boolean.TRUE.equals(post.getBoard().getIsActive())
-                && Boolean.TRUE.equals(post.getBoard().getIsPublic());
+                && Boolean.TRUE.equals(post.getBoard().getIsPublic())
+                && Boolean.TRUE.equals(post.getBoard().getIsListed());
     }
     private boolean isEligible(UserKeywordSubscription s, Post p, Set<Long> blocked, LocalDateTime cooldown) {
         Long userId = s.getUser() == null ? null : s.getUser().getUserId();

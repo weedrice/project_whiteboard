@@ -23,6 +23,7 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
         Long getPostCount();
     }
 
+    @Query("SELECT COUNT(b) FROM Board b WHERE b.isActive = true AND b.isPublic = true AND b.isListed = true")
     long countByIsActiveTrueAndIsPublicTrue();
 
     @Query("""
@@ -30,6 +31,7 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
             FROM Board b
             WHERE b.isActive = true
               AND b.isPublic = true
+              AND b.isListed = true
               AND LOWER(b.boardUrl) <> :inquiryBoardUrl
             """)
     long countPublicLandingVisibleBoards(@Param("inquiryBoardUrl") String inquiryBoardUrl);
@@ -45,7 +47,7 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
               AND LOWER(b.boardUrl) <> :inquiryBoardUrl
               AND (
                     :isSuperAdmin = true
-                    OR b.isPublic = true
+                    OR (b.isPublic = true AND b.isListed = true)
                     OR EXISTS (
                         SELECT 1
                         FROM Admin a
@@ -65,11 +67,30 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
     List<Board> findByIsActiveAndIsPublicOrderBySortOrderAscBoardIdAsc(Boolean isActive, Boolean isPublic);
 
     @EntityGraph(attributePaths = "creator")
+    @Query("""
+            SELECT b
+            FROM Board b
+            WHERE b.isActive = true
+              AND b.isPublic = true
+              AND b.isListed = true
+              AND b.agentUseYn = true
+            ORDER BY b.sortOrder ASC, b.boardId ASC
+            """)
     List<Board> findByIsActiveTrueAndIsPublicTrueAndAgentUseYnTrueOrderBySortOrderAscBoardIdAsc();
 
     List<Board> findByBoardNameContainingIgnoreCaseAndIsActiveTrue(String keyword);
 
-    Page<Board> findByBoardNameContainingIgnoreCaseAndIsActiveTrueAndIsPublicTrueOrderBySortOrderAscBoardIdAsc(String keyword,
+    @Query("""
+            SELECT b
+            FROM Board b
+            WHERE LOWER(b.boardName) LIKE LOWER(CONCAT('%', :keyword, '%'))
+              AND b.isActive = true
+              AND b.isPublic = true
+              AND b.isListed = true
+            ORDER BY b.sortOrder ASC, b.boardId ASC
+            """)
+    Page<Board> findByBoardNameContainingIgnoreCaseAndIsActiveTrueAndIsPublicTrueOrderBySortOrderAscBoardIdAsc(
+            @Param("keyword") String keyword,
             Pageable pageable);
 
     boolean existsByBoardName(String boardName);
@@ -111,6 +132,7 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
               AND p.isSecret = false
               AND b.isActive = true
               AND b.isPublic = true
+              AND b.isListed = true
               AND LOWER(b.boardUrl) <> :inquiryBoardUrl
             GROUP BY b.boardId, b.sortOrder
             ORDER BY COUNT(p) DESC, b.sortOrder ASC, b.boardId ASC
@@ -140,7 +162,7 @@ public interface BoardRepository extends JpaRepository<Board, Long> {
               AND LOWER(b.boardUrl) <> :inquiryBoardUrl
               AND (
                     :isSuperAdmin = true
-                    OR b.isPublic = true
+                    OR (b.isPublic = true AND b.isListed = true)
                     OR EXISTS (
                         SELECT 1
                         FROM Admin a

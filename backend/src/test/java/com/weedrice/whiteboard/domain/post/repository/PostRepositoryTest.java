@@ -929,6 +929,29 @@ class PostRepositoryTest {
     }
 
     @Test
+    @DisplayName("목록 비노출 스페이스 게시글은 전역 검색에서 숨기고 스페이스 범위 검색에서는 찾는다")
+    void searchPosts_unlistedBoardIsOnlySearchableWithinBoardScope() {
+        Board unlistedBoard = persistBoard("Unlisted Board", "unlisted-board", true, false);
+        Post unlistedPost = Post.builder()
+                .title("Unlisted Search Target")
+                .contents("Contents")
+                .user(user)
+                .board(unlistedBoard)
+                .build();
+        entityManager.persist(unlistedPost);
+        entityManager.flush();
+        entityManager.clear();
+
+        Page<Post> globalResult = postRepository.searchPosts(
+                "Unlisted Search Target", "TITLE", null, null, false, null, PageRequest.of(0, 10));
+        Page<Post> scopedResult = postRepository.searchPosts(
+                "Unlisted Search Target", "TITLE", "unlisted-board", null, false, null, PageRequest.of(0, 10));
+
+        assertThat(globalResult.getContent()).isEmpty();
+        assertThat(scopedResult.getContent()).extracting(Post::getPostId).containsExactly(unlistedPost.getPostId());
+    }
+
+    @Test
     @DisplayName("작성자 검색은 일반 사용자 표시명을 찾는다")
     void searchPosts_authorType_matchesUserDisplayName() {
         PageRequest pageRequest = PageRequest.of(0, 10);
@@ -1555,11 +1578,16 @@ class PostRepositoryTest {
     }
 
     private Board persistBoard(String boardName, String boardUrl, boolean isPublic) {
+        return persistBoard(boardName, boardUrl, isPublic, isPublic);
+    }
+
+    private Board persistBoard(String boardName, String boardUrl, boolean isPublic, boolean isListed) {
         Board targetBoard = Board.builder()
                 .boardName(boardName)
                 .boardUrl(boardUrl)
                 .creator(user)
                 .isPublic(isPublic)
+                .isListed(isListed)
                 .build();
         entityManager.persist(targetBoard);
         return targetBoard;

@@ -982,6 +982,32 @@ class BoardServiceTest {
     }
 
     @Test
+    @DisplayName("목록 비노출 스페이스를 공개 접근 가능한 상태로 생성한다")
+    void createBoard_unlistedBoardRemainsPublic() {
+        Long creatorId = 1L;
+        BoardCreateRequest request = new BoardCreateRequest(
+                "Unlisted Board", "unlisted-board", null, null, true, false, null);
+        ReflectionTestUtils.setField(request, "isListed", false);
+
+        when(userRepository.findById(creatorId)).thenReturn(Optional.of(user));
+        when(globalConfigService.getConfig(anyString())).thenReturn("500");
+        when(boardRepository.saveAndFlush(any(Board.class))).thenAnswer(invocation -> {
+            Board savedBoard = invocation.getArgument(0);
+            ReflectionTestUtils.setField(savedBoard, "boardId", 4L);
+            return savedBoard;
+        });
+        when(boardCategoryRepository.save(any(com.weedrice.whiteboard.domain.board.entity.BoardCategory.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(boardRepository.findMaxSortOrder()).thenReturn(0);
+
+        boardService.createBoard(creatorId, request);
+
+        verify(boardRepository).saveAndFlush(argThat(savedBoard ->
+                Boolean.TRUE.equals(savedBoard.getIsPublic())
+                        && Boolean.FALSE.equals(savedBoard.getIsListed())));
+    }
+
+    @Test
     @DisplayName("노드 수정 상세 응답은 변경된 URL로 상세 조회한다")
     void updateBoardDetail_returnsDetailForUpdatedUrl() {
         BoardUpdateRequest request = createBoardUpdateRequest("Updated Board", "updated-board", null);
@@ -1040,6 +1066,25 @@ class BoardServiceTest {
         verify(boardAiInfoRepository, never()).save(any(BoardAiInfo.class));
         verify(semanticSearchEventPublisher).publishBoardContentReindex(1L);
         verify(notificationAccessInvalidationService).invalidateCommentTopicsForBoardAfterCommit(1L);
+    }
+
+    @Test
+    @DisplayName("공개 스페이스를 목록 비노출 상태로 변경한다")
+    void updateBoard_changesPublicBoardToUnlisted() {
+        BoardUpdateRequest request = new BoardUpdateRequest();
+        ReflectionTestUtils.setField(request, "boardName", "Unlisted Board");
+        ReflectionTestUtils.setField(request, "description", "Updated Description");
+        ReflectionTestUtils.setField(request, "boardUrl", "test-board");
+        ReflectionTestUtils.setField(request, "isPublic", true);
+        ReflectionTestUtils.setField(request, "isListed", false);
+
+        when(boardRepository.findByBoardUrlForUpdate("test-board")).thenReturn(Optional.of(board));
+
+        boardService.updateBoard("test-board", request, 1L);
+
+        assertThat(board.getIsPublic()).isTrue();
+        assertThat(board.getIsListed()).isFalse();
+        verify(cacheInvalidator).evictBoardRelatedCachesAfterCommit();
     }
 
     @Test
