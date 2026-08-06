@@ -114,11 +114,11 @@ const visibilityOptions = computed(() => [
   { value: 'UNLISTED', label: t('board.form.visibilityUnlisted') },
   { value: 'PRIVATE', label: t('board.form.visibilityPrivate') },
 ])
-const visibilityDescriptionKey = computed(() => ({
-  PUBLIC: 'board.form.visibilityPublicDesc',
-  UNLISTED: 'board.form.visibilityUnlistedDesc',
-  PRIVATE: 'board.form.visibilityPrivateDesc',
-} satisfies Record<BoardVisibility, string>)[visibility.value])
+const visibilityDescription = computed(() => {
+  if (visibility.value === 'PUBLIC') return t('board.form.visibilityPublicDesc')
+  if (visibility.value === 'UNLISTED') return t('board.form.visibilityUnlistedDesc')
+  return t('board.form.visibilityPrivateDesc')
+})
 let allowSuccessfulRouteLeave = false
 const hasUnsavedChangesState = computed(() => (
   selectedFile.value !== savedSelectedFile.value || formSnapshot(form.value) !== savedSnapshot.value
@@ -237,7 +237,7 @@ defineExpose({
           aria-describedby="board-visibility-description"
         />
         <p id="board-visibility-description" class="mt-1 text-sm nv-text-muted">
-          {{ $t(visibilityDescriptionKey) }}
+          {{ visibilityDescription }}
         </p>
       </div>
 
