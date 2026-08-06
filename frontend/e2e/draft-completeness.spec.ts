@@ -56,14 +56,16 @@ test('server recovery and autosave remain available when draft localStorage is b
     }
   })
 
-  await openComposer(page, 91)
+  await page.goto('/board/general/write?draftId=91')
+  await expect(page.locator('#title')).toBeVisible()
   await expect(page.locator('#title')).toHaveValue('Server title')
+  await expect(page.getByText('브라우저 저장 공간에 기록하지 못했습니다.', { exact: true })).toBeVisible()
 
   await page.locator('#title').fill('Saved without localStorage')
 
   await expect.poll(() => state.draftSaveCount).toBe(1)
   expect(state.draft).toMatchObject({ title: 'Saved without localStorage' })
-  await expect(page.getByText(/에 저장됨$/).first()).toBeVisible()
+  await expect(page.getByText('브라우저 저장 공간에 기록하지 못했습니다.', { exact: true })).toBeVisible()
 })
 
 test('an edit made while a save response is pending is queued and persisted next', async ({ page }) => {
