@@ -136,6 +136,7 @@ const BoardFormStub = defineComponent({
         type: 'button',
         'data-testid': 'board-form',
         'data-board-url': props.initialData.boardUrl,
+        'data-is-listed': String(props.initialData.isListed),
         onClick: () => {
           const controller = new AbortController()
           void props.submitAction(props.initialData, {
@@ -210,6 +211,7 @@ describe('BoardEdit', () => {
           postCount: 0,
           allowNsfw: false,
           isPublic: true,
+          isListed: true,
           isActive: true,
           isSubscribed: false,
           subscriptionAccessible: true,
@@ -250,6 +252,24 @@ describe('BoardEdit', () => {
     await flushPromises()
     return wrapper
   }
+
+  it('restores unlisted visibility from the board detail response', async () => {
+    vi.mocked(boardApi.getBoard).mockResolvedValueOnce({
+      ...mockBoard('free', 'Unlisted Board'),
+      data: {
+        ...mockBoard('free', 'Unlisted Board').data,
+        data: {
+          ...mockBoard('free', 'Unlisted Board').data.data,
+          isPublic: true,
+          isListed: false,
+        },
+      },
+    })
+
+    const wrapper = await mountBoardEdit()
+
+    expect(wrapper.get('[data-testid="board-form"]').attributes('data-is-listed')).toBe('false')
+  })
 
   it('reloads board state when the route boardUrl param changes', async () => {
     vi.mocked(boardApi.getBoard)

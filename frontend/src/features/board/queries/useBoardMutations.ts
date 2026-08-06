@@ -85,6 +85,12 @@ export function useBoardMutations() {
       onSuccess: (updatedBoard, { boardUrl, data }, context) => {
         if (!isCurrentMutation(context)) return
         const updatedBoardUrl = updatedBoard?.boardUrl ?? data.boardUrl
+        if (updatedBoard && updatedBoardUrl) {
+          queryClient.setQueryData(
+            authKey(boardQueryKeys.detail(updatedBoardUrl)),
+            updatedBoard,
+          )
+        }
         if (updatedBoardUrl && updatedBoardUrl !== boardUrl) {
           removeBoardResourceCaches(queryClient, boardUrl, context.sessionGeneration)
           invalidateBoardResourceCaches(queryClient, updatedBoardUrl, context.sessionGeneration)

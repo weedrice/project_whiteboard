@@ -14,6 +14,7 @@ vi.mock('@/stores/auth', () => ({
 const mocks = vi.hoisted(() => {
     const invalidateQueries = vi.fn()
     const removeQueries = vi.fn()
+    const setQueryData = vi.fn()
     const queryOptions: Array<Record<string, unknown>> = []
     const infiniteQueryOptions: Array<Record<string, unknown>> = []
     const mutationOptions: Array<Record<string, unknown>> = []
@@ -21,6 +22,7 @@ const mocks = vi.hoisted(() => {
     return {
         invalidateQueries,
         removeQueries,
+        setQueryData,
         queryOptions,
         infiniteQueryOptions,
         mutationOptions,
@@ -31,6 +33,7 @@ vi.mock('@tanstack/vue-query', () => ({
     useQueryClient: () => ({
         invalidateQueries: mocks.invalidateQueries,
         removeQueries: mocks.removeQueries,
+        setQueryData: mocks.setQueryData,
     }),
     useQuery: vi.fn((options: Record<string, unknown>) => {
         mocks.queryOptions.push(options)
@@ -496,8 +499,15 @@ describe('useBoard', () => {
     })
 
     it('updates board and invalidates detail plus lists', async () => {
+        const updatedBoard = {
+            boardId: 4,
+            boardUrl: 'free',
+            boardName: 'updated',
+            isPublic: true,
+            isListed: false,
+        }
         vi.mocked(boardApi.updateBoard).mockResolvedValueOnce(
-            apiDataResponse<typeof boardApi.updateBoard>({ boardId: 4, boardUrl: 'free', boardName: 'updated' })
+            apiDataResponse<typeof boardApi.updateBoard>(updatedBoard)
         )
 
         const { useUpdateBoard } = useBoard()
@@ -509,7 +519,11 @@ describe('useBoard', () => {
             { boardName: 'updated' },
             { signal: undefined, skipGlobalErrorHandler: true },
         )
-        expect(result).toEqual({ boardId: 4, boardUrl: 'free', boardName: 'updated' })
+        expect(result).toEqual(updatedBoard)
+        expect(mocks.setQueryData).toHaveBeenCalledWith(
+            ['session', 0, 'board', 'detail', 'free'],
+            updatedBoard,
+        )
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'board', 'detail', 'free'] })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards'] })
         expect(mocks.invalidateQueries).toHaveBeenCalledWith({ queryKey: ['session', 0, 'boards', 'subscriptions'] })
