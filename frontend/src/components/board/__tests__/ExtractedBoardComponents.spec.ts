@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { mount, RouterLinkStub } from '@vue/test-utils'
+import { nextTick } from 'vue'
 import BoardNoticeList from '@/components/board/BoardNoticeList.vue'
 import BoardDetailHeader from '@/components/board/BoardDetailHeader.vue'
 import BoardPostFilters from '@/components/board/BoardPostFilters.vue'
@@ -45,6 +46,44 @@ const category = (overrides: Partial<Category> = {}): Category => ({
   minWriteRole: 'USER',
   ...overrides,
 })
+
+function pointerEvent(
+  type: string,
+  {
+    pointerId = 1,
+    clientX = 0,
+    clientY = 0,
+    pointerType = 'mouse',
+    button = 0,
+    isPrimary = true,
+  }: {
+    pointerId?: number
+    clientX?: number
+    clientY?: number
+    pointerType?: string
+    button?: number
+    isPrimary?: boolean
+  } = {},
+) {
+  const event = new Event(type, { bubbles: true, cancelable: true })
+  Object.defineProperties(event, {
+    pointerId: { value: pointerId },
+    clientX: { value: clientX },
+    clientY: { value: clientY },
+    pointerType: { value: pointerType },
+    button: { value: button },
+    isPrimary: { value: isPrimary },
+  })
+  return event
+}
+
+function dispatchMouseClick(element: Element) {
+  element.dispatchEvent(new MouseEvent('click', {
+    bubbles: true,
+    cancelable: true,
+    detail: 1,
+  }))
+}
 
 const boardDetail = (overrides: Partial<BoardDetail> = {}): BoardDetail => ({
   boardId: 1,
@@ -186,6 +225,151 @@ describe('extracted board components', () => {
     await compactButton?.trigger('click')
 
     expect(wrapper.emitted('update:density')?.[0]).toEqual(['compact'])
+  })
+
+  it('scrolls the category rail by mouse drag without activating the dragged chip', async () => {
+    const wrapper = mount(BoardPostFilters, {
+      props: {
+        categories: [category({ categoryId: 2, name: 'QnA' })],
+        isAllPostsActive: true,
+        conceptOnly: false,
+        selectedCategoryId: null,
+      },
+    })
+    const rail = wrapper.get<HTMLElement>('.nv-board-filter-rail')
+    const railElement = rail.element
+    const setPointerCapture = vi.fn()
+    const releasePointerCapture = vi.fn()
+    Object.defineProperties(railElement, {
+      clientWidth: { configurable: true, value: 200 },
+      scrollWidth: { configurable: true, value: 600 },
+      scrollLeft: { configurable: true, writable: true, value: 100 },
+      setPointerCapture: { configurable: true, value: setPointerCapture },
+      hasPointerCapture: { configurable: true, value: vi.fn(() => true) },
+      releasePointerCapture: { configurable: true, value: releasePointerCapture },
+    })
+
+    const categoryButton = wrapper.findAll('button')[2]
+    categoryButton.element.dispatchEvent(pointerEvent('pointerdown', { clientX: 300 }))
+    railElement.dispatchEvent(pointerEvent('pointermove', { clientX: 240 }))
+    await nextTick()
+
+    expect(railElement.scrollLeft).toBe(160)
+    expect(rail.classes()).toContain('is-dragging')
+
+    railElement.dispatchEvent(pointerEvent('pointerup', { clientX: 240 }))
+    dispatchMouseClick(categoryButton.element)
+    await nextTick()
+
+    expect(setPointerCapture).toHaveBeenCalledWith(1)
+    expect(releasePointerCapture).toHaveBeenCalledWith(1)
+    expect(rail.classes()).not.toContain('is-dragging')
+    expect(wrapper.emitted('toggleCategory')).toBeUndefined()
+
+    dispatchMouseClick(categoryButton.element)
+    await nextTick()
+    expect(wrapper.emitted('toggleCategory')?.[0]).toEqual([2])
+
+    categoryButton.element.dispatchEvent(pointerEvent('pointerdown', { pointerId: 3, clientX: 300 }))
+    railElement.dispatchEvent(pointerEvent('pointermove', { pointerId: 3, clientX: 240 }))
+    railElement.dispatchEvent(pointerEvent('lostpointercapture', { pointerId: 3, clientX: 240 }))
+    document.dispatchEvent(pointerEvent('pointerup', { pointerId: 3, clientX: 240 }))
+    await new Promise((resolve) => window.setTimeout(resolve, 0))
+    dispatchMouseClick(categoryButton.element)
+    await nextTick()
+
+    expect(wrapper.emitted('toggleCategory')).toHaveLength(2)
+  })
+
+  it('keeps ordinary clicks and native touch scrolling outside mouse drag handling', async () => {
+    const wrapper = mount(BoardPostFilters, {
+      props: {
+        categories: [category({ categoryId: 2, name: 'QnA' })],
+        isAllPostsActive: true,
+        conceptOnly: false,
+        selectedCategoryId: null,
+      },
+    })
+    const railElement = wrapper.get<HTMLElement>('.nv-board-filter-rail').element
+    const setPointerCapture = vi.fn()
+    Object.defineProperties(railElement, {
+      clientWidth: { configurable: true, value: 200 },
+      scrollWidth: { configurable: true, value: 600 },
+      scrollLeft: { configurable: true, writable: true, value: 25 },
+      setPointerCapture: { configurable: true, value: setPointerCapture },
+    })
+    const categoryButton = wrapper.findAll('button')[2]
+
+    const touchDown = pointerEvent('pointerdown', {
+      clientX: 200,
+      pointerType: 'touch',
+    })
+    const touchMove = pointerEvent('pointermove', {
+      clientX: 100,
+      pointerType: 'touch',
+    })
+    categoryButton.element.dispatchEvent(touchDown)
+    railElement.dispatchEvent(touchMove)
+    await categoryButton.trigger('click')
+
+    expect(railElement.scrollLeft).toBe(25)
+    expect(touchDown.defaultPrevented).toBe(false)
+    expect(touchMove.defaultPrevented).toBe(false)
+    expect(setPointerCapture).not.toHaveBeenCalled()
+    expect(wrapper.emitted('toggleCategory')?.[0]).toEqual([2])
+  })
+
+  it('recovers safely when pointer capture is unavailable or unexpectedly lost', async () => {
+    const wrapper = mount(BoardPostFilters, {
+      props: {
+        categories: [category({ categoryId: 2, name: 'QnA' })],
+        isAllPostsActive: true,
+        conceptOnly: false,
+        selectedCategoryId: null,
+      },
+    })
+    const rail = wrapper.get<HTMLElement>('.nv-board-filter-rail')
+    const railElement = rail.element
+    Object.defineProperties(railElement, {
+      clientWidth: { configurable: true, value: 200 },
+      scrollWidth: { configurable: true, value: 600 },
+      scrollLeft: { configurable: true, writable: true, value: 100 },
+    })
+    const categoryButton = wrapper.findAll('button')[2]
+
+    categoryButton.element.dispatchEvent(pointerEvent('pointerdown', { clientX: 300 }))
+    railElement.dispatchEvent(pointerEvent('pointermove', { clientX: 240 }))
+    railElement.dispatchEvent(pointerEvent('pointerleave', { clientX: 240 }))
+    await nextTick()
+
+    expect(rail.classes()).not.toContain('is-dragging')
+    expect(railElement.scrollLeft).toBe(100)
+
+    const setPointerCapture = vi.fn()
+    Object.defineProperties(railElement, {
+      setPointerCapture: { configurable: true, value: setPointerCapture },
+      hasPointerCapture: { configurable: true, value: vi.fn(() => true) },
+      releasePointerCapture: { configurable: true, value: vi.fn() },
+    })
+    categoryButton.element.dispatchEvent(pointerEvent('pointerdown', { pointerId: 2, clientX: 300 }))
+    railElement.dispatchEvent(pointerEvent('pointermove', { pointerId: 2, clientX: 240 }))
+    railElement.dispatchEvent(pointerEvent('lostpointercapture', { pointerId: 2, clientX: 240 }))
+    dispatchMouseClick(categoryButton.element)
+    await nextTick()
+
+    expect(setPointerCapture).toHaveBeenCalledWith(2)
+    expect(rail.classes()).not.toContain('is-dragging')
+    expect(wrapper.emitted('toggleCategory')).toBeUndefined()
+
+    await categoryButton.trigger('click')
+    expect(wrapper.emitted('toggleCategory')?.[0]).toEqual([2])
+
+    categoryButton.element.dispatchEvent(pointerEvent('pointerdown', { pointerId: 4, clientX: 300 }))
+    railElement.dispatchEvent(pointerEvent('pointermove', { pointerId: 4, clientX: 240 }))
+    railElement.dispatchEvent(pointerEvent('lostpointercapture', { pointerId: 4, clientX: 240 }))
+    await categoryButton.trigger('click')
+
+    expect(wrapper.emitted('toggleCategory')).toHaveLength(2)
   })
 
   it('emits search field updates and search commands', async () => {
