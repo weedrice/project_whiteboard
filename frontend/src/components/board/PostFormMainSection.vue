@@ -76,8 +76,8 @@ function handleOpenPoll() {
         :maxlength="titleMaxLength"
         :placeholder="$t('board.writePost.placeholder.title')"
         :label="$t('common.title')"
+        hide-label
         :error="titleError"
-        labelClass="!text-xs !font-medium !uppercase !tracking-[0.18em] !text-[var(--nv-muted)]"
         inputClass="!rounded-xl !border-[var(--nv-line)] !bg-[var(--nv-elevated)] !px-4 !py-3 !text-sm sm:!text-base"
         @update:model-value="emit('update:title', String($event))"
         @blur="emit('blurTitle')"
@@ -135,5 +135,17 @@ function handleOpenPoll() {
 
 .nv-compose-main-card {
   position: relative;
+}
+
+@media (min-width: 1024px) {
+  .nv-compose-main,
+  .nv-compose-main-card {
+    height: 100%;
+  }
+
+  .nv-compose-main-card {
+    display: flex;
+    flex-direction: column;
+  }
 }
 </style>

@@ -39,7 +39,7 @@ const emit = defineEmits<{
 </script>
 
 <template>
-  <div class="mt-4">
+  <div class="nv-compose-editor-section mt-4">
     <div class="flex items-center justify-between rounded-t-xl border border-[var(--nv-line)] border-b-0 bg-[var(--nv-elevated)] px-3 py-2">
       <div class="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.18em] text-[var(--nv-muted)]">
         <span>{{ $t('board.writePost.sections.editor') }}</span>
@@ -121,6 +121,28 @@ const emit = defineEmits<{
 .html-source-editor-wrap {
   height: 26rem;
   overflow: hidden;
+}
+
+@media (min-width: 1024px) {
+  .nv-compose-editor-section {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    flex-direction: column;
+  }
+
+  .editor-area-container {
+    display: flex;
+    flex: 1;
+    min-height: 26rem;
+    flex-direction: column;
+  }
+
+  .tiptap-editor-wrapper,
+  .html-source-editor-wrap {
+    flex: 1;
+    height: auto;
+  }
 }
 
 :deep(.html-source-textarea) {

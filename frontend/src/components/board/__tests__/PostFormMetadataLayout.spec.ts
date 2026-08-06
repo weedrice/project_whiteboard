@@ -29,6 +29,13 @@ describe('PostForm metadata layout', () => {
     expect(editWrapper.text()).toContain('board.writePost.editTitle')
   })
 
+  it('shows the space marker beside the board name', () => {
+    const wrapper = mountPostForm('create')
+
+    expect(wrapper.text()).toContain('free')
+    expect(wrapper.text()).toContain('common.board')
+  })
+
   it('renders overridden create title when provided', () => {
     const wrapper = mountPostForm('create', {}, {}, {
       createTitleOverride: '문의 작성',

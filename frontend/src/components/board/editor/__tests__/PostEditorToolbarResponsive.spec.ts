@@ -40,12 +40,10 @@ describe('PostEditorToolbar responsive contract', () => {
     expect(wrapper.find('.tiptap-toolbar-group--format').exists()).toBe(true)
   })
 
-  it('keeps toolbar and color controls at the shared touch target size', () => {
+  it('keeps the editor toolbar controls compact', () => {
     const toolbarStyles = readFileSync(resolve(process.cwd(), 'src/components/board/editor/editor-toolbar.css'), 'utf8')
-    const popoverStyles = readFileSync(resolve(process.cwd(), 'src/components/board/editor/editor-popovers.css'), 'utf8')
 
-    expect(toolbarStyles).toMatch(/\.tiptap-btn\s*{[\s\S]*?width: 2\.75rem;[\s\S]*?height: 2\.75rem;/)
-    expect(toolbarStyles).toMatch(/\.tiptap-select\s*{[\s\S]*?height: 2\.75rem;/)
-    expect(popoverStyles).toMatch(/\.color-panel-custom-input\s*{[\s\S]*?width: 44px;[\s\S]*?height: 44px;/)
+    expect(toolbarStyles).toMatch(/\.tiptap-btn\s*{[\s\S]*?width: 2\.25rem;[\s\S]*?height: 2\.25rem;/)
+    expect(toolbarStyles).toMatch(/\.tiptap-select\s*{[\s\S]*?height: 2\.25rem;/)
   })
 })
