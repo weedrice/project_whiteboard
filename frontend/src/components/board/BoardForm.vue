@@ -234,8 +234,11 @@ defineExpose({
           v-model="visibility"
           :label="$t('board.form.visibility')"
           :options="visibilityOptions"
+          aria-describedby="board-visibility-description"
         />
-        <p class="mt-1 text-sm nv-text-muted">{{ $t(visibilityDescriptionKey) }}</p>
+        <p id="board-visibility-description" class="mt-1 text-sm nv-text-muted">
+          {{ $t(visibilityDescriptionKey) }}
+        </p>
       </div>
 
       <div class="sm:col-span-6">

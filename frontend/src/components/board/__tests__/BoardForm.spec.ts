@@ -209,7 +209,16 @@ describe('BoardForm', () => {
       },
     })
 
+    expect(wrapper.find('#board-visibility').attributes('aria-describedby'))
+      .toContain('board-visibility-description')
+    expect(wrapper.find('#board-visibility-description').text())
+      .toBe('board.form.visibilityPublicDesc')
+
     await wrapper.find('#board-visibility').setValue('UNLISTED')
+    await nextTick()
+
+    expect(wrapper.find('#board-visibility-description').text())
+      .toBe('board.form.visibilityUnlistedDesc')
     await wrapper.find('form').trigger('submit.prevent')
 
     const submit = wrapper.emitted('submit')?.[0]?.[0] as { isPublic: boolean; isListed: boolean }
