@@ -71,7 +71,7 @@ test('server recovery and autosave remain available when draft localStorage is b
 })
 
 test('an edit made while a save response is pending is queued and persisted next', async ({ page }) => {
-  const state = await installMockApi(page, { draftSaveDelayMs: 1_000 })
+  const state = await installMockApi(page, { draftSaveDelayMs: 3_000 })
   await login(page)
   await openComposer(page)
 
