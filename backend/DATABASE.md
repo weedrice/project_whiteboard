@@ -6,7 +6,7 @@
 | --- | --- |
 | 기준일 | 2026-08-06 |
 | 기준 소스 | `backend/src/main/resources/db/migration` |
-| 마이그레이션 범위 | `V1__baseline_schema.sql` - `V86__add_post_draft_cleanup_lock.sql` |
+| 마이그레이션 범위 | `V1__baseline_schema.sql` - `V87__add_board_listed_visibility.sql` |
 | 현재 테이블 수 | 85개 |
 | DB | PostgreSQL |
 
