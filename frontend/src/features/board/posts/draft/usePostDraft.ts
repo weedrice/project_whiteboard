@@ -748,9 +748,6 @@ export function usePostDraft(options: UsePostDraftOptions) {
 
     return {
         draftId,
-        draftVersion: computed(() => draftVersion.value),
-        clientDraftKey: computed(() => clientDraftKey.value),
-        updatedAt,
         lastSavedAt: computed(() => lastSavedAt.value),
         lastSaveScope: computed(() => lastSaveScope.value),
         lastSaveFailed: computed(() => lastSaveFailed.value),
@@ -765,7 +762,6 @@ export function usePostDraft(options: UsePostDraftOptions) {
         draftProtected: computed(() => draftProtected.value),
         protectedDraftForkAvailable: computed(() => protectedDraftForkAvailable.value),
         draftDeleted: computed(() => draftDeleted.value),
-        staleReferencesReset: computed(() => staleReferencesReset.value),
         contractValidationFailed: computed(() => contractValidationFailed.value),
         isSavingDraft: computed(() => saveDraftMutation.isPending.value),
         restoreSource: computed(() => restoreSource.value),
@@ -777,7 +773,6 @@ export function usePostDraft(options: UsePostDraftOptions) {
         reloadServerDraft,
         keepLocalDraft,
         resetSession,
-        clearRecovery,
         clearPublishedDraftRecovery,
         clearScheduledDraftRecovery,
         writeLocalSnapshot,

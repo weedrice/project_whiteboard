@@ -146,6 +146,18 @@ function dispatchDraftUpdatedEvent({
     }))
 }
 
+function getStoredDraftSnapshot(storageKey = 'noviis:test:draft'): DraftRecoverySnapshot {
+    const snapshot = Storage.get<DraftRecoverySnapshot>(storageKey)
+    if (!snapshot) throw new Error(`Missing stored draft snapshot: ${storageKey}`)
+    return snapshot
+}
+
+function getStoredClientDraftKey(storageKey = 'noviis:test:draft'): string {
+    const clientDraftKey = getStoredDraftSnapshot(storageKey).clientDraftKey
+    if (!clientDraftKey) throw new Error(`Missing stored draft client key: ${storageKey}`)
+    return clientDraftKey
+}
+
 describe('usePostDraft', () => {
     beforeEach(() => {
         vi.useFakeTimers()
@@ -301,7 +313,6 @@ describe('usePostDraft', () => {
 
         await composable.saveNow()
 
-        expect(composable.staleReferencesReset.value).toBe(true)
         expect(onServerReferencesReset).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
             draftId: 91,
             fileIds: [],
@@ -570,7 +581,7 @@ describe('usePostDraft', () => {
         composable.writeLocalSnapshot()
 
         dispatchDraftUpdatedEvent({
-            clientDraftKey: composable.clientDraftKey.value,
+            clientDraftKey: getStoredClientDraftKey(),
             contentFingerprint: 'different-server-content',
         })
         expect(composable.draftConflict.value).toBe(true)
@@ -592,7 +603,7 @@ describe('usePostDraft', () => {
         const appliedCountAfterReload = appliedDrafts.length
 
         dispatchDraftUpdatedEvent({
-            clientDraftKey: composable.clientDraftKey.value,
+            clientDraftKey: getStoredClientDraftKey(),
             version: 2,
             updatedAt: '2025-01-03T00:00:00.000Z',
             contentFingerprint: 'later-server-content',
@@ -852,7 +863,7 @@ describe('usePostDraft', () => {
             ownerId,
         )
         await composable.saveNow()
-        const previousClientDraftKey = composable.clientDraftKey.value
+        const previousClientDraftKey = getStoredClientDraftKey()
         payloadRef.value = {
             ...payloadRef.value,
             title: 'Unsaved protected edit',
@@ -879,7 +890,7 @@ describe('usePostDraft', () => {
         expect(composable.draftProtected.value).toBe(true)
         expect(composable.protectedDraftForkAvailable.value).toBe(true)
         expect(composable.draftId.value).toBeNull()
-        expect(composable.clientDraftKey.value).not.toBe(previousClientDraftKey)
+        expect(getStoredClientDraftKey()).not.toBe(previousClientDraftKey)
         expect(appliedDrafts.at(-1)).toEqual(expect.objectContaining({
             title: 'Unsaved protected edit',
             contents: '<p>Preserved text</p>',
@@ -948,7 +959,9 @@ describe('usePostDraft', () => {
         expect(appliedDrafts[0]).toEqual(expect.objectContaining({ title: 'Unsaved local title' }))
         expect(composable.draftConflict.value).toBe(true)
         expect(composable.restoreSource.value).toBe('local')
-        expect(composable.updatedAt.value).toBe('2025-01-01T00:00:00.000Z')
+        expect(getStoredDraftSnapshot()).toEqual(expect.objectContaining({
+            updatedAt: '2025-01-01T00:00:00.000Z',
+        }))
 
         await expect(composable.keepLocalDraft()).resolves.toBe(true)
 
@@ -1123,7 +1136,7 @@ describe('usePostDraft', () => {
         const savePromise = composable.saveNow()
         expect(Storage.get('noviis:test:draft')).toEqual(expect.objectContaining({ title: 'Draft title' }))
 
-        composable.clearRecovery()
+        composable.clearPublishedDraftRecovery()
         resolveSave({
             data: {
                 data: {
@@ -1145,7 +1158,6 @@ describe('usePostDraft', () => {
         await expect(savePromise).resolves.toBeNull()
         expect(Storage.get('noviis:test:draft')).toBeNull()
         expect(composable.draftId.value).toBeNull()
-        expect(composable.updatedAt.value).toBeNull()
         expect(composable.lastSavedAt.value).toBeNull()
     })
 
@@ -1364,7 +1376,7 @@ describe('usePostDraft', () => {
         enabled.value = true
         await nextTick()
         dispatchDraftUpdatedEvent({
-            clientDraftKey: composable.clientDraftKey.value,
+            clientDraftKey: getStoredClientDraftKey(),
             contentFingerprint: 'server-edit-while-disabled',
         })
 
@@ -2179,23 +2191,24 @@ describe('usePostDraft', () => {
             ref(true),
             ownerId,
         )
+        composable.writeLocalSnapshot()
+        const clientDraftKey = getStoredClientDraftKey()
 
         dispatchDraftUpdatedEvent({
-            clientDraftKey: composable.clientDraftKey.value,
+            clientDraftKey,
             version: 3,
             contentFingerprint: 'other-tab-content',
         })
 
         expect(appliedDrafts).toHaveLength(0)
         expect(composable.draftId.value).toBe(91)
-        expect(composable.draftVersion.value).toBe(3)
         expect(composable.draftConflict.value).toBe(true)
 
         mocks.getDraft.mockResolvedValueOnce({
             data: {
                 data: {
                     draftId: 91,
-                    clientDraftKey: composable.clientDraftKey.value,
+                    clientDraftKey,
                     version: 3,
                     boardId: 1,
                     boardUrl: 'free',
@@ -2239,7 +2252,7 @@ describe('usePostDraft', () => {
             close() {}
         }
         vi.stubGlobal('BroadcastChannel', FakeBroadcastChannel)
-        const { composable, appliedDrafts } = mountComposable(
+        const { composable, appliedDrafts, payloadRef } = mountComposable(
             undefined,
             ref('noviis:test:draft'),
             ref(true),
@@ -2248,6 +2261,8 @@ describe('usePostDraft', () => {
             (draftId) => `noviis:test:draft:${draftId}`,
         )
         const peer = new FakeBroadcastChannel('noviis-draft-updated')
+        composable.writeLocalSnapshot()
+        const clientDraftKey = getStoredClientDraftKey()
 
         peer.postMessage({
             type: 'draft-updated',
@@ -2256,7 +2271,7 @@ describe('usePostDraft', () => {
             ownerId: '7',
             at: Date.now(),
             draftId: 91,
-            clientDraftKey: composable.clientDraftKey.value,
+            clientDraftKey,
             version: 1,
             updatedAt: '2026-07-07T13:00:00.000Z',
             contentFingerprint: createDraftContentFingerprint({
@@ -2268,9 +2283,18 @@ describe('usePostDraft', () => {
         })
 
         expect(composable.draftId.value).toBe(91)
-        expect(composable.draftVersion.value).toBe(1)
         expect(appliedDrafts).toHaveLength(0)
         expect(composable.draftConflict.value).toBe(false)
+
+        payloadRef.value = { ...payloadRef.value, title: 'Edited after acknowledgement' }
+        composable.writeLocalSnapshot()
+        await composable.saveNow()
+        expect(mocks.saveDraftMutateAsync).toHaveBeenLastCalledWith(expect.objectContaining({
+            draftId: 91,
+            clientDraftKey,
+            version: 1,
+            updatedAt: '2026-07-07T13:00:00.000Z',
+        }))
     })
 
     it('ignores an update channel event for a different logical draft', async () => {
@@ -2301,7 +2325,7 @@ describe('usePostDraft', () => {
             key: 'noviis:test:draft',
             newValue: JSON.stringify({
                 draftId: 91,
-                clientDraftKey: composable.clientDraftKey.value,
+                clientDraftKey: getStoredClientDraftKey(),
                 boardUrl: 'free',
                 title: 'Unsaved edit from another tab',
                 clientInstanceId: 'other-tab',
@@ -2321,9 +2345,11 @@ describe('usePostDraft', () => {
             ref(true),
             ownerId,
         )
+        composable.writeLocalSnapshot()
+        const clientDraftKey = getStoredClientDraftKey()
 
         dispatchDraftUpdatedEvent({
-            clientDraftKey: composable.clientDraftKey.value,
+            clientDraftKey,
             contentFingerprint: 'different-content',
         })
         expect(composable.draftConflict.value).toBe(true)
@@ -2334,16 +2360,23 @@ describe('usePostDraft', () => {
             title: 'Confirmed content',
         }
         dispatchDraftUpdatedEvent({
-            clientDraftKey: composable.clientDraftKey.value,
+            clientDraftKey,
             contentFingerprint: createDraftContentFingerprint(payloadRef.value),
             updatedAt: '2025-01-02T00:00:00.000Z',
         })
 
         expect(appliedDrafts).toHaveLength(0)
         expect(composable.draftId.value).toBe(91)
-        expect(composable.draftVersion.value).toBe(1)
-        expect(composable.updatedAt.value).toBe('2025-01-02T00:00:00.000Z')
         expect(composable.draftConflict.value).toBe(false)
+
+        composable.writeLocalSnapshot()
+        await composable.saveNow()
+        expect(mocks.saveDraftMutateAsync).toHaveBeenLastCalledWith(expect.objectContaining({
+            draftId: 91,
+            clientDraftKey,
+            version: 1,
+            updatedAt: '2025-01-02T00:00:00.000Z',
+        }))
     })
 
     it('stops autosave when another tab advances the same draft', async () => {
@@ -2359,7 +2392,7 @@ describe('usePostDraft', () => {
         composable.writeLocalSnapshot()
 
         dispatchDraftUpdatedEvent({
-            clientDraftKey: composable.clientDraftKey.value,
+            clientDraftKey: getStoredClientDraftKey(),
             contentFingerprint: 'other-tab-content',
         })
 
@@ -2396,21 +2429,21 @@ describe('usePostDraft', () => {
             ownerId,
         )
         await composable.saveNow()
+        const clientDraftKey = getStoredClientDraftKey()
 
         dispatchDraftUpdatedEvent({
-            clientDraftKey: composable.clientDraftKey.value,
+            clientDraftKey,
             version: 2,
             updatedAt: '2025-01-03T00:00:00.000Z',
             contentFingerprint: 'newest-server-content',
         })
         dispatchDraftUpdatedEvent({
-            clientDraftKey: composable.clientDraftKey.value,
+            clientDraftKey,
             version: 1,
             updatedAt: '2025-01-02T00:00:00.000Z',
             contentFingerprint: 'older-server-content',
         })
 
-        expect(composable.draftVersion.value).toBe(0)
         expect(appliedDrafts).toHaveLength(0)
         expect(composable.draftConflict.value).toBe(true)
     })
@@ -2446,7 +2479,7 @@ describe('usePostDraft', () => {
     it('preserves local content and can save it as new when the server draft disappeared', async () => {
         const { composable, payloadRef } = mountComposable()
         await composable.saveNow()
-        const previousClientKey = composable.clientDraftKey.value
+        const previousClientKey = getStoredClientDraftKey()
         payloadRef.value = {
             ...payloadRef.value,
             title: 'Preserved after deletion',
