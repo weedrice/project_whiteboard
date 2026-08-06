@@ -172,7 +172,6 @@ export function createDraftCrossTabChannel<TEvent extends DraftCrossTabEventBase
   return {
     publish,
     register,
-    parseStorageEvent,
     closeForTest,
   }
 }

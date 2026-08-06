@@ -4,9 +4,7 @@ import {
   cleanupExpiredDraftSnapshots,
   clearStoredDraftSnapshotsForUser,
   countUnsyncedStoredDraftSnapshotsForUser,
-  DRAFT_SNAPSHOT_SCHEMA_VERSION,
   loadStoredDraftSnapshot,
-  MAX_LOCAL_DRAFT_BACKUP_BYTES,
   migrateStoredDraftSnapshot,
   storeDraftSnapshot,
 } from '@/features/board/posts/draft/postDraftLifecycle'
@@ -15,6 +13,9 @@ import {
   markDraftDeletedLocally,
   clearDraftTombstonesForUser,
 } from '@/features/board/posts/draft/postDraftTombstone'
+
+const CURRENT_SCHEMA_VERSION = 1
+const OVERSIZED_BACKUP_CONTENT_LENGTH = 3 * 1024 * 1024
 
 describe('draft browser lifecycle', () => {
   beforeEach(() => {
@@ -77,7 +78,7 @@ describe('draft browser lifecycle', () => {
   it('drops invalid unassociated upload metadata without deleting draft content', () => {
     const key = 'noviis:draft:1:create:free:new'
     Storage.set(key, {
-      schemaVersion: DRAFT_SNAPSHOT_SCHEMA_VERSION,
+      schemaVersion: CURRENT_SCHEMA_VERSION,
       boardUrl: 'free',
       title: 'recover me',
       contents: '<p>important draft</p>',
@@ -100,7 +101,7 @@ describe('draft browser lifecycle', () => {
   it('ignores malformed unassociated upload metadata without deleting draft content', () => {
     const key = 'noviis:draft:1:create:free:new'
     Storage.set(key, {
-      schemaVersion: DRAFT_SNAPSHOT_SCHEMA_VERSION,
+      schemaVersion: CURRENT_SCHEMA_VERSION,
       boardUrl: 'free',
       title: 'recover me',
       fileIds: [7],
@@ -162,7 +163,7 @@ describe('draft browser lifecycle', () => {
 
   it('counts preserved unknown snapshots conservatively before logout', () => {
     Storage.set('noviis:draft:1:create:free:future-schema', {
-      schemaVersion: DRAFT_SNAPSHOT_SCHEMA_VERSION + 1,
+      schemaVersion: CURRENT_SCHEMA_VERSION + 1,
       boardUrl: 'free',
       clientModifiedAt: '2026-08-03T00:00:00.000Z',
     })
@@ -277,14 +278,14 @@ describe('draft browser lifecycle', () => {
     }))
     expect(Storage.get(key)).toEqual(expect.objectContaining({
       clientModifiedAt: '2026-08-03T00:00:00.000Z',
-      schemaVersion: DRAFT_SNAPSHOT_SCHEMA_VERSION,
+      schemaVersion: CURRENT_SCHEMA_VERSION,
     }))
   })
 
   it('preserves snapshots written by a future schema version', () => {
     const key = 'noviis:draft:1:create:free:future-schema'
     Storage.set(key, {
-      schemaVersion: DRAFT_SNAPSHOT_SCHEMA_VERSION + 1,
+      schemaVersion: CURRENT_SCHEMA_VERSION + 1,
       boardUrl: 'free',
       clientModifiedAt: '2026-08-03T00:00:00.000Z',
     })
@@ -296,7 +297,7 @@ describe('draft browser lifecycle', () => {
   it('expires future schema snapshots after the local retention period', () => {
     const key = 'noviis:draft:1:create:free:expired-future-schema'
     Storage.set(key, {
-      schemaVersion: DRAFT_SNAPSHOT_SCHEMA_VERSION + 1,
+      schemaVersion: CURRENT_SCHEMA_VERSION + 1,
       boardUrl: 'free',
       clientModifiedAt: '2026-04-01T00:00:00.000Z',
     })
@@ -309,7 +310,7 @@ describe('draft browser lifecycle', () => {
   it('does not overwrite a snapshot written by a future schema version', () => {
     const key = 'noviis:draft:1:create:free:future-schema'
     Storage.set(key, {
-      schemaVersion: DRAFT_SNAPSHOT_SCHEMA_VERSION + 1,
+      schemaVersion: CURRENT_SCHEMA_VERSION + 1,
       boardUrl: 'free',
       title: 'newer app draft',
       clientModifiedAt: '2026-08-03T00:00:00.000Z',
@@ -321,7 +322,7 @@ describe('draft browser lifecycle', () => {
       clientModifiedAt: '2026-08-03T00:00:01.000Z',
     })).toBe(false)
     expect(Storage.get(key)).toEqual(expect.objectContaining({
-      schemaVersion: DRAFT_SNAPSHOT_SCHEMA_VERSION + 1,
+      schemaVersion: CURRENT_SCHEMA_VERSION + 1,
       title: 'newer app draft',
     }))
   })
@@ -348,7 +349,7 @@ describe('draft browser lifecycle', () => {
   it('normalizes invalid client identifiers without discarding draft content', () => {
     const key = 'noviis:draft:1:create:free:invalid-identifiers'
     Storage.set(key, {
-      schemaVersion: DRAFT_SNAPSHOT_SCHEMA_VERSION,
+      schemaVersion: CURRENT_SCHEMA_VERSION,
       boardUrl: 'free',
       title: 'keep this content',
       clientDraftKey: 'short',
@@ -464,7 +465,7 @@ describe('draft browser lifecycle', () => {
 
     expect(storeDraftSnapshot('noviis:draft:1:create:free:oversized', {
       boardUrl: 'free',
-      contents: 'x'.repeat(MAX_LOCAL_DRAFT_BACKUP_BYTES),
+      contents: 'x'.repeat(OVERSIZED_BACKUP_CONTENT_LENGTH),
       clientModifiedAt: '2026-08-03T00:01:00.000Z',
     })).toBe(false)
     expect(Storage.get(existingKey)).toEqual(expect.objectContaining({ title: 'keep me' }))
