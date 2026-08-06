@@ -184,6 +184,9 @@ describe('MyMessages', () => {
         expect((content.find('[data-testid="conversation-timeline"]').element as HTMLElement).scrollTop).toBe(640)
         expect(content.classes()).not.toContain('p-4')
         expect(content.classes()).not.toContain('sm:p-6')
+        expect(content.text()).not.toContain('user.message.conversationContext')
+        expect(content.text()).not.toContain('common.cancel')
+        expect(content.text()).not.toContain('common.close')
         scrollHeightSpy.mockRestore()
     })
 

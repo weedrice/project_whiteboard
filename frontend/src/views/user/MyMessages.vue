@@ -96,9 +96,6 @@
                             {{ selectedMessage.partnerName }}
                         </span>
                     </div>
-                    <span class="shrink-0 text-xs nv-text-subtle">
-                        {{ $t('user.message.conversationContext') }}
-                    </span>
                 </header>
                 <div class="flex min-h-0 flex-1 flex-col p-3 sm:p-4">
                     <p
@@ -209,26 +206,10 @@
                             >
                                 {{ isSending ? $t('common.messages.sending') : $t('common.send') }}
                             </BaseButton>
-                            <BaseButton
-                                type="button"
-                                size="sm"
-                                variant="secondary"
-                                :disabled="isSending"
-                                @click="cancelInlineReply"
-                            >
-                                {{ $t('common.cancel') }}
-                            </BaseButton>
                         </div>
                     </form>
                 </div>
             </section>
-
-            <div class="flex shrink-0 flex-col-reverse justify-end gap-2 border-t nv-border pt-4 sm:flex-row sm:space-x-2">
-                <BaseButton @click="closeConversationAndSyncRoute" variant="secondary" :disabled="isSending"
-                    class="w-full sm:w-auto min-h-[44px] order-1 sm:order-none">
-                    {{ $t('common.close') }}
-                </BaseButton>
-            </div>
         </div>
     </BaseModal>
 </template>
@@ -294,7 +275,6 @@ const {
     loadOlderConversationMessages,
     deleteSelectedMessages,
     startReply,
-    cancelInlineReply,
     sendReply,
 } = useMailboxResource()
 
