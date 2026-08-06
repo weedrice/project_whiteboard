@@ -76,6 +76,7 @@ public class PostService {
         return postCommandService.createPost(userId, boardUrl, request);
     }
 
+    @Transactional
     public PostCreateResponse createPostWithResponse(@NonNull Long userId, String boardUrl,
             PostCreateRequest request) {
         return postCommandService.createPostWithResponse(userId, boardUrl, request);
