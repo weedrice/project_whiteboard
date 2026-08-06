@@ -81,4 +81,4 @@ test('an edit made while a save response is pending is queued and persisted next
   expect(state.writes[0]?.payload).toMatchObject({ title: 'First edit' })
   expect(state.writes[1]?.payload).toMatchObject({ title: 'Second edit while saving' })
   expect(state.draft).toMatchObject({ title: 'Second edit while saving' })
-}
+})
