@@ -855,6 +855,7 @@ describe('PostForm', () => {
         const wrapper = mountPostForm('edit', {}, {}, { scheduledPostId: '44', postId: '' })
         await nextTick()
 
+        expect((wrapper.vm as unknown as { flushPendingDraft: () => boolean }).flushPendingDraft()).toBe(true)
         expect(wrapper.get('#title').element).toHaveProperty('value', 'Scheduled title')
         expect(wrapper.get('[data-testid="editor-input"]').element).toHaveProperty(
             'value',

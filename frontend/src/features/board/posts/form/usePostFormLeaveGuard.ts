@@ -31,7 +31,7 @@ export function usePostFormLeaveGuard(
                 return false
             }
         }
-        if (form?.flushPendingDraft?.() === false) {
+        if (hasUnsavedChanges && form?.flushPendingDraft?.() === false) {
             return false
         }
         return true

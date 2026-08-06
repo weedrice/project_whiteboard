@@ -306,7 +306,9 @@ export function usePostComposerDraft(options: UsePostComposerDraftOptions) {
   )
 
   const flushLatestLocalSnapshot = () => {
-    if (!hasRestoredDraft.value || !draftEnabled.value || options.isLoading.value) return false
+    // 로컬 백업을 사용하지 않는 예약글/비인증 화면과 아직 복구가 시작되지 않은
+    // 로딩 상태에서는 처리할 로컬 스냅샷이 없으므로 성공한 no-op으로 본다.
+    if (!hasRestoredDraft.value || !draftEnabled.value || options.isLoading.value) return true
     const signature = serializeDraftPayload()
     if (signature === lastStoredDraftSignature) return true
     const stored = writeLocalSnapshot() === true

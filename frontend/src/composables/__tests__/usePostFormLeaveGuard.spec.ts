@@ -99,6 +99,23 @@ describe('usePostFormLeaveGuard', () => {
         expect(result).toBe(true)
     })
 
+    it('does not let an optional local backup failure block a clean form', async () => {
+        const flushPendingDraft = vi.fn().mockReturnValue(false)
+        const postFormRef = ref({
+            hasUnsavedChanges: () => false,
+            flushPendingDraft,
+        })
+        const confirmLeave = vi.fn()
+
+        usePostFormLeaveGuard(postFormRef, 'fallback', confirmLeave)
+
+        const result = await runLeaveGuard()
+
+        expect(confirmLeave).not.toHaveBeenCalled()
+        expect(flushPendingDraft).not.toHaveBeenCalled()
+        expect(result).toBe(true)
+    })
+
     it('guards same-route updates and flushes the current draft before allowing them', async () => {
         const flushPendingDraft = vi.fn().mockReturnValue(true)
         const postFormRef = ref({
