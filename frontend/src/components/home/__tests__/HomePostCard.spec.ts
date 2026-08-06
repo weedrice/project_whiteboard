@@ -104,6 +104,21 @@ describe('HomePostCard', () => {
     expect(wrapper.get('.nv-home-card-body').classes()).toContain('nv-home-card-body-no-media')
   })
 
+  it('omits the body while preserving the post title when body rendering is disabled', () => {
+    const wrapper = mount(HomePostCard, {
+      props: {
+        post: makePost(),
+        variant: 'compact',
+        showBody: false,
+      },
+    })
+
+    expect(wrapper.get('.nv-home-card-title').text()).toBe('오늘의 큐레이션')
+    expect(wrapper.find('.nv-home-card-body').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('강조 문단')
+    expect(wrapper.text()).not.toContain('요약')
+  })
+
   it('keeps grid cards on the lightweight feed preview renderer', () => {
     const wrapper = mount(HomePostCard, {
       props: {

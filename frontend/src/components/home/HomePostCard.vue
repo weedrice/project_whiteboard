@@ -14,16 +14,18 @@ const props = withDefaults(defineProps<{
   post: FeedPost
   variant?: 'featured' | 'compact' | 'grid'
   showMediaPreview?: boolean
+  showBody?: boolean
 }>(), {
   variant: 'grid',
   showMediaPreview: true,
+  showBody: true,
 })
 
 const router = useRouter()
 const { t } = useI18n()
 
 const isBlinded = computed(() => Boolean(props.post.isBlinded))
-const bodyHtml = computed(() => (isBlinded.value ? null : getFeedBodyHtml(props.post)))
+const bodyHtml = computed(() => (!props.showBody || isBlinded.value ? null : getFeedBodyHtml(props.post)))
 const mediaPreview = computed(() => (!props.showMediaPreview || isBlinded.value
   ? { showFirstVideo: false, videoUrl: null, imageUrl: null }
   : getFeedMediaPreview(props.post)))
@@ -187,7 +189,7 @@ watch(() => props.post.postId, () => {
         />
       </div>
       <p
-        v-else-if="post.summary"
+        v-else-if="showBody && post.summary"
         :class="bodyClass"
       >
         {{ post.summary }}

@@ -54,6 +54,7 @@ watch(() => props.postId, () => {
           :post="post"
           variant="compact"
           :show-media-preview="false"
+          :show-body="false"
         />
       </div>
     </template>
