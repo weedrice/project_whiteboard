@@ -4,12 +4,12 @@ import { useI18n } from 'vue-i18n'
 import type { LocationQueryRaw, RouteLocationRaw } from 'vue-router'
 import { FileText } from 'lucide-vue-next'
 import type { PostSummary } from '@/types'
-import { Storage } from '@/utils/storage'
-import BaseSegmentedControl, { type SegmentedControlOption } from '@/components/common/ui/BaseSegmentedControl.vue'
 import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
 import EmptyState from '@/components/common/ui/EmptyState.vue'
 import PostListDesktopTable from '@/components/board/PostListDesktopTable.vue'
+import PostListDensityControl from '@/components/board/PostListDensityControl.vue'
 import PostListMobileItem from '@/components/board/PostListMobileItem.vue'
+import { usePostListDensity, type PostListDensity } from '@/components/board/postListDensity'
 import {
   createPostListColumns,
   getPostListActiveSortDirection,
@@ -60,6 +60,8 @@ const props = withDefaults(defineProps<{
   enableInfiniteLoad?: boolean
   hasMorePosts?: boolean
   isLoadingMore?: boolean
+  density?: PostListDensity
+  showDensityControl?: boolean
 }>(), {
   loading: false,
   currentSort: 'createdAt,desc',
@@ -78,6 +80,8 @@ const props = withDefaults(defineProps<{
   enableInfiniteLoad: false,
   hasMorePosts: false,
   isLoadingMore: false,
+  density: undefined,
+  showDensityControl: true,
 })
 
 const emit = defineEmits<{
@@ -87,23 +91,13 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-type PostListDensity = 'default' | 'compact'
-const POST_LIST_DENSITY_KEY = 'noviis:post-list-density'
-const storedDensity = Storage.getString(POST_LIST_DENSITY_KEY, 'default')
-const listDensity = ref<PostListDensity>(storedDensity === 'compact' ? 'compact' : 'default')
-const densityOptions = computed<SegmentedControlOption[]>(() => [
-  { value: 'default', label: t('board.list.densityDefault') },
-  { value: 'compact', label: t('board.list.densityCompact') },
-])
+const listDensity = usePostListDensity()
+const effectiveDensity = computed(() => props.density ?? listDensity.value)
 const effectiveEmptyTitle = computed(() => props.emptyTitle ?? t('board.list.noPosts'))
 const effectiveEmptyDescription = computed(() => props.emptyDescription)
 const effectiveEmptyActionLabel = computed(() => (
   props.canWrite ? (props.emptyActionLabel ?? t('common.write')) : undefined
 ))
-
-watch(listDensity, (density) => {
-  Storage.setString(POST_LIST_DENSITY_KEY, density)
-})
 
 const getRowClass = (item: PostSummary) => (
   getPostListRowClass(item, props.currentPostId)
@@ -258,12 +252,9 @@ const columns = computed(() => createPostListColumns({
 
 <template>
   <div class="card border-0 bg-transparent shadow-none" :aria-busy="loading ? 'true' : 'false'">
-    <div class="flex items-center justify-end px-3 py-2 sm:px-4">
-      <BaseSegmentedControl
+    <div v-if="showDensityControl" class="flex items-center justify-end px-3 py-2 sm:px-4">
+      <PostListDensityControl
         v-model="listDensity"
-        :options="densityOptions"
-        :label="t('board.list.densityLabel')"
-        variant="pill"
       />
     </div>
 
@@ -304,7 +295,7 @@ const columns = computed(() => createPostListColumns({
         :show-preview-indicator="props.showPreviewIndicator"
         :show-secret-indicator="props.showSecretIndicator"
         :deleted-user-label="t('user.deletedUser')"
-        :density="listDensity"
+        :density="effectiveDensity"
         @navigate="onNavigationClick"
       />
 
@@ -348,7 +339,7 @@ const columns = computed(() => createPostListColumns({
       :show-comment-count="props.showCommentCount"
       :show-preview-indicator="props.showPreviewIndicator"
       :show-secret-indicator="props.showSecretIndicator"
-      :density="listDensity"
+      :density="effectiveDensity"
       :max-author-name-length="POST_LIST_MAX_AUTHOR_NAME_LENGTH"
       :get-row-class="getRowClass"
       :should-intercept-inquiry="shouldInterceptInquiry"

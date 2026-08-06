@@ -1,25 +1,31 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
+import PostListDensityControl from '@/components/board/PostListDensityControl.vue'
+import type { PostListDensity } from '@/components/board/postListDensity'
 import type { Category } from '@/types/board'
 
-defineProps<{
+withDefaults(defineProps<{
   categories: Category[]
   isAllPostsActive: boolean
   conceptOnly: boolean
   selectedCategoryId: number | null
-}>()
+  density?: PostListDensity
+}>(), {
+  density: 'default',
+})
 
 const emit = defineEmits<{
   (event: 'activateAll'): void
   (event: 'toggleConcept'): void
   (event: 'toggleCategory', categoryId: number): void
+  (event: 'update:density', density: PostListDensity): void
 }>()
 
 const { t } = useI18n()
 </script>
 
 <template>
-  <div class="nv-board-toolbar-sticky px-4 py-3 sm:px-5">
+  <div class="nv-board-toolbar-sticky flex items-center gap-2 px-4 py-3 sm:gap-3 sm:px-5">
     <div class="nv-board-filter-rail" role="group" :aria-label="t('board.detail.filterLabel')">
       <div class="nv-board-filter-track">
         <button
@@ -53,6 +59,12 @@ const { t } = useI18n()
         </button>
       </div>
     </div>
+
+    <PostListDensityControl
+      class="nv-board-density-control"
+      :model-value="density"
+      @update:model-value="emit('update:density', $event)"
+    />
   </div>
 </template>
 
@@ -94,12 +106,18 @@ const { t } = useI18n()
 }
 
 .nv-board-filter-rail {
+  flex: 1 1 auto;
   margin-inline: -0.15rem;
+  min-width: 0;
   overflow-x: auto;
   overflow-y: hidden;
   padding: 0 0.15rem;
   scrollbar-width: none;
   -ms-overflow-style: none;
+}
+
+.nv-board-density-control {
+  flex: 0 0 auto;
 }
 
 .nv-board-filter-rail::-webkit-scrollbar {

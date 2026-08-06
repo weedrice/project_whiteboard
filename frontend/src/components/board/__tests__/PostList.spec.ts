@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from 'vitest'
 import { mount, RouterLinkStub } from '@vue/test-utils'
 import BaseTable from '@/components/common/ui/BaseTable.vue'
 import PostList from '../PostList.vue'
+import PostListDesktopTable from '../PostListDesktopTable.vue'
+import PostListMobileItem from '../PostListMobileItem.vue'
 import type { PostSummary } from '@/types'
 import type { LocationQueryRaw, RouteLocationRaw } from 'vue-router'
 
@@ -580,6 +582,30 @@ describe('PostList', () => {
     expect(wrapper.find('.nv-post-comment-count').exists()).toBe(false)
     expect(wrapper.find('.nv-post-mobile-comments').exists()).toBe(false)
     expect(wrapper.html()).not.toContain('board.writePost.secret')
+  })
+
+  it('uses externally controlled density without rendering its own control', () => {
+    const wrapper = mount(PostList, {
+      props: {
+        posts: [createPost()],
+        density: 'compact',
+        showDensityControl: false,
+      },
+      global: {
+        mocks: {
+          $t: (key: string) => key
+        },
+        stubs: {
+          RouterLink: RouterLinkStub,
+          BaseTable: true,
+          UserMenu: true
+        }
+      }
+    })
+
+    expect(wrapper.find('[aria-label="board.list.densityLabel"]').exists()).toBe(false)
+    expect(wrapper.getComponent(PostListMobileItem).props('density')).toBe('compact')
+    expect(wrapper.getComponent(PostListDesktopTable).props('density')).toBe('compact')
   })
 
   it('emits load-more from the mobile infinite action when enabled', async () => {

@@ -171,6 +171,30 @@ describe('extracted board components', () => {
     expect(wrapper.emitted('toggleCategory')?.[0]).toEqual([2])
   })
 
+  it('keeps density controls beside the horizontally scrollable category rail', async () => {
+    const wrapper = mount(BoardPostFilters, {
+      props: {
+        categories: [category({ categoryId: 2, name: 'QnA' })],
+        isAllPostsActive: true,
+        conceptOnly: false,
+        selectedCategoryId: null,
+        density: 'default',
+      },
+    })
+
+    const toolbar = wrapper.get('.nv-board-toolbar-sticky')
+    const rail = toolbar.get('.nv-board-filter-rail')
+    const densityControl = toolbar.get('.nv-board-density-control')
+
+    expect(rail.element.parentElement).toBe(toolbar.element)
+    expect(densityControl.element.parentElement).toBe(toolbar.element)
+
+    const compactButton = densityControl.findAll('button').find((button) => button.text() === 'board.list.densityCompact')
+    await compactButton?.trigger('click')
+
+    expect(wrapper.emitted('update:density')?.[0]).toEqual(['compact'])
+  })
+
   it('emits search field updates and search commands', async () => {
     const wrapper = mount(BoardPostSearch, {
       props: {

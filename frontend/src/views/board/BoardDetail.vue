@@ -9,6 +9,7 @@ import BoardNoticeList from '@/components/board/BoardNoticeList.vue'
 import BoardPostFilters from '@/components/board/BoardPostFilters.vue'
 import BoardPostSearch from '@/components/board/BoardPostSearch.vue'
 import PostList from '@/components/board/PostList.vue'
+import { usePostListDensity } from '@/components/board/postListDensity'
 import Pagination from '@/components/common/ui/Pagination.vue'
 import PullToRefresh from '@/components/common/ui/PullToRefresh.vue'
 import { useBoardDetailNavigation } from '@/features/board/detail/useBoardDetailNavigation'
@@ -24,6 +25,7 @@ const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const listDensity = usePostListDensity()
 
 const {
   page,
@@ -173,6 +175,7 @@ useHead({
         />
 
         <BoardPostFilters
+          v-model:density="listDensity"
           :categories="categories"
           :is-all-posts-active="isAllPostsActive"
           :concept-only="conceptOnly"
@@ -197,6 +200,8 @@ useHead({
           :enable-infinite-load="mobilePostListEnabled"
           :has-more-posts="hasMorePosts"
           :is-loading-more="isFetchingNextPostPage"
+          :density="listDensity"
+          :show-density-control="false"
           @update:sort="handleSortChange"
           @load-more="loadMorePosts"
         />
