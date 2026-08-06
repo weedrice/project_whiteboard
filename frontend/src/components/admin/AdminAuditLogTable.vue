@@ -35,7 +35,7 @@ const formattedDate = (dateString: string) => formatDateTimeOrDash(dateString, l
 
 <template>
   <div v-if="audits.length > 0" class="overflow-x-auto" role="region" :aria-label="caption" tabindex="0">
-    <table class="min-w-[48rem] divide-y divide-[var(--nv-line)] text-sm">
+    <table class="w-full min-w-[48rem] divide-y divide-[var(--nv-line)] text-sm">
       <caption class="sr-only">{{ caption }}</caption>
       <thead class="nv-surface-muted nv-text-subtle">
         <tr>

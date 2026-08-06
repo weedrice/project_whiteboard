@@ -17,7 +17,7 @@
     />
 
     <div v-else class="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-12">
-      <section class="xl:col-span-4">
+      <section class="xl:col-span-3">
         <AdminBoardListPanel
           :boards="boards"
           :loading="loading"
@@ -30,7 +30,7 @@
         />
       </section>
 
-      <section class="xl:col-span-8">
+      <section class="xl:col-span-9">
         <AdminBoardEditPanel
           :selected-board="selectedBoard"
           :form="form"
@@ -41,7 +41,6 @@
           :is-assigning-manager="isAssigningManager"
           :current-manager-label="currentManagerLabel"
           :set-file-input-ref="setFileInputRef"
-          @toggle-status="toggleBoardStatus"
           @save="handleSaveChanges"
           @update-form="updateBoardFormField"
           @icon-upload="handleFileUpload"
@@ -134,7 +133,6 @@ const {
   isSubmitting,
   isSavingSortOrder,
   handleDragEnd,
-  toggleBoardStatus,
   selectBoard,
   handleSaveChanges
 } = useAdminBoardEditor({

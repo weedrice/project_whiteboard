@@ -34,7 +34,9 @@ public class AdminModerationAuditController {
             @RequestParam(required = false) String actorType,
             @RequestParam(required = false) Long boardId,
             @RequestParam(required = false) String boardUrl,
+            @RequestParam(required = false) String boardName,
             @RequestParam(required = false) Long actorUserId,
+            @RequestParam(required = false) String actorName,
             @RequestParam(required = false) LocalDate startDate,
             @RequestParam(required = false) LocalDate endDate,
             Sort sort) {
@@ -48,6 +50,8 @@ public class AdminModerationAuditController {
                 boardId,
                 boardUrl,
                 actorUserId,
+                boardName,
+                actorName,
                 startDate,
                 endDate,
                 pageable));

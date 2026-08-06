@@ -82,4 +82,26 @@ describe('AdminBoardListPanel', () => {
     expect(wrapper.emitted('update:boards')).toBeUndefined()
     expect(wrapper.emitted('drag-end')).toBeUndefined()
   })
+
+  it('distinguishes an unlisted public board from inactive boards', () => {
+    const wrapper = mount(AdminBoardListPanel, {
+      props: {
+        boards: [{ ...makeBoard(1, 'Hidden'), isListed: false }],
+        loading: false,
+        selectedBoardId: 1,
+      },
+      global: {
+        stubs: {
+          AdminPanel: { template: '<div><slot /></div>' },
+          AdminContentState: { template: '<div><slot /></div>' },
+          ChevronDown: true,
+          ChevronUp: true,
+          GripVertical: true,
+        },
+      },
+    })
+
+    expect(wrapper.text()).toContain('admin.boards.unlisted')
+    expect(wrapper.text()).not.toContain('common.inactive')
+  })
 })

@@ -10,7 +10,9 @@ public record ModerationAuditLogSearchCondition(
         String actorType,
         Long boardId,
         String boardUrl,
+        String boardName,
         Long actorUserId,
+        String actorName,
         LocalDateTime createdFrom,
         LocalDateTime createdTo) {
 }

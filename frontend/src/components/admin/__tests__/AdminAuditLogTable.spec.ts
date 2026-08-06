@@ -53,6 +53,7 @@ describe('AdminAuditLogTable', () => {
       'aria-label': 'Moderation audit logs',
       tabindex: '0',
     })
+    expect(wrapper.get('table').classes()).toContain('w-full')
     expect(wrapper.text()).not.toContain('admin.dashboard.auditBoardUrl')
   })
 

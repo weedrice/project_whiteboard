@@ -29,11 +29,9 @@
                   {{ t('common.sortOrder') }}: {{ board.sortOrder }}
                 </span>
               </button>
-              <BooleanBadge
-                :value="board.isActive"
-                :true-label="t('common.active')"
-                :false-label="t('common.inactive')"
-                false-variant="danger"
+              <AdminStatusBadge
+                :label="boardStatusLabel(board)"
+                :variant="boardStatusVariant(board)"
               />
               <div class="flex shrink-0 items-center gap-1">
                 <button
@@ -72,7 +70,7 @@ import { useI18n } from 'vue-i18n'
 import type { AdminBoard } from '@/types'
 import AdminPanel from '@/components/admin/AdminPanel.vue'
 import AdminContentState from '@/components/admin/AdminContentState.vue'
-import BooleanBadge from '@/components/admin/BooleanBadge.vue'
+import AdminStatusBadge from '@/components/admin/AdminStatusBadge.vue'
 
 const props = defineProps<{
   boards: AdminBoard[]
@@ -90,6 +88,16 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 const reorderAnnouncement = ref('')
+
+const boardStatusLabel = (board: AdminBoard) => {
+  if (!board.isActive) return t('common.inactive')
+  return board.isPublic && board.isListed === false ? t('admin.boards.unlisted') : t('common.active')
+}
+
+const boardStatusVariant = (board: AdminBoard): 'success' | 'warning' | 'danger' => {
+  if (!board.isActive) return 'danger'
+  return board.isPublic && board.isListed === false ? 'warning' : 'success'
+}
 
 const handleBoardsUpdate = (boards: AdminBoard[]) => {
   if (props.reorderDisabled) return

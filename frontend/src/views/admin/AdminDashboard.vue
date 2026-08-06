@@ -18,8 +18,8 @@ const { useDashboardStats, useDeepDashboardStats } = admin
 const selectedDays = ref<30 | 90>(30)
 const auditAction = ref('')
 const auditActorType = ref('')
-const auditBoardUrl = ref('')
-const auditActorUserId = ref('')
+const auditBoardName = ref('')
+const auditActorName = ref('')
 const auditStartDate = ref('')
 const auditEndDate = ref('')
 const auditActionOptions = computed(() => [
@@ -51,8 +51,8 @@ const auditParams = computed<ModerationAuditSearchParams>(() => ({
   sort: 'createdAt,desc',
   action: auditAction.value || undefined,
   actorType: auditActorType.value || undefined,
-  boardUrl: auditBoardUrl.value.trim() || undefined,
-  actorUserId: auditActorUserId.value ? Number(auditActorUserId.value) : undefined,
+  boardName: auditBoardName.value.trim() || undefined,
+  actorName: auditActorName.value.trim() || undefined,
   startDate: auditStartDate.value || undefined,
   endDate: auditEndDate.value || undefined,
 }))
@@ -237,17 +237,16 @@ const auditLogs = computed(() => auditData.value?.content ?? [])
             <BaseSelect v-model="auditAction" :label="t('admin.dashboard.auditAction')" :options="auditActionOptions" hide-label />
             <BaseSelect v-model="auditActorType" :label="t('admin.dashboard.auditActorType')" :options="auditActorOptions" hide-label />
             <BaseInput
-              v-model="auditBoardUrl"
-              :label="t('admin.dashboard.auditBoardUrl')"
+              v-model="auditBoardName"
+              :label="t('admin.dashboard.auditBoardName')"
               hide-label
-              :placeholder="t('admin.dashboard.auditBoardUrl')"
+              :placeholder="t('admin.dashboard.auditBoardName')"
             />
             <BaseInput
-              v-model="auditActorUserId"
-              :label="t('admin.dashboard.auditActorUserId')"
+              v-model="auditActorName"
+              :label="t('admin.dashboard.auditActorName')"
               hide-label
-              inputmode="numeric"
-              :placeholder="t('admin.dashboard.auditActorUserId')"
+              :placeholder="t('admin.dashboard.auditActorName')"
             />
             <BaseInput v-model="auditStartDate" type="date" :label="t('admin.dashboard.auditStartDate')" hide-label />
             <BaseInput v-model="auditEndDate" type="date" :label="t('admin.dashboard.auditEndDate')" hide-label />

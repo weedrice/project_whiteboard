@@ -72,7 +72,9 @@ export interface ModerationAuditSearchParams {
     actorType?: string
     boardId?: number
     boardUrl?: string
+    boardName?: string
     actorUserId?: number
+    actorName?: string
     startDate?: string
     endDate?: string
     sort?: string

@@ -517,6 +517,11 @@ OAuth 가입을 취소하고 일반 가입으로 돌아갈 수 있다.
 | `POST` | `/api/v1/security/csp-report` | 브라우저 CSP 위반 report 수집 |
 | `POST` | `/api/v1/logs/client` | 브라우저 전역 오류 수집, JSON body 최대 32 KiB |
 
+`GET /api/v1/admin/moderation-audits`는 기존 `boardUrl`, `actorUserId` 정확 일치 필터를 호환성 목적으로
+유지하며, 관리자 대시보드의 이름 기반 조회를 위해 `boardName`, `actorName` 선택 파라미터를 추가로
+지원한다. 이름 필터는 각각 스페이스 이름과 수행 사용자 표시 이름을 대소문자 구분 없이 부분 일치로
+검색한다. 두 이름 조건을 함께 전달하면 모두 만족하는 감사 로그만 반환한다.
+
 `GET /api/v1/configs/public`은 명시적으로 허용된 `POINT_BOARD_CREATE_COST`와
 `EMOTICON_IMAGE_MAX_COUNT`만 반환한다. 이모티콘 이미지 제한은 `1~100` 정수이며 기본값은 `20`이다.
 설정이 누락되거나 저장값이 비정상이면 서버와 클라이언트 모두 `20`을 사용한다. 다른 `POINT_` 및
