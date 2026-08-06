@@ -60,6 +60,7 @@ export type MockApiState = {
   draftSaveCount: number
   draftGetCount: number
   draftGetDelayMs?: number
+  draftSaveDelayMs?: number
   dropNextDraftSaveResponse?: boolean
 }
 
@@ -152,6 +153,9 @@ export async function installMockApi(
         isSecret: payload.isSecret ?? false,
         updatedAt: `2026-07-15T00:00:0${state.draftSaveCount}`,
         modifiedAt: `2026-07-15T00:00:0${state.draftSaveCount}`,
+      }
+      if (state.draftSaveDelayMs) {
+        await new Promise((resolve) => setTimeout(resolve, state.draftSaveDelayMs))
       }
       if (state.dropNextDraftSaveResponse) {
         state.dropNextDraftSaveResponse = false

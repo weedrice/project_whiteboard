@@ -4152,6 +4152,8 @@ export interface components {
             title?: string;
             /** Format: date-time */
             updatedAt?: string;
+            /** Format: int64 */
+            version?: number;
         };
         EmailVerificationConfirmRequest: {
             /** Format: email */
