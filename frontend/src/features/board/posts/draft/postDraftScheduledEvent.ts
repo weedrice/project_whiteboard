@@ -8,7 +8,7 @@ import {
 const DRAFT_SCHEDULED_CHANNEL = 'noviis-draft-scheduled'
 const DRAFT_SCHEDULED_EVENT_KEY = 'noviis:draft-scheduled-event'
 
-export interface DraftScheduledEvent extends DraftCrossTabEventBase {
+interface DraftScheduledEvent extends DraftCrossTabEventBase {
   type: 'draft-scheduled'
   ownerId: string
   draftId: number | null

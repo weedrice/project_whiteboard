@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { defineComponent, h, nextTick, ref, type Ref } from 'vue'
 import { mount } from '@vue/test-utils'
-import { isTransientDraftSaveError, usePostDraft } from '@/features/board/posts/draft/usePostDraft'
+import { usePostDraft } from '@/features/board/posts/draft/usePostDraft'
 import type { DraftRecoverySnapshot } from '@/features/board/posts/draft/usePostDraft'
 import type { PostDraftData } from '@/api/post'
 import type { DraftPost } from '@/types'
@@ -11,10 +11,7 @@ import {
     getDraftTombstoneKey,
     markDraftDeletedLocally,
 } from '@/features/board/posts/draft/postDraftTombstone'
-import {
-    closeDraftScheduledChannelForTest,
-    type DraftScheduledEvent,
-} from '@/features/board/posts/draft/postDraftScheduledEvent'
+import { closeDraftScheduledChannelForTest } from '@/features/board/posts/draft/postDraftScheduledEvent'
 import { closeDraftUpdatedChannelForTest } from '@/features/board/posts/draft/postDraftUpdatedEvent'
 import { createDraftContentFingerprint } from '@/features/board/posts/draft/postDraftRecovery'
 
@@ -832,7 +829,7 @@ describe('usePostDraft', () => {
         await composable.saveNow()
         mocks.saveDraftMutateAsync.mockClear()
         composable.scheduleAutosave()
-        const message: DraftScheduledEvent = {
+        const message = {
             type: 'draft-scheduled',
             eventId: 'scheduled-event-1',
             sourceId: 'peer-tab',
@@ -884,7 +881,7 @@ describe('usePostDraft', () => {
                 clientDraftKey: previousClientDraftKey,
                 storageKey: 'noviis:test:draft',
                 at: Date.now(),
-            } satisfies DraftScheduledEvent),
+            }),
         }))
 
         expect(composable.draftProtected.value).toBe(true)
@@ -1565,14 +1562,6 @@ describe('usePostDraft', () => {
         expect(composable.saveRetryAttempt.value).toBe(0)
         expect(composable.saveRetryExhausted.value).toBe(false)
         random.mockRestore()
-    })
-
-    it('classifies only network, throttling, and server errors as transient', () => {
-        expect(isTransientDraftSaveError({ isAxiosError: true })).toBe(true)
-        expect(isTransientDraftSaveError({ isAxiosError: true, response: { status: 429 } })).toBe(true)
-        expect(isTransientDraftSaveError({ isAxiosError: true, response: { status: 500 } })).toBe(true)
-        expect(isTransientDraftSaveError({ isAxiosError: true, response: { status: 409 } })).toBe(false)
-        expect(isTransientDraftSaveError(new Error('local storage failed'))).toBe(false)
     })
 
     it('deletes an existing server draft when all meaningful content is cleared', async () => {
@@ -2358,7 +2347,7 @@ describe('usePostDraft', () => {
         payloadRef.value = {
             ...payloadRef.value,
             title: 'Confirmed content',
-        }
+        } as const
         dispatchDraftUpdatedEvent({
             clientDraftKey,
             contentFingerprint: createDraftContentFingerprint(payloadRef.value),

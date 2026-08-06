@@ -4,7 +4,6 @@ import {
   matchesDraftScheduledEvent,
   publishDraftScheduledEvent,
   registerDraftScheduledListener,
-  type DraftScheduledEvent,
 } from '@/features/board/posts/draft/postDraftScheduledEvent'
 
 describe('draft scheduled cross-tab channel', () => {
@@ -61,7 +60,7 @@ describe('draft scheduled cross-tab channel', () => {
     vi.stubGlobal('BroadcastChannel', undefined)
     const listener = vi.fn()
     registerDraftScheduledListener(listener)
-    const message: DraftScheduledEvent = {
+    const message = {
       type: 'draft-scheduled',
       eventId: 'scheduled-event-1',
       sourceId: 'peer-tab',
@@ -70,7 +69,7 @@ describe('draft scheduled cross-tab channel', () => {
       clientDraftKey: 'client-draft-key-1234',
       storageKey: 'noviis:draft:1:edit:91',
       at: Date.now(),
-    }
+    } as const
 
     for (let index = 0; index < 2; index++) {
       window.dispatchEvent(new StorageEvent('storage', {
@@ -91,7 +90,7 @@ describe('draft scheduled cross-tab channel', () => {
   })
 
   it('does not match a reused composer with a different client draft key', () => {
-    const message: DraftScheduledEvent = {
+    const message = {
       type: 'draft-scheduled',
       eventId: 'scheduled-event-1',
       sourceId: 'peer-tab',
@@ -100,7 +99,7 @@ describe('draft scheduled cross-tab channel', () => {
       clientDraftKey: 'original-draft-key',
       storageKey: 'noviis:draft:1:create:free',
       at: Date.now(),
-    }
+    } as const
 
     expect(matchesDraftScheduledEvent(
       message,

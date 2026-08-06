@@ -78,7 +78,7 @@ class DraftReferenceRecoveryLimitError extends Error {
     }
 }
 
-export const isTransientDraftSaveError = (error: unknown) => {
+const isTransientDraftSaveError = (error: unknown) => {
     if (!isAxiosError(error)) return false
     const status = error.response?.status
     return status == null || status === 429 || status >= 500
