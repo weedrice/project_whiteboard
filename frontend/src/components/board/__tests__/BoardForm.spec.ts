@@ -169,7 +169,7 @@ describe('BoardForm', () => {
       },
     })
 
-    await wrapper.find('#is-public').setValue(false)
+    await wrapper.find('#board-visibility').setValue('PRIVATE')
     await nextTick()
 
     const agentCheckbox = wrapper.find<HTMLInputElement>('#agent-use-yn')
@@ -180,6 +180,40 @@ describe('BoardForm', () => {
 
     const submit = wrapper.emitted('submit')?.[0]?.[0] as { agentUseYn: boolean }
     expect(submit.agentUseYn).toBe(false)
+  })
+
+  it('submits unlisted visibility as public but not listed', async () => {
+    const wrapper = mount(BoardForm, {
+      props: {
+        initialData: {
+          boardName: 'Board',
+          boardUrl: 'board',
+          description: '',
+          iconUrl: '',
+          sortOrder: 0,
+          allowNsfw: false,
+          isPublic: true,
+          isListed: true,
+          agentUseYn: false,
+          guidePrompt: '',
+        },
+      },
+      global: {
+        mocks: { $t: (key: string) => key },
+        stubs: {
+          BaseInput: BaseInputStub,
+          BaseTextarea: BaseTextareaStub,
+          BaseCheckbox: BaseCheckboxStub,
+          BaseButton: BaseButtonStub,
+        },
+      },
+    })
+
+    await wrapper.find('#board-visibility').setValue('UNLISTED')
+    await wrapper.find('form').trigger('submit.prevent')
+
+    const submit = wrapper.emitted('submit')?.[0]?.[0] as { isPublic: boolean; isListed: boolean }
+    expect(submit).toMatchObject({ isPublic: true, isListed: false })
   })
 
   it('locks editable board fields while a save request is pending', () => {

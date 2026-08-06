@@ -4,6 +4,7 @@ import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseTextarea from '@/components/common/ui/BaseTextarea.vue'
 import BaseCheckbox from '@/components/common/ui/BaseCheckbox.vue'
+import BaseSelect from '@/components/common/ui/BaseSelect.vue'
 import { useBoardCreationPolicy } from '@/features/board/form/useBoardCreationPolicy'
 import { useBoardFormState, type BoardFormData } from '@/features/board/form/useBoardFormState'
 import {
@@ -14,8 +15,10 @@ import { IMAGE_UPLOAD_ACCEPT } from '@/utils/imageUploadPolicy'
 import { useAuthStore } from '@/stores/auth'
 import { BOARD_WRITE_LIMITS } from '@/utils/board'
 import { usePwaReloadBlocker } from '@/pwaReloadGuard'
+import { useI18n } from 'vue-i18n'
 
 type BoardData = BoardFormData
+type BoardVisibility = 'PUBLIC' | 'UNLISTED' | 'PRIVATE'
 
 const props = withDefaults(defineProps<{
   initialData?: BoardData
@@ -32,6 +35,7 @@ const props = withDefaults(defineProps<{
     sortOrder: 0,
     allowNsfw: false,
     isPublic: true,
+    isListed: true,
     agentUseYn: false,
     guidePrompt: ''
   }),
@@ -48,6 +52,7 @@ const emit = defineEmits<{
 function formSnapshot(data: BoardData) {
   return JSON.stringify({
     ...data,
+    isListed: data.isListed ?? data.isPublic,
     agentUseYn: data.isPublic ? data.agentUseYn : false,
   })
 }
@@ -56,6 +61,7 @@ const savedSnapshot = ref(formSnapshot(props.initialData))
 const savedSelectedFile = ref<File | null>(null)
 
 const isEditMode = computed(() => props.isEdit)
+const { t } = useI18n()
 const authStore = useAuthStore()
 const {
   userPoints,
@@ -93,6 +99,26 @@ const {
 })
 
 const isSubmitting = computed(() => props.isSubmitting || localIsSubmitting.value)
+const visibility = computed<BoardVisibility>({
+  get: () => {
+    if (!form.value.isPublic) return 'PRIVATE'
+    return form.value.isListed ? 'PUBLIC' : 'UNLISTED'
+  },
+  set: (value: BoardVisibility) => {
+    form.value.isPublic = value !== 'PRIVATE'
+    form.value.isListed = value === 'PUBLIC'
+  },
+})
+const visibilityOptions = computed(() => [
+  { value: 'PUBLIC', label: t('board.form.visibilityPublic') },
+  { value: 'UNLISTED', label: t('board.form.visibilityUnlisted') },
+  { value: 'PRIVATE', label: t('board.form.visibilityPrivate') },
+])
+const visibilityDescriptionKey = computed(() => ({
+  PUBLIC: 'board.form.visibilityPublicDesc',
+  UNLISTED: 'board.form.visibilityUnlistedDesc',
+  PRIVATE: 'board.form.visibilityPrivateDesc',
+} satisfies Record<BoardVisibility, string>)[visibility.value])
 let allowSuccessfulRouteLeave = false
 const hasUnsavedChangesState = computed(() => (
   selectedFile.value !== savedSelectedFile.value || formSnapshot(form.value) !== savedSnapshot.value
@@ -203,12 +229,13 @@ defineExpose({
       </div>
 
       <div class="sm:col-span-6">
-        <BaseCheckbox
-          id="is-public"
-          v-model="form.isPublic"
-          :label="$t('board.form.isPublic')"
-          :description="$t('board.form.isPublicDesc')"
+        <BaseSelect
+          id="board-visibility"
+          v-model="visibility"
+          :label="$t('board.form.visibility')"
+          :options="visibilityOptions"
         />
+        <p class="mt-1 text-sm nv-text-muted">{{ $t(visibilityDescriptionKey) }}</p>
       </div>
 
       <div class="sm:col-span-6">

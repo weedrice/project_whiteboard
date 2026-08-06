@@ -34,6 +34,7 @@ export function normalizeBoardWritePayload<T extends BoardWritePayload>(
 
   const isPublic = options.isPublic ?? (typeof next.isPublic === 'boolean' ? next.isPublic : undefined)
   if (isPublic === false) {
+    next.isListed = false
     next.agentUseYn = false
   }
 

@@ -25,6 +25,7 @@ interface BoardData {
   sortOrder: number
   allowNsfw: boolean
   isPublic: boolean
+  isListed?: boolean
   agentUseYn: boolean
   guidePrompt: string
 }
@@ -71,6 +72,7 @@ async function handleCreate(
         description: formData.description,
         iconUrl: formData.iconUrl,
         isPublic: formData.isPublic,
+        isListed: formData.isListed,
         agentUseYn: formData.agentUseYn,
         guidePrompt: formData.guidePrompt,
       }

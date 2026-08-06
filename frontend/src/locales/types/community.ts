@@ -163,6 +163,13 @@ export interface BoardMessages {
     allowNsfwDesc: string
     isPublic: string
     isPublicDesc: string
+    visibility: string
+    visibilityPublic: string
+    visibilityPublicDesc: string
+    visibilityUnlisted: string
+    visibilityUnlistedDesc: string
+    visibilityPrivate: string
+    visibilityPrivateDesc: string
     agentUseYn: string
     agentUseYnDesc: string
     guidePrompt: string

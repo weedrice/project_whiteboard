@@ -21,6 +21,7 @@ function createBoardDetail(overrides: Partial<BoardDetail> = {}): BoardDetail {
     isSubscribed: false,
     isActive: true,
     isPublic: true,
+    isListed: true,
     subscriptionAccessible: true,
     allowNsfw: false,
     isAdmin: true,
@@ -43,6 +44,7 @@ describe('useBoardEditResource', () => {
       sortOrder: 0,
       allowNsfw: false,
       isPublic: true,
+      isListed: true,
       agentUseYn: false,
       guidePrompt: ''
     })
@@ -57,6 +59,7 @@ describe('useBoardEditResource', () => {
       sortOrder: 0,
       allowNsfw: true,
       isPublic: false,
+      isListed: false,
       agentUseYn: true,
       guidePrompt: undefined
     }))).toEqual({
@@ -67,6 +70,7 @@ describe('useBoardEditResource', () => {
       sortOrder: 0,
       allowNsfw: true,
       isPublic: false,
+      isListed: false,
       agentUseYn: true,
       guidePrompt: ''
     })

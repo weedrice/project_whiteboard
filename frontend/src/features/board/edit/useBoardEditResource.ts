@@ -8,6 +8,7 @@ export interface BoardEditFormData {
   sortOrder: number
   allowNsfw: boolean
   isPublic: boolean
+  isListed?: boolean
   agentUseYn: boolean
   guidePrompt: string
 }
@@ -21,6 +22,7 @@ export function createEmptyBoardEditForm(): BoardEditFormData {
     sortOrder: 0,
     allowNsfw: false,
     isPublic: true,
+    isListed: true,
     agentUseYn: false,
     guidePrompt: ''
   }
@@ -35,6 +37,7 @@ export function toBoardEditForm(board: BoardDetail): BoardEditFormData {
     sortOrder: board.sortOrder ?? 0,
     allowNsfw: board.allowNsfw || false,
     isPublic: board.isPublic ?? true,
+    isListed: board.isListed ?? (board.isPublic ?? true),
     agentUseYn: board.agentUseYn ?? false,
     guidePrompt: board.guidePrompt || ''
   }

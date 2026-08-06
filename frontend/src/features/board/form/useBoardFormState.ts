@@ -10,6 +10,7 @@ export interface BoardFormData {
   sortOrder: number
   allowNsfw: boolean
   isPublic: boolean
+  isListed?: boolean
   agentUseYn: boolean
   guidePrompt: string
 }
@@ -20,7 +21,11 @@ interface UseBoardFormStateOptions {
 }
 
 export function useBoardFormState(options: UseBoardFormStateOptions) {
-  const form = ref<BoardFormData>({ ...options.initialData() }) as Ref<BoardFormData>
+  const initialData = options.initialData()
+  const form = ref<BoardFormData>({
+    ...initialData,
+    isListed: initialData.isListed ?? initialData.isPublic,
+  }) as Ref<BoardFormData>
   const selectedFile = ref<File | null>(null)
   const {
     previewUrl: previewImage,
@@ -29,9 +34,13 @@ export function useBoardFormState(options: UseBoardFormStateOptions) {
   } = useObjectUrlPreview()
 
   watch(options.initialData, (newData) => {
-    form.value = { ...newData }
+    form.value = {
+      ...newData,
+      isListed: newData.isListed ?? newData.isPublic,
+    }
     selectedFile.value = null
     if (!form.value.isPublic) {
+      form.value.isListed = false
       form.value.agentUseYn = false
     }
     setPreviewUrl(newData.iconUrl || null)
@@ -39,6 +48,7 @@ export function useBoardFormState(options: UseBoardFormStateOptions) {
 
   watch(() => form.value.isPublic, (isPublic) => {
     if (!isPublic) {
+      form.value.isListed = false
       form.value.agentUseYn = false
     }
   })

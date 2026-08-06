@@ -27,6 +27,7 @@ describe('inputNormalization', () => {
       description: '  description  ',
       iconUrl: '  icon  ',
       isPublic: false,
+      isListed: true,
       agentUseYn: true,
       guidePrompt: '  guide  ',
     })).toEqual({
@@ -35,6 +36,7 @@ describe('inputNormalization', () => {
       description: 'description',
       iconUrl: 'icon',
       isPublic: false,
+      isListed: false,
       agentUseYn: false,
       guidePrompt: 'guide',
     })

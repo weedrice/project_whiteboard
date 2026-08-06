@@ -3026,6 +3026,7 @@ export interface components {
             guidePrompt?: string;
             iconUrl?: string;
             isActive?: boolean;
+            isListed?: boolean;
             isPublic?: boolean;
             /** Format: int32 */
             sortOrder?: number;
@@ -3821,6 +3822,7 @@ export interface components {
             description?: string;
             guidePrompt?: string;
             iconUrl?: string;
+            isListed?: boolean;
             isPublic?: boolean;
         };
         BoardDetailResponse: {
@@ -3839,6 +3841,7 @@ export interface components {
             iconUrl?: string;
             isActive?: boolean;
             isAdmin?: boolean;
+            isListed?: boolean;
             isPublic?: boolean;
             isSubscribed?: boolean;
             latestPosts?: components["schemas"]["PostSummary"][];
@@ -3864,6 +3867,7 @@ export interface components {
             description?: string;
             iconUrl?: string;
             isActive?: boolean;
+            isListed?: boolean;
             isPublic?: boolean;
             isSubscribed?: boolean;
             /** Format: int64 */
@@ -3913,6 +3917,7 @@ export interface components {
             guidePrompt?: string;
             iconUrl?: string;
             isActive?: boolean;
+            isListed?: boolean;
             isPublic?: boolean;
             moderationReason?: string;
             /** Format: int32 */
@@ -5682,6 +5687,7 @@ export interface components {
             /** @enum {string} */
             inaccessibleReason?: "INACTIVE" | "PRIVATE" | "RESTRICTED";
             isActive?: boolean;
+            isListed?: boolean;
             isPublic?: boolean;
             isSubscribed?: boolean;
             /** Format: date-time */

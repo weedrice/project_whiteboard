@@ -15,6 +15,7 @@ export interface BoardListItem {
     isSubscribed: boolean
     isActive: boolean
     isPublic: boolean
+    isListed?: boolean
     subscriptionAccessible: boolean
 }
 
@@ -37,6 +38,7 @@ export interface SubscriptionBoardListItem {
     isSubscribed: boolean
     isActive: boolean
     isPublic: boolean
+    isListed?: boolean
     subscriptionAccessible: boolean
     accessState: SubscriptionAccessState
     inaccessibleReason?: SubscriptionInaccessibleReason | null
@@ -64,6 +66,7 @@ export interface AdminBoard {
     allowNsfw: boolean
     isActive: boolean
     isPublic: boolean
+    isListed?: boolean
     agentUseYn: boolean
     guidePrompt?: string
 }
@@ -90,6 +93,7 @@ export interface BoardCreateData {
     description?: string
     iconUrl?: string
     isPublic?: boolean
+    isListed?: boolean
     agentUseYn?: boolean
     guidePrompt?: string
 }
@@ -103,6 +107,7 @@ export interface BoardUpdateData {
     allowNsfw?: boolean
     isActive?: boolean
     isPublic?: boolean
+    isListed?: boolean
     agentUseYn?: boolean
     guidePrompt?: string
     moderationReason?: string
