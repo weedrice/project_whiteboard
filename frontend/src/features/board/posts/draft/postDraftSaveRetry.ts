@@ -2,7 +2,7 @@ import { ref } from 'vue'
 import { getRetryAfterMs } from '@/api/retryAfter'
 
 const SAVE_RETRY_BASE_DELAY_MS = 1_000
-export const SAVE_RETRY_MAX_DELAY_MS = 30_000
+const SAVE_RETRY_MAX_DELAY_MS = 30_000
 export const SAVE_RETRY_MAX_ATTEMPTS = 5
 
 interface DraftSaveRetryControllerOptions {
@@ -16,7 +16,7 @@ interface DraftSaveRetryControllerOptions {
   onExhausted?: (attempts: number) => void
 }
 
-export function getDraftSaveRetryDelay(
+function getDraftSaveRetryDelay(
   attempt: number,
   random: () => number = Math.random,
 ): number {

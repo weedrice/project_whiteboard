@@ -21,7 +21,7 @@ interface ResolveServerDraftOptions {
   onStaleLocalSnapshot: (snapshot: DraftRecoverySnapshot) => DraftRecoverySnapshot
 }
 
-export interface ResolveServerDraftResult {
+interface ResolveServerDraftResult {
   localSnapshot: DraftRecoverySnapshot | null
   serverDraft: DraftPost | null
   recoveryFailed: boolean

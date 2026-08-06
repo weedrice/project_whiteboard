@@ -1,6 +1,6 @@
 import { computed, ref } from 'vue'
 
-export type DraftBlockingStatus = 'active' | 'conflict' | 'protected' | 'deleted'
+type DraftBlockingStatus = 'active' | 'conflict' | 'protected' | 'deleted'
 
 export function createDraftBlockingStatusController(initial: DraftBlockingStatus = 'active') {
   const status = ref<DraftBlockingStatus>(initial)

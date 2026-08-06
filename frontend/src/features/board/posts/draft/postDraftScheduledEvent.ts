@@ -59,10 +59,6 @@ export function publishDraftScheduledEvent(
   })
 }
 
-export function parseDraftScheduledStorageEvent(event: StorageEvent): DraftScheduledEvent | null {
-  return draftScheduledChannel.parseStorageEvent(event)
-}
-
 export function matchesDraftScheduledEvent(
   message: DraftScheduledEvent,
   ownerId: string | number | null | undefined,

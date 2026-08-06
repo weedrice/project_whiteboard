@@ -20,7 +20,7 @@ export interface DraftRecoverySnapshot extends PostDraftData {
     unassociatedUploadFileIds?: number[]
 }
 
-export interface DraftRecoveryResolution {
+interface DraftRecoveryResolution {
     snapshot: DraftRecoverySnapshot | null
     source: 'local' | 'server' | 'idle'
     conflict: boolean
@@ -142,7 +142,7 @@ export const isDraftMissingError = (error: unknown): boolean => {
     return data?.error?.code === DRAFT_NOT_FOUND_ERROR_CODE || data?.code === DRAFT_NOT_FOUND_ERROR_CODE
 }
 
-export interface MatchingServerDraftResolution {
+interface MatchingServerDraftResolution {
     draftId: number | null
     multipleMatchesFound: boolean
 }
@@ -157,10 +157,6 @@ export const resolveMatchingServerDraft = async (
         ...(payload.clientDraftKey ? { clientDraftKey: payload.clientDraftKey } : {}),
     }, config))
 }
-
-export const findMatchingServerDraftId = async (payload: PostDraftData): Promise<number | null> => (
-    (await resolveMatchingServerDraft(payload)).draftId
-)
 
 export const loadDraftById = async (draftId: number, config?: AxiosRequestConfig) => (
     unwrapAxiosApiData(await postApi.getDraft(draftId, config))

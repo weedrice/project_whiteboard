@@ -16,7 +16,7 @@ import {
   containsUnsafePostTitleHtml,
 } from '@/utils/postForm'
 
-export const DRAFT_LOCAL_RETENTION_DAYS = 90
+const DRAFT_LOCAL_RETENTION_DAYS = 90
 export const DRAFT_SNAPSHOT_SCHEMA_VERSION = 1
 export const MAX_LOCAL_DRAFT_BACKUP_BYTES = 3 * 1024 * 1024
 const DRAFT_STORAGE_PREFIX = 'noviis:draft:'
@@ -111,7 +111,7 @@ function hasDraftPayloadContractViolation(value: Record<string, unknown>): boole
         && option.length > POST_POLL_OPTION_MAX_LENGTH))
 }
 
-export function parseDraftRecoverySnapshot(
+function parseDraftRecoverySnapshot(
   value: unknown,
   now = Date.now(),
 ): DraftRecoverySnapshot | null {
@@ -161,7 +161,7 @@ export function parseDraftRecoverySnapshot(
   } as DraftRecoverySnapshot
 }
 
-export function isExpiredDraftSnapshot(snapshot: DraftRecoverySnapshot, now = Date.now()): boolean {
+function isExpiredDraftSnapshot(snapshot: DraftRecoverySnapshot, now = Date.now()): boolean {
   const modifiedAt = getSnapshotModifiedAt(snapshot)
   return modifiedAt != null && modifiedAt < now - RETENTION_MS
 }

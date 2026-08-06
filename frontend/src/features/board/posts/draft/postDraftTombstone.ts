@@ -8,7 +8,7 @@ type DraftTombstone = {
   deletedAt: string
 }
 
-export type DraftDeletedEvent = {
+type DraftDeletedEvent = {
   type: 'draft-deleted'
   sourceId: string
   ownerId: string

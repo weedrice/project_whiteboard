@@ -46,7 +46,7 @@ import { createDraftRecoveryCoordinator } from '@/features/board/posts/draft/pos
 import { createDraftBlockingStatusController } from '@/features/board/posts/draft/postDraftStatus'
 
 export type { DraftRecoverySnapshot } from '@/features/board/posts/draft/postDraftRecovery'
-export type DraftSaveScope = 'server' | 'browser'
+type DraftSaveScope = 'server' | 'browser'
 
 interface UsePostDraftOptions {
     enabled: Ref<boolean>

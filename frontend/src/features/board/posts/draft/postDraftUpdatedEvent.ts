@@ -7,7 +7,7 @@ import {
 const DRAFT_UPDATED_CHANNEL = 'noviis-draft-updated'
 const DRAFT_UPDATED_EVENT_KEY = 'noviis:draft-updated-event'
 
-export interface DraftUpdatedEvent extends DraftCrossTabEventBase {
+interface DraftUpdatedEvent extends DraftCrossTabEventBase {
   type: 'draft-updated'
   ownerId: string
   draftId: number

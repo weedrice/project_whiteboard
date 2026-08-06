@@ -7,12 +7,12 @@ import {
   type DraftRecoverySnapshot,
 } from '@/features/board/posts/draft/postDraftRecovery'
 
-export type DraftCrossTabReconcileResult =
+type DraftCrossTabReconcileResult =
   | 'ignored'
   | 'server-acknowledged'
   | 'conflict'
 
-export interface DraftCrossTabChange {
+interface DraftCrossTabChange {
   sourceId?: string
   clientInstanceId?: string
   draftId?: number
