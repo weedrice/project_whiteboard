@@ -349,9 +349,6 @@ export interface BoardMessages {
     discardCreateConfirm: string
     leaveConfirm: string
     tags: string
-    suggestTags: string
-    suggestingTags: string
-    tagSuggestionFailed: string
     viewHtmlSource: string
     htmlSourceTitle: string
     htmlSourcePlaceholder: string

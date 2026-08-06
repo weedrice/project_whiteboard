@@ -1,13 +1,11 @@
 <script setup lang="ts">
-import { computed, onUnmounted, ref, watch } from 'vue'
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseCheckbox from '@/components/common/ui/BaseCheckbox.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
 import BaseSelect from '@/components/common/ui/BaseSelect.vue'
 import PostTags from '@/components/tag/PostTags.vue'
-import { tagApi } from '@/api/tag'
-import { unwrapAxiosApiData } from '@/api/response'
 import { POST_SERIES_TITLE_MAX_LENGTH } from '@/utils/postForm'
 
 export type PostFormCategoryOption = {
@@ -20,9 +18,6 @@ export type PostFormCategoryOption = {
 const props = withDefaults(defineProps<{
   layout: 'mobile' | 'desktop'
   categories: PostFormCategoryOption[]
-  title: string
-  content: string
-  boardUrl?: string
   seriesOptions: Array<{ seriesId: number, title: string }>
   categoryId: string | number
   seriesId: string | number
@@ -67,13 +62,6 @@ const seriesInputId = computed(() => isMobile.value ? 'series-mobile' : 'series'
 const newSeriesInputId = computed(() => isMobile.value ? 'new-series-mobile' : 'new-series')
 const tagsInputId = computed(() => isMobile.value ? 'post-tags-input-mobile' : 'post-tags-input-desktop')
 const checkboxSuffix = computed(() => isMobile.value ? '-m' : '')
-const isSuggestingTags = ref(false)
-const suggestedTags = ref<string[]>([])
-const tagSuggestionFailed = ref(false)
-const visibleSuggestedTags = computed(() => suggestedTags.value.filter((tag) => !hasTag(tag)))
-let inputRevision = 0
-let suggestionSequence = 0
-let suggestionController: AbortController | null = null
 
 type BooleanUpdateEvent = 'update:isNotice' | 'update:isNsfw' | 'update:isSpoiler' | 'update:isSecret'
 
@@ -96,71 +84,6 @@ const emitBooleanUpdate = (event: BooleanUpdateEvent, value: boolean | unknown[]
   }
 }
 
-const hasTag = (tag: string) => props.tags.some((existing) => existing.trim().toLowerCase() === tag.trim().toLowerCase())
-
-async function suggestTags() {
-  if (isSuggestingTags.value) return
-  const revision = inputRevision
-  const sequence = ++suggestionSequence
-  const controller = new AbortController()
-  const request = {
-    title: props.title,
-    contents: props.content,
-    boardUrl: props.boardUrl,
-    existingTags: [...props.tags],
-  }
-  suggestionController?.abort()
-  suggestionController = controller
-  isSuggestingTags.value = true
-  tagSuggestionFailed.value = false
-  try {
-    const response = unwrapAxiosApiData(await tagApi.suggestTags(request, { signal: controller.signal }))
-    if (
-      controller.signal.aborted
-      || sequence !== suggestionSequence
-      || revision !== inputRevision
-    ) return
-    suggestedTags.value = response.suggestions ?? []
-  } catch {
-    if (
-      controller.signal.aborted
-      || sequence !== suggestionSequence
-      || revision !== inputRevision
-    ) return
-    tagSuggestionFailed.value = true
-  } finally {
-    if (sequence === suggestionSequence) {
-      isSuggestingTags.value = false
-      if (suggestionController === controller) suggestionController = null
-    }
-  }
-}
-
-watch([
-  () => props.title,
-  () => props.content,
-  () => props.boardUrl,
-  () => props.tags,
-], () => {
-  inputRevision += 1
-  suggestionSequence += 1
-  suggestionController?.abort()
-  suggestionController = null
-  isSuggestingTags.value = false
-  tagSuggestionFailed.value = false
-  suggestedTags.value = []
-}, { deep: true, flush: 'sync' })
-
-onUnmounted(() => {
-  suggestionSequence += 1
-  suggestionController?.abort()
-  suggestionController = null
-})
-
-function addSuggestedTag(tag: string) {
-  if (hasTag(tag)) return
-  emit('update:tags', [...props.tags, tag])
-}
 </script>
 
 <template>
@@ -276,42 +199,14 @@ function addSuggestedTag(tag: string) {
     </div>
 
     <div v-if="!hideTags" class="nv-compose-side-section mb-4 hidden lg:block">
-      <div class="mb-2 flex items-center justify-between gap-2">
-        <label :for="tagsInputId" class="block text-xs font-medium uppercase tracking-[0.18em] text-[var(--nv-muted)]">
-          {{ t('common.tags') }}
-        </label>
-        <BaseButton
-          type="button"
-          size="sm"
-          variant="ghost"
-          :loading="isSuggestingTags"
-          @click="suggestTags"
-        >
-          {{ isSuggestingTags ? t('board.writePost.suggestingTags') : t('board.writePost.suggestTags') }}
-        </BaseButton>
-      </div>
+      <label :for="tagsInputId" class="mb-2 block text-xs font-medium uppercase tracking-[0.18em] text-[var(--nv-muted)]">
+        {{ t('common.tags') }}
+      </label>
       <PostTags
         :model-value="tags"
         :input-id="tagsInputId"
         @update:model-value="emit('update:tags', $event)"
       />
-      <div v-if="visibleSuggestedTags.length > 0" class="mt-2 flex flex-wrap gap-1.5">
-        <button
-          v-for="tag in visibleSuggestedTags"
-          :key="tag"
-          type="button"
-          class="rounded-full border border-[var(--nv-line)] px-2 py-1 text-xs font-medium nv-hover-surface"
-          @click="addSuggestedTag(tag)"
-        >
-          #{{ tag }}
-        </button>
-      </div>
-      <div v-else-if="tagSuggestionFailed" class="mt-2 text-sm nv-form-error" role="alert">
-        <p>{{ t('board.writePost.tagSuggestionFailed') }}</p>
-        <BaseButton type="button" size="sm" variant="secondary" class="mt-2" @click="suggestTags">
-          {{ t('common.error.retry') }}
-        </BaseButton>
-      </div>
     </div>
 
     <div class="nv-compose-side-section mb-4 hidden lg:block">

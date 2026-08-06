@@ -277,7 +277,6 @@ const { metadataPanelProps, metadataPanelHandlers } = usePostFormMetadataBinding
   hideSpoiler: () => props.hideSpoiler,
   hideSecret: () => props.hideSecret,
   createSeries: handleCreateSeries,
-  boardUrl,
 })
 
 function onBeforeUnload(event: BeforeUnloadEvent) {
