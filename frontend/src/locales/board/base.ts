@@ -171,8 +171,6 @@ export const boardBaseMessages = {
     reportFailed: '신고 접수에 실패했습니다.',
     restricted: '접근 권한이 없는 게시글입니다.',
     blinded: '신고 누적으로 블라인드된 게시글입니다.',
-    pin: '고정',
-    unpin: '고정 해제',
     blind: '블라인드',
     unblind: '블라인드 해제',
     managerActionSuccess: '관리 작업이 반영되었습니다.',

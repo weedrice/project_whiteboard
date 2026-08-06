@@ -218,12 +218,6 @@ export const postApi = {
             params: { ...config?.params, size },
         }).then((response) => mapApiDataResponse(response, normalizePostSummaryList)),
 
-    pinPostByManager: (postId: string | number) =>
-        api.post<ApiResponse<void>>(`/posts/${encodePathSegment(postId)}/manager/pin`),
-
-    unpinPostByManager: (postId: string | number) =>
-        api.delete<ApiResponse<void>>(`/posts/${encodePathSegment(postId)}/manager/pin`),
-
     blindPostByManager: (postId: string | number, reason?: string) =>
         api.post<ApiResponse<void>>(`/posts/${encodePathSegment(postId)}/manager/blind`, reason ? { reason } : undefined),
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowLeft, Clock, Eye, EyeOff, MessageSquare, Pencil, Pin, PinOff, Trash2, User } from 'lucide-vue-next'
+import { ArrowLeft, Clock, Eye, EyeOff, MessageSquare, Pencil, Trash2, User } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import type { RouteLocationRaw } from 'vue-router'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
@@ -22,8 +22,6 @@ withDefaults(defineProps<{
 const emit = defineEmits<{
   (event: 'back-to-list'): void
   (event: 'delete'): void
-  (event: 'pin'): void
-  (event: 'unpin'): void
   (event: 'blind'): void
   (event: 'unblind'): void
   (event: 'show-history'): void
@@ -65,28 +63,6 @@ const seriesMeta = (postView: PostDetailViewModel) => {
             v-if="canEdit || canDelete || canManage"
             class="flex min-w-0 items-center justify-end gap-2"
           >
-            <button
-              v-if="canManage && !postView.pinnedAt"
-              type="button"
-              class="nv-post-header-action"
-              :aria-label="t('board.postDetail.pin')"
-              :disabled="isManagerActionPending"
-              @click="emit('pin')"
-            >
-              <Pin class="h-4 w-4" />
-              <span>{{ t('board.postDetail.pin') }}</span>
-            </button>
-            <button
-              v-else-if="canManage"
-              type="button"
-              class="nv-post-header-action"
-              :aria-label="t('board.postDetail.unpin')"
-              :disabled="isManagerActionPending"
-              @click="emit('unpin')"
-            >
-              <PinOff class="h-4 w-4" />
-              <span>{{ t('board.postDetail.unpin') }}</span>
-            </button>
             <button
               v-if="canManage && !postView.isBlinded"
               type="button"

@@ -55,7 +55,6 @@ describe('toPostDetailViewModel', () => {
       representativeBadge: null,
       isBlinded: false,
       blindReason: null,
-      pinnedAt: null,
       isBoardAdmin: false
     })
   })

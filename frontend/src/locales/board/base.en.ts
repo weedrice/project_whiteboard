@@ -176,8 +176,6 @@ export const boardEnBaseMessages = {
     reportFailed: 'Failed to submit report.',
     restricted: 'You do not have permission to access this post.',
     blinded: 'This post has been hidden after repeated reports.',
-    pin: 'Pin',
-    unpin: 'Unpin',
     blind: 'Blind',
     unblind: 'Unblind',
     managerActionSuccess: 'Manager action applied.',

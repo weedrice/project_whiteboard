@@ -245,8 +245,6 @@ export interface BoardMessages {
     reportFailed: string
     restricted: string
     blinded: string
-    pin: string
-    unpin: string
     blind: string
     unblind: string
     managerActionSuccess: string

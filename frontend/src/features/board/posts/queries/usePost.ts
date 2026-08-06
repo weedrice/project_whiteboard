@@ -273,8 +273,6 @@ export function usePost() {
         },
     })
 
-    const usePinPostByManager = () => createManagerPostMutation((postId) => postApi.pinPostByManager(postId))
-    const useUnpinPostByManager = () => createManagerPostMutation((postId) => postApi.unpinPostByManager(postId))
     const useBlindPostByManager = () => useMutation({
         onMutate: captureMutationSession,
         mutationFn: async ({ postId, reason }: { postId: string | number, reason?: string }) => {
@@ -385,8 +383,6 @@ export function usePost() {
         useScrapPost,
         useUnscrapPost,
         useReportPost,
-        usePinPostByManager,
-        useUnpinPostByManager,
         useBlindPostByManager,
         useUnblindPostByManager,
         useVotePoll,

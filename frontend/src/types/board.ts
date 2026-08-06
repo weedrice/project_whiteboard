@@ -139,7 +139,6 @@ export interface Post {
     isSecret?: boolean
     isBlinded?: boolean
     blindReason?: string | null
-    pinnedAt?: string | null
     author: UserSummary
     board: {
         boardId: number
@@ -175,7 +174,6 @@ export interface PostSummary {
     isSecret?: boolean
     isBlinded?: boolean
     blindReason?: string | null
-    pinnedAt?: string | null
     author: UserSummary
     category?: PostCategorySummary
     thumbnailUrl?: string
@@ -205,7 +203,6 @@ export interface FeedPost {
     isSecret?: boolean
     isBlinded?: boolean
     blindReason?: string | null
-    pinnedAt?: string | null
     author: UserSummary
     category?: PostCategorySummary
     thumbnailUrl?: string

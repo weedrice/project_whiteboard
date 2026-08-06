@@ -48,8 +48,6 @@ const { t } = useI18n()
 
 const {
   usePostDetail,
-  usePinPostByManager,
-  useUnpinPostByManager,
   useBlindPostByManager,
   useUnblindPostByManager,
   usePostVersions,
@@ -116,8 +114,6 @@ const {
   sessionGeneration: computed(() => authStore.sessionGeneration),
   queryClient,
 })
-const pinPostMutation = usePinPostByManager()
-const unpinPostMutation = useUnpinPostByManager()
 const blindPostMutation = useBlindPostByManager()
 const unblindPostMutation = useUnblindPostByManager()
 const isManagerActionPending = ref(false)
@@ -147,14 +143,6 @@ async function runManagerAction(action: (postId: string) => Promise<unknown>) {
   } finally {
     if (isCurrentIntent()) isManagerActionPending.value = false
   }
-}
-
-async function handleManagerPin() {
-  await runManagerAction((targetPostId) => pinPostMutation.mutateAsync(targetPostId))
-}
-
-async function handleManagerUnpin() {
-  await runManagerAction((targetPostId) => unpinPostMutation.mutateAsync(targetPostId))
 }
 
 async function handleManagerBlind() {
@@ -306,8 +294,6 @@ const { setLastReadCommentId } = usePostViewHistory({
           :can-view-history="canViewHistory"
           @back-to-list="router.push(buildBoardListRoute(postView.boardUrl))"
           @delete="handleDelete"
-          @pin="handleManagerPin"
-          @unpin="handleManagerUnpin"
           @blind="handleManagerBlind"
           @unblind="handleManagerUnblind"
           @show-history="isVersionHistoryOpen = true"
