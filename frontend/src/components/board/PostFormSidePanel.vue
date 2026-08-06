@@ -19,7 +19,6 @@ defineProps<{
   protectedDraftForkAvailable: boolean
   draftDeleted: boolean
   restoreFailed: boolean
-  multipleDraftsFound: boolean
   saveFailed: boolean
   scheduledAt: string
   showScheduler: boolean
@@ -58,7 +57,6 @@ defineEmits<{
       :protected-draft-fork-available="protectedDraftForkAvailable"
       :draft-deleted="draftDeleted"
       :restore-failed="restoreFailed"
-      :multiple-drafts-found="multipleDraftsFound"
       :save-failed="saveFailed"
       @save-draft="$emit('saveDraft')"
       @reload-server-draft="$emit('reloadServerDraft')"

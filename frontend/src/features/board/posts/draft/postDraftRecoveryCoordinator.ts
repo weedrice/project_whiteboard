@@ -16,7 +16,6 @@ import {
   isDraftDeletedLocally,
 } from '@/features/board/posts/draft/postDraftTombstone'
 import { cleanupExpiredDraftSnapshots } from '@/features/board/posts/draft/postDraftLifecycle'
-import { reportDraftOperationalEvent } from '@/utils/clientErrorReporter'
 
 interface DraftRecoveryCoordinatorOptions {
   enabled: Ref<boolean>
@@ -30,7 +29,6 @@ interface DraftRecoveryCoordinatorOptions {
   lastSaveScope: Ref<'server' | 'browser' | null>
   lastSaveFailed: Ref<boolean>
   restoreFailed: Ref<boolean>
-  multipleDraftsFound: Ref<boolean>
   isRestoringDraft: Ref<boolean>
   draftConflict: Ref<boolean>
   draftProtected: Ref<boolean>
@@ -74,7 +72,6 @@ export function createDraftRecoveryCoordinator({
   lastSaveScope,
   lastSaveFailed,
   restoreFailed,
-  multipleDraftsFound,
   isRestoringDraft,
   draftConflict,
   draftProtected,
@@ -206,7 +203,6 @@ export function createDraftRecoveryCoordinator({
     hasRestoredDraft.value = true
     isRestoringDraft.value = true
     restoreFailed.value = false
-    multipleDraftsFound.value = false
 
     try {
       cleanupExpiredDraftSnapshots()
@@ -251,8 +247,6 @@ export function createDraftRecoveryCoordinator({
         && chosen != null
         && !hasSameDraftContent(chosen, resolved.serverDraft as unknown as PostDraftData)
       restoreFailed.value = resolved.recoveryFailed
-      multipleDraftsFound.value = resolved.multipleMatchesFound
-      if (multipleDraftsFound.value) void reportDraftOperationalEvent('multiple_recovery_candidates')
       if (!chosen) return
 
       if (revision !== getLocalRevision()) {
@@ -320,7 +314,6 @@ export function createDraftRecoveryCoordinator({
   const retryRestore = async () => {
     hasRestoredDraft.value = false
     restoreFailed.value = false
-    multipleDraftsFound.value = false
     await restoreDraft()
   }
 

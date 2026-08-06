@@ -197,7 +197,6 @@ function markCurrentComposerSaved() {
 }
 
 const durableDraftFileIds = ref<number[]>([])
-const uploadCleanupReady = ref(false)
 const {
   ownedUploadedFileIds,
   recordUploadedFile,
@@ -207,8 +206,6 @@ const {
   identity: formIdentity,
   content: computed(() => form.value.content),
   durableDraftFileIds,
-  ownerId: computed(() => authStore.user?.userId),
-  cleanupReady: uploadCleanupReady,
 })
 
 function handleEditorFileUploaded(fileId: number) {
@@ -357,7 +354,6 @@ const {
   protectedDraftForkAvailable,
   draftDeleted,
   restoreFailed,
-  multipleDraftsFound,
   isRestoringDraft,
   isSavingDraft,
   lastSaveFailed,
@@ -396,7 +392,6 @@ const {
   markCurrentSnapshotSaved,
   ownedUploadedFileIds,
   durableDraftFileIds,
-  uploadCleanupReady,
   adoptUploadedFileOwnership,
   releaseUploadedFileOwnership,
   t,
@@ -633,7 +628,6 @@ defineExpose({
             :protected-draft-fork-available="protectedDraftForkAvailable"
             :draft-deleted="draftDeleted"
             :restore-failed="restoreFailed"
-            :multiple-drafts-found="multipleDraftsFound"
             :save-failed="lastSaveFailed"
             :scheduled-at="scheduledAt"
             :show-scheduler="props.mode === 'create' || Boolean(scheduledPostId)"
@@ -722,16 +716,14 @@ defineExpose({
         </BaseButton>
       </div>
       <BaseButton
-        v-else-if="draftProtected || multipleDraftsFound"
+        v-else-if="draftProtected"
         type="button"
         variant="secondary"
         size="sm"
         class="min-h-[36px] w-full"
         to="/mypage/drafts"
       >
-        {{ draftProtected
-          ? $t('board.writePost.draftStatus.openScheduledPosts')
-          : $t('board.writePost.draftStatus.openDrafts') }}
+        {{ $t('board.writePost.draftStatus.openScheduledPosts') }}
       </BaseButton>
       <BaseButton
         v-else-if="restoreFailed"

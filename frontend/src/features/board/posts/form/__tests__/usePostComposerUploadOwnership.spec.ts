@@ -26,8 +26,6 @@ function createOwnership() {
     identity,
     content,
     durableDraftFileIds,
-    ownerId: ref(1),
-    cleanupReady: ref(true),
   }))
   if (!ownership) throw new Error('Upload ownership composable was not initialized')
   return { scope, identity, content, durableDraftFileIds, ownership }

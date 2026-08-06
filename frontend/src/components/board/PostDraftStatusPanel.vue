@@ -11,7 +11,6 @@ defineProps<{
   protectedDraftForkAvailable: boolean
   draftDeleted: boolean
   restoreFailed: boolean
-  multipleDraftsFound: boolean
   saveFailed: boolean
 }>()
 
@@ -111,16 +110,6 @@ defineEmits<{
           {{ $t('board.writePost.draftStatus.openScheduledPosts') }}
         </BaseButton>
       </template>
-      <BaseButton
-        v-else-if="multipleDraftsFound"
-        type="button"
-        variant="secondary"
-        size="sm"
-        full-width
-        to="/mypage/drafts"
-      >
-        {{ $t('board.writePost.draftStatus.openDrafts') }}
-      </BaseButton>
       <BaseButton
         v-else-if="restoreFailed"
         type="button"
