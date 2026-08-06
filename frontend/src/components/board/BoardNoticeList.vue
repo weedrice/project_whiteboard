@@ -40,6 +40,9 @@ const noticeListId = useId()
         class="nv-board-notice-row"
         :class="{ 'is-current': String(notice.postId) === String(highlightedPostId ?? '') }"
       >
+        <span class="nv-board-notice-badge">
+          {{ t('common.notice') }}
+        </span>
         <span class="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--nv-ink)]">
           {{ notice.title }}
         </span>
@@ -92,6 +95,23 @@ const noticeListId = useId()
 .nv-board-notice-row:hover,
 .nv-board-notice-row.is-current {
   background: color-mix(in srgb, var(--nv-accent-bg) 70%, transparent);
+}
+
+.nv-board-notice-badge {
+  align-items: center;
+  background: var(--nv-danger-bg);
+  border: 1px solid var(--nv-danger-border);
+  border-radius: 9999px;
+  color: var(--nv-danger-text);
+  display: inline-flex;
+  flex-shrink: 0;
+  font-size: 0.62rem;
+  font-weight: 700;
+  justify-content: center;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  min-height: 1.35rem;
+  padding: 0.15rem 0.55rem;
 }
 
 .nv-board-notice-more {

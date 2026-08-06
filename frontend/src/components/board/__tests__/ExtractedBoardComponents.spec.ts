@@ -177,7 +177,7 @@ describe('extracted board components', () => {
     expect(wrapper.find(`#${listId}`).exists()).toBe(true)
     expect(wrapper.getComponent(RouterLinkStub).props('to')).toBe('/board/free/post/1')
     expect(wrapper.get('.nv-board-notice-heading').text()).toBe('board.detail.notices.title')
-    expect(wrapper.find('.nv-board-notice-badge').exists()).toBe(false)
+    expect(wrapper.get('.nv-board-notice-badge').text()).toBe('common.notice')
 
     await button.trigger('click')
 
