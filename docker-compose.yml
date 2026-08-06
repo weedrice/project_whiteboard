@@ -39,7 +39,7 @@ services:
     tmpfs:
       - /tmp
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8081/actuator/health | grep -q '\"status\":\"UP\"'"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8081/actuator/health | grep -q '\"status\":\"UP\"'"]
       interval: 15s
       timeout: 5s
       retries: 10
@@ -66,11 +66,11 @@ services:
     ports:
       - "${FRONTEND_PORT:-5173}:8080"
     tmpfs:
-      - /var/cache/nginx
-      - /var/run
+      - /var/cache/nginx:uid=101,gid=101,mode=0755
+      - /var/run:uid=101,gid=101,mode=0755
       - /tmp
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/ | grep -q '<div id=\"app\"'"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/ | grep -q '<div id=\"app\"'"]
       interval: 15s
       timeout: 5s
       retries: 5
