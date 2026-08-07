@@ -19,7 +19,7 @@ describe('PostContentView', () => {
         expect(wrapper.find('iframe').exists()).toBe(false)
     })
 
-    it('renders encoded widget html inside a sandboxed iframe', () => {
+    it('renders encoded static html inside a sandboxed iframe without author scripts', () => {
         const rawWidget = '<style>.cl{display:grid}</style><button onclick="toggle()">여권</button><script>function toggle(){}</script>'
         const wrapper = mount(PostContentView, {
             props: {
@@ -32,8 +32,9 @@ describe('PostContentView', () => {
         expect(frame.attributes('sandbox')).toBe('allow-scripts')
         expect(frame.attributes('title')).toBe('Checklist')
         expect(frame.attributes('srcdoc')).toContain('<style>.cl{display:grid}</style>')
-        expect(frame.attributes('srcdoc')).toContain('onclick="toggle()"')
-        expect(frame.attributes('srcdoc')).toContain('function toggle(){}')
+        expect(frame.attributes('srcdoc')).toContain('<button>여권</button>')
+        expect(frame.attributes('srcdoc')).not.toContain('onclick="toggle()"')
+        expect(frame.attributes('srcdoc')).not.toContain('function toggle(){}')
     })
 
     it('keeps plain code content usable when the lazy highlighter fails to load', async () => {

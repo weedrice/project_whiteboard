@@ -34,21 +34,63 @@ describe('postHtmlSandbox', () => {
         expect(encodeSandboxedPostHtml('<p>Hello</p>')).toBe('<p>Hello</p>')
     })
 
-    it('adds a restrictive CSP to sandboxed documents', () => {
+    it('adds a restrictive CSP with allowlisted static assets to sandboxed documents', () => {
         const source = buildSandboxedPostHtmlSource('<button onclick="run()">Run</button>', 'frame-1', 'test-nonce')
 
         expect(source).toContain('Content-Security-Policy')
         expect(source).toContain("default-src 'none'")
         expect(source).toContain("script-src 'nonce-test-nonce'")
         expect(source).not.toContain("script-src 'unsafe-inline'")
-        expect(source).toContain('img-src blob: http://localhost:3000 https://cdn.noviis.kr')
+        expect(source).toContain("style-src 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com")
+        expect(source).toContain('img-src data: blob: http://localhost:3000 https://cdn.noviis.kr')
+        expect(source).toContain('font-src data: https://cdn.jsdelivr.net https://fonts.gstatic.com')
         expect(source).toContain('<meta name="referrer" content="no-referrer">')
         expect(source).toContain('media-src data: blob: https:')
-        expect(source).not.toContain('img-src data:')
         expect(source).not.toContain('img-src blob: https:')
         expect(source).not.toContain('media-src data: blob: https: http:')
         expect(source).toContain("connect-src 'none'")
         expect(source).toContain("form-action 'none'")
+    })
+
+    it('normalizes full html documents without nesting their document shell', () => {
+        const source = buildSandboxedPostHtmlSource(
+            '<!doctype html><html lang="ko" class="theme-dark"><head><meta name="viewport" content="width=320"><title>Card</title><style>.card{display:grid}</style></head><body class="document" style="padding: 1rem"><main class="card">Hello</main></body></html>',
+            'frame-1',
+            'test-nonce',
+        )
+
+        expect(source.match(/<!doctype html>/gi)).toHaveLength(1)
+        expect(source).toContain('<html lang="ko" class="theme-dark">')
+        expect(source).toContain('<body class="document" style="padding: 1rem">')
+        expect(source).toContain('<style>.card{display:grid}</style>')
+        expect(source).toContain('<main class="card">Hello</main>')
+        expect(source).not.toContain('<title>Card</title>')
+        expect(source).not.toContain('content="width=320"')
+    })
+
+    it('removes author scripts and event handlers while preserving declarative interactions', () => {
+        const source = buildSandboxedPostHtmlSource(
+            '<details open><summary onclick="toggle()">More</summary><p onload="run()">Body</p></details><script>window.evil = true</script>',
+            'frame-1',
+            'test-nonce',
+        )
+
+        expect(source).toContain('<details open=""><summary>More</summary><p>Body</p></details>')
+        expect(source).not.toContain('onclick=')
+        expect(source).not.toContain('onload=')
+        expect(source).not.toContain('window.evil')
+        expect(source).toContain('<script nonce="test-nonce">')
+    })
+
+    it('adds defensive overflow styles for long and narrow static html', () => {
+        const source = buildSandboxedPostHtmlSource('<div>content</div>', 'frame-1', 'test-nonce')
+
+        expect(source).toContain('overflow-x: hidden; overflow-y: auto')
+        expect(source).toContain('overflow-wrap: anywhere')
+        expect(source).toContain('pre { max-width: 100%; overflow-x: auto; }')
+        expect(source).toContain('table { display: block; max-width: 100%; overflow-x: auto; }')
+        expect(source).toContain('body :where(.grid) > * { min-width: 0; }')
+        expect(source).toContain('body :where(.grid) { grid-template-columns: minmax(0, 1fr) !important; }')
     })
 
     it('cleans up sandbox height polling when the frame unloads', () => {
@@ -69,7 +111,7 @@ describe('postHtmlSandbox', () => {
             'fresh-nonce',
         )
 
-        expect(source).toContain('<script nonce="noviis-height-bridge">window.evil = true</script>')
+        expect(source).not.toContain('window.evil')
         expect(source).toContain("script-src 'nonce-fresh-nonce'")
         expect(source).toContain('<script nonce="fresh-nonce">')
         expect(source).not.toContain("script-src 'nonce-noviis-height-bridge'")

@@ -31,9 +31,10 @@ export function decodeSandboxedPostHtml(content: string | null | undefined): str
 
 export function buildSandboxedPostHtmlSource(content: string, frameId: string, nonce = createSandboxNonce()): string {
     const applicationOrigin = getSandboxApplicationOrigin()
+    const documentParts = normalizeSandboxedPostDocument(content)
     return [
         '<!doctype html>',
-        '<html>',
+        `<html${documentParts.htmlAttributes}>`,
         '<head>',
         '<meta charset="utf-8">',
         '<meta name="viewport" content="width=device-width, initial-scale=1">',
@@ -43,9 +44,10 @@ export function buildSandboxedPostHtmlSource(content: string, frameId: string, n
         '<style>',
         getSandboxBaseCss(),
         '</style>',
+        documentParts.headHtml,
         '</head>',
-        '<body>',
-        content,
+        `<body${documentParts.bodyAttributes}>`,
+        documentParts.bodyHtml,
         getHeightBridgeScript(frameId, nonce),
         '</body>',
         '</html>',
@@ -70,10 +72,10 @@ function createSandboxNonce(): string {
 function buildSandboxCsp(nonce: string, applicationOrigin: string): string {
     return [
         "default-src 'none'",
-        "style-src 'unsafe-inline'",
+        "style-src 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com",
         `script-src 'nonce-${nonce}'`,
-        `img-src blob: ${applicationOrigin} https://cdn.noviis.kr`,
-        'font-src data: https:',
+        `img-src data: blob: ${applicationOrigin} https://cdn.noviis.kr`,
+        'font-src data: https://cdn.jsdelivr.net https://fonts.gstatic.com',
         'media-src data: blob: https:',
         "connect-src 'none'",
         "form-action 'none'",
@@ -91,6 +93,54 @@ function getSandboxApplicationOrigin(): string {
         }
     }
     return 'https://noviis.kr'
+}
+
+function normalizeSandboxedPostDocument(content: string): {
+    htmlAttributes: string
+    headHtml: string
+    bodyAttributes: string
+    bodyHtml: string
+} {
+    if (typeof DOMParser === 'undefined') {
+        return { htmlAttributes: '', headHtml: '', bodyAttributes: '', bodyHtml: content }
+    }
+
+    const doc = new DOMParser().parseFromString(content, 'text/html')
+
+    doc.querySelectorAll('script').forEach((script) => script.remove())
+    doc.querySelectorAll<HTMLElement>('*').forEach((element) => {
+        Array.from(element.attributes).forEach((attribute) => {
+            if (/^on/i.test(attribute.name)) {
+                element.removeAttribute(attribute.name)
+            }
+        })
+    })
+
+    const headHtml = Array.from(doc.head.children)
+        .filter((element) => element.tagName === 'STYLE' || element.tagName === 'LINK')
+        .map((element) => element.outerHTML)
+        .join('')
+
+    return {
+        htmlAttributes: serializeSandboxAttributes(doc.documentElement),
+        headHtml,
+        bodyAttributes: serializeSandboxAttributes(doc.body),
+        bodyHtml: doc.body.innerHTML,
+    }
+}
+
+function serializeSandboxAttributes(element: Element): string {
+    return Array.from(element.attributes)
+        .map((attribute) => ` ${attribute.name}="${escapeSandboxAttribute(attribute.value)}"`)
+        .join('')
+}
+
+function escapeSandboxAttribute(value: string): string {
+    return value
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
 }
 
 function decodeSandboxedPostHtmlWithPattern(content: string): string | null {
@@ -143,11 +193,17 @@ function getSandboxBaseCss(): string {
   --radius: 8px;
 }
 * { box-sizing: border-box; }
-html, body { margin: 0; min-height: 0; overflow: hidden; background: transparent; }
-body { color: var(--text-primary); font-family: var(--font-sans); }
-img, video, iframe { max-width: 100%; }
+html, body { margin: 0; min-height: 0; overflow-x: hidden; overflow-y: auto; background: transparent; }
+body { color: var(--text-primary); font-family: var(--font-sans); overflow-wrap: anywhere; }
+img, video, iframe, svg, canvas { max-width: 100%; }
+pre { max-width: 100%; overflow-x: auto; }
+table { display: block; max-width: 100%; overflow-x: auto; }
+body :where(.grid) > * { min-width: 0; }
 button, input, textarea, select { font: inherit; }
 .ti-check::before { content: "\\2713"; }
+@media (max-width: 480px) {
+  body :where(.grid) { grid-template-columns: minmax(0, 1fr) !important; }
+}
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
