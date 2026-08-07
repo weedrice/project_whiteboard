@@ -278,6 +278,10 @@ jobs:
         run: npx playwright install --with-deps chromium
         working-directory: frontend
 
+      - name: Run sandboxed HTML browser tests
+        run: npm run test:e2e:sandbox
+        working-directory: frontend
+
       - name: Run Playwright E2E and accessibility tests
         run: npm run test:e2e:run
         working-directory: frontend
