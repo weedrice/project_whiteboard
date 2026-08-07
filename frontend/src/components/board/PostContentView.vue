@@ -4,7 +4,7 @@ import { useI18n } from 'vue-i18n'
 import SandboxedHtmlFrame from '@/components/common/SandboxedHtmlFrame.vue'
 import SanitizedHtmlView from '@/components/common/SanitizedHtmlView.vue'
 import { renderPostContentHtml, type CodeBlockHighlighter } from '@/utils/postContentHtml'
-import { decodeSandboxedPostHtml, requiresSandboxedPostHtml } from '@/utils/postHtmlSandbox'
+import { decodeSandboxedPostHtml, expandSandboxedPostHtml, requiresSandboxedPostHtml } from '@/utils/postHtmlSandbox'
 
 defineOptions({
   inheritAttrs: false,
@@ -24,7 +24,12 @@ const element = ref<HTMLElement | null>(null)
 const sandboxWrapper = ref<HTMLElement | null>(null)
 const codeBlockHighlighter = shallowRef<CodeBlockHighlighter | null>(null)
 const decodedSandboxHtml = computed(() => decodeSandboxedPostHtml(props.content))
-const sandboxHtml = computed(() => decodedSandboxHtml.value ?? (requiresSandboxedPostHtml(props.content) ? props.content ?? '' : null))
+const expandedSandboxHtml = computed(() => expandSandboxedPostHtml(props.content))
+const sandboxHtml = computed(() => (
+  decodedSandboxHtml.value
+  ?? expandedSandboxHtml.value
+  ?? (requiresSandboxedPostHtml(props.content) ? props.content ?? '' : null)
+))
 const shouldUseSandbox = computed(() => sandboxHtml.value != null)
 const hasCodeBlock = computed(() => /<pre[\s>]/i.test(props.content ?? ''))
 const sanitizedHtml = computed(() => renderPostContentHtml(props.content, {

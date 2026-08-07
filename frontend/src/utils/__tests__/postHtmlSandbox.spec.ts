@@ -1,8 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
     buildSandboxedPostHtmlSource,
+    containsSandboxedPostHtml,
     decodeSandboxedPostHtml,
     encodeSandboxedPostHtml,
+    expandSandboxedPostHtml,
+    requiresPreservedPostHtml,
     requiresSandboxedPostHtml,
 } from '../postHtmlSandbox'
 
@@ -32,6 +35,38 @@ describe('postHtmlSandbox', () => {
 
     it('leaves normal editor html unchanged', () => {
         expect(encodeSandboxedPostHtml('<p>Hello</p>')).toBe('<p>Hello</p>')
+    })
+
+    it('preserves unsupported editor tags, attributes, styles, and comments', () => {
+        const lossyExamples = [
+            '<section><p>Section</p></section>',
+            '<div class="custom-card"><p>Card</p></div>',
+            '<p id="intro">Intro</p>',
+            '<p style="letter-spacing:2px">Spaced</p>',
+            '<a href="https://noviis.kr" target="_self">Same tab</a>',
+            '<ol type="A"><li>Alpha</li></ol>',
+            '<custom-widget data-value="1"></custom-widget>',
+            '<svg viewBox="0 0 10 10"><circle cx="5" cy="5" r="4"></circle></svg>',
+            '<p>Before</p><!-- note --><p>After</p>',
+        ]
+
+        lossyExamples.forEach((html) => {
+            expect(requiresPreservedPostHtml(html)).toBe(true)
+            expect(decodeSandboxedPostHtml(encodeSandboxedPostHtml(html))).toBe(html)
+        })
+        expect(requiresPreservedPostHtml('<p style="text-align:center"><strong>Hello</strong></p>')).toBe(false)
+        expect(requiresPreservedPostHtml('<a class="tiptap-link" href="https://noviis.kr" target="_blank" rel="noopener noreferrer">Link</a>')).toBe(false)
+    })
+
+    it('decodes only a standalone preserved marker', () => {
+        const raw = '<style>.card{display:grid}</style><p>Widget</p>'
+        const marker = encodeSandboxedPostHtml(raw)
+        const mixed = `${marker}<p>Tail</p>`
+
+        expect(containsSandboxedPostHtml(mixed)).toBe(true)
+        expect(decodeSandboxedPostHtml(marker)).toBe(raw)
+        expect(decodeSandboxedPostHtml(mixed)).toBeNull()
+        expect(expandSandboxedPostHtml(mixed)).toBe(`${raw}<p>Tail</p>`)
     })
 
     it('adds a restrictive CSP with allowlisted static assets to sandboxed documents', () => {

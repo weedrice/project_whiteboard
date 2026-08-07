@@ -14,7 +14,7 @@ export const RawHtmlBlock = Node.create({
   atom: true,
   isolating: true,
   selectable: true,
-  draggable: true,
+  draggable: false,
 
   addAttributes() {
     return {

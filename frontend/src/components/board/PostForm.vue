@@ -19,7 +19,7 @@ import PostFormHeader from '@/components/board/PostFormHeader.vue'
 import PostFormMainSection from '@/components/board/PostFormMainSection.vue'
 import PostFormSidePanel from '@/components/board/PostFormSidePanel.vue'
 import PostPreviewModal from '@/components/board/PostPreviewModal.vue'
-import { requiresSandboxedPostHtml } from '@/utils/postHtmlSandbox'
+import { requiresPreservedPostHtml } from '@/utils/postHtmlSandbox'
 import { usePostComposerState } from '@/features/board/posts/form/usePostComposerState'
 import { usePostComposerUploadOwnership } from '@/features/board/posts/form/usePostComposerUploadOwnership'
 import { useFieldValidation } from '@/composables/useFieldValidation'
@@ -482,7 +482,7 @@ const {
 watch(
   () => form.value.content,
   (content) => {
-    if (editorViewMode.value === 'visual' && requiresSandboxedPostHtml(content)) {
+    if (editorViewMode.value === 'visual' && requiresPreservedPostHtml(content)) {
       handleEditorViewModeChange('visual')
     }
   },

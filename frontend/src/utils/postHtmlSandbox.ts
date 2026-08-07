@@ -1,6 +1,58 @@
 const SANDBOX_TRIGGER_PATTERN = /<(?:!doctype|html|head|body|style|script)\b|<\w+[^>]*\son[a-z]+\s*=/i
 const SANDBOX_MARKER_CLASS = 'noviis-sandboxed-post-html'
 const SANDBOX_MARKER_SELECTOR = `.${SANDBOX_MARKER_CLASS}[data-value]`
+const SANDBOX_MARKER_SELECTOR_PATTERN = /class=["'][^"']*\bnoviis-sandboxed-post-html\b[^"']*["'][^>]*\sdata-value=["'][^"']+["']|data-value=["'][^"']+["'][^>]*class=["'][^"']*\bnoviis-sandboxed-post-html\b[^"']*["']/i
+const EDITOR_ELEMENT_ATTRIBUTES: Readonly<Record<string, ReadonlySet<string>>> = {
+    p: new Set(['style']),
+    h1: new Set(['style']),
+    h2: new Set(['style']),
+    h3: new Set(['style']),
+    h4: new Set(['style']),
+    h5: new Set(['style']),
+    h6: new Set(['style']),
+    blockquote: new Set(),
+    ul: new Set(),
+    ol: new Set(['start']),
+    li: new Set(),
+    pre: new Set(),
+    code: new Set(['class']),
+    strong: new Set(),
+    em: new Set(),
+    s: new Set(),
+    u: new Set(),
+    a: new Set(['href', 'target', 'rel', 'class']),
+    img: new Set(['src', 'alt', 'title', 'class', 'data-file-id', 'data-server-src']),
+    br: new Set(),
+    hr: new Set(),
+    span: new Set(['style', 'class', 'data-type', 'data-mention-user-id']),
+    mark: new Set(['style', 'data-color']),
+    table: new Set(['style']),
+    colgroup: new Set(),
+    col: new Set(['span', 'style']),
+    thead: new Set(),
+    tbody: new Set(),
+    tfoot: new Set(),
+    tr: new Set(),
+    th: new Set(['colspan', 'rowspan', 'colwidth', 'style']),
+    td: new Set(['colspan', 'rowspan', 'colwidth', 'style']),
+    div: new Set(['class', 'data-video-embed']),
+    iframe: new Set(['src', 'frameborder', 'allowfullscreen', 'loading', 'referrerpolicy', 'sandbox', 'allow']),
+}
+const EDITOR_STYLE_PROPERTIES: Readonly<Record<string, ReadonlySet<string>>> = {
+    p: new Set(['text-align']),
+    h1: new Set(['text-align']),
+    h2: new Set(['text-align']),
+    h3: new Set(['text-align']),
+    h4: new Set(['text-align']),
+    h5: new Set(['text-align']),
+    h6: new Set(['text-align']),
+    span: new Set(['color', 'font-size', 'line-height']),
+    mark: new Set(['background-color', 'color']),
+    table: new Set(['min-width']),
+    col: new Set(['min-width', 'width']),
+    th: new Set(['text-align', 'min-width', 'width']),
+    td: new Set(['text-align', 'min-width', 'width']),
+}
 
 export const SANDBOXED_POST_HTML_MARKER_CLASS = SANDBOX_MARKER_CLASS
 
@@ -8,8 +60,121 @@ export function requiresSandboxedPostHtml(content: string | null | undefined): b
     return SANDBOX_TRIGGER_PATTERN.test(content ?? '')
 }
 
+export function containsSandboxedPostHtml(content: string | null | undefined): boolean {
+    if (!content?.includes(SANDBOX_MARKER_CLASS)) return false
+    if (typeof DOMParser === 'undefined') return SANDBOX_MARKER_SELECTOR_PATTERN.test(content)
+
+    const doc = new DOMParser().parseFromString(content, 'text/html')
+    return doc.body.querySelector(SANDBOX_MARKER_SELECTOR) != null
+}
+
+export function isStandaloneSandboxedPostHtml(content: string | null | undefined): boolean {
+    return findStandaloneSandboxMarker(content) != null
+}
+
+export function requiresPreservedPostHtml(content: string | null | undefined): boolean {
+    if (!content) return false
+    if (containsSandboxedPostHtml(content)) return true
+    if (requiresSandboxedPostHtml(content)) return true
+    if (
+        typeof DOMParser === 'undefined'
+        || typeof document === 'undefined'
+        || typeof NodeFilter === 'undefined'
+    ) return hasUnsupportedEditorTagWithPattern(content)
+
+    const template = document.createElement('template')
+    template.innerHTML = content
+    const walker = document.createTreeWalker(template.content, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_COMMENT)
+    let current = walker.nextNode()
+    while (current) {
+        if (current.nodeType === Node.COMMENT_NODE) return true
+        if (current.nodeType === Node.ELEMENT_NODE) {
+            if (!(current instanceof HTMLElement) || !isSupportedEditorElement(current)) return true
+        }
+        current = walker.nextNode()
+    }
+    return false
+}
+
+function isSupportedEditorElement(element: HTMLElement): boolean {
+    const tag = element.tagName.toLowerCase()
+    const allowedAttributes = EDITOR_ELEMENT_ATTRIBUTES[tag]
+    if (!allowedAttributes) return false
+    if (Array.from(element.attributes).some((attribute) => !allowedAttributes.has(attribute.name.toLowerCase()))) {
+        return false
+    }
+    if (!hasSupportedEditorClass(element, tag) || !hasSupportedEditorStyle(element, tag)) return false
+
+    if (tag === 'div') {
+        return element.classList.length === 1
+            && element.classList.contains('tiptap-video-wrapper')
+            && element.querySelector(':scope > iframe') != null
+    }
+    if (tag === 'iframe') {
+        const src = element.getAttribute('src') ?? ''
+        return /^(?:https?:)?\/\/(?:www\.)?(?:youtube\.com\/embed\/|player\.vimeo\.com\/video\/)/i.test(src)
+            && hasSupportedVideoFrameAttributes(element)
+    }
+    if (tag === 'a' && !hasSupportedLinkAttributes(element)) return false
+    if (tag === 'span') {
+        return element.hasAttribute('style')
+            || element.getAttribute('data-type') === 'mention'
+    }
+    return true
+}
+
+function hasSupportedLinkAttributes(element: HTMLElement): boolean {
+    const target = element.getAttribute('target')
+    const rel = element.getAttribute('rel')
+    return (target == null || target === '_blank')
+        && (rel == null || rel === 'noopener noreferrer')
+}
+
+function hasSupportedVideoFrameAttributes(element: HTMLElement): boolean {
+    const expectedValues: Readonly<Record<string, string>> = {
+        frameborder: '0',
+        allowfullscreen: 'true',
+        loading: 'lazy',
+        referrerpolicy: 'strict-origin-when-cross-origin',
+        sandbox: 'allow-scripts allow-same-origin allow-presentation',
+        allow: 'encrypted-media; picture-in-picture',
+    }
+    return Object.entries(expectedValues).every(([name, expected]) => {
+        const actual = element.getAttribute(name)
+        return actual == null || actual === expected
+    })
+}
+
+function hasSupportedEditorClass(element: HTMLElement, tag: string): boolean {
+    if (!element.hasAttribute('class')) return true
+    const tokens = Array.from(element.classList)
+    if (tag === 'code') return tokens.every((token) => token === 'hljs' || token.startsWith('language-'))
+    if (tag === 'a') return tokens.every((token) => token === 'tiptap-link')
+    if (tag === 'img') {
+        const allowed = new Set(['tiptap-image-inline', 'max-w-full', 'h-auto', 'align-baseline'])
+        return tokens.every((token) => allowed.has(token))
+    }
+    if (tag === 'span') return tokens.every((token) => token === 'mention-node')
+    if (tag === 'div') return tokens.every((token) => token === 'tiptap-video-wrapper')
+    return false
+}
+
+function hasSupportedEditorStyle(element: HTMLElement, tag: string): boolean {
+    if (!element.hasAttribute('style')) return true
+    const allowedProperties = EDITOR_STYLE_PROPERTIES[tag]
+    const properties = Array.from(element.style)
+    if (!allowedProperties || properties.length === 0) return false
+    return properties.every((property) => allowedProperties.has(property.toLowerCase()))
+}
+
+function hasUnsupportedEditorTagWithPattern(content: string): boolean {
+    const supportedTags = new Set(Object.keys(EDITOR_ELEMENT_ATTRIBUTES))
+    return Array.from(content.matchAll(/<([a-z][\w-]*)\b/gi))
+        .some((match) => !supportedTags.has(match[1].toLowerCase()))
+}
+
 export function encodeSandboxedPostHtml(content: string): string {
-    if (!requiresSandboxedPostHtml(content) || decodeSandboxedPostHtml(content) != null) {
+    if (!requiresPreservedPostHtml(content) || containsSandboxedPostHtml(content)) {
         return content
     }
 
@@ -25,18 +190,41 @@ export function decodeSandboxedPostHtmlPayload(value: string | null | undefined)
 }
 
 export function decodeSandboxedPostHtml(content: string | null | undefined): string | null {
-    if (!content || !content.includes(SANDBOX_MARKER_CLASS)) {
-        return null
-    }
-
-    if (typeof DOMParser === 'undefined') {
-        return decodeSandboxedPostHtmlWithPattern(content)
-    }
-
-    const parser = new DOMParser()
-    const doc = parser.parseFromString(content, 'text/html')
-    const marker = doc.body.querySelector<HTMLElement>(SANDBOX_MARKER_SELECTOR)
+    const marker = findStandaloneSandboxMarker(content)
+    if (typeof marker === 'string') return decodeSandboxedPostHtmlPayload(marker)
     return decodeSandboxedPostHtmlPayload(marker?.getAttribute('data-value'))
+}
+
+export function expandSandboxedPostHtml(content: string | null | undefined): string | null {
+    if (!containsSandboxedPostHtml(content)) return null
+    return (content ?? '').replace(
+        /<div\b(?=[^>]*\bclass=["'][^"']*\bnoviis-sandboxed-post-html\b[^"']*["'])(?=[^>]*\bdata-value=["'][^"']+["'])[^>]*>\s*<\/div>/gi,
+        (marker) => {
+            const payload = marker.match(/\bdata-value=["']([^"']+)["']/i)?.[1]
+            return decodeSandboxedPostHtmlPayload(payload) ?? marker
+        },
+    )
+}
+
+function findStandaloneSandboxMarker(content: string | null | undefined): HTMLElement | string | null {
+    if (!content?.includes(SANDBOX_MARKER_CLASS)) return null
+    if (typeof DOMParser === 'undefined') {
+        const trimmed = content.trim()
+        if (!/^<div\b[^>]*>\s*<\/div>$/is.test(trimmed)) return null
+        const match = trimmed.match(/class=["'][^"']*\bnoviis-sandboxed-post-html\b[^"']*["'][^>]*\sdata-value=["']([^"']+)["']/i)
+            ?? trimmed.match(/data-value=["']([^"']+)["'][^>]*class=["'][^"']*\bnoviis-sandboxed-post-html\b[^"']*["']/i)
+        return match?.[1] ?? null
+    }
+
+    const doc = new DOMParser().parseFromString(content, 'text/html')
+    const meaningfulNodes = Array.from(doc.body.childNodes).filter((node) => (
+        node.nodeType !== Node.TEXT_NODE || Boolean(node.textContent?.trim())
+    ))
+    if (meaningfulNodes.length !== 1) return null
+    const marker = meaningfulNodes[0]
+    if (!(marker instanceof HTMLElement) || !marker.matches(SANDBOX_MARKER_SELECTOR)) return null
+    if (marker.childNodes.length > 0) return null
+    return marker
 }
 
 export function buildSandboxedPostHtmlSource(content: string, frameId: string, nonce = createSandboxNonce()): string {
@@ -154,12 +342,6 @@ function escapeSandboxAttribute(value: string): string {
         .replace(/"/g, '&quot;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
-}
-
-function decodeSandboxedPostHtmlWithPattern(content: string): string | null {
-    const match = content.match(/class=["'][^"']*\bnoviis-sandboxed-post-html\b[^"']*["'][^>]*\sdata-value=["']([^"']+)["']/i)
-        ?? content.match(/data-value=["']([^"']+)["'][^>]*class=["'][^"']*\bnoviis-sandboxed-post-html\b[^"']*["']/i)
-    return decodeUtf8Base64(match?.[1] ?? '')
 }
 
 function encodeUtf8Base64(value: string): string {

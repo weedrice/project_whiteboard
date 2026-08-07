@@ -51,6 +51,19 @@ describe('PostContentView', () => {
         expect(frame.attributes('loading')).toBe('eager')
     })
 
+    it('does not discard normal content surrounding a preserved marker', () => {
+        const marker = encodeSandboxedPostHtml('<style>.card{display:grid}</style><p>Widget</p>')
+        const wrapper = mount(PostContentView, {
+            props: {
+                content: `${marker}<p>Tail remains visible</p>`,
+            },
+        })
+
+        const source = wrapper.get('iframe').attributes('srcdoc')
+        expect(source).toContain('<p>Widget</p>')
+        expect(source).toContain('<p>Tail remains visible</p>')
+    })
+
     it('keeps plain code content usable when the lazy highlighter fails to load', async () => {
         const loadHighlighter = vi.fn().mockRejectedValue(new Error('chunk unavailable'))
         const wrapper = mount(PostContentView, {

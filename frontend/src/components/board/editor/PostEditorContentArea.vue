@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { EditorContent, type Editor } from '@tiptap/vue-3'
 
-defineProps<{
+const props = withDefaults(defineProps<{
   editor: Editor | undefined
   isDraggingImage: boolean
   dropImageHint: string
-}>()
+  readOnly?: boolean
+}>(), {
+  readOnly: false,
+})
 
 const emit = defineEmits<{
   (event: 'content-mousedown', value: MouseEvent): void
@@ -14,17 +17,38 @@ const emit = defineEmits<{
   (event: 'content-dragenter', value: DragEvent): void
   (event: 'content-dragleave', value: DragEvent): void
 }>()
+
+function handlePaste(event: ClipboardEvent) {
+  if (props.readOnly) {
+    event.preventDefault()
+    return
+  }
+  emit('content-paste', event)
+}
+
+function handleDrop(event: DragEvent) {
+  event.preventDefault()
+  if (!props.readOnly) emit('content-drop', event)
+}
+
+function handleDragEnter(event: DragEvent) {
+  event.preventDefault()
+  if (!props.readOnly) emit('content-dragenter', event)
+}
 </script>
 
 <template>
   <div
-    class="tiptap-content flex-1 min-h-0 overflow-auto cursor-text"
-    :class="{ 'tiptap-content--dragging-image': isDraggingImage }"
-    @mousedown="emit('content-mousedown', $event)"
-    @paste="emit('content-paste', $event)"
-    @drop="emit('content-drop', $event)"
-    @dragenter.prevent="emit('content-dragenter', $event)"
-    @dragleave="emit('content-dragleave', $event)"
+    class="tiptap-content flex-1 min-h-0 overflow-auto"
+    :class="{
+      'cursor-text': !readOnly,
+      'tiptap-content--dragging-image': isDraggingImage && !readOnly,
+    }"
+    @mousedown="!readOnly && emit('content-mousedown', $event)"
+    @paste="handlePaste"
+    @drop="handleDrop"
+    @dragenter="handleDragEnter"
+    @dragleave="!readOnly && emit('content-dragleave', $event)"
     @dragover.prevent
   >
     <EditorContent :editor="editor" />

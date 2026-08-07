@@ -26,6 +26,7 @@ import { useToastStore } from '@/stores/toast'
 import type { EmoticonImage } from '@/types/emoticon'
 import { IMAGE_UPLOAD_ACCEPT } from '@/utils/imageUploadPolicy'
 import logger from '@/utils/logger'
+import { containsSandboxedPostHtml } from '@/utils/postHtmlSandbox'
 
 const props = defineProps<{
   modelValue: string
@@ -45,6 +46,8 @@ const { t } = useI18n()
 const toastStore = useToastStore()
 const themeStore = useThemeStore()
 const modelValue = toRef(props, 'modelValue')
+const isPreservedHtmlMode = computed(() => containsSandboxedPostHtml(props.modelValue))
+const isEditorEditable = computed(() => !isPreservedHtmlMode.value)
 const uploadOwnerIdentity = toRef(props, 'uploadOwnerIdentity')
 const availableSlashActions = computed(() => (
   props.pollEnabled === false
@@ -89,6 +92,7 @@ const {
 let openImageAltPopoverFromEditor = (_target: HTMLImageElement, _alt: string, _nodePos: number) => {}
 const editor = usePostEditorInstance({
   modelValue,
+  editable: isEditorEditable,
   onUpdateHtml: (html) => emit('update:modelValue', html),
   openSlashMenu,
   openImageAltPopover: (target, alt, nodePos) => openImageAltPopoverFromEditor(target, alt, nodePos),
@@ -302,7 +306,7 @@ onBeforeUnmount(() => {
     <input ref="imageInput" type="file" :accept="IMAGE_UPLOAD_ACCEPT" multiple class="hidden" @change="onImageChange">
 
     <PostEditorToolbar
-      v-if="editor"
+      v-if="editor && isEditorEditable"
       :editor="editor"
       :is-uploading-image="isUploadingImage"
       :has-image-upload-error="hasImageUploadError"
@@ -351,6 +355,7 @@ onBeforeUnmount(() => {
     />
 
     <PostEditorFloatingPanels
+      v-if="isEditorEditable"
       :show-slash-menu="showSlashMenu"
       :show-color-panel="showColorPanel"
       :show-link-popover="showLinkPopover"
@@ -403,6 +408,7 @@ onBeforeUnmount(() => {
       :editor="editor"
       :is-dragging-image="isDraggingImage"
       :drop-image-hint="t('board.writePost.dropImageHint')"
+      :read-only="isPreservedHtmlMode"
       @content-mousedown="onContentAreaClick"
       @content-paste="onEditorPaste"
       @content-drop="onEditorDrop"

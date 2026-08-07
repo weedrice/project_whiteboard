@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { ref } from 'vue'
 import { usePostComposerState } from '../usePostComposerState'
+import { encodeSandboxedPostHtml } from '@/utils/postHtmlSandbox'
 
 function createComposer() {
   return usePostComposerState({
@@ -60,5 +61,15 @@ describe('usePostComposerState', () => {
       anonymousEnabled: false,
       closesAt: null,
     })
+  })
+
+  it('does not truncate content surrounding a preserved html marker', () => {
+    const composer = createComposer()
+    const marker = encodeSandboxedPostHtml('<style>.card{display:grid}</style><p>Widget</p>')
+    const mixedContent = `${marker}<p>Tail</p>`
+
+    composer.applyDraftSnapshot({ contents: mixedContent })
+
+    expect(composer.form.value.content).toBe(mixedContent)
   })
 })

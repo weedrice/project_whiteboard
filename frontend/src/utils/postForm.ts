@@ -1,7 +1,7 @@
 import { normalizeEditorFileImageUrls, normalizeLegacyFileUrls } from '@/utils/fileUrl'
 import { getWindowOrigin } from '@/utils/browserEnv'
 import { withServerOffset } from '@/utils/date'
-import { encodeSandboxedPostHtml, requiresSandboxedPostHtml } from '@/utils/postHtmlSandbox'
+import { encodeSandboxedPostHtml, requiresPreservedPostHtml } from '@/utils/postHtmlSandbox'
 import type { PollPayload } from '@/api/post'
 
 export type PostFormFileIdScope = 'content' | 'draft'
@@ -215,7 +215,7 @@ export function buildPostFormPayload({
     fileIds,
     includePoll,
 }: BuildPostFormPayloadOptions) {
-    const normalizedContents = requiresSandboxedPostHtml(form.content)
+    const normalizedContents = requiresPreservedPostHtml(form.content)
         ? normalizeLegacyFileUrls(form.content)
         : normalizeLegacyFileUrls(normalizeEditorFileImageUrls(form.content))
     const contents = encodeSandboxedPostHtml(normalizedContents)

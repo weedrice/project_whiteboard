@@ -14,6 +14,7 @@ import {
 } from './PostEditorTipTapTestHarness'
 import type { PostEditorTipTapAttributes } from './PostEditorTipTapTestHarness'
 import { getExposedVm } from '@/test/vue-test-helpers'
+import { encodeSandboxedPostHtml } from '@/utils/postHtmlSandbox'
 
 type PostEditorTipTapExposed = {
     setVideo: (src: string) => void
@@ -43,6 +44,17 @@ describe('PostEditorTipTap', () => {
         mocks.editor.commands.setContent.mockClear()
         await wrapper.setProps({ modelValue: '<p>editor-html</p>' })
         expect(mocks.editor.commands.setContent).not.toHaveBeenCalled()
+    })
+
+    it('keeps a preserved html block read-only and hides editing controls', async () => {
+        const preserved = encodeSandboxedPostHtml('<style>.card{display:grid}</style><p>Widget</p>')
+        const wrapper = mountEditor(preserved)
+
+        expect(mocks.editorOptions.value?.editable).toBe(false)
+        expect(wrapper.find('.tiptap-toolbar').exists()).toBe(false)
+
+        await wrapper.setProps({ modelValue: '<p>Editable</p>' })
+        expect(mocks.editor.setEditable).toHaveBeenLastCalledWith(true)
     })
 
     it('handles link click guards and slash key opening', async () => {

@@ -6,13 +6,14 @@ type ImageAltPopoverOpener = (target: HTMLImageElement, alt: string, nodePos: nu
 
 export function usePostEditorInstance(options: {
     modelValue: Ref<string>
+    editable?: Ref<boolean>
     onUpdateHtml: (html: string) => void
     openSlashMenu: () => void
     openImageAltPopover: ImageAltPopoverOpener
 }) {
     const editor = useEditor({
         content: options.modelValue.value || '',
-        editable: true,
+        editable: options.editable?.value ?? true,
         editorProps: {
             attributes: {
                 class: 'nv-rich-content prose prose-sm dark:prose-invert max-w-none min-h-[280px] px-4 py-4 focus:outline-none',
@@ -73,6 +74,12 @@ export function usePostEditorInstance(options: {
             }
         },
     )
+
+    if (options.editable) {
+        watch([editor, options.editable], ([instance, editable]) => {
+            instance?.setEditable(editable)
+        })
+    }
 
     return editor
 }

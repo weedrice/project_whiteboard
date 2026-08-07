@@ -139,4 +139,19 @@ describe('PostForm editor mode', () => {
         expect((wrapper.get('#content').element as HTMLTextAreaElement).value).toBe(rawWidget)
     })
 
+    it('preserves custom tags and attributes that TipTap cannot round-trip', async () => {
+        const wrapper = mountPostForm('create')
+        const customHtml = '<section id="intro"><p>Custom section</p></section>'
+
+        await findEditorModeButtons(wrapper).html.trigger('click')
+        await wrapper.get('#content').setValue(customHtml)
+        await findEditorModeButtons(wrapper).visual.trigger('click')
+
+        const preservedContent = (wrapper.get('[data-testid="editor-input"]').element as HTMLTextAreaElement).value
+        expect(preservedContent).toContain('class="noviis-sandboxed-post-html"')
+
+        await findEditorModeButtons(wrapper).html.trigger('click')
+        expect((wrapper.get('#content').element as HTMLTextAreaElement).value).toBe(customHtml)
+    })
+
 })
