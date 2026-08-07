@@ -75,6 +75,7 @@ class ModerationAuditLogServiceTest {
         when(audits.search(any(), any(Pageable.class))).thenReturn(Page.empty(pageable));
 
         service.getAdminAudits(" PIN ", " USER ", 3L, " board ", 4L,
+                " 커뮤니티 ", " 운영자 ",
                 LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 2), pageable);
 
         ArgumentCaptor<ModerationAuditLogSearchCondition> captor =
@@ -83,6 +84,8 @@ class ModerationAuditLogServiceTest {
         verify(audits).search(captor.capture(), pageableCaptor.capture());
         assertEquals("PIN", captor.getValue().action());
         assertEquals("board", captor.getValue().boardUrl());
+        assertEquals("커뮤니티", captor.getValue().boardName());
+        assertEquals("운영자", captor.getValue().actorName());
         assertEquals(LocalDateTime.of(2026, 1, 3, 0, 0), captor.getValue().createdTo());
         assertEquals(Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("auditId")),
                 pageableCaptor.getValue().getSort());
@@ -109,7 +112,7 @@ class ModerationAuditLogServiceTest {
     @Test
     void rejectsEmptyOrReversedDateRange() {
         assertThrows(BusinessException.class, () -> service.getAdminAudits(
-                null, null, null, null, null,
+                null, null, null, null, null, null, null,
                 LocalDate.of(2026, 1, 2), LocalDate.of(2026, 1, 1), PageRequest.of(0, 10)));
     }
 
@@ -120,7 +123,7 @@ class ModerationAuditLogServiceTest {
                 Sort.Order.desc("board.boardId")));
         when(audits.search(any(), any(Pageable.class))).thenReturn(Page.empty(requested));
 
-        service.getAdminAudits(null, null, null, null, null, null, null, requested);
+        service.getAdminAudits(null, null, null, null, null, null, null, null, null, requested);
 
         ArgumentCaptor<Pageable> captor = ArgumentCaptor.forClass(Pageable.class);
         verify(audits).search(any(), captor.capture());

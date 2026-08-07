@@ -15,10 +15,12 @@ const props = withDefaults(defineProps<{
   variant?: 'featured' | 'compact' | 'grid'
   showMediaPreview?: boolean
   showBody?: boolean
+  showAuthor?: boolean
 }>(), {
   variant: 'grid',
   showMediaPreview: true,
   showBody: true,
+  showAuthor: true,
 })
 
 const router = useRouter()
@@ -195,7 +197,7 @@ watch(() => props.post.postId, () => {
         {{ post.summary }}
       </p>
       <p
-        v-if="!isFeatured"
+        v-if="!isFeatured && showAuthor"
         class="text-sm text-[var(--nv-muted)]"
       >
         {{ post.authorName }}
@@ -203,7 +205,7 @@ watch(() => props.post.postId, () => {
     </div>
 
     <div
-      v-if="isFeatured"
+      v-if="isFeatured && showAuthor"
       class="flex items-center gap-2 text-sm text-[var(--nv-muted)]"
     >
       <span class="truncate">{{ post.authorName }}</span>

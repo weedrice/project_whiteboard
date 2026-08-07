@@ -105,6 +105,8 @@ public class ModerationAuditLogService {
             Long boardId,
             String boardUrl,
             Long actorUserId,
+            String boardName,
+            String actorName,
             LocalDate startDate,
             LocalDate endDate,
             Pageable pageable) {
@@ -113,7 +115,9 @@ public class ModerationAuditLogService {
                 .actorType(normalizeFilter(actorType))
                 .boardId(boardId)
                 .boardUrl(normalizeFilter(boardUrl))
+                .boardName(normalizeFilter(boardName))
                 .actorUserId(actorUserId)
+                .actorName(normalizeFilter(actorName))
                 .createdFrom(toStartOfDay(startDate))
                 .createdTo(toExclusiveEnd(endDate))
                 .build();

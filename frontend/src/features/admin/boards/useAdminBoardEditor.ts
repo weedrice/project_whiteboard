@@ -35,6 +35,7 @@ export interface AdminBoardEditorForm {
   iconUrl: string
   sortOrder: string
   isActive: boolean
+  isListed: boolean
   agentUseYn: boolean
   guidePrompt: string
 }
@@ -63,6 +64,7 @@ export function useAdminBoardEditor({ boardsData, updateBoard, reorderBoards, re
     iconUrl: '',
     sortOrder: '0',
     isActive: true,
+    isListed: true,
     agentUseYn: false,
     guidePrompt: ''
   })
@@ -84,6 +86,7 @@ export function useAdminBoardEditor({ boardsData, updateBoard, reorderBoards, re
       form.iconUrl !== (selectedBoard.value.iconUrl || '') ||
       normalizedSortOrder.value !== selectedBoard.value.sortOrder ||
       form.isActive !== selectedBoard.value.isActive ||
+      form.isListed !== (selectedBoard.value.isListed ?? selectedBoard.value.isPublic) ||
       form.agentUseYn !== (selectedBoard.value.agentUseYn ?? false) ||
       form.guidePrompt !== (selectedBoard.value.guidePrompt || '')
     )
@@ -108,6 +111,7 @@ export function useAdminBoardEditor({ boardsData, updateBoard, reorderBoards, re
     form.iconUrl = board.iconUrl || ''
     form.sortOrder = String(board.sortOrder)
     form.isActive = board.isActive
+    form.isListed = board.isListed ?? board.isPublic
     form.agentUseYn = board.isPublic ? (board.agentUseYn ?? false) : false
     form.guidePrompt = board.guidePrompt || ''
   }
@@ -120,6 +124,7 @@ export function useAdminBoardEditor({ boardsData, updateBoard, reorderBoards, re
       iconUrl: '',
       sortOrder: '0',
       isActive: true,
+      isListed: true,
       agentUseYn: false,
       guidePrompt: '',
     })
@@ -261,14 +266,15 @@ export function useAdminBoardEditor({ boardsData, updateBoard, reorderBoards, re
         boardUrl: requestBoardUrl,
         data: {
           ...normalizeBoardWritePayload({
-          boardName: board.boardName,
-          boardUrl: board.boardUrl,
-          description: board.description || '',
-          iconUrl: board.iconUrl || '',
-          allowNsfw: board.allowNsfw,
-          isActive: board.isActive,
-          agentUseYn: board.agentUseYn ?? false,
-          guidePrompt: board.guidePrompt || ''
+            boardName: board.boardName,
+            boardUrl: board.boardUrl,
+            description: board.description || '',
+            iconUrl: board.iconUrl || '',
+            allowNsfw: board.allowNsfw,
+            isActive: board.isActive,
+            isListed: board.isListed ?? board.isPublic,
+            agentUseYn: board.agentUseYn ?? false,
+            guidePrompt: board.guidePrompt || ''
           }, { isPublic: board.isPublic }),
           ...(moderationReason && board.boardId === selectedBoardId.value ? { moderationReason } : {})
         }
@@ -329,10 +335,6 @@ export function useAdminBoardEditor({ boardsData, updateBoard, reorderBoards, re
     }
   }
 
-  function toggleBoardStatus() {
-    form.isActive = !form.isActive
-  }
-
   async function selectBoard(board: AdminBoard) {
     if (selectedBoardId.value === board.boardId) return
 
@@ -362,6 +364,7 @@ export function useAdminBoardEditor({ boardsData, updateBoard, reorderBoards, re
       boardName: form.boardName,
       description: form.description,
       iconUrl: form.iconUrl,
+      isListed: form.isListed,
       agentUseYn: form.agentUseYn,
       guidePrompt: form.guidePrompt,
     }, { isPublic: board.isPublic })
@@ -388,6 +391,12 @@ export function useAdminBoardEditor({ boardsData, updateBoard, reorderBoards, re
 
     if (board.isActive !== form.isActive) {
       board.isActive = form.isActive
+      markBoardModified(board.boardId)
+    }
+
+    const nextIsListed = normalizedForm.isListed ?? board.isPublic
+    if ((board.isListed ?? board.isPublic) !== nextIsListed) {
+      board.isListed = nextIsListed
       markBoardModified(board.boardId)
     }
 
@@ -512,7 +521,6 @@ export function useAdminBoardEditor({ boardsData, updateBoard, reorderBoards, re
     isSubmitting,
     isSavingSortOrder,
     handleDragEnd,
-    toggleBoardStatus,
     selectBoard,
     handleSaveChanges
   }

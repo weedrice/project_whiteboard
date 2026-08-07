@@ -254,7 +254,6 @@ const emitBooleanUpdate = (event: BooleanUpdateEvent, value: boolean | unknown[]
         :id="`isNotice${checkboxSuffix}`"
         :model-value="isNotice"
         :label="t('common.notice')"
-        :description="t('board.writePost.noticeDesc')"
         @update:model-value="emitBooleanUpdate('update:isNotice', $event)"
       />
       <BaseCheckbox
@@ -270,7 +269,6 @@ const emitBooleanUpdate = (event: BooleanUpdateEvent, value: boolean | unknown[]
         :id="`spoiler${checkboxSuffix}`"
         :model-value="isSpoiler"
         :label="t('board.writePost.spoiler')"
-        :description="t('board.writePost.spoilerDesc')"
         @update:model-value="emitBooleanUpdate('update:isSpoiler', $event)"
       />
       <BaseCheckbox

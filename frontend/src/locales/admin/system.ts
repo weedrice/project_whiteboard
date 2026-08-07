@@ -75,6 +75,7 @@ export const adminSystemMessages = {
     managerTitle: '스페이스 관리자',
     chooseManager: '관리자 선택',
     userSelectTitle: '사용자 선택',
+    unlisted: '비노출',
     table: {
       desc: '설명',
       active: '상태',

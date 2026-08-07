@@ -53,7 +53,9 @@ export interface AdminMessages {
     auditAction: string
     auditActorType: string
     auditBoardUrl: string
+    auditBoardName: string
     auditActorUserId: string
+    auditActorName: string
     auditStartDate: string
     auditEndDate: string
     auditEmpty: string
@@ -358,6 +360,7 @@ export interface AdminMessages {
     managerTitle: string
     chooseManager: string
     userSelectTitle: string
+    unlisted: string
     table: {
       desc: string
       active: string

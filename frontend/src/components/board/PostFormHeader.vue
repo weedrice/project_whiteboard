@@ -23,9 +23,12 @@ defineEmits<{
       <h1 class="truncate text-2xl font-semibold tracking-[-0.05em] text-[var(--nv-ink)] sm:text-3xl">
         {{ pageTitle }}
       </h1>
-      <p v-if="!hideBoardLabel" class="mt-2 flex items-center gap-2 text-sm text-[var(--nv-ink-soft)]">
+      <p
+        v-if="!hideBoardLabel"
+        class="nv-compose-board-context mt-2 flex items-center gap-1 text-sm text-[var(--nv-ink-soft)]"
+      >
         <span class="truncate">{{ boardLabel }}</span>
-        <span class="shrink-0 rounded-full border border-[var(--nv-line)] px-2 py-0.5 text-[0.7rem] font-medium text-[var(--nv-muted)]">
+        <span class="shrink-0 text-[var(--nv-muted)]">
           {{ $t('common.board') }}
         </span>
       </p>

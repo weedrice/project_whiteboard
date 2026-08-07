@@ -226,13 +226,13 @@ const { t } = useI18n()
 
 .nv-post-author-menu {
   display: inline-flex;
-  max-width: 10ch;
+  max-width: 16ch;
   min-width: 0;
 }
 
 .nv-post-author-fallback {
   display: inline-block;
-  max-width: 10ch;
+  max-width: 16ch;
   overflow: hidden;
   text-align: left;
   text-overflow: ellipsis;

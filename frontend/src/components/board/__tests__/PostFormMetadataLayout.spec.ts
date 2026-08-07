@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
+  boardRef,
   mountPostForm,
   resetPostFormTestState,
   unmountPostFormWrappers,
@@ -29,11 +30,30 @@ describe('PostForm metadata layout', () => {
     expect(editWrapper.text()).toContain('board.writePost.editTitle')
   })
 
-  it('shows the space marker beside the board name', () => {
-    const wrapper = mountPostForm('create')
+  it.each(['create', 'edit'] as const)('shows the space as plain text in the %s header', (mode) => {
+    const wrapper = mountPostForm(mode)
+    const boardContext = wrapper.get('.nv-compose-board-context')
 
-    expect(wrapper.text()).toContain('free')
-    expect(wrapper.text()).toContain('common.board')
+    expect(boardContext.text()).toContain('free')
+    expect(boardContext.text()).toContain('common.board')
+    expect(boardContext.get('span:last-child').classes()).not.toEqual(expect.arrayContaining([
+      'rounded-full',
+      'border',
+    ]))
+  })
+
+  it.each(['create', 'edit'] as const)('keeps notice and spoiler options on one line without descriptions in the %s form', (mode) => {
+    boardRef.value = { ...(boardRef.value ?? {}), isAdmin: true }
+    const wrapper = mountPostForm(mode)
+
+    expect(wrapper.get('#isNotice').attributes('description')).toBeUndefined()
+    expect(wrapper.get('#spoiler').attributes('description')).toBeUndefined()
+    expect(wrapper.get('#isNotice-m').attributes('description')).toBeUndefined()
+    expect(wrapper.get('#spoiler-m').attributes('description')).toBeUndefined()
+    expect(wrapper.find('#isNotice-description').exists()).toBe(false)
+    expect(wrapper.find('#spoiler-description').exists()).toBe(false)
+    expect(wrapper.find('#isNotice-m-description').exists()).toBe(false)
+    expect(wrapper.find('#spoiler-m-description').exists()).toBe(false)
   })
 
   it('renders overridden create title when provided', () => {

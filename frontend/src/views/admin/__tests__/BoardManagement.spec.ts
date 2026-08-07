@@ -122,6 +122,10 @@ describe('BoardManagement', () => {
       title: 'admin.boards.userSelectTitle',
       selectionMode: 'single',
     })
+    expect(wrapper.findAll('section').map((section) => section.classes())).toEqual([
+      expect.arrayContaining(['xl:col-span-3']),
+      expect.arrayContaining(['xl:col-span-9']),
+    ])
   })
 
   it('uses a create-only submitting state for the create modal', async () => {

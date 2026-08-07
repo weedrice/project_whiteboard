@@ -8710,11 +8710,25 @@
           }
         }, {
           "in" : "query",
+          "name" : "boardName",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
           "name" : "actorUserId",
           "required" : false,
           "schema" : {
             "format" : "int64",
             "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "actorName",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
           }
         }, {
           "in" : "query",

@@ -47,6 +47,7 @@ function createBoard(overrides: Partial<AdminBoard>): AdminBoard {
     allowNsfw: false,
     isActive: true,
     isPublic: true,
+    isListed: true,
     agentUseYn: false,
     guidePrompt: '',
     ...overrides
@@ -133,6 +134,25 @@ describe('useAdminBoardEditor', () => {
 
     expect(confirmMock).toHaveBeenCalledWith('admin.boards.messages.confirmDiscardChanges')
     expect(editor.selectedBoardId.value).toBe(1)
+  })
+
+  it('saves a public board as unlisted without deactivating it', async () => {
+    const boardsData = ref([createBoard({ boardId: 10, boardUrl: 'community' })])
+    const updateBoard = vi.fn().mockResolvedValue(undefined)
+    const editor = createEditor(boardsData, updateBoard)
+    await nextTick()
+
+    editor.form.isListed = false
+    await editor.handleSaveChanges()
+
+    expect(updateBoard).toHaveBeenCalledWith({
+      boardUrl: 'community',
+      data: expect.objectContaining({
+        isActive: true,
+        isListed: false,
+      }),
+    })
+    expect(confirmWithReasonMock).not.toHaveBeenCalled()
   })
 
   it('preserves the selected draft when refreshed board data arrives', async () => {

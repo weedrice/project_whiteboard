@@ -92,7 +92,8 @@ describe('postListModel', () => {
       date: 'Date',
     }
 
-    expect(createPostListColumns(labels, { showBoardName: false, hideNoColumn: false }).map((column) => column.key)).toEqual([
+    const defaultColumns = createPostListColumns(labels, { showBoardName: false, hideNoColumn: false })
+    expect(defaultColumns.map((column) => column.key)).toEqual([
       'postId',
       'title',
       'author',
@@ -100,7 +101,14 @@ describe('postListModel', () => {
       'viewCount',
       'createdAt',
     ])
-    expect(createPostListColumns(labels, { showBoardName: true, hideNoColumn: true }).map((column) => column.key)).toEqual([
+    expect(Object.fromEntries(defaultColumns.map((column) => [column.key, column.width]))).toMatchObject({
+      title: '45%',
+      author: '18%',
+      viewCount: '6%',
+    })
+
+    const boardColumns = createPostListColumns(labels, { showBoardName: true, hideNoColumn: true })
+    expect(boardColumns.map((column) => column.key)).toEqual([
       'boardName',
       'title',
       'author',
@@ -108,6 +116,11 @@ describe('postListModel', () => {
       'viewCount',
       'createdAt',
     ])
+    expect(Object.fromEntries(boardColumns.map((column) => [column.key, column.width]))).toMatchObject({
+      title: '31%',
+      author: '18%',
+      viewCount: '6%',
+    })
   })
 
   it('checks inquiry interception with normalized board urls', () => {

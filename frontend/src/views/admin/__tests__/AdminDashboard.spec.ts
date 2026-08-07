@@ -1,6 +1,7 @@
 import { mount, RouterLinkStub } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import AdminDashboard from '../AdminDashboard.vue'
+import type { ModerationAuditSearchParams } from '@/types/admin'
 
 const mocks = vi.hoisted(() => ({
   statsLoading: { __v_isRef: true, value: false },
@@ -37,6 +38,7 @@ const mocks = vi.hoisted(() => ({
     },
   },
   audits: { __v_isRef: true, value: { content: [] } },
+  auditParams: { value: null as unknown },
 }))
 
 vi.mock('@/features/admin/useAdmin', () => ({
@@ -53,12 +55,15 @@ vi.mock('@/features/admin/useAdmin', () => ({
       isError: mocks.deepError,
       refetch: mocks.refetchDeep,
     }),
-    useModerationAudits: () => ({
-      data: mocks.audits,
-      isLoading: mocks.auditLoading,
-      isError: mocks.auditError,
-      refetch: mocks.refetchAudit,
-    }),
+    useModerationAudits: (params: unknown) => {
+      mocks.auditParams.value = params
+      return {
+        data: mocks.audits,
+        isLoading: mocks.auditLoading,
+        isError: mocks.auditError,
+        refetch: mocks.refetchAudit,
+      }
+    },
   }),
 }))
 
@@ -119,5 +124,22 @@ describe('AdminDashboard', () => {
     const error = wrapper.get('[role="alert"]')
     await error.get('button').trigger('click')
     expect(mocks.refetchStats).toHaveBeenCalledOnce()
+  })
+
+  it('searches audit logs by space and user names', async () => {
+    const wrapper = mount(AdminDashboard, {
+      global: { stubs: { RouterLink: RouterLinkStub } },
+    })
+
+    await wrapper.get('input[placeholder="admin.dashboard.auditBoardName"]').setValue(' 개발 ')
+    await wrapper.get('input[placeholder="admin.dashboard.auditActorName"]').setValue(' 운영자 ')
+
+    const params = mocks.auditParams.value as { value: ModerationAuditSearchParams }
+    expect(params.value).toEqual(expect.objectContaining({
+      boardName: '개발',
+      actorName: '운영자',
+    }))
+    expect(params.value).not.toHaveProperty('boardUrl')
+    expect(params.value).not.toHaveProperty('actorUserId')
   })
 })

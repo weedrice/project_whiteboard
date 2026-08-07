@@ -75,6 +75,7 @@ export const adminSystemMessagesEn = {
     managerTitle: 'Space administrator',
     chooseManager: 'Select administrator',
     userSelectTitle: 'Select user',
+    unlisted: 'Unlisted',
     table: {
       desc: 'Description',
       active: 'Status',

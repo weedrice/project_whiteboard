@@ -3,6 +3,7 @@ import { QueryClient, VueQueryPlugin } from '@tanstack/vue-query'
 import { nextTick } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import BoardManagerGovernancePanel from '../BoardManagerGovernancePanel.vue'
+import AdminAuditLogTable from '@/components/admin/AdminAuditLogTable.vue'
 import ReportList from '@/components/admin/ReportList.vue'
 import ReportDetailModal from '@/components/admin/ReportDetailModal.vue'
 import { notifyAuthSessionBoundary } from '@/queryAuthScope'
@@ -180,6 +181,13 @@ describe('BoardManagerGovernancePanel', () => {
 
     const options = wrapper.get('#board-report-target').findAll('option')
     expect(options.map((option) => option.attributes('value'))).toEqual(['', 'POST', 'COMMENT'])
+  })
+
+  it('shows the space name in the board-manager audit grid', async () => {
+    const { wrapper } = mountPanel()
+    await flushPromises()
+
+    expect(wrapper.getComponent(AdminAuditLogTable).props('showBoardName')).toBe(true)
   })
 
   it('clears an open report detail when its board, authorization, or auth session changes', async () => {

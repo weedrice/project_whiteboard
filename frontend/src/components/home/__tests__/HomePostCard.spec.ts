@@ -119,6 +119,20 @@ describe('HomePostCard', () => {
     expect(wrapper.text()).not.toContain('요약')
   })
 
+  it('can omit the author in related-post contexts', () => {
+    const wrapper = mount(HomePostCard, {
+      props: {
+        post: makePost(),
+        variant: 'compact',
+        showBody: false,
+        showAuthor: false,
+      },
+    })
+
+    expect(wrapper.get('.nv-home-card-title').text()).toBe('오늘의 큐레이션')
+    expect(wrapper.text()).not.toContain('작성자')
+  })
+
   it('keeps grid cards on the lightweight feed preview renderer', () => {
     const wrapper = mount(HomePostCard, {
       props: {

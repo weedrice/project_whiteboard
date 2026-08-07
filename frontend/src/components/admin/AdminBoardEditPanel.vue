@@ -1,5 +1,5 @@
 <template>
-  <AdminPanel max-width-class="w-full max-w-5xl">
+  <AdminPanel max-width-class="w-full">
     <template v-if="selectedBoard">
       <div class="space-y-7">
         <div>
@@ -30,14 +30,12 @@
               />
             </div>
             <div class="md:col-span-2 flex items-end justify-start md:justify-end">
-              <button
-                type="button"
-                class="inline-flex items-center rounded-full px-3 py-1.5 text-sm font-semibold transition-colors"
-                :class="form.isActive ? 'nv-status-success' : 'nv-status-danger'"
-                @click="emit('toggle-status')"
-              >
-                {{ form.isActive ? t('common.active') : t('common.inactive') }}
-              </button>
+              <BaseSelect
+                v-model="visibilityStatusModel"
+                class="w-full max-w-40"
+                :label="t('admin.boards.table.active')"
+                :options="visibilityStatusOptions"
+              />
             </div>
           </template>
         </AdminBoardFormFields>
@@ -82,6 +80,7 @@ import AdminBoardFormFields from '@/components/admin/AdminBoardFormFields.vue'
 import AdminBoardIconSection from '@/components/admin/AdminBoardIconSection.vue'
 import AdminBoardManagerSection from '@/components/admin/AdminBoardManagerSection.vue'
 import BaseInput from '@/components/common/ui/BaseInput.vue'
+import BaseSelect from '@/components/common/ui/BaseSelect.vue'
 import BaseButton from '@/components/common/ui/BaseButton.vue'
 
 const props = withDefaults(defineProps<{
@@ -97,7 +96,6 @@ const props = withDefaults(defineProps<{
 }>(), { isBoardManagerError: false })
 
 const emit = defineEmits<{
-  (event: 'toggle-status'): void
   (event: 'save'): void
   <K extends keyof AdminBoardEditorForm>(event: 'update-form', field: K, value: AdminBoardEditorForm[K]): void
   (event: 'icon-upload', uploadEvent: Event): void
@@ -107,6 +105,27 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+
+const visibilityStatusOptions = computed(() => [
+  { value: 'active', label: t('common.active') },
+  ...(props.selectedBoard?.isPublic
+    ? [{ value: 'unlisted', label: t('admin.boards.unlisted') }]
+    : []),
+  { value: 'inactive', label: t('common.inactive') },
+])
+
+const visibilityStatusModel = computed({
+  get: () => {
+    if (!props.form.isActive) return 'inactive'
+    if (!props.selectedBoard?.isPublic) return 'active'
+    return props.form.isListed ? 'active' : 'unlisted'
+  },
+  set: (value: string | number) => {
+    const status = String(value)
+    emit('update-form', 'isActive', status !== 'inactive')
+    emit('update-form', 'isListed', Boolean(props.selectedBoard?.isPublic) && status === 'active')
+  },
+})
 
 const boardNameModel = computed({
   get: () => props.form.boardName,
