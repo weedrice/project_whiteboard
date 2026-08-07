@@ -13,7 +13,7 @@ import {
     validatePostFormPoll,
     validatePostFormContent,
 } from '../postForm'
-import { decodeSandboxedPostHtml } from '../postHtmlSandbox'
+import { decodeSandboxedPostHtml, encodeSandboxedPostHtml } from '../postHtmlSandbox'
 
 const baseForm = {
     title: 'Title',
@@ -56,6 +56,18 @@ describe('postForm', () => {
         expect(extractPostFileIdsFromContent(content)).toEqual([15, 16, 18])
     })
 
+    it('extracts file ids from preserved html markers and surrounding content', () => {
+        const preserved = encodeSandboxedPostHtml([
+            '<style>.gallery{display:grid}</style>',
+            '<img src="/api/v1/files/21">',
+            '<a href="/files/22">attachment</a>',
+        ].join(''))
+        const content = `<img src="/api/v1/files/20">${preserved}`
+
+        expect(extractPostFileIdsFromContent(content)).toEqual([20, 21, 22])
+        expect(resolvePostFormFileIds(content, [21, 22], 'draft')).toEqual([21, 22])
+    })
+
     it('filters draft payload file ids to files tracked by the draft', () => {
         const content = '<img src="/api/v1/files/10"><img src="/api/v1/files/11">'
 
@@ -78,6 +90,23 @@ describe('postForm', () => {
         expect(detached).toContain('src="/api/v1/files/11"')
         expect(detached).toContain('download')
         expect(detached).toContain('href="https://external.test/files/10"')
+    })
+
+    it('removes file references inside preserved html without exposing its source', () => {
+        const preserved = encodeSandboxedPostHtml([
+            '<style>.gallery{display:grid}</style>',
+            '<p>Before<img src="/api/v1/files/30"><img src="/api/v1/files/31"></p>',
+            '<a href="/api/v1/files/30">download</a>',
+        ].join(''))
+
+        const detached = removePostFileReferencesFromContent(preserved, [30])
+        const decoded = decodeSandboxedPostHtml(detached)
+
+        expect(detached).toContain('noviis-sandboxed-post-html')
+        expect(detached).not.toContain('/api/v1/files/30')
+        expect(decoded).not.toContain('/api/v1/files/30')
+        expect(decoded).toContain('src="/api/v1/files/31"')
+        expect(decoded).toContain('download')
     })
 
     it('builds the same post payload shape used by create and update flows', () => {

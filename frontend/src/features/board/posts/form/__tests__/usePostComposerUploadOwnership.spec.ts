@@ -4,6 +4,7 @@ import {
   POST_COMPOSER_UPLOAD_DISCARD_DELAY_MS,
   usePostComposerUploadOwnership,
 } from '@/features/board/posts/form/usePostComposerUploadOwnership'
+import { encodeSandboxedPostHtml } from '@/utils/postHtmlSandbox'
 
 const discardUploadsMock = vi.hoisted(() => vi.fn())
 
@@ -97,6 +98,21 @@ describe('usePostComposerUploadOwnership', () => {
 
     expect(discardUploadsMock).not.toHaveBeenCalled()
     expect(ownership.ownedUploadedFileIds.value).toEqual([64])
+    scope.stop()
+  })
+
+  it('keeps an upload referenced inside preserved html', async () => {
+    const { scope, content, ownership } = createOwnership()
+    ownership.recordUploadedFile(65)
+    content.value = encodeSandboxedPostHtml([
+      '<style>.gallery{display:grid}</style>',
+      '<img src="/api/v1/files/65">',
+    ].join(''))
+    await nextTick()
+    await vi.advanceTimersByTimeAsync(POST_COMPOSER_UPLOAD_DISCARD_DELAY_MS)
+
+    expect(discardUploadsMock).not.toHaveBeenCalled()
+    expect(ownership.ownedUploadedFileIds.value).toEqual([65])
     scope.stop()
   })
 

@@ -1,7 +1,12 @@
 import { normalizeEditorFileImageUrls, normalizeLegacyFileUrls } from '@/utils/fileUrl'
 import { getWindowOrigin } from '@/utils/browserEnv'
 import { withServerOffset } from '@/utils/date'
-import { encodeSandboxedPostHtml, requiresPreservedPostHtml } from '@/utils/postHtmlSandbox'
+import {
+    encodeSandboxedPostHtml,
+    expandSandboxedPostHtml,
+    mapSandboxedPostHtmlPayloads,
+    requiresPreservedPostHtml,
+} from '@/utils/postHtmlSandbox'
 import type { PollPayload } from '@/api/post'
 
 export type PostFormFileIdScope = 'content' | 'draft'
@@ -132,7 +137,8 @@ export function extractFileIdFromPostImageSrc(src: string, baseOrigin = getDefau
 export function extractPostFileIdsFromContent(content: string): number[] {
     const fileIds = new Set<number>()
     const parser = new DOMParser()
-    const doc = parser.parseFromString(content, 'text/html')
+    const expandedContent = expandSandboxedPostHtml(content) ?? content
+    const doc = parser.parseFromString(expandedContent, 'text/html')
 
     doc.querySelectorAll('img[src]').forEach((image) => {
         const dataFileIdAttribute = image.getAttribute('data-file-id')
@@ -163,6 +169,14 @@ export function extractPostFileIdsFromContent(content: string): number[] {
 export function removePostFileReferencesFromContent(content: string, fileIds: number[]): string {
     if (!content || fileIds.length === 0 || typeof DOMParser === 'undefined') return content
 
+    const contentWithUpdatedMarkers = mapSandboxedPostHtmlPayloads(
+        content,
+        (payload) => removePostFileReferencesFromHtml(payload, fileIds),
+    )
+    return removePostFileReferencesFromHtml(contentWithUpdatedMarkers, fileIds)
+}
+
+function removePostFileReferencesFromHtml(content: string, fileIds: number[]): string {
     const removedFileIds = new Set(fileIds)
     const parser = new DOMParser()
     const doc = parser.parseFromString(content, 'text/html')

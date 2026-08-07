@@ -206,6 +206,27 @@ export function expandSandboxedPostHtml(content: string | null | undefined): str
     )
 }
 
+export function mapSandboxedPostHtmlPayloads(
+    content: string,
+    transform: (payload: string) => string,
+): string {
+    if (!containsSandboxedPostHtml(content)) return content
+    return content.replace(
+        /<div\b(?=[^>]*\bclass=["'][^"']*\bnoviis-sandboxed-post-html\b[^"']*["'])(?=[^>]*\bdata-value=["'][^"']+["'])[^>]*>\s*<\/div>/gi,
+        (marker) => {
+            const payload = marker.match(/\bdata-value=(["'])([^"']+)\1/i)?.[2]
+            const decoded = decodeSandboxedPostHtmlPayload(payload)
+            if (decoded == null) return marker
+            const transformed = transform(decoded)
+            if (transformed === decoded) return marker
+            const encoded = encodeSandboxedPostHtmlPayload(transformed)
+            return marker.replace(/\bdata-value=(["'])[^"']+\1/i, (_attribute, quote: string) => (
+                `data-value=${quote}${encoded}${quote}`
+            ))
+        },
+    )
+}
+
 function findStandaloneSandboxMarker(content: string | null | undefined): HTMLElement | string | null {
     if (!content?.includes(SANDBOX_MARKER_CLASS)) return null
     if (typeof DOMParser === 'undefined') {
