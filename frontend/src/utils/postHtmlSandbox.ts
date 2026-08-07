@@ -45,6 +45,9 @@ export function buildSandboxedPostHtmlSource(content: string, frameId: string, n
         getSandboxBaseCss(),
         '</style>',
         documentParts.headHtml,
+        '<style data-noviis-sandbox-guard>',
+        getSandboxGuardCss(),
+        '</style>',
         '</head>',
         `<body${documentParts.bodyAttributes}>`,
         documentParts.bodyHtml,
@@ -193,17 +196,10 @@ function getSandboxBaseCss(): string {
   --radius: 8px;
 }
 * { box-sizing: border-box; }
-html, body { margin: 0; min-height: 0; overflow-x: hidden; overflow-y: auto; background: transparent; }
-body { color: var(--text-primary); font-family: var(--font-sans); overflow-wrap: anywhere; }
-img, video, iframe, svg, canvas { max-width: 100%; }
-pre { max-width: 100%; overflow-x: auto; }
-table { display: block; max-width: 100%; overflow-x: auto; }
-body :where(.grid) > * { min-width: 0; }
+html, body { margin: 0; min-height: 0; background: transparent; }
+body { color: var(--text-primary); font-family: var(--font-sans); }
 button, input, textarea, select { font: inherit; }
 .ti-check::before { content: "\\2713"; }
-@media (max-width: 480px) {
-  body :where(.grid) { grid-template-columns: minmax(0, 1fr) !important; }
-}
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
@@ -227,11 +223,60 @@ button, input, textarea, select { font: inherit; }
 `
 }
 
+function getSandboxGuardCss(): string {
+    return `
+html, body { max-width: 100%; overflow-x: hidden !important; overflow-y: auto !important; }
+body { overflow-wrap: anywhere; }
+img, video, iframe, svg, canvas { max-width: 100%; }
+pre { max-width: 100%; overflow-x: auto; }
+table { display: block; max-width: 100%; overflow-x: auto; }
+body :where(.grid) > * { min-width: 0; }
+body :where([data-noviis-responsive-stack]) { grid-template-columns: minmax(0, 1fr) !important; }
+`
+}
+
 function getHeightBridgeScript(frameId: string, nonce: string): string {
     return `<script nonce="${nonce}">
 (function () {
   var frameId = ${JSON.stringify(frameId)};
   var lastHeight = 0;
+  var responsiveStackAttribute = 'data-noviis-responsive-stack';
+  function enforceScrollableDocument() {
+    var roots = [document.documentElement, document.body];
+    for (var index = 0; index < roots.length; index += 1) {
+      var root = roots[index];
+      if (!root) continue;
+      root.style.setProperty('overflow-x', 'hidden', 'important');
+      root.style.setProperty('overflow-y', 'auto', 'important');
+    }
+  }
+  function hasHorizontalOverflow(element) {
+    return element.clientWidth > 0 && element.scrollWidth > element.clientWidth + 1;
+  }
+  function hasOverflowingDescendant(element) {
+    var descendants = element.querySelectorAll('*');
+    for (var index = 0; index < descendants.length; index += 1) {
+      if (hasHorizontalOverflow(descendants[index])) return true;
+    }
+    return false;
+  }
+  function repairResponsiveGrids() {
+    var isNarrow = document.documentElement.clientWidth <= 480;
+    var grids = document.querySelectorAll('.grid');
+    for (var index = 0; index < grids.length; index += 1) {
+      var grid = grids[index];
+      if (!isNarrow) {
+        grid.removeAttribute(responsiveStackAttribute);
+        continue;
+      }
+      if (grid.hasAttribute(responsiveStackAttribute)) continue;
+      var display = window.getComputedStyle(grid).display;
+      if (display !== 'grid' && display !== 'inline-grid') continue;
+      if (hasHorizontalOverflow(grid) || hasOverflowingDescendant(grid)) {
+        grid.setAttribute(responsiveStackAttribute, '');
+      }
+    }
+  }
   function measure() {
     var body = document.body;
     var doc = document.documentElement;
@@ -243,6 +288,8 @@ function getHeightBridgeScript(frameId: string, nonce: string): string {
     );
   }
   function postHeight() {
+    enforceScrollableDocument();
+    repairResponsiveGrids();
     var height = measure();
     if (Math.abs(height - lastHeight) < 2) return;
     lastHeight = height;

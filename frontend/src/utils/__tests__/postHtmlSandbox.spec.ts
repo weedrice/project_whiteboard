@@ -83,14 +83,19 @@ describe('postHtmlSandbox', () => {
     })
 
     it('adds defensive overflow styles for long and narrow static html', () => {
-        const source = buildSandboxedPostHtmlSource('<div>content</div>', 'frame-1', 'test-nonce')
+        const authorStyle = '<style>html body { overflow: hidden !important; }</style>'
+        const source = buildSandboxedPostHtmlSource(`${authorStyle}<div>content</div>`, 'frame-1', 'test-nonce')
 
-        expect(source).toContain('overflow-x: hidden; overflow-y: auto')
+        expect(source.indexOf('data-noviis-sandbox-guard')).toBeGreaterThan(source.indexOf(authorStyle))
+        expect(source).toContain('overflow-x: hidden !important; overflow-y: auto !important')
+        expect(source).toContain("root.style.setProperty('overflow-y', 'auto', 'important')")
         expect(source).toContain('overflow-wrap: anywhere')
         expect(source).toContain('pre { max-width: 100%; overflow-x: auto; }')
         expect(source).toContain('table { display: block; max-width: 100%; overflow-x: auto; }')
         expect(source).toContain('body :where(.grid) > * { min-width: 0; }')
-        expect(source).toContain('body :where(.grid) { grid-template-columns: minmax(0, 1fr) !important; }')
+        expect(source).toContain('body :where([data-noviis-responsive-stack]) { grid-template-columns: minmax(0, 1fr) !important; }')
+        expect(source).toContain("var responsiveStackAttribute = 'data-noviis-responsive-stack'")
+        expect(source).toContain('hasOverflowingDescendant(grid)')
     })
 
     it('cleans up sandbox height polling when the frame unloads', () => {
