@@ -3,7 +3,9 @@ package com.weedrice.whiteboard.domain.post.dto;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.weedrice.whiteboard.domain.board.util.BoardUrlNormalizer;
 import com.weedrice.whiteboard.domain.file.support.FileAssociationConstraints;
+import com.weedrice.whiteboard.domain.post.constant.PostContentConstraints;
 import com.weedrice.whiteboard.domain.post.constant.PostDraftPolicy;
+import com.weedrice.whiteboard.domain.post.validation.ValidPostContentLength;
 import com.weedrice.whiteboard.domain.tag.constant.TagConstraints;
 import com.weedrice.whiteboard.global.validation.NoHtml;
 import jakarta.validation.constraints.NotBlank;
@@ -34,7 +36,8 @@ public class PostDraftRequest {
     @Size(max = 200, message = "{validation.post.title.max}")
     @NoHtml
     private String title;
-    @Size(max = 100000, message = "{validation.post.content.max}")
+    @Size(max = PostContentConstraints.MAX_STORED_LENGTH, message = "{validation.post.content.max}")
+    @ValidPostContentLength
     private String contents;
     private Long categoryId;
     @Size(max = TagConstraints.MAX_POST_TAG_COUNT, message = "{validation.post.tags.max}")

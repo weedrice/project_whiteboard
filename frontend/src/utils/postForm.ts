@@ -25,6 +25,7 @@ export const POST_POLL_MIN_OPTIONS = 2
 export const POST_POLL_MAX_OPTIONS = 10
 export const POST_TITLE_MAX_LENGTH = 200
 export const POST_CONTENT_MAX_LENGTH = 100_000
+export const POST_STORED_CONTENT_MAX_LENGTH = 500_000
 export const POST_TAG_MAX_COUNT = 10
 export const POST_TAG_MAX_LENGTH = 100
 export const POST_FILE_MAX_COUNT = 20
@@ -40,6 +41,12 @@ export type PostFormContentValidationError =
     | 'tagTooLong'
     | 'tooManyFiles'
 
+function isPostContentTooLong(content: string): boolean {
+    const sourceContent = expandSandboxedPostHtml(content) ?? content
+    return sourceContent.length > POST_CONTENT_MAX_LENGTH
+        || content.length > POST_STORED_CONTENT_MAX_LENGTH
+}
+
 export function containsUnsafePostTitleHtml(value: string): boolean {
     return /<[^>]+>|on\w+\s*=/i.test(value)
 }
@@ -53,7 +60,7 @@ export function validatePostFormContent(input: {
     if (!input.title.trim()) return 'titleRequired'
     if (input.title.length > POST_TITLE_MAX_LENGTH) return 'titleTooLong'
     if (containsUnsafePostTitleHtml(input.title)) return 'titleContainsHtml'
-    if (input.content.length > POST_CONTENT_MAX_LENGTH) return 'contentTooLong'
+    if (isPostContentTooLong(input.content)) return 'contentTooLong'
     if (input.tags.length > POST_TAG_MAX_COUNT) return 'tooManyTags'
     if (input.tags.some((tag) => !tag.trim())) return 'tagRequired'
     if (input.tags.some((tag) => tag.length > POST_TAG_MAX_LENGTH)) return 'tagTooLong'
@@ -69,7 +76,7 @@ export function validatePostDraftContent(input: {
 }): Exclude<PostFormContentValidationError, 'titleRequired'> | null {
     if (input.title.length > POST_TITLE_MAX_LENGTH) return 'titleTooLong'
     if (containsUnsafePostTitleHtml(input.title)) return 'titleContainsHtml'
-    if (input.content.length > POST_CONTENT_MAX_LENGTH) return 'contentTooLong'
+    if (isPostContentTooLong(input.content)) return 'contentTooLong'
     if (input.tags.length > POST_TAG_MAX_COUNT) return 'tooManyTags'
     if (input.tags.some((tag) => !tag.trim())) return 'tagRequired'
     if (input.tags.some((tag) => tag.length > POST_TAG_MAX_LENGTH)) return 'tagTooLong'

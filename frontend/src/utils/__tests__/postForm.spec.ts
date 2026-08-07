@@ -39,6 +39,18 @@ describe('postForm', () => {
         expect(validatePostFormContent({ ...valid, fileIds: Array.from({ length: 21 }, (_, index) => index + 1) })).toBe('tooManyFiles')
     })
 
+    it('validates preserved html by its source length and allows its encoded storage overhead', () => {
+        const prefix = '<style>.card{display:grid}</style>'
+        const sourceAtLimit = prefix + '한'.repeat(100_000 - prefix.length)
+        const encodedAtLimit = encodeSandboxedPostHtml(sourceAtLimit)
+        const valid = { title: 'title', content: encodedAtLimit, tags: [], fileIds: [] }
+
+        expect(encodedAtLimit.length).toBeGreaterThan(100_000)
+        expect(validatePostFormContent(valid)).toBeNull()
+        expect(validatePostDraftContent(valid)).toBeNull()
+        expect(validatePostFormContent({ ...valid, content: encodeSandboxedPostHtml(`${sourceAtLimit}한`) })).toBe('contentTooLong')
+    })
+
     it('extracts unique local persisted file ids from images and attachment links', () => {
         expect(extractFileIdFromPostImageSrc('/api/v1/files/12', 'https://noviis.kr')).toBe(12)
         expect(extractFileIdFromPostImageSrc('/files/13', 'https://noviis.kr')).toBe(13)
@@ -251,7 +263,7 @@ describe('postForm', () => {
         )).toBeNull()
     })
 
-    it('validates the transformed draft payload sent to the server', () => {
+    it('allows a transformed draft payload when its source remains within the limit', () => {
         const rawContent = `<style>${'x'.repeat(75_000)}</style>`
         const payload = buildPostFormPayload({
             form: { ...baseForm, content: rawContent },
@@ -272,7 +284,7 @@ describe('postForm', () => {
             content: payload.contents,
             tags: payload.tags,
             fileIds: payload.fileIds,
-        })).toBe('contentTooLong')
+        })).toBeNull()
     })
 
     it('validates draft poll structure without rejecting an expired close time', () => {
