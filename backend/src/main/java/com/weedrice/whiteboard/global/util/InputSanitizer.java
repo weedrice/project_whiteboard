@@ -47,7 +47,8 @@ public class InputSanitizer {
             .addAttributes("table", "width")
             .addAttributes("th", "colspan", "rowspan")
             .addAttributes("td", "colspan", "rowspan")
-            .addAttributes(":all", "data-id", "data-value", "data-video-embed", "data-color")
+            .addAttributes(":all", "data-id", "data-label", "data-type", "data-mention-suggestion-char",
+                    "data-mention-user-id", "data-value", "data-video-embed", "data-color")
             .addProtocols("a", "href", "http", "https", "mailto")
             .addProtocols("img", "src", "http", "https")
             .addProtocols("video", "src", "http", "https")

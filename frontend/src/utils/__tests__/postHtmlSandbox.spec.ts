@@ -56,6 +56,8 @@ describe('postHtmlSandbox', () => {
         })
         expect(requiresPreservedPostHtml('<p style="text-align:center"><strong>Hello</strong></p>')).toBe(false)
         expect(requiresPreservedPostHtml('<a class="tiptap-link" href="https://noviis.kr" target="_blank" rel="noopener noreferrer">Link</a>')).toBe(false)
+        expect(requiresPreservedPostHtml('<pre class="hljs"><code class="language-typescript">const value = 1</code></pre>')).toBe(false)
+        expect(requiresPreservedPostHtml('<span class="mention-node" data-type="mention" data-id="7" data-label="Novi" data-mention-suggestion-char="@" data-mention-user-id="7">@Novi</span>')).toBe(false)
     })
 
     it('decodes only a standalone preserved marker', () => {

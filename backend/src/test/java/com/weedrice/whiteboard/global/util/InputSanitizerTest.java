@@ -56,6 +56,22 @@ class InputSanitizerTest {
     }
 
     @Test
+    @DisplayName("게시글 본문 sanitizer는 에디터 멘션의 왕복 속성을 유지한다")
+    void sanitizePostHtml_preservesEditorMentionAttributes() {
+        String input = "<span class=\"mention-node\" data-type=\"mention\" data-id=\"7\" "
+                + "data-label=\"Novi\" data-mention-suggestion-char=\"@\" "
+                + "data-mention-user-id=\"7\">@Novi</span>";
+
+        String sanitized = InputSanitizer.sanitizePostHtml(input);
+
+        assertThat(sanitized).contains("data-type=\"mention\"");
+        assertThat(sanitized).contains("data-id=\"7\"");
+        assertThat(sanitized).contains("data-label=\"Novi\"");
+        assertThat(sanitized).contains("data-mention-suggestion-char=\"@\"");
+        assertThat(sanitized).contains("data-mention-user-id=\"7\"");
+    }
+
+    @Test
     @DisplayName("게시글 본문 sanitizer는 위험한 URL scheme을 제거한다")
     void sanitizePostHtml_removesDangerousUrlSchemes() {
         String input = """

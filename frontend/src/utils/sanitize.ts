@@ -66,7 +66,8 @@ export function sanitizeQuillHtml(html: string): SanitizedHtml {
         ALLOWED_ATTR: [
             'href', 'src', 'alt', 'title', 'class',
             'loading', 'width', 'height', 'style', 'role', 'tabindex',
-            'data-file-id', 'data-server-src', 'data-video-embed', 'data-type', 'data-mention-user-id',
+            'data-file-id', 'data-server-src', 'data-video-embed', 'data-type', 'data-id', 'data-label',
+            'data-mention-suggestion-char', 'data-mention-user-id',
             'frameborder', 'allowfullscreen', 'allow',
             'referrerpolicy', 'sandbox',
         ],

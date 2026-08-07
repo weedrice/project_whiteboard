@@ -217,6 +217,8 @@ export function createPostEditorExtensions() {
           'span',
           mergeAttributes(options.HTMLAttributes, {
             'data-type': 'mention',
+            'data-id': node.attrs.id,
+            'data-label': node.attrs.label,
             'data-mention-user-id': node.attrs.id,
           }),
           `@${node.attrs.label ?? node.attrs.id}`,

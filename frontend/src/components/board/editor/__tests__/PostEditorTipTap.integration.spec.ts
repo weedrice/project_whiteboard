@@ -1,7 +1,11 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { Editor } from '@tiptap/core'
 import { createPostEditorExtensions } from '@/components/board/editor/postEditorExtensions'
-import { decodeSandboxedPostHtml, encodeSandboxedPostHtml } from '@/utils/postHtmlSandbox'
+import {
+    decodeSandboxedPostHtml,
+    encodeSandboxedPostHtml,
+    requiresPreservedPostHtml,
+} from '@/utils/postHtmlSandbox'
 
 const createEditor = (content = '') => new Editor({
     content,
@@ -123,6 +127,40 @@ describe('PostEditorTipTap TipTap extension integration', () => {
 
         expect(marker).not.toBeNull()
         expect(decodeSandboxedPostHtml(serialized)).toBe(rawHtml)
+    })
+
+    it('keeps the preservation classifier aligned with the actual editor serializer', () => {
+        editor = createEditor([
+            '<h2 style="text-align: center">Heading</h2>',
+            '<p><strong>Bold</strong> <em>Italic</em> <s>Strike</s> <u>Underline</u></p>',
+            '<blockquote><p>Quote</p></blockquote>',
+            '<ol start="3"><li><p>Third</p></li></ol>',
+            '<pre><code class="language-typescript">const value = 1</code></pre>',
+            '<p><a href="https://noviis.kr">Link</a></p>',
+            '<p><span style="color: #ff0000; font-size: 18px; line-height: 1.5">Styled</span></p>',
+            '<p><mark data-color="#fff000" style="background-color: #fff000; color: #111111">Marked</mark></p>',
+            '<p><span class="mention-node" data-type="mention" data-id="7" data-label="Novi" data-mention-user-id="7">@Novi</span></p>',
+            '<p><img src="/api/v1/files/42" alt="Diagram" data-file-id="42" data-server-src="/files/42"></p>',
+            '<table style="min-width: 75px"><colgroup><col style="min-width: 25px; width: 25px"></colgroup><tbody><tr><th style="text-align: center"><p>Header</p></th><td><p>Cell</p></td></tr></tbody></table>',
+            '<div class="tiptap-video-wrapper" data-video-embed="true"><iframe src="https://www.youtube.com/embed/test-id" frameborder="0" allowfullscreen="true"></iframe></div>',
+            '<hr>',
+        ].join(''))
+
+        const canonicalHtml = editor.getHTML()
+
+        expect(requiresPreservedPostHtml(canonicalHtml)).toBe(false)
+        editor.commands.setContent(canonicalHtml, { emitUpdate: false })
+        const stabilizedHtml = editor.getHTML()
+        expect(stabilizedHtml.replace(/<p><\/p>$/, '')).toBe(canonicalHtml)
+        expect(requiresPreservedPostHtml(stabilizedHtml)).toBe(false)
+        editor.commands.setContent(stabilizedHtml, { emitUpdate: false })
+        expect(editor.getHTML()).toBe(stabilizedHtml)
+        const mention = parseHTML(stabilizedHtml).querySelector('[data-type="mention"]')
+        expect(mention?.getAttribute('data-id')).toBe('7')
+        expect(mention?.getAttribute('data-label')).toBe('Novi')
+        expect(mention?.getAttribute('data-mention-suggestion-char')).toBe('@')
+        expect(mention?.getAttribute('data-mention-user-id')).toBe('7')
+        expect(mention?.textContent).toBe('@Novi')
     })
 
     it('inserts slash-menu equivalent block commands through the same editor command path', () => {

@@ -14,7 +14,7 @@ const EDITOR_ELEMENT_ATTRIBUTES: Readonly<Record<string, ReadonlySet<string>>> =
     ul: new Set(),
     ol: new Set(['start']),
     li: new Set(),
-    pre: new Set(),
+    pre: new Set(['class']),
     code: new Set(['class']),
     strong: new Set(),
     em: new Set(),
@@ -24,7 +24,15 @@ const EDITOR_ELEMENT_ATTRIBUTES: Readonly<Record<string, ReadonlySet<string>>> =
     img: new Set(['src', 'alt', 'title', 'class', 'data-file-id', 'data-server-src']),
     br: new Set(),
     hr: new Set(),
-    span: new Set(['style', 'class', 'data-type', 'data-mention-user-id']),
+    span: new Set([
+        'style',
+        'class',
+        'data-type',
+        'data-id',
+        'data-label',
+        'data-mention-suggestion-char',
+        'data-mention-user-id',
+    ]),
     mark: new Set(['style', 'data-color']),
     table: new Set(['style']),
     colgroup: new Set(),
@@ -148,6 +156,7 @@ function hasSupportedVideoFrameAttributes(element: HTMLElement): boolean {
 function hasSupportedEditorClass(element: HTMLElement, tag: string): boolean {
     if (!element.hasAttribute('class')) return true
     const tokens = Array.from(element.classList)
+    if (tag === 'pre') return tokens.every((token) => token === 'hljs')
     if (tag === 'code') return tokens.every((token) => token === 'hljs' || token.startsWith('language-'))
     if (tag === 'a') return tokens.every((token) => token === 'tiptap-link')
     if (tag === 'img') {
