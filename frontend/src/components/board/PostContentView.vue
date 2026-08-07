@@ -13,6 +13,8 @@ defineOptions({
 const props = defineProps<{
   content: string | null | undefined
   sandboxTitle?: string
+  sandboxMinHeight?: number
+  sandboxLoading?: 'eager' | 'lazy'
   codeBlockHighlighterLoader?: () => Promise<CodeBlockHighlighter>
 }>()
 
@@ -84,6 +86,8 @@ defineExpose({
     <SandboxedHtmlFrame
       :html="sandboxHtml ?? ''"
       :title="sandboxTitle ?? t('common.content')"
+      :min-height="sandboxMinHeight"
+      :loading="sandboxLoading"
     />
   </div>
   <SanitizedHtmlView

@@ -25,8 +25,9 @@ const { t } = useI18n()
   <BaseModal
     :is-open="isOpen"
     :title="t('board.writePost.preview.title')"
-    size="2xl"
-    mobile-fit-content
+    size="full"
+    mobile-full
+    body-class="min-h-0 overflow-y-auto sm:max-h-[calc(90dvh-10rem)]"
     @close="emit('close')"
   >
     <div class="space-y-4">
@@ -54,6 +55,8 @@ const { t } = useI18n()
         class="nv-rich-content prose max-w-none dark:prose-invert"
         :content="content"
         :sandbox-title="postTitle || t('board.writePost.preview.untitledPost')"
+        :sandbox-min-height="420"
+        sandbox-loading="eager"
       />
     </div>
     <template #footer>

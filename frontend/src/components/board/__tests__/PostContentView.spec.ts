@@ -37,6 +37,20 @@ describe('PostContentView', () => {
         expect(frame.attributes('srcdoc')).not.toContain('function toggle(){}')
     })
 
+    it('forwards preview sizing and eager loading to the sandboxed frame', () => {
+        const wrapper = mount(PostContentView, {
+            props: {
+                content: encodeSandboxedPostHtml('<style>body{min-height:600px}</style><p>Preview</p>'),
+                sandboxMinHeight: 420,
+                sandboxLoading: 'eager',
+            },
+        })
+
+        const frame = wrapper.get('iframe')
+        expect(frame.attributes('style')).toContain('height: 420px')
+        expect(frame.attributes('loading')).toBe('eager')
+    })
+
     it('keeps plain code content usable when the lazy highlighter fails to load', async () => {
         const loadHighlighter = vi.fn().mockRejectedValue(new Error('chunk unavailable'))
         const wrapper = mount(PostContentView, {

@@ -290,6 +290,7 @@ describe('MyPageDashboard', () => {
 
     const frame = wrapper.get('iframe')
     expect(frame.attributes('sandbox')).toBe('allow-scripts')
-    expect(frame.attributes('srcdoc')).toContain('<p>Unsafe</p><script>alert(1)</script>')
+    expect(frame.attributes('srcdoc')).toContain('<p>Unsafe</p>')
+    expect(frame.attributes('srcdoc')).not.toContain('alert(1)')
   })
 })
