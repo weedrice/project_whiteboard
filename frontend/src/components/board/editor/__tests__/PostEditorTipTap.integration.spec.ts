@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { Editor } from '@tiptap/core'
 import { createPostEditorExtensions } from '@/components/board/editor/postEditorExtensions'
+import { decodeSandboxedPostHtml, encodeSandboxedPostHtml } from '@/utils/postHtmlSandbox'
 
 const createEditor = (content = '') => new Editor({
     content,
@@ -111,6 +112,17 @@ describe('PostEditorTipTap TipTap extension integration', () => {
         expect(wrapper?.hasAttribute('data-video-embed')).toBe(true)
         expect(iframe?.getAttribute('src')).toBe('https://www.youtube.com/embed/test-id')
         expect(iframe?.getAttribute('allowfullscreen')).toBe('true')
+    })
+
+    it('round-trips a preserved raw HTML block without changing its source', () => {
+        const rawHtml = '<!doctype html><style>.card{display:grid}</style><button onclick="run()">실행</button><script>run()</script>'
+        editor = createEditor(encodeSandboxedPostHtml(rawHtml))
+
+        const serialized = editor.getHTML()
+        const marker = parseHTML(serialized).querySelector('.noviis-sandboxed-post-html')
+
+        expect(marker).not.toBeNull()
+        expect(decodeSandboxedPostHtml(serialized)).toBe(rawHtml)
     })
 
     it('inserts slash-menu equivalent block commands through the same editor command path', () => {

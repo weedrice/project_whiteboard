@@ -6,8 +6,10 @@ const props = withDefaults(defineProps<{
   html: string
   title?: string
   minHeight?: number
+  loading?: 'eager' | 'lazy'
 }>(), {
   minHeight: 240,
+  loading: 'lazy',
 })
 
 const frame = ref<HTMLIFrameElement | null>(null)
@@ -57,7 +59,7 @@ onBeforeUnmount(() => {
     :style="{ height: `${height}px` }"
     sandbox="allow-scripts"
     referrerpolicy="no-referrer"
-    loading="lazy"
+    :loading="loading"
   />
 </template>
 

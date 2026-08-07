@@ -483,7 +483,7 @@ watch(
   () => form.value.content,
   (content) => {
     if (editorViewMode.value === 'visual' && requiresSandboxedPostHtml(content)) {
-      handleEditorViewModeChange('html')
+      handleEditorViewModeChange('visual')
     }
   },
   { flush: 'sync', immediate: true },

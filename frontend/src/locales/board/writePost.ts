@@ -69,6 +69,11 @@ export const boardWritePostMessages: BoardMessages['writePost'] = {
     htmlSourceTitle: '본문 HTML',
     htmlSourcePlaceholder: 'HTML을 직접 입력해 주세요.',
     visualMode: '에디터 보기',
+    rawHtmlBlock: {
+      title: '원본 HTML 블록',
+      description: '손실 방지를 위해 하나의 블록으로 보호됩니다. 내부 코드는 HTML 보기에서 수정할 수 있습니다.',
+      previewTitle: '원본 HTML 미리보기',
+    },
     videoUrlRequired: '동영상 URL을 입력해 주세요.',
     invalidVideoUrl: 'YouTube 또는 Vimeo URL만 삽입할 수 있습니다.',
     linkUrlPrompt: '링크 URL',

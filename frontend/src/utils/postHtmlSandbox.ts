@@ -2,6 +2,8 @@ const SANDBOX_TRIGGER_PATTERN = /<(?:!doctype|html|head|body|style|script)\b|<\w
 const SANDBOX_MARKER_CLASS = 'noviis-sandboxed-post-html'
 const SANDBOX_MARKER_SELECTOR = `.${SANDBOX_MARKER_CLASS}[data-value]`
 
+export const SANDBOXED_POST_HTML_MARKER_CLASS = SANDBOX_MARKER_CLASS
+
 export function requiresSandboxedPostHtml(content: string | null | undefined): boolean {
     return SANDBOX_TRIGGER_PATTERN.test(content ?? '')
 }
@@ -11,7 +13,15 @@ export function encodeSandboxedPostHtml(content: string): string {
         return content
     }
 
-    return `<div class="${SANDBOX_MARKER_CLASS}" data-value="${encodeUtf8Base64(content)}"></div>`
+    return `<div class="${SANDBOX_MARKER_CLASS}" data-value="${encodeSandboxedPostHtmlPayload(content)}"></div>`
+}
+
+export function encodeSandboxedPostHtmlPayload(content: string): string {
+    return encodeUtf8Base64(content)
+}
+
+export function decodeSandboxedPostHtmlPayload(value: string | null | undefined): string | null {
+    return decodeUtf8Base64(value ?? '')
 }
 
 export function decodeSandboxedPostHtml(content: string | null | undefined): string | null {
@@ -26,7 +36,7 @@ export function decodeSandboxedPostHtml(content: string | null | undefined): str
     const parser = new DOMParser()
     const doc = parser.parseFromString(content, 'text/html')
     const marker = doc.body.querySelector<HTMLElement>(SANDBOX_MARKER_SELECTOR)
-    return decodeUtf8Base64(marker?.getAttribute('data-value') ?? '')
+    return decodeSandboxedPostHtmlPayload(marker?.getAttribute('data-value'))
 }
 
 export function buildSandboxedPostHtmlSource(content: string, frameId: string, nonce = createSandboxNonce()): string {

@@ -120,7 +120,7 @@ describe('PostForm editor mode', () => {
         expect(variables.data.fileIds).toEqual([42])
     })
 
-    it('keeps script-style html widgets in html source mode', async () => {
+    it('opens script-style html widgets as a preserved visual block and restores the source', async () => {
         const wrapper = mountPostForm('create')
         const modeButtons = findEditorModeButtons(wrapper)
         const rawWidget = '<style>.cl{display:grid}</style><button onclick="toggle()">여권</button><script>function toggle(){}</script>'
@@ -129,9 +129,14 @@ describe('PostForm editor mode', () => {
         await wrapper.get('#content').setValue(rawWidget)
         await modeButtons.visual.trigger('click')
 
-        expect(wrapper.find('#content').exists()).toBe(true)
+        expect(wrapper.find('#content').exists()).toBe(false)
+        expect(findEditorModeButtons(wrapper).visual.attributes('aria-pressed')).toBe('true')
+        const preservedContent = (wrapper.get('[data-testid="editor-input"]').element as HTMLTextAreaElement).value
+        expect(preservedContent).toContain('class="noviis-sandboxed-post-html"')
+        expect(preservedContent).not.toContain('function toggle(){}')
+
+        await findEditorModeButtons(wrapper).html.trigger('click')
         expect((wrapper.get('#content').element as HTMLTextAreaElement).value).toBe(rawWidget)
-        expect(findEditorModeButtons(wrapper).html.attributes('aria-pressed')).toBe('true')
     })
 
 })

@@ -353,6 +353,11 @@ export interface BoardMessages {
     htmlSourceTitle: string
     htmlSourcePlaceholder: string
     visualMode: string
+    rawHtmlBlock: {
+      title: string
+      description: string
+      previewTitle: string
+    }
     videoUrlRequired: string
     invalidVideoUrl: string
     linkUrlPrompt: string

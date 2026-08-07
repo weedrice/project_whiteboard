@@ -70,6 +70,11 @@ export const boardEnWritePostMessages: BoardMessages['writePost'] = {
     htmlSourceTitle: 'Post HTML',
     htmlSourcePlaceholder: 'Enter HTML directly.',
     visualMode: 'Visual editor',
+    rawHtmlBlock: {
+      title: 'Preserved HTML block',
+      description: 'Protected as one block to prevent data loss. Edit its source in HTML view.',
+      previewTitle: 'Preserved HTML preview',
+    },
     videoUrlRequired: 'Please enter a video URL.',
     invalidVideoUrl: 'Only YouTube or Vimeo URLs can be inserted.',
     linkUrlPrompt: 'Link URL',
