@@ -1,4 +1,5 @@
--- noviis:migration-phase expand
+-- noviis:migration-phase contract
+-- noviis:design-doc docs/design-notes/preserved-post-html-search-index-2026-08-10.md
 -- Expand opaque HTML preservation markers for keyword search without rewriting stored post bodies.
 SET lock_timeout = '5s';
 
@@ -40,10 +41,8 @@ BEGIN
 END;
 $$;
 
-DROP INDEX CONCURRENTLY IF EXISTS idx_posts_contents_trgm;
-
 -- noviis:online-index idx_posts_expanded_contents_trgm
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_posts_expanded_contents_trgm
+CREATE INDEX CONCURRENTLY idx_posts_expanded_contents_trgm
     ON posts USING gin (lower(noviis_expand_preserved_post_html(contents)) gin_trgm_ops);
 
 RESET lock_timeout;

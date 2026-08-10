@@ -13,7 +13,7 @@ Repeatable (`R__`), undo (`U__`), and Java Flyway migrations are prohibited. Ver
 
 Do not drop or rename an in-use table or column, narrow a type, add `SET NOT NULL` without a completed backfill, or remove a default/check/enum value still required by the previous application in the same release as the application switch.
 
-Versioned `V*.sql` files are immutable after merge. Fix an applied migration with a new version instead of editing or deleting the original file.
+Versioned `V*.sql` files are immutable after merge. Fix an applied migration with a new version instead of editing or deleting the original file. The only repository exception is the checksum-pinned V88 correction recorded in `check-migration-compatibility.sh`: its first main-branch CI run failed before every deployment job was skipped, so the checker accepts exactly that predeployment bad-to-good transition and still runs the corrected file through all new-migration validations. No other checksum or migration is covered by this exception.
 
 New migrations use `V<positive integer>__<description>.sql`. Versions must be unique and strictly greater than the highest version in the base revision. CI migrates a PostgreSQL database with the base revision and upgrades it with HEAD, then verifies that every tracked version appears exactly once as successful in `flyway_schema_history`. Do not rely on Flyway out-of-order execution.
 

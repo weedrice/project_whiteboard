@@ -8,6 +8,9 @@ contract_allowlist="docs/ops/applied-contract-migrations.txt"
 contract_marker_text='noviis:migration-phase contract'
 legacy_markerless_migration='backend/src/main/resources/db/migration/V55__limit_verification_code_attempts.sql'
 legacy_markerless_migration_sha256='a557b508c9aeb6141cac960de03353875c807364e0f17731187183d7e2276ffc'
+predeployment_rewrite_migration='backend/src/main/resources/db/migration/V88__search_preserved_post_html.sql'
+predeployment_rewrite_base_sha256='c178160ef9aab0fffe49e3a12dd4fcff38b16c7d37443be7c63e204ee5d06171'
+predeployment_rewrite_head_sha256='0cb1ad1b3a60486934571b794e5523f6440a7ce725900d2aa0fdcbd4bfd065f0'
 contract_migration=false
 new_migration=false
 
@@ -42,6 +45,21 @@ is_approved_legacy_markerless_migration() {
   [ "$file" = "$legacy_markerless_migration" ] || return 1
   actual_sha256="$(git show "$head_ref:$file" | sha256sum | awk '{print $1}')"
   [ "$actual_sha256" = "$legacy_markerless_migration_sha256" ]
+}
+
+# V88 reached main in a push whose migration gate failed before any deployment job ran.
+# Permit exactly the reviewed bad-to-good checksum transition once; every other edit to an
+# existing migration remains immutable. This also makes the corrected SQL pass the same
+# phase, online-index, and risk validation as a newly introduced migration.
+is_approved_predeployment_rewrite() {
+  local file="$1"
+  local base_sha256 head_sha256
+
+  [ "$file" = "$predeployment_rewrite_migration" ] || return 1
+  base_sha256="$(git show "$base_ref:$file" | sha256sum | awk '{print $1}')" || return 1
+  head_sha256="$(git show "$head_ref:$file" | sha256sum | awk '{print $1}')" || return 1
+  [ "$base_sha256" = "$predeployment_rewrite_base_sha256" ] \
+    && [ "$head_sha256" = "$predeployment_rewrite_head_sha256" ]
 }
 
 base_max_version=0
@@ -80,19 +98,28 @@ if [ -n "$java_migration" ]; then
 fi
 
 mapfile -t changes < <(git diff --name-status --find-renames "$base_ref" "$head_ref" -- "$migration_dir/V*.sql" "$migration_dir/V*.sql.conf")
+declare -A approved_predeployment_rewrites=()
 for change in "${changes[@]}"; do
   status="${change%%$'\t'*}"
+  file="${change#*$'\t'}"
   case "$status" in
     A) ;;
+    M)
+      if is_approved_predeployment_rewrite "$file"; then
+        approved_predeployment_rewrites["$file"]=true
+      else
+        echo "Existing versioned migrations are immutable: $change" >&2
+        exit 1
+      fi
+      ;;
     *)
       echo "Existing versioned migrations are immutable: $change" >&2
       exit 1
       ;;
   esac
-  file="${change#*$'\t'}"
   if [[ "$file" = *.sql ]]; then
     version="$(migration_version "$file")" || exit 1
-    if ! decimal_greater_than "$version" "$base_max_version"; then
+    if [ "$status" = A ] && ! decimal_greater_than "$version" "$base_max_version"; then
       echo "New Flyway migration version V$version must be greater than base maximum V$base_max_version: $file" >&2
       exit 1
     fi
@@ -468,7 +495,7 @@ for change in "${changes[@]}"; do
       continue
       ;;
   esac
-  if [ "$status" = A ]; then
+  if [ "$status" = A ] || [ "${approved_predeployment_rewrites[$file]:-}" = true ]; then
     new_migration=true
     phase_count="$(extract_sql_line_comments "$file" | grep -Ec '^noviis:migration-phase (expand|backfill|contract)$' || true)"
     if [ "$phase_count" -ne 1 ] && ! is_approved_legacy_markerless_migration "$file"; then
@@ -576,7 +603,8 @@ done < <(
 for change in "${changes[@]}"; do
   status="${change%%$'\t'*}"
   file="${change#*$'\t'}"
-  if [ "$status" = A ] && has_exact_line_comment "$file" "$contract_marker_text"; then
+  if { [ "$status" = A ] || [ "${approved_predeployment_rewrites[$file]:-}" = true ]; } \
+    && has_exact_line_comment "$file" "$contract_marker_text"; then
     migration_name="${file#"$migration_dir/"}"
     if awk 'NF && $1 !~ /^#/ { print $1 }' "$contract_allowlist" | grep -Fqx -- "$migration_name"; then
       echo "A contract migration cannot be marked applied in the same change that introduces it: $file" >&2

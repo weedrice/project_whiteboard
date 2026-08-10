@@ -75,6 +75,29 @@ if (cd "$fixture" && bash "$script" "$base" HEAD); then
 fi
 
 git -C "$fixture" reset -q --hard "$base"
+
+# V88 was committed to main, but its migration CI gate failed and no deployment job ran.
+# The checker permits only the exact reviewed predeployment correction, while the generic
+# modified-migration case above proves that this does not weaken immutability globally.
+v88_failed_ci_commit='54c25fd5e269bd96b05bf0d39d205aa92cebad66'
+git -C "$project_root" show \
+  "$v88_failed_ci_commit:backend/src/main/resources/db/migration/V88__search_preserved_post_html.sql" \
+  > "$fixture/backend/src/main/resources/db/migration/V88__search_preserved_post_html.sql"
+cp "$project_root/backend/src/main/resources/db/migration/V88__search_preserved_post_html.sql.conf" \
+  "$fixture/backend/src/main/resources/db/migration/V88__search_preserved_post_html.sql.conf"
+git -C "$fixture" add .
+git -C "$fixture" commit -qm failed-ci-v88
+failed_ci_v88_base="$(git -C "$fixture" rev-parse HEAD)"
+
+cp "$project_root/backend/src/main/resources/db/migration/V88__search_preserved_post_html.sql" \
+  "$fixture/backend/src/main/resources/db/migration/V88__search_preserved_post_html.sql"
+cp "$project_root/docs/design-notes/preserved-post-html-search-index-2026-08-10.md" \
+  "$fixture/docs/design-notes/preserved-post-html-search-index-2026-08-10.md"
+git -C "$fixture" add .
+git -C "$fixture" commit -qm corrected-predeployment-v88
+(cd "$fixture" && bash "$script" "$failed_ci_v88_base" HEAD)
+
+git -C "$fixture" reset -q --hard "$base"
 git -C "$fixture" rm -q backend/src/main/resources/db/migration/V1__base.sql
 git -C "$fixture" commit -qm deleted-existing-migration
 if (cd "$fixture" && bash "$script" "$base" HEAD); then

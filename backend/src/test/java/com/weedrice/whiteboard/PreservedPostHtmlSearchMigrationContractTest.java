@@ -19,13 +19,15 @@ class PreservedPostHtmlSearchMigrationContractTest {
         }
 
         assertThat(sql)
-                .contains("-- noviis:migration-phase expand")
+                .contains("-- noviis:migration-phase contract")
+                .contains("-- noviis:design-doc docs/design-notes/preserved-post-html-search-index-2026-08-10.md")
                 .contains("CREATE OR REPLACE FUNCTION noviis_expand_preserved_post_html")
                 .contains("decode(marker_match[2], 'base64')")
-                .contains("DROP INDEX CONCURRENTLY IF EXISTS idx_posts_contents_trgm")
-                .contains("CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_posts_expanded_contents_trgm")
+                .contains("CREATE INDEX CONCURRENTLY idx_posts_expanded_contents_trgm")
                 .contains("idx_posts_expanded_contents_trgm")
-                .contains("lower(noviis_expand_preserved_post_html(contents)) gin_trgm_ops");
+                .contains("lower(noviis_expand_preserved_post_html(contents)) gin_trgm_ops")
+                .doesNotContain("CREATE INDEX CONCURRENTLY IF NOT EXISTS")
+                .doesNotContain("DROP INDEX");
 
         try (var input = getClass().getClassLoader().getResourceAsStream(
                 "db/migration/V88__search_preserved_post_html.sql.conf")) {
