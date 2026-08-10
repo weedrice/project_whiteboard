@@ -1128,12 +1128,22 @@ class PostgresApplicationContextSmokeTest {
 
     private FluentConfiguration postgresFlyway(String schema, Connection connection) throws SQLException {
         discardTemporaryTables(connection);
+        configureMigrationSearchPath(schema, connection);
         return Flyway.configure()
                 .configuration(Map.of(POSTGRES_TRANSACTIONAL_LOCK_PROPERTY, "false"))
                 .dataSource(new SingleConnectionDataSource(connection, true))
                 .schemas(schema)
                 .defaultSchema(schema)
                 .locations("classpath:db/migration");
+    }
+
+    private static void configureMigrationSearchPath(String schema, Connection connection) throws SQLException {
+        // pg_trgm is installed once in public, while migration contract tests use isolated schemas.
+        String quotedSchema = '"' + schema.replace("\"", "\"\"") + '"';
+        try (var statement = connection.prepareStatement("SELECT set_config('search_path', ?, false)")) {
+            statement.setString(1, quotedSchema + ", public");
+            statement.execute();
+        }
     }
 
     private static void discardTemporaryTables(Connection connection) throws SQLException {
