@@ -14,7 +14,10 @@ import { TableKit } from '@tiptap/extension-table'
 import HorizontalRule from '@tiptap/extension-horizontal-rule'
 import { FontSize, LineHeight } from '@tiptap/extension-text-style'
 import { Video } from '@/extensions/tiptap-video'
-import { RawHtmlBlock } from '@/extensions/tiptap-raw-html-block'
+import {
+  RawHtmlBlock,
+  RawHtmlBlockKeyboardNavigation,
+} from '@/extensions/tiptap-raw-html-block'
 import MentionSuggestionList from '@/features/mentions/MentionSuggestionList.vue'
 import { createMentionCandidateLookup } from '@/features/mentions/useMentionAutocomplete'
 import { lowlight } from '@/utils/codeHighlighting'
@@ -199,6 +202,7 @@ export function createPostEditorExtensions() {
       underline: false,
     }),
     RawHtmlBlock,
+    RawHtmlBlockKeyboardNavigation,
     CodeBlockLowlight.configure({
       lowlight,
       HTMLAttributes: {

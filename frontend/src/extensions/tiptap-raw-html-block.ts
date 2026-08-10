@@ -1,4 +1,5 @@
-import { mergeAttributes, Node } from '@tiptap/core'
+import { Extension, mergeAttributes, Node } from '@tiptap/core'
+import { TextSelection, type NodeSelection } from '@tiptap/pm/state'
 import { VueNodeViewRenderer } from '@tiptap/vue-3'
 import RawHtmlBlockView from '@/components/board/editor/RawHtmlBlockView.vue'
 import {
@@ -14,7 +15,7 @@ export const RawHtmlBlock = Node.create({
   atom: true,
   isolating: true,
   selectable: true,
-  draggable: false,
+  draggable: true,
 
   addAttributes() {
     return {
@@ -47,5 +48,38 @@ export const RawHtmlBlock = Node.create({
 
   addNodeView() {
     return VueNodeViewRenderer(RawHtmlBlockView)
+  },
+})
+
+export const RawHtmlBlockKeyboardNavigation = Extension.create({
+  name: 'rawHtmlBlockKeyboardNavigation',
+  priority: 1000,
+
+  addKeyboardShortcuts() {
+    return {
+      Enter: () => {
+        const { selection } = this.editor.state
+        const selectedNode = 'node' in selection ? (selection as NodeSelection).node : null
+        if (!selectedNode || selectedNode.type.name !== 'rawHtmlBlock') {
+          return false
+        }
+
+        const paragraphPosition = selection.to
+        const existingNextNode = this.editor.state.doc.nodeAt(paragraphPosition)
+        let transaction = this.editor.state.tr
+
+        if (!existingNextNode?.isTextblock) {
+          const paragraph = this.editor.state.schema.nodes.paragraph
+          if (!paragraph) return false
+          transaction = transaction.insert(paragraphPosition, paragraph.create())
+        }
+
+        transaction = transaction
+          .setSelection(TextSelection.near(transaction.doc.resolve(paragraphPosition + 1)))
+          .scrollIntoView()
+        this.editor.view.dispatch(transaction)
+        return true
+      },
+    }
   },
 })

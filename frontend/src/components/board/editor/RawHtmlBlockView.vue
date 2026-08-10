@@ -18,6 +18,7 @@ const html = computed(() => String(props.node.attrs.html ?? ''))
     <div
       class="raw-html-block__header"
       contenteditable="false"
+      data-drag-handle
     >
       <Code2 aria-hidden="true" :size="16" />
       <div>
@@ -54,6 +55,12 @@ const html = computed(() => String(props.node.attrs.html ?? ''))
   padding: 0.75rem 1rem;
   color: var(--nv-ink-soft);
   background: var(--nv-elevated);
+  cursor: grab;
+  user-select: none;
+}
+
+.raw-html-block__header:active {
+  cursor: grabbing;
 }
 
 .raw-html-block__header strong {

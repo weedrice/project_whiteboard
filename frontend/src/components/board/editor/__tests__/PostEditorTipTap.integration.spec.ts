@@ -141,6 +141,29 @@ describe('PostEditorTipTap TipTap extension integration', () => {
         expect(decodeSandboxedPostHtml(serialized)).toBe(rawHtml)
     })
 
+    it('treats preserved HTML as a draggable atom and creates an editable paragraph with Enter', () => {
+        const rawHtml = '<style>.card{display:grid}</style><section class="card">보존할 내용</section>'
+        editor = createEditor(encodeSandboxedPostHtml(rawHtml))
+
+        expect(editor.schema.nodes.rawHtmlBlock.spec.atom).toBe(true)
+        expect(editor.schema.nodes.rawHtmlBlock.spec.draggable).toBe(true)
+        expect(editor.commands.setNodeSelection(0)).toBe(true)
+        expect(editor.state.selection.toJSON()).toMatchObject({ type: 'node', anchor: 0 })
+        const enterEvent = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })
+        editor.view.dom.dispatchEvent(enterEvent)
+        expect(enterEvent.defaultPrevented).toBe(true)
+        expect(editor.getHTML()).toContain('noviis-sandboxed-post-html')
+        expect(editor.state.selection.toJSON()).toMatchObject({ type: 'text' })
+        expect(editor.commands.insertContent('일반 문단')).toBe(true)
+
+        const serialized = editor.getHTML()
+        const document = parseHTML(serialized)
+        const marker = document.querySelector('.noviis-sandboxed-post-html')
+
+        expect(marker?.nextElementSibling?.outerHTML).toBe('<p>일반 문단</p>')
+        expect(decodeSandboxedPostHtml(marker?.outerHTML ?? '')).toBe(rawHtml)
+    })
+
     it('keeps the preservation classifier aligned with the actual editor serializer', () => {
         editor = createEditor([
             '<h2 style="text-align: center">Heading</h2>',

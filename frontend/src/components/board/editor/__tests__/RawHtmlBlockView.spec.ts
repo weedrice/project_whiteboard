@@ -54,6 +54,7 @@ describe('RawHtmlBlockView', () => {
     })
 
     const frame = wrapper.get('iframe')
+    expect(wrapper.get('.raw-html-block__header').attributes()).toHaveProperty('data-drag-handle')
     expect(frame.attributes('loading')).toBe('eager')
     expect(frame.attributes('srcdoc')).toContain('<style>.card{display:grid}</style>')
     expect(frame.attributes('srcdoc')).toContain('<button>카드</button>')
