@@ -109,4 +109,23 @@ describe('SandboxedHtmlFrame', () => {
 
     expect(frame.style.height).toBe('240px')
   })
+
+  it('accepts a smaller measured height after the same document shrinks', async () => {
+    const wrapper = mount(SandboxedHtmlFrame, {
+      props: {
+        html: '<p>Resizable content</p>',
+        minHeight: 240,
+      },
+    })
+    const frame = wrapper.get('iframe').element as HTMLIFrameElement
+    const frameId = extractFrameId(wrapper.get('iframe').attributes('srcdoc') ?? '')
+
+    postHeightMessage(frame, frameId, 1800)
+    await nextTick()
+    expect(frame.style.height).toBe('1800px')
+
+    postHeightMessage(frame, frameId, 360)
+    await nextTick()
+    expect(frame.style.height).toBe('360px')
+  })
 })

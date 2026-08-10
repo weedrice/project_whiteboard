@@ -161,6 +161,16 @@ describe('postHtmlSandbox', () => {
         expect(source).toContain('resizeObserver.disconnect()')
     })
 
+    it('measures content independently from the current iframe viewport height', () => {
+        const source = buildSandboxedPostHtmlSource('<div>height</div>', 'frame-1', 'height-nonce')
+
+        expect(source).toContain("var descendants = body.querySelectorAll('*')")
+        expect(source).toContain('var fixedSubtree = new WeakSet()')
+        expect(source).toContain('Math.max(body.offsetHeight, bottom - bodyRect.top) + bodyMargins + rootInsets')
+        expect(source).not.toContain('doc ? doc.scrollHeight')
+        expect(source).not.toContain('doc ? doc.offsetHeight')
+    })
+
     it('does not authorize user html that guesses the old static nonce', () => {
         const source = buildSandboxedPostHtmlSource(
             '<script nonce="noviis-height-bridge">window.evil = true</script>',

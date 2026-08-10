@@ -523,15 +523,36 @@ function getHeightBridgeScript(frameId: string, nonce: string): string {
       }
     }
   }
+  function cssPixels(value) {
+    return parseFloat(value) || 0;
+  }
   function measure() {
     var body = document.body;
-    var doc = document.documentElement;
-    return Math.max(
-      body ? body.scrollHeight : 0,
-      body ? body.offsetHeight : 0,
-      doc ? doc.scrollHeight : 0,
-      doc ? doc.offsetHeight : 0
-    );
+    if (!body) return 0;
+    var bodyRect = body.getBoundingClientRect();
+    var bottom = bodyRect.bottom;
+    var descendants = body.querySelectorAll('*');
+    var fixedSubtree = new WeakSet();
+    for (var index = 0; index < descendants.length; index += 1) {
+      var element = descendants[index];
+      var parentElement = element.parentElement;
+      if (
+        (parentElement && fixedSubtree.has(parentElement))
+        || window.getComputedStyle(element).position === 'fixed'
+      ) {
+        fixedSubtree.add(element);
+        continue;
+      }
+      bottom = Math.max(bottom, element.getBoundingClientRect().bottom);
+    }
+    var bodyStyle = window.getComputedStyle(body);
+    var rootStyle = window.getComputedStyle(document.documentElement);
+    var bodyMargins = cssPixels(bodyStyle.marginTop) + cssPixels(bodyStyle.marginBottom);
+    var rootInsets = cssPixels(rootStyle.paddingTop) + cssPixels(rootStyle.paddingBottom)
+      + cssPixels(rootStyle.borderTopWidth) + cssPixels(rootStyle.borderBottomWidth);
+    return Math.max(0, Math.ceil(
+      Math.max(body.offsetHeight, bottom - bodyRect.top) + bodyMargins + rootInsets
+    ));
   }
   function postHeight() {
     enforceScrollableDocument();

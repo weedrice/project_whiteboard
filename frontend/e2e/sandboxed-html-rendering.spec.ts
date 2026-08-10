@@ -68,3 +68,35 @@ test('allowlisted external font stylesheets can load inside the sandbox', async 
 
   await expect(sandbox.locator('.remote-font-style')).toHaveCSS('color', 'rgb(1, 2, 3)')
 })
+
+test('iframe height follows shrinking content, including out-of-flow blocks', async ({ page }) => {
+  const source = buildSandboxSource('<main id="resizable" style="position:absolute;inset:0 0 auto;height:1400px">Resizable content</main>')
+  await page.setContent('<iframe id="sandbox" sandbox="allow-scripts" style="display:block;border:0;width:800px;height:240px"></iframe>')
+  await page.evaluate((srcdoc) => {
+    const frame = document.querySelector<HTMLIFrameElement>('#sandbox')
+    if (!frame) throw new Error('sandbox frame not found')
+    window.addEventListener('message', (event) => {
+      const data = event.data
+      if (
+        event.source !== frame.contentWindow
+        || data?.type !== 'noviis-post-html-height'
+        || data?.channel !== 'noviis-post-html-sandbox'
+        || data?.id !== 'e2e-frame'
+      ) return
+      frame.style.height = `${Math.max(240, Math.min(Math.ceil(Number(data.height)), 4000))}px`
+    })
+    frame.srcdoc = srcdoc
+  }, source)
+
+  const frameHeight = () => page.locator('#sandbox').evaluate((frame) => (
+    Math.round(frame.getBoundingClientRect().height)
+  ))
+  await expect.poll(frameHeight).toBeGreaterThan(1300)
+
+  const sandbox = page.frameLocator('#sandbox')
+  await sandbox.locator('#resizable').evaluate((element) => {
+    ;(element as HTMLElement).style.height = '120px'
+  })
+
+  await expect.poll(frameHeight).toBe(240)
+})
