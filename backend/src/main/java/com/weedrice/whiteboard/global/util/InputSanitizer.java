@@ -9,6 +9,7 @@ import org.springframework.web.util.HtmlUtils;
 import java.net.URI;
 import java.util.Locale;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 /**
  * 입력값 Sanitization 유틸리티
@@ -23,8 +24,13 @@ public class InputSanitizer {
             "background-color",
             "text-align",
             "font-size",
-            "line-height"
+            "line-height",
+            "min-width",
+            "width"
     );
+    private static final Pattern SAFE_DIMENSION_STYLE_VALUE = Pattern.compile(
+            "^(?:0|(?:\\d+(?:\\.\\d+)?)(?:px|rem|em|%|ch|vw|vh))$",
+            Pattern.CASE_INSENSITIVE);
 
     private static final Document.OutputSettings POST_HTML_OUTPUT_SETTINGS = new Document.OutputSettings()
             .prettyPrint(false);
@@ -36,7 +42,7 @@ public class InputSanitizer {
                     "blockquote", "code", "pre",
                     "a", "img", "video", "iframe",
                     "div", "span", "sub", "sup",
-                    "table", "thead", "tbody", "tr", "th", "td", "hr",
+                    "table", "colgroup", "col", "thead", "tbody", "tfoot", "tr", "th", "td", "hr",
                     "mark")
             .addAttributes(":all", "class", "title", "style")
             .addAttributes("a", "href", "target", "rel")
@@ -44,9 +50,11 @@ public class InputSanitizer {
             .addAttributes("video", "src", "controls", "width", "height")
             .addAttributes("iframe", "src", "width", "height", "frameborder", "allowfullscreen", "allow",
                     "loading", "referrerpolicy", "sandbox")
+            .addAttributes("ol", "start")
             .addAttributes("table", "width")
-            .addAttributes("th", "colspan", "rowspan")
-            .addAttributes("td", "colspan", "rowspan")
+            .addAttributes("col", "span")
+            .addAttributes("th", "colspan", "rowspan", "colwidth")
+            .addAttributes("td", "colspan", "rowspan", "colwidth")
             .addAttributes(":all", "data-id", "data-label", "data-type", "data-mention-suggestion-char",
                     "data-mention-user-id", "data-value", "data-video-embed", "data-color")
             .addProtocols("a", "href", "http", "https", "mailto")
@@ -148,7 +156,7 @@ public class InputSanitizer {
             }
             String property = parts[0].trim().toLowerCase(Locale.ROOT);
             String value = parts[1].trim();
-            if (!POST_HTML_STYLE_PROPERTIES.contains(property) || isUnsafeStyleValue(value)) {
+            if (!POST_HTML_STYLE_PROPERTIES.contains(property) || isUnsafeStyleValue(property, value)) {
                 continue;
             }
             if (!sanitized.isEmpty()) {
@@ -159,14 +167,18 @@ public class InputSanitizer {
         return sanitized.toString();
     }
 
-    private static boolean isUnsafeStyleValue(String value) {
+    private static boolean isUnsafeStyleValue(String property, String value) {
         String normalized = value.toLowerCase(Locale.ROOT);
-        return normalized.contains("javascript:")
+        if (normalized.contains("javascript:")
                 || normalized.contains("expression(")
                 || normalized.contains("url(")
                 || normalized.contains("@import")
                 || normalized.contains("behavior:")
-                || normalized.contains("-moz-binding");
+                || normalized.contains("-moz-binding")) {
+            return true;
+        }
+        return ("width".equals(property) || "min-width".equals(property))
+                && !SAFE_DIMENSION_STYLE_VALUE.matcher(normalized).matches();
     }
 
     private static void sanitizePostHtmlIframes(Document document) {

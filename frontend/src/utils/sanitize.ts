@@ -7,9 +7,12 @@ const ALLOWED_INLINE_STYLE_PROPERTIES = new Set([
     'font-size',
     'line-height',
     'text-align',
+    'min-width',
+    'width',
 ])
 
 const UNSAFE_STYLE_VALUE_PATTERN = /(?:url\s*\(|expression\s*\(|javascript:)/i
+const SAFE_DIMENSION_STYLE_VALUE_PATTERN = /^(?:0|(?:\d+(?:\.\d+)?)(?:px|rem|em|%|ch|vw|vh))$/i
 const ALLOWED_IFRAME_HOSTS = new Set([
     'www.youtube.com',
     'youtube.com',
@@ -60,12 +63,13 @@ export function sanitizeQuillHtml(html: string): SanitizedHtml {
             'blockquote', 'code', 'pre',
             'a', 'img', 'iframe', 'hr',
             'div', 'span', 'sub', 'sup',
-            'table', 'thead', 'tbody', 'tr', 'th', 'td',
+            'table', 'colgroup', 'col', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td',
             'mark'
         ],
         ALLOWED_ATTR: [
-            'href', 'src', 'alt', 'title', 'class',
+            'href', 'src', 'alt', 'title', 'class', 'target', 'rel',
             'loading', 'width', 'height', 'style', 'role', 'tabindex',
+            'start', 'span', 'colspan', 'rowspan', 'colwidth', 'data-color',
             'data-file-id', 'data-server-src', 'data-video-embed', 'data-type', 'data-id', 'data-label',
             'data-mention-suggestion-char', 'data-mention-user-id',
             'frameborder', 'allowfullscreen', 'allow',
@@ -182,6 +186,8 @@ function filterInlineStyle(style: string): string {
             const value = declaration.slice(separatorIndex + 1).trim()
             if (!ALLOWED_INLINE_STYLE_PROPERTIES.has(property)) return null
             if (!value || UNSAFE_STYLE_VALUE_PATTERN.test(value)) return null
+            if ((property === 'width' || property === 'min-width')
+                && !SAFE_DIMENSION_STYLE_VALUE_PATTERN.test(value)) return null
 
             return `${property}: ${value}`
         })

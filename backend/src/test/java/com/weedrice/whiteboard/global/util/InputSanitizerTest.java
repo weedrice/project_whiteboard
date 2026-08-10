@@ -92,7 +92,7 @@ class InputSanitizerTest {
     @DisplayName("게시글 본문 sanitizer는 안전한 style만 유지한다")
     void sanitizePostHtml_keepsOnlySafeStyles() {
         String input = """
-                <p style="color:#fff; text-align:center; background:url(javascript:alert(1)); width:100px">safe</p>
+                <p style="color:#fff; text-align:center; background:url(javascript:alert(1)); width:calc(100% + 1px)">safe</p>
                 <object data="x"></object>
                 """;
 
@@ -103,6 +103,31 @@ class InputSanitizerTest {
         assertThat(sanitized).doesNotContain("url(");
         assertThat(sanitized).doesNotContain("width:");
         assertThat(sanitized).doesNotContain("<object");
+    }
+
+    @Test
+    @DisplayName("게시글 본문 sanitizer는 TipTap 목록과 표 구조를 손실 없이 유지한다")
+    void sanitizePostHtml_preservesCanonicalTipTapListAndTableContract() {
+        String input = """
+                <ol start="3"><li><p>third</p></li></ol>
+                <table style="min-width: 75px"><colgroup><col span="2" style="min-width: 25px; width: 25px"></colgroup>
+                <tbody><tr><th colspan="2" rowspan="1" colwidth="25" style="text-align: center; width: 25px"><p>head</p></th>
+                <td colspan="1" rowspan="2" colwidth="50" style="min-width: 50px"><p>cell</p></td></tr></tbody>
+                <tfoot><tr><td><p>foot</p></td></tr></tfoot></table>
+                <mark data-color="#fff000" style="background-color: #fff000">marked</mark>
+                """;
+
+        String sanitized = InputSanitizer.sanitizePostHtml(input);
+
+        assertThat(sanitized)
+                .contains("<ol start=\"3\">")
+                .contains("<colgroup><col span=\"2\" style=\"min-width: 25px; width: 25px\"></colgroup>")
+                .contains("colspan=\"2\"")
+                .contains("rowspan=\"2\"")
+                .contains("colwidth=\"25\"")
+                .contains("style=\"text-align: center; width: 25px\"")
+                .contains("<tfoot>")
+                .contains("data-color=\"#fff000\"");
     }
 
     @Test

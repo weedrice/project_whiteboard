@@ -97,4 +97,37 @@ describe('sanitize', () => {
         expect(clean).not.toContain('background-image')
         expect(clean).not.toContain('javascript:')
     })
+
+    it('sanitizeQuillHtml preserves the canonical TipTap list and table contract', () => {
+        const html = [
+            '<ol start="3"><li><p>third</p></li></ol>',
+            '<table style="min-width: 75px"><colgroup><col span="2" style="min-width: 25px; width: 25px"></colgroup>',
+            '<tbody><tr><th colspan="2" rowspan="1" colwidth="25" style="text-align: center; width: 25px"><p>head</p></th>',
+            '<td colspan="1" rowspan="2" colwidth="50" style="min-width: 50px"><p>cell</p></td></tr></tbody>',
+            '<tfoot><tr><td><p>foot</p></td></tr></tfoot></table>',
+            '<mark data-color="#fff000" style="background-color: #fff000">marked</mark>',
+        ].join('')
+
+        const clean = sanitizeQuillHtml(html)
+
+        expect(clean).toContain('<ol start="3">')
+        expect(clean).toContain('<colgroup><col span="2" style="min-width: 25px; width: 25px"></colgroup>')
+        expect(clean).toContain('colspan="2"')
+        expect(clean).toContain('rowspan="2"')
+        expect(clean).toContain('colwidth="25"')
+        expect(clean).toContain('style="text-align: center; width: 25px"')
+        expect(clean).toContain('<tfoot>')
+        expect(clean).toContain('data-color="#fff000"')
+    })
+
+    it('sanitizeQuillHtml rejects executable or computed table dimensions', () => {
+        const clean = sanitizeQuillHtml(
+            '<table style="width: calc(100% + 1px); min-width: 75px"><tbody><tr><td style="width: expression(alert(1)); min-width: 25px">x</td></tr></tbody></table>',
+        )
+
+        expect(clean).toContain('style="min-width: 75px"')
+        expect(clean).toContain('style="min-width: 25px"')
+        expect(clean).not.toContain('calc(')
+        expect(clean).not.toContain('expression(')
+    })
 })
