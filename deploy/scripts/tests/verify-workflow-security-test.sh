@@ -35,6 +35,13 @@ if node "$validator" "$fixture"; then
 fi
 cp "$project_root/.github/workflows/ci.yml" "$fixture/.github/workflows/ci.yml"
 
+sed -i '/actions: read/d' "$fixture/.github/workflows/ci.yml"
+if node "$validator" "$fixture"; then
+  echo "Expected deployment history lookup without actions: read to fail" >&2
+  exit 1
+fi
+cp "$project_root/.github/workflows/ci.yml" "$fixture/.github/workflows/ci.yml"
+
 sed -i '/^  candidate-frontend:$/,/^  release-frontend:$/s/!cancelled() &&/true \&\&/' "$fixture/.github/workflows/ci.yml"
 if node "$validator" "$fixture"; then
   echo "Expected a post-gate job without an explicit status function to fail" >&2

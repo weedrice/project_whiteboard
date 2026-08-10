@@ -137,18 +137,33 @@ const seoSource = loadText('.github/workflows/seo-monitor.yml')
 const contractRevisionFilterEntries = ciSource.match(
   /^\s+- 'docs\/ops\/api-contract-revision\.txt'\s*$/gm,
 ) ?? []
-assert(contractRevisionFilterEntries.length === 4,
-  'API contract revision must select backend, frontend, ops validation, and coordinated deployment scopes')
+assert(contractRevisionFilterEntries.length === 5,
+  'API contract revision must select backend, frontend, ops validation, and both cumulative deployment scopes')
 
 const validationFilter = ci.jobs.changes.steps.find((step) => step.id === 'filter')
-const deployFilter = ci.jobs.changes.steps.find((step) => step.id === 'deploy-filter')
-assert(validationFilter && deployFilter, 'validation and deployment path filters must remain separate')
-assert(deployFilter.with?.['predicate-quantifier'] === 'every', 'deployment exclusions require every-rule matching')
+const deploymentBaselines = ci.jobs.changes.steps.find((step) => step.id === 'deployment-baselines')
+const backendDeployFilter = ci.jobs.changes.steps.find((step) => step.id === 'backend-deploy-filter')
+const frontendDeployFilter = ci.jobs.changes.steps.find((step) => step.id === 'frontend-deploy-filter')
+assert(validationFilter && deploymentBaselines && backendDeployFilter && frontendDeployFilter,
+  'validation, deployment baseline, and component deployment filters must remain separate')
+assert(stepRuns(ci.jobs.changes, 'deploy/scripts/resolve-deployment-baselines.mjs'),
+  'deployment scope no longer resolves the last successful component deployments')
+assert(permissions(ci.jobs.changes).actions === 'read',
+  'deployment baseline resolution requires read-only Actions history access')
+assert(ci.jobs.changes.steps.find((step) => step.name === 'Checkout')?.with?.['fetch-depth'] === 0,
+  'cumulative deployment comparison requires full Git history')
+for (const filter of [backendDeployFilter, frontendDeployFilter]) {
+  assert(filter.with?.['predicate-quantifier'] === 'every', 'deployment exclusions require every-rule matching')
+  assert(filter.with?.base?.includes('deployment-baselines.outputs.'),
+    'deployment filter must compare from the last successful component deployment')
+  assert(filter.with?.ref === '${{ github.sha }}', 'deployment filter must compare through the current commit')
+}
 const backendValidationPaths = pathFilterEntries(validationFilter.with?.filters, 'backend')
 const frontendValidationPaths = pathFilterEntries(validationFilter.with?.filters, 'frontend')
-const backendDeployPaths = pathFilterEntries(deployFilter.with?.filters, 'backend')
-const frontendDeployPaths = pathFilterEntries(deployFilter.with?.filters, 'frontend')
-const contractDeployPaths = pathFilterEntries(deployFilter.with?.filters, 'contract')
+const backendDeployPaths = pathFilterEntries(backendDeployFilter.with?.filters, 'backend')
+const frontendDeployPaths = pathFilterEntries(frontendDeployFilter.with?.filters, 'frontend')
+const backendContractDeployPaths = pathFilterEntries(backendDeployFilter.with?.filters, 'contract')
+const frontendContractDeployPaths = pathFilterEntries(frontendDeployFilter.with?.filters, 'contract')
 assert(backendValidationPaths.includes('.github/workflows/ci.yml'), 'CI workflow changes must validate backend')
 assert(frontendValidationPaths.includes('.github/workflows/ci.yml'), 'CI workflow changes must validate frontend')
 assert(!backendDeployPaths.some((entry) => entry.includes('.github/workflows/')), 'workflow-only changes must not deploy backend')
@@ -166,10 +181,18 @@ assert(!matchesEveryPathRule(frontendDeployPaths, 'frontend/src/views/__tests__/
   'frontend test-only changes must not select deployment')
 assert(!matchesEveryPathRule(frontendDeployPaths, 'frontend/e2e/home.spec.ts'),
   'frontend E2E-only changes must not select deployment')
-assert(JSON.stringify(contractDeployPaths) === JSON.stringify(['docs/ops/api-contract-revision.txt']),
-  'API contract revision must coordinate backend and frontend deployment')
+assert(JSON.stringify(backendContractDeployPaths) === JSON.stringify(['docs/ops/api-contract-revision.txt'])
+  && JSON.stringify(frontendContractDeployPaths) === JSON.stringify(['docs/ops/api-contract-revision.txt']),
+  'API contract revision must coordinate cumulative backend and frontend deployment')
 assert(ci.jobs.changes.outputs.backend_deploy === '${{ steps.deploy-scope.outputs.backend }}', 'backend deploy output bypasses deployment scope resolver')
 assert(ci.jobs.changes.outputs.frontend_deploy === '${{ steps.deploy-scope.outputs.frontend }}', 'frontend deploy output bypasses deployment scope resolver')
+const deployScopeSource = JSON.stringify(ci.jobs.changes.steps.find((step) => step.id === 'deploy-scope'))
+assert(deployScopeSource.includes('BACKEND_BASE_FOUND') && deployScopeSource.includes('FRONTEND_BASE_FOUND'),
+  'missing deployment history must force a safe component deployment')
+const validationScopeSource = JSON.stringify(ci.jobs.changes.steps.find((step) => step.id === 'scope'))
+assert(validationScopeSource.includes('BACKEND_DEPLOY_PENDING')
+  && validationScopeSource.includes('FRONTEND_DEPLOY_PENDING'),
+  'cumulative deployment candidates must also run their component validation')
 assert(!ciSource.includes('backend_changed') && !ciSource.includes('frontend_changed'), 'legacy validation/deployment coupling remains')
 for (const [jobName, outputName] of [
   ['candidate-backend', 'backend_deploy'],
@@ -189,6 +212,7 @@ for (const jobName of [
   'deploy-backend',
   'frontend-deploy-readiness',
   'deploy-frontend',
+  'deployment-gate',
 ]) {
   assert(String(ci.jobs[jobName].if).includes('!cancelled()'),
     `${jobName} may inherit skipped validation jobs through the CI gate`)
@@ -206,6 +230,16 @@ assert((frontendReadiness.needs ?? []).includes('deploy-backend')
 assert(ci.jobs['deploy-frontend'].needs === 'frontend-deploy-readiness'
   && String(ci.jobs['deploy-frontend'].if).includes("needs.frontend-deploy-readiness.outputs.deploy == 'true'"),
   'frontend deployment must consume the explicit readiness decision')
+const deploymentGate = ci.jobs['deployment-gate']
+const deploymentGateSource = JSON.stringify(deploymentGate)
+assert(String(deploymentGate.if).includes('always()')
+  && (deploymentGate.needs ?? []).includes('deploy-backend')
+  && (deploymentGate.needs ?? []).includes('deploy-frontend'),
+  'deployment gate must inspect skipped or failed component deployments')
+assert(deploymentGateSource.includes('BACKEND_DEPLOY_RESULT')
+  && deploymentGateSource.includes('FRONTEND_DEPLOY_RESULT')
+  && deploymentGateSource.includes('exit 1'),
+  'requested deployments must not finish green when deployment was skipped')
 for (const protectedOpsPath of [
   '.github/CODEOWNERS',
   'docs/ops/postgres-backup-restore.md',

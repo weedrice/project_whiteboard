@@ -31,6 +31,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
+      actions: read
       contents: read
       pull-requests: read
     outputs:
@@ -42,6 +43,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
 
       - name: Detect validation areas
         id: filter
@@ -97,10 +100,25 @@ jobs:
               - 'docs/ops/database-migration-policy.md'
               - 'docs/ops/**'
 
-      - name: Detect deployable areas
-        id: deploy-filter
+      - name: Resolve last successful deployment baselines
+        id: deployment-baselines
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEPLOYMENT_WORKFLOW: ci.yml
+          DEPLOYMENT_BRANCH: main
+        run: node deploy/scripts/resolve-deployment-baselines.mjs
+
+      - name: Detect backend changes since the last successful deployment
+        id: backend-deploy-filter
+        if: >-
+          github.event_name == 'push' &&
+          github.ref == 'refs/heads/main' &&
+          steps.deployment-baselines.outputs.backend_found == 'true'
         uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4
         with:
+          base: ${{ steps.deployment-baselines.outputs.backend_sha }}
+          ref: ${{ github.sha }}
           predicate-quantifier: 'every'
           filters: |
             backend:
@@ -114,6 +132,21 @@ jobs:
               - '!backend/.dockerignore'
               - '!backend/.gitignore'
               - '!backend/compileTestJava.log'
+            contract:
+              - 'docs/ops/api-contract-revision.txt'
+
+      - name: Detect frontend changes since the last successful deployment
+        id: frontend-deploy-filter
+        if: >-
+          github.event_name == 'push' &&
+          github.ref == 'refs/heads/main' &&
+          steps.deployment-baselines.outputs.frontend_found == 'true'
+        uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4
+        with:
+          base: ${{ steps.deployment-baselines.outputs.frontend_sha }}
+          ref: ${{ github.sha }}
+          predicate-quantifier: 'every'
+          filters: |
             frontend:
               - 'frontend/**'
               - '!frontend/**/__tests__/**'
@@ -138,15 +171,25 @@ jobs:
       - name: Resolve deployment scope
         id: deploy-scope
         env:
-          BACKEND_DEPLOY_CHANGED: ${{ steps.deploy-filter.outputs.backend }}
-          FRONTEND_DEPLOY_CHANGED: ${{ steps.deploy-filter.outputs.frontend }}
-          CONTRACT_CHANGED: ${{ steps.deploy-filter.outputs.contract }}
+          IS_MAIN_PUSH: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          BACKEND_BASE_FOUND: ${{ steps.deployment-baselines.outputs.backend_found }}
+          FRONTEND_BASE_FOUND: ${{ steps.deployment-baselines.outputs.frontend_found }}
+          BACKEND_DEPLOY_CHANGED: ${{ steps.backend-deploy-filter.outputs.backend }}
+          BACKEND_CONTRACT_CHANGED: ${{ steps.backend-deploy-filter.outputs.contract }}
+          FRONTEND_DEPLOY_CHANGED: ${{ steps.frontend-deploy-filter.outputs.frontend }}
+          FRONTEND_CONTRACT_CHANGED: ${{ steps.frontend-deploy-filter.outputs.contract }}
         run: |
-          backend="$BACKEND_DEPLOY_CHANGED"
-          frontend="$FRONTEND_DEPLOY_CHANGED"
-          if [ "$CONTRACT_CHANGED" = "true" ]; then
-            backend=true
-            frontend=true
+          backend=false
+          frontend=false
+          if [ "$IS_MAIN_PUSH" = "true" ]; then
+            backend="${BACKEND_DEPLOY_CHANGED:-false}"
+            frontend="${FRONTEND_DEPLOY_CHANGED:-false}"
+            if [ "$BACKEND_BASE_FOUND" != "true" ] || [ "$BACKEND_CONTRACT_CHANGED" = "true" ]; then
+              backend=true
+            fi
+            if [ "$FRONTEND_BASE_FOUND" != "true" ] || [ "$FRONTEND_CONTRACT_CHANGED" = "true" ]; then
+              frontend=true
+            fi
           fi
           {
             echo "backend=$backend"
@@ -159,12 +202,16 @@ jobs:
           BACKEND_CHANGED: ${{ steps.filter.outputs.backend }}
           FRONTEND_CHANGED: ${{ steps.filter.outputs.frontend }}
           OPS_CHANGED: ${{ steps.filter.outputs.ops }}
+          BACKEND_DEPLOY_PENDING: ${{ steps.deploy-scope.outputs.backend }}
+          FRONTEND_DEPLOY_PENDING: ${{ steps.deploy-scope.outputs.frontend }}
           MANUAL_BACKEND: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_backend || false }}
           MANUAL_FRONTEND: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_frontend || false }}
         run: |
           backend="$BACKEND_CHANGED"
           frontend="$FRONTEND_CHANGED"
           ops="$OPS_CHANGED"
+          if [ "$BACKEND_DEPLOY_PENDING" = "true" ]; then backend=true; fi
+          if [ "$FRONTEND_DEPLOY_PENDING" = "true" ]; then frontend=true; fi
           if [ "$MANUAL_BACKEND" = "true" ]; then backend=true; fi
           if [ "$MANUAL_FRONTEND" = "true" ]; then frontend=true; fi
           if [ "$MANUAL_BACKEND" = "true" ] || [ "$MANUAL_FRONTEND" = "true" ]; then ops=true; fi
@@ -605,6 +652,7 @@ jobs:
           bash deploy/scripts/tests/verify-deployment-freshness-test.sh
           bash deploy/scripts/tests/download-attestation-with-retry-test.sh
           bash deploy/scripts/tests/record-cleanup-debt-test.sh
+          node deploy/scripts/tests/resolve-deployment-baselines-test.mjs
           bash deploy/scripts/tests/verify-workflow-security-test.sh
           bash backend/scripts/tests/check-migration-compatibility-test.sh
           sudo bash deploy/monitoring/tests/rotate-grafana-admin-password-test.sh
@@ -1083,3 +1131,49 @@ jobs:
       EC2_HOST: ${{ secrets.EC2_HOST }}
       EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
       EC2_USER: ${{ secrets.EC2_USER }}
+
+  deployment-gate:
+    name: Deployment Gate
+    needs: [changes, ci-gate, deploy-backend, deploy-frontend]
+    if: always() && !cancelled()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Verify requested deployments completed
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref }}
+          CI_GATE_RESULT: ${{ needs.ci-gate.result }}
+          BACKEND_DEPLOY_CHANGED: ${{ needs.changes.outputs.backend_deploy }}
+          FRONTEND_DEPLOY_CHANGED: ${{ needs.changes.outputs.frontend_deploy }}
+          MANUAL_BACKEND: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_backend || false }}
+          MANUAL_FRONTEND: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_frontend || false }}
+          BACKEND_DEPLOY_RESULT: ${{ needs.deploy-backend.result }}
+          FRONTEND_DEPLOY_RESULT: ${{ needs.deploy-frontend.result }}
+        run: |
+          set -euo pipefail
+          if [ "$CI_GATE_RESULT" != "success" ]; then
+            echo "CI gate did not pass; deployment completion is not evaluated."
+            exit 0
+          fi
+
+          backend_requested=false
+          frontend_requested=false
+          if [ "$EVENT_NAME" = "push" ] && [ "$REF_NAME" = "refs/heads/main" ]; then
+            backend_requested="$BACKEND_DEPLOY_CHANGED"
+            frontend_requested="$FRONTEND_DEPLOY_CHANGED"
+          elif [ "$EVENT_NAME" = "workflow_dispatch" ] && [ "$REF_NAME" = "refs/heads/main" ]; then
+            backend_requested="$MANUAL_BACKEND"
+            frontend_requested="$MANUAL_FRONTEND"
+          fi
+
+          failed=false
+          if [ "$backend_requested" = "true" ] && [ "$BACKEND_DEPLOY_RESULT" != "success" ]; then
+            echo "::error::Backend deployment was requested but finished as $BACKEND_DEPLOY_RESULT. Contract migrations require a main workflow_dispatch with allow_contract_migration=true."
+            failed=true
+          fi
+          if [ "$frontend_requested" = "true" ] && [ "$FRONTEND_DEPLOY_RESULT" != "success" ]; then
+            echo "::error::Frontend deployment was requested but finished as $FRONTEND_DEPLOY_RESULT."
+            failed=true
+          fi
+          if [ "$failed" = "true" ]; then exit 1; fi

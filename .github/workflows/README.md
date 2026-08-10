@@ -4,7 +4,7 @@
 
 `ci.yml`은 `main`·`develop` push와 pull request를 검증한다. 수동 배포 입력의 기본값은 모두 `false`이며 production 배포는 `main`에서만 허용한다. 변경 감지 뒤 선택된 backend, frontend, ops job이 모두 성공해야 `ci-gate`를 통과한다. 선택된 필수 job이 `skipped`여도 gate는 실패한다.
 
-검증 범위와 배포 범위는 별도로 판정한다. CI·배포 workflow, 문서, backend/frontend 테스트만 변경되면 관련 검증 job은 실행하지만 candidate·release·production 배포 job은 실행하지 않는다. 실제 runtime·빌드 입력이 바뀐 영역만 자동 배포 대상으로 선택하며, `docs/ops/api-contract-revision.txt` 변경은 API 계약 동기화를 위해 backend와 frontend 배포 범위를 함께 선택한다. 수동 `workflow_dispatch`의 명시적 배포 입력은 경로 감지 결과와 무관하게 해당 검증·배포 체인을 실행한다.
+검증 범위와 배포 범위는 별도로 판정한다. CI·배포 workflow, 문서, backend/frontend 테스트만 변경되면 관련 검증 job은 실행하지만 candidate·release·production 배포 job은 실행하지 않는다. 자동 배포 범위는 현재 push 하나가 아니라 GitHub Actions 이력에서 찾은 component별 마지막 성공 production 배포 SHA부터 현재 SHA까지의 누적 diff로 계산한다. 따라서 runtime 변경의 CI가 실패하고 테스트·설정만 수정한 후속 커밋이 성공해도 미배포 runtime 변경은 다음 성공 실행의 배포 범위에 남으며, 해당 component 검증도 다시 실행한다. 성공 배포 이력을 찾지 못하면 안전하게 해당 component를 검증·배포 대상으로 선택한다. `docs/ops/api-contract-revision.txt` 변경은 API 계약 동기화를 위해 backend와 frontend 배포 범위를 함께 선택한다. 수동 `workflow_dispatch`의 명시적 배포 입력은 경로 감지 결과와 무관하게 해당 검증·배포 체인을 실행한다.
 
 검증 job은 다음 책임을 가진다.
 
@@ -13,12 +13,13 @@
 - Frontend: Node 24, lint, i18n·UI 규약, type-check, coverage, build, Playwright E2E·접근성
 - Ops: actionlint, Prometheus rule fixture, Grafana JSON, shell, sudoers, systemd, migration·activation fixture
 - CI gate: 선택 여부와 실제 job 결과를 대조하고 우회된 `skipped` 또는 실패를 차단
+- Deployment gate: CI 성공 뒤 요청된 backend/frontend production 배포가 `success`가 아니면 workflow를 실패시켜 contract 승인 누락이나 조건식 skip을 숨기지 않음
 
 자동·수동 배포는 검증이 끝난 동일 실행에서 release artifact를 한 번 생성한다. 권한 없는 candidate job이 빌드하고, Gradle/npm을 실행하지 않는 별도 release job만 OIDC·attestation 쓰기 권한으로 candidate digest를 서명한다. artifact 이름은 영역, `run_id`, `run_attempt`, commit SHA를 모두 포함하며 reusable deployment workflow는 그 정확한 이름만 내려받는다. 서명된 metadata의 `run_number/run_attempt`가 배포 세대 순서이며 `run_id`는 정확한 실행 식별에만 사용한다. 재실행이 이전 attempt의 artifact를 재사용하면 안 된다.
 
 backend와 frontend가 함께 변경되면 backend를 먼저 활성화한다. backend는 별도 readback 연결에서 설치된 JAR digest, systemd 활성 상태와 8081 management health를 다시 검증한 경우에만 `activated_sha`를 출력한다. frontend도 `/var/www/app`의 release identity와 내부·공개 release endpoint를 별도 연결에서 재확인하며, 전달받은 backend SHA가 자신의 대상 SHA와 같은지 확인한 뒤 결과를 확정한다.
 
-contract migration은 자동 배포하지 않는다. `main`의 수동 실행에서 `allow_contract_migration=true`를 명시하고 production environment 승인을 거쳐야 한다. 배포 전 수동 RDS snapshot 생성과 `available` 상태 확인은 운영 절차로 유지하지만, 개인 프로젝트에 과도한 변경 티켓·snapshot tag·AWS OIDC 증거 검증은 CI에서 요구하지 않는다. 적용이 끝난 migration filename만 `docs/ops/applied-contract-migrations.txt`에 별도 변경으로 기록한다.
+contract migration은 자동 배포하지 않는다. `main`의 수동 실행에서 `deploy_backend=true`와 `allow_contract_migration=true`를 명시하고 production environment 승인을 거쳐야 한다. 배포가 요청됐지만 이 승인이 빠지면 Deployment gate가 workflow를 실패 처리한다. 배포 전 수동 RDS snapshot 생성과 `available` 상태 확인은 운영 절차로 유지하지만, 개인 프로젝트에 과도한 변경 티켓·snapshot tag·AWS OIDC 증거 검증은 CI에서 요구하지 않는다. 적용이 끝난 migration filename만 `docs/ops/applied-contract-migrations.txt`에 별도 변경으로 기록한다.
 
 ## 활성화와 정리
 
@@ -50,7 +51,7 @@ Grafana 관리 비밀번호는 `/etc/noviis/monitoring.env`와 root-only 회전 
 
 Backend/frontend production deploy는 `queue: single`, `cancel-in-progress: false`로 현재 활성 실행을 취소하지 않으면서 최신 pending 하나만 보존한다. 정기 SEO 검증은 실행 이력을 빠뜨리지 않도록 별도 `queue: max` group을 사용한다.
 
-workflow 기본 권한은 `contents: read`이며 attestation과 artifact metadata 권한은 필요한 release job에만 부여한다. PR에서 repository script를 실행하는 PostgreSQL·ops job에는 `actions: read`, `deployments: read`, `id-token: write`를 부여하지 않는다. third-party Action은 검토한 release의 full commit SHA로 고정한다. workflow, activation script, sudoers, migration 정책 변경은 CODEOWNERS review 대상이다.
+workflow 기본 권한은 `contents: read`이며 attestation과 artifact metadata 권한은 필요한 release job에만 부여한다. `changes` job만 마지막 성공 배포 실행을 조회하기 위해 `actions: read`를 추가로 사용한다. PR에서 repository script를 실행하는 PostgreSQL·ops job에는 `actions: read`, `deployments: read`, `id-token: write`를 부여하지 않는다. third-party Action은 검토한 release의 full commit SHA로 고정한다. workflow, activation script, sudoers, migration 정책 변경은 CODEOWNERS review 대상이다.
 
 배포 freshness 경계의 source of truth는 `deploy/release-freshness-paths.txt`다. workflow가 참조하는 activation·verification·provenance 파일이 이 manifest에서 빠지면 ops CI가 실패한다. Contract 배포는 수동 실행의 명시적 승인 없이는 시작되지 않으며 production checkout은 Git credential을 보존하지 않는다.
 
