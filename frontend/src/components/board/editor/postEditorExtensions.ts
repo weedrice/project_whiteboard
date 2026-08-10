@@ -259,7 +259,7 @@ export function createPostEditorExtensions() {
     Link.configure({
       openOnClick: false,
       HTMLAttributes: {
-        rel: 'noopener noreferrer',
+        rel: 'nofollow noopener noreferrer',
         target: '_blank',
         class: 'tiptap-link',
       },

@@ -135,6 +135,7 @@ class InputSanitizerTest {
     void sanitizePostHtml_keepsOnlyAllowedVideoIframes() {
         String input = """
                 <iframe src="https://www.youtube.com/embed/abc123" allow="autoplay; clipboard-write" sandbox="allow-scripts allow-popups" referrerpolicy="unsafe-url"></iframe>
+                <iframe src="https://www.youtube-nocookie.com/embed/private123"></iframe>
                 <iframe src="https://player.vimeo.com/video/456/"></iframe>
                 <iframe src="https://evil.example/embed/abc123"></iframe>
                 <iframe src="http://www.youtube.com/embed/insecure"></iframe>
@@ -146,6 +147,7 @@ class InputSanitizerTest {
         String sanitized = InputSanitizer.sanitizePostHtml(input);
 
         assertThat(sanitized).contains("https://www.youtube.com/embed/abc123");
+        assertThat(sanitized).contains("https://www.youtube-nocookie.com/embed/private123");
         assertThat(sanitized).contains("https://player.vimeo.com/video/456/");
         assertThat(sanitized).contains("frameborder=\"0\"");
         assertThat(sanitized).contains("allowfullscreen=\"true\"");
@@ -160,5 +162,26 @@ class InputSanitizerTest {
         assertThat(sanitized).doesNotContain("insecure");
         assertThat(sanitized).doesNotContain("abc123/extra");
         assertThat(sanitized).doesNotContain("not-a-number");
+    }
+
+    @Test
+    @DisplayName("서버 정제 결과가 링크와 멘션의 에디터 왕복 계약을 유지한다")
+    void sanitizePostHtml_normalizesLinkRelAndPreservesCanonicalMention() {
+        String input = """
+                <a class="tiptap-link" href="https://noviis.kr/post/1" target="_blank" rel="noopener noreferrer">link</a>
+                <span class="mention-node" data-type="mention" data-id="7" data-label="Novi"
+                      data-mention-suggestion-char="@" data-mention-user-id="7">@Novi</span>
+                """;
+
+        String sanitized = InputSanitizer.sanitizePostHtml(input);
+
+        assertThat(sanitized)
+                .contains("rel=\"nofollow noopener noreferrer\"")
+                .contains("target=\"_blank\"")
+                .contains("class=\"mention-node\"")
+                .contains("data-id=\"7\"")
+                .contains("data-label=\"Novi\"")
+                .contains("data-mention-suggestion-char=\"@\"")
+                .contains("data-mention-user-id=\"7\"");
     }
 }

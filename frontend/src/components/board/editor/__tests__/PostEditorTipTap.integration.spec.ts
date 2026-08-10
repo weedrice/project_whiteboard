@@ -59,7 +59,7 @@ describe('PostEditorTipTap TipTap extension integration', () => {
         expect(anchor?.getAttribute('href')).toBe('https://noviis.kr/posts/1')
         expect(anchor?.getAttribute('class')).toBe('tiptap-link')
         expect(anchor?.getAttribute('target')).toBe('_blank')
-        expect(anchor?.getAttribute('rel')).toBe('noopener noreferrer')
+        expect(anchor?.getAttribute('rel')).toBe('nofollow noopener noreferrer')
     })
 
     it('serializes image src, data-file-id and alt attributes', () => {
@@ -116,6 +116,18 @@ describe('PostEditorTipTap TipTap extension integration', () => {
         expect(wrapper?.hasAttribute('data-video-embed')).toBe(true)
         expect(iframe?.getAttribute('src')).toBe('https://www.youtube.com/embed/test-id')
         expect(iframe?.getAttribute('allowfullscreen')).toBe('true')
+    })
+
+    it('round-trips a youtube-nocookie video without falling back to raw HTML', () => {
+        const source = '<iframe src="https://www.youtube-nocookie.com/embed/private-id"></iframe>'
+
+        expect(requiresPreservedPostHtml(source)).toBe(false)
+        editor = createEditor(source)
+
+        const serialized = editor.getHTML()
+        expect(parseHTML(serialized).querySelector('iframe')?.getAttribute('src'))
+            .toBe('https://www.youtube-nocookie.com/embed/private-id')
+        expect(requiresPreservedPostHtml(serialized)).toBe(false)
     })
 
     it('round-trips a preserved raw HTML block without changing its source', () => {

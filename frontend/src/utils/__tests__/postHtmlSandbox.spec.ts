@@ -56,8 +56,23 @@ describe('postHtmlSandbox', () => {
         })
         expect(requiresPreservedPostHtml('<p style="text-align:center"><strong>Hello</strong></p>')).toBe(false)
         expect(requiresPreservedPostHtml('<a class="tiptap-link" href="https://noviis.kr" target="_blank" rel="noopener noreferrer">Link</a>')).toBe(false)
+        expect(requiresPreservedPostHtml('<a class="tiptap-link" href="https://noviis.kr" target="_blank" rel="noreferrer nofollow noopener">Link</a>')).toBe(false)
         expect(requiresPreservedPostHtml('<pre class="hljs"><code class="language-typescript">const value = 1</code></pre>')).toBe(false)
         expect(requiresPreservedPostHtml('<span class="mention-node" data-type="mention" data-id="7" data-label="Novi" data-mention-suggestion-char="@" data-mention-user-id="7">@Novi</span>')).toBe(false)
+        expect(requiresPreservedPostHtml('<iframe src="https://www.youtube-nocookie.com/embed/private-id"></iframe>')).toBe(false)
+    })
+
+    it('preserves legacy or inconsistent mentions before the visual editor can lose identity', () => {
+        const legacyMentions = [
+            '<span data-type="mention" data-mention-user-id="7">@Novi</span>',
+            '<span class="mention-node" data-type="mention" data-id="7" data-label="Novi" data-mention-user-id="8" data-mention-suggestion-char="@">@Novi</span>',
+            '<span class="mention-node" data-type="mention" data-id="7" data-label="Novi" data-mention-user-id="7" data-mention-suggestion-char="@">@Changed</span>',
+        ]
+
+        legacyMentions.forEach((html) => {
+            expect(requiresPreservedPostHtml(html)).toBe(true)
+            expect(decodeSandboxedPostHtml(encodeSandboxedPostHtml(html))).toBe(html)
+        })
     })
 
     it('decodes only a standalone preserved marker', () => {

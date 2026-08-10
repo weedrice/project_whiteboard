@@ -41,7 +41,7 @@ export const Video = Node.create<VideoOptions>({
   parseHTML() {
     return [
       {
-        tag: 'iframe[src*="youtube.com/embed"], iframe[src*="vimeo.com"]',
+        tag: 'iframe[src*="youtube.com/embed"], iframe[src*="youtube-nocookie.com/embed"], iframe[src*="player.vimeo.com/video/"]',
         getAttrs: el => ({ src: (el as HTMLIFrameElement).getAttribute('src') }),
       },
       {

@@ -56,6 +56,7 @@ describe('Video extension', () => {
     expect(parseRules[0].getAttrs?.(youtubeIframe)).toEqual({
       src: 'https://www.youtube.com/embed/123'
     })
+    expect(parseRules[0].tag).toContain('youtube-nocookie.com/embed')
 
     const wrapper = document.createElement('div')
     wrapper.className = 'tiptap-video-wrapper'

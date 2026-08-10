@@ -120,13 +120,13 @@ function isSupportedEditorElement(element: HTMLElement): boolean {
     }
     if (tag === 'iframe') {
         const src = element.getAttribute('src') ?? ''
-        return /^(?:https?:)?\/\/(?:www\.)?(?:youtube\.com\/embed\/|player\.vimeo\.com\/video\/)/i.test(src)
+        return /^(?:https?:)?\/\/(?:www\.)?(?:youtube(?:-nocookie)?\.com\/embed\/|player\.vimeo\.com\/video\/)/i.test(src)
             && hasSupportedVideoFrameAttributes(element)
     }
     if (tag === 'a' && !hasSupportedLinkAttributes(element)) return false
     if (tag === 'span') {
         return element.hasAttribute('style')
-            || element.getAttribute('data-type') === 'mention'
+            || hasCanonicalMentionAttributes(element)
     }
     return true
 }
@@ -135,7 +135,31 @@ function hasSupportedLinkAttributes(element: HTMLElement): boolean {
     const target = element.getAttribute('target')
     const rel = element.getAttribute('rel')
     return (target == null || target === '_blank')
-        && (rel == null || rel === 'noopener noreferrer')
+        && (rel == null || hasSupportedLinkRel(rel))
+}
+
+function hasSupportedLinkRel(rel: string): boolean {
+    const tokens = new Set(rel.trim().toLowerCase().split(/\s+/).filter(Boolean))
+    const isLegacyEditorRel = tokens.size === 2
+        && tokens.has('noopener')
+        && tokens.has('noreferrer')
+    const isServerRel = tokens.size === 3
+        && tokens.has('nofollow')
+        && tokens.has('noopener')
+        && tokens.has('noreferrer')
+    return isLegacyEditorRel || isServerRel
+}
+
+function hasCanonicalMentionAttributes(element: HTMLElement): boolean {
+    if (element.getAttribute('data-type') !== 'mention') return false
+    if (element.classList.length !== 1 || !element.classList.contains('mention-node')) return false
+    const id = element.getAttribute('data-id')?.trim()
+    const label = element.getAttribute('data-label')?.trim()
+    if (!id || !label) return false
+    return element.getAttribute('data-mention-user-id') === id
+        && element.getAttribute('data-mention-suggestion-char') === '@'
+        && element.childElementCount === 0
+        && element.textContent === `@${label}`
 }
 
 function hasSupportedVideoFrameAttributes(element: HTMLElement): boolean {
