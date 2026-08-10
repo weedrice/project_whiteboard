@@ -5737,7 +5737,7 @@
             "type" : "integer"
           },
           "contents" : {
-            "maxLength" : 100000,
+            "maxLength" : 500000,
             "minLength" : 0,
             "type" : "string"
           },
@@ -5824,7 +5824,7 @@
             "type" : "string"
           },
           "contents" : {
-            "maxLength" : 100000,
+            "maxLength" : 500000,
             "minLength" : 0,
             "type" : "string"
           },
@@ -6225,7 +6225,7 @@
             "type" : "integer"
           },
           "contents" : {
-            "maxLength" : 100000,
+            "maxLength" : 500000,
             "minLength" : 0,
             "type" : "string"
           },
@@ -6748,7 +6748,7 @@
             "type" : "integer"
           },
           "contents" : {
-            "maxLength" : 100000,
+            "maxLength" : 500000,
             "minLength" : 0,
             "type" : "string"
           },
