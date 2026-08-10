@@ -4,9 +4,9 @@
 
 | 항목 | 내용 |
 | --- | --- |
-| 기준일 | 2026-08-06 |
+| 기준일 | 2026-08-10 |
 | 기준 소스 | `backend/src/main/resources/db/migration` |
-| 마이그레이션 범위 | `V1__baseline_schema.sql` - `V87__add_board_listed_visibility.sql` |
+| 마이그레이션 범위 | `V1__baseline_schema.sql` - `V88__search_preserved_post_html.sql` |
 | 현재 테이블 수 | 85개 |
 | DB | PostgreSQL |
 
@@ -231,6 +231,7 @@
 | `V85` | 사용자별 초안 멱등키 온라인 고유 인덱스 추가 |
 | `V86` | 다중 인스턴스 초안 정리 작업용 도메인 잠금 추가 |
 | `V87` | 스페이스 목록·검색 노출을 분리하는 `boards.is_listed` 추가 및 기존 비공개 행 backfill |
+| `V88` | 보존 HTML 원문 확장 함수와 게시글 본문 검색용 온라인 trigram 표현식 인덱스 추가(contract) |
 
 ## 운영 주의
 
