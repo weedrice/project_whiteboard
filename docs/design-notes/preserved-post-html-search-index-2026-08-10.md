@@ -24,7 +24,7 @@ V88은 저장 본문을 다시 쓰지 않고 검색 시점에 마커를 확장�
 
 ## 적용과 실패 복구
 
-- 적용 전 PostgreSQL 백업을 생성하고 복구 가능 상태를 확인한다.
+- 적용 전 RDS 자동 백업의 최근 복구 가능 시각이 운영 RPO 안에 있는지 확인한다.
 - `CREATE INDEX CONCURRENTLY` 실패 후 재시도하기 전에 `pg_index.indisvalid`를 확인한다.
 - `idx_posts_expanded_contents_trgm`이 invalid 상태이면 해당 인덱스만
   `DROP INDEX CONCURRENTLY`로 제거한 뒤 Flyway repair와 재실행을 수행한다.

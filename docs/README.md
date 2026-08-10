@@ -16,7 +16,7 @@
 ## 운영
 
 - [Agent heartbeat 대시보드 API](ops/agent-heartbeat-dashboard-api.md): 에이전트 상태와 heartbeat 대시보드를 위한 API 계약을 설명한다.
-- [Amazon RDS PostgreSQL 백업·복구](ops/postgres-backup-restore.md): 자동 백업, PITR, 수동 snapshot과 격리 복구·운영 전환 절차를 설명한다.
+- [Amazon RDS PostgreSQL 백업·복구](ops/postgres-backup-restore.md): 자동 백업, PITR, 격리 복구와 운영 전환 절차를 설명한다.
 - [로컬 Docker Compose](ops/docker-compose-local.md): 백엔드와 프론트엔드 로컬 컨테이너 실행 및 점검 방법을 안내한다.
 
 ## QA

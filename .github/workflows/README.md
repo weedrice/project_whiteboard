@@ -19,7 +19,7 @@
 
 backend와 frontend가 함께 변경되면 backend를 먼저 활성화한다. backend는 별도 readback 연결에서 설치된 JAR digest, systemd 활성 상태와 8081 management health를 다시 검증한 경우에만 `activated_sha`를 출력한다. frontend도 `/var/www/app`의 release identity와 내부·공개 release endpoint를 별도 연결에서 재확인하며, 전달받은 backend SHA가 자신의 대상 SHA와 같은지 확인한 뒤 결과를 확정한다.
 
-contract migration은 자동 배포하지 않는다. `main`의 수동 실행에서 `deploy_backend=true`와 `allow_contract_migration=true`를 명시하고 production environment 승인을 거쳐야 한다. 배포가 요청됐지만 이 승인이 빠지면 Deployment gate가 workflow를 실패 처리한다. 배포 전 수동 RDS snapshot 생성과 `available` 상태 확인은 운영 절차로 유지하지만, 개인 프로젝트에 과도한 변경 티켓·snapshot tag·AWS OIDC 증거 검증은 CI에서 요구하지 않는다. 적용이 끝난 migration filename만 `docs/ops/applied-contract-migrations.txt`에 별도 변경으로 기록한다.
+contract migration은 자동 배포하지 않는다. `main`의 수동 실행에서 `deploy_backend=true`와 `allow_contract_migration=true`를 명시하고 production environment 승인을 거쳐야 한다. 배포가 요청됐지만 이 승인이 빠지면 Deployment gate가 workflow를 실패 처리한다. 수동 DB snapshot이나 AWS 증거 검증은 배포 조건으로 사용하지 않는다. 적용이 끝난 migration filename만 `docs/ops/applied-contract-migrations.txt`에 별도 변경으로 기록한다.
 
 ## 활성화와 정리
 

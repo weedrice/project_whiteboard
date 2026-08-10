@@ -53,9 +53,9 @@ Unqualified deletes and tautologies such as `WHERE TRUE` or `WHERE 1 = 1` are al
 DROP INDEX IF EXISTS idx_old_lookup;
 ```
 
-The design note must record the PostgreSQL catalog evidence that the replacement unique index has the same key columns or a compatible leading prefix, plus before/after query plans and smoke results. Dynamic or multi-index drops are contract operations. Before applying any contract migration, take and verify a backup according to `docs/ops/postgres-backup-restore.md`.
+The design note must record the PostgreSQL catalog evidence that the replacement unique index has the same key columns or a compatible leading prefix, plus before/after query plans and smoke results. Dynamic or multi-index drops are contract operations. Before applying any contract migration, confirm that automated backups and the latest restorable time satisfy the recovery policy in `docs/ops/postgres-backup-restore.md`.
 
-Contract migrations are never eligible for an automatic main deployment. Run the integrated CI manually from `main` and explicitly set `allow_contract_migration=true`. Take a recent manual RDS snapshot before the deployment and confirm that it is `available`; snapshot management remains an operator responsibility rather than a CI ticket-and-tag protocol.
+Contract migrations are never eligible for an automatic main deployment. Run the integrated CI manually from `main` and explicitly set `deploy_backend=true` and `allow_contract_migration=true`. Manual DB snapshots, snapshot identifiers, and AWS snapshot evidence are not deployment requirements.
 
 Only after production succeeds may the migration filename be appended to `docs/ops/applied-contract-migrations.txt`. The compatibility check keeps unrecorded contract migrations behind the manual approval gate and rejects an applied record introduced in the same change as any new migration.
 

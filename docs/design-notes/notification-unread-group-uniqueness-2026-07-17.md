@@ -19,4 +19,4 @@
 
 - 사용자별 동일 `group_key`의 미확인 행이 최대 한 건인지 확인한다.
 - 일반 읽음·삭제·그룹 갱신 흐름과 알림 목록 조회를 검증한다.
-- production 승인, 백업 snapshot, 배포 실행 증거를 migration gate에 기록한 뒤 수동 적용한다.
+- `main` 수동 실행에서 contract migration을 명시적으로 승인하고 production environment 승인을 거쳐 적용한다.
