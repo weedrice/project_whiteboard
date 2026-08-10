@@ -51,6 +51,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.LocalDateTime;
 
@@ -151,6 +152,28 @@ class PostgresApplicationContextSmokeTest {
     void contextLoadsWithPostgresMigrations() {
         assertFalse(flyway.getConfigurationExtension(PostgreSQLConfigurationExtension.class)
                 .isTransactionalLock());
+    }
+
+    @Test
+    void preservedPostHtmlSearchFunctionDecodesMixedStoredContent() {
+        String source = "<section><p>검색 가능한 보존 본문</p></section>";
+        String payload = Base64.getEncoder().encodeToString(source.getBytes(StandardCharsets.UTF_8));
+        String stored = "<p>앞 문단</p><div class=\"noviis-sandboxed-post-html\" data-value=\""
+                + payload + "\"></div><p>뒤 문단</p>";
+
+        String expanded = jdbcTemplate.queryForObject(
+                "SELECT noviis_expand_preserved_post_html(?)",
+                String.class,
+                stored);
+        Integer indexCount = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*)
+                FROM pg_indexes
+                WHERE schemaname = current_schema()
+                  AND indexname = 'idx_posts_expanded_contents_trgm'
+                """, Integer.class);
+
+        assertEquals("<p>앞 문단</p>" + source + "<p>뒤 문단</p>", expanded);
+        assertEquals(1, indexCount);
     }
 
     @Test
