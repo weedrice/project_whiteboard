@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import {
     buildSandboxedPostHtmlSource,
     containsSandboxedPostHtml,
@@ -8,6 +10,15 @@ import {
     requiresPreservedPostHtml,
     requiresSandboxedPostHtml,
 } from '../postHtmlSandbox'
+
+const heightBridgeSource = readFileSync(
+    resolve(process.cwd(), 'public/sandbox-height-bridge.js'),
+    'utf8',
+)
+const embeddingSecurityHeaders = [
+    readFileSync(resolve(process.cwd(), 'nginx.conf'), 'utf8'),
+    readFileSync(resolve(process.cwd(), '../deploy/nginx/security-headers.conf'), 'utf8'),
+]
 
 describe('postHtmlSandbox', () => {
     afterEach(() => {
@@ -87,12 +98,13 @@ describe('postHtmlSandbox', () => {
     })
 
     it('adds a restrictive CSP with allowlisted static assets to sandboxed documents', () => {
-        const source = buildSandboxedPostHtmlSource('<button onclick="run()">Run</button>', 'frame-1', 'test-nonce')
+        const source = buildSandboxedPostHtmlSource('<button onclick="run()">Run</button>', 'frame-1')
 
         expect(source).toContain('Content-Security-Policy')
         expect(source).toContain("default-src 'none'")
-        expect(source).toContain("script-src 'nonce-test-nonce'")
+        expect(source).toContain('script-src http://localhost:3000')
         expect(source).not.toContain("script-src 'unsafe-inline'")
+        expect(source).toContain('<script src="http://localhost:3000/sandbox-height-bridge.js?v=test-hash" data-frame-id="frame-1"></script>')
         expect(source).toContain("style-src 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com")
         expect(source).toContain('img-src data: blob: http://localhost:3000 https://cdn.noviis.kr')
         expect(source).toContain('font-src data: https://cdn.jsdelivr.net https://fonts.gstatic.com')
@@ -104,11 +116,18 @@ describe('postHtmlSandbox', () => {
         expect(source).toContain("form-action 'none'")
     })
 
+    it('keeps the embedding CSP compatible with the external bridge and allowlisted fonts', () => {
+        embeddingSecurityHeaders.forEach((headers) => {
+            expect(headers).toContain("script-src 'self'")
+            expect(headers).toContain("style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com")
+            expect(headers).toContain("font-src 'self' data: https://cdn.jsdelivr.net https://fonts.gstatic.com")
+        })
+    })
+
     it('normalizes full html documents without nesting their document shell', () => {
         const source = buildSandboxedPostHtmlSource(
             '<!doctype html><html lang="ko" class="theme-dark"><head><meta name="viewport" content="width=320"><title>Card</title><style>.card{display:grid}</style></head><body class="document" style="padding: 1rem"><main class="card">Hello</main></body></html>',
             'frame-1',
-            'test-nonce',
         )
 
         expect(source.match(/<!doctype html>/gi)).toHaveLength(1)
@@ -124,102 +143,57 @@ describe('postHtmlSandbox', () => {
         const source = buildSandboxedPostHtmlSource(
             '<details open><summary onclick="toggle()">More</summary><p onload="run()">Body</p></details><script>window.evil = true</script>',
             'frame-1',
-            'test-nonce',
         )
 
         expect(source).toContain('<details open=""><summary>More</summary><p>Body</p></details>')
         expect(source).not.toContain('onclick=')
         expect(source).not.toContain('onload=')
         expect(source).not.toContain('window.evil')
-        expect(source).toContain('<script nonce="test-nonce">')
+        expect(source).toContain('<script src="http://localhost:3000/sandbox-height-bridge.js?v=test-hash"')
     })
 
     it('adds defensive overflow styles for long and narrow static html', () => {
         const authorStyle = '<style>html body { overflow: hidden !important; }</style>'
-        const source = buildSandboxedPostHtmlSource(`${authorStyle}<div>content</div>`, 'frame-1', 'test-nonce')
+        const source = buildSandboxedPostHtmlSource(`${authorStyle}<div>content</div>`, 'frame-1')
 
         expect(source.indexOf('data-noviis-sandbox-guard')).toBeGreaterThan(source.indexOf(authorStyle))
         expect(source).toContain('overflow-x: hidden !important; overflow-y: auto !important')
-        expect(source).toContain("root.style.setProperty('overflow-y', 'auto', 'important')")
         expect(source).toContain('overflow-wrap: anywhere')
         expect(source).toContain('pre { max-width: 100%; overflow-x: auto; }')
         expect(source).toContain('table { display: block; max-width: 100%; overflow-x: auto; }')
         expect(source).toContain('body :where(.grid) > * { min-width: 0; }')
         expect(source).toContain('body :where([data-noviis-responsive-stack]) { grid-template-columns: minmax(0, 1fr) !important; }')
-        expect(source).toContain("var responsiveStackAttribute = 'data-noviis-responsive-stack'")
-        expect(source).toContain('hasOverflowingDescendant(grid)')
+        expect(heightBridgeSource).toContain("var responsiveStackAttribute = 'data-noviis-responsive-stack'")
+        expect(heightBridgeSource).toContain('hasOverflowingDescendant(grid)')
     })
 
     it('cleans up sandbox height polling when the frame unloads', () => {
-        const source = buildSandboxedPostHtmlSource('<div>height</div>', 'frame-1', 'height-nonce')
+        const source = buildSandboxedPostHtmlSource('<div>height</div>', 'frame-1')
 
-        expect(source).toContain('window.setInterval(postHeight, 500)')
-        expect(source).toContain('<script nonce="height-nonce">')
-        expect(source).toContain("channel: 'noviis-post-html-sandbox'")
-        expect(source).toContain('window.clearInterval(intervalId)')
-        expect(source).toContain("window.addEventListener('pagehide', cleanup, { once: true })")
-        expect(source).toContain('resizeObserver.disconnect()')
+        expect(source).toContain('sandbox-height-bridge.js')
+        expect(heightBridgeSource).toContain('window.setInterval(postHeight, 500)')
+        expect(heightBridgeSource).toContain("channel: 'noviis-post-html-sandbox'")
+        expect(heightBridgeSource).toContain('window.clearInterval(intervalId)')
+        expect(heightBridgeSource).toContain("window.addEventListener('pagehide', cleanup, { once: true })")
+        expect(heightBridgeSource).toContain('resizeObserver.disconnect()')
     })
 
     it('measures content independently from the current iframe viewport height', () => {
-        const source = buildSandboxedPostHtmlSource('<div>height</div>', 'frame-1', 'height-nonce')
-
-        expect(source).toContain("var descendants = body.querySelectorAll('*')")
-        expect(source).toContain('var fixedSubtree = new WeakSet()')
-        expect(source).toContain('Math.max(body.offsetHeight, bottom - bodyRect.top) + bodyMargins + rootInsets')
-        expect(source).not.toContain('doc ? doc.scrollHeight')
-        expect(source).not.toContain('doc ? doc.offsetHeight')
+        expect(heightBridgeSource).toContain("var descendants = body.querySelectorAll('*')")
+        expect(heightBridgeSource).toContain('var fixedSubtree = new WeakSet()')
+        expect(heightBridgeSource).toContain('Math.max(body.offsetHeight, bottom - bodyRect.top) + bodyMargins + rootInsets')
+        expect(heightBridgeSource).not.toContain('doc ? doc.scrollHeight')
+        expect(heightBridgeSource).not.toContain('doc ? doc.offsetHeight')
     })
 
-    it('does not authorize user html that guesses the old static nonce', () => {
+    it('does not authorize user scripts and emits only the external bridge script', () => {
         const source = buildSandboxedPostHtmlSource(
             '<script nonce="noviis-height-bridge">window.evil = true</script>',
             'frame-1',
-            'fresh-nonce',
         )
 
         expect(source).not.toContain('window.evil')
-        expect(source).toContain("script-src 'nonce-fresh-nonce'")
-        expect(source).toContain('<script nonce="fresh-nonce">')
-        expect(source).not.toContain("script-src 'nonce-noviis-height-bridge'")
-    })
-
-    it('generates a fresh nonce for each sandbox document by default', () => {
-        const first = buildSandboxedPostHtmlSource('<div>first</div>', 'frame-1')
-        const second = buildSandboxedPostHtmlSource('<div>second</div>', 'frame-2')
-        const noncePattern = /script-src 'nonce-([^']+)'/
-
-        const firstNonce = first.match(noncePattern)?.[1]
-        const secondNonce = second.match(noncePattern)?.[1]
-
-        expect(firstNonce).toBeTruthy()
-        expect(secondNonce).toBeTruthy()
-        expect(firstNonce).not.toBe(secondNonce)
-        expect(first).toContain(`<script nonce="${firstNonce}">`)
-        expect(second).toContain(`<script nonce="${secondNonce}">`)
-    })
-
-    it('uses crypto random values for the default nonce when available', () => {
-        const getRandomValues = vi.fn((bytes: Uint8Array) => {
-            bytes.set(Array.from({ length: 16 }, (_, index) => index))
-            return bytes
-        })
-        vi.stubGlobal('crypto', { getRandomValues })
-
-        const source = buildSandboxedPostHtmlSource('<div>secure</div>', 'frame-1')
-
-        expect(getRandomValues).toHaveBeenCalledTimes(1)
-        expect(source).toContain("script-src 'nonce-AAECAwQFBgcICQoLDA0ODw'")
-        expect(source).toContain('<script nonce="AAECAwQFBgcICQoLDA0ODw">')
-    })
-
-    it('still generates a nonce when browser crypto is unavailable', () => {
-        vi.stubGlobal('crypto', undefined)
-        vi.spyOn(Math, 'random').mockReturnValue(0)
-
-        const source = buildSandboxedPostHtmlSource('<div>fallback</div>', 'frame-1')
-
-        expect(source).toContain("script-src 'nonce-AAAAAAAAAAAAAAAAAAAAAA'")
-        expect(source).toContain('<script nonce="AAAAAAAAAAAAAAAAAAAAAA">')
+        expect(source.match(/<script\b/g)).toHaveLength(1)
+        expect(source).toContain('<script src="http://localhost:3000/sandbox-height-bridge.js?v=test-hash"')
     })
 })

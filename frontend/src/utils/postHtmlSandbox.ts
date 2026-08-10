@@ -281,7 +281,7 @@ function findStandaloneSandboxMarker(content: string | null | undefined): HTMLEl
     return marker
 }
 
-export function buildSandboxedPostHtmlSource(content: string, frameId: string, nonce = createSandboxNonce()): string {
+export function buildSandboxedPostHtmlSource(content: string, frameId: string): string {
     const applicationOrigin = getSandboxApplicationOrigin()
     const documentParts = normalizeSandboxedPostDocument(content)
     return [
@@ -290,7 +290,7 @@ export function buildSandboxedPostHtmlSource(content: string, frameId: string, n
         '<head>',
         '<meta charset="utf-8">',
         '<meta name="viewport" content="width=device-width, initial-scale=1">',
-        `<meta http-equiv="Content-Security-Policy" content="${buildSandboxCsp(nonce, applicationOrigin)}">`,
+        `<meta http-equiv="Content-Security-Policy" content="${buildSandboxCsp(applicationOrigin)}">`,
         '<meta name="referrer" content="no-referrer">',
         '<base target="_blank">',
         '<style>',
@@ -303,32 +303,17 @@ export function buildSandboxedPostHtmlSource(content: string, frameId: string, n
         '</head>',
         `<body${documentParts.bodyAttributes}>`,
         documentParts.bodyHtml,
-        getHeightBridgeScript(frameId, nonce),
+        getHeightBridgeElement(frameId, applicationOrigin),
         '</body>',
         '</html>',
     ].join('')
 }
 
-function createSandboxNonce(): string {
-    const bytes = new Uint8Array(16)
-    if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
-        crypto.getRandomValues(bytes)
-    } else {
-        for (let i = 0; i < bytes.length; i += 1) {
-            bytes[i] = Math.floor(Math.random() * 256)
-        }
-    }
-    return btoa(String.fromCharCode(...bytes))
-        .replace(/\+/g, '-')
-        .replace(/\//g, '_')
-        .replace(/=+$/g, '')
-}
-
-function buildSandboxCsp(nonce: string, applicationOrigin: string): string {
+function buildSandboxCsp(applicationOrigin: string): string {
     return [
         "default-src 'none'",
         "style-src 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com",
-        `script-src 'nonce-${nonce}'`,
+        `script-src ${applicationOrigin}`,
         `img-src data: blob: ${applicationOrigin} https://cdn.noviis.kr`,
         'font-src data: https://cdn.jsdelivr.net https://fonts.gstatic.com',
         'media-src data: blob: https:',
@@ -481,108 +466,8 @@ body :where([data-noviis-responsive-stack]) { grid-template-columns: minmax(0, 1
 `
 }
 
-function getHeightBridgeScript(frameId: string, nonce: string): string {
-    return `<script nonce="${nonce}">
-(function () {
-  var frameId = ${JSON.stringify(frameId)};
-  var lastHeight = 0;
-  var responsiveStackAttribute = 'data-noviis-responsive-stack';
-  function enforceScrollableDocument() {
-    var roots = [document.documentElement, document.body];
-    for (var index = 0; index < roots.length; index += 1) {
-      var root = roots[index];
-      if (!root) continue;
-      root.style.setProperty('overflow-x', 'hidden', 'important');
-      root.style.setProperty('overflow-y', 'auto', 'important');
-    }
-  }
-  function hasHorizontalOverflow(element) {
-    return element.clientWidth > 0 && element.scrollWidth > element.clientWidth + 1;
-  }
-  function hasOverflowingDescendant(element) {
-    var descendants = element.querySelectorAll('*');
-    for (var index = 0; index < descendants.length; index += 1) {
-      if (hasHorizontalOverflow(descendants[index])) return true;
-    }
-    return false;
-  }
-  function repairResponsiveGrids() {
-    var isNarrow = document.documentElement.clientWidth <= 480;
-    var grids = document.querySelectorAll('.grid');
-    for (var index = 0; index < grids.length; index += 1) {
-      var grid = grids[index];
-      if (!isNarrow) {
-        grid.removeAttribute(responsiveStackAttribute);
-        continue;
-      }
-      if (grid.hasAttribute(responsiveStackAttribute)) continue;
-      var display = window.getComputedStyle(grid).display;
-      if (display !== 'grid' && display !== 'inline-grid') continue;
-      if (hasHorizontalOverflow(grid) || hasOverflowingDescendant(grid)) {
-        grid.setAttribute(responsiveStackAttribute, '');
-      }
-    }
-  }
-  function cssPixels(value) {
-    return parseFloat(value) || 0;
-  }
-  function measure() {
-    var body = document.body;
-    if (!body) return 0;
-    var bodyRect = body.getBoundingClientRect();
-    var bottom = bodyRect.bottom;
-    var descendants = body.querySelectorAll('*');
-    var fixedSubtree = new WeakSet();
-    for (var index = 0; index < descendants.length; index += 1) {
-      var element = descendants[index];
-      var parentElement = element.parentElement;
-      if (
-        (parentElement && fixedSubtree.has(parentElement))
-        || window.getComputedStyle(element).position === 'fixed'
-      ) {
-        fixedSubtree.add(element);
-        continue;
-      }
-      bottom = Math.max(bottom, element.getBoundingClientRect().bottom);
-    }
-    var bodyStyle = window.getComputedStyle(body);
-    var rootStyle = window.getComputedStyle(document.documentElement);
-    var bodyMargins = cssPixels(bodyStyle.marginTop) + cssPixels(bodyStyle.marginBottom);
-    var rootInsets = cssPixels(rootStyle.paddingTop) + cssPixels(rootStyle.paddingBottom)
-      + cssPixels(rootStyle.borderTopWidth) + cssPixels(rootStyle.borderBottomWidth);
-    return Math.max(0, Math.ceil(
-      Math.max(body.offsetHeight, bottom - bodyRect.top) + bodyMargins + rootInsets
-    ));
-  }
-  function postHeight() {
-    enforceScrollableDocument();
-    repairResponsiveGrids();
-    var height = measure();
-    if (Math.abs(height - lastHeight) < 2) return;
-    lastHeight = height;
-    parent.postMessage({ type: 'noviis-post-html-height', channel: 'noviis-post-html-sandbox', id: frameId, height: height }, '*');
-  }
-  window.addEventListener('load', postHeight);
-  window.addEventListener('resize', postHeight);
-  var resizeObserver = null;
-  if (typeof ResizeObserver === 'function') {
-    resizeObserver = new ResizeObserver(postHeight);
-    resizeObserver.observe(document.body);
-  }
-  var intervalId = window.setInterval(postHeight, 500);
-  function cleanup() {
-    if (intervalId !== null) {
-      window.clearInterval(intervalId);
-      intervalId = null;
-    }
-    if (resizeObserver) {
-      resizeObserver.disconnect();
-      resizeObserver = null;
-    }
-  }
-  window.addEventListener('pagehide', cleanup, { once: true });
-  window.addEventListener('beforeunload', cleanup, { once: true });
-  postHeight();
-}());
-</script>`
+function getHeightBridgeElement(frameId: string, applicationOrigin: string): string {
+    const bridgeVersion = typeof __COMMIT_HASH__ === 'undefined' ? 'runtime' : __COMMIT_HASH__
+    const bridgeUrl = `${applicationOrigin}/sandbox-height-bridge.js?v=${encodeURIComponent(bridgeVersion)}`
+    return `<script src="${escapeSandboxAttribute(bridgeUrl)}" data-frame-id="${escapeSandboxAttribute(frameId)}"></script>`
 }

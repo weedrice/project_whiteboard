@@ -4,7 +4,7 @@ import { nextTick } from 'vue'
 import SandboxedHtmlFrame from '../SandboxedHtmlFrame.vue'
 
 function extractFrameId(srcdoc: string): string {
-  const match = srcdoc.match(/var frameId = "([^"]+)";/)
+  const match = srcdoc.match(/data-frame-id="([^"]+)"/)
   if (!match) {
     throw new Error('frame id not found')
   }

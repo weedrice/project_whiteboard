@@ -1,9 +1,24 @@
 import { expect, test, type Page } from '@playwright/test'
+import { readFile } from 'node:fs/promises'
 import { buildSandboxedPostHtmlSource } from '../src/utils/postHtmlSandbox'
 
+const heightBridgeSource = readFile(
+  new URL('../public/sandbox-height-bridge.js', import.meta.url),
+  'utf8',
+)
+
 function buildSandboxSource(html: string): string {
-  return buildSandboxedPostHtmlSource(html, 'e2e-frame', 'e2e-nonce')
+  return buildSandboxedPostHtmlSource(html, 'e2e-frame')
 }
+
+test.beforeEach(async ({ page }) => {
+  await page.route('https://noviis.kr/sandbox-height-bridge.js*', async (route) => {
+    await route.fulfill({
+      contentType: 'application/javascript',
+      body: await heightBridgeSource,
+    })
+  })
+})
 
 async function loadSandbox(page: Page, html: string, width: number, height: number) {
   const source = buildSandboxSource(html)
@@ -99,4 +114,32 @@ test('iframe height follows shrinking content, including out-of-flow blocks', as
   })
 
   await expect.poll(frameHeight).toBe(240)
+})
+
+test('height bridge runs when the embedding page enforces the production script CSP', async ({ page }) => {
+  const source = buildSandboxSource('<main style="height:960px">CSP constrained content</main>')
+  await page.route('https://noviis.kr/csp-height-shell', async (route) => {
+    await route.fulfill({
+      contentType: 'text/html',
+      headers: {
+        'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'",
+      },
+      body: '<iframe id="sandbox" sandbox="allow-scripts" style="display:block;border:0;width:800px;height:240px"></iframe>',
+    })
+  })
+  await page.goto('https://noviis.kr/csp-height-shell')
+  await page.evaluate((srcdoc) => {
+    const frame = document.querySelector<HTMLIFrameElement>('#sandbox')
+    if (!frame) throw new Error('sandbox frame not found')
+    window.addEventListener('message', (event) => {
+      const data = event.data
+      if (event.source !== frame.contentWindow || data?.id !== 'e2e-frame') return
+      frame.style.height = `${Math.max(240, Math.min(Math.ceil(Number(data.height)), 4000))}px`
+    })
+    frame.srcdoc = srcdoc
+  }, source)
+
+  await expect.poll(() => page.locator('#sandbox').evaluate((frame) => (
+    Math.round(frame.getBoundingClientRect().height)
+  ))).toBe(960)
 })
