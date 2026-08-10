@@ -6,6 +6,9 @@ import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import org.junit.jupiter.api.Test;
 
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 class SemanticSearchTextBuilderTest {
@@ -44,5 +47,21 @@ class SemanticSearchTextBuilderTest {
 
         assertThat(result).contains("comment", "qna", "post title", "comment content");
         assertThat(result).doesNotContain("<span>");
+    }
+
+    @Test
+    void buildPostText_decodesPreservedHtmlBeforeEmbedding() {
+        User user = User.builder().displayName("writer").build();
+        Board board = Board.builder().boardName("free").boardUrl("free").creator(user).build();
+        String encoded = Base64.getEncoder().encodeToString(
+                "<section><p>숨겨지면 안 되는 본문</p></section>".getBytes(StandardCharsets.UTF_8));
+        Post post = Post.builder()
+                .board(board)
+                .user(user)
+                .title("title")
+                .contents("<div class=\"noviis-sandboxed-post-html\" data-value=\"" + encoded + "\"></div>")
+                .build();
+
+        assertThat(textBuilder.buildPostText(post)).contains("숨겨지면 안 되는 본문");
     }
 }

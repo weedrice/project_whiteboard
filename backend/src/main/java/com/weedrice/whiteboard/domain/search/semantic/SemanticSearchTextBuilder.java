@@ -2,7 +2,7 @@ package com.weedrice.whiteboard.domain.search.semantic;
 
 import com.weedrice.whiteboard.domain.comment.entity.Comment;
 import com.weedrice.whiteboard.domain.post.entity.Post;
-import org.jsoup.Jsoup;
+import com.weedrice.whiteboard.domain.post.support.PostContentCodec;
 import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
@@ -63,10 +63,7 @@ class SemanticSearchTextBuilder {
     }
 
     private String toPlainText(String value) {
-        if (value == null || value.isBlank()) {
-            return "";
-        }
-        return Jsoup.parse(value).text().replaceAll("\\s+", " ").trim();
+        return PostContentCodec.toPlainText(value);
     }
 
     private String truncate(String value, int maxLength) {

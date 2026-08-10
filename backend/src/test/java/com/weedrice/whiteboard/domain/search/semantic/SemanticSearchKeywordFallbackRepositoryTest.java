@@ -63,6 +63,8 @@ class SemanticSearchKeywordFallbackRepositoryTest {
                 .contains("u.status = 'ACTIVE'")
                 .contains("post_author.status = 'ACTIVE'")
                 .contains("UPPER(s.type) = 'BAN'")
+                .contains("noviis_expand_preserved_post_html(p.contents) AS excerpt")
+                .contains("LOWER(noviis_expand_preserved_post_html(COALESCE(p.contents, ''))) LIKE")
                 .contains("p.user_id NOT IN (:blockedUserIds)")
                 .contains("u.user_id NOT IN (:blockedUserIds)")
                 .contains("ORDER BY created_at DESC, content_type ASC, content_id DESC");
@@ -98,6 +100,7 @@ class SemanticSearchKeywordFallbackRepositoryTest {
                 .contains("p.is_blinded = 'N'")
                 .contains("c.is_blinded = 'N'")
                 .contains("LOWER(COALESCE(p.title, '')) LIKE :keywordPattern ESCAPE '!'")
+                .contains("LOWER(noviis_expand_preserved_post_html(COALESCE(p.contents, ''))) LIKE")
                 .contains("LOWER(COALESCE(c.content, '')) LIKE :keywordPattern ESCAPE '!'")
                 .contains("post_author.status = 'ACTIVE'")
                 .contains("UPPER(s.type) = 'BAN'")

@@ -23,7 +23,7 @@ class SemanticSearchKeywordFallbackRepository {
                 b.board_url AS board_url,
                 b.board_name AS board_name,
                 p.title AS title,
-                p.contents AS excerpt,
+                noviis_expand_preserved_post_html(p.contents) AS excerpt,
                 CAST(NULL AS double precision) AS similarity,
                 'KEYWORD_FALLBACK' AS rank_source,
                 p.created_at AS created_at,
@@ -40,7 +40,7 @@ class SemanticSearchKeywordFallbackRepository {
               AND p.is_blinded = 'N'
               AND (
                     LOWER(COALESCE(p.title, '')) LIKE :keywordPattern ESCAPE '!'
-                    OR LOWER(COALESCE(p.contents, '')) LIKE :keywordPattern ESCAPE '!'
+                    OR LOWER(noviis_expand_preserved_post_html(COALESCE(p.contents, ''))) LIKE :keywordPattern ESCAPE '!'
               )
               AND %s
               AND %s
@@ -115,7 +115,7 @@ class SemanticSearchKeywordFallbackRepository {
               AND p.is_blinded = 'N'
               AND (
                     LOWER(COALESCE(p.title, '')) LIKE :keywordPattern ESCAPE '!'
-                    OR LOWER(COALESCE(p.contents, '')) LIKE :keywordPattern ESCAPE '!'
+                    OR LOWER(noviis_expand_preserved_post_html(COALESCE(p.contents, ''))) LIKE :keywordPattern ESCAPE '!'
               )
               AND %s
               AND %s

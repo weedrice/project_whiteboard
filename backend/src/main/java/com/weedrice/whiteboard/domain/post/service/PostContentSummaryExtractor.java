@@ -1,8 +1,8 @@
 package com.weedrice.whiteboard.domain.post.service;
 
 import com.weedrice.whiteboard.domain.post.entity.Post;
+import com.weedrice.whiteboard.domain.post.support.PostContentCodec;
 import com.weedrice.whiteboard.domain.file.support.FileUrlResolver;
-import org.jsoup.Jsoup;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
@@ -18,7 +18,7 @@ public class PostContentSummaryExtractor {
     }
 
     String extractSummary(String contents) {
-        String summary = Jsoup.parse(contents == null ? "" : contents).text().trim();
+        String summary = PostContentCodec.toPlainText(contents);
         if (summary.length() > 1000) {
             return summary.substring(0, 1000);
         }
@@ -52,7 +52,7 @@ public class PostContentSummaryExtractor {
         if (content == null || content.isEmpty()) {
             return null;
         }
-        content = content.trim();
+        content = PostContentCodec.expandPreservedHtml(content).trim();
         if (content.length() <= maxLen) {
             return content;
         }
@@ -69,8 +69,9 @@ public class PostContentSummaryExtractor {
         if (content == null || content.isEmpty()) {
             return null;
         }
+        content = PostContentCodec.expandPreservedHtml(content);
         Pattern pattern = Pattern.compile(
-                "<iframe[^>]+src\\s*=\\s*[\"']([^\"']*(?:youtube\\.com/embed|vimeo\\.com)[^\"']*)[\"']",
+                "<iframe[^>]+src\\s*=\\s*[\"']([^\"']*(?:youtube(?:-nocookie)?\\.com/embed|vimeo\\.com)[^\"']*)[\"']",
                 Pattern.CASE_INSENSITIVE);
         Matcher matcher = pattern.matcher(content);
         if (matcher.find()) {
@@ -85,17 +86,18 @@ public class PostContentSummaryExtractor {
     }
 
     int indexOfFirstImageInContent(String content) {
-        return content == null ? -1 : content.toLowerCase().indexOf("<img");
+        return content == null ? -1 : PostContentCodec.expandPreservedHtml(content).toLowerCase().indexOf("<img");
     }
 
     int indexOfFirstVideoInContent(String content) {
-        return content == null ? -1 : content.toLowerCase().indexOf("<iframe");
+        return content == null ? -1 : PostContentCodec.expandPreservedHtml(content).toLowerCase().indexOf("<iframe");
     }
 
     String extractFirstImageUrlFromContent(String content) {
         if (content == null || content.isEmpty()) {
             return null;
         }
+        content = PostContentCodec.expandPreservedHtml(content);
         Pattern pattern = Pattern.compile("<img[^>]+src\\s*=\\s*[\"']([^\"']+)[\"']", Pattern.CASE_INSENSITIVE);
         Matcher matcher = pattern.matcher(content);
         return matcher.find() ? matcher.group(1) : null;

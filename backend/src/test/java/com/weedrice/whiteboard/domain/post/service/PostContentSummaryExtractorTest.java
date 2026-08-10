@@ -10,6 +10,8 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Map;
 import java.util.Set;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -80,5 +82,26 @@ class PostContentSummaryExtractorTest {
         String summary = extractor.extractSummary(htmlPost);
 
         assertThat(summary).isEqualTo("첫 문단 둘째 문단 목록 하나 목록 둘");
+    }
+
+    @Test
+    void preservedHtmlParticipatesInSummaryThumbnailVideoAndExcerpt() {
+        String source = "<p>보존 본문</p><img src=\"https://cdn.example.com/preserved.png\">"
+                + "<iframe src=\"https://www.youtube-nocookie.com/embed/abc123\"></iframe>";
+        String marker = preservedMarker(source);
+
+        assertThat(extractor.extractSummary(marker)).isEqualTo("보존 본문");
+        assertThat(extractor.extractFirstImageUrlFromContent(marker))
+                .isEqualTo("https://cdn.example.com/preserved.png");
+        assertThat(extractor.extractFirstVideoEmbedFromContent(marker))
+                .isEqualTo("https://www.youtube-nocookie.com/embed/abc123");
+        assertThat(extractor.indexOfFirstImageInContent(marker)).isGreaterThanOrEqualTo(0);
+        assertThat(extractor.indexOfFirstVideoInContent(marker)).isGreaterThanOrEqualTo(0);
+        assertThat(extractor.truncateHtmlForExcerpt(marker, 1_000)).isEqualTo(source);
+    }
+
+    private static String preservedMarker(String source) {
+        String encoded = Base64.getEncoder().encodeToString(source.getBytes(StandardCharsets.UTF_8));
+        return "<div class=\"noviis-sandboxed-post-html\" data-value=\"" + encoded + "\"></div>";
     }
 }
