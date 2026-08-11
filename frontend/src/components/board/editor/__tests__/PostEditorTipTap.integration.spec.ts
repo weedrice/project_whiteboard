@@ -187,6 +187,74 @@ describe('PostEditorTipTap TipTap extension integration', () => {
         expect(decodeSandboxedPostHtml(marker?.outerHTML ?? '')).toBe(rawHtml)
     })
 
+    it.each([
+        ['ArrowRight', 'after'],
+        ['ArrowDown', 'after'],
+        ['ArrowLeft', 'before'],
+        ['ArrowUp', 'before'],
+    ])('moves from a selected HTML block to an editable paragraph with %s', (key, expectedSide) => {
+        const rawHtml = '<style>.card{display:grid}</style><section>블록</section>'
+        const preserved = encodeSandboxedPostHtml(rawHtml)
+        editor = createEditor(preserved)
+        expect(editor.commands.setNodeSelection(0)).toBe(true)
+
+        const event = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true })
+        editor.view.dom.dispatchEvent(event)
+
+        expect(event.defaultPrevented).toBe(true)
+        expect(editor.state.selection.toJSON()).toMatchObject({ type: 'text' })
+        const document = parseHTML(editor.getHTML())
+        const marker = document.querySelector('.noviis-sandboxed-post-html')
+        const paragraph = expectedSide === 'after'
+            ? marker?.nextElementSibling
+            : marker?.previousElementSibling
+        expect(paragraph?.outerHTML).toBe('<p></p>')
+        expect(decodeSandboxedPostHtml(marker?.outerHTML ?? '')).toBe(rawHtml)
+    })
+
+    it('creates a cursor stop between consecutive preserved HTML blocks', () => {
+        const firstRawHtml = '<style>.first{display:grid}</style><section>첫 번째</section>'
+        const secondRawHtml = '<style>.second{display:flex}</style><section>두 번째</section>'
+        editor = createEditor(`${encodeSandboxedPostHtml(firstRawHtml)}${encodeSandboxedPostHtml(secondRawHtml)}`)
+        expect(editor.commands.setNodeSelection(0)).toBe(true)
+
+        editor.view.dom.dispatchEvent(new KeyboardEvent('keydown', {
+            key: 'ArrowRight',
+            bubbles: true,
+            cancelable: true,
+        }))
+
+        const document = parseHTML(editor.getHTML())
+        expect(Array.from(document.body.children).map((element) => element.tagName)).toEqual(['DIV', 'P', 'DIV', 'P'])
+        expect(editor.state.selection.toJSON()).toMatchObject({ type: 'text' })
+    })
+
+    it('requires explicit block selection before deletion and restores the exact payload with undo', () => {
+        const rawHtml = '<style>.card{display:grid}</style><section>삭제 복원</section>'
+        const preserved = encodeSandboxedPostHtml(rawHtml)
+        editor = createEditor(ensurePostEditorEditableTail(preserved))
+
+        expect(editor.commands.setTextSelection(2)).toBe(true)
+        editor.view.dom.dispatchEvent(new KeyboardEvent('keydown', {
+            key: 'Backspace',
+            bubbles: true,
+            cancelable: true,
+        }))
+        expect(editor.state.selection.toJSON()).toMatchObject({ type: 'node', anchor: 0 })
+        expect(editor.getHTML()).toContain('noviis-sandboxed-post-html')
+
+        editor.view.dom.dispatchEvent(new KeyboardEvent('keydown', {
+            key: 'Backspace',
+            bubbles: true,
+            cancelable: true,
+        }))
+        expect(editor.getHTML()).not.toContain('noviis-sandboxed-post-html')
+        expect(editor.commands.undo()).toBe(true)
+
+        const marker = parseHTML(editor.getHTML()).querySelector('.noviis-sandboxed-post-html')
+        expect(decodeSandboxedPostHtml(marker?.outerHTML ?? '')).toBe(rawHtml)
+    })
+
     it('removes only the editor-owned empty tail from serialized preserved HTML', () => {
         const rawHtml = '<style>.card{display:grid}</style><section class="card">원문</section>'
         const preserved = encodeSandboxedPostHtml(rawHtml)

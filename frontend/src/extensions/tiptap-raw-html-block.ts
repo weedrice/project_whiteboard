@@ -1,4 +1,4 @@
-import { Extension, mergeAttributes, Node } from '@tiptap/core'
+import { Extension, mergeAttributes, Node, type Editor } from '@tiptap/core'
 import { Plugin, TextSelection, type NodeSelection } from '@tiptap/pm/state'
 import { VueNodeViewRenderer } from '@tiptap/vue-3'
 import RawHtmlBlockView from '@/components/board/editor/RawHtmlBlockView.vue'
@@ -57,29 +57,11 @@ export const RawHtmlBlockKeyboardNavigation = Extension.create({
 
   addKeyboardShortcuts() {
     return {
-      Enter: () => {
-        const { selection } = this.editor.state
-        const selectedNode = 'node' in selection ? (selection as NodeSelection).node : null
-        if (!selectedNode || selectedNode.type.name !== 'rawHtmlBlock') {
-          return false
-        }
-
-        const paragraphPosition = selection.to
-        const existingNextNode = this.editor.state.doc.nodeAt(paragraphPosition)
-        let transaction = this.editor.state.tr
-
-        if (!existingNextNode?.isTextblock) {
-          const paragraph = this.editor.state.schema.nodes.paragraph
-          if (!paragraph) return false
-          transaction = transaction.insert(paragraphPosition, paragraph.create())
-        }
-
-        transaction = transaction
-          .setSelection(TextSelection.near(transaction.doc.resolve(paragraphPosition + 1)))
-          .scrollIntoView()
-        this.editor.view.dispatch(transaction)
-        return true
-      },
+      Enter: () => moveFromSelectedRawHtmlBlock(this.editor, 1),
+      ArrowRight: () => moveFromSelectedRawHtmlBlock(this.editor, 1),
+      ArrowDown: () => moveFromSelectedRawHtmlBlock(this.editor, 1),
+      ArrowLeft: () => moveFromSelectedRawHtmlBlock(this.editor, -1),
+      ArrowUp: () => moveFromSelectedRawHtmlBlock(this.editor, -1),
     }
   },
 
@@ -98,3 +80,27 @@ export const RawHtmlBlockKeyboardNavigation = Extension.create({
     ]
   },
 })
+
+function moveFromSelectedRawHtmlBlock(editor: Editor, direction: -1 | 1): boolean {
+  const { selection, doc, schema } = editor.state
+  const selectedNode = 'node' in selection ? (selection as NodeSelection).node : null
+  if (!selectedNode || selectedNode.type.name !== 'rawHtmlBlock') return false
+
+  const boundaryPosition = direction === 1 ? selection.to : selection.from
+  const adjacentNode = direction === 1
+    ? doc.nodeAt(boundaryPosition)
+    : doc.resolve(boundaryPosition).nodeBefore
+  let transaction = editor.state.tr
+
+  if (!adjacentNode?.isTextblock) {
+    const paragraph = schema.nodes.paragraph
+    if (!paragraph) return false
+    transaction = transaction.insert(boundaryPosition, paragraph.create())
+  }
+
+  transaction = transaction
+    .setSelection(TextSelection.near(transaction.doc.resolve(boundaryPosition), direction))
+    .scrollIntoView()
+  editor.view.dispatch(transaction)
+  return true
+}
