@@ -4,6 +4,7 @@ const SANDBOX_MARKER_SELECTOR = `.${SANDBOX_MARKER_CLASS}[data-value]`
 const SANDBOX_MARKER_SELECTOR_PATTERN = /class=["'][^"']*\bnoviis-sandboxed-post-html\b[^"']*["'][^>]*\sdata-value=["'][^"']+["']|data-value=["'][^"']+["'][^>]*class=["'][^"']*\bnoviis-sandboxed-post-html\b[^"']*["']/i
 const SANDBOX_MARKER_ELEMENT_PATTERN = /<div\b(?=[^>]*\bclass=["'][^"']*\bnoviis-sandboxed-post-html\b[^"']*["'])(?=[^>]*\bdata-value=["'][^"']+["'])[^>]*>\s*<\/div>/gi
 const SANDBOX_MARKER_DATA_VALUE_PATTERN = /\bdata-value=(["'])([^"']+)\1/i
+const SANDBOX_DOCUMENT_STRUCTURE_PATTERN = /<(?:!doctype|html|head|body)\b/i
 const EDITABLE_SANDBOX_BLOCK_PATTERN = /<!--noviis-preserved-html-block:start:([a-z0-9-]+)-->([\s\S]*?)<!--noviis-preserved-html-block:end:\1-->/gi
 const EDITOR_ELEMENT_ATTRIBUTES: Readonly<Record<string, ReadonlySet<string>>> = {
     p: new Set(['style']),
@@ -224,6 +225,7 @@ function preserveUnsupportedHtmlAroundSandboxMarkers(content: string): string {
     const markerPattern = new RegExp(SANDBOX_MARKER_ELEMENT_PATTERN.source, SANDBOX_MARKER_ELEMENT_PATTERN.flags)
     const markers = Array.from(content.matchAll(markerPattern))
     if (markers.length === 0) return buildSandboxMarker(content)
+    if (!hasOnlyTopLevelSandboxMarkers(content, markers.length)) return buildSandboxMarker(content)
 
     const parts: string[] = []
     let segmentStart = 0
@@ -238,6 +240,15 @@ function preserveUnsupportedHtmlAroundSandboxMarkers(content: string): string {
     const trailingSegment = content.slice(segmentStart)
     parts.push(requiresPreservedPostHtml(trailingSegment) ? buildSandboxMarker(trailingSegment) : trailingSegment)
     return parts.join('')
+}
+
+function hasOnlyTopLevelSandboxMarkers(content: string, expectedMarkerCount: number): boolean {
+    if (SANDBOX_DOCUMENT_STRUCTURE_PATTERN.test(content) || typeof DOMParser === 'undefined') return false
+
+    const document = new DOMParser().parseFromString(content, 'text/html')
+    const markers = Array.from(document.body.querySelectorAll(SANDBOX_MARKER_SELECTOR))
+    return markers.length === expectedMarkerCount
+        && markers.every((marker) => marker.parentElement === document.body)
 }
 
 export function encodeSandboxedPostHtmlPayload(content: string): string {

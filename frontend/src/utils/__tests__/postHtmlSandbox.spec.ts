@@ -8,6 +8,7 @@ import {
     encodeSandboxedPostHtml,
     expandSandboxedPostHtml,
     expandSandboxedPostHtmlForEditing,
+    isStandaloneSandboxedPostHtml,
     mapSandboxedPostHtmlPayloads,
     requiresPreservedPostHtml,
     requiresSandboxedPostHtml,
@@ -150,6 +151,21 @@ describe('postHtmlSandbox', () => {
         expect(encoded).toContain('<p>앞 본문</p>')
         expect(encoded).not.toContain('<section id="extra">')
         expect(expandSandboxedPostHtml(encoded)).toBe(`<p>앞 본문</p>${rawWidget}${unsupportedTail}`)
+    })
+
+    it('preserves the entire source when an existing marker is nested or part of a full document', () => {
+        const rawWidget = '<style>.widget{display:grid}</style><section>블록</section>'
+        const marker = encodeSandboxedPostHtml(rawWidget)
+        const sources = [
+            `<section id="outer"><p>앞</p>${marker}<p>뒤</p></section>`,
+            `<!doctype html><html><body><main>${marker}</main></body></html>`,
+        ]
+
+        sources.forEach((source) => {
+            const encoded = encodeSandboxedPostHtml(source)
+            expect(isStandaloneSandboxedPostHtml(encoded)).toBe(true)
+            expect(decodeSandboxedPostHtml(encoded)).toBe(source)
+        })
     })
 
     it('maps preserved payloads without changing marker attribute syntax or damaged markers', () => {
