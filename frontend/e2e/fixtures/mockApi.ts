@@ -52,6 +52,7 @@ function json(route: Route, data: unknown, status = 200) {
 
 export type MockApiState = {
   authenticated: boolean
+  postContents?: string
   homeUnauthorizedOnce?: boolean
   refreshCount: number
   homeCount: number
@@ -192,11 +193,18 @@ export async function installMockApi(
     if (path === '/boards/general/categories') return json(route, apiResponse([]))
     if (path === '/boards/general' && method === 'GET') return json(route, apiResponse(board))
     if (path === '/boards') return json(route, apiResponse([board]))
-    if (path === '/posts/1' && method === 'GET') return json(route, apiResponse(post))
+    if (path === '/posts/1' && method === 'GET') {
+      const contents = state.postContents ?? post.contents
+      return json(route, apiResponse({ ...post, contents, content: contents }))
+    }
     if (path === '/posts/1/related') return json(route, apiResponse([]))
     if (path === '/posts/1/comments') return json(route, apiResponse(emptyPage))
     if ((path === '/boards/general/posts' && method === 'POST') || (path === '/posts/1' && method === 'PUT')) {
-      state.writes.push({ method, url: path, payload: request.postDataJSON() })
+      const payload = request.postDataJSON() as Record<string, unknown>
+      state.writes.push({ method, url: path, payload })
+      if (method === 'PUT' && typeof payload.contents === 'string') {
+        state.postContents = payload.contents
+      }
       return json(route, apiResponse(method === 'POST' ? { postId: 55 } : 1))
     }
     if (path.endsWith('/view') || path.endsWith('/history')) return json(route, apiResponse(null))

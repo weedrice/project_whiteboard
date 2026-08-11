@@ -2,6 +2,8 @@ const SANDBOX_TRIGGER_PATTERN = /<(?:!doctype|html|head|body|style|script)\b|<\w
 const SANDBOX_MARKER_CLASS = 'noviis-sandboxed-post-html'
 const SANDBOX_MARKER_SELECTOR = `.${SANDBOX_MARKER_CLASS}[data-value]`
 const SANDBOX_MARKER_SELECTOR_PATTERN = /class=["'][^"']*\bnoviis-sandboxed-post-html\b[^"']*["'][^>]*\sdata-value=["'][^"']+["']|data-value=["'][^"']+["'][^>]*class=["'][^"']*\bnoviis-sandboxed-post-html\b[^"']*["']/i
+const EDITABLE_SANDBOX_BLOCK_START = '<!--noviis-preserved-html-block:start-->'
+const EDITABLE_SANDBOX_BLOCK_END = '<!--noviis-preserved-html-block:end-->'
 const EDITOR_ELEMENT_ATTRIBUTES: Readonly<Record<string, ReadonlySet<string>>> = {
     p: new Set(['style']),
     h1: new Set(['style']),
@@ -236,6 +238,28 @@ export function expandSandboxedPostHtml(content: string | null | undefined): str
             const payload = marker.match(/\bdata-value=["']([^"']+)["']/i)?.[1]
             return decodeSandboxedPostHtmlPayload(payload) ?? marker
         },
+    )
+}
+
+export function expandSandboxedPostHtmlForEditing(content: string | null | undefined): string | null {
+    if (!containsSandboxedPostHtml(content)) return null
+    return (content ?? '').replace(
+        /<div\b(?=[^>]*\bclass=["'][^"']*\bnoviis-sandboxed-post-html\b[^"']*["'])(?=[^>]*\bdata-value=["'][^"']+["'])[^>]*>\s*<\/div>/gi,
+        (marker) => {
+            const payload = marker.match(/\bdata-value=["']([^"']+)["']/i)?.[1]
+            const decoded = decodeSandboxedPostHtmlPayload(payload)
+            if (decoded == null) return marker
+            return `${EDITABLE_SANDBOX_BLOCK_START}${decoded}${EDITABLE_SANDBOX_BLOCK_END}`
+        },
+    )
+}
+
+export function restoreSandboxedPostHtmlAfterEditing(content: string): string {
+    return content.replace(
+        /<!--noviis-preserved-html-block:start-->([\s\S]*?)<!--noviis-preserved-html-block:end-->/gi,
+        (_segment, rawHtml: string) => (
+            `<div class="${SANDBOX_MARKER_CLASS}" data-value="${encodeSandboxedPostHtmlPayload(rawHtml)}"></div>`
+        ),
     )
 }
 

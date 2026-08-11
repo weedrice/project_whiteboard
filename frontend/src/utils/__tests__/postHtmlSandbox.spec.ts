@@ -7,8 +7,10 @@ import {
     decodeSandboxedPostHtml,
     encodeSandboxedPostHtml,
     expandSandboxedPostHtml,
+    expandSandboxedPostHtmlForEditing,
     requiresPreservedPostHtml,
     requiresSandboxedPostHtml,
+    restoreSandboxedPostHtmlAfterEditing,
 } from '../postHtmlSandbox'
 
 const heightBridgeSource = readFileSync(
@@ -95,6 +97,28 @@ describe('postHtmlSandbox', () => {
         expect(decodeSandboxedPostHtml(marker)).toBe(raw)
         expect(decodeSandboxedPostHtml(mixed)).toBeNull()
         expect(expandSandboxedPostHtml(mixed)).toBe(`${raw}<p>Tail</p>`)
+    })
+
+    it('round-trips mixed preserved blocks through editable source boundaries', () => {
+        const firstRaw = '<style>.first{display:grid}</style><section>첫 번째</section>'
+        const secondRaw = '<custom-widget data-value="2"></custom-widget>'
+        const mixed = `<p>앞</p>${encodeSandboxedPostHtml(firstRaw)}<p>중간</p>${encodeSandboxedPostHtml(secondRaw)}<p>뒤</p>`
+
+        const editable = expandSandboxedPostHtmlForEditing(mixed)
+        expect(editable).toContain(`<!--noviis-preserved-html-block:start-->${firstRaw}<!--noviis-preserved-html-block:end-->`)
+        expect(editable).toContain(`<!--noviis-preserved-html-block:start-->${secondRaw}<!--noviis-preserved-html-block:end-->`)
+
+        const restored = restoreSandboxedPostHtmlAfterEditing(editable ?? '')
+        expect(expandSandboxedPostHtml(restored)).toBe(`<p>앞</p>${firstRaw}<p>중간</p>${secondRaw}<p>뒤</p>`)
+        expect(restored.match(/noviis-sandboxed-post-html/g)).toHaveLength(2)
+    })
+
+    it('falls back without deleting source when an editable boundary is damaged', () => {
+        const damaged = '<p>앞</p><!--noviis-preserved-html-block:start--><style>.x{display:grid}</style><p>블록</p>'
+
+        expect(restoreSandboxedPostHtmlAfterEditing(damaged)).toBe(damaged)
+        expect(requiresPreservedPostHtml(damaged)).toBe(true)
+        expect(decodeSandboxedPostHtml(encodeSandboxedPostHtml(damaged))).toBe(damaged)
     })
 
     it('adds a restrictive CSP with allowlisted static assets to sandboxed documents', () => {

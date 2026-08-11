@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
 import {
+    decodeSandboxedPostHtml,
+    encodeSandboxedPostHtml,
+    expandSandboxedPostHtml,
+} from '@/utils/postHtmlSandbox'
+import {
     boardRef,
     findEditorModeButtons,
     getLastCreatePostVariables,
@@ -152,6 +157,29 @@ describe('PostForm editor mode', () => {
 
         await findEditorModeButtons(wrapper).html.trigger('click')
         expect((wrapper.get('#content').element as HTMLTextAreaElement).value).toBe(customHtml)
+    })
+
+    it('keeps normal content outside preserved HTML blocks across repeated mode switches', async () => {
+        const wrapper = mountPostForm('create')
+        const rawWidget = '<style>.widget{display:grid}</style><section class="widget">보존 영역</section>'
+        const preserved = encodeSandboxedPostHtml(rawWidget)
+        const mixedContent = `<p>앞 본문</p>${preserved}<p>뒤 본문</p>`
+        await wrapper.get('[data-testid="editor-input"]').setValue(mixedContent)
+
+        await findEditorModeButtons(wrapper).html.trigger('click')
+        const source = (wrapper.get('#content').element as HTMLTextAreaElement).value
+        expect(source).toContain('<!--noviis-preserved-html-block:start-->')
+        expect(source).toContain(rawWidget)
+        expect(source).toContain('<p>앞 본문</p>')
+        expect(source).toContain('<p>뒤 본문</p>')
+
+        await findEditorModeButtons(wrapper).visual.trigger('click')
+        const restored = (wrapper.get('[data-testid="editor-input"]').element as HTMLTextAreaElement).value
+        expect(restored).toContain('<p>앞 본문</p>')
+        expect(restored).toContain('<p>뒤 본문</p>')
+        expect(restored.match(/noviis-sandboxed-post-html/g)).toHaveLength(1)
+        expect(decodeSandboxedPostHtml(restored)).toBeNull()
+        expect(expandSandboxedPostHtml(restored)).toBe(`<p>앞 본문</p>${rawWidget}<p>뒤 본문</p>`)
     })
 
 })

@@ -3,8 +3,9 @@ import { normalizeEditorFileImagePreviewSources } from '@/utils/fileUrl'
 import {
   decodeSandboxedPostHtml,
   encodeSandboxedPostHtml,
-  expandSandboxedPostHtml,
+  expandSandboxedPostHtmlForEditing,
   requiresPreservedPostHtml,
+  restoreSandboxedPostHtmlAfterEditing,
 } from '@/utils/postHtmlSandbox'
 
 export type PostEditorViewMode = 'visual' | 'html'
@@ -15,12 +16,13 @@ export function usePostEditorViewMode(content: Ref<string>) {
   const setEditorViewMode = (mode: PostEditorViewMode) => {
     editorViewMode.value = mode
     if (mode === 'visual') {
-      content.value = requiresPreservedPostHtml(content.value)
-        ? encodeSandboxedPostHtml(content.value)
-        : normalizeEditorFileImagePreviewSources(content.value)
+      const restoredContent = restoreSandboxedPostHtmlAfterEditing(content.value)
+      content.value = requiresPreservedPostHtml(restoredContent)
+        ? encodeSandboxedPostHtml(restoredContent)
+        : normalizeEditorFileImagePreviewSources(restoredContent)
     } else {
       const decodedContent = decodeSandboxedPostHtml(content.value)
-        ?? expandSandboxedPostHtml(content.value)
+        ?? expandSandboxedPostHtmlForEditing(content.value)
       content.value = decodedContent ?? normalizeEditorFileImagePreviewSources(content.value)
     }
   }
