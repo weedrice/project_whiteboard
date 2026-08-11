@@ -211,11 +211,34 @@ function hasUnsupportedEditorTagWithPattern(content: string): boolean {
 }
 
 export function encodeSandboxedPostHtml(content: string): string {
-    if (!requiresPreservedPostHtml(content) || containsSandboxedPostHtml(content)) {
-        return content
-    }
+    if (!requiresPreservedPostHtml(content)) return content
+    if (containsSandboxedPostHtml(content)) return preserveUnsupportedHtmlAroundSandboxMarkers(content)
 
+    return buildSandboxMarker(content)
+}
+
+function buildSandboxMarker(content: string): string {
     return `<div class="${SANDBOX_MARKER_CLASS}" data-value="${encodeSandboxedPostHtmlPayload(content)}"></div>`
+}
+
+function preserveUnsupportedHtmlAroundSandboxMarkers(content: string): string {
+    const markerPattern = new RegExp(SANDBOX_MARKER_ELEMENT_PATTERN.source, SANDBOX_MARKER_ELEMENT_PATTERN.flags)
+    const markers = Array.from(content.matchAll(markerPattern))
+    if (markers.length === 0) return buildSandboxMarker(content)
+
+    const parts: string[] = []
+    let segmentStart = 0
+    markers.forEach((match) => {
+        const markerStart = match.index ?? segmentStart
+        const segment = content.slice(segmentStart, markerStart)
+        parts.push(requiresPreservedPostHtml(segment) ? buildSandboxMarker(segment) : segment)
+        parts.push(match[0])
+        segmentStart = markerStart + match[0].length
+    })
+
+    const trailingSegment = content.slice(segmentStart)
+    parts.push(requiresPreservedPostHtml(trailingSegment) ? buildSandboxMarker(trailingSegment) : trailingSegment)
+    return parts.join('')
 }
 
 export function encodeSandboxedPostHtmlPayload(content: string): string {

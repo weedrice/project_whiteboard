@@ -114,6 +114,20 @@ describe('postHtmlSandbox', () => {
         expect(restored.match(/noviis-sandboxed-post-html/g)).toHaveLength(2)
     })
 
+    it('preserves unsupported HTML added outside an existing preserved block', () => {
+        const rawWidget = '<style>.widget{display:grid}</style><section class="widget">블록</section>'
+        const existingMarker = encodeSandboxedPostHtml(rawWidget)
+        const unsupportedTail = '<p>일반 본문</p><section id="extra">추가 원문</section>'
+        const mixed = `<p>앞 본문</p>${existingMarker}${unsupportedTail}`
+
+        const encoded = encodeSandboxedPostHtml(mixed)
+
+        expect(encoded.match(/noviis-sandboxed-post-html/g)).toHaveLength(2)
+        expect(encoded).toContain('<p>앞 본문</p>')
+        expect(encoded).not.toContain('<section id="extra">')
+        expect(expandSandboxedPostHtml(encoded)).toBe(`<p>앞 본문</p>${rawWidget}${unsupportedTail}`)
+    })
+
     it('maps preserved payloads without changing marker attribute syntax or damaged markers', () => {
         const raw = '<section>원본</section>'
         const payload = encodeSandboxedPostHtml(raw).match(/data-value="([^"]+)"/)?.[1]

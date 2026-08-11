@@ -182,4 +182,20 @@ describe('PostForm editor mode', () => {
         expect(expandSandboxedPostHtml(restored)).toBe(`<p>앞 본문</p>${rawWidget}<p>뒤 본문</p>`)
     })
 
+    it('preserves unsupported source added outside an existing preserved block', async () => {
+        const wrapper = mountPostForm('create')
+        const rawWidget = '<style>.widget{display:grid}</style><section class="widget">보존 영역</section>'
+        const mixedContent = `<p>앞 본문</p>${encodeSandboxedPostHtml(rawWidget)}<p>뒤 본문</p>`
+        await wrapper.get('[data-testid="editor-input"]').setValue(mixedContent)
+
+        await findEditorModeButtons(wrapper).html.trigger('click')
+        const sourceEditor = wrapper.get('#content')
+        await sourceEditor.setValue(`${(sourceEditor.element as HTMLTextAreaElement).value}<section id="extra">추가 원문</section>`)
+        await findEditorModeButtons(wrapper).visual.trigger('click')
+
+        const restored = (wrapper.get('[data-testid="editor-input"]').element as HTMLTextAreaElement).value
+        expect(restored.match(/noviis-sandboxed-post-html/g)).toHaveLength(2)
+        expect(expandSandboxedPostHtml(restored)).toContain('<section id="extra">추가 원문</section>')
+    })
+
 })
