@@ -27,6 +27,7 @@ import type { EmoticonImage } from '@/types/emoticon'
 import { IMAGE_UPLOAD_ACCEPT } from '@/utils/imageUploadPolicy'
 import logger from '@/utils/logger'
 import { moveFromSelectedRawHtmlBlock } from '@/extensions/tiptap-raw-html-block'
+import { encodeSandboxedPostHtml, requiresPreservedPostHtml } from '@/utils/postHtmlSandbox'
 
 const props = defineProps<{
   modelValue: string
@@ -254,7 +255,12 @@ const {
   onEditorDrop,
   onEditorDragEnter,
   onEditorDragLeave,
-} = usePostEditorImageFiles(imageUploadQueue)
+} = usePostEditorImageFiles(imageUploadQueue, (html) => {
+  if (!requiresPreservedPostHtml(html)) return false
+  prepareInsertionAfterRawHtmlBlock()
+  editor.value?.chain().focus().insertContent(encodeSandboxedPostHtml(html)).run()
+  return true
+})
 
 function onContentAreaClick(event: MouseEvent) {
   const instance = editor.value

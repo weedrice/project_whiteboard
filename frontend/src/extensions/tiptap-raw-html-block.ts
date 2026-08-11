@@ -21,9 +21,10 @@ export const RawHtmlBlock = Node.create({
     return {
       html: {
         default: '',
-        parseHTML: (element: HTMLElement) => (
-          decodeSandboxedPostHtmlPayload(element.getAttribute('data-value')) ?? ''
-        ),
+        parseHTML: (element: HTMLElement) => {
+          const decoded = decodeSandboxedPostHtmlPayload(element.getAttribute('data-value'))
+          return decoded ?? element.outerHTML
+        },
         renderHTML: (attributes: { html?: string | null }) => ({
           'data-value': encodeSandboxedPostHtmlPayload(attributes.html ?? ''),
         }),

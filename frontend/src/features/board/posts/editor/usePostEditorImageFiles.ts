@@ -5,7 +5,10 @@ type ImageUploadQueue = {
   enqueueFiles: (files: File[]) => void
 }
 
-export function usePostEditorImageFiles(imageUploadQueue: ImageUploadQueue) {
+export function usePostEditorImageFiles(
+  imageUploadQueue: ImageUploadQueue,
+  insertPreservedHtml?: (html: string) => boolean,
+) {
   const imageInput = ref<HTMLInputElement | null>(null)
   const isDraggingImage = ref(false)
 
@@ -35,6 +38,12 @@ export function usePostEditorImageFiles(imageUploadQueue: ImageUploadQueue) {
   function onEditorPaste(event: ClipboardEvent) {
     const files = Array.from(event.clipboardData?.files ?? [])
     if (queueImageFiles(files)) {
+      event.preventDefault()
+      return
+    }
+
+    const html = event.clipboardData?.getData('text/html') ?? ''
+    if (html && insertPreservedHtml?.(html)) {
       event.preventDefault()
     }
   }

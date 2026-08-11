@@ -265,6 +265,57 @@ describe('PostEditorTipTap TipTap extension integration', () => {
         expect(serializePostEditorHtml(`<p></p>${preserved}<p></p>`)).toBe(`<p></p>${preserved}`)
     })
 
+    it('copies and pastes a preserved HTML atom without changing its payload', () => {
+        const rawHtml = '<style>.copy{display:grid}</style><section onclick="run()">복사</section><script>run()</script>'
+        editor = createEditor(ensurePostEditorEditableTail(encodeSandboxedPostHtml(rawHtml)))
+        expect(editor.commands.setNodeSelection(0)).toBe(true)
+
+        const copiedSlice = editor.state.selection.content()
+        expect(copiedSlice.content.firstChild?.attrs.html).toBe(rawHtml)
+        expect(editor.chain()
+            .setTextSelection(editor.state.doc.content.size - 1)
+            .insertContent(copiedSlice.content.toJSON())
+            .run()).toBe(true)
+
+        const markers = Array.from(parseHTML(editor.getHTML()).querySelectorAll('.noviis-sandboxed-post-html'))
+        expect(markers).toHaveLength(2)
+        markers.forEach((marker) => {
+            expect(decodeSandboxedPostHtml(marker.outerHTML)).toBe(rawHtml)
+        })
+    })
+
+    it('keeps the preserved payload intact when an HTML block is moved', () => {
+        const rawHtml = '<style>.move{display:flex}</style><section>이동</section>'
+        editor = createEditor(`<p>앞</p>${encodeSandboxedPostHtml(rawHtml)}<p>뒤</p>`)
+        let rawBlockPosition = -1
+        editor.state.doc.descendants((node, position) => {
+            if (node.type.name === 'rawHtmlBlock') rawBlockPosition = position
+        })
+        const rawBlock = editor.state.doc.nodeAt(rawBlockPosition)
+        expect(rawBlock).not.toBeNull()
+
+        let transaction = editor.state.tr.delete(rawBlockPosition, rawBlockPosition + (rawBlock?.nodeSize ?? 0))
+        transaction = transaction.insert(transaction.doc.content.size, rawBlock!)
+        editor.view.dispatch(transaction)
+
+        const document = parseHTML(editor.getHTML())
+        const markers = document.querySelectorAll('.noviis-sandboxed-post-html')
+        expect(markers).toHaveLength(1)
+        expect(decodeSandboxedPostHtml(markers[0].outerHTML)).toBe(rawHtml)
+        expect(document.body.lastElementChild?.outerHTML).toBe('<p></p>')
+    })
+
+    it('recovers an invalid preserved marker as safely encoded source instead of dropping it', () => {
+        const damagedMarker = '<div class="noviis-sandboxed-post-html" data-value="%%%invalid%%%" onclick="evil()"></div>'
+        editor = createEditor(damagedMarker)
+
+        const serializedMarker = parseHTML(editor.getHTML()).querySelector('.noviis-sandboxed-post-html')
+        const recoveredSource = decodeSandboxedPostHtml(serializedMarker?.outerHTML ?? '')
+        expect(recoveredSource).toContain('data-value="%%%invalid%%%"')
+        expect(recoveredSource).toContain('onclick="evil()"')
+        expect(serializedMarker?.hasAttribute('onclick')).toBe(false)
+    })
+
     it('keeps the preservation classifier aligned with the actual editor serializer', () => {
         editor = createEditor([
             '<h2 style="text-align: center">Heading</h2>',

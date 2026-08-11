@@ -88,6 +88,32 @@ describe('PostEditorTipTap', () => {
         expect(wrapper.get(selectors.tableDialog).attributes()).not.toHaveProperty('disabled')
     })
 
+    it('pastes lossy HTML as a preserved block while leaving supported HTML to TipTap', () => {
+        const wrapper = mountEditor('<p>Before</p>')
+        const lossyHtml = '<style>.card{display:grid}</style><button onclick="run()">Widget</button><script>run()</script>'
+        const createPasteEvent = (html: string) => {
+            const event = new Event('paste', { bubbles: true, cancelable: true }) as ClipboardEvent
+            Object.defineProperty(event, 'clipboardData', {
+                value: {
+                    files: [],
+                    getData: (type: string) => type === 'text/html' ? html : '',
+                },
+            })
+            return event
+        }
+
+        const lossyPaste = createPasteEvent(lossyHtml)
+        wrapper.get('.tiptap-content').element.dispatchEvent(lossyPaste)
+        expect(lossyPaste.defaultPrevented).toBe(true)
+        expect(mocks.chain.insertContent).toHaveBeenCalledWith(encodeSandboxedPostHtml(lossyHtml))
+
+        mocks.chain.insertContent.mockClear()
+        const supportedPaste = createPasteEvent('<p><strong>Supported</strong></p>')
+        wrapper.get('.tiptap-content').element.dispatchEvent(supportedPaste)
+        expect(supportedPaste.defaultPrevented).toBe(false)
+        expect(mocks.chain.insertContent).not.toHaveBeenCalled()
+    })
+
     it('handles link click guards and slash key opening', async () => {
         const wrapper = mountEditor()
         const clickHandler = getEditorDomEventHandler<MouseEvent>('click')
