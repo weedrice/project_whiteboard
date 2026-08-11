@@ -132,6 +132,28 @@ describe('postHtmlSandbox', () => {
         expect(decodeSandboxedPostHtml(restored)).toBe(raw)
     })
 
+    it('keeps a matching end boundary pasted inside an editable block as source', () => {
+        const raw = '<section>앞</section><section>뒤</section>'
+        const editable = expandSandboxedPostHtmlForEditing(encodeSandboxedPostHtml(raw)) ?? ''
+        const boundaryId = editable.match(/noviis-preserved-html-block:start:([a-z0-9-]+)/i)?.[1]
+        const copiedEnd = `<!--noviis-preserved-html-block:end:${boundaryId}-->`
+        const editedRaw = raw.replace('<section>뒤</section>', `${copiedEnd}<section>뒤</section>`)
+        const edited = editable.replace(raw, editedRaw)
+
+        expect(decodeSandboxedPostHtml(restoreSandboxedPostHtmlAfterEditing(edited))).toBe(editedRaw)
+    })
+
+    it('restores adjacent editable blocks with the same boundary id independently', () => {
+        const raw = '<section>같은 원문</section>'
+        const mixed = `${encodeSandboxedPostHtml(raw)}${encodeSandboxedPostHtml(raw)}`
+        const editable = expandSandboxedPostHtmlForEditing(mixed) ?? ''
+
+        const restored = restoreSandboxedPostHtmlAfterEditing(editable)
+
+        expect(restored.match(/noviis-sandboxed-post-html/g)).toHaveLength(2)
+        expect(expandSandboxedPostHtml(restored)).toBe(`${raw}${raw}`)
+    })
+
     it('restores legacy editable boundaries for backward compatibility', () => {
         const raw = '<section>기존 편집 원문</section>'
         const legacyEditable = `<!--noviis-preserved-html-block:start-->${raw}<!--noviis-preserved-html-block:end-->`

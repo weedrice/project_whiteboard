@@ -3,7 +3,7 @@ const SANDBOX_MARKER_CLASS = 'noviis-sandboxed-post-html'
 const SANDBOX_MARKER_SELECTOR = `.${SANDBOX_MARKER_CLASS}[data-value]`
 const SANDBOX_MARKER_DATA_VALUE_PATTERN = /\bdata-value\s*=\s*(["'])([^"']+)\1/i
 const SANDBOX_DOCUMENT_STRUCTURE_PATTERN = /<(?:!doctype|html|head|body)\b/i
-const EDITABLE_SANDBOX_BLOCK_PATTERN = /<!--noviis-preserved-html-block:start:([a-z0-9-]+)-->([\s\S]*?)<!--noviis-preserved-html-block:end:\1-->/gi
+const EDITABLE_SANDBOX_BLOCK_START_PATTERN = /<!--noviis-preserved-html-block:start:([a-z0-9-]+)-->/gi
 const HTML_RAW_TEXT_ELEMENTS = new Set(['script', 'style', 'textarea', 'title', 'xmp', 'iframe', 'noembed', 'noframes', 'plaintext'])
 
 type HtmlTagToken = {
@@ -19,6 +19,12 @@ type SandboxMarkerRange = {
     start: number
     end: number
     marker: string
+}
+
+type EditableSandboxBlockRange = {
+    start: number
+    end: number
+    rawHtml: string
 }
 const EDITOR_ELEMENT_ATTRIBUTES: Readonly<Record<string, ReadonlySet<string>>> = {
     p: new Set(['style']),
@@ -292,14 +298,68 @@ export function expandSandboxedPostHtmlForEditing(content: string | null | undef
 }
 
 export function restoreSandboxedPostHtmlAfterEditing(content: string): string {
-    const restored = content.replace(
-        EDITABLE_SANDBOX_BLOCK_PATTERN,
-        (_segment, _boundaryId: string, rawHtml: string) => buildSandboxMarker(rawHtml),
-    )
+    const restored = restoreVersionedEditableSandboxBlocks(content)
     return restored.replace(
         /<!--noviis-preserved-html-block:start-->([\s\S]*?)<!--noviis-preserved-html-block:end-->/gi,
         (_segment, rawHtml: string) => buildSandboxMarker(rawHtml),
     )
+}
+
+function restoreVersionedEditableSandboxBlocks(content: string): string {
+    const ranges = findEditableSandboxBlockRanges(content)
+    if (ranges.length === 0) return content
+
+    const parts: string[] = []
+    let segmentStart = 0
+    ranges.forEach((range) => {
+        parts.push(content.slice(segmentStart, range.start))
+        parts.push(buildSandboxMarker(range.rawHtml))
+        segmentStart = range.end
+    })
+    parts.push(content.slice(segmentStart))
+    return parts.join('')
+}
+
+function findEditableSandboxBlockRanges(content: string): EditableSandboxBlockRange[] {
+    const ranges: EditableSandboxBlockRange[] = []
+    const startPattern = new RegExp(
+        EDITABLE_SANDBOX_BLOCK_START_PATTERN.source,
+        EDITABLE_SANDBOX_BLOCK_START_PATTERN.flags,
+    )
+    let searchStart = 0
+
+    while (searchStart < content.length) {
+        startPattern.lastIndex = searchStart
+        const startMatch = startPattern.exec(content)
+        if (!startMatch || startMatch.index == null) break
+
+        const boundaryId = startMatch[1]
+        const rawStart = startMatch.index + startMatch[0].length
+        const endToken = `<!--noviis-preserved-html-block:end:${boundaryId}-->`
+        const firstEnd = content.indexOf(endToken, rawStart)
+        if (firstEnd < 0) {
+            searchStart = rawStart
+            continue
+        }
+
+        startPattern.lastIndex = firstEnd + endToken.length
+        const nextStart = startPattern.exec(content)
+        const boundaryLimit = nextStart?.index ?? content.length
+        const endStart = content.lastIndexOf(endToken, Math.max(rawStart, boundaryLimit - 1))
+        if (endStart < rawStart) {
+            searchStart = rawStart
+            continue
+        }
+
+        ranges.push({
+            start: startMatch.index,
+            end: endStart + endToken.length,
+            rawHtml: content.slice(rawStart, endStart),
+        })
+        searchStart = endStart + endToken.length
+    }
+
+    return ranges
 }
 
 function buildEditableSandboxBlock(rawHtml: string): string {
