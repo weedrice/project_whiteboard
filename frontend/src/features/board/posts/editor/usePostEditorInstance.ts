@@ -1,6 +1,7 @@
 import { watch, type Ref } from 'vue'
 import { useEditor, type Editor } from '@tiptap/vue-3'
 import { createPostEditorExtensions } from '@/components/board/editor/postEditorExtensions'
+import { isRawHtmlBlockNodeSelected } from '@/extensions/tiptap-raw-html-block'
 import { SANDBOXED_POST_HTML_MARKER_CLASS } from '@/utils/postHtmlSandbox'
 
 type ImageAltPopoverOpener = (target: HTMLImageElement, alt: string, nodePos: number) => void
@@ -10,6 +11,7 @@ export function usePostEditorInstance(options: {
     onUpdateHtml: (html: string) => void
     openSlashMenu: () => void
     openImageAltPopover: ImageAltPopoverOpener
+    onRawHtmlBlockSelectionChange?: (selected: boolean) => void
 }) {
     const editor = useEditor({
         content: ensurePostEditorEditableTail(options.modelValue.value),
@@ -59,6 +61,12 @@ export function usePostEditorInstance(options: {
             },
         },
         extensions: createPostEditorExtensions(),
+        onCreate: ({ editor: instance }) => {
+            options.onRawHtmlBlockSelectionChange?.(isRawHtmlBlockNodeSelected(instance))
+        },
+        onSelectionUpdate: ({ editor: instance }) => {
+            options.onRawHtmlBlockSelectionChange?.(isRawHtmlBlockNodeSelected(instance))
+        },
         onUpdate: ({ editor: instance }) => {
             options.onUpdateHtml(serializePostEditorHtml(instance.getHTML()))
         },

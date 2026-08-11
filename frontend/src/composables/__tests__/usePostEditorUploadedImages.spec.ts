@@ -15,6 +15,9 @@ const createEditorRef = () => {
 
     const editor = {
         chain: vi.fn(() => chain),
+        state: {
+            selection: { from: 0, to: 0 },
+        },
     }
 
     return {

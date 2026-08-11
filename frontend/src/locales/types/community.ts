@@ -357,6 +357,7 @@ export interface BoardMessages {
       title: string
       description: string
       previewTitle: string
+      selectionHint: string
     }
     videoUrlRequired: string
     invalidVideoUrl: string

@@ -71,8 +71,9 @@ export const boardWritePostMessages: BoardMessages['writePost'] = {
     visualMode: '에디터 보기',
     rawHtmlBlock: {
       title: '원본 HTML 블록',
-      description: '손실 방지를 위해 하나의 블록으로 보호됩니다. 내부 코드는 HTML 보기에서 수정할 수 있습니다.',
+      description: '손실 방지를 위해 하나의 블록으로 보호됩니다. 방향키나 Enter로 앞뒤 본문으로 이동하고, 내부 코드는 HTML 보기에서 수정할 수 있습니다.',
       previewTitle: '원본 HTML 미리보기',
+      selectionHint: 'HTML 블록이 선택되었습니다. 텍스트 서식은 일반 본문에서 사용할 수 있고, 삽입 항목은 블록 다음에 추가됩니다.',
     },
     videoUrlRequired: '동영상 URL을 입력해 주세요.',
     invalidVideoUrl: 'YouTube 또는 Vimeo URL만 삽입할 수 있습니다.',

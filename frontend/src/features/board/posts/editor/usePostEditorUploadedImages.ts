@@ -1,6 +1,7 @@
 import { onScopeDispose, ref, type Ref } from 'vue'
 import type { Editor } from '@tiptap/core'
 import { escapeHtmlAttr } from '@/components/board/editor/postEditorHtml'
+import { moveFromSelectedRawHtmlBlock } from '@/extensions/tiptap-raw-html-block'
 
 export type UploadedEditorImage = { url: string; fileId?: number }
 
@@ -23,6 +24,7 @@ export function usePostEditorUploadedImages(
       typeof uploaded.fileId === 'number' ? `data-file-id="${uploaded.fileId}"` : '',
       `data-server-src="${escapeHtmlAttr(uploaded.url)}"`,
     ].filter(Boolean).join(' ')
+    if (editor.value) moveFromSelectedRawHtmlBlock(editor.value, 1)
     editor.value?.chain().focus().insertContent(`<img src="${escapeHtmlAttr(previewUrl)}" ${serverAttributes}>`).run()
   }
 

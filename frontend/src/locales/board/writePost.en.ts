@@ -72,8 +72,9 @@ export const boardEnWritePostMessages: BoardMessages['writePost'] = {
     visualMode: 'Visual editor',
     rawHtmlBlock: {
       title: 'Preserved HTML block',
-      description: 'Protected as one block to prevent data loss. Edit its source in HTML view.',
+      description: 'Protected as one block to prevent data loss. Use an arrow key or Enter to move to surrounding content, and edit its source in HTML view.',
       previewTitle: 'Preserved HTML preview',
+      selectionHint: 'The HTML block is selected. Text formatting applies to regular content, while inserted items are placed after the block.',
     },
     videoUrlRequired: 'Please enter a video URL.',
     invalidVideoUrl: 'Only YouTube or Vimeo URLs can be inserted.',

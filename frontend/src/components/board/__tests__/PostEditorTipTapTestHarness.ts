@@ -85,6 +85,8 @@ const mocks = vi.hoisted(() => {
     type EditorOptions = {
         content?: string
         editable?: boolean
+        onCreate?: (payload: { editor: typeof editor }) => void
+        onSelectionUpdate?: (payload: { editor: typeof editor }) => void
         onUpdate?: (payload: { editor: typeof editor }) => void
         editorProps?: {
             handleDOMEvents?: {
@@ -268,6 +270,14 @@ export const triggerEditorUpdate = () => {
         throw new Error('Editor onUpdate handler was not registered')
     }
     onUpdate({ editor: mocks.editor })
+}
+
+export const triggerEditorSelectionUpdate = () => {
+    const onSelectionUpdate = mocks.editorOptions.value?.onSelectionUpdate
+    if (!onSelectionUpdate) {
+        throw new Error('Editor onSelectionUpdate handler was not registered')
+    }
+    onSelectionUpdate({ editor: mocks.editor })
 }
 
 export const getEditorDomEventHandler = <TEvent extends MouseEvent | KeyboardEvent>(

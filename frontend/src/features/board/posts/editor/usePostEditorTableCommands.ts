@@ -1,5 +1,6 @@
 import { ref, type Ref } from 'vue'
 import type { Editor } from '@tiptap/core'
+import { moveFromSelectedRawHtmlBlock } from '@/extensions/tiptap-raw-html-block'
 
 type PopoverPosition = {
   setAnchor: (element?: HTMLElement | null) => void
@@ -40,6 +41,7 @@ export function usePostEditorTableCommands({
   function applyTable() {
     const rows = Math.max(1, Math.min(20, Math.floor(Number(tableRows.value)) || 3))
     const cols = Math.max(1, Math.min(10, Math.floor(Number(tableCols.value)) || 3))
+    if (editor.value) moveFromSelectedRawHtmlBlock(editor.value, 1)
     editor.value?.chain().focus().insertTable({ rows, cols, withHeaderRow: tableHeaderRow.value }).run()
     closeTablePopover()
   }

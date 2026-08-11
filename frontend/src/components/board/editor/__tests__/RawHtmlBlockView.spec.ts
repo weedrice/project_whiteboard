@@ -18,6 +18,7 @@ describe('RawHtmlBlockView', () => {
                 title: '원본 HTML 블록',
                 description: 'HTML 보기에서 수정',
                 previewTitle: '원본 HTML 미리보기',
+                selectionHint: '블록 선택 안내',
               },
             },
           },
@@ -54,6 +55,11 @@ describe('RawHtmlBlockView', () => {
     })
 
     const frame = wrapper.get('iframe')
+    const block = wrapper.get('[data-testid="raw-html-block"]')
+    const description = wrapper.get('.raw-html-block__header p')
+    expect(block.attributes('role')).toBe('group')
+    expect(block.attributes('aria-label')).toBe('원본 HTML 블록')
+    expect(block.attributes('aria-describedby')).toBe(description.attributes('id'))
     expect(wrapper.get('.raw-html-block__header').attributes()).toHaveProperty('data-drag-handle')
     expect(frame.attributes('loading')).toBe('eager')
     expect(frame.attributes('srcdoc')).toContain('<style>.card{display:grid}</style>')

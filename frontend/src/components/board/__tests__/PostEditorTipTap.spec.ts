@@ -10,6 +10,7 @@ import {
     selectors,
     setEditorRefValue,
     setEditorSelection,
+    triggerEditorSelectionUpdate,
     triggerEditorUpdate,
 } from './PostEditorTipTapTestHarness'
 import type { PostEditorTipTapAttributes } from './PostEditorTipTapTestHarness'
@@ -67,6 +68,24 @@ describe('PostEditorTipTap', () => {
         triggerEditorUpdate()
 
         expect(wrapper.emitted('update:modelValue')?.[0]).toEqual([preserved])
+    })
+
+    it('disables only text formatting controls while a preserved HTML block is selected', async () => {
+        const wrapper = mountEditor(encodeSandboxedPostHtml('<style>.card{display:grid}</style><p>Widget</p>'))
+        setEditorSelection({
+            from: 0,
+            to: 1,
+            node: { type: { name: 'rawHtmlBlock' } },
+        })
+        triggerEditorSelectionUpdate()
+        await nextTick()
+
+        expect(wrapper.get('.tiptap-toolbar-context').text()).toBe('board.writePost.rawHtmlBlock.selectionHint')
+        expect(wrapper.get('button[title="board.writePost.toolbar.bold"]').attributes()).toHaveProperty('disabled')
+        expect(wrapper.get(selectors.link).attributes()).toHaveProperty('disabled')
+        expect(wrapper.get(selectors.image).attributes()).not.toHaveProperty('disabled')
+        expect(wrapper.get(selectors.slashMenu).attributes()).not.toHaveProperty('disabled')
+        expect(wrapper.get(selectors.tableDialog).attributes()).not.toHaveProperty('disabled')
     })
 
     it('handles link click guards and slash key opening', async () => {

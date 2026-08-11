@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, toRef } from 'vue'
+import { computed, onBeforeUnmount, ref, toRef } from 'vue'
 import PostEditorContentArea from '@/components/board/editor/PostEditorContentArea.vue'
 import PostEditorFloatingPanels from '@/components/board/editor/PostEditorFloatingPanels.vue'
 import PostEditorToolbar from '@/components/board/editor/PostEditorToolbar.vue'
@@ -26,6 +26,7 @@ import { useToastStore } from '@/stores/toast'
 import type { EmoticonImage } from '@/types/emoticon'
 import { IMAGE_UPLOAD_ACCEPT } from '@/utils/imageUploadPolicy'
 import logger from '@/utils/logger'
+import { moveFromSelectedRawHtmlBlock } from '@/extensions/tiptap-raw-html-block'
 
 const props = defineProps<{
   modelValue: string
@@ -45,6 +46,7 @@ const { t } = useI18n()
 const toastStore = useToastStore()
 const themeStore = useThemeStore()
 const modelValue = toRef(props, 'modelValue')
+const isRawHtmlBlockSelected = ref(false)
 const uploadOwnerIdentity = toRef(props, 'uploadOwnerIdentity')
 const availableSlashActions = computed(() => (
   props.pollEnabled === false
@@ -92,6 +94,9 @@ const editor = usePostEditorInstance({
   onUpdateHtml: (html) => emit('update:modelValue', html),
   openSlashMenu,
   openImageAltPopover: (target, alt, nodePos) => openImageAltPopoverFromEditor(target, alt, nodePos),
+  onRawHtmlBlockSelectionChange: (selected) => {
+    isRawHtmlBlockSelected.value = selected
+  },
 })
 const {
   imageUploadQueue,
@@ -265,11 +270,48 @@ function reportImageValidationError(validationError: 'type' | 'size') {
   toastStore.addToast(t('common.messages.fileSizeExceeded'), 'warning')
 }
 
+function prepareInsertionAfterRawHtmlBlock() {
+  const instance = editor.value
+  if (instance) moveFromSelectedRawHtmlBlock(instance, 1)
+}
+
+function triggerImageUploadAtSelection() {
+  prepareInsertionAfterRawHtmlBlock()
+  triggerImageUpload()
+}
+
+function openVideoAtSelection() {
+  prepareInsertionAfterRawHtmlBlock()
+  emit('open-video')
+}
+
+function openEmoticonAtSelection() {
+  prepareInsertionAfterRawHtmlBlock()
+  emit('open-emoticon')
+}
+
+function toggleSlashMenuAtSelection(trigger: HTMLElement) {
+  prepareInsertionAfterRawHtmlBlock()
+  toggleSlashMenu(trigger)
+}
+
+function openTableAtSelection(trigger: HTMLElement) {
+  prepareInsertionAfterRawHtmlBlock()
+  openTablePopover(trigger)
+}
+
+function insertHorizontalRuleAtSelection() {
+  prepareInsertionAfterRawHtmlBlock()
+  applyHorizontalRule()
+}
+
 function setVideo(src: string) {
+  prepareInsertionAfterRawHtmlBlock()
   editor.value?.chain().focus().setVideo({ src }).run()
 }
 
 function setEmoticon(image: EmoticonImage) {
+  prepareInsertionAfterRawHtmlBlock()
   editor.value?.chain().focus().setImage({
     src: image.imageUrl,
     alt: ':emoticon:',
@@ -323,14 +365,15 @@ onBeforeUnmount(() => {
       :show-table-popover="showTablePopover"
       :show-color-panel="showColorPanel"
       :active-text-align="activeTextAlign"
+      :is-raw-html-block-selected="isRawHtmlBlockSelected"
       @toggle-bold="editor.chain().focus().toggleBold().run()"
       @toggle-italic="editor.chain().focus().toggleItalic().run()"
       @toggle-underline="editor.chain().focus().toggleUnderline().run()"
       @toggle-strike="editor.chain().focus().toggleStrike().run()"
       @open-link="openLinkPopover"
-      @upload-image="triggerImageUpload"
-      @open-video="emit('open-video')"
-      @open-emoticon="emit('open-emoticon')"
+      @upload-image="triggerImageUploadAtSelection"
+      @open-video="openVideoAtSelection"
+      @open-emoticon="openEmoticonAtSelection"
       @save-list-selection="saveListSelection"
       @bullet-list="applyBulletList"
       @ordered-list="applyOrderedList"
@@ -340,9 +383,9 @@ onBeforeUnmount(() => {
       @custom-text-color="setPresetColor"
       @toggle-color-panel="toggleColorPanel"
       @align="setTextAlign"
-      @toggle-slash-menu="toggleSlashMenu"
-      @open-table="openTablePopover"
-      @horizontal-rule="applyHorizontalRule"
+      @toggle-slash-menu="toggleSlashMenuAtSelection"
+      @open-table="openTableAtSelection"
+      @horizontal-rule="insertHorizontalRuleAtSelection"
       @retry-image-upload="retryImageUpload"
       @retry-failed-image-upload="retryFailedImageUpload"
       @cancel-image-upload="cancelImageUpload"

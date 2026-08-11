@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, useId } from 'vue'
 import { NodeViewWrapper, type NodeViewProps } from '@tiptap/vue-3'
 import { Code2 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
@@ -8,12 +8,16 @@ import SandboxedHtmlFrame from '@/components/common/SandboxedHtmlFrame.vue'
 const props = defineProps<NodeViewProps>()
 const { t } = useI18n()
 const html = computed(() => String(props.node.attrs.html ?? ''))
+const descriptionId = `raw-html-block-description-${useId()}`
 </script>
 
 <template>
   <NodeViewWrapper
     class="raw-html-block"
     data-testid="raw-html-block"
+    role="group"
+    :aria-label="t('board.writePost.rawHtmlBlock.title')"
+    :aria-describedby="descriptionId"
   >
     <div
       class="raw-html-block__header"
@@ -23,7 +27,7 @@ const html = computed(() => String(props.node.attrs.html ?? ''))
       <Code2 aria-hidden="true" :size="16" />
       <div>
         <strong>{{ t('board.writePost.rawHtmlBlock.title') }}</strong>
-        <p>{{ t('board.writePost.rawHtmlBlock.description') }}</p>
+        <p :id="descriptionId">{{ t('board.writePost.rawHtmlBlock.description') }}</p>
       </div>
     </div>
     <div class="raw-html-block__preview" contenteditable="false">

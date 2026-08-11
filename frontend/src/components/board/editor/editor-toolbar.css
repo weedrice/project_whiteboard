@@ -18,6 +18,26 @@
   color: var(--nv-ink);
 }
 
+.tiptap-btn:disabled,
+.tiptap-btn:disabled:hover,
+.tiptap-select:disabled,
+.tiptap-color-input:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.tiptap-btn:disabled:hover {
+  color: var(--nv-ink-soft);
+  background: transparent;
+}
+
+.tiptap-toolbar-context {
+  margin: 0;
+  color: var(--nv-ink-soft);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
 .tiptap-btn.active {
   border-color: color-mix(in srgb, var(--nv-accent) 28%, transparent);
   background: color-mix(in srgb, var(--nv-accent) 14%, var(--nv-surface));

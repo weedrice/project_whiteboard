@@ -81,10 +81,15 @@ export const RawHtmlBlockKeyboardNavigation = Extension.create({
   },
 })
 
-function moveFromSelectedRawHtmlBlock(editor: Editor, direction: -1 | 1): boolean {
-  const { selection, doc, schema } = editor.state
+export function isRawHtmlBlockNodeSelected(editor: Editor): boolean {
+  const { selection } = editor.state
   const selectedNode = 'node' in selection ? (selection as NodeSelection).node : null
-  if (!selectedNode || selectedNode.type.name !== 'rawHtmlBlock') return false
+  return selectedNode?.type.name === 'rawHtmlBlock'
+}
+
+export function moveFromSelectedRawHtmlBlock(editor: Editor, direction: -1 | 1): boolean {
+  const { selection, doc, schema } = editor.state
+  if (!isRawHtmlBlockNodeSelected(editor)) return false
 
   const boundaryPosition = direction === 1 ? selection.to : selection.from
   const adjacentNode = direction === 1
