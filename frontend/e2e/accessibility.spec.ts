@@ -1,6 +1,7 @@
 import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Page } from '@playwright/test'
 import { installMockApi, login } from './fixtures/mockApi'
+import { encodeSandboxedPostHtml } from '../src/utils/postHtmlSandbox'
 
 async function expectNoSeriousAccessibilityViolations(page: Page) {
   const results = await new AxeBuilder({ page }).analyze()
@@ -31,6 +32,21 @@ test('settings and post editor have no serious or critical axe violations', asyn
   await expectNoSeriousAccessibilityViolations(page)
   await page.goto('/board/general/write')
   await expect(page.locator('#title')).toBeVisible()
+  await expectNoSeriousAccessibilityViolations(page)
+})
+
+test('post editor with a selected preserved HTML block is axe-clean', async ({ page }) => {
+  const preserved = encodeSandboxedPostHtml(
+    '<style>.card{display:grid}</style><section class="card">접근성 HTML 블록</section>',
+  )
+  await installMockApi(page, { postContents: preserved })
+  await login(page)
+  await page.goto('/board/general/post/1/edit')
+
+  const htmlBlock = page.locator('.raw-html-block')
+  await expect(htmlBlock).toBeVisible()
+  await htmlBlock.locator('.raw-html-block__header').click()
+  await expect(page.locator('.tiptap-toolbar-context')).toBeVisible()
   await expectNoSeriousAccessibilityViolations(page)
 })
 

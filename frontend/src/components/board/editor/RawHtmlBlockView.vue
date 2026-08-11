@@ -35,7 +35,7 @@ const descriptionId = `raw-html-block-description-${useId()}`
         :html="html"
         :title="t('board.writePost.rawHtmlBlock.previewTitle')"
         :min-height="320"
-        loading="eager"
+        loading="lazy"
       />
     </div>
   </NodeViewWrapper>

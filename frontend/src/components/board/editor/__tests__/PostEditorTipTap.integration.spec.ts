@@ -316,6 +316,24 @@ describe('PostEditorTipTap TipTap extension integration', () => {
         expect(serializedMarker?.hasAttribute('onclick')).toBe(false)
     })
 
+    it('round-trips many large preserved blocks without merging or changing payloads', () => {
+        const rawBlocks = Array.from({ length: 12 }, (_, index) => (
+            `<style>.block-${index}{display:grid}</style><section data-index="${index}">${'대용량 본문'.repeat(450)}</section>`
+        ))
+        const content = rawBlocks
+            .map((rawHtml, index) => `<p>일반 본문 ${index}</p>${encodeSandboxedPostHtml(rawHtml)}`)
+            .join('')
+        editor = createEditor(ensurePostEditorEditableTail(content))
+
+        const document = parseHTML(editor.getHTML())
+        const markers = Array.from(document.querySelectorAll('.noviis-sandboxed-post-html'))
+        expect(markers).toHaveLength(rawBlocks.length)
+        markers.forEach((marker, index) => {
+            expect(decodeSandboxedPostHtml(marker.outerHTML)).toBe(rawBlocks[index])
+        })
+        expect(document.body.lastElementChild?.outerHTML).toBe('<p></p>')
+    })
+
     it('keeps the preservation classifier aligned with the actual editor serializer', () => {
         editor = createEditor([
             '<h2 style="text-align: center">Heading</h2>',

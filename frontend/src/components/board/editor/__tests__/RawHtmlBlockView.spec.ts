@@ -61,7 +61,7 @@ describe('RawHtmlBlockView', () => {
     expect(block.attributes('aria-label')).toBe('원본 HTML 블록')
     expect(block.attributes('aria-describedby')).toBe(description.attributes('id'))
     expect(wrapper.get('.raw-html-block__header').attributes()).toHaveProperty('data-drag-handle')
-    expect(frame.attributes('loading')).toBe('eager')
+    expect(frame.attributes('loading')).toBe('lazy')
     expect(frame.attributes('srcdoc')).toContain('<style>.card{display:grid}</style>')
     expect(frame.attributes('srcdoc')).toContain('<button>카드</button>')
     expect(frame.attributes('srcdoc')).not.toContain('onclick=')

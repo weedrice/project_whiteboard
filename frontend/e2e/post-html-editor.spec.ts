@@ -79,3 +79,33 @@ test('preserved HTML remains isolated while surrounding content can be edited, s
   await expect(page.locator('.ProseMirror')).toContainText('앞쪽 일반 본문')
   await expect(page.locator('.ProseMirror')).toContainText('뒤쪽 일반 본문')
 })
+
+test('preserved HTML editing remains keyboard-usable without page overflow on mobile', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'reduce' })
+  await installMockApi(page, {
+    postContents: encodeSandboxedPostHtml(rawHtml),
+  })
+  await login(page)
+  await page.goto('/board/general/post/1/edit')
+
+  const htmlBlock = page.locator('.raw-html-block')
+  const toolbarRows = page.locator('.tiptap-toolbar-row--scrollable')
+  await expect(htmlBlock).toBeVisible()
+  await expect(toolbarRows).toHaveCount(2)
+  await expect(htmlBlock.locator('iframe')).toHaveAttribute('loading', 'lazy')
+  await expect(htmlBlock.locator('iframe').contentFrame().locator('body')).toHaveCSS('color', 'rgb(249, 250, 251)')
+
+  const viewportMetrics = await page.evaluate(() => ({
+    clientWidth: document.documentElement.clientWidth,
+    scrollWidth: document.documentElement.scrollWidth,
+  }))
+  expect(viewportMetrics.scrollWidth).toBeLessThanOrEqual(viewportMetrics.clientWidth + 1)
+  expect(await toolbarRows.first().evaluate((row) => row.scrollWidth >= row.clientWidth)).toBe(true)
+
+  await htmlBlock.locator('.raw-html-block__header').click()
+  await expect(page.locator('.tiptap-toolbar-context')).toBeVisible()
+  await page.keyboard.press('ArrowRight')
+  await page.keyboard.type('모바일 키보드 본문')
+  await expect(page.locator('.ProseMirror')).toContainText('모바일 키보드 본문')
+})
