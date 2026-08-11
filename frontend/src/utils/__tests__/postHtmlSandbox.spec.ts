@@ -228,6 +228,24 @@ describe('postHtmlSandbox', () => {
         expect(expandSandboxedPostHtml(mapped)).toBe('<section>변경</section>' + damagedMarker)
     })
 
+    it('reads and updates only the actual data-value attribute', () => {
+        const marker = encodeSandboxedPostHtml('<section>실제 원문</section>')
+        const decorated = marker.replace(
+            ' data-value=',
+            ` data-example='data-value="PHA+7JiI66GcPC9wPg=="' data-value=`,
+        )
+
+        const mapped = mapSandboxedPostHtmlPayloads(decorated, (raw) => raw.replace('실제', '변경'))
+
+        expect(mapped).toContain(`data-example='data-value="PHA+7JiI66GcPC9wPg=="'`)
+        expect(expandSandboxedPostHtml(mapped)).toBe('<section>변경 원문</section>')
+
+        vi.stubGlobal('DOMParser', undefined)
+        expect(containsSandboxedPostHtml(
+            `<div class="noviis-sandboxed-post-html" data-example='data-value="PHA+ZmFrZTwvcD4+"'></div>`,
+        )).toBe(false)
+    })
+
     it('falls back without deleting source when an editable boundary is damaged', () => {
         const damaged = '<p>앞</p><!--noviis-preserved-html-block:start--><style>.x{display:grid}</style><p>블록</p>'
 

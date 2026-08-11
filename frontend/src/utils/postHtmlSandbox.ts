@@ -1,7 +1,6 @@
 const SANDBOX_TRIGGER_PATTERN = /<(?:!doctype|html|head|body|style|script)\b|<\w+[^>]*\son[a-z]+\s*=/i
 const SANDBOX_MARKER_CLASS = 'noviis-sandboxed-post-html'
 const SANDBOX_MARKER_SELECTOR = `.${SANDBOX_MARKER_CLASS}[data-value]`
-const SANDBOX_MARKER_DATA_VALUE_PATTERN = /\bdata-value\s*=\s*(["'])([^"']+)\1/i
 const SANDBOX_DOCUMENT_STRUCTURE_PATTERN = /<(?:!doctype|html|head|body)\b/i
 const EDITABLE_SANDBOX_BLOCK_START_PATTERN = /<!--noviis-preserved-html-block:start:([a-z0-9-]+)-->/gi
 const HTML_RAW_TEXT_ELEMENTS = new Set(['script', 'style', 'textarea', 'title', 'xmp', 'iframe', 'noembed', 'noframes', 'plaintext'])
@@ -19,6 +18,16 @@ type SandboxMarkerRange = {
     start: number
     end: number
     marker: string
+    payload: string
+    payloadStart: number
+    payloadEnd: number
+}
+
+type HtmlAttributeToken = {
+    name: string
+    value: string
+    valueStart: number
+    valueEnd: number
 }
 
 type EditableSandboxBlockRange = {
@@ -390,27 +399,26 @@ export function mapSandboxedPostHtmlPayloads(
     transform: (payload: string) => string,
 ): string {
     if (!containsSandboxedPostHtml(content)) return content
-    return mapDecodedSandboxMarkers(content, (decoded, marker) => {
+    return mapDecodedSandboxMarkers(content, (decoded, marker, range) => {
         const transformed = transform(decoded)
         if (transformed === decoded) return marker
         const encoded = encodeSandboxedPostHtmlPayload(transformed)
-        return marker.replace(SANDBOX_MARKER_DATA_VALUE_PATTERN, (_attribute, quote: string) => (
-            `data-value=${quote}${encoded}${quote}`
-        ))
+        const payloadStart = range.payloadStart - range.start
+        const payloadEnd = range.payloadEnd - range.start
+        return `${marker.slice(0, payloadStart)}${encoded}${marker.slice(payloadEnd)}`
     })
 }
 
 function mapDecodedSandboxMarkers(
     content: string,
-    transform: (decoded: string, marker: string) => string,
+    transform: (decoded: string, marker: string, range: SandboxMarkerRange) => string,
 ): string {
     const parts: string[] = []
     let segmentStart = 0
     findSandboxMarkerRanges(content).forEach((range) => {
         parts.push(content.slice(segmentStart, range.start))
-        const payload = range.marker.match(SANDBOX_MARKER_DATA_VALUE_PATTERN)?.[2]
-        const decoded = decodeSandboxedPostHtmlPayload(payload)
-        parts.push(decoded == null ? range.marker : transform(decoded, range.marker))
+        const decoded = decodeSandboxedPostHtmlPayload(range.payload)
+        parts.push(decoded == null ? range.marker : transform(decoded, range.marker, range))
         segmentStart = range.end
     })
     parts.push(content.slice(segmentStart))
@@ -423,7 +431,7 @@ function findStandaloneSandboxMarker(content: string | null | undefined): HTMLEl
         const trimmed = content.trim()
         const markers = findSandboxMarkerRanges(trimmed)
         if (markers.length !== 1 || markers[0].start !== 0 || markers[0].end !== trimmed.length) return null
-        return markers[0].marker.match(SANDBOX_MARKER_DATA_VALUE_PATTERN)?.[2] ?? null
+        return markers[0].payload
     }
 
     const doc = new DOMParser().parseFromString(content, 'text/html')
@@ -472,7 +480,10 @@ function findSandboxMarkerRanges(content: string): SandboxMarkerRange[] {
             continue
         }
 
-        if (!token.closing && !token.selfClosing && token.name === 'div' && isSandboxMarkerOpeningTag(token.source)) {
+        const dataValue = !token.closing && token.name === 'div'
+            ? getSandboxMarkerDataValue(token)
+            : null
+        if (!token.selfClosing && dataValue) {
             const closingStart = skipHtmlWhitespace(content, token.end)
             const closingToken = parseHtmlTagAt(content, closingStart)
             if (closingToken?.closing && closingToken.name === 'div') {
@@ -480,6 +491,9 @@ function findSandboxMarkerRanges(content: string): SandboxMarkerRange[] {
                     start: token.start,
                     end: closingToken.end,
                     marker: content.slice(token.start, closingToken.end),
+                    payload: dataValue.value,
+                    payloadStart: token.start + dataValue.valueStart,
+                    payloadEnd: token.start + dataValue.valueEnd,
                 })
                 cursor = closingToken.end
                 continue
@@ -527,11 +541,63 @@ function parseHtmlTagAt(content: string, start: number): HtmlTagToken | null {
     return null
 }
 
-function isSandboxMarkerOpeningTag(source: string): boolean {
-    const classValue = source.match(/\bclass\s*=\s*(["'])([\s\S]*?)\1/i)?.[2] ?? ''
+function getSandboxMarkerDataValue(token: HtmlTagToken): HtmlAttributeToken | null {
+    const attributes = parseHtmlAttributes(token)
+    const classValue = attributes.get('class')?.value ?? ''
     const classes = classValue.trim().split(/\s+/).filter(Boolean)
-    return classes.includes(SANDBOX_MARKER_CLASS)
-        && SANDBOX_MARKER_DATA_VALUE_PATTERN.test(source)
+    const dataValue = attributes.get('data-value')
+    return classes.includes(SANDBOX_MARKER_CLASS) && dataValue?.value
+        ? dataValue
+        : null
+}
+
+function parseHtmlAttributes(token: HtmlTagToken): Map<string, HtmlAttributeToken> {
+    const attributes = new Map<string, HtmlAttributeToken>()
+    const source = token.source
+    let cursor = 1
+    while (/\s/.test(source[cursor] ?? '')) cursor += 1
+    if (source[cursor] === '/') cursor += 1
+    while (/\s/.test(source[cursor] ?? '')) cursor += 1
+    cursor += source.slice(cursor).match(/^[a-z][\w:-]*/i)?.[0].length ?? 0
+
+    while (cursor < source.length) {
+        while (/\s/.test(source[cursor] ?? '')) cursor += 1
+        if (source[cursor] === '>' || source[cursor] === '/') break
+
+        const nameStart = cursor
+        while (cursor < source.length && !/[\s=/>]/.test(source[cursor])) cursor += 1
+        if (cursor === nameStart) {
+            cursor += 1
+            continue
+        }
+        const name = source.slice(nameStart, cursor).toLowerCase()
+        while (/\s/.test(source[cursor] ?? '')) cursor += 1
+
+        let value = ''
+        let valueStart = cursor
+        let valueEnd = cursor
+        if (source[cursor] === '=') {
+            cursor += 1
+            while (/\s/.test(source[cursor] ?? '')) cursor += 1
+            const quote = source[cursor] === '"' || source[cursor] === "'" ? source[cursor] : ''
+            if (quote) cursor += 1
+            valueStart = cursor
+            if (quote) {
+                while (cursor < source.length && source[cursor] !== quote) cursor += 1
+            } else {
+                while (cursor < source.length && !/[\s/>]/.test(source[cursor])) cursor += 1
+            }
+            valueEnd = cursor
+            value = source.slice(valueStart, valueEnd)
+            if (quote && source[cursor] === quote) cursor += 1
+        }
+
+        if (!attributes.has(name)) {
+            attributes.set(name, { name, value, valueStart, valueEnd })
+        }
+    }
+
+    return attributes
 }
 
 function skipHtmlWhitespace(content: string, start: number): number {
