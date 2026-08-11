@@ -164,7 +164,9 @@ describe('postHtmlSandbox', () => {
         sources.forEach((source) => {
             const encoded = encodeSandboxedPostHtml(source)
             expect(isStandaloneSandboxedPostHtml(encoded)).toBe(true)
-            expect(decodeSandboxedPostHtml(encoded)).toBe(source)
+            expect(decodeSandboxedPostHtml(encoded)).toBe(expandSandboxedPostHtml(source))
+            expect(decodeSandboxedPostHtml(encoded)).toContain(rawWidget)
+            expect(decodeSandboxedPostHtml(encoded)).not.toContain('noviis-sandboxed-post-html')
         })
     })
 

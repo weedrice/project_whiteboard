@@ -224,8 +224,8 @@ function buildSandboxMarker(content: string): string {
 function preserveUnsupportedHtmlAroundSandboxMarkers(content: string): string {
     const markerPattern = new RegExp(SANDBOX_MARKER_ELEMENT_PATTERN.source, SANDBOX_MARKER_ELEMENT_PATTERN.flags)
     const markers = Array.from(content.matchAll(markerPattern))
-    if (markers.length === 0) return buildSandboxMarker(content)
-    if (!hasOnlyTopLevelSandboxMarkers(content, markers.length)) return buildSandboxMarker(content)
+    if (markers.length === 0) return buildFlattenedSandboxMarker(content)
+    if (!hasOnlyTopLevelSandboxMarkers(content, markers.length)) return buildFlattenedSandboxMarker(content)
 
     const parts: string[] = []
     let segmentStart = 0
@@ -240,6 +240,10 @@ function preserveUnsupportedHtmlAroundSandboxMarkers(content: string): string {
     const trailingSegment = content.slice(segmentStart)
     parts.push(requiresPreservedPostHtml(trailingSegment) ? buildSandboxMarker(trailingSegment) : trailingSegment)
     return parts.join('')
+}
+
+function buildFlattenedSandboxMarker(content: string): string {
+    return buildSandboxMarker(expandSandboxedPostHtml(content) ?? content)
 }
 
 function hasOnlyTopLevelSandboxMarkers(content: string, expectedMarkerCount: number): boolean {
