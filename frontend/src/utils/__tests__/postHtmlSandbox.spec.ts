@@ -8,6 +8,7 @@ import {
     encodeSandboxedPostHtml,
     expandSandboxedPostHtml,
     expandSandboxedPostHtmlForEditing,
+    mapSandboxedPostHtmlPayloads,
     requiresPreservedPostHtml,
     requiresSandboxedPostHtml,
     restoreSandboxedPostHtmlAfterEditing,
@@ -111,6 +112,23 @@ describe('postHtmlSandbox', () => {
         const restored = restoreSandboxedPostHtmlAfterEditing(editable ?? '')
         expect(expandSandboxedPostHtml(restored)).toBe(`<p>앞</p>${firstRaw}<p>중간</p>${secondRaw}<p>뒤</p>`)
         expect(restored.match(/noviis-sandboxed-post-html/g)).toHaveLength(2)
+    })
+
+    it('maps preserved payloads without changing marker attribute syntax or damaged markers', () => {
+        const raw = '<section>원본</section>'
+        const payload = encodeSandboxedPostHtml(raw).match(/data-value="([^"]+)"/)?.[1]
+        const marker = `<div data-value='${payload}' data-extra="keep" class="noviis-sandboxed-post-html"></div>`
+        const damagedMarker = '<div data-value="%%%" class="noviis-sandboxed-post-html"></div>'
+
+        const mapped = mapSandboxedPostHtmlPayloads(
+            `${marker}${damagedMarker}`,
+            (decoded) => decoded.replace('원본', '변경'),
+        )
+
+        expect(mapped).toContain("data-value='")
+        expect(mapped).toContain('data-extra="keep"')
+        expect(mapped).toContain(damagedMarker)
+        expect(expandSandboxedPostHtml(mapped)).toBe('<section>변경</section>' + damagedMarker)
     })
 
     it('falls back without deleting source when an editable boundary is damaged', () => {

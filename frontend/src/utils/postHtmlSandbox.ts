@@ -2,6 +2,8 @@ const SANDBOX_TRIGGER_PATTERN = /<(?:!doctype|html|head|body|style|script)\b|<\w
 const SANDBOX_MARKER_CLASS = 'noviis-sandboxed-post-html'
 const SANDBOX_MARKER_SELECTOR = `.${SANDBOX_MARKER_CLASS}[data-value]`
 const SANDBOX_MARKER_SELECTOR_PATTERN = /class=["'][^"']*\bnoviis-sandboxed-post-html\b[^"']*["'][^>]*\sdata-value=["'][^"']+["']|data-value=["'][^"']+["'][^>]*class=["'][^"']*\bnoviis-sandboxed-post-html\b[^"']*["']/i
+const SANDBOX_MARKER_ELEMENT_PATTERN = /<div\b(?=[^>]*\bclass=["'][^"']*\bnoviis-sandboxed-post-html\b[^"']*["'])(?=[^>]*\bdata-value=["'][^"']+["'])[^>]*>\s*<\/div>/gi
+const SANDBOX_MARKER_DATA_VALUE_PATTERN = /\bdata-value=(["'])([^"']+)\1/i
 const EDITABLE_SANDBOX_BLOCK_START = '<!--noviis-preserved-html-block:start-->'
 const EDITABLE_SANDBOX_BLOCK_END = '<!--noviis-preserved-html-block:end-->'
 const EDITOR_ELEMENT_ATTRIBUTES: Readonly<Record<string, ReadonlySet<string>>> = {
@@ -232,26 +234,14 @@ export function decodeSandboxedPostHtml(content: string | null | undefined): str
 
 export function expandSandboxedPostHtml(content: string | null | undefined): string | null {
     if (!containsSandboxedPostHtml(content)) return null
-    return (content ?? '').replace(
-        /<div\b(?=[^>]*\bclass=["'][^"']*\bnoviis-sandboxed-post-html\b[^"']*["'])(?=[^>]*\bdata-value=["'][^"']+["'])[^>]*>\s*<\/div>/gi,
-        (marker) => {
-            const payload = marker.match(/\bdata-value=["']([^"']+)["']/i)?.[1]
-            return decodeSandboxedPostHtmlPayload(payload) ?? marker
-        },
-    )
+    return mapDecodedSandboxMarkers(content ?? '', (decoded) => decoded)
 }
 
 export function expandSandboxedPostHtmlForEditing(content: string | null | undefined): string | null {
     if (!containsSandboxedPostHtml(content)) return null
-    return (content ?? '').replace(
-        /<div\b(?=[^>]*\bclass=["'][^"']*\bnoviis-sandboxed-post-html\b[^"']*["'])(?=[^>]*\bdata-value=["'][^"']+["'])[^>]*>\s*<\/div>/gi,
-        (marker) => {
-            const payload = marker.match(/\bdata-value=["']([^"']+)["']/i)?.[1]
-            const decoded = decodeSandboxedPostHtmlPayload(payload)
-            if (decoded == null) return marker
-            return `${EDITABLE_SANDBOX_BLOCK_START}${decoded}${EDITABLE_SANDBOX_BLOCK_END}`
-        },
-    )
+    return mapDecodedSandboxMarkers(content ?? '', (decoded) => (
+        `${EDITABLE_SANDBOX_BLOCK_START}${decoded}${EDITABLE_SANDBOX_BLOCK_END}`
+    ))
 }
 
 export function restoreSandboxedPostHtmlAfterEditing(content: string): string {
@@ -268,20 +258,25 @@ export function mapSandboxedPostHtmlPayloads(
     transform: (payload: string) => string,
 ): string {
     if (!containsSandboxedPostHtml(content)) return content
-    return content.replace(
-        /<div\b(?=[^>]*\bclass=["'][^"']*\bnoviis-sandboxed-post-html\b[^"']*["'])(?=[^>]*\bdata-value=["'][^"']+["'])[^>]*>\s*<\/div>/gi,
-        (marker) => {
-            const payload = marker.match(/\bdata-value=(["'])([^"']+)\1/i)?.[2]
-            const decoded = decodeSandboxedPostHtmlPayload(payload)
-            if (decoded == null) return marker
-            const transformed = transform(decoded)
-            if (transformed === decoded) return marker
-            const encoded = encodeSandboxedPostHtmlPayload(transformed)
-            return marker.replace(/\bdata-value=(["'])[^"']+\1/i, (_attribute, quote: string) => (
-                `data-value=${quote}${encoded}${quote}`
-            ))
-        },
-    )
+    return mapDecodedSandboxMarkers(content, (decoded, marker) => {
+        const transformed = transform(decoded)
+        if (transformed === decoded) return marker
+        const encoded = encodeSandboxedPostHtmlPayload(transformed)
+        return marker.replace(SANDBOX_MARKER_DATA_VALUE_PATTERN, (_attribute, quote: string) => (
+            `data-value=${quote}${encoded}${quote}`
+        ))
+    })
+}
+
+function mapDecodedSandboxMarkers(
+    content: string,
+    transform: (decoded: string, marker: string) => string,
+): string {
+    return content.replace(SANDBOX_MARKER_ELEMENT_PATTERN, (marker) => {
+        const payload = marker.match(SANDBOX_MARKER_DATA_VALUE_PATTERN)?.[2]
+        const decoded = decodeSandboxedPostHtmlPayload(payload)
+        return decoded == null ? marker : transform(decoded, marker)
+    })
 }
 
 function findStandaloneSandboxMarker(content: string | null | undefined): HTMLElement | string | null {
