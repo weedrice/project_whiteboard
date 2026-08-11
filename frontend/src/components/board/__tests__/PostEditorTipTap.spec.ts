@@ -59,6 +59,16 @@ describe('PostEditorTipTap', () => {
         expect(mocks.editor.commands.setContent).toHaveBeenLastCalledWith('<p>Editable</p>', { emitUpdate: false })
     })
 
+    it('does not emit the editor-only paragraph after a trailing preserved html block', () => {
+        const preserved = encodeSandboxedPostHtml('<style>.card{display:grid}</style><p>Widget</p>')
+        const wrapper = mountEditor(preserved)
+        mocks.editor.getHTML.mockReturnValue(`${preserved}<p></p>`)
+
+        triggerEditorUpdate()
+
+        expect(wrapper.emitted('update:modelValue')?.[0]).toEqual([preserved])
+    })
+
     it('handles link click guards and slash key opening', async () => {
         const wrapper = mountEditor()
         const clickHandler = getEditorDomEventHandler<MouseEvent>('click')

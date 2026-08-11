@@ -1,7 +1,10 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { Editor } from '@tiptap/core'
 import { createPostEditorExtensions } from '@/components/board/editor/postEditorExtensions'
-import { ensurePostEditorEditableTail } from '@/features/board/posts/editor/usePostEditorInstance'
+import {
+    ensurePostEditorEditableTail,
+    serializePostEditorHtml,
+} from '@/features/board/posts/editor/usePostEditorInstance'
 import {
     decodeSandboxedPostHtml,
     encodeSandboxedPostHtml,
@@ -182,6 +185,16 @@ describe('PostEditorTipTap TipTap extension integration', () => {
 
         const marker = parseHTML(editor.getHTML()).querySelector('.noviis-sandboxed-post-html')
         expect(decodeSandboxedPostHtml(marker?.outerHTML ?? '')).toBe(rawHtml)
+    })
+
+    it('removes only the editor-owned empty tail from serialized preserved HTML', () => {
+        const rawHtml = '<style>.card{display:grid}</style><section class="card">원문</section>'
+        const preserved = encodeSandboxedPostHtml(rawHtml)
+
+        expect(serializePostEditorHtml(`${preserved}<p></p>`)).toBe(preserved)
+        expect(serializePostEditorHtml(`${preserved}<p>사용자 본문</p>`)).toBe(`${preserved}<p>사용자 본문</p>`)
+        expect(serializePostEditorHtml('<p>일반 본문</p><p></p>')).toBe('<p>일반 본문</p><p></p>')
+        expect(serializePostEditorHtml(`<p></p>${preserved}<p></p>`)).toBe(`<p></p>${preserved}`)
     })
 
     it('keeps the preservation classifier aligned with the actual editor serializer', () => {

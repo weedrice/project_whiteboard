@@ -60,7 +60,7 @@ export function usePostEditorInstance(options: {
         },
         extensions: createPostEditorExtensions(),
         onUpdate: ({ editor: instance }) => {
-            options.onUpdateHtml(instance.getHTML())
+            options.onUpdateHtml(serializePostEditorHtml(instance.getHTML()))
         },
     })
 
@@ -94,6 +94,20 @@ export function ensurePostEditorEditableTail(content: string | null | undefined)
     if (!lastNode.matches(`.${SANDBOXED_POST_HTML_MARKER_CLASS}[data-value]`)) return source
 
     return `${source}<p></p>`
+}
+
+export function serializePostEditorHtml(content: string): string {
+    const trailingEmptyParagraph = /<p><\/p>\s*$/i
+    if (!trailingEmptyParagraph.test(content)) return content
+
+    const withoutTrailingParagraph = content.replace(trailingEmptyParagraph, '')
+    if (!withoutTrailingParagraph.includes(SANDBOXED_POST_HTML_MARKER_CLASS)) return content
+    if (typeof DOMParser === 'undefined') return content
+
+    const document = new DOMParser().parseFromString(withoutTrailingParagraph, 'text/html')
+    const lastNode = document.body.lastElementChild
+    if (!lastNode?.matches(`.${SANDBOXED_POST_HTML_MARKER_CLASS}[data-value]`)) return content
+    return withoutTrailingParagraph
 }
 
 export function focusPostEditorAtPointer(editor: Editor, event: MouseEvent) {
