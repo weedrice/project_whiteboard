@@ -1,19 +1,19 @@
 import { watch, type Ref } from 'vue'
 import { useEditor, type Editor } from '@tiptap/vue-3'
 import { createPostEditorExtensions } from '@/components/board/editor/postEditorExtensions'
+import { SANDBOXED_POST_HTML_MARKER_CLASS } from '@/utils/postHtmlSandbox'
 
 type ImageAltPopoverOpener = (target: HTMLImageElement, alt: string, nodePos: number) => void
 
 export function usePostEditorInstance(options: {
     modelValue: Ref<string>
-    editable?: Ref<boolean>
     onUpdateHtml: (html: string) => void
     openSlashMenu: () => void
     openImageAltPopover: ImageAltPopoverOpener
 }) {
     const editor = useEditor({
-        content: options.modelValue.value || '',
-        editable: options.editable?.value ?? true,
+        content: ensurePostEditorEditableTail(options.modelValue.value),
+        editable: true,
         editorProps: {
             attributes: {
                 class: 'nv-rich-content prose prose-sm dark:prose-invert max-w-none min-h-[280px] px-4 py-4 focus:outline-none',
@@ -68,20 +68,32 @@ export function usePostEditorInstance(options: {
         options.modelValue,
         (value) => {
             if (!editor.value) return
+            const normalizedValue = ensurePostEditorEditableTail(value)
             const current = editor.value.getHTML()
-            if (value !== current) {
-                editor.value.commands.setContent(value || '', { emitUpdate: false })
+            if (normalizedValue !== current) {
+                editor.value.commands.setContent(normalizedValue, { emitUpdate: false })
             }
         },
     )
 
-    if (options.editable) {
-        watch([editor, options.editable], ([instance, editable]) => {
-            instance?.setEditable(editable)
-        })
+    return editor
+}
+
+export function ensurePostEditorEditableTail(content: string | null | undefined): string {
+    const source = content ?? ''
+    if (!source.includes(SANDBOXED_POST_HTML_MARKER_CLASS) || typeof DOMParser === 'undefined') {
+        return source
     }
 
-    return editor
+    const document = new DOMParser().parseFromString(source, 'text/html')
+    const meaningfulNodes = Array.from(document.body.childNodes).filter((node) => (
+        node.nodeType !== Node.TEXT_NODE || Boolean(node.textContent?.trim())
+    ))
+    const lastNode = meaningfulNodes.at(-1)
+    if (!(lastNode instanceof HTMLElement)) return source
+    if (!lastNode.matches(`.${SANDBOXED_POST_HTML_MARKER_CLASS}[data-value]`)) return source
+
+    return `${source}<p></p>`
 }
 
 export function focusPostEditorAtPointer(editor: Editor, event: MouseEvent) {

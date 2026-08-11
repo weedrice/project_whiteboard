@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { Editor } from '@tiptap/core'
 import { createPostEditorExtensions } from '@/components/board/editor/postEditorExtensions'
+import { ensurePostEditorEditableTail } from '@/features/board/posts/editor/usePostEditorInstance'
 import {
     decodeSandboxedPostHtml,
     encodeSandboxedPostHtml,
@@ -161,6 +162,25 @@ describe('PostEditorTipTap TipTap extension integration', () => {
         const marker = document.querySelector('.noviis-sandboxed-post-html')
 
         expect(marker?.nextElementSibling?.outerHTML).toBe('<p>일반 문단</p>')
+        expect(decodeSandboxedPostHtml(marker?.outerHTML ?? '')).toBe(rawHtml)
+    })
+
+    it('always keeps an editable paragraph after a trailing preserved HTML block', () => {
+        const rawHtml = '<style>.card{display:grid}</style><section class="card">보존할 내용</section>'
+        const preserved = encodeSandboxedPostHtml(rawHtml)
+        editor = createEditor(ensurePostEditorEditableTail(preserved))
+
+        expect(editor.state.doc.lastChild?.type.name).toBe('paragraph')
+        const initialDocument = parseHTML(editor.getHTML())
+        expect(initialDocument.body.lastElementChild?.outerHTML).toBe('<p></p>')
+        expect(decodeSandboxedPostHtml(initialDocument.querySelector('.noviis-sandboxed-post-html')?.outerHTML ?? '')).toBe(rawHtml)
+
+        const paragraphSize = editor.state.doc.lastChild?.nodeSize ?? 0
+        const paragraphStart = editor.state.doc.content.size - paragraphSize
+        expect(editor.commands.deleteRange({ from: paragraphStart, to: editor.state.doc.content.size })).toBe(true)
+        expect(editor.state.doc.lastChild?.type.name).toBe('paragraph')
+
+        const marker = parseHTML(editor.getHTML()).querySelector('.noviis-sandboxed-post-html')
         expect(decodeSandboxedPostHtml(marker?.outerHTML ?? '')).toBe(rawHtml)
     })
 

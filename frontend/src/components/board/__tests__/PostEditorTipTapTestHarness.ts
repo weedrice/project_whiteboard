@@ -63,7 +63,6 @@ const mocks = vi.hoisted(() => {
             return {}
         }),
         isActive: vi.fn((name: unknown) => name === 'link'),
-        setEditable: vi.fn(),
         state: {
             selection: { from: 1, to: 1 },
             doc: {
@@ -84,6 +83,7 @@ const mocks = vi.hoisted(() => {
         value: editor,
     }
     type EditorOptions = {
+        content?: string
         editable?: boolean
         onUpdate?: (payload: { editor: typeof editor }) => void
         editorProps?: {

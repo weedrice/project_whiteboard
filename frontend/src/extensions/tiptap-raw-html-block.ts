@@ -1,5 +1,5 @@
 import { Extension, mergeAttributes, Node } from '@tiptap/core'
-import { TextSelection, type NodeSelection } from '@tiptap/pm/state'
+import { Plugin, TextSelection, type NodeSelection } from '@tiptap/pm/state'
 import { VueNodeViewRenderer } from '@tiptap/vue-3'
 import RawHtmlBlockView from '@/components/board/editor/RawHtmlBlockView.vue'
 import {
@@ -81,5 +81,20 @@ export const RawHtmlBlockKeyboardNavigation = Extension.create({
         return true
       },
     }
+  },
+
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        appendTransaction: (transactions, _oldState, newState) => {
+          if (!transactions.some((transaction) => transaction.docChanged)) return null
+          if (newState.doc.lastChild?.type.name !== 'rawHtmlBlock') return null
+
+          const paragraph = newState.schema.nodes.paragraph
+          if (!paragraph) return null
+          return newState.tr.insert(newState.doc.content.size, paragraph.create())
+        },
+      }),
+    ]
   },
 })

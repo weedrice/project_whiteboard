@@ -46,15 +46,17 @@ describe('PostEditorTipTap', () => {
         expect(mocks.editor.commands.setContent).not.toHaveBeenCalled()
     })
 
-    it('keeps a preserved html block read-only and hides editing controls', async () => {
+    it('keeps content outside a preserved html block editable with visible controls', async () => {
         const preserved = encodeSandboxedPostHtml('<style>.card{display:grid}</style><p>Widget</p>')
         const wrapper = mountEditor(preserved)
 
-        expect(mocks.editorOptions.value?.editable).toBe(false)
-        expect(wrapper.find('.tiptap-toolbar').exists()).toBe(false)
+        expect(mocks.editorOptions.value?.editable).toBe(true)
+        expect(mocks.editorOptions.value?.content).toBe(`${preserved}<p></p>`)
+        expect(wrapper.find('.tiptap-toolbar').exists()).toBe(true)
+        expect(wrapper.get('.tiptap-content').classes()).toContain('cursor-text')
 
         await wrapper.setProps({ modelValue: '<p>Editable</p>' })
-        expect(mocks.editor.setEditable).toHaveBeenLastCalledWith(true)
+        expect(mocks.editor.commands.setContent).toHaveBeenLastCalledWith('<p>Editable</p>', { emitUpdate: false })
     })
 
     it('handles link click guards and slash key opening', async () => {
