@@ -20,8 +20,7 @@
 
 .tiptap-btn:disabled,
 .tiptap-btn:disabled:hover,
-.tiptap-select:disabled,
-.tiptap-color-input:disabled {
+.tiptap-select:disabled {
   cursor: not-allowed;
   opacity: 0.45;
 }
@@ -168,13 +167,6 @@
     scroll-behavior: auto;
     transition: none;
   }
-}
-
-.tiptap-color-input {
-  border-radius: 0.85rem;
-  border: 1px solid var(--nv-line);
-  background: transparent;
-  padding: 0.15rem;
 }
 
 .tiptap-color-trigger {

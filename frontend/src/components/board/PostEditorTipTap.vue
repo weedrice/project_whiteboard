@@ -386,7 +386,6 @@ onBeforeUnmount(() => {
       @font-size="applyFontSize"
       @line-height="applyLineHeight"
       @code-block-language="applyCodeBlockLanguage"
-      @custom-text-color="setPresetColor"
       @toggle-color-panel="toggleColorPanel"
       @align="setTextAlign"
       @toggle-slash-menu="toggleSlashMenuAtSelection"

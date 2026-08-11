@@ -57,6 +57,5 @@ export const usePostEditorTextCommands = (editor: Ref<Editor | undefined>) => {
     applyLineHeight,
     applyHorizontalRule,
     setTextAlign,
-    isTextAlignActive,
   }
 }

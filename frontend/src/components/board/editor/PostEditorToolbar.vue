@@ -58,7 +58,6 @@ const emit = defineEmits<{
   (e: 'font-size', value: string): void
   (e: 'line-height', value: string): void
   (e: 'code-block-language', value: string): void
-  (e: 'custom-text-color', value: string): void
   (e: 'toggle-color-panel', trigger: HTMLElement): void
   (e: 'align', value: 'left' | 'center' | 'right' | 'justify'): void
   (e: 'toggle-slash-menu', trigger: HTMLElement): void
@@ -107,7 +106,6 @@ const { t } = useI18n()
             <span class="tiptap-color-bar" :style="{ backgroundColor: isDefaultColor ? (isDark ? '#f3f4f6' : '#111827') : currentTextColor }" />
           </span>
         </button>
-        <input type="color" name="editorToolbarTextColor" autocomplete="off" :value="currentTextColor || '#000000'" class="tiptap-color-input h-9 w-9 cursor-pointer" :aria-label="t('board.writePost.toolbar.customColor')" :disabled="isRawHtmlBlockSelected" @input="emit('custom-text-color', ($event.target as HTMLInputElement).value)">
         <button type="button" class="tiptap-btn" :class="{ active: activeTextAlign === 'left' }" :title="t('board.writePost.alignLeft')" :aria-label="t('board.writePost.alignLeft')" :disabled="isRawHtmlBlockSelected" @mousedown.prevent @click="emit('align', 'left')">
           <TextAlignStart :size="16" />
         </button>
