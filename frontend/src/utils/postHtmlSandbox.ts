@@ -4,8 +4,7 @@ const SANDBOX_MARKER_SELECTOR = `.${SANDBOX_MARKER_CLASS}[data-value]`
 const SANDBOX_MARKER_SELECTOR_PATTERN = /class=["'][^"']*\bnoviis-sandboxed-post-html\b[^"']*["'][^>]*\sdata-value=["'][^"']+["']|data-value=["'][^"']+["'][^>]*class=["'][^"']*\bnoviis-sandboxed-post-html\b[^"']*["']/i
 const SANDBOX_MARKER_ELEMENT_PATTERN = /<div\b(?=[^>]*\bclass=["'][^"']*\bnoviis-sandboxed-post-html\b[^"']*["'])(?=[^>]*\bdata-value=["'][^"']+["'])[^>]*>\s*<\/div>/gi
 const SANDBOX_MARKER_DATA_VALUE_PATTERN = /\bdata-value=(["'])([^"']+)\1/i
-const EDITABLE_SANDBOX_BLOCK_START = '<!--noviis-preserved-html-block:start-->'
-const EDITABLE_SANDBOX_BLOCK_END = '<!--noviis-preserved-html-block:end-->'
+const EDITABLE_SANDBOX_BLOCK_PATTERN = /<!--noviis-preserved-html-block:start:([a-z0-9-]+)-->([\s\S]*?)<!--noviis-preserved-html-block:end:\1-->/gi
 const EDITOR_ELEMENT_ATTRIBUTES: Readonly<Record<string, ReadonlySet<string>>> = {
     p: new Set(['style']),
     h1: new Set(['style']),
@@ -262,18 +261,41 @@ export function expandSandboxedPostHtml(content: string | null | undefined): str
 
 export function expandSandboxedPostHtmlForEditing(content: string | null | undefined): string | null {
     if (!containsSandboxedPostHtml(content)) return null
-    return mapDecodedSandboxMarkers(content ?? '', (decoded) => (
-        `${EDITABLE_SANDBOX_BLOCK_START}${decoded}${EDITABLE_SANDBOX_BLOCK_END}`
-    ))
+    return mapDecodedSandboxMarkers(content ?? '', buildEditableSandboxBlock)
 }
 
 export function restoreSandboxedPostHtmlAfterEditing(content: string): string {
-    return content.replace(
-        /<!--noviis-preserved-html-block:start-->([\s\S]*?)<!--noviis-preserved-html-block:end-->/gi,
-        (_segment, rawHtml: string) => (
-            `<div class="${SANDBOX_MARKER_CLASS}" data-value="${encodeSandboxedPostHtmlPayload(rawHtml)}"></div>`
-        ),
+    const restored = content.replace(
+        EDITABLE_SANDBOX_BLOCK_PATTERN,
+        (_segment, _boundaryId: string, rawHtml: string) => buildSandboxMarker(rawHtml),
     )
+    return restored.replace(
+        /<!--noviis-preserved-html-block:start-->([\s\S]*?)<!--noviis-preserved-html-block:end-->/gi,
+        (_segment, rawHtml: string) => buildSandboxMarker(rawHtml),
+    )
+}
+
+function buildEditableSandboxBlock(rawHtml: string): string {
+    const boundaryId = createEditableSandboxBoundaryId(rawHtml)
+    return `<!--noviis-preserved-html-block:start:${boundaryId}-->${rawHtml}<!--noviis-preserved-html-block:end:${boundaryId}-->`
+}
+
+function createEditableSandboxBoundaryId(rawHtml: string): string {
+    let hash = 2166136261
+    for (let index = 0; index < rawHtml.length; index += 1) {
+        hash ^= rawHtml.charCodeAt(index)
+        hash = Math.imul(hash, 16777619)
+    }
+
+    const baseId = (hash >>> 0).toString(36)
+    const normalizedRawHtml = rawHtml.toLowerCase()
+    let boundaryId = baseId
+    let suffix = 0
+    while (normalizedRawHtml.includes(`<!--noviis-preserved-html-block:end:${boundaryId}-->`)) {
+        suffix += 1
+        boundaryId = `${baseId}-${suffix}`
+    }
+    return boundaryId
 }
 
 export function mapSandboxedPostHtmlPayloads(

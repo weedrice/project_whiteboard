@@ -52,7 +52,7 @@ test('preserved HTML remains isolated while surrounding content can be edited, s
 
   await page.getByRole('button', { name: 'HTML', exact: true }).click()
   const sourceEditor = page.locator('#content')
-  await expect(sourceEditor).toHaveValue(/<!--noviis-preserved-html-block:start-->/)
+  await expect(sourceEditor).toHaveValue(/<!--noviis-preserved-html-block:start:/)
   await expect(sourceEditor).toHaveValue(/window\.authorScriptExecuted=true/)
   await expect(sourceEditor).toHaveValue(/앞쪽 일반 본문/)
   await expect(sourceEditor).toHaveValue(/뒤쪽 일반 본문/)

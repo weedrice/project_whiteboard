@@ -106,12 +106,36 @@ describe('postHtmlSandbox', () => {
         const mixed = `<p>앞</p>${encodeSandboxedPostHtml(firstRaw)}<p>중간</p>${encodeSandboxedPostHtml(secondRaw)}<p>뒤</p>`
 
         const editable = expandSandboxedPostHtmlForEditing(mixed)
-        expect(editable).toContain(`<!--noviis-preserved-html-block:start-->${firstRaw}<!--noviis-preserved-html-block:end-->`)
-        expect(editable).toContain(`<!--noviis-preserved-html-block:start-->${secondRaw}<!--noviis-preserved-html-block:end-->`)
+        expect(editable).toContain('<!--noviis-preserved-html-block:start:')
+        expect(editable).toContain(firstRaw)
+        expect(editable).toContain(secondRaw)
 
         const restored = restoreSandboxedPostHtmlAfterEditing(editable ?? '')
         expect(expandSandboxedPostHtml(restored)).toBe(`<p>앞</p>${firstRaw}<p>중간</p>${secondRaw}<p>뒤</p>`)
         expect(restored.match(/noviis-sandboxed-post-html/g)).toHaveLength(2)
+    })
+
+    it('round-trips raw HTML containing reserved boundary comments', () => {
+        const raw = [
+            '<section>앞</section>',
+            '<!--noviis-preserved-html-block:start-->',
+            '<p>경계 내부</p>',
+            '<!--noviis-preserved-html-block:end-->',
+            '<section>뒤</section>',
+        ].join('')
+
+        const editable = expandSandboxedPostHtmlForEditing(encodeSandboxedPostHtml(raw))
+        const restored = restoreSandboxedPostHtmlAfterEditing(editable ?? '')
+
+        expect(editable).toContain(raw)
+        expect(decodeSandboxedPostHtml(restored)).toBe(raw)
+    })
+
+    it('restores legacy editable boundaries for backward compatibility', () => {
+        const raw = '<section>기존 편집 원문</section>'
+        const legacyEditable = `<!--noviis-preserved-html-block:start-->${raw}<!--noviis-preserved-html-block:end-->`
+
+        expect(decodeSandboxedPostHtml(restoreSandboxedPostHtmlAfterEditing(legacyEditable))).toBe(raw)
     })
 
     it('preserves unsupported HTML added outside an existing preserved block', () => {

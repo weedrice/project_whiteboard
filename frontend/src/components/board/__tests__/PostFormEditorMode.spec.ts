@@ -168,7 +168,7 @@ describe('PostForm editor mode', () => {
 
         await findEditorModeButtons(wrapper).html.trigger('click')
         const source = (wrapper.get('#content').element as HTMLTextAreaElement).value
-        expect(source).toContain('<!--noviis-preserved-html-block:start-->')
+        expect(source).toContain('<!--noviis-preserved-html-block:start:')
         expect(source).toContain(rawWidget)
         expect(source).toContain('<p>앞 본문</p>')
         expect(source).toContain('<p>뒤 본문</p>')
