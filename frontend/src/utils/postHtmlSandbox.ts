@@ -1,11 +1,25 @@
 const SANDBOX_TRIGGER_PATTERN = /<(?:!doctype|html|head|body|style|script)\b|<\w+[^>]*\son[a-z]+\s*=/i
 const SANDBOX_MARKER_CLASS = 'noviis-sandboxed-post-html'
 const SANDBOX_MARKER_SELECTOR = `.${SANDBOX_MARKER_CLASS}[data-value]`
-const SANDBOX_MARKER_SELECTOR_PATTERN = /class=["'][^"']*\bnoviis-sandboxed-post-html\b[^"']*["'][^>]*\sdata-value=["'][^"']+["']|data-value=["'][^"']+["'][^>]*class=["'][^"']*\bnoviis-sandboxed-post-html\b[^"']*["']/i
-const SANDBOX_MARKER_ELEMENT_PATTERN = /<div\b(?=[^>]*\bclass=["'][^"']*\bnoviis-sandboxed-post-html\b[^"']*["'])(?=[^>]*\bdata-value=["'][^"']+["'])[^>]*>\s*<\/div>/gi
-const SANDBOX_MARKER_DATA_VALUE_PATTERN = /\bdata-value=(["'])([^"']+)\1/i
+const SANDBOX_MARKER_DATA_VALUE_PATTERN = /\bdata-value\s*=\s*(["'])([^"']+)\1/i
 const SANDBOX_DOCUMENT_STRUCTURE_PATTERN = /<(?:!doctype|html|head|body)\b/i
 const EDITABLE_SANDBOX_BLOCK_PATTERN = /<!--noviis-preserved-html-block:start:([a-z0-9-]+)-->([\s\S]*?)<!--noviis-preserved-html-block:end:\1-->/gi
+const HTML_RAW_TEXT_ELEMENTS = new Set(['script', 'style', 'textarea', 'title', 'xmp', 'iframe', 'noembed', 'noframes', 'plaintext'])
+
+type HtmlTagToken = {
+    start: number
+    end: number
+    name: string
+    closing: boolean
+    selfClosing: boolean
+    source: string
+}
+
+type SandboxMarkerRange = {
+    start: number
+    end: number
+    marker: string
+}
 const EDITOR_ELEMENT_ATTRIBUTES: Readonly<Record<string, ReadonlySet<string>>> = {
     p: new Set(['style']),
     h1: new Set(['style']),
@@ -74,7 +88,7 @@ export function requiresSandboxedPostHtml(content: string | null | undefined): b
 
 export function containsSandboxedPostHtml(content: string | null | undefined): boolean {
     if (!content?.includes(SANDBOX_MARKER_CLASS)) return false
-    if (typeof DOMParser === 'undefined') return SANDBOX_MARKER_SELECTOR_PATTERN.test(content)
+    if (typeof DOMParser === 'undefined') return findSandboxMarkerRanges(content).length > 0
 
     const doc = new DOMParser().parseFromString(content, 'text/html')
     return doc.body.querySelector(SANDBOX_MARKER_SELECTOR) != null
@@ -222,19 +236,17 @@ function buildSandboxMarker(content: string): string {
 }
 
 function preserveUnsupportedHtmlAroundSandboxMarkers(content: string): string {
-    const markerPattern = new RegExp(SANDBOX_MARKER_ELEMENT_PATTERN.source, SANDBOX_MARKER_ELEMENT_PATTERN.flags)
-    const markers = Array.from(content.matchAll(markerPattern))
+    const markers = findSandboxMarkerRanges(content)
     if (markers.length === 0) return buildFlattenedSandboxMarker(content)
     if (!hasOnlyTopLevelSandboxMarkers(content, markers.length)) return buildFlattenedSandboxMarker(content)
 
     const parts: string[] = []
     let segmentStart = 0
-    markers.forEach((match) => {
-        const markerStart = match.index ?? segmentStart
-        const segment = content.slice(segmentStart, markerStart)
+    markers.forEach((marker) => {
+        const segment = content.slice(segmentStart, marker.start)
         parts.push(requiresPreservedPostHtml(segment) ? buildSandboxMarker(segment) : segment)
-        parts.push(match[0])
-        segmentStart = markerStart + match[0].length
+        parts.push(marker.marker)
+        segmentStart = marker.end
     })
 
     const trailingSegment = content.slice(segmentStart)
@@ -332,21 +344,26 @@ function mapDecodedSandboxMarkers(
     content: string,
     transform: (decoded: string, marker: string) => string,
 ): string {
-    return content.replace(SANDBOX_MARKER_ELEMENT_PATTERN, (marker) => {
-        const payload = marker.match(SANDBOX_MARKER_DATA_VALUE_PATTERN)?.[2]
+    const parts: string[] = []
+    let segmentStart = 0
+    findSandboxMarkerRanges(content).forEach((range) => {
+        parts.push(content.slice(segmentStart, range.start))
+        const payload = range.marker.match(SANDBOX_MARKER_DATA_VALUE_PATTERN)?.[2]
         const decoded = decodeSandboxedPostHtmlPayload(payload)
-        return decoded == null ? marker : transform(decoded, marker)
+        parts.push(decoded == null ? range.marker : transform(decoded, range.marker))
+        segmentStart = range.end
     })
+    parts.push(content.slice(segmentStart))
+    return parts.join('')
 }
 
 function findStandaloneSandboxMarker(content: string | null | undefined): HTMLElement | string | null {
     if (!content?.includes(SANDBOX_MARKER_CLASS)) return null
     if (typeof DOMParser === 'undefined') {
         const trimmed = content.trim()
-        if (!/^<div\b[^>]*>\s*<\/div>$/is.test(trimmed)) return null
-        const match = trimmed.match(/class=["'][^"']*\bnoviis-sandboxed-post-html\b[^"']*["'][^>]*\sdata-value=["']([^"']+)["']/i)
-            ?? trimmed.match(/data-value=["']([^"']+)["'][^>]*class=["'][^"']*\bnoviis-sandboxed-post-html\b[^"']*["']/i)
-        return match?.[1] ?? null
+        const markers = findSandboxMarkerRanges(trimmed)
+        if (markers.length !== 1 || markers[0].start !== 0 || markers[0].end !== trimmed.length) return null
+        return markers[0].marker.match(SANDBOX_MARKER_DATA_VALUE_PATTERN)?.[2] ?? null
     }
 
     const doc = new DOMParser().parseFromString(content, 'text/html')
@@ -358,6 +375,117 @@ function findStandaloneSandboxMarker(content: string | null | undefined): HTMLEl
     if (!(marker instanceof HTMLElement) || !marker.matches(SANDBOX_MARKER_SELECTOR)) return null
     if (marker.childNodes.length > 0) return null
     return marker
+}
+
+function findSandboxMarkerRanges(content: string): SandboxMarkerRange[] {
+    const ranges: SandboxMarkerRange[] = []
+    let cursor = 0
+
+    while (cursor < content.length) {
+        const tagStart = content.indexOf('<', cursor)
+        if (tagStart < 0) break
+
+        if (content.startsWith('<!--', tagStart)) {
+            const commentEnd = content.indexOf('-->', tagStart + 4)
+            cursor = commentEnd < 0 ? content.length : commentEnd + 3
+            continue
+        }
+        if (content.startsWith('<![CDATA[', tagStart)) {
+            const cdataEnd = content.indexOf(']]>', tagStart + 9)
+            cursor = cdataEnd < 0 ? content.length : cdataEnd + 3
+            continue
+        }
+        if (content.startsWith('<!', tagStart) || content.startsWith('<?', tagStart)) {
+            const declarationEnd = content.indexOf('>', tagStart + 2)
+            cursor = declarationEnd < 0 ? content.length : declarationEnd + 1
+            continue
+        }
+
+        const token = parseHtmlTagAt(content, tagStart)
+        if (!token) {
+            cursor = tagStart + 1
+            continue
+        }
+
+        if (!token.closing && HTML_RAW_TEXT_ELEMENTS.has(token.name)) {
+            cursor = findRawTextElementEnd(content, token)
+            continue
+        }
+
+        if (!token.closing && !token.selfClosing && token.name === 'div' && isSandboxMarkerOpeningTag(token.source)) {
+            const closingStart = skipHtmlWhitespace(content, token.end)
+            const closingToken = parseHtmlTagAt(content, closingStart)
+            if (closingToken?.closing && closingToken.name === 'div') {
+                ranges.push({
+                    start: token.start,
+                    end: closingToken.end,
+                    marker: content.slice(token.start, closingToken.end),
+                })
+                cursor = closingToken.end
+                continue
+            }
+        }
+
+        cursor = token.end
+    }
+
+    return ranges
+}
+
+function parseHtmlTagAt(content: string, start: number): HtmlTagToken | null {
+    if (content[start] !== '<') return null
+    let cursor = start + 1
+    const closing = content[cursor] === '/'
+    if (closing) cursor += 1
+    while (/\s/.test(content[cursor] ?? '')) cursor += 1
+
+    const nameMatch = content.slice(cursor).match(/^[a-z][\w:-]*/i)
+    if (!nameMatch) return null
+    const name = nameMatch[0].toLowerCase()
+    cursor += nameMatch[0].length
+
+    let quote = ''
+    while (cursor < content.length) {
+        const character = content[cursor]
+        if (quote) {
+            if (character === quote) quote = ''
+        } else if (character === '"' || character === "'") {
+            quote = character
+        } else if (character === '>') {
+            const source = content.slice(start, cursor + 1)
+            return {
+                start,
+                end: cursor + 1,
+                name,
+                closing,
+                selfClosing: /\/\s*>$/.test(source),
+                source,
+            }
+        }
+        cursor += 1
+    }
+    return null
+}
+
+function isSandboxMarkerOpeningTag(source: string): boolean {
+    const classValue = source.match(/\bclass\s*=\s*(["'])([\s\S]*?)\1/i)?.[2] ?? ''
+    const classes = classValue.trim().split(/\s+/).filter(Boolean)
+    return classes.includes(SANDBOX_MARKER_CLASS)
+        && SANDBOX_MARKER_DATA_VALUE_PATTERN.test(source)
+}
+
+function skipHtmlWhitespace(content: string, start: number): number {
+    let cursor = start
+    while (/\s/.test(content[cursor] ?? '')) cursor += 1
+    return cursor
+}
+
+function findRawTextElementEnd(content: string, openingToken: HtmlTagToken): number {
+    if (openingToken.selfClosing || openingToken.name === 'plaintext') return content.length
+    const closingPattern = new RegExp(`<\\/\\s*${openingToken.name}\\s*>`, 'gi')
+    closingPattern.lastIndex = openingToken.end
+    const match = closingPattern.exec(content)
+    return match ? match.index + match[0].length : content.length
 }
 
 export function buildSandboxedPostHtmlSource(content: string, frameId: string): string {

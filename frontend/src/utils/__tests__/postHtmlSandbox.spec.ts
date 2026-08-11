@@ -170,6 +170,25 @@ describe('postHtmlSandbox', () => {
         })
     })
 
+    it('does not decode marker-shaped source inside scripts or comments while flattening', () => {
+        const rawWidget = '<style>.widget{display:grid}</style><section>실제 블록</section>'
+        const actualMarker = encodeSandboxedPostHtml(rawWidget)
+        const literalMarker = encodeSandboxedPostHtml('<section>예제 마커</section>')
+        const source = [
+            '<section id="outer">',
+            `<script>const example = ${JSON.stringify(literalMarker)}</script>`,
+            `<!-- ${literalMarker} -->`,
+            actualMarker,
+            '</section>',
+        ].join('')
+
+        const encoded = encodeSandboxedPostHtml(source)
+        const flattened = decodeSandboxedPostHtml(encoded)
+
+        expect(flattened).toBe(source.replace(actualMarker, rawWidget))
+        expect(flattened?.match(/noviis-sandboxed-post-html/g)).toHaveLength(2)
+    })
+
     it('maps preserved payloads without changing marker attribute syntax or damaged markers', () => {
         const raw = '<section>원본</section>'
         const payload = encodeSandboxedPostHtml(raw).match(/data-value="([^"]+)"/)?.[1]
