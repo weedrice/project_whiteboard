@@ -37,7 +37,9 @@ Date: 2026-07-08
 
 - `GET /api/v1/users/me/keyword-subscriptions`
 - `POST /api/v1/users/me/keyword-subscriptions`
-- `DELETE /api/v1/users/me/keyword-subscriptions/{subscriptionId}`
+- `DELETE /api/v1/users/me/keyword-subscriptions`
+- Create and delete requests identify the subscription with a `{ "keyword": string }` JSON body; deletion does
+  not use a subscription ID path parameter.
 - Keyword subscriptions are managed from the reachable user settings screen.
 
 ### Polls
