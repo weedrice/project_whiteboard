@@ -57,7 +57,7 @@ workflow 기본 권한은 `contents: read`이며 attestation과 artifact metadat
 
 Pinned actionlint 1.7.7은 GitHub의 2026 `concurrency.queue`와 `artifact-metadata` permission schema를 아직 알지 못하므로 CI는 그 두 exact parser diagnostics만 무시한다. 별도 YAML AST 계약이 production deploy의 `queue: single`, SEO 검증의 `queue: max`, 최소 permission, main-only deploy, secret allowlist를 검증한다. actionlint가 두 필드를 지원하는 버전으로 갱신되면 ignore도 같은 변경에서 제거한다.
 
-주요 timeout은 change detection·gate·SEO preflight 5분, backend test 45분, frontend test 60분, PostgreSQL·ops 30분, release 20–25분, deploy 30분, SEO 검증 15분이다. YAML에서 값을 바꾸면 이 문서도 같은 변경에서 갱신한다.
+주요 timeout은 change detection·gate·SEO preflight 5분, backend test 45분, frontend test 60분, PostgreSQL·ops 30분, backend/frontend candidate 각각 20분·25분, backend/frontend release 각각 10분, deploy 30분, SEO 검증 15분이다. YAML에서 값을 바꾸면 이 문서도 같은 변경에서 갱신한다.
 
 ## Production environment와 Secrets
 
