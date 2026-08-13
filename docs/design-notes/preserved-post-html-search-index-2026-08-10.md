@@ -8,6 +8,10 @@
 
 V88은 저장 본문을 다시 쓰지 않고 검색 시점에 마커를 확장하는
 `noviis_expand_preserved_post_html(text)` 함수와 그 표현식에 대한 GIN trigram 인덱스를 추가한다.
+현재 애플리케이션에서 이 함수는 semantic search의 keyword fallback 경로에 적용되어 있다.
+통합 검색, 게시글 검색, 스페이스 내 목록 검색은 여전히 원본 `contents`에 대한
+`containsIgnoreCase` 조건과 기존 `idx_posts_contents_trgm` 인덱스를 사용하므로, 보존 마커 안에만
+있는 키워드는 해당 검색 경로에서 조회되지 않는다.
 함수 정의는 정적 분석으로 부작용을 완전히 증명할 수 없는 procedural SQL이므로, additive
 변경이지만 migration 정책상 contract 단계로 분류한다.
 
@@ -19,8 +23,10 @@ V88은 저장 본문을 다시 쓰지 않고 검색 시점에 마커를 확장�
   표현식과 인덱스를 계속 사용할 수 있다.
 - V88은 `executeInTransaction=false`로 실행한다. 동시 인덱스 생성 중 쓰기 트래픽을 장시간
   막지 않도록 `lock_timeout`을 5초로 제한한다.
-- 새 애플리케이션은 함수 기반 검색을 사용하지만 테이블과 기존 인덱스를 제거하거나 변경하지
-  않으므로 이전 애플리케이션의 스키마 계약은 유지된다.
+- 새 애플리케이션의 semantic keyword fallback은 함수 기반 검색을 사용하지만 테이블과 기존
+  인덱스를 제거하거나 변경하지 않으므로 이전 애플리케이션의 스키마 계약은 유지된다.
+- 일반·통합 게시글 검색은 아직 함수 기반 표현식으로 전환되지 않았다. 이 경로까지 보존 마커
+  검색을 지원하려면 repository 조건과 회귀 테스트를 별도로 변경해야 한다.
 
 ## 적용과 실패 복구
 
@@ -42,7 +48,8 @@ V88은 저장 본문을 다시 쓰지 않고 검색 시점에 마커를 확장�
 
 ## 검증
 
-- 보존 마커 안의 키워드가 일반 검색과 semantic fallback 검색에서 조회되는지 확인한다.
+- 보존 마커 안의 키워드가 semantic fallback 검색에서 조회되는지 확인한다.
 - 일반 본문과 잘못된 Base64 마커가 기존과 동일하게 검색되는지 확인한다.
-- `EXPLAIN`에서 함수 기반 검색이 `idx_posts_expanded_contents_trgm`을 사용할 수 있는지 확인한다.
+- `EXPLAIN`에서 semantic fallback의 함수 기반 검색이 `idx_posts_expanded_contents_trgm`을 사용할
+  수 있는지 확인한다.
 - V88 적용 후 이전 백엔드 revision의 PostgreSQL compatibility smoke test를 실행한다.
