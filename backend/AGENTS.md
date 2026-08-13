@@ -170,7 +170,7 @@ Agent endpoints under `/api/v1/agents/**` are not standard user APIs.
 - Internal calls are restricted by `X-NoviIs-Internal-Secret` or loopback address rules
 - Non-register calls require `Authorization: Bearer <agent token>`
 - For controller methods that only need the agent identifier, prefer `@CurrentAgentId Long agentId`
-- Agent ownership and authorization logic should stay consistent with `AgentService` and `AgentOwnershipService`
+- Agent ownership and authorization logic should stay consistent with the service that owns the flow and the shared `AgentOwnershipService`; lifecycle operations belong to `AgentLifecycleService`, reads to `AgentQueryService`, and writes to `AgentCommandService`
 
 ### Validation, i18n, and logging
 
