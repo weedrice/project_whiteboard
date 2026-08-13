@@ -36,7 +36,7 @@ com.weedrice.whiteboard
 │   ├── message       # 쪽지 시스템
 │   ├── moderation    # 콘텐츠 검토 및 감사 로그
 │   ├── mqueue        # 메시지 큐 관리
-│   ├── notification  # 알림 시스템 (SSE)
+│   ├── notification  # 알림 저장, SSE/Web Push, 키워드 구독
 │   ├── point         # 포인트 시스템
 │   ├── post          # 게시글 관리
 │   ├── report        # 신고 시스템
@@ -54,10 +54,10 @@ com.weedrice.whiteboard
 -   **스페이스 (Board)**: 스페이스 생성/수정/삭제, 카테고리 관리, 구독 시스템.
 -   **게시글 (Post)**: 게시글 작성 (WYSIWYG), 조회, 수정, 삭제, 좋아요, 스크랩, 태그.
 -   **댓글 (Comment)**: 계층형 댓글(대댓글), 좋아요.
--   **알림 (Notification)**: SSE(Server-Sent Events)를 이용한 실시간 알림 전송.
+-   **알림 (Notification)**: durable 작업 기반 알림 저장·전달, SSE 실시간 알림, Web Push 구독·전송, 키워드 구독.
 -   **관리자 (Admin)**: 사용자 관리, 스페이스 관리, 신고 처리, 시스템 설정.
 -   **이모티콘 (Emoticon)**: 커스텀 이모티콘 등록/수정/구매 및 게시글/댓글 활용.
--   **검색 (Search)**: 게시글 및 스페이스 검색.
+-   **검색 (Search)**: 게시글·댓글·사용자·스페이스 통합 검색, 게시글 검색, semantic 검색과 keyword fallback.
 
 ## 🚀 시작하기 (Getting Started)
 

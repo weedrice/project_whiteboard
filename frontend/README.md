@@ -1,6 +1,6 @@
 # NoviIs Frontend
 
-NoviIs 커뮤니티 플랫폼의 Vue 3 기반 프론트엔드 애플리케이션입니다. Vite, TypeScript, Pinia, TanStack Vue Query, Vue Router, Vue I18n을 사용하며 백엔드 API, 인증, SSE 알림, 게시글 에디터, 노비콘 기능과 연동됩니다.
+NoviIs 커뮤니티 플랫폼의 Vue 3 기반 프론트엔드 애플리케이션입니다. Vite, TypeScript, Pinia, TanStack Vue Query, Vue Router, Vue I18n을 사용하며 백엔드 API, 인증, SSE/Web Push 알림, 게시글 에디터, 노비콘, PWA 기능과 연동됩니다.
 
 ## 기술 스택
 
@@ -75,7 +75,8 @@ src/
 - 사용자 설정, 프로필, 쪽지, 알림, 구독 게시판
 - 관리자 대시보드와 관리 화면
 - OAuth callback, token refresh, route guard
-- SSE 기반 실시간 알림
+- SSE 기반 실시간 알림과 브라우저 Web Push 구독·설정
+- 설치형 PWA, 오프라인 fallback과 새 버전 안내
 - SEO sitemap/prerender scripts
 
 ## 시작하기

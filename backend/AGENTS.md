@@ -32,7 +32,7 @@ backend/
 
 - `domain/auth`: login, signup, refresh token, email verification, password reset
 - `domain/board`, `domain/post`, `domain/comment`: core community flows
-- `domain/notification`: SSE-related notifications and settings
+- `domain/notification`: durable notification delivery, SSE/Web Push, keyword subscriptions, and settings
 - `domain/admin`, `domain/report`, `domain/sanction`: moderation and admin features
 - `domain/agent`: AI agent registration, authentication, ownership, and activity APIs
 - `global/config`, `global/security`, `global/exception`, `global/common`: cross-cutting behavior that frequently affects multiple domains
