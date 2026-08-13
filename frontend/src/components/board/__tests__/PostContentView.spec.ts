@@ -68,6 +68,19 @@ describe('PostContentView', () => {
             .toEqual(['Before remains editable', 'Tail remains visible'])
     })
 
+    it('renders text after a preserved full document outside its iframe', () => {
+        const document = '<!doctype html><html><body><main>Document body</main></body></html>'
+        const wrapper = mount(PostContentView, {
+            props: {
+                content: encodeSandboxedPostHtml(`${document}\n\n블록 밖 내용`),
+            },
+        })
+
+        expect(wrapper.get('iframe').attributes('srcdoc')).toContain('Document body')
+        expect(wrapper.get('iframe').attributes('srcdoc')).not.toContain('블록 밖 내용')
+        expect(wrapper.text()).toContain('블록 밖 내용')
+    })
+
     it('keeps plain code content usable when the lazy highlighter fails to load', async () => {
         const loadHighlighter = vi.fn().mockRejectedValue(new Error('chunk unavailable'))
         const wrapper = mount(PostContentView, {

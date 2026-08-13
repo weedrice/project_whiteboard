@@ -117,6 +117,45 @@ describe('postHtmlSandbox', () => {
         ])
     })
 
+    it('moves text after a full document closing tag outside the preserved block', () => {
+        const document = '<!doctype html><html><head><style>.card{display:grid}</style></head><body><p>문서</p></body></html>'
+        const marker = encodeSandboxedPostHtml(`${document}\n\n블록 밖 내용`)
+
+        expect(splitSandboxedPostHtmlSegments(marker)).toEqual([
+            { type: 'sandbox', html: document },
+            { type: 'content', html: '\n\n블록 밖 내용' },
+        ])
+
+        const editable = expandSandboxedPostHtmlForEditing(marker) ?? ''
+        const restored = restoreSandboxedPostHtmlAfterEditing(editable)
+        expect(restored).toContain('noviis-sandboxed-post-html')
+        expect(restored.endsWith('\n\n블록 밖 내용')).toBe(true)
+        expect(splitSandboxedPostHtmlSegments(restored)).toEqual([
+            { type: 'sandbox', html: document },
+            { type: 'content', html: '\n\n블록 밖 내용' },
+        ])
+    })
+
+    it('ignores closing html text inside raw-text elements when splitting a full document', () => {
+        const document = '<html><body><script>const example = "</html>"</script><p>본문</p></body></html>'
+        const marker = encodeSandboxedPostHtml(`${document}<p>뒤</p>`)
+
+        expect(splitSandboxedPostHtmlSegments(marker)).toEqual([
+            { type: 'sandbox', html: document },
+            { type: 'content', html: '<p>뒤</p>' },
+        ])
+    })
+
+    it('keeps unsupported trailing html isolated in its own sandbox', () => {
+        const document = '<html><body><p>문서</p></body></html>'
+        const unsupportedTail = '<section data-layout="custom">별도 블록</section>'
+
+        expect(splitSandboxedPostHtmlSegments(encodeSandboxedPostHtml(document + unsupportedTail))).toEqual([
+            { type: 'sandbox', html: document },
+            { type: 'sandbox', html: unsupportedTail },
+        ])
+    })
+
     it('round-trips mixed preserved blocks through editable source boundaries', () => {
         const firstRaw = '<style>.first{display:grid}</style><section>첫 번째</section>'
         const secondRaw = '<custom-widget data-value="2"></custom-widget>'

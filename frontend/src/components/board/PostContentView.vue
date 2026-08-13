@@ -39,7 +39,7 @@ const sanitizedHtml = computed(() => renderPostContentHtml(props.content, {
   copyAriaLabel: t('board.writePost.codeBlock.copyAriaLabel'),
 }, codeBlockHighlighter.value))
 
-function renderSanitizedSegment(html: string): string {
+function renderSanitizedSegment(html: string) {
   return renderPostContentHtml(html, {
     copy: t('board.writePost.codeBlock.copy'),
     copyAriaLabel: t('board.writePost.codeBlock.copyAriaLabel'),

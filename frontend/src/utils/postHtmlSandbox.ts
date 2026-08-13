@@ -317,18 +317,42 @@ export function splitSandboxedPostHtmlSegments(
     let segmentStart = 0
     ranges.forEach((range) => {
         const normalHtml = content.slice(segmentStart, range.start)
-        if (normalHtml.trim()) segments.push({ type: 'content', html: normalHtml })
+        appendSandboxedPostHtmlSegment(segments, 'content', normalHtml)
 
-        segments.push({
-            type: 'sandbox',
-            html: decodeSandboxedPostHtmlPayload(range.payload) ?? range.marker,
-        })
+        const decoded = decodeSandboxedPostHtmlPayload(range.payload)
+        if (decoded == null) {
+            appendSandboxedPostHtmlSegment(segments, 'sandbox', range.marker)
+        } else {
+            const documentParts = splitTrailingContentFromFullHtmlDocument(decoded)
+            appendSandboxedPostHtmlSegment(segments, 'sandbox', documentParts.documentHtml)
+            if (documentParts.trailingHtml) {
+                appendSandboxedPostHtmlSegment(
+                    segments,
+                    requiresPreservedPostHtml(documentParts.trailingHtml) ? 'sandbox' : 'content',
+                    documentParts.trailingHtml,
+                )
+            }
+        }
         segmentStart = range.end
     })
 
     const trailingHtml = content.slice(segmentStart)
-    if (trailingHtml.trim()) segments.push({ type: 'content', html: trailingHtml })
+    appendSandboxedPostHtmlSegment(segments, 'content', trailingHtml)
     return segments
+}
+
+function appendSandboxedPostHtmlSegment(
+    segments: SandboxedPostHtmlSegment[],
+    type: SandboxedPostHtmlSegment['type'],
+    html: string,
+): void {
+    if (!html.trim()) return
+    const previous = segments.at(-1)
+    if (type === 'content' && previous?.type === 'content') {
+        previous.html += html
+        return
+    }
+    segments.push({ type, html })
 }
 
 export function expandSandboxedPostHtmlForEditing(content: string | null | undefined): string | null {
@@ -340,7 +364,7 @@ export function restoreSandboxedPostHtmlAfterEditing(content: string): string {
     const restored = restoreVersionedEditableSandboxBlocks(content)
     return restored.replace(
         /<!--noviis-preserved-html-block:start-->([\s\S]*?)<!--noviis-preserved-html-block:end-->/gi,
-        (_segment, rawHtml: string) => buildSandboxMarker(rawHtml),
+        (_segment, rawHtml: string) => restoreEditableSandboxRawHtml(rawHtml),
     )
 }
 
@@ -352,11 +376,22 @@ function restoreVersionedEditableSandboxBlocks(content: string): string {
     let segmentStart = 0
     ranges.forEach((range) => {
         parts.push(content.slice(segmentStart, range.start))
-        parts.push(buildSandboxMarker(range.rawHtml))
+        parts.push(restoreEditableSandboxRawHtml(range.rawHtml))
         segmentStart = range.end
     })
     parts.push(content.slice(segmentStart))
     return parts.join('')
+}
+
+function restoreEditableSandboxRawHtml(rawHtml: string): string {
+    const documentParts = splitTrailingContentFromFullHtmlDocument(rawHtml)
+    const restoredDocument = buildSandboxMarker(documentParts.documentHtml)
+    if (!documentParts.trailingHtml) return restoredDocument
+    return restoredDocument + (
+        requiresPreservedPostHtml(documentParts.trailingHtml)
+            ? buildSandboxMarker(documentParts.trailingHtml)
+            : documentParts.trailingHtml
+    )
 }
 
 function findEditableSandboxBlockRanges(content: string): EditableSandboxBlockRange[] {
@@ -534,6 +569,63 @@ function findSandboxMarkerRanges(content: string): SandboxMarkerRange[] {
     }
 
     return ranges
+}
+
+function splitTrailingContentFromFullHtmlDocument(content: string): {
+    documentHtml: string
+    trailingHtml: string
+} {
+    const closingHtmlEnd = findFullHtmlDocumentEnd(content)
+    if (closingHtmlEnd == null) return { documentHtml: content, trailingHtml: '' }
+
+    const trailingHtml = content.slice(closingHtmlEnd)
+    if (!trailingHtml.trim()) return { documentHtml: content, trailingHtml: '' }
+    return {
+        documentHtml: content.slice(0, closingHtmlEnd),
+        trailingHtml,
+    }
+}
+
+function findFullHtmlDocumentEnd(content: string): number | null {
+    let cursor = 0
+    let hasOpeningHtmlTag = false
+
+    while (cursor < content.length) {
+        const tagStart = content.indexOf('<', cursor)
+        if (tagStart < 0) break
+
+        if (content.startsWith('<!--', tagStart)) {
+            const commentEnd = content.indexOf('-->', tagStart + 4)
+            cursor = commentEnd < 0 ? content.length : commentEnd + 3
+            continue
+        }
+        if (content.startsWith('<![CDATA[', tagStart)) {
+            const cdataEnd = content.indexOf(']]>', tagStart + 9)
+            cursor = cdataEnd < 0 ? content.length : cdataEnd + 3
+            continue
+        }
+        if (content.startsWith('<!', tagStart) || content.startsWith('<?', tagStart)) {
+            const declarationEnd = content.indexOf('>', tagStart + 2)
+            cursor = declarationEnd < 0 ? content.length : declarationEnd + 1
+            continue
+        }
+
+        const token = parseHtmlTagAt(content, tagStart)
+        if (!token) {
+            cursor = tagStart + 1
+            continue
+        }
+        if (!token.closing && HTML_RAW_TEXT_ELEMENTS.has(token.name)) {
+            cursor = findRawTextElementEnd(content, token)
+            continue
+        }
+        if (token.name === 'html') {
+            if (!token.closing) hasOpeningHtmlTag = true
+            else if (hasOpeningHtmlTag) return token.end
+        }
+        cursor = token.end
+    }
+    return null
 }
 
 function parseHtmlTagAt(content: string, start: number): HtmlTagToken | null {
