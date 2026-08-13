@@ -522,7 +522,7 @@ OAuth 가입을 취소하고 일반 가입으로 돌아갈 수 있다.
 | `PUT` | `/api/v1/admin/configs` | 전역 설정 일괄 수정 |
 | `PUT` | `/api/v1/admin/configs/{key}` | 전역 설정 수정 |
 | `DELETE` | `/api/v1/admin/configs/{key}` | 전역 설정 삭제 |
-| `POST` | `/api/v1/admin/badges/backfill` | 기존 사용자 뱃지 backfill enqueue |
+| `POST` | `/api/v1/admin/badges/backfill` | 기존 활성 사용자의 콘텐츠 뱃지 동기 일괄 보정 |
 | `POST` | `/api/v1/security/csp-report` | 브라우저 CSP 위반 report 수집 |
 | `POST` | `/api/v1/logs/client` | 브라우저 전역 오류 수집, JSON body 최대 32 KiB |
 
