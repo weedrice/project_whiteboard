@@ -13,8 +13,8 @@
 
 ### 1.2 `config`
 Spring Framework 및 라이브러리 설정을 담당합니다.
-- **SecurityConfig.java**: Spring Security 설정 (URL별 접근 권한, 필터 체인 등).
-- **WebConfig.java**: CORS 설정, WebMvc 설정 등.
+- **SecurityConfig.java**: URL별 접근 권한, 보안 필터 체인과 CORS 허용 origin·method·header를 설정합니다.
+- **WebConfig.java**: IP 차단, rate limit, 인증 쿠키 origin, referer 검사를 위한 Spring MVC interceptor를 등록합니다.
 - **QuerydslConfig.java**: QueryDSL `JPAQueryFactory` 빈 등록.
 - **OpenApiConfig.java**: Swagger/OpenAPI 문서 설정.
 
@@ -26,7 +26,7 @@ Spring Framework 및 라이브러리 설정을 담당합니다.
 
 ### 1.4 `exception`
 전역 예외 처리 전략을 정의합니다.
-- **ErrorCode.java**: 애플리케이션에서 발생하는 모든 에러 코드와 메시지를 정의한 Enum입니다.
+- **ErrorCode.java**: 일반 사용자·관리·전역 흐름의 `BusinessException` 에러 코드와 메시지 키를 정의한 Enum입니다. Agent 쓰기 API의 기계 판독용 코드는 도메인 소유 `AgentWriteErrorCode`가 별도로 정의합니다.
 - **BusinessException.java**: 비즈니스 로직에서 발생하는 예외의 기본 클래스입니다.
 - **GlobalExceptionHandler.java**: `@ControllerAdvice`를 사용하여 애플리케이션 전역에서 발생하는 예외를 포착하고 표준 `ApiResponse` 포맷으로 변환합니다.
 
