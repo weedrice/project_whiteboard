@@ -884,7 +884,7 @@ Tokyo가 그대로 남고, 다음 방문에 Tokyo로 되돌아간다. 눈에 보
 - **보안 헤더**: CSP가 `default-src 'self'`, `object-src 'none'`, `frame-ancestors 'none'`으로 조여져 있고 report-uri까지 연결되어 있다.
 - **번들 분할**: 라우터 view import 53개가 전부 동적 import이며 뷰 정적 import이 없다.
 - **타입 안정성**: `any` 3건, `@ts-ignore` 0건, `eslint-disable` 0건, TODO/FIXME 0건.
-- **메시지 번들**: 한국어·영어 각 150키로 완전 일치하며 `GlobalExceptionTest`가 parity와 `MessageFormat` 렌더링을 검증한다.
+- **메시지 번들**: 한국어·영어 각 156키로 완전 일치하며 `GlobalExceptionTest`가 parity와 `MessageFormat` 렌더링을 검증한다.
 - **CI 구성**: paths-filter로 검증 범위와 배포 범위를 분리하고, 배포 필터만 테스트 파일을 제외한다. 검증 필터는 `frontend/**` 전체를 포함하므로 테스트 변경도 CI를 거친다. Actions는 SHA로 고정되어 있다.
 - **페이지네이션 방어**: `PageRequestUtils`가 페이지 크기를 상한으로 클램프하고, 정렬 속성을 allowlist로 걸러 정렬 주입을 차단한다. 설계 정리 여지는 F1로 분리했고 방어 자체는 유효하다.
 - **로그 마스킹**: `SensitiveDataMaskingFilter`가 AOP 파라미터 로깅, logback 패턴 변환(`MaskedMessageConverter`), DB 에러 로그 적재 세 경로에 모두 적용된다.
