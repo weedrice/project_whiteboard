@@ -10,8 +10,12 @@
   - **썸네일 URL 결정**: 첨부파일 이미지가 있으면 해당 URL 사용, 없으면 본문에서 첫 번째 `<img src>` 추출하여 사용
 - 게시글 상세: 조회수 증가 및 ViewHistory 갱신, 태그·이미지 URL·좋아요/스크랩 여부·관리자 여부 포함 응답.
 - 작성/수정/삭제: 카테고리 권한/공지 작성 권한 검증, 태그·첨부 파일 연결, 버전 기록, 작성시 포인트 +50 / 삭제시 -50.
-- 좋아요/스크랩: 중복 방지, 좋아요 시 작성자에게 알림 발행, 스크랩/해제 지원.
+- 좋아요/스크랩: 중복 방지, 좋아요 시 작성자에게 알림 발행, 스크랩/해제와 사용자별 스크랩 폴더·폴더 이동 지원.
+- 관련 글/투표: 태그·스페이스 기반 관련 글과 단일·복수 선택 투표/투표 취소를 제공.
+- 시리즈: 사용자가 게시글 시리즈를 생성·수정·삭제하고 게시글을 연결.
+- 관리 도구: 스페이스 매니저가 게시글을 블라인드하거나 해제.
 - 초안: 로그인 사용자의 초안 저장/수정/삭제 및 단건/목록 조회, localStorage 복구와 자동·수동 저장 지원.
+- 예약 발행: 예약 게시글 생성·목록·상세·수정·취소와 예약 시각 발행을 제공.
 - 이력: 게시글 버전 목록, 최근 본 글(Page) 조회, 게시글별 열람 기록 수정.
 
 ## 2. API Endpoints
@@ -21,6 +25,9 @@
 | `GET` | `/api/v1/boards/{boardUrl}/posts` | 스페이스 게시글 목록 조회(필터/키워드 기록 포함) |
 | `GET` | `/api/v1/posts/trending` | 최근 24시간 인기 게시글 목록 |
 | `GET` | `/api/v1/posts/{postId}` | 게시글 상세 조회 |
+| `GET` | `/api/v1/posts/{postId}/related` | 관련 게시글 추천 |
+| `POST` | `/api/v1/posts/{postId}/manager/blind` | 매니저 게시글 블라인드 |
+| `DELETE` | `/api/v1/posts/{postId}/manager/blind` | 매니저 게시글 블라인드 해제 |
 | `POST` | `/api/v1/posts/{postId}/view` | 게시글 조회 기록 |
 | `PUT` | `/api/v1/posts/{postId}/history` | 게시글 열람 이력(체류/마지막 댓글) 갱신 |
 | `POST` | `/api/v1/boards/{boardUrl}/posts` | 게시글 작성 |
@@ -28,14 +35,31 @@
 | `DELETE` | `/api/v1/posts/{postId}` | 게시글 삭제 |
 | `POST` | `/api/v1/posts/{postId}/like` | 게시글 좋아요 |
 | `DELETE` | `/api/v1/posts/{postId}/like` | 게시글 좋아요 취소 |
+| `POST` | `/api/v1/posts/{postId}/poll/vote` | 게시글 투표 |
+| `DELETE` | `/api/v1/posts/{postId}/poll/vote` | 게시글 투표 취소 |
 | `POST` | `/api/v1/posts/{postId}/scrap` | 게시글 스크랩 |
 | `DELETE` | `/api/v1/posts/{postId}/scrap` | 게시글 스크랩 해제 |
+| `PATCH` | `/api/v1/users/me/scraps/{postId}` | 스크랩 폴더 이동 또는 해제 |
 | `GET` | `/api/v1/users/me/scraps` | 내 스크랩 목록 |
+| `GET` | `/api/v1/users/me/scrap-folders` | 스크랩 폴더 목록 |
+| `POST` | `/api/v1/users/me/scrap-folders` | 스크랩 폴더 생성 |
+| `PATCH` | `/api/v1/users/me/scrap-folders/{folderId}` | 스크랩 폴더 수정 |
+| `DELETE` | `/api/v1/users/me/scrap-folders/{folderId}` | 스크랩 폴더 삭제 |
+| `GET` | `/api/v1/users/me/post-series` | 내 게시글 시리즈 목록 |
+| `POST` | `/api/v1/users/me/post-series` | 게시글 시리즈 생성 |
+| `PATCH` | `/api/v1/users/me/post-series/{seriesId}` | 게시글 시리즈 수정 |
+| `DELETE` | `/api/v1/users/me/post-series/{seriesId}` | 게시글 시리즈 삭제 |
 | `GET` | `/api/v1/users/me/drafts` | 내 초안 목록 |
+| `GET` | `/api/v1/users/me/drafts/match` | 스페이스·원본 게시글·클라이언트 키 기준 초안 후보 조회 |
 | `GET` | `/api/v1/drafts/{draftId}` | 초안 단건 조회 |
 | `POST` | `/api/v1/drafts` | 초안 저장/수정 |
 | `DELETE` | `/api/v1/drafts/{draftId}` | 초안 삭제 |
 | `GET` | `/api/v1/posts/{postId}/versions` | 게시글 버전 이력 조회 |
+| `POST` | `/api/v1/boards/{boardUrl}/scheduled-posts` | 예약 게시글 생성 |
+| `GET` | `/api/v1/users/me/scheduled-posts` | 내 예약 게시글 목록 |
+| `GET` | `/api/v1/scheduled-posts/{scheduledPostId}` | 예약 게시글 상세 |
+| `PUT` | `/api/v1/scheduled-posts/{scheduledPostId}` | 예약 게시글 수정 |
+| `DELETE` | `/api/v1/scheduled-posts/{scheduledPostId}` | 예약 게시글 취소 |
 
 ## 3. 초안 정책
 

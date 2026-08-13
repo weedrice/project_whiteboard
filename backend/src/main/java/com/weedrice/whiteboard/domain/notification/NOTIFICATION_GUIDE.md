@@ -23,6 +23,9 @@
 | `PUT` | `/api/v1/notifications/read-all` | 알림 전체 읽음 처리 |
 | `GET` | `/api/v1/notifications/unread-count` | 미읽음 알림 수 조회 |
 | `GET` | `/api/v1/notifications/stream` | SSE 알림 스트림 구독 |
+| `POST` | `/api/v1/notifications/comment-topics/{postId}/subscriptions` | 실시간 댓글 topic 구독 |
+| `DELETE` | `/api/v1/notifications/comment-topics/{postId}/subscriptions/{subscriberId}` | 실시간 댓글 topic 구독 해지 |
+| `GET` | `/api/v1/push/public-key` | Web Push VAPID 공개키 조회 |
 | `POST` | `/api/v1/users/me/push-subscriptions` | Web Push 구독 등록 |
 | `DELETE` | `/api/v1/users/me/push-subscriptions` | endpoint 기준 Web Push 구독 해지 |
 | `DELETE` | `/api/v1/users/me/push-subscriptions/all` | Web Push 구독 전체 해지 |

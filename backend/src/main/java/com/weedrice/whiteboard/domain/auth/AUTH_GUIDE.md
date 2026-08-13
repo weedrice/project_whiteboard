@@ -11,12 +11,15 @@
 - 계정 찾기/재설정: 인증된 이메일로 로그인 ID 찾기, fragment에 토큰을 담은 재설정 링크/코드 발송 및 토큰 유효성 검증 뒤 비밀번호 변경. 토큰 승격과 사용은 User → VerificationCode → PasswordResetToken 잠금 순서를 지킵니다.
 - 인증 retention: 만료 비밀번호 재설정 토큰을 bounded batch로 먼저 정리한 뒤 만료 인증 코드를 정리하며, 인증 코드 삭제 시 연결 토큰의 참조는 null로 전환됩니다.
 - 재가입 지원: 사전 확인 경로는 계정 열거를 막기 위해 고정된 비식별 응답만 반환하며, 실제 재가입 정보는 이메일 인증 성공 응답에서 제공합니다.
+- OAuth 가입 ticket: 미가입 OAuth 사용자의 가입 정보는 10분 수명 HttpOnly 쿠키로 전달하며, 조회 실패·가입 성공·명시적 취소 시 쿠키와 서버 ticket을 정리합니다.
 
 ## 2. API Endpoints
 
 | Method | URI | 설명 |
 | :----- | :------------------------------- | :----------------------------- |
 | `POST` | `/api/v1/auth/signup` | 회원가입 |
+| `GET` | `/api/v1/auth/oauth/signup-ticket` | HttpOnly OAuth 가입 쿠키의 표시용 정보 조회 |
+| `DELETE` | `/api/v1/auth/oauth/signup-ticket` | OAuth 가입 흐름 취소 및 가입 쿠키 만료 |
 | `POST` | `/api/v1/auth/login` | 로그인 |
 | `POST` | `/api/v1/auth/logout` | Refresh Token 폐기 |
 | `POST` | `/api/v1/auth/refresh` | Access/Refresh 재발급 |

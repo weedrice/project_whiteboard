@@ -12,6 +12,8 @@
 - 문의 스페이스 보장: 시스템 문의 스페이스가 필요한 경우 생성/복구합니다.
 - 카테고리 관리: 최소 작성 권한(minWriteRole) 기반으로 생성/수정/비활성화 처리.
 - 공지 조회: 스페이스별 공지 게시글 목록 제공.
+- 개인화 탐색: 관심 topic 기반 추천 스페이스와 구독 스페이스의 최근 갱신 정보를 제공.
+- 정렬: 관리자는 활성 카테고리 전체 순서를 원자적으로 변경.
 
 ## 2. API Endpoints
 
@@ -20,6 +22,8 @@
 | `GET` | `/api/v1/boards` | 활성 스페이스 목록 조회 |
 | `GET` | `/api/v1/boards/all` | 전체 스페이스 목록 조회 (SUPER_ADMIN) |
 | `GET` | `/api/v1/boards/top` | 인기 스페이스 상위 15개 조회 |
+| `GET` | `/api/v1/boards/recommendations` | 관심 topic 기반 추천 스페이스 조회 |
+| `GET` | `/api/v1/boards/recent-updates` | 구독 스페이스 최근 갱신 정보 조회 |
 | `GET` | `/api/v1/boards/{boardUrl}` | 스페이스 상세/카테고리/구독 상태 조회 |
 | `GET` | `/api/v1/boards/{boardUrl}/notices` | 스페이스 공지 게시글 목록 |
 | `POST` | `/api/v1/boards` | 스페이스 생성 |
@@ -32,6 +36,7 @@
 | `POST` | `/api/v1/boards/{boardUrl}/categories` | 카테고리 생성 (스페이스/슈퍼 관리자) |
 | `PUT` | `/api/v1/boards/categories/{categoryId}` | 카테고리 수정 |
 | `DELETE` | `/api/v1/boards/categories/{categoryId}` | 카테고리 비활성화 |
+| `PUT` | `/api/v1/boards/{boardUrl}/categories/order` | 활성 카테고리 전체 순서 변경 |
 | `POST` | `/api/v1/boards/{boardUrl}/subscribe` | 스페이스 구독 |
 | `DELETE` | `/api/v1/boards/{boardUrl}/subscribe` | 스페이스 구독 해지 |
 | `PUT` | `/api/v1/boards/subscriptions/order` | 내 구독 스페이스 순서 변경 |

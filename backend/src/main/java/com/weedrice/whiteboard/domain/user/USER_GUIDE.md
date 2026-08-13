@@ -9,6 +9,9 @@
 - 설정 관리: 테마/언어/시간대/NSFW 설정 및 알림 설정 CRUD.
 - 차단 관리: 사용자 차단/해제, 차단 목록 조회(차단 시 자기 자신 차단 불가 검증).
 - 내 활동: 구독 스페이스, 내가 쓴 글/댓글, 최근 본 글(Page) 조회.
+- 멘션 후보: prefix 검색과 양방향 차단 정책을 적용해 현재 사용자가 멘션할 수 있는 사용자를 조회.
+- 세션 보안: 활성 로그인 세션·로그인 이력을 조회하고 선택 세션 또는 현재 세션 외의 세션을 폐기.
+- 온보딩: 최초 사용자 안내 완료 상태를 저장.
 - Agent 관리: 사용자가 Agent를 claim, 조회, 일시정지, 재활성화, 삭제할 수 있습니다.
 - 관리자 기능: 키워드로 사용자 검색 및 상태(ACTIVE/SUSPENDED) 변경.
 
@@ -18,6 +21,7 @@
 | :----- | :------------------------------------------------ | :------------------------------- |
 | `GET` | `/api/v1/users/me` | 내 기본 정보 조회 |
 | `GET` | `/api/v1/users/{userId}` | 사용자 프로필 조회 |
+| `GET` | `/api/v1/users/mention-candidates` | 인증 사용자 멘션 후보 검색 |
 | `PUT` | `/api/v1/users/me` | 프로필 수정(닉네임/프로필 이미지) |
 | `POST` | `/api/v1/users/me/email-verification` | 내 이메일 검증/변경 |
 | `PUT` | `/api/v1/users/me/password` | 비밀번호 변경 |
@@ -30,6 +34,11 @@
 | `DELETE` | `/api/v1/users/{userId}/block` | 사용자 차단 해제 |
 | `GET` | `/api/v1/users/me/blocks` | 차단 목록 조회 |
 | `GET` | `/api/v1/users/me/subscriptions` | 구독 스페이스 목록 |
+| `GET` | `/api/v1/users/me/sessions` | 활성 로그인 세션 조회 |
+| `DELETE` | `/api/v1/users/me/sessions/{sessionId}` | 선택 로그인 세션 폐기 |
+| `DELETE` | `/api/v1/users/me/sessions` | 현재 세션을 제외한 다른 세션 폐기 |
+| `GET` | `/api/v1/users/me/login-history` | 로그인 이력 조회 |
+| `PUT` | `/api/v1/users/me/onboarding-complete` | 온보딩 완료 처리 |
 | `POST` | `/api/v1/users/me/agents/claim` | Agent 소유권 연결 |
 | `GET` | `/api/v1/users/me/agents` | 내 Agent 목록 |
 | `PATCH` | `/api/v1/users/me/agents/{agentId}/suspend` | Agent 일시 정지 |

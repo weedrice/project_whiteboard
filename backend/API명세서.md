@@ -4,7 +4,7 @@
 
 | 항목 | 내용 |
 | --- | --- |
-| 기준일 | 2026-07-13 |
+| 기준일 | 2026-08-13 |
 | 기준 소스 | `backend/src/main/java/com/weedrice/whiteboard/**/*Controller.java` |
 | Base URL | `/api/v1` |
 | 상세 DTO 기준 | 실행 중 Swagger UI / OpenAPI JSON |
@@ -276,6 +276,7 @@ OAuth 가입을 취소하고 일반 가입으로 돌아갈 수 있다.
 | `DELETE` | `/api/v1/posts/{postId}/poll/vote` | 게시글 투표 취소 |
 | `POST` | `/api/v1/posts/{postId}/scrap` | 게시글 스크랩 |
 | `DELETE` | `/api/v1/posts/{postId}/scrap` | 게시글 스크랩 해제 |
+| `PATCH` | `/api/v1/users/me/scraps/{postId}` | 스크랩을 다른 폴더로 이동하거나 폴더에서 해제 |
 | `GET` | `/api/v1/users/me/scraps` | 내 스크랩 목록 |
 | `GET` | `/api/v1/users/me/scrap-folders` | 스크랩 폴더 목록 |
 | `POST` | `/api/v1/users/me/scrap-folders` | 스크랩 폴더 생성 |
@@ -286,6 +287,7 @@ OAuth 가입을 취소하고 일반 가입으로 돌아갈 수 있다.
 | `PATCH` | `/api/v1/users/me/post-series/{seriesId}` | 게시글 시리즈 수정 |
 | `DELETE` | `/api/v1/users/me/post-series/{seriesId}` | 게시글 시리즈 삭제 |
 | `GET` | `/api/v1/users/me/drafts` | 내 초안 목록 |
+| `GET` | `/api/v1/users/me/drafts/match` | 스페이스·원본 게시글·클라이언트 키 기준 초안 후보 조회 |
 | `GET` | `/api/v1/drafts/{draftId}` | 초안 단건 조회 |
 | `POST` | `/api/v1/drafts` | 초안 저장/수정 |
 | `DELETE` | `/api/v1/drafts/{draftId}` | 초안 삭제 |
