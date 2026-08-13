@@ -41,7 +41,7 @@ The override uses the named volume `noviis-postgres-data`; the default compose b
 Set shell variables or create an untracked `.env` file before running compose:
 
 ```text
-POSTGRES_DB=noviis
+POSTGRES_DB=whiteboard
 POSTGRES_HOST=host.docker.internal
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=password
