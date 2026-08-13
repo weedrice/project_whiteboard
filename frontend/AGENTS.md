@@ -84,11 +84,15 @@ Client-exposed variables currently referenced in the app:
 - `VITE_API_URL`
 - `VITE_INQUIRY_BOARD_URL`
 - `VITE_COMMIT_HASH`
+- `VITE_WEB_VITALS_ENDPOINT`
+- `VITE_ANALYZE`
 
 Important behavior:
 
 - `vite.config.ts` proxies `/api` and `/oauth2` to `VITE_API_BASE_URL`
 - `API.BASE_URL` defaults to `import.meta.env.VITE_API_URL || '/api/v1'`
+- `VITE_WEB_VITALS_ENDPOINT` selects the production Web Vitals delivery endpoint
+- `VITE_ANALYZE=true` enables the production bundle analysis report
 - Do not hardcode environment-specific URLs in components
 
 ## Frontend Conventions
