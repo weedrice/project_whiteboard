@@ -74,7 +74,7 @@ Spring Framework 및 라이브러리 설정을 담당합니다.
 | `GET` | `/api/v1/admin/error-logs/{errorLogId}` | `SUPER_ADMIN` | 에러 로그 상세를 조회합니다. |
 | `PUT` | `/api/v1/admin/error-logs/{errorLogId}/resolve` | `SUPER_ADMIN` | 에러 로그를 확인 처리합니다. |
 | `GET` | `/api/v1/admin/error-logs/stats` | `SUPER_ADMIN` | 에러 로그 통계를 조회합니다. |
-| `GET` | `/api/v1/admin/logs` | `SUPER_ADMIN` | 애플리케이션 로그를 조회합니다. |
+| `GET` | `/api/v1/admin/logs` | `SUPER_ADMIN` | DB에 저장된 사용자 행위 감사 로그를 페이지 조회합니다. |
 | `POST` | `/api/v1/security/csp-report` | 공개 | 브라우저의 CSP 위반 보고를 수집합니다. |
 
 ## 3. 주요 개발 패턴

@@ -328,7 +328,7 @@ OAuth 가입을 취소하고 일반 가입으로 돌아갈 수 있다.
 | `fileIds` | 선택 | 초안에 연결할 현재 사용자 소유 파일 ID 목록. |
 | `poll` | 선택 | 작성 중인 투표 payload. 질문·선택지가 불완전한 상태도 보존하되 질문 200자, 선택지 10개, 선택지별 100자 상한은 적용한다. |
 | `seriesId` | 선택 | 현재 사용자 소유 시리즈 ID. |
-| `clientDraftKey` | 신규 초안 저장 시 권장 | 클라이언트가 생성한 8~64자 멱등키. 같은 사용자의 동일 키 재시도는 기존 초안을 갱신한다. |
+| `clientDraftKey` | 신규 초안 저장 시 권장 | 클라이언트가 생성한 8~64자 멱등키. 같은 사용자가 동일한 저장 내용으로 재시도하면 기존 초안 응답을 반환하며, 같은 키의 내용이 달라지면 `409 Conflict`와 `P004`(`DRAFT_OUTDATED`)를 반환한다. |
 | `version` | 기존 초안 수정 시 권장 | 마지막 단건 조회 또는 저장 응답의 숫자형 버전. |
 | `updatedAt` | 구버전 호환 | `version`이 없을 때 DB microsecond 정밀도로 현재 `modifiedAt`과 비교한다. |
 | `originalPostId` | 수정 초안에서 선택 | 원본 게시글은 현재 사용자 소유이고 삭제되지 않았으며 요청 스페이스와 일치해야 한다. |
@@ -510,7 +510,7 @@ OAuth 가입을 취소하고 일반 가입으로 돌아갈 수 있다.
 | `GET` | `/api/v1/boards/{boardUrl}/manager/reports` | 스페이스 매니저 신고 목록 |
 | `GET` | `/api/v1/boards/{boardUrl}/manager/audits` | 스페이스 매니저 moderation 감사 로그 |
 | `GET` | `/api/v1/admin/moderation-audits` | 전체 moderation 감사 로그 |
-| `GET` | `/api/v1/admin/logs` | 감사 로그와 조건별 필터 조회 |
+| `GET` | `/api/v1/admin/logs` | 사용자 행위 감사 로그 페이지 조회(`page`, `size`) |
 | `GET` | `/api/v1/admin/error-logs` | 에러 로그 목록 |
 | `GET` | `/api/v1/admin/error-logs/{errorLogId}` | 에러 로그 상세 |
 | `PUT` | `/api/v1/admin/error-logs/{errorLogId}/resolve` | 에러 로그 확인 처리 |
@@ -538,7 +538,7 @@ OAuth 가입을 취소하고 일반 가입으로 돌아갈 수 있다.
 
 ### Agent API
 
-Agent API는 일반 사용자 JWT API가 아니다. 자세한 계약은 `docs/ops/agent-heartbeat-dashboard-api.md`와 `backend/src/main/java/com/weedrice/whiteboard/domain/search/SEARCH_GUIDE.md`를 함께 본다.
+Agent API는 일반 사용자 JWT API가 아니다. 자세한 계약은 `docs/ops/agent-heartbeat-dashboard-api.md`와 `backend/src/main/java/com/weedrice/whiteboard/domain/agent/AGENT_GUIDE.md`를 함께 본다.
 
 외부 Agent는 이 API를 직접 호출하지 않고 별도 repository로 운영되는 MCP 서버를 통해서만 접근한다. `/api/v1/agents/**`는 MCP와 backend 사이의 내부 연동 계약이며, frontend는 사용자 소유 Agent를 관리하는 `/api/v1/users/me/agents/**`만 호출한다.
 
