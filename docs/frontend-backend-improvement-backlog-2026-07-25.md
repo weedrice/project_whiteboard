@@ -3,11 +3,21 @@
 ## 기준
 
 - 기준일: 2026-07-25
+- 최신 상태 확인: 2026-08-13
 - 범위: `backend/` 도메인·global 계층, `frontend/src` 전체, 두 계층을 잇는 wire 계약과 배포 설정
 - **제외 도메인**: `domain/agent`, `domain/ad`. 두 도메인은 소유 주체와 계약 경계가 달라 이번 검토 대상에서 뺐다. 제외에 따라 근거가 바뀐 항목은 A1과 F1이며 각 절에 명시했다. 소스를 고치지 않고도 두 도메인에 닿는 지점은 **A9**에 모아 두었다.
 - 방법: 정적 코드 검토. 런타임 재현이나 부하 시험은 수행하지 않았다.
 - 선행 문서: [Frontend–Backend 연결 계약 감사](./frontend-backend-contract-audit-2026-07-14.md)에서 이미 해소한 항목은 중복 기재하지 않고, 그 감사가 남긴 구조적 빈틈과 감사 범위 밖 영역만 다룬다.
-- 이 문서는 기록용 backlog이며, 항목별 코드 변경은 포함하지 않는다.
+- 이 문서는 2026-07-25 당시 발견을 보존하는 기록용 backlog다. 이후 해결되거나 수치가 바뀐 항목은 각 절에 현재 상태를 함께 적어 과거 관찰을 현재 사실로 오해하지 않게 한다.
+
+### 2026-08-13 상태 갱신
+
+- D1: HSTS `max-age`는 86,400초에서 604,800초(7일)로 상향됐다. 6개월·1년 단계는 별도 운영 판단으로 남는다.
+- E1: `FileCleanupScheduler`와 `LoginHistoryCleanupScheduler`에도 `zone = "Asia/Seoul"`이 추가돼 일일 작업 8개가 모두 timezone을 명시한다.
+- OpenAPI frontend snapshot은 185 paths, 342 schemas이며 agent·ad 경로는 계속 제외된다.
+- 메시지 bundle은 한국어·영어 각각 156 keys로 일치한다.
+- 라우터의 동적 view import는 53개이며 정적 view import는 없다.
+- 백엔드 소스의 `@EntityGraph` 사용은 104곳이다.
 
 ## 요약
 
@@ -23,8 +33,8 @@
 | B1 | `validationErrorResponse`의 파라미터 2개가 미사용이다 | 백엔드 | 하 |
 | B2 | `spring.messages` 설정이 죽어 있고 로케일 fallback 동작이 미확인이다 | 백엔드 | 하 |
 | C1 | 백엔드 에러 코드 리터럴이 6곳에 분산되어 있다 | 프론트엔드 | 하 |
-| D1 | HSTS `max-age`가 1일이다 | 배포 | 하 |
-| E1 | 스케줄러 timezone 지정이 일관되지 않다 | 실행 환경 | 하 |
+| D1 | HSTS `max-age` 1일 → 7일 상향 완료 | 배포 | 후속 운영 판단 |
+| E1 | 일일 스케줄러 timezone 명시 통일 완료 | 실행 환경 | 완료 |
 | E2 | wire 타임스탬프에 offset이 없어 KST 밖 사용자에게 어긋난다 | 실행 환경 | 상 |
 | E3 | 시간 기준 통일이 `setDefault` 한 줄에 의존한다 | 실행 환경 | 하 |
 | F1 | `PageRequestUtils` 오버로드의 두 번째 인자 의미가 충돌한다 | 내부 API | 하 |
@@ -39,7 +49,7 @@
 
 초판은 JVM timezone이 UTC일 가능성을 전제로 E1을 "중", E3을 "최상"으로 기재하고 인기글 기간 필터가 실제로 어긋난다고 적었다. **이 판단은 틀렸다.**
 
-- `WhiteboardApplication.java:15`의 `@PostConstruct`가 기동 시 `TimeZone.setDefault("Asia/Seoul")`을 호출해 JVM 기본 timezone을 KST로 강제한다. 초판 조사는 Dockerfile·systemd 유닛·compose·`application*.yml`만 확인하고 이 지점을 놓쳤다.
+- `WhiteboardApplication.init()`의 `@PostConstruct`가 기동 시 `TimeZone.setDefault("Asia/Seoul")`을 호출해 JVM 기본 timezone을 KST로 강제한다. 초판 조사는 Dockerfile·systemd 유닛·compose·`application*.yml`만 확인하고 이 지점을 놓쳤다.
 - 운영 timezone이 KST임을 확인했다.
 
 따라서 주입 `Clock`(KST)과 JPA auditing(JVM 기본 = KST)은 **같은 기준**이며, 인기글 기간 필터와 알림 재시도 스케줄에 현재 어긋남은 없다. E1·E3은 실동작 결함이 아니라 명시성 항목으로 내리고, 해당 파급 서술을 삭제했다.
@@ -48,7 +58,7 @@
 
 정정 이후 문서의 모든 항목을 근거까지 다시 확인했다. 결과는 다음과 같다.
 
-- **근거 유지 (재확인 완료)**: A1, A2, A3, A4, A5, A6, A7, B1, C1, D1, E2, F1, F2, G1
+- **2026-07-25 당시 근거 유지 (재확인 완료)**: A1, A2, A3, A4, A5, A6, A7, B1, C1, D1, E2, F1, F2, G1. 이후 D1은 7일 상향까지 적용됐다.
   - A3은 백엔드 전체 `SseEmitter.event()` 호출 6곳을 전수 확인했다. 발신 이름은 `connect`·`notification`·`comment`·`comment-topic-invalidated`·`comment-topic-access-revoked`와 heartbeat 주석뿐이며, `message`는 없다.
   - A2는 프론트 전체에서 `Retry-After`를 읽는 코드가 없음을 재확인했다. `apiRefreshRetry.ts`의 `retryAfterRefresh`는 이름만 유사한 인증 토큰 갱신 로직으로 무관하다.
 - **수정**: B2 — 초판이 프레임워크 기본값을 단정했으나 이 환경에서 검증할 수 없었다. 대신 검증 가능한 사실(`spring.messages` 블록이 커스텀 빈에 의해 무효화됨)을 근거로 교체했다.
@@ -271,7 +281,7 @@ wire 형태가 A1로 고정되고 나면, springdoc이 이미 제공하는 `/api
 
 1. **`OpenApiConfig.frontendCodegenApi()`** — `/api/v1/agents/**`, `/api/v1/ads/**`를 뺀
    `frontend` 그룹. 기본 그룹은 그대로라 Swagger UI에서는 여전히 전체 API를 볼 수 있다.
-   거르는 것은 **코드 생성 입력**뿐이다. 결과: 185 경로, 340 스키마, agent·ad 경로 0개.
+   거르는 것은 **코드 생성 입력**뿐이다. 도입 당시 결과는 185 경로, 340 스키마였고, 2026-08-13 snapshot은 185 경로, 342 스키마다. agent·ad 경로는 계속 0개다.
 2. **`docs/api/openapi-frontend.json`** — 스펙 스냅샷을 커밋한다. 생성이 실행 중인 백엔드에
    의존하지 않게 하고, 스펙 변화가 diff로 드러나게 하려는 것이다.
 3. **`OpenApiSpecSnapshotTest`** — MockMvc로 springdoc을 호출해 스냅샷과 대조한다. 서버를
@@ -562,7 +572,7 @@ KST `Clock`으로 바꾼 것이라 값은 같다. 판별 기준상 기록해 둔
 
 **이 절의 초판은 프레임워크 기본값이 `true`라고 단정했으나, 이 환경에서는 Spring 의존성 jar를 확인할 수 없어 검증하지 못했다.** Spring Boot 4.1(Spring Framework 7.x) 기준 실제 기본값은 착수 전에 확인이 필요하다.
 
-기본값이 `true`라면, 영어 번들에 키가 누락됐을 때 기본 번들이 아니라 JVM 기본 **로케일**(timezone이 아니다) 번들로 떨어진다. 현재 `messages.properties`와 `messages_en.properties`는 키 150개로 완전히 일치하고 `GlobalExceptionTest`가 parity를 강제하므로 **어느 쪽이든 지금 증상은 없다.**
+기본값이 `true`라면, 영어 번들에 키가 누락됐을 때 기본 번들이 아니라 JVM 기본 **로케일**(timezone이 아니다) 번들로 떨어진다. 2026-08-13 현재 `messages.properties`와 `messages_en.properties`는 키 156개로 완전히 일치하고 `GlobalExceptionTest`가 parity를 강제하므로 **어느 쪽이든 지금 증상은 없다.**
 
 **제안**
 
@@ -592,21 +602,21 @@ KST `Clock`으로 바꾼 것이라 값은 같다. 판별 기준상 기록해 둔
 
 ## D. 배포
 
-### D1. HSTS `max-age`가 1일이다
+### D1. HSTS `max-age` 1일 (7일 상향 완료)
 
-`deploy/nginx/security-headers.conf`의 `Strict-Transport-Security "max-age=86400"`은 1일이다. 그 외 보안 헤더(CSP, `X-Frame-Options: DENY`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`)는 견고하게 구성되어 있다.
+2026-07-25 당시 `deploy/nginx/security-headers.conf`의 `Strict-Transport-Security "max-age=86400"`은 1일이었다. 2026-08-13 현재 값은 `max-age=604800`으로 7일이며, 그 외 보안 헤더(CSP, `X-Frame-Options: DENY`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy`)도 유지된다.
 
-**영향**: 1일 이상 재방문하지 않은 사용자는 보호 창이 만료되어 첫 요청이 downgrade 공격에 노출된다.
+**현재 상태**: 첫 단계인 7일 상향을 완료했다. 보호 창을 더 늘릴지는 하위 도메인과 rollback 조건을 확인해 결정한다.
 
-**제안**: 단계적으로 상향한다(1일 → 7일 → 6개월 → 1년). 하위 도메인 구성을 확인한 뒤 `includeSubDomains` 추가를 검토하고, `preload`는 되돌리기 비용이 크므로 별도 판단한다.
+**후속 제안**: 6개월 → 1년으로 단계적으로 상향한다. 하위 도메인 구성을 확인한 뒤 `includeSubDomains` 추가를 검토하고, `preload`는 되돌리기 비용이 크므로 별도 판단한다.
 
 ## E. 실행 환경과 시간
 
-### E1. 스케줄러 timezone 지정이 일관되지 않다
+### E1. 스케줄러 timezone 지정 통일 (완료)
 
-**현상**
+**당시 현상**
 
-`@Scheduled` cron 20개 중 일부만 `zone = "Asia/Seoul"`을 지정한다. 일별 작업 8개 중 6개는 지정하고 2개는 지정하지 않는다.
+2026-07-25에는 검토 범위의 일별 작업 8개 중 6개만 `zone = "Asia/Seoul"`을 지정하고 2개는 지정하지 않았다.
 
 | 스케줄러 | cron | `zone` |
 | --- | --- | --- |
@@ -616,19 +626,12 @@ KST `Clock`으로 바꾼 것이라 값은 같다. 판별 기준상 기록해 둔
 | `ErrorLogCleanupScheduler` | `0 10 4 * * ?` | 지정 |
 | `VerificationCodeCleanupScheduler` | `0 20 4 * * ?` | 지정 |
 | `RefreshTokenCleanupScheduler` | `0 40 4 * * ?` | 지정 |
-| `FileCleanupScheduler` | `0 0 2 * * ?` | **없음** |
-| `LoginHistoryCleanupScheduler` | `0 40 3 * * ?` | **없음** |
+| `FileCleanupScheduler` | `0 0 2 * * ?` | 당시 없음 → 현재 지정 |
+| `LoginHistoryCleanupScheduler` | `0 40 3 * * ?` | 당시 없음 → 현재 지정 |
 
-**영향**
+**현재 상태**
 
-`WhiteboardApplication.java:15`가 JVM 기본 timezone을 KST로 강제하므로 `zone`을 지정하지 않은 두 작업도 결과적으로 02:00 KST, 03:40 KST에 실행된다. **현재 실행 시각은 의도대로다.**
-
-남는 문제는 두 작업의 정확성이 `setDefault` 한 줄에 암묵적으로 의존한다는 점이다. 나머지 6개는 그 줄이 없어도 옳게 동작하지만 이 둘은 아니다.
-
-**제안**
-
-- 두 스케줄러에 `zone = "Asia/Seoul"`을 추가해 나머지와 표기를 맞춘다. 동작 변화는 없고 의존만 제거된다.
-- 일별 cron에 `zone` 지정을 요구하는 규칙을 `verify-scheduled-jobs.py`에 추가한다. 매니페스트에서 `daily`로 분류된 작업만 검사하면 시간별 작업의 잡음을 피할 수 있다.
+두 스케줄러 모두 `zone = "Asia/Seoul"`을 명시한다. `deploy/monitoring/scheduled-jobs.txt`의 일일 작업 8개와 `verify-scheduled-jobs.py` 규칙이 이 계약을 검증한다.
 
 ### E2. 타임스탬프 계약이 timezone-naive하다
 
@@ -685,7 +688,7 @@ wire 계약 변경이므로 단계를 나눈다.
 
 **영향**
 
-`WhiteboardApplication.java:15`의 `@PostConstruct`가 JVM 기본을 `Asia/Seoul`로 강제하므로 두 경로는 같은 값을 낸다. **현재 데이터에 어긋남은 없다.**
+`WhiteboardApplication.init()`의 `@PostConstruct`가 JVM 기본을 `Asia/Seoul`로 강제하므로 두 경로는 같은 값을 낸다. **현재 데이터에 어긋남은 없다.**
 
 남는 것은 결합의 형태다. 두 경로는 서로 독립적으로 정의되어 있고, 오직 `setDefault` 한 줄 덕분에 일치한다. 구체적으로 다음이 걸린다.
 
@@ -873,13 +876,13 @@ Tokyo가 그대로 남고, 다음 방문에 Tokyo로 되돌아간다. 눈에 보
 
 기록 목적으로 남긴다. 아래 항목은 점검했고 조치가 필요하지 않다.
 
-- **N+1 방어**: `@EntityGraph` 103곳, fetch join 34곳. 서비스 계층은 `findAllById`, `countByBoardIds`, `findByPostIdIn` 등 batch 조회로 일관되며 반복문 내 단건 조회 패턴을 발견하지 못했다.
+- **N+1 방어**: `@EntityGraph` 104곳. 당시 검토한 fetch join과 서비스 계층은 `findAllById`, `countByBoardIds`, `findByPostIdIn` 등 batch 조회로 일관되며 반복문 내 단건 조회 패턴을 발견하지 못했다.
 - **트랜잭션 경계**: 파사드에 `@Transactional`을 두고 package-private 협력 서비스를 호출하는 패턴이 일관된다. `BoardApplicationService`가 비트랜잭션인 것은 쓰기 커밋 후 재조회를 위한 의도적 구성으로 보인다.
 - **업로드 보안 검증**: magic byte 판별, 선언 MIME·확장자 교차 검증, 파일명 정규화, 해상도·픽셀 상한 검사가 모두 갖춰져 있다. A5는 보안이 아니라 대상별 정책 문제다.
 - **커버리지 게이트**: 백엔드 `jacocoTestCoverageVerification`(기본 규칙 50%, LINE 75% / BRANCH 55%, 지정 서비스 11개는 LINE 80%)과 프론트 vitest thresholds(statements 75 / branches 65 / functions 70 / lines 75)가 모두 CI에서 강제된다.
 - **접근성**: `@axe-core/playwright` 기반 e2e가 로그인·홈·게시글 상세·설정·에디터·다이얼로그 포커스 트랩까지 덮으며 CI에서 실행된다.
 - **보안 헤더**: CSP가 `default-src 'self'`, `object-src 'none'`, `frame-ancestors 'none'`으로 조여져 있고 report-uri까지 연결되어 있다.
-- **번들 분할**: 라우터 52개 항목이 전부 동적 import이며 뷰 정적 import이 없다.
+- **번들 분할**: 라우터 view import 53개가 전부 동적 import이며 뷰 정적 import이 없다.
 - **타입 안정성**: `any` 3건, `@ts-ignore` 0건, `eslint-disable` 0건, TODO/FIXME 0건.
 - **메시지 번들**: 한국어·영어 각 150키로 완전 일치하며 `GlobalExceptionTest`가 parity와 `MessageFormat` 렌더링을 검증한다.
 - **CI 구성**: paths-filter로 검증 범위와 배포 범위를 분리하고, 배포 필터만 테스트 파일을 제외한다. 검증 필터는 `frontend/**` 전체를 포함하므로 테스트 변경도 CI를 거친다. Actions는 SHA로 고정되어 있다.
@@ -899,7 +902,7 @@ Tokyo가 그대로 남고, 다음 방문에 Tokyo로 되돌아간다. 눈에 보
 4. **A1** — 이후 모든 DTO 변경의 재발을 막는 구조적 방어이며 A6의 선행 조건이다. G2 1단계의 점진 이행 목록과 방식이 같으므로 함께 설계하면 작업이 겹치지 않는다.
 5. **A4**, **A3** — 사용자에게 보이는 오류 표시와 실시간 채널의 신뢰도를 올린다.
 6. **A5** — 서버 정책 설계가 필요하므로 별도 논의를 거친다.
-7. **E1**, **E3** — 동작 변화 없는 명시성 정리다. 언제 해도 무방하나 G2 완료 후에 하면 `setDefault` 제거까지 한 번에 판단할 수 있다.
-8. **B1**, **B2**, **C1**, **D1** — 국소 변경이며 위 항목과 독립적으로 처리 가능하다.
+7. **E3** — 동작 변화 없는 명시성 정리다. E1의 scheduler zone 명시는 완료됐으며, G2 완료 후 `setDefault` 제거 여부를 별도로 판단한다.
+8. **B1**, **B2**, **C1** — 국소 변경이며 위 항목과 독립적으로 처리 가능하다. D1은 7일 상향을 완료했고 더 긴 기간은 운영 판단으로 남는다.
 9. **A6**, **A7** — A1 완료 후 착수한다.
 10. **F1**, **F2** — 범위 내 실사용 결함이 아니다. 공용 유틸리티 정리나 수평 확장 계획이 생길 때 착수한다.

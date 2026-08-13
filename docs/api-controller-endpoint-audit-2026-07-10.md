@@ -6,6 +6,7 @@
 - 비교 대상: `backend/API명세서.md` 기준일 2026-05-29
 - 판정 원칙: URI와 HTTP method는 컨트롤러 매핑을 최종 기준으로 한다.
 - 범위: 기존 명세 기준일 이후 추가되거나 변경된 컨트롤러 매핑을 우선 확인하고, 전체 컨트롤러가 명세 카탈로그에 포함되는지도 함께 점검한다.
+- 후속 확인: 2026-08-13 기준 신규 `AdminFeedGenerationController`와 redrive API를 대조표에 추가했다.
 
 ## 컨트롤러 단위 대조
 
@@ -22,6 +23,7 @@
 | 공통 코드 | `CommonCodeController` | 누락 없음 | 유지 |
 | 이모티콘 | `EmoticonController` | 누락 없음 | 유지 |
 | 피드/홈 | `FeedController`, `HomeController` | 누락 없음 | 유지 |
+| 피드 생성 관리 | `AdminFeedGenerationController` | 감사 이후 추가 | 영구 실패 작업 redrive 1건 추가 |
 | 파일 | `FileController`, `LegacyFileController` | 이미지 variant 1건 누락 | 1건 추가 |
 | 쪽지 | `MessageController` | 대화 목록/상세 2건 누락 | 2건 추가 |
 | 감사 로그 | `AdminModerationAuditController`, `BoardManagerModerationAuditController` | 컨트롤러 전체 누락 | 전역/스페이스 감사 조회 2건 추가 |
@@ -122,6 +124,7 @@
 | `GET` | `/api/v1/boards/{boardUrl}/manager/audits` | `BoardManagerModerationAuditController` |
 | `GET` | `/api/v1/admin/moderation-audits` | `AdminModerationAuditController` |
 | `GET` | `/api/v1/admin/stats/deep` | `AdminController` |
+| `POST` | `/api/v1/admin/feed-generation/jobs/{jobId}/redrive` | `AdminFeedGenerationController` |
 | `POST` | `/api/v1/security/csp-report` | `CspReportController` |
 | `POST` | `/api/v1/logs/client` | `ClientErrorLogController` |
 
