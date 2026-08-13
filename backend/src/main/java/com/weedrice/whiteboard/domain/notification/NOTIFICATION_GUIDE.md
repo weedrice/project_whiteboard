@@ -11,6 +11,7 @@
 - 댓글 topic은 읽기 권한 확인 후 게시글과 보드에 연결하며, 보드 비공개·비활성 또는 관리자 변경이 커밋되면 해당 보드의 topic을 폐기합니다.
 - 조회/읽음 처리: 알림 목록 페이지 조회, 단건 읽음 처리, 전체 읽음 처리 기능 제공.
 - 미읽음 집계: 사용자별 읽지 않은 알림 건수를 반환합니다.
+- 키워드 구독: 사용자가 알림 키워드 목록을 조회·등록·해지하며 게시글 생성 시 durable fan-out 작업으로 대상 알림을 생성합니다.
 - Web Push: 사용자별 브라우저 구독을 등록·해지하며, 전체 해지는 사용자 잠금 아래 모든 구독 삭제와 push 설정 비활성화를 원자적으로 처리합니다.
 - 비동기 포화: 커밋 후 즉시 kickoff/push 제출이 거부돼도 이미 성공한 업무 트랜잭션에는 예외를 전파하지 않습니다. durable delivery job은 scheduler가 다시 선택합니다.
 
@@ -26,6 +27,9 @@
 | `POST` | `/api/v1/notifications/comment-topics/{postId}/subscriptions` | 실시간 댓글 topic 구독 |
 | `DELETE` | `/api/v1/notifications/comment-topics/{postId}/subscriptions/{subscriberId}` | 실시간 댓글 topic 구독 해지 |
 | `GET` | `/api/v1/push/public-key` | Web Push VAPID 공개키 조회 |
+| `GET` | `/api/v1/users/me/keyword-subscriptions` | 내 키워드 구독 목록 조회 |
+| `POST` | `/api/v1/users/me/keyword-subscriptions` | 키워드 구독 등록 |
+| `DELETE` | `/api/v1/users/me/keyword-subscriptions` | 요청 본문의 키워드로 구독 해지 |
 | `POST` | `/api/v1/users/me/push-subscriptions` | Web Push 구독 등록 |
 | `DELETE` | `/api/v1/users/me/push-subscriptions` | endpoint 기준 Web Push 구독 해지 |
 | `DELETE` | `/api/v1/users/me/push-subscriptions/all` | Web Push 구독 전체 해지 |

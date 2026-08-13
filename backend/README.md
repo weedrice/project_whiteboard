@@ -85,8 +85,8 @@ com.weedrice.whiteboard
    전체 필수·선택 변수와 기본값은 [ENVIRONMENT_VARIABLES.md](./ENVIRONMENT_VARIABLES.md)를 기준으로 확인합니다.
 
 2. **환경 변수 검증**
-   - 프로덕션 환경에서는 애플리케이션 시작 시 필수 환경 변수를 자동으로 검증합니다
-   - 필수 환경 변수가 누락된 경우 애플리케이션이 시작되지 않습니다
+   - 프로덕션 환경에서는 Spring이 `ApplicationReadyEvent`를 발행할 때 필수 환경 변수를 검증합니다
+   - 누락된 변수가 있으면 ready event가 실패하고 애플리케이션 context가 종료됩니다. 포트 bind 전 검증은 아니므로 배포 health check가 트래픽 유입을 차단해야 합니다
 
 ### 실행 (Run)
 ```bash

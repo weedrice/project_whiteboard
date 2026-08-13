@@ -24,7 +24,7 @@ backend/
 |-- src/test/resources/  Test-only configuration
 |-- build.gradle         Gradle build and dependency definition
 |-- DATABASE.md          Database reference
-|-- DATABASE_INIT.sql    Local bootstrap SQL
+|-- DATABASE_INIT.sql    Legacy seed source; runtime seed authority is Flyway V13
 `-- README.md            Backend overview
 ```
 

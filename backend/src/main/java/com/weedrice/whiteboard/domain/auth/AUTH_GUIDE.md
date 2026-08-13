@@ -7,7 +7,7 @@
 - 로그인: Spring Security 인증, Access/Refresh Token 발급, Refresh Token SHA-256 해시 저장(ip/디바이스/만료), 로그인 이력 기록 및 `last_login_at` 갱신. Access Token에는 저장된 `sessionFamilyId`가 반드시 포함됩니다.
 - 로그아웃: 전달받은 Refresh Token의 session family 전체를 멱등 폐기합니다. 이후 같은 family의 Access Token도 다음 요청부터 즉시 거부됩니다.
 - 토큰 재발급: 저장된 Refresh Token 유효성 검증 후 폐기하고 같은 session family를 계승해 새 토큰을 발급합니다. family claim이 없거나 활성 Refresh Token family와 연결되지 않은 legacy Access Token은 `401`로 거부합니다.
-- 이메일 인증: 인증 코드 발송(@Async 비동기)·검증. 검증 성공 시 해당 이메일의 유저가 존재하면 `isEmailVerified`를 true로 업데이트. 비밀번호 재설정 후 인증 상태 초기화.
+- 이메일 인증: 인증 코드 발송·검증. 발송은 pending 인증 정보 생성 → 동기 SMTP 발송 → 활성 상태 승격 순서로 처리해 전송 결과를 확인한 뒤 응답합니다. 검증 성공 시 해당 이메일의 유저가 존재하면 `isEmailVerified`를 true로 업데이트하고, 비밀번호 재설정 후 인증 상태를 초기화합니다.
 - 계정 찾기/재설정: 인증된 이메일로 로그인 ID 찾기, fragment에 토큰을 담은 재설정 링크/코드 발송 및 토큰 유효성 검증 뒤 비밀번호 변경. 토큰 승격과 사용은 User → VerificationCode → PasswordResetToken 잠금 순서를 지킵니다.
 - 인증 retention: 만료 비밀번호 재설정 토큰을 bounded batch로 먼저 정리한 뒤 만료 인증 코드를 정리하며, 인증 코드 삭제 시 연결 토큰의 참조는 null로 전환됩니다.
 - 재가입 지원: 사전 확인 경로는 계정 열거를 막기 위해 고정된 비식별 응답만 반환하며, 실제 재가입 정보는 이메일 인증 성공 응답에서 제공합니다.

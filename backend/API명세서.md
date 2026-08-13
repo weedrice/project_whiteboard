@@ -41,6 +41,8 @@
 }
 ```
 
+위 envelope는 일반 JSON 업무 API의 공통 형식이다. `GET /api/v1/files/{fileId}`, 이미지 variant와 legacy 파일 다운로드는 `Resource` 본문을 직접 스트리밍하며, `POST /api/v1/security/csp-report`는 본문 없이 `204 No Content`를 반환한다.
+
 ### 인증
 
 - 사용자 API: `Authorization: Bearer {accessToken}`
@@ -403,6 +405,7 @@ OAuth 가입을 취소하고 일반 가입으로 돌아갈 수 있다.
 | `GET` | `/api/v1/messages/unread-count` | 읽지 않은 쪽지 수 |
 | `GET` | `/api/v1/users/me/feeds` | 내 맞춤 피드 |
 | `GET` | `/api/v1/home/landing` | 홈 랜딩 데이터 |
+| `POST` | `/api/v1/admin/feed-generation/jobs/{jobId}/redrive` | 영구 실패한 피드 생성 작업 단건 재시도(SUPER_ADMIN) |
 
 ### Files, Tags, Points, Shop, Reports
 

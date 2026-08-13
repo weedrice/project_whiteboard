@@ -28,12 +28,12 @@
 
 ## 3. 관련 DB 테이블
 
-| 테이블명 | 엔티티 | 설명 |
+| 테이블명 | 매핑/접근 방식 | 설명 |
 | :------- | :----- | :--- |
-| `search_statistics` | `SearchStatistic` | 키워드별 일자·검색 횟수 집계 |
-| `search_personalization` | `SearchPersonalization` | 사용자별 최근 검색어 로그 |
-| `semantic_search_embeddings` | `SemanticSearchEmbedding` | post/comment embedding 검색 문서 |
-| `semantic_search_jobs` | `SemanticSearchJob` | embedding upsert/delete 작업 큐 |
+| `search_statistics` | JPA `SearchStatistic` | 키워드별 일자·검색 횟수 집계 |
+| `search_personalization` | JPA `SearchPersonalization` | 사용자별 최근 검색어 로그 |
+| `semantic_search_embeddings` | `SemanticSearchEmbeddingRepository` JDBC | post/comment embedding 검색 문서 |
+| `semantic_search_jobs` | JDBC record `SemanticSearchJob` | embedding upsert/delete 작업 큐 |
 | `semantic_search_reindex_jobs` | JDBC cursor job | 범위별 대량 재색인 cursor, lease, retry/dead-letter 상태 |
 
 대량 재색인 job의 오류 요약은 최대 500자로 제한한다. `FAILED` job은 자동 처리 대상에서 제외되며, 원인을 해소한 뒤 슈퍼관리자 API로 redrive하면 현재 cursor를 유지한 채 retry 상태만 초기화한다.

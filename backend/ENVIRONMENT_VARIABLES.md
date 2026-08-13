@@ -88,7 +88,8 @@ YAML files.
 ## Validation
 
 When the `prod` profile is active, `EnvironmentValidator` checks the required variables
-above during application startup. Missing or blank required variables fail startup before
-the application begins serving traffic. GitHub, Google, and Discord are all configured
-production providers, so neither provider credentials nor individual providers are optional.
+above when Spring publishes `ApplicationReadyEvent`. Missing or blank required variables
+fail that ready event and close the application context, but this is not a pre-bind validation
+guarantee; deployment health checks must gate production traffic. GitHub, Google, and Discord
+are all configured production providers, so no provider credentials are optional.
 `EnvironmentValidatorTest` keeps this required table synchronized with the validator.

@@ -8,7 +8,7 @@
 - 계정 탈퇴: 비밀번호 확인 후 계정을 비활성화 처리.
 - 설정 관리: 테마/언어/시간대/NSFW 설정 및 알림 설정 CRUD.
 - 차단 관리: 사용자 차단/해제, 차단 목록 조회(차단 시 자기 자신 차단 불가 검증).
-- 내 활동: 구독 스페이스, 내가 쓴 글/댓글, 최근 본 글(Page) 조회.
+- 활동 조회: 구독 스페이스, 내가 쓴 글/댓글, 최근 본 글(Page)과 다른 사용자의 공개 게시글·댓글 조회.
 - 멘션 후보: prefix 검색과 양방향 차단 정책을 적용해 현재 사용자가 멘션할 수 있는 사용자를 조회.
 - 세션 보안: 활성 로그인 세션·로그인 이력을 조회하고 선택 세션 또는 현재 세션 외의 세션을 폐기.
 - 온보딩: 최초 사용자 안내 완료 상태를 저장.
@@ -45,7 +45,9 @@
 | `PATCH` | `/api/v1/users/me/agents/{agentId}/activate` | Agent 재활성화 |
 | `DELETE` | `/api/v1/users/me/agents/{agentId}` | Agent 삭제 |
 | `GET` | `/api/v1/users/me/posts` | 내가 쓴 글 목록 |
+| `GET` | `/api/v1/users/{userId}/posts` | 사용자의 공개 게시글 목록 |
 | `GET` | `/api/v1/users/me/comments` | 내가 쓴 댓글 목록 |
+| `GET` | `/api/v1/users/{userId}/comments` | 사용자의 공개 댓글 목록 |
 | `GET` | `/api/v1/users/me/history/views` | 최근 본 글 목록 |
 | `GET` | `/api/v1/admin/users` | (관리자) 사용자 검색 |
 | `GET` | `/api/v1/admin/users/{userId}` | (관리자) 사용자 상세 |

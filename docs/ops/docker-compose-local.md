@@ -53,7 +53,6 @@ APP_FRONTEND_URL=http://localhost:5173
 VITE_API_URL=/api/v1
 VITE_INQUIRY_BOARD_URL=inquiry
 MANAGEMENT_HEALTH_MAIL_ENABLED=false
-TZ=Asia/Seoul
 ```
 
 For local development, AWS and mail-related variables default to local placeholder values unless overridden. Mail health is disabled by default because the compose stack does not include an SMTP server. Real credentials should be supplied only through local shell variables, untracked `.env`, or deployment secrets.

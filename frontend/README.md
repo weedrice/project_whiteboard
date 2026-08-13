@@ -118,6 +118,10 @@ http://localhost:5173
 - `VITE_API_URL`
 - `VITE_INQUIRY_BOARD_URL`
 - `VITE_COMMIT_HASH`
+- `VITE_WEB_VITALS_ENDPOINT`
+- `VITE_ANALYZE`
+
+`VITE_WEB_VITALS_ENDPOINT`는 production Web Vitals 전송 경로를 지정합니다. `VITE_ANALYZE=true`는 production build에서 bundle 분석 보고서를 생성하며, `--mode analyze`도 같은 분석 기능을 활성화합니다.
 
 ## 검증 명령
 

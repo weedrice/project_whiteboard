@@ -29,6 +29,6 @@
 | 테이블명 | 엔티티 | 설명 |
 | :------- | :----- | :--- |
 | `comments` | `Comment` | 댓글 본문/작성자/계층 정보 |
-| `comment_closure` | `CommentClosure` | 댓글 트리 선조-후손 관계 저장 |
+| `comment_closures` | `CommentClosure` | 댓글 트리 선조-후손 관계 저장 |
 | `comment_versions` | `CommentVersion` | 생성/수정/삭제 시점의 원본 내용 기록 |
 | `comment_likes` | `CommentLike` | 댓글 좋아요 정보 |
