@@ -53,7 +53,12 @@ shell environment, CI/CD secrets, or an approved secret manager.
 | `APP_AGENT_PENDING_CLAIM_HARD_DELETE_DAYS` | Age threshold for permanently deleting pending Agent claims. Defaults to `7` days. |
 | `APP_AGENT_PENDING_CLAIM_PURGE_BATCH_SIZE` | Maximum pending Agent claim purge batch size. Defaults to `500`. |
 | `APP_AGENT_PENDING_CLAIM_PURGE_MAX_BATCHES` | Maximum pending Agent claim purge batches per run. Defaults to `10`. |
+| `SEMANTIC_SEARCH_ENABLED` | Enables OpenAI/pgvector semantic search. Defaults to `false`. |
+| `OPENAI_API_KEY` | OpenAI API key used for embeddings when semantic search is enabled. |
 | `SEMANTIC_SEARCH_RELATED_POST_MIN_SIMILARITY` | Minimum similarity for related posts. Defaults to `0.55`. |
+| `WEB_PUSH_PUBLIC_KEY` | Browser-facing VAPID public key. |
+| `WEB_PUSH_PRIVATE_KEY` | Secret VAPID private key used to sign Web Push requests. |
+| `WEB_PUSH_SUBJECT` | VAPID contact subject, normally an `https:` or `mailto:` URI. |
 | `DB_MAX_POOL_SIZE` | Production Hikari maximum pool size override. Defaults to `20`. |
 | `DB_MIN_IDLE` | Production Hikari minimum idle connection override. Defaults to `5`. |
 | `RATE_LIMIT_AUTH_ACCOUNT_LIMIT` | Per-account auth rate-limit capacity override. |
@@ -61,6 +66,16 @@ shell environment, CI/CD secrets, or an approved secret manager.
 | `RATE_LIMIT_BUCKET_CACHE_TTL_MINUTES` | Rate-limit bucket cache time-to-live override. |
 | `CLIENT_IP_TRUST_PROXY_HEADERS` | Enables trusted proxy header parsing. Defaults to `true` in prod. |
 | `CLIENT_IP_TRUSTED_PROXIES` | Comma-separated trusted proxy IP/CIDR list. |
+
+### Conditional Feature Activation
+
+- Semantic vector search requires `SEMANTIC_SEARCH_ENABLED=true` and a non-blank
+  `OPENAI_API_KEY`. Without both values, search uses the keyword fallback path.
+- Web Push requires non-blank `WEB_PUSH_PUBLIC_KEY`, `WEB_PUSH_PRIVATE_KEY`, and
+  `WEB_PUSH_SUBJECT` values. If any value is missing, Web Push remains disabled while
+  stored notifications and SSE delivery continue to work.
+- These feature-specific values are optional for the backend as a whole, so
+  `EnvironmentValidator` does not include them in the unconditional production-required list.
 
 ## PostgreSQL Smoke Test
 
