@@ -3,6 +3,7 @@
 | Item | Value |
 | --- | --- |
 | Date | 2026-07-08 |
+| Current policy checked | 2026-08-13 |
 | Scope | Mention persistence, parsing, and notification ownership |
 | Status | Follow-up implementation plan |
 
@@ -55,7 +56,8 @@ the package as a service boundary before changing storage.
   - Respect block relationships.
   - Cap recipients per source to 10.
   - Deduplicate repeated mentions in one source.
-  - Preserve the current edit behavior: update display metadata without sending mention notifications.
+  - Preserve the current edit behavior: notify only recipients newly added by an edit, without resending to
+    existing recipients or notifying removed recipients.
 
 ## Incremental Steps
 
@@ -73,12 +75,14 @@ the package as a service boundary before changing storage.
 Current policy:
 
 - Create: notify all valid mentioned users.
-- Edit: update persisted display metadata without sending or resending notifications.
-- Remove: remove display metadata when explicit mention metadata is removed.
-- Metadata absent: preserve existing records.
-- Empty metadata list: remove all records.
+- Edit: diff the previous and current recipient sets and notify only newly added valid recipients.
+- Existing recipient: preserve display metadata without resending a notification.
+- Remove: remove display metadata without sending a removal notification.
+- Metadata absent: preserve existing records and do not emit a mention notification.
+- Empty metadata list: remove all records without emitting a mention notification.
 
-Changing edit behavior to notify newly added recipients is a separate product-policy change. It requires recipient-diff persistence and notification idempotency tests and must not be inferred from this domain refactor.
+Recipient-diff notification is the current product policy and is covered by the post, comment, and mention service
+tests. A future domain refactor must preserve this behavior and the existing notification delivery idempotency.
 
 ## Frontend Boundary
 
