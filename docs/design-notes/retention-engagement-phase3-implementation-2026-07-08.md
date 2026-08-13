@@ -20,7 +20,7 @@ Date: 2026-07-08
 
 - `PostResponse.lastViewedAt: string | null`
 - `PostResponse.lastReadCommentId` remains unchanged.
-- `POST /api/v1/posts` returns `{ postId, earnedPoints? }`.
+- `POST /api/v1/boards/{boardUrl}/posts` returns `{ postId, earnedPoints? }`.
 - Comment creation returns `{ commentId, earnedPoints? }`.
 - Post creation accepts optional `poll`.
 

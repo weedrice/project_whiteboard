@@ -422,7 +422,7 @@ getter 쪽만 명시 이름을 받으면 그 속성에는 mutator가 없다. `Bo
 
 **실제 피해**(수정 전 기준):
 
-- `POST /api/v1/posts`에 `isSecret:true`를 보내면 **비밀글이 공개로 생성된다.**
+- `POST /api/v1/boards/{boardUrl}/posts`에 `isSecret:true`를 보내면 **비밀글이 공개로 생성된다.**
 - 기존 비밀글을 수정하면 `isSecret`/`isNsfw`/`isSpoiler`가 전부 false로 덮인다.
   **수정 한 번에 비밀글이 공개로 바뀐다.**
 - 임시저장·예약발행도 같은 경로로 플래그가 사라진다.
