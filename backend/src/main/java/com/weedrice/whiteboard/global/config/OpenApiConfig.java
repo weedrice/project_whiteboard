@@ -52,9 +52,11 @@ public class OpenApiConfig {
             대부분의 API는 JWT 토큰 인증이 필요합니다. `/api/v1/auth/login` 또는 `/api/v1/auth/signup`을 통해 토큰을 발급받을 수 있습니다.
             
             ## 응답 형식
-            모든 API는 다음 형식으로 응답합니다:
+            일반 JSON 업무 API는 다음 envelope 형식으로 응답하며, 값이 `null`인 필드는 생략됩니다:
             - 성공: `{ "success": true, "data": {...} }`
             - 실패: `{ "success": false, "error": { "code": "...", "message": "..." } }`
+
+            파일 다운로드는 `Resource` 본문을 직접 반환하고, `/api/v1/notifications/stream`은 SSE 이벤트 스트림을 반환합니다. `/api/v1/security/csp-report`는 본문 없이 `204 No Content`를 반환합니다.
             
             ## 에러 코드
             각 에러는 고유한 코드를 가지며, 자세한 내용은 에러 코드 섹션을 참조하세요.
@@ -127,7 +129,7 @@ public class OpenApiConfig {
                 .url("http://localhost:8080")
                 .description("로컬 개발 서버"));
         servers.add(new Server()
-                .url("https://api.noviis.kr")
+                .url("https://noviis.kr")
                 .description("프로덕션 서버"));
         return servers;
     }

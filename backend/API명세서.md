@@ -22,8 +22,7 @@
 ```json
 {
   "success": true,
-  "data": {},
-  "error": null
+  "data": {}
 }
 ```
 
@@ -32,16 +31,21 @@
 ```json
 {
   "success": false,
-  "data": null,
   "error": {
     "code": "ERROR_CODE",
-    "message": "message",
-    "details": {}
+    "message": "message"
   }
 }
 ```
 
-위 envelope는 일반 JSON 업무 API의 공통 형식이다. `GET /api/v1/files/{fileId}`, 이미지 variant와 legacy 파일 다운로드는 `Resource` 본문을 직접 스트리밍하며, `POST /api/v1/security/csp-report`는 본문 없이 `204 No Content`를 반환한다.
+`ApiResponse`와 `ErrorResponse`는 값이 `null`인 필드를 JSON에서 생략한다. 응답 데이터가 없는
+성공 응답은 `{ "success": true }`이며, validation 오류처럼 상세 정보가 있는 실패 응답에만
+`error.details`가 추가된다.
+
+위 envelope는 일반 JSON 업무 API의 공통 형식이다. `GET /api/v1/files/{fileId}`, 이미지 variant와
+legacy 파일 다운로드는 `Resource` 본문을 직접 스트리밍하고, `GET /api/v1/notifications/stream`은
+SSE 이벤트 스트림을 반환한다. `POST /api/v1/security/csp-report`는 본문 없이 `204 No Content`를
+반환한다.
 
 ### 인증
 
