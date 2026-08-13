@@ -117,8 +117,8 @@ public class OpenApiConfig {
                         .name("NoviIs Team")
                         .email("support@noviis.kr"))
                 .license(new License()
-                        .name("Proprietary")
-                        .url("https://noviis.kr"));
+                        .name("MIT License")
+                        .url("https://opensource.org/license/mit"));
     }
 
     private List<Server> createServers() {

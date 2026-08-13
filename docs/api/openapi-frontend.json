@@ -7890,8 +7890,8 @@
     },
     "description" : "NoviIs 프로젝트의 백엔드 API 문서입니다.\n\n## 인증\n대부분의 API는 JWT 토큰 인증이 필요합니다. `/api/v1/auth/login` 또는 `/api/v1/auth/signup`을 통해 토큰을 발급받을 수 있습니다.\n\n## 응답 형식\n모든 API는 다음 형식으로 응답합니다:\n- 성공: `{ \"success\": true, \"data\": {...} }`\n- 실패: `{ \"success\": false, \"error\": { \"code\": \"...\", \"message\": \"...\" } }`\n\n## 에러 코드\n각 에러는 고유한 코드를 가지며, 자세한 내용은 에러 코드 섹션을 참조하세요.\n",
     "license" : {
-      "name" : "Proprietary",
-      "url" : "https://noviis.kr"
+      "name" : "MIT License",
+      "url" : "https://opensource.org/license/mit"
     },
     "title" : "NoviIs Whiteboard API",
     "version" : "v1"
