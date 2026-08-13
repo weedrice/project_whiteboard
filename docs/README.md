@@ -45,6 +45,7 @@
 - [스페이스 구독 정렬 순서](sql/board-subscription-sort-order-hardening-postgres.sql): 구독 정렬 순서 데이터의 제약을 강화하는 SQL이다.
 - [문의 스페이스 초기화](sql/inquiry-board-bootstrap-hardening-postgres.sql): 문의 스페이스 초기 데이터를 안전하게 보강하는 SQL이다.
 - [메시지 큐 처리 복구](sql/message-queue-processing-recovery-postgres.sql): 메시지 큐 처리 상태 복구를 지원하는 SQL이다.
+- [구매 이력 표시 스냅샷 백필](sql/purchase-history-presentation-snapshot-backfill-postgres.sql): 구매 이력의 상품명·유형·이미지 스냅샷을 배치 단위로 채우는 재실행 가능 SQL이다.
 - [신고 enum 제약](sql/report-enum-hardening-postgres.sql): 신고 관련 enum 데이터의 제약을 강화하는 SQL이다.
 - [검색 개인화 정규화 키워드](sql/search-personalization-normalized-keyword-hardening-postgres.sql): 검색 개인화 키워드 정규화 제약을 보강하는 SQL이다.
 - [상점 아이템 권한 대상](sql/shop-item-entitlement-target-postgres.sql): 상점 아이템 권한 대상 구조를 보강하는 SQL이다.
