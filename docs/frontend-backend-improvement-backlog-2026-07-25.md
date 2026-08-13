@@ -573,9 +573,9 @@ KST `Clock`으로 바꾼 것이라 값은 같다. 판별 기준상 기록해 둔
 
 **현재 상태 (2026-08-13): 완료.** 무효한 `spring.messages` 블록을 제거했고 `MessageConfig`에서 `fallbackToSystemLocale`을 `false`로 명시한다.
 
-**현상 1 — 죽은 설정 (확인됨)**
+**2026-07-25 당시 현상 1 — 죽은 설정 (확인됨)**
 
-`application.yml`에 `spring.messages` 블록이 있다.
+초판 작성 당시 `application.yml`에는 다음 `spring.messages` 블록이 있었다.
 
 ```yaml
   messages:
@@ -583,24 +583,25 @@ KST `Clock`으로 바꾼 것이라 값은 같다. 판별 기준상 기록해 둔
     encoding: UTF-8
 ```
 
-그런데 `MessageConfig`가 `messageSource`라는 이름의 빈을 직접 정의한다. Spring Boot의 `MessageSourceAutoConfiguration`은 `@ConditionalOnMissingBean(name = "messageSource")` 조건이므로 자동설정 전체가 물러나고, **`spring.messages.*` 값은 하나도 적용되지 않는다.** 현재 두 곳이 같은 값(`messages`, `UTF-8`)을 지정하고 있어 증상은 없지만, 설정 출처가 둘이고 그중 하나는 무효다.
+당시에도 `MessageConfig`가 `messageSource`라는 이름의 빈을 직접 정의하고 있었다. Spring Boot의 `MessageSourceAutoConfiguration`은 `@ConditionalOnMissingBean(name = "messageSource")` 조건이므로 자동설정 전체가 물러났고, **`spring.messages.*` 값은 하나도 적용되지 않았다.** 두 곳이 같은 값(`messages`, `UTF-8`)을 지정하고 있어 증상은 없었지만, 설정 출처가 둘이고 그중 하나는 무효였다.
 
-실질적 위험은 이것이다. 아래 현상 2를 고치려고 `spring.messages.fallback-to-system-locale: false`를 추가하면 **조용히 무시된다.** 설정을 넣었는데 동작이 안 바뀌는 형태의 디버깅이 발생한다.
+실질적 위험은 아래 현상 2를 고치려고 `spring.messages.fallback-to-system-locale: false`를 추가해도 **조용히 무시된다는 점**이었다. 설정을 넣었는데 동작이 바뀌지 않는 형태의 디버깅이 발생할 수 있었다.
 
-**현상 2 — fallback 동작 (미확인)**
+**2026-07-25 당시 현상 2 — fallback 동작 (미확인)**
 
-`MessageConfig`의 `ReloadableResourceBundleMessageSource`에 `setFallbackToSystemLocale`과 `setDefaultLocale`이 명시되어 있지 않다.
+초판 작성 당시 `MessageConfig`의 `ReloadableResourceBundleMessageSource`에는 `setFallbackToSystemLocale`과 `setDefaultLocale`이 명시되어 있지 않았다.
 
-**이 절의 초판은 프레임워크 기본값이 `true`라고 단정했으나, 이 환경에서는 Spring 의존성 jar를 확인할 수 없어 검증하지 못했다.** Spring Boot 4.1(Spring Framework 7.x) 기준 실제 기본값은 착수 전에 확인이 필요하다.
+**이 절의 초판은 프레임워크 기본값이 `true`라고 단정했으나, 당시 환경에서는 Spring 의존성 jar를 확인할 수 없어 검증하지 못했다.** 따라서 실제 기본값은 조치 착수 전에 확인해야 할 항목으로 남겨 두었다.
 
-기본값이 `true`라면, 영어 번들에 키가 누락됐을 때 기본 번들이 아니라 JVM 기본 **로케일**(timezone이 아니다) 번들로 떨어진다. 2026-08-13 현재 `messages.properties`와 `messages_en.properties`는 키 156개로 완전히 일치하고 `GlobalExceptionTest`가 parity를 강제하므로 **어느 쪽이든 지금 증상은 없다.**
+기본값이 `true`였다면 영어 번들에 키가 누락됐을 때 기본 번들이 아니라 JVM 기본 **로케일**(timezone이 아니다) 번들로 떨어질 수 있었다. 다만 `messages.properties`와 `messages_en.properties`는 키 156개가 완전히 일치했고 `GlobalExceptionTest`가 parity를 강제했으므로 당시에도 실제 증상은 없었다.
 
-**제안**
+**적용한 조치 (2026-08-13)**
 
-1. `spring.messages` 블록을 제거하거나, 반대로 `MessageConfig`의 커스텀 빈을 없애고 Boot 자동설정에 맡긴다. 후자를 택하면 `spring.messages.fallback-to-system-locale` 같은 속성이 정상 동작한다. 단 `LocalValidatorFactoryBean`이 같은 설정 클래스에 있으므로 함께 정리해야 한다.
-2. 현상 2의 실제 기본값을 확인한 뒤, 필요하면 `setFallbackToSystemLocale(false)`와 `setDefaultLocale`을 명시한다. 1번에서 커스텀 빈을 유지하기로 했다면 코드로, 자동설정으로 옮겼다면 속성으로 지정한다.
+1. 무효한 `spring.messages` 블록을 제거하고 `MessageConfig`의 커스텀 빈을 단일 설정 출처로 유지했다.
+2. 커스텀 빈에 `setFallbackToSystemLocale(false)`를 명시해 시스템 로케일 의존성을 제거했다.
+3. `GlobalExceptionTest`의 번들 키 parity 검증을 유지해 기본 번들과 영어 번들의 누락을 방지한다.
 
-우선순위는 낮다. 현재 동작에 문제가 없고, parity 테스트가 실질적인 방어선 역할을 하고 있다.
+현재는 설정 출처가 하나로 정리됐고 fallback 동작도 코드에 명시되어 있다. parity 테스트가 번들 간 키 불일치를 추가로 방어한다.
 
 ## C. 프론트엔드 단독
 
