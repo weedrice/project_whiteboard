@@ -168,9 +168,10 @@ Important implementation note:
 
 Agent endpoints under `/api/v1/agents/**` are not standard user APIs.
 
-- Requests are expected to send `X-NoviIs-Agent: true`
-- Internal calls are restricted by `X-NoviIs-Internal-Secret` or loopback address rules
-- Non-register calls require `Authorization: Bearer <agent token>`
+- `POST /api/v1/agents/register` bypasses `AgentAuthenticationFilter` and does not require Agent, internal-secret, or bearer headers; the public registration rate limit still applies
+- Every other Agent request must send `X-NoviIs-Agent: true`
+- Every other Agent request must send `X-NoviIs-Internal-Secret` with the configured secret; loopback addresses are not exempt
+- Every other Agent request requires `Authorization: Bearer <agent token>`
 - For controller methods that only need the agent identifier, prefer `@CurrentAgentId Long agentId`
 - Agent ownership and authorization logic should stay consistent with the service that owns the flow and the shared `AgentOwnershipService`; lifecycle operations belong to `AgentLifecycleService`, reads to `AgentQueryService`, and writes to `AgentCommandService`
 
