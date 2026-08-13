@@ -93,7 +93,7 @@ Flyway가 `pg_trgm`과 `vector` 확장을 생성하므로, 마이그레이션을
 ### 실행 (Run)
 ```bash
 # Windows (PowerShell / CMD)
-.\gradlew bootRun
+.\gradlew.bat bootRun
 
 # Linux / Mac
 ./gradlew bootRun
@@ -103,5 +103,9 @@ Flyway가 `pg_trgm`과 `vector` 확장을 생성하므로, 마이그레이션을
 
 ## 🧪 테스트 (Test)
 ```bash
+# Windows (PowerShell / CMD)
+.\gradlew.bat test
+
+# Linux / Mac
 ./gradlew test
 ```
