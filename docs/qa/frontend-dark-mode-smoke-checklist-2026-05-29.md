@@ -15,11 +15,14 @@ npm.cmd run check:colors
 
 검사 대상은 `frontend/src`의 `.vue`, `.ts`, `.css` 파일이다. 현재 실패 처리하는 패턴은 다음과 같다.
 
-- `dark:hover:bg-indigo-*`, `dark:active:bg-blue-*` 같은 다크모드 브랜드 배경
+- `dark:hover:bg-indigo-*`, `dark:active:bg-blue-*`, `dark:bg-cyan-*` 같은 다크모드 브랜드 배경
 - `bg-white ... dark:bg-gray-*`, `bg-gray-50 ... dark:bg-gray-*` 같은 일반 표면 배경 쌍
 - `border-gray-200 ... dark:border-gray-*` 같은 일반 경계 쌍
 - `text-gray-900 ... dark:text-*`, `text-gray-500 ... dark:text-gray-*` 같은 일반 텍스트 쌍
 - `hover:nv-*`, `sm:nv-*`처럼 Tailwind variant로 잘못 작성한 custom class
+- 텍스트에 `color: var(--nv-danger)` 또는 `text-[var(--nv-success)]`처럼 상태 원색을 직접 사용하는 패턴. 텍스트에는 대응하는 `--nv-*-text` token을 사용한다.
+- `--nv-text`, `--nv-border`, `--nv-page`, `--nv-text-subtle`, `--nv-text-muted`, `--nv-surface-alt`, `--nv-accent-soft`처럼 호환 선언으로만 남은 deprecated token 사용
+- 공통 foundation에 정의되지 않은 `--nv-*` token을 명시적인 `var()` fallback 없이 사용하는 패턴
 
 ## 수동 다크모드 Smoke
 
