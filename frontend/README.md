@@ -23,7 +23,7 @@ src/
 |-- api/          Axios clients, request/response handling, API adapters
 |-- assets/       CSS and static frontend assets
 |-- components/   Reusable UI components
-|-- composables/  Shared composables and compatibility re-export shims
+|-- composables/  Shared cross-feature and low-level composables
 |-- extensions/   TipTap/editor extensions
 |-- features/     Domain feature logic and feature-local composables
 |   |-- admin/
@@ -61,8 +61,8 @@ src/
 ## 구조 기준
 
 - 도메인 전용 query key, cache invalidation, form state, page resource, mutation orchestration은 `src/features/{domain}` 아래에 둡니다.
-- `src/composables`는 여러 feature가 공유하는 helper, 낮은 수준의 재사용 로직, 기존 import 경로 유지를 위한 re-export shim에 사용합니다.
-- 새 코드에서는 이동된 도메인 로직을 `src/features/...`에서 직접 import하는 것을 우선합니다.
+- `src/composables`는 여러 feature가 공유하는 helper와 낮은 수준의 재사용 로직에 사용합니다.
+- 도메인 로직은 `src/features/...`에서 직접 import하며, `src/composables` 아래에 호환용 re-export shim을 다시 만들지 않습니다.
 - `components`는 재사용 UI, `views`는 route-level orchestration을 담당합니다.
 - 백엔드 응답 envelope와 DTO 변경은 `src/api`, `src/types`, 관련 feature composable, UI consumer를 함께 맞춥니다.
 
