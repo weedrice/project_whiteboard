@@ -4,6 +4,10 @@
 
 ## 1. 주요 기능 및 로직
 - 알림 생성: 댓글/좋아요 등 `NotificationEvent`를 원 업무 트랜잭션에서 `notification_delivery_jobs`에 저장합니다. 커밋 후 worker가 알림 생성과 job 완료를 한 트랜잭션으로 처리하며, lease·지수 backoff·dead-letter로 일시 장애를 복구합니다. 자기 자신 대상은 worker 처리 시 무시합니다.
+- 다국어 메시지: 생산자는 `messageKey`와 `messageParams`를 발행하고 서버는 이를 `message_key`와 JSON 문자열
+  `message_params`에 저장합니다. 수신자 설정 언어로 렌더링한 `content`도 legacy fallback으로 함께 저장합니다.
+  응답은 기존 `message`와 선택 필드 `messageKey`, `messageParams`를 제공하며, 프런트는 지원하는 키를 현재
+  앱 locale로 렌더링하고 구조화 메타데이터가 없거나 지원하지 않는 키면 `message`를 사용합니다.
 - Web Push: 알림 생성과 같은 트랜잭션에서 이벤트·구독별 `push_delivery_jobs`를 생성합니다. 외부 Push 전송은 전용 scheduler가 한 번에 최대 20건씩 DB 트랜잭션 밖에서 수행하며 timeout·429·5xx는 지수 backoff로 재시도하고 404·410은 해당 구독을 조건부 삭제합니다.
 - Web Push 전달 보장은 at-least-once입니다. 공급자 전송 성공 직후 프로세스가 종료되면 같은 작업이 다시 전송될 수 있으므로 payload의 안정적인 `notification-{notificationId}` tag로 현재 표시 중인 알림을 교체합니다. 사용자가 알림을 닫았거나 Service Worker가 재시작된 뒤의 재전송까지 정확히 한 번으로 만들지는 않습니다.
 - SSE 구독: 사용자별 `SseEmitter`를 등록해 실시간 알림을 전송하며, 연결 상태 이벤트(`connect`)를 즉시 송신합니다.
@@ -38,7 +42,7 @@
 
 | 테이블명 | 엔티티 | 설명 |
 | :------- | :----- | :--- |
-| `notifications` | `Notification` | 알림 대상/행위자/본문/읽음 여부 |
+| `notifications` | `Notification` | 알림 대상/행위자, 호환 본문, 구조화 메시지 키·파라미터, 그룹·읽음 상태 |
 | `notification_delivery_jobs` | `NotificationDeliveryJob` | 원 트랜잭션에서 저장되는 알림 전달 작업과 lease·재시도·dead-letter 상태 |
 | `push_delivery_jobs` | `PushDeliveryJob` | 알림 이벤트·구독별 Web Push 전송 lease·재시도·만료·dead-letter 상태 |
 
