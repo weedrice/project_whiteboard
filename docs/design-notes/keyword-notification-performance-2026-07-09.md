@@ -4,14 +4,14 @@ Current implementation checked: 2026-08-13
 
 ## Current State
 
-Keyword notification matching intentionally keeps the simple reverse LIKE query:
+Keyword notification matching intentionally keeps a simple reverse substring query expressed with JPQL `LOCATE`:
 
-```sql
-LOWER(:title) LIKE '%' || LOWER(keyword) || '%'
+```jpql
+LOCATE(LOWER(subscription.keyword), LOWER(:title)) > 0
 ```
 
-This cannot use a normal keyword index because the post title is the searched value and each stored keyword is
-the pattern.
+Both `findMatchingTitle` and the cursor-based `findMatchingTitleAfter` use this predicate. It cannot use a normal
+keyword index because the post title is the searched value and every stored keyword must be located inside it.
 
 The execution path is durable rather than an after-commit in-memory task:
 
