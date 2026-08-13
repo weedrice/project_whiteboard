@@ -4,7 +4,7 @@
 
 | 항목 | 내용 |
 | --- | --- |
-| 기준일 | 2026-05-29 |
+| 기준일 | 2026-08-13 |
 | 백엔드 설정 | `backend/src/main/java/com/weedrice/whiteboard/global/config/SecurityConfig.java` |
 | 프론트 API 클라이언트 | `frontend/src/api/index.ts` |
 
@@ -33,8 +33,12 @@
 
 ### Exposed Headers
 
-- `Content-Type`
-- `Content-Length`
+- `RateLimit-Limit`
+- `RateLimit-Remaining`
+- `RateLimit-Reset`
+- `Retry-After`
+
+`Content-Type`과 `Content-Length`는 CORS safelisted response header이므로 별도 노출 목록에 넣지 않아도 브라우저 JavaScript에서 읽을 수 있다. Rate limit 헤더는 safelist에 없으므로 백엔드가 명시적으로 노출한다.
 
 ## 프론트엔드 영향
 

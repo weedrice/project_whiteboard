@@ -40,6 +40,19 @@ shell environment, CI/CD secrets, or an approved secret manager.
 | `APP_ERROR_LOG_CLIENT_RETENTION_DAYS` | Client error-log retention period. Defaults to `30` days. |
 | `APP_ERROR_LOG_RESOLVED_RETENTION_DAYS` | Resolved error-log retention period. Defaults to `90` days. |
 | `APP_ERROR_LOG_CLEANUP_BATCH_SIZE` | Maximum error-log cleanup batch size. Defaults to `500`. |
+| `APP_MESSAGE_QUEUE_TERMINAL_RETENTION_DAYS` | Terminal message-queue retention period. Defaults to `30` days. |
+| `APP_MESSAGE_QUEUE_DELIVERED_UNCONFIRMED_RETENTION_DAYS` | Delivered-but-unconfirmed message retention period. Defaults to `7` days. |
+| `APP_MESSAGE_QUEUE_CLEANUP_BATCH_SIZE` | Maximum message-queue cleanup batch size. Defaults to `500`. |
+| `APP_VERIFICATION_CODE_TERMINAL_RETENTION_DAYS` | Terminal verification-code retention period. Defaults to `7` days. |
+| `APP_VERIFICATION_CODE_PENDING_RECOVERY_GRACE_MINUTES` | Grace period before pending verification-code recovery. Defaults to `30` minutes. |
+| `APP_VERIFICATION_CODE_PENDING_RECOVERY_BATCH_SIZE` | Maximum pending verification-code recovery batch size. Defaults to `500`. |
+| `APP_VERIFICATION_CODE_PENDING_RECOVERY_MAX_BATCHES` | Maximum pending verification-code recovery batches per run. Defaults to `10`. |
+| `APP_PASSWORD_RESET_TOKEN_RETENTION_DAYS` | Expired password-reset-token retention period. Defaults to `30` days. |
+| `APP_PASSWORD_RESET_TOKEN_CLEANUP_BATCH_SIZE` | Maximum password-reset-token cleanup batch size. Defaults to `500`. |
+| `APP_VERIFICATION_CODE_CLEANUP_BATCH_SIZE` | Maximum verification-code cleanup batch size. Defaults to `500`. |
+| `APP_AGENT_PENDING_CLAIM_HARD_DELETE_DAYS` | Age threshold for permanently deleting pending Agent claims. Defaults to `7` days. |
+| `APP_AGENT_PENDING_CLAIM_PURGE_BATCH_SIZE` | Maximum pending Agent claim purge batch size. Defaults to `500`. |
+| `APP_AGENT_PENDING_CLAIM_PURGE_MAX_BATCHES` | Maximum pending Agent claim purge batches per run. Defaults to `10`. |
 | `SEMANTIC_SEARCH_RELATED_POST_MIN_SIMILARITY` | Minimum similarity for related posts. Defaults to `0.55`. |
 | `DB_MAX_POOL_SIZE` | Production Hikari maximum pool size override. Defaults to `20`. |
 | `DB_MIN_IDLE` | Production Hikari minimum idle connection override. Defaults to `5`. |

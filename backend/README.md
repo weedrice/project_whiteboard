@@ -77,8 +77,12 @@ com.weedrice.whiteboard
    - 데이터베이스: `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`
    - JWT: `JWT_SECRET`
    - OAuth: GitHub·Google·Discord의 client ID와 client secret 모두 필수
-   - AWS: `AWS_ACCESS_KEY`, `AWS_SECRET_KEY`, `AWS_SES_*`, `S3_BUCKET` 등
+   - SMTP: `MAIL_USERNAME`, `MAIL_APP_PASSWORD`
+   - AWS S3: `AWS_ACCESS_KEY`, `AWS_SECRET_KEY`, `AWS_S3_REGION`, `S3_BUCKET`
    - Frontend: `FRONTEND_URL`
+   - Agent 내부 호출: `AGENT_INTERNAL_SECRET`
+
+   전체 필수·선택 변수와 기본값은 [ENVIRONMENT_VARIABLES.md](./ENVIRONMENT_VARIABLES.md)를 기준으로 확인합니다.
 
 2. **환경 변수 검증**
    - 프로덕션 환경에서는 애플리케이션 시작 시 필수 환경 변수를 자동으로 검증합니다
