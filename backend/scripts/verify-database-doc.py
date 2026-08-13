@@ -10,6 +10,7 @@ CREATE_TABLE_PATTERN = re.compile(
     r"\bCREATE\s+TABLE(?:\s+IF\s+NOT\s+EXISTS)?\s+([A-Za-z_][A-Za-z0-9_]*)",
     re.IGNORECASE,
 )
+DOCUMENT_TABLE_PATTERN = re.compile(r"^\|\s*`([a-z][a-z0-9_]*)`\s*\|", re.MULTILINE)
 
 
 def main() -> int:
@@ -44,16 +45,39 @@ def main() -> int:
     document = document_path.read_text(encoding="utf-8")
     expected_range = f"`V1__baseline_schema.sql` - `{latest.name}`"
     expected_count = f"| 현재 테이블 수 | {len(tables)}개 |"
+    table_list_match = re.search(
+        r"^## 테이블 목록\s*$([\s\S]*?)^## 주요 제약과 인덱스\s*$",
+        document,
+        re.MULTILINE,
+    )
     failures = []
     if expected_range not in document:
         failures.append(f"migration range must end at {latest.name}")
     if expected_count not in document:
         failures.append(f"table count must be {len(tables)}")
+    if table_list_match is None:
+        failures.append("table list section could not be parsed")
+    else:
+        documented_tables = {
+            name.lower() for name in DOCUMENT_TABLE_PATTERN.findall(table_list_match.group(1))
+        }
+        missing_tables = sorted(tables - documented_tables)
+        unknown_tables = sorted(documented_tables - tables)
+        if missing_tables:
+            failures.append(
+                "table list is missing migration-created tables: " + ", ".join(missing_tables)
+            )
+        if unknown_tables:
+            failures.append(
+                "table list contains tables not created by migrations: " + ", ".join(unknown_tables)
+            )
     if failures:
         for failure in failures:
             print(f"DATABASE.md drift: {failure}", file=sys.stderr)
         return 1
-    print(f"DATABASE.md matches {latest.name} and {len(tables)} created tables")
+    print(
+        f"DATABASE.md matches {latest.name} and documents all {len(tables)} created tables"
+    )
     return 0
 
 

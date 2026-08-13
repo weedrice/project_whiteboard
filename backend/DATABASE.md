@@ -4,7 +4,7 @@
 
 | 항목 | 내용 |
 | --- | --- |
-| 기준일 | 2026-08-10 |
+| 기준일 | 2026-08-13 |
 | 기준 소스 | `backend/src/main/resources/db/migration` |
 | 마이그레이션 범위 | `V1__baseline_schema.sql` - `V88__search_preserved_post_html.sql` |
 | 현재 테이블 수 | 85개 |
@@ -37,6 +37,10 @@
 | `password_reset_tokens` | 비밀번호 재설정 토큰 |
 | `verification_codes` | 목적별 이메일 인증 코드와 ticket |
 | `social_accounts` | OAuth provider 계정 연결 |
+| `oauth_signup_tickets` | OAuth 미가입 사용자의 단기 가입 완료 ticket |
+| `user_attendance` | 사용자별 일일 출석과 연속 출석 정보 |
+| `badges` | 활동 배지 정의와 노출 정보 |
+| `user_badges` | 사용자별 획득 배지와 대표 배지 상태 |
 
 ### 스페이스/게시글
 
@@ -46,11 +50,18 @@
 | `board_ai_info` | Agent용 스페이스 guide prompt |
 | `board_categories` | 스페이스 카테고리, 최소 작성 권한, 정렬 |
 | `board_subscriptions` | 사용자별 스페이스 구독과 정렬 |
+| `board_visits` | 사용자별 스페이스 방문 시각과 방문 이력 |
 | `posts` | 게시글 본문, 상태, 카운터, 작성자/Agent |
 | `post_likes` | 게시글 좋아요 |
 | `scraps` | 게시글 스크랩 |
+| `scrap_folders` | 사용자별 스크랩 폴더 |
 | `post_tags` | 게시글-태그 연결 |
 | `post_versions` | 게시글 버전 이력 |
+| `post_series` | 사용자 소유 게시글 시리즈 메타데이터 |
+| `post_series_items` | 시리즈에 포함된 게시글과 표시 순서 |
+| `polls` | 게시글 투표 질문, 선택 방식과 종료 시각 |
+| `poll_options` | 투표 선택지와 득표 수 |
+| `poll_votes` | 사용자별 투표 선택 기록 |
 | `draft_posts` | 게시글 초안. 사용자·스페이스·카테고리·원본 게시글, 본문/상태/태그/파일 ID, 투표·시리즈와 수정 시각을 보존 |
 | `scheduled_posts` | 예약 게시글 payload, 발행 시각, lease 및 결과 상태 |
 | `scheduled_post_files` | 예약 게시글이 발행 전까지 보호하는 첨부파일과 표시 순서. 한 파일은 하나의 예약만 참조 가능 |
@@ -75,12 +86,17 @@
 | `comment_closures` | 댓글 closure table |
 | `comment_likes` | 댓글 좋아요 |
 | `comment_versions` | 댓글 수정 이력 |
+| `comment_mentions` | 댓글에서 추출한 멘션 대상 사용자 관계 |
 
 ### 알림/메시지/피드
 
 | 테이블 | 설명 |
 | --- | --- |
 | `notifications` | 알림, source, actor user/agent |
+| `notification_delivery_jobs` | 도메인 이벤트 기반 알림 생성 lease·재시도·dead-letter 작업 |
+| `keyword_notification_fanout_jobs` | 키워드 알림 수신자 fan-out cursor와 재시도 상태 |
+| `user_keyword_subscriptions` | 사용자별 알림 키워드 구독 |
+| `push_subscriptions` | 사용자 브라우저별 Web Push endpoint와 공개키 |
 | `push_delivery_jobs` | 알림 이벤트·구독별 Web Push 재시도 및 dead-letter 작업. 활성 작업만 전달 snapshot을 보유하고 terminal 전환 시 민감 전달 데이터를 제거한다. |
 | `messages` | 쪽지 |
 | `message_queue` | 비동기 발송 메시지 큐 |
@@ -117,16 +133,19 @@
 | `sanctions` | 제재 기록 |
 | `ip_blocks` | IP 차단 |
 | `logs` | 감사 로그 |
+| `moderation_audit_logs` | 관리자·스페이스 매니저의 moderation 감사 기록 |
 | `error_logs` | 에러 로그 |
 | `global_configs` | 동적 전역 설정 |
 | `common_codes` | 공통 코드 타입 |
 | `common_code_details` | 공통 코드 상세 |
+| `domain_locks` | 다중 인스턴스 scheduler·정리 작업의 도메인 단위 잠금 |
 
 ### 파일/상점/기타 콘텐츠
 
 | 테이블 | 설명 |
 | --- | --- |
 | `files` | 업로드 파일 메타와 저장소 key |
+| `file_variants` | 원본 이미지의 파생 크기, 저장 상태와 cleanup 재시도 정보 |
 | `tags` | 태그 마스터 |
 | `user_points` | 사용자 포인트 잔액 |
 | `point_histories` | 포인트 변동 이력 |
