@@ -42,7 +42,9 @@ backend/
 ### Prerequisites
 
 - Java 25
-- PostgreSQL
+- PostgreSQL with the `pg_trgm` and `vector` extensions
+
+Flyway creates both extensions during migration. The migration user therefore needs permission to create them; when that permission is unavailable, have a database administrator install both extensions before starting the backend.
 
 On Windows, if multiple JDKs are installed, set Java 25 explicitly before running Gradle:
 

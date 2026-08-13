@@ -63,7 +63,9 @@ com.weedrice.whiteboard
 
 ### 전제 조건 (Prerequisites)
 -   JDK 25
--   PostgreSQL
+-   PostgreSQL과 `pg_trgm`, `vector` 확장
+
+Flyway가 `pg_trgm`과 `vector` 확장을 생성하므로, 마이그레이션을 실행하는 데이터베이스 사용자는 해당 확장을 생성할 권한이 있어야 합니다. 권한을 부여할 수 없는 환경에서는 관리자가 두 확장을 미리 설치해야 합니다.
 
 ### 설정 (Configuration)
 
