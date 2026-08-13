@@ -112,7 +112,7 @@ Important behavior:
 ### Feature boundary rules
 
 - Keep feature-specific query keys, cache invalidation helpers, form state, page resources, and mutation orchestration in `src/features/{domain}`.
-- Current top-level feature slices are `admin`, `board`, `comments`, `emoticon`, `feed`, `mentions`, `notifications`, `shop`, and `user`; `board/posts` is a nested post slice under `board`.
+- Current top-level feature slices are `admin`, `board`, `comments`, `emoticon`, `feed`, `mentions`, `notifications`, `search`, `shop`, and `user`; `board/posts` is a nested post slice under `board`.
 - Feature slices may be adopted incrementally; the presence of a domain directory does not mean every root composable for that domain has already moved.
 - `board/posts` owns post detail, draft, editor, form, and post query helpers.
 - `emoticon` owns detail, form, list, and picker helpers.

@@ -36,15 +36,22 @@ src/
 |   |   |   |-- form/
 |   |   |   `-- queries/
 |   |   `-- queries/
+|   |-- comments/
 |   |-- emoticon/
 |   |   |-- detail/
 |   |   |-- form/
 |   |   |-- list/
 |   |   `-- picker/
+|   |-- feed/
+|   |-- mentions/
+|   |-- notifications/
+|   |-- search/
+|   |-- shop/
 |   `-- user/
 |-- locales/      Translation resources
 |-- router/       Route definitions and guards
 |-- stores/       Pinia stores
+|-- styles/       Shared stylesheet modules
 |-- test/         Shared test setup and helpers
 |-- types/        Shared TypeScript types
 |-- utils/        Utilities, constants, logger, sanitizers, storage helpers

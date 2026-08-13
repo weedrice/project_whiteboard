@@ -27,7 +27,7 @@
 export interface ErrorResponse {
     code: string
     message: string
-    details?: ValidationErrors | any
+    details?: ValidationErrors | Record<string, unknown>
 }
 ```
 
@@ -224,4 +224,4 @@ catch (error) {
 - `frontend/src/types/common.ts` - 타입 정의
 - `frontend/src/utils/errorHandler.ts` - 유틸리티 함수
 - `frontend/src/api/index.ts` - API 인터셉터 (자동 처리)
-- `frontend/src/components/user/ProfileEditor.vue` - 사용 예시
+- `frontend/src/composables/useErrorHandler.ts` - Validation 유틸리티를 감싼 공용 composable
