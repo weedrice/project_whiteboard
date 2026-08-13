@@ -48,3 +48,6 @@ cloud:
       bucket: ${S3_BUCKET}
     password-reset:
       frontend-url: http://localhost:5173/reset-password#token=
+
+client-ip:
+  trust-proxy-headers: ${CLIENT_IP_TRUST_PROXY_HEADERS:false}
