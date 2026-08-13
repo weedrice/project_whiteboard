@@ -193,7 +193,7 @@ Useful targeted commands:
 ```bash
 ./gradlew test --tests "*PostServiceTest"
 ./gradlew test --tests "*AgentServiceTest"
-./gradlew test --tests "*SecurityConfigTest"
+./gradlew test --tests "*SecurityConfigAuthorizationTest"
 ```
 
 Test notes:

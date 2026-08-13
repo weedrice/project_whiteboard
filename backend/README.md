@@ -62,7 +62,7 @@ com.weedrice.whiteboard
 ## 🚀 시작하기 (Getting Started)
 
 ### 전제 조건 (Prerequisites)
--   JDK 25 이상
+-   JDK 25
 -   PostgreSQL
 
 ### 설정 (Configuration)
