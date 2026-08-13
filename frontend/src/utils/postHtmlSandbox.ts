@@ -23,6 +23,10 @@ type SandboxMarkerRange = {
     payloadEnd: number
 }
 
+export type SandboxedPostHtmlSegment =
+    | { type: 'content'; html: string }
+    | { type: 'sandbox'; html: string }
+
 type HtmlAttributeToken = {
     name: string
     value: string
@@ -299,6 +303,32 @@ export function decodeSandboxedPostHtml(content: string | null | undefined): str
 export function expandSandboxedPostHtml(content: string | null | undefined): string | null {
     if (!containsSandboxedPostHtml(content)) return null
     return mapDecodedSandboxMarkers(content ?? '', (decoded) => decoded)
+}
+
+export function splitSandboxedPostHtmlSegments(
+    content: string | null | undefined,
+): SandboxedPostHtmlSegment[] | null {
+    if (!content?.includes(SANDBOX_MARKER_CLASS)) return null
+
+    const ranges = findSandboxMarkerRanges(content)
+    if (ranges.length === 0) return null
+
+    const segments: SandboxedPostHtmlSegment[] = []
+    let segmentStart = 0
+    ranges.forEach((range) => {
+        const normalHtml = content.slice(segmentStart, range.start)
+        if (normalHtml.trim()) segments.push({ type: 'content', html: normalHtml })
+
+        segments.push({
+            type: 'sandbox',
+            html: decodeSandboxedPostHtmlPayload(range.payload) ?? range.marker,
+        })
+        segmentStart = range.end
+    })
+
+    const trailingHtml = content.slice(segmentStart)
+    if (trailingHtml.trim()) segments.push({ type: 'content', html: trailingHtml })
+    return segments
 }
 
 export function expandSandboxedPostHtmlForEditing(content: string | null | undefined): string | null {

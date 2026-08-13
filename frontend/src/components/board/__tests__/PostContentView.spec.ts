@@ -55,13 +55,17 @@ describe('PostContentView', () => {
         const marker = encodeSandboxedPostHtml('<style>.card{display:grid}</style><p>Widget</p>')
         const wrapper = mount(PostContentView, {
             props: {
-                content: `${marker}<p>Tail remains visible</p>`,
+                content: `<p>Before remains editable</p>${marker}<p>Tail remains visible</p>`,
             },
+            attrs: { class: 'nv-rich-content' },
         })
 
         const source = wrapper.get('iframe').attributes('srcdoc')
         expect(source).toContain('<p>Widget</p>')
-        expect(source).toContain('<p>Tail remains visible</p>')
+        expect(source).not.toContain('Before remains editable')
+        expect(source).not.toContain('Tail remains visible')
+        expect(wrapper.findAll('p').map((paragraph) => paragraph.text()))
+            .toEqual(['Before remains editable', 'Tail remains visible'])
     })
 
     it('keeps plain code content usable when the lazy highlighter fails to load', async () => {

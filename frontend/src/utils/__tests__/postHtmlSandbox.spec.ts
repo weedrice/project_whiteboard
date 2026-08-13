@@ -13,6 +13,7 @@ import {
     requiresPreservedPostHtml,
     requiresSandboxedPostHtml,
     restoreSandboxedPostHtmlAfterEditing,
+    splitSandboxedPostHtmlSegments,
 } from '../postHtmlSandbox'
 
 const heightBridgeSource = readFileSync(
@@ -99,6 +100,21 @@ describe('postHtmlSandbox', () => {
         expect(decodeSandboxedPostHtml(marker)).toBe(raw)
         expect(decodeSandboxedPostHtml(mixed)).toBeNull()
         expect(expandSandboxedPostHtml(mixed)).toBe(`${raw}<p>Tail</p>`)
+    })
+
+    it('splits ordinary content and preserved blocks without moving either across the boundary', () => {
+        const first = encodeSandboxedPostHtml('<section>첫 블록</section>')
+        const second = encodeSandboxedPostHtml('<section>둘째 블록</section>')
+
+        expect(splitSandboxedPostHtmlSegments(
+            `<p>앞</p>${first}<p>중간</p>${second}<p>뒤</p>`,
+        )).toEqual([
+            { type: 'content', html: '<p>앞</p>' },
+            { type: 'sandbox', html: '<section>첫 블록</section>' },
+            { type: 'content', html: '<p>중간</p>' },
+            { type: 'sandbox', html: '<section>둘째 블록</section>' },
+            { type: 'content', html: '<p>뒤</p>' },
+        ])
     })
 
     it('round-trips mixed preserved blocks through editable source boundaries', () => {

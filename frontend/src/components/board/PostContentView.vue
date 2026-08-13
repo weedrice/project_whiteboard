@@ -4,7 +4,10 @@ import { useI18n } from 'vue-i18n'
 import SandboxedHtmlFrame from '@/components/common/SandboxedHtmlFrame.vue'
 import SanitizedHtmlView from '@/components/common/SanitizedHtmlView.vue'
 import { renderPostContentHtml, type CodeBlockHighlighter } from '@/utils/postContentHtml'
-import { decodeSandboxedPostHtml, expandSandboxedPostHtml, requiresSandboxedPostHtml } from '@/utils/postHtmlSandbox'
+import {
+  requiresSandboxedPostHtml,
+  splitSandboxedPostHtmlSegments,
+} from '@/utils/postHtmlSandbox'
 
 defineOptions({
   inheritAttrs: false,
@@ -23,19 +26,25 @@ const { t } = useI18n()
 const element = ref<HTMLElement | null>(null)
 const sandboxWrapper = ref<HTMLElement | null>(null)
 const codeBlockHighlighter = shallowRef<CodeBlockHighlighter | null>(null)
-const decodedSandboxHtml = computed(() => decodeSandboxedPostHtml(props.content))
-const expandedSandboxHtml = computed(() => expandSandboxedPostHtml(props.content))
-const sandboxHtml = computed(() => (
-  decodedSandboxHtml.value
-  ?? expandedSandboxHtml.value
-  ?? (requiresSandboxedPostHtml(props.content) ? props.content ?? '' : null)
+const contentSegments = computed(() => splitSandboxedPostHtmlSegments(props.content))
+const standaloneSandboxHtml = computed(() => (
+  contentSegments.value == null && requiresSandboxedPostHtml(props.content)
+    ? props.content ?? ''
+    : null
 ))
-const shouldUseSandbox = computed(() => sandboxHtml.value != null)
+const shouldUseSandbox = computed(() => contentSegments.value != null || standaloneSandboxHtml.value != null)
 const hasCodeBlock = computed(() => /<pre[\s>]/i.test(props.content ?? ''))
 const sanitizedHtml = computed(() => renderPostContentHtml(props.content, {
   copy: t('board.writePost.codeBlock.copy'),
   copyAriaLabel: t('board.writePost.codeBlock.copyAriaLabel'),
 }, codeBlockHighlighter.value))
+
+function renderSanitizedSegment(html: string): string {
+  return renderPostContentHtml(html, {
+    copy: t('board.writePost.codeBlock.copy'),
+    copyAriaLabel: t('board.writePost.codeBlock.copyAriaLabel'),
+  }, codeBlockHighlighter.value)
+}
 
 type SanitizedHtmlViewExpose = ComponentPublicInstance & {
   element?: HTMLElement | { value: HTMLElement | null } | null
@@ -88,8 +97,28 @@ defineExpose({
     :ref="assignSandboxRef"
     v-bind="attrs"
   >
+    <template v-if="contentSegments">
+      <template
+        v-for="(segment, index) in contentSegments"
+        :key="`${segment.type}-${index}`"
+      >
+        <SandboxedHtmlFrame
+          v-if="segment.type === 'sandbox'"
+          :html="segment.html"
+          :title="sandboxTitle ?? t('common.content')"
+          :min-height="sandboxMinHeight"
+          :loading="sandboxLoading"
+        />
+        <SanitizedHtmlView
+          v-else
+          tag="div"
+          :html="renderSanitizedSegment(segment.html)"
+        />
+      </template>
+    </template>
     <SandboxedHtmlFrame
-      :html="sandboxHtml ?? ''"
+      v-else
+      :html="standaloneSandboxHtml ?? ''"
       :title="sandboxTitle ?? t('common.content')"
       :min-height="sandboxMinHeight"
       :loading="sandboxLoading"
