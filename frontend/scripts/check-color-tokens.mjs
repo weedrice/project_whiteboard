@@ -4,7 +4,9 @@ import { fileURLToPath } from 'node:url'
 
 const rootDir = fileURLToPath(new URL('..', import.meta.url))
 const srcDir = join(rootDir, 'src')
+const foundationPath = join(srcDir, 'styles', 'foundation.css')
 const extensions = new Set(['.vue', '.ts', '.css'])
+const maxThemeBaseColors = 28
 const deprecatedNvTokens = new Map([
   ['--nv-text', '--nv-ink'],
   ['--nv-border', '--nv-line'],
@@ -72,15 +74,64 @@ function walk(dir) {
   })
 }
 
+function extractCssBlock(source, selectorPattern) {
+  const selectorMatch = selectorPattern.exec(source)
+  if (selectorMatch == null) {
+    throw new Error(`Unable to find theme selector: ${selectorPattern}`)
+  }
+
+  const openingBrace = source.indexOf('{', selectorMatch.index)
+  let depth = 0
+
+  for (let index = openingBrace; index < source.length; index += 1) {
+    if (source[index] === '{') depth += 1
+    if (source[index] !== '}') continue
+
+    depth -= 1
+    if (depth === 0) {
+      return source.slice(openingBrace + 1, index)
+    }
+  }
+
+  throw new Error(`Unable to read theme block: ${selectorPattern}`)
+}
+
+function countUniqueBaseColors(block) {
+  const colorSource = block
+    .split(/\r?\n/)
+    .filter((line) => !line.includes('--nv-shadow-'))
+    .join('\n')
+  const colors = colorSource.match(/#[0-9a-f]{3,8}\b|rgba?\([^)]*\)|hsla?\([^)]*\)/gi) ?? []
+
+  return new Set(colors.map((color) => color.toLowerCase())).size
+}
+
 const files = walk(srcDir)
 const violations = []
 const definedNvTokens = new Set()
+const foundationSource = readFileSync(foundationPath, 'utf8')
+const themeBaseColorCounts = {
+  light: countUniqueBaseColors(extractCssBlock(foundationSource, /^\s*:root\s*\{/m)),
+  dark: countUniqueBaseColors(extractCssBlock(foundationSource, /^\s*\.dark:root,/m)),
+}
 
 for (const file of files) {
   const source = readFileSync(file, 'utf8')
   for (const match of source.matchAll(/(--nv-[\w-]+)\s*:/g)) {
     definedNvTokens.add(match[1])
   }
+}
+
+for (const [theme, count] of Object.entries(themeBaseColorCounts)) {
+  if (count <= maxThemeBaseColors) continue
+
+  violations.push({
+    file: relative(rootDir, foundationPath).replaceAll('\\', '/'),
+    line: theme === 'light' ? 13 : 93,
+    rule: 'theme base color budget',
+    match: `${count} base colors`,
+    message: `Keep each theme at or below ${maxThemeBaseColors} unique base colors by reusing semantic tokens or deriving variants with color-mix().`,
+  })
 }
 
 for (const file of files) {
@@ -139,4 +190,4 @@ if (violations.length > 0) {
   process.exit(1)
 }
 
-console.log('Color token guard passed.')
+console.log(`Color token guard passed (light palette: ${themeBaseColorCounts.light}/${maxThemeBaseColors}, dark palette: ${themeBaseColorCounts.dark}/${maxThemeBaseColors}).`)
