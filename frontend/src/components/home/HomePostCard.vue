@@ -128,7 +128,7 @@ watch(() => props.post.postId, () => {
         class="relative overflow-hidden rounded-[inherit] bg-[var(--nv-surface-2)]"
         :class="isFeatured ? 'w-fit max-w-full' : 'w-full'"
       >
-        <div class="absolute left-3 top-3 z-10 inline-flex items-center gap-1 rounded-full bg-black/60 px-2 py-1 text-xs font-medium text-white">
+        <div class="absolute left-3 top-3 z-10 inline-flex items-center gap-1 rounded-full bg-[color-mix(in_srgb,var(--nv-scrim)_60%,transparent)] px-2 py-1 text-xs font-medium text-[var(--nv-on-media)]">
           <Video class="h-3 w-3" />
           {{ t('home.card.video') }}
         </div>
@@ -149,12 +149,12 @@ watch(() => props.post.postId, () => {
         <button
           v-else
           type="button"
-          class="flex aspect-video items-center justify-center rounded-[inherit] text-white"
+          class="flex aspect-video items-center justify-center rounded-[inherit] text-[var(--nv-on-media)]"
           :class="isFeatured ? 'max-w-[38rem] w-full' : 'w-full'"
           :aria-label="t('home.card.videoPreview')"
           @click.stop="loadVideoPreview"
         >
-          <span class="inline-flex h-12 w-12 items-center justify-center rounded-full bg-black/70 shadow-lg">
+          <span class="inline-flex h-12 w-12 items-center justify-center rounded-full bg-[var(--nv-media-control-bg)] shadow-lg">
             <Video class="h-5 w-5" aria-hidden="true" />
           </span>
         </button>

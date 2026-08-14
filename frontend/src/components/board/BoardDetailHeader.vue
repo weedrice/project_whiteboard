@@ -188,7 +188,7 @@ const { t } = useI18n()
 .nv-board-write-btn {
   background: var(--nv-accent);
   border: 1px solid var(--nv-accent);
-  color: #fff;
+  color: var(--nv-on-accent);
   height: 2.2rem;
   justify-content: center;
   line-height: 1;

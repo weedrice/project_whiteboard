@@ -169,7 +169,7 @@ const handleSearchKeyup = (event: KeyboardEvent) => {
   background: var(--nv-accent);
   border-color: var(--nv-accent);
   border-radius: 0.45rem;
-  color: #fff;
+  color: var(--nv-on-accent);
   height: 2.2rem;
   line-height: 1;
   min-height: 2.2rem;
@@ -195,7 +195,7 @@ const handleSearchKeyup = (event: KeyboardEvent) => {
   background: var(--nv-accent);
   border: 1px solid var(--nv-accent);
   border-radius: 0.55rem;
-  color: #fff;
+  color: var(--nv-on-accent);
   display: inline-flex;
   font-size: 0.82rem;
   font-weight: 600;

@@ -25,7 +25,7 @@ const { t } = useI18n()
   >
     <span
       v-if="rank != null"
-      class="absolute top-2 left-2 z-10 w-6 h-6 bg-[var(--nv-accent)] text-white text-xs font-bold rounded-full flex items-center justify-center"
+      class="absolute top-2 left-2 z-10 w-6 h-6 bg-[var(--nv-accent)] text-[var(--nv-on-accent)] text-xs font-bold rounded-full flex items-center justify-center"
     >
       {{ rank }}
     </span>

@@ -133,7 +133,7 @@ async function handleCheckIn() {
 .nv-attendance-button {
   background: var(--nv-accent);
   border-radius: var(--nv-radius-pill);
-  color: white;
+  color: var(--nv-on-accent);
   flex-shrink: 0;
   font-size: 0.875rem;
   font-weight: 700;

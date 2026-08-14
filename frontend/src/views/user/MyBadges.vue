@@ -112,7 +112,7 @@ async function handleRepresentativeBadge(badgeCode: string | null) {
                   <span v-if="badge.tier" class="rounded-full border nv-border px-2 py-0.5 text-xs font-semibold uppercase nv-text-subtle">
                     {{ badge.tier }}
                   </span>
-                  <span v-if="badge.representative" class="rounded-full bg-[var(--nv-accent)] px-2 py-0.5 text-xs font-semibold text-white">
+                  <span v-if="badge.representative" class="rounded-full bg-[var(--nv-accent)] px-2 py-0.5 text-xs font-semibold text-[var(--nv-on-accent)]">
                     {{ $t('user.badges.representative') }}
                   </span>
                 </div>
