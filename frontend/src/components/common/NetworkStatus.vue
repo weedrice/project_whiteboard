@@ -74,17 +74,17 @@ onUnmounted(() => {
 
 .network-status.offline {
     background-color: var(--nv-danger);
-    color: white;
+    color: var(--nv-on-danger);
 }
 
 .network-status.online {
     background-color: var(--nv-success);
-    color: white;
+    color: var(--nv-on-success);
 }
 
 .network-status.update-failed {
     background-color: var(--nv-warning);
-    color: var(--nv-on-warning, #111827);
+    color: var(--nv-on-warning);
 }
 
 .network-status-retry {

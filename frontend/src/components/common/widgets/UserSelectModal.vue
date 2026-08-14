@@ -287,6 +287,6 @@ watch(filteredUsers, (users) => {
 .user-select-check-selected {
   background: var(--nv-accent);
   border-color: var(--nv-accent);
-  color: #fff;
+  color: var(--nv-on-accent);
 }
 </style>

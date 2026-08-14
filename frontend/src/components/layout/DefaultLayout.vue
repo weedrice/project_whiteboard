@@ -127,7 +127,7 @@ const goToNotificationsPage = async () => {
   <div class="nv-shell min-h-dvh flex flex-col">
     <a
       href="#main-content"
-      class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[var(--nv-z-nav)] focus:rounded-full focus:bg-[var(--nv-accent)] focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-white"
+      class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[var(--nv-z-nav)] focus:rounded-full focus:bg-[var(--nv-accent)] focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-[var(--nv-on-accent)]"
       @click="skipToMainContent"
     >
       {{ t('common.skipToContent') }}

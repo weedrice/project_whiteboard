@@ -40,25 +40,33 @@ html {
     --nv-accent: #2447b8;
     --nv-accent-bg: #e8edf8;
     --nv-accent-soft: var(--nv-accent-bg); /* deprecated alias — use --nv-accent-bg */
+    --nv-on-accent: #ffffff;
     --nv-focus: #2447b8;
     --nv-selection: #d7dff3;
     --nv-elevated: #faf9f6;
     --nv-surface-alt: var(--nv-surface-2); /* deprecated alias — use --nv-surface-2 */
     --nv-danger: #e5502a;
+    --nv-on-danger: #ffffff;
     --nv-danger-bg: #fff0eb;
     --nv-danger-border: #ffd1c2;
     --nv-danger-text: #b53016;
     --nv-success: #1d7a3f;
+    --nv-on-success: #ffffff;
     --nv-success-bg: #eaf8ef;
     --nv-success-border: #c4ead1;
     --nv-success-text: #1d7a3f;
     --nv-warning: #b77900;
+    --nv-on-warning: #111827;
     --nv-warning-bg: #fff6dc;
     --nv-warning-border: #f4dea3;
     --nv-warning-text: #8a5a00;
     --nv-info-bg: #edf3ff;
     --nv-info-border: #ccd9ff;
     --nv-info-text: #2447b8;
+    --nv-scrim: #000000;
+    --nv-on-media: #ffffff;
+    --nv-media-control-bg: color-mix(in srgb, var(--nv-scrim) 70%, transparent);
+    --nv-shell-glow: rgba(46, 85, 255, 0.08);
     --nv-shadow-card: 0 1px 3px rgba(12, 12, 12, 0.06), 0 14px 30px rgba(12, 12, 12, 0.06);
     --nv-shadow-soft: 0 8px 24px rgba(12, 12, 12, 0.05);
     --nv-shadow-popup: 0 16px 40px rgba(12, 12, 12, 0.12);
@@ -99,25 +107,33 @@ html {
     --nv-accent: #6a8aff;
     --nv-accent-bg: #1a2044;
     --nv-accent-soft: var(--nv-accent-bg); /* deprecated alias — use --nv-accent-bg */
+    --nv-on-accent: #0c0c0d;
     --nv-focus: #8aa3ff;
     --nv-selection: #26305e;
     --nv-elevated: #202024;
     --nv-surface-alt: var(--nv-surface-2); /* deprecated alias — use --nv-surface-2 */
     --nv-danger: #ef6a42;
+    --nv-on-danger: #0c0c0d;
     --nv-danger-bg: #3a1b15;
     --nv-danger-border: #5f2b20;
     --nv-danger-text: #ffad95;
     --nv-success: #36b66b;
+    --nv-on-success: #0c0c0d;
     --nv-success-bg: #143122;
     --nv-success-border: #205b38;
     --nv-success-text: #8be2a9;
     --nv-warning: #d7a432;
+    --nv-on-warning: #111827;
     --nv-warning-bg: #35280f;
     --nv-warning-border: #66501d;
     --nv-warning-text: #f4d27c;
     --nv-info-bg: #18223d;
     --nv-info-border: #2b3d6f;
     --nv-info-text: #a8bcff;
+    --nv-scrim: #000000;
+    --nv-on-media: #ffffff;
+    --nv-media-control-bg: color-mix(in srgb, var(--nv-scrim) 70%, transparent);
+    --nv-shell-glow: rgba(106, 138, 255, 0.1);
     --nv-shadow-card: 0 0 0 1px rgba(255, 255, 255, 0.025), 0 10px 24px rgba(0, 0, 0, 0.16);
     --nv-shadow-soft: 0 8px 20px rgba(0, 0, 0, 0.14);
     --nv-shadow-popup: 0 0 0 1px rgba(255, 255, 255, 0.035), 0 14px 32px rgba(0, 0, 0, 0.24);

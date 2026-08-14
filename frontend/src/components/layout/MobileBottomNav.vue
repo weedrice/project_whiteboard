@@ -118,7 +118,7 @@ const handleProtectedNavigation = (event: MouseEvent, path: string) => {
     </nav>
 
     <Teleport to="body">
-      <div v-if="showWriteSheet" class="fixed inset-0 z-[var(--nv-z-overlay)] bg-black/40 backdrop-blur-[1px]" @click="closeWriteSheet">
+      <div v-if="showWriteSheet" class="fixed inset-0 z-[var(--nv-z-overlay)] bg-[color-mix(in_srgb,var(--nv-scrim)_40%,transparent)] backdrop-blur-[1px]" @click="closeWriteSheet">
         <div
           id="mobile-write-sheet"
           :ref="setSheetRef"

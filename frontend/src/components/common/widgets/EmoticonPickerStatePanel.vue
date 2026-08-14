@@ -80,7 +80,7 @@ const emit = defineEmits<{
 .retry-btn {
   border-radius: 6px;
   background: var(--nv-accent);
-  color: white;
+  color: var(--nv-on-accent);
   padding: 6px 10px;
   font-size: 12px;
   font-weight: 600;

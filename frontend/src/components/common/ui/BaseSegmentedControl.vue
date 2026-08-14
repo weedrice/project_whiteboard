@@ -118,7 +118,7 @@ function handleTabKeydown(event: KeyboardEvent) {
           index === options.length - 1 && 'rounded-r-lg sm:rounded-r-md',
           index > 0 && '-ml-px',
           modelValue === option.value
-            ? 'bg-[var(--nv-accent)] border-[var(--nv-accent)] text-white hover:brightness-95'
+            ? 'bg-[var(--nv-accent)] border-[var(--nv-accent)] text-[var(--nv-on-accent)] hover:brightness-95'
             : 'nv-surface border-[var(--nv-border-strong)] nv-text nv-hover-surface',
         ],
         variant === 'underline' && [

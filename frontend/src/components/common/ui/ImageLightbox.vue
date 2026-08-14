@@ -104,7 +104,7 @@ onUnmounted(() => {
   <Teleport to="body">
     <div
       v-if="isOpen"
-      class="fixed inset-0 z-[var(--nv-z-overlay)] flex items-center justify-center bg-black/85 p-4"
+      class="fixed inset-0 z-[var(--nv-z-overlay)] flex items-center justify-center bg-[color-mix(in_srgb,var(--nv-scrim)_85%,transparent)] p-4"
       role="dialog"
       aria-modal="true"
       :aria-label="title"
@@ -113,7 +113,7 @@ onUnmounted(() => {
       <div ref="dialogRef" class="relative flex h-full w-full max-w-6xl items-center justify-center">
         <button
           type="button"
-          class="absolute right-0 top-0 z-10 inline-flex min-h-11 min-w-11 items-center justify-center rounded-full bg-white/12 p-2 text-white transition hover:bg-white/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+          class="absolute right-0 top-0 z-10 inline-flex min-h-11 min-w-11 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--nv-on-media)_12%,transparent)] p-2 text-[var(--nv-on-media)] transition hover:bg-[color-mix(in_srgb,var(--nv-on-media)_20%,transparent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--nv-on-media)]"
           :aria-label="$t('common.close')"
           @click="close"
         >
@@ -123,7 +123,7 @@ onUnmounted(() => {
         <button
           v-if="hasMultipleImages"
           type="button"
-          class="absolute left-0 z-10 inline-flex min-h-11 min-w-11 items-center justify-center rounded-full bg-white/12 p-2 text-white transition hover:bg-white/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+          class="absolute left-0 z-10 inline-flex min-h-11 min-w-11 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--nv-on-media)_12%,transparent)] p-2 text-[var(--nv-on-media)] transition hover:bg-[color-mix(in_srgb,var(--nv-on-media)_20%,transparent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--nv-on-media)]"
           :aria-label="t('common.previous')"
           @click="go(-1)"
         >
@@ -147,7 +147,7 @@ onUnmounted(() => {
         <button
           v-if="hasMultipleImages"
           type="button"
-          class="absolute right-0 z-10 inline-flex min-h-11 min-w-11 items-center justify-center rounded-full bg-white/12 p-2 text-white transition hover:bg-white/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+          class="absolute right-0 z-10 inline-flex min-h-11 min-w-11 items-center justify-center rounded-full bg-[color-mix(in_srgb,var(--nv-on-media)_12%,transparent)] p-2 text-[var(--nv-on-media)] transition hover:bg-[color-mix(in_srgb,var(--nv-on-media)_20%,transparent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--nv-on-media)]"
           :aria-label="t('common.next')"
           @click="go(1)"
         >
@@ -156,7 +156,7 @@ onUnmounted(() => {
 
         <div
           v-if="hasMultipleImages"
-          class="absolute bottom-0 rounded-full bg-white/12 px-3 py-1 text-xs font-medium text-white"
+          class="absolute bottom-0 rounded-full bg-[color-mix(in_srgb,var(--nv-on-media)_12%,transparent)] px-3 py-1 text-xs font-medium text-[var(--nv-on-media)]"
         >
           {{ counterLabel }}
         </div>

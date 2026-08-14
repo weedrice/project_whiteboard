@@ -3,7 +3,7 @@
 @layer components {
   .nv-shell {
     background:
-      radial-gradient(circle at top left, rgba(46, 85, 255, 0.08), transparent 28%),
+      radial-gradient(circle at top left, var(--nv-shell-glow), transparent 28%),
       linear-gradient(180deg, color-mix(in srgb, var(--nv-bg) 96%, white) 0%, var(--nv-bg) 100%);
   }
 
@@ -110,8 +110,9 @@
   }
 
   .nv-mobile-nav-fab {
-    @apply mx-auto inline-flex h-14 w-14 cursor-pointer items-center justify-center rounded-full text-white shadow-lg transition-transform;
+    @apply mx-auto inline-flex h-14 w-14 cursor-pointer items-center justify-center rounded-full shadow-lg transition-transform;
     background: linear-gradient(135deg, var(--nv-accent), color-mix(in srgb, var(--nv-accent) 70%, white));
+    color: var(--nv-on-accent);
     transform: translateY(-0.9rem);
   }
 
