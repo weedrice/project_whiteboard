@@ -2,7 +2,7 @@
   position: fixed;
   inset: 0;
   z-index: var(--nv-z-overlay);
-  background: rgba(9, 12, 22, 0.28);
+  background: color-mix(in srgb, var(--nv-scrim) 28%, transparent);
 }
 
 .link-popover {
@@ -160,12 +160,12 @@
 }
 
 .color-panel-default-light {
-  background: #111827;
+  background: var(--nv-editor-default-light);
   clip-path: polygon(0 0, 100% 0, 0 100%);
 }
 
 .color-panel-default-dark {
-  background: #f3f4f6;
+  background: var(--nv-editor-default-dark);
   clip-path: polygon(100% 0, 100% 100%, 0 100%);
 }
 

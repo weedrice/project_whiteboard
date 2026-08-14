@@ -1,7 +1,9 @@
 export type SlashAction = 'heading' | 'quote' | 'list' | 'link' | 'table' | 'codeBlock' | 'divider' | 'poll'
 
+export const DEFAULT_EDITOR_TEXT_COLOR = '#000000'
+
 export const colorPresets = [
-  '#000000', '#374151', '#6b7280', '#9ca3af',
+  DEFAULT_EDITOR_TEXT_COLOR, '#374151', '#6b7280', '#9ca3af',
   '#ef4444', '#f97316', '#eab308', '#22c55e',
   '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6',
   '#ffffff', '#1f2937', '#4b5563', '#d1d5db',

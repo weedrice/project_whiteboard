@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
+import { DEFAULT_EDITOR_TEXT_COLOR } from '@/components/board/editor/postEditorOptions'
 
 defineProps<{
   colors: string[]
@@ -51,7 +52,7 @@ const { t } = useI18n()
       id="editor-custom-text-color"
       name="editorCustomTextColor"
       type="color"
-      :value="currentTextColor || '#000000'"
+      :value="currentTextColor || DEFAULT_EDITOR_TEXT_COLOR"
       class="color-panel-custom-input"
       :aria-label="t('board.writePost.toolbar.customColor')"
       autocomplete="off"

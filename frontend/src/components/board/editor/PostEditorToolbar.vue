@@ -103,7 +103,7 @@ const { t } = useI18n()
         <button type="button" class="tiptap-btn tiptap-color-trigger" :title="t('board.writePost.toolbar.textColor')" :aria-label="t('board.writePost.toolbar.textColor')" aria-haspopup="dialog" :aria-expanded="showColorPanel" aria-controls="editor-color-dialog" :disabled="isRawHtmlBlockSelected" @mousedown.prevent @click="emit('toggle-color-panel', $event.currentTarget as HTMLElement)">
           <span class="tiptap-color-indicator">
             A
-            <span class="tiptap-color-bar" :style="{ backgroundColor: isDefaultColor ? (isDark ? '#f3f4f6' : '#111827') : currentTextColor }" />
+            <span class="tiptap-color-bar" :style="{ backgroundColor: isDefaultColor ? (isDark ? 'var(--nv-editor-default-dark)' : 'var(--nv-editor-default-light)') : currentTextColor }" />
           </span>
         </button>
         <button type="button" class="tiptap-btn" :class="{ active: activeTextAlign === 'left' }" :title="t('board.writePost.alignLeft')" :aria-label="t('board.writePost.alignLeft')" :disabled="isRawHtmlBlockSelected" @mousedown.prevent @click="emit('align', 'left')">

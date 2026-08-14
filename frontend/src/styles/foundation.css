@@ -67,6 +67,10 @@ html {
     --nv-on-media: #ffffff;
     --nv-media-control-bg: color-mix(in srgb, var(--nv-scrim) 70%, transparent);
     --nv-shell-glow: rgba(46, 85, 255, 0.08);
+    --nv-code-surface: #111827;
+    --nv-code-ink: #e5e7eb;
+    --nv-editor-default-light: #111827;
+    --nv-editor-default-dark: #f3f4f6;
     --nv-shadow-card: 0 1px 3px rgba(12, 12, 12, 0.06), 0 14px 30px rgba(12, 12, 12, 0.06);
     --nv-shadow-soft: 0 8px 24px rgba(12, 12, 12, 0.05);
     --nv-shadow-popup: 0 16px 40px rgba(12, 12, 12, 0.12);
@@ -134,6 +138,10 @@ html {
     --nv-on-media: #ffffff;
     --nv-media-control-bg: color-mix(in srgb, var(--nv-scrim) 70%, transparent);
     --nv-shell-glow: rgba(106, 138, 255, 0.1);
+    --nv-code-surface: #030712;
+    --nv-code-ink: #d1d5db;
+    --nv-editor-default-light: #111827;
+    --nv-editor-default-dark: #f3f4f6;
     --nv-shadow-card: 0 0 0 1px rgba(255, 255, 255, 0.025), 0 10px 24px rgba(0, 0, 0, 0.16);
     --nv-shadow-soft: 0 8px 20px rgba(0, 0, 0, 0.14);
     --nv-shadow-popup: 0 0 0 1px rgba(255, 255, 255, 0.035), 0 14px 32px rgba(0, 0, 0, 0.24);

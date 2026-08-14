@@ -140,8 +140,8 @@ const emit = defineEmits<{
   overflow-x: auto;
   padding: 12px 16px;
   border-radius: 6px;
-  background: #111827;
-  color: #e5e7eb;
+  background: var(--nv-code-surface);
+  color: var(--nv-code-ink);
   font-family: var(--font-mono);
   font-size: 0.6875rem;
   line-height: 1.5;
@@ -149,8 +149,4 @@ const emit = defineEmits<{
   word-break: break-all;
 }
 
-.dark .stack-trace-block {
-  background: #030712;
-  color: #d1d5db;
-}
 </style>
