@@ -85,11 +85,11 @@ export function getMyReportStatusLabel(t: TranslateFn, status: ReportStatus) {
 export function getMyReportStatusClass(status: ReportStatus) {
   switch (status) {
     case 'PENDING':
-      return 'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-400'
+      return 'nv-status-warning'
     case 'RESOLVED':
-      return 'bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-400'
+      return 'nv-status-success'
     case 'REJECTED':
-      return 'bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-400'
+      return 'nv-status-danger'
     default:
       return ''
   }

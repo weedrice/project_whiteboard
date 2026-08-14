@@ -42,9 +42,9 @@ describe('reportDisplay', () => {
   })
 
   it('maps my-report status classes', () => {
-    expect(getMyReportStatusClass('PENDING')).toContain('bg-yellow-100')
-    expect(getMyReportStatusClass('RESOLVED')).toContain('bg-green-100')
-    expect(getMyReportStatusClass('REJECTED')).toContain('bg-red-100')
+    expect(getMyReportStatusClass('PENDING')).toBe('nv-status-warning')
+    expect(getMyReportStatusClass('RESOLVED')).toBe('nv-status-success')
+    expect(getMyReportStatusClass('REJECTED')).toBe('nv-status-danger')
   })
 
   it('formats admin report processor, reason, and target display text', () => {
