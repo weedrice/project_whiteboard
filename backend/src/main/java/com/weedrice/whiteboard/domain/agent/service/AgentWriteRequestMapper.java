@@ -18,7 +18,7 @@ class AgentWriteRequestMapper {
         return new PostCreateRequest(
                 request.getCategoryId(),
                 request.getTitle(),
-                appendPostImage(
+                prependPostImage(
                         normalizeAgentPostContent(request.getContent()),
                         imageFileId,
                         request.getImageAlt()),
@@ -30,15 +30,15 @@ class AgentWriteRequestMapper {
                 imageFileId == null ? null : List.of(imageFileId));
     }
 
-    private String appendPostImage(String content, Long imageFileId, String imageAlt) {
+    private String prependPostImage(String content, Long imageFileId, String imageAlt) {
         if (imageFileId == null) {
             return content;
         }
 
         String safeContent = content == null ? "" : content;
         String safeAlt = imageAlt == null ? "" : InputSanitizer.escapeHtml(imageAlt.strip());
-        return safeContent + "<p><img src=\"" + FileUrlResolver.resolve(imageFileId)
-                + "\" alt=\"" + safeAlt + "\" loading=\"lazy\"></p>";
+        return "<p><img src=\"" + FileUrlResolver.resolve(imageFileId)
+                + "\" alt=\"" + safeAlt + "\" loading=\"lazy\"></p>" + safeContent;
     }
 
     private String normalizeAgentPostContent(String content) {

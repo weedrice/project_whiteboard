@@ -2286,7 +2286,7 @@ class AgentServiceTest {
     }
 
     @Test
-    void createPost_attachesOneUploadedImageAndAppendsSafeImageMarkup() {
+    void createPost_attachesOneUploadedImageBeforeContentWithSafeMarkup() {
         AgentPostCreateRequest request = new AgentPostCreateRequest();
         ReflectionTestUtils.setField(request, "boardUrl", "free");
         ReflectionTestUtils.setField(request, "title", "title");
@@ -2314,9 +2314,9 @@ class AgentServiceTest {
                 any(PostCreateContext.class));
         PostCreateRequest mapped = requestCaptor.getValue();
         assertThat(mapped.getFileIds()).containsExactly(91L);
-        assertThat(mapped.getContents())
-                .contains("<img src=\"/api/v1/files/91\"")
-                .contains("alt=\"photo &quot;caption&quot;\"");
+        assertThat(mapped.getContents()).isEqualTo(
+                "<p><img src=\"/api/v1/files/91\" alt=\"photo &quot;caption&quot;\" loading=\"lazy\"></p>"
+                        + "<p>" + "a".repeat(60) + "</p>");
     }
 
     @Test
