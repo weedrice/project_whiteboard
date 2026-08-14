@@ -1,3 +1,4 @@
+import DOMPurify from 'dompurify'
 import type { FeedPost } from '@/types'
 import { asSanitizedHtml, sanitizeQuillHtml, type SanitizedHtml } from '@/utils/sanitize'
 import { encodePathSegment } from '@/utils/urlPath'
@@ -29,6 +30,11 @@ const normalizePlainTextExcerpt = (value: string) => {
     .join('')
 }
 
+const makeFeedBodyNonInteractive = (html: string) => DOMPurify.sanitize(html, {
+  FORBID_TAGS: ['a'],
+  FORBID_ATTR: ['role', 'tabindex'],
+})
+
 export const getFeedBodyHtml = (post: Pick<FeedPost, 'contentsExcerpt' | 'summary'>): SanitizedHtml | null => {
   const excerpt = post.contentsExcerpt || post.summary
   if (!excerpt) return null
@@ -37,6 +43,7 @@ export const getFeedBodyHtml = (post: Pick<FeedPost, 'contentsExcerpt' | 'summar
   html = html.replace(/<img[^>]*>/gi, '')
   html = html.replace(/<iframe[^>]*>[\s\S]*?<\/iframe>/gi, '')
   html = html.replace(/<div[^>]*\bclass="[^"]*tiptap-video-wrapper[^"]*"[^>]*>[\s\S]*?<\/div>/gi, '')
+  html = makeFeedBodyNonInteractive(html)
 
   const textOnly = html.replace(/<[^>]+>/g, '').trim()
   if (!textOnly) return null

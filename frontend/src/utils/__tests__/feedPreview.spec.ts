@@ -22,6 +22,17 @@ describe('feedPreview', () => {
         expect(html).toContain('<p>Quoted</p>')
     })
 
+    it('keeps link text but removes nested interactions from feed body previews', () => {
+        const html = getFeedBodyHtml({
+            contentsExcerpt: '<p>Read <a href="https://example.com" title="a > b" role="link" tabindex="0">the source</a></p>',
+        })
+
+        expect(html).toBe('<p>Read the source</p>')
+        expect(html).not.toContain('<a')
+        expect(html).not.toContain('role=')
+        expect(html).not.toContain('tabindex=')
+    })
+
     it('wraps plain text previews with paragraph and line break markup', () => {
         const html = getFeedBodyHtml({
             contentsExcerpt: undefined,
