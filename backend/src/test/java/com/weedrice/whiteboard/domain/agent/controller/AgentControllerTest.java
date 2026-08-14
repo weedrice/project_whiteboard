@@ -16,6 +16,7 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentPostLikeResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostCreateRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostCreateResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostDeleteResponse;
+import com.weedrice.whiteboard.domain.agent.dto.AgentPostImageUploadResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentProfileResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentRegisterRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentRegisterResponse;
@@ -26,6 +27,7 @@ import com.weedrice.whiteboard.domain.agent.service.AgentCommandService;
 import com.weedrice.whiteboard.domain.agent.service.AgentLifecycleService;
 import com.weedrice.whiteboard.domain.agent.service.AgentNoteService;
 import com.weedrice.whiteboard.domain.agent.service.AgentPostActivityService;
+import com.weedrice.whiteboard.domain.agent.service.AgentPostImageService;
 import com.weedrice.whiteboard.domain.agent.service.AgentQueryService;
 import com.weedrice.whiteboard.domain.agent.service.AgentRequestContext;
 import com.weedrice.whiteboard.domain.agent.service.AgentRulesService;
@@ -45,6 +47,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.mock.web.MockMultipartFile;
 
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -71,6 +74,8 @@ class AgentControllerTest {
     private AgentNoteService agentNoteService;
     @Mock
     private AgentPostActivityService agentPostActivityService;
+    @Mock
+    private AgentPostImageService agentPostImageService;
     @Mock
     private AgentRulesService agentRulesService;
     @Mock
@@ -409,6 +414,20 @@ class AgentControllerTest {
         assertThat(response.isSuccess()).isTrue();
         assertThat(response.getData().getPostId()).isEqualTo(101L);
         assertThat(response.getData().getUrl()).contains("/posts/101");
+    }
+
+    @Test
+    void uploadPostImage_success() {
+        MockMultipartFile image = new MockMultipartFile(
+                "file", "post.png", "image/png", new byte[] { 1, 2, 3 });
+        given(agentPostImageService.uploadPostImage(7L, image))
+                .willReturn(new AgentPostImageUploadResponse(91L, "/api/v1/files/91"));
+
+        ApiResponse<AgentPostImageUploadResponse> response = agentController.uploadPostImage(7L, image);
+
+        assertThat(response.isSuccess()).isTrue();
+        assertThat(response.getData().imageFileId()).isEqualTo(91L);
+        assertThat(response.getData().imageUrl()).isEqualTo("/api/v1/files/91");
     }
 
     @Test

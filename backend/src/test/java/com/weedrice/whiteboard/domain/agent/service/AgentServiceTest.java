@@ -2286,6 +2286,56 @@ class AgentServiceTest {
     }
 
     @Test
+    void createPost_attachesOneUploadedImageAndAppendsSafeImageMarkup() {
+        AgentPostCreateRequest request = new AgentPostCreateRequest();
+        ReflectionTestUtils.setField(request, "boardUrl", "free");
+        ReflectionTestUtils.setField(request, "title", "title");
+        ReflectionTestUtils.setField(request, "content", "a".repeat(60));
+        ReflectionTestUtils.setField(request, "imageFileId", 91L);
+        ReflectionTestUtils.setField(request, "imageAlt", "photo \"caption\"");
+
+        when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
+        when(boardRepository.findByBoardUrlForUpdate("free")).thenReturn(Optional.of(writableBoard));
+        when(agentDailyQuotaRepository.findForUpdate(eq(7L), any(LocalDate.class), eq("POST")))
+                .thenReturn(Optional.of(quota("POST", 0L)));
+        when(postService.createPostAsAgent(
+                eq(1L),
+                eq(7L),
+                any(PostCreateRequest.class),
+                any(PostCreateContext.class))).thenReturn(100L);
+
+        agentCommandService.createPost(7L, request, null);
+
+        ArgumentCaptor<PostCreateRequest> requestCaptor = ArgumentCaptor.forClass(PostCreateRequest.class);
+        verify(postService).createPostAsAgent(
+                eq(1L),
+                eq(7L),
+                requestCaptor.capture(),
+                any(PostCreateContext.class));
+        PostCreateRequest mapped = requestCaptor.getValue();
+        assertThat(mapped.getFileIds()).containsExactly(91L);
+        assertThat(mapped.getContents())
+                .contains("<img src=\"/api/v1/files/91\"")
+                .contains("alt=\"photo &quot;caption&quot;\"");
+    }
+
+    @Test
+    void createPost_rejectsImageAltWithoutImageFileId() {
+        AgentPostCreateRequest request = new AgentPostCreateRequest();
+        ReflectionTestUtils.setField(request, "boardUrl", "free");
+        ReflectionTestUtils.setField(request, "title", "title");
+        ReflectionTestUtils.setField(request, "content", "a".repeat(60));
+        ReflectionTestUtils.setField(request, "imageAlt", "caption");
+        when(agentRepository.findByAgentIdForUpdate(7L)).thenReturn(Optional.of(agent));
+
+        Throwable thrown = catchThrowable(() -> agentCommandService.createPost(7L, request, null));
+
+        assertThat(thrown).isInstanceOf(AgentWriteException.class);
+        assertThat(((AgentWriteException) thrown).getCode()).isEqualTo("validation_failed");
+        verify(boardRepository, never()).findByBoardUrlForUpdate(anyString());
+    }
+
+    @Test
     @DisplayName("agent comment creation succeeds when the daily limit is not reached")
     void createComment_withinDailyLimit_success() {
         AgentCommentCreateRequest request = new AgentCommentCreateRequest();

@@ -12,6 +12,7 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentPostActivityReadResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostCreateRequest;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostCreateResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostDeleteResponse;
+import com.weedrice.whiteboard.domain.agent.dto.AgentPostImageUploadResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostLikeResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostListItem;
 import com.weedrice.whiteboard.domain.agent.dto.AgentRegisterRequest;
@@ -23,6 +24,7 @@ import com.weedrice.whiteboard.domain.agent.service.AgentCommandService;
 import com.weedrice.whiteboard.domain.agent.service.AgentLifecycleService;
 import com.weedrice.whiteboard.domain.agent.service.AgentNoteService;
 import com.weedrice.whiteboard.domain.agent.service.AgentPostActivityService;
+import com.weedrice.whiteboard.domain.agent.service.AgentPostImageService;
 import com.weedrice.whiteboard.domain.agent.service.AgentQueryService;
 import com.weedrice.whiteboard.domain.agent.service.AgentRulesService;
 import com.weedrice.whiteboard.domain.agent.web.AgentRequestContextResolver;
@@ -36,6 +38,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -45,6 +48,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/v1/agents")
@@ -56,6 +60,7 @@ public class AgentController {
     private final AgentCommandService agentCommandService;
     private final AgentNoteService agentNoteService;
     private final AgentPostActivityService agentPostActivityService;
+    private final AgentPostImageService agentPostImageService;
     private final AgentRulesService agentRulesService;
     private final AgentRequestContextResolver agentRequestContextResolver;
 
@@ -139,6 +144,14 @@ public class AgentController {
         return ApiResponse.success(
                 agentCommandService.createPost(agentId, request,
                         agentRequestContextResolver.resolve(httpServletRequest)));
+    }
+
+    @PostMapping(value = "/post-images", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @ResponseStatus(HttpStatus.CREATED)
+    public ApiResponse<AgentPostImageUploadResponse> uploadPostImage(
+            @CurrentAgentId Long agentId,
+            @RequestParam("file") MultipartFile image) {
+        return ApiResponse.success(agentPostImageService.uploadPostImage(agentId, image));
     }
 
     @DeleteMapping("/posts/{postId}")

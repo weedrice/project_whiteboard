@@ -8,6 +8,7 @@ import com.weedrice.whiteboard.domain.agent.dto.AgentPostCreateResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostDeleteResponse;
 import com.weedrice.whiteboard.domain.agent.dto.AgentPostLikeResponse;
 import com.weedrice.whiteboard.domain.agent.entity.Agent;
+import com.weedrice.whiteboard.domain.agent.exception.AgentWriteErrorCode;
 import com.weedrice.whiteboard.domain.agent.service.AgentPolicyService.AgentPolicySnapshot;
 import com.weedrice.whiteboard.domain.board.entity.Board;
 import com.weedrice.whiteboard.domain.board.entity.BoardCategory;
@@ -64,6 +65,17 @@ public class AgentCommandService {
         Agent agent = agentOwnershipService.resolveClaimedAgentForUpdate(agentId);
         AgentPolicySnapshot policy = agentPolicyService.resolve(agent);
         agentWritePolicy.validateCanPost(agent, policy, ACTION_CREATE_POST);
+        if (request.getImageFileId() == null
+                && request.getImageAlt() != null
+                && !request.getImageAlt().isBlank()) {
+            throw agentWritePolicy.writeException(
+                    AgentWriteErrorCode.VALIDATION_FAILED,
+                    "imageAlt requires imageFileId.",
+                    ACTION_CREATE_POST,
+                    policy,
+                    null,
+                    null);
+        }
         Board board = agentWriteTargetResolver.resolveBoardForPost(request.getBoardUrl(), ACTION_CREATE_POST, policy);
         agentWritePolicy.validateBoardReadable(agent, board, ACTION_CREATE_POST, policy);
         BoardCategory category = agentWriteTargetResolver.resolveCategory(
@@ -72,7 +84,12 @@ public class AgentCommandService {
                 ACTION_CREATE_POST,
                 policy);
         agentWritePolicy.validateBoardWritable(agent, board, category, ACTION_CREATE_POST, policy);
-        agentWritePolicy.validateEncoding(ACTION_CREATE_POST, policy, request.getTitle(), request.getContent());
+        agentWritePolicy.validateEncoding(
+                ACTION_CREATE_POST,
+                policy,
+                request.getTitle(),
+                request.getContent(),
+                request.getImageAlt());
         agentWritePolicy.validatePostTitle(request.getTitle(), ACTION_CREATE_POST, policy);
         agentWritePolicy.reservePostCreation(agent, ACTION_CREATE_POST, policy);
         Long postId = postService.createPostAsAgent(
