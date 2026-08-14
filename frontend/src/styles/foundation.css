@@ -15,8 +15,8 @@ html {
     --nv-page: var(--nv-bg); /* deprecated alias — use --nv-bg */
     --nv-surface: #ffffff;
     --nv-surface-2: #eceae5;
-    --nv-surface-muted: #f0eee8;
-    --nv-surface-hover: #f3f1eb;
+    --nv-surface-muted: var(--nv-surface-2);
+    --nv-surface-hover: var(--nv-bg);
     --nv-surface-active: #e8e5dc;
     --nv-ink: #0c0c0c;
     --nv-text: var(--nv-ink); /* deprecated alias — use --nv-ink */
@@ -26,7 +26,7 @@ html {
     --nv-text-subtle: var(--nv-muted); /* deprecated alias — use --nv-muted */
     --nv-line: #e2e0da;
     --nv-border: var(--nv-line); /* deprecated alias — use --nv-line */
-    --nv-line-soft: #ececea;
+    --nv-line-soft: var(--nv-surface-2);
     --nv-border-strong: #c8c5bc;
     --nv-radius-xs: 0.375rem;
     --nv-radius-sm: 0.5rem;
@@ -40,36 +40,36 @@ html {
     --nv-accent: #2447b8;
     --nv-accent-bg: #e8edf8;
     --nv-accent-soft: var(--nv-accent-bg); /* deprecated alias — use --nv-accent-bg */
-    --nv-on-accent: #ffffff;
-    --nv-focus: #2447b8;
+    --nv-on-accent: var(--nv-surface);
+    --nv-focus: var(--nv-accent);
     --nv-selection: #d7dff3;
-    --nv-elevated: #faf9f6;
+    --nv-elevated: var(--nv-surface);
     --nv-surface-alt: var(--nv-surface-2); /* deprecated alias — use --nv-surface-2 */
     --nv-danger: #e5502a;
-    --nv-on-danger: #ffffff;
+    --nv-on-danger: var(--nv-surface);
     --nv-danger-bg: #fff0eb;
-    --nv-danger-border: #ffd1c2;
+    --nv-danger-border: color-mix(in srgb, var(--nv-danger) 24%, var(--nv-danger-bg));
     --nv-danger-text: #b53016;
     --nv-success: #1d7a3f;
-    --nv-on-success: #ffffff;
+    --nv-on-success: var(--nv-surface);
     --nv-success-bg: #eaf8ef;
-    --nv-success-border: #c4ead1;
+    --nv-success-border: color-mix(in srgb, var(--nv-success) 24%, var(--nv-success-bg));
     --nv-success-text: #1d7a3f;
     --nv-warning: #b77900;
-    --nv-on-warning: #111827;
+    --nv-on-warning: var(--nv-code-surface);
     --nv-warning-bg: #fff6dc;
-    --nv-warning-border: #f4dea3;
+    --nv-warning-border: color-mix(in srgb, var(--nv-warning) 24%, var(--nv-warning-bg));
     --nv-warning-text: #8a5a00;
-    --nv-info-bg: #edf3ff;
-    --nv-info-border: #ccd9ff;
-    --nv-info-text: #2447b8;
+    --nv-info-bg: var(--nv-accent-bg);
+    --nv-info-border: color-mix(in srgb, var(--nv-accent) 20%, var(--nv-accent-bg));
+    --nv-info-text: var(--nv-accent);
     --nv-scrim: #000000;
-    --nv-on-media: #ffffff;
+    --nv-on-media: var(--nv-surface);
     --nv-media-control-bg: color-mix(in srgb, var(--nv-scrim) 70%, transparent);
-    --nv-shell-glow: rgba(46, 85, 255, 0.08);
+    --nv-shell-glow: color-mix(in srgb, var(--nv-accent) 8%, transparent);
     --nv-code-surface: #111827;
-    --nv-code-ink: #e5e7eb;
-    --nv-editor-default-light: #111827;
+    --nv-code-ink: var(--nv-editor-default-dark);
+    --nv-editor-default-light: var(--nv-code-surface);
     --nv-editor-default-dark: #f3f4f6;
     --nv-shadow-card: 0 1px 3px rgba(12, 12, 12, 0.06), 0 14px 30px rgba(12, 12, 12, 0.06);
     --nv-shadow-soft: 0 8px 24px rgba(12, 12, 12, 0.05);
@@ -95,7 +95,7 @@ html {
     --nv-page: var(--nv-bg); /* deprecated alias — use --nv-bg */
     --nv-surface: #141416;
     --nv-surface-2: #1c1c20;
-    --nv-surface-muted: #1c1c20;
+    --nv-surface-muted: var(--nv-surface-2);
     --nv-surface-hover: #222226;
     --nv-surface-active: #2a2a30;
     --nv-ink: #f4f3ef;
@@ -106,40 +106,40 @@ html {
     --nv-text-subtle: var(--nv-muted); /* deprecated alias — use --nv-muted */
     --nv-line: #25252a;
     --nv-border: var(--nv-line); /* deprecated alias — use --nv-line */
-    --nv-line-soft: #1d1d20;
+    --nv-line-soft: var(--nv-surface-2);
     --nv-border-strong: #3c3c43;
     --nv-accent: #6a8aff;
     --nv-accent-bg: #1a2044;
     --nv-accent-soft: var(--nv-accent-bg); /* deprecated alias — use --nv-accent-bg */
-    --nv-on-accent: #0c0c0d;
-    --nv-focus: #8aa3ff;
+    --nv-on-accent: var(--nv-bg);
+    --nv-focus: var(--nv-accent);
     --nv-selection: #26305e;
-    --nv-elevated: #202024;
+    --nv-elevated: var(--nv-surface-hover);
     --nv-surface-alt: var(--nv-surface-2); /* deprecated alias — use --nv-surface-2 */
     --nv-danger: #ef6a42;
-    --nv-on-danger: #0c0c0d;
+    --nv-on-danger: var(--nv-bg);
     --nv-danger-bg: #3a1b15;
-    --nv-danger-border: #5f2b20;
+    --nv-danger-border: color-mix(in srgb, var(--nv-danger) 24%, var(--nv-danger-bg));
     --nv-danger-text: #ffad95;
     --nv-success: #36b66b;
-    --nv-on-success: #0c0c0d;
+    --nv-on-success: var(--nv-bg);
     --nv-success-bg: #143122;
-    --nv-success-border: #205b38;
+    --nv-success-border: color-mix(in srgb, var(--nv-success) 24%, var(--nv-success-bg));
     --nv-success-text: #8be2a9;
     --nv-warning: #d7a432;
-    --nv-on-warning: #111827;
+    --nv-on-warning: var(--nv-editor-default-light);
     --nv-warning-bg: #35280f;
-    --nv-warning-border: #66501d;
+    --nv-warning-border: color-mix(in srgb, var(--nv-warning) 24%, var(--nv-warning-bg));
     --nv-warning-text: #f4d27c;
-    --nv-info-bg: #18223d;
-    --nv-info-border: #2b3d6f;
-    --nv-info-text: #a8bcff;
+    --nv-info-bg: var(--nv-accent-bg);
+    --nv-info-border: color-mix(in srgb, var(--nv-accent) 20%, var(--nv-accent-bg));
+    --nv-info-text: var(--nv-accent);
     --nv-scrim: #000000;
     --nv-on-media: #ffffff;
     --nv-media-control-bg: color-mix(in srgb, var(--nv-scrim) 70%, transparent);
-    --nv-shell-glow: rgba(106, 138, 255, 0.1);
-    --nv-code-surface: #030712;
-    --nv-code-ink: #d1d5db;
+    --nv-shell-glow: color-mix(in srgb, var(--nv-accent) 10%, transparent);
+    --nv-code-surface: var(--nv-bg);
+    --nv-code-ink: var(--nv-ink-soft);
     --nv-editor-default-light: #111827;
     --nv-editor-default-dark: #f3f4f6;
     --nv-shadow-card: 0 0 0 1px rgba(255, 255, 255, 0.025), 0 10px 24px rgba(0, 0, 0, 0.16);
