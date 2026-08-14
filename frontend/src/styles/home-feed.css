@@ -66,6 +66,10 @@
     @apply p-5 sm:p-6;
   }
 
+  .nv-home-card-featured .nv-home-media {
+    max-height: 18rem;
+  }
+
   .nv-home-card-compact {
     @apply gap-3 p-4;
   }
@@ -76,6 +80,11 @@
 
   .nv-home-card-top {
     @apply flex items-start justify-between gap-3;
+  }
+
+  .nv-home-card-meta {
+    @apply flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs;
+    color: var(--nv-muted);
   }
 
   .nv-home-chip {
@@ -89,8 +98,15 @@
     color: var(--nv-ink);
   }
 
+  .nv-home-card-featured .nv-home-card-title-link {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
   .nv-home-card-body {
-    @apply text-sm leading-6;
+    @apply cursor-pointer text-sm leading-6;
     --nv-home-card-body-lines: 5;
     --nv-home-card-body-max-height: 7.5rem;
     color: var(--nv-ink-soft);
@@ -99,9 +115,20 @@
     overflow: hidden;
   }
 
+  .nv-home-card-body:focus-visible,
+  .nv-home-card-image-link:focus-visible {
+    border-radius: var(--nv-radius-md);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--nv-focus) 44%, transparent);
+    outline: none;
+  }
+
+  .nv-home-card-image-link {
+    @apply block cursor-pointer;
+  }
+
   .nv-home-card-body-featured-with-media {
-    --nv-home-card-body-lines: 10;
-    --nv-home-card-body-max-height: 15rem;
+    --nv-home-card-body-lines: 4;
+    --nv-home-card-body-max-height: 6rem;
   }
 
   .nv-home-card-body-featured-no-media {
@@ -282,12 +309,6 @@
     50% {
       opacity: 0.55;
       transform: scale(1.35);
-    }
-  }
-
-  @media (max-width: 1023px) {
-    .nv-home-card-featured .nv-home-media {
-      max-height: 26rem;
     }
   }
 

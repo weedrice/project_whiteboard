@@ -49,7 +49,7 @@ const bodyClampClass = computed(() => {
 const bodyClass = computed(() => [
   'nv-home-card-body',
   bodyClampClass.value,
-  { 'pointer-events-none select-none opacity-40 blur-[8px]': isSpoiler.value },
+  { 'select-none opacity-40 blur-[8px]': isSpoiler.value },
 ])
 const bodyContentClass = computed(() =>
   isFeatured.value
@@ -64,7 +64,19 @@ const cardClass = computed(() => {
 })
 const postDetailPath = computed(() => buildPostDetailPath(props.post.boardUrl, props.post.postId))
 
-const navigateToPost = () => {
+const navigateToPost = (event: MouseEvent) => {
+  if (
+    event.defaultPrevented
+    || event.button !== 0
+    || event.metaKey
+    || event.ctrlKey
+    || event.shiftKey
+    || event.altKey
+  ) {
+    return
+  }
+
+  event.preventDefault()
   router.push(postDetailPath.value)
 }
 
@@ -102,10 +114,19 @@ watch(() => props.post.postId, () => {
         </div>
         <div class="min-w-0">
           <p class="truncate text-sm font-semibold text-[var(--nv-ink)]">{{ post.boardName }}</p>
-          <div class="flex items-center gap-2 text-xs text-[var(--nv-muted)]">
+          <div class="nv-home-card-meta">
+            <template v-if="isFeatured">
+              <span v-if="showAuthor" class="truncate">{{ post.authorName }}</span>
+              <span v-if="showAuthor" aria-hidden="true">&middot;</span>
+              <span class="whitespace-nowrap">{{ timeAgo }}</span>
+              <span class="inline-flex items-center gap-1 whitespace-nowrap text-[var(--nv-ink-soft)]">
+                <ThumbsUp class="h-3 w-3" />
+                {{ formatInteger(post.likeCount) }}
+              </span>
+            </template>
             <span class="inline-flex items-center gap-1">
               <Eye class="h-3 w-3" />
-              {{ post.viewCount }}
+              {{ formatInteger(post.viewCount) }}
             </span>
           </div>
         </div>
@@ -120,13 +141,16 @@ watch(() => props.post.postId, () => {
       class="nv-home-media"
       :class="[
         isFeatured ? 'justify-start bg-transparent' : '',
-        { 'pointer-events-none select-none opacity-40 blur-[10px]': isSpoiler },
+        { 'select-none opacity-40 blur-[10px]': isSpoiler },
       ]"
     >
       <div
         v-if="showFirstVideo"
         class="relative overflow-hidden rounded-[inherit] bg-[var(--nv-surface-2)]"
-        :class="isFeatured ? 'w-fit max-w-full' : 'w-full'"
+        :class="[
+          isFeatured ? 'w-fit max-w-full' : 'w-full',
+          { 'pointer-events-none': isSpoiler },
+        ]"
       >
         <div class="absolute left-3 top-3 z-10 inline-flex items-center gap-1 rounded-full bg-[color-mix(in_srgb,var(--nv-scrim)_60%,transparent)] px-2 py-1 text-xs font-medium text-[var(--nv-on-media)]">
           <Video class="h-3 w-3" />
@@ -143,14 +167,14 @@ watch(() => props.post.postId, () => {
           referrerpolicy="strict-origin-when-cross-origin"
           allow="encrypted-media; picture-in-picture"
           class="aspect-video rounded-[inherit]"
-          :class="isFeatured ? 'max-w-[38rem] w-full' : 'w-full'"
+          :class="isFeatured ? 'max-w-[32rem] w-full' : 'w-full'"
           @click.stop
         />
         <button
           v-else
           type="button"
           class="flex aspect-video items-center justify-center rounded-[inherit] text-[var(--nv-on-media)]"
-          :class="isFeatured ? 'max-w-[38rem] w-full' : 'w-full'"
+          :class="isFeatured ? 'max-w-[32rem] w-full' : 'w-full'"
           :aria-label="t('home.card.videoPreview')"
           @click.stop="loadVideoPreview"
         >
@@ -159,16 +183,24 @@ watch(() => props.post.postId, () => {
           </span>
         </button>
       </div>
-      <img
+      <a
         v-else-if="showFirstImageUrl"
-        :src="getOptimizedPostImageUrl(showFirstImageUrl)"
-        alt=""
-        class="rounded-[inherit]"
-        :class="isFeatured ? 'h-auto w-auto max-h-[26rem] max-w-full object-contain' : 'aspect-[16/9] w-full object-cover'"
-        loading="lazy"
-        decoding="async"
-        @error="handleImageError($event)"
-      />
+        :href="postDetailPath"
+        class="nv-home-card-image-link rounded-[inherit]"
+        :class="isFeatured ? 'w-fit max-w-full' : 'w-full'"
+        :aria-label="post.title"
+        @click.stop="navigateToPost"
+      >
+        <img
+          :src="getOptimizedPostImageUrl(showFirstImageUrl)"
+          alt=""
+          class="rounded-[inherit]"
+          :class="isFeatured ? 'h-auto w-auto max-h-[18rem] max-w-full object-contain' : 'aspect-[16/9] w-full object-cover'"
+          loading="lazy"
+          decoding="async"
+          @error="handleImageError($event)"
+        />
+      </a>
     </div>
 
     <div class="space-y-3">
@@ -176,26 +208,32 @@ watch(() => props.post.postId, () => {
         <a
           :href="postDetailPath"
           class="nv-home-card-title-link"
-          @click.prevent.stop="navigateToPost"
+          @click.stop="navigateToPost"
         >
           {{ post.title }}
         </a>
       </h2>
-      <div
+      <a
         v-if="bodyHtml"
         :class="bodyClass"
+        :href="postDetailPath"
+        :aria-label="post.title"
+        @click.stop="navigateToPost"
       >
         <SanitizedHtmlView
           :class="bodyContentClass"
           :html="bodyHtml"
         />
-      </div>
-      <p
+      </a>
+      <a
         v-else-if="showBody && post.summary"
         :class="bodyClass"
+        :href="postDetailPath"
+        :aria-label="post.title"
+        @click.stop="navigateToPost"
       >
         {{ post.summary }}
-      </p>
+      </a>
       <p
         v-if="!isFeatured && showAuthor"
         class="text-sm text-[var(--nv-muted)]"
@@ -204,17 +242,5 @@ watch(() => props.post.postId, () => {
       </p>
     </div>
 
-    <div
-      v-if="isFeatured && showAuthor"
-      class="flex items-center gap-2 text-sm text-[var(--nv-muted)]"
-    >
-      <span class="truncate">{{ post.authorName }}</span>
-      <span>&middot;</span>
-      <span>{{ timeAgo }}</span>
-      <span class="ml-auto inline-flex items-center gap-1 text-[var(--nv-ink-soft)]">
-        <ThumbsUp class="h-3.5 w-3.5" />
-        {{ formatInteger(post.likeCount) }}
-      </span>
-    </div>
   </article>
 </template>

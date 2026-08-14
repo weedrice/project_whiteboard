@@ -237,4 +237,105 @@ describe('HomePostCard', () => {
 
     expect(push).toHaveBeenCalledWith('/board/free/post/101/')
   })
+
+  it('moves featured author, time, and likes into the card header', () => {
+    const wrapper = mount(HomePostCard, {
+      props: {
+        post: makePost(),
+        variant: 'featured',
+      },
+    })
+
+    const header = wrapper.get('.nv-home-card-top')
+    const meta = header.get('.nv-home-card-meta')
+
+    expect(meta.text()).toContain('작성자')
+    expect(meta.text()).toContain('방금 전')
+    expect(meta.text()).toContain('2')
+    expect(wrapper.text().match(/작성자/g)).toHaveLength(1)
+  })
+
+  it('navigates from the featured image and body as well as the title', async () => {
+    const wrapper = mount(HomePostCard, {
+      props: {
+        post: makePost({
+          firstMediaType: 'image',
+          firstMediaUrl: '/api/v1/files/1',
+        }),
+        variant: 'featured',
+      },
+    })
+
+    const imageLink = wrapper.get('.nv-home-card-image-link')
+    const bodyLink = wrapper.get('.nv-home-card-body')
+
+    expect(imageLink.attributes('href')).toBe('/board/free/post/101/')
+    expect(bodyLink.element.tagName).toBe('A')
+    expect(bodyLink.attributes('href')).toBe('/board/free/post/101/')
+    expect(bodyLink.find('a').exists()).toBe(false)
+
+    await imageLink.trigger('click')
+    await bodyLink.trigger('click')
+
+    expect(push).toHaveBeenCalledTimes(2)
+    expect(push).toHaveBeenNthCalledWith(1, '/board/free/post/101/')
+    expect(push).toHaveBeenNthCalledWith(2, '/board/free/post/101/')
+  })
+
+  it('preserves the browser default for modified link clicks', () => {
+    const wrapper = mount(HomePostCard, {
+      props: {
+        post: makePost({
+          firstMediaType: 'image',
+          firstMediaUrl: '/api/v1/files/1',
+        }),
+        variant: 'featured',
+      },
+    })
+
+    const imageLink = wrapper.get('.nv-home-card-image-link')
+    let wasDefaultPreventedByComponent = true
+    imageLink.element.addEventListener('click', (event) => {
+      wasDefaultPreventedByComponent = event.defaultPrevented
+      event.preventDefault()
+    }, { once: true })
+    const modifiedClick = new MouseEvent('click', {
+      bubbles: true,
+      cancelable: true,
+      ctrlKey: true,
+    })
+
+    imageLink.element.dispatchEvent(modifiedClick)
+
+    expect(wasDefaultPreventedByComponent).toBe(false)
+    expect(push).not.toHaveBeenCalled()
+  })
+
+  it('keeps spoiler image and body links clickable while preserving the blur treatment', async () => {
+    const wrapper = mount(HomePostCard, {
+      props: {
+        post: makePost({
+          isSpoiler: true,
+          firstMediaType: 'image',
+          firstMediaUrl: '/api/v1/files/1',
+        }),
+        variant: 'featured',
+      },
+    })
+
+    const media = wrapper.get('.nv-home-media')
+    const imageLink = wrapper.get('.nv-home-card-image-link')
+    const bodyLink = wrapper.get('.nv-home-card-body')
+
+    expect(media.classes()).toContain('blur-[10px]')
+    expect(media.classes()).not.toContain('pointer-events-none')
+    expect(bodyLink.classes()).toContain('blur-[8px]')
+    expect(bodyLink.classes()).not.toContain('pointer-events-none')
+
+    await imageLink.trigger('click')
+    await bodyLink.trigger('click')
+
+    expect(push).toHaveBeenCalledTimes(2)
+    expect(push).toHaveBeenCalledWith('/board/free/post/101/')
+  })
 })
