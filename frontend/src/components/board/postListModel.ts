@@ -41,6 +41,21 @@ export function getPostListRowClass(item: PostSummary, currentPostId?: string): 
     : 'post-list-row'
 }
 
+export function getPostListPreviewImageUrl(item: PostSummary): string | null {
+  const thumbnailUrl = item.thumbnailUrl?.trim()
+  if (
+    !thumbnailUrl
+    || item.isNsfw
+    || item.isSpoiler
+    || item.isSecret
+    || item.isBlinded
+  ) {
+    return null
+  }
+
+  return thumbnailUrl
+}
+
 export function getPostListResolvedBoardUrl(item: PostSummary, boardUrl?: string): string {
   const raw = String(boardUrl || item.boardUrl || '').trim().toLowerCase()
   return raw.replace(/^\/+|\/+$/g, '')

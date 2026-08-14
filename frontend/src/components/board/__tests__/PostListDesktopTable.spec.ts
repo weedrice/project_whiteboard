@@ -77,6 +77,7 @@ function mountTable(overrides: Partial<InstanceType<typeof PostListDesktopTable>
     },
     global: {
       stubs: {
+        Teleport: true,
         RouterLink: RouterLinkStub,
         UserMenu: true,
         ThumbsUp: true,
@@ -109,5 +110,26 @@ describe('PostListDesktopTable', () => {
 
     expect(wrapper.findComponent(RouterLinkStub).props('to')).toBe('/board/free')
     expect(wrapper.text()).toContain('Fallback author')
+  })
+
+  it('shows a small thumbnail preview on hover only for unprotected posts', async () => {
+    const wrapper = mountTable({
+      posts: [createPost({ thumbnailUrl: '/thumbnail.jpg' })],
+    })
+
+    await wrapper.get('.nv-post-title-cell').trigger('mouseenter')
+
+    expect(wrapper.get('.nv-post-hover-preview img').attributes('src')).toBe('/thumbnail.jpg')
+
+    window.dispatchEvent(new Event('scroll'))
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('.nv-post-hover-preview').exists()).toBe(false)
+
+    await wrapper.setProps({
+      posts: [createPost({ thumbnailUrl: '/protected.jpg', isSpoiler: true })],
+    })
+    await wrapper.get('.nv-post-title-cell').trigger('mouseenter')
+
+    expect(wrapper.find('.nv-post-hover-preview').exists()).toBe(false)
   })
 })

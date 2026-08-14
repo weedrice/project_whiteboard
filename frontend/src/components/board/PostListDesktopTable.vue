@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { ThumbsUp } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import type { RouteLocationRaw } from 'vue-router'
@@ -10,6 +11,7 @@ import { formatRelativeDate } from '@/utils/date'
 import {
   getPostListBoardNameLabel,
   getPostListCountLabel,
+  getPostListPreviewImageUrl,
   getPostListRowNumberLabel,
 } from '@/components/board/postListModel'
 
@@ -47,6 +49,52 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+
+const PREVIEW_WIDTH = 192
+const PREVIEW_HEIGHT = 128
+const PREVIEW_GAP = 8
+const VIEWPORT_MARGIN = 8
+
+const hoverPreview = ref<{
+  url: string
+  left: number
+  top: number
+} | null>(null)
+
+function showImagePreview(event: Event, item: PostSummary) {
+  const url = getPostListPreviewImageUrl(item)
+  const target = event.currentTarget
+  if (!url || !(target instanceof HTMLElement) || typeof window === 'undefined') {
+    hoverPreview.value = null
+    return
+  }
+
+  const rect = target.getBoundingClientRect()
+  const viewportWidth = document.documentElement.clientWidth || window.innerWidth
+  const viewportHeight = document.documentElement.clientHeight || window.innerHeight
+  const maxLeft = Math.max(VIEWPORT_MARGIN, viewportWidth - PREVIEW_WIDTH - VIEWPORT_MARGIN)
+  const left = Math.min(Math.max(rect.left + 24, VIEWPORT_MARGIN), maxLeft)
+  const belowTop = rect.bottom + PREVIEW_GAP
+  const top = belowTop + PREVIEW_HEIGHT <= viewportHeight - VIEWPORT_MARGIN
+    ? belowTop
+    : Math.max(VIEWPORT_MARGIN, rect.top - PREVIEW_HEIGHT - PREVIEW_GAP)
+
+  hoverPreview.value = { url, left, top }
+}
+
+function hideImagePreview() {
+  hoverPreview.value = null
+}
+
+onMounted(() => {
+  window.addEventListener('resize', hideImagePreview)
+  window.addEventListener('scroll', hideImagePreview, true)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', hideImagePreview)
+  window.removeEventListener('scroll', hideImagePreview, true)
+})
 </script>
 
 <template>
@@ -91,7 +139,13 @@ const { t } = useI18n()
       </template>
 
       <template #cell-title="{ item }">
-        <div class="flex min-w-0 items-center gap-1.5 overflow-hidden">
+        <div
+          class="nv-post-title-cell flex min-w-0 items-center gap-1.5"
+          @mouseenter="showImagePreview($event, item)"
+          @mouseleave="hideImagePreview"
+          @focusin="showImagePreview($event, item)"
+          @focusout="hideImagePreview"
+        >
           <component
             :is="getTitleTag(item)"
             v-bind="getTitleProps(item)"
@@ -153,6 +207,27 @@ const { t } = useI18n()
 
       <template #cell-createdAt="{ item }">{{ formatRelativeDate(item.createdAt) }}</template>
     </BaseTable>
+
+    <Teleport to="body">
+      <div
+        v-if="hoverPreview"
+        class="nv-post-hover-preview"
+        :style="{
+          left: `${hoverPreview.left}px`,
+          top: `${hoverPreview.top}px`,
+          width: `${PREVIEW_WIDTH}px`,
+          height: `${PREVIEW_HEIGHT}px`,
+        }"
+        aria-hidden="true"
+      >
+        <img
+          :src="hoverPreview.url"
+          alt=""
+          decoding="async"
+          @error="hideImagePreview"
+        />
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -196,6 +271,29 @@ const { t } = useI18n()
   overflow: hidden;
   text-align: left;
   transition: color 0.15s ease;
+}
+
+.nv-post-title-cell {
+  overflow: hidden;
+}
+
+.nv-post-hover-preview {
+  background: var(--nv-surface);
+  border: 1px solid var(--nv-line);
+  border-radius: 0.75rem;
+  box-shadow: 0 12px 32px color-mix(in srgb, var(--nv-ink) 22%, transparent);
+  overflow: hidden;
+  padding: 0.25rem;
+  pointer-events: none;
+  position: fixed;
+  z-index: 1000;
+}
+
+.nv-post-hover-preview img {
+  border-radius: 0.5rem;
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
 }
 
 .nv-post-board-link:hover,

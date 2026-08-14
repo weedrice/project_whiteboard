@@ -8,6 +8,7 @@ import {
   getPostListActiveSortKey,
   getPostListInteractiveTag,
   getPostListNextSort,
+  getPostListPreviewImageUrl,
   getPostListResolvedBoardUrl,
   getPostListRowNumberLabel,
   getPostListTitleProps,
@@ -67,6 +68,15 @@ describe('postListModel', () => {
     expect(getPostListActiveSortDirection('createdAt,desc')).toBe('desc')
     expect(getPostListActiveSortKey('unknown,desc')).toBeNull()
     expect(getPostListActiveSortDirection('unknown,desc')).toBeNull()
+  })
+
+  it('returns preview images only for unprotected posts', () => {
+    expect(getPostListPreviewImageUrl(post({ thumbnailUrl: ' /thumb.jpg ' }))).toBe('/thumb.jpg')
+    expect(getPostListPreviewImageUrl(post({ hasImage: true }))).toBeNull()
+    expect(getPostListPreviewImageUrl(post({ thumbnailUrl: '/nsfw.jpg', isNsfw: true }))).toBeNull()
+    expect(getPostListPreviewImageUrl(post({ thumbnailUrl: '/spoiler.jpg', isSpoiler: true }))).toBeNull()
+    expect(getPostListPreviewImageUrl(post({ thumbnailUrl: '/secret.jpg', isSecret: true }))).toBeNull()
+    expect(getPostListPreviewImageUrl(post({ thumbnailUrl: '/blinded.jpg', isBlinded: true }))).toBeNull()
   })
 
   it('builds navigation tags and title props from route availability', () => {
