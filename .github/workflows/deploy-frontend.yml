@@ -10,7 +10,10 @@ on:
       expected_sha:
         required: true
         type: string
-      release_artifact_name:
+      release_artifact_id:
+        required: true
+        type: string
+      release_metadata_attempt:
         required: true
         type: string
       backend_activated_sha:
@@ -50,21 +53,32 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Validate frontend release identity
+        env:
+          RELEASE_ARTIFACT_ID: ${{ inputs.release_artifact_id }}
+          RELEASE_METADATA_ATTEMPT: ${{ inputs.release_metadata_attempt }}
+        run: |
+          [[ "$RELEASE_ARTIFACT_ID" =~ ^[1-9][0-9]*$ ]]
+          [[ "$RELEASE_METADATA_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
+
       - name: Download verified frontend artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: ${{ inputs.release_artifact_name }}
+          artifact-ids: ${{ inputs.release_artifact_id }}
           path: release-artifact
 
       - name: Verify frontend artifact checksum
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+          RELEASE_METADATA_ATTEMPT: ${{ inputs.release_metadata_attempt }}
         run: |
           set -euo pipefail
           (cd release-artifact && sha256sum --strict --check SHA256SUMS)
-          grep -Fqx -- "commit_sha=${{ inputs.expected_sha }}" release-artifact/RELEASE_METADATA
+          grep -Fqx -- "commit_sha=$EXPECTED_SHA" release-artifact/RELEASE_METADATA
           grep -Fqx -- "repository=$GITHUB_REPOSITORY" release-artifact/RELEASE_METADATA
           grep -Fqx -- "run_id=$GITHUB_RUN_ID" release-artifact/RELEASE_METADATA
           grep -Fqx -- "run_number=$GITHUB_RUN_NUMBER" release-artifact/RELEASE_METADATA
-          grep -Fqx -- "run_attempt=$GITHUB_RUN_ATTEMPT" release-artifact/RELEASE_METADATA
+          grep -Fqx -- "run_attempt=$RELEASE_METADATA_ATTEMPT" release-artifact/RELEASE_METADATA
 
       - name: Verify frontend GitHub artifact attestation
         env:

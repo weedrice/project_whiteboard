@@ -148,6 +148,9 @@ assert(validationFilter && deploymentBaselines && backendDeployFilter && fronten
   'validation, deployment baseline, and component deployment filters must remain separate')
 assert(stepRuns(ci.jobs.changes, 'deploy/scripts/resolve-deployment-baselines.mjs'),
   'deployment scope no longer resolves the last successful component deployments')
+assert(String(deploymentBaselines.if).includes("github.event_name == 'workflow_dispatch'")
+  && String(deploymentBaselines.if).includes('inputs.deploy_backend'),
+  'manual backend deployment must resolve the last successful deployment baseline')
 assert(permissions(ci.jobs.changes).actions === 'read',
   'deployment baseline resolution requires read-only Actions history access')
 assert(ci.jobs.changes.steps.find((step) => step.name === 'Checkout')?.with?.['fetch-depth'] === 0,
@@ -186,6 +189,9 @@ assert(JSON.stringify(backendContractDeployPaths) === JSON.stringify(['docs/ops/
   'API contract revision must coordinate cumulative backend and frontend deployment')
 assert(ci.jobs.changes.outputs.backend_deploy === '${{ steps.deploy-scope.outputs.backend }}', 'backend deploy output bypasses deployment scope resolver')
 assert(ci.jobs.changes.outputs.frontend_deploy === '${{ steps.deploy-scope.outputs.frontend }}', 'frontend deploy output bypasses deployment scope resolver')
+assert(ci.jobs.changes.outputs.backend_deployment_base_found === '${{ steps.deployment-baselines.outputs.backend_found }}'
+  && ci.jobs.changes.outputs.backend_deployment_base_sha === '${{ steps.deployment-baselines.outputs.backend_sha }}',
+  'backend deployment baseline must be available to migration validation jobs')
 const deployScopeSource = JSON.stringify(ci.jobs.changes.steps.find((step) => step.id === 'deploy-scope'))
 assert(deployScopeSource.includes('BACKEND_BASE_FOUND') && deployScopeSource.includes('FRONTEND_BASE_FOUND'),
   'missing deployment history must force a safe component deployment')
@@ -194,6 +200,23 @@ assert(validationScopeSource.includes('BACKEND_DEPLOY_PENDING')
   && validationScopeSource.includes('FRONTEND_DEPLOY_PENDING'),
   'cumulative deployment candidates must also run their component validation')
 assert(!ciSource.includes('backend_changed') && !ciSource.includes('frontend_changed'), 'legacy validation/deployment coupling remains')
+const migrationBase = ci.jobs['backend-postgres-migration'].steps.find((step) => step.id === 'migration-base')
+const migrationGuard = ci.jobs['backend-postgres-migration'].steps.find((step) => step.id === 'migration_guard')
+const upgradeBase = ci.jobs['backend-postgres-upgrade'].steps.find((step) => step.id === 'upgrade-base')
+const migrationBaseSource = JSON.stringify(migrationBase)
+assert(migrationBaseSource.includes('backend_deployment_base_found')
+  && migrationBaseSource.includes('backend_deployment_base_sha')
+  && migrationBaseSource.includes('backend_deploy')
+  && migrationBaseSource.includes('force_contract=true'),
+  'deployment migration checks must compare from the cumulative backend deployment baseline and fail closed without one')
+assert(migrationGuard?.env?.BASE_REF === '${{ steps.migration-base.outputs.base_ref }}'
+  && String(migrationGuard.run).includes('FORCE_CONTRACT')
+  && String(migrationGuard.run).includes('contract_migration=true'),
+  'contract migration output must use the resolved deployment baseline and fail closed')
+assert(JSON.stringify(upgradeBase).includes('backend_deployment_base_sha')
+  && ci.jobs['backend-postgres-upgrade'].steps.find((step) => step.name === 'Verify Flyway upgrade from the previous revision')?.env?.BASE_REF
+    === '${{ steps.upgrade-base.outputs.base_ref }}',
+  'Flyway upgrade smoke must use the same cumulative deployment baseline')
 for (const [jobName, outputName] of [
   ['candidate-backend', 'backend_deploy'],
   ['deploy-backend', 'backend_deploy'],
@@ -240,6 +263,23 @@ assert(deploymentGateSource.includes('BACKEND_DEPLOY_RESULT')
   && deploymentGateSource.includes('FRONTEND_DEPLOY_RESULT')
   && deploymentGateSource.includes('exit 1'),
   'requested deployments must not finish green when deployment was skipped')
+for (const upstream of [
+  'candidate-backend',
+  'release-backend',
+  'candidate-frontend',
+  'release-frontend',
+  'frontend-deploy-readiness',
+]) {
+  assert((deploymentGate.needs ?? []).includes(upstream),
+    `deployment gate cannot diagnose the upstream result: ${upstream}`)
+}
+assert(deploymentGateSource.includes('BACKEND_CANDIDATE_RESULT')
+  && deploymentGateSource.includes('BACKEND_RELEASE_RESULT')
+  && deploymentGateSource.includes('FRONTEND_CANDIDATE_RESULT')
+  && deploymentGateSource.includes('FRONTEND_RELEASE_RESULT')
+  && deploymentGateSource.includes('FRONTEND_READY_TO_DEPLOY')
+  && deploymentGateSource.includes('ALLOW_CONTRACT_MIGRATION'),
+  'deployment gate must report the actual candidate, release, readiness, or approval cause')
 for (const protectedOpsPath of [
   '.github/CODEOWNERS',
   'docs/ops/postgres-backup-restore.md',
@@ -347,8 +387,58 @@ assert(contractDeployCondition.includes("github.event_name == 'workflow_dispatch
 assert(stepRuns(backend.jobs.deploy, 'verify-deployment-freshness.sh') && stepRuns(backend.jobs.deploy, ' backend'), 'backend deployment must use the path-aware freshness verifier')
 assert(stepRuns(frontend.jobs.deploy, 'verify-deployment-freshness.sh') && stepRuns(frontend.jobs.deploy, ' frontend'), 'frontend deployment must use the path-aware freshness verifier')
 
-assert(ci.jobs['deploy-backend'].with.release_artifact_name.includes('${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}'), 'backend artifact identity is not attempt-specific')
-assert(ci.jobs['deploy-frontend'].with.release_artifact_name.includes('${{ github.run_id }}-${{ github.run_attempt }}-${{ github.sha }}'), 'frontend artifact identity is not attempt-specific')
+for (const [component, candidateName, releaseName] of [
+  ['backend', 'candidate-backend', 'release-backend'],
+  ['frontend', 'candidate-frontend', 'release-frontend'],
+]) {
+  const candidate = ci.jobs[candidateName]
+  const release = ci.jobs[releaseName]
+  const candidateUpload = candidate.steps.find((step) => step.id === 'upload-candidate')
+  const candidateIdentityGuard = release.steps.find((step) => step.name === `Validate ${component} candidate identity`)
+  const releaseDownload = release.steps.find((step) => step.name === `Download ${component} candidate`)
+  const releaseUpload = release.steps.find((step) => step.id === 'upload-release')
+  const releaseVerification = release.steps.find((step) => step.name === 'Verify candidate digest and immutable metadata')
+  assert(candidate.outputs.artifact_id === '${{ steps.upload-candidate.outputs.artifact-id }}'
+    && candidate.outputs.producer_attempt === '${{ steps.artifact-identity.outputs.producer_attempt }}',
+  `${component} candidate must publish immutable artifact identity outputs`)
+  assert(candidateUpload?.with?.name?.includes('${{ github.run_attempt }}'),
+    `${component} candidate artifact name must remain unique across full reruns`)
+  assert(String(candidateIdentityGuard?.run).includes('CANDIDATE_ARTIFACT_ID')
+    && String(candidateIdentityGuard?.run).includes('CANDIDATE_ATTEMPT'),
+  `${component} release must reject empty or malformed producer outputs before artifact download`)
+  assert(releaseDownload?.with?.['artifact-ids'] === `\${{ needs.${candidateName}.outputs.artifact_id }}`
+    && !('name' in (releaseDownload?.with ?? {})),
+  `${component} release must download the successful producer artifact ID during a partial rerun`)
+  assert(releaseVerification?.env?.CANDIDATE_ATTEMPT === `\${{ needs.${candidateName}.outputs.producer_attempt }}`
+    && String(releaseVerification.run).includes('run_attempt=$CANDIDATE_ATTEMPT'),
+  `${component} release must verify metadata against the producer attempt`)
+  assert(release.outputs.artifact_id === '${{ steps.upload-release.outputs.artifact-id }}'
+    && release.outputs.metadata_attempt === '${{ steps.release-identity.outputs.metadata_attempt }}'
+    && releaseUpload?.with?.name?.includes('${{ github.run_attempt }}'),
+  `${component} release must publish its artifact ID and signed metadata attempt`)
+}
+assert(ci.jobs['deploy-backend'].with.release_artifact_id === '${{ needs.release-backend.outputs.artifact_id }}'
+  && ci.jobs['deploy-backend'].with.release_metadata_attempt === '${{ needs.release-backend.outputs.metadata_attempt }}',
+  'backend deployment must consume release producer outputs instead of the current run attempt')
+assert(ci.jobs['deploy-frontend'].with.release_artifact_id === '${{ needs.frontend-deploy-readiness.outputs.release_artifact_id }}'
+  && ci.jobs['deploy-frontend'].with.release_metadata_attempt === '${{ needs.frontend-deploy-readiness.outputs.release_metadata_attempt }}'
+  && frontendReadiness.outputs.release_artifact_id === '${{ steps.readiness.outputs.release_artifact_id }}'
+  && frontendReadiness.outputs.release_metadata_attempt === '${{ steps.readiness.outputs.release_metadata_attempt }}',
+  'frontend deployment must preserve release producer outputs through readiness')
+for (const [component, workflow] of [['backend', backend], ['frontend', frontend]]) {
+  const download = workflow.jobs.deploy.steps.find((step) => step.name === `Download verified ${component} artifact`)
+  const releaseIdentityGuard = workflow.jobs.deploy.steps.find((step) => step.name === `Validate ${component} release identity`)
+  const verify = workflow.jobs.deploy.steps.find((step) => step.name.startsWith(`Verify ${component} artifact checksum`))
+  assert(String(releaseIdentityGuard?.run).includes('RELEASE_ARTIFACT_ID')
+    && String(releaseIdentityGuard?.run).includes('RELEASE_METADATA_ATTEMPT'),
+  `${component} reusable deployment must reject empty or malformed release outputs before artifact download`)
+  assert(download?.with?.['artifact-ids'] === '${{ inputs.release_artifact_id }}'
+    && !('name' in (download?.with ?? {})),
+  `${component} reusable deployment must download the immutable release artifact ID`)
+  assert(verify?.env?.RELEASE_METADATA_ATTEMPT === '${{ inputs.release_metadata_attempt }}'
+    && String(verify?.run).includes('run_attempt=$RELEASE_METADATA_ATTEMPT'),
+    `${component} reusable deployment must verify the signed producer attempt`)
+}
 assert(!containsSecretInheritance(ci) && !containsSecretInheritance(backend) && !containsSecretInheritance(frontend), 'reusable workflows may not inherit every secret')
 
 assertCheckoutDoesNotPersistCredentials(backend, 'backend deploy')
