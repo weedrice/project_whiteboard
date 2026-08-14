@@ -26,11 +26,16 @@ public class PostContentSummaryExtractor {
     }
 
     PostThumbnailInfo resolveThumbnail(Post post, Set<Long> postIdsWithImages, Map<Long, Long> thumbnailFileIdsByPostId) {
+        return resolveThumbnail(post.getPostId(), post.getContents(), postIdsWithImages, thumbnailFileIdsByPostId);
+    }
+
+    PostThumbnailInfo resolveThumbnail(Long postId, String contents, Set<Long> postIdsWithImages,
+            Map<Long, Long> thumbnailFileIdsByPostId) {
         String thumbnailUrl = null;
         boolean hasImage = false;
 
-        if (postIdsWithImages.contains(post.getPostId())) {
-            Long fileId = thumbnailFileIdsByPostId.get(post.getPostId());
+        if (postIdsWithImages.contains(postId)) {
+            Long fileId = thumbnailFileIdsByPostId.get(postId);
             if (fileId != null) {
                 thumbnailUrl = FileUrlResolver.resolveThumbnail(fileId);
                 hasImage = true;
@@ -38,7 +43,7 @@ public class PostContentSummaryExtractor {
         }
 
         if (thumbnailUrl == null) {
-            String contentImageUrl = extractFirstImageUrlFromContent(post.getContents());
+            String contentImageUrl = extractFirstImageUrlFromContent(contents);
             if (contentImageUrl != null) {
                 thumbnailUrl = contentImageUrl;
                 hasImage = true;

@@ -61,6 +61,19 @@ class PostContentSummaryExtractorTest {
     }
 
     @Test
+    @DisplayName("목록 projection도 본문 첫 이미지 URL을 썸네일로 사용한다")
+    void resolveThumbnail_projectionFallsBackToHtmlImage() {
+        PostThumbnailInfo thumbnailInfo = extractor.resolveThumbnail(
+                100L,
+                "<p>Preview</p><img src=\"https://cdn.example.com/projection.png\" />",
+                Set.of(),
+                Map.of());
+
+        assertThat(thumbnailInfo.thumbnailUrl()).isEqualTo("https://cdn.example.com/projection.png");
+        assertThat(thumbnailInfo.hasImage()).isTrue();
+    }
+
+    @Test
     @DisplayName("본문 iframe에서 첫 비디오 embed URL을 추출한다")
     void extractFirstVideoEmbedFromContent_success() {
         String url = extractor.extractFirstVideoEmbedFromContent(

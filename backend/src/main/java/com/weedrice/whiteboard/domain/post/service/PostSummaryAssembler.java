@@ -58,11 +58,17 @@ public class PostSummaryAssembler {
         List<Long> postIds = posts.getContent().stream()
                 .map(Post::getPostId)
                 .collect(Collectors.toList());
-        Set<Long> postIdsWithImages = new HashSet<>(getThumbnailFileIdsByPostId(postIds).keySet());
+        Map<Long, Long> thumbnailFileIdsByPostId = getThumbnailFileIdsByPostId(postIds);
+        Set<Long> postIdsWithImages = new HashSet<>(thumbnailFileIdsByPostId.keySet());
 
         return posts.map(post -> {
+            PostThumbnailInfo thumbnailInfo = contentSummaryExtractor.resolveThumbnail(
+                    post,
+                    postIdsWithImages,
+                    thumbnailFileIdsByPostId);
             PostSummary summary = PostSummary.from(post, contentSummaryExtractor.extractSummary(post));
-            summary.setHasImage(postIdsWithImages.contains(post.getPostId()));
+            summary.setHasImage(thumbnailInfo.hasImage());
+            summary.setThumbnailUrl(thumbnailInfo.thumbnailUrl());
             return summary;
         });
     }
@@ -92,7 +98,12 @@ public class PostSummaryAssembler {
             Post post = posts.getContent().get(i);
             PostSummary summary = PostSummary.from(post, contentSummaryExtractor.extractSummary(post));
             if (includeImages) {
-                summary.setHasImage(postIdsWithImages.contains(post.getPostId()));
+                PostThumbnailInfo thumbnailInfo = contentSummaryExtractor.resolveThumbnail(
+                        post,
+                        postIdsWithImages,
+                        thumbnailFileIdsByPostId);
+                summary.setHasImage(thumbnailInfo.hasImage());
+                summary.setThumbnailUrl(thumbnailInfo.thumbnailUrl());
             }
             if (includeInquiryAnswered) {
                 summary.setInquiryAnswered(inquiryAnsweredStatuses.get(post.getPostId()));
@@ -114,8 +125,11 @@ public class PostSummaryAssembler {
         List<Long> postIds = posts.getContent().stream()
                 .map(PostListSummaryProjection::postId)
                 .collect(Collectors.toList());
+        Map<Long, Long> thumbnailFileIdsByPostId = includeImages
+                ? getThumbnailFileIdsByPostId(postIds)
+                : Collections.emptyMap();
         Set<Long> postIdsWithImages = includeImages
-                ? new HashSet<>(getThumbnailFileIdsByPostId(postIds).keySet())
+                ? new HashSet<>(thumbnailFileIdsByPostId.keySet())
                 : Collections.emptySet();
         Map<Long, Boolean> inquiryAnsweredStatuses = includeInquiryAnswered
                 ? resolveInquiryAnsweredStatusesFromProjection(posts.getContent())
@@ -131,7 +145,13 @@ public class PostSummaryAssembler {
             PostListSummaryProjection post = posts.getContent().get(i);
             PostSummary summary = buildListSummary(post);
             if (includeImages) {
-                summary.setHasImage(postIdsWithImages.contains(post.postId()));
+                PostThumbnailInfo thumbnailInfo = contentSummaryExtractor.resolveThumbnail(
+                        post.postId(),
+                        post.contentPreview(),
+                        postIdsWithImages,
+                        thumbnailFileIdsByPostId);
+                summary.setHasImage(thumbnailInfo.hasImage());
+                summary.setThumbnailUrl(thumbnailInfo.thumbnailUrl());
             }
             if (includeInquiryAnswered) {
                 summary.setInquiryAnswered(inquiryAnsweredStatuses.get(post.postId()));
@@ -197,13 +217,19 @@ public class PostSummaryAssembler {
         List<Long> postIds = historyPage.getContent().stream()
                 .map(history -> history.getPost().getPostId())
                 .collect(Collectors.toList());
-        Set<Long> postIdsWithImages = new HashSet<>(getThumbnailFileIdsByPostId(postIds).keySet());
+        Map<Long, Long> thumbnailFileIdsByPostId = getThumbnailFileIdsByPostId(postIds);
+        Set<Long> postIdsWithImages = new HashSet<>(thumbnailFileIdsByPostId.keySet());
 
         return historyPage.map(viewHistory -> {
+            PostThumbnailInfo thumbnailInfo = contentSummaryExtractor.resolveThumbnail(
+                    viewHistory.getPost(),
+                    postIdsWithImages,
+                    thumbnailFileIdsByPostId);
             PostSummary summary = PostSummary.from(
                     viewHistory.getPost(),
                     contentSummaryExtractor.extractSummary(viewHistory.getPost()));
-            summary.setHasImage(postIdsWithImages.contains(viewHistory.getPost().getPostId()));
+            summary.setHasImage(thumbnailInfo.hasImage());
+            summary.setThumbnailUrl(thumbnailInfo.thumbnailUrl());
             return summary;
         });
     }

@@ -118,6 +118,8 @@ class PostSummaryAssemblerTest {
 
         assertThat(summaries).extracting(PostSummary::getRowNum).containsExactly(3L, 2L);
         assertThat(summaries).extracting(PostSummary::isHasImage).containsExactly(true, false);
+        assertThat(summaries).extracting(PostSummary::getThumbnailUrl)
+                .containsExactly("/api/v1/files/1000/variants/thumbnail", null);
     }
 
     @Test
@@ -200,6 +202,8 @@ class PostSummaryAssemblerTest {
         List<PostSummary> summaries = postSummaryAssembler.assembleTagPage(page).getContent();
 
         assertThat(summaries).extracting(PostSummary::isHasImage).containsExactly(true, false);
+        assertThat(summaries).extracting(PostSummary::getThumbnailUrl)
+                .containsExactly("/api/v1/files/1000/variants/thumbnail", null);
         assertThat(summaries).extracting(PostSummary::getRowNum).containsOnlyNulls();
         assertThat(summaries).extracting(PostSummary::getInquiryAnswered).containsOnlyNulls();
     }
@@ -336,6 +340,7 @@ class PostSummaryAssemblerTest {
         assertThat(summary.getCategory().getName()).isEqualTo("General");
         assertThat(summary.getAuthor().getDisplayName()).isEqualTo("Author");
         assertThat(summary.isHasImage()).isTrue();
+        assertThat(summary.getThumbnailUrl()).isEqualTo("/api/v1/files/1000/variants/thumbnail");
         assertThat(summary.getInquiryAnswered()).isTrue();
         assertThat(summary.getSummary()).isEqualTo("Hello world");
         assertThat(summary.getRowNum()).isEqualTo(1L);
