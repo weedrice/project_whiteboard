@@ -81,7 +81,7 @@
     "@types/node": "^24.13.3",
     "@vitejs/plugin-vue": "^6.0.7",
     "@vitest/coverage-v8": "^4.1.10",
-    "@vitest/eslint-plugin": "^1.6.26",
+    "@vitest/eslint-plugin": "^1.6.27",
     "@vue/test-utils": "^2.4.11",
     "autoprefixer": "^10.5.4",
     "baseline-browser-mapping": "^2.11.12",
