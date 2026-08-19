@@ -36,6 +36,7 @@ shell environment, CI/CD secrets, or an approved secret manager.
 | `SERVER_FORWARD_HEADERS_STRATEGY` | Reverse proxy header handling override when needed. |
 | `LOG_PATH` | Production log directory. Defaults to `/opt/app/logs`. |
 | `FLYWAY_BASELINE_ON_MIGRATE` | Enables Flyway baseline-on-migrate. Defaults to `false`. |
+| `APP_THUMBNAIL_ALLOWED_EXTERNAL_HOSTS` | Comma-separated exact HTTPS hosts allowed for external post thumbnails. Defaults to `noviis.kr,www.noviis.kr,cdn.noviis.kr`; keep every public frontend alias when `FRONTEND_URL` changes. |
 | `APP_CACHE_READ_OPTIMIZATION_ENABLED` | Enables the application read-optimization cache path. Defaults to `false`. |
 | `APP_ERROR_LOG_CLIENT_RETENTION_DAYS` | Client error-log retention period. Defaults to `30` days. |
 | `APP_ERROR_LOG_RESOLVED_RETENTION_DAYS` | Resolved error-log retention period. Defaults to `90` days. |

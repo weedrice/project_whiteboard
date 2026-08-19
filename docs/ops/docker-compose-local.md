@@ -50,10 +50,14 @@ JWT_SECRET_DEV=<base64-encoded-hs256-key>
 BACKEND_PORT=8080
 FRONTEND_PORT=5173
 APP_FRONTEND_URL=http://localhost:5173
+APP_THUMBNAIL_ALLOWED_EXTERNAL_HOSTS=noviis.kr,www.noviis.kr,cdn.noviis.kr
 VITE_API_URL=/api/v1
 VITE_INQUIRY_BOARD_URL=inquiry
 MANAGEMENT_HEALTH_MAIL_ENABLED=false
 ```
+
+`APP_THUMBNAIL_ALLOWED_EXTERNAL_HOSTS` accepts comma-separated exact HTTPS host names.
+When `APP_FRONTEND_URL` is changed, retain any other public frontend aliases that may still appear in stored post HTML.
 
 For local development, AWS and mail-related variables default to local placeholder values unless overridden. Mail health is disabled by default because the compose stack does not include an SMTP server. Real credentials should be supplied only through local shell variables, untracked `.env`, or deployment secrets.
 
