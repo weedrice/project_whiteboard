@@ -22,16 +22,20 @@ import java.util.stream.Collectors;
 public class PostContentSummaryExtractor {
 
     private static final String DEFAULT_FRONTEND_URL = "https://noviis.kr";
+    private static final String DEFAULT_EXTERNAL_THUMBNAIL_HOSTS = "noviis.kr,www.noviis.kr,cdn.noviis.kr";
     private final URI frontendOrigin;
     private final Set<String> allowedExternalThumbnailHosts;
 
     @Autowired
     public PostContentSummaryExtractor(
             @Value("${app.frontend-url:" + DEFAULT_FRONTEND_URL + "}") String frontendUrl,
-            @Value("${app.thumbnail.allowed-external-hosts}")
+            @Value("${app.thumbnail.allowed-external-hosts:}")
             String allowedExternalThumbnailHosts) {
         this.frontendOrigin = parseFrontendOrigin(frontendUrl);
-        this.allowedExternalThumbnailHosts = parseAllowedHosts(allowedExternalThumbnailHosts);
+        this.allowedExternalThumbnailHosts = parseAllowedHosts(
+                allowedExternalThumbnailHosts == null || allowedExternalThumbnailHosts.isBlank()
+                        ? DEFAULT_EXTERNAL_THUMBNAIL_HOSTS
+                        : allowedExternalThumbnailHosts);
     }
 
     String extractSummary(Post post) {

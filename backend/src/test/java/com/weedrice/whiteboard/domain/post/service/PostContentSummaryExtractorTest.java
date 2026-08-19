@@ -144,6 +144,27 @@ class PostContentSummaryExtractorTest {
     }
 
     @Test
+    void resolveThumbnail_usesCanonicalDefaultHostsWhenConfigurationIsBlank() {
+        PostContentSummaryExtractor defaultedExtractor = new PostContentSummaryExtractor(
+                "https://staging.noviis.kr",
+                " ");
+
+        PostThumbnailInfo bareDomain = defaultedExtractor.resolveThumbnail(
+                100L,
+                "<img src=\"https://noviis.kr/images/legacy.png\" />",
+                Set.of(),
+                Map.of());
+        PostThumbnailInfo cdnDomain = defaultedExtractor.resolveThumbnail(
+                100L,
+                "<img src=\"https://cdn.noviis.kr/images/cdn.png\" />",
+                Set.of(),
+                Map.of());
+
+        assertThat(bareDomain.thumbnailUrl()).isEqualTo("https://noviis.kr/images/legacy.png");
+        assertThat(cdnDomain.thumbnailUrl()).isEqualTo("https://cdn.noviis.kr/images/cdn.png");
+    }
+
+    @Test
     @DisplayName("본문 iframe에서 첫 비디오 embed URL을 추출한다")
     void extractFirstVideoEmbedFromContent_success() {
         String url = extractor.extractFirstVideoEmbedFromContent(
