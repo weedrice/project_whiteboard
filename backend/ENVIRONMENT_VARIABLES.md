@@ -67,6 +67,14 @@ shell environment, CI/CD secrets, or an approved secret manager.
 | `RATE_LIMIT_BUCKET_CACHE_TTL_MINUTES` | Rate-limit bucket cache time-to-live override. |
 | `CLIENT_IP_TRUST_PROXY_HEADERS` | Enables trusted proxy header parsing. Defaults to `true` in prod. |
 | `CLIENT_IP_TRUSTED_PROXIES` | Comma-separated trusted proxy IP/CIDR list. |
+| `APP_SHOP_STREAM_REDIS_ENABLED` | Enables cross-instance shop sale-status propagation through Redis. Defaults to `false`. Enable on every backend replica together. |
+| `REDIS_HOST` | Redis host used by the shop status relay. Defaults to `localhost`. |
+| `REDIS_PORT` | Redis port used by the shop status relay. Defaults to `6379`. |
+| `REDIS_PASSWORD` | Optional Redis password. |
+| `REDIS_CONNECT_TIMEOUT` | Redis connection timeout. Defaults to `2s`. |
+| `REDIS_TIMEOUT` | Redis command timeout. Defaults to `2s`. |
+| `APP_SHOP_STREAM_REDIS_CHANNEL` | Shared Redis Pub/Sub channel. Defaults to `noviis:shop:sale-status`; all replicas must use the same value. |
+| `APP_INSTANCE_ID` | Unique backend replica identifier used to suppress relay echo. Defaults to a generated UUID. |
 
 ### Conditional Feature Activation
 
@@ -75,6 +83,9 @@ shell environment, CI/CD secrets, or an approved secret manager.
 - Web Push requires non-blank `WEB_PUSH_PUBLIC_KEY`, `WEB_PUSH_PRIVATE_KEY`, and
   `WEB_PUSH_SUBJECT` values. If any value is missing, Web Push remains disabled while
   stored notifications and SSE delivery continue to work.
+- Cross-instance shop status propagation requires `APP_SHOP_STREAM_REDIS_ENABLED=true`
+  on every backend replica and a shared reachable Redis instance. Local SSE delivery and
+  the frontend polling fallback remain available when the relay is disabled or unavailable.
 - These feature-specific values are optional for the backend as a whole, so
   `EnvironmentValidator` does not include them in the unconditional production-required list.
 

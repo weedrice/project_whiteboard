@@ -36,12 +36,24 @@ spring:
         size: 4
   cache:
     type: caffeine
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      connect-timeout: ${REDIS_CONNECT_TIMEOUT:2s}
+      timeout: ${REDIS_TIMEOUT:2s}
 
 app:
   thumbnail:
     allowed-external-hosts: ${APP_THUMBNAIL_ALLOWED_EXTERNAL_HOSTS:}
   cache:
     read-optimization-enabled: ${APP_CACHE_READ_OPTIMIZATION_ENABLED:false}
+  shop-stream:
+    redis:
+      enabled: ${APP_SHOP_STREAM_REDIS_ENABLED:false}
+      channel: ${APP_SHOP_STREAM_REDIS_CHANNEL:noviis:shop:sale-status}
+      instance-id: ${APP_INSTANCE_ID:${random.uuid}}
   error-log:
     client-retention-days: ${APP_ERROR_LOG_CLIENT_RETENTION_DAYS:30}
     resolved-retention-days: ${APP_ERROR_LOG_RESOLVED_RETENTION_DAYS:90}
@@ -67,6 +79,9 @@ server:
   shutdown: graceful
 
 management:
+  health:
+    redis:
+      enabled: ${APP_SHOP_STREAM_REDIS_ENABLED:false}
   server:
     address: 127.0.0.1
     port: 8081

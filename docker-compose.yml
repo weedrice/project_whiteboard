@@ -32,8 +32,15 @@ services:
       SPRING_MAIL_USERNAME: ${SPRING_MAIL_USERNAME:-noreply@localhost}
       SPRING_MAIL_PASSWORD: ${SPRING_MAIL_PASSWORD:-local}
       MANAGEMENT_HEALTH_MAIL_ENABLED: ${MANAGEMENT_HEALTH_MAIL_ENABLED:-false}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      APP_SHOP_STREAM_REDIS_ENABLED: "true"
+      APP_INSTANCE_ID: ${APP_INSTANCE_ID:-noviis-backend-local}
     ports:
       - "${BACKEND_PORT:-8080}:8080"
+    depends_on:
+      redis:
+        condition: service_healthy
     volumes:
       - ./uploads:/app/uploads
       - ./logs/backend:/app/logs
@@ -45,6 +52,24 @@ services:
       timeout: 5s
       retries: 10
       start_period: 45s
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: noviis-redis
+    restart: unless-stopped
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
 
   frontend:
     build:

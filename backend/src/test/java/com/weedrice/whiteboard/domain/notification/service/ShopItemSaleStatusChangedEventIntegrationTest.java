@@ -40,9 +40,12 @@ class ShopItemSaleStatusChangedEventIntegrationTest {
     @Autowired
     private NotificationSseEmitterRegistry notificationSseEmitterRegistry;
 
+    @Autowired
+    private ShopItemSaleStatusRelay shopItemSaleStatusRelay;
+
     @BeforeEach
     void setUp() {
-        clearInvocations(notificationSseEmitterRegistry);
+        clearInvocations(notificationSseEmitterRegistry, shopItemSaleStatusRelay);
     }
 
     @Test
@@ -59,6 +62,7 @@ class ShopItemSaleStatusChangedEventIntegrationTest {
 
         verify(notificationSseEmitterRegistry, timeout(2_000))
                 .publishShopItemSaleStatusChanged(event);
+        verify(shopItemSaleStatusRelay, timeout(2_000)).publish(event);
         assertThat(publisherThread.get()).startsWith("test-stream-");
     }
 
@@ -73,6 +77,7 @@ class ShopItemSaleStatusChangedEventIntegrationTest {
 
         verify(notificationSseEmitterRegistry, after(250).never())
                 .publishShopItemSaleStatusChanged(event);
+        verify(shopItemSaleStatusRelay, after(250).never()).publish(event);
     }
 
     private ShopItemSaleStatusChangedEvent event(boolean saleEnabled) {
@@ -91,8 +96,16 @@ class ShopItemSaleStatusChangedEventIntegrationTest {
 
         @Bean
         ShopItemSaleStatusChangedEventListener shopItemSaleStatusChangedEventListener(
-                NotificationSseEmitterRegistry notificationSseEmitterRegistry) {
-            return new ShopItemSaleStatusChangedEventListener(notificationSseEmitterRegistry);
+                NotificationSseEmitterRegistry notificationSseEmitterRegistry,
+                ShopItemSaleStatusRelay shopItemSaleStatusRelay) {
+            return new ShopItemSaleStatusChangedEventListener(
+                    notificationSseEmitterRegistry,
+                    shopItemSaleStatusRelay);
+        }
+
+        @Bean
+        ShopItemSaleStatusRelay shopItemSaleStatusRelay() {
+            return mock(ShopItemSaleStatusRelay.class);
         }
 
         @Bean(name = "streamTaskExecutor")

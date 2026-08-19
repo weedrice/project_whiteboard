@@ -13,10 +13,12 @@ import org.springframework.transaction.event.TransactionalEventListener;
 public class ShopItemSaleStatusChangedEventListener {
 
     private final NotificationSseEmitterRegistry notificationSseEmitterRegistry;
+    private final ShopItemSaleStatusRelay shopItemSaleStatusRelay;
 
     @Async("streamTaskExecutor")
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handle(ShopItemSaleStatusChangedEvent event) {
         notificationSseEmitterRegistry.publishShopItemSaleStatusChanged(event);
+        shopItemSaleStatusRelay.publish(event);
     }
 }

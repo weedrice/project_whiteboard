@@ -20,17 +20,22 @@ class ShopItemSaleStatusChangedEventListenerTest {
 
     @Mock
     private NotificationSseEmitterRegistry notificationSseEmitterRegistry;
+    @Mock
+    private ShopItemSaleStatusRelay shopItemSaleStatusRelay;
 
     @Test
     void broadcastsCommittedSaleStatusChange() {
         ShopItemSaleStatusChangedEvent event =
                 new ShopItemSaleStatusChangedEvent(3L, "EMOTICON", 9L, false);
         ShopItemSaleStatusChangedEventListener listener =
-                new ShopItemSaleStatusChangedEventListener(notificationSseEmitterRegistry);
+                new ShopItemSaleStatusChangedEventListener(
+                        notificationSseEmitterRegistry,
+                        shopItemSaleStatusRelay);
 
         listener.handle(event);
 
         verify(notificationSseEmitterRegistry).publishShopItemSaleStatusChanged(event);
+        verify(shopItemSaleStatusRelay).publish(event);
     }
 
     @Test
