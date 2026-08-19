@@ -8,6 +8,7 @@ import PostListTitleContent from '@/components/board/PostListTitleContent.vue'
 import UserMenu from '@/components/common/widgets/UserMenu.vue'
 import type { PostSummary } from '@/types'
 import { formatRelativeDate } from '@/utils/date'
+import { resolveAuthenticatedFileRequestPath } from '@/utils/authenticatedFile'
 import {
   getPostListBoardNameLabel,
   getPostListCountLabel,
@@ -60,12 +61,15 @@ const hoverPreview = ref<{
   left: number
   top: number
 } | null>(null)
+let previewController: AbortController | null = null
+let previewObjectUrl: string | null = null
+let previewGeneration = 0
 
 function showImagePreview(event: Event, item: PostSummary) {
   const url = getPostListPreviewImageUrl(item)
   const target = event.currentTarget
+  hideImagePreview()
   if (!url || !(target instanceof HTMLElement) || typeof window === 'undefined') {
-    hoverPreview.value = null
     return
   }
 
@@ -79,11 +83,50 @@ function showImagePreview(event: Event, item: PostSummary) {
     ? belowTop
     : Math.max(VIEWPORT_MARGIN, rect.top - PREVIEW_HEIGHT - PREVIEW_GAP)
 
-  hoverPreview.value = { url, left, top }
+  const requestPath = resolveAuthenticatedFileRequestPath(url)
+  if (!requestPath) {
+    hoverPreview.value = { url, left, top }
+    return
+  }
+
+  const generation = previewGeneration
+  const controller = new AbortController()
+  previewController = controller
+  void loadAuthenticatedPreview(requestPath, left, top, controller, generation)
 }
 
 function hideImagePreview() {
+  previewGeneration += 1
+  previewController?.abort()
+  previewController = null
+  if (previewObjectUrl) URL.revokeObjectURL(previewObjectUrl)
+  previewObjectUrl = null
   hoverPreview.value = null
+}
+
+async function loadAuthenticatedPreview(
+  requestPath: string,
+  left: number,
+  top: number,
+  controller: AbortController,
+  generation: number,
+) {
+  try {
+    const { default: api } = await import('@/api')
+    const response = await api.get<Blob>(requestPath, {
+      responseType: 'blob',
+      signal: controller.signal,
+      skipGlobalErrorHandler: true,
+    })
+    if (controller.signal.aborted || generation !== previewGeneration) return
+
+    previewObjectUrl = URL.createObjectURL(response.data)
+    hoverPreview.value = { url: previewObjectUrl, left, top }
+  } catch {
+    if (!controller.signal.aborted && generation === previewGeneration) hoverPreview.value = null
+  } finally {
+    if (previewController === controller) previewController = null
+  }
 }
 
 onMounted(() => {
@@ -94,6 +137,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   window.removeEventListener('resize', hideImagePreview)
   window.removeEventListener('scroll', hideImagePreview, true)
+  hideImagePreview()
 })
 </script>
 

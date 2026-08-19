@@ -1,8 +1,16 @@
-import { describe, expect, it, vi } from 'vitest'
-import { mount, RouterLinkStub } from '@vue/test-utils'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { flushPromises, mount, RouterLinkStub } from '@vue/test-utils'
 import PostListDesktopTable from '../PostListDesktopTable.vue'
 import type { PostSummary } from '@/types'
 import type { TableColumn } from '@/components/common/ui/BaseTable.vue'
+
+const mocks = vi.hoisted(() => ({
+  get: vi.fn(),
+}))
+
+vi.mock('@/api', () => ({
+  default: { get: mocks.get },
+}))
 
 vi.mock('vue-i18n', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-i18n')>()
@@ -87,6 +95,20 @@ function mountTable(overrides: Partial<InstanceType<typeof PostListDesktopTable>
 }
 
 describe('PostListDesktopTable', () => {
+  let createObjectUrlSpy: ReturnType<typeof vi.spyOn>
+  let revokeObjectUrlSpy: ReturnType<typeof vi.spyOn>
+
+  beforeEach(() => {
+    mocks.get.mockReset()
+    createObjectUrlSpy = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:thumbnail')
+    revokeObjectUrlSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined)
+  })
+
+  afterEach(() => {
+    createObjectUrlSpy.mockRestore()
+    revokeObjectUrlSpy.mockRestore()
+  })
+
   it('renders desktop cell labels and emits sort keys', async () => {
     const wrapper = mountTable({
       posts: [createPost({ isNotice: true, boardName: '', likeCount: 8, viewCount: 13 })],
@@ -131,5 +153,28 @@ describe('PostListDesktopTable', () => {
     await wrapper.get('.nv-post-title-cell').trigger('mouseenter')
 
     expect(wrapper.find('.nv-post-hover-preview').exists()).toBe(false)
+  })
+
+  it('loads local thumbnail variants through the authenticated API client', async () => {
+    mocks.get.mockResolvedValue({ data: new Blob(['thumbnail'], { type: 'image/webp' }) })
+    const wrapper = mountTable({
+      posts: [createPost({ thumbnailUrl: '/api/v1/files/55/variants/thumbnail' })],
+    })
+
+    await wrapper.get('.nv-post-title-cell').trigger('mouseenter')
+    expect(wrapper.find('.nv-post-hover-preview').exists()).toBe(false)
+
+    await vi.waitFor(() => {
+      expect(mocks.get).toHaveBeenCalledWith('/files/55/variants/thumbnail', expect.objectContaining({
+        responseType: 'blob',
+        skipGlobalErrorHandler: true,
+      }))
+    })
+    await flushPromises()
+    expect(wrapper.get('.nv-post-hover-preview img').attributes('src')).toBe('blob:thumbnail')
+
+    await wrapper.get('.nv-post-title-cell').trigger('mouseleave')
+    expect(revokeObjectUrlSpy).toHaveBeenCalledWith('blob:thumbnail')
+    wrapper.unmount()
   })
 })
