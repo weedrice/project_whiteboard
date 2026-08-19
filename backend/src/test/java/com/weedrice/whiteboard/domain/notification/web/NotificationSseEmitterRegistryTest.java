@@ -49,6 +49,23 @@ class NotificationSseEmitterRegistryTest {
     }
 
     @Test
+    void shopSaleStatusDeliveryFailureIsCountedAndConnectionIsRemoved() {
+        SimpleMeterRegistry meterRegistry = new SimpleMeterRegistry();
+        FailingSseEmitter emitter = FailingSseEmitter.failAfterConnectEvent();
+        NotificationSseEmitterRegistry registry =
+                new FixedEmitterNotificationSseEmitterRegistry(emitter, meterRegistry);
+        registry.subscribe(1L, FAMILY_A);
+
+        registry.publishShopItemSaleStatusChanged(
+                new ShopItemSaleStatusChangedEvent(3L, "EMOTICON", 9L, false));
+
+        assertThat(meterRegistry.counter("noviis.shop.stream.sse.delivery.failures").count())
+                .isEqualTo(1);
+        assertThat(connectionCount(registry, 1L)).isZero();
+        assertThat(emitter.completedWithError()).isTrue();
+    }
+
+    @Test
     void commentTopicRequiresActiveEmitter() {
         NotificationSseEmitterRegistry registry = registry(10_000L, 5);
 
@@ -478,7 +495,13 @@ class NotificationSseEmitterRegistryTest {
         private final SseEmitter emitter;
 
         private FixedEmitterNotificationSseEmitterRegistry(SseEmitter emitter) {
-            super(properties(10_000L, 5), new SimpleMeterRegistry());
+            this(emitter, new SimpleMeterRegistry());
+        }
+
+        private FixedEmitterNotificationSseEmitterRegistry(
+                SseEmitter emitter,
+                SimpleMeterRegistry meterRegistry) {
+            super(properties(10_000L, 5), meterRegistry);
             this.emitter = emitter;
         }
 

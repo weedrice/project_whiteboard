@@ -42,6 +42,7 @@ public class NotificationSseEmitterRegistry
     private final NotificationStreamProperties properties;
     private final CommentTopicSubscriptionRegistry commentTopics;
     private final Counter heartbeatFailures;
+    private final Counter shopSaleStatusDeliveryFailures;
 
     @Autowired
     public NotificationSseEmitterRegistry(
@@ -51,6 +52,8 @@ public class NotificationSseEmitterRegistry
         this.properties = properties;
         this.commentTopics = commentTopics;
         this.heartbeatFailures = meterRegistry.counter("noviis.sse.heartbeat.failures");
+        this.shopSaleStatusDeliveryFailures = meterRegistry.counter(
+                "noviis.shop.stream.sse.delivery.failures");
         Gauge.builder("noviis.sse.connections.active", this, NotificationSseEmitterRegistry::activeConnections)
                 .register(meterRegistry);
         Gauge.builder("noviis.sse.heartbeat.gap", this, NotificationSseEmitterRegistry::heartbeatGapSeconds)
@@ -191,6 +194,7 @@ public class NotificationSseEmitterRegistry
                             .name(NotificationSseEvents.SHOP_ITEM_SALE_STATUS_CHANGED)
                             .data(event));
                 } catch (IOException | RuntimeException exception) {
+                    shopSaleStatusDeliveryFailures.increment();
                     completeWithError(userId, entry.getKey(), entry.getValue().emitter(), exception);
                 }
             }
