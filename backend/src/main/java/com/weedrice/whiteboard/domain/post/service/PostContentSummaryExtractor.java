@@ -5,6 +5,8 @@ import com.weedrice.whiteboard.domain.post.support.PostContentCodec;
 import com.weedrice.whiteboard.domain.file.support.FileUrlResolver;
 import org.springframework.stereotype.Component;
 
+import java.net.URI;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -12,6 +14,11 @@ import java.util.regex.Pattern;
 
 @Component
 public class PostContentSummaryExtractor {
+
+    private static final Set<String> ALLOWED_THUMBNAIL_HOSTS = Set.of(
+            "noviis.kr",
+            "www.noviis.kr",
+            "cdn.noviis.kr");
 
     String extractSummary(Post post) {
         return extractSummary(post.getContents());
@@ -44,7 +51,7 @@ public class PostContentSummaryExtractor {
 
         if (thumbnailUrl == null) {
             String contentImageUrl = extractFirstImageUrlFromContent(contents);
-            if (contentImageUrl != null) {
+            if (isAllowedThumbnailUrl(contentImageUrl)) {
                 thumbnailUrl = contentImageUrl;
                 hasImage = true;
             }
@@ -106,5 +113,25 @@ public class PostContentSummaryExtractor {
         Pattern pattern = Pattern.compile("<img[^>]+src\\s*=\\s*[\"']([^\"']+)[\"']", Pattern.CASE_INSENSITIVE);
         Matcher matcher = pattern.matcher(content);
         return matcher.find() ? matcher.group(1) : null;
+    }
+
+    private boolean isAllowedThumbnailUrl(String source) {
+        if (source == null || source.isBlank() || source.startsWith("//")) {
+            return false;
+        }
+        try {
+            URI uri = URI.create(source);
+            if (!uri.isAbsolute()) {
+                return source.startsWith("/") && uri.getRawPath() != null;
+            }
+            String host = uri.getHost();
+            return "https".equalsIgnoreCase(uri.getScheme())
+                    && host != null
+                    && uri.getPort() == -1
+                    && uri.getUserInfo() == null
+                    && ALLOWED_THUMBNAIL_HOSTS.contains(host.toLowerCase(Locale.ROOT));
+        } catch (IllegalArgumentException ex) {
+            return false;
+        }
     }
 }

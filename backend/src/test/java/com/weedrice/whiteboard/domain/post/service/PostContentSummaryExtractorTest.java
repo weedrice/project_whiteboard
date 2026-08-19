@@ -36,7 +36,7 @@ class PostContentSummaryExtractorTest {
 
         post = Post.builder()
                 .title("title")
-                .contents("<p>Hello</p><img src=\"https://cdn.example.com/image.png\" />")
+                .contents("<p>Hello</p><img src=\"https://cdn.noviis.kr/image.png\" />")
                 .user(author)
                 .board(board)
                 .build();
@@ -48,7 +48,7 @@ class PostContentSummaryExtractorTest {
     void resolveThumbnail_fallsBackToHtmlImage() {
         PostThumbnailInfo thumbnailInfo = extractor.resolveThumbnail(post, Set.of(), Map.of());
 
-        assertThat(thumbnailInfo.thumbnailUrl()).isEqualTo("https://cdn.example.com/image.png");
+        assertThat(thumbnailInfo.thumbnailUrl()).isEqualTo("https://cdn.noviis.kr/image.png");
         assertThat(thumbnailInfo.hasImage()).isTrue();
     }
 
@@ -65,11 +65,35 @@ class PostContentSummaryExtractorTest {
     void resolveThumbnail_projectionFallsBackToHtmlImage() {
         PostThumbnailInfo thumbnailInfo = extractor.resolveThumbnail(
                 100L,
-                "<p>Preview</p><img src=\"https://cdn.example.com/projection.png\" />",
+                "<p>Preview</p><img src=\"https://cdn.noviis.kr/projection.png\" />",
                 Set.of(),
                 Map.of());
 
-        assertThat(thumbnailInfo.thumbnailUrl()).isEqualTo("https://cdn.example.com/projection.png");
+        assertThat(thumbnailInfo.thumbnailUrl()).isEqualTo("https://cdn.noviis.kr/projection.png");
+        assertThat(thumbnailInfo.hasImage()).isTrue();
+    }
+
+    @Test
+    void resolveThumbnail_rejectsUnapprovedExternalImage() {
+        PostThumbnailInfo thumbnailInfo = extractor.resolveThumbnail(
+                100L,
+                "<p>Preview</p><img src=\"https://tracker.example/pixel.gif\" />",
+                Set.of(),
+                Map.of());
+
+        assertThat(thumbnailInfo.thumbnailUrl()).isNull();
+        assertThat(thumbnailInfo.hasImage()).isFalse();
+    }
+
+    @Test
+    void resolveThumbnail_allowsSameOriginRelativeImage() {
+        PostThumbnailInfo thumbnailInfo = extractor.resolveThumbnail(
+                100L,
+                "<img src=\"/api/v1/files/77\" />",
+                Set.of(),
+                Map.of());
+
+        assertThat(thumbnailInfo.thumbnailUrl()).isEqualTo("/api/v1/files/77");
         assertThat(thumbnailInfo.hasImage()).isTrue();
     }
 
