@@ -15,16 +15,19 @@ vi.mock('@/api', () => ({
 describe('SanitizedHtmlView', () => {
   let createObjectUrlSpy: ReturnType<typeof vi.spyOn>
   let revokeObjectUrlSpy: ReturnType<typeof vi.spyOn>
+  let anchorClickSpy: ReturnType<typeof vi.spyOn>
 
   beforeEach(() => {
     mocks.get.mockReset()
     createObjectUrlSpy = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:preview')
     revokeObjectUrlSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined)
+    anchorClickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined)
   })
 
   afterEach(() => {
     createObjectUrlSpy.mockRestore()
     revokeObjectUrlSpy.mockRestore()
+    anchorClickSpy.mockRestore()
   })
 
   it('loads local protected images through the authenticated API client', async () => {
@@ -52,7 +55,7 @@ describe('SanitizedHtmlView', () => {
     wrapper.unmount()
   })
 
-  it('loads local protected attachment links through the authenticated API client', async () => {
+  it('loads local protected attachment links only when activated', async () => {
     mocks.get.mockResolvedValue({ data: new Blob(['file'], { type: 'application/pdf' }) })
     const wrapper = mount(SanitizedHtmlView, {
       props: {
@@ -63,15 +66,22 @@ describe('SanitizedHtmlView', () => {
     })
 
     expect(wrapper.get('#protected').attributes('href')).toBeUndefined()
+    expect(wrapper.get('#protected').attributes('role')).toBe('link')
+    expect(wrapper.get('#protected').attributes('tabindex')).toBe('0')
     expect(wrapper.get('#external').attributes('href')).toBe('https://cdn.noviis.kr/files/31')
+    await flushPromises()
+    expect(mocks.get).not.toHaveBeenCalled()
+
+    await wrapper.get('#protected').trigger('click')
 
     await vi.waitFor(() => {
       expect(mocks.get).toHaveBeenCalledWith('/files/31?download=true', expect.objectContaining({
         responseType: 'blob',
         skipGlobalErrorHandler: true,
       }))
-      expect(wrapper.get('#protected').attributes('href')).toBe('blob:preview')
+      expect(anchorClickSpy).toHaveBeenCalledTimes(1)
     })
+    expect(wrapper.get('#protected').attributes('href')).toBeUndefined()
     wrapper.unmount()
   })
 
@@ -80,6 +90,10 @@ describe('SanitizedHtmlView', () => {
     const wrapper = mount(SanitizedHtmlView, {
       props: { html: asSanitizedHtml('<a id="protected" href="/api/v1/files/32">download</a>') },
     })
+
+    await flushPromises()
+    expect(mocks.get).not.toHaveBeenCalled()
+    await wrapper.get('#protected').trigger('click')
 
     await vi.waitFor(() => {
       expect(wrapper.get('#protected').attributes('aria-disabled')).toBe('true')
