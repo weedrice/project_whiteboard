@@ -298,6 +298,35 @@ class PostSummaryAssemblerTest {
     }
 
     @Test
+    void assembleTrendingPosts_skipsInvalidIframeWhenChoosingFirstMedia() {
+        when(fileService.getFirstImageFileIdsForPosts(anyList()))
+                .thenReturn(Collections.emptyMap());
+
+        User author = User.builder().displayName("Author").build();
+        ReflectionTestUtils.setField(author, "userId", 1L);
+        Board board = Board.builder()
+                .boardName("Free")
+                .boardUrl("free")
+                .creator(author)
+                .build();
+        ReflectionTestUtils.setField(board, "boardId", 10L);
+        Post post = Post.builder()
+                .title("Title")
+                .contents("<iframe src=\"https://tracker.example/embed/ignored\"></iframe>"
+                        + "<img src=\"/api/v1/files/78\">"
+                        + "<iframe src=\"https://www.youtube.com/embed/abc123\"></iframe>")
+                .user(author)
+                .board(board)
+                .build();
+        ReflectionTestUtils.setField(post, "postId", 100L);
+
+        FeedPostSummary summary = feedPostSummaryAssembler.assembleTrendingPosts(List.of(post), null).get(0);
+
+        assertThat(summary.getFirstMediaType()).isEqualTo("image");
+        assertThat(summary.getFirstMediaUrl()).isEqualTo("/api/v1/files/78");
+    }
+
+    @Test
     @DisplayName("게시글 목록 projection을 기존 PostSummary shape로 조립한다")
     void assembleBoardListProjectionPage_buildsPostSummaryShape() {
         PostListSummaryProjection projection = new PostListSummaryProjection(

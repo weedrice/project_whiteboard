@@ -110,8 +110,10 @@ class PostContentSummaryExtractorTest {
 
         assertThat(thumbnailInfo.thumbnailUrl()).isEqualTo("/api/v1/files/78");
         assertThat(thumbnailInfo.hasImage()).isTrue();
-        assertThat(extractor.indexOfFirstAllowedImageInContent(contents))
-                .isGreaterThan(extractor.indexOfFirstVideoInContent(contents));
+        assertThat(extractor.extractFirstAllowedMediaFromContent(contents))
+                .isEqualTo(new PostMediaCandidate(
+                        PostMediaCandidate.Type.VIDEO,
+                        "https://www.youtube.com/embed/abc123"));
     }
 
     @Test
@@ -151,6 +153,29 @@ class PostContentSummaryExtractorTest {
     }
 
     @Test
+    void mediaExtraction_usesActualSrcAttributeAndSkipsInvalidIframes() {
+        String contents = "<iframe src=\"https://tracker.example/embed/ignored\"></iframe>"
+                + "<img src=\"/api/v1/files/78\" data-src=\"https://tracker.example/pixel.gif\">"
+                + "<iframe src=\"https://www.youtube.com/embed/abc123\"></iframe>";
+
+        assertThat(extractor.extractFirstImageUrlFromContent(contents)).isEqualTo("/api/v1/files/78");
+        assertThat(extractor.extractFirstAllowedMediaFromContent(contents))
+                .isEqualTo(new PostMediaCandidate(PostMediaCandidate.Type.IMAGE, "/api/v1/files/78"));
+    }
+
+    @Test
+    void mediaExtraction_ignoresDataSrcWithoutSrcAndDecodesHtmlEntities() {
+        String contents = "<img data-src=\"/api/v1/files/ignored\">"
+                + "<iframe src=\"https://www.youtube.com/embed/abc123?start=10&amp;autoplay=0\"></iframe>";
+
+        assertThat(extractor.extractFirstImageUrlFromContent(contents)).isNull();
+        assertThat(extractor.extractFirstAllowedMediaFromContent(contents))
+                .isEqualTo(new PostMediaCandidate(
+                        PostMediaCandidate.Type.VIDEO,
+                        "https://www.youtube.com/embed/abc123?start=10&autoplay=0"));
+    }
+
+    @Test
     @DisplayName("요약 생성 시 HTML 블록 사이 텍스트가 붙지 않도록 공백을 보존한다")
     void extractSummary_preservesSpacingBetweenHtmlBlocks() {
         Post htmlPost = Post.builder()
@@ -176,8 +201,10 @@ class PostContentSummaryExtractorTest {
                 .isEqualTo("https://cdn.example.com/preserved.png");
         assertThat(extractor.extractFirstVideoEmbedFromContent(marker))
                 .isEqualTo("https://www.youtube-nocookie.com/embed/abc123");
-        assertThat(extractor.indexOfFirstImageInContent(marker)).isGreaterThanOrEqualTo(0);
-        assertThat(extractor.indexOfFirstVideoInContent(marker)).isGreaterThanOrEqualTo(0);
+        assertThat(extractor.extractFirstAllowedMediaFromContent(marker))
+                .isEqualTo(new PostMediaCandidate(
+                        PostMediaCandidate.Type.VIDEO,
+                        "https://www.youtube-nocookie.com/embed/abc123"));
         assertThat(extractor.truncateHtmlForExcerpt(marker, 1_000)).isEqualTo(source);
     }
 

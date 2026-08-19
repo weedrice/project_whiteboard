@@ -3,6 +3,10 @@ package com.weedrice.whiteboard.domain.post.service;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import com.weedrice.whiteboard.domain.post.support.PostContentCodec;
 import com.weedrice.whiteboard.domain.file.support.FileUrlResolver;
+import com.weedrice.whiteboard.global.util.VideoEmbedUrlPolicy;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -12,8 +16,6 @@ import java.util.Arrays;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Component
@@ -21,10 +23,6 @@ public class PostContentSummaryExtractor {
 
     private static final String DEFAULT_FRONTEND_URL = "https://noviis.kr";
     private static final String DEFAULT_EXTERNAL_THUMBNAIL_HOSTS = "www.noviis.kr,cdn.noviis.kr";
-    private static final Pattern IMAGE_SRC_PATTERN = Pattern.compile(
-            "<img[^>]+src\\s*=\\s*[\"']([^\"']+)[\"']",
-            Pattern.CASE_INSENSITIVE);
-
     private final URI frontendOrigin;
     private final Set<String> allowedExternalThumbnailHosts;
 
@@ -99,67 +97,61 @@ public class PostContentSummaryExtractor {
     }
 
     String extractFirstVideoEmbedFromContent(String content) {
-        if (content == null || content.isEmpty()) {
+        Document document = parseContent(content);
+        if (document == null) {
             return null;
         }
-        content = PostContentCodec.expandPreservedHtml(content);
-        Pattern pattern = Pattern.compile(
-                "<iframe[^>]+src\\s*=\\s*[\"']([^\"']*(?:youtube(?:-nocookie)?\\.com/embed|vimeo\\.com)[^\"']*)[\"']",
-                Pattern.CASE_INSENSITIVE);
-        Matcher matcher = pattern.matcher(content);
-        if (matcher.find()) {
-            return matcher.group(1)
-                    .replace("&amp;", "&")
-                    .replace("&lt;", "<")
-                    .replace("&gt;", ">")
-                    .replace("&quot;", "\"")
-                    .replace("&#39;", "'");
+        for (Element iframe : document.select("iframe[src]")) {
+            String source = iframe.attr("src");
+            if (VideoEmbedUrlPolicy.isAllowed(source)) {
+                return source;
+            }
         }
         return null;
     }
 
-    int indexOfFirstImageInContent(String content) {
-        return content == null ? -1 : PostContentCodec.expandPreservedHtml(content).toLowerCase().indexOf("<img");
-    }
-
-    int indexOfFirstAllowedImageInContent(String content) {
-        if (content == null || content.isEmpty()) {
-            return -1;
-        }
-        Matcher matcher = IMAGE_SRC_PATTERN.matcher(PostContentCodec.expandPreservedHtml(content));
-        while (matcher.find()) {
-            if (isAllowedThumbnailUrl(matcher.group(1))) {
-                return matcher.start();
-            }
-        }
-        return -1;
-    }
-
-    int indexOfFirstVideoInContent(String content) {
-        return content == null ? -1 : PostContentCodec.expandPreservedHtml(content).toLowerCase().indexOf("<iframe");
-    }
-
     String extractFirstImageUrlFromContent(String content) {
-        if (content == null || content.isEmpty()) {
+        Document document = parseContent(content);
+        Element image = document == null ? null : document.selectFirst("img[src]");
+        return image == null ? null : image.attr("src");
+    }
+
+    PostMediaCandidate extractFirstAllowedMediaFromContent(String content) {
+        Document document = parseContent(content);
+        if (document == null) {
             return null;
         }
-        content = PostContentCodec.expandPreservedHtml(content);
-        Matcher matcher = IMAGE_SRC_PATTERN.matcher(content);
-        return matcher.find() ? matcher.group(1) : null;
+        for (Element media : document.select("img[src], iframe[src]")) {
+            String source = media.attr("src");
+            if (media.normalName().equals("img") && isAllowedThumbnailUrl(source)) {
+                return new PostMediaCandidate(PostMediaCandidate.Type.IMAGE, source);
+            }
+            if (media.normalName().equals("iframe") && VideoEmbedUrlPolicy.isAllowed(source)) {
+                return new PostMediaCandidate(PostMediaCandidate.Type.VIDEO, source);
+            }
+        }
+        return null;
     }
 
     private String extractFirstAllowedImageUrlFromContent(String content) {
-        if (content == null || content.isEmpty()) {
+        Document document = parseContent(content);
+        if (document == null) {
             return null;
         }
-        Matcher matcher = IMAGE_SRC_PATTERN.matcher(PostContentCodec.expandPreservedHtml(content));
-        while (matcher.find()) {
-            String candidate = matcher.group(1);
+        for (Element image : document.select("img[src]")) {
+            String candidate = image.attr("src");
             if (isAllowedThumbnailUrl(candidate)) {
                 return candidate;
             }
         }
         return null;
+    }
+
+    private static Document parseContent(String content) {
+        if (content == null || content.isEmpty()) {
+            return null;
+        }
+        return Jsoup.parseBodyFragment(PostContentCodec.expandPreservedHtml(content));
     }
 
     private boolean isAllowedThumbnailUrl(String source) {

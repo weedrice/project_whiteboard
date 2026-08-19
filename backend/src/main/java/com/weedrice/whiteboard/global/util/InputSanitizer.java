@@ -6,7 +6,6 @@ import org.jsoup.nodes.Element;
 import org.jsoup.safety.Safelist;
 import org.springframework.web.util.HtmlUtils;
 
-import java.net.URI;
 import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -183,7 +182,7 @@ public class InputSanitizer {
 
     private static void sanitizePostHtmlIframes(Document document) {
         for (Element iframe : document.select("iframe")) {
-            if (!isAllowedVideoEmbedUrl(iframe.attr("src"))) {
+            if (!VideoEmbedUrlPolicy.isAllowed(iframe.attr("src"))) {
                 iframe.remove();
                 continue;
             }
@@ -193,29 +192,6 @@ public class InputSanitizer {
             iframe.attr("referrerpolicy", "strict-origin-when-cross-origin");
             iframe.attr("sandbox", "allow-scripts allow-same-origin allow-presentation");
             iframe.attr("allow", "encrypted-media; picture-in-picture");
-        }
-    }
-
-    private static boolean isAllowedVideoEmbedUrl(String src) {
-        if (src == null || src.isBlank()) {
-            return false;
-        }
-        try {
-            URI uri = URI.create(src);
-            String host = uri.getHost();
-            String path = uri.getPath();
-            if (!"https".equalsIgnoreCase(uri.getScheme()) || host == null || path == null) {
-                return false;
-            }
-            String normalizedHost = host.toLowerCase(Locale.ROOT);
-            return (("www.youtube.com".equals(normalizedHost)
-                    || "youtube.com".equals(normalizedHost)
-                    || "www.youtube-nocookie.com".equals(normalizedHost)
-                    || "youtube-nocookie.com".equals(normalizedHost))
-                    && path.matches("^/embed/[^/]+$"))
-                    || "player.vimeo.com".equals(normalizedHost) && path.matches("^/video/\\d+/?$");
-        } catch (IllegalArgumentException ex) {
-            return false;
         }
     }
 
