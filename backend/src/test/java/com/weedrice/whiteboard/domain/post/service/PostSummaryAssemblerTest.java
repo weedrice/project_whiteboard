@@ -67,7 +67,7 @@ class PostSummaryAssemblerTest {
                         postLikeRepository,
                         scrapRepository,
                         boardSubscriptionRepository),
-                new PostContentSummaryExtractor());
+                PostContentSummaryExtractorFixtures.withNoviisCdn());
         feedPostSummaryAssembler = new FeedPostSummaryAssembler(
                 fileService,
                 new PostInteractionContextResolver(
@@ -75,7 +75,7 @@ class PostSummaryAssemblerTest {
                         postLikeRepository,
                         scrapRepository,
                         boardSubscriptionRepository),
-                new PostContentSummaryExtractor());
+                PostContentSummaryExtractorFixtures.withNoviisCdn());
     }
 
     @Test

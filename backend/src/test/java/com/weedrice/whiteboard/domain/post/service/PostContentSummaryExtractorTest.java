@@ -22,7 +22,7 @@ class PostContentSummaryExtractorTest {
 
     @BeforeEach
     void setUp() {
-        extractor = new PostContentSummaryExtractor();
+        extractor = PostContentSummaryExtractorFixtures.withNoviisCdn();
 
         User author = User.builder().displayName("author").build();
         ReflectionTestUtils.setField(author, "userId", 1L);

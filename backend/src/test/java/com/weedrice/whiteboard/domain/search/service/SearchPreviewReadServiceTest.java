@@ -10,7 +10,7 @@ import com.weedrice.whiteboard.domain.file.service.FileService;
 import com.weedrice.whiteboard.domain.post.repository.PostLikeRepository;
 import com.weedrice.whiteboard.domain.post.repository.PostRepository;
 import com.weedrice.whiteboard.domain.post.repository.ScrapRepository;
-import com.weedrice.whiteboard.domain.post.service.PostContentSummaryExtractor;
+import com.weedrice.whiteboard.domain.post.service.PostContentSummaryExtractorFixtures;
 import com.weedrice.whiteboard.domain.post.service.PostInteractionContextResolver;
 import com.weedrice.whiteboard.domain.post.service.PostSummaryAssembler;
 import com.weedrice.whiteboard.domain.user.entity.User;
@@ -88,7 +88,7 @@ class SearchPreviewReadServiceTest {
                         postLikeRepository,
                         scrapRepository,
                         boardSubscriptionRepository),
-                new PostContentSummaryExtractor());
+                PostContentSummaryExtractorFixtures.withNoviisCdn());
         searchPreviewReadService = new SearchPreviewReadService(
                 userRepository,
                 postRepository,

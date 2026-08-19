@@ -186,11 +186,11 @@ class PostServiceTest {
                 commentRepository,
                 boardAccessPolicy,
                 postInteractionContextResolver,
-                new PostContentSummaryExtractor());
+                PostContentSummaryExtractorFixtures.withNoviisCdn());
         FeedPostSummaryAssembler feedPostSummaryAssembler = new FeedPostSummaryAssembler(
                 fileService,
                 postInteractionContextResolver,
-                new PostContentSummaryExtractor());
+                PostContentSummaryExtractorFixtures.withNoviisCdn());
         postAccessPolicy = new PostAccessPolicy(boardAccessPolicy);
         PostReadContextResolver postReadContextResolver = new PostReadContextResolver(
                 userRepository,
