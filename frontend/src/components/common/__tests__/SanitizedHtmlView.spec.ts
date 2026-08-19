@@ -56,7 +56,12 @@ describe('SanitizedHtmlView', () => {
   })
 
   it('loads local protected attachment links only when activated', async () => {
-    mocks.get.mockResolvedValue({ data: new Blob(['file'], { type: 'application/pdf' }) })
+    mocks.get.mockResolvedValue({
+      data: new Blob(['file'], { type: 'application/pdf' }),
+      headers: {
+        'content-disposition': "attachment; filename=report.pdf; filename*=UTF-8''%EB%B3%B4%EA%B3%A0%EC%84%9C.pdf",
+      },
+    })
     const wrapper = mount(SanitizedHtmlView, {
       props: {
         html: asSanitizedHtml(
@@ -82,6 +87,9 @@ describe('SanitizedHtmlView', () => {
       expect(anchorClickSpy).toHaveBeenCalledTimes(1)
     })
     expect(wrapper.get('#protected').attributes('href')).toBeUndefined()
+    const clickedAnchor = anchorClickSpy.mock.instances[0] as HTMLAnchorElement
+    expect(clickedAnchor.href).toBe('blob:preview')
+    expect(clickedAnchor.download).toBe('보고서.pdf')
     wrapper.unmount()
   })
 

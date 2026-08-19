@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { subscribeAuthSessionBoundary } from '@/queryAuthScope'
-import { resolveAuthenticatedFileRequestPath } from '@/utils/authenticatedFile'
+import {
+  resolveAuthenticatedFileDisposition,
+  resolveAuthenticatedFileRequestPath,
+  type AuthenticatedFileDisposition,
+} from '@/utils/authenticatedFile'
 import { applyImageFallback } from '@/utils/imageFallback'
 import { asSanitizedHtml, type SanitizedHtml } from '@/utils/sanitize'
 
@@ -17,10 +21,14 @@ const props = withDefaults(defineProps<{
 const element = ref<HTMLElement | null>(null)
 const AUTHENTICATED_FILE_SRC_ATTRIBUTE = 'data-authenticated-file-src'
 const AUTHENTICATED_FILE_HREF_ATTRIBUTE = 'data-authenticated-file-href'
+interface AuthenticatedLinkObject extends AuthenticatedFileDisposition {
+  objectUrl: string
+}
+
 let activeController: AbortController | null = null
 let hydrationGeneration = 0
 const objectUrls = new Set<string>()
-const linkObjectUrls = new Map<HTMLAnchorElement, string>()
+const linkObjectUrls = new Map<HTMLAnchorElement, AuthenticatedLinkObject>()
 const linkControllers = new Set<AbortController>()
 
 const renderedHtml = computed(() => {
@@ -143,9 +151,11 @@ async function activateAuthenticatedFile(event: MouseEvent | KeyboardEvent) {
     if (controller.signal.aborted || generation !== hydrationGeneration || !root.contains(link)) return
 
     const objectUrl = URL.createObjectURL(response.data)
+    const disposition = resolveAuthenticatedFileDisposition(response.headers?.['content-disposition'])
+    const authenticatedLinkObject = { objectUrl, ...disposition }
     objectUrls.add(objectUrl)
-    linkObjectUrls.set(link, objectUrl)
-    followAuthenticatedFileLink(link, objectUrl, event)
+    linkObjectUrls.set(link, authenticatedLinkObject)
+    followAuthenticatedFileLink(link, authenticatedLinkObject, event)
   } catch {
     if (!controller.signal.aborted && generation === hydrationGeneration && root.contains(link)) {
       link.setAttribute('aria-disabled', 'true')
@@ -158,11 +168,12 @@ async function activateAuthenticatedFile(event: MouseEvent | KeyboardEvent) {
 
 function followAuthenticatedFileLink(
   source: HTMLAnchorElement,
-  objectUrl: string,
+  file: AuthenticatedLinkObject,
   event: MouseEvent | KeyboardEvent,
 ) {
   const link = document.createElement('a')
-  link.href = objectUrl
+  link.href = file.objectUrl
+  if (file.forceDownload) link.download = file.fileName ?? ''
   const requestedTarget = source.getAttribute('target')
   const openInNewTab = event instanceof MouseEvent && (event.ctrlKey || event.metaKey || event.shiftKey)
   if (requestedTarget) link.target = requestedTarget
