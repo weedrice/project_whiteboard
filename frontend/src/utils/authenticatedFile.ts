@@ -1,4 +1,5 @@
 const LOCAL_FILE_PATH_PATTERN = /^\/api\/v1(\/files\/[1-9]\d*(?:\/variants\/[a-z0-9-]+)?)$/i
+const INVALID_FILE_NAME_CHARACTERS = new Set('<>:"/\\|?*')
 
 export interface AuthenticatedFileDisposition {
   forceDownload: boolean
@@ -37,13 +38,31 @@ export function resolveAuthenticatedFileDisposition(header: unknown): Authentica
   if (!rawFileName) return { forceDownload: true }
 
   const decodedFileName = decodeFileName(rawFileName.trim())
-  const safeFileName = decodedFileName
-    .replace(/[\u0000-\u001f\u007f<>:"/\\|?*]+/g, '_')
+  const safeFileName = sanitizeFileName(decodedFileName)
     .replace(/[. ]+$/g, '')
     .trim()
   return safeFileName
     ? { forceDownload: true, fileName: safeFileName }
     : { forceDownload: true }
+}
+
+function sanitizeFileName(value: string): string {
+  let sanitized = ''
+  let replacingInvalidRun = false
+  for (const character of value) {
+    const codePoint = character.codePointAt(0) ?? 0
+    const invalid = codePoint <= 0x1f
+      || codePoint === 0x7f
+      || INVALID_FILE_NAME_CHARACTERS.has(character)
+    if (invalid) {
+      if (!replacingInvalidRun) sanitized += '_'
+      replacingInvalidRun = true
+      continue
+    }
+    sanitized += character
+    replacingInvalidRun = false
+  }
+  return sanitized
 }
 
 function decodeFileName(value: string): string {
