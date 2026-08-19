@@ -90,13 +90,7 @@ public class SemanticSearchJobService {
 
     private void processClaimedJob(SemanticSearchJob job, LocalDateTime claimedAt) {
         try {
-            if (SemanticSearchIndexAction.DELETE.name().equals(job.action())) {
-                indexService.delete(job.contentType(), job.contentId());
-            } else if ("POST".equals(job.contentType())) {
-                indexService.upsertPost(job.contentId());
-            } else if ("COMMENT".equals(job.contentType())) {
-                indexService.upsertComment(job.contentId());
-            }
+            processIndexOperation(job);
             jobCommandService.markCompleted(job.jobId(), claimedAt, now());
         } catch (Exception ex) {
             jobCommandService.markFailedIfCurrent(
@@ -107,6 +101,43 @@ public class SemanticSearchJobService {
             log.error("Semantic search job failed: jobId={}, contentType={}, contentId={}",
                     job.jobId(), job.contentType(), job.contentId(), ex);
         }
+    }
+
+    private void processIndexOperation(SemanticSearchJob job) {
+        SemanticSearchIndexAction action = parseAction(job.action());
+        SemanticSearchContentType contentType = parseJobContentType(job.contentType());
+
+        switch (action) {
+            case DELETE -> indexService.delete(contentType.name(), job.contentId());
+            case UPSERT -> {
+                switch (contentType) {
+                    case POST -> indexService.upsertPost(job.contentId());
+                    case COMMENT -> indexService.upsertComment(job.contentId());
+                    case ALL -> throw new IllegalStateException("ALL is not a valid semantic search job content type");
+                }
+            }
+        }
+    }
+
+    private SemanticSearchIndexAction parseAction(String action) {
+        try {
+            return SemanticSearchIndexAction.valueOf(action);
+        } catch (IllegalArgumentException | NullPointerException ex) {
+            throw new IllegalStateException("Unsupported semantic search job action: " + action, ex);
+        }
+    }
+
+    private SemanticSearchContentType parseJobContentType(String contentType) {
+        final SemanticSearchContentType parsed;
+        try {
+            parsed = SemanticSearchContentType.valueOf(contentType);
+        } catch (IllegalArgumentException | NullPointerException ex) {
+            throw new IllegalStateException("Unsupported semantic search job content type: " + contentType, ex);
+        }
+        if (parsed == SemanticSearchContentType.ALL) {
+            throw new IllegalStateException("ALL is not a valid semantic search job content type");
+        }
+        return parsed;
     }
 
     private LocalDateTime now() {

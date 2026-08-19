@@ -184,6 +184,40 @@ class SemanticSearchJobServiceTest {
                 contains("payload changed"));
     }
 
+    @Test
+    void processPendingJobs_rejectsUnsupportedContentType() {
+        stubClaimedJob(new SemanticSearchJob(4L, "ARTICLE", 40L, "UPSERT", null));
+
+        int processed = jobService.processPendingJobs();
+
+        assertThat(processed).isEqualTo(1);
+        verifyNoInteractions(indexService);
+        verify(jobCommandService, never()).markCompleted(anyLong(), any(LocalDateTime.class), any(LocalDateTime.class));
+        verify(jobCommandService).markFailedIfCurrent(eq(4L), any(LocalDateTime.class), eq(3),
+                contains("Unsupported semantic search job content type"));
+    }
+
+    @Test
+    void processPendingJobs_rejectsUnsupportedAction() {
+        stubClaimedJob(new SemanticSearchJob(5L, "POST", 50L, "REBUILD", null));
+
+        int processed = jobService.processPendingJobs();
+
+        assertThat(processed).isEqualTo(1);
+        verifyNoInteractions(indexService);
+        verify(jobCommandService, never()).markCompleted(anyLong(), any(LocalDateTime.class), any(LocalDateTime.class));
+        verify(jobCommandService).markFailedIfCurrent(eq(5L), any(LocalDateTime.class), eq(3),
+                contains("Unsupported semantic search job action"));
+    }
+
+    private void stubClaimedJob(SemanticSearchJob job) {
+        when(jobRepository.findPendingJobs(3, 10)).thenReturn(List.of(job));
+        when(jobCommandService.claimForProcessing(eq(job.jobId()), eq(3), any(LocalDateTime.class))).thenReturn(1);
+        when(jobCommandService.findClaimed(eq(job.jobId()), any(LocalDateTime.class)))
+                .thenAnswer(invocation -> Optional.of(new SemanticSearchJob(
+                        job.jobId(), job.contentType(), job.contentId(), job.action(), invocation.getArgument(1))));
+    }
+
     private void assertRequired(String methodName, Class<?>... parameterTypes) throws NoSuchMethodException {
         Method method = SemanticSearchJobService.class.getMethod(methodName, parameterTypes);
         Transactional transactional = method.getAnnotation(Transactional.class);
