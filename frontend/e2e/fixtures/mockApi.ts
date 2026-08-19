@@ -1,4 +1,11 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import type { Page, Route } from '@playwright/test'
+
+const utf8ContentDispositionContract = readFileSync(
+  resolve(process.cwd(), '../backend/src/test/resources/contracts/file-download-content-disposition-utf8.txt'),
+  'utf8',
+).trim()
 
 export const mockUser = {
   userId: 7,
@@ -198,7 +205,7 @@ export async function installMockApi(
         status: 200,
         contentType: 'application/pdf',
         headers: {
-          'Content-Disposition': "attachment; filename*=UTF-8''%EB%B3%B4%EA%B3%A0%EC%84%9C.pdf",
+          'Content-Disposition': utf8ContentDispositionContract,
         },
         body: 'mock-pdf',
       })

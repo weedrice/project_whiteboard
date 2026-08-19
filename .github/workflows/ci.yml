@@ -70,6 +70,8 @@ jobs:
               # 프론트 테스트가 돌아야 SSE 이벤트 이름 불일치를 잡을 수 있다.
               - 'backend/src/main/java/com/weedrice/whiteboard/domain/notification/web/NotificationSseEvents.java'
               - 'backend/src/main/java/com/weedrice/whiteboard/domain/file/service/FileUploadTarget.java'
+              # 다운로드 헤더 계약 픽스처는 프론트 단위 테스트와 브라우저 E2E가 함께 읽는다.
+              - 'backend/src/test/resources/contracts/file-download-content-disposition-utf8.txt'
               # booleanWireNameContract.spec.ts가 읽는 DTO. 어노테이션 위치가 바뀌면
               # wire 이름이 바뀌므로 프론트 테스트가 함께 돌아야 한다.
               - 'backend/src/main/java/com/weedrice/whiteboard/domain/post/dto/PostResponse.java'
