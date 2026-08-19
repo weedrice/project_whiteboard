@@ -6,6 +6,7 @@ import type { RouteLocationRaw } from 'vue-router'
 import BaseTable, { type TableColumn } from '@/components/common/ui/BaseTable.vue'
 import PostListTitleContent from '@/components/board/PostListTitleContent.vue'
 import UserMenu from '@/components/common/widgets/UserMenu.vue'
+import { subscribeAuthSessionBoundary } from '@/queryAuthScope'
 import type { PostSummary } from '@/types'
 import { formatRelativeDate } from '@/utils/date'
 import { resolveAuthenticatedFileRequestPath } from '@/utils/authenticatedFile'
@@ -147,7 +148,10 @@ onMounted(() => {
 
 watch(() => props.posts, releaseImagePreviewResources)
 
+const stopSessionBoundary = subscribeAuthSessionBoundary(releaseImagePreviewResources)
+
 onBeforeUnmount(() => {
+  stopSessionBoundary()
   window.removeEventListener('resize', hideImagePreview)
   window.removeEventListener('scroll', hideImagePreview, true)
   releaseImagePreviewResources()

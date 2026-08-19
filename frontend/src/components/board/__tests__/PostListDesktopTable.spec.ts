@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount, RouterLinkStub } from '@vue/test-utils'
 import PostListDesktopTable from '../PostListDesktopTable.vue'
+import { notifyAuthSessionBoundary } from '@/queryAuthScope'
 import type { PostSummary } from '@/types'
 import type { TableColumn } from '@/components/common/ui/BaseTable.vue'
 
@@ -122,6 +123,7 @@ describe('PostListDesktopTable', () => {
     await wrapper.get('.nv-base-table-header-button').trigger('click')
 
     expect(wrapper.emitted('sort')).toEqual([['postId']])
+    wrapper.unmount()
   })
 
   it('uses router links for board targets and fallback author labels', () => {
@@ -132,6 +134,7 @@ describe('PostListDesktopTable', () => {
 
     expect(wrapper.findComponent(RouterLinkStub).props('to')).toBe('/board/free')
     expect(wrapper.text()).toContain('Fallback author')
+    wrapper.unmount()
   })
 
   it('shows a small thumbnail preview on hover only for unprotected posts', async () => {
@@ -153,6 +156,7 @@ describe('PostListDesktopTable', () => {
     await wrapper.get('.nv-post-title-cell').trigger('mouseenter')
 
     expect(wrapper.find('.nv-post-hover-preview').exists()).toBe(false)
+    wrapper.unmount()
   })
 
   it('loads local thumbnail variants through the authenticated API client', async () => {
@@ -182,5 +186,41 @@ describe('PostListDesktopTable', () => {
 
     wrapper.unmount()
     expect(revokeObjectUrlSpy).toHaveBeenCalledWith('blob:thumbnail')
+  })
+
+  it('clears cached thumbnails and aborts pending requests at an auth session boundary', async () => {
+    let pendingSignal: AbortSignal | undefined
+    let resolvePending!: (value: { data: Blob }) => void
+    mocks.get
+      .mockResolvedValueOnce({ data: new Blob(['first'], { type: 'image/webp' }) })
+      .mockImplementationOnce((_path: string, config: { signal: AbortSignal }) => {
+        pendingSignal = config.signal
+        return new Promise((resolve) => {
+          resolvePending = resolve
+        })
+      })
+    const wrapper = mountTable({
+      posts: [createPost({ thumbnailUrl: '/api/v1/files/55/variants/thumbnail' })],
+    })
+
+    await wrapper.get('.nv-post-title-cell').trigger('mouseenter')
+    await flushPromises()
+    expect(wrapper.get('.nv-post-hover-preview img').attributes('src')).toBe('blob:thumbnail')
+
+    notifyAuthSessionBoundary(1)
+    await wrapper.vm.$nextTick()
+    expect(revokeObjectUrlSpy).toHaveBeenCalledWith('blob:thumbnail')
+    expect(wrapper.find('.nv-post-hover-preview').exists()).toBe(false)
+
+    await wrapper.get('.nv-post-title-cell').trigger('mouseenter')
+    await vi.waitFor(() => expect(pendingSignal).toBeDefined())
+    notifyAuthSessionBoundary(2)
+    expect(pendingSignal?.aborted).toBe(true)
+
+    resolvePending({ data: new Blob(['stale'], { type: 'image/webp' }) })
+    await flushPromises()
+    expect(wrapper.find('.nv-post-hover-preview').exists()).toBe(false)
+    expect(createObjectUrlSpy).toHaveBeenCalledTimes(1)
+    wrapper.unmount()
   })
 })
