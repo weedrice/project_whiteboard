@@ -92,7 +92,7 @@ export default defineConfig(({ mode }) => {
                     globPatterns: [
                         'index.html',
                         'assets/{index,HomeFeed,EmptyState,PullToRefresh}-*.css',
-                        'js/{index,HomeFeed,auth,authSessionIntent,BaseButton,BaseSegmentedControl,BaseSkeleton,BaseSpinner,comment,EmptyState,emoticon,imageFallback,keyboard,logger,message,notification,PullToRefresh,postViewModel,rolldown-runtime,sanitize,SanitizedHtmlView,theme,useAttendance,useEventListener,useFocusTrap,useNotification,vendor-vue,vendor-query,vendor-i18n,vendor-http,vendor-icons,vendor-core}-*.js',
+                        'js/{index,HomeFeed,auth,authenticatedFile,authSessionIntent,BaseButton,BaseSegmentedControl,BaseSkeleton,BaseSpinner,comment,EmptyState,emoticon,imageFallback,keyboard,logger,message,notification,PullToRefresh,postViewModel,rolldown-runtime,sanitize,SanitizedHtmlView,theme,useAttendance,useEventListener,useFocusTrap,useNotification,vendor-vue,vendor-query,vendor-i18n,vendor-http,vendor-icons,vendor-core}-*.js',
                     ],
                 },
             }),
