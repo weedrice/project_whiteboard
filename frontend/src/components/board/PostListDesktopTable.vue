@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { ThumbsUp } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import type { RouteLocationRaw } from 'vue-router'
@@ -18,7 +18,7 @@ import {
 
 type TitleTag = 'button' | 'router-link' | 'span'
 
-defineProps<{
+const props = defineProps<{
   posts: PostSummary[]
   loading: boolean
   columns: TableColumn[]
@@ -62,8 +62,8 @@ const hoverPreview = ref<{
   top: number
 } | null>(null)
 let previewController: AbortController | null = null
-let previewObjectUrl: string | null = null
 let previewGeneration = 0
+const previewObjectUrls = new Map<string, string>()
 
 function showImagePreview(event: Event, item: PostSummary) {
   const url = getPostListPreviewImageUrl(item)
@@ -89,6 +89,12 @@ function showImagePreview(event: Event, item: PostSummary) {
     return
   }
 
+  const cachedObjectUrl = previewObjectUrls.get(requestPath)
+  if (cachedObjectUrl) {
+    hoverPreview.value = { url: cachedObjectUrl, left, top }
+    return
+  }
+
   const generation = previewGeneration
   const controller = new AbortController()
   previewController = controller
@@ -99,9 +105,13 @@ function hideImagePreview() {
   previewGeneration += 1
   previewController?.abort()
   previewController = null
-  if (previewObjectUrl) URL.revokeObjectURL(previewObjectUrl)
-  previewObjectUrl = null
   hoverPreview.value = null
+}
+
+function releaseImagePreviewResources() {
+  hideImagePreview()
+  previewObjectUrls.forEach((objectUrl) => URL.revokeObjectURL(objectUrl))
+  previewObjectUrls.clear()
 }
 
 async function loadAuthenticatedPreview(
@@ -120,8 +130,9 @@ async function loadAuthenticatedPreview(
     })
     if (controller.signal.aborted || generation !== previewGeneration) return
 
-    previewObjectUrl = URL.createObjectURL(response.data)
-    hoverPreview.value = { url: previewObjectUrl, left, top }
+    const objectUrl = URL.createObjectURL(response.data)
+    previewObjectUrls.set(requestPath, objectUrl)
+    hoverPreview.value = { url: objectUrl, left, top }
   } catch {
     if (!controller.signal.aborted && generation === previewGeneration) hoverPreview.value = null
   } finally {
@@ -134,10 +145,12 @@ onMounted(() => {
   window.addEventListener('scroll', hideImagePreview, true)
 })
 
+watch(() => props.posts, releaseImagePreviewResources)
+
 onBeforeUnmount(() => {
   window.removeEventListener('resize', hideImagePreview)
   window.removeEventListener('scroll', hideImagePreview, true)
-  hideImagePreview()
+  releaseImagePreviewResources()
 })
 </script>
 

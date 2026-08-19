@@ -174,7 +174,13 @@ describe('PostListDesktopTable', () => {
     expect(wrapper.get('.nv-post-hover-preview img').attributes('src')).toBe('blob:thumbnail')
 
     await wrapper.get('.nv-post-title-cell').trigger('mouseleave')
-    expect(revokeObjectUrlSpy).toHaveBeenCalledWith('blob:thumbnail')
+    await wrapper.get('.nv-post-title-cell').trigger('mouseenter')
+    await flushPromises()
+    expect(mocks.get).toHaveBeenCalledTimes(1)
+    expect(wrapper.get('.nv-post-hover-preview img').attributes('src')).toBe('blob:thumbnail')
+    expect(revokeObjectUrlSpy).not.toHaveBeenCalled()
+
     wrapper.unmount()
+    expect(revokeObjectUrlSpy).toHaveBeenCalledWith('blob:thumbnail')
   })
 })
