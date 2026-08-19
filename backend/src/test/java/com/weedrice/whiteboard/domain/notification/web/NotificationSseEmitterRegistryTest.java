@@ -4,6 +4,7 @@ import com.weedrice.whiteboard.domain.notification.constant.NotificationType;
 import com.weedrice.whiteboard.domain.notification.dto.NotificationResponse;
 import com.weedrice.whiteboard.domain.notification.dto.CommentStreamEvent;
 import com.weedrice.whiteboard.domain.notification.entity.Notification;
+import com.weedrice.whiteboard.domain.shop.event.ShopItemSaleStatusChangedEvent;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -27,6 +28,25 @@ class NotificationSseEmitterRegistryTest {
 
     private static final UUID FAMILY_A = UUID.fromString("00000000-0000-0000-0000-00000000000a");
     private static final UUID FAMILY_B = UUID.fromString("00000000-0000-0000-0000-00000000000b");
+
+    @Test
+    void shopSaleStatusChangeIsBroadcastToEveryConnectedClient() {
+        CountingSseEmitter first = new CountingSseEmitter();
+        CountingSseEmitter second = new CountingSseEmitter();
+        NotificationSseEmitterRegistry registry =
+                new SequenceEmitterNotificationSseEmitterRegistry(first, second);
+        registry.subscribe(1L, FAMILY_A);
+        registry.subscribe(2L, FAMILY_B);
+        ShopItemSaleStatusChangedEvent event =
+                new ShopItemSaleStatusChangedEvent(3L, "EMOTICON", 9L, false);
+
+        registry.publishShopItemSaleStatusChanged(event);
+
+        assertThat(first.sendCount()).isEqualTo(2);
+        assertThat(second.sendCount()).isEqualTo(2);
+        assertThat(first.lastEventData()).contains(event);
+        assertThat(second.lastEventData()).contains(event);
+    }
 
     @Test
     void commentTopicRequiresActiveEmitter() {

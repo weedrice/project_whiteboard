@@ -31,12 +31,16 @@ public final class NotificationSseEvents {
     /** 댓글 구독 대상에 대한 접근 권한이 사라졌다. */
     public static final String COMMENT_TOPIC_ACCESS_REVOKED = "comment-topic-access-revoked";
 
+    /** 관리자에 의해 상점 아이템의 판매 가능 여부가 변경됐다. */
+    public static final String SHOP_ITEM_SALE_STATUS_CHANGED = "shop-item-sale-status-changed";
+
     public static final Set<String> ALL = Set.of(
             CONNECT,
             NOTIFICATION,
             COMMENT,
             COMMENT_TOPIC_INVALIDATED,
-            COMMENT_TOPIC_ACCESS_REVOKED);
+            COMMENT_TOPIC_ACCESS_REVOKED,
+            SHOP_ITEM_SALE_STATUS_CHANGED);
 
     private NotificationSseEvents() {
     }

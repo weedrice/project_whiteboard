@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.shop.service;
 import com.weedrice.whiteboard.domain.moderation.service.ModerationAuditLogService;
 import com.weedrice.whiteboard.domain.shop.dto.AdminShopItemResponse;
 import com.weedrice.whiteboard.domain.shop.entity.ShopItem;
+import com.weedrice.whiteboard.domain.shop.event.ShopItemSaleStatusChangedEvent;
 import com.weedrice.whiteboard.domain.shop.repository.ShopItemRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.service.UserReadableResolver;
@@ -12,6 +13,7 @@ import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import com.weedrice.whiteboard.global.security.SuperAdminPolicy;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -37,6 +39,7 @@ public class AdminShopService {
     private final SuperAdminPolicy superAdminPolicy;
     private final UserReadableResolver userReadableResolver;
     private final ModerationAuditLogService moderationAuditLogService;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
     public Page<AdminShopItemResponse> getItems(
             Long actorUserId,
@@ -93,6 +96,11 @@ public class AdminShopService {
                 item.getItemId(),
                 null,
                 normalizedReason);
+        applicationEventPublisher.publishEvent(new ShopItemSaleStatusChangedEvent(
+                item.getItemId(),
+                item.getItemType(),
+                item.getTargetId(),
+                saleEnabled));
         return AdminShopItemResponse.from(item);
     }
 

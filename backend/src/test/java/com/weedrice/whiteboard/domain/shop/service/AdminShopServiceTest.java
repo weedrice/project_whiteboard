@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.domain.shop.service;
 import com.weedrice.whiteboard.domain.moderation.service.ModerationAuditLogService;
 import com.weedrice.whiteboard.domain.shop.dto.AdminShopItemResponse;
 import com.weedrice.whiteboard.domain.shop.entity.ShopItem;
+import com.weedrice.whiteboard.domain.shop.event.ShopItemSaleStatusChangedEvent;
 import com.weedrice.whiteboard.domain.shop.repository.ShopItemRepository;
 import com.weedrice.whiteboard.domain.user.entity.User;
 import com.weedrice.whiteboard.domain.user.service.UserReadableResolver;
@@ -19,6 +20,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
@@ -44,6 +46,8 @@ class AdminShopServiceTest {
     @Mock
     private ModerationAuditLogService moderationAuditLogService;
     @Mock
+    private ApplicationEventPublisher applicationEventPublisher;
+    @Mock
     private User actor;
 
     private AdminShopService adminShopService;
@@ -55,7 +59,8 @@ class AdminShopServiceTest {
                 shopItemRepository,
                 superAdminPolicy,
                 userReadableResolver,
-                moderationAuditLogService);
+                moderationAuditLogService,
+                applicationEventPublisher);
         item = ShopItem.builder()
                 .itemName("Premium emoticon")
                 .price(100)
@@ -105,6 +110,8 @@ class AdminShopServiceTest {
                 2L,
                 null,
                 "temporary review");
+        verify(applicationEventPublisher).publishEvent(new ShopItemSaleStatusChangedEvent(
+                2L, "EMOTICON", 10L, false));
     }
 
     @Test
@@ -126,6 +133,8 @@ class AdminShopServiceTest {
                 2L,
                 null,
                 "review complete");
+        verify(applicationEventPublisher).publishEvent(new ShopItemSaleStatusChangedEvent(
+                2L, "EMOTICON", 10L, true));
     }
 
     @Test
@@ -135,7 +144,7 @@ class AdminShopServiceTest {
         AdminShopItemResponse response = adminShopService.updateSaleStatus(1L, 2L, true, "no change");
 
         assertThat(response.getIsSaleEnabled()).isTrue();
-        verifyNoInteractions(userReadableResolver, moderationAuditLogService);
+        verifyNoInteractions(userReadableResolver, moderationAuditLogService, applicationEventPublisher);
     }
 
     @Test
@@ -148,7 +157,7 @@ class AdminShopServiceTest {
                 .extracting("errorCode")
                 .isEqualTo(ErrorCode.ITEM_NOT_AVAILABLE);
 
-        verifyNoInteractions(userReadableResolver, moderationAuditLogService);
+        verifyNoInteractions(userReadableResolver, moderationAuditLogService, applicationEventPublisher);
     }
 
     @Test
@@ -159,7 +168,7 @@ class AdminShopServiceTest {
                 .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
 
         verify(shopItemRepository, never()).findByIdForUpdate(2L);
-        verifyNoInteractions(userReadableResolver, moderationAuditLogService);
+        verifyNoInteractions(userReadableResolver, moderationAuditLogService, applicationEventPublisher);
     }
 
     @Test
@@ -172,6 +181,10 @@ class AdminShopServiceTest {
         assertThatThrownBy(() -> adminShopService.updateSaleStatus(1L, 2L, false, "reason"))
                 .isSameAs(forbidden);
 
-        verifyNoInteractions(shopItemRepository, userReadableResolver, moderationAuditLogService);
+        verifyNoInteractions(
+                shopItemRepository,
+                userReadableResolver,
+                moderationAuditLogService,
+                applicationEventPublisher);
     }
 }

@@ -6,6 +6,7 @@ import com.weedrice.whiteboard.domain.notification.config.NotificationStreamProp
 import com.weedrice.whiteboard.domain.notification.service.CommentStreamPublisher;
 import com.weedrice.whiteboard.domain.notification.service.NotificationStreamPublisher;
 import com.weedrice.whiteboard.domain.notification.service.NotificationStreamControl;
+import com.weedrice.whiteboard.domain.shop.event.ShopItemSaleStatusChangedEvent;
 import com.weedrice.whiteboard.global.exception.BusinessException;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
 import lombok.extern.slf4j.Slf4j;
@@ -170,6 +171,29 @@ public class NotificationSseEmitterRegistry
             }
 
             commentTopics.register(userId, boardId, postId, subscriberId);
+        }
+    }
+
+    public void publishShopItemSaleStatusChanged(ShopItemSaleStatusChangedEvent event) {
+        if (event == null || emitters.isEmpty()) {
+            return;
+        }
+
+        for (Long userId : new ArrayList<>(emitters.keySet())) {
+            Map<String, EmitterConnection> userEmitters = emitters.get(userId);
+            if (userEmitters == null || userEmitters.isEmpty()) {
+                removeEmptyUser(userId, userEmitters);
+                continue;
+            }
+            for (Map.Entry<String, EmitterConnection> entry : new ArrayList<>(userEmitters.entrySet())) {
+                try {
+                    entry.getValue().emitter().send(SseEmitter.event()
+                            .name(NotificationSseEvents.SHOP_ITEM_SALE_STATUS_CHANGED)
+                            .data(event));
+                } catch (IOException | RuntimeException exception) {
+                    completeWithError(userId, entry.getKey(), entry.getValue().emitter(), exception);
+                }
+            }
         }
     }
 
