@@ -168,6 +168,66 @@
         },
         "type" : "object"
       },
+      "AdminShopItemResponse" : {
+        "properties" : {
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "imageUrl" : {
+            "type" : "string"
+          },
+          "isActive" : {
+            "type" : "boolean"
+          },
+          "isSaleEnabled" : {
+            "type" : "boolean"
+          },
+          "itemId" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "itemName" : {
+            "type" : "string"
+          },
+          "itemType" : {
+            "type" : "string"
+          },
+          "modifiedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "price" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "purchasable" : {
+            "type" : "boolean"
+          },
+          "targetId" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "AdminShopItemSaleStatusRequest" : {
+        "properties" : {
+          "reason" : {
+            "maxLength" : 500,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "saleEnabled" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "reason", "saleEnabled" ],
+        "type" : "object"
+      },
       "AdminUserCommentResponse" : {
         "properties" : {
           "agentId" : {
@@ -433,6 +493,20 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/AdminResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          },
+          "success" : {
+            "type" : "boolean"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponseAdminShopItemResponse" : {
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/AdminShopItemResponse"
           },
           "error" : {
             "$ref" : "#/components/schemas/ErrorResponse"
@@ -1400,6 +1474,20 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/PageResponseAdminResponse"
+          },
+          "error" : {
+            "$ref" : "#/components/schemas/ErrorResponse"
+          },
+          "success" : {
+            "type" : "boolean"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponsePageResponseAdminShopItemResponse" : {
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/PageResponseAdminShopItemResponse"
           },
           "error" : {
             "$ref" : "#/components/schemas/ErrorResponse"
@@ -4849,6 +4937,39 @@
           "content" : {
             "items" : {
               "$ref" : "#/components/schemas/AdminResponse"
+            },
+            "type" : "array"
+          },
+          "hasNext" : {
+            "type" : "boolean"
+          },
+          "hasPrevious" : {
+            "type" : "boolean"
+          },
+          "page" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "size" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "totalElements" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "totalPages" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "PageResponseAdminShopItemResponse" : {
+        "properties" : {
+          "content" : {
+            "items" : {
+              "$ref" : "#/components/schemas/AdminShopItemResponse"
             },
             "type" : "array"
           },
@@ -8995,6 +9116,97 @@
           }
         },
         "tags" : [ "admin-semantic-search-controller" ]
+      }
+    },
+    "/api/v1/admin/shop/items" : {
+      "get" : {
+        "operationId" : "getItems",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "q",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "itemType",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "isActive",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean"
+          }
+        }, {
+          "in" : "query",
+          "name" : "isSaleEnabled",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean"
+          }
+        }, {
+          "in" : "query",
+          "name" : "pageable",
+          "required" : true,
+          "schema" : {
+            "$ref" : "#/components/schemas/Pageable"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePageResponseAdminShopItemResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "shop-admin-controller" ]
+      }
+    },
+    "/api/v1/admin/shop/items/{itemId}/sale-status" : {
+      "put" : {
+        "operationId" : "updateSaleStatus",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "itemId",
+          "required" : true,
+          "schema" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AdminShopItemSaleStatusRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseAdminShopItemResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "shop-admin-controller" ]
       }
     },
     "/api/v1/admin/stats" : {

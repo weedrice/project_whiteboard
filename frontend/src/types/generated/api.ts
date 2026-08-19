@@ -388,6 +388,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/shop/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getItems"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/shop/items/{itemId}/sale-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["updateSaleStatus"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/stats": {
         parameters: {
             query?: never;
@@ -3047,6 +3079,29 @@ export interface components {
             role?: string;
             user?: components["schemas"]["UserInfo"];
         };
+        AdminShopItemResponse: {
+            /** Format: date-time */
+            createdAt?: string;
+            description?: string;
+            imageUrl?: string;
+            isActive?: boolean;
+            isSaleEnabled?: boolean;
+            /** Format: int64 */
+            itemId?: number;
+            itemName?: string;
+            itemType?: string;
+            /** Format: date-time */
+            modifiedAt?: string;
+            /** Format: int32 */
+            price?: number;
+            purchasable?: boolean;
+            /** Format: int64 */
+            targetId?: number;
+        };
+        AdminShopItemSaleStatusRequest: {
+            reason: string;
+            saleEnabled: boolean;
+        };
         AdminUserCommentResponse: {
             /** Format: int64 */
             agentId?: number;
@@ -3154,6 +3209,11 @@ export interface components {
         };
         ApiResponseAdminResponse: {
             data?: components["schemas"]["AdminResponse"];
+            error?: components["schemas"]["ErrorResponse"];
+            success?: boolean;
+        };
+        ApiResponseAdminShopItemResponse: {
+            data?: components["schemas"]["AdminShopItemResponse"];
             error?: components["schemas"]["ErrorResponse"];
             success?: boolean;
         };
@@ -3481,6 +3541,11 @@ export interface components {
         };
         ApiResponsePageResponseAdminResponse: {
             data?: components["schemas"]["PageResponseAdminResponse"];
+            error?: components["schemas"]["ErrorResponse"];
+            success?: boolean;
+        };
+        ApiResponsePageResponseAdminShopItemResponse: {
+            data?: components["schemas"]["PageResponseAdminShopItemResponse"];
             error?: components["schemas"]["ErrorResponse"];
             success?: boolean;
         };
@@ -4735,6 +4800,19 @@ export interface components {
         };
         PageResponseAdminResponse: {
             content?: components["schemas"]["AdminResponse"][];
+            hasNext?: boolean;
+            hasPrevious?: boolean;
+            /** Format: int32 */
+            page?: number;
+            /** Format: int32 */
+            size?: number;
+            /** Format: int64 */
+            totalElements?: number;
+            /** Format: int32 */
+            totalPages?: number;
+        };
+        PageResponseAdminShopItemResponse: {
+            content?: components["schemas"]["AdminShopItemResponse"][];
             hasNext?: boolean;
             hasPrevious?: boolean;
             /** Format: int32 */
@@ -6614,6 +6692,58 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseSemanticSearchReindexRedriveResponse"];
+                };
+            };
+        };
+    };
+    getItems: {
+        parameters: {
+            query: {
+                q?: string;
+                itemType?: string;
+                isActive?: boolean;
+                isSaleEnabled?: boolean;
+                pageable: components["schemas"]["Pageable"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponsePageResponseAdminShopItemResponse"];
+                };
+            };
+        };
+    };
+    updateSaleStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                itemId: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdminShopItemSaleStatusRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseAdminShopItemResponse"];
                 };
             };
         };

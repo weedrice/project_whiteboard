@@ -6,7 +6,7 @@
 ## 1. 주요 기능과 로직
 
 - 사용자 작업 기록: 게시글 수동 블라인드, 신고 처리, 사용자 상태·슈퍼 관리자 권한 변경,
-  스페이스 비활성화 같은 작업을 `actorType: USER`로 저장한다.
+  스페이스 비활성화, 상점 아이템 판매 중지·재개 같은 작업을 `actorType: USER`로 저장한다.
 - 시스템 작업 기록: 신고 누적에 따른 게시글·댓글 자동 블라인드와 해제를 `actorType: SYSTEM`으로
   저장한다.
 - 트랜잭션 결합: 기록 메서드는 기존 트랜잭션을 필수로 요구하므로 대상 관리 작업과 감사 로그가
@@ -38,8 +38,8 @@
 - 작업: `POST_BLIND`, `POST_UNBLIND`, `POST_AUTO_BLIND`, `POST_AUTO_UNBLIND`,
   `COMMENT_AUTO_BLIND`, `COMMENT_AUTO_UNBLIND`, `REPORT_RESOLVE`, `REPORT_REJECT`,
   `USER_ACTIVATE`, `USER_SUSPEND`, `SUPER_ADMIN_GRANT`, `SUPER_ADMIN_REVOKE`,
-  `BOARD_DEACTIVATE`
-- 대상 유형: `POST`, `COMMENT`, `REPORT`, `USER`, `BOARD`
+  `BOARD_DEACTIVATE`, `SHOP_ITEM_SALE_SUSPEND`, `SHOP_ITEM_SALE_RESUME`
+- 대상 유형: `POST`, `COMMENT`, `REPORT`, `USER`, `BOARD`, `SHOP_ITEM`
 
 응답은 수행 사용자와 스페이스가 존재할 때 각각 표시 이름과 스페이스 이름·URL을 함께 반환한다.
 시스템 작업은 `actorUserId`와 `actorDisplayName`이 `null`이다.

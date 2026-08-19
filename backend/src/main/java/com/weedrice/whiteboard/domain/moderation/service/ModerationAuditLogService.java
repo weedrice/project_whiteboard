@@ -49,11 +49,14 @@ public class ModerationAuditLogService {
     public static final String ACTION_SUPER_ADMIN_GRANT = "SUPER_ADMIN_GRANT";
     public static final String ACTION_SUPER_ADMIN_REVOKE = "SUPER_ADMIN_REVOKE";
     public static final String ACTION_BOARD_DEACTIVATE = "BOARD_DEACTIVATE";
+    public static final String ACTION_SHOP_ITEM_SALE_SUSPEND = "SHOP_ITEM_SALE_SUSPEND";
+    public static final String ACTION_SHOP_ITEM_SALE_RESUME = "SHOP_ITEM_SALE_RESUME";
     public static final String TARGET_TYPE_POST = "POST";
     public static final String TARGET_TYPE_COMMENT = "COMMENT";
     public static final String TARGET_TYPE_REPORT = "REPORT";
     public static final String TARGET_TYPE_USER = "USER";
     public static final String TARGET_TYPE_BOARD = "BOARD";
+    public static final String TARGET_TYPE_SHOP_ITEM = "SHOP_ITEM";
 
     private final ModerationAuditLogRepository moderationAuditLogRepository;
     private final BoardRepository boardRepository;
