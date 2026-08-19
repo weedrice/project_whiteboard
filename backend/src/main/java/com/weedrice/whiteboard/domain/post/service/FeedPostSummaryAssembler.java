@@ -62,7 +62,7 @@ class FeedPostSummaryAssembler {
         String firstMediaUrl = null;
         if (includeFirstMedia) {
             String firstVideoUrl = contentSummaryExtractor.extractFirstVideoEmbedFromContent(post.getContents());
-            int imgPos = contentSummaryExtractor.indexOfFirstImageInContent(post.getContents());
+            int imgPos = contentSummaryExtractor.indexOfFirstAllowedImageInContent(post.getContents());
             int videoPos = contentSummaryExtractor.indexOfFirstVideoInContent(post.getContents());
             if (imgPos >= 0 && (videoPos < 0 || imgPos < videoPos)) {
                 firstMediaType = "image";

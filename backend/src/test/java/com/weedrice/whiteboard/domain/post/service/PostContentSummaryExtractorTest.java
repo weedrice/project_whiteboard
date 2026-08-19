@@ -98,6 +98,50 @@ class PostContentSummaryExtractorTest {
     }
 
     @Test
+    void resolveThumbnail_skipsUnapprovedImageAndUsesNextAllowedImage() {
+        String contents = "<img src=\"https://tracker.example/pixel.gif\" />"
+                + "<iframe src=\"https://www.youtube.com/embed/abc123\"></iframe>"
+                + "<img src=\"/api/v1/files/78\" />";
+        PostThumbnailInfo thumbnailInfo = extractor.resolveThumbnail(
+                100L,
+                contents,
+                Set.of(),
+                Map.of());
+
+        assertThat(thumbnailInfo.thumbnailUrl()).isEqualTo("/api/v1/files/78");
+        assertThat(thumbnailInfo.hasImage()).isTrue();
+        assertThat(extractor.indexOfFirstAllowedImageInContent(contents))
+                .isGreaterThan(extractor.indexOfFirstVideoInContent(contents));
+    }
+
+    @Test
+    void resolveThumbnail_usesConfiguredFrontendOriginAndExternalHosts() {
+        PostContentSummaryExtractor configuredExtractor = new PostContentSummaryExtractor(
+                "http://localhost:5173",
+                "assets.example.test");
+
+        PostThumbnailInfo sameOrigin = configuredExtractor.resolveThumbnail(
+                100L,
+                "<img src=\"http://localhost:5173/images/local.png\" />",
+                Set.of(),
+                Map.of());
+        PostThumbnailInfo configuredExternal = configuredExtractor.resolveThumbnail(
+                100L,
+                "<img src=\"https://assets.example.test/images/cdn.png\" />",
+                Set.of(),
+                Map.of());
+        PostThumbnailInfo unconfiguredExternal = configuredExtractor.resolveThumbnail(
+                100L,
+                "<img src=\"https://cdn.noviis.kr/images/rejected.png\" />",
+                Set.of(),
+                Map.of());
+
+        assertThat(sameOrigin.thumbnailUrl()).isEqualTo("http://localhost:5173/images/local.png");
+        assertThat(configuredExternal.thumbnailUrl()).isEqualTo("https://assets.example.test/images/cdn.png");
+        assertThat(unconfiguredExternal.thumbnailUrl()).isNull();
+    }
+
+    @Test
     @DisplayName("본문 iframe에서 첫 비디오 embed URL을 추출한다")
     void extractFirstVideoEmbedFromContent_success() {
         String url = extractor.extractFirstVideoEmbedFromContent(

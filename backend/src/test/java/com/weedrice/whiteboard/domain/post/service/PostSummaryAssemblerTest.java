@@ -262,7 +262,10 @@ class PostSummaryAssemblerTest {
 
         Post post = Post.builder()
                 .title("Title")
-                .contents("<p>Hello</p><img src=\"https://cdn.example.com/thumb.png\" />")
+                .contents("<p>Hello</p>"
+                        + "<img src=\"https://tracker.example/pixel.gif\" />"
+                        + "<iframe src=\"https://www.youtube.com/embed/abc123\"></iframe>"
+                        + "<img src=\"https://cdn.noviis.kr/thumb.png\" />")
                 .user(author)
                 .board(board)
                 .build();
@@ -282,12 +285,13 @@ class PostSummaryAssemblerTest {
 
         assertThat(trending.get(0).getSummary()).isEqualTo(latest.get(0).getSummary());
         assertThat(trending.get(0).getThumbnailUrl()).isEqualTo(latest.get(0).getThumbnailUrl());
+        assertThat(trending.get(0).getThumbnailUrl()).isEqualTo("https://cdn.noviis.kr/thumb.png");
         assertThat(trending.get(0).getAuthor().getDisplayName()).isEqualTo(listSummary.getAuthor().getDisplayName());
         assertThat(trending.get(0).getBoardUrl()).isEqualTo(listSummary.getBoardUrl());
         assertThat(trending.get(0).getBoardIconUrl()).isEqualTo(listSummary.getBoardIconUrl());
         assertThat(trending.get(0).getContentsExcerpt()).isNotNull();
-        assertThat(trending.get(0).getFirstMediaType()).isEqualTo("image");
-        assertThat(trending.get(0).getFirstMediaUrl()).isEqualTo("https://cdn.example.com/thumb.png");
+        assertThat(trending.get(0).getFirstMediaType()).isEqualTo("video");
+        assertThat(trending.get(0).getFirstMediaUrl()).isEqualTo("https://www.youtube.com/embed/abc123");
         assertThat(latest.get(0).getContentsExcerpt()).isNull();
         assertThat(latest.get(0).getFirstMediaType()).isNull();
         assertThat(latest.get(0).getFirstMediaUrl()).isNull();

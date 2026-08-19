@@ -38,6 +38,8 @@ spring:
     type: caffeine
 
 app:
+  thumbnail:
+    allowed-external-hosts: ${APP_THUMBNAIL_ALLOWED_EXTERNAL_HOSTS:www.noviis.kr,cdn.noviis.kr}
   cache:
     read-optimization-enabled: ${APP_CACHE_READ_OPTIMIZATION_ENABLED:false}
   error-log:
