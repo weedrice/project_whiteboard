@@ -39,6 +39,8 @@ class ShopItemTest {
             assertThat(emoticonItem.getItemType()).isEqualTo("EMOTICON");
             assertThat(emoticonItem.getImageUrl()).isEqualTo(imageUrl);
             assertThat(emoticonItem.getIsActive()).isTrue();
+            assertThat(emoticonItem.getIsSaleEnabled()).isTrue();
+            assertThat(emoticonItem.isPurchasable()).isTrue();
         }
 
         @Test
@@ -72,6 +74,67 @@ class ShopItemTest {
             // then
             assertThat(emoticonItem.getItemName()).isEqualTo("텍스트 이모티콘");
             assertThat(emoticonItem.getImageUrl()).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("판매 상태")
+    class SaleStatus {
+
+        @Test
+        @DisplayName("원본 재활성화는 관리자 판매 중지를 해제하지 않는다")
+        void sourceReactivation_doesNotResumeSuspendedSale() {
+            ShopItem item = ShopItem.builder()
+                    .itemName("운영 중지 아이템")
+                    .price(100)
+                    .itemType("EMOTICON")
+                    .targetId(1L)
+                    .build();
+
+            item.suspendSale();
+            item.deactivate();
+            item.activate();
+
+            assertThat(item.getIsActive()).isTrue();
+            assertThat(item.getIsSaleEnabled()).isFalse();
+            assertThat(item.isPurchasable()).isFalse();
+        }
+
+        @Test
+        @DisplayName("판매 재개는 원본 비활성 상태를 바꾸지 않는다")
+        void resumeSale_doesNotActivateSource() {
+            ShopItem item = ShopItem.builder()
+                    .itemName("비공개 아이템")
+                    .price(100)
+                    .itemType("EMOTICON")
+                    .targetId(1L)
+                    .build();
+            item.deactivate();
+            item.suspendSale();
+
+            item.resumeSale();
+
+            assertThat(item.getIsActive()).isFalse();
+            assertThat(item.getIsSaleEnabled()).isTrue();
+            assertThat(item.isPurchasable()).isFalse();
+        }
+
+        @Test
+        @DisplayName("폐기하면 원본과 판매 상태를 모두 비활성화한다")
+        void retire_disablesSourceAndSale() {
+            ShopItem item = ShopItem.builder()
+                    .itemName("폐기 아이템")
+                    .price(100)
+                    .itemType("EMOTICON")
+                    .targetId(1L)
+                    .build();
+
+            item.retire();
+
+            assertThat(item.getIsActive()).isFalse();
+            assertThat(item.getIsSaleEnabled()).isFalse();
+            assertThat(item.getTargetId()).isNull();
+            assertThat(item.isPurchasable()).isFalse();
         }
     }
 

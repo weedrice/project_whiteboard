@@ -56,7 +56,7 @@ class EmoticonShopItemLifecycleService {
             return new PurchaseOffer(false, resolveCurrentPrice());
         }
         ShopItem item = items.get(0);
-        return new PurchaseOffer(Boolean.TRUE.equals(item.getIsActive()), item.getPrice());
+        return new PurchaseOffer(item.isPurchasable(), item.getPrice());
     }
 
     ShopItem lockForUpdate(Long emoticonId) {

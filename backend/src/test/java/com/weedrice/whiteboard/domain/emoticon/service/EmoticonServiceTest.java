@@ -1396,6 +1396,18 @@ class EmoticonServiceTest {
         }
 
         @Test
+        @DisplayName("판매 중지 상품 구매 상태는 저장 가격과 available false를 반환한다")
+        void getPurchaseStatus_saleSuspendedItem() {
+            emoticonShopItem.suspendSale();
+
+            EmoticonPurchaseStatusResponse result = emoticonService.getPurchaseStatus(null, 1L);
+
+            assertThat(result.isPurchased()).isFalse();
+            assertThat(result.isAvailable()).isFalse();
+            assertThat(result.getPrice()).isEqualTo(250);
+        }
+
+        @Test
         @DisplayName("상품이 없으면 현재 설정 가격과 available false를 반환한다")
         void getPurchaseStatus_missingItem() {
             when(shopItemRepository.findByItemTypeAndTargetId("EMOTICON", 1L)).thenReturn(List.of());

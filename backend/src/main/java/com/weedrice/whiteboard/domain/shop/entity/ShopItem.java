@@ -44,6 +44,10 @@ public class ShopItem extends BaseTimeEntity {
     @Column(name = "is_active", length = 1, nullable = false)
     private Boolean isActive;
 
+    @Convert(converter = BooleanToYNConverter.class)
+    @Column(name = "is_sale_enabled", length = 1, nullable = false)
+    private Boolean isSaleEnabled;
+
     @Builder
     public ShopItem(String itemName, String description, Integer price, String itemType, Long targetId, String imageUrl) {
         this.itemName = itemName;
@@ -53,6 +57,7 @@ public class ShopItem extends BaseTimeEntity {
         this.targetId = targetId;
         this.imageUrl = imageUrl;
         this.isActive = true;
+        this.isSaleEnabled = true;
     }
 
     public void updatePresentation(String itemName, String imageUrl) {
@@ -68,8 +73,21 @@ public class ShopItem extends BaseTimeEntity {
         this.isActive = false;
     }
 
+    public void suspendSale() {
+        this.isSaleEnabled = false;
+    }
+
+    public void resumeSale() {
+        this.isSaleEnabled = true;
+    }
+
+    public boolean isPurchasable() {
+        return Boolean.TRUE.equals(this.isActive) && Boolean.TRUE.equals(this.isSaleEnabled);
+    }
+
     public void retire() {
         this.isActive = false;
+        this.isSaleEnabled = false;
         this.targetId = null;
     }
 }

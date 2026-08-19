@@ -67,9 +67,17 @@ public class ShopService {
 
         Page<ShopItem> items;
         if (normalizedItemType != null) {
-            items = shopItemRepository.findByIsActiveAndItemType(true, normalizedItemType, effectivePageable);
+            items = shopItemRepository.findByIsActiveAndIsSaleEnabledAndItemType(
+                    true,
+                    true,
+                    normalizedItemType,
+                    effectivePageable);
         } else {
-            items = shopItemRepository.findByIsActiveAndItemTypeIn(true, supportedItemTypes, effectivePageable);
+            items = shopItemRepository.findByIsActiveAndIsSaleEnabledAndItemTypeIn(
+                    true,
+                    true,
+                    supportedItemTypes,
+                    effectivePageable);
         }
         return ShopItemResponse.from(items);
     }
@@ -103,7 +111,8 @@ public class ShopService {
     }
 
     public ShopItem resolveSingleActiveItemByTarget(String itemType, Long targetId) {
-        List<ShopItem> items = shopItemRepository.findTop2ByIsActiveAndItemTypeAndTargetId(
+        List<ShopItem> items = shopItemRepository.findTop2ByIsActiveAndIsSaleEnabledAndItemTypeAndTargetId(
+                true,
                 true,
                 itemType,
                 targetId);
@@ -121,7 +130,7 @@ public class ShopService {
     }
 
     private Long purchaseItem(User user, ShopItem item) {
-        if (!item.getIsActive() || !shopEntitlementCapabilityRegistry.supports(item)) {
+        if (!item.isPurchasable() || !shopEntitlementCapabilityRegistry.supports(item)) {
             throw new BusinessException(ErrorCode.ITEM_NOT_AVAILABLE);
         }
 

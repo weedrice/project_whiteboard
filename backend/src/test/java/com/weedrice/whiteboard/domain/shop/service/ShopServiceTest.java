@@ -116,13 +116,13 @@ class ShopServiceTest {
             Pageable expectedPageable = PageRequest.of(0, 20, Sort.by(Sort.Order.asc("itemId")));
             when(shopEntitlementCapabilityRegistry.getSupportedItemTypes()).thenReturn(Set.of("EMOTICON"));
             when(shopEntitlementCapabilityRegistry.supports("EMOTICON")).thenReturn(true);
-            when(shopItemRepository.findByIsActiveAndItemType(true, "EMOTICON", expectedPageable))
+            when(shopItemRepository.findByIsActiveAndIsSaleEnabledAndItemType(true, true, "EMOTICON", expectedPageable))
                     .thenReturn(new PageImpl<>(List.of(emoticonItem), expectedPageable, 1));
 
             ShopItemResponse response = shopService.getShopItems("EMOTICON", pageable);
 
             assertThat(response.getContent()).hasSize(1);
-            verify(shopItemRepository).findByIsActiveAndItemType(true, "EMOTICON", expectedPageable);
+            verify(shopItemRepository).findByIsActiveAndIsSaleEnabledAndItemType(true, true, "EMOTICON", expectedPageable);
         }
 
         @Test
@@ -132,14 +132,14 @@ class ShopServiceTest {
             Pageable expectedPageable = PageRequest.of(0, 20, Sort.by(Sort.Order.asc("itemId")));
             when(shopEntitlementCapabilityRegistry.getSupportedItemTypes()).thenReturn(Set.of("EMOTICON"));
             when(shopEntitlementCapabilityRegistry.supports("EMOTICON")).thenReturn(true);
-            when(shopItemRepository.findByIsActiveAndItemType(true, "EMOTICON", expectedPageable))
+            when(shopItemRepository.findByIsActiveAndIsSaleEnabledAndItemType(true, true, "EMOTICON", expectedPageable))
                     .thenReturn(new PageImpl<>(List.of(emoticonItem), expectedPageable, 1));
 
             ShopItemResponse response = shopService.getShopItems(" emoticon ", pageable);
 
             assertThat(response.getContent()).hasSize(1);
             verify(shopEntitlementCapabilityRegistry).supports("EMOTICON");
-            verify(shopItemRepository).findByIsActiveAndItemType(true, "EMOTICON", expectedPageable);
+            verify(shopItemRepository).findByIsActiveAndIsSaleEnabledAndItemType(true, true, "EMOTICON", expectedPageable);
         }
 
         @Test
@@ -151,8 +151,7 @@ class ShopServiceTest {
             ShopItemResponse response = shopService.getShopItems("", pageable);
 
             assertThat(response.getContent()).isEmpty();
-            verify(shopItemRepository, never()).findByIsActive(any(), any());
-            verify(shopItemRepository, never()).findByIsActiveAndItemTypeIn(any(), any(), any());
+            verify(shopItemRepository, never()).findByIsActiveAndIsSaleEnabledAndItemTypeIn(any(), any(), any(), any());
         }
 
         @Test
@@ -162,13 +161,13 @@ class ShopServiceTest {
             Pageable expectedPageable = PageRequest.of(0, 20, Sort.by(Sort.Order.asc("itemId")));
             Set<String> supportedTypes = Set.of("EMOTICON", "DECORATION");
             when(shopEntitlementCapabilityRegistry.getSupportedItemTypes()).thenReturn(supportedTypes);
-            when(shopItemRepository.findByIsActiveAndItemTypeIn(true, supportedTypes, expectedPageable))
+            when(shopItemRepository.findByIsActiveAndIsSaleEnabledAndItemTypeIn(true, true, supportedTypes, expectedPageable))
                     .thenReturn(new PageImpl<>(List.of(emoticonItem, decorationItem), expectedPageable, 2));
 
             ShopItemResponse response = shopService.getShopItems(null, pageable);
 
             assertThat(response.getContent()).hasSize(2);
-            verify(shopItemRepository).findByIsActiveAndItemTypeIn(true, supportedTypes, expectedPageable);
+            verify(shopItemRepository).findByIsActiveAndIsSaleEnabledAndItemTypeIn(true, true, supportedTypes, expectedPageable);
         }
 
         @Test
@@ -178,14 +177,14 @@ class ShopServiceTest {
             Pageable expectedPageable = PageRequest.of(0, 20, Sort.by(Sort.Order.asc("itemId")));
             Set<String> supportedTypes = Set.of("EMOTICON", "DECORATION");
             when(shopEntitlementCapabilityRegistry.getSupportedItemTypes()).thenReturn(supportedTypes);
-            when(shopItemRepository.findByIsActiveAndItemTypeIn(true, supportedTypes, expectedPageable))
+            when(shopItemRepository.findByIsActiveAndIsSaleEnabledAndItemTypeIn(true, true, supportedTypes, expectedPageable))
                     .thenReturn(new PageImpl<>(List.of(emoticonItem, decorationItem), expectedPageable, 2));
 
             ShopItemResponse response = shopService.getShopItems("   ", pageable);
 
             assertThat(response.getContent()).hasSize(2);
             verify(shopEntitlementCapabilityRegistry, never()).supports(anyString());
-            verify(shopItemRepository).findByIsActiveAndItemTypeIn(true, supportedTypes, expectedPageable);
+            verify(shopItemRepository).findByIsActiveAndIsSaleEnabledAndItemTypeIn(true, true, supportedTypes, expectedPageable);
         }
 
         @Test
@@ -198,7 +197,7 @@ class ShopServiceTest {
 
             assertThat(response.getContent()).isEmpty();
             verify(shopEntitlementCapabilityRegistry, never()).supports(anyString());
-            verify(shopItemRepository, never()).findByIsActiveAndItemType(any(), anyString(), any());
+            verify(shopItemRepository, never()).findByIsActiveAndIsSaleEnabledAndItemType(any(), any(), anyString(), any());
         }
 
         @Test
@@ -213,7 +212,7 @@ class ShopServiceTest {
                     .extracting("errorCode")
                     .isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
 
-            verify(shopItemRepository, never()).findByIsActiveAndItemType(any(), anyString(), any());
+            verify(shopItemRepository, never()).findByIsActiveAndIsSaleEnabledAndItemType(any(), any(), anyString(), any());
         }
 
         @Test
@@ -534,6 +533,23 @@ class ShopServiceTest {
                     .isEqualTo(ErrorCode.ITEM_NOT_AVAILABLE);
 
             verifyNoInteractions(pointService);
+            verify(purchaseHistoryRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("Blocks sale-suspended items")
+        void purchaseItem_saleSuspendedItem() {
+            emoticonItem.suspendSale();
+            when(userRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(user));
+            when(shopItemRepository.findByIdForUpdate(2L)).thenReturn(Optional.of(emoticonItem));
+
+            assertThatThrownBy(() -> shopService.purchaseItem(1L, 2L))
+                    .isInstanceOf(BusinessException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(ErrorCode.ITEM_NOT_AVAILABLE);
+
+            verifyNoInteractions(pointService);
+            verify(shopEntitlementCapabilityRegistry, never()).preparePurchase(any(User.class), any(ShopItem.class));
             verify(purchaseHistoryRepository, never()).save(any());
         }
 

@@ -18,15 +18,38 @@ public interface ShopItemRepository extends JpaRepository<ShopItem, Long> {
     @Query("SELECT si FROM ShopItem si WHERE si.itemId = :itemId")
     Optional<ShopItem> findByIdForUpdate(@Param("itemId") Long itemId);
 
-    Page<ShopItem> findByIsActiveAndItemType(Boolean isActive, String itemType, Pageable pageable);
-    Page<ShopItem> findByIsActiveAndItemTypeIn(Boolean isActive, Collection<String> itemTypes, Pageable pageable);
-    Page<ShopItem> findByIsActive(Boolean isActive, Pageable pageable);
-    List<ShopItem> findByIsActive(Boolean isActive);
-    List<ShopItem> findTop2ByIsActiveAndItemTypeAndTargetId(
+    Page<ShopItem> findByIsActiveAndIsSaleEnabledAndItemType(
             Boolean isActive,
+            Boolean isSaleEnabled,
+            String itemType,
+            Pageable pageable);
+    Page<ShopItem> findByIsActiveAndIsSaleEnabledAndItemTypeIn(
+            Boolean isActive,
+            Boolean isSaleEnabled,
+            Collection<String> itemTypes,
+            Pageable pageable);
+    List<ShopItem> findByIsActive(Boolean isActive);
+    List<ShopItem> findTop2ByIsActiveAndIsSaleEnabledAndItemTypeAndTargetId(
+            Boolean isActive,
+            Boolean isSaleEnabled,
             String itemType,
             Long targetId);
     List<ShopItem> findByItemTypeAndTargetId(String itemType, Long targetId);
+
+    @Query("""
+            SELECT si
+            FROM ShopItem si
+            WHERE (:query IS NULL OR LOCATE(LOWER(:query), LOWER(si.itemName)) > 0)
+              AND (:itemType IS NULL OR si.itemType = :itemType)
+              AND (:isActive IS NULL OR si.isActive = :isActive)
+              AND (:isSaleEnabled IS NULL OR si.isSaleEnabled = :isSaleEnabled)
+            """)
+    Page<ShopItem> searchAdminItems(
+            @Param("query") String query,
+            @Param("itemType") String itemType,
+            @Param("isActive") Boolean isActive,
+            @Param("isSaleEnabled") Boolean isSaleEnabled,
+            Pageable pageable);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
