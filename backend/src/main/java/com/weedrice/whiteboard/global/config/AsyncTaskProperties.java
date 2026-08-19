@@ -11,6 +11,7 @@ public class AsyncTaskProperties {
 
     private Pool durable = new Pool(4, 8, 200);
     private Pool notification = new Pool(4, 8, 200);
+    private Pool stream = new Pool(1, 2, 50);
     private Pool observability = new Pool(2, 4, 100);
     private int awaitTerminationSeconds = 30;
 

@@ -35,6 +35,11 @@ public class AsyncConfig implements AsyncConfigurer {
         return createExecutor("notification", properties.getNotification(), RejectionOutcome.EXCEPTION);
     }
 
+    @Bean(name = "streamTaskExecutor")
+    public ThreadPoolTaskExecutor streamTaskExecutor() {
+        return createExecutor("stream", properties.getStream(), RejectionOutcome.DROPPED);
+    }
+
     @Bean(name = "observabilityTaskExecutor")
     public ThreadPoolTaskExecutor observabilityTaskExecutor() {
         return createExecutor("observability", properties.getObservability(), RejectionOutcome.DROPPED);

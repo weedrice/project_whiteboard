@@ -44,6 +44,12 @@ class AsyncExecutionPolicyTest {
         assertThat(executor.getCorePoolSize()).isEqualTo(2);
         assertThat(executor.getMaxPoolSize()).isEqualTo(4);
         assertThat(executor.getThreadPoolExecutor().getQueue().remainingCapacity()).isEqualTo(100);
+
+        executor.shutdown();
+        executor = config.streamTaskExecutor();
+        assertThat(executor.getCorePoolSize()).isEqualTo(1);
+        assertThat(executor.getMaxPoolSize()).isEqualTo(2);
+        assertThat(executor.getThreadPoolExecutor().getQueue().remainingCapacity()).isEqualTo(50);
     }
 
     @Test
@@ -101,6 +107,21 @@ class AsyncExecutionPolicyTest {
 
         assertThat(ran).hasValue(false);
         assertThat(rejectionCount("observability", "dropped")).isEqualTo(1.0);
+        release.countDown();
+    }
+
+    @Test
+    void streamExecutorDropsRejectedTaskForPollingFallback() throws InterruptedException {
+        AsyncTaskProperties properties = new AsyncTaskProperties();
+        properties.setStream(new AsyncTaskProperties.Pool(1, 1, 0));
+        executor = new AsyncConfig(properties, meterRegistry).streamTaskExecutor();
+        CountDownLatch release = occupySingleThread(executor);
+        AtomicReference<Boolean> ran = new AtomicReference<>(false);
+
+        executor.execute(() -> ran.set(true));
+
+        assertThat(ran).hasValue(false);
+        assertThat(rejectionCount("stream", "dropped")).isEqualTo(1.0);
         release.countDown();
     }
 
