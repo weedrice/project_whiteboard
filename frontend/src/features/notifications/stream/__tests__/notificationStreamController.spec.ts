@@ -147,6 +147,42 @@ describe('notificationStreamController dependencies', () => {
         stop()
     })
 
+    it('invalidates shop and emoticon availability when an admin changes sale status', async () => {
+        const openStream = vi.fn().mockResolvedValue({
+            ok: true,
+            body: createSseStream(
+                'event: shop-item-sale-status-changed\ndata: {"itemId":17,"itemType":"EMOTICON","targetId":9,"saleEnabled":false}\n\n',
+            ),
+        } as Response)
+        const queryClient = {
+            setQueriesData: vi.fn(),
+            setQueryData: vi.fn(),
+            invalidateQueries: vi.fn(),
+        } as unknown as QueryClient
+        const controller = createNotificationStreamController(queryClient, {
+            openStream,
+            resolveAuthStore: (() => ({ accessToken: 'token', sessionGeneration: 7 })) as never,
+        })
+
+        controller.connectToSse()
+        await flushAsync()
+
+        expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
+            queryKey: ['shop', 'items'],
+        })
+        expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
+            queryKey: ['session', 7, 'admin', 'shop-items'],
+        })
+        expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
+            queryKey: ['emoticon', 9],
+        })
+        expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
+            queryKey: ['session', 7, 'emoticon', 9, 'purchased'],
+        })
+
+        controller.closeSse()
+    })
+
     it('emits a message stream event only once for a duplicate notification', async () => {
         const notification: Notification = {
             notificationId: 42,

@@ -53,6 +53,11 @@ describe('shop resources', () => {
 
     expect((pageQueryOptions[0]?.queryKey as { value: unknown[] }).value).toEqual(['shop', 'items', 0, 12, ''])
     expect((pageQueryOptions[1]?.queryKey as { value: unknown[] }).value).toEqual(['shop', 'purchases', 2, 15])
+    expect(pageQueryOptions[0]).toMatchObject({
+      refetchInterval: 30_000,
+      refetchOnWindowFocus: 'always',
+      refetchOnReconnect: 'always',
+    })
   })
 
   it('keeps refs out of factories and updates computed consumer keys', () => {

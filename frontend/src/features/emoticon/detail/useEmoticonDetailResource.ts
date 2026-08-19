@@ -10,6 +10,7 @@ import { useToggleEmoticonVisibility } from '@/features/emoticon/useToggleEmotic
 import { useEmoticonPermissions } from '@/features/emoticon/detail/useEmoticonPermissions'
 import { useEmoticonDetailViewModel } from '@/features/emoticon/detail/useEmoticonDetailViewModel'
 import { emoticonQueryKeys } from '@/features/emoticon/emoticonQueryKeys'
+import { SHOP_SALE_AVAILABILITY_REFETCH_INTERVAL_MS } from '@/features/shop/shopAvailability'
 import { userQueryKeys } from '@/features/user/userQueryKeys'
 import { extractErrorMessage } from '@/utils/errorHandler'
 import { callWithOptionalQuerySignal } from '@/utils/querySignal'
@@ -51,6 +52,9 @@ export function useEmoticonDetailResource(emoticonId: ComputedRef<number>) {
     ) as Promise<AxiosResponse<ApiResponse<EmoticonPurchaseStatus>>>,
     enabled: computed(() => !!emoticonId.value),
     meta: AUTH_SCOPED_QUERY_META,
+    refetchInterval: SHOP_SALE_AVAILABILITY_REFETCH_INTERVAL_MS,
+    refetchOnWindowFocus: 'always',
+    refetchOnReconnect: 'always',
   })
 
   const emoticonView = useEmoticonDetailViewModel(emoticon)

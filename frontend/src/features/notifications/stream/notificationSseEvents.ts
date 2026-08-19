@@ -20,6 +20,8 @@ export const NOTIFICATION_SSE_EVENTS = {
     COMMENT_TOPIC_INVALIDATED: 'comment-topic-invalidated',
     /** 댓글 구독 대상 접근 권한 상실. */
     COMMENT_TOPIC_ACCESS_REVOKED: 'comment-topic-access-revoked',
+    /** 관리자에 의한 상점 아이템 판매 상태 변경. */
+    SHOP_ITEM_SALE_STATUS_CHANGED: 'shop-item-sale-status-changed',
 } as const
 
 /**

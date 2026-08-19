@@ -151,6 +151,7 @@ describe('useApiQuery', () => {
     useApiPageQuery({
       queryKey: ['page'],
       request,
+      refetchInterval: 30_000,
       selectData: page => ({
         ids: page.content.map(item => item.id),
         number: page.number,
@@ -166,6 +167,7 @@ describe('useApiQuery', () => {
       last: true,
     })
     expect(typeof options.placeholderData).toBe('function')
+    expect(options.refetchInterval).toBe(30_000)
     expect((options.placeholderData as (previousData: unknown) => unknown)('previous-page')).toBe('previous-page')
   })
 

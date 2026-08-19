@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/vue-query'
 import { shopApi, type ShopItemPageParams, type ShopPageParams } from '@/api/shop'
 import { useApiPageQuery } from '@/composables/useApiQuery'
 import { shopQueryKeys } from '@/features/shop/shopQueryKeys'
+import { SHOP_SALE_AVAILABILITY_REFETCH_INTERVAL_MS } from '@/features/shop/shopAvailability'
 import { userQueryKeys } from '@/features/user/userQueryKeys'
 import { withQuerySignal } from '@/utils/querySignal'
 import {
@@ -19,6 +20,9 @@ export function useShopItems(params: Ref<ShopItemPageParams>) {
   return useApiPageQuery({
     queryKey: computed(() => shopQueryKeys.items(params.value)),
     request: (context) => shopApi.getItems(params.value, withQuerySignal(undefined, context)),
+    refetchInterval: SHOP_SALE_AVAILABILITY_REFETCH_INTERVAL_MS,
+    refetchOnWindowFocus: 'always',
+    refetchOnReconnect: 'always',
   })
 }
 

@@ -27,6 +27,17 @@ import { setNotificationStreamConnection } from '@/features/notifications/stream
 import { emitMessageStreamEvent } from '@/features/user/messages/messageStreamEvents'
 import { invalidateScheduledPostNotificationCaches } from '@/features/board/posts/queries/scheduledPostNotificationCacheInvalidation'
 import { NOTIFICATION_SSE_EVENTS, SSE_DEFAULT_EVENT_NAME } from '@/features/notifications/stream/notificationSseEvents'
+import { shopQueryKeys } from '@/features/shop/shopQueryKeys'
+import { adminQueryKeys } from '@/features/admin/queries/adminQueryKeys'
+import { emoticonQueryKeys } from '@/features/emoticon/emoticonQueryKeys'
+import { sessionQueryKey } from '@/queryAuthScope'
+
+interface ShopItemSaleStatusChangedEvent {
+    itemId: number
+    itemType: string
+    targetId: number | null
+    saleEnabled: boolean
+}
 
 function isAbortError(error: unknown): boolean {
     return isCancellationError(error, {
@@ -123,6 +134,10 @@ export function createNotificationStreamController(
             }
             return
         }
+        if (eventType === NOTIFICATION_SSE_EVENTS.SHOP_ITEM_SALE_STATUS_CHANGED) {
+            handleShopItemSaleStatusChanged(payload, sessionGeneration)
+            return
+        }
         // SSE 규격상 event: 줄이 없는 프레임은 'message'로 도착하므로 함께 받는다.
         if (eventType !== NOTIFICATION_SSE_EVENTS.NOTIFICATION && eventType !== SSE_DEFAULT_EVENT_NAME) return
 
@@ -145,6 +160,35 @@ export function createNotificationStreamController(
             }
         } catch (error: unknown) {
             logger.error('Failed to parse SSE notification:', error)
+        }
+    }
+
+    const handleShopItemSaleStatusChanged = (payload: string, sessionGeneration: number) => {
+        try {
+            const event = JSON.parse(payload) as Partial<ShopItemSaleStatusChangedEvent>
+            if (resolveAuthStore().sessionGeneration !== sessionGeneration) return
+            if (typeof event.itemId !== 'number' || typeof event.itemType !== 'string') return
+            if (event.targetId !== null && typeof event.targetId !== 'number') return
+            if (typeof event.saleEnabled !== 'boolean') return
+
+            void queryClient.invalidateQueries({ queryKey: shopQueryKeys.itemsRoot })
+            void queryClient.invalidateQueries({
+                queryKey: sessionQueryKey(sessionGeneration, adminQueryKeys.shopItemsRoot),
+            })
+
+            if (event.itemType === 'EMOTICON' && event.targetId !== null) {
+                void queryClient.invalidateQueries({
+                    queryKey: emoticonQueryKeys.detail(event.targetId),
+                })
+                void queryClient.invalidateQueries({
+                    queryKey: sessionQueryKey(
+                        sessionGeneration,
+                        emoticonQueryKeys.purchaseStatus(event.targetId),
+                    ),
+                })
+            }
+        } catch (error: unknown) {
+            logger.error('Failed to parse SSE shop sale status event:', error)
         }
     }
 

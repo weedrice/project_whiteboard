@@ -56,6 +56,7 @@ interface ApiPageQueryOptions<TItem, TData = PageResponse<TItem>> extends ApiQue
   selectData?: (data: PageResponse<TItem>) => TData
   enabled?: QueryEnabled
   staleTime?: number
+  refetchInterval?: number
   keepPreviousData?: boolean
 }
 
@@ -164,6 +165,7 @@ export function useApiPageQuery<TItem, TData = PageResponse<TItem>>({
   selectData,
   enabled,
   staleTime,
+  refetchInterval,
   keepPreviousData = true,
   ...queryOptions
 }: ApiPageQueryOptions<TItem, TData>) {
@@ -177,6 +179,7 @@ export function useApiPageQuery<TItem, TData = PageResponse<TItem>>({
     },
     enabled,
     staleTime,
+    refetchInterval,
     placeholderData: previousDataPlaceholder(
       keepPreviousData && queryOptions.meta?.authScoped !== true,
     ),

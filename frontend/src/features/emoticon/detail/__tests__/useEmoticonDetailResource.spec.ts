@@ -94,6 +94,11 @@ describe('useEmoticonDetailResource', () => {
     expect((purchaseOptions.queryKey as ComputedRef<unknown[]>).value).toEqual(['emoticon', 11, 'purchased'])
     expect((detailOptions.enabled as ComputedRef<boolean>).value).toBe(true)
     expect((purchaseOptions.enabled as ComputedRef<boolean>).value).toBe(true)
+    expect(purchaseOptions).toMatchObject({
+      refetchInterval: 30_000,
+      refetchOnWindowFocus: 'always',
+      refetchOnReconnect: 'always',
+    })
 
     mocks.getEmoticon.mockResolvedValueOnce(emoticonApiData({ emoticonId: 11 }))
     mocks.checkPurchaseStatus.mockResolvedValueOnce(emoticonApiData({ purchased: false, available: true, price: 100 }))
