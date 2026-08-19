@@ -1,4 +1,7 @@
+import { fileURLToPath } from 'node:url'
 import { defineConfig, devices } from '@playwright/test'
+
+const frontendRoot = fileURLToPath(new URL('./', import.meta.url))
 
 export default defineConfig({
   testDir: './e2e',
@@ -23,6 +26,7 @@ export default defineConfig({
   ],
   webServer: {
     command: 'npm run preview -- --host 127.0.0.1',
+    cwd: frontendRoot,
     url: 'http://127.0.0.1:4173',
     reuseExistingServer: !process.env.CI,
     timeout: 60_000,

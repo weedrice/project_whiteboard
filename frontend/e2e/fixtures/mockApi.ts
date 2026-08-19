@@ -1,11 +1,7 @@
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 import type { Page, Route } from '@playwright/test'
+import { readUtf8ContentDispositionContract } from '../../test-support/fileDownloadContract'
 
-const utf8ContentDispositionContract = readFileSync(
-  resolve(process.cwd(), '../backend/src/test/resources/contracts/file-download-content-disposition-utf8.txt'),
-  'utf8',
-).trim()
+const utf8ContentDispositionContract = readUtf8ContentDispositionContract()
 
 export const mockUser = {
   userId: 7,

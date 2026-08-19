@@ -1,15 +1,12 @@
-import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   resolveAuthenticatedFileDisposition,
   resolveAuthenticatedFileRequestPath,
 } from '@/utils/authenticatedFile'
+import { readUtf8ContentDispositionContract } from '../../../test-support/fileDownloadContract'
 
-const utf8ContentDispositionContract = readFileSync(
-  resolve(process.cwd(), '../backend/src/test/resources/contracts/file-download-content-disposition-utf8.txt'),
-  'utf8',
-).trim()
+const utf8ContentDispositionContract = readUtf8ContentDispositionContract()
 
 describe('authenticatedFile', () => {
   it('resolves same-origin file and variant API paths', () => {
@@ -47,6 +44,11 @@ describe('authenticatedFile', () => {
       forceDownload: true,
       fileName: '보고서.pdf',
     })
+  })
+
+  it('loads the shared contract from a nested working directory', () => {
+    expect(readUtf8ContentDispositionContract(resolve(process.cwd(), 'src', 'utils')))
+      .toBe(utf8ContentDispositionContract)
   })
 
   it('does not force inline responses to download', () => {
