@@ -8,6 +8,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -55,6 +57,22 @@ class FileDownloadResponseAssemblerTest {
         ResponseEntity<Resource> response = FileDownloadResponseAssembler.toResponse(download("bad/name\r\n.txt", "text/plain"));
 
         assertThat(response.getHeaders().getFirst(HttpHeaders.CONTENT_DISPOSITION)).contains("bad_name_.txt");
+    }
+
+    @Test
+    void toResponse_matchesSharedUtf8ContentDispositionContract() throws IOException {
+        ResponseEntity<Resource> response = FileDownloadResponseAssembler.toResponse(
+                download("보고서.pdf", "application/pdf"));
+
+        String expectedHeader;
+        try (var input = getClass().getResourceAsStream(
+                "/contracts/file-download-content-disposition-utf8.txt")) {
+            assertThat(input).isNotNull();
+            expectedHeader = new String(input.readAllBytes(), StandardCharsets.UTF_8).trim();
+        }
+
+        assertThat(response.getHeaders().getFirst(HttpHeaders.CONTENT_DISPOSITION))
+                .isEqualTo(expectedHeader);
     }
 
     @Test
