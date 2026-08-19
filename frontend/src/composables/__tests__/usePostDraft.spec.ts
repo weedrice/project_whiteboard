@@ -1316,6 +1316,16 @@ describe('usePostDraft', () => {
         expect(mocks.saveDraftMutateAsync).toHaveBeenCalledTimes(1)
     })
 
+    it('cancels a pending autosave when saving immediately', async () => {
+        const { composable } = mountComposable()
+
+        composable.scheduleAutosave()
+        await composable.saveNow()
+        await vi.advanceTimersByTimeAsync(1500)
+
+        expect(mocks.saveDraftMutateAsync).toHaveBeenCalledTimes(1)
+    })
+
     it('cancels a pending autosave when drafts are disabled', async () => {
         const enabled = ref(true)
         const { composable } = mountComposable(undefined, ref('noviis:test:draft'), enabled)

@@ -459,6 +459,7 @@ export function usePostDraft(options: UsePostDraftOptions) {
     }
 
     async function saveNow() {
+        clearAutosaveTimer()
         if (draftConflict.value || draftProtected.value || draftDeleted.value || options.canPersist?.() === false) return null
         if (savePromise) {
             saveQueued = true
