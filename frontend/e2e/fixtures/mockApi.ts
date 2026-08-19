@@ -193,6 +193,16 @@ export async function installMockApi(
     if (path === '/boards/general/categories') return json(route, apiResponse([]))
     if (path === '/boards/general' && method === 'GET') return json(route, apiResponse(board))
     if (path === '/boards') return json(route, apiResponse([board]))
+    if (path === '/files/31' && method === 'GET') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/pdf',
+        headers: {
+          'Content-Disposition': "attachment; filename*=UTF-8''%EB%B3%B4%EA%B3%A0%EC%84%9C.pdf",
+        },
+        body: 'mock-pdf',
+      })
+    }
     if (path === '/posts/1' && method === 'GET') {
       const contents = state.postContents ?? post.contents
       return json(route, apiResponse({ ...post, contents, content: contents }))
