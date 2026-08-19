@@ -37,6 +37,9 @@ export const adminQueryKeys = {
     errorLogDetail: (errorLogId: number | null) => ['admin', 'error-logs', 'detail', errorLogId] as const,
     errorLogDetailById: (errorLogId: number) => ['admin', 'error-logs', 'detail', errorLogId] as const,
     errorLogStats: ['admin', 'error-log-stats'] as const,
+    shopItemsRoot: ['admin', 'shop-items'] as const,
+    shopItems: <TParams extends object>(params: TParams) =>
+        ['admin', 'shop-items', snapshotParams(params)] as const,
 }
 
 export const adminInquiryQueryKeys = {

@@ -24,6 +24,7 @@ export const adminCoreMessages = {
     settings: '전역 설정',
     errorLogs: '에러 로그',
     commonCodes: '공통 코드',
+    shop: '상점 관리',
   },
   dashboard: {
     title: '대시보드',
@@ -66,7 +67,8 @@ export const adminCoreMessages = {
       POST_AUTO_BLIND: '게시글 자동 숨김', COMMENT_AUTO_BLIND: '댓글 자동 숨김', REPORT_RESOLVE: '신고 처리', REPORT_REJECT: '신고 반려',
       USER_ACTIVATE: '사용자 활성화', USER_SUSPEND: '사용자 정지', SUPER_ADMIN_GRANT: '최고 관리자 부여', SUPER_ADMIN_REVOKE: '최고 관리자 해제',
       BOARD_DEACTIVATE: '스페이스 비활성화',
+      SHOP_ITEM_SALE_SUSPEND: '상점 아이템 판매 중지', SHOP_ITEM_SALE_RESUME: '상점 아이템 판매 재개',
     },
-    auditTargets: { POST: '게시글', COMMENT: '댓글', REPORT: '신고', USER: '사용자', BOARD: '스페이스' },
+    auditTargets: { POST: '게시글', COMMENT: '댓글', REPORT: '신고', USER: '사용자', BOARD: '스페이스', SHOP_ITEM: '상점 아이템' },
   },
 } satisfies Pick<AdminMessages, 'common' | 'layout' | 'menu' | 'dashboard'>

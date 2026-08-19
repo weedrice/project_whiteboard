@@ -16,6 +16,7 @@
 import type { components } from '@/types/generated/api'
 import type { Comment } from '@/types/comment'
 import type { BoardListItem, Post, PostSummary } from '@/types/board'
+import type { AdminShopItem } from '@/types/admin'
 
 type Schemas = components['schemas']
 
@@ -73,6 +74,9 @@ type _Comment = Assert<WireAssignableToHand<Schemas['CommentResponse'], Comment>
 type _BoardListShared = Assert<HasSharedKeys<Schemas['BoardListResponse'], BoardListItem>>
 type _BoardList = Assert<WireAssignableToHand<Schemas['BoardListResponse'], BoardListItem>>
 
+type _AdminShopItemShared = Assert<HasSharedKeys<Schemas['AdminShopItemResponse'], AdminShopItem>>
+type _AdminShopItem = Assert<WireAssignableToHand<Schemas['AdminShopItemResponse'], AdminShopItem>>
+
 /**
  * A8이 정리한 boolean 키가 스키마에 그대로 있는지 본다.
  * 위 구조 검사는 이름 변경을 못 잡으므로, 중요한 키는 여기서 이름을 직접 못 박는다.
@@ -81,6 +85,19 @@ type _A8PostNotice = Assert<Schemas['PostResponse'] extends { isNotice?: boolean
 type _A8PostLiked = Assert<Schemas['PostResponse'] extends { isLiked?: boolean } ? true : false>
 type _A8CommentDeleted = Assert<Schemas['CommentResponse'] extends { isDeleted?: boolean } ? true : false>
 type _A8BoardActive = Assert<Schemas['BoardListResponse'] extends { isActive?: boolean } ? true : false>
+type _AdminShopSaleFlags = Assert<
+    Schemas['AdminShopItemResponse'] extends {
+        isActive?: boolean
+        isSaleEnabled?: boolean
+        purchasable?: boolean
+    } ? true : false
+>
+type _AdminShopSaleStatusRequest = Assert<
+    Schemas['AdminShopItemSaleStatusRequest'] extends {
+        saleEnabled: boolean
+        reason: string
+    } ? true : false
+>
 
 /** 접두사가 떨어진 legacy 필드는 이번 정리 대상이 아니므로 그대로여야 한다. */
 type _LegacySummaryNotice = Assert<Schemas['PostSummary'] extends { notice?: boolean } ? true : false>

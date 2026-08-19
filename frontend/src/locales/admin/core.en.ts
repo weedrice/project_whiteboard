@@ -24,6 +24,7 @@ export const adminCoreMessagesEn = {
     settings: 'Global settings',
     errorLogs: 'Error logs',
     commonCodes: 'Common codes',
+    shop: 'Shop management',
   },
   dashboard: {
     title: 'Dashboard',
@@ -66,7 +67,8 @@ export const adminCoreMessagesEn = {
       POST_AUTO_BLIND: 'Automatically hide post', COMMENT_AUTO_BLIND: 'Automatically hide comment', REPORT_RESOLVE: 'Resolve report', REPORT_REJECT: 'Reject report',
       USER_ACTIVATE: 'Activate user', USER_SUSPEND: 'Suspend user', SUPER_ADMIN_GRANT: 'Grant super admin', SUPER_ADMIN_REVOKE: 'Revoke super admin',
       BOARD_DEACTIVATE: 'Deactivate space',
+      SHOP_ITEM_SALE_SUSPEND: 'Suspend shop item sales', SHOP_ITEM_SALE_RESUME: 'Resume shop item sales',
     },
-    auditTargets: { POST: 'Post', COMMENT: 'Comment', REPORT: 'Report', USER: 'User', BOARD: 'Space' },
+    auditTargets: { POST: 'Post', COMMENT: 'Comment', REPORT: 'Report', USER: 'User', BOARD: 'Space', SHOP_ITEM: 'Shop item' },
   },
 } satisfies Pick<AdminMessages, 'common' | 'layout' | 'menu' | 'dashboard'>

@@ -12,6 +12,7 @@ import {
   Bug,
   MessageSquare,
   ListTree,
+  Store,
 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
@@ -23,6 +24,7 @@ const navigation = computed(() => [
   { name: t('admin.menu.dashboard'), href: '/admin/dashboard', icon: LayoutDashboard },
   { name: t('admin.menu.users'), href: '/admin/users', icon: Users },
   { name: t('admin.menu.boards'), href: '/admin/boards', icon: LayoutDashboard },
+  { name: t('admin.menu.shop'), href: '/admin/shop', icon: Store },
   { name: t('admin.menu.inquiries'), href: '/admin/inquiries', icon: MessageSquare },
   { name: t('admin.menu.admins'), href: '/admin/admins', icon: UserCog },
   { name: t('admin.menu.reports'), href: '/admin/reports', icon: FileText },

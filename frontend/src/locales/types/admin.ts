@@ -26,6 +26,7 @@ export interface AdminMessages {
     settings: string
     errorLogs: string
     commonCodes: string
+    shop: string
   }
   dashboard: {
     title: string
@@ -65,6 +66,57 @@ export interface AdminMessages {
     auditCreatedAt: string
     auditActions: Record<string, string>
     auditTargets: Record<string, string>
+  }
+  shop: {
+    title: string
+    description: string
+    empty: string
+    filter: {
+      title: string
+      search: string
+      searchPlaceholder: string
+      itemType: string
+      sourceStatus: string
+      saleStatus: string
+      enabled: string
+      disabled: string
+    }
+    table: {
+      id: string
+      name: string
+      type: string
+      price: string
+      sourceStatus: string
+      saleStatus: string
+      modifiedAt: string
+      actions: string
+    }
+    status: {
+      active: string
+      inactive: string
+      onSale: string
+      suspended: string
+      sourceInactive: string
+      retired: string
+    }
+    actions: {
+      suspend: string
+      resume: string
+    }
+    modal: {
+      suspendTitle: string
+      resumeTitle: string
+      description: string
+      reason: string
+      reasonPlaceholder: string
+    }
+    messages: {
+      reasonRequired: string
+      reasonTooLong: string
+      suspended: string
+      resumed: string
+      updateFailed: string
+    }
   }
   users: {
     title: string

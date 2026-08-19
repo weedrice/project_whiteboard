@@ -166,6 +166,7 @@ export const routes: RouteRecordRaw[] = [
             { path: 'dashboard', name: 'AdminDashboard', component: () => import('@/views/admin/AdminDashboard.vue') },
             { path: 'users', name: 'UserManagement', component: () => import('@/views/admin/UserManagement.vue') },
             { path: 'boards', name: 'BoardManagement', component: () => import('@/views/admin/BoardManagement.vue') },
+            { path: 'shop', name: 'ShopManagement', component: () => import('@/views/admin/ShopManagement.vue') },
             { path: 'inquiries', name: 'InquiryManagement', component: () => import('@/views/admin/AdminInquiryPosts.vue') },
             { path: 'admins', name: 'AdminManagement', component: () => import('@/views/admin/AdminManagement.vue') },
             { path: 'reports', name: 'ReportManagement', component: () => import('@/views/admin/ReportManagement.vue') },

@@ -3,6 +3,7 @@ import { adminBoardApi } from '@/api/adminBoardApi'
 import { adminErrorLogApi } from '@/api/adminErrorLogApi'
 import { adminModerationApi } from '@/api/adminModerationApi'
 import { adminSystemApi } from '@/api/adminSystemApi'
+import { adminShopApi } from '@/api/adminShopApi'
 import { adminUserApi } from '@/api/adminUserApi'
 
 export {
@@ -25,4 +26,7 @@ export const adminApi = {
     ...adminSystemApi,
     ...adminBoardApi,
     ...adminErrorLogApi,
+    ...adminShopApi,
 }
+
+export type { AdminShopItemSaleStatusData } from '@/api/adminShopApi'

@@ -146,3 +146,28 @@ export interface ErrorLogStats {
     serverErrorCount?: number
     clientErrorCount?: number
 }
+
+export interface AdminShopItem {
+    itemId: number
+    itemName: string
+    description: string | null
+    price: number
+    itemType: string
+    targetId: number | null
+    imageUrl: string | null
+    isActive: boolean
+    isSaleEnabled: boolean
+    purchasable: boolean
+    createdAt: string
+    modifiedAt: string
+}
+
+export interface AdminShopItemSearchParams {
+    page?: number
+    size?: number
+    q?: string
+    itemType?: string
+    isActive?: boolean
+    isSaleEnabled?: boolean
+    sort?: string
+}

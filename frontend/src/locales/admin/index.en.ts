@@ -3,10 +3,12 @@ import { adminCoreMessagesEn } from './core.en'
 import { adminUserMessagesEn } from './users.en'
 import { adminModerationMessagesEn } from './moderation.en'
 import { adminSystemMessagesEn } from './system.en'
+import { adminShopMessagesEn } from './shop.en'
 
 export const adminEn: AdminMessages = {
   ...adminCoreMessagesEn,
   ...adminUserMessagesEn,
   ...adminModerationMessagesEn,
   ...adminSystemMessagesEn,
+  ...adminShopMessagesEn,
 }
