@@ -2,6 +2,7 @@ package com.weedrice.whiteboard.domain.post.service;
 
 import com.weedrice.whiteboard.domain.feed.dto.FeedPostSummary;
 import com.weedrice.whiteboard.domain.file.service.FileService;
+import com.weedrice.whiteboard.domain.file.support.FileUrlResolver;
 import com.weedrice.whiteboard.domain.post.dto.PostSummaryFields;
 import com.weedrice.whiteboard.domain.post.entity.Post;
 import lombok.RequiredArgsConstructor;
@@ -65,7 +66,7 @@ class FeedPostSummaryAssembler {
                     .extractFirstAllowedMediaFromContent(post.getContents());
             if (firstMedia != null && firstMedia.type() == PostMediaCandidate.Type.IMAGE) {
                 firstMediaType = "image";
-                firstMediaUrl = thumbnailInfo.thumbnailUrl();
+                firstMediaUrl = resolveFirstMediaImageUrl(firstMedia.url());
             } else if (firstMedia != null) {
                 firstMediaType = "video";
                 firstMediaUrl = firstMedia.url();
@@ -115,6 +116,11 @@ class FeedPostSummaryAssembler {
                 .firstMediaType(firstMediaType)
                 .firstMediaUrl(firstMediaUrl)
                 .build();
+    }
+
+    private static String resolveFirstMediaImageUrl(String candidateUrl) {
+        Long fileId = FileService.extractInternalContentFileIdFromUrl(candidateUrl);
+        return fileId == null ? candidateUrl : FileUrlResolver.resolveThumbnail(fileId);
     }
 
     private Map<Long, Long> getThumbnailFileIdsByPostId(List<Long> postIds) {

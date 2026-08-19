@@ -323,7 +323,35 @@ class PostSummaryAssemblerTest {
         FeedPostSummary summary = feedPostSummaryAssembler.assembleTrendingPosts(List.of(post), null).get(0);
 
         assertThat(summary.getFirstMediaType()).isEqualTo("image");
-        assertThat(summary.getFirstMediaUrl()).isEqualTo("/api/v1/files/78");
+        assertThat(summary.getFirstMediaUrl()).isEqualTo("/api/v1/files/78/variants/thumbnail");
+    }
+
+    @Test
+    void assembleTrendingPosts_keepsContentImageIdentitySeparateFromListThumbnail() {
+        when(fileService.getFirstImageFileIdsForPosts(anyList()))
+                .thenReturn(Map.of(100L, 55L));
+
+        User author = User.builder().displayName("Author").build();
+        ReflectionTestUtils.setField(author, "userId", 1L);
+        Board board = Board.builder()
+                .boardName("Free")
+                .boardUrl("free")
+                .creator(author)
+                .build();
+        ReflectionTestUtils.setField(board, "boardId", 10L);
+        Post post = Post.builder()
+                .title("Title")
+                .contents("<img src=\"/api/v1/files/78\">")
+                .user(author)
+                .board(board)
+                .build();
+        ReflectionTestUtils.setField(post, "postId", 100L);
+
+        FeedPostSummary summary = feedPostSummaryAssembler.assembleTrendingPosts(List.of(post), null).get(0);
+
+        assertThat(summary.getThumbnailUrl()).isEqualTo("/api/v1/files/55/variants/thumbnail");
+        assertThat(summary.getFirstMediaType()).isEqualTo("image");
+        assertThat(summary.getFirstMediaUrl()).isEqualTo("/api/v1/files/78/variants/thumbnail");
     }
 
     @Test
