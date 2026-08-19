@@ -443,6 +443,20 @@ tests:
             exp_annotations:
               summary: "Async executor notification has no queue capacity remaining"
 
+  - name: cross-instance shop relay failures are observable
+    interval: 1m
+    input_series:
+      - series: 'noviis_shop_stream_relay_publish_failures_total'
+        values: '0 1+0x4'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: NoviIsShopStreamRelayFailure
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: "Cross-instance shop status relay failed"
+
   - name: enabled host exporter and filesystem headroom are monitored
     interval: 1m
     input_series:

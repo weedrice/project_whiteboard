@@ -81,7 +81,8 @@ server:
 management:
   health:
     redis:
-      enabled: ${APP_SHOP_STREAM_REDIS_ENABLED:false}
+      # The relay is best-effort. Redis loss must not make the core API unhealthy.
+      enabled: false
   server:
     address: 127.0.0.1
     port: 8081

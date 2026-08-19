@@ -254,6 +254,12 @@ groups:
         for: 5m
         labels: { severity: warning }
         annotations: { summary: "Async executor {{ $labels.executor }} has no queue capacity remaining" }
+      - alert: NoviIsShopStreamRelayFailure
+        expr: >-
+          increase(noviis_shop_stream_relay_publish_failures_total[5m]) > 0
+          or increase(noviis_shop_stream_relay_receive_failures_total[5m]) > 0
+        labels: { severity: warning }
+        annotations: { summary: "Cross-instance shop status relay failed" }
       - alert: NoviIsWebPushDeliveryFailureHigh
         expr: >-
           sum(increase(noviis_webpush_delivery_total{outcome=~"timeout|retryable_failure|permanent_failure"}[15m]))

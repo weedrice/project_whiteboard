@@ -95,6 +95,8 @@ Semantic reindexing exposes failed jobs and result-labelled processed outcomes i
 
 Async executor metrics expose active workers, queue depth, remaining queue capacity, and rejection outcomes. Durable rejection is critical because durable work was not accepted. Notification rejection is a warning: durable notification jobs remain available to the scheduler, while best-effort push dispatch may be skipped without moving external I/O onto the caller thread. Observability drops are warning-level data loss. Sustained zero remaining capacity while work is active raises a separate saturation alert. `required-backend-metrics.txt` is the canonical startup metric contract and `verify-required-backend-metrics.py` prevents its `absent()` checks from drifting.
 
+Shop sale-status streaming keeps local SSE delivery available when the optional Redis relay is disabled or unavailable. Redis is therefore excluded from the aggregate backend health status. Relay publish or receive failures raise `NoviIsShopStreamRelayFailure`, while the Grafana SSE panel shows relay failures and per-client shop SSE delivery failures together. The frontend polling fallback remains the final convergence path during a relay incident.
+
 Generic Micrometer series such as JVM, HTTP server, and HikariCP metrics are always scoped to `job="noviis-backend"` in alert rules. A separately scraped Java process must neither suppress a missing-backend-metric alert nor contribute traffic, heap, or pool utilization to a NoviIs backend alert. Prometheus rule fixtures include an unrelated Java target to preserve this isolation.
 
 The documented startup metric contract is generated and reviewed as this exact set:
