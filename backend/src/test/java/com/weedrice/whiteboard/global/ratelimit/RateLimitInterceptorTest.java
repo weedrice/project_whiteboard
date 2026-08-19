@@ -3,6 +3,7 @@ package com.weedrice.whiteboard.global.ratelimit;
 import tools.jackson.databind.ObjectMapper;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.weedrice.whiteboard.global.common.util.ClientIpResolver;
+import com.weedrice.whiteboard.global.security.AgentPrincipal;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import io.github.bucket4j.Bandwidth;
 import io.github.bucket4j.Bucket;
@@ -168,6 +169,33 @@ class RateLimitInterceptorTest {
         assertThat(response.getHeader(RateLimitHeaderWriter.HEADER_LIMIT)).isEqualTo("60");
         verify(rateLimitConfig).createMentionCandidateBucket();
         verify(rateLimitConfig, never()).createUserBucket();
+    }
+
+    @Test
+    @DisplayName("인증 에이전트는 같은 IP에서도 에이전트별 버킷을 사용한다")
+    void preHandle_authenticatedAgentsUseIndependentAgentBuckets() throws Exception {
+        RateLimitInterceptor interceptor = newInterceptor(new RateLimitProperties());
+        MockHttpServletRequest firstAgentRequest =
+                new MockHttpServletRequest("POST", "/api/v1/agents/posts");
+        MockHttpServletRequest secondAgentRequest =
+                new MockHttpServletRequest("POST", "/api/v1/agents/posts");
+
+        when(clientIpResolver.resolve(firstAgentRequest)).thenReturn("203.0.113.22");
+        when(clientIpResolver.resolve(secondAgentRequest)).thenReturn("203.0.113.22");
+        when(rateLimitConfig.createUserBucket()).thenAnswer(ignored -> oneRequestBucket());
+        when(rateLimitConfig.getUserLimit()).thenReturn(1);
+        when(messageSource.getMessage(eq("error.common.rateLimitExceeded"), isNull(), any(Locale.class)))
+                .thenReturn("Too many requests");
+
+        authenticateAgent(101L);
+        assertThat(interceptor.preHandle(firstAgentRequest, new MockHttpServletResponse(), new Object())).isTrue();
+        assertThat(interceptor.preHandle(firstAgentRequest, new MockHttpServletResponse(), new Object())).isFalse();
+
+        authenticateAgent(202L);
+        assertThat(interceptor.preHandle(secondAgentRequest, new MockHttpServletResponse(), new Object())).isTrue();
+
+        verify(rateLimitConfig, times(2)).createUserBucket();
+        verify(rateLimitConfig, never()).createApiBucket();
     }
 
     @Test
@@ -340,5 +368,11 @@ class RateLimitInterceptorTest {
                 messageSource,
                 clientIpResolver,
                 registry);
+    }
+
+    private void authenticateAgent(Long agentId) {
+        AgentPrincipal principal = new AgentPrincipal(agentId, 1L, "agent-" + agentId, "ACTIVE");
+        Authentication authentication = new UsernamePasswordAuthenticationToken(principal, null, List.of());
+        SecurityContextHolder.getContext().setAuthentication(authentication);
     }
 }

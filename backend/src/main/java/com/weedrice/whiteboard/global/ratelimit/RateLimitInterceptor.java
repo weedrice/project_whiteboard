@@ -4,6 +4,7 @@ import tools.jackson.databind.ObjectMapper;
 import com.weedrice.whiteboard.global.common.ApiResponse;
 import com.weedrice.whiteboard.global.common.util.ClientIpResolver;
 import com.weedrice.whiteboard.global.exception.ErrorCode;
+import com.weedrice.whiteboard.global.security.AgentPrincipal;
 import com.weedrice.whiteboard.global.security.CustomUserDetails;
 import io.github.bucket4j.Bucket;
 import io.github.bucket4j.ConsumptionProbe;
@@ -126,8 +127,14 @@ public class RateLimitInterceptor implements HandlerInterceptor {
         }
 
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication != null && authentication.getPrincipal() instanceof CustomUserDetails) {
-            CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+        if (authentication != null && authentication.getPrincipal() instanceof AgentPrincipal agentPrincipal) {
+            Long agentId = agentPrincipal.getAgentId();
+            return new BucketResolution(
+                    bucketStore.getUserBucket("agent:" + agentId, rateLimitConfig::createUserBucket),
+                    rateLimitConfig.getUserLimit(),
+                    "agent");
+        }
+        if (authentication != null && authentication.getPrincipal() instanceof CustomUserDetails userDetails) {
             Long userId = userDetails.getUserId();
             if (MENTION_CANDIDATES_PATH.equals(path)) {
                 return new BucketResolution(
