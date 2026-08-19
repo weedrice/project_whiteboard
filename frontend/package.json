@@ -32,6 +32,7 @@
     "test:run": "vitest run",
     "test:e2e": "npm run build && playwright test",
     "test:e2e:run": "playwright test",
+    "test:e2e:download": "playwright test --config playwright.download.config.ts",
     "test:e2e:sandbox": "playwright test --config playwright.sandbox.config.ts",
     "test:e2e:full": "playwright test --config playwright.full.config.ts",
     "coverage": "vitest run --coverage && npm run coverage:focused",

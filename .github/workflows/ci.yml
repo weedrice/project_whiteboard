@@ -326,8 +326,8 @@ jobs:
         run: npm run build
         working-directory: frontend
 
-      - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium firefox webkit
         working-directory: frontend
 
       - name: Run sandboxed HTML browser tests
@@ -336,6 +336,10 @@ jobs:
 
       - name: Run Playwright E2E and accessibility tests
         run: npm run test:e2e:run
+        working-directory: frontend
+
+      - name: Run protected download cross-browser tests
+        run: npm run test:e2e:download
         working-directory: frontend
 
       - name: Upload test coverage
@@ -354,6 +358,7 @@ jobs:
           name: frontend-playwright-artifacts
           path: |
             frontend/playwright-report
+            frontend/playwright-report-download
             frontend/test-results
           if-no-files-found: ignore
           retention-days: 30
