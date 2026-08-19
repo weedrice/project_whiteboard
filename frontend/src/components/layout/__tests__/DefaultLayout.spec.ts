@@ -233,7 +233,7 @@ describe('DefaultLayout', () => {
         expect(desktopLogo.classes()).toContain('object-contain')
     })
 
-    it('opens and closes the notification stream with the layout lifecycle', () => {
+    it('does not own the app-wide notification stream lifecycle', () => {
         authMocks.authStore.isAuthenticated = true
 
         const wrapper = mount(DefaultLayout, {
@@ -256,11 +256,11 @@ describe('DefaultLayout', () => {
             },
         })
 
-        expect(notificationMocks.connectToSse).toHaveBeenCalledTimes(1)
+        expect(notificationMocks.connectToSse).not.toHaveBeenCalled()
 
         wrapper.unmount()
 
-        expect(notificationMocks.closeSse).toHaveBeenCalled()
+        expect(notificationMocks.closeSse).not.toHaveBeenCalled()
     })
 
     it('keeps global keyboard shortcuts wired through the extracted handler', async () => {

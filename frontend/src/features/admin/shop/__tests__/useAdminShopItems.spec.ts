@@ -6,6 +6,7 @@ import { shopQueryKeys } from '@/features/shop/shopQueryKeys'
 const invalidateQueries = vi.hoisted(() => vi.fn(async () => undefined))
 const mutationOptions = vi.hoisted(() => [] as Array<Record<string, unknown>>)
 const authState = vi.hoisted(() => ({ sessionGeneration: 4 }))
+const useAdminPageQuery = vi.hoisted(() => vi.fn())
 type MutationContext = { sessionGeneration: number }
 
 vi.mock('@/stores/auth', () => ({
@@ -22,7 +23,7 @@ vi.mock('@tanstack/vue-query', () => ({
 
 vi.mock('@/features/admin/queries/adminApiQuery', () => ({
   callAdminApiWithOptionalConfig: vi.fn(),
-  useAdminPageQuery: vi.fn(),
+  useAdminPageQuery,
 }))
 
 vi.mock('@/api/admin', () => ({
@@ -33,13 +34,27 @@ vi.mock('@/api/admin', () => ({
 }))
 
 import { adminApi } from '@/api/admin'
-import { useUpdateAdminShopItemSaleStatus } from '../useAdminShopItems'
+import { useAdminShopItems, useUpdateAdminShopItemSaleStatus } from '../useAdminShopItems'
 
 describe('useUpdateAdminShopItemSaleStatus', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mutationOptions.length = 0
     authState.sessionGeneration = 4
+  })
+
+  it('periodically revalidates the admin list when cross-instance events are missed', () => {
+    useAdminShopItems(ref({ page: 0, size: 20 }))
+
+    expect(useAdminPageQuery).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.any(Function),
+      {
+        refetchInterval: 30_000,
+        refetchOnWindowFocus: 'always',
+        refetchOnReconnect: 'always',
+      },
+    )
   })
 
   it('updates the status and invalidates public and auth-scoped purchase availability', async () => {

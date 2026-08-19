@@ -16,6 +16,7 @@ import { useAppSeo } from '@/composables/useAppSeo'
 import { useAppUserSettingsSync } from '@/features/user/settings/useAppUserSettingsSync'
 import { useRouteFocusManagement } from '@/composables/useRouteFocusManagement'
 import { shouldExitProtectedRouteAfterSessionLoss } from '@/utils/authRedirect'
+import { useNotificationStream } from '@/features/notifications/stream/useNotificationStream'
 
 // Import layouts
 import DefaultLayout from '@/components/layout/DefaultLayout.vue'
@@ -25,6 +26,10 @@ const AdminLayout = defineAsyncComponent(() => import('@/views/admin/AdminLayout
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+useNotificationStream(
+    () => authStore.isAuthenticated,
+    () => authStore.sessionGeneration,
+)
 const { t } = useI18n()
 const queryClient = useQueryClient()
 const layout = computed(() => {

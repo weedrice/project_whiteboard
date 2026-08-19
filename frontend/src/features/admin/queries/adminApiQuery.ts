@@ -13,6 +13,7 @@ import { AUTH_SCOPED_QUERY_META } from '@/queryAuthScope'
 
 type AdminQueryKey = QueryKey | Ref<QueryKey> | ComputedRef<QueryKey>
 type AdminEnabled = Ref<boolean> | ComputedRef<boolean>
+type RefetchTriggerOption = boolean | 'always'
 export type AdminApiRequestConfig = Pick<AxiosRequestConfig, 'signal'>
 
 export type AdminPageFetcher<T> = (
@@ -25,6 +26,9 @@ export type AdminDataFetcher<T> = (
 interface AdminPageQueryOptions<T, TData = PageResponse<T>> {
   enabled?: AdminEnabled
   selectData?: (data: PageResponse<T>) => TData
+  refetchInterval?: number
+  refetchOnWindowFocus?: RefetchTriggerOption
+  refetchOnReconnect?: RefetchTriggerOption
 }
 
 interface AdminDataQueryOptions<T, TData = T> {
@@ -65,6 +69,9 @@ export function useAdminPageQuery<T, TData = PageResponse<T>>(
     request: (context: QueryFunctionContext) => fetcher(toConfigFromQueryContext(context)),
     enabled: options.enabled,
     meta: AUTH_SCOPED_QUERY_META,
+    refetchInterval: options.refetchInterval,
+    refetchOnWindowFocus: options.refetchOnWindowFocus,
+    refetchOnReconnect: options.refetchOnReconnect,
   }
   return options.selectData
     ? useApiPageQuery<T, TData>({

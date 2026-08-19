@@ -8,7 +8,7 @@ import { useThemeStore } from '@/stores/theme'
 import { useKeyboardStore } from '@/stores/keyboard'
 import { useAuthGuard } from '@/composables/useAuthGuard'
 import { useEventListener } from '@/composables/useEventListener'
-import { useNotificationStream } from '@/features/notifications/stream/useNotificationStream'
+import { useNotification } from '@/features/notifications/queries/useNotification'
 import { useShellDropdowns } from '@/composables/useShellDropdowns'
 import { useShellShortcuts } from '@/composables/useShellShortcuts'
 import { useShellViewport } from '@/composables/useShellViewport'
@@ -38,10 +38,8 @@ const { toggleTheme } = useThemePreference()
 
 const logoSrc = computed(() => (themeStore.isDark ? logoDark : logoLight))
 
-const { unreadCount } = useNotificationStream(
-  () => authStore.isAuthenticated,
-  () => authStore.sessionGeneration,
-)
+const { useUnreadCount } = useNotification()
+const { data: unreadCount } = useUnreadCount()
 const unreadNotificationText = computed(() => t('notification.unreadNotifications', { count: unreadCount.value ?? 0 }))
 const openNotificationsLabel = computed(() => unreadCount.value && unreadCount.value > 0
   ? `${t('layout.a11y.openNotifications')}. ${unreadNotificationText.value}`

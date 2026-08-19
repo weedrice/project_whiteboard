@@ -15,6 +15,7 @@ import {
     sessionQueryKey,
 } from '@/queryAuthScope'
 import { LOCAL_MUTATION_ERROR_META } from '@/mutationErrorOwnership'
+import { SHOP_SALE_AVAILABILITY_REFETCH_INTERVAL_MS } from '@/features/shop/shopAvailability'
 
 interface UpdateSaleStatusRequest extends AdminShopItemSaleStatusData {
     itemId: number
@@ -28,6 +29,11 @@ export function useAdminShopItems(params: Ref<AdminShopItemSearchParams>) {
             (requestConfig) => adminApi.getShopItems(params.value, requestConfig),
             () => adminApi.getShopItems(params.value),
         ),
+        {
+            refetchInterval: SHOP_SALE_AVAILABILITY_REFETCH_INTERVAL_MS,
+            refetchOnWindowFocus: 'always',
+            refetchOnReconnect: 'always',
+        },
     )
 }
 

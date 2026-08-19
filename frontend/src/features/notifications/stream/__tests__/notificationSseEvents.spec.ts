@@ -64,4 +64,20 @@ describe('알림 SSE 이벤트 이름 계약', () => {
 
         expect([...declared].sort()).toEqual([...dispatched].sort())
     })
+
+    it('레이아웃 전환과 무관하게 앱 루트가 스트림 생명주기를 소유한다', () => {
+        const appSource = readFileSync(resolve(process.cwd(), 'src/App.vue'), 'utf-8')
+        const defaultLayoutSource = readFileSync(
+            resolve(process.cwd(), 'src/components/layout/DefaultLayout.vue'),
+            'utf-8',
+        )
+        const adminLayoutSource = readFileSync(
+            resolve(process.cwd(), 'src/views/admin/AdminLayout.vue'),
+            'utf-8',
+        )
+
+        expect(appSource).toContain('useNotificationStream(')
+        expect(defaultLayoutSource).not.toContain('useNotificationStream(')
+        expect(adminLayoutSource).not.toContain('useNotificationStream(')
+    })
 })
