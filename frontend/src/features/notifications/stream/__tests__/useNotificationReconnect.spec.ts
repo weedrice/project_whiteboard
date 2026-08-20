@@ -83,7 +83,7 @@ describe('useNotification SSE connection lifecycle', () => {
 
     const fetchMock = vi.fn().mockResolvedValue({
       ok: false,
-      status: 503,
+      status: 401,
       body: null,
     })
     vi.stubGlobal('fetch', fetchMock)
@@ -201,7 +201,7 @@ describe('useNotification SSE connection lifecycle', () => {
 
     const fetchMock = vi.fn().mockResolvedValue({
       ok: false,
-      status: 503,
+      status: 401,
       body: null,
     })
     vi.stubGlobal('fetch', fetchMock)
@@ -326,9 +326,9 @@ describe('useNotification SSE connection lifecycle', () => {
       .mockRejectedValueOnce(new DOMException('aborted', 'AbortError'))
     vi.stubGlobal('fetch', fetchMock)
 
+    const notification = useNotification()
     try {
-      const { connectToSse } = useNotification()
-      connectToSse()
+      notification.connectToSse()
       await flushAsync()
 
       expect(fetchMock).toHaveBeenCalledTimes(1)
@@ -338,6 +338,7 @@ describe('useNotification SSE connection lifecycle', () => {
 
       expect(fetchMock).toHaveBeenCalledTimes(2)
     } finally {
+      notification.closeSse()
       vi.useRealTimers()
     }
   })
@@ -350,17 +351,18 @@ describe('useNotification SSE connection lifecycle', () => {
       .mockRejectedValueOnce(new DOMException('aborted', 'AbortError'))
     vi.stubGlobal('fetch', fetchMock)
 
+    const notification = useNotification()
     try {
-      const { connectToSse } = useNotification()
-      connectToSse()
+      notification.connectToSse()
       await flushAsync()
 
-      connectToSse()
+      notification.connectToSse()
       await flushAsync()
 
       expect(clearTimeoutSpy).toHaveBeenCalled()
       expect(fetchMock).toHaveBeenCalledTimes(2)
     } finally {
+      notification.closeSse()
       vi.useRealTimers()
     }
   })
@@ -374,9 +376,9 @@ describe('useNotification SSE connection lifecycle', () => {
     const fetchMock = vi.fn().mockResolvedValueOnce({ ok: false, status: 503, body: null })
     vi.stubGlobal('fetch', fetchMock)
 
+    const notification = useNotification()
     try {
-      const { connectToSse } = useNotification()
-      connectToSse()
+      notification.connectToSse()
       await flushAsync()
 
       vi.advanceTimersByTime(60000)
@@ -398,6 +400,7 @@ describe('useNotification SSE connection lifecycle', () => {
         configurable: true,
         value: true,
       })
+      notification.closeSse()
       vi.useRealTimers()
     }
   })
@@ -410,9 +413,9 @@ describe('useNotification SSE connection lifecycle', () => {
     const fetchMock = vi.fn().mockResolvedValueOnce({ ok: false, status: 401, body: null })
     vi.stubGlobal('fetch', fetchMock)
 
+    const notification = useNotification()
     try {
-      const { connectToSse } = useNotification()
-      connectToSse()
+      notification.connectToSse()
       await flushAsync()
 
       vi.advanceTimersByTime(60000)
@@ -426,6 +429,7 @@ describe('useNotification SSE connection lifecycle', () => {
         { generation: 0, accessToken: 'test-token' },
       )
     } finally {
+      notification.closeSse()
       vi.useRealTimers()
     }
   })

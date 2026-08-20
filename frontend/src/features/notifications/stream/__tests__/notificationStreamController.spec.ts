@@ -114,6 +114,80 @@ describe('notificationStreamController dependencies', () => {
         expect(unreadCount).toBe(1)
     })
 
+    it('reconnects without refreshing the token when a successful stream closes', async () => {
+        const openStream = vi.fn(() => Promise.resolve({
+            ok: true,
+            body: createSseStream(''),
+        } as Response))
+        const refreshToken = vi.fn()
+        const queryClient = {
+            invalidateQueries: vi.fn(),
+        } as unknown as QueryClient
+        const controller = createNotificationStreamController(queryClient, {
+            openStream,
+            refreshToken: refreshToken as never,
+            resolveAuthStore: (() => ({
+                accessToken: 'test-token',
+                sessionGeneration: 7,
+            })) as never,
+        })
+
+        controller.connectToSse()
+        await flushAsync()
+
+        expect(refreshToken).not.toHaveBeenCalled()
+        expect(openStream).toHaveBeenCalledTimes(1)
+
+        await vi.advanceTimersByTimeAsync(5000)
+        await flushAsync()
+
+        expect(openStream).toHaveBeenCalledTimes(2)
+        expect(refreshToken).not.toHaveBeenCalled()
+        controller.closeSse()
+    })
+
+    it('refreshes the token when the stream request is unauthorized', async () => {
+        const openStream = vi.fn(() => Promise.resolve({
+            ok: false,
+            status: 401,
+            body: null,
+        } as Response))
+        const refreshToken = vi.fn(() => Promise.resolve({
+            data: {
+                data: {
+                    accessToken: 'new-token',
+                    expiresIn: 3600,
+                },
+            },
+        }))
+        const authStore = {
+            accessToken: 'expired-token',
+            sessionGeneration: 7,
+            user: null,
+            applyTokenIfCurrent: vi.fn(() => true),
+        }
+        const queryClient = {
+            invalidateQueries: vi.fn(),
+        } as unknown as QueryClient
+        const controller = createNotificationStreamController(queryClient, {
+            openStream,
+            refreshToken: refreshToken as never,
+            resolveAuthStore: (() => authStore) as never,
+        })
+
+        controller.connectToSse()
+        await vi.advanceTimersByTimeAsync(50)
+        await flushAsync()
+
+        expect(refreshToken).toHaveBeenCalledTimes(1)
+        expect(authStore.applyTokenIfCurrent).toHaveBeenCalledWith(
+            7,
+            'expired-token',
+            'new-token',
+        )
+        controller.closeSse()
+    })
+
     it('forwards updated comment events to comment listeners', async () => {
         const commentEvents: unknown[] = []
         const stop = onCommentStreamEvent((event) => commentEvents.push(event))

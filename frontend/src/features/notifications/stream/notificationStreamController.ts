@@ -309,7 +309,11 @@ export function createNotificationStreamController(
                 scheduleReconnect(RECONNECT_AFTER_FAILURE_DELAY_MS)
                 return
             }
-            await reconnectWithRefresh(controller)
+            if (getErrorStatus(error) === 401) {
+                await reconnectWithRefresh(controller)
+                return
+            }
+            scheduleReconnect(RECONNECT_AFTER_FAILURE_DELAY_MS)
         } finally {
             if (notificationStreamRuntime.state.streamAbortController === controller) {
                 setNotificationStreamConnection(null)
