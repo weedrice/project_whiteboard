@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "name": "image-metadata",
+      "selector": "img",
+      "html": "<p><img src=\"/api/v1/files/514\" alt=\"학습 이미지\" loading=\"lazy\" width=\"640\" height=\"480\"></p>",
+      "attributes": {
+        "src": "/api/v1/files/514",
+        "alt": "학습 이미지",
+        "loading": "lazy",
+        "width": "640",
+        "height": "480"
+      }
+    },
+    {
+      "name": "video-iframe-metadata",
+      "selector": "iframe",
+      "html": "<iframe src=\"https://www.youtube.com/embed/test-id\" width=\"560\" height=\"315\" frameborder=\"0\" allowfullscreen=\"true\" loading=\"lazy\" referrerpolicy=\"strict-origin-when-cross-origin\" sandbox=\"allow-scripts allow-same-origin allow-presentation\" allow=\"encrypted-media; picture-in-picture\"></iframe>",
+      "attributes": {
+        "src": "https://www.youtube.com/embed/test-id",
+        "width": "560",
+        "height": "315",
+        "frameborder": "0",
+        "allowfullscreen": "true",
+        "loading": "lazy",
+        "referrerpolicy": "strict-origin-when-cross-origin",
+        "sandbox": "allow-scripts allow-same-origin allow-presentation",
+        "allow": "encrypted-media; picture-in-picture"
+      }
+    },
+    {
+      "name": "table-dimensions",
+      "selector": "table",
+      "html": "<table width=\"100%\" style=\"width: 100%; min-width: 320px\"><tbody><tr><td><p>Cell</p></td></tr></tbody></table>",
+      "attributes": {
+        "width": "100%",
+        "style": "width: 100%; min-width: 320px"
+      }
+    }
+  ]
+}
