@@ -78,6 +78,67 @@
     min-height: 100%;
   }
 
+  .nv-home-card-trending {
+    display: grid;
+    gap: 0.75rem;
+    grid-template-areas:
+      "top"
+      "content";
+    min-height: 100%;
+  }
+
+  .nv-home-card-trending.nv-home-card-has-media {
+    align-items: stretch;
+    grid-template-areas:
+      "media top"
+      "media content";
+    grid-template-columns: minmax(7.5rem, 9rem) minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+    min-height: 13rem;
+  }
+
+  .nv-home-card-trending > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 0;
+  }
+
+  .nv-home-card-trending .nv-home-card-top {
+    grid-area: top;
+  }
+
+  .nv-home-card-trending .nv-home-media {
+    grid-area: media;
+    height: 100%;
+    min-height: 10rem;
+  }
+
+  .nv-home-card-trending .nv-home-card-content {
+    align-self: start;
+    grid-area: content;
+    min-width: 0;
+  }
+
+  .nv-home-card-trending .nv-home-card-image-link,
+  .nv-home-card-trending .nv-home-card-image-link img,
+  .nv-home-card-trending .nv-home-media > div,
+  .nv-home-card-trending .nv-home-media iframe,
+  .nv-home-card-trending .nv-home-media button {
+    height: 100%;
+    width: 100%;
+  }
+
+  .nv-home-card-trending .nv-home-media iframe,
+  .nv-home-card-trending .nv-home-media button {
+    aspect-ratio: auto;
+    min-height: 10rem;
+  }
+
+  .nv-home-card-trending .nv-home-card-title-link {
+    display: -webkit-box;
+    overflow: hidden;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
   .nv-home-card-top {
     @apply flex items-start justify-between gap-3;
   }
@@ -319,6 +380,10 @@
     .nv-home-card,
     .nv-home-board-link {
       border-radius: var(--nv-radius-lg);
+    }
+
+    .nv-home-card-trending.nv-home-card-has-media {
+      grid-template-columns: minmax(7.25rem, 34%) minmax(0, 1fr);
     }
   }
 }

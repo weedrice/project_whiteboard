@@ -149,6 +149,29 @@ describe('HomePostCard', () => {
     expect(body.classes()).not.toContain('prose')
   })
 
+  it('lays out trending media beside the text and shows likes before views without the author', () => {
+    const wrapper = mount(HomePostCard, {
+      props: {
+        post: makePost({
+          firstMediaType: 'image',
+          firstMediaUrl: '/api/v1/files/1',
+        }),
+        variant: 'trending',
+      },
+    })
+
+    const card = wrapper.get('.nv-home-card')
+    const metaValues = wrapper.get('.nv-home-card-meta').findAll('span').map(span => span.text())
+
+    expect(card.classes()).toContain('nv-home-card-trending')
+    expect(card.classes()).toContain('nv-home-card-has-media')
+    expect(wrapper.get('.nv-home-media img').classes()).toEqual(expect.arrayContaining(['h-full', 'w-full', 'object-cover']))
+    expect(wrapper.get('.nv-home-card-content').text()).toContain('오늘의 큐레이션')
+    expect(wrapper.get('.nv-home-card-content').text()).toContain('강조 문단')
+    expect(metaValues).toEqual(['2', '10'])
+    expect(wrapper.text()).not.toContain('작성자')
+  })
+
   it('renders blockquote HTML when the featured post has no media', () => {
     const wrapper = mount(HomePostCard, {
       props: {

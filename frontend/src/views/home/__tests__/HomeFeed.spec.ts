@@ -284,6 +284,7 @@ describe('HomeFeed', () => {
         expect(cards.map((card) => card.attributes('data-post-id'))).toEqual(['101', '303'])
         expect(cards.filter((card) => card.attributes('data-post-id') === '101')).toHaveLength(1)
         expect(cards.find((card) => card.attributes('data-variant') === 'featured')?.attributes('data-post-id')).toBe('101')
+        expect(cards.find((card) => card.attributes('data-variant') === 'trending')?.attributes('data-post-id')).toBe('303')
         expect(cards.some((card) => card.attributes('data-variant') === 'compact')).toBe(false)
         expect(wrapper.text()).toContain('1,247')
         expect(wrapper.text()).toContain('8,421')

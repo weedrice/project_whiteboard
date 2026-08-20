@@ -98,25 +98,29 @@ import BaseSkeleton from '@/components/common/ui/BaseSkeleton.vue'
         <article
           v-for="index in 2"
           :key="index"
-          class="nv-home-card nv-elevated-surface nv-home-card-grid"
+          class="nv-home-card nv-elevated-surface nv-home-card-trending nv-home-card-has-media"
         >
           <div class="nv-home-card-top">
             <div class="flex min-w-0 items-center gap-3">
               <BaseSkeleton width="2.25rem" height="2.25rem" rounded="rounded-full" />
               <div class="space-y-2">
                 <BaseSkeleton width="8rem" height="1rem" />
-                <BaseSkeleton width="4rem" height="0.75rem" />
+                <div class="flex gap-2">
+                  <BaseSkeleton width="2.5rem" height="0.75rem" />
+                  <BaseSkeleton width="2.5rem" height="0.75rem" />
+                </div>
               </div>
             </div>
             <BaseSkeleton width="4.5rem" height="1.5rem" rounded="rounded-full" />
           </div>
-          <BaseSkeleton width="100%" height="13rem" rounded="rounded-[14px]" />
-          <div class="space-y-3">
+          <div class="nv-home-media">
+            <BaseSkeleton width="100%" height="100%" rounded="rounded-[14px]" />
+          </div>
+          <div class="nv-home-card-content space-y-3">
             <BaseSkeleton width="80%" height="1.5rem" />
             <BaseSkeleton width="100%" height="1rem" />
             <BaseSkeleton width="62%" height="1rem" />
           </div>
-          <BaseSkeleton width="6rem" height="1rem" />
         </article>
       </div>
     </section>

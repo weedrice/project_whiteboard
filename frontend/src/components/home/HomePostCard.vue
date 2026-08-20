@@ -12,7 +12,7 @@ import { formatInteger } from '@/utils/numberFormat'
 
 const props = withDefaults(defineProps<{
   post: FeedPost
-  variant?: 'featured' | 'compact' | 'grid'
+  variant?: 'featured' | 'compact' | 'grid' | 'trending'
   showMediaPreview?: boolean
   showBody?: boolean
   showAuthor?: boolean
@@ -39,6 +39,7 @@ const isSpoiler = computed(() => isFeedSpoiler(props.post))
 const categoryName = computed(() => props.post.category?.name?.trim() || '')
 const hasMedia = computed(() => showFirstVideo.value || !!showFirstImageUrl.value)
 const isFeatured = computed(() => props.variant === 'featured')
+const isTrending = computed(() => props.variant === 'trending')
 const timeAgo = computed(() => formatTimeAgo(props.post.createdAt, t))
 const bodyClampClass = computed(() => {
   if (isFeatured.value) {
@@ -58,9 +59,20 @@ const bodyContentClass = computed(() =>
 )
 
 const cardClass = computed(() => {
-  if (props.variant === 'featured') return 'nv-home-card nv-elevated-surface nv-home-card-featured'
-  if (props.variant === 'compact') return 'nv-home-card nv-elevated-surface nv-home-card-compact'
-  return 'nv-home-card nv-elevated-surface nv-home-card-grid'
+  const variantClass = props.variant === 'featured'
+    ? 'nv-home-card-featured'
+    : props.variant === 'compact'
+      ? 'nv-home-card-compact'
+      : props.variant === 'trending'
+        ? 'nv-home-card-trending'
+        : 'nv-home-card-grid'
+
+  return [
+    'nv-home-card',
+    'nv-elevated-surface',
+    variantClass,
+    { 'nv-home-card-has-media': hasMedia.value },
+  ]
 })
 const postDetailPath = computed(() => buildPostDetailPath(props.post.boardUrl, props.post.postId))
 
@@ -119,11 +131,14 @@ watch(() => props.post.postId, () => {
               <span v-if="showAuthor" class="truncate">{{ post.authorName }}</span>
               <span v-if="showAuthor" aria-hidden="true">&middot;</span>
               <span class="whitespace-nowrap">{{ timeAgo }}</span>
-              <span class="inline-flex items-center gap-1 whitespace-nowrap text-[var(--nv-ink-soft)]">
-                <ThumbsUp class="h-3 w-3" />
-                {{ formatInteger(post.likeCount) }}
-              </span>
             </template>
+            <span
+              v-if="isFeatured || isTrending"
+              class="inline-flex items-center gap-1 whitespace-nowrap text-[var(--nv-ink-soft)]"
+            >
+              <ThumbsUp class="h-3 w-3" />
+              {{ formatInteger(post.likeCount) }}
+            </span>
             <span class="inline-flex items-center gap-1">
               <Eye class="h-3 w-3" />
               {{ formatInteger(post.viewCount) }}
@@ -195,7 +210,11 @@ watch(() => props.post.postId, () => {
           :src="getOptimizedPostImageUrl(showFirstImageUrl)"
           alt=""
           class="rounded-[inherit]"
-          :class="isFeatured ? 'h-auto w-auto max-h-[18rem] max-w-full object-contain' : 'aspect-[16/9] w-full object-cover'"
+          :class="isFeatured
+            ? 'h-auto w-auto max-h-[18rem] max-w-full object-contain'
+            : isTrending
+              ? 'h-full w-full object-cover'
+              : 'aspect-[16/9] w-full object-cover'"
           loading="lazy"
           decoding="async"
           @error="handleImageError($event)"
@@ -203,7 +222,7 @@ watch(() => props.post.postId, () => {
       </a>
     </div>
 
-    <div class="space-y-3">
+    <div class="nv-home-card-content space-y-3">
       <h2 class="nv-home-card-title">
         <a
           :href="postDetailPath"
@@ -235,7 +254,7 @@ watch(() => props.post.postId, () => {
         {{ post.summary }}
       </a>
       <p
-        v-if="!isFeatured && showAuthor"
+        v-if="!isFeatured && !isTrending && showAuthor"
         class="text-sm text-[var(--nv-muted)]"
       >
         {{ post.authorName }}

@@ -273,7 +273,7 @@ useHead({
             v-for="post in visibleTrending"
             :key="post.postId"
             :post="post"
-            variant="grid"
+            variant="trending"
           />
         </div>
         <div
