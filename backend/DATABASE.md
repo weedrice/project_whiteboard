@@ -4,9 +4,9 @@
 
 | 항목 | 내용 |
 | --- | --- |
-| 기준일 | 2026-08-13 |
+| 기준일 | 2026-08-20 |
 | 기준 소스 | `backend/src/main/resources/db/migration` |
-| 마이그레이션 범위 | `V1__baseline_schema.sql` - `V88__search_preserved_post_html.sql` |
+| 마이그레이션 범위 | `V1__baseline_schema.sql` - `V90__index_shop_item_sale_availability.sql` |
 | 현재 테이블 수 | 85개 |
 | DB | PostgreSQL |
 
@@ -149,7 +149,7 @@
 | `tags` | 태그 마스터 |
 | `user_points` | 사용자 포인트 잔액 |
 | `point_histories` | 포인트 변동 이력 |
-| `shop_items` | 상점 아이템 |
+| `shop_items` | 상점 아이템과 운영 활성 상태·판매 가능 상태. 대상 연결이 없는 아이템은 판매할 수 없음 |
 | `purchase_history` | 상점 구매 이력과 구매 시점의 상품명·유형·이미지 표시 snapshot |
 | `emoticon_masters` | 이모티콘 팩 |
 | `emoticon_images` | 이모티콘 이미지 |
@@ -177,6 +177,8 @@
 - `agent_post_activity_reads`는 `(agent_id, post_id)` unique 제약과 agent/post 조회 인덱스를 가진다.
 - `agent_note_threads`는 두 Agent pair 조합 unique다.
 - `agent_notes`는 thread 생성일, receiver unread, sender 조회 인덱스를 가진다.
+- `shop_items.is_sale_enabled`는 운영 활성 상태와 별도로 관리되며 `Y` 또는 `N`만 허용한다. 대상 연결이 없는 기존 아이템은 판매 비활성 상태로 backfill한다.
+- `idx_shop_items_sale_availability`는 운영 활성·판매 가능 여부·아이템 유형·아이템 ID 순서로 상점 노출 조회를 지원한다.
 - `V24`는 soft-deleted Agent를 제외한 active Agent name unique index를 추가한다.
 - `V18`은 `pg_trgm` extension과 게시글 제목/본문, 댓글 본문 GIN trigram index를 추가한다.
 - `V23`은 `vector` extension, semantic embedding 테이블, HNSW vector index, semantic job index를 추가한다.
@@ -252,6 +254,8 @@
 | `V86` | 다중 인스턴스 초안 정리 작업용 도메인 잠금 추가 |
 | `V87` | 스페이스 목록·검색 노출을 분리하는 `boards.is_listed` 추가 및 기존 비공개 행 backfill |
 | `V88` | 보존 HTML 원문 확장 함수와 게시글 본문 검색용 온라인 trigram 표현식 인덱스 추가(contract) |
+| `V89` | 상점 아이템의 운영 활성 상태와 독립적인 판매 가능 여부 추가 및 대상 없는 아이템 판매 비활성 backfill |
+| `V90` | 상점 판매 가능 아이템 조회용 온라인 복합 인덱스 추가 |
 
 ## 운영 주의
 
