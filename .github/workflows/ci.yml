@@ -17,11 +17,6 @@ on:
         required: false
         type: boolean
         default: false
-      allow_contract_migration:
-        description: Allow a reviewed contract migration during a manual main deployment
-        required: false
-        type: boolean
-        default: false
 
 permissions:
   contents: read
@@ -1148,9 +1143,7 @@ jobs:
       needs.ci-gate.result == 'success' &&
       needs.release-backend.result == 'success' &&
       ((github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.backend_deploy == 'true') ||
-      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.deploy_backend)) &&
-      (needs.ci-gate.outputs.contract_migration != 'true' ||
-      (github.event_name == 'workflow_dispatch' && inputs.allow_contract_migration))
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.deploy_backend))
     uses: ./.github/workflows/deploy-backend.yml
     permissions:
       contents: read
@@ -1272,8 +1265,6 @@ jobs:
           FRONTEND_DEPLOY_CHANGED: ${{ needs.changes.outputs.frontend_deploy }}
           MANUAL_BACKEND: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_backend || false }}
           MANUAL_FRONTEND: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_frontend || false }}
-          ALLOW_CONTRACT_MIGRATION: ${{ github.event_name == 'workflow_dispatch' && inputs.allow_contract_migration || false }}
-          CONTRACT_MIGRATION: ${{ needs.ci-gate.outputs.contract_migration }}
           BACKEND_CANDIDATE_RESULT: ${{ needs.candidate-backend.result }}
           BACKEND_RELEASE_RESULT: ${{ needs.release-backend.result }}
           BACKEND_DEPLOY_RESULT: ${{ needs.deploy-backend.result }}
@@ -1301,10 +1292,7 @@ jobs:
 
           failed=false
           if [ "$backend_requested" = "true" ] && [ "$BACKEND_DEPLOY_RESULT" != "success" ]; then
-            if [ "$CONTRACT_MIGRATION" = "true" ] &&
-               { [ "$EVENT_NAME" != "workflow_dispatch" ] || [ "$ALLOW_CONTRACT_MIGRATION" != "true" ]; }; then
-              echo "::error::Backend deployment requires a main workflow_dispatch with deploy_backend=true and allow_contract_migration=true because the pending range contains a contract migration."
-            elif [ "$BACKEND_CANDIDATE_RESULT" != "success" ]; then
+            if [ "$BACKEND_CANDIDATE_RESULT" != "success" ]; then
               echo "::error::Backend candidate finished as $BACKEND_CANDIDATE_RESULT; no deployable artifact was produced."
             elif [ "$BACKEND_RELEASE_RESULT" != "success" ]; then
               echo "::error::Backend release finished as $BACKEND_RELEASE_RESULT; candidate verification or release artifact publication did not complete."

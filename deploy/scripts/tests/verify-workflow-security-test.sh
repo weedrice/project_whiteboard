@@ -56,9 +56,9 @@ if node "$validator" "$fixture"; then
 fi
 cp "$project_root/.github/workflows/ci.yml" "$fixture/.github/workflows/ci.yml"
 
-sed -i 's/inputs\.allow_contract_migration/true/g' "$fixture/.github/workflows/ci.yml"
+sed -i "/(github.event_name == 'workflow_dispatch'.*inputs.deploy_backend))/s/$/ \&\& needs.ci-gate.outputs.contract_migration != 'true'/" "$fixture/.github/workflows/ci.yml"
 if node "$validator" "$fixture"; then
-  echo "Expected a contract deployment without explicit manual approval to fail" >&2
+  echo "Expected a contract-specific deployment gate to fail" >&2
   exit 1
 fi
 cp "$project_root/.github/workflows/ci.yml" "$fixture/.github/workflows/ci.yml"

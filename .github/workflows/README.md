@@ -4,7 +4,7 @@
 
 `ci.yml`은 `main`·`develop` push와 pull request를 검증한다. 수동 배포 입력의 기본값은 모두 `false`이며 production 배포는 `main`에서만 허용한다. 변경 감지 뒤 선택된 backend, frontend, ops job이 모두 성공해야 `ci-gate`를 통과한다. 선택된 필수 job이 `skipped`여도 gate는 실패한다.
 
-검증 범위와 배포 범위는 별도로 판정한다. CI·배포 workflow, 문서, backend/frontend 테스트만 변경되면 관련 검증 job은 실행하지만 candidate·release·production 배포 job은 실행하지 않는다. 자동 배포 범위는 현재 push 하나가 아니라 GitHub Actions 이력에서 찾은 component별 마지막 성공 production 배포 SHA부터 현재 SHA까지의 누적 diff로 계산한다. 따라서 runtime 변경의 CI가 실패하고 테스트·설정만 수정한 후속 커밋이 성공해도 미배포 runtime 변경은 다음 성공 실행의 배포 범위에 남으며, 해당 component 검증도 다시 실행한다. 성공 배포 이력을 찾지 못하면 안전하게 해당 component를 검증·배포 대상으로 선택하되, backend는 알 수 없는 DB 기준을 자동 배포하지 않도록 contract migration 수동 승인을 강제한다. `docs/ops/api-contract-revision.txt` 변경은 API 계약 동기화를 위해 backend와 frontend 배포 범위를 함께 선택한다. 수동 `workflow_dispatch`의 명시적 backend 배포도 마지막 성공 backend 배포 SHA를 조회하며, 경로 감지 결과와 무관하게 해당 검증·배포 체인을 실행한다.
+검증 범위와 배포 범위는 별도로 판정한다. CI·배포 workflow, 문서, backend/frontend 테스트만 변경되면 관련 검증 job은 실행하지만 candidate·release·production 배포 job은 실행하지 않는다. 자동 배포 범위는 현재 push 하나가 아니라 GitHub Actions 이력에서 찾은 component별 마지막 성공 production 배포 SHA부터 현재 SHA까지의 누적 diff로 계산한다. 따라서 runtime 변경의 CI가 실패하고 테스트·설정만 수정한 후속 커밋이 성공해도 미배포 runtime 변경은 다음 성공 실행의 배포 범위에 남으며, 해당 component 검증도 다시 실행한다. 성공 배포 이력을 찾지 못하면 안전하게 해당 component를 검증·배포 대상으로 선택하고 contract migration으로 취급해 rollback 제한을 적용한다. `docs/ops/api-contract-revision.txt` 변경은 API 계약 동기화를 위해 backend와 frontend 배포 범위를 함께 선택한다. 수동 `workflow_dispatch`의 명시적 backend 배포도 마지막 성공 backend 배포 SHA를 조회하며, 경로 감지 결과와 무관하게 해당 검증·배포 체인을 실행한다.
 
 검증 job은 다음 책임을 가진다.
 
@@ -19,7 +19,7 @@
 
 backend와 frontend가 함께 변경되면 backend를 먼저 활성화한다. backend는 별도 readback 연결에서 설치된 JAR digest, systemd 활성 상태와 8081 management health를 다시 검증한 경우에만 `activated_sha`를 출력한다. frontend도 `/var/www/app`의 release identity와 내부·공개 release endpoint를 별도 연결에서 재확인하며, 전달받은 backend SHA가 자신의 대상 SHA와 같은지 확인한 뒤 결과를 확정한다.
 
-contract migration은 자동 배포하지 않는다. `main`의 수동 실행에서 `deploy_backend=true`와 `allow_contract_migration=true`를 명시하고 production environment 승인을 거쳐야 한다. 배포가 요청됐지만 이 승인이 빠지면 Deployment gate가 workflow를 실패 처리한다. 수동 DB snapshot이나 AWS 증거 검증은 배포 조건으로 사용하지 않는다. 적용이 끝난 migration filename만 `docs/ops/applied-contract-migrations.txt`에 별도 변경으로 기록한다.
+contract migration도 검증을 통과하면 일반 backend 변경과 동일하게 `main` push에서 배포하며 별도 `workflow_dispatch` 승인 입력을 요구하지 않는다. production environment 보호 규칙은 그대로 적용한다. 수동 DB snapshot이나 AWS 증거 검증은 배포 조건으로 사용하지 않는다. 적용이 끝난 migration filename만 `docs/ops/applied-contract-migrations.txt`에 별도 변경으로 기록한다.
 
 ## 활성화와 정리
 

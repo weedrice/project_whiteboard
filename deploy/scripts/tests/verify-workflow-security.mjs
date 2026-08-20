@@ -277,9 +277,8 @@ assert(deploymentGateSource.includes('BACKEND_CANDIDATE_RESULT')
   && deploymentGateSource.includes('BACKEND_RELEASE_RESULT')
   && deploymentGateSource.includes('FRONTEND_CANDIDATE_RESULT')
   && deploymentGateSource.includes('FRONTEND_RELEASE_RESULT')
-  && deploymentGateSource.includes('FRONTEND_READY_TO_DEPLOY')
-  && deploymentGateSource.includes('ALLOW_CONTRACT_MIGRATION'),
-  'deployment gate must report the actual candidate, release, readiness, or approval cause')
+  && deploymentGateSource.includes('FRONTEND_READY_TO_DEPLOY'),
+  'deployment gate must report the actual candidate, release, or readiness cause')
 for (const protectedOpsPath of [
   '.github/CODEOWNERS',
   'docs/ops/postgres-backup-restore.md',
@@ -379,11 +378,9 @@ for (const removedContractEvidenceField of [
   `${removedContractEvidenceField} must remain outside the simplified deployment workflow`)
 }
 const contractDeployCondition = String(ci.jobs['deploy-backend'].if)
-assert(contractDeployCondition.includes("needs.ci-gate.outputs.contract_migration != 'true'"),
-  'contract migrations must remain blocked by default')
-assert(contractDeployCondition.includes("github.event_name == 'workflow_dispatch'")
-  && contractDeployCondition.includes('inputs.allow_contract_migration'),
-'contract migrations must require an explicit manual approval')
+assert(!contractDeployCondition.includes('contract_migration')
+  && !ciSource.includes('allow_contract_migration'),
+  'contract migrations must follow the normal backend deployment path without a separate approval input')
 assert(stepRuns(backend.jobs.deploy, 'verify-deployment-freshness.sh') && stepRuns(backend.jobs.deploy, ' backend'), 'backend deployment must use the path-aware freshness verifier')
 assert(stepRuns(frontend.jobs.deploy, 'verify-deployment-freshness.sh') && stepRuns(frontend.jobs.deploy, ' frontend'), 'frontend deployment must use the path-aware freshness verifier')
 

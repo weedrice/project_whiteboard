@@ -55,9 +55,9 @@ DROP INDEX IF EXISTS idx_old_lookup;
 
 The design note must record the PostgreSQL catalog evidence that the replacement unique index has the same key columns or a compatible leading prefix, plus before/after query plans and smoke results. Dynamic or multi-index drops are contract operations. Before applying any contract migration, confirm that automated backups and the latest restorable time satisfy the recovery policy in `docs/ops/postgres-backup-restore.md`.
 
-Contract migrations are never eligible for an automatic main deployment. Run the integrated CI manually from `main` and explicitly set `deploy_backend=true` and `allow_contract_migration=true`. Manual DB snapshots, snapshot identifiers, and AWS snapshot evidence are not deployment requirements.
+Contract migrations are eligible for the normal automatic `main` deployment after the integrated CI validation passes. No separate `workflow_dispatch` approval input is required; configured production environment protection rules still apply. Manual DB snapshots, snapshot identifiers, and AWS snapshot evidence are not deployment requirements.
 
-Only after production succeeds may the migration filename be appended to `docs/ops/applied-contract-migrations.txt`. The compatibility check keeps unrecorded contract migrations behind the manual approval gate and rejects an applied record introduced in the same change as any new migration.
+Only after production succeeds may the migration filename be appended to `docs/ops/applied-contract-migrations.txt`. The compatibility check keeps unrecorded contract migrations marked in release metadata so contract rollback restrictions remain active, and rejects an applied record introduced in the same change as any new migration.
 
 The risk classifier removes SQL comments and string literals before matching, so examples and stored text cannot authorize or accidentally classify a change. Privilege grants/revocations, default privilege or owner changes, `REASSIGN/DROP OWNED`, trigger or row-level-security policy changes, `SET UNLOGGED`, and partition attachment/detachment are contract operations.
 
