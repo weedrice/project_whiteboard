@@ -345,9 +345,9 @@ describe('PostEditorTipTap TipTap extension integration', () => {
             '<p><span style="color: #ff0000; font-size: 18px; line-height: 1.5">Styled</span></p>',
             '<p><mark data-color="#fff000" style="background-color: #fff000; color: #111111">Marked</mark></p>',
             '<p><span class="mention-node" data-type="mention" data-id="7" data-label="Novi" data-mention-user-id="7">@Novi</span></p>',
-            '<p><img src="/api/v1/files/42" alt="Diagram" loading="lazy" data-file-id="42" data-server-src="/files/42"></p>',
-            '<table style="min-width: 75px"><colgroup><col style="min-width: 25px; width: 25px"></colgroup><tbody><tr><th style="text-align: center"><p>Header</p></th><td><p>Cell</p></td></tr></tbody></table>',
-            '<div class="tiptap-video-wrapper" data-video-embed="true"><iframe src="https://www.youtube.com/embed/test-id" frameborder="0" allowfullscreen="true"></iframe></div>',
+            '<p><img src="/api/v1/files/42" alt="Diagram" loading="lazy" width="640" height="480" data-file-id="42" data-server-src="/files/42"></p>',
+            '<table width="100%" style="width: 100%; min-width: 75px"><colgroup><col style="min-width: 25px; width: 25px"></colgroup><tbody><tr><th style="text-align: center"><p>Header</p></th><td><p>Cell</p></td></tr></tbody></table>',
+            '<div class="tiptap-video-wrapper" data-video-embed="true"><iframe src="https://www.youtube.com/embed/test-id" width="560" height="315" frameborder="0" allowfullscreen="true"></iframe></div>',
             '<hr>',
         ].join(''))
 
@@ -367,6 +367,12 @@ describe('PostEditorTipTap TipTap extension integration', () => {
         expect(mention?.getAttribute('data-mention-user-id')).toBe('7')
         expect(mention?.textContent).toBe('@Novi')
         expect(parseHTML(stabilizedHtml).querySelector('img')?.getAttribute('loading')).toBe('lazy')
+        expect(parseHTML(stabilizedHtml).querySelector('img')?.getAttribute('width')).toBe('640')
+        expect(parseHTML(stabilizedHtml).querySelector('img')?.getAttribute('height')).toBe('480')
+        expect(parseHTML(stabilizedHtml).querySelector('iframe')?.getAttribute('width')).toBe('560')
+        expect(parseHTML(stabilizedHtml).querySelector('iframe')?.getAttribute('height')).toBe('315')
+        expect(parseHTML(stabilizedHtml).querySelector('table')?.getAttribute('width')).toBe('100%')
+        expect(parseHTML(stabilizedHtml).querySelector('table')?.getAttribute('style')).toContain('width: 100%')
     })
 
     it('inserts slash-menu equivalent block commands through the same editor command path', () => {

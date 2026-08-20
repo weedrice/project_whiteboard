@@ -35,6 +35,8 @@ export const Video = Node.create<VideoOptions>({
         parseHTML: el => (el as HTMLIFrameElement).getAttribute('src'),
         renderHTML: attrs => (attrs.src ? { src: attrs.src } : {}),
       },
+      width: createIframeDimensionAttribute('width'),
+      height: createIframeDimensionAttribute('height'),
     }
   },
 
@@ -42,13 +44,13 @@ export const Video = Node.create<VideoOptions>({
     return [
       {
         tag: 'iframe[src*="youtube.com/embed"], iframe[src*="youtube-nocookie.com/embed"], iframe[src*="player.vimeo.com/video/"]',
-        getAttrs: el => ({ src: (el as HTMLIFrameElement).getAttribute('src') }),
+        getAttrs: el => getIframeAttributes(el as HTMLIFrameElement),
       },
       {
         tag: 'div.tiptap-video-wrapper',
         getAttrs: el => {
           const iframe = (el as HTMLElement).querySelector('iframe')
-          return iframe ? { src: iframe.getAttribute('src') } : false
+          return iframe ? getIframeAttributes(iframe) : false
         },
       },
     ]
@@ -89,3 +91,27 @@ export const Video = Node.create<VideoOptions>({
     }
   },
 })
+
+function createIframeDimensionAttribute(name: 'width' | 'height') {
+  return {
+    default: null,
+    parseHTML: (element: HTMLElement) => {
+      const iframe = element instanceof HTMLIFrameElement
+        ? element
+        : element.querySelector('iframe')
+      return iframe?.getAttribute(name) ?? null
+    },
+    renderHTML: (attributes: Record<string, unknown>) => {
+      const value = attributes[name]
+      return typeof value === 'string' && value ? { [name]: value } : {}
+    },
+  }
+}
+
+function getIframeAttributes(iframe: HTMLIFrameElement) {
+  return {
+    src: iframe.getAttribute('src'),
+    width: iframe.getAttribute('width'),
+    height: iframe.getAttribute('height'),
+  }
+}

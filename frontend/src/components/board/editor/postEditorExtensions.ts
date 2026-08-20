@@ -10,7 +10,7 @@ import Highlight from '@tiptap/extension-highlight'
 import Link from '@tiptap/extension-link'
 import Image from '@tiptap/extension-image'
 import TextAlign from '@tiptap/extension-text-align'
-import { TableKit } from '@tiptap/extension-table'
+import { Table, TableKit } from '@tiptap/extension-table'
 import HorizontalRule from '@tiptap/extension-horizontal-rule'
 import { FontSize, LineHeight } from '@tiptap/extension-text-style'
 import { Video } from '@/extensions/tiptap-video'
@@ -40,6 +40,8 @@ const EditorImage = Image.extend({
             : {}
         ),
       },
+      width: createPreservedHtmlAttribute('width'),
+      height: createPreservedHtmlAttribute('height'),
       fileId: {
         default: null,
         parseHTML: (element: HTMLElement) => element.getAttribute('data-file-id'),
@@ -57,6 +59,27 @@ const EditorImage = Image.extend({
     }
   },
 })
+
+const EditorTable = Table.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      width: createPreservedHtmlAttribute('width'),
+      style: createPreservedHtmlAttribute('style'),
+    }
+  },
+})
+
+function createPreservedHtmlAttribute(name: string) {
+  return {
+    default: null,
+    parseHTML: (element: HTMLElement) => element.getAttribute(name),
+    renderHTML: (attributes: Record<string, unknown>) => {
+      const value = attributes[name]
+      return typeof value === 'string' && value ? { [name]: value } : {}
+    },
+  }
+}
 
 let mentionListIdSequence = 0
 
@@ -288,12 +311,13 @@ export function createPostEditorExtensions() {
     TextAlign.configure({
       types: ['heading', 'paragraph', 'tableCell', 'tableHeader'],
     }),
+    EditorTable.configure({
+      resizable: true,
+      handleWidth: 6,
+      cellMinWidth: 40,
+    }),
     TableKit.configure({
-      table: {
-        resizable: true,
-        handleWidth: 6,
-        cellMinWidth: 40,
-      },
+      table: false,
     }),
     HorizontalRule,
     Video,
