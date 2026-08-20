@@ -156,6 +156,20 @@ Important implementation note:
 - When changing database behavior, review `DATABASE.md`, related repositories, and entity indexes
 - Follow `docs/ops/database-migration-policy.md`: never edit an applied `V*.sql`, keep automatic releases expand-compatible with the previous JAR, and defer destructive contract changes until the rollback window has closed.
 
+#### Flyway database documentation
+
+- When adding a `src/main/resources/db/migration/V*.sql` migration, update `DATABASE.md` in the same focused change. Apply the same rule to an explicitly authorized removal, rename, or edit of an unapplied migration.
+- Review and update the document date, highest migration filename, table count and table list, affected columns, constraints and indexes, migration history, and operational cautions as applicable.
+- End the documented migration range at the numerically highest `V*.sql` file. Do not use its companion `.sql.conf` file as the range endpoint.
+- Before completing migration work, run this check from the repository root:
+
+  ```bash
+  python3 backend/scripts/verify-database-doc.py
+  ```
+
+- On Windows, use an installed Python executable or `py -3` to run the same script when the `python3` alias is unavailable.
+- The verifier checks the migration endpoint, table count, and migration-created table inventory. Manually compare migration SQL with the documented column semantics, constraints, index purpose, and operational impact because those details are not fully machine-checked.
+
 ### Security rules
 
 - Check `SecurityConfig`, filters, and method security before changing endpoint access
