@@ -76,6 +76,9 @@ describe('postHtmlSandbox', () => {
         expect(requiresPreservedPostHtml('<pre class="hljs"><code class="language-typescript">const value = 1</code></pre>')).toBe(false)
         expect(requiresPreservedPostHtml('<span class="mention-node" data-type="mention" data-id="7" data-label="Novi" data-mention-suggestion-char="@" data-mention-user-id="7">@Novi</span>')).toBe(false)
         expect(requiresPreservedPostHtml('<iframe src="https://www.youtube-nocookie.com/embed/private-id"></iframe>')).toBe(false)
+        expect(requiresPreservedPostHtml('<p><img src="/api/v1/files/514" alt="학습 이미지" loading="lazy"></p>')).toBe(false)
+        expect(requiresPreservedPostHtml('<p><img src="/api/v1/files/514" loading="eager"></p>')).toBe(false)
+        expect(requiresPreservedPostHtml('<p><img src="/api/v1/files/514" loading="invalid"></p>')).toBe(true)
     })
 
     it('preserves legacy or inconsistent mentions before the visual editor can lose identity', () => {

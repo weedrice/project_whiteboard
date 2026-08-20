@@ -58,7 +58,7 @@ const EDITOR_ELEMENT_ATTRIBUTES: Readonly<Record<string, ReadonlySet<string>>> =
     s: new Set(),
     u: new Set(),
     a: new Set(['href', 'target', 'rel', 'class']),
-    img: new Set(['src', 'alt', 'title', 'class', 'data-file-id', 'data-server-src']),
+    img: new Set(['src', 'alt', 'title', 'class', 'loading', 'data-file-id', 'data-server-src']),
     br: new Set(),
     hr: new Set(),
     span: new Set([
@@ -160,12 +160,18 @@ function isSupportedEditorElement(element: HTMLElement): boolean {
         return /^(?:https?:)?\/\/(?:www\.)?(?:youtube(?:-nocookie)?\.com\/embed\/|player\.vimeo\.com\/video\/)/i.test(src)
             && hasSupportedVideoFrameAttributes(element)
     }
+    if (tag === 'img' && !hasSupportedImageAttributes(element)) return false
     if (tag === 'a' && !hasSupportedLinkAttributes(element)) return false
     if (tag === 'span') {
         return element.hasAttribute('style')
             || hasCanonicalMentionAttributes(element)
     }
     return true
+}
+
+function hasSupportedImageAttributes(element: HTMLElement): boolean {
+    const loading = element.getAttribute('loading')
+    return loading == null || loading === 'lazy' || loading === 'eager'
 }
 
 function hasSupportedLinkAttributes(element: HTMLElement): boolean {

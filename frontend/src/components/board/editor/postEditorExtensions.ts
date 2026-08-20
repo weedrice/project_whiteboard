@@ -28,6 +28,18 @@ const EditorImage = Image.extend({
   addAttributes() {
     return {
       ...this.parent?.(),
+      loading: {
+        default: null,
+        parseHTML: (element: HTMLElement) => {
+          const loading = element.getAttribute('loading')
+          return loading === 'lazy' || loading === 'eager' ? loading : null
+        },
+        renderHTML: (attributes: { loading?: string | null }) => (
+          attributes.loading === 'lazy' || attributes.loading === 'eager'
+            ? { loading: attributes.loading }
+            : {}
+        ),
+      },
       fileId: {
         default: null,
         parseHTML: (element: HTMLElement) => element.getAttribute('data-file-id'),
