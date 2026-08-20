@@ -167,7 +167,16 @@ vi.mock('@tiptap/extension-image', () => {
     return { default: extension }
 })
 vi.mock('@tiptap/extension-text-align', () => ({ default: { configure: vi.fn(() => ({})) } }))
-vi.mock('@tiptap/extension-table', () => ({ TableKit: { configure: vi.fn(() => ({})) } }))
+vi.mock('@tiptap/extension-table', () => {
+    const table = {
+        configure: vi.fn(() => ({})),
+        extend: vi.fn(() => table),
+    }
+    return {
+        Table: table,
+        TableKit: { configure: vi.fn(() => ({})) },
+    }
+})
 vi.mock('@tiptap/extension-horizontal-rule', () => ({ default: {} }))
 vi.mock('@/extensions/tiptap-video', () => ({ Video: {} }))
 

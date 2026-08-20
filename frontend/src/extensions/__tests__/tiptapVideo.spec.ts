@@ -7,11 +7,23 @@ type VideoAttributeHandlers = {
     parseHTML: (el: HTMLElement) => string | null
     renderHTML: (attrs: { src: string | null }) => Record<string, string>
   }
+  width: DimensionAttributeHandler
+  height: DimensionAttributeHandler
+}
+
+type DimensionAttributeHandler = {
+  default: null
+  parseHTML: (el: HTMLElement) => string | null
+  renderHTML: (attrs: Record<string, unknown>) => Record<string, string>
 }
 
 type ParseRule = {
   tag: string
-  getAttrs?: (el: Element) => { src: string | null } | false
+  getAttrs?: (el: Element) => {
+    src: string | null
+    width: string | null
+    height: string | null
+  } | false
 }
 
 type RenderHTML = (
@@ -26,7 +38,7 @@ type AddCommands = (this: { name: string }) => {
 }
 
 describe('Video extension', () => {
-  it('defines attributes and parse/render helpers for src', () => {
+  it('defines attributes and parse/render helpers for iframe attributes', () => {
     expect(Video.name).toBe('video')
     expect(Video.options).toEqual({ HTMLAttributes: {} })
 
@@ -43,6 +55,15 @@ describe('Video extension', () => {
       src: 'https://www.youtube.com/embed/abc'
     })
     expect(attributes.src.renderHTML({ src: null })).toEqual({})
+
+    iframe.setAttribute('width', '640')
+    iframe.setAttribute('height', '360')
+    expect(attributes.width.parseHTML(iframe)).toBe('640')
+    expect(attributes.height.parseHTML(iframe)).toBe('360')
+    expect(attributes.width.renderHTML({ width: '640' })).toEqual({ width: '640' })
+    expect(attributes.height.renderHTML({ height: '360' })).toEqual({ height: '360' })
+    expect(attributes.width.renderHTML({ width: null })).toEqual({})
+    expect(attributes.height.renderHTML({ height: '' })).toEqual({})
   })
 
   it('parses iframe and wrapper html nodes', () => {
@@ -54,7 +75,9 @@ describe('Video extension', () => {
     youtubeIframe.setAttribute('src', 'https://www.youtube.com/embed/123')
 
     expect(parseRules[0].getAttrs?.(youtubeIframe)).toEqual({
-      src: 'https://www.youtube.com/embed/123'
+      src: 'https://www.youtube.com/embed/123',
+      width: null,
+      height: null,
     })
     expect(parseRules[0].tag).toContain('youtube-nocookie.com/embed')
 
@@ -62,10 +85,14 @@ describe('Video extension', () => {
     wrapper.className = 'tiptap-video-wrapper'
     const vimeoIframe = document.createElement('iframe')
     vimeoIframe.setAttribute('src', 'https://player.vimeo.com/video/123')
+    vimeoIframe.setAttribute('width', '800')
+    vimeoIframe.setAttribute('height', '450')
     wrapper.appendChild(vimeoIframe)
 
     expect(parseRules[1].getAttrs?.(wrapper)).toEqual({
-      src: 'https://player.vimeo.com/video/123'
+      src: 'https://player.vimeo.com/video/123',
+      width: '800',
+      height: '450',
     })
     expect(parseRules[1].getAttrs?.(document.createElement('div'))).toBe(false)
   })
